@@ -238,7 +238,10 @@ input, textarea, [contenteditable="true"], .selectable,
   display: flex; align-items: center; font-size: 17px; font-weight: 700; color: var(--ink);
   min-width: 0; flex: 1; margin: 0 4px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: opacity .2s ease;
 }
+/* 큰 제목 패턴 — 본문 제목이 화면에 보이는 동안은 GNB 제목을 감춘다(자리는 유지해 로고가 안 튀어나오게) */
+.gnb-title.at-top { opacity: 0; }
 /* GNB 뒤로가기 (iOS 전용 — 웹은 components.css 에서 display:none. 표시 여부는 app.js setGnbBack) */
 .gnb-back {
   display: flex; align-items: center; justify-content: center;
@@ -248,8 +251,9 @@ input, textarea, [contenteditable="true"], .selectable,
 }
 .gnb-back .material-icons-round { color: var(--ink) !important; }
 .gnb-back:active { opacity: .5; }
-/* 상세 화면 안의 뒤로가기 링크는 GNB 버튼과 중복 → iOS 에서만 숨김 */
-#page-detail .detail-back { display: none; }
+/* 상세·활동관리 화면 안의 뒤로가기 링크는 GNB 버튼과 중복 → iOS 에서만 숨김 */
+#page-detail .detail-back,
+#page-activity .detail-back { display: none; }
 /* GNB 에 제목을 올렸으므로 마이페이지 화면 자체 헤더는 iOS 에서 숨김(중복 방지) */
 .mypage-sub-header { display: none; }
 /* 단 응모이력 헤더는 상태 드롭다운(進行中 등)이 있어 유지하고, 제목 텍스트만 숨김 */
@@ -400,3 +404,34 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 /* 「롤백 지점 끝」 */
+
+
+/* ══════════════════════════════════════════════════════════════════
+   활동관리(결과물 제출) — 점선 테두리 폼을 iOS 카드로
+   application.js/index.html 이 인라인 스타일로 점선을 그리므로 !important 로 덮는다.
+   ══════════════════════════════════════════════════════════════════ */
+#receiptForm, #postSubmissionForm {
+  border: .5px solid rgba(0,0,0,.08) !important;   /* 점선 → hairline */
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: var(--ios-card-shadow);
+  padding: 18px 16px !important;
+}
+/* STEP 라벨 — iOS 그룹 헤더 톤(작은 대문자 회색) */
+#receiptStepLabel {
+  color: var(--muted) !important;
+  font-weight: 600 !important;
+  letter-spacing: .06em !important;
+}
+/* 반려 사유 배너 — 좌측 굵은 막대 대신 iOS 경고 카드 */
+#activityRejectBanner {
+  border-left: none !important;
+  border-radius: 12px !important;
+  border: .5px solid rgba(195,51,51,.25) !important;
+}
+/* 취소 버튼 — iOS 텍스트 버튼 톤(테두리 얇게, 캡슐) */
+#activityCancelBtn {
+  border-radius: 999px !important;
+  border-color: rgba(0,0,0,.15) !important;
+  color: var(--muted) !important;
+}

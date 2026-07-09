@@ -253,7 +253,7 @@ window._supabaseLoaded = false;
 <nav class="gnb">
   <div class="gnb-inner">
     <!-- iOS 앱 전용 뒤로가기(웹은 components.css 에서 display:none). 상세 화면에서만 navigate 가 표시 -->
-    <button class="gnb-back" id="gnbBack" onclick="navigateBackFromDetail()" aria-label="戻る" style="display:none">
+    <button class="gnb-back" id="gnbBack" onclick="gnbBackAction()" aria-label="戻る" style="display:none">
       <span class="material-icons-round notranslate" translate="no" style="font-size:26px">arrow_back_ios_new</span>
     </button>
     <div class="gnb-logo" id="gnbLogo" onclick="window.location.href='/'">

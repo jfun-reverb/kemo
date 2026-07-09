@@ -293,7 +293,7 @@ async function openCampaign(id) {
   if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : t('detail.backToCampaigns');
 
   // iOS GNB 제목(캠페인명) — navigate 가 읽는다. 웹은 setGnbTitle 이 isNativePlatform 가드로 무시
-  _detailTitle = camp.title || '';
+  _screenTitle = camp.title || '';
 
   navigate('detail-' + id);
 }
@@ -648,6 +648,9 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityFrom = from || 'detail';
   const camp = allCampaigns.find(c=>c.id===campaignId) || {};
   _activityCamp = camp;
+  // iOS GNB 제목(캠페인명) — navigate 가 읽는다. 웹은 setGnbTitle 이 isNativePlatform 가드로 무시.
+  //   아래 cancelled 조기 반환 경로도 navigate 를 타므로, 분기보다 먼저 담아야 직전 화면 제목이 남지 않는다.
+  _screenTitle = camp.title || '';
   // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
   // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
   // 진입한 경우에도 동일 분기.
@@ -784,6 +787,8 @@ async function openActivityPage(applicationId, campaignId, from) {
   }
 
   navigate('activity');
+  // iOS 큰 제목 — 본문 캠페인명이 보이는 동안은 GNB 제목을 감춘다(navigate 뒤에 켜야 teardown 에 안 씻김)
+  if (typeof setupLargeTitle === 'function') setupLargeTitle('page-activity', 'activityCampTitle');
   await loadDeliverablesForActivity();
 }
 

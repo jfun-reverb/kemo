@@ -14,7 +14,18 @@
 })();
 
 let _detailFrom = null;
-let _detailTitle = null;  // iOS GNB 제목용 — openCampaign 이 캠페인명을 담고 navigate 가 읽는다
+let _screenTitle = null;  // iOS GNB 제목용 — openCampaign/openActivityPage 가 담고 navigate 가 읽는다
+
+// iOS GNB 뒤로가기 버튼의 동작 — 현재 화면에 맞는 복귀 함수로 위임.
+//   상세와 활동관리는 돌아갈 곳이 서로 달라 화면 id 로 분기한다.
+function gnbBackAction() {
+  const active = document.querySelector('#appShell .page.active');
+  if (active && active.id === 'page-activity' && typeof navigateBackFromActivity === 'function') {
+    navigateBackFromActivity();
+    return;
+  }
+  navigateBackFromDetail();
+}
 
 function navigateBackFromDetail() {
   if (_detailFrom === 'mypage') {
@@ -86,15 +97,17 @@ function navigate(page, pushHistory) {
   // iOS 탭바 활성 동기화 (응모이력/마이페이지 세부 구분은 tabNav 가 보정)
   if (typeof updateActiveTab === 'function') updateActiveTab({home:'home', campaigns:'campaigns', mypage:'mypage'}[pageName] || '');
   // iOS GNB 제목 — 캠페인 목록·상세만 여기서 설정. 마이페이지 계열은 openMypage* 가 보정. 홈은 로고(빈 제목)
-  //   상세 제목은 openCampaign 이 _detailTitle 에 담아 둔 캠페인명을 쓴다.
+  //   상세·활동관리 제목은 openCampaign/openActivityPage 가 _screenTitle 에 담아 둔 캠페인명을 쓴다.
   if (typeof setGnbTitle === 'function') {
     let _title = '';
     if (pageName === 'campaigns') _title = (typeof t === 'function' ? t('tab.campaigns') : '');
-    else if (pageName === 'detail') _title = _detailTitle || '';
+    else if (pageName === 'detail' || pageName === 'activity') _title = _screenTitle || '';
     setGnbTitle(_title);
   }
-  // iOS GNB 뒤로가기 — 상세에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
-  if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail');
+  // iOS GNB 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
+  if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
+  // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
+  if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
   // 인증 페이지에선 햄버거·탭바 숨김
@@ -161,6 +174,11 @@ window.addEventListener('popstate', function(e) {
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
+  } else if (page === 'activity') {
+    // 앞으로가기로 활동관리 복귀. openActivityPage 를 부르면 그 안의 navigate 가 히스토리를 또 쌓으므로
+    // 화면 전환만 하고, iOS 큰 제목 관찰자만 다시 건다(제목은 _screenTitle 이 그대로 유지).
+    navigate(page, false);
+    if (typeof setupLargeTitle === 'function') setupLargeTitle('page-activity', 'activityCampTitle');
   } else {
     navigate(page, false);
   }
@@ -229,6 +247,35 @@ function setGnbTitle(title) {
     logoEl.style.display = '';
   }
 }
+// iOS 「큰 제목」 패턴 (iOS 앱 전용)
+//   화면 맨 위에서는 본문의 큰 제목이 전체를 보여주고 GNB 제목은 투명하게 감춘다.
+//   스크롤해서 본문 제목이 화면 밖으로 나가면 GNB 제목이 나타난다(긴 이름은 말줄임).
+//   → 같은 이름이 두 곳에 동시에 보이지 않고, 전체 이름은 최상단에서 확인할 수 있다.
+let _largeTitleObserver = null;
+function setupLargeTitle(scrollRootId, titleElId) {
+  teardownLargeTitle();
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!isNative || !('IntersectionObserver' in window)) return;
+  const root = document.getElementById(scrollRootId);
+  const target = document.getElementById(titleElId);
+  const gnbTitle = document.getElementById('gnbTitle');
+  if (!root || !target || !gnbTitle) return;
+  gnbTitle.classList.add('at-top');   // 진입 직후는 최상단 → GNB 제목 감춤
+  // GNB 는 콘텐츠 위에 떠 있으므로(absolute), 그 높이만큼 관찰 범위 위쪽을 잘라낸다.
+  //   안 그러면 본문 제목이 GNB 뒤에 가려져도 "보이는 중"으로 판정돼 전환이 안 일어난다.
+  const gnb = document.querySelector('.gnb');
+  const gnbH = gnb ? gnb.offsetHeight : 0;
+  _largeTitleObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => gnbTitle.classList.toggle('at-top', e.isIntersecting));
+  }, {root, rootMargin: `-${gnbH}px 0px 0px 0px`, threshold: 0});
+  _largeTitleObserver.observe(target);
+}
+function teardownLargeTitle() {
+  if (_largeTitleObserver) { _largeTitleObserver.disconnect(); _largeTitleObserver = null; }
+  const gnbTitle = document.getElementById('gnbTitle');
+  if (gnbTitle) gnbTitle.classList.remove('at-top');
+}
+
 // GNB 뒤로가기 버튼 (iOS 앱 전용) — 상세 화면에서만 표시. 다른 화면은 navigate 가 꺼 준다.
 //   마이페이지 서브 화면은 탭바로 이동하므로 뒤로가기를 두지 않는다(목적지가 없음).
 function setGnbBack(show) {
