@@ -589,6 +589,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .mlc-icon{font-size:22px;color:var(--muted);flex-shrink:0}
 .mlc-label{flex:1;font-weight:500}
 .mlc-badge{flex-shrink:0}
+/* 등록 완료 항목은 배지 숨김. 범용 .hidden 클래스가 없어 여기서 직접 정의 */
+.mlc-badge.hidden{display:none}
 .mypage-unreg{font-size:10px;font-weight:700;color:#C33;background:#FFE4E4;padding:2px 7px;border-radius:10px}
 .mlc-arrow{font-size:20px;color:#ccc;flex-shrink:0}
 .mypage-withdraw-link{display:block;margin:20px auto 0;background:none;border:none;color:var(--muted);font-size:13px;text-decoration:underline;cursor:pointer}
