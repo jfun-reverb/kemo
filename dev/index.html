@@ -252,6 +252,10 @@ window._supabaseLoaded = false;
 <!-- ── GNB ── -->
 <nav class="gnb">
   <div class="gnb-inner">
+    <!-- iOS 앱 전용 뒤로가기(웹은 components.css 에서 display:none). 상세 화면에서만 navigate 가 표시 -->
+    <button class="gnb-back" id="gnbBack" onclick="navigateBackFromDetail()" aria-label="戻る" style="display:none">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:26px">arrow_back_ios_new</span>
+    </button>
     <div class="gnb-logo" id="gnbLogo" onclick="window.location.href='/'">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>

@@ -14,6 +14,7 @@
 })();
 
 let _detailFrom = null;
+let _detailTitle = null;  // iOS GNB 제목용 — openCampaign 이 캠페인명을 담고 navigate 가 읽는다
 
 function navigateBackFromDetail() {
   if (_detailFrom === 'mypage') {
@@ -84,8 +85,16 @@ function navigate(page, pushHistory) {
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
   // iOS 탭바 활성 동기화 (응모이력/마이페이지 세부 구분은 tabNav 가 보정)
   if (typeof updateActiveTab === 'function') updateActiveTab({home:'home', campaigns:'campaigns', mypage:'mypage'}[pageName] || '');
-  // iOS GNB 제목 — 캠페인 목록만 여기서 설정. 마이페이지 계열은 openMypage* 가 보정. 홈/상세는 로고(빈 제목)
-  if (typeof setGnbTitle === 'function') setGnbTitle(pageName === 'campaigns' ? (typeof t === 'function' ? t('tab.campaigns') : '') : '');
+  // iOS GNB 제목 — 캠페인 목록·상세만 여기서 설정. 마이페이지 계열은 openMypage* 가 보정. 홈은 로고(빈 제목)
+  //   상세 제목은 openCampaign 이 _detailTitle 에 담아 둔 캠페인명을 쓴다.
+  if (typeof setGnbTitle === 'function') {
+    let _title = '';
+    if (pageName === 'campaigns') _title = (typeof t === 'function' ? t('tab.campaigns') : '');
+    else if (pageName === 'detail') _title = _detailTitle || '';
+    setGnbTitle(_title);
+  }
+  // iOS GNB 뒤로가기 — 상세에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
+  if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail');
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
   // 인증 페이지에선 햄버거·탭바 숨김
@@ -219,6 +228,14 @@ function setGnbTitle(title) {
     titleEl.style.display = 'none';
     logoEl.style.display = '';
   }
+}
+// GNB 뒤로가기 버튼 (iOS 앱 전용) — 상세 화면에서만 표시. 다른 화면은 navigate 가 꺼 준다.
+//   마이페이지 서브 화면은 탭바로 이동하므로 뒤로가기를 두지 않는다(목적지가 없음).
+function setGnbBack(show) {
+  const el = document.getElementById('gnbBack');
+  if (!el) return;
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  el.style.display = (isNative && show) ? '' : 'none';
 }
 
 // ══════════════════════════════════════
