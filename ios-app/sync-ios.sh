@@ -42,11 +42,12 @@ h = re.sub(r'\s*<script defer src="/_vercel/[^"]+"></script>', '', h)
 # 2) iOS 테마 CSS 주입 (인라인 <style> 뒤에 와서 오버라이드, 중복 방지)
 #    ⚠️ 검사는 반드시 정확한 <link> 태그로 — 'ios-theme.css' 문자열이 빌드된 CSS 주석 등에
 #       섞여 있으면 주입을 건너뛰어 테마가 통째로 누락됨(2026-06-23 사고).
-if '<link rel="stylesheet" href="ios-theme.css">' not in h:
-    h = h.replace('</head>', '  <link rel="stylesheet" href="ios-theme.css">\n</head>', 1)
+#    경로는 절대경로 — 하위 주소(/admin/ 등)에서 문서가 열려도 자산을 찾도록.
+if '<link rel="stylesheet" href="/ios-theme.css">' not in h:
+    h = h.replace('</head>', '  <link rel="stylesheet" href="/ios-theme.css">\n</head>', 1)
 # 3) 네이티브 푸시 스크립트 주입 (body 끝 — storage.js 등 전역 함수 로드 후 실행)
-if '<script src="native-push.js"></script>' not in h:
-    h = h.replace('</body>', '  <script src="native-push.js"></script>\n</body>', 1)
+if '<script src="/native-push.js"></script>' not in h:
+    h = h.replace('</body>', '  <script src="/native-push.js"></script>\n</body>', 1)
 open(p, 'w', encoding='utf-8').write(h)
 print("  ✅ Vercel 분석 제거 + iOS 테마 + 네이티브 푸시 주입")
 PY

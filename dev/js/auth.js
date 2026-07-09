@@ -161,7 +161,15 @@ async function handleLogin(e) {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email};
       toast(t('auth.toast.adminLogin'),'success'); updateGnb();
-      window.location.href = '/admin/';
+      // 앱 번들에는 관리자 페이지가 없다. /admin/ 으로 보내면 Capacitor 가 그 주소에서
+      // 인플루언서 index.html 을 대신 띄우고, 상대경로 자산(ios-theme.css 등)이 404 나서
+      // 테마가 통째로 빠진 화면이 된다. 앱에서는 인플루언서 화면에 그대로 머문다.
+      const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (_isNativeApp) {
+        navigate('home');
+      } else {
+        window.location.href = '/admin/';
+      }
     } else {
       const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile;

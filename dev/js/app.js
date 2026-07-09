@@ -83,6 +83,13 @@ function navigate(page, pushHistory) {
   }
 
   if (page === 'admin') {
+    // 앱 번들에는 관리자 페이지가 없다. /admin/ 로 보내면 Capacitor 가 그 주소에서
+    // 인플루언서 index.html 을 대신 띄워 자산 경로가 어긋난다(테마 전체 미적용).
+    const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (_isNativeApp) {
+      if (typeof toast === 'function') toast('管理者ページはブラウザからご利用ください', 'error');
+      return;
+    }
     window.open('/admin/', '_blank');
     return;
   }

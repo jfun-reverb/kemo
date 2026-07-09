@@ -533,3 +533,7 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   border-bottom: .5px solid rgba(0,0,0,.08);
 }
+
+/* 관리자 페이지는 앱 번들에 없다(웹 전용) → 진입 버튼을 앱에서 숨긴다.
+   navigate('admin') 쪽에도 가드가 있으나, 누를 수 없게 하는 편이 UX 상 낫다. */
+#mypageAdminCell, #navAdminBtn { display: none !important; }
