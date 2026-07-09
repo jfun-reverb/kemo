@@ -101,12 +101,14 @@ function renderMarkdown(md) {
 //   해시(#legal) 직접 진입·새로고침은 돌아갈 직전 화면이 없어 홈으로 보낸다.
 let _legalOpenedInApp = false;
 
-async function openLegalPage(kind, lang) {
+//   pushHistory=false 는 새로고침·popstate 복원용(히스토리 중복 방지).
+async function openLegalPage(kind, lang, pushHistory) {
   _currentLegal.kind = kind;
   // 인자 > 현재 i18n 언어 > 기존 상태 > ja 기본
   _currentLegal.lang = lang || (typeof getLang === 'function' ? getLang() : null) || _currentLegal.lang || 'ja';
-  _legalOpenedInApp = true;
-  navigate('legal');   // pushState — 뒤로가기로 직전 화면 복원 가능
+  if (pushHistory !== false) _legalOpenedInApp = true;
+  // 해시에 종류를 실어(#legal-terms) 새로고침·링크 공유에도 본문이 복원되게 한다.
+  navigate('legal-' + kind, pushHistory);
   await renderLegalPage();
 }
 

@@ -54,6 +54,10 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
+  // legal-{terms|privacy} — 약관 종류를 해시에 실어 새로고침·공유 링크로도 본문 복원
+  if (page.startsWith('legal-')) {
+    pageName = 'legal';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
@@ -185,6 +189,11 @@ window.addEventListener('popstate', function(e) {
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
+  } else if (page.startsWith('legal-')) {
+    // popstate 로 되돌아온 legal 항목은 앱 안에서 만든 기록이므로 「앱에서 열었음」으로 되살린다.
+    //   안 그러면 앞으로가기로 재진입한 뒤 뒤로가기가 history.back() 대신 홈으로 새어 기록이 꼬인다.
+    _legalOpenedInApp = true;
+    openLegalPage(page.replace('legal-',''), undefined, false);
   } else if (page === 'activity') {
     // 앞으로가기로 활동관리 복귀. openActivityPage 를 부르면 그 안의 navigate 가 히스토리를 또 쌓으므로
     // 화면 전환만 하고, iOS 큰 제목 관찰자만 다시 건다(제목은 _screenTitle 이 그대로 유지).
@@ -521,6 +530,10 @@ async function init() {
   } else if (hash && hash.startsWith('detail-')) {
     const campId = hash.replace('detail-','');
     openCampaign(campId);
+  } else if (hash && (hash.startsWith('legal-') || hash === 'legal')) {
+    // 약관 딥링크·새로고침 — 종류 없는 구 링크(#legal)는 이용약관으로
+    const kind = hash === 'legal' ? 'terms' : hash.replace('legal-','');
+    openLegalPage(kind, undefined, false);
   } else if (hash && hash.startsWith('unsubscribe')) {
     // 메일 1-click 수신거부 — #unsubscribe?token=... (비로그인 진입 가능)
     const token = new URLSearchParams(hash.split('?')[1] || '').get('token');

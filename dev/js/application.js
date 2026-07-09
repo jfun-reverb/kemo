@@ -8,12 +8,16 @@ async function openCampaign(id) {
   currentCampaignId = id;
 
   // 진입 출처 기록 — 뒤로가기가 들어온 화면으로 돌아가게 한다.
-  //   이미 상세에 있으면(응모 완료 후 재렌더 등) 최초 출처를 덮어쓰지 않는다.
   //   캠페인 카드는 홈·캠페인 목록이 같은 렌더 코드를 쓰므로, 호출부가 아니라 여기서 판별한다.
+  //   아래 두 화면에서 온 호출은 출처를 덮어쓰지 않는다 — 상세로 「돌아오는」 것이라
+  //   원래 상세에 들어왔던 화면을 잃으면 안 된다:
+  //     page-detail  = 응모 완료 후 재렌더
+  //     page-activity = 활동관리(상세의 응모 버튼으로 들어감)의 뒤로가기
   const _cur = document.querySelector('#appShell .page.active');
-  if (!_cur || _cur.id !== 'page-detail') {
+  const _keep = _cur && (_cur.id === 'page-detail' || _cur.id === 'page-activity');
+  if (!_keep) {
     const _from = {'page-campaigns': 'campaigns', 'page-mypage': 'mypage'}[_cur && _cur.id];
-    _detailFrom = _from || 'home';   // 활동관리·알림·딥링크 등은 홈으로
+    _detailFrom = _from || 'home';   // 알림·딥링크 등 출처를 모르면 홈으로
   }
 
   // 조회수 증가 (비동기, UI 차단 없음)
