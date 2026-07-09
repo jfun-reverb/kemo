@@ -55,6 +55,10 @@ function settlementAmountYen(v) {
 
 // 페인 진입 로더 — ①인증성공 응모 백필(멱등, best-effort) ②전건 조회 ③렌더 + 배지
 async function loadSettlements() {
+  // 과거 미등록 뷰를 열어둔 채 페인을 떠났다가 재진입해도 항상 메인 목록으로 복귀
+  if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
+    closePastUnregView();
+  }
   try {
     const r = await backfillSettlements();
     if (r && r.created_count > 0 && typeof toast === 'function') {
@@ -537,4 +541,171 @@ async function exportSettlementsExcel() {
   } finally {
     if (typeof _markExportEnd === 'function') _markExportEnd();
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 과거 미등록 인증성공 처리 (사양서 2026-07-09)
+// ════════════════════════════════════════════════════════════════════
+//
+// 정산 도입일(cutoff) 이전에 인증 성공했지만 정산행이 없는 과거 건을 관리자가 직접
+// 정산행으로 등록하는 화면. 자동 백필은 컷오프 이후만 대상이라 과거분은 여기서 처리.
+//   · 진입: 정산 메인 뷰 헤더 「과거 미등록」 → 같은 페인 안에서 뷰 토글(모달 아님 —
+//     대량 수백 건 목록 + 필터 툴바 + IntersectionObserver lazy-load 를 위해)
+//   · 다중선택(체크박스 + 전체선택) → 일괄 「송금완료 기록」(paid) / 「정산대기 추가」(pending)
+//   · 무알림은 서버(register_past_settlements)가 보장 — 화면은 안내 문구만
+//   · 송금완료 기록은 되돌릴 수 없어 확인 모달(showConfirm) — 건수·합계 표시
+//
+// 선택 상태는 application_id 기준 Set(_pastUnregSelected)이 단일 소스 —
+//   lazy-load 로 행이 나눠 렌더돼도 체크 상태가 유지된다.
+
+let _pastUnregRows = [];
+let _pastUnregById = {};                 // application_id → 행
+let _pastUnregSelected = new Set();      // 선택된 application_id
+var pastUnregLazy = null;
+const PAST_UNREG_PAGE_SIZE = 50;
+
+function openPastUnregView() {
+  const main = $('settlementMainView');
+  const past = $('settlementPastView');
+  if (main) main.style.display = 'none';
+  if (past) past.style.display = 'flex';
+  loadPastUnregSettlements();
+}
+
+function closePastUnregView() {
+  const main = $('settlementMainView');
+  const past = $('settlementPastView');
+  if (pastUnregLazy) { pastUnregLazy.destroy(); pastUnregLazy = null; }
+  if (past) past.style.display = 'none';
+  if (main) main.style.display = 'flex';
+}
+
+// 과거 미등록 목록 조회 → 맵 구성 + 선택 초기화 + 렌더
+async function loadPastUnregSettlements() {
+  const tbody = $('pastUnregTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  try {
+    _pastUnregRows = await fetchPastUnregisteredSettlements();
+  } catch (e) {
+    _pastUnregRows = [];
+  }
+  _pastUnregById = {};
+  _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregById[r.application_id] = r; });
+  _pastUnregSelected.clear();
+  renderPastUnregList();
+}
+
+function renderPastUnregList() {
+  const tbody = $('pastUnregTableBody');
+  if (!tbody) return;
+  const cnt = $('pastUnregTotalCount');
+  if (cnt) cnt.textContent = `총 ${_pastUnregRows.length}건`;
+
+  const scrollRoot = tbody.closest('.admin-table-wrap');
+  if (pastUnregLazy) pastUnregLazy.destroy();
+  pastUnregLazy = mountLazyList({
+    tbody,
+    scrollRoot,
+    rows: _pastUnregRows,
+    renderRow: renderPastUnregRow,
+    pageSize: PAST_UNREG_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">과거 미등록 인증성공 건이 없습니다.</td></tr>',
+  });
+  updatePastUnregToolbar();
+}
+
+function renderPastUnregRow(r) {
+  const checked = _pastUnregSelected.has(r.application_id) ? ' checked' : '';
+  const name = esc(r.influencer_name || '—');
+  const kana = r.influencer_name_kana
+    ? `<div style="font-size:10px;color:var(--muted)">${esc(r.influencer_name_kana)}</div>` : '';
+  const campNo = '';  // 조회 RPC 는 campaign_no 미반환 — 제목만 표시
+  const campCell = `${campNo}<div style="font-size:13px">${esc(r.campaign_title || '—')}</div>`;
+  const certCell = r.cert_at
+    ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)">불명</span>';
+  const paypalCell = r.has_paypal
+    ? '<span style="background:#E8F5E9;color:#16A34A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
+    : '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px" title="PayPal 미등록">미등록</span>';
+  return `<tr>
+    <td><input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}></td>
+    <td><div style="font-weight:600">${name}</div>${kana}</td>
+    <td>${campCell}</td>
+    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</td>
+    <td>${certCell}</td>
+    <td>${paypalCell}</td>
+  </tr>`;
+}
+
+// 전체 선택/해제 — 현재 목록(_pastUnregRows) 전 건을 Set 에 반영 후 재렌더
+function pastUnregToggleAll(cb) {
+  if (cb && cb.checked) {
+    _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregSelected.add(r.application_id); });
+  } else {
+    _pastUnregSelected.clear();
+  }
+  renderPastUnregList();
+}
+
+// 개별 행 체크 — Set 갱신 후 툴바만 갱신(재렌더 없이 스크롤 유지)
+function pastUnregOnRowCheck(cb) {
+  const id = cb && cb.dataset ? cb.dataset.appId : '';
+  if (!id) return;
+  if (cb.checked) _pastUnregSelected.add(id);
+  else _pastUnregSelected.delete(id);
+  updatePastUnregToolbar();
+}
+
+// 선택 건수·합계, 처리 버튼 활성/비활성, 전체선택 체크박스 상태 갱신
+function updatePastUnregToolbar() {
+  let count = 0, sum = 0;
+  _pastUnregSelected.forEach(id => {
+    const r = _pastUnregById[id];
+    if (r) { count++; sum += Number(r.amount_jpy) || 0; }
+  });
+  const info = $('pastUnregSelectedInfo');
+  if (info) info.textContent = count ? `선택 ${count}건 · 합계 ${settlementAmountYen(sum)}` : '';
+  const payBtn = $('pastUnregPayBtn');
+  const pendingBtn = $('pastUnregPendingBtn');
+  if (payBtn) payBtn.disabled = count === 0;
+  if (pendingBtn) pendingBtn.disabled = count === 0;
+  const all = $('pastUnregSelectAll');
+  if (all) {
+    const total = _pastUnregRows.length;
+    all.checked = total > 0 && count === total;
+    all.indeterminate = count > 0 && count < total;
+  }
+}
+
+// 선택 건 일괄 처리 — targetStatus: 'paid'(송금완료 기록) | 'pending'(정산대기 추가)
+async function pastUnregRegister(targetStatus) {
+  const ids = [..._pastUnregSelected].filter(id => _pastUnregById[id]);
+  if (!ids.length) { toast('선택된 건이 없습니다', 'warn'); return; }
+  let sum = 0;
+  ids.forEach(id => { sum += Number(_pastUnregById[id].amount_jpy) || 0; });
+
+  if (targetStatus === 'paid') {
+    const ok = await showConfirm(
+      `선택한 ${ids.length}건(합계 ${settlementAmountYen(sum)})을 송금완료로 기록합니다.\n`
+      + `이미 외부에서 지급을 마친 건만 처리하세요. 송금완료 기록은 되돌릴 수 없습니다.\n계속하시겠습니까?`);
+    if (!ok) return;
+  }
+
+  const memo = ($('pastUnregMemo')?.value || '').trim();
+  const payBtn = $('pastUnregPayBtn');
+  const pendingBtn = $('pastUnregPendingBtn');
+  if (payBtn) payBtn.disabled = true;
+  if (pendingBtn) pendingBtn.disabled = true;
+  try {
+    const n = await registerPastSettlements(ids, targetStatus, memo);
+    toast(`${n}건을 ${targetStatus === 'paid' ? '송금완료로 기록' : '정산대기로 추가'}했습니다`);
+  } catch (e) {
+    toast('처리 실패: ' + friendlyError(e.message || e), 'error');
+    updatePastUnregToolbar();  // 버튼 재활성
+    return;
+  }
+  const memoEl = $('pastUnregMemo');
+  if (memoEl) memoEl.value = '';
+  await loadPastUnregSettlements();   // 과거 목록 재조회(처리된 건은 목록에서 사라짐)
+  await refreshPane('settlements');   // 정산 메인 목록·정산대기 배지 갱신 (quality.md)
 }
