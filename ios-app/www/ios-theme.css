@@ -498,22 +498,9 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 .apply-item-name { font-size: 14px !important; }
 
 /* ══════════════════════════════════════════════════════════════════
-   홈 — 서비스 소개 3칸을 iOS 카드로, 하단 회사 정보를 그룹 배경 톤으로
-   dev 마크업은 class/id 훅만 추가(인라인 스타일 유지 → 웹 표시 동일)
+   홈 — 하단 회사 정보를 iOS 그룹 배경 톤으로
+   (서비스 소개 3칸은 원래 흰 배경·세로 구분선 그대로 둔다 — 앞뒤 영역과 더 자연스럽다)
    ══════════════════════════════════════════════════════════════════ */
-#homeFeatures {
-  background: var(--ios-grouped-bg) !important;   /* 흰 배경 → iOS 그룹 배경 */
-  border-bottom: none !important;
-  padding: 20px 0 !important;
-}
-.home-feature-grid { gap: 8px !important; }
-.home-feature-item {
-  border: none !important;                        /* 칸 사이 세로 구분선 제거 */
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px 5px !important;   /* 카드 간격이 생긴 만큼 좌우 여백은 줄여 글자 줄바꿈을 늘리지 않는다 */
-}
-
 /* 회사 정보(푸터) — iOS 그룹 배경 + hairline */
 .site-footer {
   background: var(--ios-grouped-bg) !important;
