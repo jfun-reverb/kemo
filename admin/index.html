@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783564115';
+  var CURRENT_BUILD = 'v1783564606';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2195,7 +2195,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-09 11:28 · 91c85f5</span>
+          <span class="admin-build-text">2026-07-09 11:36 · bc45a2f</span>
         </div>
       </div>
     </aside>
@@ -5448,14 +5448,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       </div>
 
       <!-- 가격 (내부 전용) -->
-      <div class="outbound-form-section-title">단가 (원화 ₩ · 내부 전용)</div>
+      <div class="outbound-form-section-title">단가 (엔화 ¥ · 내부 전용)</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">빈 칸은 「가격 미상」으로 저장됩니다(0원과 구분). 이 값은 내부 전용 — 브랜드에게 노출되지 않습니다.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px">
-        <div class="form-group"><label class="form-label">피드</label><input type="text" id="obPriceFeed" class="form-input" inputmode="numeric" placeholder="₩ 미입력"></div>
-        <div class="form-group"><label class="form-label">릴스</label><input type="text" id="obPriceReels" class="form-input" inputmode="numeric" placeholder="₩ 미입력"></div>
-        <div class="form-group"><label class="form-label">스토리</label><input type="text" id="obPriceStory" class="form-input" inputmode="numeric" placeholder="₩ 미입력"></div>
-        <div class="form-group"><label class="form-label">틱톡</label><input type="text" id="obPriceTiktok" class="form-input" inputmode="numeric" placeholder="₩ 미입력"></div>
-        <div class="form-group"><label class="form-label">2차 활용</label><input type="text" id="obPriceSecondary" class="form-input" inputmode="numeric" placeholder="₩ 미입력"></div>
+        <div class="form-group"><label class="form-label">피드</label><input type="text" id="obPriceFeed" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">릴스</label><input type="text" id="obPriceReels" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">스토리</label><input type="text" id="obPriceStory" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">틱톡</label><input type="text" id="obPriceTiktok" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">2차 활용</label><input type="text" id="obPriceSecondary" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
       </div>
 
       <!-- 운영 (내부 전용) -->
@@ -30384,11 +30384,11 @@ async function exportOutboundExcel() {
       { header: 'YouTube구독',key: 'ytf',    width: 12 },
       { header: 'X핸들',     key: 'x',       width: 16 },
       { header: 'X팔로워',   key: 'xf',      width: 12 },
-      { header: '피드(₩)',   key: 'pfeed',   width: 12 },
-      { header: '릴스(₩)',   key: 'preels',  width: 12 },
-      { header: '스토리(₩)', key: 'pstory',  width: 12 },
-      { header: '틱톡(₩)',   key: 'ptiktok', width: 12 },
-      { header: '2차(₩)',    key: 'psec',    width: 12 },
+      { header: '피드(¥)',   key: 'pfeed',   width: 12 },
+      { header: '릴스(¥)',   key: 'preels',  width: 12 },
+      { header: '스토리(¥)', key: 'pstory',  width: 12 },
+      { header: '틱톡(¥)',   key: 'ptiktok', width: 12 },
+      { header: '2차(¥)',    key: 'psec',    width: 12 },
       { header: '가용상태',  key: 'avail',   width: 10 },
       { header: '컨택창구',  key: 'contact', width: 16 },
       { header: '소속사',    key: 'agency',  width: 14 },

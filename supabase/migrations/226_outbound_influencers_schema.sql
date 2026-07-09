@@ -103,8 +103,8 @@ COMMENT ON COLUMN public.outbound_influencers.tier_code IS
   '등급 티어 코드(lookup_values kind=ob_tier 스냅샷). 시트값 우선 + 수동 수정 '
   '(HANDOFF 결정 #3 — 팔로워 자동계산 안 함, 시트값과 충돌 방지).';
 COMMENT ON COLUMN public.outbound_influencers.price_feed IS
-  '피드 게시 단가(원화 ₩ — 국내 영업 자산, 사용자 확정 2026-07-09). NULL=가격 미상. '
-  'price_reels/story/tiktok/secondary 도 동일 통화(원화).';
+  '피드 게시 단가(엔화 ¥ — 시트 원본이 엔화, 사용자 확정 2026-07-09). NULL=가격 미상. '
+  'price_reels/story/tiktok/secondary 도 동일 통화(엔화).';
 COMMENT ON COLUMN public.outbound_influencers.availability IS
   'available(진행가능) | unavailable(불가) | adjusting(조율중). 1단계는 단순 상태만(HANDOFF 확정).';
 COMMENT ON COLUMN public.outbound_influencers.nego_memo IS
