@@ -262,6 +262,10 @@ window._supabaseLoaded = false;
     <!-- iOS 앱 전용 화면 제목(웹은 components.css 에서 display:none). 홈은 로고, 그 외 화면은 제목 -->
     <span class="gnb-title" id="gnbTitle"></span>
     <div class="gnb-right" id="gnbRight"></div>
+    <!-- 캠페인 목록 검색: iOS 앱 전용(웹은 본문 헤더의 버튼을 쓴다). navigate 가 캠페인 화면에서만 표시 -->
+    <button class="gnb-search-btn" id="gnbSearchBtn" onclick="toggleCampPageSearch(true)" aria-label="検索" style="display:none">
+      <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:23px">search</span>
+    </button>
     <!-- 알림 버튼: iOS 앱 전용(웹은 components.css 에서 display:none). updateGnb 가 로그인 시에만 표시 -->
     <button class="gnb-notif-btn" id="gnbNotifBtn" onclick="openNotifModal()" aria-label="通知" style="display:none;position:relative">
       <span class="material-icons-round notranslate" translate="no" style="font-size:24px">notifications</span>
@@ -490,7 +494,7 @@ window._supabaseLoaded = false;
   <div id="campPageStickyHeader" style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
       <!-- 제목 행 — 닫힘 모드(제목+🔍) / 열림 모드(검색 input+✕) 가 같은 row 자리를 토글로 차지 -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
+      <div id="campPageTitleRow" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
         <div id="campPageTitle" style="flex:1;font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
         <button id="campPageSearchToggle" onclick="toggleCampPageSearch(true)" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px;flex-shrink:0">
           <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>

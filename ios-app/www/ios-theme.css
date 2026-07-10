@@ -559,3 +559,21 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 /* 관리자 페이지는 앱 번들에 없다(웹 전용) → 진입 버튼을 앱에서 숨긴다.
    navigate('admin') 쪽에도 가드가 있으나, 누를 수 없게 하는 편이 UX 상 낫다. */
 #mypageAdminCell, #navAdminBtn { display: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   캠페인 목록 — 제목·검색을 상단바로 올린다
+   본문 제목 행은 감추고(상단바 제목이 대신), 검색은 GNB 버튼으로.
+   검색을 열면 campaign.js 가 행을 다시 펼쳐 입력칸을 보여준다.
+   ══════════════════════════════════════════════════════════════════ */
+.gnb-search-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; background: none; border: none; padding: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gnb-search-btn .material-icons-round { color: var(--ink) !important; }
+.gnb-search-btn:active { opacity: .5; }
+/* 마크업에 인라인 style="display:flex" 가 박혀 있어 !important 로 이긴다.
+   검색을 열 때는 campaign.js 가 setProperty(..., 'important') 로 다시 펼친다 */
+#campPageTitleRow { display: none !important; }
+/* 제목 행이 사라진 만큼 위쪽 여백을 줄인다 */
+#campPageStickyHeader .container { padding-top: 8px !important; }

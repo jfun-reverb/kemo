@@ -96,6 +96,7 @@ img{display:block;max-width:100%}
 .ios-tabbar{display:none}  /* iOS 바텀 탭바 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-title{display:none}  /* iOS GNB 화면 제목 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-back{display:none}   /* iOS GNB 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
+.gnb-search-btn{display:none}  /* iOS GNB 검색 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}
@@ -952,6 +953,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
     <!-- iOS 앱 전용 화면 제목(웹은 components.css 에서 display:none). 홈은 로고, 그 외 화면은 제목 -->
     <span class="gnb-title" id="gnbTitle"></span>
     <div class="gnb-right" id="gnbRight"></div>
+    <!-- 캠페인 목록 검색: iOS 앱 전용(웹은 본문 헤더의 버튼을 쓴다). navigate 가 캠페인 화면에서만 표시 -->
+    <button class="gnb-search-btn" id="gnbSearchBtn" onclick="toggleCampPageSearch(true)" aria-label="検索" style="display:none">
+      <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:23px">search</span>
+    </button>
     <!-- 알림 버튼: iOS 앱 전용(웹은 components.css 에서 display:none). updateGnb 가 로그인 시에만 표시 -->
     <button class="gnb-notif-btn" id="gnbNotifBtn" onclick="openNotifModal()" aria-label="通知" style="display:none;position:relative">
       <span class="material-icons-round notranslate" translate="no" style="font-size:24px">notifications</span>
@@ -1180,7 +1185,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   <div id="campPageStickyHeader" style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
       <!-- 제목 행 — 닫힘 모드(제목+🔍) / 열림 모드(검색 input+✕) 가 같은 row 자리를 토글로 차지 -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
+      <div id="campPageTitleRow" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
         <div id="campPageTitle" style="flex:1;font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
         <button id="campPageSearchToggle" onclick="toggleCampPageSearch(true)" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px;flex-shrink:0">
           <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>
@@ -10014,6 +10019,12 @@ async function loadCampaignsPage() {
   if (searchWrap) searchWrap.style.display = 'none';
   if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
   if (searchTitle) searchTitle.style.display = '';
+  // 검색을 연 채로 화면을 떠났다가 돌아오는 경우 — 제목 행과 GNB 검색 버튼도 닫힘 기준으로 되돌린다.
+  //   (제목 행은 iOS 테마가 !important 로 감추므로 flex 로 돌려도 앱에서는 계속 감춰진다)
+  const searchTitleRow = $('campPageTitleRow');
+  if (searchTitleRow) searchTitleRow.style.setProperty('display', 'flex');
+  const searchGnbBtn = document.getElementById('gnbSearchBtn');
+  if (searchGnbBtn) searchGnbBtn.style.visibility = '';
   // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
   setupCampPageHeaderAutoHide();
   ['all','monitor','gifting','visit'].forEach(t => {
@@ -10121,6 +10132,20 @@ function toggleCampPageSearch(force) {
   wrap.style.display = next ? 'flex' : 'none';
   if (toggleBtn) toggleBtn.style.display = next ? 'none' : 'inline-flex';
   if (titleEl) titleEl.style.display = next ? 'none' : '';
+  // iOS 앱: 검색 버튼을 상단바로 올렸고 제목 행은 감춰 뒀다.
+  //   검색을 열면 입력칸을 담은 행을 다시 펼치고 상단바 버튼은 숨긴다.
+  //   닫을 때는 인라인 style 을 지워 CSS 를 따르게 한다(웹은 계속 보임, 앱은 다시 감춤).
+  const rowEl = $('campPageTitleRow');
+  if (rowEl) {
+    // 열 때: iOS 테마가 이 행을 !important 로 감추므로 같은 우선순위로 펼친다.
+    // 닫을 때: display 를 지우면 인라인 flex 까지 사라져 웹에서 행이 block 으로 무너진다.
+    //          원래 값(flex, 일반 우선순위)으로 되돌리면 웹은 그대로, iOS 는 CSS !important 가 다시 숨긴다.
+    if (next) rowEl.style.setProperty('display', 'flex', 'important');
+    else rowEl.style.setProperty('display', 'flex');
+  }
+  // iOS GNB 검색 버튼 — 검색이 열려 있는 동안만 감춘다(표시 여부 자체는 setGnbSearch 가 display 로 관리)
+  const gnbSearch = document.getElementById('gnbSearchBtn');
+  if (gnbSearch) gnbSearch.style.visibility = next ? 'hidden' : '';
   if (next) {
     const input = $('campPageSearch');
     if (input) setTimeout(() => input.focus(), 50);  // transition 후 포커스
@@ -14332,6 +14357,8 @@ function navigate(page, pushHistory) {
   }
   // iOS GNB 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
   if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
+  // iOS GNB 검색 버튼 — 캠페인 목록에서만
+  if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
   // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
@@ -14485,6 +14512,14 @@ function setGnbTitle(title) {
     logoEl.style.display = '';
   }
 }
+// GNB 검색 버튼 (iOS 앱 전용) — 캠페인 목록에서만. 본문 헤더의 검색 버튼을 상단바로 올린 것.
+function setGnbSearch(show) {
+  const el = document.getElementById('gnbSearchBtn');
+  if (!el) return;
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  el.style.display = (isNative && show) ? '' : 'none';
+}
+
 // iOS 「큰 제목」 패턴 (iOS 앱 전용)
 //   화면 맨 위에서는 본문의 큰 제목이 전체를 보여주고 GNB 제목은 투명하게 감춘다.
 //   스크롤해서 본문 제목이 화면 밖으로 나가면 GNB 제목이 나타난다(긴 이름은 말줄임).

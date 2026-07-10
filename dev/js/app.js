@@ -121,6 +121,8 @@ function navigate(page, pushHistory) {
   }
   // iOS GNB 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
   if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
+  // iOS GNB 검색 버튼 — 캠페인 목록에서만
+  if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
   // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
@@ -274,6 +276,14 @@ function setGnbTitle(title) {
     logoEl.style.display = '';
   }
 }
+// GNB 검색 버튼 (iOS 앱 전용) — 캠페인 목록에서만. 본문 헤더의 검색 버튼을 상단바로 올린 것.
+function setGnbSearch(show) {
+  const el = document.getElementById('gnbSearchBtn');
+  if (!el) return;
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  el.style.display = (isNative && show) ? '' : 'none';
+}
+
 // iOS 「큰 제목」 패턴 (iOS 앱 전용)
 //   화면 맨 위에서는 본문의 큰 제목이 전체를 보여주고 GNB 제목은 투명하게 감춘다.
 //   스크롤해서 본문 제목이 화면 밖으로 나가면 GNB 제목이 나타난다(긴 이름은 말줄임).

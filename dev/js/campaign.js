@@ -86,6 +86,12 @@ async function loadCampaignsPage() {
   if (searchWrap) searchWrap.style.display = 'none';
   if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
   if (searchTitle) searchTitle.style.display = '';
+  // 검색을 연 채로 화면을 떠났다가 돌아오는 경우 — 제목 행과 GNB 검색 버튼도 닫힘 기준으로 되돌린다.
+  //   (제목 행은 iOS 테마가 !important 로 감추므로 flex 로 돌려도 앱에서는 계속 감춰진다)
+  const searchTitleRow = $('campPageTitleRow');
+  if (searchTitleRow) searchTitleRow.style.setProperty('display', 'flex');
+  const searchGnbBtn = document.getElementById('gnbSearchBtn');
+  if (searchGnbBtn) searchGnbBtn.style.visibility = '';
   // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
   setupCampPageHeaderAutoHide();
   ['all','monitor','gifting','visit'].forEach(t => {
@@ -193,6 +199,20 @@ function toggleCampPageSearch(force) {
   wrap.style.display = next ? 'flex' : 'none';
   if (toggleBtn) toggleBtn.style.display = next ? 'none' : 'inline-flex';
   if (titleEl) titleEl.style.display = next ? 'none' : '';
+  // iOS 앱: 검색 버튼을 상단바로 올렸고 제목 행은 감춰 뒀다.
+  //   검색을 열면 입력칸을 담은 행을 다시 펼치고 상단바 버튼은 숨긴다.
+  //   닫을 때는 인라인 style 을 지워 CSS 를 따르게 한다(웹은 계속 보임, 앱은 다시 감춤).
+  const rowEl = $('campPageTitleRow');
+  if (rowEl) {
+    // 열 때: iOS 테마가 이 행을 !important 로 감추므로 같은 우선순위로 펼친다.
+    // 닫을 때: display 를 지우면 인라인 flex 까지 사라져 웹에서 행이 block 으로 무너진다.
+    //          원래 값(flex, 일반 우선순위)으로 되돌리면 웹은 그대로, iOS 는 CSS !important 가 다시 숨긴다.
+    if (next) rowEl.style.setProperty('display', 'flex', 'important');
+    else rowEl.style.setProperty('display', 'flex');
+  }
+  // iOS GNB 검색 버튼 — 검색이 열려 있는 동안만 감춘다(표시 여부 자체는 setGnbSearch 가 display 로 관리)
+  const gnbSearch = document.getElementById('gnbSearchBtn');
+  if (gnbSearch) gnbSearch.style.visibility = next ? 'hidden' : '';
   if (next) {
     const input = $('campPageSearch');
     if (input) setTimeout(() => input.focus(), 50);  // transition 후 포커스
