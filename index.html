@@ -877,6 +877,14 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
       <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
     </div>
     <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
+      <!-- 메시지 — iOS 앱 전용. 앱은 카드에서 메시지 버튼을 빼고 이 메뉴로 모은다(웹은 카드 버튼 유지) -->
+      <button type="button" id="applyActionMsgBtn" class="apply-action-row" style="display:none;width:100%;min-height:64px;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:26px;color:var(--pink);flex-shrink:0">chat_bubble_outline</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="messaging.openBtn">メッセージ</span>
+          <span id="applyActionMsgHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+        </span>
+      </button>
       <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
         <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
         <span style="flex:1;min-width:0">
@@ -3738,6 +3746,8 @@ window.I18N_JA = {
 
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
+    openBtn: 'メッセージ',
+    unreadHint: '{n}件の未読',
     titleFor: '{name}に関するお問い合わせ',
     cancelledBlocked: 'キャンセルされた応募はお問い合わせをご利用いただけません。',
     refresh: '最新のお問い合わせに更新',
@@ -4446,6 +4456,8 @@ window.I18N_KO = {
 
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
+    openBtn: '메시지',
+    unreadHint: '읽지 않은 메시지 {n}건',
     titleFor: '{name} 관련 문의',
     cancelledBlocked: '취소된 응모는 문의하기를 이용할 수 없습니다.',
     refresh: '최신 문의로 새로고침',
@@ -12733,9 +12745,11 @@ async function renderMyApplyList() {
     //   응모 취소 옵션: 결과물 1건이라도 approved 면 비활성 (모달 내부에서 비활성 처리).
     //   cancelled/rejected 카드는 메뉴 자체 비표시.
     //   모바일 터치 영역 보강: 버튼 최소 44×44px (애플 HIG / 머티리얼 권장).
+    // 미읽음 메시지 수 — ⋮ 버튼의 빨간 점과 아래 메시지 버튼이 함께 쓴다
+    const msgUnread = _myMsgUnreadByApp[a.id] || 0;
     let menuHtml = '';
     if (a.status === 'pending' || a.status === 'approved') {
-      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span></button>`;
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span>${msgUnread > 0 ? '<span class="apply-menu-dot" aria-hidden="true"></span>' : ''}</button>`;
     }
     // cancelled 행: 취소일 표시
     const cancelledLine = a.status === 'cancelled' && a.cancelled_at
@@ -12775,7 +12789,6 @@ async function renderMyApplyList() {
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
-    const msgUnread = _myMsgUnreadByApp[a.id] || 0;
     const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
@@ -13223,6 +13236,19 @@ function openApplyActionModal(appId) {
   if (!app) return;
   _applyActionTargetAppId = appId;
   const isApproved = app.status === 'approved';
+  // 메시지 항목 — iOS 앱 전용(카드에서 메시지 버튼을 뺐다). 취소된 응모는 메시지 진입 차단이라 숨긴다.
+  const _msgBtn = $('applyActionMsgBtn');
+  if (_msgBtn) {
+    const _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const _show = _isNativeApp && app.status !== 'cancelled';
+    _msgBtn.style.display = _show ? 'flex' : 'none';
+    if (_show) {
+      const _unread = _myMsgUnreadByApp[appId] || 0;
+      const _hint = $('applyActionMsgHint');
+      if (_hint) _hint.textContent = _unread > 0 ? t('messaging.unreadHint').replace('{n}', _unread) : '';
+      _msgBtn.onclick = () => { closeApplyActionModal(); if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage'); };
+    }
+  }
   const ds = (_myDelivsByApp[appId] || []);
   const hasApprovedDeliv = ds.some(d => d.status === 'approved');
   // 결과물 제출 버튼: approved 만 활성. pending 은 비활성 + 안내 텍스트

@@ -655,6 +655,8 @@ window.I18N_JA = {
 
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
+    openBtn: 'メッセージ',
+    unreadHint: '{n}件の未読',
     titleFor: '{name}に関するお問い合わせ',
     cancelledBlocked: 'キャンセルされた応募はお問い合わせをご利用いただけません。',
     refresh: '最新のお問い合わせに更新',

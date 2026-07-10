@@ -186,6 +186,14 @@ window._supabaseLoaded = false;
       <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
     </div>
     <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
+      <!-- 메시지 — iOS 앱 전용. 앱은 카드에서 메시지 버튼을 빼고 이 메뉴로 모은다(웹은 카드 버튼 유지) -->
+      <button type="button" id="applyActionMsgBtn" class="apply-action-row" style="display:none;width:100%;min-height:64px;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:26px;color:var(--pink);flex-shrink:0">chat_bubble_outline</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="messaging.openBtn">メッセージ</span>
+          <span id="applyActionMsgHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+        </span>
+      </button>
       <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
         <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
         <span style="flex:1;min-width:0">

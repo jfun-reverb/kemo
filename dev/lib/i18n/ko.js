@@ -635,6 +635,8 @@ window.I18N_KO = {
 
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
+    openBtn: '메시지',
+    unreadHint: '읽지 않은 메시지 {n}건',
     titleFor: '{name} 관련 문의',
     cancelledBlocked: '취소된 응모는 문의하기를 이용할 수 없습니다.',
     refresh: '최신 문의로 새로고침',

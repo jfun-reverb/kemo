@@ -607,3 +607,35 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   font-size: 12px;
   color: #c7c7cc;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   응모이력 — 항목마다 떨어진 카드 (참고 화면)
+   메시지 버튼은 카드에서 빼고 더보기(⋮) 메뉴로 옮겼다.
+   ══════════════════════════════════════════════════════════════════ */
+#myApplicationsList {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+.apply-item {
+  background: #fff !important;
+  border: .5px solid rgba(0,0,0,.10) !important;
+  border-radius: 14px !important;
+  margin-bottom: 12px;
+  padding: 14px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.apply-item:last-child { border-bottom: .5px solid rgba(0,0,0,.10) !important; margin-bottom: 0; }
+/* 메시지 버튼은 더보기 메뉴로 이동 */
+.apply-msg-btn { display: none !important; }
+/* ⋮ 버튼의 미읽음 점 — 카드만 훑어도 안 읽은 메시지가 있는지 보이게 */
+.apply-card-menu-btn { position: relative; }
+.apply-menu-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 0 2px #fff;
+}
+/* 카드 배경을 !important 로 고정했으므로 눌림 반응도 같은 우선순위로 되살린다 */
+.apply-item:active { background: var(--ios-fill) !important; }
