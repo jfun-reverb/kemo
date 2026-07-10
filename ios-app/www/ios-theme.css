@@ -275,15 +275,6 @@ input, textarea, [contenteditable="true"], .selectable,
 }
 /* 큰 제목 패턴 — 본문 제목이 화면에 보이는 동안은 GNB 제목을 감춘다(자리는 유지해 로고가 안 튀어나오게) */
 .gnb-title.at-top { opacity: 0; }
-/* GNB 뒤로가기 (iOS 전용 — 웹은 components.css 에서 display:none. 표시 여부는 app.js setGnbBack) */
-.gnb-back {
-  display: flex; align-items: center; justify-content: center;
-  width: 34px; margin-left: -6px;
-  background: none; border: none; padding: 0; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.gnb-back .material-icons-round { color: var(--ink) !important; }
-.gnb-back:active { opacity: .5; }
 /* 상세·활동관리 화면 안의 뒤로가기 링크는 GNB 버튼과 중복 → iOS 에서만 숨김 */
 #page-detail .detail-back,
 #page-activity .detail-back { display: none; }
@@ -430,7 +421,6 @@ body:has(#page-detail.page.active #campSlider) .gnb::before {
   content: ''; position: absolute; inset: 0; z-index: -1;
   background: linear-gradient(to bottom, rgba(0,0,0,.45), rgba(0,0,0,0));
 }
-body:has(#page-detail.page.active #campSlider) .gnb-back .material-icons-round,
 body:has(#page-detail.page.active #campSlider) .gnb-notif-btn .material-icons-round { color: #fff !important; }
 body:has(#page-detail.page.active #campSlider) .gnb-title {
   color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,.5);

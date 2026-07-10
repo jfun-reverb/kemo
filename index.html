@@ -95,7 +95,6 @@ img{display:block;max-width:100%}
 .gnb-notif-btn{display:none}  /* GNB 알림 버튼 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .ios-tabbar{display:none}  /* iOS 바텀 탭바 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-title{display:none}  /* iOS GNB 화면 제목 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
-.gnb-back{display:none}   /* iOS GNB 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-search-btn{display:none}  /* iOS GNB 검색 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .ios-tab-back{display:none}  /* iOS 하단 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
@@ -952,10 +951,6 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 <!-- ── GNB ── -->
 <nav class="gnb">
   <div class="gnb-inner">
-    <!-- iOS 앱 전용 뒤로가기(웹은 components.css 에서 display:none). 상세 화면에서만 navigate 가 표시 -->
-    <button class="gnb-back" id="gnbBack" onclick="gnbBackAction()" aria-label="戻る" style="display:none">
-      <span class="material-icons-round notranslate" translate="no" style="font-size:26px">arrow_back_ios_new</span>
-    </button>
     <div class="gnb-logo" id="gnbLogo" onclick="window.location.href='/'">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
@@ -14415,7 +14410,7 @@ function navigate(page, pushHistory) {
     else if (pageName === 'detail' || pageName === 'activity') _title = _screenTitle || '';
     setGnbTitle(_title);
   }
-  // iOS GNB 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
+  // iOS 하단 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
   if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
   // iOS GNB 검색 버튼 — 캠페인 목록에서만
   if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
@@ -14611,14 +14606,13 @@ function teardownLargeTitle() {
 
 // GNB 뒤로가기 버튼 (iOS 앱 전용) — 상세 화면에서만 표시. 다른 화면은 navigate 가 꺼 준다.
 //   마이페이지 서브 화면은 탭바로 이동하므로 뒤로가기를 두지 않는다(목적지가 없음).
+// 뒤로가기 버튼(iOS 앱 전용) — 탭바 왼쪽 원형 버튼. 'on' 이면 튀어나온다(ios-theme).
+//   돌아갈 곳이 있는 화면(상세·활동관리·마이페이지 서브)에서만 켠다.
 function setGnbBack(show) {
+  const el = document.getElementById('iosTabBack');
+  if (!el) return;
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  // 상단바 뒤로가기는 하단 원형 버튼으로 옮겼다 — 항상 숨김(요소는 웹 호환을 위해 남겨 둔다)
-  const top = document.getElementById('gnbBack');
-  if (top) top.style.display = 'none';
-  // 하단 원형 버튼 — 표시할 때 'on' 클래스로 튀어나오는 동작(ios-theme)
-  const bottom = document.getElementById('iosTabBack');
-  if (bottom) bottom.classList.toggle('on', !!(isNative && show));
+  el.classList.toggle('on', !!(isNative && show));
 }
 
 // ══════════════════════════════════════

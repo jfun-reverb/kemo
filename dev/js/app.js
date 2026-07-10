@@ -124,7 +124,7 @@ function navigate(page, pushHistory) {
     else if (pageName === 'detail' || pageName === 'activity') _title = _screenTitle || '';
     setGnbTitle(_title);
   }
-  // iOS GNB 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
+  // iOS 하단 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
   if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
   // iOS GNB 검색 버튼 — 캠페인 목록에서만
   if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
@@ -320,14 +320,13 @@ function teardownLargeTitle() {
 
 // GNB 뒤로가기 버튼 (iOS 앱 전용) — 상세 화면에서만 표시. 다른 화면은 navigate 가 꺼 준다.
 //   마이페이지 서브 화면은 탭바로 이동하므로 뒤로가기를 두지 않는다(목적지가 없음).
+// 뒤로가기 버튼(iOS 앱 전용) — 탭바 왼쪽 원형 버튼. 'on' 이면 튀어나온다(ios-theme).
+//   돌아갈 곳이 있는 화면(상세·활동관리·마이페이지 서브)에서만 켠다.
 function setGnbBack(show) {
+  const el = document.getElementById('iosTabBack');
+  if (!el) return;
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  // 상단바 뒤로가기는 하단 원형 버튼으로 옮겼다 — 항상 숨김(요소는 웹 호환을 위해 남겨 둔다)
-  const top = document.getElementById('gnbBack');
-  if (top) top.style.display = 'none';
-  // 하단 원형 버튼 — 표시할 때 'on' 클래스로 튀어나오는 동작(ios-theme)
-  const bottom = document.getElementById('iosTabBack');
-  if (bottom) bottom.classList.toggle('on', !!(isNative && show));
+  el.classList.toggle('on', !!(isNative && show));
 }
 
 // ══════════════════════════════════════
