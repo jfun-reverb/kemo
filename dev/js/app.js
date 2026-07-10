@@ -665,49 +665,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절.
   //   resize·scroll 이 키보드 애니메이션 중 연속 발생하므로 requestAnimationFrame 으로
   //   1프레임 1회로 묶고, 값이 실제 바뀔 때만 스타일 적용 → 리플로우 반복(깜빡임) 방지 (2026-05-27).
-  //   ⚠️ iOS 앱(네이티브)에서는 웹뷰 자체가 키보드 높이만큼 줄어든다. 여기서 또 줄이면
-  //      키보드 위에 그만큼 흰 띠가 남는다 → 네이티브는 높이 계산 없이 focus 여부로만 탭바를 숨긴다.
-  var _isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-
-  function toggleBottomBarsForKeyboard(kbOpen) {
-    // 키보드 열림 시 바텀 탭바 숨김 — 입력칸 가림 방지(과거 바텀탭 제거 사유 회피)
-    var _tb = document.getElementById('iosTabbar');
-    if (_tb) _tb.classList.toggle('kb-hidden', kbOpen);
-    // 하단 원형 뒤로가기도 함께 (CSS 형제 선택자로는 순서가 안 맞아 여기서 토글)
-    var _tbBack = document.getElementById('iosTabBack');
-    if (_tbBack) _tbBack.classList.toggle('kb-hidden', kbOpen);
-  }
-  function keepMessagesAtBottom() {
-    // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
-    var _ap = document.querySelector('#appShell .page.active');
-    if (_ap && _ap.id === 'page-messages') {
-      var _th = document.getElementById('msgModalThread');
-      if (_th) _th.scrollTop = _th.scrollHeight;
-    }
-  }
-
-  if (_isNativeApp) {
-    var _kbFocusRaf = 0;
-    function isTextInput(el) {
-      if (!el) return false;
-      if (el.isContentEditable) return true;
-      var tag = el.tagName;
-      if (tag === 'TEXTAREA') return true;
-      if (tag !== 'INPUT') return false;
-      return !/^(button|submit|reset|checkbox|radio|file|image|range|color)$/i.test(el.type || 'text');
-    }
-    function syncKeyboardState() {
-      toggleBottomBarsForKeyboard(isTextInput(document.activeElement));
-      keepMessagesAtBottom();
-    }
-    document.addEventListener('focusin', syncKeyboardState);
-    // blur 직후 다음 입력칸으로 넘어가는 경우가 있어 한 프레임 뒤 activeElement 로 다시 판정
-    document.addEventListener('focusout', function() {
-      cancelAnimationFrame(_kbFocusRaf);
-      _kbFocusRaf = requestAnimationFrame(syncKeyboardState);
-    });
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', keepMessagesAtBottom);
-  } else if (window.visualViewport) {
+  if (window.visualViewport) {
     var appShell = $('appShell');
     var _vvLastVh = -1, _vvLastTop = -1, _vvRaf = false;
     function adjustHeight() {
@@ -721,11 +679,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         _vvLastVh = vh; _vvLastTop = offsetTop;
         appShell.style.height = vh + 'px';
         appShell.style.top = offsetTop + 'px';
-        toggleBottomBarsForKeyboard((window.innerHeight - vh) > 120);
-        keepMessagesAtBottom();
+        // 키보드 열림 시 바텀 탭바 숨김 — 입력칸 가림 방지(과거 바텀탭 제거 사유 회피)
+        //   기준은 documentElement.clientHeight — iOS 앱(WKWebView)의 window.innerHeight 는
+        //   키보드를 따라 줄어들어 차이가 늘 0 이라 키보드를 못 알아본다.
+        var _kbOpen = (document.documentElement.clientHeight - vh) > 120;
+        var _tb = document.getElementById('iosTabbar');
+        if (_tb) _tb.classList.toggle('kb-hidden', _kbOpen);
+        // 하단 원형 뒤로가기도 함께 (CSS 형제 선택자로는 순서가 안 맞아 여기서 토글)
+        var _tbBack = document.getElementById('iosTabBack');
+        if (_tbBack) _tbBack.classList.toggle('kb-hidden', _kbOpen);
+        // 탭바가 숨었으니 그 자리로 비워 둔 페이지 하단 여백도 걷는다(iOS 앱 전용 CSS).
+        //   안 걷으면 키보드 바로 위에 그 여백이 흰 띠로 남는다.
+        document.body.classList.toggle('kb-open', _kbOpen);
+        // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
+        var _ap = appShell.querySelector('.page.active');
+        if (_ap && _ap.id === 'page-messages') {
+          var _th = document.getElementById('msgModalThread');
+          if (_th) _th.scrollTop = _th.scrollHeight;
+        }
       });
     }
     window.visualViewport.addEventListener('resize', adjustHeight);
     window.visualViewport.addEventListener('scroll', adjustHeight);
+    // 앱을 백그라운드에 두는 동안 키보드가 닫히면 복귀 시 resize 가 안 올 수 있다.
+    // 캐시를 비워 다음 계산을 강제 → kb-open 이 남아 여백이 사라진 채로 굳는 것을 막는다.
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState !== 'visible') return;
+      _vvLastVh = -1; _vvLastTop = -1;
+      adjustHeight();
+    });
   }
 });

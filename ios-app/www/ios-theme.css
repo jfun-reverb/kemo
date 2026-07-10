@@ -71,6 +71,9 @@ input, textarea, [contenteditable="true"], .selectable,
 /* 네비바가 떠 있으므로 페이지 콘텐츠를 그 높이만큼 아래에서 시작 (스크롤 시 네비바 뒤로 통과) */
 /* 하단은 떠 있는 알약 탭바가 가리는 총 높이(--ios-tab-space)만큼 패딩 */
 .page.active { padding-top: calc(var(--ios-nav-h) + env(safe-area-inset-top)); padding-bottom: calc(var(--ios-tab-space) + 8px); }
+/* 키보드가 뜨면 탭바가 숨으므로 그 자리로 비워 둔 여백도 걷는다.
+   안 걷으면 키보드 바로 위에 그만큼 흰 띠가 남아 화면을 가린다 (app.js 가 body.kb-open 토글). */
+body.kb-open .page.active { padding-bottom: 8px; }
 /* iOS 바텀 탭바 (웹은 components.css 에서 display:none) */
 .ios-tabbar {
   display: flex; align-items: center; justify-content: center;
@@ -695,5 +698,7 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 /* 상단바가 이미 캠페인명을 보여준다 */
 #detailFloatBar #floatProductName { display: none; }
 #detailFloatBar #floatProductReward { font-size: 15px !important; margin-top: 0; }
-/* 바가 하단에 없으므로 그 몫의 여백도 필요 없다 (탭바 몫만 남긴다) */
+/* 바가 하단에 없으므로 그 몫의 여백도 필요 없다 (탭바 몫만 남긴다).
+   ⚠️ 이 id 규칙이 body.kb-open .page.active 를 이긴다 — 상세 화면에 입력칸이 생기면
+      키보드 위에 이 여백이 흰 띠로 남는다. 그때는 여기에도 kb-open 분기를 더할 것. */
 #page-detail.page.active { padding-bottom: calc(var(--ios-tab-space) + 8px); }
