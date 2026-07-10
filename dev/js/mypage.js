@@ -478,6 +478,9 @@ function openMypageSub(sub, pushHistory) {
   if (sub === 'applications' && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
   // 報酬・精算 진입 시 정산 내역 렌더 (본인 RLS 조회).
   if (sub === 'settlements' && typeof renderMySettlements === 'function') renderMySettlements();
+  // iOS GNB 뒤로가기 — 마이페이지 목록에서 들어온 서브 화면에만.
+  //   응모이력은 바텀 탭바의 항목이라 돌아갈 「위」 화면이 없다.
+  if (typeof setGnbBack === 'function') setGnbBack(sub !== 'applications');
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
@@ -491,6 +494,7 @@ function closeMypageSub() {
   const def = $('mypage-sub-applications');
   if (def) def.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('mypage.menu.applications') : '応募履歴');
+  if (typeof setGnbBack === 'function') setGnbBack(false);   // 응모이력은 탭바 항목 — 뒤로가기 없음
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
 
@@ -501,6 +505,12 @@ function openMypageList(pushHistory) {
   const el = $('mypage-sub-list');
   if (el) el.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
+  if (typeof setGnbBack === 'function') setGnbBack(false);   // 목록은 탭바 최상위 — 뒤로가기 없음
+  // 프로필 머리말 — 이름·이메일. DB 값이라 textContent 로 넣는다(교차 사이트 스크립팅 방지)
+  const _pn = document.getElementById('mypageProfileName');
+  const _pe = document.getElementById('mypageProfileEmail');
+  if (_pn) _pn.textContent = (currentUserProfile && currentUserProfile.name) || '';
+  if (_pe) _pe.textContent = (currentUser && currentUser.email) || '';
   // 관리자 셀 표시(관리자만) + 언어 토글 활성 상태 갱신
   const _ac = document.getElementById('mypageAdminCell');
   if (_ac) _ac.style.display = (currentUser && currentUser._isAdmin) ? '' : 'none';

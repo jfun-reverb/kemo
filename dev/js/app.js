@@ -24,6 +24,11 @@ function gnbBackAction() {
     navigateBackFromActivity();
     return;
   }
+  // 마이페이지 서브 화면(기본정보·SNS 등) → 마이페이지 목록으로
+  if (active && active.id === 'page-mypage' && typeof openMypageList === 'function') {
+    openMypageList();
+    return;
+  }
   navigateBackFromDetail();
 }
 

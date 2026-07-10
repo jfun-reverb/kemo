@@ -988,6 +988,11 @@ window._supabaseLoaded = false;
       <span class="mypage-sub-title" data-i18n="tab.mypage">マイページ</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <!-- 프로필 머리말 — 이름 크게, 아래 이메일. openMypageList 가 값을 채운다 -->
+      <div id="mypageProfileHead">
+        <div id="mypageProfileName"></div>
+        <div id="mypageProfileEmail"></div>
+      </div>
       <div class="mypage-list">
         <button class="mypage-list-cell" onclick="openMypageSub('profile-basic')">
           <span class="material-icons-round notranslate mlc-icon" translate="no">person</span>

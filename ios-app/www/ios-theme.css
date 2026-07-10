@@ -577,3 +577,26 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 #campPageTitleRow { display: none !important; }
 /* 제목 행이 사라진 만큼 위쪽 여백을 줄인다 */
 #campPageStickyHeader .container { padding-top: 8px !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   마이페이지 — 이름 머리말 + 카드 없는 평평한 목록
+   ══════════════════════════════════════════════════════════════════ */
+#mypageProfileHead { padding: 8px 4px 20px; }
+#mypageProfileName { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+#mypageProfileEmail { font-size: 13px; color: var(--muted); margin-top: 4px; }
+/* 카드 껍데기(배경·테두리·둥근 모서리)를 걷어내고 구분선만 남긴다 */
+.mypage-list {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+.mypage-list-cell {
+  padding: 18px 4px !important;
+  border-bottom: .5px solid rgba(0,0,0,.08) !important;
+}
+.mypage-list-cell:last-child { border-bottom: none !important; }
+.mypage-list-cell:active { background: rgba(0,0,0,.03); }
+/* 아이콘 없이 글자부터 시작 — 참고 화면처럼 담백하게 */
+.mypage-list-cell .mlc-icon { display: none; }
+.mlc-label { font-size: 16px; font-weight: 500; }
+.mlc-arrow { color: #c7c7cc; }
