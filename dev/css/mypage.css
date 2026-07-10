@@ -159,3 +159,6 @@
 
 /* 읽기 전용 표시 필드 (생년월일·성별 — 수정은 관리자만, 연령 정책 PR4) */
 .form-readonly{padding:12px 14px;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;min-height:48px;display:flex;align-items:center;box-sizing:border-box}
+
+/* ⋮ 위 미읽음 배지는 iOS 앱 전용(ios-theme.css). 웹은 카드의 메시지 버튼에 배지가 따로 있어 숨긴다 */
+.apply-menu-dot{display:none}

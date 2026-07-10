@@ -629,10 +629,16 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 .apply-msg-btn { display: none !important; }
 /* ⋮ 버튼의 미읽음 점 — 카드만 훑어도 안 읽은 메시지가 있는지 보이게 */
 .apply-card-menu-btn { position: relative; }
+/* 미읽음 건수 배지 — 앱에는 카드에 메시지 버튼이 없어 ⋮ 가 유일한 진입점이다.
+   점 하나로는 몇 건인지 알 수 없어 숫자를 띄운다(10건 이상은 9+). */
 .apply-menu-dot {
-  position: absolute; top: 6px; right: 6px;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--pink);
+  display: flex; align-items: center; justify-content: center;
+  position: absolute; top: 1px; right: 0;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px;
+  background: #FF3B30;                /* iOS 표준 배지색 */
+  color: #fff; font-size: 11px; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
   box-shadow: 0 0 0 2px #fff;
 }
 /* 카드 배경을 !important 로 고정했으므로 눌림 반응도 같은 우선순위로 되살린다 */

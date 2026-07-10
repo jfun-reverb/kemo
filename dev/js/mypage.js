@@ -236,7 +236,12 @@ async function renderMyApplyList() {
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
     let menuHtml = '';
     if (a.status === 'pending' || a.status === 'approved') {
-      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span>${msgUnread > 0 ? '<span class="apply-menu-dot" aria-hidden="true"></span>' : ''}</button>`;
+      // 미읽음 배지는 건수를 그대로 보여준다(iOS 앱은 카드에 메시지 버튼이 없어 ⋮ 가 유일한 진입점).
+      //   웹은 메시지 버튼 자체에 배지가 있으므로 mypage.css 에서 숨긴다.
+      const menuLabel = msgUnread > 0
+        ? `${t('appHistory.action.title')} — ${t('messaging.unreadHint').replace('{n}', msgUnread)}`
+        : t('appHistory.action.title');
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(menuLabel)}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span>${msgUnread > 0 ? `<span class="apply-menu-dot" aria-hidden="true">${msgUnread > 9 ? '9+' : msgUnread}</span>` : ''}</button>`;
     }
     // cancelled 행: 취소일 표시
     const cancelledLine = a.status === 'cancelled' && a.cancelled_at
