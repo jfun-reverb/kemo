@@ -47,5 +47,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<!-- 사진·카메라 사용 설명. 이 문구가 없으면 iOS 가 해당 기능을 쓰는 순간 앱을 강제 종료한다.
+	     인플루언서 화면 언어에 맞춰 일본어. 시스템 권한 안내라 짧은 서술형으로.
+	     · Camera        — 영수증·게시물 이미지 촬영(파일 선택 시 「사진 촬영」)
+	     · PhotoLibrary  — 파일 선택 시 사진 고르기 (iOS 14+ 사진 선택기는 없어도 동작하나 안전망)
+	     · PhotoLibraryAdd — 캠페인 가이드 이미지를 길게 눌러 「사진에 추가」 (촬영 가이드 저장용) -->
+	<key>NSCameraUsageDescription</key>
+	<string>レシートや投稿画像を撮影して提出するためにカメラを使用します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>レシートや投稿画像を写真から選んで提出するために使用します。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>キャンペーンの撮影ガイド画像を写真に保存するために使用します。</string>
 </dict>
 </plist>
