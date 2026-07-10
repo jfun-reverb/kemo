@@ -134,12 +134,12 @@ function navigate(page, pushHistory) {
   if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
   // 마이페이지를 떠나면 상단바에 올려 둔 응모이력 상태 필터를 제자리로 돌려놓는다
   if (pageName !== 'mypage' && typeof moveApplyFilterToGnb === 'function') moveApplyFilterToGnb(false);
-  // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
+  // iOS: 약관·메시지 화면은 자체 헤더(뒤로가기·제목)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
   //   웹은 '' 로 되돌려 CSS 를 따른다(항상 표시).
   const _gnb = document.querySelector('.gnb');
   if (_gnb) {
     const _isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    _gnb.style.display = (_isNative && pageName === 'legal') ? 'none' : '';
+    _gnb.style.display = (_isNative && (pageName === 'legal' || pageName === 'messages')) ? 'none' : '';
   }
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
@@ -148,7 +148,9 @@ function navigate(page, pushHistory) {
   const _isAuthPage = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName);
   if (gnbBurger) gnbBurger.style.display = _isAuthPage ? 'none' : '';
   const _tabbar = document.getElementById('iosTabbar');
-  if (_tabbar) _tabbar.style.display = _isAuthPage ? 'none' : '';  // '' = CSS 따름(웹 none / iOS flex)
+  // 메시지 화면도 탭바를 숨긴다 — 입력창이 화면 맨 아래에 붙어 있어 탭바와 겹친다(자체 헤더에 뒤로가기가 있다)
+  const _hideTabbar = _isAuthPage || pageName === 'messages';
+  if (_tabbar) _tabbar.style.display = _hideTabbar ? 'none' : '';  // '' = CSS 따름(웹 none / iOS flex)
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
