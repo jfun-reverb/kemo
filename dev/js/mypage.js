@@ -464,6 +464,25 @@ async function toggleMarketingEmail(checked) {
   }
 }
 
+// iOS: 응모이력 화면은 제목이 상단바로 올라가 헤더 줄이 비어 버린다.
+//   상태 필터(進行中 등)를 상단바 제목 옆으로 옮기고, 화면을 떠나면 원래 자리로 되돌린다.
+//   웹은 헤더 줄에 제목이 그대로 있으므로 아무것도 하지 않는다.
+function moveApplyFilterToGnb(on) {
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!isNative) return;
+  const sel = $('myApplyStatusSelect');
+  const header = document.querySelector('#mypage-sub-applications .mypage-sub-header');
+  const titleEl = $('gnbTitle');
+  if (!sel || !header || !titleEl) return;
+  if (on) {
+    if (sel.previousElementSibling !== titleEl) titleEl.after(sel);
+  } else if (sel.parentElement !== header) {
+    header.appendChild(sel);
+  }
+  sel.classList.toggle('gnb-apply-filter', !!on);
+  document.body.classList.toggle('apply-filter-in-gnb', !!on);
+}
+
 function openMypageSub(sub, pushHistory) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
@@ -482,6 +501,7 @@ function openMypageSub(sub, pushHistory) {
   // iOS GNB 뒤로가기 — 마이페이지 목록에서 들어온 서브 화면에만.
   //   응모이력은 바텀 탭바의 항목이라 돌아갈 「위」 화면이 없다.
   if (typeof setGnbBack === 'function') setGnbBack(sub !== 'applications');
+  moveApplyFilterToGnb(sub === 'applications');
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
@@ -496,6 +516,7 @@ function closeMypageSub() {
   if (def) def.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('mypage.menu.applications') : '応募履歴');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 응모이력은 탭바 항목 — 뒤로가기 없음
+  moveApplyFilterToGnb(true);
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
 
@@ -507,6 +528,8 @@ function openMypageList(pushHistory) {
   if (el) el.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 목록은 탭바 최상위 — 뒤로가기 없음
+  // 応募履歴 → マイページ 는 같은 페이지 안의 전환이라 navigate 의 복귀 로직이 안 걸린다. 여기서 되돌린다.
+  moveApplyFilterToGnb(false);
   // 앱 버전 — 네이티브 빌드가 심어 둔 값이 있을 때만 노출(웹은 값이 없어 숨김 유지)
   const _ver = document.getElementById('appVersionText');
   if (_ver) {

@@ -276,10 +276,19 @@ body.kb-open .page.active { padding-bottom: 8px; }
 #page-activity .detail-back { display: none; }
 /* GNB 에 제목을 올렸으므로 마이페이지 화면 자체 헤더는 iOS 에서 숨김(중복 방지) */
 .mypage-sub-header { display: none; }
-/* 단 응모이력 헤더는 상태 드롭다운(進行中 등)이 있어 유지하고, 제목 텍스트만 숨김.
-   제목이 빠진 자리(왼쪽)로 드롭다운을 당긴다 — 인라인 style 의 space-between 을 눌러야 한다. */
-#mypage-sub-applications .mypage-sub-header { display: flex; justify-content: flex-start !important; }
-#mypage-sub-applications .mypage-sub-title { display: none; }
+/* 응모이력 상태 드롭다운(進行中 등)은 mypage.js 의 moveApplyFilterToGnb 가 상단바 제목 옆으로 옮긴다.
+   → 헤더 줄은 통째로 숨긴다(위 규칙 그대로 적용). */
+.gnb-apply-filter {
+  flex: 0 0 auto; margin: 0 auto 0 8px !important;   /* 제목 옆에 붙이고 오른쪽 버튼과는 떨어뜨린다 */
+  padding: 4px 26px 4px 10px !important;
+  font-size: 12px !important; font-weight: 600;
+  border-radius: 7px !important;
+  max-width: 46% !important;
+  background-color: rgba(120,120,128,.10) !important;
+  border: none !important;
+}
+/* 제목이 남은 폭을 다 먹지 않게 — 드롭다운이 제목 바로 옆에 붙는다 */
+body.apply-filter-in-gnb .gnb-title { flex: 0 1 auto; }
 .gnb-burger, .gnb-burger .material-icons-round,
 .gnb-burger .material-icons-round[style] { color: var(--ink) !important; }
 .gnb-burger:hover { background: rgba(0,0,0,.05); }

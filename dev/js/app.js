@@ -132,6 +132,8 @@ function navigate(page, pushHistory) {
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // 응모 바 도킹 관찰자도 해제 (상세 진입이 다시 켠다)
   if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
+  // 마이페이지를 떠나면 상단바에 올려 둔 응모이력 상태 필터를 제자리로 돌려놓는다
+  if (pageName !== 'mypage' && typeof moveApplyFilterToGnb === 'function') moveApplyFilterToGnb(false);
   // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
   //   웹은 '' 로 되돌려 CSS 를 따른다(항상 표시).
   const _gnb = document.querySelector('.gnb');
