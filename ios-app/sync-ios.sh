@@ -33,6 +33,16 @@ for f in TERMS_ja TERMS_kr PRIVACY_ja PRIVACY_kr; do
 done
 echo "  ✅ 약관·개인정보처리방침 4개 복사 → www/docs/"
 
+# 앱 버전 — Xcode 설정(pbxproj)에서 읽어 화면에 심는다. 마이페이지 하단에 표시.
+APP_VER=$(grep -m1 'MARKETING_VERSION' ios/App/App.xcodeproj/project.pbxproj | sed 's/.*= *//; s/;//' | tr -d ' ')
+APP_BUILD=$(grep -m1 'CURRENT_PROJECT_VERSION' ios/App/App.xcodeproj/project.pbxproj | sed 's/.*= *//; s/;//' | tr -d ' ')
+if [ -z "$APP_VER" ]; then
+  echo "❌ MARKETING_VERSION 을 찾지 못했습니다."
+  exit 1
+fi
+export APP_VERSION_STRING="${APP_VER} (${APP_BUILD})"
+echo "  ✅ 앱 버전 주입: v${APP_VERSION_STRING}"
+
 python3 - "$WWW_INDEX" <<'PY'
 import sys, re
 p = sys.argv[1]
@@ -48,6 +58,14 @@ if '<link rel="stylesheet" href="/ios-theme.css">' not in h:
 # 3) 네이티브 푸시 스크립트 주입 (body 끝 — storage.js 등 전역 함수 로드 후 실행)
 if '<script src="/native-push.js"></script>' not in h:
     h = h.replace('</body>', '  <script src="/native-push.js"></script>\n</body>', 1)
+# 4) 앱 버전 주입 — 마이페이지 하단에 표시. 웹에는 이 값이 없어 그 줄이 숨겨진다.
+#    ⚠️ 중복 검사는 반드시 주입할 태그 전체로 — 'window.__APP_VERSION__' 문자열만 보면
+#       주석·mypage.js 안의 같은 단어에 걸려 주입을 건너뛴다(2026-06-23 ios-theme.css 사고와 동형).
+import os
+ver = os.environ.get('APP_VERSION_STRING', '')
+tag = '<script>window.__APP_VERSION__="' + ver.replace('"', '') + '";</script>'
+if tag not in h:
+    h = h.replace('</head>', '  ' + tag + '\n</head>', 1)
 open(p, 'w', encoding='utf-8').write(h)
 print("  ✅ Vercel 분석 제거 + iOS 테마 + 네이티브 푸시 주입")
 PY

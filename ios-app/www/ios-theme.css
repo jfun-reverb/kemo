@@ -600,3 +600,10 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 .mypage-list-cell .mlc-icon { display: none; }
 .mlc-label { font-size: 16px; font-weight: 500; }
 .mlc-arrow { color: #c7c7cc; }
+/* 앱 버전 — 마이페이지 맨 아래, 눈에 띄지 않게 */
+#appVersionText {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 12px;
+  color: #c7c7cc;
+}

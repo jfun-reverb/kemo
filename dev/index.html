@@ -1058,6 +1058,8 @@ window._supabaseLoaded = false;
         </button>
       </div>
       <button class="mypage-withdraw-link" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</button>
+      <!-- 앱 버전 — sync-ios.sh 가 심는 window.__APP_VERSION__ 이 있을 때만 표시(웹은 값이 없어 숨김) -->
+      <div id="appVersionText" style="display:none"></div>
     </div>
   </div>
 

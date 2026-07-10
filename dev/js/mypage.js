@@ -506,6 +506,13 @@ function openMypageList(pushHistory) {
   if (el) el.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 목록은 탭바 최상위 — 뒤로가기 없음
+  // 앱 버전 — 네이티브 빌드가 심어 둔 값이 있을 때만 노출(웹은 값이 없어 숨김 유지)
+  const _ver = document.getElementById('appVersionText');
+  if (_ver) {
+    const v = window.__APP_VERSION__;
+    _ver.textContent = v ? ('v' + v) : '';   // 언어 무관 표기 (인플 화면은 일본어)
+    _ver.style.display = v ? '' : 'none';
+  }
   // 프로필 머리말 — 이름·이메일. DB 값이라 textContent 로 넣는다(교차 사이트 스크립팅 방지)
   const _pn = document.getElementById('mypageProfileName');
   const _pe = document.getElementById('mypageProfileEmail');
