@@ -9,7 +9,7 @@
   /* iOS 시스템 토큰 */
   --ios-nav-h: 48px;              /* 네비게이션 바 높이(상태바 제외) — 네비바·콘텐츠 시작·배너 공용 */
   --ios-tab-h: 56px;              /* 떠 있는 알약 탭바의 높이 */
-  --ios-tab-gap: 10px;            /* 알약과 화면 바닥(홈 인디케이터) 사이 간격 */
+  --ios-tab-gap: 2px;             /* 알약과 화면 바닥(홈 인디케이터) 사이 간격 */
   /* 탭바가 실제로 가리는 총 높이 — 콘텐츠 하단 여백·응모 바·토스트가 공용으로 쓴다 */
   --ios-tab-space: calc(var(--ios-tab-h) + var(--ios-tab-gap) + env(safe-area-inset-bottom));
   --ios-grouped-bg: #F2F2F7;      /* iOS 그룹 리스트 배경 */
