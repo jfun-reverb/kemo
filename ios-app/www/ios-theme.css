@@ -111,14 +111,7 @@ input, textarea, [contenteditable="true"], .selectable,
 .gnb-burger { display: none !important; }
 /* 메시지 페이지는 mypage.css 에서 padding:0(내부 헤더 고정)을 명시도로 덮어써 네비바에 헤더가 가려짐 → 상단 패딩 별도 부여 */
 #page-messages.page.active { padding-top: calc(var(--ios-nav-h) + env(safe-area-inset-top)); }
-/* 응모 바는 웹 기준 bottom:0 이라 iOS 탭바에 통째로 가려진다 → 탭바 위로 올린다.
-   홈바 여백은 탭바가 이미 흡수하므로 바 자체 하단 패딩은 일반 값으로 되돌린다. */
-#detailFloatBar {
-  bottom: calc(var(--ios-tab-space) + 6px) !important;
-  padding-bottom: 14px !important;
-}
-/* 상세 화면만 응모 바 높이만큼 콘텐츠 하단 여백 추가 — 마지막 섹션이 바에 가리지 않게 */
-#page-detail.page.active { padding-bottom: calc(var(--ios-tab-space) + 90px); }
+/* 응모 바는 아래(파일 끝 「캠페인 상세 응모 바」 절)에서 상단 고정으로 다시 잡는다 */
 /* 화면 하단에 고정으로 뜨는 나머지 요소들도 탭바 위로 (웹은 탭바가 없어 bottom 값이 작다) */
 .floating-auth-cta { bottom: calc(var(--ios-tab-space) + 20px) !important; }
 #toast { bottom: calc(var(--ios-tab-space) + 20px) !important; }
@@ -674,12 +667,9 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
    상단바에 이미 캠페인명이 있으므로 바 안의 제목 줄은 감추고,
    리워드·상품페이지·응모 버튼만 남긴다.
    ══════════════════════════════════════════════════════════════════ */
-/* top ↔ bottom 을 오가면 auto 값이라 애니메이션이 안 걸린다.
-   배경·글자만 부드럽게 바꾸고 위치는 즉시 옮긴다(스크롤에 붙어 움직이므로 튀지 않는다). */
+/* 바는 늘 상단 자리에 있고, 제목이 상단바 뒤로 넘어가기 전에는 감춰 둔다.
+   본문 첫 화면엔 이미 리워드와 응모 버튼이 보이므로 하단에 겹쳐 띄우지 않는다. */
 #detailFloatBar {
-  transition: background .18s ease, box-shadow .18s ease;
-}
-#detailFloatBar.docked {
   top: calc(var(--ios-nav-h) + env(safe-area-inset-top)) !important;
   bottom: auto !important;
   padding-top: 10px !important;
@@ -690,11 +680,20 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   box-shadow: 0 4px 14px rgba(0,0,0,.06);
   z-index: 99;   /* 상단바(100) 바로 아래 — 스크롤되는 콘텐츠 위 */
+  /* 감춤 — visibility 로 눌러야 감춰진 동안 버튼이 눌리지 않는다 */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: opacity .18s ease, transform .18s ease, visibility 0s .18s;
+}
+#detailFloatBar.docked {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity .18s ease, transform .18s ease, visibility 0s;
 }
 /* 상단바가 이미 캠페인명을 보여준다 */
-#detailFloatBar.docked #floatProductName { display: none; }
-#detailFloatBar.docked #floatProductReward { font-size: 13px; margin-top: 0; }
-/* 바가 위로 붙으면 하단에 잡아 뒀던 자리를 돌려준다 (탭바 몫만 남긴다) */
-#page-detail.page.active:has(#detailFloatBar.docked) {
-  padding-bottom: calc(var(--ios-tab-space) + 8px);
-}
+#detailFloatBar #floatProductName { display: none; }
+#detailFloatBar #floatProductReward { font-size: 15px !important; margin-top: 0; }
+/* 바가 하단에 없으므로 그 몫의 여백도 필요 없다 (탭바 몫만 남긴다) */
+#page-detail.page.active { padding-bottom: calc(var(--ios-tab-space) + 8px); }
