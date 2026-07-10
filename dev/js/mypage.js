@@ -759,8 +759,15 @@ function openApplyActionModal(appId) {
     _msgBtn.style.display = _show ? 'flex' : 'none';
     if (_show) {
       const _unread = _myMsgUnreadByApp[appId] || 0;
-      const _hint = $('applyActionMsgHint');
-      if (_hint) _hint.textContent = _unread > 0 ? t('messaging.unreadHint').replace('{n}', _unread) : '';
+      // 건수는 배지 숫자로 (문장으로 쓰면 읽는 데 시간이 걸린다). 낭독기에는 버튼 이름으로 문장을 준다.
+      const _badge = $('applyActionMsgBadge');
+      if (_badge) {
+        _badge.textContent = _unread > 9 ? '9+' : String(_unread);
+        _badge.style.display = _unread > 0 ? '' : 'none';
+      }
+      _msgBtn.setAttribute('aria-label', _unread > 0
+        ? `${t('messaging.openBtn')} — ${t('messaging.unreadHint').replace('{n}', _unread)}`
+        : t('messaging.openBtn'));
       _msgBtn.onclick = () => { closeApplyActionModal(); if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage'); };
     }
   }

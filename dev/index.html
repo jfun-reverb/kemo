@@ -191,8 +191,9 @@ window._supabaseLoaded = false;
         <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:26px;color:var(--pink);flex-shrink:0">chat_bubble_outline</span>
         <span style="flex:1;min-width:0">
           <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="messaging.openBtn">メッセージ</span>
-          <span id="applyActionMsgHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
         </span>
+        <!-- 미읽음 건수 배지 — 카드의 ⋮ 배지와 같은 모양. 0건이면 mypage.js 가 숨긴다 -->
+        <span id="applyActionMsgBadge" aria-hidden="true" style="display:none;flex-shrink:0;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#FF3B30;color:#fff;font-size:12px;font-weight:700;line-height:20px;text-align:center;font-variant-numeric:tabular-nums"></span>
       </button>
       <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
         <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>

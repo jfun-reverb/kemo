@@ -885,8 +885,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:26px;color:var(--pink);flex-shrink:0">chat_bubble_outline</span>
         <span style="flex:1;min-width:0">
           <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="messaging.openBtn">メッセージ</span>
-          <span id="applyActionMsgHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
         </span>
+        <!-- 미읽음 건수 배지 — 카드의 ⋮ 배지와 같은 모양. 0건이면 mypage.js 가 숨긴다 -->
+        <span id="applyActionMsgBadge" aria-hidden="true" style="display:none;flex-shrink:0;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#FF3B30;color:#fff;font-size:12px;font-weight:700;line-height:20px;text-align:center;font-variant-numeric:tabular-nums"></span>
       </button>
       <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
         <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
@@ -13277,8 +13278,15 @@ function openApplyActionModal(appId) {
     _msgBtn.style.display = _show ? 'flex' : 'none';
     if (_show) {
       const _unread = _myMsgUnreadByApp[appId] || 0;
-      const _hint = $('applyActionMsgHint');
-      if (_hint) _hint.textContent = _unread > 0 ? t('messaging.unreadHint').replace('{n}', _unread) : '';
+      // 건수는 배지 숫자로 (문장으로 쓰면 읽는 데 시간이 걸린다). 낭독기에는 버튼 이름으로 문장을 준다.
+      const _badge = $('applyActionMsgBadge');
+      if (_badge) {
+        _badge.textContent = _unread > 9 ? '9+' : String(_unread);
+        _badge.style.display = _unread > 0 ? '' : 'none';
+      }
+      _msgBtn.setAttribute('aria-label', _unread > 0
+        ? `${t('messaging.openBtn')} — ${t('messaging.unreadHint').replace('{n}', _unread)}`
+        : t('messaging.openBtn'));
       _msgBtn.onclick = () => { closeApplyActionModal(); if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage'); };
     }
   }
