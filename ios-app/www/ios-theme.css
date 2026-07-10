@@ -683,16 +683,18 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   box-shadow: 0 4px 14px rgba(0,0,0,.06);
   z-index: 99;   /* 상단바(100) 바로 아래 — 스크롤되는 콘텐츠 위 */
-  /* 감춤 — visibility 로 눌러야 감춰진 동안 버튼이 눌리지 않는다 */
+  /* 감춤 — visibility 로 눌러야 감춰진 동안 버튼이 눌리지 않는다.
+     ⚠️ transform 은 중앙 정렬(translateX(-50%), components.css)을 겸하므로 반드시 함께 쓴다.
+        translateY 만 주면 바가 화면 오른쪽으로 절반 밀린다. */
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-8px);
+  transform: translateX(-50%) translateY(-8px);
   transition: opacity .18s ease, transform .18s ease, visibility 0s .18s;
 }
 #detailFloatBar.docked {
   opacity: 1;
   visibility: visible;
-  transform: none;
+  transform: translateX(-50%);
   transition: opacity .18s ease, transform .18s ease, visibility 0s;
 }
 /* 상단바가 이미 캠페인명을 보여준다 */
