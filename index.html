@@ -10706,7 +10706,7 @@ async function openCampaign(id) {
         <div style="padding:16px 0 12px">
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-          <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
+          <div id="detailCampTitle" style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
           ${camp.product_price>0?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${camp.recruit_type === 'monitor' ? t('detail.rewardPayback') : t('detail.rewardProduct')}</span></div>`:''}
           ${camp.reward>0?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
@@ -10910,6 +10910,8 @@ async function openCampaign(id) {
   _screenTitle = camp.title || '';
 
   navigate('detail-' + id);
+  // iOS: 제목이 상단바 뒤로 넘어가면 응모 바를 위로 붙인다(navigate 뒤에 걸어야 teardown 에 안 씻김)
+  if (typeof setupFloatBarDock === 'function') setupFloatBarDock();
 }
 
 // ══════════════════════════════════════
@@ -14416,6 +14418,8 @@ function navigate(page, pushHistory) {
   if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
   // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
+  // 응모 바 도킹 관찰자도 해제 (상세 진입이 다시 켠다)
+  if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
   // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
   //   웹은 '' 로 되돌려 CSS 를 따른다(항상 표시).
   const _gnb = document.querySelector('.gnb');
@@ -14573,6 +14577,32 @@ function setGnbSearch(show) {
   if (!el) return;
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   el.style.display = (isNative && show) ? '' : 'none';
+}
+
+// 캠페인 상세 응모 바 도킹 (iOS 앱 전용)
+//   대표 이미지 아래 제목이 상단바 뒤로 넘어가면 응모 바를 화면 위로 붙인다.
+//   제목은 이미 상단바에 있으므로 도킹 상태에서는 바 안의 제목 줄을 숨긴다(ios-theme).
+let _floatBarObserver = null;
+function setupFloatBarDock() {
+  teardownFloatBarDock();
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!isNative || !('IntersectionObserver' in window)) return;
+  const root = document.getElementById('page-detail');
+  const target = document.getElementById('detailCampTitle');
+  const bar = document.getElementById('detailFloatBar');
+  if (!root || !target || !bar) return;
+  const gnb = document.querySelector('.gnb');
+  const gnbH = gnb ? gnb.offsetHeight : 0;
+  _floatBarObserver = new IntersectionObserver(entries => {
+    // 제목이 상단바 아래 영역에서 사라지면(위로 지나가면) 도킹
+    entries.forEach(e => bar.classList.toggle('docked', !e.isIntersecting && e.boundingClientRect.top < gnbH));
+  }, {root, rootMargin: `-${gnbH}px 0px 0px 0px`, threshold: 0});
+  _floatBarObserver.observe(target);
+}
+function teardownFloatBarDock() {
+  if (_floatBarObserver) { _floatBarObserver.disconnect(); _floatBarObserver = null; }
+  const bar = document.getElementById('detailFloatBar');
+  if (bar) bar.classList.remove('docked');
 }
 
 // iOS 「큰 제목」 패턴 (iOS 앱 전용)

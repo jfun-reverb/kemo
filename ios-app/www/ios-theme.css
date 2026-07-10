@@ -668,3 +668,33 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 }
 /* 키보드가 열리면 뒤로가기도 함께 사라진다 (app.js 가 kb-hidden 을 붙인다) */
 .ios-tab-back.kb-hidden { opacity: 0; transform: scale(.4); pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════════════════
+   캠페인 상세 응모 바 — 제목이 상단바 뒤로 넘어가면 위로 붙는다(docked)
+   상단바에 이미 캠페인명이 있으므로 바 안의 제목 줄은 감추고,
+   리워드·상품페이지·응모 버튼만 남긴다.
+   ══════════════════════════════════════════════════════════════════ */
+/* top ↔ bottom 을 오가면 auto 값이라 애니메이션이 안 걸린다.
+   배경·글자만 부드럽게 바꾸고 위치는 즉시 옮긴다(스크롤에 붙어 움직이므로 튀지 않는다). */
+#detailFloatBar {
+  transition: background .18s ease, box-shadow .18s ease;
+}
+#detailFloatBar.docked {
+  top: calc(var(--ios-nav-h) + env(safe-area-inset-top)) !important;
+  bottom: auto !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  border-top: none;
+  border-bottom: .5px solid rgba(0,0,0,.08);
+  background: rgba(255,255,255,.94);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.06);
+  z-index: 99;   /* 상단바(100) 바로 아래 — 스크롤되는 콘텐츠 위 */
+}
+/* 상단바가 이미 캠페인명을 보여준다 */
+#detailFloatBar.docked #floatProductName { display: none; }
+#detailFloatBar.docked #floatProductReward { font-size: 13px; margin-top: 0; }
+/* 바가 위로 붙으면 하단에 잡아 뒀던 자리를 돌려준다 (탭바 몫만 남긴다) */
+#page-detail.page.active:has(#detailFloatBar.docked) {
+  padding-bottom: calc(var(--ios-tab-space) + 8px);
+}

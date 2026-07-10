@@ -130,6 +130,8 @@ function navigate(page, pushHistory) {
   if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
   // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
+  // 응모 바 도킹 관찰자도 해제 (상세 진입이 다시 켠다)
+  if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
   // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
   //   웹은 '' 로 되돌려 CSS 를 따른다(항상 표시).
   const _gnb = document.querySelector('.gnb');
@@ -287,6 +289,32 @@ function setGnbSearch(show) {
   if (!el) return;
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   el.style.display = (isNative && show) ? '' : 'none';
+}
+
+// 캠페인 상세 응모 바 도킹 (iOS 앱 전용)
+//   대표 이미지 아래 제목이 상단바 뒤로 넘어가면 응모 바를 화면 위로 붙인다.
+//   제목은 이미 상단바에 있으므로 도킹 상태에서는 바 안의 제목 줄을 숨긴다(ios-theme).
+let _floatBarObserver = null;
+function setupFloatBarDock() {
+  teardownFloatBarDock();
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!isNative || !('IntersectionObserver' in window)) return;
+  const root = document.getElementById('page-detail');
+  const target = document.getElementById('detailCampTitle');
+  const bar = document.getElementById('detailFloatBar');
+  if (!root || !target || !bar) return;
+  const gnb = document.querySelector('.gnb');
+  const gnbH = gnb ? gnb.offsetHeight : 0;
+  _floatBarObserver = new IntersectionObserver(entries => {
+    // 제목이 상단바 아래 영역에서 사라지면(위로 지나가면) 도킹
+    entries.forEach(e => bar.classList.toggle('docked', !e.isIntersecting && e.boundingClientRect.top < gnbH));
+  }, {root, rootMargin: `-${gnbH}px 0px 0px 0px`, threshold: 0});
+  _floatBarObserver.observe(target);
+}
+function teardownFloatBarDock() {
+  if (_floatBarObserver) { _floatBarObserver.disconnect(); _floatBarObserver = null; }
+  const bar = document.getElementById('detailFloatBar');
+  if (bar) bar.classList.remove('docked');
 }
 
 // iOS 「큰 제목」 패턴 (iOS 앱 전용)
