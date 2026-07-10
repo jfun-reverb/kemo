@@ -86,6 +86,8 @@ input, textarea, [contenteditable="true"], .selectable,
   -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
   border: .5px solid rgba(0,0,0,.05);
   box-shadow: 0 8px 28px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.05);
+  /* 뒤로가기가 튀어나올 때 자리를 비켜주는 움직임도 같은 스프링으로 — 안 그러면 탭바만 순간 점프한다 */
+  transition: transform .28s cubic-bezier(.34,1.56,.64,1), max-width .28s cubic-bezier(.34,1.56,.64,1);
 }
 /* 알약 안에서 아이콘만 가로로. 선택된 탭만 글자가 펼쳐진다 */
 .ios-tab {
@@ -639,3 +641,40 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 }
 /* 카드 배경을 !important 로 고정했으므로 눌림 반응도 같은 우선순위로 되살린다 */
 .apply-item:active { background: var(--ios-fill) !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   하단 뒤로가기 — 탭바 왼쪽에 뜨는 원형 버튼
+   숨김이 기본. app.js setGnbBack 이 'on' 을 붙이면 작게 튀어나온다.
+   ══════════════════════════════════════════════════════════════════ */
+.ios-tab-back {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; z-index: 201;
+  left: 16px;
+  bottom: calc(var(--ios-tab-gap) + env(safe-area-inset-bottom));
+  width: var(--ios-tab-h); height: var(--ios-tab-h);
+  border-radius: 50%;
+  background: rgba(255,255,255,.92);
+  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  border: .5px solid rgba(0,0,0,.05);
+  box-shadow: 0 8px 28px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.05);
+  cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  /* 숨김 상태 — 작게 오므린 채 투명 */
+  opacity: 0; transform: scale(.4);
+  pointer-events: none;
+  transition: opacity .18s ease, transform .28s cubic-bezier(.34,1.56,.64,1);
+}
+.ios-tab-back.on { opacity: 1; transform: scale(1); pointer-events: auto; }
+.ios-tab-back .material-icons-round { font-size: 24px; color: var(--ink); }
+.ios-tab-back:active { transform: scale(.92); }
+/* 뒤로가기가 떠 있는 동안 탭바가 그 자리를 비켜 준다 */
+.ios-tab-back.on ~ .ios-tabbar {
+  max-width: calc(100% - 32px - var(--ios-tab-h) - 12px);
+  transform: translateX(calc(-50% + (var(--ios-tab-h) + 12px) / 2));
+}
+.ios-tab-back.on ~ .ios-tabbar.kb-hidden {
+  transform: translateX(calc(-50% + (var(--ios-tab-h) + 12px) / 2))
+             translateY(calc(100% + var(--ios-tab-gap) + env(safe-area-inset-bottom) + 20px));
+}
+/* 키보드가 열리면 뒤로가기도 함께 사라진다 (app.js 가 kb-hidden 을 붙인다) */
+.ios-tab-back.kb-hidden { opacity: 0; transform: scale(.4); pointer-events: none; }

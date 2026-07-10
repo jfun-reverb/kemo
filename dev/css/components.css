@@ -9,6 +9,7 @@
 .gnb-title{display:none}  /* iOS GNB 화면 제목 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-back{display:none}   /* iOS GNB 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-search-btn{display:none}  /* iOS GNB 검색 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
+.ios-tab-back{display:none}  /* iOS 하단 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}

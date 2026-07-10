@@ -97,6 +97,7 @@ img{display:block;max-width:100%}
 .gnb-title{display:none}  /* iOS GNB 화면 제목 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-back{display:none}   /* iOS GNB 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-search-btn{display:none}  /* iOS GNB 검색 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
+.ios-tab-back{display:none}  /* iOS 하단 뒤로가기 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}
@@ -2038,6 +2039,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
   <!-- 비로그인 고정 CTA (하단 중앙) -->
   <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
+  <!-- iOS 하단 뒤로가기 — 탭바 왼쪽에 뜨는 원형 버튼. 표시 여부는 app.js setGnbBack -->
+  <button class="ios-tab-back" id="iosTabBack" onclick="gnbBackAction()" aria-label="戻る">
+    <span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back_ios_new</span>
+  </button>
   <!-- iOS 바텀 탭바 — appShell 안에 둔다. appShell 은 transform 이 걸려 스택 컨텍스트를 만들므로,
        밖에 두면 그 안의 모달(z-index 500)이 탭바(200) 아래로 깔려 버튼이 가려진다. -->
   <nav class="ios-tabbar" id="iosTabbar">
@@ -14607,10 +14612,13 @@ function teardownLargeTitle() {
 // GNB 뒤로가기 버튼 (iOS 앱 전용) — 상세 화면에서만 표시. 다른 화면은 navigate 가 꺼 준다.
 //   마이페이지 서브 화면은 탭바로 이동하므로 뒤로가기를 두지 않는다(목적지가 없음).
 function setGnbBack(show) {
-  const el = document.getElementById('gnbBack');
-  if (!el) return;
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  el.style.display = (isNative && show) ? '' : 'none';
+  // 상단바 뒤로가기는 하단 원형 버튼으로 옮겼다 — 항상 숨김(요소는 웹 호환을 위해 남겨 둔다)
+  const top = document.getElementById('gnbBack');
+  if (top) top.style.display = 'none';
+  // 하단 원형 버튼 — 표시할 때 'on' 클래스로 튀어나오는 동작(ios-theme)
+  const bottom = document.getElementById('iosTabBack');
+  if (bottom) bottom.classList.toggle('on', !!(isNative && show));
 }
 
 // ══════════════════════════════════════
@@ -14936,8 +14944,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         appShell.style.height = vh + 'px';
         appShell.style.top = offsetTop + 'px';
         // 키보드 열림 시 바텀 탭바 숨김 — 입력칸 가림 방지(과거 바텀탭 제거 사유 회피)
+        var _kbOpen = (window.innerHeight - vh) > 120;
         var _tb = document.getElementById('iosTabbar');
-        if (_tb) _tb.classList.toggle('kb-hidden', (window.innerHeight - vh) > 120);
+        if (_tb) _tb.classList.toggle('kb-hidden', _kbOpen);
+        // 하단 원형 뒤로가기도 함께 (CSS 형제 선택자로는 순서가 안 맞아 여기서 토글)
+        var _tbBack = document.getElementById('iosTabBack');
+        if (_tbBack) _tbBack.classList.toggle('kb-hidden', _kbOpen);
         // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
         var _ap = appShell.querySelector('.page.active');
         if (_ap && _ap.id === 'page-messages') {

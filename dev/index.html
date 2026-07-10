@@ -1347,6 +1347,10 @@ window._supabaseLoaded = false;
 
   <!-- 비로그인 고정 CTA (하단 중앙) -->
   <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
+  <!-- iOS 하단 뒤로가기 — 탭바 왼쪽에 뜨는 원형 버튼. 표시 여부는 app.js setGnbBack -->
+  <button class="ios-tab-back" id="iosTabBack" onclick="gnbBackAction()" aria-label="戻る">
+    <span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back_ios_new</span>
+  </button>
   <!-- iOS 바텀 탭바 — appShell 안에 둔다. appShell 은 transform 이 걸려 스택 컨텍스트를 만들므로,
        밖에 두면 그 안의 모달(z-index 500)이 탭바(200) 아래로 깔려 버튼이 가려진다. -->
   <nav class="ios-tabbar" id="iosTabbar">
