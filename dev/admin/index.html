@@ -1181,16 +1181,24 @@
 
         <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
         <div id="adminPane-settlements" class="admin-pane admin-pane-list">
+          <!-- 메인 뷰(정산 목록) — 과거 미등록 뷰와 같은 페인 안에서 토글 전환 -->
+          <div id="settlementMainView" style="display:flex;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 관리</div>
                 <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
-                엑셀
-              </button>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
+                  과거 미등록
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                  엑셀
+                </button>
+              </div>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1227,6 +1235,53 @@
               </table>
             </div>
           </div>
+          </div><!-- /settlementMainView -->
+
+          <!-- 과거 미등록 인증성공 뷰 (정산 도입 이전 과거분 관리자 직접 처리) — 기본 숨김 -->
+          <div id="settlementPastView" style="display:none;flex-direction:column;flex:1;min-height:0">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <button class="btn btn-ghost btn-sm" onclick="closePastUnregView()">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
+                정산 목록으로
+              </button>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">과거 미등록 인증성공</div>
+            </div>
+            <div style="padding:10px 12px;background:#FFF7E6;border:1px solid #E9C46A;border-radius:8px;font-size:12px;line-height:1.6;color:#7A5C00;margin-bottom:12px">
+              정산 도입 이전에 인증에 성공했지만 아직 정산에 등록되지 않은 건입니다.
+              여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
+              이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group" style="flex:1;min-width:220px">
+                <label>메모 (선택 · 처리 건에 함께 기록)</label>
+                <input type="text" id="pastUnregMemo" class="form-input" style="height:38px" placeholder="예: 시스템 도입 전 외부 지급">
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
+                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled>선택 정산대기 추가</button>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">과거 미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 목록 전체 선택"></th>
+                  <th>인플루언서</th>
+                  <th>캠페인</th>
+                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:130px">인증성공일</th>
+                  <th style="width:100px">PayPal</th>
+                </tr></thead>
+                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          </div><!-- /settlementPastView -->
         </div>
 
         <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD. admin-outbound.js -->
