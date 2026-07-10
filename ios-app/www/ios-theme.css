@@ -276,8 +276,9 @@ body.kb-open .page.active { padding-bottom: 8px; }
 #page-activity .detail-back { display: none; }
 /* GNB 에 제목을 올렸으므로 마이페이지 화면 자체 헤더는 iOS 에서 숨김(중복 방지) */
 .mypage-sub-header { display: none; }
-/* 단 응모이력 헤더는 상태 드롭다운(進行中 등)이 있어 유지하고, 제목 텍스트만 숨김 */
-#mypage-sub-applications .mypage-sub-header { display: flex; }
+/* 단 응모이력 헤더는 상태 드롭다운(進行中 등)이 있어 유지하고, 제목 텍스트만 숨김.
+   제목이 빠진 자리(왼쪽)로 드롭다운을 당긴다 — 인라인 style 의 space-between 을 눌러야 한다. */
+#mypage-sub-applications .mypage-sub-header { display: flex; justify-content: flex-start !important; }
 #mypage-sub-applications .mypage-sub-title { display: none; }
 .gnb-burger, .gnb-burger .material-icons-round,
 .gnb-burger .material-icons-round[style] { color: var(--ink) !important; }
