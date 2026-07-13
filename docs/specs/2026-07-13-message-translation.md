@@ -1,7 +1,7 @@
 # 응모건 메시지 자동 번역
 
 **작성일:** 2026-07-13
-**상태:** 기획 초안 (미착수)
+**상태:** dev 구현 완료 (운영 미배포 — 약관 PR3 선행 필수)
 **관련:** `docs/specs/2026-05-15-application-messaging.md`(메시지 원 기능), CLAUDE.md 「응모건 메시지」, 메모리 `project_message_faq`
 
 > 인플루언서(일본어)와 관리자(한국어)가 응모건 메시지에서 서로 다른 언어로 대화하는데, 지금은 번역이 없어 관리자가 일본어 원문을 직접 읽고 답한다. **상대방 메시지를 내 언어로 자동 번역**해 병기/표시하는 기능.
@@ -119,5 +119,28 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
-_(미착수)_
+## 구현 결과
+
+**구현일:** 2026-07-13
+**관련 커밋:** feature/message-translation 브랜치 (PR은 머지 후 기입)
+
+### 초안 대비 변경 사항
+- **PR1(파이프라인)+PR2(화면)를 한 PR로 통합** — 파이프라인만 머지하면 화면에서 검증 불가, 규모가 크지 않아 실용적 판단. PR3(약관)은 예정대로 별도(운영 배포 전 필수 게이트).
+- **트리거는 pg_net 직접 호출 대신 데이터베이스 웹훅(Dashboard 수동 설정)** — 오리엔 제출 알림(notify-orient-submitted)과 같은 프로젝트 표준 패턴. 환경(개발/운영)별 URL 분리가 자연스럽고 마이그레이션에 프로젝트 URL 하드코딩 회피.
+- **send_application_message RPC 무수정** — 상태 기록은 Edge Function 전담. 웹훅 유실 시 3컬럼 NULL 유지 → 화면 원문 폴백이라 안전.
+- **"번역 중" 표시 생략** — 번역이 1~2초 내 완료되고 스레드는 열 때마다 재조회라 과도기 노출이 드묾. `translate_status='done'`일 때만 병기, 그 외 전부 원문만(상태 배지 없음).
+- **표시 순서 구체화** — "병기"를 번역문=본문 위치 / 원문=아래 작은 글씨(라벨 原文/원문) + 「自動翻訳/자동 번역」 캡션으로 확정(읽는 사람 언어 우선).
+- **추가된 것**: 관리자 받은편지함 미리보기·대화 내 검색이 한국어 번역본도 활용(`fetchMessagePreviews` select 확장 + `searchAdminMsg` 필터 확장).
+- **빠진 것**: 과거 메시지 백필(운영 6월 피크 1,701건) — 새 메시지만 번역. 필요해지면 일회성 스크립트로 후속(사용량 여유 충분).
+
+### 구현 중 기술 결정 사항
+- **마이그레이션 235** (`235_message_translation.sql`): 컬럼 3개(`body_translated`/`translated_lang`/`translate_status`, 전부 NULL·DEFAULT 없음) + `get_application_messages` DROP 후 재정의(반환 3컬럼 추가, 144 로직 100% 보존, GRANT 재적용). 마스킹 행은 번역 3컬럼 모두 NULL(번역 존재 힌트 차단 — §의심 4).
+- **Edge Function `translate-message`**: 웹훅 전용(브라우저 직접 호출 0건 grep 확인 → CORS 불필요). Google v2 REST(자동 감지, 타임아웃 8초, 5000자 상한). 감지 언어=대상 언어면 skipped. 모든 실패는 `failed` 기록 후 200 반환(재시도 폭주 방지). 로그에 본문 미기록(개인정보).
+- 클라이언트: `messaging.js`/`admin-messaging.js` 렌더 병기(번역본도 `esc()` — XSS), i18n 키 2종(`messaging.translatedLabel`/`originalLabel`), CSS `.msg-trans-*`(mypage.css·admin.css).
+
+### 수동 설정 (개발/운영 각각 — 미완, 배포 단계에서 진행)
+1. Google Cloud 계정 + Translation API 키 발급 (사용자)
+2. `supabase secrets set GOOGLE_TRANSLATE_API_KEY=xxx --project-ref {ref}`
+3. `supabase functions deploy translate-message --project-ref {ref}`
+4. Dashboard → Database → Webhooks: `application_messages` INSERT → translate-message
+5. SQL Editor에서 마이그레이션 235 실행

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783670981';
+  var CURRENT_BUILD = 'v1783927084';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1701,6 +1701,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .msg-row.mine .msg-bubble{background:var(--light-pink)}
 .msg-bubble .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink);margin-bottom:4px}
 .msg-card-body{font-size:13px;line-height:1.6;color:var(--ink);word-break:break-word}
+/* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 일본어 원문은 아래 작은 글씨 */
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,#E5E5EA);font-size:11px;line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
+.msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
 .msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
 .msg-time{font-size:10px;color:var(--muted);white-space:nowrap}
@@ -2195,7 +2199,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-10 17:09 · dbbdcb3</span>
+          <span class="admin-build-text">2026-07-13 16:18 · ecbcc8c</span>
         </div>
       </div>
     </aside>
@@ -9793,7 +9797,7 @@ async function fetchMessagePreviews(applicationIds) {
   for (let i = 0; i < applicationIds.length; i += CHUNK) {
     const ids = applicationIds.slice(i, i + CHUNK);
     const {data, error} = await db?.from('application_messages')
-      .select('application_id, body, sender_kind, created_at')
+      .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
       .in('application_id', ids)
       .is('hidden_by_admin_at', null)
       .is('self_withdrawn_at', null)
@@ -18969,7 +18973,10 @@ function renderInboxThreadList() {
     let previewHtml = '';
     if (prev) {
       const who = prev.sender_kind === 'admin' ? '운영팀: ' : '';
-      const body = (prev.body || '').replace(/\s+/g, ' ').trim();
+      // 인플 발신 미리보기는 한국어 번역본 우선 (마이그레이션 235 자동 번역)
+      const prevSrc = (prev.sender_kind !== 'admin' && prev.translate_status === 'done' && prev.body_translated)
+        ? prev.body_translated : prev.body;
+      const body = (prevSrc || '').replace(/\s+/g, ' ').trim();
       previewHtml = `<span class="inbox-thread-preview">${esc(who + (body || '(이미지)'))}</span>`;
     }
     // 「내가 보낸 순」은 캠페인 무관 평면이라 카드에 캠페인명·브랜드 라벨 + 시각=본인 발신 시각
@@ -19373,7 +19380,18 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
       return lastViewedChip + msgCardMasked(senderLabel, timeStr, sideCls, '인플루언서가 회수한 메시지입니다.');
     }
 
-    const bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+    // 자동 번역 병기 (마이그레이션 235): 인플루언서 발신 메시지에 한국어 번역본이 있으면
+    // 번역문을 본문 위치에, 일본어 원문을 아래 작은 글씨로 병기. 번역본도 esc() 필수(XSS).
+    let bodyHtml;
+    if (!fromAdmin && msg.body_translated && msg.translate_status === 'done') {
+      const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
+      const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+      bodyHtml = `${transHtml}
+        <div class="msg-trans-orig"><span class="msg-trans-label">원문</span>${origHtml}</div>
+        <div class="msg-trans-caption">자동 번역</div>`;
+    } else {
+      bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+    }
     const atts = Array.isArray(msg.attachments) ? msg.attachments : [];
     let attachHtml = '';
     if (atts.length) {
@@ -19443,7 +19461,9 @@ function searchAdminMsg(query) {
   if (!_admMsgCurrentThreadId) return;
   const q = (query || '').trim().toLowerCase();
   const filtered = q
-    ? _admMsgCurrentMsgs.filter(m => (m.body || '').toLowerCase().includes(q))
+    ? _admMsgCurrentMsgs.filter(m =>
+        (m.body || '').toLowerCase().includes(q) ||
+        (m.body_translated || '').toLowerCase().includes(q))  // 한국어 번역본으로도 검색 (235)
     : _admMsgCurrentMsgs;
   renderAdminMsgThread(_admMsgCurrentThreadId, filtered, true);
 }
