@@ -5,6 +5,15 @@
 //          notify-brand-application 의 Webhook 패턴 미러링.
 //
 // 역할:
+//   0) 과다 발송 방지 게이트 2단 (마이그레이션 234, 2026-07-13)
+//        게이트1) last_submitted_at 이 old_record 와 동일하면 스킵
+//                — mark_orient_card_consumed(카드 발행) 는 status='submitted' 를
+//                  유지한 채 UPDATE 되므로 Row filter 를 재통과하지만 실제 제출이
+//                  아니므로 차단. 이 함수 자신의 last_notified_at UPDATE(6번)도
+//                  last_submitted_at 을 안 건드리므로 동일 게이트로 무한루프 차단.
+//        게이트2) 재제출(isFirst=false) 은 last_submitted_at - last_notified_at
+//                  < 30분이면 스킵(디바운스). 신규 제출은 게이트2 를 거치지 않고
+//                  항상 발송.
 //   1) Webhook 페이로드에서 신규/재제출 판정
 //        old_record.submitted_at IS NULL → 신규 제출
 //        IS NOT NULL                     → 수정 재제출
@@ -13,6 +22,8 @@
 //        get_subscribed_admin_emails('brand_notify') + env NOTIFY_ADMIN_EMAILS
 //   4) 관리자 1인 1통 분리 발송 (To 헤더 노출 차단)
 //   5) 메일 발송 실패는 부분 실패로 처리 (제출 자체와 분리 — best-effort)
+//   6) 1통 이상 발송 성공 시 orient_sheets.last_notified_at 을
+//        이번 제출 시각(record.last_submitted_at) 으로 갱신 (게이트2 기준 갱신)
 //
 // Dashboard Webhook 설정 (양 서버 모두 필요):
 //   Supabase Dashboard → Database → Webhooks → Create new Webhook
@@ -58,6 +69,7 @@ interface OrientSheetRecord {
   status: string;
   submitted_at: string | null;
   last_submitted_at: string | null;
+  last_notified_at: string | null;  // 마지막 알림 발송 시각 스냅샷 (마이그레이션 234)
   version: number;
   [key: string]: unknown;
 }
@@ -85,6 +97,17 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// 재제출 알림 디바운스 임계값 (게이트2, 마이그레이션 234)
+const NOTIFY_DEBOUNCE_MS = 30 * 60 * 1000;
+
+// 두 타임스탬프(ISO 문자열)가 같은 시각인지 비교. 둘 다 null/undefined 면 같음으로 취급.
+// 게이트1(실제 제출 여부 판정)에 사용 — 문자열 포맷 차이에 안전하도록 Date 파싱 후 비교.
+function tsEqual(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return new Date(a).getTime() === new Date(b).getTime();
 }
 
 // 제출 시각을 한국시간 문자열로 변환 (YYYY. MM. DD. HH:mm)
@@ -205,10 +228,47 @@ Deno.serve(async (req: Request) => {
     const record = payload.record;
     const oldRecord = payload.old_record;
 
+    // ── 게이트 1: 실제 제출(last_submitted_at 변경)이 아니면 스킵 ──────────────
+    //   - mark_orient_card_consumed(카드별 발행)는 status='submitted' 를 유지한 채
+    //     UPDATE 하므로 Row filter(status='submitted')를 재통과하지만 last_submitted_at
+    //     은 건드리지 않음 → 실제 제출이 아니므로 여기서 차단.
+    //   - 게이트2 통과 후 이 함수 자신이 last_notified_at 만 UPDATE 해도
+    //     last_submitted_at 은 불변이므로, 그 UPDATE 가 재트리거하는 웹훅도 여기서
+    //     즉시 스킵된다 (DB 조회·메일 발송 전에 걸러짐 — 무한루프 방지).
+    if (tsEqual(record.last_submitted_at, oldRecord?.last_submitted_at ?? null)) {
+      console.log(
+        "[notify-orient-submitted] skipped: last_submitted_at unchanged (not a real submission)",
+        { orient_sheet_id: record.id },
+      );
+      return new Response(JSON.stringify({ skipped: true, reason: "no_submission_change" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     // 신규/재제출 판정: old_record.submitted_at IS NULL → 신규
     const isFirst = !oldRecord?.submitted_at;
     const submitKind = isFirst ? "신규 제출" : "수정 재제출";
     console.log("[notify-orient-submitted] submit kind:", submitKind, { orient_sheet_id: record.id });
+
+    // ── 게이트 2: 재제출 30분 디바운스 (신규 제출은 항상 발송) ───────────────
+    //   last_notified_at 이 없으면(첫 알림 이력) 무조건 발송.
+    //   비교 기준은 now() 가 아니라 이번 제출 시각(record.last_submitted_at) —
+    //   웹훅 처리 지연이 있어도 디바운스 판정이 흔들리지 않는다.
+    if (!isFirst && record.last_notified_at && record.last_submitted_at) {
+      const diffMs =
+        new Date(record.last_submitted_at).getTime() - new Date(record.last_notified_at).getTime();
+      if (diffMs < NOTIFY_DEBOUNCE_MS) {
+        console.log("[notify-orient-submitted] skipped: debounced (< 30min since last notify)", {
+          orient_sheet_id: record.id,
+          diffMs,
+        });
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "debounced", diff_ms: diffMs }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+    }
 
     // DB 조회 (브랜드명·연결 신청 번호)
     const supaUrl = env("SUPABASE_URL");
@@ -292,6 +352,26 @@ Deno.serve(async (req: Request) => {
         console.error("[notify-orient-submitted] mail failed", email, msg);
         results.errors.push(`${email}: ${msg}`);
         results.failed++;
+      }
+    }
+
+    // 1통 이상 발송 성공 시 last_notified_at 갱신 (게이트2 디바운스 기준 갱신)
+    //   - WHERE 에 last_submitted_at 재확인 조건을 걸어, 이 UPDATE 실행 도중
+    //     새 재제출이 들어와 이 record 가 stale 해졌다면 그 새 제출의
+    //     last_notified_at 을 덮어쓰지 않도록 방어(완벽한 원자성은 아니지만
+    //     메일 디바운스 용도로는 충분 — 최악의 경우도 디바운스가 살짝 느슨해질 뿐).
+    //   - 실패해도 발송 자체는 이미 끝났으므로 전체 응답은 성공 처리.
+    if (results.sent > 0) {
+      const { error: notifyUpdateErr } = await sb
+        .from("orient_sheets")
+        .update({ last_notified_at: record.last_submitted_at })
+        .eq("id", record.id)
+        .eq("last_submitted_at", record.last_submitted_at);
+      if (notifyUpdateErr) {
+        console.error(
+          "[notify-orient-submitted] last_notified_at update failed",
+          notifyUpdateErr.message,
+        );
       }
     }
 

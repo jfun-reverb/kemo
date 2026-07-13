@@ -664,6 +664,8 @@ window.I18N_KO = {
     navMenu: '문의하기',
     notifTitle: '운영팀 답변',
     pendingNotice: '운영팀이 순차적으로 확인 후 회신드립니다. 답변까지 시간이 걸릴 수 있습니다.',
+    translatedLabel: '자동 번역',
+    originalLabel: '원문',
     // 응모건 메시지 — 상태 한 줄 (§3 매핑)
     statusLine: {
       goBtn: '화면 열기',

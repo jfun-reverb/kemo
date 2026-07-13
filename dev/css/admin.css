@@ -1243,6 +1243,10 @@
 .msg-row.mine .msg-bubble{background:var(--light-pink)}
 .msg-bubble .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink);margin-bottom:4px}
 .msg-card-body{font-size:13px;line-height:1.6;color:var(--ink);word-break:break-word}
+/* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 일본어 원문은 아래 작은 글씨 */
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,#E5E5EA);font-size:11px;line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
+.msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
 .msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
 .msg-time{font-size:10px;color:var(--muted);white-space:nowrap}
@@ -1642,3 +1646,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
 .perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
+
+/* ── 인플루언서 추천 명단(아웃바운드) 편집 모달 섹션 제목 ── */
+.outbound-form-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 18px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-form-section-title:first-child { margin-top: 0; }
+/* 대표 게시물 링크 행 (JS 렌더) */
+.ob-post-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ob-post-row .form-input { flex: 1; }
