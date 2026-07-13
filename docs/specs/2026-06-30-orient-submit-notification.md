@@ -240,3 +240,35 @@
 6. 운영 Secrets 확인 완료(BREVO 키·PUBLIC_ADMIN_URL·PUBLIC_SALES_URL 존재).
 - 저장소(main) 반영: 알림 파일만 핫픽스로 main 머지(보류 프론트 `admin-orient.js` 브랜드 검색 #638 등은 제외). 마이그 **204** 신규(cron 기록).
 - 남은 검증: 실제 브랜드 제출 1건 시 제출 알림 즉시 메일 + 익일 09:00 일일 보고 인박스 확인(운영 첫 실데이터 발생 시).
+
+---
+
+## 12. 후속 버그 수정 — 과다 발송 방지 게이트 (2026-07-13)
+
+**구현일:** 2026-07-13
+**관련 마이그레이션:** 234 (`orient_sheets.last_notified_at` 컬럼 추가)
+**관련 파일:** `supabase/functions/notify-orient-submitted/index.ts`
+
+### 배경 — 오발송 버그
+운영 중 「[수정 재제출]」 알림 메일이 과다 발송된다는 사용자 보고. 원인 진단:
+- 관리자 카드 부분 발행 `mark_orient_card_consumed`(마이그196)이 `orient_sheets`를 `status='submitted'` 유지한 채 `data`·`version`만 UPDATE.
+- 웹훅 Row filter가 `status='submitted'`뿐이라 이 부분 발행 UPDATE도 재통과 → 함수가 `record.status='submitted'` + `old.submitted_at` 존재로 판정해 **[수정 재제출] 메일 오발송**.
+- 빈도 = 다중 카드 시트의 (카드수-1)회 × 관리자 수. (전체 카드 발행 완료로 `status=consumed` 전이하는 마지막 이벤트만 Row filter에서 자연 제외됐음 → §11 「발행 consumed 전환 제외」 서술은 **최종 전이에만 참, 중간 부분 발행에는 거짓**이었던 게 버그의 정확한 원인.)
+
+### 사용자 결정
+재제출 실시간 메일은 유지하되 30분 간격 디바운스 적용(B안). 발행 오발송은 별도 게이트로 차단.
+
+### 수정 — 발송 게이트 2단
+- **게이트1(발행 오발송 + 무한루프 차단):** `record.last_submitted_at`이 `old_record`와 같으면 스킵. 부분 발행은 `last_submitted_at` 불변이라 차단. 이 함수 자신의 `last_notified_at` UPDATE도 `last_submitted_at`을 안 건드려 동일 게이트에서 재트리거가 걸러짐(무한루프 방지).
+- **게이트2(30분 디바운스):** 재제출은 `last_submitted_at - last_notified_at < 30분`이면 스킵. 신규 제출(`isFirst`)은 항상 발송. `last_notified_at` NULL(기존 행)은 무조건 발송.
+- **발송 후:** 1통 이상 성공 시 service_role로 `last_notified_at = record.last_submitted_at` UPDATE(`WHERE last_submitted_at` 재확인으로 stale 방어).
+
+### 알려진 한계 (허용)
+- 웹훅 초 단위 연속 재제출 시 이론적 이중 발송 여지(웹훅 순차 처리 전제가 깨지는 경우). 메일 디바운스 목적상 허용.
+- 웹훅 재전송(retry) 발생 시 재전송 페이로드의 stale `last_notified_at`으로 게이트2 재통과 가능. 웹훅 구조 자체 한계, best-effort로 허용.
+
+### 배포 (마이그레이션 자동화 불가 — 수동)
+1. 개발 SQL Editor: `234_orient_notify_debounce.sql` 실행
+2. `supabase functions deploy notify-orient-submitted --project-ref qysmxtipobomefudyixw`(개발)
+3. dev→main 배포 확정 후 운영 DB 234 실행 + `--project-ref nrwtujmlbktxjgdwlpjj` 함수 재배포
+4. 검증(운영): 다중 카드 시트 부분 발행 1회 → [수정 재제출] 메일 미도착 확인 / 신규 제출 → [신규 제출] 1통 도착 / 재제출 30분 내 2회 → 1통만
