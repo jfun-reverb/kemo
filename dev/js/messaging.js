@@ -198,7 +198,19 @@ function renderMessageThread(messages) {
     }
 
     // 본문: esc() 선적용 후 줄바꿈만 <br> 치환 — 다른 HTML 태그는 이스케이프되어 XSS 안전
-    const bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+    // 자동 번역 병기 (마이그레이션 235): 받은 메시지(운영팀 발신)에 번역본이 있으면
+    // 번역문을 본문 위치에, 원문(한국어)을 아래 작은 글씨로 병기 — 오역 시 원문 확인 경로 확보.
+    // 번역본도 외부 API 반환값이므로 esc() 필수. 번역 없으면(NULL/실패/과거 메시지) 원문만.
+    let bodyHtml;
+    if (!mine && msg.body_translated && msg.translate_status === 'done') {
+      const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
+      const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+      bodyHtml = `${transHtml}
+        <div class="msg-trans-orig"><span class="msg-trans-label">${esc(t('messaging.originalLabel'))}</span>${origHtml}</div>
+        <div class="msg-trans-caption">${esc(t('messaging.translatedLabel'))}</div>`;
+    } else {
+      bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+    }
 
     // 첨부 썸네일 (signed URL 비동기 로드)
     let attachHtml = '';

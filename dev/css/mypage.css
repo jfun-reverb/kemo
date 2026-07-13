@@ -71,6 +71,10 @@
 .msg-time{font-size:11px;color:var(--muted)}
 .msg-card-body{font-size:14px;line-height:1.6;color:var(--text);word-break:break-word}
 .msg-card-masked .msg-masked-body{font-size:13px;color:var(--muted);font-style:italic}
+/* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 원문은 아래 작은 글씨 */
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line,#E5E5EA);font-size:12px;line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--line,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
+.msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-withdraw-btn{margin-left:auto;border:none;background:transparent;color:var(--pink,#e84a7f);font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
 .msg-withdraw-btn:hover{background:rgba(232,74,127,.1)}
 .msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
