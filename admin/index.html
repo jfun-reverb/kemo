@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783927084';
+  var CURRENT_BUILD = 'v1783929955';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2199,7 +2199,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-13 16:18 · ecbcc8c</span>
+          <span class="admin-build-text">2026-07-13 17:05 · 5c0cec9</span>
         </div>
       </div>
     </aside>
@@ -19380,15 +19380,24 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
       return lastViewedChip + msgCardMasked(senderLabel, timeStr, sideCls, '인플루언서가 회수한 메시지입니다.');
     }
 
-    // 자동 번역 병기 (마이그레이션 235): 인플루언서 발신 메시지에 한국어 번역본이 있으면
-    // 번역문을 본문 위치에, 일본어 원문을 아래 작은 글씨로 병기. 번역본도 esc() 필수(XSS).
+    // 자동 번역 병기 (마이그레이션 235): 번역본도 esc() 필수(XSS).
+    //  - 인플루언서 발신: 한국어 번역문을 본문 위치에, 일본어 원문을 아래 작은 글씨로
+    //  - 운영팀 본인 발신: 한국어 원문 본문 + 인플에게 나간 일본어 번역을 아래 서브로
+    //    (운영팀이 실제 전달된 일본어를 검수할 수 있게 — 2026-07-13 사용자 요청)
     let bodyHtml;
-    if (!fromAdmin && msg.body_translated && msg.translate_status === 'done') {
+    const hasTrans = msg.body_translated && msg.translate_status === 'done';
+    if (!fromAdmin && hasTrans) {
       const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
       const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
       bodyHtml = `${transHtml}
         <div class="msg-trans-orig"><span class="msg-trans-label">원문</span>${origHtml}</div>
         <div class="msg-trans-caption">자동 번역</div>`;
+    } else if (fromAdmin && hasTrans) {
+      const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+      const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
+      bodyHtml = `${origHtml}
+        <div class="msg-trans-orig"><span class="msg-trans-label">일본어 번역(자동)</span>${transHtml}</div>
+        <div class="msg-trans-caption">인플루언서 화면에는 위 일본어가 본문으로 표시됩니다</div>`;
     } else {
       bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
     }
