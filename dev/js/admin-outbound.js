@@ -174,7 +174,7 @@ function renderOutboundList() {
     rows,
     renderRow: renderOutboundRow,
     pageSize: OUTBOUND_PAGE_SIZE,
-    emptyHtml: `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
+    emptyHtml: `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
   });
 }
 
@@ -192,9 +192,6 @@ function renderOutboundRow(o) {
   }
 
   const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
-  const accountCell = o.account_id
-    ? `<span style="font-size:12px">${esc(o.account_id)}</span>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
   const agencyCell = o.agency
     ? `<span style="font-size:12px">${esc(o.agency)}</span>`
@@ -203,7 +200,6 @@ function renderOutboundRow(o) {
   return `<tr>
     <td>${thumbCell}</td>
     <td>${nameCell}</td>
-    <td>${accountCell}</td>
     <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
     <td style="font-size:12px">${esc(outboundCategoryLabel(o.category_code))}</td>
     <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
@@ -220,12 +216,19 @@ function outboundFollowersDisplay(v) {
   return Number(v).toLocaleString() + '명';
 }
 
-// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(작게), 없으면(미보유) —
+// 채널 key(ig) → snsProfileUrl 채널명(instagram) 매핑. 나머지는 동일.
+const OUTBOUND_CH_SNS = { ig: 'instagram', tiktok: 'tiktok', youtube: 'youtube', x: 'x' };
+
+// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
 function outboundChannelFollowersCell(o, ch) {
   const handle = o[ch.handleCol];
   if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
+  const handleHtml = url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--pink);text-decoration:none">@${esc(handle)}</a>`
+    : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
   return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
-    + `<div style="font-size:10px;color:var(--muted)">@${esc(handle)}</div>`;
+    + `<div>${handleHtml}</div>`;
 }
 
 // 4채널 팔로워 <td> 4칸 (명단·추천 결과 공용, OUTBOUND_CHANNELS 순서 = ig·tiktok·youtube·x)
