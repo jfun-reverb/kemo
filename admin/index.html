@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784010575';
+  var CURRENT_BUILD = 'v1784016559';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2173,6 +2173,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 화면 이동 드롭다운 — 사이드바 접힘(56px) 시 숨김(native select가 width:0로 눌려 조작 불가 방지) */
 .admin-layout.collapsed #adminScreenSwitcher { display: none; }
 
+/* 등급 열 헤더 도움말 「?」 아이콘 (아웃바운드 명단·조건 추천) */
+.tier-help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--muted, #7A6B78); color: #fff;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  vertical-align: middle; margin-left: 2px; user-select: none;
+}
+.tier-help-icon:hover { background: var(--ink, #1E1320); }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2256,7 +2266,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 15:29 · efa912d</span>
+          <span class="admin-build-text">2026-07-14 17:09 · 9d00c74</span>
         </div>
       </div>
     </aside>
@@ -3552,7 +3562,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:140px">이름</th>
                   <th style="width:90px">계열</th>
                   <th style="width:90px">세분</th>
-                  <th style="width:120px">등급</th>
+                  <th style="width:120px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
                   <th style="width:100px">Instagram</th>
                   <th style="width:100px">TikTok</th>
                   <th style="width:100px">YouTube</th>
@@ -3578,7 +3588,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:70px">적합도</th>
                   <th style="width:140px">이름</th>
                   <th style="width:80px">계열</th>
-                  <th style="width:110px">등급</th>
+                  <th style="width:110px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
                   <th style="width:100px">Instagram</th>
                   <th style="width:100px">TikTok</th>
                   <th style="width:100px">YouTube</th>
@@ -5606,6 +5616,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
     </div>
   </div>
+</div>
+
+<!-- 등급 열 헤더 「?」 도움말 팝오버 (admin-outbound.js toggleTierHelp, fixed 배치) -->
+<div id="tierHelpPop" style="display:none;position:fixed;z-index:9999;background:#333;color:#fff;font-size:11px;padding:8px 12px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.25);max-width:300px">
+  <div style="font-weight:600;margin-bottom:3px">등급 기준 (팔로워)</div>
+  <div class="tier-help-body"></div>
 </div>
 
 <!-- 인플루언서 추천 명단 등록·편집 모달 (admin-outbound.js) -->
@@ -10582,6 +10598,39 @@ async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
   });
 }
 
+// 오리엔시트 카드 1개를 "신규 캠페인 생성"이 아니라 관리자가 이미 만들어둔
+// 기존 캠페인과 연결(발행 처리). 마이그레이션 237.
+// 서버가 브랜드 일치·전역 중복(다른 시트/카드에서 이미 이 캠페인을 쓰는지) 검증.
+// 반환 reason: not_found/permission_denied/invalid_status/invalid_card/
+//   already_published/campaign_not_found/brand_mismatch/campaign_already_linked
+async function linkOrientCardToCampaign(orientId, cardIdx, campaignId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('link_orient_card_to_campaign', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 카드 1개의 캠페인 연결 해제(되돌리기). 마이그레이션 238.
+// 196·237 어느 경로로 연결됐든 대칭 동작. 캠페인 행 자체는 삭제·수정하지 않음.
+// 반환 reason: not_found/permission_denied/invalid_card/not_linked
+async function unlinkOrientCard(orientId, cardIdx) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('unlink_orient_card', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
 async function fetchOrientSheets() {
   if (!db) return [];
@@ -12656,7 +12705,7 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
   // 오리엔시트 (동적 생성 — ensureOrientModals 가 initDraggableModals 재호출로 옵저버 부착)
-  'orientDetailModal', 'orientCreateModal',
+  'orientDetailModal', 'orientCreateModal', 'orientPublishModal',
   // 메시지
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
@@ -12808,6 +12857,7 @@ let _osLastIssuedBrandId = null;  // 방금 발급한 시트의 브랜드 id(수
 let _osBrandContacts = [];        // 발급 브랜드의 담당자 배열(드롭다운 소스)
 let _osPendingContact = null;     // 발송 성공 후 저장 대기 중인 신규 담당자 {email, name}
 let _osMailSentTo = null;         // 이 시트에 이미 메일 발송한 수신 이메일(있으면 같은 수신자엔 버튼 비활성)
+let _osPublishCardIdx = null;     // 「이 카드로 발행」 진입 시 대상 카드 인덱스(발행 방식 선택 모달에서 재사용)
 
 const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
 const OS_TYPE_CHIP = {
@@ -13603,7 +13653,11 @@ function osCardPublishControl(c, idx, readonly) {
   if (readonly) return '';   // 새창(읽기 전용)에서는 발행 버튼 숨김
   const s = _osDetailSheet;
   if (c && c.campaign_id) {
-    return '<span style="flex-shrink:0;display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>';
+    // 발행됨 배지 + 「연결 해제」(캠페인 행은 그대로, 카드 연결만 되돌림)
+    return '<span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'
+      + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>'
+      + `<button type="button" class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="osUnlinkCard(${idx})">연결 해제</button>`
+      + '</span>';
   }
   if (s && s.status === 'submitted') {
     if (!c || !c.form_type) return '<span style="flex-shrink:0;color:var(--muted);font-size:11px">형식 미선택</span>';
@@ -13634,10 +13688,10 @@ function osImagesInline(images) {
   return osFieldRow('예시 이미지·자료', inner, true);
 }
 
-// ── 카드 → 캠페인 발행 (자동 채움) ──
-// 상세 모달 카드 「이 카드로 발행」 → 캠페인 등록 폼에 prefill + 발행 컨텍스트 주입.
-// 일본어 게이트·발행 소비(markOrientCardConsumed)는 addCampaign 이 컨텍스트를 보고 처리.
-async function osPublishCard(cardIdx) {
+// ── 카드 → 캠페인 발행 방식 선택 ──
+// 상세 모달 카드 「이 카드로 발행」 → 발행 방식 선택 모달(신규 발행 / 기존 캠페인 연결)을 연다.
+// 검증(제출됨·형식 선택·미발행)은 여기서 1차, 실제 발행/연결 서버 RPC 가 최종 검증.
+function osPublishCard(cardIdx) {
   const s = _osDetailSheet;
   if (!s) return;
   if (s.status !== 'submitted') { toast('제출된 오리엔시트만 발행할 수 있습니다.'); return; }
@@ -13646,12 +13700,191 @@ async function osPublishCard(cardIdx) {
   if (!card) return;
   if (card.campaign_id) { toast('이미 발행된 카드입니다.'); return; }
   if (!card.form_type) { toast('형식이 선택되지 않은 카드는 발행할 수 없습니다.'); return; }
+  _osPublishCardIdx = cardIdx;
+  // 선택 화면을 기본으로(목록 화면은 숨김) 리셋 후 모달 오픈. 상세 모달은 뒤에 그대로 둔다.
+  ensureOrientModals();
+  const choice = document.getElementById('osPublishChoice');
+  const listView = document.getElementById('osLinkListView');
+  if (choice) choice.style.display = '';
+  if (listView) listView.style.display = 'none';
+  document.getElementById('orientPublishModal').classList.add('open');
+}
+
+// 발행 방식 ① 신규 캠페인 발행 — 기존 자동 채움 흐름(applyOrientCardPrefill)
+async function osChooseNewPublish() {
+  const s = _osDetailSheet;
+  if (!s || _osPublishCardIdx == null) return;
+  const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  const card = cards[_osPublishCardIdx];
+  if (!card) return;
+  osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
   try {
-    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, cardIdx);
+    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, _osPublishCardIdx);
   } catch (e) {
-    console.error('[osPublishCard]', e);
+    console.error('[osChooseNewPublish]', e);
     toast('자동 채움 중 오류가 발생했습니다. 폼을 직접 확인해 주세요.');
+  }
+}
+
+// 발행 방식 ② 기존 캠페인 연결 — 같은 모달 안에서 캠페인 목록 화면으로 전환
+async function osChooseLinkExisting() {
+  const choice = document.getElementById('osPublishChoice');
+  const listView = document.getElementById('osLinkListView');
+  if (choice) choice.style.display = 'none';
+  if (listView) listView.style.display = '';
+  const search = document.getElementById('osLinkSearch');
+  if (search) search.value = '';
+  const body = document.getElementById('osLinkListBody');
+  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">불러오는 중…</div>';
+  // #orient-sheets 딥링크·새로고침 시 allCampaigns 미로드 대비 폴백 (admin-applications.js 패턴).
+  // 미로드면 목록이 텅 비어 관리자가 "신규 발행"으로 오인, 중복 캠페인을 만들 수 있어 필수.
+  if (!Array.isArray(allCampaigns) || allCampaigns.length === 0) {
+    try { allCampaigns = await fetchCampaigns(); } catch (e) { console.error('[osChooseLinkExisting]', e); }
+  }
+  osRenderLinkList('');
+  if (search) search.focus();
+}
+
+// 목록 화면 → 선택 화면 복귀
+function osBackToPublishChoice() {
+  const choice = document.getElementById('osPublishChoice');
+  const listView = document.getElementById('osLinkListView');
+  if (choice) choice.style.display = '';
+  if (listView) listView.style.display = 'none';
+}
+
+// 검색 입력 → 목록 재렌더
+function osLinkListSearch() {
+  const q = (document.getElementById('osLinkSearch')?.value || '').trim().toLowerCase();
+  osRenderLinkList(q);
+}
+
+// 캠페인 상태 배지 — shared.js 공용 헬퍼 재사용(closed→submission_end 경과 시 종료 자동 반영).
+function osCampStatusBadge(c) {
+  const key = (typeof campaignStatusLabelKey === 'function') ? campaignStatusLabelKey(c) : (c && c.status);
+  const cls = (typeof CAMPAIGN_STATUS_BADGE_CLASS !== 'undefined' && CAMPAIGN_STATUS_BADGE_CLASS[key]) || 'badge-gray';
+  const label = (typeof CAMPAIGN_STATUS_LABEL !== 'undefined' && CAMPAIGN_STATUS_LABEL[key]) || (c && c.status) || '-';
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+// 이미 어떤 시트/카드에 연결된 캠페인 id 집합 (전 시트의 카드 campaign_id + 시트 컬럼 campaign_id)
+function osLinkedCampaignIds() {
+  const set = new Set();
+  (_orientSheets || []).forEach(s => {
+    if (s && s.campaign_id) set.add(s.campaign_id);
+    const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+    cards.forEach(c => { if (c && c.campaign_id) set.add(c.campaign_id); });
+  });
+  return set;
+}
+
+// 기존 캠페인 목록 렌더 — 같은 브랜드 + 미연결 캠페인만. q 로 캠페인명·번호 부분일치 필터.
+function osRenderLinkList(q) {
+  const body = document.getElementById('osLinkListBody');
+  if (!body) return;
+  const s = _osDetailSheet;
+  const brandId = s && s.brand_id;
+  const all = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns : [];
+  const linked = osLinkedCampaignIds();
+  let list = all.filter(c => c && c.brand_id === brandId && !linked.has(c.id));
+  if (q) {
+    list = list.filter(c => {
+      const hay = [c.title, c.product_ko, c.product, c.campaign_no].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  if (!list.length) {
+    body.innerHTML = q
+      ? '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">검색 결과가 없습니다.</div>'
+      : '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">이 브랜드에 연결 가능한 캠페인이 없습니다. 신규 발행을 이용하세요.</div>';
+    return;
+  }
+  body.innerHTML = list.map(c => {
+    const name = esc(c.product_ko || c.product || c.title || '(제목 없음)');
+    const no = c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(c.campaign_no)}</span>` : '';
+    const period = osRange(c.recruit_start, c.deadline);
+    const periodHtml = period ? `<span style="font-size:11px;color:var(--muted)">${esc(period)}</span>` : '';
+    return `<button type="button" class="os-link-camp-row" onclick="osConfirmLink('${c.id}')"
+      style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="color:var(--ink);font-size:13px">${name}</strong>${osCampStatusBadge(c)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${no}${periodHtml}</div>
+    </button>`;
+  }).join('');
+}
+
+// 연결 실행 — 확인 후 link_orient_card_to_campaign RPC 호출, reason 분기 안내.
+async function osConfirmLink(campaignId) {
+  const s = _osDetailSheet;
+  if (!s || _osPublishCardIdx == null || !campaignId) return;
+  const ok = (typeof showConfirm === 'function')
+    ? await showConfirm('이 캠페인을 카드에 연결(발행 처리)할까요? 되돌리려면 연결 해제를 쓰세요.')
+    : confirm('이 캠페인을 카드에 연결(발행 처리)할까요? 되돌리려면 연결 해제를 쓰세요.');
+  if (!ok) return;
+  let res;
+  try {
+    res = await linkOrientCardToCampaign(s.id, _osPublishCardIdx, campaignId);
+  } catch (e) {
+    console.error('[osConfirmLink]', e);
+    toast('연결 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  if (!res || !res.success) {
+    toast(osLinkFailMsg(res && res.reason));
+    return;
+  }
+  toast('연결(발행)되었습니다.');
+  osCloseModal('orientPublishModal');
+  osCloseModal('orientDetailModal');
+  await refreshPane('orient-sheets');
+}
+
+// 연결 해제 — 발행됨 카드의 캠페인 연결을 되돌림(캠페인 행은 삭제 안 함).
+async function osUnlinkCard(cardIdx) {
+  const s = _osDetailSheet;
+  if (!s) return;
+  const ok = (typeof showConfirm === 'function')
+    ? await showConfirm('이 카드의 캠페인 연결을 해제할까요? (캠페인 자체는 삭제되지 않습니다)')
+    : confirm('이 카드의 캠페인 연결을 해제할까요? (캠페인 자체는 삭제되지 않습니다)');
+  if (!ok) return;
+  let res;
+  try {
+    res = await unlinkOrientCard(s.id, cardIdx);
+  } catch (e) {
+    console.error('[osUnlinkCard]', e);
+    toast('연결 해제 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  if (!res || !res.success) {
+    toast(osUnlinkFailMsg(res && res.reason));
+    return;
+  }
+  toast('연결을 해제했습니다.');
+  osCloseModal('orientDetailModal');
+  await refreshPane('orient-sheets');
+}
+
+// 연결/해제 실패 reason → 사용자 안내 문구
+function osLinkFailMsg(reason) {
+  switch (reason) {
+    case 'brand_mismatch':           return '브랜드가 일치하지 않습니다.';
+    case 'campaign_already_linked':  return '이미 다른 카드/시트에 연결된 캠페인입니다.';
+    case 'already_published':        return '이미 발행된 카드입니다.';
+    case 'invalid_status':           return '제출된 오리엔시트만 발행할 수 있습니다.';
+    case 'invalid_card':             return '카드를 찾을 수 없습니다.';
+    case 'campaign_not_found':       return '캠페인을 찾을 수 없습니다.';
+    case 'permission_denied':        return '권한이 없습니다.';
+    case 'not_found':                return '오리엔시트를 찾을 수 없습니다.';
+    default:                         return '연결하지 못했습니다.';
+  }
+}
+function osUnlinkFailMsg(reason) {
+  switch (reason) {
+    case 'not_linked':        return '이미 연결이 해제된 카드입니다.';
+    case 'invalid_card':      return '카드를 찾을 수 없습니다.';
+    case 'permission_denied': return '권한이 없습니다.';
+    case 'not_found':         return '오리엔시트를 찾을 수 없습니다.';
+    default:                  return '연결을 해제하지 못했습니다.';
   }
 }
 
@@ -13858,6 +14091,33 @@ function ensureOrientModals() {
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDeleteModal')">취소</button>
         <button type="button" class="btn" id="osDeleteBtn" style="background:#C41E3A;color:#fff" onclick="osExecuteDelete()" disabled>삭제</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="orientPublishModal">
+    <div class="modal" style="max-width:520px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>발행 방식</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseModal('orientPublishModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
+        <div id="osPublishChoice">
+          <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">이 카드를 어떻게 발행할까요?</p>
+          <button type="button" onclick="osChooseNewPublish()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#E8344E)">add_circle</span>신규 캠페인 발행</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:26px">오리엔시트 내용으로 캠페인 등록 폼을 자동 채워 새 캠페인을 만듭니다.</div>
+          </button>
+          <button type="button" onclick="osChooseLinkExisting()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:#1D4ED8">link</span>기존 캠페인 연결</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:26px">이미 등록된 같은 브랜드의 캠페인을 이 카드에 연결(발행 처리)합니다.</div>
+          </button>
+        </div>
+        <div id="osLinkListView" style="display:none">
+          <button type="button" class="btn btn-ghost btn-xs" onclick="osBackToPublishChoice()" style="margin-bottom:10px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">arrow_back</span> 선택으로 돌아가기</button>
+          <input type="text" id="osLinkSearch" class="form-input" placeholder="캠페인명·번호 검색" autocomplete="off" oninput="osLinkListSearch()" style="margin-bottom:12px">
+          <div id="osLinkListBody"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientPublishModal')">닫기</button>
       </div>
     </div>
   </div>`;
@@ -30365,7 +30625,40 @@ async function reloadOutboundData() {
 
 function outboundSeriesLabel(code) { return code ? (_obSeriesMap[code] || code) : '—'; }
 function outboundCategoryLabel(code) { return code ? (_obCategoryMap[code] || code) : '—'; }
-function outboundTierLabel(code) { return code ? (_obTierMap[code] || code) : '—'; }
+// 등급 표시 — 팔로워 기준 괄호는 떼고 이름만(마이크로/미들/메가). 기준은 등급 열 헤더 도움말(?)로 안내.
+function outboundTierLabel(code) {
+  if (!code) return '—';
+  var nm = _obTierMap[code] || code;
+  return String(nm).replace(/\s*\(.*$/, '').trim();
+}
+
+// 등급 기준 도움말 항목 — lookup 원본 name_ko(괄호 포함)를 그대로 사용(시트 기준 바뀌면 자동 반영).
+function tierHelpItems() {
+  if (_obTier && _obTier.length) return _obTier.map(function(r){ return r.name_ko; });
+  return ['마이크로 (1만~5만)', '미들 (5만~30만)', '메가 (30만~)'];
+}
+
+// 등급 열 헤더 「?」 클릭 — 아이콘 아래에 기준 팝오버 토글(fixed 배치라 테이블 overflow 무관).
+function toggleTierHelp(icon) {
+  var pop = document.getElementById('tierHelpPop');
+  if (!pop) return;
+  if (pop.style.display === 'block' && pop._anchor === icon) { pop.style.display = 'none'; pop._anchor = null; return; }
+  var body = pop.querySelector('.tier-help-body');
+  if (body) body.innerHTML = tierHelpItems().map(function(t){ return '<div>· ' + esc(t) + '</div>'; }).join('');
+  var r = icon.getBoundingClientRect();
+  pop.style.left = Math.round(r.left) + 'px';
+  pop.style.top = Math.round(r.bottom + 6) + 'px';
+  pop.style.display = 'block';
+  pop._anchor = icon;
+}
+
+// 외부 클릭 시 등급 도움말 팝오버 닫기 (아이콘 자신 클릭은 toggle 이 처리)
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('tierHelpPop');
+  if (pop && pop.style.display === 'block' && !(e.target && e.target.classList && e.target.classList.contains('tier-help-icon'))) {
+    pop.style.display = 'none'; pop._anchor = null;
+  }
+});
 
 function outboundAvailBadge(status) {
   const meta = OUTBOUND_AVAIL_META[status] || { ko: status || '—', cls: 'badge-gray' };
@@ -30875,7 +31168,7 @@ async function exportOutboundExcel() {
       ws.addRow({
         name: o.name_ko || '', account: o.account_id || '',
         series: outboundSeriesLabel(o.series_code), category: outboundCategoryLabel(o.category_code),
-        tier: outboundTierLabel(o.tier_code),
+        tier: (o.tier_code ? (_obTierMap[o.tier_code] || o.tier_code) : ''),   // 엑셀은 기준 포함 원본(오프라인이라 도움말 팝오버 접근 불가)
         ig: o.ig_handle || '', igf: o.ig_followers == null ? '' : o.ig_followers,
         tt: o.tiktok_handle || '', ttf: o.tiktok_followers == null ? '' : o.tiktok_followers,
         yt: o.youtube_handle || '', ytf: o.youtube_followers == null ? '' : o.youtube_followers,
