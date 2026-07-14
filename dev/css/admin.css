@@ -1711,3 +1711,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   border-top: 1px dashed var(--line);
   border-bottom: 1px dashed var(--line);
 }
+
+/* 화면 이동 드롭다운 — 사이드바 접힘(56px) 시 숨김(native select가 width:0로 눌려 조작 불가 방지) */
+.admin-layout.collapsed #adminScreenSwitcher { display: none; }

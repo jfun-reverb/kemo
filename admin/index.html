@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784001444';
+  var CURRENT_BUILD = 'v1784010575';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2170,6 +2170,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   border-bottom: 1px dashed var(--line);
 }
 
+/* 화면 이동 드롭다운 — 사이드바 접힘(56px) 시 숨김(native select가 width:0로 눌려 조작 불가 방지) */
+.admin-layout.collapsed #adminScreenSwitcher { display: none; }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2208,6 +2211,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </span>
       </div>
       <div class="admin-side-scroll">
+        <!-- 화면 이동 드롭다운 (패밀리 사이트 셀렉터형) — 로고 바로 밑. 전체 관리자 / 아웃바운드 전용 / 인플루언서 화면 -->
+        <div class="admin-si" id="adminScreenSwitcher" style="cursor:default;padding:12px 16px 8px">
+          <select id="adminScreenSelect" onchange="switchAdminScreen(this.value)" style="width:100%;font-size:12px;background:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:7px 8px;color:#1E1320;cursor:pointer">
+            <option value="full">전체 관리자 화면</option>
+            <option value="outbound">인플루언서 추천 명단</option>
+            <option value="influencer">인플루언서 화면</option>
+          </select>
+        </div>
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
@@ -2228,7 +2239,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none">0</span></div>
-        <div class="admin-si" data-pane="outbound" onclick="navAdminPaneReload('outbound')"><span class="si-icon material-icons-round notranslate" translate="no">contact_page</span><span class="si-text">인플루언서 추천 명단</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
@@ -2239,10 +2249,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
         </div>
-        <div class="admin-si" onclick="window.location.href='/'">
-          <span class="si-icon material-icons-round" style="font-size:18px">open_in_new</span>
-          <span class="si-text" style="font-size:12px">인플루언서 화면</span>
-        </div>
         <div class="admin-si" onclick="adminLogout()">
           <span class="si-icon material-icons-round" style="font-size:18px">logout</span>
           <span class="si-text" style="font-size:12px">로그아웃</span>
@@ -2250,7 +2256,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 12:57 · 6a36eb9</span>
+          <span class="admin-build-text">2026-07-14 15:29 · efa912d</span>
         </div>
       </div>
     </aside>
@@ -5649,15 +5655,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       </div>
 
       <!-- 채널 -->
-      <div class="outbound-form-section-title">채널 (핸들 · 팔로워)</div>
+      <div class="outbound-form-section-title">채널 (아이디 · 팔로워)</div>
       <div style="display:grid;grid-template-columns:1fr 130px;gap:8px 14px;align-items:end">
-        <div class="form-group"><label class="form-label">Instagram 핸들</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">Instagram 아이디</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obIgFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">TikTok 핸들</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">TikTok 아이디</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obTiktokFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">YouTube 핸들</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">YouTube 아이디</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">구독자</label><input type="text" id="obYoutubeFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">X 핸들</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">X 아이디</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obXFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
       </div>
 
@@ -30844,13 +30850,13 @@ async function exportOutboundExcel() {
       { header: '계열',      key: 'series',  width: 10 },
       { header: '세분',      key: 'category',width: 10 },
       { header: '등급',      key: 'tier',    width: 16 },
-      { header: 'IG핸들',    key: 'ig',      width: 16 },
+      { header: 'IG아이디',    key: 'ig',      width: 16 },
       { header: 'IG팔로워',  key: 'igf',     width: 12 },
-      { header: 'TikTok핸들',key: 'tt',      width: 16 },
+      { header: 'TikTok아이디',key: 'tt',      width: 16 },
       { header: 'TikTok팔로워',key: 'ttf',   width: 12 },
-      { header: 'YouTube핸들',key: 'yt',     width: 16 },
+      { header: 'YouTube아이디',key: 'yt',     width: 16 },
       { header: 'YouTube구독',key: 'ytf',    width: 12 },
-      { header: 'X핸들',     key: 'x',       width: 16 },
+      { header: 'X아이디',     key: 'x',       width: 16 },
       { header: 'X팔로워',   key: 'xf',      width: 12 },
       { header: '피드(¥)',   key: 'pfeed',   width: 12 },
       { header: '릴스(¥)',   key: 'preels',  width: 12 },
@@ -34890,6 +34896,53 @@ function toggleAdminSidebar() {
   icon.textContent = layout.classList.contains('collapsed') ? 'menu_open' : 'menu';
 }
 
+// ── 아웃바운드 전용 모드 (?app=outbound) ──────────────────────────────
+// 같은 관리자 앱·같은 로그인이지만 별도 입구 URL(globalreverb.com/admin/?app=outbound).
+// 이 모드에선 사이드바를 아웃바운드 관련 항목만 남기고 나머지·그룹 라벨을 숨겨,
+// 영업팀이 REVERB 운영 메뉴와 덜 섞인 화면으로 진입한다. 기존 관리자가 두 모드를 오감
+// (복귀 링크로 전환). 보안 경계 아님 — 데이터는 outbound.view RLS 가 서버 강제.
+window._adminAppMode = (new URLSearchParams(location.search).get('app') === 'outbound') ? 'outbound' : null;
+
+// 모드 UI 적용: 아웃바운드·내계정 외 사이드바 항목 + 그룹 라벨 숨김 + 복귀 링크 노출.
+// 권한 없는(menu.outbound hidden = campaign_manager) 사용자는 모드 해제(빈 화면 함정 방지).
+function applyOutboundModeUI() {
+  if (window._adminAppMode !== 'outbound') return;
+  if (typeof isHidden === 'function' && isHidden('menu.outbound')) {
+    // 권한 없음(campaign_manager) — 모드 해제 + 이미 적용됐을 필터·페인 복원.
+    // (DOMContentLoaded 가 권한 로드 전 fail-open 으로 모드를 켜놨을 수 있음)
+    // ⚠️ 개별 .admin-si[data-pane] 항목은 여기서 복원하지 않는다 — 이 함수는 반드시 init()에서
+    //   applyLookupMenuVisibility() 뒤에 호출돼(app.js init 순서), 개별 항목은 이미 권한 기준으로
+    //   설정된 상태다. 여기서 다 보이게 하면 오히려 hidden 항목(정산 등)이 노출된다. 두 호출 순서 유지 필수.
+    window._adminAppMode = null;
+    document.querySelectorAll('.admin-si-lbl').forEach(function(l){ l.style.display = ''; });
+    // outbound 페인이 이미 활성화됐으면 대시보드로 명시 이동(빈 화면 함정 방지).
+    // switchAdminPane 이 있으면(init 단계) 여기서 처리하고 부트 페인 진입을 스킵시킴.
+    if (typeof switchAdminPane === 'function') {
+      switchAdminPane('dashboard', null, false);
+      window._bootPaneHandled = true;
+    }
+    return;
+  }
+  document.querySelectorAll('.admin-si-lbl').forEach(function(l){ l.style.display = 'none'; });
+  document.querySelectorAll('.admin-si[data-pane]').forEach(function(si){
+    var p = si.dataset.pane;
+    if (p !== 'outbound' && p !== 'my-account') si.style.display = 'none';
+  });
+}
+
+// 화면 이동 드롭다운 — 전체 관리자 / 아웃바운드 전용(?app=outbound) / 인플루언서 화면 전환.
+function switchAdminScreen(target) {
+  if (target === 'outbound') window.location.href = location.pathname + '?app=outbound';
+  else if (target === 'influencer') window.location.href = '/';
+  else window.location.href = location.pathname;   // full: 쿼리 제거하고 전체 관리자
+}
+
+// 드롭다운 현재값을 실제 화면 상태에 맞춤 (아웃바운드 전용 모드면 그 항목 선택).
+function setAdminScreenSelect() {
+  var sel = document.getElementById('adminScreenSelect');
+  if (sel) sel.value = (window._adminAppMode === 'outbound') ? 'outbound' : 'full';
+}
+
 // 사이드바 메뉴 클릭 — SPA 페인 전환 (전체 페이지 reload 제거).
 // switchAdminPane이 페인별 loader를 호출해 fresh load 보장하므로 stale 이슈 없음.
 // 같은 페인 재클릭 시엔 loader만 다시 호출해 강제 갱신.
@@ -34946,6 +34999,8 @@ async function init() {
       try { setRolePermMap(await fetchRolePermissions()); } catch (_) { /* fail-open */ }
     }
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+    applyOutboundModeUI();   // 아웃바운드 전용 모드면 권한 기준 노출 위에 사이드바 필터 덮어씀
+    setAdminScreenSelect();  // 화면 이동 드롭다운 현재값 반영(모드 확정 후)
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 
     // 세션 만료/갱신 감지
@@ -34982,7 +35037,11 @@ async function init() {
     //  - 그 외 페인: 각 페인 loader 가 자기 데이터를 스스로 fetch → 무거운 3종 스킵
     //    (allCampaigns 는 shared.js 에서 []로 초기화. 캠페인 페인은 loadAdminCampaigns 가 lite 로 채움)
     var hash = location.hash.replace('#','');
-    if (hash && hash !== 'dashboard') {
+    // 아웃바운드 전용 모드는 진입 화면이 없으면(또는 dashboard면) 아웃바운드로 직행
+    if (window._adminAppMode === 'outbound' && (!hash || hash === 'dashboard')) hash = 'outbound';
+    if (window._bootPaneHandled) {
+      // applyOutboundModeUI 가 권한 없는 모드 진입을 대시보드로 이미 전환·로드함 → 중복 스킵
+    } else if (hash && hash !== 'dashboard') {
       await Promise.resolve(switchAdminPane(hash, null, false));
     } else {
       history.replaceState({pane:'dashboard'}, '', '#dashboard');
@@ -35015,7 +35074,7 @@ document.addEventListener('DOMContentLoaded', function() {
   try { if (typeof setupBrandAppDateRange === 'function') setupBrandAppDateRange(); } catch(e) {}
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
-  var initHash = location.hash.replace('#','') || 'dashboard';
+  var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
@@ -35029,6 +35088,10 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.admin-si').forEach(function(s) {
     if (s.dataset.pane === sidePane) s.classList.add('on');
   });
+  // 아웃바운드 전용 모드면 cloak 제거 전 사이드바 필터 적용 (초기 깜빡임 방지).
+  // 권한 기준 최종 판정(campaign_manager 해제)은 init()의 applyLookupMenuVisibility 뒤 재호출.
+  applyOutboundModeUI();
+  setAdminScreenSelect();
   // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();
