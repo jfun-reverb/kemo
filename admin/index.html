@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783994519';
+  var CURRENT_BUILD = 'v1783995872';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2250,7 +2250,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 11:01 · 1180dee</span>
+          <span class="admin-build-text">2026-07-14 11:24 · 23dd4e9</span>
         </div>
       </div>
     </aside>
@@ -3544,7 +3544,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <thead><tr>
                   <th style="width:56px">대표</th>
                   <th style="width:140px">이름</th>
-                  <th style="width:140px">계정</th>
                   <th style="width:90px">계열</th>
                   <th style="width:90px">세분</th>
                   <th style="width:120px">등급</th>
@@ -3556,7 +3555,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:130px">소속사</th>
                   <th style="width:90px">처리</th>
                 </tr></thead>
-                <tbody id="outboundTableBody"><tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -30449,7 +30448,7 @@ function renderOutboundList() {
     rows,
     renderRow: renderOutboundRow,
     pageSize: OUTBOUND_PAGE_SIZE,
-    emptyHtml: `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
+    emptyHtml: `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
   });
 }
 
@@ -30467,9 +30466,6 @@ function renderOutboundRow(o) {
   }
 
   const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
-  const accountCell = o.account_id
-    ? `<span style="font-size:12px">${esc(o.account_id)}</span>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
   const agencyCell = o.agency
     ? `<span style="font-size:12px">${esc(o.agency)}</span>`
@@ -30478,7 +30474,6 @@ function renderOutboundRow(o) {
   return `<tr>
     <td>${thumbCell}</td>
     <td>${nameCell}</td>
-    <td>${accountCell}</td>
     <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
     <td style="font-size:12px">${esc(outboundCategoryLabel(o.category_code))}</td>
     <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
@@ -30495,12 +30490,19 @@ function outboundFollowersDisplay(v) {
   return Number(v).toLocaleString() + '명';
 }
 
-// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(작게), 없으면(미보유) —
+// 채널 key(ig) → snsProfileUrl 채널명(instagram) 매핑. 나머지는 동일.
+const OUTBOUND_CH_SNS = { ig: 'instagram', tiktok: 'tiktok', youtube: 'youtube', x: 'x' };
+
+// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
 function outboundChannelFollowersCell(o, ch) {
   const handle = o[ch.handleCol];
   if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
+  const handleHtml = url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--pink);text-decoration:none">@${esc(handle)}</a>`
+    : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
   return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
-    + `<div style="font-size:10px;color:var(--muted)">@${esc(handle)}</div>`;
+    + `<div>${handleHtml}</div>`;
 }
 
 // 4채널 팔로워 <td> 4칸 (명단·추천 결과 공용, OUTBOUND_CHANNELS 순서 = ig·tiktok·youtube·x)
