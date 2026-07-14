@@ -29,8 +29,6 @@ function applyOutboundModeUI() {
     //   설정된 상태다. 여기서 다 보이게 하면 오히려 hidden 항목(정산 등)이 노출된다. 두 호출 순서 유지 필수.
     window._adminAppMode = null;
     document.querySelectorAll('.admin-si-lbl').forEach(function(l){ l.style.display = ''; });
-    var back0 = document.getElementById('adminBackToFull');
-    if (back0) back0.style.display = 'none';
     // outbound 페인이 이미 활성화됐으면 대시보드로 명시 이동(빈 화면 함정 방지).
     // switchAdminPane 이 있으면(init 단계) 여기서 처리하고 부트 페인 진입을 스킵시킴.
     if (typeof switchAdminPane === 'function') {
@@ -44,21 +42,19 @@ function applyOutboundModeUI() {
     var p = si.dataset.pane;
     if (p !== 'outbound' && p !== 'my-account') si.style.display = 'none';
   });
-  var back = document.getElementById('adminBackToFull');
-  if (back) back.style.display = '';
-  // 이미 전용 모드이므로 「전용 화면」 진입 링크는 숨김(전체 화면 복귀 시 리로드로 자동 복원)
-  var entryLink = document.getElementById('outboundAppEntryLink');
-  if (entryLink) entryLink.style.display = 'none';
 }
 
-// 전체 관리자 화면으로 복귀 — 쿼리·해시 제거 후 리로드(사이드바가 권한 기준으로 자동 복원).
-function exitOutboundMode() {
-  window.location.href = location.pathname;
+// 화면 이동 드롭다운 — 전체 관리자 / 아웃바운드 전용(?app=outbound) / 인플루언서 화면 전환.
+function switchAdminScreen(target) {
+  if (target === 'outbound') window.location.href = location.pathname + '?app=outbound';
+  else if (target === 'influencer') window.location.href = '/';
+  else window.location.href = location.pathname;   // full: 쿼리 제거하고 전체 관리자
 }
 
-// 전체 관리자 화면 → 아웃바운드 전용 입구로 이동(사이드바 「전용 화면」 링크). 복귀 링크와 대칭.
-function goOutboundApp() {
-  window.location.href = location.pathname + '?app=outbound';
+// 드롭다운 현재값을 실제 화면 상태에 맞춤 (아웃바운드 전용 모드면 그 항목 선택).
+function setAdminScreenSelect() {
+  var sel = document.getElementById('adminScreenSelect');
+  if (sel) sel.value = (window._adminAppMode === 'outbound') ? 'outbound' : 'full';
 }
 
 // 사이드바 메뉴 클릭 — SPA 페인 전환 (전체 페이지 reload 제거).
@@ -118,6 +114,7 @@ async function init() {
     }
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
     applyOutboundModeUI();   // 아웃바운드 전용 모드면 권한 기준 노출 위에 사이드바 필터 덮어씀
+    setAdminScreenSelect();  // 화면 이동 드롭다운 현재값 반영(모드 확정 후)
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 
     // 세션 만료/갱신 감지
@@ -208,6 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // 아웃바운드 전용 모드면 cloak 제거 전 사이드바 필터 적용 (초기 깜빡임 방지).
   // 권한 기준 최종 판정(campaign_manager 해제)은 init()의 applyLookupMenuVisibility 뒤 재호출.
   applyOutboundModeUI();
+  setAdminScreenSelect();
   // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();
