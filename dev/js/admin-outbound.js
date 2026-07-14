@@ -174,7 +174,7 @@ function renderOutboundList() {
     rows,
     renderRow: renderOutboundRow,
     pageSize: OUTBOUND_PAGE_SIZE,
-    emptyHtml: `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
+    emptyHtml: `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
   });
 }
 
@@ -196,12 +196,6 @@ function renderOutboundRow(o) {
     ? `<span style="font-size:12px">${esc(o.account_id)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
-  const primary = outboundPrimaryChannel(o);
-  const primaryCell = primary
-    ? `<div style="font-size:12px"><span style="color:var(--muted)">${esc(primary.ch.label)}</span> ${esc(outboundFollowersDisplay(primary.followers))}</div>`
-      + `<div style="font-size:10px;color:var(--muted)">@${esc(primary.handle)}</div>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
-
   const agencyCell = o.agency
     ? `<span style="font-size:12px">${esc(o.agency)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
@@ -213,7 +207,7 @@ function renderOutboundRow(o) {
     <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
     <td style="font-size:12px">${esc(outboundCategoryLabel(o.category_code))}</td>
     <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
-    <td>${primaryCell}</td>
+    ${outboundChannelCells(o)}
     <td>${outboundAvailBadge(o.availability)}</td>
     <td>${agencyCell}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="openOutboundEditModal('${id}')">편집</button></td>
@@ -224,6 +218,19 @@ function renderOutboundRow(o) {
 function outboundFollowersDisplay(v) {
   if (v == null) return '(미상)';
   return Number(v).toLocaleString() + '명';
+}
+
+// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(작게), 없으면(미보유) —
+function outboundChannelFollowersCell(o, ch) {
+  const handle = o[ch.handleCol];
+  if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
+    + `<div style="font-size:10px;color:var(--muted)">@${esc(handle)}</div>`;
+}
+
+// 4채널 팔로워 <td> 4칸 (명단·추천 결과 공용, OUTBOUND_CHANNELS 순서 = ig·tiktok·youtube·x)
+function outboundChannelCells(o) {
+  return OUTBOUND_CHANNELS.map(ch => `<td>${outboundChannelFollowersCell(o, ch)}</td>`).join('');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -770,7 +777,7 @@ function renderOutboundReco(scored, cond) {
   if (cnt) cnt.textContent = N ? `요청 ${N}명 / 매칭 ${scored.length}명` : `매칭 ${scored.length}명`;
 
   if (!scored.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">해당 계열에 진행 가능한 인플루언서가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 계열에 진행 가능한 인플루언서가 없습니다.</td></tr>';
     return;
   }
 
@@ -778,7 +785,7 @@ function renderOutboundReco(scored, cond) {
   let html = '';
   scored.forEach((row, i) => {
     if (N && i === N) {
-      html += `<tr class="reco-divider"><td colspan="9">요청 인원 ${N}명 경계 — 아래는 차선 후보</td></tr>`;
+      html += `<tr class="reco-divider"><td colspan="12">요청 인원 ${N}명 경계 — 아래는 차선 후보</td></tr>`;
     }
     html += renderOutboundRecoRow(row, i + 1, priceCol);
   });
@@ -789,12 +796,6 @@ function renderOutboundRecoRow(row, rank, priceCol) {
   const o = row.o;
   const id = esc(o.id);
   const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
-
-  const primary = outboundPrimaryChannel(o);
-  const primaryCell = primary
-    ? `<div style="font-size:12px"><span style="color:var(--muted)">${esc(primary.ch.label)}</span> ${esc(outboundFollowersDisplay(primary.followers))}</div>`
-      + `<div style="font-size:10px;color:var(--muted)">@${esc(primary.handle)}</div>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
   // 선택형식 단가
   let priceCell = '<span style="color:var(--muted);font-size:11px">—</span>';
@@ -814,7 +815,7 @@ function renderOutboundRecoRow(row, rank, priceCol) {
     <td>${nameCell}</td>
     <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
     <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
-    <td>${primaryCell}</td>
+    ${outboundChannelCells(o)}
     <td>${priceCell}</td>
     <td>${outboundAvailBadge(o.availability)}</td>
     <td style="white-space:normal">${badges}</td>
