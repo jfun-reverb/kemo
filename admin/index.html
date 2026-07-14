@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783988905';
+  var CURRENT_BUILD = 'v1783991838';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2119,6 +2119,57 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .ob-post-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .ob-post-row .form-input { flex: 1; }
 
+/* ── 아웃바운드: 명단/조건 추천 전환 탭 (2단계) ── */
+.outbound-tabbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.outbound-tab:hover { color: var(--ink); }
+.outbound-tab.is-active {
+  color: var(--pink);
+  border-bottom-color: var(--pink);
+}
+
+/* ── 아웃바운드: 조건 추천 결과 근거 배지 ── */
+.reco-badge {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin: 1px 0;
+  white-space: nowrap;
+}
+.reco-badge-ok    { background: #E8F5E9; color: #16A34A; }
+.reco-badge-soft  { background: #EEF2FF; color: #4338CA; }
+.reco-badge-muted { background: #F3F4F6; color: #6B7280; }
+.reco-badge-over  { background: #FEE2E2; color: #DC2626; }
+
+/* 요청 인원 경계 구분선 행 */
+.reco-divider td {
+  background: #FAFAFA;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2199,7 +2250,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 09:28 · 71007d4</span>
+          <span class="admin-build-text">2026-07-14 10:17 · fe7fa55</span>
         </div>
       </div>
     </aside>
@@ -3346,69 +3397,145 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           </div><!-- /settlementPastView -->
         </div>
 
-        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD. admin-outbound.js -->
+        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD + 조건 추천. admin-outbound.js -->
         <div id="adminPane-outbound" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
-                <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+            <!-- 명단 / 추천 전환 탭 (2단계 — 사양서 2026-07-08 §PR 2단계) -->
+            <div class="outbound-tabbar">
+              <button id="outboundTabList" class="outbound-tab is-active" onclick="outboundTab('list')">명단</button>
+              <button id="outboundTabReco" class="outbound-tab" onclick="outboundTab('recommend')">조건 추천</button>
+            </div>
+
+            <!-- 명단 컨트롤 (제목·버튼·필터) -->
+            <div id="outboundListControls">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
+                  <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                    엑셀
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
+                    신규 등록
+                  </button>
+                </div>
               </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
-                  엑셀
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
-                  신규 등록
-                </button>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열</label>
+                  <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>세분</label>
+                  <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>가용상태</label>
+                  <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="available">진행가능</option>
+                    <option value="adjusting">조율중</option>
+                    <option value="unavailable">불가</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                  <label>검색</label>
+                  <div style="position:relative">
+                    <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+                  </div>
+                </div>
               </div>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-              <div class="admin-filter-group">
-                <label>계열</label>
-                <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+
+            <!-- 추천 조건 입력 (숨김) — 계열 필수, 나머지 선택 -->
+            <div id="outboundRecoControls" style="display:none">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">조건 추천</div>
+                <div style="font-size:12px;color:var(--muted)">계열만 필수, 나머지는 선택입니다. 성과 데이터가 쌓이기 전이라 조건 적합도 기준으로 정렬합니다.</div>
               </div>
-              <div class="admin-filter-group">
-                <label>세분</label>
-                <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>등급</label>
-                <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
-                <label>가용상태</label>
-                <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                  <option value="available">진행가능</option>
-                  <option value="adjusting">조율중</option>
-                  <option value="unavailable">불가</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
-                <label>채널</label>
-                <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                  <option value="ig">Instagram</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="x">X</option>
-                </select>
-              </div>
-              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
-                <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열 <span style="color:var(--pink)">*</span></label>
+                  <select id="recoSeries" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택하세요</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>모집형식</label>
+                  <select id="recoFormat" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="feed">피드</option>
+                    <option value="reels">릴스</option>
+                    <option value="story">스토리</option>
+                    <option value="tiktok">틱톡</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="recoTier" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="recoChannel" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>예산 (¥)</label>
+                  <input type="text" id="recoBudget" class="form-input" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>인원수</label>
+                  <input type="text" id="recoHeadcount" class="form-input" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>광고목적</label>
+                  <select id="recoPurpose" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="new">신제품</option>
+                    <option value="sale">세일</option>
+                    <option value="branding">브랜딩</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <button class="btn btn-primary btn-sm" onclick="runOutboundRecommend()" style="height:32px">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">auto_awesome</span>
+                    추천
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-          <div class="admin-card">
+
+          <!-- 명단 결과 카드 -->
+          <div id="outboundListCard" class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 명단</span><span id="outboundTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
@@ -3427,6 +3554,29 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:90px">처리</th>
                 </tr></thead>
                 <tbody id="outboundTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 추천 결과 카드 (숨김) -->
+          <div id="outboundRecoCard" class="admin-card" style="display:none">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 결과</span><span id="recoResultCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:44px">순위</th>
+                  <th style="width:70px">적합도</th>
+                  <th>이름</th>
+                  <th style="width:80px">계열</th>
+                  <th style="width:110px">등급</th>
+                  <th style="width:150px">주채널 팔로워</th>
+                  <th style="width:110px">선택형식 단가</th>
+                  <th style="width:80px">가용</th>
+                  <th>근거</th>
+                </tr></thead>
+                <tbody id="recoTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">계열을 선택하고 「추천」을 누르세요.</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -30171,6 +30321,7 @@ const OUTBOUND_AVAIL_META = {
 async function loadOutbound() {
   await loadOutboundLookups();
   populateOutboundTierFilter();
+  populateRecoFormOptions();   // 조건 추천 탭 계열·등급 select 옵션
   await reloadOutboundData();
 }
 
@@ -30730,6 +30881,211 @@ async function exportOutboundExcel() {
   } finally {
     if (typeof _markExportEnd === 'function') _markExportEnd();
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: OUTBOUND — 조건 추천 (2단계, 사양서 2026-07-08 §PR 2단계)
+//   계열 필수 필터 → 등급·채널·예산 가점 정렬. DB 변경 없음(전건 조회 + 클라 계산).
+//   성과 축(3단계)은 아직 없어 조건 적합도만으로 정렬한다(콜드스타트).
+// ════════════════════════════════════════════════════════════════════
+
+// 모집형식 → outbound_influencers 가격 컬럼 매핑 (예산 판정 기준)
+const OUTBOUND_FORMAT_PRICE = {
+  feed:   'price_feed',
+  reels:  'price_reels',
+  story:  'price_story',
+  tiktok: 'price_tiktok',
+};
+
+// 가점 상수 (한 곳에 모아 매직넘버 제거)
+const RECO_SCORE = {
+  tierExact:   30,   // 등급 정확 일치
+  tierAdjacent: 10,  // 등급 한 칸 차이
+  channelHave: 20,   // 요구 채널 보유
+  budgetIn:    20,   // 예산 내
+  budgetOver: -20,   // 예산 초과
+};
+
+// 명단 / 조건 추천 탭 전환
+function outboundTab(which) {
+  const isList = (which !== 'recommend');
+  $('outboundTabList')?.classList.toggle('is-active', isList);
+  $('outboundTabReco')?.classList.toggle('is-active', !isList);
+  const setShow = (id, show) => { const el = $(id); if (el) el.style.display = show ? '' : 'none'; };
+  setShow('outboundListControls', isList);
+  setShow('outboundListCard', isList);
+  setShow('outboundRecoControls', !isList);
+  setShow('outboundRecoCard', !isList);
+  if (!isList) populateRecoFormOptions();
+}
+
+// 추천 조건 폼의 계열·등급 select 옵션 채움 (lookup 로드 후·탭 진입 시)
+function populateRecoFormOptions() {
+  const s = $('recoSeries');
+  if (s) {
+    const cur = s.value;
+    s.innerHTML = '<option value="">선택하세요</option>'
+      + _obSeries.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+    s.value = cur;
+  }
+  const t = $('recoTier');
+  if (t) {
+    const cur = t.value;
+    t.innerHTML = '<option value="">전체</option>'
+      + _obTier.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+    t.value = cur;
+  }
+}
+
+// 등급 code → 순서값(sort_order). 인접 판정용. 미상이면 null.
+function obTierOrder(code) {
+  const r = _obTier.find(x => x.code === code);
+  if (!r || r.sort_order == null) return null;
+  return Number(r.sort_order);
+}
+
+// available=상위(0), 그 외(조율중·불가)=하위(1). is_active=false 는 후보에서 이미 제외.
+function outboundRecoAvailGroup(o) {
+  return (o.availability === 'available') ? 0 : 1;
+}
+
+// 한 인플루언서의 조건 적합도 점수·근거. 계열은 호출 전 필수 필터돼 여기선 항상 「계열 일치」.
+function outboundRecoScore(o, cond) {
+  const reasons = [{ t: '계열 일치', cls: 'ok' }];
+  let score = 0;
+
+  // 등급: 정확 일치 +30 / 한 칸 차이 +10 (sort_order 기준)
+  if (cond.tier) {
+    if (o.tier_code === cond.tier) {
+      score += RECO_SCORE.tierExact;
+      reasons.push({ t: '등급 일치', cls: 'ok' });
+    } else {
+      const oOrd = obTierOrder(o.tier_code), cOrd = obTierOrder(cond.tier);
+      if (oOrd != null && cOrd != null && Math.abs(oOrd - cOrd) === 1) {
+        score += RECO_SCORE.tierAdjacent;
+        reasons.push({ t: '등급 인접', cls: 'soft' });
+      }
+    }
+  }
+
+  // 채널: 요구 채널 핸들 보유 +20 (팔로워 규모는 동점 정렬에서만 반영)
+  if (cond.channel) {
+    const ch = OUTBOUND_CHANNELS.find(c => c.key === cond.channel);
+    if (ch && o[ch.handleCol]) {
+      score += RECO_SCORE.channelHave;
+      reasons.push({ t: ch.label + ' 보유', cls: 'ok' });
+    }
+  }
+
+  // 예산: 모집형식 선택 + 예산 입력 시만. 미상은 0(중립). 초과는 감점(제외 아님).
+  if (cond.format && cond.budget != null) {
+    const price = o[OUTBOUND_FORMAT_PRICE[cond.format]];
+    if (price == null) {
+      reasons.push({ t: '가격 미상', cls: 'muted' });
+    } else if (Number(price) <= cond.budget) {
+      score += RECO_SCORE.budgetIn;
+      reasons.push({ t: '예산 내', cls: 'ok' });
+    } else {
+      score += RECO_SCORE.budgetOver;
+      reasons.push({ t: '예산 초과', cls: 'over' });
+    }
+  }
+
+  return { score, reasons };
+}
+
+// 정렬: ①가용 그룹(available 먼저) ②점수 내림 ③주채널 팔로워 내림 ④등록 최신순
+function compareOutboundReco(a, b) {
+  const ga = outboundRecoAvailGroup(a.o), gb = outboundRecoAvailGroup(b.o);
+  if (ga !== gb) return ga - gb;
+  if (b.score !== a.score) return b.score - a.score;
+  const pa = outboundPrimaryChannel(a.o), pb = outboundPrimaryChannel(b.o);
+  const fva = pa ? pa.fv : -1, fvb = pb ? pb.fv : -1;
+  if (fvb !== fva) return fvb - fva;
+  return String(b.o.created_at || '').localeCompare(String(a.o.created_at || ''));
+}
+
+// 추천 실행 — 계열 필수 필터 + is_active + 점수 정렬 → 결과 렌더
+function runOutboundRecommend() {
+  const series = $('recoSeries')?.value || '';
+  if (!series) { toast('계열을 선택하세요', 'warn'); return; }
+  const cond = {
+    series,
+    format:  ($('recoFormat')?.value || ''),
+    tier:    ($('recoTier')?.value || ''),
+    channel: ($('recoChannel')?.value || ''),
+    budget:  outboundParseNum('recoBudget'),
+    headcount: outboundParseNum('recoHeadcount'),
+    purpose: ($('recoPurpose')?.value || ''),   // 2단계는 기록만(정렬 미반영)
+  };
+  // 계열 필수 필터 + 비활성(is_active=false) 제외
+  const cands = _outbound.filter(o => o.is_active !== false && o.series_code === series);
+  const scored = cands.map(o => {
+    const s = outboundRecoScore(o, cond);
+    return { o, score: s.score, reasons: s.reasons };
+  });
+  scored.sort(compareOutboundReco);
+  renderOutboundReco(scored, cond);
+}
+
+// 결과 렌더 — 전체 정렬 노출 + 요청 인원 N번째 뒤 구분선
+function renderOutboundReco(scored, cond) {
+  const tbody = $('recoTableBody');
+  if (!tbody) return;
+  const cnt = $('recoResultCount');
+  const N = cond.headcount;
+  if (cnt) cnt.textContent = N ? `요청 ${N}명 / 매칭 ${scored.length}명` : `매칭 ${scored.length}명`;
+
+  if (!scored.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">해당 계열에 진행 가능한 인플루언서가 없습니다.</td></tr>';
+    return;
+  }
+
+  const priceCol = cond.format ? OUTBOUND_FORMAT_PRICE[cond.format] : null;
+  let html = '';
+  scored.forEach((row, i) => {
+    if (N && i === N) {
+      html += `<tr class="reco-divider"><td colspan="9">요청 인원 ${N}명 경계 — 아래는 차선 후보</td></tr>`;
+    }
+    html += renderOutboundRecoRow(row, i + 1, priceCol);
+  });
+  tbody.innerHTML = html;
+}
+
+function renderOutboundRecoRow(row, rank, priceCol) {
+  const o = row.o;
+  const id = esc(o.id);
+  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+
+  const primary = outboundPrimaryChannel(o);
+  const primaryCell = primary
+    ? `<div style="font-size:12px"><span style="color:var(--muted)">${esc(primary.ch.label)}</span> ${esc(outboundFollowersDisplay(primary.followers))}</div>`
+      + `<div style="font-size:10px;color:var(--muted)">@${esc(primary.handle)}</div>`
+    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+
+  // 선택형식 단가
+  let priceCell = '<span style="color:var(--muted);font-size:11px">—</span>';
+  if (priceCol) {
+    const v = o[priceCol];
+    priceCell = (v == null)
+      ? '<span style="color:var(--muted);font-size:11px">미상</span>'
+      : `<span style="font-size:12px">¥${Number(v).toLocaleString()}</span>`;
+  }
+
+  const badges = row.reasons.map(r =>
+    `<span class="reco-badge reco-badge-${esc(r.cls)}">${esc(r.t)}</span>`).join(' ');
+
+  return `<tr>
+    <td style="text-align:center;font-weight:700;color:var(--muted)">${rank}</td>
+    <td style="text-align:center;font-weight:700">${row.score}</td>
+    <td>${nameCell}</td>
+    <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
+    <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
+    <td>${primaryCell}</td>
+    <td>${priceCell}</td>
+    <td>${outboundAvailBadge(o.availability)}</td>
+    <td style="white-space:normal">${badges}</td>
+  </tr>`;
 }
 
 // ════════════════════════════════════════════════════════════════════
