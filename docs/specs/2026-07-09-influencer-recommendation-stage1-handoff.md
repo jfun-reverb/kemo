@@ -5,7 +5,8 @@
 **범위:** 1단계만 (추천 알고리즘은 2단계, 성과는 3단계 — 본 인계 대상 아님)
 **참고 마이그레이션:** `217_settlements_schema.sql`(테이블+RLS 패턴)·`220_settlement_role_permissions_seed.sql`(권한 시드)·`200_orient_upload_bucket_and_policy.sql`(Storage 버킷)
 
-> 영업팀 인플 명단(구글시트 약 50명, globalreverb 미가입·별도 자산)을 시스템으로 이관 + 관리자 CRUD 페인 신설.
+> 영업팀 인플 명단(구글시트 **917명**, globalreverb 미가입·별도 자산)을 시스템으로 이관 + 관리자 CRUD 페인 신설.
+> ⚠️ 2026-07-14 정정: 최초 이관은 시트를 "약 50명"으로 잘못 파악해 앞 50명만 넣었으나, 실제 917명. 전량 재이관으로 정정(seed 교체 + 마이그레이션 236 카테고리 health·tech 추가).
 > 기존 `influencers`와 **분리한 신규 테이블**(그건 auth 계정 1:1·정산/마스킹 결합이라 섞으면 오염).
 
 ---

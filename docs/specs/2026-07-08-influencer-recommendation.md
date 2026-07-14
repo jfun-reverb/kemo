@@ -12,7 +12,7 @@
 ## 현재 상태 (2026-07-08 기준)
 
 ### 원본 데이터 (구글시트)
-- 인플루언서 약 50명. 컬럼 성격별 묶음:
+- 인플루언서 **917명**(기획 당시 "약 50명"으로 오판 → 2026-07-14 실측 정정, §구현 결과 참조). 컬럼 성격별 묶음:
   - **매칭 기준**: 계정주제(뷰티/색조·뷰티/기초·패션·라이프/브이로그·푸드·키즈맘·기타), 등급(마이크로 1~5만 / 미들 5~30만 / 메가 30만+), 채널별 팔로워(인스타·틱톡·유튜브·X)
   - **가격**: 피드/릴스/스토리/틱톡/2차사용 단가, 소속별 시딩 비용 (절반 이상 비어 있음)
   - **운영 메모**: 컨텍 창구(한나·JFUN·아유네 등), 소속사, 연락·가격회신 날짜, 부가설명(협상 이력)
@@ -164,7 +164,14 @@
 
 ### 1단계 — 명단 관리 (dev 배포 완료)
 - **구현일:** 2026-07-09 / **관련 PR:** #704 (dev 머지)
-- 마이그레이션 226(`outbound_influencers` 테이블)·227(lookup `ob_series`/`ob_category`/`ob_tier` 시드)·228(권한 `menu.outbound`/`outbound.view` 시드)·229(Storage 버킷 `outbound-influencer-images` + 정책). 관리자 페인 `#outbound`(`dev/js/admin-outbound.js`) + storage 함수 6종 + `OB_CATEGORY_SERIES`(shared.js). 구글시트 50명 이관.
+- 마이그레이션 226(`outbound_influencers` 테이블)·227(lookup `ob_series`/`ob_category`/`ob_tier` 시드)·228(권한 `menu.outbound`/`outbound.view` 시드)·229(Storage 버킷 `outbound-influencer-images` + 정책). 관리자 페인 `#outbound`(`dev/js/admin-outbound.js`) + storage 함수 6종 + `OB_CATEGORY_SERIES`(shared.js). 구글시트 이관 — **최초 50명(오판) → 2026-07-14 전량 917명 재이관으로 정정**(아래 별도 항목).
+
+### 데이터 재이관 정정 (2026-07-14)
+- **문제**: 1단계-c 이관이 시트를 "약 50명"으로 잘못 파악(앞부분만 확인) → 앞 50명만 등록, 실제 시트 **917명** 중 약 860명 누락.
+- **조치**: 전량 재이관. seed `outbound_influencers_import.sql` 917행으로 교체(BEGIN/DELETE ALL/INSERT/COMMIT 멱등 래퍼) + 마이그레이션 236(`ob_category`에 health·tech 추가) + `OB_CATEGORY_SERIES`에 health→life·tech→other.
+- **확정 규칙(사용자 2026-07-14)**: 카테고리 헬스/다이어트=health·테크/기타=tech 신규 / 등급 없는 68명은 팔로워로 자동 추정 / 917명 전부 등록(계정ID 없는 6명 포함) / 전량 재이관(삭제 전 백업).
+- **분포**: 카테고리 color 302·fashion 229·vlog 176·base 82·kidsmom 51·health 46·tech 17·food 13·other 1 / 계열 beauty 384·life 273·fashion 229·food 13·other 18 / 등급 micro 214·middle 541·mega 162.
+- **배포**: 사용자 결정 = 개발서버엔 남기지 않고(검증 후 되돌림) **운영서버에만 등록**. 마이그236 → seed 순서.
 - **이미지 업로드 스모크 검증 성공(2026-07-14, 개발서버):** 마이그229 Storage 정책 `has_permission('outbound.view','write')`가 로그인 관리자 세션에서 업로드 정상 허용 확인 — 폴백(`is_campaign_admin` 교체) 불필요 확정.
 - 운영 미배포.
 

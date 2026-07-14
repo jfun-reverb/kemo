@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783995872';
+  var CURRENT_BUILD = 'v1783997783';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2250,7 +2250,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 11:24 · 23dd4e9</span>
+          <span class="admin-build-text">2026-07-14 11:56 · 9997c6c</span>
         </div>
       </div>
     </aside>
@@ -6813,7 +6813,7 @@ function visibleUpcomingFeatures() {
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
 //   (admin-outbound.js). HANDOFF §계열 매핑 확정표(2026-07-09)와 1:1.
-//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘 / 푸드 = 푸드(독립) / 미분류 = 기타
+//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘·헬스 / 푸드 = 푸드(독립) / 미분류 = 기타·테크
 // ══════════════════════════════════════
 const OB_CATEGORY_SERIES = {
   color:   'beauty',
@@ -6821,8 +6821,10 @@ const OB_CATEGORY_SERIES = {
   fashion: 'fashion',
   vlog:    'life',
   kidsmom: 'life',
+  health:  'life',    // 헬스/다이어트 (마이그레이션 236, 2026-07-14)
   food:    'food',
   other:   'other',
+  tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
 };
 
 const ADMIN_PERMISSION_CATALOG = [
