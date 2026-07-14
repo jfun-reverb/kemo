@@ -46,11 +46,19 @@ function applyOutboundModeUI() {
   });
   var back = document.getElementById('adminBackToFull');
   if (back) back.style.display = '';
+  // 이미 전용 모드이므로 「전용 화면」 진입 링크는 숨김(전체 화면 복귀 시 리로드로 자동 복원)
+  var entryLink = document.getElementById('outboundAppEntryLink');
+  if (entryLink) entryLink.style.display = 'none';
 }
 
 // 전체 관리자 화면으로 복귀 — 쿼리·해시 제거 후 리로드(사이드바가 권한 기준으로 자동 복원).
 function exitOutboundMode() {
   window.location.href = location.pathname;
+}
+
+// 전체 관리자 화면 → 아웃바운드 전용 입구로 이동(사이드바 「전용 화면」 링크). 복귀 링크와 대칭.
+function goOutboundApp() {
+  window.location.href = location.pathname + '?app=outbound';
 }
 
 // 사이드바 메뉴 클릭 — SPA 페인 전환 (전체 페이지 reload 제거).
