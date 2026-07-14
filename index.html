@@ -8346,6 +8346,39 @@ async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
   });
 }
 
+// 오리엔시트 카드 1개를 "신규 캠페인 생성"이 아니라 관리자가 이미 만들어둔
+// 기존 캠페인과 연결(발행 처리). 마이그레이션 237.
+// 서버가 브랜드 일치·전역 중복(다른 시트/카드에서 이미 이 캠페인을 쓰는지) 검증.
+// 반환 reason: not_found/permission_denied/invalid_status/invalid_card/
+//   already_published/campaign_not_found/brand_mismatch/campaign_already_linked
+async function linkOrientCardToCampaign(orientId, cardIdx, campaignId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('link_orient_card_to_campaign', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 카드 1개의 캠페인 연결 해제(되돌리기). 마이그레이션 238.
+// 196·237 어느 경로로 연결됐든 대칭 동작. 캠페인 행 자체는 삭제·수정하지 않음.
+// 반환 reason: not_found/permission_denied/invalid_card/not_linked
+async function unlinkOrientCard(orientId, cardIdx) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('unlink_orient_card', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
 async function fetchOrientSheets() {
   if (!db) return [];
