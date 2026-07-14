@@ -1711,3 +1711,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   border-top: 1px dashed var(--line);
   border-bottom: 1px dashed var(--line);
 }
+
+/* 아웃바운드 전용 화면 진입 아이콘 — 사이드바 접힘 시 숨김(56px 폭에서 아이콘 겹침 방지) */
+.admin-layout.collapsed #outboundAppEntryLink { display: none; }
