@@ -778,6 +778,12 @@ const UPCOMING_FEATURES = [
     desc: '가입·응모 시 생년월일·성별을 입력받습니다. 만 18세 미만은 캠페인 응모가 제한됩니다.',
     effectiveDate: '2026-07-22',  // 공고 2026-06-22 + 30일. 약관 부칙·age_policy_settings·POLICY_NOTICE 와 동일 시행일
   },
+  {
+    key: 'message-translation-2026',
+    title: '메시지 자동 번역',
+    desc: '응모건 메시지를 주고받을 때 상대 언어로 자동 번역해 함께 보여줍니다. (관리자↔인플루언서)',
+    effectiveDate: '2026-07-22',  // 번역 기능 운영 활성화 예정일(개인정보처리방침 개정 시행일과 동일)
+  },
 ];
 
 // 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
