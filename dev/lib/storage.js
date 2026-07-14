@@ -2979,7 +2979,7 @@ async function fetchMessagePreviews(applicationIds) {
   for (let i = 0; i < applicationIds.length; i += CHUNK) {
     const ids = applicationIds.slice(i, i + CHUNK);
     const {data, error} = await db?.from('application_messages')
-      .select('application_id, body, sender_kind, created_at')
+      .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
       .in('application_id', ids)
       .is('hidden_by_admin_at', null)
       .is('self_withdrawn_at', null)

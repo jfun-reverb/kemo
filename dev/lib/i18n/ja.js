@@ -668,6 +668,8 @@ window.I18N_JA = {
     navMenu: 'お問い合わせ',
     notifTitle: '運営からの返信',
     pendingNotice: '運営が順次確認のうえ、ご返信いたします。お返事までお時間をいただく場合がございます。',
+    translatedLabel: '自動翻訳',
+    originalLabel: '原文',
     // 応募件メッセージ — 状態の1行表示（§3 マッピング）
     statusLine: {
       goBtn: '画面を開く',
