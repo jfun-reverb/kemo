@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784009907';
+  var CURRENT_BUILD = 'v1784010575';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2256,7 +2256,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 15:18 · a3b9d4c</span>
+          <span class="admin-build-text">2026-07-14 15:29 · efa912d</span>
         </div>
       </div>
     </aside>
@@ -5655,15 +5655,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       </div>
 
       <!-- 채널 -->
-      <div class="outbound-form-section-title">채널 (핸들 · 팔로워)</div>
+      <div class="outbound-form-section-title">채널 (아이디 · 팔로워)</div>
       <div style="display:grid;grid-template-columns:1fr 130px;gap:8px 14px;align-items:end">
-        <div class="form-group"><label class="form-label">Instagram 핸들</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">Instagram 아이디</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obIgFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">TikTok 핸들</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">TikTok 아이디</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obTiktokFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">YouTube 핸들</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">YouTube 아이디</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">구독자</label><input type="text" id="obYoutubeFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">X 핸들</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">X 아이디</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obXFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
       </div>
 
@@ -30850,13 +30850,13 @@ async function exportOutboundExcel() {
       { header: '계열',      key: 'series',  width: 10 },
       { header: '세분',      key: 'category',width: 10 },
       { header: '등급',      key: 'tier',    width: 16 },
-      { header: 'IG핸들',    key: 'ig',      width: 16 },
+      { header: 'IG아이디',    key: 'ig',      width: 16 },
       { header: 'IG팔로워',  key: 'igf',     width: 12 },
-      { header: 'TikTok핸들',key: 'tt',      width: 16 },
+      { header: 'TikTok아이디',key: 'tt',      width: 16 },
       { header: 'TikTok팔로워',key: 'ttf',   width: 12 },
-      { header: 'YouTube핸들',key: 'yt',     width: 16 },
+      { header: 'YouTube아이디',key: 'yt',     width: 16 },
       { header: 'YouTube구독',key: 'ytf',    width: 12 },
-      { header: 'X핸들',     key: 'x',       width: 16 },
+      { header: 'X아이디',     key: 'x',       width: 16 },
       { header: 'X팔로워',   key: 'xf',      width: 12 },
       { header: '피드(¥)',   key: 'pfeed',   width: 12 },
       { header: '릴스(¥)',   key: 'preels',  width: 12 },
