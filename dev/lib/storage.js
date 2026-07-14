@@ -3631,3 +3631,267 @@ async function fetchOrientSheetsByApplication(applicationId) {
   });
 }
 
+// ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
+// 화면(PR2)은 아직 없음 — storage.js 함수만 미리 정의. RLS는 has_permission('settlement.view','read')
+// 게이트(server_enforced) — campaign_manager 는 이 기능이 hidden 이라 조회 자체가 서버에서 막힘.
+
+// 관리자 조회 — campaign_admin 이상만 실제로 행을 받는다(그 외는 RLS로 빈 배열).
+// PostgREST 1000행 cap 대비 fetchAllPaged 사용. opts: {status, campaignId, influencerId}
+async function fetchSettlements(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('settlements').select(`
+        id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
+        campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
+        settlement_events(count)
+      `);
+      if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status);
+      if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+      if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
+      // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
+      q = q.order('created_at', {ascending: true});
+      return q;
+    });
+    const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(infIds);
+    return data.map(s => ({
+      ...s,
+      influencers: infMap[s.influencer_id] || null,
+      event_count: Array.isArray(s.settlement_events) ? (s.settlement_events[0]?.count ?? 0) : 0,
+    }));
+  } catch(e) { console.error('[fetchSettlements]', e); return []; }
+}
+
+// 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
+// 필터 없이 그대로 조회해도 안전.
+async function fetchMySettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('settlements').select(`
+      id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
+      campaigns:campaign_id (id, title, brand, img1)
+    `).order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMySettlements]', e); return []; }
+}
+
+// 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
+// 재검증하므로 campaign_manager 가 호출하면 42501(permission_denied) 에러.
+// 반환: { created_count, paypal_missing_count }
+async function backfillSettlements() {
+  if (!db) throw new Error('DB 미연결');
+  let result = { created_count: 0, paypal_missing_count: 0 };
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlements');
+    if (error) throw error;
+    result = Array.isArray(data) ? (data[0] || result) : (data || result);
+  });
+  return result;
+}
+
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222). pending → paid 전이,
+// paypal_email 재조회·미등록 시 차단, settlement_paid 알림 발행, settlement_events 이력 기록.
+// 버전 충돌 시 -1 반환("이미 처리됨" 토스트). 정산 관리 페인(admin-settlements.js)에서 호출.
+async function markSettlementPaid(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_paid', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 처리(낙관적 락) — RPC mark_settlement_hold (마이그레이션 223).
+// pending 또는 paid → on_hold. 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementHold(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_hold', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 취소 처리(낙관적 락) — RPC mark_settlement_cancel (마이그레이션 223).
+// pending 또는 on_hold → cancelled (paid 는 서버가 거부 — 먼저 markSettlementHold 필요).
+// 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementCancel(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_cancel', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 해제(낙관적 락) — RPC mark_settlement_revert (마이그레이션 224).
+// on_hold → pending 만 허용(보류를 다시 정산 대기로 복귀). 반환값 -1 = 다른 관리자가
+// 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementRevert(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_revert', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 정산 이력 조회 — RPC get_settlement_events (마이그레이션 225).
+// settlement_events 를 관리자 이름(actor_name)으로 변환해 시간순(오래된 것부터) 반환.
+// 조회 전용이라 retryWithRefresh 없이 db.rpc 직접 호출(다른 fetch* 함수와 동일 패턴).
+// 실패 시 빈 배열 반환(fetchSettlements 패턴 — 화면이 "이력 없음"으로 처리).
+async function fetchSettlementEvents(settlementId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_settlement_events', {
+      p_settlement_id: settlementId
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
+}
+
+// ══════════════════════════════════════
+// OUTBOUND INFLUENCERS — 인플루언서 추천 명단(아웃바운드 시딩·타이업)
+//   마이그레이션 226(테이블·RLS)·227(lookup)·228(권한)·229(Storage 버킷).
+//   기존 influencers(auth 계정 1:1)와 분리된 별도 자산 — 관리자 전용 내부 명단.
+//   RLS 는 has_permission('outbound.view', ...) (campaign_manager 차단). 페인 = admin-outbound.js.
+//   ⚠ 내부 전용 필드(nego_memo·가격)는 브랜드 뷰(5단계)에서 반드시 제외 — 여기선 관리자만이라 그대로 조회.
+// ══════════════════════════════════════
+const OUTBOUND_IMAGE_BUCKET = 'outbound-influencer-images';
+
+// 전건 조회(PostgREST 1000행 제한 우회) — 필터·검색은 클라이언트(admin-outbound.js)에서.
+async function fetchOutboundInfluencers(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    return await fetchAllPaged(() => {
+      let q = db.from('outbound_influencers').select('*');
+      if (opts.availability) q = q.eq('availability', opts.availability);
+      if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
+      // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
+      return q.order('created_at', {ascending: false});
+    });
+  } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
+}
+
+// INSERT/UPDATE 통합 — row.id 유무로 분기. RLS 직접 정책(has_permission write)이 방어선.
+//   반환: 저장된 행(id 포함). 신규는 호출자가 미리 crypto.randomUUID() 로 id 를 채워 넘긴다
+//   (이미지 경로 {id}/... 를 저장 전에 만들 수 있게 — admin-outbound.js).
+async function upsertOutboundInfluencer(row) {
+  if (!db) return null;
+  let saved = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.from('outbound_influencers')
+      .upsert(row).select().maybeSingle();
+    if (error) throw error;
+    saved = data;
+  });
+  return saved;
+}
+
+async function deleteOutboundInfluencer(id) {
+  if (!db || !id) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('outbound_influencers').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+// 대표 이미지 업로드 — outbound-influencer-images 버킷, 경로 {obId}/{난수}.{ext}.
+//   저장은 경로(rep_image_path 컬럼)만 — 표시 시 outboundImagePublicUrl()로 공개 URL 조립.
+//   File/Blob 직접 업로드(base64 변환 생략). 5MB·jpg/png/webp 는 버킷 정책이 최종 강제.
+async function uploadOutboundImage(file, obId) {
+  if (!db) throw new Error('storage_unavailable');
+  if (!file || !file.size) throw new Error('file_required');
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) throw new Error('file_type_not_allowed');
+  if (file.size > 5 * 1024 * 1024) throw new Error('file_too_large');
+  const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  const rand = Math.random().toString(36).substring(2, 10);
+  const path = obId + '/' + Date.now() + '_' + rand + '.' + ext;
+  const {error} = await db.storage.from(OUTBOUND_IMAGE_BUCKET)
+    .upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
+  if (error) throw error;
+  return path;
+}
+
+// 경로 → 공개 URL. 공개 버킷이라 imgThumb() 로 썸네일 변환 가능.
+function outboundImagePublicUrl(path) {
+  if (!db || !path) return '';
+  const {data} = db.storage.from(OUTBOUND_IMAGE_BUCKET).getPublicUrl(path);
+  return (data && data.publicUrl) || '';
+}
+
+// 대표 이미지 삭제(교체·행 삭제 시 정리). best-effort — 실패해도 throw 하지 않는다.
+async function deleteOutboundImage(path) {
+  if (!db || !path) return;
+  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove([path]); }
+  catch(e) { console.warn('[deleteOutboundImage]', e); }
+}
+
+// ─── 정산 과거분 컷오프 — 과거 미등록 인증성공 조회/처리 (사양서 2026-07-09) ──────────
+// 도입일(cutoff) 이전에 인증 성공했지만 정산행이 없는 응모 목록. 자동 백필은 컷오프 이후만
+// 대상이라, 컷오프 이전 과거분은 이 목록에서 관리자가 건별/일괄로 직접 처리한다.
+// RLS/서버 게이트 has_permission('settlement.view','read') → campaign_manager 는 빈 배열.
+// 각 행: {application_id, influencer_id, influencer_name, influencer_name_kana, has_paypal(bool),
+//   campaign_id, campaign_title, recruit_type, amount_jpy, cert_at(nullable)}
+async function fetchPastUnregisteredSettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_past_unregistered_settlements');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+}
+
+// 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.
+//   p_target_status: 'paid'(이미 외부 PayPal 지급 완료) | 'pending'(아직 미지급, 정산 대기)
+//   서버가 has_permission('settlement.pay','write') 게이트 + settlement_events 이력 기록.
+// 반환: registered_count(정수 — 실제 등록된 건수. 이미 정산행 있는 건은 skip 되어 제외).
+async function registerPastSettlements(applicationIds, targetStatus, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let registered = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('register_past_settlements', {
+      p_application_ids: applicationIds,
+      p_target_status: targetStatus,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    // 스칼라(정수) 또는 {registered_count} 단일 행 양쪽 대응
+    registered = Array.isArray(data)
+      ? (data[0]?.registered_count ?? data[0] ?? 0)
+      : (data?.registered_count ?? data ?? 0);
+  });
+  return Number(registered) || 0;
+}
+

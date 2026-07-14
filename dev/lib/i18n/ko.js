@@ -165,8 +165,22 @@ window.I18N_KO = {
       paypal: 'PayPal',
       password: '비밀번호 변경',
       emailSettings: '메일 수신 설정',
+      settlements: '보상·정산',
       logout: '로그아웃',
       language: '言語 / 언어',
+    },
+    settlements: {
+      title: '보상·정산',
+      totalLabel: '누적 수령액',
+      pendingLabel: '지급 예정',
+      empty: '아직 정산 내역이 없습니다.',
+      paypalMissing: '보상 송금에는 PayPal 이메일 등록이 필요합니다.',
+      paypalLink: 'PayPal 등록',
+      status: {
+        pending: '정산 대기',
+        paid: '송금 완료',
+        onHold: '확인 중',
+      },
     },
     emailSettings: {
       title: '메일 수신 설정',

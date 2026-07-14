@@ -77,6 +77,9 @@ async function loadAdminData(preloaded) {
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">인플 신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
   refreshDelivSidebarBadge();
+  // 정산 대기 배지도 결과물 배지와 같은 주기로 갱신(대시보드 방문 시마다) — 백필로 새 정산 건이
+  // 생겨도 관리자가 정산 페인을 직접 열지 않는 동안 배지가 stale 하지 않도록.
+  if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
 }
 
 // 최근 신청 렌더 — 대시보드에서 운영 현황 페인으로 이관 (브랜드 운영 재설계 PR 3)

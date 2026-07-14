@@ -114,6 +114,8 @@
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="outbound" onclick="navAdminPaneReload('outbound')"><span class="si-icon material-icons-round notranslate" translate="no">contact_page</span><span class="si-text">인플루언서 추천 명단</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
@@ -1173,6 +1175,301 @@
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
+        <div id="adminPane-settlements" class="admin-pane admin-pane-list">
+          <!-- 메인 뷰(정산 목록) — 과거 미등록 뷰와 같은 페인 안에서 토글 전환 -->
+          <div id="settlementMainView" style="display:flex;flex-direction:column;flex:1;min-height:0">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 관리</div>
+                <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
+                  과거 미등록
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                  엑셀
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <div id="settlementCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderSettlementsList()">
+                </div>
+              </div>
+            </div>
+            <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">정산 목록</span><span id="settlementsTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="settlementsSumAmount" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>인플루언서</th>
+                  <th>캠페인</th>
+                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:200px">PayPal</th>
+                  <th style="width:90px">상태</th>
+                  <th style="width:120px">인증성공일</th>
+                  <th style="width:120px">송금완료일</th>
+                  <th style="width:300px">처리</th>
+                </tr></thead>
+                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          </div><!-- /settlementMainView -->
+
+          <!-- 과거 미등록 인증성공 뷰 (정산 도입 이전 과거분 관리자 직접 처리) — 기본 숨김 -->
+          <div id="settlementPastView" style="display:none;flex-direction:column;flex:1;min-height:0">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <button class="btn btn-ghost btn-sm" onclick="closePastUnregView()">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
+                정산 목록으로
+              </button>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">과거 미등록 인증성공</div>
+            </div>
+            <div style="padding:10px 12px;background:#FFF7E6;border:1px solid #E9C46A;border-radius:8px;font-size:12px;line-height:1.6;color:#7A5C00;margin-bottom:12px">
+              정산 도입 이전에 인증에 성공했지만 아직 정산에 등록되지 않은 건입니다.
+              여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
+              이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group" style="flex:1;min-width:220px">
+                <label>메모 (선택 · 처리 건에 함께 기록)</label>
+                <input type="text" id="pastUnregMemo" class="form-input" style="height:38px" placeholder="예: 시스템 도입 전 외부 지급">
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
+                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled>선택 정산대기 추가</button>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">과거 미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 목록 전체 선택"></th>
+                  <th>인플루언서</th>
+                  <th>캠페인</th>
+                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:130px">인증성공일</th>
+                  <th style="width:100px">PayPal</th>
+                </tr></thead>
+                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          </div><!-- /settlementPastView -->
+        </div>
+
+        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD + 조건 추천. admin-outbound.js -->
+        <div id="adminPane-outbound" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <!-- 명단 / 추천 전환 탭 (2단계 — 사양서 2026-07-08 §PR 2단계) -->
+            <div class="outbound-tabbar">
+              <button id="outboundTabList" class="outbound-tab is-active" onclick="outboundTab('list')">명단</button>
+              <button id="outboundTabReco" class="outbound-tab" onclick="outboundTab('recommend')">조건 추천</button>
+            </div>
+
+            <!-- 명단 컨트롤 (제목·버튼·필터) -->
+            <div id="outboundListControls">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
+                  <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                    엑셀
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
+                    신규 등록
+                  </button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열</label>
+                  <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>세분</label>
+                  <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>가용상태</label>
+                  <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="available">진행가능</option>
+                    <option value="adjusting">조율중</option>
+                    <option value="unavailable">불가</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                  <label>검색</label>
+                  <div style="position:relative">
+                    <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 추천 조건 입력 (숨김) — 계열 필수, 나머지 선택 -->
+            <div id="outboundRecoControls" style="display:none">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">조건 추천</div>
+                <div style="font-size:12px;color:var(--muted)">계열만 필수, 나머지는 선택입니다. 성과 데이터가 쌓이기 전이라 조건 적합도 기준으로 정렬합니다.</div>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열 <span style="color:var(--pink)">*</span></label>
+                  <select id="recoSeries" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택하세요</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>모집형식</label>
+                  <select id="recoFormat" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="feed">피드</option>
+                    <option value="reels">릴스</option>
+                    <option value="story">스토리</option>
+                    <option value="tiktok">틱톡</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="recoTier" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="recoChannel" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>예산 (¥)</label>
+                  <input type="text" id="recoBudget" class="form-input" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>인원수</label>
+                  <input type="text" id="recoHeadcount" class="form-input" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>광고목적</label>
+                  <select id="recoPurpose" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="new">신제품</option>
+                    <option value="sale">세일</option>
+                    <option value="branding">브랜딩</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <button class="btn btn-primary btn-sm" onclick="runOutboundRecommend()" style="height:32px">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">auto_awesome</span>
+                    추천
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 명단 결과 카드 -->
+          <div id="outboundListCard" class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 명단</span><span id="outboundTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:56px">대표</th>
+                  <th style="width:140px">이름</th>
+                  <th style="width:90px">계열</th>
+                  <th style="width:90px">세분</th>
+                  <th style="width:120px">등급</th>
+                  <th style="width:100px">Instagram</th>
+                  <th style="width:100px">TikTok</th>
+                  <th style="width:100px">YouTube</th>
+                  <th style="width:90px">X</th>
+                  <th style="width:90px">가용상태</th>
+                  <th style="width:130px">소속사</th>
+                  <th style="width:90px">처리</th>
+                </tr></thead>
+                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 추천 결과 카드 (숨김) -->
+          <div id="outboundRecoCard" class="admin-card" style="display:none">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 결과</span><span id="recoResultCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:44px">순위</th>
+                  <th style="width:70px">적합도</th>
+                  <th style="width:140px">이름</th>
+                  <th style="width:80px">계열</th>
+                  <th style="width:110px">등급</th>
+                  <th style="width:100px">Instagram</th>
+                  <th style="width:100px">TikTok</th>
+                  <th style="width:100px">YouTube</th>
+                  <th style="width:90px">X</th>
+                  <th style="width:110px">선택형식 단가</th>
+                  <th style="width:80px">가용</th>
+                  <th>근거</th>
+                </tr></thead>
+                <tbody id="recoTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">계열을 선택하고 「추천」을 누르세요.</td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -3135,6 +3432,178 @@
 </div>
 
 <!-- 캠페인 노출 마감일 자동 제안 confirm 모달 -->
+<!-- 정산 송금 완료 처리 모달 (mark_settlement_paid) -->
+<div class="modal-overlay" id="settlementPayModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 완료 처리</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementPayBody"></div>
+      <div id="settlementPayWarn" style="display:none;padding:10px 12px;background:#FFE4E4;border:1px solid #C33;border-radius:8px;font-size:12px;line-height:1.55;color:#C33;margin-bottom:14px">
+        <strong>PayPal 미등록:</strong> 이 인플루언서는 PayPal 주소가 없어 송금할 수 없습니다. 인플루언서에게 등록을 요청하세요.
+      </div>
+      <div class="form-group">
+        <label class="form-label">메모 (송금 참조번호 등, 선택)</label>
+        <input type="text" id="settlementPayMemo" class="form-input" placeholder="예: PayPal 거래번호">
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">외부 PayPal에서 송금을 마친 뒤 이 버튼을 누르세요. 실제 송금 완료 후에만 처리하세요.</div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementPayModal()">취소</button>
+      <button class="btn btn-primary" id="settlementPayConfirmBtn" onclick="confirmSettlementPay()">송금 완료 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 보류/취소 사유 모달 (mark_settlement_hold / mark_settlement_cancel) -->
+<div class="modal-overlay" id="settlementReasonModal" style="z-index:615">
+  <div class="modal" style="max-width:460px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="settlementReasonTitle">정산 보류</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementReasonDesc" style="font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:10px"></div>
+      <div id="settlementReasonInfo" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+      <div class="form-group">
+        <label class="form-label">사유 메모 (선택)</label>
+        <textarea id="settlementReasonMemo" class="form-input" rows="3" placeholder="사유를 입력하세요 (환수 필요·인증 재검토 등)" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementReasonModal()">취소</button>
+      <button class="btn btn-primary" id="settlementReasonConfirmBtn" onclick="confirmSettlementReason()">보류 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 이력 모달 (settlement_events 타임라인, 읽기 전용) -->
+<div class="modal-overlay" id="settlementHistoryModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 이력</div>
+      <div id="settlementHistoryHeader" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-body" id="settlementHistoryBody" style="padding:12px 22px;overflow-y:auto;flex:1"></div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 인플루언서 추천 명단 등록·편집 모달 (admin-outbound.js) -->
+<div class="modal-overlay" id="outboundEditModal" style="z-index:615">
+  <div class="modal" style="max-width:720px;width:96vw;border-radius:18px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="outboundModalTitle">인플루언서 등록</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeOutboundEditModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:18px 22px;overflow-y:auto;flex:1">
+      <!-- 기본 -->
+      <div class="outbound-form-section-title">기본 정보</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-group">
+          <label class="form-label">한글 이름 <span style="color:#C33">*</span></label>
+          <input type="text" id="obName" class="form-input" placeholder="예: 홍길동">
+        </div>
+        <div class="form-group">
+          <label class="form-label">계정 ID</label>
+          <input type="text" id="obAccountId" class="form-input" placeholder="대표 계정 식별자(선택)">
+        </div>
+      </div>
+
+      <!-- 분류 -->
+      <div class="outbound-form-section-title">분류</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-group">
+          <label class="form-label">세분 카테고리</label>
+          <select id="obCategory" class="form-input" onchange="onOutboundCategoryChange()"><option value="">선택 안 함</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">계열 <span style="font-size:11px;color:var(--muted)">(세분에서 자동)</span></label>
+          <input type="text" id="obSeriesLabel" class="form-input" readonly placeholder="세분 선택 시 자동" style="background:var(--light-gray,#f5f5f5)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">등급</label>
+          <select id="obTier" class="form-input"><option value="">선택 안 함</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">가용 상태</label>
+          <select id="obAvailability" class="form-input">
+            <option value="available">진행가능</option>
+            <option value="adjusting">조율중</option>
+            <option value="unavailable">불가</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 채널 -->
+      <div class="outbound-form-section-title">채널 (핸들 · 팔로워)</div>
+      <div style="display:grid;grid-template-columns:1fr 130px;gap:8px 14px;align-items:end">
+        <div class="form-group"><label class="form-label">Instagram 핸들</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obIgFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+        <div class="form-group"><label class="form-label">TikTok 핸들</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obTiktokFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+        <div class="form-group"><label class="form-label">YouTube 핸들</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">구독자</label><input type="text" id="obYoutubeFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+        <div class="form-group"><label class="form-label">X 핸들</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obXFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+      </div>
+
+      <!-- 가격 (내부 전용) -->
+      <div class="outbound-form-section-title">단가 (엔화 ¥ · 내부 전용)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">빈 칸은 「가격 미상」으로 저장됩니다(0원과 구분). 이 값은 내부 전용 — 브랜드에게 노출되지 않습니다.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px">
+        <div class="form-group"><label class="form-label">피드</label><input type="text" id="obPriceFeed" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">릴스</label><input type="text" id="obPriceReels" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">스토리</label><input type="text" id="obPriceStory" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">틱톡</label><input type="text" id="obPriceTiktok" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">2차 활용</label><input type="text" id="obPriceSecondary" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+      </div>
+
+      <!-- 운영 (내부 전용) -->
+      <div class="outbound-form-section-title">운영 (내부 전용)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-group"><label class="form-label">컨택 창구</label><input type="text" id="obContactChannel" class="form-input" placeholder="예: 카톡 / 이메일 / 소속사"></div>
+        <div class="form-group"><label class="form-label">소속사</label><input type="text" id="obAgency" class="form-input" placeholder="예: OO엔터"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">협상 메모 <span style="font-size:11px;color:#C33">(내부 전용 — 브랜드 미노출)</span></label>
+        <textarea id="obNegoMemo" class="form-input" rows="2" placeholder="협상 조건·이력 등" style="resize:vertical"></textarea>
+      </div>
+
+      <!-- 콘텐츠 -->
+      <div class="outbound-form-section-title">콘텐츠</div>
+      <div class="form-group">
+        <label class="form-label">대표 이미지</label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <img id="obImagePreview" src="" alt="" style="display:none;width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer" onclick="openImageLightbox(this.src)">
+          <input type="file" id="obImageFile" accept="image/jpeg,image/png,image/webp" onchange="onOutboundImagePicked(this)" style="font-size:12px">
+          <button type="button" class="btn btn-ghost btn-xs" id="obImageRemoveBtn" onclick="clearOutboundImage()" style="display:none;color:#C33">제거</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">JPG · PNG · WEBP, 5MB 이하</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">대표 게시물 링크 <span style="font-size:11px;color:var(--muted)">(최대 5개)</span></label>
+        <div id="obRepPosts"></div>
+      </div>
+      <div class="form-group" style="margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">
+          <input type="checkbox" id="obContentConsent" style="width:16px;height:16px">
+          대표 이미지·게시물을 브랜드에게 노출해도 된다는 인플루언서 동의를 받았습니다
+        </label>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <button class="btn btn-ghost btn-sm" id="obDeleteBtn" onclick="confirmDeleteOutbound()" style="display:none;color:#C33">삭제</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-ghost" onclick="closeOutboundEditModal()">취소</button>
+        <button class="btn btn-primary" id="obSaveBtn" onclick="saveOutboundInfluencer()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
     <div class="modal-body" style="padding:28px 24px 22px">

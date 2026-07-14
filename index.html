@@ -1853,6 +1853,27 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
       </div>
     </div>
   </div>
+
+  <!-- 報酬・精算 (인플루언서 정산 조회 — renderMySettlements in mypage.js) -->
+  <div id="mypage-sub-settlements" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="mypage-sub-title" data-i18n="mypage.settlements.title">報酬・精算</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <!-- PayPal 미등록 안내 (기본 숨김, renderMySettlements 가 미등록 시 표시) -->
+      <div id="mySettlementPaypalNotice" style="display:none;background:var(--light-pink);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--dark-pink);line-height:1.6;margin-bottom:10px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">account_balance_wallet</span>
+          <span data-i18n="mypage.settlements.paypalMissing">報酬のお振込みにはPayPalメールアドレスの登録が必要です。</span>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="openMypageSub('paypal')" data-i18n="mypage.settlements.paypalLink">PayPal登録</button>
+      </div>
+      <!-- 누적 수령액 큰 카드 (동적 렌더) -->
+      <div id="mySettlementTotal"></div>
+      <!-- 정산 내역 리스트 (동적 렌더) -->
+      <div id="mySettlementsList"></div>
+    </div>
+  </div>
 </div>
 <!-- ══════════════════════════════════
      MODAL: APPLY
@@ -2530,6 +2551,17 @@ const PANE_REFRESHERS = {
   },
   'permissions': async () => {
     if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
+  },
+  'settlements': async () => {
+    // 처리(송금/보류/취소) 후 호출 — 상태가 바뀐 행을 정확히 반영해야 하므로 캐시 재렌더가 아니라
+    // 재조회(reloadSettlementsData: fetchSettlements + renderSettlementsList + 배지)로 갱신한다.
+    if (typeof reloadSettlementsData === 'function') await reloadSettlementsData();
+    else if (typeof renderSettlementsList === 'function') await renderSettlementsList();
+  },
+  'outbound': async () => {
+    // 명단 저장·삭제 모달 후 호출 — 재조회(fetchOutboundInfluencers + 목록 재렌더)로 갱신.
+    if (typeof reloadOutboundData === 'function') await reloadOutboundData();
+    else if (typeof renderOutboundList === 'function') renderOutboundList();
   }
 };
 async function refreshPane(paneId) {
@@ -2782,8 +2814,27 @@ function visibleUpcomingFeatures() {
 //   사양서 docs/specs/2026-06-15-admin-permission-management.md §3
 //         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+// 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
+//   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
+//   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
+//   (admin-outbound.js). HANDOFF §계열 매핑 확정표(2026-07-09)와 1:1.
+//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘·헬스 / 푸드 = 푸드(독립) / 미분류 = 기타·테크
+// ══════════════════════════════════════
+const OB_CATEGORY_SERIES = {
+  color:   'beauty',
+  base:    'beauty',
+  fashion: 'fashion',
+  vlog:    'life',
+  kidsmom: 'life',
+  health:  'life',    // 헬스/다이어트 (마이그레이션 236, 2026-07-14)
+  food:    'food',
+  other:   'other',
+  tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
+};
+
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 19개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -2798,6 +2849,8 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
   { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
   { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.settlements',        label_ko: '정산 관리',                    category: '회원 관리',   server_enforced: false },
+  { key: 'menu.outbound',           label_ko: '인플루언서 추천 명단',         category: '회원 관리',   server_enforced: false },
   { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
@@ -2805,7 +2858,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
   { key: 'menu.permissions',        label_ko: '권한 관리',                    category: '관리자 설정', server_enforced: false },
 
-  // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
@@ -2823,6 +2876,12 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'campaign.caution_history_view', label_ko: '캠페인 주의사항 변경 이력 열람',                category: '캠페인',       server_enforced: true },
   { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
   { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
+  // ── 정산(인플루언서 리워드) 2개 — 마이그레이션 220 role_permissions 시드와 1:1 (화면 menu.settlements 는 PR2) ──
+  { key: 'settlement.view',               label_ko: '정산 조회',                                     category: '정산',         server_enforced: true },
+  { key: 'settlement.pay',                label_ko: '정산 송금 처리',                                category: '정산',         server_enforced: true },
+  // ── 인플루언서 추천 명단(아웃바운드) 1개 — 마이그레이션 228 role_permissions 시드와 1:1 ──
+  //    RLS(마이그레이션 226)·Storage(229)가 has_permission('outbound.view', ...)로 서버 강제 → server_enforced=true.
+  { key: 'outbound.view',                 label_ko: '인플루언서 추천 명단 조회·편집',                category: '회원 관리',    server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -3099,8 +3158,22 @@ window.I18N_JA = {
       paypal: 'PayPal',
       password: 'パスワード変更',
       emailSettings: 'メール受信設定',
+      settlements: '報酬・精算',
       logout: 'ログアウト',
       language: '言語 / 언어',
+    },
+    settlements: {
+      title: '報酬・精算',
+      totalLabel: '累計受取額',
+      pendingLabel: 'お支払い予定',
+      empty: 'まだ精算はありません。',
+      paypalMissing: '報酬のお振込みにはPayPalメールアドレスの登録が必要です。',
+      paypalLink: 'PayPal登録',
+      status: {
+        pending: '精算待ち',
+        paid: '送金済み',
+        onHold: '確認中',
+      },
     },
     emailSettings: {
       title: 'メール受信設定',
@@ -3809,8 +3882,22 @@ window.I18N_KO = {
       paypal: 'PayPal',
       password: '비밀번호 변경',
       emailSettings: '메일 수신 설정',
+      settlements: '보상·정산',
       logout: '로그아웃',
       language: '言語 / 언어',
+    },
+    settlements: {
+      title: '보상·정산',
+      totalLabel: '누적 수령액',
+      pendingLabel: '지급 예정',
+      empty: '아직 정산 내역이 없습니다.',
+      paypalMissing: '보상 송금에는 PayPal 이메일 등록이 필요합니다.',
+      paypalLink: 'PayPal 등록',
+      status: {
+        pending: '정산 대기',
+        paid: '송금 완료',
+        onHold: '확인 중',
+      },
     },
     emailSettings: {
       title: '메일 수신 설정',
@@ -8295,6 +8382,270 @@ async function fetchOrientSheetsByApplication(applicationId) {
   });
 }
 
+// ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
+// 화면(PR2)은 아직 없음 — storage.js 함수만 미리 정의. RLS는 has_permission('settlement.view','read')
+// 게이트(server_enforced) — campaign_manager 는 이 기능이 hidden 이라 조회 자체가 서버에서 막힘.
+
+// 관리자 조회 — campaign_admin 이상만 실제로 행을 받는다(그 외는 RLS로 빈 배열).
+// PostgREST 1000행 cap 대비 fetchAllPaged 사용. opts: {status, campaignId, influencerId}
+async function fetchSettlements(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('settlements').select(`
+        id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
+        campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
+        settlement_events(count)
+      `);
+      if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status);
+      if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+      if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
+      // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
+      q = q.order('created_at', {ascending: true});
+      return q;
+    });
+    const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(infIds);
+    return data.map(s => ({
+      ...s,
+      influencers: infMap[s.influencer_id] || null,
+      event_count: Array.isArray(s.settlement_events) ? (s.settlement_events[0]?.count ?? 0) : 0,
+    }));
+  } catch(e) { console.error('[fetchSettlements]', e); return []; }
+}
+
+// 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
+// 필터 없이 그대로 조회해도 안전.
+async function fetchMySettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('settlements').select(`
+      id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
+      campaigns:campaign_id (id, title, brand, img1)
+    `).order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMySettlements]', e); return []; }
+}
+
+// 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
+// 재검증하므로 campaign_manager 가 호출하면 42501(permission_denied) 에러.
+// 반환: { created_count, paypal_missing_count }
+async function backfillSettlements() {
+  if (!db) throw new Error('DB 미연결');
+  let result = { created_count: 0, paypal_missing_count: 0 };
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlements');
+    if (error) throw error;
+    result = Array.isArray(data) ? (data[0] || result) : (data || result);
+  });
+  return result;
+}
+
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222). pending → paid 전이,
+// paypal_email 재조회·미등록 시 차단, settlement_paid 알림 발행, settlement_events 이력 기록.
+// 버전 충돌 시 -1 반환("이미 처리됨" 토스트). 정산 관리 페인(admin-settlements.js)에서 호출.
+async function markSettlementPaid(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_paid', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 처리(낙관적 락) — RPC mark_settlement_hold (마이그레이션 223).
+// pending 또는 paid → on_hold. 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementHold(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_hold', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 취소 처리(낙관적 락) — RPC mark_settlement_cancel (마이그레이션 223).
+// pending 또는 on_hold → cancelled (paid 는 서버가 거부 — 먼저 markSettlementHold 필요).
+// 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementCancel(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_cancel', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 해제(낙관적 락) — RPC mark_settlement_revert (마이그레이션 224).
+// on_hold → pending 만 허용(보류를 다시 정산 대기로 복귀). 반환값 -1 = 다른 관리자가
+// 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementRevert(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_revert', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 정산 이력 조회 — RPC get_settlement_events (마이그레이션 225).
+// settlement_events 를 관리자 이름(actor_name)으로 변환해 시간순(오래된 것부터) 반환.
+// 조회 전용이라 retryWithRefresh 없이 db.rpc 직접 호출(다른 fetch* 함수와 동일 패턴).
+// 실패 시 빈 배열 반환(fetchSettlements 패턴 — 화면이 "이력 없음"으로 처리).
+async function fetchSettlementEvents(settlementId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_settlement_events', {
+      p_settlement_id: settlementId
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
+}
+
+// ══════════════════════════════════════
+// OUTBOUND INFLUENCERS — 인플루언서 추천 명단(아웃바운드 시딩·타이업)
+//   마이그레이션 226(테이블·RLS)·227(lookup)·228(권한)·229(Storage 버킷).
+//   기존 influencers(auth 계정 1:1)와 분리된 별도 자산 — 관리자 전용 내부 명단.
+//   RLS 는 has_permission('outbound.view', ...) (campaign_manager 차단). 페인 = admin-outbound.js.
+//   ⚠ 내부 전용 필드(nego_memo·가격)는 브랜드 뷰(5단계)에서 반드시 제외 — 여기선 관리자만이라 그대로 조회.
+// ══════════════════════════════════════
+const OUTBOUND_IMAGE_BUCKET = 'outbound-influencer-images';
+
+// 전건 조회(PostgREST 1000행 제한 우회) — 필터·검색은 클라이언트(admin-outbound.js)에서.
+async function fetchOutboundInfluencers(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    return await fetchAllPaged(() => {
+      let q = db.from('outbound_influencers').select('*');
+      if (opts.availability) q = q.eq('availability', opts.availability);
+      if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
+      // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
+      return q.order('created_at', {ascending: false});
+    });
+  } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
+}
+
+// INSERT/UPDATE 통합 — row.id 유무로 분기. RLS 직접 정책(has_permission write)이 방어선.
+//   반환: 저장된 행(id 포함). 신규는 호출자가 미리 crypto.randomUUID() 로 id 를 채워 넘긴다
+//   (이미지 경로 {id}/... 를 저장 전에 만들 수 있게 — admin-outbound.js).
+async function upsertOutboundInfluencer(row) {
+  if (!db) return null;
+  let saved = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.from('outbound_influencers')
+      .upsert(row).select().maybeSingle();
+    if (error) throw error;
+    saved = data;
+  });
+  return saved;
+}
+
+async function deleteOutboundInfluencer(id) {
+  if (!db || !id) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('outbound_influencers').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+// 대표 이미지 업로드 — outbound-influencer-images 버킷, 경로 {obId}/{난수}.{ext}.
+//   저장은 경로(rep_image_path 컬럼)만 — 표시 시 outboundImagePublicUrl()로 공개 URL 조립.
+//   File/Blob 직접 업로드(base64 변환 생략). 5MB·jpg/png/webp 는 버킷 정책이 최종 강제.
+async function uploadOutboundImage(file, obId) {
+  if (!db) throw new Error('storage_unavailable');
+  if (!file || !file.size) throw new Error('file_required');
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) throw new Error('file_type_not_allowed');
+  if (file.size > 5 * 1024 * 1024) throw new Error('file_too_large');
+  const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  const rand = Math.random().toString(36).substring(2, 10);
+  const path = obId + '/' + Date.now() + '_' + rand + '.' + ext;
+  const {error} = await db.storage.from(OUTBOUND_IMAGE_BUCKET)
+    .upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
+  if (error) throw error;
+  return path;
+}
+
+// 경로 → 공개 URL. 공개 버킷이라 imgThumb() 로 썸네일 변환 가능.
+function outboundImagePublicUrl(path) {
+  if (!db || !path) return '';
+  const {data} = db.storage.from(OUTBOUND_IMAGE_BUCKET).getPublicUrl(path);
+  return (data && data.publicUrl) || '';
+}
+
+// 대표 이미지 삭제(교체·행 삭제 시 정리). best-effort — 실패해도 throw 하지 않는다.
+async function deleteOutboundImage(path) {
+  if (!db || !path) return;
+  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove([path]); }
+  catch(e) { console.warn('[deleteOutboundImage]', e); }
+}
+
+// ─── 정산 과거분 컷오프 — 과거 미등록 인증성공 조회/처리 (사양서 2026-07-09) ──────────
+// 도입일(cutoff) 이전에 인증 성공했지만 정산행이 없는 응모 목록. 자동 백필은 컷오프 이후만
+// 대상이라, 컷오프 이전 과거분은 이 목록에서 관리자가 건별/일괄로 직접 처리한다.
+// RLS/서버 게이트 has_permission('settlement.view','read') → campaign_manager 는 빈 배열.
+// 각 행: {application_id, influencer_id, influencer_name, influencer_name_kana, has_paypal(bool),
+//   campaign_id, campaign_title, recruit_type, amount_jpy, cert_at(nullable)}
+async function fetchPastUnregisteredSettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_past_unregistered_settlements');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+}
+
+// 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.
+//   p_target_status: 'paid'(이미 외부 PayPal 지급 완료) | 'pending'(아직 미지급, 정산 대기)
+//   서버가 has_permission('settlement.pay','write') 게이트 + settlement_events 이력 기록.
+// 반환: registered_count(정수 — 실제 등록된 건수. 이미 정산행 있는 건은 skip 되어 제외).
+async function registerPastSettlements(applicationIds, targetStatus, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let registered = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('register_past_settlements', {
+      p_application_ids: applicationIds,
+      p_target_status: targetStatus,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    // 스칼라(정수) 또는 {registered_count} 단일 행 양쪽 대응
+    registered = Array.isArray(data)
+      ? (data[0]?.registered_count ?? data[0] ?? 0)
+      : (data?.registered_count ?? data ?? 0);
+  });
+  return Number(registered) || 0;
+}
+
 
 // ══════════════════════════════════════
 // LEGAL — 약관/개인정보 페이지 마크다운 렌더링
@@ -11709,6 +12060,7 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
       {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
       {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
+      {sub:'settlements', label: t('mypage.menu.settlements')},
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
@@ -11920,7 +12272,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}, application_approved:{icon:'celebration',color:'#E94F8A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}, application_approved:{icon:'celebration',color:'#E94F8A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -11954,6 +12306,17 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
     if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
+    refreshNotifBadge();
+    return;
+  }
+  // 정산 알림 → 마이페이지 해당 화면 이동 (ref_table='settlements' 이므로 kind 로 분기 — else 로 새지 않게 deliverables 판정보다 앞)
+  if (kind === 'settlement_paypal_required' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('paypal'); }
+    refreshNotifBadge();
+    return;
+  }
+  if (kind === 'settlement_paid' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('settlements'); }
     refreshNotifBadge();
     return;
   }
@@ -12471,6 +12834,8 @@ function openMypageSub(sub, pushHistory) {
   // 즉시 채워 빈 박스/stale 선택 방지. 데이터 로드(loadMyApplications) 전이라도 항목은 보이고,
   // 로드 완료 후 renderMyApplyTabs 재호출로 건수까지 갱신된다.
   if (sub === 'applications' && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+  // 報酬・精算 진입 시 정산 내역 렌더 (본인 RLS 조회).
+  if (sub === 'settlements' && typeof renderMySettlements === 'function') renderMySettlements();
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
@@ -12484,6 +12849,85 @@ function closeMypageSub() {
   const def = $('mypage-sub-applications');
   if (def) def.classList.add('active');
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 報酬・精算 조회 (인플루언서 정산 관리 PR3 — 마이페이지 조회 화면)
+// fetchMySettlements() 는 RLS 로 본인행만 반환. 취소(cancelled) 건은 화면에서 숨김.
+// ════════════════════════════════════════════════════════════════════
+
+// 정산 상태 → 라벨 키·pill 색. 동적 렌더라 applyI18n 미적용 → langchange 시 renderMySettlements 재호출로 갱신.
+function settlementStatusMeta(status) {
+  const map = {
+    pending: {key:'mypage.settlements.status.pending', bg:'#EFEFF2', color:'#5B5B66'},
+    paid:    {key:'mypage.settlements.status.paid',    bg:'#E6F4EA', color:'#2D7A3E'},
+    on_hold: {key:'mypage.settlements.status.onHold',  bg:'#FBEFDD', color:'#B8741A'},
+  };
+  return map[status] || map.pending;
+}
+
+async function renderMySettlements() {
+  const totalEl = $('mySettlementTotal');
+  const listEl = $('mySettlementsList');
+  const noticeEl = $('mySettlementPaypalNotice');
+  if (!listEl) return;
+
+  // PayPal 미등록 안내 표시/숨김 (등록됐으면 숨김)
+  if (noticeEl) {
+    const hasPaypal = !!(currentUserProfile && currentUserProfile.paypal_email);
+    noticeEl.style.display = hasPaypal ? 'none' : '';
+  }
+
+  let rows = [];
+  try { rows = await fetchMySettlements(); } catch(e) { rows = []; }
+  // 취소 건 숨김
+  rows = (rows || []).filter(r => r && r.status !== 'cancelled');
+
+  const yen = n => '¥' + Number(n || 0).toLocaleString('ja-JP');
+  // 누적 수령액 = 송금 완료(paid)만 합산 / 지급 예정 = 대기(pending) 합산(보조 표기)
+  const paidTotal = rows.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount_jpy || 0), 0);
+  const pendingTotal = rows.filter(r => r.status === 'pending').reduce((s, r) => s + Number(r.amount_jpy || 0), 0);
+
+  if (totalEl) {
+    totalEl.innerHTML = `
+      <div style="background:linear-gradient(135deg,var(--pink),var(--dark-pink));border-radius:14px;padding:18px 20px;color:#fff;margin-bottom:16px">
+        <div style="font-size:12px;opacity:.9;margin-bottom:6px">${esc(t('mypage.settlements.totalLabel'))}</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:.5px">${esc(yen(paidTotal))}</div>
+        ${pendingTotal > 0 ? `<div style="font-size:11px;opacity:.9;margin-top:8px">${esc(t('mypage.settlements.pendingLabel'))} ${esc(yen(pendingTotal))}</div>` : ''}
+      </div>`;
+  }
+
+  // 내역 0건 (취소 제외 후)
+  if (!rows.length) {
+    listEl.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:40px 16px">${esc(t('mypage.settlements.empty'))}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = rows.map(r => {
+    const camp = r.campaigns || {};
+    const title = camp.title || '';
+    const orig = camp.img1 || '';
+    const thumb = orig ? (typeof imgThumb === 'function' ? imgThumb(orig, 120, 60) : orig) : '';
+    const meta = settlementStatusMeta(r.status);
+    const statusLabel = t(meta.key);
+    const paidLine = (r.status === 'paid' && r.paid_at)
+      ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(formatDate(r.paid_at))}</div>`
+      : '';
+    const imgHtml = thumb
+      ? `<img src="${esc(thumb)}" data-orig="${esc(orig)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0" loading="lazy" decoding="async" alt="">`
+      : `<div style="width:52px;height:52px;border-radius:10px;background:var(--light-pink);flex-shrink:0"></div>`;
+    return `<div style="display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)">
+      ${imgHtml}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(title)}</div>
+        ${paidLine}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(yen(r.amount_jpy))}</div>
+        <span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:${meta.bg};color:${meta.color}">${esc(statusLabel)}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // 언어 토글 버튼 상태 업데이트
@@ -12508,6 +12952,12 @@ window.addEventListener('langchange', updateLangToggleUI);
 // 언어 전환 시 응모이력 상태 드롭다운 라벨(進行中 등) 갱신 — 동적 렌더라 applyI18n 미적용 대상
 window.addEventListener('langchange', () => {
   if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+});
+
+// 언어 전환 시 정산 화면이 열려 있으면 동적 pill·금액 라벨 갱신 (applyI18n 미적용 대상)
+window.addEventListener('langchange', () => {
+  const view = $('mypage-sub-settlements');
+  if (view && view.classList.contains('active') && typeof renderMySettlements === 'function') renderMySettlements();
 });
 
 // 생년월일·성별 읽기 전용 표시 갱신 (loadMyPage + 언어 전환 공용 — 동적 텍스트라 applyI18n 미적용)

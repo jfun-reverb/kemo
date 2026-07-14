@@ -177,6 +177,8 @@ function switchAdminPane(pane, el, pushHistory) {
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
     influencers: loadAdminInfluencers,
+    'settlements': loadSettlements,
+    'outbound': loadOutbound,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,
@@ -712,6 +714,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'bulkMessageModal', 'broadcastDetailModal',
   // 이미지 확대 창 — 배경 안 덮고(뒤 화면 조작 가능) 드래그·리사이즈로 영수증 보며 입력
   'imageLightbox',
+  // 아웃바운드 인플루언서 명단 등록·편집 (입력 항목 많아 드래그·리사이즈 유용)
+  'outboundEditModal',
 ]);
 
 function makeModalDraggableResizable(modalEl) {

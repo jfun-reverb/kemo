@@ -1646,3 +1646,68 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
 .perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
+
+/* ── 인플루언서 추천 명단(아웃바운드) 편집 모달 섹션 제목 ── */
+.outbound-form-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 18px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-form-section-title:first-child { margin-top: 0; }
+/* 대표 게시물 링크 행 (JS 렌더) */
+.ob-post-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ob-post-row .form-input { flex: 1; }
+
+/* ── 아웃바운드: 명단/조건 추천 전환 탭 (2단계) ── */
+.outbound-tabbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.outbound-tab:hover { color: var(--ink); }
+.outbound-tab.is-active {
+  color: var(--pink);
+  border-bottom-color: var(--pink);
+}
+
+/* ── 아웃바운드: 조건 추천 결과 근거 배지 ── */
+.reco-badge {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin: 1px 0;
+  white-space: nowrap;
+}
+.reco-badge-ok    { background: #E8F5E9; color: #16A34A; }
+.reco-badge-soft  { background: #EEF2FF; color: #4338CA; }
+.reco-badge-muted { background: #F3F4F6; color: #6B7280; }
+.reco-badge-over  { background: #FEE2E2; color: #DC2626; }
+
+/* 요청 인원 경계 구분선 행 */
+.reco-divider td {
+  background: #FAFAFA;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}

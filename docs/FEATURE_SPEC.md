@@ -161,6 +161,7 @@
 - 첨부는 비공개 버킷 `application-message-attachments` + 5분 시한 signed URL
 - DB: 마이그레이션 144(테이블 5개 + 마스킹/발송/읽음/회수 RPC + 집계 뷰 + 숨김사유 7종) + 145(notifications.kind 확장 + send RPC 알림 INSERT + mark_application_resolved/hide_application_message/unhide_application_message)
 - **미구현**: 일괄 발송(PR 3)·메일 지연 큐(PR 4)·LINE 안내+약관 D-7 사전 통지(PR 5). 운영 배포는 PR 5 약관 통지와 함께(현재 보류)
+- **자동 번역 병기(2026-07-13, 마이그레이션 235 — dev, 운영 미배포):** 메시지 INSERT → 데이터베이스 웹훅 → Edge Function `translate-message` → Google Cloud Translation v2 → 번역 3컬럼(`body_translated`/`translated_lang`/`translate_status`) 저장·캐싱. 받은 메시지에 번역문 본문 + 원문 작은 글씨 병기(인플=일본어, 관리자=한국어 + 미리보기·검색 번역본 활용). 실패·과거 메시지는 원문 폴백, 마스킹 행은 번역본도 서버 NULL. 운영 배포 전 개인정보처리방침 Google 위탁 추가(PR3) 필수. 사양서 `docs/specs/2026-07-13-message-translation.md`
 - 사양서: `docs/specs/2026-05-15-application-messaging.md`
 
 ---

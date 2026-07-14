@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783988905';
+  var CURRENT_BUILD = 'v1784001444';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2105,6 +2105,71 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
 
+/* ── 인플루언서 추천 명단(아웃바운드) 편집 모달 섹션 제목 ── */
+.outbound-form-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 18px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-form-section-title:first-child { margin-top: 0; }
+/* 대표 게시물 링크 행 (JS 렌더) */
+.ob-post-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ob-post-row .form-input { flex: 1; }
+
+/* ── 아웃바운드: 명단/조건 추천 전환 탭 (2단계) ── */
+.outbound-tabbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.outbound-tab:hover { color: var(--ink); }
+.outbound-tab.is-active {
+  color: var(--pink);
+  border-bottom-color: var(--pink);
+}
+
+/* ── 아웃바운드: 조건 추천 결과 근거 배지 ── */
+.reco-badge {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin: 1px 0;
+  white-space: nowrap;
+}
+.reco-badge-ok    { background: #E8F5E9; color: #16A34A; }
+.reco-badge-soft  { background: #EEF2FF; color: #4338CA; }
+.reco-badge-muted { background: #F3F4F6; color: #6B7280; }
+.reco-badge-over  { background: #FEE2E2; color: #DC2626; }
+
+/* 요청 인원 경계 구분선 행 */
+.reco-divider td {
+  background: #FAFAFA;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2162,6 +2227,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="outbound" onclick="navAdminPaneReload('outbound')"><span class="si-icon material-icons-round notranslate" translate="no">contact_page</span><span class="si-text">인플루언서 추천 명단</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
@@ -2183,7 +2250,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 09:28 · 0b83ea0</span>
+          <span class="admin-build-text">2026-07-14 12:57 · 6a36eb9</span>
         </div>
       </div>
     </aside>
@@ -3221,6 +3288,301 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
+        <div id="adminPane-settlements" class="admin-pane admin-pane-list">
+          <!-- 메인 뷰(정산 목록) — 과거 미등록 뷰와 같은 페인 안에서 토글 전환 -->
+          <div id="settlementMainView" style="display:flex;flex-direction:column;flex:1;min-height:0">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 관리</div>
+                <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
+                  과거 미등록
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                  엑셀
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <div id="settlementCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderSettlementsList()">
+                </div>
+              </div>
+            </div>
+            <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">정산 목록</span><span id="settlementsTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="settlementsSumAmount" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>인플루언서</th>
+                  <th>캠페인</th>
+                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:200px">PayPal</th>
+                  <th style="width:90px">상태</th>
+                  <th style="width:120px">인증성공일</th>
+                  <th style="width:120px">송금완료일</th>
+                  <th style="width:300px">처리</th>
+                </tr></thead>
+                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          </div><!-- /settlementMainView -->
+
+          <!-- 과거 미등록 인증성공 뷰 (정산 도입 이전 과거분 관리자 직접 처리) — 기본 숨김 -->
+          <div id="settlementPastView" style="display:none;flex-direction:column;flex:1;min-height:0">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <button class="btn btn-ghost btn-sm" onclick="closePastUnregView()">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
+                정산 목록으로
+              </button>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">과거 미등록 인증성공</div>
+            </div>
+            <div style="padding:10px 12px;background:#FFF7E6;border:1px solid #E9C46A;border-radius:8px;font-size:12px;line-height:1.6;color:#7A5C00;margin-bottom:12px">
+              정산 도입 이전에 인증에 성공했지만 아직 정산에 등록되지 않은 건입니다.
+              여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
+              이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group" style="flex:1;min-width:220px">
+                <label>메모 (선택 · 처리 건에 함께 기록)</label>
+                <input type="text" id="pastUnregMemo" class="form-input" style="height:38px" placeholder="예: 시스템 도입 전 외부 지급">
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
+                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled>선택 정산대기 추가</button>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">과거 미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 목록 전체 선택"></th>
+                  <th>인플루언서</th>
+                  <th>캠페인</th>
+                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:130px">인증성공일</th>
+                  <th style="width:100px">PayPal</th>
+                </tr></thead>
+                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          </div><!-- /settlementPastView -->
+        </div>
+
+        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD + 조건 추천. admin-outbound.js -->
+        <div id="adminPane-outbound" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <!-- 명단 / 추천 전환 탭 (2단계 — 사양서 2026-07-08 §PR 2단계) -->
+            <div class="outbound-tabbar">
+              <button id="outboundTabList" class="outbound-tab is-active" onclick="outboundTab('list')">명단</button>
+              <button id="outboundTabReco" class="outbound-tab" onclick="outboundTab('recommend')">조건 추천</button>
+            </div>
+
+            <!-- 명단 컨트롤 (제목·버튼·필터) -->
+            <div id="outboundListControls">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
+                  <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                    엑셀
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
+                    신규 등록
+                  </button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열</label>
+                  <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>세분</label>
+                  <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>가용상태</label>
+                  <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="available">진행가능</option>
+                    <option value="adjusting">조율중</option>
+                    <option value="unavailable">불가</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                  <label>검색</label>
+                  <div style="position:relative">
+                    <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 추천 조건 입력 (숨김) — 계열 필수, 나머지 선택 -->
+            <div id="outboundRecoControls" style="display:none">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">조건 추천</div>
+                <div style="font-size:12px;color:var(--muted)">계열만 필수, 나머지는 선택입니다. 성과 데이터가 쌓이기 전이라 조건 적합도 기준으로 정렬합니다.</div>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열 <span style="color:var(--pink)">*</span></label>
+                  <select id="recoSeries" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택하세요</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>모집형식</label>
+                  <select id="recoFormat" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="feed">피드</option>
+                    <option value="reels">릴스</option>
+                    <option value="story">스토리</option>
+                    <option value="tiktok">틱톡</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="recoTier" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="recoChannel" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>예산 (¥)</label>
+                  <input type="text" id="recoBudget" class="form-input" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>인원수</label>
+                  <input type="text" id="recoHeadcount" class="form-input" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>광고목적</label>
+                  <select id="recoPurpose" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="new">신제품</option>
+                    <option value="sale">세일</option>
+                    <option value="branding">브랜딩</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <button class="btn btn-primary btn-sm" onclick="runOutboundRecommend()" style="height:32px">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">auto_awesome</span>
+                    추천
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 명단 결과 카드 -->
+          <div id="outboundListCard" class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 명단</span><span id="outboundTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:56px">대표</th>
+                  <th style="width:140px">이름</th>
+                  <th style="width:90px">계열</th>
+                  <th style="width:90px">세분</th>
+                  <th style="width:120px">등급</th>
+                  <th style="width:100px">Instagram</th>
+                  <th style="width:100px">TikTok</th>
+                  <th style="width:100px">YouTube</th>
+                  <th style="width:90px">X</th>
+                  <th style="width:90px">가용상태</th>
+                  <th style="width:130px">소속사</th>
+                  <th style="width:90px">처리</th>
+                </tr></thead>
+                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 추천 결과 카드 (숨김) -->
+          <div id="outboundRecoCard" class="admin-card" style="display:none">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 결과</span><span id="recoResultCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:44px">순위</th>
+                  <th style="width:70px">적합도</th>
+                  <th style="width:140px">이름</th>
+                  <th style="width:80px">계열</th>
+                  <th style="width:110px">등급</th>
+                  <th style="width:100px">Instagram</th>
+                  <th style="width:100px">TikTok</th>
+                  <th style="width:100px">YouTube</th>
+                  <th style="width:90px">X</th>
+                  <th style="width:110px">선택형식 단가</th>
+                  <th style="width:80px">가용</th>
+                  <th>근거</th>
+                </tr></thead>
+                <tbody id="recoTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">계열을 선택하고 「추천」을 누르세요.</td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -5181,6 +5543,178 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 </div>
 
 <!-- 캠페인 노출 마감일 자동 제안 confirm 모달 -->
+<!-- 정산 송금 완료 처리 모달 (mark_settlement_paid) -->
+<div class="modal-overlay" id="settlementPayModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 완료 처리</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementPayBody"></div>
+      <div id="settlementPayWarn" style="display:none;padding:10px 12px;background:#FFE4E4;border:1px solid #C33;border-radius:8px;font-size:12px;line-height:1.55;color:#C33;margin-bottom:14px">
+        <strong>PayPal 미등록:</strong> 이 인플루언서는 PayPal 주소가 없어 송금할 수 없습니다. 인플루언서에게 등록을 요청하세요.
+      </div>
+      <div class="form-group">
+        <label class="form-label">메모 (송금 참조번호 등, 선택)</label>
+        <input type="text" id="settlementPayMemo" class="form-input" placeholder="예: PayPal 거래번호">
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">외부 PayPal에서 송금을 마친 뒤 이 버튼을 누르세요. 실제 송금 완료 후에만 처리하세요.</div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementPayModal()">취소</button>
+      <button class="btn btn-primary" id="settlementPayConfirmBtn" onclick="confirmSettlementPay()">송금 완료 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 보류/취소 사유 모달 (mark_settlement_hold / mark_settlement_cancel) -->
+<div class="modal-overlay" id="settlementReasonModal" style="z-index:615">
+  <div class="modal" style="max-width:460px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="settlementReasonTitle">정산 보류</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementReasonDesc" style="font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:10px"></div>
+      <div id="settlementReasonInfo" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+      <div class="form-group">
+        <label class="form-label">사유 메모 (선택)</label>
+        <textarea id="settlementReasonMemo" class="form-input" rows="3" placeholder="사유를 입력하세요 (환수 필요·인증 재검토 등)" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementReasonModal()">취소</button>
+      <button class="btn btn-primary" id="settlementReasonConfirmBtn" onclick="confirmSettlementReason()">보류 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 이력 모달 (settlement_events 타임라인, 읽기 전용) -->
+<div class="modal-overlay" id="settlementHistoryModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 이력</div>
+      <div id="settlementHistoryHeader" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-body" id="settlementHistoryBody" style="padding:12px 22px;overflow-y:auto;flex:1"></div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 인플루언서 추천 명단 등록·편집 모달 (admin-outbound.js) -->
+<div class="modal-overlay" id="outboundEditModal" style="z-index:615">
+  <div class="modal" style="max-width:720px;width:96vw;border-radius:18px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="outboundModalTitle">인플루언서 등록</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeOutboundEditModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:18px 22px;overflow-y:auto;flex:1">
+      <!-- 기본 -->
+      <div class="outbound-form-section-title">기본 정보</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-group">
+          <label class="form-label">한글 이름 <span style="color:#C33">*</span></label>
+          <input type="text" id="obName" class="form-input" placeholder="예: 홍길동">
+        </div>
+        <div class="form-group">
+          <label class="form-label">계정 ID</label>
+          <input type="text" id="obAccountId" class="form-input" placeholder="대표 계정 식별자(선택)">
+        </div>
+      </div>
+
+      <!-- 분류 -->
+      <div class="outbound-form-section-title">분류</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-group">
+          <label class="form-label">세분 카테고리</label>
+          <select id="obCategory" class="form-input" onchange="onOutboundCategoryChange()"><option value="">선택 안 함</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">계열 <span style="font-size:11px;color:var(--muted)">(세분에서 자동)</span></label>
+          <input type="text" id="obSeriesLabel" class="form-input" readonly placeholder="세분 선택 시 자동" style="background:var(--light-gray,#f5f5f5)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">등급</label>
+          <select id="obTier" class="form-input"><option value="">선택 안 함</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">가용 상태</label>
+          <select id="obAvailability" class="form-input">
+            <option value="available">진행가능</option>
+            <option value="adjusting">조율중</option>
+            <option value="unavailable">불가</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 채널 -->
+      <div class="outbound-form-section-title">채널 (핸들 · 팔로워)</div>
+      <div style="display:grid;grid-template-columns:1fr 130px;gap:8px 14px;align-items:end">
+        <div class="form-group"><label class="form-label">Instagram 핸들</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obIgFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+        <div class="form-group"><label class="form-label">TikTok 핸들</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obTiktokFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+        <div class="form-group"><label class="form-label">YouTube 핸들</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">구독자</label><input type="text" id="obYoutubeFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+        <div class="form-group"><label class="form-label">X 핸들</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obXFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
+      </div>
+
+      <!-- 가격 (내부 전용) -->
+      <div class="outbound-form-section-title">단가 (엔화 ¥ · 내부 전용)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">빈 칸은 「가격 미상」으로 저장됩니다(0원과 구분). 이 값은 내부 전용 — 브랜드에게 노출되지 않습니다.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px">
+        <div class="form-group"><label class="form-label">피드</label><input type="text" id="obPriceFeed" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">릴스</label><input type="text" id="obPriceReels" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">스토리</label><input type="text" id="obPriceStory" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">틱톡</label><input type="text" id="obPriceTiktok" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+        <div class="form-group"><label class="form-label">2차 활용</label><input type="text" id="obPriceSecondary" class="form-input" inputmode="numeric" placeholder="¥ 미입력"></div>
+      </div>
+
+      <!-- 운영 (내부 전용) -->
+      <div class="outbound-form-section-title">운영 (내부 전용)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-group"><label class="form-label">컨택 창구</label><input type="text" id="obContactChannel" class="form-input" placeholder="예: 카톡 / 이메일 / 소속사"></div>
+        <div class="form-group"><label class="form-label">소속사</label><input type="text" id="obAgency" class="form-input" placeholder="예: OO엔터"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">협상 메모 <span style="font-size:11px;color:#C33">(내부 전용 — 브랜드 미노출)</span></label>
+        <textarea id="obNegoMemo" class="form-input" rows="2" placeholder="협상 조건·이력 등" style="resize:vertical"></textarea>
+      </div>
+
+      <!-- 콘텐츠 -->
+      <div class="outbound-form-section-title">콘텐츠</div>
+      <div class="form-group">
+        <label class="form-label">대표 이미지</label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <img id="obImagePreview" src="" alt="" style="display:none;width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer" onclick="openImageLightbox(this.src)">
+          <input type="file" id="obImageFile" accept="image/jpeg,image/png,image/webp" onchange="onOutboundImagePicked(this)" style="font-size:12px">
+          <button type="button" class="btn btn-ghost btn-xs" id="obImageRemoveBtn" onclick="clearOutboundImage()" style="display:none;color:#C33">제거</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">JPG · PNG · WEBP, 5MB 이하</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">대표 게시물 링크 <span style="font-size:11px;color:var(--muted)">(최대 5개)</span></label>
+        <div id="obRepPosts"></div>
+      </div>
+      <div class="form-group" style="margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">
+          <input type="checkbox" id="obContentConsent" style="width:16px;height:16px">
+          대표 이미지·게시물을 브랜드에게 노출해도 된다는 인플루언서 동의를 받았습니다
+        </label>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <button class="btn btn-ghost btn-sm" id="obDeleteBtn" onclick="confirmDeleteOutbound()" style="display:none;color:#C33">삭제</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-ghost" onclick="closeOutboundEditModal()">취소</button>
+        <button class="btn btn-primary" id="obSaveBtn" onclick="saveOutboundInfluencer()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
     <div class="modal-body" style="padding:28px 24px 22px">
@@ -6011,6 +6545,17 @@ const PANE_REFRESHERS = {
   },
   'permissions': async () => {
     if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
+  },
+  'settlements': async () => {
+    // 처리(송금/보류/취소) 후 호출 — 상태가 바뀐 행을 정확히 반영해야 하므로 캐시 재렌더가 아니라
+    // 재조회(reloadSettlementsData: fetchSettlements + renderSettlementsList + 배지)로 갱신한다.
+    if (typeof reloadSettlementsData === 'function') await reloadSettlementsData();
+    else if (typeof renderSettlementsList === 'function') await renderSettlementsList();
+  },
+  'outbound': async () => {
+    // 명단 저장·삭제 모달 후 호출 — 재조회(fetchOutboundInfluencers + 목록 재렌더)로 갱신.
+    if (typeof reloadOutboundData === 'function') await reloadOutboundData();
+    else if (typeof renderOutboundList === 'function') renderOutboundList();
   }
 };
 async function refreshPane(paneId) {
@@ -6263,8 +6808,27 @@ function visibleUpcomingFeatures() {
 //   사양서 docs/specs/2026-06-15-admin-permission-management.md §3
 //         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+// 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
+//   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
+//   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
+//   (admin-outbound.js). HANDOFF §계열 매핑 확정표(2026-07-09)와 1:1.
+//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘·헬스 / 푸드 = 푸드(독립) / 미분류 = 기타·테크
+// ══════════════════════════════════════
+const OB_CATEGORY_SERIES = {
+  color:   'beauty',
+  base:    'beauty',
+  fashion: 'fashion',
+  vlog:    'life',
+  kidsmom: 'life',
+  health:  'life',    // 헬스/다이어트 (마이그레이션 236, 2026-07-14)
+  food:    'food',
+  other:   'other',
+  tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
+};
+
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 19개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -6279,6 +6843,8 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
   { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
   { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.settlements',        label_ko: '정산 관리',                    category: '회원 관리',   server_enforced: false },
+  { key: 'menu.outbound',           label_ko: '인플루언서 추천 명단',         category: '회원 관리',   server_enforced: false },
   { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
@@ -6286,7 +6852,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
   { key: 'menu.permissions',        label_ko: '권한 관리',                    category: '관리자 설정', server_enforced: false },
 
-  // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
@@ -6304,6 +6870,12 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'campaign.caution_history_view', label_ko: '캠페인 주의사항 변경 이력 열람',                category: '캠페인',       server_enforced: true },
   { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
   { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
+  // ── 정산(인플루언서 리워드) 2개 — 마이그레이션 220 role_permissions 시드와 1:1 (화면 menu.settlements 는 PR2) ──
+  { key: 'settlement.view',               label_ko: '정산 조회',                                     category: '정산',         server_enforced: true },
+  { key: 'settlement.pay',                label_ko: '정산 송금 처리',                                category: '정산',         server_enforced: true },
+  // ── 인플루언서 추천 명단(아웃바운드) 1개 — 마이그레이션 228 role_permissions 시드와 1:1 ──
+  //    RLS(마이그레이션 226)·Storage(229)가 has_permission('outbound.view', ...)로 서버 강제 → server_enforced=true.
+  { key: 'outbound.view',                 label_ko: '인플루언서 추천 명단 조회·편집',                category: '회원 관리',    server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -10040,6 +10612,270 @@ async function fetchOrientSheetsByApplication(applicationId) {
   });
 }
 
+// ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
+// 화면(PR2)은 아직 없음 — storage.js 함수만 미리 정의. RLS는 has_permission('settlement.view','read')
+// 게이트(server_enforced) — campaign_manager 는 이 기능이 hidden 이라 조회 자체가 서버에서 막힘.
+
+// 관리자 조회 — campaign_admin 이상만 실제로 행을 받는다(그 외는 RLS로 빈 배열).
+// PostgREST 1000행 cap 대비 fetchAllPaged 사용. opts: {status, campaignId, influencerId}
+async function fetchSettlements(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('settlements').select(`
+        id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
+        campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
+        settlement_events(count)
+      `);
+      if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status);
+      if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+      if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
+      // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
+      q = q.order('created_at', {ascending: true});
+      return q;
+    });
+    const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(infIds);
+    return data.map(s => ({
+      ...s,
+      influencers: infMap[s.influencer_id] || null,
+      event_count: Array.isArray(s.settlement_events) ? (s.settlement_events[0]?.count ?? 0) : 0,
+    }));
+  } catch(e) { console.error('[fetchSettlements]', e); return []; }
+}
+
+// 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
+// 필터 없이 그대로 조회해도 안전.
+async function fetchMySettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('settlements').select(`
+      id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
+      campaigns:campaign_id (id, title, brand, img1)
+    `).order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMySettlements]', e); return []; }
+}
+
+// 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
+// 재검증하므로 campaign_manager 가 호출하면 42501(permission_denied) 에러.
+// 반환: { created_count, paypal_missing_count }
+async function backfillSettlements() {
+  if (!db) throw new Error('DB 미연결');
+  let result = { created_count: 0, paypal_missing_count: 0 };
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlements');
+    if (error) throw error;
+    result = Array.isArray(data) ? (data[0] || result) : (data || result);
+  });
+  return result;
+}
+
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222). pending → paid 전이,
+// paypal_email 재조회·미등록 시 차단, settlement_paid 알림 발행, settlement_events 이력 기록.
+// 버전 충돌 시 -1 반환("이미 처리됨" 토스트). 정산 관리 페인(admin-settlements.js)에서 호출.
+async function markSettlementPaid(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_paid', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 처리(낙관적 락) — RPC mark_settlement_hold (마이그레이션 223).
+// pending 또는 paid → on_hold. 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementHold(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_hold', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 취소 처리(낙관적 락) — RPC mark_settlement_cancel (마이그레이션 223).
+// pending 또는 on_hold → cancelled (paid 는 서버가 거부 — 먼저 markSettlementHold 필요).
+// 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementCancel(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_cancel', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 해제(낙관적 락) — RPC mark_settlement_revert (마이그레이션 224).
+// on_hold → pending 만 허용(보류를 다시 정산 대기로 복귀). 반환값 -1 = 다른 관리자가
+// 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementRevert(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_revert', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 정산 이력 조회 — RPC get_settlement_events (마이그레이션 225).
+// settlement_events 를 관리자 이름(actor_name)으로 변환해 시간순(오래된 것부터) 반환.
+// 조회 전용이라 retryWithRefresh 없이 db.rpc 직접 호출(다른 fetch* 함수와 동일 패턴).
+// 실패 시 빈 배열 반환(fetchSettlements 패턴 — 화면이 "이력 없음"으로 처리).
+async function fetchSettlementEvents(settlementId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_settlement_events', {
+      p_settlement_id: settlementId
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
+}
+
+// ══════════════════════════════════════
+// OUTBOUND INFLUENCERS — 인플루언서 추천 명단(아웃바운드 시딩·타이업)
+//   마이그레이션 226(테이블·RLS)·227(lookup)·228(권한)·229(Storage 버킷).
+//   기존 influencers(auth 계정 1:1)와 분리된 별도 자산 — 관리자 전용 내부 명단.
+//   RLS 는 has_permission('outbound.view', ...) (campaign_manager 차단). 페인 = admin-outbound.js.
+//   ⚠ 내부 전용 필드(nego_memo·가격)는 브랜드 뷰(5단계)에서 반드시 제외 — 여기선 관리자만이라 그대로 조회.
+// ══════════════════════════════════════
+const OUTBOUND_IMAGE_BUCKET = 'outbound-influencer-images';
+
+// 전건 조회(PostgREST 1000행 제한 우회) — 필터·검색은 클라이언트(admin-outbound.js)에서.
+async function fetchOutboundInfluencers(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    return await fetchAllPaged(() => {
+      let q = db.from('outbound_influencers').select('*');
+      if (opts.availability) q = q.eq('availability', opts.availability);
+      if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
+      // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
+      return q.order('created_at', {ascending: false});
+    });
+  } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
+}
+
+// INSERT/UPDATE 통합 — row.id 유무로 분기. RLS 직접 정책(has_permission write)이 방어선.
+//   반환: 저장된 행(id 포함). 신규는 호출자가 미리 crypto.randomUUID() 로 id 를 채워 넘긴다
+//   (이미지 경로 {id}/... 를 저장 전에 만들 수 있게 — admin-outbound.js).
+async function upsertOutboundInfluencer(row) {
+  if (!db) return null;
+  let saved = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.from('outbound_influencers')
+      .upsert(row).select().maybeSingle();
+    if (error) throw error;
+    saved = data;
+  });
+  return saved;
+}
+
+async function deleteOutboundInfluencer(id) {
+  if (!db || !id) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('outbound_influencers').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+// 대표 이미지 업로드 — outbound-influencer-images 버킷, 경로 {obId}/{난수}.{ext}.
+//   저장은 경로(rep_image_path 컬럼)만 — 표시 시 outboundImagePublicUrl()로 공개 URL 조립.
+//   File/Blob 직접 업로드(base64 변환 생략). 5MB·jpg/png/webp 는 버킷 정책이 최종 강제.
+async function uploadOutboundImage(file, obId) {
+  if (!db) throw new Error('storage_unavailable');
+  if (!file || !file.size) throw new Error('file_required');
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) throw new Error('file_type_not_allowed');
+  if (file.size > 5 * 1024 * 1024) throw new Error('file_too_large');
+  const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  const rand = Math.random().toString(36).substring(2, 10);
+  const path = obId + '/' + Date.now() + '_' + rand + '.' + ext;
+  const {error} = await db.storage.from(OUTBOUND_IMAGE_BUCKET)
+    .upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
+  if (error) throw error;
+  return path;
+}
+
+// 경로 → 공개 URL. 공개 버킷이라 imgThumb() 로 썸네일 변환 가능.
+function outboundImagePublicUrl(path) {
+  if (!db || !path) return '';
+  const {data} = db.storage.from(OUTBOUND_IMAGE_BUCKET).getPublicUrl(path);
+  return (data && data.publicUrl) || '';
+}
+
+// 대표 이미지 삭제(교체·행 삭제 시 정리). best-effort — 실패해도 throw 하지 않는다.
+async function deleteOutboundImage(path) {
+  if (!db || !path) return;
+  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove([path]); }
+  catch(e) { console.warn('[deleteOutboundImage]', e); }
+}
+
+// ─── 정산 과거분 컷오프 — 과거 미등록 인증성공 조회/처리 (사양서 2026-07-09) ──────────
+// 도입일(cutoff) 이전에 인증 성공했지만 정산행이 없는 응모 목록. 자동 백필은 컷오프 이후만
+// 대상이라, 컷오프 이전 과거분은 이 목록에서 관리자가 건별/일괄로 직접 처리한다.
+// RLS/서버 게이트 has_permission('settlement.view','read') → campaign_manager 는 빈 배열.
+// 각 행: {application_id, influencer_id, influencer_name, influencer_name_kana, has_paypal(bool),
+//   campaign_id, campaign_title, recruit_type, amount_jpy, cert_at(nullable)}
+async function fetchPastUnregisteredSettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_past_unregistered_settlements');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+}
+
+// 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.
+//   p_target_status: 'paid'(이미 외부 PayPal 지급 완료) | 'pending'(아직 미지급, 정산 대기)
+//   서버가 has_permission('settlement.pay','write') 게이트 + settlement_events 이력 기록.
+// 반환: registered_count(정수 — 실제 등록된 건수. 이미 정산행 있는 건은 skip 되어 제외).
+async function registerPastSettlements(applicationIds, targetStatus, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let registered = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('register_past_settlements', {
+      p_application_ids: applicationIds,
+      p_target_status: targetStatus,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    // 스칼라(정수) 또는 {registered_count} 단일 행 양쪽 대응
+    registered = Array.isArray(data)
+      ? (data[0]?.registered_count ?? data[0] ?? 0)
+      : (data?.registered_count ?? data ?? 0);
+  });
+  return Number(registered) || 0;
+}
+
 
 // ══════════════════════════════════════════════════════════════
 // 영수증 글자인식(OCR) 공통 부품 — 기기 안 처리 (외부 전송 0)
@@ -11284,6 +12120,8 @@ function switchAdminPane(pane, el, pushHistory) {
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
     influencers: loadAdminInfluencers,
+    'settlements': loadSettlements,
+    'outbound': loadOutbound,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,
@@ -11819,6 +12657,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'bulkMessageModal', 'broadcastDetailModal',
   // 이미지 확대 창 — 배경 안 덮고(뒤 화면 조작 가능) 드래그·리사이즈로 영수증 보며 입력
   'imageLightbox',
+  // 아웃바운드 인플루언서 명단 등록·편집 (입력 항목 많아 드래그·리사이즈 유용)
+  'outboundEditModal',
 ]);
 
 function makeModalDraggableResizable(modalEl) {
@@ -25614,6 +26454,9 @@ async function loadAdminData(preloaded) {
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">인플 신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
   refreshDelivSidebarBadge();
+  // 정산 대기 배지도 결과물 배지와 같은 주기로 갱신(대시보드 방문 시마다) — 백필로 새 정산 건이
+  // 생겨도 관리자가 정산 페인을 직접 열지 않는 동안 배지가 stale 하지 않도록.
+  if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
 }
 
 // 최근 신청 렌더 — 대시보드에서 운영 현황 페인으로 이관 (브랜드 운영 재설계 PR 3)
@@ -28717,6 +29560,1545 @@ async function restorePermDefaults() {
     toast('복원 실패: ' + msg, 'error');
     if (btn) btn.disabled = false;
   }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// REVERB ADMIN — dev/js/admin-settlements.js
+// ═════════════════════════════════════════════════════════════════
+//
+// 정산 관리 페인 (인플루언서 리워드 송금 — 사양서 2026-06-22-influencer-settlement.md §7-1).
+//   · 인증 성공 응모 → 정산행 자동 생성(백필 RPC, B안) 후 목록/필터/검색
+//   · 상태 4종: pending(정산대기)/paid(송금완료)/on_hold(보류)/cancelled(취소). 통화 = 엔화(¥)
+//   · 송금 완료 / 보류 / 취소 처리 모달 (낙관적 락 — 버전 충돌 시 "이미 처리됨" 후 재조회)
+//   · 엑셀 내보내기 (현재 필터 결과)
+//
+// ⚠ storage.js 정산 함수(fetchSettlements/backfillSettlements/markSettlement*)는 호출만 — 재정의 금지.
+// ⚠ loadSettlements 는 switchAdminPane(admin-core.js) loaders 가, refreshSettlementSidebarBadge 는
+//   부팅(admin/app.js) + 대시보드 loadAdminData 가 호출 → 전역 유지(이름 변경 금지). 빌드 순서상 admin.js 앞.
+// ═════════════════════════════════════════════════════════════════
+
+let _settlements = [];
+let _settlementsLoaded = false;
+let _settlementFilters = { status: 'pending', campaignIds: [], search: '' };
+let _settlementModalCtx = null;  // 열려 있는 처리 모달 대상 {id, version, mode?}
+var settlementsLazy = null;
+const SETTLEMENTS_PAGE_SIZE = 50;
+
+// 상태 → 한국어 라벨 + 배지 클래스 (components.css 공용 badge-*)
+const SETTLEMENT_STATUS_META = {
+  pending:   { ko: '정산대기', cls: 'badge-gold'  },
+  paid:      { ko: '송금완료', cls: 'badge-green' },
+  on_hold:   { ko: '보류',     cls: 'badge-gray'  },
+  cancelled: { ko: '취소',     cls: 'badge-gray'  },
+};
+
+// 상태별 탭 (기존 select 대체) — 캠페인 관리 페인 status-tab 패턴 미러(단일 선택).
+//   전체 탭은 code '' (취소 포함 전 상태), getFilteredSettlements 의 `if (status)` 로 필터 skip.
+const SETTLEMENT_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '정산대기' },
+  { code: 'paid',      label: '송금완료' },
+  { code: 'on_hold',   label: '보류' },
+  { code: 'cancelled', label: '취소' },
+];
+
+function settlementStatusKo(status) {
+  return (SETTLEMENT_STATUS_META[status] || {}).ko || status || '';
+}
+function settlementStatusBadge(status) {
+  const meta = SETTLEMENT_STATUS_META[status] || { ko: status, cls: 'badge-gray' };
+  return `<span class="badge ${meta.cls}" style="font-size:11px;white-space:nowrap">${esc(meta.ko)}</span>`;
+}
+function settlementAmountYen(v) {
+  return '¥' + (Number(v) || 0).toLocaleString();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 로드 / 조회 / 렌더
+// ════════════════════════════════════════════════════════════════════
+
+// 페인 진입 로더 — ①인증성공 응모 백필(멱등, best-effort) ②전건 조회 ③렌더 + 배지
+async function loadSettlements() {
+  // 과거 미등록 뷰를 열어둔 채 페인을 떠났다가 재진입해도 항상 메인 목록으로 복귀
+  if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
+    closePastUnregView();
+  }
+  try {
+    const r = await backfillSettlements();
+    if (r && r.created_count > 0 && typeof toast === 'function') {
+      toast(`인증 성공 ${r.created_count}건을 정산 대기로 추가했습니다`, 'info');
+    }
+  } catch (e) {
+    // 권한 없음(campaign_manager)·RPC 실패 등은 무시 — 기존 정산행은 그대로 조회한다.
+  }
+  await reloadSettlementsData();
+}
+
+// 데이터 재조회(백필 없음) — 처리 모달 저장 후 refreshPane('settlements') 가 호출
+async function reloadSettlementsData() {
+  _settlements = await fetchSettlements({});
+  _settlementsLoaded = true;
+  renderSettlementsList();
+  refreshSettlementSidebarBadge();
+}
+
+function readSettlementFilters() {
+  // status 는 이제 상태 탭(_settlementFilters.status)이 소스 — select 없음, 여기선 건드리지 않는다.
+  // 캠페인은 검색형 다중필터(settlementCampMulti) → 선택된 campaign_id 배열 (전체=빈 배열).
+  _settlementFilters.campaignIds = getMultiFilterValues('settlementCampMulti');
+  const q = $('settlementSearch');
+  _settlementFilters.search = q ? (q.value || '').trim().toLowerCase() : '';
+}
+
+// 상태 탭 바 렌더 — 건수는 _settlements(필터 전 전체) 기준, 전체 탭 = 취소 포함 총건수.
+//   renderSettlementsList 가 매번 호출 → 처리 후 재조회 시 건수가 즉시 반영된다.
+function renderSettlementStatusTabs() {
+  const bar = $('settlementStatusTabBar');
+  if (!bar) return;
+  const counts = {};
+  _settlements.forEach(s => { counts[s.status] = (counts[s.status] || 0) + 1; });
+  const totalAll = _settlements.length;
+  const active = _settlementFilters.status || '';
+  bar.innerHTML = SETTLEMENT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setSettlementStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (탭 활성 표시는 renderSettlementsList 내부 재렌더로 갱신)
+function setSettlementStatusTab(btn) {
+  _settlementFilters.status = btn.dataset.status || '';
+  renderSettlementsList();
+}
+
+// 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
+function getFilteredSettlements() {
+  readSettlementFilters();
+  const { status, campaignIds, search } = _settlementFilters;
+  let rows = _settlements.slice();
+  if (status) rows = rows.filter(s => s.status === status);
+  if (campaignIds.length) rows = rows.filter(s => campaignIds.includes(s.campaign_id));
+  if (search) rows = rows.filter(s => {
+    const inf = s.influencers || {};
+    return matchSearchTokens(search, [inf.name, inf.name_kana, inf.email]);
+  });
+  return rows;
+}
+
+// 캠페인 검색형 다중필터 옵션 동기화 — 결과물 관리 페인(delivCampMulti)과 동일 패턴.
+//   · campOptionsSource: 현재 로드된 정산행의 distinct 캠페인 (선택값은 syncMultiFilter 가 보존)
+//   · campCounts: 캠페인별 정산 건수. 캠페인 필터는 제외하고 상태 탭·검색은 반영(자기 자신 필터 제외
+//     — 결과물 페인 campCounts 규칙 미러). 카운트 = 그 캠페인만 선택했을 때 실제 결과와 일치.
+function syncSettlementCampaignOptions() {
+  if (!$('settlementCampMulti')) return;
+  readSettlementFilters();  // campCounts 가 최신 검색어·상태를 반영하도록 먼저 갱신
+  const { status, search } = _settlementFilters;
+  // 상태 탭·검색만 통과(캠페인 필터 제외) — 캠페인별 건수 집계 기준
+  const passesNonCamp = (s) => {
+    if (status && s.status !== status) return false;
+    if (search) {
+      const inf = s.influencers || {};
+      if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
+    }
+    return true;
+  };
+  const seen = new Map();
+  const campCounts = {};
+  _settlements.forEach(s => {
+    const c = s.campaigns;
+    if (c && c.id && !seen.has(c.id)) seen.set(c.id, c);
+    if (s.campaign_id && passesNonCamp(s)) {
+      campCounts[s.campaign_id] = (campCounts[s.campaign_id] || 0) + 1;
+    }
+  });
+  const campOptionsSource = [...seen.values()];
+  syncCampMultiFilter('settlementCampMulti', campOptionsSource, () => renderSettlementsList(), campCounts);
+}
+
+function renderSettlementsList() {
+  const tbody = $('settlementsTableBody');
+  if (!tbody) return;
+  syncSettlementCampaignOptions();
+  renderSettlementStatusTabs();           // 상태 탭 건수·활성 표시 갱신
+  const rows = getFilteredSettlements();  // readSettlementFilters 내부 호출
+
+  const cnt = $('settlementsTotalCount');
+  if (cnt) cnt.textContent = `총 ${rows.length}건`;
+  const sumEl = $('settlementsSumAmount');
+  if (sumEl) {
+    const sum = rows.reduce((acc, s) => acc + (Number(s.amount_jpy) || 0), 0);
+    sumEl.textContent = rows.length ? `합계 ${settlementAmountYen(sum)}` : '';
+  }
+
+  // 정렬은 fetchSettlements 가 created_at 오름차순(오래된 순)으로 이미 반환 — filter 는 순서 보존
+  const scrollRoot = tbody.closest('.admin-table-wrap');
+  if (settlementsLazy) settlementsLazy.destroy();
+  settlementsLazy = mountLazyList({
+    tbody,
+    scrollRoot,
+    rows,
+    renderRow: renderSettlementRow,
+    pageSize: SETTLEMENTS_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 정산 건이 없습니다.</td></tr>',
+  });
+}
+
+function renderSettlementRow(s) {
+  const inf = s.influencers || {};
+  const camp = s.campaigns || {};
+
+  const infName = esc(inf.name || '—');
+  const auditB = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
+  const infSub = [inf.name_kana ? esc(inf.name_kana) : '', inf.email ? esc(inf.email) : '']
+    .filter(Boolean).join(' · ');
+  const infCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
+
+  const campNo = camp.campaign_no
+    ? `<div><span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span></div>`
+    : '';
+  const campCell = `${campNo}<div style="font-size:13px">${esc(camp.title || '—')}</div>`;
+
+  // PayPal — 정산행 스냅샷(직접 컬럼). 미등록이면 빨간 경고 배지(송금 불가).
+  const paypalCell = s.paypal_email
+    ? `<span style="font-size:12px;word-break:break-all">${esc(s.paypal_email)}</span>`
+    : `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="PayPal 미등록 — 송금 불가">미등록</span>`;
+
+  const certDate = s.created_at
+    ? `<span style="font-size:12px">${formatDate(s.created_at)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+  const paidDate = s.paid_at
+    ? `<span style="font-size:12px">${formatDate(s.paid_at)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+
+  return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
+    <td>${infCell}</td>
+    <td>${campCell}</td>
+    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</td>
+    <td>${paypalCell}</td>
+    <td>${settlementStatusBadge(s.status)}</td>
+    <td>${certDate}</td>
+    <td>${paidDate}</td>
+    <td>${settlementActionCell(s)}</td>
+  </tr>`;
+}
+
+// 상태 전이 규칙에 따른 처리 버튼:
+//   pending  → 송금 완료 / 보류 / 취소
+//   paid     → 보류 (환수·인증깨짐 대응)
+//   on_hold  → 보류 해제(정산대기 복귀) / 취소
+//   cancelled→ 처리 버튼 없음(종료)
+// 「이력」 버튼은 상태 무관 항상 노출 — 취소(cancelled) 건도 상태 변경 이력은 열람 가능.
+function settlementActionCell(s) {
+  const id = esc(s.id);
+  const btns = [];
+  if (s.status === 'pending') {
+    btns.push(`<button class="btn btn-primary btn-xs" onclick="openSettlementPayModal('${id}')">송금 완료</button>`);
+    btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementHoldModal('${id}')">보류</button>`);
+    btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementCancelModal('${id}')" style="color:#C33">취소</button>`);
+  } else if (s.status === 'paid') {
+    btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementHoldModal('${id}')">보류</button>`);
+  } else if (s.status === 'on_hold') {
+    btns.push(`<button class="btn btn-primary btn-xs" onclick="openSettlementRevertModal('${id}')">보류 해제</button>`);
+    btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementCancelModal('${id}')" style="color:#C33">취소</button>`);
+  }
+  // 이력 버튼은 모든 상태에 노출(맨 뒤) — 처리 버튼이 없는 취소 건도 이력만은 볼 수 있게.
+  //   단 변경 이력(settlement_events)이 0건인 행은 비활성(더미·이벤트 없는 행 방어).
+  const hasHistory = (s.event_count || 0) > 0;
+  btns.push(hasHistory
+    ? `<button class="btn btn-ghost btn-xs" onclick="openSettlementHistoryModal('${id}')">이력</button>`
+    : `<button class="btn btn-ghost btn-xs" disabled title="변경 이력이 없습니다">이력</button>`);
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap">${btns.join('')}</div>`;
+}
+
+// 사이드바 "정산 관리" 메뉴 옆 정산대기(pending) 건수 배지
+async function refreshSettlementSidebarBadge() {
+  const badge = $('adminSettlementsBadge');
+  if (!badge) return;
+  try {
+    let n;
+    if (_settlementsLoaded && Array.isArray(_settlements)) {
+      n = _settlements.filter(s => s.status === 'pending').length;
+    } else {
+      const rows = await fetchSettlements({ status: 'pending' });
+      n = rows.length;
+    }
+    if (n > 0) { badge.textContent = n > 999 ? '999+' : String(n); badge.style.display = ''; }
+    else { badge.style.display = 'none'; }
+  } catch (e) { /* 무시 */ }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 송금 완료 처리 (낙관적 락)
+// ════════════════════════════════════════════════════════════════════
+
+function openSettlementPayModal(id) {
+  const s = _settlements.find(x => x.id === id);
+  if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
+  _settlementModalCtx = { id: s.id, version: s.version };
+  const inf = s.influencers || {};
+  const camp = s.campaigns || {};
+  const hasPaypal = !!s.paypal_email;
+
+  const body = $('settlementPayBody');
+  if (body) {
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;margin-bottom:16px">
+        <div style="color:var(--muted)">인플루언서</div>
+        <div style="font-weight:600">${esc(inf.name || '—')}${inf.name_kana ? ` <span style="font-size:11px;color:var(--muted)">${esc(inf.name_kana)}</span>` : ''}</div>
+        <div style="color:var(--muted)">캠페인</div>
+        <div>${esc(camp.title || '—')}</div>
+        <div style="color:var(--muted)">송금 금액</div>
+        <div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>
+        <div style="color:var(--muted)">PayPal</div>
+        <div style="font-weight:600;word-break:break-all">${hasPaypal ? esc(s.paypal_email) : '<span style="color:#C33">미등록 — 송금 불가</span>'}</div>
+      </div>`;
+  }
+  const warn = $('settlementPayWarn');
+  if (warn) warn.style.display = hasPaypal ? 'none' : 'block';
+  const memo = $('settlementPayMemo');
+  if (memo) memo.value = '';
+  const btn = $('settlementPayConfirmBtn');
+  if (btn) btn.disabled = !hasPaypal;
+  openModal('settlementPayModal');
+}
+
+function closeSettlementPayModal() {
+  closeModal('settlementPayModal');
+  _settlementModalCtx = null;
+}
+
+async function confirmSettlementPay() {
+  const ctx = _settlementModalCtx;
+  if (!ctx) return;
+  const memo = ($('settlementPayMemo')?.value || '').trim();
+  const btn = $('settlementPayConfirmBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const newV = await markSettlementPaid(ctx.id, ctx.version, memo);
+    if (newV === -1) {
+      toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    } else {
+      toast('송금 완료로 처리되었습니다.');
+    }
+  } catch (e) {
+    toast('송금 처리 실패: ' + friendlyError(e.message || e), 'error');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  closeModal('settlementPayModal');
+  _settlementModalCtx = null;
+  await refreshPane('settlements');  // 재조회 + 목록·배지 갱신 (quality.md)
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 보류 / 취소 (사유 입력, 낙관적 락, 사유 모달 공용)
+// ════════════════════════════════════════════════════════════════════
+
+function openSettlementHoldModal(id) { _openSettlementReasonModal(id, 'hold'); }
+function openSettlementCancelModal(id) { _openSettlementReasonModal(id, 'cancel'); }
+function openSettlementRevertModal(id) { _openSettlementReasonModal(id, 'revert'); }
+
+function _openSettlementReasonModal(id, mode) {
+  const s = _settlements.find(x => x.id === id);
+  if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
+  _settlementModalCtx = { id: s.id, version: s.version, mode };
+  const inf = s.influencers || {};
+  const camp = s.campaigns || {};
+  const isCancel = mode === 'cancel';
+
+  const titleEl = $('settlementReasonTitle');
+  if (titleEl) titleEl.textContent = isCancel ? '정산 취소' : mode === 'revert' ? '보류 해제' : '정산 보류';
+  const descEl = $('settlementReasonDesc');
+  if (descEl) descEl.innerHTML = isCancel
+    ? '이 정산 건을 <b style="color:#C33">취소</b>합니다. 취소된 정산은 되돌릴 수 없습니다.'
+    : mode === 'revert'
+      ? '이 정산 건을 <b>정산 대기</b>로 되돌립니다. 이후 다시 송금 완료·취소할 수 있습니다.'
+      : '이 정산 건을 <b>보류</b>로 전환합니다. (환수 필요·인증 재검토 등)';
+  const infoEl = $('settlementReasonInfo');
+  if (infoEl) infoEl.innerHTML = `${esc(inf.name || '—')} · ${esc(camp.title || '—')} · ${settlementAmountYen(s.amount_jpy)}`;
+  const memo = $('settlementReasonMemo');
+  if (memo) memo.value = '';
+  const btn = $('settlementReasonConfirmBtn');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = isCancel ? '취소 처리' : mode === 'revert' ? '보류 해제' : '보류 처리';
+    btn.style.background = isCancel ? '#C33' : '';
+    btn.style.borderColor = isCancel ? '#C33' : '';
+  }
+  openModal('settlementReasonModal');
+}
+
+function closeSettlementReasonModal() {
+  closeModal('settlementReasonModal');
+  _settlementModalCtx = null;
+}
+
+async function confirmSettlementReason() {
+  const ctx = _settlementModalCtx;
+  if (!ctx) return;
+  const memo = ($('settlementReasonMemo')?.value || '').trim();
+  const btn = $('settlementReasonConfirmBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const fn = ctx.mode === 'cancel' ? markSettlementCancel
+             : ctx.mode === 'revert' ? markSettlementRevert
+             : markSettlementHold;
+    const newV = await fn(ctx.id, ctx.version, memo);
+    if (newV === -1) {
+      toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    } else {
+      toast(ctx.mode === 'cancel' ? '정산을 취소했습니다.'
+          : ctx.mode === 'revert' ? '정산 대기로 되돌렸습니다.'
+          : '정산을 보류로 전환했습니다.');
+    }
+  } catch (e) {
+    toast('처리 실패: ' + friendlyError(e.message || e), 'error');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  closeModal('settlementReasonModal');
+  _settlementModalCtx = null;
+  await refreshPane('settlements');  // 재조회 + 목록·배지 갱신 (quality.md)
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 정산 이력 모달 (settlement_events 타임라인, 읽기 전용)
+// ════════════════════════════════════════════════════════════════════
+//
+// settlement_events 는 정산 건별 상태 변경 이력(생성/송금/보류/취소/보류해제).
+//   · fetchSettlementEvents(id) 는 at 오름차순 배열 반환 → 최신이 위로 오게 역순 렌더
+//   · 처리 버튼과 달리 읽기 전용(낙관적 락 없음). 취소 건도 열람 가능.
+
+// action 코드 → 한국어 라벨 (결과물 이력 타임라인 라벨 매핑 패턴 미러)
+const SETTLEMENT_EVENT_LABELS = {
+  create: '생성(자동 등록)',
+  pay:    '송금 완료',
+  hold:   '보류',
+  cancel: '취소',
+  revert: '보류 해제',
+};
+
+async function openSettlementHistoryModal(id) {
+  const s = _settlements.find(x => x.id === id);
+  if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
+  const inf = s.influencers || {};
+  const camp = s.campaigns || {};
+
+  // 헤더 요약(인플명·가나·캠페인·금액·현재 상태)
+  const headEl = $('settlementHistoryHeader');
+  if (headEl) {
+    const kana = inf.name_kana ? ` <span style="font-size:11px;color:var(--muted)">${esc(inf.name_kana)}</span>` : '';
+    headEl.innerHTML = `<div style="font-weight:600">${esc(inf.name || '—')}${kana}</div>`
+      + `<div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">`
+      + `<span>${esc(camp.title || '—')}</span><span>·</span><span>${settlementAmountYen(s.amount_jpy)}</span>`
+      + `<span>·</span>${settlementStatusBadge(s.status)}</div>`;
+  }
+
+  const bodyEl = $('settlementHistoryBody');
+  if (bodyEl) bodyEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:22px;font-size:12px">이력을 불러오는 중…</div>';
+  openModal('settlementHistoryModal');
+
+  let events = [];
+  try { events = await fetchSettlementEvents(id); } catch (e) { events = []; }
+  if (!bodyEl) return;
+  if (!Array.isArray(events) || !events.length) {
+    bodyEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:26px;font-size:13px">이력이 없습니다.</div>';
+    return;
+  }
+  // at 오름차순 반환 → 최신이 위로 오게 역순으로 렌더
+  bodyEl.innerHTML = events.slice().reverse().map(renderSettlementEventItem).join('');
+}
+
+// 이력 항목 1건 렌더 — 시각 / 액션 라벨 / 상태 전이 배지 / 처리자 / 사유
+function renderSettlementEventItem(e) {
+  const label = SETTLEMENT_EVENT_LABELS[e.action] || e.action || '';
+  let transition = '';
+  if (e.prev_status && e.next_status) {
+    transition = `${settlementStatusBadge(e.prev_status)}`
+      + `<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px;color:var(--muted)">arrow_forward</span>`
+      + `${settlementStatusBadge(e.next_status)}`;
+  } else if (e.next_status) {
+    transition = settlementStatusBadge(e.next_status);  // 생성 등 prev 없는 경우
+  }
+  const actor = e.actor_name ? esc(e.actor_name) : '자동';
+  const at = e.at ? esc(formatDate(e.at)) : '';
+  const memoLine = e.memo
+    ? `<div style="margin-top:6px;font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.55">${esc(e.memo)}</div>`
+    : '<div style="margin-top:6px;font-size:12px;color:var(--muted)">사유: —</div>';
+  return `<div style="padding:11px 0;border-bottom:1px dashed var(--line)">`
+    + `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center">`
+    + `<span style="font-size:13px;font-weight:700;color:var(--ink)">${esc(label)}</span>`
+    + `<span style="font-size:11px;color:var(--muted);white-space:nowrap">${at}</span>`
+    + `</div>`
+    + `<div style="margin-top:5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px">`
+    + `<span style="display:inline-flex;align-items:center;gap:4px">${transition}</span>`
+    + `<span style="color:var(--muted)">처리자: ${actor}</span>`
+    + `</div>${memoLine}</div>`;
+}
+
+function closeSettlementHistoryModal() {
+  closeModal('settlementHistoryModal');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 엑셀 내보내기 (현재 필터 결과)
+// ════════════════════════════════════════════════════════════════════
+
+async function exportSettlementsExcel() {
+  if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
+  const rows = getFilteredSettlements();
+  if (!rows.length) { toast('내보낼 정산 건이 없습니다', 'warn'); return; }
+  if (typeof _markExportStart === 'function') _markExportStart();
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('정산');
+    ws.columns = [
+      { header: '이름(한자)', key: 'kanji',    width: 14 },
+      { header: '이름(가나)', key: 'kana',     width: 16 },
+      { header: '이메일',     key: 'email',    width: 24 },
+      { header: '캠페인번호', key: 'campno',   width: 16 },
+      { header: '캠페인',     key: 'title',    width: 28 },
+      { header: '금액(¥)',    key: 'amount',   width: 12 },
+      { header: 'PayPal',     key: 'paypal',   width: 26 },
+      { header: '상태',       key: 'status',   width: 10 },
+      { header: '인증성공일', key: 'certdate', width: 14 },
+      { header: '송금완료일', key: 'paiddate', width: 14 },
+    ];
+    ws.getRow(1).font = { bold: true };
+
+    rows.forEach(s => {
+      const inf = s.influencers || {};
+      const camp = s.campaigns || {};
+      // influencers_admin_view 는 name(한자)·name_kana(가나) — _excelInfluencerNameParts 는 name_kanji 를
+      // 기대하므로 여기선 직접 매핑(한자 누락 방지).
+      ws.addRow({
+        kanji:    (inf.name || '').trim(),
+        kana:     (inf.name_kana || '').trim(),
+        email:    inf.email || '',
+        campno:   camp.campaign_no || '',
+        title:    camp.title || '',
+        amount:   Number(s.amount_jpy) || 0,
+        paypal:   s.paypal_email || '',
+        status:   settlementStatusKo(s.status),
+        certdate: s.created_at ? formatDate(s.created_at) : '',
+        paiddate: s.paid_at ? formatDate(s.paid_at) : '',
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement('a');
+    aEl.href = url;
+    const ts = new Date();
+    const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.download = 'settlements-' + rows.length + '-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + rows.length + '건)');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+  } finally {
+    if (typeof _markExportEnd === 'function') _markExportEnd();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 과거 미등록 인증성공 처리 (사양서 2026-07-09)
+// ════════════════════════════════════════════════════════════════════
+//
+// 정산 도입일(cutoff) 이전에 인증 성공했지만 정산행이 없는 과거 건을 관리자가 직접
+// 정산행으로 등록하는 화면. 자동 백필은 컷오프 이후만 대상이라 과거분은 여기서 처리.
+//   · 진입: 정산 메인 뷰 헤더 「과거 미등록」 → 같은 페인 안에서 뷰 토글(모달 아님 —
+//     대량 수백 건 목록 + 필터 툴바 + IntersectionObserver lazy-load 를 위해)
+//   · 다중선택(체크박스 + 전체선택) → 일괄 「송금완료 기록」(paid) / 「정산대기 추가」(pending)
+//   · 무알림은 서버(register_past_settlements)가 보장 — 화면은 안내 문구만
+//   · 송금완료 기록은 되돌릴 수 없어 확인 모달(showConfirm) — 건수·합계 표시
+//
+// 선택 상태는 application_id 기준 Set(_pastUnregSelected)이 단일 소스 —
+//   lazy-load 로 행이 나눠 렌더돼도 체크 상태가 유지된다.
+
+let _pastUnregRows = [];
+let _pastUnregById = {};                 // application_id → 행
+let _pastUnregSelected = new Set();      // 선택된 application_id
+var pastUnregLazy = null;
+const PAST_UNREG_PAGE_SIZE = 50;
+
+function openPastUnregView() {
+  const main = $('settlementMainView');
+  const past = $('settlementPastView');
+  if (main) main.style.display = 'none';
+  if (past) past.style.display = 'flex';
+  loadPastUnregSettlements();
+}
+
+function closePastUnregView() {
+  const main = $('settlementMainView');
+  const past = $('settlementPastView');
+  if (pastUnregLazy) { pastUnregLazy.destroy(); pastUnregLazy = null; }
+  if (past) past.style.display = 'none';
+  if (main) main.style.display = 'flex';
+}
+
+// 과거 미등록 목록 조회 → 맵 구성 + 선택 초기화 + 렌더
+async function loadPastUnregSettlements() {
+  const tbody = $('pastUnregTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  try {
+    _pastUnregRows = await fetchPastUnregisteredSettlements();
+  } catch (e) {
+    _pastUnregRows = [];
+  }
+  _pastUnregById = {};
+  _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregById[r.application_id] = r; });
+  _pastUnregSelected.clear();
+  renderPastUnregList();
+}
+
+function renderPastUnregList() {
+  const tbody = $('pastUnregTableBody');
+  if (!tbody) return;
+  const cnt = $('pastUnregTotalCount');
+  if (cnt) cnt.textContent = `총 ${_pastUnregRows.length}건`;
+
+  const scrollRoot = tbody.closest('.admin-table-wrap');
+  if (pastUnregLazy) pastUnregLazy.destroy();
+  pastUnregLazy = mountLazyList({
+    tbody,
+    scrollRoot,
+    rows: _pastUnregRows,
+    renderRow: renderPastUnregRow,
+    pageSize: PAST_UNREG_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">과거 미등록 인증성공 건이 없습니다.</td></tr>',
+  });
+  updatePastUnregToolbar();
+}
+
+function renderPastUnregRow(r) {
+  const checked = _pastUnregSelected.has(r.application_id) ? ' checked' : '';
+  const name = esc(r.influencer_name || '—');
+  const kana = r.influencer_name_kana
+    ? `<div style="font-size:10px;color:var(--muted)">${esc(r.influencer_name_kana)}</div>` : '';
+  const campNo = '';  // 조회 RPC 는 campaign_no 미반환 — 제목만 표시
+  const campCell = `${campNo}<div style="font-size:13px">${esc(r.campaign_title || '—')}</div>`;
+  const certCell = r.cert_at
+    ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)">불명</span>';
+  const paypalCell = r.has_paypal
+    ? '<span style="background:#E8F5E9;color:#16A34A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
+    : '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px" title="PayPal 미등록">미등록</span>';
+  return `<tr>
+    <td><input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}></td>
+    <td><div style="font-weight:600">${name}</div>${kana}</td>
+    <td>${campCell}</td>
+    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</td>
+    <td>${certCell}</td>
+    <td>${paypalCell}</td>
+  </tr>`;
+}
+
+// 전체 선택/해제 — 현재 목록(_pastUnregRows) 전 건을 Set 에 반영 후 재렌더
+function pastUnregToggleAll(cb) {
+  if (cb && cb.checked) {
+    _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregSelected.add(r.application_id); });
+  } else {
+    _pastUnregSelected.clear();
+  }
+  renderPastUnregList();
+}
+
+// 개별 행 체크 — Set 갱신 후 툴바만 갱신(재렌더 없이 스크롤 유지)
+function pastUnregOnRowCheck(cb) {
+  const id = cb && cb.dataset ? cb.dataset.appId : '';
+  if (!id) return;
+  if (cb.checked) _pastUnregSelected.add(id);
+  else _pastUnregSelected.delete(id);
+  updatePastUnregToolbar();
+}
+
+// 선택 건수·합계, 처리 버튼 활성/비활성, 전체선택 체크박스 상태 갱신
+function updatePastUnregToolbar() {
+  let count = 0, sum = 0;
+  _pastUnregSelected.forEach(id => {
+    const r = _pastUnregById[id];
+    if (r) { count++; sum += Number(r.amount_jpy) || 0; }
+  });
+  const info = $('pastUnregSelectedInfo');
+  if (info) info.textContent = count ? `선택 ${count}건 · 합계 ${settlementAmountYen(sum)}` : '';
+  const payBtn = $('pastUnregPayBtn');
+  const pendingBtn = $('pastUnregPendingBtn');
+  if (payBtn) payBtn.disabled = count === 0;
+  if (pendingBtn) pendingBtn.disabled = count === 0;
+  const all = $('pastUnregSelectAll');
+  if (all) {
+    const total = _pastUnregRows.length;
+    all.checked = total > 0 && count === total;
+    all.indeterminate = count > 0 && count < total;
+  }
+}
+
+// 선택 건 일괄 처리 — targetStatus: 'paid'(송금완료 기록) | 'pending'(정산대기 추가)
+async function pastUnregRegister(targetStatus) {
+  const ids = [..._pastUnregSelected].filter(id => _pastUnregById[id]);
+  if (!ids.length) { toast('선택된 건이 없습니다', 'warn'); return; }
+  let sum = 0;
+  ids.forEach(id => { sum += Number(_pastUnregById[id].amount_jpy) || 0; });
+
+  if (targetStatus === 'paid') {
+    const ok = await showConfirm(
+      `선택한 ${ids.length}건(합계 ${settlementAmountYen(sum)})을 송금완료로 기록합니다.\n`
+      + `이미 외부에서 지급을 마친 건만 처리하세요. 송금완료 기록은 되돌릴 수 없습니다.\n계속하시겠습니까?`);
+    if (!ok) return;
+  }
+
+  const memo = ($('pastUnregMemo')?.value || '').trim();
+  const payBtn = $('pastUnregPayBtn');
+  const pendingBtn = $('pastUnregPendingBtn');
+  if (payBtn) payBtn.disabled = true;
+  if (pendingBtn) pendingBtn.disabled = true;
+  try {
+    const n = await registerPastSettlements(ids, targetStatus, memo);
+    toast(`${n}건을 ${targetStatus === 'paid' ? '송금완료로 기록' : '정산대기로 추가'}했습니다`);
+  } catch (e) {
+    toast('처리 실패: ' + friendlyError(e.message || e), 'error');
+    updatePastUnregToolbar();  // 버튼 재활성
+    return;
+  }
+  const memoEl = $('pastUnregMemo');
+  if (memoEl) memoEl.value = '';
+  await loadPastUnregSettlements();   // 과거 목록 재조회(처리된 건은 목록에서 사라짐)
+  await refreshPane('settlements');   // 정산 메인 목록·정산대기 배지 갱신 (quality.md)
+}
+
+// ═════════════════════════════════════════════════════════════════
+// REVERB ADMIN — dev/js/admin-outbound.js
+// ═════════════════════════════════════════════════════════════════
+//
+// 인플루언서 추천 명단 페인 (아웃바운드 시딩·타이업 — 사양서 2026-07-08-influencer-recommendation.md,
+//   인계서 2026-07-09-...-stage1-handoff.md §PR 1단계-b).
+//   · 영업팀이 직접 컨택하는 명단(globalreverb 미가입, 별도 자산) CRUD 페인
+//   · 목록/필터(계열·세분 다중 · 등급·가용상태·채널 · 검색) + IntersectionObserver lazy-load
+//   · 등록·편집 모달(기본·분류·채널4·가격5·운영·콘텐츠) + 대표 이미지 업로드
+//   · 저장·삭제 후 refreshPane('outbound') (quality.md 「관리자 모달 페인 갱신」)
+//
+// ⚠ 내부 전용 필드(nego_memo·가격 5종)는 5단계 브랜드 뷰에서 같은 컴포넌트를 재사용할 때
+//   반드시 제외해야 한다(HANDOFF 「주의」). 1단계는 관리자 전용 페인이라 그대로 노출한다.
+// ⚠ storage.js 명단 함수(fetchOutboundInfluencers/upsert.../delete.../uploadOutboundImage 등)는
+//   호출만 — 재정의 금지. loadOutbound 는 switchAdminPane(admin-core.js) loaders 가 호출 →
+//   전역 유지(이름 변경 금지). 빌드 순서상 admin.js 앞.
+// ═════════════════════════════════════════════════════════════════
+
+let _outbound = [];
+let _outboundLoaded = false;
+// 열려 있는 편집 모달 대상: { id, isNew, imagePath, pendingFile, removeImage }
+let _outboundEditCtx = null;
+var outboundLazy = null;
+const OUTBOUND_PAGE_SIZE = 50;
+const OUTBOUND_MAX_POSTS = 5;
+
+// lookup code → name_ko 맵 + 옵션 배열 (부팅/페인 진입 시 로드)
+let _obSeries = [];    // [{code, name_ko, ...}]
+let _obCategory = [];
+let _obTier = [];
+const _obSeriesMap = {};
+const _obCategoryMap = {};
+const _obTierMap = {};
+
+// 채널 4종 메타 (컬럼 키 매핑) — 주채널 표시·채널 필터 공용
+const OUTBOUND_CHANNELS = [
+  { key: 'ig',      label: 'Instagram', handleCol: 'ig_handle',      followCol: 'ig_followers' },
+  { key: 'tiktok',  label: 'TikTok',    handleCol: 'tiktok_handle',  followCol: 'tiktok_followers' },
+  { key: 'youtube', label: 'YouTube',   handleCol: 'youtube_handle', followCol: 'youtube_followers' },
+  { key: 'x',       label: 'X',         handleCol: 'x_handle',       followCol: 'x_followers' },
+];
+
+const OUTBOUND_AVAIL_META = {
+  available:   { ko: '진행가능', cls: 'badge-green' },
+  adjusting:   { ko: '조율중',   cls: 'badge-gold'  },
+  unavailable: { ko: '불가',     cls: 'badge-gray'  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: OUTBOUND — 로드 / 조회 / 렌더
+// ════════════════════════════════════════════════════════════════════
+
+// 페인 진입 로더 — ①lookup 3종 로드(맵·옵션) ②필터·선택 옵션 채움 ③전건 조회·렌더
+async function loadOutbound() {
+  await loadOutboundLookups();
+  populateOutboundTierFilter();
+  populateRecoFormOptions();   // 조건 추천 탭 계열·등급 select 옵션
+  await reloadOutboundData();
+}
+
+// lookup 3종 로드 후 code→name_ko 맵과 옵션 배열 구성 (실패해도 코드값 폴백으로 동작)
+async function loadOutboundLookups() {
+  try {
+    const [series, category, tier] = await Promise.all([
+      fetchLookups('ob_series'), fetchLookups('ob_category'), fetchLookups('ob_tier'),
+    ]);
+    _obSeries = series || []; _obCategory = category || []; _obTier = tier || [];
+  } catch (e) {
+    console.warn('[loadOutboundLookups]', e);
+    _obSeries = []; _obCategory = []; _obTier = [];
+  }
+  _obSeries.forEach(r => { _obSeriesMap[r.code] = r.name_ko; });
+  _obCategory.forEach(r => { _obCategoryMap[r.code] = r.name_ko; });
+  _obTier.forEach(r => { _obTierMap[r.code] = r.name_ko; });
+}
+
+// 데이터 재조회 — 저장·삭제 후 refreshPane('outbound') 가 호출
+async function reloadOutboundData() {
+  _outbound = await fetchOutboundInfluencers({});
+  _outboundLoaded = true;
+  renderOutboundList();
+}
+
+function outboundSeriesLabel(code) { return code ? (_obSeriesMap[code] || code) : '—'; }
+function outboundCategoryLabel(code) { return code ? (_obCategoryMap[code] || code) : '—'; }
+function outboundTierLabel(code) { return code ? (_obTierMap[code] || code) : '—'; }
+
+function outboundAvailBadge(status) {
+  const meta = OUTBOUND_AVAIL_META[status] || { ko: status || '—', cls: 'badge-gray' };
+  return `<span class="badge ${meta.cls}" style="font-size:11px;white-space:nowrap">${esc(meta.ko)}</span>`;
+}
+
+// 주채널 = 핸들이 있는 채널 중 팔로워가 가장 많은 채널(동률·미상은 정의 순서 우선)
+function outboundPrimaryChannel(o) {
+  let best = null;
+  OUTBOUND_CHANNELS.forEach(ch => {
+    const handle = o[ch.handleCol];
+    if (!handle) return;
+    const followers = o[ch.followCol];
+    const fv = (followers == null) ? -1 : Number(followers);
+    if (!best || fv > best.fv) best = { ch, handle, followers, fv };
+  });
+  return best;
+}
+
+function readOutboundFilters() {
+  const seriesSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('outboundSeriesMulti') : [];
+  const categorySel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('outboundCategoryMulti') : [];
+  return {
+    series: seriesSel,
+    category: categorySel,
+    tier: ($('outboundTierFilter')?.value || ''),
+    availability: ($('outboundAvailFilter')?.value || ''),
+    channel: ($('outboundChannelFilter')?.value || ''),
+    search: (($('outboundSearch')?.value) || '').trim().toLowerCase(),
+  };
+}
+
+// 현재 필터 조건으로 _outbound 를 거른 배열 (목록·엑셀 공용)
+function getFilteredOutbound() {
+  const f = readOutboundFilters();
+  let rows = _outbound.slice();
+  if (f.series.length) rows = rows.filter(o => f.series.includes(o.series_code));
+  if (f.category.length) rows = rows.filter(o => f.category.includes(o.category_code));
+  if (f.tier) rows = rows.filter(o => o.tier_code === f.tier);
+  if (f.availability) rows = rows.filter(o => o.availability === f.availability);
+  if (f.channel) {
+    const ch = OUTBOUND_CHANNELS.find(c => c.key === f.channel);
+    if (ch) rows = rows.filter(o => !!o[ch.handleCol]);
+  }
+  if (f.search) rows = rows.filter(o =>
+    matchSearchTokens(f.search, [o.name_ko, o.account_id, o.agency]));
+  return rows;
+}
+
+// 계열·세분 다중필터 옵션 동기화 (syncMultiFilter — 선택값은 보존)
+function syncOutboundFilterOptions() {
+  if (typeof syncMultiFilter !== 'function') return;
+  const seriesOpts = _obSeries.map(r => ({ value: r.code, label: r.name_ko }));
+  const categoryOpts = _obCategory.map(r => ({ value: r.code, label: r.name_ko }));
+  syncMultiFilter('outboundSeriesMulti', '전체 계열', seriesOpts, renderOutboundList);
+  syncMultiFilter('outboundCategoryMulti', '전체 세분', categoryOpts, renderOutboundList);
+}
+
+// 등급 필터 select 옵션 채움 (loadOutbound 에서 1회)
+function populateOutboundTierFilter() {
+  const sel = $('outboundTierFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">전체</option>'
+    + _obTier.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+  sel.value = cur;
+}
+
+function renderOutboundList() {
+  const tbody = $('outboundTableBody');
+  if (!tbody) return;
+  syncOutboundFilterOptions();
+  const rows = getFilteredOutbound();
+
+  const cnt = $('outboundTotalCount');
+  if (cnt) cnt.textContent = `총 ${rows.length}명`;
+
+  // 데이터 0건 — 이관 전이면 안내(PR 1단계-c), 필터 결과 0건이면 다른 문구
+  const emptyMsg = (_outboundLoaded && _outbound.length === 0)
+    ? '아직 등록된 명단이 없습니다. 「신규 등록」으로 추가하거나, 구글시트 명단을 먼저 이관하세요.'
+    : '해당 조건의 인플루언서가 없습니다.';
+
+  const scrollRoot = tbody.closest('.admin-table-wrap');
+  if (outboundLazy) outboundLazy.destroy();
+  outboundLazy = mountLazyList({
+    tbody,
+    scrollRoot,
+    rows,
+    renderRow: renderOutboundRow,
+    pageSize: OUTBOUND_PAGE_SIZE,
+    emptyHtml: `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
+  });
+}
+
+function renderOutboundRow(o) {
+  const id = esc(o.id);
+
+  // 대표 이미지 썸네일 (공개 URL 조립 → imgThumb, 실패 시 원본 폴백)
+  let thumbCell = '<span style="color:var(--muted);font-size:11px">—</span>';
+  if (o.rep_image_path) {
+    const url = (typeof outboundImagePublicUrl === 'function') ? outboundImagePublicUrl(o.rep_image_path) : '';
+    if (url) {
+      const t = (typeof imgThumb === 'function') ? imgThumb(url, 96, 70) : url;
+      thumbCell = `<img src="${esc(t)}" data-orig="${esc(url)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox('${esc(url)}')" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer">`;
+    }
+  }
+
+  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+
+  const agencyCell = o.agency
+    ? `<span style="font-size:12px">${esc(o.agency)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+
+  return `<tr>
+    <td>${thumbCell}</td>
+    <td>${nameCell}</td>
+    <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
+    <td style="font-size:12px">${esc(outboundCategoryLabel(o.category_code))}</td>
+    <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
+    ${outboundChannelCells(o)}
+    <td>${outboundAvailBadge(o.availability)}</td>
+    <td>${agencyCell}</td>
+    <td><button class="btn btn-ghost btn-xs" onclick="openOutboundEditModal('${id}')">편집</button></td>
+  </tr>`;
+}
+
+// 팔로워 표시 — NULL(미상)은 '미상', 숫자는 천단위 구분
+function outboundFollowersDisplay(v) {
+  if (v == null) return '(미상)';
+  return Number(v).toLocaleString() + '명';
+}
+
+// 채널 key(ig) → snsProfileUrl 채널명(instagram) 매핑. 나머지는 동일.
+const OUTBOUND_CH_SNS = { ig: 'instagram', tiktok: 'tiktok', youtube: 'youtube', x: 'x' };
+
+// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
+function outboundChannelFollowersCell(o, ch) {
+  const handle = o[ch.handleCol];
+  if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
+  const handleHtml = url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--pink);text-decoration:none">@${esc(handle)}</a>`
+    : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
+  return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
+    + `<div>${handleHtml}</div>`;
+}
+
+// 4채널 팔로워 <td> 4칸 (명단·추천 결과 공용, OUTBOUND_CHANNELS 순서 = ig·tiktok·youtube·x)
+function outboundChannelCells(o) {
+  return OUTBOUND_CHANNELS.map(ch => `<td>${outboundChannelFollowersCell(o, ch)}</td>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: OUTBOUND — 등록·편집 모달
+// ════════════════════════════════════════════════════════════════════
+
+// id=null → 신규 등록, id 있으면 편집. 신규는 crypto.randomUUID() 로 id 를 미리 확정해
+//   대표 이미지 경로 {id}/... 를 저장 전에 만든다(upsert 시 그 id 로 INSERT).
+function openOutboundEditModal(id) {
+  const isNew = !id;
+  const o = isNew ? null : _outbound.find(x => x.id === id);
+  if (!isNew && !o) { toast('명단을 찾을 수 없습니다', 'warn'); return; }
+
+  const newId = isNew ? outboundGenId() : o.id;
+  _outboundEditCtx = { id: newId, isNew, imagePath: isNew ? null : (o.rep_image_path || null), pendingFile: null, removeImage: false };
+
+  // 분류 select 옵션 채움 (세분·등급)
+  populateOutboundSelectOptions();
+
+  const set = (elId, val) => { const el = $(elId); if (el) el.value = (val == null ? '' : val); };
+  set('obName', isNew ? '' : o.name_ko);
+  set('obAccountId', isNew ? '' : o.account_id);
+  set('obCategory', isNew ? '' : o.category_code);
+  set('obTier', isNew ? '' : o.tier_code);
+  set('obAvailability', isNew ? 'available' : (o.availability || 'available'));
+  onOutboundCategoryChange();  // 계열 라벨 자동 채움
+
+  set('obIgHandle', isNew ? '' : o.ig_handle);
+  set('obIgFollowers', isNew ? '' : outboundNumToInput(o.ig_followers));
+  set('obTiktokHandle', isNew ? '' : o.tiktok_handle);
+  set('obTiktokFollowers', isNew ? '' : outboundNumToInput(o.tiktok_followers));
+  set('obYoutubeHandle', isNew ? '' : o.youtube_handle);
+  set('obYoutubeFollowers', isNew ? '' : outboundNumToInput(o.youtube_followers));
+  set('obXHandle', isNew ? '' : o.x_handle);
+  set('obXFollowers', isNew ? '' : outboundNumToInput(o.x_followers));
+
+  set('obPriceFeed', isNew ? '' : outboundNumToInput(o.price_feed));
+  set('obPriceReels', isNew ? '' : outboundNumToInput(o.price_reels));
+  set('obPriceStory', isNew ? '' : outboundNumToInput(o.price_story));
+  set('obPriceTiktok', isNew ? '' : outboundNumToInput(o.price_tiktok));
+  set('obPriceSecondary', isNew ? '' : outboundNumToInput(o.price_secondary));
+
+  set('obContactChannel', isNew ? '' : o.contact_channel);
+  set('obAgency', isNew ? '' : o.agency);
+  set('obNegoMemo', isNew ? '' : o.nego_memo);
+
+  const consent = $('obContentConsent');
+  if (consent) consent.checked = isNew ? false : !!o.content_consent;
+
+  // 대표 이미지 미리보기
+  outboundRenderImagePreview(_outboundEditCtx.imagePath);
+  const fileInput = $('obImageFile');
+  if (fileInput) fileInput.value = '';
+
+  // 대표 게시물 링크
+  const posts = (!isNew && Array.isArray(o.rep_posts)) ? o.rep_posts : [];
+  outboundRenderRepPosts(posts);
+
+  const titleEl = $('outboundModalTitle');
+  if (titleEl) titleEl.textContent = isNew ? '인플루언서 등록' : '인플루언서 편집';
+  const delBtn = $('obDeleteBtn');
+  if (delBtn) delBtn.style.display = isNew ? 'none' : '';
+  const saveBtn = $('obSaveBtn');
+  if (saveBtn) saveBtn.disabled = false;
+
+  openModal('outboundEditModal');
+}
+
+function outboundGenId() {
+  return (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+}
+
+function closeOutboundEditModal() {
+  closeModal('outboundEditModal');
+  _outboundEditCtx = null;
+}
+
+// 세분·등급 select 옵션 채움 (모달 열 때)
+function populateOutboundSelectOptions() {
+  const catSel = $('obCategory');
+  if (catSel) {
+    catSel.innerHTML = '<option value="">선택 안 함</option>'
+      + _obCategory.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+  }
+  const tierSel = $('obTier');
+  if (tierSel) {
+    tierSel.innerHTML = '<option value="">선택 안 함</option>'
+      + _obTier.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+  }
+}
+
+// 세분 선택 → 계열 자동 채움 (OB_CATEGORY_SERIES 매핑, shared.js)
+function onOutboundCategoryChange() {
+  const cat = $('obCategory')?.value || '';
+  const seriesCode = cat && (typeof OB_CATEGORY_SERIES !== 'undefined') ? OB_CATEGORY_SERIES[cat] : '';
+  const labelEl = $('obSeriesLabel');
+  if (labelEl) labelEl.value = seriesCode ? outboundSeriesLabel(seriesCode) : '';
+}
+
+// 대표 게시물 링크 입력 행 렌더 (최대 5개, 최소 1개 빈 행 노출)
+function outboundRenderRepPosts(posts) {
+  const wrap = $('obRepPosts');
+  if (!wrap) return;
+  let urls = (posts || []).map(p => (p && p.url) ? p.url : (typeof p === 'string' ? p : '')).filter(Boolean);
+  if (urls.length === 0) urls = [''];
+  wrap.innerHTML = urls.map((u, i) => outboundRepPostRowHtml(u, i)).join('');
+  outboundUpdateAddPostBtn();
+}
+
+function outboundRepPostRowHtml(url, idx) {
+  return `<div class="ob-post-row" data-idx="${idx}">
+    <input type="text" class="form-input ob-post-url" value="${esc(url || '')}" placeholder="게시물 링크(URL)">
+    <button type="button" class="btn btn-ghost btn-xs" onclick="removeOutboundRepPost(${idx})" style="color:#C33" title="이 링크 제거">✕</button>
+  </div>`;
+}
+
+// "링크 추가" 버튼은 마지막 행 아래에 동적으로 (5개 미만일 때만)
+function outboundUpdateAddPostBtn() {
+  const wrap = $('obRepPosts');
+  if (!wrap) return;
+  const old = $('obAddPostBtn');
+  if (old) old.remove();
+  const count = wrap.querySelectorAll('.ob-post-row').length;
+  if (count < OUTBOUND_MAX_POSTS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'obAddPostBtn';
+    btn.className = 'btn btn-ghost btn-xs';
+    btn.textContent = '+ 링크 추가';
+    btn.onclick = addOutboundRepPost;
+    wrap.appendChild(btn);
+  }
+}
+
+function addOutboundRepPost() {
+  const urls = outboundCollectRepPostUrls(true);  // 빈 값 포함해 현재 입력 보존
+  if (urls.length >= OUTBOUND_MAX_POSTS) { toast('링크는 최대 5개까지 입력할 수 있습니다', 'warn'); return; }
+  urls.push('');
+  outboundRenderRepPosts(urls.map(u => ({ url: u })));
+}
+
+function removeOutboundRepPost(idx) {
+  const urls = outboundCollectRepPostUrls(true);
+  urls.splice(idx, 1);
+  if (urls.length === 0) urls.push('');
+  outboundRenderRepPosts(urls.map(u => ({ url: u })));
+}
+
+// 현재 입력 중인 링크 URL 수집 — keepEmpty=true 면 빈 값도 포함(재렌더용)
+function outboundCollectRepPostUrls(keepEmpty) {
+  const wrap = $('obRepPosts');
+  if (!wrap) return [];
+  const inputs = [...wrap.querySelectorAll('.ob-post-url')];
+  const urls = inputs.map(i => (i.value || '').trim());
+  return keepEmpty ? urls : urls.filter(Boolean);
+}
+
+// ── 대표 이미지 ──
+function onOutboundImagePicked(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) { toast('JPG · PNG · WEBP 이미지만 업로드할 수 있습니다', 'warn'); input.value = ''; return; }
+  if (file.size > 5 * 1024 * 1024) { toast('이미지는 5MB 이하만 업로드할 수 있습니다', 'warn'); input.value = ''; return; }
+  if (_outboundEditCtx) { _outboundEditCtx.pendingFile = file; _outboundEditCtx.removeImage = false; }
+  const reader = new FileReader();
+  reader.onload = (e) => outboundRenderImagePreview(null, e.target.result);
+  reader.readAsDataURL(file);
+}
+
+// path(기존 저장분) 또는 dataUrl(방금 선택) 로 미리보기 표시
+function outboundRenderImagePreview(path, dataUrl) {
+  const img = $('obImagePreview');
+  const rmBtn = $('obImageRemoveBtn');
+  let src = dataUrl || '';
+  if (!src && path && typeof outboundImagePublicUrl === 'function') src = outboundImagePublicUrl(path);
+  if (img) {
+    if (src) { img.src = src; img.style.display = ''; }
+    else { img.src = ''; img.style.display = 'none'; }
+  }
+  if (rmBtn) rmBtn.style.display = src ? '' : 'none';
+}
+
+function clearOutboundImage() {
+  if (_outboundEditCtx) { _outboundEditCtx.pendingFile = null; _outboundEditCtx.removeImage = true; }
+  const fileInput = $('obImageFile');
+  if (fileInput) fileInput.value = '';
+  outboundRenderImagePreview(null);
+}
+
+// ── 저장 ──
+async function saveOutboundInfluencer() {
+  const ctx = _outboundEditCtx;
+  if (!ctx) return;
+  const name = ($('obName')?.value || '').trim();
+  if (!name) { toast('한글 이름을 입력하세요', 'warn'); return; }
+
+  const saveBtn = $('obSaveBtn');
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    // 1) 대표 이미지 업로드(새로 선택된 경우만) — 성공 후 경로 확정
+    let repImagePath = ctx.imagePath;
+    if (ctx.removeImage) repImagePath = null;
+    if (ctx.pendingFile) {
+      repImagePath = await uploadOutboundImage(ctx.pendingFile, ctx.id);
+    }
+
+    // 2) 분류 — 세분 선택 시 계열 자동(OB_CATEGORY_SERIES)
+    const categoryCode = $('obCategory')?.value || null;
+    const seriesCode = categoryCode && (typeof OB_CATEGORY_SERIES !== 'undefined')
+      ? (OB_CATEGORY_SERIES[categoryCode] || null) : null;
+
+    // 3) 대표 게시물 링크 — 정규화 후 {url} 배열 (최대 5)
+    const rawUrls = outboundCollectRepPostUrls(false).slice(0, OUTBOUND_MAX_POSTS);
+    const repPosts = [];
+    rawUrls.forEach(u => {
+      const norm = (typeof normalizeUrlInput === 'function') ? normalizeUrlInput(u) : { url: u };
+      if (norm && norm.url) repPosts.push({ url: norm.url, thumb_path: '' });
+    });
+
+    // 4) 채널 핸들은 extractSnsHandle 로 정규화(@·URL → 핸들만)
+    const handleOf = (ch, elId) => {
+      const raw = ($(elId)?.value || '').trim();
+      if (!raw) return null;
+      return (typeof extractSnsHandle === 'function') ? extractSnsHandle(ch, raw) : raw;
+    };
+
+    const row = {
+      id: ctx.id,
+      name_ko: name,
+      account_id: ($('obAccountId')?.value || '').trim() || null,
+      series_code: seriesCode,
+      category_code: categoryCode,
+      tier_code: $('obTier')?.value || null,
+      ig_handle: handleOf('instagram', 'obIgHandle'),
+      ig_followers: outboundParseNum('obIgFollowers'),
+      tiktok_handle: handleOf('tiktok', 'obTiktokHandle'),
+      tiktok_followers: outboundParseNum('obTiktokFollowers'),
+      youtube_handle: handleOf('youtube', 'obYoutubeHandle'),
+      youtube_followers: outboundParseNum('obYoutubeFollowers'),
+      x_handle: handleOf('x', 'obXHandle'),
+      x_followers: outboundParseNum('obXFollowers'),
+      price_feed: outboundParseNum('obPriceFeed'),
+      price_reels: outboundParseNum('obPriceReels'),
+      price_story: outboundParseNum('obPriceStory'),
+      price_tiktok: outboundParseNum('obPriceTiktok'),
+      price_secondary: outboundParseNum('obPriceSecondary'),
+      contact_channel: ($('obContactChannel')?.value || '').trim() || null,
+      agency: ($('obAgency')?.value || '').trim() || null,
+      nego_memo: ($('obNegoMemo')?.value || '').trim() || null,
+      availability: $('obAvailability')?.value || 'available',
+      rep_image_path: repImagePath || null,
+      rep_posts: repPosts,
+      content_consent: !!$('obContentConsent')?.checked,
+    };
+
+    await upsertOutboundInfluencer(row);
+
+    // 5) 교체·제거로 버려진 기존 이미지는 best-effort 정리
+    if (ctx.imagePath && ctx.imagePath !== repImagePath && typeof deleteOutboundImage === 'function') {
+      deleteOutboundImage(ctx.imagePath);
+    }
+
+    toast(ctx.isNew ? '인플루언서를 등록했습니다' : '변경 사항을 저장했습니다');
+  } catch (e) {
+    toast('저장 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+    if (saveBtn) saveBtn.disabled = false;
+    return;
+  }
+  closeModal('outboundEditModal');
+  _outboundEditCtx = null;
+  await refreshPane('outbound');  // 재조회 + 목록 갱신 (quality.md)
+}
+
+// input 값 → 정수 or null (빈값=NULL, 0과 구분). 콤마·공백 제거, 음수·NaN 은 null
+function outboundParseNum(elId) {
+  const raw = ($(elId)?.value || '').replace(/[,\s]/g, '').trim();
+  if (raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+}
+
+// 저장값(number|null) → input 문자열 (null=빈칸)
+function outboundNumToInput(v) {
+  return (v == null) ? '' : String(v);
+}
+
+// ── 삭제 ──
+async function confirmDeleteOutbound() {
+  const ctx = _outboundEditCtx;
+  if (!ctx || ctx.isNew) return;
+  const o = _outbound.find(x => x.id === ctx.id);
+  const nm = o ? o.name_ko : '';
+  // 편집 모달(#outboundEditModal, z-index 615)이 열린 채 삭제를 확인하므로 커스텀
+  // showConfirm(confirmModal, z-index 610)을 쓰면 확인창이 뒤에 가려진다. 브랜드 삭제
+  // (deleteBrandConfirm)와 동일하게 항상 최상단인 네이티브 confirm 사용.
+  const ok = confirm(`'${nm}' 인플루언서를 명단에서 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`);
+  if (!ok) return;
+  try {
+    await deleteOutboundInfluencer(ctx.id);
+    if (ctx.imagePath && typeof deleteOutboundImage === 'function') deleteOutboundImage(ctx.imagePath);
+    toast('명단에서 삭제했습니다');
+  } catch (e) {
+    toast('삭제 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+    return;
+  }
+  closeModal('outboundEditModal');
+  _outboundEditCtx = null;
+  await refreshPane('outbound');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: OUTBOUND — 엑셀 내보내기 (현재 필터 결과)
+// ════════════════════════════════════════════════════════════════════
+
+async function exportOutboundExcel() {
+  if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
+  const rows = getFilteredOutbound();
+  if (!rows.length) { toast('내보낼 명단이 없습니다', 'warn'); return; }
+  if (typeof _markExportStart === 'function') _markExportStart();
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('추천명단');
+    ws.columns = [
+      { header: '이름',      key: 'name',    width: 14 },
+      { header: '계정',      key: 'account', width: 16 },
+      { header: '계열',      key: 'series',  width: 10 },
+      { header: '세분',      key: 'category',width: 10 },
+      { header: '등급',      key: 'tier',    width: 16 },
+      { header: 'IG핸들',    key: 'ig',      width: 16 },
+      { header: 'IG팔로워',  key: 'igf',     width: 12 },
+      { header: 'TikTok핸들',key: 'tt',      width: 16 },
+      { header: 'TikTok팔로워',key: 'ttf',   width: 12 },
+      { header: 'YouTube핸들',key: 'yt',     width: 16 },
+      { header: 'YouTube구독',key: 'ytf',    width: 12 },
+      { header: 'X핸들',     key: 'x',       width: 16 },
+      { header: 'X팔로워',   key: 'xf',      width: 12 },
+      { header: '피드(¥)',   key: 'pfeed',   width: 12 },
+      { header: '릴스(¥)',   key: 'preels',  width: 12 },
+      { header: '스토리(¥)', key: 'pstory',  width: 12 },
+      { header: '틱톡(¥)',   key: 'ptiktok', width: 12 },
+      { header: '2차(¥)',    key: 'psec',    width: 12 },
+      { header: '가용상태',  key: 'avail',   width: 10 },
+      { header: '컨택창구',  key: 'contact', width: 16 },
+      { header: '소속사',    key: 'agency',  width: 14 },
+      { header: '협상메모',  key: 'memo',    width: 28 },
+    ];
+    ws.getRow(1).font = { bold: true };
+
+    const availKo = (s) => (OUTBOUND_AVAIL_META[s] || {}).ko || s || '';
+    rows.forEach(o => {
+      ws.addRow({
+        name: o.name_ko || '', account: o.account_id || '',
+        series: outboundSeriesLabel(o.series_code), category: outboundCategoryLabel(o.category_code),
+        tier: outboundTierLabel(o.tier_code),
+        ig: o.ig_handle || '', igf: o.ig_followers == null ? '' : o.ig_followers,
+        tt: o.tiktok_handle || '', ttf: o.tiktok_followers == null ? '' : o.tiktok_followers,
+        yt: o.youtube_handle || '', ytf: o.youtube_followers == null ? '' : o.youtube_followers,
+        x: o.x_handle || '', xf: o.x_followers == null ? '' : o.x_followers,
+        pfeed: o.price_feed == null ? '' : o.price_feed,
+        preels: o.price_reels == null ? '' : o.price_reels,
+        pstory: o.price_story == null ? '' : o.price_story,
+        ptiktok: o.price_tiktok == null ? '' : o.price_tiktok,
+        psec: o.price_secondary == null ? '' : o.price_secondary,
+        avail: availKo(o.availability), contact: o.contact_channel || '',
+        agency: o.agency || '', memo: o.nego_memo || '',
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement('a');
+    aEl.href = url;
+    const ts = new Date();
+    const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.download = 'outbound-influencers-' + rows.length + '-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + rows.length + '명)');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+  } finally {
+    if (typeof _markExportEnd === 'function') _markExportEnd();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: OUTBOUND — 조건 추천 (2단계, 사양서 2026-07-08 §PR 2단계)
+//   계열 필수 필터 → 등급·채널·예산 가점 정렬. DB 변경 없음(전건 조회 + 클라 계산).
+//   성과 축(3단계)은 아직 없어 조건 적합도만으로 정렬한다(콜드스타트).
+// ════════════════════════════════════════════════════════════════════
+
+// 모집형식 → outbound_influencers 가격 컬럼 매핑 (예산 판정 기준)
+const OUTBOUND_FORMAT_PRICE = {
+  feed:   'price_feed',
+  reels:  'price_reels',
+  story:  'price_story',
+  tiktok: 'price_tiktok',
+};
+
+// 가점 상수 (한 곳에 모아 매직넘버 제거)
+const RECO_SCORE = {
+  tierExact:   30,   // 등급 정확 일치
+  tierAdjacent: 10,  // 등급 한 칸 차이
+  channelHave: 20,   // 요구 채널 보유
+  budgetIn:    20,   // 예산 내
+  budgetOver: -20,   // 예산 초과
+};
+
+// 명단 / 조건 추천 탭 전환
+function outboundTab(which) {
+  const isList = (which !== 'recommend');
+  $('outboundTabList')?.classList.toggle('is-active', isList);
+  $('outboundTabReco')?.classList.toggle('is-active', !isList);
+  const setShow = (id, show) => { const el = $(id); if (el) el.style.display = show ? '' : 'none'; };
+  setShow('outboundListControls', isList);
+  setShow('outboundListCard', isList);
+  setShow('outboundRecoControls', !isList);
+  setShow('outboundRecoCard', !isList);
+  if (!isList) populateRecoFormOptions();
+}
+
+// 추천 조건 폼의 계열·등급 select 옵션 채움 (lookup 로드 후·탭 진입 시)
+function populateRecoFormOptions() {
+  const s = $('recoSeries');
+  if (s) {
+    const cur = s.value;
+    s.innerHTML = '<option value="">선택하세요</option>'
+      + _obSeries.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+    s.value = cur;
+  }
+  const t = $('recoTier');
+  if (t) {
+    const cur = t.value;
+    t.innerHTML = '<option value="">전체</option>'
+      + _obTier.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+    t.value = cur;
+  }
+}
+
+// 등급 code → 순서값(sort_order). 인접 판정용. 미상이면 null.
+function obTierOrder(code) {
+  const r = _obTier.find(x => x.code === code);
+  if (!r || r.sort_order == null) return null;
+  return Number(r.sort_order);
+}
+
+// available=상위(0), 그 외(조율중·불가)=하위(1). is_active=false 는 후보에서 이미 제외.
+function outboundRecoAvailGroup(o) {
+  return (o.availability === 'available') ? 0 : 1;
+}
+
+// 한 인플루언서의 조건 적합도 점수·근거. 계열은 호출 전 필수 필터돼 여기선 항상 「계열 일치」.
+function outboundRecoScore(o, cond) {
+  const reasons = [{ t: '계열 일치', cls: 'ok' }];
+  let score = 0;
+
+  // 등급: 정확 일치 +30 / 한 칸 차이 +10 (sort_order 기준)
+  if (cond.tier) {
+    if (o.tier_code === cond.tier) {
+      score += RECO_SCORE.tierExact;
+      reasons.push({ t: '등급 일치', cls: 'ok' });
+    } else {
+      const oOrd = obTierOrder(o.tier_code), cOrd = obTierOrder(cond.tier);
+      if (oOrd != null && cOrd != null && Math.abs(oOrd - cOrd) === 1) {
+        score += RECO_SCORE.tierAdjacent;
+        reasons.push({ t: '등급 인접', cls: 'soft' });
+      }
+    }
+  }
+
+  // 채널: 요구 채널 핸들 보유 +20 (팔로워 규모는 동점 정렬에서만 반영)
+  if (cond.channel) {
+    const ch = OUTBOUND_CHANNELS.find(c => c.key === cond.channel);
+    if (ch && o[ch.handleCol]) {
+      score += RECO_SCORE.channelHave;
+      reasons.push({ t: ch.label + ' 보유', cls: 'ok' });
+    }
+  }
+
+  // 예산: 모집형식 선택 + 예산 입력 시만. 미상은 0(중립). 초과는 감점(제외 아님).
+  if (cond.format && cond.budget != null) {
+    const price = o[OUTBOUND_FORMAT_PRICE[cond.format]];
+    if (price == null) {
+      reasons.push({ t: '가격 미상', cls: 'muted' });
+    } else if (Number(price) <= cond.budget) {
+      score += RECO_SCORE.budgetIn;
+      reasons.push({ t: '예산 내', cls: 'ok' });
+    } else {
+      score += RECO_SCORE.budgetOver;
+      reasons.push({ t: '예산 초과', cls: 'over' });
+    }
+  }
+
+  return { score, reasons };
+}
+
+// 정렬: ①가용 그룹(available 먼저) ②점수 내림 ③주채널 팔로워 내림 ④등록 최신순
+function compareOutboundReco(a, b) {
+  const ga = outboundRecoAvailGroup(a.o), gb = outboundRecoAvailGroup(b.o);
+  if (ga !== gb) return ga - gb;
+  if (b.score !== a.score) return b.score - a.score;
+  const pa = outboundPrimaryChannel(a.o), pb = outboundPrimaryChannel(b.o);
+  const fva = pa ? pa.fv : -1, fvb = pb ? pb.fv : -1;
+  if (fvb !== fva) return fvb - fva;
+  return String(b.o.created_at || '').localeCompare(String(a.o.created_at || ''));
+}
+
+// 추천 실행 — 계열 필수 필터 + is_active + 점수 정렬 → 결과 렌더
+function runOutboundRecommend() {
+  const series = $('recoSeries')?.value || '';
+  if (!series) { toast('계열을 선택하세요', 'warn'); return; }
+  const cond = {
+    series,
+    format:  ($('recoFormat')?.value || ''),
+    tier:    ($('recoTier')?.value || ''),
+    channel: ($('recoChannel')?.value || ''),
+    budget:  outboundParseNum('recoBudget'),
+    headcount: outboundParseNum('recoHeadcount'),
+    purpose: ($('recoPurpose')?.value || ''),   // 2단계는 기록만(정렬 미반영)
+  };
+  // 계열 필수 필터 + 비활성(is_active=false) 제외
+  const cands = _outbound.filter(o => o.is_active !== false && o.series_code === series);
+  const scored = cands.map(o => {
+    const s = outboundRecoScore(o, cond);
+    return { o, score: s.score, reasons: s.reasons };
+  });
+  scored.sort(compareOutboundReco);
+  renderOutboundReco(scored, cond);
+}
+
+// 결과 렌더 — 전체 정렬 노출 + 요청 인원 N번째 뒤 구분선
+function renderOutboundReco(scored, cond) {
+  const tbody = $('recoTableBody');
+  if (!tbody) return;
+  const cnt = $('recoResultCount');
+  const N = cond.headcount;
+  if (cnt) cnt.textContent = N ? `요청 ${N}명 / 매칭 ${scored.length}명` : `매칭 ${scored.length}명`;
+
+  if (!scored.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 계열에 진행 가능한 인플루언서가 없습니다.</td></tr>';
+    return;
+  }
+
+  const priceCol = cond.format ? OUTBOUND_FORMAT_PRICE[cond.format] : null;
+  let html = '';
+  scored.forEach((row, i) => {
+    if (N && i === N) {
+      html += `<tr class="reco-divider"><td colspan="12">요청 인원 ${N}명 경계 — 아래는 차선 후보</td></tr>`;
+    }
+    html += renderOutboundRecoRow(row, i + 1, priceCol);
+  });
+  tbody.innerHTML = html;
+}
+
+function renderOutboundRecoRow(row, rank, priceCol) {
+  const o = row.o;
+  const id = esc(o.id);
+  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+
+  // 선택형식 단가
+  let priceCell = '<span style="color:var(--muted);font-size:11px">—</span>';
+  if (priceCol) {
+    const v = o[priceCol];
+    priceCell = (v == null)
+      ? '<span style="color:var(--muted);font-size:11px">미상</span>'
+      : `<span style="font-size:12px">¥${Number(v).toLocaleString()}</span>`;
+  }
+
+  const badges = row.reasons.map(r =>
+    `<span class="reco-badge reco-badge-${esc(r.cls)}">${esc(r.t)}</span>`).join(' ');
+
+  return `<tr>
+    <td style="text-align:center;font-weight:700;color:var(--muted)">${rank}</td>
+    <td style="text-align:center;font-weight:700">${row.score}</td>
+    <td>${nameCell}</td>
+    <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
+    <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
+    ${outboundChannelCells(o)}
+    <td>${priceCell}</td>
+    <td>${outboundAvailBadge(o.availability)}</td>
+    <td style="white-space:normal">${badges}</td>
+  </tr>`;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -32583,6 +34965,7 @@ async function init() {
     // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
+    if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
     if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해

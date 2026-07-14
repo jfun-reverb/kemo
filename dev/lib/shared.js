@@ -578,6 +578,17 @@ const PANE_REFRESHERS = {
   },
   'permissions': async () => {
     if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
+  },
+  'settlements': async () => {
+    // 처리(송금/보류/취소) 후 호출 — 상태가 바뀐 행을 정확히 반영해야 하므로 캐시 재렌더가 아니라
+    // 재조회(reloadSettlementsData: fetchSettlements + renderSettlementsList + 배지)로 갱신한다.
+    if (typeof reloadSettlementsData === 'function') await reloadSettlementsData();
+    else if (typeof renderSettlementsList === 'function') await renderSettlementsList();
+  },
+  'outbound': async () => {
+    // 명단 저장·삭제 모달 후 호출 — 재조회(fetchOutboundInfluencers + 목록 재렌더)로 갱신.
+    if (typeof reloadOutboundData === 'function') await reloadOutboundData();
+    else if (typeof renderOutboundList === 'function') renderOutboundList();
   }
 };
 async function refreshPane(paneId) {
@@ -830,8 +841,27 @@ function visibleUpcomingFeatures() {
 //   사양서 docs/specs/2026-06-15-admin-permission-management.md §3
 //         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+// 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
+//   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
+//   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
+//   (admin-outbound.js). HANDOFF §계열 매핑 확정표(2026-07-09)와 1:1.
+//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘·헬스 / 푸드 = 푸드(독립) / 미분류 = 기타·테크
+// ══════════════════════════════════════
+const OB_CATEGORY_SERIES = {
+  color:   'beauty',
+  base:    'beauty',
+  fashion: 'fashion',
+  vlog:    'life',
+  kidsmom: 'life',
+  health:  'life',    // 헬스/다이어트 (마이그레이션 236, 2026-07-14)
+  food:    'food',
+  other:   'other',
+  tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
+};
+
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 19개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -846,6 +876,8 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
   { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
   { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.settlements',        label_ko: '정산 관리',                    category: '회원 관리',   server_enforced: false },
+  { key: 'menu.outbound',           label_ko: '인플루언서 추천 명단',         category: '회원 관리',   server_enforced: false },
   { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
@@ -853,7 +885,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
   { key: 'menu.permissions',        label_ko: '권한 관리',                    category: '관리자 설정', server_enforced: false },
 
-  // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
@@ -871,6 +903,12 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'campaign.caution_history_view', label_ko: '캠페인 주의사항 변경 이력 열람',                category: '캠페인',       server_enforced: true },
   { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
   { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
+  // ── 정산(인플루언서 리워드) 2개 — 마이그레이션 220 role_permissions 시드와 1:1 (화면 menu.settlements 는 PR2) ──
+  { key: 'settlement.view',               label_ko: '정산 조회',                                     category: '정산',         server_enforced: true },
+  { key: 'settlement.pay',                label_ko: '정산 송금 처리',                                category: '정산',         server_enforced: true },
+  // ── 인플루언서 추천 명단(아웃바운드) 1개 — 마이그레이션 228 role_permissions 시드와 1:1 ──
+  //    RLS(마이그레이션 226)·Storage(229)가 has_permission('outbound.view', ...)로 서버 강제 → server_enforced=true.
+  { key: 'outbound.view',                 label_ko: '인플루언서 추천 명단 조회·편집',                category: '회원 관리',    server_enforced: true },
 ];
 
 // ══════════════════════════════════════

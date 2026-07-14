@@ -194,6 +194,95 @@ settlements status='on_hold' 또는 행 유지+표시 (송금 전이므로) — 
 
 ---
 
-## 11. 구현 결과 (개발 세션이 채울 것)
+## 11. 구현 결과
 
-_(미착수)_
+### PR 1 — 데이터 모델 + 자동 생성 (화면 없음)
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 217(settlements+settlement_events 스키마) · 218(backfill_settlements 백필 함수) · 219(notifications.kind 7→9종) · 220(role_permissions 정산 권한 시드)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07 — 사양서 작성 이후 생긴 변화 반영)
+- **권한 = 동적 권한 편입**(사양서 §3 ⑥ "campaign_admin 이상 고정" 에서 변경): 사양서 작성(6/22) 이후 동적 권한 관리(has_permission·role_permissions)가 운영 배포(7/6)돼, 정산도 하드코딩 대신 `settlement.view`/`settlement.pay` feature_key 로 편입. 기본값 campaign_admin=write·campaign_manager=hidden 이라 사양 ⑥과 동작 동일 + 향후 super_admin 이 화면에서 조정 가능. `ADMIN_PERMISSION_CATALOG`(shared.js) 37→39개.
+- **자동 생성 = 백필 RPC(B안)**: 사양서 §6 권고 그대로. 역방향(인증 깨짐→on_hold)은 PR1 제외(생성만).
+- **송금 알림 = settlement_paid**: 앱 알림만(메일 베타 밖). PR1은 kind CHECK 확장까지, INSERT 로직은 PR2.
+- **환수 = on_hold + 메모**: 별도 status 안 만듦(사양 §9-B 후자).
+
+#### 초안 대비 변경 사항
+- **추가**: 동적 권한 편입(위) — 사양서엔 없던 마이그레이션 220 + shared.js 카탈로그 2항목. 정산 RLS 게이트를 `is_admin()` 아닌 `has_permission('settlement.view','read')` 로.
+- **빠진 것**: 사양서 §4 "bank_* 미사용 유지" 문구 무효 — 마이그레이션 216(2026-07-07)으로 `influencers.bank_*`·`pw` 삭제됨. 정산은 `paypal_email` 만 사용해 실질 영향 없음.
+- **달라진 것**: 없음(스키마·흐름은 사양서 §4·§5·§6 그대로).
+
+#### 구현 중 기술 결정 사항
+- **`settlement_events.settlement_id` = ON DELETE RESTRICT**(사양서는 CASCADE): 금전 감사 유실 방지. `deliverable_events` 가 CASCADE 라 대리 회수 시 감사가 함께 삭제된 선례(CLAUDE.md 명시) 반복 회피. 정산행은 하드 삭제 대신 `cancelled` 소프트 상태 전제.
+- **백필은 단일 문장 데이터 변경 CTE 체인**(`inserted`→`events_ins`→`notif_ins`): TEMP TABLE 미사용(레포 전례 없음). 참조 안 되는 데이터 변경 CTE도 부수효과로 완전 실행되는 PostgreSQL 동작 근거.
+- **인증 성공 판정 SQL 재현**: `computeCertStatus`/`_finalizeMonitorReprs`(admin-deliverables.js) 그대로 — DISTINCT ON 최신 1건(receipt/post/review_image), 리뷰어 채널별 전부 승인, 채널 0개면 실패.
+- ⚠️ **알려진 디커플링(PR2 인지)**: `settlements.paypal_email` 직접 컬럼은 인플 민감정보 가림막 뷰(마이그212·213)를 안 거침. 현재 campaign_admin 만 조회라 안전하나, 향후 campaign_manager 에게 `settlement.view` 열면 PayPal 노출.
+
+### PR 2 — 관리자 정산 페인
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 221(menu.settlements 권한 시드) · 222(mark_settlement_paid) · 223(mark_settlement_hold + mark_settlement_cancel)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07)
+- **묶음 송금 = 개별 행 처리**(배치 RPC 신설 안 함, 화면은 인플별 합계만 참고 표시)
+- **송금 모달 = PayPal·금액·건수 확인** + 참조번호 메모
+- **보류·취소 버튼 PR2 포함**(인증 깨짐·환수 대응)
+- **엑셀 = 현재 필터 결과**
+
+#### 구현 내용
+- 관리자 페인 `#settlements`(`dev/js/admin-settlements.js` 신규): 진입 시 `backfill_settlements()` best-effort → 목록·필터(상태 기본 pending·캠페인·인플 검색)·lazy-load·엑셀. 사이드바 「회원 관리」 그룹 + 정산대기 건수 배지.
+- **상태 전이 매트릭스**(화면 버튼 ↔ 서버 RPC 일치): pending→paid/on_hold/cancelled, paid→on_hold, on_hold→cancelled, cancelled=종료.
+- RPC 3종(마이그222·223): `mark_settlement_paid`(pending→paid, paypal_email 재조회·미등록 차단·settlement_paid 알림·events pay) / `mark_settlement_hold`(pending·paid→on_hold, paid_* 보존, 알림 없음) / `mark_settlement_cancel`(pending·on_hold→cancelled). 모두 `has_permission('settlement.pay','write')` 가드 + 낙관적 락(충돌 시 -1 반환) + settlement_events 이력.
+- 권한: `menu.settlements` 시드(마이그221, campaign_admin=write·campaign_manager=hidden — settlement.view와 정합). `switchAdminPane` 진입 가드 자동 차단. shared.js 카탈로그 화면 21개.
+
+#### 초안 대비 변경 사항
+- **추가**: 보류·취소 RPC 2종(사양서는 상태만 정의, 실제 전환 UI·함수는 이번에). menu.settlements 권한(동적 권한 편입 후속).
+- **달라진 것**: "인증성공일" 전용 컬럼 없어 `settlements.created_at`(정산행 생성 시각)으로 대체. 엑셀 인플 이름은 가림막 뷰(`influencers_admin_view`) `name`/`name_kana` 직접 매핑.
+- **기술 결정**: 낙관적 락 충돌은 예외 아닌 `-1` 반환(update_deliverable_status 관례) / mark_settlement_paid 는 PayPal 미등록이면 서버에서도 송금 차단(화면 모달과 이중 방어).
+
+### PR 3 — 인플 마이페이지 조회 화면
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 없음 (순수 프론트 — `fetchMySettlements` 는 PR1에서 완성)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07)
+- **취소(cancelled) 건 = 숨김**(목록 제외)
+- **보류(on_hold) 라벨 = 「確認中」**(관리자 메모·사유 노출 안 함)
+- **누적 수령액 = 상단 큰 카드**(送金済み/paid 만 합산) + 대기액 보조
+- **PayPal 미등록 = 안내 박스 + 「PayPal登録」 버튼**(→ PayPal 등록 화면)
+
+#### 구현 내용
+- 마이페이지 서브화면 `#mypage-sub-settlements`(dev/index.html) + `renderMySettlements`/`settlementStatusMeta`(mypage.js). 햄버거 「マイページ」 아코디언 서브항목(notifications.js subs).
+- `openMypageSub('settlements')` 훅으로 햄버거·알림·해시(`#mypage-settlements`)·popstate·새로고침 모든 진입 경로 자동 렌더.
+- 알림 라우팅(notifications.js onNotifItemClick): `settlement_paypal_required`→PayPal 화면, `settlement_paid`→정산 화면 + 아이콘맵.
+- i18n: `mypage.settlements.*`·상태 라벨 ja/ko 양쪽 등록. 동적 pill·금액은 `t()` + langchange 재렌더(응모이력 패턴 미러).
+
+#### 초안 대비 변경 사항
+- **달라진 것**: on_hold 라벨을 사양서 「保留」 대신 인플 친화적 「確認中」로(불안·환수 언급 회피). cancelled는 인플 화면에서 숨김.
+- **기술 결정**: DB·storage 변경 0(PR1의 fetchMySettlements 재사용). 앱 라우팅(openMypageSub·해시)이 이미 범용화돼 app.js 무수정.
+
+---
+
+## 정산 관리 베타 1차 — 3조각 완결 (2026-07-07 dev)
+PR1(데이터 모델·백필·동적 권한, 마이그217~220) → PR2(관리자 화면·송금/보류/취소 RPC, 마이그221~223) → PR3(인플 조회 화면, 프론트) 모두 개발서버 배포·검증 완료. **운영 배포는 3조각 묶어 별도 진행.** 약관 영향 없음(§8 — 제13조가 이미 커버).
+
+### PR2 후속 (2026-07-07 dev) — 관리자 화면 개선 + 보류 해제
+개발서버 검증(더미 24건·관리자 액션 qa) 중 사용자 요청으로 추가:
+- **상태 탭**: 정산 페인 상태 select → 상태별 탭(전체/정산대기/송금완료/보류/취소, 각 건수, 캠페인 탭 패턴 미러).
+- **캠페인 검색형 다중필터**: 단일 select → `syncCampMultiFilter` 재사용(결과물 페인 패턴). campaignId→campaignIds.
+- **보류 해제(마이그레이션 224 `mark_settlement_revert`)**: 기존 전이에서 on_hold는 취소만 가능해 보류 건 재정산 경로가 없던 구멍을 메움. **on_hold→pending 복귀**(paid_* 보존·알림 없음·events action='revert'[217 예약값]). 화면 on_hold 버튼에 「보류 해제」 추가(사유 모달 공용 `_openSettlementReasonModal` mode='revert'). 갱신된 전이: on_hold→pending(revert)/cancelled.
+
+### PR2 후속 2 (2026-07-07 dev) — 정산 이력 모달 + 화면 미세 조정
+개발서버 검증 중 사용자 요청으로 추가:
+- **정산 이력 모달(마이그레이션 225 `get_settlement_events`)**: 행별 「이력」 버튼 → `settlement_events` 타임라인 모달(생성/송금완료/보류/취소/보류해제 + 상태 전이 + 처리자 + 사유 메모). `SECURITY DEFINER + search_path='' + has_permission('settlement.view','read')` 가드. `storage.js` `fetchSettlementEvents`. 처리 시 입력한 사유(memo)를 이 모달에서 확인.
+- **처리 컬럼 폭 조정**: 정산 목록 「처리」 컬럼 200→300px(버튼 3~4개가 줄바꿈 없이 들어가도록).
+- **이력 버튼 조건부 비활성화**: 이벤트 0건인 정산행의 「이력」 버튼은 disable(빈 모달 방지).
+
+### 배포 전 정리 (2026-07-08 dev) — 문서·주석·배지 갱신 보완
+운영 배포 직전 reviewer/supabase-expert 검토에서 나온 경미 보완 3건:
+- **정산 대기 배지 갱신 주기 정합**: `loadAdminData`(admin-dashboard.js)에 `refreshSettlementSidebarBadge()` 호출 추가 — 결과물 배지와 동일하게 대시보드 방문 시마다 갱신(백필로 새 정산 건이 생겨도 다른 페인 머무는 동안 stale 하지 않게).
+- **stale 주석 정정**: `storage.js` `markSettlementPaid` 주석이 "PR2에서 구현 예정" 상태로 남아 있던 것을 실제(마이그222 구현·사용 중)에 맞게 갱신.
+- **문서 기록 갱신**: 위 「PR2 후속 2」 3개 커밋을 본 사양서 「구현 결과」에 반영.
