@@ -1714,3 +1714,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 /* 화면 이동 드롭다운 — 사이드바 접힘(56px) 시 숨김(native select가 width:0로 눌려 조작 불가 방지) */
 .admin-layout.collapsed #adminScreenSwitcher { display: none; }
+
+/* 등급 열 헤더 도움말 「?」 아이콘 (아웃바운드 명단·조건 추천) */
+.tier-help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--muted, #7A6B78); color: #fff;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  vertical-align: middle; margin-left: 2px; user-select: none;
+}
+.tier-help-icon:hover { background: var(--ink, #1E1320); }

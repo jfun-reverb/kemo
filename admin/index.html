@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784010575';
+  var CURRENT_BUILD = 'v1784012168';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2173,6 +2173,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 화면 이동 드롭다운 — 사이드바 접힘(56px) 시 숨김(native select가 width:0로 눌려 조작 불가 방지) */
 .admin-layout.collapsed #adminScreenSwitcher { display: none; }
 
+/* 등급 열 헤더 도움말 「?」 아이콘 (아웃바운드 명단·조건 추천) */
+.tier-help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--muted, #7A6B78); color: #fff;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  vertical-align: middle; margin-left: 2px; user-select: none;
+}
+.tier-help-icon:hover { background: var(--ink, #1E1320); }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2256,7 +2266,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-14 15:29 · efa912d</span>
+          <span class="admin-build-text">2026-07-14 15:56 · bca03c0</span>
         </div>
       </div>
     </aside>
@@ -3552,7 +3562,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:140px">이름</th>
                   <th style="width:90px">계열</th>
                   <th style="width:90px">세분</th>
-                  <th style="width:120px">등급</th>
+                  <th style="width:120px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
                   <th style="width:100px">Instagram</th>
                   <th style="width:100px">TikTok</th>
                   <th style="width:100px">YouTube</th>
@@ -3578,7 +3588,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:70px">적합도</th>
                   <th style="width:140px">이름</th>
                   <th style="width:80px">계열</th>
-                  <th style="width:110px">등급</th>
+                  <th style="width:110px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
                   <th style="width:100px">Instagram</th>
                   <th style="width:100px">TikTok</th>
                   <th style="width:100px">YouTube</th>
@@ -5606,6 +5616,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
     </div>
   </div>
+</div>
+
+<!-- 등급 열 헤더 「?」 도움말 팝오버 (admin-outbound.js toggleTierHelp, fixed 배치) -->
+<div id="tierHelpPop" style="display:none;position:fixed;z-index:9999;background:#333;color:#fff;font-size:11px;padding:8px 12px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.25);max-width:300px">
+  <div style="font-weight:600;margin-bottom:3px">등급 기준 (팔로워)</div>
+  <div class="tier-help-body"></div>
 </div>
 
 <!-- 인플루언서 추천 명단 등록·편집 모달 (admin-outbound.js) -->
@@ -30365,7 +30381,40 @@ async function reloadOutboundData() {
 
 function outboundSeriesLabel(code) { return code ? (_obSeriesMap[code] || code) : '—'; }
 function outboundCategoryLabel(code) { return code ? (_obCategoryMap[code] || code) : '—'; }
-function outboundTierLabel(code) { return code ? (_obTierMap[code] || code) : '—'; }
+// 등급 표시 — 팔로워 기준 괄호는 떼고 이름만(마이크로/미들/메가). 기준은 등급 열 헤더 도움말(?)로 안내.
+function outboundTierLabel(code) {
+  if (!code) return '—';
+  var nm = _obTierMap[code] || code;
+  return String(nm).replace(/\s*\(.*$/, '').trim();
+}
+
+// 등급 기준 도움말 텍스트 — lookup 원본 name_ko(괄호 포함)를 그대로 사용(시트 기준 바뀌면 자동 반영).
+function tierHelpText() {
+  if (_obTier && _obTier.length) return _obTier.map(function(r){ return r.name_ko; }).join(' · ');
+  return '마이크로 (1만~5만) · 미들 (5만~30만) · 메가 (30만~)';
+}
+
+// 등급 열 헤더 「?」 클릭 — 아이콘 아래에 기준 팝오버 토글(fixed 배치라 테이블 overflow 무관).
+function toggleTierHelp(icon) {
+  var pop = document.getElementById('tierHelpPop');
+  if (!pop) return;
+  if (pop.style.display === 'block' && pop._anchor === icon) { pop.style.display = 'none'; pop._anchor = null; return; }
+  var body = pop.querySelector('.tier-help-body');
+  if (body) body.textContent = tierHelpText();
+  var r = icon.getBoundingClientRect();
+  pop.style.left = Math.round(r.left) + 'px';
+  pop.style.top = Math.round(r.bottom + 6) + 'px';
+  pop.style.display = 'block';
+  pop._anchor = icon;
+}
+
+// 외부 클릭 시 등급 도움말 팝오버 닫기 (아이콘 자신 클릭은 toggle 이 처리)
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('tierHelpPop');
+  if (pop && pop.style.display === 'block' && !(e.target && e.target.classList && e.target.classList.contains('tier-help-icon'))) {
+    pop.style.display = 'none'; pop._anchor = null;
+  }
+});
 
 function outboundAvailBadge(status) {
   const meta = OUTBOUND_AVAIL_META[status] || { ko: status || '—', cls: 'badge-gray' };
@@ -30875,7 +30924,7 @@ async function exportOutboundExcel() {
       ws.addRow({
         name: o.name_ko || '', account: o.account_id || '',
         series: outboundSeriesLabel(o.series_code), category: outboundCategoryLabel(o.category_code),
-        tier: outboundTierLabel(o.tier_code),
+        tier: (o.tier_code ? (_obTierMap[o.tier_code] || o.tier_code) : ''),   // 엑셀은 기준 포함 원본(오프라인이라 도움말 팝오버 접근 불가)
         ig: o.ig_handle || '', igf: o.ig_followers == null ? '' : o.ig_followers,
         tt: o.tiktok_handle || '', ttf: o.tiktok_followers == null ? '' : o.tiktok_followers,
         yt: o.youtube_handle || '', ytf: o.youtube_followers == null ? '' : o.youtube_followers,
