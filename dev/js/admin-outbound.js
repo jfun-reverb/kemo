@@ -83,7 +83,40 @@ async function reloadOutboundData() {
 
 function outboundSeriesLabel(code) { return code ? (_obSeriesMap[code] || code) : '—'; }
 function outboundCategoryLabel(code) { return code ? (_obCategoryMap[code] || code) : '—'; }
-function outboundTierLabel(code) { return code ? (_obTierMap[code] || code) : '—'; }
+// 등급 표시 — 팔로워 기준 괄호는 떼고 이름만(마이크로/미들/메가). 기준은 등급 열 헤더 도움말(?)로 안내.
+function outboundTierLabel(code) {
+  if (!code) return '—';
+  var nm = _obTierMap[code] || code;
+  return String(nm).replace(/\s*\(.*$/, '').trim();
+}
+
+// 등급 기준 도움말 텍스트 — lookup 원본 name_ko(괄호 포함)를 그대로 사용(시트 기준 바뀌면 자동 반영).
+function tierHelpText() {
+  if (_obTier && _obTier.length) return _obTier.map(function(r){ return r.name_ko; }).join(' · ');
+  return '마이크로 (1만~5만) · 미들 (5만~30만) · 메가 (30만~)';
+}
+
+// 등급 열 헤더 「?」 클릭 — 아이콘 아래에 기준 팝오버 토글(fixed 배치라 테이블 overflow 무관).
+function toggleTierHelp(icon) {
+  var pop = document.getElementById('tierHelpPop');
+  if (!pop) return;
+  if (pop.style.display === 'block' && pop._anchor === icon) { pop.style.display = 'none'; pop._anchor = null; return; }
+  var body = pop.querySelector('.tier-help-body');
+  if (body) body.textContent = tierHelpText();
+  var r = icon.getBoundingClientRect();
+  pop.style.left = Math.round(r.left) + 'px';
+  pop.style.top = Math.round(r.bottom + 6) + 'px';
+  pop.style.display = 'block';
+  pop._anchor = icon;
+}
+
+// 외부 클릭 시 등급 도움말 팝오버 닫기 (아이콘 자신 클릭은 toggle 이 처리)
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('tierHelpPop');
+  if (pop && pop.style.display === 'block' && !(e.target && e.target.classList && e.target.classList.contains('tier-help-icon'))) {
+    pop.style.display = 'none'; pop._anchor = null;
+  }
+});
 
 function outboundAvailBadge(status) {
   const meta = OUTBOUND_AVAIL_META[status] || { ko: status || '—', cls: 'badge-gray' };
@@ -593,7 +626,7 @@ async function exportOutboundExcel() {
       ws.addRow({
         name: o.name_ko || '', account: o.account_id || '',
         series: outboundSeriesLabel(o.series_code), category: outboundCategoryLabel(o.category_code),
-        tier: outboundTierLabel(o.tier_code),
+        tier: (o.tier_code ? (_obTierMap[o.tier_code] || o.tier_code) : ''),   // 엑셀은 기준 포함 원본(오프라인이라 도움말 팝오버 접근 불가)
         ig: o.ig_handle || '', igf: o.ig_followers == null ? '' : o.ig_followers,
         tt: o.tiktok_handle || '', ttf: o.tiktok_followers == null ? '' : o.tiktok_followers,
         yt: o.youtube_handle || '', ytf: o.youtube_followers == null ? '' : o.youtube_followers,

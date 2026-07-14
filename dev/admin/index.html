@@ -1436,7 +1436,7 @@
                   <th style="width:140px">이름</th>
                   <th style="width:90px">계열</th>
                   <th style="width:90px">세분</th>
-                  <th style="width:120px">등급</th>
+                  <th style="width:120px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
                   <th style="width:100px">Instagram</th>
                   <th style="width:100px">TikTok</th>
                   <th style="width:100px">YouTube</th>
@@ -1462,7 +1462,7 @@
                   <th style="width:70px">적합도</th>
                   <th style="width:140px">이름</th>
                   <th style="width:80px">계열</th>
-                  <th style="width:110px">등급</th>
+                  <th style="width:110px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
                   <th style="width:100px">Instagram</th>
                   <th style="width:100px">TikTok</th>
                   <th style="width:100px">YouTube</th>
@@ -3492,6 +3492,12 @@
       <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
     </div>
   </div>
+</div>
+
+<!-- 등급 열 헤더 「?」 도움말 팝오버 (admin-outbound.js toggleTierHelp, fixed 배치) -->
+<div id="tierHelpPop" style="display:none;position:fixed;z-index:9999;background:#333;color:#fff;font-size:11px;padding:8px 12px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.25);max-width:300px">
+  <div style="font-weight:600;margin-bottom:3px">등급 기준 (팔로워)</div>
+  <div class="tier-help-body"></div>
 </div>
 
 <!-- 인플루언서 추천 명단 등록·편집 모달 (admin-outbound.js) -->
