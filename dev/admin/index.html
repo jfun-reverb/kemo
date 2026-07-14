@@ -95,6 +95,14 @@
         </span>
       </div>
       <div class="admin-side-scroll">
+        <!-- 화면 이동 드롭다운 (패밀리 사이트 셀렉터형) — 로고 바로 밑. 전체 관리자 / 아웃바운드 전용 / 인플루언서 화면 -->
+        <div class="admin-si" id="adminScreenSwitcher" style="cursor:default;padding:12px 16px 8px">
+          <select id="adminScreenSelect" onchange="switchAdminScreen(this.value)" style="width:100%;font-size:12px;background:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:7px 8px;color:#1E1320;cursor:pointer">
+            <option value="full">전체 관리자 화면</option>
+            <option value="outbound">인플루언서 추천 명단</option>
+            <option value="influencer">인플루언서 화면</option>
+          </select>
+        </div>
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
@@ -124,14 +132,6 @@
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
-        </div>
-        <!-- 화면 이동 드롭다운 (패밀리 사이트 셀렉터형) — 전체 관리자 / 아웃바운드 전용 / 인플루언서 화면 -->
-        <div class="admin-si" id="adminScreenSwitcher" style="cursor:default;padding:8px 16px">
-          <select id="adminScreenSelect" onchange="switchAdminScreen(this.value)" style="width:100%;font-size:12px;background:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:7px 8px;color:#1E1320;cursor:pointer">
-            <option value="full">전체 관리자 화면</option>
-            <option value="outbound">인플루언서 추천 명단</option>
-            <option value="influencer">인플루언서 화면</option>
-          </select>
         </div>
         <div class="admin-si" onclick="adminLogout()">
           <span class="si-icon material-icons-round" style="font-size:18px">logout</span>
