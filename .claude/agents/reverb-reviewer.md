@@ -37,6 +37,10 @@ model: sonnet
 - [ ] 관리자 페이지에 모바일 쉘/바텀탭 적용 안 함
 - [ ] 인플루언서 UI = 일본어, 관리자 UI = 한국어
 
+### iOS 하이브리드 앱 영향 (2026-07-14 추가 — 가벼운 알림, 앱 로딩 방식 확정까지 잠정)
+- [ ] 인플루언서 화면의 **HTML 구조·CSS 클래스명·주요 id**를 바꾸는 변경이면 🟡 Warning 한 줄 — `feature/ios-app` 브랜치의 iOS 전용 오버라이드(`ios-theme.css`·바텀 탭바·`sync-ios.sh` 주입 자산·`native-push.js`)가 조용히 깨질 수 있음. 실제 사고 이력(주입 자산 누락으로 테마 통째 미적용, 추적 오래 걸림) 있음
+- ⚠️ 지금은 **알림만** — 정식 회귀 점검 규칙은 앱 로딩 방식(운영 주소 직접 로딩 등) 확정 후 고문이 고정. 근거: HANDOFF `docs/specs/2026-07-14-influencer-app-transition-handoff.md` §6
+
 ### 빌드
 - [ ] dev/ 수정 후 `cd dev && bash build.sh` 실행 여부
 - [ ] 신규 CSS/JS 파일이 build.sh에 등록됐는지
