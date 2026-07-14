@@ -90,10 +90,10 @@ function outboundTierLabel(code) {
   return String(nm).replace(/\s*\(.*$/, '').trim();
 }
 
-// 등급 기준 도움말 텍스트 — lookup 원본 name_ko(괄호 포함)를 그대로 사용(시트 기준 바뀌면 자동 반영).
-function tierHelpText() {
-  if (_obTier && _obTier.length) return _obTier.map(function(r){ return r.name_ko; }).join(' · ');
-  return '마이크로 (1만~5만) · 미들 (5만~30만) · 메가 (30만~)';
+// 등급 기준 도움말 항목 — lookup 원본 name_ko(괄호 포함)를 그대로 사용(시트 기준 바뀌면 자동 반영).
+function tierHelpItems() {
+  if (_obTier && _obTier.length) return _obTier.map(function(r){ return r.name_ko; });
+  return ['마이크로 (1만~5만)', '미들 (5만~30만)', '메가 (30만~)'];
 }
 
 // 등급 열 헤더 「?」 클릭 — 아이콘 아래에 기준 팝오버 토글(fixed 배치라 테이블 overflow 무관).
@@ -102,7 +102,7 @@ function toggleTierHelp(icon) {
   if (!pop) return;
   if (pop.style.display === 'block' && pop._anchor === icon) { pop.style.display = 'none'; pop._anchor = null; return; }
   var body = pop.querySelector('.tier-help-body');
-  if (body) body.textContent = tierHelpText();
+  if (body) body.innerHTML = tierHelpItems().map(function(t){ return '<div>· ' + esc(t) + '</div>'; }).join('');
   var r = icon.getBoundingClientRect();
   pop.style.left = Math.round(r.left) + 'px';
   pop.style.top = Math.round(r.bottom + 6) + 'px';
