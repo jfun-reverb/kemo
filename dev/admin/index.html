@@ -1284,69 +1284,145 @@
           </div><!-- /settlementPastView -->
         </div>
 
-        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD. admin-outbound.js -->
+        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD + 조건 추천. admin-outbound.js -->
         <div id="adminPane-outbound" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
-                <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+            <!-- 명단 / 추천 전환 탭 (2단계 — 사양서 2026-07-08 §PR 2단계) -->
+            <div class="outbound-tabbar">
+              <button id="outboundTabList" class="outbound-tab is-active" onclick="outboundTab('list')">명단</button>
+              <button id="outboundTabReco" class="outbound-tab" onclick="outboundTab('recommend')">조건 추천</button>
+            </div>
+
+            <!-- 명단 컨트롤 (제목·버튼·필터) -->
+            <div id="outboundListControls">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
+                  <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                    엑셀
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
+                    신규 등록
+                  </button>
+                </div>
               </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
-                  엑셀
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
-                  신규 등록
-                </button>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열</label>
+                  <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>세분</label>
+                  <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>가용상태</label>
+                  <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="available">진행가능</option>
+                    <option value="adjusting">조율중</option>
+                    <option value="unavailable">불가</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                  <label>검색</label>
+                  <div style="position:relative">
+                    <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+                  </div>
+                </div>
               </div>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-              <div class="admin-filter-group">
-                <label>계열</label>
-                <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+
+            <!-- 추천 조건 입력 (숨김) — 계열 필수, 나머지 선택 -->
+            <div id="outboundRecoControls" style="display:none">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">조건 추천</div>
+                <div style="font-size:12px;color:var(--muted)">계열만 필수, 나머지는 선택입니다. 성과 데이터가 쌓이기 전이라 조건 적합도 기준으로 정렬합니다.</div>
               </div>
-              <div class="admin-filter-group">
-                <label>세분</label>
-                <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>등급</label>
-                <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
-                <label>가용상태</label>
-                <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                  <option value="available">진행가능</option>
-                  <option value="adjusting">조율중</option>
-                  <option value="unavailable">불가</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
-                <label>채널</label>
-                <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                  <option value="ig">Instagram</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="x">X</option>
-                </select>
-              </div>
-              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
-                <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열 <span style="color:var(--pink)">*</span></label>
+                  <select id="recoSeries" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택하세요</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>모집형식</label>
+                  <select id="recoFormat" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="feed">피드</option>
+                    <option value="reels">릴스</option>
+                    <option value="story">스토리</option>
+                    <option value="tiktok">틱톡</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="recoTier" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="recoChannel" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>예산 (¥)</label>
+                  <input type="text" id="recoBudget" class="form-input" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>인원수</label>
+                  <input type="text" id="recoHeadcount" class="form-input" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px;padding:5px 10px;font-size:12px;border-radius:6px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>광고목적</label>
+                  <select id="recoPurpose" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="new">신제품</option>
+                    <option value="sale">세일</option>
+                    <option value="branding">브랜딩</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <button class="btn btn-primary btn-sm" onclick="runOutboundRecommend()" style="height:32px">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">auto_awesome</span>
+                    추천
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-          <div class="admin-card">
+
+          <!-- 명단 결과 카드 -->
+          <div id="outboundListCard" class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 명단</span><span id="outboundTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
@@ -1365,6 +1441,29 @@
                   <th style="width:90px">처리</th>
                 </tr></thead>
                 <tbody id="outboundTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 추천 결과 카드 (숨김) -->
+          <div id="outboundRecoCard" class="admin-card" style="display:none">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 결과</span><span id="recoResultCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:44px">순위</th>
+                  <th style="width:70px">적합도</th>
+                  <th>이름</th>
+                  <th style="width:80px">계열</th>
+                  <th style="width:110px">등급</th>
+                  <th style="width:150px">주채널 팔로워</th>
+                  <th style="width:110px">선택형식 단가</th>
+                  <th style="width:80px">가용</th>
+                  <th>근거</th>
+                </tr></thead>
+                <tbody id="recoTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">계열을 선택하고 「추천」을 누르세요.</td></tr></tbody>
               </table>
             </div>
           </div>
