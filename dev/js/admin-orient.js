@@ -15,6 +15,7 @@ let _osLastIssuedBrandId = null;  // 방금 발급한 시트의 브랜드 id(수
 let _osBrandContacts = [];        // 발급 브랜드의 담당자 배열(드롭다운 소스)
 let _osPendingContact = null;     // 발송 성공 후 저장 대기 중인 신규 담당자 {email, name}
 let _osMailSentTo = null;         // 이 시트에 이미 메일 발송한 수신 이메일(있으면 같은 수신자엔 버튼 비활성)
+let _osPublishCardIdx = null;     // 「이 카드로 발행」 진입 시 대상 카드 인덱스(발행 방식 선택 모달에서 재사용)
 
 const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
 const OS_TYPE_CHIP = {
@@ -810,7 +811,11 @@ function osCardPublishControl(c, idx, readonly) {
   if (readonly) return '';   // 새창(읽기 전용)에서는 발행 버튼 숨김
   const s = _osDetailSheet;
   if (c && c.campaign_id) {
-    return '<span style="flex-shrink:0;display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>';
+    // 발행됨 배지 + 「연결 해제」(캠페인 행은 그대로, 카드 연결만 되돌림)
+    return '<span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'
+      + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>'
+      + `<button type="button" class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="osUnlinkCard(${idx})">연결 해제</button>`
+      + '</span>';
   }
   if (s && s.status === 'submitted') {
     if (!c || !c.form_type) return '<span style="flex-shrink:0;color:var(--muted);font-size:11px">형식 미선택</span>';
@@ -841,10 +846,10 @@ function osImagesInline(images) {
   return osFieldRow('예시 이미지·자료', inner, true);
 }
 
-// ── 카드 → 캠페인 발행 (자동 채움) ──
-// 상세 모달 카드 「이 카드로 발행」 → 캠페인 등록 폼에 prefill + 발행 컨텍스트 주입.
-// 일본어 게이트·발행 소비(markOrientCardConsumed)는 addCampaign 이 컨텍스트를 보고 처리.
-async function osPublishCard(cardIdx) {
+// ── 카드 → 캠페인 발행 방식 선택 ──
+// 상세 모달 카드 「이 카드로 발행」 → 발행 방식 선택 모달(신규 발행 / 기존 캠페인 연결)을 연다.
+// 검증(제출됨·형식 선택·미발행)은 여기서 1차, 실제 발행/연결 서버 RPC 가 최종 검증.
+function osPublishCard(cardIdx) {
   const s = _osDetailSheet;
   if (!s) return;
   if (s.status !== 'submitted') { toast('제출된 오리엔시트만 발행할 수 있습니다.'); return; }
@@ -853,12 +858,191 @@ async function osPublishCard(cardIdx) {
   if (!card) return;
   if (card.campaign_id) { toast('이미 발행된 카드입니다.'); return; }
   if (!card.form_type) { toast('형식이 선택되지 않은 카드는 발행할 수 없습니다.'); return; }
+  _osPublishCardIdx = cardIdx;
+  // 선택 화면을 기본으로(목록 화면은 숨김) 리셋 후 모달 오픈. 상세 모달은 뒤에 그대로 둔다.
+  ensureOrientModals();
+  const choice = document.getElementById('osPublishChoice');
+  const listView = document.getElementById('osLinkListView');
+  if (choice) choice.style.display = '';
+  if (listView) listView.style.display = 'none';
+  document.getElementById('orientPublishModal').classList.add('open');
+}
+
+// 발행 방식 ① 신규 캠페인 발행 — 기존 자동 채움 흐름(applyOrientCardPrefill)
+async function osChooseNewPublish() {
+  const s = _osDetailSheet;
+  if (!s || _osPublishCardIdx == null) return;
+  const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  const card = cards[_osPublishCardIdx];
+  if (!card) return;
+  osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
   try {
-    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, cardIdx);
+    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, _osPublishCardIdx);
   } catch (e) {
-    console.error('[osPublishCard]', e);
+    console.error('[osChooseNewPublish]', e);
     toast('자동 채움 중 오류가 발생했습니다. 폼을 직접 확인해 주세요.');
+  }
+}
+
+// 발행 방식 ② 기존 캠페인 연결 — 같은 모달 안에서 캠페인 목록 화면으로 전환
+async function osChooseLinkExisting() {
+  const choice = document.getElementById('osPublishChoice');
+  const listView = document.getElementById('osLinkListView');
+  if (choice) choice.style.display = 'none';
+  if (listView) listView.style.display = '';
+  const search = document.getElementById('osLinkSearch');
+  if (search) search.value = '';
+  const body = document.getElementById('osLinkListBody');
+  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">불러오는 중…</div>';
+  // #orient-sheets 딥링크·새로고침 시 allCampaigns 미로드 대비 폴백 (admin-applications.js 패턴).
+  // 미로드면 목록이 텅 비어 관리자가 "신규 발행"으로 오인, 중복 캠페인을 만들 수 있어 필수.
+  if (!Array.isArray(allCampaigns) || allCampaigns.length === 0) {
+    try { allCampaigns = await fetchCampaigns(); } catch (e) { console.error('[osChooseLinkExisting]', e); }
+  }
+  osRenderLinkList('');
+  if (search) search.focus();
+}
+
+// 목록 화면 → 선택 화면 복귀
+function osBackToPublishChoice() {
+  const choice = document.getElementById('osPublishChoice');
+  const listView = document.getElementById('osLinkListView');
+  if (choice) choice.style.display = '';
+  if (listView) listView.style.display = 'none';
+}
+
+// 검색 입력 → 목록 재렌더
+function osLinkListSearch() {
+  const q = (document.getElementById('osLinkSearch')?.value || '').trim().toLowerCase();
+  osRenderLinkList(q);
+}
+
+// 캠페인 상태 배지 — shared.js 공용 헬퍼 재사용(closed→submission_end 경과 시 종료 자동 반영).
+function osCampStatusBadge(c) {
+  const key = (typeof campaignStatusLabelKey === 'function') ? campaignStatusLabelKey(c) : (c && c.status);
+  const cls = (typeof CAMPAIGN_STATUS_BADGE_CLASS !== 'undefined' && CAMPAIGN_STATUS_BADGE_CLASS[key]) || 'badge-gray';
+  const label = (typeof CAMPAIGN_STATUS_LABEL !== 'undefined' && CAMPAIGN_STATUS_LABEL[key]) || (c && c.status) || '-';
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+// 이미 어떤 시트/카드에 연결된 캠페인 id 집합 (전 시트의 카드 campaign_id + 시트 컬럼 campaign_id)
+function osLinkedCampaignIds() {
+  const set = new Set();
+  (_orientSheets || []).forEach(s => {
+    if (s && s.campaign_id) set.add(s.campaign_id);
+    const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+    cards.forEach(c => { if (c && c.campaign_id) set.add(c.campaign_id); });
+  });
+  return set;
+}
+
+// 기존 캠페인 목록 렌더 — 같은 브랜드 + 미연결 캠페인만. q 로 캠페인명·번호 부분일치 필터.
+function osRenderLinkList(q) {
+  const body = document.getElementById('osLinkListBody');
+  if (!body) return;
+  const s = _osDetailSheet;
+  const brandId = s && s.brand_id;
+  const all = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns : [];
+  const linked = osLinkedCampaignIds();
+  let list = all.filter(c => c && c.brand_id === brandId && !linked.has(c.id));
+  if (q) {
+    list = list.filter(c => {
+      const hay = [c.title, c.product_ko, c.product, c.campaign_no].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  if (!list.length) {
+    body.innerHTML = q
+      ? '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">검색 결과가 없습니다.</div>'
+      : '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">이 브랜드에 연결 가능한 캠페인이 없습니다. 신규 발행을 이용하세요.</div>';
+    return;
+  }
+  body.innerHTML = list.map(c => {
+    const name = esc(c.product_ko || c.product || c.title || '(제목 없음)');
+    const no = c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(c.campaign_no)}</span>` : '';
+    const period = osRange(c.recruit_start, c.deadline);
+    const periodHtml = period ? `<span style="font-size:11px;color:var(--muted)">${esc(period)}</span>` : '';
+    return `<button type="button" class="os-link-camp-row" onclick="osConfirmLink('${c.id}')"
+      style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="color:var(--ink);font-size:13px">${name}</strong>${osCampStatusBadge(c)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${no}${periodHtml}</div>
+    </button>`;
+  }).join('');
+}
+
+// 연결 실행 — 확인 후 link_orient_card_to_campaign RPC 호출, reason 분기 안내.
+async function osConfirmLink(campaignId) {
+  const s = _osDetailSheet;
+  if (!s || _osPublishCardIdx == null || !campaignId) return;
+  const ok = (typeof showConfirm === 'function')
+    ? await showConfirm('이 캠페인을 카드에 연결(발행 처리)할까요? 되돌리려면 연결 해제를 쓰세요.')
+    : confirm('이 캠페인을 카드에 연결(발행 처리)할까요? 되돌리려면 연결 해제를 쓰세요.');
+  if (!ok) return;
+  let res;
+  try {
+    res = await linkOrientCardToCampaign(s.id, _osPublishCardIdx, campaignId);
+  } catch (e) {
+    console.error('[osConfirmLink]', e);
+    toast('연결 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  if (!res || !res.success) {
+    toast(osLinkFailMsg(res && res.reason));
+    return;
+  }
+  toast('연결(발행)되었습니다.');
+  osCloseModal('orientPublishModal');
+  osCloseModal('orientDetailModal');
+  await refreshPane('orient-sheets');
+}
+
+// 연결 해제 — 발행됨 카드의 캠페인 연결을 되돌림(캠페인 행은 삭제 안 함).
+async function osUnlinkCard(cardIdx) {
+  const s = _osDetailSheet;
+  if (!s) return;
+  const ok = (typeof showConfirm === 'function')
+    ? await showConfirm('이 카드의 캠페인 연결을 해제할까요? (캠페인 자체는 삭제되지 않습니다)')
+    : confirm('이 카드의 캠페인 연결을 해제할까요? (캠페인 자체는 삭제되지 않습니다)');
+  if (!ok) return;
+  let res;
+  try {
+    res = await unlinkOrientCard(s.id, cardIdx);
+  } catch (e) {
+    console.error('[osUnlinkCard]', e);
+    toast('연결 해제 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  if (!res || !res.success) {
+    toast(osUnlinkFailMsg(res && res.reason));
+    return;
+  }
+  toast('연결을 해제했습니다.');
+  osCloseModal('orientDetailModal');
+  await refreshPane('orient-sheets');
+}
+
+// 연결/해제 실패 reason → 사용자 안내 문구
+function osLinkFailMsg(reason) {
+  switch (reason) {
+    case 'brand_mismatch':           return '브랜드가 일치하지 않습니다.';
+    case 'campaign_already_linked':  return '이미 다른 카드/시트에 연결된 캠페인입니다.';
+    case 'already_published':        return '이미 발행된 카드입니다.';
+    case 'invalid_status':           return '제출된 오리엔시트만 발행할 수 있습니다.';
+    case 'invalid_card':             return '카드를 찾을 수 없습니다.';
+    case 'campaign_not_found':       return '캠페인을 찾을 수 없습니다.';
+    case 'permission_denied':        return '권한이 없습니다.';
+    case 'not_found':                return '오리엔시트를 찾을 수 없습니다.';
+    default:                         return '연결하지 못했습니다.';
+  }
+}
+function osUnlinkFailMsg(reason) {
+  switch (reason) {
+    case 'not_linked':        return '이미 연결이 해제된 카드입니다.';
+    case 'invalid_card':      return '카드를 찾을 수 없습니다.';
+    case 'permission_denied': return '권한이 없습니다.';
+    case 'not_found':         return '오리엔시트를 찾을 수 없습니다.';
+    default:                  return '연결을 해제하지 못했습니다.';
   }
 }
 
@@ -1065,6 +1249,33 @@ function ensureOrientModals() {
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDeleteModal')">취소</button>
         <button type="button" class="btn" id="osDeleteBtn" style="background:#C41E3A;color:#fff" onclick="osExecuteDelete()" disabled>삭제</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="orientPublishModal">
+    <div class="modal" style="max-width:520px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>발행 방식</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseModal('orientPublishModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
+        <div id="osPublishChoice">
+          <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">이 카드를 어떻게 발행할까요?</p>
+          <button type="button" onclick="osChooseNewPublish()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#E8344E)">add_circle</span>신규 캠페인 발행</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:26px">오리엔시트 내용으로 캠페인 등록 폼을 자동 채워 새 캠페인을 만듭니다.</div>
+          </button>
+          <button type="button" onclick="osChooseLinkExisting()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:#1D4ED8">link</span>기존 캠페인 연결</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:26px">이미 등록된 같은 브랜드의 캠페인을 이 카드에 연결(발행 처리)합니다.</div>
+          </button>
+        </div>
+        <div id="osLinkListView" style="display:none">
+          <button type="button" class="btn btn-ghost btn-xs" onclick="osBackToPublishChoice()" style="margin-bottom:10px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">arrow_back</span> 선택으로 돌아가기</button>
+          <input type="text" id="osLinkSearch" class="form-input" placeholder="캠페인명·번호 검색" autocomplete="off" oninput="osLinkListSearch()" style="margin-bottom:12px">
+          <div id="osLinkListBody"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientPublishModal')">닫기</button>
       </div>
     </div>
   </div>`;
