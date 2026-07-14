@@ -846,7 +846,7 @@ function visibleUpcomingFeatures() {
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
 //   (admin-outbound.js). HANDOFF §계열 매핑 확정표(2026-07-09)와 1:1.
-//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘 / 푸드 = 푸드(독립) / 미분류 = 기타
+//     뷰티 = 색조·기초 / 패션 = 패션 / 라이프 = 브이로그·키즈맘·헬스 / 푸드 = 푸드(독립) / 미분류 = 기타·테크
 // ══════════════════════════════════════
 const OB_CATEGORY_SERIES = {
   color:   'beauty',
@@ -854,8 +854,10 @@ const OB_CATEGORY_SERIES = {
   fashion: 'fashion',
   vlog:    'life',
   kidsmom: 'life',
+  health:  'life',    // 헬스/다이어트 (마이그레이션 236, 2026-07-14)
   food:    'food',
   other:   'other',
+  tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
 };
 
 const ADMIN_PERMISSION_CATALOG = [
