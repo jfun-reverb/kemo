@@ -39,7 +39,7 @@ const OS_STATUS_TABS = [
   { code: 'expired', label: '만료' },
 ];
 let _orientActiveStatusTab = null;
-const OS_CH_LABEL = { instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
+const OS_CH_LABEL = { instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
 
 // 운영/개발 sales 도메인 분기 (orient.html SUPABASE_ENV 규칙과 동일)
 function osSalesBase() {
@@ -91,6 +91,12 @@ function osBadge(st) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg}">${st.label}</span>`;
 }
 function osChLabel(c) { return OS_CH_LABEL[c] || (c || '채널'); }
+// 시딩 통합 소구 키워드 — 신규는 seeding.appeal, 없고 옛 seeding.guides 있으면 개행으로 합쳐 하위호환
+function osSeedingAppeal(sd) {
+  if (sd && sd.appeal != null && sd.appeal !== '') return sd.appeal;
+  const guides = Array.isArray(sd && sd.guides) ? sd.guides : [];
+  return guides.map(g => ((g && g.guide) || '').trim()).filter(Boolean).join('\n');
+}
 
 // 형식 칩 (상세 모달 카드 헤더)
 function osTypeChip(ft) {
@@ -725,14 +731,18 @@ function osDetailHtml(s, catMap, readonly) {
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
     + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
+  // 브랜드가 레버브 운영팀에 전한 요청 — 값 있을 때만 카드로 1회 표시(발행 자동채움 대상 아님)
+  const reqCard = d.reverb_request
+    ? `<div class="os-card"><div class="os-card-title">레버브 측 요청</div><div class="os-fields">${osField('요청·요구사항', d.reverb_request, true)}</div></div>`
+    : '';
   let bodyHtml;
   if (!cards.length) {
     const msg = (s.status === 'draft')
       ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
       : '작성된 모집 건이 없습니다.';
-    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>`;
+    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard;
   } else {
-    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('');
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard;
   }
   return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
 }
@@ -780,16 +790,13 @@ function osCardDetail(c, idx, catMap, readonly) {
       + osField('상시가', sale.price_regular);
   }
   if (ft === 'reviewer') {
-    inner += osField('엣코스메 희망', sale.atcosme_wish ? '희망' : '비희망');
-    if (sale.atcosme_wish) inner += osFieldHtml('엣코스메 링크', osLinkOrText(sale.atcosme_url), true);
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
   }
   if (ft === 'seeding') {
     inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
-    const guides = Array.isArray(sd.guides) ? sd.guides.filter(g => g && (g.channel || g.guide)) : [];
-    inner += guides.length
-      ? guides.map(g => osField('채널 소구 — ' + osChLabel(g.channel), g.guide, true)).join('')
-      : osField('채널별 소구 키워드', '', true);
+    const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
+    inner += osField('게시 채널', chNames.join(', '));
+    inner += osField('소구 키워드', osSeedingAppeal(sd), true);
     inner += osField('촬영 가이드', sd.shooting_guide, true)
       + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
       + osField('계정 태그', sd.account_tags);
@@ -1053,7 +1060,12 @@ function osPriceNum(v) { const n = parseInt(String(v == null ? '' : v).replace(/
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
   if (card.form_type === 'seeding') {
-    return (card.seeding && Array.isArray(card.seeding.channels)) ? card.seeding.channels.filter(Boolean) : [];
+    // 오리엔시트 내부 코드(피드/릴스)를 캠페인 채널 체계로 변환 + 중복 제거. 미매칭(random 등) 제외.
+    const raw = (card.seeding && Array.isArray(card.seeding.channels)) ? card.seeding.channels : [];
+    const chMap = { instagram_feed: 'instagram', instagram_reels: 'instagram', instagram: 'instagram', x: 'x', tiktok: 'tiktok', youtube: 'youtube' };
+    const out = [];
+    raw.forEach(c => { const m = chMap[c]; if (m && out.indexOf(m) === -1) out.push(m); });
+    return out;
   }
   const map = { 'Qoo10': 'qoo10', '@cosme': 'atcosme', 'LIPS': 'lips' };
   const m = (card.sale && card.sale.market) || '';
@@ -1088,9 +1100,10 @@ function osBuildGuideDraft(card) {
   if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + osStripHtml(card.review_guide));
   if (card.form_type === 'seeding') {
     const sd = card.seeding || {};
-    (Array.isArray(sd.guides) ? sd.guides : []).forEach(g => {
-      if (g && g.guide) blocks.push('[' + osChLabel(g.channel) + ']\n' + g.guide);
-    });
+    const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
+    if (chNames.length) blocks.push('[게시 채널] ' + chNames.join(', '));
+    const appeal = osSeedingAppeal(sd);
+    if (appeal) blocks.push('[소구 키워드]\n' + appeal);
     if (sd.shooting_guide) blocks.push('[촬영 가이드]\n' + sd.shooting_guide);
     if (sd.required_content) blocks.push('[필수 내용]\n' + sd.required_content);
     if (sd.gift) blocks.push('[증정품] ' + sd.gift);
@@ -1160,9 +1173,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
   if (typeof setRichValue === 'function') {
     setRichValue('newCampGuide', osBuildGuideDraft(card));
-    const osSdGuides = (card.seeding && Array.isArray(card.seeding.guides)) ? card.seeding.guides : [];
-    const osSeedingAppeal = osSdGuides.filter(g => g && g.guide).map(g => g.guide).join('\n');
-    setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal));
+    // 통합 소구 키워드 — 신규 seeding.appeal / 옛 seeding.guides 양쪽 하위호환(모듈 헬퍼 재사용)
+    setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal(card.seeding)));
     setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
   }
 
