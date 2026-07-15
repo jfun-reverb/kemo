@@ -185,3 +185,7 @@
 - **채널 목록이 등급 무관 동일**이라 `onGradeChange`에서 채널 재렌더를 없애 체크 상태 유실을 방지(등급 전환은 `data-cgrade`만 갱신 → 미들메가 전용 항목 CSS 표시).
 - **발행 자동채움 회귀 수정(리뷰어 지적)**: `applyOrientCardPrefill`의 지역변수 `osSeedingAppeal`이 옛 `seeding.guides`만 읽어 모듈 헬퍼를 가려(shadowing), 개편 후 신규 카드는 발행 시 캠페인 소구(`newCampAppeal`)가 빈칸이 되던 버그 → 모듈 헬퍼 `osSeedingAppeal(card.seeding)` 직접 호출로 교체(신규 appeal·옛 guides 양쪽 처리).
 - DB·익명 함수·RLS·트리거·`lookup_values` 무변경.
+
+### 후속 수정 (2026-07-15, 사용자 추가 요청 — 운영 배포 후)
+- **게시 채널 입력 방식 변경**: 체크박스 그룹 → **드롭다운에서 선택 시 라벨(태그·칩)로 추가**되는 다중 선택. `seedingChannelChecksHtml` → `seedingChannelsWidgetHtml`(+`addSeedingChannel`/`removeSeedingChannel`/`readSeedingChannels`) 교체, `.cg-chip` CSS 추가. 데이터(`seeding.channels` 배열) 구조·collectCard 저장값·관리자·발행 매핑은 동일(위젯만 교체). 옛 코드(`instagram`/`random`) 저장분은 칩으로 표시·삭제 가능하되 드롭다운엔 없음(재추가 불가, 원본 보존).
+- **브랜드 정보에 담당자명·이메일·연락처 추가**: 작성 폼 브랜드 섹션에 `f_brand_contact_name`/`f_brand_email`/`f_brand_phone` 입력 + `data.brand.contact_name`/`email`/`phone`(jsonb, DB 무변경). fillForm 로드·프리뷰·관리자 `osBrandCard` 표시(값 있을 때만). 광고주 자체 입력 B2B 연락처(인플루언서 개인정보 아님).
