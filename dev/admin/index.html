@@ -584,7 +584,13 @@
             <aside class="camp-preview-pane" id="editCampPreviewPane">
               <div class="camp-preview-pane-header">
                 <span>미리보기</span>
-                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="cp-lang-toggle" id="editCampPreviewLangToggle">
+                    <button type="button" data-lang="ja" class="active" onclick="setCampPreviewLang('edit','ja')">日本語</button>
+                    <button type="button" data-lang="ko" onclick="setCampPreviewLang('edit','ko')">한국어</button>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                </div>
               </div>
               <div id="editCampPreviewContent" class="camp-preview-content"></div>
             </aside>
@@ -861,7 +867,13 @@
             <aside class="camp-preview-pane" id="newCampPreviewPane">
               <div class="camp-preview-pane-header">
                 <span>미리보기</span>
-                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="cp-lang-toggle" id="newCampPreviewLangToggle">
+                    <button type="button" data-lang="ja" class="active" onclick="setCampPreviewLang('new','ja')">日本語</button>
+                    <button type="button" data-lang="ko" onclick="setCampPreviewLang('new','ko')">한국어</button>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                </div>
               </div>
               <div id="newCampPreviewContent" class="camp-preview-content"></div>
             </aside>
