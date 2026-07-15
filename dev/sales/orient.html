@@ -23,6 +23,7 @@
   --ink-soft: #4A4A4F;
   --ink-mute: #8A8A90;
   --paper: #F7F4EE;
+  --outer: #E6E6E6;
   --card: #FFFFFF;
   --border: #EAEAE4;
   --border-strong: #D4D4CC;
@@ -34,7 +35,8 @@
 
 html, body {
   font-family: 'Manrope', 'Pretendard Variable', Pretendard, sans-serif;
-  background: var(--paper);
+  /* 바깥 영역(720px 폼 컬럼 밖)은 회색. body는 아래에서 --paper 로 재지정 */
+  background: var(--outer);
   color: var(--ink);
   line-height: 1.6;
   font-size: 15px;
@@ -179,7 +181,7 @@ body {
 .field label .req { color: var(--brand); margin-left: 3px; }
 .field-hint { font-size: 11.5px; color: var(--ink-mute); margin-top: 5px; }
 
-input[type="text"], input[type="url"], input[type="number"], input[type="date"], textarea, select {
+input[type="text"], input[type="url"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], textarea, select {
   width: 100%;
   max-width: 100%;
   min-width: 0;               /* iOS Safari: date·number가 컨테이너를 넘는 것 방지 */
@@ -387,6 +389,14 @@ input[type="date"] { min-height: 44px; }
 .ocard .only-rp, .ocard .only-reviewer, .ocard .only-seeding { display: none; }
 .field label.check-row { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; margin: 0; }
 .check-row input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--brand); cursor: pointer; }
+/* 게시 채널 태그(칩) — 드롭다운 선택 시 라벨로 추가 */
+.cg-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cg-chips:not(:empty) { margin-bottom: 8px; }
+.cg-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; background: var(--brand-soft, #fdeef4); color: var(--brand, #C878A3); border: 1px solid var(--brand, #C878A3); border-radius: 999px; font-size: 13px; font-weight: 600; }
+.cg-chip-x { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: none; background: transparent; color: inherit; cursor: pointer; border-radius: 999px; }
+.cg-chip-x:hover { background: rgba(0,0,0,.08); }
+.cg-chip-x .material-icons-outlined { font-size: 15px; }
+.cg-ch-select { cursor: pointer; }
 .ocard[data-ctype="proxy_purchase"] .only-rp { display: block; }
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
@@ -523,6 +533,21 @@ input[type="date"] { min-height: 44px; }
       <label>브랜드명</label>
       <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
     </div>
+    <div class="row2">
+      <div class="field">
+        <label>담당자명</label>
+        <input type="text" id="f_brand_contact_name" placeholder="담당자 이름" oninput="onInput()">
+      </div>
+      <div class="field">
+        <label>연락처</label>
+        <input type="tel" id="f_brand_phone" placeholder="숫자만 입력" inputmode="numeric" oninput="onPhoneDigits(this)">
+      </div>
+    </div>
+    <div class="field">
+      <label>이메일</label>
+      <input type="email" id="f_brand_email" placeholder="contact@yourbrand.com" oninput="onEmailInput(this)" onblur="onEmailInput(this)">
+      <div class="field-hint f-email-warn" style="display:none;color:#C41E3A">이메일 형식이 올바르지 않습니다.</div>
+    </div>
     <div class="field">
       <label>브랜드 소개 · 어필 포인트</label>
       <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
@@ -546,7 +571,7 @@ input[type="date"] { min-height: 44px; }
   </button>
 
   <!-- 레버브 측 요청(선택) — 폼 전체 마지막 -->
-  <div class="section">
+  <div class="section" style="margin-top:28px">
     <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">support_agent</span>레버브 측에 전달할 요청·요구사항 (선택)</div>
     <div class="section-desc">레버브 운영팀에 요청하고 싶은 사항이 있으면 자유롭게 적어 주세요.</div>
     <div class="field">
@@ -781,6 +806,9 @@ function enterFormScreen() {
 function fillForm(data) {
   const b = data.brand || {};
   $('f_brand_name').value = b.name || '';
+  $('f_brand_contact_name').value = b.contact_name || '';
+  $('f_brand_email').value = b.email || '';
+  $('f_brand_phone').value = b.phone || '';
   $('f_brand_intro').value = b.intro || '';
   $('f_brand_accounts').value = b.official_accounts || '';
   $('f_reverb_request').value = data.reverb_request || '';
@@ -800,12 +828,35 @@ function refreshEmptyState() {
 // ══════════════════════════════════════
 // 카드 렌더
 // ══════════════════════════════════════
-// 게시 채널 체크박스 그룹 (다중 선택). 등급 무관 동일 목록.
-function seedingChannelChecksHtml(grade, selected) {
-  const list = SEEDING_CHANNELS_BY_GRADE[grade] || SEEDING_CHANNELS_BY_GRADE.nano;
-  const sel = Array.isArray(selected) ? selected : [];
-  return list.map(v =>
-    `<label class="check-row"><input type="checkbox" class="cg-ch" value="${v}"${sel.includes(v) ? ' checked' : ''} onchange="onInput()"> ${CHANNEL_LABEL[v] || v}</label>`).join('');
+// 게시 채널 위젯 — 드롭다운에서 선택하면 라벨(태그)로 추가되는 다중 선택. 등급 무관 동일 목록.
+function seedingChannelsWidgetHtml(selected) {
+  const sel = (Array.isArray(selected) ? selected : []).filter(Boolean);
+  const chips = sel.map(v =>
+    `<span class="cg-chip" data-ch="${escAttr(v)}">${CHANNEL_LABEL[v] || v}<button type="button" class="cg-chip-x" onclick="removeSeedingChannel(this)" aria-label="삭제"><span class="material-icons-outlined notranslate" translate="no">close</span></button></span>`).join('');
+  const remaining = SEEDING_CHANNELS.filter(v => !sel.includes(v));
+  const picker = remaining.length
+    ? `<select class="cg-ch-select" onchange="addSeedingChannel(this)"><option value="">채널 추가…</option>${remaining.map(v => `<option value="${v}">${CHANNEL_LABEL[v]}</option>`).join('')}</select>`
+    : '<div class="field-hint" style="margin:6px 0 0">모든 채널을 추가했습니다.</div>';
+  return `<div class="cg-chips">${chips}</div>${picker}`;
+}
+// 현재 선택된 채널 코드 목록(칩 순서대로)
+function readSeedingChannels(container) {
+  return Array.from(container.querySelectorAll('.cg-chip')).map(c => c.getAttribute('data-ch'));
+}
+function addSeedingChannel(selectEl) {
+  const v = selectEl.value;
+  if (!v) return;
+  const container = selectEl.closest('[data-cg-channels]');
+  const sel = readSeedingChannels(container);
+  if (!sel.includes(v)) sel.push(v);
+  container.innerHTML = seedingChannelsWidgetHtml(sel);
+  onInput();
+}
+function removeSeedingChannel(btn) {
+  const container = btn.closest('[data-cg-channels]');
+  const v = btn.closest('.cg-chip').getAttribute('data-ch');
+  container.innerHTML = seedingChannelsWidgetHtml(readSeedingChannels(container).filter(x => x !== v));
+  onInput();
 }
 
 // 통합 소구 키워드 초기값 — 신규는 seeding.appeal, 없고 옛 seeding.guides 있으면 개행으로 합쳐 하위호환
@@ -1009,7 +1060,7 @@ function cardHtml(id, card) {
           <div class="field"><label>등급</label>
             <select class="f-grade" onchange="onGradeChange('${id}')">${SEEDING_GRADES.map(g => `<option value="${g.value}"${g.value === grade ? ' selected' : ''}>${g.label}</option>`).join('')}</select></div>
           <div class="field"><label>게시 채널</label>
-            <div class="cg-channels">${seedingChannelChecksHtml(grade, sd.channels)}</div></div>
+            <div class="cg-channels" data-cg-channels>${seedingChannelsWidgetHtml(sd.channels)}</div></div>
           <div class="field"><label>소구 키워드 · 어필 포인트</label>
             <textarea class="f-appeal" placeholder="각 채널에서 강조했으면 하는 소구 포인트를 적어 주세요. (채널별로 다르면 함께 적어 주세요.)" oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea></div>
           <div class="field"><label>촬영 가이드</label>
@@ -1100,12 +1151,24 @@ function clearCardTypeFields(el) {
     const node = el.querySelector(sel);
     if (node) { if (node.isContentEditable) node.innerHTML = ''; else node.value = ''; }
   });
-  el.querySelectorAll('.cg-ch').forEach(cb => { cb.checked = false; });
   el.setAttribute('data-cgrade', 'nano');
   const gradeSel = el.querySelector('.f-grade');
   if (gradeSel) gradeSel.value = 'nano';
-  const chWrap = el.querySelector('.cg-channels');
-  if (chWrap) chWrap.innerHTML = seedingChannelChecksHtml('nano', []);
+  const chWrap = el.querySelector('[data-cg-channels]');
+  if (chWrap) chWrap.innerHTML = seedingChannelsWidgetHtml([]);
+}
+
+// 연락처 — 숫자만 허용(입력 즉시 숫자 외 문자 제거)
+function onPhoneDigits(input) {
+  input.value = input.value.replace(/[^0-9]/g, '');
+  onInput();
+}
+// 이메일 형식 검증 — 값이 있고 형식이 틀리면 경고 표시(제출은 막지 않음)
+function onEmailInput(input) {
+  const v = (input.value || '').trim();
+  const warn = input.parentElement.querySelector('.f-email-warn');
+  if (warn) warn.style.display = (!v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'none' : '';
+  onInput();
 }
 
 // 판매 URL 입력 — dirty 마킹 + Qoo10 주소 경고 토글
@@ -1393,7 +1456,7 @@ function collectCard(el) {
   const ft = el.getAttribute('data-ctype') || '';
   const grade = el.getAttribute('data-cgrade') || 'nano';
 
-  const channels = Array.from(el.querySelectorAll('.cg-ch:checked')).map(cb => cb.value);
+  const channels = Array.from(el.querySelectorAll('[data-cg-channels] .cg-chip')).map(c => c.getAttribute('data-ch'));
 
   const images = Array.from(el.querySelectorAll('[data-img]')).map(row => {
     const type = row.dataset.imgType === 'upload' ? 'upload' : 'url';
@@ -1446,6 +1509,9 @@ function collectData() {
   return {
     brand: {
       name: $('f_brand_name').value.trim(),
+      contact_name: $('f_brand_contact_name').value.trim(),
+      email: $('f_brand_email').value.trim(),
+      phone: $('f_brand_phone').value.trim(),
       intro: $('f_brand_intro').value.trim(),
       official_accounts: $('f_brand_accounts').value.trim(),
     },
@@ -1653,7 +1719,7 @@ function renderPreview(data) {
   const b = data.brand;
   const brandCard = `<div class="pv-card">
     <div class="pv-card-head"><span class="pv-name">브랜드 정보</span></div>
-    ${pvRow('브랜드명', b.name)}${pvRow('소개', b.intro)}${pvRow('공식 계정', b.official_accounts)}
+    ${pvRow('브랜드명', b.name)}${pvRow('담당자명', b.contact_name)}${pvRow('이메일', b.email)}${pvRow('연락처', b.phone)}${pvRow('소개', b.intro)}${pvRow('공식 계정', b.official_accounts)}
   </div>`;
   const reqCard = data.reverb_request
     ? `<div class="pv-card"><div class="pv-card-head"><span class="pv-name">레버브 측 요청</span></div>${pvRow('요청·요구사항', data.reverb_request)}</div>`
