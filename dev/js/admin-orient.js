@@ -766,7 +766,10 @@ function osBrandCard(brand, headerName) {
   const b = brand || {};
   // 작성된 브랜드명이 헤더와 동일하면 생략(중복), 다르거나 미입력이면 표시
   const nameField = (b.name && b.name.trim() === String(headerName || '').trim()) ? '' : osField('브랜드명', b.name);
-  const inner = nameField + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
+  const contactFields = (b.contact_name || b.email || b.phone)
+    ? osField('담당자명', b.contact_name) + osField('이메일', b.email) + osField('연락처', b.phone)
+    : '';
+  const inner = nameField + contactFields + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
   return `<div class="os-card">
     <div class="os-card-title">브랜드 정보</div>
     <div class="os-fields">${inner}</div></div>`;
