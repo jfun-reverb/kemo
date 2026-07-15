@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784085736';
+  var CURRENT_BUILD = 'v1784096669';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1579,6 +1579,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
    트리거는 .form-input 룩앤필을 그대로 따라가 다른 폼 입력과 시각 일관성 유지. */
 .custom-srcapp-wrap{position:relative;margin-top:6px}
 .custom-srcapp-wrap > select[data-srcapp-hidden]{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+/* 서베이 신청 연결 — 신규 선택 UI는 숨기고(공개 제출 중단), 기존 연결만 읽기전용 라벨로 표시 */
+.custom-srcapp-readonly{margin-top:6px;padding:7px 10px;font-size:12px;color:var(--on-surface-variant,#666);background:var(--surface-dim,#f5f5f5);border:1px solid var(--line);border-radius:8px}
 .custom-srcapp-trigger{width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--r12);padding:8px 36px 8px 12px;font-size:13px;line-height:1.5;color:var(--on-surface);cursor:pointer;position:relative;font-family:inherit;box-sizing:border-box;transition:all .2s cubic-bezier(.2,0,0,1)}
 .custom-srcapp-trigger:hover{border-color:var(--primary)}
 .custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
@@ -2270,7 +2272,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-15 12:22 · ca720c1</span>
+          <span class="admin-build-text">2026-07-15 15:24 · 1c9e630</span>
         </div>
       </div>
     </aside>
@@ -2484,6 +2486,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <select id="editCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('edit')">
                     <option value="">선택 안 함 (외부 캠페인)</option>
                   </select>
+                  <div class="custom-srcapp-readonly" id="editCampSourceAppReadonly" style="display:none"></div>
                   <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="edit" aria-haspopup="listbox" aria-expanded="false">
                     <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
                   </button>
@@ -2762,12 +2765,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <select id="newCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('new')">
                     <option value="">선택 안 함 (외부 캠페인)</option>
                   </select>
+                  <div class="custom-srcapp-readonly" id="newCampSourceAppReadonly" style="display:none"></div>
                   <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="new" aria-haspopup="listbox" aria-expanded="false">
                     <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
                   </button>
                   <div class="custom-srcapp-panel" role="listbox" data-srcapp-panel="new"></div>
                 </div>
-                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">신청 연결 시 캠페인 번호가 <code>B0001-A001-C001</code> 형식으로 채번됩니다.</div>
+                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">브랜드를 선택하면 캠페인 번호가 자동 채번됩니다.</div>
                 <input type="hidden" id="newCampBrand">
                 <input type="hidden" id="newCampBrandKo">
               </div>
@@ -13975,7 +13979,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (typeof onCampBrandChange === 'function') await onCampBrandChange('new');
   if (appId) {
     osSetVal('newCampSourceAppId', appId);
-    if (typeof _srcAppSyncTrigger === 'function') _srcAppSyncTrigger('new');
+    // 선택 UI 는 숨김이라 커스텀 트리거 대신 읽기전용 라벨로 승계된 신청을 표시
+    if (typeof renderSurveyLinkReadonly === 'function') renderSurveyLinkReadonly('new');
   }
 
   // recruitType 라디오 (인라인 onchange 로 채널·팔로워 영역 갱신)
@@ -32013,11 +32018,10 @@ async function openEditCampaign(campId) {
   // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
   loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
+      // 기존 연결 값 복원(저장 보존). 화면 표시는 renderSurveyLinkReadonly 가 읽기전용 라벨로 처리.
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
-      var srcWrap = $('editCampSourceAppContainer');
-      if (srcWrap) srcWrap.style.display = '';
     }
-    // hint 갱신
+    // hint + 서베이 연결 읽기전용 표시 갱신 (onCampBrandChange 내부에서 renderSurveyLinkReadonly 호출)
     onCampBrandChange('edit');
   });
   sv('editCampProduct', camp.product);
@@ -34882,6 +34886,30 @@ async function loadCampBrandSelect(prefix, currentBrandId) {
   sel.innerHTML = html;
 }
 
+// 서베이 신청 연결 표시 — 공개 제출 중단으로 신규 선택 UI(커스텀 트리거·패널)는 항상 숨기고,
+// 기존에 연결된 신청이 있을 때만 읽기전용 라벨을 노출한다. hidden native select 는 그대로 유지
+// (오리엔시트 발행 승계·편집 저장 보존에 필요) → 저장·비용 카드·DB 는 무변경.
+function renderSurveyLinkReadonly(prefix) {
+  var wrap = $(prefix + 'CampSourceAppContainer');
+  var sel = $(prefix + 'CampSourceAppId');
+  if (!wrap || !sel) return;
+  var trigger = wrap.querySelector('.custom-srcapp-trigger');
+  var panel = wrap.querySelector('.custom-srcapp-panel');
+  var ro = $(prefix + 'CampSourceAppReadonly');
+  if (trigger) trigger.style.display = 'none';
+  if (panel) panel.style.display = 'none';
+  var appId = sel.value || '';
+  if (appId) {
+    var opt = sel.options[sel.selectedIndex];
+    var label = (opt && opt.text) ? opt.text : appId;
+    if (ro) { ro.textContent = '연결된 서베이 신청: ' + label; ro.style.display = ''; }
+    wrap.style.display = '';
+  } else {
+    if (ro) { ro.textContent = ''; ro.style.display = 'none'; }
+    wrap.style.display = 'none';
+  }
+}
+
 async function onCampBrandChange(prefix) {
   var sel = $(prefix + 'CampBrandId');
   var hiddenName = $(prefix + 'CampBrand');
@@ -34894,18 +34922,16 @@ async function onCampBrandChange(prefix) {
   var picked = (_campBrandsCache || []).find(function(b){ return b.id === brandId; });
   if (hiddenName) hiddenName.value = picked ? (picked.name || '') : '';
   if (hiddenNameKo) hiddenNameKo.value = '';  // 086 이후 brands는 단일 name. 한국어 표기는 brand 마스터에서 관리
-  // 신청 cascade
+  // 신청 cascade — 서베이 선택 UI 는 숨김(renderSurveyLinkReadonly). hidden native select 옵션은
+  // 오리엔시트 발행 승계·연결 라벨을 위해 계속 로드한다.
   if (sourceSel) {
-    var sourceWrap = $(prefix + 'CampSourceAppContainer');
     if (!brandId) {
-      if (sourceWrap) sourceWrap.style.display = 'none';
       sourceSel.innerHTML = '<option value="">선택 안 함 (외부 캠페인)</option>';
       sourceSel.value = '';
-      _srcAppSyncTrigger(prefix);
     } else {
-      if (sourceWrap) sourceWrap.style.display = '';
       await loadCampSourceAppSelect(prefix, brandId);
     }
+    renderSurveyLinkReadonly(prefix);
   }
   if (hint) {
     if (!brandId) {

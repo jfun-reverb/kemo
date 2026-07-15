@@ -594,11 +594,10 @@ async function openEditCampaign(campId) {
   // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
   loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
+      // 기존 연결 값 복원(저장 보존). 화면 표시는 renderSurveyLinkReadonly 가 읽기전용 라벨로 처리.
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
-      var srcWrap = $('editCampSourceAppContainer');
-      if (srcWrap) srcWrap.style.display = '';
     }
-    // hint 갱신
+    // hint + 서베이 연결 읽기전용 표시 갱신 (onCampBrandChange 내부에서 renderSurveyLinkReadonly 호출)
     onCampBrandChange('edit');
   });
   sv('editCampProduct', camp.product);
@@ -3463,6 +3462,30 @@ async function loadCampBrandSelect(prefix, currentBrandId) {
   sel.innerHTML = html;
 }
 
+// 서베이 신청 연결 표시 — 공개 제출 중단으로 신규 선택 UI(커스텀 트리거·패널)는 항상 숨기고,
+// 기존에 연결된 신청이 있을 때만 읽기전용 라벨을 노출한다. hidden native select 는 그대로 유지
+// (오리엔시트 발행 승계·편집 저장 보존에 필요) → 저장·비용 카드·DB 는 무변경.
+function renderSurveyLinkReadonly(prefix) {
+  var wrap = $(prefix + 'CampSourceAppContainer');
+  var sel = $(prefix + 'CampSourceAppId');
+  if (!wrap || !sel) return;
+  var trigger = wrap.querySelector('.custom-srcapp-trigger');
+  var panel = wrap.querySelector('.custom-srcapp-panel');
+  var ro = $(prefix + 'CampSourceAppReadonly');
+  if (trigger) trigger.style.display = 'none';
+  if (panel) panel.style.display = 'none';
+  var appId = sel.value || '';
+  if (appId) {
+    var opt = sel.options[sel.selectedIndex];
+    var label = (opt && opt.text) ? opt.text : appId;
+    if (ro) { ro.textContent = '연결된 서베이 신청: ' + label; ro.style.display = ''; }
+    wrap.style.display = '';
+  } else {
+    if (ro) { ro.textContent = ''; ro.style.display = 'none'; }
+    wrap.style.display = 'none';
+  }
+}
+
 async function onCampBrandChange(prefix) {
   var sel = $(prefix + 'CampBrandId');
   var hiddenName = $(prefix + 'CampBrand');
@@ -3475,18 +3498,16 @@ async function onCampBrandChange(prefix) {
   var picked = (_campBrandsCache || []).find(function(b){ return b.id === brandId; });
   if (hiddenName) hiddenName.value = picked ? (picked.name || '') : '';
   if (hiddenNameKo) hiddenNameKo.value = '';  // 086 이후 brands는 단일 name. 한국어 표기는 brand 마스터에서 관리
-  // 신청 cascade
+  // 신청 cascade — 서베이 선택 UI 는 숨김(renderSurveyLinkReadonly). hidden native select 옵션은
+  // 오리엔시트 발행 승계·연결 라벨을 위해 계속 로드한다.
   if (sourceSel) {
-    var sourceWrap = $(prefix + 'CampSourceAppContainer');
     if (!brandId) {
-      if (sourceWrap) sourceWrap.style.display = 'none';
       sourceSel.innerHTML = '<option value="">선택 안 함 (외부 캠페인)</option>';
       sourceSel.value = '';
-      _srcAppSyncTrigger(prefix);
     } else {
-      if (sourceWrap) sourceWrap.style.display = '';
       await loadCampSourceAppSelect(prefix, brandId);
     }
+    renderSurveyLinkReadonly(prefix);
   }
   if (hint) {
     if (!brandId) {

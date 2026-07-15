@@ -1117,7 +1117,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (typeof onCampBrandChange === 'function') await onCampBrandChange('new');
   if (appId) {
     osSetVal('newCampSourceAppId', appId);
-    if (typeof _srcAppSyncTrigger === 'function') _srcAppSyncTrigger('new');
+    // 선택 UI 는 숨김이라 커스텀 트리거 대신 읽기전용 라벨로 승계된 신청을 표시
+    if (typeof renderSurveyLinkReadonly === 'function') renderSurveyLinkReadonly('new');
   }
 
   // recruitType 라디오 (인라인 onchange 로 채널·팔로워 영역 갱신)
