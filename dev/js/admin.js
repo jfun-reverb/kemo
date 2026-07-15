@@ -3517,8 +3517,7 @@ async function onCampBrandChange(prefix) {
       var fmt = (sourceSel && sourceSel.value)
         ? 'B' + seq + '-A###-C###'
         : 'B' + seq + '-C###';
-      hint.innerHTML = '캠페인 번호: <code>' + esc(fmt) + '</code> 형식'
-        + (sourceSel && sourceSel.value ? '' : ' (외부 캠페인)');
+      hint.innerHTML = '캠페인 번호: <code>' + esc(fmt) + '</code> 형식';
     }
   }
 }
