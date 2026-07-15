@@ -895,11 +895,12 @@ async function osChooseLinkExisting() {
   if (search) search.value = '';
   const body = document.getElementById('osLinkListBody');
   if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">불러오는 중…</div>';
-  // #orient-sheets 딥링크·새로고침 시 allCampaigns 미로드 대비 폴백 (admin-applications.js 패턴).
-  // 미로드면 목록이 텅 비어 관리자가 "신규 발행"으로 오인, 중복 캠페인을 만들 수 있어 필수.
-  if (!Array.isArray(allCampaigns) || allCampaigns.length === 0) {
-    try { allCampaigns = await fetchCampaigns(); } catch (e) { console.error('[osChooseLinkExisting]', e); }
-  }
+  // 열 때마다 캠페인을 항상 새로 불러온다. allCampaigns 캐시가 오래되면 — 방금 직접 만든 캠페인이거나
+  // 브랜드를 나중에 연결한 캠페인 — "같은 브랜드" 필터에서 빠져, 실제로는 연결 가능한데도
+  // 관리자에게 "검색 결과 없음"으로 보여 중복 캠페인을 만들 소지가 있어서다.
+  // 실패 시 기존 캐시 유지(폴백).
+  try { allCampaigns = await fetchCampaigns(); }
+  catch (e) { console.error('[osChooseLinkExisting]', e); }
   osRenderLinkList('');
   if (search) search.focus();
 }
@@ -1116,7 +1117,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (typeof onCampBrandChange === 'function') await onCampBrandChange('new');
   if (appId) {
     osSetVal('newCampSourceAppId', appId);
-    if (typeof _srcAppSyncTrigger === 'function') _srcAppSyncTrigger('new');
+    // 선택 UI 는 숨김이라 커스텀 트리거 대신 읽기전용 라벨로 승계된 신청을 표시
+    if (typeof renderSurveyLinkReadonly === 'function') renderSurveyLinkReadonly('new');
   }
 
   // recruitType 라디오 (인라인 onchange 로 채널·팔로워 영역 갱신)

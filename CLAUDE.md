@@ -120,7 +120,7 @@
 
 ### 캠페인 관리
 - CRUD + 복제 + 삭제(확인모달) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
-- **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 캠페인은 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3. 신규 INSERT 시 트리거 자동 채번. 캠페인 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달 패턴. 기존 v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no` 컬럼·`numbering_legacy_map` 에 보존
+- **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 캠페인은 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3. 신규 INSERT 시 트리거 자동 채번. 캠페인 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달 패턴. **서베이 신청 선택 UI는 공개 제출 중단(마이그206)으로 안전 숨김(2026-07-15)** — 신규 폼은 선택 UI 미표시, 편집 폼은 기존 연결만 읽기전용 라벨(`renderSurveyLinkReadonly`)로 표시. hidden native select `#{prefix}CampSourceAppId`·저장 로직·`source_application_id` 컬럼·진행현황 비용 카드는 무변경(오리엔 발행 승계·편집 저장 보존). 사양서 `docs/specs/2026-07-15-campaign-form-hide-survey-link.md`. 기존 v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no` 컬럼·`numbering_legacy_map` 에 보존
 - **캠페인 등록/편집 폼**: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오버튼 UI, 채널은 복수 선택 체크박스(Instagram/X/Qoo10/TikTok/YouTube/LIPS/@cosme, 콤마 구분 저장 `"instagram,x"`. LIPS·@cosme는 리뷰어형 전용 — `lookup_values.recruit_types=['monitor']`). 채널 2개+ 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
 - **콘텐츠 가이드 리치 텍스트** (Quill v2, 3개 필드): Notion 복사·붙여넣기 서식 유지. 이미지 태그는 저장 시 제거. XSS 방어 DOMPurify 저장+렌더 이중 sanitize. 헬퍼는 `dev/lib/shared.js`
 - **참여방법·주의사항·NG 미니 에디터**: 굵게/기울이기/링크/이미지 첨부 가능. 이미지는 `campaign-images/content/` 업로드 (5MB / jpg·png·webp) → `<img class="rich-img">` 삽입. 클릭 팝오버로 Small/Medium/Large/Original 크기 조정. XSS 방어는 src 화이트리스트 (https + `*.supabase.co`)

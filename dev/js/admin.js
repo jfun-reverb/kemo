@@ -594,11 +594,10 @@ async function openEditCampaign(campId) {
   // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
   loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
+      // 기존 연결 값 복원(저장 보존). 화면 표시는 renderSurveyLinkReadonly 가 읽기전용 라벨로 처리.
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
-      var srcWrap = $('editCampSourceAppContainer');
-      if (srcWrap) srcWrap.style.display = '';
     }
-    // hint 갱신
+    // hint + 서베이 연결 읽기전용 표시 갱신 (onCampBrandChange 내부에서 renderSurveyLinkReadonly 호출)
     onCampBrandChange('edit');
   });
   sv('editCampProduct', camp.product);
@@ -2078,12 +2077,45 @@ function buildPreviewCamp(mode) {
 // 캠페인 폼 미리보기 — 우측 패널에 간소화된 카드를 직접 렌더
 const _previewState = {new: null, edit: null};
 
+// 미리보기 전용 라벨 사전 (인플 앱 i18n 미사용 — 이 프리뷰는 라벨이 여기 하드코딩돼 있어
+// ja/ko 대응을 별도로 둔다. 콘텐츠 중 한국어 값이 있는 건 번들 3종[참여방법·주의사항·NG]뿐이라
+// KO 모드는 라벨 + 번들만 한국어, 나머지(캠페인명·설명·어필 등)는 입력값 그대로).
+const CP_I18N = {
+  ja: {
+    preview:'プレビュー', noImage:'画像なし', apply:'応募', productPage:'商品ページ',
+    rtLabel:{monitor:'レビュアー', gifting:'ギフティング', visit:'訪問型'},
+    payback:'円ペイバック', freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
+    kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
+    kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
+    kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
+    kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、LINEにてご連絡',
+    secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
+    subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
+    secGuide:'撮影ガイド', secNg:'NG事項', secCaution:'注意事項',
+  },
+  ko: {
+    preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
+    rtLabel:{monitor:'리뷰어', gifting:'기프팅', visit:'방문형'},
+    payback:'엔 페이백', freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
+    kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
+    kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
+    kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
+    kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 LINE으로 연락',
+    secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
+    subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
+    secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
+  }
+};
+
 function renderCampPreview(mode) {
   const el = document.getElementById(mode === 'edit' ? 'editCampPreviewContent' : 'newCampPreviewContent');
   if (!el) return;
   let camp;
   try { camp = buildPreviewCamp(mode); }
   catch(e) { console.warn('[preview] buildPreviewCamp 실패:', e); return; }
+
+  const lang = (_previewState[mode] && _previewState[mode].lang === 'ko') ? 'ko' : 'ja';
+  const L = CP_I18N[lang];
 
   const hasAnyValue = camp.title || camp.brand || camp.product || camp.img1 || camp.product_price > 0 || camp.reward > 0 || camp.reward_note;
   if (!hasAnyValue) { el.innerHTML = ''; return; }
@@ -2093,7 +2125,7 @@ function renderCampPreview(mode) {
   const _seen = new Set();
   const slideUrls = imgCandidates.filter(u => _seen.has(u) ? false : (_seen.add(u), true));
   const img = slideUrls[0] || '';
-  const rtLabel = camp.recruit_type === 'monitor' ? 'レビュアー' : camp.recruit_type === 'gifting' ? 'ギフティング' : camp.recruit_type === 'visit' ? '訪問型' : '';
+  const rtLabel = L.rtLabel[camp.recruit_type] || '';
   const rtBadgeMap = {
     monitor: {bg:'var(--blue-l)', color:'var(--blue)', label:'Reviewer'},
     gifting: {bg:'var(--gold-l)', color:'var(--gold)', label:'Gifting'},
@@ -2109,9 +2141,9 @@ function renderCampPreview(mode) {
   const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
   // monitor(리뷰어) 캠페인은 「ペイバック」 워딩, 그 외는 기존 「相当の製品を無償提供」
   const isMonitorPreview = camp.recruit_type === 'monitor';
-  const rewardLabelJa = isMonitorPreview ? '円ペイバック' : '円相当の製品を無償提供';
+  const rewardLabelJa = isMonitorPreview ? L.payback : L.freeProvide;
   const rewardText = (camp.product_price>0 || camp.reward>0)
-    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} 報酬`:''}`
+    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
     : '';
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
@@ -2121,11 +2153,11 @@ function renderCampPreview(mode) {
     <div class="cp-frame">
       <div class="cp-gnb">
         <div class="cp-gnb-logo">Reverb</div>
-        <div class="cp-gnb-badge">プレビュー</div>
+        <div class="cp-gnb-badge">${esc(L.preview)}</div>
       </div>
       <div class="cp-body-scroll">
         <div class="cp-hero">
-          ${img?(typeof renderCroppedImg==='function'?renderCroppedImg(img,null,{thumb:480,quality:80}):`<img src="${esc(img)}" style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5">`):'<span style="color:rgba(255,255,255,.7)">画像なし</span>'}
+          ${img?(typeof renderCroppedImg==='function'?renderCroppedImg(img,null,{thumb:480,quality:80}):`<img src="${esc(img)}" style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5">`):`<span style="color:rgba(255,255,255,.7)">${esc(L.noImage)}</span>`}
           ${contentTypeNames.length?`<div class="cp-hero-ct">${contentTypeNames.map(n=>`<span class="cp-hero-ct-chip">${esc(n)}</span>`).join('')}</div>`:''}
           ${slideUrls.length>1?`<div class="cp-hero-count">1/${slideUrls.length}</div>`:''}
         </div>
@@ -2141,63 +2173,63 @@ function renderCampPreview(mode) {
             // 시간 흐름 순: 製品名 → 募集タイプ → チャンネル → コンテンツ → 募集期間 → 購入/訪問 → 提出締切 → 募集人数
             //              → (monitor 외) 当選発表 → (monitor 외) 報酬
             const rows = [];
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">製品名</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>`);
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集タイプ</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>`);
-            if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">チャンネル</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
-            if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">コンテンツ種類</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集期間</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
-            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">購入および領収書提出期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
-            if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
-            if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
-            if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`);
-            if (camp.min_followers) rows.push(`<div class="cp-info-row"><div class="cp-info-key">最小フォロワー</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kProduct)}</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>`);
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitType)}</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>`);
+            if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
+            if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
+            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
+            if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
+            if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
+            if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSlots)}</div><div class="cp-info-val">${camp.slots}${esc(L.unit)}</div></div>`);
+            if (camp.min_followers) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
             // 리뷰어(monitor) 캠페인은 当選発表·報酬 행 제외
             if (!isMonitorPreview) {
-              rows.push(`<div class="cp-info-row"><div class="cp-info-key">当選発表</div><div class="cp-info-val">${esc(camp.winner_announce||'選考後、LINEにてご連絡')}</div></div>`);
-              if (rewardText || camp.reward_note) rows.push(`<div class="cp-info-row"><div class="cp-info-key">報酬</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`);
+              rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kWinnerAnnounce)}</div><div class="cp-info-val">${esc(camp.winner_announce||L.winnerDefault)}</div></div>`);
+              if (rewardText || camp.reward_note) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kReward)}</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`);
             }
             return rows.join('');
           })()}
         </div>
         ${steps.length ? `<div class="cp-participation">
-          <div class="cp-section-heading">参加方法</div>
+          <div class="cp-section-heading">${esc(L.secParticipation)}</div>
           ${steps.map((s,i)=>{
-            const title = s.title_ja || s.title_ko || '';
-            const desc = s.desc_ja || s.desc_ko || '';
+            const title = lang==='ko' ? (s.title_ko || s.title_ja || '') : (s.title_ja || s.title_ko || '');
+            const desc = lang==='ko' ? (s.desc_ko || s.desc_ja || '') : (s.desc_ja || s.desc_ko || '');
             const descHtml = (typeof miniRichHtml === 'function') ? miniRichHtml(desc) : esc(desc);
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc rich-content">${descHtml}</div>`:''}</div></div>`;
           }).join('')}
         </div>` : ''}
-        ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
-        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
-        ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
-          ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
-          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">必須ハッシュタグ</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
-          ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+        ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${esc(L.productPage)}</div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
+          ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
+          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${(() => {
           // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
           const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
           const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
           if (ngItems.length) {
-            const lis = ngItems.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
-            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
+            const lis = ngItems.map(it => `<li>${s(lang==='ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || ''))}</li>`).join('');
+            return `<div class="cp-sec"><div class="cp-section-heading">${esc(L.secNg)}</div><div class="cp-sec-body cp-sec-bg-ng"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
           }
           if (camp.ng) {
-            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`;
+            return `<div class="cp-sec"><div class="cp-section-heading">${esc(L.secNg)}</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`;
           }
           return '';
         })()}
         ${(Array.isArray(camp.caution_items) && camp.caution_items.length) ? (() => {
           const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
-          const lis = camp.caution_items.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
-          return `<div class="cp-sec"><div class="cp-section-heading">注意事項</div><div class="cp-sec-body"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
+          const lis = camp.caution_items.map(it => `<li>${s(lang==='ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || ''))}</li>`).join('');
+          return `<div class="cp-sec"><div class="cp-section-heading">${esc(L.secCaution)}</div><div class="cp-sec-body"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
         })() : ''}
       </div>
       <div class="cp-cta">
         <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:''}</small></div>
-        <div class="cp-cta-btn">応募</div>
+        <div class="cp-cta-btn">${esc(L.apply)}</div>
       </div>
     </div>`;
 }
@@ -2206,8 +2238,9 @@ function setupCampPreview(mode) {
   const pane = document.getElementById(mode === 'edit' ? 'adminPane-edit-campaign' : 'adminPane-add-campaign');
   if (!pane) return;
   const st = _previewState[mode];
-  if (st?.attached) { renderCampPreview(mode); return; }
-  const entry = {attached: true, timer: null};
+  // 폼을 새로 열 때마다 미리보기 언어를 일본어로 초기화(예측 가능성). 인플이 실제 보는 화면이 기본.
+  if (st?.attached) { st.lang = 'ja'; syncCampPreviewLangToggle(mode); renderCampPreview(mode); return; }
+  const entry = {attached: true, timer: null, lang: 'ja'};
   entry.render = function() { renderCampPreview(mode); };
   entry.debounced = function() {
     clearTimeout(entry.timer);
@@ -2231,7 +2264,25 @@ function setupCampPreview(mode) {
     if (!allHooked && retries > 0) setTimeout(function(){tryHookQuill(retries-1);}, 300);
   })(5);
   _previewState[mode] = entry;
+  syncCampPreviewLangToggle(mode);
   renderCampPreview(mode);
+}
+
+// 미리보기 언어 토글(ja/ko) — 라벨 + 번들 3종(참여방법·주의사항·NG)만 전환, 나머지는 입력값 그대로
+function setCampPreviewLang(mode, lang) {
+  if (lang !== 'ja' && lang !== 'ko') return;
+  const st = _previewState[mode];
+  if (st) st.lang = lang;
+  syncCampPreviewLangToggle(mode);
+  renderCampPreview(mode);
+}
+
+// 토글 버튼 active 표시를 현재 상태에 맞춤
+function syncCampPreviewLangToggle(mode) {
+  const wrap = document.getElementById(mode === 'edit' ? 'editCampPreviewLangToggle' : 'newCampPreviewLangToggle');
+  if (!wrap) return;
+  const lang = (_previewState[mode] && _previewState[mode].lang === 'ko') ? 'ko' : 'ja';
+  wrap.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
 }
 
 // 미리보기 패널 접기/펼치기
@@ -3411,6 +3462,30 @@ async function loadCampBrandSelect(prefix, currentBrandId) {
   sel.innerHTML = html;
 }
 
+// 서베이 신청 연결 표시 — 공개 제출 중단으로 신규 선택 UI(커스텀 트리거·패널)는 항상 숨기고,
+// 기존에 연결된 신청이 있을 때만 읽기전용 라벨을 노출한다. hidden native select 는 그대로 유지
+// (오리엔시트 발행 승계·편집 저장 보존에 필요) → 저장·비용 카드·DB 는 무변경.
+function renderSurveyLinkReadonly(prefix) {
+  var wrap = $(prefix + 'CampSourceAppContainer');
+  var sel = $(prefix + 'CampSourceAppId');
+  if (!wrap || !sel) return;
+  var trigger = wrap.querySelector('.custom-srcapp-trigger');
+  var panel = wrap.querySelector('.custom-srcapp-panel');
+  var ro = $(prefix + 'CampSourceAppReadonly');
+  if (trigger) trigger.style.display = 'none';
+  if (panel) panel.style.display = 'none';
+  var appId = sel.value || '';
+  if (appId) {
+    var opt = sel.options[sel.selectedIndex];
+    var label = (opt && opt.text) ? opt.text : appId;
+    if (ro) { ro.textContent = '연결된 서베이 신청: ' + label; ro.style.display = ''; }
+    wrap.style.display = '';
+  } else {
+    if (ro) { ro.textContent = ''; ro.style.display = 'none'; }
+    wrap.style.display = 'none';
+  }
+}
+
 async function onCampBrandChange(prefix) {
   var sel = $(prefix + 'CampBrandId');
   var hiddenName = $(prefix + 'CampBrand');
@@ -3423,18 +3498,16 @@ async function onCampBrandChange(prefix) {
   var picked = (_campBrandsCache || []).find(function(b){ return b.id === brandId; });
   if (hiddenName) hiddenName.value = picked ? (picked.name || '') : '';
   if (hiddenNameKo) hiddenNameKo.value = '';  // 086 이후 brands는 단일 name. 한국어 표기는 brand 마스터에서 관리
-  // 신청 cascade
+  // 신청 cascade — 서베이 선택 UI 는 숨김(renderSurveyLinkReadonly). hidden native select 옵션은
+  // 오리엔시트 발행 승계·연결 라벨을 위해 계속 로드한다.
   if (sourceSel) {
-    var sourceWrap = $(prefix + 'CampSourceAppContainer');
     if (!brandId) {
-      if (sourceWrap) sourceWrap.style.display = 'none';
       sourceSel.innerHTML = '<option value="">선택 안 함 (외부 캠페인)</option>';
       sourceSel.value = '';
-      _srcAppSyncTrigger(prefix);
     } else {
-      if (sourceWrap) sourceWrap.style.display = '';
       await loadCampSourceAppSelect(prefix, brandId);
     }
+    renderSurveyLinkReadonly(prefix);
   }
   if (hint) {
     if (!brandId) {
@@ -3444,8 +3517,7 @@ async function onCampBrandChange(prefix) {
       var fmt = (sourceSel && sourceSel.value)
         ? 'B' + seq + '-A###-C###'
         : 'B' + seq + '-C###';
-      hint.innerHTML = '캠페인 번호: <code>' + esc(fmt) + '</code> 형식'
-        + (sourceSel && sourceSel.value ? '' : ' (외부 캠페인)');
+      hint.innerHTML = '캠페인 번호: <code>' + esc(fmt) + '</code> 형식';
     }
   }
 }

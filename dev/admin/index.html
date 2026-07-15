@@ -354,6 +354,7 @@
                   <select id="editCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('edit')">
                     <option value="">선택 안 함 (외부 캠페인)</option>
                   </select>
+                  <div class="custom-srcapp-readonly" id="editCampSourceAppReadonly" style="display:none"></div>
                   <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="edit" aria-haspopup="listbox" aria-expanded="false">
                     <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
                   </button>
@@ -584,7 +585,13 @@
             <aside class="camp-preview-pane" id="editCampPreviewPane">
               <div class="camp-preview-pane-header">
                 <span>미리보기</span>
-                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="cp-lang-toggle" id="editCampPreviewLangToggle">
+                    <button type="button" data-lang="ja" class="active" onclick="setCampPreviewLang('edit','ja')">日本語</button>
+                    <button type="button" data-lang="ko" onclick="setCampPreviewLang('edit','ko')">한국어</button>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                </div>
               </div>
               <div id="editCampPreviewContent" class="camp-preview-content"></div>
             </aside>
@@ -626,12 +633,13 @@
                   <select id="newCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('new')">
                     <option value="">선택 안 함 (외부 캠페인)</option>
                   </select>
+                  <div class="custom-srcapp-readonly" id="newCampSourceAppReadonly" style="display:none"></div>
                   <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="new" aria-haspopup="listbox" aria-expanded="false">
                     <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
                   </button>
                   <div class="custom-srcapp-panel" role="listbox" data-srcapp-panel="new"></div>
                 </div>
-                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">신청 연결 시 캠페인 번호가 <code>B0001-A001-C001</code> 형식으로 채번됩니다.</div>
+                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">브랜드를 선택하면 캠페인 번호가 자동 채번됩니다.</div>
                 <input type="hidden" id="newCampBrand">
                 <input type="hidden" id="newCampBrandKo">
               </div>
@@ -861,7 +869,13 @@
             <aside class="camp-preview-pane" id="newCampPreviewPane">
               <div class="camp-preview-pane-header">
                 <span>미리보기</span>
-                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="cp-lang-toggle" id="newCampPreviewLangToggle">
+                    <button type="button" data-lang="ja" class="active" onclick="setCampPreviewLang('new','ja')">日本語</button>
+                    <button type="button" data-lang="ko" onclick="setCampPreviewLang('new','ko')">한국어</button>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                </div>
               </div>
               <div id="newCampPreviewContent" class="camp-preview-content"></div>
             </aside>
