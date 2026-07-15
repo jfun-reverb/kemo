@@ -158,13 +158,30 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-**구현일:**
-**관련 커밋:**
+**구현일:** 2026-07-15
+**관련 커밋/브랜치:** `feature/orient-seeding-channel-redesign` (dev PR)
+**DB 변경:** 없음 (마이그레이션 0, `data` jsonb 투명 저장)
 
 ### 초안 대비 변경 사항
--
+- 설계대로 전량 구현. 추가/빠짐 없음.
+- **작성 폼 `dev/sales/orient.html`**:
+  - 채널 상수: `SEEDING_CHANNELS = ['instagram_feed','instagram_reels','x','tiktok','youtube']`, `CHANNEL_LABEL`에 피드/릴스 라벨 + 하위호환 `instagram`·`random` 라벨 유지.
+  - `channelOptionsHtml`·`cgRowHtml`(드롭다운+행반복) → `seedingChannelChecksHtml`(체크박스 그룹) + `seedingAppealInit`(통합 소구 초기값·옛 guides 하위호환) 신설.
+  - cardHtml: 「채널별 게시 가이드」 → 「게시 채널」 체크박스 + 「소구 키워드」 통합 textarea(`.f-appeal`). 엣코스메 체크박스·URL 블록 제거.
+  - `onAtcosmeToggle`·`addCgRow` 제거, `onGradeChange` 단순화(채널 목록 등급 무관 동일→재렌더 불필요·선택 보존), `removeRepRow` 이미지 전용 단순화, `clearCardTypeFields` 새 필드 기준 정리.
+  - `collectCard`: `seeding.channels`(체크박스) + `seeding.appeal`(통합) 저장, 옛 `guides`·`atcosme_*` 저장 중단. `collectData`에 top-level `reverb_request` 추가.
+  - `fillForm`에 `reverb_request` 로드, `findInvalidField`·`renderPreviewCard`에서 엣코스메 제거, 시딩 프리뷰를 채널+소구로, `renderPreview`에 레버브 요청 카드 추가.
+  - HTML: 폼 마지막에 「레버브 측에 전달할 요청·요구사항(선택)」 섹션(`#f_reverb_request`) 추가.
+- **관리자 `dev/js/admin-orient.js`**:
+  - `OS_CH_LABEL`에 `instagram_feed`·`instagram_reels` 추가(기존 라벨 유지). `osSeedingAppeal` 하위호환 헬퍼 신설.
+  - `osCardDetail`: 엣코스메 표시 제거, 시딩을 「게시 채널」+「소구 키워드」로. `osDetailHtml`에 「레버브 측 요청」 카드(값 있을 때 1회) 추가.
+  - `osPrefillChannels`: 시딩 채널 `instagram_feed`/`instagram_reels`→`instagram` 변환 + 중복 제거(미매칭 제외). `osBuildGuideDraft`: 채널별 블록 → 「[게시 채널]」+「[소구 키워드]」 블록.
 
 ### 구현 중 기술 결정 사항
--
+- **엣코스메 발행 매핑(`'@cosme':'atcosme'`)은 §8대로 유지** — 리뷰어 판매처는 항상 Qoo10이라 도달 불가·무해.
+- **하위호환**: 기존 저장분의 옛 `seeding.guides`는 로드 시 `seedingAppealInit`/`osSeedingAppeal`이 개행으로 합쳐 소구 초기값으로 흡수. 옛 `channels`(`instagram`·`random`)는 체크박스 미매칭이면 미체크(원본 data는 투명 저장이라 보존). 옛 `atcosme_*`는 UI·상세·발행에서 무시(원본 보존).
+- **채널 목록이 등급 무관 동일**이라 `onGradeChange`에서 채널 재렌더를 없애 체크 상태 유실을 방지(등급 전환은 `data-cgrade`만 갱신 → 미들메가 전용 항목 CSS 표시).
+- **발행 자동채움 회귀 수정(리뷰어 지적)**: `applyOrientCardPrefill`의 지역변수 `osSeedingAppeal`이 옛 `seeding.guides`만 읽어 모듈 헬퍼를 가려(shadowing), 개편 후 신규 카드는 발행 시 캠페인 소구(`newCampAppeal`)가 빈칸이 되던 버그 → 모듈 헬퍼 `osSeedingAppeal(card.seeding)` 직접 호출로 교체(신규 appeal·옛 guides 양쪽 처리).
+- DB·익명 함수·RLS·트리거·`lookup_values` 무변경.
