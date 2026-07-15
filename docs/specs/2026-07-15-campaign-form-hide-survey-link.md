@@ -111,4 +111,24 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+**구현일:** 2026-07-15
+**관련 커밋/브랜치:** `feature/campaign-form-hide-survey-link` (dev PR)
+**DB 변경:** 없음 (마이그레이션 0)
+
+### 초안 대비 변경 사항
+- **추가된 것**:
+  - 신규 헬퍼 `renderSurveyLinkReadonly(prefix)` (`dev/js/admin.js`) — 커스텀 선택 UI(`.custom-srcapp-trigger`·`.custom-srcapp-panel`)를 항상 숨기고, hidden native select에 값이 있으면 읽기전용 라벨(`#{prefix}CampSourceAppReadonly`)에 「연결된 서베이 신청: {신청번호·타입·상태}」를 `textContent`로 표시. 컨테이너 표시/숨김을 이 함수로 일원화.
+  - 편집·신규 컨테이너에 읽기전용 라벨 `<div class="custom-srcapp-readonly" id="{edit|new}CampSourceAppReadonly">` + CSS `.custom-srcapp-readonly`.
+- **달라진 것**:
+  - `onCampBrandChange(prefix)` — 브랜드 선택 시 커스텀 선택 UI를 표시하지 않음. hidden native select 옵션은 `loadCampSourceAppSelect`로 **계속 로드**(오리엔시트 발행 승계·연결 라벨용). 산발적 `sourceWrap.style.display` 직접 조작 제거 → `renderSurveyLinkReadonly`로 일원화.
+  - 편집 로드(`openEditCampaign`) — 값 복원(`loadCampSourceAppSelect('edit', brand_id, source_application_id)`)은 유지, 직접 `srcWrap.style.display=''` 제거. 표시는 `onCampBrandChange('edit')` 내부의 `renderSurveyLinkReadonly`가 처리.
+  - 오리엔 발행(`applyOrientCardPrefill`, `admin-orient.js`) — `osSetVal('newCampSourceAppId', appId)` 뒤 `_srcAppSyncTrigger('new')` → `renderSurveyLinkReadonly('new')`로 교체(승계 신청을 읽기전용 라벨로 표시).
+  - 신규 브랜드 힌트 문구를 서베이 언급 없이 「브랜드를 선택하면 캠페인 번호가 자동 채번됩니다.」로 정리.
+- **빠진 것**: 없음.
+
+### 구현 중 기술 결정 사항
+- 커스텀 선택 UI 숨김은 **JS(`renderSurveyLinkReadonly`)에서 처리**(전역 CSS `display:none` 대신) — 컨테이너를 여는 유일 경로가 이 함수라 깜빡임 없음 + 의도가 코드에 co-locate.
+- 저장 로직·`source_application_id` 컬럼·진행현황 비용 카드(`appendCampOpsCostCard`)·`_srcApp*` 보조 함수는 **무변경**. `_srcApp*`은 트리거/패널이 숨겨져 시각적으로 죽지만 호출돼도 무해(삭제 시 오리엔·편집 복원 참조 깨질 위험이라 유지).
+- 편집에서 브랜드를 다른 값으로 바꾸면 옛 신청 id가 새 브랜드 옵션에 없어 native select가 ''로 떨어져 라벨이 사라짐 — 이번 변경 이전과 동일한 기존 동작(회귀 아님).
