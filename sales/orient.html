@@ -23,6 +23,7 @@
   --ink-soft: #4A4A4F;
   --ink-mute: #8A8A90;
   --paper: #F7F4EE;
+  --outer: #E6E6E6;
   --card: #FFFFFF;
   --border: #EAEAE4;
   --border-strong: #D4D4CC;
@@ -34,7 +35,8 @@
 
 html, body {
   font-family: 'Manrope', 'Pretendard Variable', Pretendard, sans-serif;
-  background: var(--paper);
+  /* 바깥 영역(720px 폼 컬럼 밖)은 회색. body는 아래에서 --paper 로 재지정 */
+  background: var(--outer);
   color: var(--ink);
   line-height: 1.6;
   font-size: 15px;
@@ -531,17 +533,20 @@ input[type="date"] { min-height: 44px; }
       <label>브랜드명</label>
       <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
     </div>
-    <div class="field">
-      <label>담당자명</label>
-      <input type="text" id="f_brand_contact_name" placeholder="담당자 이름" oninput="onInput()">
+    <div class="row2">
+      <div class="field">
+        <label>담당자명</label>
+        <input type="text" id="f_brand_contact_name" placeholder="담당자 이름" oninput="onInput()">
+      </div>
+      <div class="field">
+        <label>연락처</label>
+        <input type="tel" id="f_brand_phone" placeholder="숫자만 입력" inputmode="numeric" oninput="onPhoneDigits(this)">
+      </div>
     </div>
     <div class="field">
       <label>이메일</label>
-      <input type="email" id="f_brand_email" placeholder="contact@yourbrand.com" oninput="onInput()">
-    </div>
-    <div class="field">
-      <label>연락처</label>
-      <input type="tel" id="f_brand_phone" placeholder="연락 가능한 전화번호" oninput="onInput()">
+      <input type="email" id="f_brand_email" placeholder="contact@yourbrand.com" oninput="onEmailInput(this)" onblur="onEmailInput(this)">
+      <div class="field-hint f-email-warn" style="display:none;color:#C41E3A">이메일 형식이 올바르지 않습니다.</div>
     </div>
     <div class="field">
       <label>브랜드 소개 · 어필 포인트</label>
@@ -566,7 +571,7 @@ input[type="date"] { min-height: 44px; }
   </button>
 
   <!-- 레버브 측 요청(선택) — 폼 전체 마지막 -->
-  <div class="section">
+  <div class="section" style="margin-top:28px">
     <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">support_agent</span>레버브 측에 전달할 요청·요구사항 (선택)</div>
     <div class="section-desc">레버브 운영팀에 요청하고 싶은 사항이 있으면 자유롭게 적어 주세요.</div>
     <div class="field">
@@ -1151,6 +1156,19 @@ function clearCardTypeFields(el) {
   if (gradeSel) gradeSel.value = 'nano';
   const chWrap = el.querySelector('[data-cg-channels]');
   if (chWrap) chWrap.innerHTML = seedingChannelsWidgetHtml([]);
+}
+
+// 연락처 — 숫자만 허용(입력 즉시 숫자 외 문자 제거)
+function onPhoneDigits(input) {
+  input.value = input.value.replace(/[^0-9]/g, '');
+  onInput();
+}
+// 이메일 형식 검증 — 값이 있고 형식이 틀리면 경고 표시(제출은 막지 않음)
+function onEmailInput(input) {
+  const v = (input.value || '').trim();
+  const warn = input.parentElement.querySelector('.f-email-warn');
+  if (warn) warn.style.display = (!v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'none' : '';
+  onInput();
 }
 
 // 판매 URL 입력 — dirty 마킹 + Qoo10 주소 경고 토글
