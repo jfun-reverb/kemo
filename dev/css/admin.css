@@ -95,9 +95,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
-.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;border-top:1px solid var(--outline);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+/* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
+.admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
+.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
-.admin-layout.collapsed .admin-build-info{display:none}
+.admin-layout.collapsed .admin-side-foot{display:none}
 .admin-main{background:var(--surface);margin:14px 6px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
 
 .admin-body{padding:16px 16px 8px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
@@ -107,7 +109,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
-.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12)}
+.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
@@ -147,7 +149,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    기준 데이터 페인의 .lookup-tab 인라인 스타일과 동일 패턴을 공통 클래스로 추출. */
 .status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
 .status-tab-bar::-webkit-scrollbar{display:none}
-.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
+.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
 .status-tab-btn:hover{background:var(--surface-dim)}
 .status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
@@ -306,7 +308,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
 .data-table th{padding:11px 12px;background:var(--surface);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
-.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle}
+.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle;background:var(--surface)}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-container)}
 .admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}

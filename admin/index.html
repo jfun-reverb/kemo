@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784204214';
+  var CURRENT_BUILD = 'v1784204903';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -555,9 +555,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
-.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;border-top:1px solid var(--outline);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+/* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
+.admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
+.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
-.admin-layout.collapsed .admin-build-info{display:none}
+.admin-layout.collapsed .admin-side-foot{display:none}
 .admin-main{background:var(--surface);margin:14px 6px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
 
 .admin-body{padding:16px 16px 8px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
@@ -567,7 +569,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
-.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12)}
+.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
@@ -607,7 +609,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    기준 데이터 페인의 .lookup-tab 인라인 스타일과 동일 패턴을 공통 클래스로 추출. */
 .status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
 .status-tab-bar::-webkit-scrollbar{display:none}
-.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
+.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
 .status-tab-btn:hover{background:var(--surface-dim)}
 .status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
@@ -766,7 +768,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
 .data-table th{padding:11px 12px;background:var(--surface);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
-.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle}
+.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle;background:var(--surface)}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-container)}
 .admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}
@@ -2240,14 +2242,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </span>
       </div>
       <div class="admin-side-scroll">
-        <!-- 화면 이동 드롭다운 (패밀리 사이트 셀렉터형) — 로고 바로 밑. 전체 관리자 / 아웃바운드 전용 / 인플루언서 화면 -->
-        <div class="admin-si" id="adminScreenSwitcher" style="cursor:default;padding:12px 16px 8px">
-          <select id="adminScreenSelect" onchange="switchAdminScreen(this.value)" style="width:100%;font-size:12px;background-color:#fff;border:1px solid #E4E4E7;border-radius:6px;padding:8px 26px 8px 10px;color:#18181B;cursor:pointer">
-            <option value="full">전체 관리자 화면</option>
-            <option value="outbound">인플루언서 추천 명단</option>
-            <option value="influencer">인플루언서 화면</option>
-          </select>
-        </div>
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
@@ -2283,9 +2277,19 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <span class="si-text" style="font-size:12px">로그아웃</span>
         </div>
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
+      </div>
+      <!-- 하단 고정: 화면 전환 드롭다운 + 버전 정보 -->
+      <div class="admin-side-foot">
+        <div class="admin-si" id="adminScreenSwitcher" style="cursor:default;padding:0">
+          <select id="adminScreenSelect" onchange="switchAdminScreen(this.value)" style="width:100%;font-size:12px;background-color:#fff;border:1px solid #E4E4E7;border-radius:6px;padding:6px 26px 6px 10px;color:#18181B;cursor:pointer">
+            <option value="full">전체 관리자 화면</option>
+            <option value="outbound">인플루언서 추천 명단</option>
+            <option value="influencer">인플루언서 화면</option>
+          </select>
+        </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-16 21:16 · 191de3e</span>
+          <span class="admin-build-text">2026-07-16 21:28 · 1c39724</span>
         </div>
       </div>
     </aside>
@@ -3938,7 +3942,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:18px;font-weight:700;color:var(--ink)">운영 현황</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">운영 현황</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드별 진행 상황을 한눈에. 경고 단계가 높은 브랜드부터 표시됩니다</div>
               </div>
               <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
@@ -4007,7 +4011,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:18px;font-weight:700;color:var(--ink)">회사 관리</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">회사 관리</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">회사 마스터. 회사 1개에 브랜드 여러 개가 소속됩니다</div>
               </div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -4103,7 +4107,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:18px;font-weight:700;color:var(--ink)">브랜드 관리</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 관리</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">광고주 마스터. 신청 목록과 별도로 브랜드 단위로 관리</div>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openNewBrandModal()" style="display:inline-flex;align-items:center;gap:4px">
@@ -4322,12 +4326,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <!-- 종류 탭 -->
             <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
               <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
-              <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">카테고리</button>
-              <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
-              <button class="lookup-tab" data-kind="ng_set" onclick="switchLookupTab('ng_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
-              <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
-              <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
-              <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
+              <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">카테고리</button>
+              <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">콘텐츠 종류</button>
+              <button class="lookup-tab" data-kind="ng_set" onclick="switchLookupTab('ng_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">NG 사항</button>
+              <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">참여방법</button>
+              <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">반려사유</button>
+              <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">주의사항</button>
             </div>
           </div>
 
@@ -28376,7 +28380,7 @@ function switchLookupTab(kind, btn) {
     if (rb) { rb.textContent = '순서 변경'; rb.onclick = enterLookupReorderMode; rb.classList.remove('btn-primary'); rb.classList.add('btn-ghost'); }
   }
   document.querySelectorAll('.lookup-tab').forEach(b => {
-    b.style.color = 'var(--muted)';
+    b.style.color = '#9A9AA1';
     b.style.borderBottomColor = 'transparent';
     b.style.fontWeight = '600';
   });
