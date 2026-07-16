@@ -95,9 +95,9 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;border-top:1px solid var(--outline);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
 .admin-layout.collapsed .admin-build-info{display:none}
-.admin-main{background:var(--surface);margin:10px;height:calc(100vh - 20px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
+.admin-main{background:var(--surface);margin:6px;height:calc(100vh - 12px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
 
-.admin-body{padding:20px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
+.admin-body{padding:16px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
 .admin-pane{display:none}.admin-pane.on{display:block;flex:1;min-height:0;overflow-y:auto}
 /* 목록 페인 (7개 — campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts): 고정 헤더 + 테이블만 스크롤 */
 .admin-pane-list.on{display:flex!important;flex-direction:column;overflow:hidden!important}
