@@ -308,7 +308,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-table-wrap{overflow-y:auto}
 .data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
-.data-table tr:hover td{background:var(--surface-dim)}
+.data-table tr:hover td{background:var(--surface-container)}
 .admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--outline);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
