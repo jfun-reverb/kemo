@@ -119,7 +119,6 @@
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
-        <div class="admin-si" data-pane="permissions" id="adminPermissionsSi" onclick="navAdminPaneReload('permissions')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">shield</span><span class="si-text">권한 관리</span></div>
         <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
@@ -2297,7 +2296,10 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 계정</div>
-              <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+              <div style="display:flex;gap:8px">
+                <button id="btnPermManageBtn" class="btn btn-ghost btn-sm" style="display:none" onclick="navAdminPaneReload('permissions')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;margin-right:2px">shield</span>권한 관리</button>
+                <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+              </div>
             </div>
           </div>
           <div class="admin-card">

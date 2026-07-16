@@ -38,6 +38,9 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
+/* 보기 초기화 버튼 — 진한 회색 (사용자 요청) */
+#btnCampViewReset,#btnInfViewReset,#btnAppViewReset,#btnDelivFilterReset,#btnBrandAppViewReset{background:#6B7280;color:#fff;border:1px solid #6B7280}
+#btnCampViewReset:hover,#btnInfViewReset:hover,#btnAppViewReset:hover,#btnDelivFilterReset:hover,#btnBrandAppViewReset:hover{background:#565D6B;border-color:#565D6B;color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
 .mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
 .mf-btn::after{content:none}
