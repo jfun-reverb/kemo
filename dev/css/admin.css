@@ -1434,6 +1434,9 @@
   top:50%;
   transform:translate(-50%,-50%);
   margin:0;               /* 인라인 margin:auto 무효화 */
+  border-radius:16px;
+  box-shadow:var(--elevation-4);
+  overflow:visible;       /* 코너 리사이즈 핸들이 radius 클리핑에 안 잘리게. 본문 스크롤은 .modal-body 전담 */
   min-width:320px;
   min-height:160px;
   display:flex;           /* 인라인 flex 없는 모달(addAdmin/adminEmailSubs/lookupEdit)도 본문 스크롤 보장 */
