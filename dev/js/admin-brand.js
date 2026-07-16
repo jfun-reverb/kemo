@@ -166,11 +166,13 @@ function brandAppStatusSelectStyled(opts) {
     + (opts.disabled ? ' disabled' : '')
     + (opts.onchange ? ' onchange="'+opts.onchange+'"' : '')
     + (opts.onclick ? ' onclick="'+opts.onclick+'"' : '');
+  var arrowEnc = encodeURIComponent(s.color);
+  var arrowRight = sizeSm ? '9px' : '12px';
   return '<select class="brand-app-status-sel"' + extraAttrs
-    + ' style="background:'+s.bg+';color:'+s.color+';font-size:'+fontSize+';font-weight:700;padding:'+padding+';border-radius:6px;'
+    + ' style="background-color:'+s.bg+';color:'+s.color+';font-size:'+fontSize+';font-weight:700;padding:'+padding+';border-radius:6px;'
     + 'border:0;cursor:pointer;appearance:none;-webkit-appearance:none;'
-    + 'background-image:linear-gradient(45deg,transparent 50%,'+s.color+' 50%),linear-gradient(-45deg,transparent 50%,'+s.color+' 50%);'
-    + 'background-position:'+arrowPos1+','+arrowPos2+';background-size:'+arrowSize+';background-repeat:no-repeat">'
+    + 'background-image:url(\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22'+arrowEnc+'%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M2 6l3-3 3 3%22/%3E%3Cpath d=%22M2 10l3 3 3-3%22/%3E%3C/svg%3E\');'
+    + 'background-position:calc(100% - '+arrowRight+') center;background-size:9px 14px;background-repeat:no-repeat">'
     + optionsHtml + '</select>';
 }
 
