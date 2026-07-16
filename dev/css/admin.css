@@ -72,7 +72,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
 .admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:3px}
 .admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.28)}
-.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:var(--on-surface-variant);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
+.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#9A9AA1;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:var(--on-surface);background:var(--surface-dim)}
 .admin-si.on{color:var(--on-surface);background:var(--surface-dim);border-left-color:var(--primary);font-weight:600}
 .admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
