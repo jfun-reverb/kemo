@@ -310,7 +310,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-dim)}
 .admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}
-.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
+.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--outline);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 /* ── 오픈 예정 기능 보드 (D-day) ── */
 .upcoming-table{width:100%}
