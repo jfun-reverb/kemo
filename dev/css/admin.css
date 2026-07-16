@@ -60,22 +60,22 @@
 .admin-filter-search.filter-active{border-color:var(--primary);color:var(--primary)}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
-.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.4) transparent}
+.admin-side{background:var(--surface-container);border-right:1px solid var(--outline);padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
+.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
 .admin-side-scroll::-webkit-scrollbar{width:6px}
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
-.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:3px}
-.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
-.admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
-.admin-si.on{color:#fff;background:rgba(24,24,27,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);padding:20px 20px 6px;text-transform:none;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
+.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:3px}
+.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.28)}
+.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:var(--on-surface-variant);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
+.admin-si:hover{color:var(--on-surface);background:var(--surface-dim)}
+.admin-si.on{color:var(--on-surface);background:var(--surface-dim);border-left-color:var(--primary);font-weight:600}
+.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
 .sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
-.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
-.sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
-.sidebar-toggle:active{background:rgba(255,255,255,.18)}
-.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.35);transition:opacity .2s}
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:var(--on-surface-variant);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
+.sidebar-toggle:hover{background:var(--surface-dim);color:var(--on-surface)}
+.sidebar-toggle:active{background:var(--outline)}
+.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--on-surface-variant);transition:opacity .2s}
 .admin-layout.collapsed .sidebar-toggle-wrap{justify-content:center;padding:4px 0;margin:0 0 8px}
 .admin-layout.collapsed .sidebar-toggle-label{opacity:0;width:0;overflow:hidden}
 .si-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center}
@@ -84,9 +84,9 @@
 .admin-layout.collapsed .si-text{opacity:0;width:0;overflow:hidden}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
-.admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #1A0F18;border-radius:10px;box-sizing:content-box}
+.admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
-.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:rgba(255,255,255,.35);font-variant-numeric:tabular-nums;border-top:1px solid rgba(255,255,255,.06);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;border-top:1px solid var(--outline);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
 .admin-layout.collapsed .admin-build-info{display:none}
 .admin-main{background:var(--surface-container-low);height:100%;overflow:hidden}
