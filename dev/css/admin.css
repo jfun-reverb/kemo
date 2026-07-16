@@ -58,9 +58,9 @@
 /* 결과물 관리 — 검색 돋보기 버튼 활성 강조 + 기간 선택 활성 표시 */
 #btnDelivSearchToggle.active{color:var(--primary);border-color:var(--primary)}
 .admin-filter-search.filter-active{border-color:var(--primary);color:var(--primary)}
-.admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
+.admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease;background:var(--admin-canvas)}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:var(--surface-container);border-right:1px solid var(--outline);padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
+.admin-side{background:var(--admin-canvas);padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
 .admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
 .admin-side-scroll::-webkit-scrollbar{width:6px}
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
@@ -89,7 +89,7 @@
 .admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;border-top:1px solid var(--outline);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
 .admin-layout.collapsed .admin-build-info{display:none}
-.admin-main{background:var(--surface-container-low);height:100%;overflow:hidden}
+.admin-main{background:var(--surface);margin:14px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
 
 .admin-body{padding:24px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
 .admin-pane{display:none}.admin-pane.on{display:block;flex:1;min-height:0;overflow-y:auto}
