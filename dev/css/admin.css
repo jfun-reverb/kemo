@@ -1116,11 +1116,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 
 /* 가격체크 드롭다운 (제품별 4상태) — 신청 목록 페인 「가격체크」 컬럼.
    마켓 등록 가격과 신청 금액 비교 결과 (가격높음/낮음/동일) 또는 미선택. */
-.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;appearance:auto}
-.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background:#fafafa;font-weight:400}
-.brand-app-pricecheck-select.pc-higher{background:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
-.brand-app-pricecheck-select.pc-lower{background:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
-.brand-app-pricecheck-select.pc-equal{background:#EEEEEE;color:#555555;border-color:#D0D0D0}
+.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
+.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background-color:#fafafa;font-weight:400}
+.brand-app-pricecheck-select.pc-higher{background-color:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
+.brand-app-pricecheck-select.pc-lower{background-color:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
+.brand-app-pricecheck-select.pc-equal{background-color:#EEEEEE;color:#555555;border-color:#D0D0D0}
 .brand-app-pricecheck-select:focus{outline:2px solid var(--accent);outline-offset:1px}
 
 /* 캠페인 등록·편집 폼 「부모 신청 선택」 커스텀 드롭다운 — 제품명 + 메타 2줄.
