@@ -20,28 +20,28 @@
 .gnb-logout:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.1)}
 
 /* ── BUTTONS (Material Filled/Outlined/Text) ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 24px;border-radius:var(--r-full);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border:none;letter-spacing:.02em}
-.btn-primary{background:var(--primary);color:var(--on-primary);box-shadow:var(--elevation-1)}
-.btn-primary:hover{background:var(--primary-dark);box-shadow:var(--elevation-2);transform:translateY(-1px)}
-.btn-primary:active{transform:scale(.98);box-shadow:var(--elevation-1)}
-.btn-outline{background:var(--surface);color:var(--on-surface);border:1.5px solid var(--outline)}
-.btn-outline:hover{background:var(--surface-dim);border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--r8);font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s,background .15s,border-color .15s;border:none;letter-spacing:.01em}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-primary:hover{background:var(--primary);opacity:.85}
+.btn-primary:active{opacity:.72}
+.btn-outline{background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant)}
+.btn-outline:hover{background:var(--surface-dim);border-color:var(--muted)}
 .btn-ghost{background:transparent;color:var(--on-surface-variant);border:1px solid var(--outline)}
-.btn-ghost:hover{background:var(--surface-dim);border-color:var(--primary);color:var(--primary)}
-.btn-ghost:active{background:var(--outline);transform:scale(.96)}
-.btn-sm{padding:8px 16px;font-size:13px}
+.btn-ghost:hover{background:var(--surface-dim);border-color:var(--outline-variant);color:var(--on-surface)}
+.btn-ghost:active{background:var(--outline);opacity:.8}
+.btn-sm{padding:7px 14px;font-size:13px}
 .btn-xs{padding:6px 12px;font-size:12px;border-radius:var(--r8)}
 .btn-block{width:100%}
-.btn-green{background:var(--green);color:#fff;box-shadow:var(--elevation-1)}
-.btn-green:hover{box-shadow:var(--elevation-2);transform:translateY(-1px);filter:brightness(1.08)}
-.btn-green:active{transform:scale(.96);box-shadow:var(--elevation-1);filter:brightness(.95)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{opacity:.88}
+.btn-green:active{opacity:.78}
 .btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
 /* 활동관리 폼 라벨 비활성 (파일 선택용 분홍 라벨 — 마감 후+반려 없음 시 적용) */
 .form-label-disabled{opacity:.45;cursor:not-allowed!important;pointer-events:none;filter:grayscale(1)}
 
 /* ── CARDS (Material Card) ── */
-.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1)}
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden}
 .card-pad{padding:16px}
 
 /* ── BADGES (Material Chip) ── */

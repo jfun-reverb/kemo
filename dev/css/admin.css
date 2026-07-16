@@ -100,7 +100,7 @@
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
-.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
 .admin-pane-list #campApplicantsSummary{flex-shrink:0}
 .camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
@@ -295,9 +295,9 @@
 .os-copy-btn:active{background:var(--baby-pink)}
 .os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
+.data-table th{padding:11px 12px;background:var(--surface);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
-.data-table td{padding:10px 10px;border-bottom:1px solid var(--surface-dim);color:var(--on-surface);vertical-align:middle}
+.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-dim)}
 .admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}

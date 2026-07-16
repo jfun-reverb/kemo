@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784191515';
+  var CURRENT_BUILD = 'v1784193453';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -131,28 +131,28 @@ img{display:block;max-width:100%}
 .gnb-logout:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.1)}
 
 /* ── BUTTONS (Material Filled/Outlined/Text) ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 24px;border-radius:var(--r-full);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border:none;letter-spacing:.02em}
-.btn-primary{background:var(--primary);color:var(--on-primary);box-shadow:var(--elevation-1)}
-.btn-primary:hover{background:var(--primary-dark);box-shadow:var(--elevation-2);transform:translateY(-1px)}
-.btn-primary:active{transform:scale(.98);box-shadow:var(--elevation-1)}
-.btn-outline{background:var(--surface);color:var(--on-surface);border:1.5px solid var(--outline)}
-.btn-outline:hover{background:var(--surface-dim);border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--r8);font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s,background .15s,border-color .15s;border:none;letter-spacing:.01em}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-primary:hover{background:var(--primary);opacity:.85}
+.btn-primary:active{opacity:.72}
+.btn-outline{background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant)}
+.btn-outline:hover{background:var(--surface-dim);border-color:var(--muted)}
 .btn-ghost{background:transparent;color:var(--on-surface-variant);border:1px solid var(--outline)}
-.btn-ghost:hover{background:var(--surface-dim);border-color:var(--primary);color:var(--primary)}
-.btn-ghost:active{background:var(--outline);transform:scale(.96)}
-.btn-sm{padding:8px 16px;font-size:13px}
+.btn-ghost:hover{background:var(--surface-dim);border-color:var(--outline-variant);color:var(--on-surface)}
+.btn-ghost:active{background:var(--outline);opacity:.8}
+.btn-sm{padding:7px 14px;font-size:13px}
 .btn-xs{padding:6px 12px;font-size:12px;border-radius:var(--r8)}
 .btn-block{width:100%}
-.btn-green{background:var(--green);color:#fff;box-shadow:var(--elevation-1)}
-.btn-green:hover{box-shadow:var(--elevation-2);transform:translateY(-1px);filter:brightness(1.08)}
-.btn-green:active{transform:scale(.96);box-shadow:var(--elevation-1);filter:brightness(.95)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{opacity:.88}
+.btn-green:active{opacity:.78}
 .btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
 /* 활동관리 폼 라벨 비활성 (파일 선택용 분홍 라벨 — 마감 후+반려 없음 시 적용) */
 .form-label-disabled{opacity:.45;cursor:not-allowed!important;pointer-events:none;filter:grayscale(1)}
 
 /* ── CARDS (Material Card) ── */
-.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1)}
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden}
 .card-pad{padding:16px}
 
 /* ── BADGES (Material Chip) ── */
@@ -560,7 +560,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
-.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
 .admin-pane-list #campApplicantsSummary{flex-shrink:0}
 .camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
@@ -755,9 +755,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .os-copy-btn:active{background:var(--baby-pink)}
 .os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
+.data-table th{padding:11px 12px;background:var(--surface);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
-.data-table td{padding:10px 10px;border-bottom:1px solid var(--surface-dim);color:var(--on-surface);vertical-align:middle}
+.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-dim)}
 .admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
@@ -2274,7 +2274,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-16 17:45 · 03d7dd7</span>
+          <span class="admin-build-text">2026-07-16 18:17 · 68cc1d2</span>
         </div>
       </div>
     </aside>
