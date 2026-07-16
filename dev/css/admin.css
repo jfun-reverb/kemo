@@ -5,7 +5,13 @@
 /* 관리자 페이지는 PC 전용 — 모바일 auto-zoom 방지용 16px 불필요 */
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
-#page-admin select.form-input{padding-right:32px;background-position:right 10px center}
+/* 관리자 select 화살표·여백 통일 (무채색 리디자인, 2026-07-16) — form-input·admin-filter·admin-select 3종 공통 위아래 chevron */
+#page-admin select.form-input,
+select.admin-filter,
+select.admin-select,
+select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;background-size:9px 14px;padding-right:28px}
+/* 사이드바 화면 이동 드롭다운도 동일 chevron (인라인 background-color 와 공존) */
+#adminScreenSelect{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 9px center;background-size:9px 14px}
 /* 필터 공통 */
 .admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
 .admin-filter.active{background-color:#fff}
@@ -98,14 +104,14 @@
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
-.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
+.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
 .admin-pane-list #campApplicantsSummary{flex-shrink:0}
 .camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
 .camp-ops-summary:empty{display:none;margin:0}
-.camp-ops-card{background:var(--surface);border-radius:var(--r16);box-shadow:var(--elevation-1);padding:14px 16px;min-width:0}
+.camp-ops-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:14px 16px;min-width:0}
 .camp-ops-card-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.02em}
 .camp-ops-row{display:flex;gap:8px;font-size:12px;line-height:1.6}
 .camp-ops-row .k{color:var(--muted);flex-shrink:0;min-width:64px}
@@ -257,7 +263,7 @@
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
-.kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
+.kpi-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:20px;position:relative;overflow:hidden}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .kpi-r::after{background:var(--primary)}.kpi-g::after{background:var(--green)}.kpi-b::after{background:var(--blue)}.kpi-o::after{background:var(--gold)}
 .kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--on-surface)}
@@ -300,7 +306,7 @@
 .data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-dim)}
-.admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
+.admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 /* ── 오픈 예정 기능 보드 (D-day) ── */
@@ -316,7 +322,7 @@
 .upcoming-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--muted);font-size:13px}
 .upcoming-empty .material-icons-round{font-size:40px;color:var(--outline-variant)}
 
-.product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
+.product-form{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:28px;margin-bottom:20px}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}
 
@@ -355,7 +361,7 @@
 /* 캠페인 폼 2컬럼 (폼 + 실시간 미리보기) */
 .camp-form-2col{display:flex;gap:20px;align-items:flex-start}
 .camp-form-main{flex:1;min-width:0}
-.camp-preview-pane{width:420px;flex-shrink:0;position:sticky;top:0;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1);max-height:calc(100vh - 48px);transition:width .2s}
+.camp-preview-pane{width:420px;flex-shrink:0;position:sticky;top:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;max-height:calc(100vh - 48px);transition:width .2s}
 .camp-preview-pane-header{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;background:var(--surface-dim);color:var(--ink);flex-shrink:0}
 .camp-preview-pane-header button{padding:2px 6px}
 .cp-lang-toggle{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
