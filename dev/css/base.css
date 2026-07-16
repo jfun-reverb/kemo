@@ -3,25 +3,27 @@
 ══════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* Material Design 색상 */
-  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
-  --on-primary:#fff;--on-primary-container:#7D4A6A;
-  --surface:#fff;--surface-dim:#F5F0F5;--surface-container:#FDFBFD;--surface-container-low:#F8F5F8;
-  --on-surface:#1E1320;--on-surface-variant:#7A6B78;--outline:#EDE6ED;--outline-variant:#E0D8E0;
-  --ink:#1E1320;--muted:#7A6B78;--line:#EDE6ED;--bg:#FDFBFD;
-  --green:#0E7E4A;--green-l:#F0FBF5;--gold:#9B6E3A;--gold-l:#FFF5E8;
-  --blue:#56475D;--blue-l:#F0EBF5;--white:#fff;
-  --red:#C878A3;--red-d:#56475D;--red-l:#FDF0F7;
-  --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;--ink2:#2D1F2B;
+  /* 무채색(모노크롬) 팔레트 — 2026-07-16 리디자인. 브랜드색 = 검정 강조, 상태는 기능색 유지 */
+  --primary:#1A1A1A;--primary-dark:#000000;--primary-light:#F4F4F5;--primary-container:#F4F4F5;
+  --on-primary:#fff;--on-primary-container:#1A1A1A;
+  --surface:#fff;--surface-dim:#F4F4F5;--surface-container:#FAFAFA;--surface-container-low:#F7F7F8;
+  --on-surface:#18181B;--on-surface-variant:#71717A;--outline:#E4E4E7;--outline-variant:#EDEDF0;
+  --ink:#18181B;--muted:#71717A;--line:#E4E4E7;--bg:#FAFAFA;
+  /* 상태 기능색 (무채색 아님 — 모집중/승인/반려/경고 구분 유지) */
+  --green:#16A34A;--green-l:#F0FDF4;--gold:#D97706;--gold-l:#FFFBEB;
+  --blue:#2563EB;--blue-l:#EFF6FF;--white:#fff;
+  --red:#DC2626;--red-d:#B91C1C;--red-l:#FEF2F2;
+  /* 구 핑크 계열 별칭 → 무채색 매핑 (기존 참조 하위호환, 잔여 정리 전까지 안전값) */
+  --pink:#1A1A1A;--baby-pink:#D4D4D8;--dark-pink:#000000;--light-pink:#F4F4F5;--ink2:#27272A;
 
-  /* Material Design radius */
+  /* radius */
   --r8:8px;--r12:12px;--r16:16px;--r24:24px;--r-full:9999px;
 
-  /* Material Design elevation */
-  --elevation-1:0 1px 3px 1px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --elevation-2:0 2px 6px 2px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --elevation-3:0 4px 8px 3px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
-  --elevation-4:0 6px 10px 4px rgba(0,0,0,.08),0 2px 3px rgba(0,0,0,.06);
+  /* elevation — 무채색 미니멀: 그림자 약화, 테두리 위주 */
+  --elevation-1:0 1px 2px rgba(0,0,0,.04);
+  --elevation-2:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.03);
+  --elevation-3:0 4px 12px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.04);
+  --elevation-4:0 8px 24px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
 
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);

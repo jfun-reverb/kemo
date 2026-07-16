@@ -64,7 +64,7 @@ function brandOpsAlertReasonLines(b) {
 
 async function loadBrandOps() {
   var grid = $('brandOpsGrid');
-  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
   // 회사 드롭다운(전체/회사별/미분류) — 최초 1회 또는 매 로드 시 갱신
   _brandOpsCompanies = await fetchCompanies({ status: 'all' });
   fillBrandOpsCompanyFilter();
@@ -201,7 +201,7 @@ async function loadBrandOpsDetail() {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">운영 현황에서 브랜드를 선택하세요</div>';
     return;
   }
-  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
 
   // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
   var results = await Promise.all([

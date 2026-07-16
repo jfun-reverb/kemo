@@ -716,7 +716,7 @@ const OS_DETAIL_STYLE = `<style>
   .os-field-wide{grid-column:1/-1}
   .os-field-label{color:var(--muted,#8a8a90);font-size:11px;font-weight:700;letter-spacing:.02em;margin-bottom:3px}
   .os-field-val{font-size:13.5px;line-height:1.65;color:#161618;word-break:break-word}
-  .os-field-val a{color:var(--pink,#E8344E);text-decoration:underline}
+  .os-field-val a{color:var(--pink,#1A1A1A);text-decoration:underline}
   .os-empty{color:#bbb;font-weight:400}
 </style>`;
 
@@ -1200,7 +1200,7 @@ function ensureOrientModals() {
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientCreateModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
         <div id="osCreateForm">
-          <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#E8344E)">*</span></label>
+          <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#1A1A1A)">*</span></label>
             <div class="admin-proxy-combobox" id="osCreateBrandCombobox">
               <input type="text" id="osCreateBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명 검색 후 선택" autocomplete="off" oninput="osBrandInput()" onfocus="osBrandShowList()">
               <input type="hidden" id="osCreateBrand">
@@ -1277,7 +1277,7 @@ function ensureOrientModals() {
         <div id="osPublishChoice">
           <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">이 카드를 어떻게 발행할까요?</p>
           <button type="button" onclick="osChooseNewPublish()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#E8344E)">add_circle</span>신규 캠페인 발행</div>
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#1A1A1A)">add_circle</span>신규 캠페인 발행</div>
             <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:26px">오리엔시트 내용으로 캠페인 등록 폼을 자동 채워 새 캠페인을 만듭니다.</div>
           </button>
           <button type="button" onclick="osChooseLinkExisting()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer">

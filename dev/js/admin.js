@@ -2549,7 +2549,7 @@ async function moveCampOrder(campId, dir) {
   const movedRow = document.querySelector(`tr[data-camp-id="${campId}"]`);
   if (movedRow) {
     movedRow.style.transition = 'background .3s';
-    movedRow.style.background = 'rgba(200,120,163,.12)';
+    movedRow.style.background = 'rgba(24,24,27,.12)';
     setTimeout(() => { movedRow.style.background = ''; }, 600);
   }
 
