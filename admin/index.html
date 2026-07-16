@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784159156';
+  var CURRENT_BUILD = 'v1784191515';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -61,25 +61,27 @@
 ══════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* Material Design 색상 */
-  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
-  --on-primary:#fff;--on-primary-container:#7D4A6A;
-  --surface:#fff;--surface-dim:#F5F0F5;--surface-container:#FDFBFD;--surface-container-low:#F8F5F8;
-  --on-surface:#1E1320;--on-surface-variant:#7A6B78;--outline:#EDE6ED;--outline-variant:#E0D8E0;
-  --ink:#1E1320;--muted:#7A6B78;--line:#EDE6ED;--bg:#FDFBFD;
-  --green:#0E7E4A;--green-l:#F0FBF5;--gold:#9B6E3A;--gold-l:#FFF5E8;
-  --blue:#56475D;--blue-l:#F0EBF5;--white:#fff;
-  --red:#C878A3;--red-d:#56475D;--red-l:#FDF0F7;
-  --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;--ink2:#2D1F2B;
+  /* 무채색(모노크롬) 팔레트 — 2026-07-16 리디자인. 브랜드색 = 검정 강조, 상태는 기능색 유지 */
+  --primary:#1A1A1A;--primary-dark:#000000;--primary-light:#F4F4F5;--primary-container:#F4F4F5;
+  --on-primary:#fff;--on-primary-container:#1A1A1A;
+  --surface:#fff;--surface-dim:#F4F4F5;--surface-container:#FAFAFA;--surface-container-low:#F7F7F8;
+  --on-surface:#18181B;--on-surface-variant:#71717A;--outline:#E4E4E7;--outline-variant:#EDEDF0;
+  --ink:#18181B;--muted:#71717A;--line:#E4E4E7;--bg:#FAFAFA;
+  /* 상태 기능색 (무채색 아님 — 모집중/승인/반려/경고 구분 유지) */
+  --green:#16A34A;--green-l:#F0FDF4;--gold:#D97706;--gold-l:#FFFBEB;
+  --blue:#2563EB;--blue-l:#EFF6FF;--white:#fff;
+  --red:#DC2626;--red-d:#B91C1C;--red-l:#FEF2F2;
+  /* 구 핑크 계열 별칭 → 무채색 매핑 (기존 참조 하위호환, 잔여 정리 전까지 안전값) */
+  --pink:#1A1A1A;--baby-pink:#D4D4D8;--dark-pink:#000000;--light-pink:#F4F4F5;--ink2:#27272A;
 
-  /* Material Design radius */
+  /* radius */
   --r8:8px;--r12:12px;--r16:16px;--r24:24px;--r-full:9999px;
 
-  /* Material Design elevation */
-  --elevation-1:0 1px 3px 1px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --elevation-2:0 2px 6px 2px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --elevation-3:0 4px 8px 3px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
-  --elevation-4:0 6px 10px 4px rgba(0,0,0,.08),0 2px 3px rgba(0,0,0,.06);
+  /* elevation — 무채색 미니멀: 그림자 약화, 테두리 위주 */
+  --elevation-1:0 1px 2px rgba(0,0,0,.04);
+  --elevation-2:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.03);
+  --elevation-3:0 4px 12px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.04);
+  --elevation-4:0 8px 24px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
 
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
@@ -112,7 +114,7 @@ img{display:block;max-width:100%}
 ══════════════════════════════════ */
 
 /* ── GNB (Top App Bar) ── */
-.gnb{background:#2D1F2B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
+.gnb{background:#18181B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}
@@ -175,7 +177,7 @@ img{display:block;max-width:100%}
 .form-label{font-size:12px;font-weight:600;color:var(--on-surface);letter-spacing:.02em}
 .form-hint{font-size:11px;color:var(--on-surface-variant);line-height:1.5}
 .form-input{padding:12px 16px;border:1.5px solid var(--outline);border-radius:var(--r12);font-size:16px;color:var(--on-surface);background:var(--surface);transition:all .2s cubic-bezier(.2,0,0,1);width:100%;box-sizing:border-box}
-.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .form-input::placeholder{color:var(--on-surface-variant)}
 select.form-input{cursor:pointer;padding-right:36px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22><path d=%22M1 1l5 5 5-5%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:12px}
 textarea.form-input{resize:vertical;min-height:80px}
@@ -234,11 +236,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   font-size:14px; font-weight:700;
   padding:14px 32px; border-radius:999px;
   border:none; cursor:pointer;
-  box-shadow:0 6px 20px rgba(200,120,163,.35), 0 2px 6px rgba(0,0,0,.1);
+  box-shadow:0 6px 20px rgba(24,24,27,.35), 0 2px 6px rgba(0,0,0,.1);
   transition:transform .15s, box-shadow .15s;
   white-space:nowrap;
 }
-.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(200,120,163,.45)}
+.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(24,24,27,.45)}
 .floating-auth-cta:active{transform:translateX(-50%) translateY(0)}
 
 /* ── 햄버거 버튼 + 배지 ── */
@@ -526,7 +528,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
 .admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
-.admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
+.admin-si.on{color:#fff;background:rgba(24,24,27,.18);border-left-color:var(--primary);font-weight:600}
 .admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);padding:20px 20px 6px;text-transform:none;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
 .sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
@@ -794,7 +796,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
 /* タグ入力 */
 .tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border:1.5px solid var(--outline);border-radius:var(--r12);background:var(--surface);min-height:42px;align-items:center;cursor:text}
-.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .tag-input{border:none;outline:none;font-size:14px;background:transparent;min-width:80px;flex:1;padding:2px 0;color:var(--ink)}
 .tag-label{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--light-pink);color:var(--dark-pink);border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
 .tag-label button{border:none;background:none;cursor:pointer;font-size:14px;color:var(--dark-pink);padding:0;line-height:1;opacity:.7}
@@ -828,7 +830,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
 .cp-gnb-badge{background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
 .cp-body-scroll{flex:1;overflow-y:auto;padding-bottom:64px}
-.cp-hero{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#F8BBD0 0%,#F48FB1 100%);overflow:hidden}
+.cp-hero{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);overflow:hidden}
 .cp-hero > img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f5f5f5}
 .cp-hero-ct{position:absolute;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap;z-index:2}
 .cp-hero-ct-chip{background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;backdrop-filter:blur(4px)}
@@ -871,8 +873,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .cp-sec-body .rich-content *{font-size:inherit!important}
 /* 캠페인 미리보기·상세 — 브랜드 어필 / 촬영 가이드 / NG 사항 박스
    var(--bg) 흐린 회색이 가독성 떨어진다는 사용자 보고 → 옅은 핑크/라일락 + 보더로 구분 강조 */
-.cp-sec-bg-pink{background:#fff5ff;padding:10px 12px;border-radius:8px;border:1px solid #f0d8e8}
-.cp-sec-bg-guide{background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8}
+.cp-sec-bg-pink{background:var(--surface-dim);padding:10px 12px;border-radius:8px;border:1px solid var(--outline)}
+.cp-sec-bg-guide{background:#FAFAFA;padding:12px;border-radius:8px;border:1px solid var(--outline)}
 .cp-sec-bg-ng{background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd}
 .cp-sec-subtitle{font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 /* 하단 고정 CTA 모방 */
@@ -892,7 +894,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .mini-editor-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .mini-editor-toolbar{display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:#fafafa}
 .mini-editor-toolbar button{border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
-.mini-editor-toolbar button:hover{background:rgba(200,120,163,.1)}
+.mini-editor-toolbar button:hover{background:rgba(24,24,27,.1)}
 .mini-editor-content{padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none;word-break:break-word}
 .mini-editor-content:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
 .mini-editor-content a{color:var(--pink);text-decoration:underline}
@@ -940,7 +942,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 }
 .mini-editor-link-popover .melp-url:focus{
   border-color:var(--pink);
-  box-shadow:0 0 0 2px rgba(200,120,163,0.15);
+  box-shadow:0 0 0 2px rgba(24,24,27,0.15);
 }
 .mini-editor-link-popover .melp-btn{
   border:0;
@@ -954,7 +956,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   color:var(--ink);
 }
 .mini-editor-link-popover .melp-btn:hover{
-  background:rgba(200,120,163,0.12);
+  background:rgba(24,24,27,0.12);
 }
 .mini-editor-link-popover .melp-delete{color:#B3261E}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
@@ -997,7 +999,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   white-space:nowrap;
 }
 .mini-editor-img-popover .meip-size:hover{
-  background:rgba(200,120,163,0.12);
+  background:rgba(24,24,27,0.12);
 }
 .mini-editor-img-popover .meip-size.is-active{
   background:var(--pink);
@@ -1439,7 +1441,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   padding:12px 16px;
   margin:10px -8px 0;          /* popup 좌우 padding 8px 상쇄 — 푸터 좌우 끝까지 확장 */
   border-top:1px solid var(--line);
-  background:var(--surface-container-low,#F8F5F8);
+  background:var(--surface-container-low,#F7F7F8);
   border-bottom-left-radius:14px;
   border-bottom-right-radius:14px;
 }
@@ -1556,13 +1558,13 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
-.brand-app-pay-cell .pay-row.is-checked{background:#FCE4EC;color:#B91D5F}
+.brand-app-pay-cell .pay-row.is-checked{background:var(--surface-dim);color:var(--ink)}
 /* 무료모집은 차별화 — 초록 톤. 비용 청구 안 함을 시각으로 분리 */
 .brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:#16A34A}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
-.brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(200,120,163,.12);color:var(--pink)}
+.brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(24,24,27,.12);color:var(--pink)}
 .brand-app-pay-cell .pay-refresh-btn:disabled{opacity:.5;cursor:not-allowed}
 .brand-app-pay-cell .pay-refresh-btn .material-icons-round{font-size:15px}
 
@@ -1583,8 +1585,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .custom-srcapp-readonly{margin-top:6px;padding:7px 10px;font-size:12px;color:var(--on-surface-variant,#666);background:var(--surface-dim,#f5f5f5);border:1px solid var(--line);border-radius:8px}
 .custom-srcapp-trigger{width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--r12);padding:8px 36px 8px 12px;font-size:13px;line-height:1.5;color:var(--on-surface);cursor:pointer;position:relative;font-family:inherit;box-sizing:border-box;transition:all .2s cubic-bezier(.2,0,0,1)}
 .custom-srcapp-trigger:hover{border-color:var(--primary)}
-.custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
-.custom-srcapp-trigger.is-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
+.custom-srcapp-trigger.is-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .custom-srcapp-trigger::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;border-right:1.5px solid #999;border-bottom:1.5px solid #999;transform:translateY(-70%) rotate(45deg);pointer-events:none;transition:transform .15s}
 .custom-srcapp-trigger.is-open::after{transform:translateY(-30%) rotate(-135deg)}
 .custom-srcapp-trigger-main{font-size:13px;font-weight:600;color:var(--on-surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1595,7 +1597,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .custom-srcapp-option{padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f1f1;transition:background .12s}
 .custom-srcapp-option:last-child{border-bottom:none}
 .custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:#fff4f8}
-.custom-srcapp-option.is-selected{background:#fdeef4}
+.custom-srcapp-option.is-selected{background:var(--surface-dim)}
 .custom-srcapp-option-main{font-size:13px;font-weight:600;color:var(--on-surface);line-height:1.4;word-break:break-word}
 .custom-srcapp-option-main.is-empty{font-weight:400;color:var(--on-surface-variant);font-style:italic}
 .custom-srcapp-option-meta{font-size:11px;color:var(--on-surface-variant);margin-top:3px;line-height:1.3}
@@ -1683,7 +1685,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 「내가 보낸 순」 — 좌측 캠페인 목록 비활성, 대화 카드에 캠페인·브랜드 라벨 */
 .inbox-camp-disabled{opacity:.45;pointer-events:none}
-.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#c2185b);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#000000);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
 .inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
@@ -1924,7 +1926,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
-.lightbox-zoom-ctrl .material-icons-round:hover{color:#FFD2E0}
+.lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
@@ -2101,7 +2103,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-cell { min-width: 96px; }
 .perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
-.perm-sel.perm-dirty { border-color: var(--pink, #EC4899); background: #FDF2F8; font-weight: 600; }
+.perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
 .perm-tag {
   display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
@@ -2183,18 +2185,18 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .tier-help-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; border-radius: 50%;
-  background: var(--muted, #7A6B78); color: #fff;
+  background: var(--muted, #71717A); color: #fff;
   font-size: 10px; font-weight: 700; cursor: pointer;
   vertical-align: middle; margin-left: 2px; user-select: none;
 }
-.tier-help-icon:hover { background: var(--ink, #1E1320); }
+.tier-help-icon:hover { background: var(--ink, #18181B); }
 
 </style>
 </head>
 <body style="background:#F8F5F8">
 <!-- 글로벌 요소 -->
 <div id="toast"></div>
-<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
 
 <!-- 이미지 크롭 모달 -->
 <div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
@@ -2272,7 +2274,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-16 08:45 · afabc32</span>
+          <span class="admin-build-text">2026-07-16 17:45 · 03d7dd7</span>
         </div>
       </div>
     </aside>
@@ -2304,21 +2306,21 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">새로고침</button>
           </div>
           <div class="kpi-row">
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
           </div>
 
           <!-- 캠페인 분포 -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">상태별 캠페인</div>
-              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:var(--muted)">(복수 채널 중복 집계)</span></div>
-              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
 
@@ -2335,8 +2337,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div style="padding:16px;height:240px"><canvas id="signupChart"></canvas></div>
               <div style="display:flex;gap:12px;padding:0 16px 16px">
-                <div style="flex:1;background:#FFF0F6;border-radius:10px;padding:12px 14px">
-                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+                <div style="flex:1;background:#F4F4F5;border-radius:10px;padding:12px 14px">
+                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
                   <div style="font-size:11px;color:var(--muted);margin-top:2px">오늘 가입</div>
                 </div>
                 <div style="flex:1;background:#F0F4FF;border-radius:10px;padding:12px 14px">
@@ -2347,7 +2349,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">프로필 완성률</div>
-              <div id="profileCompletionBars"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+              <div id="profileCompletionBars"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
 
@@ -2360,7 +2362,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div style="padding:16px;position:relative;height:260px">
               <canvas id="addressDistChart"></canvas>
               <div id="addressDistEmpty" style="display:none;text-align:center;color:var(--muted);padding:60px 0;font-size:13px">집계할 배송지 데이터가 없습니다</div>
-              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
             </div>
           </div>
 
@@ -2446,7 +2448,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -3085,7 +3087,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <thead id="infTableHead">
                 <tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>PayPal</th><th>등록일</th></tr>
               </thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -3178,7 +3180,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>오리엔시트 발송</th><th>결과물</th><th>처리</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="campApplicantsBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -3227,7 +3229,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="admin-table-wrap">
               <table class="data-table">
                 <thead id="appTableHead"><tr><th style="min-width:240px">캠페인</th><th style="min-width:110px">채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
             </div>
@@ -3322,7 +3324,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:120px">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -3380,7 +3382,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:120px">송금완료일</th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
-                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -3426,7 +3428,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:130px">인증성공일</th>
                   <th style="width:100px">PayPal</th>
                 </tr></thead>
-                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -3591,7 +3593,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:130px">소속사</th>
                   <th style="width:90px">처리</th>
                 </tr></thead>
-                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -3693,7 +3695,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div class="admin-table-wrap">
               <table class="data-table">
                 <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th style="width:60px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
-                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -3806,7 +3808,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
           <!-- KPI Row 1: 전체 · 리뷰어 · 시딩 · 이번달 -->
           <div class="kpi-row">
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
             <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiReviewer">—</div><div class="kpi-lbl">리뷰어 (Qoo10)</div></div>
             <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiSeeding">—</div><div class="kpi-lbl">시딩 (나노)</div></div>
             <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
@@ -3902,7 +3904,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           </div>
 
           <!-- Vercel Analytics 링크 카드 (Phase 1: 링크만, Phase 2 Edge Function 연동 예정) -->
-          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(200,120,163,.06),rgba(80,120,200,.06))">
+          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(24,24,27,.06),rgba(80,120,200,.06))">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
@@ -3971,7 +3973,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
         <div id="adminPane-brand-ops-detail" class="admin-pane">
-          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
         </div>
 
         <!-- LINK CAMPAIGN MODAL (캠페인 ↔ 신청 연결) -->
@@ -4038,7 +4040,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:100px">상태</th>
                   <th style="width:240px">작업</th>
                 </tr></thead>
-                <tbody id="companiesTableBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="companiesTableBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -4135,7 +4137,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:100px">상태</th>
                   <th style="width:220px">메모</th>
                 </tr></thead>
-                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -4247,7 +4249,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -4327,7 +4329,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <table class="data-table">
               <thead id="lookupTableHead"></thead>
               <tbody id="lookupsTableBody">
-                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
             </div>
@@ -4352,7 +4354,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <button class="btn btn-ghost btn-xs" id="btnFaqCatReorder" onclick="toggleFaqReorder('category')">순서 변경</button>
               </div>
               <div class="faq-list" id="faqCatList">
-                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
               </div>
               <div class="faq-col-footer">
                 <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqEditModal(null, null, 'category')">+ 카테고리 추가</button>
@@ -4437,7 +4439,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th>등록일</th><th>처리</th></tr></thead>
-              <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -4520,7 +4522,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <option value="super_admin">슈퍼관리자</option>
         </select>
       </div>
-      <div id="adminFormInviteNotice" style="background:#FDF0F7;border:1px solid rgba(200,120,163,.25);border-radius:10px;padding:10px 12px;font-size:11px;color:#7D4A6A;line-height:1.6;margin-bottom:10px">
+      <div id="adminFormInviteNotice" style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:10px 12px;font-size:11px;color:#52525B;line-height:1.6;margin-bottom:10px">
         추가 시 초대 이메일이 발송됩니다. 받는 분이 이메일 링크로 직접 비밀번호를 설정해야 로그인 가능합니다.
       </div>
       <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
@@ -4829,7 +4831,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中)</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#FCE4EC;color:#AD1457;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
+            <td style="padding:8px 10px"><span style="background:#FFE4EC;color:#B91C5C;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
             <td style="padding:8px 10px">모집 끝 · 결과물 받는 중</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">보임 (募集締切), 끌 때까지</td>
           </tr>
@@ -12496,7 +12498,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   // 검색형(opt-in) — 옵션이 많은 드롭다운(캠페인 등)에서만 사용. 기본 false → 기존 전 페인 무영향
   const searchHtml = opts.searchable
     ? `<div class="mf-search-box"><input type="search" class="mf-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="${esc(opts.searchPlaceholder || '検索')}"></div>`
-      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#E8344E);background:var(--light-pink,#FDEEF4);border:1px solid var(--pink,#E8344E);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
+      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#1A1A1A);background:var(--light-pink,#F4F4F5);border:1px solid var(--pink,#1A1A1A);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
     : '';
   const emptyHtml = opts.searchable ? `<div class="mf-search-empty" style="display:none">일치하는 항목이 없습니다</div>` : '';
   // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)
@@ -13578,7 +13580,7 @@ const OS_DETAIL_STYLE = `<style>
   .os-field-wide{grid-column:1/-1}
   .os-field-label{color:var(--muted,#8a8a90);font-size:11px;font-weight:700;letter-spacing:.02em;margin-bottom:3px}
   .os-field-val{font-size:13.5px;line-height:1.65;color:#161618;word-break:break-word}
-  .os-field-val a{color:var(--pink,#E8344E);text-decoration:underline}
+  .os-field-val a{color:var(--pink,#1A1A1A);text-decoration:underline}
   .os-empty{color:#bbb;font-weight:400}
 </style>`;
 
@@ -14062,7 +14064,7 @@ function ensureOrientModals() {
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientCreateModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
         <div id="osCreateForm">
-          <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#E8344E)">*</span></label>
+          <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#1A1A1A)">*</span></label>
             <div class="admin-proxy-combobox" id="osCreateBrandCombobox">
               <input type="text" id="osCreateBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명 검색 후 선택" autocomplete="off" oninput="osBrandInput()" onfocus="osBrandShowList()">
               <input type="hidden" id="osCreateBrand">
@@ -14139,7 +14141,7 @@ function ensureOrientModals() {
         <div id="osPublishChoice">
           <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">이 카드를 어떻게 발행할까요?</p>
           <button type="button" onclick="osChooseNewPublish()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#E8344E)">add_circle</span>신규 캠페인 발행</div>
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#1A1A1A)">add_circle</span>신규 캠페인 발행</div>
             <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:26px">오리엔시트 내용으로 캠페인 등록 폼을 자동 채워 새 캠페인을 만듭니다.</div>
           </button>
           <button type="button" onclick="osChooseLinkExisting()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer">
@@ -14298,7 +14300,7 @@ var BRAND_APP_STATUS = {
   'paid':                {label:'입금완료',         color:'#6A2',   bg:'#EFE'},
   'kakao_room_created':  {label:'카톡방 생성',      color:'#A57',   bg:'#FBF2DE'},
   'orient_sheet_sent':   {label:'오리엔시트 전달',  color:'#735',   bg:'#F2E6F0'},
-  'schedule_sent':       {label:'일정 전달',        color:'#A36',   bg:'#FDEEF4'},
+  'schedule_sent':       {label:'일정 전달',        color:'#52525B', bg:'#F4F4F5'},
   'campaign_registered': {label:'캠페인 등록',      color:'#274',   bg:'#E6F3E8'},
   'done':                {label:'최종완료',         color:'#555',   bg:'#EEE'},
   'rejected':            {label:'반려',             color:'#999',   bg:'#F5F5F5'}
@@ -14718,13 +14720,13 @@ var BRAND_STATUS_LABEL_KO = {
 };
 // 색상은 단계의 의미에 따라 유지 (코드 ↔ 의미 매핑 불변)
 var BRAND_STATUS_COLOR = {
-  new:                 '#C878A3',   // 핑크 (대기)
+  new:                 '#A1A1AA',   // 회색 (대기)
   reviewing:           '#E8A355',   // 오렌지
   quoted:              '#5B8FD6',   // 블루 (견적)
   paid:                '#6BB38E',   // 그린 (입금)
   kakao_room_created:  '#F4C95D',   // 옐로우 (카톡)
   orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
-  schedule_sent:       '#D97AA6',   // 진한 핑크 (일정)
+  schedule_sent:       '#71717A',   // 진회색 (일정)
   campaign_registered: '#4CA070',   // 연한 그린 (등록)
   done:                '#1F9D55',   // 짙은 그린 (최종완료)
   rejected:            '#B0B0B8'    // 회색 (종료)
@@ -14758,7 +14760,7 @@ function setBrandDashLoading(loading) {
   if (loading) {
     ids.forEach(function(id){
       var el = $(id);
-      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span>';
+      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span>';
     });
   }
 }
@@ -14881,7 +14883,7 @@ function renderBrandFunnel(apps) {
         + esc(stage.nameKo)
         + ' <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:4px">' + esc(stage.nameEn) + '</span>'
       + '</div>'
-      + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
+      + '<div style="height:22px;background:rgba(24,24,27,.08);border-radius:100px;overflow:hidden;position:relative">'
       + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
       + '</div>'
       + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
@@ -14916,7 +14918,7 @@ function renderBrandFormDonut(apps) {
       labels: ['리뷰어', '나노 시딩'],
       datasets: [{
         data: [reviewerN, seedingN],
-        backgroundColor: ['#C878A3', '#5B8FD6'],
+        backgroundColor: ['#18181B', '#5B8FD6'],
         borderColor: '#fff',
         borderWidth: 2
       }]
@@ -15010,7 +15012,7 @@ function renderBrandTrendChart(apps, days) {
     data: {
       labels: labels,
       datasets: [
-        { label: '리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
+        { label: '리뷰어', data: reviewerData, backgroundColor: '#18181B', borderRadius: 3, stack: 'applications' },
         { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
       ]
     },
@@ -15049,7 +15051,7 @@ function renderBrandRecent(apps) {
     var dateStr = (a.created_at || '').slice(0,10);
     var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
     var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(200,120,163,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(24,24,27,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
       +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(a.application_no || '') + ' · ' + esc(dateStr) + '</div>'
@@ -15252,7 +15254,7 @@ var BRANDS_PAGE_SIZE = 50;
 
 async function loadBrandsPane() {
   var tbody = $('brandsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
   _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
   // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
@@ -15323,7 +15325,7 @@ async function openBrandDetailModal(id) {
   var bodyEl = $('brandDetailBody');
   var footerEl = $('brandDetailFooter');
   if (!modal || !bodyEl) return;
-  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
   var [b, apps, companies, campCount] = await Promise.all([
@@ -15927,7 +15929,7 @@ async function loadBrandApplications() {
   if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
   _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -16399,7 +16401,7 @@ function renderBrandAppJourney(a) {
       + line;
   }).join('');
   var badges = '';
-  if (st.mixed) badges += '<span style="background:#FDEEF4;color:#A36;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
+  if (st.mixed) badges += '<span style="background:#F4F4F5;color:#52525B;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
   if (st.rejected) badges += '<span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">반려 포함</span>';
   return '<div style="padding:6px 4px 2px"><div style="display:flex;align-items:center;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px">진행 단계' + badges + '</div>'
     + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
@@ -16477,7 +16479,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   var emptyAction = '<td></td>';
 
   // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
-  var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
+  var rowStyle = isFirst ? 'border-top:2px solid rgba(24,24,27,.35)' : '';
 
   // 「직접등록」은 신청번호 옆 작은 칩으로 표시 (사용자 요청 2026-05-12).
   // 폼·채널 배지 줄에서는 제거 — 한 신청에 한 번만 노출되어 시각 잡음 감소.
@@ -16499,8 +16501,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     }).join('');
   }
   // 폼 라벨 컬러 분기: 리뷰어=핑크, 시딩=파랑. 한눈에 구분되도록 라이트 배경 + 톤 진한 글자.
-  var formBg = a.form_type === 'reviewer' ? '#FCE4EC' : '#E3F2FD';
-  var formFg = a.form_type === 'reviewer' ? '#B91D5F' : '#1565C0';
+  var formBg = a.form_type === 'reviewer' ? '#F4F4F5' : '#E3F2FD';
+  var formFg = a.form_type === 'reviewer' ? '#18181B' : '#1565C0';
   var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
     + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + manualBadgeInline + '</div>'
@@ -16637,7 +16639,7 @@ async function openBrandAppHistoryModal(id) {
   var bodyEl  = document.getElementById('brandAppHistoryBody');
   if (!modal || !titleEl || !bodyEl) return;
   titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + (cur.brand_name || '') : '신청 이력') + ' — 변경 이력';
-  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
   modal.classList.add('open');
   var rows = await fetchBrandApplicationHistory(id);
   _brandAppHistoryCache.set(id, rows || []);
@@ -17074,7 +17076,7 @@ async function openBrandAppMemoModal(id, productIdx) {
   var newInput = document.getElementById('brandAppMemoNewInput');
   if (!modal || !titleEl || !bodyEl) return;
   titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + productName : ('제품 ' + (_brandAppMemoModalCurrentProductIdx + 1))) + ' — 내부 메모';
-  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (newInput) newInput.value = '';
   modal.classList.add('open');
   await loadBrandAppMemoList();
@@ -18291,7 +18293,7 @@ function canEditCompanies() {
 
 async function loadCompanies() {
   var tbody = $('companiesTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   var statusF = $('companiesStatusFilter')?.value || 'active';
   var q = (($('companiesSearch')?.value) || '').trim();
   _companiesCache = await fetchCompanies({ status: statusF, search: q });
@@ -18526,7 +18528,7 @@ async function openBrandAssignModal(companyId) {
   if (title) title.textContent = c ? ('브랜드 할당 — ' + (c.name_ko || '')) : '미분류 브랜드 할당';
 
   var body = $('brandAssignModalBody');
-  if (body) body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  if (body) body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   openModal('brandAssignModal');
 
   _assignBrandList = await fetchBrandsForAssign({ companyId: companyId || null, unassignedOnly: !companyId });
@@ -18677,7 +18679,7 @@ function brandOpsAlertReasonLines(b) {
 
 async function loadBrandOps() {
   var grid = $('brandOpsGrid');
-  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
   // 회사 드롭다운(전체/회사별/미분류) — 최초 1회 또는 매 로드 시 갱신
   _brandOpsCompanies = await fetchCompanies({ status: 'all' });
   fillBrandOpsCompanyFilter();
@@ -18814,7 +18816,7 @@ async function loadBrandOpsDetail() {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">운영 현황에서 브랜드를 선택하세요</div>';
     return;
   }
-  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
 
   // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
   var results = await Promise.all([
@@ -22569,7 +22571,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
@@ -26873,8 +26875,8 @@ var PREFECTURE_KO = {
 
 // 파이 차트용 컬러 팔레트 (Top 10 + 미등록/해외)
 var ADDRESS_DIST_COLORS = [
-  '#E8344E','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
-  '#5BA86E','#E87A96','#3E79B8','#D49158','#7CA565'
+  '#18181B','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
+  '#5BA86E','#A1A1AA','#3E79B8','#D49158','#7CA565'
 ];
 
 // Chart.js 옵션 빌더 — legend/tooltip 퍼센티지 포맷 (렌더 함수 길이 축소 목적 분리)
@@ -27146,8 +27148,8 @@ function renderSignupChart(users, days) {
       datasets: [{
         label: '신규 가입',
         data: counts,
-        backgroundColor: 'rgba(200,120,163,.6)',
-        borderColor: 'rgba(200,120,163,1)',
+        backgroundColor: 'rgba(24,24,27,.6)',
+        borderColor: 'rgba(24,24,27,1)',
         borderWidth: 1,
         borderRadius: 4
       }]
@@ -28397,7 +28399,7 @@ async function renderLookupsTable() {
     </tr>`;
   }
   const colspan = 5 + (showRt ? 1 : 0);
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try {
     rows = await fetchLookupsAll(_currentLookupKind);
@@ -28644,7 +28646,7 @@ async function renderPsetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchParticipationSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -28815,7 +28817,7 @@ async function renderCsetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchCautionSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -29364,7 +29366,7 @@ async function renderNgSetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchNgSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -30450,7 +30452,7 @@ function closePastUnregView() {
 // 과거 미등록 목록 조회 → 맵 구성 + 선택 초기화 + 렌더
 async function loadPastUnregSettlements() {
   const tbody = $('pastUnregTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   try {
     _pastUnregRows = await fetchPastUnregisteredSettlements();
   } catch (e) {
@@ -33988,7 +33990,7 @@ async function moveCampOrder(campId, dir) {
   const movedRow = document.querySelector(`tr[data-camp-id="${campId}"]`);
   if (movedRow) {
     movedRow.style.transition = 'background .3s';
-    movedRow.style.background = 'rgba(200,120,163,.12)';
+    movedRow.style.background = 'rgba(24,24,27,.12)';
     setTimeout(() => { movedRow.style.background = ''; }, 600);
   }
 

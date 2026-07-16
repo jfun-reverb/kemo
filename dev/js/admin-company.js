@@ -23,7 +23,7 @@ function canEditCompanies() {
 
 async function loadCompanies() {
   var tbody = $('companiesTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   var statusF = $('companiesStatusFilter')?.value || 'active';
   var q = (($('companiesSearch')?.value) || '').trim();
   _companiesCache = await fetchCompanies({ status: statusF, search: q });
@@ -258,7 +258,7 @@ async function openBrandAssignModal(companyId) {
   if (title) title.textContent = c ? ('브랜드 할당 — ' + (c.name_ko || '')) : '미분류 브랜드 할당';
 
   var body = $('brandAssignModalBody');
-  if (body) body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  if (body) body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   openModal('brandAssignModal');
 
   _assignBrandList = await fetchBrandsForAssign({ companyId: companyId || null, unassignedOnly: !companyId });

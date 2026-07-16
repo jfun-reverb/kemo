@@ -82,7 +82,7 @@ async function renderLookupsTable() {
     </tr>`;
   }
   const colspan = 5 + (showRt ? 1 : 0);
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try {
     rows = await fetchLookupsAll(_currentLookupKind);
@@ -329,7 +329,7 @@ async function renderPsetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchParticipationSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -500,7 +500,7 @@ async function renderCsetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchCautionSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -1049,7 +1049,7 @@ async function renderNgSetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchNgSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;

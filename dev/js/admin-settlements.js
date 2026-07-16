@@ -583,7 +583,7 @@ function closePastUnregView() {
 // 과거 미등록 목록 조회 → 맵 구성 + 선택 초기화 + 렌더
 async function loadPastUnregSettlements() {
   const tbody = $('pastUnregTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   try {
     _pastUnregRows = await fetchPastUnregisteredSettlements();
   } catch (e) {

@@ -62,7 +62,7 @@
 <body style="background:#F8F5F8">
 <!-- 글로벌 요소 -->
 <div id="toast"></div>
-<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
 
 <!-- 이미지 크롭 모달 -->
 <div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
@@ -172,21 +172,21 @@
             <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">새로고침</button>
           </div>
           <div class="kpi-row">
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
           </div>
 
           <!-- 캠페인 분포 -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">상태별 캠페인</div>
-              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:var(--muted)">(복수 채널 중복 집계)</span></div>
-              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
 
@@ -203,8 +203,8 @@
               </div>
               <div style="padding:16px;height:240px"><canvas id="signupChart"></canvas></div>
               <div style="display:flex;gap:12px;padding:0 16px 16px">
-                <div style="flex:1;background:#FFF0F6;border-radius:10px;padding:12px 14px">
-                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+                <div style="flex:1;background:#F4F4F5;border-radius:10px;padding:12px 14px">
+                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
                   <div style="font-size:11px;color:var(--muted);margin-top:2px">오늘 가입</div>
                 </div>
                 <div style="flex:1;background:#F0F4FF;border-radius:10px;padding:12px 14px">
@@ -215,7 +215,7 @@
             </div>
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">프로필 완성률</div>
-              <div id="profileCompletionBars"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+              <div id="profileCompletionBars"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
 
@@ -228,7 +228,7 @@
             <div style="padding:16px;position:relative;height:260px">
               <canvas id="addressDistChart"></canvas>
               <div id="addressDistEmpty" style="display:none;text-align:center;color:var(--muted);padding:60px 0;font-size:13px">집계할 배송지 데이터가 없습니다</div>
-              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
             </div>
           </div>
 
@@ -314,7 +314,7 @@
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -953,7 +953,7 @@
               <thead id="infTableHead">
                 <tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>PayPal</th><th>등록일</th></tr>
               </thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1046,7 +1046,7 @@
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>오리엔시트 발송</th><th>결과물</th><th>처리</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="campApplicantsBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1095,7 +1095,7 @@
               <div class="admin-table-wrap">
               <table class="data-table">
                 <thead id="appTableHead"><tr><th style="min-width:240px">캠페인</th><th style="min-width:110px">채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
             </div>
@@ -1190,7 +1190,7 @@
                 <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:120px">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1248,7 +1248,7 @@
                   <th style="width:120px">송금완료일</th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
-                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1294,7 +1294,7 @@
                   <th style="width:130px">인증성공일</th>
                   <th style="width:100px">PayPal</th>
                 </tr></thead>
-                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1459,7 +1459,7 @@
                   <th style="width:130px">소속사</th>
                   <th style="width:90px">처리</th>
                 </tr></thead>
-                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1561,7 +1561,7 @@
             <div class="admin-table-wrap">
               <table class="data-table">
                 <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th style="width:60px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
-                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1674,7 +1674,7 @@
 
           <!-- KPI Row 1: 전체 · 리뷰어 · 시딩 · 이번달 -->
           <div class="kpi-row">
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
             <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiReviewer">—</div><div class="kpi-lbl">리뷰어 (Qoo10)</div></div>
             <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiSeeding">—</div><div class="kpi-lbl">시딩 (나노)</div></div>
             <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
@@ -1770,7 +1770,7 @@
           </div>
 
           <!-- Vercel Analytics 링크 카드 (Phase 1: 링크만, Phase 2 Edge Function 연동 예정) -->
-          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(200,120,163,.06),rgba(80,120,200,.06))">
+          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(24,24,27,.06),rgba(80,120,200,.06))">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
@@ -1839,7 +1839,7 @@
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
         <div id="adminPane-brand-ops-detail" class="admin-pane">
-          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
         </div>
 
         <!-- LINK CAMPAIGN MODAL (캠페인 ↔ 신청 연결) -->
@@ -1906,7 +1906,7 @@
                   <th style="width:100px">상태</th>
                   <th style="width:240px">작업</th>
                 </tr></thead>
-                <tbody id="companiesTableBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="companiesTableBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2003,7 +2003,7 @@
                   <th style="width:100px">상태</th>
                   <th style="width:220px">메모</th>
                 </tr></thead>
-                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2115,7 +2115,7 @@
                 <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2195,7 +2195,7 @@
             <table class="data-table">
               <thead id="lookupTableHead"></thead>
               <tbody id="lookupsTableBody">
-                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
             </div>
@@ -2220,7 +2220,7 @@
                 <button class="btn btn-ghost btn-xs" id="btnFaqCatReorder" onclick="toggleFaqReorder('category')">순서 변경</button>
               </div>
               <div class="faq-list" id="faqCatList">
-                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
               </div>
               <div class="faq-col-footer">
                 <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqEditModal(null, null, 'category')">+ 카테고리 추가</button>
@@ -2305,7 +2305,7 @@
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th>등록일</th><th>처리</th></tr></thead>
-              <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2388,7 +2388,7 @@
           <option value="super_admin">슈퍼관리자</option>
         </select>
       </div>
-      <div id="adminFormInviteNotice" style="background:#FDF0F7;border:1px solid rgba(200,120,163,.25);border-radius:10px;padding:10px 12px;font-size:11px;color:#7D4A6A;line-height:1.6;margin-bottom:10px">
+      <div id="adminFormInviteNotice" style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:10px 12px;font-size:11px;color:#52525B;line-height:1.6;margin-bottom:10px">
         추가 시 초대 이메일이 발송됩니다. 받는 분이 이메일 링크로 직접 비밀번호를 설정해야 로그인 가능합니다.
       </div>
       <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
@@ -2699,7 +2699,7 @@
             <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中)</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#FCE4EC;color:#AD1457;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
+            <td style="padding:8px 10px"><span style="background:#FFE4EC;color:#B91C5C;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
             <td style="padding:8px 10px">모집 끝 · 결과물 받는 중</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">보임 (募集締切), 끌 때까지</td>
           </tr>

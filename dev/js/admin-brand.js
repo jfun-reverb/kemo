@@ -124,7 +124,7 @@ var BRAND_APP_STATUS = {
   'paid':                {label:'입금완료',         color:'#6A2',   bg:'#EFE'},
   'kakao_room_created':  {label:'카톡방 생성',      color:'#A57',   bg:'#FBF2DE'},
   'orient_sheet_sent':   {label:'오리엔시트 전달',  color:'#735',   bg:'#F2E6F0'},
-  'schedule_sent':       {label:'일정 전달',        color:'#A36',   bg:'#FDEEF4'},
+  'schedule_sent':       {label:'일정 전달',        color:'#52525B', bg:'#F4F4F5'},
   'campaign_registered': {label:'캠페인 등록',      color:'#274',   bg:'#E6F3E8'},
   'done':                {label:'최종완료',         color:'#555',   bg:'#EEE'},
   'rejected':            {label:'반려',             color:'#999',   bg:'#F5F5F5'}
@@ -544,13 +544,13 @@ var BRAND_STATUS_LABEL_KO = {
 };
 // 색상은 단계의 의미에 따라 유지 (코드 ↔ 의미 매핑 불변)
 var BRAND_STATUS_COLOR = {
-  new:                 '#C878A3',   // 핑크 (대기)
+  new:                 '#A1A1AA',   // 회색 (대기)
   reviewing:           '#E8A355',   // 오렌지
   quoted:              '#5B8FD6',   // 블루 (견적)
   paid:                '#6BB38E',   // 그린 (입금)
   kakao_room_created:  '#F4C95D',   // 옐로우 (카톡)
   orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
-  schedule_sent:       '#D97AA6',   // 진한 핑크 (일정)
+  schedule_sent:       '#71717A',   // 진회색 (일정)
   campaign_registered: '#4CA070',   // 연한 그린 (등록)
   done:                '#1F9D55',   // 짙은 그린 (최종완료)
   rejected:            '#B0B0B8'    // 회색 (종료)
@@ -584,7 +584,7 @@ function setBrandDashLoading(loading) {
   if (loading) {
     ids.forEach(function(id){
       var el = $(id);
-      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span>';
+      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span>';
     });
   }
 }
@@ -707,7 +707,7 @@ function renderBrandFunnel(apps) {
         + esc(stage.nameKo)
         + ' <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:4px">' + esc(stage.nameEn) + '</span>'
       + '</div>'
-      + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
+      + '<div style="height:22px;background:rgba(24,24,27,.08);border-radius:100px;overflow:hidden;position:relative">'
       + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
       + '</div>'
       + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
@@ -742,7 +742,7 @@ function renderBrandFormDonut(apps) {
       labels: ['리뷰어', '나노 시딩'],
       datasets: [{
         data: [reviewerN, seedingN],
-        backgroundColor: ['#C878A3', '#5B8FD6'],
+        backgroundColor: ['#18181B', '#5B8FD6'],
         borderColor: '#fff',
         borderWidth: 2
       }]
@@ -836,7 +836,7 @@ function renderBrandTrendChart(apps, days) {
     data: {
       labels: labels,
       datasets: [
-        { label: '리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
+        { label: '리뷰어', data: reviewerData, backgroundColor: '#18181B', borderRadius: 3, stack: 'applications' },
         { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
       ]
     },
@@ -875,7 +875,7 @@ function renderBrandRecent(apps) {
     var dateStr = (a.created_at || '').slice(0,10);
     var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
     var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(200,120,163,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(24,24,27,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
       +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(a.application_no || '') + ' · ' + esc(dateStr) + '</div>'
@@ -1078,7 +1078,7 @@ var BRANDS_PAGE_SIZE = 50;
 
 async function loadBrandsPane() {
   var tbody = $('brandsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
   _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
   // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
@@ -1149,7 +1149,7 @@ async function openBrandDetailModal(id) {
   var bodyEl = $('brandDetailBody');
   var footerEl = $('brandDetailFooter');
   if (!modal || !bodyEl) return;
-  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
   var [b, apps, companies, campCount] = await Promise.all([
@@ -1753,7 +1753,7 @@ async function loadBrandApplications() {
   if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
   _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -2225,7 +2225,7 @@ function renderBrandAppJourney(a) {
       + line;
   }).join('');
   var badges = '';
-  if (st.mixed) badges += '<span style="background:#FDEEF4;color:#A36;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
+  if (st.mixed) badges += '<span style="background:#F4F4F5;color:#52525B;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
   if (st.rejected) badges += '<span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">반려 포함</span>';
   return '<div style="padding:6px 4px 2px"><div style="display:flex;align-items:center;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px">진행 단계' + badges + '</div>'
     + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
@@ -2303,7 +2303,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   var emptyAction = '<td></td>';
 
   // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
-  var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
+  var rowStyle = isFirst ? 'border-top:2px solid rgba(24,24,27,.35)' : '';
 
   // 「직접등록」은 신청번호 옆 작은 칩으로 표시 (사용자 요청 2026-05-12).
   // 폼·채널 배지 줄에서는 제거 — 한 신청에 한 번만 노출되어 시각 잡음 감소.
@@ -2325,8 +2325,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     }).join('');
   }
   // 폼 라벨 컬러 분기: 리뷰어=핑크, 시딩=파랑. 한눈에 구분되도록 라이트 배경 + 톤 진한 글자.
-  var formBg = a.form_type === 'reviewer' ? '#FCE4EC' : '#E3F2FD';
-  var formFg = a.form_type === 'reviewer' ? '#B91D5F' : '#1565C0';
+  var formBg = a.form_type === 'reviewer' ? '#F4F4F5' : '#E3F2FD';
+  var formFg = a.form_type === 'reviewer' ? '#18181B' : '#1565C0';
   var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
     + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + manualBadgeInline + '</div>'
@@ -2463,7 +2463,7 @@ async function openBrandAppHistoryModal(id) {
   var bodyEl  = document.getElementById('brandAppHistoryBody');
   if (!modal || !titleEl || !bodyEl) return;
   titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + (cur.brand_name || '') : '신청 이력') + ' — 변경 이력';
-  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
   modal.classList.add('open');
   var rows = await fetchBrandApplicationHistory(id);
   _brandAppHistoryCache.set(id, rows || []);
@@ -2900,7 +2900,7 @@ async function openBrandAppMemoModal(id, productIdx) {
   var newInput = document.getElementById('brandAppMemoNewInput');
   if (!modal || !titleEl || !bodyEl) return;
   titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + productName : ('제품 ' + (_brandAppMemoModalCurrentProductIdx + 1))) + ' — 내부 메모';
-  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (newInput) newInput.value = '';
   modal.classList.add('open');
   await loadBrandAppMemoList();
