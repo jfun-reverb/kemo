@@ -67,11 +67,14 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-layout{display:grid;grid-template-columns:240px 1fr;height:100vh;transition:grid-template-columns .25s ease;background:var(--admin-canvas)}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
 .admin-side{background:var(--admin-canvas);padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
-.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
+.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:transparent transparent}
+.admin-side-scroll:hover{scrollbar-color:rgba(0,0,0,.2) transparent}
 .admin-side-scroll::-webkit-scrollbar{width:6px}
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
-.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:3px}
-.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.28)}
+/* 평소엔 스크롤바 숨김, 마우스 올릴 때(스크롤 시)만 표시 */
+.admin-side-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;transition:background .2s}
+.admin-side-scroll:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
+.admin-side-scroll:hover::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.3)}
 .admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#9A9AA1;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:var(--on-surface);background:var(--surface-dim)}
 .admin-si.on{color:var(--on-surface);background:var(--surface-dim);border-left-color:var(--primary);font-weight:600}
