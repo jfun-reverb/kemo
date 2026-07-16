@@ -46,7 +46,7 @@ function switchLookupTab(kind, btn) {
     if (rb) { rb.textContent = '순서 변경'; rb.onclick = enterLookupReorderMode; rb.classList.remove('btn-primary'); rb.classList.add('btn-ghost'); }
   }
   document.querySelectorAll('.lookup-tab').forEach(b => {
-    b.style.color = 'var(--muted)';
+    b.style.color = '#9A9AA1';
     b.style.borderBottomColor = 'transparent';
     b.style.fontWeight = '600';
   });
