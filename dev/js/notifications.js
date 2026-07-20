@@ -63,7 +63,9 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
       {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
       {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
-      {sub:'settlements', label: t('mypage.menu.settlements')},
+      // 「報酬・精算」은 정산 공개 스위치(settlement_settings.influencer_visible)가 켜졌을 때만 노출.
+      // 현재는 「관리자만 기록」 단계라 잠금 — DB 값만 true 로 바꾸면 코드 수정 없이 다시 나타난다.
+      ...(settlementPublic() ? [{sub:'settlements', label: t('mypage.menu.settlements')}] : []),
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
@@ -319,7 +321,12 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     return;
   }
   if (kind === 'settlement_paid' && currentUser) {
-    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('settlements'); }
+    // 정산 잠금 중에는 이 알림이 목록에서 걸러져 도달하지 않지만, 만일의 경로(구 캐시 등)에도
+    // 정산 화면이 열리지 않도록 방어. 잠금이면 응모이력으로 폴백.
+    if (typeof navigate === 'function') {
+      navigate('mypage', false);
+      openMypageSub(settlementPublic() ? 'settlements' : 'applications');
+    }
     refreshNotifBadge();
     return;
   }
