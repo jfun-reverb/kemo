@@ -195,8 +195,21 @@ Deno.serve(async (req: Request) => {
       options: { redirectTo },
     });
     if (linkErr) throw linkErr;
-    const actionLink = linkData?.properties?.action_link;
-    if (!actionLink) throw new Error("generateLink returned no action_link");
+    const rawLink = linkData?.properties?.action_link;
+    if (!rawLink) throw new Error("generateLink returned no action_link");
+
+    // ★메일에는 Supabase 검증 주소를 그대로 싣지 않는다 — 우리 페이지의 프래그먼트(#) 뒤에 담는다.
+    //   이유: Supabase 재설정 링크는 검증 단계(GET)에서 즉시 소모되는 1회용이다. 그런데 메일 본문의
+    //   링크는 사람이 누르기 전에 여러 주체가 먼저 연다 — Brevo 클릭 추적 서버, 메일 서비스의
+    //   스팸·안전 검사기 등. 그 순간 토큰이 타버려 정작 받는 사람에게는 "만료된 링크"가 된다.
+    //   (2026-07-20 운영에서 실제 발생. Brevo 는 트랜잭션 메일의 클릭 추적을 끄는 옵션 자체가 없음)
+    //
+    //   #(프래그먼트) 뒤는 **서버로 전송되지 않는다**. 그래서 추적 서버나 스캐너가 이 주소를 열어도
+    //   Supabase 검증 주소는 건드려지지 않고, 브라우저에서 사람이 「계속」을 눌렀을 때 비로소 이동한다.
+    //   → 사람이 실제로 누른 순간에만 소모된다. 업계 표준 대응(Supabase Discussion #41618).
+    const adminBaseForLink = adminBase;
+    const actionLink =
+      `${adminBaseForLink}/admin-setpw.html?mode=${linkMode}#confirm=${encodeURIComponent(rawLink)}`;
 
     // 4) 메일 발송
     const adminName = String(targetRow.name || "").trim() || "관리자";
