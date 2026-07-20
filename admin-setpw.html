@@ -604,6 +604,20 @@ $('pwForm').addEventListener('submit', async (e) => {
       btn.textContent = '비밀번호 설정하기';
       return;
     }
+    // 최초 설정 완료 시각 기록 (마이그레이션 244) — 관리자 목록에서 "링크를 실제로 썼는지" 확인용.
+    // 본인 행 UPDATE 는 기존 admins 정책이 이미 허용하므로 별도 함수가 필요 없다.
+    // .is(null) 조건이 "최초 1회만" 을 보장(재설정으로 다시 들어와도 첫 시각이 유지됨).
+    // 실패해도 비밀번호 변경은 이미 성공했으므로 흐름을 막지 않는다.
+    try {
+      const { data: u } = await sb.auth.getUser();
+      if (u?.user?.id) {
+        await sb.from('admins')
+          .update({ invite_completed_at: new Date().toISOString() })
+          .eq('auth_id', u.user.id)
+          .is('invite_completed_at', null);
+      }
+    } catch (_) { /* 기록 실패는 무시 */ }
+
     // persistSession:false 라도 명시적으로 정리(방어적 이중 장치)
     try { await sb.auth.signOut(); } catch (_) {}
     showView('viewDone');
