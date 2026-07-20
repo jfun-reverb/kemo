@@ -346,16 +346,20 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 신청 그룹 시각화 — 같은 신청의 두 번째 이상 제품 행은 행 구분선 제거 (묶음 영역으로 보이게).
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
+#adminPane-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 /* KPI 카드는 「상태별 캠페인」 칩과 같은 회색 박스 — 카드 안에 들어가므로
    테두리 대신 연회색 면으로 구분한다(카드 테두리와 이중이 되지 않게). */
-.kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px;position:relative;overflow:hidden}
-/* KPI 카드 상단 띠는 제거했다 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어
-   정보를 주지 않으면서 화면만 시끄러웠다. 카드 테두리만으로 충분하다.
-   .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 그대로 두고 표시만 없앤다. */
+#adminPane-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
+/* KPI 카드 상단 띠 제거 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어 정보를 주지 않았다.
+   .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 두고 표시만 없앤다.
+   ⚠️ 회색 박스·작은 글자는 전체 현황 전용 — 같은 클래스를 쓰는 브랜드 서베이 현황
+      대시보드는 카드 래퍼가 없어 그 모양이 안 맞는다. 그래서 #adminPane-dashboard 로 한정. */
 .kpi-card::after{content:none}
-.kpi-val{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:2px;color:var(--ink)}
-.kpi-lbl{font-size:11px;color:var(--muted);font-weight:500}
+#adminPane-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
+.kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--ink)}
+#adminPane-dashboard .kpi-lbl{font-size:11px}
+.kpi-lbl{font-size:12px;color:var(--muted);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
 .signup-period-btn.on{background:var(--ink)!important;color:#fff!important}
 .brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}

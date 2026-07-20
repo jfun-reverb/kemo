@@ -5,7 +5,7 @@
 // 대시보드 페인 (admin.js 파일 분리).
 //   · 메인 로드 + KPI + 캠페인 분포 + 최근 신청 (loadAdminData/renderCampaignBreakdown/renderRecentAppsTable)
 //   · 회원가입 추이 차트 + 프로필 완성률 + 배송지 도도부현 도넛 (Chart.js)
-//   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/ADDRESS_DIST_COLORS
+//   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/accentRamp
 //
 // ⚠ loadAdminData 는 switchAdminPane(admin-core.js) loaders + 부트(app.js)가 호출 → 전역 유지(이름 변경 금지).
 // ⚠ loadAdminData 가 refreshAdminNoticeBadge/renderDashboardNotices/showAdminUnreadNoticesIfAny(admin-notices.js),
@@ -201,9 +201,8 @@ var PREFECTURE_KO = {
 
 // 차트용 포인트 컬러 램프 (2026-07-20 — 메인 컬러 #625EBD 계열)
 //   가장 큰 조각이 메인 컬러가 되도록 메인에서 시작해 점점 옅어진다.
-//   ⚠️ 밝은 쪽만 쓰므로 구분 폭이 좁다 — 검증상 3조각까지가 안전하고(인접차 19.8),
-//      4조각 12.8 · 5조각 9.5 로 기준(15) 미달이다. 조각이 많은 차트는
-//      가운데 단계들이 서로 비슷해 보이므로 범례·툴팁으로 읽어야 한다.
+//   ⚠️ 밝은 쪽만 쓰므로 구분 폭이 좁다 — 3조각 19.8 / 4조각 12.8 / 5조각 9.5 (기준 15).
+//      4조각부터는 가운데 단계들이 서로 비슷해 보이므로 범례·툴팁으로 읽어야 한다.
 function accentRamp(n) {
   const H = 243 / 360, S = 0.419, LO = 0.555, HI = 0.93;   // LO = 메인 컬러의 명도
   if (n <= 0) return [];
@@ -342,7 +341,6 @@ function renderAddressDistribution(users) {
 // 데이터 0건이면 빈 상태 안내, 소표본(생년월일 등록 30명 미만)이면 참고용 캡션.
 function renderAgeGenderDistribution(users) {
   const totalLabel = $('ageGenderTotal');
-  const collectBars = $('ageGenderCollectBars');
   const body = $('ageGenderBody');
   const empty = $('ageGenderEmpty');
   const caption = $('ageGenderCaption');
@@ -356,9 +354,6 @@ function renderAgeGenderDistribution(users) {
     const total = stats.total;
     if (totalLabel) totalLabel.textContent = `생년월일 ${stats.ageRegistered}·성별 ${stats.genderRegistered} / 전체 ${total}명`;
 
-    // 수집률 막대(생년월일·성별)는 「프로필 완성률」로 옮겼다 — 같은 성격(등록률)이라
-    // 한곳에서 보는 편이 낫다. renderProfileCompletion 참조.
-    if (collectBars) collectBars.innerHTML = '';
 
     if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
     if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
@@ -413,7 +408,7 @@ function renderAgeGenderDistribution(users) {
         labels: ['남성', '여성', '그 외', '응답 안 함', '미등록'],
         datasets: [{
           data: [stats.gender.male, stats.gender.female, stats.gender.other, stats.gender.undisclosed, stats.gender.unregistered],
-          backgroundColor: accentRamp(5),   // 인접 차이 15.2 — 구분 한계치
+          backgroundColor: accentRamp(5),   // ⚠️ 5조각은 인접차 9.5 로 기준 미달 — 범례로 읽는 전제
           borderColor: '#fff', borderWidth: 2
         }]
       },
@@ -554,7 +549,7 @@ function renderProfileCompletion(users) {
   const GENDERS = ['male','female','other','undisclosed'];
   const hasBirthdate = users.filter(u => {
     const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate || '') : null;
-    return age != null && age >= 18;
+    return age != null && age >= 18 && age <= 120;   // 상한도 있어야 storage.js bucketOf 와 같은 모수
   }).length;
   const hasGender = users.filter(u => GENDERS.includes(u.gender)).length;
 

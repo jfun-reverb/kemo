@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784549419';
+  var CURRENT_BUILD = 'v1784550260';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -806,16 +806,20 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 신청 그룹 시각화 — 같은 신청의 두 번째 이상 제품 행은 행 구분선 제거 (묶음 영역으로 보이게).
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
+#adminPane-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 /* KPI 카드는 「상태별 캠페인」 칩과 같은 회색 박스 — 카드 안에 들어가므로
    테두리 대신 연회색 면으로 구분한다(카드 테두리와 이중이 되지 않게). */
-.kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px;position:relative;overflow:hidden}
-/* KPI 카드 상단 띠는 제거했다 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어
-   정보를 주지 않으면서 화면만 시끄러웠다. 카드 테두리만으로 충분하다.
-   .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 그대로 두고 표시만 없앤다. */
+#adminPane-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
+/* KPI 카드 상단 띠 제거 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어 정보를 주지 않았다.
+   .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 두고 표시만 없앤다.
+   ⚠️ 회색 박스·작은 글자는 전체 현황 전용 — 같은 클래스를 쓰는 브랜드 서베이 현황
+      대시보드는 카드 래퍼가 없어 그 모양이 안 맞는다. 그래서 #adminPane-dashboard 로 한정. */
 .kpi-card::after{content:none}
-.kpi-val{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:2px;color:var(--ink)}
-.kpi-lbl{font-size:11px;color:var(--muted);font-weight:500}
+#adminPane-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
+.kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--ink)}
+#adminPane-dashboard .kpi-lbl{font-size:11px}
+.kpi-lbl{font-size:12px;color:var(--muted);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
 .signup-period-btn.on{background:var(--ink)!important;color:#fff!important}
 .brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}
@@ -2449,7 +2453,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-20 21:10 · 5ef5153</span>
+          <span class="admin-build-text">2026-07-20 21:24 · ba1dbcf</span>
         </div>
       </div>
     </aside>
@@ -2500,7 +2504,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
             <div class="admin-card accent-card" style="padding:16px">
-              <div class="admin-card-title" style="margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.8)">(복수 채널 중복 집계)</span></div>
+              <div class="admin-card-title" style="margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:#fff;opacity:.9">(복수 채널 중복 집계)</span></div>
               <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
@@ -2554,7 +2558,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <span id="ageGenderTotal" style="font-size:11px;color:var(--muted)"></span>
             </div>
             <div style="padding:16px">
-              <div id="ageGenderCollectBars" style="margin-bottom:14px"></div>
               <div id="ageGenderEmpty" style="display:none;text-align:center;color:var(--muted);padding:32px 0;font-size:13px">아직 생년월일·성별 데이터가 수집되지 않았습니다. 신규 가입과 응모 시 점진적으로 채워집니다.</div>
               <div id="ageGenderBody">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -26964,7 +26967,7 @@ async function exportInfluencersExcel() {
 // 대시보드 페인 (admin.js 파일 분리).
 //   · 메인 로드 + KPI + 캠페인 분포 + 최근 신청 (loadAdminData/renderCampaignBreakdown/renderRecentAppsTable)
 //   · 회원가입 추이 차트 + 프로필 완성률 + 배송지 도도부현 도넛 (Chart.js)
-//   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/ADDRESS_DIST_COLORS
+//   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/accentRamp
 //
 // ⚠ loadAdminData 는 switchAdminPane(admin-core.js) loaders + 부트(app.js)가 호출 → 전역 유지(이름 변경 금지).
 // ⚠ loadAdminData 가 refreshAdminNoticeBadge/renderDashboardNotices/showAdminUnreadNoticesIfAny(admin-notices.js),
@@ -27160,9 +27163,8 @@ var PREFECTURE_KO = {
 
 // 차트용 포인트 컬러 램프 (2026-07-20 — 메인 컬러 #625EBD 계열)
 //   가장 큰 조각이 메인 컬러가 되도록 메인에서 시작해 점점 옅어진다.
-//   ⚠️ 밝은 쪽만 쓰므로 구분 폭이 좁다 — 검증상 3조각까지가 안전하고(인접차 19.8),
-//      4조각 12.8 · 5조각 9.5 로 기준(15) 미달이다. 조각이 많은 차트는
-//      가운데 단계들이 서로 비슷해 보이므로 범례·툴팁으로 읽어야 한다.
+//   ⚠️ 밝은 쪽만 쓰므로 구분 폭이 좁다 — 3조각 19.8 / 4조각 12.8 / 5조각 9.5 (기준 15).
+//      4조각부터는 가운데 단계들이 서로 비슷해 보이므로 범례·툴팁으로 읽어야 한다.
 function accentRamp(n) {
   const H = 243 / 360, S = 0.419, LO = 0.555, HI = 0.93;   // LO = 메인 컬러의 명도
   if (n <= 0) return [];
@@ -27301,7 +27303,6 @@ function renderAddressDistribution(users) {
 // 데이터 0건이면 빈 상태 안내, 소표본(생년월일 등록 30명 미만)이면 참고용 캡션.
 function renderAgeGenderDistribution(users) {
   const totalLabel = $('ageGenderTotal');
-  const collectBars = $('ageGenderCollectBars');
   const body = $('ageGenderBody');
   const empty = $('ageGenderEmpty');
   const caption = $('ageGenderCaption');
@@ -27315,9 +27316,6 @@ function renderAgeGenderDistribution(users) {
     const total = stats.total;
     if (totalLabel) totalLabel.textContent = `생년월일 ${stats.ageRegistered}·성별 ${stats.genderRegistered} / 전체 ${total}명`;
 
-    // 수집률 막대(생년월일·성별)는 「프로필 완성률」로 옮겼다 — 같은 성격(등록률)이라
-    // 한곳에서 보는 편이 낫다. renderProfileCompletion 참조.
-    if (collectBars) collectBars.innerHTML = '';
 
     if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
     if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
@@ -27372,7 +27370,7 @@ function renderAgeGenderDistribution(users) {
         labels: ['남성', '여성', '그 외', '응답 안 함', '미등록'],
         datasets: [{
           data: [stats.gender.male, stats.gender.female, stats.gender.other, stats.gender.undisclosed, stats.gender.unregistered],
-          backgroundColor: accentRamp(5),   // 인접 차이 15.2 — 구분 한계치
+          backgroundColor: accentRamp(5),   // ⚠️ 5조각은 인접차 9.5 로 기준 미달 — 범례로 읽는 전제
           borderColor: '#fff', borderWidth: 2
         }]
       },
@@ -27513,7 +27511,7 @@ function renderProfileCompletion(users) {
   const GENDERS = ['male','female','other','undisclosed'];
   const hasBirthdate = users.filter(u => {
     const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate || '') : null;
-    return age != null && age >= 18;
+    return age != null && age >= 18 && age <= 120;   // 상한도 있어야 storage.js bucketOf 와 같은 모수
   }).length;
   const hasGender = users.filter(u => GENDERS.includes(u.gender)).length;
 
