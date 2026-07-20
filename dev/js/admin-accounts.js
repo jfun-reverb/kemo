@@ -57,6 +57,9 @@ async function loadAdminAccounts() {
   // 현재 로그인한 관리자 정보 먼저 확정 (렌더 시 권한 판단에 사용)
   currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   const isSuper = currentAdminInfo?.role === 'super_admin';
+  // 권한 관리 진입 버튼(관리자 추가 옆)은 super_admin 에게만 노출 (사이드바 메뉴 대체)
+  const _pmBtn = document.getElementById('btnPermManageBtn');
+  if (_pmBtn) _pmBtn.style.display = isSuper ? '' : 'none';
 
   // 구독 상태 + 메일 종류 카탈로그 일괄 로드
   const adminIds = admins.map(a => a.id);
