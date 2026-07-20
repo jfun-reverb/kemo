@@ -803,6 +803,26 @@ window._supabaseLoaded = false;
 <div id="page-reset-pw" class="page">
   <div class="auth-wrap">
     <div class="auth-card fade-up">
+      <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
+      <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
+        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています...</div>
+      </div>
+      <!-- 만료·무효 링크 안내 -->
+      <div id="resetPwExpired" style="display:none">
+        <div class="auth-logo">
+          <div class="auth-logo-mark">R</div>
+          <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
+        </div>
+        <ol style="font-size:14px;line-height:1.9;color:var(--text);padding-left:20px;margin:0 0 20px">
+          <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
+          <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
+          <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
+        </ol>
+        <button type="button" class="btn btn-primary btn-block" onclick="navigate('forgot')" data-i18n="auth.reset.expiredBtn">もう一度メールを送る</button>
+      </div>
+      <!-- 새 비밀번호 입력 폼 (기본 표시 — 옛 형식 링크는 이 상태로 바로 착지) -->
+      <div id="resetPwFormWrap">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
         <div class="auth-title" data-i18n="auth.reset.title">新しいパスワード</div>
@@ -827,6 +847,7 @@ window._supabaseLoaded = false;
         <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn" data-i18n="auth.reset.btn">パスワードを変更</button>
       </form>
+      </div><!-- /resetPwFormWrap -->
     </div>
   </div>
 </div>
