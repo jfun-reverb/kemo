@@ -130,12 +130,14 @@ function renderCampaignBreakdown(camps) {
   if (!statusEl || !chEl) return;
 
   const statusDef = [
-    {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
-    {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
-    {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'closed',    label:'모집마감', color:'#B91C5C', bg:'#FFE4EC'},
-    {key:'ended',     label:'종료',     color:'#3949AB', bg:'#E8EAF6'},
-    {key:'expired',   label:'노출종료', color:'#666666', bg:'#EEEEEE'},
+    // 색은 목록 화면 상태 배지(components.css .badge-*)와 같은 값을 쓴다.
+    // 두 화면이 다르면 같은 「모집중」이 화면마다 다른 초록으로 보인다.
+    {key:'draft',     label:'준비',     color:'var(--muted)', bg:'var(--surface-dim)'},
+    {key:'scheduled', label:'모집예정', color:'var(--blue)',  bg:'var(--blue-l)'},
+    {key:'active',    label:'모집중',   color:'var(--green)', bg:'var(--green-l)'},
+    {key:'closed',    label:'모집마감', color:'#B91C5C',      bg:'#FFE4EC'},
+    {key:'ended',     label:'종료',     color:'#5E35B1',      bg:'#EDE7F6'},
+    {key:'expired',   label:'노출종료', color:'#666666',      bg:'#EEEEEE'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
@@ -146,11 +148,13 @@ function renderCampaignBreakdown(camps) {
     </div>`).join('');
 
   const chDef = [
-    {key:'instagram', label:'Instagram', color:'#C13584', bg:'#FCE8F3'},
-    {key:'x', label:'X(Twitter)', color:'#0F1419', bg:'#EEEEEE'},
-    {key:'qoo10', label:'Qoo10', color:'#B26A00', bg:'#FFF4E5'},
-    {key:'tiktok', label:'TikTok', color:'#010101', bg:'#E8F7F9'},
-    {key:'youtube', label:'YouTube', color:'#C4302B', bg:'#FDECEC'},
+    // 채널은 상태가 아니라 분류다. 이름이 이미 무엇인지 말해주므로 색을 쓰지 않는다.
+    // (목록 화면의 채널 칩도 회색이라 그쪽과 통일)
+    {key:'instagram', label:'Instagram', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'x', label:'X(Twitter)', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'qoo10', label:'Qoo10', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'tiktok', label:'TikTok', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'youtube', label:'YouTube', color:'var(--ink)', bg:'var(--surface-dim)'},
   ];
   const chCount = {};
   camps.forEach(c => {
@@ -323,8 +327,8 @@ function renderAgeGenderDistribution(users) {
         </div>
       </div>`;
     if (collectBars) collectBars.innerHTML =
-      bar('생년월일 등록', pct(stats.ageRegistered), '#5B7CFF') +
-      bar('성별 등록', pct(stats.genderRegistered), '#28C76F');
+      bar('생년월일 등록', pct(stats.ageRegistered), 'var(--ink)') +
+      bar('성별 등록', pct(stats.genderRegistered), 'var(--ink)');
 
     if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
     if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
@@ -520,13 +524,13 @@ function renderProfileCompletion(users) {
     </div>`;
 
   $('profileCompletionBars').innerHTML =
-    bar('SNS', pct(hasSns), '#5B7CFF', false) +
-    bar('Instagram', pct(hasIg), '#5B7CFF', true) +
-    bar('X (Twitter)', pct(hasX), '#5B7CFF', true) +
-    bar('TikTok', pct(hasTiktok), '#5B7CFF', true) +
-    bar('YouTube', pct(hasYt), '#5B7CFF', true) +
+    bar('SNS', pct(hasSns), 'var(--ink)', false) +
+    bar('Instagram', pct(hasIg), 'var(--muted)', true) +
+    bar('X (Twitter)', pct(hasX), 'var(--muted)', true) +
+    bar('TikTok', pct(hasTiktok), 'var(--muted)', true) +
+    bar('YouTube', pct(hasYt), 'var(--muted)', true) +
     '<div style="margin-top:4px"></div>' +
-    bar('배송지', pct(hasAddr), '#FF9F43', false) +
-    bar('PayPal', pct(hasPaypal), '#28C76F', false);
+    bar('배송지', pct(hasAddr), 'var(--ink)', false) +
+    bar('PayPal', pct(hasPaypal), 'var(--ink)', false);
 }
 

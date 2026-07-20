@@ -31,6 +31,11 @@
   text-decoration-thickness:1px;
   transition:text-decoration-color .15s;
 }
+/* 빨강 배지의 글자색이 공용 components.css 에서 var(--pink) 로 지정돼 있는데,
+   관리자에선 그 별칭이 검정이라 「빨간 배경 + 검정 글자」가 됐다. 관리자에서만 바로잡는다.
+   (components.css 는 인플루언서 빌드와 공용이라 직접 못 고침) */
+#page-admin .badge-red{color:var(--red)}
+
 .link-cell:hover{text-decoration-color:var(--ink)}
 .link-cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:3px}
 
@@ -324,7 +329,10 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .kpi-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:20px;position:relative;overflow:hidden}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.kpi-r::after{background:var(--primary)}.kpi-g::after{background:var(--green)}.kpi-b::after{background:var(--blue)}.kpi-o::after{background:var(--gold)}
+/* KPI 카드 상단 3px 바는 장식이다 — 초록·파랑·주황이 각각 무엇을 뜻하는지 아무 데도
+   안 적혀 있어 정보를 주지 않으면서 화면만 시끄럽게 했다. 무채색으로 통일한다.
+   (클래스 4종은 다른 곳에서도 쓰이므로 이름은 그대로 두고 색만 맞춘다) */
+.kpi-r::after,.kpi-g::after,.kpi-b::after,.kpi-o::after{background:var(--ink)}
 .kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--on-surface)}
 .kpi-lbl{font-size:12px;color:var(--on-surface-variant);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
