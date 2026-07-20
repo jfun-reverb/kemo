@@ -314,13 +314,17 @@ async function saveAdmin() {
       });
       if (error) throw error;
 
-      // 초대 메일 발송 (비밀번호 설정 링크)
-      const redirectUrl = location.origin + '/#reset-pw';
-      const {error: mailErr} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
-      if (mailErr) {
-        toast('관리자 등록 성공. 단 초대 메일 발송 실패: ' + friendlyError(mailErr.message), 'error');
-      } else {
+      // 초대 메일 발송 — 관리자 전용 한국어 메일 + 관리자 전용 설정 화면(/admin-setpw.html).
+      // Supabase Auth 기본 발송(resetPasswordForEmail)은 쓰지 않는다:
+      //   ① 메일 문구가 인플루언서 비밀번호 찾기와 공유됨
+      //   ② pkce 검증값이 이 브라우저(super_admin)에 저장돼, 초대받은 사람 브라우저에선 링크가 안 열림
+      // 발송 실패는 관리자 등록 자체를 무효화하지 않는다(등록은 이미 성공 — 재발송으로 복구).
+      const mailRes = await sendAdminInviteMail(email, 'invite');
+      if (mailRes && mailRes.sent) {
         toast('관리자가 추가되었습니다. 초대 이메일이 발송되었습니다.', 'success');
+      } else {
+        toast('관리자 등록 성공. 단 초대 메일 발송 실패 — 목록에서 재발송해 주세요.', 'error');
+        console.error('[invite] mail failed', mailRes);
       }
       closeModal('addAdminModal');
       loadAdminAccounts();
@@ -398,16 +402,18 @@ async function executeResetPw() {
   }
 }
 
+// 재설정 메일 재발송 — 초대와 같은 경로(관리자 전용 메일 + /admin-setpw.html)를 재사용.
+// 기존에는 resetPasswordForEmail 을 redirectTo 없이 호출해 인플루언서 홈으로 착지했다(별도 착지 버그).
 async function sendResetEmail() {
   if (!db) return;
   const email = $('resetPwTargetEmail').textContent;
-  try {
-    const {error} = await db.auth.resetPasswordForEmail(email);
-    if (error) throw error;
-    toast(`${email}로 재설정 링크를 보냈습니다`,'success');
+  const res = await sendAdminInviteMail(email, 'reset');
+  if (res && res.sent) {
+    toast(`${email}로 재설정 링크를 보냈습니다`, 'success');
     closeModal('resetPwModal');
-  } catch(e) {
-    toast('이메일 발송 오류: ' + friendlyError(e.message),'error');
+  } else {
+    toast('이메일 발송 오류: 잠시 후 다시 시도해 주세요', 'error');
+    console.error('[reset mail] failed', res);
   }
 }
 

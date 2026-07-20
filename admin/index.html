@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784512838';
+  var CURRENT_BUILD = 'v1784519228';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2291,7 +2291,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-20 11:00 · 5dff626</span>
+          <span class="admin-build-text">2026-07-20 12:47 · b7fe1f6</span>
         </div>
       </div>
     </aside>
@@ -10620,6 +10620,32 @@ async function sendOrientInviteMail(orientSheetId, recipient) {
   }
   try {
     const { data, error } = await db.functions.invoke('notify-orient-sheet', { body });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 관리자 초대·비밀번호 재설정 메일 발송 (Edge Function notify-admin-invite).
+// Supabase Auth 기본 발송(resetPasswordForEmail)을 쓰지 않는 이유 2가지:
+//   1) Auth 는 메일 종류별 템플릿이 1개라 "Reset password" 를 인플루언서 비밀번호 찾기와 공유한다.
+//   2) flowType:'pkce' 라 resetPasswordForEmail 은 코드 교환 검증값을 "호출한 브라우저"에 저장하는데,
+//      관리자 초대는 super_admin 브라우저에서 호출하고 링크는 초대받은 사람의 다른 브라우저에서 열린다
+//      → 검증값이 없어 교환 실패. 서버 발급(generateLink)은 이 문제가 없다.
+// mode: 'invite'(초대 최초 설정) | 'reset'(재발송·재설정) — 착지 화면 문구만 좌우.
+// 사양서 docs/specs/2026-07-20-admin-invite-mail-and-setpw.md
+async function sendAdminInviteMail(email, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-admin-invite', {
+      body: { email, mode: mode || 'invite' }
+    });
     if (error) {
       // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
       let detail = null;
@@ -28275,13 +28301,17 @@ async function saveAdmin() {
       });
       if (error) throw error;
 
-      // 초대 메일 발송 (비밀번호 설정 링크)
-      const redirectUrl = location.origin + '/#reset-pw';
-      const {error: mailErr} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
-      if (mailErr) {
-        toast('관리자 등록 성공. 단 초대 메일 발송 실패: ' + friendlyError(mailErr.message), 'error');
-      } else {
+      // 초대 메일 발송 — 관리자 전용 한국어 메일 + 관리자 전용 설정 화면(/admin-setpw.html).
+      // Supabase Auth 기본 발송(resetPasswordForEmail)은 쓰지 않는다:
+      //   ① 메일 문구가 인플루언서 비밀번호 찾기와 공유됨
+      //   ② pkce 검증값이 이 브라우저(super_admin)에 저장돼, 초대받은 사람 브라우저에선 링크가 안 열림
+      // 발송 실패는 관리자 등록 자체를 무효화하지 않는다(등록은 이미 성공 — 재발송으로 복구).
+      const mailRes = await sendAdminInviteMail(email, 'invite');
+      if (mailRes && mailRes.sent) {
         toast('관리자가 추가되었습니다. 초대 이메일이 발송되었습니다.', 'success');
+      } else {
+        toast('관리자 등록 성공. 단 초대 메일 발송 실패 — 목록에서 재발송해 주세요.', 'error');
+        console.error('[invite] mail failed', mailRes);
       }
       closeModal('addAdminModal');
       loadAdminAccounts();
@@ -28359,16 +28389,18 @@ async function executeResetPw() {
   }
 }
 
+// 재설정 메일 재발송 — 초대와 같은 경로(관리자 전용 메일 + /admin-setpw.html)를 재사용.
+// 기존에는 resetPasswordForEmail 을 redirectTo 없이 호출해 인플루언서 홈으로 착지했다(별도 착지 버그).
 async function sendResetEmail() {
   if (!db) return;
   const email = $('resetPwTargetEmail').textContent;
-  try {
-    const {error} = await db.auth.resetPasswordForEmail(email);
-    if (error) throw error;
-    toast(`${email}로 재설정 링크를 보냈습니다`,'success');
+  const res = await sendAdminInviteMail(email, 'reset');
+  if (res && res.sent) {
+    toast(`${email}로 재설정 링크를 보냈습니다`, 'success');
     closeModal('resetPwModal');
-  } catch(e) {
-    toast('이메일 발송 오류: ' + friendlyError(e.message),'error');
+  } else {
+    toast('이메일 발송 오류: 잠시 후 다시 시도해 주세요', 'error');
+    console.error('[reset mail] failed', res);
   }
 }
 
