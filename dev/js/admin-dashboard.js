@@ -427,7 +427,7 @@ function renderAgeGenderDistribution(users) {
       const crossRows = [...AGE_GENDER_BUCKETS, '미등록'];
       const cell = v => v > 0 ? v : '<span style="color:var(--muted)">-</span>';
       crossEl.innerHTML =
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">' +
         '<thead><tr><th style="text-align:left;padding:8px;color:var(--muted);font-weight:600">연령대</th>' +
         gHead.map(h => `<th style="text-align:right;padding:8px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
         '</tr></thead><tbody>' +

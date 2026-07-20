@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784549175';
+  var CURRENT_BUILD = 'v1784549419';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2449,7 +2449,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-20 21:06 · baf1b5f</span>
+          <span class="admin-build-text">2026-07-20 21:10 · 5ef5153</span>
         </div>
       </div>
     </aside>
@@ -2568,8 +2568,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   </div>
                 </div>
                 <div id="ageGenderCaption" style="display:none;font-size:11px;color:var(--muted);margin-top:8px"></div>
-                <div style="font-size:11px;color:var(--muted);margin:14px 0 6px">연령대 × 성별 (단위: 명, 만 18세 미만은 정책상 0)</div>
-                <div id="ageGenderCrossTable"></div>
+                <div class="chart-panel" style="margin-top:16px">
+                  <div class="chart-panel-title">연령대 × 성별 <span style="font-size:11px;font-weight:400;color:var(--muted)">(단위: 명, 만 18세 미만은 정책상 0)</span></div>
+                  <div id="ageGenderCrossTable"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -27384,7 +27386,7 @@ function renderAgeGenderDistribution(users) {
       const crossRows = [...AGE_GENDER_BUCKETS, '미등록'];
       const cell = v => v > 0 ? v : '<span style="color:var(--muted)">-</span>';
       crossEl.innerHTML =
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">' +
         '<thead><tr><th style="text-align:left;padding:8px;color:var(--muted);font-weight:600">연령대</th>' +
         gHead.map(h => `<th style="text-align:right;padding:8px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
         '</tr></thead><tbody>' +
