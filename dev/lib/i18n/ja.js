@@ -122,6 +122,12 @@ window.I18N_JA = {
       newLabel: '新しいパスワード（8文字以上）',
       confirmLabel: 'パスワード確認',
       btn: 'パスワードを変更',
+      verifying: '確認しています...',
+      expiredTitle: 'このリンクは使えません',
+      expiredStep1: 'リンクは受け取ってから しばらくすると 使えなくなります',
+      expiredStep2: '何回か送った場合は いちばん新しいメールのリンクだけ 使えます',
+      expiredStep3: '下のボタンから もう一度 送ってください',
+      expiredBtn: 'もう一度メールを送る',
     },
     signup: {
       title: '新規登録',
