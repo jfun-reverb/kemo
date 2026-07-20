@@ -1857,7 +1857,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    공지가 없을 때는 카드가 숨겨지므로, 그때는 KPI 가 전체 폭을 쓰도록
    .no-notices 클래스로 1단 전환한다(renderDashboardNotices 에서 토글). */
 /* 두 카드 높이를 같게 — align-items 기본값(stretch)에 카드 높이 100% */
-.dash-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.dash-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap)}
 .dash-top-grid > .admin-card,
 .dash-top-grid > div > .admin-card{height:100%;display:flex;flex-direction:column}
 /* 제목 영역 높이를 두 카드가 똑같이 — 안에 든 것(링크/버튼)이 달라도 같은 높이 */
@@ -1871,9 +1871,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 }
 
 /* 회원가입 추이 · 프로필 완성률 · 배송지 분포 3열 (2026-07-20)
-   가입 추이는 가로로 넓어야 날짜 축이 읽히므로 조금 더 넓게 준다.
-   좁은 화면에서는 2열 → 1열로 단계적으로 접는다. */
-.dash-3col{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-bottom:16px;align-items:start}
+   세 칸 폭은 동일하게. 좁은 화면에서는 2열 → 1열로 단계적으로 접는다. */
+.dash-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap);align-items:start}
 .dash-3col > .admin-card{margin-bottom:0;height:100%;display:flex;flex-direction:column}
 .dash-3col .admin-card-header{min-height:53px;box-sizing:border-box}
 @media (max-width:1500px){ .dash-3col{grid-template-columns:1fr 1fr} }
@@ -1888,3 +1887,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 }
 .admin-card.accent-card .admin-card-title{color:#fff}                  /* 흰 글자 5.45:1 */
 .admin-card.accent-card .spinner{border-color:rgba(255,255,255,.3);border-top-color:#fff}
+
+/* 대시보드 섹션 간격 (2026-07-20)
+   좌우(칸 사이)보다 상하(섹션 사이)를 넓게 둬서 가로 묶음과 세로 구분이 구별되게 한다. */
+#adminPane-dashboard{--dash-gap:16px;--dash-vgap:28px}
+.dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap)}
+/* 카드 기본 아래 여백(16px)을 없앤다 — 섹션 여백과 겹쳐 아래쪽만 넓어 보였다.
+   간격은 섹션(--dash-vgap)이 전담한다. */
+.dash-2col > .admin-card,
+.dash-top-grid > .admin-card,
+.dash-3col > .admin-card{margin-bottom:0}
+.dash-section{margin-bottom:var(--dash-vgap)}
+@media (max-width:1000px){ .dash-2col{grid-template-columns:1fr} }
