@@ -51,8 +51,8 @@ function switchLookupTab(kind, btn) {
     b.style.fontWeight = '600';
   });
   if (btn) {
-    btn.style.color = 'var(--ink)';
-    btn.style.borderBottomColor = 'var(--ink)';
+    btn.style.color = 'var(--accent-ink)';
+    btn.style.borderBottomColor = 'var(--accent)';
     btn.style.fontWeight = '700';
   }
   renderLookupsTable();
