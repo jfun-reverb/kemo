@@ -224,7 +224,7 @@ function renderOutboundRow(o) {
     }
   }
 
-  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+  const nameCell = `<div class="link-cell" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
 
   const agencyCell = o.agency
     ? `<span style="font-size:12px">${esc(o.agency)}</span>`
@@ -258,7 +258,7 @@ function outboundChannelFollowersCell(o, ch) {
   if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
   const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
   const handleHtml = url
-    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--pink);text-decoration:none">@${esc(handle)}</a>`
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">@${esc(handle)}</a>`
     : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
   return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
     + `<div>${handleHtml}</div>`;
@@ -831,7 +831,7 @@ function renderOutboundReco(scored, cond) {
 function renderOutboundRecoRow(row, rank, priceCol) {
   const o = row.o;
   const id = esc(o.id);
-  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+  const nameCell = `<div class="link-cell" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
 
   // 선택형식 단가
   let priceCell = '<span style="color:var(--muted);font-size:11px">—</span>';

@@ -77,7 +77,7 @@ function renderCompanyList() {
   var renderRow = function(c) {
     var statusBadge = c.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">보관</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
+      : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     var brandCount = c.total_brands || 0;
 
     // 작업 버튼 — 권한 없으면 비활성 + 안내

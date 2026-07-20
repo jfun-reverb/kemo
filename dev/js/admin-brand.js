@@ -1116,7 +1116,7 @@ function renderBrandsList() {
       : '<span style="color:var(--muted)">—</span>';
     var statusBadge = b.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
+      : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
@@ -1260,7 +1260,7 @@ function renderBrandDetailHeaderHtml(b) {
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
       + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
-      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : '#16a34a') + '">'
+      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : 'var(--green)') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
       + '</select>'
@@ -1275,7 +1275,7 @@ function syncBrandStatusVisual(sel) {
     sel.style.color = '#666';
   } else {
     sel.style.backgroundColor = '#E8F5E9';
-    sel.style.color = '#16a34a';
+    sel.style.color = 'var(--green)';
   }
 }
 
@@ -1328,7 +1328,7 @@ function renderBrandAppBundleCard(a) {
     + '<span style="color:var(--muted)">제품 <strong style="color:var(--ink)">' + prods.length + '개</strong></span>'
     + '<span style="color:var(--muted)">총 수량 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : '—') + '</strong></span>'
     + (totalFinal > 0 ? '<span style="color:var(--muted)">최종 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(totalFinal) + '</strong></span>' : '')
-    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:#16a34a;font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
+    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:var(--green);font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
     + '<span style="color:var(--muted);margin-left:auto">예상 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</strong></span>'
   + '</div>';
 
@@ -1345,7 +1345,7 @@ function renderBrandAppBundleCard(a) {
     var urlClamp = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all';
     var urlCell = p.url
       ? (urlSafe
-          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--pink);text-decoration:none">' + esc(p.url) + '</a>'
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--ink)">' + esc(p.url) + '</a>'
           : '<span title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--muted)">' + esc(p.url) + '</span>')
       : dash;
     // 숫자 컬럼들은 nowrap 으로 한 줄 보장 (¥ / ₩ + 쉼표 표기가 두 줄로 잘리지 않게).
@@ -2340,7 +2340,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var brandName = a.brand?.name || a.brand_name || '—';
     var brandNo = a.brand?.brand_no || '';
     if (a.brand_id) {
-      return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
         + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
       + '</td>';
     }
@@ -3631,7 +3631,7 @@ function renderQuoteSentDisplay(isoOrNull, urlOrNull, locked) {
       + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">open_in_new</span></a>'
     : '';
   var content = hasValue
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--green);font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
       + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
     : '<span style="color:var(--muted);font-size:11px">미전달</span>';
   return content
