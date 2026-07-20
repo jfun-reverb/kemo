@@ -17,6 +17,15 @@ export const TEMPLATES: Record<string, string> = {
     {{role_label}}   권한 등급 한글 라벨 (최고관리자 / 캠페인 관리자 / 캠페인 매니저)
     {{link}}         비밀번호 설정 링크 (/admin-setpw.html?mode=invite&… 서버 발급)
     {{expires}}      링크 유효 기한 안내 문구
+    {{headline}}     제목 — 신규/승격 분기
+    {{lead}}         본문 안내 — 신규/승격 분기 (승격은 "기존 비밀번호로 로그인 가능")
+    {{cta_label}}    버튼 문구 — 신규/승격 분기
+
+  신규 vs 승격 분기 (마이그레이션 245 admins.promoted_at):
+    이미 인플루언서로 가입한 이메일을 관리자로 초대하면 승격 처리되고, 그 사람의
+    기존 비밀번호는 **그대로 유지**된다(245 이전에는 덮어써서 계정이 잠기는 문제가 있었음).
+    그래서 승격자에게는 "비밀번호를 설정하세요"가 아니라 "권한이 추가됐고 기존 비밀번호로
+    로그인하면 된다(원하면 아래에서 변경)"로 안내해야 한다.
 
   Note:
     Supabase Auth 기본 "Reset password" 템플릿은 인플루언서 비밀번호 찾기와 공유하므로
@@ -24,14 +33,11 @@ export const TEMPLATES: Record<string, string> = {
     관리자 대상 메일이라 인플루언서 4줄 푸터 의무 없음 (orient-sheet-invite 와 동일 취급).
 -->
 <div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
-  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">REVERB JP 관리자로 초대되었습니다</h2>
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">{{headline}}</h2>
   <p style="margin:0 0 18px;color:#666;font-size:13px">{{admin_name}} 님</p>
-  <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">
-    아래 버튼을 눌러 사용하실 비밀번호를 설정해 주세요.
-    설정을 마치면 바로 관리자 페이지에 로그인하실 수 있습니다.
-  </p>
+  <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">{{lead}}</p>
   <div style="text-align:center;margin:0 0 22px">
-    <a href="{{link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px">비밀번호 설정하기</a>
+    <a href="{{link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px">{{cta_label}}</a>
   </div>
   <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
     <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin-bottom:4px;text-transform:uppercase;font-weight:700">권한 등급</div>

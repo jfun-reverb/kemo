@@ -99,18 +99,37 @@ function _renderAdminAccountsTable(admins, subs, kinds, isSuper) {
     </div>`;
   };
 
+  // 초대 메일 셀: 발송 여부 + 본인이 실제로 비밀번호를 설정했는지(마이그레이션 244).
+  //   설정 완료 → 초록 「설정 완료」 (더 볼 것 없음)
+  //   발송만 됨 → 「발송 {날짜}」 + 재발송 버튼 (메일이 안 갔다는 문의 대응)
+  //   미발송   → 「미발송」 + 재발송 버튼 (발송 실패했거나 개편 전 만들어진 계정)
+  // 재발송은 서버(notify-admin-invite)가 super_admin 만 허용하므로 버튼도 super 에게만 노출.
+  const renderInviteCell = a => {
+    if (a.invite_completed_at) {
+      return `<span class="badge badge-green" style="font-size:10px;padding:1px 6px;border-radius:8px">설정 완료</span>`;
+    }
+    const sent = a.invite_mail_sent_at
+      ? `<span style="font-size:12px;color:var(--muted)">발송 ${formatDate(a.invite_mail_sent_at)}</span>`
+      : `<span class="badge badge-gray" style="font-size:10px;padding:1px 6px;border-radius:8px">미발송</span>`;
+    const btn = isSuper
+      ? `<button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="resendAdminInvite(this.dataset.email, this)">재발송</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${sent}${btn}</div>`;
+  };
+
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
     <td style="font-weight:600">${esc(a.name)||'—'}</td>
     <td>${esc(a.email)}</td>
     <td>${roleLabel(a.role)}</td>
     <td>${renderMailCell(a)}</td>
+    <td>${renderInviteCell(a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
       ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
-  </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
+  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 }
 
 // ──────────────────────────────────────
@@ -400,6 +419,22 @@ async function executeResetPw() {
   } catch(e) {
     err.textContent = '초기화 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
+}
+
+// 목록 「초대 메일」 열의 재발송 — 초대와 같은 경로를 그대로 재사용(mode=invite).
+// 「메일이 안 왔다」는 문의를 최고관리자가 목록에서 바로 처리하는 자리.
+async function resendAdminInvite(email, btn) {
+  if (!db || !email) return;
+  if (btn) { btn.disabled = true; btn.textContent = '발송 중'; }
+  const res = await sendAdminInviteMail(email, 'invite');
+  if (res && res.sent) {
+    toast(`${email} 로 초대 메일을 다시 보냈습니다`, 'success');
+  } else {
+    toast('초대 메일 발송 실패 — 잠시 후 다시 시도해 주세요', 'error');
+    console.error('[resend invite] failed', res);
+  }
+  // 발송 시각이 바뀌었으므로 목록을 다시 그린다(quality.md — 모달·처리 후 페인 갱신)
+  await refreshPane('admin-accounts');
 }
 
 // 재설정 메일 재발송 — 초대와 같은 경로(관리자 전용 메일 + /admin-setpw.html)를 재사용.

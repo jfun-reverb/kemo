@@ -72,6 +72,11 @@ function render(html: string, data: Record<string, string>): string {
   return html.replace(/\{\{(\w+)\}\}/g, (_m, key) => data[key] ?? "");
 }
 
+// ilike 패턴 이스케이프 — 이메일에 든 _ · % 가 와일드카드로 해석되는 것을 막는다.
+function escapeLikePattern(s: string): string {
+  return s.replace(/[\\%_]/g, (m) => "\\" + m);
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -167,10 +172,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // 2) 대상이 실제 관리자인지 확인 — 임의 이메일로 메일 쏘는 악용 차단
+    //    promoted_at 도 함께 조회: 승격자(이미 인플루언서로 쓰던 계정)는 마이그레이션 245 이후
+    //    기존 비밀번호가 그대로 유효하므로 메일 문구를 다르게 안내해야 한다.
     const { data: targetRow } = await sb
       .from("admins")
-      .select("name, email, role")
-      .ilike("email", targetEmail)
+      .select("name, email, role, promoted_at")
+      // 대소문자는 무시하되(저장된 값이 대문자일 수 있음 — eq 로 바꾸면 못 찾는다)
+      // 와일드카드는 이스케이프한다. ilike 에서 _ 는 "아무 글자 1개", % 는 "아무 글자 0개 이상"
+      // 이라, kim_a@… 같은 이메일이 kimXa@… 같은 다른 관리자 행과도 매칭될 수 있다.
+      .ilike("email", escapeLikePattern(targetEmail))
       .maybeSingle();
     if (!targetRow) {
       return jsonResponse({ sent: false, reason: "not_admin" }, 404);
@@ -191,9 +201,24 @@ Deno.serve(async (req: Request) => {
     // 4) 메일 발송
     const adminName = String(targetRow.name || "").trim() || "관리자";
     const roleLabel = ROLE_LABEL[String(targetRow.role)] || String(targetRow.role || "");
+
+    // 승격자 = 이미 인플루언서 등으로 쓰던 계정에 관리자 권한이 추가된 사람.
+    // 마이그레이션 245 이후 이들의 기존 비밀번호는 유지되므로, 링크를 안 눌러도 로그인된다.
+    // 「비밀번호를 설정하세요」라고 안내하면 사실과 어긋나므로 문구를 분기한다.
+    const isPromoted = !!targetRow.promoted_at;
+    const headline = isPromoted
+      ? "REVERB JP 관리자 권한이 추가되었습니다"
+      : "REVERB JP 관리자로 초대되었습니다";
+    const lead = isPromoted
+      ? "기존에 쓰시던 이메일과 비밀번호로 그대로 관리자 페이지에 로그인하실 수 있습니다. 비밀번호를 바꾸고 싶으시면 아래 버튼을 눌러 주세요."
+      : "아래 버튼을 눌러 사용하실 비밀번호를 설정해 주세요. 설정을 마치면 바로 관리자 페이지에 로그인하실 수 있습니다.";
+    const ctaLabel = isPromoted ? "비밀번호 변경하기" : "비밀번호 설정하기";
+
     const subject = linkMode === "reset"
       ? "[REVERB JP] 관리자 비밀번호 재설정"
-      : "[REVERB JP] 관리자 계정 초대 — 비밀번호를 설정해 주세요";
+      : (isPromoted
+        ? "[REVERB JP] 관리자 권한이 추가되었습니다"
+        : "[REVERB JP] 관리자 계정 초대 — 비밀번호를 설정해 주세요");
     const expiresNote =
       "보안을 위해 이 링크는 일정 시간이 지나면 만료됩니다. 만료된 경우 최고관리자에게 재발송을 요청해 주세요.";
 
@@ -205,12 +230,15 @@ Deno.serve(async (req: Request) => {
       role_label: escapeHtml(roleLabel),
       link: escapeHtml(actionLink),
       expires: escapeHtml(expiresNote),
+      headline: escapeHtml(headline),
+      lead: escapeHtml(lead),
+      cta_label: escapeHtml(ctaLabel),
     });
     const text =
       `${adminName} 님\n\n` +
-      `REVERB JP 관리자로 초대되었습니다.\n` +
-      `아래 주소에서 사용하실 비밀번호를 설정해 주세요.\n\n` +
-      `설정 링크: ${actionLink}\n` +
+      `${headline}.\n` +
+      `${lead}\n\n` +
+      `링크: ${actionLink}\n` +
       `권한 등급: ${roleLabel}\n\n` +
       `${expiresNote}\n\n` +
       `관리자 페이지는 PC 화면에 맞춰 만들어져 있습니다. 실제 업무는 PC에서 이용해 주세요.\n`;
@@ -222,6 +250,15 @@ Deno.serve(async (req: Request) => {
       textContent: text,
     });
     console.log("[notify-admin-invite] mail sent", { to: targetRow.email, mode: linkMode });
+
+    // 발송 성공 기록 — 목록의 「발송됨/미발송」 표시와 재발송 판단 근거(마이그레이션 244).
+    // 기록 실패가 발송 성공을 무효화하지 않는다(notify-orient-sheet 와 동일 패턴).
+    const { error: trackErr } = await sb
+      .from("admins")
+      .update({ invite_mail_sent_at: new Date().toISOString(), invite_mail_sent_to: targetRow.email })
+      // 조회로 확정된 행의 저장값 그대로 정확 일치 — 여기선 대소문자 문제가 없다
+      .eq("email", targetRow.email);
+    if (trackErr) console.error("[notify-admin-invite] tracking update failed", trackErr.message);
 
     return jsonResponse({ sent: true, recipient: targetRow.email }, 200);
   } catch (e) {

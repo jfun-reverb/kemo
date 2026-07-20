@@ -81,6 +81,11 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// ilike 패턴 이스케이프 — 이메일에 든 _ · % 가 와일드카드로 해석되는 것을 막는다.
+function escapeLikePattern(s: string): string {
+  return s.replace(/[\\%_]/g, (m) => "\\" + m);
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(buf))
@@ -140,7 +145,10 @@ async function process(rawEmail: unknown): Promise<void> {
   const { data: adminRow } = await sb
     .from("admins")
     .select("name, email")
-    .ilike("email", email)
+    // 대소문자는 무시하되(저장값이 대문자일 수 있음) 와일드카드는 이스케이프한다.
+    // ilike 에서 _ 는 "아무 글자 1개", % 는 "아무 글자 0개 이상"이라, 이스케이프 없이 두면
+    // kim_a@… 같은 입력이 다른 관리자 행에 매칭돼 엉뚱한 사람에게 메일이 갈 수 있다.
+    .ilike("email", escapeLikePattern(email))
     .maybeSingle();
 
   // 3) 요청 제한 판정 + 기록. 매칭 여부와 무관하게 항상 호출한다
