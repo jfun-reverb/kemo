@@ -126,7 +126,7 @@ async function loadCampApplicants() {
     const _lineDisp = maskedFieldByFlag(_u.line_id, _u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+      <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
       <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
@@ -225,7 +225,7 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
     ${brandOpsRateBar('인증 성공', certPct, certSuccess, slots)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
-      <span>승인 <strong style="color:#16a34a">${approved}</strong>명</span>
+      <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
       <span>심사중 <strong style="color:#f59e0b">${stats.pending}</strong>명</span>
     </div>
   </div>`;
@@ -546,7 +546,7 @@ async function renderAppCampList() {
         ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
+        <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
         <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>

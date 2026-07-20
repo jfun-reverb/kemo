@@ -89,7 +89,7 @@ function renderFaqCategories() {
              <button class="btn btn-ghost btn-xs" ${downId?'':'disabled'} onclick="moveFaqNode('${esc(c.id)}','${esc(downId)}')">↓</button>`
           : `<label class="lookup-toggle" title="${c.active?'활성':'비활성'}"><input type="checkbox" ${c.active?'checked':''} onchange="toggleFaqNodeActive('${esc(c.id)}',this.checked)"><span class="lookup-toggle-slider"></span></label>
              <button class="btn btn-ghost btn-xs" onclick="openFaqEditModal('${esc(c.id)}',null,'category')">편집</button>
-             <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteFaqCategory('${esc(c.id)}')">삭제</button>`}
+             <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick="deleteFaqCategory('${esc(c.id)}')">삭제</button>`}
       </div>
     </div>`;
   }).join('');
@@ -134,7 +134,7 @@ function renderFaqItems(categoryId) {
              <button class="btn btn-ghost btn-xs" ${downId?'':'disabled'} onclick="moveFaqNode('${esc(q.id)}','${esc(downId)}')">↓</button>`
           : `<label class="lookup-toggle" title="${q.active?'활성':'비활성'}"><input type="checkbox" ${q.active?'checked':''} onchange="toggleFaqNodeActive('${esc(q.id)}',this.checked)"><span class="lookup-toggle-slider"></span></label>
              <button class="btn btn-ghost btn-xs" onclick="openFaqEditModal('${esc(q.id)}','${esc(categoryId)}','item')">편집</button>
-             <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteFaqItem('${esc(q.id)}')">삭제</button>`}
+             <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick="deleteFaqItem('${esc(q.id)}')">삭제</button>`}
       </div>
     </div>`;
   }).join('');

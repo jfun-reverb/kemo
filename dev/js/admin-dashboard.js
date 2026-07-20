@@ -110,7 +110,7 @@ function renderRecentAppsTable(apps, camps, users) {
         </div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
+        <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>

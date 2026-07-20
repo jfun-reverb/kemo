@@ -26,7 +26,7 @@ const OS_TYPE_CHIP = {
 const OS_GRADE_LABEL = { nano: '나노', middle_mega: '미들·메가' };
 const OS_STATUS = {
   draft:     { label: '작성 중', color: '#8A8A90', bg: '#F0F0F0' },
-  submitted: { label: '제출됨', color: '#16A34A', bg: '#E8F5E9' },
+  submitted: { label: '제출됨', color: 'var(--green)', bg: '#E8F5E9' },
   consumed:  { label: '발행됨', color: '#5B4B9E', bg: '#ECEAF6' },
   expired:   { label: '만료',   color: '#8A8A90', bg: '#F0F0F0' },
 };
@@ -535,7 +535,7 @@ async function osSendInviteAndShow(orientSheetId, recipient, isNewContact) {
     const sheet = _orientSheets.find(x => x.id === orientSheetId);
     if (sheet) { sheet.mail_sent_at = new Date().toISOString(); sheet.mail_sent_to = sentEmail; }
     const advNote = r.advanced ? '신청 단계를 「오리엔시트 발송됨」으로 이동했습니다.' : '';
-    let html = '<div style="color:#16A34A;font-weight:600">메일을 보냈습니다 — ' +
+    let html = '<div style="color:var(--green);font-weight:600">메일을 보냈습니다 — ' +
       esc(r.recipient || (recipient && recipient.email) || '') + '</div>' +
       (advNote ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + advNote + '</div>' : '');
     if (isNewContact && recipient && recipient.email) {
@@ -588,7 +588,7 @@ async function osSaveIssuedContact(asPrimary, btn) {
     }
     await updateBrand(_osLastIssuedBrandId, patch);
     const box = document.getElementById('osCreateMailStatus');
-    if (box) box.innerHTML += '<div style="color:#16A34A;font-size:12px;margin-top:6px">담당자를 저장했습니다'
+    if (box) box.innerHTML += '<div style="color:var(--green);font-size:12px;margin-top:6px">담당자를 저장했습니다'
       + (asPrimary ? ' (대표 담당자로 설정)' : '') + '.</div>';
     _osPendingContact = null;
   } catch (e) {
@@ -823,7 +823,7 @@ function osCardPublishControl(c, idx, readonly) {
   if (c && c.campaign_id) {
     // 발행됨 배지 + 「연결 해제」(캠페인 행은 그대로, 카드 연결만 되돌림)
     return '<span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'
-      + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>'
+      + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:var(--green);background:#E8F5E9">발행됨</span>'
       + `<button type="button" class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="osUnlinkCard(${idx})">연결 해제</button>`
       + '</span>';
   }

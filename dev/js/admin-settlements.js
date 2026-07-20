@@ -190,7 +190,7 @@ function renderSettlementRow(s) {
   const auditB = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
   const infSub = [inf.name_kana ? esc(inf.name_kana) : '', inf.email ? esc(inf.email) : '']
     .filter(Boolean).join(' · ');
-  const infCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
+  const infCell = `<div class="link-cell" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
 
   const campNo = camp.campaign_no
     ? `<div><span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span></div>`
@@ -625,7 +625,7 @@ function renderPastUnregRow(r) {
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
   const paypalCell = r.has_paypal
-    ? '<span style="background:#E8F5E9;color:#16A34A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
+    ? '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
     : '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px" title="PayPal 미등록">미등록</span>';
   return `<tr>
     <td><input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}></td>

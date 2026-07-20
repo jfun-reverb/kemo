@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784535198';
+  var CURRENT_BUILD = 'v1784538928';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -462,6 +462,54 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
 
+/* ── 관리자 전용 색 토큰 (2026-07-20 무채색 톤 정리) ──────────────
+   base.css 는 인플루언서 빌드와 공용이므로 여기서만 덮어쓴다.
+   (인플루언서는 campaign.css 에서 로즈 계열을 되살리는 것과 같은 구조)
+
+   왜 바꾸나 — 무채색 전환 후 회색이 너무 옅어 글자가 안 읽혔다.
+     비활성 탭 var(--muted) = 2.80:1 · 0건 탭 #aaa = 2.32:1 · --faint = 2.56:1
+     (웹 접근성 본문 기준 4.5:1)
+   그리고 표 머리·행 hover 는 배경이 흰색이 아니라 연회색(--surface-dim)이라,
+   흰 배경에서 겨우 통과하던 회색이 그 위에서는 떨어졌다. 두 배경 모두에서
+   통과하는 값으로 올린다. */
+#page-admin{
+  --muted:#6E6E77;   /* 보조 텍스트 — 흰 배경 5.05:1 / 연회색 배경 4.6:1 (양쪽 통과) */
+  --faint:#8A8A93;   /* 장식·비활성 아이콘 전용. 글자에는 쓰지 말 것(3.4:1) */
+}
+
+/* ── 「누를 수 있는 것」 표시 규칙 (무채색 유지) ──────────────────
+   색으로 구분하지 않는다. 굵기 + 밑줄로만 구분한다.
+   무채색 테마에서 --pink 별칭이 본문과 같은 검정이 되면서, 링크·클릭 가능한
+   이름이 평범한 글자와 똑같아 보이던 문제를 해결한다. */
+.link-cell{
+  font-weight:600;
+  color:var(--ink);
+  cursor:pointer;
+  text-decoration:underline;
+  text-decoration-color:var(--outline);   /* 평소엔 연하게 — 표가 시끄러워지지 않도록 */
+  text-underline-offset:3px;
+  text-decoration-thickness:1px;
+  transition:text-decoration-color .15s;
+}
+.link-cell:hover{text-decoration-color:var(--ink)}
+.link-cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:3px}
+
+/* 표·카드 안의 링크도 같은 규칙 — 무채색이라 색만으로는 링크인지 알 수 없다.
+   버튼 모양 요소(.btn/.admin-btn/칩/배지)는 이미 생김새로 구분되므로 제외. */
+.admin-body a:not([class*="btn"]):not([class*="chip"]):not([class*="badge"]):not([class*="tab"]){
+  color:var(--ink);
+  text-decoration:underline;
+  text-decoration-color:var(--outline);
+  text-underline-offset:3px;
+  text-decoration-thickness:1px;
+  transition:text-decoration-color .15s;
+}
+.admin-body a:not([class*="btn"]):not([class*="chip"]):not([class*="badge"]):not([class*="tab"]):hover{
+  text-decoration-color:var(--ink);
+}
+/* 미리보기 안(인플루언서 화면 재현)은 이 규칙에서 제외 — 실물과 달라지면 안 된다 */
+.cp-frame a{text-decoration:none;color:inherit}
+
 /* 관리자 페이지는 PC 전용 — 모바일 auto-zoom 방지용 16px 불필요 */
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
@@ -499,8 +547,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
 /* 보기 초기화 버튼 — 진한 회색 (사용자 요청) */
-#btnCampViewReset,#btnInfViewReset,#btnAppViewReset,#btnDelivFilterReset,#btnBrandAppViewReset{background:#6B7280;color:#fff;border:1px solid #6B7280}
-#btnCampViewReset:hover,#btnInfViewReset:hover,#btnAppViewReset:hover,#btnDelivFilterReset:hover,#btnBrandAppViewReset:hover{background:#565D6B;border-color:#565D6B;color:#fff;opacity:1}
+#btnCampViewReset,#btnInfViewReset,#btnAppViewReset,#btnDelivFilterReset,#btnBrandAppViewReset{background:var(--muted);color:#fff;border:1px solid var(--muted)}
+#btnCampViewReset:hover,#btnInfViewReset:hover,#btnAppViewReset:hover,#btnDelivFilterReset:hover,#btnBrandAppViewReset:hover{background:var(--muted);border-color:var(--muted);color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
 .mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
 .mf-btn::after{content:none}
@@ -538,7 +586,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-side-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;transition:background .2s}
 .admin-side-scroll:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
 .admin-side-scroll:hover::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.3)}
-.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#9A9AA1;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
+.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:var(--on-surface)}
 .admin-si.on{color:var(--on-surface);border-left-color:var(--primary);font-weight:600}
 .admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
@@ -560,7 +608,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
 /* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
 .admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
-.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
 .admin-layout.collapsed .admin-side-foot{display:none}
 .admin-main{background:var(--surface);margin:14px 6px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
@@ -612,11 +660,14 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    기준 데이터 페인의 .lookup-tab 인라인 스타일과 동일 패턴을 공통 클래스로 추출. */
 .status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
 .status-tab-bar::-webkit-scrollbar{display:none}
-.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
-.status-tab-btn:hover{background:var(--surface-dim)}
-.status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
+.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
+.status-tab-btn:hover{background:var(--surface-dim);color:var(--ink)}
+.status-tab-btn.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
-.status-tab-btn.zero-count{color:#aaa}
+/* 0건 탭은 색을 더 흐리게 하지 않는다 — 흐리게 하면 읽히지 않고(2.3:1),
+   「0건」이라는 정보는 옆의 건수 숫자가 이미 말해준다(색만으로 정보 전달 금지) */
+.status-tab-btn.zero-count{color:var(--muted)}
+.status-tab-btn.zero-count .tab-count{opacity:.7}
 
 /* 브랜드 서베이 신청 목록 — 신청 단위 좌측 색 띠 4px (같은 신청 행끼리 동일 색, 짝/홀 교대) */
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
@@ -741,7 +792,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}
 .brand-trend-btn:hover{border-color:var(--pink);color:var(--pink)}
 .brand-trend-btn.on{background:var(--pink);color:#fff;border-color:var(--pink)}
-.btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:#B3261E;color:#B3261E}
+.btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:var(--red-d);color:var(--red-d)}
 .btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
 .sort-arrows{cursor:pointer;font-size:9px;color:var(--muted);margin-left:2px;user-select:none;letter-spacing:-1px}
 .sort-arrows:hover{color:var(--primary)}
@@ -754,7 +805,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .camp-more-menu{position:fixed;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:120px}
 .camp-more-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--ink);transition:background .12s;white-space:nowrap}
 .camp-more-item:hover{background:var(--surface-dim)}
-.camp-more-danger{color:#B3261E}
+.camp-more-danger{color:var(--red-d)}
 .camp-more-danger:hover{background:rgba(179,38,30,.08)}
 .status-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:110px}
 .status-dropdown-item{padding:6px 10px;border-radius:6px;cursor:pointer;transition:background .12s}
@@ -839,6 +890,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .camp-preview-content{flex:1;overflow-y:auto;padding:0;background:#E5E5E5;display:flex;justify-content:center;min-height:560px}
 .camp-preview-content:empty::before{content:"입력하면 미리보기가 표시됩니다";color:var(--muted);font-size:12px;align-self:center}
 /* 인플루언서 상세 페이지 레이아웃 복제 */
+/* 캠페인 미리보기는 「인플루언서가 실제로 보는 화면」을 확인하는 용도다.
+   관리자 무채색을 그대로 입히면 실물과 달라져 미리보기 구실을 못 하므로,
+   이 안에서만 인플루언서 로즈 팔레트를 되살린다(campaign.css 와 같은 값). */
+.cp-frame{
+  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
+  --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;
+  /* 회색도 인플루언서 빌드 원래 값으로 되돌린다 — 위에서 관리자용으로 진하게 조정한
+     값이 상속되면 미리보기가 실물보다 진해 보인다 */
+  --muted:#71717A;--faint:#A1A1AA;
+}
 .cp-frame{width:100%;max-width:400px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
 .cp-gnb{background:#1b1b1f;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
@@ -972,7 +1033,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .mini-editor-link-popover .melp-btn:hover{
   background:rgba(24,24,27,0.12);
 }
-.mini-editor-link-popover .melp-delete{color:#B3261E}
+.mini-editor-link-popover .melp-delete{color:var(--red-d)}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
 
 /* 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제) */
@@ -1032,7 +1093,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
   cursor:pointer;
   padding:6px;
   border-radius:4px;
-  color:#B3261E;
+  color:var(--red-d);
   display:inline-flex;
   align-items:center;
 }
@@ -1388,11 +1449,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.prevMonthDay,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.nextMonthDay{
-  color:#C7BCC4;
+  color:var(--outline);
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled:hover{
   background:transparent;
-  color:#C7BCC4;
+  color:var(--outline);
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.selected,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange,
@@ -1574,7 +1635,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
 .brand-app-pay-cell .pay-row.is-checked{background:var(--surface-dim);color:var(--ink)}
 /* 무료모집은 차별화 — 초록 톤. 비용 청구 안 함을 시각으로 분리 */
-.brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:#16A34A}
+.brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:var(--green)}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
@@ -1622,7 +1683,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .visibility-toggle-label{font-size:14px;font-weight:700;color:var(--ink)}
 .visibility-toggle-status{font-size:12px;color:var(--muted);margin-left:auto}
 .visibility-toggle-status.is-off{color:#C33;font-weight:600}
-.visibility-toggle{position:relative;width:48px;height:26px;border-radius:13px;border:none;cursor:pointer;background:#9CA3AF;padding:0;transition:background .2s;flex-shrink:0}
+.visibility-toggle{position:relative;width:48px;height:26px;border-radius:13px;border:none;cursor:pointer;background:var(--faint);padding:0;transition:background .2s;flex-shrink:0}
 .visibility-toggle.is-on{background:#22C55E}
 .visibility-toggle.is-disabled{opacity:.4;cursor:not-allowed}
 .visibility-toggle:focus{outline:none;box-shadow:0 0 0 3px rgba(34,197,94,.22)}
@@ -1713,7 +1774,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .adm-msg-search{flex:0 1 220px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit}
 .adm-msg-bar-btn{padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:var(--ink)}
 .adm-msg-bar-btn.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
-.adm-msg-bar-btn.done{background:#E8F5E9;color:#16A34A;border-color:#A7D7B0;cursor:default}
+.adm-msg-bar-btn.done{background:#E8F5E9;color:var(--green);border-color:#A7D7B0;cursor:default}
 .adm-msg-thread{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
 /* 메시지 — 말풍선 + 옆 메타(시간·읽음·액션). 메타는 풍선 바깥쪽(상대=오른쪽, mine=왼쪽) */
 .msg-row{display:flex;gap:8px;align-items:flex-end;max-width:85%;align-self:flex-start;flex-direction:row-reverse}
@@ -1723,8 +1784,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .msg-bubble .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink);margin-bottom:4px}
 .msg-card-body{font-size:13px;line-height:1.6;color:var(--ink);word-break:break-word}
 /* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 일본어 원문은 아래 작은 글씨 */
-.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,#E5E5EA);font-size:11px;line-height:1.5;color:var(--muted)}
-.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,var(--outline));font-size:11px;line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,var(--outline));border-radius:6px;font-size:10px;color:var(--muted)}
 .msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
 .msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
@@ -1779,7 +1840,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .adm-faq-hist-when{font-size:11px;color:var(--muted)}
 .adm-faq-hist-act{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:var(--surface-dim);color:var(--muted)}
 .adm-faq-hist-act.handoff{background:var(--red-l);color:var(--red)}
-.adm-faq-hist-act.resolved{background:#E8F5E9;color:#16A34A}
+.adm-faq-hist-act.resolved{background:#E8F5E9;color:var(--green)}
 .adm-faq-hist-q{font-size:12px;font-weight:600;color:var(--ink)}
 .adm-faq-hist-cnt{font-weight:400;color:var(--muted);font-size:11px}
 .adm-faq-hist-a{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
@@ -1818,7 +1879,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 측정 배지 */
 .faq-stats{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .faq-stat{font-size:10px;color:var(--muted);background:var(--surface-dim);border-radius:6px;padding:1px 6px}
-.faq-stat-warn{color:#B3261E;background:#FDECEA;font-weight:700}
+.faq-stat-warn{color:var(--red-d);background:#FDECEA;font-weight:700}
 /* 편집 모달 — 한·일 2열 */
 .faq-bilingual{display:flex;gap:14px}
 .faq-bilingual > .form-group{flex:1;min-width:0}
@@ -1844,16 +1905,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .deliv-proxy-notice .deliv-proxy-cascade{display:block;margin-top:6px;padding-top:6px;border-top:1px dashed #FBBF24;font-size:11px;color:#78350F}
 
 /* 회수 버튼 (super_admin 전용) */
-.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:#DC2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .deliv-proxy-revoke-btn:hover{background:#B91C1C}
-.deliv-proxy-revoke-btn[disabled]{background:#9CA3AF;cursor:not-allowed}
+.deliv-proxy-revoke-btn[disabled]{background:var(--faint);cursor:not-allowed}
 
 /* 대리 등록 모달 폼 */
 .admin-proxy-modal-form{display:flex;flex-direction:column;gap:14px;padding:6px 0}
 .admin-proxy-modal-form .form-row{display:flex;flex-direction:column;gap:4px}
 .admin-proxy-modal-form .form-row label{font-size:12px;font-weight:600;color:var(--ink)}
 .admin-proxy-modal-form .form-row .form-help{font-size:11px;color:var(--muted)}
-.admin-proxy-modal-form .form-row.required label::after{content:" *";color:#DC2626}
+.admin-proxy-modal-form .form-row.required label::after{content:" *";color:var(--red)}
 .admin-proxy-modal-form select,
 .admin-proxy-modal-form input[type="text"],
 .admin-proxy-modal-form input[type="date"],
@@ -1861,7 +1922,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-proxy-modal-form input[type="url"],
 .admin-proxy-modal-form textarea{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
 .admin-proxy-modal-form textarea{min-height:64px;resize:vertical}
-.admin-proxy-kind-section{display:none;padding:12px;background:#F9FAFB;border:1px solid var(--line);border-radius:8px}
+.admin-proxy-kind-section{display:none;padding:12px;background:var(--surface-container);border:1px solid var(--line);border-radius:8px}
 .admin-proxy-kind-section.active{display:block}
 .admin-proxy-kind-section .kind-section-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
 .admin-proxy-image-preview{margin-top:6px;max-width:180px;max-height:180px;border:1px solid var(--line);border-radius:6px;display:none}
@@ -1883,7 +1944,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* ─── 관리자 대리 등록 모달 — 검색 가능 드롭다운 (combobox) ────────── */
 .admin-proxy-combobox{position:relative}
 .admin-proxy-combobox-input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
-.admin-proxy-combobox-input:disabled{background:#F3F4F6;color:var(--muted);cursor:not-allowed}
+.admin-proxy-combobox-input:disabled{background:var(--surface-dim);color:var(--muted);cursor:not-allowed}
 .admin-proxy-combobox-input:focus{outline:none;border-color:var(--pink)}
 .admin-proxy-combobox-list{display:none;position:absolute;top:100%;left:0;right:0;z-index:10;max-height:240px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,.06);margin-top:-1px}
 .admin-proxy-combobox-list.open{display:block}
@@ -1891,7 +1952,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-proxy-combobox-list .item:last-child{border-bottom:none}
 .admin-proxy-combobox-list .item:hover,
 .admin-proxy-combobox-list .item.focused{background:#FFF5F8;color:var(--dark-pink)}
-.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:#F9FAFB}
+.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:var(--surface-container)}
 .admin-proxy-combobox-list .item-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .admin-proxy-combobox-list .empty{padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}
 
@@ -2099,7 +2160,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   padding: 10px 12px; color: #9A3412; font-size: 13px; line-height: 1.5;
 }
 .perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
-.perm-caret { font-size: 20px; color: var(--muted, #6B7280); vertical-align: middle; margin-right: 4px; }
+.perm-caret { font-size: 20px; color: var(--muted, var(--muted)); vertical-align: middle; margin-right: 4px; }
 /* 하나의 표 — table-layout:fixed 로 열 너비 고정, 열 헤더는 맨 위 1회(반복 제거) + 스크롤 시 상단 고정.
    ⚠️ border-collapse:separate 필수 — collapse 모드에선 sticky thead 의 배경·경계가 스크롤 시 깨져 아래 행과 겹친다.
    separate + border-spacing:0 + border-bottom(행 구분) 으로 sticky 를 안전하게 고정. */
@@ -2108,16 +2169,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
 .perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
 .perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
-.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, var(--muted)); font-weight: 600; }
 /* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
-.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
-.perm-cat-row:hover td { background: #F3F4F6; }
+.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: var(--surface-container); font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-cat-row:hover td { background: var(--surface-dim); }
 /* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
 .perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
 .perm-table th:not(.perm-th-feat) { width: 20%; }
 .perm-feat { color: var(--ink, #111827); }
 .perm-cell { min-width: 96px; }
-.perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
+.perm-locked { color: var(--muted, var(--faint)); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
 .perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
 .perm-tag {
@@ -2127,7 +2188,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-tag-super { background: #F3E8FF; color: #7E22CE; }
 /* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
 .perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
+.perm-changecount { font-size: 12px; color: var(--muted, var(--muted)); }
 
 /* ── 인플루언서 추천 명단(아웃바운드) 편집 모달 섹션 제목 ── */
 .outbound-form-section-title {
@@ -2178,10 +2239,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   margin: 1px 0;
   white-space: nowrap;
 }
-.reco-badge-ok    { background: #E8F5E9; color: #16A34A; }
+.reco-badge-ok    { background: #E8F5E9; color: var(--green); }
 .reco-badge-soft  { background: #EEF2FF; color: #4338CA; }
-.reco-badge-muted { background: #F3F4F6; color: #6B7280; }
-.reco-badge-over  { background: #FEE2E2; color: #DC2626; }
+.reco-badge-muted { background: var(--surface-dim); color: var(--muted); }
+.reco-badge-over  { background: #FEE2E2; color: var(--red); }
 
 /* 요청 인원 경계 구분선 행 */
 .reco-divider td {
@@ -2291,7 +2352,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-20 17:13 · 1725b4f</span>
+          <span class="admin-build-text">2026-07-20 18:15 · 7567ba6</span>
         </div>
       </div>
     </aside>
@@ -4328,12 +4389,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <!-- 종류 탭 -->
             <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
               <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
-              <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">카테고리</button>
-              <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">콘텐츠 종류</button>
-              <button class="lookup-tab" data-kind="ng_set" onclick="switchLookupTab('ng_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">NG 사항</button>
-              <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">참여방법</button>
-              <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">반려사유</button>
-              <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer">주의사항</button>
+              <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">카테고리</button>
+              <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
+              <button class="lookup-tab" data-kind="ng_set" onclick="switchLookupTab('ng_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
+              <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
+              <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
+              <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
             </div>
           </div>
 
@@ -12991,7 +13052,7 @@ const OS_TYPE_CHIP = {
 const OS_GRADE_LABEL = { nano: '나노', middle_mega: '미들·메가' };
 const OS_STATUS = {
   draft:     { label: '작성 중', color: '#8A8A90', bg: '#F0F0F0' },
-  submitted: { label: '제출됨', color: '#16A34A', bg: '#E8F5E9' },
+  submitted: { label: '제출됨', color: 'var(--green)', bg: '#E8F5E9' },
   consumed:  { label: '발행됨', color: '#5B4B9E', bg: '#ECEAF6' },
   expired:   { label: '만료',   color: '#8A8A90', bg: '#F0F0F0' },
 };
@@ -13500,7 +13561,7 @@ async function osSendInviteAndShow(orientSheetId, recipient, isNewContact) {
     const sheet = _orientSheets.find(x => x.id === orientSheetId);
     if (sheet) { sheet.mail_sent_at = new Date().toISOString(); sheet.mail_sent_to = sentEmail; }
     const advNote = r.advanced ? '신청 단계를 「오리엔시트 발송됨」으로 이동했습니다.' : '';
-    let html = '<div style="color:#16A34A;font-weight:600">메일을 보냈습니다 — ' +
+    let html = '<div style="color:var(--green);font-weight:600">메일을 보냈습니다 — ' +
       esc(r.recipient || (recipient && recipient.email) || '') + '</div>' +
       (advNote ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + advNote + '</div>' : '');
     if (isNewContact && recipient && recipient.email) {
@@ -13553,7 +13614,7 @@ async function osSaveIssuedContact(asPrimary, btn) {
     }
     await updateBrand(_osLastIssuedBrandId, patch);
     const box = document.getElementById('osCreateMailStatus');
-    if (box) box.innerHTML += '<div style="color:#16A34A;font-size:12px;margin-top:6px">담당자를 저장했습니다'
+    if (box) box.innerHTML += '<div style="color:var(--green);font-size:12px;margin-top:6px">담당자를 저장했습니다'
       + (asPrimary ? ' (대표 담당자로 설정)' : '') + '.</div>';
     _osPendingContact = null;
   } catch (e) {
@@ -13788,7 +13849,7 @@ function osCardPublishControl(c, idx, readonly) {
   if (c && c.campaign_id) {
     // 발행됨 배지 + 「연결 해제」(캠페인 행은 그대로, 카드 연결만 되돌림)
     return '<span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'
-      + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>'
+      + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:var(--green);background:#E8F5E9">발행됨</span>'
       + `<button type="button" class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="osUnlinkCard(${idx})">연결 해제</button>`
       + '</span>';
   }
@@ -15393,7 +15454,7 @@ function renderBrandsList() {
       : '<span style="color:var(--muted)">—</span>';
     var statusBadge = b.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
+      : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
@@ -15537,7 +15598,7 @@ function renderBrandDetailHeaderHtml(b) {
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
       + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
-      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : '#16a34a') + '">'
+      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : 'var(--green)') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
       + '</select>'
@@ -15552,7 +15613,7 @@ function syncBrandStatusVisual(sel) {
     sel.style.color = '#666';
   } else {
     sel.style.backgroundColor = '#E8F5E9';
-    sel.style.color = '#16a34a';
+    sel.style.color = 'var(--green)';
   }
 }
 
@@ -15605,7 +15666,7 @@ function renderBrandAppBundleCard(a) {
     + '<span style="color:var(--muted)">제품 <strong style="color:var(--ink)">' + prods.length + '개</strong></span>'
     + '<span style="color:var(--muted)">총 수량 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : '—') + '</strong></span>'
     + (totalFinal > 0 ? '<span style="color:var(--muted)">최종 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(totalFinal) + '</strong></span>' : '')
-    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:#16a34a;font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
+    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:var(--green);font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
     + '<span style="color:var(--muted);margin-left:auto">예상 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</strong></span>'
   + '</div>';
 
@@ -15622,7 +15683,7 @@ function renderBrandAppBundleCard(a) {
     var urlClamp = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all';
     var urlCell = p.url
       ? (urlSafe
-          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--pink);text-decoration:none">' + esc(p.url) + '</a>'
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--ink)">' + esc(p.url) + '</a>'
           : '<span title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--muted)">' + esc(p.url) + '</span>')
       : dash;
     // 숫자 컬럼들은 nowrap 으로 한 줄 보장 (¥ / ₩ + 쉼표 표기가 두 줄로 잘리지 않게).
@@ -16617,7 +16678,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var brandName = a.brand?.name || a.brand_name || '—';
     var brandNo = a.brand?.brand_no || '';
     if (a.brand_id) {
-      return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
         + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
       + '</td>';
     }
@@ -17908,7 +17969,7 @@ function renderQuoteSentDisplay(isoOrNull, urlOrNull, locked) {
       + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">open_in_new</span></a>'
     : '';
   var content = hasValue
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--green);font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
       + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
     : '<span style="color:var(--muted);font-size:11px">미전달</span>';
   return content
@@ -18450,7 +18511,7 @@ function renderCompanyList() {
   var renderRow = function(c) {
     var statusBadge = c.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">보관</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
+      : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     var brandCount = c.total_brands || 0;
 
     // 작업 버튼 — 권한 없으면 비활성 + 안내
@@ -18735,7 +18796,7 @@ function openBrandOpsDetail(brandId) {
 
 // alert_level → 색·라벨 매핑 (관리자 UI 한국어)
 var BRAND_OPS_ALERT = {
-  danger:  { color: '#dc2626', bg: '#FDECEA', label: '긴급',     pulse: true },
+  danger:  { color: 'var(--red)', bg: '#FDECEA', label: '긴급',     pulse: true },
   warning: { color: '#f97316', bg: '#FFF3E8', label: '대응 필요', pulse: false },
   caution: { color: '#f59e0b', bg: '#FEF9E7', label: '주의',     pulse: false },
   normal:  { color: '#cbd5e1', bg: '#fff',    label: '',         pulse: false }
@@ -18860,7 +18921,7 @@ function brandOpsRateBar(label, rate, approved, total) {
   var sub = (total !== undefined && total !== null) ? ('(' + (approved||0) + '/' + (total||0) + ')') : '';
   return '<div style="margin-top:6px">'
     + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
-    + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? '#16a34a' : pct >= 30 ? '#f59e0b' : '#dc2626') + '"></div></div>'
+    + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)') + '"></div></div>'
     + '</div>';
 }
 
@@ -19090,7 +19151,7 @@ function brandOpsCampTypeChannel(c) {
   var typeKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined' && RECRUIT_TYPE_LABEL_KO[c.recruit_type]) || BRAND_OPS_RECRUIT_TYPE_KO[c.recruit_type] || c.recruit_type || '';
   var chText = brandOpsChannelText(c.channel, c.channel_match);
   return '<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-bottom:3px">'
-    + (typeKo ? '<span style="background:#F3E9F0;color:var(--pink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
+    + (typeKo ? '<span style="background:var(--surface-dim);color:var(--ink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
     + (chText ? '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(chText) + '</span>' : '')
     + '</div>';
 }
@@ -21298,7 +21359,7 @@ function renderFaqCategories() {
              <button class="btn btn-ghost btn-xs" ${downId?'':'disabled'} onclick="moveFaqNode('${esc(c.id)}','${esc(downId)}')">↓</button>`
           : `<label class="lookup-toggle" title="${c.active?'활성':'비활성'}"><input type="checkbox" ${c.active?'checked':''} onchange="toggleFaqNodeActive('${esc(c.id)}',this.checked)"><span class="lookup-toggle-slider"></span></label>
              <button class="btn btn-ghost btn-xs" onclick="openFaqEditModal('${esc(c.id)}',null,'category')">편집</button>
-             <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteFaqCategory('${esc(c.id)}')">삭제</button>`}
+             <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick="deleteFaqCategory('${esc(c.id)}')">삭제</button>`}
       </div>
     </div>`;
   }).join('');
@@ -21343,7 +21404,7 @@ function renderFaqItems(categoryId) {
              <button class="btn btn-ghost btn-xs" ${downId?'':'disabled'} onclick="moveFaqNode('${esc(q.id)}','${esc(downId)}')">↓</button>`
           : `<label class="lookup-toggle" title="${q.active?'활성':'비활성'}"><input type="checkbox" ${q.active?'checked':''} onchange="toggleFaqNodeActive('${esc(q.id)}',this.checked)"><span class="lookup-toggle-slider"></span></label>
              <button class="btn btn-ghost btn-xs" onclick="openFaqEditModal('${esc(q.id)}','${esc(categoryId)}','item')">편집</button>
-             <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteFaqItem('${esc(q.id)}')">삭제</button>`}
+             <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick="deleteFaqItem('${esc(q.id)}')">삭제</button>`}
       </div>
     </div>`;
   }).join('');
@@ -21824,7 +21885,7 @@ function buildInfRowAll(u) {
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
   return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
     <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
     <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
@@ -21899,7 +21960,7 @@ async function openInfluencerDetail(userId) {
     const handle = extractSnsHandle(channel, raw);
     const url = snsProfileUrl(channel, handle);
     const idHtml = handle
-      ? (url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);text-decoration:none">@${esc(handle)}</a>` : `@${esc(handle)}`)
+      ? (url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--ink)">@${esc(handle)}</a>` : `@${esc(handle)}`)
       : '—';
     return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${label}</div>
@@ -23139,7 +23200,7 @@ function renderDelivAppRow(g) {
     <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
+    <td><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
@@ -23221,7 +23282,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
     if (d.post_url) {
       let host = '';
       try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url; }
-      preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
+      preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--ink);display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
     // 채널 불일치 경고 배지 (2026-06-16, 묶음2) — 캠페인 요구 채널에 없는 post_channel(예: 인스타 캠페인에 lips)
     //   단 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면(현재 정상) 숨김 (opts.hasValidApprovedPost).
@@ -26895,7 +26956,7 @@ function renderRecentAppsTable(apps, camps, users) {
         </div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
+        <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
@@ -27512,7 +27573,7 @@ async function loadCampApplicants() {
     const _lineDisp = maskedFieldByFlag(_u.line_id, _u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+      <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
       <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
@@ -27611,7 +27672,7 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
     ${brandOpsRateBar('인증 성공', certPct, certSuccess, slots)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
-      <span>승인 <strong style="color:#16a34a">${approved}</strong>명</span>
+      <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
       <span>심사중 <strong style="color:#f59e0b">${stats.pending}</strong>명</span>
     </div>
   </div>`;
@@ -27932,7 +27993,7 @@ async function renderAppCampList() {
         ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
+        <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
         <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>
@@ -28136,7 +28197,7 @@ function _renderAdminAccountsTable(admins, subs, kinds, isSuper) {
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
-      ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
+      ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:var(--red-d)" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 }
@@ -28510,13 +28571,13 @@ function switchLookupTab(kind, btn) {
     if (rb) { rb.textContent = '순서 변경'; rb.onclick = enterLookupReorderMode; rb.classList.remove('btn-primary'); rb.classList.add('btn-ghost'); }
   }
   document.querySelectorAll('.lookup-tab').forEach(b => {
-    b.style.color = '#9A9AA1';
+    b.style.color = 'var(--muted)';
     b.style.borderBottomColor = 'transparent';
     b.style.fontWeight = '600';
   });
   if (btn) {
-    btn.style.color = 'var(--pink)';
-    btn.style.borderBottomColor = 'var(--pink)';
+    btn.style.color = 'var(--ink)';
+    btn.style.borderBottomColor = 'var(--ink)';
     btn.style.fontWeight = '700';
   }
   renderLookupsTable();
@@ -28590,7 +28651,7 @@ async function renderLookupsTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -28829,7 +28890,7 @@ async function renderPsetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openPsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -28874,7 +28935,7 @@ function renderPsetSteps() {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="psetMoveStep(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_psetCurrentSteps.length-1?'disabled':''} onclick="psetMoveStep(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -29002,7 +29063,7 @@ async function renderCsetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openCsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -29410,7 +29471,7 @@ function renderCsetItems() {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="csetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_csetCurrentItems.length-1?'disabled':''} onclick="csetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_csetCurrentItems.length<=1?'disabled':''} onclick="csetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_csetCurrentItems.length<=1?'disabled':''} onclick="csetRemoveItem(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -29551,7 +29612,7 @@ async function renderNgSetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -29592,11 +29653,11 @@ function renderNgSetItems() {
   wrap.innerHTML = _nsetCurrentItems.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red-d)">NG ${idx+1}</span>
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="nsetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_nsetCurrentItems.length-1?'disabled':''} onclick="nsetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -30206,7 +30267,7 @@ function renderSettlementRow(s) {
   const auditB = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
   const infSub = [inf.name_kana ? esc(inf.name_kana) : '', inf.email ? esc(inf.email) : '']
     .filter(Boolean).join(' · ');
-  const infCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
+  const infCell = `<div class="link-cell" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
 
   const campNo = camp.campaign_no
     ? `<div><span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span></div>`
@@ -30641,7 +30702,7 @@ function renderPastUnregRow(r) {
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
   const paypalCell = r.has_paypal
-    ? '<span style="background:#E8F5E9;color:#16A34A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
+    ? '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
     : '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px" title="PayPal 미등록">미등록</span>';
   return `<tr>
     <td><input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}></td>
@@ -30952,7 +31013,7 @@ function renderOutboundRow(o) {
     }
   }
 
-  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+  const nameCell = `<div class="link-cell" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
 
   const agencyCell = o.agency
     ? `<span style="font-size:12px">${esc(o.agency)}</span>`
@@ -30986,7 +31047,7 @@ function outboundChannelFollowersCell(o, ch) {
   if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
   const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
   const handleHtml = url
-    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--pink);text-decoration:none">@${esc(handle)}</a>`
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">@${esc(handle)}</a>`
     : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
   return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
     + `<div>${handleHtml}</div>`;
@@ -31559,7 +31620,7 @@ function renderOutboundReco(scored, cond) {
 function renderOutboundRecoRow(row, rank, priceCol) {
   const o = row.o;
   const id = esc(o.id);
-  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+  const nameCell = `<div class="link-cell" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
 
   // 선택형식 단가
   let priceCell = '<span style="color:var(--muted);font-size:11px">—</span>';
@@ -32422,7 +32483,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(orig?.caution_items)}</ul>
             </div>
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(next?.caution_items)}</ul>
             </div>
           </div>
@@ -32439,7 +32500,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
               <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(orig?.participation_steps)}</ul>
             </div>
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(next?.participation_steps)}</ul>
             </div>
           </div>
@@ -32456,7 +32517,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(orig?.ng_items)}</ul>
             </div>
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(next?.ng_items)}</ul>
             </div>
           </div>
@@ -32467,7 +32528,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
     if (body) {
       body.innerHTML = `
         <div style="font-size:13px;line-height:1.7;color:var(--ink)">
-          이 캠페인에는 이미 <b style="color:#B3261E">${appCount}명</b>의 신청자가 있습니다.<br>
+          이 캠페인에는 이미 <b style="color:var(--red-d)">${appCount}명</b>의 신청자가 있습니다.<br>
           변경 사항은 <b>이후 신규 신청자에게만 적용</b>되며, 기존 신청자가 동의한 시점의 문구는 그대로 효력을 유지합니다.
         </div>
         ${sections.join('')}
@@ -32506,7 +32567,7 @@ async function openCautionHistoryModal(campId) {
     _cautionHistoryState.list = Array.isArray(list) ? list : [];
     renderCautionHistoryModal();
   } catch(e) {
-    if (body) body.innerHTML = `<div style="padding:24px;color:#B3261E;font-size:13px">이력 불러오기 실패: ${esc(friendlyError(e.message||String(e)))}</div>`;
+    if (body) body.innerHTML = `<div style="padding:24px;color:var(--red-d);font-size:13px">이력 불러오기 실패: ${esc(friendlyError(e.message||String(e)))}</div>`;
   }
 }
 
@@ -32572,7 +32633,7 @@ function renderCautionHistoryModal() {
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.prev_caution_items)}</ul>
               </div>
               <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.next_caution_items)}</ul>
               </div>
             </div>
@@ -32586,7 +32647,7 @@ function renderCautionHistoryModal() {
                 <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.prev_participation_steps)}</ul>
               </div>
               <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
                 <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.next_participation_steps)}</ul>
               </div>
             </div>
@@ -32600,7 +32661,7 @@ function renderCautionHistoryModal() {
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_prev)}</ul>
               </div>
               <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_next)}</ul>
               </div>
             </div>
@@ -34567,7 +34628,7 @@ function renderCampSteps(formMode) {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampPsetStep('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampPsetStep('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampPsetStep('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampPsetStep('${formMode}',${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -34710,7 +34771,7 @@ function renderCampCautionItems(formMode) {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampCsetItem('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampCsetItem('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampCsetItem('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampCsetItem('${formMode}',${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -34842,11 +34903,11 @@ function renderCampNgItems(formMode) {
   wrap.innerHTML = arr.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red-d)">NG ${idx+1}</span>
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampNsetItem('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampNsetItem('${formMode}',${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">

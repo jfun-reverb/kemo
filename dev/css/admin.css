@@ -2,6 +2,54 @@
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
 
+/* ── 관리자 전용 색 토큰 (2026-07-20 무채색 톤 정리) ──────────────
+   base.css 는 인플루언서 빌드와 공용이므로 여기서만 덮어쓴다.
+   (인플루언서는 campaign.css 에서 로즈 계열을 되살리는 것과 같은 구조)
+
+   왜 바꾸나 — 무채색 전환 후 회색이 너무 옅어 글자가 안 읽혔다.
+     비활성 탭 var(--muted) = 2.80:1 · 0건 탭 #aaa = 2.32:1 · --faint = 2.56:1
+     (웹 접근성 본문 기준 4.5:1)
+   그리고 표 머리·행 hover 는 배경이 흰색이 아니라 연회색(--surface-dim)이라,
+   흰 배경에서 겨우 통과하던 회색이 그 위에서는 떨어졌다. 두 배경 모두에서
+   통과하는 값으로 올린다. */
+#page-admin{
+  --muted:#6E6E77;   /* 보조 텍스트 — 흰 배경 5.05:1 / 연회색 배경 4.6:1 (양쪽 통과) */
+  --faint:#8A8A93;   /* 장식·비활성 아이콘 전용. 글자에는 쓰지 말 것(3.4:1) */
+}
+
+/* ── 「누를 수 있는 것」 표시 규칙 (무채색 유지) ──────────────────
+   색으로 구분하지 않는다. 굵기 + 밑줄로만 구분한다.
+   무채색 테마에서 --pink 별칭이 본문과 같은 검정이 되면서, 링크·클릭 가능한
+   이름이 평범한 글자와 똑같아 보이던 문제를 해결한다. */
+.link-cell{
+  font-weight:600;
+  color:var(--ink);
+  cursor:pointer;
+  text-decoration:underline;
+  text-decoration-color:var(--outline);   /* 평소엔 연하게 — 표가 시끄러워지지 않도록 */
+  text-underline-offset:3px;
+  text-decoration-thickness:1px;
+  transition:text-decoration-color .15s;
+}
+.link-cell:hover{text-decoration-color:var(--ink)}
+.link-cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:3px}
+
+/* 표·카드 안의 링크도 같은 규칙 — 무채색이라 색만으로는 링크인지 알 수 없다.
+   버튼 모양 요소(.btn/.admin-btn/칩/배지)는 이미 생김새로 구분되므로 제외. */
+.admin-body a:not([class*="btn"]):not([class*="chip"]):not([class*="badge"]):not([class*="tab"]){
+  color:var(--ink);
+  text-decoration:underline;
+  text-decoration-color:var(--outline);
+  text-underline-offset:3px;
+  text-decoration-thickness:1px;
+  transition:text-decoration-color .15s;
+}
+.admin-body a:not([class*="btn"]):not([class*="chip"]):not([class*="badge"]):not([class*="tab"]):hover{
+  text-decoration-color:var(--ink);
+}
+/* 미리보기 안(인플루언서 화면 재현)은 이 규칙에서 제외 — 실물과 달라지면 안 된다 */
+.cp-frame a{text-decoration:none;color:inherit}
+
 /* 관리자 페이지는 PC 전용 — 모바일 auto-zoom 방지용 16px 불필요 */
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
@@ -39,8 +87,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
 /* 보기 초기화 버튼 — 진한 회색 (사용자 요청) */
-#btnCampViewReset,#btnInfViewReset,#btnAppViewReset,#btnDelivFilterReset,#btnBrandAppViewReset{background:#6B7280;color:#fff;border:1px solid #6B7280}
-#btnCampViewReset:hover,#btnInfViewReset:hover,#btnAppViewReset:hover,#btnDelivFilterReset:hover,#btnBrandAppViewReset:hover{background:#565D6B;border-color:#565D6B;color:#fff;opacity:1}
+#btnCampViewReset,#btnInfViewReset,#btnAppViewReset,#btnDelivFilterReset,#btnBrandAppViewReset{background:var(--muted);color:#fff;border:1px solid var(--muted)}
+#btnCampViewReset:hover,#btnInfViewReset:hover,#btnAppViewReset:hover,#btnDelivFilterReset:hover,#btnBrandAppViewReset:hover{background:var(--muted);border-color:var(--muted);color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
 .mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
 .mf-btn::after{content:none}
@@ -78,7 +126,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-side-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;transition:background .2s}
 .admin-side-scroll:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
 .admin-side-scroll:hover::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.3)}
-.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#9A9AA1;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
+.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:var(--on-surface)}
 .admin-si.on{color:var(--on-surface);border-left-color:var(--primary);font-weight:600}
 .admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
@@ -100,7 +148,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
 /* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
 .admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
-.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
 .admin-layout.collapsed .admin-side-foot{display:none}
 .admin-main{background:var(--surface);margin:14px 6px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
@@ -152,11 +200,14 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    기준 데이터 페인의 .lookup-tab 인라인 스타일과 동일 패턴을 공통 클래스로 추출. */
 .status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
 .status-tab-bar::-webkit-scrollbar{display:none}
-.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
-.status-tab-btn:hover{background:var(--surface-dim)}
-.status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
+.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
+.status-tab-btn:hover{background:var(--surface-dim);color:var(--ink)}
+.status-tab-btn.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
-.status-tab-btn.zero-count{color:#aaa}
+/* 0건 탭은 색을 더 흐리게 하지 않는다 — 흐리게 하면 읽히지 않고(2.3:1),
+   「0건」이라는 정보는 옆의 건수 숫자가 이미 말해준다(색만으로 정보 전달 금지) */
+.status-tab-btn.zero-count{color:var(--muted)}
+.status-tab-btn.zero-count .tab-count{opacity:.7}
 
 /* 브랜드 서베이 신청 목록 — 신청 단위 좌측 색 띠 4px (같은 신청 행끼리 동일 색, 짝/홀 교대) */
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
@@ -281,7 +332,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}
 .brand-trend-btn:hover{border-color:var(--pink);color:var(--pink)}
 .brand-trend-btn.on{background:var(--pink);color:#fff;border-color:var(--pink)}
-.btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:#B3261E;color:#B3261E}
+.btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:var(--red-d);color:var(--red-d)}
 .btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
 .sort-arrows{cursor:pointer;font-size:9px;color:var(--muted);margin-left:2px;user-select:none;letter-spacing:-1px}
 .sort-arrows:hover{color:var(--primary)}
@@ -294,7 +345,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .camp-more-menu{position:fixed;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:120px}
 .camp-more-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--ink);transition:background .12s;white-space:nowrap}
 .camp-more-item:hover{background:var(--surface-dim)}
-.camp-more-danger{color:#B3261E}
+.camp-more-danger{color:var(--red-d)}
 .camp-more-danger:hover{background:rgba(179,38,30,.08)}
 .status-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:110px}
 .status-dropdown-item{padding:6px 10px;border-radius:6px;cursor:pointer;transition:background .12s}
@@ -379,6 +430,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .camp-preview-content{flex:1;overflow-y:auto;padding:0;background:#E5E5E5;display:flex;justify-content:center;min-height:560px}
 .camp-preview-content:empty::before{content:"입력하면 미리보기가 표시됩니다";color:var(--muted);font-size:12px;align-self:center}
 /* 인플루언서 상세 페이지 레이아웃 복제 */
+/* 캠페인 미리보기는 「인플루언서가 실제로 보는 화면」을 확인하는 용도다.
+   관리자 무채색을 그대로 입히면 실물과 달라져 미리보기 구실을 못 하므로,
+   이 안에서만 인플루언서 로즈 팔레트를 되살린다(campaign.css 와 같은 값). */
+.cp-frame{
+  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
+  --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;
+  /* 회색도 인플루언서 빌드 원래 값으로 되돌린다 — 위에서 관리자용으로 진하게 조정한
+     값이 상속되면 미리보기가 실물보다 진해 보인다 */
+  --muted:#71717A;--faint:#A1A1AA;
+}
 .cp-frame{width:100%;max-width:400px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
 .cp-gnb{background:#1b1b1f;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
@@ -512,7 +573,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .mini-editor-link-popover .melp-btn:hover{
   background:rgba(24,24,27,0.12);
 }
-.mini-editor-link-popover .melp-delete{color:#B3261E}
+.mini-editor-link-popover .melp-delete{color:var(--red-d)}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
 
 /* 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제) */
@@ -572,7 +633,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
   cursor:pointer;
   padding:6px;
   border-radius:4px;
-  color:#B3261E;
+  color:var(--red-d);
   display:inline-flex;
   align-items:center;
 }
@@ -928,11 +989,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.prevMonthDay,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.nextMonthDay{
-  color:#C7BCC4;
+  color:var(--outline);
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled:hover{
   background:transparent;
-  color:#C7BCC4;
+  color:var(--outline);
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.selected,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange,
@@ -1114,7 +1175,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
 .brand-app-pay-cell .pay-row.is-checked{background:var(--surface-dim);color:var(--ink)}
 /* 무료모집은 차별화 — 초록 톤. 비용 청구 안 함을 시각으로 분리 */
-.brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:#16A34A}
+.brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:var(--green)}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
@@ -1162,7 +1223,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .visibility-toggle-label{font-size:14px;font-weight:700;color:var(--ink)}
 .visibility-toggle-status{font-size:12px;color:var(--muted);margin-left:auto}
 .visibility-toggle-status.is-off{color:#C33;font-weight:600}
-.visibility-toggle{position:relative;width:48px;height:26px;border-radius:13px;border:none;cursor:pointer;background:#9CA3AF;padding:0;transition:background .2s;flex-shrink:0}
+.visibility-toggle{position:relative;width:48px;height:26px;border-radius:13px;border:none;cursor:pointer;background:var(--faint);padding:0;transition:background .2s;flex-shrink:0}
 .visibility-toggle.is-on{background:#22C55E}
 .visibility-toggle.is-disabled{opacity:.4;cursor:not-allowed}
 .visibility-toggle:focus{outline:none;box-shadow:0 0 0 3px rgba(34,197,94,.22)}
@@ -1253,7 +1314,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .adm-msg-search{flex:0 1 220px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit}
 .adm-msg-bar-btn{padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:var(--ink)}
 .adm-msg-bar-btn.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
-.adm-msg-bar-btn.done{background:#E8F5E9;color:#16A34A;border-color:#A7D7B0;cursor:default}
+.adm-msg-bar-btn.done{background:#E8F5E9;color:var(--green);border-color:#A7D7B0;cursor:default}
 .adm-msg-thread{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
 /* 메시지 — 말풍선 + 옆 메타(시간·읽음·액션). 메타는 풍선 바깥쪽(상대=오른쪽, mine=왼쪽) */
 .msg-row{display:flex;gap:8px;align-items:flex-end;max-width:85%;align-self:flex-start;flex-direction:row-reverse}
@@ -1263,8 +1324,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .msg-bubble .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink);margin-bottom:4px}
 .msg-card-body{font-size:13px;line-height:1.6;color:var(--ink);word-break:break-word}
 /* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 일본어 원문은 아래 작은 글씨 */
-.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,#E5E5EA);font-size:11px;line-height:1.5;color:var(--muted)}
-.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,var(--outline));font-size:11px;line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,var(--outline));border-radius:6px;font-size:10px;color:var(--muted)}
 .msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
 .msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
@@ -1319,7 +1380,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .adm-faq-hist-when{font-size:11px;color:var(--muted)}
 .adm-faq-hist-act{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:var(--surface-dim);color:var(--muted)}
 .adm-faq-hist-act.handoff{background:var(--red-l);color:var(--red)}
-.adm-faq-hist-act.resolved{background:#E8F5E9;color:#16A34A}
+.adm-faq-hist-act.resolved{background:#E8F5E9;color:var(--green)}
 .adm-faq-hist-q{font-size:12px;font-weight:600;color:var(--ink)}
 .adm-faq-hist-cnt{font-weight:400;color:var(--muted);font-size:11px}
 .adm-faq-hist-a{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
@@ -1358,7 +1419,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 측정 배지 */
 .faq-stats{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .faq-stat{font-size:10px;color:var(--muted);background:var(--surface-dim);border-radius:6px;padding:1px 6px}
-.faq-stat-warn{color:#B3261E;background:#FDECEA;font-weight:700}
+.faq-stat-warn{color:var(--red-d);background:#FDECEA;font-weight:700}
 /* 편집 모달 — 한·일 2열 */
 .faq-bilingual{display:flex;gap:14px}
 .faq-bilingual > .form-group{flex:1;min-width:0}
@@ -1384,16 +1445,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .deliv-proxy-notice .deliv-proxy-cascade{display:block;margin-top:6px;padding-top:6px;border-top:1px dashed #FBBF24;font-size:11px;color:#78350F}
 
 /* 회수 버튼 (super_admin 전용) */
-.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:#DC2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .deliv-proxy-revoke-btn:hover{background:#B91C1C}
-.deliv-proxy-revoke-btn[disabled]{background:#9CA3AF;cursor:not-allowed}
+.deliv-proxy-revoke-btn[disabled]{background:var(--faint);cursor:not-allowed}
 
 /* 대리 등록 모달 폼 */
 .admin-proxy-modal-form{display:flex;flex-direction:column;gap:14px;padding:6px 0}
 .admin-proxy-modal-form .form-row{display:flex;flex-direction:column;gap:4px}
 .admin-proxy-modal-form .form-row label{font-size:12px;font-weight:600;color:var(--ink)}
 .admin-proxy-modal-form .form-row .form-help{font-size:11px;color:var(--muted)}
-.admin-proxy-modal-form .form-row.required label::after{content:" *";color:#DC2626}
+.admin-proxy-modal-form .form-row.required label::after{content:" *";color:var(--red)}
 .admin-proxy-modal-form select,
 .admin-proxy-modal-form input[type="text"],
 .admin-proxy-modal-form input[type="date"],
@@ -1401,7 +1462,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-proxy-modal-form input[type="url"],
 .admin-proxy-modal-form textarea{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
 .admin-proxy-modal-form textarea{min-height:64px;resize:vertical}
-.admin-proxy-kind-section{display:none;padding:12px;background:#F9FAFB;border:1px solid var(--line);border-radius:8px}
+.admin-proxy-kind-section{display:none;padding:12px;background:var(--surface-container);border:1px solid var(--line);border-radius:8px}
 .admin-proxy-kind-section.active{display:block}
 .admin-proxy-kind-section .kind-section-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
 .admin-proxy-image-preview{margin-top:6px;max-width:180px;max-height:180px;border:1px solid var(--line);border-radius:6px;display:none}
@@ -1423,7 +1484,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* ─── 관리자 대리 등록 모달 — 검색 가능 드롭다운 (combobox) ────────── */
 .admin-proxy-combobox{position:relative}
 .admin-proxy-combobox-input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
-.admin-proxy-combobox-input:disabled{background:#F3F4F6;color:var(--muted);cursor:not-allowed}
+.admin-proxy-combobox-input:disabled{background:var(--surface-dim);color:var(--muted);cursor:not-allowed}
 .admin-proxy-combobox-input:focus{outline:none;border-color:var(--pink)}
 .admin-proxy-combobox-list{display:none;position:absolute;top:100%;left:0;right:0;z-index:10;max-height:240px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,.06);margin-top:-1px}
 .admin-proxy-combobox-list.open{display:block}
@@ -1431,7 +1492,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-proxy-combobox-list .item:last-child{border-bottom:none}
 .admin-proxy-combobox-list .item:hover,
 .admin-proxy-combobox-list .item.focused{background:#FFF5F8;color:var(--dark-pink)}
-.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:#F9FAFB}
+.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:var(--surface-container)}
 .admin-proxy-combobox-list .item-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .admin-proxy-combobox-list .empty{padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}
 
@@ -1639,7 +1700,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   padding: 10px 12px; color: #9A3412; font-size: 13px; line-height: 1.5;
 }
 .perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
-.perm-caret { font-size: 20px; color: var(--muted, #6B7280); vertical-align: middle; margin-right: 4px; }
+.perm-caret { font-size: 20px; color: var(--muted, var(--muted)); vertical-align: middle; margin-right: 4px; }
 /* 하나의 표 — table-layout:fixed 로 열 너비 고정, 열 헤더는 맨 위 1회(반복 제거) + 스크롤 시 상단 고정.
    ⚠️ border-collapse:separate 필수 — collapse 모드에선 sticky thead 의 배경·경계가 스크롤 시 깨져 아래 행과 겹친다.
    separate + border-spacing:0 + border-bottom(행 구분) 으로 sticky 를 안전하게 고정. */
@@ -1648,16 +1709,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
 .perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
 .perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
-.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, var(--muted)); font-weight: 600; }
 /* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
-.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
-.perm-cat-row:hover td { background: #F3F4F6; }
+.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: var(--surface-container); font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-cat-row:hover td { background: var(--surface-dim); }
 /* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
 .perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
 .perm-table th:not(.perm-th-feat) { width: 20%; }
 .perm-feat { color: var(--ink, #111827); }
 .perm-cell { min-width: 96px; }
-.perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
+.perm-locked { color: var(--muted, var(--faint)); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
 .perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
 .perm-tag {
@@ -1667,7 +1728,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-tag-super { background: #F3E8FF; color: #7E22CE; }
 /* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
 .perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
+.perm-changecount { font-size: 12px; color: var(--muted, var(--muted)); }
 
 /* ── 인플루언서 추천 명단(아웃바운드) 편집 모달 섹션 제목 ── */
 .outbound-form-section-title {
@@ -1718,10 +1779,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   margin: 1px 0;
   white-space: nowrap;
 }
-.reco-badge-ok    { background: #E8F5E9; color: #16A34A; }
+.reco-badge-ok    { background: #E8F5E9; color: var(--green); }
 .reco-badge-soft  { background: #EEF2FF; color: #4338CA; }
-.reco-badge-muted { background: #F3F4F6; color: #6B7280; }
-.reco-badge-over  { background: #FEE2E2; color: #DC2626; }
+.reco-badge-muted { background: var(--surface-dim); color: var(--muted); }
+.reco-badge-over  { background: #FEE2E2; color: var(--red); }
 
 /* 요청 인원 경계 구분선 행 */
 .reco-divider td {
