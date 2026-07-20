@@ -91,7 +91,10 @@ async function init() {
     var session = sessionResult?.data?.session;
 
     if (!session) {
-      window.location.href = '/#login';
+      // 관리자 전용 로그인 화면으로. 예전에는 인플루언서 앱(/#login)으로 보냈는데,
+      // 그 화면은 일본어·모바일 전용이라 관리자가 일본어 화면에서 로그인하게 됐다.
+      // (세션은 있으나 admins 행이 없는 경우는 아래 분기 그대로 — 여기로 보내면 무한 왕복)
+      window.location.href = '/admin-setpw.html?mode=login';
       return;
     }
 
@@ -121,7 +124,9 @@ async function init() {
     db.auth.onAuthStateChange(function(event) {
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
         currentUser = null; currentUserProfile = null;
-        window.location.href = '/#login';
+        // 부팅 시 무세션 진입과 같은 목적지 — 세션이 끊겨 다시 로그인해야 하는 상황이라
+        // 관리자 전용 한국어 로그인 화면으로 보낸다(예전엔 인플루언서 앱 일본어 화면).
+        window.location.href = '/admin-setpw.html?mode=login';
       }
     });
 
