@@ -441,6 +441,33 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
 
+/* ── 인플루언서 앱 전용 브랜드 색 (원래 로즈) ──────────────────────────
+   관리자 화면 모노톤 재설계(2026-07)가 공용 base.css 의 브랜드 색을 회색조로
+   바꾸면서 인플루언서 화면까지 함께 흑백이 됐다. 관리자는 회색조를 유지해야 하므로
+   base.css 를 되돌리지 않고, **인플루언서 빌드에만 포함되는 이 파일에서** 재정의한다.
+
+   왜 여기가 맞는가: build.sh 의 인플루언서 CSS 순서가
+     base.css → components.css → campaign.css → auth.css → mypage.css
+   라 이 선언이 base.css 를 덮고, 관리자 빌드(base → components → admin)에는
+   이 파일이 아예 안 들어간다. 두 화면의 색이 서로 간섭하지 않는다.
+
+   ⚠️ 인플루언서 앱 색을 바꿀 땐 base.css 가 아니라 여기를 고칠 것.
+      base.css 를 고치면 관리자 화면 회색조가 깨진다.
+
+   값은 모노톤 재설계 이전에 실제로 쓰던 팔레트 그대로다(신규 색이 아님).
+──────────────────────────────────────────────────────────── */
+:root {
+  --primary: #C878A3;          /* 참여 버튼·주요 동작 */
+  --primary-dark: #7D4A6A;     /* hover */
+  --primary-light: #FDF0F7;
+  --primary-container: #FDF0F7;
+  --pink: #C878A3;             /* 아이콘·포인트 */
+  --baby-pink: #E0B8CA;        /* 어두운 배경 위 강조 글자(히어로 제목) */
+  --dark-pink: #7D4A6A;
+  --light-pink: #FDF0F7;
+  --ink2: #2D1F2B;
+}
+
 /* Hero */
 .hero{background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);padding:32px 0 0;overflow:hidden;position:relative}
 .hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(24,24,27,.2) 0,transparent 55%);pointer-events:none}
