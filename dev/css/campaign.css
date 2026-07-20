@@ -3,10 +3,10 @@
 ══════════════════════════════════ */
 
 /* Hero */
-.hero{background:linear-gradient(135deg,#2D1F2B 0%,#56475D 100%);padding:32px 0 0;overflow:hidden;position:relative}
-.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(200,120,163,.2) 0,transparent 55%);pointer-events:none}
+.hero{background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);padding:32px 0 0;overflow:hidden;position:relative}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(24,24,27,.2) 0,transparent 55%);pointer-events:none}
 .hero-inner{position:relative;z-index:1;padding-bottom:0}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(200,120,163,.18);border:1px solid rgba(200,120,163,.28);color:#E0B8CA;padding:4px 12px;border-radius:var(--r-full);font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#E4E4E7;padding:4px 12px;border-radius:var(--r-full);font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
 .hero-h1{font-size:24px;font-weight:900;color:#fff;line-height:1.2;letter-spacing:-.01em;margin-bottom:10px}
 .hero-h1 span{color:var(--baby-pink)}
 .hero-jp{font-family:'Noto Sans JP',sans-serif;font-weight:400;font-size:18px;color:rgba(255,255,255,.4);display:block;margin-top:6px}

@@ -3,7 +3,7 @@
 ══════════════════════════════════ */
 
 /* ── GNB (Top App Bar) ── */
-.gnb{background:#2D1F2B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
+.gnb{background:#18181B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}
@@ -20,28 +20,28 @@
 .gnb-logout:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.1)}
 
 /* ── BUTTONS (Material Filled/Outlined/Text) ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 24px;border-radius:var(--r-full);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border:none;letter-spacing:.02em}
-.btn-primary{background:var(--primary);color:var(--on-primary);box-shadow:var(--elevation-1)}
-.btn-primary:hover{background:var(--primary-dark);box-shadow:var(--elevation-2);transform:translateY(-1px)}
-.btn-primary:active{transform:scale(.98);box-shadow:var(--elevation-1)}
-.btn-outline{background:var(--surface);color:var(--on-surface);border:1.5px solid var(--outline)}
-.btn-outline:hover{background:var(--surface-dim);border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--r8);font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s,background .15s,border-color .15s;border:none;letter-spacing:.01em}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-primary:hover{background:var(--primary);opacity:.85}
+.btn-primary:active{opacity:.72}
+.btn-outline{background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant)}
+.btn-outline:hover{background:var(--surface-dim);border-color:var(--muted)}
 .btn-ghost{background:transparent;color:var(--on-surface-variant);border:1px solid var(--outline)}
-.btn-ghost:hover{background:var(--surface-dim);border-color:var(--primary);color:var(--primary)}
-.btn-ghost:active{background:var(--outline);transform:scale(.96)}
-.btn-sm{padding:8px 16px;font-size:13px}
+.btn-ghost:hover{background:var(--surface-dim);border-color:var(--outline-variant);color:var(--on-surface)}
+.btn-ghost:active{background:var(--outline);opacity:.8}
+.btn-sm{padding:7px 14px;font-size:13px}
 .btn-xs{padding:6px 12px;font-size:12px;border-radius:var(--r8)}
 .btn-block{width:100%}
-.btn-green{background:var(--green);color:#fff;box-shadow:var(--elevation-1)}
-.btn-green:hover{box-shadow:var(--elevation-2);transform:translateY(-1px);filter:brightness(1.08)}
-.btn-green:active{transform:scale(.96);box-shadow:var(--elevation-1);filter:brightness(.95)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{opacity:.88}
+.btn-green:active{opacity:.78}
 .btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
 /* 활동관리 폼 라벨 비활성 (파일 선택용 분홍 라벨 — 마감 후+반려 없음 시 적용) */
 .form-label-disabled{opacity:.45;cursor:not-allowed!important;pointer-events:none;filter:grayscale(1)}
 
 /* ── CARDS (Material Card) ── */
-.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1)}
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden}
 .card-pad{padding:16px}
 
 /* ── BADGES (Material Chip) ── */
@@ -66,9 +66,9 @@
 .form-label{font-size:12px;font-weight:600;color:var(--on-surface);letter-spacing:.02em}
 .form-hint{font-size:11px;color:var(--on-surface-variant);line-height:1.5}
 .form-input{padding:12px 16px;border:1.5px solid var(--outline);border-radius:var(--r12);font-size:16px;color:var(--on-surface);background:var(--surface);transition:all .2s cubic-bezier(.2,0,0,1);width:100%;box-sizing:border-box}
-.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .form-input::placeholder{color:var(--on-surface-variant)}
-select.form-input{cursor:pointer;padding-right:36px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22><path d=%22M1 1l5 5 5-5%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:12px}
+select.form-input{cursor:pointer;padding:12px 40px 12px 14px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;background-size:10px 16px}
 textarea.form-input{resize:vertical;min-height:80px}
 /* 날짜 입력칸을 일반 입력칸과 통일: 네이티브 위젯 제거(appearance:none) + 넘침 방지 + 좌측 정렬.
    달력 아이콘(calendar-picker-indicator)은 우측에 유지해 탭하면 날짜 선택 가능.
@@ -106,8 +106,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
 .modal-header{padding:24px 24px 0;display:flex;align-items:flex-start;justify-content:space-between}
 .modal-title{font-size:20px;font-weight:700}
-.modal-close{width:32px;height:32px;border-radius:50%;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--on-surface-variant);flex-shrink:0;transition:all .2s}
-.modal-close:hover{background:var(--outline)}
+.modal-close{width:30px;height:30px;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
+.modal-close:hover{background:var(--surface-dim);color:var(--on-surface)}
 .modal-body{padding:16px 24px 24px}
 
 /* ── LOADING ── */
@@ -125,11 +125,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   font-size:14px; font-weight:700;
   padding:14px 32px; border-radius:999px;
   border:none; cursor:pointer;
-  box-shadow:0 6px 20px rgba(200,120,163,.35), 0 2px 6px rgba(0,0,0,.1);
+  box-shadow:0 6px 20px rgba(24,24,27,.35), 0 2px 6px rgba(0,0,0,.1);
   transition:transform .15s, box-shadow .15s;
   white-space:nowrap;
 }
-.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(200,120,163,.45)}
+.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(24,24,27,.45)}
 .floating-auth-cta:active{transform:translateX(-50%) translateY(0)}
 
 /* ── 햄버거 버튼 + 배지 ── */

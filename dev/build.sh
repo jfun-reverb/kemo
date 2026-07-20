@@ -147,4 +147,15 @@ if [ -d "sales" ]; then
   echo "  ✅ Sales 폼 복사 완료 → ../sales/"
 fi
 
+# ══════════════════════════════════════
+# 4. 관리자 비밀번호 설정 페이지 → ../admin-setpw.html (self-contained HTML 단순 복사)
+#    - 관리자 초대 메일의 착지 페이지. 로그인 전에 열리므로 /admin/ 안에 둘 수 없음
+#      (admin/app.js 가 무세션이면 인플루언서 앱으로 리다이렉트)
+#    - 확장자 포함 경로로 접근 (루트 사이트는 vercel.json 이 없어 cleanUrls 미적용)
+# ══════════════════════════════════════
+if [ -f "admin-setpw.html" ]; then
+  cp admin-setpw.html ../admin-setpw.html
+  echo "  ✅ 관리자 비밀번호 설정 페이지 복사 완료 → ../admin-setpw.html"
+fi
+
 echo "📦 빌드 완료 ($VERSION)"

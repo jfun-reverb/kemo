@@ -40,25 +40,27 @@ window._supabaseLoaded = false;
 ══════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* Material Design 색상 */
-  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
-  --on-primary:#fff;--on-primary-container:#7D4A6A;
-  --surface:#fff;--surface-dim:#F5F0F5;--surface-container:#FDFBFD;--surface-container-low:#F8F5F8;
-  --on-surface:#1E1320;--on-surface-variant:#7A6B78;--outline:#EDE6ED;--outline-variant:#E0D8E0;
-  --ink:#1E1320;--muted:#7A6B78;--line:#EDE6ED;--bg:#FDFBFD;
-  --green:#0E7E4A;--green-l:#F0FBF5;--gold:#9B6E3A;--gold-l:#FFF5E8;
-  --blue:#56475D;--blue-l:#F0EBF5;--white:#fff;
-  --red:#C878A3;--red-d:#56475D;--red-l:#FDF0F7;
-  --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;--ink2:#2D1F2B;
+  /* 무채색(모노크롬) 팔레트 — 2026-07-16 리디자인. 브랜드색 = 검정 강조, 상태는 기능색 유지 */
+  --primary:#1A1A1A;--primary-dark:#000000;--primary-light:#F4F4F5;--primary-container:#F4F4F5;
+  --on-primary:#fff;--on-primary-container:#1A1A1A;
+  --surface:#fff;--surface-dim:#F4F4F5;--surface-container:#FAFAFA;--surface-container-low:#F7F7F8;
+  --on-surface:#18181B;--on-surface-variant:#71717A;--outline:#E4E4E7;--outline-variant:#EDEDF0;
+  --ink:#18181B;--muted:#71717A;--faint:#A1A1AA;--line:#E4E4E7;--bg:#FAFAFA;--admin-canvas:#ECECEE;
+  /* 상태 기능색 (무채색 아님 — 모집중/승인/반려/경고 구분 유지) */
+  --green:#16A34A;--green-l:#F0FDF4;--gold:#D97706;--gold-l:#FFFBEB;
+  --blue:#2563EB;--blue-l:#EFF6FF;--white:#fff;
+  --red:#DC2626;--red-d:#B91C1C;--red-l:#FEF2F2;
+  /* 구 핑크 계열 별칭 → 무채색 매핑 (기존 참조 하위호환, 잔여 정리 전까지 안전값) */
+  --pink:#1A1A1A;--baby-pink:#D4D4D8;--dark-pink:#000000;--light-pink:#F4F4F5;--ink2:#27272A;
 
-  /* Material Design radius */
+  /* radius */
   --r8:8px;--r12:12px;--r16:16px;--r24:24px;--r-full:9999px;
 
-  /* Material Design elevation */
-  --elevation-1:0 1px 3px 1px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --elevation-2:0 2px 6px 2px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --elevation-3:0 4px 8px 3px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
-  --elevation-4:0 6px 10px 4px rgba(0,0,0,.08),0 2px 3px rgba(0,0,0,.06);
+  /* elevation — 무채색 미니멀: 그림자 약화, 테두리 위주 */
+  --elevation-1:0 1px 2px rgba(0,0,0,.04);
+  --elevation-2:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.03);
+  --elevation-3:0 4px 12px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.04);
+  --elevation-4:0 8px 24px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
 
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
@@ -91,7 +93,7 @@ img{display:block;max-width:100%}
 ══════════════════════════════════ */
 
 /* ── GNB (Top App Bar) ── */
-.gnb{background:#2D1F2B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
+.gnb{background:#18181B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}
@@ -108,28 +110,28 @@ img{display:block;max-width:100%}
 .gnb-logout:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.1)}
 
 /* ── BUTTONS (Material Filled/Outlined/Text) ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 24px;border-radius:var(--r-full);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border:none;letter-spacing:.02em}
-.btn-primary{background:var(--primary);color:var(--on-primary);box-shadow:var(--elevation-1)}
-.btn-primary:hover{background:var(--primary-dark);box-shadow:var(--elevation-2);transform:translateY(-1px)}
-.btn-primary:active{transform:scale(.98);box-shadow:var(--elevation-1)}
-.btn-outline{background:var(--surface);color:var(--on-surface);border:1.5px solid var(--outline)}
-.btn-outline:hover{background:var(--surface-dim);border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--r8);font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s,background .15s,border-color .15s;border:none;letter-spacing:.01em}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-primary:hover{background:var(--primary);opacity:.85}
+.btn-primary:active{opacity:.72}
+.btn-outline{background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant)}
+.btn-outline:hover{background:var(--surface-dim);border-color:var(--muted)}
 .btn-ghost{background:transparent;color:var(--on-surface-variant);border:1px solid var(--outline)}
-.btn-ghost:hover{background:var(--surface-dim);border-color:var(--primary);color:var(--primary)}
-.btn-ghost:active{background:var(--outline);transform:scale(.96)}
-.btn-sm{padding:8px 16px;font-size:13px}
+.btn-ghost:hover{background:var(--surface-dim);border-color:var(--outline-variant);color:var(--on-surface)}
+.btn-ghost:active{background:var(--outline);opacity:.8}
+.btn-sm{padding:7px 14px;font-size:13px}
 .btn-xs{padding:6px 12px;font-size:12px;border-radius:var(--r8)}
 .btn-block{width:100%}
-.btn-green{background:var(--green);color:#fff;box-shadow:var(--elevation-1)}
-.btn-green:hover{box-shadow:var(--elevation-2);transform:translateY(-1px);filter:brightness(1.08)}
-.btn-green:active{transform:scale(.96);box-shadow:var(--elevation-1);filter:brightness(.95)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{opacity:.88}
+.btn-green:active{opacity:.78}
 .btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
 /* 활동관리 폼 라벨 비활성 (파일 선택용 분홍 라벨 — 마감 후+반려 없음 시 적용) */
 .form-label-disabled{opacity:.45;cursor:not-allowed!important;pointer-events:none;filter:grayscale(1)}
 
 /* ── CARDS (Material Card) ── */
-.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1)}
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden}
 .card-pad{padding:16px}
 
 /* ── BADGES (Material Chip) ── */
@@ -154,9 +156,9 @@ img{display:block;max-width:100%}
 .form-label{font-size:12px;font-weight:600;color:var(--on-surface);letter-spacing:.02em}
 .form-hint{font-size:11px;color:var(--on-surface-variant);line-height:1.5}
 .form-input{padding:12px 16px;border:1.5px solid var(--outline);border-radius:var(--r12);font-size:16px;color:var(--on-surface);background:var(--surface);transition:all .2s cubic-bezier(.2,0,0,1);width:100%;box-sizing:border-box}
-.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .form-input::placeholder{color:var(--on-surface-variant)}
-select.form-input{cursor:pointer;padding-right:36px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22><path d=%22M1 1l5 5 5-5%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:12px}
+select.form-input{cursor:pointer;padding:12px 40px 12px 14px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;background-size:10px 16px}
 textarea.form-input{resize:vertical;min-height:80px}
 /* 날짜 입력칸을 일반 입력칸과 통일: 네이티브 위젯 제거(appearance:none) + 넘침 방지 + 좌측 정렬.
    달력 아이콘(calendar-picker-indicator)은 우측에 유지해 탭하면 날짜 선택 가능.
@@ -194,8 +196,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
 .modal-header{padding:24px 24px 0;display:flex;align-items:flex-start;justify-content:space-between}
 .modal-title{font-size:20px;font-weight:700}
-.modal-close{width:32px;height:32px;border-radius:50%;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--on-surface-variant);flex-shrink:0;transition:all .2s}
-.modal-close:hover{background:var(--outline)}
+.modal-close{width:30px;height:30px;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
+.modal-close:hover{background:var(--surface-dim);color:var(--on-surface)}
 .modal-body{padding:16px 24px 24px}
 
 /* ── LOADING ── */
@@ -213,11 +215,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   font-size:14px; font-weight:700;
   padding:14px 32px; border-radius:999px;
   border:none; cursor:pointer;
-  box-shadow:0 6px 20px rgba(200,120,163,.35), 0 2px 6px rgba(0,0,0,.1);
+  box-shadow:0 6px 20px rgba(24,24,27,.35), 0 2px 6px rgba(0,0,0,.1);
   transition:transform .15s, box-shadow .15s;
   white-space:nowrap;
 }
-.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(200,120,163,.45)}
+.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(24,24,27,.45)}
 .floating-auth-cta:active{transform:translateX(-50%) translateY(0)}
 
 /* ── 햄버거 버튼 + 배지 ── */
@@ -440,10 +442,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 ══════════════════════════════════ */
 
 /* Hero */
-.hero{background:linear-gradient(135deg,#2D1F2B 0%,#56475D 100%);padding:32px 0 0;overflow:hidden;position:relative}
-.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(200,120,163,.2) 0,transparent 55%);pointer-events:none}
+.hero{background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);padding:32px 0 0;overflow:hidden;position:relative}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(24,24,27,.2) 0,transparent 55%);pointer-events:none}
 .hero-inner{position:relative;z-index:1;padding-bottom:0}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(200,120,163,.18);border:1px solid rgba(200,120,163,.28);color:#E0B8CA;padding:4px 12px;border-radius:var(--r-full);font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#E4E4E7;padding:4px 12px;border-radius:var(--r-full);font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
 .hero-h1{font-size:24px;font-weight:900;color:#fff;line-height:1.2;letter-spacing:-.01em;margin-bottom:10px}
 .hero-h1 span{color:var(--baby-pink)}
 .hero-jp{font-family:'Noto Sans JP',sans-serif;font-weight:400;font-size:18px;color:rgba(255,255,255,.4);display:block;margin-top:6px}
@@ -722,7 +724,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
 <!-- ── GLOBAL ELEMENTS ── -->
 <div id="toast"></div>
-<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
 <!-- Pull-to-Refresh 인디케이터 — 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 -->
 <div id="ptrIndicator" aria-hidden="true">
   <span class="material-icons-round notranslate" translate="no">refresh</span>
@@ -8338,6 +8340,32 @@ async function sendOrientInviteMail(orientSheetId, recipient) {
   }
 }
 
+// 관리자 초대·비밀번호 재설정 메일 발송 (Edge Function notify-admin-invite).
+// Supabase Auth 기본 발송(resetPasswordForEmail)을 쓰지 않는 이유 2가지:
+//   1) Auth 는 메일 종류별 템플릿이 1개라 "Reset password" 를 인플루언서 비밀번호 찾기와 공유한다.
+//   2) flowType:'pkce' 라 resetPasswordForEmail 은 코드 교환 검증값을 "호출한 브라우저"에 저장하는데,
+//      관리자 초대는 super_admin 브라우저에서 호출하고 링크는 초대받은 사람의 다른 브라우저에서 열린다
+//      → 검증값이 없어 교환 실패. 서버 발급(generateLink)은 이 문제가 없다.
+// mode: 'invite'(초대 최초 설정) | 'reset'(재발송·재설정) — 착지 화면 문구만 좌우.
+// 사양서 docs/specs/2026-07-20-admin-invite-mail-and-setpw.md
+async function sendAdminInviteMail(email, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-admin-invite', {
+      body: { email, mode: mode || 'invite' }
+    });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
 // 오리엔시트 삭제 (마이그레이션 199, delete_orient_sheet RPC).
 // 발행 캠페인 없으면 시트만 삭제(is_admin) / 연결 있으면 신청 0건 캠페인까지 함께 삭제(is_campaign_admin),
 // 신청 1건+ 있으면 차단(blocked_has_applications). 반환 jsonb 그대로 전달(호출 측이 reason 분기).
@@ -10203,7 +10231,7 @@ function buildCampCards(camps) {
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
-        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
+        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(24,24,27,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
         ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
         ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
         ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
@@ -10716,7 +10744,7 @@ async function openCampaign(id) {
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">${t('detail.postGuideline')}</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff5ff;padding:10px 12px;border-radius:8px;border:1px solid #f0d8e8">${richHtml(camp.appeal)}</div></div>` : ''}
+        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:10px 12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredHashtag')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
         ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredMention')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
@@ -10724,7 +10752,7 @@ async function openCampaign(id) {
       ${camp.guide ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.shootingGuide')}</div>
-        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8">${richHtml(camp.guide)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${(() => {

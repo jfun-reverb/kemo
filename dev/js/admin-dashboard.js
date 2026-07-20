@@ -193,8 +193,8 @@ var PREFECTURE_KO = {
 
 // 파이 차트용 컬러 팔레트 (Top 10 + 미등록/해외)
 var ADDRESS_DIST_COLORS = [
-  '#E8344E','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
-  '#5BA86E','#E87A96','#3E79B8','#D49158','#7CA565'
+  '#18181B','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
+  '#5BA86E','#A1A1AA','#3E79B8','#D49158','#7CA565'
 ];
 
 // Chart.js 옵션 빌더 — legend/tooltip 퍼센티지 포맷 (렌더 함수 길이 축소 목적 분리)
@@ -466,8 +466,8 @@ function renderSignupChart(users, days) {
       datasets: [{
         label: '신규 가입',
         data: counts,
-        backgroundColor: 'rgba(200,120,163,.6)',
-        borderColor: 'rgba(200,120,163,1)',
+        backgroundColor: 'rgba(24,24,27,.6)',
+        borderColor: 'rgba(24,24,27,1)',
         borderWidth: 1,
         borderRadius: 4
       }]

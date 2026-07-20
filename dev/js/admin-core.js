@@ -478,7 +478,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   // 검색형(opt-in) — 옵션이 많은 드롭다운(캠페인 등)에서만 사용. 기본 false → 기존 전 페인 무영향
   const searchHtml = opts.searchable
     ? `<div class="mf-search-box"><input type="search" class="mf-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="${esc(opts.searchPlaceholder || '検索')}"></div>`
-      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#E8344E);background:var(--light-pink,#FDEEF4);border:1px solid var(--pink,#E8344E);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
+      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#1A1A1A);background:var(--light-pink,#F4F4F5);border:1px solid var(--pink,#1A1A1A);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
     : '';
   const emptyHtml = opts.searchable ? `<div class="mf-search-empty" style="display:none">일치하는 항목이 없습니다</div>` : '';
   // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)

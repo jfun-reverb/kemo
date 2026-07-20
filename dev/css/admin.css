@@ -5,7 +5,13 @@
 /* 관리자 페이지는 PC 전용 — 모바일 auto-zoom 방지용 16px 불필요 */
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
-#page-admin select.form-input{padding-right:32px;background-position:right 10px center}
+/* 관리자 select 화살표·여백 통일 (무채색 리디자인, 2026-07-16) — form-input·admin-filter·admin-select 3종 공통 위아래 chevron */
+#page-admin select.form-input,
+select.admin-filter,
+select.admin-select,
+select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;background-size:9px 14px;padding-right:28px}
+/* 사이드바 화면 이동 드롭다운도 동일 chevron (인라인 background-color 와 공존) */
+#adminScreenSelect{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 9px center;background-size:9px 14px}
 /* 필터 공통 */
 .admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
 .admin-filter.active{background-color:#fff}
@@ -32,10 +38,13 @@
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
+/* 보기 초기화 버튼 — 진한 회색 (사용자 요청) */
+#btnCampViewReset,#btnInfViewReset,#btnAppViewReset,#btnDelivFilterReset,#btnBrandAppViewReset{background:#6B7280;color:#fff;border:1px solid #6B7280}
+#btnCampViewReset:hover,#btnInfViewReset:hover,#btnAppViewReset:hover,#btnDelivFilterReset:hover,#btnBrandAppViewReset:hover{background:#565D6B;border-color:#565D6B;color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
-.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
-.mf-btn::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted)}
-.mf-btn.has-selection{background:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
+.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
+.mf-btn::after{content:none}
+.mf-btn.has-selection{background-color:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
 /* 다중 선택 드롭다운: 콘텐츠 폭만큼 늘어나되 viewport·사이드바 영역에 맞춰 max-width 캡 → 좁은 화면에선 자동 줄어듦 + 줄바꿈 */
 .mf-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:160px;width:max-content;max-width:min(560px,calc(100vw - 240px));background:#fff;border:1px solid var(--outline);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:100;padding:4px 0;max-height:240px;overflow-y:auto}
 .mf-drop.open{display:block}
@@ -58,24 +67,27 @@
 /* 결과물 관리 — 검색 돋보기 버튼 활성 강조 + 기간 선택 활성 표시 */
 #btnDelivSearchToggle.active{color:var(--primary);border-color:var(--primary)}
 .admin-filter-search.filter-active{border-color:var(--primary);color:var(--primary)}
-.admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
+.admin-layout{display:grid;grid-template-columns:240px 1fr;height:100vh;transition:grid-template-columns .25s ease;background:var(--admin-canvas)}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
-.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.4) transparent}
+.admin-side{background:var(--admin-canvas);padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
+.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:transparent transparent}
+.admin-side-scroll:hover{scrollbar-color:rgba(0,0,0,.2) transparent}
 .admin-side-scroll::-webkit-scrollbar{width:6px}
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
-.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:3px}
-.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
-.admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
-.admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);padding:20px 20px 6px;text-transform:none;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
+/* 평소엔 스크롤바 숨김, 마우스 올릴 때(스크롤 시)만 표시 */
+.admin-side-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;transition:background .2s}
+.admin-side-scroll:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
+.admin-side-scroll:hover::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.3)}
+.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#9A9AA1;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
+.admin-si:hover{color:var(--on-surface)}
+.admin-si.on{color:var(--on-surface);border-left-color:var(--primary);font-weight:600}
+.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
 .sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
-.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
-.sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
-.sidebar-toggle:active{background:rgba(255,255,255,.18)}
-.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.35);transition:opacity .2s}
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:var(--on-surface-variant);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
+.sidebar-toggle:hover{background:var(--surface-dim);color:var(--on-surface)}
+.sidebar-toggle:active{background:var(--outline)}
+.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--on-surface-variant);transition:opacity .2s}
 .admin-layout.collapsed .sidebar-toggle-wrap{justify-content:center;padding:4px 0;margin:0 0 8px}
 .admin-layout.collapsed .sidebar-toggle-label{opacity:0;width:0;overflow:hidden}
 .si-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center}
@@ -84,28 +96,30 @@
 .admin-layout.collapsed .si-text{opacity:0;width:0;overflow:hidden}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
-.admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #1A0F18;border-radius:10px;box-sizing:content-box}
+.admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
-.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:rgba(255,255,255,.35);font-variant-numeric:tabular-nums;border-top:1px solid rgba(255,255,255,.06);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+/* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
+.admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
+.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
-.admin-layout.collapsed .admin-build-info{display:none}
-.admin-main{background:var(--surface-container-low);height:100%;overflow:hidden}
+.admin-layout.collapsed .admin-side-foot{display:none}
+.admin-main{background:var(--surface);margin:14px 6px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
 
-.admin-body{padding:24px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
+.admin-body{padding:16px 16px 8px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
 .admin-pane{display:none}.admin-pane.on{display:block;flex:1;min-height:0;overflow-y:auto}
 /* 목록 페인 (7개 — campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts): 고정 헤더 + 테이블만 스크롤 */
 .admin-pane-list.on{display:flex!important;flex-direction:column;overflow:hidden!important}
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
-.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
+.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
-.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
 .admin-pane-list #campApplicantsSummary{flex-shrink:0}
 .camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
 .camp-ops-summary:empty{display:none;margin:0}
-.camp-ops-card{background:var(--surface);border-radius:var(--r16);box-shadow:var(--elevation-1);padding:14px 16px;min-width:0}
+.camp-ops-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:14px 16px;min-width:0}
 .camp-ops-card-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.02em}
 .camp-ops-row{display:flex;gap:8px;font-size:12px;line-height:1.6}
 .camp-ops-row .k{color:var(--muted);flex-shrink:0;min-width:64px}
@@ -138,7 +152,7 @@
    기준 데이터 페인의 .lookup-tab 인라인 스타일과 동일 패턴을 공통 클래스로 추출. */
 .status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
 .status-tab-bar::-webkit-scrollbar{display:none}
-.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
+.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#9A9AA1;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
 .status-tab-btn:hover{background:var(--surface-dim)}
 .status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
@@ -257,7 +271,7 @@
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
-.kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
+.kpi-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:20px;position:relative;overflow:hidden}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .kpi-r::after{background:var(--primary)}.kpi-g::after{background:var(--green)}.kpi-b::after{background:var(--blue)}.kpi-o::after{background:var(--gold)}
 .kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--on-surface)}
@@ -295,13 +309,13 @@
 .os-copy-btn:active{background:var(--baby-pink)}
 .os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
+.data-table th{padding:11px 12px;background:var(--surface);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
-.data-table td{padding:10px 10px;border-bottom:1px solid var(--surface-dim);color:var(--on-surface);vertical-align:middle}
+.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle;background:var(--surface)}
 .data-table tr:last-child td{border-bottom:none}
-.data-table tr:hover td{background:var(--surface-dim)}
-.admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
-.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
+.data-table tr:hover td{background:var(--surface-container)}
+.admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}
+.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--outline);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 /* ── 오픈 예정 기능 보드 (D-day) ── */
 .upcoming-table{width:100%}
@@ -316,7 +330,7 @@
 .upcoming-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--muted);font-size:13px}
 .upcoming-empty .material-icons-round{font-size:40px;color:var(--outline-variant)}
 
-.product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
+.product-form{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:28px;margin-bottom:20px}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}
 
@@ -336,7 +350,7 @@
 
 /* タグ入力 */
 .tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border:1.5px solid var(--outline);border-radius:var(--r12);background:var(--surface);min-height:42px;align-items:center;cursor:text}
-.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .tag-input{border:none;outline:none;font-size:14px;background:transparent;min-width:80px;flex:1;padding:2px 0;color:var(--ink)}
 .tag-label{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--light-pink);color:var(--dark-pink);border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
 .tag-label button{border:none;background:none;cursor:pointer;font-size:14px;color:var(--dark-pink);padding:0;line-height:1;opacity:.7}
@@ -355,7 +369,7 @@
 /* 캠페인 폼 2컬럼 (폼 + 실시간 미리보기) */
 .camp-form-2col{display:flex;gap:20px;align-items:flex-start}
 .camp-form-main{flex:1;min-width:0}
-.camp-preview-pane{width:420px;flex-shrink:0;position:sticky;top:0;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1);max-height:calc(100vh - 48px);transition:width .2s}
+.camp-preview-pane{width:420px;flex-shrink:0;position:sticky;top:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;max-height:calc(100vh - 48px);transition:width .2s}
 .camp-preview-pane-header{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;background:var(--surface-dim);color:var(--ink);flex-shrink:0}
 .camp-preview-pane-header button{padding:2px 6px}
 .cp-lang-toggle{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
@@ -370,7 +384,7 @@
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
 .cp-gnb-badge{background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
 .cp-body-scroll{flex:1;overflow-y:auto;padding-bottom:64px}
-.cp-hero{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#F8BBD0 0%,#F48FB1 100%);overflow:hidden}
+.cp-hero{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);overflow:hidden}
 .cp-hero > img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f5f5f5}
 .cp-hero-ct{position:absolute;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap;z-index:2}
 .cp-hero-ct-chip{background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;backdrop-filter:blur(4px)}
@@ -413,8 +427,8 @@
 .cp-sec-body .rich-content *{font-size:inherit!important}
 /* 캠페인 미리보기·상세 — 브랜드 어필 / 촬영 가이드 / NG 사항 박스
    var(--bg) 흐린 회색이 가독성 떨어진다는 사용자 보고 → 옅은 핑크/라일락 + 보더로 구분 강조 */
-.cp-sec-bg-pink{background:#fff5ff;padding:10px 12px;border-radius:8px;border:1px solid #f0d8e8}
-.cp-sec-bg-guide{background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8}
+.cp-sec-bg-pink{background:var(--surface-dim);padding:10px 12px;border-radius:8px;border:1px solid var(--outline)}
+.cp-sec-bg-guide{background:#FAFAFA;padding:12px;border-radius:8px;border:1px solid var(--outline)}
 .cp-sec-bg-ng{background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd}
 .cp-sec-subtitle{font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 /* 하단 고정 CTA 모방 */
@@ -434,7 +448,7 @@
 .mini-editor-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .mini-editor-toolbar{display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:#fafafa}
 .mini-editor-toolbar button{border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
-.mini-editor-toolbar button:hover{background:rgba(200,120,163,.1)}
+.mini-editor-toolbar button:hover{background:rgba(24,24,27,.1)}
 .mini-editor-content{padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none;word-break:break-word}
 .mini-editor-content:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
 .mini-editor-content a{color:var(--pink);text-decoration:underline}
@@ -482,7 +496,7 @@
 }
 .mini-editor-link-popover .melp-url:focus{
   border-color:var(--pink);
-  box-shadow:0 0 0 2px rgba(200,120,163,0.15);
+  box-shadow:0 0 0 2px rgba(24,24,27,0.15);
 }
 .mini-editor-link-popover .melp-btn{
   border:0;
@@ -496,7 +510,7 @@
   color:var(--ink);
 }
 .mini-editor-link-popover .melp-btn:hover{
-  background:rgba(200,120,163,0.12);
+  background:rgba(24,24,27,0.12);
 }
 .mini-editor-link-popover .melp-delete{color:#B3261E}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
@@ -539,7 +553,7 @@
   white-space:nowrap;
 }
 .mini-editor-img-popover .meip-size:hover{
-  background:rgba(200,120,163,0.12);
+  background:rgba(24,24,27,0.12);
 }
 .mini-editor-img-popover .meip-size.is-active{
   background:var(--pink);
@@ -981,7 +995,7 @@
   padding:12px 16px;
   margin:10px -8px 0;          /* popup 좌우 padding 8px 상쇄 — 푸터 좌우 끝까지 확장 */
   border-top:1px solid var(--line);
-  background:var(--surface-container-low,#F8F5F8);
+  background:var(--surface-container-low,#F7F7F8);
   border-bottom-left-radius:14px;
   border-bottom-right-radius:14px;
 }
@@ -1098,23 +1112,23 @@
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
-.brand-app-pay-cell .pay-row.is-checked{background:#FCE4EC;color:#B91D5F}
+.brand-app-pay-cell .pay-row.is-checked{background:var(--surface-dim);color:var(--ink)}
 /* 무료모집은 차별화 — 초록 톤. 비용 청구 안 함을 시각으로 분리 */
 .brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:#16A34A}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
-.brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(200,120,163,.12);color:var(--pink)}
+.brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(24,24,27,.12);color:var(--pink)}
 .brand-app-pay-cell .pay-refresh-btn:disabled{opacity:.5;cursor:not-allowed}
 .brand-app-pay-cell .pay-refresh-btn .material-icons-round{font-size:15px}
 
 /* 가격체크 드롭다운 (제품별 4상태) — 신청 목록 페인 「가격체크」 컬럼.
    마켓 등록 가격과 신청 금액 비교 결과 (가격높음/낮음/동일) 또는 미선택. */
-.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;appearance:auto}
-.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background:#fafafa;font-weight:400}
-.brand-app-pricecheck-select.pc-higher{background:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
-.brand-app-pricecheck-select.pc-lower{background:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
-.brand-app-pricecheck-select.pc-equal{background:#EEEEEE;color:#555555;border-color:#D0D0D0}
+.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
+.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background-color:#fafafa;font-weight:400}
+.brand-app-pricecheck-select.pc-higher{background-color:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
+.brand-app-pricecheck-select.pc-lower{background-color:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
+.brand-app-pricecheck-select.pc-equal{background-color:#EEEEEE;color:#555555;border-color:#D0D0D0}
 .brand-app-pricecheck-select:focus{outline:2px solid var(--accent);outline-offset:1px}
 
 /* 캠페인 등록·편집 폼 「부모 신청 선택」 커스텀 드롭다운 — 제품명 + 메타 2줄.
@@ -1123,12 +1137,11 @@
 .custom-srcapp-wrap > select[data-srcapp-hidden]{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
 /* 서베이 신청 연결 — 신규 선택 UI는 숨기고(공개 제출 중단), 기존 연결만 읽기전용 라벨로 표시 */
 .custom-srcapp-readonly{margin-top:6px;padding:7px 10px;font-size:12px;color:var(--on-surface-variant,#666);background:var(--surface-dim,#f5f5f5);border:1px solid var(--line);border-radius:8px}
-.custom-srcapp-trigger{width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--r12);padding:8px 36px 8px 12px;font-size:13px;line-height:1.5;color:var(--on-surface);cursor:pointer;position:relative;font-family:inherit;box-sizing:border-box;transition:all .2s cubic-bezier(.2,0,0,1)}
+.custom-srcapp-trigger{width:100%;text-align:left;background:var(--surface) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 12px center;background-size:9px 14px;border:1.5px solid var(--outline);border-radius:var(--r12);padding:8px 36px 8px 12px;font-size:13px;line-height:1.5;color:var(--on-surface);cursor:pointer;position:relative;font-family:inherit;box-sizing:border-box;transition:all .2s cubic-bezier(.2,0,0,1)}
 .custom-srcapp-trigger:hover{border-color:var(--primary)}
-.custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
-.custom-srcapp-trigger.is-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
-.custom-srcapp-trigger::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;border-right:1.5px solid #999;border-bottom:1.5px solid #999;transform:translateY(-70%) rotate(45deg);pointer-events:none;transition:transform .15s}
-.custom-srcapp-trigger.is-open::after{transform:translateY(-30%) rotate(-135deg)}
+.custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
+.custom-srcapp-trigger.is-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
+.custom-srcapp-trigger::after{content:none}
 .custom-srcapp-trigger-main{font-size:13px;font-weight:600;color:var(--on-surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .custom-srcapp-trigger-main.is-placeholder{font-weight:400;color:var(--on-surface-variant)}
 .custom-srcapp-trigger-meta{font-size:11px;color:var(--on-surface-variant);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1136,8 +1149,8 @@
 .custom-srcapp-panel.is-open{display:block}
 .custom-srcapp-option{padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f1f1;transition:background .12s}
 .custom-srcapp-option:last-child{border-bottom:none}
-.custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:#fff4f8}
-.custom-srcapp-option.is-selected{background:#fdeef4}
+.custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:var(--surface-dim)}
+.custom-srcapp-option.is-selected{background:var(--surface-dim)}
 .custom-srcapp-option-main{font-size:13px;font-weight:600;color:var(--on-surface);line-height:1.4;word-break:break-word}
 .custom-srcapp-option-main.is-empty{font-weight:400;color:var(--on-surface-variant);font-style:italic}
 .custom-srcapp-option-meta{font-size:11px;color:var(--on-surface-variant);margin-top:3px;line-height:1.3}
@@ -1225,7 +1238,7 @@
 .inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 「내가 보낸 순」 — 좌측 캠페인 목록 비활성, 대화 카드에 캠페인·브랜드 라벨 */
 .inbox-camp-disabled{opacity:.45;pointer-events:none}
-.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#c2185b);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#000000);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
 .inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
@@ -1434,6 +1447,9 @@
   top:50%;
   transform:translate(-50%,-50%);
   margin:0;               /* 인라인 margin:auto 무효화 */
+  border-radius:16px;
+  box-shadow:var(--elevation-4);
+  overflow:visible;       /* 코너 리사이즈 핸들이 radius 클리핑에 안 잘리게. 본문 스크롤은 .modal-body 전담 */
   min-width:320px;
   min-height:160px;
   display:flex;           /* 인라인 flex 없는 모달(addAdmin/adminEmailSubs/lookupEdit)도 본문 스크롤 보장 */
@@ -1466,7 +1482,7 @@
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
-.lightbox-zoom-ctrl .material-icons-round:hover{color:#FFD2E0}
+.lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
@@ -1643,7 +1659,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-cell { min-width: 96px; }
 .perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
-.perm-sel.perm-dirty { border-color: var(--pink, #EC4899); background: #FDF2F8; font-weight: 600; }
+.perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
 .perm-tag {
   display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
@@ -1725,8 +1741,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .tier-help-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; border-radius: 50%;
-  background: var(--muted, #7A6B78); color: #fff;
+  background: var(--muted, #71717A); color: #fff;
   font-size: 10px; font-weight: 700; cursor: pointer;
   vertical-align: middle; margin-left: 2px; user-select: none;
 }
-.tier-help-icon:hover { background: var(--ink, #1E1320); }
+.tier-help-icon:hover { background: var(--ink, #18181B); }
