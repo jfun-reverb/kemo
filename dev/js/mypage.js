@@ -464,6 +464,12 @@ async function toggleMarketingEmail(checked) {
 }
 
 function openMypageSub(sub, pushHistory) {
+  // 정산 잠금(관리자만 기록) 중에는 「報酬・精算」 화면 진입을 차단하고 응모이력으로 폴백.
+  // 햄버거에서 항목을 숨겨도 과거 북마크·브라우저 뒤로가기·해시 직접 입력(#mypage-settlements)으로
+  // 들어올 수 있고, 그 경우 서버가 0건을 주므로 텅 빈 화면이 노출된다.
+  if (sub === 'settlements' && typeof settlementPublic === 'function' && !settlementPublic()) {
+    sub = 'applications';
+  }
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
