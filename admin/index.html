@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784159156';
+  var CURRENT_BUILD = 'v1784513521';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2272,7 +2272,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-16 08:45 · afabc32</span>
+          <span class="admin-build-text">2026-07-20 11:12 · 0e13aba</span>
         </div>
       </div>
     </aside>
@@ -6944,6 +6944,19 @@ function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) 
 function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 
 // ══════════════════════════════════════
+// 정산 인플루언서 공개 스위치 캐시 (2026-07-20)
+//   settlement_settings.influencer_visible 를 is_settlement_public() 함수로 1회 조회해 캐싱.
+//   현재는 「관리자만 기록」 단계라 기본 잠금(false) — 인플루언서에게 정산 메뉴·화면·알림을
+//   일절 노출하지 않는다. 나중에 공개할 때는 DB 값만 true 로 바꾸면 되고 코드 수정은 없다.
+//   미로드·조회 실패는 false(fail-closed) — 표시 쪽도 안전측으로 잠근다.
+//   (관리자 메뉴 권한 캐시가 fail-open 인 것과 반대. 여기선 새어나가는 쪽이 더 위험하므로 엄격.)
+//   ⚠️ 서버(행 단위 보안 정책·알림 발행 함수)도 같은 함수로 잠겨 있어 이 캐시는 표시용 보조다.
+// ══════════════════════════════════════
+let _settlementPublic = false;
+function setSettlementPublic(v) { _settlementPublic = (v === true); }
+function settlementPublic() { return _settlementPublic === true; }
+
+// ══════════════════════════════════════
 // 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)
 //   influencers_admin_view(마이그레이션 212)가 has_permission('influencer.sensitive_pii','read')
 //   가 false인 관리자 등급에게 phone/line_id/paypal_email/zip/building/address 6종을
@@ -7794,6 +7807,12 @@ async function fetchMyNotifications(opts) {
     const uid = s?.user?.id;
     if (!uid) return [];
     let q = db?.from('notifications').select('*').eq('user_id', uid).order('created_at', {ascending: false});
+    // 정산 잠금(관리자만 기록) 중에는 정산 알림 2종을 목록·미읽음 배지 양쪽에서 제외.
+    // 단일 지점에서 걸러야 「배지 숫자는 있는데 목록은 비어있음」 불일치가 안 생긴다
+    // (refreshNotifBadge 가 이 함수 결과 개수를 그대로 배지에 쓰므로).
+    if (typeof settlementPublic === 'function' && !settlementPublic()) {
+      q = q.not('kind', 'in', '(settlement_paid,settlement_paypal_required)');
+    }
     if (opts?.unreadOnly) q = q.is('read_at', null);
     if (opts?.limit) q = q.limit(opts.limit);
     const {data, error} = await q;
@@ -10721,8 +10740,22 @@ async function fetchSettlements(opts) {
   } catch(e) { console.error('[fetchSettlements]', e); return []; }
 }
 
+// 정산 인플루언서 공개 여부 조회 (is_settlement_public, 마이그레이션 240).
+// 불리언만 반환하는 SECURITY DEFINER 함수 — 로그인 사용자면 누구나 호출 가능.
+// 실패 시 false(잠금) 로 폴백해 안전측으로 동작.
+async function isSettlementPublic() {
+  if (!db) return false;
+  try {
+    const {data, error} = await db.rpc('is_settlement_public');
+    if (error) throw error;
+    return data === true;
+  } catch(e) { console.error('[isSettlementPublic]', e); return false; }
+}
+
 // 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
 // 필터 없이 그대로 조회해도 안전.
+// ⚠️ 마이그레이션 240 이후 본인 조회 정책에 공개 스위치가 함께 걸려 있어, 잠금 상태에서는
+//    서버가 0건을 반환한다(화면 가림과 이중 방어).
 async function fetchMySettlements() {
   if (!db) return [];
   try {

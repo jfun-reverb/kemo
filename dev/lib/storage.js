@@ -771,6 +771,12 @@ async function fetchMyNotifications(opts) {
     const uid = s?.user?.id;
     if (!uid) return [];
     let q = db?.from('notifications').select('*').eq('user_id', uid).order('created_at', {ascending: false});
+    // 정산 잠금(관리자만 기록) 중에는 정산 알림 2종을 목록·미읽음 배지 양쪽에서 제외.
+    // 단일 지점에서 걸러야 「배지 숫자는 있는데 목록은 비어있음」 불일치가 안 생긴다
+    // (refreshNotifBadge 가 이 함수 결과 개수를 그대로 배지에 쓰므로).
+    if (typeof settlementPublic === 'function' && !settlementPublic()) {
+      q = q.not('kind', 'in', '(settlement_paid,settlement_paypal_required)');
+    }
     if (opts?.unreadOnly) q = q.is('read_at', null);
     if (opts?.limit) q = q.limit(opts.limit);
     const {data, error} = await q;
@@ -3698,8 +3704,22 @@ async function fetchSettlements(opts) {
   } catch(e) { console.error('[fetchSettlements]', e); return []; }
 }
 
+// 정산 인플루언서 공개 여부 조회 (is_settlement_public, 마이그레이션 240).
+// 불리언만 반환하는 SECURITY DEFINER 함수 — 로그인 사용자면 누구나 호출 가능.
+// 실패 시 false(잠금) 로 폴백해 안전측으로 동작.
+async function isSettlementPublic() {
+  if (!db) return false;
+  try {
+    const {data, error} = await db.rpc('is_settlement_public');
+    if (error) throw error;
+    return data === true;
+  } catch(e) { console.error('[isSettlementPublic]', e); return false; }
+}
+
 // 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
 // 필터 없이 그대로 조회해도 안전.
+// ⚠️ 마이그레이션 240 이후 본인 조회 정책에 공개 스위치가 함께 걸려 있어, 잠금 상태에서는
+//    서버가 0건을 반환한다(화면 가림과 이중 방어).
 async function fetchMySettlements() {
   if (!db) return [];
   try {
