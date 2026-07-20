@@ -186,6 +186,14 @@ async function process(rawEmail: unknown): Promise<void> {
     return;
   }
 
+  // ★메일에는 Supabase 검증 주소를 그대로 싣지 않는다 — 우리 페이지의 프래그먼트(#) 뒤에 담는다.
+  //   Supabase 재설정 링크는 검증 단계(GET)에서 즉시 소모되는 1회용이라, 사람이 누르기 전에
+  //   Brevo 클릭 추적 서버·메일 스캐너가 먼저 열면 토큰이 타버린다("만료된 링크").
+  //   #(프래그먼트) 뒤는 서버로 전송되지 않아, 사람이 브라우저에서 「계속」을 눌렀을 때만 이동한다.
+  //   자세한 경위는 notify-admin-invite/index.ts 의 같은 지점 주석 참고.
+  const actionLink =
+    `${adminBase}/admin-setpw.html?mode=reset#confirm=${encodeURIComponent(linkData.properties.action_link)}`;
+
   const adminName = String(adminRow.name || "").trim() || "관리자";
   const expiresNote =
     "보안을 위해 이 링크는 일정 시간이 지나면 만료됩니다. 만료된 경우 다시 요청해 주세요.";
@@ -193,14 +201,14 @@ async function process(rawEmail: unknown): Promise<void> {
   const tpl = TEMPLATES["admin-password-reset"].replace(/<!--[\s\S]*?-->/g, "");
   const html = render(tpl, {
     admin_name: escapeHtml(adminName),
-    link: escapeHtml(linkData.properties.action_link),
+    link: escapeHtml(actionLink),
     expires: escapeHtml(expiresNote),
   });
   const text =
     `${adminName} 님\n\n` +
     `REVERB JP 관리자 비밀번호 재설정이 요청되었습니다.\n` +
     `아래 주소에서 새 비밀번호를 설정해 주세요.\n\n` +
-    `재설정 링크: ${linkData.properties.action_link}\n\n` +
+    `재설정 링크: ${actionLink}\n\n` +
     `${expiresNote}\n` +
     `재설정 요청을 여러 번 하시면 가장 최근에 받은 링크만 사용할 수 있습니다.\n\n` +
     `본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다.\n`;

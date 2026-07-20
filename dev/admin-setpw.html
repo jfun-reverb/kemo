@@ -265,7 +265,18 @@ button.primary:disabled { opacity: .5; cursor: not-allowed; }
     <a class="sub-link" href="#" onclick="backToLogin(event)">다른 계정으로 로그인</a>
   </div>
 
-  <!-- 화면 6: 비밀번호 설정 폼 -->
+  <!-- 화면 6: 링크 확인 (메일에서 막 들어온 상태 — 사람이 눌러야 토큰이 소모된다) -->
+  <div id="viewConfirm" class="hidden">
+    <h1 id="confirmTitle">비밀번호를 설정할까요?</h1>
+    <p class="lead" id="confirmLead">아래 버튼을 누르면 비밀번호 설정 화면으로 넘어갑니다.</p>
+    <button type="button" class="primary" id="confirmBtn" onclick="proceedToVerify()">계속하기</button>
+    <div class="note-box" style="margin-top:18px;margin-bottom:0">
+      이 한 단계가 있는 이유: 메일 서비스가 링크를 미리 열어보면 설정 링크가 소모돼 버립니다.
+      직접 누르셨을 때만 진행되도록 했습니다.
+    </div>
+  </div>
+
+  <!-- 화면 7: 비밀번호 설정 폼 -->
   <div id="viewForm" class="hidden">
     <h1 id="formTitle">관리자 비밀번호 설정</h1>
     <p class="lead" id="formLead">REVERB JP 관리자로 초대되었습니다. 사용하실 비밀번호를 정해 주세요.</p>
@@ -298,7 +309,7 @@ button.primary:disabled { opacity: .5; cursor: not-allowed; }
     </form>
   </div>
 
-  <!-- 화면 7: 설정 완료 -->
+  <!-- 화면 8: 설정 완료 -->
   <div id="viewDone" class="hidden">
     <div class="status-icon ok"><span class="material-icons-round notranslate" translate="no">check</span></div>
     <h1>비밀번호 설정을 마쳤습니다</h1>
@@ -309,7 +320,7 @@ button.primary:disabled { opacity: .5; cursor: not-allowed; }
     <a class="link-btn" href="/admin/">관리자 페이지로 이동</a>
   </div>
 
-  <!-- 화면 8: 링크 만료·무효 -->
+  <!-- 화면 9: 링크 만료·무효 -->
   <div id="viewInvalid" class="hidden">
     <div class="status-icon warn"><span class="material-icons-round notranslate" translate="no">link_off</span></div>
     <h1>링크를 사용할 수 없습니다</h1>
@@ -394,7 +405,7 @@ const $ = (id) => document.getElementById(id);
 
 function showView(name) {
   ['viewLoading', 'viewForm', 'viewDone', 'viewInvalid', 'viewLogin', 'viewNotAdmin',
-   'viewForgot', 'viewForgotSent'].forEach(v => {
+   'viewForgot', 'viewForgotSent', 'viewConfirm'].forEach(v => {
     $(v).classList.toggle('hidden', v !== name);
   });
 }
@@ -445,6 +456,38 @@ function hasUrlError() {
   const queryParams = new URLSearchParams(location.search);
   return !!(hashParams.get('error') || hashParams.get('error_code') ||
             queryParams.get('error') || queryParams.get('error_code'));
+}
+
+// 메일 링크의 #confirm= 뒤에 담긴 Supabase 검증 주소를 꺼낸다.
+// 우리 도메인 안에서만 쓰이고 서버로는 전송되지 않는 값이라, 스캐너가 이 페이지를 열어도
+// 검증 주소는 건드려지지 않는다.
+let _confirmTarget = null;
+function readConfirmTarget() {
+  const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+  const raw = new URLSearchParams(hash).get('confirm');
+  if (!raw) return null;
+  // ★목적지를 **현재 환경의 우리 프로젝트 주소로 정확히 고정**한다.
+  //   `*.supabase.co` 를 통짜로 허용하면 안 된다 — Supabase 프로젝트는 누구나 무료로 만들 수 있어,
+  //   공격자가 자기 프로젝트의 리다이렉트 허용목록에 피싱 사이트를 등록해 두고
+  //   `#confirm=https://공격자프로젝트.supabase.co/auth/v1/verify?...redirect_to=피싱사이트`
+  //   를 관리자에게 보내면, 주소창에는 globalreverb.com 이 뜬 채로 외부 사이트로 넘어간다.
+  //   경로도 정확 일치로 본다(startsWith 면 /auth/v1/verify-xyz 같은 변종이 통과).
+  try {
+    const u = new URL(raw);
+    const expectedHost = new URL(SUPABASE_ENVS[SUPABASE_ENV].url).hostname;
+    if (u.protocol !== 'https:') return null;
+    if (u.hostname !== expectedHost) return null;
+    if (u.pathname !== '/auth/v1/verify') return null;
+    return u.toString();
+  } catch (_) { return null; }
+}
+
+function proceedToVerify() {
+  if (!_confirmTarget) { showView('viewInvalid'); return; }
+  const btn = $('confirmBtn');
+  btn.disabled = true;
+  btn.textContent = '이동하는 중...';
+  window.location.replace(_confirmTarget);
 }
 
 // 세션 확립 대기 — detectSessionInUrl 처리가 비동기라 즉시 조회하면 아직 없을 수 있다.
@@ -511,6 +554,21 @@ async function init() {
   // ── 비밀번호 설정 모드 ──
   applyMode();
   if (hasUrlError()) { showView('viewInvalid'); return; }
+
+  // 메일에서 막 들어온 상태 — 검증 주소가 #confirm= 뒤에 실려 있다.
+  // 여기서 자동으로 이동하면 안 된다. 메일 서비스·추적 서버가 이 페이지를 열어도
+  // 토큰이 소모되지 않게 하려고 프래그먼트에 숨긴 것이므로, 사람이 버튼을 눌러야 진행한다.
+  const pending = readConfirmTarget();
+  if (pending) {
+    _confirmTarget = pending;
+    const mode = new URLSearchParams(location.search).get('mode');
+    if (mode === 'reset') {
+      $('confirmTitle').textContent = '비밀번호를 재설정할까요?';
+      $('confirmLead').textContent = '아래 버튼을 누르면 비밀번호 재설정 화면으로 넘어갑니다.';
+    }
+    showView('viewConfirm');
+    return;
+  }
 
   const session = await waitForSession();
   if (!session) { showView('viewInvalid'); return; }
