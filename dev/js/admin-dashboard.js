@@ -132,29 +132,33 @@ function renderCampaignBreakdown(camps) {
   const statusDef = [
     // 색은 목록 화면 상태 배지(components.css .badge-*)와 같은 값을 쓴다.
     // 두 화면이 다르면 같은 「모집중」이 화면마다 다른 초록으로 보인다.
-    {key:'draft',     label:'준비',     color:'var(--muted)', bg:'var(--surface-dim)'},
-    {key:'scheduled', label:'모집예정', color:'var(--blue)',  bg:'var(--blue-l)'},
-    {key:'active',    label:'모집중',   color:'var(--green)', bg:'var(--green-l)'},
-    {key:'closed',    label:'모집마감', color:'#B91C5C',      bg:'#FFE4EC'},
-    {key:'ended',     label:'종료',     color:'#5E35B1',      bg:'#EDE7F6'},
-    {key:'expired',   label:'노출종료', color:'#666666',      bg:'#EEEEEE'},
+    // 전체 현황은 전부 무채색 — 칩에는 「준비」「모집중」처럼 이름이 이미 쓰여 있어
+    // 색으로 구분할 필요가 없다(색 단독으로 정보를 전달하지 않는다는 원칙과도 맞음).
+    // 배경은 메인 컬러, 글자는 흰색. 라벨까지 대비 기준을 넘는 건 흰색뿐이라
+    // (연보라 4.33:1 미달) 숫자·라벨 모두 흰색이고 위계는 글자 크기로 준다.
+    {key:'draft',     label:'준비',     color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'scheduled', label:'모집예정', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'active',    label:'모집중',   color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'closed',    label:'모집마감', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'ended',     label:'종료',     color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'expired',   label:'노출종료', color:'#fff', bg:'rgba(255,255,255,.16)'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
   statusEl.innerHTML = statusDef.map(s => `
     <div style="flex:1;min-width:90px;background:${s.bg};border-radius:10px;padding:10px 12px">
       <div style="font-size:20px;font-weight:800;color:${s.color}">${statusCount[s.key]||0}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.label}</div>
+      <div style="font-size:11px;color:${s.color};opacity:.9;margin-top:2px">${s.label}</div>
     </div>`).join('');
 
   const chDef = [
     // 채널은 상태가 아니라 분류다. 이름이 이미 무엇인지 말해주므로 색을 쓰지 않는다.
     // (목록 화면의 채널 칩도 회색이라 그쪽과 통일)
-    {key:'instagram', label:'Instagram', color:'var(--ink)', bg:'var(--surface-dim)'},
-    {key:'x', label:'X(Twitter)', color:'var(--ink)', bg:'var(--surface-dim)'},
-    {key:'qoo10', label:'Qoo10', color:'var(--ink)', bg:'var(--surface-dim)'},
-    {key:'tiktok', label:'TikTok', color:'var(--ink)', bg:'var(--surface-dim)'},
-    {key:'youtube', label:'YouTube', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'instagram', label:'Instagram', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'x', label:'X(Twitter)', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'qoo10', label:'Qoo10', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'tiktok', label:'TikTok', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'youtube', label:'YouTube', color:'#fff', bg:'rgba(255,255,255,.16)'},
   ];
   const chCount = {};
   camps.forEach(c => {
@@ -165,7 +169,7 @@ function renderCampaignBreakdown(camps) {
   chEl.innerHTML = chDef.map(c => `
     <div style="flex:1;min-width:90px;background:${c.bg};border-radius:10px;padding:10px 12px">
       <div style="font-size:20px;font-weight:800;color:${c.color}">${chCount[c.key]||0}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.label}</div>
+      <div style="font-size:11px;color:${c.color};opacity:.9;margin-top:2px">${c.label}</div>
     </div>`).join('');
 }
 
@@ -195,11 +199,43 @@ var PREFECTURE_KO = {
   '宮崎県':'미야자키현','鹿児島県':'가고시마현','沖縄県':'오키나와현'
 };
 
-// 파이 차트용 컬러 팔레트 (Top 10 + 미등록/해외)
-var ADDRESS_DIST_COLORS = [
-  '#18181B','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
-  '#5BA86E','#A1A1AA','#3E79B8','#D49158','#7CA565'
-];
+// 차트용 포인트 컬러 램프 (2026-07-20 — 메인 컬러 #625EBD 계열)
+//   가장 큰 조각이 메인 컬러가 되도록 메인에서 시작해 점점 옅어진다.
+//   ⚠️ 밝은 쪽만 쓰므로 구분 폭이 좁다 — 검증상 3조각까지가 안전하고(인접차 19.8),
+//      4조각 12.8 · 5조각 9.5 로 기준(15) 미달이다. 조각이 많은 차트는
+//      가운데 단계들이 서로 비슷해 보이므로 범례·툴팁으로 읽어야 한다.
+function accentRamp(n) {
+  const H = 243 / 360, S = 0.419, LO = 0.555, HI = 0.93;   // LO = 메인 컬러의 명도
+  if (n <= 0) return [];
+  if (n === 1) return ['#625EBD'];
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = LO + (HI - LO) * i / (n - 1);
+    const sat = S * (1 - 0.30 * (t - LO) / (HI - LO));   // 옅어질수록 채도도 낮춰 탁하지 않게
+    out.push(_hslHex(H, sat, t));
+  }
+  return out;
+}
+
+// HSL → #RRGGBB
+function _hslHex(h, s, l) {
+  const f = n => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
+// 막대용 세로 그라데이션 — 위는 진하게, 아래로 갈수록 살짝 옅게
+function accentBarGradient(ctx, area, from, to) {
+  if (!area) return from;
+  const g = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+  g.addColorStop(0, from);
+  g.addColorStop(1, to);
+  return g;
+}
+
 
 // Chart.js 옵션 빌더 — legend/tooltip 퍼센티지 포맷 (렌더 함수 길이 축소 목적 분리)
 // ════════════════════════════════════════════════════════════════════
@@ -261,10 +297,13 @@ function renderAddressDistribution(users) {
     // 라벨을 한국어로 변환 (매핑 없으면 원문 유지)
     const labels = stats.top.map(r => PREFECTURE_KO[r.name] || r.name);
     const values = stats.top.map(r => r.count);
-    const colors = stats.top.map((_, i) => ADDRESS_DIST_COLORS[i % ADDRESS_DIST_COLORS.length]);
+    // 미등록·해외까지 포함한 전체 조각 수로 램프를 만들어 명도를 최대한 벌린다
+    const sliceCount = stats.top.length + (stats.unregistered > 0 ? 1 : 0) + (stats.overseas > 0 ? 1 : 0);
+    const ramp = accentRamp(sliceCount);
+    const colors = stats.top.map((_, i) => ramp[i]);
 
-    if (stats.unregistered > 0) { labels.push('미등록'); values.push(stats.unregistered); colors.push('#BDBDC4'); }
-    if (stats.overseas > 0) { labels.push('해외'); values.push(stats.overseas); colors.push('#8A8A90'); }
+    if (stats.unregistered > 0) { labels.push('미등록'); values.push(stats.unregistered); colors.push(ramp[colors.length]); }
+    if (stats.overseas > 0) { labels.push('해외'); values.push(stats.overseas); colors.push(ramp[colors.length]); }
 
     if (_addressDistChart) { _addressDistChart.destroy(); _addressDistChart = null; }
 
@@ -327,8 +366,8 @@ function renderAgeGenderDistribution(users) {
         </div>
       </div>`;
     if (collectBars) collectBars.innerHTML =
-      bar('생년월일 등록', pct(stats.ageRegistered), 'var(--ink)') +
-      bar('성별 등록', pct(stats.genderRegistered), 'var(--ink)');
+      bar('생년월일 등록', pct(stats.ageRegistered), 'accent') +
+      bar('성별 등록', pct(stats.genderRegistered), 'accent');
 
     if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
     if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
@@ -360,7 +399,7 @@ function renderAgeGenderDistribution(users) {
         labels: ageRows.map(b => b.label),
         datasets: [{
           data: ageRows.map(b => b.count),
-          backgroundColor: ageRows.map(b => (b.label === '미등록' || b.label === '이상치') ? '#BDBDC4' : '#5B7CFF'),
+          backgroundColor: (c) => ageRows.map(b => (b.label === '미등록' || b.label === '이상치') ? '#D4D4DA' : accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2')),
           borderRadius: 4
         }]
       },
@@ -378,7 +417,7 @@ function renderAgeGenderDistribution(users) {
         labels: ['남성', '여성', '그 외', '응답 안 함', '미등록'],
         datasets: [{
           data: [stats.gender.male, stats.gender.female, stats.gender.other, stats.gender.undisclosed, stats.gender.unregistered],
-          backgroundColor: ['#5B7CFF', '#E87A96', '#F4A43A', '#9B59B6', '#BDBDC4'],
+          backgroundColor: accentRamp(5),   // 인접 차이 15.2 — 구분 한계치
           borderColor: '#fff', borderWidth: 2
         }]
       },
@@ -470,10 +509,12 @@ function renderSignupChart(users, days) {
       datasets: [{
         label: '신규 가입',
         data: counts,
-        backgroundColor: 'rgba(24,24,27,.6)',
-        borderColor: 'rgba(24,24,27,1)',
-        borderWidth: 1,
-        borderRadius: 4
+        backgroundColor: (c) => accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2'),
+        borderColor: '#625EBD',
+        borderWidth: 0,
+        borderRadius: 4,
+        categoryPercentage: 1,   // 칸 사이 여백 없음
+        barPercentage: 1         // 칸을 막대가 가득 채움
       }]
     },
     options: {
@@ -513,24 +554,29 @@ function renderProfileCompletion(users) {
   const hasPaypal = users.filter(u => u.has_paypal).length;
 
   const pct = v => Math.round(v / total * 100);
+  // 막대 굵기 — 한 곳에서 조절 (큰 항목 / 하위 채널)
+  const BAR_H = 14, BAR_H_SUB = 9;
   const bar = (label, val, color, sub) => `
     <div style="margin-bottom:${sub ? 4 : 8}px;${sub ? 'padding-left:12px' : ''}">
-      <div style="display:flex;justify-content:space-between;font-size:${sub ? 10 : 11}px;margin-bottom:3px">
+      <div style="display:flex;justify-content:space-between;font-size:${sub ? 10 : 11}px;margin-bottom:2px">
         <span style="color:${sub ? 'var(--muted)' : 'var(--ink)'}">${label}</span><span style="color:var(--muted);font-weight:600">${val}%</span>
       </div>
-      <div style="height:${sub ? 4 : 6}px;background:var(--bg);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${val}%;background:${color};border-radius:3px;transition:width .4s;opacity:${sub ? '.6' : '1'}"></div>
+      <div style="height:${sub ? BAR_H_SUB : BAR_H}px;background:var(--bg);border-radius:4px;overflow:hidden;display:block">
+        <div style="height:100%;width:${val}%;background:${color === 'accent' ? 'linear-gradient(90deg,#625EBD 0%,#8F8CD2 100%)' : (color === 'accent-sub' ? 'linear-gradient(90deg,#A8A6D5 0%,#C9C8E3 100%)' : color)};border-radius:4px;transition:width .4s"></div>
       </div>
     </div>`;
 
+  // 큰 항목(SNS·배송지·PayPal) 사이 간격 — 한 곳에서 조절
+  const GROUP_GAP = '<div style="height:16px"></div>';
   $('profileCompletionBars').innerHTML =
-    bar('SNS', pct(hasSns), 'var(--ink)', false) +
-    bar('Instagram', pct(hasIg), 'var(--muted)', true) +
-    bar('X (Twitter)', pct(hasX), 'var(--muted)', true) +
-    bar('TikTok', pct(hasTiktok), 'var(--muted)', true) +
-    bar('YouTube', pct(hasYt), 'var(--muted)', true) +
-    '<div style="margin-top:4px"></div>' +
-    bar('배송지', pct(hasAddr), 'var(--ink)', false) +
-    bar('PayPal', pct(hasPaypal), 'var(--ink)', false);
+    bar('SNS', pct(hasSns), 'accent', false) +
+    bar('Instagram', pct(hasIg), 'accent-sub', true) +
+    bar('X (Twitter)', pct(hasX), 'accent-sub', true) +
+    bar('TikTok', pct(hasTiktok), 'accent-sub', true) +
+    bar('YouTube', pct(hasYt), 'accent-sub', true) +
+    GROUP_GAP +
+    bar('배송지', pct(hasAddr), 'accent', false) +
+    GROUP_GAP +
+    bar('PayPal', pct(hasPaypal), 'accent', false);
 }
 
