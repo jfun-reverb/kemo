@@ -8340,6 +8340,32 @@ async function sendOrientInviteMail(orientSheetId, recipient) {
   }
 }
 
+// 관리자 초대·비밀번호 재설정 메일 발송 (Edge Function notify-admin-invite).
+// Supabase Auth 기본 발송(resetPasswordForEmail)을 쓰지 않는 이유 2가지:
+//   1) Auth 는 메일 종류별 템플릿이 1개라 "Reset password" 를 인플루언서 비밀번호 찾기와 공유한다.
+//   2) flowType:'pkce' 라 resetPasswordForEmail 은 코드 교환 검증값을 "호출한 브라우저"에 저장하는데,
+//      관리자 초대는 super_admin 브라우저에서 호출하고 링크는 초대받은 사람의 다른 브라우저에서 열린다
+//      → 검증값이 없어 교환 실패. 서버 발급(generateLink)은 이 문제가 없다.
+// mode: 'invite'(초대 최초 설정) | 'reset'(재발송·재설정) — 착지 화면 문구만 좌우.
+// 사양서 docs/specs/2026-07-20-admin-invite-mail-and-setpw.md
+async function sendAdminInviteMail(email, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-admin-invite', {
+      body: { email, mode: mode || 'invite' }
+    });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
 // 오리엔시트 삭제 (마이그레이션 199, delete_orient_sheet RPC).
 // 발행 캠페인 없으면 시트만 삭제(is_admin) / 연결 있으면 신청 0건 캠페인까지 함께 삭제(is_campaign_admin),
 // 신청 1건+ 있으면 차단(blocked_has_applications). 반환 jsonb 그대로 전달(호출 측이 reason 분기).

@@ -1,6 +1,6 @@
 # 관리자 전용 초대 메일 + 관리자 전용 비밀번호 설정 화면
 
-**작성일:** 2026-07-20 · **상태:** 초안 — 사용자 결정 대기
+**작성일:** 2026-07-20 · **상태:** PR 1·2 구현 완료 (PR 3~5-B 미착수)
 
 ## 현재 상태 (규칙 A)
 
@@ -420,7 +420,38 @@ PR 1 ──┬─→ PR 2 ──→ PR 3
 > 개발 세션 유의: PR 5-A(관리자 전용 로그인 화면)는 `dev/admin/app.js:93-96` 부팅 가드를 바꾸므로, 운영 배포 전 로그인 진입 회귀 검증(`reverb-qa-tester`)을 반드시 거칠 것. PR 2·5-B는 브라우저에서 직접 호출하는 Edge Function이라 **다른 출처 허용 헤더(CORS) 런타임 검증 1회** 필수(`supabase.md`).
 
 ## 구현 결과
-(개발 세션이 채울 것)
+
+**구현일:** 2026-07-20 · **범위:** PR 1 + PR 2 (묶어서 진행) · **브랜치:** `feature/관리자초대`
+
+### 초안 대비 변경 사항
+
+- **달라진 것 — PR 1·2 를 묶어서 구현.** 초안은 PR 1(착지 화면)만 먼저 배포해도 증상이 해소된다고 봤으나, 구현 전 `reverb-supabase-expert` 검증에서 **PR 1 만으로는 기능이 동작하지 않음**이 드러남. 클라이언트가 `flowType:'pkce'`(`dev/lib/supabase.js:38`)라 `resetPasswordForEmail` 은 코드 교환 검증값을 **호출한 브라우저**에 저장하는데, 관리자 초대는 super_admin 브라우저에서 호출하고 링크는 초대 대상의 다른 브라우저에서 열린다 → 교환 실패. 즉 **관리자 초대는 구조적으로 성공한 적이 없었다.** 서버 발급(`generateLink`, PR 2)이 기능적 필수라 순서를 앞당겨 함께 구현. 사용자 확인 후 결정(2026-07-20).
+- **추가된 것 — 재발송 경로도 같은 흐름으로 통합(초안의 PR 3 일부를 선반영).** `sendResetEmail` 이 `redirectTo` 없이 호출해 인플루언서 홈으로 착지하던 **두 번째 착지 버그**(초안 §부수 사항 1)를 이번에 함께 해소. 발송 상태 표시·목록 「초대 재발송」 버튼은 PR 3 그대로 남김.
+- **빠진 것 — 없음**(PR 1·2 범위 기준).
+
+### 구현 중 기술 결정 사항
+
+- **`persistSession:false`** — 초안은 완료 후 `signOut()` 만 상정했으나, 검증 결과 `storageKey` 를 따로 안 쓰는 구조라 임시 세션이 두 앱과 저장 칸을 공유한다. `true` 면 **비밀번호를 바꾸기도 전에** 다른 탭에서 `/admin/` 이 열린다(§의심 ⑫가 PR 1 시점에 이미 발생). 완료 전 이탈 경로가 있어 `signOut()` 만으로는 못 막으므로 `persistSession:false` 로 근본 차단 + `signOut()` 은 이중 방어로 유지.
+- **경로는 확장자 포함 `/admin-setpw.html`** — 루트 사이트에는 `vercel.json` 이 없어(`sales/` 의 것은 별도 프로젝트) `cleanUrls` 가 적용되지 않는다. 확장자 없는 경로는 404 위험.
+- **Redirect URLs 추가 등록 불필요** — 운영 `https://globalreverb.com/**` 와일드카드에 같은 도메인 하위 경로라 그대로 매칭.
+- **Edge Function 권한은 super_admin 한정** — `notify-orient-sheet`(전체 관리자 허용)보다 엄격. 대상 이메일이 실제 `admins` 행인지도 재확인해 임의 이메일 발송을 차단.
+- **비밀번호 정책·색상 토큰은 복제** — 자립형 페이지라 `ui.js`·`base.css` 를 못 불러온다. 기준(8자·영소문자·기호)과 토큰 값은 동일하게 유지하고 문구만 한국어. `base.css` 토큰 변경 시 함께 갱신 필요(파일 주석 명시).
+- **아이콘은 `material-icons-round`** — 관리자 앱 본체와 동일 계열로 통일(리뷰 지적 반영).
+
+### 배포 시 필수 절차 (코드 머지만으로는 동작하지 않음)
+
+1. `bash scripts/sync-email-templates.sh`
+2. `supabase functions deploy notify-admin-invite --project-ref qysmxtipobomefudyixw` (개발)
+3. `supabase functions deploy notify-admin-invite --project-ref nrwtujmlbktxjgdwlpjj` (운영)
+4. `supabase secrets set PUBLIC_ADMIN_URL=https://dev.globalreverb.com --project-ref qysmxtipobomefudyixw`
+5. `supabase secrets set PUBLIC_ADMIN_URL=https://globalreverb.com --project-ref nrwtujmlbktxjgdwlpjj`
+
+⚠️ 메모리 `feedback_edge_function_cors` — **코드 머지 ≠ 픽스. 함수 재배포가 필수.**
+
+### 검증 시 반드시 확인할 것
+
+- 초대 링크는 **완전히 다른 브라우저**(다른 브라우저 프로그램 또는 다른 기기)에서 열어볼 것. super_admin 자기 브라우저의 새 탭·시크릿 창은 검증값이 남아 있어 「문제없이 됨」으로 착각하게 된다.
+- 인플루언서 「비밀번호 찾기」 회귀 없음 확인(`#reset-pw` 착지 → 변경 성공).
 
 ---
 

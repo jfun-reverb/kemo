@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>관리자 비밀번호 설정 · REVERB JP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* 토큰 값은 dev/css/base.css 와 동일하게 유지 — 자립형 페이지라 CSS 를 못 불러와 복제한다.
+   base.css 토큰이 바뀌면 여기도 함께 갱신할 것. */
+:root {
+  --primary: #1A1A1A;
+  --surface: #ffffff;
+  --surface-dim: #F4F4F5;
+  --surface-container: #FAFAFA;
+  --admin-canvas: #ECECEE;
+  --on-surface: #18181B;
+  --on-surface-variant: #71717A;
+  --outline: #E4E4E7;
+  --faint: #A1A1AA;
+  --danger: #DC2626;
+  --ok: #16A34A;
+  --r8: 8px;
+  --r12: 12px;
+  --r16: 16px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--admin-canvas);
+  color: var(--on-surface);
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  -webkit-font-smoothing: antialiased;
+}
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: var(--r16);
+  padding: 36px 32px 30px;
+}
+.brand {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--on-surface);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--r8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+h1 { font-size: 18px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
+.lead { font-size: 13px; color: var(--on-surface-variant); line-height: 1.7; margin: 0 0 24px; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); margin-bottom: 6px; }
+.field { margin-bottom: 16px; }
+.pw-wrap { position: relative; }
+input[type="password"], input[type="text"] {
+  width: 100%;
+  /* 모바일 자동 확대 방지 — 16px 미만 금지 (ui.md) */
+  font-size: 16px;
+  font-family: inherit;
+  padding: 12px 44px 12px 14px;
+  border: 1px solid var(--outline);
+  border-radius: var(--r8);
+  background: #fff;
+  color: var(--on-surface);
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus { border-color: var(--primary); }
+.pw-toggle {
+  position: absolute;
+  right: 6px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: var(--faint);
+  display: flex;
+}
+.pw-toggle:hover { color: var(--on-surface-variant); }
+.pw-toggle .material-icons-round { font-size: 20px; }
+.hint { font-size: 11.5px; color: var(--faint); line-height: 1.6; margin-top: 6px; }
+button.primary {
+  width: 100%;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #fff;
+  background: var(--primary);
+  border: none;
+  border-radius: var(--r8);
+  padding: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: opacity .15s;
+}
+button.primary:hover { opacity: .88; }
+button.primary:disabled { opacity: .5; cursor: not-allowed; }
+.msg {
+  font-size: 12.5px;
+  line-height: 1.6;
+  border-radius: var(--r8);
+  padding: 11px 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+.msg.error { background: #FEF2F2; border: 1px solid #FECACA; color: var(--danger); }
+.status-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+}
+.status-icon .material-icons-round { font-size: 24px; }
+.status-icon.ok { background: #DCFCE7; color: var(--ok); }
+.status-icon.warn { background: var(--surface-dim); color: var(--on-surface-variant); }
+.note-box {
+  background: var(--surface-container);
+  border: 1px solid var(--outline);
+  border-radius: var(--r12);
+  padding: 13px 15px;
+  font-size: 12.5px;
+  color: var(--on-surface-variant);
+  line-height: 1.75;
+  margin-bottom: 20px;
+}
+.link-btn {
+  display: block;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-surface);
+  text-decoration: none;
+  border: 1px solid var(--outline);
+  border-radius: var(--r8);
+  padding: 12px;
+  transition: background .15s;
+}
+.link-btn:hover { background: var(--surface-dim); }
+.sub-link {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: var(--faint);
+  text-decoration: none;
+  margin-top: 16px;
+}
+.sub-link:hover { color: var(--on-surface-variant); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.spinner {
+  width: 22px; height: 22px;
+  border: 2.5px solid var(--outline);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin: 8px auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+  * { transition: none !important; }
+}
+.center { text-align: center; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="brand"><span class="brand-mark">R</span>REVERB JP 관리자</div>
+
+  <!-- 화면 1: 로딩 (링크 확인 중) -->
+  <div id="viewLoading">
+    <div class="spinner"></div>
+    <p class="lead center" style="margin:0">링크를 확인하는 중입니다...</p>
+  </div>
+
+  <!-- 화면 2: 비밀번호 설정 폼 -->
+  <div id="viewForm" class="hidden">
+    <h1 id="formTitle">관리자 비밀번호 설정</h1>
+    <p class="lead" id="formLead">REVERB JP 관리자로 초대되었습니다. 사용하실 비밀번호를 정해 주세요.</p>
+
+    <div class="msg error" id="formError" role="alert" aria-live="polite"></div>
+
+    <form id="pwForm" autocomplete="off">
+      <div class="field">
+        <label for="pwNew">새 비밀번호</label>
+        <div class="pw-wrap">
+          <input type="password" id="pwNew" autocomplete="new-password" placeholder="8자 이상">
+          <button type="button" class="pw-toggle" onclick="togglePw('pwNew', this)" aria-label="비밀번호 표시">
+            <span class="material-icons-round notranslate" translate="no">visibility</span>
+          </button>
+        </div>
+        <div class="hint">8자 이상, 영문 소문자와 기호(!@#$%^&amp;* 등)를 각각 1개 이상 포함해 주세요.</div>
+      </div>
+
+      <div class="field">
+        <label for="pwConfirm">새 비밀번호 확인</label>
+        <div class="pw-wrap">
+          <input type="password" id="pwConfirm" autocomplete="new-password" placeholder="한 번 더 입력">
+          <button type="button" class="pw-toggle" onclick="togglePw('pwConfirm', this)" aria-label="비밀번호 표시">
+            <span class="material-icons-round notranslate" translate="no">visibility</span>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="primary" id="pwSubmit">비밀번호 설정하기</button>
+    </form>
+  </div>
+
+  <!-- 화면 3: 설정 완료 -->
+  <div id="viewDone" class="hidden">
+    <div class="status-icon ok"><span class="material-icons-round notranslate" translate="no">check</span></div>
+    <h1>비밀번호 설정을 마쳤습니다</h1>
+    <p class="lead">이제 설정하신 비밀번호로 관리자 페이지에 로그인하실 수 있습니다.</p>
+    <div class="note-box">
+      관리자 페이지는 <strong>PC 화면</strong>에 맞춰 만들어져 있습니다. 휴대폰으로 보고 계시다면 PC에서 다시 접속해 주세요.
+    </div>
+    <a class="link-btn" href="/admin/">관리자 페이지로 이동</a>
+  </div>
+
+  <!-- 화면 4: 링크 만료·무효 -->
+  <div id="viewInvalid" class="hidden">
+    <div class="status-icon warn"><span class="material-icons-round notranslate" translate="no">link_off</span></div>
+    <h1>링크를 사용할 수 없습니다</h1>
+    <p class="lead">아래 중 한 가지 이유일 수 있습니다.</p>
+    <div class="note-box">
+      · 링크가 만료되었습니다<br>
+      · 이미 비밀번호 설정에 사용된 링크입니다<br>
+      · 같은 주소로 새 메일을 받으셨다면, 이전 링크는 더 이상 쓸 수 없습니다
+    </div>
+    <p class="lead">최고관리자에게 메일 재발송을 요청해 주세요.</p>
+    <a class="link-btn" href="/admin/">관리자 페이지로 이동</a>
+  </div>
+
+  <a class="sub-link" href="/">인플루언서 페이지로 가기</a>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// 관리자 전용 비밀번호 설정 페이지 (자립형 정적 페이지)
+//
+// 왜 자립형인가:
+//   관리자 앱(/admin/)은 로그인 세션이 없으면 무조건 인플루언서 앱으로 리다이렉트한다
+//   (dev/admin/app.js — "세션 없으면 쫓아냄"). 즉 로그인 전 화면을 둘 수 없다.
+//   인플루언서 앱에 두면 일본어·모바일 전용 자산에 관리자 화면이 얹힌다.
+//   → 두 앱 어디에도 속하지 않는 독립 페이지로 분리.
+//   사양서 docs/specs/2026-07-20-admin-invite-mail-and-setpw.md §D-2
+//
+// 이 파일은 3모드 컨테이너로 설계됐다. 현재는 setpw(비밀번호 설정)만 구현.
+// login(관리자 전용 로그인)·forgot(비밀번호 찾기)은 후속 단계에서 이 파일에 추가한다.
+// ══════════════════════════════════════════════════════════════════
+
+// ⚠️ supabase.md 「URL/Key 는 SUPABASE_ENVS 에서만, 하드코딩 금지」 규칙의 명시적 예외.
+//    이 페이지는 로그인 세션 없이 단독 로드되는 자립형 정적 페이지라
+//    dev/lib/supabase.js(빌드 산출물에만 포함)를 불러올 수 없음 —
+//    dev/sales/orient.html 선례와 동일한 사유.
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+const SUPABASE_ENV = /^(www\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+
+// persistSession:false 가 핵심 —
+//   true 로 두면 이 페이지가 만든 임시 세션이 같은 도메인의 관리자 앱·인플루언서 앱과
+//   저장 칸을 공유한다(storageKey 를 따로 안 쓰므로). 그러면 비밀번호를 아직 안 바꿨는데도
+//   다른 탭에서 /admin/ 이 열려버린다. 이 페이지는 "링크 확인 → 비밀번호 변경 → 종료"가
+//   한 번의 로드 안에서 끝나므로 저장할 이유가 없다.
+const sb = window.supabase
+  ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key, {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: true,  // 착지 시 URL 의 토큰을 자동으로 세션으로 교환
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    })
+  : null;
+
+const $ = (id) => document.getElementById(id);
+
+function showView(name) {
+  ['viewLoading', 'viewForm', 'viewDone', 'viewInvalid'].forEach(v => {
+    $(v).classList.toggle('hidden', v !== name);
+  });
+}
+
+function togglePw(inputId, btn) {
+  const input = $(inputId);
+  if (!input) return;
+  const icon = btn.querySelector('.material-icons-round');
+  if (input.type === 'password') { input.type = 'text'; icon.textContent = 'visibility_off'; }
+  else { input.type = 'password'; icon.textContent = 'visibility'; }
+}
+
+function showError(msg) {
+  const el = $('formError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function clearError() {
+  $('formError').style.display = 'none';
+}
+
+// 비밀번호 정책 — dev/js/ui.js validatePasswordPolicy 와 기준 동일(8자·영소문자·기호),
+// 문구만 한국어. 자립형 페이지라 공용 함수를 못 불러와 복제한다.
+function validateAdminPassword(pw) {
+  if (!pw || pw.length < 8) return '비밀번호는 8자 이상으로 입력해 주세요.';
+  if (!/[a-z]/.test(pw)) return '비밀번호에 영문 소문자를 1개 이상 포함해 주세요.';
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return '비밀번호에 기호(!@#$%^&* 등)를 1개 이상 포함해 주세요.';
+  return null;
+}
+
+// 착지 문구 분기 — mode 는 문구만 좌우하고 어떤 권한·검증에도 쓰이지 않는다.
+// (조작 가능한 값이지만 위험이 없는 이유)
+function applyMode() {
+  const mode = new URLSearchParams(location.search).get('mode');
+  if (mode === 'reset') {
+    $('formTitle').textContent = '비밀번호 재설정';
+    $('formLead').textContent = '새로 사용하실 비밀번호를 입력해 주세요.';
+  }
+  // invite 또는 값 없음·이상값 → 기본 문구(초대) 유지
+}
+
+// URL 에 오류가 실려 온 경우 감지 (만료·이미 사용된 링크)
+function hasUrlError() {
+  const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+  const hashParams = new URLSearchParams(hash);
+  const queryParams = new URLSearchParams(location.search);
+  return !!(hashParams.get('error') || hashParams.get('error_code') ||
+            queryParams.get('error') || queryParams.get('error_code'));
+}
+
+// 세션 확립 대기 — detectSessionInUrl 처리가 비동기라 즉시 조회하면 아직 없을 수 있다.
+// 일정 시간 안에 세션이 안 서면 "링크 사용 불가"로 폴백(서버가 오류를 안 알려주는 경우 대비).
+async function waitForSession(timeoutMs = 4000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const { data } = await sb.auth.getSession();
+    if (data?.session) return data.session;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return null;
+}
+
+async function init() {
+  applyMode();
+
+  if (!sb) { showView('viewInvalid'); return; }
+  if (hasUrlError()) { showView('viewInvalid'); return; }
+
+  const session = await waitForSession();
+  if (!session) { showView('viewInvalid'); return; }
+
+  showView('viewForm');
+  // 주소창에서 토큰 흔적 제거 (뒤로가기·공유 시 노출 방지). mode 는 유지.
+  const mode = new URLSearchParams(location.search).get('mode');
+  const cleanUrl = location.pathname + (mode ? '?mode=' + encodeURIComponent(mode) : '');
+  history.replaceState(null, '', cleanUrl);
+}
+
+$('pwForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearError();
+
+  const pw = $('pwNew').value;
+  const pw2 = $('pwConfirm').value;
+
+  const pwErr = validateAdminPassword(pw);
+  if (pwErr) { showError(pwErr); return; }
+  if (pw !== pw2) { showError('비밀번호가 일치하지 않습니다.'); return; }
+
+  const btn = $('pwSubmit');
+  btn.disabled = true;
+  btn.textContent = '설정하는 중...';
+
+  try {
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (error) {
+      // 서버 영문 메시지 그대로 노출 금지 — 일반 안내로 통일
+      showError('비밀번호를 설정하지 못했습니다. 링크가 만료되었을 수 있습니다. 재발송을 요청해 주세요.');
+      btn.disabled = false;
+      btn.textContent = '비밀번호 설정하기';
+      return;
+    }
+    // persistSession:false 라도 명시적으로 정리(방어적 이중 장치)
+    try { await sb.auth.signOut(); } catch (_) {}
+    showView('viewDone');
+  } catch (err) {
+    showError('비밀번호를 설정하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    btn.disabled = false;
+    btn.textContent = '비밀번호 설정하기';
+  }
+});
+
+init();
+</script>
+</body>
+</html>
