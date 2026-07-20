@@ -935,6 +935,19 @@ function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) 
 function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 
 // ══════════════════════════════════════
+// 정산 인플루언서 공개 스위치 캐시 (2026-07-20)
+//   settlement_settings.influencer_visible 를 is_settlement_public() 함수로 1회 조회해 캐싱.
+//   현재는 「관리자만 기록」 단계라 기본 잠금(false) — 인플루언서에게 정산 메뉴·화면·알림을
+//   일절 노출하지 않는다. 나중에 공개할 때는 DB 값만 true 로 바꾸면 되고 코드 수정은 없다.
+//   미로드·조회 실패는 false(fail-closed) — 표시 쪽도 안전측으로 잠근다.
+//   (관리자 메뉴 권한 캐시가 fail-open 인 것과 반대. 여기선 새어나가는 쪽이 더 위험하므로 엄격.)
+//   ⚠️ 서버(행 단위 보안 정책·알림 발행 함수)도 같은 함수로 잠겨 있어 이 캐시는 표시용 보조다.
+// ══════════════════════════════════════
+let _settlementPublic = false;
+function setSettlementPublic(v) { _settlementPublic = (v === true); }
+function settlementPublic() { return _settlementPublic === true; }
+
+// ══════════════════════════════════════
 // 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)
 //   influencers_admin_view(마이그레이션 212)가 has_permission('influencer.sensitive_pii','read')
 //   가 false인 관리자 등급에게 phone/line_id/paypal_email/zip/building/address 6종을
