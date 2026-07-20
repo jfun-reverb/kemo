@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784538928';
+  var CURRENT_BUILD = 'v1784539363';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -491,6 +491,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   text-decoration-thickness:1px;
   transition:text-decoration-color .15s;
 }
+/* 빨강 배지의 글자색이 공용 components.css 에서 var(--pink) 로 지정돼 있는데,
+   관리자에선 그 별칭이 검정이라 「빨간 배경 + 검정 글자」가 됐다. 관리자에서만 바로잡는다.
+   (components.css 는 인플루언서 빌드와 공용이라 직접 못 고침) */
+#page-admin .badge-red{color:var(--red)}
+
 .link-cell:hover{text-decoration-color:var(--ink)}
 .link-cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:3px}
 
@@ -784,7 +789,10 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .kpi-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:20px;position:relative;overflow:hidden}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.kpi-r::after{background:var(--primary)}.kpi-g::after{background:var(--green)}.kpi-b::after{background:var(--blue)}.kpi-o::after{background:var(--gold)}
+/* KPI 카드 상단 3px 바는 장식이다 — 초록·파랑·주황이 각각 무엇을 뜻하는지 아무 데도
+   안 적혀 있어 정보를 주지 않으면서 화면만 시끄럽게 했다. 무채색으로 통일한다.
+   (클래스 4종은 다른 곳에서도 쓰이므로 이름은 그대로 두고 색만 맞춘다) */
+.kpi-r::after,.kpi-g::after,.kpi-b::after,.kpi-o::after{background:var(--ink)}
 .kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--on-surface)}
 .kpi-lbl{font-size:12px;color:var(--on-surface-variant);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
@@ -2352,7 +2360,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-20 18:15 · 7567ba6</span>
+          <span class="admin-build-text">2026-07-20 18:22 · 40e6672</span>
         </div>
       </div>
     </aside>
@@ -26976,12 +26984,14 @@ function renderCampaignBreakdown(camps) {
   if (!statusEl || !chEl) return;
 
   const statusDef = [
-    {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
-    {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
-    {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'closed',    label:'모집마감', color:'#B91C5C', bg:'#FFE4EC'},
-    {key:'ended',     label:'종료',     color:'#3949AB', bg:'#E8EAF6'},
-    {key:'expired',   label:'노출종료', color:'#666666', bg:'#EEEEEE'},
+    // 색은 목록 화면 상태 배지(components.css .badge-*)와 같은 값을 쓴다.
+    // 두 화면이 다르면 같은 「모집중」이 화면마다 다른 초록으로 보인다.
+    {key:'draft',     label:'준비',     color:'var(--muted)', bg:'var(--surface-dim)'},
+    {key:'scheduled', label:'모집예정', color:'var(--blue)',  bg:'var(--blue-l)'},
+    {key:'active',    label:'모집중',   color:'var(--green)', bg:'var(--green-l)'},
+    {key:'closed',    label:'모집마감', color:'#B91C5C',      bg:'#FFE4EC'},
+    {key:'ended',     label:'종료',     color:'#5E35B1',      bg:'#EDE7F6'},
+    {key:'expired',   label:'노출종료', color:'#666666',      bg:'#EEEEEE'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
@@ -26992,11 +27002,13 @@ function renderCampaignBreakdown(camps) {
     </div>`).join('');
 
   const chDef = [
-    {key:'instagram', label:'Instagram', color:'#C13584', bg:'#FCE8F3'},
-    {key:'x', label:'X(Twitter)', color:'#0F1419', bg:'#EEEEEE'},
-    {key:'qoo10', label:'Qoo10', color:'#B26A00', bg:'#FFF4E5'},
-    {key:'tiktok', label:'TikTok', color:'#010101', bg:'#E8F7F9'},
-    {key:'youtube', label:'YouTube', color:'#C4302B', bg:'#FDECEC'},
+    // 채널은 상태가 아니라 분류다. 이름이 이미 무엇인지 말해주므로 색을 쓰지 않는다.
+    // (목록 화면의 채널 칩도 회색이라 그쪽과 통일)
+    {key:'instagram', label:'Instagram', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'x', label:'X(Twitter)', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'qoo10', label:'Qoo10', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'tiktok', label:'TikTok', color:'var(--ink)', bg:'var(--surface-dim)'},
+    {key:'youtube', label:'YouTube', color:'var(--ink)', bg:'var(--surface-dim)'},
   ];
   const chCount = {};
   camps.forEach(c => {
@@ -27169,8 +27181,8 @@ function renderAgeGenderDistribution(users) {
         </div>
       </div>`;
     if (collectBars) collectBars.innerHTML =
-      bar('생년월일 등록', pct(stats.ageRegistered), '#5B7CFF') +
-      bar('성별 등록', pct(stats.genderRegistered), '#28C76F');
+      bar('생년월일 등록', pct(stats.ageRegistered), 'var(--ink)') +
+      bar('성별 등록', pct(stats.genderRegistered), 'var(--ink)');
 
     if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
     if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
@@ -27366,14 +27378,14 @@ function renderProfileCompletion(users) {
     </div>`;
 
   $('profileCompletionBars').innerHTML =
-    bar('SNS', pct(hasSns), '#5B7CFF', false) +
-    bar('Instagram', pct(hasIg), '#5B7CFF', true) +
-    bar('X (Twitter)', pct(hasX), '#5B7CFF', true) +
-    bar('TikTok', pct(hasTiktok), '#5B7CFF', true) +
-    bar('YouTube', pct(hasYt), '#5B7CFF', true) +
+    bar('SNS', pct(hasSns), 'var(--ink)', false) +
+    bar('Instagram', pct(hasIg), 'var(--muted)', true) +
+    bar('X (Twitter)', pct(hasX), 'var(--muted)', true) +
+    bar('TikTok', pct(hasTiktok), 'var(--muted)', true) +
+    bar('YouTube', pct(hasYt), 'var(--muted)', true) +
     '<div style="margin-top:4px"></div>' +
-    bar('배송지', pct(hasAddr), '#FF9F43', false) +
-    bar('PayPal', pct(hasPaypal), '#28C76F', false);
+    bar('배송지', pct(hasAddr), 'var(--ink)', false) +
+    bar('PayPal', pct(hasPaypal), 'var(--ink)', false);
 }
 
 
