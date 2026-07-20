@@ -7,7 +7,11 @@
   try {
     const hasCode = new URLSearchParams(location.search).has('code');
     const hasRecoveryHash = location.hash.includes('type=recovery') || location.hash.includes('access_token=');
-    if (hasCode || hasRecoveryHash) {
+    // 새 형식 링크 #reset-pw?token_hash=... (2026-07-20) — 기존 조건은 그대로 두고 조건만 추가.
+    // 검증 성공 시 진짜 로그인 상태가 되므로, 비밀번호를 안 바꾸고 이탈해도 로그인된 채로 남지 않도록
+    // 기존 「재설정 중에는 로그인 취급 안 함」 장치를 그대로 타게 한다.
+    const hasNewRecoveryLink = location.hash.startsWith('#reset-pw?');
+    if (hasCode || hasRecoveryHash || hasNewRecoveryLink) {
       sessionStorage.setItem('reverb.recovery', '1');
     }
   } catch(e) {}
@@ -41,6 +45,18 @@ function navigate(page, pushHistory) {
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
+  }
+  // #reset-pw?token_hash=... — 비밀번호 재설정 새 형식(수신거부와 같은 모양). 페이지명만 분리
+  if (page.startsWith('reset-pw')) {
+    pageName = 'reset-pw';
+    // 값 없이 들어오는 경우(옛 형식 착지·만료 화면을 본 뒤 재진입)는 폼 상태로 복원.
+    // 값이 있는 경우는 handleRecoveryTokenLink 가 상태를 직접 관리한다.
+    if (!page.includes('?')) {
+      const _v = $('resetPwVerifying'), _f = $('resetPwFormWrap'), _x = $('resetPwExpired');
+      if (_v) _v.style.display = 'none';
+      if (_x) _x.style.display = 'none';
+      if (_f) _f.style.display = '';
+    }
   }
 
   // 메시지 페이지를 떠나면 폴링·상태 정리 (같은 페이지 내 다른 응모건 이동은 제외)
@@ -124,6 +140,44 @@ async function handleUnsubscribePage(token) {
     }
   } catch(e) {
     show(elInvalid);
+  }
+}
+
+// 비밀번호 재설정 새 형식 링크 처리 (#reset-pw?token_hash=...) — 2026-07-20
+//   메일 서식이 일회용 값을 주소의 `#` 뒤에 담아 보내므로, 메일 추적 서버·보안 스캐너가
+//   주소를 열어도 값이 서버에 전달되지 않아 소모되지 않는다. 실제 소모는 아래 verifyOtp
+//   호출(브라우저에서 사람이 도착한 뒤)에서 처음 일어난다.
+//   성공 시 세션이 생기고, 기존 #page-reset-pw 폼 + handleResetPassword 를 그대로 탄다.
+async function handleRecoveryTokenLink(tokenHash) {
+  const elVerifying = $('resetPwVerifying');
+  const elForm = $('resetPwFormWrap');
+  const elExpired = $('resetPwExpired');
+  const show = (target) => {
+    [elVerifying, elForm, elExpired].forEach(el => { if (el) el.style.display = 'none'; });
+    if (target) target.style.display = '';
+  };
+
+  // 검증 성공 시 진짜 로그인 세션이 만들어진다. 재설정 플래그를 먼저 세워
+  // 기존 안전장치(로그인 취급 안 함 / 재설정 화면 유도)를 그대로 작동시킨다.
+  try { sessionStorage.setItem('reverb.recovery', '1'); } catch(e) {}
+
+  // 검증 실패 = 세션이 만들어지지 않음. 플래그를 남겨두면 「재설정 중」으로 오인해
+  // 이후 새로고침 시 빈 재설정 폼으로 떨어진다 → 실패 시 반드시 되돌린다.
+  const failed = () => {
+    try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
+    show(elExpired);
+  };
+
+  show(elVerifying);
+  if (!tokenHash || !db) { failed(); return; }
+  try {
+    const {error} = await db.auth.verifyOtp({token_hash: tokenHash, type: 'recovery'});
+    if (error) { failed(); return; }
+    show(elForm);
+    // 주소에서 일회용 값 제거 — 이미 쓴 값이라, 남겨두면 새로고침 시 만료 화면이 떠 혼란을 준다.
+    try { history.replaceState({page:'reset-pw'}, '', '#reset-pw'); } catch(e) {}
+  } catch(e) {
+    failed();
   }
 }
 
@@ -405,7 +459,14 @@ async function init() {
                              location.hash.includes('type=recovery') ||
                              location.hash.includes('access_token=');
 
-  if (isRecoveryInProgress || urlHasRecoveryCode) {
+  if (hash && hash.startsWith('reset-pw?')) {
+    // 비밀번호 재설정 새 형식 — #reset-pw?token_hash=... (비로그인 진입).
+    // 위 recovery 스킵 분기보다 먼저 둔다. 새 형식도 재설정 플래그를 세우므로
+    // 뒤에 두면 스킵에 걸려 검증이 실행되지 않는다.
+    const tokenHash = new URLSearchParams(hash.split('?')[1] || '').get('token_hash');
+    navigate('reset-pw', false);
+    handleRecoveryTokenLink(tokenHash);
+  } else if (isRecoveryInProgress || urlHasRecoveryCode) {
     // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
   } else if (hash && hash.startsWith('detail-')) {
     const campId = hash.replace('detail-','');
@@ -462,6 +523,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
+    : initHash.startsWith('reset-pw') ? 'reset-pw'
     : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');

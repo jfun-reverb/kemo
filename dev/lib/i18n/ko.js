@@ -117,6 +117,12 @@ window.I18N_KO = {
       newLabel: '새 비밀번호 (8자 이상)',
       confirmLabel: '비밀번호 확인',
       btn: '비밀번호 변경',
+      verifying: '확인하고 있습니다...',
+      expiredTitle: '이 링크는 사용할 수 없습니다',
+      expiredStep1: '링크는 받은 뒤 시간이 지나면 사용할 수 없게 됩니다',
+      expiredStep2: '여러 번 보낸 경우에는 가장 최근 메일의 링크만 사용할 수 있습니다',
+      expiredStep3: '아래 버튼으로 다시 보내주세요',
+      expiredBtn: '메일 다시 보내기',
     },
     signup: {
       title: '회원가입',
