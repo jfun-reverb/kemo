@@ -242,7 +242,8 @@ function accentBarGradient(ctx, area, from, to) {
 // SECTION: DASHBOARD — 주소 도넛 + 가입 추이 + 프로필 완성률
 // ════════════════════════════════════════════════════════════════════
 
-function buildAddressChartOptions(stats) {
+// onPanel = 메인 컬러 패널 위에 놓이는 차트인지. 배송지 도넛은 흰 카드 위라 false.
+function buildAddressChartOptions(stats, onPanel) {
   const totalForPct = stats && stats.total ? stats.total : 0;
   const pctOf = (value) => totalForPct ? ((value / totalForPct) * 100).toFixed(1) : '0.0';
   return {
@@ -256,6 +257,7 @@ function buildAddressChartOptions(stats) {
           boxWidth: 12,
           padding: 10,
           font: { size: 12 },
+          color: onPanel ? '#fff' : undefined,   // 메인 컬러 패널 위에서는 기본 회색이 안 읽힘
           generateLabels(chart) {
             const data = chart.data;
             return data.labels.map((label, i) => {
@@ -263,7 +265,7 @@ function buildAddressChartOptions(stats) {
               return {
                 text: `${label}  ${value}명 (${pctOf(value)}%)`,
                 fillStyle: data.datasets[0].backgroundColor[i],
-                strokeStyle: '#fff',
+                strokeStyle: onPanel ? '#625EBD' : '#fff',
                 lineWidth: 1,
                 index: i
               };
@@ -388,14 +390,19 @@ function renderAgeGenderDistribution(users) {
         labels: ageRows.map(b => b.label),
         datasets: [{
           data: ageRows.map(b => b.count),
-          backgroundColor: (c) => ageRows.map(b => (b.label === '미등록' || b.label === '이상치') ? '#D4D4DA' : accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2')),
+          backgroundColor: (c) => ageRows.map(b => (b.label === '미등록' || b.label === '이상치')
+            ? '#D4D4DA'
+            : accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2')),
           borderRadius: 4
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.y}명` } } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,.06)' } },
+          x: { grid: { display: false } }
+        }
       }
     });
 
@@ -421,13 +428,13 @@ function renderAgeGenderDistribution(users) {
       const cell = v => v > 0 ? v : '<span style="color:var(--muted)">-</span>';
       crossEl.innerHTML =
         '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
-        '<thead><tr><th style="text-align:left;padding:4px 6px;color:var(--muted);font-weight:600">연령대</th>' +
-        gHead.map(h => `<th style="text-align:right;padding:4px 6px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
+        '<thead><tr><th style="text-align:left;padding:8px;color:var(--muted);font-weight:600">연령대</th>' +
+        gHead.map(h => `<th style="text-align:right;padding:8px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
         '</tr></thead><tbody>' +
         crossRows.map(rk => {
           const r = stats.cross[rk] || {};
-          return `<tr style="border-top:1px solid var(--line)"><td style="padding:4px 6px;color:var(--ink)">${rk}</td>` +
-            gKeys.map(gk => `<td style="text-align:right;padding:4px 6px">${cell(r[gk] || 0)}</td>`).join('') + '</tr>';
+          return `<tr style="border-top:1px solid var(--line)"><td style="padding:11px 8px;color:var(--ink)">${rk}</td>` +
+            gKeys.map(gk => `<td style="text-align:right;padding:11px 8px">${cell(r[gk] || 0)}</td>`).join('') + '</tr>';
         }).join('') +
         '</tbody></table>';
     }

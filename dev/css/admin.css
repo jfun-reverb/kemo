@@ -1899,3 +1899,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .dash-3col > .admin-card{margin-bottom:0}
 .dash-section{margin-bottom:var(--dash-vgap)}
 @media (max-width:1000px){ .dash-2col{grid-template-columns:1fr} }
+
+/* 차트 패널 (2026-07-20) — 흰 면 + 테두리로 구획을 나눈다.
+   색 있는 면 위에 차트를 놓으면 막대·축이 쓸 수 있는 대비 폭이 줄어 데이터가 덜 보인다. */
+.chart-panel{background:var(--surface);border:1px solid var(--outline);border-radius:12px;padding:14px 16px}
+.chart-panel-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}

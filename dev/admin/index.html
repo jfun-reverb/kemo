@@ -250,12 +250,12 @@
               <div id="ageGenderEmpty" style="display:none;text-align:center;color:var(--muted);padding:32px 0;font-size:13px">아직 생년월일·성별 데이터가 수집되지 않았습니다. 신규 가입과 응모 시 점진적으로 채워집니다.</div>
               <div id="ageGenderBody">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                  <div>
-                    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">연령대 분포</div>
+                  <div class="chart-panel">
+                    <div class="chart-panel-title">연령대 분포</div>
                     <div style="position:relative;height:200px"><canvas id="ageDistChart"></canvas></div>
                   </div>
-                  <div>
-                    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">성별 분포</div>
+                  <div class="chart-panel">
+                    <div class="chart-panel-title">성별 분포</div>
                     <div style="position:relative;height:200px"><canvas id="genderDistChart"></canvas></div>
                   </div>
                 </div>
