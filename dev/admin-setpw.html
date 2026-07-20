@@ -392,8 +392,11 @@ const IS_LOGIN_MODE = PAGE_MODE === 'login';
 const sb = window.supabase
   ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key, {
       auth: {
-        flowType: 'pkce',
-        // 로그인 모드에서는 URL 토큰 감지가 필요 없다(오히려 엉뚱한 해시를 먹지 않게 끔).
+        // ★setpw 모드는 implicit — 서버 발급 링크(generateLink)를 거치면 Supabase 가
+        //   #access_token=... 형식으로 돌려준다. pkce 로 두면 라이브러리가 ?code= 를 기다려
+        //   이 토큰을 집지 못하고 "링크를 사용할 수 없습니다"로 빠진다(2026-07-20 실측).
+        //   로그인 모드는 signInWithPassword 라 흐름 종류와 무관하나 기본값을 유지한다.
+        flowType: IS_LOGIN_MODE ? 'pkce' : 'implicit',
         detectSessionInUrl: !IS_LOGIN_MODE,
         persistSession: IS_LOGIN_MODE,
         autoRefreshToken: IS_LOGIN_MODE
@@ -493,6 +496,21 @@ function proceedToVerify() {
 // 세션 확립 대기 — detectSessionInUrl 처리가 비동기라 즉시 조회하면 아직 없을 수 있다.
 // 일정 시간 안에 세션이 안 서면 "링크 사용 불가"로 폴백(서버가 오류를 안 알려주는 경우 대비).
 async function waitForSession(timeoutMs = 4000) {
+  // 먼저 주소의 토큰으로 직접 세션을 세운다.
+  //   라이브러리의 자동 감지(detectSessionInUrl)는 설정·버전에 따라 이 형식을 놓칠 수 있어,
+  //   토큰이 눈앞에 있는데도 "링크를 사용할 수 없습니다"로 빠지는 일이 있었다.
+  //   직접 넣으면 그 의존이 사라진다.
+  try {
+    const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+    const hp = new URLSearchParams(hash);
+    const at = hp.get('access_token');
+    const rt = hp.get('refresh_token');
+    if (at) {
+      const { data, error } = await sb.auth.setSession({ access_token: at, refresh_token: rt || '' });
+      if (!error && data?.session) return data.session;
+    }
+  } catch (_) { /* 실패해도 아래 폴백으로 진행 */ }
+
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const { data } = await sb.auth.getSession();
