@@ -75,7 +75,15 @@
 ## 구현 결과
 
 **구현일:** 2026-07-22
-**작업 범위:** 작업 묶음 2·3 (작업 묶음 1·5·6은 별도 세션/범위)
+**작업 범위:** 작업 묶음 1·2·3 전체 (한 세션에서 순차 진행)
+**배포 상태:** 개발서버(#792·#793) + 운영서버(#794) 배포 완료. 개발·운영 DB에 마이그레이션 251·252·253 순차 적용 완료.
+
+### 작업 묶음 1 (저위험 정합) — 구현 결과
+- **1. 운영현황 인증성공 막대 감사 격리** (`admin-brand-ops.js`): 모듈 변수 `_brandOpsAuditIds` 신설, `loadBrandOpsDetail`에서 채우고(비동기 hydrate 이전 동기 대입 확인) `hydrateCampCertBars`에서 `delivs.filter(d => !_brandOpsAuditIds.has(d.user_id))` 후 `countCertSuccess`. 진행현황 화면(`openCampApplicants`)은 감사 지목 범위 밖이라 미포함(후속 검토 여지).
+- **4. 신청 페인 갱신 매핑** (`shared.js`): `PANE_REFRESHERS`에 `'applications': loadApplications` 추가(no-op 선제 등록 — 현재 호출부 없음, 규칙 일관성).
+- **5. 엑셀 과대표기** (`admin-excel.js`): `_excelCertStatusKo` monitor 비-가구매 경로에서 '인증성공' 반환 제거. **채널 있는 리뷰어는 `monitorCovered` 필터(689행)·단일 캠페인 다채널 우회(1066행)로 이 경로에 도달하지 않음**을 확인 → 채널 없는 리뷰어만 영향(화면 `legacy_no_channel`과 정합). 리뷰어가 제기한 과소표기 우려는 689행 필터를 놓친 오탐으로 직접 확인·기각.
+- **6.** 아이콘 4곳(`application.js`·`ui.js`) `notranslate`+`translate="no"` / `sales/orient.html` `normalizeUrl`을 `shared.js normalizeUrlInput`과 인라인 동기화(문자열 반환 계약 유지) / `admin-brand.js` stale 주석 정정.
+- **검증**: 개발서버 브라우저 점검(qa light) PASS 5/5 — 운영현황 막대 역전 없음·결과물/엑셀·아이콘·콘솔 오류 0.
 
 ### 마이그레이션 번호 확정
 - **251** `251_settlement_delete_guard.sql` — 작업 묶음 2 (정산 삭제 교착)
@@ -100,5 +108,7 @@
 - **FK 제약 이름을 하드코딩하지 않고 동적 조회 후 DROP** — 128 작성 당시 인라인 `REFERENCES` 선언이라 실제 제약 이름이 문서화돼 있지 않아, `pg_constraint` 조회로 안전하게 처리(추측 금지 원칙).
 - **미해결/후속 과제**: 삭제된 결과물의 영수증 이력을 관리자 화면에서 열람하는 UI(스냅샷 기반 표시)는 이번 범위에 포함하지 않음 — 현재 UI 진입 경로 자체가 "살아있는 결과물의 검수 모달"이라 즉시 필요하지 않다고 판단(사양서 §의심 3의 미해결 질문). 필요해지면 `deliverable_id_snapshot` 기준 별도 조회 화면을 추가 설계.
 
-### 검증 상태
-- 정적 검증만 수행(서브에이전트 권한 범위 — DB 미실행). `node --check`로 수정된 JS 3개 파일 구문 확인 완료, `dev/build.sh` 로컬 빌드 성공 확인. **개발서버 SQL 적용·실제 트리거 발동 검증은 아직 수행되지 않음** — 다음 세션에서 각 마이그레이션 파일 상단의 검증 SQL을 1단계씩 실행할 것.
+### 검증 상태 (최종)
+- **작업 묶음 1**: 개발서버 배포 + 브라우저 점검(qa light) PASS 5/5. 운영 배포 완료.
+- **작업 묶음 2·3**: 개발서버 DB 적용 후 **삭제 차단 트리거 실동작 스모크 통과**(정산 걸린 캠페인·인플루언서 삭제를 `BEGIN/DELETE/EXCEPTION/ROLLBACK`로 시도 → 둘 다 `settlement_exists_cannot_delete` 명확한 한국어 안내로 차단, 실제 삭제 없음). 스키마 확인: 삭제 차단 트리거 4개·`deliverable_id` nullable·FK `SET NULL` 반영.
+- **운영 DB**: 251·252·253 순차 적용 완료. 운영 정산 행 0건(잠금 상태)이라 삭제 차단 실동작은 개발서버 스모크로 갈음. **정산 정식 오픈 시 운영에서 재확인 권장.**
