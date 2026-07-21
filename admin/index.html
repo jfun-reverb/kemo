@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784634789';
+  var CURRENT_BUILD = 'v1784636702';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -491,6 +491,24 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   --accent-tint:#EDEDF8;   /* 연한 강조 배경 */
 }
 
+/* ── 테두리형 버튼(.btn-ghost) 가독성 (무채색 전환 보정) ──────────────
+   무채색 전환 후 공용 components.css 의 .btn-ghost 는 배경 투명 + 테두리 var(--outline)
+   (#E4E4E7) 인데, 이 테두리가 흰 배경·흰 카드 위에서 대비 ~1.2:1 로 거의 안 보여
+   「엑셀 다운로드」·「순서 변경」 같은 관리자 버튼이 버튼처럼 안 보였다(사용자 보고).
+   관리자에서만 테두리·글자 대비를 올린다(무채색 톤 유지 — 색은 안 넣음).
+     · 테두리 --faint(#8A8A93): 흰 배경 대비 ~3:1 (비텍스트 UI 요소 기준 통과)
+     · 글자   --muted(#6E6E77): 흰/연회색 배경 양쪽 본문 대비 통과
+   비활성(disabled) 은 공용 .btn:disabled(opacity:.38) 그대로 — 이 값 위에서 흐려진다. */
+#page-admin .btn-ghost{
+  color:var(--muted);
+  border-color:var(--faint);
+}
+#page-admin .btn-ghost:hover{
+  background:var(--surface-dim);
+  border-color:var(--muted);
+  color:var(--ink);
+}
+
 /* ── 「누를 수 있는 것」 표시 규칙 (무채색 유지) ──────────────────
    색으로 구분하지 않는다. 굵기 + 밑줄로만 구분한다.
    무채색 테마에서 --pink 별칭이 본문과 같은 검정이 되면서, 링크·클릭 가능한
@@ -825,8 +843,10 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}
 .brand-trend-btn:hover{border-color:var(--ink);color:var(--ink)}
 .brand-trend-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-.btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:var(--red-d);color:var(--red-d)}
-.btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
+/* 빨강 위험 버튼(계정 완전 삭제 등)의 hover/active 경고색 유지 — #page-admin 스코프로 특이도를
+   맞춰야 위 #page-admin .btn-ghost:hover(무채색) 가 이 빨강 신호를 덮어쓰지 않는다(가독성 보정 회귀 방지) */
+#page-admin .btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:var(--red-d);color:var(--red-d)}
+#page-admin .btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
 .sort-arrows{cursor:pointer;font-size:9px;color:var(--muted);margin-left:2px;user-select:none;letter-spacing:-1px}
 .sort-arrows:hover{color:var(--accent-ink)}
 .sort-arrows.asc{color:var(--accent-ink)}
@@ -2453,7 +2473,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-21 20:53 · b8303f6</span>
+          <span class="admin-build-text">2026-07-21 21:25 · 56e97be</span>
         </div>
       </div>
     </aside>
