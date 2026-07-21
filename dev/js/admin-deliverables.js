@@ -49,6 +49,7 @@ function resetDelivFiltersAndSort() {
   const stb = $('btnDelivSearchToggle'); if (stb) stb.classList.remove('active');
   // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
+  const cbEx = $('delivIncludeExcluded'); if (cbEx) cbEx.checked = true;  // 검수 불필요 포함 기본 ON 복원
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
   // 최근 제출일 기간 초기화
   _delivSubmittedFrom = ''; _delivSubmittedTo = '';
@@ -187,6 +188,8 @@ async function renderDeliverablesList() {
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
+  // 검수 불필요 포함 — 신청이 반려·취소된 결과물 표시 여부(기본 ON: 회색 배지로 보이고, 끄면 숨김)
+  const includeExcluded = $('delivIncludeExcluded') ? !!$('delivIncludeExcluded').checked : true;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
 
   // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
@@ -219,12 +222,15 @@ async function renderDeliverablesList() {
     if (!opts.skipRecruit && recruitTypeVals.length > 0 && !recruitTypeVals.includes(g.campaign?.recruit_type)) return false;
     if (!opts.skipCamp && delivCampVals.length > 0 && !delivCampVals.includes(g.campaign?.id)) return false;
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
+      // 검수 불필요(신청 반려·취소)는 검수 상태 필터 대상이 아님 — 상태 필터 선택 시 제외
+      if (isCertExcluded(g)) return false;
       // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 영수증 단계가 없음
       if (g.campaign?.recruit_type !== 'monitor') return false;
       const s = g.receipt ? g.receipt.status : 'none';
       if (!receiptStatusVals.includes(s)) return false;
     }
     if (!opts.skipResult && resultStatusVals.length > 0) {
+      if (isCertExcluded(g)) return false;  // 검수 불필요는 결과물 상태 필터 대상 아님
       const rt2 = g.campaign?.recruit_type;
       if (rt2 === 'monitor') {
         // 다중채널: 채널별 상태 중 하나라도 선택값에 들면 통과 (ANY)
@@ -256,23 +262,25 @@ async function renderDeliverablesList() {
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
   const channelCounts = {};  // {channel_code: n} + '__none__': 채널 미상 n
   for (const g of allGroups) {
-    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외
-    if (passesFilters(g, {skipCamp: true})) {
+    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 검수 불필요는 토글 OFF면 목록에서 빠지므로 카운트도 맞춘다(숫자↔행 정합)
+    if (passesFilters(g, {skipCamp: true}) && (includeExcluded || !isCertExcluded(g))) {
       const cid = g.campaign?.id;
       if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
     }
     // 모집 타입 카운트: 자기 자신(모집 타입 필터) 제외
-    if (passesFilters(g, {skipRecruit: true})) {
+    if (passesFilters(g, {skipRecruit: true}) && (includeExcluded || !isCertExcluded(g))) {
       const rt = g.campaign?.recruit_type;
       if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
     }
     // 영수증 상태 카운트: 리뷰어(monitor) 그룹만 합산 (기프팅·방문형 'none' 오집계 차단)
-    if (passesFilters(g, {skipReceipt: true}) && g.campaign?.recruit_type === 'monitor') {
+    //   검수 불필요(신청 반려·취소)는 검수 상태가 아니므로 집계 제외
+    if (passesFilters(g, {skipReceipt: true}) && g.campaign?.recruit_type === 'monitor' && !isCertExcluded(g)) {
       const rs = g.receipt ? g.receipt.status : 'none';
       if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
     }
     // 결과물 상태 카운트: 자기 자신(결과물 필터) 제외 → 영수증·캠페인·모집타입·검색 모두 적용
-    if (passesFilters(g, {skipResult: true})) {
+    //   검수 불필요는 집계 제외
+    if (passesFilters(g, {skipResult: true}) && !isCertExcluded(g)) {
       const rt = g.campaign?.recruit_type;
       if (rt === 'monitor') {
         // 다중채널: 그룹이 가진 상태 종류마다 +1 (ANY 매칭과 정합 — 중복 집계 허용)
@@ -283,7 +291,7 @@ async function renderDeliverablesList() {
       }
     }
     // 채널 카운트: 자기 자신(채널 필터) 제외 → monitor=캠페인 채널마다, gifting/visit=post_channel, 미상=__none__
-    if (passesFilters(g, {skipChannel: true})) {
+    if (passesFilters(g, {skipChannel: true}) && (includeExcluded || !isCertExcluded(g))) {
       const rt = g.campaign?.recruit_type;
       if (rt === 'monitor') {
         const chans = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
@@ -338,12 +346,14 @@ async function renderDeliverablesList() {
   if (recruitTypeVals.length > 0) filtered = filtered.filter(g => g.campaign && recruitTypeVals.includes(g.campaign.recruit_type));
   if (delivCampVals.length > 0) filtered = filtered.filter(g => g.campaign && delivCampVals.includes(g.campaign.id));
   if (receiptStatusVals.length > 0) filtered = filtered.filter(g => {
+    if (isCertExcluded(g)) return false;  // 검수 불필요는 검수 상태 필터 대상 아님
     // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 표시 안 함
     if (g.campaign?.recruit_type !== 'monitor') return false;
     const s = g.receipt ? g.receipt.status : 'none';
     return receiptStatusVals.includes(s);
   });
   if (resultStatusVals.length > 0) filtered = filtered.filter(g => {
+    if (isCertExcluded(g)) return false;  // 검수 불필요는 결과물 상태 필터 대상 아님
     const rt = g.campaign?.recruit_type;
     if (rt === 'monitor') {
       // 다중채널: 채널별 상태 중 하나라도 선택값에 들면 통과 (ANY)
@@ -377,11 +387,17 @@ async function renderDeliverablesList() {
       return all.some(d => d && d.submitted_by_admin);
     });
   }
+  // 검수 불필요(신청 반려·취소) — 현재 필터 하에서 몇 건인지 라벨에 표시하고, 토글 OFF면 목록에서 숨김
+  const excludedCount = filtered.filter(isCertExcluded).length;
+  if (!includeExcluded) filtered = filtered.filter(g => !isCertExcluded(g));
+  const _exLbl = $('delivExcludedCount');
+  if (_exLbl) _exLbl.textContent = excludedCount > 0 ? `(${excludedCount})` : '';
 
   // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
+    || ($('delivIncludeExcluded') && !$('delivIncludeExcluded').checked)
     || ($('delivProxyOnly') && $('delivProxyOnly').checked);
   if (_delivExtraActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
   // 검색어 있으면 돋보기 버튼 강조 + 검색창 펼친 상태 유지 (접힌 채 필터 적용 방지)
@@ -448,6 +464,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
     if (!groups.has(appId)) {
       groups.set(appId, {
         application_id: appId, campaign: camp || null, influencer: inf || null,
+        application_status: null,  // 신청 status(approved/pending/rejected/cancelled) — 검수 불필요 판정용
         receipt: null, result: null, reviewByChannel: {},
         hasLegacyReviewImage: false, latest_submitted_at: null,
       });
@@ -459,6 +476,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
     const camp = d.campaigns || campMap.get(d.campaign_id) || null;
     const g = upsertGroup(d.application_id, camp, d.influencers);
     if (!g.influencer && d.influencers) g.influencer = d.influencers;
+    if (!g.application_status && d.applications?.status) g.application_status = d.applications.status;
     const subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
       if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
@@ -479,7 +497,8 @@ function buildDeliverableGroups(delivs, campMap, opts) {
   if (opts.includeApps) {
     for (const app of opts.includeApps) {
       if (groups.has(app.id)) continue;
-      upsertGroup(app.id, campMap.get(app.campaign_id) || null, (opts.infMap || {})[app.user_id] || null);
+      const g = upsertGroup(app.id, campMap.get(app.campaign_id) || null, (opts.infMap || {})[app.user_id] || null);
+      g.application_status = app.status || 'approved';  // includeApps 는 승인 신청만
     }
   }
   _finalizeMonitorReprs(groups);
@@ -524,14 +543,22 @@ function countCertSuccess(delivs, camp) {
   return n;
 }
 
-// 인증 상태(신청 1건 단위) — 3종: success(인증성공) / submitting(인증샷 제출중) / none(미제출)
+// 인증 상태 상세 (computeCertStatus 판정 근거 — 검수 불필요는 아래 isCertExcluded 가 앞단 처리)
 //   리뷰어(monitor): 영수증(receipt) + 채널별 인증샷(review_image)
 //     - 둘 다 전혀 없음 → 미제출
 //     - 영수증 승인 + 인증샷 모두 승인 → 인증성공
 //     - 그 외(영수증 검수중/반려, 인증샷 검수중/미제출/반려) → 인증샷 제출중
 //   시딩(gifting)·방문(visit): 게시물(post)만
 //     - 미제출 → 미제출 / 승인 → 인증성공 / 그 외(검수중·반려) → 인증샷 제출중
+// 검수 불필요 판정 — 신청이 승인 후 반려/취소되면 그 결과물은 검수 대상이 아니다.
+//   결과물 status 는 안 바꾸고 신청 status 만 참조하므로, 재승인 시 자동으로 다시 검수 대상이 된다.
+function isCertExcluded(g) {
+  return g && (g.application_status === 'rejected' || g.application_status === 'cancelled');
+}
+
+// 인증 상태(신청 1건 단위) — 4종: excluded(검수 불필요) / success(인증성공) / submitting(인증샷 제출중) / none(미제출)
 function computeCertStatus(g) {
+  if (isCertExcluded(g)) return 'excluded';  // 신청 반려·취소 → 검수 불필요 (인증성공 집계·검수 대상에서 제외)
   const camp = g && g.campaign ? g.campaign : null;
   const rt = camp ? camp.recruit_type : null;
   if (rt === 'monitor') {
@@ -554,12 +581,13 @@ function computeCertStatus(g) {
 // 인증 상태 한국어 라벨 (엑셀 공용)
 function certStatusLabelKo(g) {
   const s = computeCertStatus(g);
-  return s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
+  return s === 'excluded' ? '검수 불필요' : s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
 }
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
   // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
   const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
+  if (s === 'excluded')   return `<span class="badge badge-gray" style="${st}" title="신청이 승인 후 반려·취소되어 검수가 불필요합니다">검수 불필요</span>`;
   if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
   if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
   return `<span class="badge badge-gray" style="${st}">미제출</span>`;

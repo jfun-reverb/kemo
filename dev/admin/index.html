@@ -1153,6 +1153,13 @@
                 </label>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>검수 불필요</label>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px" title="신청이 승인 후 반려·취소되어 검수가 불필요한 결과물을 함께 표시합니다. 끄면 목록에서 숨깁니다.">
+                  <input type="checkbox" id="delivIncludeExcluded" onchange="renderDeliverablesList()" checked style="margin:0">
+                  <span>포함 <span id="delivExcludedCount" style="color:var(--muted)"></span></span>
+                </label>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>대리 등록</label>
                 <label class="deliv-proxy-filter-label" title="관리자가 대리 등록한 결과물만 표시">
                   <input type="checkbox" id="delivProxyOnly" onchange="renderDeliverablesList()" style="margin:0">
