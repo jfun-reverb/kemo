@@ -694,13 +694,27 @@ function showToast(msg) {
 }
 
 // URL 위험 스킴 차단 + https 보정 (shared.js normalizeUrlInput 축약 이식)
+// shared.js normalizeUrlInput 과 동일 로직(정적 배포라 import 불가 → 인라인 이식).
+// 반환은 sales 폼 계약대로 문자열(정상 URL 또는 '' — 무효).
 function normalizeUrl(raw) {
   if (!raw) return '';
   let s = String(raw).trim();
   if (!s) return '';
-  if (/^\s*(javascript|data|vbscript|file):/i.test(s)) return '';
-  s = s.replace(/^ttps?:\/\//i, m => (/s/i.test(m) ? 'https://' : 'http://'));
-  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  if (/^(javascript|data|vbscript|file|blob):/i.test(s)) return ''; // 위험 스킴 차단
+  if (/^https?:\/\//i.test(s)) {
+    // 이미 정상 스킴 — 그대로
+  } else if (/^h?t{1,2}ps?:?\/{1,2}/i.test(s)) {
+    s = s.replace(/^h?t{1,2}ps?:?\/{1,2}/i, 'https://'); // 흔한 스킴 오타 → https://
+  } else if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)) {
+    return ''; // 알 수 없는 스킴 차단
+  } else {
+    s = 'https://' + s; // 스킴 없음 → https:// 추가
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return '';
+    if (!u.hostname) return '';
+  } catch (e) { return ''; }
   return s;
 }
 

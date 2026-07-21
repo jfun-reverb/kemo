@@ -544,6 +544,9 @@ const PANE_REFRESHERS = {
   'admin-accounts': async () => {
     if (typeof loadAdminAccounts === 'function') await loadAdminAccounts();
   },
+  'applications': async () => {
+    if (typeof loadApplications === 'function') await loadApplications();
+  },
   'camp-applicants': async () => {
     if (typeof loadCampApplicants === 'function') await loadCampApplicants();
   },

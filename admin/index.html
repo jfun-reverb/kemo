@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784643322';
+  var CURRENT_BUILD = 'v1784647671';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2486,7 +2486,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-21 23:15 · 6bbeef6</span>
+          <span class="admin-build-text">2026-07-22 00:27 · 5602248</span>
         </div>
       </div>
     </aside>
@@ -6805,6 +6805,9 @@ const PANE_REFRESHERS = {
   },
   'admin-accounts': async () => {
     if (typeof loadAdminAccounts === 'function') await loadAdminAccounts();
+  },
+  'applications': async () => {
+    if (typeof loadApplications === 'function') await loadApplications();
   },
   'camp-applicants': async () => {
     if (typeof loadCampApplicants === 'function') await loadCampApplicants();
@@ -12004,7 +12007,7 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
-        '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
+        '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span></button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -18512,7 +18515,7 @@ async function saveGoogleSheetUrl(appId) {
   _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(appId);
   closeGsUrlModal();
-  await loadBrandApplications();   // 목록 재렌더(셀 갱신) — brand-applications 는 refreshPane 미등록
+  await loadBrandApplications();   // 목록 재렌더(셀 갱신)
   toast(nextUrl ? '구글시트 URL이 저장되었습니다.' : '구글시트 URL을 제거했습니다.');
 }
 
@@ -19146,6 +19149,7 @@ function renderBrandOpsCard(b) {
 var _brandOpsDetailId = null;
 var _brandOpsDetailData = null;
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
+var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
 
 async function loadBrandOpsDetail() {
   var body = $('brandOpsDetailBody');
@@ -19164,6 +19168,7 @@ async function loadBrandOpsDetail() {
   var detail = results[0];
   var apps = results[1] || [];
   var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
+  _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
   _brandOpsDetailData = detail;
   if (!detail || !detail.brand) {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">브랜드 정보를 불러올 수 없습니다</div>';
@@ -19246,7 +19251,10 @@ async function hydrateCampCertBars() {
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
-    var success = countCertSuccess(delivs, camp);
+    // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
+    // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
+    var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
+    var success = countCertSuccess(scoped, camp);
     var pct = slotsN > 0 ? Math.round(success / slotsN * 100) : null;
     el.innerHTML = brandOpsRateBar('인증 성공', pct, success, slotsN);
   }));
@@ -25398,7 +25406,9 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
     }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
-    if (receipt && receipt.status === 'approved' && result && result.status === 'approved') return '인증성공';
+    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
+    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
+    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
     return '인증샷 제출중';
   }
   // gifting / visit — 게시물(post) 단독

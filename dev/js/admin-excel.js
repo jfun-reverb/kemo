@@ -142,7 +142,9 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
     }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
-    if (receipt && receipt.status === 'approved' && result && result.status === 'approved') return '인증성공';
+    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
+    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
+    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
     return '인증샷 제출중';
   }
   // gifting / visit — 게시물(post) 단독
