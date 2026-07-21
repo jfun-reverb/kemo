@@ -72,4 +72,33 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+**구현일:** 2026-07-22
+**작업 범위:** 작업 묶음 2·3 (작업 묶음 1·5·6은 별도 세션/범위)
+
+### 마이그레이션 번호 확정
+- **251** `251_settlement_delete_guard.sql` — 작업 묶음 2 (정산 삭제 교착)
+- **252** `252_receipt_edit_history_snapshot_columns.sql` — 작업 묶음 3 (1/2, 스냅샷+nullable 전환)
+- **253** `253_receipt_edit_history_cascade_to_set_null.sql` — 작업 묶음 3 (2/2, FK 재정의+계정삭제 분기)
+
+### 작업 묶음 2 — 초안 대비 변경 사항
+- **삭제 경로 전수 확인 결과**: 실질적으로 사전 체크가 필요한 지점은 2곳뿐 — ① `delete_admin_completely`(031, RPC) ② `dev/js/admin.js`의 `executeDeleteCampaign()`(RPC 아님, 클라이언트 직접 `db.from('applications'/'campaigns').delete()`). `delete_brand`(174·191)·`delete_orient_sheet`(199·239)는 이미 자체 검증(연결 0건/신청 0건 확인)으로 안전함을 확인, 손대지 않음.
+- **초안과 다른 구현 방식**: 초안은 "정산으로 연쇄되는 삭제 함수에 사전 체크 추가"(함수 단위)를 가정했으나, `executeDeleteCampaign()`은 RPC가 아니라 함수에 체크를 못 심는다. 대신 **`applications`/`campaigns`/`influencers` 3개 테이블에 공용 BEFORE DELETE 트리거 1개**(`block_delete_with_settlements()`)를 걸어, RPC 경유든 클라이언트 직접 DELETE든 동일하게 방어하도록 설계를 변경했다. 외래 키 구조(`settlement_events` RESTRICT 포함)는 무변경 — 방향(d) 그대로.
+- **차단 대상 정산 상태**: 상태 무관 전체(cancelled 포함) 차단으로 확정. 근거: `settlement_events`는 정산 생성 시(마이그레이션 218·231) 상태와 무관하게 항상 `create` 이벤트가 INSERT되므로, 어떤 상태의 정산이든 cascade가 도달하면 반드시 RESTRICT에 부딪힌다 — "안전을 위한 선택"이 아니라 구조적으로 유일하게 맞는 조건.
+- **클라이언트 매핑**: `dev/js/admin-core.js` `friendlyError()`에 `settlement_exists_cannot_delete` 코드어 매핑 추가. `dev/js/admin.js` `executeDeleteCampaign()`은 기존에 확인하지 않던 `applications` 삭제 결과의 에러를 확인하도록 수정(잠재 버그 겸 수정 — 이전엔 이 단계 실패가 조용히 무시되고 캠페인 삭제 단계에서 우연히만 드러났음). `admin-accounts.js`의 `executeDeleteCompletely()`는 기존 `friendlyError()` 경유 toast로 충분히 커버되어 별도 수정 없음.
+
+### 작업 묶음 3 — 초안 대비 변경 사항
+- **스냅샷 컬럼 4종 확정**: `deliverable_id_snapshot`(NOT NULL, 영구)·`application_id_snapshot`/`campaign_id_snapshot`/`user_id_snapshot`(NULL 허용, FK 없음 — 정보용). `deliverables` 테이블의 3개 연관 컬럼 그대로 재사용(신규 개념 도입 없음).
+- **BEFORE INSERT 트리거로 자동 채움**: `update_receipt_admin`(128) RPC는 무변경 — `snapshot_receipt_edit_history()` 트리거가 `NEW.deliverable_id`로부터 나머지를 조회해 투명하게 채운다.
+- **경로별 정책 분기 구현**: `delete_admin_completely`(031)를 253에서 재정의해, `applications` 삭제 직후 `receipt_edit_history WHERE user_id_snapshot = target_auth_id`를 명시적으로 DELETE(개인정보 파기 우선 — SET NULL로 잔존시키지 않음). 결과물 개별 하드 삭제 경로(160·162·183)는 FK 재정의(CASCADE→SET NULL)만으로 자동 커버(이력 보존).
+- **251과의 순서 정합 확인**: `delete_admin_completely`는 `applications` 삭제를 함수 맨 앞에서 수행하므로, 정산이 하나라도 있는 계정은 251 트리거가 그 시점에 함수 전체를 중단시킨다 — 253이 추가한 `receipt_edit_history` 명시 삭제 줄은 항상 "정산이 없는" 계정에서만 실행됨을 확인(충돌 없음).
+- **부가 개선(범위 외 자연 확장)**: `dev/lib/storage.js`의 `fetchReceiptEditHistory()`를 `deliverable_id` 단일 매칭에서 `deliverable_id`/`deliverable_id_snapshot` 양쪽 매칭(`.or()`)으로 변경 — 이력 보존만 하고 조회 경로가 없으면 사실상 죽은 데이터가 되므로, 최소 비용으로 조회 가능하게 함. 현재 UI는 살아있는 결과물의 이력만 열람하므로 즉각적인 화면 변화는 없음(회귀 없음).
+
+### 구현 중 추가 기술 결정 (초안에 없던 것)
+- **트리거 함수는 반드시 `SECURITY DEFINER`** — `campaign_manager`처럼 `settlement.view` 권한이 `hidden`인 세션이 삭제를 시도할 때, `SECURITY INVOKER`였다면 `settlements` RLS(`settlements_select_admin`)에 걸려 정산이 있어도 count=0으로 오판해 체크가 무력화됐을 것. 이 부분은 초안에 없던 반대론자 검증 항목이라 구현 중 발견·반영.
+- **FK 제약 이름을 하드코딩하지 않고 동적 조회 후 DROP** — 128 작성 당시 인라인 `REFERENCES` 선언이라 실제 제약 이름이 문서화돼 있지 않아, `pg_constraint` 조회로 안전하게 처리(추측 금지 원칙).
+- **미해결/후속 과제**: 삭제된 결과물의 영수증 이력을 관리자 화면에서 열람하는 UI(스냅샷 기반 표시)는 이번 범위에 포함하지 않음 — 현재 UI 진입 경로 자체가 "살아있는 결과물의 검수 모달"이라 즉시 필요하지 않다고 판단(사양서 §의심 3의 미해결 질문). 필요해지면 `deliverable_id_snapshot` 기준 별도 조회 화면을 추가 설계.
+
+### 검증 상태
+- 정적 검증만 수행(서브에이전트 권한 범위 — DB 미실행). `node --check`로 수정된 JS 3개 파일 구문 확인 완료, `dev/build.sh` 로컬 빌드 성공 확인. **개발서버 SQL 적용·실제 트리거 발동 검증은 아직 수행되지 않음** — 다음 세션에서 각 마이그레이션 파일 상단의 검증 SQL을 1단계씩 실행할 것.
