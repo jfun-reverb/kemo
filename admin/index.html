@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784637821';
+  var CURRENT_BUILD = 'v1784638429';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1640,6 +1640,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .deliv-combined-grid.deliv-combined-grid-multi {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
+/* 패널 1개(영수증 단계 없는 gifting/visit) — 1컬럼 + 모달 폭 축소 (넓은 빈 공간 방지) */
+.deliv-combined-grid.deliv-combined-grid-single {
+  grid-template-columns: 1fr;
+}
+#delivCombinedModal .modal.deliv-combined-single {
+  /* !important 필수 — 모달 인라인 style(max-width:1080px) + 드래그·리사이즈 인프라
+     (makeModalDraggableResizable 가 open 시 인라인 max-width 를 매번 재설정)를 이겨야 폭이 실제로 줄어든다.
+     선례: 위 admin.css 의 max-width:none !important (같은 드래그 인프라 대응) */
+  max-width: 620px !important;
+}
 @media (max-width: 900px) {
   .deliv-combined-grid {
     grid-template-columns: 1fr;
@@ -2473,7 +2483,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-21 21:43 · 16983b5</span>
+          <span class="admin-build-text">2026-07-21 21:53 · abacccb</span>
         </div>
       </div>
     </aside>
@@ -23990,7 +24000,12 @@ async function renderDelivCombinedBody(applicationId) {
   // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
   //   영수증 단계가 없는(gifting/visit) 모집 타입은 영수증 패널 자체를 안 그린다 → 카운트 0
   const totalPanels = (showReceipt ? 1 : 0) + (isMonitorMulti ? campChannels.length : 1);
-  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
+  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi'
+    : totalPanels === 1 ? 'deliv-combined-grid deliv-combined-grid-single'
+    : 'deliv-combined-grid';
+  // 패널 1개(영수증 없는 gifting/visit)면 모달 폭도 좁게 — 넓은 빈 공간 방지
+  const modalEl = document.querySelector('#delivCombinedModal .modal');
+  if (modalEl) modalEl.classList.toggle('deliv-combined-single', totalPanels === 1);
 
   // 검수 불필요(신청 반려·취소) 안내 배너 — 이 안에선 검수 액션이 모두 비활성이라는 걸 상단에서 알린다
   const excludedBanner = isExcluded
@@ -24415,7 +24430,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (isExcluded) {
     // 검수 불필요(신청 반려·취소) — 모든 검수 액션 버튼을 감추고 안내만 표시. 재승인 시 자동 복원.
     html += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);text-align:right">
-      <span style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px">block</span> 검수 불필요 — 신청이 반려·취소됨</span>
+      <span style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px">block</span> 검수 불필요 — 캠페인 신청이 반려·취소됨</span>
     </div>`;
   } else if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;

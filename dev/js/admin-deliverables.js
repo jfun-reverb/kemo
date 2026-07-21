@@ -1245,7 +1245,12 @@ async function renderDelivCombinedBody(applicationId) {
   // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
   //   영수증 단계가 없는(gifting/visit) 모집 타입은 영수증 패널 자체를 안 그린다 → 카운트 0
   const totalPanels = (showReceipt ? 1 : 0) + (isMonitorMulti ? campChannels.length : 1);
-  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
+  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi'
+    : totalPanels === 1 ? 'deliv-combined-grid deliv-combined-grid-single'
+    : 'deliv-combined-grid';
+  // 패널 1개(영수증 없는 gifting/visit)면 모달 폭도 좁게 — 넓은 빈 공간 방지
+  const modalEl = document.querySelector('#delivCombinedModal .modal');
+  if (modalEl) modalEl.classList.toggle('deliv-combined-single', totalPanels === 1);
 
   // 검수 불필요(신청 반려·취소) 안내 배너 — 이 안에선 검수 액션이 모두 비활성이라는 걸 상단에서 알린다
   const excludedBanner = isExcluded
@@ -1670,7 +1675,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (isExcluded) {
     // 검수 불필요(신청 반려·취소) — 모든 검수 액션 버튼을 감추고 안내만 표시. 재승인 시 자동 복원.
     html += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);text-align:right">
-      <span style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px">block</span> 검수 불필요 — 신청이 반려·취소됨</span>
+      <span style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px">block</span> 검수 불필요 — 캠페인 신청이 반려·취소됨</span>
     </div>`;
   } else if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;

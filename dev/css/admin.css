@@ -1180,6 +1180,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .deliv-combined-grid.deliv-combined-grid-multi {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
+/* 패널 1개(영수증 단계 없는 gifting/visit) — 1컬럼 + 모달 폭 축소 (넓은 빈 공간 방지) */
+.deliv-combined-grid.deliv-combined-grid-single {
+  grid-template-columns: 1fr;
+}
+#delivCombinedModal .modal.deliv-combined-single {
+  /* !important 필수 — 모달 인라인 style(max-width:1080px) + 드래그·리사이즈 인프라
+     (makeModalDraggableResizable 가 open 시 인라인 max-width 를 매번 재설정)를 이겨야 폭이 실제로 줄어든다.
+     선례: 위 admin.css 의 max-width:none !important (같은 드래그 인프라 대응) */
+  max-width: 620px !important;
+}
 @media (max-width: 900px) {
   .deliv-combined-grid {
     grid-template-columns: 1fr;
