@@ -6034,6 +6034,9 @@ async function deleteMismatchedPostDeliverable(deliverableId, reason) {
 }
 
 // 영수증 변경 이력 조회 (모든 관리자 SELECT 가능)
+// 마이그레이션 252/253 — 결과물이 하드 삭제되면 deliverable_id 가 NULL 로 비워지고
+// (CASCADE→SET NULL) deliverable_id_snapshot 에 원래 id 가 영구 보존된다. 살아있는
+// 결과물과 삭제된 결과물의 이력을 같은 함수로 조회할 수 있도록 둘 다 매칭한다.
 async function fetchReceiptEditHistory(deliverableId) {
   if (!db || !deliverableId) return [];
   let rows = [];
@@ -6041,7 +6044,7 @@ async function fetchReceiptEditHistory(deliverableId) {
     await retryWithRefresh(async () => {
       const {data, error} = await db.from('receipt_edit_history')
         .select('*')
-        .eq('deliverable_id', deliverableId)
+        .or(`deliverable_id.eq.${deliverableId},deliverable_id_snapshot.eq.${deliverableId}`)
         .order('changed_at', {ascending: false});
       if (error) throw error;
       rows = Array.isArray(data) ? data : [];

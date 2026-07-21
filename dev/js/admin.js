@@ -1990,8 +1990,14 @@ async function executeDeleteCampaign() {
   var err = $('deleteCampError');
   if (input !== title) { err.textContent = '캠페인명이 일치하지 않습니다'; err.style.display = 'block'; return; }
   try {
-    if (db) await db?.from('applications').delete().eq('campaign_id', campId);
     if (db) {
+      // 마이그레이션 251 — 이 캠페인의 신청 중 정산(settlements) 기록이 있는 건은
+      // 삭제 트리거가 막는다. 이전에는 이 결과를 확인하지 않고 넘어가 캠페인
+      // 삭제 단계에서만(사실은 그 캠페인의 신청이 아직 남아있어 우연히) 에러가
+      // 드러났는데, 여기서 바로 확인해 원인을 명확히 한다.
+      var delAppsResult = await db?.from('applications').delete().eq('campaign_id', campId);
+      if (delAppsResult && delAppsResult.error) throw delAppsResult.error;
+
       var result = await db?.from('campaigns').delete().eq('id', campId);
       if (result.error) throw result.error;
     }
