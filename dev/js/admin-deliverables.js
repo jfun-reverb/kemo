@@ -37,7 +37,7 @@ function toggleDelivSort(col) {
   renderDeliverablesList();
 }
 
-function resetDelivFiltersAndSort() {
+function resetDelivFiltersAndSort(skipRender) {
   resetMultiFilter('delivRecruitTypeMulti', '전체 타입');
   resetMultiFilter('delivReceiptStatusMulti', '전체');
   resetMultiFilter('delivResultStatusMulti', '전체');
@@ -51,12 +51,13 @@ function resetDelivFiltersAndSort() {
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
   const cbEx = $('delivIncludeExcluded'); if (cbEx) cbEx.checked = true;  // 검수 불필요 포함 기본 ON 복원
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
+  _delivPendingOnly = false;  // 검수대기만(배지 클릭) 해제
   // 최근 제출일 기간 초기화
   _delivSubmittedFrom = ''; _delivSubmittedTo = '';
   if (_delivSubmittedFp) _delivSubmittedFp.clear();
   const dr = $('delivSubmittedRange'); if (dr) dr.classList.remove('filter-active');
   _delivSort = {col: null, dir: null};
-  renderDeliverablesList();
+  if (!skipRender) renderDeliverablesList();  // 배지 클릭(openDelivPendingReview)은 이중 렌더 방지로 생략
 }
 
 function applyDelivSortIndicators() {
@@ -76,13 +77,24 @@ async function loadDeliverables() {
   await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
 }
 
+// 사이드바 검수대기 배지 클릭 — 결과물 관리 페인을 「검수대기만」 상태로 열어 배지 숫자와 목록을 일치시킴.
+//   다른 필터를 모두 초기화한 뒤 검수대기만 켜서, 배지 숫자 = 눈앞 목록 길이가 되게 한다.
+function openDelivPendingReview() {
+  resetDelivFiltersAndSort(true);  // 다른 필터·검색·기간 초기화(렌더는 생략 — 아래 navAdminPaneReload 가 렌더)
+  _delivPendingOnly = true;       // 그 뒤 검수대기만 ON
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('deliverables');
+  else renderDeliverablesList();
+}
+
 // 사이드바 "결과물 관리" 메뉴 옆 검수 대기(pending) 배지 갱신
 async function refreshDelivSidebarBadge() {
   const el = $('adminDelivSi');
   if (!el) return;
   try {
     const n = await fetchPendingDeliverableCount();
-    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+    // 배지(숫자) 클릭 → 「검수대기만」 보기. event.stopPropagation 으로 메뉴 진입(페인 이동)과 분리.
+    const badge = n>0 ? `<span class="admin-si-badge" onclick="event.stopPropagation();openDelivPendingReview()" style="cursor:pointer" title="검수대기만 보기">${n>999?'999+':n}</span>` : '';
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
   } catch(e) { /* 무시 */ }
 }
 
@@ -103,6 +115,8 @@ const DELIV_PAGE_SIZE = 50;
 var _delivSubmittedFrom = '';
 var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
+// 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
+var _delivPendingOnly = false;
 
 // timestamptz ISO → 브라우저 로컬 날짜(YYYY-MM-DD). 기간 필터 비교용 (운영자 KST 기준)
 function delivLocalDate(iso) {
@@ -387,6 +401,8 @@ async function renderDeliverablesList() {
       return all.some(d => d && d.submitted_by_admin);
     });
   }
+  // 검수대기만 (사이드바 배지 클릭) — 신청 단위 최신 결과물이 검수대기인 신청만. 배지 숫자 = 목록 길이.
+  if (_delivPendingOnly) filtered = filtered.filter(groupHasPendingReview);
   // 검수 불필요(신청 반려·취소) — 현재 필터 하에서 몇 건인지 라벨에 표시하고, 토글 OFF면 목록에서 숨김
   const excludedCount = filtered.filter(isCertExcluded).length;
   if (!includeExcluded) filtered = filtered.filter(g => !isCertExcluded(g));
@@ -396,6 +412,7 @@ async function renderDeliverablesList() {
   // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
+    || _delivPendingOnly
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
     || ($('delivIncludeExcluded') && !$('delivIncludeExcluded').checked)
     || ($('delivProxyOnly') && $('delivProxyOnly').checked);
@@ -579,6 +596,25 @@ function computeCertStatus(g) {
   return 'submitting';
 }
 // 인증 상태 한국어 라벨 (엑셀 공용)
+// 검수대기 신청 판정 — 신청의 각 결과물 "최신 1건" 중 하나라도 검수대기(pending)면 true.
+//   사이드바 배지(count_pending_review_applications RPC, 신청 단위)와 같은 기준으로,
+//   배지 클릭 「검수대기만」 필터가 배지 숫자와 목록 길이를 일치시킨다.
+//   재제출로 쌓인 옛 pending 행은 buildDeliverableGroups 가 이미 최신만 대표로 잡아 자동 제외.
+//   검수 불필요(신청 반려·취소)는 대상 아님.
+function groupHasPendingReview(g) {
+  if (!g || isCertExcluded(g)) return false;
+  if (g.receipt && g.receipt.status === 'pending') return true;  // 영수증 최신 검수대기
+  const rt = g.campaign ? g.campaign.recruit_type : null;
+  if (rt === 'monitor') {
+    if (g.result_status_repr === 'pending') return true;  // 채널별 인증샷 최신 중 검수대기
+    // result_status_repr 은 rejected>pending 우선순위라 「채널 A 반려 + 채널 B 검수대기」면 'rejected'가 된다.
+    // 배지 RPC 는 채널별 최신 pending 을 그대로 세므로, 목록도 채널 최신에 pending 이 하나라도 있으면 검수대기로 본다(정합).
+    if (Object.values(g.reviewByChannel || {}).some(d => d && d.status === 'pending')) return true;
+  } else if (g.result && g.result.status === 'pending') {
+    return true;  // 게시물 최신 검수대기 (gifting/visit)
+  }
+  return false;
+}
 function certStatusLabelKo(g) {
   const s = computeCertStatus(g);
   return s === 'excluded' ? '검수 불필요' : s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
