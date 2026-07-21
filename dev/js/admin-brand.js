@@ -4001,7 +4001,7 @@ async function saveGoogleSheetUrl(appId) {
   _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(appId);
   closeGsUrlModal();
-  await loadBrandApplications();   // 목록 재렌더(셀 갱신) — brand-applications 는 refreshPane 미등록
+  await loadBrandApplications();   // 목록 재렌더(셀 갱신)
   toast(nextUrl ? '구글시트 URL이 저장되었습니다.' : '구글시트 URL을 제거했습니다.');
 }
 
