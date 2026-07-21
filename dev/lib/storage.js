@@ -677,19 +677,18 @@ async function insertReceipt(receipt) {
 }
 
 // ── Deliverables (Stage 2) ──
-// 사이드바 배지용 — pending(검수 대기) 결과물 개수만 빠르게 (head:true count, draft 자동 제외)
-//   신청(application)이 반려·취소된 결과물은 "검수 불필요"라 배지에서 제외 — applications!inner 조인으로
-//   최상위 행을 신청 상태로 필터(rejected/cancelled 제외). application_id 없는 결과물은 inner 조인에서 빠지나,
-//   결과물은 항상 신청 기반이라 실제 누락 없음.
+// 사이드바 배지용 — 검수대기 "신청" 개수 (마이그레이션 248 count_pending_review_applications RPC).
+//   과거엔 deliverables 를 status='pending' 조건으로 행 단위 COUNT 했는데, 결과물은 재제출마다
+//   새 행을 INSERT 하고 옛 행은 이력 보존을 위해 남겨두는 설계라 이미 대체된 옛 pending 행까지
+//   중복으로 세어 배지가 과대 표시됐다(운영 관측치 31건 vs 실제 검수 필요 신청 수). RPC 는
+//   신청(application) 단위 + 각 결과물의 (kind, post_channel) 조합별 최신 1건만 판정해 정확히 센다.
+//   반려·취소(rejected/cancelled) 신청은 RPC 내부에서 이미 제외("검수 불필요").
 async function fetchPendingDeliverableCount() {
   if (!db) return 0;
   try {
-    const {count, error} = await db.from('deliverables')
-      .select('id, applications!inner(status)', {count: 'exact', head: true})
-      .eq('status', 'pending')
-      .not('applications.status', 'in', '("rejected","cancelled")');
+    const {data, error} = await db.rpc('count_pending_review_applications');
     if (error) throw error;
-    return count || 0;
+    return data || 0;
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
 }
 
