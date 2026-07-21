@@ -129,6 +129,10 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
 // gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
 function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status)
+         || (result && result.applications && result.applications.status) || null;
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   if (recruitType === 'monitor') {
     var hasReceipt = !!receipt;
     // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
@@ -149,6 +153,10 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
 function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
+  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   var hasReceipt = !!receipt;
   // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
   if (proxyPurchase) {

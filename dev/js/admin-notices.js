@@ -55,11 +55,16 @@ const ADMIN_NOTICE_CAT_LABEL = {
   warning: '경고',
   general: '일반',
 };
+// 공지 종류 라벨 — 네 가지 모두 같은 포인트 컬러 스타일로 통일(연보라 배경 + 보라 글자, 6.07:1).
+// 배지에 이름이 이미 쓰여 있어 색으로 종류를 구분할 필요가 없다.
+// ⚠️ 「주의」도 같은 색이라 목록을 훑을 때 위험 공지가 눈에 띄지 않는다 —
+//    구분이 필요해지면 warning 만 var(--red-l)/var(--red-d) 로 되돌리면 된다.
+const NOTICE_LABEL_STYLE = 'background:var(--accent-tint);color:var(--accent-deep)';
 const ADMIN_NOTICE_CAT_STYLE = {
-  system_update: 'background:#E3F2FD;color:#1565C0',
-  release: 'background:#E8F5E9;color:#2E7D32',
-  warning: 'background:#FFEBEE;color:#C62828',
-  general: 'background:#F5F5F5;color:#616161',
+  system_update: NOTICE_LABEL_STYLE,
+  release: NOTICE_LABEL_STYLE,
+  warning: NOTICE_LABEL_STYLE,
+  general: NOTICE_LABEL_STYLE,
 };
 
 // ════════════════════════════════════════════════════════════════════
@@ -361,9 +366,12 @@ function renderDashboardNotices() {
   const card = $('dashboardNoticesCard');
   const body = $('dashboardNoticesBody');
   if (!card || !body) return;
+  const grid = $('dashTopGrid');
   const list = (_adminNoticesCache || []).filter(n => n.status === 'published').slice(0, 3);
-  if (!list.length) { card.style.display = 'none'; return; }
+  // 공지가 없으면 왼쪽 칸이 비므로 KPI 가 전체 폭을 쓰도록 1단으로 전환
+  if (!list.length) { card.style.display = 'none'; if (grid) grid.classList.add('no-notices'); return; }
   card.style.display = '';
+  if (grid) grid.classList.remove('no-notices');
   body.innerHTML = list.map(n => `
     <div style="padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openAdminNoticeView('${esc(n.id)}')">
       ${!n.is_read ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#C62828;flex-shrink:0"></span>' : '<span style="display:inline-block;width:6px;height:6px;flex-shrink:0"></span>'}

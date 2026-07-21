@@ -46,13 +46,13 @@ function switchLookupTab(kind, btn) {
     if (rb) { rb.textContent = '순서 변경'; rb.onclick = enterLookupReorderMode; rb.classList.remove('btn-primary'); rb.classList.add('btn-ghost'); }
   }
   document.querySelectorAll('.lookup-tab').forEach(b => {
-    b.style.color = '#9A9AA1';
+    b.style.color = 'var(--muted)';
     b.style.borderBottomColor = 'transparent';
     b.style.fontWeight = '600';
   });
   if (btn) {
-    btn.style.color = 'var(--pink)';
-    btn.style.borderBottomColor = 'var(--pink)';
+    btn.style.color = 'var(--accent-ink)';
+    btn.style.borderBottomColor = 'var(--accent)';
     btn.style.fontWeight = '700';
   }
   renderLookupsTable();
@@ -126,7 +126,7 @@ async function renderLookupsTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -365,7 +365,7 @@ async function renderPsetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openPsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -410,7 +410,7 @@ function renderPsetSteps() {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="psetMoveStep(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_psetCurrentSteps.length-1?'disabled':''} onclick="psetMoveStep(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -538,7 +538,7 @@ async function renderCsetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openCsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -946,7 +946,7 @@ function renderCsetItems() {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="csetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_csetCurrentItems.length-1?'disabled':''} onclick="csetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_csetCurrentItems.length<=1?'disabled':''} onclick="csetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_csetCurrentItems.length<=1?'disabled':''} onclick="csetRemoveItem(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1087,7 +1087,7 @@ async function renderNgSetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -1128,11 +1128,11 @@ function renderNgSetItems() {
   wrap.innerHTML = _nsetCurrentItems.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red-d)">NG ${idx+1}</span>
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="nsetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_nsetCurrentItems.length-1?'disabled':''} onclick="nsetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">

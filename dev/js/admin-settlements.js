@@ -190,7 +190,7 @@ function renderSettlementRow(s) {
   const auditB = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
   const infSub = [inf.name_kana ? esc(inf.name_kana) : '', inf.email ? esc(inf.email) : '']
     .filter(Boolean).join(' · ');
-  const infCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
+  const infCell = `<div class="link-cell" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
 
   const campNo = camp.campaign_no
     ? `<div><span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span></div>`
@@ -209,12 +209,18 @@ function renderSettlementRow(s) {
     ? `<span style="font-size:12px">${formatDate(s.paid_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
+  // 신청 반려·취소로 자동 보류된 건(고정 메모 '신청 반려로 자동 보류')은 관리자가 구분하도록 앰버 배지.
+  //   복원은 on_hold 의 「보류 해제」 버튼(mark_settlement_revert)으로 정산대기 복귀.
+  const autoHoldBadge = (s.status === 'on_hold' && (s.memo || '').includes('자동 보류'))
+    ? `<div style="margin-top:3px"><span style="font-size:10px;background:#FEF3C7;color:#92400E;font-weight:600;padding:1px 6px;border-radius:3px" title="신청이 반려·취소되어 자동 보류된 정산입니다. 신청을 다시 승인했다면 「보류 해제」로 정산대기로 되돌리세요.">자동 보류(신청 반려)</span></div>`
+    : '';
+
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
     <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</td>
     <td>${paypalCell}</td>
-    <td>${settlementStatusBadge(s.status)}</td>
+    <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
     <td>${paidDate}</td>
     <td>${settlementActionCell(s)}</td>
@@ -625,7 +631,7 @@ function renderPastUnregRow(r) {
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
   const paypalCell = r.has_paypal
-    ? '<span style="background:#E8F5E9;color:#16A34A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
+    ? '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
     : '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px" title="PayPal 미등록">미등록</span>';
   return `<tr>
     <td><input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}></td>

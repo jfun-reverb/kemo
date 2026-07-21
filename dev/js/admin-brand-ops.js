@@ -17,7 +17,7 @@ function openBrandOpsDetail(brandId) {
 
 // alert_level → 색·라벨 매핑 (관리자 UI 한국어)
 var BRAND_OPS_ALERT = {
-  danger:  { color: '#dc2626', bg: '#FDECEA', label: '긴급',     pulse: true },
+  danger:  { color: 'var(--red)', bg: '#FDECEA', label: '긴급',     pulse: true },
   warning: { color: '#f97316', bg: '#FFF3E8', label: '대응 필요', pulse: false },
   caution: { color: '#f59e0b', bg: '#FEF9E7', label: '주의',     pulse: false },
   normal:  { color: '#cbd5e1', bg: '#fff',    label: '',         pulse: false }
@@ -142,7 +142,7 @@ function brandOpsRateBar(label, rate, approved, total) {
   var sub = (total !== undefined && total !== null) ? ('(' + (approved||0) + '/' + (total||0) + ')') : '';
   return '<div style="margin-top:6px">'
     + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
-    + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? '#16a34a' : pct >= 30 ? '#f59e0b' : '#dc2626') + '"></div></div>'
+    + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)') + '"></div></div>'
     + '</div>';
 }
 
@@ -372,7 +372,7 @@ function brandOpsCampTypeChannel(c) {
   var typeKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined' && RECRUIT_TYPE_LABEL_KO[c.recruit_type]) || BRAND_OPS_RECRUIT_TYPE_KO[c.recruit_type] || c.recruit_type || '';
   var chText = brandOpsChannelText(c.channel, c.channel_match);
   return '<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-bottom:3px">'
-    + (typeKo ? '<span style="background:#F3E9F0;color:var(--pink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
+    + (typeKo ? '<span style="background:var(--surface-dim);color:var(--ink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
     + (chText ? '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(chText) + '</span>' : '')
     + '</div>';
 }

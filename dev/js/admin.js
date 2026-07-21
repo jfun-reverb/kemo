@@ -834,7 +834,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(orig?.caution_items)}</ul>
             </div>
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(next?.caution_items)}</ul>
             </div>
           </div>
@@ -851,7 +851,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
               <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(orig?.participation_steps)}</ul>
             </div>
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(next?.participation_steps)}</ul>
             </div>
           </div>
@@ -868,7 +868,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(orig?.ng_items)}</ul>
             </div>
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(next?.ng_items)}</ul>
             </div>
           </div>
@@ -879,7 +879,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
     if (body) {
       body.innerHTML = `
         <div style="font-size:13px;line-height:1.7;color:var(--ink)">
-          이 캠페인에는 이미 <b style="color:#B3261E">${appCount}명</b>의 신청자가 있습니다.<br>
+          이 캠페인에는 이미 <b style="color:var(--red-d)">${appCount}명</b>의 신청자가 있습니다.<br>
           변경 사항은 <b>이후 신규 신청자에게만 적용</b>되며, 기존 신청자가 동의한 시점의 문구는 그대로 효력을 유지합니다.
         </div>
         ${sections.join('')}
@@ -918,7 +918,7 @@ async function openCautionHistoryModal(campId) {
     _cautionHistoryState.list = Array.isArray(list) ? list : [];
     renderCautionHistoryModal();
   } catch(e) {
-    if (body) body.innerHTML = `<div style="padding:24px;color:#B3261E;font-size:13px">이력 불러오기 실패: ${esc(friendlyError(e.message||String(e)))}</div>`;
+    if (body) body.innerHTML = `<div style="padding:24px;color:var(--red-d);font-size:13px">이력 불러오기 실패: ${esc(friendlyError(e.message||String(e)))}</div>`;
   }
 }
 
@@ -984,7 +984,7 @@ function renderCautionHistoryModal() {
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.prev_caution_items)}</ul>
               </div>
               <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.next_caution_items)}</ul>
               </div>
             </div>
@@ -998,7 +998,7 @@ function renderCautionHistoryModal() {
                 <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.prev_participation_steps)}</ul>
               </div>
               <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
                 <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.next_participation_steps)}</ul>
               </div>
             </div>
@@ -1012,7 +1012,7 @@ function renderCautionHistoryModal() {
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_prev)}</ul>
               </div>
               <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
                 <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_next)}</ul>
               </div>
             </div>
@@ -2979,7 +2979,7 @@ function renderCampSteps(formMode) {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampPsetStep('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampPsetStep('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampPsetStep('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampPsetStep('${formMode}',${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -3122,7 +3122,7 @@ function renderCampCautionItems(formMode) {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampCsetItem('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampCsetItem('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampCsetItem('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampCsetItem('${formMode}',${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -3254,11 +3254,11 @@ function renderCampNgItems(formMode) {
   wrap.innerHTML = arr.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red-d)">NG ${idx+1}</span>
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampNsetItem('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampNsetItem('${formMode}',${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
