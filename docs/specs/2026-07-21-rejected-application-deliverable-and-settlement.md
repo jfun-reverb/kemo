@@ -167,12 +167,16 @@
 ## 구현 결과
 
 **구현일:** 2026-07-21
-**브랜치:** feature/deliverable-cert-settlement (개발서버 PR 예정)
+**상태:** ★ 전부 운영 배포·검증 완료 (2026-07-21). 코드는 dev→main 머지, 마이그레이션은 개발·운영 DB 양쪽 적용.
 
 ### 확정 마이그레이션 번호 (사후 기록)
 - **246** `auto_hold_settlement_on_app_reject.sql` — 자동 보류 트리거 (applications approved→rejected/cancelled 시 pending 정산 → on_hold, 고정 memo '신청 반려로 자동 보류', settlement_events action='hold', paid 미변경)
 - **247** `guard_reject_with_paid_settlement.sql` — 송금완료 반려 차단 트리거 (BEFORE UPDATE, paid 정산 있으면 RAISE 22023 'settlement_already_paid')
-- 두 파일 분리(관심사 분리). settlement_events.action CHECK 확장 없음(기존 'hold' 재사용 + 고정 memo 구분).
+- **248** `count_pending_review_applications.sql` — 검수대기 배지 신청 단위 집계 RPC (아래 배지 정합 참조)
+- **249** `count_pending_review_exclude_unassigned.sql` — 배지 집계에서 채널 미지정 review_image 제외 (운영 검증서 발견)
+- **250** `count_pending_review_post_channel_agnostic.sql` — 배지 집계에서 post·receipt 는 채널 무관 신청당 최신 1건 (운영 검증서 발견)
+- 246·247 분리(관심사 분리). settlement_events.action CHECK 확장 없음(기존 'hold' 재사용 + 고정 memo 구분).
+- (연관 데이터 정정) `supabase/patches/2026-07-21-fix-campaign-brand-denorm.sql` — 관리자 목록 브랜드명 일본어로 보이던 16건(campaigns.brand 비정규화 stale) 백필. brand_ja(인플용) 유지. 운영 정정 완료.
 
 ### 초안 대비 변경 사항
 - 추가된 것:
@@ -187,3 +191,12 @@
 - 사이드바 검수대기 배지는 `applications!inner(status)` + `.not('applications.status','in','("rejected","cancelled")')` head count.
 - 자동 보류는 RPC 호출 아닌 트리거 직접 UPDATE+INSERT(트리거는 SECURITY DEFINER 라 RLS 우회, actor=auth.uid()).
 - 검증: [via supabase-expert] 쿼리 3곳·트리거 2개, [via reviewer] PR1·PR2 GO.
+
+### 후속 추가 구현 (같은 세션, 전부 운영 배포)
+사용자 후속 요청·운영 검증에서 나온 추가 작업:
+- **검수 모달 검수 액션 비활성**: 검수 불필요(신청 반려·취소) 건은 합본 검수 모달에서 승인·반려·되돌리기·대리등록·영수증수정 등 검수 액션을 전부 차단하고 상단 배너 "검수 불필요 — 캠페인 신청이 반려·취소됨" 표시(재승인 시 자동 복원). `renderDelivCombinedBody` 가 신청 status 임베드로 `isExcluded` 판정 → `renderDelivPanelContent(d,events,isExcluded)`·proxyBtn·`renderReceiptInfoBlock(d,isExcluded)` 에 전달.
+- **영수증 「해당 없음」 패널 숨김 + 모달 폭**: gifting/visit(영수증 단계 없음)은 영수증 패널 미렌더. 패널 1개면 모달 1컬럼·`max-width:620px !important`(드래그 인프라가 인라인 max-width 재설정하므로 !important 필수).
+- **검수대기 배지 신청 단위 정합 (마이그레이션 248·249·250)**: 배지가 재제출로 쌓인 옛 pending 행까지 세어 과대(운영 31)하던 문제. 신청 단위 집계 RPC `count_pending_review_applications`(신청별 최신 결과물 pending, 반려·취소 제외)로 교체 + `fetchPendingDeliverableCount` 가 이 RPC 호출. 화면 정합 헬퍼 `groupHasPendingReview(g)`, 배지(숫자) 클릭 → 「검수대기만」 필터(`_delivPendingOnly`/`openDelivPendingReview`) → 배지 숫자=목록 길이. ⚠️ **개발서버엔 없고 운영 데이터에만 있던 케이스 2개가 운영 검증에서 드러나 249·250으로 보정**: 249=채널 미지정 review_image 제외(배지 9 vs 목록 1), 250=게시물 다채널은 채널 무관 신청당 최신(배지 6 vs 목록 1). 최종 운영 배지 1=목록 1. **교훈: 집계 RPC는 화면 `buildDeliverableGroups` 와 정합 필수 + 운영 데이터로 실측 대조(개발 데이터로는 특수 케이스 못 잡음).**
+- **관리자 버튼 가독성**: 무채색 테마 후 흐려진 `.btn-ghost`(엑셀 다운로드·순서 변경 등) 테두리·글자 대비 상향(`#page-admin .btn-ghost`). 이 수정이 「보기 초기화」 버튼(bg=--muted, color:#fff)의 흰 글자를 특이도로 덮어쓴 회귀 → 초기화 버튼 규칙에 `#page-admin` 스코프 추가로 특이도 상향.
+
+**추가 마이그레이션(사후):** 248·249·250. 브랜드 patch `supabase/patches/2026-07-21-fix-campaign-brand-denorm.sql`.
