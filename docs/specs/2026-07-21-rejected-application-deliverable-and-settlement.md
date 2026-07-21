@@ -78,7 +78,8 @@
 **"검수 불필요" 판정을 넣을 모든 지점** (한 곳 누락 시 숫자 어긋남):
 1. 결과물 검수 목록(`renderDeliverablesList`) + "총 N건" — **"검수 불필요 포함" 토글 기본 켜짐**(회색 배지로 보임), 끄면 숨김
 2. 인증 상태 열(`computeCertStatus`/`certStatusBadge`) — 제외 그룹은 회색 "검수 불필요" 반환(success/none 앞단 분기)
-3. 결과물/영수증 상태 카운트 배지 드롭다운 — 제외 그룹 빼기
+3. 결과물/영수증 상태 카운트 배지 드롭다운 — 제외 그룹 항상 빼기(검수 상태 아님)
+3-1. 캠페인/모집타입/채널 드롭다운 카운트 — 토글 OFF 시 제외 그룹 빼기(목록과 숫자 정합. 토글 ON이면 목록에 보이므로 포함)
 4. 사이드바 "검수대기" 배지(`fetchPendingDeliverableCount`) — 반려·취소 신청 결과물 제외
 5. 캠페인 진행현황 인증성공률 진행바(`renderCampOpsSummary`) — 같은 소스라 자동, 검증만
 6. 운영현황 미니카드 인증성공률(`hydrateCampCertBars`/`countCertSuccess`) — 자동, 검증만

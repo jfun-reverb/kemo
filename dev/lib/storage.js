@@ -678,12 +678,16 @@ async function insertReceipt(receipt) {
 
 // ── Deliverables (Stage 2) ──
 // 사이드바 배지용 — pending(검수 대기) 결과물 개수만 빠르게 (head:true count, draft 자동 제외)
+//   신청(application)이 반려·취소된 결과물은 "검수 불필요"라 배지에서 제외 — applications!inner 조인으로
+//   최상위 행을 신청 상태로 필터(rejected/cancelled 제외). application_id 없는 결과물은 inner 조인에서 빠지나,
+//   결과물은 항상 신청 기반이라 실제 누락 없음.
 async function fetchPendingDeliverableCount() {
   if (!db) return 0;
   try {
     const {count, error} = await db.from('deliverables')
-      .select('id', {count: 'exact', head: true})
-      .eq('status', 'pending');
+      .select('id, applications!inner(status)', {count: 'exact', head: true})
+      .eq('status', 'pending')
+      .not('applications.status', 'in', '("rejected","cancelled")');
     if (error) throw error;
     return count || 0;
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
@@ -715,6 +719,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
+        applications:application_id (status),
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -907,7 +912,7 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence')
+      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status)')
       .eq('campaign_id', campaignId)
       .order('submitted_at', {ascending: false});
     if (error) throw error;
