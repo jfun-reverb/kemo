@@ -574,6 +574,32 @@ async function renderAppCampList() {
   ensureCancelReasonsCache();
 }
 
+// 미승인(rejected)·되돌리기(pending) 전 가드 — 진행 가능하면 true, 차단/사용자 취소면 false.
+//   (A) 송금완료(paid) 정산이 있으면 완전 차단(서버 트리거 마이그레이션 247 이 최종 방어선이나,
+//       여기서 관리자에게 친절한 안내로 먼저 막는다. campaign_manager 는 정산 조회 권한이 없어
+//       이 헬퍼가 0을 반환할 수 있으나, 그 경우에도 서버 트리거가 차단하므로 안전)
+//   (B) 제출된 결과물(draft 제외)이 있으면 확인 후 진행 — 확인 시 결과물은 검수 불필요로 빠지고
+//       정산은 자동 보류(마이그레이션 246)된다
+async function guardRejectOrRevert(appId, status) {
+  if (typeof hasPaidSettlementForApplication === 'function' && await hasPaidSettlementForApplication(appId)) {
+    $('alertModalMessage').innerHTML = '이미 <strong>송금 완료된 정산</strong>이 있어<br>이 신청은 미승인·되돌리기 할 수 없습니다.';
+    openModal('alertModal');
+    return false;
+  }
+  if (typeof fetchDeliverablesByApplication === 'function') {
+    const dels = await fetchDeliverablesByApplication(appId);
+    const submitted = (dels || []).filter(d => d && d.status !== 'draft');
+    if (submitted.length > 0) {
+      const latest = submitted.map(d => d.submitted_at || d.created_at).filter(Boolean).sort().slice(-1)[0];
+      const dateStr = latest ? formatDate(latest) : '';
+      const actLabel = status === 'rejected' ? '미승인' : '되돌리기';
+      const ok = await showConfirm(`${dateStr ? dateStr + '에 ' : ''}제출된 결과물이 있습니다. 그래도 ${actLabel} 하시겠습니까?`);
+      if (!ok) return false;
+    }
+  }
+  return true;
+}
+
 async function updateAppStatus(appId, status) {
   try {
     // 승인 시 모집인원 초과 체크
@@ -604,6 +630,8 @@ async function updateAppStatus(appId, status) {
         }
       }
     }
+    // 미승인(rejected)·되돌리기(pending) 가드 — 승인 후 결과물/정산이 붙은 신청 보호
+    if ((status === 'rejected' || status === 'pending') && !(await guardRejectOrRevert(appId, status))) return;
     const reviewerName = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
     await updateApplication(appId, {
       status,
@@ -617,6 +645,14 @@ async function updateAppStatus(appId, status) {
     loadAdminData();
     if (typeof loadCampApplicants === 'function' && currentCampApplicantId) loadCampApplicants();
   } catch(e) {
+    const _m = (e && e.message) || '';
+    // 서버 트리거(마이그레이션 247)가 송금완료 정산 때문에 막은 경우 — UI 가드를 우회한 등급
+    // (정산 조회 권한 없는 campaign_manager)에도 친절한 안내로 전환
+    if (_m.includes('settlement_already_paid')) {
+      $('alertModalMessage').innerHTML = '이미 <strong>송금 완료된 정산</strong>이 있어<br>이 신청은 미승인·되돌리기 할 수 없습니다.';
+      openModal('alertModal');
+      return;
+    }
     toast('상태 변경 오류: '+friendlyError(e.message),'error');
   }
 }

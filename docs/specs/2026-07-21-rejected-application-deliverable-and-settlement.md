@@ -164,15 +164,26 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-**구현일:**
-**관련 커밋 / PR:**
+**구현일:** 2026-07-21
+**브랜치:** feature/deliverable-cert-settlement (개발서버 PR 예정)
+
+### 확정 마이그레이션 번호 (사후 기록)
+- **246** `auto_hold_settlement_on_app_reject.sql` — 자동 보류 트리거 (applications approved→rejected/cancelled 시 pending 정산 → on_hold, 고정 memo '신청 반려로 자동 보류', settlement_events action='hold', paid 미변경)
+- **247** `guard_reject_with_paid_settlement.sql` — 송금완료 반려 차단 트리거 (BEFORE UPDATE, paid 정산 있으면 RAISE 22023 'settlement_already_paid')
+- 두 파일 분리(관심사 분리). settlement_events.action CHECK 확장 없음(기존 'hold' 재사용 + 고정 memo 구분).
 
 ### 초안 대비 변경 사항
 - 추가된 것:
-- 빠진 것(+이유):
-- 달라진 것:
+  - 캠페인/모집타입/채널 드롭다운 카운트도 "검수 불필요 포함" 토글에 맞춰 제외(§설계 지점 3-1 — reviewer 지적 반영, 토글 OFF 시 숫자↔행 정합)
+  - 서버 트리거(247) 차단 에러('settlement_already_paid')를 관리자 UI에서 친절한 모달로 전환(정산 조회 권한 없는 campaign_manager 가 UI 가드를 우회해 서버에 막히는 경우 대비)
+  - 반려/되돌리기 가드를 `guardRejectOrRevert(appId, status)` 별도 함수로 추출(가독성)
+- 빠진 것: 운영현황 "제출률" 진행바(get_brand_ops_detail RPC) 정합 — 사용자 확정대로 이번 보류(1·2단계 개발서버 검증 후 판단)
+- 달라진 것: 자동 보류 "복원 안내"는 별도 버튼 대신 on_hold 의 기존 「보류 해제」 버튼 + "자동 보류(신청 반려)" 앰버 배지로 구분(신청 status 조인 없이 memo LIKE 로 구현)
 
 ### 구현 중 기술 결정 사항
-- (마이그레이션 번호·트리거 구조·헬퍼 등)
+- 결과물의 신청 status 는 PostgREST 임베드 `applications:application_id (status)` 로 취득(스키마 변경 0). application_id 는 NOT NULL + CASCADE 라 누락·끊어진 참조 없음(supabase-expert 확인).
+- 사이드바 검수대기 배지는 `applications!inner(status)` + `.not('applications.status','in','("rejected","cancelled")')` head count.
+- 자동 보류는 RPC 호출 아닌 트리거 직접 UPDATE+INSERT(트리거는 SECURITY DEFINER 라 RLS 우회, actor=auth.uid()).
+- 검증: [via supabase-expert] 쿼리 3곳·트리거 2개, [via reviewer] PR1·PR2 GO.
