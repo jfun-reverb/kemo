@@ -149,12 +149,16 @@ COMMIT;
 - Q3 PR 분할: 분리(추천) vs 한 PR
 - Q4 명칭: "일일 통합 메일"(추천) vs 직접 입력
 
-## 구현 결과 (개발 세션이 채울 것)
-**구현일:** (미정)
-**관련 커밋/PR:** (미정)
+## 구현 결과
+**구현일:** 2026-06-02
+**관련 커밋/PR:** PR #399 (feat(admin): 관리자 메일 항목 통합 — 일일 통합 메일), 마이그레이션 164 `admin_email_consolidation.sql`. ★ 운영 배포 완료.
+
+> (사후 정리 — 2026-07-21 문서 검토 시 구현 결과가 `(미정)` 플레이스홀더로 방치돼 있던 것을 배포 사실 기준으로 보강. 상세 동작은 아래 배포 이후 세션들에서 `CLAUDE.md` 메일 파이프라인 섹션에 반영됨.)
+
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+- 구 관리자 메일 구독 2종(`application_cancel`·`application_received`)을 `daily_digest`(관리자 일일 통합 다이제스트) **단일 구독으로 통합**. `lookup_values` 의 구 2종은 soft 비활성(행·구독 이력 보존).
+- 관리자 일일 통합 다이제스트(`notify-admin-daily-digest`)가 4섹션(신청 접수·응모 취소·결과물 제출·재처리)을 **1통으로** 발송. 수신자 = `get_subscribed_admin_emails('daily_digest')` + env `NOTIFY_ADMIN_EMAILS`.
+- (참조: `CLAUDE.md` Database Schema `admin_email_subscriptions` — 마이그레이션 164 로 2종 구독 → daily_digest 단일 통합 명시)
+
 ### 구현 중 기술 결정 사항
--
+- 죽은 함수/구 구독 처리는 soft 비활성으로 이력 보존(hard delete 아님).

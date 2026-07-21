@@ -194,6 +194,7 @@ function renderBrandOpsCard(b) {
 var _brandOpsDetailId = null;
 var _brandOpsDetailData = null;
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
+var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
 
 async function loadBrandOpsDetail() {
   var body = $('brandOpsDetailBody');
@@ -212,6 +213,7 @@ async function loadBrandOpsDetail() {
   var detail = results[0];
   var apps = results[1] || [];
   var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
+  _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
   _brandOpsDetailData = detail;
   if (!detail || !detail.brand) {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">브랜드 정보를 불러올 수 없습니다</div>';
@@ -294,7 +296,10 @@ async function hydrateCampCertBars() {
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
-    var success = countCertSuccess(delivs, camp);
+    // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
+    // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
+    var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
+    var success = countCertSuccess(scoped, camp);
     var pct = slotsN > 0 ? Math.round(success / slotsN * 100) : null;
     el.innerHTML = brandOpsRateBar('인증 성공', pct, success, slotsN);
   }));

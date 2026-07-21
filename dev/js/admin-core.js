@@ -99,6 +99,8 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
 function friendlyError(msg) {
   if (!msg) return '알 수 없는 오류 [ERR_UNKNOWN]';
   const s = String(msg);
+  // 마이그레이션 251 — 정산 기록이 있는 대상 삭제 차단(사전 체크 트리거)
+  if (s.includes('settlement_exists_cannot_delete')) return '정산 기록이 있어 삭제할 수 없습니다. 먼저 정산 관리 화면에서 상태를 확인해 주세요. [ERR_SETTLEMENT_EXISTS]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
   if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
   if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
