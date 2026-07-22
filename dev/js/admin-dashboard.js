@@ -504,8 +504,9 @@ function renderSignupChart(users, days) {
         borderColor: '#625EBD',
         borderWidth: 0,
         borderRadius: 4,
-        categoryPercentage: 1,   // 칸 사이 여백 없음
-        barPercentage: 1         // 칸을 막대가 가득 채움
+        categoryPercentage: 0.7,   // 막대 사이 간격 확보 — 겹칠 때 붙어 보이지 않게
+        barPercentage: 0.7,
+        maxBarThickness: 18        // 칸이 넓어도 막대는 얇게 유지
       }]
     },
     options: {
