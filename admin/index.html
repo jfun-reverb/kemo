@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784550260';
+  var CURRENT_BUILD = 'v1784680765';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2453,7 +2453,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-20 21:24 · ba1dbcf</span>
+          <span class="admin-build-text">2026-07-22 09:39 · dea0478</span>
         </div>
       </div>
     </aside>
@@ -27466,8 +27466,9 @@ function renderSignupChart(users, days) {
         borderColor: '#625EBD',
         borderWidth: 0,
         borderRadius: 4,
-        categoryPercentage: 1,   // 칸 사이 여백 없음
-        barPercentage: 1         // 칸을 막대가 가득 채움
+        categoryPercentage: 0.7,   // 막대 사이 간격 확보 — 겹칠 때 붙어 보이지 않게
+        barPercentage: 0.7,
+        maxBarThickness: 18        // 칸이 넓어도 막대는 얇게 유지
       }]
     },
     options: {
