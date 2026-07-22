@@ -357,6 +357,42 @@ async function loadApplications() {
 var appSortKey = 'created';
 var appSortDir = 'desc';
 
+// 신청 상태 탭 (단일 선택, ''=전체). 다중 필터 appStatusMulti 를 대체.
+//   신청 1건 = status 4종(pending/approved/rejected/cancelled) 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _appStatusTab = '';
+
+// 신청 상태 탭 정의 — 처리 흐름 순서(심사중 → 승인/미승인 → 취소) + 전체
+const APP_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '심사중' },
+  { code: 'approved',  label: '승인' },
+  { code: 'rejected',  label: '미승인' },
+  { code: 'cancelled', label: '취소' },
+];
+
+// 신청 상태 탭 바 렌더 — 건수는 renderAppCampList 가 넘겨준 appStatusCountsMap(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 신청은 4종 중 하나). renderAppCampList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderAppStatusTabs(countsMap) {
+  const bar = $('appStatusTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const totalAll = (c.pending||0) + (c.approved||0) + (c.rejected||0) + (c.cancelled||0);
+  const active = _appStatusTab || '';
+  bar.innerHTML = APP_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setAppStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 신청 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderAppCampList 내부 재렌더로 갱신)
+function setAppStatusTab(btn) {
+  _appStatusTab = btn.dataset.status || '';
+  renderAppCampList();
+}
+
 function toggleAppSort(key) {
   if (appSortKey === key) {
     appSortDir = appSortDir === 'desc' ? 'asc' : 'desc';
@@ -425,14 +461,14 @@ async function renderAppCampList() {
   const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
   const appTypeVals = getMultiFilterValues('appTypeMulti');
   const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
-  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  const appStatusTab = _appStatusTab || '';  // 신청 상태 탭(단일, ''=전체)
   const campFilterVals = getMultiFilterValues('appCampMulti');
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   // 단일 신청이 필터를 통과하는지 — skip 지정 시 그 필터만 무시(옵션별 동적 카운트용)
   const passesAppFilters = (a, skip) => {
     if (skip !== 'type'       && appTypeVals.length       && !appTypeVals.includes(campRtLookup.get(a.campaign_id))) return false;
     if (skip !== 'campStatus' && appCampStatusVals.length && !appCampStatusVals.includes(campStatusLookup.get(a.campaign_id))) return false;
-    if (skip !== 'status'     && appStatusVals.length     && !appStatusVals.includes(a.status)) return false;
+    if (skip !== 'status'     && appStatusTab            && a.status !== appStatusTab) return false;
     if (skip !== 'camp'       && campFilterVals.length    && !campFilterVals.includes(a.campaign_id)) return false;
     if (searchVal && !matchSearchTokens(searchVal, [a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code])) return false;
     return true;
@@ -465,19 +501,16 @@ async function renderAppCampList() {
     {value:'ended',     label:'종료',     count: appCampStatusCounts.ended     || 0},
     {value:'expired',   label:'노출종료', count: appCampStatusCounts.expired   || 0},
   ], () => renderAppCampList());
-  syncMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
-    {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
-    {value:'rejected',  label:'미승인', count: appStatusCountsMap.rejected  || 0},
-    {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
-  ], () => renderAppCampList());
+  // 신청 상태 탭 바 — 다중 필터 대체(전체 + 4종). 건수는 자기 필터 제외 집계.
+  renderAppStatusTabs(appStatusCountsMap);
 
   // 필터 적용 — 위에서 정의한 passesAppFilters 로 일괄 (타입·캠페인상태·신청상태·캠페인·검색 모두 포함)
   //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
   apps = apps.filter(a => passesAppFilters(a));
 
   // 보기 초기화 버튼 — 필터·검색·정렬 중 하나라도 비기본이면 노출 (필터+정렬+검색 통합)
-  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+    || !!_appStatusTab
     || !!(($('appSearch')?.value || '').trim())
     || !(appSortKey === 'created' && appSortDir === 'desc');
   const _appViewBtn = $('btnAppViewReset'); if (_appViewBtn) _appViewBtn.style.display = _appViewActive ? '' : 'none';

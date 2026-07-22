@@ -292,9 +292,7 @@ function initMultiFilters() {
   createMultiFilter('appTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => renderAppCampList());
-  createMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
-  ], () => renderAppCampList());
+  // 신청 상태는 다중 필터가 아니라 상태 탭(appStatusTabBar)으로 분리 — admin-applications.js 참조
   // 결과물관리 — 신청(application) 1행 단위로 영수증·결과물 양쪽 상태를 같이 표시
   createMultiFilter('delivRecruitTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
