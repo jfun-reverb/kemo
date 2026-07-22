@@ -107,4 +107,22 @@
 ---
 
 ## 구현 결과 (개발 세션이 채울 것)
-_(마이그레이션 번호·실제 함수 시그니처·초안 대비 변경 사항을 여기 기록)_
+
+### PR 1 — DB 기반 (2026-07-22, 구현 완료·리뷰 GO)
+- **마이그레이션 254~258**:
+  - 254 `campaign_soft_delete_columns` — `campaigns.deleted_at`/`deleted_by` 컬럼 + 부분 인덱스 `idx_campaigns_deleted_at`
+  - 255 `soft_delete_campaign_fn` — `soft_delete_campaign(p_campaign_id uuid) returns integer`(파기 신청 건수), `is_campaign_admin()`. applications DELETE(→ deliverables ON DELETE CASCADE) + `deleted_at=now()`/`deleted_by=auth.uid()`. 정산 방어는 마이그레이션 251 트리거에 위임(원자적 실패). 재삭제 시 `campaign_already_deleted` 예외
+  - 256 `restore_campaign_fn` — `restore_campaign(uuid) returns boolean`(멱등, 이미 활성이면 false), `is_campaign_admin()`
+  - 257 `purge_campaign_fn` — `purge_campaign(uuid) returns boolean`, `is_super_admin()`. 활성 캠페인이면 `campaign_not_archived` 예외
+  - 258 `purge_expired_deleted_campaigns_cron` — `purge_expired_deleted_campaigns() returns integer` + pg_cron 매일 한국·일본 표준시 04:30. `deleted_at < now() - interval '30 days'` hard delete. EXECUTE는 postgres만
+- **storage.js**: `softDeleteCampaign`/`restoreCampaign`/`purgeCampaign`/`fetchDeletedCampaigns` 추가. `fetchCampaigns`·`fetchCampaignsForAdminList`에 `.is('deleted_at', null)` 추가(인플·관리자 공용이라 양쪽 자동 제외 — 자동 상태 전이·인플 상세 진입도 부수 차단).
+- 전부 `SECURITY DEFINER` + `SET search_path=''` + `public.` 명시.
+
+### ⚠️ PR 2 착수 전 필수 보완 (리뷰 지적 — 미완)
+- **`public.campaigns`를 직접 SQL로 조회하는 기존 원격 호출 함수(RPC)에 `AND c.deleted_at IS NULL` 조건 추가**(별도 마이그레이션):
+  - `get_brand_ops_overview` / `get_brand_ops_detail`(운영현황 대시보드·브랜드 상세)
+  - `get_promo_digest_campaign_pool` / `get_promo_digest_targets`(캠페인 홍보 메일 대상 풀)
+  - **이유**: PR 1 커밋 시점엔 삭제 버튼이 아직 `soft_delete_campaign`을 호출하지 않아 보관 캠페인이 실제로 생기지 않으므로 안전하지만, **PR 2에서 `executeDeleteCampaign`이 `soft_delete_campaign` 호출로 교체되는 순간부터** 보관 중(최대 30일) 캠페인이 운영현황·홍보메일 집계에 남는 회귀 발생. PR 2 착수 시 이 마이그레이션을 먼저.
+
+### PR 3 착수 전 참고
+- `campaigns` SELECT RLS는 여전히 공개(`USING(true)`)라, anon이 API 직접 호출 시 보관 캠페인 메타데이터(개인정보 없음)는 노출 가능. 클라 필터가 1차 방어선. 서버측 완전 차단이 필요하면 PR 3에서 RLS 보강.
