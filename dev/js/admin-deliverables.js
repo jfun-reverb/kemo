@@ -124,9 +124,9 @@ var _delivCertTab = '';
 // 인증 상태 탭 정의 — 화면 인증 상태 열(computeCertStatus)과 동일 4종 + 전체
 const DELIV_CERT_STATUS_TABS = [
   { code: '',           label: '전체' },
-  { code: 'success',    label: '인증성공' },
-  { code: 'submitting', label: '인증샷 제출중' },
   { code: 'none',       label: '미제출' },
+  { code: 'submitting', label: '인증샷 제출중' },
+  { code: 'success',    label: '인증성공' },
   { code: 'excluded',   label: '검수 불필요' },
 ];
 
