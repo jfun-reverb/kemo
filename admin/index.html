@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784680260';
+  var CURRENT_BUILD = 'v1784680617';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2441,7 +2441,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       </div>
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
-        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openNoticesUnread()" title="미읽음만 보기">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
@@ -2486,7 +2486,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-22 09:31 · cabda81</span>
+          <span class="admin-build-text">2026-07-22 09:36 · ea06427</span>
         </div>
       </div>
     </aside>
@@ -4617,6 +4617,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <option value="published">게시</option>
                   <option value="draft">초안</option>
                 </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>미읽음</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;height:34px">
+                  <input type="checkbox" id="adminNoticeUnreadFilter" onchange="renderAdminNotices()" style="margin:0">
+                  <span>미읽음만</span>
+                </label>
               </div>
               <div class="admin-filter-group">
                 <label>카테고리</label>
@@ -21153,16 +21160,29 @@ function refreshAdminNoticeBadge() {
   else badge.style.display = 'none';
 }
 
+// 사이드바 공지 배지 클릭 → 다른 필터 초기화 후 「미읽음만」 (기준: openDelivPendingReview)
+function openNoticesUnread() {
+  const cat = document.getElementById('adminNoticeCatFilter'); if (cat) cat.value = 'all';
+  const st = document.getElementById('adminNoticeStatusFilter'); if (st) st.value = 'all';
+  const sch = document.getElementById('adminNoticeSearch'); if (sch) sch.value = '';
+  const un = document.getElementById('adminNoticeUnreadFilter'); if (un) un.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('admin-notices');
+  else renderAdminNotices();
+}
+
 function renderAdminNotices() {
   const body = $('adminNoticeBody');
   if (!body) return;
   const cat = $('adminNoticeCatFilter')?.value || 'all';
   const status = $('adminNoticeStatusFilter')?.value || 'all';
   const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
+  const unreadOnly = $('adminNoticeUnreadFilter')?.checked;
   let list = (_adminNoticesCache || []).slice();
   if (cat !== 'all') list = list.filter(n => n.category === cat);
   if (status !== 'all') list = list.filter(n => (n.status || 'draft') === status);
   if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
+  // 미읽음만 = 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
+  if (unreadOnly) list = list.filter(n => n.status === 'published' && !n.is_read);
   const total = $('adminNoticeTotal');
   if (total) total.textContent = `${list.length}건`;
   const isSuper = currentAdminInfo?.role === 'super_admin';

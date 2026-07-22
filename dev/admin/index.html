@@ -96,7 +96,7 @@
       </div>
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
-        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openNoticesUnread()" title="미읽음만 보기">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
@@ -2272,6 +2272,13 @@
                   <option value="published">게시</option>
                   <option value="draft">초안</option>
                 </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>미읽음</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;height:34px">
+                  <input type="checkbox" id="adminNoticeUnreadFilter" onchange="renderAdminNotices()" style="margin:0">
+                  <span>미읽음만</span>
+                </label>
               </div>
               <div class="admin-filter-group">
                 <label>카테고리</label>
