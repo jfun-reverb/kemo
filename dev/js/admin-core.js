@@ -305,9 +305,7 @@ function initMultiFilters() {
   createMultiFilter('delivResultStatusMulti', '전체', [
     {value:'pending',label:'검수대기'},{value:'approved',label:'승인'},{value:'rejected',label:'비승인'},{value:'none',label:'미제출'}
   ], () => renderDeliverablesList());
-  createMultiFilter('delivCertStatusMulti', '전체', [
-    {value:'success',label:'인증성공'},{value:'submitting',label:'인증샷 제출중'},{value:'none',label:'미제출'},{value:'excluded',label:'검수 불필요'}
-  ], () => renderDeliverablesList());
+  // 인증 상태는 다중 필터가 아니라 상태 탭(delivCertStatusTabBar)으로 분리 — admin-deliverables.js 참조
   // 광고주 신청
   createMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
