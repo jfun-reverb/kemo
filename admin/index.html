@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784712004';
+  var CURRENT_BUILD = 'v1784715694';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2486,7 +2486,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-22 18:20 · af66b52</span>
+          <span class="admin-build-text">2026-07-22 19:21 · 4460891</span>
         </div>
       </div>
     </aside>
@@ -3424,10 +3424,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>캠페인 상태</label>
                 <div id="appCampStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>신청 상태</label>
-                <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -3439,6 +3435,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
               </div>
             </div>
+            <!-- 신청 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="appStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <!-- 테이블 리스트 -->
             <div class="admin-card" id="appCampList">
@@ -12655,9 +12653,7 @@ function initMultiFilters() {
   createMultiFilter('appTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => renderAppCampList());
-  createMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
-  ], () => renderAppCampList());
+  // 신청 상태는 다중 필터가 아니라 상태 탭(appStatusTabBar)으로 분리 — admin-applications.js 참조
   // 결과물관리 — 신청(application) 1행 단위로 영수증·결과물 양쪽 상태를 같이 표시
   createMultiFilter('delivRecruitTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
@@ -28235,6 +28231,42 @@ async function loadApplications() {
 var appSortKey = 'created';
 var appSortDir = 'desc';
 
+// 신청 상태 탭 (단일 선택, ''=전체). 다중 필터 appStatusMulti 를 대체.
+//   신청 1건 = status 4종(pending/approved/rejected/cancelled) 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _appStatusTab = '';
+
+// 신청 상태 탭 정의 — 처리 흐름 순서(심사중 → 승인/미승인 → 취소) + 전체
+const APP_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '심사중' },
+  { code: 'approved',  label: '승인' },
+  { code: 'rejected',  label: '미승인' },
+  { code: 'cancelled', label: '취소' },
+];
+
+// 신청 상태 탭 바 렌더 — 건수는 renderAppCampList 가 넘겨준 appStatusCountsMap(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 신청은 4종 중 하나). renderAppCampList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderAppStatusTabs(countsMap) {
+  const bar = $('appStatusTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const totalAll = (c.pending||0) + (c.approved||0) + (c.rejected||0) + (c.cancelled||0);
+  const active = _appStatusTab || '';
+  bar.innerHTML = APP_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setAppStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 신청 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderAppCampList 내부 재렌더로 갱신)
+function setAppStatusTab(btn) {
+  _appStatusTab = btn.dataset.status || '';
+  renderAppCampList();
+}
+
 function toggleAppSort(key) {
   if (appSortKey === key) {
     appSortDir = appSortDir === 'desc' ? 'asc' : 'desc';
@@ -28303,14 +28335,14 @@ async function renderAppCampList() {
   const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
   const appTypeVals = getMultiFilterValues('appTypeMulti');
   const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
-  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  const appStatusTab = _appStatusTab || '';  // 신청 상태 탭(단일, ''=전체)
   const campFilterVals = getMultiFilterValues('appCampMulti');
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   // 단일 신청이 필터를 통과하는지 — skip 지정 시 그 필터만 무시(옵션별 동적 카운트용)
   const passesAppFilters = (a, skip) => {
     if (skip !== 'type'       && appTypeVals.length       && !appTypeVals.includes(campRtLookup.get(a.campaign_id))) return false;
     if (skip !== 'campStatus' && appCampStatusVals.length && !appCampStatusVals.includes(campStatusLookup.get(a.campaign_id))) return false;
-    if (skip !== 'status'     && appStatusVals.length     && !appStatusVals.includes(a.status)) return false;
+    if (skip !== 'status'     && appStatusTab            && a.status !== appStatusTab) return false;
     if (skip !== 'camp'       && campFilterVals.length    && !campFilterVals.includes(a.campaign_id)) return false;
     if (searchVal && !matchSearchTokens(searchVal, [a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code])) return false;
     return true;
@@ -28343,19 +28375,16 @@ async function renderAppCampList() {
     {value:'ended',     label:'종료',     count: appCampStatusCounts.ended     || 0},
     {value:'expired',   label:'노출종료', count: appCampStatusCounts.expired   || 0},
   ], () => renderAppCampList());
-  syncMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
-    {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
-    {value:'rejected',  label:'미승인', count: appStatusCountsMap.rejected  || 0},
-    {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
-  ], () => renderAppCampList());
+  // 신청 상태 탭 바 — 다중 필터 대체(전체 + 4종). 건수는 자기 필터 제외 집계.
+  renderAppStatusTabs(appStatusCountsMap);
 
   // 필터 적용 — 위에서 정의한 passesAppFilters 로 일괄 (타입·캠페인상태·신청상태·캠페인·검색 모두 포함)
   //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
   apps = apps.filter(a => passesAppFilters(a));
 
   // 보기 초기화 버튼 — 필터·검색·정렬 중 하나라도 비기본이면 노출 (필터+정렬+검색 통합)
-  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+    || !!_appStatusTab
     || !!(($('appSearch')?.value || '').trim())
     || !(appSortKey === 'created' && appSortDir === 'desc');
   const _appViewBtn = $('btnAppViewReset'); if (_appViewBtn) _appViewBtn.style.display = _appViewActive ? '' : 'none';
@@ -32231,8 +32260,8 @@ function resetCampView() {
 function resetAppView() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appCampStatusMulti', '전체 상태');
-  resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
+  _appStatusTab = '';  // 신청 상태 탭 → 전체
   const s = $('appSearch'); if (s) s.value = '';
   appSortKey = 'created'; appSortDir = 'desc';
   document.querySelectorAll('.app-sort-arrows').forEach(el => {

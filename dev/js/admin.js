@@ -88,8 +88,8 @@ function resetCampView() {
 function resetAppView() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appCampStatusMulti', '전체 상태');
-  resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
+  _appStatusTab = '';  // 신청 상태 탭 → 전체
   const s = $('appSearch'); if (s) s.value = '';
   appSortKey = 'created'; appSortDir = 'desc';
   document.querySelectorAll('.app-sort-arrows').forEach(el => {

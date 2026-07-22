@@ -1079,10 +1079,6 @@
                 <label>캠페인 상태</label>
                 <div id="appCampStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>신청 상태</label>
-                <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -1094,6 +1090,8 @@
                 </div>
               </div>
             </div>
+            <!-- 신청 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="appStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <!-- 테이블 리스트 -->
             <div class="admin-card" id="appCampList">
