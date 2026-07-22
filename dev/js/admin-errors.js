@@ -94,6 +94,16 @@ async function updateClientErrorBadge() {
   else { badge.style.display = 'none'; }
 }
 
+// 사이드바 오류 배지 클릭 → 다른 필터 초기화 후 「미해결(open)」만 (기준: openDelivPendingReview)
+function openErrorsOpen() {
+  const st = document.getElementById('errFilterStatus'); if (st) st.value = 'open';
+  const src = document.getElementById('errFilterSource'); if (src) src.value = '';
+  const dys = document.getElementById('errFilterDays'); if (dys) dys.value = '';
+  const sch = document.getElementById('errSearch'); if (sch) sch.value = '';
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('errors');
+  else loadClientErrors();
+}
+
 // 상세 모달
 function openClientErrorDetail(id) {
   const r = _clientErrorsCache.find(x => x.id === id);

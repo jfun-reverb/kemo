@@ -110,6 +110,17 @@ function setSettlementStatusTab(btn) {
   renderSettlementsList();
 }
 
+// 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
+function openSettlementsPending() {
+  _settlementFilters.status = 'pending';
+  _settlementFilters.search = '';
+  _settlementFilters.campaignIds = [];
+  const s = document.getElementById('settlementSearch'); if (s) s.value = '';
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('settlements');
+  else reloadSettlementsData();
+}
+
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
 function getFilteredSettlements() {
   readSettlementFilters();

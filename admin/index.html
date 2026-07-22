@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784651107';
+  var CURRENT_BUILD = 'v1784681055';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2441,7 +2441,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       </div>
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
-        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openNoticesUnread()" title="미읽음만 보기">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
@@ -2450,7 +2450,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
-        <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
         <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
@@ -2459,12 +2459,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
-        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openSettlementsPending()" title="정산대기만 보기">0</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
-        <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openErrorsOpen()" title="미해결만 보기">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
@@ -2486,7 +2486,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-22 01:25 · 3687c81</span>
+          <span class="admin-build-text">2026-07-22 09:44 · 3f4815d</span>
         </div>
       </div>
     </aside>
@@ -3973,7 +3973,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="admin-filter-group">
                 <label>미응대</label>
                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
-                  <input type="checkbox" onchange="toggleInboxUnresolved(this.checked)" style="margin:0">
+                  <input type="checkbox" id="inboxUnresolvedCheckbox" onchange="toggleInboxUnresolved(this.checked)" style="margin:0">
                   <span>미응대만</span>
                 </label>
               </div>
@@ -4617,6 +4617,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <option value="published">게시</option>
                   <option value="draft">초안</option>
                 </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>미읽음</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;height:34px">
+                  <input type="checkbox" id="adminNoticeUnreadFilter" onchange="renderAdminNotices()" style="margin:0">
+                  <span>미읽음만</span>
+                </label>
               </div>
               <div class="admin-filter-group">
                 <label>카테고리</label>
@@ -19530,6 +19537,9 @@ async function loadMessagesInbox() {
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
   switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
+  // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
+  const _ucb = document.getElementById('inboxUnresolvedCheckbox');
+  if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   await refreshInboxData();
@@ -19856,6 +19866,14 @@ function toggleInboxUnresolved(checked) {
   _inboxFilters.unresolvedOnly = !!checked;
   renderInboxCampaignList();
   renderInboxThreadList();
+}
+
+// 사이드바 메시지 배지 클릭 → 「미응대만」 (기준: openDelivPendingReview)
+function openMessagesUnresolved() {
+  _inboxFilters.unresolvedOnly = true;
+  const cb = document.getElementById('inboxUnresolvedCheckbox'); if (cb) cb.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('messages');
+  else { renderInboxCampaignList(); renderInboxThreadList(); }
 }
 function changeInboxSince(v) {
   const custom = document.getElementById('inboxCustomRange');
@@ -21142,16 +21160,29 @@ function refreshAdminNoticeBadge() {
   else badge.style.display = 'none';
 }
 
+// 사이드바 공지 배지 클릭 → 다른 필터 초기화 후 「미읽음만」 (기준: openDelivPendingReview)
+function openNoticesUnread() {
+  const cat = document.getElementById('adminNoticeCatFilter'); if (cat) cat.value = 'all';
+  const st = document.getElementById('adminNoticeStatusFilter'); if (st) st.value = 'all';
+  const sch = document.getElementById('adminNoticeSearch'); if (sch) sch.value = '';
+  const un = document.getElementById('adminNoticeUnreadFilter'); if (un) un.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('admin-notices');
+  else renderAdminNotices();
+}
+
 function renderAdminNotices() {
   const body = $('adminNoticeBody');
   if (!body) return;
   const cat = $('adminNoticeCatFilter')?.value || 'all';
   const status = $('adminNoticeStatusFilter')?.value || 'all';
   const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
+  const unreadOnly = $('adminNoticeUnreadFilter')?.checked;
   let list = (_adminNoticesCache || []).slice();
   if (cat !== 'all') list = list.filter(n => n.category === cat);
   if (status !== 'all') list = list.filter(n => (n.status || 'draft') === status);
   if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
+  // 미읽음만 = 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
+  if (unreadOnly) list = list.filter(n => n.status === 'published' && !n.is_read);
   const total = $('adminNoticeTotal');
   if (total) total.textContent = `${list.length}건`;
   const isSuper = currentAdminInfo?.role === 'super_admin';
@@ -27653,8 +27684,9 @@ function renderSignupChart(users, days) {
         borderColor: '#625EBD',
         borderWidth: 0,
         borderRadius: 4,
-        categoryPercentage: 1,   // 칸 사이 여백 없음
-        barPercentage: 1         // 칸을 막대가 가득 채움
+        categoryPercentage: 0.7,   // 막대 사이 간격 확보 — 겹칠 때 붙어 보이지 않게
+        barPercentage: 0.7,
+        maxBarThickness: 18        // 칸이 넓어도 막대는 얇게 유지
       }]
     },
     options: {
@@ -30215,6 +30247,16 @@ async function updateClientErrorBadge() {
   else { badge.style.display = 'none'; }
 }
 
+// 사이드바 오류 배지 클릭 → 다른 필터 초기화 후 「미해결(open)」만 (기준: openDelivPendingReview)
+function openErrorsOpen() {
+  const st = document.getElementById('errFilterStatus'); if (st) st.value = 'open';
+  const src = document.getElementById('errFilterSource'); if (src) src.value = '';
+  const dys = document.getElementById('errFilterDays'); if (dys) dys.value = '';
+  const sch = document.getElementById('errSearch'); if (sch) sch.value = '';
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('errors');
+  else loadClientErrors();
+}
+
 // 상세 모달
 function openClientErrorDetail(id) {
   const r = _clientErrorsCache.find(x => x.id === id);
@@ -30578,6 +30620,17 @@ function renderSettlementStatusTabs() {
 function setSettlementStatusTab(btn) {
   _settlementFilters.status = btn.dataset.status || '';
   renderSettlementsList();
+}
+
+// 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
+function openSettlementsPending() {
+  _settlementFilters.status = 'pending';
+  _settlementFilters.search = '';
+  _settlementFilters.campaignIds = [];
+  const s = document.getElementById('settlementSearch'); if (s) s.value = '';
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('settlements');
+  else reloadSettlementsData();
 }
 
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
