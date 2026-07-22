@@ -1134,10 +1134,6 @@
                 <div id="delivChannelMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 채널</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>인증 상태 <span class="material-icons-round notranslate" translate="no" title="인증성공=최종 인증 완료 / 인증샷 제출중=검수 진행 중 / 미제출=아무것도 안 냄 / 검수 불필요=신청이 반려·취소됨. 「검수 불필요」를 선택하면 「검수 불필요 포함」 토글과 무관하게 표시됩니다." style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
-                <div id="delivCertStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
-              </div>
-              <div class="admin-filter-group">
                 <label>영수증 상태 <span class="material-icons-round notranslate" translate="no" title="영수증은 리뷰어 캠페인 전용입니다. 영수증 상태로 거르면 기프팅·방문형은 표시되지 않습니다." style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
                 <div id="delivReceiptStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
               </div>
@@ -1154,13 +1150,6 @@
                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px" title="승인됐지만 결과물을 한 건도 제출하지 않은 신청을 함께 표시합니다. (다중채널에서 일부 채널만 미제출인 경우는 '결과물 상태=미제출'로 거르세요)">
                   <input type="checkbox" id="delivIncludeMissing" onchange="renderDeliverablesList()" checked style="margin:0">
                   <span>포함</span>
-                </label>
-              </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>검수 불필요</label>
-                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px" title="신청이 승인 후 반려·취소되어 검수가 불필요한 결과물을 함께 표시합니다. 끄면 목록에서 숨깁니다.">
-                  <input type="checkbox" id="delivIncludeExcluded" onchange="renderDeliverablesList()" checked style="margin:0">
-                  <span>포함 <span id="delivExcludedCount" style="color:var(--muted)"></span></span>
                 </label>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
@@ -1189,6 +1178,8 @@
                 </div>
               </div>
             </div>
+            <!-- 인증 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="delivCertStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
