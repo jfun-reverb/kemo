@@ -42,6 +42,7 @@ function resetDelivFiltersAndSort(skipRender) {
   resetMultiFilter('delivReceiptStatusMulti', '전체');
   resetMultiFilter('delivResultStatusMulti', '전체');
   resetMultiFilter('delivChannelMulti', '전체 채널');
+  resetMultiFilter('delivCertStatusMulti', '전체');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
   // 검색창 접기 + 돋보기 버튼 강조 해제
@@ -199,11 +200,15 @@ async function renderDeliverablesList() {
   const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const channelVals = getMultiFilterValues('delivChannelMulti');
+  // 인증 상태 필터 4종: success(인증성공)/submitting(인증샷 제출중)/none(미제출)/excluded(검수 불필요)
+  const certStatusVals = getMultiFilterValues('delivCertStatusMulti');
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
   // 검수 불필요 포함 — 신청이 반려·취소된 결과물 표시 여부(기본 ON: 회색 배지로 보이고, 끄면 숨김)
   const includeExcluded = $('delivIncludeExcluded') ? !!$('delivIncludeExcluded').checked : true;
+  // 인증 상태 필터에서 「검수 불필요」를 선택하면 토글과 무관하게 우선 표시(필터 선택이 우선)
+  const excludedVisible = includeExcluded || certStatusVals.includes('excluded');
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
 
   // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
@@ -261,6 +266,7 @@ async function renderDeliverablesList() {
       if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
     }
     if (!opts.skipChannel && channelVals.length > 0 && !delivGroupMatchesChannel(g, channelVals)) return false;
+    if (!opts.skipCert && certStatusVals.length > 0 && !certStatusVals.includes(computeCertStatus(g))) return false;
     if (_delivSubmittedFrom || _delivSubmittedTo) {
       const d = delivLocalDate(g.latest_submitted_at);
       if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
@@ -275,16 +281,23 @@ async function renderDeliverablesList() {
   // legacy_no_channel: 사양 2 전 post_channel NULL 인 review_image 행이 있는 monitor 신청 (385건, 2026-05-28)
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
   const channelCounts = {};  // {channel_code: n} + '__none__': 채널 미상 n
+  const certStatusCounts = {success:0, submitting:0, none:0, excluded:0};
   for (const g of allGroups) {
     // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 검수 불필요는 토글 OFF면 목록에서 빠지므로 카운트도 맞춘다(숫자↔행 정합)
-    if (passesFilters(g, {skipCamp: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipCamp: true}) && (excludedVisible || !isCertExcluded(g))) {
       const cid = g.campaign?.id;
       if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
     }
     // 모집 타입 카운트: 자기 자신(모집 타입 필터) 제외
-    if (passesFilters(g, {skipRecruit: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipRecruit: true}) && (excludedVisible || !isCertExcluded(g))) {
       const rt = g.campaign?.recruit_type;
       if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
+    }
+    // 인증 상태 카운트: 자기 자신(인증 상태 필터) 제외 → 다른 필터 적용 후 computeCertStatus 로 분류.
+    //   excluded 옵션 카운트는 토글과 무관하게 세야 선택 가능(검수 불필요 우선 표시 정책과 정합)
+    if (passesFilters(g, {skipCert: true})) {
+      const cs = computeCertStatus(g);
+      if (cs in certStatusCounts) certStatusCounts[cs]++;
     }
     // 영수증 상태 카운트: 리뷰어(monitor) 그룹만 합산 (기프팅·방문형 'none' 오집계 차단)
     //   검수 불필요(신청 반려·취소)는 검수 상태가 아니므로 집계 제외
@@ -305,7 +318,7 @@ async function renderDeliverablesList() {
       }
     }
     // 채널 카운트: 자기 자신(채널 필터) 제외 → monitor=캠페인 채널마다, gifting/visit=post_channel, 미상=__none__
-    if (passesFilters(g, {skipChannel: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipChannel: true}) && (excludedVisible || !isCertExcluded(g))) {
       const rt = g.campaign?.recruit_type;
       if (rt === 'monitor') {
         const chans = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
@@ -354,6 +367,13 @@ async function renderDeliverablesList() {
     delivChannelOpts.push({value:'__none__', label:'채널 미상', count: channelCounts['__none__']});
   }
   syncMultiFilter('delivChannelMulti', '전체 채널', delivChannelOpts, () => renderDeliverablesList());
+  // 인증 상태 드롭다운 — 화면 인증 상태 열과 동일 4종(검수 불필요 포함)
+  syncMultiFilter('delivCertStatusMulti', '전체', [
+    {value:'success',    label:'인증성공',      count: certStatusCounts.success},
+    {value:'submitting', label:'인증샷 제출중',  count: certStatusCounts.submitting},
+    {value:'none',       label:'미제출',        count: certStatusCounts.none},
+    {value:'excluded',   label:'검수 불필요',    count: certStatusCounts.excluded},
+  ], () => renderDeliverablesList());
 
   // 필터 적용
   let filtered = Array.from(groups.values());
@@ -380,6 +400,8 @@ async function renderDeliverablesList() {
   });
   // 채널 필터 — monitor=캠페인 채널, gifting/visit=post_channel, 미상=__none__
   if (channelVals.length > 0) filtered = filtered.filter(g => delivGroupMatchesChannel(g, channelVals));
+  // 인증 상태 필터 — computeCertStatus(화면 인증 상태 열 단일 소스)로 판정. excluded 선택 시 아래 검수 불필요 제거를 건너뜀
+  if (certStatusVals.length > 0) filtered = filtered.filter(g => certStatusVals.includes(computeCertStatus(g)));
   // 최근 제출일 기간 필터 — 그룹의 latest_submitted_at(로컬 날짜)이 선택 범위 안 (양끝 포함, 제출일 없으면 제외)
   if (_delivSubmittedFrom || _delivSubmittedTo) filtered = filtered.filter(g => {
     const d = delivLocalDate(g.latest_submitted_at);
@@ -405,12 +427,12 @@ async function renderDeliverablesList() {
   if (_delivPendingOnly) filtered = filtered.filter(groupHasPendingReview);
   // 검수 불필요(신청 반려·취소) — 현재 필터 하에서 몇 건인지 라벨에 표시하고, 토글 OFF면 목록에서 숨김
   const excludedCount = filtered.filter(isCertExcluded).length;
-  if (!includeExcluded) filtered = filtered.filter(g => !isCertExcluded(g));
+  if (!excludedVisible) filtered = filtered.filter(g => !isCertExcluded(g));
   const _exLbl = $('delivExcludedCount');
   if (_exLbl) _exLbl.textContent = excludedCount > 0 ? `(${excludedCount})` : '';
 
   // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
-  updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
+  updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCertStatusMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
     || _delivPendingOnly
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
