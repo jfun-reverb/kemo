@@ -677,15 +677,18 @@ async function insertReceipt(receipt) {
 }
 
 // ── Deliverables (Stage 2) ──
-// 사이드바 배지용 — pending(검수 대기) 결과물 개수만 빠르게 (head:true count, draft 자동 제외)
+// 사이드바 배지용 — 검수대기 "신청" 개수 (마이그레이션 248 count_pending_review_applications RPC).
+//   과거엔 deliverables 를 status='pending' 조건으로 행 단위 COUNT 했는데, 결과물은 재제출마다
+//   새 행을 INSERT 하고 옛 행은 이력 보존을 위해 남겨두는 설계라 이미 대체된 옛 pending 행까지
+//   중복으로 세어 배지가 과대 표시됐다(운영 관측치 31건 vs 실제 검수 필요 신청 수). RPC 는
+//   신청(application) 단위 + 각 결과물의 (kind, post_channel) 조합별 최신 1건만 판정해 정확히 센다.
+//   반려·취소(rejected/cancelled) 신청은 RPC 내부에서 이미 제외("검수 불필요").
 async function fetchPendingDeliverableCount() {
   if (!db) return 0;
   try {
-    const {count, error} = await db.from('deliverables')
-      .select('id', {count: 'exact', head: true})
-      .eq('status', 'pending');
+    const {data, error} = await db.rpc('count_pending_review_applications');
     if (error) throw error;
-    return count || 0;
+    return data || 0;
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
 }
 
@@ -715,6 +718,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
+        applications:application_id (status),
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -907,7 +911,7 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence')
+      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status)')
       .eq('campaign_id', campaignId)
       .order('submitted_at', {ascending: false});
     if (error) throw error;
@@ -1179,6 +1183,9 @@ async function deleteMismatchedPostDeliverable(deliverableId, reason) {
 }
 
 // 영수증 변경 이력 조회 (모든 관리자 SELECT 가능)
+// 마이그레이션 252/253 — 결과물이 하드 삭제되면 deliverable_id 가 NULL 로 비워지고
+// (CASCADE→SET NULL) deliverable_id_snapshot 에 원래 id 가 영구 보존된다. 살아있는
+// 결과물과 삭제된 결과물의 이력을 같은 함수로 조회할 수 있도록 둘 다 매칭한다.
 async function fetchReceiptEditHistory(deliverableId) {
   if (!db || !deliverableId) return [];
   let rows = [];
@@ -1186,7 +1193,7 @@ async function fetchReceiptEditHistory(deliverableId) {
     await retryWithRefresh(async () => {
       const {data, error} = await db.from('receipt_edit_history')
         .select('*')
-        .eq('deliverable_id', deliverableId)
+        .or(`deliverable_id.eq.${deliverableId},deliverable_id_snapshot.eq.${deliverableId}`)
         .order('changed_at', {ascending: false});
       if (error) throw error;
       rows = Array.isArray(data) ? data : [];
@@ -3856,6 +3863,27 @@ async function fetchSettlementEvents(settlementId) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
+}
+
+// 신청(application) 1건에 송금완료(paid) 정산이 있는지 조회 — 관리자 화면(admin-applications.js)이
+// 반려(미승인)·되돌리기 버튼을 누르기 전 경고 모달을 띄우기 위한 1차(UI) 가드 용도.
+// 최종 방어선은 데이터베이스 서버 트리거(마이그레이션 247 guard_reject_with_paid_settlement) —
+// 이 함수가 false 를 반환해도(=조회가 막혀도) 실제 반려 시도는 서버 트리거가 다시 막는다.
+// ⚠️ settlements SELECT 행 단위 보안 정책(RLS)은 has_permission('settlement.view','read') 게이트라,
+// 정산 화면 열람 권한이 hidden 인 등급(campaign_manager, 마이그레이션 220/221 시드)은 이 조회 자체가
+// 0건으로 보일 수 있다. 그래도 서버 트리거가 실제 UPDATE 를 최종적으로 막으므로 데이터 안전성엔
+// 문제 없음 — 다만 그 등급에서는 UI 경고 모달이 안 뜨고 서버 예외로만 막힐 수 있다(campaign_admin
+// 이상은 정상적으로 이 조회가 통과돼 UI 경고가 정상 동작).
+async function hasPaidSettlementForApplication(applicationId) {
+  if (!db || !applicationId) return false;
+  try {
+    const {count, error} = await db?.from('settlements')
+      .select('id', {count: 'exact', head: true})
+      .eq('application_id', applicationId)
+      .eq('status', 'paid');
+    if (error) throw error;
+    return (count || 0) > 0;
+  } catch(e) { console.error('[hasPaidSettlementForApplication]', e); return false; }
 }
 
 // ══════════════════════════════════════

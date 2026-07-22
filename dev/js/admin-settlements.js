@@ -110,6 +110,17 @@ function setSettlementStatusTab(btn) {
   renderSettlementsList();
 }
 
+// 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
+function openSettlementsPending() {
+  _settlementFilters.status = 'pending';
+  _settlementFilters.search = '';
+  _settlementFilters.campaignIds = [];
+  const s = document.getElementById('settlementSearch'); if (s) s.value = '';
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('settlements');
+  else reloadSettlementsData();
+}
+
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
 function getFilteredSettlements() {
   readSettlementFilters();
@@ -209,12 +220,18 @@ function renderSettlementRow(s) {
     ? `<span style="font-size:12px">${formatDate(s.paid_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
+  // 신청 반려·취소로 자동 보류된 건(고정 메모 '신청 반려로 자동 보류')은 관리자가 구분하도록 앰버 배지.
+  //   복원은 on_hold 의 「보류 해제」 버튼(mark_settlement_revert)으로 정산대기 복귀.
+  const autoHoldBadge = (s.status === 'on_hold' && (s.memo || '').includes('자동 보류'))
+    ? `<div style="margin-top:3px"><span style="font-size:10px;background:#FEF3C7;color:#92400E;font-weight:600;padding:1px 6px;border-radius:3px" title="신청이 반려·취소되어 자동 보류된 정산입니다. 신청을 다시 승인했다면 「보류 해제」로 정산대기로 되돌리세요.">자동 보류(신청 반려)</span></div>`
+    : '';
+
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
     <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</td>
     <td>${paypalCell}</td>
-    <td>${settlementStatusBadge(s.status)}</td>
+    <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
     <td>${paidDate}</td>
     <td>${settlementActionCell(s)}</td>

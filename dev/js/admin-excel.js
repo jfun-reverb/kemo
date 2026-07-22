@@ -129,6 +129,10 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
 // gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
 function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status)
+         || (result && result.applications && result.applications.status) || null;
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   if (recruitType === 'monitor') {
     var hasReceipt = !!receipt;
     // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
@@ -138,7 +142,9 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
     }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
-    if (receipt && receipt.status === 'approved' && result && result.status === 'approved') return '인증성공';
+    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
+    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
+    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
     return '인증샷 제출중';
   }
   // gifting / visit — 게시물(post) 단독
@@ -149,6 +155,10 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
 function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
+  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   var hasReceipt = !!receipt;
   // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
   if (proxyPurchase) {
