@@ -119,7 +119,8 @@
 - **로딩 UX**: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
 
 ### 캠페인 관리
-- CRUD + 복제 + 삭제(확인모달) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
+- CRUD + 복제 + **보관 삭제(soft delete)**(확인모달, 30일 보관 후 자동 완전삭제) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
+- **삭제 복구**: 삭제 시 캠페인 행만 30일 보관(신청·결과물 즉시 파기), 캠페인 목록 상태 탭의 **「삭제됨」 탭**에서 목록 확인 + 복구(campaign_admin)·완전삭제(super_admin). 「삭제됨」 탭은 활성 목록과 데이터 소스(`fetchDeletedCampaigns`)·행 동작이 달라 별도 렌더(`renderDeletedCampsPane`/`buildDeletedCampRow`), 진입 시 활성 전용 필터·검색·툴바 숨김. `soft_delete_campaign`/`restore_campaign`/`purge_campaign`/`purge_expired_deleted_campaigns`(마이그레이션 254~258) + 운영현황·홍보메일 RPC deleted_at 제외(259). 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
 - **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 캠페인은 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3. 신규 INSERT 시 트리거 자동 채번. 캠페인 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달 패턴. **서베이 신청 선택 UI는 공개 제출 중단(마이그206)으로 안전 숨김(2026-07-15)** — 신규 폼은 선택 UI 미표시, 편집 폼은 기존 연결만 읽기전용 라벨(`renderSurveyLinkReadonly`)로 표시. hidden native select `#{prefix}CampSourceAppId`·저장 로직·`source_application_id` 컬럼·진행현황 비용 카드는 무변경(오리엔 발행 승계·편집 저장 보존). 사양서 `docs/specs/2026-07-15-campaign-form-hide-survey-link.md`. 기존 v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no` 컬럼·`numbering_legacy_map` 에 보존
 - **캠페인 등록/편집 폼**: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오버튼 UI, 채널은 복수 선택 체크박스(Instagram/X/Qoo10/TikTok/YouTube/LIPS/@cosme, 콤마 구분 저장 `"instagram,x"`. LIPS·@cosme는 리뷰어형 전용 — `lookup_values.recruit_types=['monitor']`). 채널 2개+ 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
 - **콘텐츠 가이드 리치 텍스트** (Quill v2, 3개 필드): Notion 복사·붙여넣기 서식 유지. 이미지 태그는 저장 시 제거. XSS 방어 DOMPurify 저장+렌더 이중 sanitize. 헬퍼는 `dev/lib/shared.js`
@@ -349,7 +350,7 @@
 - db 참조 시 항상 `db?.from()` 사용 (null-safe)
 - `.single()` 대신 `.maybeSingle()` 사용
 - localStorage 저장 시 이미지 base64 는 별도 키로 분리 (용량 초과 방지)
-- 캠페인 삭제 시 관련 applications 도 함께 삭제 (cascading)
+- 캠페인 삭제는 **보관 삭제(soft delete)** — 캠페인 행은 `deleted_at` 세팅해 30일 보관(「삭제됨」 탭에서 복구 가능), 관련 applications·deliverables(개인정보)는 삭제 즉시 완전 파기(개인정보 파기원칙 정합). 정산 걸린 캠페인은 삭제 차단(마이그레이션 251 트리거). 복구=campaign_admin·완전삭제=super_admin. 30일 후 pg_cron 자동 완전삭제(`purge_expired_deleted_campaigns`). 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
 - 이미지 업로드는 Supabase Storage (`campaign-images` 버킷) 사용
 - 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs 에 양 도메인 등록
 - 아이콘은 Material Icons 사용 (이모지 사용 금지), `translate="no"` 속성 필수

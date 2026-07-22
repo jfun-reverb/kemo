@@ -118,11 +118,21 @@
 - **storage.js**: `softDeleteCampaign`/`restoreCampaign`/`purgeCampaign`/`fetchDeletedCampaigns` 추가. `fetchCampaigns`·`fetchCampaignsForAdminList`에 `.is('deleted_at', null)` 추가(인플·관리자 공용이라 양쪽 자동 제외 — 자동 상태 전이·인플 상세 진입도 부수 차단).
 - 전부 `SECURITY DEFINER` + `SET search_path=''` + `public.` 명시.
 
-### ⚠️ PR 2 착수 전 필수 보완 (리뷰 지적 — 미완)
-- **`public.campaigns`를 직접 SQL로 조회하는 기존 원격 호출 함수(RPC)에 `AND c.deleted_at IS NULL` 조건 추가**(별도 마이그레이션):
-  - `get_brand_ops_overview` / `get_brand_ops_detail`(운영현황 대시보드·브랜드 상세)
-  - `get_promo_digest_campaign_pool` / `get_promo_digest_targets`(캠페인 홍보 메일 대상 풀)
-  - **이유**: PR 1 커밋 시점엔 삭제 버튼이 아직 `soft_delete_campaign`을 호출하지 않아 보관 캠페인이 실제로 생기지 않으므로 안전하지만, **PR 2에서 `executeDeleteCampaign`이 `soft_delete_campaign` 호출로 교체되는 순간부터** 보관 중(최대 30일) 캠페인이 운영현황·홍보메일 집계에 남는 회귀 발생. PR 2 착수 시 이 마이그레이션을 먼저.
+### ⚠️ PR 2 착수 전 필수 보완 → 완료 (2026-07-23, 마이그레이션 259)
+- **`public.campaigns`를 직접 SQL로 조회하는 기존 원격 호출 함수(RPC) 4개에 `AND c.deleted_at IS NULL` 조건 추가** — `supabase/migrations/259_exclude_deleted_campaigns_from_rpc.sql`:
+  - `get_brand_ops_overview(uuid)` — `camp_agg`/`app_agg`/`deliv_agg` 3개 CTE(원본 마이그레이션 181 기준)
+  - `get_brand_ops_detail(uuid)` — 신청별 캠페인 서브쿼리 + 외부 캠페인 서브쿼리 2지점(원본 마이그레이션 181 기준)
+  - `get_promo_digest_targets(date)` — `new_campaigns`/`deadline_d1_campaigns` 2개 CTE(원본 마이그레이션 143 기준)
+  - `get_promo_digest_campaign_pool(date)` — `new_campaigns`/`deadline_d1_campaigns` 2개 CTE(원본 마이그레이션 152 기준)
+  - 4개 함수 모두 시그니처·반환 컬럼·나머지 로직·`SECURITY DEFINER`·`SET search_path=''`·GRANT/REVOKE 100% 보존, `deleted_at IS NULL` 조건만 추가(`CREATE OR REPLACE`, 반환 타입 불변이라 DROP 불필요).
+  - **개발 DB 미적용** — 사용자가 SQL Editor에서 실행 필요(아래 안내).
+
+### PR 2 — 관리자 화면 + 집계 함수 보완 (2026-07-23, 구현 완료·리뷰 GO)
+- **마이그레이션 259** `exclude_deleted_campaigns_from_rpc` — `get_brand_ops_overview`/`get_brand_ops_detail`/`get_promo_digest_targets`/`get_promo_digest_campaign_pool`의 campaigns 조회 지점마다 `deleted_at IS NULL` 추가(시그니처·GRANT·search_path 보존). 위 「PR 2 착수 전 필수 보완」 해소.
+- **`dev/js/admin.js`**: `CAMP_STATUS_TABS`에 「삭제됨」 탭 + `_deletedCampsCache`. `loadAdminCampaigns`가 useCache=false 시 `fetchDeletedCampaigns` 캐시 갱신 + `_campActiveStatusTab==='deleted'`면 `renderDeletedCampsPane()` 분기(활성 로직 스킵) + 활성 전용 컨트롤(`campFilterBar`·`campListToolbar`) 숨김. 신규 `renderDeletedCampsPane`/`buildDeletedCampRow`(삭제일·자동삭제 예정일=+30일)/`restoreCampaignAction`(campaign_admin)/`purgeCampaignAction`(super_admin). `executeDeleteCampaign`을 직접 삭제 → `softDeleteCampaign` RPC로 교체.
+- **`dev/admin/index.html`**: 삭제 확인 모달 문구(30일 보관·복구 가능 + 신청 즉시삭제 복구불가), `campFilterBar`·`campListToolbar` 식별자 추가.
+- **CLAUDE.md**: 캠페인 관리 Features + Rules(구 「applications 함께 삭제 cascading」 stale 문구)를 soft delete로 갱신.
+- **리뷰 지적 반영**: 「삭제됨」 탭 진입 시 반응 없던 필터·검색·엑셀·순서변경 컨트롤 숨김 처리(혼동 방지).
 
 ### PR 3 착수 전 참고
 - `campaigns` SELECT RLS는 여전히 공개(`USING(true)`)라, anon이 API 직접 호출 시 보관 캠페인 메타데이터(개인정보 없음)는 노출 가능. 클라 필터가 1차 방어선. 서버측 완전 차단이 필요하면 PR 3에서 RLS 보강.

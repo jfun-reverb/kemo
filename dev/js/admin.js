@@ -163,8 +163,12 @@ const CAMP_STATUS_TABS = [
   { code: 'closed',    label: '모집마감' },
   { code: 'ended',     label: '종료' },
   { code: 'expired',   label: '노출종료' },
+  { code: 'deleted',   label: '삭제됨' },   // soft delete 보관함(deleted_at NOT NULL). 다른 탭과 데이터 소스·행 동작이 다름
 ];
 var _campActiveStatusTab = null;
+// 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
+//   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
+var _deletedCampsCache = [];
 
 // 상태 탭 바 렌더 (counts: 필터 전 전체 기준 상태별 건수)
 function renderCampStatusTabs(counts) {
@@ -173,7 +177,10 @@ function renderCampStatusTabs(counts) {
   counts = counts || {};
   const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
   bar.innerHTML = CAMP_STATUS_TABS.map(tab => {
-    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    // 전체=활성 합계 / 삭제됨=보관 캐시 길이(활성 집계엔 없음) / 그 외=상태별 건수
+    const n = tab.code === null ? totalAll
+            : tab.code === 'deleted' ? (_deletedCampsCache.length || 0)
+            : (counts[tab.code] || 0);
     const isOn = tab.code === _campActiveStatusTab;
     const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
     return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setCampStatusTab(this)">`
@@ -269,7 +276,11 @@ async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
   // PR 2 데이터 다이어트: 목록 전용 가벼운 함수 사용 (participation_steps 등 무거운 컬럼 제외)
   let camps = useCache ? allCampaigns.slice() : await fetchCampaignsForAdminList();
-  if (!useCache) allCampaigns = camps.slice();
+  if (!useCache) {
+    allCampaigns = camps.slice();
+    // 「삭제됨」 탭 건수·목록용 보관 캠페인 캐시 갱신 (실데이터 조회 시에만)
+    try { _deletedCampsCache = await fetchDeletedCampaigns(); } catch(e) { _deletedCampsCache = []; }
+  }
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
   const stCounts = {};
@@ -286,6 +297,14 @@ async function loadAdminCampaigns(useCache) {
   ], () => filterAdminCampaigns());
   // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
   renderCampStatusTabs(stCounts);
+
+  // 「삭제됨」 탭에선 활성 전용 컨트롤(타입·검색·엑셀·순서변경)을 숨긴다 — 조기 return 으로 반응하지 않아 혼동 방지.
+  const _isDelTab = _campActiveStatusTab === 'deleted';
+  const _fb = $('campFilterBar');   if (_fb) _fb.style.display = _isDelTab ? 'none' : 'flex';
+  const _tb = $('campListToolbar'); if (_tb) _tb.style.display = _isDelTab ? 'none' : 'flex';
+
+  // 「삭제됨」 탭 — 보관 캠페인(deleted_at NOT NULL) 전용 렌더. 활성 목록의 필터·집계·정렬·lazy 로직과 분리.
+  if (_campActiveStatusTab === 'deleted') { renderDeletedCampsPane(); return; }
 
   // 타입 필터 (다중 선택)
   const typeVals = getMultiFilterValues('campTypeMulti');
@@ -1991,23 +2010,104 @@ async function executeDeleteCampaign() {
   if (input !== title) { err.textContent = '캠페인명이 일치하지 않습니다'; err.style.display = 'block'; return; }
   try {
     if (db) {
-      // 마이그레이션 251 — 이 캠페인의 신청 중 정산(settlements) 기록이 있는 건은
-      // 삭제 트리거가 막는다. 이전에는 이 결과를 확인하지 않고 넘어가 캠페인
-      // 삭제 단계에서만(사실은 그 캠페인의 신청이 아직 남아있어 우연히) 에러가
-      // 드러났는데, 여기서 바로 확인해 원인을 명확히 한다.
-      var delAppsResult = await db?.from('applications').delete().eq('campaign_id', campId);
-      if (delAppsResult && delAppsResult.error) throw delAppsResult.error;
-
-      var result = await db?.from('campaigns').delete().eq('id', campId);
-      if (result.error) throw result.error;
+      // 보관 삭제(soft delete) — soft_delete_campaign RPC(마이그레이션 255)가 서버에서
+      //   ① 신청·결과물(개인정보) 즉시 완전 파기(정산 걸린 건은 마이그레이션 251 트리거가 원자적 차단)
+      //   ② campaigns.deleted_at 세팅(캠페인 메타데이터만 30일 보관) 을 트랜잭션으로 처리한다.
+      await softDeleteCampaign(campId);
     }
     closeDeleteCampModal();
     allCampaigns = await fetchCampaigns();
-    loadAdminCampaigns();
-    toast('캠페인이 삭제되었습니다','success');
+    loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
+    toast('캠페인을 보관 삭제했습니다 (30일간 「삭제됨」 탭에서 복구 가능)','success');
   } catch(e) {
     err.textContent = '삭제 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 「삭제됨」 탭 — 보관 캠페인 목록·복구·완전삭제 (soft delete, 사양서 2026-07-22 PR 2)
+//   활성 캠페인의 buildCampRow(편집·상태변경·노출토글 등)를 재사용하지 않고, 보관 캠페인 전용
+//   간단 행(썸네일·제목·삭제일·자동삭제 예정일 + 복구/완전삭제)만 그린다.
+// ══════════════════════════════════════════════════════════════════
+function renderDeletedCampsPane() {
+  // 삭제됨 전용 테이블 헤더 (활성 15컬럼과 다름 — 편집·정렬·노출 없음)
+  const head = $('adminCampTableHead');
+  if (head) {
+    head.innerHTML = `<tr>
+      <th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th>
+      <th style="white-space:nowrap">삭제일</th>
+      <th style="white-space:nowrap">자동 완전삭제 예정</th>
+      <th>복구 / 완전삭제</th></tr>`;
+  }
+  const body = $('adminCampsBody');
+  if (!body) return;
+  if (campsLazy) { campsLazy.destroy(); campsLazy = null; }  // 활성용 lazy 리스트 정리
+  const list = _deletedCampsCache || [];
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+  const emptyHtml = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">삭제된 캠페인이 없습니다</td></tr>`;
+  body.innerHTML = list.length ? list.map(c => buildDeletedCampRow(c, isSuper)).join('') : emptyHtml;
+}
+
+function buildDeletedCampRow(c, isSuper) {
+  const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean);
+  const thumbUrl = imgs[0] || '';
+  // 자동 완전삭제 예정일 = 삭제일 + 30일 (사양서 §설계, purge_expired_deleted_campaigns 마이그레이션 258)
+  const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
+  const purgeAt = delAt ? new Date(delAt.getTime() + 30*24*60*60*1000) : null;
+  const purgeBtn = isSuper
+    ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" data-camp-title="${esc(c.title)}" onclick="purgeCampaignAction('${c.id}',this.dataset.campTitle)">완전삭제</button>`
+    : '';
+  return `<tr data-camp-id="${c.id}">
+    <td style="min-width:240px;max-width:340px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
+          ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:88, quality:70, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`}
+        </div>
+        <div style="min-width:0;flex:1">
+          ${c.campaign_no ? `<div style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(c.campaign_no)}</div>` : ''}
+          <strong style="color:var(--ink);word-break:break-word;line-height:1.4">${esc(c.title)}</strong>
+        </div>
+      </div>
+    </td>
+    <td>${channelChipsHtml(c.channel, c.channel_match)}</td>
+    <td style="font-size:12px;color:var(--ink)">${esc(brandLabelAdmin(c)) || '—'}</td>
+    <td style="font-size:12px;color:var(--ink)">${esc(c.product_ko || c.product || '') || '—'}</td>
+    <td style="font-size:11px;color:var(--muted);white-space:nowrap">${delAt ? formatDateTime(c.deleted_at) : '—'}</td>
+    <td style="font-size:11px;color:var(--red);white-space:nowrap">${purgeAt ? formatDate(purgeAt.toISOString()) : '—'}</td>
+    <td style="white-space:nowrap">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-green btn-xs" onclick="restoreCampaignAction('${c.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">restore</span> 복구</button>
+        ${purgeBtn}
+      </div>
+    </td>
+  </tr>`;
+}
+
+// 복구 — deleted_at=NULL (campaign_admin 이상). 신청·결과물은 이미 파기됐으므로 캠페인 설정만 되살아난다.
+async function restoreCampaignAction(campId) {
+  const adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role === 'campaign_manager') { toast('복구 권한이 없습니다. 캠페인 관리자 이상만 가능합니다.','error'); return; }
+  const ok = await showConfirm('이 캠페인을 복구합니다. 캠페인 설정은 되살아나지만, 삭제 시 지워진 응모자·신청 내역은 복구되지 않습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    await restoreCampaign(campId);
+    allCampaigns = await fetchCampaigns();
+    await loadAdminCampaigns();  // 보관 캐시 갱신 + 목록 재렌더 (삭제됨 탭 유지)
+    toast('캠페인을 복구했습니다','success');
+  } catch(e) { toast('복구 오류: ' + friendlyError(e.message),'error'); }
+}
+
+// 완전삭제 — 캠페인 행 hard delete (super_admin 전용). 되돌릴 수 없음.
+async function purgeCampaignAction(campId, campTitle) {
+  const adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role !== 'super_admin') { toast('완전삭제는 최고관리자만 가능합니다.','error'); return; }
+  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다. 진행할까요?`);
+  if (!ok) return;
+  try {
+    await purgeCampaign(campId);
+    await loadAdminCampaigns();  // 보관 캐시 갱신 + 재렌더
+    toast('캠페인을 완전 삭제했습니다','success');
+  } catch(e) { toast('완전삭제 오류: ' + friendlyError(e.message),'error'); }
 }
 
 // ── 캠페인 폼 실시간 미리보기 (add/edit 사이드 패널 iframe) ──
