@@ -62,6 +62,9 @@ async function loadMessagesInbox() {
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
   switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
+  // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
+  const _ucb = document.getElementById('inboxUnresolvedCheckbox');
+  if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   await refreshInboxData();
@@ -388,6 +391,14 @@ function toggleInboxUnresolved(checked) {
   _inboxFilters.unresolvedOnly = !!checked;
   renderInboxCampaignList();
   renderInboxThreadList();
+}
+
+// 사이드바 메시지 배지 클릭 → 「미응대만」 (기준: openDelivPendingReview)
+function openMessagesUnresolved() {
+  _inboxFilters.unresolvedOnly = true;
+  const cb = document.getElementById('inboxUnresolvedCheckbox'); if (cb) cb.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('messages');
+  else { renderInboxCampaignList(); renderInboxThreadList(); }
 }
 function changeInboxSince(v) {
   const custom = document.getElementById('inboxCustomRange');

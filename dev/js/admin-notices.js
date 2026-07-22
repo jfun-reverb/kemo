@@ -99,16 +99,29 @@ function refreshAdminNoticeBadge() {
   else badge.style.display = 'none';
 }
 
+// 사이드바 공지 배지 클릭 → 다른 필터 초기화 후 「미읽음만」 (기준: openDelivPendingReview)
+function openNoticesUnread() {
+  const cat = document.getElementById('adminNoticeCatFilter'); if (cat) cat.value = 'all';
+  const st = document.getElementById('adminNoticeStatusFilter'); if (st) st.value = 'all';
+  const sch = document.getElementById('adminNoticeSearch'); if (sch) sch.value = '';
+  const un = document.getElementById('adminNoticeUnreadFilter'); if (un) un.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('admin-notices');
+  else renderAdminNotices();
+}
+
 function renderAdminNotices() {
   const body = $('adminNoticeBody');
   if (!body) return;
   const cat = $('adminNoticeCatFilter')?.value || 'all';
   const status = $('adminNoticeStatusFilter')?.value || 'all';
   const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
+  const unreadOnly = $('adminNoticeUnreadFilter')?.checked;
   let list = (_adminNoticesCache || []).slice();
   if (cat !== 'all') list = list.filter(n => n.category === cat);
   if (status !== 'all') list = list.filter(n => (n.status || 'draft') === status);
   if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
+  // 미읽음만 = 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
+  if (unreadOnly) list = list.filter(n => n.status === 'published' && !n.is_read);
   const total = $('adminNoticeTotal');
   if (total) total.textContent = `${list.length}건`;
   const isSuper = currentAdminInfo?.role === 'super_admin';
