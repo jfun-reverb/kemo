@@ -302,6 +302,9 @@ async function loadAdminCampaigns(useCache) {
   const _isDelTab = _campActiveStatusTab === 'deleted';
   const _fb = $('campFilterBar');   if (_fb) _fb.style.display = _isDelTab ? 'none' : 'flex';
   const _tb = $('campListToolbar'); if (_tb) _tb.style.display = _isDelTab ? 'none' : 'flex';
+  // 삭제됨 탭은 활성 목록용 min-width(2150px) 대신 콘텐츠 폭 + 캠페인명 열 좌측 고정 (deleted-mode CSS)
+  const _dtbl = $('adminCampsBody') && $('adminCampsBody').closest('table');
+  if (_dtbl) _dtbl.classList.toggle('deleted-mode', _isDelTab);
 
   // 「삭제됨」 탭 — 보관 캠페인(deleted_at NOT NULL) 전용 렌더. 활성 목록의 필터·집계·정렬·lazy 로직과 분리.
   if (_campActiveStatusTab === 'deleted') { renderDeletedCampsPane(); return; }
