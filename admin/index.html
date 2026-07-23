@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784800621';
+  var CURRENT_BUILD = 'v1784804561';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2500,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 18:57 · 4a1496f</span>
+          <span class="admin-build-text">2026-07-23 20:02 · 9a2776e</span>
         </div>
       </div>
     </aside>
@@ -3596,13 +3596,20 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
-                  과거 미등록
+                  과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
                 </button>
                 <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
                   엑셀
                 </button>
               </div>
+            </div>
+            <!-- 금액 확인 필요 안내 — 인증은 끝났는데 캠페인에 금액이 없어 정산을 만들 수 없는 건.
+                 0건이면 통째로 숨긴다(평소엔 안 보이는 게 정상). -->
+            <div id="settlementAmountIssueBanner" style="display:none;padding:10px 12px;background:#FFF4F4;border:1px solid #F2B8B8;border-radius:8px;font-size:12px;line-height:1.6;color:#8A2B2B;margin-bottom:12px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">error_outline</span>
+              <span id="settlementAmountIssueText"></span>
+              <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openPastUnregView()">확인하러 가기</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -7758,11 +7765,44 @@ async function updateCampaign(campId, updates) {
   });
 }
 
+// 캠페인 상세 조회수 +1.
+// ⚠️ campaigns 테이블을 직접 UPDATE 하면 안 된다 — UPDATE 정책이 관리자 한정(마이그레이션 001)
+//    이라 인플루언서·비로그인 조회가 조용히 0행 처리되어 집계가 통째로 누락됐다(마이그레이션 263).
+//    반드시 increment_campaign_view 함수 경유(원자적 증가 + 관리자·감사용 계정 제외).
+// 같은 기기에서 같은 캠페인을 하루에 여러 번 열어도 1회만 센다(새로고침·뒤로가기·언어 전환으로
+// 부풀지 않도록). 날짜 기준은 일본/한국 표준시(+09:00).
+const VIEW_COUNT_SEEN_KEY = 'reverb.viewedCampaigns';
+
+function _viewCountTodayKst() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0');
+}
+
+// 오늘 이미 센 캠페인이면 false. 아니면 기록하고 true.
+// 저장소를 못 쓰는 환경(사생활 보호 모드 등)에서는 게이트 없이 통과시킨다(집계 누락 방지).
+function _markCampaignViewed(campId) {
+  const today = _viewCountTodayKst();
+  try {
+    const raw = localStorage.getItem(VIEW_COUNT_SEEN_KEY);
+    const seen = raw ? JSON.parse(raw) : {};
+    if (seen[campId] === today) return false;
+    // 날짜가 바뀐 항목은 정리 (무한 증식 방지)
+    const fresh = {};
+    Object.keys(seen).forEach(k => { if (seen[k] === today) fresh[k] = today; });
+    fresh[campId] = today;
+    localStorage.setItem(VIEW_COUNT_SEEN_KEY, JSON.stringify(fresh));
+    return true;
+  } catch (e) {
+    return true;
+  }
+}
+
 async function incrementViewCount(campId) {
-  if (!db) return;
-  const {data} = await db.from('campaigns').select('view_count').eq('id', campId).maybeSingle();
-  const current = (data?.view_count) || 0;
-  await db.from('campaigns').update({ view_count: current + 1 }).eq('id', campId);
+  if (!db || !campId) return;
+  if (!_markCampaignViewed(campId)) return;
+  await db.rpc('increment_campaign_view', { p_campaign_id: campId });
 }
 
 // ── Influencers ──
@@ -11157,8 +11197,12 @@ async function fetchSettlements(opts) {
   opts = opts || {};
   try {
     const data = await fetchAllPaged(() => {
+      // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
+      // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
+      // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        amount_source, reward_part_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
@@ -30943,6 +30987,26 @@ function settlementAmountYen(v) {
   return '¥' + (Number(v) || 0).toLocaleString();
 }
 
+// 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
+// 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
+//   product_price = 리뷰어형(가구매 포함) 캠페인 제품 가격을 페이백
+//   reward        = 시딩·방문형 캠페인 현금 리워드
+//   NULL          = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
+const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
+  product_price: '제품 가격',
+  product_plus_reward: '제품＋보수',
+  reward: '현금 리워드',
+};
+function settlementAmountSourceLabel(source) {
+  return SETTLEMENT_AMOUNT_SOURCE_LABELS[source] || '';
+}
+function settlementAmountSourceBadge(source) {
+  const label = settlementAmountSourceLabel(source);
+  return label
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(label)}</div>`
+    : '';
+}
+
 // ════════════════════════════════════════════════════════════════════
 // SECTION: SETTLEMENTS — 로드 / 조회 / 렌더
 // ════════════════════════════════════════════════════════════════════
@@ -30962,6 +31026,12 @@ async function loadSettlements() {
     // 권한 없음(campaign_manager)·RPC 실패 등은 무시 — 기존 정산행은 그대로 조회한다.
   }
   await reloadSettlementsData();
+  // 과거 미등록 건수 배지 + 금액 확인 필요 안내.
+  // ⚠️ 페인 **진입 시에만** 호출한다(reloadSettlementsData 에 넣지 않음) — 이 조회는 승인 응모
+  //   전건을 스캔하므로, 정산 1건 처리할 때마다(refreshPane 경유) 큰 쿼리가 따라붙으면 안 된다.
+  //   정산 처리(송금완료·보류·취소)는 과거 미등록 건수를 바꾸지 않으므로 갱신할 이유도 없다.
+  //   과거 미등록 화면에서 실제로 건수가 줄어드는 경로(pastUnregRegister)에서만 따로 호출한다.
+  refreshPastUnregEntryInfo();   // await 안 함 — 목록 표시를 막지 않는다
 }
 
 // 데이터 재조회(백필 없음) — 처리 모달 저장 후 refreshPane('settlements') 가 호출
@@ -30970,6 +31040,39 @@ async function reloadSettlementsData() {
   _settlementsLoaded = true;
   renderSettlementsList();
   refreshSettlementSidebarBadge();
+}
+
+// 「과거 미등록」 진입 버튼 배지 + 「금액 확인 필요」 안내 갱신.
+//   · 총 과거 미등록 건수 → 버튼 옆 배지
+//   · 그중 금액을 정할 수 없는 건(amount_issue) → 상단 빨간 안내. 0건이면 숨김(평소 상태)
+// ⚠️ 한계: 이 조회는 **정산 도입일 이전** 건만 반환한다(get_past_unregistered_settlements 의
+//   컷오프 필터). 도입일을 세팅한 뒤 새로 생기는 「인증 성공했는데 캠페인에 금액이 없는」 건은
+//   여기에도 자동 등록에도 잡히지 않아 조용히 누락된다(사양서 §2-1 ①). 도입일 세팅 시
+//   전용 조회를 추가할 것. 현재는 도입일이 비어 있어 전 구간이 이 조회에 들어온다.
+async function refreshPastUnregEntryInfo() {
+  const badge = $('pastUnregEntryBadge');
+  const banner = $('settlementAmountIssueBanner');
+  const text = $('settlementAmountIssueText');
+  if (!badge && !banner) return;
+  let rows = [];
+  try {
+    rows = await fetchPastUnregisteredSettlements();
+  } catch (e) {
+    return;  // 권한 없음·조회 실패는 무시(기존 목록 표시에 영향 주지 않는다)
+  }
+  const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
+  if (badge) {
+    badge.textContent = rows.length ? String(rows.length) : '';
+    badge.style.display = rows.length ? '' : 'none';
+  }
+  if (banner && text) {
+    if (issueCount > 0) {
+      text.textContent = `인증은 끝났지만 캠페인에 금액이 없어 정산을 만들 수 없는 건이 ${issueCount}건 있습니다. 캠페인의 제품 가격(리뷰어형) 또는 리워드 금액(기프팅·방문형)을 입력하면 자동으로 등록됩니다.`;
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
 }
 
 function readSettlementFilters() {
@@ -31123,7 +31226,7 @@ function renderSettlementRow(s) {
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
-    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</td>
+    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountSourceBadge(s.amount_source)}</td>
     <td>${paypalCell}</td>
     <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
@@ -31410,6 +31513,7 @@ async function exportSettlementsExcel() {
       { header: '캠페인번호', key: 'campno',   width: 16 },
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
+      { header: '금액구분',   key: 'amtsrc',   width: 12 },
       { header: 'PayPal',     key: 'paypal',   width: 26 },
       { header: '상태',       key: 'status',   width: 10 },
       { header: '인증성공일', key: 'certdate', width: 14 },
@@ -31429,6 +31533,7 @@ async function exportSettlementsExcel() {
         campno:   camp.campaign_no || '',
         title:    camp.title || '',
         amount:   Number(s.amount_jpy) || 0,
+        amtsrc:   settlementAmountSourceLabel(s.amount_source),
         paypal:   s.paypal_email || '',
         status:   settlementStatusKo(s.status),
         certdate: s.created_at ? formatDate(s.created_at) : '',
@@ -31627,15 +31732,12 @@ function renderPastUnregRow(r) {
   const typeLabel = PAST_UNREG_TYPE_LABELS[r.recruit_type] || r.recruit_type || '';
   const campCell = `${campNo}<div style="font-size:13px">${esc(r.campaign_title || '—')}</div>`
     + (typeLabel ? `<div style="font-size:10px;color:var(--muted)">${esc(typeLabel)}</div>` : '');
-  // 금액 — 미확정이면 사유 배지, 정상이면 금액 + 출처 배지(제품 가격 / 현금 리워드)
-  const sourceLabel = r.amount_source === 'product_price' ? '제품 가격'
-    : r.amount_source === 'product_plus_reward' ? '제품＋보수'
-    : r.amount_source === 'reward' ? '현금 리워드' : '';
+  // 금액 — 미확정이면 사유 배지, 정상이면 금액 + 출처 배지(정산 목록과 같은 헬퍼)
   const amountCell = issue
     ? `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="${esc(r.amount_issue)}">금액 미확정</span>`
       + `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.amount_issue)}</div>`
     : `<div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</div>`
-      + (sourceLabel ? `<div style="font-size:10px;color:var(--muted)">${esc(sourceLabel)}</div>` : '');
+      + settlementAmountSourceBadge(r.amount_source);
   const certCell = r.cert_at
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
@@ -31763,6 +31865,9 @@ async function pastUnregRegister(targetStatus) {
   if (memoEl) memoEl.value = '';
   await loadPastUnregSettlements();   // 과거 목록 재조회(처리된 건은 목록에서 사라짐)
   await refreshPane('settlements');   // 정산 메인 목록·정산대기 배지 갱신 (quality.md)
+  // 처리한 만큼 과거 미등록 건수가 실제로 줄어드는 유일한 경로 — 진입 버튼 배지·안내를 여기서 갱신
+  // (reloadSettlementsData 에는 넣지 않는다 — 정산 처리마다 전건 스캔이 붙는 것을 피하려고)
+  refreshPastUnregEntryInfo();
 }
 
 // ═════════════════════════════════════════════════════════════════

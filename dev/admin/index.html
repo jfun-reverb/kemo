@@ -1237,13 +1237,20 @@
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
-                  과거 미등록
+                  과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
                 </button>
                 <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
                   엑셀
                 </button>
               </div>
+            </div>
+            <!-- 금액 확인 필요 안내 — 인증은 끝났는데 캠페인에 금액이 없어 정산을 만들 수 없는 건.
+                 0건이면 통째로 숨긴다(평소엔 안 보이는 게 정상). -->
+            <div id="settlementAmountIssueBanner" style="display:none;padding:10px 12px;background:#FFF4F4;border:1px solid #F2B8B8;border-radius:8px;font-size:12px;line-height:1.6;color:#8A2B2B;margin-bottom:12px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">error_outline</span>
+              <span id="settlementAmountIssueText"></span>
+              <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openPastUnregView()">확인하러 가기</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
