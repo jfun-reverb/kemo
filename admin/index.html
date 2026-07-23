@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784788475';
+  var CURRENT_BUILD = 'v1784789746';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2500,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 15:34 · 58998e4</span>
+          <span class="admin-build-text">2026-07-23 15:55 · 3b9acc7</span>
         </div>
       </div>
     </aside>
@@ -11707,8 +11707,23 @@ function toast(msg, type='') {
 }
 function loading(v) { document.getElementById('loadingOverlay').classList.toggle('show', v); }
 function $(id) { return document.getElementById(id); }
-function formatDate(d) { return d ? new Date(d).toLocaleDateString('ja-JP') : ''; }
-function formatDateTime(d) { if(!d) return ''; const dt=new Date(d); return dt.toLocaleDateString('ja-JP')+' '+dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
+// 사이트 공통 날짜 표기 — YYYY/MM/DD (월·일 앞자리 0 채움). 관리자·인플루언서 화면 동일.
+//   로케일 함수(toLocaleDateString)는 브라우저 언어에 따라 2026/7/3 · 2026. 7. 3. 등으로 흔들리고
+//   자릿수가 들쭉날쭉해 표 정렬이 어긋나므로, 로케일에 기대지 않고 직접 조합한다.
+//   ※ 문장형 표기(「2026년 7월 22일」·「2026年7月22日」 — 약관 시행일 등)와 차트 축·좁은 칸의
+//     축약(M/D)은 성격이 달라 이 함수를 쓰지 않는다.
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '/' + String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0');
+}
+function formatDateTime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return formatDate(dt) + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+}
 function dDayLabel(d) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
@@ -15007,10 +15022,7 @@ function fmtKrw(n) {
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  try {
-    var d = new Date(iso);
-    return d.toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\s+/g,'');
-  } catch(e) { return '—'; }
+  return formatDate(iso) || '—';   // 사이트 공통 표기 YYYY/MM/DD (ui.js)
 }
 
 // 브랜드 서베이 신청 목록 엑셀 다운로드 (현재 필터·정렬 결과)
@@ -15075,8 +15087,9 @@ async function exportBrandApplicationsExcel() {
     };
     var fmtDateOnly = function(iso) {
       if (!iso) return '';
-      try { return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }); }
-      catch(e) { return String(iso); }
+      // 사이트 공통 표기 YYYY/MM/DD. 브라우저 시간대 기준이지만 운영·인플 모두 한국/일본(UTC+9)이라
+      // 기존 Asia/Seoul 고정과 결과가 같다.
+      return formatDate(iso) || String(iso);
     };
 
     var totalProductRows = 0;
@@ -17910,12 +17923,12 @@ function openBrandAppFromDashboard(id) {
   if (typeof switchAdminPane === 'function') switchAdminPane('brand-applications', null);
 }
 
-// 일정 셀용 짧은 날짜 포맷 ("2026/5/1") — 표 폭 절약
+// 일정 셀용 날짜 포맷 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23)
 function fmtDateShort(d) {
   if (!d) return '';
   var dt = (d instanceof Date) ? d : new Date(d);
   if (isNaN(dt.getTime())) return String(d);
-  return dt.getFullYear() + '/' + (dt.getMonth() + 1) + '/' + dt.getDate();
+  return formatDate(dt);
 }
 
 // 모집기간·배송기간 셀 (range) — display + ✎ 인라인 편집
@@ -24246,7 +24259,7 @@ async function renderDelivCombinedBody(applicationId) {
         const thumb = orig
           ? `<img src="${esc(typeof imgThumb === 'function' ? imgThumb(orig, 64, 60) : orig)}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
-        const dateStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ja-JP') : '';
+        const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
         if (emptyChannels.length === 0) {
           control = '<span style="font-size:12px;color:var(--muted)">지정 가능한 채널이 없습니다 (모든 채널이 이미 채워짐)</span>'
@@ -26276,8 +26289,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var submittedStr = d.submitted_at ? formatDate(d.submitted_at) : '';
+      var reviewedStr = d.reviewed_at ? formatDate(d.reviewed_at) : '';
       var statusStr = statusLabelMap[d.status] || d.status || '';
       var urlCellValue = '';
       if (d.kind === 'post') {
@@ -26713,8 +26726,8 @@ async function exportCampaignDeliverables(campId) {
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var submittedStr = d.submitted_at ? formatDate(d.submitted_at) : '';
+      var reviewedStr = d.reviewed_at ? formatDate(d.reviewed_at) : '';
       var statusStr = statusLabelMap[d.status] || d.status || '';
       // URL 셀: post는 게시물 URL, receipt/review_image는 receipt_url 기반 하이퍼링크
       var urlCellValue = '';
@@ -26991,8 +27004,8 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
   var renderDeliv6 = function(d) {
     if (!d) return ['', '', '', '', '', ''];
-    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var sub = d.submitted_at ? formatDate(d.submitted_at) : '';
+    var rev = d.reviewed_at ? formatDate(d.reviewed_at) : '';
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {
@@ -27196,8 +27209,8 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
   var renderDeliv6 = function(d) {
     if (!d) return ['', '', '', '', '', ''];
-    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var sub = d.submitted_at ? formatDate(d.submitted_at) : '';
+    var rev = d.reviewed_at ? formatDate(d.reviewed_at) : '';
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {

@@ -314,10 +314,7 @@ function fmtKrw(n) {
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  try {
-    var d = new Date(iso);
-    return d.toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\s+/g,'');
-  } catch(e) { return '—'; }
+  return formatDate(iso) || '—';   // 사이트 공통 표기 YYYY/MM/DD (ui.js)
 }
 
 // 브랜드 서베이 신청 목록 엑셀 다운로드 (현재 필터·정렬 결과)
@@ -382,8 +379,9 @@ async function exportBrandApplicationsExcel() {
     };
     var fmtDateOnly = function(iso) {
       if (!iso) return '';
-      try { return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }); }
-      catch(e) { return String(iso); }
+      // 사이트 공통 표기 YYYY/MM/DD. 브라우저 시간대 기준이지만 운영·인플 모두 한국/일본(UTC+9)이라
+      // 기존 Asia/Seoul 고정과 결과가 같다.
+      return formatDate(iso) || String(iso);
     };
 
     var totalProductRows = 0;
@@ -3217,12 +3215,12 @@ function openBrandAppFromDashboard(id) {
   if (typeof switchAdminPane === 'function') switchAdminPane('brand-applications', null);
 }
 
-// 일정 셀용 짧은 날짜 포맷 ("2026/5/1") — 표 폭 절약
+// 일정 셀용 날짜 포맷 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23)
 function fmtDateShort(d) {
   if (!d) return '';
   var dt = (d instanceof Date) ? d : new Date(d);
   if (isNaN(dt.getTime())) return String(d);
-  return dt.getFullYear() + '/' + (dt.getMonth() + 1) + '/' + dt.getDate();
+  return formatDate(dt);
 }
 
 // 모집기간·배송기간 셀 (range) — display + ✎ 인라인 편집
