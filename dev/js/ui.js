@@ -144,8 +144,23 @@ function toast(msg, type='') {
 }
 function loading(v) { document.getElementById('loadingOverlay').classList.toggle('show', v); }
 function $(id) { return document.getElementById(id); }
-function formatDate(d) { return d ? new Date(d).toLocaleDateString('ja-JP') : ''; }
-function formatDateTime(d) { if(!d) return ''; const dt=new Date(d); return dt.toLocaleDateString('ja-JP')+' '+dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
+// 사이트 공통 날짜 표기 — YYYY/MM/DD (월·일 앞자리 0 채움). 관리자·인플루언서 화면 동일.
+//   로케일 함수(toLocaleDateString)는 브라우저 언어에 따라 2026/7/3 · 2026. 7. 3. 등으로 흔들리고
+//   자릿수가 들쭉날쭉해 표 정렬이 어긋나므로, 로케일에 기대지 않고 직접 조합한다.
+//   ※ 문장형 표기(「2026년 7월 22일」·「2026年7月22日」 — 약관 시행일 등)와 차트 축·좁은 칸의
+//     축약(M/D)은 성격이 달라 이 함수를 쓰지 않는다.
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '/' + String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0');
+}
+function formatDateTime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return formatDate(dt) + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+}
 function dDayLabel(d) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
