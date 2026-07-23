@@ -5202,6 +5202,21 @@ async function fetchAdminNamesByIds(authIds) {
   } catch(e) { console.error('[fetchAdminNamesByIds]', e); return {}; }
 }
 
+// 캠페인 id 배열 → {id: {campaign_no, title, deleted_at, status}} 맵. 보관/완전삭제 판별 포함(deleted_at 필터 없음).
+//   오리엔시트 상세에서 발행 카드의 연결 캠페인 번호·상태 표시용. 맵에 없는 id = 완전 삭제(행 없음).
+async function fetchCampaignsByIds(ids) {
+  if (!db || !Array.isArray(ids)) return {};
+  const uniq = [...new Set(ids.filter(Boolean))];
+  if (!uniq.length) return {};
+  try {
+    const {data, error} = await db.from('campaigns').select('id, campaign_no, title, deleted_at, status').in('id', uniq);
+    if (error) throw error;
+    const map = {};
+    (data||[]).forEach(c => { map[c.id] = c; });
+    return map;
+  } catch (e) { console.error('[fetchCampaignsByIds]', e); return {}; }
+}
+
 async function fetchDeletedCampaigns() {
   if (!db) return [];
   try {
