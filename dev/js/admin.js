@@ -300,7 +300,8 @@ async function loadAdminCampaigns(useCache) {
 
   // 「삭제됨」 탭에선 활성 전용 컨트롤(타입·검색·엑셀·순서변경)을 숨긴다 — 조기 return 으로 반응하지 않아 혼동 방지.
   const _isDelTab = _campActiveStatusTab === 'deleted';
-  const _fb = $('campFilterBar');   if (_fb) _fb.style.display = _isDelTab ? 'none' : 'flex';
+  // 필터바(타입·검색)는 삭제됨 탭에서도 사용 가능. 툴바(엑셀·순서변경)는 삭제됨에 무의미하므로 숨김.
+  const _fb = $('campFilterBar');   if (_fb) _fb.style.display = 'flex';
   const _tb = $('campListToolbar'); if (_tb) _tb.style.display = _isDelTab ? 'none' : 'flex';
   // 삭제됨 탭은 활성 목록용 min-width(2150px) 대신 콘텐츠 폭 + 캠페인명 열 좌측 고정 (deleted-mode CSS)
   const _dtbl = $('adminCampsBody') && $('adminCampsBody').closest('table');
@@ -2045,9 +2046,25 @@ function renderDeletedCampsPane() {
   const body = $('adminCampsBody');
   if (!body) return;
   if (campsLazy) { campsLazy.destroy(); campsLazy = null; }  // 활성용 lazy 리스트 정리
-  const list = _deletedCampsCache || [];
+  const all = _deletedCampsCache || [];
+  // 타입 필터 카운트를 삭제됨 캠페인 기준으로 재sync (loadAdminCampaigns 는 활성 기준으로 sync 하므로 덮어씀)
+  const _delRt = {monitor:0, gifting:0, visit:0};
+  all.forEach(c => { if (c.recruit_type in _delRt) _delRt[c.recruit_type]++; });
+  syncMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count:_delRt.monitor},
+    {value:'gifting', label:'기프팅',  count:_delRt.gifting},
+    {value:'visit',   label:'방문형',  count:_delRt.visit},
+  ], () => filterAdminCampaigns());
+  // 타입·검색 필터 적용 (활성 목록과 동일 검색 필드)
+  let list = all.slice();
+  const typeVals = getMultiFilterValues('campTypeMulti');
+  if (typeVals.length) list = list.filter(c => typeVals.includes(c.recruit_type));
+  const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
+  if (searchVal) list = list.filter(c => matchSearchTokens(searchVal,
+    [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
+  updateCampViewResetBtn();
   const isSuper = currentAdminInfo?.role === 'super_admin';
-  const emptyHtml = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">삭제된 캠페인이 없습니다</td></tr>`;
+  const emptyHtml = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${all.length ? '조건에 맞는 삭제된 캠페인이 없습니다' : '삭제된 캠페인이 없습니다'}</td></tr>`;
   body.innerHTML = list.length ? list.map(c => buildDeletedCampRow(c, isSuper)).join('') : emptyHtml;
 }
 
