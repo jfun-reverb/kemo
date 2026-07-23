@@ -775,6 +775,53 @@ function applyEditFormSensitiveLocks(status) {
       lockMsg.remove();
     }
   });
+  // 모집 형식·채널·콘텐츠 종류도 함께 잠금 (2026-07-23)
+  applyCampChoiceLocks(isLocked, lockLabel);
+}
+
+// 캠페인 편집 폼: 모집 형식 / 채널(+표시 방식) / 콘텐츠 종류 선택 UI 잠금·해제
+//   왜 이 3종인가: 모집이 끝난 뒤 값이 바뀌면 진행 중인 캠페인 데이터가 어긋난다.
+//     ① 채널 변경 → 이미 승인된 인플루언서의 게시물이 「캠페인 요구 채널과 불일치」로 제출 자체가 막힘
+//     ② 모집 형식 변경 → 요구 결과물 종류(영수증 ↔ 게시물)가 바뀌어 제출된 결과물이 캠페인과 어긋남
+//     ③ 콘텐츠 종류 변경 → 리뷰어 캠페인은 옵션이 영상·이미지로 제한돼 저장 시 기존 값이 폐기됨
+//   모집인원·리워드·기간·문구·이미지는 마감 뒤에도 정정 실무가 잦아 잠그지 않는다.
+//   주의: 체크박스·라디오가 label 클릭으로 동작(input 은 display:none)하므로
+//         input.disabled 만으로는 안 막힌다 → label 의 pointer-events 까지 차단해야 실제로 잠긴다.
+//   해제 경로 필수: 같은 폼 DOM 을 모든 캠페인이 재사용하므로 isLocked=false 일 때 원복까지 처리한다.
+function applyCampChoiceLocks(isLocked, lockLabel) {
+  const reason = `${lockLabel} 캠페인은 변경할 수 없습니다 — 이미 승인된 인플루언서의 결과물 제출에 영향을 줍니다`;
+  const groups = [
+    { wrap: document.querySelector('input[name="editRecruitType"]')?.closest('div'), showMsg: true },
+    { wrap: $('editCampChannelWrap'), showMsg: true },
+    { wrap: $('editCampChannelMatchGroup'), showMsg: false },
+    { wrap: $('editCampContentTypeWrap'), showMsg: true },
+  ];
+  groups.forEach(({ wrap, showMsg }) => {
+    if (!wrap) return;
+    wrap.querySelectorAll('input').forEach(inp => { inp.disabled = isLocked; });
+    wrap.querySelectorAll('label').forEach(lb => {
+      lb.style.pointerEvents = isLocked ? 'none' : '';
+      lb.style.opacity = isLocked ? '0.55' : '';
+      lb.style.cursor = isLocked ? 'not-allowed' : 'pointer';
+      lb.title = isLocked ? reason : '';
+    });
+    if (!showMsg) return;
+    const host = wrap.parentElement;
+    if (!host) return;
+    let lockMsg = host.querySelector(':scope > .choice-lock-msg');
+    if (isLocked) {
+      if (!lockMsg) {
+        lockMsg = document.createElement('div');
+        lockMsg.className = 'choice-lock-msg';
+        lockMsg.style.cssText = 'font-size:11px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:4px';
+        host.appendChild(lockMsg);
+      }
+      lockMsg.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:14px">lock</span>${lockLabel} 캠페인은 변경할 수 없습니다`;
+      lockMsg.title = reason;
+    } else if (lockMsg) {
+      lockMsg.remove();
+    }
+  });
 }
 
 // 주의사항/참여방법 변경 감지 (저장 직전 호출)
