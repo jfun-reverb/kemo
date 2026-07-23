@@ -2509,6 +2509,17 @@
   </div>
 </div>
 
+<!-- 삭제된 캠페인 정보 (읽기 전용) — 「삭제됨」 탭 제목 클릭 시. 인플 앱이 삭제 캠페인을 못 봐 iframe 미리보기 불가라 관리자용 정보 요약 -->
+<div id="deletedCampDetailModal" class="modal-overlay">
+  <div class="modal" style="max-width:560px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">삭제된 캠페인 정보 <span style="font-size:12px;color:var(--muted);font-weight:400">(읽기 전용)</span></div>
+      <div class="modal-close" onclick="closeModal('deletedCampDetailModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body" id="deletedCampDetailBody" style="overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- 관리자 메일 받기 설정 모달 -->
 <div class="modal-overlay" id="adminEmailSubsModal">
   <div class="modal" style="max-width:440px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">

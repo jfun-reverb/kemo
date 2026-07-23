@@ -2065,7 +2065,7 @@ function buildDeletedCampRow(c, isSuper) {
         </div>
         <div style="min-width:0;flex:1">
           ${c.campaign_no ? `<div style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(c.campaign_no)}</div>` : ''}
-          <strong style="color:var(--ink);word-break:break-word;line-height:1.4">${esc(c.title)}</strong>
+          <strong style="color:var(--dark-pink);cursor:pointer;word-break:break-word;line-height:1.4" onclick="openDeletedCampDetail('${c.id}')" title="캠페인 정보 보기 (읽기 전용)">${esc(c.title)}</strong>
         </div>
       </div>
     </td>
@@ -2095,6 +2095,55 @@ async function restoreCampaignAction(campId) {
     await loadAdminCampaigns();  // 보관 캐시 갱신 + 목록 재렌더 (삭제됨 탭 유지)
     toast('캠페인을 복구했습니다','success');
   } catch(e) { toast('복구 오류: ' + friendlyError(e.message),'error'); }
+}
+
+// 삭제된 캠페인 읽기 전용 상세 — 「삭제됨」 탭에서 제목 클릭 시. _deletedCampsCache 데이터로 직접 렌더.
+//   (활성 캠페인 미리보기는 인플 화면 iframe이지만, 삭제 캠페인은 인플 앱이 못 조회해 관리자용 정보 요약으로 대체)
+function openDeletedCampDetail(campId) {
+  const c = (_deletedCampsCache || []).find(x => x.id === campId);
+  const body = $('deletedCampDetailBody');
+  if (!c || !body) { toast('캠페인 정보를 찾을 수 없습니다','error'); return; }
+  const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+  const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
+  const purgeAt = delAt ? new Date(delAt.getTime()+30*24*60*60*1000) : null;
+  const rt = { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' }[c.recruit_type] || c.recruit_type || '';
+  const stKey = (typeof campaignStatusLabelKey==='function') ? campaignStatusLabelKey(c) : c.status;
+  const stLabel = (typeof CAMPAIGN_STATUS_LABEL!=='undefined' && CAMPAIGN_STATUS_LABEL[stKey]) || c.status || '';
+  // 라벨-값 한 줄 (값 없으면 렌더 생략). val 은 이미 안전한 HTML 또는 esc 처리된 문자열.
+  const row = (label, val) => val ? `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><div style="min-width:96px;color:var(--muted);font-size:12px;flex-shrink:0">${label}</div><div style="flex:1;font-size:13px;color:var(--ink);word-break:break-word">${val}</div></div>` : '';
+  // 리치 텍스트(설명·소구·가이드 = Quill v2) — 기존 캠페인 미리보기와 동일하게 richHtml 사용
+  //   (sanitizeCautionHtml 은 미니에디터 전용이라 헤더·목록·인용구를 제거해 서식이 깨짐). 렌더 단 2중 sanitize.
+  const richBlock = (title, htmlStr) => htmlStr ? `<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">${title}</div><div style="font-size:13px;color:var(--ink);line-height:1.6">${typeof richHtml==='function' ? richHtml(htmlStr) : esc(htmlStr)}</div></div>` : '';
+  const imgGallery = imgs.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${imgs.map(u => `<div style="width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim)">${renderCroppedImg(u, null, {thumb:144, quality:70, lazy:true})}</div>`).join('')}</div>` : '';
+  const purchaseVisit = c.recruit_type==='monitor' ? periodRangeCell(c.purchase_start, c.purchase_end)
+                      : c.recruit_type==='visit'   ? periodRangeCell(c.visit_start, c.visit_end) : '';
+  body.innerHTML = `
+    <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#B3261E">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">delete</span>
+      이 캠페인은 삭제되어 보관 중입니다. 정보 확인만 가능하며 수정할 수 없습니다.
+    </div>
+    ${imgGallery}
+    ${row('제목', esc(c.title))}
+    ${row('캠페인번호', c.campaign_no ? `<span style="font-family:monospace">${esc(c.campaign_no)}</span>` : '')}
+    ${row('브랜드', esc(brandLabelAdmin(c) || ''))}
+    ${row('제품', esc(c.product_ko || c.product || ''))}
+    ${row('모집 타입', esc(rt))}
+    ${row('채널', channelChipsHtml(c.channel, c.channel_match))}
+    ${row('삭제 전 상태', esc(stLabel))}
+    ${row('모집 인원', c.slots ? `${c.slots}명` : '')}
+    ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
+    ${row('리워드', esc(c.reward || ''))}
+    ${row('리워드 안내', esc(c.reward_note || ''))}
+    ${row('모집 기간', periodRangeCell(c.recruit_start, c.deadline))}
+    ${row('구매/방문 기간', purchaseVisit)}
+    ${row('결과물 제출 마감', c.submission_end ? periodSingleCell(c.submission_end) : '')}
+    ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
+    ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
+    ${richBlock('제품 · 캠페인 설명', c.description)}
+    ${richBlock('소구 포인트', c.appeal)}
+    ${richBlock('콘텐츠 가이드', c.guide)}
+  `;
+  openModal('deletedCampDetailModal');
 }
 
 // 완전삭제 — 캠페인 행 hard delete (super_admin 전용). 되돌릴 수 없음.
