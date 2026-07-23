@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784789746';
+  var CURRENT_BUILD = 'v1784790310';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2500,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 15:55 · 3b9acc7</span>
+          <span class="admin-build-text">2026-07-23 16:05 · bf66bc6</span>
         </div>
       </div>
     </aside>
@@ -19494,12 +19494,9 @@ var BRAND_OPS_CAMP_STATUS_COLOR = {
 // 캠페인 모집 타입 한글 (admin.js 의 RECRUIT_TYPE_LABEL_KO 폴백)
 var BRAND_OPS_RECRUIT_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
 
-// M/D 짧은 날짜
+// 기간 표시용 날짜 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 M/D 축약 폐지)
 function brandOpsShortDate(d) {
-  if (!d) return '';
-  var dt = new Date(d);
-  if (isNaN(dt)) return '';
-  return (dt.getMonth() + 1) + '/' + dt.getDate();
+  return formatDate(d);
 }
 
 // 채널 문자열(콤마구분) → 한글 라벨, 복수면 channel_match 구분자
@@ -20306,11 +20303,9 @@ function admStatusLineKo(key, camp) {
   return text.replace('{date}', mmdd);
 }
 
+// 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 MM/DD 축약 폐지)
 function _admMMDD(d) {
-  const ms = Date.parse(d || '');
-  if (isNaN(ms)) return '';
-  const dt = new Date(ms);
-  return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
+  return formatDate(d);
 }
 
 // FAQ 열람 이력 패널 토글(§3-2) — 시간순 「언제 / 질문 제목 / 받은 답변 요약 / 결과」.
