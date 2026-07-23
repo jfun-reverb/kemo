@@ -388,6 +388,30 @@ Critical·Major 0건. 최대 위험 경로(「화면에 안 보이는 건이 선
 
 `refreshPastUnregEntryInfo()`(승인 응모 전건 스캔)를 **페인 진입 시에만** 호출한다. 리뷰에서 「`reloadSettlementsData` 에 두면 정산 1건 처리마다 큰 스캔이 따라붙는다」는 지적을 받아, 진입(`loadSettlements`)과 **실제로 건수가 줄어드는 경로**(`pastUnregRegister`)에서만 호출하도록 옮겼다. 정산 처리(송금완료·보류·취소)는 과거 미등록 건수를 바꾸지 않으므로 갱신할 이유가 없다.
 
+### PR 1 후속 — 무보수 시딩·방문형 후보 오포함 수정 (운영 실측 회귀)
+
+**구현일:** 2026-07-23
+**마이그레이션:** **264** `264_settlement_gifting_visit_zero_reward_exclusion.sql`
+**배포 상태:** 개발서버 코드 작성 완료 — **운영 미배포**(PR 1과 함께 아직 dev 미배포)
+
+#### 문제
+
+262 가 후보 조건 `c.reward > 0` 을 제거하면서, 리뷰어형(monitor) 목적(product_price 후보 포함)은 달성했지만 **현금 리워드가 없는 시딩(gifting)·방문형(visit) 캠페인**(제품만 제공하는 정상 무보수 캠페인, §3-1 "세부 규칙" 마지막 항목)까지 후보에 들어와 `amount_issue`(금액 오류)로 오표시됐다. 운영 실측: gifting 인증성공 300건 중 261건이 이 사유(정상 캠페인 34개 중 33개가 `reward=0`).
+
+#### 수정
+
+`_settlement_cert_candidates()` 의 candidates CTE 에 `NOT (recruit_type<>'monitor' AND (reward IS NULL OR reward<=0))` 조건을 추가해 이들을 **후보에서 완전히 제외**(262 이전 동작 재현). `amount_issue` CASE 문에서 도달 불가능해진 시딩·방문형 2개 분기는 제거(monitor 의 product_price 분기는 유지 — 진짜 오류). 반환 타입 불변(`CREATE OR REPLACE`, DROP 불필요). 인증 성공 판정·금액 계산 로직 자체는 무변경.
+
+#### 초안 대비 변경 사항
+
+- **추가된 것**: 262에는 없던 candidates CTE 제외 조건 1개. §3-1 원안이 원래 의도했던 "무보수는 대상 아님"을 정확히 복원.
+- **빠진 것**: 없음.
+- **결과 지표(개발서버 적용 후 확인 예정)**: gifting `success_but_amount_issue_cnt` 261→0, `success_cnt` 300→39. monitor 는 485건·1,990,046엔 그대로 불변(영향 없음).
+
+#### 함수 재정의 베이스 확인
+
+`grep -rl "_settlement_cert_candidates" supabase/migrations/` 전수 확인 결과 정의 파일은 232(원본)·262(재정의) 두 곳뿐 — 262 를 베이스로 삼음(파일 번호가 가장 큰 정의 원칙). `backfill_settlements()` 등 3개 호출부는 262 가 이미 242 의 알림 잠금 게이트를 계승해 뒀고 이 마이그레이션이 그 함수들을 건드리지 않으므로 게이트 소실 위험 없음.
+
 ### PR 4 이후 — 미착수
 
 인플루언서 문구(PR 4), 약관(PR 5)은 미착수.
