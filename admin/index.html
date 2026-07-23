@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784769744';
+  var CURRENT_BUILD = 'v1784771054';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -738,6 +738,20 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
 #adminPane-campaigns .data-table{min-width:2150px}
+/* 「삭제됨」 탭(7컬럼)은 활성 목록용 min-width(2150)·1~3열 sticky/폭 강제 대신 콘텐츠 폭 + 캠페인명(첫 열)만 좌측 고정 */
+#adminPane-campaigns .data-table.deleted-mode{min-width:0;width:100%}
+/* 활성 목록의 캠페인(2)·채널(3) 폭·sticky 강제를 삭제됨 컬럼 구성(캠페인/채널/브랜드…)에 맞게 해제 —
+   삭제됨은 체크박스 열이 없어 열이 하나씩 앞당겨지므로 기존 nth-child(2)/(3) 규칙이 엉뚱한 열에 걸린다 */
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(3),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(3){width:auto;min-width:0;max-width:none;position:static;left:auto;box-shadow:none}
+/* 캠페인명(첫 열)만 좌측 고정 + 체크박스용 44px 폭 강제 해제 */
+#adminPane-campaigns .data-table.deleted-mode th:first-child,
+#adminPane-campaigns .data-table.deleted-mode td:first-child{position:sticky;left:0;background:var(--surface);z-index:4;width:auto;min-width:0;max-width:340px}
+#adminPane-campaigns .data-table.deleted-mode th:first-child{z-index:6}
+/* 헤더 첫 열은 다른 헤더 셀과 같은 배경(surface-dim)으로 — 바디 sticky 셀만 surface */
+#adminPane-campaigns .data-table.deleted-mode thead th:first-child{background:var(--surface-dim)}
 
 /* 1열 체크박스 (44px) — sticky
    thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
@@ -2486,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 10:22 · 28f9b1e</span>
+          <span class="admin-build-text">2026-07-23 10:44 · 30798e9</span>
         </div>
       </div>
     </aside>
@@ -32568,6 +32582,9 @@ async function loadAdminCampaigns(useCache) {
   const _isDelTab = _campActiveStatusTab === 'deleted';
   const _fb = $('campFilterBar');   if (_fb) _fb.style.display = _isDelTab ? 'none' : 'flex';
   const _tb = $('campListToolbar'); if (_tb) _tb.style.display = _isDelTab ? 'none' : 'flex';
+  // 삭제됨 탭은 활성 목록용 min-width(2150px) 대신 콘텐츠 폭 + 캠페인명 열 좌측 고정 (deleted-mode CSS)
+  const _dtbl = $('adminCampsBody') && $('adminCampsBody').closest('table');
+  if (_dtbl) _dtbl.classList.toggle('deleted-mode', _isDelTab);
 
   // 「삭제됨」 탭 — 보관 캠페인(deleted_at NOT NULL) 전용 렌더. 활성 목록의 필터·집계·정렬·lazy 로직과 분리.
   if (_campActiveStatusTab === 'deleted') { renderDeletedCampsPane(); return; }

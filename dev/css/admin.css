@@ -278,6 +278,20 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
 #adminPane-campaigns .data-table{min-width:2150px}
+/* 「삭제됨」 탭(7컬럼)은 활성 목록용 min-width(2150)·1~3열 sticky/폭 강제 대신 콘텐츠 폭 + 캠페인명(첫 열)만 좌측 고정 */
+#adminPane-campaigns .data-table.deleted-mode{min-width:0;width:100%}
+/* 활성 목록의 캠페인(2)·채널(3) 폭·sticky 강제를 삭제됨 컬럼 구성(캠페인/채널/브랜드…)에 맞게 해제 —
+   삭제됨은 체크박스 열이 없어 열이 하나씩 앞당겨지므로 기존 nth-child(2)/(3) 규칙이 엉뚱한 열에 걸린다 */
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(3),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(3){width:auto;min-width:0;max-width:none;position:static;left:auto;box-shadow:none}
+/* 캠페인명(첫 열)만 좌측 고정 + 체크박스용 44px 폭 강제 해제 */
+#adminPane-campaigns .data-table.deleted-mode th:first-child,
+#adminPane-campaigns .data-table.deleted-mode td:first-child{position:sticky;left:0;background:var(--surface);z-index:4;width:auto;min-width:0;max-width:340px}
+#adminPane-campaigns .data-table.deleted-mode th:first-child{z-index:6}
+/* 헤더 첫 열은 다른 헤더 셀과 같은 배경(surface-dim)으로 — 바디 sticky 셀만 surface */
+#adminPane-campaigns .data-table.deleted-mode thead th:first-child{background:var(--surface-dim)}
 
 /* 1열 체크박스 (44px) — sticky
    thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
