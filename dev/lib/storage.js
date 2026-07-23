@@ -848,21 +848,8 @@ async function fetchDeliverableById(id) {
   } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
 }
 
-// applications.oriented_at 토글 (Stage 4: OT 발송 체크박스)
-async function updateApplicationOrientedAt(applicationId, isoOrNull) {
-  if (!db) return false;
-  let ok = false;
-  try {
-    await retryWithRefresh(async () => {
-      const {error} = await db?.from('applications')
-        .update({oriented_at: isoOrNull})
-        .eq('id', applicationId);
-      if (error) throw error;
-      ok = true;
-    });
-  } catch(e) { console.error('[updateApplicationOrientedAt]', e); }
-  return ok;
-}
+// (2026-07-23) updateApplicationOrientedAt 제거 — 「오리엔시트 발송」 체크 기능 폐기.
+//   applications.oriented_at 컬럼과 기존 기록은 그대로 보존한다(되살릴 때 이 함수만 복구하면 됨).
 
 // Stage 6: 본인 알림 조회 (마이페이지 상단 알림 섹션용)
 // 관리자는 RLS SELECT 정책으로 전체 알림 SEE 가능하므로 명시적 user_id 필터 필수
