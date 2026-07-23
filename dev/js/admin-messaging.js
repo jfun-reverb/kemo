@@ -1023,9 +1023,11 @@ function renderApplicantMsgBtn(app) {
   if (!app || !app.id) return '';
   const unread = _applicantMsgUnreadMap.get(app.id) || 0;
   const badge = unread > 0 ? `<span class="applicant-msg-badge">${unread > 99 ? '99+' : unread}</span>` : '';
-  return `<button type="button" class="applicant-msg-btn" title="메시지" data-msgbtn="${esc(app.id)}"
+  // 아이콘 전용 — 이름 칸 오른쪽 끝에 놓이므로 글자 없이 아이콘 하나(뜻은 title·aria-label 로)
+  const label = unread > 0 ? `메시지 (읽지 않음 ${unread}건)` : '메시지';
+  return `<button type="button" class="applicant-msg-btn" title="${esc(label)}" aria-label="${esc(label)}" data-msgbtn="${esc(app.id)}"
     onclick="openAdminMessageModal('${esc(app.id)}','${esc(app.campaign_id || '')}')">
-    <span class="material-icons-round notranslate" translate="no">forum</span><span>메시지</span>${badge}</button>`;
+    <span class="material-icons-round notranslate" translate="no">forum</span>${badge}</button>`;
 }
 
 // 모달 열어 읽음 처리 후 특정 응모 행 배지 갱신 (DOM 직접 — 행 전체 재렌더 회피)

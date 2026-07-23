@@ -232,21 +232,24 @@ function buildInfRowAll(u) {
   // PayPal 배지는 has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라
   // "등록 여부"만 표시하므로 마스킹된 관리자 등급도 정확하게 본다.
   const paypalBadge = u.has_paypal ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-  const snsCell = (channel, raw) => {
+  // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
+  // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  const snsCell = (channel, raw, followers) => {
     const handle = extractSnsHandle(channel, raw);
     if (!handle) return '—';
     const safe = esc(handle);
     const url = snsProfileUrl(channel, handle);
     const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
-    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+    return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
+      + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
   return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
     <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-    <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-    <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-    <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-    <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td>${snsCell('instagram', u.ig, igF)}</td>
+    <td>${snsCell('x', u.x, xF)}</td>
+    <td>${snsCell('tiktok', u.tiktok, ttF)}</td>
+    <td>${snsCell('youtube', u.youtube, ytF)}</td>
     <td style="font-weight:700;color:var(--pink)">${total}</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(maskedFieldByFlag(u.line_id, u.has_line), 120)}</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
