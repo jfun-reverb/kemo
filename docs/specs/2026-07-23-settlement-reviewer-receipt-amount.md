@@ -297,4 +297,41 @@
 
 ## 7. 구현 결과
 
-(개발 세션이 채울 것 — 실제 마이그레이션 번호·커밋·초안 대비 변경 사항)
+### PR 1 — 금액 산정 규칙(서버)
+
+**구현일:** 2026-07-23
+**관련 커밋·PR:** `3025198` / PR #824 (`feature/settlement-reviewer-amount` → `dev`)
+**마이그레이션:** **261** `261_settlements_amount_source.sql` · **262** `262_settlement_amount_by_recruit_type.sql`
+**배포 상태:** 개발서버 코드 머지 + 개발 데이터베이스 적용 완료. **운영 미배포**
+
+#### 초안 대비 변경 사항
+
+- **달라진 것 없음** — §3-1·§3-2 설계 그대로 구현. 금액은 `recruit_type` 하나로만 분기(가구매 `proxy_purchase` 는 인증 판정에서만 갈림).
+- **빠진 것**: 현금 보수 합산(`product_plus_reward`)은 계산 미구현. `amount_source` 허용값과 `reward_part_jpy` 칸만 열어 두고 항상 NULL(§6 Q1 미결). 나중에 합산으로 바꿀 때 헬퍼의 CASE 문 한 곳만 고치면 되도록 계산부를 모아 둠.
+
+#### 구현 중 기술 결정 사항
+
+- **DROP 대상 최소화**: 반환 항목이 바뀌는 `_settlement_cert_candidates()` · `get_past_unregistered_settlements()` 2개만 DROP 후 재생성. `backfill_settlements()` · `register_past_settlements()` 는 반환 구성이 그대로라 `CREATE OR REPLACE` 만. `CASCADE` 미사용. DROP 순서는 「부르는 쪽 → 헬퍼」, 생성 순서는 「헬퍼 → 부르는 쪽」.
+- **`amount_issue` 처리 위치**: 후보에서 아예 빼지 않고 사유를 세워 **반환은 하되 INSERT에서만 제외**. 이렇게 해야 「인증은 끝났는데 금액을 못 정한 건」을 관리자 화면에 드러낼 수 있다(§3-3 (나)). `get_past_unregistered_settlements()` 는 이 행도 그대로 반환하고, 화면이 체크박스를 잠그는 방식.
+
+#### ⚠️ 리뷰에서 잡힌 Critical (재발 방지)
+
+262 초안이 `backfill_settlements()` 를 **232 기준**으로 재작성해, 그 뒤 **마이그레이션 242가 얹은 알림 잠금 게이트**(`v_notify := public.is_settlement_public()` + `notif_ins WHERE v_notify`)가 **조용히 소실**됐다. 그대로 배포됐다면 `influencer_visible = false`(운영 기본값·현재 잠금 상태)인데도 `settlement_paypal_required` 알림이 인플루언서에게 발송됐을 것이다. 커밋 전 복구 완료.
+
+- **근본 원인**: 한 함수를 여러 마이그레이션이 순차 재정의(218 → 231 → 232 → 242)해 왔는데, 「원본」을 232로 착각.
+- **재발 방지**: 262 파일 헤더에 「함수를 `CREATE OR REPLACE` 로 재정의할 땐 **파일 번호가 가장 큰 정의**를 베이스로 삼을 것」 경고를 명시. `CLAUDE.md` 정산 섹션에도 동일 경고 기재.
+- **전수 확인 결과**: 같은 유형 누락은 이 하나뿐. `_settlement_cert_candidates`(232만) · `get_past_unregistered_settlements`(232만) · `register_past_settlements`(233만) 는 원본 기준이 맞음. `ALTER FUNCTION` · `supabase/patches/` 포함 재확인 0건.
+
+#### 개발서버 검증 결과 (2026-07-23)
+
+| 확인 | 결과 |
+|---|---|
+| 261 적용 후 `amount_source` 백필 | 기존 24행 전부 `reward` — 정상 |
+| 262 적용 | 오류 없음 |
+| 헬퍼 반환 | **`monitor` 행이 `amount_source='product_price'` 로 처음 등장**(변경 적용 확인) · 후보 1건 · 인증성공 0건 · 금액미확정 0건 |
+
+⚠️ 개발서버에는 리뷰어형 인증 성공 데이터가 없어 **실제 금액 계산 정확성까지는 검증 불가**(§2-1 ④에서 예고한 한계). 운영 적용 시 **화면을 열기 전에 조회 함수로 건수·합계·금액 미확정 건수를 먼저 확인**할 것.
+
+### PR 2 이후 — 미착수
+
+「과거 미등록」 화면 안전장치(PR 2)는 **운영 배포 전 필수 선행**(§2-1 ②). 정산 목록 금액 구분 배지(PR 3), 인플루언서 문구(PR 4), 약관(PR 5)은 미착수.
