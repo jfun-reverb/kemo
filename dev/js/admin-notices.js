@@ -143,7 +143,7 @@ function renderAdminNotices() {
       <td>${unreadDot}${readCellInner}</td>
       <td>${adminNoticeStatusPill(n.status)}</td>
       <td>${adminNoticeCatPill(n.category)}</td>
-      <td style="font-weight:600;color:var(--ink)">${pinIcon}${esc(n.title)}</td>
+      <td style="font-weight:${n.is_read?'400':'600'};color:var(--ink)">${pinIcon}${esc(n.title)}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(n.created_by_name || '—')}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${dateStr}</td>
       <td>${canEdit(n) ? `<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openAdminNoticeEdit(this.closest('tr').dataset.id)"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}</td>
