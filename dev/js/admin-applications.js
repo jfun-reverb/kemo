@@ -118,13 +118,16 @@ async function loadCampApplicants() {
   const channelMatch = camp?.channel_match || 'or';
   const body = $('campApplicantsBody');
   if (!body) return;
-  const snsCell = (channel, raw) => {
+  // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
+  // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  const snsCell = (channel, raw, followers) => {
     const handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : (raw || '').replace(/^@/,'').trim();
     if (!handle) return '—';
     const safe = esc(handle);
     const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(channel, handle) : '';
     const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
-    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+    return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
+      + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const renderCampApplicantRow = (a) => {
     const _u = _users.find(u=>u.email===a.user_email)||{};
@@ -137,14 +140,18 @@ async function loadCampApplicants() {
     const _lineDisp = maskedFieldByFlag(_u.line_id, _u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
-      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
-      <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
+      <div class="applicant-name-cell">
+        <div class="applicant-name-info">
+          <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
+        </div>
+        ${renderApplicantMsgBtn(a)}
+      </div>
     </td>
-    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-    <td>${snsCell('x', _u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-    <td>${snsCell('tiktok', _u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-    <td>${snsCell('youtube', _u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig, igF)}</td>
+    <td>${snsCell('x', _u.x, xF)}</td>
+    <td>${snsCell('tiktok', _u.tiktok, ttF)}</td>
+    <td>${snsCell('youtube', _u.youtube, ytF)}</td>
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
@@ -677,9 +684,13 @@ async function renderAppCampList() {
         ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
-        <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
-        <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
+        <div class="applicant-name-cell">
+          <div class="applicant-name-info">
+            <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
+          </div>
+          ${renderApplicantMsgBtn(a)}
+        </div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>

@@ -221,7 +221,9 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-pane-list.on{display:flex!important;flex-direction:column;overflow:hidden!important}
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
+/* 목록 페인의 카드 제목 줄 — 제목과 오른쪽 버튼만 있는 줄이라 여백을 줄여 표를 더 보여준다
+   (공용 .admin-card-header 16px → 8px, 64px → 48px). 대시보드 카드는 별도 min-height 유지. */
+.admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative;padding-top:8px;padding-bottom:8px}
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--th-bg)}
@@ -379,6 +381,18 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
 #adminPane-deliverables .data-table thead th{white-space:nowrap}
+/* 영수증·결과물·최근 제출 열 (2026-07-23)
+   width 로만 주면 표가 화면 폭에 맞추려 열을 압축해(230px 지정이 실제 98px) 배지가 「검수대/기」로
+   쪼개지고 제출 일시가 두 줄로 끊겼다. min-width 는 압축 대상이 아니라 폭이 지켜진다.
+   캠페인 진행현황 「결과물 목록」 탭은 캠페인 열이 빠져 열 순서가 달라지므로,
+   nth-child 대신 칸에 붙인 이름으로 지정한다. */
+.deliv-col-brand{min-width:140px;max-width:180px}
+.deliv-col-receipt{min-width:150px}
+.deliv-col-result{min-width:220px}
+.deliv-col-submitted{min-width:140px;white-space:nowrap}
+/* 처리 열도 같이 잡아준다 — 위 세 열에 최소 폭을 주면 표가 남은 공간을 여기서 깎아
+   「검수」 버튼 글자가 세로로 쪼개졌다. */
+.deliv-col-action{min-width:90px;white-space:nowrap}
 
 /* 브랜드 관리 — 첫 컬럼(brand_no) 좌측 고정. 컬럼 폭은 inline style로 이미 명시됨 */
 #adminPane-brands .admin-table-wrap{overflow-x:auto}
@@ -400,19 +414,23 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 신청 그룹 시각화 — 같은 신청의 두 번째 이상 제품 행은 행 구분선 제거 (묶음 영역으로 보이게).
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
-#adminPane-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
+#adminPane-dashboard .kpi-row,
+#adminPane-brand-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 /* KPI 카드는 「상태별 캠페인」 칩과 같은 회색 박스 — 카드 안에 들어가므로
    테두리 대신 연회색 면으로 구분한다(카드 테두리와 이중이 되지 않게). */
-#adminPane-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
+#adminPane-dashboard .kpi-card,
+#adminPane-brand-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
 /* KPI 카드 상단 띠 제거 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어 정보를 주지 않았다.
    .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 두고 표시만 없앤다.
-   ⚠️ 회색 박스·작은 글자는 전체 현황 전용 — 같은 클래스를 쓰는 브랜드 서베이 현황
-      대시보드는 카드 래퍼가 없어 그 모양이 안 맞는다. 그래서 #adminPane-dashboard 로 한정. */
+   (2026-07-23) 브랜드 서베이 현황도 지표를 카드 안에 넣어 같은 모양이 됐다 —
+   예전에 여기 있던 「브랜드 쪽은 카드 래퍼가 없어 안 맞는다」는 단서는 해소됐다. */
 .kpi-card::after{content:none}
-#adminPane-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
+#adminPane-dashboard .kpi-val,
+#adminPane-brand-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
 .kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--ink)}
-#adminPane-dashboard .kpi-lbl{font-size:11px}
+#adminPane-dashboard .kpi-lbl,
+#adminPane-brand-dashboard .kpi-lbl{font-size:11px}
 .kpi-lbl{font-size:12px;color:var(--muted);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
 .signup-period-btn.on{background:var(--ink)!important;color:#fff!important}
@@ -1490,10 +1508,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .adm-faq-chip{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--dark-pink);background:var(--light-pink);border:1px dashed var(--pink);border-radius:8px;padding:3px 8px;margin:2px 0}
 .adm-faq-chip .material-icons-round{font-size:13px}
 /* 응모 행 메시지 버튼 */
-.applicant-msg-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:11px;color:var(--ink);position:relative}
+/* 인플루언서 이름·계정 정보 칸 (신청 관리·캠페인 진행현황·결과물 관리 공용)
+   — 정보는 왼쪽에 쌓고, 메시지 버튼은 칸 오른쪽 끝에 아이콘 하나로 띄운다. */
+.applicant-name-cell{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.applicant-name-info{min-width:0}
+/* 글자 없는 아이콘 버튼 — 뜻은 title·aria-label 로 전달. 이름이 길어도 안 찌부러지게 flex-shrink:0 */
+.applicant-msg-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;flex-shrink:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;color:var(--ink);position:relative}
 .applicant-msg-btn:hover{background:var(--light-pink);border-color:var(--pink)}
-.applicant-msg-btn .material-icons-round{font-size:14px;color:var(--pink)}
-.applicant-msg-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--pink);color:#fff;font-size:10px;font-weight:700;margin-left:2px}
+.applicant-msg-btn .material-icons-round{font-size:16px;color:var(--pink)}
+/* 미열람 배지 — 버튼이 작아져 옆에 못 붙이므로 오른쪽 위 모서리에 겹쳐 띄운다(흰 테두리로 버튼과 분리) */
+.applicant-msg-badge{position:absolute;top:-6px;right:-6px;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;border:1px solid #fff;background:var(--pink);color:#fff;font-size:10px;font-weight:700}
 
 /* ══════════════════════════════════
    FAQ (자동응답) 페인 — 좌우 2단 마스터-디테일 (마이그레이션 146)
@@ -1767,11 +1791,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    모든 인플·응모·결과물 행에 auditBadgeHtml() 로 강제 노출. 주황 톤(경고 아닌 식별용). */
 .audit-badge {
   display: inline-block;
-  padding: 2px 7px;
-  margin-left: 5px;
+  padding: 1px 5px;
+  margin-left: 4px;
   background: #ff9800;
   color: #fff;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1.4;
   border-radius: 3px;
@@ -1936,7 +1960,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .dash-top-grid > div > .admin-card{height:100%;display:flex;flex-direction:column}
 /* 제목 영역 높이를 두 카드가 똑같이 — 안에 든 것(링크/버튼)이 달라도 같은 높이 */
 .dash-top-grid .admin-card-header{min-height:53px;box-sizing:border-box}
-.dash-top-grid.no-notices{grid-template-columns:1fr}
+/* .single — 왼쪽 카드를 숨겼을 때(공지 0건 / 장기 대기 0건) 오른쪽이 전체 폭을 쓴다 */
+.dash-top-grid.no-notices,
+.dash-top-grid.single{grid-template-columns:1fr}
+.dash-top-grid.single .kpi-row{grid-template-columns:repeat(4,1fr)}
 .dash-top-grid .kpi-row{grid-template-columns:1fr 1fr}   /* 반폭이라 2×2 */
 .dash-top-grid.no-notices .kpi-row{grid-template-columns:repeat(4,1fr)}  /* 전체 폭이면 한 줄 4개 */
 @media (max-width:1280px){
@@ -1964,7 +1991,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 /* 대시보드 섹션 간격 (2026-07-20)
    좌우(칸 사이)보다 상하(섹션 사이)를 넓게 둬서 가로 묶음과 세로 구분이 구별되게 한다. */
-#adminPane-dashboard{--dash-gap:16px;--dash-vgap:28px}
+/* ⚠️ 이 두 값이 .dash-2col/.dash-3col/.dash-top-grid 의 칸 간격이다.
+   변수가 없는 화면에서 그 클래스를 쓰면 간격이 0이 되어 카드가 서로 붙는다.
+   대시보드 성격의 화면을 새로 만들면 여기 선택자에 함께 넣을 것. */
+#adminPane-dashboard,
+#adminPane-brand-dashboard{--dash-gap:16px;--dash-vgap:28px}
 .dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap)}
 /* 카드 기본 아래 여백(16px)을 없앤다 — 섹션 여백과 겹쳐 아래쪽만 넓어 보였다.
    간격은 섹션(--dash-vgap)이 전담한다. */

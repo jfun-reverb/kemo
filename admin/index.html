@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784811684';
+  var CURRENT_BUILD = 'v1784816647';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -681,7 +681,9 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-pane-list.on{display:flex!important;flex-direction:column;overflow:hidden!important}
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
+/* 목록 페인의 카드 제목 줄 — 제목과 오른쪽 버튼만 있는 줄이라 여백을 줄여 표를 더 보여준다
+   (공용 .admin-card-header 16px → 8px, 64px → 48px). 대시보드 카드는 별도 min-height 유지. */
+.admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative;padding-top:8px;padding-bottom:8px}
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--th-bg)}
@@ -839,6 +841,18 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
 #adminPane-deliverables .data-table thead th{white-space:nowrap}
+/* 영수증·결과물·최근 제출 열 (2026-07-23)
+   width 로만 주면 표가 화면 폭에 맞추려 열을 압축해(230px 지정이 실제 98px) 배지가 「검수대/기」로
+   쪼개지고 제출 일시가 두 줄로 끊겼다. min-width 는 압축 대상이 아니라 폭이 지켜진다.
+   캠페인 진행현황 「결과물 목록」 탭은 캠페인 열이 빠져 열 순서가 달라지므로,
+   nth-child 대신 칸에 붙인 이름으로 지정한다. */
+.deliv-col-brand{min-width:140px;max-width:180px}
+.deliv-col-receipt{min-width:150px}
+.deliv-col-result{min-width:220px}
+.deliv-col-submitted{min-width:140px;white-space:nowrap}
+/* 처리 열도 같이 잡아준다 — 위 세 열에 최소 폭을 주면 표가 남은 공간을 여기서 깎아
+   「검수」 버튼 글자가 세로로 쪼개졌다. */
+.deliv-col-action{min-width:90px;white-space:nowrap}
 
 /* 브랜드 관리 — 첫 컬럼(brand_no) 좌측 고정. 컬럼 폭은 inline style로 이미 명시됨 */
 #adminPane-brands .admin-table-wrap{overflow-x:auto}
@@ -860,19 +874,23 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 신청 그룹 시각화 — 같은 신청의 두 번째 이상 제품 행은 행 구분선 제거 (묶음 영역으로 보이게).
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
-#adminPane-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
+#adminPane-dashboard .kpi-row,
+#adminPane-brand-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 /* KPI 카드는 「상태별 캠페인」 칩과 같은 회색 박스 — 카드 안에 들어가므로
    테두리 대신 연회색 면으로 구분한다(카드 테두리와 이중이 되지 않게). */
-#adminPane-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
+#adminPane-dashboard .kpi-card,
+#adminPane-brand-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
 /* KPI 카드 상단 띠 제거 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어 정보를 주지 않았다.
    .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 두고 표시만 없앤다.
-   ⚠️ 회색 박스·작은 글자는 전체 현황 전용 — 같은 클래스를 쓰는 브랜드 서베이 현황
-      대시보드는 카드 래퍼가 없어 그 모양이 안 맞는다. 그래서 #adminPane-dashboard 로 한정. */
+   (2026-07-23) 브랜드 서베이 현황도 지표를 카드 안에 넣어 같은 모양이 됐다 —
+   예전에 여기 있던 「브랜드 쪽은 카드 래퍼가 없어 안 맞는다」는 단서는 해소됐다. */
 .kpi-card::after{content:none}
-#adminPane-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
+#adminPane-dashboard .kpi-val,
+#adminPane-brand-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
 .kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--ink)}
-#adminPane-dashboard .kpi-lbl{font-size:11px}
+#adminPane-dashboard .kpi-lbl,
+#adminPane-brand-dashboard .kpi-lbl{font-size:11px}
 .kpi-lbl{font-size:12px;color:var(--muted);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
 .signup-period-btn.on{background:var(--ink)!important;color:#fff!important}
@@ -1950,10 +1968,16 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .adm-faq-chip{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--dark-pink);background:var(--light-pink);border:1px dashed var(--pink);border-radius:8px;padding:3px 8px;margin:2px 0}
 .adm-faq-chip .material-icons-round{font-size:13px}
 /* 응모 행 메시지 버튼 */
-.applicant-msg-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:11px;color:var(--ink);position:relative}
+/* 인플루언서 이름·계정 정보 칸 (신청 관리·캠페인 진행현황·결과물 관리 공용)
+   — 정보는 왼쪽에 쌓고, 메시지 버튼은 칸 오른쪽 끝에 아이콘 하나로 띄운다. */
+.applicant-name-cell{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.applicant-name-info{min-width:0}
+/* 글자 없는 아이콘 버튼 — 뜻은 title·aria-label 로 전달. 이름이 길어도 안 찌부러지게 flex-shrink:0 */
+.applicant-msg-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;flex-shrink:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;color:var(--ink);position:relative}
 .applicant-msg-btn:hover{background:var(--light-pink);border-color:var(--pink)}
-.applicant-msg-btn .material-icons-round{font-size:14px;color:var(--pink)}
-.applicant-msg-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--pink);color:#fff;font-size:10px;font-weight:700;margin-left:2px}
+.applicant-msg-btn .material-icons-round{font-size:16px;color:var(--pink)}
+/* 미열람 배지 — 버튼이 작아져 옆에 못 붙이므로 오른쪽 위 모서리에 겹쳐 띄운다(흰 테두리로 버튼과 분리) */
+.applicant-msg-badge{position:absolute;top:-6px;right:-6px;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;border:1px solid #fff;background:var(--pink);color:#fff;font-size:10px;font-weight:700}
 
 /* ══════════════════════════════════
    FAQ (자동응답) 페인 — 좌우 2단 마스터-디테일 (마이그레이션 146)
@@ -2227,11 +2251,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    모든 인플·응모·결과물 행에 auditBadgeHtml() 로 강제 노출. 주황 톤(경고 아닌 식별용). */
 .audit-badge {
   display: inline-block;
-  padding: 2px 7px;
-  margin-left: 5px;
+  padding: 1px 5px;
+  margin-left: 4px;
   background: #ff9800;
   color: #fff;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1.4;
   border-radius: 3px;
@@ -2396,7 +2420,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .dash-top-grid > div > .admin-card{height:100%;display:flex;flex-direction:column}
 /* 제목 영역 높이를 두 카드가 똑같이 — 안에 든 것(링크/버튼)이 달라도 같은 높이 */
 .dash-top-grid .admin-card-header{min-height:53px;box-sizing:border-box}
-.dash-top-grid.no-notices{grid-template-columns:1fr}
+/* .single — 왼쪽 카드를 숨겼을 때(공지 0건 / 장기 대기 0건) 오른쪽이 전체 폭을 쓴다 */
+.dash-top-grid.no-notices,
+.dash-top-grid.single{grid-template-columns:1fr}
+.dash-top-grid.single .kpi-row{grid-template-columns:repeat(4,1fr)}
 .dash-top-grid .kpi-row{grid-template-columns:1fr 1fr}   /* 반폭이라 2×2 */
 .dash-top-grid.no-notices .kpi-row{grid-template-columns:repeat(4,1fr)}  /* 전체 폭이면 한 줄 4개 */
 @media (max-width:1280px){
@@ -2424,7 +2451,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 /* 대시보드 섹션 간격 (2026-07-20)
    좌우(칸 사이)보다 상하(섹션 사이)를 넓게 둬서 가로 묶음과 세로 구분이 구별되게 한다. */
-#adminPane-dashboard{--dash-gap:16px;--dash-vgap:28px}
+/* ⚠️ 이 두 값이 .dash-2col/.dash-3col/.dash-top-grid 의 칸 간격이다.
+   변수가 없는 화면에서 그 클래스를 쓰면 간격이 0이 되어 카드가 서로 붙는다.
+   대시보드 성격의 화면을 새로 만들면 여기 선택자에 함께 넣을 것. */
+#adminPane-dashboard,
+#adminPane-brand-dashboard{--dash-gap:16px;--dash-vgap:28px}
 .dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap)}
 /* 카드 기본 아래 여백(16px)을 없앤다 — 섹션 여백과 겹쳐 아래쪽만 넓어 보였다.
    간격은 섹션(--dash-vgap)이 전담한다. */
@@ -2523,7 +2554,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 22:01 · 92cc383</span>
+          <span class="admin-build-text">2026-07-23 23:24 · 565f50b</span>
         </div>
       </div>
     </aside>
@@ -3455,7 +3486,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:230px">영수증</th><th style="width:195px">결과물</th><th style="width:130px">최근 제출</th><th style="width:90px">처리</th></tr></thead>
+              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
@@ -3590,15 +3621,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <thead><tr>
                 <th>캠페인</th>
                 <th>채널</th>
-                <th>브랜드</th>
+                <th class="deliv-col-brand">브랜드</th>
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
                 <th style="width:132px;white-space:nowrap">인증 상태</th>
-                <th style="width:230px">영수증</th>
-                <th style="width:195px">결과물</th>
-                <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
-                <th style="width:120px">처리</th>
+                <th class="deliv-col-receipt">영수증</th>
+                <th class="deliv-col-result">결과물</th>
+                <th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
+                <th class="deliv-col-action">처리</th>
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
@@ -4093,136 +4124,106 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
 
         <div id="adminPane-brand-dashboard" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
-            <div>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이 현황</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">광고주 신청 접수·검수·성약 현황 요약 (brand_applications 기반)</div>
+          <!-- 공개 접수 중단 안내 — brand_survey_settings.submissions_open 이 꺼져 있을 때만.
+               신규 유입 0 이 고장으로 오해되는 걸 막는 안내이고, 잠금을 푸는 기능은 없다. -->
+          <div id="brandSurveyClosedNotice" class="dash-section" style="display:none;align-items:center;gap:8px;background:var(--gold-l);border:1px solid var(--gold);border-radius:12px;padding:10px 14px">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--gold)">lock</span>
+            <span style="font-size:12px;color:var(--ink)">현재 <strong>광고주 공개 신청 폼이 잠겨</strong> 있습니다 — 새 신청이 들어오지 않아 아래 신규 유입 숫자는 0으로 표시됩니다.</span>
+          </div>
+
+          <!-- 상단 2단: 장기 대기(먼저 볼 것) | 접수·처리 현황 -->
+          <div class="dash-top-grid" id="brandDashTopGrid">
+            <div class="admin-card" id="brandLongPendingCard" style="margin-bottom:0;display:none">
+              <div class="admin-card-header">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--gold)">schedule</span>
+                  <span class="admin-card-title">장기 대기 (접수 후 3일 이상)</span>
+                </div>
+                <span id="brandLongPendingCount" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div id="brandLongPendingList" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="loadBrandDashboard()" style="display:inline-flex;align-items:center;gap:4px" title="데이터 새로고침">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span>
-                새로고침
-              </button>
-              <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 광고주 설문 페이지 열기">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
-                설문 페이지
-              </a>
+            <div class="admin-card" style="margin-bottom:0">
+              <div class="admin-card-header">
+                <span class="admin-card-title">접수·처리 현황</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="loadBrandDashboard()">새로고침</button>
+                  <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-xs" title="새 탭에서 광고주 설문 페이지 열기">설문 페이지</a>
+                </div>
+              </div>
+              <div class="kpi-row">
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiTotal">—</div><div class="kpi-lbl">전체 신청</div></div>
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiPending">—</div><div class="kpi-lbl">검수 대기 <span style="opacity:.75">(제품 기준)</span></div></div>
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiLeadTime">—</div><div class="kpi-lbl">평균 처리일 (접수→완료)</div></div>
+              </div>
             </div>
           </div>
 
-          <!-- KPI Row 1: 전체 · 리뷰어 · 시딩 · 이번달 -->
-          <div class="kpi-row">
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiReviewer">—</div><div class="kpi-lbl">리뷰어 (Qoo10)</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiSeeding">—</div><div class="kpi-lbl">시딩 (나노)</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
-          </div>
-
-          <!-- KPI Row 2: 검수 대기 · 견적 전달 · 입금완료 · 평균 처리일 -->
-          <div class="kpi-row" style="margin-top:12px">
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiPending">—</div><div class="kpi-lbl">검수 대기 (new+reviewing)</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiQuoted">—</div><div class="kpi-lbl">견적 전달 (quoted)</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiDone">—</div><div class="kpi-lbl">최종완료 (done)</div></div>
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiLeadTime">—</div><div class="kpi-lbl">평균 처리일 (new→done)</div></div>
-          </div>
-
-          <!-- 견적 합계 -->
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px">
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
-              <div id="brandKpiEstimated" style="font-size:20px;font-weight:800;color:var(--ink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px">초기 접수 기준 추정치</div>
-            </div>
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
-              <div id="brandKpiFinal" style="font-size:20px;font-weight:800;color:var(--pink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px">quoted 이상 단계 합산</div>
+          <!-- 견적 금액 — 메인 컬러 카드 -->
+          <div class="admin-card accent-card dash-section" style="padding:16px">
+            <div class="admin-card-title" style="margin-bottom:10px">견적 금액 <span style="font-size:10px;font-weight:400;color:#fff;opacity:.9">(원)</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <div style="flex:1;min-width:200px;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 12px">
+                <div style="font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums" id="brandKpiEstimated">—</div>
+                <div style="font-size:11px;color:#fff;opacity:.9;margin-top:2px">접수 기준 예상 견적 (전체)</div>
+              </div>
+              <div style="flex:1;min-width:200px;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 12px">
+                <div style="font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums" id="brandKpiFinal">—</div>
+                <div style="font-size:11px;color:#fff;opacity:.9;margin-top:2px">견적 전달 이후 단계 합계</div>
+              </div>
             </div>
           </div>
 
           <!-- 전환 깔때기 -->
-          <div class="admin-card" style="margin-top:16px;padding:18px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">전환 깔때기 (접수 → 최종완료)</div>
-              <div style="font-size:10px;color:var(--muted)">각 단계는 "해당 단계 이상 도달한 건수" 기준</div>
+          <div class="admin-card dash-section">
+            <div class="admin-card-header">
+              <span class="admin-card-title">전환 깔때기 (접수 → 최종완료)</span>
+              <span style="font-size:11px;color:var(--muted)">각 단계는 「그 단계 이상 도달한 제품 수」 기준</span>
             </div>
-            <div id="brandFunnel" style="display:flex;flex-direction:column;gap:8px">
-              <div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">데이터 로드 중…</div>
-            </div>
+            <div id="brandFunnel" style="padding:16px;display:flex;flex-direction:column;gap:8px"></div>
           </div>
 
-          <!-- 도넛 2개 + 일별 추이 -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">폼 종류 분포</div>
+          <!-- 단계별 신청 분포 — 메인 컬러 카드 + 흰 칸 (상태 도넛 대체) -->
+          <div class="admin-card accent-card dash-section" style="padding:16px">
+            <div class="admin-card-title" style="margin-bottom:10px">단계별 신청 분포 <span style="font-size:10px;font-weight:400;color:#fff;opacity:.9">(제품 기준 · <span id="brandStatusTotal"></span>)</span></div>
+            <div id="brandStatusChips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          </div>
+
+          <!-- 2단: 폼 종류 분포 | 일별 신청 추이 -->
+          <div class="dash-2col">
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">폼 종류 분포</span>
                 <span id="brandFormTotal" style="font-size:11px;color:var(--muted)"></span>
               </div>
-              <div style="height:200px;position:relative">
+              <div style="padding:16px;height:220px;position:relative">
                 <canvas id="brandFormDonut"></canvas>
-                <div id="brandFormEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
+                <div id="brandFormEmpty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
               </div>
             </div>
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">상태 분포</div>
-                <span id="brandStatusTotal" style="font-size:11px;color:var(--muted)"></span>
-              </div>
-              <div style="height:200px;position:relative">
-                <canvas id="brandStatusDonut"></canvas>
-                <div id="brandStatusEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="admin-card" style="margin-top:16px;padding:18px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">일별 신청 추이</div>
-              <div style="display:flex;gap:6px">
-                <button class="brand-trend-btn on" data-days="7" onclick="switchBrandTrendPeriod(7,this)">7일</button>
-                <button class="brand-trend-btn" data-days="30" onclick="switchBrandTrendPeriod(30,this)">30일</button>
-                <button class="brand-trend-btn" data-days="90" onclick="switchBrandTrendPeriod(90,this)">90일</button>
-              </div>
-            </div>
-            <div style="height:220px;position:relative">
-              <canvas id="brandTrendChart"></canvas>
-            </div>
-          </div>
-
-          <!-- 최근 신청 + 장기 대기 리스트 -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">최근 신청 5건</div>
-                <a href="#brand-applications" onclick="switchAdminPane('brand-applications',null)" style="font-size:11px;color:var(--pink);text-decoration:none">신청 목록 ▸</a>
-              </div>
-              <div id="brandRecentList" style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">로드 중…</div></div>
-            </div>
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">장기 대기 (new 3일+)</div>
-                <span id="brandLongPendingCount" style="font-size:11px;color:var(--muted)"></span>
-              </div>
-              <div id="brandLongPendingList" style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">로드 중…</div></div>
-            </div>
-          </div>
-
-          <!-- Vercel Analytics 링크 카드 (Phase 1: 링크만, Phase 2 Edge Function 연동 예정) -->
-          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(24,24,27,.06),rgba(80,120,200,.06))">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-              <div>
-                <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--pink)">leaderboard</span>
-                  설문 페이지 접속 통계
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">일별 신청 추이</span>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-ghost btn-xs brand-trend-btn on" data-days="7" onclick="switchBrandTrendPeriod(7,this)">7일</button>
+                  <button class="btn btn-ghost btn-xs brand-trend-btn" data-days="30" onclick="switchBrandTrendPeriod(30,this)">30일</button>
+                  <button class="btn btn-ghost btn-xs brand-trend-btn" data-days="90" onclick="switchBrandTrendPeriod(90,this)">90일</button>
                 </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:4px">index / reviewer / seeding 페이지별 방문자·고유방문자·유입경로는 Vercel Web Analytics 대시보드에서 확인 (쿠키 미사용)</div>
               </div>
-              <a href="https://vercel.com/jfun-reverbs-projects/reverb-sales/analytics" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
-                Vercel Analytics 열기
-              </a>
+              <div style="padding:16px;height:220px;position:relative"><canvas id="brandTrendChart"></canvas></div>
             </div>
           </div>
+
+          <!-- 최근 신청 5건 -->
+          <div class="admin-card dash-section">
+            <div class="admin-card-header">
+              <span class="admin-card-title">최근 신청 5건</span>
+              <a href="#brand-applications" onclick="switchAdminPane('brand-applications',null)" style="font-size:11px">신청 목록 ▸</a>
+            </div>
+            <div id="brandRecentList" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
         </div>
 
         <!-- BRANDS (브랜드 마스터) PANE -->
@@ -9918,6 +9919,19 @@ async function fetchBrandAppHistoryCounts() {
   } catch(e) { console.error('[fetchBrandAppHistoryCounts]', e); return {}; }
 }
 
+// 광고주 공개 신청 폼이 열려 있는지 (brand_survey_settings 싱글톤, id=1).
+//   브랜드 서베이 현황 화면의 「접수 잠금」 안내 줄 표시 여부에만 쓴다.
+//   읽기 전용이며, 알 수 없으면 null 을 돌려 안내를 생략한다(화면을 막지 않음).
+//   ※ 이 표는 관리자만 읽을 수 있는 접근 정책이라 별도 함수 없이 직접 조회한다.
+async function fetchBrandSurveyOpen() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db?.from('brand_survey_settings').select('submissions_open').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data ? !!data.submissions_open : null;
+  } catch(e) { console.error('[fetchBrandSurveyOpen]', e); return null; }
+}
+
 async function fetchBrandApplications(filters) {
   if (!db) return [];
   try {
@@ -15332,7 +15346,6 @@ function copyBrandProductUrl(url) {
 var _brandDashApps = null;
 var _brandTrendChart = null;
 var _brandFormDonut = null;
-var _brandStatusDonut = null;
 var _brandTrendDays = 7;
 
 var BRAND_STATUS_LABEL_KO = {
@@ -15341,19 +15354,19 @@ var BRAND_STATUS_LABEL_KO = {
   orient_sheet_sent: '오리엔시트 전달', schedule_sent: '일정 전달',
   campaign_registered: '캠페인 등록', done: '최종완료', rejected: '반려'
 };
-// 색상은 단계의 의미에 따라 유지 (코드 ↔ 의미 매핑 불변)
-var BRAND_STATUS_COLOR = {
-  new:                 '#A1A1AA',   // 회색 (대기)
-  reviewing:           '#E8A355',   // 오렌지
-  quoted:              '#5B8FD6',   // 블루 (견적)
-  paid:                '#6BB38E',   // 그린 (입금)
-  kakao_room_created:  '#F4C95D',   // 옐로우 (카톡)
-  orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
-  schedule_sent:       '#71717A',   // 진회색 (일정)
-  campaign_registered: '#4CA070',   // 연한 그린 (등록)
-  done:                '#1F9D55',   // 짙은 그린 (최종완료)
-  rejected:            '#B0B0B8'    // 회색 (종료)
-};
+// (2026-07-23) 대시보드 전용 색표 BRAND_STATUS_COLOR 제거.
+//   같은 「견적 전달」이 신청 목록에서는 청록, 대시보드에서는 파랑으로 보이는 불일치가 있었다.
+//   최근 신청 배지는 신청 목록과 같은 BRAND_APP_STATUS(위 120행)를 쓰고,
+//   단계별 분포는 색 대신 이름·숫자를 적은 칸으로 보여준다(전체 현황 「상태별 캠페인」과 같은 방식).
+// 차트 색 — 전체 현황과 같은 메인 컬러 계열(accentRamp)을 쓴다.
+//   accentRamp 는 admin-dashboard.js 에 있고 빌드에서 이 파일보다 뒤에 이어붙지만,
+//   호출 시점은 화면에 들어온 뒤라 함수 선언 끌어올림 덕에 안전하다.
+//   그래도 만약을 대비해 못 찾으면 고정값으로 떨어진다(차트가 색 때문에 안 그려지는 일은 없게).
+function _brandRamp(i) {
+  if (typeof accentRamp === 'function') { var r = accentRamp(2); if (r && r[i]) return r[i]; }
+  return ['#625EBD', '#A9A6E0'][i] || '#625EBD';
+}
+
 var BRAND_FUNNEL_STAGES = [
   {key:'new',                 nameKo:'접수',          nameEn:'new'},
   {key:'reviewing',           nameKo:'검토',          nameEn:'reviewing'},
@@ -15369,23 +15382,38 @@ var BRAND_FUNNEL_STAGES = [
 var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:-1};
 
 async function loadBrandDashboard() {
-  // 로딩 표시
   setBrandDashLoading(true);
   _brandDashApps = await fetchBrandApplications();
-  setBrandDashLoading(false);
-  renderBrandDashboard();
+  renderBrandDashboard();          // 그리면서 각 영역의 회전 표시가 실제 내용으로 대체된다
+  renderBrandSurveyClosedNotice(); // 공개 접수 잠금 안내 (조회 실패 시 조용히 숨김)
 }
 
+// 새로고침을 누르면 숫자뿐 아니라 깔때기·분포·그래프·목록도 함께 회전 표시로 바꾼다.
+// (예전엔 숫자 칸만 바뀌고 나머지는 옛 값이 그대로 떠 있어 「눌렀는데 안 바뀌네」로 보였다)
 function setBrandDashLoading(loading) {
-  var ids = ['brandKpiTotal','brandKpiReviewer','brandKpiSeeding','brandKpiThisMonth',
-             'brandKpiPending','brandKpiQuoted','brandKpiDone','brandKpiLeadTime',
-             'brandKpiEstimated','brandKpiFinal'];
-  if (loading) {
-    ids.forEach(function(id){
-      var el = $(id);
-      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span>';
-    });
-  }
+  if (!loading) return;
+  var spin = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--accent)"></span>';
+  ['brandKpiTotal','brandKpiThisMonth','brandKpiPending','brandKpiLeadTime'].forEach(function(id){
+    var el = $(id); if (el) el.innerHTML = spin;
+  });
+  // 메인 컬러 카드 위에서는 흰 회전 표시 (.accent-card .spinner 규칙이 색을 맞춰준다)
+  ['brandKpiEstimated','brandKpiFinal'].forEach(function(id){
+    var el = $(id); if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>';
+  });
+  var block = '<div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px">' + spin + '</div>';
+  ['brandFunnel','brandStatusChips','brandRecentList','brandLongPendingList'].forEach(function(id){
+    var el = $(id); if (el) el.innerHTML = block;
+  });
+}
+
+// 공개 접수가 잠겨 있으면(brand_survey_settings.submissions_open=false) 안내 줄을 띄운다.
+// 조회에 실패해도 화면을 막지 않는다 — 안내는 보조 정보이므로 조용히 숨긴 채 넘어간다.
+async function renderBrandSurveyClosedNotice() {
+  var box = $('brandSurveyClosedNotice');
+  if (!box) return;
+  var open = null;
+  try { open = await fetchBrandSurveyOpen(); } catch (e) { open = null; }
+  box.style.display = (open === false) ? 'flex' : 'none';
 }
 
 function renderBrandDashboard() {
@@ -15393,7 +15421,7 @@ function renderBrandDashboard() {
   renderBrandKPIs(apps);
   renderBrandFunnel(apps);
   renderBrandFormDonut(apps);
-  renderBrandStatusDonut(apps);
+  renderBrandStatusChips(apps);
   renderBrandTrendChart(apps, _brandTrendDays);
   renderBrandRecent(apps);
   renderBrandLongPending(apps);
@@ -15417,17 +15445,17 @@ function _flattenAppsToProducts(apps) {
   return flat;
 }
 
+// 지표 4칸 — 전체 신청 / 이번달 신청 / 검수 대기 / 평균 처리일
+//   (2026-07-23) 옛 8칸에서 리뷰어·시딩·견적 전달·최종완료를 뺐다. 각각 바로 아래
+//   「폼 종류 분포」·「전환 깔때기」에 같은 내용이 또 있어 두 번 읽게 했다.
+//   ⚠️ 남은 4칸 중 「검수 대기」만 제품 단위(신청 1건에 제품 3개면 3) — 라벨에 「(제품 기준)」 표기.
 function renderBrandKPIs(apps) {
   var now = new Date();
   var thisMonth = now.toISOString().slice(0,7); // 'YYYY-MM'
-  var reviewerN = apps.filter(function(a){ return a.form_type === 'reviewer'; }).length;
-  var seedingN  = apps.filter(function(a){ return a.form_type === 'seeding'; }).length;
   var thisMonthN = apps.filter(function(a){ return (a.created_at||'').slice(0,7) === thisMonth; }).length;
   // status 단위 카운트는 제품 단위로 (Phase B). 합계·avgLead·estimated/finalSum은 신청 단위 유지(평탄화 시 X배 부풀림 방지)
   var flat = _flattenAppsToProducts(apps);
   var pendingN = flat.filter(function(f){ return f.status === 'new' || f.status === 'reviewing'; }).length;
-  var quotedN  = flat.filter(function(f){ return f.status === 'quoted'; }).length;
-  var doneN    = flat.filter(function(f){ return f.status === 'done'; }).length;
 
   // 평균 처리일: done 건만 대상, created_at -> reviewed_at 차이(폴백 updated_at)
   var leadDays = [];
@@ -15453,12 +15481,8 @@ function renderBrandKPIs(apps) {
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
 
   $('brandKpiTotal').textContent    = apps.length;
-  $('brandKpiReviewer').textContent = reviewerN;
-  $('brandKpiSeeding').textContent  = seedingN;
   $('brandKpiThisMonth').textContent = thisMonthN;
   $('brandKpiPending').textContent  = pendingN;
-  $('brandKpiQuoted').textContent   = quotedN;
-  $('brandKpiDone').textContent     = doneN;
   $('brandKpiLeadTime').textContent = avgLead !== null ? avgLead.toFixed(1) + '일' : '—';
   $('brandKpiEstimated').textContent = fmtKRW(estimated);
   $('brandKpiFinal').textContent     = fmtKRW(finalSum);
@@ -15506,8 +15530,8 @@ function renderBrandFunnel(apps) {
         + esc(stage.nameKo)
         + ' <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:4px">' + esc(stage.nameEn) + '</span>'
       + '</div>'
-      + '<div style="height:22px;background:rgba(24,24,27,.08);border-radius:100px;overflow:hidden;position:relative">'
-      + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
+      + '<div style="height:12px;background:rgba(24,24,27,.08);border-radius:100px;overflow:hidden;position:relative">'
+      + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--accent),#8F8CD2);transition:width 0.4s"></div>'
       + '</div>'
       + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
       + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
@@ -15541,7 +15565,7 @@ function renderBrandFormDonut(apps) {
       labels: ['리뷰어', '나노 시딩'],
       datasets: [{
         data: [reviewerN, seedingN],
-        backgroundColor: ['#18181B', '#5B8FD6'],
+        backgroundColor: [_brandRamp(0), _brandRamp(1)],
         borderColor: '#fff',
         borderWidth: 2
       }]
@@ -15563,53 +15587,30 @@ function renderBrandFormDonut(apps) {
   });
 }
 
-function renderBrandStatusDonut(apps) {
-  var canvas = $('brandStatusDonut');
-  var empty = $('brandStatusEmpty');
+// 단계별 신청 분포 — 메인 컬러 카드 위의 흰 칸 격자 (전체 현황 「상태별 캠페인」과 같은 방식).
+//   (2026-07-23) 도넛에서 바꿨다. 단계가 10가지라 한 색 계열의 원으로는 조각 구분이 불가능하고,
+//   칸에는 단계 이름이 이미 적혀 있어 색으로 구분할 필요 자체가 없다.
+function renderBrandStatusChips(apps) {
+  var host = $('brandStatusChips');
   var totalLabel = $('brandStatusTotal');
-  if (!canvas) return;
-  if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
-
-  // Phase B: 제품 단위 카운트
-  var flat = _flattenAppsToProducts(apps);
+  if (!host) return;
+  var flat = _flattenAppsToProducts(apps);          // 제품 단위 (신청 1건에 제품 3개면 3)
   var keys = ['new','reviewing','quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
-  var counts = keys.map(function(k){ return flat.filter(function(f){ return f.status === k; }).length; });
-  var total = counts.reduce(function(s,n){ return s+n; }, 0);
+  var counts = {};
+  keys.forEach(function(k){ counts[k] = 0; });
+  flat.forEach(function(f){ if (counts[f.status] != null) counts[f.status]++; });
+  var total = keys.reduce(function(s,k){ return s + counts[k]; }, 0);
   if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '개') : '';
   if (!total) {
-    canvas.style.display = 'none';
-    if (empty) empty.style.display = 'flex';
+    host.innerHTML = '<div style="font-size:12px;color:#fff;opacity:.9;padding:14px 2px">아직 접수된 신청이 없습니다</div>';
     return;
   }
-  canvas.style.display = 'block';
-  if (empty) empty.style.display = 'none';
-
-  _brandStatusDonut = new Chart(canvas.getContext('2d'), {
-    type: 'doughnut',
-    data: {
-      labels: keys.map(function(k){ return BRAND_STATUS_LABEL_KO[k]; }),
-      datasets: [{
-        data: counts,
-        backgroundColor: keys.map(function(k){ return BRAND_STATUS_COLOR[k]; }),
-        borderColor: '#fff',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '62%',
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-        tooltip: {
-          callbacks: {
-            label: function(ctx) {
-              var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-              return ctx.label + ': ' + ctx.parsed + '개 (' + pct + '%)';
-            }
-          }
-        }
-      }
-    }
-  });
+  host.innerHTML = keys.map(function(k){
+    return '<div style="flex:1;min-width:96px;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 12px">'
+      + '<div style="font-size:20px;font-weight:800;color:#fff">' + counts[k] + '</div>'
+      + '<div style="font-size:11px;color:#fff;opacity:.9;margin-top:2px">' + esc(BRAND_STATUS_LABEL_KO[k] || k) + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 function renderBrandTrendChart(apps, days) {
@@ -15635,8 +15636,8 @@ function renderBrandTrendChart(apps, days) {
     data: {
       labels: labels,
       datasets: [
-        { label: '리뷰어', data: reviewerData, backgroundColor: '#18181B', borderRadius: 3, stack: 'applications' },
-        { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
+        { label: '리뷰어', data: reviewerData, backgroundColor: _brandRamp(0), borderRadius: 3, stack: 'applications' },
+        { label: '나노 시딩',    data: seedingData,  backgroundColor: _brandRamp(1), borderRadius: 3, stack: 'applications' }
       ]
     },
     options: {
@@ -15672,14 +15673,14 @@ function renderBrandRecent(apps) {
   host.innerHTML = top5.map(function(a){
     var formLabel = a.form_type === 'reviewer' ? '리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
     var dateStr = (a.created_at || '').slice(0,10);
-    var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
-    var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
+    // 배지는 신청 목록 화면과 같은 색표를 쓴다 — 같은 상태가 화면마다 다른 색이던 문제 해소
+    var st = BRAND_APP_STATUS[a.status] || {label: a.status, color:'#666', bg:'#EEE'};
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(24,24,27,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
       +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(a.application_no || '') + ' · ' + esc(dateStr) + '</div>'
       + '</div>'
-      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:' + statusColor + '20;color:' + statusColor + '">' + esc(statusLabel) + '</span>'
+      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:' + st.bg + ';color:' + st.color + '">' + esc(st.label) + '</span>'
       + '</div>';
   }).join('');
 }
@@ -15697,20 +15698,23 @@ function renderBrandLongPending(apps) {
     return (a.created_at || '').localeCompare(b.created_at || '');
   });
   if (countLabel) countLabel.textContent = longPending.length ? (longPending.length + '건') : '';
-  if (!longPending.length) {
-    host.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">3일 이상 대기 중인 신청 없음</div>';
-    return;
-  }
+  // 밀린 게 없으면 카드를 통째로 숨기고, 오른쪽 「접수·처리 현황」이 전체 폭을 쓰게 한다.
+  // (「없음」만 적힌 빈 카드가 화면 위쪽 절반을 차지하지 않도록)
+  var card = $('brandLongPendingCard');
+  var grid = $('brandDashTopGrid');
+  if (card) card.style.display = longPending.length ? '' : 'none';
+  if (grid) grid.classList.toggle('single', !longPending.length);
+  if (!longPending.length) { host.innerHTML = ''; return; }
   host.innerHTML = longPending.slice(0,5).map(function(a){
     var formLabel = a.form_type === 'reviewer' ? '리뷰어' : '나노 시딩';
     var dateStr = (a.created_at || '').slice(0,10);
     var waitDays = Math.floor((Date.now() - new Date(a.created_at).getTime()) / (1000*60*60*24));
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #E8A355;border-radius:8px;cursor:pointer;transition:background 0.15s;background:rgba(232,163,85,.04)" onmouseover="this.style.background=\'rgba(232,163,85,.1)\'" onmouseout="this.style.background=\'rgba(232,163,85,.04)\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--gold);border-radius:8px;cursor:pointer;transition:background 0.15s;background:var(--gold-l)" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
       +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(dateStr) + '</div>'
       + '</div>'
-      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:#E8A35520;color:#E8A355">' + waitDays + '일 대기</span>'
+      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:#fff;color:var(--gold)">' + waitDays + '일 대기</span>'
       + '</div>';
   }).join('');
 }
@@ -20766,9 +20770,11 @@ function renderApplicantMsgBtn(app) {
   if (!app || !app.id) return '';
   const unread = _applicantMsgUnreadMap.get(app.id) || 0;
   const badge = unread > 0 ? `<span class="applicant-msg-badge">${unread > 99 ? '99+' : unread}</span>` : '';
-  return `<button type="button" class="applicant-msg-btn" title="메시지" data-msgbtn="${esc(app.id)}"
+  // 아이콘 전용 — 이름 칸 오른쪽 끝에 놓이므로 글자 없이 아이콘 하나(뜻은 title·aria-label 로)
+  const label = unread > 0 ? `메시지 (읽지 않음 ${unread}건)` : '메시지';
+  return `<button type="button" class="applicant-msg-btn" title="${esc(label)}" aria-label="${esc(label)}" data-msgbtn="${esc(app.id)}"
     onclick="openAdminMessageModal('${esc(app.id)}','${esc(app.campaign_id || '')}')">
-    <span class="material-icons-round notranslate" translate="no">forum</span><span>메시지</span>${badge}</button>`;
+    <span class="material-icons-round notranslate" translate="no">forum</span>${badge}</button>`;
 }
 
 // 모달 열어 읽음 처리 후 특정 응모 행 배지 갱신 (DOM 직접 — 행 전체 재렌더 회피)
@@ -22366,21 +22372,24 @@ function buildInfRowAll(u) {
   // PayPal 배지는 has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라
   // "등록 여부"만 표시하므로 마스킹된 관리자 등급도 정확하게 본다.
   const paypalBadge = u.has_paypal ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-  const snsCell = (channel, raw) => {
+  // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
+  // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  const snsCell = (channel, raw, followers) => {
     const handle = extractSnsHandle(channel, raw);
     if (!handle) return '—';
     const safe = esc(handle);
     const url = snsProfileUrl(channel, handle);
     const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
-    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+    return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
+      + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
   return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
     <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-    <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-    <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-    <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-    <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td>${snsCell('instagram', u.ig, igF)}</td>
+    <td>${snsCell('x', u.x, xF)}</td>
+    <td>${snsCell('tiktok', u.tiktok, ttF)}</td>
+    <td>${snsCell('youtube', u.youtube, ytF)}</td>
     <td style="font-weight:700;color:var(--pink)">${total}</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(maskedFieldByFlag(u.line_id, u.has_line), 120)}</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
@@ -23802,17 +23811,17 @@ function renderDelivAppRow(g, opts) {
   const campCols = compact ? '' : `
     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div style="display:flex;align-items:flex-start;gap:4px"><span style="flex:1">${esc(camp.title || '—')}</span>${campPreviewBtn(camp.id)}</div></td>
     <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
-    <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
+    <td class="deliv-col-brand" style="font-size:12px;color:var(--ink);word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>`;
 
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">${campCols}
-    <td><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
+    <td><div class="applicant-name-cell"><div class="applicant-name-info"><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</div>${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
-    <td>${receiptCell}</td>
-    <td>${resultCell}</td>
-    <td>${submittedCell}</td>
-    <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
+    <td class="deliv-col-receipt">${receiptCell}</td>
+    <td class="deliv-col-result">${resultCell}</td>
+    <td class="deliv-col-submitted">${submittedCell}</td>
+    <td class="deliv-col-action"><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
   </tr>`;
 }
 
@@ -28272,13 +28281,16 @@ async function loadCampApplicants() {
   const channelMatch = camp?.channel_match || 'or';
   const body = $('campApplicantsBody');
   if (!body) return;
-  const snsCell = (channel, raw) => {
+  // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
+  // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  const snsCell = (channel, raw, followers) => {
     const handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : (raw || '').replace(/^@/,'').trim();
     if (!handle) return '—';
     const safe = esc(handle);
     const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(channel, handle) : '';
     const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
-    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+    return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
+      + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const renderCampApplicantRow = (a) => {
     const _u = _users.find(u=>u.email===a.user_email)||{};
@@ -28291,14 +28303,18 @@ async function loadCampApplicants() {
     const _lineDisp = maskedFieldByFlag(_u.line_id, _u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
-      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
-      <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
+      <div class="applicant-name-cell">
+        <div class="applicant-name-info">
+          <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
+        </div>
+        ${renderApplicantMsgBtn(a)}
+      </div>
     </td>
-    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-    <td>${snsCell('x', _u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-    <td>${snsCell('tiktok', _u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-    <td>${snsCell('youtube', _u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig, igF)}</td>
+    <td>${snsCell('x', _u.x, xF)}</td>
+    <td>${snsCell('tiktok', _u.tiktok, ttF)}</td>
+    <td>${snsCell('youtube', _u.youtube, ytF)}</td>
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
@@ -28831,9 +28847,13 @@ async function renderAppCampList() {
         ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
-        <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
-        <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
+        <div class="applicant-name-cell">
+          <div class="applicant-name-info">
+            <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
+          </div>
+          ${renderApplicantMsgBtn(a)}
+        </div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>

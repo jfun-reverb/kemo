@@ -2530,6 +2530,19 @@ async function fetchBrandAppHistoryCounts() {
   } catch(e) { console.error('[fetchBrandAppHistoryCounts]', e); return {}; }
 }
 
+// 광고주 공개 신청 폼이 열려 있는지 (brand_survey_settings 싱글톤, id=1).
+//   브랜드 서베이 현황 화면의 「접수 잠금」 안내 줄 표시 여부에만 쓴다.
+//   읽기 전용이며, 알 수 없으면 null 을 돌려 안내를 생략한다(화면을 막지 않음).
+//   ※ 이 표는 관리자만 읽을 수 있는 접근 정책이라 별도 함수 없이 직접 조회한다.
+async function fetchBrandSurveyOpen() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db?.from('brand_survey_settings').select('submissions_open').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data ? !!data.submissions_open : null;
+  } catch(e) { console.error('[fetchBrandSurveyOpen]', e); return null; }
+}
+
 async function fetchBrandApplications(filters) {
   if (!db) return [];
   try {
