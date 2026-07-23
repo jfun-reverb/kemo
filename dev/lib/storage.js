@@ -400,11 +400,44 @@ async function updateCampaign(campId, updates) {
   });
 }
 
+// 캠페인 상세 조회수 +1.
+// ⚠️ campaigns 테이블을 직접 UPDATE 하면 안 된다 — UPDATE 정책이 관리자 한정(마이그레이션 001)
+//    이라 인플루언서·비로그인 조회가 조용히 0행 처리되어 집계가 통째로 누락됐다(마이그레이션 263).
+//    반드시 increment_campaign_view 함수 경유(원자적 증가 + 관리자·감사용 계정 제외).
+// 같은 기기에서 같은 캠페인을 하루에 여러 번 열어도 1회만 센다(새로고침·뒤로가기·언어 전환으로
+// 부풀지 않도록). 날짜 기준은 일본/한국 표준시(+09:00).
+const VIEW_COUNT_SEEN_KEY = 'reverb.viewedCampaigns';
+
+function _viewCountTodayKst() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0');
+}
+
+// 오늘 이미 센 캠페인이면 false. 아니면 기록하고 true.
+// 저장소를 못 쓰는 환경(사생활 보호 모드 등)에서는 게이트 없이 통과시킨다(집계 누락 방지).
+function _markCampaignViewed(campId) {
+  const today = _viewCountTodayKst();
+  try {
+    const raw = localStorage.getItem(VIEW_COUNT_SEEN_KEY);
+    const seen = raw ? JSON.parse(raw) : {};
+    if (seen[campId] === today) return false;
+    // 날짜가 바뀐 항목은 정리 (무한 증식 방지)
+    const fresh = {};
+    Object.keys(seen).forEach(k => { if (seen[k] === today) fresh[k] = today; });
+    fresh[campId] = today;
+    localStorage.setItem(VIEW_COUNT_SEEN_KEY, JSON.stringify(fresh));
+    return true;
+  } catch (e) {
+    return true;
+  }
+}
+
 async function incrementViewCount(campId) {
-  if (!db) return;
-  const {data} = await db.from('campaigns').select('view_count').eq('id', campId).maybeSingle();
-  const current = (data?.view_count) || 0;
-  await db.from('campaigns').update({ view_count: current + 1 }).eq('id', campId);
+  if (!db || !campId) return;
+  if (!_markCampaignViewed(campId)) return;
+  await db.rpc('increment_campaign_view', { p_campaign_id: campId });
 }
 
 // ── Influencers ──
@@ -3799,8 +3832,12 @@ async function fetchSettlements(opts) {
   opts = opts || {};
   try {
     const data = await fetchAllPaged(() => {
+      // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
+      // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
+      // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        amount_source, reward_part_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
