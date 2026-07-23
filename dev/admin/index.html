@@ -1025,8 +1025,11 @@
               <button id="campApplicantsBackBtn" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
               <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
               <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
-              <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
+              <button id="campDetailExcelBtn" class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="exportCampDetailExcel()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 신청자 엑셀</button>
+              <button class="btn btn-ghost btn-sm" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
+              <button class="btn btn-ghost btn-sm" title="더보기" onclick="openCampDetailMoreMenu(event, this)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">more_vert</span></button>
             </div>
+            <div id="campApplicantsSummary" class="camp-ops-summary"></div>
             <div id="campDetailTabBar" class="status-tab-bar" style="margin-bottom:12px"></div>
             <div id="campAppFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1048,7 +1051,6 @@
               </div>
             </div>
           </div>
-          <div id="campApplicantsSummary" class="camp-ops-summary"></div>
           <div class="admin-card" id="campApplicantsCard">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span><span id="campApplicantsStats" style="font-size:12px;color:var(--muted)"></span></div>

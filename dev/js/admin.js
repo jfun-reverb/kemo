@@ -2072,6 +2072,11 @@ async function executeDeleteCampaign() {
       await softDeleteCampaign(campId);
     }
     closeDeleteCampModal();
+    // 캠페인 진행현황에서 삭제한 경우(헤더 더보기 메뉴), 사라진 캠페인 화면에 남지 않도록 목록으로 돌려보낸다
+    if (typeof currentCampApplicantId !== 'undefined' && currentCampApplicantId === campId
+        && $('adminPane-camp-applicants')?.classList.contains('on')) {
+      switchAdminPane('campaigns', null);
+    }
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
     toast('캠페인을 보관 삭제했습니다 (30일간 「삭제됨」 탭에서 복구 가능)','success');
