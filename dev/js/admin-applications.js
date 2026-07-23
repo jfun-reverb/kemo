@@ -158,8 +158,8 @@ async function loadCampApplicants() {
   });
 
   // 결과물 탭 렌더 + 상단 탭 건수 갱신 (같은 데이터로 한 번에 — 추가 조회 없음)
-  renderCampDelivTab(camp, allDelivs, allApps, _users);
-  renderCampDetailTabs(total, allDelivs);
+  const delivTotal = renderCampDelivTab(camp, allDelivs, allApps, _users);
+  renderCampDetailTabs(total, delivTotal);
 }
 
 // ── 캠페인 진행현황: 신청자 목록 / 결과물 목록 탭 ─────────────────────
@@ -168,13 +168,13 @@ async function loadCampApplicants() {
 var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables'
 var _campDelivCertTab = '';          // 결과물 탭 안의 인증 상태 필터('' = 전체)
 
-function renderCampDetailTabs(appCount, allDelivs) {
+// delivCount 는 결과물 탭이 실제로 그리는 행 수(미제출 승인 신청 포함) — 탭 숫자와 목록 길이를 일치시킨다.
+function renderCampDetailTabs(appCount, delivCount) {
   const bar = $('campDetailTabBar');
   if (!bar) return;
-  const delivCount = new Set((allDelivs || []).map(d => d.application_id).filter(Boolean)).size;
   const tabs = [
     { code: 'applicants',   label: '신청자 목록', n: appCount || 0 },
-    { code: 'deliverables', label: '결과물 목록', n: delivCount },
+    { code: 'deliverables', label: '결과물 목록', n: delivCount || 0 },
   ];
   bar.innerHTML = tabs.map(t => {
     const cls = 'status-tab-btn' + (t.code === _campDetailTab ? ' on' : '') + (t.n === 0 ? ' zero-count' : '');
@@ -200,14 +200,33 @@ function applyCampDetailTabVisibility() {
   if (appCard) appCard.style.display = isDeliv ? 'none' : '';
   if (delivCard) delivCard.style.display = isDeliv ? '' : 'none';
   if (filterBar) filterBar.style.display = isDeliv ? 'none' : 'flex';
+  // 엑셀 버튼은 지금 보고 있는 탭의 엑셀을 받도록 라벨·동작을 함께 바꾼다(어느 걸 받는지 헷갈리지 않게)
+  const excelBtn = $('campDetailExcelBtn');
+  if (excelBtn) {
+    excelBtn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> ${isDeliv ? '결과물 엑셀' : '신청자 엑셀'}`;
+  }
+}
+
+// 헤더 엑셀 버튼 — 현재 탭에 맞는 엑셀 내보내기(캠페인 목록 더보기 메뉴의 두 항목과 같은 함수)
+function exportCampDetailExcel() {
+  if (!currentCampApplicantId) return;
+  if (_campDetailTab === 'deliverables') exportCampaignDeliverables(currentCampApplicantId);
+  else exportCampaignApplicationsExcel(currentCampApplicantId);
+}
+
+// 헤더 더보기 버튼 — 캠페인 목록 행의 더보기 메뉴를 그대로 재사용(편집·복제·엑셀·이력·삭제)
+function openCampDetailMoreMenu(e, btn) {
+  if (!currentCampApplicantId) return;
+  const title = ($('campApplicantsTitle')?.textContent || '').trim();
+  toggleCampMoreMenu(e, btn, currentCampApplicantId, title);
 }
 
 // 결과물 탭 본문 — 인증 상태 탭 + 표.
 //   미제출 승인 신청도 빈 행으로 포함해야 「미제출」 집계가 결과물 관리 페인과 같아진다(includeApps).
 function renderCampDelivTab(camp, allDelivs, allApps, users) {
   const tbody = $('campDelivBody');
-  if (!tbody) return;
-  if (!camp) { tbody.innerHTML = ''; return; }
+  if (!tbody) return 0;
+  if (!camp) { tbody.innerHTML = ''; return 0; }
   const campMap = new Map([[camp.id, camp]]);
   const infMap = {};
   (users || []).forEach(u => { if (u.id) infMap[u.id] = u; });
@@ -216,9 +235,16 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   let list = Array.from(groups.values());
   // 신청 status 를 그룹에 채워 「검수 불필요」(반려·취소된 신청) 판정이 결과물 관리와 같아지게 한다
   const appStatusById = {};
-  (allApps || []).forEach(a => { appStatusById[a.id] = a.status; });
-  list.forEach(g => { if (!g.application_status) g.application_status = appStatusById[g.application_id] || null; });
+  const userIdByApp = {};
+  (allApps || []).forEach(a => { appStatusById[a.id] = a.status; userIdByApp[a.id] = a.user_id; });
+  list.forEach(g => {
+    if (!g.application_status) g.application_status = appStatusById[g.application_id] || null;
+    // fetchDeliverablesByCampaign 은 influencers 를 조인하지 않으므로(경량 조회) 이름이 비어 보인다.
+    // 이미 로드해 둔 인플루언서 목록으로 신청→회원을 이어 채운다. 추가 조회 없음.
+    if (!g.influencer) g.influencer = infMap[userIdByApp[g.application_id]] || null;
+  });
 
+  const totalAllGroups = list.length;   // 인증 상태 필터 적용 전 — 상단 「결과물 목록」 탭 숫자와 일치시킨다
   const counts = { success: 0, submitting: 0, none: 0, excluded: 0 };
   list.forEach(g => { const s = computeCertStatus(g); if (counts[s] != null) counts[s]++; });
   renderCampDelivCertTabs(counts);
@@ -232,6 +258,7 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
     : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
+  return totalAllGroups;
 }
 
 function renderCampDelivCertTabs(counts) {
