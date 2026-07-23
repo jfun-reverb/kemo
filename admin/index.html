@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784787498';
+  var CURRENT_BUILD = 'v1784788475';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2500,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 15:18 · 412922c</span>
+          <span class="admin-build-text">2026-07-23 15:34 · 58998e4</span>
         </div>
       </div>
     </aside>
@@ -3384,8 +3384,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <button id="campApplicantsBackBtn" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
               <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
               <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
-              <button id="campDetailExcelBtn" class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="exportCampDetailExcel()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 신청자 엑셀</button>
-              <button class="btn btn-ghost btn-sm" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
               <button class="btn btn-ghost btn-sm" title="더보기" onclick="openCampDetailMoreMenu(event, this)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">more_vert</span></button>
             </div>
             <div id="campApplicantsSummary" class="camp-ops-summary"></div>
@@ -3412,7 +3411,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           </div>
           <div class="admin-card" id="campApplicantsCard">
             <!-- 카드 제목·건수 줄은 없음 — 상태 탭이 이름과 건수를 함께 보여준다 -->
-            <div id="campAppStatusTabBar" class="status-tab-bar" style="margin:12px 16px 8px"></div>
+            <!-- 상태 탭 줄 우측에 그 탭의 엑셀 버튼 (탭 바는 스크롤 영역이라 밖에서 감싼다) -->
+            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
+              <div id="campAppStatusTabBar" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportCampaignApplicationsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 신청자 엑셀</button>
+            </div>
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
@@ -3423,7 +3426,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <!-- 결과물 탭 — 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow) 재사용, 캠페인 반복 열은 생략(compact) -->
           <div class="admin-card" id="campDelivCard" style="display:none">
             <!-- 카드 제목·건수 줄은 없음 — 인증 상태 탭이 건수를 함께 보여준다 -->
-            <div id="campDelivCertTabBar" class="status-tab-bar" style="margin:12px 16px 8px"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
+              <div id="campDelivCertTabBar" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportCampaignDeliverables(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 결과물 엑셀</button>
+            </div>
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:230px">영수증</th><th style="width:195px">결과물</th><th style="width:130px">최근 제출</th><th style="width:90px">처리</th></tr></thead>
@@ -28281,19 +28287,10 @@ function applyCampDetailTabVisibility() {
   // 검수 상태 드롭다운은 결과물 탭 전용
   const reviewGroup = $('campDelivReviewFilterGroup');
   if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
-  // 엑셀 버튼은 지금 보고 있는 탭의 엑셀을 받도록 라벨·동작을 함께 바꾼다(어느 걸 받는지 헷갈리지 않게)
-  const excelBtn = $('campDetailExcelBtn');
-  if (excelBtn) {
-    excelBtn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> ${isDeliv ? '결과물 엑셀' : '신청자 엑셀'}`;
-  }
 }
 
-// 헤더 엑셀 버튼 — 현재 탭에 맞는 엑셀 내보내기(캠페인 목록 더보기 메뉴의 두 항목과 같은 함수)
-function exportCampDetailExcel() {
-  if (!currentCampApplicantId) return;
-  if (_campDetailTab === 'deliverables') exportCampaignDeliverables(currentCampApplicantId);
-  else exportCampaignApplicationsExcel(currentCampApplicantId);
-}
+// (2026-07-23) 헤더 엑셀 버튼(exportCampDetailExcel)은 각 탭의 상태 탭 줄 우측 버튼으로 이동.
+//   신청자 탭 → exportCampaignApplicationsExcel / 결과물 탭 → exportCampaignDeliverables 를 직접 호출한다.
 
 // 헤더 더보기 버튼 — 캠페인 목록 행의 더보기 메뉴를 그대로 재사용(편집·복제·엑셀·이력·삭제)
 function openCampDetailMoreMenu(e, btn) {
