@@ -203,7 +203,7 @@ function updateCampTableHead() {
     head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
-      <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
+      <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
       <th>캠페인</th>
       <th>채널</th>
       <th>브랜드</th>
@@ -2535,7 +2535,8 @@ function openCampPreviewModal(campId) {
   const frame = $('campPreviewFrame');
   const editBtn = $('campPreviewEditBtn');
   if (!frame) return;
-  frame.src = '/?v=' + Date.now() + '#detail-' + campId;
+  // preview=1 → 인플루언서 화면이 상단 바·되돌아가기 줄을 감춘 채 뜬다(index.html 부팅 스크립트)
+  frame.src = '/?preview=1&v=' + Date.now() + '#detail-' + campId;
   editBtn.onclick = function() { closeModal('campPreviewModal'); openEditCampaign(campId); };
   openModal('campPreviewModal');
 }

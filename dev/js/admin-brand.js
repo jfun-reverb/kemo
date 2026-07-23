@@ -1028,7 +1028,7 @@ function openBrandAppOrientListModal(appId) {
       + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
   } else {
     sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<thead><tr style="background:var(--th-bg);color:var(--th-fg)">'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">발급일</th>'
@@ -1376,7 +1376,7 @@ function renderBrandAppBundleCard(a) {
         + '<col style="width:100px">'    // 이체수수료
         + '<col style="width:110px">'    // 소계
       + '</colgroup>'
-      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<thead><tr style="background:var(--th-bg);color:var(--th-fg)">'
         + '<th style="padding:6px 8px;text-align:left">제품명</th>'
         + '<th style="padding:6px 8px;text-align:left">URL</th>'
         + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">수량</th>'
@@ -3184,7 +3184,7 @@ function renderBrandAppHistoryTableHtml(historyArr) {
   });
 
   return '<table style="width:100%;font-size:12px;border-collapse:collapse">'
-    + '<thead><tr style="background:var(--surface-dim);color:var(--muted);font-weight:600">'
+    + '<thead><tr style="background:var(--th-bg);color:var(--th-fg);font-weight:600">'
       + '<th style="text-align:left;padding:8px 10px;width:140px">시간</th>'
       + '<th style="text-align:left;padding:8px 10px;width:80px">담당</th>'
       + '<th style="text-align:left;padding:8px 10px;width:130px">제품</th>'
