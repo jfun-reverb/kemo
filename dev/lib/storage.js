@@ -3832,8 +3832,12 @@ async function fetchSettlements(opts) {
   opts = opts || {};
   try {
     const data = await fetchAllPaged(() => {
+      // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
+      // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
+      // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        amount_source, reward_part_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
@@ -4088,7 +4092,10 @@ async function deleteOutboundImage(path) {
 // 대상이라, 컷오프 이전 과거분은 이 목록에서 관리자가 건별/일괄로 직접 처리한다.
 // RLS/서버 게이트 has_permission('settlement.view','read') → campaign_manager 는 빈 배열.
 // 각 행: {application_id, influencer_id, influencer_name, influencer_name_kana, has_paypal(bool),
-//   campaign_id, campaign_title, recruit_type, amount_jpy, cert_at(nullable)}
+//   campaign_id, campaign_title, campaign_no, recruit_type, amount_jpy, cert_at(nullable),
+//   amount_source('reward'|'product_price'|'product_plus_reward'), amount_issue(nullable)}
+// ⚠️ campaign_no·amount_source·amount_issue 3종은 마이그레이션 262에서 추가. amount_issue 가
+//   있는 행(금액 NULL·0 이하)은 서버가 등록에서 조용히 건너뛰므로 화면이 미리 선택을 잠근다.
 async function fetchPastUnregisteredSettlements() {
   if (!db) return [];
   try {

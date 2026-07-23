@@ -1237,13 +1237,20 @@
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
-                  과거 미등록
+                  과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
                 </button>
                 <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
                   엑셀
                 </button>
               </div>
+            </div>
+            <!-- 금액 확인 필요 안내 — 인증은 끝났는데 캠페인에 금액이 없어 정산을 만들 수 없는 건.
+                 0건이면 통째로 숨긴다(평소엔 안 보이는 게 정상). -->
+            <div id="settlementAmountIssueBanner" style="display:none;padding:10px 12px;background:#FFF4F4;border:1px solid #F2B8B8;border-radius:8px;font-size:12px;line-height:1.6;color:#8A2B2B;margin-bottom:12px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">error_outline</span>
+              <span id="settlementAmountIssueText"></span>
+              <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openPastUnregView()">확인하러 가기</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1297,6 +1304,27 @@
               여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
+            <!-- 필터 — 캠페인 단위로 나눠 처리하도록(대량 오조작 방지). 필터를 바꾸면 선택은 초기화된다 -->
+            <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <div id="pastUnregCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>모집 형식</label>
+                <select id="pastUnregTypeFilter" class="form-input" style="height:38px;width:140px" onchange="onPastUnregFilterChange()">
+                  <option value="">전체</option>
+                  <option value="monitor">리뷰어형</option>
+                  <option value="gifting">기프팅</option>
+                  <option value="visit">방문형</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:180px">
+                <label>인플루언서 검색</label>
+                <input type="text" id="pastUnregSearch" class="form-input" style="height:38px" placeholder="이름 · 가나" oninput="onPastUnregFilterChange()">
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="resetPastUnregFilters()">초기화</button>
+            </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group" style="flex:1;min-width:220px">
                 <label>메모 (선택 · 처리 건에 함께 기록)</label>
@@ -1315,10 +1343,10 @@
             <div class="admin-table-wrap">
               <table class="data-table">
                 <thead><tr>
-                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 목록 전체 선택"></th>
+                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 필터 결과 전체 선택"></th>
                   <th>인플루언서</th>
                   <th>캠페인</th>
-                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:150px">금액(¥)</th>
                   <th style="width:130px">인증성공일</th>
                   <th style="width:100px">PayPal</th>
                 </tr></thead>
