@@ -16,6 +16,13 @@
     var fav = document.getElementById('appFavicon');
     if (fav) fav.href = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23f59e0b'/><text x='32' y='42' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='22' fill='%23fff'>DEV</text></svg>";
   }
+  /* 관리자 「캠페인 미리보기」가 이 화면을 작은 창(iframe)으로 띄울 때 ?preview=1 을 붙인다.
+     미리보기는 캠페인 내용만 확인하는 자리라, 눌러도 갈 곳이 없는 상단 바(로고·햄버거)와
+     「キャンペーン一覧へ」 되돌아가기 줄을 감춘다. 실제 인플루언서 화면은 파라미터가 없어 그대로.
+     <html> 에 표시를 붙이므로 화면이 그려지기 전에 적용돼 깜빡임이 없다. */
+  if (new URLSearchParams(location.search).get('preview') === '1') {
+    document.documentElement.classList.add('preview-mode');
+  }
 })();
 </script>
 <style id="app-cloak">.page{visibility:hidden!important}</style>
@@ -521,6 +528,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* Campaign detail */
 .detail-back{display:inline-flex;align-items:center;gap:6px;color:var(--on-surface-variant);font-size:13px;cursor:pointer;margin-bottom:20px;transition:all .2s;padding:6px 0}
 .detail-back:hover{color:var(--primary)}
+/* 관리자 「캠페인 미리보기」 전용 (index.html 이 ?preview=1 을 보고 <html> 에 표시를 붙인다).
+   미리보기 창에서는 눌러도 갈 곳이 없는 상단 바(로고·햄버거)와 되돌아가기 줄을 감춘다. */
+html.preview-mode .gnb{display:none}
+html.preview-mode #page-detail .detail-back{display:none}
 .detail-layout{display:grid;grid-template-columns:1fr;gap:0}
 .detail-main{}
 .detail-header{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:24px;margin-bottom:16px;box-shadow:var(--elevation-1)}

@@ -82,6 +82,10 @@
 /* Campaign detail */
 .detail-back{display:inline-flex;align-items:center;gap:6px;color:var(--on-surface-variant);font-size:13px;cursor:pointer;margin-bottom:20px;transition:all .2s;padding:6px 0}
 .detail-back:hover{color:var(--primary)}
+/* 관리자 「캠페인 미리보기」 전용 (index.html 이 ?preview=1 을 보고 <html> 에 표시를 붙인다).
+   미리보기 창에서는 눌러도 갈 곳이 없는 상단 바(로고·햄버거)와 되돌아가기 줄을 감춘다. */
+html.preview-mode .gnb{display:none}
+html.preview-mode #page-detail .detail-back{display:none}
 .detail-layout{display:grid;grid-template-columns:1fr;gap:0}
 .detail-main{}
 .detail-header{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:24px;margin-bottom:16px;box-shadow:var(--elevation-1)}
