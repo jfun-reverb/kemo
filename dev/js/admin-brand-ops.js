@@ -347,12 +347,9 @@ var BRAND_OPS_CAMP_STATUS_COLOR = {
 // 캠페인 모집 타입 한글 (admin.js 의 RECRUIT_TYPE_LABEL_KO 폴백)
 var BRAND_OPS_RECRUIT_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
 
-// M/D 짧은 날짜
+// 기간 표시용 날짜 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 M/D 축약 폐지)
 function brandOpsShortDate(d) {
-  if (!d) return '';
-  var dt = new Date(d);
-  if (isNaN(dt)) return '';
-  return (dt.getMonth() + 1) + '/' + dt.getDate();
+  return formatDate(d);
 }
 
 // 채널 문자열(콤마구분) → 한글 라벨, 복수면 channel_match 구분자

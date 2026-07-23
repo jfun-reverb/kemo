@@ -14103,10 +14103,10 @@ function renderAppStatusLine(app, camp) {
 }
 
 // MM/DD 포맷 (ja-JP)
+// 안내 문장 안의 마감일 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 MM/DD 축약 폐지)
 function formatMMDD(ms) {
   if (isNaN(ms)) return '';
-  const d = new Date(ms);
-  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  return formatDate(new Date(ms));
 }
 
 // ── FAQ 트리 ──
