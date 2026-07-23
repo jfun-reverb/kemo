@@ -1032,14 +1032,14 @@
             <div id="campApplicantsSummary" class="camp-ops-summary"></div>
             <div id="campDetailTabBar" class="status-tab-bar" style="margin-bottom:12px"></div>
             <div id="campAppFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-              <div class="admin-filter-group">
-                <label>상태</label>
-                <select id="campAppFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
+              <!-- 검수 상태는 결과물 탭에서만 노출 (신청 상태는 카드 안 탭으로 이동) -->
+              <div class="admin-filter-group" id="campDelivReviewFilterGroup" style="display:none">
+                <label>검수 상태</label>
+                <select id="campDelivReviewFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
                   <option value="">전체</option>
-                  <option value="pending">심사중</option>
-                  <option value="approved">승인</option>
-                  <option value="rejected">미승인</option>
-                  <option value="cancelled">취소</option>
+                  <option value="pending">검수대기</option>
+                  <option value="rejected">반려 있음</option>
+                  <option value="approved">모두 승인</option>
                 </select>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
@@ -1052,9 +1052,8 @@
             </div>
           </div>
           <div class="admin-card" id="campApplicantsCard">
-            <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span><span id="campApplicantsStats" style="font-size:12px;color:var(--muted)"></span></div>
-            </div>
+            <!-- 카드 제목·건수 줄은 없음 — 상태 탭이 이름과 건수를 함께 보여준다 -->
+            <div id="campAppStatusTabBar" class="status-tab-bar" style="margin:12px 16px 8px"></div>
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
@@ -1064,10 +1063,8 @@
           </div>
           <!-- 결과물 탭 — 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow) 재사용, 캠페인 반복 열은 생략(compact) -->
           <div class="admin-card" id="campDelivCard" style="display:none">
-            <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">결과물 목록</span><span id="campDelivStats" style="font-size:12px;color:var(--muted)"></span></div>
-            </div>
-            <div id="campDelivCertTabBar" class="status-tab-bar" style="margin:0 16px 8px"></div>
+            <!-- 카드 제목·건수 줄은 없음 — 인증 상태 탭이 건수를 함께 보여준다 -->
+            <div id="campDelivCertTabBar" class="status-tab-bar" style="margin:12px 16px 8px"></div>
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:230px">영수증</th><th style="width:195px">결과물</th><th style="width:130px">최근 제출</th><th style="width:90px">처리</th></tr></thead>

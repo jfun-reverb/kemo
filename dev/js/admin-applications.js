@@ -25,7 +25,10 @@ async function openCampApplicants(campId, campTitle, from) {
   currentCampApplicantId = campId;
   // 다른 캠페인을 열 때 탭·인증 상태 필터를 초기화 (직전 캠페인의 필터가 남아 「0건」으로 보이는 혼란 방지)
   _campDetailTab = 'applicants';
+  _campAppStatusTab = '';
   _campDelivCertTab = '';
+  const _rf = $('campDelivReviewFilter'); if (_rf) _rf.value = '';
+  const _sq = $('campAppSearch'); if (_sq) _sq.value = '';
   applyCampDetailTabVisibility();
   _campApplicantsFrom = (from === 'brand-ops') ? 'brand-ops' : 'campaigns';
   // 제목: 인자로 받으면 즉시 표시, 없으면 loadCampApplicants 가 캠페인 조회 후 보강
@@ -48,7 +51,7 @@ var campApplicantsLazy = null;
 const CAMP_APPLICANTS_PAGE_SIZE = 50;
 
 async function loadCampApplicants() {
-  const filter = $('campAppFilterStatus')?.value || '';
+  const filter = _campAppStatusTab || '';   // 신청 상태 탭(단일, ''=전체) — 구 드롭다운 대체
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
@@ -71,8 +74,21 @@ async function loadCampApplicants() {
       ]);
     });
   }
-  const approved = apps.filter(a=>a.status==='approved').length;
-  const pending = apps.filter(a=>a.status==='pending').length;
+  // 신청 상태 탭 건수 — 자기 필터(상태)는 빼고 검색만 반영해야 탭을 눌러도 숫자가 안 흔들린다
+  const searchedApps = searchQ
+    ? allApps.filter(a => {
+        const u = _users.find(x => x.email === a.user_email) || {};
+        return matchSearchTokens(searchQ, [
+          a.user_name, a.user_email,
+          u.name_kanji, u.name, u.name_kana,
+          a.ig_id, a.user_ig,
+          u.ig, u.x, u.tiktok, u.youtube,
+        ]);
+      })
+    : allApps;
+  const appStatusCounts = { pending: 0, approved: 0, rejected: 0, cancelled: 0 };
+  searchedApps.forEach(a => { if (appStatusCounts[a.status] != null) appStatusCounts[a.status]++; });
+  renderCampAppStatusTabs(appStatusCounts);
 
   let camp = allCampaigns.find(c=>c.id===currentCampApplicantId);
   if (!camp) {
@@ -86,14 +102,7 @@ async function loadCampApplicants() {
   const remaining = Math.max(slots - allApproved, 0);
   $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
 
-  $('campApplicantsSubtitle').textContent = `신청자 목록`;
-  $('campApplicantsStats').innerHTML = `
-    <span style="color:var(--ink);font-weight:600">${total}명 신청</span>
-    <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--green)">승인 ${approved}명</span>
-    <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--gold)">심사중 ${pending}명</span>
-  `;
+  // (2026-07-23) 카드 제목·건수 줄 제거 — 상태 탭이 이름과 건수를 함께 보여준다
 
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
   const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
@@ -166,7 +175,27 @@ async function loadCampApplicants() {
 //   결과물 표는 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow)를 compact 로 재사용한다.
 //   두 화면이 따로 놀지 않게 판정·렌더를 단일 소스로 유지하는 게 목적.
 var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables'
+var _campAppStatusTab = '';          // 신청자 탭 안의 신청 상태 필터('' = 전체)
 var _campDelivCertTab = '';          // 결과물 탭 안의 인증 상태 필터('' = 전체)
+
+// 신청 상태 탭 — 신청 관리 페인과 같은 5종(APP_STATUS_TABS) 재사용. 건수는 검색만 반영한 집계.
+function renderCampAppStatusTabs(countsMap) {
+  const bar = $('campAppStatusTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const totalAll = (c.pending||0) + (c.approved||0) + (c.rejected||0) + (c.cancelled||0);
+  bar.innerHTML = APP_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const cls = 'status-tab-btn' + (tab.code === _campAppStatusTab ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setCampAppStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+function setCampAppStatusTab(btn) {
+  _campAppStatusTab = btn.dataset.status || '';
+  loadCampApplicants();
+}
 
 // delivCount 는 결과물 탭이 실제로 그리는 행 수(미제출 승인 신청 포함) — 탭 숫자와 목록 길이를 일치시킨다.
 function renderCampDetailTabs(appCount, delivCount) {
@@ -199,7 +228,10 @@ function applyCampDetailTabVisibility() {
   const filterBar = $('campAppFilterBar');
   if (appCard) appCard.style.display = isDeliv ? 'none' : '';
   if (delivCard) delivCard.style.display = isDeliv ? '' : 'none';
-  if (filterBar) filterBar.style.display = isDeliv ? 'none' : 'flex';
+  if (filterBar) filterBar.style.display = 'flex';   // 검색은 두 탭 공용
+  // 검수 상태 드롭다운은 결과물 탭 전용
+  const reviewGroup = $('campDelivReviewFilterGroup');
+  if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
   // 엑셀 버튼은 지금 보고 있는 탭의 엑셀을 받도록 라벨·동작을 함께 바꾼다(어느 걸 받는지 헷갈리지 않게)
   const excelBtn = $('campDetailExcelBtn');
   if (excelBtn) {
@@ -244,7 +276,20 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
     if (!g.influencer) g.influencer = infMap[userIdByApp[g.application_id]] || null;
   });
 
-  const totalAllGroups = list.length;   // 인증 상태 필터 적용 전 — 상단 「결과물 목록」 탭 숫자와 일치시킨다
+  const totalAllGroups = list.length;   // 어떤 필터도 적용 전 — 상단 「결과물 목록」 탭 숫자와 일치시킨다
+
+  // 검색(인플루언서 이름·메일·SNS)과 검수 상태는 인증 상태 탭보다 먼저 적용해,
+  // 탭 건수가 「지금 검색한 결과 안에서의 분포」를 보여주게 한다(신청자 탭과 같은 규칙).
+  const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
+  if (searchQ) {
+    list = list.filter(g => {
+      const u = g.influencer || {};
+      return matchSearchTokens(searchQ, [u.name, u.name_kanji, u.name_kana, u.email, u.ig, u.x, u.tiktok, u.youtube]);
+    });
+  }
+  const reviewFilter = $('campDelivReviewFilter')?.value || '';
+  if (reviewFilter) list = list.filter(g => campDelivReviewState(g) === reviewFilter);
+
   const counts = { success: 0, submitting: 0, none: 0, excluded: 0 };
   list.forEach(g => { const s = computeCertStatus(g); if (counts[s] != null) counts[s]++; });
   renderCampDelivCertTabs(counts);
@@ -253,12 +298,22 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   // 최근 제출 순(미제출은 뒤로)
   list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
 
-  const stats = $('campDelivStats');
-  if (stats) stats.textContent = `${list.length}건`;
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
     : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
   return totalAllGroups;
+}
+
+// 신청 1건의 검수 진행 상태 — 「검수 상태」 드롭다운 판정용.
+//   제출된 결과물(영수증·게시물·채널별 인증샷)을 한 묶음으로 보고 가장 급한 상태를 대표값으로 삼는다.
+//   검수대기 > 반려 > 모두 승인 순 (미제출은 어디에도 안 걸림 → 'none')
+function campDelivReviewState(g) {
+  const items = [g.receipt, g.result].concat(Object.values(g.reviewByChannel || {})).filter(Boolean);
+  if (!items.length) return 'none';
+  if (items.some(d => d.status === 'pending')) return 'pending';
+  if (items.some(d => d.status === 'rejected')) return 'rejected';
+  if (items.every(d => d.status === 'approved')) return 'approved';
+  return 'none';
 }
 
 function renderCampDelivCertTabs(counts) {
