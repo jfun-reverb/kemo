@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784771363';
+  var CURRENT_BUILD = 'v1784773262';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2500,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 10:49 · 24b4656</span>
+          <span class="admin-build-text">2026-07-23 11:21 · c6bb2a0</span>
         </div>
       </div>
     </aside>
@@ -32570,11 +32570,16 @@ async function loadAdminCampaigns(useCache) {
     if (c.recruit_type) rtCounts[c.recruit_type] = (rtCounts[c.recruit_type]||0) + 1;
   });
   // 다중 선택 드롭다운에 옵션별 (NN) 건수 업데이트
-  syncMultiFilter('campTypeMulti', '전체 타입', [
-    {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
-    {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
-    {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
-  ], () => filterAdminCampaigns());
+  // 타입 필터 건수는 활성 목록 기준. 삭제됨 탭은 renderDeletedCampsPane 이 삭제 캠페인 기준으로 다시 sync 하므로 여기선 건너뛴다.
+  //   (양쪽에서 같은 위젯을 다른 건수로 재sync 하면, 선택이 있을 때 syncMultiFilter 재생성이 onChange 를 즉시 재호출해
+  //    loadAdminCampaigns→renderDeletedCampsPane 무한 재귀가 발생 — 2026-07-23 QA Critical)
+  if (_campActiveStatusTab !== 'deleted') {
+    syncMultiFilter('campTypeMulti', '전체 타입', [
+      {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
+      {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
+      {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
+    ], () => filterAdminCampaigns());
+  }
   // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
   renderCampStatusTabs(stCounts);
 

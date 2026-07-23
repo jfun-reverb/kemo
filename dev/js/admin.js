@@ -290,11 +290,16 @@ async function loadAdminCampaigns(useCache) {
     if (c.recruit_type) rtCounts[c.recruit_type] = (rtCounts[c.recruit_type]||0) + 1;
   });
   // 다중 선택 드롭다운에 옵션별 (NN) 건수 업데이트
-  syncMultiFilter('campTypeMulti', '전체 타입', [
-    {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
-    {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
-    {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
-  ], () => filterAdminCampaigns());
+  // 타입 필터 건수는 활성 목록 기준. 삭제됨 탭은 renderDeletedCampsPane 이 삭제 캠페인 기준으로 다시 sync 하므로 여기선 건너뛴다.
+  //   (양쪽에서 같은 위젯을 다른 건수로 재sync 하면, 선택이 있을 때 syncMultiFilter 재생성이 onChange 를 즉시 재호출해
+  //    loadAdminCampaigns→renderDeletedCampsPane 무한 재귀가 발생 — 2026-07-23 QA Critical)
+  if (_campActiveStatusTab !== 'deleted') {
+    syncMultiFilter('campTypeMulti', '전체 타입', [
+      {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
+      {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
+      {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
+    ], () => filterAdminCampaigns());
+  }
   // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
   renderCampStatusTabs(stCounts);
 
