@@ -677,7 +677,11 @@ function certStatusBadge(g) {
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
 // 양쪽 모두 「승인」(또는 gifting의 경우 결과물 단독 「승인」)이면 좌측 초록 보더 = 「완료」
-function renderDelivAppRow(g) {
+// opts.compact: 단일 캠페인 화면(캠페인 진행현황 「결과물 목록」 탭)에서 호출.
+//   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
+//   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
+function renderDelivAppRow(g, opts) {
+  const compact = !!(opts && opts.compact);
   const camp = g.campaign || {};
   const inf = g.influencer || {};
   const rt = camp.recruit_type;
@@ -728,12 +732,14 @@ function renderDelivAppRow(g) {
 
   const brandLabel = brandLabelAdmin(camp);
 
-  return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
+  const campCols = compact ? '' : `
     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div style="display:flex;align-items:flex-start;gap:4px"><span style="flex:1">${esc(camp.title || '—')}</span>${campPreviewBtn(camp.id)}</div></td>
     <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
     <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
-    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
+    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>`;
+
+  return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">${campCols}
     <td><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
@@ -1272,7 +1278,7 @@ async function renderDelivCombinedBody(applicationId) {
         const thumb = orig
           ? `<img src="${esc(typeof imgThumb === 'function' ? imgThumb(orig, 64, 60) : orig)}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
-        const dateStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ja-JP') : '';
+        const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
         if (emptyChannels.length === 0) {
           control = '<span style="font-size:12px;color:var(--muted)">지정 가능한 채널이 없습니다 (모든 채널이 이미 채워짐)</span>'

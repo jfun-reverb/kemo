@@ -757,8 +757,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var submittedStr = d.submitted_at ? formatDate(d.submitted_at) : '';
+      var reviewedStr = d.reviewed_at ? formatDate(d.reviewed_at) : '';
       var statusStr = statusLabelMap[d.status] || d.status || '';
       var urlCellValue = '';
       if (d.kind === 'post') {
@@ -1194,8 +1194,8 @@ async function exportCampaignDeliverables(campId) {
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var submittedStr = d.submitted_at ? formatDate(d.submitted_at) : '';
+      var reviewedStr = d.reviewed_at ? formatDate(d.reviewed_at) : '';
       var statusStr = statusLabelMap[d.status] || d.status || '';
       // URL 셀: post는 게시물 URL, receipt/review_image는 receipt_url 기반 하이퍼링크
       var urlCellValue = '';
@@ -1472,8 +1472,8 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
   var renderDeliv6 = function(d) {
     if (!d) return ['', '', '', '', '', ''];
-    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var sub = d.submitted_at ? formatDate(d.submitted_at) : '';
+    var rev = d.reviewed_at ? formatDate(d.reviewed_at) : '';
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {
@@ -1677,8 +1677,8 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
   var renderDeliv6 = function(d) {
     if (!d) return ['', '', '', '', '', ''];
-    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var sub = d.submitted_at ? formatDate(d.submitted_at) : '';
+    var rev = d.reviewed_at ? formatDate(d.reviewed_at) : '';
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {

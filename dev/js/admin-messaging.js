@@ -651,11 +651,9 @@ function admStatusLineKo(key, camp) {
   return text.replace('{date}', mmdd);
 }
 
+// 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 MM/DD 축약 폐지)
 function _admMMDD(d) {
-  const ms = Date.parse(d || '');
-  if (isNaN(ms)) return '';
-  const dt = new Date(ms);
-  return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
+  return formatDate(d);
 }
 
 // FAQ 열람 이력 패널 토글(§3-2) — 시간순 「언제 / 질문 제목 / 받은 답변 요약 / 결과」.

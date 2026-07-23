@@ -670,10 +670,26 @@ async function osExecuteDelete() {
 }
 
 // ── 상세 모달 ──
+// 상세 모달 제목 — 브랜드명 + 오리엔 번호.
+//   s 가 없으면 기본 문구로 되돌린다(직전에 연 시트의 브랜드명이 로딩 중 화면에 남지 않게).
+function osSetDetailTitle(s) {
+  const h = document.getElementById('osDetailTitle');
+  if (!h) return;
+  if (!s) { h.textContent = '오리엔시트 내용'; return; }
+  // osBrandName 은 브랜드 정보가 없으면 '-' 를 돌려주므로, 그때는 기본 문구로 대체한다.
+  const raw = (osBrandName(s) || '').trim();
+  const name = (raw && raw !== '-') ? raw : '오리엔시트 내용';
+  const no = s.orient_no
+    ? `<span style="font-size:12px;font-weight:700;color:var(--muted);margin-left:8px">${esc(s.orient_no)}</span>`
+    : '';
+  h.innerHTML = esc(name) + no;
+}
+
 async function osOpenDetail(id) {
   ensureOrientModals();
   const body = document.getElementById('osDetailBody');
   body.innerHTML = '<p style="color:var(--muted);padding:8px">불러오는 중…</p>';
+  osSetDetailTitle(null);
   document.getElementById('orientDetailModal').classList.add('open');
   let s;
   try { s = await fetchOrientSheetById(id); }
@@ -689,6 +705,7 @@ async function osOpenDetail(id) {
   let catMap = {};
   try { const cats = await fetchLookups('category'); catMap = Object.fromEntries((cats || []).map(c => [c.code, c.name_ko])); } catch (_) {}
   _osDetailCatMap = catMap;
+  osSetDetailTitle(s);
   body.innerHTML = osDetailHtml(s, catMap);
 }
 
@@ -729,10 +746,12 @@ const OS_DETAIL_STYLE = `<style>
 function osDetailHtml(s, catMap, readonly) {
   const d = s.data || {};
   const cards = Array.isArray(d.cards) ? d.cards : [];
-  const headerHtml = `<div style="margin-bottom:14px">
+  // 브랜드명·오리엔 번호는 모달에선 헤더 제목(osSetDetailTitle)이 맡으므로 본문에서 생략하고,
+  // 헤더가 없는 새창(readonly)에서만 본문 맨 위에 표시한다.
+  const headerHtml = readonly ? `<div style="margin-bottom:14px">
     ${s.orient_no ? `<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px">${esc(s.orient_no)}</div>` : ''}
     <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
-  </div>`;
+  </div>` : '';
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
     + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
@@ -1270,7 +1289,7 @@ function ensureOrientModals() {
   </div>
   <div class="modal-overlay" id="orientDetailModal">
     <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
-      <div class="modal-header"><h2>오리엔시트 내용</h2>
+      <div class="modal-header"><h2 id="osDetailTitle">오리엔시트 내용</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDetailModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="osDetailBody"></div>
       <div class="modal-footer">
