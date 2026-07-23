@@ -69,6 +69,35 @@ function settlementAmountSourceBadge(source) {
     : '';
 }
 
+// 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
+//   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
+// 헬퍼는 전부 기존 공용(imgThumb·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
+// 빌드 순서상 셋 다 이 파일보다 먼저 로드된다. 썸네일·모집타입은 fetchSettlements 가
+// campaigns 임베드로 이미 가져오는 img1·recruit_type 사용(추가 조회 없음).
+function settlementCampCell(camp) {
+  camp = camp || {};
+  const campNoBadge = camp.campaign_no
+    ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>`
+    : '';
+  const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function')
+    ? getRecruitTypeBadgeKoSm(camp.recruit_type) : '';
+  // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(프로젝트 규칙 imgThumb + data-orig)
+  const thumb = camp.img1
+    ? `<img src="${esc(imgThumb(camp.img1, 96, 70))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
+    : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`;
+  const badgeRow = (rtBadge || campNoBadge)
+    ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div>`
+    : '';
+  const previewBtn = (typeof campPreviewBtn === 'function' && camp.id) ? campPreviewBtn(camp.id) : '';
+  return `<div style="display:flex;align-items:center;gap:10px">
+      <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">${thumb}</div>
+      <div style="min-width:0;flex:1">
+        ${badgeRow}
+        <div style="display:flex;align-items:flex-start;gap:4px"><span style="font-size:13px;word-break:break-word;line-height:1.4;flex:1">${esc(camp.title || '—')}</span>${previewBtn}</div>
+      </div>
+    </div>`;
+}
+
 // ════════════════════════════════════════════════════════════════════
 // SECTION: SETTLEMENTS — 로드 / 조회 / 렌더
 // ════════════════════════════════════════════════════════════════════
@@ -262,10 +291,7 @@ function renderSettlementRow(s) {
     .filter(Boolean).join(' · ');
   const infCell = `<div class="link-cell" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
 
-  const campNo = camp.campaign_no
-    ? `<div><span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span></div>`
-    : '';
-  const campCell = `${campNo}<div style="font-size:13px">${esc(camp.title || '—')}</div>`;
+  const campCell = settlementCampCell(camp);
 
   // PayPal — 정산행 스냅샷(직접 컬럼). 미등록이면 빨간 경고 배지(송금 불가).
   const paypalCell = s.paypal_email
