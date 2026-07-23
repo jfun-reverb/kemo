@@ -232,19 +232,10 @@ function applyCampDetailTabVisibility() {
   // 검수 상태 드롭다운은 결과물 탭 전용
   const reviewGroup = $('campDelivReviewFilterGroup');
   if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
-  // 엑셀 버튼은 지금 보고 있는 탭의 엑셀을 받도록 라벨·동작을 함께 바꾼다(어느 걸 받는지 헷갈리지 않게)
-  const excelBtn = $('campDetailExcelBtn');
-  if (excelBtn) {
-    excelBtn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> ${isDeliv ? '결과물 엑셀' : '신청자 엑셀'}`;
-  }
 }
 
-// 헤더 엑셀 버튼 — 현재 탭에 맞는 엑셀 내보내기(캠페인 목록 더보기 메뉴의 두 항목과 같은 함수)
-function exportCampDetailExcel() {
-  if (!currentCampApplicantId) return;
-  if (_campDetailTab === 'deliverables') exportCampaignDeliverables(currentCampApplicantId);
-  else exportCampaignApplicationsExcel(currentCampApplicantId);
-}
+// (2026-07-23) 헤더 엑셀 버튼(exportCampDetailExcel)은 각 탭의 상태 탭 줄 우측 버튼으로 이동.
+//   신청자 탭 → exportCampaignApplicationsExcel / 결과물 탭 → exportCampaignDeliverables 를 직접 호출한다.
 
 // 헤더 더보기 버튼 — 캠페인 목록 행의 더보기 메뉴를 그대로 재사용(편집·복제·엑셀·이력·삭제)
 function openCampDetailMoreMenu(e, btn) {
