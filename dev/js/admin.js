@@ -2099,10 +2099,14 @@ async function restoreCampaignAction(campId) {
 
 // 삭제된 캠페인 읽기 전용 상세 — 「삭제됨」 탭에서 제목 클릭 시. _deletedCampsCache 데이터로 직접 렌더.
 //   (활성 캠페인 미리보기는 인플 화면 iframe이지만, 삭제 캠페인은 인플 앱이 못 조회해 관리자용 정보 요약으로 대체)
-function openDeletedCampDetail(campId) {
+async function openDeletedCampDetail(campId) {
   const c = (_deletedCampsCache || []).find(x => x.id === campId);
   const body = $('deletedCampDetailBody');
   if (!c || !body) { toast('캠페인 정보를 찾을 수 없습니다','error'); return; }
+  // 생성자·삭제자 auth_id → 관리자 이름 변환. created_by 는 2026-07-23 이후 등록분만 기록(그 전은 정보 없음).
+  const _nameMap = await fetchAdminNamesByIds([c.created_by, c.deleted_by]);
+  const createdByLabel = c.created_by ? esc(_nameMap[c.created_by] || '알 수 없음') : '정보 없음 (기록 시작 전 등록)';
+  const deletedByLabel = c.deleted_by ? esc(_nameMap[c.deleted_by] || '알 수 없음') : '알 수 없음';
   const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
   const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
   const purgeAt = delAt ? new Date(delAt.getTime()+30*24*60*60*1000) : null;
@@ -2137,7 +2141,10 @@ function openDeletedCampDetail(campId) {
     ${row('모집 기간', periodRangeCell(c.recruit_start, c.deadline))}
     ${row('구매/방문 기간', purchaseVisit)}
     ${row('결과물 제출 마감', c.submission_end ? periodSingleCell(c.submission_end) : '')}
+    ${row('생성일시', c.created_at ? formatDateTime(c.created_at) : '')}
+    ${row('생성자', createdByLabel)}
     ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
+    ${row('삭제자', deletedByLabel)}
     ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
     ${richBlock('제품 · 캠페인 설명', c.description)}
     ${richBlock('소구 포인트', c.appeal)}
@@ -2825,6 +2832,8 @@ async function addCampaign() {
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
+    // 생성자 기록 — campaigns.created_by(감사용). 캠페인 RLS(001)는 is_admin()만 보고 created_by 미참조라 권한 영향 없음.
+    created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
     // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
     proxy_purchase: _opc ? !!_opc.isProxy : false,
     emergency_publish_reason: _emergencyReason || null,
