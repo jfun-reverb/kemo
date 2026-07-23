@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784681055';
+  var CURRENT_BUILD = 'v1784773262';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -738,6 +738,20 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
 #adminPane-campaigns .data-table{min-width:2150px}
+/* 「삭제됨」 탭(7컬럼)은 활성 목록용 min-width(2150)·1~3열 sticky/폭 강제 대신 콘텐츠 폭 + 캠페인명(첫 열)만 좌측 고정 */
+#adminPane-campaigns .data-table.deleted-mode{min-width:0;width:100%}
+/* 활성 목록의 캠페인(2)·채널(3) 폭·sticky 강제를 삭제됨 컬럼 구성(캠페인/채널/브랜드…)에 맞게 해제 —
+   삭제됨은 체크박스 열이 없어 열이 하나씩 앞당겨지므로 기존 nth-child(2)/(3) 규칙이 엉뚱한 열에 걸린다 */
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(3),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(3){width:auto;min-width:0;max-width:none;position:static;left:auto;box-shadow:none}
+/* 캠페인명(첫 열)만 좌측 고정 + 체크박스용 44px 폭 강제 해제 */
+#adminPane-campaigns .data-table.deleted-mode th:first-child,
+#adminPane-campaigns .data-table.deleted-mode td:first-child{position:sticky;left:0;background:var(--surface);z-index:4;width:auto;min-width:0;max-width:340px}
+#adminPane-campaigns .data-table.deleted-mode th:first-child{z-index:6}
+/* 헤더 첫 열은 다른 헤더 셀과 같은 배경(surface-dim)으로 — 바디 sticky 셀만 surface */
+#adminPane-campaigns .data-table.deleted-mode thead th:first-child{background:var(--surface-dim)}
 
 /* 1열 체크박스 (44px) — sticky
    thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
@@ -2486,7 +2500,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-22 09:44 · 3f4815d</span>
+          <span class="admin-build-text">2026-07-23 11:21 · c6bb2a0</span>
         </div>
       </div>
     </aside>
@@ -2621,7 +2635,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
               <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div id="campFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>캠페인 타입</label>
                 <div id="campTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
@@ -2642,7 +2656,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">캠페인 목록</span><span id="adminCampSelectedCount" style="font-size:12px;color:var(--pink);font-weight:600;display:none"></span></div>
-              <div style="display:flex;align-items:center;gap:6px">
+              <div id="campListToolbar" style="display:flex;align-items:center;gap:6px">
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
@@ -3424,10 +3438,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>캠페인 상태</label>
                 <div id="appCampStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>신청 상태</label>
-                <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -3439,6 +3449,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
               </div>
             </div>
+            <!-- 신청 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="appStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <!-- 테이블 리스트 -->
             <div class="admin-card" id="appCampList">
@@ -3498,13 +3510,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </label>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>검수 불필요</label>
-                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px" title="신청이 승인 후 반려·취소되어 검수가 불필요한 결과물을 함께 표시합니다. 끄면 목록에서 숨깁니다.">
-                  <input type="checkbox" id="delivIncludeExcluded" onchange="renderDeliverablesList()" checked style="margin:0">
-                  <span>포함 <span id="delivExcludedCount" style="color:var(--muted)"></span></span>
-                </label>
-              </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>대리 등록</label>
                 <label class="deliv-proxy-filter-label" title="관리자가 대리 등록한 결과물만 표시">
                   <input type="checkbox" id="delivProxyOnly" onchange="renderDeliverablesList()" style="margin:0">
@@ -3530,6 +3535,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
               </div>
             </div>
+            <!-- 인증 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="delivCertStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -4840,8 +4847,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div style="font-size:17px;font-weight:800;color:var(--ink)">캠페인 삭제</div>
     </div>
     <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">
-      이 작업은 되돌릴 수 없습니다.<br>
-      해당 캠페인의 <strong>모든 신청 데이터도 함께 삭제</strong>됩니다.
+      이 캠페인은 <strong>30일간 「삭제됨」 탭에 보관</strong>되며 그 안에 복구할 수 있습니다. 30일 후 자동으로 완전 삭제됩니다.<br>
+      <strong style="color:#B3261E">단, 응모자·신청 내역은 즉시 삭제되어 복구해도 되돌릴 수 없습니다.</strong>
     </div>
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">삭제할 캠페인</div>
@@ -4858,6 +4865,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <button class="btn btn-ghost" onclick="closeDeleteCampModal()" style="flex:1;border-radius:12px;padding:14px">취소</button>
       <button class="btn" id="deleteCampBtn" disabled onclick="executeDeleteCampaign()" style="flex:1;border-radius:12px;padding:14px;background:#B3261E;color:#fff;opacity:.4;cursor:not-allowed">삭제</button>
     </div>
+  </div>
+</div>
+
+<!-- 삭제된 캠페인 정보 (읽기 전용) — 「삭제됨」 탭 제목 클릭 시. 인플 앱이 삭제 캠페인을 못 봐 iframe 미리보기 불가라 관리자용 정보 요약 -->
+<div id="deletedCampDetailModal" class="modal-overlay">
+  <div class="modal" style="max-width:560px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">삭제된 캠페인 정보 <span style="font-size:12px;color:var(--muted);font-weight:400">(읽기 전용)</span></div>
+      <div class="modal-close" onclick="closeModal('deletedCampDetailModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body" id="deletedCampDetailBody" style="overflow-y:auto"></div>
   </div>
 </div>
 
@@ -7379,8 +7397,12 @@ async function restoreRolePermissionsDefaults() {
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
+    // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
+    // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
+    // 페인이 공유하는 함수라, 여기서 제외하면 양쪽 모두 자동으로 안전해진다.
+    // 「삭제됨」 탭(2단계) 전용 조회는 fetchDeletedCampaigns() 별도 함수 사용.
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false})
+      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
@@ -7418,9 +7440,13 @@ const ADMIN_LIST_COLUMNS = [
 async function fetchCampaignsForAdminList() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
+    // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
+    // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
+    // (2단계)만 fetchDeletedCampaigns() 로 별도 조회.
     const data = await fetchAllPaged(() =>
       db.from('campaigns')
         .select(ADMIN_LIST_COLUMNS)
+        .is('deleted_at', null)
         .order('order_index', { ascending: true, nullsFirst: false })
     );
     if (data.length > 0) {
@@ -7578,6 +7604,81 @@ function computeCampaignStatus(camp) {
     }
   }
   return 'active';
+}
+
+// ── 캠페인 삭제 복구(soft delete) — 사양서 docs/specs/2026-07-22-campaign-soft-delete-restore.md ──
+// PR 1(DB 기반)만 구현. UI(「삭제됨」 탭·확인 모달 교체)는 PR 2 범위.
+
+// 보관 삭제 — RPC soft_delete_campaign(마이그레이션 255). campaign_admin 이상.
+// 이 캠페인의 신청(applications)·결과물(deliverables, cascade)을 즉시 완전 삭제하고
+// campaigns 행은 deleted_at 만 세팅해 30일간 보관한다(개인정보 즉시 파기 원칙).
+// 정산(settlements) 이 걸린 신청이 있으면 251 트리거가 막아 예외로 반환(그대로 throw).
+// 반환값 = 삭제된 신청 건수(정보용, 화면에서 안내 문구에 활용 가능).
+async function softDeleteCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  let deletedApps = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('soft_delete_campaign', {p_campaign_id: campaignId});
+    if (error) throw error;
+    deletedApps = data || 0;
+  });
+  return deletedApps;
+}
+
+// 복구 — RPC restore_campaign(마이그레이션 256). campaign_admin 이상.
+// deleted_at/deleted_by 를 NULL 로 되돌린다. 신청·결과물은 이미 파기돼 되돌아오지 않음
+// (사양서 §의심 1 — 삭제 확인 문구에 명시, PR 2). 이미 활성 캠페인이면 false(멱등).
+async function restoreCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  let restored = false;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('restore_campaign', {p_campaign_id: campaignId});
+    if (error) throw error;
+    restored = !!data;
+  });
+  return restored;
+}
+
+// 완전 삭제 — RPC purge_campaign(마이그레이션 257). super_admin 전용.
+// 보관(deleted_at NOT NULL) 상태의 캠페인만 대상 — 활성 캠페인을 실수로 완전삭제하는
+// 것을 서버가 원천 차단(활성이면 예외 throw).
+async function purgeCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('purge_campaign', {p_campaign_id: campaignId});
+    if (error) throw error;
+  });
+  return true;
+}
+
+// 「삭제됨」 탭 전용 조회(PR 2에서 사용 예정) — deleted_at NOT NULL 인 캠페인만.
+// fetchCampaigns() 는 반대로 이 캠페인들을 항상 제외하므로 별도 함수로 분리.
+// auth_id 배열 → {auth_id: 표시이름} 맵. 캠페인 생성자·삭제자 등 감사 컬럼(auth_id)을 이름으로 표시.
+//   admins RLS SELECT 는 is_admin() 이라 관리자만 조회 가능. 없는 id 는 맵에서 빠짐(호출측이 폴백 처리).
+async function fetchAdminNamesByIds(authIds) {
+  if (!db || !Array.isArray(authIds)) return {};
+  const uniq = [...new Set(authIds.filter(Boolean))];
+  if (!uniq.length) return {};
+  try {
+    const {data, error} = await db.from('admins').select('auth_id, name, email').in('auth_id', uniq);
+    if (error) throw error;
+    const map = {};
+    (data||[]).forEach(a => { map[a.auth_id] = a.name || a.email || ''; });
+    return map;
+  } catch(e) { console.error('[fetchAdminNamesByIds]', e); return {}; }
+}
+
+async function fetchDeletedCampaigns() {
+  if (!db) return [];
+  try {
+    const data = await fetchAllPaged(() =>
+      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false})
+    );
+    return data;
+  } catch (e) {
+    console.error('fetchDeletedCampaigns:', e);
+    return [];
+  }
 }
 
 async function insertCampaign(camp) {
@@ -12660,9 +12761,7 @@ function initMultiFilters() {
   createMultiFilter('appTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => renderAppCampList());
-  createMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
-  ], () => renderAppCampList());
+  // 신청 상태는 다중 필터가 아니라 상태 탭(appStatusTabBar)으로 분리 — admin-applications.js 참조
   // 결과물관리 — 신청(application) 1행 단위로 영수증·결과물 양쪽 상태를 같이 표시
   createMultiFilter('delivRecruitTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
@@ -12673,6 +12772,7 @@ function initMultiFilters() {
   createMultiFilter('delivResultStatusMulti', '전체', [
     {value:'pending',label:'검수대기'},{value:'approved',label:'승인'},{value:'rejected',label:'비승인'},{value:'none',label:'미제출'}
   ], () => renderDeliverablesList());
+  // 인증 상태는 다중 필터가 아니라 상태 탭(delivCertStatusTabBar)으로 분리 — admin-deliverables.js 참조
   // 광고주 신청
   createMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
@@ -22844,13 +22944,13 @@ function resetDelivFiltersAndSort(skipRender) {
   resetMultiFilter('delivResultStatusMulti', '전체');
   resetMultiFilter('delivChannelMulti', '전체 채널');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
+  _delivCertTab = '';  // 인증 상태 탭 → 전체
   const q = $('delivSearch'); if (q) q.value = '';
   // 검색창 접기 + 돋보기 버튼 강조 해제
   const sbox = $('delivSearchBox'); if (sbox) sbox.style.display = 'none';
   const stb = $('btnDelivSearchToggle'); if (stb) stb.classList.remove('active');
   // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
-  const cbEx = $('delivIncludeExcluded'); if (cbEx) cbEx.checked = true;  // 검수 불필요 포함 기본 ON 복원
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
   _delivPendingOnly = false;  // 검수대기만(배지 클릭) 해제
   // 최근 제출일 기간 초기화
@@ -22918,6 +23018,41 @@ var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
+// 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
+//   신청 1건 = computeCertStatus 4종 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _delivCertTab = '';
+
+// 인증 상태 탭 정의 — 화면 인증 상태 열(computeCertStatus)과 동일 4종 + 전체
+const DELIV_CERT_STATUS_TABS = [
+  { code: '',           label: '전체' },
+  { code: 'none',       label: '미제출' },
+  { code: 'submitting', label: '인증샷 제출중' },
+  { code: 'success',    label: '인증성공' },
+  { code: 'excluded',   label: '검수 불필요' },
+];
+
+// 인증 상태 탭 바 렌더 — 건수는 renderDeliverablesList 가 넘겨준 certStatusCounts(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 그룹은 4종 중 하나). renderDeliverablesList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderDelivCertStatusTabs(counts) {
+  const bar = $('delivCertStatusTabBar');
+  if (!bar) return;
+  const c = counts || {success:0, submitting:0, none:0, excluded:0};
+  const totalAll = (c.success||0) + (c.submitting||0) + (c.none||0) + (c.excluded||0);
+  const active = _delivCertTab || '';
+  bar.innerHTML = DELIV_CERT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setDelivCertStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 인증 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderDeliverablesList 내부 재렌더로 갱신)
+function setDelivCertStatusTab(btn) {
+  _delivCertTab = btn.dataset.status || '';
+  renderDeliverablesList();
+}
 
 // timestamptz ISO → 브라우저 로컬 날짜(YYYY-MM-DD). 기간 필터 비교용 (운영자 KST 기준)
 function delivLocalDate(iso) {
@@ -23000,11 +23135,12 @@ async function renderDeliverablesList() {
   const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const channelVals = getMultiFilterValues('delivChannelMulti');
+  // 인증 상태 탭(단일, ''=전체) 4종: success(인증성공)/submitting(인증샷 제출중)/none(미제출)/excluded(검수 불필요)
+  //   전체 탭은 검수 불필요를 포함해 보여준다(과거 「검수 불필요 포함」 토글 기본 ON 동작을 계승). 특정 탭은 그 상태만.
+  const certTab = _delivCertTab || '';
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
-  // 검수 불필요 포함 — 신청이 반려·취소된 결과물 표시 여부(기본 ON: 회색 배지로 보이고, 끄면 숨김)
-  const includeExcluded = $('delivIncludeExcluded') ? !!$('delivIncludeExcluded').checked : true;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
 
   // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
@@ -23034,6 +23170,8 @@ async function renderDeliverablesList() {
   // 자기 자신 필터를 skip 인자로 지정하면 그 필터만 무시. 나머지는 모두 AND 적용.
   const passesFilters = (g, opts) => {
     opts = opts || {};
+    // 검수대기만 모드(사이드바 배지 클릭)는 모든 카운트에도 반영 → 탭 건수 = 목록 길이 정합(전체 탭 "전체(N)" 오인 방지)
+    if (_delivPendingOnly && !groupHasPendingReview(g)) return false;
     if (!opts.skipRecruit && recruitTypeVals.length > 0 && !recruitTypeVals.includes(g.campaign?.recruit_type)) return false;
     if (!opts.skipCamp && delivCampVals.length > 0 && !delivCampVals.includes(g.campaign?.id)) return false;
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
@@ -23062,6 +23200,7 @@ async function renderDeliverablesList() {
       if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
     }
     if (!opts.skipChannel && channelVals.length > 0 && !delivGroupMatchesChannel(g, channelVals)) return false;
+    if (!opts.skipCert && certTab && computeCertStatus(g) !== certTab) return false;
     if (_delivSubmittedFrom || _delivSubmittedTo) {
       const d = delivLocalDate(g.latest_submitted_at);
       if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
@@ -23076,16 +23215,23 @@ async function renderDeliverablesList() {
   // legacy_no_channel: 사양 2 전 post_channel NULL 인 review_image 행이 있는 monitor 신청 (385건, 2026-05-28)
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
   const channelCounts = {};  // {channel_code: n} + '__none__': 채널 미상 n
+  const certStatusCounts = {success:0, submitting:0, none:0, excluded:0};
   for (const g of allGroups) {
-    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 검수 불필요는 토글 OFF면 목록에서 빠지므로 카운트도 맞춘다(숫자↔행 정합)
-    if (passesFilters(g, {skipCamp: true}) && (includeExcluded || !isCertExcluded(g))) {
+    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 인증 탭은 passesFilters 에 반영됨(전체 탭이면 검수 불필요 포함).
+    if (passesFilters(g, {skipCamp: true})) {
       const cid = g.campaign?.id;
       if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
     }
     // 모집 타입 카운트: 자기 자신(모집 타입 필터) 제외
-    if (passesFilters(g, {skipRecruit: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipRecruit: true})) {
       const rt = g.campaign?.recruit_type;
       if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
+    }
+    // 인증 상태 탭 카운트: 자기 자신(인증 탭) 제외 → 다른 필터 적용 후 computeCertStatus 로 분류.
+    //   4종 모두 세며(검수 불필요 포함) 전체 탭 건수 = 4종 합.
+    if (passesFilters(g, {skipCert: true})) {
+      const cs = computeCertStatus(g);
+      if (cs in certStatusCounts) certStatusCounts[cs]++;
     }
     // 영수증 상태 카운트: 리뷰어(monitor) 그룹만 합산 (기프팅·방문형 'none' 오집계 차단)
     //   검수 불필요(신청 반려·취소)는 검수 상태가 아니므로 집계 제외
@@ -23106,7 +23252,7 @@ async function renderDeliverablesList() {
       }
     }
     // 채널 카운트: 자기 자신(채널 필터) 제외 → monitor=캠페인 채널마다, gifting/visit=post_channel, 미상=__none__
-    if (passesFilters(g, {skipChannel: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipChannel: true})) {
       const rt = g.campaign?.recruit_type;
       if (rt === 'monitor') {
         const chans = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
@@ -23155,6 +23301,8 @@ async function renderDeliverablesList() {
     delivChannelOpts.push({value:'__none__', label:'채널 미상', count: channelCounts['__none__']});
   }
   syncMultiFilter('delivChannelMulti', '전체 채널', delivChannelOpts, () => renderDeliverablesList());
+  // 인증 상태 탭 바 — 화면 인증 상태 열과 동일 4종(검수 불필요 포함) + 전체. 다중 필터 대체.
+  renderDelivCertStatusTabs(certStatusCounts);
 
   // 필터 적용
   let filtered = Array.from(groups.values());
@@ -23181,6 +23329,8 @@ async function renderDeliverablesList() {
   });
   // 채널 필터 — monitor=캠페인 채널, gifting/visit=post_channel, 미상=__none__
   if (channelVals.length > 0) filtered = filtered.filter(g => delivGroupMatchesChannel(g, channelVals));
+  // 인증 상태 탭 — computeCertStatus(화면 인증 상태 열 단일 소스)로 판정. 전체 탭('')은 필터 없음(검수 불필요 포함).
+  if (certTab) filtered = filtered.filter(g => computeCertStatus(g) === certTab);
   // 최근 제출일 기간 필터 — 그룹의 latest_submitted_at(로컬 날짜)이 선택 범위 안 (양끝 포함, 제출일 없으면 제외)
   if (_delivSubmittedFrom || _delivSubmittedTo) filtered = filtered.filter(g => {
     const d = delivLocalDate(g.latest_submitted_at);
@@ -23204,18 +23354,14 @@ async function renderDeliverablesList() {
   }
   // 검수대기만 (사이드바 배지 클릭) — 신청 단위 최신 결과물이 검수대기인 신청만. 배지 숫자 = 목록 길이.
   if (_delivPendingOnly) filtered = filtered.filter(groupHasPendingReview);
-  // 검수 불필요(신청 반려·취소) — 현재 필터 하에서 몇 건인지 라벨에 표시하고, 토글 OFF면 목록에서 숨김
-  const excludedCount = filtered.filter(isCertExcluded).length;
-  if (!includeExcluded) filtered = filtered.filter(g => !isCertExcluded(g));
-  const _exLbl = $('delivExcludedCount');
-  if (_exLbl) _exLbl.textContent = excludedCount > 0 ? `(${excludedCount})` : '';
+  // (인증 상태 탭이 검수 불필요 노출을 담당 — 전체 탭=포함, 특정 탭=위 404행에서 처리. 별도 토글 없음)
 
-  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
+  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·인증탭·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
     || _delivPendingOnly
+    || !!_delivCertTab
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
-    || ($('delivIncludeExcluded') && !$('delivIncludeExcluded').checked)
     || ($('delivProxyOnly') && $('delivProxyOnly').checked);
   if (_delivExtraActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
   // 검색어 있으면 돋보기 버튼 강조 + 검색창 펼친 상태 유지 (접힌 채 필터 적용 방지)
@@ -28193,6 +28339,42 @@ async function loadApplications() {
 var appSortKey = 'created';
 var appSortDir = 'desc';
 
+// 신청 상태 탭 (단일 선택, ''=전체). 다중 필터 appStatusMulti 를 대체.
+//   신청 1건 = status 4종(pending/approved/rejected/cancelled) 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _appStatusTab = '';
+
+// 신청 상태 탭 정의 — 처리 흐름 순서(심사중 → 승인/미승인 → 취소) + 전체
+const APP_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '심사중' },
+  { code: 'approved',  label: '승인' },
+  { code: 'rejected',  label: '미승인' },
+  { code: 'cancelled', label: '취소' },
+];
+
+// 신청 상태 탭 바 렌더 — 건수는 renderAppCampList 가 넘겨준 appStatusCountsMap(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 신청은 4종 중 하나). renderAppCampList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderAppStatusTabs(countsMap) {
+  const bar = $('appStatusTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const totalAll = (c.pending||0) + (c.approved||0) + (c.rejected||0) + (c.cancelled||0);
+  const active = _appStatusTab || '';
+  bar.innerHTML = APP_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setAppStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 신청 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderAppCampList 내부 재렌더로 갱신)
+function setAppStatusTab(btn) {
+  _appStatusTab = btn.dataset.status || '';
+  renderAppCampList();
+}
+
 function toggleAppSort(key) {
   if (appSortKey === key) {
     appSortDir = appSortDir === 'desc' ? 'asc' : 'desc';
@@ -28261,14 +28443,14 @@ async function renderAppCampList() {
   const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
   const appTypeVals = getMultiFilterValues('appTypeMulti');
   const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
-  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  const appStatusTab = _appStatusTab || '';  // 신청 상태 탭(단일, ''=전체)
   const campFilterVals = getMultiFilterValues('appCampMulti');
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   // 단일 신청이 필터를 통과하는지 — skip 지정 시 그 필터만 무시(옵션별 동적 카운트용)
   const passesAppFilters = (a, skip) => {
     if (skip !== 'type'       && appTypeVals.length       && !appTypeVals.includes(campRtLookup.get(a.campaign_id))) return false;
     if (skip !== 'campStatus' && appCampStatusVals.length && !appCampStatusVals.includes(campStatusLookup.get(a.campaign_id))) return false;
-    if (skip !== 'status'     && appStatusVals.length     && !appStatusVals.includes(a.status)) return false;
+    if (skip !== 'status'     && appStatusTab            && a.status !== appStatusTab) return false;
     if (skip !== 'camp'       && campFilterVals.length    && !campFilterVals.includes(a.campaign_id)) return false;
     if (searchVal && !matchSearchTokens(searchVal, [a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code])) return false;
     return true;
@@ -28301,19 +28483,16 @@ async function renderAppCampList() {
     {value:'ended',     label:'종료',     count: appCampStatusCounts.ended     || 0},
     {value:'expired',   label:'노출종료', count: appCampStatusCounts.expired   || 0},
   ], () => renderAppCampList());
-  syncMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
-    {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
-    {value:'rejected',  label:'미승인', count: appStatusCountsMap.rejected  || 0},
-    {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
-  ], () => renderAppCampList());
+  // 신청 상태 탭 바 — 다중 필터 대체(전체 + 4종). 건수는 자기 필터 제외 집계.
+  renderAppStatusTabs(appStatusCountsMap);
 
   // 필터 적용 — 위에서 정의한 passesAppFilters 로 일괄 (타입·캠페인상태·신청상태·캠페인·검색 모두 포함)
   //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
   apps = apps.filter(a => passesAppFilters(a));
 
   // 보기 초기화 버튼 — 필터·검색·정렬 중 하나라도 비기본이면 노출 (필터+정렬+검색 통합)
-  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+    || !!_appStatusTab
     || !!(($('appSearch')?.value || '').trim())
     || !(appSortKey === 'created' && appSortDir === 'desc');
   const _appViewBtn = $('btnAppViewReset'); if (_appViewBtn) _appViewBtn.style.display = _appViewActive ? '' : 'none';
@@ -32189,8 +32368,8 @@ function resetCampView() {
 function resetAppView() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appCampStatusMulti', '전체 상태');
-  resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
+  _appStatusTab = '';  // 신청 상태 탭 → 전체
   const s = $('appSearch'); if (s) s.value = '';
   appSortKey = 'created'; appSortDir = 'desc';
   document.querySelectorAll('.app-sort-arrows').forEach(el => {
@@ -32264,8 +32443,12 @@ const CAMP_STATUS_TABS = [
   { code: 'closed',    label: '모집마감' },
   { code: 'ended',     label: '종료' },
   { code: 'expired',   label: '노출종료' },
+  { code: 'deleted',   label: '삭제됨' },   // soft delete 보관함(deleted_at NOT NULL). 다른 탭과 데이터 소스·행 동작이 다름
 ];
 var _campActiveStatusTab = null;
+// 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
+//   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
+var _deletedCampsCache = [];
 
 // 상태 탭 바 렌더 (counts: 필터 전 전체 기준 상태별 건수)
 function renderCampStatusTabs(counts) {
@@ -32274,7 +32457,10 @@ function renderCampStatusTabs(counts) {
   counts = counts || {};
   const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
   bar.innerHTML = CAMP_STATUS_TABS.map(tab => {
-    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    // 전체=활성 합계 / 삭제됨=보관 캐시 길이(활성 집계엔 없음) / 그 외=상태별 건수
+    const n = tab.code === null ? totalAll
+            : tab.code === 'deleted' ? (_deletedCampsCache.length || 0)
+            : (counts[tab.code] || 0);
     const isOn = tab.code === _campActiveStatusTab;
     const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
     return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setCampStatusTab(this)">`
@@ -32370,7 +32556,11 @@ async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
   // PR 2 데이터 다이어트: 목록 전용 가벼운 함수 사용 (participation_steps 등 무거운 컬럼 제외)
   let camps = useCache ? allCampaigns.slice() : await fetchCampaignsForAdminList();
-  if (!useCache) allCampaigns = camps.slice();
+  if (!useCache) {
+    allCampaigns = camps.slice();
+    // 「삭제됨」 탭 건수·목록용 보관 캠페인 캐시 갱신 (실데이터 조회 시에만)
+    try { _deletedCampsCache = await fetchDeletedCampaigns(); } catch(e) { _deletedCampsCache = []; }
+  }
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
   const stCounts = {};
@@ -32380,13 +32570,30 @@ async function loadAdminCampaigns(useCache) {
     if (c.recruit_type) rtCounts[c.recruit_type] = (rtCounts[c.recruit_type]||0) + 1;
   });
   // 다중 선택 드롭다운에 옵션별 (NN) 건수 업데이트
-  syncMultiFilter('campTypeMulti', '전체 타입', [
-    {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
-    {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
-    {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
-  ], () => filterAdminCampaigns());
+  // 타입 필터 건수는 활성 목록 기준. 삭제됨 탭은 renderDeletedCampsPane 이 삭제 캠페인 기준으로 다시 sync 하므로 여기선 건너뛴다.
+  //   (양쪽에서 같은 위젯을 다른 건수로 재sync 하면, 선택이 있을 때 syncMultiFilter 재생성이 onChange 를 즉시 재호출해
+  //    loadAdminCampaigns→renderDeletedCampsPane 무한 재귀가 발생 — 2026-07-23 QA Critical)
+  if (_campActiveStatusTab !== 'deleted') {
+    syncMultiFilter('campTypeMulti', '전체 타입', [
+      {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
+      {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
+      {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
+    ], () => filterAdminCampaigns());
+  }
   // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
   renderCampStatusTabs(stCounts);
+
+  // 「삭제됨」 탭에선 활성 전용 컨트롤(타입·검색·엑셀·순서변경)을 숨긴다 — 조기 return 으로 반응하지 않아 혼동 방지.
+  const _isDelTab = _campActiveStatusTab === 'deleted';
+  // 필터바(타입·검색)는 삭제됨 탭에서도 사용 가능. 툴바(엑셀·순서변경)는 삭제됨에 무의미하므로 숨김.
+  const _fb = $('campFilterBar');   if (_fb) _fb.style.display = 'flex';
+  const _tb = $('campListToolbar'); if (_tb) _tb.style.display = _isDelTab ? 'none' : 'flex';
+  // 삭제됨 탭은 활성 목록용 min-width(2150px) 대신 콘텐츠 폭 + 캠페인명 열 좌측 고정 (deleted-mode CSS)
+  const _dtbl = $('adminCampsBody') && $('adminCampsBody').closest('table');
+  if (_dtbl) _dtbl.classList.toggle('deleted-mode', _isDelTab);
+
+  // 「삭제됨」 탭 — 보관 캠페인(deleted_at NOT NULL) 전용 렌더. 활성 목록의 필터·집계·정렬·lazy 로직과 분리.
+  if (_campActiveStatusTab === 'deleted') { renderDeletedCampsPane(); return; }
 
   // 타입 필터 (다중 선택)
   const typeVals = getMultiFilterValues('campTypeMulti');
@@ -32489,7 +32696,7 @@ async function loadAdminCampaigns(useCache) {
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--ink);display:block;word-break:break-word;line-height:1.4;flex:1">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
           </div>
         </div>
       </td>
@@ -34092,23 +34299,176 @@ async function executeDeleteCampaign() {
   if (input !== title) { err.textContent = '캠페인명이 일치하지 않습니다'; err.style.display = 'block'; return; }
   try {
     if (db) {
-      // 마이그레이션 251 — 이 캠페인의 신청 중 정산(settlements) 기록이 있는 건은
-      // 삭제 트리거가 막는다. 이전에는 이 결과를 확인하지 않고 넘어가 캠페인
-      // 삭제 단계에서만(사실은 그 캠페인의 신청이 아직 남아있어 우연히) 에러가
-      // 드러났는데, 여기서 바로 확인해 원인을 명확히 한다.
-      var delAppsResult = await db?.from('applications').delete().eq('campaign_id', campId);
-      if (delAppsResult && delAppsResult.error) throw delAppsResult.error;
-
-      var result = await db?.from('campaigns').delete().eq('id', campId);
-      if (result.error) throw result.error;
+      // 보관 삭제(soft delete) — soft_delete_campaign RPC(마이그레이션 255)가 서버에서
+      //   ① 신청·결과물(개인정보) 즉시 완전 파기(정산 걸린 건은 마이그레이션 251 트리거가 원자적 차단)
+      //   ② campaigns.deleted_at 세팅(캠페인 메타데이터만 30일 보관) 을 트랜잭션으로 처리한다.
+      await softDeleteCampaign(campId);
     }
     closeDeleteCampModal();
     allCampaigns = await fetchCampaigns();
-    loadAdminCampaigns();
-    toast('캠페인이 삭제되었습니다','success');
+    loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
+    toast('캠페인을 보관 삭제했습니다 (30일간 「삭제됨」 탭에서 복구 가능)','success');
   } catch(e) {
     err.textContent = '삭제 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 「삭제됨」 탭 — 보관 캠페인 목록·복구·완전삭제 (soft delete, 사양서 2026-07-22 PR 2)
+//   활성 캠페인의 buildCampRow(편집·상태변경·노출토글 등)를 재사용하지 않고, 보관 캠페인 전용
+//   간단 행(썸네일·제목·삭제일·자동삭제 예정일 + 복구/완전삭제)만 그린다.
+// ══════════════════════════════════════════════════════════════════
+function renderDeletedCampsPane() {
+  // 삭제됨 전용 테이블 헤더 (활성 15컬럼과 다름 — 편집·정렬·노출 없음)
+  const head = $('adminCampTableHead');
+  if (head) {
+    head.innerHTML = `<tr>
+      <th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th>
+      <th style="white-space:nowrap">삭제일</th>
+      <th style="white-space:nowrap">자동 완전삭제 예정</th>
+      <th>복구 / 완전삭제</th></tr>`;
+  }
+  const body = $('adminCampsBody');
+  if (!body) return;
+  if (campsLazy) { campsLazy.destroy(); campsLazy = null; }  // 활성용 lazy 리스트 정리
+  const all = _deletedCampsCache || [];
+  // 타입 필터 카운트를 삭제됨 캠페인 기준으로 재sync (loadAdminCampaigns 는 활성 기준으로 sync 하므로 덮어씀)
+  const _delRt = {monitor:0, gifting:0, visit:0};
+  all.forEach(c => { if (c.recruit_type in _delRt) _delRt[c.recruit_type]++; });
+  syncMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count:_delRt.monitor},
+    {value:'gifting', label:'기프팅',  count:_delRt.gifting},
+    {value:'visit',   label:'방문형',  count:_delRt.visit},
+  ], () => filterAdminCampaigns());
+  // 타입·검색 필터 적용 (활성 목록과 동일 검색 필드)
+  let list = all.slice();
+  const typeVals = getMultiFilterValues('campTypeMulti');
+  if (typeVals.length) list = list.filter(c => typeVals.includes(c.recruit_type));
+  const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
+  if (searchVal) list = list.filter(c => matchSearchTokens(searchVal,
+    [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
+  updateCampViewResetBtn();
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+  const emptyHtml = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${all.length ? '조건에 맞는 삭제된 캠페인이 없습니다' : '삭제된 캠페인이 없습니다'}</td></tr>`;
+  body.innerHTML = list.length ? list.map(c => buildDeletedCampRow(c, isSuper)).join('') : emptyHtml;
+}
+
+function buildDeletedCampRow(c, isSuper) {
+  const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean);
+  const thumbUrl = imgs[0] || '';
+  // 자동 완전삭제 예정일 = 삭제일 + 30일 (사양서 §설계, purge_expired_deleted_campaigns 마이그레이션 258)
+  const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
+  const purgeAt = delAt ? new Date(delAt.getTime() + 30*24*60*60*1000) : null;
+  const purgeBtn = isSuper
+    ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" data-camp-title="${esc(c.title)}" onclick="purgeCampaignAction('${c.id}',this.dataset.campTitle)">완전삭제</button>`
+    : '';
+  return `<tr data-camp-id="${c.id}">
+    <td style="min-width:240px;max-width:340px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
+          ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:88, quality:70, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`}
+        </div>
+        <div style="min-width:0;flex:1">
+          ${c.campaign_no ? `<div style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(c.campaign_no)}</div>` : ''}
+          <strong style="color:var(--dark-pink);cursor:pointer;word-break:break-word;line-height:1.4" onclick="openDeletedCampDetail('${c.id}')" title="캠페인 정보 보기 (읽기 전용)">${esc(c.title)}</strong>
+        </div>
+      </div>
+    </td>
+    <td>${channelChipsHtml(c.channel, c.channel_match)}</td>
+    <td style="font-size:12px;color:var(--ink)">${esc(brandLabelAdmin(c)) || '—'}</td>
+    <td style="font-size:12px;color:var(--ink)">${esc(c.product_ko || c.product || '') || '—'}</td>
+    <td style="font-size:11px;color:var(--muted);white-space:nowrap">${delAt ? formatDateTime(c.deleted_at) : '—'}</td>
+    <td style="font-size:11px;color:var(--red);white-space:nowrap">${purgeAt ? formatDate(purgeAt.toISOString()) : '—'}</td>
+    <td style="white-space:nowrap">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-green btn-xs" onclick="restoreCampaignAction('${c.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">restore</span> 복구</button>
+        ${purgeBtn}
+      </div>
+    </td>
+  </tr>`;
+}
+
+// 복구 — deleted_at=NULL (campaign_admin 이상). 신청·결과물은 이미 파기됐으므로 캠페인 설정만 되살아난다.
+async function restoreCampaignAction(campId) {
+  const adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role === 'campaign_manager') { toast('복구 권한이 없습니다. 캠페인 관리자 이상만 가능합니다.','error'); return; }
+  const ok = await showConfirm('이 캠페인을 복구합니다. 캠페인 설정은 되살아나지만, 삭제 시 지워진 응모자·신청 내역은 복구되지 않습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    await restoreCampaign(campId);
+    allCampaigns = await fetchCampaigns();
+    await loadAdminCampaigns();  // 보관 캐시 갱신 + 목록 재렌더 (삭제됨 탭 유지)
+    toast('캠페인을 복구했습니다','success');
+  } catch(e) { toast('복구 오류: ' + friendlyError(e.message),'error'); }
+}
+
+// 삭제된 캠페인 읽기 전용 상세 — 「삭제됨」 탭에서 제목 클릭 시. _deletedCampsCache 데이터로 직접 렌더.
+//   (활성 캠페인 미리보기는 인플 화면 iframe이지만, 삭제 캠페인은 인플 앱이 못 조회해 관리자용 정보 요약으로 대체)
+async function openDeletedCampDetail(campId) {
+  const c = (_deletedCampsCache || []).find(x => x.id === campId);
+  const body = $('deletedCampDetailBody');
+  if (!c || !body) { toast('캠페인 정보를 찾을 수 없습니다','error'); return; }
+  // 생성자·삭제자 auth_id → 관리자 이름 변환. created_by 는 2026-07-23 이후 등록분만 기록(그 전은 정보 없음).
+  const _nameMap = await fetchAdminNamesByIds([c.created_by, c.deleted_by]);
+  const createdByLabel = c.created_by ? esc(_nameMap[c.created_by] || '알 수 없음') : '정보 없음 (기록 시작 전 등록)';
+  const deletedByLabel = c.deleted_by ? esc(_nameMap[c.deleted_by] || '알 수 없음') : '알 수 없음';
+  const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+  const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
+  const purgeAt = delAt ? new Date(delAt.getTime()+30*24*60*60*1000) : null;
+  const rt = { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' }[c.recruit_type] || c.recruit_type || '';
+  const stKey = (typeof campaignStatusLabelKey==='function') ? campaignStatusLabelKey(c) : c.status;
+  const stLabel = (typeof CAMPAIGN_STATUS_LABEL!=='undefined' && CAMPAIGN_STATUS_LABEL[stKey]) || c.status || '';
+  // 라벨-값 한 줄 (값 없으면 렌더 생략). val 은 이미 안전한 HTML 또는 esc 처리된 문자열.
+  const row = (label, val) => val ? `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><div style="min-width:96px;color:var(--muted);font-size:12px;flex-shrink:0">${label}</div><div style="flex:1;font-size:13px;color:var(--ink);word-break:break-word">${val}</div></div>` : '';
+  // 리치 텍스트(설명·소구·가이드 = Quill v2) — 기존 캠페인 미리보기와 동일하게 richHtml 사용
+  //   (sanitizeCautionHtml 은 미니에디터 전용이라 헤더·목록·인용구를 제거해 서식이 깨짐). 렌더 단 2중 sanitize.
+  const richBlock = (title, htmlStr) => htmlStr ? `<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">${title}</div><div style="font-size:13px;color:var(--ink);line-height:1.6">${typeof richHtml==='function' ? richHtml(htmlStr) : esc(htmlStr)}</div></div>` : '';
+  const imgGallery = imgs.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${imgs.map(u => `<div style="width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim)">${renderCroppedImg(u, null, {thumb:144, quality:70, lazy:true})}</div>`).join('')}</div>` : '';
+  const purchaseVisit = c.recruit_type==='monitor' ? periodRangeCell(c.purchase_start, c.purchase_end)
+                      : c.recruit_type==='visit'   ? periodRangeCell(c.visit_start, c.visit_end) : '';
+  body.innerHTML = `
+    <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#B3261E">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">delete</span>
+      이 캠페인은 삭제되어 보관 중입니다. 정보 확인만 가능하며 수정할 수 없습니다.
+    </div>
+    ${imgGallery}
+    ${row('제목', esc(c.title))}
+    ${row('캠페인번호', c.campaign_no ? `<span style="font-family:monospace">${esc(c.campaign_no)}</span>` : '')}
+    ${row('브랜드', esc(brandLabelAdmin(c) || ''))}
+    ${row('제품', esc(c.product_ko || c.product || ''))}
+    ${row('모집 타입', esc(rt))}
+    ${row('채널', channelChipsHtml(c.channel, c.channel_match))}
+    ${row('삭제 전 상태', esc(stLabel))}
+    ${row('모집 인원', c.slots ? `${c.slots}명` : '')}
+    ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
+    ${row('리워드', esc(c.reward || ''))}
+    ${row('리워드 안내', esc(c.reward_note || ''))}
+    ${row('모집 기간', periodRangeCell(c.recruit_start, c.deadline))}
+    ${row('구매/방문 기간', purchaseVisit)}
+    ${row('결과물 제출 마감', c.submission_end ? periodSingleCell(c.submission_end) : '')}
+    ${row('생성일시', c.created_at ? formatDateTime(c.created_at) : '')}
+    ${row('생성자', createdByLabel)}
+    ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
+    ${row('삭제자', deletedByLabel)}
+    ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
+    ${richBlock('제품 · 캠페인 설명', c.description)}
+    ${richBlock('소구 포인트', c.appeal)}
+    ${richBlock('콘텐츠 가이드', c.guide)}
+  `;
+  openModal('deletedCampDetailModal');
+}
+
+// 완전삭제 — 캠페인 행 hard delete (super_admin 전용). 되돌릴 수 없음.
+async function purgeCampaignAction(campId, campTitle) {
+  const adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role !== 'super_admin') { toast('완전삭제는 최고관리자만 가능합니다.','error'); return; }
+  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다. 진행할까요?`);
+  if (!ok) return;
+  try {
+    await purgeCampaign(campId);
+    await loadAdminCampaigns();  // 보관 캐시 갱신 + 재렌더
+    toast('캠페인을 완전 삭제했습니다','success');
+  } catch(e) { toast('완전삭제 오류: ' + friendlyError(e.message),'error'); }
 }
 
 // ── 캠페인 폼 실시간 미리보기 (add/edit 사이드 패널 iframe) ──
@@ -34777,6 +35137,8 @@ async function addCampaign() {
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
+    // 생성자 기록 — campaigns.created_by(감사용). 캠페인 RLS(001)는 is_admin()만 보고 created_by 미참조라 권한 영향 없음.
+    created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
     // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
     proxy_purchase: _opc ? !!_opc.isProxy : false,
     emergency_publish_reason: _emergencyReason || null,

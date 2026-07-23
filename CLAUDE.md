@@ -119,7 +119,8 @@
 - **로딩 UX**: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
 
 ### 캠페인 관리
-- CRUD + 복제 + 삭제(확인모달) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
+- CRUD + 복제 + **보관 삭제(soft delete)**(확인모달, 30일 보관 후 자동 완전삭제) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
+- **삭제 복구**: 삭제 시 캠페인 행만 30일 보관(신청·결과물 즉시 파기), 캠페인 목록 상태 탭의 **「삭제됨」 탭**에서 목록 확인 + 복구(campaign_admin)·완전삭제(super_admin). 「삭제됨」 탭은 활성 목록과 데이터 소스(`fetchDeletedCampaigns`)·행 동작이 달라 별도 렌더(`renderDeletedCampsPane`/`buildDeletedCampRow`), 진입 시 활성 전용 필터·검색·툴바 숨김. `soft_delete_campaign`/`restore_campaign`/`purge_campaign`/`purge_expired_deleted_campaigns`(마이그레이션 254~258) + 운영현황·홍보메일 RPC deleted_at 제외(259). 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
 - **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 캠페인은 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3. 신규 INSERT 시 트리거 자동 채번. 캠페인 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달 패턴. **서베이 신청 선택 UI는 공개 제출 중단(마이그206)으로 안전 숨김(2026-07-15)** — 신규 폼은 선택 UI 미표시, 편집 폼은 기존 연결만 읽기전용 라벨(`renderSurveyLinkReadonly`)로 표시. hidden native select `#{prefix}CampSourceAppId`·저장 로직·`source_application_id` 컬럼·진행현황 비용 카드는 무변경(오리엔 발행 승계·편집 저장 보존). 사양서 `docs/specs/2026-07-15-campaign-form-hide-survey-link.md`. 기존 v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no` 컬럼·`numbering_legacy_map` 에 보존
 - **캠페인 등록/편집 폼**: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오버튼 UI, 채널은 복수 선택 체크박스(Instagram/X/Qoo10/TikTok/YouTube/LIPS/@cosme, 콤마 구분 저장 `"instagram,x"`. LIPS·@cosme는 리뷰어형 전용 — `lookup_values.recruit_types=['monitor']`). 채널 2개+ 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
 - **콘텐츠 가이드 리치 텍스트** (Quill v2, 3개 필드): Notion 복사·붙여넣기 서식 유지. 이미지 태그는 저장 시 제거. XSS 방어 DOMPurify 저장+렌더 이중 sanitize. 헬퍼는 `dev/lib/shared.js`
@@ -136,8 +137,8 @@
 - **이미지 관리**: 드래그앤드롭 업로드, 크롭, 미리보기, Supabase Storage 저장
 
 ### 신청·결과물 관리
-- **신청 관리**: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달, 모집인원/빈자리 표시. `reviewed_by`/`reviewed_at` 기록, 되돌리기(pending 복귀). 빈자리 없으면 승인버튼 비활성. 빨간 배너로 결과물 반려 사유 표시
-- **결과물 관리** (`/admin#deliverables`): 영수증/게시물 URL 통합 검수 페인. 필터(상태 기본 pending·캠페인·타입·인플루언서 검색) + 오래된 순 정렬. 상세 모달에 이력 타임라인 + 승인/반려/되돌리기. 반려 사유 템플릿(6종) + 자유입력. 낙관적 락(`version`) 기반 동시 처리 충돌 차단 — 후순위는 "이미 처리됨" 토스트
+- **신청 관리**: 테이블 UI (캠페인 썸네일, 타입/캠페인상태/검색 필터 + **신청 상태 탭**, 상태 정렬), 인플루언서 상세 모달, 모집인원/빈자리 표시. `reviewed_by`/`reviewed_at` 기록, 되돌리기(pending 복귀). 빈자리 없으면 승인버튼 비활성. 빨간 배너로 결과물 반려 사유 표시. **신청 상태는 다중 필터가 아니라 단일 선택 상태 탭**(전체/심사중/승인/미승인/취소, 기본 전체 — `status-tab-bar` 패턴, 정산·결과물 페인과 통일. `APP_STATUS_TABS`/`_appStatusTab`/`renderAppStatusTabs`, admin-applications.js). 신청 1건=상태 4종 중 하나로 상호 배타라 탭이 개념에 맞음
+- **결과물 관리** (`/admin#deliverables`): 영수증/게시물 URL 통합 검수 페인. 필터(캠페인·타입·채널·영수증상태·결과물상태·인플루언서 검색·기간) + **인증 상태 탭**(전체/미제출/인증샷 제출중/인증성공/검수 불필요, 기본 전체 — `status-tab-bar` 패턴, `DELIV_CERT_STATUS_TABS`/`_delivCertTab`/`renderDelivCertStatusTabs`, admin-deliverables.js. 인증 상태는 `computeCertStatus` 4종 중 하나로 상호 배타라 다중 필터 대신 탭. 전체 탭이 검수 불필요 노출을 계승 — 구 「검수 불필요 포함」 토글 제거. 사이드바 검수대기 배지 클릭(`_delivPendingOnly`)도 탭 건수 집계에 반영해 「전체(N)」 정합) + 오래된 순 정렬. 상세 모달에 이력 타임라인 + 승인/반려/되돌리기. 반려 사유 템플릿(6종) + 자유입력. 낙관적 락(`version`) 기반 동시 처리 충돌 차단 — 후순위는 "이미 처리됨" 토스트
 - **인증 상태 컬럼**(목록 + 엑셀, 신청 1건 단위 4종, 위치=인플루언서 다음·영수증 앞): `검수 불필요`(신청이 승인 후 반려·취소됨 — 아래 참조) · `인증성공`(리뷰어=영수증 승인+채널별 인증샷 모두 승인 / 시딩·방문=게시물 승인) · `인증샷 제출중`(검수중·반려·일부 미제출 등 진행 중) · `미제출`(아무것도 안 냄). 헬퍼 `computeCertStatus`/`certStatusBadge`(admin-deliverables.js), 엑셀은 `_excelCertStatus*`(admin-excel.js). 단일 캠페인 엑셀도 전체 상태 로드(`fetchDeliverables` status 필터 없음 + `fetchApplications({status:'approved'})` 조인으로 결과물 0건 승인 신청도 미제출 빈 행 포함) → 화면 목록·단일/다중 엑셀 모두 정확 표시
 - **반려·취소된 신청의 결과물 자동 제외**(2026-07-21, DB 변경 없음): 승인됐던 신청이 반려·취소되면 그 결과물은 "검수 불필요"로 처리. **결과물 status 는 안 바꾸고 신청 status 를 참조**(임베드 `applications:application_id (status)`)하므로 재승인 시 자동 복원. 판정 `isCertExcluded(g)`(신청 rejected/cancelled) → `computeCertStatus` 앞단에서 `'excluded'`. 제외 적용 지점: 결과물 검수 목록(「검수 불필요 포함」 토글 **기본 켜짐**, 끄면 숨김·건수 표시)·인증 상태 열·영수증/결과물 상태 카운트·캠페인/모집/채널 카운트(토글 OFF 시)·인증성공 진행바·엑셀·**사이드바 검수대기 배지**. **검수 모달**: 검수 불필요 건은 승인·반려·되돌리기·대리등록·영수증수정 등 검수 액션 전부 차단 + "검수 불필요 — 캠페인 신청이 반려·취소됨" 안내. 영수증 단계 없는(gifting/visit) 모집 타입은 「영수증(해당 없음)」 패널 미렌더 + 모달 폭 620px 축소. 사양서 `docs/specs/2026-07-21-rejected-application-deliverable-and-settlement.md`
 - **사이드바 검수대기 배지 정합**(2026-07-21, 마이그레이션 248): 배지가 재제출로 쌓인 옛 pending 결과물 행까지 세어 과대(운영 31→실제 훨씬 적음)하던 문제. **신청 단위** 집계 `count_pending_review_applications()` RPC(SECURITY DEFINER·`search_path=''`·`is_admin()`)로 교체 — 신청별 최신 결과물이 pending 이고 신청이 반려·취소 아닌 신청 수. 최신 판정 기준(화면 buildDeliverableGroups 정합, 마이그레이션 249·250): **review_image 만 채널별** 최신 · **post·receipt 는 채널 무관 신청당 최신 1건** · **채널 미지정 review_image(legacy) 제외**. (248 은 (kind,post_channel) 일괄이라 채널 미지정·게시물 다채널을 과대 카운트 → 운영 배지 9·6 vs 목록 1 사례. 249=채널 미지정 제외, 250=post 채널 무관으로 최종 정합) `fetchPendingDeliverableCount` 가 이 RPC 호출. 화면 정합 헬퍼 `groupHasPendingReview(g)`(receipt 최신 pending OR monitor result_status_repr='pending'/채널별 최신 pending OR post 최신 pending, isCertExcluded 제외). **배지(숫자) 클릭 → 「검수대기만」 필터**(`_delivPendingOnly` + `openDelivPendingReview`, 다른 필터 초기화 후 검수대기 신청만) → 배지 숫자=목록 길이 일치. ⚠️ RPC는 배지 전용 SQL 재현(단일 소스 아님) — `buildDeliverableGroups` 판정 변경 시 함께 검토. gifting/visit 다채널은 근소 차이 감수(사용자 결정).
@@ -349,7 +350,7 @@
 - db 참조 시 항상 `db?.from()` 사용 (null-safe)
 - `.single()` 대신 `.maybeSingle()` 사용
 - localStorage 저장 시 이미지 base64 는 별도 키로 분리 (용량 초과 방지)
-- 캠페인 삭제 시 관련 applications 도 함께 삭제 (cascading)
+- 캠페인 삭제는 **보관 삭제(soft delete)** — 캠페인 행은 `deleted_at` 세팅해 30일 보관(「삭제됨」 탭에서 복구 가능), 관련 applications·deliverables(개인정보)는 삭제 즉시 완전 파기(개인정보 파기원칙 정합). 정산 걸린 캠페인은 삭제 차단(마이그레이션 251 트리거). 복구=campaign_admin·완전삭제=super_admin. 30일 후 pg_cron 자동 완전삭제(`purge_expired_deleted_campaigns`). 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
 - 이미지 업로드는 Supabase Storage (`campaign-images` 버킷) 사용
 - 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs 에 양 도메인 등록
 - 아이콘은 Material Icons 사용 (이모지 사용 금지), `translate="no"` 속성 필수

@@ -88,8 +88,8 @@ function resetCampView() {
 function resetAppView() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appCampStatusMulti', '전체 상태');
-  resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
+  _appStatusTab = '';  // 신청 상태 탭 → 전체
   const s = $('appSearch'); if (s) s.value = '';
   appSortKey = 'created'; appSortDir = 'desc';
   document.querySelectorAll('.app-sort-arrows').forEach(el => {
@@ -163,8 +163,12 @@ const CAMP_STATUS_TABS = [
   { code: 'closed',    label: '모집마감' },
   { code: 'ended',     label: '종료' },
   { code: 'expired',   label: '노출종료' },
+  { code: 'deleted',   label: '삭제됨' },   // soft delete 보관함(deleted_at NOT NULL). 다른 탭과 데이터 소스·행 동작이 다름
 ];
 var _campActiveStatusTab = null;
+// 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
+//   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
+var _deletedCampsCache = [];
 
 // 상태 탭 바 렌더 (counts: 필터 전 전체 기준 상태별 건수)
 function renderCampStatusTabs(counts) {
@@ -173,7 +177,10 @@ function renderCampStatusTabs(counts) {
   counts = counts || {};
   const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
   bar.innerHTML = CAMP_STATUS_TABS.map(tab => {
-    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    // 전체=활성 합계 / 삭제됨=보관 캐시 길이(활성 집계엔 없음) / 그 외=상태별 건수
+    const n = tab.code === null ? totalAll
+            : tab.code === 'deleted' ? (_deletedCampsCache.length || 0)
+            : (counts[tab.code] || 0);
     const isOn = tab.code === _campActiveStatusTab;
     const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
     return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setCampStatusTab(this)">`
@@ -269,7 +276,11 @@ async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
   // PR 2 데이터 다이어트: 목록 전용 가벼운 함수 사용 (participation_steps 등 무거운 컬럼 제외)
   let camps = useCache ? allCampaigns.slice() : await fetchCampaignsForAdminList();
-  if (!useCache) allCampaigns = camps.slice();
+  if (!useCache) {
+    allCampaigns = camps.slice();
+    // 「삭제됨」 탭 건수·목록용 보관 캠페인 캐시 갱신 (실데이터 조회 시에만)
+    try { _deletedCampsCache = await fetchDeletedCampaigns(); } catch(e) { _deletedCampsCache = []; }
+  }
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
   const stCounts = {};
@@ -279,13 +290,30 @@ async function loadAdminCampaigns(useCache) {
     if (c.recruit_type) rtCounts[c.recruit_type] = (rtCounts[c.recruit_type]||0) + 1;
   });
   // 다중 선택 드롭다운에 옵션별 (NN) 건수 업데이트
-  syncMultiFilter('campTypeMulti', '전체 타입', [
-    {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
-    {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
-    {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
-  ], () => filterAdminCampaigns());
+  // 타입 필터 건수는 활성 목록 기준. 삭제됨 탭은 renderDeletedCampsPane 이 삭제 캠페인 기준으로 다시 sync 하므로 여기선 건너뛴다.
+  //   (양쪽에서 같은 위젯을 다른 건수로 재sync 하면, 선택이 있을 때 syncMultiFilter 재생성이 onChange 를 즉시 재호출해
+  //    loadAdminCampaigns→renderDeletedCampsPane 무한 재귀가 발생 — 2026-07-23 QA Critical)
+  if (_campActiveStatusTab !== 'deleted') {
+    syncMultiFilter('campTypeMulti', '전체 타입', [
+      {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
+      {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
+      {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
+    ], () => filterAdminCampaigns());
+  }
   // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
   renderCampStatusTabs(stCounts);
+
+  // 「삭제됨」 탭에선 활성 전용 컨트롤(타입·검색·엑셀·순서변경)을 숨긴다 — 조기 return 으로 반응하지 않아 혼동 방지.
+  const _isDelTab = _campActiveStatusTab === 'deleted';
+  // 필터바(타입·검색)는 삭제됨 탭에서도 사용 가능. 툴바(엑셀·순서변경)는 삭제됨에 무의미하므로 숨김.
+  const _fb = $('campFilterBar');   if (_fb) _fb.style.display = 'flex';
+  const _tb = $('campListToolbar'); if (_tb) _tb.style.display = _isDelTab ? 'none' : 'flex';
+  // 삭제됨 탭은 활성 목록용 min-width(2150px) 대신 콘텐츠 폭 + 캠페인명 열 좌측 고정 (deleted-mode CSS)
+  const _dtbl = $('adminCampsBody') && $('adminCampsBody').closest('table');
+  if (_dtbl) _dtbl.classList.toggle('deleted-mode', _isDelTab);
+
+  // 「삭제됨」 탭 — 보관 캠페인(deleted_at NOT NULL) 전용 렌더. 활성 목록의 필터·집계·정렬·lazy 로직과 분리.
+  if (_campActiveStatusTab === 'deleted') { renderDeletedCampsPane(); return; }
 
   // 타입 필터 (다중 선택)
   const typeVals = getMultiFilterValues('campTypeMulti');
@@ -388,7 +416,7 @@ async function loadAdminCampaigns(useCache) {
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--ink);display:block;word-break:break-word;line-height:1.4;flex:1">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
           </div>
         </div>
       </td>
@@ -1991,23 +2019,176 @@ async function executeDeleteCampaign() {
   if (input !== title) { err.textContent = '캠페인명이 일치하지 않습니다'; err.style.display = 'block'; return; }
   try {
     if (db) {
-      // 마이그레이션 251 — 이 캠페인의 신청 중 정산(settlements) 기록이 있는 건은
-      // 삭제 트리거가 막는다. 이전에는 이 결과를 확인하지 않고 넘어가 캠페인
-      // 삭제 단계에서만(사실은 그 캠페인의 신청이 아직 남아있어 우연히) 에러가
-      // 드러났는데, 여기서 바로 확인해 원인을 명확히 한다.
-      var delAppsResult = await db?.from('applications').delete().eq('campaign_id', campId);
-      if (delAppsResult && delAppsResult.error) throw delAppsResult.error;
-
-      var result = await db?.from('campaigns').delete().eq('id', campId);
-      if (result.error) throw result.error;
+      // 보관 삭제(soft delete) — soft_delete_campaign RPC(마이그레이션 255)가 서버에서
+      //   ① 신청·결과물(개인정보) 즉시 완전 파기(정산 걸린 건은 마이그레이션 251 트리거가 원자적 차단)
+      //   ② campaigns.deleted_at 세팅(캠페인 메타데이터만 30일 보관) 을 트랜잭션으로 처리한다.
+      await softDeleteCampaign(campId);
     }
     closeDeleteCampModal();
     allCampaigns = await fetchCampaigns();
-    loadAdminCampaigns();
-    toast('캠페인이 삭제되었습니다','success');
+    loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
+    toast('캠페인을 보관 삭제했습니다 (30일간 「삭제됨」 탭에서 복구 가능)','success');
   } catch(e) {
     err.textContent = '삭제 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 「삭제됨」 탭 — 보관 캠페인 목록·복구·완전삭제 (soft delete, 사양서 2026-07-22 PR 2)
+//   활성 캠페인의 buildCampRow(편집·상태변경·노출토글 등)를 재사용하지 않고, 보관 캠페인 전용
+//   간단 행(썸네일·제목·삭제일·자동삭제 예정일 + 복구/완전삭제)만 그린다.
+// ══════════════════════════════════════════════════════════════════
+function renderDeletedCampsPane() {
+  // 삭제됨 전용 테이블 헤더 (활성 15컬럼과 다름 — 편집·정렬·노출 없음)
+  const head = $('adminCampTableHead');
+  if (head) {
+    head.innerHTML = `<tr>
+      <th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th>
+      <th style="white-space:nowrap">삭제일</th>
+      <th style="white-space:nowrap">자동 완전삭제 예정</th>
+      <th>복구 / 완전삭제</th></tr>`;
+  }
+  const body = $('adminCampsBody');
+  if (!body) return;
+  if (campsLazy) { campsLazy.destroy(); campsLazy = null; }  // 활성용 lazy 리스트 정리
+  const all = _deletedCampsCache || [];
+  // 타입 필터 카운트를 삭제됨 캠페인 기준으로 재sync (loadAdminCampaigns 는 활성 기준으로 sync 하므로 덮어씀)
+  const _delRt = {monitor:0, gifting:0, visit:0};
+  all.forEach(c => { if (c.recruit_type in _delRt) _delRt[c.recruit_type]++; });
+  syncMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count:_delRt.monitor},
+    {value:'gifting', label:'기프팅',  count:_delRt.gifting},
+    {value:'visit',   label:'방문형',  count:_delRt.visit},
+  ], () => filterAdminCampaigns());
+  // 타입·검색 필터 적용 (활성 목록과 동일 검색 필드)
+  let list = all.slice();
+  const typeVals = getMultiFilterValues('campTypeMulti');
+  if (typeVals.length) list = list.filter(c => typeVals.includes(c.recruit_type));
+  const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
+  if (searchVal) list = list.filter(c => matchSearchTokens(searchVal,
+    [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
+  updateCampViewResetBtn();
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+  const emptyHtml = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${all.length ? '조건에 맞는 삭제된 캠페인이 없습니다' : '삭제된 캠페인이 없습니다'}</td></tr>`;
+  body.innerHTML = list.length ? list.map(c => buildDeletedCampRow(c, isSuper)).join('') : emptyHtml;
+}
+
+function buildDeletedCampRow(c, isSuper) {
+  const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean);
+  const thumbUrl = imgs[0] || '';
+  // 자동 완전삭제 예정일 = 삭제일 + 30일 (사양서 §설계, purge_expired_deleted_campaigns 마이그레이션 258)
+  const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
+  const purgeAt = delAt ? new Date(delAt.getTime() + 30*24*60*60*1000) : null;
+  const purgeBtn = isSuper
+    ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" data-camp-title="${esc(c.title)}" onclick="purgeCampaignAction('${c.id}',this.dataset.campTitle)">완전삭제</button>`
+    : '';
+  return `<tr data-camp-id="${c.id}">
+    <td style="min-width:240px;max-width:340px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
+          ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:88, quality:70, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`}
+        </div>
+        <div style="min-width:0;flex:1">
+          ${c.campaign_no ? `<div style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(c.campaign_no)}</div>` : ''}
+          <strong style="color:var(--dark-pink);cursor:pointer;word-break:break-word;line-height:1.4" onclick="openDeletedCampDetail('${c.id}')" title="캠페인 정보 보기 (읽기 전용)">${esc(c.title)}</strong>
+        </div>
+      </div>
+    </td>
+    <td>${channelChipsHtml(c.channel, c.channel_match)}</td>
+    <td style="font-size:12px;color:var(--ink)">${esc(brandLabelAdmin(c)) || '—'}</td>
+    <td style="font-size:12px;color:var(--ink)">${esc(c.product_ko || c.product || '') || '—'}</td>
+    <td style="font-size:11px;color:var(--muted);white-space:nowrap">${delAt ? formatDateTime(c.deleted_at) : '—'}</td>
+    <td style="font-size:11px;color:var(--red);white-space:nowrap">${purgeAt ? formatDate(purgeAt.toISOString()) : '—'}</td>
+    <td style="white-space:nowrap">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-green btn-xs" onclick="restoreCampaignAction('${c.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">restore</span> 복구</button>
+        ${purgeBtn}
+      </div>
+    </td>
+  </tr>`;
+}
+
+// 복구 — deleted_at=NULL (campaign_admin 이상). 신청·결과물은 이미 파기됐으므로 캠페인 설정만 되살아난다.
+async function restoreCampaignAction(campId) {
+  const adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role === 'campaign_manager') { toast('복구 권한이 없습니다. 캠페인 관리자 이상만 가능합니다.','error'); return; }
+  const ok = await showConfirm('이 캠페인을 복구합니다. 캠페인 설정은 되살아나지만, 삭제 시 지워진 응모자·신청 내역은 복구되지 않습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    await restoreCampaign(campId);
+    allCampaigns = await fetchCampaigns();
+    await loadAdminCampaigns();  // 보관 캐시 갱신 + 목록 재렌더 (삭제됨 탭 유지)
+    toast('캠페인을 복구했습니다','success');
+  } catch(e) { toast('복구 오류: ' + friendlyError(e.message),'error'); }
+}
+
+// 삭제된 캠페인 읽기 전용 상세 — 「삭제됨」 탭에서 제목 클릭 시. _deletedCampsCache 데이터로 직접 렌더.
+//   (활성 캠페인 미리보기는 인플 화면 iframe이지만, 삭제 캠페인은 인플 앱이 못 조회해 관리자용 정보 요약으로 대체)
+async function openDeletedCampDetail(campId) {
+  const c = (_deletedCampsCache || []).find(x => x.id === campId);
+  const body = $('deletedCampDetailBody');
+  if (!c || !body) { toast('캠페인 정보를 찾을 수 없습니다','error'); return; }
+  // 생성자·삭제자 auth_id → 관리자 이름 변환. created_by 는 2026-07-23 이후 등록분만 기록(그 전은 정보 없음).
+  const _nameMap = await fetchAdminNamesByIds([c.created_by, c.deleted_by]);
+  const createdByLabel = c.created_by ? esc(_nameMap[c.created_by] || '알 수 없음') : '정보 없음 (기록 시작 전 등록)';
+  const deletedByLabel = c.deleted_by ? esc(_nameMap[c.deleted_by] || '알 수 없음') : '알 수 없음';
+  const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+  const delAt = c.deleted_at ? new Date(c.deleted_at) : null;
+  const purgeAt = delAt ? new Date(delAt.getTime()+30*24*60*60*1000) : null;
+  const rt = { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' }[c.recruit_type] || c.recruit_type || '';
+  const stKey = (typeof campaignStatusLabelKey==='function') ? campaignStatusLabelKey(c) : c.status;
+  const stLabel = (typeof CAMPAIGN_STATUS_LABEL!=='undefined' && CAMPAIGN_STATUS_LABEL[stKey]) || c.status || '';
+  // 라벨-값 한 줄 (값 없으면 렌더 생략). val 은 이미 안전한 HTML 또는 esc 처리된 문자열.
+  const row = (label, val) => val ? `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><div style="min-width:96px;color:var(--muted);font-size:12px;flex-shrink:0">${label}</div><div style="flex:1;font-size:13px;color:var(--ink);word-break:break-word">${val}</div></div>` : '';
+  // 리치 텍스트(설명·소구·가이드 = Quill v2) — 기존 캠페인 미리보기와 동일하게 richHtml 사용
+  //   (sanitizeCautionHtml 은 미니에디터 전용이라 헤더·목록·인용구를 제거해 서식이 깨짐). 렌더 단 2중 sanitize.
+  const richBlock = (title, htmlStr) => htmlStr ? `<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">${title}</div><div style="font-size:13px;color:var(--ink);line-height:1.6">${typeof richHtml==='function' ? richHtml(htmlStr) : esc(htmlStr)}</div></div>` : '';
+  const imgGallery = imgs.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${imgs.map(u => `<div style="width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim)">${renderCroppedImg(u, null, {thumb:144, quality:70, lazy:true})}</div>`).join('')}</div>` : '';
+  const purchaseVisit = c.recruit_type==='monitor' ? periodRangeCell(c.purchase_start, c.purchase_end)
+                      : c.recruit_type==='visit'   ? periodRangeCell(c.visit_start, c.visit_end) : '';
+  body.innerHTML = `
+    <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#B3261E">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">delete</span>
+      이 캠페인은 삭제되어 보관 중입니다. 정보 확인만 가능하며 수정할 수 없습니다.
+    </div>
+    ${imgGallery}
+    ${row('제목', esc(c.title))}
+    ${row('캠페인번호', c.campaign_no ? `<span style="font-family:monospace">${esc(c.campaign_no)}</span>` : '')}
+    ${row('브랜드', esc(brandLabelAdmin(c) || ''))}
+    ${row('제품', esc(c.product_ko || c.product || ''))}
+    ${row('모집 타입', esc(rt))}
+    ${row('채널', channelChipsHtml(c.channel, c.channel_match))}
+    ${row('삭제 전 상태', esc(stLabel))}
+    ${row('모집 인원', c.slots ? `${c.slots}명` : '')}
+    ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
+    ${row('리워드', esc(c.reward || ''))}
+    ${row('리워드 안내', esc(c.reward_note || ''))}
+    ${row('모집 기간', periodRangeCell(c.recruit_start, c.deadline))}
+    ${row('구매/방문 기간', purchaseVisit)}
+    ${row('결과물 제출 마감', c.submission_end ? periodSingleCell(c.submission_end) : '')}
+    ${row('생성일시', c.created_at ? formatDateTime(c.created_at) : '')}
+    ${row('생성자', createdByLabel)}
+    ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
+    ${row('삭제자', deletedByLabel)}
+    ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
+    ${richBlock('제품 · 캠페인 설명', c.description)}
+    ${richBlock('소구 포인트', c.appeal)}
+    ${richBlock('콘텐츠 가이드', c.guide)}
+  `;
+  openModal('deletedCampDetailModal');
+}
+
+// 완전삭제 — 캠페인 행 hard delete (super_admin 전용). 되돌릴 수 없음.
+async function purgeCampaignAction(campId, campTitle) {
+  const adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role !== 'super_admin') { toast('완전삭제는 최고관리자만 가능합니다.','error'); return; }
+  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다. 진행할까요?`);
+  if (!ok) return;
+  try {
+    await purgeCampaign(campId);
+    await loadAdminCampaigns();  // 보관 캐시 갱신 + 재렌더
+    toast('캠페인을 완전 삭제했습니다','success');
+  } catch(e) { toast('완전삭제 오류: ' + friendlyError(e.message),'error'); }
 }
 
 // ── 캠페인 폼 실시간 미리보기 (add/edit 사이드 패널 iframe) ──
@@ -2676,6 +2857,8 @@ async function addCampaign() {
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
+    // 생성자 기록 — campaigns.created_by(감사용). 캠페인 RLS(001)는 is_admin()만 보고 created_by 미참조라 권한 영향 없음.
+    created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
     // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
     proxy_purchase: _opc ? !!_opc.isProxy : false,
     emergency_publish_reason: _emergencyReason || null,

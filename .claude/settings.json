@@ -26,6 +26,14 @@
             "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/dev-session-backlog.js"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/task-breakdown-reminder.js"
+          }
+        ]
       }
     ],
     "PreToolUse": [

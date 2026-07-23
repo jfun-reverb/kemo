@@ -43,13 +43,13 @@ function resetDelivFiltersAndSort(skipRender) {
   resetMultiFilter('delivResultStatusMulti', '전체');
   resetMultiFilter('delivChannelMulti', '전체 채널');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
+  _delivCertTab = '';  // 인증 상태 탭 → 전체
   const q = $('delivSearch'); if (q) q.value = '';
   // 검색창 접기 + 돋보기 버튼 강조 해제
   const sbox = $('delivSearchBox'); if (sbox) sbox.style.display = 'none';
   const stb = $('btnDelivSearchToggle'); if (stb) stb.classList.remove('active');
   // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
-  const cbEx = $('delivIncludeExcluded'); if (cbEx) cbEx.checked = true;  // 검수 불필요 포함 기본 ON 복원
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
   _delivPendingOnly = false;  // 검수대기만(배지 클릭) 해제
   // 최근 제출일 기간 초기화
@@ -117,6 +117,41 @@ var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
+// 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
+//   신청 1건 = computeCertStatus 4종 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _delivCertTab = '';
+
+// 인증 상태 탭 정의 — 화면 인증 상태 열(computeCertStatus)과 동일 4종 + 전체
+const DELIV_CERT_STATUS_TABS = [
+  { code: '',           label: '전체' },
+  { code: 'none',       label: '미제출' },
+  { code: 'submitting', label: '인증샷 제출중' },
+  { code: 'success',    label: '인증성공' },
+  { code: 'excluded',   label: '검수 불필요' },
+];
+
+// 인증 상태 탭 바 렌더 — 건수는 renderDeliverablesList 가 넘겨준 certStatusCounts(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 그룹은 4종 중 하나). renderDeliverablesList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderDelivCertStatusTabs(counts) {
+  const bar = $('delivCertStatusTabBar');
+  if (!bar) return;
+  const c = counts || {success:0, submitting:0, none:0, excluded:0};
+  const totalAll = (c.success||0) + (c.submitting||0) + (c.none||0) + (c.excluded||0);
+  const active = _delivCertTab || '';
+  bar.innerHTML = DELIV_CERT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setDelivCertStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 인증 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderDeliverablesList 내부 재렌더로 갱신)
+function setDelivCertStatusTab(btn) {
+  _delivCertTab = btn.dataset.status || '';
+  renderDeliverablesList();
+}
 
 // timestamptz ISO → 브라우저 로컬 날짜(YYYY-MM-DD). 기간 필터 비교용 (운영자 KST 기준)
 function delivLocalDate(iso) {
@@ -199,11 +234,12 @@ async function renderDeliverablesList() {
   const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const channelVals = getMultiFilterValues('delivChannelMulti');
+  // 인증 상태 탭(단일, ''=전체) 4종: success(인증성공)/submitting(인증샷 제출중)/none(미제출)/excluded(검수 불필요)
+  //   전체 탭은 검수 불필요를 포함해 보여준다(과거 「검수 불필요 포함」 토글 기본 ON 동작을 계승). 특정 탭은 그 상태만.
+  const certTab = _delivCertTab || '';
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
-  // 검수 불필요 포함 — 신청이 반려·취소된 결과물 표시 여부(기본 ON: 회색 배지로 보이고, 끄면 숨김)
-  const includeExcluded = $('delivIncludeExcluded') ? !!$('delivIncludeExcluded').checked : true;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
 
   // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
@@ -233,6 +269,8 @@ async function renderDeliverablesList() {
   // 자기 자신 필터를 skip 인자로 지정하면 그 필터만 무시. 나머지는 모두 AND 적용.
   const passesFilters = (g, opts) => {
     opts = opts || {};
+    // 검수대기만 모드(사이드바 배지 클릭)는 모든 카운트에도 반영 → 탭 건수 = 목록 길이 정합(전체 탭 "전체(N)" 오인 방지)
+    if (_delivPendingOnly && !groupHasPendingReview(g)) return false;
     if (!opts.skipRecruit && recruitTypeVals.length > 0 && !recruitTypeVals.includes(g.campaign?.recruit_type)) return false;
     if (!opts.skipCamp && delivCampVals.length > 0 && !delivCampVals.includes(g.campaign?.id)) return false;
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
@@ -261,6 +299,7 @@ async function renderDeliverablesList() {
       if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
     }
     if (!opts.skipChannel && channelVals.length > 0 && !delivGroupMatchesChannel(g, channelVals)) return false;
+    if (!opts.skipCert && certTab && computeCertStatus(g) !== certTab) return false;
     if (_delivSubmittedFrom || _delivSubmittedTo) {
       const d = delivLocalDate(g.latest_submitted_at);
       if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
@@ -275,16 +314,23 @@ async function renderDeliverablesList() {
   // legacy_no_channel: 사양 2 전 post_channel NULL 인 review_image 행이 있는 monitor 신청 (385건, 2026-05-28)
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
   const channelCounts = {};  // {channel_code: n} + '__none__': 채널 미상 n
+  const certStatusCounts = {success:0, submitting:0, none:0, excluded:0};
   for (const g of allGroups) {
-    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 검수 불필요는 토글 OFF면 목록에서 빠지므로 카운트도 맞춘다(숫자↔행 정합)
-    if (passesFilters(g, {skipCamp: true}) && (includeExcluded || !isCertExcluded(g))) {
+    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 인증 탭은 passesFilters 에 반영됨(전체 탭이면 검수 불필요 포함).
+    if (passesFilters(g, {skipCamp: true})) {
       const cid = g.campaign?.id;
       if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
     }
     // 모집 타입 카운트: 자기 자신(모집 타입 필터) 제외
-    if (passesFilters(g, {skipRecruit: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipRecruit: true})) {
       const rt = g.campaign?.recruit_type;
       if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
+    }
+    // 인증 상태 탭 카운트: 자기 자신(인증 탭) 제외 → 다른 필터 적용 후 computeCertStatus 로 분류.
+    //   4종 모두 세며(검수 불필요 포함) 전체 탭 건수 = 4종 합.
+    if (passesFilters(g, {skipCert: true})) {
+      const cs = computeCertStatus(g);
+      if (cs in certStatusCounts) certStatusCounts[cs]++;
     }
     // 영수증 상태 카운트: 리뷰어(monitor) 그룹만 합산 (기프팅·방문형 'none' 오집계 차단)
     //   검수 불필요(신청 반려·취소)는 검수 상태가 아니므로 집계 제외
@@ -305,7 +351,7 @@ async function renderDeliverablesList() {
       }
     }
     // 채널 카운트: 자기 자신(채널 필터) 제외 → monitor=캠페인 채널마다, gifting/visit=post_channel, 미상=__none__
-    if (passesFilters(g, {skipChannel: true}) && (includeExcluded || !isCertExcluded(g))) {
+    if (passesFilters(g, {skipChannel: true})) {
       const rt = g.campaign?.recruit_type;
       if (rt === 'monitor') {
         const chans = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
@@ -354,6 +400,8 @@ async function renderDeliverablesList() {
     delivChannelOpts.push({value:'__none__', label:'채널 미상', count: channelCounts['__none__']});
   }
   syncMultiFilter('delivChannelMulti', '전체 채널', delivChannelOpts, () => renderDeliverablesList());
+  // 인증 상태 탭 바 — 화면 인증 상태 열과 동일 4종(검수 불필요 포함) + 전체. 다중 필터 대체.
+  renderDelivCertStatusTabs(certStatusCounts);
 
   // 필터 적용
   let filtered = Array.from(groups.values());
@@ -380,6 +428,8 @@ async function renderDeliverablesList() {
   });
   // 채널 필터 — monitor=캠페인 채널, gifting/visit=post_channel, 미상=__none__
   if (channelVals.length > 0) filtered = filtered.filter(g => delivGroupMatchesChannel(g, channelVals));
+  // 인증 상태 탭 — computeCertStatus(화면 인증 상태 열 단일 소스)로 판정. 전체 탭('')은 필터 없음(검수 불필요 포함).
+  if (certTab) filtered = filtered.filter(g => computeCertStatus(g) === certTab);
   // 최근 제출일 기간 필터 — 그룹의 latest_submitted_at(로컬 날짜)이 선택 범위 안 (양끝 포함, 제출일 없으면 제외)
   if (_delivSubmittedFrom || _delivSubmittedTo) filtered = filtered.filter(g => {
     const d = delivLocalDate(g.latest_submitted_at);
@@ -403,18 +453,14 @@ async function renderDeliverablesList() {
   }
   // 검수대기만 (사이드바 배지 클릭) — 신청 단위 최신 결과물이 검수대기인 신청만. 배지 숫자 = 목록 길이.
   if (_delivPendingOnly) filtered = filtered.filter(groupHasPendingReview);
-  // 검수 불필요(신청 반려·취소) — 현재 필터 하에서 몇 건인지 라벨에 표시하고, 토글 OFF면 목록에서 숨김
-  const excludedCount = filtered.filter(isCertExcluded).length;
-  if (!includeExcluded) filtered = filtered.filter(g => !isCertExcluded(g));
-  const _exLbl = $('delivExcludedCount');
-  if (_exLbl) _exLbl.textContent = excludedCount > 0 ? `(${excludedCount})` : '';
+  // (인증 상태 탭이 검수 불필요 노출을 담당 — 전체 탭=포함, 특정 탭=위 404행에서 처리. 별도 토글 없음)
 
-  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
+  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·인증탭·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
     || _delivPendingOnly
+    || !!_delivCertTab
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
-    || ($('delivIncludeExcluded') && !$('delivIncludeExcluded').checked)
     || ($('delivProxyOnly') && $('delivProxyOnly').checked);
   if (_delivExtraActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
   // 검색어 있으면 돋보기 버튼 강조 + 검색창 펼친 상태 유지 (접힌 채 필터 적용 방지)

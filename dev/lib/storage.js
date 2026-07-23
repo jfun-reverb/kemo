@@ -80,8 +80,12 @@ async function restoreRolePermissionsDefaults() {
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
+    // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
+    // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
+    // 페인이 공유하는 함수라, 여기서 제외하면 양쪽 모두 자동으로 안전해진다.
+    // 「삭제됨」 탭(2단계) 전용 조회는 fetchDeletedCampaigns() 별도 함수 사용.
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false})
+      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
@@ -119,9 +123,13 @@ const ADMIN_LIST_COLUMNS = [
 async function fetchCampaignsForAdminList() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
+    // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
+    // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
+    // (2단계)만 fetchDeletedCampaigns() 로 별도 조회.
     const data = await fetchAllPaged(() =>
       db.from('campaigns')
         .select(ADMIN_LIST_COLUMNS)
+        .is('deleted_at', null)
         .order('order_index', { ascending: true, nullsFirst: false })
     );
     if (data.length > 0) {
@@ -279,6 +287,81 @@ function computeCampaignStatus(camp) {
     }
   }
   return 'active';
+}
+
+// ── 캠페인 삭제 복구(soft delete) — 사양서 docs/specs/2026-07-22-campaign-soft-delete-restore.md ──
+// PR 1(DB 기반)만 구현. UI(「삭제됨」 탭·확인 모달 교체)는 PR 2 범위.
+
+// 보관 삭제 — RPC soft_delete_campaign(마이그레이션 255). campaign_admin 이상.
+// 이 캠페인의 신청(applications)·결과물(deliverables, cascade)을 즉시 완전 삭제하고
+// campaigns 행은 deleted_at 만 세팅해 30일간 보관한다(개인정보 즉시 파기 원칙).
+// 정산(settlements) 이 걸린 신청이 있으면 251 트리거가 막아 예외로 반환(그대로 throw).
+// 반환값 = 삭제된 신청 건수(정보용, 화면에서 안내 문구에 활용 가능).
+async function softDeleteCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  let deletedApps = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('soft_delete_campaign', {p_campaign_id: campaignId});
+    if (error) throw error;
+    deletedApps = data || 0;
+  });
+  return deletedApps;
+}
+
+// 복구 — RPC restore_campaign(마이그레이션 256). campaign_admin 이상.
+// deleted_at/deleted_by 를 NULL 로 되돌린다. 신청·결과물은 이미 파기돼 되돌아오지 않음
+// (사양서 §의심 1 — 삭제 확인 문구에 명시, PR 2). 이미 활성 캠페인이면 false(멱등).
+async function restoreCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  let restored = false;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('restore_campaign', {p_campaign_id: campaignId});
+    if (error) throw error;
+    restored = !!data;
+  });
+  return restored;
+}
+
+// 완전 삭제 — RPC purge_campaign(마이그레이션 257). super_admin 전용.
+// 보관(deleted_at NOT NULL) 상태의 캠페인만 대상 — 활성 캠페인을 실수로 완전삭제하는
+// 것을 서버가 원천 차단(활성이면 예외 throw).
+async function purgeCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('purge_campaign', {p_campaign_id: campaignId});
+    if (error) throw error;
+  });
+  return true;
+}
+
+// 「삭제됨」 탭 전용 조회(PR 2에서 사용 예정) — deleted_at NOT NULL 인 캠페인만.
+// fetchCampaigns() 는 반대로 이 캠페인들을 항상 제외하므로 별도 함수로 분리.
+// auth_id 배열 → {auth_id: 표시이름} 맵. 캠페인 생성자·삭제자 등 감사 컬럼(auth_id)을 이름으로 표시.
+//   admins RLS SELECT 는 is_admin() 이라 관리자만 조회 가능. 없는 id 는 맵에서 빠짐(호출측이 폴백 처리).
+async function fetchAdminNamesByIds(authIds) {
+  if (!db || !Array.isArray(authIds)) return {};
+  const uniq = [...new Set(authIds.filter(Boolean))];
+  if (!uniq.length) return {};
+  try {
+    const {data, error} = await db.from('admins').select('auth_id, name, email').in('auth_id', uniq);
+    if (error) throw error;
+    const map = {};
+    (data||[]).forEach(a => { map[a.auth_id] = a.name || a.email || ''; });
+    return map;
+  } catch(e) { console.error('[fetchAdminNamesByIds]', e); return {}; }
+}
+
+async function fetchDeletedCampaigns() {
+  if (!db) return [];
+  try {
+    const data = await fetchAllPaged(() =>
+      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false})
+    );
+    return data;
+  } catch (e) {
+    console.error('fetchDeletedCampaigns:', e);
+    return [];
+  }
 }
 
 async function insertCampaign(camp) {
