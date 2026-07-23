@@ -9,6 +9,7 @@
 let _orientSheets = [];
 let _orientBrands = [];      // 발급 모달 브랜드 검색 드롭다운 후보 (osOpenCreate 에서 적재)
 let _osDetailSheet = null;   // 상세 모달에 열린 시트(카드별 발행에 사용)
+let _osDetailCampMap = {};   // 발행 카드 campaign_id → {campaign_no, title, deleted_at, status} (osOpenDetail 로드, 맵에 없으면 완전삭제)
 let _osDetailCatMap = {};    // 상세 모달 카테고리 라벨 맵(새창 열기에 재사용)
 let _osLastIssuedId = null;  // 방금 발급한 오리엔시트 id(발급 결과 화면 수동 메일 발송용)
 let _osLastIssuedBrandId = null;  // 방금 발급한 시트의 브랜드 id(수신자 담당자 로드·저장용)
@@ -679,6 +680,11 @@ async function osOpenDetail(id) {
   catch (e) { body.innerHTML = '<p style="padding:8px">불러오지 못했습니다.</p>'; return; }
   if (!s) { body.innerHTML = '<p style="padding:8px">데이터가 없습니다.</p>'; return; }
   _osDetailSheet = s;
+  // 발행된 카드의 연결 캠페인 번호·상태 조회 (활성=번호 링크 / 보관삭제=삭제됨 / 맵에 없음=완전삭제)
+  try {
+    const campIds = ((s.data && s.data.cards) || []).map(c => c && c.campaign_id).filter(Boolean);
+    _osDetailCampMap = await fetchCampaignsByIds(campIds);
+  } catch (_) { _osDetailCampMap = {}; }
   // 카테고리는 code 로 저장되므로 한국어 라벨로 변환해 표시 (캠페인 폼과 동일 기준 데이터)
   let catMap = {};
   try { const cats = await fetchLookups('category'); catMap = Object.fromEntries((cats || []).map(c => [c.code, c.name_ko])); } catch (_) {}
@@ -821,9 +827,22 @@ function osCardPublishControl(c, idx, readonly) {
   if (readonly) return '';   // 새창(읽기 전용)에서는 발행 버튼 숨김
   const s = _osDetailSheet;
   if (c && c.campaign_id) {
-    // 발행됨 배지 + 「연결 해제」(캠페인 행은 그대로, 카드 연결만 되돌림)
-    return '<span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'
+    // 발행됨 배지 + 연결 캠페인 번호(활성=클릭 이동 / 보관삭제·완전삭제=상태 표시) + 「연결 해제」
+    const cm = (_osDetailCampMap || {})[c.campaign_id];
+    let campInfo;
+    if (!cm) {
+      // campaigns 에 행 없음 = 과거 완전 삭제됨(오리엔에 연결 기록만 남음)
+      campInfo = '<span style="font-size:11px;color:#C62828;font-weight:600">삭제된 캠페인 (연결만 남음)</span>';
+    } else if (cm.deleted_at) {
+      // 보관 삭제됨 — 「삭제됨」 탭에 있음
+      campInfo = `<span style="font-size:11px;color:#B45309;font-weight:600">${esc(cm.campaign_no || '번호 없음')} · 삭제됨(보관)</span>`;
+    } else {
+      // 활성 캠페인 — 번호 클릭 시 진행현황(신청자·요약)으로 이동
+      campInfo = `<a href="#" onclick="osGotoPublishedCampaign('${c.campaign_id}');return false" style="font-size:11px;font-weight:700;color:var(--dark-pink);text-decoration:underline" title="캠페인 진행현황 보기">${esc(cm.campaign_no || '번호 없음')}</a>`;
+    }
+    return '<span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">'
       + '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:var(--green);background:#E8F5E9">발행됨</span>'
+      + campInfo
       + `<button type="button" class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="osUnlinkCard(${idx})">연결 해제</button>`
       + '</span>';
   }
@@ -1006,6 +1025,13 @@ async function osConfirmLink(campaignId) {
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
   await refreshPane('orient-sheets');
+}
+
+// 발행 카드의 연결 캠페인 번호 클릭 → 그 캠페인 진행현황(신청자·요약)으로 이동. 오리엔 상세 모달은 닫는다.
+//   (활성 캠페인만 이 함수로 이동 — 보관·완전삭제는 osCardPublishControl 에서 링크 없이 상태만 표시)
+function osGotoPublishedCampaign(campId) {
+  if (typeof osCloseModal === 'function') osCloseModal('orientDetailModal');
+  if (typeof openCampApplicants === 'function') openCampApplicants(campId, null);
 }
 
 // 연결 해제 — 발행됨 카드의 캠페인 연결을 되돌림(캠페인 행은 삭제 안 함).
