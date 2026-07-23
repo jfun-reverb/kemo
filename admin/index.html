@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784805800';
+  var CURRENT_BUILD = 'v1784811501';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -491,6 +491,22 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   --accent-tint:#EDEDF8;   /* 연한 강조 배경 */
 }
 
+/* ── 표 열제목 셀 (2026-07-23) ───────────────────────────────────
+   모든 관리자 표의 머리줄을 짙은 회색 + 흰 글씨로. 열제목 줄과 데이터 줄이
+   한눈에 갈리고, 가로 스크롤이 긴 표에서 머리줄이 떠 있는 게 분명해진다.
+   대비 #52525B 위 흰 글씨 = 7.7:1 (본문 기준 4.5:1 통과)
+
+   ⚠️ 위 #page-admin 블록이 아니라 :root 에 두는 이유 —
+   인플루언서 상세·캠페인 상태 안내 같은 일부 모달은 #page-admin 밖(body 직속)에
+   있어서, #page-admin 스코프에 두면 그 안의 표에서 변수가 안 풀린다.
+   그러면 배경이 투명해지고 글자만 흰색으로 남아 흰 배경에 흰 글씨가 된다.
+   이 파일은 관리자 빌드에만 들어가므로(build.sh CLIENT_CSS_FILES 에 없음)
+   :root 에 둬도 인플루언서 화면에는 영향이 없다. */
+:root{
+  --th-bg:#52525B;
+  --th-fg:#FFFFFF;
+}
+
 /* ── 테두리형 버튼(.btn-ghost) 가독성 (무채색 전환 보정) ──────────────
    무채색 전환 후 공용 components.css 의 .btn-ghost 는 배경 투명 + 테두리 var(--outline)
    (#E4E4E7) 인데, 이 테두리가 흰 배경·흰 카드 위에서 대비 ~1.2:1 로 거의 안 보여
@@ -668,7 +684,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
-.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface)}
+.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--th-bg)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
 .admin-pane-list #campApplicantsSummary{flex-shrink:0}
 .camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
@@ -722,7 +738,10 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 관리자 목록 표 — 세로(열) 구분선 공통 (캠페인·신청·결과물·인플루언서·브랜드 서베이 등 11개 표 통일).
    기존 #brandAppTableBody / #adminPane-campaigns 전용 규칙은 본 공통 규칙으로 흡수.
    가로(행) 구분선은 .data-table 공통 규칙에서 별도 처리. */
-.data-table thead th{border-right:1px solid rgba(0,0,0,.06)}
+.data-table thead th{border-right:1px solid rgba(255,255,255,.16)}
+/* 열제목 셀 안의 아이콘·정렬 화살표는 회색 토큰을 인라인으로 참조하는 곳이 있어,
+   토큰 자체를 머리줄 안에서만 밝은 값으로 덮는다(개별 선택자 추적 불필요). */
+.data-table thead th,.perm-table thead th{--muted:rgba(255,255,255,.82);--faint:rgba(255,255,255,.65);--accent:#FFFFFF;--accent-ink:#FFFFFF;--pink:#FFFFFF}
 .data-table thead th:last-child{border-right:none}
 .data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
 .data-table tbody td:last-child{border-right:none}
@@ -750,8 +769,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #adminPane-campaigns .data-table.deleted-mode th:first-child,
 #adminPane-campaigns .data-table.deleted-mode td:first-child{position:sticky;left:0;background:var(--surface);z-index:4;width:auto;min-width:0;max-width:340px}
 #adminPane-campaigns .data-table.deleted-mode th:first-child{z-index:6}
-/* 헤더 첫 열은 다른 헤더 셀과 같은 배경(surface-dim)으로 — 바디 sticky 셀만 surface */
-#adminPane-campaigns .data-table.deleted-mode thead th:first-child{background:var(--surface-dim)}
+/* 헤더 첫 열은 다른 헤더 셀과 같은 배경(--th-bg)으로 — 바디 sticky 셀만 surface */
+#adminPane-campaigns .data-table.deleted-mode thead th:first-child{background:var(--th-bg)}
 
 /* 1열 체크박스 (44px) — sticky
    thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
@@ -759,19 +778,19 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #adminPane-campaigns .data-table th:nth-child(1),
 #adminPane-campaigns .data-table td:nth-child(1){width:44px;min-width:44px;max-width:44px;box-sizing:border-box}
 #adminPane-campaigns .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--th-bg)}
 
 /* 2열 캠페인 (380px) — sticky */
 #adminPane-campaigns .data-table th:nth-child(2),
 #adminPane-campaigns .data-table td:nth-child(2){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-campaigns .data-table tbody td:nth-child(2){position:sticky;left:44px;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table thead th:nth-child(2){left:44px;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(2){left:44px;z-index:7;background:var(--th-bg)}
 
 /* 3열 채널 (150px) — sticky + 우측 그림자 (sticky 영역 경계 시각화, 2026-06-16 채널 열 신설 → 고정 영역 끝) */
 #adminPane-campaigns .data-table th:nth-child(3),
 #adminPane-campaigns .data-table td:nth-child(3){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-campaigns .data-table tbody td:nth-child(3){position:sticky;left:424px;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table thead th:nth-child(3){left:424px;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(3){left:424px;z-index:7;background:var(--th-bg)}
 #adminPane-campaigns .data-table tbody td:nth-child(3),
 #adminPane-campaigns .data-table thead th:nth-child(3){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 
@@ -792,11 +811,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #adminPane-applications .data-table th:nth-child(1),
 #adminPane-applications .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-applications .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--th-bg)}
 #adminPane-applications .data-table th:nth-child(2),
 #adminPane-applications .data-table td:nth-child(2){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-applications .data-table tbody td:nth-child(2){position:sticky;left:380px;z-index:3;background:var(--surface)}
-#adminPane-applications .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--surface-dim)}
+#adminPane-applications .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--th-bg)}
 #adminPane-applications .data-table tbody td:nth-child(2),
 #adminPane-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-applications .data-table tbody tr:hover td:nth-child(1),
@@ -810,11 +829,11 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #adminPane-deliverables .data-table th:nth-child(1),
 #adminPane-deliverables .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-deliverables .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--th-bg)}
 #adminPane-deliverables .data-table th:nth-child(2),
 #adminPane-deliverables .data-table td:nth-child(2){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-deliverables .data-table tbody td:nth-child(2){position:sticky;left:380px;z-index:3;background:var(--surface)}
-#adminPane-deliverables .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--surface-dim)}
+#adminPane-deliverables .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--th-bg)}
 #adminPane-deliverables .data-table tbody td:nth-child(2),
 #adminPane-deliverables .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
@@ -890,7 +909,10 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 .os-copy-btn:active{background:var(--baby-pink)}
 .os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{padding:11px 12px;background:var(--surface);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
+.data-table th{padding:4px 12px;background:var(--th-bg);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--th-fg);text-align:left;border-bottom:1px solid var(--outline)}
+/* 표 안 체크박스는 기본값(baseline)이라 글자 기준선에 맞춰 위로 치우친다.
+   열제목 줄을 얇게 줄이면서 그 치우침이 눈에 띄어 셀 중앙 정렬로 고정. */
+.data-table th input[type="checkbox"],.data-table td input[type="checkbox"]{vertical-align:middle;margin:0}
 .admin-table-wrap{overflow-y:auto}
 .data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle;background:var(--surface)}
 .data-table tr:last-child td{border-bottom:none}
@@ -2249,9 +2271,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
 .perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
 .perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
-.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, var(--muted)); font-weight: 600; }
-/* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
-.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: var(--surface-container); font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 27px; padding-top: 4px; padding-bottom: 4px; box-sizing: border-box; background: var(--th-bg); color: var(--th-fg); font-weight: 600; }
+/* category 구분 행 — 열 헤더(27px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기
+   ⚠️ 이 top 값은 위 .perm-table thead th 의 height 와 같아야 한다(어긋나면 그 틈으로 지나가는 행이 비친다). */
+.perm-cat-row td { position: sticky; top: 27px; z-index: 2; text-align: left; background: var(--surface-container); font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
 .perm-cat-row:hover td { background: var(--surface-dim); }
 /* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
 .perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
@@ -2500,7 +2523,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 20:23 · dabe123</span>
+          <span class="admin-build-text">2026-07-23 21:58 · 7540bec</span>
         </div>
       </div>
     </aside>
@@ -2666,7 +2689,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="adminCampTableHead"><tr>
-  <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
+  <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
   <th>캠페인</th>
   <th>채널</th>
   <th>브랜드</th>
@@ -15804,7 +15827,7 @@ function openBrandAppOrientListModal(appId) {
       + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
   } else {
     sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<thead><tr style="background:var(--th-bg);color:var(--th-fg)">'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">발급일</th>'
@@ -16152,7 +16175,7 @@ function renderBrandAppBundleCard(a) {
         + '<col style="width:100px">'    // 이체수수료
         + '<col style="width:110px">'    // 소계
       + '</colgroup>'
-      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<thead><tr style="background:var(--th-bg);color:var(--th-fg)">'
         + '<th style="padding:6px 8px;text-align:left">제품명</th>'
         + '<th style="padding:6px 8px;text-align:left">URL</th>'
         + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">수량</th>'
@@ -17960,7 +17983,7 @@ function renderBrandAppHistoryTableHtml(historyArr) {
   });
 
   return '<table style="width:100%;font-size:12px;border-collapse:collapse">'
-    + '<thead><tr style="background:var(--surface-dim);color:var(--muted);font-weight:600">'
+    + '<thead><tr style="background:var(--th-bg);color:var(--th-fg);font-weight:600">'
       + '<th style="text-align:left;padding:8px 10px;width:140px">시간</th>'
       + '<th style="text-align:left;padding:8px 10px;width:80px">담당</th>'
       + '<th style="text-align:left;padding:8px 10px;width:130px">제품</th>'
@@ -32935,7 +32958,7 @@ function updateCampTableHead() {
     head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
-      <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
+      <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
       <th>캠페인</th>
       <th>채널</th>
       <th>브랜드</th>
@@ -35267,7 +35290,8 @@ function openCampPreviewModal(campId) {
   const frame = $('campPreviewFrame');
   const editBtn = $('campPreviewEditBtn');
   if (!frame) return;
-  frame.src = '/?v=' + Date.now() + '#detail-' + campId;
+  // preview=1 → 인플루언서 화면이 상단 바·되돌아가기 줄을 감춘 채 뜬다(index.html 부팅 스크립트)
+  frame.src = '/?preview=1&v=' + Date.now() + '#detail-' + campId;
   editBtn.onclick = function() { closeModal('campPreviewModal'); openEditCampaign(campId); };
   openModal('campPreviewModal');
 }
