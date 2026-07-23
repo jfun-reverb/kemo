@@ -5187,6 +5187,21 @@ async function purgeCampaign(campaignId) {
 
 // 「삭제됨」 탭 전용 조회(PR 2에서 사용 예정) — deleted_at NOT NULL 인 캠페인만.
 // fetchCampaigns() 는 반대로 이 캠페인들을 항상 제외하므로 별도 함수로 분리.
+// auth_id 배열 → {auth_id: 표시이름} 맵. 캠페인 생성자·삭제자 등 감사 컬럼(auth_id)을 이름으로 표시.
+//   admins RLS SELECT 는 is_admin() 이라 관리자만 조회 가능. 없는 id 는 맵에서 빠짐(호출측이 폴백 처리).
+async function fetchAdminNamesByIds(authIds) {
+  if (!db || !Array.isArray(authIds)) return {};
+  const uniq = [...new Set(authIds.filter(Boolean))];
+  if (!uniq.length) return {};
+  try {
+    const {data, error} = await db.from('admins').select('auth_id, name, email').in('auth_id', uniq);
+    if (error) throw error;
+    const map = {};
+    (data||[]).forEach(a => { map[a.auth_id] = a.name || a.email || ''; });
+    return map;
+  } catch(e) { console.error('[fetchAdminNamesByIds]', e); return {}; }
+}
+
 async function fetchDeletedCampaigns() {
   if (!db) return [];
   try {
