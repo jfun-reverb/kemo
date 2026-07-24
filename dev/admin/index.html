@@ -1034,7 +1034,7 @@
               <!-- 검수 상태는 결과물 탭에서만 노출 (신청 상태는 카드 안 탭으로 이동) -->
               <div class="admin-filter-group" id="campDelivReviewFilterGroup" style="display:none">
                 <label>검수 상태</label>
-                <select id="campDelivReviewFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
+                <select id="campDelivReviewFilter" class="admin-filter" style="width:auto" onchange="loadCampApplicants()">
                   <option value="">전체</option>
                   <option value="pending">검수대기</option>
                   <option value="rejected">반려 있음</option>
@@ -1305,14 +1305,14 @@
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
             <!-- 필터 — 캠페인 단위로 나눠 처리하도록(대량 오조작 방지). 필터를 바꾸면 선택은 초기화된다 -->
-            <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div class="admin-filter-bar" style="margin-bottom:10px">
               <div class="admin-filter-group">
                 <label>캠페인</label>
                 <div id="pastUnregCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
               <div class="admin-filter-group">
                 <label>모집 형식</label>
-                <select id="pastUnregTypeFilter" class="form-input" style="height:38px;width:140px" onchange="onPastUnregFilterChange()">
+                <select id="pastUnregTypeFilter" class="admin-filter" style="width:140px" onchange="onPastUnregFilterChange()">
                   <option value="">전체</option>
                   <option value="monitor">리뷰어형</option>
                   <option value="gifting">기프팅</option>
@@ -1321,14 +1321,14 @@
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:180px">
                 <label>인플루언서 검색</label>
-                <input type="text" id="pastUnregSearch" class="form-input" style="height:38px" placeholder="이름 · 가나" oninput="onPastUnregFilterChange()">
+                <input type="text" id="pastUnregSearch" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="이름 · 가나" oninput="onPastUnregFilterChange()">
               </div>
               <button class="btn btn-ghost btn-sm" onclick="resetPastUnregFilters()">초기화</button>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div class="admin-filter-bar">
               <div class="admin-filter-group" style="flex:1;min-width:220px">
                 <label>메모 (선택 · 처리 건에 함께 기록)</label>
-                <input type="text" id="pastUnregMemo" class="form-input" style="height:38px" placeholder="예: 시스템 도입 전 외부 지급">
+                <input type="text" id="pastUnregMemo" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="예: 시스템 도입 전 외부 지급">
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
@@ -1395,13 +1395,13 @@
                 </div>
                 <div class="admin-filter-group">
                   <label>등급</label>
-                  <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                  <select id="outboundTierFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
                     <option value="">전체</option>
                   </select>
                 </div>
                 <div class="admin-filter-group">
                   <label>가용상태</label>
-                  <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                  <select id="outboundAvailFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
                     <option value="">전체</option>
                     <option value="available">진행가능</option>
                     <option value="adjusting">조율중</option>
@@ -1410,7 +1410,7 @@
                 </div>
                 <div class="admin-filter-group">
                   <label>채널</label>
-                  <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                  <select id="outboundChannelFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
                     <option value="">전체</option>
                     <option value="ig">Instagram</option>
                     <option value="tiktok">TikTok</option>
@@ -1437,13 +1437,13 @@
               <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
                 <div class="admin-filter-group">
                   <label>계열 <span style="color:var(--pink)">*</span></label>
-                  <select id="recoSeries" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoSeries" class="admin-filter" style="width:auto">
                     <option value="">선택하세요</option>
                   </select>
                 </div>
                 <div class="admin-filter-group">
                   <label>모집형식</label>
-                  <select id="recoFormat" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoFormat" class="admin-filter" style="width:auto">
                     <option value="">선택 안 함</option>
                     <option value="feed">피드</option>
                     <option value="reels">릴스</option>
@@ -1453,13 +1453,13 @@
                 </div>
                 <div class="admin-filter-group">
                   <label>등급</label>
-                  <select id="recoTier" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoTier" class="admin-filter" style="width:auto">
                     <option value="">전체</option>
                   </select>
                 </div>
                 <div class="admin-filter-group">
                   <label>채널</label>
-                  <select id="recoChannel" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoChannel" class="admin-filter" style="width:auto">
                     <option value="">전체</option>
                     <option value="ig">Instagram</option>
                     <option value="tiktok">TikTok</option>
@@ -1469,15 +1469,15 @@
                 </div>
                 <div class="admin-filter-group">
                   <label>예산 (¥)</label>
-                  <input type="text" id="recoBudget" class="form-input" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px;padding:5px 10px;font-size:12px;border-radius:6px">
+                  <input type="text" id="recoBudget" class="admin-filter" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px">
                 </div>
                 <div class="admin-filter-group">
                   <label>인원수</label>
-                  <input type="text" id="recoHeadcount" class="form-input" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px;padding:5px 10px;font-size:12px;border-radius:6px">
+                  <input type="text" id="recoHeadcount" class="admin-filter" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px">
                 </div>
                 <div class="admin-filter-group">
                   <label>광고목적</label>
-                  <select id="recoPurpose" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoPurpose" class="admin-filter" style="width:auto">
                     <option value="">선택 안 함</option>
                     <option value="new">신제품</option>
                     <option value="sale">세일</option>
@@ -1578,7 +1578,7 @@
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>상태</label>
-                <select id="errFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterStatus" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="open">미해결</option>
                   <option value="resolved">해결됨</option>
                   <option value="ignored">무시</option>
@@ -1587,7 +1587,7 @@
               </div>
               <div class="admin-filter-group">
                 <label>앱</label>
-                <select id="errFilterSource" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterSource" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
                   <option value="influencer">인플루언서</option>
                   <option value="admin">관리자</option>
@@ -1595,7 +1595,7 @@
               </div>
               <div class="admin-filter-group">
                 <label>기간</label>
-                <select id="errFilterDays" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterDays" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
                   <option value="7">최근 7일</option>
                   <option value="30">최근 30일</option>
@@ -2286,7 +2286,7 @@
               </div>
               <div class="admin-filter-group">
                 <label>미읽음</label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;height:34px">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;height:32px">
                   <input type="checkbox" id="adminNoticeUnreadFilter" onchange="renderAdminNotices()" style="margin:0">
                   <span>미읽음만</span>
                 </label>
