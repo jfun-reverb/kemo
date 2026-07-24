@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1784816647';
+  var CURRENT_BUILD = 'v1784877021';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -574,15 +574,18 @@ select.admin-select,
 select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;background-size:9px 14px;padding-right:28px}
 /* 사이드바 화면 이동 드롭다운도 동일 chevron (인라인 background-color 와 공존) */
 #adminScreenSelect{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 9px center;background-size:9px 14px}
-/* 필터 공통 */
-.admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
+/* 필터 공통 — 필터 줄에 서는 컨트롤(드롭다운·검색칸·다중선택 버튼·버튼)은 모두 32px 고정.
+   ⚠️ 높이를 클래스마다 자연 높이(패딩+폰트)에 맡기면 페인마다 28·31·38px 로 어긋난다(2026-07-24 정정). */
+.admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);height:32px;box-sizing:border-box}
+/* 텍스트·날짜 입력칸은 드롭다운 화살표가 없으므로 우측 여백을 정상화 */
+input.admin-filter{padding-right:8px}
 .admin-filter.active{background-color:#fff}
 /* 숫자 입력칸: 증감 화살표(스피너) 제거 → 직접 입력만. 드롭다운용 우측 패딩도 정상화 */
 .admin-filter.no-spinner{padding-right:8px}
 .no-spinner::-webkit-inner-spin-button,
 .no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .no-spinner[type=number]{-moz-appearance:textfield;appearance:textfield}
-.admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
+.admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;height:32px;box-sizing:border-box;outline:none}
 /* 페이지 제목 + 필터 영역 */
 .admin-sticky-header{padding-bottom:12px}
 /* 필터 영역 한 줄 정렬 (검색 + 필터를 같은 행에. 다른 목록 페인과 동일 패턴) */
@@ -599,6 +602,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+/* 필터 줄에 같이 서는 버튼(보기 초기화·검색 토글 등)도 드롭다운과 같은 높이로 */
+.admin-filter-bar .btn,.admin-filter-group .btn{height:32px}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
 /* 보기 초기화 버튼 — 진한 회색 채움 + 흰 글자 (사용자 요청)
    ⚠️ #page-admin 스코프 필수 — 이 버튼들은 .btn-ghost 이기도 해서, 위 `#page-admin .btn-ghost{color:--muted}`
@@ -607,7 +612,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #page-admin #btnCampViewReset,#page-admin #btnInfViewReset,#page-admin #btnAppViewReset,#page-admin #btnDelivFilterReset,#page-admin #btnBrandAppViewReset{background:var(--muted);color:#fff;border:1px solid var(--muted)}
 #page-admin #btnCampViewReset:hover,#page-admin #btnInfViewReset:hover,#page-admin #btnAppViewReset:hover,#page-admin #btnDelivFilterReset:hover,#page-admin #btnBrandAppViewReset:hover{background:var(--muted);border-color:var(--muted);color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
-.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
+.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;height:32px;box-sizing:border-box;text-align:left;position:relative}
 .mf-btn::after{content:none}
 .mf-btn.has-selection{background-color:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
 /* 다중 선택 드롭다운: 콘텐츠 폭만큼 늘어나되 viewport·사이드바 영역에 맞춰 max-width 캡 → 좁은 화면에선 자동 줄어듦 + 줄바꿈 */
@@ -2554,7 +2559,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-23 23:24 · 565f50b</span>
+          <span class="admin-build-text">2026-07-24 16:10 · 5a6fe05</span>
         </div>
       </div>
     </aside>
@@ -3447,7 +3452,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <!-- 검수 상태는 결과물 탭에서만 노출 (신청 상태는 카드 안 탭으로 이동) -->
               <div class="admin-filter-group" id="campDelivReviewFilterGroup" style="display:none">
                 <label>검수 상태</label>
-                <select id="campDelivReviewFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
+                <select id="campDelivReviewFilter" class="admin-filter" style="width:auto" onchange="loadCampApplicants()">
                   <option value="">전체</option>
                   <option value="pending">검수대기</option>
                   <option value="rejected">반려 있음</option>
@@ -3718,14 +3723,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
             <!-- 필터 — 캠페인 단위로 나눠 처리하도록(대량 오조작 방지). 필터를 바꾸면 선택은 초기화된다 -->
-            <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div class="admin-filter-bar" style="margin-bottom:10px">
               <div class="admin-filter-group">
                 <label>캠페인</label>
                 <div id="pastUnregCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
               <div class="admin-filter-group">
                 <label>모집 형식</label>
-                <select id="pastUnregTypeFilter" class="form-input" style="height:38px;width:140px" onchange="onPastUnregFilterChange()">
+                <select id="pastUnregTypeFilter" class="admin-filter" style="width:140px" onchange="onPastUnregFilterChange()">
                   <option value="">전체</option>
                   <option value="monitor">리뷰어형</option>
                   <option value="gifting">기프팅</option>
@@ -3734,14 +3739,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:180px">
                 <label>인플루언서 검색</label>
-                <input type="text" id="pastUnregSearch" class="form-input" style="height:38px" placeholder="이름 · 가나" oninput="onPastUnregFilterChange()">
+                <input type="text" id="pastUnregSearch" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="이름 · 가나" oninput="onPastUnregFilterChange()">
               </div>
               <button class="btn btn-ghost btn-sm" onclick="resetPastUnregFilters()">초기화</button>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div class="admin-filter-bar">
               <div class="admin-filter-group" style="flex:1;min-width:220px">
                 <label>메모 (선택 · 처리 건에 함께 기록)</label>
-                <input type="text" id="pastUnregMemo" class="form-input" style="height:38px" placeholder="예: 시스템 도입 전 외부 지급">
+                <input type="text" id="pastUnregMemo" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="예: 시스템 도입 전 외부 지급">
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
@@ -3808,13 +3813,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
                 <div class="admin-filter-group">
                   <label>등급</label>
-                  <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                  <select id="outboundTierFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
                     <option value="">전체</option>
                   </select>
                 </div>
                 <div class="admin-filter-group">
                   <label>가용상태</label>
-                  <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                  <select id="outboundAvailFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
                     <option value="">전체</option>
                     <option value="available">진행가능</option>
                     <option value="adjusting">조율중</option>
@@ -3823,7 +3828,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
                 <div class="admin-filter-group">
                   <label>채널</label>
-                  <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
+                  <select id="outboundChannelFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
                     <option value="">전체</option>
                     <option value="ig">Instagram</option>
                     <option value="tiktok">TikTok</option>
@@ -3850,13 +3855,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
                 <div class="admin-filter-group">
                   <label>계열 <span style="color:var(--pink)">*</span></label>
-                  <select id="recoSeries" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoSeries" class="admin-filter" style="width:auto">
                     <option value="">선택하세요</option>
                   </select>
                 </div>
                 <div class="admin-filter-group">
                   <label>모집형식</label>
-                  <select id="recoFormat" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoFormat" class="admin-filter" style="width:auto">
                     <option value="">선택 안 함</option>
                     <option value="feed">피드</option>
                     <option value="reels">릴스</option>
@@ -3866,13 +3871,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
                 <div class="admin-filter-group">
                   <label>등급</label>
-                  <select id="recoTier" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoTier" class="admin-filter" style="width:auto">
                     <option value="">전체</option>
                   </select>
                 </div>
                 <div class="admin-filter-group">
                   <label>채널</label>
-                  <select id="recoChannel" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoChannel" class="admin-filter" style="width:auto">
                     <option value="">전체</option>
                     <option value="ig">Instagram</option>
                     <option value="tiktok">TikTok</option>
@@ -3882,15 +3887,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
                 <div class="admin-filter-group">
                   <label>예산 (¥)</label>
-                  <input type="text" id="recoBudget" class="form-input" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px;padding:5px 10px;font-size:12px;border-radius:6px">
+                  <input type="text" id="recoBudget" class="admin-filter" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px">
                 </div>
                 <div class="admin-filter-group">
                   <label>인원수</label>
-                  <input type="text" id="recoHeadcount" class="form-input" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px;padding:5px 10px;font-size:12px;border-radius:6px">
+                  <input type="text" id="recoHeadcount" class="admin-filter" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px">
                 </div>
                 <div class="admin-filter-group">
                   <label>광고목적</label>
-                  <select id="recoPurpose" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto">
+                  <select id="recoPurpose" class="admin-filter" style="width:auto">
                     <option value="">선택 안 함</option>
                     <option value="new">신제품</option>
                     <option value="sale">세일</option>
@@ -3991,7 +3996,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>상태</label>
-                <select id="errFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterStatus" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="open">미해결</option>
                   <option value="resolved">해결됨</option>
                   <option value="ignored">무시</option>
@@ -4000,7 +4005,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group">
                 <label>앱</label>
-                <select id="errFilterSource" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterSource" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
                   <option value="influencer">인플루언서</option>
                   <option value="admin">관리자</option>
@@ -4008,7 +4013,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group">
                 <label>기간</label>
-                <select id="errFilterDays" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterDays" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
                   <option value="7">최근 7일</option>
                   <option value="30">최근 30일</option>
@@ -4699,7 +4704,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group">
                 <label>미읽음</label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;height:34px">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;height:32px">
                   <input type="checkbox" id="adminNoticeUnreadFilter" onchange="renderAdminNotices()" style="margin:0">
                   <span>미읽음만</span>
                 </label>
