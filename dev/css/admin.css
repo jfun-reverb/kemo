@@ -114,15 +114,18 @@ select.admin-select,
 select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;background-size:9px 14px;padding-right:28px}
 /* 사이드바 화면 이동 드롭다운도 동일 chevron (인라인 background-color 와 공존) */
 #adminScreenSelect{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 9px center;background-size:9px 14px}
-/* 필터 공통 */
-.admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
+/* 필터 공통 — 필터 줄에 서는 컨트롤(드롭다운·검색칸·다중선택 버튼·버튼)은 모두 32px 고정.
+   ⚠️ 높이를 클래스마다 자연 높이(패딩+폰트)에 맡기면 페인마다 28·31·38px 로 어긋난다(2026-07-24 정정). */
+.admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);height:32px;box-sizing:border-box}
+/* 텍스트·날짜 입력칸은 드롭다운 화살표가 없으므로 우측 여백을 정상화 */
+input.admin-filter{padding-right:8px}
 .admin-filter.active{background-color:#fff}
 /* 숫자 입력칸: 증감 화살표(스피너) 제거 → 직접 입력만. 드롭다운용 우측 패딩도 정상화 */
 .admin-filter.no-spinner{padding-right:8px}
 .no-spinner::-webkit-inner-spin-button,
 .no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .no-spinner[type=number]{-moz-appearance:textfield;appearance:textfield}
-.admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
+.admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;height:32px;box-sizing:border-box;outline:none}
 /* 페이지 제목 + 필터 영역 */
 .admin-sticky-header{padding-bottom:12px}
 /* 필터 영역 한 줄 정렬 (검색 + 필터를 같은 행에. 다른 목록 페인과 동일 패턴) */
@@ -139,6 +142,8 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+/* 필터 줄에 같이 서는 버튼(보기 초기화·검색 토글 등)도 드롭다운과 같은 높이로 */
+.admin-filter-bar .btn,.admin-filter-group .btn{height:32px}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
 /* 보기 초기화 버튼 — 진한 회색 채움 + 흰 글자 (사용자 요청)
    ⚠️ #page-admin 스코프 필수 — 이 버튼들은 .btn-ghost 이기도 해서, 위 `#page-admin .btn-ghost{color:--muted}`
@@ -147,7 +152,7 @@ select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('da
 #page-admin #btnCampViewReset,#page-admin #btnInfViewReset,#page-admin #btnAppViewReset,#page-admin #btnDelivFilterReset,#page-admin #btnBrandAppViewReset{background:var(--muted);color:#fff;border:1px solid var(--muted)}
 #page-admin #btnCampViewReset:hover,#page-admin #btnInfViewReset:hover,#page-admin #btnAppViewReset:hover,#page-admin #btnDelivFilterReset:hover,#page-admin #btnBrandAppViewReset:hover{background:var(--muted);border-color:var(--muted);color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
-.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
+.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;height:32px;box-sizing:border-box;text-align:left;position:relative}
 .mf-btn::after{content:none}
 .mf-btn.has-selection{background-color:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
 /* 다중 선택 드롭다운: 콘텐츠 폭만큼 늘어나되 viewport·사이드바 영역에 맞춰 max-width 캡 → 좁은 화면에선 자동 줄어듦 + 줄바꿈 */
