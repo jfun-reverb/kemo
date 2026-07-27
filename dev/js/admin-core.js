@@ -53,8 +53,11 @@ function initTagInput(wrapId) {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const val = input.value.replace(/[,#@]/g, '').trim();
-      if (val) { addTag(wrapId, targetId, prefix, val); input.value = ''; }
+      // 중간 공백이 든 채로 한 덩어리 태그가 만들어지지 않게 공백에서도 끊는다
+      // (해시태그·멘션은 공백을 담을 수 없고, 담기면 저장·재편집에서 뭉개진다)
+      input.value.replace(/[,#@]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
+        .forEach(v => addTag(wrapId, targetId, prefix, v));
+      input.value = '';
     }
     if (e.key === 'Backspace' && !input.value) {
       const tags = wrap.querySelectorAll('.tag-label');
@@ -88,7 +91,14 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
   // 기존 태그 제거
   wrap.querySelectorAll('.tag-label').forEach(el => el.remove());
   if (!value) return;
-  value.split(',').map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean).forEach(t => addTag(wrapId, targetId, prefix, t));
+  // ⚠️ 구분자는 쉼표 + 공백 둘 다.
+  //    저장은 쉼표로 하지만 예전 데이터·손입력은 「#テスト #韓国スナック」처럼 공백으로 구분돼 있다.
+  //    쉼표로만 나누면 통째로 한 덩어리가 되고 안쪽 # 이 전부 지워져,
+  //    편집 저장 한 번에 여러 태그가 하나로 뭉개진다(2026-07-27 운영 확인).
+  //    해시태그·멘션은 값 안에 공백이 들어가면 안 되는 값이라(입력 단계에서도 공백으로 끊음)
+  //    공백을 구분자로 써도 안전하다.
+  value.split(/[,\s]+/).map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean)
+    .forEach(t => addTag(wrapId, targetId, prefix, t));
 }
 
 // 에러 메시지를 한국어로 변환

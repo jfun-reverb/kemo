@@ -1231,7 +1231,17 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
   osSetVal('newCampProductPrice', osPriceNum(card.sale && card.sale.price_regular));
   osSetVal('newCampRewardNote', osBuildRewardNote(card));
-  if (card.form_type === 'seeding') osSetVal('newCampHashtags', Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags.join(' ') : '');
+  // 해시태그는 히든 입력칸에 직접 넣지 않고 태그 칩 위젯을 거친다.
+  //   값을 공백으로 이어 붙여 넣으면 ①칩이 안 그려져 관리자 화면에서 안 보이고
+  //   ②저장 포맷(쉼표 구분)과 달라 「#A #B」가 한 덩어리로 저장된다 (2026-07-27 운영 확인).
+  if (card.form_type === 'seeding') {
+    const tags = Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags : [];
+    if (typeof loadTagsFromValue === 'function') {
+      loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', tags.join(','));
+    } else {
+      osSetVal('newCampHashtags', tags.map(t => String(t).replace(/[#\s]/g, '')).filter(Boolean).map(t => '#' + t).join(','));
+    }
+  }
 
   // 날짜 (희망 모집·업로드 기간) — flatpickr range + deadline + 결과물 제출 마감일
   const r = card.recruit || {};

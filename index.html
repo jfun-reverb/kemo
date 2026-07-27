@@ -7218,6 +7218,21 @@ async function fetchCautionHistory(campaignId) {
   } catch(e) { console.error('[fetchCautionHistory]', e); return []; }
 }
 
+// super_admin 전용 — 캠페인 전체 항목(주의사항/참여방법/NG 3영역 제외 — 병존, fetchCautionHistory 로 별도 조회)
+// 변경 이력 조회 (changed_at desc). migration 265·266, 캠페인 전체 항목 변경 이력 PR 1.
+//   RLS 가 SELECT 를 super_admin 으로 제한하므로 그 외 역할은 빈 배열 수신.
+async function fetchCampaignChangeHistory(campaignId) {
+  if (!db || !campaignId) return [];
+  try {
+    const {data, error} = await db?.from('campaign_change_history')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('changed_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchCampaignChangeHistory]', e); return []; }
+}
+
 // ══════════════════════════════════════
 // ADMIN NOTICES (관리자 전용 공지 — migration 063)
 // ══════════════════════════════════════

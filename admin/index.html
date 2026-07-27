@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785121318';
+  var CURRENT_BUILD = 'v1785135005';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2617,7 +2617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-27 12:01 · 036971d</span>
+          <span class="admin-build-text">2026-07-27 15:50 · a1bb870</span>
         </div>
       </div>
     </aside>
@@ -9808,6 +9808,21 @@ async function fetchCautionHistory(campaignId) {
   } catch(e) { console.error('[fetchCautionHistory]', e); return []; }
 }
 
+// super_admin 전용 — 캠페인 전체 항목(주의사항/참여방법/NG 3영역 제외 — 병존, fetchCautionHistory 로 별도 조회)
+// 변경 이력 조회 (changed_at desc). migration 265·266, 캠페인 전체 항목 변경 이력 PR 1.
+//   RLS 가 SELECT 를 super_admin 으로 제한하므로 그 외 역할은 빈 배열 수신.
+async function fetchCampaignChangeHistory(campaignId) {
+  if (!db || !campaignId) return [];
+  try {
+    const {data, error} = await db?.from('campaign_change_history')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('changed_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchCampaignChangeHistory]', e); return []; }
+}
+
 // ══════════════════════════════════════
 // ADMIN NOTICES (관리자 전용 공지 — migration 063)
 // ══════════════════════════════════════
@@ -13098,8 +13113,11 @@ function initTagInput(wrapId) {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const val = input.value.replace(/[,#@]/g, '').trim();
-      if (val) { addTag(wrapId, targetId, prefix, val); input.value = ''; }
+      // 중간 공백이 든 채로 한 덩어리 태그가 만들어지지 않게 공백에서도 끊는다
+      // (해시태그·멘션은 공백을 담을 수 없고, 담기면 저장·재편집에서 뭉개진다)
+      input.value.replace(/[,#@]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
+        .forEach(v => addTag(wrapId, targetId, prefix, v));
+      input.value = '';
     }
     if (e.key === 'Backspace' && !input.value) {
       const tags = wrap.querySelectorAll('.tag-label');
@@ -13133,7 +13151,14 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
   // 기존 태그 제거
   wrap.querySelectorAll('.tag-label').forEach(el => el.remove());
   if (!value) return;
-  value.split(',').map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean).forEach(t => addTag(wrapId, targetId, prefix, t));
+  // ⚠️ 구분자는 쉼표 + 공백 둘 다.
+  //    저장은 쉼표로 하지만 예전 데이터·손입력은 「#テスト #韓国スナック」처럼 공백으로 구분돼 있다.
+  //    쉼표로만 나누면 통째로 한 덩어리가 되고 안쪽 # 이 전부 지워져,
+  //    편집 저장 한 번에 여러 태그가 하나로 뭉개진다(2026-07-27 운영 확인).
+  //    해시태그·멘션은 값 안에 공백이 들어가면 안 되는 값이라(입력 단계에서도 공백으로 끊음)
+  //    공백을 구분자로 써도 안전하다.
+  value.split(/[,\s]+/).map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean)
+    .forEach(t => addTag(wrapId, targetId, prefix, t));
 }
 
 // 에러 메시지를 한국어로 변환
@@ -15121,7 +15146,17 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
   osSetVal('newCampProductPrice', osPriceNum(card.sale && card.sale.price_regular));
   osSetVal('newCampRewardNote', osBuildRewardNote(card));
-  if (card.form_type === 'seeding') osSetVal('newCampHashtags', Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags.join(' ') : '');
+  // 해시태그는 히든 입력칸에 직접 넣지 않고 태그 칩 위젯을 거친다.
+  //   값을 공백으로 이어 붙여 넣으면 ①칩이 안 그려져 관리자 화면에서 안 보이고
+  //   ②저장 포맷(쉼표 구분)과 달라 「#A #B」가 한 덩어리로 저장된다 (2026-07-27 운영 확인).
+  if (card.form_type === 'seeding') {
+    const tags = Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags : [];
+    if (typeof loadTagsFromValue === 'function') {
+      loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', tags.join(','));
+    } else {
+      osSetVal('newCampHashtags', tags.map(t => String(t).replace(/[#\s]/g, '')).filter(Boolean).map(t => '#' + t).join(','));
+    }
+  }
 
   // 날짜 (희망 모집·업로드 기간) — flatpickr range + deadline + 결과물 제출 마감일
   const r = card.recruit || {};
