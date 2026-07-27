@@ -1683,10 +1683,12 @@ async function saveBrandDetail() {
 }
 
 // 캠페인 폼에서 호출 시 callbackPrefix='new'|'edit' 전달 → 등록 후 해당 select 자동 갱신·선택
+// 오리엔시트 발급 모달에서 호출 시 'orient' → 등록 후 발급 모달의 브랜드 검색칸에 자동 선택
 var _newBrandCallbackPrefix = null;
+var NEW_BRAND_CALLBACKS = ['new', 'edit', 'orient'];
 
 async function openNewBrandModal(callbackPrefix) {
-  _newBrandCallbackPrefix = (callbackPrefix === 'new' || callbackPrefix === 'edit') ? callbackPrefix : null;
+  _newBrandCallbackPrefix = NEW_BRAND_CALLBACKS.indexOf(callbackPrefix) >= 0 ? callbackPrefix : null;
   // 빈 brand 객체로 모달 열기
   _brandsCurrentId = null;
   var modal = $('brandDetailModal');
@@ -1726,8 +1728,13 @@ async function submitNewBrand() {
     var prefix = _newBrandCallbackPrefix;
     _newBrandCallbackPrefix = null;
     _campBrandsCache = null;  // 신규 brand 포함하기 위해 캐시 무효화
-    await loadCampBrandSelect(prefix, result.data.id);
-    await onCampBrandChange(prefix);
+    if (prefix === 'orient') {
+      // 오리엔시트 발급 모달로 복귀 — 브랜드 목록 갱신 + 방금 만든 브랜드 자동 선택
+      if (typeof osAfterNewBrand === 'function') await osAfterNewBrand(result.data.id);
+    } else {
+      await loadCampBrandSelect(prefix, result.data.id);
+      await onCampBrandChange(prefix);
+    }
   } else {
     await refreshPane('brands');
   }
