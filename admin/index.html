@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785119878';
+  var CURRENT_BUILD = 'v1785120486';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2617,7 +2617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-27 11:37 · 7861796</span>
+          <span class="admin-build-text">2026-07-27 11:48 · edbbea5</span>
         </div>
       </div>
     </aside>
@@ -6821,6 +6821,54 @@ function textSimilarity(a, b) {
   return (2 * inter) / (t1 + t2);
 }
 
+// 비교에서 무시할 표시 보조 속성 — sanitize·렌더 단계가 자동으로 붙이는 값이라 내용 차이가 아니다
+const DIFF_IGNORED_ATTRS = new Set(['class', 'loading', 'decoding']);
+const _richCompareCache = new Map();
+const RICH_COMPARE_CACHE_MAX = 400;
+
+// 비교용 표준형 직렬화 — 태그명 + 속성을 이름순으로 정렬해 다시 조립한다.
+// 속성 순서·여분 공백·빈 서식 태그처럼 「저장할 때마다 달라질 수 있는」 차이를 없앤다.
+function _serializeRichForCompare(el) {
+  let out = '';
+  el.childNodes.forEach(node => {
+    if (node.nodeType === 3) { out += String(node.nodeValue || '').replace(/\s+/g, ' '); return; }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    const attrs = Array.from(node.attributes || [])
+      .filter(a => !DIFF_IGNORED_ATTRS.has(a.name))
+      // 값 안의 큰따옴표는 치환 — 서로 다른 속성이 우연히 같은 비교 키로 겹치는 것 방지
+      .map(a => a.name + '="' + String(a.value).replace(/"/g, '&quot;') + '"')
+      .sort()
+      .join(' ');
+    const inner = _serializeRichForCompare(node);
+    // 내용도 속성도 없는 빈 서식 태그(<p></p>, <b></b> 등)는 버린다 — 편집기가 남기는 흔적
+    if (!inner && !attrs && tag !== 'br' && tag !== 'img') return;
+    out += '<' + tag + (attrs ? ' ' + attrs : '') + '>' + inner + '</' + tag + '>';
+  });
+  return out;
+}
+
+// 리치 HTML → 비교용 표준형 문자열.
+// ⚠️ 이걸 거치지 않고 원본 문자열을 그대로 비교하면, 이미지 태그의 속성 순서가 바뀐 것만으로도
+//    「서식·링크·이미지만 변경」으로 잡힌다 (2026-07-27 운영 확인 사례).
+function normalizeRichForCompare(html) {
+  const value = String(html == null ? '' : html);
+  if (!value) return '';
+  const cached = _richCompareCache.get(value);
+  if (cached !== undefined) return cached;
+  let result;
+  if (!/<[a-z][\s\S]*>/i.test(value)) {
+    result = value.replace(/\s+/g, ' ').trim();
+  } else {
+    const host = document.createElement('div');
+    host.innerHTML = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml(value) : '';
+    result = _serializeRichForCompare(host).replace(/\s+/g, ' ').trim();
+  }
+  if (_richCompareCache.size >= RICH_COMPARE_CACHE_MAX) _richCompareCache.clear();
+  _richCompareCache.set(value, result);
+  return result;
+}
+
 // 주의사항 항목의 언어별 본문. v1 옛 스냅샷(text_ko + 링크 + 뒷문구)도 합성해 되살린다.
 // (합성 결과는 뒤에서 sanitizeCautionHtml 을 거치므로 위험한 주소는 걸러진다)
 function _sensitiveCautionHtml(it, lang) {
@@ -6845,7 +6893,10 @@ function normalizeSensitiveItem(kind, item) {
     koText = [koTitle, richToPlainText(koHtml)].filter(Boolean).join('\n');
     jaText = [jaTitle, richToPlainText(jaHtml)].filter(Boolean).join('\n');
     return {
-      rawKey: JSON.stringify([koTitle, jaTitle, koHtml, jaHtml]),
+      rawKey: JSON.stringify([
+        koTitle.replace(/\s+/g, ' ').trim(), jaTitle.replace(/\s+/g, ' ').trim(),
+        normalizeRichForCompare(koHtml), normalizeRichForCompare(jaHtml)
+      ]),
       textKey: koText + '\u0001' + jaText,
       title: { ko: koTitle, ja: jaTitle },
       ko: { html: koHtml, text: koText }, ja: { html: jaHtml, text: jaText }
@@ -6856,7 +6907,7 @@ function normalizeSensitiveItem(kind, item) {
   koText = richToPlainText(koHtml);
   jaText = richToPlainText(jaHtml);
   return {
-    rawKey: JSON.stringify([koHtml, jaHtml]),
+    rawKey: JSON.stringify([normalizeRichForCompare(koHtml), normalizeRichForCompare(jaHtml)]),
     textKey: koText + '\u0001' + jaText,
     title: null,
     ko: { html: koHtml, text: koText }, ja: { html: jaHtml, text: jaText }
