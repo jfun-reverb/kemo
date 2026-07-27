@@ -9842,11 +9842,18 @@ function formatDate(d) {
   if (isNaN(dt.getTime())) return '';
   return dt.getFullYear() + '/' + String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0');
 }
+// 시:분만 — 날짜와 시각을 두 줄로 나눠 보여줄 때(변경 이력 카드 등)
+function formatTimeHm(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+}
 function formatDateTime(d) {
   if (!d) return '';
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return '';
-  return formatDate(dt) + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+  return formatDate(dt) + ' ' + formatTimeHm(dt);
 }
 function dDayLabel(d) {
   if (!d) return '';
