@@ -654,7 +654,13 @@ async function openEditCampaign(campId) {
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
   initTagInput('tagWrap_editCampMentions');
-  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', camp.hashtags||'');
+  // 해시태그 칸에 안내문(※ …)이 함께 저장된 옛 데이터는 태그와 안내문을 나눠 담는다.
+  //   태그만 칩으로 만들고, 안내문은 전용 칸에 그대로 보존해 저장 시 다시 뒤에 붙인다.
+  const _hashParts = splitTagsAndNote(camp.hashtags || '');
+  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', _hashParts.tags);
+  sv('editCampHashtagNote', _hashParts.note);
+  const _noteGroup = $('editCampHashtagNoteGroup');
+  if (_noteGroup) _noteGroup.style.display = _hashParts.note ? '' : 'none';
   loadTagsFromValue('tagWrap_editCampMentions', 'editCampMentions', '@', camp.mentions||'');
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
@@ -1981,7 +1987,8 @@ async function saveCampaignEdit() {
       submission_end: gv('editCampSubmissionEnd')||null,
       winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
       description: gv('editCampDesc'),
-      hashtags: gv('editCampHashtags'),
+      // 태그(쉼표 구분) 뒤에 안내문을 그대로 붙여 보존 — 옛 데이터의 ※ 안내문이 사라지지 않게
+      hashtags: [gv('editCampHashtags'), gv('editCampHashtagNote').trim()].filter(Boolean).join(' '),
       mentions: gv('editCampMentions'),
       appeal: gv('editCampAppeal'),
       guide: gv('editCampGuide'),
@@ -2555,7 +2562,15 @@ function renderCampPreview(mode) {
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
-          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.hashtags?(()=>{
+            // 인플루언서 상세와 같은 규칙 — 태그만 칩으로, 뒤에 붙은 안내문(※ …)은 문단으로
+            const hp = splitTagsAndNote(camp.hashtags);
+            const chips = hp.tags.split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+            return `<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div>`
+              + (chips.length?`<div class="cp-chips">${chips.map(t=>`<span class="cp-chip">${esc(t)}</span>`).join('')}</div>`:'')
+              + (hp.note?`<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px">${esc(hp.note)}</div>`:'')
+              + `</div>`;
+          })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
         ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
