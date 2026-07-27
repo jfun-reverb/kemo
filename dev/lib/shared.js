@@ -260,6 +260,19 @@ function miniRichHtml(raw) {
     : value.replace(/<script/gi, '&lt;script');
 }
 
+// 해시태그 칸에 태그와 안내문이 함께 저장된 옛 데이터를 둘로 나눈다.
+//   예) "#ピュアリカ #肌鎮静 ※ ハッシュタグは必ずフィードの本文にご記載ください。…"
+//        → tags: "#ピュアリカ #肌鎮静" / note: "※ ハッシュタグは…"
+//   ※(전각) 부터 뒤는 태그가 아니라 인플루언서 안내문이다. 태그로 쪼개면
+//   낱말마다 태그가 생겨 인플루언서 화면이 망가지므로 반드시 분리해 보존한다.
+//   (2026-07-27 운영 25건 확인)
+function splitTagsAndNote(value) {
+  const raw = String(value == null ? '' : value);
+  const idx = raw.indexOf('※');
+  if (idx < 0) return { tags: raw.trim(), note: '' };
+  return { tags: raw.slice(0, idx).trim(), note: raw.slice(idx).trim() };
+}
+
 // 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
 function richHtml(raw) {
   const value = raw == null ? '' : String(raw);

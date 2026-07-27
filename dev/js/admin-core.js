@@ -45,7 +45,7 @@ function initTagInput(wrapId) {
     // IME 입력 중 콤마 처리
     if (input.value.includes(',')) {
       const parts = input.value.split(',');
-      parts.forEach(p => { const v = p.replace(/[#@]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
+      parts.forEach(p => { const v = p.replace(/[#@\uFF03\uFF20]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
       input.value = '';
     }
   });
@@ -55,7 +55,7 @@ function initTagInput(wrapId) {
       e.preventDefault();
       // 중간 공백이 든 채로 한 덩어리 태그가 만들어지지 않게 공백에서도 끊는다
       // (해시태그·멘션은 공백을 담을 수 없고, 담기면 저장·재편집에서 뭉개진다)
-      input.value.replace(/[,#@]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
+      input.value.replace(/[,#@\uFF03\uFF20]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
         .forEach(v => addTag(wrapId, targetId, prefix, v));
       input.value = '';
     }
@@ -97,7 +97,7 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
   //    편집 저장 한 번에 여러 태그가 하나로 뭉개진다(2026-07-27 운영 확인).
   //    해시태그·멘션은 값 안에 공백이 들어가면 안 되는 값이라(입력 단계에서도 공백으로 끊음)
   //    공백을 구분자로 써도 안전하다.
-  value.split(/[,\s]+/).map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean)
+  value.split(/[,\s]+/).map(s => s.replace(/[#@\uFF03\uFF20]/g, '').trim()).filter(Boolean)
     .forEach(t => addTag(wrapId, targetId, prefix, t));
 }
 

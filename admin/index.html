@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785135005';
+  var CURRENT_BUILD = 'v1785135907';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2617,7 +2617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-27 15:50 · a1bb870</span>
+          <span class="admin-build-text">2026-07-27 16:05 · 42e379c</span>
         </div>
       </div>
     </aside>
@@ -2998,6 +2998,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
                 <div class="tag-input-warn" id="tagWarn_editCampHashtags" style="display:none"></div>
                 <input type="hidden" id="editCampHashtags">
+                <!-- 옛 데이터에 해시태그와 함께 저장된 안내문(※ …) 보존용. 값이 있을 때만 노출 -->
+                <div id="editCampHashtagNoteGroup" style="display:none;margin-top:6px">
+                  <label class="form-label" style="font-size:11px;color:var(--muted)">해시태그 뒤 안내문</label>
+                  <textarea id="editCampHashtagNote" class="form-input" rows="2" style="font-size:12px"></textarea>
+                  <div class="form-hint" style="font-size:11px;color:var(--muted)">해시태그 칸에 함께 저장돼 있던 안내 문구입니다. 저장하면 태그 뒤에 그대로 유지됩니다.</div>
+                </div>
               </div>
               <div class="form-group"><label class="form-label">필수 멘션</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampMentions"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampMentions" data-prefix="@"></div>
@@ -6680,6 +6686,19 @@ function miniRichHtml(raw) {
   return (typeof sanitizeCautionHtml === 'function')
     ? sanitizeCautionHtml(value)
     : value.replace(/<script/gi, '&lt;script');
+}
+
+// 해시태그 칸에 태그와 안내문이 함께 저장된 옛 데이터를 둘로 나눈다.
+//   예) "#ピュアリカ #肌鎮静 ※ ハッシュタグは必ずフィードの本文にご記載ください。…"
+//        → tags: "#ピュアリカ #肌鎮静" / note: "※ ハッシュタグは…"
+//   ※(전각) 부터 뒤는 태그가 아니라 인플루언서 안내문이다. 태그로 쪼개면
+//   낱말마다 태그가 생겨 인플루언서 화면이 망가지므로 반드시 분리해 보존한다.
+//   (2026-07-27 운영 25건 확인)
+function splitTagsAndNote(value) {
+  const raw = String(value == null ? '' : value);
+  const idx = raw.indexOf('※');
+  if (idx < 0) return { tags: raw.trim(), note: '' };
+  return { tags: raw.slice(0, idx).trim(), note: raw.slice(idx).trim() };
 }
 
 // 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
@@ -13105,7 +13124,7 @@ function initTagInput(wrapId) {
     // IME 입력 중 콤마 처리
     if (input.value.includes(',')) {
       const parts = input.value.split(',');
-      parts.forEach(p => { const v = p.replace(/[#@]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
+      parts.forEach(p => { const v = p.replace(/[#@\uFF03\uFF20]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
       input.value = '';
     }
   });
@@ -13115,7 +13134,7 @@ function initTagInput(wrapId) {
       e.preventDefault();
       // 중간 공백이 든 채로 한 덩어리 태그가 만들어지지 않게 공백에서도 끊는다
       // (해시태그·멘션은 공백을 담을 수 없고, 담기면 저장·재편집에서 뭉개진다)
-      input.value.replace(/[,#@]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
+      input.value.replace(/[,#@\uFF03\uFF20]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
         .forEach(v => addTag(wrapId, targetId, prefix, v));
       input.value = '';
     }
@@ -13157,7 +13176,7 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
   //    편집 저장 한 번에 여러 태그가 하나로 뭉개진다(2026-07-27 운영 확인).
   //    해시태그·멘션은 값 안에 공백이 들어가면 안 되는 값이라(입력 단계에서도 공백으로 끊음)
   //    공백을 구분자로 써도 안전하다.
-  value.split(/[,\s]+/).map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean)
+  value.split(/[,\s]+/).map(s => s.replace(/[#@\uFF03\uFF20]/g, '').trim()).filter(Boolean)
     .forEach(t => addTag(wrapId, targetId, prefix, t));
 }
 
@@ -33967,7 +33986,13 @@ async function openEditCampaign(campId) {
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
   initTagInput('tagWrap_editCampMentions');
-  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', camp.hashtags||'');
+  // 해시태그 칸에 안내문(※ …)이 함께 저장된 옛 데이터는 태그와 안내문을 나눠 담는다.
+  //   태그만 칩으로 만들고, 안내문은 전용 칸에 그대로 보존해 저장 시 다시 뒤에 붙인다.
+  const _hashParts = splitTagsAndNote(camp.hashtags || '');
+  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', _hashParts.tags);
+  sv('editCampHashtagNote', _hashParts.note);
+  const _noteGroup = $('editCampHashtagNoteGroup');
+  if (_noteGroup) _noteGroup.style.display = _hashParts.note ? '' : 'none';
   loadTagsFromValue('tagWrap_editCampMentions', 'editCampMentions', '@', camp.mentions||'');
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
@@ -35294,7 +35319,8 @@ async function saveCampaignEdit() {
       submission_end: gv('editCampSubmissionEnd')||null,
       winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
       description: gv('editCampDesc'),
-      hashtags: gv('editCampHashtags'),
+      // 태그(쉼표 구분) 뒤에 안내문을 그대로 붙여 보존 — 옛 데이터의 ※ 안내문이 사라지지 않게
+      hashtags: [gv('editCampHashtags'), gv('editCampHashtagNote').trim()].filter(Boolean).join(' '),
       mentions: gv('editCampMentions'),
       appeal: gv('editCampAppeal'),
       guide: gv('editCampGuide'),
@@ -35868,7 +35894,15 @@ function renderCampPreview(mode) {
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
-          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.hashtags?(()=>{
+            // 인플루언서 상세와 같은 규칙 — 태그만 칩으로, 뒤에 붙은 안내문(※ …)은 문단으로
+            const hp = splitTagsAndNote(camp.hashtags);
+            const chips = hp.tags.split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+            return `<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div>`
+              + (chips.length?`<div class="cp-chips">${chips.map(t=>`<span class="cp-chip">${esc(t)}</span>`).join('')}</div>`:'')
+              + (hp.note?`<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px">${esc(hp.note)}</div>`:'')
+              + `</div>`;
+          })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
         ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
