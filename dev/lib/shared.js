@@ -441,6 +441,9 @@ function normalizeRichForCompare(html) {
     const host = document.createElement('div');
     host.innerHTML = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml(value) : '';
     result = _serializeRichForCompare(host).replace(/\s+/g, ' ').trim();
+    // sanitize 가 통째로 비워버린 경우(DOMPurify 미로드 등)엔 원문을 비교 기준으로 —
+    // 모든 항목이 빈 값이 되어 「변경 없음」으로 잘못 판정되는 것을 막는다
+    if (!result && value.trim()) result = value.replace(/\s+/g, ' ').trim();
   }
   if (_richCompareCache.size >= RICH_COMPARE_CACHE_MAX) _richCompareCache.clear();
   _richCompareCache.set(value, result);
