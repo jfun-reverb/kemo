@@ -980,7 +980,9 @@ function resolveSensitiveChangeModal(ok) {
 // ── Phase 2: 캠페인 변경 이력 모달 (super_admin 한정) ──
 //   더보기 메뉴 「변경 이력」 클릭 시 호출. campaign_caution_history 행을 시간 역순 타임라인으로 출력.
 //   각 항목 헤더 클릭 → 해당 변경의 prev/next diff 펼침/접기 (배열 인덱스로 toggle)
-const _cautionHistoryState = { list: [], openIndex: null, campId: null };
+// list = 주의사항·참여방법·NG 이력(기존 표) / fieldGroups = 그 외 전체 항목 이력(마이그레이션 265·266)
+// 두 소스를 시각 역순으로 한 목록에 섞어 보여준다. openKey 는 카드 종류+식별자로 펼침 상태를 기억.
+const _cautionHistoryState = { list: [], fieldGroups: [], openIndex: null, openKey: null, campId: null };
 
 async function openCautionHistoryModal(campId) {
   if (!campId) return;
@@ -995,8 +997,14 @@ async function openCautionHistoryModal(campId) {
   if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
   openModal('cautionHistoryModal');
   try {
-    const list = await fetchCautionHistory(campId);
+    // 기준 데이터 라벨(채널·카테고리·콘텐츠 종류)이 없으면 값이 코드 원문으로 노출된다
+    const [list, fieldRows] = await Promise.all([
+      fetchCautionHistory(campId),
+      fetchCampaignChangeHistory(campId).catch(() => []),
+      Promise.all(['channel', 'category', 'content_type'].map(k => fetchLookups(k).catch(() => [])))
+    ]);
     _cautionHistoryState.list = Array.isArray(list) ? list : [];
+    _cautionHistoryState.fieldGroups = groupCampaignChangeRows(fieldRows);
     renderCautionHistoryModal();
   } catch(e) {
     if (body) body.innerHTML = `<div style="padding:24px;color:var(--red-d);font-size:13px">이력 불러오기 실패: ${esc(friendlyError(e.message||String(e)))}</div>`;
@@ -1012,8 +1020,8 @@ function renderCautionHistoryModal() {
   const headerLine = camp
     ? `<div style="font-size:12px;color:var(--muted);margin-bottom:14px">캠페인 · <b style="color:var(--ink)">${esc(camp.title || '')}</b>${camp.campaign_no ? ` <span style="color:var(--muted)">[${esc(camp.campaign_no)}]</span>` : ''}</div>`
     : '';
-  if (!list.length) {
-    body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법/NG 사항 변경이 발생하면 자동 기록됩니다.</span></div>`;
+  if (!list.length && !(_cautionHistoryState.fieldGroups || []).length) {
+    body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">캠페인을 저장해 내용이 바뀌면 자동으로 기록됩니다.</span></div>`;
     return;
   }
   // 카드 HTML 과 「실제 변경이 있었는지」를 함께 만들어, 변경 없는 기록은 아래로 접는다
@@ -1087,7 +1095,7 @@ function renderCautionHistoryModal() {
           <div style="font-size:12px;color:var(--muted);padding:8px 0">변경 내용이 기록되지 않았습니다.</div>` : ''}
       </div>
     `;
-    return { real: anyReal, html: `
+    return { real: anyReal, at: row.changed_at, html: `
       <div class="chist-card${anyReal ? '' : ' chist-card-quiet'}">
         <div class="chist-head" onclick="toggleCautionHistoryItem(${idx})">
           <div class="chist-when">
@@ -1105,9 +1113,16 @@ function renderCautionHistoryModal() {
     ` };
   });
 
+  // 전체 항목 이력(제목·기간·리워드·모집 인원 등)을 같은 목록에 섞는다 — 시각 역순
+  const fieldCards = (_cautionHistoryState.fieldGroups || []).map(g => ({
+    real: true, at: g.at,
+    html: campaignChangeCardHtml(g, _cautionHistoryState.openKey === g.id)
+  }));
+
   // 실제로 내용이 바뀐 기록만 목록에 세우고, 나머지(저장만 하고 내용은 그대로였던 기록)는
   // 감사 기록이라 지우지 않되 아래로 접어 둔다.
-  const realCards = cards.filter(c => c.real);
+  const byNewest = (a, b) => new Date(b.at) - new Date(a.at);
+  const realCards = cards.filter(c => c.real).concat(fieldCards).sort(byNewest);
   const quietCards = cards.filter(c => !c.real);
   const mainHtml = realCards.length
     ? realCards.map(c => c.html).join('')
@@ -1121,7 +1136,95 @@ function renderCautionHistoryModal() {
 
 function toggleCautionHistoryItem(idx) {
   _cautionHistoryState.openIndex = (_cautionHistoryState.openIndex === idx) ? null : idx;
+  _cautionHistoryState.openKey = null;
   renderCautionHistoryModal();
+}
+
+// ── 캠페인 전체 항목 변경 이력 (마이그레이션 265·266) ────────────────────────
+// 기록은 「바뀐 항목 1개 = 1행」이라 한 번 저장에 여러 행이 나온다.
+// 같은 저장(change_group_id)끼리 묶어 카드 하나로 보여준다.
+function groupCampaignChangeRows(rows) {
+  const map = new Map();
+  (rows || []).forEach(r => {
+    if (!r || !r.change_group_id) return;
+    let g = map.get(r.change_group_id);
+    if (!g) {
+      g = { id: r.change_group_id, at: r.changed_at, by: r.changed_by_name,
+            source: r.change_source, rows: [] };
+      map.set(r.change_group_id, g);
+    }
+    g.rows.push(r);
+  });
+  return Array.from(map.values()).sort((a, b) => new Date(b.at) - new Date(a.at));
+}
+
+function toggleCampaignChangeGroup(groupId) {
+  _cautionHistoryState.openKey = (_cautionHistoryState.openKey === groupId) ? null : groupId;
+  _cautionHistoryState.openIndex = null;
+  renderCautionHistoryModal();
+}
+
+// 기록 출처 — 사람이 저장한 것인지, 시스템이 일정에 따라 바꾼 것인지 구분해 알려준다
+const CHANGE_SOURCE_TEXT = {
+  admin: '',
+  auto: '시스템이 일정에 따라 자동으로 변경',
+  system: '로그인 세션 밖에서 변경(서버 작업·직접 수정)'
+};
+
+function campaignChangeCardHtml(group, isOpen) {
+  const names = group.rows.map(r => campaignFieldLabel(r.field_name));
+  const headline = names.length <= 3
+    ? names.join(' · ') + ' 변경'
+    : names.slice(0, 3).join(' · ') + ' 외 ' + (names.length - 3) + '개 항목 변경';
+  const sourceText = CHANGE_SOURCE_TEXT[group.source] || '';
+  const who = group.by || (group.source === 'system' ? '시스템' : '관리자');
+  const meta = [who, sourceText].filter(Boolean).join(' · ');
+  const detail = !isOpen ? '' : `
+    <div class="chist-detail">
+      <table class="chist-table">
+        <thead><tr><th>항목</th><th>이전</th><th>이후</th></tr></thead>
+        <tbody>${group.rows.map(campaignChangeRowHtml).join('')}</tbody>
+      </table>
+    </div>`;
+  return `
+    <div class="chist-card">
+      <div class="chist-head" onclick="toggleCampaignChangeGroup('${esc(group.id)}')">
+        <div class="chist-when">
+          <div class="chist-date">${esc(formatDate(group.at))}</div>
+          <div class="chist-time">${esc(formatTimeHm(group.at))}</div>
+        </div>
+        <div class="chist-body">
+          <div class="chist-summary">${esc(headline)}</div>
+          <div class="chist-meta">${esc(meta)}</div>
+        </div>
+        <span class="material-icons-round notranslate chist-caret" translate="no" style="${isOpen?'transform:rotate(180deg)':''}">expand_more</span>
+      </div>
+      ${detail}
+    </div>`;
+}
+
+// 표 한 줄 — 이미지는 썸네일로, 긴 글은 잘라서 보여준다
+function campaignChangeRowHtml(r) {
+  const kind = campaignFieldKind(r.field_name);
+  const cell = (v) => {
+    if (v === null || v === undefined || v === '') return '<span class="chist-empty">(비어 있음)</span>';
+    if (kind === 'image') {
+      const url = String(v);
+      return (typeof imgThumb === 'function')
+        ? `<img src="${esc(imgThumb(url, 120, 60))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
+        : `<span class="chist-clip">${esc(url)}</span>`;
+    }
+    const text = campaignFieldValueText(r.field_name, v);
+    if (!text) return '<span class="chist-empty">(비어 있음)</span>';
+    return text.length > 140
+      ? `<span class="chist-clip" title="${esc(text)}">${esc(text.slice(0, 140))}…</span>`
+      : esc(text);
+  };
+  return `<tr>
+    <th>${esc(campaignFieldLabel(r.field_name))}</th>
+    <td class="chist-td-prev">${cell(r.old_value)}</td>
+    <td>${cell(r.new_value)}</td>
+  </tr>`;
 }
 
 // 영역 하나의 변경을 사람이 읽는 한 마디로 — 「주의사항 수정 1개·추가 2개」
