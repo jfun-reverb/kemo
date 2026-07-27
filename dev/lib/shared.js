@@ -274,6 +274,323 @@ function richHtml(raw) {
   return sanitizeRich(value);
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// 민감 항목(주의사항·참여방법·NG 사항) 변경 비교 — 캠페인 변경 이력 화면용
+//
+// 항목 본문은 리치 HTML(굵게·링크·이미지) 이라, HTML 문자열에 강조 태그를
+// 그대로 끼워 넣으면 태그가 쪼개져 화면이 깨지고 보안 구멍이 된다. 그래서 항상
+//   ① sanitize → ② 순수 텍스트 추출 → ③ 글자 단위 비교 → ④ 이스케이프 후 강조 조립
+// 순서로만 다룬다. 원본 서식이 필요한 곳은 sanitizeCautionHtml 결과를 따로 보여준다.
+// ══════════════════════════════════════════════════════════════════════════
+
+// 글자 단위 비교 상한 — 넘으면 비교를 포기하고 호출부가 전문 비교로 폴백한다.
+// (비교 비용이 두 글자 수의 곱이라, 긴 공지문 한 쌍이 화면을 수 초 멈출 수 있음)
+const DIFF_CHAR_LIMIT = 1200;
+// 삭제·추가 항목을 「수정」 한 쌍으로 볼 최소 닮은 정도
+const DIFF_PAIR_THRESHOLD = 0.35;
+// 이만큼 넘게 바뀌면 글자 강조를 포기하고 「전문 교체」로 표시 (전체가 노랑이 되는 것 방지)
+const DIFF_FULL_REPLACE_RATIO = 0.6;
+
+function _diffEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// 이미지 주소에서 파일명 꼬리만 — 이미지 교체를 글자 차이로 드러내되 주소 전체는 감춘다
+function _diffFileTail(url) {
+  const tail = String(url || '').split('?')[0].split('/').pop() || '';
+  return tail ? (tail.length > 24 ? '…' + tail.slice(-24) : tail) : '없음';
+}
+
+// 리치 HTML → 순수 텍스트. 줄바꿈은 살리고 링크 주소·이미지 파일명은 자리표시자로 남겨
+// 「이미지만 교체」·「링크 주소만 변경」도 글자 차이로 보이게 한다.
+function richToPlainText(raw) {
+  const value = raw == null ? '' : String(raw);
+  if (!value) return '';
+  if (!/<[a-z][\s\S]*>/i.test(value)) return value.trim();
+  const host = document.createElement('div');
+  host.innerHTML = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml(value) : '';
+  host.querySelectorAll('img').forEach(img => {
+    img.replaceWith(document.createTextNode('［이미지:' + _diffFileTail(img.getAttribute('src')) + '］'));
+  });
+  host.querySelectorAll('a[href]').forEach(a => {
+    a.appendChild(document.createTextNode('（링크:' + (a.getAttribute('href') || '') + '）'));
+  });
+  host.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+  host.querySelectorAll('p').forEach(p => p.appendChild(document.createTextNode('\n')));
+  return (host.textContent || '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
+}
+
+// 글자 단위 비교 → [{type:'same'|'add'|'del', text}] 조각 배열. 상한 초과면 null.
+// 일본어는 띄어쓰기가 없어 단어가 아닌 글자 단위가 맞다.
+// Array.from 으로 코드포인트 단위 분해 — 이모지가 반 글자로 쪼개지지 않게.
+function diffChars(a, b) {
+  const A = Array.from(a == null ? '' : String(a));
+  const B = Array.from(b == null ? '' : String(b));
+  if (A.length > DIFF_CHAR_LIMIT || B.length > DIFF_CHAR_LIMIT) return null;
+  const n = A.length, m = B.length, w = m + 1;
+  // dp[i][j] = A[i..] 와 B[j..] 의 최장 공통 길이 (역추적을 위해 표 전체 보관)
+  const dp = new Int32Array((n + 1) * w);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i * w + j] = (A[i] === B[j])
+        ? dp[(i + 1) * w + (j + 1)] + 1
+        : Math.max(dp[(i + 1) * w + j], dp[i * w + (j + 1)]);
+    }
+  }
+  const out = [];
+  const push = (type, ch) => {
+    const last = out[out.length - 1];
+    if (last && last.type === type) last.text += ch; else out.push({ type, text: ch });
+  };
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { push('same', A[i]); i++; j++; }
+    else if (dp[(i + 1) * w + j] >= dp[i * w + (j + 1)]) { push('del', A[i]); i++; }
+    else { push('add', B[j]); j++; }
+  }
+  while (i < n) { push('del', A[i]); i++; }
+  while (j < m) { push('add', B[j]); j++; }
+  return out;
+}
+
+// 바뀐 글자 비율 — 너무 크면 강조 대신 전문 교체로 보여준다
+function diffChangeRatio(parts) {
+  if (!Array.isArray(parts) || !parts.length) return 0;
+  let same = 0, changed = 0;
+  parts.forEach(p => { if (p.type === 'same') same += p.text.length; else changed += p.text.length; });
+  const total = same + changed;
+  return total ? changed / total : 0;
+}
+
+// 비교 조각 → 강조 HTML. side='prev' 면 지워진 글자를, 'next' 면 새로 들어온 글자를 강조.
+function diffCharsHtml(parts, side) {
+  if (!Array.isArray(parts)) return '';
+  const keep = side === 'prev' ? 'del' : 'add';
+  return parts
+    .filter(p => p.type === 'same' || p.type === keep)
+    .map(p => {
+      const html = _diffEsc(p.text).replace(/\n/g, '<br>');
+      return p.type === 'same' ? html : '<span class="diff-mark diff-mark-' + keep + '">' + html + '</span>';
+    })
+    .join('');
+}
+
+// 두 글의 닮은 정도(0~1) — 두 글자 묶음이 얼마나 겹치는지로 잰다.
+// 「삭제 1개 + 추가 1개」가 사실은 「수정 1개」인지 판정하는 데 쓴다.
+function textSimilarity(a, b) {
+  const s1 = String(a == null ? '' : a), s2 = String(b == null ? '' : b);
+  if (s1 === s2) return 1;
+  if (!s1 || !s2) return 0;
+  const grams = s => {
+    const map = new Map();
+    for (let i = 0; i < s.length - 1; i++) {
+      const g = s.slice(i, i + 2);
+      map.set(g, (map.get(g) || 0) + 1);
+    }
+    return map;
+  };
+  const g1 = grams(s1), g2 = grams(s2);
+  let inter = 0, t1 = 0, t2 = 0;
+  g1.forEach((c, g) => { t1 += c; if (g2.has(g)) inter += Math.min(c, g2.get(g)); });
+  g2.forEach(c => { t2 += c; });
+  if (!t1 || !t2) return 0;   // 한 글자짜리 항목 — 완전 일치는 위에서 이미 걸러짐
+  return (2 * inter) / (t1 + t2);
+}
+
+// 주의사항 항목의 언어별 본문. v1 옛 스냅샷(text_ko + 링크 + 뒷문구)도 합성해 되살린다.
+// (합성 결과는 뒤에서 sanitizeCautionHtml 을 거치므로 위험한 주소는 걸러진다)
+function _sensitiveCautionHtml(it, lang) {
+  const direct = lang === 'ko' ? it.html_ko : it.html_ja;
+  if (direct) return String(direct);
+  const body = lang === 'ko' ? it.text_ko : it.text_ja;
+  if (body == null && !it.link_url) return '';
+  const label = (lang === 'ko' ? it.link_label_ko : it.link_label_ja) || it.link_url || '';
+  const after = (lang === 'ko' ? it.text_after_ko : it.text_after_ja) || '';
+  const link = it.link_url ? '<a href="' + _diffEsc(it.link_url) + '">' + _diffEsc(label) + '</a>' : '';
+  return [body || '', link, after].filter(Boolean).join(' ');
+}
+
+// 항목 1개 → 비교용 표준형 {rawKey, textKey, ko:{html,text}, ja:{html,text}}
+//   kind: 'caution' | 'ng' | 'participation'
+function normalizeSensitiveItem(kind, item) {
+  const it = item || {};
+  let koHtml, jaHtml, koText, jaText;
+  if (kind === 'participation') {
+    const koTitle = String(it.title_ko || ''), jaTitle = String(it.title_ja || '');
+    koHtml = String(it.desc_ko || ''); jaHtml = String(it.desc_ja || '');
+    koText = [koTitle, richToPlainText(koHtml)].filter(Boolean).join('\n');
+    jaText = [jaTitle, richToPlainText(jaHtml)].filter(Boolean).join('\n');
+    return {
+      rawKey: JSON.stringify([koTitle, jaTitle, koHtml, jaHtml]),
+      textKey: koText + '\u0001' + jaText,
+      title: { ko: koTitle, ja: jaTitle },
+      ko: { html: koHtml, text: koText }, ja: { html: jaHtml, text: jaText }
+    };
+  }
+  koHtml = kind === 'caution' ? _sensitiveCautionHtml(it, 'ko') : String(it.html_ko || '');
+  jaHtml = kind === 'caution' ? _sensitiveCautionHtml(it, 'ja') : String(it.html_ja || '');
+  koText = richToPlainText(koHtml);
+  jaText = richToPlainText(jaHtml);
+  return {
+    rawKey: JSON.stringify([koHtml, jaHtml]),
+    textKey: koText + '\u0001' + jaText,
+    title: null,
+    ko: { html: koHtml, text: koText }, ja: { html: jaHtml, text: jaText }
+  };
+}
+
+function normalizeSensitiveItems(kind, arr) {
+  if (!Array.isArray(arr)) return null;              // null = 기록 없음 (빈 배열과 구분)
+  return arr.map(it => normalizeSensitiveItem(kind, it));
+}
+
+// 전·후 목록의 내용이 완전히 같은지(순서 포함 X, 구성만) — 「번들만 교체」 판정용 경량 검사
+function sensitiveListsIdentical(kind, prevArr, nextArr) {
+  const p = normalizeSensitiveItems(kind, prevArr) || [];
+  const n = normalizeSensitiveItems(kind, nextArr) || [];
+  if (p.length !== n.length) return false;
+  const bag = new Map();
+  p.forEach(x => bag.set(x.rawKey, (bag.get(x.rawKey) || 0) + 1));
+  for (const x of n) {
+    const c = bag.get(x.rawKey) || 0;
+    if (!c) return false;
+    bag.set(x.rawKey, c - 1);
+  }
+  return true;
+}
+
+// 항목 단위 최장 공통 부분수열 → same/del/ins 연산 목록
+function _sensitiveLcsOps(prev, next) {
+  const n = prev.length, m = next.length, w = m + 1;
+  const dp = new Int32Array((n + 1) * w);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i * w + j] = (prev[i].rawKey === next[j].rawKey)
+        ? dp[(i + 1) * w + (j + 1)] + 1
+        : Math.max(dp[(i + 1) * w + j], dp[i * w + (j + 1)]);
+    }
+  }
+  const ops = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (prev[i].rawKey === next[j].rawKey) { ops.push({ op: 'same', p: i, n: j }); i++; j++; }
+    else if (dp[(i + 1) * w + j] >= dp[i * w + (j + 1)]) { ops.push({ op: 'del', p: i }); i++; }
+    else { ops.push({ op: 'ins', n: j }); j++; }
+  }
+  while (i < n) { ops.push({ op: 'del', p: i }); i++; }
+  while (j < m) { ops.push({ op: 'ins', n: j }); j++; }
+  return ops;
+}
+
+// 삭제·추가 묶음을 닮은 정도로 짝지어 「수정(mod)」·「서식만 변경(format)」으로 합친다.
+// 짝을 못 찾은 것만 진짜 삭제·추가로 남는다.
+function _pairDelInsRows(dels, inss, prev, next) {
+  const rows = [];
+  const usedIns = new Set();
+  const bestMatch = (pi) => {
+    let best = -1, bestScore = 0;
+    inss.forEach(ni => {
+      if (usedIns.has(ni)) return;
+      const score = textSimilarity(prev[pi].textKey, next[ni].textKey);
+      if (score > bestScore) { bestScore = score; best = ni; }
+    });
+    return { best, bestScore };
+  };
+  dels.forEach(pi => {
+    const { best, bestScore } = bestMatch(pi);
+    const paired = best >= 0
+      && (bestScore >= DIFF_PAIR_THRESHOLD || prev[pi].textKey === next[best].textKey);
+    if (!paired) { rows.push({ type: 'del', prev: prev[pi], prevIndex: pi }); return; }
+    usedIns.add(best);
+    rows.push({
+      type: prev[pi].textKey === next[best].textKey ? 'format' : 'mod',
+      prev: prev[pi], next: next[best], prevIndex: pi, nextIndex: best
+    });
+  });
+  inss.forEach(ni => {
+    if (!usedIns.has(ni)) rows.push({ type: 'add', next: next[ni], nextIndex: ni });
+  });
+  return rows;
+}
+
+// 전·후 항목 배열 비교 → 화면이 그대로 그릴 수 있는 줄 목록
+// 반환 {status, rows, counts, orderOnly}
+//   status: 'empty'(양쪽 다 없음) | 'no_prev'(이전 기록 없음) | 'no_next' | 'ok'
+//   rows[].type: 'same' | 'add' | 'del' | 'mod'(글자 수정) | 'format'(서식·링크·이미지만 변경)
+function diffSensitiveItemLists(kind, prevArr, nextArr) {
+  const prev = normalizeSensitiveItems(kind, prevArr);
+  const next = normalizeSensitiveItems(kind, nextArr);
+  const empty = { status: 'empty', rows: [], counts: { add: 0, del: 0, mod: 0, format: 0, same: 0 }, orderOnly: false };
+  if (prev === null && next === null) return empty;
+  if (prev === null) {
+    return {
+      status: 'no_prev', orderOnly: false,
+      rows: (next || []).map((it, idx) => ({ type: 'add', next: it, nextIndex: idx })),
+      counts: { add: (next || []).length, del: 0, mod: 0, format: 0, same: 0 }
+    };
+  }
+  if (next === null) {
+    return {
+      status: 'no_next', orderOnly: false,
+      rows: prev.map((it, idx) => ({ type: 'del', prev: it, prevIndex: idx })),
+      counts: { add: 0, del: prev.length, mod: 0, format: 0, same: 0 }
+    };
+  }
+  if (!prev.length && !next.length) return empty;
+
+  // 구성이 같고 순서만 다른 경우 — 삭제+추가 더미로 보이지 않게 별도 처리
+  const orderOnly = sensitiveListsIdentical(kind, prevArr, nextArr)
+    && prev.map(x => x.rawKey).join('') !== next.map(x => x.rawKey).join('');
+
+  // 순서만 바뀐 경우는 항목별 비교를 건너뛴다 — 그대로 두면 「삭제 N + 추가 N」으로 부풀려 보인다
+  if (orderOnly) {
+    const bag = new Map();
+    prev.forEach((x, i) => {
+      if (!bag.has(x.rawKey)) bag.set(x.rawKey, []);
+      bag.get(x.rawKey).push(i);
+    });
+    const rows0 = next.map((it, idx) => {
+      const pool = bag.get(it.rawKey) || [];
+      const pi = pool.length ? pool.shift() : null;
+      return { type: 'same', prev: pi != null ? prev[pi] : it, next: it, prevIndex: pi, nextIndex: idx };
+    });
+    return {
+      status: 'ok', rows: rows0, orderOnly: true,
+      counts: { add: 0, del: 0, mod: 0, format: 0, same: rows0.length }
+    };
+  }
+
+  const ops = _sensitiveLcsOps(prev, next);
+  const rows = [];
+  let k = 0;
+  while (k < ops.length) {
+    if (ops[k].op === 'same') {
+      const p = prev[ops[k].p], n = next[ops[k].n];
+      rows.push({ type: 'same', prev: p, next: n, prevIndex: ops[k].p, nextIndex: ops[k].n });
+      k++;
+      continue;
+    }
+    // 연속된 삭제·추가 묶음은 따로 모아 「수정」 쌍으로 재결합
+    const dels = [], inss = [];
+    while (k < ops.length && ops[k].op !== 'same') {
+      if (ops[k].op === 'del') dels.push(ops[k].p); else inss.push(ops[k].n);
+      k++;
+    }
+    _pairDelInsRows(dels, inss, prev, next).forEach(r => rows.push(r));
+  }
+  // 화면 순서는 「변경 후」 기준으로 — 삭제 줄은 원래 자리에 남긴다
+  rows.sort((a, b) => {
+    const av = (a.nextIndex != null) ? a.nextIndex : (a.prevIndex != null ? a.prevIndex - 0.5 : 0);
+    const bv = (b.nextIndex != null) ? b.nextIndex : (b.prevIndex != null ? b.prevIndex - 0.5 : 0);
+    return av - bv;
+  });
+  const counts = { add: 0, del: 0, mod: 0, format: 0, same: 0 };
+  rows.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
+  return { status: 'ok', rows, counts, orderOnly };
+}
+
 // 평문(legacy) 감지 → HTML로 변환. 이미 HTML이면 sanitize만.
 function renderRich(el, raw) {
   if (!el) return;

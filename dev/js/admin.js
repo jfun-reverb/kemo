@@ -1010,25 +1010,6 @@ function renderCautionHistoryModal() {
     body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법/NG 사항 변경이 발생하면 자동 기록됩니다.</span></div>`;
     return;
   }
-  const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
-  const renderCautionItems = (arr) => {
-    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
-    return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
-  };
-  // NG 항목: 관리자 페이지 한국어 원칙 — html_ko 우선, 없으면 html_ja 폴백
-  const renderNgItems = (arr) => {
-    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
-    return arr.map(it => `<li>${safeRich(it.html_ko || it.html_ja || '')}</li>`).join('');
-  };
-  const renderPsetSteps = (arr) => {
-    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
-    const renderDesc = (typeof miniRichHtml === 'function') ? miniRichHtml : (h => esc(String(h||'')));
-    return arr.map((s, i) => {
-      const t = s.title_ko || s.title_ja || '';
-      const d = s.desc_ko || s.desc_ja || '';
-      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div class="rich-content" style="font-size:11px;color:var(--muted)">${renderDesc(d)}</div>` : ''}</li>`;
-    }).join('');
-  };
   const items = list.map((row, idx) => {
     const cautionChanged =
       (row.prev_caution_set_id || null) !== (row.next_caution_set_id || null)
@@ -1040,58 +1021,44 @@ function renderCautionHistoryModal() {
     const ngChanged =
       (row.ng_set_id_prev || null) !== (row.ng_set_id_next || null)
       || JSON.stringify(row.ng_items_prev ?? null) !== JSON.stringify(row.ng_items_next ?? null);
+    // 문구는 그대로인데 묶음(번들)만 교체된 경우 — 목록만 봐도 열어볼 필요가 없게 헤더에서 구분
+    const cautionSetOnly = cautionChanged
+      && sensitiveListsIdentical('caution', row.prev_caution_items, row.next_caution_items);
+    const participationSetOnly = participationChanged
+      && sensitiveListsIdentical('participation', row.prev_participation_steps, row.next_participation_steps);
+    const ngSetOnly = ngChanged
+      && sensitiveListsIdentical('ng', row.ng_items_prev, row.ng_items_next);
+    const allSetOnly = (!cautionChanged || cautionSetOnly)
+      && (!participationChanged || participationSetOnly)
+      && (!ngChanged || ngSetOnly);
     const tags = [];
     if (cautionChanged) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
     if (participationChanged) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
     if (ngChanged) tags.push('<span class="badge badge-ng" style="font-size:10px">NG 사항</span>');
+    if (allSetOnly && (cautionChanged || participationChanged || ngChanged)) {
+      tags.push('<span class="badge badge-gray" style="font-size:10px" title="항목 문구는 그대로이고 묶음만 교체됨">문구 변경 없음</span>');
+    }
     const ackBadge = row.bypass_warning_ack
       ? '<span class="badge badge-gold" style="font-size:10px" title="신청자 ≥1건 + 경고 모달 통과">경고 확인</span>'
       : '<span class="badge badge-gray" style="font-size:10px" title="신청자 0건 — 모달 미표시">자동</span>';
     const isOpen = _cautionHistoryState.openIndex === idx;
     const detailHtml = !isOpen ? '' : `
       <div style="padding:14px 16px;background:var(--surface-container-low);border-top:1px solid var(--line)">
-        ${cautionChanged ? `
-          <div style="margin-bottom:14px">
-            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">주의사항</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
-              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
-                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
-                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.prev_caution_items)}</ul>
-              </div>
-              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
-                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.next_caution_items)}</ul>
-              </div>
-            </div>
-          </div>` : ''}
-        ${participationChanged ? `
-          <div${cautionChanged || ngChanged ? ' style="margin-bottom:14px"' : ''}>
-            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">참여방법</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
-              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
-                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
-                <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.prev_participation_steps)}</ul>
-              </div>
-              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
-                <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.next_participation_steps)}</ul>
-              </div>
-            </div>
-          </div>` : ''}
-        ${ngChanged ? `
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">NG 사항</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
-              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
-                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
-                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_prev)}</ul>
-              </div>
-              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-                <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
-                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_next)}</ul>
-              </div>
-            </div>
-          </div>` : ''}
+        ${cautionChanged ? renderSensitiveDiffSection({
+            kind: 'caution', title: '주의사항', key: idx + '-caution',
+            prev: row.prev_caution_items, next: row.next_caution_items,
+            prevSetId: row.prev_caution_set_id, nextSetId: row.next_caution_set_id
+          }) : ''}
+        ${participationChanged ? renderSensitiveDiffSection({
+            kind: 'participation', title: '참여방법', key: idx + '-participation',
+            prev: row.prev_participation_steps, next: row.next_participation_steps,
+            prevSetId: row.prev_participation_set_id, nextSetId: row.next_participation_set_id
+          }) : ''}
+        ${ngChanged ? renderSensitiveDiffSection({
+            kind: 'ng', title: 'NG 사항', key: idx + '-ng',
+            prev: row.ng_items_prev, next: row.ng_items_next,
+            prevSetId: row.ng_set_id_prev, nextSetId: row.ng_set_id_next
+          }) : ''}
         ${!cautionChanged && !participationChanged && !ngChanged ? `
           <div style="font-size:12px;color:var(--muted);padding:8px 0">변경 내용이 기록되지 않았습니다.</div>` : ''}
       </div>
@@ -1121,6 +1088,134 @@ function renderCautionHistoryModal() {
 function toggleCautionHistoryItem(idx) {
   _cautionHistoryState.openIndex = (_cautionHistoryState.openIndex === idx) ? null : idx;
   renderCautionHistoryModal();
+}
+
+// ── 변경 이력 · 항목별 차이 표시 ──────────────────────────────────────────
+// 좌우 2단으로 전체를 나열하던 것을 항목 목록 1개로 바꾸고,
+// 추가·삭제·수정을 색과 라벨로 구분한다. 수정은 변경 전(지워진 글자 취소선) +
+// 변경 후(새 글자 강조) 두 줄, 한국어·일본어 각각 표시.
+// 비교 엔진(diffSensitiveItemLists 등)은 dev/lib/shared.js.
+
+const DIFF_ROW_META = {
+  add:    { label: '추가',  cls: 'add' },
+  del:    { label: '삭제',  cls: 'del' },
+  mod:    { label: '수정',  cls: 'mod' },
+  format: { label: '서식·링크·이미지만 변경', cls: 'format' },
+  same:   { label: '같음',  cls: 'same' }
+};
+
+// 캠페인 변경 이력 한 섹션(주의사항 / 참여방법 / NG 사항)
+function renderSensitiveDiffSection(opt) {
+  const d = diffSensitiveItemLists(opt.kind, opt.prev, opt.next);
+  const setChanged = (opt.prevSetId || null) !== (opt.nextSetId || null);
+  const changedCount = d.counts.add + d.counts.del + d.counts.mod + d.counts.format;
+
+  let notice = '';
+  if (d.status === 'no_prev') notice = '이전 값이 기록돼 있지 않습니다. 아래는 현재(변경 후) 내용입니다.';
+  else if (d.status === 'no_next') notice = '변경 후 값이 기록돼 있지 않습니다.';
+  else if (d.orderOnly) notice = '항목 내용은 그대로이고 순서만 바뀌었습니다.';
+  else if (!changedCount && setChanged) notice = '항목 문구는 그대로입니다. 묶음(번들)만 교체되었습니다.';
+  else if (!changedCount) notice = '이 영역에서 바뀐 항목이 없습니다.';
+
+  const changedRows = d.rows.filter(r => r.type !== 'same');
+  const sameRows = d.rows.filter(r => r.type === 'same');
+  const bodyHtml = changedRows.map(r => renderSensitiveDiffRow(r, opt)).join('')
+    + (sameRows.length
+        ? `<details class="diff-collapse"><summary>변경 없는 항목 ${sameRows.length}개 보기</summary>`
+          + sameRows.map(r => renderSensitiveDiffRow(r, opt)).join('') + '</details>'
+        : '');
+
+  const summary = changedCount
+    ? [d.counts.add ? `추가 ${d.counts.add}` : '', d.counts.del ? `삭제 ${d.counts.del}` : '',
+       d.counts.mod ? `수정 ${d.counts.mod}` : '', d.counts.format ? `서식만 ${d.counts.format}` : '']
+        .filter(Boolean).join(' · ')
+    : '';
+
+  return `
+    <div class="diff-section">
+      <div class="diff-section-head">
+        <span class="diff-section-title">${esc(opt.title)}</span>
+        ${summary ? `<span class="diff-section-sum">${esc(summary)}</span>` : ''}
+      </div>
+      ${notice ? `<div class="diff-notice">${esc(notice)}</div>` : ''}
+      ${bodyHtml || ''}
+    </div>`;
+}
+
+// 항목 1줄. 언어별로 한국어·일본어를 각각 보여준다(둘 다 저장되는 값이라 어느 쪽만 고친 변경도 드러남).
+function renderSensitiveDiffRow(row, opt) {
+  const meta = DIFF_ROW_META[row.type] || DIFF_ROW_META.same;
+  const langs = [{ key: 'ko', label: '한국어' }, { key: 'ja', label: '일본어' }];
+  const stepNo = (n) => (n == null ? '' : `STEP ${n + 1}`);
+
+  const titleLine = (opt.kind === 'participation')
+    ? `<div class="diff-step">${esc(stepNo(row.nextIndex != null ? row.nextIndex : row.prevIndex))}`
+      + `${(row.type === 'same' && row.prevIndex != null && row.nextIndex != null && row.prevIndex !== row.nextIndex)
+          ? ` <span class="diff-moved">${esc(stepNo(row.prevIndex))} → ${esc(stepNo(row.nextIndex))} 자리 이동</span>` : ''}</div>`
+    : '';
+
+  const langBlocks = langs.map(L => _renderDiffLangBlock(row, opt, L)).join('');
+
+  // 서식·링크·이미지만 바뀐 경우엔 글자 차이가 없으므로 실제 꾸며진 원문을 볼 수 있게 한다
+  const rawToggle = (row.type === 'format')
+    ? `<details class="diff-collapse diff-collapse-raw"><summary>원문 보기 (서식 포함)</summary>
+        <div class="diff-raw-grid">
+          <div><div class="diff-raw-tag">변경 전</div><div class="rich-content">${_diffRich(row.prev)}</div></div>
+          <div><div class="diff-raw-tag">변경 후</div><div class="rich-content">${_diffRich(row.next)}</div></div>
+        </div></details>`
+    : '';
+
+  return `
+    <div class="diff-row diff-row-${meta.cls}">
+      <span class="diff-tag diff-tag-${meta.cls}">${esc(meta.label)}</span>
+      <div class="diff-row-body">${titleLine}${langBlocks}${rawToggle}</div>
+    </div>`;
+}
+
+// 한 언어(한국어 또는 일본어) 블록 — 수정이면 「전 / 후」 두 줄, 그 외엔 한 줄
+function _renderDiffLangBlock(row, opt, lang) {
+  const prevText = row.prev ? row.prev[lang.key].text : '';
+  const nextText = row.next ? row.next[lang.key].text : '';
+  const prevTitle = (opt.kind === 'participation' && row.prev) ? (row.prev.title[lang.key] || '') : '';
+  const nextTitle = (opt.kind === 'participation' && row.next) ? (row.next.title[lang.key] || '') : '';
+  if (!prevText && !nextText && !prevTitle && !nextTitle) return '';
+
+  const stepTitle = (prevTitle || nextTitle)
+    ? `<div class="diff-step-title">${esc(nextTitle || prevTitle)}</div>` : '';
+  const lines = _renderDiffLines(row.type, prevText, nextText);
+  return `<div class="diff-lang"><span class="diff-lang-tag">${lang.label}</span>`
+       + `<div class="diff-lang-body">${stepTitle}${lines}</div></div>`;
+}
+
+function _renderDiffLines(type, prevText, nextText) {
+  if (type === 'mod') {
+    const parts = diffChars(prevText, nextText);
+    // 거의 전부 바뀌었거나 글이 너무 길면 글자 강조를 포기하고 전문을 그대로 두 줄로
+    const useMarks = parts && diffChangeRatio(parts) <= DIFF_FULL_REPLACE_RATIO;
+    const before = useMarks ? diffCharsHtml(parts, 'prev') : _diffPlain(prevText);
+    const after = useMarks ? diffCharsHtml(parts, 'next') : _diffPlain(nextText);
+    return `<div class="diff-line diff-line-prev"><span class="diff-line-tag">전</span>${before}</div>`
+         + `<div class="diff-line diff-line-next"><span class="diff-line-tag">후</span>${after}</div>`;
+  }
+  if (type === 'format') return `<div class="diff-line diff-line-next">${_diffPlain(nextText)}</div>`;
+  if (type === 'del') return `<div class="diff-line diff-line-prev">${_diffPlain(prevText)}</div>`;
+  return `<div class="diff-line${type === 'add' ? ' diff-line-next' : ''}">${_diffPlain(nextText || prevText)}</div>`;
+}
+
+// 순수 텍스트 → 안전한 표시용 HTML (줄바꿈만 살림)
+function _diffPlain(text) {
+  const t = String(text == null ? '' : text);
+  if (!t) return '<span class="diff-empty">(내용 없음)</span>';
+  return esc(t).replace(/\n/g, '<br>');
+}
+
+// 서식 포함 원문 — 한국어·일본어 순서로, sanitize 후 출력
+function _diffRich(item) {
+  if (!item) return '<span class="diff-empty">(없음)</span>';
+  const safe = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h || '')));
+  return [['한국어', item.ko.html], ['일본어', item.ja.html]]
+    .map(([label, html]) => html ? `<div class="diff-raw-lang">${label}</div><div>${safe(html)}</div>` : '')
+    .join('') || '<span class="diff-empty">(없음)</span>';
 }
 
 function closeCautionHistoryModal() {
