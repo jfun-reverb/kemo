@@ -886,76 +886,25 @@ let _sensitiveChangeResolver = null;
 function showSensitiveChangeConfirm({appCount, cautionChanged, participationChanged, ngChanged, orig, next}) {
   return new Promise(resolve => {
     _sensitiveChangeResolver = resolve;
-    const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
-    const renderCautionItems = (arr) => {
-      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
-      return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
-    };
-    const renderNgItemsForModal = (arr) => {
-      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
-      return arr.map(it => `<li>${safeRich(it.html_ko || it.html_ja || '')}</li>`).join('');
-    };
-    const renderPsetSteps = (arr) => {
-      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
-      const renderDesc = (typeof miniRichHtml === 'function') ? miniRichHtml : (h => esc(String(h||'')));
-      return arr.map((s, i) => {
-        const t = s.title_ko || s.title_ja || '';
-        const d = s.desc_ko || s.desc_ja || '';
-        return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div class="rich-content" style="font-size:11px;color:var(--muted)">${renderDesc(d)}</div>` : ''}</li>`;
-      }).join('');
-    };
-    const sections = [];
-    if (cautionChanged) {
-      sections.push(`
-        <div style="margin-top:14px">
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">주의사항 변경</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
-            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
-              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(orig?.caution_items)}</ul>
-            </div>
-            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
-              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(next?.caution_items)}</ul>
-            </div>
-          </div>
-        </div>
-      `);
-    }
-    if (participationChanged) {
-      sections.push(`
-        <div style="margin-top:14px">
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">참여방법 변경</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
-            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
-              <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(orig?.participation_steps)}</ul>
-            </div>
-            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
-              <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(next?.participation_steps)}</ul>
-            </div>
-          </div>
-        </div>
-      `);
-    }
-    if (ngChanged) {
-      sections.push(`
-        <div style="margin-top:14px">
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">NG 사항 변경</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
-            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
-              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(orig?.ng_items)}</ul>
-            </div>
-            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
-              <div style="font-size:11px;color:var(--red-d);margin-bottom:4px;font-weight:700">변경 후</div>
-              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(next?.ng_items)}</ul>
-            </div>
-          </div>
-        </div>
-      `);
-    }
+    // 저장 전 경고도 변경 이력과 같은 「항목별 차이」로 보여준다 — 전/후 목록을 통째 나열하면
+    // 무엇이 바뀌는지 눈으로 찾아야 해서, 되돌릴 수 없는 저장 직전에 특히 위험하다.
+    const sections = [
+      cautionChanged ? renderSensitiveDiffSection({
+        kind: 'caution', title: '주의사항', key: 'warn-caution',
+        prev: orig?.caution_items, next: next?.caution_items,
+        prevSetId: orig?.caution_set_id, nextSetId: next?.caution_set_id
+      }) : '',
+      participationChanged ? renderSensitiveDiffSection({
+        kind: 'participation', title: '참여방법', key: 'warn-participation',
+        prev: orig?.participation_steps, next: next?.participation_steps,
+        prevSetId: orig?.participation_set_id, nextSetId: next?.participation_set_id
+      }) : '',
+      ngChanged ? renderSensitiveDiffSection({
+        kind: 'ng', title: 'NG 사항', key: 'warn-ng',
+        prev: orig?.ng_items, next: next?.ng_items,
+        prevSetId: orig?.ng_set_id, nextSetId: next?.ng_set_id
+      }) : ''
+    ].filter(Boolean);
     const body = $('sensitiveChangeModalBody');
     if (body) {
       body.innerHTML = `
@@ -965,7 +914,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
         </div>
         ${sections.join('')}
         <div style="margin-top:14px;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
-          ※ 변경 이력은 캠페인 더보기(︙) 메뉴 → 「변경 이력」에서 확인할 수 있습니다 (super_admin 한정).
+          ※ 변경 이력은 캠페인 더보기(︙) 메뉴 → 「변경 이력」에서 확인할 수 있습니다 (열람 권한이 있는 등급만).
         </div>
       `;
     }
@@ -986,8 +935,9 @@ const _cautionHistoryState = { list: [], fieldGroups: [], openIndex: null, openK
 
 async function openCautionHistoryModal(campId) {
   if (!campId) return;
-  if (currentAdminInfo?.role !== 'super_admin') {
-    toast('변경 이력은 super_admin 만 열람할 수 있습니다','error');
+  // 열람 권한은 「권한 관리」 화면에서 등급별로 조절(마이그레이션 267). 기본값은 최고 관리자만.
+  if (typeof canRead === 'function' && !canRead('campaign.caution_history_view')) {
+    toast('변경 이력을 열람할 권한이 없습니다','error');
     return;
   }
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -2859,9 +2809,12 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
-  // 변경 이력·감사용 흔적 청소 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  // 감사용 흔적 청소는 super_admin 한정.
+  // 변경 이력은 「권한 관리」 화면에서 등급별로 조절 — 기본값은 super_admin 만(마이그레이션 267).
+  //   ⚠️ 화면 숨김은 표시 제어일 뿐이고 실제 차단은 두 이력 표의 접근 정책(has_permission)이 한다.
   const isSuper = currentAdminInfo?.role === 'super_admin';
-  const historyItem = isSuper
+  const canViewHistory = (typeof canRead === 'function') ? canRead('campaign.caution_history_view') : isSuper;
+  const historyItem = canViewHistory
     ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
     : '';
   const auditPurgeItem = isSuper
