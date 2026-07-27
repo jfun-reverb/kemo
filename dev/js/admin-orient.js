@@ -1373,7 +1373,11 @@ function ensureOrientModals() {
       </div>
     </div>
   </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
+  // #page-admin 안에 넣는다 — 이 요소가 z-index:200 으로 자체 쌓임 맥락을 만들어서,
+  // body 직속에 붙이면 안쪽 관리자 모달(brandDetailModal z-index:612 등)이 이 모달보다
+  // 아래로 깔린다(200 < 500). 같은 부모에 두면 z-index 숫자대로 겹친다.
+  const host = document.getElementById('page-admin') || document.body;
+  host.insertAdjacentHTML('beforeend', html);
   // 동적 생성된 오리엔 모달에 드래그·리사이즈 옵저버 부착(부트 시점엔 없던 overlay라 재등록 필요. 멱등)
   if (typeof initDraggableModals === 'function') initDraggableModals();
 }

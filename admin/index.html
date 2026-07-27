@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785113952';
+  var CURRENT_BUILD = 'v1785114178';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2559,7 +2559,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-27 09:59 · 7b73045</span>
+          <span class="admin-build-text">2026-07-27 10:02 · 37bad47</span>
         </div>
       </div>
     </aside>
@@ -14834,7 +14834,11 @@ function ensureOrientModals() {
       </div>
     </div>
   </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
+  // #page-admin 안에 넣는다 — 이 요소가 z-index:200 으로 자체 쌓임 맥락을 만들어서,
+  // body 직속에 붙이면 안쪽 관리자 모달(brandDetailModal z-index:612 등)이 이 모달보다
+  // 아래로 깔린다(200 < 500). 같은 부모에 두면 z-index 숫자대로 겹친다.
+  const host = document.getElementById('page-admin') || document.body;
+  host.insertAdjacentHTML('beforeend', html);
   // 동적 생성된 오리엔 모달에 드래그·리사이즈 옵저버 부착(부트 시점엔 없던 overlay라 재등록 필요. 멱등)
   if (typeof initDraggableModals === 'function') initDraggableModals();
 }
