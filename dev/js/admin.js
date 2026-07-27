@@ -1190,16 +1190,18 @@ function _renderDiffLangBlock(row, opt, lang) {
 function _renderDiffLines(type, prevText, nextText) {
   if (type === 'mod') {
     const parts = diffChars(prevText, nextText);
-    // 거의 전부 바뀌었거나 글이 너무 길면 글자 강조를 포기하고 전문을 그대로 두 줄로
-    const useMarks = parts && diffChangeRatio(parts) <= DIFF_FULL_REPLACE_RATIO;
-    const before = useMarks ? diffCharsHtml(parts, 'prev') : _diffPlain(prevText);
-    const after = useMarks ? diffCharsHtml(parts, 'next') : _diffPlain(nextText);
-    return `<div class="diff-line diff-line-prev"><span class="diff-line-tag">전</span>${before}</div>`
-         + `<div class="diff-line diff-line-next"><span class="diff-line-tag">후</span>${after}</div>`;
+    // 기본은 한 줄 통합 — 지워진 글자 취소선 + 새 글자 밑줄. 안 바뀐 글자는 그대로 둔다.
+    if (parts && diffChangeRatio(parts) <= DIFF_FULL_REPLACE_RATIO) {
+      return `<div class="diff-line">${diffCharsHtml(parts)}</div>`;
+    }
+    // 거의 전부 바뀌었거나 글이 너무 길다 — 통합하면 오히려 읽기 어려워 전문을 두 줄로
+    return `<div class="diff-line diff-line-whole-prev"><span class="diff-line-tag">전</span>${_diffPlain(prevText)}</div>`
+         + `<div class="diff-line"><span class="diff-line-tag">후</span>${_diffPlain(nextText)}</div>`;
   }
-  if (type === 'format') return `<div class="diff-line diff-line-next">${_diffPlain(nextText)}</div>`;
-  if (type === 'del') return `<div class="diff-line diff-line-prev">${_diffPlain(prevText)}</div>`;
-  return `<div class="diff-line${type === 'add' ? ' diff-line-next' : ''}">${_diffPlain(nextText || prevText)}</div>`;
+  if (type === 'format') return `<div class="diff-line">${_diffPlain(nextText)}</div>`;
+  // 항목 자체가 사라진 경우만 줄 전체 취소선
+  if (type === 'del') return `<div class="diff-line diff-line-whole-prev">${_diffPlain(prevText)}</div>`;
+  return `<div class="diff-line">${_diffPlain(nextText || prevText)}</div>`;
 }
 
 // 순수 텍스트 → 안전한 표시용 HTML (줄바꿈만 살림)

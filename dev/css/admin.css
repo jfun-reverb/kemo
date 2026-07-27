@@ -2044,21 +2044,23 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .diff-lang{display:flex;gap:6px;align-items:flex-start;margin-top:4px}
 .diff-lang:first-child{margin-top:0}
 .diff-lang-tag{flex-shrink:0;font-size:10px;color:var(--muted);background:var(--surface-container);border-radius:4px;padding:1px 5px;margin-top:2px}
-.diff-lang-body{flex:1;min-width:0}
+.diff-lang-body{flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .diff-step{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px}
 .diff-step-title{font-weight:700}
 .diff-moved{font-weight:400;color:var(--muted)}
 
-.diff-line{position:relative;padding:1px 0}
+.diff-line{position:relative;padding:1px 0;overflow-wrap:anywhere}
 .diff-line-tag{display:inline-block;min-width:16px;font-size:10px;color:var(--muted);margin-right:4px}
-.diff-line-prev{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(192,57,43,.45)}
-.diff-line-prev .diff-line-tag{text-decoration:none}
-.diff-row-del .diff-line-prev{color:#8a3b32}
+/* 줄 전체 취소선은 「항목이 통째로 사라진 경우」에만.
+   글자만 고친 수정에까지 걸면 안 바뀐 글자까지 그어져 오히려 읽기 어려워진다(2026-07-27 지적). */
+.diff-line-whole-prev{color:#8a3b32;text-decoration:line-through;text-decoration-color:rgba(192,57,43,.45)}
+.diff-line-whole-prev .diff-line-tag{text-decoration:none}
 .diff-empty{color:var(--muted)}
 
-.diff-mark{border-radius:3px;padding:0 1px}
-.diff-mark-add{background:#ffe58a;color:#3d2f00;font-weight:600}
-.diff-mark-del{background:#ffd4d4;color:#8a1f1f;text-decoration:line-through}
+/* 한 줄 안에서 지워진 글자·새 글자를 나란히 (한글 문서 「변경 내용 추적」 방식) */
+.diff-mark{border-radius:2px;padding:0 1px}
+.diff-mark-del{color:#c0392b;text-decoration:line-through;text-decoration-thickness:1.5px}
+.diff-mark-add{color:#1f6f43;background:#e6f6ec;text-decoration:underline;text-decoration-thickness:1.5px;font-weight:600}
 
 .diff-collapse{margin-top:6px}
 .diff-collapse>summary{font-size:11px;color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:2px 0}

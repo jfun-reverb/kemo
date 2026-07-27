@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785118972';
+  var CURRENT_BUILD = 'v1785119878';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2504,21 +2504,23 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .diff-lang{display:flex;gap:6px;align-items:flex-start;margin-top:4px}
 .diff-lang:first-child{margin-top:0}
 .diff-lang-tag{flex-shrink:0;font-size:10px;color:var(--muted);background:var(--surface-container);border-radius:4px;padding:1px 5px;margin-top:2px}
-.diff-lang-body{flex:1;min-width:0}
+.diff-lang-body{flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .diff-step{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px}
 .diff-step-title{font-weight:700}
 .diff-moved{font-weight:400;color:var(--muted)}
 
-.diff-line{position:relative;padding:1px 0}
+.diff-line{position:relative;padding:1px 0;overflow-wrap:anywhere}
 .diff-line-tag{display:inline-block;min-width:16px;font-size:10px;color:var(--muted);margin-right:4px}
-.diff-line-prev{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(192,57,43,.45)}
-.diff-line-prev .diff-line-tag{text-decoration:none}
-.diff-row-del .diff-line-prev{color:#8a3b32}
+/* 줄 전체 취소선은 「항목이 통째로 사라진 경우」에만.
+   글자만 고친 수정에까지 걸면 안 바뀐 글자까지 그어져 오히려 읽기 어려워진다(2026-07-27 지적). */
+.diff-line-whole-prev{color:#8a3b32;text-decoration:line-through;text-decoration-color:rgba(192,57,43,.45)}
+.diff-line-whole-prev .diff-line-tag{text-decoration:none}
 .diff-empty{color:var(--muted)}
 
-.diff-mark{border-radius:3px;padding:0 1px}
-.diff-mark-add{background:#ffe58a;color:#3d2f00;font-weight:600}
-.diff-mark-del{background:#ffd4d4;color:#8a1f1f;text-decoration:line-through}
+/* 한 줄 안에서 지워진 글자·새 글자를 나란히 (한글 문서 「변경 내용 추적」 방식) */
+.diff-mark{border-radius:2px;padding:0 1px}
+.diff-mark-del{color:#c0392b;text-decoration:line-through;text-decoration-thickness:1.5px}
+.diff-mark-add{color:#1f6f43;background:#e6f6ec;text-decoration:underline;text-decoration-thickness:1.5px;font-weight:600}
 
 .diff-collapse{margin-top:6px}
 .diff-collapse>summary{font-size:11px;color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:2px 0}
@@ -2615,7 +2617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-27 11:22 · 010d3f3</span>
+          <span class="admin-build-text">2026-07-27 11:37 · 7861796</span>
         </div>
       </div>
     </aside>
@@ -6784,15 +6786,15 @@ function diffChangeRatio(parts) {
   return total ? changed / total : 0;
 }
 
-// 비교 조각 → 강조 HTML. side='prev' 면 지워진 글자를, 'next' 면 새로 들어온 글자를 강조.
-function diffCharsHtml(parts, side) {
+// 비교 조각 → 강조 HTML. 한 줄 안에 지워진 글자(취소선)와 새로 들어온 글자(밑줄)를
+// 나란히 둔다 — 한글 문서 「변경 내용 추적」과 같은 방식. 안 바뀐 글자엔 아무 표시도 안 한다.
+// (변경이 너무 많아 이 방식이 오히려 읽기 어려운 경우엔 호출부가 전문 비교로 폴백한다)
+function diffCharsHtml(parts) {
   if (!Array.isArray(parts)) return '';
-  const keep = side === 'prev' ? 'del' : 'add';
   return parts
-    .filter(p => p.type === 'same' || p.type === keep)
     .map(p => {
       const html = _diffEsc(p.text).replace(/\n/g, '<br>');
-      return p.type === 'same' ? html : '<span class="diff-mark diff-mark-' + keep + '">' + html + '</span>';
+      return p.type === 'same' ? html : '<span class="diff-mark diff-mark-' + p.type + '">' + html + '</span>';
     })
     .join('');
 }
@@ -34412,16 +34414,18 @@ function _renderDiffLangBlock(row, opt, lang) {
 function _renderDiffLines(type, prevText, nextText) {
   if (type === 'mod') {
     const parts = diffChars(prevText, nextText);
-    // 거의 전부 바뀌었거나 글이 너무 길면 글자 강조를 포기하고 전문을 그대로 두 줄로
-    const useMarks = parts && diffChangeRatio(parts) <= DIFF_FULL_REPLACE_RATIO;
-    const before = useMarks ? diffCharsHtml(parts, 'prev') : _diffPlain(prevText);
-    const after = useMarks ? diffCharsHtml(parts, 'next') : _diffPlain(nextText);
-    return `<div class="diff-line diff-line-prev"><span class="diff-line-tag">전</span>${before}</div>`
-         + `<div class="diff-line diff-line-next"><span class="diff-line-tag">후</span>${after}</div>`;
+    // 기본은 한 줄 통합 — 지워진 글자 취소선 + 새 글자 밑줄. 안 바뀐 글자는 그대로 둔다.
+    if (parts && diffChangeRatio(parts) <= DIFF_FULL_REPLACE_RATIO) {
+      return `<div class="diff-line">${diffCharsHtml(parts)}</div>`;
+    }
+    // 거의 전부 바뀌었거나 글이 너무 길다 — 통합하면 오히려 읽기 어려워 전문을 두 줄로
+    return `<div class="diff-line diff-line-whole-prev"><span class="diff-line-tag">전</span>${_diffPlain(prevText)}</div>`
+         + `<div class="diff-line"><span class="diff-line-tag">후</span>${_diffPlain(nextText)}</div>`;
   }
-  if (type === 'format') return `<div class="diff-line diff-line-next">${_diffPlain(nextText)}</div>`;
-  if (type === 'del') return `<div class="diff-line diff-line-prev">${_diffPlain(prevText)}</div>`;
-  return `<div class="diff-line${type === 'add' ? ' diff-line-next' : ''}">${_diffPlain(nextText || prevText)}</div>`;
+  if (type === 'format') return `<div class="diff-line">${_diffPlain(nextText)}</div>`;
+  // 항목 자체가 사라진 경우만 줄 전체 취소선
+  if (type === 'del') return `<div class="diff-line diff-line-whole-prev">${_diffPlain(prevText)}</div>`;
+  return `<div class="diff-line">${_diffPlain(nextText || prevText)}</div>`;
 }
 
 // 순수 텍스트 → 안전한 표시용 HTML (줄바꿈만 살림)

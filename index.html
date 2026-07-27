@@ -2420,15 +2420,15 @@ function diffChangeRatio(parts) {
   return total ? changed / total : 0;
 }
 
-// 비교 조각 → 강조 HTML. side='prev' 면 지워진 글자를, 'next' 면 새로 들어온 글자를 강조.
-function diffCharsHtml(parts, side) {
+// 비교 조각 → 강조 HTML. 한 줄 안에 지워진 글자(취소선)와 새로 들어온 글자(밑줄)를
+// 나란히 둔다 — 한글 문서 「변경 내용 추적」과 같은 방식. 안 바뀐 글자엔 아무 표시도 안 한다.
+// (변경이 너무 많아 이 방식이 오히려 읽기 어려운 경우엔 호출부가 전문 비교로 폴백한다)
+function diffCharsHtml(parts) {
   if (!Array.isArray(parts)) return '';
-  const keep = side === 'prev' ? 'del' : 'add';
   return parts
-    .filter(p => p.type === 'same' || p.type === keep)
     .map(p => {
       const html = _diffEsc(p.text).replace(/\n/g, '<br>');
-      return p.type === 'same' ? html : '<span class="diff-mark diff-mark-' + keep + '">' + html + '</span>';
+      return p.type === 'same' ? html : '<span class="diff-mark diff-mark-' + p.type + '">' + html + '</span>';
     })
     .join('');
 }
