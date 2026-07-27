@@ -358,7 +358,16 @@ function _osRenderBrandList(query) {
       ? matchSearchTokens(q, [b.name, b.name_ja, b.name_en])
       : (!q || (b.name || '').toLowerCase().includes(q)));
   if (!matched.length) {
-    list.innerHTML = '<div class="empty">일치하는 브랜드가 없습니다</div>';
+    // 검색 결과 0건 → 바로 신규 등록으로 이어갈 수 있게 버튼 노출
+    // (onmousedown + preventDefault: 입력칸이 blur 되기 전에 눌리도록)
+    // 권한 가드 없음 — brands INSERT 정책이 is_admin() 이고, 기존 브랜드 등록 진입점
+    // 3곳(캠페인 신규·편집 폼, 브랜드 관리 페인)도 관리자 전원에게 열려 있어 그와 맞춘다.
+    list.innerHTML = '<div class="empty">일치하는 브랜드가 없습니다'
+      + '<div style="margin-top:8px">'
+      + '<button type="button" class="btn btn-ghost btn-sm" onmousedown="event.preventDefault();osOpenNewBrand()"'
+      + ' style="display:inline-flex;align-items:center;gap:4px">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span>신규 브랜드 추가</button>'
+      + '</div></div>';
     return;
   }
   list.innerHTML = matched.slice(0, 100).map(b => {
@@ -381,6 +390,29 @@ function osSelectBrand(id, opts2) {
   const list = document.getElementById('osCreateBrandList');
   if (list) list.classList.remove('open');
   if (!opts2.silent) osOnBrandChange();
+}
+
+// 검색 결과 0건에서 「신규 브랜드 추가」 — 브랜드 등록 모달을 발급 모달 위에 띄운다
+// (brandDetailModal z-index 612 > 발급 모달 500). 등록 완료 시 submitNewBrand 가
+// osAfterNewBrand(id) 로 되돌려 목록 갱신·자동 선택까지 이어진다.
+async function osOpenNewBrand() {
+  const input = document.getElementById('osCreateBrandInput');
+  const q = (input && input.value || '').trim();
+  const list = document.getElementById('osCreateBrandList');
+  if (list) list.classList.remove('open');
+  if (typeof openNewBrandModal !== 'function') { toast('브랜드 등록 화면을 열 수 없습니다.'); return; }
+  await openNewBrandModal('orient');
+  const nameEl = document.getElementById('brandFormName');
+  if (nameEl && q) nameEl.value = q;   // 입력한 검색어를 브랜드명 초안으로
+}
+
+// 브랜드 등록 완료 후 호출 (admin-brand.js submitNewBrand)
+// 브랜드 목록을 다시 받아 방금 만든 브랜드를 발급 모달에 자동 선택.
+async function osAfterNewBrand(brandId) {
+  if (!document.getElementById('orientCreateModal')) return;
+  try { _orientBrands = await fetchBrands() || []; } catch (e) { /* 갱신 실패해도 선택은 시도 */ }
+  osSelectBrand(brandId);
+  toast('브랜드가 선택되었습니다.');
 }
 
 async function osSubmitCreate() {
