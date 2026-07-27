@@ -832,29 +832,29 @@ function applyCampChoiceLocks(isLocked, lockLabel) {
 //          값 변경 없이도 stringify 결과가 달라져 불필요한 경고 모달이 뜨는 회귀)
 function detectSensitiveChange(editPayload) {
   const orig = _editCampOriginal || {};
+  // ⚠️ 본문은 반드시 normalizeRichForCompare(표준형)로 비교한다.
+  //    HTML 문자열을 그대로 견주면 편집기가 저장 시 태그를 다시 만들면서 생기는 차이
+  //    (속성 순서·빈 태그·공백)만으로 「변경」이 되어, 실제로 바뀐 게 없는데도
+  //    경고 모달이 뜨고 변경 이력이 쌓인다 (2026-07-27 운영 확인).
+  const normText = v => String(v || '').replace(/\s+/g, ' ').trim();
   const normSteps = arr => {
     if (!Array.isArray(arr) || !arr.length) return null;
     return arr.map(s => ({
-      title_ko: s.title_ko || '',
-      title_ja: s.title_ja || '',
-      desc_ko: s.desc_ko || '',
-      desc_ja: s.desc_ja || '',
+      title_ko: normText(s.title_ko),
+      title_ja: normText(s.title_ja),
+      desc_ko: normalizeRichForCompare(s.desc_ko || ''),
+      desc_ja: normalizeRichForCompare(s.desc_ja || ''),
     }));
   };
-  const normCautionItems = arr => {
+  const normHtmlItems = arr => {
     if (!Array.isArray(arr) || !arr.length) return [];
     return arr.map(s => ({
-      html_ko: s.html_ko || '',
-      html_ja: s.html_ja || '',
+      html_ko: normalizeRichForCompare(s.html_ko || ''),
+      html_ja: normalizeRichForCompare(s.html_ja || ''),
     }));
   };
-  const normNgItems = arr => {
-    if (!Array.isArray(arr) || !arr.length) return [];
-    return arr.map(s => ({
-      html_ko: s.html_ko || '',
-      html_ja: s.html_ja || '',
-    }));
-  };
+  const normCautionItems = normHtmlItems;
+  const normNgItems = normHtmlItems;
   const stable = v => JSON.stringify(v ?? null);
   const cautionChanged =
     (orig.caution_set_id || null) !== (editPayload.caution_set_id || null)
@@ -1021,22 +1021,37 @@ function renderCautionHistoryModal() {
     const ngChanged =
       (row.ng_set_id_prev || null) !== (row.ng_set_id_next || null)
       || JSON.stringify(row.ng_items_prev ?? null) !== JSON.stringify(row.ng_items_next ?? null);
-    // 문구는 그대로인데 묶음(번들)만 교체된 경우 — 목록만 봐도 열어볼 필요가 없게 헤더에서 구분
-    const cautionSetOnly = cautionChanged
-      && sensitiveListsIdentical('caution', row.prev_caution_items, row.next_caution_items);
-    const participationSetOnly = participationChanged
-      && sensitiveListsIdentical('participation', row.prev_participation_steps, row.next_participation_steps);
-    const ngSetOnly = ngChanged
-      && sensitiveListsIdentical('ng', row.ng_items_prev, row.ng_items_next);
-    const allSetOnly = (!cautionChanged || cautionSetOnly)
-      && (!participationChanged || participationSetOnly)
-      && (!ngChanged || ngSetOnly);
+    // 저장할 때마다 태그 문자열이 미세하게 달라져 「변경」으로 기록되는 이력이 있다.
+    // 문구가 실제로 같은지( sensitiveListsIdentical )와 묶음 교체 여부를 나눠 봐야
+    // 목록에서 「주의사항 변경」 배지를 보고 열었는데 바뀐 게 없는 상황을 막을 수 있다.
+    const area = (changed, kind, prevItems, nextItems, prevSet, nextSet) => {
+      const sameContent = changed && sensitiveListsIdentical(kind, prevItems, nextItems);
+      return {
+        changed,
+        real: changed && !sameContent,                                    // 문구가 실제로 바뀜
+        setOnly: sameContent && (prevSet || null) !== (nextSet || null)   // 묶음만 교체
+      };
+    };
+    const areas = {
+      caution: area(cautionChanged, 'caution', row.prev_caution_items, row.next_caution_items,
+        row.prev_caution_set_id, row.next_caution_set_id),
+      participation: area(participationChanged, 'participation', row.prev_participation_steps, row.next_participation_steps,
+        row.prev_participation_set_id, row.next_participation_set_id),
+      ng: area(ngChanged, 'ng', row.ng_items_prev, row.ng_items_next,
+        row.ng_set_id_prev, row.ng_set_id_next)
+    };
+    const anyChanged = cautionChanged || participationChanged || ngChanged;
+    const anyReal = areas.caution.real || areas.participation.real || areas.ng.real;
+    const anySetOnly = areas.caution.setOnly || areas.participation.setOnly || areas.ng.setOnly;
     const tags = [];
-    if (cautionChanged) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
-    if (participationChanged) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
-    if (ngChanged) tags.push('<span class="badge badge-ng" style="font-size:10px">NG 사항</span>');
-    if (allSetOnly && (cautionChanged || participationChanged || ngChanged)) {
-      tags.push('<span class="badge badge-gray" style="font-size:10px" title="항목 문구는 그대로이고 묶음만 교체됨">문구 변경 없음</span>');
+    // 실제로 문구가 바뀐 영역만 색 배지 — 아니면 아래 회색 배지 하나로 정리
+    if (areas.caution.real) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
+    if (areas.participation.real) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
+    if (areas.ng.real) tags.push('<span class="badge badge-ng" style="font-size:10px">NG 사항</span>');
+    if (!anyReal && anyChanged) {
+      tags.push(anySetOnly
+        ? '<span class="badge badge-gray" style="font-size:10px" title="항목 문구는 그대로이고 묶음(번들)만 교체됨">묶음만 교체</span>'
+        : '<span class="badge badge-gray" style="font-size:10px" title="문구·묶음 모두 그대로 — 저장하면서 기록만 남음">내용 변경 없음</span>');
     }
     const ackBadge = row.bypass_warning_ack
       ? '<span class="badge badge-gold" style="font-size:10px" title="신청자 ≥1건 + 경고 모달 통과">경고 확인</span>'
@@ -1115,7 +1130,7 @@ function renderSensitiveDiffSection(opt) {
   else if (d.status === 'no_next') notice = '변경 후 값이 기록돼 있지 않습니다.';
   else if (d.orderOnly) notice = '항목 내용은 그대로이고 순서만 바뀌었습니다.';
   else if (!changedCount && setChanged) notice = '항목 문구는 그대로입니다. 묶음(번들)만 교체되었습니다.';
-  else if (!changedCount) notice = '이 영역에서 바뀐 항목이 없습니다.';
+  else if (!changedCount) notice = '실제로 바뀐 내용이 없습니다. 캠페인을 저장하면서 기록만 남은 이력입니다.';
 
   const changedRows = d.rows.filter(r => r.type !== 'same');
   const sameRows = d.rows.filter(r => r.type === 'same');
