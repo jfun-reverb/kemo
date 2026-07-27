@@ -2014,3 +2014,59 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    색 있는 면 위에 차트를 놓으면 막대·축이 쓸 수 있는 대비 폭이 줄어 데이터가 덜 보인다. */
 .chart-panel{background:var(--surface);border:1px solid var(--outline);border-radius:12px;padding:14px 16px}
 .chart-panel-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
+
+/* ── 캠페인 변경 이력 · 항목별 차이 표시 (2026-07-27) ──────────────────
+   좌우 2단 전체 나열 대신 항목 1줄씩 놓고 추가·삭제·수정을 색으로 구분한다.
+   글자 강조(.diff-mark)는 순수 텍스트를 이스케이프한 뒤에만 감싼다 — 원본 HTML에
+   직접 끼워 넣으면 태그가 쪼개져 화면이 깨지고 보안 구멍이 된다(shared.js 주석 참조). */
+.diff-section{margin-bottom:16px}
+.diff-section:last-child{margin-bottom:0}
+.diff-section-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.diff-section-title{font-size:12px;font-weight:700;color:var(--ink)}
+.diff-section-sum{font-size:11px;color:var(--muted)}
+.diff-notice{font-size:12px;color:var(--on-surface-variant);background:var(--surface-container);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+
+.diff-row{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#fff}
+.diff-row-add{border-color:#a7d8b4;background:#f2fbf5}
+.diff-row-del{border-color:#f0b4b4;background:#fdf4f4}
+.diff-row-mod{border-color:#e8cf94;background:#fffcf3}
+.diff-row-format{border-color:#c9c9dd;background:#f8f8fc}
+.diff-row-same{border-color:var(--line);background:#fff;opacity:.62}
+.diff-row-body{flex:1;min-width:0;font-size:12px;line-height:1.65;color:var(--ink)}
+
+.diff-tag{flex-shrink:0;font-size:10px;font-weight:700;border-radius:5px;padding:2px 6px;white-space:nowrap;line-height:1.5}
+.diff-tag-add{background:#1f8a4c;color:#fff}
+.diff-tag-del{background:#c0392b;color:#fff}
+.diff-tag-mod{background:#b8860b;color:#fff}
+.diff-tag-format{background:#6b6b8a;color:#fff}
+.diff-tag-same{background:var(--surface-container);color:var(--muted)}
+
+.diff-lang{display:flex;gap:6px;align-items:flex-start;margin-top:4px}
+.diff-lang:first-child{margin-top:0}
+.diff-lang-tag{flex-shrink:0;font-size:10px;color:var(--muted);background:var(--surface-container);border-radius:4px;padding:1px 5px;margin-top:2px}
+.diff-lang-body{flex:1;min-width:0}
+.diff-step{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px}
+.diff-step-title{font-weight:700}
+.diff-moved{font-weight:400;color:var(--muted)}
+
+.diff-line{position:relative;padding:1px 0}
+.diff-line-tag{display:inline-block;min-width:16px;font-size:10px;color:var(--muted);margin-right:4px}
+.diff-line-prev{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(192,57,43,.45)}
+.diff-line-prev .diff-line-tag{text-decoration:none}
+.diff-row-del .diff-line-prev{color:#8a3b32}
+.diff-empty{color:var(--muted)}
+
+.diff-mark{border-radius:3px;padding:0 1px}
+.diff-mark-add{background:#ffe58a;color:#3d2f00;font-weight:600}
+.diff-mark-del{background:#ffd4d4;color:#8a1f1f;text-decoration:line-through}
+
+.diff-collapse{margin-top:6px}
+.diff-collapse>summary{font-size:11px;color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:2px 0}
+.diff-collapse>summary::before{content:'▸';font-size:10px}
+.diff-collapse[open]>summary::before{content:'▾'}
+.diff-collapse>summary::-webkit-details-marker{display:none}
+.diff-collapse-raw{margin-top:4px}
+.diff-raw-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.diff-raw-tag{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px}
+.diff-raw-lang{font-size:10px;color:var(--muted);margin-top:4px}
+@media (max-width:900px){ .diff-raw-grid{grid-template-columns:1fr} }
