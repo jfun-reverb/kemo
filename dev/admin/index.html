@@ -522,6 +522,12 @@
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
                 <div class="tag-input-warn" id="tagWarn_editCampHashtags" style="display:none"></div>
                 <input type="hidden" id="editCampHashtags">
+                <!-- 옛 데이터에 해시태그와 함께 저장된 안내문(※ …) 보존용. 값이 있을 때만 노출 -->
+                <div id="editCampHashtagNoteGroup" style="display:none;margin-top:6px">
+                  <label class="form-label" style="font-size:11px;color:var(--muted)">해시태그 뒤 안내문</label>
+                  <textarea id="editCampHashtagNote" class="form-input" rows="2" style="font-size:12px"></textarea>
+                  <div class="form-hint" style="font-size:11px;color:var(--muted)">해시태그 칸에 함께 저장돼 있던 안내 문구입니다. 저장하면 태그 뒤에 그대로 유지됩니다.</div>
+                </div>
               </div>
               <div class="form-group"><label class="form-label">필수 멘션</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampMentions"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampMentions" data-prefix="@"></div>

@@ -654,7 +654,13 @@ async function openEditCampaign(campId) {
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
   initTagInput('tagWrap_editCampMentions');
-  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', camp.hashtags||'');
+  // 해시태그 칸에 안내문(※ …)이 함께 저장된 옛 데이터는 태그와 안내문을 나눠 담는다.
+  //   태그만 칩으로 만들고, 안내문은 전용 칸에 그대로 보존해 저장 시 다시 뒤에 붙인다.
+  const _hashParts = splitTagsAndNote(camp.hashtags || '');
+  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', _hashParts.tags);
+  sv('editCampHashtagNote', _hashParts.note);
+  const _noteGroup = $('editCampHashtagNoteGroup');
+  if (_noteGroup) _noteGroup.style.display = _hashParts.note ? '' : 'none';
   loadTagsFromValue('tagWrap_editCampMentions', 'editCampMentions', '@', camp.mentions||'');
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
@@ -1010,7 +1016,8 @@ function renderCautionHistoryModal() {
     body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법/NG 사항 변경이 발생하면 자동 기록됩니다.</span></div>`;
     return;
   }
-  const items = list.map((row, idx) => {
+  // 카드 HTML 과 「실제 변경이 있었는지」를 함께 만들어, 변경 없는 기록은 아래로 접는다
+  const cards = list.map((row, idx) => {
     const cautionChanged =
       (row.prev_caution_set_id || null) !== (row.next_caution_set_id || null)
       || JSON.stringify(row.prev_caution_items ?? null) !== JSON.stringify(row.next_caution_items ?? null);
@@ -1043,19 +1050,21 @@ function renderCautionHistoryModal() {
     const anyChanged = cautionChanged || participationChanged || ngChanged;
     const anyReal = areas.caution.real || areas.participation.real || areas.ng.real;
     const anySetOnly = areas.caution.setOnly || areas.participation.setOnly || areas.ng.setOnly;
-    const tags = [];
-    // 실제로 문구가 바뀐 영역만 색 배지 — 아니면 아래 회색 배지 하나로 정리
-    if (areas.caution.real) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
-    if (areas.participation.real) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
-    if (areas.ng.real) tags.push('<span class="badge badge-ng" style="font-size:10px">NG 사항</span>');
-    if (!anyReal && anyChanged) {
-      tags.push(anySetOnly
-        ? '<span class="badge badge-gray" style="font-size:10px" title="항목 문구는 그대로이고 묶음(번들)만 교체됨">묶음만 교체</span>'
-        : '<span class="badge badge-gray" style="font-size:10px" title="문구·묶음 모두 그대로 — 저장하면서 기록만 남음">내용 변경 없음</span>');
-    }
-    const ackBadge = row.bypass_warning_ack
-      ? '<span class="badge badge-gold" style="font-size:10px" title="신청자 ≥1건 + 경고 모달 통과">경고 확인</span>'
-      : '<span class="badge badge-gray" style="font-size:10px" title="신청자 0건 — 모달 미표시">자동</span>';
+    // 접힌 상태에서도 「무엇이 어떻게 바뀌었는지」가 보이도록 영역별 요약 문장을 만든다
+    //   예) 주의사항 문구 수정 1개 · 참여방법 항목 추가 2개
+    const summaries = [
+      areas.caution.real ? cautionAreaSummary('caution', '주의사항', row.prev_caution_items, row.next_caution_items) : '',
+      areas.participation.real ? cautionAreaSummary('participation', '참여방법', row.prev_participation_steps, row.next_participation_steps) : '',
+      areas.ng.real ? cautionAreaSummary('ng', 'NG 사항', row.ng_items_prev, row.ng_items_next) : ''
+    ].filter(Boolean);
+    const headline = summaries.length
+      ? summaries.join(' · ')
+      : (anySetOnly ? '문구는 그대로 · 묶음(번들)만 교체'
+                    : (anyChanged ? '바뀐 내용 없음 (저장하면서 기록만 남음)' : '변경 내용이 기록되지 않음'));
+    // 신청자가 있을 때만 저장 전 경고 모달이 뜬다 — 그 사실을 사람이 읽는 문장으로
+    const ackText = row.bypass_warning_ack
+      ? '신청자에게 영향 있음을 확인하고 저장'
+      : '신청자 0명 — 확인 절차 없이 저장';
     const isOpen = _cautionHistoryState.openIndex === idx;
     const detailHtml = !isOpen ? '' : `
       <div style="padding:14px 16px;background:var(--surface-container-low);border-top:1px solid var(--line)">
@@ -1078,31 +1087,54 @@ function renderCautionHistoryModal() {
           <div style="font-size:12px;color:var(--muted);padding:8px 0">변경 내용이 기록되지 않았습니다.</div>` : ''}
       </div>
     `;
-    return `
-      <div style="border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff">
-        <div style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;justify-content:space-between" onclick="toggleCautionHistoryItem(${idx})">
-          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              ${tags.join('')} ${ackBadge}
-              <span style="font-size:11px;color:var(--muted)">신청자 ${row.app_count_at_change}명</span>
-            </div>
-            <div style="font-size:12px;color:var(--ink)">
-              <span style="font-weight:600">${esc(row.changed_by_name || '관리자')}</span>
-              <span style="color:var(--muted)"> · ${esc(formatDateTime(row.changed_at))}</span>
-            </div>
+    return { real: anyReal, html: `
+      <div class="chist-card${anyReal ? '' : ' chist-card-quiet'}">
+        <div class="chist-head" onclick="toggleCautionHistoryItem(${idx})">
+          <div class="chist-when">
+            <div class="chist-date">${esc(formatDate(row.changed_at))}</div>
+            <div class="chist-time">${esc(formatTimeHm(row.changed_at))}</div>
           </div>
-          <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);transition:transform .2s;${isOpen?'transform:rotate(180deg)':''}">expand_more</span>
+          <div class="chist-body">
+            <div class="chist-summary">${esc(headline)}</div>
+            <div class="chist-meta">${esc(row.changed_by_name || '관리자')} · 신청자 ${row.app_count_at_change}명 · ${esc(ackText)}</div>
+          </div>
+          <span class="material-icons-round notranslate chist-caret" translate="no" style="${isOpen?'transform:rotate(180deg)':''}">expand_more</span>
         </div>
         ${detailHtml}
       </div>
-    `;
-  }).join('');
-  body.innerHTML = `${headerLine}<div>${items}</div>`;
+    ` };
+  });
+
+  // 실제로 내용이 바뀐 기록만 목록에 세우고, 나머지(저장만 하고 내용은 그대로였던 기록)는
+  // 감사 기록이라 지우지 않되 아래로 접어 둔다.
+  const realCards = cards.filter(c => c.real);
+  const quietCards = cards.filter(c => !c.real);
+  const mainHtml = realCards.length
+    ? realCards.map(c => c.html).join('')
+    : `<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">내용이 바뀐 기록이 없습니다.</div>`;
+  const quietHtml = quietCards.length
+    ? `<details class="chist-quiet-fold"><summary>내용이 바뀌지 않은 기록 ${quietCards.length}건 보기</summary>`
+      + quietCards.map(c => c.html).join('') + '</details>'
+    : '';
+  body.innerHTML = `${headerLine}<div>${mainHtml}${quietHtml}</div>`;
 }
 
 function toggleCautionHistoryItem(idx) {
   _cautionHistoryState.openIndex = (_cautionHistoryState.openIndex === idx) ? null : idx;
   renderCautionHistoryModal();
+}
+
+// 영역 하나의 변경을 사람이 읽는 한 마디로 — 「주의사항 수정 1개·추가 2개」
+// 접힌 카드에서도 무엇이 바뀌었는지 보이게 하는 용도.
+function cautionAreaSummary(kind, title, prevArr, nextArr) {
+  const d = diffSensitiveItemLists(kind, prevArr, nextArr);
+  if (d.orderOnly) return title + ' 순서만 변경';
+  const parts = [];
+  if (d.counts.mod) parts.push('수정 ' + d.counts.mod + '개');
+  if (d.counts.add) parts.push('추가 ' + d.counts.add + '개');
+  if (d.counts.del) parts.push('삭제 ' + d.counts.del + '개');
+  if (d.counts.format) parts.push('서식만 ' + d.counts.format + '개');
+  return title + ' ' + (parts.length ? parts.join('·') : '변경');
 }
 
 // ── 변경 이력 · 항목별 차이 표시 ──────────────────────────────────────────
@@ -1981,7 +2013,8 @@ async function saveCampaignEdit() {
       submission_end: gv('editCampSubmissionEnd')||null,
       winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
       description: gv('editCampDesc'),
-      hashtags: gv('editCampHashtags'),
+      // 태그(쉼표 구분) 뒤에 안내문을 그대로 붙여 보존 — 옛 데이터의 ※ 안내문이 사라지지 않게
+      hashtags: [gv('editCampHashtags'), gv('editCampHashtagNote').trim()].filter(Boolean).join(' '),
       mentions: gv('editCampMentions'),
       appeal: gv('editCampAppeal'),
       guide: gv('editCampGuide'),
@@ -2555,7 +2588,15 @@ function renderCampPreview(mode) {
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
-          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.hashtags?(()=>{
+            // 인플루언서 상세와 같은 규칙 — 태그만 칩으로, 뒤에 붙은 안내문(※ …)은 문단으로
+            const hp = splitTagsAndNote(camp.hashtags);
+            const chips = hp.tags.split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+            return `<div style="margin-bottom:10px"><div class="cp-sec-subtitle">${esc(L.subHashtag)}</div>`
+              + (chips.length?`<div class="cp-chips">${chips.map(t=>`<span class="cp-chip">${esc(t)}</span>`).join('')}</div>`:'')
+              + (hp.note?`<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px">${esc(hp.note)}</div>`:'')
+              + `</div>`;
+          })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
         ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
