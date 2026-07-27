@@ -2072,3 +2072,23 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .diff-raw-tag{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px}
 .diff-raw-lang{font-size:10px;color:var(--muted);margin-top:4px}
 @media (max-width:900px){ .diff-raw-grid{grid-template-columns:1fr} }
+
+/* ── 캠페인 변경 이력 카드 (2026-07-27) ─────────────────────────────
+   날짜를 왼쪽에 고정 폭으로 세우고, 가운데에 「무엇이 어떻게 바뀌었는지」 한 줄을 둔다.
+   예전엔 배지(주의사항·자동)만 있어서 열어보기 전에는 내용을 알 수 없었다. */
+.chist-card{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;background:#fff}
+.chist-card-quiet{background:var(--surface-container-low);opacity:.75}
+.chist-head{padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px}
+.chist-head:hover{background:var(--surface-container)}
+.chist-when{flex-shrink:0;width:96px;text-align:center;border-right:1px solid var(--line);padding-right:12px}
+.chist-date{font-size:12px;font-weight:700;color:var(--ink);line-height:1.3;white-space:nowrap}
+.chist-time{font-size:11px;color:var(--muted);line-height:1.3}
+.chist-body{flex:1;min-width:0}
+.chist-summary{font-size:13px;font-weight:600;color:var(--ink);line-height:1.5;word-break:keep-all}
+.chist-meta{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
+.chist-caret{font-size:18px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.chist-quiet-fold{margin-top:10px}
+.chist-quiet-fold>summary{font-size:12px;color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:4px 0}
+.chist-quiet-fold>summary::before{content:'▸';font-size:10px}
+.chist-quiet-fold[open]>summary::before{content:'▾'}
+.chist-quiet-fold>summary::-webkit-details-marker{display:none}
