@@ -2316,6 +2316,85 @@ function miniRichHtml(raw) {
     : value.replace(/<script/gi, '&lt;script');
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// 캠페인 변경 이력 — 항목 이름·값을 사람이 읽는 말로 (마이그레이션 265·266)
+//   기록은 컬럼 이름(min_followers)과 코드값(monitor)으로 남으므로, 화면에 그대로
+//   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
+//   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
+// ══════════════════════════════════════════════════════════════════════════
+const CAMPAIGN_FIELD_LABELS = {
+  title: '캠페인명', brand_id: '연결 브랜드', brand: '브랜드명', brand_ko: '브랜드명(한국어)',
+  brand_ja: '브랜드명(일본어)', brand_en: '브랜드명(영문)', product: '제품명',
+  product_ko: '제품명(한국어)', product_url: '제품 링크',
+  recruit_type: '모집 형식', channel: '채널', channel_match: '채널 조건', primary_channel: '대표 채널',
+  slots: '모집 인원', min_followers: '최소 팔로워 수', category: '카테고리', content_types: '콘텐츠 종류',
+  product_price: '제품 가격', reward: '리워드 금액', reward_note: '리워드 안내',
+  recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
+  purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
+  submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
+  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영 가이드',
+  hashtags: '필수 해시태그', mentions: '필수 멘션',
+  img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
+  img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
+  image_url: '대표 이미지', image_crops: '이미지 자르기',
+  status: '상태', proxy_purchase: '가구매 캠페인', source_application_id: '연결된 서베이 신청',
+  deleted_at: '보관 삭제', deleted_by: '삭제한 사람'
+};
+
+// 값 종류별 표시 규칙 — 이미지·긴 글은 화면에서 따로 다루므로 여기선 종류만 알려준다
+const CAMPAIGN_FIELD_KINDS = {
+  image: ['img1','img2','img3','img4','img5','img6','img7','img8','image_url'],
+  date: ['recruit_start','deadline','purchase_start','purchase_end','visit_start','visit_end','submission_end'],
+  money: ['product_price','reward'],
+  count: ['slots','min_followers'],
+  rich: ['description','appeal','guide','reward_note','winner_announce'],
+  lookupChannel: ['channel','primary_channel'],
+  lookupContent: ['content_types'],
+  lookupCategory: ['category']
+};
+
+function campaignFieldLabel(field) {
+  return CAMPAIGN_FIELD_LABELS[field] || field;
+}
+
+function campaignFieldKind(field) {
+  for (const kind in CAMPAIGN_FIELD_KINDS) {
+    if (CAMPAIGN_FIELD_KINDS[kind].indexOf(field) >= 0) return kind;
+  }
+  return 'text';
+}
+
+// 이력에 저장된 값(jsonb) → 사람이 읽는 문자열. 이미지·긴 글은 화면 쪽에서 별도 처리.
+function campaignFieldValueText(field, value) {
+  if (value === null || value === undefined || value === '') return '';
+  const kind = campaignFieldKind(field);
+  const raw = String(value);
+  if (kind === 'money') return Number(value).toLocaleString('ko-KR') + '엔';
+  if (kind === 'count') return Number(value).toLocaleString('ko-KR') + (field === 'slots' ? '명' : '명 이상');
+  if (kind === 'date') return raw.slice(0, 10).replace(/-/g, '/');
+  if (kind === 'rich') return (typeof richToPlainText === 'function') ? richToPlainText(raw) : raw;
+  // 이미지 자르기 좌표는 객체라 그대로 찍으면 [object Object] 가 된다 — 사람이 읽는 한 마디로
+  if (field === 'image_crops') {
+    try { return Object.keys(value || {}).length ? '이미지 자르기 위치 지정' : '지정 없음'; }
+    catch (_e) { return ''; }
+  }
+  // 상태 코드 → 한국어. closed/ended 는 CAMPAIGN_STATUS_LABEL 의 키와 이름이 달라 따로 매핑.
+  if (field === 'status') {
+    return ({ draft: '준비', scheduled: '모집예정', active: '모집중',
+              closed: '모집마감', ended: '종료', expired: '노출종료' })[raw] || raw;
+  }
+  if (field === 'recruit_type') return ({ monitor: '리뷰어형', gifting: '시딩(기프팅)형', visit: '방문형' })[raw] || raw;
+  if (field === 'channel_match') return raw === 'and' ? '모든 채널(and)' : '채널 중 하나(or)';
+  if (field === 'proxy_purchase') return (raw === 'true') ? '예' : '아니오';
+  if (typeof getLookupLabelsJoined === 'function') {
+    if (kind === 'lookupChannel') return getLookupLabelsJoined('channel', raw, ', ', 'ko');
+    if (kind === 'lookupContent') return getLookupLabelsJoined('content_type', raw, ', ', 'ko');
+    if (kind === 'lookupCategory') return getLookupLabelsJoined('category', raw, ', ', 'ko');
+  }
+  if (kind === 'image') return raw;   // 화면이 썸네일로 그림
+  return raw;
+}
+
 // 해시태그 칸에 태그와 안내문이 함께 저장된 옛 데이터를 둘로 나눈다.
 //   예) "#ピュアリカ #肌鎮静 ※ ハッシュタグは必ずフィードの本文にご記載ください。…"
 //        → tags: "#ピュアリカ #肌鎮静" / note: "※ ハッシュタグは…"
