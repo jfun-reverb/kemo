@@ -38,7 +38,11 @@ function permCellValue(role, key) {
 }
 
 // 슈퍼관리자 칸에서 잠글 기능 — 이걸 제한하면 되돌릴 방법이 없어진다(사양서 §4-4)
-const PERM_SUPER_LOCKED = ['permissions.manage', 'admin.manage', 'menu.permissions'];
+//   menu.admin-accounts 추가(2026-07-29, 서버 271) — 사이드바 「권한 관리」 상설 항목을 없애면서
+//   「관리자 계정」 화면 안 버튼이 이 화면의 유일한 진입점이 됐다. 슈퍼가 그 메뉴를 숨기면 잠긴다.
+//   ⚠️ 등급 2종(campaign_admin·campaign_manager)에는 이 잠금을 걸지 않는다 — 그들이 관리자 계정
+//      메뉴를 못 봐도 슈퍼의 복구 경로와 무관하고, 사용자 결정이 「나머지는 권한에 따라」이기 때문.
+const PERM_SUPER_LOCKED = ['permissions.manage', 'admin.manage', 'menu.permissions', 'menu.admin-accounts'];
 
 // 「이 설정이 실제로 먹히는가」 배지 — 슈퍼관리자 열에만 의미가 있다
 const PERM_EFFECT_BADGE = {

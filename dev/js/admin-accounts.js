@@ -57,7 +57,10 @@ async function loadAdminAccounts() {
   // 현재 로그인한 관리자 정보 먼저 확정 (렌더 시 권한 판단에 사용)
   currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   const isSuper = currentAdminInfo?.role === 'super_admin';
-  // 권한 관리 진입 버튼(관리자 추가 옆)은 super_admin 에게만 노출 (사이드바 메뉴 대체)
+  // 권한 관리 진입 버튼(관리자 추가 옆)은 super_admin 에게만 노출.
+  //   ⚠️ 2026-07-29 사이드바 상설 항목을 없앤 뒤로 이 버튼이 권한 관리 화면의 **유일한 진입점**이다.
+  //      그래서 슈퍼관리자는 이 화면(menu.admin-accounts)을 숨길 수 없게 잠가 뒀다(서버 271).
+  //      이 버튼을 지우거나 조건을 좁히면 복구 경로가 끊기니 반드시 대체 입구를 먼저 만들 것.
   const _pmBtn = document.getElementById('btnPermManageBtn');
   if (_pmBtn) _pmBtn.style.display = isSuper ? '' : 'none';
 
