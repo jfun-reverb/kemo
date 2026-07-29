@@ -1,0 +1,358 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e4]:
+    - complementary [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - button "menu" [ref=f1e7] [cursor=pointer]
+        - generic [ref=f1e9]:
+          - generic [ref=f1e10] [cursor=pointer]: Reverb
+          - generic [ref=f1e11]: STAGING
+      - generic [ref=f1e12]:
+        - generic [ref=f1e13]: 공지
+        - generic [ref=f1e14] [cursor=pointer]:
+          - generic [ref=f1e15]: campaign
+          - generic [ref=f1e16]: 공지사항
+        - generic [ref=f1e17] [cursor=pointer]:
+          - generic [ref=f1e18]: upcoming
+          - generic [ref=f1e19]: 오픈 예정 기능
+        - generic [ref=f1e20]: 대시보드
+        - generic [ref=f1e21] [cursor=pointer]:
+          - generic [ref=f1e22]: dashboard
+          - generic [ref=f1e23]: 전체 현황
+        - generic [ref=f1e24]: 캠페인
+        - generic [ref=f1e25] [cursor=pointer]:
+          - generic [ref=f1e26]: monitor_heart
+          - generic [ref=f1e27]: 운영 현황
+        - generic [ref=f1e28] [cursor=pointer]:
+          - generic [ref=f1e29]: campaign
+          - generic [ref=f1e30]: 캠페인 관리
+        - generic [ref=f1e31] [cursor=pointer]:
+          - generic [ref=f1e133]: assignment
+          - generic [ref=f1e134]: 인플 신청 관리
+          - generic [ref=f1e135]: "1"
+        - generic [ref=f1e34] [cursor=pointer]:
+          - generic [ref=f1e136]: fact_check
+          - generic [ref=f1e137]: 결과물 관리
+          - generic "검수대기만 보기" [ref=f1e138]: "4"
+        - generic [ref=f1e37] [cursor=pointer]:
+          - generic [ref=f1e38]: forum
+          - generic [ref=f1e39]: 메시지
+        - generic [ref=f1e40]: 브랜드
+        - generic [ref=f1e41] [cursor=pointer]:
+          - generic [ref=f1e42]: insights
+          - generic [ref=f1e43]: 현황 대시보드
+        - generic [ref=f1e44] [cursor=pointer]:
+          - generic [ref=f1e45]: corporate_fare
+          - generic [ref=f1e46]: 회사 관리
+        - generic [ref=f1e47] [cursor=pointer]:
+          - generic [ref=f1e48]: business
+          - generic [ref=f1e49]: 브랜드 관리
+        - generic [ref=f1e50] [cursor=pointer]:
+          - generic [ref=f1e139]: assignment_turned_in
+          - generic [ref=f1e140]: 오리엔시트 현황
+          - generic [ref=f1e141]: "1"
+        - generic [ref=f1e53] [cursor=pointer]:
+          - generic [ref=f1e142]: storefront
+          - generic [ref=f1e143]: 서베이 신청 목록
+          - generic [ref=f1e144]: "4"
+        - generic [ref=f1e56]: 회원 관리
+        - generic [ref=f1e57] [cursor=pointer]:
+          - generic [ref=f1e58]: group
+          - generic [ref=f1e59]: 인플루언서 목록
+        - generic [ref=f1e60] [cursor=pointer]:
+          - generic [ref=f1e61]: payments
+          - generic [ref=f1e62]: 정산 관리
+          - generic "정산대기만 보기" [ref=f1e145]: "16"
+        - generic [ref=f1e63]: 관리자 설정
+        - generic [ref=f1e146] [cursor=pointer]:
+          - generic [ref=f1e147]: tune
+          - generic [ref=f1e148]: 기준 데이터
+        - generic [ref=f1e149] [cursor=pointer]:
+          - generic [ref=f1e150]: quiz
+          - generic [ref=f1e151]: 자주 묻는 질문
+        - generic [ref=f1e64] [cursor=pointer]:
+          - generic [ref=f1e65]: admin_panel_settings
+          - generic [ref=f1e66]: 관리자 계정
+        - generic [ref=f1e67] [cursor=pointer]:
+          - generic [ref=f1e68]: bug_report
+          - generic [ref=f1e69]: 오류 로그
+        - generic [ref=f1e70] [cursor=pointer]:
+          - generic [ref=f1e71]: 김
+          - generic [ref=f1e72]: 김영근1
+        - generic [ref=f1e73] [cursor=pointer]:
+          - generic [ref=f1e74]: logout
+          - generic [ref=f1e75]: 로그아웃
+      - generic [ref=f1e76]:
+        - combobox [ref=f1e78] [cursor=pointer]:
+          - option "전체 관리자 화면" [selected]
+          - option "인플루언서 추천 명단"
+          - option "인플루언서 화면"
+        - generic "배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용" [ref=f1e79]:
+          - generic [ref=f1e80]: history
+          - text: 2026-07-23 08:47 · 83780a3
+    - main [ref=f1e81]:
+      - generic [ref=f1e82]:
+        - text: 입력하면 미리보기가 표시됩니다
+        - generic [ref=f1e1335]:
+          - generic [ref=f1e1337]:
+            - generic [ref=f1e1338]:
+              - generic [ref=f1e1339]: 신규 캠페인 등록
+              - generic [ref=f1e1340]:
+                - generic [ref=f1e1341]: 캠페인 노출
+                - switch [checked] [ref=f1e1342] [cursor=pointer]
+                - generic [ref=f1e1344]: "상태: 모집중"
+            - generic [ref=f1e1345]: 등록 후 바로 인플루언서에게 공개됩니다
+            - generic [ref=f1e1346]: 기본 정보
+            - generic [ref=f1e1347]:
+              - generic [ref=f1e1348]:
+                - generic [ref=f1e1349]: 캠페인명 필수
+                - textbox "그린티 세럼 체험단" [active] [ref=f1e1350]: QA삭제테스트-임시
+              - generic [ref=f1e1351]:
+                - generic [ref=f1e1352]: 브랜드 필수
+                - generic [ref=f1e1353]:
+                  - combobox [ref=f1e1354] [cursor=pointer]:
+                    - option "-- 브랜드 선택 --"
+                    - option "글로우 스킨케어 [BR-2026-0013]"
+                    - option "뷰앤디 [BR-2026-0034]"
+                    - option "신규브랜드1 [BR-2026-0035]"
+                    - option "Korea-Japan Cosmetics [BR-2026-0011]"
+                    - option "Q10 글로벌 유통 [BR-2026-0012]"
+                    - option "스타일 클로젯 [BR-2026-0018]"
+                    - option "내추럴 코스메틱 [BR-2026-0014]"
+                    - option "데일리 스낵 코리아 [BR-2026-0015]"
+                    - option "뷰티스킨 코리아 [BR-2026-0016]"
+                    - option "슈퍼키즈 [BR-2026-0017]"
+                    - option "오가닉 푸드 스토리 [BR-2026-0019]"
+                    - option "주방의 마법 [BR-2026-0020]"
+                    - option "프리미엄 워치 갤러리 [BR-2026-0021]"
+                    - option "홈데코 라운지 [BR-2026-0022]"
+                    - option "株式会社グリーンライフ (한국법인) [BR-2026-0023]"
+                    - option "F&B 스튜디오 [BR-2026-0010]"
+                    - option "Beauty Glow Inc. [BR-2026-0009]"
+                    - option "[DUMMY] 긴급-마감임박 [BR-2026-0037]"
+                    - option "[DUMMY] 긴급-취소다발 [BR-2026-0038]"
+                    - option "[DUMMY] 긴급-모집저조 [BR-2026-0039]"
+                    - option "[DUMMY] 긴급-복수사유 [BR-2026-0040]"
+                    - option "[DUMMY] 대응필요-마감3일 [BR-2026-0041]"
+                    - option "[DUMMY] 주의-모집저조 [BR-2026-0042]"
+                    - option "[DUMMY] 정상 [BR-2026-0043]"
+                    - option "【検証】モニター2段階 [BR-2026-0036]"
+                    - option "[TEST] TestBrand A [BR-2026-0026]" [selected]
+                    - option "테스트브랜드 [BR-2026-0030]"
+                    - option "[TEST] TestBrand C [BR-2026-0028]"
+                    - option "慎重なブランド [BR-2026-0031]"
+                    - option "慎重なブランド01 [BR-2026-0032]"
+                    - option "[TEST] TestBrand B [BR-2026-0027]"
+                    - option "이니스프리 [BR-2026-0029]"
+                  - button "add 신규" [ref=f1e1355] [cursor=pointer]:
+                    - generic [ref=f1e1356]: add
+                    - text: 신규
+                - generic [ref=f1e1357]:
+                  - text: "캠페인 번호:"
+                  - code [ref=f1e1701]: B0019-C###
+                  - text: 형식
+            - generic [ref=f1e1358]:
+              - generic [ref=f1e1359]:
+                - generic [ref=f1e1360]: 모집 타입 필수
+                - generic [ref=f1e1361]:
+                  - generic [ref=f1e1362] [cursor=pointer]:
+                    - generic [ref=f1e1363]: radio_button_checked
+                    - text: 리뷰어
+                  - generic [ref=f1e1364] [cursor=pointer]:
+                    - generic [ref=f1e1365]: radio_button_unchecked
+                    - text: 기프팅
+                  - generic [ref=f1e1366] [cursor=pointer]:
+                    - generic [ref=f1e1367]: radio_button_unchecked
+                    - text: 방문형
+              - generic [ref=f1e1368]:
+                - generic [ref=f1e1369]: 모집 인원 필수
+                - generic [ref=f1e1370]:
+                  - spinbutton "20" [ref=f1e1371]
+                  - generic [ref=f1e1372]: 명
+            - generic [ref=f1e1374]:
+              - generic [ref=f1e1375]: 카테고리
+              - combobox [ref=f1e1376] [cursor=pointer]:
+                - option "뷰티/코스메" [selected]
+                - option "푸드/그르메"
+                - option "패션/라이프"
+                - option "헬스/웰니스"
+                - option "기타"
+            - generic [ref=f1e1377]: 제품 정보
+            - generic [ref=f1e1378]:
+              - generic [ref=f1e1379]:
+                - generic [ref=f1e1380]:
+                  - text: 이미지
+                  - generic [ref=f1e1381]: 최대 8장
+                  - generic [ref=f1e1382]: 0/8
+                - generic [ref=f1e1383]: add_photo_alternate
+                - generic [ref=f1e1386]: "- 첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지로 사용됩니다 - 이미지를 드래그하여 순서를 변경할 수 있습니다 - 클릭 또는 드래그앤드롭으로 이미지를 등록할 수 있습니다 - 권장 사이즈: 1080 x 1080px (1:1 정사각형) - 권장 용량: 장당 5MB 이하 - 지원 확장자: JPG, PNG, WebP - 최대 8장까지 등록 가능합니다"
+              - generic [ref=f1e1387]:
+                - generic [ref=f1e1388]:
+                  - generic [ref=f1e1389]: 제품명 필수
+                  - textbox "원본 (일본어/영문 그대로)" [ref=f1e1390]
+                  - textbox "한국어 표기 (선택, 신청관리 등에서 노출)" [ref=f1e1391]
+                - generic [ref=f1e1392]:
+                  - generic [ref=f1e1393]: 상품 페이지 URL 필수
+                  - textbox "https://www.qoo10.jp/item/..." [ref=f1e1394]
+                - generic [ref=f1e1395]:
+                  - generic [ref=f1e1396]: 제품 금액 (¥)
+                  - spinbutton "3200" [ref=f1e1397]: "0"
+                - generic [ref=f1e1398]:
+                  - generic [ref=f1e1399]: 리워드 금액 (¥)
+                  - spinbutton "0" [ref=f1e1400]
+                  - generic [ref=f1e1401]: 0엔 = 제품 제공만
+                - generic [ref=f1e1402]:
+                  - generic [ref=f1e1403]: 리워드 추가 정보
+                  - textbox "지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)" [ref=f1e1404]
+                  - generic [ref=f1e1405]: 줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.
+            - generic [ref=f1e1406]: 모집 조건
+            - generic [ref=f1e1408]:
+              - generic [ref=f1e1409]: 채널 (복수 선택 가능)
+              - generic [ref=f1e1410]:
+                - generic [ref=f1e1411] [cursor=pointer]: Qoo10
+                - generic [ref=f1e1412] [cursor=pointer]: "@cosme"
+            - generic [ref=f1e1414]:
+              - generic [ref=f1e1415]: 콘텐츠 종류 필수 (복수 선택 가능)
+              - generic [ref=f1e1416]:
+                - generic [ref=f1e1417] [cursor=pointer]: 동영상
+                - generic [ref=f1e1418] [cursor=pointer]: 이미지
+            - generic [ref=f1e1419]:
+              - generic [ref=f1e1420]:
+                - generic [ref=f1e1421]: 모집 기간 필수
+                - textbox "시작일 ~ 종료일 선택" [ref=f1e1422] [cursor=pointer]
+                - generic [ref=f1e1423]: 인플루언서를 모집하는 기간을 설정하세요
+              - generic [ref=f1e1424]:
+                - generic [ref=f1e1425]: 구매 및 영수증 제출 기간
+                - textbox "시작일 ~ 종료일 선택" [ref=f1e1426] [cursor=pointer]
+                - generic [ref=f1e1427]: 리뷰어용. 이 기간 내 구매한 영수증만 인정
+              - generic [ref=f1e1428]:
+                - generic [ref=f1e1429]: 결과물 제출 마감일
+                - textbox "연도. 월. 일." [ref=f1e1430] [cursor=pointer]
+                - generic [ref=f1e1431]: 이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 마감 없이 무기한 제출 가능
+            - generic [ref=f1e1432]:
+              - generic [ref=f1e1433]: 당선 발표 안내
+              - textbox "選考後、LINEにてご連絡" [ref=f1e1434]
+              - generic [ref=f1e1435]: 인플루언서 캠페인 상세에 표시되는 문구. 기본값 그대로 사용 가능
+            - generic [ref=f1e1436]: 콘텐츠 가이드
+            - generic [ref=f1e1437]:
+              - generic [ref=f1e1438]: 캠페인 설명
+              - generic [ref=f1e1439]:
+                - toolbar [ref=f1e1440]:
+                  - generic [ref=f1e1442]:
+                    - button "Normal" [ref=f1e1443] [cursor=pointer]
+                    - text: Heading 2 Heading 3 Heading 4 Normal
+                  - generic [ref=f1e1447]:
+                    - button "bold" [ref=f1e1448] [cursor=pointer]
+                    - button "italic" [ref=f1e1452] [cursor=pointer]
+                    - button "underline" [ref=f1e1455] [cursor=pointer]
+                    - button "strike" [ref=f1e1459] [cursor=pointer]
+                  - generic [ref=f1e1464]:
+                    - 'button "list: ordered" [ref=f1e1465] [cursor=pointer]'
+                    - 'button "list: bullet" [ref=f1e1470] [cursor=pointer]'
+                  - generic [ref=f1e1472]:
+                    - button "link" [ref=f1e1473] [cursor=pointer]
+                    - button "blockquote" [ref=f1e1478] [cursor=pointer]
+                  - button "clean" [ref=f1e1485] [cursor=pointer]
+                - generic [ref=f1e1491]:
+                  - paragraph [ref=f1e1493]
+                  - text: "Visit URL: EditRemove"
+            - generic [ref=f1e1494]:
+              - generic [ref=f1e1495]:
+                - generic [ref=f1e1496]: 필수 해시태그
+                - textbox "입력 후 콤마(,)로 추가" [ref=f1e1498]
+              - generic [ref=f1e1499]:
+                - generic [ref=f1e1500]: 필수 멘션
+                - textbox "입력 후 콤마(,)로 추가" [ref=f1e1502]
+            - generic [ref=f1e1503]:
+              - generic [ref=f1e1504]: 브랜드 어필 포인트
+              - generic [ref=f1e1505]:
+                - toolbar [ref=f1e1506]:
+                  - generic [ref=f1e1508]:
+                    - button "Normal" [ref=f1e1509] [cursor=pointer]
+                    - text: Heading 2 Heading 3 Heading 4 Normal
+                  - generic [ref=f1e1513]:
+                    - button "bold" [ref=f1e1514] [cursor=pointer]
+                    - button "italic" [ref=f1e1518] [cursor=pointer]
+                    - button "underline" [ref=f1e1521] [cursor=pointer]
+                    - button "strike" [ref=f1e1525] [cursor=pointer]
+                  - generic [ref=f1e1530]:
+                    - 'button "list: ordered" [ref=f1e1531] [cursor=pointer]'
+                    - 'button "list: bullet" [ref=f1e1536] [cursor=pointer]'
+                  - generic [ref=f1e1538]:
+                    - button "link" [ref=f1e1539] [cursor=pointer]
+                    - button "blockquote" [ref=f1e1544] [cursor=pointer]
+                  - button "clean" [ref=f1e1551] [cursor=pointer]
+                - generic [ref=f1e1557]:
+                  - paragraph [ref=f1e1559]
+                  - text: "Visit URL: EditRemove"
+            - generic [ref=f1e1560]:
+              - generic [ref=f1e1561]: 촬영 가이드
+              - generic [ref=f1e1562]:
+                - toolbar [ref=f1e1563]:
+                  - generic [ref=f1e1565]:
+                    - button "Normal" [ref=f1e1566] [cursor=pointer]
+                    - text: Heading 2 Heading 3 Heading 4 Normal
+                  - generic [ref=f1e1570]:
+                    - button "bold" [ref=f1e1571] [cursor=pointer]
+                    - button "italic" [ref=f1e1575] [cursor=pointer]
+                    - button "underline" [ref=f1e1578] [cursor=pointer]
+                    - button "strike" [ref=f1e1582] [cursor=pointer]
+                  - generic [ref=f1e1587]:
+                    - 'button "list: ordered" [ref=f1e1588] [cursor=pointer]'
+                    - 'button "list: bullet" [ref=f1e1593] [cursor=pointer]'
+                  - generic [ref=f1e1595]:
+                    - button "link" [ref=f1e1596] [cursor=pointer]
+                    - button "blockquote" [ref=f1e1601] [cursor=pointer]
+                  - button "clean" [ref=f1e1608] [cursor=pointer]
+                - generic [ref=f1e1614]:
+                  - paragraph [ref=f1e1616]
+                  - text: "Visit URL: EditRemove"
+            - generic [ref=f1e1617]:
+              - generic [ref=f1e1618]: 참여방법
+              - generic [ref=f1e1619]: 번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요
+              - button "편집" [ref=f1e1621] [cursor=pointer]
+            - generic [ref=f1e1622]:
+              - generic [ref=f1e1623]: NG 사항 (인플루언서 상세 페이지에 노출 — 신청 모달 미노출)
+              - generic [ref=f1e1624]: 번들 미선택 또는 항목 없음 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요
+              - button "편집" [ref=f1e1626] [cursor=pointer]
+            - generic [ref=f1e1627]:
+              - generic [ref=f1e1628]: 주의사항 (인플루언서 상세 페이지와 신청 모달에 모두 노출)
+              - generic [ref=f1e1629]: 번들 미선택 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요
+              - button "편집" [ref=f1e1631] [cursor=pointer]
+            - generic [ref=f1e1632]:
+              - button "취소" [ref=f1e1633] [cursor=pointer]
+              - button "캠페인 등록" [ref=f1e1634] [cursor=pointer]
+          - complementary [ref=f1e1635]:
+            - generic [ref=f1e1636]:
+              - generic [ref=f1e1637]: 미리보기
+              - generic [ref=f1e1638]:
+                - generic [ref=f1e1639]:
+                  - button "日本語" [ref=f1e1640] [cursor=pointer]
+                  - button "한국어" [ref=f1e1641] [cursor=pointer]
+                - button "chevron_right" [ref=f1e1642] [cursor=pointer]
+            - generic [ref=f1e1702]:
+              - generic [ref=f1e1703]:
+                - generic [ref=f1e1704]: Reverb
+                - generic [ref=f1e1705]: プレビュー
+              - generic [ref=f1e1706]:
+                - generic [ref=f1e1707]: 画像なし
+                - generic [ref=f1e1709]:
+                  - generic [ref=f1e1710]: "[TEST] TestBrand A"
+                  - generic [ref=f1e1711]: レビュアー
+                  - generic [ref=f1e1712]: QA삭제테스트-임시
+                - generic [ref=f1e1713]:
+                  - generic [ref=f1e1714]:
+                    - generic [ref=f1e1715]: 製品名
+                    - generic [ref=f1e1716]: —
+                  - generic [ref=f1e1717]:
+                    - generic [ref=f1e1718]: 募集タイプ
+                    - generic [ref=f1e1719]: Reviewer
+                  - generic [ref=f1e1721]:
+                    - generic [ref=f1e1722]: 募集期間
+                    - generic [ref=f1e1723]: 2026/7/23 〜 —
+                  - generic [ref=f1e1724]:
+                    - generic [ref=f1e1725]: 募集人数
+                    - generic [ref=f1e1726]: 20名
+              - generic [ref=f1e1727]:
+                - generic [ref=f1e1728]: QA삭제테스트-임시
+                - generic [ref=f1e1729]: 応募
+  - text: "* * * * * * * * * * * *"

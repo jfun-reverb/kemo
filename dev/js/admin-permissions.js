@@ -38,7 +38,11 @@ function permCellValue(role, key) {
 }
 
 // 슈퍼관리자 칸에서 잠글 기능 — 이걸 제한하면 되돌릴 방법이 없어진다(사양서 §4-4)
-const PERM_SUPER_LOCKED = ['permissions.manage', 'admin.manage', 'menu.permissions'];
+//   menu.admin-accounts 추가(2026-07-29, 서버 271) — 사이드바 「권한 관리」 상설 항목을 없애면서
+//   「관리자 계정」 화면 안 버튼이 이 화면의 유일한 진입점이 됐다. 슈퍼가 그 메뉴를 숨기면 잠긴다.
+//   ⚠️ 등급 2종(campaign_admin·campaign_manager)에는 이 잠금을 걸지 않는다 — 그들이 관리자 계정
+//      메뉴를 못 봐도 슈퍼의 복구 경로와 무관하고, 사용자 결정이 「나머지는 권한에 따라」이기 때문.
+const PERM_SUPER_LOCKED = ['permissions.manage', 'admin.manage', 'menu.permissions', 'menu.admin-accounts'];
 
 // 「이 설정이 실제로 먹히는가」 배지 — 슈퍼관리자 열에만 의미가 있다
 const PERM_EFFECT_BADGE = {
@@ -88,14 +92,18 @@ function renderPermGrid() {
          +  '<span class="material-icons-round notranslate perm-caret" translate="no" id="permCaret' + gi + '">expand_more</span>'
          +  esc(g.category) + '</td></tr>';
     g.items.forEach(f => {
-      const locked = PERM_DENYLIST.indexOf(f.key) !== -1;
+      // 두 잠금은 서로 **독립**이다(2026-07-29 정정) — 예전엔 슈퍼 잠금이 denylist 의 부분집합으로만
+      //   동작해서, denylist 에 없는 menu.admin-accounts 를 PERM_SUPER_LOCKED 에 넣어도 안 잠겼다.
+      //   · denied      = 등급 2종에게 「숨김」 고정 + 행에 「슈퍼 전용」 배지 (권한 상승 차단)
+      //   · superLocked = 슈퍼관리자 칸을 「쓰기」로 고정 (잠금 사고 방지)
+      const denied = PERM_DENYLIST.indexOf(f.key) !== -1;
+      const superLocked = PERM_SUPER_LOCKED.indexOf(f.key) !== -1;
       html += '<tr class="perm-item perm-cat-' + gi + '"><td class="perm-feat">' + esc(f.label_ko)
-           +  (locked ? ' <span class="perm-tag perm-tag-super">슈퍼 전용</span>' : '')
-           +  (locked ? '' : (PERM_EFFECT_BADGE[permSuperEffect(f.key)] || '')) + '</td>';
+           +  (denied ? ' <span class="perm-tag perm-tag-super">슈퍼 전용</span>' : '')
+           +  (denied ? '' : (PERM_EFFECT_BADGE[permSuperEffect(f.key)] || '')) + '</td>';
       PERM_ROLES.forEach(r => {
         const isSuper = r.key === 'super_admin';
-        // 슈퍼관리자 열은 이제 편집 가능. 단 되돌릴 길을 끊는 3종만 「쓰기」로 고정.
-        const cellLocked = locked && (isSuper ? PERM_SUPER_LOCKED.indexOf(f.key) !== -1 : true);
+        const cellLocked = isSuper ? superLocked : denied;
         if (cellLocked) {
           html += '<td class="perm-cell perm-locked" title="'
                +  (isSuper ? '이 항목을 제한하면 권한을 되돌릴 수 없어 고정합니다' : '권한 상승을 막기 위해 고정된 항목입니다')
