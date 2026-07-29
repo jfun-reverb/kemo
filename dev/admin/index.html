@@ -119,6 +119,11 @@
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+        <!-- 권한 관리 — 슈퍼관리자에게만 보이고, 숨김 설정이 절대 적용되지 않는 상설 항목.
+             슈퍼관리자가 스스로를 제한할 수 있게 되면서(마이그레이션 268~270) 이 화면이
+             유일한 복구 경로가 됐다. 예전엔 「관리자 계정」 화면 안의 버튼이 유일한 입구여서,
+             그 메뉴를 숨기면 되돌릴 방법이 없었다. -->
+        <div class="admin-si" data-pane="permissions" id="adminPermissionsSi" onclick="navAdminPaneReload('permissions')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">shield</span><span class="si-text">권한 관리</span></div>
         <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openErrorsOpen()" title="미해결만 보기">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>

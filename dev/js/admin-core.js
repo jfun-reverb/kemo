@@ -141,11 +141,15 @@ function switchAdminPane(pane, el, pushHistory) {
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
-  if (pane === 'permissions' && !_isSuper) {
-    if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
-    return switchAdminPane('dashboard', null, pushHistory);
-  }
-  if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+  if (pane === 'permissions') {
+    // ⚠️ 권한 관리 화면은 등급만 보고 판단하며, 숨김 설정을 절대 적용하지 않는다.
+    //    슈퍼관리자가 스스로를 제한할 수 있게 되면서(마이그레이션 268~270), 이 화면까지
+    //    숨길 수 있으면 되돌릴 방법이 없어진다. 여기가 유일한 복구 경로다.
+    if (!_isSuper) {
+      if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
+      return switchAdminPane('dashboard', null, pushHistory);
+    }
+  } else if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
