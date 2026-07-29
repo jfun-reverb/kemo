@@ -274,7 +274,13 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
-              <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+                <!-- 상태별 인플루언서 노출 안내 — 표 헤더 아이콘은 눈에 안 띄어 상단 버튼으로 옮김(2026-07-29) -->
+                <button class="btn btn-ghost btn-sm" onclick="openCampStatusHelp()" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">help_outline</span>도움말
+                </button>
+              </div>
             </div>
             <div id="campFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
