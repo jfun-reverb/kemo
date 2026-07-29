@@ -198,9 +198,10 @@ function setCampStatusTab(btn) {
 function updateCampTableHead() {
   const head = $('adminCampTableHead');
   if (!head) return;
-  const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
+  // 상태 안내는 표 헤더의 작은 아이콘이 아니라 화면 상단 「도움말」 버튼으로 옮겼다
+  // (열 제목 옆 아이콘은 있는 줄도 모른다는 지적 — 2026-07-29)
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
@@ -208,7 +209,7 @@ function updateCampTableHead() {
       <th>채널</th>
       <th>브랜드</th>
       <th>제품</th>
-      <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>모집기간</th>
