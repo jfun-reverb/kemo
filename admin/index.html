@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785287063';
+  var CURRENT_BUILD = 'v1785288301';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2312,7 +2312,25 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-cell { min-width: 96px; }
 .perm-locked { color: var(--muted, var(--faint)); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
-.perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
+/* 미저장 변경 표시 — 배경은 아래 값별 색(.perm-lv-*)이 담당하므로 여기선 테두리만 */
+.perm-sel.perm-dirty { border-color: var(--primary); font-weight: 600; }
+
+/* 접근 수준(쓰기·읽기·숨김)을 색 + 아이콘으로 구분 (2026-07-29)
+   글자만으로는 세 값이 한눈에 안 들어온다는 지적. 색만으로 구분하지 않도록 아이콘을 함께 쓴다.
+   아이콘은 select 안에 넣을 수 없어 감싸는 칸에 겹쳐 놓고, select 왼쪽 여백으로 자리를 만든다. */
+.perm-sel-wrap{position:relative;display:inline-flex;align-items:center}
+.perm-sel-ico{position:absolute;left:7px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+.perm-sel-wrap .perm-sel{padding-left:26px;font-weight:600}
+.perm-lv-write .perm-sel{background:#EAF7EF;border-color:#9AD4B2;color:#166534}
+.perm-lv-write .perm-sel-ico{color:#1F8A4C}
+.perm-lv-read .perm-sel{background:#EEF3FE;border-color:#A9C2F5;color:#1D4ED8}
+.perm-lv-read .perm-sel-ico{color:#2563EB}
+.perm-lv-hidden .perm-sel{background:var(--surface-container-low);border-color:var(--outline);color:var(--muted)}
+.perm-lv-hidden .perm-sel-ico{color:var(--muted)}
+/* 저장 안 된 변경은 어떤 값이든 테두리를 굵게 — 색 구분과 겹치지 않게 두께로 표시 */
+/* ⚠️ 여기서 var(--pink) 를 쓰지 않는다 — 2026-07-16 무채색 개편으로 그 변수는 거의 검정(#1A1A1A)이라
+   테두리(검정)와 그림자(핑크)가 서로 다른 계열이 된다. 강조색을 직접 지정해 두 값을 맞춘다. */
+.perm-sel-wrap .perm-sel.perm-dirty{border-width:2px;border-color:#DC2626;box-shadow:0 0 0 2px rgba(220,38,38,.14)}
 .perm-tag {
   display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
@@ -2650,7 +2668,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-29 10:04 · a7676a4</span>
+          <span class="admin-build-text">2026-07-29 10:25 · b6666c3</span>
         </div>
       </div>
     </aside>
@@ -31459,6 +31477,8 @@ const PERM_LEVELS = [
   {v: 'read',   label: '읽기'},
   {v: 'hidden', label: '숨김'},
 ];
+// 값별 아이콘 — 색과 함께 써서 색으로만 구분하지 않게 한다(색각 이상 대비)
+const PERM_LEVEL_ICON = { write: 'edit', read: 'visibility', hidden: 'visibility_off' };
 // 권한 상승 위험 — 이 기능들은 super 전용 유지(admin/manager 는 hidden 고정·편집 잠금).
 //   permissions.manage·admin.manage 는 서버 RPC denylist 와 동일(권한 상승 차단).
 //   menu.permissions 는 이 화면 자체의 사이드바 노출 — admin/manager 에게 write 로 열면 죽은 메뉴가 보이므로 잠금(서버 진입은 별도 super 가드가 차단).
@@ -31529,10 +31549,14 @@ function renderPermGrid() {
         } else {
           const val = permCellValue(r.key, f.key);
           const dirty = (r.key + '|' + f.key) in _permEdited;
-          let sel = '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
+          // 글자만으로는 세 값이 한눈에 안 구분돼 색 + 아이콘을 함께 붙인다(2026-07-29 지적).
+          // 아이콘은 select 안에 못 넣으므로 감싸는 칸에 겹쳐 놓고 select 왼쪽 여백을 준다.
+          let sel = '<span class="perm-sel-wrap perm-lv-' + val + '">'
+                 +  '<span class="material-icons-round notranslate perm-sel-ico" translate="no">' + PERM_LEVEL_ICON[val] + '</span>'
+                 +  '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
                  +  '" onchange="onPermCell(\'' + r.key + '\',\'' + f.key + '\',this)">';
           PERM_LEVELS.forEach(l => { sel += '<option value="' + l.v + '"' + (l.v === val ? ' selected' : '') + '>' + l.label + '</option>'; });
-          sel += '</select>';
+          sel += '</select></span>';
           html += '<td class="perm-cell">' + sel + '</td>';
         }
       });
@@ -31582,6 +31606,14 @@ function onPermCell(role, key, sel) {
   if (sel.value === cur) delete _permEdited[k];
   else _permEdited[k] = sel.value;
   sel.classList.toggle('perm-dirty', (k in _permEdited));
+  // 색·아이콘도 새 값에 맞춰 바로 바꿔준다(재렌더 없이)
+  const wrap = sel.parentElement;
+  if (wrap && wrap.classList.contains('perm-sel-wrap')) {
+    wrap.classList.remove('perm-lv-write', 'perm-lv-read', 'perm-lv-hidden');
+    wrap.classList.add('perm-lv-' + sel.value);
+    const ico = wrap.querySelector('.perm-sel-ico');
+    if (ico) ico.textContent = PERM_LEVEL_ICON[sel.value] || 'edit';
+  }
   updatePermSaveBar();
 }
 
