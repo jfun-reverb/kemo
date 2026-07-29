@@ -2126,3 +2126,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .chist-empty{color:var(--muted)}
 .chist-clip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .chist-thumb{width:auto;max-width:120px;max-height:60px;border-radius:4px;border:1px solid var(--line);display:block}
+/* 권한 효과 배지 — 「이 설정이 실제로 먹히는가」 (2026-07-29) */
+.perm-tag-server { background:#FEE2E2; color:#B91C1C; }
+.perm-tag-none { background:var(--surface-container); color:var(--muted); }
