@@ -1574,11 +1574,12 @@
               </div>
               <div class="perm-actions">
                 <span class="perm-changecount">변경 없음</span>
+                <button class="btn btn-xs" id="permSuperRestoreBtn" onclick="restoreSuperPermDefaults()" disabled title="슈퍼관리자 권한만 전권으로 되돌립니다 (다른 등급 설정은 그대로)">슈퍼관리자만 복원</button>
                 <button class="btn btn-xs" id="permRestoreBtn" onclick="restorePermDefaults()" disabled>기본값 복원</button>
                 <button class="btn btn-primary btn-xs" id="permSaveBtn" onclick="savePermChanges()" disabled>저장</button>
               </div>
             </div>
-            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. 지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>
+            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>항목마다 <b>제한이 어디까지 먹히는지</b>가 다릅니다. <span class="perm-tag perm-tag-server">서버 차단</span>은 데이터까지 막히고, <span class="perm-tag">화면에서만</span>은 메뉴·버튼만 감춰지며(데이터는 서버에서 열려 있음), <span class="perm-tag perm-tag-none">슈퍼 적용 안 됨</span>은 슈퍼관리자에게는 설정이 적용되지 않습니다. 슈퍼관리자 제한은 실수 방지용이며 이 화면에서 언제든 되돌릴 수 있습니다.</span></div>
           </div>
           <div class="admin-card">
             <div id="permPaneBody"><!-- admin-permissions.js 가 그리드 렌더 --></div>
