@@ -17,6 +17,8 @@ const PERM_LEVELS = [
   {v: 'read',   label: '읽기'},
   {v: 'hidden', label: '숨김'},
 ];
+// 값별 아이콘 — 색과 함께 써서 색으로만 구분하지 않게 한다(색각 이상 대비)
+const PERM_LEVEL_ICON = { write: 'edit', read: 'visibility', hidden: 'visibility_off' };
 // 권한 상승 위험 — 이 기능들은 super 전용 유지(admin/manager 는 hidden 고정·편집 잠금).
 //   permissions.manage·admin.manage 는 서버 RPC denylist 와 동일(권한 상승 차단).
 //   menu.permissions 는 이 화면 자체의 사이드바 노출 — admin/manager 에게 write 로 열면 죽은 메뉴가 보이므로 잠금(서버 진입은 별도 super 가드가 차단).
@@ -87,10 +89,14 @@ function renderPermGrid() {
         } else {
           const val = permCellValue(r.key, f.key);
           const dirty = (r.key + '|' + f.key) in _permEdited;
-          let sel = '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
+          // 글자만으로는 세 값이 한눈에 안 구분돼 색 + 아이콘을 함께 붙인다(2026-07-29 지적).
+          // 아이콘은 select 안에 못 넣으므로 감싸는 칸에 겹쳐 놓고 select 왼쪽 여백을 준다.
+          let sel = '<span class="perm-sel-wrap perm-lv-' + val + '">'
+                 +  '<span class="material-icons-round notranslate perm-sel-ico" translate="no">' + PERM_LEVEL_ICON[val] + '</span>'
+                 +  '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
                  +  '" onchange="onPermCell(\'' + r.key + '\',\'' + f.key + '\',this)">';
           PERM_LEVELS.forEach(l => { sel += '<option value="' + l.v + '"' + (l.v === val ? ' selected' : '') + '>' + l.label + '</option>'; });
-          sel += '</select>';
+          sel += '</select></span>';
           html += '<td class="perm-cell">' + sel + '</td>';
         }
       });
@@ -140,6 +146,14 @@ function onPermCell(role, key, sel) {
   if (sel.value === cur) delete _permEdited[k];
   else _permEdited[k] = sel.value;
   sel.classList.toggle('perm-dirty', (k in _permEdited));
+  // 색·아이콘도 새 값에 맞춰 바로 바꿔준다(재렌더 없이)
+  const wrap = sel.parentElement;
+  if (wrap && wrap.classList.contains('perm-sel-wrap')) {
+    wrap.classList.remove('perm-lv-write', 'perm-lv-read', 'perm-lv-hidden');
+    wrap.classList.add('perm-lv-' + sel.value);
+    const ico = wrap.querySelector('.perm-sel-ico');
+    if (ico) ico.textContent = PERM_LEVEL_ICON[sel.value] || 'edit';
+  }
   updatePermSaveBar();
 }
 
