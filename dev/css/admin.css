@@ -1859,13 +1859,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    글자만으로는 세 값이 한눈에 안 들어온다는 지적. 색만으로 구분하지 않도록 아이콘을 함께 쓴다.
    아이콘은 select 안에 넣을 수 없어 감싸는 칸에 겹쳐 놓고, select 왼쪽 여백으로 자리를 만든다. */
 .perm-sel-wrap{position:relative;display:inline-flex;align-items:center}
-.perm-sel-ico{position:absolute;left:7px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
-.perm-sel-wrap .perm-sel{padding-left:26px;font-weight:600}
-.perm-lv-write .perm-sel{background:#EAF7EF;border-color:#9AD4B2;color:#166534}
+.perm-sel-ico{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none}
+/* 좌: 아이콘 자리, 우: select 기본 화살표 자리. 값이 세 글자라 폭을 더 줄 필요는 없다. */
+.perm-sel-wrap .perm-sel{padding:3px 20px 3px 21px;font-size:12px;font-weight:600;line-height:1.5;background-position:right 7px center;background-size:8px 12px}
+/* ⚠️ background 축약형을 쓰면 select.perm-sel 의 화살표 이미지(background-image)가 지워진다.
+   반드시 background-color 만 지정할 것 (2026-07-29 화살표 실종 사고). */
+.perm-lv-write .perm-sel{background-color:#EAF7EF;border-color:#9AD4B2;color:#166534}
 .perm-lv-write .perm-sel-ico{color:#1F8A4C}
-.perm-lv-read .perm-sel{background:#EEF3FE;border-color:#A9C2F5;color:#1D4ED8}
+.perm-lv-read .perm-sel{background-color:#EEF3FE;border-color:#A9C2F5;color:#1D4ED8}
 .perm-lv-read .perm-sel-ico{color:#2563EB}
-.perm-lv-hidden .perm-sel{background:var(--surface-container-low);border-color:var(--outline);color:var(--muted)}
+.perm-lv-hidden .perm-sel{background-color:var(--surface-container-low);border-color:var(--outline);color:var(--muted)}
 .perm-lv-hidden .perm-sel-ico{color:var(--muted)}
 /* 저장 안 된 변경은 어떤 값이든 테두리를 굵게 — 색 구분과 겹치지 않게 두께로 표시 */
 /* ⚠️ 여기서 var(--pink) 를 쓰지 않는다 — 2026-07-16 무채색 개편으로 그 변수는 거의 검정(#1A1A1A)이라
