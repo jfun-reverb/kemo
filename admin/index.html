@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785138434';
+  var CURRENT_BUILD = 'v1785294179';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -591,7 +591,7 @@ input.admin-filter{padding-right:8px}
 /* 필터 영역 한 줄 정렬 (검색 + 필터를 같은 행에. 다른 목록 페인과 동일 패턴) */
 .admin-filter-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
 /* 운영 현황 페인 — 브랜드 카드 그리드 */
-.brand-ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.brand-ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
 .brand-ops-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s,transform .15s}
 .brand-ops-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
 @keyframes brandOpsPulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -2312,7 +2312,28 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-cell { min-width: 96px; }
 .perm-locked { color: var(--muted, var(--faint)); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
-.perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
+/* 미저장 변경 표시 — 배경은 아래 값별 색(.perm-lv-*)이 담당하므로 여기선 테두리만 */
+.perm-sel.perm-dirty { border-color: var(--primary); font-weight: 600; }
+
+/* 접근 수준(쓰기·읽기·숨김)을 색 + 아이콘으로 구분 (2026-07-29)
+   글자만으로는 세 값이 한눈에 안 들어온다는 지적. 색만으로 구분하지 않도록 아이콘을 함께 쓴다.
+   아이콘은 select 안에 넣을 수 없어 감싸는 칸에 겹쳐 놓고, select 왼쪽 여백으로 자리를 만든다. */
+.perm-sel-wrap{position:relative;display:inline-flex;align-items:center}
+.perm-sel-ico{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none}
+/* 좌: 아이콘 자리, 우: select 기본 화살표 자리. 값이 세 글자라 폭을 더 줄 필요는 없다. */
+.perm-sel-wrap .perm-sel{padding:3px 20px 3px 21px;font-size:12px;font-weight:600;line-height:1.5;background-position:right 7px center;background-size:8px 12px}
+/* ⚠️ background 축약형을 쓰면 select.perm-sel 의 화살표 이미지(background-image)가 지워진다.
+   반드시 background-color 만 지정할 것 (2026-07-29 화살표 실종 사고). */
+.perm-lv-write .perm-sel{background-color:#EAF7EF;border-color:#9AD4B2;color:#166534}
+.perm-lv-write .perm-sel-ico{color:#1F8A4C}
+.perm-lv-read .perm-sel{background-color:#EEF3FE;border-color:#A9C2F5;color:#1D4ED8}
+.perm-lv-read .perm-sel-ico{color:#2563EB}
+.perm-lv-hidden .perm-sel{background-color:var(--surface-container-low);border-color:var(--outline);color:var(--muted)}
+.perm-lv-hidden .perm-sel-ico{color:var(--muted)}
+/* 저장 안 된 변경은 어떤 값이든 테두리를 굵게 — 색 구분과 겹치지 않게 두께로 표시 */
+/* ⚠️ 여기서 var(--pink) 를 쓰지 않는다 — 2026-07-16 무채색 개편으로 그 변수는 거의 검정(#1A1A1A)이라
+   테두리(검정)와 그림자(핑크)가 서로 다른 계열이 된다. 강조색을 직접 지정해 두 값을 맞춘다. */
+.perm-sel-wrap .perm-sel.perm-dirty{border-width:2px;border-color:#DC2626;box-shadow:0 0 0 2px rgba(220,38,38,.14)}
 .perm-tag {
   display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
@@ -2565,6 +2586,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .chist-empty{color:var(--muted)}
 .chist-clip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .chist-thumb{width:auto;max-width:120px;max-height:60px;border-radius:4px;border:1px solid var(--line);display:block}
+/* 권한 효과 배지 — 「이 설정이 실제로 먹히는가」 (2026-07-29) */
+.perm-tag-server { background:#FEE2E2; color:#B91C1C; }
+.perm-tag-none { background:var(--surface-container); color:var(--muted); }
 
 </style>
 </head>
@@ -2628,6 +2652,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+        <!-- 권한 관리 — 슈퍼관리자에게만 보이고, 숨김 설정이 절대 적용되지 않는 상설 항목.
+             슈퍼관리자가 스스로를 제한할 수 있게 되면서(마이그레이션 268~270) 이 화면이
+             유일한 복구 경로가 됐다. 예전엔 「관리자 계정」 화면 안의 버튼이 유일한 입구여서,
+             그 메뉴를 숨기면 되돌릴 방법이 없었다. -->
+        <div class="admin-si" data-pane="permissions" id="adminPermissionsSi" onclick="navAdminPaneReload('permissions')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">shield</span><span class="si-text">권한 관리</span></div>
         <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openErrorsOpen()" title="미해결만 보기">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
@@ -2650,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-27 16:47 · 7346138</span>
+          <span class="admin-build-text">2026-07-29 12:02 · b350749</span>
         </div>
       </div>
     </aside>
@@ -2783,7 +2812,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
-              <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+                <!-- 상태별 인플루언서 노출 안내 — 표 헤더 아이콘은 눈에 안 띄어 상단 버튼으로 옮김(2026-07-29) -->
+                <button class="btn btn-ghost btn-sm" onclick="openCampStatusHelp()" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">help_outline</span>도움말
+                </button>
+              </div>
             </div>
             <div id="campFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -4072,11 +4107,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="perm-actions">
                 <span class="perm-changecount">변경 없음</span>
+                <button class="btn btn-xs" id="permSuperRestoreBtn" onclick="restoreSuperPermDefaults()" disabled title="슈퍼관리자 권한만 전권으로 되돌립니다 (다른 등급 설정은 그대로)">슈퍼관리자만 복원</button>
                 <button class="btn btn-xs" id="permRestoreBtn" onclick="restorePermDefaults()" disabled>기본값 복원</button>
                 <button class="btn btn-primary btn-xs" id="permSaveBtn" onclick="savePermChanges()" disabled>저장</button>
               </div>
             </div>
-            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. 지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>
+            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>항목마다 <b>제한이 어디까지 먹히는지</b>가 다릅니다. <span class="perm-tag perm-tag-server">서버 차단</span>은 데이터까지 막히고, <span class="perm-tag">화면에서만</span>은 메뉴·버튼만 감춰지며(데이터는 서버에서 열려 있음), <span class="perm-tag perm-tag-none">슈퍼 적용 안 됨</span>은 슈퍼관리자에게는 설정이 적용되지 않습니다. 슈퍼관리자 제한은 실수 방지용이며 이 화면에서 언제든 되돌릴 수 있습니다.</span></div>
           </div>
           <div class="admin-card">
             <div id="permPaneBody"><!-- admin-permissions.js 가 그리드 렌더 --></div>
@@ -7851,10 +7887,28 @@ function setRolePermMap(rows) {
   _rolePermMap = m;
 }
 const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
-// 현재 관리자의 feature 접근수준. super_admin=항상 write. 역할 미확정·미로드·미등록=write(fail-open).
+
+// 슈퍼관리자가 스스로를 제한했을 때 그 설정이 「어디까지 실제로 먹히는지」.
+//   server = 서버가 데이터까지 막음  ·  client = 화면에서만 사라짐  ·  none = 아무 일도 안 일어남
+//   ⚠️ none 인 항목들은 서버 가드가 is_campaign_admin() 하드코딩이고 화면 가드도 등급 직접 비교라
+//      권한 설정을 무시한다. 그 12개를 진짜로 막으려면 서버 가드를 갈아끼우는 별도 작업이 필요하다
+//      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
+const PERM_SUPER_SERVER_ENFORCED = [
+  'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
+  'outbound.view', 'campaign.caution_history_view'
+];
+function permSuperEffect(featureKey) {
+  if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
+  if (featureKey.indexOf('menu.') === 0 || featureKey === 'influencer.excel_sensitive') return 'client';
+  return 'none';
+}
+// 현재 관리자의 feature 접근수준. 역할 미확정·미로드·미등록=write(fail-open).
+//   super_admin 도 이제 설정을 따른다(마이그레이션 268~270 — 스스로를 제한할 수 있음).
+//   단 「행이 없으면 전권」은 서버 판정과 동일한 계약이라, 미등록 기본값 write 가 그대로 맞다.
+//   ⚠️ 권한 관리 화면 진입만은 이 값을 보지 않는다(admin-core.js switchAdminPane) — 잠금 방지.
 function permLevel(featureKey) {
   const role = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? currentAdminInfo.role : null;
-  if (role === 'super_admin' || !role) return 'write';
+  if (!role) return 'write';
   return _rolePermMap[role + '|' + featureKey] || 'write';
 }
 function canWrite(featureKey) { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 2; }
@@ -13339,11 +13393,15 @@ function switchAdminPane(pane, el, pushHistory) {
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
-  if (pane === 'permissions' && !_isSuper) {
-    if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
-    return switchAdminPane('dashboard', null, pushHistory);
-  }
-  if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+  if (pane === 'permissions') {
+    // ⚠️ 권한 관리 화면은 등급만 보고 판단하며, 숨김 설정을 절대 적용하지 않는다.
+    //    슈퍼관리자가 스스로를 제한할 수 있게 되면서(마이그레이션 268~270), 이 화면까지
+    //    숨길 수 있으면 되돌릴 방법이 없어진다. 여기가 유일한 복구 경로다.
+    if (!_isSuper) {
+      if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
+      return switchAdminPane('dashboard', null, pushHistory);
+    }
+  } else if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
@@ -31440,7 +31498,8 @@ async function resolveClientErrorAction(status) {
 //   그리드에서 super_admin 이 접근수준(쓰기/읽기/숨김)을 설정.
 //   저장 = update_role_permissions RPC(일괄·원자·이력·권한상승/충돌 가드, storage.js saveRolePermissions).
 //   ⚠️ 이 설정은 "화면 표시 제어"다. 실제 데이터 접근 차단이 아니다(서버 RLS/has_permission 이 방어선, PR3).
-//      그래서 상단 경고 배너로 명시하고, server_enforced 기능 셀엔 「화면 제어만」 표식을 붙인다.
+//      그래서 상단 경고 배너에 범례를 두고, 기능마다 「서버 차단 / 화면에서만 / 슈퍼 적용 안 됨」
+//      배지를 붙인다(PERM_EFFECT_BADGE — 슈퍼관리자 자기 제한 관점).
 // ════════════════════════════════════════════════════════════════════
 
 const PERM_ROLES = [
@@ -31453,6 +31512,8 @@ const PERM_LEVELS = [
   {v: 'read',   label: '읽기'},
   {v: 'hidden', label: '숨김'},
 ];
+// 값별 아이콘 — 색과 함께 써서 색으로만 구분하지 않게 한다(색각 이상 대비)
+const PERM_LEVEL_ICON = { write: 'edit', read: 'visibility', hidden: 'visibility_off' };
 // 권한 상승 위험 — 이 기능들은 super 전용 유지(admin/manager 는 hidden 고정·편집 잠금).
 //   permissions.manage·admin.manage 는 서버 RPC denylist 와 동일(권한 상승 차단).
 //   menu.permissions 는 이 화면 자체의 사이드바 노출 — admin/manager 에게 write 로 열면 죽은 메뉴가 보이므로 잠금(서버 진입은 별도 super 가드가 차단).
@@ -31462,13 +31523,23 @@ let _permCurrent = {};  // 'role|feature_key' → level (서버 현재값)
 let _permEdited  = {};  // 변경분만 'role|feature_key' → level
 let _permDefault = {};  // 'role|feature_key' → default_level (기본값 baseline, 복원 버튼 활성 판정용)
 
-// 셀 현재 표시값: super 는 항상 write, 그 외 편집값 우선 → 서버값 → 기본 write
+// 셀 현재 표시값: 편집값 우선 → 서버값 → 기본 write
+//   (슈퍼관리자도 마이그레이션 268~270 이후로는 표의 값을 그대로 쓴다 — 더 이상 write 고정 아님)
 function permCellValue(role, key) {
-  if (role === 'super_admin') return 'write';
   const k = role + '|' + key;
   if (k in _permEdited) return _permEdited[k];
   return _permCurrent[k] || 'write';
 }
+
+// 슈퍼관리자 칸에서 잠글 기능 — 이걸 제한하면 되돌릴 방법이 없어진다(사양서 §4-4)
+const PERM_SUPER_LOCKED = ['permissions.manage', 'admin.manage', 'menu.permissions'];
+
+// 「이 설정이 실제로 먹히는가」 배지 — 슈퍼관리자 열에만 의미가 있다
+const PERM_EFFECT_BADGE = {
+  server: '<span class="perm-tag perm-tag-server" title="슈퍼관리자가 제한하면 서버에서 데이터까지 막힙니다">서버 차단</span>',
+  client: '<span class="perm-tag" title="슈퍼관리자가 제한하면 메뉴·버튼만 감춰집니다. 데이터는 서버에서 그대로 열려 있습니다">화면에서만</span>',
+  none:   '<span class="perm-tag perm-tag-none" title="서버·화면 모두 등급을 직접 보고 판단해, 슈퍼관리자에게는 이 설정이 적용되지 않습니다">슈퍼 적용 안 됨</span>'
+};
 
 async function loadPermissionsPane() {
   const body = document.getElementById('permPaneBody');
@@ -31513,20 +31584,27 @@ function renderPermGrid() {
     g.items.forEach(f => {
       const locked = PERM_DENYLIST.indexOf(f.key) !== -1;
       html += '<tr class="perm-item perm-cat-' + gi + '"><td class="perm-feat">' + esc(f.label_ko)
-           +  (f.server_enforced ? ' <span class="perm-tag">화면 제어만</span>' : '')
-           +  (locked ? ' <span class="perm-tag perm-tag-super">슈퍼 전용</span>' : '') + '</td>';
+           +  (locked ? ' <span class="perm-tag perm-tag-super">슈퍼 전용</span>' : '')
+           +  (locked ? '' : (PERM_EFFECT_BADGE[permSuperEffect(f.key)] || '')) + '</td>';
       PERM_ROLES.forEach(r => {
         const isSuper = r.key === 'super_admin';
-        const cellLocked = isSuper || locked;  // super 열 전체 + denylist 행의 admin/manager 셀 잠금
+        // 슈퍼관리자 열은 이제 편집 가능. 단 되돌릴 길을 끊는 3종만 「쓰기」로 고정.
+        const cellLocked = locked && (isSuper ? PERM_SUPER_LOCKED.indexOf(f.key) !== -1 : true);
         if (cellLocked) {
-          html += '<td class="perm-cell perm-locked">' + (isSuper ? '쓰기(전권)' : '숨김') + '</td>';
+          html += '<td class="perm-cell perm-locked" title="'
+               +  (isSuper ? '이 항목을 제한하면 권한을 되돌릴 수 없어 고정합니다' : '권한 상승을 막기 위해 고정된 항목입니다')
+               +  '">' + (isSuper ? '쓰기(고정)' : '숨김') + '</td>';
         } else {
           const val = permCellValue(r.key, f.key);
           const dirty = (r.key + '|' + f.key) in _permEdited;
-          let sel = '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
+          // 글자만으로는 세 값이 한눈에 안 구분돼 색 + 아이콘을 함께 붙인다(2026-07-29 지적).
+          // 아이콘은 select 안에 못 넣으므로 감싸는 칸에 겹쳐 놓고 select 왼쪽 여백을 준다.
+          let sel = '<span class="perm-sel-wrap perm-lv-' + val + '">'
+                 +  '<span class="material-icons-round notranslate perm-sel-ico" translate="no">' + PERM_LEVEL_ICON[val] + '</span>'
+                 +  '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
                  +  '" onchange="onPermCell(\'' + r.key + '\',\'' + f.key + '\',this)">';
           PERM_LEVELS.forEach(l => { sel += '<option value="' + l.v + '"' + (l.v === val ? ' selected' : '') + '>' + l.label + '</option>'; });
-          sel += '</select>';
+          sel += '</select></span>';
           html += '<td class="perm-cell">' + sel + '</td>';
         }
       });
@@ -31550,6 +31628,15 @@ function updatePermSaveBar() {
     const diff = countPermDefaultDiff();
     rbtn.disabled = !diff;
     rbtn.title = diff ? (diff + '개 항목이 기본값과 다릅니다 — 기본값으로 되돌립니다') : '이미 기본값 상태입니다';
+  }
+  // 슈퍼관리자만 복원 — 자기 제한을 걸어둔 항목이 있을 때만 활성
+  const sbtn = document.getElementById('permSuperRestoreBtn');
+  if (sbtn) {
+    const sdiff = countSuperPermDiff();
+    sbtn.disabled = !sdiff;
+    sbtn.title = sdiff
+      ? ('슈퍼관리자 권한 ' + sdiff + '개가 제한돼 있습니다 — 전권으로 되돌립니다 (다른 등급 설정은 그대로)')
+      : '슈퍼관리자는 이미 전권 상태입니다';
   }
 }
 
@@ -31576,13 +31663,46 @@ function onPermCell(role, key, sel) {
   if (sel.value === cur) delete _permEdited[k];
   else _permEdited[k] = sel.value;
   sel.classList.toggle('perm-dirty', (k in _permEdited));
+  // 색·아이콘도 새 값에 맞춰 바로 바꿔준다(재렌더 없이)
+  const wrap = sel.parentElement;
+  if (wrap && wrap.classList.contains('perm-sel-wrap')) {
+    wrap.classList.remove('perm-lv-write', 'perm-lv-read', 'perm-lv-hidden');
+    wrap.classList.add('perm-lv-' + sel.value);
+    const ico = wrap.querySelector('.perm-sel-ico');
+    if (ico) ico.textContent = PERM_LEVEL_ICON[sel.value] || 'edit';
+  }
   updatePermSaveBar();
+}
+
+// 슈퍼관리자 권한을 바꿀 때의 확인 문구.
+//   ① 등급 전체에 걸린다 ② 서버까지 막히는 항목은 무엇인지 ③ 언제든 되돌릴 수 있다
+function buildSuperPermConfirmText(superKeys, totalCount) {
+  const lines = superKeys.map(k => {
+    const feat = k.slice('super_admin|'.length);
+    const label = (typeof ADMIN_PERMISSION_CATALOG !== 'undefined')
+      ? ((ADMIN_PERMISSION_CATALOG.find(f => f.key === feat) || {}).label_ko || feat) : feat;
+    const lv = ({ write: '쓰기', read: '읽기', hidden: '숨김' })[_permEdited[k]] || _permEdited[k];
+    const eff = permSuperEffect(feat);
+    const note = eff === 'server' ? ' (서버에서 데이터까지 막힘)'
+               : eff === 'none' ? ' (슈퍼관리자에게는 적용되지 않음)' : '';
+    return '· ' + label + ' → ' + lv + note;
+  });
+  return '슈퍼관리자 권한 ' + superKeys.length + '개를 바꿉니다.\n\n'
+       + lines.join('\n')
+       + '\n\n이 설정은 슈퍼관리자 등급 전체에 적용됩니다(계정별 아님).'
+       + '\n권한 관리 화면은 어떤 설정으로도 닫히지 않으니 언제든 되돌릴 수 있습니다.'
+       + (totalCount > superKeys.length ? '\n\n다른 등급 변경 ' + (totalCount - superKeys.length) + '개도 함께 저장됩니다.' : '')
+       + '\n\n계속할까요?';
 }
 
 async function savePermChanges() {
   const keys = Object.keys(_permEdited);
   if (!keys.length) return;
-  const ok = await showConfirm(keys.length + '개 권한 설정을 변경합니다. 계속할까요?');
+  // 슈퍼관리자 자기 제한은 자기 발등을 찍는 동작이라, 무엇이 사라지는지·되돌리는 법을 따로 알린다
+  const superKeys = keys.filter(k => k.indexOf('super_admin|') === 0);
+  const ok = await showConfirm(superKeys.length
+    ? buildSuperPermConfirmText(superKeys, keys.length)
+    : keys.length + '개 권한 설정을 변경합니다. 계속할까요?');
   if (!ok) return;
   // 저장 안정성 — (role, feature_key) 정렬로 배치 잠금 순서 고정(데드락 예방, reviewer 권고)
   keys.sort();
@@ -31610,6 +31730,37 @@ async function savePermChanges() {
 
 // 「기본값 복원」 — 저장된 현재값을 baseline(default_level)으로 되돌린다. 전용 서버 RPC로 원자 처리
 //   (낙관적 락 마찰 없음). 미저장 편집은 버려짐(확인 모달에 명시). denylist 행은 기본값이 hidden이라 서버가 자연 skip.
+// 슈퍼관리자 행만 전권으로 되돌린다 — 전체 복원은 다른 등급 설정까지 초기화해 버리므로,
+// 자기 제한을 풀려다 남의 설정을 날리는 일이 없게 별도 버튼을 둔다(사양서 §2-5-4).
+function countSuperPermDiff() {
+  return Object.keys(_permCurrent).filter(k =>
+    k.indexOf('super_admin|') === 0 && _permCurrent[k] !== (_permDefault[k] || 'write')).length;
+}
+
+async function restoreSuperPermDefaults() {
+  const keys = Object.keys(_permCurrent).filter(k =>
+    k.indexOf('super_admin|') === 0 && _permCurrent[k] !== (_permDefault[k] || 'write'));
+  if (!keys.length) { toast('슈퍼관리자 권한은 이미 전권 상태입니다.'); return; }
+  const ok = await showConfirm('슈퍼관리자 권한 ' + keys.length + '개를 전권(쓰기)으로 되돌립니다.\n다른 등급 설정은 그대로 둡니다. 계속할까요?');
+  if (!ok) return;
+  const btn = document.getElementById('permSuperRestoreBtn');
+  if (btn) btn.disabled = true;
+  try {
+    keys.sort();
+    const changes = keys.map(k => ({
+      role: 'super_admin', feature_key: k.slice('super_admin|'.length),
+      prev_level: _permCurrent[k], next_level: (_permDefault[k] || 'write')
+    }));
+    const applied = await saveRolePermissions(changes);
+    toast((applied || 0) + '개 권한을 되돌렸습니다.');
+    await loadPermissionsPane();
+    if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+  } catch (e) {
+    toast('복원 실패: ' + ((e && e.message) ? e.message : String(e)), 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function restorePermDefaults() {
   const diff = countPermDefaultDiff();
   if (!diff) { toast('이미 기본값 상태입니다.'); return; }
@@ -33649,9 +33800,10 @@ function setCampStatusTab(btn) {
 function updateCampTableHead() {
   const head = $('adminCampTableHead');
   if (!head) return;
-  const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
+  // 상태 안내는 표 헤더의 작은 아이콘이 아니라 화면 상단 「도움말」 버튼으로 옮겼다
+  // (열 제목 옆 아이콘은 있는 줄도 모른다는 지적 — 2026-07-29)
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
@@ -33659,7 +33811,7 @@ function updateCampTableHead() {
       <th>채널</th>
       <th>브랜드</th>
       <th>제품</th>
-      <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>모집기간</th>

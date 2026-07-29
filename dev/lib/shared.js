@@ -1390,10 +1390,28 @@ function setRolePermMap(rows) {
   _rolePermMap = m;
 }
 const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
-// 현재 관리자의 feature 접근수준. super_admin=항상 write. 역할 미확정·미로드·미등록=write(fail-open).
+
+// 슈퍼관리자가 스스로를 제한했을 때 그 설정이 「어디까지 실제로 먹히는지」.
+//   server = 서버가 데이터까지 막음  ·  client = 화면에서만 사라짐  ·  none = 아무 일도 안 일어남
+//   ⚠️ none 인 항목들은 서버 가드가 is_campaign_admin() 하드코딩이고 화면 가드도 등급 직접 비교라
+//      권한 설정을 무시한다. 그 12개를 진짜로 막으려면 서버 가드를 갈아끼우는 별도 작업이 필요하다
+//      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
+const PERM_SUPER_SERVER_ENFORCED = [
+  'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
+  'outbound.view', 'campaign.caution_history_view'
+];
+function permSuperEffect(featureKey) {
+  if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
+  if (featureKey.indexOf('menu.') === 0 || featureKey === 'influencer.excel_sensitive') return 'client';
+  return 'none';
+}
+// 현재 관리자의 feature 접근수준. 역할 미확정·미로드·미등록=write(fail-open).
+//   super_admin 도 이제 설정을 따른다(마이그레이션 268~270 — 스스로를 제한할 수 있음).
+//   단 「행이 없으면 전권」은 서버 판정과 동일한 계약이라, 미등록 기본값 write 가 그대로 맞다.
+//   ⚠️ 권한 관리 화면 진입만은 이 값을 보지 않는다(admin-core.js switchAdminPane) — 잠금 방지.
 function permLevel(featureKey) {
   const role = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? currentAdminInfo.role : null;
-  if (role === 'super_admin' || !role) return 'write';
+  if (!role) return 'write';
   return _rolePermMap[role + '|' + featureKey] || 'write';
 }
 function canWrite(featureKey) { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 2; }

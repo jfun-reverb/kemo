@@ -131,7 +131,7 @@ input.admin-filter{padding-right:8px}
 /* 필터 영역 한 줄 정렬 (검색 + 필터를 같은 행에. 다른 목록 페인과 동일 패턴) */
 .admin-filter-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
 /* 운영 현황 페인 — 브랜드 카드 그리드 */
-.brand-ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.brand-ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
 .brand-ops-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s,transform .15s}
 .brand-ops-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
 @keyframes brandOpsPulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -1852,7 +1852,28 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-cell { min-width: 96px; }
 .perm-locked { color: var(--muted, var(--faint)); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
-.perm-sel.perm-dirty { border-color: var(--primary); background: var(--primary-light); font-weight: 600; }
+/* 미저장 변경 표시 — 배경은 아래 값별 색(.perm-lv-*)이 담당하므로 여기선 테두리만 */
+.perm-sel.perm-dirty { border-color: var(--primary); font-weight: 600; }
+
+/* 접근 수준(쓰기·읽기·숨김)을 색 + 아이콘으로 구분 (2026-07-29)
+   글자만으로는 세 값이 한눈에 안 들어온다는 지적. 색만으로 구분하지 않도록 아이콘을 함께 쓴다.
+   아이콘은 select 안에 넣을 수 없어 감싸는 칸에 겹쳐 놓고, select 왼쪽 여백으로 자리를 만든다. */
+.perm-sel-wrap{position:relative;display:inline-flex;align-items:center}
+.perm-sel-ico{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none}
+/* 좌: 아이콘 자리, 우: select 기본 화살표 자리. 값이 세 글자라 폭을 더 줄 필요는 없다. */
+.perm-sel-wrap .perm-sel{padding:3px 20px 3px 21px;font-size:12px;font-weight:600;line-height:1.5;background-position:right 7px center;background-size:8px 12px}
+/* ⚠️ background 축약형을 쓰면 select.perm-sel 의 화살표 이미지(background-image)가 지워진다.
+   반드시 background-color 만 지정할 것 (2026-07-29 화살표 실종 사고). */
+.perm-lv-write .perm-sel{background-color:#EAF7EF;border-color:#9AD4B2;color:#166534}
+.perm-lv-write .perm-sel-ico{color:#1F8A4C}
+.perm-lv-read .perm-sel{background-color:#EEF3FE;border-color:#A9C2F5;color:#1D4ED8}
+.perm-lv-read .perm-sel-ico{color:#2563EB}
+.perm-lv-hidden .perm-sel{background-color:var(--surface-container-low);border-color:var(--outline);color:var(--muted)}
+.perm-lv-hidden .perm-sel-ico{color:var(--muted)}
+/* 저장 안 된 변경은 어떤 값이든 테두리를 굵게 — 색 구분과 겹치지 않게 두께로 표시 */
+/* ⚠️ 여기서 var(--pink) 를 쓰지 않는다 — 2026-07-16 무채색 개편으로 그 변수는 거의 검정(#1A1A1A)이라
+   테두리(검정)와 그림자(핑크)가 서로 다른 계열이 된다. 강조색을 직접 지정해 두 값을 맞춘다. */
+.perm-sel-wrap .perm-sel.perm-dirty{border-width:2px;border-color:#DC2626;box-shadow:0 0 0 2px rgba(220,38,38,.14)}
 .perm-tag {
   display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
@@ -2105,3 +2126,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .chist-empty{color:var(--muted)}
 .chist-clip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .chist-thumb{width:auto;max-width:120px;max-height:60px;border-radius:4px;border:1px solid var(--line);display:block}
+/* 권한 효과 배지 — 「이 설정이 실제로 먹히는가」 (2026-07-29) */
+.perm-tag-server { background:#FEE2E2; color:#B91C1C; }
+.perm-tag-none { background:var(--surface-container); color:var(--muted); }
