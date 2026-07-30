@@ -802,6 +802,7 @@ async function openEditCampaign(campId) {
   //   원본 마감일과 비교해야 하기 때문(2026-07-30. 누락된 채로 배포해 확인창이 한 번도 뜨지 않았다).
   _editCampOriginal = {
     id: camp.id,
+    version: camp.version || 1,   // 동시 저장 방어 — 편집 화면을 연 시점의 버전(마이그레이션 275)
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
@@ -2264,7 +2265,16 @@ async function saveCampaignEdit() {
       updates.image_crops = buildImageCrops(editCampImgData);
     }
 
-    await updateCampaign(campId, updates);
+    // 동시 저장 방어(마이그레이션 275) — 편집 화면을 연 뒤 다른 관리자가 먼저 저장했으면 덮지 않는다.
+    //   ⚠️ 아래 「주의사항·참여방법 변경 이력 기록」보다 **먼저** 판정해야 한다. 충돌이면 그 블록을
+    //      아예 타지 않아야 저장되지도 않은 변경이 이력에 남는 일이 없다.
+    const _saveResult = await updateCampaign(campId, updates, _editCampOriginal?.version);
+    if (_saveResult && _saveResult.conflict) {
+      toast('다른 관리자가 방금 이 캠페인을 먼저 저장했습니다. 최신 내용으로 새로고침합니다.', 'warn');
+      allCampaigns = await fetchCampaigns();
+      switchAdminPane('campaigns', null);
+      return;
+    }
 
     // Phase 2 — 주의사항/참여방법 변경 감지 시 audit 이력 기록
     //   updateCampaign 성공 직후 호출. 실패해도 캠페인 저장은 이미 완료됐으므로

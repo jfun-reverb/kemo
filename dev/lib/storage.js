@@ -186,7 +186,11 @@ async function autoOpenCampaigns(camps) {
   if (!toOpen.length) return camps;
   const results = await Promise.allSettled(toOpen.map(c => {
     c.status = 'active';
-    return db.from('campaigns').update({ status: 'active' }).eq('id', c.id);
+    // 로컬 객체의 version 도 함께 맞춘다 — 이 UPDATE 로 트리거(마이그레이션 275)가 DB 의
+    //   version 을 올리는데 로컬이 옛 값이면, 그 캠페인을 편집할 때 아무것도 안 바꿔도
+    //   낙관적 락이 「다른 관리자가 먼저 저장」으로 오판한다(가짜 충돌).
+    return db.from('campaigns').update({ status: 'active' }).eq('id', c.id).select('version')
+      .then(r => { const v = r?.data?.[0]?.version; if (v != null) c.version = v; return r; });
   }));
   results.forEach((r, i) => {
     if (r.status === 'rejected') console.warn('autoOpenCampaigns 실패:', toOpen[i]?.id, r.reason);
@@ -208,7 +212,11 @@ async function autoCloseCampaigns(camps) {
   if (!toClose.length) return camps;
   const results = await Promise.allSettled(toClose.map(c => {
     c.status = 'closed';
-    return db.from('campaigns').update({ status: 'closed' }).eq('id', c.id);
+    // 로컬 객체의 version 도 함께 맞춘다 — 이 UPDATE 로 트리거(마이그레이션 275)가 DB 의
+    //   version 을 올리는데 로컬이 옛 값이면, 그 캠페인을 편집할 때 아무것도 안 바꿔도
+    //   낙관적 락이 「다른 관리자가 먼저 저장」으로 오판한다(가짜 충돌).
+    return db.from('campaigns').update({ status: 'closed' }).eq('id', c.id).select('version')
+      .then(r => { const v = r?.data?.[0]?.version; if (v != null) c.version = v; return r; });
   }));
   results.forEach((r, i) => {
     if (r.status === 'rejected') console.warn('autoCloseCampaigns 실패:', toClose[i]?.id, r.reason);
@@ -231,7 +239,11 @@ async function autoEndCampaigns(camps) {
   if (!toEnd.length) return camps;
   const results = await Promise.allSettled(toEnd.map(c => {
     c.status = 'ended';
-    return db.from('campaigns').update({ status: 'ended' }).eq('id', c.id);
+    // 로컬 객체의 version 도 함께 맞춘다 — 이 UPDATE 로 트리거(마이그레이션 275)가 DB 의
+    //   version 을 올리는데 로컬이 옛 값이면, 그 캠페인을 편집할 때 아무것도 안 바꿔도
+    //   낙관적 락이 「다른 관리자가 먼저 저장」으로 오판한다(가짜 충돌).
+    return db.from('campaigns').update({ status: 'ended' }).eq('id', c.id).select('version')
+      .then(r => { const v = r?.data?.[0]?.version; if (v != null) c.version = v; return r; });
   }));
   results.forEach((r, i) => {
     if (r.status === 'rejected') console.warn('autoEndCampaigns 실패:', toEnd[i]?.id, r.reason);
@@ -389,14 +401,27 @@ async function insertCampaign(camp) {
   });
 }
 
-async function updateCampaign(campId, updates) {
-  if (!db) return;
+async function updateCampaign(campId, updates, expectedVersion) {
+  if (!db) return {ok: true};
   // 관리자 편집 경로 전용 — 호출 시점에 수정일 자동 갱신
   // (조회수/자동 종료 등 시스템 UPDATE는 이 함수를 거치지 않아 수정일 오염 없음)
+  //
+  // expectedVersion 을 넘기면 **동시 저장 방어**(낙관적 락, 마이그레이션 275).
+  //   편집 화면을 연 시점의 version 과 다르면(= 그 사이 누군가 저장했으면) 조건에 안 맞아
+  //   0행 UPDATE 가 되고 {ok:false, conflict:true} 를 돌려준다. 안 넘기면 기존과 동일 동작이라
+  //   상태 드롭다운·순서 변경 등 다른 호출부는 영향 없다.
   const payload = { ...updates, updated_at: new Date().toISOString() };
-  await retryWithRefresh(async () => {
-    const {error} = await db.from('campaigns').update(payload).eq('id', campId);
+  return await retryWithRefresh(async () => {
+    let q = db.from('campaigns').update(payload).eq('id', campId);
+    if (expectedVersion !== undefined && expectedVersion !== null) q = q.eq('version', expectedVersion);
+    // ⚠️ version 컬럼을 조회하는 건 낙관적 락을 쓸 때만. 안 그러면 마이그레이션 275 가 아직
+    //    적용되지 않은 환경에서 상태 드롭다운·순서 변경까지 「column version does not exist」로
+    //    죽는다(코드가 데이터베이스보다 먼저 배포되면 캠페인 쓰기 전체가 멈춘다).
+    const useLock = (expectedVersion !== undefined && expectedVersion !== null);
+    const {data, error} = await q.select(useLock ? 'id, version' : 'id');
     if (error) throw error;
+    if (useLock && (!data || data.length === 0)) return {ok: false, conflict: true};
+    return {ok: true, version: (useLock && data && data[0]) ? data[0].version : null};
   });
 }
 
