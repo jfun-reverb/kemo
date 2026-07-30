@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785396878';
+  var CURRENT_BUILD = 'v1785418844';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-30 16:34 · 7595dd7</span>
+          <span class="admin-build-text">2026-07-30 22:40 · 570455d</span>
         </div>
       </div>
     </aside>
@@ -5282,7 +5282,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <tr>
             <td style="padding:8px 10px"><span style="background:#EEE;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">준비</span></td>
             <td style="padding:8px 10px">아직 만드는 중</td>
-            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임</td>
+            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임 <span style="font-weight:400;color:var(--muted)">(링크로도 못 들어감 · 단, 이미 응모한 사람은 응모이력에서 볼 수 있음)</span></td>
           </tr>
           <tr>
             <td style="padding:8px 10px"><span style="background:#FFF8E1;color:#8B6914;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집예정</span></td>
@@ -5292,7 +5292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <tr>
             <td style="padding:8px 10px"><span style="background:#E6F3E8;color:#274;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집중</span></td>
             <td style="padding:8px 10px">지금 모집 중</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中)</td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中) <span style="color:var(--gold)">*</span></td>
           </tr>
           <tr>
             <td style="padding:8px 10px"><span style="background:#FFE4EC;color:#B91C5C;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
@@ -5307,10 +5307,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <tr>
             <td style="padding:8px 10px"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">노출종료</span></td>
             <td style="padding:8px 10px">운영자가 화면에서 내림</td>
-            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임</td>
+            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임 <span style="font-weight:400;color:var(--muted)">(링크로도 못 들어감 · 단, 이미 응모한 사람은 응모이력에서 볼 수 있음)</span></td>
           </tr>
         </tbody>
       </table>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
+        <span style="color:var(--gold)">*</span> 상태가 「모집중」이어도 <strong>모집 마감일이 지나면</strong> 인플루언서 화면에는 「募集締切」로 보이고 응모 버튼이 닫힙니다.
+        화면은 상태뿐 아니라 <strong>날짜도 함께</strong> 보기 때문입니다(일본 시간 기준, 마감일 당일 24시까지 응모 가능).
+      </div>
 
       <div style="margin-top:18px;padding:14px;background:var(--light-pink);border-radius:10px;font-size:12px;line-height:1.7">
         <div style="font-weight:700;color:var(--dark-pink);margin-bottom:6px">② 상태가 저절로 바뀌는 경우</div>
@@ -5319,7 +5323,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <li>모집 <strong>마감일</strong>이 지나면 → 모집중에서 <strong>모집마감</strong>으로 저절로</li>
           <li>결과물 <strong>제출 마감일</strong>이 지나면 → 모집마감에서 <strong>종료</strong>로 저절로</li>
           <li><strong>노출종료</strong>는 저절로 안 됨 — 운영자가 「캠페인 노출」을 꺼야만 됩니다</li>
+          <li>상태를 <strong>「모집마감」으로 바꿀 때</strong> 마감일이 아직 남아 있으면, 확인 후 <strong>마감일도 오늘로 함께</strong> 저장됩니다(「지금 마감」)</li>
         </ul>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08);color:var(--ink)">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle;color:var(--gold)">warning</span>
+          <strong>「저절로」는 정해진 시각에 알아서 도는 것이 아닙니다.</strong> 누군가(관리자나 인플루언서) <strong>캠페인 목록을 열 때</strong> 갱신됩니다.
+          아무도 열지 않으면 마감일이 지나도 상태는 그대로 남아 있을 수 있습니다.
+          다만 그 경우에도 <strong>응모는 받지 않습니다</strong> — 화면과 서버가 날짜를 각각 확인하기 때문입니다.
+        </div>
       </div>
 
       <div style="font-size:13px;font-weight:700;color:var(--ink);margin:18px 0 8px">③ 상태에 따라 고칠 수 있는 것 / 없는 것</div>
@@ -5335,12 +5346,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <tr>
             <td style="padding:8px 10px">모집 기간(시작·마감일)</td>
             <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음 <span style="color:var(--gold)">†</span></td>
           </tr>
           <tr>
             <td style="padding:8px 10px">결과물 제출 마감일</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음 <span style="color:var(--gold)">‡</span></td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음 <span style="color:var(--gold)">‡</span></td>
           </tr>
           <tr>
             <td style="padding:8px 10px">구매 · 방문 기간</td>
@@ -5357,10 +5368,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
         * 주의사항·참여방법·NG는 신청자가 1명이라도 있으면 「정말 바꿀까요?」 확인창이 뜹니다.<br>
         * 「모집중」·「모집예정」으로 저장하려면 모집 마감일이 아직 안 지났어야 합니다.<br>
-        * 날짜는 서로 순서가 맞아야 저장됩니다 (모집마감 &gt; 시작, 제출마감 &gt; 구매·방문 종료 등).
+        * 날짜는 서로 순서가 맞아야 저장됩니다 (모집마감 &gt; 시작, 제출마감 &gt; 구매·방문 종료 등).<br>
+        <span style="color:var(--gold)">†</span> 모집 마감일을 <strong>지난 날짜에서 앞날짜로</strong> 바꾸면 확인창이 뜨고, 저장하면 <strong>상태도 「모집중」으로 함께</strong> 바뀝니다.
+        마감일만 따로 저장할 수는 없습니다(취소하면 마감일도 저장되지 않습니다).<br>
+        <span style="color:var(--gold)">‡</span> 결과물 제출 마감일에는 제약이 두 가지 있습니다 —
+        <strong>㉠ 과거 날짜로는 바꿀 수 없습니다</strong>(승인된 인플루언서가 그 순간 제출할 수 없게 되므로),
+        <strong>㉡ 모집 마감일보다 이르면 저장이 막힙니다</strong>(응모는 받는데 결과물은 낼 수 없는 상태가 되므로).<br>
+        <span style="color:var(--dark-pink)">■</span> <strong>제출 마감일을 바꾸면 승인된 인플루언서에게 알림이 갑니다</strong>(늘려도, 줄여도). 모집 마감일 변경은 알림이 가지 않습니다.
       </div>
       <div style="margin-top:14px;padding:12px 14px;background:var(--surface-dim);border-radius:10px;font-size:12px;line-height:1.6;color:var(--ink)">
-        <strong>한 줄 정리:</strong> 날짜는 거의 다 고칠 수 있고, 모집마감 이후엔 <strong>주의사항·참여방법·NG</strong>만 잠깁니다.
+        <strong>한 줄 정리:</strong> 날짜는 거의 다 고칠 수 있지만 <strong>서로 순서가 맞아야</strong> 하고, 모집마감 이후엔 <strong>주의사항·참여방법·NG</strong>가 잠깁니다.<br>
+        마감일이 지나면 <strong>응모·결과물 제출이 자동으로 막힙니다</strong>(상태와 상관없이). 마감 뒤에도 낼 수 있는 것은 <strong>반려된 항목의 재제출</strong>뿐입니다.
       </div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--line);text-align:right">
