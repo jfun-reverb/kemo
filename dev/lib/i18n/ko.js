@@ -499,6 +499,7 @@ window.I18N_KO = {
     draftAdded: '리스트에 추가했습니다',
     draftDeleted: '삭제했습니다',
     submittedN: '{n}건을 제출했습니다',
+    submittedPartial: '{n}건을 제출했습니다. 제출하지 못한 항목이 있습니다',
     nothingToSubmit: '제출할 항목이 없습니다',
     postSection: '게시물 URL 제출',
     postUrlLabel: '게시물 URL',

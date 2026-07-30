@@ -1563,9 +1563,26 @@ async function deleteDraft(id) {
 
 // Draft → 제출 (kind 별로 일괄)
 async function submitAllDrafts(kind) {
-  const count = await submitDrafts(_activityAppId, kind);
+  let count = 0, failed = 0;
+  try {
+    const r = await submitDrafts(_activityAppId, kind);
+    count = r.count; failed = r.failed;
+  } catch (e) {
+    // 서버가 거부한 경우(제출 마감 등) 정확한 사유를 보여준다. 예전에는 storage 쪽에서 에러를
+    // 삼켜 count=0 이 되고 아래 「제출할 것이 없습니다」가 떠서, 왜 안 되는지 알 수 없었다.
+    toast(friendlyErrorJa(e), 'error');
+    // 마감으로 막힌 경우 폼 상태를 실제 서버 기준으로 다시 그려 반복 시도를 끊는다
+    if (/submission_deadline_passed/.test(String(e?.message || ''))) {
+      try { await loadDeliverablesForActivity(); } catch(_) {}
+    }
+    return;
+  }
   if (count > 0) {
-    toast(t('activity.submittedN').replace('{n}', count), 'success');
+    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다
+    toast(failed > 0
+      ? t('activity.submittedPartial').replace('{n}', count)
+      : t('activity.submittedN').replace('{n}', count),
+      failed > 0 ? 'warn' : 'success');
     await loadDeliverablesForActivity();
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }

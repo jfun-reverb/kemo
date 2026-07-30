@@ -91,6 +91,7 @@ const _ERR_DICT = {
     credentials: 'メールアドレスまたはパスワードが正しくありません',
     slotsFull: '募集定員に達したため、応募を受け付けておりません',
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
+    submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
     postDuplicate: '同じURLは既に提出済みです'
   },
@@ -109,6 +110,7 @@ const _ERR_DICT = {
     credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
     slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
+    submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
     postDuplicate: '같은 URL은 이미 제출되었습니다'
   }
@@ -121,10 +123,11 @@ function friendlyErrorJa(e) {
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
   if (!s) return t.unknown;
-  // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
-  // 모집 마감 후 응모 — 데이터베이스 검사 장치가 코드 접두어를 붙여 거부한다(사양서 2026-07-29 마감 서버 강제 1단계).
+  // 마감 차단 — 데이터베이스 검사 장치가 코드 접두어를 붙여 거부한다(사양서 2026-07-29 마감 서버 강제).
   //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
   if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
+  if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
+  // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
   if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
   if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
   if (/duplicate key|unique constraint|already exists/.test(s)) return t.duplicate;

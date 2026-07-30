@@ -514,6 +514,7 @@ window.I18N_JA = {
     draftAdded: 'リストに追加しました',
     draftDeleted: '削除しました',
     submittedN: '{n}件を提出しました',
+    submittedPartial: '{n}件を提出しました。提出できなかったものがあります',
     nothingToSubmit: '提出する項目がありません',
     postSection: '投稿URLの提出',
     postUrlLabel: '投稿URL',
