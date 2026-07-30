@@ -728,9 +728,12 @@ async function openEditCampaign(campId) {
 
   // 신청 동의 영향 영역(주의사항/참여방법) 변경 감지용 원본 스냅샷 보관
   // saveCampaignEdit 에서 신청자 ≥1건일 때 변경 여부를 비교하여 경고 모달 표시
+  //   deadline 도 함께 담는다 — saveCampaignEdit 의 「마감일 연장 시 상태 자동 전환」 게이트가
+  //   원본 마감일과 비교해야 하기 때문(2026-07-30. 누락된 채로 배포해 확인창이 한 번도 뜨지 않았다).
   _editCampOriginal = {
     id: camp.id,
     status: camp.status || '',
+    deadline: camp.deadline || '',
     caution_set_id: camp.caution_set_id || null,
     caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
     participation_set_id: camp.participation_set_id || null,

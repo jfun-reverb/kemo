@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785370251';
+  var CURRENT_BUILD = 'v1785375264';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-30 09:10 · 9717ecd</span>
+          <span class="admin-build-text">2026-07-30 10:34 · b1b7c35</span>
         </div>
       </div>
     </aside>
@@ -34351,9 +34351,12 @@ async function openEditCampaign(campId) {
 
   // 신청 동의 영향 영역(주의사항/참여방법) 변경 감지용 원본 스냅샷 보관
   // saveCampaignEdit 에서 신청자 ≥1건일 때 변경 여부를 비교하여 경고 모달 표시
+  //   deadline 도 함께 담는다 — saveCampaignEdit 의 「마감일 연장 시 상태 자동 전환」 게이트가
+  //   원본 마감일과 비교해야 하기 때문(2026-07-30. 누락된 채로 배포해 확인창이 한 번도 뜨지 않았다).
   _editCampOriginal = {
     id: camp.id,
     status: camp.status || '',
+    deadline: camp.deadline || '',
     caution_set_id: camp.caution_set_id || null,
     caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
     participation_set_id: camp.participation_set_id || null,
