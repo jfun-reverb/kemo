@@ -219,6 +219,7 @@
   - 채번: `campaign_no`(현행 계층 채번), `legacy_no`(콤마 누적), `brand_id` FK, `source_application_id` FK
   - `reward_note` 는 리워드 금액 외 추가 안내(지급 조건·정산 시점) 자유 텍스트
   - 홍보 메일 트리거: `first_active_at timestamptz NULL` — 캠페인이 처음 active 상태로 전환된 시각. `BEFORE UPDATE OF status` 트리거(`_record_first_active_at`)가 자동 기록(이후 불변). 캠페인 홍보 메일이 「어제 KST 신규 캠페인」 판별에 사용 (마이그레이션 140)
+  - 동시 저장 방어(마이그레이션 275): `version integer NOT NULL DEFAULT 1` — 관리자 두 명이 같은 캠페인을 동시에 저장할 때 나중 저장이 앞 저장을 조용히 덮는 것을 막는다. `campaigns_bump_version()` BEFORE UPDATE 트리거가 **제외 6개**(`version`·`updated_at`·`view_count`·`applied_count`·`order_index`·`first_active_at`)를 뺀 나머지가 실제로 바뀐 경우에만 +1. 새 컬럼이 생기면 자동으로 보호 대상이 된다(fail-closed). 편집 저장은 `updateCampaign(id, updates, expectedVersion)` 으로 `.eq('version', …)` 조건부 UPDATE → 0행이면 충돌 안내 후 목록 복귀. ⚠️ **코드보다 마이그레이션을 먼저 적용해야 한다**(순서가 바뀌면 컬럼이 없어 자동 마감이 실패). ⚠️ 자동 상태 전이(`autoOpen/Close/EndCampaigns`)도 version 을 올리므로 로컬 캐시를 `.select('version')` 으로 함께 갱신한다 — 안 하면 그 캠페인 편집 시 **가짜 충돌**
   - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 캠페인 — 영수증만, 리뷰/게시 인증샷 미요구. 인증성공 판정·인플 활동관리·엑셀이 분기) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`(일본어 미보완 긴급 발행 기록)
 - `campaigns_yearly_counter`, `brand_seq_counter`(싱글톤), `brand_application_counter`, `application_campaign_counter`, `brand_external_campaign_counter` — 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 UPDATE 금지)
 - `numbering_legacy_map` — 신구 채번 양방향 매핑
