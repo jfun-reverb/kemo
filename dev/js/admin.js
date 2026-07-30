@@ -2027,6 +2027,31 @@ async function saveCampaignEdit() {
       }
     }
 
+    // ── 모집 마감일 연장 시 상태 자동 전환 확인 (사양서 2026-07-29 마감 서버 강제 §설계 5) ──
+    //   서버는 마감일 날짜만 보고 응모 가부를 판정한다. 마감일을 미래로 늘렸는데 상태가 「모집마감」에
+    //   머물면 「서버는 응모를 받는데 인플루언서 화면 버튼은 닫혀 있는」 어긋남이 생긴다.
+    //   그래서 둘은 함께 움직인다 — 저장하면 상태도 「모집중」으로, 취소하면 마감일도 저장하지 않는다.
+    //   「마감일만 저장」 선택지는 두지 않는다(어긋난 상태를 남기지 않기 위해).
+    //   대상은 closed → active 한 방향뿐. ended(종료)·expired(노출종료)·draft(준비중)는 제외 —
+    //   종료는 결과물 제출 마감까지 지난 상태, 노출종료는 노출 토글 전용이라 마감일 하나로 되돌리면
+    //   다른 규칙과 충돌한다. 사용자가 상태 드롭다운으로 이미 「모집중」을 골랐으면 이 확인은 뜨지 않는다.
+    //   ⚠️ 원래 마감일이 비어 있었다가(레거시·외부 캠페인) 미래 날짜를 새로 넣는 경우는 **의도적으로 제외**한다
+    //      (`_origDeadline` 필수 조건). 「과거였다가 미래로 늘렸다」는 연장 의도가 확인되지 않고, 마감일이
+    //      없던 캠페인은 서버 판정에서도 무기한 통과라 어긋남이 애초에 없다. 신규 등록은 마감일이 필수값.
+    const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
+    const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
+    let _reopenToActive = false;
+    if (origStatus === 'closed' && editStatus === 'closed' && editDeadline && _origDeadline) {
+      const _od = new Date(_origDeadline); _od.setHours(23,59,59,999);
+      const _nd = new Date(editDeadline);  _nd.setHours(23,59,59,999);
+      const now = new Date();
+      if (now > _od && now <= _nd) {
+        const ok = await showConfirm('모집 마감일을 미래로 바꾸셨습니다. 저장하면 캠페인 상태도 「모집중」으로 함께 바뀝니다. 취소하면 마감일도 저장되지 않습니다.');
+        if (!ok) return;
+        _reopenToActive = true;
+      }
+    }
+
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const editRecruitType = recruitTypeEl?.value || 'monitor';
     const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
@@ -2074,7 +2099,8 @@ async function saveCampaignEdit() {
       guide: gv('editCampGuide'),
       // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
       // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
-      status: editStatus,
+      // 마감일 연장 확인을 받았으면 상태도 함께 「모집중」으로 되돌린다(위 §설계 5 게이트)
+      status: _reopenToActive ? 'active' : editStatus,
       ...collectCampPsetPayload('edit'),
       ...collectCampCsetPayload('edit'),
       ...collectCampNsetPayload('edit'),
@@ -2087,7 +2113,7 @@ async function saveCampaignEdit() {
     //      필드 4개를 updates에서 제거하고 비교 자체를 skip — db 값 그대로 유지된다.
     //   2) draft~closed 캠페인: 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
     //   3) Phase 2 — 변경 감지 시 audit 이력 기록 (campaign_caution_history)
-    const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
+    // origStatus 는 위 「마감일 연장 시 상태 자동 전환」 게이트에서 이미 선언해 재사용한다
     let _historyAppCount = 0;
     let _historyBypassAck = false;
     let change = {cautionChanged:false, participationChanged:false, ngChanged:false, anyChanged:false};

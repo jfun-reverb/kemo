@@ -28,7 +28,8 @@
 - 저장 경로는 **단 하나** — `dev/lib/storage.js:759` `insertApplication()` → `applications` 직접 INSERT. 관리자가 인플루언서 대신 응모를 넣는 경로는 코드베이스에 없음(`from('applications').insert` 는 이 1곳뿐).
 - 화면 차단은 `dev/js/application.js:273-275` — 캠페인 상태가 `closed`/`ended`면 버튼 비활성. **마감일 자체는 보지 않음.**
 - `closed` 전이는 `dev/lib/storage.js:198` `autoCloseCampaigns()` — **브라우저가 캠페인 목록을 부를 때** UPDATE. 아무도 목록을 열지 않으면 마감일이 지나도 `active` 그대로. **서버 기준으로 status 는 신뢰할 수 없는 값.**
-- `applications` BEFORE INSERT 트리거 4종(리뷰어형 정원 가드 / 리뷰어형 자동승인 / 감사용 / 연령 정책) — **마감일 검사 없음.**
+- `applications` BEFORE INSERT 트리거 **3개**(`trg_age_policy` 연령 정책 / `trg_monitor_auto_approve` 리뷰어형 자동승인 / `trg_monitor_slots_guard` 리뷰어형 정원 가드) — **마감일 검사 없음.**
+  - ⚠️ 초안에 「4종(…감사용…)」으로 적었으나 **오류였다**(2026-07-30 정정). 감사용 계정 격리(마이그레이션 179)는 새 트리거가 아니라 정원 가드 함수 `check_monitor_slots` 의 본문을 재정의한 것이라, 트리거는 3개다.
 
 ### 결과물 저장 경로 — 실제로는 데이터베이스 연산 3종
 
@@ -285,4 +286,26 @@ STABLE, SECURITY DEFINER, SET search_path = '', GRANT authenticated
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
+### 1단계 — 응모 마감 서버 차단 (2026-07-30)
+
+**마이그레이션:** `272_recruit_deadline_guard.sql`
+**변경 파일:** `supabase/migrations/272_recruit_deadline_guard.sql`(신규) · `dev/js/ui.js` · `dev/js/admin.js`
+
+#### 만든 것
+- 트리거 함수 `public.check_application_deadline()` (SECURITY DEFINER · `search_path=''`) + 트리거 `trg_application_deadline_guard` (`applications` BEFORE INSERT). 판정 4단계는 §설계 1-(가) 그대로.
+- 거부 메시지 `recruit_deadline_passed: 모집 기간이 종료되었습니다`
+- 안내 문구 — `dev/js/ui.js` `_ERR_DICT` ja/ko 에 `recruitDeadlinePassed` 키 + `friendlyErrorJa` 정규식 1줄. 응모 실패 처리가 이미 `friendlyErrorJa` 를 타므로 추가 배선 없음
+- 캠페인 편집 화면 마감일 연장 확인 — `saveCampaignEdit()` 에 게이트 추가(§설계 5). `closed` → `active` 한 방향, 확인 시 마감일+상태 함께 저장, 취소 시 아무것도 저장 안 함. 기존 `origStatus` 선언을 이 게이트로 앞당겨 재사용(중복 선언 제거)
+
+#### 초안 대비 변경 사항
+- **정정**: 「현재 상태」에 기존 BEFORE INSERT 트리거를 4종으로 적었으나 실제 3개(위 정정 주석 참조)
+- **추가**: 트리거 **이름을 `trg_application_deadline_guard`(a…)로 지어 정원 가드(`trg_monitor_*`, m…)보다 먼저 실행**되게 배치. PostgreSQL 은 같은 이벤트의 BEFORE 트리거를 이름 알파벳순으로 실행하고 첫 예외에서 중단하므로, 「마감도 지났고 정원도 찬」 경합에서 **마감 메시지가 먼저** 나온다 — 「정원 마감」은 「조금만 빨랐으면」이라는 오해를 주지만 「모집 기간 종료」는 여지가 없다는 뜻이라 오해가 없다. 연령 정책(`trg_age_policy`)은 자격 축이라 그대로 먼저 둠
+- 빠진 것 없음
+
+#### 구현 중 기술 결정 사항
+- **SQL Editor 에서는 이 트리거를 재현할 수 없다** — 서비스 키 세션이라 `auth.uid()` 가 비어 통과 조항에 걸린다. 검증은 ①`BEGIN` 안에서 `set_config('request.jwt.claims', …)` 로 특정 인플루언서를 흉내낸 뒤 INSERT 시도 → 예외 확인 → **반드시 `ROLLBACK`** 또는 ②개발서버에 실제 로그인한 브라우저에서 마감 지난 캠페인에 응모 시도. 파일 하단 주석에 두 방법 기록
+- 취소 후 재응모는 평범한 INSERT 경로라 이 트리거를 동일하게 타고, `(user_id, campaign_id)` 부분 유니크 인덱스와 축이 겹치지 않아 충돌 없음
+
+### 2단계·3단계
+
+(미착수)
