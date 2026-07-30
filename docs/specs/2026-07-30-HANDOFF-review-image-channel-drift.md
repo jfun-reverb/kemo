@@ -79,10 +79,44 @@ select campaign_no, title, channel
    );
 ```
 
+```sql
+-- (다) ★ A 그룹 명단 — 교정 대상 55건의 개별 행. **결과를 반드시 저장해 둘 것**
+--      (교정 후에는 이 조회가 0행이 되어 다시 만들 수 없다). 세 용도로 쓴다:
+--      ① 1단계 시험 교정에 넣을 결과물 id 를 여기서 고른다
+--      ② 운영팀에 전달할 「가려진 인플루언서·캠페인」 명단 (3단계)
+--      ③ 3단계 검증 ③에서 「교정한 행만」 골라 상태를 대조하는 기준 목록
+select d.id                as 결과물id,
+       i.email             as 인플루언서,
+       c.campaign_no       as 캠페인번호,
+       c.title             as 캠페인,
+       d.status            as 상태,
+       d.created_at::date  as 올린날
+  from deliverables d
+  join campaigns c on c.id = d.campaign_id
+  left join influencers i on i.id = d.user_id
+ where d.kind = 'review_image'
+   and d.post_channel = 'channel-96r9y3'
+   and not exists (                    -- B 그룹 제외 = A 그룹만
+     select 1 from deliverables x
+      where x.application_id = d.application_id
+        and x.kind = 'review_image'
+        and x.post_channel = 'cosme'
+   )
+ order by c.campaign_no, d.created_at;
+-- 운영 기대: 55행
+```
+
 **(가)에서 `review_image` 이외의 종류가 나오면 1단계에 합치지 말 것.** 종류마다 중복 금지 제약과 재제출 구조가 달라 같은 SQL로 처리하면 안 된다 — 사양서 「경우의 수 1」. 되묻고 별도 판단한다.
 **(나)에 행이 나오면 즉시 보고할 것.** 캠페인 쪽이 옛 코드면 교정 방향 자체가 달라진다.
 
 ### 1단계 — A 그룹 채널 코드 교정
+
+**실행 환경 (2026-07-30 사용자 결정): 개발 데이터베이스에서 리허설 → 운영 데이터베이스에서 시행**
+
+- 개발에서 확인하는 것은 **①SQL 문법 ②알림 트리거가 발동하는가** 둘이다. 이 작업의 최대 위험이 알림 폭주이고, **발동 여부는 데이터 건수가 달라도 똑같이 드러난다**
+- ⚠️ **개발 데이터베이스의 A/B 분류·건수는 운영과 다를 수 있다**(복제 시점 차이). **개발에서 나온 건수를 운영 기대값으로 쓰지 말 것** — 운영 기대값은 A 55건이다
+- ⚠️ **개발 리허설은 반드시 되돌린다**(`rollback`). 교정 흔적을 개발에 남기면 다음 조사가 또 오염된다 — 이번 세션에서 개발/운영 데이터를 혼동한 사고가 이미 한 번 있었다
+- 개발 리허설은 아래 (1-a)·(1-b)를 한 트랜잭션 안에서 돌려보고 `rollback` 하는 형태로 하면 된다. **운영 시행은 (1-a) → (1-b) → (1-c) 순서 그대로**
 
 **(1-a) 트리거 발동 조건 확인 (교정 전 필수)**
 
@@ -92,23 +126,29 @@ select campaign_no, title, channel
 
 **(1-b) 1건 시험 교정**
 
-알림 테이블 건수를 먼저 세어 두고, 1행만 교정한 뒤 다시 센다.
+0단계 (다)에서 고른 결과물 id 하나로 시험한다. 알림은 **그 행을 참조하는 알림만** 세면 노이즈 없이 정확히 판정된다(다른 사용자 활동이 만든 알림에 오염되지 않는다).
 
 ```sql
--- 전
-select count(*) as 알림_교정전 from notifications;
-
+-- 개발 리허설: begin … rollback (아래 commit 을 rollback 으로 바꿔 실행)
+-- 운영 시행:   begin … commit
 begin;
+
 update deliverables
    set post_channel = 'cosme'
- where id = '<A 그룹 행 1개의 id>'
+ where id = '<0단계 (다)에서 고른 결과물id>'
    and kind = 'review_image'
    and post_channel = 'channel-96r9y3';
 -- 기대: UPDATE 1
-commit;
 
--- 후 (증가하면 즉시 중단하고 보고)
-select count(*) as 알림_교정후 from notifications;
+-- ★ 이 행을 참조하는 알림이 방금 생겼는지 (같은 트랜잭션 안에서 확인)
+select count(*) as 방금_생긴_알림
+  from notifications
+ where ref_table = 'deliverables'
+   and ref_id = '<위와 같은 결과물id>'
+   and created_at > now() - interval '5 minutes';
+-- 기대: 0 — 1 이상이면 즉시 rollback 하고 보고할 것 (일괄 교정 진행 금지)
+
+commit;   -- 개발 리허설이면 rollback
 ```
 
 **(1-c) 나머지 일괄 교정 — B 그룹 제외 조건을 SQL 안에 반드시 넣는다**
@@ -136,10 +176,43 @@ commit;
 
 ### 3단계 — 회복 확인
 
+**(3-a) 데이터로 먼저 확인 (운영, 읽기 전용)**
+
+```sql
+-- ① A 그룹 잔여가 0이어야 한다 (교정이 전부 걸렸는지)
+select count(*) as 남은_A그룹
+  from deliverables d
+ where d.kind = 'review_image' and d.post_channel = 'channel-96r9y3'
+   and not exists (select 1 from deliverables x
+                    where x.application_id = d.application_id
+                      and x.kind = 'review_image' and x.post_channel = 'cosme');
+-- 기대: 0
+
+-- ② 옛 코드 전체 잔여 = B 그룹만 남아야 한다
+select count(*) as 옛코드_잔여
+  from deliverables where kind = 'review_image' and post_channel = 'channel-96r9y3';
+-- 기대: 26 (1단계 직후 시점)
+--   ⚠️ 이 26이 「알려진 예외」 목록의 크기가 되는 것은 **B 그룹을 「유지」로 결정한 경우**다.
+--      「삭제」로 결정하면 2단계 실행 후 이 값이 0 이 되고 예외 목록 자체가 없어진다
+--      (사양서 「사용자 확인 필요」 2 · 4-나 · 5단계의 분기와 같다)
+
+-- ③ 상태가 안 바뀌었는지 — **교정한 행만** 대상으로 본다
+--    ⚠️ `post_channel='cosme'` 전체로 세지 말 것: 그 안에는 B 그룹의 새 코드 행과
+--       C 그룹(원래 정상) 행이 섞여 있고, 그 행들의 상태는 이 사양서가 approved 라고
+--       확정한 범위가 아니다(확정된 것은 옛 코드 81행뿐) → 판정이 성립하지 않는다
+select status, count(*) as 건수
+  from deliverables
+ where id in ( /* 0단계 (다)에서 저장해 둔 결과물id 55개 */ )
+ group by status;
+-- 기대: approved 55. draft·pending 이 섞이면 status 를 건드린 것 → 보고
+```
+
+**(3-b) 화면으로 확인**
+
 - 관리자 결과물 화면에서 대상 캠페인의 **인증 상태가 「인증성공」으로 바뀌었는지** 확인(집계는 화면 진입 시 계산되므로 별도 배치 불필요)
 - 인플루언서 화면 확인은 테스트 계정으로는 재현이 어렵다(본인 데이터만 보임) — 관리자 화면 회복으로 갈음하고, 필요하면 감사용 계정 동선을 검토
 - **정산**: 관리자가 정산 화면에 진입하면 후보가 새로 생성된다. **먼저 생성 건수·금액 합계를 확인**하고 도입일(컷오프) 설정과의 관계를 점검한 뒤 보고. 금액이 작지 않다(리뷰어형은 제품 가격 페이백)
-- 회복된 캠페인 목록을 뽑아 전달(광고주 재보고 판단은 운영·영업 몫)
+- 회복된 캠페인·인플루언서 목록은 **0단계 (다) 조회 결과를 교정 전에 저장해 둔 것**을 쓴다(교정 후에는 그 조회가 0행이 된다 — 반드시 교정 전에 뽑아 둘 것). 광고주 재보고 판단은 운영·영업 몫
 
 ### 4단계 — 재발 방지 (1단계와 병행 가능한 조각만)
 
