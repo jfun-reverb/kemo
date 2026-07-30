@@ -1336,25 +1336,42 @@ async function deleteDraftDeliverable(id) {
 
 // 특정 application의 draft 전체를 pending으로 제출 (본인만)
 async function submitDrafts(applicationId, kind) {
-  if (!db || !applicationId) return 0;
-  let count = 0;
-  try {
-    await retryWithRefresh(async () => {
-      let q = db.from('deliverables').update({status: 'pending'})
-        .eq('application_id', applicationId)
-        .eq('status', 'draft');
-      if (kind) q = q.eq('kind', kind);
-      const {data, error} = await q.select('id');
-      if (error) throw error;
-      count = (data || []).length;
-      // 제출 이벤트 로그 (RPC submit_deliverable) — 각 제출된 draft마다
-      for (const row of (data || [])) {
+  // 반환 {count, failed, error} — 부분 성공을 호출부가 구분할 수 있어야 한다.
+  //   ⚠️ 예전에는 kind 단위로 **한 번의 UPDATE 문**으로 전부 pending 으로 올렸다. 그러면
+  //      제출 마감 검사 장치(마이그레이션 274)가 한 행을 거부할 때 PostgreSQL 문장 원자성 때문에
+  //      **정당한 다른 채널의 제출까지 함께 롤백**된다. 예: 인스타그램은 마감 전에 올려두고
+  //      제출을 미뤄 자격이 없고(반려 이력 없음), 틱톡은 마감 후 반려→재제출로 정당한데,
+  //      「提出」 한 번에 둘이 같이 올라가면서 틱톡까지 실패한다.
+  //      그래서 **행별로 나눠** UPDATE 한다. 일부만 성공해도 그만큼은 제출된다.
+  if (!db || !applicationId) return {count: 0, failed: 0, error: null};
+  let count = 0, failed = 0, firstErr = null;
+  await retryWithRefresh(async () => {
+    count = 0; failed = 0; firstErr = null;   // 세션 갱신 후 재시도 시 누적 방지
+    let q = db.from('deliverables').select('id')
+      .eq('application_id', applicationId)
+      .eq('status', 'draft');
+    if (kind) q = q.eq('kind', kind);
+    const {data: drafts, error: selErr} = await q;
+    if (selErr) throw selErr;
+    for (const row of (drafts || [])) {
+      try {
+        const {error} = await db.from('deliverables').update({status: 'pending'}).eq('id', row.id);
+        if (error) throw error;
+        count++;
+        // 제출 이벤트 로그 (RPC submit_deliverable) — 실패해도 제출 자체는 유효하므로 무음
         try { await db.rpc('submit_deliverable', {p_deliverable_id: row.id}); }
         catch(e) { console.error('[submit_deliverable rpc]', e); }
+      } catch(e) {
+        failed++;
+        if (!firstErr) firstErr = e;
+        console.error('[submitDrafts row]', row.id, e);
       }
-    });
-  } catch(e) { console.error('[submitDrafts]', e); }
-  return count;
+    }
+  });
+  // 한 건도 못 올렸고 사유가 있으면 호출부로 전파한다 (사양서 §설계 6 「2단계 필수」).
+  //   삼키면 화면이 「提出するものがありません(제출할 것이 없습니다)」라는 틀린 안내를 띄운다.
+  if (count === 0 && firstErr) throw firstErr;
+  return {count, failed, error: firstErr};
 }
 
 // 게시물 결과물 신규 INSERT (인플루언서)

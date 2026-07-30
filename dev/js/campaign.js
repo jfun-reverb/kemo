@@ -263,7 +263,11 @@ function buildCampCards(camps) {
   return camps.map(c => {
     const isFull = c.recruit_type === 'monitor' && (c.applied_count||0) >= c.slots;
     const isScheduled = c.status === 'scheduled';
-    const isClosed = c.status === 'closed';
+    // 마감 판정은 상태 + 마감일 경과를 함께 본다(사양서 2026-07-29 §설계 5-(1) 단방향 규칙).
+    //   목록을 열어 둔 채 자정을 넘기면 캐시의 status 는 active 로 남아 「募集中」으로 보이는데
+    //   서버는 거부한다. 마감일도 직접 봐야 그 혼선이 사라진다.
+    const isClosed = c.status === 'closed'
+      || (!isScheduled && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(c));
     const isEnded = c.status === 'ended';
     const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
     const isActive = !isFull && !isScheduled && !isClosedLike;

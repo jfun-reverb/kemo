@@ -5,6 +5,20 @@
 async function openCampaign(id) {
   const camp = allCampaigns.find(c=>c.id===id) || DEMO_CAMPAIGNS.find(c=>c.id===id);
   if (!camp) return;
+
+  // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)
+  //   준비중(draft)·노출종료(expired)는 목록에 안 나오지만 해시(#detail-{id})로 직접 열 수 있었고,
+  //   응모 버튼까지 활성이라 마감일이 미래면 서버도 통과시켜 **응모가 실제로 접수**됐다.
+  //   운영자가 숨겼다고 믿는 캠페인에 응모가 쌓이는 경로라 상세 자체를 열지 않는다.
+  //   ⚠️ 단 **응모이력에서 온 진입은 막지 않는다**. 본인이 응모했던 캠페인을 관리자가 나중에
+  //      노출 종료로 내리는 것은 정상 운영인데, 그때 본인 응모이력에서 상세조차 볼 수 없으면
+  //      「내가 신청한 게 사라졌다」가 된다. 그 경로는 상세를 보여주고 응모 버튼만 닫는다(아래 버튼 판정).
+  if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage') {
+    if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
+    if (typeof navigate === 'function') navigate('campaigns');
+    return;
+  }
+
   currentCampaignId = id;
 
   // 조회수 증가 (비동기, UI 차단 없음)
@@ -270,8 +284,15 @@ async function openCampaign(id) {
       floatApplyBtn.textContent=t('detail.manageBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
       floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
-    else if (camp.status==='closed') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    // 비공개 캠페인(준비중·노출종료) — 응모이력에서 진입한 경우에만 여기 도달한다(위 가드 참조).
+    //   상세는 보여주되 응모는 막는다. 취소 이력이 있으면 「재응모」 버튼이 열려 버리므로 이 분기가 필요하다.
+    else if (camp.status === 'draft' || camp.status === 'expired') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    // 마감 판정 — 상태 「모집마감」 또는 마감일 경과(사양서 §설계 5-(1) 단방향 규칙).
+    //   자정을 넘겨 캐시의 status 가 active 로 남은 경우에도 여기서 닫혀야 서버 거부를 안 본다.
+    else if (camp.status==='closed' || (typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(camp) && camp.status!=='scheduled')) { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='ended') { floatApplyBtn.textContent=t('detail.endedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    // 모집 시작 전 — 링크로 직접 들어온 경우에도 응모를 막는다(목록에서는 카드 클릭 자체가 불가)
+    else if (camp.status==='scheduled') { floatApplyBtn.textContent=t('detail.scheduledBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (isFull) { floatApplyBtn.textContent=t('detail.fullBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (hasCancelledHistory) {
       // 사양 §4-9: 본인이 과거 취소한 캠페인 → 「再応募する」 라벨 + 안내 박스
@@ -432,6 +453,20 @@ async function submitApplication() {
     }
   }
 
+  // 제출 직전 마감 재검사 (사양서 2026-07-29 §설계 5-(8)-2)
+  //   응모 모달을 열어 둔 채 자정을 넘기면 버튼은 이미 눌렸고 화면 판정은 모달 열 때 값이다.
+  //   서버까지 갔다 와서 거부당하는 대신 여기서 안내하고 상세를 다시 그려 버튼을 닫는다.
+  //   같은 화면 판정의 재실행이라 판정이 두 벌이 되는 것은 아니다.
+  {
+    const _campNow = allCampaigns.find(c => c.id === currentCampaignId);
+    if (_campNow && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(_campNow)) {
+      toast(t('detail.deadlineJustPassed'), 'error');
+      closeModal('applyModal');
+      openCampaign(currentCampaignId);
+      return;
+    }
+  }
+
   // 주의사항 동의 시 스냅샷 v2 빌드 — 캠페인의 caution_items 를 신청 시점 그대로 보존 (migration 069)
   let cautionAgreedAt = null, cautionSnapshot = null;
   if (cautionShown) {
@@ -469,7 +504,12 @@ async function submitApplication() {
       updateGnb();
       return;
     }
-    toast(friendlyErrorJa(e), 'error'); closeModal('applyModal'); return;
+    toast(friendlyErrorJa(e), 'error'); closeModal('applyModal');
+    // 마감으로 거부됐다면 상세를 다시 그려 버튼을 「募集締切」로 갱신한다(사양서 §설계 5-(8)-3).
+    //   갱신하지 않으면 버튼이 활성 그대로라 인플루언서가 2~3회 더 누르고 「앱이 고장났다」고 느낀다.
+    //   일반 실패(네트워크 등)에는 재렌더하지 않는다 — 화면이 튀고 입력이 사라진다.
+    if (/recruit_deadline_passed/.test(String(e?.message || ''))) openCampaign(currentCampaignId);
+    return;
   }
 
   closeModal('applyModal');
@@ -1523,9 +1563,26 @@ async function deleteDraft(id) {
 
 // Draft → 제출 (kind 별로 일괄)
 async function submitAllDrafts(kind) {
-  const count = await submitDrafts(_activityAppId, kind);
+  let count = 0, failed = 0;
+  try {
+    const r = await submitDrafts(_activityAppId, kind);
+    count = r.count; failed = r.failed;
+  } catch (e) {
+    // 서버가 거부한 경우(제출 마감 등) 정확한 사유를 보여준다. 예전에는 storage 쪽에서 에러를
+    // 삼켜 count=0 이 되고 아래 「제출할 것이 없습니다」가 떠서, 왜 안 되는지 알 수 없었다.
+    toast(friendlyErrorJa(e), 'error');
+    // 마감으로 막힌 경우 폼 상태를 실제 서버 기준으로 다시 그려 반복 시도를 끊는다
+    if (/submission_deadline_passed/.test(String(e?.message || ''))) {
+      try { await loadDeliverablesForActivity(); } catch(_) {}
+    }
+    return;
+  }
   if (count > 0) {
-    toast(t('activity.submittedN').replace('{n}', count), 'success');
+    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다
+    toast(failed > 0
+      ? t('activity.submittedPartial').replace('{n}', count)
+      : t('activity.submittedN').replace('{n}', count),
+      failed > 0 ? 'warn' : 'success');
     await loadDeliverablesForActivity();
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }
