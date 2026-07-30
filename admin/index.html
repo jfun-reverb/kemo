@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785419075';
+  var CURRENT_BUILD = 'v1785419146';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-30 22:44 · 45ae36e</span>
+          <span class="admin-build-text">2026-07-30 22:45 · bdf68e7</span>
         </div>
       </div>
     </aside>
@@ -5262,7 +5262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 <!-- 캠페인 상태 도움말 모달 -->
 <div class="modal-overlay" id="campStatusHelpModal" style="z-index:600">
-  <div class="modal" style="max-width:640px;border-radius:16px;margin:auto;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
+  <div class="modal" style="max-width:760px;border-radius:16px;margin:auto;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">캠페인 상태 안내 — 노출 · 저절로 바뀜 · 수정 가능 여부</div>
       <div class="modal-close" onclick="closeModal('campStatusHelpModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -5273,39 +5273,39 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <table class="data-table" style="width:100%;font-size:12px">
         <thead>
           <tr style="background:var(--surface-dim)">
-            <th style="padding:8px 10px;text-align:left">상태</th>
-            <th style="padding:8px 10px;text-align:left">뜻</th>
+            <th style="padding:8px 10px;text-align:left;width:92px;white-space:nowrap">상태</th>
+            <th style="padding:8px 10px;text-align:left;width:170px">뜻</th>
             <th style="padding:8px 10px;text-align:left">인플루언서에게 보이나요</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#EEE;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">준비</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#EEE;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">준비</span></td>
             <td style="padding:8px 10px">아직 만드는 중</td>
             <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임 <span style="font-weight:400;color:var(--muted)">(링크로도 못 들어감 · 단, 이미 응모한 사람은 응모이력에서 볼 수 있음)</span></td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#FFF8E1;color:#8B6914;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집예정</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#FFF8E1;color:#8B6914;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집예정</span></td>
             <td style="padding:8px 10px">곧 모집 시작</td>
             <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (近日公開)</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#E6F3E8;color:#274;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집중</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#E6F3E8;color:#274;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집중</span></td>
             <td style="padding:8px 10px">지금 모집 중</td>
             <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中) <span style="color:var(--gold)">*</span></td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#FFE4EC;color:#B91C5C;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#FFE4EC;color:#B91C5C;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
             <td style="padding:8px 10px">모집 끝 · 결과물 받는 중</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">보임 (募集締切), 끌 때까지</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#E8EAF6;color:#283593;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">종료</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#E8EAF6;color:#283593;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">종료</span></td>
             <td style="padding:8px 10px">결과물까지 다 끝남</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">보임 (終了), 끌 때까지</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">노출종료</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">노출종료</span></td>
             <td style="padding:8px 10px">운영자가 화면에서 내림</td>
             <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임 <span style="font-weight:400;color:var(--muted)">(링크로도 못 들어감 · 단, 이미 응모한 사람은 응모이력에서 볼 수 있음)</span></td>
           </tr>
@@ -5337,9 +5337,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <table class="data-table" style="width:100%;font-size:12px">
         <thead>
           <tr style="background:var(--surface-dim)">
-            <th style="padding:8px 10px;text-align:left">무엇을</th>
-            <th style="padding:8px 10px;text-align:left">준비 · 모집예정 · 모집중</th>
-            <th style="padding:8px 10px;text-align:left">모집마감 · 종료 · 노출종료</th>
+            <th style="padding:8px 10px;text-align:left;width:38%">무엇을</th>
+            <th style="padding:8px 10px;text-align:left;width:31%">준비 · 모집예정 · 모집중</th>
+            <th style="padding:8px 10px;text-align:left;width:31%">모집마감 · 종료 · 노출종료</th>
           </tr>
         </thead>
         <tbody>
