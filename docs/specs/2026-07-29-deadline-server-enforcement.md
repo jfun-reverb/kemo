@@ -509,7 +509,7 @@ STABLE, SECURITY DEFINER, SET search_path = '', GRANT authenticated
 
 ### 2단계 — 결과물 제출 마감 서버 차단 (2026-07-30, **구현 완료 · 배포 대기**)
 
-**마이그레이션:** `274_deliverable_deadline_guard.sql`(작성 완료, **미실행**)
+**마이그레이션:** `274_deliverable_deadline_guard.sql` — **개발·운영 적용 완료**(2026-07-30)
 **변경 파일:** `supabase/migrations/274_*.sql`(신규) · `dev/lib/storage.js` · `dev/js/application.js` · `dev/js/ui.js` · `dev/lib/i18n/{ja,ko}.js`
 
 #### 만든 것
@@ -532,7 +532,7 @@ STABLE, SECURITY DEFINER, SET search_path = '', GRANT authenticated
 
 ### 백로그 정리 — 캠페인 편집 동시 저장 방어 (2026-07-30)
 
-**마이그레이션:** `275_campaigns_version_optimistic_lock.sql`(작성 완료, **미실행**)
+**마이그레이션:** `275_campaigns_version_optimistic_lock.sql` — **개발·운영 적용 완료**(2026-07-30)
 **변경 파일:** `supabase/migrations/275_*.sql`(신규) · `dev/lib/storage.js` · `dev/js/admin.js`
 
 #### 만든 것
@@ -547,6 +547,23 @@ STABLE, SECURITY DEFINER, SET search_path = '', GRANT authenticated
 1. **마이그레이션보다 코드가 먼저 배포되면 캠페인 쓰기 전체가 죽는다** — `.select('id, version')` 을 항상 호출해, 컬럼이 없으면 상태 드롭다운·순서 변경까지 실패했다. 낙관적 락을 쓸 때만 version 을 조회하도록 분기. **그래도 배포 순서는 데이터베이스 먼저**(자동 마감이 `.select('version')` 을 쓰므로)
 2. **스스로 가짜 충돌을 만들었다** — 편집 화면을 열 때 `fetchCampaigns()` 가 자동 상태 전이를 실행해 데이터베이스의 version 을 올리는데, 화면이 받은 값은 옛 것이라 **아무것도 안 바꾸고 저장만 눌러도 충돌**이 났다. 하필 이 기능이 지키려던 「마감 임박 캠페인 편집」에서 가장 자주 재현될 경로였다. → 자동 전이 3함수가 `.select('version')` 으로 로컬 캐시를 함께 갱신하도록 수정
 
-### 3단계
+### 3단계 — 화면 판정 서버 일원화 + 게시물 예외 채널 단위 (2026-07-30, **구현 완료 · 배포 대기**)
 
-(미착수)
+**마이그레이션:** `276_deliverable_gate_batch_and_post_channel_exception.sql`(작성 완료, **미실행**)
+**변경 파일:** `supabase/migrations/276_*.sql`(신규) · `dev/lib/storage.js` · `dev/js/application.js`
+
+#### 만든 것
+- **배치 조회 함수** `get_deliverable_gate(p_application_id)` → `TABLE(kind, post_channel, allowed, reason, submission_end)`. 활동관리 진입 시 1회 호출해 그 신청에 필요한 항목(영수증 / 캠페인 채널별 게시물 / 캠페인 채널별 리뷰 인증샷) 판정을 한 번에 받는다. **본인 신청만** 조회 가능(남의 판정 열람 차단)
+- **게시물 반려 예외를 채널 단위로 전환**(§설계 4) — 리뷰 인증샷과 동일 기준. Tier 1·Tier 2 양쪽의 이력 조회에 채널 조건 추가
+- **화면 판정 전면 교체** — `_latestNonDraftIsRejected` **삭제**, `gateAllows(kind, channel)`·`gateAllowsAny(kind)` 로 서버 결과만 소비. 교체 지점 6곳(폼 게이팅·채널별 카드·제출 함수 3곳·안내문 분기)
+- 죽은 함수 `insertPostDeliverable`·`appendPostSubmission` 제거(47줄, 호출부 0건)
+
+#### 초안 대비 변경 사항
+- **게시물 제출의 마감 검사를 채널 확정 뒤로 이동** — 게시물은 주소를 넣어야 채널이 판별되므로, 검사 시점에 채널을 모르면 채널 단위 판정을 할 수 없다
+- **게시물 입력 폼은 채널별로 나누지 않았다** — 리뷰 인증샷은 채널마다 카드가 있지만 게시물은 주소 입력칸 하나다. 폼은 「하나라도 낼 수 있으면」 열고, 제출 시 확정된 채널로 정확히 판정한다. 채널별 카드 분리는 화면 개편이라 별건(아래 백로그)
+
+#### ★ 리뷰에서 잡힌 것 (수정 완료)
+**방문형(visit) 캠페인의 현장 사진 항목이 배치 조회에서 누락**됐다. 화면은 방문형에도 영수증 폼을 띄우는데(`showImage = monitor || visit`) 배치 조회는 `monitor` 에만 영수증을 내보내, 화면이 「항목 없음 = 통과」로 처리해 **마감 후에도 폼이 열리고 제출하면 서버가 거부**했다 — 3단계가 없애려던 바로 그 패턴이 방문형에 재현될 뻔했다. ⚠️ 인증 성공 판정이 방문형에서 영수증을 안 보는 것과는 **다른 축**(그건 「인증 성공의 정의」, 이건 「제출 가능 여부」).
+
+#### 남은 백로그
+- 게시물 입력 폼을 채널별 카드로 분리 — 지금은 주소를 넣고 제출을 눌러야 「이 채널은 낼 수 없다」를 안다. 리뷰 인증샷처럼 카드마다 미리 잠그면 더 친절하다
