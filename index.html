@@ -6781,51 +6781,22 @@ async function submitDrafts(applicationId, kind) {
   return {count, failed, error: firstErr};
 }
 
-// 게시물 결과물 신규 INSERT (인플루언서)
-async function insertPostDeliverable(payload) {
-  if (!db) return null;
-  let id = null;
-  await retryWithRefresh(async () => {
-    const row = {
-      application_id: payload.application_id,
-      user_id: payload.user_id,
-      campaign_id: payload.campaign_id,
-      kind: 'post',
-      status: 'pending',
-      post_url: payload.post_url,
-      post_channel: payload.post_channel,
-      post_submissions: [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
-    };
-    const {data, error} = await db?.from('deliverables').insert(row).select('id').maybeSingle();
+// 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)
+//   그 신청에 필요한 항목(영수증 / 캠페인 채널별 게시물 / 캠페인 채널별 리뷰 인증샷)마다
+//   서버가 판정한 allowed/reason 을 한 번에 받아온다. **화면은 이 결과만 소비하고
+//   같은 판정을 다시 구현하지 않는다**(판정 단일 소스).
+//   실패하면 null — 호출부는 그때 폼을 열어 둔다(막지 않는다). 최종 방어선은 트리거라
+//   마감 후 제출은 어차피 서버가 거부하고, 일시적 조회 실패로 정상 제출을 막는 게 더 나쁘다.
+async function fetchDeliverableGate(applicationId) {
+  if (!db || !applicationId) return null;
+  try {
+    const {data, error} = await db.rpc('get_deliverable_gate', {p_application_id: applicationId});
     if (error) throw error;
-    id = data?.id || null;
-  });
-  // 최초 제출 이벤트 기록 (SECURITY DEFINER)
-  if (id) {
-    try { await db?.rpc('submit_deliverable', {p_deliverable_id: id}); }
-    catch(e) { console.error('[submit_deliverable RPC]', e); }
+    return Array.isArray(data) ? data : null;
+  } catch(e) {
+    console.error('[fetchDeliverableGate]', e);
+    return null;
   }
-  return id;
-}
-
-// 기존 게시물 deliverable에 재제출 반영 (동일 URL: 날짜만 누적, 반려건은 pending 복귀)
-// 낙관적 락: 관리자가 동시에 상태를 바꾸면 충돌 에러
-async function appendPostSubmission(deliverableId, url, channel) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {data: cur, error: e1} = await db?.from('deliverables')
-      .select('post_submissions, status, version').eq('id', deliverableId).maybeSingle();
-    if (e1) throw e1;
-    if (!cur) return;
-    const arr = Array.isArray(cur.post_submissions) ? cur.post_submissions.slice() : [];
-    arr.push({url, channel, submitted_at: new Date().toISOString()});
-    const patch = {post_submissions: arr, version: (cur.version || 1) + 1};
-    if (cur.status === 'rejected') { patch.status = 'pending'; patch.reject_reason = null; patch.reject_template_code = null; }
-    const {data: upd, error: e2} = await db?.from('deliverables')
-      .update(patch).eq('id', deliverableId).eq('version', cur.version).select('id');
-    if (e2) throw e2;
-    if (!upd || !upd.length) throw new Error('conflict');
-  });
 }
 
 // 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
@@ -12132,6 +12103,8 @@ let _activityCamp = null;
 let _activityFrom = 'detail'; // 'detail' or 'mypage'
 // 마지막 loadDeliverablesForActivity() 결과 — draft 추가 함수의 마감 후 가드 판정에 사용
 let _activityLastDelivs = [];
+// 서버가 준 결과물 제출 가부 판정(마이그레이션 276). null = 조회 실패 → 화면은 막지 않는다.
+let _activityGate = null;
 let _receiptImgData = null;
 let _receiptOcrFile = null;  // 영수증 OCR 자동입력용 원본 파일 (base64와 별개로 File 보관)
 let _reviewImgDataByChannel = {};  // monitor 2단계 — 채널별 리뷰 캡쳐 base64 ({channel: dataUrl})
@@ -12402,6 +12375,9 @@ async function loadDeliverablesForActivity() {
     user_id: currentUser?.id
   });
   _activityLastDelivs = all || [];
+  // 제출 가부는 **서버 판정을 그대로 소비**한다(사양서 §설계 3-(1), 마이그레이션 276).
+  //   화면이 같은 판정을 다시 계산하면 두 벌이 되어 어긋난다 — 2단계에서 실제로 겪은 함정이다.
+  _activityGate = await fetchDeliverableGate(_activityAppId);
 
   // 반려 사유 배너: 활동관리 페이지 상단에 표시. receipt/post/review_image
   // 모든 결과물 종류의 가장 최신 반려 1건을 후보로 집계 (각 행 안에도 사유 박스가
@@ -12453,14 +12429,26 @@ async function loadDeliverablesForActivity() {
   applyFormGating(all);
 }
 
-// kind 별 최신 1건이 rejected 상태인지 판정 (활동관리 1장 제약·재제출 정책의 공통 기준)
-//   draft 행은 제외(아직 제출 전이라 「반려당했다」 판정에 부적합)
-function _latestNonDraftIsRejected(allDelivs, kind) {
-  if (!Array.isArray(allDelivs)) return false;
-  const candidates = allDelivs
-    .filter(d => d.kind === kind && d.status !== 'draft')
-    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-  return !!(candidates[0] && candidates[0].status === 'rejected');
+// ── 서버 판정(get_deliverable_gate) 소비 헬퍼 ──
+//   ⚠️ 여기서 「최신 1건이 반려인가」를 다시 계산하지 말 것. 그 판정의 단일 소스는
+//      데이터베이스 함수 can_submit_deliverable 이다(사양서 §설계 3). 예전에는 화면에도
+//      같은 판정(_latestNonDraftIsRejected)이 있어 두 벌이 어긋날 위험을 안고 있었고,
+//      실제로 「재제출이 기존 행을 임시저장으로 되돌린다」는 타이밍 차이를 화면 판정만으로는
+//      표현할 수 없었다(2026-07-30 2단계에서 발견).
+//   조회 실패(_activityGate === null)면 **막지 않는다** — 최종 방어선은 서버 검사 장치다.
+function gateAllows(kind, channel) {
+  if (!Array.isArray(_activityGate)) return true;
+  const rows = _activityGate.filter(g => g.kind === kind);
+  if (!rows.length) return true;
+  if (kind === 'receipt') return !!rows[0].allowed;
+  const hit = rows.find(g => (g.post_channel || '') === (channel || ''));
+  return hit ? !!hit.allowed : true;
+}
+// 그 종류의 항목이 **하나라도** 낼 수 있는가 (영역 단위 폼 활성·안내문 분기용)
+function gateAllowsAny(kind) {
+  if (!Array.isArray(_activityGate)) return true;
+  const rows = _activityGate.filter(g => g.kind === kind);
+  return rows.length ? rows.some(g => g.allowed) : true;
 }
 
 // 활동관리 폼 활성/비활성 + 마감 안내문 분기
@@ -12474,13 +12462,31 @@ function applyFormGating(allDelivs) {
   const showPost = (rt === 'gifting' || rt === 'visit');
   const isMonitor = (rt === 'monitor');
   const submissionEnd = camp.submission_end || null;
-  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
+  // 마감 여부는 서버와 같은 기준(일본 시각)으로 본다 — 안내문 분기에만 쓴다
+  const isAfterDeadline = (typeof submissionDeadlinePassed === 'function')
+    ? submissionDeadlinePassed(camp)
+    : (submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false);
 
-  // kind 별 「최신 1건 rejected」 판정 (마감 후에도 폼 활성 허용 조건)
-  const receiptRejected = _latestNonDraftIsRejected(allDelivs, 'receipt');
-  const reviewRejected = _latestNonDraftIsRejected(allDelivs, 'review_image');
-  const postRejected = _latestNonDraftIsRejected(allDelivs, 'post');
-  const anyRejected = receiptRejected || reviewRejected || postRejected;
+  // 제출 가부는 **서버 판정**만 본다(사양서 §설계 3-(1)). 화면이 다시 계산하지 않는다.
+  const receiptAllowed = gateAllowsAny('receipt');
+  const reviewAllowed  = gateAllowsAny('review_image');
+  const postAllowed    = gateAllowsAny('post');
+  // 마감 후인데도 낼 수 있는 게 하나라도 있으면 「기한은 지났지만 재제출 가능」 안내
+  // ⚠️ 안내문 분기는 **서버가 실제로 내려준 항목**만 센다. gateAllowsAny 는 「그 종류가
+  //   이 캠페인에 해당 없음(행 0건)」도 true 로 돌려주는데(조회 실패 시 막지 않기 위한
+  //   폴백), 그 값을 여기에 섞으면 반려가 하나도 없는 캠페인에서도 「재제출 가능」이
+  //   뜬다 — 리뷰어형은 post 행이, 시딩형은 receipt·review_image 행이 애초에 0건이라
+  //   무조건 true 가 된다(2026-07-31 브라우저 검증에서 양쪽 다 발견).
+  //   ⚠️ 조회 실패(null)와 「해당 항목 0건」([])을 반드시 구분한다. 둘을 뭉뚱그려 빈
+  //   배열로 다루면, 서버에 못 물어본 상황(네트워크 실패·DEMO_MODE)에서 폼은 열려 있는데
+  //   안내문만 「기한이 지났습니다」로 닫히는 어긋난 조합이 된다. 폼 활성(gateAllowsAny)과
+  //   안내문은 폴백 방향이 같아야 한다 — 조회 실패 시엔 둘 다 막지 않는 쪽(2026-07-31 리뷰).
+  const gateRows = Array.isArray(_activityGate) ? _activityGate : null;
+  //   변수명 주의: 「반려가 있는가」가 아니라 「마감 후에도 낼 수 있는 항목이 남았는가」다.
+  //   서버 판정에서 마감 후 통과 사유는 반려 예외(rejected_exception/_history)뿐이므로
+  //   결과적으로 같지만, 판단 근거는 어디까지나 서버가 준 allowed 값이다.
+  const stillSubmittable = isAfterDeadline
+    && (gateRows ? gateRows.some(g => g.allowed) : true);
 
   // 마감 안내문 (전체 상단에 하나만)
   const deadlineBox = $('activitySubmissionDeadline');
@@ -12489,7 +12495,7 @@ function applyFormGating(allDelivs) {
     if (!isAfterDeadline) {
       deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = 'var(--muted)';
-    } else if (anyRejected) {
+    } else if (stillSubmittable) {
       deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{date}', formatDate(submissionEnd));
       deadlineBox.style.color = '#B8741A';
     } else {
@@ -12498,10 +12504,10 @@ function applyFormGating(allDelivs) {
     }
   }
 
-  // kind 별 폼 비활성 결정 — 마감 후이고 해당 kind 에 반려 이력이 없으면 비활성
-  const receiptDisabled = isAfterDeadline && !receiptRejected;
-  const reviewDisabled  = isAfterDeadline && !reviewRejected;
-  const postDisabled    = isAfterDeadline && !postRejected;
+  // 폼 비활성 결정 — 서버가 「낼 수 없다」고 한 종류만 잠근다
+  const receiptDisabled = !receiptAllowed;
+  const reviewDisabled  = !reviewAllowed;
+  const postDisabled    = !postAllowed;
 
   if (showImage) {
     _setFormDisabled({
@@ -12510,9 +12516,11 @@ function applyFormGating(allDelivs) {
       buttonIds: ['addReceiptBtn', 'submitImagesBtn']
     }, receiptDisabled);
   }
-  // monitor 채널별 리뷰 카드는 renderActivityReviewImageList 가 카드 단위로 폼 disabled 처리.
-  // 통합 제출 버튼(submitReviewImageBtn)은 draft 행이 있을 때만 노출되므로 별도 비활성 불필요.
-  // reviewRejected/reviewDisabled 변수는 위 마감 안내문 분기(anyRejected)에서 계속 사용.
+  // monitor 채널별 리뷰 카드는 renderActivityReviewImageList 가 카드 단위로 폼 disabled 처리 +
+  // 통합 제출 버튼(submitReviewImageBtn)도 거기서 「낼 수 있는 임시저장이 있을 때만」 노출한다
+  // (채널마다 가부가 갈리므로 카드를 그리는 쪽이 판단해야 한다 — 여기서 일괄로 잠그면
+  //  인스타그램만 반려된 경우처럼 일부 채널만 낼 수 있는 상황을 표현할 수 없다).
+  // reviewAllowed/reviewDisabled 변수는 위 마감 안내문 분기에서 계속 사용.
   if (showPost) {
     _setFormDisabled({
       labelId: null,
@@ -12615,10 +12623,8 @@ function renderActivityReviewImageList(delivs, channels) {
   if (!container) return;
   const submitBtn = $('submitReviewImageBtn');
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end || null;
-  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
-
-  // 채널 코드 → 최신 1건 매핑 (post_channel 기준, NULL 레거시 행은 무시)
+  // ⚠️ 마감·재제출 가부는 서버 판정(gateAllows)만 본다. 화면에서 다시 계산하지 말 것.
+  //   채널 코드 → 최신 1건 매핑 (post_channel 기준, NULL 레거시 행은 무시)
   const latestByChannel = {};
   (delivs || []).forEach(function(d) {
     if (!d.post_channel) return;  // NULL 레거시 행 무시
@@ -12626,18 +12632,21 @@ function renderActivityReviewImageList(delivs, channels) {
     if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestByChannel[d.post_channel] = d;
   });
 
-  let hasDraft = false;
+  // hasSubmittableDraft = 「서버가 제출을 허용한 채널」의 임시저장이 하나라도 있는가.
+  //   단순히 임시저장 유무(hasDraft)로 버튼을 띄우면, 마감이 지나 서버가 거부할 채널의
+  //   임시저장만 남았을 때도 버튼이 눌리는 상태로 노출된다(2026-07-31 브라우저 검증에서 발견).
+  let hasSubmittableDraft = false;
   container.innerHTML = (channels || []).map(function(ch) {
     const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
-    // 폼 표시 조건: 행 없음 OR 최신이 rejected. 마감 후 반려 없으면 폼 비활성.
+    // 폼 표시 조건: 행 없음 OR 최신이 rejected (표시용). 실제 제출 가부는 서버 판정.
     const needForm = !row || row.status === 'rejected';
-    const formDisabled = isAfterDeadline && !(row && row.status === 'rejected');
+    const formDisabled = !gateAllows('review_image', ch);
     let cardBody = '';
 
     if (row) {
       const isDraft = row.status === 'draft';
-      if (isDraft) hasDraft = true;
+      if (isDraft && !formDisabled) hasSubmittableDraft = true;
       const stBadge = isDraft
         ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
@@ -12687,7 +12696,14 @@ function renderActivityReviewImageList(delivs, channels) {
       </div>`;
   }).join('');
 
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  // 통합 제출 버튼은 **낼 수 있는** 임시저장이 있을 때만 노출·활성화한다.
+  //   서버가 거부할 채널의 임시저장만 남았는데 버튼을 띄우면 「눌리는데 결국 실패하는
+  //   버튼」이 되어, 3단계(화면 판정 서버 일원화)가 없애려던 바로 그 패턴이 남는다.
+  //   남은 임시저장 자체는 각 카드의 삭제 버튼으로 정리할 수 있다(막다른 골목 아님).
+  if (submitBtn) {
+    submitBtn.style.display = hasSubmittableDraft ? '' : 'none';
+    submitBtn.disabled = !hasSubmittableDraft;
+  }
   // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
   if (typeof applyI18n === 'function') applyI18n(container);
 }
@@ -12859,12 +12875,6 @@ async function addDraftUrl() {
   if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
 
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end;
-  // 마감 후라도 해당 kind 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
-      && !_latestNonDraftIsRejected(_activityLastDelivs, 'post')) {
-    toast(t('activity.afterDeadline'),'error'); return;
-  }
 
   let channel = detectChannelFromUrl(url);
   if (!channel) {
@@ -12881,6 +12891,10 @@ async function addDraftUrl() {
     toast(t('activity.channelMismatch').replace('{channels}', reqLabels), 'error');
     return;
   }
+
+  // 제출 가부는 서버 판정만 본다(사양서 §설계 3-(1)). 게시물도 3단계부터 **채널 단위**라
+  //   채널이 확정된 뒤에 검사한다 — 위 URL 판별 전에는 어느 채널인지 알 수 없다.
+  if (!gateAllows('post', channel)) { toast(t('activity.afterDeadline'),'error'); return; }
 
   try {
     const id = await insertDraftDeliverable({
@@ -12905,12 +12919,8 @@ async function addDraftImage() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end;
-  // 마감 후라도 receipt 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
-      && !_latestNonDraftIsRejected(_activityLastDelivs, 'receipt')) {
-    toast(t('activity.afterDeadline'),'error'); return;
-  }
+  // 제출 가부는 서버 판정만 본다(사양서 §설계 3-(1))
+  if (!gateAllows('receipt', null)) { toast(t('activity.afterDeadline'),'error'); return; }
 
   // monitor(리뷰어) 전용 필수 필드 검증 — 마이그레이션 128
   const isMonitor = (camp.recruit_type === 'monitor');
@@ -12972,15 +12982,8 @@ async function addDraftReviewImage(channel) {
   if (!imgData) { toast(t('activity.needReviewImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end;
-  // 마감 후라도 같은 채널 리뷰에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
-  const channelRejected = (_activityLastDelivs || [])
-    .filter(d => d.kind === 'review_image' && d.post_channel === channel && d.status !== 'draft')
-    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
-      && !(channelRejected && channelRejected.status === 'rejected')) {
-    toast(t('activity.afterDeadline'),'error'); return;
-  }
+  // 제출 가부는 서버 판정만 본다(사양서 §설계 3-(1)) — 채널 단위
+  if (!gateAllows('review_image', channel)) { toast(t('activity.afterDeadline'),'error'); return; }
   try {
     toast(t('activity.uploading'),'');
     const fileName = `review_${channel}_${currentUser.id}_${Date.now()}.jpg`;

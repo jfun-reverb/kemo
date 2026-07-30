@@ -1399,51 +1399,22 @@ async function submitDrafts(applicationId, kind) {
   return {count, failed, error: firstErr};
 }
 
-// 게시물 결과물 신규 INSERT (인플루언서)
-async function insertPostDeliverable(payload) {
-  if (!db) return null;
-  let id = null;
-  await retryWithRefresh(async () => {
-    const row = {
-      application_id: payload.application_id,
-      user_id: payload.user_id,
-      campaign_id: payload.campaign_id,
-      kind: 'post',
-      status: 'pending',
-      post_url: payload.post_url,
-      post_channel: payload.post_channel,
-      post_submissions: [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
-    };
-    const {data, error} = await db?.from('deliverables').insert(row).select('id').maybeSingle();
+// 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)
+//   그 신청에 필요한 항목(영수증 / 캠페인 채널별 게시물 / 캠페인 채널별 리뷰 인증샷)마다
+//   서버가 판정한 allowed/reason 을 한 번에 받아온다. **화면은 이 결과만 소비하고
+//   같은 판정을 다시 구현하지 않는다**(판정 단일 소스).
+//   실패하면 null — 호출부는 그때 폼을 열어 둔다(막지 않는다). 최종 방어선은 트리거라
+//   마감 후 제출은 어차피 서버가 거부하고, 일시적 조회 실패로 정상 제출을 막는 게 더 나쁘다.
+async function fetchDeliverableGate(applicationId) {
+  if (!db || !applicationId) return null;
+  try {
+    const {data, error} = await db.rpc('get_deliverable_gate', {p_application_id: applicationId});
     if (error) throw error;
-    id = data?.id || null;
-  });
-  // 최초 제출 이벤트 기록 (SECURITY DEFINER)
-  if (id) {
-    try { await db?.rpc('submit_deliverable', {p_deliverable_id: id}); }
-    catch(e) { console.error('[submit_deliverable RPC]', e); }
+    return Array.isArray(data) ? data : null;
+  } catch(e) {
+    console.error('[fetchDeliverableGate]', e);
+    return null;
   }
-  return id;
-}
-
-// 기존 게시물 deliverable에 재제출 반영 (동일 URL: 날짜만 누적, 반려건은 pending 복귀)
-// 낙관적 락: 관리자가 동시에 상태를 바꾸면 충돌 에러
-async function appendPostSubmission(deliverableId, url, channel) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {data: cur, error: e1} = await db?.from('deliverables')
-      .select('post_submissions, status, version').eq('id', deliverableId).maybeSingle();
-    if (e1) throw e1;
-    if (!cur) return;
-    const arr = Array.isArray(cur.post_submissions) ? cur.post_submissions.slice() : [];
-    arr.push({url, channel, submitted_at: new Date().toISOString()});
-    const patch = {post_submissions: arr, version: (cur.version || 1) + 1};
-    if (cur.status === 'rejected') { patch.status = 'pending'; patch.reject_reason = null; patch.reject_template_code = null; }
-    const {data: upd, error: e2} = await db?.from('deliverables')
-      .update(patch).eq('id', deliverableId).eq('version', cur.version).select('id');
-    if (e2) throw e2;
-    if (!upd || !upd.length) throw new Error('conflict');
-  });
 }
 
 // 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
