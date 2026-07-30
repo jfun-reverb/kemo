@@ -1308,6 +1308,32 @@ function visibleUpcomingFeatures() {
 //         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
 // ══════════════════════════════════════
 // ══════════════════════════════════════
+// 모집 마감 판정 — 화면과 서버가 같은 기준을 쓰게 한다 (사양서 2026-07-29 §설계 5)
+//   서버 검사 장치(마이그레이션 272)는 (now() AT TIME ZONE 'Asia/Tokyo')::date <= deadline 으로
+//   판정한다. 화면이 기기 로컬 시간을 쓰면 해외·시각 오설정 기기에서 하루 어긋나므로 여기서도
+//   일본 시각으로 고정한다.
+//   ⚠️ 단방향 규칙 — 화면은 서버보다 「더 닫는」 방향으로만 판정을 얹는다. 「더 여는」 판정 금지.
+//      (화면 허용 + 서버 거부 = 인플루언서가 버튼을 눌렀는데 실패 = 혼선. 반대는 안전측)
+// ══════════════════════════════════════
+// 일본 시각(UTC+9) 기준 오늘 날짜 'YYYY-MM-DD'
+function jstTodayStr() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+// 모집 마감일이 지났는가 (마감일 당일 24시까지는 아직 안 지난 것으로 본다 = 서버와 동일)
+//   마감일이 없으면 false(무기한) — 서버도 NULL 은 통과시킨다
+function recruitDeadlinePassed(camp) {
+  const dl = camp && camp.deadline;
+  if (!dl) return false;
+  return String(dl).slice(0, 10) < jstTodayStr();   // 'YYYY-MM-DD' 는 사전순 = 날짜순
+}
+// 결과물 제출 마감일이 지났는가 — 같은 기준(2단계 서버 차단과 정합)
+function submissionDeadlinePassed(camp) {
+  const se = camp && camp.submission_end;
+  if (!se) return false;
+  return String(se).slice(0, 10) < jstTodayStr();
+}
+
+// ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움

@@ -641,11 +641,20 @@ let _confirmResolver = null;
 // SECTION: CORE — 범용 확인 모달
 // ════════════════════════════════════════════════════════════════════
 
-function showConfirm(message) {
+// showConfirm(message[, okLabel, cancelLabel])
+//   버튼 이름을 상황에 맞게 지정할 수 있다(2026-07-30). 안 주면 「확인/취소」 기본값이라
+//   기존 호출부는 전혀 영향받지 않는다.
+//   ⚠️ 버튼이 「확인/취소」로 고정돼 있던 탓에 「취소하면 저장되지 않습니다」 같은 설명을 본문에
+//      욱여넣어야 했고 문구가 어색해졌다. 되돌릴 수 없는 동작은 버튼 이름에 행동을 적는 게 안전하다.
+function showConfirm(message, okLabel, cancelLabel) {
   return new Promise(resolve => {
     _confirmResolver = resolve;
     const msg = $('confirmModalMessage');
     if (msg) msg.textContent = message;
+    const okBtn = $('confirmModalOkBtn');
+    const cancelBtn = $('confirmModalCancelBtn');
+    if (okBtn) okBtn.textContent = okLabel || '확인';
+    if (cancelBtn) cancelBtn.textContent = cancelLabel || '취소';
     openModal('confirmModal');
   });
 }

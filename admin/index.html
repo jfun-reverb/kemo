@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785375264';
+  var CURRENT_BUILD = 'v1785385297';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-30 10:34 · b1b7c35</span>
+          <span class="admin-build-text">2026-07-30 13:21 · 7069ae7</span>
         </div>
       </div>
     </aside>
@@ -6228,8 +6228,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
     <div class="modal-body" style="padding:28px 24px 22px">
       <div id="confirmModalMessage" style="font-size:14px;line-height:1.7;color:var(--ink);white-space:pre-line"></div>
       <div style="display:flex;gap:10px;margin-top:22px;justify-content:center">
-        <button class="btn btn-ghost" style="min-width:100px" onclick="resolveConfirmModal(false)">취소</button>
-        <button class="btn btn-primary" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
+        <button class="btn btn-ghost" id="confirmModalCancelBtn" style="min-width:100px" onclick="resolveConfirmModal(false)">취소</button>
+        <button class="btn btn-primary" id="confirmModalOkBtn" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
       </div>
     </div>
   </div>
@@ -7804,6 +7804,32 @@ function visibleUpcomingFeatures() {
 //   사양서 docs/specs/2026-06-15-admin-permission-management.md §3
 //         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+// 모집 마감 판정 — 화면과 서버가 같은 기준을 쓰게 한다 (사양서 2026-07-29 §설계 5)
+//   서버 검사 장치(마이그레이션 272)는 (now() AT TIME ZONE 'Asia/Tokyo')::date <= deadline 으로
+//   판정한다. 화면이 기기 로컬 시간을 쓰면 해외·시각 오설정 기기에서 하루 어긋나므로 여기서도
+//   일본 시각으로 고정한다.
+//   ⚠️ 단방향 규칙 — 화면은 서버보다 「더 닫는」 방향으로만 판정을 얹는다. 「더 여는」 판정 금지.
+//      (화면 허용 + 서버 거부 = 인플루언서가 버튼을 눌렀는데 실패 = 혼선. 반대는 안전측)
+// ══════════════════════════════════════
+// 일본 시각(UTC+9) 기준 오늘 날짜 'YYYY-MM-DD'
+function jstTodayStr() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+// 모집 마감일이 지났는가 (마감일 당일 24시까지는 아직 안 지난 것으로 본다 = 서버와 동일)
+//   마감일이 없으면 false(무기한) — 서버도 NULL 은 통과시킨다
+function recruitDeadlinePassed(camp) {
+  const dl = camp && camp.deadline;
+  if (!dl) return false;
+  return String(dl).slice(0, 10) < jstTodayStr();   // 'YYYY-MM-DD' 는 사전순 = 날짜순
+}
+// 결과물 제출 마감일이 지났는가 — 같은 기준(2단계 서버 차단과 정합)
+function submissionDeadlinePassed(camp) {
+  const se = camp && camp.submission_end;
+  if (!se) return false;
+  return String(se).slice(0, 10) < jstTodayStr();
+}
+
 // ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
@@ -13903,11 +13929,20 @@ let _confirmResolver = null;
 // SECTION: CORE — 범용 확인 모달
 // ════════════════════════════════════════════════════════════════════
 
-function showConfirm(message) {
+// showConfirm(message[, okLabel, cancelLabel])
+//   버튼 이름을 상황에 맞게 지정할 수 있다(2026-07-30). 안 주면 「확인/취소」 기본값이라
+//   기존 호출부는 전혀 영향받지 않는다.
+//   ⚠️ 버튼이 「확인/취소」로 고정돼 있던 탓에 「취소하면 저장되지 않습니다」 같은 설명을 본문에
+//      욱여넣어야 했고 문구가 어색해졌다. 되돌릴 수 없는 동작은 버튼 이름에 행동을 적는 게 안전하다.
+function showConfirm(message, okLabel, cancelLabel) {
   return new Promise(resolve => {
     _confirmResolver = resolve;
     const msg = $('confirmModalMessage');
     if (msg) msg.textContent = message;
+    const okBtn = $('confirmModalOkBtn');
+    const cancelBtn = $('confirmModalCancelBtn');
+    if (okBtn) okBtn.textContent = okLabel || '확인';
+    if (cancelBtn) cancelBtn.textContent = cancelLabel || '취소';
     openModal('confirmModal');
   });
 }
@@ -33789,6 +33824,76 @@ const CAMP_STATUS_TABS = [
   { code: 'deleted',   label: '삭제됨' },   // soft delete 보관함(deleted_at NOT NULL). 다른 탭과 데이터 소스·행 동작이 다름
 ];
 var _campActiveStatusTab = null;
+
+// ══════════════════════════════════════
+// 모집 마감일 변경 게이트 헬퍼 (사양서 2026-07-29 §설계 5-(3)(4)(5))
+//   확인창이 필요한 경우를 한 곳에서 판정하고 문구도 한 곳에서 만든다.
+//   경우가 늘어도 문구가 갈라지지 않게 골격(마감일 전/후 + 상태 전/후 + 영향 줄)을 공유한다.
+// ══════════════════════════════════════
+function campStatusLabelKo(code) {
+  const row = CAMP_STATUS_TABS.find(x => x.code === code);
+  return row ? row.label : (code || '');
+}
+// 마감일 변경 유형 — 'reopen'(과거→미래) / 'shorten'(미래→더 이른 미래) / 'clear'(값→없음) / null(확인 불필요)
+//   과거→과거, 미래→과거(별도 가드가 차단), 없음→값 은 확인 대상이 아니다.
+//   없음→값을 제외하는 근거: 마감일이 없던 캠페인은 서버가 이미 무기한 통과였으므로
+//   어긋남이 새로 생기지 않는다(사양서 §설계 5-(4) 마지막 줄).
+function classifyDeadlineChange(orig, next) {
+  const today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
+  const o = orig ? String(orig).slice(0,10) : '';
+  const n = next ? String(next).slice(0,10) : '';
+  if (o && !n) return 'clear';
+  if (!o || !n || o === n) return null;
+  const oPast = o < today, nPast = n < today;
+  if (oPast && !nPast) return 'reopen';
+  if (!oPast && !nPast && n < o) return 'shorten';
+  return null;
+}
+// 확인창 본문·버튼 라벨 생성. 반환 {message, okLabel} 또는 null(확인 불필요)
+function buildDeadlineChangeConfirm(kind, ctx) {
+  const appLine = ctx.appCount > 0
+    ? `\n· 이미 접수된 응모 ${ctx.appCount}건은 그대로 유지됩니다.`
+    : '';
+  if (kind === 'reopen') {
+    const head = `모집을 다시 열까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}`;
+    if (ctx.isDraft) {
+      return {
+        message: head + `\n상태     ${ctx.statusFrom} (그대로)\n`
+          + `\n· 준비 중이라 인플루언서 화면에는 아직 보이지 않습니다.`
+          + `\n· 공개하려면 상태를 「모집중」으로 직접 바꿔 주세요.` + appLine,
+        okLabel: '마감일만 저장'
+      };
+    }
+    // statusTo 가 없으면(재개 대상 상태가 아니면) 상태 줄 자체를 생략한다 — 「→ null」 노출 방지
+    const statusLine = ctx.statusTo
+      ? `\n상태     ${ctx.statusFrom}  →  ${ctx.statusTo} (함께 저장됩니다)\n`
+      : `\n상태     ${ctx.statusFrom} (그대로)\n`;
+    return {
+      message: head + statusLine
+        + `\n· 인플루언서 화면에 응모 버튼이 다시 열립니다.` + appLine
+        + (ctx.submissionEnd ? `\n· 결과물 제출 마감일은 ${String(ctx.submissionEnd).slice(0,10)} 입니다.` : ''),
+      okLabel: '모집 다시 열기'
+    };
+  }
+  if (kind === 'shorten') {
+    return {
+      message: `모집 기간을 줄일까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}\n`
+        + appLine.replace('\n· ', '\n· ')
+        + `\n· 아직 응모하지 않은 인플루언서는 ${ctx.to} 24시(일본 시간)부터 응모할 수 없습니다.`,
+      okLabel: '줄여서 저장'
+    };
+  }
+  if (kind === 'clear') {
+    return {
+      message: `마감일을 비우면 응모가 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
+        + `\n· 이 캠페인에서만 응모 마감 차단이 해제되어 언제든 응모가 들어옵니다.`
+        + `\n· 나중에 닫으려면 마감일을 다시 넣거나 상태를 「모집마감」으로 바꿔야 합니다.`
+        + `\n\n실수로 지운 것이 아닌지 확인해 주세요.`,
+      okLabel: '마감일 없이 저장'
+    };
+  }
+  return null;
+}
 // 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
 //   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
 var _deletedCampsCache = [];
@@ -34357,6 +34462,7 @@ async function openEditCampaign(campId) {
     id: camp.id,
     status: camp.status || '',
     deadline: camp.deadline || '',
+    submission_end: camp.submission_end || '',
     caution_set_id: camp.caution_set_id || null,
     caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
     participation_set_id: camp.participation_set_id || null,
@@ -35108,6 +35214,23 @@ function validateCampDateRanges(prefix) {
   if (se && lower && new Date(se) < new Date(lower)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일 이후여야 합니다'});
   if (se && pe && new Date(se) < new Date(pe)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 구매 종료일 이후여야 합니다'});
   if (se && ve && new Date(se) < new Date(ve)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 방문 종료일 이후여야 합니다'});
+  // 결과물 제출 마감일 ≥ 모집 마감일 (사양서 2026-07-29 §설계 5-(6), 2026-07-30 신설)
+  //   ⚠️ 위 `lower` 는 모집 시작일이 있으면 그것만 보므로 이 규칙이 빠져 있었다. 그래서 마감일을
+  //      제출 마감 이후로 연장해도 통과해, 「응모는 받지만 결과물은 낼 수 없는」 캠페인이 저장됐다.
+  //      끝난 캠페인을 다시 열 때 가장 잘 생긴다(마감일만 늘리고 제출 마감은 그대로 두는 경우).
+  if (se && dl && new Date(se) < new Date(dl)) {
+    errs.push({kind:'submission', msg:'결과물 제출 마감일이 모집 마감일보다 이릅니다. 제출 마감일도 함께 늘려 주세요'});
+  }
+  // 결과물 제출 마감일을 과거로 넣는 것 차단 — 승인된 인플루언서 전원이 즉시 제출 불가가 된다.
+  //   ⚠️ **신규 등록에만** 적용한다. 편집에 걸면 이미 끝난 캠페인(제출 마감이 과거인 게 정상)의
+  //      제목만 고치려 해도 저장이 막힌다. 편집은 「제출 마감일을 실제로 바꿨을 때만」
+  //      saveCampaignEdit 에서 따로 검사한다.
+  if (se && prefix === 'newCamp') {
+    const _today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
+    if (String(se).slice(0,10) < _today) {
+      errs.push({kind:'submission', msg:'결과물 제출 마감일은 오늘 이후여야 합니다'});
+    }
+  }
   return errs;
 }
 
@@ -35641,6 +35764,19 @@ async function saveCampaignEdit() {
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
+    // 결과물 제출 마감일을 **실제로 바꿨는데** 과거면 차단 (사양서 §설계 5-(6))
+    //   이미 끝난 캠페인의 다른 항목만 고치는 경우를 막지 않으려고 「변경됐을 때만」으로 좁혔다.
+    //   승인된 인플루언서 전원이 그 순간 제출 불가가 되는 변경이라 확인창이 아니라 차단이다.
+    {
+      const _seNew = gv('editCampSubmissionEnd') || '';
+      const _seOld = (_editCampOriginal && _editCampOriginal.submission_end) || '';
+      const _today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
+      if (_seNew && String(_seNew).slice(0,10) !== String(_seOld).slice(0,10)
+          && String(_seNew).slice(0,10) < _today) {
+        toast('결과물 제출 마감일을 과거 날짜로 바꿀 수 없습니다. 승인된 인플루언서가 즉시 제출할 수 없게 됩니다', 'error');
+        return;
+      }
+    }
     // 빈값 가드 — 드롭다운에 없는 상태(disabled 등)거나 값이 비면 원본 상태로 폴백.
     // 종료(ended) 캠페인 편집 시 status='' 저장으로 campaigns_status_check 위반하던 버그 방지.
     const editStatus = gv('editCampStatus') || (_editCampOriginal && _editCampOriginal.status) || 'active';
@@ -35653,28 +35789,33 @@ async function saveCampaignEdit() {
       }
     }
 
-    // ── 모집 마감일 연장 시 상태 자동 전환 확인 (사양서 2026-07-29 마감 서버 강제 §설계 5) ──
-    //   서버는 마감일 날짜만 보고 응모 가부를 판정한다. 마감일을 미래로 늘렸는데 상태가 「모집마감」에
-    //   머물면 「서버는 응모를 받는데 인플루언서 화면 버튼은 닫혀 있는」 어긋남이 생긴다.
-    //   그래서 둘은 함께 움직인다 — 저장하면 상태도 「모집중」으로, 취소하면 마감일도 저장하지 않는다.
-    //   「마감일만 저장」 선택지는 두지 않는다(어긋난 상태를 남기지 않기 위해).
-    //   대상은 closed → active 한 방향뿐. ended(종료)·expired(노출종료)·draft(준비중)는 제외 —
-    //   종료는 결과물 제출 마감까지 지난 상태, 노출종료는 노출 토글 전용이라 마감일 하나로 되돌리면
-    //   다른 규칙과 충돌한다. 사용자가 상태 드롭다운으로 이미 「모집중」을 골랐으면 이 확인은 뜨지 않는다.
-    //   ⚠️ 원래 마감일이 비어 있었다가(레거시·외부 캠페인) 미래 날짜를 새로 넣는 경우는 **의도적으로 제외**한다
-    //      (`_origDeadline` 필수 조건). 「과거였다가 미래로 늘렸다」는 연장 의도가 확인되지 않고, 마감일이
-    //      없던 캠페인은 서버 판정에서도 무기한 통과라 어긋남이 애초에 없다. 신규 등록은 마감일이 필수값.
+    // ── 모집 마감일 변경 게이트 (사양서 2026-07-29 §설계 5-(3)(4)(5), 2026-07-30 전면 재작성) ──
+    //   서버는 마감일 날짜만 보고 응모 가부를 판정한다. 마감일과 상태가 따로 움직이면
+    //   「서버는 응모를 받는데 인플루언서 화면 버튼은 닫혀 있는」(또는 그 반대) 어긋남이 생긴다.
+    //   ⚠️ 초안은 closed → active 한 방향만 다뤘는데, 자동 마감이 active 만 닫으므로
+    //      ended·expired·draft + 미래 마감일은 방치되고 있었다. 재개 대상을 4개 상태로 넓혔다.
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
     const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
+    const _dlKind = classifyDeadlineChange(_origDeadline, editDeadline);
+    // 재개(과거 → 미래)로 상태를 함께 되돌릴 대상. draft 는 마감일만으로 공개해서는 안 되므로 상태 유지.
+    const _reopenTargets = ['closed', 'ended', 'expired'];
     let _reopenToActive = false;
-    if (origStatus === 'closed' && editStatus === 'closed' && editDeadline && _origDeadline) {
-      const _od = new Date(_origDeadline); _od.setHours(23,59,59,999);
-      const _nd = new Date(editDeadline);  _nd.setHours(23,59,59,999);
-      const now = new Date();
-      if (now > _od && now <= _nd) {
-        const ok = await showConfirm('모집 마감일을 미래로 바꾸셨습니다. 저장하면 캠페인 상태도 「모집중」으로 함께 바뀝니다. 취소하면 마감일도 저장되지 않습니다.');
+    if (_dlKind && editStatus === origStatus) {   // 사용자가 상태를 직접 바꿨으면 그 의도를 존중해 건너뜀
+      const _appCount = await countActiveApplications(campId);
+      const _ctx = {
+        from: _origDeadline ? String(_origDeadline).slice(0,10) : '(없음)',
+        to:   editDeadline ? String(editDeadline).slice(0,10) : '(없음)',
+        statusFrom: campStatusLabelKo(origStatus),
+        statusTo:   (_dlKind === 'reopen' && _reopenTargets.includes(origStatus)) ? campStatusLabelKo('active') : null,
+        appCount: _appCount,
+        submissionEnd: gv('editCampSubmissionEnd') || null,
+        isDraft: origStatus === 'draft'
+      };
+      const _c = buildDeadlineChangeConfirm(_dlKind, _ctx);
+      if (_c) {
+        const ok = await showConfirm(_c.message, _c.okLabel, '저장하지 않고 돌아가기');
         if (!ok) return;
-        _reopenToActive = true;
+        if (_dlKind === 'reopen' && _reopenTargets.includes(origStatus)) _reopenToActive = true;
       }
     }
 
@@ -36615,8 +36756,28 @@ async function changeCampStatus(campId, newStatus) {
       }
     }
   }
+  // 「지금 마감」 — 상태를 「모집마감」으로 바꿀 때 마감일이 아직 미래면 마감일도 오늘로 함께 저장한다.
+  //   (사양서 2026-07-29 §설계 5-(5)) 상태만 닫으면 서버는 마감일까지 응모를 계속 받고,
+  //   인플루언서 화면에는 「모집 기간 〜 8월 10일」처럼 아직 남은 날짜가 적힌 채 버튼만 닫힌다.
+  //   마감일을 오늘로 맞추면 표기가 사실과 일치한다. 오늘 24시(일본 시각)까지는 서버가 접수하지만
+  //   화면이 이미 닫혀 있어 실질 영향은 없다(안전측).
+  //   마감일만 남기고 상태만 닫고 싶으면 편집 화면에서 직접 다루면 된다.
+  let _extraUpdates = {};
+  if (newStatus === 'closed') {
+    const camp = allCampaigns.find(c => c.id === campId);
+    const _today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
+    if (camp && camp.deadline && String(camp.deadline).slice(0,10) > _today) {
+      const ok = await showConfirm(
+        `지금 바로 모집을 마감할까요?\n\n마감일   ${String(camp.deadline).slice(0,10)}  →  ${_today} (오늘)\n상태     ${campStatusLabelKo(camp.status)}  →  모집마감\n`
+        + `\n· 인플루언서 화면에서 응모 버튼이 바로 닫힙니다.`
+        + `\n· 이미 접수된 응모는 그대로 유지됩니다.`,
+        '지금 마감', '돌아가기');
+      if (!ok) return;
+      _extraUpdates.deadline = _today;
+    }
+  }
   try {
-    await updateCampaign(campId, {status: newStatus});
+    await updateCampaign(campId, Object.assign({status: newStatus}, _extraUpdates));
     // PR 2: loadAdminCampaigns 가 fetchCampaignsForAdminList 로 allCampaigns 를 갱신.
     //        기존 fetchCampaigns() 이중 조회 제거. renderCampaigns 는 admin 빌드에 없어 dead code.
     loadAdminCampaigns();

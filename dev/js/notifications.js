@@ -277,7 +277,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -327,6 +327,25 @@ async function onNotifItemClick(id, kind, refTable, refId) {
       navigate('mypage', false);
       openMypageSub(settlementPublic() ? 'settlements' : 'applications');
     }
+    refreshNotifBadge();
+    return;
+  }
+  // 제출 마감일 변경 알림 → 활동관리(결과물 제출) 화면 이동 (마이그레이션 273)
+  //   ref_table='applications' 라 application_cancelled·application_approved 와 표가 겹치므로
+  //   kind 로 한정한다(위 message_received 와 같은 이유 — else 로 새면 엉뚱한 화면으로 간다).
+  //   활동관리는 신청 id + 캠페인 id 가 둘 다 필요한데 알림에는 캠페인 id 가 없어 그 한 건만 조회한다
+  //   (행 단위 보안 정책상 본인 신청만 보이므로 남의 것을 열 수는 없다).
+  if (kind === 'submission_deadline_changed' && refId && currentUser) {
+    try {
+      const {data: _app} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
+      if (_app) {
+        openActivityPage(_app.id, _app.campaign_id, 'mypage');
+        refreshNotifBadge();
+        return;
+      }
+    } catch(e) {}
+    await deleteNotification(id);
+    toast(t('notif.refMissing'), 'warn');
     refreshNotifBadge();
     return;
   }
