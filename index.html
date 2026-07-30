@@ -12472,7 +12472,21 @@ function applyFormGating(allDelivs) {
   const reviewAllowed  = gateAllowsAny('review_image');
   const postAllowed    = gateAllowsAny('post');
   // 마감 후인데도 낼 수 있는 게 하나라도 있으면 「기한은 지났지만 재제출 가능」 안내
-  const anyRejected = isAfterDeadline && (receiptAllowed || reviewAllowed || postAllowed);
+  // ⚠️ 안내문 분기는 **서버가 실제로 내려준 항목**만 센다. gateAllowsAny 는 「그 종류가
+  //   이 캠페인에 해당 없음(행 0건)」도 true 로 돌려주는데(조회 실패 시 막지 않기 위한
+  //   폴백), 그 값을 여기에 섞으면 반려가 하나도 없는 캠페인에서도 「재제출 가능」이
+  //   뜬다 — 리뷰어형은 post 행이, 시딩형은 receipt·review_image 행이 애초에 0건이라
+  //   무조건 true 가 된다(2026-07-31 브라우저 검증에서 양쪽 다 발견).
+  //   ⚠️ 조회 실패(null)와 「해당 항목 0건」([])을 반드시 구분한다. 둘을 뭉뚱그려 빈
+  //   배열로 다루면, 서버에 못 물어본 상황(네트워크 실패·DEMO_MODE)에서 폼은 열려 있는데
+  //   안내문만 「기한이 지났습니다」로 닫히는 어긋난 조합이 된다. 폼 활성(gateAllowsAny)과
+  //   안내문은 폴백 방향이 같아야 한다 — 조회 실패 시엔 둘 다 막지 않는 쪽(2026-07-31 리뷰).
+  const gateRows = Array.isArray(_activityGate) ? _activityGate : null;
+  //   변수명 주의: 「반려가 있는가」가 아니라 「마감 후에도 낼 수 있는 항목이 남았는가」다.
+  //   서버 판정에서 마감 후 통과 사유는 반려 예외(rejected_exception/_history)뿐이므로
+  //   결과적으로 같지만, 판단 근거는 어디까지나 서버가 준 allowed 값이다.
+  const stillSubmittable = isAfterDeadline
+    && (gateRows ? gateRows.some(g => g.allowed) : true);
 
   // 마감 안내문 (전체 상단에 하나만)
   const deadlineBox = $('activitySubmissionDeadline');
@@ -12481,7 +12495,7 @@ function applyFormGating(allDelivs) {
     if (!isAfterDeadline) {
       deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = 'var(--muted)';
-    } else if (anyRejected) {
+    } else if (stillSubmittable) {
       deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{date}', formatDate(submissionEnd));
       deadlineBox.style.color = '#B8741A';
     } else {
@@ -12502,9 +12516,11 @@ function applyFormGating(allDelivs) {
       buttonIds: ['addReceiptBtn', 'submitImagesBtn']
     }, receiptDisabled);
   }
-  // monitor 채널별 리뷰 카드는 renderActivityReviewImageList 가 카드 단위로 폼 disabled 처리.
-  // 통합 제출 버튼(submitReviewImageBtn)은 draft 행이 있을 때만 노출되므로 별도 비활성 불필요.
-  // reviewRejected/reviewDisabled 변수는 위 마감 안내문 분기(anyRejected)에서 계속 사용.
+  // monitor 채널별 리뷰 카드는 renderActivityReviewImageList 가 카드 단위로 폼 disabled 처리 +
+  // 통합 제출 버튼(submitReviewImageBtn)도 거기서 「낼 수 있는 임시저장이 있을 때만」 노출한다
+  // (채널마다 가부가 갈리므로 카드를 그리는 쪽이 판단해야 한다 — 여기서 일괄로 잠그면
+  //  인스타그램만 반려된 경우처럼 일부 채널만 낼 수 있는 상황을 표현할 수 없다).
+  // reviewAllowed/reviewDisabled 변수는 위 마감 안내문 분기에서 계속 사용.
   if (showPost) {
     _setFormDisabled({
       labelId: null,
@@ -12616,7 +12632,10 @@ function renderActivityReviewImageList(delivs, channels) {
     if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestByChannel[d.post_channel] = d;
   });
 
-  let hasDraft = false;
+  // hasSubmittableDraft = 「서버가 제출을 허용한 채널」의 임시저장이 하나라도 있는가.
+  //   단순히 임시저장 유무(hasDraft)로 버튼을 띄우면, 마감이 지나 서버가 거부할 채널의
+  //   임시저장만 남았을 때도 버튼이 눌리는 상태로 노출된다(2026-07-31 브라우저 검증에서 발견).
+  let hasSubmittableDraft = false;
   container.innerHTML = (channels || []).map(function(ch) {
     const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
@@ -12627,7 +12646,7 @@ function renderActivityReviewImageList(delivs, channels) {
 
     if (row) {
       const isDraft = row.status === 'draft';
-      if (isDraft) hasDraft = true;
+      if (isDraft && !formDisabled) hasSubmittableDraft = true;
       const stBadge = isDraft
         ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
@@ -12677,7 +12696,14 @@ function renderActivityReviewImageList(delivs, channels) {
       </div>`;
   }).join('');
 
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  // 통합 제출 버튼은 **낼 수 있는** 임시저장이 있을 때만 노출·활성화한다.
+  //   서버가 거부할 채널의 임시저장만 남았는데 버튼을 띄우면 「눌리는데 결국 실패하는
+  //   버튼」이 되어, 3단계(화면 판정 서버 일원화)가 없애려던 바로 그 패턴이 남는다.
+  //   남은 임시저장 자체는 각 카드의 삭제 버튼으로 정리할 수 있다(막다른 골목 아님).
+  if (submitBtn) {
+    submitBtn.style.display = hasSubmittableDraft ? '' : 'none';
+    submitBtn.disabled = !hasSubmittableDraft;
+  }
   // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
   if (typeof applyI18n === 'function') applyI18n(container);
 }
