@@ -212,14 +212,6 @@ input.admin-filter{padding-right:8px}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
-/* 채널 코드 어긋남 경고 아이콘 — .admin-si-badge 와 같은 문제를 겪으므로 같은 방식으로 푼다.
-   접힌 사이드바(.collapsed)는 .admin-si 를 justify-content:center 로 가운데 정렬하는데,
-   margin-left:auto 를 가진 자식은 잉여 공간을 전부 흡수해 그 정렬을 무력화한다.
-   그래서 접힌 상태에서는 flex 흐름에서 빼내 절대 배치한다. */
-.channel-drift-warn{margin-left:auto;flex-shrink:0}
-/* 접힌 상태에서 검수대기 배지(.admin-si-badge)는 위(top:4px)에 붙는다. 같은 항목에 둘 다
-   뜨는 경우가 흔하므로(검수대기는 거의 상시) 같은 모서리를 쓰면 겹친다 → 경고는 아래로. */
-.admin-layout.collapsed .channel-drift-warn{position:absolute;top:auto;bottom:2px;left:50%;margin-left:-7px;font-size:13px}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
 /* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
 .admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
@@ -1670,6 +1662,17 @@ input.admin-filter{padding-right:8px}
 .modal-rsz-nw{top:0;left:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
+
+/* 채널 어긋남 경고 창(#channelDriftModal): **배경을 덮지 않는다.**
+   「창을 열어둔 채 조치를 진행할 수 있습니다」라고 안내해 놓고 덮개가 클릭을 가로채면
+   그 안내가 거짓말이 된다(2026-07-31 사용자 지적 — 조치 방법을 보며 뒤 화면을 눌러야 하는데
+   눌리지 않았다). #imageLightbox 와 같은 방식: overlay 는 클릭 통과, 창(.modal)만 잡는다.
+   닫기는 X 버튼·ESC(ui.js 전역 핸들러가 최상단 .modal-overlay.open 을 닫는다).
+   배경 클릭 닫기는 없다 — 여기서는 뒤를 누르는 게 정상 동작이므로. */
+#channelDriftModal{background:transparent;pointer-events:none}
+#channelDriftModal .modal{pointer-events:auto;box-shadow:0 8px 32px rgba(0,0,0,.28)}
+/* 드래그 초기화가 인라인 크기를 지우므로 .draggable 에 기본 크기를 준다(#imageLightbox 와 동일 이유) */
+#channelDriftModal .modal.draggable{width:760px;height:auto;max-width:92vw;max-height:88vh}
 
 /* 이미지 확대 창(#imageLightbox): 배경을 덮지 않아 뒤 화면(검수 모달 입력 등) 조작 가능 + 드래그·리사이즈 떠있는 창.
    overlay 는 클릭 통과(pointer-events:none), 창(.modal)만 잡힘. 배경 클릭 닫기 없음 — 닫기는 X·ESC. */
