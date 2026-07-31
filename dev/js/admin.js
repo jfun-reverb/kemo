@@ -2089,6 +2089,11 @@ function validateCampDateRangesInline(prefix) {
 // ════════════════════════════════════════════════════════════════════
 
 async function saveCampaignEdit() {
+  // 이번 저장에서 실제로 올라간 이미지 URL (정리 대상).
+  //   ⚠️ **함수 스코프**에 둔다. try 안에 선언하면 블록 스코프라 아래 catch 에서 못 읽어,
+  //      「업로드는 끝났는데 저장이 충돌 아닌 다른 이유(네트워크·권한 등)로 실패한」
+  //      경로에서 정리가 통째로 빠진다(2026-07-31 리뷰 지적).
+  const _freshImgUrls = [];
   try {
     const campId = $('editCampId').value;
     if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
@@ -2256,11 +2261,12 @@ async function saveCampaignEdit() {
     }
 
     // 이미지가 변경된 경우에만 업로드
-    //   ⚠️ 업로드는 되돌릴 수 없는 부수효과다. 저장이 충돌로 취소되면 참조 없는 파일이
-    //      저장소에 남으므로(고아 파일), 아래 두 겹으로 막는다.
+    //   ⚠️ 업로드는 되돌릴 수 없는 부수효과다. 저장이 취소되면 참조 없는 파일이
+    //      저장소에 남으므로(고아 파일), 아래 네 겹으로 막는다.
     //      ① 업로드 **전** 사전 확인 — 이미 남이 저장했으면 올리지도 않는다
-    //      ② 그래도 사이에 끼어들었으면 아래 충돌 분기에서 올린 파일을 지운다
-    let _freshImgUrls = [];   // 이번 저장에서 새로 올린 URL (충돌 시 정리 대상)
+    //      ② 업로드 **도중** 실패 — 그때까지 올라간 것만 지우고 예외를 그대로 올린다
+    //      ③ 업로드는 끝났는데 저장이 **충돌** — 아래 충돌 분기에서 지운다
+    //      ④ 업로드는 끝났는데 저장이 **그 밖의 이유로 실패** — 함수 끝 catch 에서 지운다
     if (editCampImgChanged) {
       const _curVer = await fetchCampaignVersion(campId);
       if (_curVer !== null && _editCampOriginal?.version != null && _curVer !== _editCampOriginal.version) {
@@ -2270,13 +2276,22 @@ async function saveCampaignEdit() {
         return;
       }
       toast('이미지 업로드 중...','');
-      // 새로 올라갈 슬롯(=아직 URL이 아닌 base64)을 미리 표시해 둔다. 업로드 후 그
-      // 자리의 URL 만이 「이번에 생긴 파일」이다(기존 URL 재사용분은 지우면 안 된다).
-      const _freshIdx = (editCampImgData || []).slice(0, 8)
-        .map((im, i) => (im && im.data && !String(im.data).startsWith('http')) ? i : -1)
-        .filter(i => i >= 0);
-      const imgUrls = await uploadCampImages(editCampImgData);
-      _freshImgUrls = _freshIdx.map(i => imgUrls[i]).filter(Boolean);
+      // uploadCampImages 가 새로 올린 URL 을 _freshImgUrls 에 순서대로 담아 준다.
+      //   중간에 실패해도 그때까지 담긴 것은 남으므로 부분 성공분을 정리할 수 있다.
+      let imgUrls;
+      try {
+        imgUrls = await uploadCampImages(editCampImgData, _freshImgUrls);
+      } catch(e) {
+        // 정리 실패가 원래 오류를 가리지 않도록 삼킨다. 원인은 함수 끝 catch 가 보고한다.
+        if (_freshImgUrls.length) {
+          try { await deleteCampImages(_freshImgUrls); }
+          catch(_e) { console.warn('[saveCampaignEdit] 업로드 실패 후 이미지 정리 실패', _e); }
+          // ★ 비워야 한다 — 안 비우면 이 예외를 받는 함수 끝 catch(④)가 **같은 파일을
+          //   또 지우려 한다**. 정리 지점이 둘이므로 처리한 쪽이 목록을 넘겨주지 않는다.
+          _freshImgUrls.length = 0;
+        }
+        throw e;
+      }
       updates.image_url = imgUrls[0];
       updates.img1 = imgUrls[0]; updates.img2 = imgUrls[1];
       updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
@@ -2337,6 +2352,13 @@ async function saveCampaignEdit() {
     toast('변경 사항을 저장했습니다','success');
     switchAdminPane('campaigns', null);
   } catch(err) {
+    // 저장이 실패했으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
+    //   업로드 도중 실패(②)는 그 자리에서 정리한 뒤 배열을 비우고 예외를 올리므로,
+    //   여기서 같은 파일을 다시 지우는 일은 없다. 정리 실패는 원래 오류를 가리지 않게 삼킨다.
+    if (_freshImgUrls.length) {
+      try { await deleteCampImages(_freshImgUrls); }
+      catch(_e) { console.warn('[saveCampaignEdit] 저장 실패 후 이미지 정리 실패', _e); }
+    }
     toast('저장 오류: '+friendlyError(err.message),'error');
   }
 }
@@ -3213,6 +3235,11 @@ async function moveCampOrder(campId, dir) {
 // ════════════════════════════════════════════════════════════════════
 
 async function addCampaign() {
+  // 이번 등록에서 실제로 올라간 이미지 URL. 어떤 이유로든 등록이 실패하면(업로드 도중
+  // 실패·캠페인 INSERT 실패·후속 처리 실패) 아래 catch 에서 지운다 — 안 지우면 아무도
+  // 참조하지 않는 파일이 저장소에 남는다. 업로드 뒤에는 중간 return 경로가 없어
+  // catch 한 곳으로 모든 실패가 모인다.
+  const _newUploadedUrls = [];
   try {
   // 오리엔시트 카드 발행 컨텍스트 (osPublishCard→applyOrientCardPrefill 에서 세팅). 없으면 일반 등록.
   const _opc = window._orientPublishCtx || null;
@@ -3272,7 +3299,7 @@ async function addCampaign() {
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   // 이미지를 Storage에 업로드
   toast('이미지 업로드 중...','');
-  const imgUrls = await uploadCampImages(campImgData);
+  const imgUrls = await uploadCampImages(campImgData, _newUploadedUrls);
 
   const camp = {
     title, brand, product,
@@ -3376,6 +3403,12 @@ async function addCampaign() {
 
   switchAdminPane('campaigns', null);
   } catch(err) {
+    // 등록이 실패했으므로 방금 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
+    //   정리 실패가 원래 오류 메시지를 가리지 않도록 삼킨다(파일이 남을 뿐 데이터 손상 아님).
+    if (_newUploadedUrls.length) {
+      try { await deleteCampImages(_newUploadedUrls); }
+      catch(_e) { console.warn('[addCampaign] 등록 실패 후 이미지 정리 실패', _e); }
+    }
     // 발행 실패 시 컨텍스트 비움 — 살아있으면 다음 저장이 같은 카드를 이중 소비 시도할 수 있음
     window._orientPublishCtx = null;
     toast('오류: ' + friendlyError(err.message||String(err)), 'error');

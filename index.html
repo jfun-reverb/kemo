@@ -6932,7 +6932,12 @@ async function deleteCampImages(urls) {
 }
 
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
-async function uploadCampImages(imgList) {
+//   uploadedOut: 배열을 넘기면 **이번에 실제로 새로 올라간 URL** 만 순서대로 담아 준다.
+//     중간에 실패해 예외가 나가도 그때까지 담긴 것은 남으므로, 호출부가 그것만 지워
+//     참조 없는 파일(고아)을 막을 수 있다. 기존 URL 재사용분은 담지 않는다.
+//     ⚠️ 반환값에서 「새로 올린 것」을 인덱스로 역산하지 말 것 — 예외가 나면 반환값
+//        자체가 없어 역산이 성립하지 않는다(그래서 이 누적 인자를 둔다).
+async function uploadCampImages(imgList, uploadedOut) {
   var urls = [];
   for (var i = 0; i < Math.min(imgList.length, 8); i++) {
     var img = imgList[i];
@@ -6942,6 +6947,7 @@ async function uploadCampImages(imgList) {
     // base64면 업로드 — 실패 시 throw (silent-fail 방지: 빈 URL이 DB에 저장되는 사고 차단)
     var url = await uploadImage(img.data, img.name || 'img' + i);
     urls.push(url);
+    if (Array.isArray(uploadedOut) && url) uploadedOut.push(url);
   }
   // 8개 슬롯 채우기
   while (urls.length < 8) urls.push('');
