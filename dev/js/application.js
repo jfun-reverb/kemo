@@ -879,7 +879,18 @@ function populatePostChannelManualOptions() {
   if (!sel) return;
   const camp = _activityCamp || {};
   const list = String(camp.channel || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (list.length === 0) return; // 채널 미설정 캠페인은 기존 옵션 유지
+  // 캠페인에 채널이 하나도 없으면 고를 수 있는 값이 없다.
+  //   예전에는 그냥 return 해서 화면에 박아둔 기본 선택지가 그대로 남았고, 그 안의
+  //   「その他」가 기준 데이터에 없는 값으로 저장돼 **어떤 캠페인 채널과도 영원히
+  //   일치하지 않는** 결과물을 만들었다(감지 함수 C층. 실제로 2건 발생).
+  //   지금은 캠페인 등록·편집 양쪽이 채널을 필수로 받아 이 상태가 새로 생기지 않지만,
+  //   과거 데이터가 남아 있을 수 있으므로 방어로 남긴다 — 잘못된 값을 고르게 두느니
+  //   고를 수 없음을 알리고 사람 경로로 보낸다.
+  if (list.length === 0) {
+    sel.innerHTML = `<option value="">${esc(t('activity.postChannelUnavailable'))}</option>`;
+    sel.value = '';
+    return;
+  }
   const cur = sel.value;
   const opts = [`<option value="">${esc(t('common.select'))}</option>`];
   list.forEach(code => {

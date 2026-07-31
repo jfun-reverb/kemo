@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785460359';
+  var CURRENT_BUILD = 'v1785464511';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-31 10:12 · d5a402b</span>
+          <span class="admin-build-text">2026-07-31 11:21 · 8e7cc2d</span>
         </div>
       </div>
     </aside>
@@ -35936,9 +35936,15 @@ async function saveCampaignEdit() {
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const editRecruitType = recruitTypeEl?.value || 'monitor';
     const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
-    // 리뷰어형 캠페인은 채널 1개+ 강제 (사양 2 PR 1, 2026-05-28 — 결과물 채널별 카드 N개와 정합)
-    if (editRecruitType === 'monitor' && !editChannel) {
-      toast('리뷰어형 캠페인은 채널을 1개 이상 선택해야 합니다','error');
+    // 채널 1개+ 강제 — **모든 모집 형식**. 신규 등록(addCampaign)이 이미 형식 무관 강제이므로
+    //   두 화면의 규칙을 맞춘 것이다(2026-07-31). 예전에는 리뷰어형에만 걸려 있어, 편집으로
+    //   시딩·방문형 캠페인의 채널을 0개로 만들 수 있었다.
+    //   ⚠️ 채널이 빈 캠페인은 「기타」 구멍의 원천이다 — 인플루언서 게시물 제출 화면의 수동
+    //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
+    //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
+    //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
+    if (!editChannel) {
+      toast('채널을 1개 이상 선택해야 합니다','error');
       return;
     }
 

@@ -506,6 +506,8 @@ window.I18N_KO = {
     postUrlPlaceholder: 'https://www.instagram.com/p/... 등',
     postChannelLabel: '채널 선택',
     postChannelHint: 'URL에서 채널을 자동 판별하지 못했습니다',
+    // 캠페인에 채널이 설정되지 않은 경우에만 표시 (통상 발생하지 않음)
+    postChannelUnavailable: '선택할 수 있는 채널이 없습니다. 운영팀에 문의해 주세요',
     postChannelDetected: '판별: {channel}',
     postChannelDetectFail: 'URL에서 채널을 자동 판별할 수 없습니다',
     noPost: '아직 등록된 게시물이 없습니다',
