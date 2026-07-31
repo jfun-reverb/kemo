@@ -199,4 +199,47 @@ withSubmitLock(키, 버튼요소, 진행문구, 실행함수)
 
 ## 6. 구현 결과
 
-(개발 세션이 채울 것)
+### 1단계 — 제출 연타 잠금 (2026-07-31, **운영 배포 완료**)
+
+**관련 PR:** #874(dev) → #875(main) · **커밋** `a60ca7a` · **데이터베이스 변경 없음**
+**변경 파일:** `dev/lib/shared.js`(헬퍼 신규) · `dev/js/application.js` · `dev/js/ui.js` · `dev/js/app.js` · `dev/js/messaging.js` · `dev/js/mypage.js` · `dev/lib/i18n/{ja,ko}.js` · `dev/css/components.css` · `dev/index.html`
+
+#### 만든 것
+- **`withSubmitLock(key, btn, busyLabel, fn)`**(shared.js) — 같은 키 실행 중이면 **조용히** 무시(토스트 없음) · 버튼 비활성 + 진행 표시 · **`try/finally` 로 해제를 헬퍼 안에 가둠**(호출부가 해제할 방법이 없다) · `clearSubmitLocks()` 를 `navigate()`(app.js)에서 호출
+- 진행 표시 = `.btn-spinner`(components.css 신규) + i18n `common.submitting`/`common.uploading`(ja·ko)
+- **적용 8곳** — 새로 잠금 5(`submitApplication`·`addDraftUrl`·`addDraftImage`·`addDraftReviewImage`·`submitAllDrafts`) + 기존 잠금 통일 3(`saveAgeGate`·`submitCancelApplicationFromPage`·`sendMessageFromModal`)
+- **중복 전용 문구** `applyDuplicate`·`reviewImageDuplicate`(ja·ko) + 응모 중복 시 `openCampaign()` 재렌더
+
+#### 초안 대비 변경 사항
+- **본문을 건드리지 않고 `_xxxInner` 로 분리해 감쌌다** — 대상 함수의 조기 반환이 3~8곳이라 본문에 손대면 그 자체가 위험했다. 초안의 「`finally` 강제」 취지를 구조로 굳힌 형태다.
+- **`addDraftReviewImage(channel)` → `(channel, btnEl)`** — 리뷰 인증샷 버튼은 카드마다 동적 생성이라 호출부가 자기 요소(`this`)를 넘겨야 잠글 수 있다. 초안에 없던 시그니처 변경.
+- **메시지 보내기 버튼만 진행 문구를 안 넣었다**(`busyLabel=''`) — 40px 원형 아이콘 버튼이라 스피너+문구가 넘친다(리뷰 지적). 잠금만으로 연타는 막힌다.
+- **`_msgSending` 플래그 제거** — 헬퍼로 대체.
+
+#### ★ 리뷰에서 잡힌 것 (수정 완료)
+**응모 중복 제약 이름이 실제와 달라 새 문구가 조용히 안 뜰 뻔했다.** 확인 결과 **제약이 두 개 공존**한다 — 마이그레이션 104 가 옛 것을 지우려 했으나 지울 이름을 자동 생성 이름으로 적어(`IF EXISTS` 라 조용히 통과) 마이그레이션 50 의 `uidx_applications_user_campaign` 이 살아 있고, 104 는 `applications_user_camp_active_uidx` 를 **추가로** 만들었다. **운영 오류 로그에 실제로 찍히는 쪽은 옛 이름**(§0 표 4번)이라 **둘 다 매칭**해야 한다. 하나만 넣으면 일반 문구로 떨어져 이번 작업의 목적(성공으로 읽히게)이 무력화된다.
+
+#### 브라우저 검증 (5/5 통과)
+응모 3회 연타 → **1건만** 등록·오류 토스트 없음 / 성공·실패 양쪽 버튼 복원(**잠긴 채 남지 않음**) / 화면 이동 후 잠금 해제 / 결과물 추가 연타 시 오류 토스트도 1회만 / 메시지 3회 연타 → **1건만** 전송·원형 버튼 유지.
+
+⚠️ **결과물에 이미지를 실제 첨부한 성공 경로는 재현하지 못했다**(테스트 도구에 파일 업로드 기능 없음). 성공·실패가 같은 헬퍼를 거치고 코드상 분기가 없어 동일하게 동작하지만, **실계정 1회 확인 권장**.
+
+### 2단계 — 오류 로그 잡음 정리 (2026-07-31, **구현 완료 · 배포 대기**)
+
+**마이그레이션:** `279_report_client_error_mask_auth_token.sql`(신규, **미적용**)
+**변경 파일:** `dev/js/error-report.js` · `supabase/migrations/279_*.sql`
+
+#### 만든 것
+- **잡음 제외 2층** — 1층에 실측 2패턴(`MyApp_RemoveAllHighlights`·`standardSelectors`) 추가. 2층은 `_isNoise(msg, stack, kind)` 로 시그니처를 바꿔 **미처리 예외에 한해** 스택에 우리 앱 파일이 없으면 제외. **스택이 아예 없으면 제외하지 않는다**(근거 없음을 잡음으로 읽지 않기 위해)
+- **인증 토큰 마스킹** — 화면(`_mask`)·서버(279 의 (f)) 양쪽. 값만 `[token]` 으로 가리고 **키 이름은 남긴다**(운영자가 종류를 보고 원인을 좁힐 수 있게)
+
+#### 초안 대비 변경 사항
+- **마스킹 대상 키에 `code` 를 추가했다** — 초안은 `token_hash`·`access_token`·`refresh_token` 3종이었다. PKCE 인증 코드가 비밀번호 재설정·소셜 로그인 링크에 실려 같은 성격이라 넣었다. **사양서 범위 밖 추가**라 여기 명시한다.
+
+#### ★ 리뷰에서 잡힌 것 2건 (수정 완료)
+1. **`code=` 오마스킹** — 단어 경계가 없어 `error_code=42501`·`status_code=500` 안의 `code=` 까지 잡아 **오류 코드값을 지웠다**(코드 리뷰가 실측 재현). 이 프로젝트는 PostgreSQL 오류 코드를 로그 판독 근거로 쓰므로 가리면 안 된다. 단어 경계를 붙여 해결.
+2. **★ 자바스크립트 `\b` 를 PostgreSQL 에 그대로 옮기면 조용히 죽는다** — PostgreSQL 정규식(ARE)에서 `\b` 는 **백스페이스 문자**(0x08)로 해석된다. **구문 오류가 안 나서** 규칙이 동작하지 않는 채 배포될 뻔했다. 단어 경계는 별도 분류의 **`\y`** 를 써야 한다. 화면(`\b`)과 서버(`\y`)는 **표기만 다르고 동작은 같다.**
+
+#### 남은 백로그 (후속)
+- **2층 규칙이 로컬 미빌드 개발에서 우리 오류를 삼킨다** — 빌드 없이 `dev/index.html` 을 직접 열면 스택이 `dev/js/campaign.js` 형태라 우리 파일 판별(`globalreverb.com`·`index.html`)에 안 걸린다. 운영·개발서버는 빌드본(인라인)이라 정상. **이 판별 문구는 §3 2-1 에 그대로 명시돼 있어 구현은 사양을 따른 것**이므로, 고치려면 사양을 먼저 갱신해야 한다(`location.origin` 동적 비교나 `/\/js\/|\/lib\//` 추가 등).
+- **§3 2-3 「이미 쌓인 4건 정리」는 운영자 작업** — 배포 후 관리자 화면에서 확장 잡음 2건 「무시」, 연타 2건 「해결됨」. 연타 2건의 근거인 1단계 배포는 끝났다.

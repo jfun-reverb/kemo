@@ -24,6 +24,10 @@
     /webkit-masked-url/i,              // Safari 가 확장 스크립트 출처를 가린 URL (스택에만 등장)
     /__firefox__|window\.__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
     /window\.ethereum|window\.solana|selectedAddress|evmAsk/i,  // 브라우저 내장/확장 암호화폐 지갑(Brave·MetaMask 등) 주입 객체 (앱 코드 아님)
+    // 2026-07-31 운영 실측으로 들어온 확장 잡음 2종. 주소가 chrome-extension:// 로 안 남고
+    //   변수·객체 이름만 남는 형태라 위 규칙에 안 걸렸다.
+    /MyApp_RemoveAllHighlights/i,      // 하이라이트 확장이 주입한 전역 함수
+    /standardSelectors/i,              // 확장이 주입한 셀렉터 객체
   ];
 
   function _toMessage(v) {
@@ -41,7 +45,16 @@
       .replace(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g, '[email]')
       .replace(/(\+81|\+82|0)\d[\d\-]{8,12}/g, '[phone]')
       .replace(/\d{3}-\d{4}/g, '[zip]')                 // 하이픈 필수 (7자리 ID 과마스킹 방지)
-      .replace(/Bearer\s+\S+/g, 'Bearer [token]');
+      .replace(/Bearer\s+\S+/g, 'Bearer [token]')
+      // 인증 토큰 — 주소에 실려 오는 값(비밀번호 재설정 링크 등). 값 부분만 가린다.
+      //   실측 증거: 오류 발생 화면에 `#reset-pw?token_hash=...` 가 그대로 기록돼 있었다.
+      //   ⚠️ 기존 자릿수 치환(\d→#)은 **발생 화면에만** 걸려 있어, 토큰이 메시지·스택 쪽에
+      //      실리면 원문 그대로 저장된다. 그래서 마스킹 함수 자체에 규칙을 둔다.
+      //   ⚠️ `\b`(단어 경계) 없으면 `error_code=42501` 안의 `code=` 까지 잡아
+      //      「error_code=[token]」으로 뭉갠다(리뷰에서 실제 재현). 이 프로젝트는
+      //      오류 코드(42501·23505 등)를 로그 판독 근거로 쓰므로 가리면 안 된다.
+      //      `_` 는 단어 문자라 `error_code=` 앞에는 경계가 안 서고, `code=` 단독만 잡힌다.
+      .replace(/\b((?:token_hash|access_token|refresh_token|code)=)[^&\s"']+/gi, '$1[token]');
   }
 
   // 32bit 해시 (외부 의존 없는 간단 해시)
@@ -64,9 +77,24 @@
     return _hash(norm + '|' + loc);
   }
 
-  function _isNoise(msg, stack) {
+  function _isNoise(msg, stack, kind) {
     // 메시지·스택을 각각 검사 (합치면 끝에 공백이 붙어 ^...$ 앵커 정규식이 빗나감 — "Script error." 누락 버그)
-    return NOISE.some((re) => re.test(msg || '') || re.test(stack || ''));
+    if (NOISE.some((re) => re.test(msg || '') || re.test(stack || ''))) return true;
+
+    // 2층(일반 규칙) — 개별 이름만 늘리는 건 두더지 잡기라, 다음 달에 다른 확장이 다른
+    //   이름으로 또 들어온다. 스택에 **우리 앱 파일이 한 줄도 없으면** 우리 코드가 아니다.
+    //
+    //   ⚠️ 미처리 예외(unhandled·rejection)에만 적용한다. 처리된 오류(handled)는 **우리
+    //      코드가 직접 부른 것**이라 스택이 없어도 우리 것이 확실하다 — 거기에 적용하면
+    //      우리 오류를 통째로 놓친다.
+    //   ⚠️ **스택이 아예 없는 경우는 제외하지 않는다.** 브라우저·상황에 따라 스택이 안
+    //      잡히는데, 그걸 「우리 파일 없음」으로 읽으면 근거 없이 버리는 것이 된다.
+    //      「스택은 있는데 그 안에 우리 파일이 없다」일 때만 잡음으로 본다.
+    if (kind === 'unhandled' || kind === 'rejection') {
+      const st = String(stack || '').trim();
+      if (st && !/globalreverb\.com|index\.html/i.test(st)) return true;
+    }
+    return false;
   }
 
   // 에러 1건 수집 → 마스킹 → reportClientError RPC. 절대 throw 안 함.
@@ -76,7 +104,8 @@
       const msg = _toMessage(err);
       if (!msg) return;
       const stack = (err && err.stack) ? String(err.stack) : '';
-      if (_isNoise(msg, stack)) return;
+      // kind 를 넘겨야 2층 일반 규칙이 「미처리 예외에만」 적용된다.
+      if (_isNoise(msg, stack, kind)) return;
 
       const fp = _fingerprint(msg, stack);
       const now = Date.now();
