@@ -413,7 +413,14 @@ function renderApplyCaution(camp) {
   if (row) row.style.display = 'block';
 }
 
+// 연타 잠금으로 감싼다(사양서 2026-07-31 §3 단계 1). 본문은 그대로고 감싸기만 추가 —
+//   중간에 빠져나가는 지점이 8곳이라 개별 해제를 쓰면 반드시 하나가 빠진다.
+//   해제는 withSubmitLock 의 finally 에서 한 번만 일어난다.
 async function submitApplication() {
+  return withSubmitLock('apply:' + currentCampaignId, 'applySubmitBtn', t('common.submitting'), _submitApplicationInner);
+}
+
+async function _submitApplicationInner() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   // 배송지 이름 누락 차단 — 한자명·가나명 둘 다 필수.
   // 관리자 화면에서 신청자 이름이 「-」로 표시되던 케이스 방지 (마이페이지에서 등록 후 재시도)
@@ -508,7 +515,14 @@ async function submitApplication() {
     // 마감으로 거부됐다면 상세를 다시 그려 버튼을 「募集締切」로 갱신한다(사양서 §설계 5-(8)-3).
     //   갱신하지 않으면 버튼이 활성 그대로라 인플루언서가 2~3회 더 누르고 「앱이 고장났다」고 느낀다.
     //   일반 실패(네트워크 등)에는 재렌더하지 않는다 — 화면이 튀고 입력이 사라진다.
-    if (/recruit_deadline_passed/.test(String(e?.message || ''))) openCampaign(currentCampaignId);
+    //   ★ 응모 중복도 같은 이유로 다시 그린다 — 중복이라는 건 **이미 응모가 존재한다**는 뜻이라
+    //     버튼이 「応募済み」로 바뀌어야 인플루언서가 「됐구나」를 알 수 있다. 그대로 두면
+    //     실패 문구만 보고 또 누른다(사양서 2026-07-31 §3 1-5).
+    const _em = String(e?.message || '');
+    if (/recruit_deadline_passed/.test(_em)
+        || /uidx_applications_user_campaign|applications_user_camp_active_uidx/.test(_em)) {
+      openCampaign(currentCampaignId);
+    }
     return;
   }
 
@@ -655,21 +669,23 @@ async function saveAgeGate() {
     return;
   }
 
-  const btn = $('ageGateSaveBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  // 잠금·버튼 복원을 헬퍼에 맡긴다(사양서 2026-07-31 §3 1-3).
+  //   예전에는 성공·실패 경로에서 각각 풀어, 그 사이에서 예외가 나면 버튼이 잠긴 채 남았다.
   const consentAt = new Date().toISOString();
-  try {
-    await updateInfluencer(currentUser.id, { birthdate, gender, age_consent_at: consentAt });
-    if (!currentUserProfile) currentUserProfile = {};
-    currentUserProfile.birthdate = birthdate;
-    currentUserProfile.gender = gender;
-    currentUserProfile.age_consent_at = consentAt;
-  } catch(e) {
-    if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
-    showErr(friendlyErrorJa(e));
-    return;
-  }
-  if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+  const _saved = await withSubmitLock('ageGate', 'ageGateSaveBtn', t('common.submitting'), async function() {
+    try {
+      await updateInfluencer(currentUser.id, { birthdate, gender, age_consent_at: consentAt });
+      if (!currentUserProfile) currentUserProfile = {};
+      currentUserProfile.birthdate = birthdate;
+      currentUserProfile.gender = gender;
+      currentUserProfile.age_consent_at = consentAt;
+      return true;
+    } catch(e) {
+      showErr(friendlyErrorJa(e));
+      return false;
+    }
+  });
+  if (!_saved) return;   // 저장 실패, 또는 이미 실행 중이라 무시됨(undefined)
   closeAgeGate();
   // 18세 이상 — 저장 완료, 응모 흐름 재개
   handleFloatApply();
@@ -1277,7 +1293,7 @@ function renderActivityReviewImageList(delivs, channels) {
             <span data-i18n="activity.imageBtn">画像を選択</span>
             <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, '${esc(ch)}')">
           </label>
-          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage('${esc(ch)}')" data-i18n="activity.addDraftBtn">リストに追加</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage('${esc(ch)}', this)" data-i18n="activity.addDraftBtn">リストに追加</button>
         </div>`;
     }
 
@@ -1456,7 +1472,12 @@ function previewReviewImage(input, channel) {
 }
 
 // Draft URL 추가 (gifting/visit — SNS 게시 URL 제출)
+//   연타 잠금으로 감쌈(사양서 2026-07-31 §3 단계 1). 해제는 헬퍼 finally 한 곳.
 async function addDraftUrl() {
+  return withSubmitLock('draftUrl', 'addPostBtn', t('common.submitting'), _addDraftUrlInner);
+}
+
+async function _addDraftUrlInner() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const rawUrl = ($('postUrlInput')?.value || '').trim();
   if (!rawUrl) { toast(t('activity.needUrl'), 'error'); return; }
@@ -1507,7 +1528,12 @@ async function addDraftUrl() {
 }
 
 // Draft 이미지 추가 (monitor/visit — 영수증·현장 사진 제출)
+//   업로드가 끼어 시간 창이 넓다 → 진행 문구를 「올리는 중」으로.
 async function addDraftImage() {
+  return withSubmitLock('draftImage', 'addReceiptBtn', t('common.uploading'), _addDraftImageInner);
+}
+
+async function _addDraftImageInner() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
@@ -1568,7 +1594,14 @@ async function addDraftImage() {
 }
 
 // monitor 2단계 — 채널별 리뷰 캡쳐 draft 추가. payload에 post_channel 채워 신청+채널 유니크 인덱스(마이그레이션 158)와 정합.
-async function addDraftReviewImage(channel) {
+// 채널마다 따로 눌러야 하므로 잠금 키에 채널을 붙인다(한 채널 제출 중에 다른 채널은 눌러야 함).
+//   버튼은 카드마다 동적 생성이라 호출부가 자기 요소(this)를 넘긴다.
+async function addDraftReviewImage(channel, btnEl) {
+  return withSubmitLock('draftReviewImage:' + (channel || ''), btnEl || null, t('common.uploading'),
+    function() { return _addDraftReviewImageInner(channel); });
+}
+
+async function _addDraftReviewImageInner(channel) {
   if (!channel) { toast(t('activity.needReviewImage'),'error'); return; }
   const imgData = _reviewImgDataByChannel[channel];
   if (!imgData) { toast(t('activity.needReviewImage'),'error'); return; }
@@ -1605,7 +1638,14 @@ async function deleteDraft(id) {
 }
 
 // Draft → 제출 (kind 별로 일괄)
+// 종류별로 버튼이 따로 있으므로 잠금 키·버튼도 종류별.
 async function submitAllDrafts(kind) {
+  const BTN = {receipt: 'submitImagesBtn', review_image: 'submitReviewImageBtn', post: 'submitPostsBtn'};
+  return withSubmitLock('submitDrafts:' + kind, BTN[kind] || null, t('common.submitting'),
+    function() { return _submitAllDraftsInner(kind); });
+}
+
+async function _submitAllDraftsInner(kind) {
   let count = 0, failed = 0;
   try {
     const r = await submitDrafts(_activityAppId, kind);

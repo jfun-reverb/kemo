@@ -12,7 +12,6 @@ const MSG_MAX_ATTACH = 5;                       // 메시지당 첨부 최대 5�
 let _msgCurrentAppId = null;
 let _msgFrom = 'mypage';     // 메시지 페이지 진입 출처 (뒤로가기 목적지 결정)
 let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
-let _msgSending = false;
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
 let _msgLastCount = 0;       // 현재 표시 중인 메시지 수 (도착 감지 기준)
 
@@ -332,51 +331,48 @@ function renderMsgAttachPreview() {
 
 // ── 전송 ──
 async function sendMessageFromModal() {
-  if (_msgSending || !_msgCurrentAppId) return;
+  if (!_msgCurrentAppId) return;
   const inputEl = $('msgModalInput');
   const body = (inputEl?.value || '').trim();
   if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
 
   // 봇 안내 카드 방식(2026-05-22): 발송을 가로채는 게이트 폐기 — 발송은 항상 바로 진행.
   //   FAQ 추천은 스레드 맨 위 봇 카드(_faqBotCardHtml)로 상시 노출.
-  _msgSending = true;
-  const sendBtn = $('msgModalSendBtn');
-  if (sendBtn) sendBtn.disabled = true;
-
-  try {
-    // 첨부 압축·업로드 (순차 — 실패 시 즉시 중단)
-    const attachments = [];
-    for (const f of _msgPendingFiles) {
-      try {
-        attachments.push(await uploadMessageAttachment(f, _msgCurrentAppId));
-      } catch (e) {
-        console.error('[sendMessageFromModal] 첨부 업로드', e);
-        toast(e?.message === 'too_large' ? t('messaging.attachTooLarge') : t('messaging.attachUploadFailed'));
-        _msgSending = false;
-        if (sendBtn) sendBtn.disabled = false;
-        return;
+  // 잠금·버튼 복원은 공통 헬퍼가 맡는다(사양서 2026-07-31 §3 1-3). 예전 _msgSending 플래그를
+  //   대체 — 동작은 같고, 첨부 업로드가 오래 걸릴 때 진행 표시가 뜨는 것이 추가됐다.
+  //   ⚠️ 진행 문구는 넣지 않는다(빈 문자열) — 보내기 버튼은 40px 원형 아이콘 버튼이라
+  //      스피너+문구가 안 들어가고 넘친다. 잠금만으로 연타는 이미 막힌다.
+  return withSubmitLock('sendMsg:' + _msgCurrentAppId, 'msgModalSendBtn', '', async function() {
+    try {
+      // 첨부 압축·업로드 (순차 — 실패 시 즉시 중단)
+      const attachments = [];
+      for (const f of _msgPendingFiles) {
+        try {
+          attachments.push(await uploadMessageAttachment(f, _msgCurrentAppId));
+        } catch (e) {
+          console.error('[sendMessageFromModal] 첨부 업로드', e);
+          toast(e?.message === 'too_large' ? t('messaging.attachTooLarge') : t('messaging.attachUploadFailed'));
+          return;   // 잠금 해제는 헬퍼 finally 가 한다
+        }
       }
+      await sendApplicationMessage(_msgCurrentAppId, body, attachments);
+      // 입력 초기화 + 재로드
+      if (inputEl) { inputEl.value = ''; inputEl.style.height = ''; } // 전송 후 1줄로 리셋
+      _msgPendingFiles = [];
+      renderMsgAttachPreview();
+      const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+      renderMessageThread(msgs);
+      _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
+      _toggleMsgNewBanner(false);
+      // 전체 보기 오버레이는 닫고 스레드만 (봇 카드는 renderMessageThread 가 다시 그림)
+      closeFaqOverlay();
+    } catch (e) {
+      console.error('[sendMessageFromModal]', e);
+      // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
+      // 그 외 DB 내부 에러(42702 등)는 일반 메시지로 — 원문 노출 방지
+      toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
     }
-    await sendApplicationMessage(_msgCurrentAppId, body, attachments);
-    // 입력 초기화 + 재로드
-    if (inputEl) { inputEl.value = ''; inputEl.style.height = ''; } // 전송 후 1줄로 리셋
-    _msgPendingFiles = [];
-    renderMsgAttachPreview();
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
-    renderMessageThread(msgs);
-    _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
-    _toggleMsgNewBanner(false);
-    // 전체 보기 오버레이는 닫고 스레드만 (봇 카드는 renderMessageThread 가 다시 그림)
-    closeFaqOverlay();
-  } catch (e) {
-    console.error('[sendMessageFromModal]', e);
-    // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
-    // 그 외 DB 내부 에러(42702 등)는 일반 메시지로 — 원문 노출 방지
-    toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
-  } finally {
-    _msgSending = false;
-    if (sendBtn) sendBtn.disabled = false;
-  }
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════

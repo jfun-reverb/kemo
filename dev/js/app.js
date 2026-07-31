@@ -59,6 +59,12 @@ function navigate(page, pushHistory) {
     }
   }
 
+  // 제출 연타 잠금 초기화 — 화면을 옮기면 잠금 키를 전부 비운다.
+  //   ⚠️ 이게 없으면 업로드 도중 화면을 나갔다 다시 들어왔을 때 키가 남아 **다음 제출이
+  //      조용히 막힌다**(아무 반응이 없어 사용자가 원인을 알 수 없는 형태).
+  //      잠금은 한 화면 안에서 연타를 막는 게 목적이라 화면이 바뀌면 유지할 이유가 없다.
+  if (typeof clearSubmitLocks === 'function') clearSubmitLocks();
+
   // 메시지 페이지를 떠나면 폴링·상태 정리 (같은 페이지 내 다른 응모건 이동은 제외)
   const _prevActivePage = document.querySelector('#appShell .page.active');
   if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'

@@ -888,14 +888,17 @@ async function submitCancelApplicationFromPage() {
     if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
     if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
   }
-  const submitBtn = $('cancelPageSubmitBtn');
-  if (submitBtn) submitBtn.disabled = true;
-  const res = await cancelApplication(appId, {
-    reasonCode: reasonCode || null,
-    reasonNote: reasonNote || null,
-    acknowledged
-  });
-  if (submitBtn) submitBtn.disabled = false;
+  // 잠금·버튼 복원을 헬퍼에 맡긴다(사양서 2026-07-31 §3 1-3).
+  //   예전에는 호출 전후로 직접 풀어, 그 사이에서 예외가 나면 버튼이 잠긴 채 남았다.
+  const res = await withSubmitLock('cancelApp:' + appId, 'cancelPageSubmitBtn', t('common.submitting'),
+    function() {
+      return cancelApplication(appId, {
+        reasonCode: reasonCode || null,
+        reasonNote: reasonNote || null,
+        acknowledged
+      });
+    });
+  if (!res) return;   // 이미 실행 중이라 무시됨
   if (!res.ok) {
     // 데드락 자동 복구: 화면은 간단(recruit) 모드인데 서버가 사유·동의를 요구하면
     // 클라이언트/서버 단계 판정이 엇갈린 것. 사유 입력란을 펼쳐 재입력받는다.

@@ -1539,3 +1539,58 @@ document.addEventListener('wheel', function (e) {
     e.preventDefault();
   }
 }, { passive: false });
+
+// ══════════════════════════════════════
+// 제출 연타 잠금 (사양서 2026-07-31-duplicate-submit-guard-and-error-log-noise §3 단계 1)
+// ══════════════════════════════════════
+//
+// 왜 필요한가 — 응모·결과물 제출 버튼을 빠르게 두 번 누르면 두 요청이 **둘 다** 중복 검사를
+//   통과한다(검사와 저장 사이에 서버 왕복이 2~3번 있어 시간 창이 열려 있다). 첫 요청은
+//   성공하는데 두 번째 요청의 실패 메시지가 뜨고 모달이 닫혀, **인플루언서는 응모에
+//   실패한 줄 안다.** 실제로는 완료돼 있다(운영 오류 로그 실측 3회).
+//
+// ⚠️ **잠금은 「오류를 줄이는」 장치이지 「중복을 막는」 장치가 아니다.** 두 탭·두 기기·
+//    뒤로가기 후 재제출은 이걸로 못 막는다. 중복의 최종 방어선은 데이터베이스 제약이고
+//    그건 이미 있다. 이 헬퍼를 「중복 방지」로 이해하고 제약을 빼면 안 된다.
+//
+// ⚠️ **해제는 반드시 finally 에서 한 번만.** 적용 대상 함수들은 중간에 빠져나가는 지점이
+//    3~6곳이라 개별 해제를 쓰면 반드시 하나가 빠지고, 그러면 **버튼이 영구히 잠긴다** —
+//    중복 오류보다 나쁜 사고다(중복은 첫 요청이 성공이라도 하지만 영구 잠김은 제출 자체가
+//    불가능해진다). 그래서 호출부가 해제를 못 하도록 헬퍼가 통째로 감싼다.
+const _submitLocks = new Set();
+
+// key       : 잠금 단위. 같은 키가 실행 중이면 두 번째 호출은 **조용히** 무시된다
+//             (토스트도 안 띄운다 — 연타 2회째에 경고가 뜨면 그것대로 「실패했나」 오해가 된다).
+//             채널별로 따로 눌러야 하는 리뷰 인증샷처럼 대상이 나뉘면 키에 그 값을 붙인다.
+// btn       : 버튼 요소 또는 그 id. 없으면(null) 잠금만 걸고 화면은 안 건드린다.
+// busyLabel : 진행 중 버튼에 표시할 문구. 비우면 문구는 그대로 두고 비활성만 한다.
+//             ⚠️ 잠금만 하고 아무 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 **오히려 더
+//                누른다.** 진행 표시는 선택이 아니라 짝이다.
+// fn        : 실제 작업. 반환값은 그대로 전달된다.
+async function withSubmitLock(key, btn, busyLabel, fn) {
+  if (_submitLocks.has(key)) return;
+  _submitLocks.add(key);
+  const el = (typeof btn === 'string') ? document.getElementById(btn) : btn;
+  const prevHtml = el ? el.innerHTML : null;
+  const prevDisabled = el ? el.disabled : null;
+  if (el) {
+    el.disabled = true;
+    if (busyLabel) el.innerHTML = `<span class="btn-spinner"></span>${esc(busyLabel)}`;
+  }
+  try {
+    return await fn();
+  } finally {
+    _submitLocks.delete(key);
+    if (el) {
+      el.disabled = (prevDisabled === true);
+      if (busyLabel && prevHtml !== null) el.innerHTML = prevHtml;
+    }
+  }
+}
+
+// 화면 이탈 시 잠금 전체 비우기.
+//   ⚠️ 이게 없으면 업로드 도중 화면을 나갔다 다시 들어왔을 때 키가 남아 **다음 제출이
+//      조용히 막힌다**(아무 반응이 없어 원인을 알 수 없는 형태로). navigate 훅에서 부른다.
+function clearSubmitLocks() {
+  _submitLocks.clear();
+}

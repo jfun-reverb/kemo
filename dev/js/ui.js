@@ -93,7 +93,10 @@ const _ERR_DICT = {
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
     submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
-    postDuplicate: '同じURLは既に提出済みです'
+    postDuplicate: '同じURLは既に提出済みです',
+    // 「失敗」ではなく「すでに完了している」と読めることが重要（実際に一度目は成功している）
+    applyDuplicate: 'このキャンペーンにはすでに応募済みです。応募履歴からご確認いただけます',
+    reviewImageDuplicate: 'このチャンネルのレビュー画像はすでに登録されています'
   },
   ko: {
     unknown: '오류가 발생했습니다',
@@ -112,7 +115,10 @@ const _ERR_DICT = {
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
     submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
-    postDuplicate: '같은 URL은 이미 제출되었습니다'
+    postDuplicate: '같은 URL은 이미 제출되었습니다',
+    // 「실패」가 아니라 「이미 되어 있다」로 읽혀야 한다(첫 요청은 실제로 성공했다)
+    applyDuplicate: '이미 응모하신 캠페인입니다. 응모 이력에서 확인하실 수 있습니다',
+    reviewImageDuplicate: '이 채널의 리뷰 인증샷은 이미 등록되어 있습니다'
   }
 };
 
@@ -130,6 +136,17 @@ function friendlyErrorJa(e) {
   // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
   if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
   if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
+  // 응모·리뷰 인증샷 중복 — 일반 duplicate 보다 **먼저** 매칭해야 한다.
+  //   ⚠️ 응모 중복 제약이 **두 개 공존**한다. 마이그레이션 104 가 옛 것을 지우려 했으나
+  //      지울 이름을 잘못 적어(`IF EXISTS` 라 조용히 통과) 둘 다 살아 있다 —
+  //      옛 `uidx_applications_user_campaign`(마이그50, **운영 오류 로그에 실제로 찍힌 쪽**) 과
+  //      새 `applications_user_camp_active_uidx`(마이그104). 어느 쪽에 걸릴지 정해져 있지
+  //      않으므로 둘 다 매칭한다. 하나만 넣으면 이 안내가 조용히 일반 문구로 떨어진다.
+  //   일반 문구(「이미 등록되어 있습니다」)로는 인플루언서가 **성공인지 실패인지 판단할 수 없다.**
+  //   실제로 이 오류가 나는 상황은 「첫 요청은 성공했고 두 번째가 거부된」 경우라, 뜻이
+  //   「실패」가 아니라 **「이미 되어 있다」**로 읽혀야 한다(사양서 2026-07-31 §3 1-4).
+  if (/uidx_applications_user_campaign|applications_user_camp_active_uidx/.test(s)) return t.applyDuplicate;
+  if (/deliverables_review_image_app_channel_uniq/.test(s)) return t.reviewImageDuplicate;
   if (/duplicate key|unique constraint|already exists/.test(s)) return t.duplicate;
   if (/permission denied|Permission denied|violates row-level security/.test(s)) return t.permission;
   if (/violates foreign key/.test(s)) return t.fk;

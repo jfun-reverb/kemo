@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785468225';
+  var CURRENT_BUILD = 'v1785471382';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -224,6 +224,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── LOADING ── */
 .spinner{width:20px;height:20px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* 버튼 안 진행 표시 — withSubmitLock(shared.js)이 제출 중에 끼워 넣는다.
+   .spinner 는 20px 라 버튼 텍스트 옆에 넣으면 줄 높이를 밀어낸다. */
+.btn-spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 
@@ -2687,7 +2690,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-31 12:23 · 4b61fbb</span>
+          <span class="admin-build-text">2026-07-31 13:16 · 5c097b5</span>
         </div>
       </div>
     </aside>
@@ -8091,6 +8094,61 @@ document.addEventListener('wheel', function (e) {
 }, { passive: false });
 
 // ══════════════════════════════════════
+// 제출 연타 잠금 (사양서 2026-07-31-duplicate-submit-guard-and-error-log-noise §3 단계 1)
+// ══════════════════════════════════════
+//
+// 왜 필요한가 — 응모·결과물 제출 버튼을 빠르게 두 번 누르면 두 요청이 **둘 다** 중복 검사를
+//   통과한다(검사와 저장 사이에 서버 왕복이 2~3번 있어 시간 창이 열려 있다). 첫 요청은
+//   성공하는데 두 번째 요청의 실패 메시지가 뜨고 모달이 닫혀, **인플루언서는 응모에
+//   실패한 줄 안다.** 실제로는 완료돼 있다(운영 오류 로그 실측 3회).
+//
+// ⚠️ **잠금은 「오류를 줄이는」 장치이지 「중복을 막는」 장치가 아니다.** 두 탭·두 기기·
+//    뒤로가기 후 재제출은 이걸로 못 막는다. 중복의 최종 방어선은 데이터베이스 제약이고
+//    그건 이미 있다. 이 헬퍼를 「중복 방지」로 이해하고 제약을 빼면 안 된다.
+//
+// ⚠️ **해제는 반드시 finally 에서 한 번만.** 적용 대상 함수들은 중간에 빠져나가는 지점이
+//    3~6곳이라 개별 해제를 쓰면 반드시 하나가 빠지고, 그러면 **버튼이 영구히 잠긴다** —
+//    중복 오류보다 나쁜 사고다(중복은 첫 요청이 성공이라도 하지만 영구 잠김은 제출 자체가
+//    불가능해진다). 그래서 호출부가 해제를 못 하도록 헬퍼가 통째로 감싼다.
+const _submitLocks = new Set();
+
+// key       : 잠금 단위. 같은 키가 실행 중이면 두 번째 호출은 **조용히** 무시된다
+//             (토스트도 안 띄운다 — 연타 2회째에 경고가 뜨면 그것대로 「실패했나」 오해가 된다).
+//             채널별로 따로 눌러야 하는 리뷰 인증샷처럼 대상이 나뉘면 키에 그 값을 붙인다.
+// btn       : 버튼 요소 또는 그 id. 없으면(null) 잠금만 걸고 화면은 안 건드린다.
+// busyLabel : 진행 중 버튼에 표시할 문구. 비우면 문구는 그대로 두고 비활성만 한다.
+//             ⚠️ 잠금만 하고 아무 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 **오히려 더
+//                누른다.** 진행 표시는 선택이 아니라 짝이다.
+// fn        : 실제 작업. 반환값은 그대로 전달된다.
+async function withSubmitLock(key, btn, busyLabel, fn) {
+  if (_submitLocks.has(key)) return;
+  _submitLocks.add(key);
+  const el = (typeof btn === 'string') ? document.getElementById(btn) : btn;
+  const prevHtml = el ? el.innerHTML : null;
+  const prevDisabled = el ? el.disabled : null;
+  if (el) {
+    el.disabled = true;
+    if (busyLabel) el.innerHTML = `<span class="btn-spinner"></span>${esc(busyLabel)}`;
+  }
+  try {
+    return await fn();
+  } finally {
+    _submitLocks.delete(key);
+    if (el) {
+      el.disabled = (prevDisabled === true);
+      if (busyLabel && prevHtml !== null) el.innerHTML = prevHtml;
+    }
+  }
+}
+
+// 화면 이탈 시 잠금 전체 비우기.
+//   ⚠️ 이게 없으면 업로드 도중 화면을 나갔다 다시 들어왔을 때 키가 남아 **다음 제출이
+//      조용히 막힌다**(아무 반응이 없어 원인을 알 수 없는 형태로). navigate 훅에서 부른다.
+function clearSubmitLocks() {
+  _submitLocks.clear();
+}
+
+// ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
 // localStorage는 세션 캐시에만 사용
 // ══════════════════════════════════════
@@ -12566,7 +12624,10 @@ const _ERR_DICT = {
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
     submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
-    postDuplicate: '同じURLは既に提出済みです'
+    postDuplicate: '同じURLは既に提出済みです',
+    // 「失敗」ではなく「すでに完了している」と読めることが重要（実際に一度目は成功している）
+    applyDuplicate: 'このキャンペーンにはすでに応募済みです。応募履歴からご確認いただけます',
+    reviewImageDuplicate: 'このチャンネルのレビュー画像はすでに登録されています'
   },
   ko: {
     unknown: '오류가 발생했습니다',
@@ -12585,7 +12646,10 @@ const _ERR_DICT = {
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
     submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
-    postDuplicate: '같은 URL은 이미 제출되었습니다'
+    postDuplicate: '같은 URL은 이미 제출되었습니다',
+    // 「실패」가 아니라 「이미 되어 있다」로 읽혀야 한다(첫 요청은 실제로 성공했다)
+    applyDuplicate: '이미 응모하신 캠페인입니다. 응모 이력에서 확인하실 수 있습니다',
+    reviewImageDuplicate: '이 채널의 리뷰 인증샷은 이미 등록되어 있습니다'
   }
 };
 
@@ -12603,6 +12667,17 @@ function friendlyErrorJa(e) {
   // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
   if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
   if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
+  // 응모·리뷰 인증샷 중복 — 일반 duplicate 보다 **먼저** 매칭해야 한다.
+  //   ⚠️ 응모 중복 제약이 **두 개 공존**한다. 마이그레이션 104 가 옛 것을 지우려 했으나
+  //      지울 이름을 잘못 적어(`IF EXISTS` 라 조용히 통과) 둘 다 살아 있다 —
+  //      옛 `uidx_applications_user_campaign`(마이그50, **운영 오류 로그에 실제로 찍힌 쪽**) 과
+  //      새 `applications_user_camp_active_uidx`(마이그104). 어느 쪽에 걸릴지 정해져 있지
+  //      않으므로 둘 다 매칭한다. 하나만 넣으면 이 안내가 조용히 일반 문구로 떨어진다.
+  //   일반 문구(「이미 등록되어 있습니다」)로는 인플루언서가 **성공인지 실패인지 판단할 수 없다.**
+  //   실제로 이 오류가 나는 상황은 「첫 요청은 성공했고 두 번째가 거부된」 경우라, 뜻이
+  //   「실패」가 아니라 **「이미 되어 있다」**로 읽혀야 한다(사양서 2026-07-31 §3 1-4).
+  if (/uidx_applications_user_campaign|applications_user_camp_active_uidx/.test(s)) return t.applyDuplicate;
+  if (/deliverables_review_image_app_channel_uniq/.test(s)) return t.reviewImageDuplicate;
   if (/duplicate key|unique constraint|already exists/.test(s)) return t.duplicate;
   if (/permission denied|Permission denied|violates row-level security/.test(s)) return t.permission;
   if (/violates foreign key/.test(s)) return t.fk;
