@@ -113,6 +113,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── LOADING ── */
 .spinner{width:20px;height:20px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* 버튼 안 진행 표시 — withSubmitLock(shared.js)이 제출 중에 끼워 넣는다.
+   .spinner 는 20px 라 버튼 텍스트 옆에 넣으면 줄 높이를 밀어낸다. */
+.btn-spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 

@@ -10,6 +10,10 @@ window.I18N_JA = {
     select: '選択してください',
     unregistered: '未登録',
     loading: '読み込み中…',
+    // 제출 연타 잠금(withSubmitLock)이 버튼에 끼워 넣는 진행 문구.
+    //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
+    submitting: '送信中…',
+    uploading: 'アップロード中…',
     retry: '再試行',
     close: '閉じる',
     apply: '適用',

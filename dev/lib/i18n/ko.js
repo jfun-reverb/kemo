@@ -10,6 +10,10 @@ window.I18N_KO = {
     select: '선택해주세요',
     unregistered: '미등록',
     loading: '로딩 중…',
+    // 제출 연타 잠금(withSubmitLock)이 버튼에 끼워 넣는 진행 문구.
+    //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
+    submitting: '전송 중…',
+    uploading: '올리는 중…',
     retry: '다시 시도',
     close: '닫기',
     apply: '적용',
