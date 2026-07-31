@@ -6920,6 +6920,30 @@ async function fetchCampaignVersion(id) {
   }
 }
 
+// 그 캠페인에서 특정 채널들로 이미 제출된 결과물 건수.
+//   캠페인에서 채널을 뺄 때 「이 채널로 낸 결과물이 화면·인증 성공·정산에서 빠진다」를
+//   정확한 숫자로 경고하기 위한 조회. 임시저장(draft)은 아직 제출이 아니므로 제외한다.
+//   ⚠️ 채널 비교가 문자열 일치라, 캠페인 요구 채널에서 코드가 빠지는 순간 그 채널로 낸
+//      결과물은 인플루언서 활동관리·관리자 인증 상태·정산 후보 **세 곳에서 동시에** 빠진다
+//      (2026-07-30 @cosme 사고의 구조). 그래서 저장 전에 사람에게 숫자를 보여준다.
+//   ⚠️ 반려·취소된 신청의 결과물은 세지 않는다 — 그건 이미 인증 성공 판정·정산 후보에서
+//      빠져 있어(isCertExcluded 규칙), 함께 세면 「빠집니다」라는 경고 숫자가 실제보다 커진다.
+async function countDeliverablesByChannels(campaignId, channels) {
+  if (!db || !campaignId || !Array.isArray(channels) || !channels.length) return 0;
+  // 건수만 필요하지만 신청 상태로 걸러야 해서 행을 가져와 센다. 한 캠페인의 특정 채널
+  // 결과물이라 규모가 작다(모집 인원 단위).
+  const {data, error} = await db.from('deliverables')
+    .select('id, applications:application_id (status)')
+    .eq('campaign_id', campaignId)
+    .in('post_channel', channels)
+    .neq('status', 'draft');
+  if (error) throw error;
+  return (data || []).filter(function(d) {
+    const st = d.applications && d.applications.status;
+    return st !== 'rejected' && st !== 'cancelled';
+  }).length;
+}
+
 // 캠페인 이미지 공개 URL 배열을 Storage 에서 삭제 (고아 파일 정리용).
 //   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
 //   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
