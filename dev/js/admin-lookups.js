@@ -33,6 +33,11 @@ async function loadLookupsPane() {
     return;
   }
   await renderLookupsTable();
+  // 채널 코드 어긋남 경보 — 여기가 **원인을 만드는 자리**다(채널 코드를 지우거나 바꾸는 화면).
+  //   결과물 관리 페인과 같은 함수를 쓴다. 0건이면 아무것도 안 그린다.
+  if (typeof renderChannelDriftBanner === 'function') {
+    renderChannelDriftBanner('lookupChannelDriftBanner');
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════

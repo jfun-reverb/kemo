@@ -1154,6 +1154,8 @@
                 관리자 대리 등록
               </button>
             </div>
+            <!-- 채널 코드 어긋남 경보 — 0건이면 renderChannelDriftBanner 가 통째로 숨긴다 -->
+            <div id="delivChannelDriftBanner" style="display:none"></div>
             <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -2218,6 +2220,8 @@
               </div>
               <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
             </div>
+            <!-- 채널 코드 어긋남 경보 — 원인을 만드는 자리이므로 여기에도 같은 신호를 띄운다 -->
+            <div id="lookupChannelDriftBanner" style="display:none"></div>
             <!-- 종류 탭 -->
             <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
               <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>

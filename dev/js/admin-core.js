@@ -865,3 +865,94 @@ function initDraggableModals() {
       .observe(overlay, { attributes: true, attributeFilter: ['class'] });
   });
 }
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 채널 코드 어긋남 경보 배너 (마이그레이션 277·278)
+// ════════════════════════════════════════════════════════════════════
+//   2026-07-30 @cosme 사고 — 승인된 리뷰 인증샷 55건이 두 달간 화면·인증 성공·정산
+//   세 곳에서 사라져 보였는데 **감지 수단이 없어 아무도 몰랐다.** 그 감지 결과를
+//   사람이 매일 보는 자리에 띄운다.
+//
+//   ⚠️ **0건이면 아무것도 그리지 않는다.** 숫자가 늘 떠 있으면 「원래 빨간 게 있는
+//      화면」으로 학습되어, 정작 진짜 문제가 생겼을 때 또 두 달을 놓친다. 운영 실측을
+//      A·B·C 전부 0으로 만든 뒤에 이 배너를 켰다(2026-07-31).
+//   ⚠️ 조회 실패 시에도 안 그린다 — 감지 실패가 본 업무를 막지 않는다.
+
+// 층별 의미 — 사람이 읽을 문구. 코드가 아니라 「무엇이 잘못됐는지」를 말한다.
+const CHANNEL_DRIFT_LAYERS = {
+  A: {
+    label: '지금 판정에서 빠져 있는 결과물',
+    desc: '캠페인이 요구하지 않는 채널로 저장돼 있어, 인플루언서 화면·인증 성공·정산에서 함께 빠집니다.',
+    severe: true
+  },
+  B: {
+    label: '기준 데이터에 없는 채널을 쓰는 캠페인',
+    desc: '아직 결과물은 멀쩡하지만, 이 상태로 결과물이 쌓이면 위 문제로 이어집니다.',
+    severe: false
+  },
+  C: {
+    label: '기준 데이터에 없는 채널로 제출된 결과물',
+    desc: '어떤 캠페인 채널과도 영영 일치하지 않는 값입니다.',
+    severe: false
+  }
+};
+
+// 감지 결과를 배너로 그린다. containerId 는 각 페인에 미리 둔 빈 div.
+//   두 화면이 같은 함수를 쓴다 — 매일 검수하는 자리(결과물 관리)와 원인을 만드는
+//   자리(기준 데이터) 양쪽에 같은 신호가 떠야 한다.
+async function renderChannelDriftBanner(containerId) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const rows = await fetchChannelDriftAlerts();
+  if (!Array.isArray(rows) || !rows.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+
+  // 층별 집계
+  const byLayer = {};
+  rows.forEach(function(r) {
+    const L = r.layer || '?';
+    if (!byLayer[L]) byLayer[L] = {count: 0, rows: []};
+    byLayer[L].count += Number(r.affected_count || 0);
+    byLayer[L].rows.push(r);
+  });
+  const hasSevere = !!byLayer.A;
+  const tone = hasSevere
+    ? {bg: '#FFF5F5', border: '#C33', ink: '#C33'}
+    : {bg: '#FEF3C7', border: '#FBBF24', ink: '#92400E'};
+
+  const lines = Object.keys(CHANNEL_DRIFT_LAYERS)
+    .filter(function(L) { return byLayer[L]; })
+    .map(function(L) {
+      const meta = CHANNEL_DRIFT_LAYERS[L];
+      const g = byLayer[L];
+      const detail = g.rows.map(function(r) {
+        const camp = r.campaign_no ? `${esc(r.campaign_no)} ${esc(r.campaign_title || '')}` : '(캠페인 무관)';
+        const kind = r.kind ? ` · ${esc(channelDriftKindKo(r.kind))}` : '';
+        return `<div style="padding:3px 0 3px 12px;font-size:11px;color:var(--muted)">${camp} · 채널 <code>${esc(r.channel_code || '')}</code>${kind} · ${Number(r.affected_count || 0)}건</div>`;
+      }).join('');
+      return `
+        <div style="margin-top:6px">
+          <div style="font-weight:700">${esc(meta.label)} ${g.count}건</div>
+          <div style="font-size:11px;opacity:.85;margin-top:1px">${esc(meta.desc)}</div>
+          ${detail}
+        </div>`;
+    }).join('');
+
+  box.style.display = '';
+  box.innerHTML = `
+    <div style="padding:10px 12px;background:${tone.bg};border:1px solid ${tone.border};border-radius:8px;font-size:12px;line-height:1.55;color:${tone.ink};margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:6px;font-weight:700">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">report_problem</span>
+        채널 코드가 어긋난 항목이 있습니다
+      </div>
+      ${lines}
+      <div style="font-size:11px;opacity:.8;margin-top:8px">
+        채널 코드를 바꾸거나 지울 때는 <b>기준 데이터 · 캠페인 · 이미 제출된 결과물</b> 세 곳을 함께 옮겨야 합니다.
+      </div>
+    </div>`;
+}
+
+// 결과물 종류 코드를 사람이 읽는 말로
+function channelDriftKindKo(kind) {
+  const MAP = {receipt: '영수증', review_image: '리뷰 인증샷', post: '게시물'};
+  return MAP[kind] || kind || '';
+}
