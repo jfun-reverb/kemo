@@ -521,6 +521,8 @@ window.I18N_JA = {
     postUrlPlaceholder: 'https://www.instagram.com/p/... など',
     postChannelLabel: 'チャンネルを選択',
     postChannelHint: 'URLからチャンネルを自動判別できませんでした',
+    // キャンペーンにチャンネルが設定されていない場合のみ表示（通常は起こりません）
+    postChannelUnavailable: '選べるチャンネルがありません。運営にお問い合わせください',
     postChannelDetected: '判別: {channel}',
     postChannelDetectFail: 'URLからチャンネルを自動判別できません',
     noPost: 'まだ投稿が登録されていません',
