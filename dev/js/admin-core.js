@@ -959,13 +959,28 @@ function applyChannelDriftIndicators() {
   const severe = rows.some(function(r) { return r.layer === 'A'; });
   const total = rows.reduce(function(n, r) { return n + Number(r.affected_count || 0); }, 0);
 
-  // 사이드바 — 결과물 관리(발견하는 자리)·기준 데이터(원인을 만드는 자리) 두 곳
-  ['adminDelivDriftWarn', 'adminLookupsDriftWarn'].forEach(function(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = has ? '' : 'none';
-    el.style.color = severe ? '#C33' : '#B8741A';
-    el.title = has ? `채널 코드가 어긋난 항목 ${total}건 — 눌러서 조치 방법 보기` : '';
+  // 사이드바 — 결과물 관리(발견하는 자리)·기준 데이터(원인을 만드는 자리) 두 곳.
+  //   ⚠️ **메뉴 아이콘 자체를 경고 모양으로 바꾼다**(별도 표시를 옆에 붙이지 않는다).
+  //      접힌 사이드바에서는 아이콘만 보이므로, 아이콘이 바뀌어야 접힌 상태에서도 눈에 띈다.
+  //      원래 아이콘 이름은 data 속성에 보관해 두고 경고가 없어지면 그대로 되돌린다 —
+  //      하드코딩해 두면 나중에 메뉴 아이콘을 바꿀 때 여기가 stale 이 된다.
+  //   ⚠️ 아이콘 클릭은 **기존대로 화면 이동**이다. 모달은 그 화면의 제목 옆 버튼으로 연다
+  //      (작은 아이콘에 다른 동작을 얹으면 메뉴를 누르려다 모달이 뜬다).
+  [['adminDelivSi', 'fact_check'], ['adminLookupsSi', 'tune']].forEach(function(pair) {
+    const item = document.getElementById(pair[0]);
+    if (!item) return;
+    const icon = item.querySelector('.si-icon');
+    if (!icon) return;
+    if (!icon.dataset.baseIcon) icon.dataset.baseIcon = (icon.textContent || pair[1]).trim();
+    if (has) {
+      icon.textContent = 'report_problem';
+      icon.style.color = severe ? '#C33' : '#B8741A';
+      item.title = `채널 코드가 어긋난 항목 ${total}건 — 이 화면에서 조치 방법을 볼 수 있습니다`;
+    } else {
+      icon.textContent = icon.dataset.baseIcon;
+      icon.style.color = '';
+      item.title = '';
+    }
   });
 
   // 페인 제목 옆 버튼 — 경고가 없으면 버튼 자체를 감춘다
