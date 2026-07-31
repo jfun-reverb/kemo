@@ -199,4 +199,32 @@ withSubmitLock(키, 버튼요소, 진행문구, 실행함수)
 
 ## 6. 구현 결과
 
-(개발 세션이 채울 것)
+### 1단계 — 제출 연타 잠금 (2026-07-31, **운영 배포 완료**)
+
+**관련 PR:** #874(dev) → #875(main) · **커밋** `a60ca7a` · **데이터베이스 변경 없음**
+**변경 파일:** `dev/lib/shared.js`(헬퍼 신규) · `dev/js/application.js` · `dev/js/ui.js` · `dev/js/app.js` · `dev/js/messaging.js` · `dev/js/mypage.js` · `dev/lib/i18n/{ja,ko}.js` · `dev/css/components.css` · `dev/index.html`
+
+#### 만든 것
+- **`withSubmitLock(key, btn, busyLabel, fn)`**(shared.js) — 같은 키 실행 중이면 **조용히** 무시(토스트 없음) · 버튼 비활성 + 진행 표시 · **`try/finally` 로 해제를 헬퍼 안에 가둠**(호출부가 해제할 방법이 없다) · `clearSubmitLocks()` 를 `navigate()`(app.js)에서 호출
+- 진행 표시 = `.btn-spinner`(components.css 신규) + i18n `common.submitting`/`common.uploading`(ja·ko)
+- **적용 8곳** — 새로 잠금 5(`submitApplication`·`addDraftUrl`·`addDraftImage`·`addDraftReviewImage`·`submitAllDrafts`) + 기존 잠금 통일 3(`saveAgeGate`·`submitCancelApplicationFromPage`·`sendMessageFromModal`)
+- **중복 전용 문구** `applyDuplicate`·`reviewImageDuplicate`(ja·ko) + 응모 중복 시 `openCampaign()` 재렌더
+
+#### 초안 대비 변경 사항
+- **본문을 건드리지 않고 `_xxxInner` 로 분리해 감쌌다** — 대상 함수의 조기 반환이 3~8곳이라 본문에 손대면 그 자체가 위험했다. 초안의 「`finally` 강제」 취지를 구조로 굳힌 형태다.
+- **`addDraftReviewImage(channel)` → `(channel, btnEl)`** — 리뷰 인증샷 버튼은 카드마다 동적 생성이라 호출부가 자기 요소(`this`)를 넘겨야 잠글 수 있다. 초안에 없던 시그니처 변경.
+- **메시지 보내기 버튼만 진행 문구를 안 넣었다**(`busyLabel=''`) — 40px 원형 아이콘 버튼이라 스피너+문구가 넘친다(리뷰 지적). 잠금만으로 연타는 막힌다.
+- **`_msgSending` 플래그 제거** — 헬퍼로 대체.
+
+#### ★ 리뷰에서 잡힌 것 (수정 완료)
+**응모 중복 제약 이름이 실제와 달라 새 문구가 조용히 안 뜰 뻔했다.** 확인 결과 **제약이 두 개 공존**한다 — 마이그레이션 104 가 옛 것을 지우려 했으나 지울 이름을 자동 생성 이름으로 적어(`IF EXISTS` 라 조용히 통과) 마이그레이션 50 의 `uidx_applications_user_campaign` 이 살아 있고, 104 는 `applications_user_camp_active_uidx` 를 **추가로** 만들었다. **운영 오류 로그에 실제로 찍히는 쪽은 옛 이름**(§0 표 4번)이라 **둘 다 매칭**해야 한다. 하나만 넣으면 일반 문구로 떨어져 이번 작업의 목적(성공으로 읽히게)이 무력화된다.
+
+#### 브라우저 검증 (5/5 통과)
+응모 3회 연타 → **1건만** 등록·오류 토스트 없음 / 성공·실패 양쪽 버튼 복원(**잠긴 채 남지 않음**) / 화면 이동 후 잠금 해제 / 결과물 추가 연타 시 오류 토스트도 1회만 / 메시지 3회 연타 → **1건만** 전송·원형 버튼 유지.
+
+⚠️ **결과물에 이미지를 실제 첨부한 성공 경로는 재현하지 못했다**(테스트 도구에 파일 업로드 기능 없음). 성공·실패가 같은 헬퍼를 거치고 코드상 분기가 없어 동일하게 동작하지만, **실계정 1회 확인 권장**.
+
+### 2단계 — 오류 로그 잡음 정리
+
+**미착수.** §3 단계 2 그대로 진행하면 된다(확정된 결정 = 마스킹은 화면·서버 둘 다 → 마이그레이션 1개, 잡음 필터는 개별 패턴 + 일반 규칙 둘 다).
+⚠️ §3 2-3(이미 쌓인 4건 정리)은 **운영자가 화면에서** 하는 작업이고, 연타 2건을 「해결됨」으로 바꾸는 근거인 1단계 배포는 이미 끝났다.
