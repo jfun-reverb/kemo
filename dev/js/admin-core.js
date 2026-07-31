@@ -724,6 +724,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'influencerFullDetailModal', 'infDetailModal', 'influencerFlagEditModal',
   // 캠페인·번들
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
+  // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
+  'channelDriftModal',
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
@@ -879,6 +881,12 @@ function initDraggableModals() {
 //   ⚠️ 조회 실패 시에도 안 그린다 — 감지 실패가 본 업무를 막지 않는다.
 
 // 층별 의미 — 사람이 읽을 문구. 코드가 아니라 「무엇이 잘못됐는지」를 말한다.
+//   ⚠️ `fix` 는 **담당자가 실제로 무엇을 눌러야 하는지**를 말한다. 원인만 알리고 조치를
+//      안 알려주면 담당자가 「그래서 뭘 어떻게?」에서 막히고, 결국 경고를 무시하게 된다 —
+//      그러면 배너를 안 만든 것과 같아진다(2026-07-31 사용자 지적).
+//   ⚠️ `fix` 만 `esc()` 없이 그대로 넣는다(강조 태그 `<b>` 를 쓰기 위해). **여기 있는
+//      세 문구는 전부 코드 상수**라 안전하다 — 데이터베이스나 사용자 입력에서 온 값은
+//      이 표에 절대 넣지 말 것. 배너의 다른 값(캠페인명·채널 코드)은 전부 `esc()` 를 거친다.
 const CHANNEL_DRIFT_LAYERS = {
   A: {
     label: '지금 판정에서 빠져 있는 결과물',
@@ -897,16 +905,130 @@ const CHANNEL_DRIFT_LAYERS = {
   }
 };
 
-// 감지 결과를 배너로 그린다. containerId 는 각 페인에 미리 둔 빈 div.
-//   두 화면이 같은 함수를 쓴다 — 매일 검수하는 자리(결과물 관리)와 원인을 만드는
-//   자리(기준 데이터) 양쪽에 같은 신호가 떠야 한다.
-async function renderChannelDriftBanner(containerId) {
-  const box = document.getElementById(containerId);
-  if (!box) return;
-  const rows = await fetchChannelDriftAlerts();
-  if (!Array.isArray(rows) || !rows.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+// 조치 안내 — **결과물 종류(kind)마다 실제로 할 수 있는 일이 다르다.**
+//   ⚠️ 「검수 창의 채널 불일치 표시에서 지운다」는 도구는 **게시물(post)에만 있다**
+//      (admin-deliverables.js 의 mismatchedBox·deleteMismatchedPostRow 는 kind='post'
+//      전용이고 그것도 시딩·방문형에서만 계산된다). **리뷰 인증샷(review_image)은
+//      채널이 어긋나면 그 채널로 조회되지 않아 검수 창에 아예 안 나타난다** — 정리
+//      도구가 없다. 2026-07-30 @cosme 사고가 정확히 이 경우였다.
+//      종류를 안 가리고 「검수 창에서 지우세요」라고 안내하면, 정작 같은 사고가 또 났을 때
+//      **없는 도구를 찾게 만든다.** 그래서 종류별로 분기하고, 도구가 없으면 없다고 말한다.
+//   반환값은 HTML(강조 태그 포함) — 전부 코드 상수라 esc 하지 않는다. 데이터에서 온 값을
+//   이 문자열에 절대 끼워 넣지 말 것.
+function channelDriftFixHtml(layer, kind) {
+  const CLEANUP_POST =
+    '결과물 관리에서 그 건의 검수 창을 열면 「채널 불일치」 표시가 있고, <b>슈퍼관리자</b>가 그 행을 지울 수 있습니다(이미 승인된 결과물은 보호되어 안 지워집니다).';
+  const CLEANUP_REVIEW =
+    '<b>리뷰 인증샷은 관리자 화면에 정리 도구가 없습니다.</b> 채널이 어긋나면 검수 창에서 그 채널로 조회되지 않아 화면에 나타나지 않습니다(2026-07-30 사고가 이 경우였습니다). <b>개발 담당자에게 알려 데이터베이스에서 직접 고쳐야 합니다.</b>';
+  const cleanup = (kind === 'review_image') ? CLEANUP_REVIEW : CLEANUP_POST;
 
-  // 층별 집계
+  if (layer === 'A') {
+    return '<b>둘 중 어느 쪽이 맞는지 먼저 정하세요.</b><br>' +
+      '① <b>캠페인 쪽이 맞다면</b>(그 채널은 원래 안 받는 게 맞다) 결과물을 정리합니다 — ' + cleanup + '<br>' +
+      '② <b>결과물 쪽이 맞다면</b>(인플루언서가 실제로 그 채널에 올린 게 맞다) 아래 「캠페인 편집 열기」로 가서 그 채널을 체크해 추가합니다. ' +
+      '단 모집 형식에서 고를 수 없는 채널이면 이 길은 막혀 있어 ①만 가능합니다.';
+  }
+  if (layer === 'B') {
+    return '아래 「캠페인 편집 열기」로 가서 <b>채널을 올바른 값으로 다시 고르세요.</b> ' +
+      '그 채널이 원래 있어야 하는 것이라면, 기준 데이터에서 같은 코드로 다시 만들어도 됩니다.';
+  }
+  // C — 기준 데이터에 없는 값이라 캠페인에 추가하는 길 자체가 없다
+  return '<b>결과물을 정리하는 것 말고는 방법이 없습니다.</b> 기준 데이터에 없는 값이라 캠페인에 추가할 수도 없습니다.<br>' +
+    '이 항목은 캠페인이 특정되지 않습니다(여러 캠페인의 값이 함께 묶일 수 있음). ' +
+    '결과물 관리에서 <b>위에 적힌 채널 값</b>으로 찾은 뒤 정리하세요 — ' + cleanup;
+}
+
+// ── 감지 결과 상태 ──
+//   부팅 시 1회 조회해 사이드바에 표시한다. **화면에 들어가야만 알 수 있으면 늦다** —
+//   이번 사고가 「두 달간 아무도 몰랐다」였으므로 어느 화면에 있든 눈에 띄어야 한다.
+let _channelDriftRows = null;   // null = 아직 조회 안 함 / [] = 어긋남 없음
+
+// 감지 결과를 새로 받아 사이드바 표시·페인 버튼을 갱신한다.
+//   0건이면 전부 숨긴다 — 숫자가 늘 떠 있으면 「원래 빨간 게 있는 화면」으로 학습돼
+//   정작 진짜 문제를 또 놓친다.
+async function refreshChannelDriftIndicators() {
+  const rows = await fetchChannelDriftAlerts();
+  _channelDriftRows = Array.isArray(rows) ? rows : [];
+  applyChannelDriftIndicators();
+}
+
+// 캐시된 결과로 사이드바·페인 버튼을 다시 그린다(재조회 없음).
+function applyChannelDriftIndicators() {
+  const rows = _channelDriftRows || [];
+  const has = rows.length > 0;
+  const severe = rows.some(function(r) { return r.layer === 'A'; });
+  const total = rows.reduce(function(n, r) { return n + Number(r.affected_count || 0); }, 0);
+
+  // 사이드바 — 결과물 관리(발견하는 자리)·기준 데이터(원인을 만드는 자리) 두 곳
+  ['adminDelivDriftWarn', 'adminLookupsDriftWarn'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = has ? '' : 'none';
+    el.style.color = severe ? '#C33' : '#B8741A';
+    el.title = has ? `채널 코드가 어긋난 항목 ${total}건 — 눌러서 조치 방법 보기` : '';
+  });
+
+  // 페인 제목 옆 버튼 — 경고가 없으면 버튼 자체를 감춘다
+  ['delivDriftBtn', 'lookupDriftBtn'].forEach(function(id) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.style.display = has ? 'inline-flex' : 'none';
+    if (!has) return;
+    btn.style.background = severe ? '#FFF5F5' : '#FEF3C7';
+    btn.style.borderColor = severe ? '#C33' : '#FBBF24';
+    btn.style.color = severe ? '#C33' : '#92400E';
+    btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">report_problem</span> 채널 어긋남 ${total}건`;
+  });
+}
+
+// 경고 모달 — 조치 방법을 보면서 따라 할 수 있게 **띄워둔 채 다른 화면을 조작**할 수 있다
+//   (DRAGGABLE_ADMIN_MODALS 등록 → 드래그·크기 조정 가능).
+async function openChannelDriftModal() {
+  const body = document.getElementById('channelDriftModalBody');
+  const overlay = document.getElementById('channelDriftModal');
+  if (!body || !overlay) return;
+  overlay.classList.add('open');
+  if (_channelDriftRows === null) {
+    body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">확인 중…</div>';
+    await refreshChannelDriftIndicators();
+  }
+  body.innerHTML = channelDriftModalHtml(_channelDriftRows || []);
+}
+
+function closeChannelDriftModal() {
+  const overlay = document.getElementById('channelDriftModal');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// 모달 본문 — 층별로 「무엇이 잘못됐나 → 어느 건인가 → 어떻게 조치하나」 순서.
+//   조치는 **행마다** 붙인다. 같은 층 안에서도 결과물 종류가 다르면 할 수 있는 일이 다르다.
+// 어긋남 1행 카드 — 「어느 캠페인·어느 채널·몇 건」 + 그 행에 맞는 조치 방법.
+//   조치는 결과물 종류마다 다르므로 행 단위로 붙인다(channelDriftFixHtml).
+function channelDriftRowHtml(layer, r) {
+  const camp = r.campaign_no
+    ? `${esc(r.campaign_no)} ${esc(r.campaign_title || '')}`
+    : '<span style="color:var(--muted)">(캠페인이 특정되지 않음)</span>';
+  const kindKo = r.kind ? esc(channelDriftKindKo(r.kind)) : '';
+  const goBtn = r.campaign_id
+    ? `<button class="btn btn-ghost btn-xs" style="margin-top:8px" onclick="openEditCampaign('${esc(r.campaign_id)}')">캠페인 편집 열기</button>`
+    : '';
+  return `
+    <div style="padding:11px 13px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-top:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">${camp}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">
+        저장된 채널 <code>${esc(r.channel_code || '')}</code>${kindKo ? ' · ' + kindKo : ''} · ${Number(r.affected_count || 0)}건
+      </div>
+      <div style="margin-top:8px;padding:9px 11px;background:var(--bg);border-radius:6px;font-size:12px;line-height:1.7;color:var(--ink)">
+        <b>조치 방법</b><br>${channelDriftFixHtml(layer, r.kind)}
+      </div>
+      ${goBtn}
+    </div>`;
+}
+
+function channelDriftModalHtml(rows) {
+  if (!rows.length) {
+    return '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">어긋난 채널 코드가 없습니다.</div>';
+  }
   const byLayer = {};
   rows.forEach(function(r) {
     const L = r.layer || '?';
@@ -914,40 +1036,30 @@ async function renderChannelDriftBanner(containerId) {
     byLayer[L].count += Number(r.affected_count || 0);
     byLayer[L].rows.push(r);
   });
-  const hasSevere = !!byLayer.A;
-  const tone = hasSevere
-    ? {bg: '#FFF5F5', border: '#C33', ink: '#C33'}
-    : {bg: '#FEF3C7', border: '#FBBF24', ink: '#92400E'};
 
-  const lines = Object.keys(CHANNEL_DRIFT_LAYERS)
+  const blocks = Object.keys(CHANNEL_DRIFT_LAYERS)
     .filter(function(L) { return byLayer[L]; })
     .map(function(L) {
       const meta = CHANNEL_DRIFT_LAYERS[L];
       const g = byLayer[L];
-      const detail = g.rows.map(function(r) {
-        const camp = r.campaign_no ? `${esc(r.campaign_no)} ${esc(r.campaign_title || '')}` : '(캠페인 무관)';
-        const kind = r.kind ? ` · ${esc(channelDriftKindKo(r.kind))}` : '';
-        return `<div style="padding:3px 0 3px 12px;font-size:11px;color:var(--muted)">${camp} · 채널 <code>${esc(r.channel_code || '')}</code>${kind} · ${Number(r.affected_count || 0)}건</div>`;
-      }).join('');
+      const tone = meta.severe ? {bg: '#FFF5F5', bd: '#C33', ink: '#C33'} : {bg: '#FEF3C7', bd: '#FBBF24', ink: '#92400E'};
+      const items = g.rows.map(function(r) { return channelDriftRowHtml(L, r); }).join('');
       return `
-        <div style="margin-top:6px">
-          <div style="font-weight:700">${esc(meta.label)} ${g.count}건</div>
-          <div style="font-size:11px;opacity:.85;margin-top:1px">${esc(meta.desc)}</div>
-          ${detail}
+        <div style="margin-bottom:18px">
+          <div style="padding:10px 13px;background:${tone.bg};border:1px solid ${tone.bd};border-radius:8px;color:${tone.ink}">
+            <div style="font-size:13px;font-weight:700">${esc(meta.label)} — 모두 ${g.count}건</div>
+            <div style="font-size:12px;margin-top:2px;opacity:.9">${esc(meta.desc)}</div>
+          </div>
+          ${items}
         </div>`;
     }).join('');
 
-  box.style.display = '';
-  box.innerHTML = `
-    <div style="padding:10px 12px;background:${tone.bg};border:1px solid ${tone.border};border-radius:8px;font-size:12px;line-height:1.55;color:${tone.ink};margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:6px;font-weight:700">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">report_problem</span>
-        채널 코드가 어긋난 항목이 있습니다
-      </div>
-      ${lines}
-      <div style="font-size:11px;opacity:.8;margin-top:8px">
-        채널 코드를 바꾸거나 지울 때는 <b>기준 데이터 · 캠페인 · 이미 제출된 결과물</b> 세 곳을 함께 옮겨야 합니다.
-      </div>
+  return blocks + `
+    <div style="padding:11px 13px;background:var(--bg);border-radius:8px;font-size:12px;line-height:1.7;color:var(--muted)">
+      <b>왜 이런 일이 생기나</b><br>
+      시스템은 「캠페인이 요구한 채널」과 「제출된 결과물의 채널」이 <b>같은 글자인지</b>로 판단합니다.
+      한쪽만 바뀌면 그 결과물은 인플루언서 화면·인증 성공·정산 <b>세 곳에서 동시에</b> 빠집니다.
+      그래서 채널 코드를 바꾸거나 지울 때는 <b>기준 데이터 · 캠페인 · 이미 제출된 결과물</b> 세 곳을 함께 옮겨야 합니다.
     </div>`;
 }
 
