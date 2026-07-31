@@ -75,6 +75,10 @@ function applyDelivSortIndicators() {
 
 async function loadDeliverables() {
   await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
+  // 채널 코드 어긋남 경보 — 0건이면 아무것도 안 그린다. 실패해도 목록은 이미 떠 있다.
+  if (typeof renderChannelDriftBanner === 'function') {
+    renderChannelDriftBanner('delivChannelDriftBanner');
+  }
 }
 
 // 사이드바 검수대기 배지 클릭 — 결과물 관리 페인을 「검수대기만」 상태로 열어 배지 숫자와 목록을 일치시킴.

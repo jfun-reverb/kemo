@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785464511';
+  var CURRENT_BUILD = 'v1785465925';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-31 11:21 · 8e7cc2d</span>
+          <span class="admin-build-text">2026-07-31 11:45 · 8748c1e</span>
         </div>
       </div>
     </aside>
@@ -3687,6 +3687,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 관리자 대리 등록
               </button>
             </div>
+            <!-- 채널 코드 어긋남 경보 — 0건이면 renderChannelDriftBanner 가 통째로 숨긴다 -->
+            <div id="delivChannelDriftBanner" style="display:none"></div>
             <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -4751,6 +4753,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
             </div>
+            <!-- 채널 코드 어긋남 경보 — 원인을 만드는 자리이므로 여기에도 같은 신호를 띄운다 -->
+            <div id="lookupChannelDriftBanner" style="display:none"></div>
             <!-- 종류 탭 -->
             <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
               <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
@@ -9595,6 +9599,22 @@ async function fetchCampaignVersion(id) {
   }
 }
 
+// 채널 코드 어긋남 감지 (마이그레이션 277·278).
+//   A=결과물 채널이 그 캠페인 요구 채널에 없음(실제 피해) / B=캠페인 채널이 기준
+//   데이터에 없음(조기 경보) / C=결과물 채널이 기준 데이터에 없는 값.
+//   실패하면 null — 화면은 그때 배너를 안 그린다(감지 실패가 본 업무를 막지 않는다).
+async function fetchChannelDriftAlerts() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('detect_channel_code_drift');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch(e) {
+    console.warn('[fetchChannelDriftAlerts]', e);
+    return null;
+  }
+}
+
 // 그 캠페인에서 특정 채널들로 이미 제출된 결과물 건수.
 //   캠페인에서 채널을 뺄 때 「이 채널로 낸 결과물이 화면·인증 성공·정산에서 빠진다」를
 //   정확한 숫자로 경고하기 위한 조회. 임시저장(draft)은 아직 제출이 아니므로 제외한다.
@@ -14244,6 +14264,97 @@ function initDraggableModals() {
     new MutationObserver(() => _applyDraggableIfOpen(overlay))
       .observe(overlay, { attributes: true, attributeFilter: ['class'] });
   });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 채널 코드 어긋남 경보 배너 (마이그레이션 277·278)
+// ════════════════════════════════════════════════════════════════════
+//   2026-07-30 @cosme 사고 — 승인된 리뷰 인증샷 55건이 두 달간 화면·인증 성공·정산
+//   세 곳에서 사라져 보였는데 **감지 수단이 없어 아무도 몰랐다.** 그 감지 결과를
+//   사람이 매일 보는 자리에 띄운다.
+//
+//   ⚠️ **0건이면 아무것도 그리지 않는다.** 숫자가 늘 떠 있으면 「원래 빨간 게 있는
+//      화면」으로 학습되어, 정작 진짜 문제가 생겼을 때 또 두 달을 놓친다. 운영 실측을
+//      A·B·C 전부 0으로 만든 뒤에 이 배너를 켰다(2026-07-31).
+//   ⚠️ 조회 실패 시에도 안 그린다 — 감지 실패가 본 업무를 막지 않는다.
+
+// 층별 의미 — 사람이 읽을 문구. 코드가 아니라 「무엇이 잘못됐는지」를 말한다.
+const CHANNEL_DRIFT_LAYERS = {
+  A: {
+    label: '지금 판정에서 빠져 있는 결과물',
+    desc: '캠페인이 요구하지 않는 채널로 저장돼 있어, 인플루언서 화면·인증 성공·정산에서 함께 빠집니다.',
+    severe: true
+  },
+  B: {
+    label: '기준 데이터에 없는 채널을 쓰는 캠페인',
+    desc: '아직 결과물은 멀쩡하지만, 이 상태로 결과물이 쌓이면 위 문제로 이어집니다.',
+    severe: false
+  },
+  C: {
+    label: '기준 데이터에 없는 채널로 제출된 결과물',
+    desc: '어떤 캠페인 채널과도 영영 일치하지 않는 값입니다.',
+    severe: false
+  }
+};
+
+// 감지 결과를 배너로 그린다. containerId 는 각 페인에 미리 둔 빈 div.
+//   두 화면이 같은 함수를 쓴다 — 매일 검수하는 자리(결과물 관리)와 원인을 만드는
+//   자리(기준 데이터) 양쪽에 같은 신호가 떠야 한다.
+async function renderChannelDriftBanner(containerId) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const rows = await fetchChannelDriftAlerts();
+  if (!Array.isArray(rows) || !rows.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+
+  // 층별 집계
+  const byLayer = {};
+  rows.forEach(function(r) {
+    const L = r.layer || '?';
+    if (!byLayer[L]) byLayer[L] = {count: 0, rows: []};
+    byLayer[L].count += Number(r.affected_count || 0);
+    byLayer[L].rows.push(r);
+  });
+  const hasSevere = !!byLayer.A;
+  const tone = hasSevere
+    ? {bg: '#FFF5F5', border: '#C33', ink: '#C33'}
+    : {bg: '#FEF3C7', border: '#FBBF24', ink: '#92400E'};
+
+  const lines = Object.keys(CHANNEL_DRIFT_LAYERS)
+    .filter(function(L) { return byLayer[L]; })
+    .map(function(L) {
+      const meta = CHANNEL_DRIFT_LAYERS[L];
+      const g = byLayer[L];
+      const detail = g.rows.map(function(r) {
+        const camp = r.campaign_no ? `${esc(r.campaign_no)} ${esc(r.campaign_title || '')}` : '(캠페인 무관)';
+        const kind = r.kind ? ` · ${esc(channelDriftKindKo(r.kind))}` : '';
+        return `<div style="padding:3px 0 3px 12px;font-size:11px;color:var(--muted)">${camp} · 채널 <code>${esc(r.channel_code || '')}</code>${kind} · ${Number(r.affected_count || 0)}건</div>`;
+      }).join('');
+      return `
+        <div style="margin-top:6px">
+          <div style="font-weight:700">${esc(meta.label)} ${g.count}건</div>
+          <div style="font-size:11px;opacity:.85;margin-top:1px">${esc(meta.desc)}</div>
+          ${detail}
+        </div>`;
+    }).join('');
+
+  box.style.display = '';
+  box.innerHTML = `
+    <div style="padding:10px 12px;background:${tone.bg};border:1px solid ${tone.border};border-radius:8px;font-size:12px;line-height:1.55;color:${tone.ink};margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:6px;font-weight:700">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">report_problem</span>
+        채널 코드가 어긋난 항목이 있습니다
+      </div>
+      ${lines}
+      <div style="font-size:11px;opacity:.8;margin-top:8px">
+        채널 코드를 바꾸거나 지울 때는 <b>기준 데이터 · 캠페인 · 이미 제출된 결과물</b> 세 곳을 함께 옮겨야 합니다.
+      </div>
+    </div>`;
+}
+
+// 결과물 종류 코드를 사람이 읽는 말로
+function channelDriftKindKo(kind) {
+  const MAP = {receipt: '영수증', review_image: '리뷰 인증샷', post: '게시물'};
+  return MAP[kind] || kind || '';
 }
 
 // ============================================================
@@ -24005,6 +24116,10 @@ function applyDelivSortIndicators() {
 
 async function loadDeliverables() {
   await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
+  // 채널 코드 어긋남 경보 — 0건이면 아무것도 안 그린다. 실패해도 목록은 이미 떠 있다.
+  if (typeof renderChannelDriftBanner === 'function') {
+    renderChannelDriftBanner('delivChannelDriftBanner');
+  }
 }
 
 // 사이드바 검수대기 배지 클릭 — 결과물 관리 페인을 「검수대기만」 상태로 열어 배지 숫자와 목록을 일치시킴.
@@ -30309,6 +30424,11 @@ async function loadLookupsPane() {
     return;
   }
   await renderLookupsTable();
+  // 채널 코드 어긋남 경보 — 여기가 **원인을 만드는 자리**다(채널 코드를 지우거나 바꾸는 화면).
+  //   결과물 관리 페인과 같은 함수를 쓴다. 0건이면 아무것도 안 그린다.
+  if (typeof renderChannelDriftBanner === 'function') {
+    renderChannelDriftBanner('lookupChannelDriftBanner');
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════

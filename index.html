@@ -6923,6 +6923,22 @@ async function fetchCampaignVersion(id) {
   }
 }
 
+// 채널 코드 어긋남 감지 (마이그레이션 277·278).
+//   A=결과물 채널이 그 캠페인 요구 채널에 없음(실제 피해) / B=캠페인 채널이 기준
+//   데이터에 없음(조기 경보) / C=결과물 채널이 기준 데이터에 없는 값.
+//   실패하면 null — 화면은 그때 배너를 안 그린다(감지 실패가 본 업무를 막지 않는다).
+async function fetchChannelDriftAlerts() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('detect_channel_code_drift');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch(e) {
+    console.warn('[fetchChannelDriftAlerts]', e);
+    return null;
+  }
+}
+
 // 그 캠페인에서 특정 채널들로 이미 제출된 결과물 건수.
 //   캠페인에서 채널을 뺄 때 「이 채널로 낸 결과물이 화면·인증 성공·정산에서 빠진다」를
 //   정확한 숫자로 경고하기 위한 조회. 임시저장(draft)은 아직 제출이 아니므로 제외한다.
