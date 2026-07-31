@@ -749,7 +749,9 @@ async function openEditCampaign(campId) {
   const selectedChannels = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
   const selectedContent = (camp.content_types||'').split(',').map(t=>t.trim()).filter(Boolean);
   await Promise.all([
-    renderChannelCheckboxes('edit', rtVal, selectedChannels),
+    // preserveSaved — 저장된 캠페인을 여는 유일한 지점이라 여기서만 켠다.
+    //   모집 형식에서 못 고르는 채널이 이미 저장돼 있어도 화면에 남겨야 저장이 막히지 않는다.
+    renderChannelCheckboxes('edit', rtVal, selectedChannels, {preserveSaved: true}),
     renderContentTypeCheckboxes('edit', selectedContent, rtVal),
     renderCategorySelect('edit', camp.category||'')
   ]);
@@ -2254,9 +2256,27 @@ async function saveCampaignEdit() {
     }
 
     // 이미지가 변경된 경우에만 업로드
+    //   ⚠️ 업로드는 되돌릴 수 없는 부수효과다. 저장이 충돌로 취소되면 참조 없는 파일이
+    //      저장소에 남으므로(고아 파일), 아래 두 겹으로 막는다.
+    //      ① 업로드 **전** 사전 확인 — 이미 남이 저장했으면 올리지도 않는다
+    //      ② 그래도 사이에 끼어들었으면 아래 충돌 분기에서 올린 파일을 지운다
+    let _freshImgUrls = [];   // 이번 저장에서 새로 올린 URL (충돌 시 정리 대상)
     if (editCampImgChanged) {
+      const _curVer = await fetchCampaignVersion(campId);
+      if (_curVer !== null && _editCampOriginal?.version != null && _curVer !== _editCampOriginal.version) {
+        toast('다른 관리자가 방금 이 캠페인을 먼저 저장했습니다. 최신 내용으로 새로고침합니다.', 'warn');
+        allCampaigns = await fetchCampaigns();
+        switchAdminPane('campaigns', null);
+        return;
+      }
       toast('이미지 업로드 중...','');
+      // 새로 올라갈 슬롯(=아직 URL이 아닌 base64)을 미리 표시해 둔다. 업로드 후 그
+      // 자리의 URL 만이 「이번에 생긴 파일」이다(기존 URL 재사용분은 지우면 안 된다).
+      const _freshIdx = (editCampImgData || []).slice(0, 8)
+        .map((im, i) => (im && im.data && !String(im.data).startsWith('http')) ? i : -1)
+        .filter(i => i >= 0);
       const imgUrls = await uploadCampImages(editCampImgData);
+      _freshImgUrls = _freshIdx.map(i => imgUrls[i]).filter(Boolean);
       updates.image_url = imgUrls[0];
       updates.img1 = imgUrls[0]; updates.img2 = imgUrls[1];
       updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
@@ -2270,6 +2290,12 @@ async function saveCampaignEdit() {
     //      아예 타지 않아야 저장되지도 않은 변경이 이력에 남는 일이 없다.
     const _saveResult = await updateCampaign(campId, updates, _editCampOriginal?.version);
     if (_saveResult && _saveResult.conflict) {
+      // 저장이 취소됐으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
+      // 실패해도 사용자 흐름은 막지 않는다(파일이 남을 뿐 데이터 손상은 아니다).
+      if (_freshImgUrls.length) {
+        try { await deleteCampImages(_freshImgUrls); }
+        catch(e) { console.warn('[saveCampaignEdit] 충돌 후 이미지 정리 실패', e); }
+      }
       toast('다른 관리자가 방금 이 캠페인을 먼저 저장했습니다. 최신 내용으로 새로고침합니다.', 'warn');
       allCampaigns = await fetchCampaigns();
       switchAdminPane('campaigns', null);
@@ -3403,22 +3429,62 @@ function refreshPrimaryChannelOptions(formMode, preferredCode) {
   if (prevValue && checked.some(cb => cb.value === prevValue)) sel.value = prevValue;
 }
 
-async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes) {
+// opts.preserveSaved = true 일 때만 「모집 형식에서 고를 수 없는 채널」을 남긴다.
+//   ⚠️ **명시적으로 켤 때만** 보존한다(끄는 방식이 아니라 켜는 방식). 보존이 옳은 건
+//   preSelectedCodes 가 **데이터베이스에 이미 저장된 캠페인의 값**일 때뿐이다 —
+//   그 경우에만 「지금 규칙으로는 못 고르지만 이미 그렇게 저장돼 있는」 값을 살려야
+//   저장이 막히지 않는다. 아직 존재하지 않는 캠페인(신규 등록·오리엔시트 프리필)이나
+//   화면에서 방금 체크한 값(모집 형식 라디오 전환)에까지 보존을 적용하면, 모집 형식과
+//   안 맞는 채널 조합을 **새로 만들어내는** 반대 효과가 난다(서버에 정합성 검사가 없어
+//   이 화면이 유일한 방어선). 기본을 「보존 안 함」으로 두면 새 호출부가 생겨도
+//   실수로 켜지지 않는다.
+async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes, opts) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
   const wrap = $(cfg.chWrap); if (!wrap) return;
+  const preserveLegacy = !!(opts && opts.preserveSaved);
   let channels = [];
   try { channels = await fetchLookups('channel'); } catch(e) { return; }
-  if (recruitType) {
-    channels = channels.filter(c => Array.isArray(c.recruit_types) && c.recruit_types.includes(recruitType));
-  }
   const checked = new Set(preSelectedCodes || []);
+
+  // ★ 이미 저장된 채널은 「그 모집 형식에서 고를 수 없는 채널」이어도 반드시 남긴다.
+  //   걸러내 버리면 편집 화면에 체크박스가 아예 안 그려지고, 저장 시 채널 0개로 잡혀
+  //   「채널을 1개 이상 선택해야 합니다」로 **저장 자체가 막힌다**(과거 데이터를 고칠
+  //   길이 없어짐). 예: 리뷰어형인데 채널이 인스타그램인 캠페인(마이그레이션 157 이전
+  //   데이터). 운영 실측 4건은 전부 테스트·더미였지만 구조상 실사용에서도 생길 수 있다.
+  const _offList = new Set();   // 허용 목록 밖인데 이미 선택돼 있어 남긴 채널
+  if (recruitType) {
+    channels = channels.filter(function(c) {
+      const allowed = Array.isArray(c.recruit_types) && c.recruit_types.includes(recruitType);
+      if (!allowed && preserveLegacy && checked.has(c.code)) { _offList.add(c.code); return true; }
+      return allowed;
+    });
+  }
+  // 기준 데이터에서 아예 사라진 코드(옛 채널 코드 등)도 자리를 만들어 보존한다.
+  //   그대로 두면 위와 같은 이유로 저장이 막히고, 저장하면 그 채널이 조용히 지워진다.
+  const _known = new Set(channels.map(c => c.code));
+  if (preserveLegacy) {
+    (preSelectedCodes || []).forEach(function(code) {
+      if (code && !_known.has(code)) {
+        channels.push({code: code, name_ja: code, name_ko: code});
+        _offList.add(code);
+      }
+    });
+  }
+
   if (!channels.length) {
     wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:6px 0">선택한 모집 타입에서 사용 가능한 채널이 없습니다</div>`;
     return;
   }
-  wrap.innerHTML = channels.map(c =>
-    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this);refreshPrimaryChannelOptions('${formMode}');applyChannelMatchVisibility('${formMode}')" style="display:none">${esc(c.name_ja)}</label>`
-  ).join('');
+  wrap.innerHTML = channels.map(function(c) {
+    // 허용 목록 밖 채널은 관리자가 「왜 여기 있나」를 알 수 있게 표식을 붙인다.
+    const off = _offList.has(c.code);
+    const mark = off ? `<span style="font-size:10px;color:var(--muted);margin-left:2px" title="이 모집 형식에서는 새로 고를 수 없는 채널입니다. 기존 값이라 표시됩니다">(기존)</span>` : '';
+    return `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid ${off ? 'var(--muted)' : 'var(--line)'};border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this);refreshPrimaryChannelOptions('${formMode}');applyChannelMatchVisibility('${formMode}')" style="display:none">${esc(c.name_ja)}${mark}</label>`;
+  }).join('');
+  if (_offList.size) {
+    wrap.insertAdjacentHTML('beforeend',
+      `<div style="flex-basis:100%;font-size:11px;color:var(--muted);margin-top:6px">「(기존)」 표시는 이 모집 형식에서 새로 고를 수 없는 채널입니다. 저장된 값이라 그대로 두었습니다 — 체크를 풀면 다시 선택할 수 없습니다.</div>`);
+  }
   wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     if (checked.has(cb.value)) { cb.checked = true; toggleCH(cb); }
   });
@@ -3473,6 +3539,10 @@ async function renderCategorySelect(formMode, currentCode) {
 async function filterChannelsByRecruitType(formMode, recruitType) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
   // 현재 체크된 코드 보존
+  //   ⚠️ 여기서 넘기는 값은 「저장된 값」이 아니라 **방금 화면에서 체크한 값**이다.
+  //      그래서 preserveSaved 를 켜지 않는다 — 켜면 리뷰어형에서 Qoo10 을 고른 뒤
+  //      시딩으로 바꿨을 때 Qoo10 이 「(기존)」으로 살아남아, 신규 캠페인이 모집
+  //      형식과 안 맞는 채널로 저장된다(고치려던 문제를 새로 만드는 경로).
   const checked = Array.from(document.querySelectorAll(`input[name="${cfg.chName}"]:checked`)).map(c => c.value);
   await renderChannelCheckboxes(formMode, recruitType, checked);
   // 콘텐츠 종류도 모집 타입에 맞춰 재렌더 (monitor=동영상·이미지만, gifting/visit=전체)

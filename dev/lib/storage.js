@@ -1521,6 +1521,34 @@ async function uploadContentImage(file) {
   return data.publicUrl;
 }
 
+// 캠페인 저장 직전 현재 version 만 가볍게 조회 (동시 저장 방어 사전 확인용).
+//   편집 저장에서 **이미지를 업로드하기 전에** 충돌을 먼저 걸러내는 데 쓴다 —
+//   업로드부터 하면 충돌 시 참조 없는 파일이 저장소에 남는다(고아 파일).
+//   행이 없거나 조회 실패면 null → 호출부는 그때 사전 확인을 건너뛴다
+//   (최종 방어선은 updateCampaign 의 조건부 UPDATE 이므로 막지 않는다).
+async function fetchCampaignVersion(id) {
+  if (!db || !id) return null;
+  try {
+    const {data, error} = await db.from('campaigns').select('version').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? data.version : null;
+  } catch(e) {
+    console.warn('[fetchCampaignVersion]', e);
+    return null;
+  }
+}
+
+// 캠페인 이미지 공개 URL 배열을 Storage 에서 삭제 (고아 파일 정리용).
+//   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
+//   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
+//   URL → 버킷 상대 경로 변환은 campaign-images 공용 헬퍼를 재사용한다.
+async function deleteCampImages(urls) {
+  if (!db || !Array.isArray(urls) || !urls.length) return {ok: true, failedPaths: []};
+  const paths = urls.map(_receiptUrlToStoragePath).filter(Boolean);
+  if (!paths.length) return {ok: true, failedPaths: []};
+  return await _deleteStorageFiles('campaign-images', paths);
+}
+
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
 async function uploadCampImages(imgList) {
   var urls = [];

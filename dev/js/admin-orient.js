@@ -40,6 +40,11 @@ const OS_STATUS_TABS = [
   { code: 'expired', label: '만료' },
 ];
 let _orientActiveStatusTab = null;
+// ⚠️ 이 표는 **시딩 폼의 게시 채널**(`sd.channels`) 라벨용이다 — 캠페인 채널 코드가 아니다.
+//    입력 도메인은 sales/orient.html 의 SEEDING_CHANNELS 5종뿐이라 qoo10·lips·atcosme 키는
+//    실제로 도달하지 않는다(그 값들은 리뷰어·가구매 폼의 sale.market 몫). 그래서 캠페인 채널
+//    코드 정정(atcosme→cosme, osPrefillChannels)의 영향을 받지 않는다. 도달하지 않을 뿐
+//    「안 쓰이는 표」는 아니므로, sd.channels 의 값 범위를 넓힐 땐 여기도 함께 봐야 한다.
 const OS_CH_LABEL = { instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
 
 // 운영/개발 sales 도메인 분기 (orient.html SUPABASE_ENV 규칙과 동일)
@@ -1147,7 +1152,11 @@ function osPrefillChannels(card) {
     raw.forEach(c => { const m = chMap[c]; if (m && out.indexOf(m) === -1) out.push(m); });
     return out;
   }
-  const map = { 'Qoo10': 'qoo10', '@cosme': 'atcosme', 'LIPS': 'lips' };
+  // ⚠️ 값은 lookup_values(kind='channel')의 **실제 code** 여야 한다. 여기 없는 코드를
+  //    넣으면 채널 체크박스가 아예 안 그려져 「채널을 1개 이상 선택」으로 발행이 막힌다.
+  //    실제 코드: qoo10 / cosme / lips (마이그레이션 157 + 시드 lookup_values.sql)
+  //    2026-07-31 정정 — '@cosme' 가 존재하지 않는 'atcosme' 로 매핑돼 있었다.
+  const map = { 'Qoo10': 'qoo10', '@cosme': 'cosme', 'LIPS': 'lips' };
   const m = (card.sale && card.sale.market) || '';
   return map[m] ? [map[m]] : [];
 }
