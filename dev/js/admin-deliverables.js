@@ -75,9 +75,9 @@ function applyDelivSortIndicators() {
 
 async function loadDeliverables() {
   await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
-  // 채널 코드 어긋남 경보 — 0건이면 아무것도 안 그린다. 실패해도 목록은 이미 떠 있다.
-  if (typeof renderChannelDriftBanner === 'function') {
-    renderChannelDriftBanner('delivChannelDriftBanner');
+  // 채널 어긋남 경고 버튼 갱신 — 0건이면 버튼째 숨긴다. 실패해도 목록은 이미 떠 있다.
+  if (typeof refreshChannelDriftIndicators === 'function') {
+    refreshChannelDriftIndicators();
   }
 }
 
@@ -98,7 +98,16 @@ async function refreshDelivSidebarBadge() {
     const n = await fetchPendingDeliverableCount();
     // 배지(숫자) 클릭 → 「검수대기만」 보기. event.stopPropagation 으로 메뉴 진입(페인 이동)과 분리.
     const badge = n>0 ? `<span class="admin-si-badge" onclick="event.stopPropagation();openDelivPendingReview()" style="cursor:pointer" title="검수대기만 보기">${n>999?'999+':n}</span>` : '';
-    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
+    // ⚠️ 이 함수는 항목 innerHTML 을 **통째로 다시 쓴다.** 그래서 index.html 에 심어둔
+    //    채널 어긋남 경고 아이콘(#adminDelivDriftWarn)도 여기서 함께 그려야 한다 —
+    //    안 그리면 이 함수가 도는 순간 그 노드가 영구히 사라지고(새로고침 전까지 복구 불가),
+    //    사이드바 경고가 **아예 안 뜬다**. 부팅·페인 진입 양쪽에서 이 함수가 먼저 끝나므로
+    //    거의 항상 그렇게 된다(2026-07-31 리뷰에서 발견).
+    //    ⚠️ 이 항목에 표시를 하나 더 추가할 때도 같은 함정이 있다.
+    const drift = `<span id="adminDelivDriftWarn" class="material-icons-round notranslate channel-drift-warn" translate="no" style="display:none;font-size:16px" onclick="event.stopPropagation();openChannelDriftModal()">report_problem</span>`;
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}${drift}`;
+    // 새로 그린 노드에 캐시된 감지 결과를 즉시 다시 입힌다(재조회 없음).
+    if (typeof applyChannelDriftIndicators === 'function') applyChannelDriftIndicators();
   } catch(e) { /* 무시 */ }
 }
 

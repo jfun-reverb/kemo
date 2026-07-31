@@ -104,7 +104,7 @@
         <div class="admin-si" data-pane="brand-ops" id="adminBrandOpsSi" onclick="navAdminPaneReload('brand-ops')"><span class="si-icon material-icons-round">monitor_heart</span><span class="si-text">운영 현황</span></div>
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
-        <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span><span id="adminDelivDriftWarn" class="material-icons-round notranslate channel-drift-warn" translate="no" style="display:none;font-size:16px" onclick="event.stopPropagation();openChannelDriftModal()">report_problem</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
@@ -116,7 +116,7 @@
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openSettlementsPending()" title="정산대기만 보기">0</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
-        <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
+        <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span><span id="adminLookupsDriftWarn" class="material-icons-round notranslate channel-drift-warn" translate="no" style="display:none;font-size:16px" onclick="event.stopPropagation();openChannelDriftModal()">report_problem</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
         <!-- 권한 관리 사이드바 항목은 2026-07-29 제거 — 진입은 「관리자 계정」 화면 안의
@@ -1148,14 +1148,16 @@
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+                <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
+                <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+              </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
                 관리자 대리 등록
               </button>
             </div>
-            <!-- 채널 코드 어긋남 경보 — 0건이면 renderChannelDriftBanner 가 통째로 숨긴다 -->
-            <div id="delivChannelDriftBanner" style="display:none"></div>
             <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -2215,13 +2217,15 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div>
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
+                  <!-- 채널 어긋남 경고 — 여기가 원인을 만드는 자리라 같은 신호를 띄운다 -->
+                  <button id="lookupDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+                </div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">캠페인에서 사용하는 채널·카테고리·콘텐츠 종류·NG 프리셋을 관리합니다 (campaign_admin 이상)</div>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
             </div>
-            <!-- 채널 코드 어긋남 경보 — 원인을 만드는 자리이므로 여기에도 같은 신호를 띄운다 -->
-            <div id="lookupChannelDriftBanner" style="display:none"></div>
             <!-- 종류 탭 -->
             <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
               <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
@@ -3522,6 +3526,25 @@
 
 <!-- 캠페인 변경 이력 모달 (Phase 2 — super_admin 한정)
      campaign_caution_history 행을 시간 역순 타임라인으로 표시. 각 행 클릭 → prev/next diff 펼침 -->
+<!-- 채널 코드 어긋남 — 경고 내용 + 조치 방법.
+     조치를 따라 하는 동안 띄워둘 수 있어야 하므로 DRAGGABLE_ADMIN_MODALS 에 등록돼
+     드래그·크기 조정이 된다(admin-core.js). -->
+<div class="modal-overlay" id="channelDriftModal" style="z-index:626">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#C33;font-size:22px">report_problem</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">채널 코드가 어긋난 항목</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">창을 열어둔 채로 조치를 진행할 수 있습니다 (제목을 끌어 옮기거나 모서리로 크기 조정)</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeChannelDriftModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="channelDriftModalBody" style="padding:16px 22px 20px;overflow-y:auto"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="cautionHistoryModal" style="z-index:625">
   <div class="modal" style="max-width:820px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">

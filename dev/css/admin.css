@@ -212,6 +212,14 @@ input.admin-filter{padding-right:8px}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
+/* 채널 코드 어긋남 경고 아이콘 — .admin-si-badge 와 같은 문제를 겪으므로 같은 방식으로 푼다.
+   접힌 사이드바(.collapsed)는 .admin-si 를 justify-content:center 로 가운데 정렬하는데,
+   margin-left:auto 를 가진 자식은 잉여 공간을 전부 흡수해 그 정렬을 무력화한다.
+   그래서 접힌 상태에서는 flex 흐름에서 빼내 절대 배치한다. */
+.channel-drift-warn{margin-left:auto;flex-shrink:0}
+/* 접힌 상태에서 검수대기 배지(.admin-si-badge)는 위(top:4px)에 붙는다. 같은 항목에 둘 다
+   뜨는 경우가 흔하므로(검수대기는 거의 상시) 같은 모서리를 쓰면 겹친다 → 경고는 아래로. */
+.admin-layout.collapsed .channel-drift-warn{position:absolute;top:auto;bottom:2px;left:50%;margin-left:-7px;font-size:13px}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
 /* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
 .admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
