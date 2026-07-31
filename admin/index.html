@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785458385';
+  var CURRENT_BUILD = 'v1785460359';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2679,7 +2679,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-31 09:39 · 4525b9f</span>
+          <span class="admin-build-text">2026-07-31 10:12 · d5a402b</span>
         </div>
       </div>
     </aside>
@@ -9593,6 +9593,30 @@ async function fetchCampaignVersion(id) {
     console.warn('[fetchCampaignVersion]', e);
     return null;
   }
+}
+
+// 그 캠페인에서 특정 채널들로 이미 제출된 결과물 건수.
+//   캠페인에서 채널을 뺄 때 「이 채널로 낸 결과물이 화면·인증 성공·정산에서 빠진다」를
+//   정확한 숫자로 경고하기 위한 조회. 임시저장(draft)은 아직 제출이 아니므로 제외한다.
+//   ⚠️ 채널 비교가 문자열 일치라, 캠페인 요구 채널에서 코드가 빠지는 순간 그 채널로 낸
+//      결과물은 인플루언서 활동관리·관리자 인증 상태·정산 후보 **세 곳에서 동시에** 빠진다
+//      (2026-07-30 @cosme 사고의 구조). 그래서 저장 전에 사람에게 숫자를 보여준다.
+//   ⚠️ 반려·취소된 신청의 결과물은 세지 않는다 — 그건 이미 인증 성공 판정·정산 후보에서
+//      빠져 있어(isCertExcluded 규칙), 함께 세면 「빠집니다」라는 경고 숫자가 실제보다 커진다.
+async function countDeliverablesByChannels(campaignId, channels) {
+  if (!db || !campaignId || !Array.isArray(channels) || !channels.length) return 0;
+  // 건수만 필요하지만 신청 상태로 걸러야 해서 행을 가져와 센다. 한 캠페인의 특정 채널
+  // 결과물이라 규모가 작다(모집 인원 단위).
+  const {data, error} = await db.from('deliverables')
+    .select('id, applications:application_id (status)')
+    .eq('campaign_id', campaignId)
+    .in('post_channel', channels)
+    .neq('status', 'draft');
+  if (error) throw error;
+  return (data || []).filter(function(d) {
+    const st = d.applications && d.applications.status;
+    return st !== 'rejected' && st !== 'cancelled';
+  }).length;
 }
 
 // 캠페인 이미지 공개 URL 배열을 Storage 에서 삭제 (고아 파일 정리용).
@@ -34543,6 +34567,11 @@ async function openEditCampaign(campId) {
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
+    // 채널 — ①모집 형식 라디오를 눌러도 「저장된 채널」이 화면에서 증발하지 않게 하고
+    //        ②저장 시 「결과물이 있는 채널을 뺐는지」를 비교하는 기준.
+    //   ⚠️ 이 키가 없으면 두 장치가 조용히 죽는다(마감일 확인창이 스냅샷에 deadline 키가
+    //      없어 죽은 코드로 배포된 선례 — feedback_snapshot_gate_needs_browser_test).
+    channel: camp.channel || '',
     caution_set_id: camp.caution_set_id || null,
     caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
     participation_set_id: camp.participation_set_id || null,
@@ -35912,6 +35941,32 @@ async function saveCampaignEdit() {
       toast('리뷰어형 캠페인은 채널을 1개 이상 선택해야 합니다','error');
       return;
     }
+
+    // ★ 결과물이 이미 제출된 채널을 빼려 하면 확인받는다 (@cosme 사고 재발 방지)
+    //   막지 않고 묻는다 — 잘못 들어간 채널을 빼야 하는 정당한 경우까지 막으면 편집
+    //   화면이 막다른 길이 된다(오늘 고친 「채널이 안 보여 저장이 막히던」 문제와 같은 함정).
+    //   ⚠️ 이 판정은 _editCampOriginal.channel 스냅샷에 의존한다. 그 키가 비면 조건이
+    //      영영 거짓이 되어 확인창이 죽은 코드가 된다 — 배포 전 브라우저에서 1회 발동 확인 필수.
+    {
+      const _origCh = String(_editCampOriginal?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+      const _nextCh = editChannel.split(',').map(s => s.trim()).filter(Boolean);
+      const _removed = _origCh.filter(c => !_nextCh.includes(c));
+      if (_removed.length) {
+        let _affected = 0;
+        try { _affected = await countDeliverablesByChannels(campId, _removed); }
+        catch(e) { console.warn('[saveCampaignEdit] 채널 제거 영향 조회 실패', e); }
+        if (_affected > 0) {
+          // 관리자 화면이므로 한국어 라벨. 기준 데이터에서 사라진 코드는 코드 그대로 보인다.
+          const _labels = _removed.map(c => getChannelLabel(c, 'ko') || c).join(', ');
+          const ok = await showConfirm(
+            `이 캠페인에서 「${_labels}」 채널을 뺍니다.\n\n` +
+            `이 채널로 이미 제출된 결과물 ${_affected}건이 인플루언서 화면·인증 성공 판정·정산 대상에서 함께 빠집니다.\n` +
+            `데이터가 지워지는 것은 아니지만, 채널을 다시 넣기 전까지는 없는 것처럼 보입니다.\n\n` +
+            `계속할까요?`);
+          if (!ok) return;
+        }
+      }
+    }
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
 
     const updates = {
@@ -37209,10 +37264,20 @@ function refreshPrimaryChannelOptions(formMode, preferredCode) {
 async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes, opts) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
   const wrap = $(cfg.chWrap); if (!wrap) return;
-  const preserveLegacy = !!(opts && opts.preserveSaved);
   let channels = [];
   try { channels = await fetchLookups('channel'); } catch(e) { return; }
   const checked = new Set(preSelectedCodes || []);
+
+  // 보존 대상 = 「데이터베이스에 이미 저장된 채널」.
+  //   opts.savedCodes 를 주면 그 목록만 보존한다(화면에서 방금 체크한 값은 보존 안 함).
+  //   안 주고 preserveSaved 만 켜면 preSelectedCodes 전체가 보존 대상 — 편집 화면을
+  //   처음 열 때는 「체크할 값 = 저장된 값」이라 둘이 같기 때문이다.
+  const preserveSet = (opts && Array.isArray(opts.savedCodes)) ? new Set(opts.savedCodes)
+                    : ((opts && opts.preserveSaved) ? checked : null);
+  //   ⚠️ 빈 Set 이면 보존할 게 없으므로 아예 꺼 둔다. `!!preserveSet` 로만 판정하면
+  //      savedCodes:[] (신규 등록 화면)에서 「켜졌지만 아무것도 보존 안 하는」 상태가 되어,
+  //      나중에 preserveLegacy 만 보고 분기를 추가하는 코드가 헷갈린다.
+  const preserveLegacy = !!preserveSet && preserveSet.size > 0;
 
   // ★ 이미 저장된 채널은 「그 모집 형식에서 고를 수 없는 채널」이어도 반드시 남긴다.
   //   걸러내 버리면 편집 화면에 체크박스가 아예 안 그려지고, 저장 시 채널 0개로 잡혀
@@ -37223,7 +37288,7 @@ async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes, 
   if (recruitType) {
     channels = channels.filter(function(c) {
       const allowed = Array.isArray(c.recruit_types) && c.recruit_types.includes(recruitType);
-      if (!allowed && preserveLegacy && checked.has(c.code)) { _offList.add(c.code); return true; }
+      if (!allowed && preserveLegacy && preserveSet.has(c.code)) { _offList.add(c.code); return true; }
       return allowed;
     });
   }
@@ -37231,7 +37296,7 @@ async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes, 
   //   그대로 두면 위와 같은 이유로 저장이 막히고, 저장하면 그 채널이 조용히 지워진다.
   const _known = new Set(channels.map(c => c.code));
   if (preserveLegacy) {
-    (preSelectedCodes || []).forEach(function(code) {
+    preserveSet.forEach(function(code) {
       if (code && !_known.has(code)) {
         channels.push({code: code, name_ja: code, name_ko: code});
         _offList.add(code);
@@ -37306,13 +37371,19 @@ async function renderCategorySelect(formMode, currentCode) {
 
 async function filterChannelsByRecruitType(formMode, recruitType) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
-  // 현재 체크된 코드 보존
-  //   ⚠️ 여기서 넘기는 값은 「저장된 값」이 아니라 **방금 화면에서 체크한 값**이다.
-  //      그래서 preserveSaved 를 켜지 않는다 — 켜면 리뷰어형에서 Qoo10 을 고른 뒤
-  //      시딩으로 바꿨을 때 Qoo10 이 「(기존)」으로 살아남아, 신규 캠페인이 모집
-  //      형식과 안 맞는 채널로 저장된다(고치려던 문제를 새로 만드는 경로).
+  // 체크 상태는 화면에서 그대로 가져오되, **보존 대상은 「저장된 채널」로 따로 준다.**
+  //   ⚠️ 화면 체크값을 보존 대상으로 쓰면 안 된다 — 리뷰어형에서 Qoo10 을 고른 뒤 시딩으로
+  //      바꿨을 때 Qoo10 이 「(기존)」으로 살아남아 신규 캠페인이 모집 형식과 안 맞는 채널로
+  //      저장된다.
+  //   ⚠️ 반대로 아무것도 보존하지 않으면, 편집 화면에서 라디오를 한 번 눌렀다 되돌리는
+  //      것만으로 **이미 저장된 채널이 경고 없이 증발**한다(그대로 저장하면 데이터가 사라짐).
+  //      비활성 처리된 채널도 목록에서 빠지므로 「삭제 말고 비활성으로」 안내로도 못 막는다.
+  //   → 두 요구를 다 만족시키려면 기준이 「데이터베이스에 저장된 값」이어야 한다.
   const checked = Array.from(document.querySelectorAll(`input[name="${cfg.chName}"]:checked`)).map(c => c.value);
-  await renderChannelCheckboxes(formMode, recruitType, checked);
+  const savedCodes = (formMode === 'edit')
+    ? String(_editCampOriginal?.channel || '').split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  await renderChannelCheckboxes(formMode, recruitType, checked, {savedCodes: savedCodes});
   // 콘텐츠 종류도 모집 타입에 맞춰 재렌더 (monitor=동영상·이미지만, gifting/visit=전체)
   const checkedCT = Array.from(document.querySelectorAll(`input[name="${cfg.ctName}"]:checked`)).map(c => c.value);
   await renderContentTypeCheckboxes(formMode, checkedCT, recruitType);
