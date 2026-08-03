@@ -3084,14 +3084,15 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const auditPurgeItem = isSuper
     ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
-  // 오프라인 행사 캠페인에만 타임 관리·예약 현황을 띄운다.
+  // 오프라인 행사 캠페인에만 예약 현황을 띄운다.
+  //   시간대(타임) 관리는 캠페인 **편집 화면 안**으로 옮겼다(2026-08-03) — 그 캠페인의
+  //   설정이라 고쳐 쓰는 자리에 함께 있는 것이 자연스럽다.
   //   사이드바 상설 항목은 만들지 않는다 — 행사는 소수·기간 한정이라 상설로 두면
   //   평소엔 빈 화면으로 남는다(작업표 결정).
   const _campForEvent = (typeof allCampaigns !== 'undefined' && allCampaigns)
     ? allCampaigns.find(c => c.id === campId) : null;
   const eventItems = (typeof isEventCampaign === 'function' && isEventCampaign(_campForEvent))
-    ? `<div class="camp-more-item" onclick="openEventSlotsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">schedule</span>타임 관리</div>
-       <div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
+    ? `<div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
     : '';
 
   menu.innerHTML = `
