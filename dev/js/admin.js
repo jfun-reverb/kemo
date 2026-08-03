@@ -2191,16 +2191,19 @@ async function saveCampaignEdit() {
         ? await countActiveEventTickets(campId) : 0;
       if (_tk > 0) {
         const _el = $('alertModalMessage');
-        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.8">
-          이 캠페인에는 살아 있는 예약이 <b style="color:var(--red-d)">${_tk}건</b> 있습니다.
-          <div style="margin-top:10px">「오프라인 행사 캠페인」을 끄면</div>
-          <ul style="margin:6px 0 0 18px;padding:0">
+        // ⚠️ 이 모달은 가운데 정렬이다(다른 알림과 공용). 목록을 그대로 넣으면 글머리
+        //    기호가 줄마다 다른 자리에 놓여 읽기 어렵다 — 이 안내만 왼쪽으로 맞춘다.
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75;text-align:left">
+          <div style="text-align:center;margin-bottom:14px">이 캠페인에는 살아 있는 예약이 <b style="color:var(--red-d)">${_tk}건</b> 있습니다.</div>
+          <div style="font-weight:700">「오프라인 행사 캠페인」을 끄면</div>
+          <ul style="margin:6px 0 0;padding-left:18px">
             <li>예약 현황·입장 확인으로 들어갈 길이 없어지고,</li>
             <li>방문객 화면이 예약표 대신 결과물 제출 폼으로 바뀌며,</li>
             <li>행사라서 막아 둔 「당선」 알림이 방문객에게 나가기 시작합니다.</li>
           </ul>
-          <div style="margin-top:10px">먼저 예약을 정리한 뒤에 꺼 주세요.
-          모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+            먼저 예약을 정리한 뒤에 꺼 주세요. 모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.
+          </div>
         </div>`;
         openModal('alertModal');
         return;
