@@ -50,6 +50,10 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
 
 .topbar h1{font-size:17px;font-weight:800;margin:0;flex:0 0 auto}
 .topbar-gap{flex:1 1 auto}
+.roster-summary{font-size:15px;font-weight:800;color:var(--ink);
+  padding:9px 10px;margin-bottom:8px;border-radius:9px;background:var(--bg)}
+.roster-summary .rs-entered{color:var(--green)}
+.roster-summary .rs-wait{color:var(--amber);font-weight:700}
 .date-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .date-tab{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--line);
   background:#fff;color:var(--muted);font-size:14px;font-weight:700;flex-shrink:0}
@@ -259,6 +263,7 @@ button{font-family:inherit;cursor:pointer}
         <button class="att-btn" onclick="loadRoster()" data-i18n="refresh">새로고침</button>
       </div>
       <div id="rosterDate" class="date-tabs" role="group"></div>
+      <div id="rosterSummary" class="roster-summary"></div>
       <div class="hint" data-i18n="rosterHint">QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.</div>
       <div id="rosterList"><div class="empty" data-i18n="loading">불러오는 중…</div></div>
     </div>
@@ -331,6 +336,7 @@ const SCAN_I18N = {
     loading: '불러오는 중…',
     recent: '최근 확인',
     roster: '예약자 명단', refresh: '새로고침', allDates: '전체 기간', todaySuffix: ' (오늘)',
+    rsReserved: '예약 {r}명', rsEntered: '입장 {e}명 ({p}%)', rsWaiting: '대기 {w}명',
     rosterHint: 'QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.',
     noSlots: '등록된 타임이 없습니다.', noSlotsThisDate: '이 날짜에 등록된 타임이 없습니다.',
     noAttendees: '예약자가 없습니다.',
@@ -372,6 +378,7 @@ const SCAN_I18N = {
     loading: '読み込んでいます…',
     recent: '最近の確認',
     roster: '予約者リスト', refresh: '再読み込み', allDates: '全期間', todaySuffix: '（本日）',
+    rsReserved: '予約 {r}名', rsEntered: '入場 {e}名（{p}%）', rsWaiting: 'キャンセル待ち {w}名',
     rosterHint: 'QRが見つからない方・スマホをお忘れの方は、お名前をタップして入場処理してください。',
     noSlots: '登録された時間帯がありません。', noSlotsThisDate: 'この日付に登録された時間帯がありません。',
     noAttendees: '予約者がいません。',
@@ -707,6 +714,7 @@ async function loadRoster() {
 
     if (!prepareRosterDates(allSlots)) {
       box.innerHTML = `<div class="empty">${esc(T('noSlots'))}</div>`;
+      renderRosterSummary([]);
       return;
     }
 
@@ -714,12 +722,18 @@ async function loadRoster() {
       ? allSlots
       : (allSlots || []).filter(s => String(s.slot_date).slice(0, 10) === _rosterPick);
 
-    if (!slots.length) { box.innerHTML = `<div class="empty">${esc(T('noSlotsThisDate'))}</div>`; return; }
+    if (!slots.length) {
+      box.innerHTML = `<div class="empty">${esc(T('noSlotsThisDate'))}</div>`;
+      renderRosterSummary([]);
+      return;
+    }
 
     const tickets = await fetchAllTickets(slots.map(s => s.id));
 
     const bySlot = {};
     (tickets || []).forEach(t => { (bySlot[t.slot_id] = bySlot[t.slot_id] || []).push(t); });
+
+    renderRosterSummary(tickets);
 
     box.innerHTML = slots.map(s => {
       const rows = (bySlot[s.id] || []).sort((a, b) =>
@@ -757,6 +771,28 @@ function prepareRosterDates(allSlots) {
 
 // 날짜를 버튼으로 늘어놓는다 — 드롭다운은 열고·고르고·닫는 세 동작이라
 // 입구에서 한 손으로 쓰기 불편하다(사용자 요청 2026-08-03).
+// 고른 기간의 예약·입장 수. 시간대별 줄에도 같은 숫자가 나오지만, 기간 전체를
+// 한눈에 보려면 위쪽에 합계가 있어야 한다(사용자 요청 2026-08-03).
+//   ⚠️ 목록을 그릴 때 쓰는 바로 그 자료로 센다 — 따로 조회해서 세면 두 숫자가 어긋난다.
+function renderRosterSummary(tickets) {
+  const el = $('rosterSummary');
+  if (!el) return;
+  const rows = tickets || [];
+  const reserved = rows.filter(t => t.status === 'confirmed').length;
+  const entered  = rows.filter(t => t.status === 'confirmed' && t.entered_at).length;
+  const waiting  = rows.filter(t => t.status === 'waitlist').length;
+  const pct = reserved ? Math.round(entered / reserved * 100) : 0;
+
+  // 조각별로 조립한다 — 완성된 문장에서 숫자를 찾아 색을 입히려 하면 언어마다
+  // 어미가 달라 엉뚱한 곳이 잡힌다.
+  const parts = [
+    esc(T('rsReserved', {r: reserved})),
+    `<span class="rs-entered">${esc(T('rsEntered', {e: entered, p: pct}))}</span>`
+  ];
+  if (waiting) parts.push(`<span class="rs-wait">${esc(T('rsWaiting', {w: waiting}))}</span>`);
+  el.innerHTML = parts.join(' · ');
+}
+
 function renderRosterDateOptions() {
   const box = $('rosterDate');
   if (!box) return;
