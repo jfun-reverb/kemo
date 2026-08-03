@@ -2,6 +2,33 @@
 // i18n — 한국어
 // ══════════════════════════════════════
 window.I18N_KO = {
+  // 오프라인 행사 예약(티켓팅) — 사양서 2026-07-30
+  event: {
+    slotPickerTitle: '방문할 날짜와 시간을 골라 주세요',
+    slotPickerHint: '고른 뒤에 「신청」 버튼을 눌러 주세요.',
+    slotRemaining: '{n}명 남음',
+    slotFull: '마감',
+    slotFullWaitlist: '마감(대기 신청)',
+    slotWaitlistNote: '자리가 다 차서 대기 신청이 됩니다.',
+    slotClosed: '접수가 끝났습니다',
+    slotNone: '아직 등록된 시간이 없습니다. 조금 뒤에 다시 봐 주세요.',
+    slotLoading: '시간을 불러오는 중…',
+    slotLoadFailed: '시간을 불러오지 못했습니다. 통신 상태를 확인하고 다시 시도해 주세요.',
+    selectSlotFirst: '방문할 날짜와 시간을 골라 주세요',
+    selected: '고른 시간',
+    applyDone: '예약이 확정됐습니다. 입장 티켓을 확인해 주세요.',
+    waitlistDone: '대기 신청을 했습니다. 자리가 나면 알려 드립니다.',
+    failInviteRequired: '이 행사는 초대받은 분만 신청할 수 있습니다.',
+    failInviteMismatch: '초대 번호가 다릅니다. 받으신 링크를 다시 열어 주세요.',
+    failAlreadyApplied: '이미 이 행사를 예약했습니다. 예약은 한 번만 가능합니다.',
+    failSlotClosed: '이 시간은 접수가 끝났습니다. 다른 시간을 골라 주세요.',
+    failDeadlinePassed: '모집 기간이 끝났습니다.',
+    failBirthdate: '예약하려면 먼저 생년월일을 등록해 주세요.',
+    failUnderAge: '이 행사는 만 18세 이상만 이용할 수 있습니다.',
+    failNotFound: '이 시간을 찾지 못했습니다. 화면을 새로 고치고 다시 시도해 주세요.',
+    failGeneric: '예약하지 못했습니다. 다시 시도해 주세요.',
+  },
+
   common: {
     save: '저장',
     cancel: '취소',

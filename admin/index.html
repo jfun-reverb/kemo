@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785721241';
+  var CURRENT_BUILD = 'v1785722728';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2716,7 +2716,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-03 10:40 · 736de97</span>
+          <span class="admin-build-text">2026-08-03 11:05 · b0d8d2d</span>
         </div>
       </div>
     </aside>
@@ -12673,13 +12673,16 @@ async function deleteEventSlot(slotId) {
 // 실패 사유(reason): invite_required · invite_mismatch · already_applied · slot_closed ·
 //   deadline_passed · birthdate_required · under_age · invalid_campaign_type ·
 //   not_found · permission_denied
-async function reserveEventTicket(slotId, inviteCode) {
+async function reserveEventTicket(slotId, inviteCode, cautionAgreedAt, cautionSnapshot) {
   if (!db) throw new Error('DB 미연결');
   let res = null;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('reserve_event_ticket', {
       p_slot_id: slotId,
-      p_invite_code: inviteCode || null
+      p_invite_code: inviteCode || null,
+      // 주의사항 동의 — 화면이 체크를 강제하므로 기록도 남겨야 한다(마이그레이션 284).
+      p_caution_agreed_at: cautionAgreedAt || null,
+      p_caution_snapshot: cautionSnapshot || null
     });
     if (error) throw error;
     res = data;
