@@ -356,6 +356,30 @@
             </div>
             <input type="hidden" id="editCampId">
 
+            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
+            <div class="event-mode-box">
+              <label class="event-mode-main">
+                <input type="checkbox" id="editCampEventMode" onchange="onEventModeToggle('edit')">
+                <span>오프라인 행사(방문 예약) 캠페인</span>
+              </label>
+              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
+              <div id="editCampEventOpts" class="event-mode-opts" style="display:none">
+                <label class="event-mode-main">
+                  <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
+                  <span>비공개 — 초대받은 사람만 신청</span>
+                </label>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div id="editCampInviteRow" class="event-invite-row" style="display:none">
+                  <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                  <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteGenBtn" onclick="genInviteCode('edit')">번호 생성</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteCopyBtn" onclick="copyInviteLink('edit')">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:15px">link</span> 초대 링크 복사
+                  </button>
+                </div>
+                <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
+              </div>
+            </div>
+
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
@@ -452,6 +476,7 @@
                   <label class="form-label">리워드 금액 (¥)</label>
                   <input type="number" id="editCampReward" class="form-input" min="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
+                  <div class="form-hint" id="editCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -638,6 +663,27 @@
             </div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
+            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
+            <div class="event-mode-box">
+              <label class="event-mode-main">
+                <input type="checkbox" id="newCampEventMode" onchange="onEventModeToggle('new')">
+                <span>오프라인 행사(방문 예약) 캠페인</span>
+              </label>
+              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
+              <div id="newCampEventOpts" class="event-mode-opts" style="display:none">
+                <label class="event-mode-main">
+                  <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
+                  <span>비공개 — 초대받은 사람만 신청</span>
+                </label>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div id="newCampInviteRow" class="event-invite-row" style="display:none">
+                  <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                  <button type="button" class="btn btn-ghost btn-sm" id="newCampInviteGenBtn" onclick="genInviteCode('new')">번호 생성</button>
+                  <span class="form-hint" style="margin:0">캠페인을 저장한 뒤 편집 화면에서 초대 링크를 복사할 수 있습니다.</span>
+                </div>
+              </div>
+            </div>
+
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -741,6 +787,7 @@
                   <label class="form-label">리워드 금액 (¥)</label>
                   <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
+                  <div class="form-hint" id="newCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -1092,6 +1139,90 @@
             <table class="data-table">
               <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- EVENT SLOTS PANE — 오프라인 행사 타임(시간대) 관리 / 사양서 2026-07-30 §4-5 -->
+        <div id="adminPane-event-slots" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">타임 관리</div>
+              <div id="eventSlotsTitle" style="font-size:13px;color:var(--muted)"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEventTicketsPane(_eventPaneCampId, _eventPaneCampTitle)">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">event_available</span> 예약 현황
+              </button>
+            </div>
+            <div id="eventSlotsSummary" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+
+            <!-- 하루치 일괄 생성 — 이틀차 16줄·삼일차 13줄을 손으로 넣지 않게 하는 도구 -->
+            <div class="admin-card" style="padding:12px 14px;margin-bottom:10px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:8px">하루치 일괄 생성</div>
+              <div class="admin-filter-bar" style="flex-wrap:wrap">
+                <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventBulkDate" class="admin-filter" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>시작 시각</label><input type="time" id="eventBulkStart" class="admin-filter" value="11:00" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="time" id="eventBulkLastStart" class="admin-filter" value="18:30" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px"></div>
+                <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
+                <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
+                <button class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
+              </div>
+              <div id="eventBulkPreview" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+              <div class="form-hint" style="margin-top:4px">「마지막 시작 시각」까지 포함해서 만듭니다. 한 타임 길이를 0으로 두면 끝 시각 없이 시작 시각만 표시됩니다. 같은 시각이 이미 있으면 건너뜁니다.</div>
+            </div>
+
+            <!-- 한 줄씩 추가 — 첫날 구간형(11:00~13:00)처럼 규칙적이지 않은 타임용 -->
+            <div class="admin-filter-bar" style="flex-wrap:wrap">
+              <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventSlotNewDate" class="admin-filter"></div>
+              <div class="admin-filter-group"><label>시작</label><input type="time" id="eventSlotNewStart" class="admin-filter"></div>
+              <div class="admin-filter-group"><label>종료(선택)</label><input type="time" id="eventSlotNewEnd" class="admin-filter"></div>
+              <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
+              <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
+              <button class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">줄 추가</button>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th></tr></thead>
+              <tbody id="eventSlotsBody"></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- EVENT TICKETS PANE — 예약 현황·방문객 명단 / 사양서 2026-07-30 §4-5 -->
+        <div id="adminPane-event-tickets" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">예약 현황</div>
+              <div id="eventTicketsTitle" style="font-size:13px;color:var(--muted)"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEventSlotsPane(_eventPaneCampId, _eventPaneCampTitle)">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">schedule</span> 타임 관리
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="exportEventTicketsExcel(_eventPaneCampId)">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀
+              </button>
+            </div>
+            <div id="eventTicketsSummary" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+            <div class="admin-filter-bar">
+              <div class="admin-filter-group">
+                <label>타임</label>
+                <select id="eventTicketSlotFilter" class="admin-filter" onchange="onEventTicketSlotFilterChange(this.value)"></select>
+              </div>
+            </div>
+            <div id="eventTicketStatusTabs" class="status-tab-bar" style="margin-top:10px"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
+              <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
           </div>

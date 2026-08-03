@@ -823,6 +823,13 @@ async function openEditCampaign(campId) {
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
 
+  // 오프라인 행사 설정(행사 모드·비공개·초대 번호) 채우기.
+  //   초대 번호는 캠페인 표가 아니라 별도 표라 비동기 조회가 필요하다 — 화면 전환을
+  //   막지 않도록 await 하지 않고, 값이 오면 그때 칸에 들어간다.
+  if (typeof loadEventSettingsIntoEditForm === 'function') {
+    loadEventSettingsIntoEditForm(camp);
+  }
+
   switchAdminPane('edit-campaign', null);
 }
 
@@ -2237,6 +2244,9 @@ async function saveCampaignEdit() {
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
       reward_note: gv('editCampRewardNote') || null,
+      // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
+      event_mode: !!$('editCampEventMode')?.checked,
+      is_invite_only: !!$('editCampInviteOnly')?.checked,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -2352,6 +2362,12 @@ async function saveCampaignEdit() {
       allCampaigns = await fetchCampaigns();
       switchAdminPane('campaigns', null);
       return;
+    }
+
+    // 초대 번호는 캠페인 표가 아니라 별도 표(event_invites)라 따로 넣는다.
+    //   저장 충돌(위 conflict 분기)로 돌아간 경우에는 여기 도달하지 않는다.
+    if (typeof saveEventInviteAfterCampaignSave === 'function') {
+      await saveEventInviteAfterCampaignSave('edit', campId);
     }
 
     // Phase 2 — 주의사항/참여방법 변경 감지 시 audit 이력 기록
@@ -3051,7 +3067,18 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const auditPurgeItem = isSuper
     ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
+  // 오프라인 행사 캠페인에만 타임 관리·예약 현황을 띄운다.
+  //   사이드바 상설 항목은 만들지 않는다 — 행사는 소수·기간 한정이라 상설로 두면
+  //   평소엔 빈 화면으로 남는다(작업표 결정).
+  const _campForEvent = (typeof allCampaigns !== 'undefined' && allCampaigns)
+    ? allCampaigns.find(c => c.id === campId) : null;
+  const eventItems = (typeof isEventCampaign === 'function' && isEventCampaign(_campForEvent))
+    ? `<div class="camp-more-item" onclick="openEventSlotsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">schedule</span>타임 관리</div>
+       <div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
+    : '';
+
   menu.innerHTML = `
+    ${eventItems}
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
@@ -3360,6 +3387,10 @@ async function addCampaign() {
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
     reward_note: ($('newCampRewardNote')?.value || '').trim() || null,
+    // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 캠페인 표가 아니라
+    // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
+    event_mode: !!$('newCampEventMode')?.checked,
+    is_invite_only: !!$('newCampInviteOnly')?.checked,
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,
@@ -3389,6 +3420,11 @@ async function addCampaign() {
 
   const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
+
+  // 초대 번호는 캠페인 id 가 있어야 넣을 수 있어 저장 뒤에 따로 처리한다.
+  if (_newCampId && typeof saveEventInviteAfterCampaignSave === 'function') {
+    await saveEventInviteAfterCampaignSave('new', _newCampId);
+  }
 
   // ── 오리엔시트 카드 발행 소비 ──
   if (_opc && _newCampId) {

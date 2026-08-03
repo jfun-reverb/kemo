@@ -1055,6 +1055,13 @@ const PANE_REFRESHERS = {
     // 명단 저장·삭제 모달 후 호출 — 재조회(fetchOutboundInfluencers + 목록 재렌더)로 갱신.
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
+  },
+  // 오프라인 행사 타임·예약 현황 — 캠페인 단위 서브 페인이라 보고 있던 캠페인으로 다시 그린다.
+  'event-slots': async () => {
+    if (typeof renderEventSlotsPane === 'function') await renderEventSlotsPane();
+  },
+  'event-tickets': async () => {
+    if (typeof renderEventTicketsPane === 'function') await renderEventTicketsPane();
   }
 };
 async function refreshPane(paneId) {
