@@ -22,10 +22,21 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
    입구에 노트북을 놓고 쓰는 경우 명단이 화면 아래로 밀려 스크롤해야 하는 것을 막는다.
    휴대폰(900px 미만)은 지금처럼 한 줄로 쌓인다. */
 @media (min-width:900px){
-  .wrap{max-width:1100px}
-  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
-  /* 오른쪽 명단은 따로 스크롤한다 — 왼쪽 스캔 영역이 늘 보이게 */
-  .col-right{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto}
+  /* 브라우저 자체는 스크롤되지 않게 한다. 화면을 넘치는 것은 각 단 **안에서** 스크롤한다
+     (사용자 요청 2026-08-03). 휴대폰(900px 미만)은 그대로 페이지가 스크롤된다 —
+     좁은 화면에서 전부를 한 화면에 넣는 것은 불가능하다. */
+  html,body{height:100%;overflow:hidden}
+  .wrap{max-width:1100px;height:100dvh;display:flex;flex-direction:column;
+        overflow:hidden;padding-bottom:14px}
+  #mainArea{flex:1;min-height:0;display:flex;flex-direction:column}
+  .cols{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+        gap:16px;align-items:stretch}
+  /* min-height:0 이 없으면 격자 칸이 내용 높이만큼 늘어나 안쪽 스크롤이 안 생긴다 */
+  .col-left{min-height:0;overflow-y:auto;padding-right:2px}
+  .col-right{min-height:0;display:flex;flex-direction:column}
+  /* 스크롤 막대가 카드 **안쪽**에 오게 한다 — 밖에 있으면 카드와 따로 노는 것처럼 보인다 */
+  .col-right > .card{flex:1;min-height:0;display:flex;flex-direction:column}
+  #rosterList{flex:1;min-height:0;overflow-y:auto;margin:0 -4px;padding:0 4px}
 }
 .topbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 
@@ -205,6 +216,7 @@ button{font-family:inherit;cursor:pointer}
       <label data-i18n="recent">최근 확인</label>
       <div id="recentList"></div>
     </div>
+    <div class="offline-note" data-i18n="offlineNote"></div>
     </div><!-- /col-left -->
 
     <div class="col-right">
@@ -219,8 +231,6 @@ button{font-family:inherit;cursor:pointer}
     </div>
     </div><!-- /col-right -->
     </div><!-- /cols -->
-
-    <div class="offline-note" data-i18n="offlineNote"></div>
   </div>
 </div>
 
