@@ -135,14 +135,18 @@ async function openCampaign(id) {
           // 순서: 상품명 → 모집타입 → 채널 → 콘텐츠 → 모집기간 → 구매/방문기간 → 결과물 제출 마감 → 모집인원
           //       → (monitor 외) 당선 발표 → (monitor 외) 리워드
           const isMonitor = camp.recruit_type === 'monitor';
+          // 오프라인 행사는 SNS 게시물·결과물·리워드가 없다. 관리자 폼에서 그 칸들을
+          // 숨겼지만, 예전에 저장된 값이나 행사로 바꾸기 전 값이 남아 있을 수 있어
+          // **그리는 쪽에서도 막는다** — 저장된 값과 무관하게 행사면 안 그린다.
+          const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
           const KEY = 'width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
           const VAL = 'padding:10px 13px;flex:1;font-size:12px';
           const ROW = 'display:flex;border-top:1px solid #faf5f9';
           const rows = [];
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const rt=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)'],gifting:['var(--gold-l)','var(--gold)'],visit:['#E8F7EF','#0E7E4A']};const m=map[rt];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()}</div></div>`);
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.channel')}</div><div style="${VAL};display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}</div></div>`);
-          if (camp.content_types) {
+          if (!isEvent) rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.channel')}</div><div style="${VAL};display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}</div></div>`);
+          if (camp.content_types && !isEvent) {
             const ctList = camp.content_types.split(',').map(c => c.trim()).filter(Boolean);
             if (ctList.length) {
               rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.contentType')}</div><div style="${VAL};display:flex;gap:4px;flex-wrap:wrap">${ctList.map(c=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', c))}</span>`).join('')}</div></div>`);
@@ -155,16 +159,16 @@ async function openCampaign(id) {
           if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
           }
-          if (camp.submission_end) {
+          if (camp.submission_end && !isEvent) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.submissionEnd')}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
           }
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
-          if (camp.min_followers) {
+          if (camp.min_followers && !isEvent) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${camp.min_followers.toLocaleString()}${t('detail.minFollowersSuffix')}</div></div>`);
           }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
-          if (!isMonitor) {
+          if (!isMonitor && !isEvent) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.winnerAnnounce')}</div><div style="${VAL}">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div></div>`);
             if (camp.product_price>0 || camp.reward>0 || camp.reward_note) {
               const rewardLine = (camp.product_price>0 || camp.reward>0) ? `${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}` : '';
@@ -411,7 +415,13 @@ async function loadEventSlotPicker(camp) {
 function renderEventSlotDateTabs(dates) {
   const el = $('eventSlotDateTabs');
   if (!el) return;
-  if (dates.length <= 1) { el.innerHTML = ''; return; }
+  // ⚠️ 날짜가 하나뿐이어도 **반드시 보여 준다.** 예전에는 하나면 탭을 아예 안 그렸는데,
+  //    그러면 시각만 늘어서서 방문객이 **며칠에 가는 예약인지 모른 채** 신청하게 된다
+  //    (2026-08-03 지적). 고를 것이 없을 뿐 알아야 하는 정보다.
+  if (dates.length === 1) {
+    el.innerHTML = `<div class="event-date-single">${esc(formatEventSlotDateLabel(dates[0]))}</div>`;
+    return;
+  }
   el.innerHTML = dates.map(d => `
     <button type="button" class="event-date-tab${d === _eventSlotActiveDate ? ' on' : ''}"
             onclick="setEventSlotDate('${d}')">${esc(formatEventSlotDateLabel(d))}</button>`).join('');
@@ -448,29 +458,38 @@ function renderEventSlotList() {
     const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
     const timeLabel = en ? `${st}〜${en}` : st;
     const rightLabel = full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining);
+    // ⚠️ 대기 안내는 **고른 줄 바로 아래**에 붙인다. 목록 맨 아래에 두면 이른 시간을
+    //    고른 사람은 한참 스크롤해야 볼 수 있어 사실상 못 본다(2026-08-03 지적).
+    const note = (picked && full)
+      ? `<div class="event-slot-note">${esc(t('event.slotWaitlistNote'))}</div>`
+      : '';
     return `
       <button type="button" class="event-slot${picked ? ' on' : ''}${full ? ' full' : ''}"
               onclick="selectEventSlot('${s.id}')">
         <span class="event-slot-time">${esc(timeLabel)}</span>
         ${s.audience_label ? `<span class="event-slot-aud">${esc(s.audience_label)}</span>` : ''}
         <span class="event-slot-remain">${esc(rightLabel)}</span>
-      </button>`;
+      </button>${note}`;
   }).join('');
+}
 
-  // 만석 타임을 고르면 대기 신청이 된다는 것을 버튼 위에서 미리 알린다.
-  const picked = _eventSlotsForDetail.find(s => s.id === _selectedEventSlotId);
-  const pickedCount = picked ? (_eventSlotCountsForDetail[picked.id] || {}) : null;
-  const note = document.createElement('div');
-  if (picked && pickedCount && Number(pickedCount.remaining || 0) <= 0) {
-    note.style.cssText = 'font-size:12px;color:var(--dark-pink);background:var(--light-pink);border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6';
-    note.textContent = t('event.slotWaitlistNote');
-    el.appendChild(note);
-  }
+// 고른 타임이 만석인가 — 신청 모달·안내가 같은 판정을 쓰게 한 곳에 둔다.
+function isSelectedEventSlotFull() {
+  const s = _eventSlotsForDetail.find(x => x.id === _selectedEventSlotId);
+  if (!s) return false;
+  const c = _eventSlotCountsForDetail[s.id] || {};
+  return Number(c.remaining || 0) <= 0;
 }
 
 function selectEventSlot(slotId) {
-  _selectedEventSlotId = (_selectedEventSlotId === slotId) ? null : slotId;
+  const wasPicked = _selectedEventSlotId === slotId;
+  _selectedEventSlotId = wasPicked ? null : slotId;
   renderEventSlotList();
+  // 만석을 고른 그 순간에도 한 번 알린다. 줄 아래 안내는 계속 남아 있어
+  // 토스트가 사라진 뒤 신청 버튼을 누를 때도 보인다.
+  if (!wasPicked && isSelectedEventSlotFull()) {
+    toast(t('event.slotWaitlistNote'), 'warn');
+  }
 }
 
 // 예약 실행 — 서버는 실패를 예외가 아니라 {ok:false, reason} 으로 돌려준다.
@@ -587,7 +606,9 @@ function openApplyModal(campaignId) {
         const when = s
           ? `${formatEventSlotDateLabel(String(s.slot_date).slice(0, 10))} ${String(s.start_time || '').slice(0, 5)}`
           : '';
-        notice.innerHTML = `<b>${esc(t('event.selected'))}</b><br>${esc(when)}`;
+        const full = isSelectedEventSlotFull();
+        notice.innerHTML = `<b>${esc(t('event.selected'))}</b><br>${esc(when)}`
+          + (full ? `<div style="margin-top:8px;color:var(--dark-pink);font-weight:700">${esc(t('event.slotWaitlistNote'))}</div>` : '');
       } else {
         // 일반 캠페인으로 돌아왔을 때 원래 안내문을 되살린다.
         //   행사 캠페인을 한 번 열면 이 자리를 덮어쓰므로, 안 되살리면 그 뒤에 여는

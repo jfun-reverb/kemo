@@ -100,6 +100,10 @@ button{font-family:inherit;cursor:pointer}
 .rm-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;
   letter-spacing:.18em;font-weight:800;margin-top:12px;padding:10px;border-radius:10px;background:var(--bg)}
 .rm-sub{font-size:14px;color:var(--muted);margin-top:12px;line-height:1.6}
+.rm-ask .rm-title{color:var(--red)}
+.rm-ask .rm-mark circle,.rm-ask .rm-mark path{stroke:var(--red)}
+#rmConfirmBtn{background:var(--green)}
+.rm-ask #rmCloseBtn{background:#fff;color:var(--muted);border:1px solid var(--line)}
 .rm-ok .rm-title{color:var(--green)}
 .rm-dup .rm-title{color:var(--amber)}
 .rm-bad .rm-title{color:var(--red)}
@@ -133,6 +137,7 @@ button{font-family:inherit;cursor:pointer}
 .recent-item:first-child{border-top:none}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .dot.ok{background:var(--green)} .dot.dup{background:var(--amber)} .dot.bad{background:var(--red)}
+.dot.ask{background:var(--red)}
 
 /* 명단 — QR 을 못 찾거나 휴대폰을 두고 온 방문객을 이름으로 찾는 경로.
    ⚠️ 가로 여백은 **한 곳에서만** 준다(.slot-title 과 .att 에 같은 값).
@@ -215,6 +220,7 @@ button{font-family:inherit;cursor:pointer}
       <div class="rm-when" id="rmWhen"></div>
       <div class="rm-code" id="rmCode"></div>
       <div class="rm-sub" id="rmSub"></div>
+      <button class="btn" id="rmConfirmBtn" style="display:none" onclick="confirmOtherDay()" data-i18n="doCheckIn">입장 처리</button>
       <button class="btn" id="rmCloseBtn" onclick="closeResultModal()" data-i18n="confirm">확인</button>
     </div>
   </div>
@@ -348,6 +354,8 @@ const SCAN_I18N = {
     resetDone: '입장 기록 {n}건을 되돌렸습니다.',
     resetFailed: '초기화하지 못했습니다. 개발 데이터베이스에 패치를 적용했는지 확인해 주세요.',
     okTitle: '인증이 완료되었습니다', dupTitle: '이미 인증 처리가 완료되었습니다',
+    otherDayTitle: '오늘 예약이 아닙니다', otherDayAsk: '이대로 입장 처리할까요?',
+    doCheckIn: '입장 처리', cancel: '취소',
     todayOk: '오늘 예약입니다', notToday: '오늘이 아닙니다 · ', pastDate: '지난 날짜입니다 · ',
     dateFmt: '{m}월 {d}일 예약',
     firstEnter: '첫 입장 {t} · 확인 {n}회', waitPos: '대기 {n}번',
@@ -390,6 +398,8 @@ const SCAN_I18N = {
     resetDone: '入場記録を{n}件もとに戻しました。',
     resetFailed: 'リセットできませんでした。開発データベースにパッチを適用したかご確認ください。',
     okTitle: '認証が完了しました', dupTitle: 'すでに認証処理が完了しています',
+    otherDayTitle: '本日のご予約ではありません', otherDayAsk: 'このまま入場処理しますか？',
+    doCheckIn: '入場処理', cancel: 'キャンセル',
     todayOk: '本日のご予約です', notToday: '本日ではありません · ', pastDate: '過去の日付です · ',
     dateFmt: '{m}月{d}日のご予約',
     firstEnter: '初回入場 {t} · 確認 {n}回', waitPos: 'キャンセル待ち {n}番',
@@ -450,6 +460,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 
 let _recent = [];      // 최근 확인 5건
 let _modalOpen = false;   // 결과 모달이 떠 있는 동안 카메라 인식을 멈춘다
+let _pendingOtherDay = null;   // 다른 날 예약이라 되묻는 중인 예약번호
 let _busy = false;
 
 // ── 로그인 ────────────────────────────────────────────────────
@@ -527,16 +538,20 @@ async function submitCode() {
 }
 
 // 손입력·명단 클릭·(작업 8의) 카메라 스캔이 전부 이 함수를 지난다.
-async function checkIn(code) {
+async function checkIn(code, confirmOtherDay) {
   if (_busy) return;
   _busy = true;
   $('checkBtn').disabled = true;
   try {
-    const {data, error} = await sb.rpc('check_in_ticket', {p_ticket_code: code});
+    const {data, error} = await sb.rpc('check_in_ticket', {
+      p_ticket_code: code,
+      p_confirm_other_day: !!confirmOtherDay
+    });
     if (error) throw error;
-    showResult(data || {ok: false, reason: 'not_found'}, code);
-    // 명단의 입장 여부도 바뀌었으니 함께 갱신한다.
-    loadRoster();
+    const res = data || {ok: false, reason: 'not_found'};
+    showResult(res, code);
+    // 되묻는 중이면 아직 아무것도 안 바뀌었다 — 굳이 다시 받아오지 않는다.
+    if (res.reason !== 'other_day') loadRoster();
   } catch (e) {
     console.warn('[checkIn]', e);
     showResult({ok: false, reason: '_network'}, code);
@@ -552,6 +567,7 @@ function failMessage(reason) {
     cancelled:             'failCancelled',
     waitlist_cannot_enter: 'failWaitlist',
     permission_denied:     'failPerm',
+    other_day:             'otherDayTitle',
     _network:              'failNetwork'
   })[reason];
   return T(key || 'failGeneric');
@@ -577,15 +593,21 @@ function fmtTime(ts) {
 //      안 그러면 대기줄의 다른 QR 이 겹쳐 들어와 화면이 덮인다.
 function showResult(res, code) {
   const ok = !!res.ok;
+  const ask = !ok && res.reason === 'other_day';   // 아직 기록되지 않았다 — 물어보는 중
   const dup = ok && res.already_entered;
-  const cls = dup ? 'dup' : (ok ? 'ok' : 'bad');
-  const head = dup ? T('dupTitle') : (ok ? T('okTitle') : failMessage(res.reason));
+  const cls = ask ? 'ask' : (dup ? 'dup' : (ok ? 'ok' : 'bad'));
+  const head = ask ? T('otherDayTitle')
+             : (dup ? T('dupTitle') : (ok ? T('okTitle') : failMessage(res.reason)));
+  _pendingOtherDay = ask ? code : null;
 
   const box = $('rmBox');
   box.className = 'rm-box rm-' + cls;
 
-  // 성공·중복은 체크, 실패는 엑스. 매번 새로 만들어 넣어야 애니메이션이 다시 그려진다.
+  // 성공·중복은 체크, 실패·되묻기는 엑스. 매번 새로 만들어 넣어야 애니메이션이 다시 그려진다.
+  //   ⚠️ 되묻는 중에는 **아직 입장 처리가 안 된 상태**다. 체크를 그리면 이미 끝난 줄 안다.
   $('rmMarkWrap').innerHTML = markSvg(ok);
+  $('rmConfirmBtn').style.display = ask ? '' : 'none';
+  $('rmCloseBtn').textContent = ask ? T('cancel') : T('confirm');
 
   // 오늘 예약인지 아닌지를 가장 먼저 보이게 한다 — 다른 날 예약자가 그냥 들어오는 것을 막는다.
   //   ⚠️ 입장 자체를 막지는 않는다. 사정이 있어 다른 날 오신 분을 들여보낼지는 사람이 판단한다
@@ -618,6 +640,7 @@ function showResult(res, code) {
   $('rmCode').textContent = code;
   setOrHide('rmSub', dup
     ? T('firstEnter', {t: fmtTime(res.entered_at), n: res.scan_count})
+    : ask ? T('otherDayAsk')
     : (!ok && res.waitlist_position ? T('waitPos', {n: res.waitlist_position}) : ''));
 
   _modalOpen = true;
@@ -646,8 +669,18 @@ function markSvg(ok) {
     <circle cx="44" cy="44" r="38"></circle>${paths}</svg>`;
 }
 
+// 「입장 처리」를 눌렀을 때만 서버가 기록한다.
+async function confirmOtherDay() {
+  const code = _pendingOtherDay;
+  if (!code) return;
+  _pendingOtherDay = null;
+  closeResultModal();
+  await checkIn(code, true);
+}
+
 function closeResultModal() {
   _modalOpen = false;
+  _pendingOtherDay = null;
   $('resultModal').classList.remove('open');
   $('mainArea').inert = false;
   $('codeInput').value = '';

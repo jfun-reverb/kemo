@@ -4356,12 +4356,19 @@ async function cancelEventTicket(ticketId) {
 
 // 현장 입장 확인(관리자 전용). 이미 입장한 티켓도 ok:true 로 오되
 // already_entered=true + entered_at(첫 입장 시각)이 함께 온다.
+// ⚠️ 예약 날짜가 오늘이 아니면 {ok:false, reason:'other_day'} 가 오고 **아직 기록되지 않았다**.
+//    호출부가 운영자에게 되묻고, 확인받으면 두 번째 인자를 true 로 다시 불러야 한다.
 // ⚠️ 자립형 확인 페이지(작업 7)는 이 파일을 못 쓰므로 호출을 그 파일 안에 직접 쓴다.
-async function checkInTicket(ticketCode) {
+async function checkInTicket(ticketCode, confirmOtherDay) {
   if (!db) throw new Error('DB 미연결');
   let res = null;
   await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('check_in_ticket', {p_ticket_code: ticketCode});
+    const {data, error} = await db.rpc('check_in_ticket', {
+      p_ticket_code: ticketCode,
+      // 다른 날 예약이면 서버가 기록하지 않고 되돌려보낸다(마이그레이션 287).
+      // 운영자가 확인한 뒤에만 true 로 다시 부른다.
+      p_confirm_other_day: !!confirmOtherDay
+    });
     if (error) throw error;
     res = data;
   });

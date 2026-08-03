@@ -2191,7 +2191,10 @@ async function saveCampaignEdit() {
     //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
     //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
     //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
-    if (!editChannel) {
+    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
+    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
+    const _isEventEdit = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
+    if (!editChannel && !_isEventEdit) {
       toast('채널을 1개 이상 선택해야 합니다','error');
       return;
     }
@@ -2205,7 +2208,8 @@ async function saveCampaignEdit() {
       const _origCh = String(_editCampOriginal?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
       const _nextCh = editChannel.split(',').map(s => s.trim()).filter(Boolean);
       const _removed = _origCh.filter(c => !_nextCh.includes(c));
-      if (_removed.length) {
+      // 행사 모드로 바꾸면 채널이 통째로 비는 것이 정상이라 확인창을 띄우지 않는다.
+      if (_removed.length && !_isEventEdit) {
         let _affected = 0;
         try { _affected = await countDeliverablesByChannels(campId, _removed); }
         catch(e) { console.warn('[saveCampaignEdit] 채널 제거 영향 조회 실패', e); }
@@ -2351,6 +2355,16 @@ async function saveCampaignEdit() {
     // 동시 저장 방어(마이그레이션 275) — 편집 화면을 연 뒤 다른 관리자가 먼저 저장했으면 덮지 않는다.
     //   ⚠️ 아래 「주의사항·참여방법 변경 이력 기록」보다 **먼저** 판정해야 한다. 충돌이면 그 블록을
     //      아예 타지 않아야 저장되지도 않은 변경이 이력에 남는 일이 없다.
+    // 행사 모드에서 숨긴 칸은 값도 비운다.
+    //   숨기기만 하면 「일반 캠페인을 만들다가 뒤늦게 행사로 바꾼」 경우 먼저 고른
+    //   채널·콘텐츠가 그대로 저장된다. 그리는 쪽에서도 막지만(상세·미리보기)
+    //   저장까지 비워야 낡은 값이 쌓이지 않는다.
+    //   ⚠️ 특히 submission_end 가 남으면 자동 종료(closed→ended)가 그 날짜를 보고
+    //      행사와 무관하게 캠페인을 끝내 버린다.
+    //   ⚠️ 객체 **안쪽**이 아니라 완성된 뒤에 덮어쓴다 — 안에 끼우면 같은 키가
+    //      뒤에 또 나와 값이 되살아난다(실제로 submission_end 가 그랬다).
+    if (_isEventEdit) Object.assign(updates, EVENT_MODE_CLEARED_FIELDS);
+
     const _saveResult = await updateCampaign(campId, updates, _editCampOriginal?.version);
     if (_saveResult && _saveResult.conflict) {
       // 저장이 취소됐으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
@@ -2858,18 +2872,20 @@ function renderCampPreview(mode) {
             // 시간 흐름 순: 製品名 → 募集タイプ → チャンネル → コンテンツ → 募集期間 → 購入/訪問 → 提出締切 → 募集人数
             //              → (monitor 외) 当選発表 → (monitor 외) 報酬
             const rows = [];
+            // 인플루언서 상세와 같은 판정 — 미리보기가 실제 화면과 달라 보이면 안 된다.
+            const isEventPreview = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kProduct)}</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitType)}</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>`);
-            if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
-            if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
+            if (channelNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
+            if (contentTypeNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
             if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
             if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
-            if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
+            if (camp.submission_end && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
             if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSlots)}</div><div class="cp-info-val">${camp.slots}${esc(L.unit)}</div></div>`);
-            if (camp.min_followers) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
+            if (camp.min_followers && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
             // 리뷰어(monitor) 캠페인은 当選発表·報酬 행 제외
-            if (!isMonitorPreview) {
+            if (!isMonitorPreview && !isEventPreview) {
               rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kWinnerAnnounce)}</div><div class="cp-info-val">${esc(camp.winner_announce||L.winnerDefault)}</div></div>`);
               if (rewardText || camp.reward_note) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kReward)}</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`);
             }
@@ -3338,7 +3354,9 @@ async function addCampaign() {
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
-  if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
+  if (!ch && !((typeof isEventModeForm === 'function') && isEventModeForm('new'))) {
+    toast('채널을 1개 이상 선택해주세요','error'); return;
+  }
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
   // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
@@ -3419,6 +3437,11 @@ async function addCampaign() {
     ...collectCampCsetPayload('new'),
     ...collectCampNsetPayload('new'),
   };
+
+  // 편집 저장과 같은 이유 — 숨긴 칸은 값도 비운다(saveCampaignEdit 주석 참고)
+  if ((typeof isEventModeForm === 'function') && isEventModeForm('new')) {
+    Object.assign(camp, EVENT_MODE_CLEARED_FIELDS);
+  }
 
   const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
