@@ -59,16 +59,19 @@ function applyEventModeFormLock(prefix) {
     if (on) {
       reward.value = '0';
       reward.readOnly = true;
-      reward.style.background = 'var(--bg, #F5F5F5)';
-      reward.style.color = 'var(--muted)';
+      reward.classList.add('field-locked');
     } else {
       reward.readOnly = false;
-      reward.style.background = '';
-      reward.style.color = '';
+      reward.classList.remove('field-locked');
     }
+    // 인라인 스타일로 색을 칠하던 옛 방식의 잔재 제거(클래스로 일원화)
+    reward.style.background = '';
+    reward.style.color = '';
   }
   const rewardHint = $(prefix + 'CampRewardEventHint');
   if (rewardHint) rewardHint.style.display = on ? '' : 'none';
+  const rewardNote = $(prefix + 'CampRewardLockNote');
+  if (rewardNote) rewardNote.style.display = on ? '' : 'none';
 
   // 모집 형식 라디오 — 행사 모드면 방문형으로 고정하고 나머지를 잠근다.
   //   ⚠️ 라디오 name 이 폼마다 다르다: 신규는 recruitType, 편집은 editRecruitType.
@@ -89,7 +92,15 @@ function applyEventModeFormLock(prefix) {
     } else {
       r.disabled = false;
     }
+    // 라디오 input 은 display:none 이고 라벨이 모양을 담당한다 — input 의 disabled 만으로는
+    // 화면상 아무 변화가 없어 「고를 수 없는 항목」인지 알 수 없다. 라벨에 직접 표시한다.
+    const lab = r.closest('label');
+    if (lab) lab.classList.toggle('choice-locked', !!r.disabled);
   });
+
+  // 모집 타입 제목 옆 「행사 모드라 방문형 고정」 안내 배지
+  const rtNote = $(prefix + 'CampRecruitTypeLockNote');
+  if (rtNote) rtNote.style.display = on ? '' : 'none';
 
   // 행사 모드를 껐으면 모집 형식을 원래대로 되돌린다.
   //   안 되돌리면 실수로 켰다 끈 관리자가 「형식이 조용히 방문형으로 바뀐 것」을
