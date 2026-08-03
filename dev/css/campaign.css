@@ -165,3 +165,10 @@ html.preview-mode #page-detail .detail-back{display:none}
   text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .invite-gate-form .btn{margin-top:12px;min-height:48px}
 .invite-gate-err{font-size:12px;color:var(--red);margin-top:8px;text-align:center}
+/* 만석 타임을 고르면 그 줄 바로 아래에 붙는 안내 — 목록 끝에 두면 이른 시간을
+   고른 사람이 한참 스크롤해야 보게 된다. */
+.event-slot-note{font-size:12px;color:var(--dark-pink);background:var(--light-pink);
+  border-radius:8px;padding:9px 11px;margin:-2px 0 2px;line-height:1.6}
+/* 날짜가 하나뿐일 때 — 고를 것은 없지만 며칠인지는 반드시 보여야 한다 */
+.event-date-single{display:inline-block;padding:8px 14px;border-radius:20px;
+  background:var(--light-pink);color:var(--pink);font-size:14px;font-weight:800;margin-bottom:12px}

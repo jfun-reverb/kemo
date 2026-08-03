@@ -139,6 +139,7 @@ function applyEventModeFormLock(prefix) {
 
 function onEventModeToggle(prefix) {
   applyEventModeFormLock(prefix);
+  applyEventModeFieldVisibility(prefix);
 }
 
 function applyInviteOnlyRow(prefix) {
@@ -213,6 +214,7 @@ async function loadEventSettingsIntoEditForm(camp) {
   const pl = $('editCampEventPlace');
   if (pl) pl.value = camp?.event_place || '';
   applyEventModeFormLock('edit');
+  applyEventModeFieldVisibility('edit');
   applyInviteOnlyRow('edit');
 
   const warnEl = $('editCampInviteWarn');
@@ -267,6 +269,7 @@ function resetEventFormFields(prefix) {
   const warn = $(prefix + 'CampInviteWarn');
   if (warn) warn.style.display = 'none';
   applyEventModeFormLock(prefix);
+  applyEventModeFieldVisibility(prefix);
   applyInviteOnlyRow(prefix);
 }
 
@@ -678,9 +681,21 @@ function renderEventTicketsTable() {
 // 관리자 화면의 「입장 처리」 — 현장 확인 페이지(작업 7)와 **같은** 서버 함수를 쓴다.
 // 그래서 첫 입장 시각 보존·중복 감지가 두 경로에서 똑같이 동작한다.
 // 쓰임새: 행사장 인터넷이 끊겨 종이 명단으로 대조한 뒤, 복구되면 손으로 반영하는 경로(사양서 §2-8 U1).
-async function checkInFromAdmin(ticketCode) {
+async function checkInFromAdmin(ticketCode, confirmOtherDay) {
   try {
-    const res = await checkInTicket(ticketCode);
+    const res = await checkInTicket(ticketCode, confirmOtherDay);
+
+    // 예약 날짜가 오늘이 아니면 서버가 기록하지 않고 되돌려보낸다(마이그레이션 287).
+    //   운영자가 날짜를 보고 판단한 뒤에만 기록한다 — 먼저 기록하고 알리면 거를 기회가 없다.
+    if (!res?.ok && res?.reason === 'other_day') {
+      const s = res.slot || {};
+      const when = `${String(s.slot_date || '').slice(0, 10)} ${String(s.start_time || '').slice(0, 5)}`;
+      const ok = await showConfirm(
+        `${res.name_kanji || ''} 님의 예약은 오늘이 아닙니다.\n\n예약: ${when}\n\n그래도 입장 처리할까요?`);
+      if (!ok) return;
+      return checkInFromAdmin(ticketCode, true);
+    }
+
     if (!res?.ok) {
       toast(eventCheckInFailMessage(res?.reason), 'error');
       return;
@@ -704,6 +719,52 @@ function eventCheckInFailMessage(reason) {
     not_found:             '없는 예약번호입니다',
     cancelled:             '취소된 예약입니다',
     waitlist_cannot_enter: '대기 상태라 입장할 수 없습니다',
+    other_day:             '오늘 예약이 아닙니다',
     permission_denied:     '권한이 없습니다'
   })[reason] || '확인하지 못했습니다';
+}
+
+// ══════════════════════════════════════════════════════════════
+// 행사 모드에서 쓰이지 않는 입력칸 숨기기 (사용자 요청 2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// 왜 숨기나: 오프라인 행사는 SNS 게시물도 배송도 리워드도 없다. 그런데도 칸이 남아
+//   있으면 운영자가 「채워야 하나」 망설이고, 채운 값은 아무 데도 쓰이지 않는다.
+//   실제로 이 값들이 행사 캠페인에서 무슨 일을 하는지:
+//     · 채널·기준 채널·최소 팔로워 — 신청 게이트가 행사 모드에서 이 검사를 통째로
+//       건너뛴다(application.js). 값을 넣어도 아무 일도 안 일어난다
+//     · 콘텐츠 종류 — 결과물을 내지 않으므로 쓰이지 않는다
+//     · 결과물 제출 마감일 — 제출할 결과물이 없다
+//     · 당선 발표 안내 — 예약은 그 자리에서 확정된다(당선 발표가 없다)
+//     · 리워드·제품 금액 — 리워드는 0 고정이고(정산에 새지 않게), 판매 제품이 없다
+// ⚠️ 숨기기만 하면 저장 검증에 걸린다(채널 1개 이상 필수 등) — admin.js 의 검증도
+//    같은 판정으로 건너뛴다. 한쪽만 하면 「보이지도 않는 칸 때문에 저장이 막힌다」가 된다.
+// 행사 모드에서 숨기는 칸들의 「비운 값」. 등록·편집 두 저장 경로가 같은 값을 쓰게
+// 한곳에 둔다 — 따로 적으면 한쪽만 고쳐져 어긋난다.
+const EVENT_MODE_CLEARED_FIELDS = {
+  channel: '', channel_match: 'or', primary_channel: null,
+  content_types: '', min_followers: 0,
+  submission_end: null, product_price: 0, reward: 0, reward_note: null
+};
+
+function applyEventModeFieldVisibility(prefix) {
+  const on = !!$(prefix + 'CampEventMode')?.checked;
+  const groupOf = id => $(prefix + id)?.closest('.form-group');
+
+  const groups = [
+    groupOf('CampChannelWrap'),        // 채널(+ 표시 방식 or/&)
+    $(prefix + 'CampMinFollowersGroup'), // 기준 채널 + 최소 팔로워수
+    groupOf('CampContentTypeWrap'),    // 콘텐츠 종류
+    groupOf('CampSubmissionEnd'),      // 결과물 제출 마감일
+    groupOf('CampWinnerAnnounce'),     // 당선 발표 안내
+    groupOf('CampReward'),             // 리워드 금액
+    groupOf('CampRewardNote'),         // 리워드 추가 정보
+    groupOf('CampProductPrice'),       // 제품 금액
+  ];
+  groups.forEach(g => { if (g) g.style.display = on ? 'none' : ''; });
+}
+
+// 이 캠페인이 행사 모드인가 — 저장 검증이 「보이지도 않는 칸」을 요구하지 않게 하는 판정.
+//   ⚠️ 저장 시점에는 화면 체크박스가 곧 저장될 값이므로 그것을 본다.
+function isEventModeForm(prefix) {
+  return !!$(prefix + 'CampEventMode')?.checked;
 }
