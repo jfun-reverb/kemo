@@ -1056,10 +1056,8 @@ const PANE_REFRESHERS = {
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
   },
-  // 오프라인 행사 타임·예약 현황 — 캠페인 단위 서브 페인이라 보고 있던 캠페인으로 다시 그린다.
-  'event-slots': async () => {
-    if (typeof renderEventSlotsPane === 'function') await renderEventSlotsPane();
-  },
+  // 오프라인 행사 예약 현황 — 캠페인 단위 서브 페인이라 보고 있던 캠페인으로 다시 그린다.
+  //   (시간대 관리는 캠페인 편집 화면 안에 있어 별도 페인이 없다)
   'event-tickets': async () => {
     if (typeof renderEventTicketsPane === 'function') await renderEventTicketsPane();
   }

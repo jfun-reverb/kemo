@@ -220,6 +220,11 @@ async function loadEventSettingsIntoEditForm(camp) {
   const warnEl = $('editCampInviteWarn');
   if (warnEl) warnEl.style.display = 'none';
 
+  // 시간대 구역의 표시·목록 불러오기는 위 applyEventModeFieldVisibility 가 이미
+  // editCampId 기준으로 처리했다. 여기서 또 부르면 같은 조회가 두 번 날아가고,
+  // 늦게 도착한 쪽이 화면을 덮는 경쟁이 생긴다. 제목만 맞춰 둔다.
+  if (camp?.event_mode) _eventPaneCampTitle = camp.title || '';
+
   const codeEl = $('editCampInviteCode');
   if (codeEl) {
     codeEl.value = '';
@@ -277,21 +282,14 @@ function resetEventFormFields(prefix) {
 // ② 타임(시간대) 관리 페인
 // ══════════════════════════════════════════════════════════════
 
-async function openEventSlotsPane(campId, campTitle) {
-  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
-  _eventPaneCampId = campId;
-  _eventPaneCampTitle = campTitle || '';
-  switchAdminPane('event-slots', null, true);
-  await renderEventSlotsPane(campId);
-}
-
+// 시간대 관리는 **캠페인 편집 화면 안**에 있다(사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지).
+//   시간대는 그 캠페인에 속한 설정이라 캠페인을 고쳐 쓰는 자리에 함께 있는 것이 자연스럽다.
+//   ⚠️ 신규 등록 화면에는 없다 — 시간대는 캠페인 식별자가 있어야 붙일 수 있어서,
+//      저장 전에는 걸 곳이 없다. 신규 폼에는 그렇게 안내만 띄운다.
 async function renderEventSlotsPane(campaignId) {
   const campId = campaignId || _eventPaneCampId;
   if (!campId) return;
   _eventPaneCampId = campId;
-
-  const titleEl = $('eventSlotsTitle');
-  if (titleEl) titleEl.textContent = _eventPaneCampTitle || '';
 
   const body = $('eventSlotsBody');
   if (body) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
@@ -749,6 +747,22 @@ const EVENT_MODE_CLEARED_FIELDS = {
 function applyEventModeFieldVisibility(prefix) {
   const on = !!$(prefix + 'CampEventMode')?.checked;
   const groupOf = id => $(prefix + id)?.closest('.form-group');
+
+  // 시간대 구역은 편집 화면에만 있다(신규는 캠페인 식별자가 없어 걸 곳이 없다)
+  const slotSec = $('editCampSlotSection');
+  if (slotSec && prefix === 'edit') {
+    // ⚠️ 여기서 _eventPaneCampId 를 쓰면 안 된다. 그 변수는 예약 현황 화면과 공유하는
+    //    상태라 **다른 캠페인을 가리키고 있을 수 있다.** 일반 캠페인을 편집하다 행사
+    //    모드를 처음 켜는 순간엔 아직 갱신되지 않아, 직전에 보던 캠페인의 시간대가
+    //    이 화면에 그려지고 「줄 추가」·「정원 변경」이 **그 캠페인에 쓰인다**
+    //    (2026-08-03 리뷰 지적). 지금 편집 중인 캠페인은 항상 editCampId 칸에 있다.
+    const editingId = $('editCampId')?.value || '';
+    slotSec.style.display = on ? '' : 'none';
+    if (on && editingId) {
+      _eventPaneCampId = editingId;   // 예약 현황 이동 버튼 등 다른 곳도 이 값을 본다
+      renderEventSlotsPane(editingId);
+    }
+  }
 
   const groups = [
     groupOf('CampChannelWrap'),        // 채널(+ 표시 방식 or/&)
