@@ -3703,11 +3703,23 @@ function maskedFieldByPermission(val, emptyLabel) {
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
 //   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
+// 이 캠페인이 「다 끝난 날」 — 종료(ended) 판정의 기준.
+//   보통은 결과물 제출 마감일이다. 그런데 **오프라인 행사 캠페인은 결과물이 없어**
+//   그 날짜를 비워 두므로(EVENT_MODE_CLEARED_FIELDS), 기준이 없어서 「모집마감」에서
+//   영영 안 넘어갔다. 행사는 마지막 방문일이 끝나는 날이다(방문 기간은 행사 시간에서 계산).
+function campaignFinishDate(camp) {
+  if (!camp) return null;
+  if (camp.submission_end) return camp.submission_end;
+  if (typeof isEventCampaign === 'function' && isEventCampaign(camp) && camp.visit_end) return camp.visit_end;
+  return null;
+}
+
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
   if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
-    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
+    const _fin = campaignFinishDate(camp);
+    const sub = _fin ? Date.parse(_fin) : null;
     if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
     return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }
@@ -5970,8 +5982,10 @@ async function autoEndCampaigns(camps) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const toEnd = camps.filter(c => {
-    if (c.status !== 'closed' || !c.submission_end) return false;
-    const se = new Date(c.submission_end);
+    // 행사 캠페인은 제출 마감일이 없어 마지막 방문일을 기준으로 삼는다(campaignFinishDate).
+    const fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(c) : c.submission_end;
+    if (c.status !== 'closed' || !fin) return false;
+    const se = new Date(fin);
     se.setHours(23, 59, 59, 999);
     return now > se;
   });
@@ -6028,9 +6042,10 @@ function computeCampaignStatus(camp) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
     if (dl < now) {
-      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
-      if (camp.submission_end) {
-        const se = new Date(camp.submission_end);
+      // 모집 마감 — 결과물 제출 마감(행사는 마지막 방문일)까지 지났으면 종료(ended)
+      const _fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(camp) : camp.submission_end;
+      if (_fin) {
+        const se = new Date(_fin);
         se.setHours(23, 59, 59, 999);
         if (se < now) return 'ended';
       }
@@ -10137,6 +10152,20 @@ async function fetchEventTicketsByCampaign(campaignId) {
   } catch(e) { return []; }
 }
 
+// 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
+// 필요 없는 곳까지 흘러가므로 건수만 받는다.
+async function countActiveEventTickets(campaignId) {
+  if (!db || !campaignId) return 0;
+  try {
+    const {count, error} = await db.from('event_tickets')
+      .select('id', {count: 'exact', head: true})
+      .eq('campaign_id', campaignId)
+      .neq('status', 'cancelled');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
+}
+
 // 초대 번호 확인(화면 게이트용). 번호 자체는 서버에서 나오지 않고 맞나/틀리나만 온다.
 // 실효 방어선은 예약 함수의 재검증이라, 이 값이 true 여도 예약이 거부될 수 있다.
 async function verifyInviteCode(campaignId, code) {
@@ -12430,7 +12459,9 @@ async function openCampaign(id) {
           if (isMonitor && (camp.purchase_start || camp.purchase_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
           }
-          if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) {
+          // 행사 캠페인은 아래 타임 선택표가 날짜를 보여준다 — 여기에 또 적으면
+          // 방문객이 두 벌의 날짜를 보게 된다(예전엔 그 둘이 어긋나기까지 했다).
+          if (camp.recruit_type === 'visit' && !isEvent && (camp.visit_start || camp.visit_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
           }
           if (camp.submission_end && !isEvent) {

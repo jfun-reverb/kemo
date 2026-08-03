@@ -1534,11 +1534,23 @@ function maskedFieldByPermission(val, emptyLabel) {
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
 //   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
+// 이 캠페인이 「다 끝난 날」 — 종료(ended) 판정의 기준.
+//   보통은 결과물 제출 마감일이다. 그런데 **오프라인 행사 캠페인은 결과물이 없어**
+//   그 날짜를 비워 두므로(EVENT_MODE_CLEARED_FIELDS), 기준이 없어서 「모집마감」에서
+//   영영 안 넘어갔다. 행사는 마지막 방문일이 끝나는 날이다(방문 기간은 행사 시간에서 계산).
+function campaignFinishDate(camp) {
+  if (!camp) return null;
+  if (camp.submission_end) return camp.submission_end;
+  if (typeof isEventCampaign === 'function' && isEventCampaign(camp) && camp.visit_end) return camp.visit_end;
+  return null;
+}
+
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
   if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
-    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
+    const _fin = campaignFinishDate(camp);
+    const sub = _fin ? Date.parse(_fin) : null;
     if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
     return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }

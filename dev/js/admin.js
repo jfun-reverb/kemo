@@ -193,15 +193,19 @@ function classifyDeadlineChange(orig, next) {
 }
 // 확인창 본문·버튼 라벨 생성. 반환 {message, okLabel} 또는 null(확인 불필요)
 function buildDeadlineChangeConfirm(kind, ctx) {
+  // 행사 캠페인은 「응모」가 아니라 「예약」이다 — 대상도 인플루언서가 아니라 방문객.
+  const W = ctx.isEvent
+    ? { apply: '예약', who: '방문 예약 화면', act: '예약할' }
+    : { apply: '응모', who: '인플루언서 화면', act: '응모할' };
   const appLine = ctx.appCount > 0
-    ? `\n· 이미 접수된 응모 ${ctx.appCount}건은 그대로 유지됩니다.`
+    ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
     : '';
   if (kind === 'reopen') {
     const head = `모집을 다시 열까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}`;
     if (ctx.isDraft) {
       return {
         message: head + `\n상태     ${ctx.statusFrom} (그대로)\n`
-          + `\n· 준비 중이라 인플루언서 화면에는 아직 보이지 않습니다.`
+          + `\n· 준비 중이라 ${W.who}에는 아직 보이지 않습니다.`
           + `\n· 공개하려면 상태를 「모집중」으로 직접 바꿔 주세요.` + appLine,
         okLabel: '마감일만 저장'
       };
@@ -212,7 +216,7 @@ function buildDeadlineChangeConfirm(kind, ctx) {
       : `\n상태     ${ctx.statusFrom} (그대로)\n`;
     return {
       message: head + statusLine
-        + `\n· 인플루언서 화면에 응모 버튼이 다시 열립니다.` + appLine
+        + `\n· ${W.who}에 ${W.apply} 버튼이 다시 열립니다.` + appLine
         + (ctx.submissionEnd ? `\n· 결과물 제출 마감일은 ${String(ctx.submissionEnd).slice(0,10)} 입니다.` : ''),
       okLabel: '모집 다시 열기'
     };
@@ -221,14 +225,14 @@ function buildDeadlineChangeConfirm(kind, ctx) {
     return {
       message: `모집 기간을 줄일까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}\n`
         + appLine.replace('\n· ', '\n· ')
-        + `\n· 아직 응모하지 않은 인플루언서는 ${ctx.to} 24시(일본 시간)부터 응모할 수 없습니다.`,
+        + `\n· 아직 ${W.apply}하지 않은 사람은 ${ctx.to} 24시(일본 시간)부터 ${W.act} 수 없습니다.`,
       okLabel: '줄여서 저장'
     };
   }
   if (kind === 'clear') {
     return {
-      message: `마감일을 비우면 응모가 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
-        + `\n· 이 캠페인에서만 응모 마감 차단이 해제되어 언제든 응모가 들어옵니다.`
+      message: `마감일을 비우면 ${W.apply}이 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
+        + `\n· 이 캠페인에서만 ${W.apply} 마감 차단이 해제되어 언제든 ${W.apply}이 들어옵니다.`
         + `\n· 나중에 닫으려면 마감일을 다시 넣거나 상태를 「모집마감」으로 바꿔야 합니다.`
         + `\n\n실수로 지운 것이 아닌지 확인해 주세요.`,
       okLabel: '마감일 없이 저장'
@@ -236,6 +240,18 @@ function buildDeadlineChangeConfirm(kind, ctx) {
   }
   return null;
 }
+// 캠페인 목록에서 오프라인 행사·비공개를 한눈에 구분하는 배지.
+//   없으면 행만 봐서는 알 수 없어(채널 칸은 「—」, 제출 마감은 빈칸) 더보기 메뉴를
+//   열어 「예약 현황」이 있는지로만 판별해야 했다.
+function eventCampBadges(c) {
+  if (!(typeof isEventCampaign === 'function' && isEventCampaign(c))) return '';
+  const ev = `<span style="background:#E8F7EF;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">행사</span>`;
+  const inv = c.is_invite_only
+    ? `<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">lock</span>비공개</span>`
+    : '';
+  return ev + inv;
+}
+
 // 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
 //   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
 var _deletedCampsCache = [];
@@ -485,6 +501,7 @@ async function loadAdminCampaigns(useCache) {
           <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${typeLabel(c.recruit_type)}
+              ${eventCampBadges(c)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
@@ -808,6 +825,9 @@ async function openEditCampaign(campId) {
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
+    // 행사 여부 — 「예약이 있는데 행사 모드를 끄는」 것을 막는 게이트의 기준.
+    //   이 키가 없으면 그 게이트가 통째로 죽은 코드가 된다(아래 채널 주석의 선례와 같은 실수).
+    event_mode: !!camp.event_mode,
     // 채널 — ①모집 형식 라디오를 눌러도 「저장된 채널」이 화면에서 증발하지 않게 하고
     //        ②저장 시 「결과물이 있는 채널을 뺐는지」를 비교하는 기준.
     //   ⚠️ 이 키가 없으면 두 장치가 조용히 죽는다(마감일 확인창이 스냅샷에 deadline 키가
@@ -1445,12 +1465,25 @@ function removeEditCampImg(idx) {
 //   참조하므로 파일 분리 시 같은 모듈로 묶기
 // ════════════════════════════════════════════════════════════════════
 
+// 날짜 규칙이 볼 「결과물 제출 마감일」 — 행사 모드면 **없는 것으로** 본다.
+//   행사 캠페인은 결과물이 없어 그 칸을 숨기고 저장 때 비운다(EVENT_MODE_CLEARED_FIELDS).
+//   그런데 폼 입력칸에는 켜기 전 값이 그대로 남아 있어서, 그 값을 규칙이 계속 읽으면
+//   ① 방문 기간 달력이 그 날짜까지로 잠기고 ② 「방문 마감일은 …결과물 제출 마감일 사이여야
+//   합니다」라는, 화면에 있지도 않은 칸을 가리키는 경고가 뜬다(2026-08-03 사용자 보고).
+//   숨김·저장 시 비움·규칙 제외는 **같은 판정**을 써야 어긋나지 않는다.
+function campRuleSubmissionEnd(prefix) {
+  if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return '';
+  return $(prefix + 'SubmissionEnd')?.value || '';
+}
+
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
 //   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
 //   - monitor: 구매 기간 종료일 + 19일
 //   - visit:   방문 기간 종료일 + 19일
 //   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 19일
 async function suggestSubmissionEnd(prefix, baseKind) {
+  // 행사 캠페인은 결과물 제출이 없다 — 숨긴 칸을 채우겠냐고 묻지 않는다.
+  if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return;
   const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
     : baseKind === 'visit' ? 'VisitEnd'
     : 'Deadline';
@@ -1481,7 +1514,7 @@ function syncCampDateMinMax(prefix) {
   const dl = $(prefix+'Deadline')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
   const ve = $(prefix+'VisitEnd')?.value || '';
-  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
   // 구매·방문: lower ~ upperPV
@@ -1528,7 +1561,7 @@ function syncCampRangePickerBounds(prefix) {
   if (!_campRangePickers) return;
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
   ['Purchase', 'Visit'].forEach(kind => {
@@ -1548,7 +1581,7 @@ function validateCampDateRanges(prefix) {
   const pe = $(prefix+'PurchaseEnd')?.value || '';
   const vs = $(prefix+'VisitStart')?.value || '';
   const ve = $(prefix+'VisitEnd')?.value || '';
-  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const se = campRuleSubmissionEnd(prefix);
   const errs = [];
   const lower = rs || dl || '';
   // 구매·방문 일자의 상한은 결과물 제출 마감일
@@ -1693,7 +1726,10 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
     // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +19일 fallback 제안
-    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'newRecruitType';
+    // ⚠️ 라디오 name 은 편집만 editRecruitType 이고 **신규는 recruitType** 이다.
+    //    newRecruitType 으로 찾으면 아무것도 안 잡혀 늘 monitor 로 폴백했고, 그래서
+    //    신규 등록에서는 기프팅의 「모집 종료 +19일」 제안이 한 번도 뜨지 않았다.
+    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'recruitType';
     const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
     if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
   }
@@ -2123,6 +2159,36 @@ async function saveCampaignEdit() {
     const brandJa = (_editBrand?.name_ja || '').trim();
     const brandEn = (_editBrand?.name_en || '').trim();
 
+    // 행사 캠페인 판정 — 아래 여러 게이트가 이 값으로 갈린다.
+    //   ⚠️ 선언이 첫 사용보다 **뒤**에 있으면 저장이 통째로 죽는다(const 는 선언 전 참조 불가).
+    const _isEventEdit = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
+
+    // ── 예약이 들어온 뒤 행사 모드를 끄는 것은 막는다 ──────────────
+    //   끄면 그 순간 ①관리자 더보기의 「예약 현황」이 사라져 입장 처리·명단 확인
+    //   경로가 통째로 없어지고 ②방문객 화면이 티켓 대신 결과물 제출 폼으로 열리며
+    //   ③행사라서 억눌러 둔 「당선」 알림이 방문객에게 나가기 시작한다.
+    //   되돌릴 길이 화면에 없는 상태라 되묻지 않고 막는다(예약 0건이면 자유).
+    if (_editCampOriginal?.event_mode && !_isEventEdit) {
+      const _tk = (typeof countActiveEventTickets === 'function')
+        ? await countActiveEventTickets(campId) : 0;
+      if (_tk > 0) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.8">
+          이 캠페인에는 살아 있는 예약이 <b style="color:var(--red-d)">${_tk}건</b> 있습니다.
+          <div style="margin-top:10px">「오프라인 행사 캠페인」을 끄면</div>
+          <ul style="margin:6px 0 0 18px;padding:0">
+            <li>예약 현황·입장 확인으로 들어갈 길이 없어지고,</li>
+            <li>방문객 화면이 예약표 대신 결과물 제출 폼으로 바뀌며,</li>
+            <li>행사라서 막아 둔 「당선」 알림이 방문객에게 나가기 시작합니다.</li>
+          </ul>
+          <div style="margin-top:10px">먼저 예약을 정리한 뒤에 꺼 주세요.
+          모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.</div>
+        </div>`;
+        openModal('alertModal');
+        return;
+      }
+    }
+
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
@@ -2130,7 +2196,7 @@ async function saveCampaignEdit() {
     //   이미 끝난 캠페인의 다른 항목만 고치는 경우를 막지 않으려고 「변경됐을 때만」으로 좁혔다.
     //   승인된 인플루언서 전원이 그 순간 제출 불가가 되는 변경이라 확인창이 아니라 차단이다.
     {
-      const _seNew = gv('editCampSubmissionEnd') || '';
+      const _seNew = campRuleSubmissionEnd('editCamp');   // 행사면 '' — 숨긴 칸으로 저장을 막지 않는다
       const _seOld = (_editCampOriginal && _editCampOriginal.submission_end) || '';
       const _today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
       if (_seNew && String(_seNew).slice(0,10) !== String(_seOld).slice(0,10)
@@ -2170,8 +2236,9 @@ async function saveCampaignEdit() {
         statusFrom: campStatusLabelKo(origStatus),
         statusTo:   (_dlKind === 'reopen' && _reopenTargets.includes(origStatus)) ? campStatusLabelKo('active') : null,
         appCount: _appCount,
-        submissionEnd: gv('editCampSubmissionEnd') || null,
-        isDraft: origStatus === 'draft'
+        submissionEnd: campRuleSubmissionEnd('editCamp') || null,   // 행사 캠페인엔 그 줄을 안 붙인다
+        isDraft: origStatus === 'draft',
+        isEvent: _isEventEdit          // 문구를 「응모」 대신 「예약」으로
       };
       const _c = buildDeadlineChangeConfirm(_dlKind, _ctx);
       if (_c) {
@@ -2193,7 +2260,6 @@ async function saveCampaignEdit() {
     //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
     // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
     // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
-    const _isEventEdit = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
     if (!editChannel && !_isEventEdit) {
       toast('채널을 1개 이상 선택해야 합니다','error');
       return;
@@ -2363,7 +2429,19 @@ async function saveCampaignEdit() {
     //      행사와 무관하게 캠페인을 끝내 버린다.
     //   ⚠️ 객체 **안쪽**이 아니라 완성된 뒤에 덮어쓴다 — 안에 끼우면 같은 키가
     //      뒤에 또 나와 값이 되살아난다(실제로 submission_end 가 그랬다).
-    if (_isEventEdit) Object.assign(updates, EVENT_MODE_CLEARED_FIELDS);
+    if (_isEventEdit) {
+      Object.assign(updates, EVENT_MODE_CLEARED_FIELDS);
+      // 방문 기간·모집 인원은 「행사 시간」에서 계산한다 — 손으로 적은 값과 시간대가
+      // 어긋나 방문객 화면에 서로 다른 날짜가 나란히 뜨던 것을 없앤다.
+      //   시간대가 0줄이면 계산할 근거가 없으므로 기존 값을 그대로 둔다.
+      const _d = (typeof fetchEventDerivedForSave === 'function')
+        ? await fetchEventDerivedForSave(campId) : null;
+      if (_d) {
+        updates.visit_start = _d.visit_start;
+        updates.visit_end   = _d.visit_end;
+        if (_d.slots > 0) updates.slots = _d.slots;
+      }
+    }
 
     const _saveResult = await updateCampaign(campId, updates, _editCampOriginal?.version);
     if (_saveResult && _saveResult.conflict) {
@@ -2465,6 +2543,12 @@ async function duplicateCampaign(campId) {
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
       winner_announce: src.winner_announce,
+      // 오프라인 행사 설정 — 안 넣으면 복제본이 「행사가 아닌 방문형」이 된다.
+      //   제약(마이그레이션 280)은 「행사면 방문형」만 요구해 반대 방향은 통과하므로
+      //   아무것도 안 막고 조용히 빠졌다. 시간대는 캠페인마다 다르므로 복제하지 않는다.
+      event_mode: !!src.event_mode,
+      is_invite_only: !!src.is_invite_only,
+      event_place: src.event_place || null,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -2745,6 +2829,12 @@ function buildPreviewCamp(mode) {
     slots: parseInt(val(g+'Slots'))||10,
     min_followers: parseInt(val(g+'MinFollowers'))||0,
     primary_channel: val(g+'PrimaryChannel')||null,
+    // 행사 여부 — 이게 없으면 isEventCampaign 이 늘 거짓이라, 미리보기의 행사 분기가
+    // 한 번도 안 걸린다. 폼에서 숨긴 칸(채널·콘텐츠·제출마감·당선발표·리워드)이
+    // 미리보기에는 그대로 떠서, 인플루언서가 실제로 보는 화면과 달라진다.
+    event_mode: !!$(g + 'EventMode')?.checked,
+    is_invite_only: !!$(g + 'InviteOnly')?.checked,
+    event_place: (val(g+'EventPlace') || '').trim() || null,
     recruit_start: val(g+'RecruitStart')||null,
     deadline: val(g+'Deadline')||null,
     purchase_start: val(g+'PurchaseStart')||null,
@@ -2880,7 +2970,7 @@ function renderCampPreview(mode) {
             if (contentTypeNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
             if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
-            if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
+            if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
             if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSlots)}</div><div class="cp-info-val">${camp.slots}${esc(L.unit)}</div></div>`);
             if (camp.min_followers && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
