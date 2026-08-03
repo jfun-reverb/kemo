@@ -158,4 +158,15 @@ if [ -f "admin-setpw.html" ]; then
   echo "  ✅ 관리자 비밀번호 설정 페이지 복사 완료 → ../admin-setpw.html"
 fi
 
+# ══════════════════════════════════════
+# 5. 현장 입장 확인 페이지 → ../event-scan.html (self-contained HTML 단순 복사)
+#    - 행사장에서 휴대폰으로 쓰는 화면. 관리자 앱은 PC 전체폭 고정이라 그 안에 둘 수 없음
+#      (.claude/rules/ui.md — 관리자 페이지에 모바일 쉘 적용 금지)
+#    - 확장자 포함 경로로 접근 (루트 사이트는 vercel.json 이 없어 cleanUrls 미적용)
+# ══════════════════════════════════════
+if [ -f "event-scan.html" ]; then
+  cp event-scan.html ../event-scan.html
+  echo "  ✅ 현장 입장 확인 페이지 복사 완료 → ../event-scan.html"
+fi
+
 echo "📦 빌드 완료 ($VERSION)"
