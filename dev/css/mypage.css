@@ -187,3 +187,17 @@
 .ticket-cancel:disabled{opacity:.45;cursor:not-allowed}
 .ticket-msg{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
 .ticket-msg-err{color:var(--red);font-size:12px;line-height:1.7}
+
+/* 입장 확인 완료 — QR 자리에 뜬다(사용자 요청 2026-08-03) */
+.ticket-state-done{padding:20px 8px}
+.ticket-check{width:88px;height:88px;margin:0 auto 6px;display:block}
+.ticket-check circle{stroke:var(--green);stroke-width:4;fill:none;
+  stroke-dasharray:238;stroke-dashoffset:238;animation:tkCircle .5s cubic-bezier(.65,0,.45,1) forwards}
+.ticket-check path{stroke:var(--green);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:60;stroke-dashoffset:60;animation:tkCheck .35s cubic-bezier(.65,0,.45,1) .45s forwards}
+.ticket-state-done .ticket-state-title{color:var(--green)}
+@keyframes tkCircle{to{stroke-dashoffset:0}}
+@keyframes tkCheck{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){
+  .ticket-check circle,.ticket-check path{animation:none;stroke-dashoffset:0}
+}

@@ -17,6 +17,16 @@
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
 .wrap{max-width:560px;margin:0 auto;padding:14px 14px 60px}
+
+/* 태블릿·노트북에서는 왼쪽에 스캔·손입력, 오른쪽에 명단을 둔다(사용자 요청 2026-08-03).
+   입구에 노트북을 놓고 쓰는 경우 명단이 화면 아래로 밀려 스크롤해야 하는 것을 막는다.
+   휴대폰(900px 미만)은 지금처럼 한 줄로 쌓인다. */
+@media (min-width:900px){
+  .wrap{max-width:1100px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  /* 오른쪽 명단은 따로 스크롤한다 — 왼쪽 스캔 영역이 늘 보이게 */
+  .col-right{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto}
+}
 .topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .topbar h1{font-size:17px;font-weight:800;margin:0;flex:1}
 .badge-env{font-size:10px;font-weight:800;background:var(--amber);color:#fff;padding:2px 7px;border-radius:5px}
@@ -34,15 +44,40 @@ button{font-family:inherit;cursor:pointer}
 .btn:disabled{opacity:.5}
 .hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
 
-/* 결과 카드 — 색으로 즉시 구분한다. 입구에서 글자를 다 읽을 시간이 없다. */
-#resultCard{display:none;border-radius:14px;padding:16px;margin-bottom:12px;color:#fff}
-#resultCard.ok{background:var(--green)}
-#resultCard.dup{background:var(--amber)}
-#resultCard.bad{background:var(--red)}
-.res-head{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800}
-.res-name{font-size:24px;font-weight:900;margin-top:10px;line-height:1.25}
-.res-kana{font-size:13px;opacity:.9;margin-top:2px}
-.res-sub{font-size:14px;margin-top:10px;opacity:.95;line-height:1.6}
+/* ── 인증 완료 모달 ──────────────────────────────────────────
+   확인 버튼을 눌러야 닫힌다(사용자 결정 2026-08-03). 한 명씩 눈으로 대조하고
+   넘어가는 흐름이라, 자동으로 사라지면 못 보고 지나칠 수 있다. */
+#resultModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+  align-items:center;justify-content:center;padding:20px;z-index:100}
+#resultModal.open{display:flex}
+.rm-box{background:#fff;border-radius:20px;padding:28px 22px 20px;width:100%;max-width:400px;
+  text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.rm-title{font-size:19px;font-weight:800;margin-top:16px}
+.rm-name{font-size:32px;font-weight:900;line-height:1.2;margin-top:18px;word-break:keep-all}
+.rm-kana{font-size:15px;color:var(--muted);margin-top:4px}
+.rm-when{font-size:20px;font-weight:800;margin-top:16px}
+.rm-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;
+  letter-spacing:.18em;font-weight:800;margin-top:12px;padding:10px;border-radius:10px;background:var(--bg)}
+.rm-sub{font-size:14px;color:var(--muted);margin-top:12px;line-height:1.6}
+.rm-ok .rm-title{color:var(--green)}
+.rm-dup .rm-title{color:var(--amber)}
+.rm-bad .rm-title{color:var(--red)}
+
+/* 체크 표시 — 원을 그린 뒤 체크가 그려진다 */
+.rm-mark{width:88px;height:88px;margin:0 auto;display:block}
+.rm-mark circle{stroke-width:4;fill:none;stroke-dasharray:238;stroke-dashoffset:238;
+  animation:rmCircle .5s cubic-bezier(.65,0,.45,1) forwards}
+.rm-mark path{stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:60;stroke-dashoffset:60;animation:rmCheck .35s cubic-bezier(.65,0,.45,1) .45s forwards}
+.rm-ok .rm-mark circle,.rm-ok .rm-mark path{stroke:var(--green)}
+.rm-dup .rm-mark circle,.rm-dup .rm-mark path{stroke:var(--amber)}
+.rm-bad .rm-mark circle,.rm-bad .rm-mark path{stroke:var(--red)}
+@keyframes rmCircle{to{stroke-dashoffset:0}}
+@keyframes rmCheck{to{stroke-dashoffset:0}}
+/* 움직임을 줄이도록 설정한 기기에서는 그리지 않고 바로 보여 준다 */
+@media (prefers-reduced-motion:reduce){
+  .rm-mark circle,.rm-mark path{animation:none;stroke-dashoffset:0}
+}
 
 .recent-item{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
 .recent-item:first-child{border-top:none}
@@ -58,8 +93,12 @@ button{font-family:inherit;cursor:pointer}
 .att-kana{font-size:11px;color:var(--muted);font-weight:400}
 .att-btn{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--ink);
   background:#fff;font-size:13px;font-weight:700;flex-shrink:0}
-.att.done .att-name{color:var(--muted)}
-.att-done-mark{font-size:12px;font-weight:700;color:var(--green);flex-shrink:0}
+/* 입장 완료한 사람을 **흐리게 하지 않고 초록으로 살려서** 보여 준다
+   (사용자 요청 2026-08-03 — 「활성된 것처럼」). 아직 안 온 사람이 기본 상태다. */
+.att.done{background:#F0FDF4;border-radius:8px;padding-left:8px;padding-right:8px}
+.att.done .att-name{color:var(--green)}
+.att-done-mark{font-size:12px;font-weight:800;color:var(--green);flex-shrink:0;
+  display:inline-flex;align-items:center;gap:3px}
 .att-wait{font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0}
 .empty{padding:24px 4px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
 .offline-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:14px;
@@ -85,10 +124,28 @@ button{font-family:inherit;cursor:pointer}
     <div class="hint">행사장에서 계속 쓰는 화면이라 로그인 상태를 유지합니다. 행사가 끝나면 로그아웃해 주세요.</div>
   </div>
 
+  <!-- 인증 결과 모달 -->
+  <div id="resultModal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <div class="rm-box" id="rmBox">
+      <svg class="rm-mark" viewBox="0 0 88 88" aria-hidden="true">
+        <circle cx="44" cy="44" r="38"></circle>
+        <path d="M26 45 L39 58 L63 33"></path>
+      </svg>
+      <div class="rm-title" id="rmTitle"></div>
+      <div class="rm-name" id="rmName"></div>
+      <div class="rm-kana" id="rmKana"></div>
+      <div class="rm-when" id="rmWhen"></div>
+      <div class="rm-code" id="rmCode"></div>
+      <div class="rm-sub" id="rmSub"></div>
+      <button class="btn" id="rmCloseBtn" onclick="closeResultModal()">확인</button>
+    </div>
+  </div>
+
   <!-- 본 화면 -->
   <div id="mainArea" style="display:none">
-    <div id="resultCard"></div>
 
+    <div class="cols">
+    <div class="col-left">
     <div class="card" id="scanCard">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <label style="margin:0;flex:1">QR 스캔</label>
@@ -118,15 +175,24 @@ button{font-family:inherit;cursor:pointer}
       <label>최근 확인</label>
       <div id="recentList"></div>
     </div>
+    </div><!-- /col-left -->
 
+    <div class="col-right">
     <div class="card">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <label style="margin:0;flex:1">오늘 예약자</label>
-        <button class="att-btn" onclick="loadToday()">새로고침</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="margin:0;flex:1">예약자 명단</label>
+        <button class="att-btn" onclick="loadRoster()">새로고침</button>
       </div>
-      <div class="hint" style="margin-top:0">QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.</div>
-      <div id="todayList"><div class="empty">불러오는 중…</div></div>
+      <select id="rosterDate" class="att-btn" style="width:100%;min-height:46px;padding:0 12px;font-size:15px"
+              onchange="onRosterDateChange(this.value)"></select>
+      <!-- 개발서버에서만 보인다. 운영 데이터베이스에는 이 기능의 서버 함수 자체가 없다. -->
+      <button class="btn btn-ghost" id="resetBtn" style="display:none;border-color:var(--amber);color:var(--amber)"
+              onclick="resetCheckins()">입장 기록 초기화 (개발 전용)</button>
+      <div class="hint">QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.</div>
+      <div id="rosterList"><div class="empty">불러오는 중…</div></div>
     </div>
+    </div><!-- /col-right -->
+    </div><!-- /cols -->
 
     <div class="offline-note">
       인터넷이 끊기면 이 화면은 손입력도 함께 멈춥니다. 예약자 확인이 서버에 물어보는 방식이기 때문입니다.
@@ -177,7 +243,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let _recent = [];      // 최근 확인 5건
-let _resultTimer = null;
+let _modalOpen = false;   // 결과 모달이 떠 있는 동안 카메라 인식을 멈춘다
 let _busy = false;
 
 // ── 로그인 ────────────────────────────────────────────────────
@@ -236,7 +302,9 @@ async function afterLogin() {
   $('mainArea').style.display = '';
   $('logoutBtn').style.display = '';
   $('codeInput').focus();
-  loadToday();
+  // 개발서버에서만 초기화 버튼을 그린다(운영에는 서버 함수 자체가 없다).
+  if (SUPABASE_ENV === 'staging') $('resetBtn').style.display = '';
+  loadRoster();
 }
 
 async function doLogout() {
@@ -262,7 +330,7 @@ async function checkIn(code) {
     if (error) throw error;
     showResult(data || {ok: false, reason: 'not_found'}, code);
     // 명단의 입장 여부도 바뀌었으니 함께 갱신한다.
-    loadToday();
+    loadRoster();
   } catch (e) {
     console.warn('[checkIn]', e);
     showResult({ok: false, reason: '_network'}, code);
@@ -296,35 +364,51 @@ function fmtTime(ts) {
   catch (e) { return ''; }
 }
 
+// 결과를 모달로 띄운다(사용자 결정 2026-08-03 — 자동 넘김에서 변경).
+//   확인 버튼을 눌러야 닫히므로 한 명씩 확실히 대조하고 넘어간다.
+//   ⚠️ 모달이 떠 있는 동안은 카메라가 다음 QR 을 읽어도 무시한다(_modalOpen) —
+//      안 그러면 대기줄의 다른 QR 이 겹쳐 들어와 화면이 덮인다.
 function showResult(res, code) {
-  const el = $('resultCard');
   const ok = !!res.ok;
   const dup = ok && res.already_entered;
   const cls = dup ? 'dup' : (ok ? 'ok' : 'bad');
-  const icon = dup ? 'error_outline' : (ok ? 'check_circle' : 'cancel');
-  const head = dup ? '이미 입장 완료' : (ok ? '입장 처리했습니다' : failMessage(res.reason));
+  const head = dup ? '이미 인증 처리가 완료되었습니다'
+             : (ok ? '인증이 완료되었습니다' : failMessage(res.reason));
 
-  el.className = cls;
-  el.innerHTML = `
-    <div class="res-head">
-      <span class="material-icons-round notranslate" translate="no">${icon}</span>${esc(head)}
-    </div>
-    ${res.name_kanji ? `<div class="res-name">${esc(res.name_kanji)}</div>` : ''}
-    ${res.name_kana ? `<div class="res-kana">${esc(res.name_kana)}</div>` : ''}
-    ${res.slot ? `<div class="res-sub">${esc(slotText(res.slot))}${res.slot.audience_label ? ' · ' + esc(res.slot.audience_label) : ''}</div>` : ''}
-    ${dup ? `<div class="res-sub">첫 입장 ${esc(fmtTime(res.entered_at))} · 확인 ${res.scan_count}회</div>` : ''}
-    ${(!ok && res.waitlist_position) ? `<div class="res-sub">대기 ${res.waitlist_position}번</div>` : ''}
-    <div class="res-sub" style="font-family:ui-monospace,monospace;letter-spacing:.1em">${esc(code)}</div>`;
-  el.style.display = '';
+  const box = $('rmBox');
+  box.className = 'rm-box rm-' + cls;
+  $('rmTitle').textContent = head;
+  $('rmName').textContent = res.name_kanji || '';
+  $('rmKana').textContent = res.name_kana || '';
+  $('rmWhen').textContent = res.slot
+    ? slotText(res.slot) + (res.slot.audience_label ? ' · ' + res.slot.audience_label : '')
+    : '';
+  $('rmCode').textContent = code;
+  $('rmSub').textContent = dup
+    ? `첫 입장 ${fmtTime(res.entered_at)} · 확인 ${res.scan_count}회`
+    : (!ok && res.waitlist_position ? `대기 ${res.waitlist_position}번` : '');
+
+  // 체크 그림을 매번 처음부터 그리게 한다(같은 요소를 다시 쓰면 애니메이션이 안 돈다).
+  const mark = box.querySelector('.rm-mark');
+  if (mark) { const c = mark.cloneNode(true); mark.replaceWith(c); }
+
+  _modalOpen = true;
+  $('resultModal').classList.add('open');
+  // 뒤 화면을 통째로 비활성화한다. 안 하면 Tab 으로 초점이 배경의 예약번호 칸으로 빠지고,
+  // 그 칸은 8자를 채우면 스스로 확인을 보내므로 **모달 내용이 조용히 다음 결과로 덮인다**.
+  $('mainArea').inert = true;
+  $('rmCloseBtn').focus();
 
   pushRecent({cls, code, name: res.name_kanji || '', head});
+}
 
-  // 3초 뒤 다음 확인 준비 — 모달로 확인 버튼을 누르게 하면 줄이 길 때 손이 한 번 더 간다
-  // (사용자 결정 2026-08-03). 카드는 남겨 두고 입력칸만 비워 바로 다음을 받는다.
+function closeResultModal() {
+  _modalOpen = false;
+  $('resultModal').classList.remove('open');
+  $('mainArea').inert = false;
   $('codeInput').value = '';
-  $('codeInput').focus();
-  if (_resultTimer) clearTimeout(_resultTimer);
-  _resultTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  // 카메라를 쓰는 중이면 입력칸에 초점을 주지 않는다 — 휴대폰 자판이 올라와 화면을 가린다.
+  if (!_scanStream) $('codeInput').focus();
 }
 
 function pushRecent(item) {
@@ -339,30 +423,63 @@ function pushRecent(item) {
     </div>`).join('');
 }
 
-// ── 오늘 예약자 명단 ──────────────────────────────────────────
-// 「오늘」로 한정하는 이유: 3일치를 다 띄우면 휴대폰 화면에서 목록이 길어져 오히려 못 찾는다.
-async function loadToday() {
-  const box = $('todayList');
+// ── 예약자 명단 (날짜 선택) ───────────────────────────────────
+// 처음엔 오늘만 보여 줬는데, 행사 전에는 늘 비어 보여 명단을 확인할 수 없었다.
+// 날짜 단추를 두고 기본값은 「오늘 · 오늘 예약이 없으면 가장 가까운 날짜」로 한다
+// (사용자 결정 2026-08-03). 「전체」도 고를 수 있다.
+let _rosterDates = [];
+let _rosterPick = null;   // 'YYYY-MM-DD' 또는 'all'
+
+function jstToday() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// ⚠️ 한 번에 오는 행이 1000개에서 잘린다(PostgREST 상한). 이틀차 정원만 1,440명이라
+//    **하루만 골라도** 뒤쪽 사람들이 명단에서 통째로 사라진다 — 현장에서 「예약했는데
+//    명단에 없다」가 되는 자리다. 나눠서 전부 받아온다.
+//    (관리자 앱의 fetchEventTicketsByCampaign 도 같은 이유로 나눠 받는다. 이 파일은
+//     자립형이라 그 헬퍼를 못 써서 여기 다시 쓴다.)
+async function fetchAllTickets(slotIds) {
+  const PAGE = 1000;
+  let all = [], from = 0;
+  for (;;) {
+    const {data, error} = await sb.from('event_tickets')
+      .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencer_id (name_kanji, name_kana)')
+      .in('slot_id', slotIds)
+      .neq('status', 'cancelled')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+async function loadRoster() {
+  const box = $('rosterList');
   if (!box) return;
-  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // 일본 시각 기준 오늘
 
   try {
-    const {data: slots, error: e1} = await sb.from('event_slots')
+    // 날짜 목록은 타임 표에서 얻는다(예약이 0건인 날짜도 골라 볼 수 있어야 한다).
+    const {data: allSlots, error: e0} = await sb.from('event_slots')
       .select('id, slot_date, start_time, end_time, audience_label')
-      .eq('slot_date', today)
+      .order('slot_date', {ascending: true})
       .order('start_time', {ascending: true});
-    if (e1) throw e1;
+    if (e0) throw e0;
 
-    if (!slots || !slots.length) {
-      box.innerHTML = `<div class="empty">오늘 날짜로 등록된 타임이 없습니다.</div>`;
+    if (!prepareRosterDates(allSlots)) {
+      box.innerHTML = `<div class="empty">등록된 타임이 없습니다.</div>`;
       return;
     }
 
-    const {data: tickets, error: e2} = await sb.from('event_tickets')
-      .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencer_id (name_kanji, name_kana)')
-      .in('slot_id', slots.map(s => s.id))
-      .neq('status', 'cancelled');
-    if (e2) throw e2;
+    const slots = (_rosterPick === 'all')
+      ? allSlots
+      : (allSlots || []).filter(s => String(s.slot_date).slice(0, 10) === _rosterPick);
+
+    if (!slots.length) { box.innerHTML = `<div class="empty">이 날짜에 등록된 타임이 없습니다.</div>`; return; }
+
+    const tickets = await fetchAllTickets(slots.map(s => s.id));
 
     const bySlot = {};
     (tickets || []).forEach(t => { (bySlot[t.slot_id] = bySlot[t.slot_id] || []).push(t); });
@@ -380,10 +497,80 @@ async function loadToday() {
         </div>`;
     }).join('');
   } catch (e) {
-    console.warn('[loadToday]', e);
+    console.warn('[loadRoster]', e);
     // 조회 실패를 「예약자 없음」으로 보여 주면 운영진이 명단이 빈 줄 안다.
     box.innerHTML = `<div class="empty" style="color:var(--red)">명단을 불러오지 못했습니다. 인터넷 연결을 확인하고 「새로고침」을 눌러 주세요.</div>`;
   }
+}
+
+// 날짜 목록을 추리고 기본 선택값을 정한다. 고를 날짜가 없으면 false.
+function prepareRosterDates(allSlots) {
+  _rosterDates = [...new Set((allSlots || []).map(s => String(s.slot_date).slice(0, 10)))].sort();
+  if (!_rosterDates.length) { $('rosterDate').innerHTML = ''; return false; }
+  if (!_rosterPick) {
+    const today = jstToday();
+    // 오늘이 있으면 오늘, 없으면 아직 안 지난 가장 가까운 날짜, 그것도 없으면 마지막 날짜
+    _rosterPick = _rosterDates.includes(today)
+      ? today
+      : (_rosterDates.find(d => d >= today) || _rosterDates[_rosterDates.length - 1]);
+  }
+  renderRosterDateOptions();
+  return true;
+}
+
+function renderRosterDateOptions() {
+  const sel = $('rosterDate');
+  if (!sel) return;
+  const today = jstToday();
+  sel.innerHTML = _rosterDates.map(d => {
+    const label = d.slice(5).replace('-', '/') + (d === today ? ' (오늘)' : '');
+    return `<option value="${d}"${d === _rosterPick ? ' selected' : ''}>${esc(label)}</option>`;
+  }).join('') + `<option value="all"${_rosterPick === 'all' ? ' selected' : ''}>전체 기간</option>`;
+}
+
+// 【개발 전용】 입장 확인 기록을 되돌려 같은 QR 로 다시 테스트할 수 있게 한다.
+//   ⚠️ 이 버튼이 보이는 것은 개발 도메인일 때뿐이고, 진짜 방어선은 **운영 데이터베이스에
+//      서버 함수가 아예 없다는 것**이다(supabase/patches/2026-08-03-dev-reset-event-checkin.sql).
+//      화면 조건만으로 막으면 누군가 운영에서 조건을 우회했을 때 실제 방문객 기록이 지워진다.
+async function resetCheckins() {
+  const scope = (_rosterPick && _rosterPick !== 'all') ? _rosterPick : null;
+  const label = scope ? `${scope} 날짜의` : '전체 기간의';
+  if (!window.confirm(`${label} 입장 기록을 되돌립니다.\n예약 자체는 그대로 두고 입장 시각만 지웁니다.\n계속할까요?`)) return;
+
+  const btn = $('resetBtn');
+  btn.disabled = true;
+  try {
+    const {data, error} = await sb.rpc('dev_reset_event_checkin', {
+      p_campaign_id: null,
+      p_slot_date: scope
+    });
+    if (error) throw error;
+    _recent = [];
+    $('recentCard').style.display = 'none';
+    $('recentList').innerHTML = '';
+    _lastScanned = {code: '', at: 0};   // 방금 읽은 QR 을 바로 다시 읽을 수 있게
+    alertInline(`입장 기록 ${Number(data) || 0}건을 되돌렸습니다.`);
+    loadRoster();
+  } catch (e) {
+    console.warn('[resetCheckins]', e);
+    alertInline('초기화하지 못했습니다. 개발 데이터베이스에 패치를 적용했는지 확인해 주세요.', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// 화면 안 짧은 안내(경고창을 쓰지 않는다).
+function alertInline(msg, isErr) {
+  const el = $('scanErr');
+  el.textContent = msg;
+  el.style.color = isErr ? 'var(--red)' : 'var(--amber)';
+  el.style.display = '';
+  setTimeout(() => { el.style.display = 'none'; el.style.color = 'var(--red)'; }, 4000);
+}
+
+function onRosterDateChange(v) {
+  _rosterPick = v || null;
+  loadRoster();
 }
 
 function attendeeRow(r) {
@@ -396,7 +583,7 @@ function attendeeRow(r) {
         <span class="att-kana">${esc(inf.name_kana || '')}</span>
       </div>
       ${waiting ? `<span class="att-wait">대기 ${r.waitlist_position || ''}</span>`
-        : done ? `<span class="att-done-mark">입장 ${esc(fmtTime(r.entered_at))}</span>`
+        : done ? `<span class="att-done-mark"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">check_circle</span>입장 ${esc(fmtTime(r.entered_at))}</span>`
         : `<button class="att-btn" onclick="checkIn('${esc(r.ticket_code)}')">입장</button>`}
     </div>`;
 }
@@ -474,7 +661,8 @@ function stopScanner() {
 function scanLoop() {
   const video = $('scannerVideo');
   if (!_scanStream || !video) return;
-  if (video.readyState === video.HAVE_ENOUGH_DATA && !_busy) {
+  // 모달이 떠 있으면 읽지 않는다 — 대기줄의 다른 QR 이 겹쳐 들어와 화면을 덮는 것 방지.
+  if (video.readyState === video.HAVE_ENOUGH_DATA && !_busy && !_modalOpen) {
     // 화면 전체를 읽으면 느리다. 가로 480 기준으로 줄여 읽는다.
     const w = 480;
     const h = Math.round(video.videoHeight * (w / video.videoWidth)) || 360;
