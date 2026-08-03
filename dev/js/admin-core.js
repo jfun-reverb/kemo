@@ -218,6 +218,12 @@ function switchAdminPane(pane, el, pushHistory) {
     history.pushState({pane: pane}, '', '#' + pane);
   }
   if (pane === 'add-campaign') {
+    // ★ 행사 모드 초기화를 **가장 먼저** 한다.
+    //   안 하면 직전에 켠 체크박스가 남아, 바로 아래에서 모집 형식을 리뷰어로 되돌리는
+    //   순간 「행사 모드 ON + 리뷰어형」이라는 금지 조합이 되어 다음 캠페인 등록이
+    //   데이터베이스 제약(마이그레이션 280)에 걸려 통째로 실패한다. 그 오류 문구로는
+    //   원인이 화면 위쪽 체크박스라는 걸 알 수 없다(2026-08-03 리뷰 지적).
+    if (typeof resetEventFormFields === 'function') resetEventFormFields('new');
     initTagInput('tagWrap_newCampHashtags');
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');

@@ -197,7 +197,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
-  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
+  // 타임 관리·예약 현황도 「어느 캠페인인지」를 화면 상태로만 들고 있어(주소에 없다),
+  // 새로고침하면 캠페인을 잃고 빈 표만 남는다 → 캠페인 목록으로 돌려보낸다.
+  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops','event-slots':'campaigns','event-tickets':'campaigns'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
     history.replaceState({pane: initHash}, '', '#' + initHash);
