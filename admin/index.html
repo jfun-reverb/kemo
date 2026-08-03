@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785727319';
+  var CURRENT_BUILD = 'v1785729632';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2716,7 +2716,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-03 12:21 · d107ac2</span>
+          <span class="admin-build-text">2026-08-03 13:00 · 1cd5b6f</span>
         </div>
       </div>
     </aside>
@@ -3741,12 +3741,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div class="admin-card" style="padding:12px 14px;margin-bottom:10px">
               <div style="font-size:13px;font-weight:700;margin-bottom:8px">하루치 일괄 생성</div>
               <div class="admin-filter-bar" style="flex-wrap:wrap">
-                <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventBulkDate" class="admin-filter" onchange="previewBulkSlots()"></div>
-                <div class="admin-filter-group"><label>시작 시각</label><input type="time" id="eventBulkStart" class="admin-filter" value="11:00" onchange="previewBulkSlots()"></div>
-                <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="time" id="eventBulkLastStart" class="admin-filter" value="18:30" onchange="previewBulkSlots()"></div>
-                <div class="admin-filter-group"><label>간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventBulkDate" class="admin-filter" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>시작 시각</label><input type="time" id="eventBulkStart" class="admin-filter" oninput="previewBulkSlots()" value="11:00" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="time" id="eventBulkLastStart" class="admin-filter" oninput="previewBulkSlots()" value="18:30" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" oninput="previewBulkSlots()" value="30" min="5" style="width:80px" onchange="previewBulkSlots()"></div>
                 <div class="admin-filter-group"><label>한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px"></div>
-                <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" onchange="previewBulkSlots()"></div>
+                <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" oninput="previewBulkSlots()" placeholder="13:00, 13:30" style="width:140px" onchange="previewBulkSlots()"></div>
                 <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
                 <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
                 <button class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
@@ -34715,6 +34715,13 @@ function applyEventModeFormLock(prefix) {
   //   ⚠️ 라디오 name 이 폼마다 다르다: 신규는 recruitType, 편집은 editRecruitType.
   //      `${prefix}RecruitType` 로 쓰면 신규 폼에서 아무것도 안 잡힌다.
   const rtName = (prefix === 'edit') ? 'editRecruitType' : 'recruitType';
+
+  // ★ 켜기 직전 형식을 **라디오를 건드리기 전에** 기억한다.
+  //   아래 반복문이 방문형으로 바꾼 뒤에 읽으면 「방문형」이 기억되고, 끌 때
+  //   되돌릴 값이 방문형이라 아무 일도 안 일어난다 — 실제로 그랬다(2026-08-03 QA 실측).
+  if (on && _recruitTypeBeforeEvent[prefix] == null) {
+    _recruitTypeBeforeEvent[prefix] = _currentRecruitType(prefix);
+  }
   document.querySelectorAll(`input[name="${rtName}"]`).forEach(r => {
     if (on) {
       if (r.value === 'visit' && !r.checked) {
@@ -34743,12 +34750,7 @@ function applyEventModeFormLock(prefix) {
   // 행사 모드를 껐으면 모집 형식을 원래대로 되돌린다.
   //   안 되돌리면 실수로 켰다 끈 관리자가 「형식이 조용히 방문형으로 바뀐 것」을
   //   모른 채 저장한다(2026-08-03 리뷰 지적).
-  if (on) {
-    // 켜기 직전 형식을 기억해 둔다(이미 기억해 둔 값이 있으면 덮어쓰지 않는다).
-    if (_recruitTypeBeforeEvent[prefix] == null) {
-      _recruitTypeBeforeEvent[prefix] = _currentRecruitType(prefix);
-    }
-  } else if (_recruitTypeBeforeEvent[prefix] != null) {
+  if (!on && _recruitTypeBeforeEvent[prefix] != null) {
     const back = _recruitTypeBeforeEvent[prefix];
     _recruitTypeBeforeEvent[prefix] = null;
     if (back && back !== 'visit') {

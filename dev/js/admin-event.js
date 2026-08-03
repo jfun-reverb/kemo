@@ -77,6 +77,13 @@ function applyEventModeFormLock(prefix) {
   //   ⚠️ 라디오 name 이 폼마다 다르다: 신규는 recruitType, 편집은 editRecruitType.
   //      `${prefix}RecruitType` 로 쓰면 신규 폼에서 아무것도 안 잡힌다.
   const rtName = (prefix === 'edit') ? 'editRecruitType' : 'recruitType';
+
+  // ★ 켜기 직전 형식을 **라디오를 건드리기 전에** 기억한다.
+  //   아래 반복문이 방문형으로 바꾼 뒤에 읽으면 「방문형」이 기억되고, 끌 때
+  //   되돌릴 값이 방문형이라 아무 일도 안 일어난다 — 실제로 그랬다(2026-08-03 QA 실측).
+  if (on && _recruitTypeBeforeEvent[prefix] == null) {
+    _recruitTypeBeforeEvent[prefix] = _currentRecruitType(prefix);
+  }
   document.querySelectorAll(`input[name="${rtName}"]`).forEach(r => {
     if (on) {
       if (r.value === 'visit' && !r.checked) {
@@ -105,12 +112,7 @@ function applyEventModeFormLock(prefix) {
   // 행사 모드를 껐으면 모집 형식을 원래대로 되돌린다.
   //   안 되돌리면 실수로 켰다 끈 관리자가 「형식이 조용히 방문형으로 바뀐 것」을
   //   모른 채 저장한다(2026-08-03 리뷰 지적).
-  if (on) {
-    // 켜기 직전 형식을 기억해 둔다(이미 기억해 둔 값이 있으면 덮어쓰지 않는다).
-    if (_recruitTypeBeforeEvent[prefix] == null) {
-      _recruitTypeBeforeEvent[prefix] = _currentRecruitType(prefix);
-    }
-  } else if (_recruitTypeBeforeEvent[prefix] != null) {
+  if (!on && _recruitTypeBeforeEvent[prefix] != null) {
     const back = _recruitTypeBeforeEvent[prefix];
     _recruitTypeBeforeEvent[prefix] = null;
     if (back && back !== 'visit') {

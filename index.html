@@ -14256,7 +14256,13 @@ function loadQrLib() {
   if (_qrLibLoading) return _qrLibLoading;
   _qrLibLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    // ⚠️ 버전을 **1.5.1 로 고정**한다. 최신(1.5.3~1.5.6)은 브라우저용 묶음 파일
+    //    build/qrcode.min.js 가 배포에서 빠져 404 다. 같은 버전의 lib/browser.min.js 는
+    //    200 이 뜨지만 묶이지 않은 원본이라 브라우저에서 `require is not defined` 로
+    //    죽고 전역 QRCode 가 끝내 안 생긴다 — 주소만 보고 고치면 여전히 QR 이 안 뜬다.
+    //    (2026-08-03: 404 → QA 발견, lib 경로 → 리뷰 발견. 둘 다 실측으로 확인)
+    //    1.5.1 의 build/qrcode.min.js 는 전역 QRCode.toCanvas 를 만드는 정상 묶음이다.
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js';
     s.onload = () => resolve();
     s.onerror = () => { _qrLibLoading = null; reject(new Error('qr_lib_failed')); };
     document.head.appendChild(s);
