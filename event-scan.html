@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>입장 확인 — REVERB</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#18181B; --muted:#71717A; --line:#E4E4E7; --bg:#F4F4F5;
+  --pink:#EC4899; --green:#16A34A; --amber:#D97706; --red:#DC2626;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:14px 14px 60px}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.topbar h1{font-size:17px;font-weight:800;margin:0;flex:1}
+.badge-env{font-size:10px;font-weight:800;background:var(--amber);color:#fff;padding:2px 7px;border-radius:5px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=email],input[type=password]{
+  width:100%;padding:14px 12px;border:1px solid var(--line);border-radius:10px;
+  font-size:17px;font-family:inherit;background:#fff;color:var(--ink)}
+#codeInput{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:26px;letter-spacing:.2em;text-align:center;text-transform:uppercase;padding:16px 10px}
+button{font-family:inherit;cursor:pointer}
+.btn{width:100%;min-height:52px;border:none;border-radius:10px;background:var(--ink);color:#fff;
+  font-size:15px;font-weight:700;margin-top:10px}
+.btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5}
+.hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+
+/* 결과 카드 — 색으로 즉시 구분한다. 입구에서 글자를 다 읽을 시간이 없다. */
+#resultCard{display:none;border-radius:14px;padding:16px;margin-bottom:12px;color:#fff}
+#resultCard.ok{background:var(--green)}
+#resultCard.dup{background:var(--amber)}
+#resultCard.bad{background:var(--red)}
+.res-head{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800}
+.res-name{font-size:24px;font-weight:900;margin-top:10px;line-height:1.25}
+.res-kana{font-size:13px;opacity:.9;margin-top:2px}
+.res-sub{font-size:14px;margin-top:10px;opacity:.95;line-height:1.6}
+
+.recent-item{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
+.recent-item:first-child{border-top:none}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.ok{background:var(--green)} .dot.dup{background:var(--amber)} .dot.bad{background:var(--red)}
+
+/* 오늘 명단 — QR 을 못 찾거나 휴대폰을 두고 온 방문객을 이름으로 찾는 경로 */
+.slot-group{margin-top:14px}
+.slot-title{font-size:13px;font-weight:800;color:var(--pink);padding:8px 0 4px;
+  position:sticky;top:0;background:#fff}
+.att{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+.att-name{flex:1;font-size:15px;font-weight:700;min-width:0}
+.att-kana{font-size:11px;color:var(--muted);font-weight:400}
+.att-btn{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--ink);
+  background:#fff;font-size:13px;font-weight:700;flex-shrink:0}
+.att.done .att-name{color:var(--muted)}
+.att-done-mark{font-size:12px;font-weight:700;color:var(--green);flex-shrink:0}
+.att-wait{font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0}
+.empty{padding:24px 4px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
+.offline-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:14px;
+  padding-top:12px;border-top:1px dashed var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1>입장 확인</h1>
+    <span class="badge-env" id="envBadge" style="display:none">개발</span>
+    <button class="att-btn" id="logoutBtn" style="display:none" onclick="doLogout()">로그아웃</button>
+  </div>
+
+  <!-- 로그인 (관리자 계정) -->
+  <div class="card" id="loginCard" style="display:none">
+    <label for="loginEmail">관리자 이메일</label>
+    <input type="email" id="loginEmail" autocomplete="username" inputmode="email">
+    <label for="loginPw" style="margin-top:12px">비밀번호</label>
+    <input type="password" id="loginPw" autocomplete="current-password">
+    <button class="btn" id="loginBtn" onclick="doLogin()">로그인</button>
+    <div class="hint" id="loginErr" style="color:var(--red);display:none"></div>
+    <div class="hint">행사장에서 계속 쓰는 화면이라 로그인 상태를 유지합니다. 행사가 끝나면 로그아웃해 주세요.</div>
+  </div>
+
+  <!-- 본 화면 -->
+  <div id="mainArea" style="display:none">
+    <div id="resultCard"></div>
+
+    <div class="card" id="scanCard">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="margin:0;flex:1">QR 스캔</label>
+        <button class="att-btn" id="scanToggleBtn" onclick="toggleScanner()">카메라 켜기</button>
+      </div>
+      <div id="scannerWrap" style="display:none">
+        <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
+          <video id="scannerVideo" playsinline muted style="width:100%;display:block;max-height:52vh;object-fit:cover"></video>
+          <!-- 조준 틀 — 어디에 대야 하는지 알려 준다 -->
+          <div style="position:absolute;inset:14% 18%;border:3px solid rgba(255,255,255,.85);border-radius:12px;pointer-events:none"></div>
+        </div>
+        <div class="hint">방문객 화면의 QR 을 틀 안에 맞춰 주세요. 읽히면 자동으로 확인됩니다.</div>
+      </div>
+      <div class="hint" id="scanErr" style="display:none;color:var(--red)"></div>
+      <div class="hint" id="scanIdleHint">카메라를 못 쓰는 기기이거나 권한을 허용하지 않아도 괜찮습니다. 아래 예약번호 손입력으로 그대로 진행하세요.</div>
+    </div>
+
+    <div class="card">
+      <label for="codeInput">예약번호 8자리</label>
+      <input type="text" id="codeInput" maxlength="8" autocomplete="off" autocapitalize="characters"
+             spellcheck="false" inputmode="text" placeholder="ABCD2345">
+      <button class="btn" id="checkBtn" onclick="submitCode()">확인</button>
+      <div class="hint">방문객 화면의 QR 아래에 있는 번호입니다. 헷갈리는 글자(0 O 1 I L)는 쓰지 않습니다.</div>
+    </div>
+
+    <div class="card" id="recentCard" style="display:none">
+      <label>최근 확인</label>
+      <div id="recentList"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <label style="margin:0;flex:1">오늘 예약자</label>
+        <button class="att-btn" onclick="loadToday()">새로고침</button>
+      </div>
+      <div class="hint" style="margin-top:0">QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.</div>
+      <div id="todayList"><div class="empty">불러오는 중…</div></div>
+    </div>
+
+    <div class="offline-note">
+      인터넷이 끊기면 이 화면은 손입력도 함께 멈춥니다. 예약자 확인이 서버에 물어보는 방식이기 때문입니다.
+      그럴 때는 당일 아침에 인쇄해 둔 명단으로 눈으로 대조한 뒤, 인터넷이 돌아오면 관리자 화면의
+      「예약 현황」에서 손으로 입장 처리해 주세요.
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// 현장 입장 확인 페이지 (자립형) — 사양서 2026-07-30 §4-4
+//
+// 관리자 앱 안에 둘 수 없다: 관리자 앱은 PC 전체폭 고정이고 모바일 껍데기 적용이
+// 금지돼 있다(.claude/rules/ui.md). 그래서 관리자 비밀번호 설정 페이지와 같은
+// 자립형 정적 페이지로 만든다.
+//
+// ⚠️ 자립형이라 dev/lib/storage.js 를 쓸 수 없다. 호출을 이 파일 안에 직접 쓴다.
+//    쓰는 서버 함수는 check_in_ticket 하나뿐이고, 오늘 명단만 표를 직접 조회한다.
+// ══════════════════════════════════════════════════════════════
+
+// ⚠️ supabase.md 「URL/Key 는 SUPABASE_ENVS 에서만」 규칙의 명시적 예외.
+//    자립형 페이지라 dev/lib/supabase.js(빌드 산출물에만 포함)를 못 불러온다
+//    — admin-setpw.html · sales/orient.html 과 같은 사유.
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+const SUPABASE_ENV = /^(www\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+
+// ★ persistSession 은 true — 행사장에서 하루 종일 쓰는 화면이라 세션이 유지돼야 한다.
+//   (관리자 비밀번호 설정 페이지는 모드에 따라 false 인데, 그건 링크 착지 임시 세션이
+//    다른 탭의 관리자 앱을 열어버리는 것을 막으려는 것이라 목적이 정반대다.)
+const sb = window.supabase
+  ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key, {
+      auth: {flowType: 'pkce', detectSessionInUrl: false, persistSession: true, autoRefreshToken: true}
+    })
+  : null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let _recent = [];      // 최근 확인 5건
+let _resultTimer = null;
+let _busy = false;
+
+// ── 로그인 ────────────────────────────────────────────────────
+async function boot() {
+  if (SUPABASE_ENV === 'staging') $('envBadge').style.display = '';
+  if (!sb) {
+    // 화면 안에서 알린다 — 이 프로젝트는 경고창(alert)을 쓰지 않는다.
+    $('loginCard').style.display = '';
+    $('loginErr').textContent = '서버에 연결할 수 없습니다. 새로고침해 주세요.';
+    $('loginErr').style.display = '';
+    return;
+  }
+
+  const {data} = await sb.auth.getSession();
+  if (data?.session) { await afterLogin(); }
+  else { $('loginCard').style.display = ''; $('loginEmail').focus(); }
+}
+
+async function doLogin() {
+  const email = $('loginEmail').value.trim();
+  const pw = $('loginPw').value;
+  const err = $('loginErr');
+  err.style.display = 'none';
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해 주세요.'; err.style.display = ''; return; }
+
+  $('loginBtn').disabled = true;
+  const {error} = await sb.auth.signInWithPassword({email, password: pw});
+  $('loginBtn').disabled = false;
+  if (error) {
+    // 계정이 있는지 없는지 알려 주지 않는다(계정 열거 방지 — .claude/rules/security.md).
+    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    err.style.display = '';
+    return;
+  }
+  await afterLogin();
+}
+
+async function afterLogin() {
+  // 관리자만 쓸 수 있는 화면이다. 서버 함수도 관리자 가드가 있지만, 관리자가 아닌
+  // 사람이 로그인해 빈 화면만 보는 막다른 골목을 만들지 않으려고 여기서 먼저 안내한다.
+  const {data: s} = await sb.auth.getUser();
+  const uid = s?.user?.id;
+  let isAdmin = false;
+  if (uid) {
+    const {data: a} = await sb.from('admins').select('id').eq('auth_id', uid).maybeSingle();
+    isAdmin = !!a;
+  }
+  if (!isAdmin) {
+    $('loginCard').style.display = '';
+    $('loginErr').textContent = '관리자 계정으로만 사용할 수 있는 화면입니다.';
+    $('loginErr').style.display = '';
+    await sb.auth.signOut();
+    return;
+  }
+  $('loginCard').style.display = 'none';
+  $('mainArea').style.display = '';
+  $('logoutBtn').style.display = '';
+  $('codeInput').focus();
+  loadToday();
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── 예약번호 확인 ─────────────────────────────────────────────
+async function submitCode() {
+  if (_busy) return;
+  const code = ($('codeInput').value || '').trim().toUpperCase();
+  if (!code) { $('codeInput').focus(); return; }
+  await checkIn(code);
+}
+
+// 손입력·명단 클릭·(작업 8의) 카메라 스캔이 전부 이 함수를 지난다.
+async function checkIn(code) {
+  if (_busy) return;
+  _busy = true;
+  $('checkBtn').disabled = true;
+  try {
+    const {data, error} = await sb.rpc('check_in_ticket', {p_ticket_code: code});
+    if (error) throw error;
+    showResult(data || {ok: false, reason: 'not_found'}, code);
+    // 명단의 입장 여부도 바뀌었으니 함께 갱신한다.
+    loadToday();
+  } catch (e) {
+    console.warn('[checkIn]', e);
+    showResult({ok: false, reason: '_network'}, code);
+  } finally {
+    _busy = false;
+    $('checkBtn').disabled = false;
+  }
+}
+
+function failMessage(reason) {
+  return ({
+    not_found:             '없는 예약번호입니다',
+    cancelled:             '취소된 예약입니다',
+    waitlist_cannot_enter: '대기 상태라 입장할 수 없습니다',
+    permission_denied:     '권한이 없습니다. 다시 로그인해 주세요',
+    _network:              '확인하지 못했습니다. 인터넷 연결을 확인해 주세요'
+  })[reason] || '확인하지 못했습니다';
+}
+
+function slotText(slot) {
+  if (!slot) return '';
+  const d = String(slot.slot_date || '').slice(5, 10).replace('-', '/');
+  const st = String(slot.start_time || '').slice(0, 5);
+  const en = slot.end_time ? String(slot.end_time).slice(0, 5) : '';
+  return `${d} ${en ? `${st}~${en}` : st}`;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'}); }
+  catch (e) { return ''; }
+}
+
+function showResult(res, code) {
+  const el = $('resultCard');
+  const ok = !!res.ok;
+  const dup = ok && res.already_entered;
+  const cls = dup ? 'dup' : (ok ? 'ok' : 'bad');
+  const icon = dup ? 'error_outline' : (ok ? 'check_circle' : 'cancel');
+  const head = dup ? '이미 입장 완료' : (ok ? '입장 처리했습니다' : failMessage(res.reason));
+
+  el.className = cls;
+  el.innerHTML = `
+    <div class="res-head">
+      <span class="material-icons-round notranslate" translate="no">${icon}</span>${esc(head)}
+    </div>
+    ${res.name_kanji ? `<div class="res-name">${esc(res.name_kanji)}</div>` : ''}
+    ${res.name_kana ? `<div class="res-kana">${esc(res.name_kana)}</div>` : ''}
+    ${res.slot ? `<div class="res-sub">${esc(slotText(res.slot))}${res.slot.audience_label ? ' · ' + esc(res.slot.audience_label) : ''}</div>` : ''}
+    ${dup ? `<div class="res-sub">첫 입장 ${esc(fmtTime(res.entered_at))} · 확인 ${res.scan_count}회</div>` : ''}
+    ${(!ok && res.waitlist_position) ? `<div class="res-sub">대기 ${res.waitlist_position}번</div>` : ''}
+    <div class="res-sub" style="font-family:ui-monospace,monospace;letter-spacing:.1em">${esc(code)}</div>`;
+  el.style.display = '';
+
+  pushRecent({cls, code, name: res.name_kanji || '', head});
+
+  // 3초 뒤 다음 확인 준비 — 모달로 확인 버튼을 누르게 하면 줄이 길 때 손이 한 번 더 간다
+  // (사용자 결정 2026-08-03). 카드는 남겨 두고 입력칸만 비워 바로 다음을 받는다.
+  $('codeInput').value = '';
+  $('codeInput').focus();
+  if (_resultTimer) clearTimeout(_resultTimer);
+  _resultTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+function pushRecent(item) {
+  _recent.unshift(item);
+  _recent = _recent.slice(0, 5);
+  $('recentCard').style.display = '';
+  $('recentList').innerHTML = _recent.map(r => `
+    <div class="recent-item">
+      <span class="dot ${r.cls}"></span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name || r.head)}</span>
+      <span style="font-family:ui-monospace,monospace;color:var(--muted)">${esc(r.code)}</span>
+    </div>`).join('');
+}
+
+// ── 오늘 예약자 명단 ──────────────────────────────────────────
+// 「오늘」로 한정하는 이유: 3일치를 다 띄우면 휴대폰 화면에서 목록이 길어져 오히려 못 찾는다.
+async function loadToday() {
+  const box = $('todayList');
+  if (!box) return;
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // 일본 시각 기준 오늘
+
+  try {
+    const {data: slots, error: e1} = await sb.from('event_slots')
+      .select('id, slot_date, start_time, end_time, audience_label')
+      .eq('slot_date', today)
+      .order('start_time', {ascending: true});
+    if (e1) throw e1;
+
+    if (!slots || !slots.length) {
+      box.innerHTML = `<div class="empty">오늘 날짜로 등록된 타임이 없습니다.</div>`;
+      return;
+    }
+
+    const {data: tickets, error: e2} = await sb.from('event_tickets')
+      .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencer_id (name_kanji, name_kana)')
+      .in('slot_id', slots.map(s => s.id))
+      .neq('status', 'cancelled');
+    if (e2) throw e2;
+
+    const bySlot = {};
+    (tickets || []).forEach(t => { (bySlot[t.slot_id] = bySlot[t.slot_id] || []).push(t); });
+
+    box.innerHTML = slots.map(s => {
+      const rows = (bySlot[s.id] || []).sort((a, b) =>
+        String((a.influencers || {}).name_kana || '').localeCompare(String((b.influencers || {}).name_kana || '')));
+      const entered = rows.filter(r => r.entered_at).length;
+      const confirmed = rows.filter(r => r.status === 'confirmed').length;
+      return `
+        <div class="slot-group">
+          <div class="slot-title">${esc(slotText(s))} · 입장 ${entered}/${confirmed}${s.audience_label ? ' · ' + esc(s.audience_label) : ''}</div>
+          ${rows.length ? rows.map(r => attendeeRow(r)).join('')
+                        : '<div class="empty" style="padding:12px 4px">예약자가 없습니다.</div>'}
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.warn('[loadToday]', e);
+    // 조회 실패를 「예약자 없음」으로 보여 주면 운영진이 명단이 빈 줄 안다.
+    box.innerHTML = `<div class="empty" style="color:var(--red)">명단을 불러오지 못했습니다. 인터넷 연결을 확인하고 「새로고침」을 눌러 주세요.</div>`;
+  }
+}
+
+function attendeeRow(r) {
+  const inf = r.influencers || {};
+  const done = !!r.entered_at;
+  const waiting = r.status === 'waitlist';
+  return `
+    <div class="att${done ? ' done' : ''}">
+      <div class="att-name">${esc(inf.name_kanji || '-')}
+        <span class="att-kana">${esc(inf.name_kana || '')}</span>
+      </div>
+      ${waiting ? `<span class="att-wait">대기 ${r.waitlist_position || ''}</span>`
+        : done ? `<span class="att-done-mark">입장 ${esc(fmtTime(r.entered_at))}</span>`
+        : `<button class="att-btn" onclick="checkIn('${esc(r.ticket_code)}')">입장</button>`}
+    </div>`;
+}
+
+// ── 카메라 QR 스캔 (작업 8) ───────────────────────────────────
+// ⚠️ 이 조각은 **버려도 행사 운영이 가능하다**. 손입력만으로 충분하며, 그래서
+//    손입력을 먼저 만들었다(사양서 §8 안전선). 여기서 무슨 일이 나도 손입력을
+//    막지 않는 것이 이 코드의 첫 번째 규칙이다.
+let _scanStream = null;
+let _scanRaf = null;
+let _jsqrLoading = null;
+let _lastScanned = {code: '', at: 0};
+
+function loadQrReader() {
+  if (typeof window.jsQR !== 'undefined') return Promise.resolve();
+  if (_jsqrLoading) return _jsqrLoading;
+  _jsqrLoading = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    // 브라우저에서 전역 jsQR 함수를 만드는 묶음 파일임을 실측 확인하고 고정했다.
+    el.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    el.onload = () => resolve();
+    el.onerror = () => { _jsqrLoading = null; reject(new Error('qr_reader_failed')); };
+    document.head.appendChild(el);
+  });
+  return _jsqrLoading;
+}
+
+async function toggleScanner() {
+  if (_scanStream) { stopScanner(); return; }
+  await startScanner();
+}
+
+async function startScanner() {
+  const err = $('scanErr');
+  err.style.display = 'none';
+  try {
+    await loadQrReader();
+  } catch (e) {
+    err.textContent = 'QR 읽기 기능을 불러오지 못했습니다. 예약번호 손입력을 사용해 주세요.';
+    err.style.display = '';
+    return;
+  }
+  try {
+    // 후면 카메라 우선. 없으면 브라우저가 알아서 가진 것을 준다.
+    _scanStream = await navigator.mediaDevices.getUserMedia({
+      video: {facingMode: {ideal: 'environment'}}, audio: false
+    });
+  } catch (e) {
+    console.warn('[startScanner]', e);
+    err.textContent = (e && e.name === 'NotAllowedError')
+      ? '카메라 사용이 허용되지 않았습니다. 예약번호 손입력을 사용해 주세요.'
+      : '카메라를 쓸 수 없는 기기입니다. 예약번호 손입력을 사용해 주세요.';
+    err.style.display = '';
+    return;
+  }
+  const video = $('scannerVideo');
+  video.srcObject = _scanStream;
+  await video.play().catch(() => {});
+  $('scannerWrap').style.display = '';
+  $('scanIdleHint').style.display = 'none';
+  $('scanToggleBtn').textContent = '카메라 끄기';
+  scanLoop();
+}
+
+function stopScanner() {
+  if (_scanRaf) { cancelAnimationFrame(_scanRaf); _scanRaf = null; }
+  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  const video = $('scannerVideo');
+  if (video) video.srcObject = null;
+  $('scannerWrap').style.display = 'none';
+  $('scanIdleHint').style.display = '';
+  $('scanToggleBtn').textContent = '카메라 켜기';
+}
+
+function scanLoop() {
+  const video = $('scannerVideo');
+  if (!_scanStream || !video) return;
+  if (video.readyState === video.HAVE_ENOUGH_DATA && !_busy) {
+    // 화면 전체를 읽으면 느리다. 가로 480 기준으로 줄여 읽는다.
+    const w = 480;
+    const h = Math.round(video.videoHeight * (w / video.videoWidth)) || 360;
+    const cv = scanLoop._cv || (scanLoop._cv = document.createElement('canvas'));
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d', {willReadFrequently: true});
+    try {
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const found = window.jsQR(img.data, w, h, {inversionAttempts: 'dontInvert'});
+      if (found && found.data) onScanned(String(found.data).trim().toUpperCase());
+    } catch (e) { /* 한 프레임 실패는 무시하고 다음 프레임에서 다시 시도 */ }
+  }
+  _scanRaf = requestAnimationFrame(scanLoop);
+}
+
+function onScanned(raw) {
+  // 예약번호 형식이 아니면 무시한다 — 행사장에는 다른 QR(포스터·명함 등)도 많다.
+  const code = raw.replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z0-9]{8}$/.test(code)) return;
+  // 같은 QR 이 카메라 앞에 계속 있으면 초당 수십 번 읽힌다. 3초 안의 같은 번호는 무시.
+  const now = Date.now();
+  if (_lastScanned.code === code && now - _lastScanned.at < 3000) return;
+  _lastScanned = {code, at: now};
+  checkIn(code);
+}
+
+// 화면을 벗어나거나 탭이 가려지면 카메라를 끈다(배터리·과열·사생활).
+document.addEventListener('visibilitychange', () => { if (document.hidden && _scanStream) stopScanner(); });
+window.addEventListener('pagehide', stopScanner);
+
+// 예약번호 입력칸: 8자리를 채우면 바로 확인한다(현장에서 버튼을 한 번 덜 누르게).
+$('codeInput').addEventListener('input', function () {
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (this.value.length === 8) submitCode();
+});
+$('codeInput').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); submitCode(); }
+});
+$('loginPw')?.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+});
+
+boot();
+</script>
+</body>
+</html>
