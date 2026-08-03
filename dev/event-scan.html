@@ -32,11 +32,13 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
   .cols{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
         gap:16px;align-items:stretch}
   /* min-height:0 이 없으면 격자 칸이 내용 높이만큼 늘어나 안쪽 스크롤이 안 생긴다 */
-  .col-left{min-height:0;overflow-y:auto;padding-right:2px}
+  .col-left{min-height:0;overflow-y:auto}
   .col-right{min-height:0;display:flex;flex-direction:column}
   /* 스크롤 막대가 카드 **안쪽**에 오게 한다 — 밖에 있으면 카드와 따로 노는 것처럼 보인다 */
   .col-right > .card{flex:1;min-height:0;display:flex;flex-direction:column}
-  #rosterList{flex:1;min-height:0;overflow-y:auto;margin:0 -4px;padding:0 4px}
+  /* 음수 여백으로 밀어내면 막대가 카드 안쪽 여백 바깥에 걸쳐 어색하다.
+     내용을 조금 좁혀 막대가 들어설 자리를 만든다. */
+  #rosterList{flex:1;min-height:0;overflow-y:auto;padding-right:8px}
 }
 .topbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 
@@ -121,8 +123,8 @@ button{font-family:inherit;cursor:pointer}
 
 /* 오늘 명단 — QR 을 못 찾거나 휴대폰을 두고 온 방문객을 이름으로 찾는 경로 */
 .slot-group{margin-top:14px}
-.slot-title{font-size:13px;font-weight:800;color:var(--pink);padding:8px 0 4px;
-  position:sticky;top:0;background:#fff}
+.slot-title{font-size:13px;font-weight:800;color:var(--pink);padding:8px 0 5px;
+  position:sticky;top:0;background:#fff;z-index:1}
 .att{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
 .att-name{flex:1;font-size:15px;font-weight:700;min-width:0}
 .att-kana{font-size:11px;color:var(--muted);font-weight:400}
@@ -136,6 +138,16 @@ button{font-family:inherit;cursor:pointer}
   display:inline-flex;align-items:center;gap:3px}
 .att-wait{font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0}
 .empty{padding:24px 4px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
+
+/* 안쪽 스크롤 막대 — 얇고 옅게. 기본 막대는 두껍고 회색 트랙까지 그려져
+   목록 옆에 또 하나의 기둥처럼 보인다. 손가락으로 잡는 용도가 아니라
+   「지금 어디쯤인지」만 알려 주면 되는 자리다. */
+.col-left,#rosterList{scrollbar-width:thin;scrollbar-color:#D4D4D8 transparent}
+.col-left::-webkit-scrollbar,#rosterList::-webkit-scrollbar{width:6px}
+.col-left::-webkit-scrollbar-track,#rosterList::-webkit-scrollbar-track{background:transparent}
+.col-left::-webkit-scrollbar-thumb,#rosterList::-webkit-scrollbar-thumb{
+  background:#D4D4D8;border-radius:3px}
+.col-left::-webkit-scrollbar-thumb:hover,#rosterList::-webkit-scrollbar-thumb:hover{background:#A1A1AA}
 .offline-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:14px;
   padding-top:12px;border-top:1px dashed var(--line)}
 </style>
