@@ -85,6 +85,7 @@ async function openTicketPage(ticketId, from, push) {
 }
 
 function cleanupTicketPage() {
+  stopTicketWatch();
   _currentTicketId = null;
   const body = $('ticketBody');
   if (body) body.innerHTML = '';
@@ -114,14 +115,27 @@ function ticketMainHtml(ticket) {
         <div class="ticket-state-hint">${esc(t('event.ticketWaitlistHint'))}</div>
       </div>`;
   }
+  // 이미 입장했으면 **QR 자리에** 인증 완료를 띄운다(사용자 요청 2026-08-03).
+  //   확인이 끝난 뒤에도 QR 이 그대로 있으면 방문객이 또 보여 줘야 하나 헷갈린다.
+  if (ticket.entered_at) {
+    return `
+      <div class="ticket-state ticket-state-done">
+        <svg class="ticket-check" viewBox="0 0 88 88" aria-hidden="true">
+          <circle cx="44" cy="44" r="38"></circle>
+          <path d="M26 45 L39 58 L63 33"></path>
+        </svg>
+        <div class="ticket-state-title">${esc(t('event.ticketEnteredTitle'))}</div>
+        <div class="ticket-entered">${esc(t('event.ticketEnteredAt').replace('{time}', formatDateTime(ticket.entered_at)))}</div>
+        <div class="ticket-state-hint">${esc(t('event.ticketEnteredHint'))}</div>
+      </div>`;
+  }
   // 확정 — QR + 예약번호. QR 이 안 그려져도 예약번호만으로 입장할 수 있어야 한다.
   return `
     <div class="ticket-qr-wrap">
       <canvas id="ticketQrCanvas" width="200" height="200"></canvas>
       <div id="ticketQrFallback" class="ticket-msg-err" style="display:none">${esc(t('event.ticketQrFailed'))}</div>
     </div>
-    <div class="ticket-hint">${esc(t('event.ticketQrHint'))}</div>
-    ${ticket.entered_at ? `<div class="ticket-entered">${esc(t('event.ticketEnteredAt').replace('{time}', formatDateTime(ticket.entered_at)))}</div>` : ''}`;
+    <div class="ticket-hint">${esc(t('event.ticketQrHint'))}</div>`;
 }
 
 // 예약이 여러 건일 때(취소 후 재예약 등) 위에 두는 전환 탭.
@@ -179,7 +193,8 @@ function renderTicket(ticket) {
       ${windowPassed ? `<div class="ticket-hint">${esc(t('event.ticketCancelClosed'))}</div>` : ''}
     ` : ''}`;
 
-  if (ticket.status === 'confirmed') renderTicketQr(ticket.ticket_code, 'ticketQrCanvas');
+  if (ticket.status === 'confirmed' && !ticket.entered_at) renderTicketQr(ticket.ticket_code, 'ticketQrCanvas');
+  startTicketWatch(ticket);
 }
 
 async function renderTicketQr(ticketCode, elId) {
@@ -213,6 +228,51 @@ function formatTicketWhenShort(slot) {
   const dt = String(slot.slot_date).slice(5, 10).replace('-', '/');
   return `${dt} ${String(slot.start_time || '').slice(0, 5)}`;
 }
+
+// ── 입장 확인 감시 ────────────────────────────────────────────
+// 운영진이 QR 을 읽는 순간, 방문객 화면도 「인증 완료」로 바뀌어야 한다.
+// 서버가 화면으로 먼저 알려 주는 구조가 아니라 우리가 주기적으로 물어본다.
+//   ⚠️ 물어보는 조건을 좁게 둔다 — 티켓 화면이 켜져 있고, 확정이며, 아직 입장 전일 때만.
+//      입장이 확인되면 즉시 멈춘다. 그러지 않으면 아무도 안 보는 화면이 하루 종일 서버를 두드린다.
+let _ticketWatchTimer = null;
+const TICKET_WATCH_MS = 5000;   // 입구에 서 있는 동안 바뀌는 것이 보이도록 짧게
+
+function startTicketWatch(ticket) {
+  stopTicketWatch();
+  if (!ticket || ticket.status !== 'confirmed' || ticket.entered_at) return;
+  _ticketWatchTimer = setInterval(() => checkTicketEntered(ticket.id), TICKET_WATCH_MS);
+}
+
+function stopTicketWatch() {
+  if (_ticketWatchTimer) { clearInterval(_ticketWatchTimer); _ticketWatchTimer = null; }
+}
+
+async function checkTicketEntered(ticketId) {
+  // 화면이 가려져 있으면 건너뛴다(주머니 속에서 계속 두드리지 않게).
+  if (document.hidden) return;
+  // 다른 화면으로 넘어갔으면 멈춘다.
+  const page = document.querySelector('#appShell .page.active');
+  if (!page || page.id !== 'page-ticket') { stopTicketWatch(); return; }
+
+  try {
+    const list = await fetchMyEventTickets();
+    const fresh = (list || []).find(x => x.id === ticketId);
+    if (!fresh) return;
+    if (fresh.entered_at) {
+      _ticketList = list;
+      stopTicketWatch();
+      renderTicket(fresh);   // QR 자리가 「인증 완료」로 바뀐다
+    }
+  } catch (e) {
+    // 통신이 잠깐 끊긴 것뿐일 수 있다. 화면을 건드리지 않고 다음 차례에 다시 본다.
+    console.warn('[checkTicketEntered]', e);
+  }
+}
+
+// 화면으로 돌아오면 기다리지 않고 바로 한 번 확인한다.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && _ticketWatchTimer && _currentTicketId) checkTicketEntered(_currentTicketId);
+});
 
 // ── 본인 취소 ─────────────────────────────────────────────────
 async function cancelMyTicket(ticketId) {

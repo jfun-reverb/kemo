@@ -43,6 +43,8 @@ window.I18N_JA = {
     ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
     ticketCancelledTitle: 'この予約はキャンセルされました',
     ticketEnteredAt: '入場ずみ（{time}）',
+    ticketEnteredTitle: '入場が確認されました',
+    ticketEnteredHint: 'ごゆっくりおたのしみください。',
     ticketEmpty: 'ご予約はまだありません。',
     ticketLoadFailed: 'チケットを読み込めませんでした。通信環境をご確認のうえ、もう一度おためしください。',
     ticketNotFound: 'このチケットが見つかりませんでした。',

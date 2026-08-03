@@ -39,6 +39,8 @@ window.I18N_KO = {
     ticketWaitlistHint: '자리가 나면 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
     ticketCancelledTitle: '이 예약은 취소됐습니다',
     ticketEnteredAt: '입장 완료({time})',
+    ticketEnteredTitle: '입장이 확인됐습니다',
+    ticketEnteredHint: '즐거운 시간 보내세요.',
     ticketEmpty: '아직 예약이 없습니다.',
     ticketLoadFailed: '티켓을 불러오지 못했습니다. 통신 상태를 확인하고 다시 시도해 주세요.',
     ticketNotFound: '이 티켓을 찾지 못했습니다.',

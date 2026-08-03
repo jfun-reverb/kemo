@@ -836,6 +836,20 @@ html.preview-mode #page-detail .detail-back{display:none}
 .ticket-msg{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
 .ticket-msg-err{color:var(--red);font-size:12px;line-height:1.7}
 
+/* 입장 확인 완료 — QR 자리에 뜬다(사용자 요청 2026-08-03) */
+.ticket-state-done{padding:20px 8px}
+.ticket-check{width:88px;height:88px;margin:0 auto 6px;display:block}
+.ticket-check circle{stroke:var(--green);stroke-width:4;fill:none;
+  stroke-dasharray:238;stroke-dashoffset:238;animation:tkCircle .5s cubic-bezier(.65,0,.45,1) forwards}
+.ticket-check path{stroke:var(--green);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:60;stroke-dashoffset:60;animation:tkCheck .35s cubic-bezier(.65,0,.45,1) .45s forwards}
+.ticket-state-done .ticket-state-title{color:var(--green)}
+@keyframes tkCircle{to{stroke-dashoffset:0}}
+@keyframes tkCheck{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){
+  .ticket-check circle,.ticket-check path{animation:none;stroke-dashoffset:0}
+}
+
 </style>
 </head>
 <body>
@@ -3831,6 +3845,8 @@ window.I18N_JA = {
     ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
     ticketCancelledTitle: 'この予約はキャンセルされました',
     ticketEnteredAt: '入場ずみ（{time}）',
+    ticketEnteredTitle: '入場が確認されました',
+    ticketEnteredHint: 'ごゆっくりおたのしみください。',
     ticketEmpty: 'ご予約はまだありません。',
     ticketLoadFailed: 'チケットを読み込めませんでした。通信環境をご確認のうえ、もう一度おためしください。',
     ticketNotFound: 'このチケットが見つかりませんでした。',
@@ -4639,6 +4655,8 @@ window.I18N_KO = {
     ticketWaitlistHint: '자리가 나면 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
     ticketCancelledTitle: '이 예약은 취소됐습니다',
     ticketEnteredAt: '입장 완료({time})',
+    ticketEnteredTitle: '입장이 확인됐습니다',
+    ticketEnteredHint: '즐거운 시간 보내세요.',
     ticketEmpty: '아직 예약이 없습니다.',
     ticketLoadFailed: '티켓을 불러오지 못했습니다. 통신 상태를 확인하고 다시 시도해 주세요.',
     ticketNotFound: '이 티켓을 찾지 못했습니다.',
@@ -14320,6 +14338,7 @@ async function openTicketPage(ticketId, from, push) {
 }
 
 function cleanupTicketPage() {
+  stopTicketWatch();
   _currentTicketId = null;
   const body = $('ticketBody');
   if (body) body.innerHTML = '';
@@ -14349,14 +14368,27 @@ function ticketMainHtml(ticket) {
         <div class="ticket-state-hint">${esc(t('event.ticketWaitlistHint'))}</div>
       </div>`;
   }
+  // 이미 입장했으면 **QR 자리에** 인증 완료를 띄운다(사용자 요청 2026-08-03).
+  //   확인이 끝난 뒤에도 QR 이 그대로 있으면 방문객이 또 보여 줘야 하나 헷갈린다.
+  if (ticket.entered_at) {
+    return `
+      <div class="ticket-state ticket-state-done">
+        <svg class="ticket-check" viewBox="0 0 88 88" aria-hidden="true">
+          <circle cx="44" cy="44" r="38"></circle>
+          <path d="M26 45 L39 58 L63 33"></path>
+        </svg>
+        <div class="ticket-state-title">${esc(t('event.ticketEnteredTitle'))}</div>
+        <div class="ticket-entered">${esc(t('event.ticketEnteredAt').replace('{time}', formatDateTime(ticket.entered_at)))}</div>
+        <div class="ticket-state-hint">${esc(t('event.ticketEnteredHint'))}</div>
+      </div>`;
+  }
   // 확정 — QR + 예약번호. QR 이 안 그려져도 예약번호만으로 입장할 수 있어야 한다.
   return `
     <div class="ticket-qr-wrap">
       <canvas id="ticketQrCanvas" width="200" height="200"></canvas>
       <div id="ticketQrFallback" class="ticket-msg-err" style="display:none">${esc(t('event.ticketQrFailed'))}</div>
     </div>
-    <div class="ticket-hint">${esc(t('event.ticketQrHint'))}</div>
-    ${ticket.entered_at ? `<div class="ticket-entered">${esc(t('event.ticketEnteredAt').replace('{time}', formatDateTime(ticket.entered_at)))}</div>` : ''}`;
+    <div class="ticket-hint">${esc(t('event.ticketQrHint'))}</div>`;
 }
 
 // 예약이 여러 건일 때(취소 후 재예약 등) 위에 두는 전환 탭.
@@ -14414,7 +14446,8 @@ function renderTicket(ticket) {
       ${windowPassed ? `<div class="ticket-hint">${esc(t('event.ticketCancelClosed'))}</div>` : ''}
     ` : ''}`;
 
-  if (ticket.status === 'confirmed') renderTicketQr(ticket.ticket_code, 'ticketQrCanvas');
+  if (ticket.status === 'confirmed' && !ticket.entered_at) renderTicketQr(ticket.ticket_code, 'ticketQrCanvas');
+  startTicketWatch(ticket);
 }
 
 async function renderTicketQr(ticketCode, elId) {
@@ -14448,6 +14481,51 @@ function formatTicketWhenShort(slot) {
   const dt = String(slot.slot_date).slice(5, 10).replace('-', '/');
   return `${dt} ${String(slot.start_time || '').slice(0, 5)}`;
 }
+
+// ── 입장 확인 감시 ────────────────────────────────────────────
+// 운영진이 QR 을 읽는 순간, 방문객 화면도 「인증 완료」로 바뀌어야 한다.
+// 서버가 화면으로 먼저 알려 주는 구조가 아니라 우리가 주기적으로 물어본다.
+//   ⚠️ 물어보는 조건을 좁게 둔다 — 티켓 화면이 켜져 있고, 확정이며, 아직 입장 전일 때만.
+//      입장이 확인되면 즉시 멈춘다. 그러지 않으면 아무도 안 보는 화면이 하루 종일 서버를 두드린다.
+let _ticketWatchTimer = null;
+const TICKET_WATCH_MS = 5000;   // 입구에 서 있는 동안 바뀌는 것이 보이도록 짧게
+
+function startTicketWatch(ticket) {
+  stopTicketWatch();
+  if (!ticket || ticket.status !== 'confirmed' || ticket.entered_at) return;
+  _ticketWatchTimer = setInterval(() => checkTicketEntered(ticket.id), TICKET_WATCH_MS);
+}
+
+function stopTicketWatch() {
+  if (_ticketWatchTimer) { clearInterval(_ticketWatchTimer); _ticketWatchTimer = null; }
+}
+
+async function checkTicketEntered(ticketId) {
+  // 화면이 가려져 있으면 건너뛴다(주머니 속에서 계속 두드리지 않게).
+  if (document.hidden) return;
+  // 다른 화면으로 넘어갔으면 멈춘다.
+  const page = document.querySelector('#appShell .page.active');
+  if (!page || page.id !== 'page-ticket') { stopTicketWatch(); return; }
+
+  try {
+    const list = await fetchMyEventTickets();
+    const fresh = (list || []).find(x => x.id === ticketId);
+    if (!fresh) return;
+    if (fresh.entered_at) {
+      _ticketList = list;
+      stopTicketWatch();
+      renderTicket(fresh);   // QR 자리가 「인증 완료」로 바뀐다
+    }
+  } catch (e) {
+    // 통신이 잠깐 끊긴 것뿐일 수 있다. 화면을 건드리지 않고 다음 차례에 다시 본다.
+    console.warn('[checkTicketEntered]', e);
+  }
+}
+
+// 화면으로 돌아오면 기다리지 않고 바로 한 번 확인한다.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && _ticketWatchTimer && _currentTicketId) checkTicketEntered(_currentTicketId);
+});
 
 // ── 본인 취소 ─────────────────────────────────────────────────
 async function cancelMyTicket(ticketId) {
