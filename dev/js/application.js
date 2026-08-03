@@ -156,6 +156,18 @@ async function openCampaign(id) {
         })()}
       </div>
 
+      ${(typeof isEventCampaign === 'function' && isEventCampaign(camp)) ? `
+      <!-- 오프라인 행사 타임 선택표 — 사양서 2026-07-30 §4-3. 내용은 렌더 뒤 비동기로 채운다
+           (잔여 인원은 서버 집계라 화면을 먼저 그리고 숫자를 나중에 넣는다). -->
+      <div id="eventSlotPicker" style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:var(--ink)">${t('event.slotPickerTitle')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('event.slotPickerHint')}</div>
+        <div id="eventSlotDateTabs" class="event-date-tabs"></div>
+        <div id="eventSlotList" class="event-slot-list">
+          <div style="font-size:13px;color:var(--muted);padding:12px 0">${t('event.slotLoading')}</div>
+        </div>
+      </div>` : ''}
+
       ${(() => {
         // 참여방법: 스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료
         const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
@@ -323,6 +335,204 @@ async function openCampaign(id) {
   if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : t('detail.backToCampaigns');
 
   navigate('detail-' + id);
+
+  // 오프라인 행사면 타임 선택표를 채운다(서버 집계라 비동기).
+  //   화면 전환을 막지 않으려고 await 하지 않는다 — 숫자가 오면 그때 들어간다.
+  if (typeof isEventCampaign === 'function' && isEventCampaign(camp)) {
+    loadEventSlotPicker(camp);
+  }
+}
+
+// ══════════════════════════════════════
+// 오프라인 행사 — 타임 선택표 (사양서 2026-07-30 §4-3)
+// ══════════════════════════════════════
+let _selectedEventSlotId = null;   // 이번 상세 화면에서 고른 타임
+let _eventSlotsForDetail = [];     // 이 캠페인의 타임 목록
+let _eventSlotCountsForDetail = {};// 타임별 정원·확정 수
+let _eventSlotActiveDate = '';     // 지금 보고 있는 날짜 탭
+
+async function loadEventSlotPicker(camp) {
+  // 다른 캠페인을 열었을 수 있으니 매번 초기화한다.
+  _selectedEventSlotId = null;
+  _eventSlotsForDetail = [];
+  _eventSlotCountsForDetail = {};
+  _eventSlotActiveDate = '';
+
+  const listEl = $('eventSlotList');
+  if (!listEl) return;
+
+  try {
+    const [slots, counts] = await Promise.all([
+      fetchEventSlots(camp.id),
+      fetchEventSlotCounts(camp.id)
+    ]);
+    // 응답이 오는 사이에 사용자가 다른 캠페인으로 넘어갔으면 그리지 않는다
+    // (늦게 도착한 응답이 다른 캠페인 화면을 덮어쓰는 것 방지).
+    if (currentCampaignId !== camp.id) return;
+
+    _eventSlotsForDetail = (slots || []).filter(s => s.is_active);
+    _eventSlotCountsForDetail = counts || {};
+
+    if (!_eventSlotsForDetail.length) {
+      listEl.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:12px 0">${t('event.slotNone')}</div>`;
+      return;
+    }
+    const dates = [...new Set(_eventSlotsForDetail.map(s => String(s.slot_date).slice(0, 10)))].sort();
+    _eventSlotActiveDate = dates[0];
+    renderEventSlotDateTabs(dates);
+    renderEventSlotList();
+  } catch (e) {
+    console.warn('[loadEventSlotPicker]', e);
+    // 조회 실패를 「타임 없음」으로 보여 주면 방문객이 행사가 끝난 줄 안다 — 다시 시도하라고 알린다.
+    listEl.innerHTML = `<div style="font-size:13px;color:var(--red);padding:12px 0">${t('event.slotLoadFailed')}</div>`;
+  }
+}
+
+function renderEventSlotDateTabs(dates) {
+  const el = $('eventSlotDateTabs');
+  if (!el) return;
+  if (dates.length <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = dates.map(d => `
+    <button type="button" class="event-date-tab${d === _eventSlotActiveDate ? ' on' : ''}"
+            onclick="setEventSlotDate('${d}')">${esc(formatEventSlotDateLabel(d))}</button>`).join('');
+}
+
+// 'YYYY-MM-DD' → '8/28(金)'. 요일은 보는 사람 언어로.
+function formatEventSlotDateLabel(d) {
+  const dt = new Date(d + 'T00:00:00+09:00');
+  if (isNaN(dt.getTime())) return d;
+  const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+  const wd = dt.toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'ja-JP', {weekday: 'short', timeZone: 'Asia/Tokyo'});
+  return `${dt.getMonth() + 1}/${dt.getDate()}(${wd.replace(/[()]/g, '')})`;
+}
+
+function setEventSlotDate(d) {
+  _eventSlotActiveDate = d;
+  // 날짜를 바꾸면 고른 타임을 푼다 — 안 보이는 타임이 골라진 채로 남으면
+  // 「고른 게 없어 보이는데 신청이 되는」 어긋남이 생긴다.
+  _selectedEventSlotId = null;
+  renderEventSlotDateTabs([...new Set(_eventSlotsForDetail.map(s => String(s.slot_date).slice(0, 10)))].sort());
+  renderEventSlotList();
+}
+
+function renderEventSlotList() {
+  const el = $('eventSlotList');
+  if (!el) return;
+  const rows = _eventSlotsForDetail.filter(s => String(s.slot_date).slice(0, 10) === _eventSlotActiveDate);
+  el.innerHTML = rows.map(s => {
+    const c = _eventSlotCountsForDetail[s.id] || {remaining: Number(s.capacity || 0), waitlist: 0};
+    const remaining = Number(c.remaining || 0);
+    const full = remaining <= 0;
+    const picked = _selectedEventSlotId === s.id;
+    const st = String(s.start_time || '').slice(0, 5);
+    const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
+    const timeLabel = en ? `${st}〜${en}` : st;
+    const rightLabel = full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining);
+    return `
+      <button type="button" class="event-slot${picked ? ' on' : ''}${full ? ' full' : ''}"
+              onclick="selectEventSlot('${s.id}')">
+        <span class="event-slot-time">${esc(timeLabel)}</span>
+        ${s.audience_label ? `<span class="event-slot-aud">${esc(s.audience_label)}</span>` : ''}
+        <span class="event-slot-remain">${esc(rightLabel)}</span>
+      </button>`;
+  }).join('');
+
+  // 만석 타임을 고르면 대기 신청이 된다는 것을 버튼 위에서 미리 알린다.
+  const picked = _eventSlotsForDetail.find(s => s.id === _selectedEventSlotId);
+  const pickedCount = picked ? (_eventSlotCountsForDetail[picked.id] || {}) : null;
+  const note = document.createElement('div');
+  if (picked && pickedCount && Number(pickedCount.remaining || 0) <= 0) {
+    note.style.cssText = 'font-size:12px;color:var(--dark-pink);background:var(--light-pink);border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6';
+    note.textContent = t('event.slotWaitlistNote');
+    el.appendChild(note);
+  }
+}
+
+function selectEventSlot(slotId) {
+  _selectedEventSlotId = (_selectedEventSlotId === slotId) ? null : slotId;
+  renderEventSlotList();
+}
+
+// 예약 실행 — 서버는 실패를 예외가 아니라 {ok:false, reason} 으로 돌려준다.
+//   ⚠️ 사유마다 안내가 다 있어야 한다. 없으면 방문객이 왜 안 되는지 모른 채
+//      버튼을 여러 번 누른다(작업표 「주의」).
+function eventReserveFailMessage(reason) {
+  const map = {
+    invite_required:      'event.failInviteRequired',
+    invite_mismatch:      'event.failInviteMismatch',
+    already_applied:      'event.failAlreadyApplied',
+    slot_closed:          'event.failSlotClosed',
+    deadline_passed:      'event.failDeadlinePassed',
+    birthdate_required:   'event.failBirthdate',
+    under_age:            'event.failUnderAge',
+    not_found:            'event.failNotFound',
+    invalid_campaign_type:'event.failGeneric',
+    permission_denied:    'event.failGeneric',
+  };
+  return t(map[reason] || 'event.failGeneric');
+}
+
+async function submitEventReservation(camp) {
+  if (!_selectedEventSlotId) { toast(t('event.selectSlotFirst'), 'error'); return; }
+
+  // 초대 전용 캠페인이면 주소에 담겨 온 초대 번호를 함께 보낸다.
+  //   화면 게이트(작업 5)를 우회해도 서버가 다시 확인하므로 이것이 최종 방어선은 아니다.
+  const inviteCode = (typeof getInviteCodeForCampaign === 'function')
+    ? getInviteCodeForCampaign(camp.id) : null;
+
+  // 주의사항 동의 스냅샷 — 일반 신청과 같은 v2 형식(마이그레이션 067).
+  //   모달에 주의사항이 표시 중일 때만 만든다. 체크 강제는 이미 호출부에서 끝났다.
+  let cautionAgreedAt = null, cautionSnapshot = null;
+  {
+    const cRow = $('applyCautionAgreeRow');
+    if (cRow && cRow.style.display !== 'none') {
+      cautionAgreedAt = new Date().toISOString();
+      cautionSnapshot = {
+        version: 2,
+        campaign_id: camp.id,
+        set_id: camp.caution_set_id || null,
+        items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
+        agreed_lang: (typeof getLang === 'function') ? getLang() : 'ja',
+        snapshot_at: cautionAgreedAt
+      };
+    }
+  }
+
+  let res;
+  try {
+    res = await reserveEventTicket(_selectedEventSlotId, inviteCode, cautionAgreedAt, cautionSnapshot);
+  } catch (e) {
+    console.error('[submitEventReservation]', e);
+    toast(t('event.failGeneric'), 'error');
+    return;
+  }
+
+  if (!res || !res.ok) {
+    toast(eventReserveFailMessage(res && res.reason), 'error');
+    // 정원이 방금 찼거나 타임이 닫힌 경우는 화면 숫자가 낡은 것이므로 다시 불러온다.
+    if (res && (res.reason === 'slot_closed' || res.reason === 'not_found')) {
+      closeModal('applyModal');
+      loadEventSlotPicker(camp);
+    }
+    return;
+  }
+
+  closeModal('applyModal');
+  toast(res.status === 'waitlist' ? t('event.waitlistDone') : t('event.applyDone'), 'success');
+
+  _selectedEventSlotId = null;
+
+  // 확정이면 바로 티켓 화면으로 보낸다 — 예약번호·QR 를 그 자리에서 받는 것이
+  // 1차 범위에서 안내 메일을 대신한다(사양서 §0 결정 11).
+  if (res.status === 'confirmed' && typeof openTicketPage === 'function') {
+    openTicketPage(res.ticket_id, 'detail');
+    return;
+  }
+
+  // 티켓 화면으로 넘어가지 않는 경우(대기 등록 · 티켓 화면 미배포)는 상세를 통째로
+  // 다시 그린다. 선택표만 새로 그리면 신청 버튼이 그대로 눌리는 상태로 남아,
+  // 다시 누른 방문객이 「이미 예약했습니다」만 보고 왜인지 모른다(2026-08-03 리뷰 지적).
+  await openCampaign(camp.id);
 }
 
 // ══════════════════════════════════════
@@ -335,6 +545,37 @@ function openApplyModal(campaignId) {
   $('applyMessage').value = '';
   $('applyAddress').value = currentUserProfile?.address || '';
   $('applyPrCheck').checked = false;
+
+  // ── 오프라인 행사는 모달 안에서 받는 것이 주의사항 동의뿐이다 (사양서 §4-3) ──
+  //   신청 이유·배송지·PR 태그 동의는 배송도 게시물도 없는 방문 예약과 맞지 않는다.
+  //   숨기기만 하면 검증이 살아 있어 저장이 막히므로, 제출 쪽 검사도 함께 건너뛴다
+  //   (_submitApplicationInner 의 같은 분기).
+  {
+    const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+    const reasonWrap = $('applyMessage')?.closest('.form-group');
+    const addrWrap = $('applyAddressWrap');
+    const prWrap = $('applyPrCheck')?.closest('.form-group');
+    if (reasonWrap) reasonWrap.style.display = isEvent ? 'none' : '';
+    if (addrWrap)   addrWrap.style.display   = isEvent ? 'none' : '';
+    if (prWrap)     prWrap.style.display     = isEvent ? 'none' : '';
+
+    // 모달 상단 안내문도 행사용으로 바꾼다(원문은 「상품을 받고 SNS에 올려 달라」는 내용).
+    const notice = $('applyModalNotice');
+    if (notice) {
+      if (isEvent) {
+        const s = _eventSlotsForDetail.find(x => x.id === _selectedEventSlotId);
+        const when = s
+          ? `${formatEventSlotDateLabel(String(s.slot_date).slice(0, 10))} ${String(s.start_time || '').slice(0, 5)}`
+          : '';
+        notice.innerHTML = `<b>${esc(t('event.selected'))}</b><br>${esc(when)}`;
+      } else {
+        // 일반 캠페인으로 돌아왔을 때 원래 안내문을 되살린다.
+        //   행사 캠페인을 한 번 열면 이 자리를 덮어쓰므로, 안 되살리면 그 뒤에 여는
+        //   일반 캠페인 모달에 「고른 시간」이 남는다.
+        notice.innerHTML = t('apply.modalNotice');
+      }
+    }
+  }
   // 주의사항 영역 동기 렌더 — caution_items 가 이미 camp 스냅샷에 포함되어 있어 fetch 불필요 (migration 069)
   resetCautionUI();
   if (camp && hasCaution(camp)) {
@@ -430,6 +671,22 @@ async function _submitApplicationInner() {
     toast(t('apply.needName'),'error');
     return;
   }
+  // ── 오프라인 행사(방문 예약)는 여기서 갈라진다 (사양서 §4-3) ──
+  //   신청 이유·배송지·PR 태그 동의 검사를 건너뛰고, 신청 행을 직접 만들지 않고
+  //   예약 함수를 부른다. 신청 행은 그 함수가 같은 트랜잭션에서 만든다.
+  {
+    const _campNow0 = allCampaigns.find(c => c.id === currentCampaignId);
+    if (typeof isEventCampaign === 'function' && isEventCampaign(_campNow0)) {
+      // 주의사항 동의는 행사에서도 그대로 받는다(모달에 표시 중일 때만).
+      const _cRow = $('applyCautionAgreeRow');
+      if (_cRow && _cRow.style.display !== 'none' && !$('applyCautionCheck')?.checked) {
+        toast(t('apply.cautionRequired'), 'error'); return;
+      }
+      await submitEventReservation(_campNow0);
+      return;
+    }
+  }
+
   const msg = $('applyMessage').value.trim();
   const addr = $('applyAddress').value.trim();
   const prCheck = $('applyPrCheck').checked;
@@ -564,6 +821,38 @@ function handleFloatApply() {
   // 필수 정보 체크: 이름(한자·가나) + 캠페인 채널에 맞는 SNS 계정 + 배송지
   const p = currentUserProfile || {};
   const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
+
+  // ── 오프라인 행사(방문 예약)는 요구 항목이 다르다 (사양서 §2-1 · §4-3) ──
+  //   남기는 것: 이름(한자·가나) · 생년월일·성별(위 연령 게이트에서 이미 통과)
+  //   빼는 것  : SNS 계정 · 우편번호·도도부현·시군구·전화 · PayPal 이메일 · 최소 팔로워
+  //   팝업에 놀러 오는 일반 손님에게 PayPal 계정을 요구할 수는 없다.
+  //   ⚠️ 분기 조건은 isEventCampaign 하나만 쓴다 — 판정을 새로 만들면 화면마다 달라진다.
+  if (typeof isEventCampaign === 'function' && isEventCampaign(camp)) {
+    const nk = ((p.name_kanji || p.name || '') + '').trim();
+    const nn = ((p.name_kana || '') + '').trim();
+    const lack = [];
+    if (!nk || nk === '-') lack.push(t('profile.nameKanji'));
+    if (!nn || nn === '-') lack.push(t('profile.nameKana'));
+    if (lack.length) {
+      $('profileAlertMissing').innerHTML = lack.map(m =>
+        `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink)">warning</span>${esc(m)}
+        </div>`).join('');
+      $('profileAlertOverlay').style.display = 'flex';
+      return;
+    }
+    // 타임을 안 고르면 무엇을 예약하는지 알 수 없다. 선택표로 시선을 돌려준다.
+    if (!_selectedEventSlotId) {
+      toast(t('event.selectSlotFirst'), 'error');
+      const picker = $('eventSlotPicker');
+      if (picker && typeof picker.scrollIntoView === 'function') {
+        picker.scrollIntoView({behavior: 'smooth', block: 'center'});
+      }
+      return;
+    }
+    openApplyModal(currentCampaignId);
+    return;
+  }
   // 채널 비교는 항상 split(',').includes() 패턴 — 단순 includes는 부분 문자열 오탐 위험
   const chList = (camp.channel || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   const missing = [];
@@ -715,7 +1004,16 @@ async function openActivityPage(applicationId, campaignId, from) {
   // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
   // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
   // 진입한 경우에도 동일 분기.
+  // 오프라인 행사는 결과물을 내지 않는다 — 활동관리 대신 입장 티켓 화면으로 보낸다.
+  //   확정 티켓은 신청이 「승인」 상태라 이 화면이 그대로 열리면 결과물 제출 폼이
+  //   뜨고 방문객이 「무엇을 내라는 건지」 혼란에 빠진다(사양서 §2-5 — 선택이 아니라 필수).
+  //   ⚠️ 취소 판정보다 **뒤**에 둔다. 취소된 신청은 취소 안내가 먼저다.
   const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  if (!isCancelled && typeof isEventCampaign === 'function' && isEventCampaign(camp)
+      && typeof openTicketForCampaign === 'function') {
+    await openTicketForCampaign(campaignId);
+    return;
+  }
   if (isCancelled) {
     // 차단 안내 패널을 보여주려면 페이지 전환 필요. 정상 진입은 함수 끝의 navigate 가 처리하므로
     // 여기서는 cancelled 분기 한정으로만 호출 — 정상 진입에서 navigate 2회 호출되어 뒤로가기 1번이

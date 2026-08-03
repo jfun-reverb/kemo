@@ -30,8 +30,15 @@ async function loadCampaigns() {
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
 //   scheduled / active / closed(모집마감) / ended(종료) = 노출 (closed=募集締切, ended=終了 오버레이)
 //   draft / expired = 비노출 (expired 는 운영자가 수동 토글 OFF 한 캠페인)
+//   is_invite_only = 비공개(초대 전용) — 목록·홈·건수·채널 필터에서 전부 뺀다.
+//     이 함수가 그 네 곳의 단일 소스라 여기 한 줄이면 전부 적용된다.
+//     ⚠️ 이건 **화면 단계 필터**다. 캠페인 자체는 브라우저로 내려오므로 이것만으로는
+//        내용이 완전히 감춰지지 않는다. 예약을 실제로 막는 것은 서버의 초대 번호
+//        재검증이다(마이그레이션 283 reserve_event_ticket). 사양서 §2-6 의 세 겹 중 첫 겹.
 function visibleCamps(camps) {
-  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended');
+  return camps.filter(c =>
+    !(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(c)) &&
+    (c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended'));
 }
 
 // 인플루언서 노출 캠페인의 정렬: 모집중(active) > 모집예정(scheduled) > 모집완료(closed)

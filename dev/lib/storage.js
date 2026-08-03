@@ -4323,13 +4323,16 @@ async function deleteEventSlot(slotId) {
 // 실패 사유(reason): invite_required · invite_mismatch · already_applied · slot_closed ·
 //   deadline_passed · birthdate_required · under_age · invalid_campaign_type ·
 //   not_found · permission_denied
-async function reserveEventTicket(slotId, inviteCode) {
+async function reserveEventTicket(slotId, inviteCode, cautionAgreedAt, cautionSnapshot) {
   if (!db) throw new Error('DB 미연결');
   let res = null;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('reserve_event_ticket', {
       p_slot_id: slotId,
-      p_invite_code: inviteCode || null
+      p_invite_code: inviteCode || null,
+      // 주의사항 동의 — 화면이 체크를 강제하므로 기록도 남겨야 한다(마이그레이션 284).
+      p_caution_agreed_at: cautionAgreedAt || null,
+      p_caution_snapshot: cautionSnapshot || null
     });
     if (error) throw error;
     res = data;

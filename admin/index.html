@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785721241';
+  var CURRENT_BUILD = 'v1785723894';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2716,7 +2716,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-03 10:40 · 736de97</span>
+          <span class="admin-build-text">2026-08-03 11:24 · a917728</span>
         </div>
       </div>
     </aside>
@@ -2938,6 +2938,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
                   <span>비공개 — 초대받은 사람만 신청</span>
                 </label>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">행사장 안내 (일본어)</label>
+                  <input type="text" id="editCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
+                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div id="editCampInviteRow" class="event-invite-row" style="display:none">
                   <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
@@ -3245,6 +3250,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
                   <span>비공개 — 초대받은 사람만 신청</span>
                 </label>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">행사장 안내 (일본어)</label>
+                  <input type="text" id="newCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
+                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div id="newCampInviteRow" class="event-invite-row" style="display:none">
                   <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
@@ -12673,13 +12683,16 @@ async function deleteEventSlot(slotId) {
 // 실패 사유(reason): invite_required · invite_mismatch · already_applied · slot_closed ·
 //   deadline_passed · birthdate_required · under_age · invalid_campaign_type ·
 //   not_found · permission_denied
-async function reserveEventTicket(slotId, inviteCode) {
+async function reserveEventTicket(slotId, inviteCode, cautionAgreedAt, cautionSnapshot) {
   if (!db) throw new Error('DB 미연결');
   let res = null;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('reserve_event_ticket', {
       p_slot_id: slotId,
-      p_invite_code: inviteCode || null
+      p_invite_code: inviteCode || null,
+      // 주의사항 동의 — 화면이 체크를 강제하므로 기록도 남겨야 한다(마이그레이션 284).
+      p_caution_agreed_at: cautionAgreedAt || null,
+      p_caution_snapshot: cautionSnapshot || null
     });
     if (error) throw error;
     res = data;
@@ -34833,6 +34846,8 @@ async function loadEventSettingsIntoEditForm(camp) {
   const io = $('editCampInviteOnly');
   if (em) em.checked = !!camp?.event_mode;
   if (io) io.checked = !!camp?.is_invite_only;
+  const pl = $('editCampEventPlace');
+  if (pl) pl.value = camp?.event_place || '';
   applyEventModeFormLock('edit');
   applyInviteOnlyRow('edit');
 
@@ -34882,6 +34897,7 @@ function resetEventFormFields(prefix) {
   const em = $(prefix + 'CampEventMode'); if (em) em.checked = false;
   const io = $(prefix + 'CampInviteOnly'); if (io) io.checked = false;
   const cc = $(prefix + 'CampInviteCode'); if (cc) cc.value = '';
+  const pl = $(prefix + 'CampEventPlace'); if (pl) pl.value = '';
   if (prefix === 'new') _pendingNewInviteCode = null;
   _recruitTypeBeforeEvent[prefix] = null;
   const warn = $(prefix + 'CampInviteWarn');
@@ -37577,6 +37593,7 @@ async function saveCampaignEdit() {
       // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
       event_mode: !!$('editCampEventMode')?.checked,
       is_invite_only: !!$('editCampInviteOnly')?.checked,
+      event_place: ($('editCampEventPlace')?.value || '').trim() || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -38721,6 +38738,7 @@ async function addCampaign() {
     // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
     event_mode: !!$('newCampEventMode')?.checked,
     is_invite_only: !!$('newCampInviteOnly')?.checked,
+    event_place: ($('newCampEventPlace')?.value || '').trim() || null,
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,
