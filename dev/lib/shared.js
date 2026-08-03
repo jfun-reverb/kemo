@@ -1334,6 +1334,42 @@ function submissionDeadlinePassed(camp) {
 }
 
 // ══════════════════════════════════════
+// 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283
+//   사양서: docs/specs/2026-07-30-offline-popup-ticketing.md
+// ══════════════════════════════════════
+// 행사(티켓) 캠페인인가.
+//   ⚠️ 이 판정을 여러 곳에서 각자 만들지 않는다. 신청 게이트·활동관리 대체·타임
+//      선택표·관리자 폼이 전부 이 함수 하나를 쓴다 — 판정이 두 벌이 되면 「어떤
+//      화면에서는 행사인데 다른 화면에서는 아닌」 어긋남이 생긴다.
+//   ⚠️ 모집 형식(recruit_type)으로 판정하지 않는다. 행사 캠페인도 형식은 방문형(visit)
+//      그대로이고, 형식에 새 값을 만들지 않는 것이 이 기능의 설계 전제다(사양서 §3).
+function isEventCampaign(camp) {
+  return !!(camp && camp.event_mode === true);
+}
+
+// 비공개(초대 전용) 캠페인인가 — 목록 제외·상세 게이트 판정용.
+//   화면 단계 필터라 이것만으로는 막히지 않는다. 실효 방어선은 예약 함수의
+//   초대 번호 재검증이다(마이그레이션 283 reserve_event_ticket).
+function isInviteOnlyCampaign(camp) {
+  return !!(camp && camp.is_invite_only === true);
+}
+
+// 예약 타임 시작까지 남은 시간이 취소 마감(2시간)을 넘겼는가.
+//   ⚠️ 화면 표시(취소 버튼 비활성)용 **안내**일 뿐이다. 실제 판정은 서버가 일본 시각
+//      기준으로 한다(283 cancel_event_ticket) — 기기 시각은 믿지 않는다.
+//      화면이 허용해도 서버가 cancel_window_passed 로 거부할 수 있고, 그 경우
+//      호출부는 서버 답을 그대로 안내해야 한다.
+const EVENT_CANCEL_WINDOW_HOURS = 2;
+function eventCancelWindowPassed(slotDate, startTime) {
+  if (!slotDate || !startTime) return false;
+  // 'YYYY-MM-DD' + 'HH:MM' 또는 'HH:MM:SS' 를 일본 시각(+09:00)으로 명시해 해석한다.
+  // 시간대를 안 붙이면 보는 사람 기기의 시간대로 해석돼 해외 접속 시 어긋난다.
+  const ts = Date.parse(`${String(slotDate).slice(0, 10)}T${String(startTime).slice(0, 8)}+09:00`);
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() > (ts - EVENT_CANCEL_WINDOW_HOURS * 3600 * 1000);
+}
+
+// ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움

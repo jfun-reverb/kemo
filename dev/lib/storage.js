@@ -118,6 +118,10 @@ const ADMIN_LIST_COLUMNS = [
   'visit_start', 'visit_end',
   'submission_end',
   'order_index', 'created_at', 'updated_at',
+  // 오프라인 행사(티켓) 캠페인 — 마이그레이션 280.
+  // 목록에서 행사 캠페인을 구분하고(타임 관리·예약 현황 진입), 비공개 캠페인에
+  // 자물쇠 표시를 하려면 목록 조회 단계에서 두 값이 필요하다.
+  'event_mode', 'is_invite_only',
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
@@ -4240,5 +4244,192 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
       : (data?.registered_count ?? data ?? 0);
   });
   return Number(registered) || 0;
+}
+
+// ── 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283 ──────────────────
+// 사양서: docs/specs/2026-07-30-offline-popup-ticketing.md
+// 작업표: docs/specs/2026-07-30-offline-popup-ticketing-breakdown.md 「작업 1」
+//
+// 뒤 조각(관리자 화면·방문객 화면·현장 확인 페이지)이 쓰는 접근 함수를 여기 한곳에
+// 모아 둔다 — 작업 2·3·4 가 storage.js 를 안 만지게 해 충돌 면을 하나로 줄이려는
+// 의도적 설계다(작업표 「공유 지점 경고」 2번).
+//
+// ⚠️ 서버 함수 3종(reserve/cancel/checkIn)은 예외를 던지지 않고
+//    {ok:false, reason:'...'} 를 돌려준다. 호출부는 반드시 ok 를 확인하고
+//    reason 별 안내 문구를 골라야 한다 — 실패를 조용히 성공으로 넘기면
+//    방문객이 예약된 줄 알고 현장에 온다.
+
+// 타임 목록. 로그인한 사람 전체가 조회할 수 있다(사양서 §0 결정 16).
+async function fetchEventSlots(campaignId) {
+  if (!db || !campaignId) return [];
+  try {
+    const {data, error} = await db.from('event_slots')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('slot_date', {ascending: true})
+      .order('start_time', {ascending: true});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// 타임별 정원·확정·대기 수. 방문객은 남의 티켓 행을 볼 수 없어 직접 셀 수 없으므로
+// 서버 함수가 숫자만 내려준다(마이그레이션 283 get_event_slot_counts).
+// 반환: { [slotId]: {capacity, confirmed, waitlist, remaining} }
+async function fetchEventSlotCounts(campaignId) {
+  if (!db || !campaignId) return {};
+  try {
+    const {data, error} = await db.rpc('get_event_slot_counts', {p_campaign_id: campaignId});
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(r => {
+      const capacity  = Number(r.capacity || 0);
+      const confirmed = Number(r.confirmed_count || 0);
+      map[r.slot_id] = {
+        capacity,
+        confirmed,
+        waitlist:  Number(r.waitlist_count || 0),
+        remaining: Math.max(0, capacity - confirmed)
+      };
+    });
+    return map;
+  } catch(e) { return {}; }
+}
+
+// 타임 등록·수정 (캠페인 관리 권한 이상). row.id 가 있으면 수정, 없으면 신규.
+async function upsertEventSlot(row) {
+  if (!db) throw new Error('DB 미연결');
+  let saved = null;
+  await retryWithRefresh(async () => {
+    const q = row?.id
+      ? db.from('event_slots').update(row).eq('id', row.id).select().maybeSingle()
+      : db.from('event_slots').insert(row).select().maybeSingle();
+    const {data, error} = await q;
+    if (error) throw error;
+    saved = data;
+  });
+  return saved;
+}
+
+async function deleteEventSlot(slotId) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('event_slots').delete().eq('id', slotId);
+    if (error) throw error;
+  });
+}
+
+// 예약. 성공하면 {ok:true, ticket_id, ticket_code, status, waitlist_position, slot}.
+// 실패 사유(reason): invite_required · invite_mismatch · already_applied · slot_closed ·
+//   deadline_passed · birthdate_required · under_age · invalid_campaign_type ·
+//   not_found · permission_denied
+async function reserveEventTicket(slotId, inviteCode) {
+  if (!db) throw new Error('DB 미연결');
+  let res = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('reserve_event_ticket', {
+      p_slot_id: slotId,
+      p_invite_code: inviteCode || null
+    });
+    if (error) throw error;
+    res = data;
+  });
+  return res || {ok: false, reason: 'not_found'};
+}
+
+// 본인 취소. 실패 사유: cancelled · already_entered · cancel_window_passed ·
+//   settlement_paid_cannot_cancel · not_found · permission_denied.
+// 성공 시 promoted_ticket_id 로 승격자를 알려준다.
+async function cancelEventTicket(ticketId) {
+  if (!db) throw new Error('DB 미연결');
+  let res = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('cancel_event_ticket', {p_ticket_id: ticketId});
+    if (error) throw error;
+    res = data;
+  });
+  return res || {ok: false, reason: 'not_found'};
+}
+
+// 현장 입장 확인(관리자 전용). 이미 입장한 티켓도 ok:true 로 오되
+// already_entered=true + entered_at(첫 입장 시각)이 함께 온다.
+// ⚠️ 자립형 확인 페이지(작업 7)는 이 파일을 못 쓰므로 호출을 그 파일 안에 직접 쓴다.
+async function checkInTicket(ticketCode) {
+  if (!db) throw new Error('DB 미연결');
+  let res = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('check_in_ticket', {p_ticket_code: ticketCode});
+    if (error) throw error;
+    res = data;
+  });
+  return res || {ok: false, reason: 'not_found'};
+}
+
+// 본인 티켓 전체(취소분 포함 — 티켓 화면이 취소 상태도 보여준다).
+// 행 단위 보안 정책이 본인 행만 내려주므로 별도 조건이 필요 없다.
+async function fetchMyEventTickets() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('event_tickets')
+      .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label)')
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// 캠페인별 티켓 전체(관리자 예약 현황·리포트). 인플루언서 이름을 함께 가져온다.
+// ⚠️ 1000행 상한 대응 — 이틀차 정원만 1,440명이라 페이지네이션이 필수다.
+async function fetchEventTicketsByCampaign(campaignId) {
+  if (!db || !campaignId) return [];
+  try {
+    return await fetchAllPaged(() =>
+      db.from('event_tickets')
+        .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencer_id (name_kanji, name_kana, email, is_audit)')
+        .eq('campaign_id', campaignId)
+        .order('created_at', {ascending: true})
+    );
+  } catch(e) { return []; }
+}
+
+// 초대 번호 확인(화면 게이트용). 번호 자체는 서버에서 나오지 않고 맞나/틀리나만 온다.
+// 실효 방어선은 예약 함수의 재검증이라, 이 값이 true 여도 예약이 거부될 수 있다.
+async function verifyInviteCode(campaignId, code) {
+  if (!db || !campaignId) return false;
+  try {
+    const {data, error} = await db.rpc('verify_event_invite', {
+      p_campaign_id: campaignId,
+      p_code: code || null
+    });
+    if (error) throw error;
+    return data === true;
+  } catch(e) { return false; }
+}
+
+// ── 초대 번호 발급·조회 (캠페인 관리 권한 이상, 작업 2 관리자 폼용) ──
+// 캠페인 표가 아니라 event_invites 표에 있다(마이그레이션 280 — 공개 조회 유출 차단).
+async function fetchEventInvite(campaignId) {
+  if (!db || !campaignId) return null;
+  try {
+    const {data, error} = await db.from('event_invites')
+      .select('*').eq('campaign_id', campaignId).maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch(e) { return null; }
+}
+
+async function upsertEventInvite(campaignId, code) {
+  if (!db) throw new Error('DB 미연결');
+  let saved = null;
+  await retryWithRefresh(async () => {
+    const {data: s} = await db.auth.getUser();
+    const {data, error} = await db.from('event_invites')
+      .upsert({campaign_id: campaignId, code, created_by: s?.user?.id || null},
+              {onConflict: 'campaign_id'})
+      .select().maybeSingle();
+    if (error) throw error;
+    saved = data;
+  });
+  return saved;
 }
 
