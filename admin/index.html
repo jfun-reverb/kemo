@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785720588';
+  var CURRENT_BUILD = 'v1785721241';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2615,6 +2615,18 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .event-mode-opts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
 
+/* ── 행사 모드에서 잠기는 칸의 시각 표시 ──
+   라디오는 input 이 display:none 이고 라벨이 모양을 담당한다. 그래서 input 에
+   disabled 를 걸어도 **라벨은 그대로 멀쩡해 보인다** — 「입력해야 할 것」과
+   「못 하는 것」이 구분되지 않는다는 지적(2026-08-03). 라벨·입력칸에 직접 표시한다.
+   ⚠️ 테두리·배경은 toggleRT 가 인라인 스타일로 덮어쓰므로 여기서 건드리지 않는다.
+      인라인 스타일을 이길 수 있는 축(불투명도·회색조·커서)만 쓴다. */
+.choice-locked{opacity:.4;filter:grayscale(1);cursor:not-allowed}
+.field-locked{background:var(--surface-dim,#F1F1F1)!important;color:var(--muted)!important;
+  cursor:not-allowed;border-style:dashed!important}
+.lock-note{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;
+  color:var(--muted);background:var(--surface-dim,#F1F1F1);border-radius:5px;padding:1px 6px;margin-left:6px}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2704,7 +2716,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-03 10:29 · 990d69e</span>
+          <span class="admin-build-text">2026-08-03 10:40 · 736de97</span>
         </div>
       </div>
     </aside>
@@ -2968,7 +2980,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="editCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor');applyMinFollowersVisibility('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting');applyMinFollowersVisibility('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
@@ -3031,7 +3043,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="number" id="editCampProductPrice" class="form-input" min="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="editCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="editCampReward" class="form-input" min="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
                   <div class="form-hint" id="editCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
@@ -3275,7 +3287,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="newCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
@@ -3342,7 +3354,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="newCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
                   <div class="form-hint" id="newCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
@@ -34672,16 +34684,19 @@ function applyEventModeFormLock(prefix) {
     if (on) {
       reward.value = '0';
       reward.readOnly = true;
-      reward.style.background = 'var(--bg, #F5F5F5)';
-      reward.style.color = 'var(--muted)';
+      reward.classList.add('field-locked');
     } else {
       reward.readOnly = false;
-      reward.style.background = '';
-      reward.style.color = '';
+      reward.classList.remove('field-locked');
     }
+    // 인라인 스타일로 색을 칠하던 옛 방식의 잔재 제거(클래스로 일원화)
+    reward.style.background = '';
+    reward.style.color = '';
   }
   const rewardHint = $(prefix + 'CampRewardEventHint');
   if (rewardHint) rewardHint.style.display = on ? '' : 'none';
+  const rewardNote = $(prefix + 'CampRewardLockNote');
+  if (rewardNote) rewardNote.style.display = on ? '' : 'none';
 
   // 모집 형식 라디오 — 행사 모드면 방문형으로 고정하고 나머지를 잠근다.
   //   ⚠️ 라디오 name 이 폼마다 다르다: 신규는 recruitType, 편집은 editRecruitType.
@@ -34702,7 +34717,15 @@ function applyEventModeFormLock(prefix) {
     } else {
       r.disabled = false;
     }
+    // 라디오 input 은 display:none 이고 라벨이 모양을 담당한다 — input 의 disabled 만으로는
+    // 화면상 아무 변화가 없어 「고를 수 없는 항목」인지 알 수 없다. 라벨에 직접 표시한다.
+    const lab = r.closest('label');
+    if (lab) lab.classList.toggle('choice-locked', !!r.disabled);
   });
+
+  // 모집 타입 제목 옆 「행사 모드라 방문형 고정」 안내 배지
+  const rtNote = $(prefix + 'CampRecruitTypeLockNote');
+  if (rtNote) rtNote.style.display = on ? '' : 'none';
 
   // 행사 모드를 껐으면 모집 형식을 원래대로 되돌린다.
   //   안 되돌리면 실수로 켰다 끈 관리자가 「형식이 조용히 방문형으로 바뀐 것」을

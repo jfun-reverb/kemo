@@ -2151,3 +2151,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .event-mode-main input[type=checkbox]{accent-color:var(--pink);width:15px;height:15px;cursor:pointer}
 .event-mode-opts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+/* ── 행사 모드에서 잠기는 칸의 시각 표시 ──
+   라디오는 input 이 display:none 이고 라벨이 모양을 담당한다. 그래서 input 에
+   disabled 를 걸어도 **라벨은 그대로 멀쩡해 보인다** — 「입력해야 할 것」과
+   「못 하는 것」이 구분되지 않는다는 지적(2026-08-03). 라벨·입력칸에 직접 표시한다.
+   ⚠️ 테두리·배경은 toggleRT 가 인라인 스타일로 덮어쓰므로 여기서 건드리지 않는다.
+      인라인 스타일을 이길 수 있는 축(불투명도·회색조·커서)만 쓴다. */
+.choice-locked{opacity:.4;filter:grayscale(1);cursor:not-allowed}
+.field-locked{background:var(--surface-dim,#F1F1F1)!important;color:var(--muted)!important;
+  cursor:not-allowed;border-style:dashed!important}
+.lock-note{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;
+  color:var(--muted);background:var(--surface-dim,#F1F1F1);border-radius:5px;padding:1px 6px;margin-left:6px}

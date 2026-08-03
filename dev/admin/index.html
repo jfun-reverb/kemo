@@ -410,7 +410,7 @@
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="editCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor');applyMinFollowersVisibility('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting');applyMinFollowersVisibility('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
@@ -473,7 +473,7 @@
                   <input type="number" id="editCampProductPrice" class="form-input" min="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="editCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="editCampReward" class="form-input" min="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
                   <div class="form-hint" id="editCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
@@ -717,7 +717,7 @@
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="newCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
@@ -784,7 +784,7 @@
                   <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="newCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
                   <div class="form-hint" id="newCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
