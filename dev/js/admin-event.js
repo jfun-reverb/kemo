@@ -319,7 +319,7 @@ function renderEventSlotsTable() {
   const body = $('eventSlotsBody');
   if (!body) return;
   if (!_eventSlotsCache.length) {
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「줄 추가」로 하나씩 넣으세요.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「타임 추가」로 하나씩 넣으세요.</td></tr>`;
     return;
   }
   body.innerHTML = _eventSlotsCache.map(s => {
@@ -397,7 +397,7 @@ async function deleteEventSlotRow(slotId) {
   }
 }
 
-// ── 줄 추가 (한 줄씩) ─────────────────────────────────────────
+// ── 타임 추가 (한 줄씩) ───────────────────────────────────────
 async function addEventSlotRow() {
   const date  = $('eventSlotNewDate')?.value || '';
   const start = $('eventSlotNewStart')?.value || '';
@@ -754,7 +754,7 @@ function applyEventModeFieldVisibility(prefix) {
     // ⚠️ 여기서 _eventPaneCampId 를 쓰면 안 된다. 그 변수는 예약 현황 화면과 공유하는
     //    상태라 **다른 캠페인을 가리키고 있을 수 있다.** 일반 캠페인을 편집하다 행사
     //    모드를 처음 켜는 순간엔 아직 갱신되지 않아, 직전에 보던 캠페인의 시간대가
-    //    이 화면에 그려지고 「줄 추가」·「정원 변경」이 **그 캠페인에 쓰인다**
+    //    이 화면에 그려지고 「타임 추가」·「정원 변경」이 **그 캠페인에 쓰인다**
     //    (2026-08-03 리뷰 지적). 지금 편집 중인 캠페인은 항상 editCampId 칸에 있다.
     const editingId = $('editCampId')?.value || '';
     slotSec.style.display = on ? '' : 'none';

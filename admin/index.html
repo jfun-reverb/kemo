@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785743087';
+  var CURRENT_BUILD = 'v1785744772';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2716,7 +2716,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-03 16:44 · d51ed25</span>
+          <span class="admin-build-text">2026-08-03 17:12 · b1dd069</span>
         </div>
       </div>
     </aside>
@@ -3126,6 +3126,51 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
             <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
+            <!-- 행사 시간 — 행사 모드일 때만 보인다. 모집 조건 안에 두는 이유: 방문 날짜·시각·
+                 정원은 그 캠페인을 언제 몇 명 받느냐는 조건이라 모집 인원·기간과 한 묶음이다
+                 (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지 후 위치 재조정). -->
+            <div id="editCampSlotSection" style="display:none">
+              <label class="form-label" style="margin:4px 0 8px">
+                행사 시간 <span style="font-size:11px;font-weight:400;color:var(--muted)">(방문 날짜·시각·시간대별 정원)</span>
+              </label>
+              <div id="eventSlotsSummary" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+
+              <div class="admin-card" style="padding:12px 14px;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:700;margin-bottom:8px">하루치 일괄 생성</div>
+                <div class="admin-filter-bar" style="flex-wrap:wrap">
+                  <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventBulkDate" class="admin-filter" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>시작 시각</label><input type="time" id="eventBulkStart" class="admin-filter" value="11:00" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="time" id="eventBulkLastStart" class="admin-filter" value="18:30" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px"></div>
+                  <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
+                  <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
+                </div>
+                <div id="eventBulkPreview" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+                <div class="form-hint" style="margin-top:4px">「마지막 시작 시각」까지 포함해서 만듭니다. 한 타임 길이를 0으로 두면 끝 시각 없이 시작 시각만 표시됩니다. 같은 시각이 이미 있으면 건너뜁니다.</div>
+              </div>
+
+              <div class="admin-filter-bar" style="flex-wrap:wrap">
+                <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventSlotNewDate" class="admin-filter"></div>
+                <div class="admin-filter-group"><label>시작</label><input type="time" id="eventSlotNewStart" class="admin-filter"></div>
+                <div class="admin-filter-group"><label>종료(선택)</label><input type="time" id="eventSlotNewEnd" class="admin-filter"></div>
+                <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
+                <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">타임 추가</button>
+              </div>
+
+              <div class="admin-card" style="margin-top:10px">
+                <div class="admin-table-wrap">
+                <table class="data-table">
+                  <thead><tr><th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th></tr></thead>
+                  <tbody id="eventSlotsBody"></tbody>
+                </table>
+                </div>
+              </div>
+              <div class="form-hint" style="margin-top:6px">시간대는 아래 「변경 저장」과 <b>무관하게 바로 반영</b>됩니다. 정원 칸을 고쳐 쓰면 그 자리에서 저장됩니다.</div>
+            </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -3201,51 +3246,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
 
 
-            <!-- 행사 시간대 — 행사 모드일 때만 보인다. 캠페인 편집 안에 두는 이유:
-                 시간대는 그 캠페인의 설정이지 별도 화면에서 관리할 대상이 아니다
-                 (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지). -->
-            <div id="editCampSlotSection" style="display:none">
-              <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">
-                행사 시간대 <span style="font-size:11px;font-weight:400;color:var(--muted)">(방문 날짜·시각·시간대별 정원)</span>
-              </div>
-              <div id="eventSlotsSummary" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
-
-              <div class="admin-card" style="padding:12px 14px;margin-bottom:10px">
-                <div style="font-size:13px;font-weight:700;margin-bottom:8px">하루치 일괄 생성</div>
-                <div class="admin-filter-bar" style="flex-wrap:wrap">
-                  <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventBulkDate" class="admin-filter" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>시작 시각</label><input type="time" id="eventBulkStart" class="admin-filter" value="11:00" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="time" id="eventBulkLastStart" class="admin-filter" value="18:30" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px"></div>
-                  <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
-                  <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
-                  <button type="button" class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
-                </div>
-                <div id="eventBulkPreview" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
-                <div class="form-hint" style="margin-top:4px">「마지막 시작 시각」까지 포함해서 만듭니다. 한 타임 길이를 0으로 두면 끝 시각 없이 시작 시각만 표시됩니다. 같은 시각이 이미 있으면 건너뜁니다.</div>
-              </div>
-
-              <div class="admin-filter-bar" style="flex-wrap:wrap">
-                <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventSlotNewDate" class="admin-filter"></div>
-                <div class="admin-filter-group"><label>시작</label><input type="time" id="eventSlotNewStart" class="admin-filter"></div>
-                <div class="admin-filter-group"><label>종료(선택)</label><input type="time" id="eventSlotNewEnd" class="admin-filter"></div>
-                <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
-                <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">줄 추가</button>
-              </div>
-
-              <div class="admin-card" style="margin-top:10px">
-                <div class="admin-table-wrap">
-                <table class="data-table">
-                  <thead><tr><th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th></tr></thead>
-                  <tbody id="eventSlotsBody"></tbody>
-                </table>
-                </div>
-              </div>
-              <div class="form-hint" style="margin-top:6px">시간대는 아래 「변경 저장」과 <b>무관하게 바로 반영</b>됩니다. 정원 칸을 고쳐 쓰면 그 자리에서 저장됩니다.</div>
-            </div>
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
@@ -34957,7 +34957,7 @@ function renderEventSlotsTable() {
   const body = $('eventSlotsBody');
   if (!body) return;
   if (!_eventSlotsCache.length) {
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「줄 추가」로 하나씩 넣으세요.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「타임 추가」로 하나씩 넣으세요.</td></tr>`;
     return;
   }
   body.innerHTML = _eventSlotsCache.map(s => {
@@ -35035,7 +35035,7 @@ async function deleteEventSlotRow(slotId) {
   }
 }
 
-// ── 줄 추가 (한 줄씩) ─────────────────────────────────────────
+// ── 타임 추가 (한 줄씩) ───────────────────────────────────────
 async function addEventSlotRow() {
   const date  = $('eventSlotNewDate')?.value || '';
   const start = $('eventSlotNewStart')?.value || '';
@@ -35392,7 +35392,7 @@ function applyEventModeFieldVisibility(prefix) {
     // ⚠️ 여기서 _eventPaneCampId 를 쓰면 안 된다. 그 변수는 예약 현황 화면과 공유하는
     //    상태라 **다른 캠페인을 가리키고 있을 수 있다.** 일반 캠페인을 편집하다 행사
     //    모드를 처음 켜는 순간엔 아직 갱신되지 않아, 직전에 보던 캠페인의 시간대가
-    //    이 화면에 그려지고 「줄 추가」·「정원 변경」이 **그 캠페인에 쓰인다**
+    //    이 화면에 그려지고 「타임 추가」·「정원 변경」이 **그 캠페인에 쓰인다**
     //    (2026-08-03 리뷰 지적). 지금 편집 중인 캠페인은 항상 editCampId 칸에 있다.
     const editingId = $('editCampId')?.value || '';
     slotSec.style.display = on ? '' : 'none';
