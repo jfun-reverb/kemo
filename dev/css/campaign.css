@@ -150,3 +150,18 @@ html.preview-mode #page-detail .detail-back{display:none}
 .event-slot-aud{font-size:11px;color:var(--muted);background:#F1F1F1;border-radius:5px;padding:2px 7px}
 .event-slot-remain{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0}
 .event-slot.full .event-slot-remain{color:var(--dark-pink)}
+
+/* ── 초대 전용 캠페인 게이트 — 사양서 2026-07-30 §4-3 ──
+   캠페인 내용은 한 글자도 그리지 않는다. 여기 보이는 것은 안내와 입력칸뿐. */
+.invite-gate{padding:44px 20px;text-align:center}
+.invite-gate .material-icons-round{font-size:44px;color:var(--muted)}
+.invite-gate-title{font-size:16px;font-weight:800;color:var(--ink);margin-top:10px}
+.invite-gate-hint{font-size:13px;color:var(--muted);line-height:1.8;margin-top:10px;white-space:pre-line}
+.invite-gate-btns{display:flex;gap:8px;justify-content:center;margin-top:20px}
+.invite-gate-btns .btn{min-height:48px;min-width:120px}
+.invite-gate-form{margin-top:20px;text-align:left}
+/* 입력칸 글자 크기는 16px 이상 — 모바일에서 자동 확대되지 않게 */
+.invite-gate-form .form-input{font-size:17px;letter-spacing:.16em;text-align:center;
+  text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.invite-gate-form .btn{margin-top:12px;min-height:48px}
+.invite-gate-err{font-size:12px;color:var(--red);margin-top:8px;text-align:center}

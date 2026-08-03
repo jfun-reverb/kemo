@@ -347,3 +347,171 @@ function renderCampaigns(camps) {
   grid.innerHTML = buildCampCards(sliced);
   if (moreBtnWrap) moreBtnWrap.style.display = visible.length > HOME_CAMP_LIMIT ? '' : 'none';
 }
+
+// ══════════════════════════════════════════════════════════════
+// 초대 전용(비공개) 캠페인 진입 — 사양서 2026-07-30 §4-3 「초대 전용 진입」
+//
+// 방어는 세 겹이고 이 파일은 그중 **화면 두 겹**을 맡는다.
+//   ① 목록에서 제외        — visibleCamps (이 파일 위쪽)
+//   ② 상세 진입 게이트     — 아래 renderInviteGate
+//   ③ 예약 함수 서버 재검증 — 마이그레이션 283/284 (실효 방어선)
+// ⚠️ ①②는 화면 단계라 우회할 수 있다. 실제로 예약을 막는 것은 ③뿐이다.
+// ══════════════════════════════════════════════════════════════
+
+// 초대 링크 형식: #detail-{캠페인id}?invite=CODE
+//   형식을 정한 곳은 관리자 쪽(admin-event.js eventInviteLink) 한 곳이다.
+function parseInviteFromHash(hash) {
+  const raw = String(hash || location.hash || '').replace(/^#/, '');
+  if (!raw.startsWith('detail-')) return null;
+  const [path, query] = raw.split('?');
+  const campaignId = path.replace('detail-', '');
+  let inviteCode = null;
+  if (query) {
+    try { inviteCode = new URLSearchParams(query).get('invite'); } catch (e) {}
+  }
+  return {campaignId, inviteCode};
+}
+
+// 캠페인 식별자만 떼어낸다 — 해시에 초대 번호가 붙어 있어도 안전하게 쓰기 위함.
+//   ⚠️ 이게 없으면 `detail-{id}?invite=X` 전체가 캠페인 식별자로 넘어가 캠페인을 못 찾는다.
+function campaignIdFromHash(hash) {
+  const p = parseInviteFromHash(hash);
+  return p ? p.campaignId : String(hash || '').replace('detail-', '').split('?')[0];
+}
+
+// 식별자를 떼어내면서 **초대 번호가 있으면 함께 기억**한다.
+//   해시를 거쳐 상세로 가는 모든 경로(첫 진입·뒤로가기·언어 전환)가 이걸 쓴다.
+//   한 곳만 빠뜨리면 저장소가 비어 있을 때 게이트가 번호를 다시 묻는다.
+function captureInviteFromHash(hash) {
+  const p = parseInviteFromHash(hash);
+  if (!p) return String(hash || '').replace('detail-', '').split('?')[0];
+  if (p.inviteCode) rememberInviteCtx(p.campaignId, String(p.inviteCode).trim().toUpperCase());
+  return p.campaignId;
+}
+
+// 확인된 초대 번호를 캠페인별로 기억한다.
+//   ⚠️ 세션 저장소가 아니라 **브라우저 저장소**를 쓴다. 가입 확인 메일 링크는 보통
+//      새 탭에서 열리는데 세션 저장소는 탭이 바뀌면 남지 않아, 신규 가입자가
+//      돌아올 곳을 잃는다(2026-08-03 리뷰 지적). 담기는 값은 본인이 받은 초대
+//      번호와 캠페인 식별자뿐이라 개인정보가 아니다.
+const INVITE_CTX_KEY = 'reverb.inviteCtx';
+
+function rememberInviteCtx(campaignId, code) {
+  if (!campaignId || !code) return;
+  try {
+    const all = readInviteCtxAll();
+    all[campaignId] = code;
+    localStorage.setItem(INVITE_CTX_KEY, JSON.stringify(all));
+  } catch (e) { /* 저장소를 못 써도 화면은 계속 동작한다 */ }
+}
+
+function readInviteCtxAll() {
+  try {
+    const raw = localStorage.getItem(INVITE_CTX_KEY);
+    const v = raw ? JSON.parse(raw) : null;
+    return (v && typeof v === 'object') ? v : {};
+  } catch (e) { return {}; }
+}
+
+// 작업 3의 예약 함수가 이 값을 서버로 보낸다.
+function getInviteCodeForCampaign(campaignId) {
+  return readInviteCtxAll()[campaignId] || null;
+}
+
+// 가입·로그인 뒤 돌아갈 캠페인. 초대 링크로 들어온 비로그인 방문객이
+// 가입만 하고 이탈하는 것을 막는다(사양서 §2-8 U7).
+//   위와 같은 이유로 브라우저 저장소를 쓴다(확인 메일이 새 탭에서 열려도 남아야 한다).
+const INVITE_RETURN_KEY = 'reverb.inviteReturn';
+
+function rememberInviteReturn(campaignId) {
+  try { localStorage.setItem(INVITE_RETURN_KEY, campaignId || ''); } catch (e) {}
+}
+
+// 로그인·가입 성공 직후 호출. 돌아갈 곳이 있으면 그 캠페인으로 보내고 true 를 준다.
+//   ⚠️ 한 번 쓰면 반드시 지운다 — 안 지우면 다음 로그인 때 엉뚱한 캠페인으로 튄다.
+function consumeInviteReturn() {
+  let campId = '';
+  try {
+    campId = localStorage.getItem(INVITE_RETURN_KEY) || '';
+    localStorage.removeItem(INVITE_RETURN_KEY);
+  } catch (e) { return false; }
+  if (!campId) return false;
+  const code = getInviteCodeForCampaign(campId);
+  const suffix = code ? `?invite=${encodeURIComponent(code)}` : '';
+  // 해시를 초대 번호까지 붙여 되돌려 놓고 상세를 연다 — 새로고침해도 같은 자리로 온다.
+  try { history.replaceState({page: 'detail-' + campId}, '', `#detail-${campId}${suffix}`); } catch (e) {}
+  if (typeof openCampaign === 'function') openCampaign(campId);
+  return true;
+}
+
+// 이 캠페인을 열어도 되는가. 초대 전용이 아니면 항상 통과.
+//   서버 함수는 「맞나/틀리나」만 답한다 — 번호 자체는 절대 내려오지 않는다.
+async function canOpenInviteCampaign(camp) {
+  if (!(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(camp))) return true;
+  if (!currentUser) return false;   // 비로그인은 서버가 어차피 false 를 준다
+  const code = getInviteCodeForCampaign(camp.id);
+  if (!code) return false;
+  try {
+    return await verifyInviteCode(camp.id, code);
+  } catch (e) {
+    console.warn('[canOpenInviteCampaign]', e);
+    return false;   // 확인하지 못했으면 열지 않는다(fail-closed)
+  }
+}
+
+// 게이트 화면 — 상세 안에 그린다. 별도 페이지를 만들지 않는다(경로가 늘면 복귀 경로도 는다).
+//   ⚠️ 캠페인 이름·이미지·내용은 **한 글자도 그리지 않는다.**
+function renderInviteGate(campaignId) {
+  const el = $('detailContent');
+  if (!el) return;
+  const needLogin = !currentUser;
+  el.innerHTML = `
+    <div id="eventInviteGate" class="invite-gate">
+      <span class="material-icons-round notranslate" translate="no">lock</span>
+      <div class="invite-gate-title">${esc(t('event.inviteGateTitle'))}</div>
+      <div class="invite-gate-hint">${esc(t('event.inviteGateHint'))}</div>
+      ${needLogin ? `
+        <div class="invite-gate-hint">${esc(t('event.inviteNeedLogin'))}</div>
+        <div class="invite-gate-btns">
+          <button type="button" class="btn btn-primary" onclick="goInviteAuth('${esc(campaignId)}','signup')">${esc(t('event.inviteSignupBtn'))}</button>
+          <button type="button" class="btn btn-ghost" onclick="goInviteAuth('${esc(campaignId)}','login')">${esc(t('event.inviteLoginBtn'))}</button>
+        </div>
+      ` : `
+        <div class="invite-gate-form">
+          <label class="form-label" for="eventInviteCodeInput">${esc(t('event.inviteInputLabel'))}</label>
+          <input type="text" id="eventInviteCodeInput" class="form-input" maxlength="8"
+                 autocapitalize="characters" autocomplete="off" spellcheck="false">
+          <div id="eventInviteError" class="invite-gate-err" style="display:none">${esc(t('event.inviteInvalid'))}</div>
+          <button type="button" class="btn btn-primary btn-block" onclick="submitInviteCode('${esc(campaignId)}')">${esc(t('event.inviteSubmit'))}</button>
+        </div>
+      `}
+    </div>`;
+}
+
+// 가입·로그인으로 보내면서 돌아올 곳을 기억한다.
+function goInviteAuth(campaignId, which) {
+  rememberInviteReturn(campaignId);
+  navigate(which === 'signup' ? 'signup' : 'login');
+}
+
+async function submitInviteCode(campaignId) {
+  const input = $('eventInviteCodeInput');
+  const errEl = $('eventInviteError');
+  const code = (input?.value || '').trim().toUpperCase();
+  if (errEl) errEl.style.display = 'none';
+  if (!code) { if (errEl) errEl.style.display = ''; return; }
+
+  let ok = false;
+  try { ok = await verifyInviteCode(campaignId, code); }
+  catch (e) { console.warn('[submitInviteCode]', e); }
+
+  if (!ok) {
+    // 틀린 번호는 안내만 — 캠페인이 있는지 없는지도 알려 주지 않는다.
+    if (errEl) errEl.style.display = '';
+    return;
+  }
+  rememberInviteCtx(campaignId, code);
+  // 주소에도 번호를 남겨 새로고침·뒤로가기에서 다시 묻지 않게 한다.
+  try { history.replaceState({page: 'detail-' + campaignId}, '', `#detail-${campaignId}?invite=${encodeURIComponent(code)}`); } catch (e) {}
+  if (typeof openCampaign === 'function') openCampaign(campaignId);
+}

@@ -124,6 +124,9 @@ async function handleSignup(e) {
   toast(t('auth.toast.welcome'),'success');
   updateGnb();
   btn.disabled=false; btn.textContent=t('auth.signup.btn');
+  // 초대 링크로 들어와 가입한 경우 그 캠페인으로 되돌린다(사양서 §2-8 U7).
+  //   안 돌려보내면 가입만 하고 이탈한다 — 첫날 초대분이 그대로 새는 자리다.
+  if (typeof consumeInviteReturn === 'function' && consumeInviteReturn()) return;
   navigate('home');
 }
 
@@ -169,7 +172,10 @@ async function handleLogin(e) {
           currentUserProfile = {id: data.user.id, email};
         } catch(e) {}
       }
-      toast(t('auth.toast.welcomeBack'),'success'); updateGnb(); navigate('home');
+      toast(t('auth.toast.welcomeBack'),'success'); updateGnb();
+      // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
+      if (typeof consumeInviteReturn === 'function' && consumeInviteReturn()) return;
+      navigate('home');
     }
   } catch(e) {
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';

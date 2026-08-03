@@ -63,6 +63,26 @@ async function openCampaign(id) {
   }
   _slideIdx = 0;
 
+  // ── 초대 전용(비공개) 캠페인 게이트 (사양서 §4-3 「초대 전용 진입」) ──
+  //   확인되지 않으면 캠페인 내용을 **한 글자도 그리지 않고** 게이트만 띄운다.
+  //   ⚠️ 화면 단계 방어라 우회할 수 있다. 예약을 실제로 막는 것은 서버 재검증이다.
+  if (typeof canOpenInviteCampaign === 'function' && !(await canOpenInviteCampaign(camp))) {
+    if (typeof renderInviteGate === 'function') renderInviteGate(camp.id);
+    // 게이트 화면에는 신청 버튼을 띄우지 않는다.
+    //   ⚠️ 아이디는 detailFloatBar 다. 'floatBar' 로 적으면 항상 null 이라 **조용히 안 숨겨진다**
+    //      — 그러면 직전 캠페인에서 보던 「申請」 버튼이 그대로 남고, 그걸 누르면
+    //      신청 모달 제목에 비공개 캠페인 이름과 주의사항이 노출된다(2026-08-03 리뷰 지적).
+    const _fb = $('detailFloatBar');
+    if (_fb) _fb.style.display = 'none';
+    // 아이디 하나에만 기대지 않는다 — 버튼이 어떤 이유로 남아도 눌리지 않게 이중으로 끊는다.
+    const _fab = $('floatApplyBtn');
+    if (_fab) _fab.onclick = null;
+    // 직전 캠페인에서 고른 타임이 남아 있으면 「고른 게 없는데 신청이 되는」 상태가 된다.
+    _selectedEventSlotId = null;
+    navigate('detail-' + id);
+    return;
+  }
+
   // 슬라이드 이미지 + 크롭 정보 매핑
   const crops = camp.image_crops || {};
   const rawSlides = [
