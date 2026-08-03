@@ -11,6 +11,10 @@
 --   4) record_application_status_event() 재정의 — 행사 캠페인은 조기 반환
 --      (로직은 154 와 동일하고 「행사 예외」 블록만 추가했다. 설명 주석 일부는
 --       이 파일 길이를 줄이려 생략했으므로 154 원문과 글자 단위로 같지는 않다)
+--   (+) notifications.kind 에 event_waitlist_promoted 추가 ★사양서에 없던 추가
+--       (대기 → 확정 승격을 본인에게 알릴 방법이 없어 노쇼가 되는 문제.
+--        사용자 확인 2026-08-03. 알림은 cancel_event_ticket 이 직접 넣는다 —
+--        행사 캠페인은 상태 트리거가 조기 반환하므로 트리거로는 나가지 않는다)
 --   (+) gen_event_ticket_code()   — 예약번호 생성(내부용)
 --   (+) verify_event_invite()     — 초대 번호 일치 여부만 반환 ★사양서에 없던 추가
 --   (+) get_event_slot_counts()   — 타임별 잔여 집계     ★사양서에 없던 추가
@@ -51,6 +55,40 @@
 -- ============================================================
 
 BEGIN;
+
+-- ============================================================
+-- 0-a. 알림 종류 확장 — 대기 승격 안내
+-- ============================================================
+-- 앞사람이 취소해 대기자가 확정으로 올라가면, 본인이 앱에 들어와 보기 전까지
+-- 그 사실을 모른다 → 그대로 안 오게 된다(노쇼). 사양서는 확정 안내 **메일**만
+-- 2차로 미뤘고(§0 결정 11) 앱 알림은 언급이 없어, 사용자 확인(2026-08-03)을 거쳐
+-- 앱 알림 1종을 1차 범위에 넣는다.
+--   ⚠️ 현행 목록의 원본은 **273**이다(번호가 가장 큰 정의). 273 의 10종을 그대로
+--      옮기고 마지막 1종만 더한다 — 하나라도 빠뜨리면 그 종류의 알림이 CHECK 위반으로
+--      전부 실패한다.
+ALTER TABLE public.notifications
+  DROP CONSTRAINT IF EXISTS notifications_kind_check;
+
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_kind_check CHECK (kind IN (
+    'deliverable_rejected',
+    'deliverable_changed',
+    'deliverable_approved',
+    'application_cancelled',
+    'message_received',
+    'application_approved',
+    'deliverable_proxy_submitted',
+    'settlement_paypal_required',
+    'settlement_paid',
+    'submission_deadline_changed',
+    'event_waitlist_promoted'   -- 283 신규: 대기 → 확정 승격 안내
+  ));
+
+COMMENT ON COLUMN public.notifications.kind IS
+  'deliverable_rejected | deliverable_changed | deliverable_approved | application_cancelled | '
+  'message_received | application_approved | deliverable_proxy_submitted | '
+  'settlement_paypal_required | settlement_paid | submission_deadline_changed | '
+  'event_waitlist_promoted';
 
 -- ============================================================
 -- 0. 예약번호 생성 헬퍼
@@ -542,6 +580,7 @@ DECLARE
   v_slot_start   timestamptz;
   v_promoted     public.event_tickets%ROWTYPE;
   v_promoted_id  uuid := NULL;
+  v_camp_title   text;
   v_pos          integer := 0;
   r              record;
 BEGIN
@@ -646,6 +685,40 @@ BEGIN
            SET status = 'approved'
          WHERE id = v_promoted.application_id;
       END IF;
+
+      -- ── 승격된 사람에게 앱 알림 ──────────────────────────────
+      -- 트리거가 아니라 여기서 직접 넣는다(행사 캠페인은 트리거가 조기 반환하므로).
+      -- 인플루언서 대상이라 문구는 일본어. 링크는 티켓 화면으로 보낸다.
+      --
+      -- ⚠️ 알림 INSERT 만 예외를 삼킨다(이 프로젝트의 154 승인 알림과 다른 처리).
+      --    이 함수의 본래 목적은 **빈 자리를 대기자에게 넘기는 것**이다. 알림이
+      --    어떤 이유로든 실패했을 때(예: 나중에 누가 알림 종류 목록을 바꾸며 이
+      --    종류를 빠뜨리면) 예외가 트랜잭션 전체를 되돌려 **취소도 승격도 무산**된다.
+      --    「알림은 못 갔지만 자리는 넘어갔다」가 그 반대보다 낫다.
+      --    154 는 관리자 액션이라 사람이 다시 누르면 되지만, 여기는 방문객 동작이다.
+      BEGIN
+        SELECT c.title INTO v_camp_title
+          FROM public.campaigns c
+         WHERE c.id = v_ticket.campaign_id;
+
+        INSERT INTO public.notifications (
+          user_id, kind, ref_table, ref_id, title, body
+        ) VALUES (
+          v_promoted.influencer_id,
+          'event_waitlist_promoted',
+          'event_tickets',
+          v_promoted.id,
+          'キャンセル待ちから予約が確定しました',
+          COALESCE(v_camp_title, 'イベント')
+            || 'のご予約が確定しました。'
+            || to_char(v_slot.slot_date, 'MM月DD日')
+            || ' ' || to_char(v_slot.start_time, 'HH24:MI')
+            || ' にご来場ください。入場チケットからQRコードをご確認いただけます。'
+        );
+      EXCEPTION WHEN OTHERS THEN
+        -- 알림 실패는 취소·승격을 막지 않는다. 승격 자체는 티켓·신청 상태로 남는다.
+        NULL;
+      END;
 
       v_promoted_id := v_promoted.id;
     END IF;
@@ -829,4 +902,15 @@ NOTIFY pgrst, 'reload schema';
 -- DROP FUNCTION IF EXISTS public.gen_event_ticket_code();
 -- -- record_application_status_event 는 154 정의로 되돌린다
 -- --   (154 파일의 CREATE OR REPLACE 블록을 그대로 재실행하면 된다)
+-- -- 알림 종류 목록은 273 의 10종으로 되돌린다
+-- ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
+-- ALTER TABLE public.notifications ADD CONSTRAINT notifications_kind_check CHECK (kind IN (
+--   'deliverable_rejected','deliverable_changed','deliverable_approved',
+--   'application_cancelled','message_received','application_approved',
+--   'deliverable_proxy_submitted','settlement_paypal_required','settlement_paid',
+--   'submission_deadline_changed'
+-- ));
+-- --   ⚠️ 되돌리기 전에 event_waitlist_promoted 알림 행을 먼저 지워야 한다
+-- --      (남아 있으면 CHECK 추가가 실패한다):
+-- --   DELETE FROM public.notifications WHERE kind = 'event_waitlist_promoted';
 -- COMMIT;
