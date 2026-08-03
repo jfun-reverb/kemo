@@ -70,10 +70,13 @@ input[type=text],input[type=email],input[type=password]{
 #codeInput{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:26px;letter-spacing:.2em;text-align:center;text-transform:uppercase;padding:16px 10px}
 /* 예시 글자는 입력값과 확실히 구분되게 아주 연하게 — 안 그러면 이미 입력된 것처럼 보인다 */
-#codeInput::placeholder{color:#D4D4D8;font-weight:400}
-#codeInput::-webkit-input-placeholder{color:#D4D4D8;font-weight:400}
-/* 이 라벨만 한 문장이라 12px 회색으로는 안 읽힌다 */
-label[for=codeInput]{font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:10px}
+/* 안내 문장이라 예약번호용 넓은 자간·큰 글자를 그대로 쓰면 넘치고 읽기 어렵다.
+   입력값은 그대로 크고 또렷하게, 안내만 작고 연하게 둔다. */
+#codeInput::placeholder{color:#C4C4C8;font-weight:400;font-size:13px;letter-spacing:0;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+#codeInput::-webkit-input-placeholder{color:#C4C4C8;font-weight:400;font-size:13px;letter-spacing:0;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+
 button{font-family:inherit;cursor:pointer}
 .btn{width:100%;min-height:52px;border:none;border-radius:10px;background:var(--ink);color:#fff;
   font-size:15px;font-weight:700;margin-top:10px}
@@ -233,7 +236,7 @@ button{font-family:inherit;cursor:pointer}
     <div class="card">
       <label for="codeInput" data-i18n="codeLabel">예약번호 8자리</label>
       <input type="text" id="codeInput" maxlength="8" autocomplete="off" autocapitalize="characters"
-             spellcheck="false" inputmode="text" placeholder="ABCD2345">
+             spellcheck="false" inputmode="text" data-i18n-ph="codePlaceholder">
       <button class="btn" id="checkBtn" onclick="submitCode()" data-i18n="confirm">확인</button>
       <div class="hint" data-i18n="codeHint">방문객 화면의 QR 아래에 있는 번호입니다.</div>
     </div>
@@ -319,7 +322,7 @@ const SCAN_I18N = {
     camDenied: '카메라 사용이 허용되지 않았습니다. 예약번호 손입력을 사용해 주세요.',
     camUnavailable: '카메라를 쓸 수 없는 기기입니다. 예약번호 손입력을 사용해 주세요.',
     qrLibFailed: 'QR 읽기 기능을 불러오지 못했습니다. 예약번호 손입력을 사용해 주세요.',
-    codeLabel: '스캔이 안되나요? 예약번호 8자리(ABCD2345)를 입력하세요.', confirm: '확인',
+    codeLabel: '예약번호 8자리', codePlaceholder: '스캔이 안되나요? 예약번호 8자리(ABCD2345)를 입력하세요.', confirm: '확인',
     codeHint: '방문객 화면의 QR 아래에 있는 번호입니다. 헷갈리는 글자(0 O 1 I L)는 쓰지 않습니다. 다 입력한 뒤 「확인」을 눌러 주세요.',
     loading: '불러오는 중…',
     recent: '최근 확인',
@@ -360,7 +363,7 @@ const SCAN_I18N = {
     camDenied: 'カメラの使用が許可されていません。予約番号の手入力をご利用ください。',
     camUnavailable: 'カメラが使えない端末です。予約番号の手入力をご利用ください。',
     qrLibFailed: 'QR読み取り機能を読み込めませんでした。予約番号の手入力をご利用ください。',
-    codeLabel: 'スキャンできませんか？予約番号8桁（ABCD2345）を入力してください。', confirm: '確認',
+    codeLabel: '予約番号 8桁', codePlaceholder: 'スキャンできませんか？予約番号8桁（ABCD2345）を入力してください。', confirm: '確認',
     codeHint: '来場者の画面のQRの下にある番号です。まぎらわしい文字（0 O 1 I L）は使いません。すべて入力してから「確認」をおしてください。',
     loading: '読み込んでいます…',
     recent: '最近の確認',
@@ -417,6 +420,9 @@ function applyLang() {
     // 화면 비활성(inert)에서 제외돼 있고, 그래서 이 예외가 실제로 필요하다.
     if (_modalOpen && el.closest('#resultModal')) return;
     el.textContent = T(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = T(el.getAttribute('data-i18n-ph'));
   });
   document.querySelectorAll('[data-i18n-scan]').forEach(el => {
     // 카메라 버튼은 상태에 따라 글자가 달라 별도 처리
