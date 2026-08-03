@@ -760,6 +760,11 @@ async function openEditCampaign(campId) {
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===rtVal);});
   const checkedRt = document.querySelector(`input[name="editRecruitType"][value="${rtVal}"]`);
   if (checkedRt) toggleEditRT(checkedRt);
+  // 아래 함수가 「행사인가」를 이 체크박스로 판정한다. 이 값을 채우는 건 한참 뒤
+  // (loadEventSettingsIntoEditForm)라, 먼저 맞춰 두지 않으면 첫 그림이 직전 캠페인의
+  // 행사 여부로 그려진다. 나중에 같은 값으로 다시 세팅돼도 결과는 같다(멱등).
+  const _emEl = $('editCampEventMode');
+  if (_emEl) _emEl.checked = !!camp.event_mode;
   applyDeadlineFieldsVisibility('edit', rtVal);
 
   // lookup_values 동적 렌더 (병렬)
@@ -1472,8 +1477,22 @@ function removeEditCampImg(idx) {
 //   합니다」라는, 화면에 있지도 않은 칸을 가리키는 경고가 뜬다(2026-08-03 사용자 보고).
 //   숨김·저장 시 비움·규칙 제외는 **같은 판정**을 써야 어긋나지 않는다.
 function campRuleSubmissionEnd(prefix) {
-  if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return '';
+  if (_campPrefixIsEvent(prefix)) return '';
   return $(prefix + 'SubmissionEnd')?.value || '';
+}
+
+function _campPrefixIsEvent(prefix) {
+  return (typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new');
+}
+
+// 날짜 규칙이 볼 「방문 기간」 — 행사 모드면 **없는 것으로** 본다. 제출 마감일과 같은 이유다.
+//   행사 캠페인의 방문 날짜는 「행사 시간」이 정하고 그 칸은 화면에서 숨긴다. 값은 저장된
+//   진짜 날짜라 남겨 두는데(지우면 멀쩡한 값이 사라진다), 그대로 두면 모집 시작일을
+//   뒤로 미룰 때 「방문 시작일은 모집 시작일~… 사이여야 합니다」로 **저장이 막힌다** —
+//   화면에 있지도 않은 칸을 가리키는 오류라 관리자가 손쓸 방법이 없다(2026-08-03 리뷰 지적).
+function campRuleVisitRange(prefix) {
+  if (_campPrefixIsEvent(prefix)) return ['', ''];
+  return [$(prefix + 'VisitStart')?.value || '', $(prefix + 'VisitEnd')?.value || ''];
 }
 
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
@@ -1513,7 +1532,7 @@ function syncCampDateMinMax(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
-  const ve = $(prefix+'VisitEnd')?.value || '';
+  const ve = campRuleVisitRange(prefix)[1];
   const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
@@ -1579,8 +1598,7 @@ function validateCampDateRanges(prefix) {
   const dl = $(prefix+'Deadline')?.value || '';
   const ps = $(prefix+'PurchaseStart')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
-  const vs = $(prefix+'VisitStart')?.value || '';
-  const ve = $(prefix+'VisitEnd')?.value || '';
+  const [vs, ve] = campRuleVisitRange(prefix);
   const se = campRuleSubmissionEnd(prefix);
   const errs = [];
   const lower = rs || dl || '';
@@ -2433,7 +2451,8 @@ async function saveCampaignEdit() {
       Object.assign(updates, EVENT_MODE_CLEARED_FIELDS);
       // 방문 기간·모집 인원은 「행사 시간」에서 계산한다 — 손으로 적은 값과 시간대가
       // 어긋나 방문객 화면에 서로 다른 날짜가 나란히 뜨던 것을 없앤다.
-      //   시간대가 0줄이면 계산할 근거가 없으므로 기존 값을 그대로 둔다.
+      //   시간대가 0줄이면 방문 기간은 위에서 비운 채로 남는다(그게 사실이다).
+      //   모집 인원은 0으로 만들지 않는다 — 목록의 「N/M명」 분모가 0이 되면 못 읽는다.
       const _d = (typeof fetchEventDerivedForSave === 'function')
         ? await fetchEventDerivedForSave(campId) : null;
       if (_d) {
@@ -3628,7 +3647,10 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   const wrapId = formMode === 'edit' ? 'editCampMinFollowersGroup' : 'newCampMinFollowersGroup';
   const wrap = $(wrapId);
   if (!wrap) return;
-  wrap.style.display = recruitType === 'monitor' ? 'none' : '';
+  // 행사 캠페인은 SNS 계정 조건이 없다 — 위 applyDeadlineFieldsVisibility 와 같은 이유로
+  // 판정을 여기에 둔다(호출 순서에 기대지 않는다).
+  const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
+  wrap.style.display = (recruitType === 'monitor' || isEvent) ? 'none' : '';
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
@@ -3805,15 +3827,26 @@ function applyDeadlineFieldsVisibility(formMode, recruitType) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
-  const showPurchase = (recruitType === 'monitor');
-  const showVisit = (recruitType === 'visit');
-  if (purchaseRow) purchaseRow.style.display = showPurchase ? '' : 'none';
-  if (visitRow) visitRow.style.display = showVisit ? '' : 'none';
-  if (!showPurchase) {
+  // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는
+  //    「행사 시간」(시간대 표)이 정한다. 이 판정을 **여기에 둬야** 한다.
+  //    호출자 쪽에서만 숨기면, 형식이 바뀔 때 도는 비동기 렌더가 나중에 끝나면서
+  //    「방문형이니 보여라」로 되살린다 — 실제로 신규 등록 화면에서 그랬다
+  //    (2026-08-03 브라우저 테스트). 규칙을 한곳에 두면 순서와 무관해진다.
+  const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
+  const typeWantsPurchase = (recruitType === 'monitor');
+  const typeWantsVisit    = (recruitType === 'visit');
+  if (purchaseRow) purchaseRow.style.display = (typeWantsPurchase && !isEvent) ? '' : 'none';
+  if (visitRow)    visitRow.style.display    = (typeWantsVisit    && !isEvent) ? '' : 'none';
+  // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
+  //   둘을 한 덩어리로 두면 ①편집 폼을 여는 순간(행사 체크박스가 아직 이 캠페인 것으로
+  //   안 바뀐 시점) 직전 캠페인의 행사 여부가 새어 들어와 **멀쩡한 방문형 캠페인의
+  //   방문 날짜가 지워지고** ②행사 모드를 켰다 끄면 원래 있던 날짜가 사라진다.
+  //   숨기는 것과 지우는 것은 목적이 다르다(2026-08-03 리뷰 지적).
+  if (!typeWantsPurchase) {
     const ps = $(prefix + 'PurchaseStart'); if (ps) ps.value = '';
     const pe = $(prefix + 'PurchaseEnd'); if (pe) pe.value = '';
   }
-  if (!showVisit) {
+  if (!typeWantsVisit) {
     const vs = $(prefix + 'VisitStart'); if (vs) vs.value = '';
     const ve = $(prefix + 'VisitEnd'); if (ve) ve.value = '';
   }
