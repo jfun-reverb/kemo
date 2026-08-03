@@ -798,7 +798,11 @@ function eventCheckInFailMessage(reason) {
 const EVENT_MODE_CLEARED_FIELDS = {
   channel: '', channel_match: 'or', primary_channel: null,
   content_types: '', min_followers: 0,
-  submission_end: null, product_price: 0, reward: 0, reward_note: null
+  submission_end: null, product_price: 0, reward: 0, reward_note: null,
+  // 방문 기간은 「행사 시간」에서 계산한다. 편집 저장은 이 뒤에 시간대에서 읽은 값으로
+  // 다시 덮어쓰고(시간대가 0줄이면 그대로 비어 있는 게 맞다), 신규 등록은 시간대가
+  // 아직 없으므로 비운 채로 저장된다 — 손으로 적은 날짜가 남지 않게 한다.
+  visit_start: null, visit_end: null
 };
 
 function applyEventModeFieldVisibility(prefix) {
@@ -833,21 +837,14 @@ function applyEventModeFieldVisibility(prefix) {
   ];
   groups.forEach(g => { if (g) g.style.display = on ? 'none' : ''; });
 
-  // ── ㉡ 모집 형식**도** 감추는 칸 — 끌 때 무조건 보이게 하면 안 된다 ──
-  //   방문 기간은 방문형에서만, 기준 채널·최소 팔로워수는 리뷰어형이 아닐 때만 보인다.
-  //   여기서 `display=''` 로 되돌리면 그 규칙을 덮어써서, **행사와 무관한 캠페인**을
-  //   편집으로 열 때 있어선 안 될 칸이 뜬다(이 함수가 형식 판정보다 나중에 돌기 때문).
-  //   그래서 끌 때는 원래 규칙에 다시 물어본다 — 판정을 여기서 새로 만들지 않는다.
+  // ── ㉡ 모집 형식**도** 정하는 칸(방문 기간 · 기준 채널+최소 팔로워수) ──
+  //   여기서 직접 보이거나 숨기지 않는다. 두 규칙(형식·행사)이 한 요소를 서로
+  //   반대로 건드리면 나중에 실행된 쪽이 이겨서, 켜고 끄는 순서·비동기 렌더가
+  //   끝나는 시점에 따라 결과가 달라진다. 행사 판정은 각 함수 안으로 옮겼으니
+  //   여기서는 그 함수에 다시 물어보기만 한다.
   const rt = _currentRecruitType(prefix);
-  const visitRow = $(prefix + 'CampVisitRow');   // 방문 기간 — 행사면 시간대가 정한다
-  const mfGroup  = $(prefix + 'CampMinFollowersGroup');
-  if (on) {
-    if (visitRow) visitRow.style.display = 'none';
-    if (mfGroup)  mfGroup.style.display  = 'none';
-  } else {
-    if (typeof applyDeadlineFieldsVisibility === 'function') applyDeadlineFieldsVisibility(prefix, rt || 'monitor');
-    if (typeof applyMinFollowersVisibility === 'function')   applyMinFollowersVisibility(prefix, rt || 'monitor');
-  }
+  if (typeof applyDeadlineFieldsVisibility === 'function') applyDeadlineFieldsVisibility(prefix, rt || 'monitor');
+  if (typeof applyMinFollowersVisibility === 'function')   applyMinFollowersVisibility(prefix, rt || 'monitor');
 
   // 모집 인원 잠금은 시간대 개수에 달렸다 — 켜고 끌 때마다 다시 판정한다.
   if (prefix === 'edit') syncEventDerivedFields();
