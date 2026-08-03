@@ -27,11 +27,17 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
   /* 오른쪽 명단은 따로 스크롤한다 — 왼쪽 스캔 영역이 늘 보이게 */
   .col-right{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto}
 }
-.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.topbar h1{font-size:17px;font-weight:800;margin:0;flex:1}
+.topbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+
+.topbar h1{font-size:17px;font-weight:800;margin:0;flex:0 0 auto}
+.topbar-gap{flex:1 1 auto}
+.date-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.date-tab{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--line);
+  background:#fff;color:var(--muted);font-size:14px;font-weight:700;flex-shrink:0}
+.date-tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .lang-toggle{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-shrink:0}
-.lang-toggle button{min-height:36px;padding:0 10px;border:none;background:#fff;color:var(--muted);
-  font-size:12px;font-weight:700}
+.lang-toggle button{min-height:26px;padding:0 9px;border:none;background:#fff;color:var(--muted);
+  font-size:11px;font-weight:700}
 .lang-toggle button.on{background:var(--ink);color:#fff}
 .badge-env{font-size:10px;font-weight:800;background:var(--amber);color:#fff;padding:2px 7px;border-radius:5px}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
@@ -41,6 +47,11 @@ input[type=text],input[type=email],input[type=password]{
   font-size:17px;font-family:inherit;background:#fff;color:var(--ink)}
 #codeInput{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:26px;letter-spacing:.2em;text-align:center;text-transform:uppercase;padding:16px 10px}
+/* 예시 글자는 입력값과 확실히 구분되게 아주 연하게 — 안 그러면 이미 입력된 것처럼 보인다 */
+#codeInput::placeholder{color:#D4D4D8;font-weight:400}
+#codeInput::-webkit-input-placeholder{color:#D4D4D8;font-weight:400}
+/* 이 라벨만 한 문장이라 12px 회색으로는 안 읽힌다 */
+label[for=codeInput]{font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:10px}
 button{font-family:inherit;cursor:pointer}
 .btn{width:100%;min-height:52px;border:none;border-radius:10px;background:var(--ink);color:#fff;
   font-size:15px;font-weight:700;margin-top:10px}
@@ -122,12 +133,16 @@ button{font-family:inherit;cursor:pointer}
 <div class="wrap">
   <div class="topbar">
     <h1 data-i18n="pageTitle">입장 확인</h1>
-    <span class="badge-env" id="envBadge" style="display:none">DEV</span>
     <div class="lang-toggle" role="group" aria-label="language">
       <button type="button" id="langKo" class="on" onclick="setLang('ko')">한국어</button>
       <button type="button" id="langJa" onclick="setLang('ja')">日本語</button>
     </div>
+    <span class="topbar-gap"></span>
+    <span class="badge-env" id="envBadge" style="display:none">DEV</span>
     <button class="att-btn" id="logoutBtn" style="display:none" onclick="doLogout()" data-i18n="logout">로그아웃</button>
+    <!-- 개발서버에서만 보인다. 운영 데이터베이스에는 이 기능의 서버 함수 자체가 없다. -->
+    <button class="att-btn" id="resetBtn" style="display:none;border-color:var(--amber);color:var(--amber)"
+            onclick="resetCheckins()" data-i18n="resetBtn">입장 기록 초기화 (개발 전용)</button>
   </div>
 
   <!-- 로그인 (관리자 계정) -->
@@ -198,11 +213,7 @@ button{font-family:inherit;cursor:pointer}
         <label style="margin:0;flex:1" data-i18n="roster">예약자 명단</label>
         <button class="att-btn" onclick="loadRoster()" data-i18n="refresh">새로고침</button>
       </div>
-      <select id="rosterDate" class="att-btn" style="width:100%;min-height:46px;padding:0 12px;font-size:15px"
-              onchange="onRosterDateChange(this.value)"></select>
-      <!-- 개발서버에서만 보인다. 운영 데이터베이스에는 이 기능의 서버 함수 자체가 없다. -->
-      <button class="btn btn-ghost" id="resetBtn" style="display:none;border-color:var(--amber);color:var(--amber)"
-              onclick="resetCheckins()" data-i18n="resetBtn">입장 기록 초기화 (개발 전용)</button>
+      <div id="rosterDate" class="date-tabs" role="group"></div>
       <div class="hint" data-i18n="rosterHint">QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.</div>
       <div id="rosterList"><div class="empty" data-i18n="loading">불러오는 중…</div></div>
     </div>
@@ -272,7 +283,7 @@ const SCAN_I18N = {
     camDenied: '카메라 사용이 허용되지 않았습니다. 예약번호 손입력을 사용해 주세요.',
     camUnavailable: '카메라를 쓸 수 없는 기기입니다. 예약번호 손입력을 사용해 주세요.',
     qrLibFailed: 'QR 읽기 기능을 불러오지 못했습니다. 예약번호 손입력을 사용해 주세요.',
-    codeLabel: '예약번호 8자리', confirm: '확인',
+    codeLabel: '스캔이 안되나요? 예약번호 8자리(ABCD2345)를 입력하세요.', confirm: '확인',
     codeHint: '방문객 화면의 QR 아래에 있는 번호입니다. 헷갈리는 글자(0 O 1 I L)는 쓰지 않습니다. 다 입력한 뒤 「확인」을 눌러 주세요.',
     loading: '불러오는 중…',
     recent: '최근 확인',
@@ -282,7 +293,7 @@ const SCAN_I18N = {
     noAttendees: '예약자가 없습니다.',
     rosterFailed: '명단을 불러오지 못했습니다. 인터넷 연결을 확인하고 「새로고침」을 눌러 주세요.',
     enterBtn: '입장', enteredAt: '입장', waitingN: '대기', enteredCount: '입장',
-    resetBtn: '입장 기록 초기화 (개발 전용)',
+    resetBtn: '입장 기록 초기화',
     resetAsk: '{scope} 입장 기록을 되돌립니다.\n예약 자체는 그대로 두고 입장 시각만 지웁니다.\n계속할까요?',
     resetScopeAll: '전체 기간의', resetScopeDate: '{d} 의',
     resetDone: '입장 기록 {n}건을 되돌렸습니다.',
@@ -313,7 +324,7 @@ const SCAN_I18N = {
     camDenied: 'カメラの使用が許可されていません。予約番号の手入力をご利用ください。',
     camUnavailable: 'カメラが使えない端末です。予約番号の手入力をご利用ください。',
     qrLibFailed: 'QR読み取り機能を読み込めませんでした。予約番号の手入力をご利用ください。',
-    codeLabel: '予約番号 8桁', confirm: '確認',
+    codeLabel: 'スキャンできませんか？予約番号8桁（ABCD2345）を入力してください。', confirm: '確認',
     codeHint: '来場者の画面のQRの下にある番号です。まぎらわしい文字（0 O 1 I L）は使いません。すべて入力してから「確認」をおしてください。',
     loading: '読み込んでいます…',
     recent: '最近の確認',
@@ -323,7 +334,7 @@ const SCAN_I18N = {
     noAttendees: '予約者がいません。',
     rosterFailed: 'リストを読み込めませんでした。通信環境をご確認のうえ「再読み込み」をおしてください。',
     enterBtn: '入場', enteredAt: '入場', waitingN: 'キャンセル待ち', enteredCount: '入場',
-    resetBtn: '入場記録をリセット（開発用）',
+    resetBtn: '入場記録をリセット',
     resetAsk: '{scope}入場記録をもとに戻します。\n予約はそのままで、入場時刻だけを消します。\n続けますか？',
     resetScopeAll: '全期間の', resetScopeDate: '{d} の',
     resetDone: '入場記録を{n}件もとに戻しました。',
@@ -698,14 +709,18 @@ function prepareRosterDates(allSlots) {
   return true;
 }
 
+// 날짜를 버튼으로 늘어놓는다 — 드롭다운은 열고·고르고·닫는 세 동작이라
+// 입구에서 한 손으로 쓰기 불편하다(사용자 요청 2026-08-03).
 function renderRosterDateOptions() {
-  const sel = $('rosterDate');
-  if (!sel) return;
+  const box = $('rosterDate');
+  if (!box) return;
   const today = jstToday();
-  sel.innerHTML = _rosterDates.map(d => {
-    const label = d.slice(5).replace('-', '/') + (d === today ? T('todaySuffix') : '');
-    return `<option value="${d}"${d === _rosterPick ? ' selected' : ''}>${esc(label)}</option>`;
-  }).join('') + `<option value="all"${_rosterPick === 'all' ? ' selected' : ''}>${esc(T('allDates'))}</option>`;
+  const btn = (val, label, on) =>
+    `<button type="button" class="date-tab${on ? ' on' : ''}" aria-pressed="${on}"
+             onclick="onRosterDateChange('${val}')">${esc(label)}</button>`;
+  box.innerHTML =
+    _rosterDates.map(d => btn(d, d.slice(5).replace('-', '/') + (d === today ? T('todaySuffix') : ''), d === _rosterPick)).join('')
+    + btn('all', T('allDates'), _rosterPick === 'all');
 }
 
 // 【개발 전용】 입장 확인 기록을 되돌려 같은 QR 로 다시 테스트할 수 있게 한다.
