@@ -37,8 +37,17 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
   /* 스크롤 막대가 카드 **안쪽**에 오게 한다 — 밖에 있으면 카드와 따로 노는 것처럼 보인다 */
   .col-right > .card{flex:1;min-height:0;display:flex;flex-direction:column}
   /* 음수 여백으로 밀어내면 막대가 카드 안쪽 여백 바깥에 걸쳐 어색하다.
-     내용을 조금 좁혀 막대가 들어설 자리를 만든다. */
-  #rosterList{flex:1;min-height:0;overflow-y:auto;padding-right:8px}
+     내용을 조금 좁혀 막대가 들어설 자리를 만든다.
+     테두리로 「여기가 따로 스크롤되는 영역」임을 드러낸다 — 없으면 카드 아래쪽
+     내용이 잘린 것처럼 보인다.
+     ⚠️ padding-top 은 0 이어야 한다. 값을 주면 시간대 제목(sticky)이 그만큼
+        내려가 붙고, 그 위 틈으로 스크롤되는 내용이 비친다. */
+  #rosterList{flex:1;min-height:0;overflow-y:auto;
+    border:1px solid var(--line);border-radius:10px;padding:0 8px 0 10px}
+  /* 첫 시간대 제목이 테두리에 딱 붙지 않게 */
+  #rosterList .slot-group:first-child{margin-top:0}
+  #rosterList .slot-group:first-child .slot-title{padding-top:10px}
+  #rosterList .slot-group:last-child{padding-bottom:10px}
 }
 .topbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 
