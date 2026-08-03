@@ -156,7 +156,9 @@ async function openCampaign(id) {
           if (isMonitor && (camp.purchase_start || camp.purchase_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
           }
-          if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) {
+          // 행사 캠페인은 아래 타임 선택표가 날짜를 보여준다 — 여기에 또 적으면
+          // 방문객이 두 벌의 날짜를 보게 된다(예전엔 그 둘이 어긋나기까지 했다).
+          if (camp.recruit_type === 'visit' && !isEvent && (camp.visit_start || camp.visit_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
           }
           if (camp.submission_end && !isEvent) {

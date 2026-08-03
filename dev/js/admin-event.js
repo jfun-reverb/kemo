@@ -68,6 +68,9 @@ function applyEventModeFormLock(prefix) {
     reward.style.background = '';
     reward.style.color = '';
   }
+  // ⚠️ 아래 리워드 잠금·안내는 **행사 모드에서는 화면에 안 보인다** — 리워드 묶음
+  //    전체를 applyEventModeFieldVisibility 가 숨기기 때문. 그래도 지우지 않는다:
+  //    행사 모드를 **끄는** 경로에서 readOnly 를 풀어 주는 일을 이 코드가 한다.
   const rewardHint = $(prefix + 'CampRewardEventHint');
   if (rewardHint) rewardHint.style.display = on ? '' : 'none';
   const rewardNote = $(prefix + 'CampRewardLockNote');
@@ -207,6 +210,14 @@ async function copyInviteLink(prefix) {
 // 편집 폼을 열 때 행사 설정을 채운다. 초대 번호는 캠페인 표가 아니라 별도 표에 있다
 // (마이그레이션 280 — 캠페인 표에 두면 브라우저로 유출된다).
 async function loadEventSettingsIntoEditForm(camp) {
+  // ★ 「행사 모드를 켜기 직전의 모집 형식」 기억을 **캠페인마다 비운다.**
+  //   이 값은 모듈 전역이라, 캠페인 A 에서 행사 모드를 켠 뒤 비우지 않고 나가면
+  //   다음에 연 캠페인 B 의 라디오가 **A 의 옛 형식으로 조용히 바뀐다.** 그러면
+  //   B 의 방문 기간이 비워지고 콘텐츠 종류 일부가 사라진 채 저장된다
+  //   (2026-08-03 점검에서 발견 — 확인창도 없어 알아채기 어렵다).
+  //   비우는 자리는 여기다: 편집 폼에 캠페인이 실리는 유일한 길목.
+  _recruitTypeBeforeEvent.edit = null;
+
   const em = $('editCampEventMode');
   const io = $('editCampInviteOnly');
   if (em) em.checked = !!camp?.event_mode;
@@ -224,6 +235,13 @@ async function loadEventSettingsIntoEditForm(camp) {
   // editCampId 기준으로 처리했다. 여기서 또 부르면 같은 조회가 두 번 날아가고,
   // 늦게 도착한 쪽이 화면을 덮는 경쟁이 생긴다. 제목만 맞춰 둔다.
   if (camp?.event_mode) _eventPaneCampTitle = camp.title || '';
+
+  // 날짜 규칙(달력 경계·인라인 경고)은 「행사인가」에 따라 달라지는데, openEditCampaign 이
+  // 그것을 계산하는 시점엔 위 체크박스가 아직 안 채워져 있다 — 직전에 보던 캠페인의
+  // 행사 여부로 계산돼 방문 기간 달력이 엉뚱하게 잠기거나 경고가 잘못 뜬다.
+  // 체크박스가 확정된 지금 다시 맞춘다.
+  if (typeof syncCampDateMinMax === 'function') syncCampDateMinMax('editCamp');
+  if (typeof validateCampDateRangesInline === 'function') validateCampDateRangesInline('editCamp');
 
   const codeEl = $('editCampInviteCode');
   if (codeEl) {
@@ -303,6 +321,45 @@ async function renderEventSlotsPane(campaignId) {
 
   renderEventSlotsTable();
   renderEventSlotsSummary();
+  syncEventDerivedFields();
+}
+
+// 행사 캠페인에서 「방문 기간」·「모집 인원」은 따로 입력할 값이 아니라 **행사 시간에서 나오는 값**이다.
+//   예전엔 셋이 따로 놀아서, 방문 기간을 9월로 적어 두고 시간대는 8월에 만들면 방문객 화면에
+//   서로 다른 두 날짜가 나란히 떴고, 「모집 인원 20명」인데 실제 정원은 270명인 일이 생겼다.
+//   (예약 정원 판정은 서버에서 event_slots.capacity 로만 한다 — campaigns.slots 는 아예 안 본다.)
+//   그래서 화면에서는 잠그고, 저장할 때 시간대에서 다시 계산한다(saveCampaignEdit).
+//   ⚠️ 시간대가 0줄이면 잠그지 않는다 — 계산할 근거가 없는데 잠그면 아무 값도 못 넣게 된다.
+function eventDerivedFromSlots(rows) {
+  const list = (rows || []).filter(r => r && r.slot_date);
+  if (!list.length) return null;
+  const dates = list.map(r => String(r.slot_date).slice(0, 10)).sort();
+  return {
+    visit_start: dates[0],
+    visit_end:   dates[dates.length - 1],
+    slots:       list.reduce((n, r) => n + Number(r.capacity || 0), 0)
+  };
+}
+
+function syncEventDerivedFields() {
+  const slotsEl = $('editCampSlots');
+  if (!slotsEl) return;
+  const on = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
+  const d = on ? eventDerivedFromSlots(_eventSlotsCache) : null;
+  const hint = $('editCampSlotsEventHint');
+  if (d) {
+    slotsEl.value = d.slots;
+    slotsEl.readOnly = true;
+    slotsEl.classList.add('field-locked');
+    if (hint) {
+      hint.style.display = '';
+      hint.textContent = `행사 시간의 정원 합계입니다 (${d.visit_start} ~ ${d.visit_end}). 인원을 바꾸려면 아래 「행사 시간」에서 정원을 고치세요.`;
+    }
+  } else {
+    slotsEl.readOnly = false;
+    slotsEl.classList.remove('field-locked');
+    if (hint) hint.style.display = 'none';
+  }
 }
 
 function renderEventSlotsSummary() {
@@ -764,9 +821,9 @@ function applyEventModeFieldVisibility(prefix) {
     }
   }
 
+  // ── ㉠ 행사 모드만 결정하는 칸 — 켜면 숨기고, 끄면 그냥 보이면 된다 ──
   const groups = [
     groupOf('CampChannelWrap'),        // 채널(+ 표시 방식 or/&)
-    $(prefix + 'CampMinFollowersGroup'), // 기준 채널 + 최소 팔로워수
     groupOf('CampContentTypeWrap'),    // 콘텐츠 종류
     groupOf('CampSubmissionEnd'),      // 결과물 제출 마감일
     groupOf('CampWinnerAnnounce'),     // 당선 발표 안내
@@ -775,6 +832,33 @@ function applyEventModeFieldVisibility(prefix) {
     groupOf('CampProductPrice'),       // 제품 금액
   ];
   groups.forEach(g => { if (g) g.style.display = on ? 'none' : ''; });
+
+  // ── ㉡ 모집 형식**도** 감추는 칸 — 끌 때 무조건 보이게 하면 안 된다 ──
+  //   방문 기간은 방문형에서만, 기준 채널·최소 팔로워수는 리뷰어형이 아닐 때만 보인다.
+  //   여기서 `display=''` 로 되돌리면 그 규칙을 덮어써서, **행사와 무관한 캠페인**을
+  //   편집으로 열 때 있어선 안 될 칸이 뜬다(이 함수가 형식 판정보다 나중에 돌기 때문).
+  //   그래서 끌 때는 원래 규칙에 다시 물어본다 — 판정을 여기서 새로 만들지 않는다.
+  const rt = _currentRecruitType(prefix);
+  const visitRow = $(prefix + 'CampVisitRow');   // 방문 기간 — 행사면 시간대가 정한다
+  const mfGroup  = $(prefix + 'CampMinFollowersGroup');
+  if (on) {
+    if (visitRow) visitRow.style.display = 'none';
+    if (mfGroup)  mfGroup.style.display  = 'none';
+  } else {
+    if (typeof applyDeadlineFieldsVisibility === 'function') applyDeadlineFieldsVisibility(prefix, rt || 'monitor');
+    if (typeof applyMinFollowersVisibility === 'function')   applyMinFollowersVisibility(prefix, rt || 'monitor');
+  }
+
+  // 모집 인원 잠금은 시간대 개수에 달렸다 — 켜고 끌 때마다 다시 판정한다.
+  if (prefix === 'edit') syncEventDerivedFields();
+}
+
+// 저장 직전에 시간대를 **다시 읽어** 방문 기간·모집 인원을 계산한다.
+//   화면 캐시(_eventSlotsCache)를 쓰면 다른 관리자가 그 사이 고친 시간대를 놓친다.
+async function fetchEventDerivedForSave(campaignId) {
+  if (!campaignId || typeof fetchEventSlots !== 'function') return null;
+  try { return eventDerivedFromSlots(await fetchEventSlots(campaignId)); }
+  catch (e) { console.warn('[fetchEventDerivedForSave]', e); return null; }
 }
 
 // 이 캠페인이 행사 모드인가 — 저장 검증이 「보이지도 않는 칸」을 요구하지 않게 하는 판정.

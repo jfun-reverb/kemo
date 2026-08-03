@@ -235,8 +235,10 @@ async function autoEndCampaigns(camps) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const toEnd = camps.filter(c => {
-    if (c.status !== 'closed' || !c.submission_end) return false;
-    const se = new Date(c.submission_end);
+    // 행사 캠페인은 제출 마감일이 없어 마지막 방문일을 기준으로 삼는다(campaignFinishDate).
+    const fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(c) : c.submission_end;
+    if (c.status !== 'closed' || !fin) return false;
+    const se = new Date(fin);
     se.setHours(23, 59, 59, 999);
     return now > se;
   });
@@ -293,9 +295,10 @@ function computeCampaignStatus(camp) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
     if (dl < now) {
-      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
-      if (camp.submission_end) {
-        const se = new Date(camp.submission_end);
+      // 모집 마감 — 결과물 제출 마감(행사는 마지막 방문일)까지 지났으면 종료(ended)
+      const _fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(camp) : camp.submission_end;
+      if (_fin) {
+        const se = new Date(_fin);
         se.setHours(23, 59, 59, 999);
         if (se < now) return 'ended';
       }
@@ -4400,6 +4403,20 @@ async function fetchEventTicketsByCampaign(campaignId) {
         .order('created_at', {ascending: true})
     );
   } catch(e) { return []; }
+}
+
+// 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
+// 필요 없는 곳까지 흘러가므로 건수만 받는다.
+async function countActiveEventTickets(campaignId) {
+  if (!db || !campaignId) return 0;
+  try {
+    const {count, error} = await db.from('event_tickets')
+      .select('id', {count: 'exact', head: true})
+      .eq('campaign_id', campaignId)
+      .neq('status', 'cancelled');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
 }
 
 // 초대 번호 확인(화면 게이트용). 번호 자체는 서버에서 나오지 않고 맞나/틀리나만 온다.
