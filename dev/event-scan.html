@@ -63,12 +63,21 @@ button{font-family:inherit;cursor:pointer}
 .rm-dup .rm-title{color:var(--amber)}
 .rm-bad .rm-title{color:var(--red)}
 
+/* 예약 날짜 배지 — 다른 날 예약자가 그냥 들어오는 것을 막는다.
+   운영진이 모달에서 가장 먼저 보게 위쪽에 크게 둔다. */
+.rm-daybadge{display:none;margin-top:14px;padding:10px 12px;border-radius:10px;
+  font-size:16px;font-weight:800;line-height:1.5}
+.rm-daybadge.today{display:block;background:#F0FDF4;color:var(--green)}
+.rm-daybadge.other{display:block;background:#FEF2F2;color:var(--red);font-size:18px}
+
 /* 체크 표시 — 원을 그린 뒤 체크가 그려진다 */
 .rm-mark{width:88px;height:88px;margin:0 auto;display:block}
 .rm-mark circle{stroke-width:4;fill:none;stroke-dasharray:238;stroke-dashoffset:238;
   animation:rmCircle .5s cubic-bezier(.65,0,.45,1) forwards}
 .rm-mark path{stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;
   stroke-dasharray:60;stroke-dashoffset:60;animation:rmCheck .35s cubic-bezier(.65,0,.45,1) .45s forwards}
+/* 엑스는 두 획이라 두 번째 획을 조금 늦게 그린다 */
+.rm-mark path.x2{animation-delay:.62s}
 .rm-ok .rm-mark circle,.rm-ok .rm-mark path{stroke:var(--green)}
 .rm-dup .rm-mark circle,.rm-dup .rm-mark path{stroke:var(--amber)}
 .rm-bad .rm-mark circle,.rm-bad .rm-mark path{stroke:var(--red)}
@@ -127,10 +136,8 @@ button{font-family:inherit;cursor:pointer}
   <!-- 인증 결과 모달 -->
   <div id="resultModal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
     <div class="rm-box" id="rmBox">
-      <svg class="rm-mark" viewBox="0 0 88 88" aria-hidden="true">
-        <circle cx="44" cy="44" r="38"></circle>
-        <path d="M26 45 L39 58 L63 33"></path>
-      </svg>
+      <div id="rmMarkWrap"></div>
+      <div class="rm-daybadge" id="rmDayBadge"></div>
       <div class="rm-title" id="rmTitle"></div>
       <div class="rm-name" id="rmName"></div>
       <div class="rm-kana" id="rmKana"></div>
@@ -168,7 +175,7 @@ button{font-family:inherit;cursor:pointer}
       <input type="text" id="codeInput" maxlength="8" autocomplete="off" autocapitalize="characters"
              spellcheck="false" inputmode="text" placeholder="ABCD2345">
       <button class="btn" id="checkBtn" onclick="submitCode()">확인</button>
-      <div class="hint">방문객 화면의 QR 아래에 있는 번호입니다. 헷갈리는 글자(0 O 1 I L)는 쓰지 않습니다.</div>
+      <div class="hint">방문객 화면의 QR 아래에 있는 번호입니다. 헷갈리는 글자(0 O 1 I L)는 쓰지 않습니다. 다 입력한 뒤 「확인」을 눌러 주세요.</div>
     </div>
 
     <div class="card" id="recentCard" style="display:none">
@@ -377,20 +384,41 @@ function showResult(res, code) {
 
   const box = $('rmBox');
   box.className = 'rm-box rm-' + cls;
-  $('rmTitle').textContent = head;
-  $('rmName').textContent = res.name_kanji || '';
-  $('rmKana').textContent = res.name_kana || '';
-  $('rmWhen').textContent = res.slot
-    ? slotText(res.slot) + (res.slot.audience_label ? ' · ' + res.slot.audience_label : '')
-    : '';
-  $('rmCode').textContent = code;
-  $('rmSub').textContent = dup
-    ? `첫 입장 ${fmtTime(res.entered_at)} · 확인 ${res.scan_count}회`
-    : (!ok && res.waitlist_position ? `대기 ${res.waitlist_position}번` : '');
 
-  // 체크 그림을 매번 처음부터 그리게 한다(같은 요소를 다시 쓰면 애니메이션이 안 돈다).
-  const mark = box.querySelector('.rm-mark');
-  if (mark) { const c = mark.cloneNode(true); mark.replaceWith(c); }
+  // 성공·중복은 체크, 실패는 엑스. 매번 새로 만들어 넣어야 애니메이션이 다시 그려진다.
+  $('rmMarkWrap').innerHTML = markSvg(ok);
+
+  // 오늘 예약인지 아닌지를 가장 먼저 보이게 한다 — 다른 날 예약자가 그냥 들어오는 것을 막는다.
+  //   ⚠️ 입장 자체를 막지는 않는다. 사정이 있어 다른 날 오신 분을 들여보낼지는 사람이 판단한다
+  //      (중복 입장을 막지 않고 알리기만 하는 것과 같은 정신 — 사양서 §2-8 U3).
+  const day = $('rmDayBadge');
+  const slotDate = res.slot ? String(res.slot.slot_date || '').slice(0, 10) : '';
+  if (slotDate) {
+    const today = jstToday();
+    if (slotDate === today) {
+      day.className = 'rm-daybadge today';
+      day.textContent = '오늘 예약입니다';
+    } else {
+      day.className = 'rm-daybadge other';
+      day.textContent = (slotDate > today ? '오늘이 아닙니다 · ' : '지난 날짜입니다 · ')
+        + slotDate.slice(5).replace('-', '월 ') + '일 예약';
+    }
+  } else {
+    day.className = 'rm-daybadge';
+    day.textContent = '';
+  }
+
+  $('rmTitle').textContent = head;
+  // 없는 예약번호처럼 정보가 없는 경우엔 빈 줄이 남지 않게 아예 숨긴다.
+  setOrHide('rmName', res.name_kanji);
+  setOrHide('rmKana', res.name_kana);
+  setOrHide('rmWhen', res.slot
+    ? slotText(res.slot) + (res.slot.audience_label ? ' · ' + res.slot.audience_label : '')
+    : '');
+  $('rmCode').textContent = code;
+  setOrHide('rmSub', dup
+    ? `첫 입장 ${fmtTime(res.entered_at)} · 확인 ${res.scan_count}회`
+    : (!ok && res.waitlist_position ? `대기 ${res.waitlist_position}번` : ''));
 
   _modalOpen = true;
   $('resultModal').classList.add('open');
@@ -400,6 +428,22 @@ function showResult(res, code) {
   $('rmCloseBtn').focus();
 
   pushRecent({cls, code, name: res.name_kanji || '', head});
+}
+
+function setOrHide(id, text) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.display = text ? '' : 'none';
+}
+
+// 성공·중복이면 체크, 실패면 엑스.
+function markSvg(ok) {
+  const paths = ok
+    ? '<path d="M26 45 L39 58 L63 33"></path>'
+    : '<path d="M30 30 L58 58"></path><path class="x2" d="M58 30 L30 58"></path>';
+  return `<svg class="rm-mark" viewBox="0 0 88 88" aria-hidden="true">
+    <circle cx="44" cy="44" r="38"></circle>${paths}</svg>`;
 }
 
 function closeResultModal() {
@@ -695,9 +739,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && _sc
 window.addEventListener('pagehide', stopScanner);
 
 // 예약번호 입력칸: 8자리를 채우면 바로 확인한다(현장에서 버튼을 한 번 덜 누르게).
+// 대문자·영숫자만 남긴다. **자동 확인은 하지 않는다** — 8자를 채우자마자 확인해 버리면
+// 오타를 고칠 틈이 없고, 결과가 뜬 뒤에야 잘못 친 것을 알게 된다(사용자 요청 2026-08-03).
 $('codeInput').addEventListener('input', function () {
   this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (this.value.length === 8) submitCode();
 });
 $('codeInput').addEventListener('keydown', function (e) {
   if (e.key === 'Enter') { e.preventDefault(); submitCode(); }
