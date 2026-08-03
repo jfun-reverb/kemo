@@ -42,6 +42,11 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
+  // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
+  //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
+  if (page === 'ticket' || page.startsWith('ticket-')) {
+    pageName = 'ticket';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
@@ -70,6 +75,12 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
+  }
+  // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
+  // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
+  if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
+      && typeof cleanupTicketPage === 'function') {
+    cleanupTicketPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -202,6 +213,10 @@ window.addEventListener('popstate', function(e) {
     openCampaign(page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
+    else navigate('mypage', false);
+  } else if (page === 'ticket' || page.startsWith('ticket-')) {
+    // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
+    if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
     else navigate('mypage', false);
   } else {
     navigate(page, false);
@@ -492,6 +507,11 @@ async function init() {
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
     else navigate('mypage', false);
+  } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
+    // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
+    const tid = hash.replace('ticket-', '').replace('ticket', '');
+    if (typeof openTicketPage === 'function') openTicketPage(tid, 'mypage', false);
+    else navigate('mypage', false);
   } else if (hash === 'activity') {
     // 활동관리 페이지 새로고침 — _activityAppId·_activityCamp 글로벌이 NULL 이라 데이터 복원 불가.
     // 빈 폼·뒤로가기 회귀 → 응모이력으로 안전 폴백.
@@ -528,6 +548,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
     : initHash);

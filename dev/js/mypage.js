@@ -275,6 +275,12 @@ async function renderMyApplyList() {
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
+    // 오프라인 행사 예약이면 「入場チケット」 버튼을 함께 둔다(진입 2곳 중 하나 — 사양서 §4-3).
+    //   티켓 id 는 응모 이력에 없으므로 캠페인만 넘기고, 티켓 화면이 내 예약 중에서 찾는다.
+    const ticketBtn = (typeof isEventCampaign === 'function' && isEventCampaign(camp)
+                       && a.status !== 'cancelled')
+      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">confirmation_number</span></button>`
+      : '';
     const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
@@ -286,7 +292,7 @@ async function renderMyApplyList() {
         ${cancelledLine}
         ${badgeRow}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${ticketBtn}${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
 }

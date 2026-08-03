@@ -1004,7 +1004,16 @@ async function openActivityPage(applicationId, campaignId, from) {
   // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
   // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
   // 진입한 경우에도 동일 분기.
+  // 오프라인 행사는 결과물을 내지 않는다 — 활동관리 대신 입장 티켓 화면으로 보낸다.
+  //   확정 티켓은 신청이 「승인」 상태라 이 화면이 그대로 열리면 결과물 제출 폼이
+  //   뜨고 방문객이 「무엇을 내라는 건지」 혼란에 빠진다(사양서 §2-5 — 선택이 아니라 필수).
+  //   ⚠️ 취소 판정보다 **뒤**에 둔다. 취소된 신청은 취소 안내가 먼저다.
   const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  if (!isCancelled && typeof isEventCampaign === 'function' && isEventCampaign(camp)
+      && typeof openTicketForCampaign === 'function') {
+    await openTicketForCampaign(campaignId);
+    return;
+  }
   if (isCancelled) {
     // 차단 안내 패널을 보여주려면 페이지 전환 필요. 정상 진입은 함수 끝의 navigate 가 처리하므로
     // 여기서는 cancelled 분기 한정으로만 호출 — 정상 진입에서 navigate 2회 호출되어 뒤로가기 1번이

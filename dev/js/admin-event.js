@@ -208,6 +208,8 @@ async function loadEventSettingsIntoEditForm(camp) {
   const io = $('editCampInviteOnly');
   if (em) em.checked = !!camp?.event_mode;
   if (io) io.checked = !!camp?.is_invite_only;
+  const pl = $('editCampEventPlace');
+  if (pl) pl.value = camp?.event_place || '';
   applyEventModeFormLock('edit');
   applyInviteOnlyRow('edit');
 
@@ -257,6 +259,7 @@ function resetEventFormFields(prefix) {
   const em = $(prefix + 'CampEventMode'); if (em) em.checked = false;
   const io = $(prefix + 'CampInviteOnly'); if (io) io.checked = false;
   const cc = $(prefix + 'CampInviteCode'); if (cc) cc.value = '';
+  const pl = $(prefix + 'CampEventPlace'); if (pl) pl.value = '';
   if (prefix === 'new') _pendingNewInviteCode = null;
   _recruitTypeBeforeEvent[prefix] = null;
   const warn = $(prefix + 'CampInviteWarn');

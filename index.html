@@ -784,6 +784,43 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 읽기 전용 표시 필드 (생년월일·성별 — 수정은 관리자만, 연령 정책 PR4) */
 .form-readonly{padding:12px 14px;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;min-height:48px;display:flex;align-items:center;box-sizing:border-box}
 
+/* ══════════════════════════════════════
+   입장 티켓 화면 — 오프라인 행사 예약(사양서 2026-07-30 §4-3)
+   접수처에서 화면을 보여 주는 용도라, 예약번호와 QR 을 가장 크고 또렷하게 둔다.
+   ══════════════════════════════════════ */
+.ticket-card{background:#fff;border:1px solid var(--line);border-radius:16px;
+  padding:20px 18px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.ticket-card.off{opacity:.6}
+.ticket-camp{font-size:13px;font-weight:700;color:var(--pink);margin-bottom:14px;line-height:1.4}
+.ticket-qr-wrap{display:flex;justify-content:center;align-items:center;min-height:200px;margin-bottom:10px}
+.ticket-qr-wrap canvas{border-radius:8px}
+.ticket-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
+.ticket-entered{margin-top:8px;font-size:12px;font-weight:700;color:var(--green)}
+
+.ticket-rows{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;text-align:left}
+.ticket-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:13px}
+.ticket-row span{flex:0 0 84px;color:var(--muted);font-size:12px}
+.ticket-row b{flex:1;color:var(--ink);font-weight:700;word-break:break-word}
+/* 예약번호는 손으로 불러 주는 값이라 크고 자간을 벌린다 */
+.ticket-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:.14em}
+
+.ticket-state{padding:22px 8px}
+.ticket-state .material-icons-round{font-size:44px;color:var(--muted)}
+.ticket-state-wait .material-icons-round{color:var(--pink)}
+.ticket-state-title{font-size:17px;font-weight:800;color:var(--ink);margin-top:8px}
+.ticket-state-hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+
+.ticket-switch{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none}
+.ticket-switch::-webkit-scrollbar{display:none}
+.ticket-switch-btn{flex-shrink:0;min-height:44px;padding:8px 14px;border-radius:20px;
+  border:1px solid var(--line);background:#fff;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
+.ticket-switch-btn.on{border-color:var(--pink);background:var(--light-pink);color:var(--pink);font-weight:700}
+
+.ticket-cancel{margin-top:16px;min-height:48px}
+.ticket-cancel:disabled{opacity:.45;cursor:not-allowed}
+.ticket-msg{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
+.ticket-msg-err{color:var(--red);font-size:12px;line-height:1.7}
+
 </style>
 </head>
 <body>
@@ -1363,6 +1400,18 @@ html.preview-mode #page-detail .detail-back{display:none}
 <!-- ══════════════════════════════════
      PAGE: CAMPAIGN DETAIL
 ══════════════════════════════════ -->
+<!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
+     진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
+<div id="page-ticket" class="page">
+  <div class="container" style="padding-top:16px;padding-bottom:40px">
+    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
+      <span data-i18n="event.ticketTitle">入場チケット</span>
+    </div>
+    <div id="ticketBody"></div>
+  </div>
+</div>
+
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
     <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
@@ -3755,6 +3804,32 @@ window.I18N_JA = {
     failUnderAge: 'このイベントは満18歳以上の方がご利用いただけます。',
     failNotFound: 'この日時が見つかりませんでした。画面を更新してもう一度おためしください。',
     failGeneric: '予約できませんでした。もう一度おためしください。',
+    // ── 入場チケット画面 ──
+    ticketTitle: '入場チケット',
+    ticketMenu: '入場チケット',
+    ticketCodeLabel: '予約番号',
+    ticketNameLabel: 'お名前',
+    ticketWhenLabel: '来場日時',
+    ticketPlaceLabel: '会場',
+    ticketQrHint: '受付でこの画面をおみせください。',
+    ticketWaitlistTitle: 'キャンセル待ち {n}番',
+    ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
+    ticketCancelledTitle: 'この予約はキャンセルされました',
+    ticketEnteredAt: '入場ずみ（{time}）',
+    ticketEmpty: 'ご予約はまだありません。',
+    ticketLoadFailed: 'チケットを読み込めませんでした。通信環境をご確認のうえ、もう一度おためしください。',
+    ticketNotFound: 'このチケットが見つかりませんでした。',
+    ticketCancelBtn: '予約をキャンセルする',
+    ticketCancelConfirm: 'この予約をキャンセルします。よろしいですか？\nキャンセルしたあとに、ほかの日時であらためて予約できます。',
+    ticketCancelDone: '予約をキャンセルしました。',
+    ticketCancelClosed: '開始2時間前をすぎたため、ご自身ではキャンセルできません。運営までごれんらくください。',
+    ticketCancelClosedShort: 'キャンセル受付は終了しました',
+    ticketCancelFailEntered: 'すでに入場ずみのため、キャンセルできません。',
+    ticketCancelFailGeneric: 'キャンセルできませんでした。もう一度おためしください。',
+    ticketQrFailed: 'QRコードを表示できませんでした。受付で予約番号をおつたえください。',
+    ticketPlaceTbd: '会場のごあんないは、決まりしだいおしらせします。',
+    ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
+    ticketTabCancelled: 'キャンセル',
   },
 
   common: {
@@ -4528,6 +4603,32 @@ window.I18N_KO = {
     failUnderAge: '이 행사는 만 18세 이상만 이용할 수 있습니다.',
     failNotFound: '이 시간을 찾지 못했습니다. 화면을 새로 고치고 다시 시도해 주세요.',
     failGeneric: '예약하지 못했습니다. 다시 시도해 주세요.',
+    // ── 입장 티켓 화면 ──
+    ticketTitle: '입장 티켓',
+    ticketMenu: '입장 티켓',
+    ticketCodeLabel: '예약번호',
+    ticketNameLabel: '이름',
+    ticketWhenLabel: '방문 일시',
+    ticketPlaceLabel: '장소',
+    ticketQrHint: '접수처에서 이 화면을 보여 주세요.',
+    ticketWaitlistTitle: '대기 {n}번',
+    ticketWaitlistHint: '자리가 나면 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
+    ticketCancelledTitle: '이 예약은 취소됐습니다',
+    ticketEnteredAt: '입장 완료({time})',
+    ticketEmpty: '아직 예약이 없습니다.',
+    ticketLoadFailed: '티켓을 불러오지 못했습니다. 통신 상태를 확인하고 다시 시도해 주세요.',
+    ticketNotFound: '이 티켓을 찾지 못했습니다.',
+    ticketCancelBtn: '예약 취소하기',
+    ticketCancelConfirm: '이 예약을 취소합니다. 계속할까요?\n취소한 뒤에 다른 시간으로 다시 예약할 수 있습니다.',
+    ticketCancelDone: '예약을 취소했습니다.',
+    ticketCancelClosed: '시작 2시간 전이 지나 직접 취소할 수 없습니다. 운영진에게 연락해 주세요.',
+    ticketCancelClosedShort: '취소 접수가 끝났습니다',
+    ticketCancelFailEntered: '이미 입장해서 취소할 수 없습니다.',
+    ticketCancelFailGeneric: '취소하지 못했습니다. 다시 시도해 주세요.',
+    ticketQrFailed: 'QR 코드를 표시하지 못했습니다. 접수처에 예약번호를 알려 주세요.',
+    ticketPlaceTbd: '장소 안내는 정해지는 대로 알려 드립니다.',
+    ticketAlreadyCancelled: '이 예약은 이미 취소됐습니다.',
+    ticketTabCancelled: '취소',
   },
 
   common: {
@@ -12940,7 +13041,16 @@ async function openActivityPage(applicationId, campaignId, from) {
   // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
   // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
   // 진입한 경우에도 동일 분기.
+  // 오프라인 행사는 결과물을 내지 않는다 — 활동관리 대신 입장 티켓 화면으로 보낸다.
+  //   확정 티켓은 신청이 「승인」 상태라 이 화면이 그대로 열리면 결과물 제출 폼이
+  //   뜨고 방문객이 「무엇을 내라는 건지」 혼란에 빠진다(사양서 §2-5 — 선택이 아니라 필수).
+  //   ⚠️ 취소 판정보다 **뒤**에 둔다. 취소된 신청은 취소 안내가 먼저다.
   const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  if (!isCancelled && typeof isEventCampaign === 'function' && isEventCampaign(camp)
+      && typeof openTicketForCampaign === 'function') {
+    await openTicketForCampaign(campaignId);
+    return;
+  }
   if (isCancelled) {
     // 차단 안내 패널을 보여주려면 페이지 전환 필요. 정상 진입은 함수 끝의 navigate 가 처리하므로
     // 여기서는 cancelled 분기 한정으로만 호출 — 정상 진입에서 navigate 2회 호출되어 뒤로가기 1번이
@@ -13896,6 +14006,268 @@ async function _submitAllDraftsInner(kind) {
 }
 
 
+// ══════════════════════════════════════════════════════════════
+// 입장 티켓(QR) 화면 — 오프라인 팝업 방문 예약
+//   사양서: docs/specs/2026-07-30-offline-popup-ticketing.md §4-3
+//   작업표: 「작업 4」 · 데이터: 마이그레이션 280~284
+//
+// 방문객이 자기 예약을 확인하는 유일한 화면이다. 1차 범위에서는 확정 안내
+// 메일이 없어(사양서 §0 결정 11) **이 화면이 티켓 그 자체**다.
+//
+// ⚠️ QR 은 브라우저에서만 그린다(외부 전송 0). 담는 값은 예약번호 8자리뿐이라
+//    QR 사진이 SNS 에 올라가도 이름·이메일이 새지 않는다(사양서 §2-9 · §7-3).
+// ══════════════════════════════════════════════════════════════
+
+let _ticketList = [];        // 내 티켓 전체(취소분 포함 — 취소 이력도 보여 준다)
+let _currentTicketId = null;
+let _ticketFrom = 'mypage';  // 뒤로가기 목적지
+let _qrLibLoading = null;    // 라이브러리 중복 로드 방지
+
+// QR 라이브러리는 티켓 화면에 처음 들어올 때만 불러온다(글자인식·엑셀과 같은 방식).
+function loadQrLib() {
+  if (typeof window.QRCode !== 'undefined') return Promise.resolve();
+  if (_qrLibLoading) return _qrLibLoading;
+  _qrLibLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => { _qrLibLoading = null; reject(new Error('qr_lib_failed')); };
+    document.head.appendChild(s);
+  });
+  return _qrLibLoading;
+}
+
+// 예약이 하나라도 있는가 — 햄버거 메뉴에 「입장 티켓」을 넣을지 판단한다.
+//   ⚠️ 취소분은 세지 않는다. 취소만 남은 사람에게 메뉴를 띄우면 눌러도 볼 게 없다.
+function hasEventTicket() {
+  return _ticketList.some(t => t && t.status !== 'cancelled');
+}
+
+// 티켓 목록을 미리 받아 둔다(햄버거 메뉴 표시 판단용). 로그인 직후·메뉴 열 때 호출.
+async function preloadEventTickets() {
+  if (!currentUser) { _ticketList = []; return; }
+  try {
+    _ticketList = await fetchMyEventTickets();
+  } catch (e) {
+    console.warn('[preloadEventTickets]', e);
+    // 조회 실패는 「예약 없음」으로 두지 않는다 — 있던 목록을 그대로 유지한다.
+    // 통신이 잠깐 끊겼다고 메뉴에서 티켓이 사라지면 방문객이 예약을 잃은 줄 안다.
+  }
+}
+
+// ── 화면 열기 ─────────────────────────────────────────────────
+// ticketId 를 안 주면 가장 가까운 예약(확정 우선)을 연다 — 햄버거에서 들어오는 경로.
+async function openTicketPage(ticketId, from, push) {
+  _ticketFrom = from || 'mypage';
+  navigate('ticket' + (ticketId ? '-' + ticketId : ''), push !== false);
+
+  const body = $('ticketBody');
+  if (body) body.innerHTML = `<div class="ticket-msg">${esc(t('common.loading'))}</div>`;
+
+  try {
+    _ticketList = await fetchMyEventTickets();
+  } catch (e) {
+    console.error('[openTicketPage]', e);
+    if (body) body.innerHTML = `<div class="ticket-msg ticket-msg-err">${esc(t('event.ticketLoadFailed'))}</div>`;
+    return;
+  }
+
+  const usable = _ticketList.filter(x => x.status !== 'cancelled');
+  const target = ticketId
+    ? _ticketList.find(x => x.id === ticketId)
+    : (usable[0] || _ticketList[0]);
+
+  if (!target) {
+    if (body) body.innerHTML = `<div class="ticket-msg">${esc(t(ticketId ? 'event.ticketNotFound' : 'event.ticketEmpty'))}</div>`;
+    _currentTicketId = null;
+    return;
+  }
+  _currentTicketId = target.id;
+  renderTicket(target);
+}
+
+function cleanupTicketPage() {
+  _currentTicketId = null;
+  const body = $('ticketBody');
+  if (body) body.innerHTML = '';
+}
+
+function backFromTicket() {
+  if (_ticketFrom === 'detail') { history.back(); return; }
+  navigate('mypage', false);
+  if (typeof openMypageSub === 'function') openMypageSub('applications');
+}
+
+// ── 렌더 ──────────────────────────────────────────────────────
+// 티켓 가운데 영역 — 상태에 따라 QR / 대기 순번 / 취소 안내로 갈린다.
+function ticketMainHtml(ticket) {
+  if (ticket.status === 'cancelled') {
+    return `
+      <div class="ticket-state ticket-state-off">
+        <span class="material-icons-round notranslate" translate="no">event_busy</span>
+        <div>${esc(t('event.ticketCancelledTitle'))}</div>
+      </div>`;
+  }
+  if (ticket.status === 'waitlist') {
+    return `
+      <div class="ticket-state ticket-state-wait">
+        <span class="material-icons-round notranslate" translate="no">hourglass_top</span>
+        <div class="ticket-state-title">${esc(t('event.ticketWaitlistTitle').replace('{n}', ticket.waitlist_position || '-'))}</div>
+        <div class="ticket-state-hint">${esc(t('event.ticketWaitlistHint'))}</div>
+      </div>`;
+  }
+  // 확정 — QR + 예약번호. QR 이 안 그려져도 예약번호만으로 입장할 수 있어야 한다.
+  return `
+    <div class="ticket-qr-wrap">
+      <canvas id="ticketQrCanvas" width="200" height="200"></canvas>
+      <div id="ticketQrFallback" class="ticket-msg-err" style="display:none">${esc(t('event.ticketQrFailed'))}</div>
+    </div>
+    <div class="ticket-hint">${esc(t('event.ticketQrHint'))}</div>
+    ${ticket.entered_at ? `<div class="ticket-entered">${esc(t('event.ticketEnteredAt').replace('{time}', formatDateTime(ticket.entered_at)))}</div>` : ''}`;
+}
+
+// 예약이 여러 건일 때(취소 후 재예약 등) 위에 두는 전환 탭.
+function ticketSwitchHtml(current) {
+  if (_ticketList.length <= 1) return '';
+  return `
+    <div class="ticket-switch">
+      ${_ticketList.map(x => `
+        <button type="button" class="ticket-switch-btn${x.id === current.id ? ' on' : ''}"
+                onclick="openTicketPage('${x.id}', '${esc(_ticketFrom)}', false)">
+          ${esc(formatTicketWhenShort(x.event_slots || {}))}${x.status === 'cancelled' ? ` (${esc(t('event.ticketTabCancelled'))})` : ''}
+        </button>`).join('')}
+    </div>`;
+}
+
+function renderTicket(ticket) {
+  const body = $('ticketBody');
+  if (!body) return;
+
+  const slot = ticket.event_slots || {};
+  const camp = allCampaigns.find(c => c.id === ticket.campaign_id) || {};
+  const p = currentUserProfile || {};
+  const name = (p.name_kanji || p.name || '').trim();
+
+  const when = formatTicketWhen(slot);
+  // 장소는 캠페인의 행사장 안내 칸(마이그레이션 285). 아직 안 정해졌으면 그렇다고
+  // 알린다 — 빈칸으로 두면 「어디로 가야 하는지 안 적힌 티켓」이 된다.
+  const place = (camp.event_place || '').trim();
+
+  const others = ticketSwitchHtml(ticket);
+
+  const main = ticketMainHtml(ticket);
+
+  const canCancel = ticket.status !== 'cancelled' && !ticket.entered_at;
+  const windowPassed = (typeof eventCancelWindowPassed === 'function')
+    && eventCancelWindowPassed(slot.slot_date, slot.start_time);
+
+  body.innerHTML = `
+    ${others}
+    <div class="ticket-card${ticket.status === 'cancelled' ? ' off' : ''}">
+      <div class="ticket-camp">${esc(camp.title || '')}</div>
+      ${main}
+      <div class="ticket-rows">
+        <div class="ticket-row"><span>${esc(t('event.ticketCodeLabel'))}</span><b class="ticket-code">${esc(ticket.ticket_code)}</b></div>
+        <div class="ticket-row"><span>${esc(t('event.ticketNameLabel'))}</span><b>${esc(name)}</b></div>
+        <div class="ticket-row"><span>${esc(t('event.ticketWhenLabel'))}</span><b>${esc(when)}</b></div>
+        <div class="ticket-row"><span>${esc(t('event.ticketPlaceLabel'))}</span><b>${esc(place || t('event.ticketPlaceTbd'))}</b></div>
+      </div>
+    </div>
+    ${canCancel ? `
+      <button type="button" class="btn btn-ghost btn-block ticket-cancel"
+              ${windowPassed ? 'disabled' : ''} onclick="cancelMyTicket('${ticket.id}')">
+        ${esc(windowPassed ? t('event.ticketCancelClosedShort') : t('event.ticketCancelBtn'))}
+      </button>
+      ${windowPassed ? `<div class="ticket-hint">${esc(t('event.ticketCancelClosed'))}</div>` : ''}
+    ` : ''}`;
+
+  if (ticket.status === 'confirmed') renderTicketQr(ticket.ticket_code, 'ticketQrCanvas');
+}
+
+async function renderTicketQr(ticketCode, elId) {
+  const canvas = $(elId);
+  if (!canvas) return;
+  try {
+    await loadQrLib();
+    await window.QRCode.toCanvas(canvas, String(ticketCode), {width: 200, margin: 1});
+  } catch (e) {
+    console.warn('[renderTicketQr]', e);
+    // QR 이 없어도 예약번호로 입장할 수 있다 — 그렇게 안내하고 화면을 막지 않는다.
+    canvas.style.display = 'none';
+    const fb = $('ticketQrFallback');
+    if (fb) fb.style.display = '';
+  }
+}
+
+// 'YYYY-MM-DD' + 'HH:MM' → '8月28日(金) 11:00〜13:00'
+function formatTicketWhen(slot) {
+  if (!slot || !slot.slot_date) return '';
+  const d = (typeof formatEventSlotDateLabel === 'function')
+    ? formatEventSlotDateLabel(String(slot.slot_date).slice(0, 10))
+    : String(slot.slot_date).slice(0, 10);
+  const st = String(slot.start_time || '').slice(0, 5);
+  const en = slot.end_time ? String(slot.end_time).slice(0, 5) : '';
+  return `${d} ${en ? `${st}〜${en}` : st}`;
+}
+
+function formatTicketWhenShort(slot) {
+  if (!slot || !slot.slot_date) return '-';
+  const dt = String(slot.slot_date).slice(5, 10).replace('-', '/');
+  return `${dt} ${String(slot.start_time || '').slice(0, 5)}`;
+}
+
+// ── 본인 취소 ─────────────────────────────────────────────────
+async function cancelMyTicket(ticketId) {
+  // 화면의 비활성은 안내일 뿐이고, 실제 판정은 서버가 일본 시각 기준으로 한다.
+  if (!window.confirm(t('event.ticketCancelConfirm'))) return;
+
+  let res;
+  try {
+    res = await cancelEventTicket(ticketId);
+  } catch (e) {
+    console.error('[cancelMyTicket]', e);
+    toast(t('event.ticketCancelFailGeneric'), 'error');
+    return;
+  }
+
+  if (!res || !res.ok) {
+    const map = {
+      cancel_window_passed:          'event.ticketCancelClosed',
+      already_entered:               'event.ticketCancelFailEntered',
+      cancelled:                     'event.ticketAlreadyCancelled',
+      settlement_paid_cannot_cancel: 'event.ticketCancelFailGeneric',
+      not_found:                     'event.ticketNotFound',
+      permission_denied:             'event.ticketCancelFailGeneric',
+    };
+    toast(t(map[res && res.reason] || 'event.ticketCancelFailGeneric'), 'error');
+    // 서버가 거부한 이유가 화면과 어긋난 상태(예: 이미 입장) 때문일 수 있으니 다시 받아온다.
+    await openTicketPage(ticketId, _ticketFrom, false);
+    return;
+  }
+
+  toast(t('event.ticketCancelDone'), 'success');
+  await openTicketPage(ticketId, _ticketFrom, false);
+  // 응모 이력도 함께 갱신 — 취소한 건이 「당선」으로 남아 보이지 않게.
+  if (typeof loadMyApplications === 'function') { try { await loadMyApplications(); } catch (e) {} }
+}
+
+// 캠페인으로 내 티켓을 찾아 연다 — 응모 이력 카드에서 들어오는 경로.
+//   응모 이력에는 티켓 식별자가 없어(신청과 티켓은 다른 표) 캠페인으로 찾는다.
+async function openTicketForCampaign(campaignId) {
+  try {
+    _ticketList = await fetchMyEventTickets();
+  } catch (e) {
+    console.error('[openTicketForCampaign]', e);
+    toast(t('event.ticketLoadFailed'), 'error');
+    return;
+  }
+  const mine = _ticketList.filter(x => x.campaign_id === campaignId);
+  // 취소분보다 살아 있는 예약을 먼저 연다.
+  const target = mine.find(x => x.status !== 'cancelled') || mine[0];
+  if (!target) { toast(t('event.ticketNotFound'), 'error'); return; }
+  await openTicketPage(target.id, 'mypage');
+}
+
 // ══════════════════════════════════════
 // NOTIFICATIONS — 햄버거 배지 + 슬라이드업 모달
 // (dev/index.html 전용: 햄버거 메뉴 리팩토링)
@@ -13912,6 +14284,11 @@ function openNavPanel() {
   // 메시지 미읽음 최신화 (응모이력 미방문 상태로 햄버거 열어도 배지 정확)
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
+  }
+  // 오프라인 행사 예약 유무 최신화 — 「入場チケット」 항목을 띄울지 판단한다.
+  //   첫 렌더는 이전에 받아 둔 값으로 그리고, 조회가 끝나면 다시 그린다(프로필과 같은 방식).
+  if (currentUser && typeof preloadEventTickets === 'function') {
+    preloadEventTickets().then(() => renderNavMenu()).catch(() => {});
   }
   // 프로필 최신화 — 폼 저장 직후 햄버거를 열어도 계정 카드·未登録 배지가 정확하도록.
   // 첫 렌더는 현재 currentUserProfile(stale 가능)로 즉시 그리고, fetch 완료 시 다시 그린다.
@@ -13964,13 +14341,19 @@ function renderNavMenu() {
       // 「報酬・精算」은 정산 공개 스위치(settlement_settings.influencer_visible)가 켜졌을 때만 노출.
       // 현재는 「관리자만 기록」 단계라 잠금 — DB 값만 true 로 바꾸면 코드 수정 없이 다시 나타난다.
       ...(settlementPublic() ? [{sub:'settlements', label: t('mypage.menu.settlements')}] : []),
+      // 「入場チケット」은 오프라인 행사 예약이 있을 때만 — 없으면 눌러도 볼 게 없다.
+      //   목적지가 마이페이지 하위가 아니라 별도 화면이라 sub 대신 page 로 표시한다.
+      ...((typeof hasEventTicket === 'function' && hasEventTicket())
+          ? [{page:'ticket', label: t('event.ticketMenu')}] : []),
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
     html += `<div class="nav-accordion${_navMypageOpen ? ' open' : ''}" id="navMypageAccordion">`;
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
-      <button class="nav-subitem" onclick="navigate('mypage', false);openMypageSub('${s.sub}');closeNavPanel()">
+      <button class="nav-subitem" onclick="${s.page === 'ticket'
+          ? `closeNavPanel();openTicketPage(null,'mypage')`
+          : `navigate('mypage', false);openMypageSub('${s.sub}');closeNavPanel()`}">
         <span class="nav-label">${esc(s.label)}</span>
         ${s.unreg ? `<span class="nav-unreg-badge">${esc(t('common.unregistered'))}</span>` : ''}
       </button>
@@ -14175,7 +14558,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -14209,6 +14592,13 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
     if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
+    refreshNotifBadge();
+    return;
+  }
+  // 대기 승격 알림 → 입장 티켓 화면 (마이그레이션 283, ref_table='event_tickets')
+  //   분기가 없으면 알림은 뜨는데 눌러도 아무 데도 가지 않는다.
+  if (kind === 'event_waitlist_promoted' && refId && currentUser) {
+    if (typeof openTicketPage === 'function') openTicketPage(refId, 'mypage');
     refreshNotifBadge();
     return;
   }
@@ -14565,6 +14955,12 @@ async function renderMyApplyList() {
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
+    // 오프라인 행사 예약이면 「入場チケット」 버튼을 함께 둔다(진입 2곳 중 하나 — 사양서 §4-3).
+    //   티켓 id 는 응모 이력에 없으므로 캠페인만 넘기고, 티켓 화면이 내 예약 중에서 찾는다.
+    const ticketBtn = (typeof isEventCampaign === 'function' && isEventCampaign(camp)
+                       && a.status !== 'cancelled')
+      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">confirmation_number</span></button>`
+      : '';
     const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
@@ -14576,7 +14972,7 @@ async function renderMyApplyList() {
         ${cancelledLine}
         ${badgeRow}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${ticketBtn}${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
 }
@@ -16060,6 +16456,11 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
+  // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
+  //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
+  if (page === 'ticket' || page.startsWith('ticket-')) {
+    pageName = 'ticket';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
@@ -16088,6 +16489,12 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
+  }
+  // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
+  // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
+  if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
+      && typeof cleanupTicketPage === 'function') {
+    cleanupTicketPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -16220,6 +16627,10 @@ window.addEventListener('popstate', function(e) {
     openCampaign(page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
+    else navigate('mypage', false);
+  } else if (page === 'ticket' || page.startsWith('ticket-')) {
+    // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
+    if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
     else navigate('mypage', false);
   } else {
     navigate(page, false);
@@ -16510,6 +16921,11 @@ async function init() {
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
     else navigate('mypage', false);
+  } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
+    // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
+    const tid = hash.replace('ticket-', '').replace('ticket', '');
+    if (typeof openTicketPage === 'function') openTicketPage(tid, 'mypage', false);
+    else navigate('mypage', false);
   } else if (hash === 'activity') {
     // 활동관리 페이지 새로고침 — _activityAppId·_activityCamp 글로벌이 NULL 이라 데이터 복원 불가.
     // 빈 폼·뒤로가기 회귀 → 응모이력으로 안전 폴백.
@@ -16546,6 +16962,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
     : initHash);

@@ -2247,6 +2247,7 @@ async function saveCampaignEdit() {
       // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
       event_mode: !!$('editCampEventMode')?.checked,
       is_invite_only: !!$('editCampInviteOnly')?.checked,
+      event_place: ($('editCampEventPlace')?.value || '').trim() || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -3391,6 +3392,7 @@ async function addCampaign() {
     // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
     event_mode: !!$('newCampEventMode')?.checked,
     is_invite_only: !!$('newCampInviteOnly')?.checked,
+    event_place: ($('newCampEventPlace')?.value || '').trim() || null,
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,

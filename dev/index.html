@@ -624,6 +624,18 @@ window._supabaseLoaded = false;
 <!-- ══════════════════════════════════
      PAGE: CAMPAIGN DETAIL
 ══════════════════════════════════ -->
+<!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
+     진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
+<div id="page-ticket" class="page">
+  <div class="container" style="padding-top:16px;padding-bottom:40px">
+    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
+      <span data-i18n="event.ticketTitle">入場チケット</span>
+    </div>
+    <div id="ticketBody"></div>
+  </div>
+</div>
+
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
     <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
