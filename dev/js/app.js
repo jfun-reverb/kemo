@@ -210,7 +210,9 @@ window.addEventListener('popstate', function(e) {
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
     if (sub) openMypageSub(sub, false); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
-    openCampaign(page.replace('detail-',''));
+    // 초대 링크(#detail-{id}?invite=CODE)로 들어올 수 있어 식별자만 떼어낸다.
+    //   ⚠️ replace 만 하면 '?invite=...' 까지 캠페인 식별자로 넘어가 캠페인을 못 찾는다.
+    openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
@@ -228,7 +230,7 @@ window.addEventListener('langchange', function() {
   const page = location.hash.replace('#','') || 'home';
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
   else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
-  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-','')); }
   else if (page === 'app-cancel') {
     // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
     // JS 로 동적 채운 영역(경고 메시지, 카테고리 select)은 stale.
@@ -433,6 +435,11 @@ async function init() {
           // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
           if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
           if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
+          // 초대 링크로 들어와 가입한 뒤 **확인 메일 링크로 돌아온** 경우의 복귀.
+          //   운영서버는 가입 시 이메일 확인이 필수라 handleSignup 이 세션 없이 먼저 끝난다
+          //   → 그 경로는 auth.js 의 복귀 코드에 닿지 못한다. 확인 링크로 세션이 생기는
+          //   이 자리가 신규 가입자의 실제 복귀 지점이다(2026-08-03 리뷰 지적).
+          if (typeof consumeInviteReturn === 'function') { try { consumeInviteReturn(); } catch(_){} }
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -490,7 +497,10 @@ async function init() {
   } else if (isRecoveryInProgress || urlHasRecoveryCode) {
     // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
   } else if (hash && hash.startsWith('detail-')) {
-    const campId = hash.replace('detail-','');
+    // 초대 링크로 처음 들어온 경우 — 번호를 먼저 기억해 두고 상세를 연다.
+    //   기억해 두지 않으면 상세 게이트가 번호를 다시 묻고, 예약 함수에도 못 넘긴다.
+    const campId = (typeof captureInviteFromHash === 'function')
+      ? captureInviteFromHash(hash) : hash.replace('detail-','');
     openCampaign(campId);
   } else if (hash && hash.startsWith('unsubscribe')) {
     // 메일 1-click 수신거부 — #unsubscribe?token=... (비로그인 진입 가능)

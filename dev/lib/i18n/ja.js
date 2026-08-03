@@ -57,6 +57,15 @@ window.I18N_JA = {
     ticketPlaceTbd: '会場のごあんないは、決まりしだいおしらせします。',
     ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
     ticketTabCancelled: 'キャンセル',
+    // ── 招待制キャンペーンの入口 ──
+    inviteGateTitle: '招待された方だけがごらんになれます',
+    inviteGateHint: 'お送りしたリンクをひらくと、そのままごらんになれます。\n番号をおもちの方は、下に入力してください。',
+    inviteInputLabel: '招待番号（8文字）',
+    inviteSubmit: 'かくにんする',
+    inviteInvalid: '招待番号を確認してください。',
+    inviteNeedLogin: 'このイベントをごらんになるには、ログインまたは会員登録が必要です。',
+    inviteLoginBtn: 'ログイン',
+    inviteSignupBtn: '会員登録',
   },
 
   common: {

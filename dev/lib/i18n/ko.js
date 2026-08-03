@@ -53,6 +53,15 @@ window.I18N_KO = {
     ticketPlaceTbd: '장소 안내는 정해지는 대로 알려 드립니다.',
     ticketAlreadyCancelled: '이 예약은 이미 취소됐습니다.',
     ticketTabCancelled: '취소',
+    // ── 초대 전용 캠페인 진입 ──
+    inviteGateTitle: '초대받은 분만 볼 수 있습니다',
+    inviteGateHint: '보내 드린 링크를 열면 바로 보실 수 있습니다.\n번호를 갖고 계신 분은 아래에 입력해 주세요.',
+    inviteInputLabel: '초대 번호(8자리)',
+    inviteSubmit: '확인하기',
+    inviteInvalid: '초대 번호를 확인해 주세요.',
+    inviteNeedLogin: '이 행사를 보려면 로그인 또는 회원가입이 필요합니다.',
+    inviteLoginBtn: '로그인',
+    inviteSignupBtn: '회원가입',
   },
 
   common: {
