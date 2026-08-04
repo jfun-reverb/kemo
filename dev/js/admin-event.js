@@ -17,6 +17,9 @@
 let _eventPaneCampId = null;     // 타임 관리·예약 현황이 보고 있는 캠페인
 let _eventPaneCampTitle = '';
 let _eventSlotsCache = [];
+let _eventSlotDateTab = '';                 // 「행사 시간」 날짜 탭('' = 전체)
+let _eventSlotsLoadedFor = null;            // 시간대 목록을 마지막으로 채운 캠페인
+const _eventSlotSelected = new Set();       // 선택 삭제로 고른 타임
 let _eventSlotCounts = {};
 let _eventTicketsCache = [];
 let _eventTicketSlotFilter = '';  // 예약 현황의 타임 필터('' = 전체)
@@ -307,6 +310,11 @@ function resetEventFormFields(prefix) {
 async function renderEventSlotsPane(campaignId) {
   const campId = campaignId || _eventPaneCampId;
   if (!campId) return;
+  // 이 함수는 정원 수정·타임 추가·삭제·일괄 생성 **뒤에도** 불린다. 접기를 무조건
+  //   실행하면 하루치를 만들자마자 패널이 닫혀, 이틀차·삼일차를 만들려면 매번 다시
+  //   펼쳐야 한다. 「캠페인이 바뀌었을 때」만 접는다.
+  const _isOtherCampaign = (campId !== _eventSlotsLoadedFor);
+  _eventSlotsLoadedFor = campId;
   _eventPaneCampId = campId;
 
   // 읽어 오기 전에 먼저 비운다 — 안 비우면 조회가 끝나기 전까지 **직전에 보던
@@ -315,7 +323,7 @@ async function renderEventSlotsPane(campaignId) {
   _eventSlotCounts = {};
 
   const body = $('eventSlotsBody');
-  if (body) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
+  if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
 
   const [slots, counts] = await Promise.all([
     fetchEventSlots(campId),
@@ -324,6 +332,9 @@ async function renderEventSlotsPane(campaignId) {
   _eventSlotsCache = slots || [];
   _eventSlotCounts = counts || {};
 
+  _eventSlotSelected.clear();   // 목록이 바뀌었으니 고른 것도 무효다
+  if (_isOtherCampaign) toggleEventBulkPanel(false);   // 새 캠페인은 접은 채로 시작
+  renderEventSlotDateTabs();
   renderEventSlotsTable();
   renderEventSlotsSummary();
   syncEventDerivedFields();
@@ -381,18 +392,70 @@ function renderEventSlotsSummary() {
   el.innerHTML = `타임 <b>${rows.length}</b>줄 · ${days}일 · 정원 합계 <b>${totalCap.toLocaleString()}</b>명 · 확정 <b>${booked.toLocaleString()}</b>명`;
 }
 
+// 「하루치 일괄 생성」 펼치기·접기. 처음 만들 때만 쓰는 도구라 평소엔 접어 둔다.
+function toggleEventBulkPanel(force) {
+  const panel = $('eventBulkPanel');
+  const btn = $('eventBulkToggleBtn');
+  if (!panel) return;
+  const open = (force === undefined) ? (panel.style.display === 'none') : !!force;
+  panel.style.display = open ? '' : 'none';
+  const icon = btn && btn.querySelector('.material-icons-round');
+  if (icon) icon.textContent = open ? 'expand_less' : 'expand_more';
+  if (open && typeof previewBulkSlots === 'function') previewBulkSlots();
+}
+
+// 지금 표에 그릴 타임 — 날짜 탭이 골라져 있으면 그 날짜만.
+function visibleEventSlots() {
+  if (!_eventSlotDateTab) return _eventSlotsCache;
+  return _eventSlotsCache.filter(s => String(s.slot_date).slice(0, 10) === _eventSlotDateTab);
+}
+
+// 날짜 탭 — 하루짜리 행사에는 그리지 않는다(고를 게 없는 탭은 자리만 차지한다).
+function renderEventSlotDateTabs() {
+  const el = $('eventSlotDateTabs');
+  if (!el) return;
+  const dates = [...new Set(_eventSlotsCache.map(s => String(s.slot_date).slice(0, 10)))].sort();
+  if (dates.length <= 1) {
+    el.style.display = 'none';
+    _eventSlotDateTab = '';
+    return;
+  }
+  // 골라 둔 날짜의 타임이 전부 지워졌으면 전체로 되돌린다 — 안 그러면 빈 표가 남는다.
+  if (_eventSlotDateTab && !dates.includes(_eventSlotDateTab)) _eventSlotDateTab = '';
+  // ⚠️ 클래스 이름은 바로 아래 예약 현황 탭(renderEventTicketStatusTabs)과 같아야 한다.
+  //    다른 이름을 쓰면 정의된 스타일이 하나도 안 붙어 맨 버튼으로 그려진다.
+  const tab = (key, label, n) =>
+    `<button type="button" class="status-tab-btn${_eventSlotDateTab === key ? ' on' : ''}${n === 0 && key !== '' ? ' zero-count' : ''}" onclick="setEventSlotDateTab('${esc(key)}')">${esc(label)}<span class="tab-count">(${n})</span></button>`;
+  el.style.display = '';
+  el.innerHTML = tab('', '전체', _eventSlotsCache.length)
+    + dates.map(d => tab(d, d.replace(/-/g, '/').slice(5), _eventSlotsCache.filter(s => String(s.slot_date).slice(0, 10) === d).length)).join('');
+}
+
+function setEventSlotDateTab(key) {
+  _eventSlotDateTab = key || '';
+  // 안 보이는 줄을 고른 채로 두면 「3개 선택」인데 표에는 하나도 없는 상태가 된다.
+  clearEventSlotSelection();
+  renderEventSlotDateTabs();
+  renderEventSlotsTable();
+}
+
 function renderEventSlotsTable() {
   const body = $('eventSlotsBody');
   if (!body) return;
   if (!_eventSlotsCache.length) {
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「타임 추가」로 하나씩 넣으세요.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「타임 추가」로 하나씩 넣으세요.</td></tr>`;
+    syncEventSlotBulkBar();
     return;
   }
-  body.innerHTML = _eventSlotsCache.map(s => {
+  body.innerHTML = visibleEventSlots().map(s => {
     const c = _eventSlotCounts[s.id] || {confirmed: 0, waitlist: 0, remaining: Number(s.capacity || 0)};
     const full = c.remaining <= 0;
+    const booked = Number(c.confirmed || 0) + Number(c.waitlist || 0);
     return `
       <tr data-slot-id="${s.id}">
+        <td style="text-align:center;padding:4px">${booked > 0
+          ? `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--muted)" title="예약 ${booked}건이 있어 삭제할 수 없습니다">lock</span>`
+          : `<input type="checkbox" class="event-slot-cb" data-slot-id="${s.id}" ${_eventSlotSelected.has(s.id) ? 'checked' : ''} onchange="toggleEventSlotSelect('${s.id}', this.checked)">`}</td>
         <td>${esc(String(s.slot_date).slice(0, 10))}</td>
         <td>${esc(fmtSlotTime(s))}</td>
         <td><input type="number" min="0" class="admin-filter" style="width:80px"
@@ -408,13 +471,88 @@ function renderEventSlotsTable() {
         </td>
       </tr>`;
   }).join('');
+  syncEventSlotBulkBar();
+}
+
+// ── 선택 삭제 ─────────────────────────────────────────────────
+//   예약이 걸린 타임은 애초에 고를 수 없다(체크박스 대신 자물쇠). 서버도 막지만
+//   (마이그레이션 281 트리거) 고르게 해 놓고 나중에 거절하면 왜 안 되는지 알기 어렵다.
+function selectableEventSlots() {
+  return visibleEventSlots().filter(s => {
+    const c = _eventSlotCounts[s.id] || {};
+    return (Number(c.confirmed || 0) + Number(c.waitlist || 0)) === 0;
+  });
+}
+
+function toggleEventSlotSelect(slotId, checked) {
+  if (checked) _eventSlotSelected.add(slotId); else _eventSlotSelected.delete(slotId);
+  syncEventSlotBulkBar();
+}
+
+function toggleEventSlotSelectAll(checked) {
+  const ids = selectableEventSlots().map(s => s.id);
+  ids.forEach(id => { if (checked) _eventSlotSelected.add(id); else _eventSlotSelected.delete(id); });
+  document.querySelectorAll('.event-slot-cb').forEach(cb => {
+    if (ids.includes(cb.dataset.slotId)) cb.checked = !!checked;
+  });
+  syncEventSlotBulkBar();
+}
+
+function clearEventSlotSelection() {
+  _eventSlotSelected.clear();
+  document.querySelectorAll('.event-slot-cb').forEach(cb => { cb.checked = false; });
+  const all = $('eventSlotSelectAll');
+  if (all) { all.checked = false; all.indeterminate = false; }
+  syncEventSlotBulkBar();
+}
+
+function syncEventSlotBulkBar() {
+  const bar = $('eventSlotBulkBar');
+  const cnt = $('eventSlotBulkCount');
+  const n = _eventSlotSelected.size;
+  if (bar) bar.style.display = n ? 'flex' : 'none';
+  if (cnt) cnt.textContent = `${n}개 선택`;
+  const all = $('eventSlotSelectAll');
+  if (all) {
+    const total = selectableEventSlots().length;
+    all.checked = total > 0 && n >= total;
+    all.indeterminate = n > 0 && n < total;
+  }
+}
+
+async function deleteSelectedEventSlots() {
+  const ids = [..._eventSlotSelected];
+  if (!ids.length) { toast('삭제할 타임을 골라 주세요', 'error'); return; }
+  const rows = ids.map(id => _eventSlotsCache.find(s => s.id === id)).filter(Boolean);
+  const dates = [...new Set(rows.map(r => String(r.slot_date).slice(0, 10)))].sort();
+  const ok = await showConfirm(
+    `고른 타임 ${ids.length}개를 삭제할까요?\n\n` +
+    `${dates.join(', ')}\n\n` +
+    `되돌릴 수 없습니다. 모집만 닫으려면 「사용 안 함」으로 내려 주세요.`,
+    '삭제');
+  if (!ok) return;
+  // 한 건씩 지운다 — 하나가 실패해도 나머지는 지워지고, 실패한 것만 알려 준다.
+  const failed = [];
+  for (const id of ids) {
+    try { await deleteEventSlot(id); }
+    catch (e) { console.error('[deleteSelectedEventSlots]', id, e); failed.push(id); }
+  }
+  _eventSlotSelected.clear();
+  toast(failed.length
+    ? `${ids.length - failed.length}개를 삭제했습니다. ${failed.length}개는 실패했습니다`
+    : `${ids.length}개를 삭제했습니다`, failed.length ? 'error' : 'success');
+  await renderEventSlotsPane(_eventPaneCampId);
 }
 
 // 'HH:MM:SS' 를 'HH:MM' 으로 줄이고, 끝시각이 있으면 구간으로 표기한다.
 function fmtSlotTime(s) {
   const st = String(s.start_time || '').slice(0, 5);
   const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
-  return en ? `${st}~${en}` : st;
+  if (!en) return st;
+  // 끝 시각이 시작보다 이르면 자정을 넘긴 것이다. 표에 「23:30~00:30」 으로만 적으면
+  // 거꾸로 적힌 것처럼 보인다 — 일괄 생성 미리 보기와 같은 말로 맞춘다.
+  //   (표에 넣을 날짜 칸이 따로 없어 시각 문자열로만 구분한다)
+  return en < st ? `${st}~익일 ${en}` : `${st}~${en}`;
 }
 
 async function onEventSlotCapacityChange(slotId, value) {
@@ -526,9 +664,20 @@ function previewBulkSlots() {
   const el = $('eventBulkPreview');
   if (!el) return;
   if (!date || !start || !last || last < start) { el.textContent = ''; return; }
+  const dur = parseInt($('eventBulkDuration')?.value, 10) || 0;
   const times = buildBulkSlotTimes(start, last, step, skip);
+  // 길이를 넣었으면 끝 시각까지 보여 준다 — 겹치는지 눈으로 알 수 있어야 한다.
+  const label = t => {
+    if (!dur) return t;
+    const [h, m] = t.split(':').map(n => parseInt(n, 10));
+    const v = h * 60 + m + dur;
+    const end = `${String(Math.floor(v / 60) % 24).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+    return v >= 24 * 60 ? `${t}~익일 ${end}` : `${t}~${end}`;   // 자정을 넘기면 그렇다고 적는다
+  };
+  const overlap = dur > 0 && dur > step
+    ? `<div style="margin-top:4px;color:var(--gold)">한 타임 길이(${dur}분)가 간격(${step}분)보다 길어 타임끼리 시간이 겹칩니다.</div>` : '';
   el.innerHTML = times.length
-    ? `<b>${times.length}줄</b>이 만들어집니다 — ${esc(times.join(', '))}`
+    ? `<b>${times.length}줄</b>이 만들어집니다 — ${esc(times.map(label).join(', '))}${overlap}`
     : '만들어질 줄이 없습니다. 시작·마지막 시각과 제외 시각을 확인해 주세요.';
 }
 
