@@ -332,6 +332,7 @@ async function renderEventSlotsPane(campaignId) {
   _eventSlotsCache = slots || [];
   _eventSlotCounts = counts || {};
 
+  setupEventSlotPickers();      // 날짜·시각 선택기(한 번만 붙는다)
   _eventSlotSelected.clear();   // 목록이 바뀌었으니 고른 것도 무효다
   if (_isOtherCampaign) toggleEventBulkPanel(false);   // 새 캠페인은 접은 채로 시작
   renderEventSlotDateTabs();
@@ -390,6 +391,41 @@ function renderEventSlotsSummary() {
   const days = new Set(rows.map(r => String(r.slot_date).slice(0, 10))).size;
   const booked = Object.values(_eventSlotCounts).reduce((s, c) => s + Number(c.confirmed || 0), 0);
   el.innerHTML = `타임 <b>${rows.length}</b>줄 · ${days}일 · 정원 합계 <b>${totalCap.toLocaleString()}</b>명 · 확정 <b>${booked.toLocaleString()}</b>명`;
+}
+
+// 행사 시간의 날짜·시각 칸을 이 화면 나머지와 같은 선택기(flatpickr)로 바꾼다.
+//   브라우저 기본 달력·시계는 운영체제마다 생김새가 달라 관리자 화면 안에서 혼자 튄다.
+//   ⚠️ 값의 형태는 그대로 둔다 — 날짜 `YYYY-MM-DD`, 시각 `HH:MM`. 읽는 쪽(미리 보기·
+//      일괄 생성·타임 추가)이 문자열 비교를 하고 있어 형태가 바뀌면 조용히 깨진다.
+const _eventFp = Object.create(null);
+
+function setupEventSlotPickers() {
+  if (typeof flatpickr === 'undefined') return;   // CDN 실패 시 그냥 텍스트 칸으로 남는다
+  const loc = (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default';
+  document.querySelectorAll('.evt-fp-date').forEach(el => {
+    if (!el.id || _eventFp[el.id]) return;
+    _eventFp[el.id] = flatpickr(el, {
+      dateFormat: 'Y-m-d', locale: loc, altInput: false,
+      appendTo: document.body, position: 'auto', disableMobile: true,
+      // ⚠️ 핑크 테마 규칙이 **두 클래스를 함께** 요구한다(admin.css). 하나만 붙이면
+      //    기본 파란 달력이 떠서, 바로 위 「결과물 제출 마감일」 달력과 색이 달라진다.
+      onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('reverb-range-cal', 'reverb-single-cal'); },
+      onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
+    });
+  });
+  document.querySelectorAll('.evt-fp-time').forEach(el => {
+    if (!el.id || _eventFp[el.id]) return;
+    _eventFp[el.id] = flatpickr(el, {
+      noCalendar: true, enableTime: true, time_24hr: true, dateFormat: 'H:i',
+      minuteIncrement: 5, locale: loc, altInput: false,
+      appendTo: document.body, position: 'auto', disableMobile: true,
+      defaultDate: el.value || null,
+      // 시각 선택기는 이 프로젝트에 선례가 없어 강조색이 기본 파랑이다 — 전용 클래스를
+      // 붙여 달력과 같은 핑크로 맞춘다(규칙은 admin.css 「evt-time-cal」).
+      onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('evt-time-cal'); },
+      onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
+    });
+  });
 }
 
 // 「하루치 일괄 생성」 펼치기·접기. 처음 만들 때만 쓰는 도구라 평소엔 접어 둔다.
