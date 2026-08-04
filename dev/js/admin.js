@@ -3293,15 +3293,20 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   //   평소엔 빈 화면으로 남는다(작업표 결정).
   const _campForEvent = (typeof allCampaigns !== 'undefined' && allCampaigns)
     ? allCampaigns.find(c => c.id === campId) : null;
-  const eventItems = (typeof isEventCampaign === 'function' && isEventCampaign(_campForEvent))
+  const _isEventMenu = (typeof isEventCampaign === 'function') && isEventCampaign(_campForEvent);
+  const eventItems = _isEventMenu
     ? `<div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
     : '';
+  // 행사 캠페인은 결과물이 없다 — 내려받아도 빈 표라 「없는 것을 찾게」 만든다.
+  //   대신 예약 명단 엑셀이 진행현황의 예약 탭에 있다.
+  const delivExcelItem = _isEventMenu ? ''
+    : `<div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>`;
 
   menu.innerHTML = `
     ${eventItems}
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
-    <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
+    ${delivExcelItem}
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
     ${auditPurgeItem}
