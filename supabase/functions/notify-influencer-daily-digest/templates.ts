@@ -122,10 +122,15 @@ export const TEMPLATES: Record<string, string> = {
 </div>`,
   "influencer-daily-digest.row-deadline": `<!--
   Row partial: 인플루언서 일일 다이제스트 — 섹션 4 「마감 임박 (deadline)」
-  영수증(receipt) + 결과물(post) 모두 같은 row 형식 사용. kind 별 색상 차이 없음 — 본문에서 라벨로 구분.
+  영수증(receipt) + 결과물(post) + 리뷰 인증샷(review_image) 모두 같은 row 형식 사용.
+  kind 별 색상 차이 없음 — 본문에서 라벨로 구분.
 
   Row Placeholders:
-    {{kind_label_jp}}    종류 라벨 (영수증 = レシート, 결과물 = 投稿物)
+    {{kind_label_jp}}    종류 라벨 (영수증 = レシート, 결과물 = 投稿物,
+                          리뷰 인증샷 = レビュー認証写真. 캠페인 요구 채널이 2개
+                          이상이면 남은 채널명을 「レビュー認証写真（Instagram・TikTok）」
+                          처럼 괄호로 병기 — 2026-08-04 사양서
+                          docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md)
     {{campaign_no}}      캠페인 번호
     {{campaign_title}}   캠페인 제목
     {{deadline_jp}}      마감일 일본어 (예: 5月23日 (D-5))

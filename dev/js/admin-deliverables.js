@@ -629,6 +629,13 @@ function isCertExcluded(g) {
 }
 
 // 인증 상태(신청 1건 단위) — 4종: excluded(검수 불필요) / success(인증성공) / submitting(인증샷 제출중) / none(미제출)
+//
+// ⚠️ **이 판정을 고칠 때 메일 발송 함수도 함께 봐야 한다.**
+//    `supabase/functions/notify-influencer-daily-digest/index.ts` 가 마감 안내 대상을
+//    고를 때 같은 규칙을 **서버에서 다시 구현**하고 있다(리뷰어형은 캠페인 요구 채널마다
+//    인증샷이 있어야 인증 성공). 두 앱이라 코드를 공유할 수 없어 규칙이 두 곳에 있다 —
+//    한쪽만 고치면 화면과 메일이 서로 다른 말을 하게 된다.
+//    (사양서 `docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md` §설계 단계 2)
 function computeCertStatus(g) {
   if (isCertExcluded(g)) return 'excluded';  // 신청 반려·취소 → 검수 불필요 (인증성공 집계·검수 대상에서 제외)
   const camp = g && g.campaign ? g.campaign : null;
