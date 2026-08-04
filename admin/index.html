@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785808825';
+  var CURRENT_BUILD = 'v1785810640';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2782,7 +2782,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-04 11:00 · c8217a6</span>
+          <span class="admin-build-text">2026-08-04 11:30 · 897b7e6</span>
         </div>
       </div>
     </aside>
@@ -3240,8 +3240,25 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
               <div class="admin-filter-bar" style="flex-wrap:wrap">
                 <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventSlotNewDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
-                <div class="admin-filter-group"><label>시작</label><input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:90px"></div>
-                <div class="admin-filter-group"><label>종료(선택)</label><input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:90px"></div>
+                <div class="admin-filter-group"><label>시작</label>
+                    <div style="display:flex;align-items:center;gap:4px">
+                      <input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:90px">
+                      <button type="button" onclick="clearEventTimeField('eventSlotNewStart')" title="시작 시각 비우기" aria-label="시작 시각 비우기"
+                              style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--muted);cursor:pointer">
+                        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">close</span>
+                      </button>
+                    </div>
+                  </div>
+                <div class="admin-filter-group"><label>종료(선택)</label>
+                    <div style="display:flex;align-items:center;gap:4px">
+                      <input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="비워 두면 시작만" readonly style="width:110px">
+                      <!-- 선택 항목인데 선택기를 열기만 해도 값이 채워진다 — 비울 길이 필요하다 -->
+                      <button type="button" onclick="clearEventTimeField('eventSlotNewEnd')" title="종료 시각 비우기" aria-label="종료 시각 비우기"
+                              style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--muted);cursor:pointer">
+                        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">close</span>
+                      </button>
+                    </div>
+                  </div>
                 <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
                 <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">타임 추가</button>
@@ -35185,6 +35202,10 @@ function setupEventSlotPickers() {
       noCalendar: true, enableTime: true, time_24hr: true, dateFormat: 'H:i',
       minuteIncrement: 5, locale: loc, altInput: false,
       appendTo: document.body, position: 'auto', disableMobile: true,
+      // 빈 칸을 열면 0시가 떠서, **종료** 시각으로는 늘 「시작보다 이른 값」이 된다.
+      //   시작 칸에는 걸지 않는다 — 0시는 이상해 보여 알아채지만, 12시는 그럴듯해서
+      //   고르지도 않은 값이 그대로 저장될 수 있다.
+      ...(el.id === 'eventSlotNewEnd' ? {defaultHour: 12, defaultMinute: 0} : {}),
       defaultDate: el.value || null,
       // 시각 선택기는 이 프로젝트에 선례가 없어 강조색이 기본 파랑이다 — 전용 클래스를
       // 붙여 달력과 같은 핑크로 맞춘다(규칙은 admin.css 「evt-time-cal」).
@@ -35192,6 +35213,17 @@ function setupEventSlotPickers() {
       onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
     });
   });
+}
+
+// 시각 칸 비우기 — 시각 선택기는 **열기만 해도** 값을 채운다. 「종료(선택)」에서는 그 값이
+//   시작보다 이르면 「종료 시각은 시작 시각보다 뒤여야 합니다」로 막히는데 되돌릴 길이
+//   없었다(2026-08-04 사용자 지적). 시작 칸도 마찬가지로, 잘못 열려 박힌 값을 지울
+//   수단이 있어야 한다 — 그쪽은 오히려 그럴듯한 시각이라 그대로 저장될 위험이 크다.
+function clearEventTimeField(id) {
+  const fp = _eventFp[id];
+  if (fp) fp.clear();          // 입력칸 값까지 함께 비운다(4.6.13)
+  const el = $(id);            // 선택기가 아직 안 붙은 경우의 대비
+  if (el) el.value = '';
 }
 
 // 「하루치 일괄 생성」 입력 항목 설명 — 제목 옆 물음표로만 연다.
@@ -35420,7 +35452,7 @@ async function addEventSlotRow() {
 
   if (!date || !start) { toast('날짜와 시작 시각은 필수입니다', 'error'); return; }
   if (!Number.isFinite(cap) || cap < 0) { toast('정원을 숫자로 입력해 주세요', 'error'); return; }
-  if (end && end <= start) { toast('종료 시각은 시작 시각보다 뒤여야 합니다', 'error'); return; }
+  if (end && end <= start) { toast('종료 시각은 시작 시각보다 뒤여야 합니다. 안 쓸 거면 옆 「비우기」 버튼을 눌러 주세요', 'error'); return; }
 
   try {
     await upsertEventSlot({
