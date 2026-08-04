@@ -419,6 +419,10 @@ function setupEventSlotPickers() {
       noCalendar: true, enableTime: true, time_24hr: true, dateFormat: 'H:i',
       minuteIncrement: 5, locale: loc, altInput: false,
       appendTo: document.body, position: 'auto', disableMobile: true,
+      // 빈 칸을 열면 0시가 떠서, **종료** 시각으로는 늘 「시작보다 이른 값」이 된다.
+      //   시작 칸에는 걸지 않는다 — 0시는 이상해 보여 알아채지만, 12시는 그럴듯해서
+      //   고르지도 않은 값이 그대로 저장될 수 있다.
+      ...(el.id === 'eventSlotNewEnd' ? {defaultHour: 12, defaultMinute: 0} : {}),
       defaultDate: el.value || null,
       // 시각 선택기는 이 프로젝트에 선례가 없어 강조색이 기본 파랑이다 — 전용 클래스를
       // 붙여 달력과 같은 핑크로 맞춘다(규칙은 admin.css 「evt-time-cal」).
@@ -426,6 +430,17 @@ function setupEventSlotPickers() {
       onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
     });
   });
+}
+
+// 시각 칸 비우기 — 시각 선택기는 **열기만 해도** 값을 채운다. 「종료(선택)」에서는 그 값이
+//   시작보다 이르면 「종료 시각은 시작 시각보다 뒤여야 합니다」로 막히는데 되돌릴 길이
+//   없었다(2026-08-04 사용자 지적). 시작 칸도 마찬가지로, 잘못 열려 박힌 값을 지울
+//   수단이 있어야 한다 — 그쪽은 오히려 그럴듯한 시각이라 그대로 저장될 위험이 크다.
+function clearEventTimeField(id) {
+  const fp = _eventFp[id];
+  if (fp) fp.clear();          // 입력칸 값까지 함께 비운다(4.6.13)
+  const el = $(id);            // 선택기가 아직 안 붙은 경우의 대비
+  if (el) el.value = '';
 }
 
 // 「하루치 일괄 생성」 입력 항목 설명 — 제목 옆 물음표로만 연다.
@@ -654,7 +669,7 @@ async function addEventSlotRow() {
 
   if (!date || !start) { toast('날짜와 시작 시각은 필수입니다', 'error'); return; }
   if (!Number.isFinite(cap) || cap < 0) { toast('정원을 숫자로 입력해 주세요', 'error'); return; }
-  if (end && end <= start) { toast('종료 시각은 시작 시각보다 뒤여야 합니다', 'error'); return; }
+  if (end && end <= start) { toast('종료 시각은 시작 시각보다 뒤여야 합니다. 안 쓸 거면 옆 「비우기」 버튼을 눌러 주세요', 'error'); return; }
 
   try {
     await upsertEventSlot({
