@@ -428,6 +428,12 @@ function setupEventSlotPickers() {
   });
 }
 
+// 「하루치 일괄 생성」 입력 항목 설명 — 제목 옆 물음표로만 연다.
+function toggleEventBulkHelp() {
+  const el = $('eventBulkHelp');
+  if (el) el.style.display = (el.style.display === 'none') ? '' : 'none';
+}
+
 // 「하루치 일괄 생성」 펼치기·접기. 처음 만들 때만 쓰는 도구라 평소엔 접어 둔다.
 function toggleEventBulkPanel(force) {
   const panel = $('eventBulkPanel');
@@ -435,6 +441,7 @@ function toggleEventBulkPanel(force) {
   if (!panel) return;
   const open = (force === undefined) ? (panel.style.display === 'none') : !!force;
   panel.style.display = open ? '' : 'none';
+  if (!open) { const help = $('eventBulkHelp'); if (help) help.style.display = 'none'; }
   const icon = btn && btn.querySelector('.material-icons-round');
   if (icon) icon.textContent = open ? 'expand_less' : 'expand_more';
   if (open && typeof previewBulkSlots === 'function') previewBulkSlots();
