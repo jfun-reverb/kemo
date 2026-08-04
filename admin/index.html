@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785820577';
+  var CURRENT_BUILD = 'v1785823663';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2799,7 +2799,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-04 14:16 · a820de7</span>
+          <span class="admin-build-text">2026-08-04 15:07 · c1ead78</span>
         </div>
       </div>
     </aside>
@@ -25473,6 +25473,13 @@ function isCertExcluded(g) {
 }
 
 // 인증 상태(신청 1건 단위) — 4종: excluded(검수 불필요) / success(인증성공) / submitting(인증샷 제출중) / none(미제출)
+//
+// ⚠️ **이 판정을 고칠 때 메일 발송 함수도 함께 봐야 한다.**
+//    `supabase/functions/notify-influencer-daily-digest/index.ts` 가 마감 안내 대상을
+//    고를 때 같은 규칙을 **서버에서 다시 구현**하고 있다(리뷰어형은 캠페인 요구 채널마다
+//    인증샷이 있어야 인증 성공). 두 앱이라 코드를 공유할 수 없어 규칙이 두 곳에 있다 —
+//    한쪽만 고치면 화면과 메일이 서로 다른 말을 하게 된다.
+//    (사양서 `docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md` §설계 단계 2)
 function computeCertStatus(g) {
   if (isCertExcluded(g)) return 'excluded';  // 신청 반려·취소 → 검수 불필요 (인증성공 집계·검수 대상에서 제외)
   const camp = g && g.campaign ? g.campaign : null;
