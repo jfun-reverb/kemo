@@ -309,6 +309,11 @@ async function renderEventSlotsPane(campaignId) {
   if (!campId) return;
   _eventPaneCampId = campId;
 
+  // 읽어 오기 전에 먼저 비운다 — 안 비우면 조회가 끝나기 전까지 **직전에 보던
+  //   캠페인의 시간대**가 남아, 미리보기와 모집 인원이 그 값으로 한 번 그려진다.
+  _eventSlotsCache = [];
+  _eventSlotCounts = {};
+
   const body = $('eventSlotsBody');
   if (body) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
 
@@ -360,6 +365,10 @@ function syncEventDerivedFields() {
     slotsEl.classList.remove('field-locked');
     if (hint) hint.style.display = 'none';
   }
+  // ⚠️ 미리보기는 사람이 칸을 칠 때(input 사건)만 다시 그린다. 코드가 `.value` 를
+  //    바꾸는 건 그 사건을 일으키지 않아, 미리보기에 **저장돼 있던 옛 인원**이 그대로
+  //    남는다(실제로 화면 115명 · 미리보기 1440명이 나왔다). 직접 다시 그리게 한다.
+  if (typeof renderCampPreview === 'function') renderCampPreview('edit');
 }
 
 function renderEventSlotsSummary() {
