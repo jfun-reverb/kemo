@@ -831,14 +831,16 @@ async function bulkGenerateSlots(campaignId, opts) {
 // ③ 예약 현황 페인
 // ══════════════════════════════════════════════════════════════
 
+// 예약 현황은 이제 **캠페인 진행현황 화면의 탭**이다(사용자 요청 2026-08-04).
+//   별도 화면이던 시절의 호출부가 남아 있어도 같은 자리로 가도록 남겨 둔다.
 async function openEventTicketsPane(campId, campTitle) {
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
-  _eventPaneCampId = campId;
-  _eventPaneCampTitle = campTitle || '';
   _eventTicketSlotFilter = '';
   _eventTicketStatusTab = '';
-  switchAdminPane('event-tickets', null, true);
-  await renderEventTicketsPane(campId);
+  if (typeof openCampApplicants === 'function') {
+    await openCampApplicants(campId, campTitle || '');
+    if (typeof setCampDetailTabByCode === 'function') setCampDetailTabByCode('tickets');
+  }
 }
 
 async function renderEventTicketsPane(campaignId) {
@@ -846,9 +848,7 @@ async function renderEventTicketsPane(campaignId) {
   if (!campId) return;
   _eventPaneCampId = campId;
 
-  const titleEl = $('eventTicketsTitle');
-  if (titleEl) titleEl.textContent = _eventPaneCampTitle || '';
-
+  // 제목은 진행현황 헤더(campApplicantsTitle)가 이미 보여 준다 — 여기서 또 그리지 않는다.
   const body = $('eventTicketsBody');
   if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
 
@@ -929,9 +929,24 @@ function onEventTicketStatusTab(key) {
   renderEventTicketsTable();
 }
 
+// 예약 수치 계산 — 진행현황 요약 카드(campOpsStatusCard)와 **같은 판정**을 쓰려고
+//   숫자만 따로 돌려주는 함수로 나눴다. 두 곳이 각자 세면 값이 갈린다.
+function eventTicketCounts(slotFilter) {
+  const f = (slotFilter === undefined) ? _eventTicketSlotFilter : slotFilter;
+  const pool = _eventTicketsCache.filter(t => !f || t.slot_id === f);
+  const confirmed = pool.filter(t => t.status === 'confirmed').length;
+  const entered   = pool.filter(t => t.status === 'confirmed' && t.entered_at).length;
+  return {
+    confirmed, entered,
+    waitlist:  pool.filter(t => t.status === 'waitlist').length,
+    cancelled: pool.filter(t => t.status === 'cancelled').length,
+    noshow:    confirmed - entered
+  };
+}
+
 function renderEventTicketsSummary() {
   const el = $('eventTicketsSummary');
-  if (!el) return;
+  if (!el) return;      // 진행현황 안으로 옮긴 뒤로는 이 자리가 없다 — 요약 카드가 대신 그린다
   const pool = _eventTicketsCache.filter(t => !_eventTicketSlotFilter || t.slot_id === _eventTicketSlotFilter);
   const confirmed = pool.filter(t => t.status === 'confirmed').length;
   const entered   = pool.filter(t => t.status === 'confirmed' && t.entered_at).length;
@@ -948,7 +963,13 @@ function renderEventTicketsTable() {
   if (!body) return;
   const rows = filteredEventTickets();
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">해당하는 예약이 없습니다.</td></tr>`;
+    // 「시간대를 아직 안 만들었다」와 「시간대는 있는데 예약이 0건이다」는 할 일이 다르다.
+    const msg = !_eventSlotsCache.length
+      ? '행사 시간이 아직 없습니다. 「편집」에서 모집 조건의 <b>행사 시간</b>을 먼저 등록해 주세요.'
+      : (_eventTicketSlotFilter || _eventTicketStatusTab)
+        ? '조건에 맞는 예약이 없습니다.'
+        : '아직 예약이 없습니다.';
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">${msg}</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(t => {

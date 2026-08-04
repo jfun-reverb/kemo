@@ -1010,6 +1010,8 @@ const PANE_REFRESHERS = {
   'applications': async () => {
     if (typeof loadApplications === 'function') await loadApplications();
   },
+  // 오프라인 행사 예약 현황은 이 페인의 **탭**이라 별도 항목이 없다 — 여기를 다시
+  //   그리면 예약 표도 함께 갱신된다(loadCampApplicants 안에서 호출).
   'camp-applicants': async () => {
     if (typeof loadCampApplicants === 'function') await loadCampApplicants();
   },
@@ -1056,11 +1058,6 @@ const PANE_REFRESHERS = {
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
   },
-  // 오프라인 행사 예약 현황 — 캠페인 단위 서브 페인이라 보고 있던 캠페인으로 다시 그린다.
-  //   (시간대 관리는 캠페인 편집 화면 안에 있어 별도 페인이 없다)
-  'event-tickets': async () => {
-    if (typeof renderEventTicketsPane === 'function') await renderEventTicketsPane();
-  }
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
