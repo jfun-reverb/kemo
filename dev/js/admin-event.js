@@ -979,6 +979,8 @@ function renderEventTicketsTable() {
     const badgeColor = ({entered: '#16A34A', noshow: 'var(--muted)', waitlist: '#D97706', cancelled: '#DC2626'})[v] || 'var(--ink)';
     const audit = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
     const canCheckIn = (t.status === 'confirmed' && !t.entered_at);
+    // 이미 입장했거나 이미 취소된 예약은 취소하지 않는다(서버도 같은 판정으로 막는다).
+    const canCancel = (t.status !== 'cancelled' && !t.entered_at);
     return `
       <tr>
         <td>${esc(String(s.slot_date || '').slice(0, 10))}</td>
@@ -990,11 +992,52 @@ function renderEventTicketsTable() {
         </td>
         <td>${t.entered_at ? esc(formatDateTime(t.entered_at)) : '-'}</td>
         <td>${esc(t.entered_by_name || '')}${t.scan_count > 1 ? `<div style="font-size:11px;color:var(--muted)">확인 ${t.scan_count}회</div>` : ''}</td>
-        <td>${canCheckIn
+        <td style="white-space:nowrap">${canCheckIn
               ? `<button class="btn btn-ghost btn-sm" onclick="checkInFromAdmin('${esc(t.ticket_code)}')">입장 처리</button>`
-              : '-'}</td>
+              : ''}${canCancel
+              ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red)" onclick="cancelTicketFromAdmin('${esc(t.id)}')">취소</button>`
+              : ''}${(!canCheckIn && !canCancel) ? '-' : ''}</td>
       </tr>`;
   }).join('');
+}
+
+// 관리자 예약 취소 — 그동안 관리자에게는 예약을 정리할 수단이 아예 없어서,
+//   「신청 미승인」으로 대신 처리하다 **신청만 반려되고 티켓은 확정으로 남는** 어긋남이
+//   생겼다(입장 확인은 신청 상태를 안 본다). 이 버튼이 그 자리를 대신한다.
+async function cancelTicketFromAdmin(ticketId) {
+  const t = _eventTicketsCache.find(x => x.id === ticketId);
+  const inf = t?.influencers || {};
+  const s = t?.event_slots || {};
+  const who = inf.name_kanji || inf.name_kana || '이 방문객';
+  const when = `${String(s.slot_date || '').slice(0, 10)} ${fmtSlotTime(s)}`;
+  const ok = await showConfirm(
+    `${who} 님의 예약을 취소할까요?\n\n` +
+    `${when} · 예약번호 ${t?.ticket_code || ''}\n\n` +
+    `자리가 비면 대기 1번이 자동으로 확정으로 올라가고 알림이 갑니다.\n` +
+    `되돌릴 수 없습니다 — 다시 넣으려면 본인이 새로 예약해야 합니다.`,
+    '예약 취소');
+  if (!ok) return;
+  try {
+    const res = await cancelEventTicketAdmin(ticketId, null);
+    if (!res || res.ok !== true) {
+      const msg = {
+        permission_denied: '권한이 없습니다',
+        not_found: '예약을 찾을 수 없습니다',
+        cancelled: '이미 취소된 예약입니다',
+        already_entered: '이미 입장한 예약은 취소할 수 없습니다',
+        settlement_paid_cannot_cancel: '송금이 끝난 정산이 걸려 있어 취소할 수 없습니다'
+      }[res?.reason] || '취소하지 못했습니다';
+      toast(msg, 'error');
+      return;
+    }
+    toast(res.promoted_ticket_id ? '취소했습니다. 대기 1번이 확정으로 올라갔습니다' : '취소했습니다');
+    // 표·요약·탭 숫자를 한 번에 맞춘다(진행현황 페인 전체를 다시 그린다).
+    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
+    else await renderEventTicketsPane(_eventPaneCampId);
+  } catch (e) {
+    console.error('[cancelTicketFromAdmin]', e);
+    toast(friendlyError(e), 'error');
+  }
 }
 
 // 관리자 화면의 「입장 처리」 — 현장 확인 페이지(작업 7)와 **같은** 서버 함수를 쓴다.

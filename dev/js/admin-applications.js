@@ -165,7 +165,7 @@ async function loadCampApplicants() {
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">되돌리기</button></div>`}
     </td>
   </tr>`;
   };
@@ -200,20 +200,37 @@ async function loadCampApplicants() {
   renderCampDetailTabs(total, delivTotal, ticketTotal);
 }
 
-// 「미승인」 — 행사 캠페인에서는 **예약이 함께 취소되지 않는다**는 사실을 먼저 알린다.
-//   신청만 반려되고 티켓은 확정으로 남는데, 입장 확인은 신청 상태를 보지 않아
-//   **반려한 사람이 그대로 입장 처리된다**(2026-08-04 발견, 기존 결함).
-//   서버에서 막는 것은 별건이라, 그때까지 「모르고 누르는 일」만이라도 막는다.
-//   ⚠️ 같은 버튼이 진행현황과 신청 관리 두 화면에 있다 — 한쪽만 고치면 구멍이 남는다.
+// 「되돌리기」 — 「미승인」과 같은 이유로 행사에서는 서버가 막는다. 눌러서 실패해 보고
+//   아는 것보다 미리 알려 주는 편이 낫다(두 버튼의 안내 방식을 맞춘다).
+async function revertApplication(appId, isEvent) {
+  if (isEvent) { showEventStatusBlockedNotice('되돌리기'); return; }
+  await updateAppStatus(appId, 'pending');
+}
+
+// 행사 캠페인에서 신청 상태를 직접 바꾸려 할 때의 안내 — 두 버튼이 같은 문구를 쓴다.
+//   문구를 두 벌로 두면 한쪽만 고쳐진다.
+function showEventStatusBlockedNotice(what) {
+  const el = $('alertModalMessage');
+  if (el) el.innerHTML = `<div style="font-size:13px;line-height:1.8;text-align:left">
+    <div style="text-align:center;margin-bottom:14px">오프라인 행사는 여기서 「${esc(what)}」 할 수 없습니다.</div>
+    신청 상태만 바꾸면 <b>예약(입장 티켓)은 그대로 남아</b> 서로 어긋납니다.
+    입장 확인은 신청 상태를 보지 않으므로, 반려한 사람이 현장에서 입장 처리됩니다.
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+      캠페인 진행현황의 <b>「예약 현황」 탭</b>에서 <b>「취소」</b>를 눌러 주세요.
+      예약과 신청이 함께 취소되고, 대기 1번이 자동으로 올라갑니다.
+    </div>
+  </div>`;
+  openModal('alertModal');
+}
+
+// 「미승인」 — 행사 캠페인에서는 이 버튼을 쓰지 않는다.
+//   신청만 반려되고 예약(티켓)은 확정으로 남는데, 입장 확인은 신청 상태를 보지 않아
+//   **반려한 사람이 그대로 입장 처리된다**(2026-08-04 발견). 마이그레이션 289 가
+//   서버에서 아예 막으므로, 화면에서는 **어디로 가야 하는지**를 알려 준다.
+//   ⚠️ 같은 버튼이 **세 화면**에 있다 — 진행현황·신청 관리·대시보드의 「최근 신청」.
+//      한 곳만 고치면 구멍이 남는다(실제로 처음엔 두 곳만 고쳐 하나를 빠뜨렸다).
 async function rejectApplication(appId, isEvent) {
-  if (isEvent) {
-    const ok = await showConfirm(
-      '이 캠페인은 오프라인 행사입니다.\n\n' +
-      '「미승인」은 신청만 반려하고 예약(입장 티켓)은 그대로 남깁니다.\n' +
-      '지금은 관리자가 예약을 취소할 수단이 없어, 이 사람이 현장에서 입장 처리될 수 있습니다.\n\n' +
-      '그래도 반려할까요?', '반려');
-    if (!ok) return;
-  }
+  if (isEvent) { showEventStatusBlockedNotice('미승인'); return; }
   await updateAppStatus(appId, 'rejected');
 }
 
@@ -800,7 +817,7 @@ async function renderAppCampList() {
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
   };

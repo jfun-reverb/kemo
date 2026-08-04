@@ -4419,6 +4419,21 @@ async function countActiveEventTickets(campaignId) {
   } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
 }
 
+// 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.
+//   이미 입장했거나 송금 완료된 정산이 걸린 예약은 서버가 거부한다.
+//   실패는 예외가 아니라 {ok:false, reason} 으로 온다.
+async function cancelEventTicketAdmin(ticketId, reasonNote) {
+  if (!db) return {ok: false, reason: 'demo_mode'};
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('cancel_event_ticket_admin', {
+      p_ticket_id: ticketId,
+      p_reason_note: reasonNote || null
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // 초대 번호 확인(화면 게이트용). 번호 자체는 서버에서 나오지 않고 맞나/틀리나만 온다.
 // 실효 방어선은 예약 함수의 재검증이라, 이 값이 true 여도 예약이 거부될 수 있다.
 async function verifyInviteCode(campaignId, code) {

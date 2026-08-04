@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785816790';
+  var CURRENT_BUILD = 'v1785820577';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2799,7 +2799,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-04 13:13 · 484f636</span>
+          <span class="admin-build-text">2026-08-04 14:16 · a820de7</span>
         </div>
       </div>
     </aside>
@@ -12898,6 +12898,21 @@ async function countActiveEventTickets(campaignId) {
     if (error) throw error;
     return count || 0;
   } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
+}
+
+// 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.
+//   이미 입장했거나 송금 완료된 정산이 걸린 예약은 서버가 거부한다.
+//   실패는 예외가 아니라 {ok:false, reason} 으로 온다.
+async function cancelEventTicketAdmin(ticketId, reasonNote) {
+  if (!db) return {ok: false, reason: 'demo_mode'};
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('cancel_event_ticket_admin', {
+      p_ticket_id: ticketId,
+      p_reason_note: reasonNote || null
+    });
+    if (error) throw error;
+    return data;
+  });
 }
 
 // 초대 번호 확인(화면 게이트용). 번호 자체는 서버에서 나오지 않고 맞나/틀리나만 온다.
@@ -29497,8 +29512,8 @@ function renderRecentAppsTable(apps, camps, users) {
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
@@ -30201,7 +30216,7 @@ async function loadCampApplicants() {
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">되돌리기</button></div>`}
     </td>
   </tr>`;
   };
@@ -30236,20 +30251,37 @@ async function loadCampApplicants() {
   renderCampDetailTabs(total, delivTotal, ticketTotal);
 }
 
-// 「미승인」 — 행사 캠페인에서는 **예약이 함께 취소되지 않는다**는 사실을 먼저 알린다.
-//   신청만 반려되고 티켓은 확정으로 남는데, 입장 확인은 신청 상태를 보지 않아
-//   **반려한 사람이 그대로 입장 처리된다**(2026-08-04 발견, 기존 결함).
-//   서버에서 막는 것은 별건이라, 그때까지 「모르고 누르는 일」만이라도 막는다.
-//   ⚠️ 같은 버튼이 진행현황과 신청 관리 두 화면에 있다 — 한쪽만 고치면 구멍이 남는다.
+// 「되돌리기」 — 「미승인」과 같은 이유로 행사에서는 서버가 막는다. 눌러서 실패해 보고
+//   아는 것보다 미리 알려 주는 편이 낫다(두 버튼의 안내 방식을 맞춘다).
+async function revertApplication(appId, isEvent) {
+  if (isEvent) { showEventStatusBlockedNotice('되돌리기'); return; }
+  await updateAppStatus(appId, 'pending');
+}
+
+// 행사 캠페인에서 신청 상태를 직접 바꾸려 할 때의 안내 — 두 버튼이 같은 문구를 쓴다.
+//   문구를 두 벌로 두면 한쪽만 고쳐진다.
+function showEventStatusBlockedNotice(what) {
+  const el = $('alertModalMessage');
+  if (el) el.innerHTML = `<div style="font-size:13px;line-height:1.8;text-align:left">
+    <div style="text-align:center;margin-bottom:14px">오프라인 행사는 여기서 「${esc(what)}」 할 수 없습니다.</div>
+    신청 상태만 바꾸면 <b>예약(입장 티켓)은 그대로 남아</b> 서로 어긋납니다.
+    입장 확인은 신청 상태를 보지 않으므로, 반려한 사람이 현장에서 입장 처리됩니다.
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+      캠페인 진행현황의 <b>「예약 현황」 탭</b>에서 <b>「취소」</b>를 눌러 주세요.
+      예약과 신청이 함께 취소되고, 대기 1번이 자동으로 올라갑니다.
+    </div>
+  </div>`;
+  openModal('alertModal');
+}
+
+// 「미승인」 — 행사 캠페인에서는 이 버튼을 쓰지 않는다.
+//   신청만 반려되고 예약(티켓)은 확정으로 남는데, 입장 확인은 신청 상태를 보지 않아
+//   **반려한 사람이 그대로 입장 처리된다**(2026-08-04 발견). 마이그레이션 289 가
+//   서버에서 아예 막으므로, 화면에서는 **어디로 가야 하는지**를 알려 준다.
+//   ⚠️ 같은 버튼이 **세 화면**에 있다 — 진행현황·신청 관리·대시보드의 「최근 신청」.
+//      한 곳만 고치면 구멍이 남는다(실제로 처음엔 두 곳만 고쳐 하나를 빠뜨렸다).
 async function rejectApplication(appId, isEvent) {
-  if (isEvent) {
-    const ok = await showConfirm(
-      '이 캠페인은 오프라인 행사입니다.\n\n' +
-      '「미승인」은 신청만 반려하고 예약(입장 티켓)은 그대로 남깁니다.\n' +
-      '지금은 관리자가 예약을 취소할 수단이 없어, 이 사람이 현장에서 입장 처리될 수 있습니다.\n\n' +
-      '그래도 반려할까요?', '반려');
-    if (!ok) return;
-  }
+  if (isEvent) { showEventStatusBlockedNotice('미승인'); return; }
   await updateAppStatus(appId, 'rejected');
 }
 
@@ -30836,7 +30868,7 @@ async function renderAppCampList() {
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
   };
@@ -35864,6 +35896,8 @@ function renderEventTicketsTable() {
     const badgeColor = ({entered: '#16A34A', noshow: 'var(--muted)', waitlist: '#D97706', cancelled: '#DC2626'})[v] || 'var(--ink)';
     const audit = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
     const canCheckIn = (t.status === 'confirmed' && !t.entered_at);
+    // 이미 입장했거나 이미 취소된 예약은 취소하지 않는다(서버도 같은 판정으로 막는다).
+    const canCancel = (t.status !== 'cancelled' && !t.entered_at);
     return `
       <tr>
         <td>${esc(String(s.slot_date || '').slice(0, 10))}</td>
@@ -35875,11 +35909,52 @@ function renderEventTicketsTable() {
         </td>
         <td>${t.entered_at ? esc(formatDateTime(t.entered_at)) : '-'}</td>
         <td>${esc(t.entered_by_name || '')}${t.scan_count > 1 ? `<div style="font-size:11px;color:var(--muted)">확인 ${t.scan_count}회</div>` : ''}</td>
-        <td>${canCheckIn
+        <td style="white-space:nowrap">${canCheckIn
               ? `<button class="btn btn-ghost btn-sm" onclick="checkInFromAdmin('${esc(t.ticket_code)}')">입장 처리</button>`
-              : '-'}</td>
+              : ''}${canCancel
+              ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red)" onclick="cancelTicketFromAdmin('${esc(t.id)}')">취소</button>`
+              : ''}${(!canCheckIn && !canCancel) ? '-' : ''}</td>
       </tr>`;
   }).join('');
+}
+
+// 관리자 예약 취소 — 그동안 관리자에게는 예약을 정리할 수단이 아예 없어서,
+//   「신청 미승인」으로 대신 처리하다 **신청만 반려되고 티켓은 확정으로 남는** 어긋남이
+//   생겼다(입장 확인은 신청 상태를 안 본다). 이 버튼이 그 자리를 대신한다.
+async function cancelTicketFromAdmin(ticketId) {
+  const t = _eventTicketsCache.find(x => x.id === ticketId);
+  const inf = t?.influencers || {};
+  const s = t?.event_slots || {};
+  const who = inf.name_kanji || inf.name_kana || '이 방문객';
+  const when = `${String(s.slot_date || '').slice(0, 10)} ${fmtSlotTime(s)}`;
+  const ok = await showConfirm(
+    `${who} 님의 예약을 취소할까요?\n\n` +
+    `${when} · 예약번호 ${t?.ticket_code || ''}\n\n` +
+    `자리가 비면 대기 1번이 자동으로 확정으로 올라가고 알림이 갑니다.\n` +
+    `되돌릴 수 없습니다 — 다시 넣으려면 본인이 새로 예약해야 합니다.`,
+    '예약 취소');
+  if (!ok) return;
+  try {
+    const res = await cancelEventTicketAdmin(ticketId, null);
+    if (!res || res.ok !== true) {
+      const msg = {
+        permission_denied: '권한이 없습니다',
+        not_found: '예약을 찾을 수 없습니다',
+        cancelled: '이미 취소된 예약입니다',
+        already_entered: '이미 입장한 예약은 취소할 수 없습니다',
+        settlement_paid_cannot_cancel: '송금이 끝난 정산이 걸려 있어 취소할 수 없습니다'
+      }[res?.reason] || '취소하지 못했습니다';
+      toast(msg, 'error');
+      return;
+    }
+    toast(res.promoted_ticket_id ? '취소했습니다. 대기 1번이 확정으로 올라갔습니다' : '취소했습니다');
+    // 표·요약·탭 숫자를 한 번에 맞춘다(진행현황 페인 전체를 다시 그린다).
+    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
+    else await renderEventTicketsPane(_eventPaneCampId);
+  } catch (e) {
+    console.error('[cancelTicketFromAdmin]', e);
+    toast(friendlyError(e), 'error');
+  }
 }
 
 // 관리자 화면의 「입장 처리」 — 현장 확인 페이지(작업 7)와 **같은** 서버 함수를 쓴다.
