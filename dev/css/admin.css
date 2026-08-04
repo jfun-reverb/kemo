@@ -2229,3 +2229,20 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowDown:hover:after{
   border-top-color:var(--pink);
 }
+
+/* ──────────────────────────────────────
+   행사 시간 — 시각 칸 안쪽 「비우기」 단추
+   칸 **밖**에 두면 옆 칸과의 사이에 떠서 구분 기호(곱하기)처럼 읽힌다.
+   값이 있을 때만 보이므로 빈 칸 옆에 정체 모를 표시가 남지 않는다.
+   ────────────────────────────────────── */
+.evt-time-clearable{ position:relative; display:inline-flex; align-items:center; }
+.evt-time-clearable > input{ padding-right:24px; }
+.evt-time-clear{
+  position:absolute; right:4px; top:50%; transform:translateY(-50%);
+  display:none; align-items:center; justify-content:center;
+  width:18px; height:18px; border-radius:50%;
+  color:var(--muted); cursor:pointer;
+}
+.evt-time-clearable.has-value .evt-time-clear{ display:inline-flex; }
+.evt-time-clear:hover{ background:var(--light-pink); color:var(--ink); }
+.evt-time-clear .material-icons-round{ font-size:14px; }
