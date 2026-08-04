@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785815975';
+  var CURRENT_BUILD = 'v1785816790';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2799,7 +2799,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-04 12:59 · 1ff3693</span>
+          <span class="admin-build-text">2026-08-04 13:13 · 484f636</span>
         </div>
       </div>
     </aside>
@@ -39308,15 +39308,20 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   //   평소엔 빈 화면으로 남는다(작업표 결정).
   const _campForEvent = (typeof allCampaigns !== 'undefined' && allCampaigns)
     ? allCampaigns.find(c => c.id === campId) : null;
-  const eventItems = (typeof isEventCampaign === 'function' && isEventCampaign(_campForEvent))
+  const _isEventMenu = (typeof isEventCampaign === 'function') && isEventCampaign(_campForEvent);
+  const eventItems = _isEventMenu
     ? `<div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
     : '';
+  // 행사 캠페인은 결과물이 없다 — 내려받아도 빈 표라 「없는 것을 찾게」 만든다.
+  //   대신 예약 명단 엑셀이 진행현황의 예약 탭에 있다.
+  const delivExcelItem = _isEventMenu ? ''
+    : `<div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>`;
 
   menu.innerHTML = `
     ${eventItems}
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
-    <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
+    ${delivExcelItem}
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
     ${auditPurgeItem}
