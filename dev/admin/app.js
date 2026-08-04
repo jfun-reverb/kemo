@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
   // 예약 현황도 「어느 캠페인인지」를 화면 상태로만 들고 있어(주소에 없다),
   // 새로고침하면 캠페인을 잃고 빈 표만 남는다 → 캠페인 목록으로 돌려보낸다.
-  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops','event-tickets':'campaigns'};
+  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
     history.replaceState({pane: initHash}, '', '#' + initHash);
