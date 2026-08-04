@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785805910';
+  var CURRENT_BUILD = 'v1785806956';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2627,6 +2627,32 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .lock-note{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;
   color:var(--muted);background:var(--surface-dim,#F1F1F1);border-radius:5px;padding:1px 6px;margin-left:6px}
 
+/* ──────────────────────────────────────
+   행사 시간 — 시각 선택기(flatpickr, 달력 없이 시·분만)
+   이 프로젝트엔 시각 전용 선택기 선례가 없어 강조색이 기본 파랑으로 뜬다.
+   같은 화면의 날짜 달력(.reverb-range-cal)과 같은 핑크로 맞춘다.
+   ────────────────────────────────────── */
+.flatpickr-calendar.evt-time-cal{
+  border-radius:14px;
+  box-shadow:0 8px 28px rgba(0,0,0,.14);
+  border:1px solid var(--line);
+}
+/* 24시간 표기라 오전·오후 칸은 그려지지 않는다 — 시·분만 칠한다 */
+.flatpickr-calendar.evt-time-cal .flatpickr-time input:hover,
+.flatpickr-calendar.evt-time-cal .flatpickr-time input:focus{
+  background:var(--light-pink);
+}
+.flatpickr-calendar.evt-time-cal .flatpickr-time input{
+  font-weight:700;
+  color:var(--ink);
+}
+.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowUp:hover:after{
+  border-bottom-color:var(--pink);
+}
+.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowDown:hover:after{
+  border-top-color:var(--pink);
+}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2716,7 +2742,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-04 10:11 · c5bab48</span>
+          <span class="admin-build-text">2026-08-04 10:29 · 0316f1b</span>
         </div>
       </div>
     </aside>
@@ -3145,9 +3171,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="admin-card" id="eventBulkPanel" style="padding:12px 14px;margin-bottom:10px;display:none">
                 <div style="font-size:13px;font-weight:700;margin-bottom:8px">하루치 일괄 생성</div>
                 <div class="admin-filter-bar" style="flex-wrap:wrap">
-                  <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventBulkDate" class="admin-filter" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>시작 시각</label><input type="time" id="eventBulkStart" class="admin-filter" value="11:00" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="time" id="eventBulkLastStart" class="admin-filter" value="18:30" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventBulkDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
+                  <div class="admin-filter-group"><label>시작 시각</label><input type="text" id="eventBulkStart" class="admin-filter evt-fp-time" value="11:00" placeholder="00:00" readonly style="width:90px"></div>
+                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="text" id="eventBulkLastStart" class="admin-filter evt-fp-time" value="18:30" placeholder="00:00" readonly style="width:90px"></div>
                   <div class="admin-filter-group"><label title="다음 타임이 몇 분 뒤에 시작하는지">간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
                   <div class="admin-filter-group"><label title="한 타임이 몇 분 동안인지 — 끝 시각 계산에만 씁니다. 0이면 끝 시각 없이 시작 시각만 표시">한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
                   <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
@@ -3164,9 +3190,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
 
               <div class="admin-filter-bar" style="flex-wrap:wrap">
-                <div class="admin-filter-group"><label>날짜</label><input type="date" id="eventSlotNewDate" class="admin-filter"></div>
-                <div class="admin-filter-group"><label>시작</label><input type="time" id="eventSlotNewStart" class="admin-filter"></div>
-                <div class="admin-filter-group"><label>종료(선택)</label><input type="time" id="eventSlotNewEnd" class="admin-filter"></div>
+                <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventSlotNewDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
+                <div class="admin-filter-group"><label>시작</label><input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:90px"></div>
+                <div class="admin-filter-group"><label>종료(선택)</label><input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:90px"></div>
                 <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
                 <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">타임 추가</button>
@@ -35023,6 +35049,7 @@ async function renderEventSlotsPane(campaignId) {
   _eventSlotsCache = slots || [];
   _eventSlotCounts = counts || {};
 
+  setupEventSlotPickers();      // 날짜·시각 선택기(한 번만 붙는다)
   _eventSlotSelected.clear();   // 목록이 바뀌었으니 고른 것도 무효다
   if (_isOtherCampaign) toggleEventBulkPanel(false);   // 새 캠페인은 접은 채로 시작
   renderEventSlotDateTabs();
@@ -35081,6 +35108,41 @@ function renderEventSlotsSummary() {
   const days = new Set(rows.map(r => String(r.slot_date).slice(0, 10))).size;
   const booked = Object.values(_eventSlotCounts).reduce((s, c) => s + Number(c.confirmed || 0), 0);
   el.innerHTML = `타임 <b>${rows.length}</b>줄 · ${days}일 · 정원 합계 <b>${totalCap.toLocaleString()}</b>명 · 확정 <b>${booked.toLocaleString()}</b>명`;
+}
+
+// 행사 시간의 날짜·시각 칸을 이 화면 나머지와 같은 선택기(flatpickr)로 바꾼다.
+//   브라우저 기본 달력·시계는 운영체제마다 생김새가 달라 관리자 화면 안에서 혼자 튄다.
+//   ⚠️ 값의 형태는 그대로 둔다 — 날짜 `YYYY-MM-DD`, 시각 `HH:MM`. 읽는 쪽(미리 보기·
+//      일괄 생성·타임 추가)이 문자열 비교를 하고 있어 형태가 바뀌면 조용히 깨진다.
+const _eventFp = Object.create(null);
+
+function setupEventSlotPickers() {
+  if (typeof flatpickr === 'undefined') return;   // CDN 실패 시 그냥 텍스트 칸으로 남는다
+  const loc = (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default';
+  document.querySelectorAll('.evt-fp-date').forEach(el => {
+    if (!el.id || _eventFp[el.id]) return;
+    _eventFp[el.id] = flatpickr(el, {
+      dateFormat: 'Y-m-d', locale: loc, altInput: false,
+      appendTo: document.body, position: 'auto', disableMobile: true,
+      // ⚠️ 핑크 테마 규칙이 **두 클래스를 함께** 요구한다(admin.css). 하나만 붙이면
+      //    기본 파란 달력이 떠서, 바로 위 「결과물 제출 마감일」 달력과 색이 달라진다.
+      onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('reverb-range-cal', 'reverb-single-cal'); },
+      onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
+    });
+  });
+  document.querySelectorAll('.evt-fp-time').forEach(el => {
+    if (!el.id || _eventFp[el.id]) return;
+    _eventFp[el.id] = flatpickr(el, {
+      noCalendar: true, enableTime: true, time_24hr: true, dateFormat: 'H:i',
+      minuteIncrement: 5, locale: loc, altInput: false,
+      appendTo: document.body, position: 'auto', disableMobile: true,
+      defaultDate: el.value || null,
+      // 시각 선택기는 이 프로젝트에 선례가 없어 강조색이 기본 파랑이다 — 전용 클래스를
+      // 붙여 달력과 같은 핑크로 맞춘다(규칙은 admin.css 「evt-time-cal」).
+      onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('evt-time-cal'); },
+      onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
+    });
+  });
 }
 
 // 「하루치 일괄 생성」 펼치기·접기. 처음 만들 때만 쓰는 도구라 평소엔 접어 둔다.
