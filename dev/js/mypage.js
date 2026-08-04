@@ -705,17 +705,23 @@ function openApplyActionModal(appId) {
   // 응모 취소 버튼: 결과물 approved 있으면 비활성 + tooltip, 없으면 활성
   const cancelBtn = $('applyActionCancelBtn');
   const cancelHint = $('applyActionCancelHint');
+  // 오프라인 행사는 이 버튼으로 취소할 수 없다 — 신청만 취소되면 예약(입장 티켓)이
+  //   확정으로 남아 어긋난다. 서버(마이그레이션 289)가 아예 막으므로, 여기서 미리
+  //   「입장 티켓에서 취소하라」고 길을 알려 준다. 안 그러면 눌러도 늘 실패하는
+  //   막다른 길이 된다(2026-08-04 리뷰 지적).
+  const _campForCancel = allCampaigns.find(c => c.id === app.campaign_id) || {};
+  const isEventCancel = (typeof isEventCampaign === 'function') && isEventCampaign(_campForCancel);
   if (cancelBtn && cancelHint) {
-    cancelBtn.disabled = hasApprovedDeliv;
-    cancelBtn.style.opacity = hasApprovedDeliv ? '.5' : '1';
-    cancelBtn.style.cursor = hasApprovedDeliv ? 'not-allowed' : 'pointer';
-    cancelBtn.title = hasApprovedDeliv ? t('appHistory.cancelDisabledDeliv') : '';
-    cancelBtn.onclick = hasApprovedDeliv
+    const blocked = hasApprovedDeliv || isEventCancel;
+    const reason = isEventCancel ? t('event.cancelViaTicket') : t('appHistory.cancelDisabledDeliv');
+    cancelBtn.disabled = blocked;
+    cancelBtn.style.opacity = blocked ? '.5' : '1';
+    cancelBtn.style.cursor = blocked ? 'not-allowed' : 'pointer';
+    cancelBtn.title = blocked ? reason : '';
+    cancelBtn.onclick = blocked
       ? null
       : () => { closeApplyActionModal(); openCancelModalFor(app.id); };
-    cancelHint.textContent = hasApprovedDeliv
-      ? t('appHistory.cancelDisabledDeliv')
-      : t('appHistory.action.cancelHint');
+    cancelHint.textContent = blocked ? reason : t('appHistory.action.cancelHint');
   }
   openModal('applyActionModal');
 }

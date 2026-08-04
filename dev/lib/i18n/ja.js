@@ -34,6 +34,7 @@ window.I18N_JA = {
     // ── 入場チケット画面 ──
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
+    cancelViaTicket: 'このキャンペーンは「入場チケット」からキャンセルしてください。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
     ticketWhenLabel: '来場日時',

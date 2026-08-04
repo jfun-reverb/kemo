@@ -30,6 +30,7 @@ window.I18N_KO = {
     // ── 입장 티켓 화면 ──
     ticketTitle: '입장 티켓',
     ticketMenu: '입장 티켓',
+    cancelViaTicket: '이 캠페인은 「입장 티켓」에서 취소해 주세요.',
     ticketCodeLabel: '예약번호',
     ticketNameLabel: '이름',
     ticketWhenLabel: '방문 일시',
