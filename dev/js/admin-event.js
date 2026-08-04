@@ -427,9 +427,13 @@ function setupEventSlotPickers() {
       // 시각 선택기는 이 프로젝트에 선례가 없어 강조색이 기본 파랑이다 — 전용 클래스를
       // 붙여 달력과 같은 핑크로 맞춘다(규칙은 admin.css 「evt-time-cal」).
       onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('evt-time-cal'); },
-      onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
+      onChange: () => {
+        syncEventTimeClearBtns();
+        if (typeof previewBulkSlots === 'function') previewBulkSlots();
+      }
     });
   });
+  syncEventTimeClearBtns();   // 붙인 직후 현재 값 기준으로 한 번
 }
 
 // 시각 칸 비우기 — 시각 선택기는 **열기만 해도** 값을 채운다. 「종료(선택)」에서는 그 값이
@@ -441,6 +445,16 @@ function clearEventTimeField(id) {
   if (fp) fp.clear();          // 입력칸 값까지 함께 비운다(4.6.13)
   const el = $(id);            // 선택기가 아직 안 붙은 경우의 대비
   if (el) el.value = '';
+  syncEventTimeClearBtns();
+}
+
+// 비우기 단추는 **값이 있을 때만** 보인다. 빈 칸 옆에 늘 떠 있으면 무슨 표시인지
+//   알 수 없고(칸 사이에 낀 곱하기처럼 읽힌다), 지울 것도 없는데 자리만 차지한다.
+function syncEventTimeClearBtns() {
+  document.querySelectorAll('.evt-time-clearable').forEach(wrap => {
+    const input = wrap.querySelector('input');
+    wrap.classList.toggle('has-value', !!(input && input.value));
+  });
 }
 
 // 「하루치 일괄 생성」 입력 항목 설명 — 제목 옆 물음표로만 연다.

@@ -605,21 +605,22 @@
               <div class="admin-filter-bar" style="flex-wrap:wrap">
                 <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventSlotNewDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
                 <div class="admin-filter-group"><label>시작</label>
-                    <div style="display:flex;align-items:center;gap:4px">
-                      <input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:90px">
-                      <button type="button" onclick="clearEventTimeField('eventSlotNewStart')" title="시작 시각 비우기" aria-label="시작 시각 비우기"
-                              style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--muted);cursor:pointer">
-                        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">close</span>
+                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
+                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
+                    <div class="evt-time-clearable">
+                      <input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:104px">
+                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewStart')" title="시작 비우기" aria-label="시작 비우기">
+                        <span class="material-icons-round notranslate" translate="no">close</span>
                       </button>
                     </div>
                   </div>
                 <div class="admin-filter-group"><label>종료(선택)</label>
-                    <div style="display:flex;align-items:center;gap:4px">
-                      <input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="비워 두면 시작만" readonly style="width:110px">
-                      <!-- 선택 항목인데 선택기를 열기만 해도 값이 채워진다 — 비울 길이 필요하다 -->
-                      <button type="button" onclick="clearEventTimeField('eventSlotNewEnd')" title="종료 시각 비우기" aria-label="종료 시각 비우기"
-                              style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--muted);cursor:pointer">
-                        <span class="material-icons-round notranslate" translate="no" style="font-size:16px">close</span>
+                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
+                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
+                    <div class="evt-time-clearable">
+                      <input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="비워 두면 시작만" readonly style="width:124px">
+                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewEnd')" title="종료(선택) 비우기" aria-label="종료(선택) 비우기">
+                        <span class="material-icons-round notranslate" translate="no">close</span>
                       </button>
                     </div>
                   </div>
