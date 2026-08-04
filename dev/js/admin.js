@@ -3041,6 +3041,11 @@ function renderCampPreview(mode) {
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
   const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
+  // 인플루언서 상세와 같은 판정 — 미리보기가 실제 화면과 달라 보이면 안 된다.
+  //   ⚠️ 여기(함수 몸통)에 둔다. 아래 정보표를 만드는 즉시실행 함수 **안**에 두면 그 안에서만
+  //      유효해서, 바깥의 타임 선택표 줄이 이 이름을 못 찾고 **미리보기 전체가 멈춘다** —
+  //      행사든 아니든, 편집이든 신규 등록이든 모든 캠페인에서(2026-08-04 실측).
+  const isEventPreview = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
 
   el.innerHTML = `
     <div class="cp-frame">
@@ -3066,8 +3071,6 @@ function renderCampPreview(mode) {
             // 시간 흐름 순: 製品名 → 募集タイプ → チャンネル → コンテンツ → 募集期間 → 購入/訪問 → 提出締切 → 募集人数
             //              → (monitor 외) 当選発表 → (monitor 외) 報酬
             const rows = [];
-            // 인플루언서 상세와 같은 판정 — 미리보기가 실제 화면과 달라 보이면 안 된다.
-            const isEventPreview = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kProduct)}</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitType)}</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>`);
             if (channelNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
