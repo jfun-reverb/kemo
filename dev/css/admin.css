@@ -2183,6 +2183,24 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   font-weight:700;
   color:var(--ink);
 }
+/* 숫자를 누르면 브라우저가 글자를 선택하면서 **자기 기본 파란색**을 칠한다.
+   이 화면 테마는 무채색이라(--light-pink 가 실제로는 #F4F4F5 회색) 칸 배경은 회색인데
+   그 안 숫자만 파랗게 떠서 따로 논다. 선택색도 테마 색으로 맞춘다.
+   같은 이유로 날짜 달력의 연도 칸에도 함께 건다.
+   ⚠️ 파이어폭스는 입력칸 안 글자 선택에 이 규칙을 적용하지 않는다(브라우저 자체 제약이라
+      우회 불가) — 그 브라우저에서는 여전히 기본 파란색으로 보인다. */
+.flatpickr-calendar.evt-time-cal .flatpickr-time input::selection,
+.flatpickr-calendar.reverb-range-cal .numInput::selection{
+  background:var(--ink);
+  color:#fff;
+}
+/* 지금 고르고 있는 칸의 테두리 — 브라우저 기본 파란 테두리를 **지우지 않고 색만** 바꾼다.
+   지우면 키보드 Tab 으로 옮겨 다닐 때 어디에 있는지 알 수 없다(배경은 마우스를 올려도
+   같은 색이라 구분이 안 된다). 배경은 위 hover·focus 규칙이 이미 칠한다. */
+.flatpickr-calendar.evt-time-cal .flatpickr-time input:focus{
+  outline:2px solid var(--ink);
+  outline-offset:-2px;
+}
 .flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowUp:hover:after{
   border-bottom-color:var(--pink);
 }
