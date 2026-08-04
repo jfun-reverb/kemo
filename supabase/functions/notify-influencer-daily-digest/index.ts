@@ -113,6 +113,20 @@ function recruitTypeJp(rt: string | null | undefined): string {
   }
 }
 
+// 리뷰 인증샷(review_image) 마감 안내 종류 라벨.
+// 캠페인 요구 채널이 2개 이상일 때만 남은(미완료) 채널명을 괄호로 병기한다
+// (확정된 결정, 2026-08-04 사양서 — 단일 채널에서 채널명은 군더더기).
+function reviewImageKindLabel(
+  missingChannels: string[] | undefined,
+  requiredChannelCount: number | undefined,
+  channelLabelMap: Map<string, string>,
+): string {
+  const base = "レビュー認証写真";
+  if (!missingChannels || !requiredChannelCount || requiredChannelCount < 2) return base;
+  const names = missingChannels.map((ch) => channelLabelMap.get(ch) || ch);
+  return `${base}（${names.join("・")}）`;
+}
+
 // 일자 차이 (양수: A 가 미래, 음수: A 가 과거)
 function dateDiffDays(a: string, b: string): number {
   const aMs = Date.parse(a + "T00:00:00+09:00");
@@ -213,11 +227,14 @@ interface CampRow {
   reward: number | null;
   purchase_end: string | null;
   submission_end: string | null;
+  proxy_purchase: boolean | null;
+  channel: string | null;
 }
 interface DelivRow {
   application_id: string;
   kind: string;
   status: string;
+  post_channel: string | null;
 }
 interface SentRow {
   influencer_id: string;
@@ -314,23 +331,36 @@ Deno.serve(async (req: Request) => {
   if (allCampIds.length > 0) {
     const { data: camps } = await sb
       .from("campaigns")
-      .select("id, campaign_no, title, recruit_type, reward, purchase_end, submission_end")
+      .select("id, campaign_no, title, recruit_type, reward, purchase_end, submission_end, proxy_purchase, channel")
       .in("id", allCampIds);
     (camps || []).forEach((c: CampRow) => campMap.set(c.id, c));
   }
 
   // 6. 마감 임박 후보의 deliverables 일괄 조회 (미제출 행만 임박 메일 대상)
+  //    kinds        : 영수증(receipt)/게시물(post) 종류 존재 여부 판정용 (기존)
+  //    reviewChannels: 리뷰 인증샷(review_image) 채널별 존재 여부 판정용 (2026-08 신설).
+  //      ⚠️ pending·approved 만 조회하므로, 반려(rejected)만 있는 채널은 이 Set 에 없음
+  //      → 「없음」으로 간주해 재제출 안내 대상이 된다(사양서 §설계 단계2 대상조건 참조).
   const approvedAppIds = (appsApproved || []).map((a) => a.id);
-  const delivByApp = new Map<string, Set<string>>(); // app_id → {kind|status_done}
+  interface DelivInfo {
+    kinds: Set<string>;
+    reviewChannels: Set<string>;
+  }
+  const delivByApp = new Map<string, DelivInfo>(); // app_id → 제출 현황
   if (approvedAppIds.length > 0) {
     const { data: delivs } = await sb
       .from("deliverables")
-      .select("application_id, kind, status")
+      .select("application_id, kind, status, post_channel")
       .in("application_id", approvedAppIds)
       .in("status", ["pending", "approved"]);
     (delivs || []).forEach((d: DelivRow) => {
-      if (!delivByApp.has(d.application_id)) delivByApp.set(d.application_id, new Set());
-      delivByApp.get(d.application_id)!.add(d.kind);
+      let info = delivByApp.get(d.application_id);
+      if (!info) {
+        info = { kinds: new Set(), reviewChannels: new Set() };
+        delivByApp.set(d.application_id, info);
+      }
+      info.kinds.add(d.kind);
+      if (d.kind === "review_image" && d.post_channel) info.reviewChannels.add(d.post_channel);
     });
   }
 
@@ -352,7 +382,16 @@ Deno.serve(async (req: Request) => {
     received: AppRow[];
     approved: AppRow[];
     rejected: AppRow[];
-    deadline: { kind: "receipt" | "post"; app: AppRow; deadlineDate: string; dMinus: number }[];
+    deadline: {
+      kind: "receipt" | "post" | "review_image";
+      app: AppRow;
+      deadlineDate: string;
+      dMinus: number;
+      // review_image 전용 — 남은(미완료) 채널 코드 목록 + 캠페인 요구 채널 총 개수.
+      // 요구 채널이 2개 이상일 때만 메일 문구에 채널명을 병기한다(확정된 결정, 사양서 참조).
+      missingChannels?: string[];
+      requiredChannelCount?: number;
+    }[];
   }
   const perInfluencer = new Map<string, SectionAcc>();
   const acc = (uid: string): SectionAcc => {
@@ -367,12 +406,23 @@ Deno.serve(async (req: Request) => {
   });
 
   // 마감 임박 — appsApproved 전체에서 D-5/D-1 + 미제출 + 이력 없는 것만 추출
+  //
+  // ⚠️ 모집 형식별 제출물 대응 (2026-08-04 사양서 docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md):
+  //   - 리뷰어(monitor), 일반         : 영수증(receipt) + 채널별 리뷰 인증샷(review_image) 전부
+  //   - 리뷰어(monitor), 가구매(proxy_purchase) : 영수증(receipt)만 (인증샷 미요구)
+  //   - 시딩(gifting)·방문형(visit)   : 게시물(post)만
+  //   리뷰어형은 게시물을 제출하는 경로가 없다 — 게시물 마감 안내를 리뷰어형에 보내면
+  //   낼 수 없는 것을 독촉하는 오발송이 된다(실제 발생, 운영 1,022건).
+  //   인증 성공 판정의 단일 소스는 dev/js/admin-deliverables.js 의 computeCertStatus —
+  //   이 블록은 그 판정을 서버(발송 시점)에서 재현한 것이므로, 어느 한쪽을 고칠 때
+  //   반드시 다른 쪽도 함께 검토할 것.
   (appsApproved || []).forEach((a: AppRow) => {
     const camp = campMap.get(a.campaign_id);
     if (!camp) return;
-    const delivKinds = delivByApp.get(a.id) || new Set<string>();
+    const delivInfo = delivByApp.get(a.id) || { kinds: new Set<string>(), reviewChannels: new Set<string>() };
+    const delivKinds = delivInfo.kinds;
 
-    // 영수증 (monitor 한정)
+    // 영수증 (monitor 한정 — 리뷰어형은 가구매 여부와 무관하게 항상 영수증 제출)
     if (camp.recruit_type === "monitor" && camp.purchase_end && !delivKinds.has("receipt")) {
       const d = dateDiffDays(camp.purchase_end, todayDate);
       if (d === 5 || d === 1) {
@@ -383,13 +433,47 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 결과물 (submission_end 만 사용 — post_deadline 은 마이그레이션 129 에서 제거됨)
-    if (camp.submission_end && !delivKinds.has("post")) {
+    // 결과물(게시물) — 시딩(gifting)·방문형(visit) 전용. 리뷰어형(monitor)은 게시물 제출 경로가 없다.
+    // (submission_end 만 사용 — post_deadline 은 마이그레이션 129 에서 제거됨)
+    if (
+      (camp.recruit_type === "gifting" || camp.recruit_type === "visit") &&
+      camp.submission_end && !delivKinds.has("post")
+    ) {
       const d = dateDiffDays(camp.submission_end, todayDate);
       if (d === 5 || d === 1) {
         const key = `${a.user_id}|${a.campaign_id}|post|${d}`;
         if (!sentMap.has(key)) {
           acc(a.user_id).deadline.push({ kind: "post", app: a, deadlineDate: camp.submission_end, dMinus: d });
+        }
+      }
+    }
+
+    // 리뷰 인증샷(review_image) — 리뷰어형(monitor) 전용, 가구매(proxy_purchase) 캠페인은 제외
+    // (가구매는 영수증만 요구 — computeCertStatus 의 proxy_purchase 분기와 동일 기준).
+    // 대상 판정 — 캠페인 요구 채널 중 pending·approved 인증샷 행이 없는 채널이 하나라도 있으면 대상
+    // (채널 단위 판정. 반려만 있는 채널은 「없음」으로 보아 재제출을 유도한다).
+    if (camp.recruit_type === "monitor" && !camp.proxy_purchase && camp.submission_end) {
+      const requiredChannels = (camp.channel || "")
+        .split(",").map((c) => c.trim()).filter(Boolean);
+      // 캠페인에 요구 채널이 하나도 없으면(데이터 미비) 어느 채널이 미완료인지 판정 불가 —
+      // 잘못된 안내를 보내느니 발송하지 않는다.
+      if (requiredChannels.length > 0) {
+        const missingChannels = requiredChannels.filter((ch) => !delivInfo.reviewChannels.has(ch));
+        if (missingChannels.length > 0) {
+          const d = dateDiffDays(camp.submission_end, todayDate);
+          if (d === 5 || d === 1) {
+            const key = `${a.user_id}|${a.campaign_id}|review_image|${d}`;
+            if (!sentMap.has(key)) {
+              acc(a.user_id).deadline.push({
+                kind: "review_image",
+                app: a,
+                deadlineDate: camp.submission_end,
+                dMinus: d,
+                missingChannels,
+                requiredChannelCount: requiredChannels.length,
+              });
+            }
+          }
         }
       }
     }
@@ -407,6 +491,25 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_data", digestDate }), {
       status: 200, headers: { "content-type": "application/json" },
     });
+  }
+
+  // 8.5. 리뷰 인증샷 안내 채널명 조회 — 캠페인 요구 채널이 2개 이상일 때만 남은 채널명을
+  //      메일 문구에 병기하므로(확정된 결정), 그런 후보가 있을 때만 조회한다.
+  //      라벨(name_ja)의 단일 소스는 lookup_values(kind='channel') — dev 화면과 동일.
+  const channelLabelMap = new Map<string, string>();
+  {
+    const needsChannelLabel = [...perInfluencer.values()].some((sec) =>
+      sec.deadline.some((d) => d.kind === "review_image" && (d.requiredChannelCount || 0) >= 2)
+    );
+    if (needsChannelLabel) {
+      const { data: channels } = await sb
+        .from("lookup_values")
+        .select("code, name_ja")
+        .eq("kind", "channel");
+      (channels || []).forEach((c: { code: string; name_ja: string | null }) => {
+        if (c.name_ja) channelLabelMap.set(c.code, c.name_ja);
+      });
+    }
   }
 
   // 9. 인플루언서 이메일 일괄 조회 (auth.users)
@@ -459,11 +562,18 @@ Deno.serve(async (req: Request) => {
         const rows = sec.approved.map((a) => {
           const c = campMap.get(a.campaign_id);
           const rewardStr = c?.reward ? `¥${c.reward.toLocaleString("en-US")}` : "-";
+          // 提出期限 표기 — 모집 형식별 분기(2026-08-04 사양서 §설계 단계1-B).
+          //   レビュー認証写真(모니터형)/투고물(시딩·방문형)이 각자 요구하는 제출물만 표시.
+          //   리뷰어형은 게시물(投稿物) 제출 경로가 없으므로 절대 여기 섞지 않는다.
           const deadlineParts: string[] = [];
-          if (c?.recruit_type === "monitor" && c.purchase_end) {
-            deadlineParts.push(`レシート ${formatJpDateShort(c.purchase_end)} まで`);
-          }
-          if (c?.submission_end) {
+          if (c?.recruit_type === "monitor") {
+            if (c.purchase_end) {
+              deadlineParts.push(`レシート ${formatJpDateShort(c.purchase_end)} まで`);
+            }
+            if (!c.proxy_purchase && c.submission_end) {
+              deadlineParts.push(`レビュー認証写真 ${formatJpDateShort(c.submission_end)} まで`);
+            }
+          } else if ((c?.recruit_type === "gifting" || c?.recruit_type === "visit") && c?.submission_end) {
             deadlineParts.push(`投稿物 ${formatJpDateShort(c.submission_end)} まで`);
           }
           const dlRow = deadlineParts.length > 0
@@ -506,7 +616,11 @@ Deno.serve(async (req: Request) => {
       if (sec.deadline.length > 0) {
         const rows = sec.deadline.map((d) => {
           const c = campMap.get(d.app.campaign_id);
-          const kindLabel = d.kind === "receipt" ? "レシート" : "投稿物";
+          const kindLabel = d.kind === "receipt"
+            ? "レシート"
+            : d.kind === "review_image"
+              ? reviewImageKindLabel(d.missingChannels, d.requiredChannelCount, channelLabelMap)
+              : "投稿物";
           const dMinusLabel = `D-${d.dMinus}`;
           const dColor = d.dMinus === 1 ? "#E8344E" : "#A06A14";
           const dBg = d.dMinus === 1 ? "#FFE4E9" : "#FFF0D6";
