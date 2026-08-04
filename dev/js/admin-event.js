@@ -663,7 +663,14 @@ function previewBulkSlots() {
   const skip  = $('eventBulkSkip')?.value || '';
   const el = $('eventBulkPreview');
   if (!el) return;
-  if (!date || !start || !last || last < start) { el.textContent = ''; return; }
+  // ⚠️ 날짜를 미리 보기의 조건으로 삼지 않는다. 몇 시에 몇 줄이 나오는지는 날짜와
+  //    아무 상관이 없는데, 예전엔 날짜가 비면 목록이 통째로 사라져 「입력해도 아무것도
+  //    안 나온다」로 보였다(2026-08-04 사용자 지적). 날짜는 실제로 만들 때만 필요하다.
+  if (!start || !last) { el.textContent = ''; return; }
+  if (last < start) {
+    el.innerHTML = '<span style="color:var(--red-d)">「마지막 시작 시각」이 「시작 시각」보다 이릅니다.</span>';
+    return;
+  }
   const dur = parseInt($('eventBulkDuration')?.value, 10) || 0;
   const times = buildBulkSlotTimes(start, last, step, skip);
   // 길이를 넣었으면 끝 시각까지 보여 준다 — 겹치는지 눈으로 알 수 있어야 한다.
@@ -676,8 +683,14 @@ function previewBulkSlots() {
   };
   const overlap = dur > 0 && dur > step
     ? `<div style="margin-top:4px;color:var(--gold)">한 타임 길이(${dur}분)가 간격(${step}분)보다 길어 타임끼리 시간이 겹칩니다.</div>` : '';
+  // 날짜가 비어 있으면 목록은 그대로 보여 주되, 만들려면 날짜가 필요하다고 알린다.
+  //   ⚠️ 이때 첫 문장을 「만들어집니다」로 두면, 바로 아래 「고르면 만들어집니다」와
+  //      부딪혀 지금 만들어지는 건지 아닌지를 두 번 읽게 된다. 시제를 갈라 둔다.
+  const needDate = date ? ''
+    : '<div style="margin-top:4px;color:var(--gold)">「날짜」를 고르면 이대로 만들어집니다.</div>';
+  const lead = date ? `<b>${times.length}줄</b>이 만들어집니다` : `<b>${times.length}줄</b>`;
   el.innerHTML = times.length
-    ? `<b>${times.length}줄</b>이 만들어집니다 — ${esc(times.map(label).join(', '))}${overlap}`
+    ? `${lead} — ${esc(times.map(label).join(', '))}${overlap}${needDate}`
     : '만들어질 줄이 없습니다. 시작·마지막 시각과 제외 시각을 확인해 주세요.';
 }
 
