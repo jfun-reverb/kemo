@@ -2900,6 +2900,7 @@ const CP_I18N = {
     kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
+    evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、LINEにてご連絡',
     secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
@@ -2913,6 +2914,7 @@ const CP_I18N = {
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
+    evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 LINE으로 연락',
     secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
@@ -2923,6 +2925,60 @@ const CP_I18N = {
 // 미리보기에 넣을 행사 시간 요약 — 날짜마다 「N타임 · 첫 시각〜마지막 시각」.
 //   시간대는 캠페인 표가 아니라 별도 표에 있어 폼 값으로는 못 만든다. 편집 화면이
 //   방금 읽어 둔 목록(_eventSlotsCache)을 그대로 쓴다.
+// 'YYYY-MM-DD' → '8/8(土)'. 방문객 화면(application.js formatEventSlotDateLabel)과 같은 규칙.
+function eventPreviewDateLabel(d, lang) {
+  const dt = new Date(d + 'T00:00:00+09:00');
+  if (isNaN(dt.getTime())) return d;
+  const wd = dt.toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'ja-JP', {weekday: 'short', timeZone: 'Asia/Tokyo'});
+  return `${dt.getMonth() + 1}/${dt.getDate()}(${wd.replace(/[()]/g, '')})`;
+}
+
+// 미리보기의 타임 선택표 — 방문객이 실제로 누르는 버튼을 그대로 보여 준다.
+//   정보표의 「방문 일시」 한 줄만으로는 **고르는 화면이 어떻게 생겼는지** 알 수 없어
+//   「선택하는 버튼이 안 보인다」는 말이 나왔다(2026-08-04 지적).
+//   ⚠️ 방문객 화면의 클래스(.event-slot 등)는 인플루언서 빌드에만 있어 여기서 못 쓴다.
+//      같은 생김새를 인라인으로 다시 그린다 — 바꿀 때 양쪽을 함께 봐야 한다
+//      (원본: dev/js/application.js 의 renderEventSlotList).
+//   ⚠️ 누르는 흉내만 낸다. 미리보기는 값을 바꾸지 않는다.
+function eventSlotPickerPreviewHtml(L, mode, lang) {
+  const head = `<div class="cp-section-heading">${esc(L.kEventTimes)}</div>`;
+  // ⚠️ 바로 아래 eventTimesPreviewHtml 과 **같은 가드가 필요하다.** `_eventSlotsCache` 는
+  //    편집 화면 전용이라, 신규 등록 화면에서 그대로 읽으면 직전에 편집하던 다른
+  //    캠페인의 시간대가 새 캠페인 미리보기에 뜬다. (같은 실수를 두 번 했다 — 앞 커밋에서
+  //    한쪽만 고치고 이 함수에 옮기지 못했다.)
+  if (mode !== 'edit') {
+    return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
+  }
+  const rows = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
+    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false) : [];
+  const dates = [...new Set(rows.map(r => String(r.slot_date).slice(0, 10)))].sort();
+  if (!rows.length) {
+    return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
+  }
+  const active = dates[0];
+  const dLabel = d => eventPreviewDateLabel(d, lang);
+  const tabs = dates.length > 1
+    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">` + dates.map(d =>
+        `<span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;border:1px solid ${d === active ? 'var(--ink)' : 'var(--line)'};background:${d === active ? 'var(--ink)' : '#fff'};color:${d === active ? '#fff' : 'var(--muted)'}">${esc(dLabel(d))}</span>`
+      ).join('') + `</div>`
+    : `<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(dLabel(dates[0]))}</div>`;
+  const list = rows.filter(r => String(r.slot_date).slice(0, 10) === active).map(r => {
+    const st = String(r.start_time || '').slice(0, 5);
+    const en = r.end_time ? String(r.end_time).slice(0, 5) : '';
+    const time = en ? `${st}〜${en}` : st;
+    const cnt = (typeof _eventSlotCounts !== 'undefined' && _eventSlotCounts) ? (_eventSlotCounts[r.id] || {}) : {};
+    const cap = Number(r.capacity || 0);
+    const left = (cnt.remaining != null) ? Number(cnt.remaining) : cap;
+    const full = left <= 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--line);border-radius:10px;background:${full ? 'var(--surface-container-low)' : '#fff'}">
+      <span style="font-size:13px;font-weight:700;color:${full ? 'var(--muted)' : 'var(--ink)'}">${esc(time)}</span>
+      ${r.audience_label ? `<span style="font-size:11px;color:var(--muted)">${esc(r.audience_label)}</span>` : ''}
+      <span style="font-size:11px;font-weight:600;color:${full ? 'var(--muted)' : 'var(--dark-pink)'}">${full ? esc(L.evtFull) : esc(L.evtRemain).replace('{n}', left)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="cp-sec">${head}${tabs}${list}</div>`;
+}
+
 function eventTimesPreviewHtml(L, mode) {
   // ⚠️ `_eventSlotsCache` 는 **편집 화면 전용** 캐시다. 신규 등록 화면은 시간대를 걸
   //    캠페인 식별자가 아직 없어 이 캐시를 채우지 않으므로, 그대로 읽으면 직전에
@@ -3034,6 +3090,7 @@ function renderCampPreview(mode) {
             return rows.join('');
           })()}
         </div>
+        ${isEventPreview ? eventSlotPickerPreviewHtml(L, mode, lang) : ''}
         ${steps.length ? `<div class="cp-participation">
           <div class="cp-section-heading">${esc(L.secParticipation)}</div>
           ${steps.map((s,i)=>{
