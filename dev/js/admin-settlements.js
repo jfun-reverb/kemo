@@ -51,8 +51,8 @@ function settlementAmountYen(v) {
 
 // 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
 // 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
-//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(294~)
-//   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (294 이전에 만들어진 행)
+//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(300~)
+//   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (300 이전에 만들어진 행)
 //   reward         = 시딩·방문형 캠페인 현금 리워드
 //   NULL           = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
 const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
@@ -65,14 +65,14 @@ function settlementAmountSourceLabel(source) {
   return SETTLEMENT_AMOUNT_SOURCE_LABELS[source] || '';
 }
 
-// 상한 적용 여부(마이그레이션 293 receipt_amount_jpy/amount_cap_jpy).
+// 상한 적용 여부(마이그레이션 299 receipt_amount_jpy/amount_cap_jpy).
 // 영수증이 캠페인 상시가보다 커서 상한에서 잘린 건인지 판정한다 — 관리자가
 // 「영수증에는 3,500엔인데 왜 3,200엔만 지급되나」를 화면에서 바로 알 수 있어야 한다
 // (2026-08-05 사용자 명시 요구). 두 값이 다 있어야 판정 가능(옛 행은 비어 있음).
 function settlementCapApplied(s) {
   s = s || {};
   // ⚠️ Number(null) 은 0 이라 isFinite 를 통과한다 — null 검사를 먼저 해야
-  // 「두 값이 다 있을 때만 판정」이 실제로 성립한다(293 적용 이전 행은 둘 다 비어 있음).
+  // 「두 값이 다 있을 때만 판정」이 실제로 성립한다(299 적용 이전 행은 둘 다 비어 있음).
   if (s.receipt_amount_jpy == null || s.amount_cap_jpy == null) return false;
   const receipt = Number(s.receipt_amount_jpy);
   const cap = Number(s.amount_cap_jpy);
@@ -635,7 +635,7 @@ async function exportSettlementsExcel() {
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
-      // 293 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
+      // 299 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
       // 옛 행(상시가·현금 리워드 기준)은 빈 칸으로 남는다.
       { header: '영수증금액(¥)', key: 'receipt', width: 14 },
       { header: '상한(¥)',    key: 'cap',      width: 12 },
@@ -660,7 +660,7 @@ async function exportSettlementsExcel() {
         title:    camp.title || '',
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
-        // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 293 이전 행이
+        // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 299 이전 행이
         // 「영수증 0엔」으로 찍혀 실제로 0원에 샀다는 오해를 준다.
         receipt:  (s.receipt_amount_jpy != null) ? Number(s.receipt_amount_jpy) : '',
         cap:      (s.amount_cap_jpy != null) ? Number(s.amount_cap_jpy) : '',
@@ -868,7 +868,7 @@ function renderPastUnregRow(r) {
     ? `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="${esc(r.amount_issue)}">금액 미확정</span>`
       + `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.amount_issue)}</div>`
     : `<div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</div>`
-      + settlementAmountNote(r);  // 출처 배지 + 상한이 걸렸으면 그 근거(293·294)
+      + settlementAmountNote(r);  // 출처 배지 + 상한이 걸렸으면 그 근거(299·300)
   const certCell = r.cert_at
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';

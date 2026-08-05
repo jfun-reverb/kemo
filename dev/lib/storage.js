@@ -4071,8 +4071,8 @@ async function fetchSettlements(opts) {
       // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
       // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
       // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
-      // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 293 추가 — 리뷰어형이 영수증
-      // 실결제액 기준으로 바뀌면서(294), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
+      // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 299 추가 — 리뷰어형이 영수증
+      // 실결제액 기준으로 바뀌면서(300), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
       // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
