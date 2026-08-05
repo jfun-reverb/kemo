@@ -1433,7 +1433,7 @@ async function deleteMismatchedPostRow(deliverableId) {
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
 // (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
-// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 294 이후).
+// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 300 이후).
 // 리뷰어형 정산액 = min(이 금액, 캠페인 상시가) 이므로, 검수자가 영수증 사진과 이
 // 숫자를 대조하지 않으면 잘못된 금액이 그대로 송금된다 — 사양서 §2-1 ①·§3-4.
 // 리뷰어형(monitor)에서만 뜬다. 시딩·방문형은 이 값이 돈과 무관하다.
@@ -1625,7 +1625,7 @@ async function saveReceiptEdit(id) {
       await openDelivDetail(_delivDetailCurrent.id);
     }
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
-    // 마이그레이션 296 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
+    // 마이그레이션 302 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
     // (재계산 또는 금액 미확정 시 자동 보류). 정산 페인과 사이드바 「정산대기」 배지가
     // 메모리 캐시를 쓰므로 함께 갱신하지 않으면 관리자가 그 변화를 못 본다.
     if (typeof refreshPane === 'function') await refreshPane('settlements');

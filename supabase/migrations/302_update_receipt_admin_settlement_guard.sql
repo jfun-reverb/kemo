@@ -1,11 +1,11 @@
 -- ============================================================
--- 296_update_receipt_admin_settlement_guard.sql
+-- 302_update_receipt_admin_settlement_guard.sql
 -- 관리자 영수증 사후 수정에 정산 정합 가드 추가
 -- 사양서: docs/specs/2026-08-05-settlement-receipt-amount-switch.md §3-1(재계산 기준),
 --   §3-4 「영수증 금액 사후 수정 가드」(관리자 경로)
 --
 -- ── 배경 ──
---   293·294 로 리뷰어형(monitor) 정산 금액이 "그 응모의 최신 영수증(receipt_latest)
+--   299·300 로 리뷰어형(monitor) 정산 금액이 "그 응모의 최신 영수증(receipt_latest)
 --   purchase_amount 를 캠페인 상시가로 상한을 씌운 값"이 됐다. 그런데 관리자가 영수증을
 --   등록한 뒤(=정산이 이미 만들어진 뒤)에도 update_receipt_admin(마이그레이션 128→178)
 --   RPC 로 purchase_amount 를 얼마든지 고칠 수 있고, 지금까지 그 수정은 정산과 아무
@@ -19,10 +19,10 @@
 --     128(원본 CREATE) → 178(CREATE OR REPLACE, 3종 필수→최소 1개로 완화)
 --     → 252(receipt_edit_history 테이블에 트리거 추가 — update_receipt_admin 본문 자체는
 --       무변경, RPC 코드를 안 건드리고 트리거로 투명 처리한다고 252 파일에 명시)
---     → 295(deliverables 에 별도 트리거 trg_receipt_settlement_lock 추가 — 이 함수의
+--     → 301(deliverables 에 별도 트리거 trg_receipt_settlement_lock 추가 — 이 함수의
 --       UPDATE 문도 그 트리거를 통과하지만, is_admin() 이 함수 안에서 이미 참인 호출만
---       이 지점에 도달하므로 295 트리거 1번 조건에서 항상 조기 통과한다. update_receipt_
---       admin 자체의 시그니처·본문은 295 도 건드리지 않았다).
+--       이 지점에 도달하므로 301 트리거 1번 조건에서 항상 조기 통과한다. update_receipt_
+--       admin 자체의 시그니처·본문은 301 도 건드리지 않았다).
 --   → 이 함수의 "현재 유효한 정의"는 178. 이번 파일이 178 을 대체하는 재정의다.
 --
 -- ── 무엇을 바꾸는가(요약) ──
@@ -35,27 +35,27 @@
 --       아래 「재계산 결과가 실패할 때」참고)
 --     · 정산 행 자체가 없음 → 178 과 완전히 동일하게 동작(영향 없음)
 --
--- ── ⚠️ 여기서는 취소(cancelled)도 차단 대상이다 — 295(영수증 신규 제출 차단)와
+-- ── ⚠️ 여기서는 취소(cancelled)도 차단 대상이다 — 301(영수증 신규 제출 차단)와
 --    다른 이유(사용자 2026-08-05 확인) ──
---   295 는 "취소(cancelled)된 정산이 있는 응모"에 새 영수증을 내는 것은 막지 않는다
---   (인플루언서가 영구히 새 영수증을 못 내는 상태로 굳는 것을 피하기 위해서다 — 295
---   파일 상단 참고). 이 파일(296)은 그 반대로 취소도 막는다. 두 가드는 막는 대상과
+--   301 은 "취소(cancelled)된 정산이 있는 응모"에 새 영수증을 내는 것은 막지 않는다
+--   (인플루언서가 영구히 새 영수증을 못 내는 상태로 굳는 것을 피하기 위해서다 — 301
+--   파일 상단 참고). 이 파일(302)은 그 반대로 취소도 막는다. 두 가드는 막는 대상과
 --   목적이 다르다:
---     · 295(제출 차단) = 인플루언서가 "새 영수증 행"을 만드는 것을 막는다. 목적은
+--     · 301(제출 차단) = 인플루언서가 "새 영수증 행"을 만드는 것을 막는다. 목적은
 --       "정산 금액과 영수증이 어긋나는 것"을 막는 것이고, 취소된 정산은 지급 자체를
 --       하지 않으므로 애초에 어긋날 금액이 없다 — 막을 이유가 약하고, 막으면 인플루언서가
 --       영원히 갇히는 부작용이 크다.
---     · 296(이 파일, 수정 차단) = 관리자가 "이미 존재하는 영수증 행의 금액 칸"을 고치는
+--     · 302(이 파일, 수정 차단) = 관리자가 "이미 존재하는 영수증 행의 금액 칸"을 고치는
 --       것을 막는다. 목적은 "확정된 금전 기록이 흔들리는 것"을 막는 것이다. 취소된
 --       정산도 한때 계산됐던 금액(amount_jpy)이 감사 기록(settlement_events)에 남아
 --       있고, 그 근거였던 영수증을 사후에 바꾸면 "그 취소가 어떤 금액을 근거로 이뤄졌는지"
 --       를 사후에 다시 쓸 수 있게 된다 — 즉 "인플루언서가 갇히는" 부작용이 없고(관리자가
 --       거는 가드일 뿐, 인플루언서의 다음 행동을 막지 않는다), 반대로 "막지 않으면
---       감사 기록의 근거가 사후에 바뀐다"는 위험만 남는다. 그래서 296 은 3종
+--       감사 기록의 근거가 사후에 바뀐다"는 위험만 남는다. 그래서 302 는 3종
 --       (paid·on_hold·cancelled) 모두 차단한다.
 --
 -- ── 재계산 기준(사양서 §3-1) ──
---   · "최신 영수증" = 294 의 receipt_latest 와 완전히 같은 정렬 기준
+--   · "최신 영수증" = 300 의 receipt_latest 와 완전히 같은 정렬 기준
 --     (application_id 기준 submitted_at DESC, updated_at DESC 최신 1건). 지금 수정하는
 --     행(p_deliverable_id)이 그 최신 행이 아닐 수도 있으므로, 별도로 "이 행이 최신인지"
 --     따지지 않고 그냥 응모 기준으로 다시 조회한다 — 이 UPDATE 가 이미 커밋 전 같은
@@ -63,15 +63,15 @@
 --   · 상한(캠페인 상시가) = **저장된 옛 상한(settlements.amount_cap_jpy)을 재사용하지
 --     않고 campaigns.product_price 를 다시 읽는다** — 캠페인이 그 사이 수정됐을 수
 --     있어서다(사양서 §3-1 "재계산 기준" 행 명시).
---   · 계산식은 294 와 완전히 같아야 한다: NULLIF(GREATEST(floor(LEAST(영수증, 상한)), 0), 0)
---     ⚠️ LEAST() 는 NULL 을 무시하는 함수라(294 파일 상단과 동일 경고) 두 값이 모두
---     유효(NOT NULL·0 초과)할 때만 호출한다. 294 의 헬퍼(_settlement_cert_candidates)를
+--   · 계산식은 300 과 완전히 같아야 한다: NULLIF(GREATEST(floor(LEAST(영수증, 상한)), 0), 0)
+--     ⚠️ LEAST() 는 NULL 을 무시하는 함수라(300 파일 상단과 동일 경고) 두 값이 모두
+--     유효(NOT NULL·0 초과)할 때만 호출한다. 300 의 헬퍼(_settlement_cert_candidates)를
 --     그대로 호출하지 못하는 이유 — 그 헬퍼는 "아직 정산행이 없는" 응모만 대상으로
 --     하는 CTE(candidates, NOT EXISTS settlements)라 이미 정산행이 있는 이 케이스에는
---     맞지 않는다. 그래서 같은 계산식을 이 함수 안에 별도로 복제했다 — **294 의 계산식이
+--     맞지 않는다. 그래서 같은 계산식을 이 함수 안에 별도로 복제했다 — **300 의 계산식이
 --     바뀌면 이 함수도 함께 고쳐야 한다**(드리프트 위험, 파일 양쪽에 서로를 가리키는
 --     경고 주석을 남긴다).
---   · 감사용 칸 2개(receipt_amount_jpy·amount_cap_jpy, 293)도 재계산 성공 시 함께
+--   · 감사용 칸 2개(receipt_amount_jpy·amount_cap_jpy, 299)도 재계산 성공 시 함께
 --     갱신한다 — 안 하면 관리자 화면의 "왜 이 금액인가" 설명이 거짓 근거를 표시한다
 --     (사양서 §3-1 "재계산 기준" 행 명시).
 --
@@ -147,7 +147,7 @@
 -- ── 반환값 설계(화면이 쓸 수 있도록) ──
 --   기존 178 은 RETURNS void. 이 파일은 RETURNS TABLE(4컬럼)로 바꾼다 — 인자 목록
 --   (uuid, text, date, numeric)은 그대로지만 반환 타입이 바뀌므로 CREATE OR REPLACE 로는
---   안 되고 DROP 후 CREATE 가 필요하다(294 가 get_past_unregistered_settlements 에
+--   안 되고 DROP 후 CREATE 가 필요하다(300 이 get_past_unregistered_settlements 에
 --   적용한 것과 동일 이유). storage.js 의 updateReceiptAdmin() 은 현재 {error} 만
 --   구조분해하고 반환된 data 를 쓰지 않으므로(dev/lib/storage.js:1209) 이 반환 타입
 --   변경만으로는 기존 화면 동작이 깨지지 않는다 — 새 값은 2단계(관리자 화면)가
@@ -162,7 +162,7 @@
 --     settlement_amount_issue   — 재계산 결과가 "금액 미확정"이 되어 자동 보류된
 --                                  경우의 사유 문구. 그 외에는 NULL.
 --   (paid/on_hold/cancelled 로 차단된 경우는 RAISE EXCEPTION 으로 트랜잭션이 끝나므로
---   이 반환값 자체가 존재하지 않는다 — 클라는 그 상황을 error 로 받는다, 295 와 동일)
+--   이 반환값 자체가 존재하지 않는다 — 클라는 그 상황을 error 로 받는다, 301 과 동일)
 --
 -- ── 128/178 대비 변경 사항 요약 ──
 --   [유지] 권한 가드(is_campaign_admin) · 입력 정규화·검증(최소 1개, 주문번호 200자,
@@ -177,7 +177,7 @@
 
 -- ============================================================
 -- 1. settlement_events.action CHECK 확장 — 'recalc' 추가(217 원본 5종 → 6종)
---    DROP CONSTRAINT IF EXISTS → ADD CONSTRAINT 패턴(160/162/293 과 동일, 재실행 안전)
+--    DROP CONSTRAINT IF EXISTS → ADD CONSTRAINT 패턴(160/162/299 와 동일, 재실행 안전)
 -- ============================================================
 ALTER TABLE public.settlement_events
   DROP CONSTRAINT IF EXISTS settlement_events_action_check;
@@ -188,10 +188,10 @@ ALTER TABLE public.settlement_events
     'create',  -- 정산 최초 생성(backfill_settlements/register_past_settlements)
     'pay',     -- 송금완료 처리(mark_settlement_paid, 222)
     'hold',    -- 보류(관리자 수동 mark_settlement_hold, 223 / 신청 반려 자동, 246 /
-               -- 영수증 재계산 실패 자동, 296 — memo 로 사유 구분)
+               -- 영수증 재계산 실패 자동, 302 — memo 로 사유 구분)
     'cancel',  -- 취소(mark_settlement_cancel, 223)
     'revert',  -- 보류 해제·pending 복귀(mark_settlement_revert, 224)
-    'recalc'   -- [296 신규] 상태는 그대로(pending→pending)인데 영수증 사후 수정으로
+    'recalc'   -- [302 신규] 상태는 그대로(pending→pending)인데 영수증 사후 수정으로
                -- 금액(amount_jpy)만 재계산되어 바뀐 사건
   ));
 
@@ -227,7 +227,7 @@ DECLARE
 
   v_latest_receipt_amount  numeric; -- 저장 직후 다시 읽은 "그 응모의 최신 영수증" 결제 금액
   v_cap                    bigint;  -- 다시 읽은 캠페인 상시가(product_price, 옛 스냅샷 재사용 금지)
-                                    -- campaigns.product_price 는 bigint(003) — 294 와 타입을 맞춘다
+                                    -- campaigns.product_price 는 bigint(003) — 300 과 타입을 맞춘다
   v_new_amount             bigint;  -- 재계산된 정산 금액
   v_new_receipt_snapshot   bigint;  -- 재계산된 감사용 칸 — 영수증 원금액(floor)
   v_new_cap_snapshot       bigint;  -- 재계산된 감사용 칸 — 적용 상한
@@ -278,7 +278,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  -- ── [296 신규] 그 응모의 정산 조회 + 상태별 차단 ────────────────────
+  -- ── [302 신규] 그 응모의 정산 조회 + 상태별 차단 ────────────────────
   -- FOR UPDATE 로 행 잠금 — mark_settlement_*() RPC 들과의 동시 처리 경쟁 방지.
   -- settlements.application_id 는 UNIQUE(217) 이므로 최대 1행만 매칭된다.
   SELECT id, status, version, amount_jpy, campaign_id, receipt_amount_jpy, amount_cap_jpy
@@ -289,7 +289,7 @@ BEGIN
   v_settlement_found := FOUND;  -- 이후 문장이 FOUND 를 계속 덮어쓰므로 즉시 변수로 옮김
 
   -- 송금완료(paid)·보류(on_hold)·취소(cancelled) — 수정 자체를 차단.
-  -- (파일 상단 "여기서는 취소도 차단 대상" 설명 참고 — 295 의 제출 차단과 집합이 다르다)
+  -- (파일 상단 "여기서는 취소도 차단 대상" 설명 참고 — 301 의 제출 차단과 집합이 다르다)
   IF v_settlement_found AND v_settlement.status IN ('paid', 'on_hold', 'cancelled') THEN
     RAISE EXCEPTION 'settlement_locked_receipt_edit: 이미 처리된 정산(송금완료·보류·취소)이 연결된 영수증은 수정할 수 없습니다. 정산 상태를 먼저 확인해 주세요.'
       USING ERRCODE = '22023';
@@ -339,9 +339,9 @@ BEGIN
     'admin_edit'
   );
 
-  -- ── [296 신규] 정산이 정산대기(pending)면 저장 직후 재계산 ─────────
+  -- ── [302 신규] 정산이 정산대기(pending)면 저장 직후 재계산 ─────────
   IF v_settlement_found AND v_settlement.status = 'pending' THEN
-    -- "최신 영수증" 재조회 — 294 receipt_latest 와 완전히 동일한 정렬 기준.
+    -- "최신 영수증" 재조회 — 300 receipt_latest 와 완전히 동일한 정렬 기준.
     -- 방금 위에서 커밋 전 UPDATE 한 값이 같은 트랜잭션 안이라 바로 보인다.
     SELECT purchase_amount
       INTO v_latest_receipt_amount
@@ -356,7 +356,7 @@ BEGIN
       FROM public.campaigns
      WHERE id = v_settlement.campaign_id;
 
-    -- amount_issue 판정 3종 — 294 와 완전히 동일한 조건(⚠️ 294 계산식이 바뀌면
+    -- amount_issue 판정 3종 — 300 과 완전히 동일한 조건(⚠️ 300 계산식이 바뀌면
     -- 이 블록도 함께 고칠 것 — 파일 상단 "재계산 기준" 절 경고 참고)
     IF v_latest_receipt_amount IS NULL OR v_latest_receipt_amount <= 0 THEN
       v_amount_issue := '리뷰어형 영수증 결제 금액(purchase_amount) 값 없음 또는 0 이하';
@@ -390,7 +390,7 @@ BEGIN
       v_out_amount := v_settlement.amount_jpy;  -- 예전 값 그대로(변경 없음)
       v_recalculated := false;
     ELSE
-      -- ── 재계산 성공 — 294 와 완전히 동일한 계산식 ──
+      -- ── 재계산 성공 — 300 과 완전히 동일한 계산식 ──
       v_new_amount           := NULLIF(GREATEST(floor(LEAST(v_latest_receipt_amount, v_cap::numeric)), 0), 0)::bigint;
       v_new_receipt_snapshot := floor(v_latest_receipt_amount)::bigint;
       v_new_cap_snapshot     := v_cap::bigint;
@@ -437,7 +437,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.update_receipt_admin(uuid, text, date, numeric) IS
-  '[296 재정의, 178 원본 대체(반환 타입 void→TABLE, 정산 정합 가드 추가)] 관리자가 '
+  '[302 재정의, 178 원본 대체(반환 타입 void→TABLE, 정산 정합 가드 추가)] 관리자가 '
   'deliverables(kind=receipt) 영수증 필드(주문번호·구매일·구매금액)를 수정하고 변경 이력을 '
   '기록하는 RPC. SECURITY DEFINER, campaign_admin 이상 필요. 그 응모에 정산(settlements)이 '
   '있으면: paid/on_hold/cancelled 는 수정 차단(RAISE EXCEPTION), pending 은 수정 허용 후 '
@@ -452,15 +452,15 @@ NOTIFY pgrst, 'reload schema';
 
 -- ============================================================
 -- 검증 SQL (개발 DB 적용 후 SQL Editor에서 1단계씩 실행 — 결과 확인 후 다음 단계로)
---   ⚠️ 마이그레이션 293·294·295 까지 적용된 뒤에 실행할 것.
+--   ⚠️ 마이그레이션 299·300·301 까지 적용된 뒤에 실행할 것.
 --
 --   ⚠️ is_campaign_admin() 은 auth.uid() 를 참조하므로 SQL Editor 의 기본 서비스 키
 --   세션(auth.uid() IS NULL)으로는 이 함수를 직접 호출할 수 없다(178 원본부터 있던
---   제약, 296 이 새로 만든 제약이 아님). 아래 [V4] 부터는 274/295 와 동일한
+--   제약, 302 가 새로 만든 제약이 아님). 아래 [V4] 부터는 274/301 과 동일한
 --   "request.jwt.claims 로 관리자 계정을 흉내내는" 방식을 쓴다 — 이 함수는
 --   SECURITY DEFINER 로 deliverables/settlements 를 직접 UPDATE 하므로(행 단위
 --   보안 정책을 거치지 않음), 이 흉내내기 방식만으로 대부분의 분기를 SQL Editor
---   안에서 검증할 수 있다(295 의 "브라우저 필수" 제약과 다른 점 — 295 는 RLS INSERT
+--   안에서 검증할 수 있다(301 의 "브라우저 필수" 제약과 다른 점 — 301 은 RLS INSERT
 --   정책이 관여했지만 이 함수는 함수 내부 UPDATE 라 흉내내기로 충분하다). 다만
 --   [V8](실제 저장 버튼 클릭 후 화면이 안 깨지는지)은 브라우저 확인을 권장한다.
 -- ============================================================
@@ -522,7 +522,7 @@ BEGIN;
 ROLLBACK;
 
 -- [V6] 재계산 실패(금액 미확정) 확인 — [V1] 의 deliverable_id 에 0 을 넣어 시도
---   ⚠️ purchase_amount=0 은 178 자체 검증("음수만 차단")은 통과하지만 296 재계산에서
+--   ⚠️ purchase_amount=0 은 178 자체 검증("음수만 차단")은 통과하지만 302 재계산에서
 --   "영수증 결제 금액 없음/0 이하"로 판정돼야 한다(반드시 ROLLBACK)
 BEGIN;
   SELECT set_config('request.jwt.claims',

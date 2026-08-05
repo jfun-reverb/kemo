@@ -1,5 +1,5 @@
 -- ============================================================
--- 295_receipt_settlement_lock_guard.sql
+-- 301_receipt_settlement_lock_guard.sql
 -- 정산이 이미 처리된 응모에 영수증을 새로 제출하는 것을 데이터베이스에서 차단
 -- 사양서: docs/specs/2026-08-05-settlement-receipt-amount-switch.md §3-4 ★(영수증 신규
 --   제출 가드) — 「단계 배정」 표에 따라 이 마이그레이션의 서버 차단만 1단계 범위이고,
@@ -10,7 +10,7 @@
 --   영수증(kind='receipt')은 재제출할 때마다 기존 행을 재사용하지 않고 **새 행이
 --   쌓인다**(§1-3 — review_image/post 와 달리 "기존 행 교체" 분기가 storage.js
 --   insertDraftDeliverable() 에 없다). 정산(settlements) 은 그 응모의 "최신 영수증"
---   (receipt_latest — 마이그레이션 294 헬퍼, submitted_at DESC 최신 1건)을 근거로
+--   (receipt_latest — 마이그레이션 300 헬퍼, submitted_at DESC 최신 1건)을 근거로
 --   금액을 계산해 이미 저장했다. 정산이 만들어진 뒤에 그보다 나중 시각의 새 영수증
 --   행이 하나라도 생기면, 그 순간부터 "최신 영수증"의 정의가 바뀌어 판정·금액이
 --   가리키는 행이 서로 어긋난다 — §3-1 "판정·금액 단일 소스" 원칙이 깨지는 지점.
@@ -133,7 +133,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.check_receipt_settlement_lock() IS
-  '[295] 정산(settlements)이 paid/on_hold 인 응모에 새 영수증(kind=receipt,
+  '[301] 정산(settlements)이 paid/on_hold 인 응모에 새 영수증(kind=receipt,
    status IN (draft,pending))을 저장하려 하면 차단하는 트리거 함수. BEFORE INSERT OR
    UPDATE ON deliverables, WHEN(NEW.kind=''receipt''). 정산대기(pending)는 막지 않는다
    (제출은 허용, 재계산·경고 UI는 2단계). 관리자(is_admin())와 로그인 세션 없는 호출은
@@ -148,7 +148,7 @@ CREATE TRIGGER trg_receipt_settlement_lock
 
 -- ============================================================
 -- 검증 SQL (개발 DB 적용 후 SQL Editor에서 1단계씩 실행 — 결과 확인 후 다음 단계로)
---   ⚠️ 마이그레이션 293·294 까지 적용된 뒤에 실행할 것(settlements 표·함수 의존 없음이지만
+--   ⚠️ 마이그레이션 299·300 까지 적용된 뒤에 실행할 것(settlements 표·함수 의존 없음이지만
 --   같은 기능 세트이므로 순서를 맞춘다).
 -- ============================================================
 /*
@@ -162,7 +162,7 @@ SELECT p.proname, p.prosecdef,
    AND p.pronamespace = 'public'::regnamespace;
 -- 기대: prosecdef=true, tgname='trg_receipt_settlement_lock', tgenabled='O'
 
--- [V1] deliverables 트리거 전체 목록 확인(간섭 재확인 — 5개여야 함: 295 적용 전 4개 + 이번 1개)
+-- [V1] deliverables 트리거 전체 목록 확인(간섭 재확인 — 5개여야 함: 301 적용 전 4개 + 이번 1개)
 SELECT tgname FROM pg_trigger
  WHERE tgrelid = 'public.deliverables'::regclass AND NOT tgisinternal
  ORDER BY tgname;

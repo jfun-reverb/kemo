@@ -1,12 +1,12 @@
 -- ============================================================
--- 294_settlement_amount_receipt_basis.sql
+-- 300_settlement_amount_receipt_basis.sql
 -- 리뷰어형 정산 금액을 영수증 실결제액 기준으로 전환 — 2/2
 --   (헬퍼 재정의 + 호출 함수 3개 동시 재정의, 한 파일·한 트랜잭션)
 -- 사양서: docs/specs/2026-08-05-settlement-receipt-amount-switch.md §3-1, §3-2 마이그레이션②
 --
--- ⚠️ **293 을 먼저 적용해야 한다.** 이 파일의 저장 함수들이 293 이 만드는 칸 2개
---    (receipt_amount_jpy·amount_cap_jpy)에 INSERT 하므로, 293 없이 실행하면 그 자리에서
---    실패한다. 적용 순서: 293 → 294 → 295. 롤백 순서는 그 역순.
+-- ⚠️ **299 를 먼저 적용해야 한다.** 이 파일의 저장 함수들이 299 가 만드는 칸 2개
+--    (receipt_amount_jpy·amount_cap_jpy)에 INSERT 하므로, 299 없이 실행하면 그 자리에서
+--    실패한다. 적용 순서: 299 → 300 → 301. 롤백 순서는 그 역순.
 --
 -- ── 이 마이그레이션이 하는 일 ──
 --   리뷰어형(monitor, 가구매 proxy_purchase 포함) 정산 금액 산정을
@@ -32,7 +32,7 @@
 -- ── 이 마이그레이션이 바꾸는 것(요약) ──
 --   1) receipt_latest CTE 가 purchase_amount 도 함께 가져온다(SELECT 목록에 1컬럼 추가.
 --      DISTINCT ON/ORDER BY 는 완전히 그대로 — 어느 행이 "최신"인지 판정은 무변경).
---   2) 헬퍼 반환 테이블에 receipt_amount_jpy·amount_cap_jpy 2컬럼 추가(293 이 만든 감사용
+--   2) 헬퍼 반환 테이블에 receipt_amount_jpy·amount_cap_jpy 2컬럼 추가(299 가 만든 감사용
 --      칸을 채우기 위한 계산값. 관리자 화면 "영수증 N엔 → 상한 적용 M엔" 표시는 2단계 —
 --      이번엔 값만 계산해 반환·저장한다).
 --   3) 금액 계산 CASE 문 — 리뷰어형만 product_price 단독 참조에서
@@ -121,7 +121,7 @@ AS $$
   WITH candidates AS (
     -- 정산 대상 후보: 승인된 응모 + 감사용 제외 + 아직 정산행 없음(멱등)
     -- + [264, 유지] 무보수 시딩·방문형 제외. 이 CTE 는 264 원본과 완전히 동일하다
-    -- (294 는 여기를 손대지 않는다 — 금액 계산은 아래 최종 SELECT 에서만 바뀐다).
+    -- (300 은 여기를 손대지 않는다 — 금액 계산은 아래 최종 SELECT 에서만 바뀐다).
     SELECT
       a.id                                AS application_id,
       a.user_id                           AS influencer_id,
@@ -153,7 +153,7 @@ AS $$
       )
   ),
   receipt_latest AS (
-    -- [294] 264(=262=232 원본)와 동일한 DISTINCT ON/ORDER BY(어느 행이 "최신"인지 판정은
+    -- [300] 264(=262=232 원본)와 동일한 DISTINCT ON/ORDER BY(어느 행이 "최신"인지 판정은
     -- 완전히 무변경) + purchase_amount 1컬럼만 추가로 가져온다. 인증 성공 판정에 쓰는
     -- 바로 이 행에서 금액도 함께 가져와야 "판정·금액 단일 소스"가 유지된다(사양서 §3-1).
     SELECT DISTINCT ON (d.application_id)
@@ -205,7 +205,7 @@ AS $$
     cd.paypal_email,
     cd.influencer_name,
     cd.influencer_name_kana,
-    -- ── [294 신규] 금액 계산: 리뷰어형(monitor, 가구매 포함) = min(영수증, 상시가) 절사 ──
+    -- ── [300 신규] 금액 계산: 리뷰어형(monitor, 가구매 포함) = min(영수증, 상시가) 절사 ──
     -- ⚠️ LEAST() 는 NULL 을 무시하는 함수라(파일 상단 경고 참고) 두 값이 모두 유효할
     -- 때만 호출한다 — 그렇지 않으면 "영수증 없음"이 조용히 "상시가로 대체"돼 버린다.
     CASE
@@ -225,10 +225,10 @@ AS $$
       ELSE 'reward'
     END AS amount_source,
     NULL::bigint AS reward_part_jpy,  -- 합산 미구현 — 항상 NULL(261 부터 그대로)
-    -- ── [294 신규] 감사용 칸 2개(293) — 리뷰어형만 채움, 그 외 NULL ──
+    -- ── [300 신규] 감사용 칸 2개(299) — 리뷰어형만 채움, 그 외 NULL ──
     CASE WHEN cd.recruit_type = 'monitor' THEN floor(rl.purchase_amount)::bigint ELSE NULL::bigint END AS receipt_amount_jpy,
     CASE WHEN cd.recruit_type = 'monitor' THEN cd.product_price ELSE NULL::bigint END AS amount_cap_jpy,
-    -- ── [294 신규] amount_issue: 조건 3종(사양서 §3-1·§3-2) ──
+    -- ── [300 신규] amount_issue: 조건 3종(사양서 §3-1·§3-2) ──
     -- 화면에 보여줄 사유 라벨은 2종(금액 없음/상한 없음)으로 묶어도 되지만 판정 조건은
     -- 반드시 3개다 — ㉰(버림 결과 0 이하)을 빠뜨리면 배치 INSERT 가 CHECK(amount_jpy>0)
     -- 위반으로 전체 실패한다.
@@ -284,7 +284,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public._settlement_cert_candidates() IS
-  '[294 재정의, 264 원본 대체(반환 컬럼 2개 추가: receipt_amount_jpy·amount_cap_jpy)] private '
+  '[300 재정의, 264 원본 대체(반환 컬럼 2개 추가: receipt_amount_jpy·amount_cap_jpy)] private '
   '헬퍼 — 정산 미등록(settlements 행 없음) 응모 전체에 대해 인증 성공 여부(is_success)·인증 '
   '성공일(cert_at, 판정 로직은 264 그대로 무변경)에 더해 모집 형식별 정산 금액(amount_jpy)· '
   '금액 출처(amount_source)·감사용 원금액/상한(receipt_amount_jpy/amount_cap_jpy)·금액 미확정 '
@@ -313,7 +313,7 @@ DECLARE
   v_created         integer := 0;
   v_paypal_missing  integer := 0;
   v_cutoff          timestamptz;
-  v_notify          boolean;  -- [242 계승, 262 유지, 294 도 유지] 인플루언서 공개 스위치(240)
+  v_notify          boolean;  -- [242 계승, 262 유지, 300 도 유지] 인플루언서 공개 스위치(240)
 BEGIN
   -- ── 권한 게이트: settlement.view 최소 read (262 와 동일) ──
   IF NOT public.has_permission('settlement.view', 'read') THEN
@@ -326,7 +326,7 @@ BEGIN
   FROM public.settlement_settings
   WHERE id = 1;
 
-  -- ── [242→262 계승, 294 도 유지] 인플루언서 노출 잠금 조회 ──
+  -- ── [242→262 계승, 300 도 유지] 인플루언서 노출 잠금 조회 ──
   -- ⚠️ 이 함수의 "현재 유효한 원본"은 232 도 264 도 아니라 262(=242 잠금 계승)다.
   --    아래 v_notify 선언·조회·notif_ins WHERE 조건 3종은 절대 제거 금지.
   v_notify := public.is_settlement_public();
@@ -388,7 +388,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.backfill_settlements() IS
-  '[294 재정의, 262 원본 대체(알림 잠금 게이트 계승 유지)] 금액을 _settlement_cert_candidates() '
+  '[300 재정의, 262 원본 대체(알림 잠금 게이트 계승 유지)] 금액을 _settlement_cert_candidates() '
   '헬퍼가 계산한 amount_jpy/amount_source/reward_part_jpy/receipt_amount_jpy/amount_cap_jpy 로 '
   '저장(리뷰어형은 min(영수증,상시가) 절사, 시딩·방문형은 reward). amount_issue 가 있는 건은 '
   '저장 대상에서 제외해 배치 INSERT 가 CHECK(amount_jpy>0) 위반으로 전체 실패하는 것을 방지. '
@@ -462,7 +462,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_past_unregistered_settlements() IS
-  '[294 재정의, 262 원본 대체(반환 타입 변경으로 DROP 후 재생성 — receipt_amount_jpy/'
+  '[300 재정의, 262 원본 대체(반환 타입 변경으로 DROP 후 재생성 — receipt_amount_jpy/'
   'amount_cap_jpy 2컬럼 추가)] 과거 미등록 인증성공 응모 목록(정산 페인 「과거 미등록」 UI). '
   '리뷰어형은 min(영수증,상시가) 절사 기준 금액, amount_issue 있는 행은 화면에서 체크박스 '
   '비활성 대상. 필터·권한 게이트는 262 그대로.';
@@ -559,7 +559,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.register_past_settlements(uuid[], text, text) IS
-  '[294 재정의, 262 원본 대체] 금액을 _settlement_cert_candidates() 헬퍼가 계산한 amount_jpy/'
+  '[300 재정의, 262 원본 대체] 금액을 _settlement_cert_candidates() 헬퍼가 계산한 amount_jpy/'
   'amount_source/reward_part_jpy/receipt_amount_jpy/amount_cap_jpy 로 저장. amount_issue 가 '
   '있는 건(금액 NULL/0 이하)은 서버가 조용히 skip(예외 아님) — 반환값(등록 건수)이 실제 처리 건수. '
   '⚠️ settlement_paid/settlement_paypal_required 알림 둘 다 발행하지 않는 233 원칙 그대로 유지. '
@@ -572,7 +572,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- ============================================================
 -- 검증 SQL (개발 DB 적용 후 SQL Editor에서 1단계씩 실행 — 결과 확인 후 다음 단계로)
---   ⚠️ 마이그레이션 293 까지 적용된 뒤에 실행할 것.
+--   ⚠️ 마이그레이션 299 까지 적용된 뒤에 실행할 것.
 -- ============================================================
 /*
 
@@ -593,7 +593,7 @@ FROM information_schema.role_routine_grants
 WHERE routine_name = '_settlement_cert_candidates';
 -- 기대: 0 row (또는 owner 행만)
 
--- [V2] 인증 성공 집계가 293/294 적용 전후로 그대로인지 확인(§5-1 "인증 성공 집계 영향
+-- [V2] 인증 성공 집계가 299/300 적용 전후로 그대로인지 확인(§5-1 "인증 성공 집계 영향
 --   없음" 검증) — recruit_type 별 candidate_cnt·success_cnt 는 264 시점과 동일해야 하고,
 --   monitor 행만 금액(amount_source='receipt_amount')·amount_issue 분포가 달라져야 한다.
 --   ⚠️ SQL Editor 세션은 auth.uid() 가 NULL 이라 has_permission 체크로 막힐 수 있음 —
@@ -644,5 +644,5 @@ SELECT * FROM public.backfill_settlements();
 --      이어서 264_settlement_gifting_visit_zero_reward_exclusion.sql 의 CREATE OR REPLACE
 --      블록(264 가 "1. 공통 판정·금액 계산 헬퍼 재생성"이라 부르는 그 블록)을 재실행해
 --      264 시점(리뷰어형=product_price 그대로)으로 되돌린다.
--- 방법 B) 293 도 함께 롤백하려면 293 파일 하단 롤백 절차를 이 순서 다음에 실행할 것
---   (293 은 컬럼만 추가하므로 이 파일 롤백과 독립적이지만, 완전 원복 시 함께 되돌림).
+-- 방법 B) 299 도 함께 롤백하려면 299 파일 하단 롤백 절차를 이 순서 다음에 실행할 것
+--   (299 는 컬럼만 추가하므로 이 파일 롤백과 독립적이지만, 완전 원복 시 함께 되돌림).
