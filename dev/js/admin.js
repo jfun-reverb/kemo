@@ -2901,7 +2901,8 @@ const CP_I18N = {
   ja: {
     preview:'プレビュー', noImage:'画像なし', apply:'応募', productPage:'商品ページ',
     rtLabel:{monitor:'レビュアー', gifting:'ギフティング', visit:'訪問型'},
-    payback:'円ペイバック', freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
+    paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）',
+    freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
     kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
@@ -2915,7 +2916,8 @@ const CP_I18N = {
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
     rtLabel:{monitor:'리뷰어', gifting:'기프팅', visit:'방문형'},
-    payback:'엔 페이백', freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
+    paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})',
+    freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
@@ -3040,9 +3042,21 @@ function renderCampPreview(mode) {
   const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
   // monitor(리뷰어) 캠페인은 「ペイバック」 워딩, 그 외는 기존 「相当の製品を無償提供」
   const isMonitorPreview = camp.recruit_type === 'monitor';
-  const rewardLabelJa = isMonitorPreview ? L.payback : L.freeProvide;
+  // 리뷰어형은 인플루언서 상세와 **같은 전체형 문구**를 쓴다(영수증 실결제액 기준으로
+  // 바뀌어 금액을 약속하지 않는다). 미리보기가 실제 화면과 다르면 운영자가 잘못된
+  // 안내를 승인하게 된다.
+  // ⚠️ 전체형 문구에는 「（最大 ¥N）」이 **이미 들어 있다.** 그래서 이 값을 쓰는 자리는
+  //    「¥금액 + 라벨」로 붙이면 금액이 두 번 찍힌다 — 아래 paybackFullText 를 쓰는 곳은
+  //    금액 접두를 빼고, 그 외(시딩·방문형)만 종전처럼 rewardLabelJa 를 붙인다.
+  const isPaybackPreview = isMonitorPreview && camp.product_price > 0;
+  const paybackFullText = isPaybackPreview
+    ? L.paybackFull.replace('{price}', camp.product_price.toLocaleString())
+    : '';
+  const rewardLabelJa = L.freeProvide;
   const rewardText = (camp.product_price>0 || camp.reward>0)
-    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
+    ? (isPaybackPreview
+        ? `${paybackFullText}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
+        : `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`)
     : '';
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
@@ -3069,7 +3083,11 @@ function renderCampPreview(mode) {
           ${(()=>{const bl=brandLabelInflu(camp);return bl?`<div class="cp-brand">${esc(bl)}</div>`:'';})()}
           ${rtLabel?`<div class="cp-rt">${esc(rtLabel)}</div>`:''}
           <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
-          ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`:''}
+          ${camp.product_price>0?(isPaybackPreview
+            // 리뷰어형 — 금액이 문구 안에 있으므로 금액 배지를 따로 세우지 않는다
+            ? `<div class="cp-price-box"><span class="cp-price-label" style="font-size:13px;font-weight:800">${esc(paybackFullText)}</span></div>`
+            : `<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`
+          ):''}
           ${camp.reward>0?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} 報酬</div>`:''}
         </div>
         <div class="cp-info">
@@ -3145,7 +3163,11 @@ function renderCampPreview(mode) {
         })() : ''}
       </div>
       <div class="cp-cta">
-        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:''}</small></div>
+        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?(isPaybackPreview
+          // 하단 고정 바 — 인플루언서 앱과 같은 축약형(폭이 좁다)
+          ? esc(L.paybackShort.replace('{price}', camp.product_price.toLocaleString()))
+          : `¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`
+        ):''}</small></div>
         <div class="cp-cta-btn">${esc(L.apply)}</div>
       </div>
     </div>`;

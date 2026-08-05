@@ -283,7 +283,12 @@ function buildCampCards(camps) {
     const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
     const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
-    const reward = c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
+    // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
+    // 그런데 reward=0·product_price>0 이라 「製品無償提供」로 표시돼 왔다(오래된 오표기).
+    // 300 으로 지급 기준이 영수증 실결제액이 되면서 상세·하단 바와도 어긋나므로 여기서 바로잡는다.
+    const reward = c.recruit_type === 'monitor' && c.product_price > 0
+      ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
+      : c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
     const isNew = !isScheduled && !isClosedLike && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
     const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
