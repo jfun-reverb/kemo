@@ -248,6 +248,7 @@ window.I18N_KO = {
       title: '보상·정산',
       totalLabel: '누적 수령액',
       pendingLabel: '지급 예정',
+      basisReceipt: '영수증 구매 금액 기준으로 계산',
       empty: '아직 정산 내역이 없습니다.',
       paypalMissing: '보상 송금에는 PayPal 이메일 등록이 필요합니다.',
       paypalLink: 'PayPal 등록',
@@ -464,7 +465,10 @@ window.I18N_KO = {
     appliedBtn: '응모 완료',
     manageBtn: '활동 관리',
     rewardProduct: '엔 상당 제품 무상 제공',
-    rewardPayback: '엔 페이백',
+    // 리뷰어형 페이백 — 294 로 「영수증 실결제액(제품 가격 상한)」이 되어 금액을
+    // 약속하는 표현을 버렸다. 전체형=상세·관리자 미리보기·홍보 메일 / 축약형=하단 바·카드
+    rewardPaybackFull: '구매 금액 페이백 (최대 ¥{price})',
+    rewardPaybackShort: '페이백 (최대 ¥{price})',
     rewardCash: '+ 현금 리워드 ¥{amount}',
     rewardFree: '제품 전액 무상 제공',
     rewardProductAmount: '제품 ¥{price}엔 상당',
@@ -592,6 +596,12 @@ window.I18N_KO = {
     orderNumberLabel: '주문번호',
     purchaseDateLabel: '구매일',
     purchaseAmountLabel: '구매금액 (엔)',
+    // 리뷰어형에서만 표시(방문형은 현금 리워드라 뜨지 않는다). {price} 는 제품 가격
+    payoutNoteTitle: '여기 입력한 금액이 그대로 송금됩니다',
+    payoutNote1: '영수증에 적힌 「실제로 지불한 금액」을 입력해 주세요',
+    payoutNote2: '쿠폰이나 포인트를 쓰셨다면 차감된 뒤의 금액입니다',
+    payoutNote3: '제품 가격(¥{price})을 넘을 경우 승인되지 않을 수 있으며, 승인되더라도 제품 가격까지만 송금됩니다',
+    payoutNote4: '제출하기 전에 영수증 숫자와 다시 한번 비교해 주세요',
     needOrderNumber: '주문번호를 입력해주세요',
     orderNumberTooLong: '주문번호는 200자 이내로 입력해주세요',
     needPurchaseDate: '구매일을 입력해주세요',
@@ -648,6 +658,7 @@ window.I18N_KO = {
     slotFormat: '{applied}/{slots}명',
     rewardProduct: '제품 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>제품 무상 제공</strong>',
+    rewardPaybackShort: '페이백 (최대 ¥{price})',  // 리뷰어형 카드용
     rewardFreeSimple: '<strong>무상 제공</strong>',
     channelAll: '전체',
     moreBtn: '더 보기',

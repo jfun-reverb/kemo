@@ -4119,6 +4119,7 @@ async function fetchMySettlements() {
   try {
     const {data, error} = await db.from('settlements').select(`
       id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
+      amount_source,
       campaigns:campaign_id (id, title, brand, img1)
     `).order('created_at', {ascending: false});
     if (error) throw error;

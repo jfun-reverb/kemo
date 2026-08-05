@@ -161,8 +161,14 @@ function buildRewardText(camp: CampaignRow): string {
 
   const parts: string[] = [];
   if (price > 0) {
-    const label = camp.recruit_type === "monitor" ? "ペイバック" : "商品提供";
-    parts.push(`${formatYenLabel(price)} ${label}`);
+    // レビュアー型は 294 以降「レシート実支払額（商品価格を上限に切り捨て）」なので、
+    // 金額を約束する言い方をしない。アプリ側の詳細ページと同じ全体形の文言を使う
+    // （メールと画面で違うことを言うと、応募前に見た約束が食い違う）。
+    if (camp.recruit_type === "monitor") {
+      parts.push(`購入金額をペイバック（最大 ${formatYenLabel(price)}）`);
+    } else {
+      parts.push(`${formatYenLabel(price)} 商品提供`);
+    }
   } else {
     parts.push("商品無償提供");
   }

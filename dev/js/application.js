@@ -127,7 +127,15 @@ async function openCampaign(id) {
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
           <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
-          ${camp.product_price>0?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${camp.recruit_type === 'monitor' ? t('detail.rewardPayback') : t('detail.rewardProduct')}</span></div>`:''}
+          ${camp.product_price>0?(camp.recruit_type === 'monitor'
+            // 리뷰어형 — 받는 금액이 응모 시점에 확정되지 않으므로(영수증 실결제액 기준,
+            // 300) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
+            // 작은 보조 줄로 내린다. 시딩·방문형은 제품 가치가 확정이라 기존 그대로.
+            ? `<div style="display:inline-block;background:var(--light-pink);border-radius:8px;padding:7px 12px;margin-bottom:4px">
+                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()))}</div>
+               </div>`
+            : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
+          ):''}
           ${camp.reward>0?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
@@ -309,8 +317,11 @@ async function openCampaign(id) {
   if (floatName) floatName.textContent = camp.title;
   if (floatReward) {
     const isMonitor = camp.recruit_type === 'monitor';
+    // 하단 고정 바는 폭이 좁아(480px) 전체형을 넣으면 잘린다 — 리뷰어형은 축약형.
     floatReward.textContent = camp.product_price>0
-      ? `¥${camp.product_price.toLocaleString()}${isMonitor ? t('detail.rewardPayback') : t('detail.rewardProduct')}`
+      ? (isMonitor
+          ? t('detail.rewardPaybackShort').replace('{price}', camp.product_price.toLocaleString())
+          : `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`)
       : t('detail.rewardFree');
   }
   if (floatProductPageBtn) {
@@ -1180,6 +1191,7 @@ async function openActivityPage(applicationId, campaignId, from) {
     const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
     const rd = $('receiptDate'); if (rd) rd.value = '';
     const ra = $('receiptAmount'); if (ra) ra.value = '';
+    renderReceiptPayoutNote(camp);
   }
   if (isMonitor) {
     // 채널별 카드 컨테이너는 renderActivityReviewImageList 가 재렌더 시 초기화하므로
@@ -1742,6 +1754,33 @@ function previewReceipt(input) {
 }
 
 // 영수증 글자 자동입력 (기기 안 처리). 빈 칸만 채우고, 실패해도 제출엔 영향 없음.
+// 영수증 구매금액 아래 「이 금액이 그대로 송금됩니다」 안내(마이그레이션 300 이후).
+// ⚠️ 리뷰어형(monitor)에서만 그린다 — 방문형(visit)도 이 폼으로 현장 사진을 내지만
+// 방문형 정산은 현금 리워드 기준이라, 띄우면 사실과 다른 안내가 된다.
+// 상한(제품 가격)이 없거나 0 이면 3번 줄(상한 안내)만 빼고 나머지는 그대로 보여준다.
+function renderReceiptPayoutNote(camp) {
+  const box = $('receiptPayoutNote');
+  if (!box) return;
+  camp = camp || {};
+  if (camp.recruit_type !== 'monitor') { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const price = Number(camp.product_price);
+  const hasCap = Number.isFinite(price) && price > 0;
+  const lines = [t('activity.payoutNote1'), t('activity.payoutNote2')];
+  if (hasCap) lines.push(t('activity.payoutNote3').replace('{price}', price.toLocaleString()));
+  lines.push(t('activity.payoutNote4'));
+  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${esc(t('activity.payoutNoteTitle'))}</div>`
+    + `<ol style="margin:0;padding-left:18px">${lines.map(s => `<li style="margin-bottom:2px">${esc(s)}</li>`).join('')}</ol>`;
+  box.style.display = '';
+}
+
+// 언어 전환 시 이 안내만 옛 언어로 남지 않게 다시 그린다 — 동적 렌더라 applyI18n
+// 대상이 아니고, app.js 의 langchange 재렌더 목록에도 활동관리 화면은 없다.
+// (마이페이지 정산 화면이 쓰는 패턴과 같다 — mypage.js)
+window.addEventListener('langchange', () => {
+  const page = $('page-activity');
+  if (page && page.classList.contains('active') && _activityCamp) renderReceiptPayoutNote(_activityCamp);
+});
+
 async function runReceiptAutofill() {
   const btn = $('receiptOcrBtn');
   const statusEl = $('receiptOcrStatus');
