@@ -763,6 +763,8 @@ async function deleteEventSlotRow(slotId) {
 
 // ── 타임 추가 (한 줄씩) ───────────────────────────────────────
 async function addEventSlotRow() {
+  // 시간대는 누르는 즉시 저장된다 — 이탈 경고가 그 사실을 알리도록 표시.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   const date  = $('eventSlotNewDate')?.value || '';
   const start = $('eventSlotNewStart')?.value || '';
   const end   = $('eventSlotNewEnd')?.value || '';
