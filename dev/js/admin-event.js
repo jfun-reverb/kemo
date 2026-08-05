@@ -57,6 +57,11 @@ const EVENT_TICKET_STATUS_TABS = [
 function applyEventModeFormLock(prefix) {
   const on = !!$(prefix + 'CampEventMode')?.checked;
 
+  // 꺼져 있으면 이 묶음을 체크박스 한 줄로 줄인다(행사는 가끔 쓰는 기능이라
+  //   폼 맨 위에서 큰 자리를 차지할 이유가 없다). 표시는 CSS 가 맡는다.
+  const box = $(prefix + 'CampEventMode')?.closest('.event-mode-box');
+  if (box) box.classList.toggle('on', on);
+
   const reward = $(prefix + 'CampReward');
   if (reward) {
     if (on) {

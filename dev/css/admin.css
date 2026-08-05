@@ -2146,6 +2146,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    평소 캠페인과 동작이 크게 갈리는 설정이라, 폼 안에서 눈에 띄게 구획한다. */
 .event-mode-box{border:1px solid var(--line);border-left:3px solid var(--pink);border-radius:10px;
   padding:12px 14px;margin-bottom:16px;background:var(--surface-dim,#FAFAFA)}
+/* ── 꺼져 있을 때는 체크박스 한 줄만 ──
+   행사 캠페인은 가끔 만드는 것인데 폼 맨 위에서 가장 큰 자리를 차지하고 있었다.
+   ⚠️ 자리를 아래로 옮기지는 않는다 — 이 체크박스를 켜면 모집 형식이 방문형으로
+   고정되므로, 모집 형식을 고르기 **전에** 눈에 들어와야 순서가 맞다. */
+.event-mode-box:not(.on){border-left-color:var(--line);background:transparent;padding:8px 12px;margin-bottom:12px}
+.event-mode-box:not(.on) > .form-hint{display:none}
+.event-mode-box:not(.on) .event-mode-main{font-weight:600;color:var(--muted)}
 .event-mode-main{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;
   color:var(--ink);cursor:pointer}
 .event-mode-main input[type=checkbox]{accent-color:var(--pink);width:15px;height:15px;cursor:pointer}
