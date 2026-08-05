@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785921122';
+  var CURRENT_BUILD = 'v1785924022';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2808,7 +2808,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 18:12 · ba946a5</span>
+          <span class="admin-build-text">2026-08-05 19:00 · 7c85f3e</span>
         </div>
       </div>
     </aside>
@@ -37981,6 +37981,18 @@ function getRichValue(id) {
 // ════════════════════════════════════════════════════════════════════
 
 async function openEditCampaign(campId) {
+  // ★ 편집 중이던 캠페인에 저장 안 한 변경이 있으면 먼저 묻는다.
+  //   이 함수는 목록 더보기·미리보기·진행현황·채널 경고 모달 **네 곳**에서 불린다.
+  //   버튼마다 게이트를 붙이면 하나 빠뜨리는 순간 그 길로 조용히 날아가므로 여기서 한 번에 막는다.
+  //   ⚠️ 넷 중 **실제로 충돌하는 건 사이드바의 채널 코드 경고 모달 하나**다 — 나머지 셋은
+  //      편집 폼이 닫힌 상태(페인이 상호 배타)에서만 눌리므로 게이트가 발동하지 않는다.
+  //      그래도 함수 자리에 두는 이유는, 나중에 다른 화면에서 모달로 편집을 열게 되면
+  //      **그때 자동으로 보호되기** 때문이다.
+  //   「저장하지 않고 나가기」를 고르면 기준값이 비워져 아래 재호출은 그대로 통과한다.
+  if (typeof activeDirtyCampForm === 'function' && activeDirtyCampForm()) {
+    campLeaveGuard(() => openEditCampaign(campId));
+    return;
+  }
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
   // ★ 「저장 안 한 변경」 기준값을 **맨 앞에서 비운다.** 안 비우면 직전 캠페인의
   //   늦게 도착한 기준값이 이 캠페인을 덮어, 열자마자 경고가 뜨거나 진짜 변경을 놓친다
