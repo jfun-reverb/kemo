@@ -357,7 +357,7 @@
 - DB API: `dev/lib/storage.js` 에 모든 DB 함수 집중 (fetchCampaigns, upsertInfluencer 등)
 - 세션 관리: onAuthStateChange 로 SIGNED_IN/TOKEN_REFRESHED/SIGNED_OUT/SESSION_EXPIRED 처리 (인플루언서+관리자 양쪽)
 - URL 정제: `cleanUrl()` 로 마크다운 링크 형식 자동 변환 (product_url 등)
-- 페이지 전환: 관리자/인플루언서 화면 같은 탭에서 이동 (새 탭 열기 금지)
+- 페이지 전환: 관리자/인플루언서 화면 같은 탭에서 이동 (새 탭 열기 금지). ⚠️ **예외 2종은 새 탭이 맞다** — ①앱 경계를 넘는 전환(인플루언서 앱 → `/admin/`, `dev/js/app.js`) ②**자립형 단독 화면**(`admin-setpw.html`·`event-scan.html`). 특히 현장 확인 화면은 **부스 단말에 계속 띄워 두고 쓰는 도구**라 같은 탭에서 열면 보던 예약 현황이 사라진다. 이 예외를 모르고 「규칙 위반」으로 되돌리는 일이 없도록 여기에 적어 둔다(2026-08-05)
 - 깜빡임 방지: visibility:hidden cloak 기법 (인플루언서+관리자 양쪽)
 - 마이페이지 서브해시: `#mypage-applications` 등 URL 해시로 서브페이지 복원
 - 약관/정책 수정: `docs/{TERMS,PRIVACY}_{kr,ja}.md` 가 source of truth. 인플루언서 앱 푸터 약관은 `dev/lib/legal.js` 가 이 4개 md 를 **런타임 fetch + 마크다운 렌더링** — 별도 복사본 없음, 문서만 고치면 앱 반영(빌드 무관). 변경 시 한·일 동시 수정 + 부칙 갱신 (`.claude/rules/policy.md`)
