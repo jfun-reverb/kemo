@@ -1516,6 +1516,10 @@ html.preview-mode #page-detail .detail-back{display:none}
           <div class="form-group">
             <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
             <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
+            <!-- 이 금액이 곧 송금액이 된다는 안내(리뷰어형 한정) — renderReceiptPayoutNote 가
+                 모집 형식을 보고 표시 여부와 상한 금액을 채운다. 방문형도 이 폼을 쓰지만
+                 방문형 정산은 현금 리워드라 이 안내가 뜨면 틀린 말이 된다. -->
+            <div id="receiptPayoutNote" style="display:none;margin-top:8px;font-size:12px;line-height:1.6;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px"></div>
           </div>
         </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
@@ -4427,6 +4431,12 @@ window.I18N_JA = {
     orderNumberLabel: '注文番号',
     purchaseDateLabel: '購入日',
     purchaseAmountLabel: '購入金額 (円)',
+    // レビュアー型のみ表示（訪問型は現金報酬なので出さない）。{price} は商品価格
+    payoutNoteTitle: 'ここに入力した金額が、そのままお振込み額になります',
+    payoutNote1: 'レシートに書かれた「実際にお支払いした金額」を入力してください',
+    payoutNote2: 'クーポンやポイントを使った場合は、差し引いたあとの金額です',
+    payoutNote3: '商品価格（¥{price}）を超えた場合は、承認されないことがあります。承認された場合も、お振込みは商品価格までとなります',
+    payoutNote4: '提出する前に、レシートの数字ともう一度見くらべてください',
     needOrderNumber: '注文番号を入力してください',
     orderNumberTooLong: '注文番号は200文字以内で入力してください',
     needPurchaseDate: '購入日を入力してください',
@@ -5223,6 +5233,12 @@ window.I18N_KO = {
     orderNumberLabel: '주문번호',
     purchaseDateLabel: '구매일',
     purchaseAmountLabel: '구매금액 (엔)',
+    // 리뷰어형에서만 표시(방문형은 현금 리워드라 뜨지 않는다). {price} 는 제품 가격
+    payoutNoteTitle: '여기 입력한 금액이 그대로 송금됩니다',
+    payoutNote1: '영수증에 적힌 「실제로 지불한 금액」을 입력해 주세요',
+    payoutNote2: '쿠폰이나 포인트를 쓰셨다면 차감된 뒤의 금액입니다',
+    payoutNote3: '제품 가격(¥{price})을 넘을 경우 승인되지 않을 수 있으며, 승인되더라도 제품 가격까지만 송금됩니다',
+    payoutNote4: '제출하기 전에 영수증 숫자와 다시 한번 비교해 주세요',
     needOrderNumber: '주문번호를 입력해주세요',
     orderNumberTooLong: '주문번호는 200자 이내로 입력해주세요',
     needPurchaseDate: '구매일을 입력해주세요',
@@ -10679,6 +10695,7 @@ const _ERR_DICT = {
     slotsFull: '募集定員に達したため、応募を受け付けておりません',
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
     submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
+    settlementLockedReceipt: 'このキャンペーンはすでに精算の手続きが済んでいるため、レシートを新しく提出することはできません。ご不明な点はお問い合わせください',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
     postDuplicate: '同じURLは既に提出済みです',
     // 「失敗」ではなく「すでに完了している」と読めることが重要（実際に一度目は成功している）
@@ -10701,6 +10718,7 @@ const _ERR_DICT = {
     slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
     submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
+    settlementLockedReceipt: '이 캠페인은 이미 정산 처리가 끝나 영수증을 새로 제출할 수 없습니다. 궁금한 점은 문의해 주세요',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
     postDuplicate: '같은 URL은 이미 제출되었습니다',
     // 「실패」가 아니라 「이미 되어 있다」로 읽혀야 한다(첫 요청은 실제로 성공했다)
@@ -10720,6 +10738,9 @@ function friendlyErrorJa(e) {
   //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
   if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
   if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
+  // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 295) — 서버가 코드 접두어를 붙여
+  // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
+  if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
   // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
   if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
   if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
@@ -13548,6 +13569,7 @@ async function openActivityPage(applicationId, campaignId, from) {
     const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
     const rd = $('receiptDate'); if (rd) rd.value = '';
     const ra = $('receiptAmount'); if (ra) ra.value = '';
+    renderReceiptPayoutNote(camp);
   }
   if (isMonitor) {
     // 채널별 카드 컨테이너는 renderActivityReviewImageList 가 재렌더 시 초기화하므로
@@ -14110,6 +14132,25 @@ function previewReceipt(input) {
 }
 
 // 영수증 글자 자동입력 (기기 안 처리). 빈 칸만 채우고, 실패해도 제출엔 영향 없음.
+// 영수증 구매금액 아래 「이 금액이 그대로 송금됩니다」 안내(마이그레이션 294 이후).
+// ⚠️ 리뷰어형(monitor)에서만 그린다 — 방문형(visit)도 이 폼으로 현장 사진을 내지만
+// 방문형 정산은 현금 리워드 기준이라, 띄우면 사실과 다른 안내가 된다.
+// 상한(제품 가격)이 없거나 0 이면 3번 줄(상한 안내)만 빼고 나머지는 그대로 보여준다.
+function renderReceiptPayoutNote(camp) {
+  const box = $('receiptPayoutNote');
+  if (!box) return;
+  camp = camp || {};
+  if (camp.recruit_type !== 'monitor') { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const price = Number(camp.product_price);
+  const hasCap = Number.isFinite(price) && price > 0;
+  const lines = [t('activity.payoutNote1'), t('activity.payoutNote2')];
+  if (hasCap) lines.push(t('activity.payoutNote3').replace('{price}', price.toLocaleString()));
+  lines.push(t('activity.payoutNote4'));
+  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${esc(t('activity.payoutNoteTitle'))}</div>`
+    + `<ol style="margin:0;padding-left:18px">${lines.map(s => `<li style="margin-bottom:2px">${esc(s)}</li>`).join('')}</ol>`;
+  box.style.display = '';
+}
+
 async function runReceiptAutofill() {
   const btn = $('receiptOcrBtn');
   const statusEl = $('receiptOcrStatus');

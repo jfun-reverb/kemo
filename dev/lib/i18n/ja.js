@@ -611,6 +611,12 @@ window.I18N_JA = {
     orderNumberLabel: '注文番号',
     purchaseDateLabel: '購入日',
     purchaseAmountLabel: '購入金額 (円)',
+    // レビュアー型のみ表示（訪問型は現金報酬なので出さない）。{price} は商品価格
+    payoutNoteTitle: 'ここに入力した金額が、そのままお振込み額になります',
+    payoutNote1: 'レシートに書かれた「実際にお支払いした金額」を入力してください',
+    payoutNote2: 'クーポンやポイントを使った場合は、差し引いたあとの金額です',
+    payoutNote3: '商品価格（¥{price}）を超えた場合は、承認されないことがあります。承認された場合も、お振込みは商品価格までとなります',
+    payoutNote4: '提出する前に、レシートの数字ともう一度見くらべてください',
     needOrderNumber: '注文番号を入力してください',
     orderNumberTooLong: '注文番号は200文字以内で入力してください',
     needPurchaseDate: '購入日を入力してください',

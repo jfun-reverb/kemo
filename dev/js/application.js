@@ -1180,6 +1180,7 @@ async function openActivityPage(applicationId, campaignId, from) {
     const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
     const rd = $('receiptDate'); if (rd) rd.value = '';
     const ra = $('receiptAmount'); if (ra) ra.value = '';
+    renderReceiptPayoutNote(camp);
   }
   if (isMonitor) {
     // 채널별 카드 컨테이너는 renderActivityReviewImageList 가 재렌더 시 초기화하므로
@@ -1742,6 +1743,25 @@ function previewReceipt(input) {
 }
 
 // 영수증 글자 자동입력 (기기 안 처리). 빈 칸만 채우고, 실패해도 제출엔 영향 없음.
+// 영수증 구매금액 아래 「이 금액이 그대로 송금됩니다」 안내(마이그레이션 294 이후).
+// ⚠️ 리뷰어형(monitor)에서만 그린다 — 방문형(visit)도 이 폼으로 현장 사진을 내지만
+// 방문형 정산은 현금 리워드 기준이라, 띄우면 사실과 다른 안내가 된다.
+// 상한(제품 가격)이 없거나 0 이면 3번 줄(상한 안내)만 빼고 나머지는 그대로 보여준다.
+function renderReceiptPayoutNote(camp) {
+  const box = $('receiptPayoutNote');
+  if (!box) return;
+  camp = camp || {};
+  if (camp.recruit_type !== 'monitor') { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const price = Number(camp.product_price);
+  const hasCap = Number.isFinite(price) && price > 0;
+  const lines = [t('activity.payoutNote1'), t('activity.payoutNote2')];
+  if (hasCap) lines.push(t('activity.payoutNote3').replace('{price}', price.toLocaleString()));
+  lines.push(t('activity.payoutNote4'));
+  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${esc(t('activity.payoutNoteTitle'))}</div>`
+    + `<ol style="margin:0;padding-left:18px">${lines.map(s => `<li style="margin-bottom:2px">${esc(s)}</li>`).join('')}</ol>`;
+  box.style.display = '';
+}
+
 async function runReceiptAutofill() {
   const btn = $('receiptOcrBtn');
   const statusEl = $('receiptOcrStatus');

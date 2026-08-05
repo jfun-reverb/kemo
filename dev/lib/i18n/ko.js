@@ -592,6 +592,12 @@ window.I18N_KO = {
     orderNumberLabel: '주문번호',
     purchaseDateLabel: '구매일',
     purchaseAmountLabel: '구매금액 (엔)',
+    // 리뷰어형에서만 표시(방문형은 현금 리워드라 뜨지 않는다). {price} 는 제품 가격
+    payoutNoteTitle: '여기 입력한 금액이 그대로 송금됩니다',
+    payoutNote1: '영수증에 적힌 「실제로 지불한 금액」을 입력해 주세요',
+    payoutNote2: '쿠폰이나 포인트를 쓰셨다면 차감된 뒤의 금액입니다',
+    payoutNote3: '제품 가격(¥{price})을 넘을 경우 승인되지 않을 수 있으며, 승인되더라도 제품 가격까지만 송금됩니다',
+    payoutNote4: '제출하기 전에 영수증 숫자와 다시 한번 비교해 주세요',
     needOrderNumber: '주문번호를 입력해주세요',
     orderNumberTooLong: '주문번호는 200자 이내로 입력해주세요',
     needPurchaseDate: '구매일을 입력해주세요',
