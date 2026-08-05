@@ -140,11 +140,9 @@ function applyEventModeFormLock(prefix) {
     const inv = $(prefix + 'CampInviteOnly');
     if (inv) inv.checked = false;
     applyInviteOnlyRow(prefix);
-    // 묶음도 함께 비운다 — 행사가 아니면 묶일 대상이 아니다.
-    // ⚠️ 이 자리는 「끄면 비우는」 블록이다. EVENT_MODE_CLEARED_FIELDS(「켜면 비우는」
-    //   목록)에 넣으면 방향이 반대라 **행사 캠페인을 저장할 때마다 묶음이 지워진다.**
-    const grp = $(prefix + 'CampEventGroup');
-    if (grp) grp.value = '';
+    // ⚠️ 묶음 선택은 **여기서 비우지 않는다.** 실수로 껐다 다시 켜면 값이 안 돌아와
+    //   조용히 연결이 끊긴다 — 이 칸이 막으려는 사고 그 자체다. 행사가 아닐 때
+    //   묶음을 지우는 일은 **저장 시점**에 한다(행사장 안내 칸과 같은 방식).
   }
 }
 

@@ -2339,7 +2339,9 @@ async function saveCampaignEdit() {
       event_mode: !!$('editCampEventMode')?.checked,
       is_invite_only: !!$('editCampInviteOnly')?.checked,
       event_place: ($('editCampEventPlace')?.value || '').trim() || null,
-      event_group_id: ($('editCampEventGroup')?.value || '') || null,
+      // 행사가 아니면 묶음도 없다. 화면에서 즉시 비우지 않고 여기서 거른다 —
+      //   즉시 비우면 실수로 껐다 켰을 때 값이 안 돌아와 연결이 조용히 끊긴다.
+      event_group_id: ($('editCampEventMode')?.checked ? ($('editCampEventGroup')?.value || '') : '') || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -3623,7 +3625,7 @@ async function addCampaign() {
     event_mode: !!$('newCampEventMode')?.checked,
     is_invite_only: !!$('newCampInviteOnly')?.checked,
     event_place: ($('newCampEventPlace')?.value || '').trim() || null,
-    event_group_id: ($('newCampEventGroup')?.value || '') || null,
+    event_group_id: ($('newCampEventMode')?.checked ? ($('newCampEventGroup')?.value || '') : '') || null,
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,
