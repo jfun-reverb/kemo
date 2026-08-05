@@ -2283,6 +2283,62 @@ function sanitizeCautionHtml(html) {
   return wrapper.innerHTML;
 }
 
+// 오리엔시트 내부 메모 전용 sanitize.
+// 허용: 굵게·기울임·밑줄·취소선 + 링크 + 단락(<p>)·줄바꿈(<br>)
+// 차단: **이미지 포함** 그 외 전부
+//
+// ⚠️ sanitizeCautionHtml 을 재사용하지 않는 이유 —
+//   그 함수는 허용 목록에 <img> 가 들어 있다(캠페인 안내문·오리엔 리뷰 가이드가
+//   이미지를 정상적으로 쓴다). 메모는 「사진 붙이기 없음」이 확정 결정이라
+//   붙여넣기로 들어온 이미지까지 지워야 하는데, 그렇다고 sanitizeCautionHtml 에서
+//   이미지를 빼면 이미지를 쓰는 기존 화면이 전부 깨진다. 그래서 정책을 분리한다.
+//   (사양서 docs/specs/2026-08-05-orient-sheet-internal-memo.md 확정 결정 ③)
+//
+// 저장할 때와 화면에 그릴 때 **양쪽에서** 부른다. 관리자가 다른 화면에서 복사해
+// 붙인 내용이 저장된 뒤 다른 관리자 화면에 그려지므로 저장형 위험이 성립한다.
+function sanitizeMemoHtml(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') {
+    console.warn('[sanitizeMemoHtml] DOMPurify not loaded');
+    return '';
+  }
+  // 사전 정규화: Chrome contenteditable 이 Enter 시 줄을 <div> 로 감싼다.
+  // <div> 를 제거하면 줄바꿈이 사라지므로 허용 태그 <p> 로 먼저 치환.
+  let normalized = String(html);
+  if (/<div\b/i.test(normalized)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('div').forEach(d => {
+      const p = document.createElement('p');
+      while (d.firstChild) p.appendChild(d.firstChild);
+      if (d.parentNode) d.parentNode.replaceChild(p, d);
+    });
+    normalized = tmp.innerHTML;
+  }
+  const clean = DOMPurify.sanitize(normalized, {
+    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br','p'],
+    ALLOWED_ATTR: ['href','target','rel'],
+    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
+    FORBID_ATTR: ['src','srcset','style','onerror','onload','onclick','onmouseover','onfocus','class','id']
+  });
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = clean;
+  // 링크 정규화: http/https/mailto 만 허용, target=_blank + rel=noopener 자동 부여
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    const href = (a.getAttribute('href') || '').trim();
+    if (!/^https?:\/\/|^mailto:/i.test(href)) {
+      if (/^[\w.-]+\.[a-z]{2,}/i.test(href)) {
+        a.setAttribute('href', 'https://' + href.replace(/^\/+/, ''));
+      } else {
+        a.removeAttribute('href');
+      }
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+  });
+  return wrapper.innerHTML;
+}
+
 // 미니 에디터 콘텐츠 이미지 src 화이트리스트.
 //   - https 만 허용 (http/data:/blob:/javascript: 모두 거부)
 //   - 호스트는 *.supabase.co (운영·개발 Supabase Storage 모두 포함)
@@ -8069,6 +8125,116 @@ async function markBrandAppMemosRead(applicationId, productIdx) {
   } catch(e) { console.error('[markBrandAppMemosRead]', e); return {ok: false, error: e?.message || 'unknown'}; }
 }
 
+// ══════════════════════════════════════════════════════════════
+// 오리엔시트 내부 메모 (모집 건 카드별, 관리자 전용 — 마이그레이션 297·298)
+//   위 브랜드 서베이 메모와 구조가 같지만 두 가지가 다르다:
+//     · 붙는 대상이 「순번」이 아니라 카드 고유 번호(card_uid) — 카드가 밀려도 안 어긋남
+//     · 본문이 서식 있는 글(body_html) — 저장·표시 양쪽에서 sanitizeMemoHtml 을 거친다
+//   읽음 처리는 **시트 단위**(카드 번호를 받지 않는다 — 사양서 §의심 11)
+// ══════════════════════════════════════════════════════════════
+
+// 시트 1건의 메모 전부 (카드에 붙은 것 + 카드가 지워진 고아 메모 포함)
+//   화면이 card_uid 로 갈라 담는다 — 여기서 카드 목록과 대조해 거르지 않는다.
+async function fetchOrientMemos(sheetId) {
+  if (!db || !sheetId) return [];
+  try {
+    const {data, error} = await db?.from('orient_sheet_memos')
+      .select('id, orient_sheet_id, card_uid, card_name_snapshot, body_html, author_id, author_name, created_at, updated_at')
+      .eq('orient_sheet_id', sheetId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchOrientMemos]', e); return []; }
+}
+
+// 메모 남기기. cardName 은 작성 시점 제품명 스냅샷 —
+//   그 카드가 나중에 지워지면 「삭제된 모집 건의 메모」에서 이 이름으로 보여준다.
+async function insertOrientMemo(sheetId, cardUid, cardName, bodyHtml, authorId, authorName) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const payload = {
+      orient_sheet_id: sheetId,
+      card_uid: cardUid,
+      card_name_snapshot: cardName || null,
+      body_html: bodyHtml,
+      author_id: authorId || null,
+      author_name: authorName || null
+    };
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('orient_sheet_memos')
+        .insert(payload)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertOrientMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 메모 고치기. 낙관적 잠금을 일부러 걸지 않는다(마지막 저장 승리 — 확정 결정).
+async function updateOrientMemo(memoId, bodyHtml) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('orient_sheet_memos')
+        .update({body_html: bodyHtml, updated_at: new Date().toISOString()})
+        .eq('id', memoId)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateOrientMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+async function deleteOrientMemo(memoId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('orient_sheet_memos').delete().eq('id', memoId);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) { console.error('[deleteOrientMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 그 시트의 메모 전부를 본인 기준 읽음 처리 (고아 메모 포함, 카드 번호 안 받음)
+//   ⚠️ 호출 시점 = 상세 모달을 **그린 뒤**. 먼저 부르면 안 읽은 수가 0이 되어
+//      「안 읽은 메모가 있으면 자동 펼침」 판정이 죽는다 (사양서 §의심 11).
+async function markOrientMemosRead(sheetId) {
+  if (!db || !sheetId) return {ok: false, error: 'no_db_or_id'};
+  try {
+    const {data, error} = await db?.rpc('mark_orient_sheet_memos_read', {
+      p_orient_sheet_id: sheetId
+    });
+    if (error) throw error;
+    return {ok: true, marked: data || 0};
+  } catch(e) { console.error('[markOrientMemosRead]', e); return {ok: false, error: e?.message || 'unknown'}; }
+}
+
+// (시트, 카드 번호) 짝 단위 집계 — 목록 배지·카드 머리줄에서 쓴다.
+//   반환 키: `${orient_sheet_id}_${card_uid}`
+//   값: {count, unreadCount, latest, latestAt}
+//   ⚠️ 서버가 카드 목록과 대조하지 않고 메모 표 기준으로만 낸다 —
+//      카드가 지워진 고아 메모도 여기 들어온다(화면이 따로 모아 그린다).
+async function fetchOrientMemoSummaries() {
+  if (!db) return {};
+  try {
+    const {data, error} = await db?.rpc('get_orient_sheet_memo_summaries');
+    if (error) throw error;
+    const summary = {};
+    (data || []).forEach(r => {
+      summary[r.orient_sheet_id + '_' + r.card_uid] = {
+        count: r.total_count || 0,
+        unreadCount: r.unread_count || 0,
+        latest: r.latest_body_html || null,
+        latestAt: r.latest_created_at || null
+      };
+    });
+    return summary;
+  } catch(e) { console.error('[fetchOrientMemoSummaries]', e); return {}; }
+}
+
 // 신청별 history 건수 조회 (작은 카운트 쿼리 — 1회 호출)
 async function fetchBrandAppHistoryCounts() {
   if (!db) return {};
@@ -10374,6 +10540,11 @@ document.addEventListener('keydown', (e) => {
     // campBundleModal 은 DOM 이동 복귀 로직이 있어 전용 닫기 함수로 위임
     if (top.id === 'campBundleModal' && typeof closeCampBundleModal === 'function') {
       closeCampBundleModal();
+    // 오리엔시트 상세는 닫을 때 목록의 메모 배지를 다시 계산해야 한다.
+    //   여기서 일반 closeModal 로 닫으면 그 갱신이 빠져, 상세를 읽고 ESC 로 닫았을 때
+    //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
+    } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
+      osCloseModal('orientDetailModal');
     } else {
       closeModal(top.id);
     }

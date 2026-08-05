@@ -2618,6 +2618,116 @@ async function markBrandAppMemosRead(applicationId, productIdx) {
   } catch(e) { console.error('[markBrandAppMemosRead]', e); return {ok: false, error: e?.message || 'unknown'}; }
 }
 
+// ══════════════════════════════════════════════════════════════
+// 오리엔시트 내부 메모 (모집 건 카드별, 관리자 전용 — 마이그레이션 297·298)
+//   위 브랜드 서베이 메모와 구조가 같지만 두 가지가 다르다:
+//     · 붙는 대상이 「순번」이 아니라 카드 고유 번호(card_uid) — 카드가 밀려도 안 어긋남
+//     · 본문이 서식 있는 글(body_html) — 저장·표시 양쪽에서 sanitizeMemoHtml 을 거친다
+//   읽음 처리는 **시트 단위**(카드 번호를 받지 않는다 — 사양서 §의심 11)
+// ══════════════════════════════════════════════════════════════
+
+// 시트 1건의 메모 전부 (카드에 붙은 것 + 카드가 지워진 고아 메모 포함)
+//   화면이 card_uid 로 갈라 담는다 — 여기서 카드 목록과 대조해 거르지 않는다.
+async function fetchOrientMemos(sheetId) {
+  if (!db || !sheetId) return [];
+  try {
+    const {data, error} = await db?.from('orient_sheet_memos')
+      .select('id, orient_sheet_id, card_uid, card_name_snapshot, body_html, author_id, author_name, created_at, updated_at')
+      .eq('orient_sheet_id', sheetId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchOrientMemos]', e); return []; }
+}
+
+// 메모 남기기. cardName 은 작성 시점 제품명 스냅샷 —
+//   그 카드가 나중에 지워지면 「삭제된 모집 건의 메모」에서 이 이름으로 보여준다.
+async function insertOrientMemo(sheetId, cardUid, cardName, bodyHtml, authorId, authorName) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const payload = {
+      orient_sheet_id: sheetId,
+      card_uid: cardUid,
+      card_name_snapshot: cardName || null,
+      body_html: bodyHtml,
+      author_id: authorId || null,
+      author_name: authorName || null
+    };
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('orient_sheet_memos')
+        .insert(payload)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertOrientMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 메모 고치기. 낙관적 잠금을 일부러 걸지 않는다(마지막 저장 승리 — 확정 결정).
+async function updateOrientMemo(memoId, bodyHtml) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('orient_sheet_memos')
+        .update({body_html: bodyHtml, updated_at: new Date().toISOString()})
+        .eq('id', memoId)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateOrientMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+async function deleteOrientMemo(memoId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('orient_sheet_memos').delete().eq('id', memoId);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) { console.error('[deleteOrientMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 그 시트의 메모 전부를 본인 기준 읽음 처리 (고아 메모 포함, 카드 번호 안 받음)
+//   ⚠️ 호출 시점 = 상세 모달을 **그린 뒤**. 먼저 부르면 안 읽은 수가 0이 되어
+//      「안 읽은 메모가 있으면 자동 펼침」 판정이 죽는다 (사양서 §의심 11).
+async function markOrientMemosRead(sheetId) {
+  if (!db || !sheetId) return {ok: false, error: 'no_db_or_id'};
+  try {
+    const {data, error} = await db?.rpc('mark_orient_sheet_memos_read', {
+      p_orient_sheet_id: sheetId
+    });
+    if (error) throw error;
+    return {ok: true, marked: data || 0};
+  } catch(e) { console.error('[markOrientMemosRead]', e); return {ok: false, error: e?.message || 'unknown'}; }
+}
+
+// (시트, 카드 번호) 짝 단위 집계 — 목록 배지·카드 머리줄에서 쓴다.
+//   반환 키: `${orient_sheet_id}_${card_uid}`
+//   값: {count, unreadCount, latest, latestAt}
+//   ⚠️ 서버가 카드 목록과 대조하지 않고 메모 표 기준으로만 낸다 —
+//      카드가 지워진 고아 메모도 여기 들어온다(화면이 따로 모아 그린다).
+async function fetchOrientMemoSummaries() {
+  if (!db) return {};
+  try {
+    const {data, error} = await db?.rpc('get_orient_sheet_memo_summaries');
+    if (error) throw error;
+    const summary = {};
+    (data || []).forEach(r => {
+      summary[r.orient_sheet_id + '_' + r.card_uid] = {
+        count: r.total_count || 0,
+        unreadCount: r.unread_count || 0,
+        latest: r.latest_body_html || null,
+        latestAt: r.latest_created_at || null
+      };
+    });
+    return summary;
+  } catch(e) { console.error('[fetchOrientMemoSummaries]', e); return {}; }
+}
+
 // 신청별 history 건수 조회 (작은 카운트 쿼리 — 1회 호출)
 async function fetchBrandAppHistoryCounts() {
   if (!db) return {};
