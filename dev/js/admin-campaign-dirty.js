@@ -132,7 +132,14 @@ function campDirtyChangedLabels(prefix) {
     if (!el) el = document.getElementById(id);
     const grp = el && el.closest ? el.closest('.form-group') : null;
     const lb = grp ? grp.querySelector('.form-label') : null;
-    if (lb) name = lb.textContent.replace(/필수|선택/g, '').trim();
+    if (lb) {
+      // 라벨에는 「필수」 배지·잠금 안내 같은 곁가지가 붙어 있다. 첫 줄의 이름만 남긴다 —
+      //   안 그러면 「모집 타입 lock행사 모드 — 방문형 고정」처럼 읽기 어려운 이름이 나온다.
+      const own = [...lb.childNodes]
+        .filter(n => n.nodeType === 3)          // 글자 마디만(배지·아이콘 제외)
+        .map(n => n.textContent).join(' ');
+      name = (own || lb.textContent).replace(/필수|선택/g, '').split('\n')[0].trim();
+    }
     if (!name) name = id;
     if (seen[name]) return;
     seen[name] = 1;
