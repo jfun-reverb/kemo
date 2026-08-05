@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785904858';
+  var CURRENT_BUILD = 'v1785909848';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2801,7 +2801,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 13:40 · bca8f02</span>
+          <span class="admin-build-text">2026-08-05 15:04 · 2bbcb97</span>
         </div>
       </div>
     </aside>
@@ -9443,7 +9443,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -9465,7 +9465,7 @@ async function fetchDeliverableById(id) {
   try {
     const {data, error} = await db?.from('deliverables').select(`
       *,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1, product_price)
     `).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return null;
@@ -11187,7 +11187,7 @@ async function markBrandAppMemosRead(applicationId, productIdx) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 오리엔시트 내부 메모 (모집 건 카드별, 관리자 전용 — 마이그레이션 295·296)
+// 오리엔시트 내부 메모 (모집 건 카드별, 관리자 전용 — 마이그레이션 297·298)
 //   위 브랜드 서베이 메모와 구조가 같지만 두 가지가 다르다:
 //     · 붙는 대상이 「순번」이 아니라 카드 고유 번호(card_uid) — 카드가 밀려도 안 어긋남
 //     · 본문이 서식 있는 글(body_html) — 저장·표시 양쪽에서 sanitizeMemoHtml 을 거친다
@@ -12628,9 +12628,12 @@ async function fetchSettlements(opts) {
       // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
       // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
       // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
+      // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 293 추가 — 리뷰어형이 영수증
+      // 실결제액 기준으로 바뀌면서(294), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
+      // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
-        amount_source, reward_part_jpy,
+        amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
@@ -15418,7 +15421,7 @@ let _osBrandContacts = [];        // 발급 브랜드의 담당자 배열(드롭
 let _osPendingContact = null;     // 발송 성공 후 저장 대기 중인 신규 담당자 {email, name}
 let _osMailSentTo = null;         // 이 시트에 이미 메일 발송한 수신 이메일(있으면 같은 수신자엔 버튼 비활성)
 let _osPublishCardIdx = null;     // 「이 카드로 발행」 진입 시 대상 카드 인덱스(발행 방식 선택 모달에서 재사용)
-// ── 내부 메모(모집 건 카드별, 마이그레이션 295·296) ─────────────────
+// ── 내부 메모(모집 건 카드별, 마이그레이션 297·298) ─────────────────
 let _osDetailMemos = [];     // 상세 모달에 열린 시트의 메모 전부(카드에 붙은 것 + 고아 메모)
 let _osMemoSummary = {};     // `${시트id}_${카드고유번호}` → {count, unreadCount, latest, latestAt}
 let _osMemoDraft = {};       // 작성 중인 새 메모 본문 — 카드 순번(또는 'orphan') 기준
@@ -16183,13 +16186,13 @@ function osSetDetailTitle(s) {
 async function osOpenDetail(id) {
   ensureOrientModals();
   const body = document.getElementById('osDetailBody');
-  body.innerHTML = '<p style="color:var(--muted);padding:8px">불러오는 중…</p>';
+  body.innerHTML = '<p style="color:var(--muted);padding:20px;width:100%">불러오는 중…</p>';
   osSetDetailTitle(null);
   document.getElementById('orientDetailModal').classList.add('open');
   let s;
   try { s = await fetchOrientSheetById(id); }
-  catch (e) { body.innerHTML = '<p style="padding:8px">불러오지 못했습니다.</p>'; return; }
-  if (!s) { body.innerHTML = '<p style="padding:8px">데이터가 없습니다.</p>'; return; }
+  catch (e) { body.innerHTML = '<p style="padding:20px;width:100%">불러오지 못했습니다.</p>'; return; }
+  if (!s) { body.innerHTML = '<p style="padding:20px;width:100%">데이터가 없습니다.</p>'; return; }
   _osDetailSheet = s;
   // 발행된 카드의 연결 캠페인 번호·상태 조회 (활성=번호 링크 / 보관삭제=삭제됨 / 맵에 없음=완전삭제)
   try {
@@ -16238,6 +16241,25 @@ function osOpenDetailNewWindow() {
 // 상세 모달 전용 스코프 스타일 (가독성: 항목 구분선 + 라벨/값 위계 + 카드 제목)
 const OS_DETAIL_STYLE = `<style>
   .os-detail{container-type:inline-size}
+  /* ── 좌우 2단(시트 내용 | 내부 메모) ── */
+  /*  각 칸이 자기 스크롤을 갖는다. min-height:0 이 없으면 flex 자식이 안 줄어들어
+      스크롤이 안 생기고 바깥이 대신 늘어난다. */
+  .os-split{display:flex;flex:1;width:100%;min-height:0;align-items:stretch}
+  .os-pane{min-height:0;overflow-y:auto;padding:20px}
+  .os-pane-left{flex:1 1 58%;min-width:0;container-type:inline-size}
+  .os-pane-right{flex:1 1 42%;min-width:0;border-left:1px solid #ececf0;background:#fbfbfc}
+  /*  좁은 화면에서는 위아래로 쌓는다 — 두 칸을 억지로 붙이면 둘 다 못 읽는다.
+      이때는 바깥 한 덩어리로 스크롤한다(칸별 스크롤이 겹치면 더 불편하다). */
+  @media (max-width:900px){
+    .os-split{flex-direction:column;overflow-y:auto}
+    .os-pane{overflow:visible}
+    .os-pane-right{border-left:0;border-top:1px solid #ececf0}
+  }
+  /*  메모가 길어져도 이 칸이 무슨 칸인지 보이게 머리줄을 붙여 둔다 */
+  .os-memo-panel-title{font-weight:800;font-size:13px;color:#161618;margin-bottom:10px;
+    display:flex;align-items:center;gap:6px;position:sticky;top:-20px;z-index:1;
+    background:#fbfbfc;padding:20px 0 8px;margin-top:-20px}
+  .os-memo-panel-empty{color:var(--muted,#8a8a90);font-size:12.5px;line-height:1.6}
   .os-card{border:1px solid #ececf0;border-radius:12px;padding:14px 16px;margin-bottom:14px;background:#fff}
   .os-card-title{font-weight:800;font-size:14px;color:#161618;margin-bottom:2px}
   .os-card-head{display:flex;align-items:center;gap:8px;margin-bottom:2px;padding-bottom:8px}
@@ -16252,7 +16274,7 @@ const OS_DETAIL_STYLE = `<style>
   .os-field-val a{color:var(--pink,#1A1A1A);text-decoration:underline}
   .os-empty{color:#bbb;font-weight:400}
   /* ── 내부 메모 ── */
-  .os-memo{border-top:1px solid #f2f2f2;margin-top:10px;padding-top:8px}
+  .os-memo{border:1px solid #ececf0;border-radius:12px;background:#fff;margin-bottom:10px;padding:10px 12px}
   .os-memo-head{display:flex;align-items:center;gap:6px;width:100%;border:0;background:transparent;
     cursor:pointer;padding:4px 0;font-size:12.5px;font-weight:700;color:#161618;text-align:left}
   .os-memo-head .os-memo-caret{font-size:18px;color:var(--muted,#8a8a90);transition:transform .15s}
@@ -16304,10 +16326,14 @@ function osDetailHtml(s, catMap, readonly) {
   } else {
     bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard;
   }
-  // 「삭제된 모집 건의 메모」 — 맨 아래, 해당 메모가 있을 때만.
-  //   새창 출력(readonly)에는 카드 메모와 마찬가지로 넣지 않는다.
-  if (!readonly) bodyHtml += osOrphanMemoHtml();
-  return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
+  // 새창 출력(readonly)은 한 덩어리 그대로 — 메모를 아예 그리지 않으므로 나눌 것이 없다.
+  //   그 출력물은 인쇄·브랜드 화면 공유 대상이라 내부 대화가 들어가면 안 된다.
+  if (readonly) return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
+  // 모달은 좌우 2단 — 시트 내용을 보면서 메모를 읽고 쓸 수 있게. 각 칸이 따로 스크롤된다.
+  return OS_DETAIL_STYLE + `<div class="os-detail os-split">
+    <div class="os-pane os-pane-left">${bodyHtml}</div>
+    <div class="os-pane os-pane-right">${osMemoPanelHtml(cards)}</div>
+  </div>`;
 }
 
 function osFieldRow(label, valHtml, wide) {
@@ -16374,12 +16400,13 @@ function osCardDetail(c, idx, catMap, readonly) {
   inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng), true) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions), true) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
 
+  // ⚠️ 제목은 osCardTitle 로만 만든다 — 오른쪽 메모 묶음 머리줄도 같은 함수를 쓴다.
+  //    여기서 따로 계산하면 왼쪽 카드 제목과 오른쪽 메모 이름이 어긋난다.
   const head = `<div class="os-card-head">
-    ${osTypeChip(ft)}<span class="os-name">${esc(p.name || ('제품 ' + (idx + 1)))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
-  // 내부 메모 — 새창 출력(readonly)에는 넣지 않는다(인쇄·화면 공유 시 내부 대화 노출 방지).
-  //   카드에 고유 번호가 없으면(옛 시트가 아직 채워지기 전) 붙일 자리가 없어 생략한다.
-  const memo = (!readonly && c && c.uid) ? osMemoSectionHtml(c.uid, idx) : '';
-  return `<div class="os-card">${head}<div class="os-fields">${inner}</div>${memo}</div>`;
+    ${osTypeChip(ft)}<span class="os-name">${esc(osCardTitle(c, idx))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
+  // 메모는 이 카드 안이 아니라 **오른쪽 칸**에 모아 그린다(osMemoPanelHtml).
+  //   시트 내용을 읽으면서 동시에 메모를 쓸 수 있어야 해서 좌우로 나눴다.
+  return `<div class="os-card">${head}<div class="os-fields">${inner}</div></div>`;
 }
 
 // 카드 헤더 우측 — 발행 버튼(제출됨·미발행·형식 선택) / 발행됨 배지 / 형식 미선택 안내
@@ -16414,7 +16441,7 @@ function osCardPublishControl(c, idx, readonly) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 내부 메모 (모집 건 카드별 — 관리자 전용, 마이그레이션 295·296)
+// 내부 메모 (모집 건 카드별 — 관리자 전용, 마이그레이션 297·298)
 //   ⚠️ 새창 출력(readonly)에는 그리지 않는다. 그 출력물은 인쇄하거나 브랜드사에
 //      화면 공유할 수 있는 성격이라, 내부 대화가 노출되면 안 된다.
 //   ⚠️ 카드 지목은 순번이 아니라 카드 고유 번호(uid)로 한다. 다만 화면 조작
@@ -16478,10 +16505,36 @@ function osMemoItemHtml(m) {
     </div></div>`;
 }
 
-// 카드 1개의 메모 영역. slotKey = 카드 순번(숫자) — 새 메모 입력칸 식별용
+// 오른쪽 메모 칸 전체 — 모집 건마다 묶음 하나 + 맨 아래 「삭제된 모집 건의 메모」
+function osMemoPanelHtml(cards) {
+  const list = Array.isArray(cards) ? cards : [];
+  const groups = list.map((c, i) => (c && c.uid) ? osMemoSectionHtml(c.uid, i, osCardTitle(c, i)) : '').join('');
+  const orphan = osOrphanMemoHtml();
+  // 붙일 자리가 없어 메모를 못 남기는 두 경우의 안내 — 문구를 한 곳에만 둔다
+  const noSlotMsg = list.length
+    ? '이 시트의 모집 건에는 아직 고유 번호가 없어 메모를 남길 수 없습니다.'
+    : '브랜드가 모집 건을 작성하면 여기에 메모를 남길 수 있습니다.';
+  // groups 가 비면 남길 자리가 없다는 뜻 — 고아 메모가 있으면 그 아래 함께 보여준다
+  const body = groups
+    ? groups + orphan
+    : `<div class="os-memo-panel-empty">${noSlotMsg}</div>` + orphan;
+  return `<div class="os-memo-panel">
+    <div class="os-memo-panel-title">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--muted,#8a8a90)">sticky_note_2</span>
+      내부 메모 <span style="font-weight:600;color:var(--muted,#8a8a90);font-size:11.5px">· 관리자만 보입니다</span>
+    </div>${body}</div>`;
+}
+
+// 메모 묶음 머리줄에 쓰는 모집 건 이름 (상세 왼쪽 카드 제목과 같은 규칙)
+function osCardTitle(c, idx) {
+  const p = (c && c.product) || {};
+  return p.name || ('제품 ' + (idx + 1));
+}
+
+// 모집 건 1개의 메모 묶음. slotKey = 카드 순번(숫자) — 새 메모 입력칸 식별용
 //   「삭제된 모집 건의 메모」는 카드별로 묶어 제품명을 얹어야 해서 이 함수를 쓰지 않고
 //   osOrphanMemoHtml 이 같은 모양의 마크업을 따로 만든다.
-function osMemoSectionHtml(uid, slotKey) {
+function osMemoSectionHtml(uid, slotKey, cardName) {
   const list = osMemosOfCard(uid);
   const unread = osMemoUnread(list);
   const open = unread > 0;   // 안 읽은 메모가 있으면 자동 펼침 (놓치지 않게 하는 장치)
@@ -16502,7 +16555,8 @@ function osMemoSectionHtml(uid, slotKey) {
   return `<div class="os-memo${open ? ' open' : ''}" data-memo-slot="${slotKey}">
     <button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
       <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
-      <span>내부 메모 ${list.length}개</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cardName || '모집 건')}</span>
+      <span style="color:var(--muted,#8a8a90);font-weight:600;font-size:11.5px;flex-shrink:0">${list.length}</span>
       ${unread ? `<span class="os-memo-unread">${unread}</span>` : ''}
     </button>
     <div class="os-memo-body">${items}${form}</div>
@@ -16527,7 +16581,8 @@ function osOrphanMemoHtml() {
     <div class="os-memo${unread > 0 ? ' open' : ''}" data-memo-slot="orphan">
       <button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
         <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
-        <span>내부 메모 ${list.length}개</span>
+        <span style="flex:1;min-width:0">지워진 모집 건</span>
+        <span style="color:var(--muted,#8a8a90);font-weight:600;font-size:11.5px;flex-shrink:0">${list.length}</span>
         ${unread ? `<span class="os-memo-unread">${unread}</span>` : ''}
       </button>
       <div class="os-memo-body">${groups}</div>
@@ -16553,7 +16608,6 @@ async function osRefreshMemos() {
   document.querySelectorAll('#osDetailBody .os-memo').forEach(el => {
     const slot = el.getAttribute('data-memo-slot');
     const wasOpen = el.classList.contains('open');
-    let html;
     if (slot === 'orphan') {
       const box = el.closest('.os-memo-orphan');
       if (box) { box.outerHTML = osOrphanMemoHtml(); return; }
@@ -16561,8 +16615,7 @@ async function osRefreshMemos() {
     }
     const idx = parseInt(slot, 10);
     if (isNaN(idx) || !cards[idx]) return;
-    html = osMemoSectionHtml(cards[idx].uid, idx);
-    el.outerHTML = html;
+    el.outerHTML = osMemoSectionHtml(cards[idx].uid, idx, osCardTitle(cards[idx], idx));
     // 펼쳐 둔 상태 유지 — 자동 펼침(안 읽은 메모)과 별개로 사용자가 연 것도 지킨다
     if (wasOpen) {
       const next = document.querySelector(`#osDetailBody .os-memo[data-memo-slot="${idx}"]`);
@@ -17076,10 +17129,12 @@ function ensureOrientModals() {
     </div>
   </div>
   <div class="modal-overlay" id="orientDetailModal">
-    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal" style="max-width:1040px;width:96vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header"><h2 id="osDetailTitle">오리엔시트 내용</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDetailModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
-      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="osDetailBody"></div>
+      <!-- 좌우 2단(시트 내용 | 내부 메모)이라 스크롤은 각 칸이 따로 갖는다.
+           여기서 overflow-y:auto 를 주면 바깥이 함께 스크롤돼 「따로 스크롤」이 깨진다. -->
+      <div class="modal-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex" id="osDetailBody"></div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osOpenDetailNewWindow()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">open_in_new</span> 새창으로 열기</button>
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDetailModal')">닫기</button></div>
@@ -26542,7 +26597,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -26565,7 +26620,9 @@ async function renderDelivCombinedBody(applicationId) {
       userId = app.user_id || null;
       if (!appStatus) appStatus = app.status || null;
       if (app.campaign_id) {
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
+        // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
+        // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price').eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -26852,6 +26909,21 @@ async function deleteMismatchedPostRow(deliverableId) {
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
 // (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
+// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 294 이후).
+// 리뷰어형 정산액 = min(이 금액, 캠페인 상시가) 이므로, 검수자가 영수증 사진과 이
+// 숫자를 대조하지 않으면 잘못된 금액이 그대로 송금된다 — 사양서 §2-1 ①·§3-4.
+// 리뷰어형(monitor)에서만 뜬다. 시딩·방문형은 이 값이 돈과 무관하다.
+function receiptPayoutHint(d) {
+  const camp = (d && (d.campaigns || d.campaign)) || {};
+  if (camp.recruit_type !== 'monitor') return '';
+  const cap = Number(camp.product_price);
+  const capText = Number.isFinite(cap) && cap > 0 ? ` 상한 ¥${cap.toLocaleString()}` : '';
+  return `<div style="margin-top:4px;font-size:11px;color:#B45309;background:#FEF3C7;border:1px solid #FDE68A;border-radius:5px;padding:5px 8px;line-height:1.5">
+    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">payments</span>
+    이 금액이 <strong>정산 지급액</strong>이 됩니다${capText ? `(${capText.trim()} 초과 시 상한까지만)` : ''}. 영수증 사진과 숫자를 대조해 주세요.
+  </div>`;
+}
+
 function renderReceiptInfoBlock(d, isExcluded) {
   if (!d || d.kind !== 'receipt') return '';
   // 검수 불필요(신청 반려·취소)면 영수증 인플레이스 「수정」도 막는다 — 상단 "검수 불필요" 배너와 일관.
@@ -26874,7 +26946,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
       </div>
       <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
       <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}</div>
+      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}${receiptPayoutHint(d)}</div>
       <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
       <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>
     </div>`;
@@ -27029,6 +27101,10 @@ async function saveReceiptEdit(id) {
       await openDelivDetail(_delivDetailCurrent.id);
     }
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
+    // 마이그레이션 296 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
+    // (재계산 또는 금액 미확정 시 자동 보류). 정산 페인과 사이드바 「정산대기」 배지가
+    // 메모리 캐시를 쓰므로 함께 갱신하지 않으면 관리자가 그 변화를 못 본다.
+    if (typeof refreshPane === 'function') await refreshPane('settlements');
   } catch(e) {
     const msg = (e && e.message) ? e.message : String(e);
     toast(friendlyError(msg), 'error');
@@ -33743,10 +33819,12 @@ function settlementAmountYen(v) {
 
 // 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
 // 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
-//   product_price = 리뷰어형(가구매 포함) 캠페인 제품 가격을 페이백
-//   reward        = 시딩·방문형 캠페인 현금 리워드
-//   NULL          = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
+//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(294~)
+//   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (294 이전에 만들어진 행)
+//   reward         = 시딩·방문형 캠페인 현금 리워드
+//   NULL           = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
 const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
+  receipt_amount: '영수증 금액',
   product_price: '제품 가격',
   product_plus_reward: '제품＋보수',
   reward: '현금 리워드',
@@ -33754,12 +33832,36 @@ const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
 function settlementAmountSourceLabel(source) {
   return SETTLEMENT_AMOUNT_SOURCE_LABELS[source] || '';
 }
-function settlementAmountSourceBadge(source) {
-  const label = settlementAmountSourceLabel(source);
-  return label
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(label)}</div>`
+
+// 상한 적용 여부(마이그레이션 293 receipt_amount_jpy/amount_cap_jpy).
+// 영수증이 캠페인 상시가보다 커서 상한에서 잘린 건인지 판정한다 — 관리자가
+// 「영수증에는 3,500엔인데 왜 3,200엔만 지급되나」를 화면에서 바로 알 수 있어야 한다
+// (2026-08-05 사용자 명시 요구). 두 값이 다 있어야 판정 가능(옛 행은 비어 있음).
+function settlementCapApplied(s) {
+  s = s || {};
+  // ⚠️ Number(null) 은 0 이라 isFinite 를 통과한다 — null 검사를 먼저 해야
+  // 「두 값이 다 있을 때만 판정」이 실제로 성립한다(293 적용 이전 행은 둘 다 비어 있음).
+  if (s.receipt_amount_jpy == null || s.amount_cap_jpy == null) return false;
+  const receipt = Number(s.receipt_amount_jpy);
+  const cap = Number(s.amount_cap_jpy);
+  if (!Number.isFinite(receipt) || !Number.isFinite(cap)) return false;
+  return receipt > cap;
+}
+// 금액 셀 아래 보조 줄 — 출처 배지 + (상한이 걸렸으면) 그 근거.
+function settlementAmountNote(s) {
+  s = s || {};
+  const label = settlementAmountSourceLabel(s.amount_source);
+  const capped = settlementCapApplied(s);
+  const parts = [];
+  if (label) parts.push(esc(label));
+  if (capped) {
+    parts.push(`영수증 ${settlementAmountYen(s.receipt_amount_jpy)} → <span style="color:var(--pink);font-weight:600">상한 적용</span>`);
+  }
+  return parts.length
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4">${parts.join('<br>')}</div>`
     : '';
 }
+// (settlementAmountSourceBadge 는 settlementAmountNote 로 흡수돼 삭제 — 2026-08-05)
 
 // 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
 //   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
@@ -34006,7 +34108,7 @@ function renderSettlementRow(s) {
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
-    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountSourceBadge(s.amount_source)}</td>
+    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountNote(s)}</td>
     <td>${paypalCell}</td>
     <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
@@ -34081,7 +34183,14 @@ function openSettlementPayModal(id) {
         <div style="color:var(--muted)">캠페인</div>
         <div>${esc(camp.title || '—')}</div>
         <div style="color:var(--muted)">송금 금액</div>
-        <div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>
+        <div><div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>${
+          // 상한이 걸린 건은 송금 직전에 근거를 보여준다 — 「영수증에는 더 큰 금액이
+          // 적혀 있는데 왜 이 금액인가」를 여기서 확인하지 못하면 관리자가 목록으로
+          // 되돌아가 대조해야 한다(2026-08-05 사용자 요구).
+          settlementCapApplied(s)
+            ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">영수증 ${settlementAmountYen(s.receipt_amount_jpy)} · 상한 ${settlementAmountYen(s.amount_cap_jpy)} <span style="color:var(--pink);font-weight:600">적용됨</span></div>`
+            : ''
+        }</div>
         <div style="color:var(--muted)">PayPal</div>
         <div style="font-weight:600;word-break:break-all">${hasPaypal ? esc(s.paypal_email) : '<span style="color:#C33">미등록 — 송금 불가</span>'}</div>
       </div>`;
@@ -34294,6 +34403,11 @@ async function exportSettlementsExcel() {
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
+      // 293 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
+      // 옛 행(상시가·현금 리워드 기준)은 빈 칸으로 남는다.
+      { header: '영수증금액(¥)', key: 'receipt', width: 14 },
+      { header: '상한(¥)',    key: 'cap',      width: 12 },
+      { header: '상한적용',   key: 'capped',   width: 10 },
       { header: 'PayPal',     key: 'paypal',   width: 26 },
       { header: '상태',       key: 'status',   width: 10 },
       { header: '인증성공일', key: 'certdate', width: 14 },
@@ -34314,6 +34428,11 @@ async function exportSettlementsExcel() {
         title:    camp.title || '',
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
+        // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 293 이전 행이
+        // 「영수증 0엔」으로 찍혀 실제로 0원에 샀다는 오해를 준다.
+        receipt:  (s.receipt_amount_jpy != null) ? Number(s.receipt_amount_jpy) : '',
+        cap:      (s.amount_cap_jpy != null) ? Number(s.amount_cap_jpy) : '',
+        capped:   settlementCapApplied(s) ? 'O' : '',
         paypal:   s.paypal_email || '',
         status:   settlementStatusKo(s.status),
         certdate: s.created_at ? formatDate(s.created_at) : '',
@@ -34517,7 +34636,7 @@ function renderPastUnregRow(r) {
     ? `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="${esc(r.amount_issue)}">금액 미확정</span>`
       + `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.amount_issue)}</div>`
     : `<div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</div>`
-      + settlementAmountSourceBadge(r.amount_source);
+      + settlementAmountNote(r);  // 출처 배지 + 상한이 걸렸으면 그 근거(293·294)
   const certCell = r.cert_at
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
