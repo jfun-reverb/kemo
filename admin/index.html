@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785912829';
+  var CURRENT_BUILD = 'v1785913172';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2604,114 +2604,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-tag-server { background:#FEE2E2; color:#B91C1C; }
 .perm-tag-none { background:var(--surface-container); color:var(--muted); }
 
-/* ── 오프라인 행사(방문 예약) 설정 박스 — 캠페인 등록·편집 폼 상단 ──
-   사양서 docs/specs/2026-07-30-offline-popup-ticketing.md §4-5.
-   평소 캠페인과 동작이 크게 갈리는 설정이라, 폼 안에서 눈에 띄게 구획한다. */
-.event-mode-box{border:1px solid var(--line);border-left:3px solid var(--pink);border-radius:10px;
-  padding:12px 14px;margin-bottom:16px;background:var(--surface-dim,#FAFAFA)}
-.event-mode-main{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;
-  color:var(--ink);cursor:pointer}
-.event-mode-main input[type=checkbox]{accent-color:var(--pink);width:15px;height:15px;cursor:pointer}
-.event-mode-opts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
-.event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
-/* 행사 묶음 — 고르는 칸과 「새 묶음」 버튼을 한 줄에. 좁아지면 버튼이 아래로 내려간다. */
-.event-group-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-
-/* ── 행사 모드에서 잠기는 칸의 시각 표시 ──
-   라디오는 input 이 display:none 이고 라벨이 모양을 담당한다. 그래서 input 에
-   disabled 를 걸어도 **라벨은 그대로 멀쩡해 보인다** — 「입력해야 할 것」과
-   「못 하는 것」이 구분되지 않는다는 지적(2026-08-03). 라벨·입력칸에 직접 표시한다.
-   ⚠️ 테두리·배경은 toggleRT 가 인라인 스타일로 덮어쓰므로 여기서 건드리지 않는다.
-      인라인 스타일을 이길 수 있는 축(불투명도·회색조·커서)만 쓴다. */
-.choice-locked{opacity:.4;filter:grayscale(1);cursor:not-allowed}
-.field-locked{background:var(--surface-dim,#F1F1F1)!important;color:var(--muted)!important;
-  cursor:not-allowed;border-style:dashed!important}
-.lock-note{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;
-  color:var(--muted);background:var(--surface-dim,#F1F1F1);border-radius:5px;padding:1px 6px;margin-left:6px}
-
-/* ──────────────────────────────────────
-   행사 시간 — 시각 선택기(flatpickr, 달력 없이 시·분만)
-   이 프로젝트엔 시각 전용 선택기 선례가 없어 강조색이 기본 파랑으로 뜬다.
-   같은 화면의 날짜 달력(.reverb-range-cal)과 같은 핑크로 맞춘다.
-   ────────────────────────────────────── */
-.flatpickr-calendar.evt-time-cal{
-  border-radius:14px;
-  box-shadow:0 8px 28px rgba(0,0,0,.14);
-  border:1px solid var(--line);
-}
-/* 24시간 표기라 오전·오후 칸은 그려지지 않는다 — 시·분만 칠한다 */
-.flatpickr-calendar.evt-time-cal .flatpickr-time input:hover,
-.flatpickr-calendar.evt-time-cal .flatpickr-time input:focus{
-  background:var(--light-pink);
-}
-.flatpickr-calendar.evt-time-cal .flatpickr-time input{
-  font-weight:700;
-  color:var(--ink);
-}
-/* 숫자를 누르면 브라우저가 글자를 선택하면서 **자기 기본 파란색**을 칠한다.
-   이 화면 테마는 무채색이라(--light-pink 가 실제로는 #F4F4F5 회색) 칸 배경은 회색인데
-   그 안 숫자만 파랗게 떠서 따로 논다. 선택색도 테마 색으로 맞춘다.
-   같은 이유로 날짜 달력의 연도 칸에도 함께 건다.
-   ⚠️ 파이어폭스는 입력칸 안 글자 선택에 이 규칙을 적용하지 않는다(브라우저 자체 제약이라
-      우회 불가) — 그 브라우저에서는 여전히 기본 파란색으로 보인다. */
-.flatpickr-calendar.evt-time-cal .flatpickr-time input::selection,
-.flatpickr-calendar.reverb-range-cal .numInput::selection{
-  background:var(--ink);
-  color:#fff;
-}
-/* 지금 고르고 있는 칸의 테두리.
-   ⚠️ `outline` 으로 그리면 세 가지가 어긋난다 — ①칸은 둥근데 테두리는 직각이고
-      ②아래쪽이 상자 밖으로 밀려 잘려서 얇아 보이며 ③모서리 반경을 못 따라간다.
-      안쪽 그림자(box-shadow inset)는 항상 칸 **안쪽**에 그려져 둥근 모서리를 그대로
-      따라가고 잘리지도 않는다. 브라우저 기본 테두리만 끄고 이걸로 대체한다.
-   (지우기만 하면 키보드로 옮겨 다닐 때 위치를 알 수 없다 — 배경은 마우스를 올려도
-    같은 색이라 구분이 안 된다.) */
-.flatpickr-calendar.evt-time-cal .flatpickr-time input{
-  border-radius:8px;
-}
-.flatpickr-calendar.evt-time-cal .flatpickr-time input:focus{
-  outline:none;
-  box-shadow:inset 0 0 0 2px var(--ink);
-}
-
-/* 위·아래 화살표는 **마우스가 올라간 칸**이나 **지금 고르고 있는 칸**에만 보인다.
-   기본값은 마우스만 따라가서, 키보드로 분(分) 칸에 가 있어도 화살표는 시(時) 칸 옆에
-   남아 있다 — 어느 칸을 조작하는 중인지 어긋나 보인다. */
-.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowUp,
-.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowDown{
-  opacity:0;
-  transition:opacity .12s;
-}
-.flatpickr-calendar.evt-time-cal .numInputWrapper:hover span.arrowUp,
-.flatpickr-calendar.evt-time-cal .numInputWrapper:hover span.arrowDown,
-.flatpickr-calendar.evt-time-cal .numInputWrapper:focus-within span.arrowUp,
-.flatpickr-calendar.evt-time-cal .numInputWrapper:focus-within span.arrowDown{
-  opacity:1;
-}
-.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowUp:hover:after{
-  border-bottom-color:var(--pink);
-}
-.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowDown:hover:after{
-  border-top-color:var(--pink);
-}
-
-/* ──────────────────────────────────────
-   행사 시간 — 시각 칸 안쪽 「비우기」 단추
-   칸 **밖**에 두면 옆 칸과의 사이에 떠서 구분 기호(곱하기)처럼 읽힌다.
-   값이 있을 때만 보이므로 빈 칸 옆에 정체 모를 표시가 남지 않는다.
-   ────────────────────────────────────── */
-.evt-time-clearable{ position:relative; display:inline-flex; align-items:center; }
-.evt-time-clearable > input{ padding-right:24px; }
-.evt-time-clear{
-  position:absolute; right:4px; top:50%; transform:translateY(-50%);
-  display:none; align-items:center; justify-content:center;
-  width:18px; height:18px; border-radius:50%;
-  color:var(--muted); cursor:pointer;
-}
-.evt-time-clearable.has-value .evt-time-clear{ display:inline-flex; }
-.evt-time-clear:hover{ background:var(--light-pink); color:var(--ink); }
-.evt-time-clear .material-icons-round{ font-size:14px; }
-
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2801,7 +2693,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 15:53 · ed109e3</span>
+          <span class="admin-build-text">2026-08-05 15:59 · 5ae3915</span>
         </div>
       </div>
     </aside>
@@ -3011,43 +2903,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <input type="hidden" id="editCampId">
 
-            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
-            <div class="event-mode-box">
-              <label class="event-mode-main">
-                <input type="checkbox" id="editCampEventMode" onchange="onEventModeToggle('edit')">
-                <span>오프라인 행사(방문 예약) 캠페인</span>
-              </label>
-              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
-              <div id="editCampEventOpts" class="event-mode-opts" style="display:none">
-                <label class="event-mode-main">
-                  <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
-                  <span>비공개 — 초대받은 사람만 신청</span>
-                </label>
-                <div class="form-group" style="margin-top:12px;margin-bottom:0">
-                  <label class="form-label">행사장 안내 (일본어)</label>
-                  <input type="text" id="editCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
-                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
-                </div>
-                <div class="form-group" style="margin-top:12px;margin-bottom:0">
-                  <label class="form-label">같은 행사 묶음</label>
-                  <div class="event-group-row">
-                    <select id="editCampEventGroup" class="form-input" style="max-width:280px"></select>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('edit')">새 묶음</button>
-                  </div>
-                  <div class="form-hint">하루짜리 행사면 비워 두세요. <b>같은 행사를 날짜별로 여러 캠페인으로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에서 한 번에 보입니다. 안 묶으면 날짜가 바뀔 때 명단이 빈 화면이 됩니다.</div>
-                </div>
-                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
-                <div id="editCampInviteRow" class="event-invite-row" style="display:none">
-                  <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
-                  <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteGenBtn" onclick="genInviteCode('edit')">번호 생성</button>
-                  <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteCopyBtn" onclick="copyInviteLink('edit')">
-                    <span class="material-icons-round notranslate" translate="no" style="font-size:15px">link</span> 초대 링크 복사
-                  </button>
-                </div>
-                <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
-              </div>
-            </div>
-
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
@@ -3078,7 +2933,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="editCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor');applyMinFollowersVisibility('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting');applyMinFollowersVisibility('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
@@ -3091,7 +2946,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="number" id="editCampSlots" class="form-input" placeholder="20" min="1" style="flex:1">
                   <span style="font-size:13px;color:var(--muted);font-weight:600">명</span>
                 </div>
-                <div class="form-hint" id="editCampSlotsEventHint" style="display:none;color:var(--dark-pink)"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -3142,10 +2996,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="number" id="editCampProductPrice" class="form-input" min="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="editCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
+                  <label class="form-label">리워드 금액 (¥)</label>
                   <input type="number" id="editCampReward" class="form-input" min="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
-                  <div class="form-hint" id="editCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -3220,101 +3073,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
             <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
-            <!-- 행사 시간 — 행사 모드일 때만 보인다. 모집 조건 안에 두는 이유: 방문 날짜·시각·
-                 정원은 그 캠페인을 언제 몇 명 받느냐는 조건이라 모집 인원·기간과 한 묶음이다
-                 (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지 후 위치 재조정). -->
-            <div id="editCampSlotSection" style="display:none">
-              <label class="form-label" style="margin:4px 0 8px">
-                행사 시간 <span style="font-size:11px;font-weight:400;color:var(--muted)">(방문 날짜·시각·시간대별 정원)</span>
-              </label>
-              <div id="eventSlotsSummary" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
-
-              <!-- 하루치 일괄 생성 — 처음 만들 때만 쓰는 도구라 접어 둔다.
-                   늘 펼쳐 두면 날짜·시각 칸이 화면의 절반을 차지해 정작 자주 보는
-                   타임 목록이 밀린다(사용자 요청 2026-08-04). -->
-              <button type="button" class="btn btn-ghost btn-sm" id="eventBulkToggleBtn" onclick="toggleEventBulkPanel()" style="margin-bottom:10px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">expand_more</span> 하루치 일괄 생성
-              </button>
-              <div class="admin-card" id="eventBulkPanel" style="padding:12px 14px;margin-bottom:10px;display:none">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-                  <span style="font-size:13px;font-weight:700">하루치 일괄 생성</span>
-                  <!-- 생김새는 이 화면이 이미 쓰는 도움말 아이콘(.tier-help-icon)을 그대로 따른다 —
-                       물음표 버튼이 화면마다 다르게 생기면 같은 뜻인지 매번 다시 배워야 한다. -->
-                  <button type="button" class="tier-help-icon" onclick="toggleEventBulkHelp()"
-                          title="입력 항목 설명 보기" aria-label="입력 항목 설명 보기"
-                          style="border:0;padding:0;font-family:inherit">?</button>
-                </div>
-                <div class="admin-filter-bar" style="flex-wrap:wrap">
-                  <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventBulkDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
-                  <div class="admin-filter-group"><label>시작 시각</label><input type="text" id="eventBulkStart" class="admin-filter evt-fp-time" value="11:00" placeholder="00:00" readonly style="width:90px"></div>
-                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="text" id="eventBulkLastStart" class="admin-filter evt-fp-time" value="18:30" placeholder="00:00" readonly style="width:90px"></div>
-                  <div class="admin-filter-group"><label title="다음 타임이 몇 분 뒤에 시작하는지">간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label title="한 타임이 몇 분 동안인지 — 끝 시각 계산에만 씁니다. 0이면 끝 시각 없이 시작 시각만 표시">한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
-                  <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
-                  <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
-                  <button type="button" class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
-                </div>
-                <div id="eventBulkPreview" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
-                <!-- 설명은 제목 옆 도움말 버튼(?)으로만 연다 — 늘 펼쳐 두면 정작 봐야 할
-                     「N줄이 만들어집니다」 미리 보기가 긴 글에 묻힌다(사용자 요청 2026-08-04). -->
-                <div class="form-hint" id="eventBulkHelp" style="margin-top:8px;display:none;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;line-height:1.8;color:var(--muted)">
-                  <b>간격</b>은 다음 타임이 몇 분 뒤에 시작하는지, <b>한 타임 길이</b>는 한 타임이 몇 분 동안인지입니다 — 길이는 <b>끝 시각을 계산할 때만</b> 씁니다.
-                  0으로 두면 끝 시각 없이 시작 시각만 표시됩니다. 길이가 간격보다 길면 타임끼리 시간이 겹칩니다(정원은 타임마다 따로 셉니다).<br>
-                  「마지막 시작 시각」까지 포함해서 만들고, 같은 시각이 이미 있으면 건너뜁니다.
-                </div>
-              </div>
-
-              <div class="admin-filter-bar" style="flex-wrap:wrap">
-                <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventSlotNewDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
-                <div class="admin-filter-group"><label>시작</label>
-                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
-                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
-                    <div class="evt-time-clearable">
-                      <input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:104px">
-                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewStart')" title="시작 비우기" aria-label="시작 비우기">
-                        <span class="material-icons-round notranslate" translate="no">close</span>
-                      </button>
-                    </div>
-                  </div>
-                <div class="admin-filter-group"><label>종료(선택)</label>
-                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
-                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
-                    <div class="evt-time-clearable">
-                      <input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="비워 두면 시작만" readonly style="width:124px">
-                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewEnd')" title="종료(선택) 비우기" aria-label="종료(선택) 비우기">
-                        <span class="material-icons-round notranslate" translate="no">close</span>
-                      </button>
-                    </div>
-                  </div>
-                <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
-                <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">타임 추가</button>
-              </div>
-
-              <!-- 날짜 탭 — 여러 날 행사는 한 표에 다 쌓이면 어느 날 것인지 안 보인다.
-                   0~1일이면 렌더하지 않는다(고를 게 없는 탭은 자리만 차지한다). -->
-              <div id="eventSlotDateTabs" class="status-tab-bar" style="margin-top:12px;display:none"></div>
-
-              <div class="admin-card" style="margin-top:10px">
-                <!-- 선택 삭제 줄 — 고른 게 있을 때만 보인다 -->
-                <div id="eventSlotBulkBar" style="display:none;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface-container-low)">
-                  <span id="eventSlotBulkCount" style="font-size:13px;font-weight:700"></span>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="deleteSelectedEventSlots()">선택 삭제</button>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="clearEventSlotSelection()">선택 해제</button>
-                </div>
-                <div class="admin-table-wrap">
-                <table class="data-table">
-                  <thead><tr>
-                    <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventSlotSelectAll" onchange="toggleEventSlotSelectAll(this.checked)" title="보이는 타임 전체 선택"></th>
-                    <th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th>
-                  </tr></thead>
-                  <tbody id="eventSlotsBody"></tbody>
-                </table>
-                </div>
-              </div>
-              <div class="form-hint" style="margin-top:6px">시간대는 아래 「변경 저장」과 <b>무관하게 바로 반영</b>됩니다. 정원 칸을 고쳐 쓰면 그 자리에서 저장됩니다.</div>
-            </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -3427,41 +3185,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
-            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
-            <div class="event-mode-box">
-              <label class="event-mode-main">
-                <input type="checkbox" id="newCampEventMode" onchange="onEventModeToggle('new')">
-                <span>오프라인 행사(방문 예약) 캠페인</span>
-              </label>
-              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
-              <div id="newCampEventOpts" class="event-mode-opts" style="display:none">
-                <div class="form-hint" style="margin-bottom:10px">방문 날짜·시각·시간대별 정원은 <b>캠페인을 저장한 뒤</b> 편집 화면에서 등록합니다. 시간대는 캠페인에 속한 값이라 캠페인이 먼저 만들어져야 붙일 수 있습니다.</div>
-                <label class="event-mode-main">
-                  <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
-                  <span>비공개 — 초대받은 사람만 신청</span>
-                </label>
-                <div class="form-group" style="margin-top:12px;margin-bottom:0">
-                  <label class="form-label">행사장 안내 (일본어)</label>
-                  <input type="text" id="newCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
-                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
-                </div>
-                <div class="form-group" style="margin-top:12px;margin-bottom:0">
-                  <label class="form-label">같은 행사 묶음</label>
-                  <div class="event-group-row">
-                    <select id="newCampEventGroup" class="form-input" style="max-width:280px"></select>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('new')">새 묶음</button>
-                  </div>
-                  <div class="form-hint">하루짜리 행사면 비워 두세요. <b>같은 행사를 날짜별로 여러 캠페인으로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에서 한 번에 보입니다. 안 묶으면 날짜가 바뀔 때 명단이 빈 화면이 됩니다.</div>
-                </div>
-                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
-                <div id="newCampInviteRow" class="event-invite-row" style="display:none">
-                  <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
-                  <button type="button" class="btn btn-ghost btn-sm" id="newCampInviteGenBtn" onclick="genInviteCode('new')">번호 생성</button>
-                  <span class="form-hint" style="margin:0">캠페인을 저장한 뒤 편집 화면에서 초대 링크를 복사할 수 있습니다.</span>
-                </div>
-              </div>
-            </div>
-
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -3495,7 +3218,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="newCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
@@ -3562,10 +3285,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="newCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
+                  <label class="form-label">리워드 금액 (¥)</label>
                   <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
-                  <div class="form-hint" id="newCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -3917,25 +3639,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <table class="data-table">
               <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
-            </table>
-            </div>
-          </div>
-          <!-- 예약 현황 탭 — 행사 캠페인 전용. 예전에는 별도 화면(#adminPane-event-tickets)이었는데
-               같은 캠페인을 두 화면에서 봐야 했다. **복사가 아니라 옮겼다** — 두 벌로 두면
-               한쪽만 고쳐져 어긋난다(사용자 요청 2026-08-04). -->
-          <div class="admin-card" id="campTicketsCard" style="display:none">
-            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
-              <div id="eventTicketStatusTabs" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
-              <div class="admin-filter-group" style="flex-shrink:0">
-                <select id="eventTicketSlotFilter" class="admin-filter" style="width:auto" onchange="onEventTicketSlotFilterChange(this.value)"></select>
-              </div>
-              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
-              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
-            </div>
-            <div class="admin-table-wrap">
-            <table class="data-table">
-              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
-              <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
           </div>
@@ -7920,8 +7623,6 @@ const PANE_REFRESHERS = {
   'applications': async () => {
     if (typeof loadApplications === 'function') await loadApplications();
   },
-  // 오프라인 행사 예약 현황은 이 페인의 **탭**이라 별도 항목이 없다 — 여기를 다시
-  //   그리면 예약 표도 함께 갱신된다(loadCampApplicants 안에서 호출).
   'camp-applicants': async () => {
     if (typeof loadCampApplicants === 'function') await loadCampApplicants();
   },
@@ -7967,7 +7668,7 @@ const PANE_REFRESHERS = {
     // 명단 저장·삭제 모달 후 호출 — 재조회(fetchOutboundInfluencers + 목록 재렌더)로 갱신.
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
-  },
+  }
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
@@ -8246,42 +7947,6 @@ function submissionDeadlinePassed(camp) {
 }
 
 // ══════════════════════════════════════
-// 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283
-//   사양서: docs/specs/2026-07-30-offline-popup-ticketing.md
-// ══════════════════════════════════════
-// 행사(티켓) 캠페인인가.
-//   ⚠️ 이 판정을 여러 곳에서 각자 만들지 않는다. 신청 게이트·활동관리 대체·타임
-//      선택표·관리자 폼이 전부 이 함수 하나를 쓴다 — 판정이 두 벌이 되면 「어떤
-//      화면에서는 행사인데 다른 화면에서는 아닌」 어긋남이 생긴다.
-//   ⚠️ 모집 형식(recruit_type)으로 판정하지 않는다. 행사 캠페인도 형식은 방문형(visit)
-//      그대로이고, 형식에 새 값을 만들지 않는 것이 이 기능의 설계 전제다(사양서 §3).
-function isEventCampaign(camp) {
-  return !!(camp && camp.event_mode === true);
-}
-
-// 비공개(초대 전용) 캠페인인가 — 목록 제외·상세 게이트 판정용.
-//   화면 단계 필터라 이것만으로는 막히지 않는다. 실효 방어선은 예약 함수의
-//   초대 번호 재검증이다(마이그레이션 283 reserve_event_ticket).
-function isInviteOnlyCampaign(camp) {
-  return !!(camp && camp.is_invite_only === true);
-}
-
-// 예약 타임 시작까지 남은 시간이 취소 마감(2시간)을 넘겼는가.
-//   ⚠️ 화면 표시(취소 버튼 비활성)용 **안내**일 뿐이다. 실제 판정은 서버가 일본 시각
-//      기준으로 한다(283 cancel_event_ticket) — 기기 시각은 믿지 않는다.
-//      화면이 허용해도 서버가 cancel_window_passed 로 거부할 수 있고, 그 경우
-//      호출부는 서버 답을 그대로 안내해야 한다.
-const EVENT_CANCEL_WINDOW_HOURS = 2;
-function eventCancelWindowPassed(slotDate, startTime) {
-  if (!slotDate || !startTime) return false;
-  // 'YYYY-MM-DD' + 'HH:MM' 또는 'HH:MM:SS' 를 일본 시각(+09:00)으로 명시해 해석한다.
-  // 시간대를 안 붙이면 보는 사람 기기의 시간대로 해석돼 해외 접속 시 어긋난다.
-  const ts = Date.parse(`${String(slotDate).slice(0, 10)}T${String(startTime).slice(0, 8)}+09:00`);
-  if (!Number.isFinite(ts)) return false;
-  return Date.now() > (ts - EVENT_CANCEL_WINDOW_HOURS * 3600 * 1000);
-}
-
-// ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
@@ -8441,23 +8106,11 @@ function maskedFieldByPermission(val, emptyLabel) {
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
 //   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
-// 이 캠페인이 「다 끝난 날」 — 종료(ended) 판정의 기준.
-//   보통은 결과물 제출 마감일이다. 그런데 **오프라인 행사 캠페인은 결과물이 없어**
-//   그 날짜를 비워 두므로(EVENT_MODE_CLEARED_FIELDS), 기준이 없어서 「모집마감」에서
-//   영영 안 넘어갔다. 행사는 마지막 방문일이 끝나는 날이다(방문 기간은 행사 시간에서 계산).
-function campaignFinishDate(camp) {
-  if (!camp) return null;
-  if (camp.submission_end) return camp.submission_end;
-  if (typeof isEventCampaign === 'function' && isEventCampaign(camp) && camp.visit_end) return camp.visit_end;
-  return null;
-}
-
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
   if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
-    const _fin = campaignFinishDate(camp);
-    const sub = _fin ? Date.parse(_fin) : null;
+    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
     if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
     return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }
@@ -8675,14 +8328,6 @@ const ADMIN_LIST_COLUMNS = [
   'visit_start', 'visit_end',
   'submission_end',
   'order_index', 'created_at', 'updated_at',
-  // 오프라인 행사(티켓) 캠페인 — 마이그레이션 280.
-  // 목록에서 행사 캠페인을 구분하고(타임 관리·예약 현황 진입), 비공개 캠페인에
-  // 자물쇠 표시를 하려면 목록 조회 단계에서 두 값이 필요하다.
-  'event_mode', 'is_invite_only',
-  // 행사 묶음(마이그레이션 291) — 「현장 확인 열기」 버튼이 **기다리지 않고** 판단해야 한다.
-  //   버튼이 눌린 뒤 조회를 하면 그 비동기 때문에 사용자 제스처가 끊겨 브라우저가
-  //   새 탭을 차단한다(실측). 목록 조회 때 함께 받아 두면 동기로 열 수 있다.
-  'event_group_id',
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
@@ -8796,10 +8441,8 @@ async function autoEndCampaigns(camps) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const toEnd = camps.filter(c => {
-    // 행사 캠페인은 제출 마감일이 없어 마지막 방문일을 기준으로 삼는다(campaignFinishDate).
-    const fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(c) : c.submission_end;
-    if (c.status !== 'closed' || !fin) return false;
-    const se = new Date(fin);
+    if (c.status !== 'closed' || !c.submission_end) return false;
+    const se = new Date(c.submission_end);
     se.setHours(23, 59, 59, 999);
     return now > se;
   });
@@ -8856,10 +8499,9 @@ function computeCampaignStatus(camp) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
     if (dl < now) {
-      // 모집 마감 — 결과물 제출 마감(행사는 마지막 방문일)까지 지났으면 종료(ended)
-      const _fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(camp) : camp.submission_end;
-      if (_fin) {
-        const se = new Date(_fin);
+      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
+      if (camp.submission_end) {
+        const se = new Date(camp.submission_end);
         se.setHours(23, 59, 59, 999);
         if (se < now) return 'ended';
       }
@@ -9443,7 +9085,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -9465,7 +9107,7 @@ async function fetchDeliverableById(id) {
   try {
     const {data, error} = await db?.from('deliverables').select(`
       *,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1, product_price)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1)
     `).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return null;
@@ -12628,12 +12270,9 @@ async function fetchSettlements(opts) {
       // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
       // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
       // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
-      // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 293 추가 — 리뷰어형이 영수증
-      // 실결제액 기준으로 바뀌면서(294), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
-      // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
-        amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
+        amount_source, reward_part_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
@@ -12921,276 +12560,6 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
       : (data?.registered_count ?? data ?? 0);
   });
   return Number(registered) || 0;
-}
-
-// ── 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283 ──────────────────
-// 사양서: docs/specs/2026-07-30-offline-popup-ticketing.md
-// 작업표: docs/specs/2026-07-30-offline-popup-ticketing-breakdown.md 「작업 1」
-//
-// 뒤 조각(관리자 화면·방문객 화면·현장 확인 페이지)이 쓰는 접근 함수를 여기 한곳에
-// 모아 둔다 — 작업 2·3·4 가 storage.js 를 안 만지게 해 충돌 면을 하나로 줄이려는
-// 의도적 설계다(작업표 「공유 지점 경고」 2번).
-//
-// ⚠️ 서버 함수 3종(reserve/cancel/checkIn)은 예외를 던지지 않고
-//    {ok:false, reason:'...'} 를 돌려준다. 호출부는 반드시 ok 를 확인하고
-//    reason 별 안내 문구를 골라야 한다 — 실패를 조용히 성공으로 넘기면
-//    방문객이 예약된 줄 알고 현장에 온다.
-
-// ── 행사 묶음 (마이그레이션 291·292) ─────────────────────────────
-// 같은 행사를 여러 캠페인으로 나눈 경우 하나로 묶는다. 사양서
-//   docs/specs/2026-08-05-event-group-and-scoped-checkin.md §4-1
-//
-// 목록. 기본은 사용중(active)만 — 보관한 묶음을 새로 고르지 못하게 한다.
-// ⚠️ keepId 는 「편집 중인 캠페인이 이미 연결한 묶음」을 뜻한다. 그 묶음이
-//    보관 상태면 선택지에서 빠지는데, 그러면 폼이 빈 값으로 열리고 저장할 때
-//    빈 값이 그대로 쓰여 **연결이 조용히 끊긴다**(사양서 §4-2 3번). 그래서
-//    보관이어도 그 하나만은 남긴다.
-// ⚠️ 실패는 **null**, 「진짜 0건」은 **빈 배열**로 구분해 돌려준다(이 프로젝트의
-//    다른 조회 함수들이 예외를 삼키고 [] 를 주는 관행과 다르다 — 여기서는 그
-//    관행이 위험하다). 실패를 0건으로 넘기면 호출부가 선택지를 비우고, 그 상태로
-//    저장하면 **연결이 조용히 끊긴다.** 그게 이 칸이 막으려는 사고 자체다.
-async function fetchEventGroups(keepId) {
-  if (!db) return null;
-  try {
-    const {data, error} = await db.from('event_groups')
-      .select('id,name,status')
-      .order('name', {ascending: true});
-    if (error) throw error;
-    return (data || []).filter(g => g.status === 'active' || (keepId && g.id === keepId));
-  } catch(e) { return null; }
-}
-
-// 즉석 추가. 이름이 이미 있으면(공백·대소문자 차이 포함) 서버가 막는다.
-//   반환 {ok, group} 또는 {ok:false, duplicate:true} — 호출부가 안내를 고른다.
-async function createEventGroup(name) {
-  if (!db) return {ok: false};
-  const nm = String(name || '').trim();
-  if (!nm) return {ok: false, empty: true};
-  try {
-    const {data, error} = await db.from('event_groups')
-      .insert({name: nm})
-      .select('id,name,status')
-      .maybeSingle();
-    if (error) {
-      // 23505 = 유일 제약 위반. 띄어쓰기만 다른 이름을 넣은 경우가 여기로 온다.
-      if (error.code === '23505') return {ok: false, duplicate: true};
-      throw error;
-    }
-    return {ok: true, group: data};
-  } catch(e) { return {ok: false, error: e?.message || String(e)}; }
-}
-
-// 타임 목록. 로그인한 사람 전체가 조회할 수 있다(사양서 §0 결정 16).
-async function fetchEventSlots(campaignId) {
-  if (!db || !campaignId) return [];
-  try {
-    const {data, error} = await db.from('event_slots')
-      .select('*')
-      .eq('campaign_id', campaignId)
-      .order('slot_date', {ascending: true})
-      .order('start_time', {ascending: true});
-    if (error) throw error;
-    return data || [];
-  } catch(e) { return []; }
-}
-
-// 타임별 정원·확정·대기 수. 방문객은 남의 티켓 행을 볼 수 없어 직접 셀 수 없으므로
-// 서버 함수가 숫자만 내려준다(마이그레이션 283 get_event_slot_counts).
-// 반환: { [slotId]: {capacity, confirmed, waitlist, remaining} }
-async function fetchEventSlotCounts(campaignId) {
-  if (!db || !campaignId) return {};
-  try {
-    const {data, error} = await db.rpc('get_event_slot_counts', {p_campaign_id: campaignId});
-    if (error) throw error;
-    const map = {};
-    (data || []).forEach(r => {
-      const capacity  = Number(r.capacity || 0);
-      const confirmed = Number(r.confirmed_count || 0);
-      map[r.slot_id] = {
-        capacity,
-        confirmed,
-        waitlist:  Number(r.waitlist_count || 0),
-        remaining: Math.max(0, capacity - confirmed)
-      };
-    });
-    return map;
-  } catch(e) { return {}; }
-}
-
-// 타임 등록·수정 (캠페인 관리 권한 이상). row.id 가 있으면 수정, 없으면 신규.
-async function upsertEventSlot(row) {
-  if (!db) throw new Error('DB 미연결');
-  let saved = null;
-  await retryWithRefresh(async () => {
-    const q = row?.id
-      ? db.from('event_slots').update(row).eq('id', row.id).select().maybeSingle()
-      : db.from('event_slots').insert(row).select().maybeSingle();
-    const {data, error} = await q;
-    if (error) throw error;
-    saved = data;
-  });
-  return saved;
-}
-
-async function deleteEventSlot(slotId) {
-  if (!db) throw new Error('DB 미연결');
-  await retryWithRefresh(async () => {
-    const {error} = await db.from('event_slots').delete().eq('id', slotId);
-    if (error) throw error;
-  });
-}
-
-// 예약. 성공하면 {ok:true, ticket_id, ticket_code, status, waitlist_position, slot}.
-// 실패 사유(reason): invite_required · invite_mismatch · already_applied · slot_closed ·
-//   deadline_passed · birthdate_required · under_age · invalid_campaign_type ·
-//   not_found · permission_denied
-async function reserveEventTicket(slotId, inviteCode, cautionAgreedAt, cautionSnapshot) {
-  if (!db) throw new Error('DB 미연결');
-  let res = null;
-  await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('reserve_event_ticket', {
-      p_slot_id: slotId,
-      p_invite_code: inviteCode || null,
-      // 주의사항 동의 — 화면이 체크를 강제하므로 기록도 남겨야 한다(마이그레이션 284).
-      p_caution_agreed_at: cautionAgreedAt || null,
-      p_caution_snapshot: cautionSnapshot || null
-    });
-    if (error) throw error;
-    res = data;
-  });
-  return res || {ok: false, reason: 'not_found'};
-}
-
-// 본인 취소. 실패 사유: cancelled · already_entered · cancel_window_passed ·
-//   settlement_paid_cannot_cancel · not_found · permission_denied.
-// 성공 시 promoted_ticket_id 로 승격자를 알려준다.
-async function cancelEventTicket(ticketId) {
-  if (!db) throw new Error('DB 미연결');
-  let res = null;
-  await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('cancel_event_ticket', {p_ticket_id: ticketId});
-    if (error) throw error;
-    res = data;
-  });
-  return res || {ok: false, reason: 'not_found'};
-}
-
-// 현장 입장 확인(관리자 전용). 이미 입장한 티켓도 ok:true 로 오되
-// already_entered=true + entered_at(첫 입장 시각)이 함께 온다.
-// ⚠️ 예약 날짜가 오늘이 아니면 {ok:false, reason:'other_day'} 가 오고 **아직 기록되지 않았다**.
-//    호출부가 운영자에게 되묻고, 확인받으면 두 번째 인자를 true 로 다시 불러야 한다.
-// ⚠️ 자립형 확인 페이지(작업 7)는 이 파일을 못 쓰므로 호출을 그 파일 안에 직접 쓴다.
-async function checkInTicket(ticketCode, confirmOtherDay) {
-  if (!db) throw new Error('DB 미연결');
-  let res = null;
-  await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('check_in_ticket', {
-      p_ticket_code: ticketCode,
-      // 다른 날 예약이면 서버가 기록하지 않고 되돌려보낸다(마이그레이션 287).
-      // 운영자가 확인한 뒤에만 true 로 다시 부른다.
-      p_confirm_other_day: !!confirmOtherDay
-    });
-    if (error) throw error;
-    res = data;
-  });
-  return res || {ok: false, reason: 'not_found'};
-}
-
-// 본인 티켓 전체(취소분 포함 — 티켓 화면이 취소 상태도 보여준다).
-// 행 단위 보안 정책이 본인 행만 내려주므로 별도 조건이 필요 없다.
-async function fetchMyEventTickets() {
-  if (!db) return [];
-  try {
-    const {data, error} = await db.from('event_tickets')
-      .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label)')
-      .order('created_at', {ascending: false});
-    if (error) throw error;
-    return data || [];
-  } catch(e) { return []; }
-}
-
-// 캠페인별 티켓 전체(관리자 예약 현황·리포트). 인플루언서 이름을 함께 가져온다.
-// ⚠️ 1000행 상한 대응 — 이틀차 정원만 1,440명이라 페이지네이션이 필수다.
-async function fetchEventTicketsByCampaign(campaignId) {
-  if (!db || !campaignId) return [];
-  try {
-    return await fetchAllPaged(() =>
-      db.from('event_tickets')
-        .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencer_id (name_kanji, name_kana, email, is_audit)')
-        .eq('campaign_id', campaignId)
-        .order('created_at', {ascending: true})
-    );
-  } catch(e) { return []; }
-}
-
-// 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
-// 필요 없는 곳까지 흘러가므로 건수만 받는다.
-async function countActiveEventTickets(campaignId) {
-  if (!db || !campaignId) return 0;
-  try {
-    const {count, error} = await db.from('event_tickets')
-      .select('id', {count: 'exact', head: true})
-      .eq('campaign_id', campaignId)
-      .neq('status', 'cancelled');
-    if (error) throw error;
-    return count || 0;
-  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
-}
-
-// 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.
-//   이미 입장했거나 송금 완료된 정산이 걸린 예약은 서버가 거부한다.
-//   실패는 예외가 아니라 {ok:false, reason} 으로 온다.
-async function cancelEventTicketAdmin(ticketId, reasonNote) {
-  if (!db) return {ok: false, reason: 'demo_mode'};
-  return await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('cancel_event_ticket_admin', {
-      p_ticket_id: ticketId,
-      p_reason_note: reasonNote || null
-    });
-    if (error) throw error;
-    return data;
-  });
-}
-
-// 초대 번호 확인(화면 게이트용). 번호 자체는 서버에서 나오지 않고 맞나/틀리나만 온다.
-// 실효 방어선은 예약 함수의 재검증이라, 이 값이 true 여도 예약이 거부될 수 있다.
-async function verifyInviteCode(campaignId, code) {
-  if (!db || !campaignId) return false;
-  try {
-    const {data, error} = await db.rpc('verify_event_invite', {
-      p_campaign_id: campaignId,
-      p_code: code || null
-    });
-    if (error) throw error;
-    return data === true;
-  } catch(e) { return false; }
-}
-
-// ── 초대 번호 발급·조회 (캠페인 관리 권한 이상, 작업 2 관리자 폼용) ──
-// 캠페인 표가 아니라 event_invites 표에 있다(마이그레이션 280 — 공개 조회 유출 차단).
-async function fetchEventInvite(campaignId) {
-  if (!db || !campaignId) return null;
-  try {
-    const {data, error} = await db.from('event_invites')
-      .select('*').eq('campaign_id', campaignId).maybeSingle();
-    if (error) throw error;
-    return data;
-  } catch(e) { return null; }
-}
-
-async function upsertEventInvite(campaignId, code) {
-  if (!db) throw new Error('DB 미연결');
-  let saved = null;
-  await retryWithRefresh(async () => {
-    const {data: s} = await db.auth.getUser();
-    const {data, error} = await db.from('event_invites')
-      .upsert({campaign_id: campaignId, code, created_by: s?.user?.id || null},
-              {onConflict: 'campaign_id'})
-      .select().maybeSingle();
-    if (error) throw error;
-    saved = data;
-  });
-  return saved;
 }
 
 
@@ -14530,12 +13899,6 @@ function switchAdminPane(pane, el, pushHistory) {
     history.pushState({pane: pane}, '', '#' + pane);
   }
   if (pane === 'add-campaign') {
-    // ★ 행사 모드 초기화를 **가장 먼저** 한다.
-    //   안 하면 직전에 켠 체크박스가 남아, 바로 아래에서 모집 형식을 리뷰어로 되돌리는
-    //   순간 「행사 모드 ON + 리뷰어형」이라는 금지 조합이 되어 다음 캠페인 등록이
-    //   데이터베이스 제약(마이그레이션 280)에 걸려 통째로 실패한다. 그 오류 문구로는
-    //   원인이 화면 위쪽 체크박스라는 걸 알 수 없다(2026-08-03 리뷰 지적).
-    if (typeof resetEventFormFields === 'function') resetEventFormFields('new');
     initTagInput('tagWrap_newCampHashtags');
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
@@ -26670,7 +26033,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -26693,9 +26056,7 @@ async function renderDelivCombinedBody(applicationId) {
       userId = app.user_id || null;
       if (!appStatus) appStatus = app.status || null;
       if (app.campaign_id) {
-        // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
-        // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price').eq('id', app.campaign_id).maybeSingle();
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -26982,21 +26343,6 @@ async function deleteMismatchedPostRow(deliverableId) {
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
 // (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
-// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 294 이후).
-// 리뷰어형 정산액 = min(이 금액, 캠페인 상시가) 이므로, 검수자가 영수증 사진과 이
-// 숫자를 대조하지 않으면 잘못된 금액이 그대로 송금된다 — 사양서 §2-1 ①·§3-4.
-// 리뷰어형(monitor)에서만 뜬다. 시딩·방문형은 이 값이 돈과 무관하다.
-function receiptPayoutHint(d) {
-  const camp = (d && (d.campaigns || d.campaign)) || {};
-  if (camp.recruit_type !== 'monitor') return '';
-  const cap = Number(camp.product_price);
-  const capText = Number.isFinite(cap) && cap > 0 ? ` 상한 ¥${cap.toLocaleString()}` : '';
-  return `<div style="margin-top:4px;font-size:11px;color:#B45309;background:#FEF3C7;border:1px solid #FDE68A;border-radius:5px;padding:5px 8px;line-height:1.5">
-    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">payments</span>
-    이 금액이 <strong>정산 지급액</strong>이 됩니다${capText ? `(${capText.trim()} 초과 시 상한까지만)` : ''}. 영수증 사진과 숫자를 대조해 주세요.
-  </div>`;
-}
-
 function renderReceiptInfoBlock(d, isExcluded) {
   if (!d || d.kind !== 'receipt') return '';
   // 검수 불필요(신청 반려·취소)면 영수증 인플레이스 「수정」도 막는다 — 상단 "검수 불필요" 배너와 일관.
@@ -27019,7 +26365,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
       </div>
       <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
       <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}${receiptPayoutHint(d)}</div>
+      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}</div>
       <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
       <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>
     </div>`;
@@ -27174,10 +26520,6 @@ async function saveReceiptEdit(id) {
       await openDelivDetail(_delivDetailCurrent.id);
     }
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
-    // 마이그레이션 296 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
-    // (재계산 또는 금액 미확정 시 자동 보류). 정산 페인과 사이드바 「정산대기」 배지가
-    // 메모리 캐시를 쓰므로 함께 갱신하지 않으면 관리자가 그 변화를 못 본다.
-    if (typeof refreshPane === 'function') await refreshPane('settlements');
   } catch(e) {
     const msg = (e && e.message) ? e.message : String(e);
     toast(friendlyError(msg), 'error');
@@ -30015,117 +29357,6 @@ async function exportInfluencersExcel() {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// 오프라인 행사 예약 명단 엑셀 — 사양서 2026-07-30 §4-5 「리포트」
-//   행사 당일 아침에 인쇄해 눈으로 대조하는 종이 명단의 원본이다.
-//   인터넷이 끊기면 손입력 확인도 함께 멈추므로(사양서 §2-8 U1) 이 인쇄물이
-//   유일한 대비책이다 — 타임 순으로 정렬해 입구에서 찾기 쉽게 만든다.
-// ══════════════════════════════════════════════════════════════
-async function exportEventTicketsExcel(campaignId) {
-  var campId = campaignId || (typeof _eventPaneCampId !== 'undefined' ? _eventPaneCampId : null);
-  if (!campId) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
-  if (!_checkExportAllowed()) return;
-
-  _markExportStart();
-  try {
-    var slots = await fetchEventSlots(campId);
-    var tickets = await fetchEventTicketsByCampaign(campId);
-    if (!tickets.length) { toast('내보낼 예약이 없습니다', 'warn'); return; }
-
-    await loadExcelJS();
-    var wb = new ExcelJS.Workbook();
-
-    // ── 시트 1: 타임별 집계 ──────────────────────────────────
-    var ws1 = wb.addWorksheet('타임별 집계');
-    ws1.columns = [
-      { header: '날짜',   key: 'date',  width: 12 },
-      { header: '시각',   key: 'time',  width: 14 },
-      { header: '대상',   key: 'aud',   width: 14 },
-      { header: '정원',   key: 'cap',   width: 8 },
-      { header: '확정',   key: 'conf',  width: 8 },
-      { header: '입장',   key: 'ent',   width: 8 },
-      { header: '미입장', key: 'no',    width: 9 },
-      { header: '대기',   key: 'wait',  width: 8 },
-      { header: '취소',   key: 'canc',  width: 8 },
-    ];
-    slots.forEach(function (s) {
-      var mine = tickets.filter(function (t) { return t.slot_id === s.id; });
-      var conf = mine.filter(function (t) { return t.status === 'confirmed'; });
-      var ent = conf.filter(function (t) { return !!t.entered_at; });
-      ws1.addRow({
-        date: String(s.slot_date || '').slice(0, 10),
-        time: (typeof fmtSlotTime === 'function') ? fmtSlotTime(s) : String(s.start_time || '').slice(0, 5),
-        aud:  s.audience_label || '',
-        cap:  Number(s.capacity || 0),
-        conf: conf.length,
-        ent:  ent.length,
-        no:   conf.length - ent.length,
-        wait: mine.filter(function (t) { return t.status === 'waitlist'; }).length,
-        canc: mine.filter(function (t) { return t.status === 'cancelled'; }).length
-      });
-    });
-    ws1.getRow(1).font = { bold: true };
-
-    // ── 시트 2: 방문객 명단 ──────────────────────────────────
-    var ws2 = wb.addWorksheet('방문객 명단');
-    ws2.columns = [
-      { header: '날짜',     key: 'date',  width: 12 },
-      { header: '시각',     key: 'time',  width: 14 },
-      { header: '이름(한자)', key: 'kanji', width: 16 },
-      { header: '이름(가나)', key: 'kana',  width: 18 },
-      { header: '예약번호', key: 'code',  width: 12 },
-      { header: '상태',     key: 'st',    width: 12 },
-      { header: '대기순번', key: 'wp',    width: 9 },
-      { header: '입장 시각', key: 'ent',  width: 20 },
-      { header: '처리자',   key: 'by',    width: 12 },
-      { header: '확인 횟수', key: 'scan', width: 9 },
-      { header: '감사용',   key: 'audit', width: 8 },
-    ];
-    // 타임 순 → 이름 순. 입구에서 종이를 넘기며 찾는 순서와 같게 맞춘다.
-    var sorted = tickets.slice().sort(function (a, b) {
-      var sa = a.event_slots || {}, sb = b.event_slots || {};
-      var ka = String(sa.slot_date || '') + String(sa.start_time || '') + String((a.influencers || {}).name_kana || '');
-      var kb = String(sb.slot_date || '') + String(sb.start_time || '') + String((b.influencers || {}).name_kana || '');
-      return ka < kb ? -1 : ka > kb ? 1 : 0;
-    });
-    sorted.forEach(function (t) {
-      var s = t.event_slots || {}, inf = t.influencers || {};
-      var view = (typeof eventTicketViewStatus === 'function') ? eventTicketViewStatus(t) : t.status;
-      ws2.addRow({
-        date:  String(s.slot_date || '').slice(0, 10),
-        time:  (typeof fmtSlotTime === 'function') ? fmtSlotTime(s) : String(s.start_time || '').slice(0, 5),
-        kanji: inf.name_kanji || '',
-        kana:  inf.name_kana || '',
-        code:  t.ticket_code || '',
-        st:    (typeof eventTicketStatusLabel === 'function') ? eventTicketStatusLabel(view) : view,
-        wp:    t.waitlist_position || '',
-        ent:   t.entered_at ? new Date(t.entered_at).toLocaleString('ko-KR') : '',
-        by:    t.entered_by_name || '',
-        scan:  Number(t.scan_count || 0),
-        audit: inf.is_audit ? 'O' : ''
-      });
-    });
-    ws2.getRow(1).font = { bold: true };
-
-    var buf = await wb.xlsx.writeBuffer();
-    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    var url = URL.createObjectURL(blob);
-    var aEl = document.createElement('a');
-    aEl.href = url;
-    var ts = new Date();
-    var ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
-    aEl.download = 'event-tickets-' + ymd + '.xlsx';
-    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
-    URL.revokeObjectURL(url);
-    toast('명단 엑셀 다운로드 완료 (' + tickets.length + '건)');
-  } catch (e) {
-    console.error('[exportEventTicketsExcel]', e);
-    toast(friendlyError(e), 'error');
-  } finally {
-    _markExportEnd();
-  }
-}
-
 // ═════════════════════════════════════════════════════════════════
 // REVERB ADMIN — dev/js/admin-dashboard.js
 // ═════════════════════════════════════════════════════════════════
@@ -30245,8 +29476,8 @@ function renderRecentAppsTable(apps, camps, users) {
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
@@ -30882,12 +30113,6 @@ async function loadCampApplicants() {
   }
   // 제목이 비어 있으면(운영현황 진입) 캠페인명으로 보강
   if (camp && !($('campApplicantsTitle')?.textContent || '').trim()) $('campApplicantsTitle').textContent = camp.title || '';
-  // ★ 행사 판정은 **신청자 행을 그리기 전에** 정해야 한다. 행 안의 「미승인」 버튼이 이 값을
-  //   문자열로 구워 넣는데, 목록은 그 뒤로 다시 그려지지 않는다. 아래쪽에서 정하면 직전
-  //   캠페인의 값(또는 초기값 false)이 구워져 **행사인데 안전 확인창이 안 뜬다**
-  //   — 가장 흔한 경로(다른 캠페인 → 행사 캠페인)에서 정확히 안 뜬다(2026-08-04 리뷰 지적).
-  _campDetailIsEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
-
   const slots = camp?.slots || 0;
   const remaining = Math.max(slots - allApproved, 0);
   $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
@@ -30947,9 +30172,9 @@ async function loadCampApplicants() {
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
     <td style="white-space:nowrap">
-      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
+      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">되돌리기</button></div>`}
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
   </tr>`;
   };
@@ -30965,64 +30190,13 @@ async function loadCampApplicants() {
 
   // 결과물 탭 렌더 + 상단 탭 건수 갱신 (같은 데이터로 한 번에 — 추가 조회 없음)
   const delivTotal = renderCampDelivTab(camp, allDelivs, allApps, _users);
-
-  // 행사 캠페인은 예약 표를 함께 그린다. 조회는 예약 화면이 쓰던 것 그대로 재사용한다
-  //   — 화면을 옮겼을 뿐 판정을 새로 만들지 않는다.
-  let ticketTotal = 0;
-  if (_campDetailIsEvent && typeof renderEventTicketsPane === 'function') {
-    await renderEventTicketsPane(camp.id);
-    ticketTotal = (typeof _eventTicketsCache !== 'undefined' && Array.isArray(_eventTicketsCache))
-      ? _eventTicketsCache.filter(t => t.status !== 'cancelled').length : 0;
-    // 요약 카드는 위(110행)에서 이미 그려졌는데, 그때는 예약을 아직 안 읽어 0 으로 나온다.
-    //   읽고 나서 다시 그린다. 그 사이 다른 캠페인으로 옮겼으면 덮지 않는다(낡은 카드 방지).
-    if (currentCampApplicantId === camp.id) {
-      renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
-    }
-  } else if (_campDetailTab === 'tickets') {
-    _campDetailTab = 'applicants';   // 행사가 아닌 캠페인에 예약 탭이 남아 있으면 빈 화면이 된다
-  }
-  renderCampDetailTabs(total, delivTotal, ticketTotal);
-}
-
-// 「되돌리기」 — 「미승인」과 같은 이유로 행사에서는 서버가 막는다. 눌러서 실패해 보고
-//   아는 것보다 미리 알려 주는 편이 낫다(두 버튼의 안내 방식을 맞춘다).
-async function revertApplication(appId, isEvent) {
-  if (isEvent) { showEventStatusBlockedNotice('되돌리기'); return; }
-  await updateAppStatus(appId, 'pending');
-}
-
-// 행사 캠페인에서 신청 상태를 직접 바꾸려 할 때의 안내 — 두 버튼이 같은 문구를 쓴다.
-//   문구를 두 벌로 두면 한쪽만 고쳐진다.
-function showEventStatusBlockedNotice(what) {
-  const el = $('alertModalMessage');
-  if (el) el.innerHTML = `<div style="font-size:13px;line-height:1.8;text-align:left">
-    <div style="text-align:center;margin-bottom:14px">오프라인 행사는 여기서 「${esc(what)}」 할 수 없습니다.</div>
-    신청 상태만 바꾸면 <b>예약(입장 티켓)은 그대로 남아</b> 서로 어긋납니다.
-    입장 확인은 신청 상태를 보지 않으므로, 반려한 사람이 현장에서 입장 처리됩니다.
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
-      캠페인 진행현황의 <b>「예약 현황」 탭</b>에서 <b>「취소」</b>를 눌러 주세요.
-      예약과 신청이 함께 취소되고, 대기 1번이 자동으로 올라갑니다.
-    </div>
-  </div>`;
-  openModal('alertModal');
-}
-
-// 「미승인」 — 행사 캠페인에서는 이 버튼을 쓰지 않는다.
-//   신청만 반려되고 예약(티켓)은 확정으로 남는데, 입장 확인은 신청 상태를 보지 않아
-//   **반려한 사람이 그대로 입장 처리된다**(2026-08-04 발견). 마이그레이션 289 가
-//   서버에서 아예 막으므로, 화면에서는 **어디로 가야 하는지**를 알려 준다.
-//   ⚠️ 같은 버튼이 **세 화면**에 있다 — 진행현황·신청 관리·대시보드의 「최근 신청」.
-//      한 곳만 고치면 구멍이 남는다(실제로 처음엔 두 곳만 고쳐 하나를 빠뜨렸다).
-async function rejectApplication(appId, isEvent) {
-  if (isEvent) { showEventStatusBlockedNotice('미승인'); return; }
-  await updateAppStatus(appId, 'rejected');
+  renderCampDetailTabs(total, delivTotal);
 }
 
 // ── 캠페인 진행현황: 신청자 목록 / 결과물 목록 탭 ─────────────────────
 //   결과물 표는 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow)를 compact 로 재사용한다.
 //   두 화면이 따로 놀지 않게 판정·렌더를 단일 소스로 유지하는 게 목적.
-var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables' | 'tickets'
-var _campDetailIsEvent = false;      // 지금 보고 있는 캠페인이 오프라인 행사인가
+var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables'
 var _campAppStatusTab = '';          // 신청자 탭 안의 신청 상태 필터('' = 전체)
 var _campDelivCertTab = '';          // 결과물 탭 안의 인증 상태 필터('' = 전체)
 
@@ -31046,20 +30220,13 @@ function setCampAppStatusTab(btn) {
 }
 
 // delivCount 는 결과물 탭이 실제로 그리는 행 수(미제출 승인 신청 포함) — 탭 숫자와 목록 길이를 일치시킨다.
-function renderCampDetailTabs(appCount, delivCount, ticketCount) {
+function renderCampDetailTabs(appCount, delivCount) {
   const bar = $('campDetailTabBar');
   if (!bar) return;
-  // 행사 캠페인은 결과물이 없다 — 그 탭의 숫자는 「미제출 빈 행」이라 밀린 것처럼 보인다.
-  //   대신 예약 현황을 앞에 둔다(별도 화면에서 옮겨 왔다, 2026-08-04).
-  const tabs = _campDetailIsEvent
-    ? [
-        { code: 'tickets',    label: '예약 현황',   n: ticketCount || 0 },
-        { code: 'applicants', label: '신청자 목록', n: appCount || 0 },
-      ]
-    : [
-        { code: 'applicants',   label: '신청자 목록', n: appCount || 0 },
-        { code: 'deliverables', label: '결과물 목록', n: delivCount || 0 },
-      ];
+  const tabs = [
+    { code: 'applicants',   label: '신청자 목록', n: appCount || 0 },
+    { code: 'deliverables', label: '결과물 목록', n: delivCount || 0 },
+  ];
   bar.innerHTML = tabs.map(t => {
     const cls = 'status-tab-btn' + (t.code === _campDetailTab ? ' on' : '') + (t.n === 0 ? ' zero-count' : '');
     return `<button type="button" class="${cls}" data-tab="${t.code}" onclick="setCampDetailTab(this)">`
@@ -31069,11 +30236,7 @@ function renderCampDetailTabs(appCount, delivCount, ticketCount) {
 }
 
 function setCampDetailTab(btn) {
-  setCampDetailTabByCode(btn.dataset.tab || 'applicants');
-}
-
-function setCampDetailTabByCode(code) {
-  _campDetailTab = code || 'applicants';
+  _campDetailTab = btn.dataset.tab || 'applicants';
   const bar = $('campDetailTabBar');
   if (bar) bar.querySelectorAll('.status-tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === _campDetailTab));
   applyCampDetailTabVisibility();
@@ -31082,16 +30245,12 @@ function setCampDetailTabByCode(code) {
 // 탭에 따라 카드·필터 노출 전환. 상태·검색 필터는 신청자 목록 전용이라 결과물 탭에선 감춘다.
 function applyCampDetailTabVisibility() {
   const isDeliv = _campDetailTab === 'deliverables';
-  const isTicket = _campDetailTab === 'tickets';
   const appCard = $('campApplicantsCard');
   const delivCard = $('campDelivCard');
-  const ticketCard = $('campTicketsCard');
   const filterBar = $('campAppFilterBar');
-  if (appCard) appCard.style.display = (isDeliv || isTicket) ? 'none' : '';
+  if (appCard) appCard.style.display = isDeliv ? 'none' : '';
   if (delivCard) delivCard.style.display = isDeliv ? '' : 'none';
-  if (ticketCard) ticketCard.style.display = isTicket ? '' : 'none';
-  // 검색은 신청자·결과물 탭 전용 — 예약 표는 자체 필터(타임·상태)를 쓴다.
-  if (filterBar) filterBar.style.display = isTicket ? 'none' : 'flex';
+  if (filterBar) filterBar.style.display = 'flex';   // 검색은 두 탭 공용
   // 검수 상태 드롭다운은 결과물 탭 전용
   const reviewGroup = $('campDelivReviewFilterGroup');
   if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
@@ -31208,10 +30367,7 @@ function campOpsOverviewCard(camp) {
   const channels = (camp.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
   const chSep = camp.channel_match === 'and' ? ' & ' : ' / ';
   const channelTxt = channels.map(ch => esc(getChannelLabel(ch))).join(chSep);
-  const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
-  // 행사는 제품 금액을 0으로 저장한다 — 그대로 두면 「0円」이 값처럼 보인다.
-  const priceTxt = (!isEvent && camp.product_price != null && camp.product_price !== '' && Number(camp.product_price) > 0)
-    ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
+  const priceTxt = (camp.product_price != null && camp.product_price !== '') ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
   const recruitRange = brandOpsDateRange(camp.recruit_start, camp.deadline);
   let buyRange = '', buyLabel = '';
   if (camp.recruit_type === 'monitor') { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
@@ -31226,8 +30382,6 @@ function campOpsOverviewCard(camp) {
         ${camp.campaign_no?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(camp.campaign_no)}</div>`:''}
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:11px">
           <span style="background:var(--surface-dim);padding:1px 8px;border-radius:8px">${esc(typeKo)}</span>
-          ${isEvent?`<span style="background:#E8F7EF;color:#0E7E4A;font-weight:700;padding:1px 8px;border-radius:8px">행사</span>`:''}
-          ${isEvent && camp.is_invite_only?`<span style="background:var(--surface-container-low);color:var(--muted);font-weight:700;padding:1px 8px;border-radius:8px">비공개</span>`:''}
           ${channelTxt?`<span style="color:var(--muted)">${channelTxt}</span>`:''}
           ${priceTxt?`<span style="color:var(--ink);font-weight:600">${priceTxt}</span>`:''}
         </div>
@@ -31236,16 +30390,13 @@ function campOpsOverviewCard(camp) {
     <div style="margin-top:10px;border-top:1px solid var(--surface-dim);padding-top:8px">
       ${recruitRange?`<div class="camp-ops-row"><span class="k">모집</span><span class="v">${esc(recruitRange)}</span></div>`:''}
       ${buyRange?`<div class="camp-ops-row"><span class="k">${buyLabel}</span><span class="v">${esc(buyRange)}</span></div>`:''}
-      ${(!isEvent && submitTxt)?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
-      ${(isEvent && camp.event_place)?`<div class="camp-ops-row"><span class="k">행사장</span><span class="v">${esc(camp.event_place)}</span></div>`:''}
+      ${submitTxt?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
     </div>
   </div>`;
 }
 
-// 모집·결과물 현황 카드 — 진행바 3종(모집/제출/승인) + 보조 수치.
-//   행사 캠페인은 결과물이 없어 「제출·인증」이 영원히 0이라 오해를 부른다 → 예약·입장으로 바꾼다.
+// 모집·결과물 현황 카드 — 진행바 3종(모집/제출/승인) + 보조 수치
 function campOpsStatusCard(camp, allApps, allDelivs, stats) {
-  if ((typeof isEventCampaign === 'function') && isEventCampaign(camp)) return campOpsEventStatusCard(camp.id);
   const slots = stats.slots || 0;
   const approved = stats.approved || 0;
   const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
@@ -31269,40 +30420,6 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   </div>`;
 }
 
-// 행사 캠페인의 현황 카드 — 예약 확정 / 입장 완료.
-//   ⚠️ 분모 정원은 `campaigns.slots`(저장 시점 스냅샷)가 아니라 **시간대 정원 합계**를 쓴다.
-//      시간대를 고치고 캠페인을 저장하지 않으면 스냅샷이 낡아, 브랜드 보고에 틀린 수를 낸다.
-//   ⚠️ 숫자는 예약 화면과 **같은 함수**(eventTicketCounts)로 센다 — 따로 세면 두 곳이 갈린다.
-function campOpsEventStatusCard(campId) {
-  // ⚠️ 아래 캐시는 예약 화면이 채운다. 이 카드는 예약을 읽기 **전에도** 한 번 그려지는데,
-  //    그때 캐시에는 **직전에 보던 다른 행사 캠페인의 숫자**가 남아 있다(0 이 아니다).
-  //    그 값을 그대로 보여 주면 잘못된 수가 잠깐 진짜처럼 보인다 — 이 캠페인 것이 아니면
-  //    수 대신 「—」 를 낸다(읽고 나서 다시 그린다).
-  const ready = (typeof _eventPaneCampId !== 'undefined') && campId && _eventPaneCampId === campId;
-  if (!ready) {
-    return `<div class="camp-ops-card">
-      <div class="camp-ops-card-title">예약 · 입장 현황</div>
-      <div style="font-size:12px;color:var(--muted);padding:12px 0">불러오는 중…</div>
-    </div>`;
-  }
-  const c = (typeof eventTicketCounts === 'function') ? eventTicketCounts('') : null;
-  if (!c) return '';
-  const cap = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
-    ? _eventSlotsCache.filter(r => r && r.is_active !== false).reduce((n, r) => n + Number(r.capacity || 0), 0) : 0;
-  const bookPct  = cap > 0 ? Math.round(c.confirmed / cap * 100) : null;
-  const enterPct = c.confirmed > 0 ? Math.round(c.entered / c.confirmed * 100) : null;
-  return `<div class="camp-ops-card">
-    <div class="camp-ops-card-title">예약 · 입장 현황</div>
-    ${brandOpsRateBar('예약 확정', bookPct, c.confirmed, cap)}
-    ${brandOpsRateBar('입장 완료', enterPct, c.entered, c.confirmed)}
-    <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
-      <span>대기 <strong style="color:#f59e0b">${c.waitlist}</strong>명</span>
-      <span>미입장 <strong style="color:var(--ink)">${c.noshow}</strong>명</span>
-      <span>취소 <strong>${c.cancelled}</strong>명</span>
-    </div>
-  </div>`;
-}
-
 // 비용 카드 — 권한(campaign_admin 이상) + 연결 신청 있을 때만. 비동기로 뒤에 붙임.
 async function appendCampOpsCostCard(camp) {
   if (typeof isCampaignAdminOrAbove === 'function' && !isCampaignAdminOrAbove()) return;
@@ -31313,12 +30430,7 @@ async function appendCampOpsCostCard(camp) {
   if (currentCampApplicantId !== camp.id) return;
   if (!app) return;
   const box = $('campApplicantsSummary');
-  if (!box) return;
-  // ⚠️ 행사 캠페인은 요약을 두 번 그린다(예약을 읽기 전·후). 이 함수는 기다리지 않고
-  //    떠나므로 두 번의 조회가 각각 카드를 붙여 **비용 카드가 두 장 겹칠** 수 있다.
-  //    이미 붙어 있으면 지우고 다시 붙인다.
-  box.querySelectorAll('[data-cost-card]').forEach(el => el.remove());
-  box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
+  if (box) box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
 }
 
 function campOpsCostCard(app) {
@@ -31334,7 +30446,7 @@ function campOpsCostCard(app) {
   const recruitFeeTxt = recruitFee > 0 ? recruitFee.toLocaleString('ko-KR') + '원' : '—';
   const url = app.quote_sent_url || '';
   const safeUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(url) : url;
-  return `<div class="camp-ops-card" data-cost-card>
+  return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">비용</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px">연결 신청 ${esc(app.application_no||'')} 기준</div>
     <div class="camp-ops-row"><span class="k">${quoteLabel}</span><span class="v">${esc(quoteTxt)}</span></div>
@@ -31599,9 +30711,9 @@ async function renderAppCampList() {
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
   };
@@ -33892,12 +33004,10 @@ function settlementAmountYen(v) {
 
 // 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
 // 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
-//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(294~)
-//   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (294 이전에 만들어진 행)
-//   reward         = 시딩·방문형 캠페인 현금 리워드
-//   NULL           = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
+//   product_price = 리뷰어형(가구매 포함) 캠페인 제품 가격을 페이백
+//   reward        = 시딩·방문형 캠페인 현금 리워드
+//   NULL          = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
 const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
-  receipt_amount: '영수증 금액',
   product_price: '제품 가격',
   product_plus_reward: '제품＋보수',
   reward: '현금 리워드',
@@ -33905,36 +33015,12 @@ const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
 function settlementAmountSourceLabel(source) {
   return SETTLEMENT_AMOUNT_SOURCE_LABELS[source] || '';
 }
-
-// 상한 적용 여부(마이그레이션 293 receipt_amount_jpy/amount_cap_jpy).
-// 영수증이 캠페인 상시가보다 커서 상한에서 잘린 건인지 판정한다 — 관리자가
-// 「영수증에는 3,500엔인데 왜 3,200엔만 지급되나」를 화면에서 바로 알 수 있어야 한다
-// (2026-08-05 사용자 명시 요구). 두 값이 다 있어야 판정 가능(옛 행은 비어 있음).
-function settlementCapApplied(s) {
-  s = s || {};
-  // ⚠️ Number(null) 은 0 이라 isFinite 를 통과한다 — null 검사를 먼저 해야
-  // 「두 값이 다 있을 때만 판정」이 실제로 성립한다(293 적용 이전 행은 둘 다 비어 있음).
-  if (s.receipt_amount_jpy == null || s.amount_cap_jpy == null) return false;
-  const receipt = Number(s.receipt_amount_jpy);
-  const cap = Number(s.amount_cap_jpy);
-  if (!Number.isFinite(receipt) || !Number.isFinite(cap)) return false;
-  return receipt > cap;
-}
-// 금액 셀 아래 보조 줄 — 출처 배지 + (상한이 걸렸으면) 그 근거.
-function settlementAmountNote(s) {
-  s = s || {};
-  const label = settlementAmountSourceLabel(s.amount_source);
-  const capped = settlementCapApplied(s);
-  const parts = [];
-  if (label) parts.push(esc(label));
-  if (capped) {
-    parts.push(`영수증 ${settlementAmountYen(s.receipt_amount_jpy)} → <span style="color:var(--pink);font-weight:600">상한 적용</span>`);
-  }
-  return parts.length
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4">${parts.join('<br>')}</div>`
+function settlementAmountSourceBadge(source) {
+  const label = settlementAmountSourceLabel(source);
+  return label
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(label)}</div>`
     : '';
 }
-// (settlementAmountSourceBadge 는 settlementAmountNote 로 흡수돼 삭제 — 2026-08-05)
 
 // 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
 //   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
@@ -34181,7 +33267,7 @@ function renderSettlementRow(s) {
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
-    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountNote(s)}</td>
+    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountSourceBadge(s.amount_source)}</td>
     <td>${paypalCell}</td>
     <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
@@ -34256,14 +33342,7 @@ function openSettlementPayModal(id) {
         <div style="color:var(--muted)">캠페인</div>
         <div>${esc(camp.title || '—')}</div>
         <div style="color:var(--muted)">송금 금액</div>
-        <div><div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>${
-          // 상한이 걸린 건은 송금 직전에 근거를 보여준다 — 「영수증에는 더 큰 금액이
-          // 적혀 있는데 왜 이 금액인가」를 여기서 확인하지 못하면 관리자가 목록으로
-          // 되돌아가 대조해야 한다(2026-08-05 사용자 요구).
-          settlementCapApplied(s)
-            ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">영수증 ${settlementAmountYen(s.receipt_amount_jpy)} · 상한 ${settlementAmountYen(s.amount_cap_jpy)} <span style="color:var(--pink);font-weight:600">적용됨</span></div>`
-            : ''
-        }</div>
+        <div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>
         <div style="color:var(--muted)">PayPal</div>
         <div style="font-weight:600;word-break:break-all">${hasPaypal ? esc(s.paypal_email) : '<span style="color:#C33">미등록 — 송금 불가</span>'}</div>
       </div>`;
@@ -34476,11 +33555,6 @@ async function exportSettlementsExcel() {
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
-      // 293 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
-      // 옛 행(상시가·현금 리워드 기준)은 빈 칸으로 남는다.
-      { header: '영수증금액(¥)', key: 'receipt', width: 14 },
-      { header: '상한(¥)',    key: 'cap',      width: 12 },
-      { header: '상한적용',   key: 'capped',   width: 10 },
       { header: 'PayPal',     key: 'paypal',   width: 26 },
       { header: '상태',       key: 'status',   width: 10 },
       { header: '인증성공일', key: 'certdate', width: 14 },
@@ -34501,11 +33575,6 @@ async function exportSettlementsExcel() {
         title:    camp.title || '',
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
-        // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 293 이전 행이
-        // 「영수증 0엔」으로 찍혀 실제로 0원에 샀다는 오해를 준다.
-        receipt:  (s.receipt_amount_jpy != null) ? Number(s.receipt_amount_jpy) : '',
-        cap:      (s.amount_cap_jpy != null) ? Number(s.amount_cap_jpy) : '',
-        capped:   settlementCapApplied(s) ? 'O' : '',
         paypal:   s.paypal_email || '',
         status:   settlementStatusKo(s.status),
         certdate: s.created_at ? formatDate(s.created_at) : '',
@@ -34709,7 +33778,7 @@ function renderPastUnregRow(r) {
     ? `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="${esc(r.amount_issue)}">금액 미확정</span>`
       + `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.amount_issue)}</div>`
     : `<div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</div>`
-      + settlementAmountNote(r);  // 출처 배지 + 상한이 걸렸으면 그 근거(293·294)
+      + settlementAmountSourceBadge(r.amount_source);
   const certCell = r.cert_at
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
@@ -35702,1272 +34771,6 @@ function renderOutboundRecoRow(row, rank, priceCol) {
   </tr>`;
 }
 
-// ══════════════════════════════════════════════════════════════
-// 오프라인 팝업 방문 예약(티켓팅) — 관리자 화면
-//   사양서: docs/specs/2026-07-30-offline-popup-ticketing.md §4-5
-//   작업표: docs/specs/2026-07-30-offline-popup-ticketing-breakdown.md 「작업 2」
-//   데이터: 마이그레이션 280~283
-//
-// 이 파일이 담당하는 것
-//   ① 캠페인 등록·편집 폼의 「행사 모드」·「비공개」·초대 번호·리워드 잠금
-//   ② 타임(시간대) 관리 페인 — 줄 단위 편집 + 하루치 일괄 생성
-//   ③ 예약 현황 페인 — 타임별 집계 + 방문객 명단 + 입장 처리
-//
-// ⚠️ 데이터 접근은 전부 dev/lib/storage.js 의 함수를 쓴다. 이 파일에서 직접
-//    db.from(...) 을 부르지 않는다(작업 1이 접근 함수를 한곳에 모아 둔 이유).
-// ══════════════════════════════════════════════════════════════
-
-// ── 상태 ──────────────────────────────────────────────────────
-let _eventPaneCampId = null;     // 타임 관리·예약 현황이 보고 있는 캠페인
-let _eventPaneCampTitle = '';
-let _eventSlotsCache = [];
-let _eventSlotDateTab = '';                 // 「행사 시간」 날짜 탭('' = 전체)
-let _eventSlotsLoadedFor = null;            // 시간대 목록을 마지막으로 채운 캠페인
-const _eventSlotSelected = new Set();       // 선택 삭제로 고른 타임
-let _eventSlotCounts = {};
-let _eventTicketsCache = [];
-let _eventTicketSlotFilter = '';  // 예약 현황의 타임 필터('' = 전체)
-let _eventTicketStatusTab = '';   // '' = 전체
-// 신규 등록 폼에서 만든 초대 번호는 캠페인이 저장되기 전까지 갈 곳이 없다.
-// addCampaign 이 성공한 뒤 그 캠페인 id 로 넣기 위해 잠시 들고 있는다.
-let _pendingNewInviteCode = null;
-// 행사 모드를 켜기 직전의 모집 형식. 끄면 여기로 되돌린다(리뷰 지적 — 조용한 형식 변경 방지).
-const _recruitTypeBeforeEvent = {new: null, edit: null};
-
-function _currentRecruitType(prefix) {
-  const name = (prefix === 'edit') ? 'editRecruitType' : 'recruitType';
-  return document.querySelector(`input[name="${name}"]:checked`)?.value || null;
-}
-
-const EVENT_TICKET_STATUS_TABS = [
-  {key: '',          label: '전체'},
-  {key: 'confirmed', label: '확정'},
-  {key: 'waitlist',  label: '대기'},
-  {key: 'entered',   label: '입장 완료'},
-  {key: 'noshow',    label: '미입장'},
-  {key: 'cancelled', label: '취소'},
-];
-
-// ══════════════════════════════════════════════════════════════
-// ① 캠페인 폼 — 행사 모드·비공개·초대 번호
-// ══════════════════════════════════════════════════════════════
-
-// 행사 모드일 때 폼을 잠근다.
-//   · 리워드는 0 고정 — 1엔이라도 들어가면 정산 대기가 생긴다(사양서 §2-5).
-//     리워드가 0이면 정산 후보 조건에서 시딩·방문형이 제외되므로(마이그레이션 264)
-//     정산 화면에 아무것도 새지 않는다.
-//   · 모집 형식은 방문형 고정 — 리뷰어형에 켜지면 자동 승인 트리거가 「대기」를
-//     승인으로 덮어써 티켓과 신청 상태가 어긋난다(마이그레이션 280 CHECK 와 같은 이유).
-function applyEventModeFormLock(prefix) {
-  const on = !!$(prefix + 'CampEventMode')?.checked;
-
-  const reward = $(prefix + 'CampReward');
-  if (reward) {
-    if (on) {
-      reward.value = '0';
-      reward.readOnly = true;
-      reward.classList.add('field-locked');
-    } else {
-      reward.readOnly = false;
-      reward.classList.remove('field-locked');
-    }
-    // 인라인 스타일로 색을 칠하던 옛 방식의 잔재 제거(클래스로 일원화)
-    reward.style.background = '';
-    reward.style.color = '';
-  }
-  // ⚠️ 아래 리워드 잠금·안내는 **행사 모드에서는 화면에 안 보인다** — 리워드 묶음
-  //    전체를 applyEventModeFieldVisibility 가 숨기기 때문. 그래도 지우지 않는다:
-  //    행사 모드를 **끄는** 경로에서 readOnly 를 풀어 주는 일을 이 코드가 한다.
-  const rewardHint = $(prefix + 'CampRewardEventHint');
-  if (rewardHint) rewardHint.style.display = on ? '' : 'none';
-  const rewardNote = $(prefix + 'CampRewardLockNote');
-  if (rewardNote) rewardNote.style.display = on ? '' : 'none';
-
-  // 모집 형식 라디오 — 행사 모드면 방문형으로 고정하고 나머지를 잠근다.
-  //   ⚠️ 라디오 name 이 폼마다 다르다: 신규는 recruitType, 편집은 editRecruitType.
-  //      `${prefix}RecruitType` 로 쓰면 신규 폼에서 아무것도 안 잡힌다.
-  const rtName = (prefix === 'edit') ? 'editRecruitType' : 'recruitType';
-
-  // ★ 켜기 직전 형식을 **라디오를 건드리기 전에** 기억한다.
-  //   아래 반복문이 방문형으로 바꾼 뒤에 읽으면 「방문형」이 기억되고, 끌 때
-  //   되돌릴 값이 방문형이라 아무 일도 안 일어난다 — 실제로 그랬다(2026-08-03 QA 실측).
-  if (on && _recruitTypeBeforeEvent[prefix] == null) {
-    _recruitTypeBeforeEvent[prefix] = _currentRecruitType(prefix);
-  }
-  document.querySelectorAll(`input[name="${rtName}"]`).forEach(r => {
-    if (on) {
-      if (r.value === 'visit' && !r.checked) {
-        r.checked = true;
-        // 형식이 바뀌면 채널 목록·최소 팔로워 칸이 따라 바뀌어야 한다.
-        // 라디오의 onchange 가 하는 일을 그대로 태운다(판정을 새로 만들지 않는다).
-        if (prefix === 'edit') { if (typeof toggleEditRT === 'function') toggleEditRT(r); }
-        else                   { if (typeof toggleRT === 'function') toggleRT(r); }
-        if (typeof filterChannelsByRecruitType === 'function') filterChannelsByRecruitType(prefix, 'visit');
-        if (typeof applyMinFollowersVisibility === 'function') applyMinFollowersVisibility(prefix, 'visit');
-      }
-      r.disabled = (r.value !== 'visit');
-    } else {
-      r.disabled = false;
-    }
-    // 라디오 input 은 display:none 이고 라벨이 모양을 담당한다 — input 의 disabled 만으로는
-    // 화면상 아무 변화가 없어 「고를 수 없는 항목」인지 알 수 없다. 라벨에 직접 표시한다.
-    const lab = r.closest('label');
-    if (lab) lab.classList.toggle('choice-locked', !!r.disabled);
-  });
-
-  // 모집 타입 제목 옆 「행사 모드라 방문형 고정」 안내 배지
-  const rtNote = $(prefix + 'CampRecruitTypeLockNote');
-  if (rtNote) rtNote.style.display = on ? '' : 'none';
-
-  // 행사 모드를 껐으면 모집 형식을 원래대로 되돌린다.
-  //   안 되돌리면 실수로 켰다 끈 관리자가 「형식이 조용히 방문형으로 바뀐 것」을
-  //   모른 채 저장한다(2026-08-03 리뷰 지적).
-  if (!on && _recruitTypeBeforeEvent[prefix] != null) {
-    const back = _recruitTypeBeforeEvent[prefix];
-    _recruitTypeBeforeEvent[prefix] = null;
-    if (back && back !== 'visit') {
-      const el = document.querySelector(`input[name="${rtName}"][value="${back}"]`);
-      if (el) {
-        el.checked = true;
-        if (prefix === 'edit') { if (typeof toggleEditRT === 'function') toggleEditRT(el); }
-        else                   { if (typeof toggleRT === 'function') toggleRT(el); }
-        if (typeof filterChannelsByRecruitType === 'function') filterChannelsByRecruitType(prefix, back);
-        if (typeof applyMinFollowersVisibility === 'function') applyMinFollowersVisibility(prefix, back);
-      }
-    }
-  }
-
-  const opts = $(prefix + 'CampEventOpts');
-  if (opts) opts.style.display = on ? '' : 'none';
-  if (!on) {
-    // 행사 모드를 끄면 비공개도 함께 내린다 — 비공개는 행사 전용 개념이다.
-    const inv = $(prefix + 'CampInviteOnly');
-    if (inv) inv.checked = false;
-    applyInviteOnlyRow(prefix);
-    // ⚠️ 묶음 선택은 **여기서 비우지 않는다.** 실수로 껐다 다시 켜면 값이 안 돌아와
-    //   조용히 연결이 끊긴다 — 이 칸이 막으려는 사고 그 자체다. 행사가 아닐 때
-    //   묶음을 지우는 일은 **저장 시점**에 한다(행사장 안내 칸과 같은 방식).
-  }
-}
-
-function onEventModeToggle(prefix) {
-  applyEventModeFormLock(prefix);
-  applyEventModeFieldVisibility(prefix);
-}
-
-function applyInviteOnlyRow(prefix) {
-  const on = !!$(prefix + 'CampInviteOnly')?.checked;
-  const row = $(prefix + 'CampInviteRow');
-  if (row) row.style.display = on ? '' : 'none';
-}
-
-function onInviteOnlyToggle(prefix) {
-  applyInviteOnlyRow(prefix);
-  // 비공개를 켰는데 번호가 없으면 하나 만들어 둔다(운영자가 잊고 저장하는 것 방지).
-  if ($(prefix + 'CampInviteOnly')?.checked && !$(prefix + 'CampInviteCode')?.value) {
-    genInviteCode(prefix);
-  }
-}
-
-// 초대 번호 생성 — 예약번호와 같은 규칙(혼동 글자 0 O 1 I L 제외 31자, 8자리).
-// 운영자가 전화로 불러 줄 수도 있어 읽기 쉬운 글자만 쓴다.
-function genInviteCode(prefix) {
-  // 이미 번호가 있으면 되묻는다 — 번호를 바꾸는 순간 이미 보낸 초대 링크가 전부 죽는다.
-  //   첫 발급(칸이 비어 있음)은 묻지 않는다.
-  const prev = $(prefix + 'CampInviteCode')?.value || '';
-  if (prev && !window.confirm('초대 번호를 새로 만들면 이미 보낸 초대 링크는 즉시 쓸 수 없게 됩니다.\n계속할까요?')) {
-    return prev;
-  }
-  const warn = $(prefix + 'CampInviteWarn');
-  if (warn && prev) warn.style.display = '';
-
-  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let code = '';
-  const buf = new Uint32Array(8);
-  (window.crypto || window.msCrypto).getRandomValues(buf);
-  for (let i = 0; i < 8; i++) code += alphabet[buf[i] % alphabet.length];
-  const el = $(prefix + 'CampInviteCode');
-  if (el) el.value = code;
-  if (prefix === 'new') _pendingNewInviteCode = code;
-  return code;
-}
-
-// 초대 링크 형식 — **여기서 단 한 번 결정한다.** 작업 5(방문객 쪽)가 이 형식을 파싱한다.
-//   해시 뒤에 물음표를 붙이는 방식은 이미 선례가 있다(메일 수신거부 #unsubscribe?token=).
-function eventInviteLink(campaignId, code) {
-  const host = location.origin;
-  return `${host}/#detail-${campaignId}?invite=${encodeURIComponent(code || '')}`;
-}
-
-async function copyInviteLink(prefix) {
-  const campId = prefix === 'edit' ? ($('editCampId')?.value || '') : '';
-  const code = $(prefix + 'CampInviteCode')?.value || '';
-  if (!campId) {
-    toast('먼저 캠페인을 저장해야 링크를 만들 수 있습니다', 'error');
-    return;
-  }
-  if (!code) { toast('초대 번호를 먼저 만들어 주세요', 'error'); return; }
-  const link = eventInviteLink(campId, code);
-  try {
-    await navigator.clipboard.writeText(link);
-    toast('초대 링크를 복사했습니다');
-  } catch (e) {
-    // 클립보드 권한이 없는 환경 대비 — 값을 보여 주고 수동 복사하게 한다.
-    window.prompt('아래 링크를 복사해 주세요', link);
-  }
-}
-
-// 편집 폼을 열 때 행사 설정을 채운다. 초대 번호는 캠페인 표가 아니라 별도 표에 있다
-// (마이그레이션 280 — 캠페인 표에 두면 브라우저로 유출된다).
-async function loadEventSettingsIntoEditForm(camp) {
-  // ★ 「행사 모드를 켜기 직전의 모집 형식」 기억을 **캠페인마다 비운다.**
-  //   이 값은 모듈 전역이라, 캠페인 A 에서 행사 모드를 켠 뒤 비우지 않고 나가면
-  //   다음에 연 캠페인 B 의 라디오가 **A 의 옛 형식으로 조용히 바뀐다.** 그러면
-  //   B 의 방문 기간이 비워지고 콘텐츠 종류 일부가 사라진 채 저장된다
-  //   (2026-08-03 점검에서 발견 — 확인창도 없어 알아채기 어렵다).
-  //   비우는 자리는 여기다: 편집 폼에 캠페인이 실리는 유일한 길목.
-  _recruitTypeBeforeEvent.edit = null;
-
-  const em = $('editCampEventMode');
-  const io = $('editCampInviteOnly');
-  if (em) em.checked = !!camp?.event_mode;
-  if (io) io.checked = !!camp?.is_invite_only;
-  const pl = $('editCampEventPlace');
-  if (pl) pl.value = camp?.event_place || '';
-  // 묶음 선택지 — 지금 연결된 묶음을 keep 으로 넘긴다. 그게 보관 상태면 목록에서
-  //   빠지는데, 빠진 채로 저장하면 빈 값이 쓰여 **연결이 조용히 끊긴다**.
-  await fillEventGroupSelect('edit', camp?.event_group_id || '');
-  applyEventModeFormLock('edit');
-  applyEventModeFieldVisibility('edit');
-  applyInviteOnlyRow('edit');
-
-  const warnEl = $('editCampInviteWarn');
-  if (warnEl) warnEl.style.display = 'none';
-
-  // 시간대 구역의 표시·목록 불러오기는 위 applyEventModeFieldVisibility 가 이미
-  // editCampId 기준으로 처리했다. 여기서 또 부르면 같은 조회가 두 번 날아가고,
-  // 늦게 도착한 쪽이 화면을 덮는 경쟁이 생긴다. 제목만 맞춰 둔다.
-  if (camp?.event_mode) _eventPaneCampTitle = camp.title || '';
-
-  // 날짜 규칙(달력 경계·인라인 경고)은 「행사인가」에 따라 달라지는데, openEditCampaign 이
-  // 그것을 계산하는 시점엔 위 체크박스가 아직 안 채워져 있다 — 직전에 보던 캠페인의
-  // 행사 여부로 계산돼 방문 기간 달력이 엉뚱하게 잠기거나 경고가 잘못 뜬다.
-  // 체크박스가 확정된 지금 다시 맞춘다.
-  if (typeof syncCampDateMinMax === 'function') syncCampDateMinMax('editCamp');
-  if (typeof validateCampDateRangesInline === 'function') validateCampDateRangesInline('editCamp');
-
-  const codeEl = $('editCampInviteCode');
-  if (codeEl) {
-    codeEl.value = '';
-    if (camp?.is_invite_only && typeof fetchEventInvite === 'function') {
-      try {
-        const row = await fetchEventInvite(camp.id);
-        if (row?.code) codeEl.value = row.code;
-      } catch (e) { console.warn('[loadEventSettings] 초대 번호 조회 실패', e); }
-    }
-  }
-}
-
-// 캠페인 저장 뒤 초대 번호를 표에 넣는다(등록·편집 공용).
-//   ⚠️ 캠페인 저장과 **분리된 호출**이라 실패해도 캠페인 저장은 이미 끝나 있다.
-//      실패를 조용히 넘기면 「비공개인데 번호가 없어 아무도 못 들어오는」 캠페인이
-//      생기므로, 실패는 반드시 화면에 알린다.
-async function saveEventInviteAfterCampaignSave(prefix, campaignId) {
-  const inviteOnly = !!$(prefix + 'CampInviteOnly')?.checked;
-  const eventMode = !!$(prefix + 'CampEventMode')?.checked;
-  if (!eventMode || !inviteOnly) return;
-
-  const code = $(prefix + 'CampInviteCode')?.value
-    || (prefix === 'new' ? _pendingNewInviteCode : '')
-    || '';
-  if (!code) {
-    toast('비공개 캠페인인데 초대 번호가 없습니다. 편집에서 번호를 만들어 주세요', 'error');
-    return;
-  }
-  try {
-    await upsertEventInvite(campaignId, code);
-  } catch (e) {
-    console.error('[saveEventInvite]', e);
-    toast('초대 번호 저장에 실패했습니다. 편집 화면에서 다시 시도해 주세요 — 저장 전까지 아무도 예약할 수 없습니다', 'error');
-  } finally {
-    if (prefix === 'new') _pendingNewInviteCode = null;
-  }
-}
-
-// ── 행사 묶음 선택칸 (마이그레이션 291·292) ────────────────────────
-// 같은 행사를 날짜별로 여러 캠페인으로 나눈 경우 하나로 묶는다.
-//   사양서 docs/specs/2026-08-05-event-group-and-scoped-checkin.md §4-2
-//
-// ⚠️ 목록만 캐시하고 **캠페인별 선택값은 캐시하지 않는다.** 이 파일에는
-//    모듈 전역 기억값을 캠페인마다 안 비워 다음 캠페인에 옛 값이 새던
-//    사고 기록이 있다(_recruitTypeBeforeEvent, 2026-08-03). 선택값까지
-//    캐시하면 같은 자리에서 같은 사고가 난다.
-let _eventGroupCache = null;
-
-async function fillEventGroupSelect(prefix, selectedId) {
-  const sel = $(prefix + 'CampEventGroup');
-  if (!sel) return;
-  // 지금 연결된 묶음은 보관 상태여도 목록에 남긴다(연결이 끊기는 것을 막는다).
-  const fetched = await fetchEventGroups(selectedId || '');
-  let groups;
-  if (fetched === null) {
-    // 조회 실패 — 「묶음 0건」과 반드시 구분한다. 선택지를 비우면 연결된 묶음이
-    //   목록에서 사라져 화면이 「묶지 않음」으로 보이고, 그대로 저장하면 연결이
-    //   조용히 끊긴다. 마지막으로 받아 둔 목록을 쓰고 사용자에게 알린다.
-    groups = _eventGroupCache || [];
-    toast('행사 묶음 목록을 불러오지 못했습니다. 저장 전에 묶음이 맞는지 확인해 주세요.');
-  } else {
-    groups = fetched;
-    _eventGroupCache = fetched;
-  }
-  const opts = ['<option value="">묶지 않음 (하루짜리 행사)</option>'];
-  groups.forEach(g => {
-    const arch = g.status !== 'active' ? ' (보관)' : '';
-    opts.push(`<option value="${esc(g.id)}">${esc(g.name)}${arch}</option>`);
-  });
-  sel.innerHTML = opts.join('');
-  sel.value = selectedId || '';
-  // 최종 방어선 — 연결된 묶음이 목록에 없으면(조회 실패로 캐시가 비었거나, 방금
-  //   다른 관리자가 지운 경우) 위 대입이 조용히 실패해 빈 값이 된다. 그대로 저장하면
-  //   연결이 끊기므로, 값을 지키는 자리표시 항목을 만들어 넣는다.
-  if (selectedId && sel.value !== selectedId) {
-    sel.insertAdjacentHTML('beforeend', `<option value="${esc(selectedId)}">(현재 연결된 묶음)</option>`);
-    sel.value = selectedId;
-  }
-}
-
-// 「새 묶음」 — 브랜드 신규 등록과 같은 즉석 입력 방식.
-async function openEventGroupCreate(prefix) {
-  const name = window.prompt('새 행사 묶음 이름을 입력하세요.\n예) REVERB 팝업 2026년 8월\n\n같은 행사의 캠페인들을 이 이름으로 묶습니다.');
-  if (name === null) return;
-  const nm = String(name).trim();
-  if (!nm) { toast('묶음 이름을 입력해 주세요.'); return; }
-
-  const res = await createEventGroup(nm);
-  if (!res.ok) {
-    if (res.duplicate) {
-      // 띄어쓰기·대소문자만 다른 이름은 서버가 같은 값으로 보고 막는다(마이그레이션 292).
-      toast('같은 이름의 묶음이 이미 있습니다. 목록에서 골라 주세요.');
-      await fillEventGroupSelect(prefix, $(prefix + 'CampEventGroup')?.value || '');
-      return;
-    }
-    toast('묶음을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
-    return;
-  }
-  await fillEventGroupSelect(prefix, res.group?.id || '');
-  toast(`「${nm}」 묶음을 만들었습니다.`);
-}
-
-// 신규 등록 폼 초기화 시 호출 (폼을 비울 때 행사 설정도 함께 초기화)
-function resetEventFormFields(prefix) {
-  const em = $(prefix + 'CampEventMode'); if (em) em.checked = false;
-  const io = $(prefix + 'CampInviteOnly'); if (io) io.checked = false;
-  const cc = $(prefix + 'CampInviteCode'); if (cc) cc.value = '';
-  const pl = $(prefix + 'CampEventPlace'); if (pl) pl.value = '';
-  fillEventGroupSelect(prefix, '');
-  if (prefix === 'new') _pendingNewInviteCode = null;
-  _recruitTypeBeforeEvent[prefix] = null;
-  const warn = $(prefix + 'CampInviteWarn');
-  if (warn) warn.style.display = 'none';
-  applyEventModeFormLock(prefix);
-  applyEventModeFieldVisibility(prefix);
-  applyInviteOnlyRow(prefix);
-}
-
-// ══════════════════════════════════════════════════════════════
-// ② 타임(시간대) 관리 페인
-// ══════════════════════════════════════════════════════════════
-
-// 시간대 관리는 **캠페인 편집 화면 안**에 있다(사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지).
-//   시간대는 그 캠페인에 속한 설정이라 캠페인을 고쳐 쓰는 자리에 함께 있는 것이 자연스럽다.
-//   ⚠️ 신규 등록 화면에는 없다 — 시간대는 캠페인 식별자가 있어야 붙일 수 있어서,
-//      저장 전에는 걸 곳이 없다. 신규 폼에는 그렇게 안내만 띄운다.
-async function renderEventSlotsPane(campaignId) {
-  const campId = campaignId || _eventPaneCampId;
-  if (!campId) return;
-  // 이 함수는 정원 수정·타임 추가·삭제·일괄 생성 **뒤에도** 불린다. 접기를 무조건
-  //   실행하면 하루치를 만들자마자 패널이 닫혀, 이틀차·삼일차를 만들려면 매번 다시
-  //   펼쳐야 한다. 「캠페인이 바뀌었을 때」만 접는다.
-  const _isOtherCampaign = (campId !== _eventSlotsLoadedFor);
-  _eventSlotsLoadedFor = campId;
-  _eventPaneCampId = campId;
-
-  // 읽어 오기 전에 먼저 비운다 — 안 비우면 조회가 끝나기 전까지 **직전에 보던
-  //   캠페인의 시간대**가 남아, 미리보기와 모집 인원이 그 값으로 한 번 그려진다.
-  _eventSlotsCache = [];
-  _eventSlotCounts = {};
-
-  const body = $('eventSlotsBody');
-  if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
-
-  const [slots, counts] = await Promise.all([
-    fetchEventSlots(campId),
-    fetchEventSlotCounts(campId)
-  ]);
-  _eventSlotsCache = slots || [];
-  _eventSlotCounts = counts || {};
-
-  setupEventSlotPickers();      // 날짜·시각 선택기(한 번만 붙는다)
-  _eventSlotSelected.clear();   // 목록이 바뀌었으니 고른 것도 무효다
-  if (_isOtherCampaign) toggleEventBulkPanel(false);   // 새 캠페인은 접은 채로 시작
-  renderEventSlotDateTabs();
-  renderEventSlotsTable();
-  renderEventSlotsSummary();
-  syncEventDerivedFields();
-}
-
-// 행사 캠페인에서 「방문 기간」·「모집 인원」은 따로 입력할 값이 아니라 **행사 시간에서 나오는 값**이다.
-//   예전엔 셋이 따로 놀아서, 방문 기간을 9월로 적어 두고 시간대는 8월에 만들면 방문객 화면에
-//   서로 다른 두 날짜가 나란히 떴고, 「모집 인원 20명」인데 실제 정원은 270명인 일이 생겼다.
-//   (예약 정원 판정은 서버에서 event_slots.capacity 로만 한다 — campaigns.slots 는 아예 안 본다.)
-//   그래서 화면에서는 잠그고, 저장할 때 시간대에서 다시 계산한다(saveCampaignEdit).
-//   ⚠️ 시간대가 0줄이면 잠그지 않는다 — 계산할 근거가 없는데 잠그면 아무 값도 못 넣게 된다.
-function eventDerivedFromSlots(rows) {
-  const list = (rows || []).filter(r => r && r.slot_date);
-  if (!list.length) return null;
-  const dates = list.map(r => String(r.slot_date).slice(0, 10)).sort();
-  return {
-    visit_start: dates[0],
-    visit_end:   dates[dates.length - 1],
-    slots:       list.reduce((n, r) => n + Number(r.capacity || 0), 0)
-  };
-}
-
-function syncEventDerivedFields() {
-  const slotsEl = $('editCampSlots');
-  if (!slotsEl) return;
-  const on = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
-  const d = on ? eventDerivedFromSlots(_eventSlotsCache) : null;
-  const hint = $('editCampSlotsEventHint');
-  if (d) {
-    slotsEl.value = d.slots;
-    slotsEl.readOnly = true;
-    slotsEl.classList.add('field-locked');
-    if (hint) {
-      hint.style.display = '';
-      hint.textContent = `행사 시간의 정원 합계입니다 (${d.visit_start} ~ ${d.visit_end}). 인원을 바꾸려면 아래 「행사 시간」에서 정원을 고치세요.`;
-    }
-  } else {
-    slotsEl.readOnly = false;
-    slotsEl.classList.remove('field-locked');
-    if (hint) hint.style.display = 'none';
-  }
-  // ⚠️ 미리보기는 사람이 칸을 칠 때(input 사건)만 다시 그린다. 코드가 `.value` 를
-  //    바꾸는 건 그 사건을 일으키지 않아, 미리보기에 **저장돼 있던 옛 인원**이 그대로
-  //    남는다(실제로 화면 115명 · 미리보기 1440명이 나왔다). 직접 다시 그리게 한다.
-  if (typeof renderCampPreview === 'function') renderCampPreview('edit');
-}
-
-function renderEventSlotsSummary() {
-  const el = $('eventSlotsSummary');
-  if (!el) return;
-  const rows = _eventSlotsCache;
-  const totalCap = rows.reduce((s, r) => s + Number(r.capacity || 0), 0);
-  const days = new Set(rows.map(r => String(r.slot_date).slice(0, 10))).size;
-  const booked = Object.values(_eventSlotCounts).reduce((s, c) => s + Number(c.confirmed || 0), 0);
-  el.innerHTML = `타임 <b>${rows.length}</b>줄 · ${days}일 · 정원 합계 <b>${totalCap.toLocaleString()}</b>명 · 확정 <b>${booked.toLocaleString()}</b>명`;
-}
-
-// 행사 시간의 날짜·시각 칸을 이 화면 나머지와 같은 선택기(flatpickr)로 바꾼다.
-//   브라우저 기본 달력·시계는 운영체제마다 생김새가 달라 관리자 화면 안에서 혼자 튄다.
-//   ⚠️ 값의 형태는 그대로 둔다 — 날짜 `YYYY-MM-DD`, 시각 `HH:MM`. 읽는 쪽(미리 보기·
-//      일괄 생성·타임 추가)이 문자열 비교를 하고 있어 형태가 바뀌면 조용히 깨진다.
-const _eventFp = Object.create(null);
-
-function setupEventSlotPickers() {
-  if (typeof flatpickr === 'undefined') return;   // CDN 실패 시 그냥 텍스트 칸으로 남는다
-  const loc = (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default';
-  document.querySelectorAll('.evt-fp-date').forEach(el => {
-    if (!el.id || _eventFp[el.id]) return;
-    _eventFp[el.id] = flatpickr(el, {
-      dateFormat: 'Y-m-d', locale: loc, altInput: false,
-      appendTo: document.body, position: 'auto', disableMobile: true,
-      // ⚠️ 핑크 테마 규칙이 **두 클래스를 함께** 요구한다(admin.css). 하나만 붙이면
-      //    기본 파란 달력이 떠서, 바로 위 「결과물 제출 마감일」 달력과 색이 달라진다.
-      onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('reverb-range-cal', 'reverb-single-cal'); },
-      onChange: () => { if (typeof previewBulkSlots === 'function') previewBulkSlots(); }
-    });
-  });
-  document.querySelectorAll('.evt-fp-time').forEach(el => {
-    if (!el.id || _eventFp[el.id]) return;
-    _eventFp[el.id] = flatpickr(el, {
-      noCalendar: true, enableTime: true, time_24hr: true, dateFormat: 'H:i',
-      minuteIncrement: 5, locale: loc, altInput: false,
-      appendTo: document.body, position: 'auto', disableMobile: true,
-      // 빈 칸을 열면 0시가 떠서, **종료** 시각으로는 늘 「시작보다 이른 값」이 된다.
-      //   시작 칸에는 걸지 않는다 — 0시는 이상해 보여 알아채지만, 12시는 그럴듯해서
-      //   고르지도 않은 값이 그대로 저장될 수 있다.
-      ...(el.id === 'eventSlotNewEnd' ? {defaultHour: 12, defaultMinute: 0} : {}),
-      defaultDate: el.value || null,
-      // 시각 선택기는 이 프로젝트에 선례가 없어 강조색이 기본 파랑이다 — 전용 클래스를
-      // 붙여 달력과 같은 핑크로 맞춘다(규칙은 admin.css 「evt-time-cal」).
-      onReady: (_d, _s, fp) => { if (fp.calendarContainer) fp.calendarContainer.classList.add('evt-time-cal'); },
-      onChange: () => {
-        syncEventTimeClearBtns();
-        if (typeof previewBulkSlots === 'function') previewBulkSlots();
-      }
-    });
-  });
-  syncEventTimeClearBtns();   // 붙인 직후 현재 값 기준으로 한 번
-}
-
-// 시각 칸 비우기 — 시각 선택기는 **열기만 해도** 값을 채운다. 「종료(선택)」에서는 그 값이
-//   시작보다 이르면 「종료 시각은 시작 시각보다 뒤여야 합니다」로 막히는데 되돌릴 길이
-//   없었다(2026-08-04 사용자 지적). 시작 칸도 마찬가지로, 잘못 열려 박힌 값을 지울
-//   수단이 있어야 한다 — 그쪽은 오히려 그럴듯한 시각이라 그대로 저장될 위험이 크다.
-function clearEventTimeField(id) {
-  const fp = _eventFp[id];
-  if (fp) fp.clear();          // 입력칸 값까지 함께 비운다(4.6.13)
-  const el = $(id);            // 선택기가 아직 안 붙은 경우의 대비
-  if (el) el.value = '';
-  syncEventTimeClearBtns();
-}
-
-// 비우기 단추는 **값이 있을 때만** 보인다. 빈 칸 옆에 늘 떠 있으면 무슨 표시인지
-//   알 수 없고(칸 사이에 낀 곱하기처럼 읽힌다), 지울 것도 없는데 자리만 차지한다.
-function syncEventTimeClearBtns() {
-  document.querySelectorAll('.evt-time-clearable').forEach(wrap => {
-    const input = wrap.querySelector('input');
-    wrap.classList.toggle('has-value', !!(input && input.value));
-  });
-}
-
-// 「하루치 일괄 생성」 입력 항목 설명 — 제목 옆 물음표로만 연다.
-function toggleEventBulkHelp() {
-  const el = $('eventBulkHelp');
-  if (el) el.style.display = (el.style.display === 'none') ? '' : 'none';
-}
-
-// 「하루치 일괄 생성」 펼치기·접기. 처음 만들 때만 쓰는 도구라 평소엔 접어 둔다.
-function toggleEventBulkPanel(force) {
-  const panel = $('eventBulkPanel');
-  const btn = $('eventBulkToggleBtn');
-  if (!panel) return;
-  const open = (force === undefined) ? (panel.style.display === 'none') : !!force;
-  panel.style.display = open ? '' : 'none';
-  if (!open) { const help = $('eventBulkHelp'); if (help) help.style.display = 'none'; }
-  const icon = btn && btn.querySelector('.material-icons-round');
-  if (icon) icon.textContent = open ? 'expand_less' : 'expand_more';
-  if (open && typeof previewBulkSlots === 'function') previewBulkSlots();
-}
-
-// 지금 표에 그릴 타임 — 날짜 탭이 골라져 있으면 그 날짜만.
-function visibleEventSlots() {
-  if (!_eventSlotDateTab) return _eventSlotsCache;
-  return _eventSlotsCache.filter(s => String(s.slot_date).slice(0, 10) === _eventSlotDateTab);
-}
-
-// 날짜 탭 — 하루짜리 행사에는 그리지 않는다(고를 게 없는 탭은 자리만 차지한다).
-function renderEventSlotDateTabs() {
-  const el = $('eventSlotDateTabs');
-  if (!el) return;
-  const dates = [...new Set(_eventSlotsCache.map(s => String(s.slot_date).slice(0, 10)))].sort();
-  if (dates.length <= 1) {
-    el.style.display = 'none';
-    _eventSlotDateTab = '';
-    return;
-  }
-  // 골라 둔 날짜의 타임이 전부 지워졌으면 전체로 되돌린다 — 안 그러면 빈 표가 남는다.
-  if (_eventSlotDateTab && !dates.includes(_eventSlotDateTab)) _eventSlotDateTab = '';
-  // ⚠️ 클래스 이름은 바로 아래 예약 현황 탭(renderEventTicketStatusTabs)과 같아야 한다.
-  //    다른 이름을 쓰면 정의된 스타일이 하나도 안 붙어 맨 버튼으로 그려진다.
-  const tab = (key, label, n) =>
-    `<button type="button" class="status-tab-btn${_eventSlotDateTab === key ? ' on' : ''}${n === 0 && key !== '' ? ' zero-count' : ''}" onclick="setEventSlotDateTab('${esc(key)}')">${esc(label)}<span class="tab-count">(${n})</span></button>`;
-  el.style.display = '';
-  el.innerHTML = tab('', '전체', _eventSlotsCache.length)
-    + dates.map(d => tab(d, d.replace(/-/g, '/').slice(5), _eventSlotsCache.filter(s => String(s.slot_date).slice(0, 10) === d).length)).join('');
-}
-
-function setEventSlotDateTab(key) {
-  _eventSlotDateTab = key || '';
-  // 안 보이는 줄을 고른 채로 두면 「3개 선택」인데 표에는 하나도 없는 상태가 된다.
-  clearEventSlotSelection();
-  renderEventSlotDateTabs();
-  renderEventSlotsTable();
-}
-
-function renderEventSlotsTable() {
-  const body = $('eventSlotsBody');
-  if (!body) return;
-  if (!_eventSlotsCache.length) {
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">등록된 타임이 없습니다. 위 「하루치 일괄 생성」으로 한 번에 만들거나 「타임 추가」로 하나씩 넣으세요.</td></tr>`;
-    syncEventSlotBulkBar();
-    return;
-  }
-  body.innerHTML = visibleEventSlots().map(s => {
-    const c = _eventSlotCounts[s.id] || {confirmed: 0, waitlist: 0, remaining: Number(s.capacity || 0)};
-    const full = c.remaining <= 0;
-    const booked = Number(c.confirmed || 0) + Number(c.waitlist || 0);
-    return `
-      <tr data-slot-id="${s.id}">
-        <td style="text-align:center;padding:4px">${booked > 0
-          ? `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--muted)" title="예약 ${booked}건이 있어 삭제할 수 없습니다">lock</span>`
-          : `<input type="checkbox" class="event-slot-cb" data-slot-id="${s.id}" ${_eventSlotSelected.has(s.id) ? 'checked' : ''} onchange="toggleEventSlotSelect('${s.id}', this.checked)">`}</td>
-        <td>${esc(String(s.slot_date).slice(0, 10))}</td>
-        <td>${esc(fmtSlotTime(s))}</td>
-        <td><input type="number" min="0" class="admin-filter" style="width:80px"
-              value="${Number(s.capacity || 0)}" onchange="onEventSlotCapacityChange('${s.id}', this.value)"></td>
-        <td>${esc(s.audience_label || '-')}</td>
-        <td style="color:${full ? 'var(--pink)' : 'var(--ink)'}">
-          ${c.confirmed}/${Number(s.capacity || 0)}${full ? ' <b>(마감)</b>' : ''}
-        </td>
-        <td>${c.waitlist ? c.waitlist + '명' : '-'}</td>
-        <td style="white-space:nowrap">
-          <button class="btn btn-ghost btn-sm" onclick="toggleEventSlotActive('${s.id}')">${s.is_active ? '사용 중' : '사용 안 함'}</button>
-          <button class="btn btn-ghost btn-sm" onclick="deleteEventSlotRow('${s.id}')">삭제</button>
-        </td>
-      </tr>`;
-  }).join('');
-  syncEventSlotBulkBar();
-}
-
-// ── 선택 삭제 ─────────────────────────────────────────────────
-//   예약이 걸린 타임은 애초에 고를 수 없다(체크박스 대신 자물쇠). 서버도 막지만
-//   (마이그레이션 281 트리거) 고르게 해 놓고 나중에 거절하면 왜 안 되는지 알기 어렵다.
-function selectableEventSlots() {
-  return visibleEventSlots().filter(s => {
-    const c = _eventSlotCounts[s.id] || {};
-    return (Number(c.confirmed || 0) + Number(c.waitlist || 0)) === 0;
-  });
-}
-
-function toggleEventSlotSelect(slotId, checked) {
-  if (checked) _eventSlotSelected.add(slotId); else _eventSlotSelected.delete(slotId);
-  syncEventSlotBulkBar();
-}
-
-function toggleEventSlotSelectAll(checked) {
-  const ids = selectableEventSlots().map(s => s.id);
-  ids.forEach(id => { if (checked) _eventSlotSelected.add(id); else _eventSlotSelected.delete(id); });
-  document.querySelectorAll('.event-slot-cb').forEach(cb => {
-    if (ids.includes(cb.dataset.slotId)) cb.checked = !!checked;
-  });
-  syncEventSlotBulkBar();
-}
-
-function clearEventSlotSelection() {
-  _eventSlotSelected.clear();
-  document.querySelectorAll('.event-slot-cb').forEach(cb => { cb.checked = false; });
-  const all = $('eventSlotSelectAll');
-  if (all) { all.checked = false; all.indeterminate = false; }
-  syncEventSlotBulkBar();
-}
-
-function syncEventSlotBulkBar() {
-  const bar = $('eventSlotBulkBar');
-  const cnt = $('eventSlotBulkCount');
-  const n = _eventSlotSelected.size;
-  if (bar) bar.style.display = n ? 'flex' : 'none';
-  if (cnt) cnt.textContent = `${n}개 선택`;
-  const all = $('eventSlotSelectAll');
-  if (all) {
-    const total = selectableEventSlots().length;
-    all.checked = total > 0 && n >= total;
-    all.indeterminate = n > 0 && n < total;
-  }
-}
-
-async function deleteSelectedEventSlots() {
-  const ids = [..._eventSlotSelected];
-  if (!ids.length) { toast('삭제할 타임을 골라 주세요', 'error'); return; }
-  const rows = ids.map(id => _eventSlotsCache.find(s => s.id === id)).filter(Boolean);
-  const dates = [...new Set(rows.map(r => String(r.slot_date).slice(0, 10)))].sort();
-  const ok = await showConfirm(
-    `고른 타임 ${ids.length}개를 삭제할까요?\n\n` +
-    `${dates.join(', ')}\n\n` +
-    `되돌릴 수 없습니다. 모집만 닫으려면 「사용 안 함」으로 내려 주세요.`,
-    '삭제');
-  if (!ok) return;
-  // 한 건씩 지운다 — 하나가 실패해도 나머지는 지워지고, 실패한 것만 알려 준다.
-  const failed = [];
-  for (const id of ids) {
-    try { await deleteEventSlot(id); }
-    catch (e) { console.error('[deleteSelectedEventSlots]', id, e); failed.push(id); }
-  }
-  _eventSlotSelected.clear();
-  toast(failed.length
-    ? `${ids.length - failed.length}개를 삭제했습니다. ${failed.length}개는 실패했습니다`
-    : `${ids.length}개를 삭제했습니다`, failed.length ? 'error' : 'success');
-  await renderEventSlotsPane(_eventPaneCampId);
-}
-
-// 'HH:MM:SS' 를 'HH:MM' 으로 줄이고, 끝시각이 있으면 구간으로 표기한다.
-function fmtSlotTime(s) {
-  const st = String(s.start_time || '').slice(0, 5);
-  const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
-  if (!en) return st;
-  // 끝 시각이 시작보다 이르면 자정을 넘긴 것이다. 표에 「23:30~00:30」 으로만 적으면
-  // 거꾸로 적힌 것처럼 보인다 — 일괄 생성 미리 보기와 같은 말로 맞춘다.
-  //   (표에 넣을 날짜 칸이 따로 없어 시각 문자열로만 구분한다)
-  return en < st ? `${st}~익일 ${en}` : `${st}~${en}`;
-}
-
-async function onEventSlotCapacityChange(slotId, value) {
-  const cap = parseInt(value, 10);
-  if (!Number.isFinite(cap) || cap < 0) { toast('정원은 0 이상 숫자여야 합니다', 'error'); return; }
-  try {
-    await upsertEventSlot({id: slotId, capacity: cap});
-    toast('정원을 저장했습니다');
-    await renderEventSlotsPane(_eventPaneCampId);
-  } catch (e) {
-    console.error('[onEventSlotCapacityChange]', e);
-    toast(friendlyError(e), 'error');
-  }
-}
-
-async function toggleEventSlotActive(slotId) {
-  const s = _eventSlotsCache.find(x => x.id === slotId);
-  if (!s) return;
-  try {
-    await upsertEventSlot({id: slotId, is_active: !s.is_active});
-    await renderEventSlotsPane(_eventPaneCampId);
-  } catch (e) {
-    console.error('[toggleEventSlotActive]', e);
-    toast(friendlyError(e), 'error');
-  }
-}
-
-async function deleteEventSlotRow(slotId) {
-  const s = _eventSlotsCache.find(x => x.id === slotId);
-  const c = _eventSlotCounts[slotId] || {confirmed: 0, waitlist: 0};
-  const booked = Number(c.confirmed || 0) + Number(c.waitlist || 0);
-  if (booked > 0) {
-    // 서버도 막지만(마이그레이션 281 트리거) 여기서 이유를 먼저 설명한다.
-    toast(`이 타임에 예약 ${booked}건이 있어 삭제할 수 없습니다. 모집만 닫으려면 「사용 안 함」으로 내려 주세요`, 'error');
-    return;
-  }
-  const ok = await showConfirm(`${String(s?.slot_date || '').slice(0, 10)} ${fmtSlotTime(s || {})} 타임을 삭제할까요?`);
-  if (!ok) return;
-  try {
-    await deleteEventSlot(slotId);
-    toast('삭제했습니다');
-    await renderEventSlotsPane(_eventPaneCampId);
-  } catch (e) {
-    console.error('[deleteEventSlotRow]', e);
-    toast(friendlyError(e), 'error');
-  }
-}
-
-// ── 타임 추가 (한 줄씩) ───────────────────────────────────────
-async function addEventSlotRow() {
-  const date  = $('eventSlotNewDate')?.value || '';
-  const start = $('eventSlotNewStart')?.value || '';
-  const end   = $('eventSlotNewEnd')?.value || '';
-  const cap   = parseInt($('eventSlotNewCapacity')?.value, 10);
-  const label = $('eventSlotNewLabel')?.value || '';
-
-  if (!date || !start) { toast('날짜와 시작 시각은 필수입니다', 'error'); return; }
-  if (!Number.isFinite(cap) || cap < 0) { toast('정원을 숫자로 입력해 주세요', 'error'); return; }
-  if (end && end <= start) { toast('종료 시각은 시작 시각보다 뒤여야 합니다. 안 쓸 거면 옆 「비우기」 버튼을 눌러 주세요', 'error'); return; }
-
-  try {
-    await upsertEventSlot({
-      campaign_id: _eventPaneCampId,
-      slot_date: date,
-      start_time: start,
-      end_time: end || null,
-      capacity: cap,
-      audience_label: label || null,
-      sort_order: _eventSlotsCache.length
-    });
-    toast('타임을 추가했습니다');
-    await renderEventSlotsPane(_eventPaneCampId);
-  } catch (e) {
-    console.error('[addEventSlotRow]', e);
-    // 같은 날짜·같은 시작 시각이 이미 있으면 유일 제약(23505)에 걸린다.
-    if (String(e?.code) === '23505') toast('같은 날짜·같은 시작 시각의 타임이 이미 있습니다', 'error');
-    else toast(friendlyError(e), 'error');
-  }
-}
-
-// ── 하루치 일괄 생성 ──────────────────────────────────────────
-// 이틀차 16줄·삼일차 13줄을 손으로 넣지 않게 하는 보조 도구(사양서 §4-5).
-// 「마지막 시작 시각」까지 포함해서 만든다 — 끝나는 시각이 아니라 **마지막 줄의 시작**이라
-// 몇 줄이 나올지 운영자가 미리 셀 수 있다.
-function buildBulkSlotTimes(startHHMM, lastStartHHMM, intervalMin, skipList) {
-  const toMin = t => {
-    const [h, m] = String(t).split(':').map(n => parseInt(n, 10));
-    return h * 60 + m;
-  };
-  const pad = n => String(n).padStart(2, '0');
-  const fromMin = v => `${pad(Math.floor(v / 60))}:${pad(v % 60)}`;
-
-  const skip = new Set((skipList || '').split(',').map(s => s.trim()).filter(Boolean).map(s => s.slice(0, 5)));
-  const out = [];
-  const step = Math.max(1, Number(intervalMin) || 30);
-  for (let v = toMin(startHHMM); v <= toMin(lastStartHHMM); v += step) {
-    const t = fromMin(v);
-    if (!skip.has(t)) out.push(t);
-  }
-  return out;
-}
-
-function previewBulkSlots() {
-  const date  = $('eventBulkDate')?.value || '';
-  const start = $('eventBulkStart')?.value || '';
-  const last  = $('eventBulkLastStart')?.value || '';
-  const step  = parseInt($('eventBulkInterval')?.value, 10) || 30;
-  const skip  = $('eventBulkSkip')?.value || '';
-  const el = $('eventBulkPreview');
-  if (!el) return;
-  // ⚠️ 날짜를 미리 보기의 조건으로 삼지 않는다. 몇 시에 몇 줄이 나오는지는 날짜와
-  //    아무 상관이 없는데, 예전엔 날짜가 비면 목록이 통째로 사라져 「입력해도 아무것도
-  //    안 나온다」로 보였다(2026-08-04 사용자 지적). 날짜는 실제로 만들 때만 필요하다.
-  if (!start || !last) { el.textContent = ''; return; }
-  if (last < start) {
-    el.innerHTML = '<span style="color:var(--red-d)">「마지막 시작 시각」이 「시작 시각」보다 이릅니다.</span>';
-    return;
-  }
-  const dur = parseInt($('eventBulkDuration')?.value, 10) || 0;
-  const times = buildBulkSlotTimes(start, last, step, skip);
-  // 길이를 넣었으면 끝 시각까지 보여 준다 — 겹치는지 눈으로 알 수 있어야 한다.
-  const label = t => {
-    if (!dur) return t;
-    const [h, m] = t.split(':').map(n => parseInt(n, 10));
-    const v = h * 60 + m + dur;
-    const end = `${String(Math.floor(v / 60) % 24).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
-    return v >= 24 * 60 ? `${t}~익일 ${end}` : `${t}~${end}`;   // 자정을 넘기면 그렇다고 적는다
-  };
-  const overlap = dur > 0 && dur > step
-    ? `<div style="margin-top:4px;color:var(--gold)">한 타임 길이(${dur}분)가 간격(${step}분)보다 길어 타임끼리 시간이 겹칩니다.</div>` : '';
-  // 날짜가 비어 있으면 목록은 그대로 보여 주되, 만들려면 날짜가 필요하다고 알린다.
-  //   ⚠️ 이때 첫 문장을 「만들어집니다」로 두면, 바로 아래 「고르면 만들어집니다」와
-  //      부딪혀 지금 만들어지는 건지 아닌지를 두 번 읽게 된다. 시제를 갈라 둔다.
-  const needDate = date ? ''
-    : '<div style="margin-top:4px;color:var(--gold)">「날짜」를 고르면 이대로 만들어집니다.</div>';
-  const lead = date ? `<b>${times.length}줄</b>이 만들어집니다` : `<b>${times.length}줄</b>`;
-  el.innerHTML = times.length
-    ? `${lead} — ${esc(times.map(label).join(', '))}${overlap}${needDate}`
-    : '만들어질 줄이 없습니다. 시작·마지막 시각과 제외 시각을 확인해 주세요.';
-}
-
-async function bulkGenerateSlots(campaignId, opts) {
-  const campId = campaignId || _eventPaneCampId;
-  const o = opts || {
-    date:     $('eventBulkDate')?.value || '',
-    start:    $('eventBulkStart')?.value || '',
-    lastStart:$('eventBulkLastStart')?.value || '',
-    interval: parseInt($('eventBulkInterval')?.value, 10) || 30,
-    skip:     $('eventBulkSkip')?.value || '',
-    capacity: parseInt($('eventBulkCapacity')?.value, 10),
-    label:    $('eventBulkLabel')?.value || '',
-    durationMin: parseInt($('eventBulkDuration')?.value, 10) || 0
-  };
-
-  if (!campId) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
-  if (!o.date || !o.start || !o.lastStart) { toast('날짜·시작 시각·마지막 시작 시각은 필수입니다', 'error'); return; }
-  if (o.lastStart < o.start) { toast('마지막 시작 시각이 시작 시각보다 앞섭니다', 'error'); return; }
-  if (!Number.isFinite(o.capacity) || o.capacity < 0) { toast('정원을 숫자로 입력해 주세요', 'error'); return; }
-
-  const times = buildBulkSlotTimes(o.start, o.lastStart, o.interval, o.skip);
-  if (!times.length) { toast('만들어질 타임이 없습니다', 'error'); return; }
-
-  const ok = await showConfirm(
-    `${o.date} 에 타임 ${times.length}줄을 만듭니다.\n` +
-    `${times.join(', ')}\n\n정원은 각 ${o.capacity}명입니다. 계속할까요?`);
-  if (!ok) return;
-
-  const pad = n => String(n).padStart(2, '0');
-  const addMin = (t, m) => {
-    const [h, mm] = t.split(':').map(n => parseInt(n, 10));
-    const v = h * 60 + mm + m;
-    return `${pad(Math.floor(v / 60) % 24)}:${pad(v % 60)}`;
-  };
-
-  let made = 0, dup = 0, failed = 0;
-  const base = _eventSlotsCache.length;
-  for (let i = 0; i < times.length; i++) {
-    try {
-      await upsertEventSlot({
-        campaign_id: campId,
-        slot_date: o.date,
-        start_time: times[i],
-        end_time: o.durationMin > 0 ? addMin(times[i], o.durationMin) : null,
-        capacity: o.capacity,
-        audience_label: o.label || null,
-        sort_order: base + i
-      });
-      made++;
-    } catch (e) {
-      // 이미 있는 줄은 건너뛴다 — 같은 버튼을 두 번 눌러도 중복이 안 생긴다.
-      if (String(e?.code) === '23505') dup++;
-      else { failed++; console.error('[bulkGenerateSlots]', times[i], e); }
-    }
-  }
-
-  let msg = `${made}줄을 만들었습니다`;
-  if (dup)    msg += ` · 이미 있던 ${dup}줄은 건너뜀`;
-  if (failed) msg += ` · ${failed}줄 실패`;
-  toast(msg, failed ? 'error' : 'success');
-  await renderEventSlotsPane(campId);
-}
-
-// ══════════════════════════════════════════════════════════════
-// ③ 예약 현황 페인
-// ══════════════════════════════════════════════════════════════
-
-// 예약 현황은 이제 **캠페인 진행현황 화면의 탭**이다(사용자 요청 2026-08-04).
-//   별도 화면이던 시절의 호출부가 남아 있어도 같은 자리로 가도록 남겨 둔다.
-async function openEventTicketsPane(campId, campTitle) {
-  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
-  _eventTicketSlotFilter = '';
-  _eventTicketStatusTab = '';
-  if (typeof openCampApplicants === 'function') {
-    await openCampApplicants(campId, campTitle || '');
-    if (typeof setCampDetailTabByCode === 'function') setCampDetailTabByCode('tickets');
-  }
-}
-
-// 현장 확인 화면 열기 (사양서 2026-08-05 §4-4)
-// ⚠️ **새 탭으로 연다.** 이 프로젝트의 「같은 탭 이동」 규칙은 관리자↔인플루언서 앱
-//    전환을 겨냥한 것이고, 현장 확인은 부스 단말에 계속 띄워 두고 쓰는 제3의 화면이다.
-//    같은 탭에서 열면 보던 예약 현황이 사라져 돌아오는 데 손이 더 든다.
-// ⚠️ 도메인을 붙이지 않는다 — 개발서버에서 누르면 개발, 운영에서 누르면 운영에서 열려야 한다.
-// ⚠️ **비동기로 만들지 말 것.** 버튼이 눌린 뒤 조회를 기다렸다가 창을 열면 사용자
-//    제스처가 끊겨 브라우저가 새 탭을 차단한다(2026-08-05 실측). 묶음 값은
-//    ADMIN_LIST_COLUMNS 로 목록과 함께 미리 받아 두고 여기서는 읽기만 한다.
-function openEventScanPage(campaignId) {
-  const campId = campaignId || _eventPaneCampId;
-  if (!campId) { toast('캠페인을 찾을 수 없습니다.'); return; }
-  // 묶음이 있으면 **묶음으로** 연다. 캠페인으로 열면 같은 행사인데 다른 날짜 캠페인의
-  //   예약자가 안 보여, 날짜가 바뀌는 아침에 명단이 빈 것처럼 보인다.
-  //   캐시에 없으면(운영현황에서 곧바로 들어온 경우 등) 캠페인 단위로 연다 —
-  //   못 여는 것보다 좁게라도 여는 편이 낫고, 그때는 화면 위 이름표에
-  //   「캠페인 N개」가 안 떠서 좁게 열렸다는 것이 드러난다.
-  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === campId);
-  const groupId = camp?.event_group_id || null;
-  const q = groupId ? `group=${encodeURIComponent(groupId)}` : `campaign=${encodeURIComponent(campId)}`;
-  window.open(`/event-scan.html?${q}`, '_blank', 'noopener');
-}
-
-async function renderEventTicketsPane(campaignId) {
-  const campId = campaignId || _eventPaneCampId;
-  if (!campId) return;
-  _eventPaneCampId = campId;
-
-  // 제목은 진행현황 헤더(campApplicantsTitle)가 이미 보여 준다 — 여기서 또 그리지 않는다.
-  const body = $('eventTicketsBody');
-  if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
-
-  const [slots, tickets] = await Promise.all([
-    fetchEventSlots(campId),
-    fetchEventTicketsByCampaign(campId)
-  ]);
-  _eventSlotsCache = slots || [];
-  _eventTicketsCache = tickets || [];
-
-  renderEventTicketSlotFilter();
-  renderEventTicketStatusTabs();
-  renderEventTicketsSummary();
-  renderEventTicketsTable();
-}
-
-// 티켓 1건의 화면 상태 — 예약 상태와 입장 여부를 합쳐 사람이 읽는 말로 만든다.
-function eventTicketViewStatus(t) {
-  if (t.status === 'cancelled') return 'cancelled';
-  if (t.status === 'waitlist')  return 'waitlist';
-  return t.entered_at ? 'entered' : 'noshow';   // 확정인데 입장 전 = 아직 안 옴
-}
-
-function eventTicketStatusLabel(key) {
-  return ({
-    confirmed: '확정',
-    waitlist:  '대기',
-    entered:   '입장 완료',
-    noshow:    '미입장',
-    cancelled: '취소'
-  })[key] || key;
-}
-
-function filteredEventTickets() {
-  return _eventTicketsCache.filter(t => {
-    if (_eventTicketSlotFilter && t.slot_id !== _eventTicketSlotFilter) return false;
-    if (!_eventTicketStatusTab) return true;
-    const v = eventTicketViewStatus(t);
-    if (_eventTicketStatusTab === 'confirmed') return t.status === 'confirmed';
-    return v === _eventTicketStatusTab;
-  });
-}
-
-function renderEventTicketSlotFilter() {
-  const sel = $('eventTicketSlotFilter');
-  if (!sel) return;
-  sel.innerHTML = `<option value="">전체 타임</option>` + _eventSlotsCache.map(s =>
-    `<option value="${s.id}"${_eventTicketSlotFilter === s.id ? ' selected' : ''}>${esc(String(s.slot_date).slice(0, 10))} ${esc(fmtSlotTime(s))}</option>`
-  ).join('');
-}
-
-function onEventTicketSlotFilterChange(v) {
-  _eventTicketSlotFilter = v || '';
-  renderEventTicketStatusTabs();
-  renderEventTicketsSummary();
-  renderEventTicketsTable();
-}
-
-function renderEventTicketStatusTabs() {
-  const bar = $('eventTicketStatusTabs');
-  if (!bar) return;
-  // 건수는 타임 필터를 적용한 뒤 센다 — 탭 숫자와 목록 길이가 어긋나지 않게.
-  const pool = _eventTicketsCache.filter(t => !_eventTicketSlotFilter || t.slot_id === _eventTicketSlotFilter);
-  bar.innerHTML = EVENT_TICKET_STATUS_TABS.map(tab => {
-    const n = tab.key === ''
-      ? pool.length
-      : pool.filter(t => tab.key === 'confirmed' ? t.status === 'confirmed' : eventTicketViewStatus(t) === tab.key).length;
-    const cls = 'status-tab-btn' + (_eventTicketStatusTab === tab.key ? ' on' : '')
-      + (n === 0 && tab.key !== '' ? ' zero-count' : '');
-    return `<button type="button" class="${cls}" onclick="onEventTicketStatusTab('${tab.key}')">`
-      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
-  }).join('');
-}
-
-function onEventTicketStatusTab(key) {
-  _eventTicketStatusTab = key || '';
-  renderEventTicketStatusTabs();
-  renderEventTicketsTable();
-}
-
-// 예약 수치 계산 — 진행현황 요약 카드(campOpsStatusCard)와 **같은 판정**을 쓰려고
-//   숫자만 따로 돌려주는 함수로 나눴다. 두 곳이 각자 세면 값이 갈린다.
-function eventTicketCounts(slotFilter) {
-  const f = (slotFilter === undefined) ? _eventTicketSlotFilter : slotFilter;
-  const pool = _eventTicketsCache.filter(t => !f || t.slot_id === f);
-  const confirmed = pool.filter(t => t.status === 'confirmed').length;
-  const entered   = pool.filter(t => t.status === 'confirmed' && t.entered_at).length;
-  return {
-    confirmed, entered,
-    waitlist:  pool.filter(t => t.status === 'waitlist').length,
-    cancelled: pool.filter(t => t.status === 'cancelled').length,
-    noshow:    confirmed - entered
-  };
-}
-
-function renderEventTicketsSummary() {
-  const el = $('eventTicketsSummary');
-  if (!el) return;      // 진행현황 안으로 옮긴 뒤로는 이 자리가 없다 — 요약 카드가 대신 그린다
-  const pool = _eventTicketsCache.filter(t => !_eventTicketSlotFilter || t.slot_id === _eventTicketSlotFilter);
-  const confirmed = pool.filter(t => t.status === 'confirmed').length;
-  const entered   = pool.filter(t => t.status === 'confirmed' && t.entered_at).length;
-  const waitlist  = pool.filter(t => t.status === 'waitlist').length;
-  const cancelled = pool.filter(t => t.status === 'cancelled').length;
-  const noshow    = confirmed - entered;
-  const rate = confirmed ? Math.round(entered / confirmed * 100) : 0;
-  el.innerHTML =
-    `확정 <b>${confirmed}</b>명 · 입장 <b>${entered}</b>명(${rate}%) · 미입장 <b>${noshow}</b>명 · 대기 <b>${waitlist}</b>명 · 취소 ${cancelled}명`;
-}
-
-function renderEventTicketsTable() {
-  const body = $('eventTicketsBody');
-  if (!body) return;
-  const rows = filteredEventTickets();
-  if (!rows.length) {
-    // 「시간대를 아직 안 만들었다」와 「시간대는 있는데 예약이 0건이다」는 할 일이 다르다.
-    const msg = !_eventSlotsCache.length
-      ? '행사 시간이 아직 없습니다. 「편집」에서 모집 조건의 <b>행사 시간</b>을 먼저 등록해 주세요.'
-      : (_eventTicketSlotFilter || _eventTicketStatusTab)
-        ? '조건에 맞는 예약이 없습니다.'
-        : '아직 예약이 없습니다.';
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">${msg}</td></tr>`;
-    return;
-  }
-  body.innerHTML = rows.map(t => {
-    const s = t.event_slots || {};
-    const inf = t.influencers || {};
-    const v = eventTicketViewStatus(t);
-    const badgeColor = ({entered: '#16A34A', noshow: 'var(--muted)', waitlist: '#D97706', cancelled: '#DC2626'})[v] || 'var(--ink)';
-    const audit = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
-    const canCheckIn = (t.status === 'confirmed' && !t.entered_at);
-    // 이미 입장했거나 이미 취소된 예약은 취소하지 않는다(서버도 같은 판정으로 막는다).
-    const canCancel = (t.status !== 'cancelled' && !t.entered_at);
-    return `
-      <tr>
-        <td>${esc(String(s.slot_date || '').slice(0, 10))}</td>
-        <td>${esc(fmtSlotTime(s))}</td>
-        <td>${esc(inf.name_kanji || '-')}${audit}<div style="font-size:11px;color:var(--muted)">${esc(inf.name_kana || '')}</div></td>
-        <td style="font-family:monospace">${esc(t.ticket_code)}</td>
-        <td style="color:${badgeColor};font-weight:700">
-          ${eventTicketStatusLabel(v)}${t.status === 'waitlist' && t.waitlist_position ? ` ${t.waitlist_position}번` : ''}
-        </td>
-        <td>${t.entered_at ? esc(formatDateTime(t.entered_at)) : '-'}</td>
-        <td>${esc(t.entered_by_name || '')}${t.scan_count > 1 ? `<div style="font-size:11px;color:var(--muted)">확인 ${t.scan_count}회</div>` : ''}</td>
-        <td style="white-space:nowrap">${canCheckIn
-              ? `<button class="btn btn-ghost btn-sm" onclick="checkInFromAdmin('${esc(t.ticket_code)}')">입장 처리</button>`
-              : ''}${canCancel
-              ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red)" onclick="cancelTicketFromAdmin('${esc(t.id)}')">취소</button>`
-              : ''}${(!canCheckIn && !canCancel) ? '-' : ''}</td>
-      </tr>`;
-  }).join('');
-}
-
-// 관리자 예약 취소 — 그동안 관리자에게는 예약을 정리할 수단이 아예 없어서,
-//   「신청 미승인」으로 대신 처리하다 **신청만 반려되고 티켓은 확정으로 남는** 어긋남이
-//   생겼다(입장 확인은 신청 상태를 안 본다). 이 버튼이 그 자리를 대신한다.
-async function cancelTicketFromAdmin(ticketId) {
-  const t = _eventTicketsCache.find(x => x.id === ticketId);
-  const inf = t?.influencers || {};
-  const s = t?.event_slots || {};
-  const who = inf.name_kanji || inf.name_kana || '이 방문객';
-  const when = `${String(s.slot_date || '').slice(0, 10)} ${fmtSlotTime(s)}`;
-  const ok = await showConfirm(
-    `${who} 님의 예약을 취소할까요?\n\n` +
-    `${when} · 예약번호 ${t?.ticket_code || ''}\n\n` +
-    `자리가 비면 대기 1번이 자동으로 확정으로 올라가고 알림이 갑니다.\n` +
-    `되돌릴 수 없습니다 — 다시 넣으려면 본인이 새로 예약해야 합니다.`,
-    '예약 취소');
-  if (!ok) return;
-  try {
-    const res = await cancelEventTicketAdmin(ticketId, null);
-    if (!res || res.ok !== true) {
-      const msg = {
-        permission_denied: '권한이 없습니다',
-        not_found: '예약을 찾을 수 없습니다',
-        cancelled: '이미 취소된 예약입니다',
-        already_entered: '이미 입장한 예약은 취소할 수 없습니다',
-        settlement_paid_cannot_cancel: '송금이 끝난 정산이 걸려 있어 취소할 수 없습니다'
-      }[res?.reason] || '취소하지 못했습니다';
-      toast(msg, 'error');
-      return;
-    }
-    toast(res.promoted_ticket_id ? '취소했습니다. 대기 1번이 확정으로 올라갔습니다' : '취소했습니다');
-    // 표·요약·탭 숫자를 한 번에 맞춘다(진행현황 페인 전체를 다시 그린다).
-    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
-    else await renderEventTicketsPane(_eventPaneCampId);
-  } catch (e) {
-    console.error('[cancelTicketFromAdmin]', e);
-    toast(friendlyError(e), 'error');
-  }
-}
-
-// 관리자 화면의 「입장 처리」 — 현장 확인 페이지(작업 7)와 **같은** 서버 함수를 쓴다.
-// 그래서 첫 입장 시각 보존·중복 감지가 두 경로에서 똑같이 동작한다.
-// 쓰임새: 행사장 인터넷이 끊겨 종이 명단으로 대조한 뒤, 복구되면 손으로 반영하는 경로(사양서 §2-8 U1).
-async function checkInFromAdmin(ticketCode, confirmOtherDay) {
-  try {
-    const res = await checkInTicket(ticketCode, confirmOtherDay);
-
-    // 예약 날짜가 오늘이 아니면 서버가 기록하지 않고 되돌려보낸다(마이그레이션 287).
-    //   운영자가 날짜를 보고 판단한 뒤에만 기록한다 — 먼저 기록하고 알리면 거를 기회가 없다.
-    if (!res?.ok && res?.reason === 'other_day') {
-      const s = res.slot || {};
-      const when = `${String(s.slot_date || '').slice(0, 10)} ${String(s.start_time || '').slice(0, 5)}`;
-      const ok = await showConfirm(
-        `${res.name_kanji || ''} 님의 예약은 오늘이 아닙니다.\n\n예약: ${when}\n\n그래도 입장 처리할까요?`);
-      if (!ok) return;
-      return checkInFromAdmin(ticketCode, true);
-    }
-
-    if (!res?.ok) {
-      toast(eventCheckInFailMessage(res?.reason), 'error');
-      return;
-    }
-    if (res.already_entered) {
-      toast(`이미 입장 처리된 예약입니다 (첫 입장 ${formatDateTime(res.entered_at)})`, 'error');
-    } else {
-      toast(`${res.name_kanji || ''} 입장 처리했습니다`);
-    }
-    await renderEventTicketsPane(_eventPaneCampId);
-  } catch (e) {
-    console.error('[checkInFromAdmin]', e);
-    toast(friendlyError(e), 'error');
-  }
-}
-
-// 입장 확인 실패 사유를 관리자용 한국어로 바꾼다.
-// ⚠️ 현장 확인 페이지(작업 7)는 이 파일을 못 쓰므로 같은 문구를 그 파일에도 둔다.
-function eventCheckInFailMessage(reason) {
-  return ({
-    not_found:             '없는 예약번호입니다',
-    cancelled:             '취소된 예약입니다',
-    waitlist_cannot_enter: '대기 상태라 입장할 수 없습니다',
-    other_day:             '오늘 예약이 아닙니다',
-    permission_denied:     '권한이 없습니다'
-  })[reason] || '확인하지 못했습니다';
-}
-
-// ══════════════════════════════════════════════════════════════
-// 행사 모드에서 쓰이지 않는 입력칸 숨기기 (사용자 요청 2026-08-03)
-// ══════════════════════════════════════════════════════════════
-// 왜 숨기나: 오프라인 행사는 SNS 게시물도 배송도 리워드도 없다. 그런데도 칸이 남아
-//   있으면 운영자가 「채워야 하나」 망설이고, 채운 값은 아무 데도 쓰이지 않는다.
-//   실제로 이 값들이 행사 캠페인에서 무슨 일을 하는지:
-//     · 채널·기준 채널·최소 팔로워 — 신청 게이트가 행사 모드에서 이 검사를 통째로
-//       건너뛴다(application.js). 값을 넣어도 아무 일도 안 일어난다
-//     · 콘텐츠 종류 — 결과물을 내지 않으므로 쓰이지 않는다
-//     · 결과물 제출 마감일 — 제출할 결과물이 없다
-//     · 당선 발표 안내 — 예약은 그 자리에서 확정된다(당선 발표가 없다)
-//     · 리워드·제품 금액 — 리워드는 0 고정이고(정산에 새지 않게), 판매 제품이 없다
-// ⚠️ 숨기기만 하면 저장 검증에 걸린다(채널 1개 이상 필수 등) — admin.js 의 검증도
-//    같은 판정으로 건너뛴다. 한쪽만 하면 「보이지도 않는 칸 때문에 저장이 막힌다」가 된다.
-// 행사 모드에서 숨기는 칸들의 「비운 값」. 등록·편집 두 저장 경로가 같은 값을 쓰게
-// 한곳에 둔다 — 따로 적으면 한쪽만 고쳐져 어긋난다.
-const EVENT_MODE_CLEARED_FIELDS = {
-  channel: '', channel_match: 'or', primary_channel: null,
-  content_types: '', min_followers: 0,
-  submission_end: null, product_price: 0, reward: 0, reward_note: null,
-  // 방문 기간은 「행사 시간」에서 계산한다. 편집 저장은 이 뒤에 시간대에서 읽은 값으로
-  // 다시 덮어쓰고(시간대가 0줄이면 그대로 비어 있는 게 맞다), 신규 등록은 시간대가
-  // 아직 없으므로 비운 채로 저장된다 — 손으로 적은 날짜가 남지 않게 한다.
-  visit_start: null, visit_end: null
-};
-
-function applyEventModeFieldVisibility(prefix) {
-  const on = !!$(prefix + 'CampEventMode')?.checked;
-  const groupOf = id => $(prefix + id)?.closest('.form-group');
-
-  // 시간대 구역은 편집 화면에만 있다(신규는 캠페인 식별자가 없어 걸 곳이 없다)
-  const slotSec = $('editCampSlotSection');
-  if (slotSec && prefix === 'edit') {
-    // ⚠️ 여기서 _eventPaneCampId 를 쓰면 안 된다. 그 변수는 예약 현황 화면과 공유하는
-    //    상태라 **다른 캠페인을 가리키고 있을 수 있다.** 일반 캠페인을 편집하다 행사
-    //    모드를 처음 켜는 순간엔 아직 갱신되지 않아, 직전에 보던 캠페인의 시간대가
-    //    이 화면에 그려지고 「타임 추가」·「정원 변경」이 **그 캠페인에 쓰인다**
-    //    (2026-08-03 리뷰 지적). 지금 편집 중인 캠페인은 항상 editCampId 칸에 있다.
-    const editingId = $('editCampId')?.value || '';
-    slotSec.style.display = on ? '' : 'none';
-    if (on && editingId) {
-      _eventPaneCampId = editingId;   // 예약 현황 이동 버튼 등 다른 곳도 이 값을 본다
-      renderEventSlotsPane(editingId);
-    }
-  }
-
-  // ── ㉠ 행사 모드만 결정하는 칸 — 켜면 숨기고, 끄면 그냥 보이면 된다 ──
-  const groups = [
-    groupOf('CampChannelWrap'),        // 채널(+ 표시 방식 or/&)
-    groupOf('CampContentTypeWrap'),    // 콘텐츠 종류
-    groupOf('CampSubmissionEnd'),      // 결과물 제출 마감일
-    groupOf('CampWinnerAnnounce'),     // 당선 발표 안내
-    groupOf('CampReward'),             // 리워드 금액
-    groupOf('CampRewardNote'),         // 리워드 추가 정보
-    groupOf('CampProductPrice'),       // 제품 금액
-  ];
-  groups.forEach(g => { if (g) g.style.display = on ? 'none' : ''; });
-
-  // ── ㉡ 모집 형식**도** 정하는 칸(방문 기간 · 기준 채널+최소 팔로워수) ──
-  //   여기서 직접 보이거나 숨기지 않는다. 두 규칙(형식·행사)이 한 요소를 서로
-  //   반대로 건드리면 나중에 실행된 쪽이 이겨서, 켜고 끄는 순서·비동기 렌더가
-  //   끝나는 시점에 따라 결과가 달라진다. 행사 판정은 각 함수 안으로 옮겼으니
-  //   여기서는 그 함수에 다시 물어보기만 한다.
-  const rt = _currentRecruitType(prefix);
-  if (typeof applyDeadlineFieldsVisibility === 'function') applyDeadlineFieldsVisibility(prefix, rt || 'monitor');
-  if (typeof applyMinFollowersVisibility === 'function')   applyMinFollowersVisibility(prefix, rt || 'monitor');
-
-  // 모집 인원 잠금은 시간대 개수에 달렸다 — 켜고 끌 때마다 다시 판정한다.
-  if (prefix === 'edit') syncEventDerivedFields();
-}
-
-// 저장 직전에 시간대를 **다시 읽어** 방문 기간·모집 인원을 계산한다.
-//   화면 캐시(_eventSlotsCache)를 쓰면 다른 관리자가 그 사이 고친 시간대를 놓친다.
-async function fetchEventDerivedForSave(campaignId) {
-  if (!campaignId || typeof fetchEventSlots !== 'function') return null;
-  try { return eventDerivedFromSlots(await fetchEventSlots(campaignId)); }
-  catch (e) { console.warn('[fetchEventDerivedForSave]', e); return null; }
-}
-
-// 이 캠페인이 행사 모드인가 — 저장 검증이 「보이지도 않는 칸」을 요구하지 않게 하는 판정.
-//   ⚠️ 저장 시점에는 화면 체크박스가 곧 저장될 값이므로 그것을 본다.
-function isEventModeForm(prefix) {
-  return !!$(prefix + 'CampEventMode')?.checked;
-}
-
 // ════════════════════════════════════════════════════════════════════
 // REVERB ADMIN — dev/js/admin.js
 // ════════════════════════════════════════════════════════════════════
@@ -37163,19 +34966,15 @@ function classifyDeadlineChange(orig, next) {
 }
 // 확인창 본문·버튼 라벨 생성. 반환 {message, okLabel} 또는 null(확인 불필요)
 function buildDeadlineChangeConfirm(kind, ctx) {
-  // 행사 캠페인은 「응모」가 아니라 「예약」이다 — 대상도 인플루언서가 아니라 방문객.
-  const W = ctx.isEvent
-    ? { apply: '예약', who: '방문 예약 화면', act: '예약할' }
-    : { apply: '응모', who: '인플루언서 화면', act: '응모할' };
   const appLine = ctx.appCount > 0
-    ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
+    ? `\n· 이미 접수된 응모 ${ctx.appCount}건은 그대로 유지됩니다.`
     : '';
   if (kind === 'reopen') {
     const head = `모집을 다시 열까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}`;
     if (ctx.isDraft) {
       return {
         message: head + `\n상태     ${ctx.statusFrom} (그대로)\n`
-          + `\n· 준비 중이라 ${W.who}에는 아직 보이지 않습니다.`
+          + `\n· 준비 중이라 인플루언서 화면에는 아직 보이지 않습니다.`
           + `\n· 공개하려면 상태를 「모집중」으로 직접 바꿔 주세요.` + appLine,
         okLabel: '마감일만 저장'
       };
@@ -37186,7 +34985,7 @@ function buildDeadlineChangeConfirm(kind, ctx) {
       : `\n상태     ${ctx.statusFrom} (그대로)\n`;
     return {
       message: head + statusLine
-        + `\n· ${W.who}에 ${W.apply} 버튼이 다시 열립니다.` + appLine
+        + `\n· 인플루언서 화면에 응모 버튼이 다시 열립니다.` + appLine
         + (ctx.submissionEnd ? `\n· 결과물 제출 마감일은 ${String(ctx.submissionEnd).slice(0,10)} 입니다.` : ''),
       okLabel: '모집 다시 열기'
     };
@@ -37195,14 +34994,14 @@ function buildDeadlineChangeConfirm(kind, ctx) {
     return {
       message: `모집 기간을 줄일까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}\n`
         + appLine.replace('\n· ', '\n· ')
-        + `\n· 아직 ${W.apply}하지 않은 사람은 ${ctx.to} 24시(일본 시간)부터 ${W.act} 수 없습니다.`,
+        + `\n· 아직 응모하지 않은 인플루언서는 ${ctx.to} 24시(일본 시간)부터 응모할 수 없습니다.`,
       okLabel: '줄여서 저장'
     };
   }
   if (kind === 'clear') {
     return {
-      message: `마감일을 비우면 ${W.apply}이 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
-        + `\n· 이 캠페인에서만 ${W.apply} 마감 차단이 해제되어 언제든 ${W.apply}이 들어옵니다.`
+      message: `마감일을 비우면 응모가 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
+        + `\n· 이 캠페인에서만 응모 마감 차단이 해제되어 언제든 응모가 들어옵니다.`
         + `\n· 나중에 닫으려면 마감일을 다시 넣거나 상태를 「모집마감」으로 바꿔야 합니다.`
         + `\n\n실수로 지운 것이 아닌지 확인해 주세요.`,
       okLabel: '마감일 없이 저장'
@@ -37210,18 +35009,6 @@ function buildDeadlineChangeConfirm(kind, ctx) {
   }
   return null;
 }
-// 캠페인 목록에서 오프라인 행사·비공개를 한눈에 구분하는 배지.
-//   없으면 행만 봐서는 알 수 없어(채널 칸은 「—」, 제출 마감은 빈칸) 더보기 메뉴를
-//   열어 「예약 현황」이 있는지로만 판별해야 했다.
-function eventCampBadges(c) {
-  if (!(typeof isEventCampaign === 'function' && isEventCampaign(c))) return '';
-  const ev = `<span style="background:#E8F7EF;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">행사</span>`;
-  const inv = c.is_invite_only
-    ? `<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">lock</span>비공개</span>`
-    : '';
-  return ev + inv;
-}
-
 // 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
 //   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
 var _deletedCampsCache = [];
@@ -37471,7 +35258,6 @@ async function loadAdminCampaigns(useCache) {
           <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${typeLabel(c.recruit_type)}
-              ${eventCampBadges(c)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
@@ -37730,11 +35516,6 @@ async function openEditCampaign(campId) {
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===rtVal);});
   const checkedRt = document.querySelector(`input[name="editRecruitType"][value="${rtVal}"]`);
   if (checkedRt) toggleEditRT(checkedRt);
-  // 아래 함수가 「행사인가」를 이 체크박스로 판정한다. 이 값을 채우는 건 한참 뒤
-  // (loadEventSettingsIntoEditForm)라, 먼저 맞춰 두지 않으면 첫 그림이 직전 캠페인의
-  // 행사 여부로 그려진다. 나중에 같은 값으로 다시 세팅돼도 결과는 같다(멱등).
-  const _emEl = $('editCampEventMode');
-  if (_emEl) _emEl.checked = !!camp.event_mode;
   applyDeadlineFieldsVisibility('edit', rtVal);
 
   // lookup_values 동적 렌더 (병렬)
@@ -37800,9 +35581,6 @@ async function openEditCampaign(campId) {
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
-    // 행사 여부 — 「예약이 있는데 행사 모드를 끄는」 것을 막는 게이트의 기준.
-    //   이 키가 없으면 그 게이트가 통째로 죽은 코드가 된다(아래 채널 주석의 선례와 같은 실수).
-    event_mode: !!camp.event_mode,
     // 채널 — ①모집 형식 라디오를 눌러도 「저장된 채널」이 화면에서 증발하지 않게 하고
     //        ②저장 시 「결과물이 있는 채널을 뺐는지」를 비교하는 기준.
     //   ⚠️ 이 키가 없으면 두 장치가 조용히 죽는다(마감일 확인창이 스냅샷에 deadline 키가
@@ -37817,13 +35595,6 @@ async function openEditCampaign(campId) {
   };
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
-
-  // 오프라인 행사 설정(행사 모드·비공개·초대 번호) 채우기.
-  //   초대 번호는 캠페인 표가 아니라 별도 표라 비동기 조회가 필요하다 — 화면 전환을
-  //   막지 않도록 await 하지 않고, 값이 오면 그때 칸에 들어간다.
-  if (typeof loadEventSettingsIntoEditForm === 'function') {
-    loadEventSettingsIntoEditForm(camp);
-  }
 
   switchAdminPane('edit-campaign', null);
 }
@@ -38440,39 +36211,12 @@ function removeEditCampImg(idx) {
 //   참조하므로 파일 분리 시 같은 모듈로 묶기
 // ════════════════════════════════════════════════════════════════════
 
-// 날짜 규칙이 볼 「결과물 제출 마감일」 — 행사 모드면 **없는 것으로** 본다.
-//   행사 캠페인은 결과물이 없어 그 칸을 숨기고 저장 때 비운다(EVENT_MODE_CLEARED_FIELDS).
-//   그런데 폼 입력칸에는 켜기 전 값이 그대로 남아 있어서, 그 값을 규칙이 계속 읽으면
-//   ① 방문 기간 달력이 그 날짜까지로 잠기고 ② 「방문 마감일은 …결과물 제출 마감일 사이여야
-//   합니다」라는, 화면에 있지도 않은 칸을 가리키는 경고가 뜬다(2026-08-03 사용자 보고).
-//   숨김·저장 시 비움·규칙 제외는 **같은 판정**을 써야 어긋나지 않는다.
-function campRuleSubmissionEnd(prefix) {
-  if (_campPrefixIsEvent(prefix)) return '';
-  return $(prefix + 'SubmissionEnd')?.value || '';
-}
-
-function _campPrefixIsEvent(prefix) {
-  return (typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new');
-}
-
-// 날짜 규칙이 볼 「방문 기간」 — 행사 모드면 **없는 것으로** 본다. 제출 마감일과 같은 이유다.
-//   행사 캠페인의 방문 날짜는 「행사 시간」이 정하고 그 칸은 화면에서 숨긴다. 값은 저장된
-//   진짜 날짜라 남겨 두는데(지우면 멀쩡한 값이 사라진다), 그대로 두면 모집 시작일을
-//   뒤로 미룰 때 「방문 시작일은 모집 시작일~… 사이여야 합니다」로 **저장이 막힌다** —
-//   화면에 있지도 않은 칸을 가리키는 오류라 관리자가 손쓸 방법이 없다(2026-08-03 리뷰 지적).
-function campRuleVisitRange(prefix) {
-  if (_campPrefixIsEvent(prefix)) return ['', ''];
-  return [$(prefix + 'VisitStart')?.value || '', $(prefix + 'VisitEnd')?.value || ''];
-}
-
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
 //   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
 //   - monitor: 구매 기간 종료일 + 19일
 //   - visit:   방문 기간 종료일 + 19일
 //   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 19일
 async function suggestSubmissionEnd(prefix, baseKind) {
-  // 행사 캠페인은 결과물 제출이 없다 — 숨긴 칸을 채우겠냐고 묻지 않는다.
-  if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return;
   const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
     : baseKind === 'visit' ? 'VisitEnd'
     : 'Deadline';
@@ -38502,8 +36246,8 @@ function syncCampDateMinMax(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
-  const ve = campRuleVisitRange(prefix)[1];
-  const se = campRuleSubmissionEnd(prefix);
+  const ve = $(prefix+'VisitEnd')?.value || '';
+  const se = $(prefix+'SubmissionEnd')?.value || '';
   const lower = rs || dl || '';
   const upperPV = se || '';
   // 구매·방문: lower ~ upperPV
@@ -38550,7 +36294,7 @@ function syncCampRangePickerBounds(prefix) {
   if (!_campRangePickers) return;
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const se = campRuleSubmissionEnd(prefix);
+  const se = $(prefix+'SubmissionEnd')?.value || '';
   const lower = rs || dl || '';
   const upperPV = se || '';
   ['Purchase', 'Visit'].forEach(kind => {
@@ -38568,8 +36312,9 @@ function validateCampDateRanges(prefix) {
   const dl = $(prefix+'Deadline')?.value || '';
   const ps = $(prefix+'PurchaseStart')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
-  const [vs, ve] = campRuleVisitRange(prefix);
-  const se = campRuleSubmissionEnd(prefix);
+  const vs = $(prefix+'VisitStart')?.value || '';
+  const ve = $(prefix+'VisitEnd')?.value || '';
+  const se = $(prefix+'SubmissionEnd')?.value || '';
   const errs = [];
   const lower = rs || dl || '';
   // 구매·방문 일자의 상한은 결과물 제출 마감일
@@ -38714,10 +36459,7 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
     // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +19일 fallback 제안
-    // ⚠️ 라디오 name 은 편집만 editRecruitType 이고 **신규는 recruitType** 이다.
-    //    newRecruitType 으로 찾으면 아무것도 안 잡혀 늘 monitor 로 폴백했고, 그래서
-    //    신규 등록에서는 기프팅의 「모집 종료 +19일」 제안이 한 번도 뜨지 않았다.
-    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'recruitType';
+    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'newRecruitType';
     const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
     if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
   }
@@ -39147,39 +36889,6 @@ async function saveCampaignEdit() {
     const brandJa = (_editBrand?.name_ja || '').trim();
     const brandEn = (_editBrand?.name_en || '').trim();
 
-    // 행사 캠페인 판정 — 아래 여러 게이트가 이 값으로 갈린다.
-    //   ⚠️ 선언이 첫 사용보다 **뒤**에 있으면 저장이 통째로 죽는다(const 는 선언 전 참조 불가).
-    const _isEventEdit = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
-
-    // ── 예약이 들어온 뒤 행사 모드를 끄는 것은 막는다 ──────────────
-    //   끄면 그 순간 ①관리자 더보기의 「예약 현황」이 사라져 입장 처리·명단 확인
-    //   경로가 통째로 없어지고 ②방문객 화면이 티켓 대신 결과물 제출 폼으로 열리며
-    //   ③행사라서 억눌러 둔 「당선」 알림이 방문객에게 나가기 시작한다.
-    //   되돌릴 길이 화면에 없는 상태라 되묻지 않고 막는다(예약 0건이면 자유).
-    if (_editCampOriginal?.event_mode && !_isEventEdit) {
-      const _tk = (typeof countActiveEventTickets === 'function')
-        ? await countActiveEventTickets(campId) : 0;
-      if (_tk > 0) {
-        const _el = $('alertModalMessage');
-        // ⚠️ 이 모달은 가운데 정렬이다(다른 알림과 공용). 목록을 그대로 넣으면 글머리
-        //    기호가 줄마다 다른 자리에 놓여 읽기 어렵다 — 이 안내만 왼쪽으로 맞춘다.
-        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75;text-align:left">
-          <div style="text-align:center;margin-bottom:14px">이 캠페인에는 살아 있는 예약이 <b style="color:var(--red-d)">${_tk}건</b> 있습니다.</div>
-          <div style="font-weight:700">「오프라인 행사 캠페인」을 끄면</div>
-          <ul style="margin:6px 0 0;padding-left:18px">
-            <li>예약 현황·입장 확인으로 들어갈 길이 없어지고,</li>
-            <li>방문객 화면이 예약표 대신 결과물 제출 폼으로 바뀌며,</li>
-            <li>행사라서 막아 둔 「당선」 알림이 방문객에게 나가기 시작합니다.</li>
-          </ul>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
-            먼저 예약을 정리한 뒤에 꺼 주세요. 모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.
-          </div>
-        </div>`;
-        openModal('alertModal');
-        return;
-      }
-    }
-
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
@@ -39187,7 +36896,7 @@ async function saveCampaignEdit() {
     //   이미 끝난 캠페인의 다른 항목만 고치는 경우를 막지 않으려고 「변경됐을 때만」으로 좁혔다.
     //   승인된 인플루언서 전원이 그 순간 제출 불가가 되는 변경이라 확인창이 아니라 차단이다.
     {
-      const _seNew = campRuleSubmissionEnd('editCamp');   // 행사면 '' — 숨긴 칸으로 저장을 막지 않는다
+      const _seNew = gv('editCampSubmissionEnd') || '';
       const _seOld = (_editCampOriginal && _editCampOriginal.submission_end) || '';
       const _today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
       if (_seNew && String(_seNew).slice(0,10) !== String(_seOld).slice(0,10)
@@ -39227,9 +36936,8 @@ async function saveCampaignEdit() {
         statusFrom: campStatusLabelKo(origStatus),
         statusTo:   (_dlKind === 'reopen' && _reopenTargets.includes(origStatus)) ? campStatusLabelKo('active') : null,
         appCount: _appCount,
-        submissionEnd: campRuleSubmissionEnd('editCamp') || null,   // 행사 캠페인엔 그 줄을 안 붙인다
-        isDraft: origStatus === 'draft',
-        isEvent: _isEventEdit          // 문구를 「응모」 대신 「예약」으로
+        submissionEnd: gv('editCampSubmissionEnd') || null,
+        isDraft: origStatus === 'draft'
       };
       const _c = buildDeadlineChangeConfirm(_dlKind, _ctx);
       if (_c) {
@@ -39249,9 +36957,7 @@ async function saveCampaignEdit() {
     //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
     //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
     //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
-    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
-    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
-    if (!editChannel && !_isEventEdit) {
+    if (!editChannel) {
       toast('채널을 1개 이상 선택해야 합니다','error');
       return;
     }
@@ -39265,8 +36971,7 @@ async function saveCampaignEdit() {
       const _origCh = String(_editCampOriginal?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
       const _nextCh = editChannel.split(',').map(s => s.trim()).filter(Boolean);
       const _removed = _origCh.filter(c => !_nextCh.includes(c));
-      // 행사 모드로 바꾸면 채널이 통째로 비는 것이 정상이라 확인창을 띄우지 않는다.
-      if (_removed.length && !_isEventEdit) {
+      if (_removed.length) {
         let _affected = 0;
         try { _affected = await countDeliverablesByChannels(campId, _removed); }
         catch(e) { console.warn('[saveCampaignEdit] 채널 제거 영향 조회 실패', e); }
@@ -39305,13 +37010,6 @@ async function saveCampaignEdit() {
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
       reward_note: gv('editCampRewardNote') || null,
-      // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
-      event_mode: !!$('editCampEventMode')?.checked,
-      is_invite_only: !!$('editCampInviteOnly')?.checked,
-      event_place: ($('editCampEventPlace')?.value || '').trim() || null,
-      // 행사가 아니면 묶음도 없다. 화면에서 즉시 비우지 않고 여기서 거른다 —
-      //   즉시 비우면 실수로 껐다 켰을 때 값이 안 돌아와 연결이 조용히 끊긴다.
-      event_group_id: ($('editCampEventMode')?.checked ? ($('editCampEventGroup')?.value || '') : '') || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -39415,29 +37113,6 @@ async function saveCampaignEdit() {
     // 동시 저장 방어(마이그레이션 275) — 편집 화면을 연 뒤 다른 관리자가 먼저 저장했으면 덮지 않는다.
     //   ⚠️ 아래 「주의사항·참여방법 변경 이력 기록」보다 **먼저** 판정해야 한다. 충돌이면 그 블록을
     //      아예 타지 않아야 저장되지도 않은 변경이 이력에 남는 일이 없다.
-    // 행사 모드에서 숨긴 칸은 값도 비운다.
-    //   숨기기만 하면 「일반 캠페인을 만들다가 뒤늦게 행사로 바꾼」 경우 먼저 고른
-    //   채널·콘텐츠가 그대로 저장된다. 그리는 쪽에서도 막지만(상세·미리보기)
-    //   저장까지 비워야 낡은 값이 쌓이지 않는다.
-    //   ⚠️ 특히 submission_end 가 남으면 자동 종료(closed→ended)가 그 날짜를 보고
-    //      행사와 무관하게 캠페인을 끝내 버린다.
-    //   ⚠️ 객체 **안쪽**이 아니라 완성된 뒤에 덮어쓴다 — 안에 끼우면 같은 키가
-    //      뒤에 또 나와 값이 되살아난다(실제로 submission_end 가 그랬다).
-    if (_isEventEdit) {
-      Object.assign(updates, EVENT_MODE_CLEARED_FIELDS);
-      // 방문 기간·모집 인원은 「행사 시간」에서 계산한다 — 손으로 적은 값과 시간대가
-      // 어긋나 방문객 화면에 서로 다른 날짜가 나란히 뜨던 것을 없앤다.
-      //   시간대가 0줄이면 방문 기간은 위에서 비운 채로 남는다(그게 사실이다).
-      //   모집 인원은 0으로 만들지 않는다 — 목록의 「N/M명」 분모가 0이 되면 못 읽는다.
-      const _d = (typeof fetchEventDerivedForSave === 'function')
-        ? await fetchEventDerivedForSave(campId) : null;
-      if (_d) {
-        updates.visit_start = _d.visit_start;
-        updates.visit_end   = _d.visit_end;
-        if (_d.slots > 0) updates.slots = _d.slots;
-      }
-    }
-
     const _saveResult = await updateCampaign(campId, updates, _editCampOriginal?.version);
     if (_saveResult && _saveResult.conflict) {
       // 저장이 취소됐으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
@@ -39450,12 +37125,6 @@ async function saveCampaignEdit() {
       allCampaigns = await fetchCampaigns();
       switchAdminPane('campaigns', null);
       return;
-    }
-
-    // 초대 번호는 캠페인 표가 아니라 별도 표(event_invites)라 따로 넣는다.
-    //   저장 충돌(위 conflict 분기)로 돌아간 경우에는 여기 도달하지 않는다.
-    if (typeof saveEventInviteAfterCampaignSave === 'function') {
-      await saveEventInviteAfterCampaignSave('edit', campId);
     }
 
     // Phase 2 — 주의사항/참여방법 변경 감지 시 audit 이력 기록
@@ -39538,15 +37207,6 @@ async function duplicateCampaign(campId) {
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
       winner_announce: src.winner_announce,
-      // 오프라인 행사 설정 — 안 넣으면 복제본이 「행사가 아닌 방문형」이 된다.
-      //   제약(마이그레이션 280)은 「행사면 방문형」만 요구해 반대 방향은 통과하므로
-      //   아무것도 안 막고 조용히 빠졌다. 시간대는 캠페인마다 다르므로 복제하지 않는다.
-      event_mode: !!src.event_mode,
-      is_invite_only: !!src.is_invite_only,
-      event_place: src.event_place || null,
-      // 묶음도 이어받는다 — 같은 행사의 다음 날 캠페인은 복제로 만드는 게 흔한데,
-      //   안 이어받으면 복제본만 묶음에서 빠져 현장 화면 명단이 그 날짜만 빈다.
-      event_group_id: src.event_group_id || null,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -39827,12 +37487,6 @@ function buildPreviewCamp(mode) {
     slots: parseInt(val(g+'Slots'))||10,
     min_followers: parseInt(val(g+'MinFollowers'))||0,
     primary_channel: val(g+'PrimaryChannel')||null,
-    // 행사 여부 — 이게 없으면 isEventCampaign 이 늘 거짓이라, 미리보기의 행사 분기가
-    // 한 번도 안 걸린다. 폼에서 숨긴 칸(채널·콘텐츠·제출마감·당선발표·리워드)이
-    // 미리보기에는 그대로 떠서, 인플루언서가 실제로 보는 화면과 달라진다.
-    event_mode: !!$(g + 'EventMode')?.checked,
-    is_invite_only: !!$(g + 'InviteOnly')?.checked,
-    event_place: (val(g+'EventPlace') || '').trim() || null,
     recruit_start: val(g+'RecruitStart')||null,
     deadline: val(g+'Deadline')||null,
     purchase_start: val(g+'PurchaseStart')||null,
@@ -39875,8 +37529,6 @@ const CP_I18N = {
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
     kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
-    kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
-    evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、LINEにてご連絡',
     secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
@@ -39889,92 +37541,12 @@ const CP_I18N = {
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
-    kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
-    evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 LINE으로 연락',
     secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
     secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
   }
 };
-
-// 미리보기에 넣을 행사 시간 요약 — 날짜마다 「N타임 · 첫 시각〜마지막 시각」.
-//   시간대는 캠페인 표가 아니라 별도 표에 있어 폼 값으로는 못 만든다. 편집 화면이
-//   방금 읽어 둔 목록(_eventSlotsCache)을 그대로 쓴다.
-// 'YYYY-MM-DD' → '8/8(土)'. 방문객 화면(application.js formatEventSlotDateLabel)과 같은 규칙.
-function eventPreviewDateLabel(d, lang) {
-  const dt = new Date(d + 'T00:00:00+09:00');
-  if (isNaN(dt.getTime())) return d;
-  const wd = dt.toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'ja-JP', {weekday: 'short', timeZone: 'Asia/Tokyo'});
-  return `${dt.getMonth() + 1}/${dt.getDate()}(${wd.replace(/[()]/g, '')})`;
-}
-
-// 미리보기의 타임 선택표 — 방문객이 실제로 누르는 버튼을 그대로 보여 준다.
-//   정보표의 「방문 일시」 한 줄만으로는 **고르는 화면이 어떻게 생겼는지** 알 수 없어
-//   「선택하는 버튼이 안 보인다」는 말이 나왔다(2026-08-04 지적).
-//   ⚠️ 방문객 화면의 클래스(.event-slot 등)는 인플루언서 빌드에만 있어 여기서 못 쓴다.
-//      같은 생김새를 인라인으로 다시 그린다 — 바꿀 때 양쪽을 함께 봐야 한다
-//      (원본: dev/js/application.js 의 renderEventSlotList).
-//   ⚠️ 누르는 흉내만 낸다. 미리보기는 값을 바꾸지 않는다.
-function eventSlotPickerPreviewHtml(L, mode, lang) {
-  const head = `<div class="cp-section-heading">${esc(L.kEventTimes)}</div>`;
-  // ⚠️ 바로 아래 eventTimesPreviewHtml 과 **같은 가드가 필요하다.** `_eventSlotsCache` 는
-  //    편집 화면 전용이라, 신규 등록 화면에서 그대로 읽으면 직전에 편집하던 다른
-  //    캠페인의 시간대가 새 캠페인 미리보기에 뜬다. (같은 실수를 두 번 했다 — 앞 커밋에서
-  //    한쪽만 고치고 이 함수에 옮기지 못했다.)
-  if (mode !== 'edit') {
-    return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
-  }
-  const rows = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
-    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false) : [];
-  const dates = [...new Set(rows.map(r => String(r.slot_date).slice(0, 10)))].sort();
-  if (!rows.length) {
-    return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
-  }
-  const active = dates[0];
-  const dLabel = d => eventPreviewDateLabel(d, lang);
-  const tabs = dates.length > 1
-    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">` + dates.map(d =>
-        `<span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;border:1px solid ${d === active ? 'var(--ink)' : 'var(--line)'};background:${d === active ? 'var(--ink)' : '#fff'};color:${d === active ? '#fff' : 'var(--muted)'}">${esc(dLabel(d))}</span>`
-      ).join('') + `</div>`
-    : `<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(dLabel(dates[0]))}</div>`;
-  const list = rows.filter(r => String(r.slot_date).slice(0, 10) === active).map(r => {
-    const st = String(r.start_time || '').slice(0, 5);
-    const en = r.end_time ? String(r.end_time).slice(0, 5) : '';
-    const time = en ? `${st}〜${en}` : st;
-    const cnt = (typeof _eventSlotCounts !== 'undefined' && _eventSlotCounts) ? (_eventSlotCounts[r.id] || {}) : {};
-    const cap = Number(r.capacity || 0);
-    const left = (cnt.remaining != null) ? Number(cnt.remaining) : cap;
-    const full = left <= 0;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--line);border-radius:10px;background:${full ? 'var(--surface-container-low)' : '#fff'}">
-      <span style="font-size:13px;font-weight:700;color:${full ? 'var(--muted)' : 'var(--ink)'}">${esc(time)}</span>
-      ${r.audience_label ? `<span style="font-size:11px;color:var(--muted)">${esc(r.audience_label)}</span>` : ''}
-      <span style="font-size:11px;font-weight:600;color:${full ? 'var(--muted)' : 'var(--dark-pink)'}">${full ? esc(L.evtFull) : esc(L.evtRemain).replace('{n}', left)}</span>
-    </div>`;
-  }).join('');
-  return `<div class="cp-sec">${head}${tabs}${list}</div>`;
-}
-
-function eventTimesPreviewHtml(L, mode) {
-  // ⚠️ `_eventSlotsCache` 는 **편집 화면 전용** 캐시다. 신규 등록 화면은 시간대를 걸
-  //    캠페인 식별자가 아직 없어 이 캐시를 채우지 않으므로, 그대로 읽으면 직전에
-  //    편집하던 **다른 캠페인의 시간대**가 새 캠페인 미리보기에 뜬다 — 관리자가
-  //    「이미 등록돼 있다」고 오해해 진짜 시간대를 안 만들 수 있다.
-  if (mode !== 'edit') return `<span style="color:var(--muted)">${esc(L.evtNoTimes)}</span>`;
-  const rows = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
-    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false) : [];
-  if (!rows.length) return `<span style="color:var(--muted)">${esc(L.evtNoTimes)}</span>`;
-  const byDate = {};
-  rows.forEach(r => {
-    const d = String(r.slot_date).slice(0, 10);
-    (byDate[d] = byDate[d] || []).push(String(r.start_time || '').slice(0, 5));
-  });
-  return Object.keys(byDate).sort().map(d => {
-    const times = byDate[d].filter(Boolean).sort();
-    const span = times.length ? `${times[0]}〜${times[times.length - 1]}` : '';
-    return `<div>${esc(d.replace(/-/g, '/'))} · ${times.length}${esc(L.evtTimeUnit)}${span ? ` · ${esc(span)}` : ''}</div>`;
-  }).join('');
-}
 
 function renderCampPreview(mode) {
   const el = document.getElementById(mode === 'edit' ? 'editCampPreviewContent' : 'newCampPreviewContent');
@@ -40017,11 +37589,6 @@ function renderCampPreview(mode) {
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
   const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
-  // 인플루언서 상세와 같은 판정 — 미리보기가 실제 화면과 달라 보이면 안 된다.
-  //   ⚠️ 여기(함수 몸통)에 둔다. 아래 정보표를 만드는 즉시실행 함수 **안**에 두면 그 안에서만
-  //      유효해서, 바깥의 타임 선택표 줄이 이 이름을 못 찾고 **미리보기 전체가 멈춘다** —
-  //      행사든 아니든, 편집이든 신규 등록이든 모든 캠페인에서(2026-08-04 실측).
-  const isEventPreview = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
 
   el.innerHTML = `
     <div class="cp-frame">
@@ -40049,27 +37616,22 @@ function renderCampPreview(mode) {
             const rows = [];
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kProduct)}</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitType)}</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>`);
-            if (channelNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
-            if (contentTypeNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
+            if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
+            if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
             if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
-            if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
-            if (camp.submission_end && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
+            if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
+            if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
             if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSlots)}</div><div class="cp-info-val">${camp.slots}${esc(L.unit)}</div></div>`);
-            // 행사 캠페인의 방문 날짜·시각 — 방문객 화면에서는 아래 타임 선택표가 이 자리를
-            // 대신하지만, 미리보기는 그 표를 그리지 않아 **행사 시간이 통째로 안 보였다**.
-            // 관리자가 방금 만든 시간대가 미리보기에 없으면 안 만들어진 것처럼 읽힌다.
-            if (isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kEventTimes)}</div><div class="cp-info-val">${eventTimesPreviewHtml(L, mode)}</div></div>`);
-            if (camp.min_followers && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
+            if (camp.min_followers) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
             // 리뷰어(monitor) 캠페인은 当選発表·報酬 행 제외
-            if (!isMonitorPreview && !isEventPreview) {
+            if (!isMonitorPreview) {
               rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kWinnerAnnounce)}</div><div class="cp-info-val">${esc(camp.winner_announce||L.winnerDefault)}</div></div>`);
               if (rewardText || camp.reward_note) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kReward)}</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`);
             }
             return rows.join('');
           })()}
         </div>
-        ${isEventPreview ? eventSlotPickerPreviewHtml(L, mode, lang) : ''}
         ${steps.length ? `<div class="cp-participation">
           <div class="cp-section-heading">${esc(L.secParticipation)}</div>
           ${steps.map((s,i)=>{
@@ -40262,27 +37824,10 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const auditPurgeItem = isSuper
     ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
-  // 오프라인 행사 캠페인에만 예약 현황을 띄운다.
-  //   시간대(타임) 관리는 캠페인 **편집 화면 안**으로 옮겼다(2026-08-03) — 그 캠페인의
-  //   설정이라 고쳐 쓰는 자리에 함께 있는 것이 자연스럽다.
-  //   사이드바 상설 항목은 만들지 않는다 — 행사는 소수·기간 한정이라 상설로 두면
-  //   평소엔 빈 화면으로 남는다(작업표 결정).
-  const _campForEvent = (typeof allCampaigns !== 'undefined' && allCampaigns)
-    ? allCampaigns.find(c => c.id === campId) : null;
-  const _isEventMenu = (typeof isEventCampaign === 'function') && isEventCampaign(_campForEvent);
-  const eventItems = _isEventMenu
-    ? `<div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
-    : '';
-  // 행사 캠페인은 결과물이 없다 — 내려받아도 빈 표라 「없는 것을 찾게」 만든다.
-  //   대신 예약 명단 엑셀이 진행현황의 예약 탭에 있다.
-  const delivExcelItem = _isEventMenu ? ''
-    : `<div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>`;
-
   menu.innerHTML = `
-    ${eventItems}
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
-    ${delivExcelItem}
+    <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
     ${auditPurgeItem}
@@ -40538,9 +38083,7 @@ async function addCampaign() {
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
-  if (!ch && !((typeof isEventModeForm === 'function') && isEventModeForm('new'))) {
-    toast('채널을 1개 이상 선택해주세요','error'); return;
-  }
+  if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
   // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
@@ -40590,12 +38133,6 @@ async function addCampaign() {
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
     reward_note: ($('newCampRewardNote')?.value || '').trim() || null,
-    // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 캠페인 표가 아니라
-    // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
-    event_mode: !!$('newCampEventMode')?.checked,
-    is_invite_only: !!$('newCampInviteOnly')?.checked,
-    event_place: ($('newCampEventPlace')?.value || '').trim() || null,
-    event_group_id: ($('newCampEventMode')?.checked ? ($('newCampEventGroup')?.value || '') : '') || null,
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,
@@ -40623,18 +38160,8 @@ async function addCampaign() {
     ...collectCampNsetPayload('new'),
   };
 
-  // 편집 저장과 같은 이유 — 숨긴 칸은 값도 비운다(saveCampaignEdit 주석 참고)
-  if ((typeof isEventModeForm === 'function') && isEventModeForm('new')) {
-    Object.assign(camp, EVENT_MODE_CLEARED_FIELDS);
-  }
-
   const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
-
-  // 초대 번호는 캠페인 id 가 있어야 넣을 수 있어 저장 뒤에 따로 처리한다.
-  if (_newCampId && typeof saveEventInviteAfterCampaignSave === 'function') {
-    await saveEventInviteAfterCampaignSave('new', _newCampId);
-  }
 
   // ── 오리엔시트 카드 발행 소비 ──
   if (_opc && _newCampId) {
@@ -40722,10 +38249,7 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   const wrapId = formMode === 'edit' ? 'editCampMinFollowersGroup' : 'newCampMinFollowersGroup';
   const wrap = $(wrapId);
   if (!wrap) return;
-  // 행사 캠페인은 SNS 계정 조건이 없다 — 위 applyDeadlineFieldsVisibility 와 같은 이유로
-  // 판정을 여기에 둔다(호출 순서에 기대지 않는다).
-  const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
-  wrap.style.display = (recruitType === 'monitor' || isEvent) ? 'none' : '';
+  wrap.style.display = recruitType === 'monitor' ? 'none' : '';
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
@@ -40902,26 +38426,15 @@ function applyDeadlineFieldsVisibility(formMode, recruitType) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
-  // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는
-  //    「행사 시간」(시간대 표)이 정한다. 이 판정을 **여기에 둬야** 한다.
-  //    호출자 쪽에서만 숨기면, 형식이 바뀔 때 도는 비동기 렌더가 나중에 끝나면서
-  //    「방문형이니 보여라」로 되살린다 — 실제로 신규 등록 화면에서 그랬다
-  //    (2026-08-03 브라우저 테스트). 규칙을 한곳에 두면 순서와 무관해진다.
-  const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
-  const typeWantsPurchase = (recruitType === 'monitor');
-  const typeWantsVisit    = (recruitType === 'visit');
-  if (purchaseRow) purchaseRow.style.display = (typeWantsPurchase && !isEvent) ? '' : 'none';
-  if (visitRow)    visitRow.style.display    = (typeWantsVisit    && !isEvent) ? '' : 'none';
-  // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
-  //   둘을 한 덩어리로 두면 ①편집 폼을 여는 순간(행사 체크박스가 아직 이 캠페인 것으로
-  //   안 바뀐 시점) 직전 캠페인의 행사 여부가 새어 들어와 **멀쩡한 방문형 캠페인의
-  //   방문 날짜가 지워지고** ②행사 모드를 켰다 끄면 원래 있던 날짜가 사라진다.
-  //   숨기는 것과 지우는 것은 목적이 다르다(2026-08-03 리뷰 지적).
-  if (!typeWantsPurchase) {
+  const showPurchase = (recruitType === 'monitor');
+  const showVisit = (recruitType === 'visit');
+  if (purchaseRow) purchaseRow.style.display = showPurchase ? '' : 'none';
+  if (visitRow) visitRow.style.display = showVisit ? '' : 'none';
+  if (!showPurchase) {
     const ps = $(prefix + 'PurchaseStart'); if (ps) ps.value = '';
     const pe = $(prefix + 'PurchaseEnd'); if (pe) pe.value = '';
   }
-  if (!typeWantsVisit) {
+  if (!showVisit) {
     const vs = $(prefix + 'VisitStart'); if (vs) vs.value = '';
     const ve = $(prefix + 'VisitEnd'); if (ve) ve.value = '';
   }
@@ -42079,8 +39592,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
-  // 예약 현황도 「어느 캠페인인지」를 화면 상태로만 들고 있어(주소에 없다),
-  // 새로고침하면 캠페인을 잃고 빈 표만 남는다 → 캠페인 목록으로 돌려보낸다.
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
