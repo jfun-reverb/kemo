@@ -140,6 +140,9 @@ function applyEventModeFormLock(prefix) {
     const inv = $(prefix + 'CampInviteOnly');
     if (inv) inv.checked = false;
     applyInviteOnlyRow(prefix);
+    // ⚠️ 묶음 선택은 **여기서 비우지 않는다.** 실수로 껐다 다시 켜면 값이 안 돌아와
+    //   조용히 연결이 끊긴다 — 이 칸이 막으려는 사고 그 자체다. 행사가 아닐 때
+    //   묶음을 지우는 일은 **저장 시점**에 한다(행사장 안내 칸과 같은 방식).
   }
 }
 
@@ -227,6 +230,9 @@ async function loadEventSettingsIntoEditForm(camp) {
   if (io) io.checked = !!camp?.is_invite_only;
   const pl = $('editCampEventPlace');
   if (pl) pl.value = camp?.event_place || '';
+  // 묶음 선택지 — 지금 연결된 묶음을 keep 으로 넘긴다. 그게 보관 상태면 목록에서
+  //   빠지는데, 빠진 채로 저장하면 빈 값이 쓰여 **연결이 조용히 끊긴다**.
+  await fillEventGroupSelect('edit', camp?.event_group_id || '');
   applyEventModeFormLock('edit');
   applyEventModeFieldVisibility('edit');
   applyInviteOnlyRow('edit');
@@ -284,12 +290,77 @@ async function saveEventInviteAfterCampaignSave(prefix, campaignId) {
   }
 }
 
+// ── 행사 묶음 선택칸 (마이그레이션 291·292) ────────────────────────
+// 같은 행사를 날짜별로 여러 캠페인으로 나눈 경우 하나로 묶는다.
+//   사양서 docs/specs/2026-08-05-event-group-and-scoped-checkin.md §4-2
+//
+// ⚠️ 목록만 캐시하고 **캠페인별 선택값은 캐시하지 않는다.** 이 파일에는
+//    모듈 전역 기억값을 캠페인마다 안 비워 다음 캠페인에 옛 값이 새던
+//    사고 기록이 있다(_recruitTypeBeforeEvent, 2026-08-03). 선택값까지
+//    캐시하면 같은 자리에서 같은 사고가 난다.
+let _eventGroupCache = null;
+
+async function fillEventGroupSelect(prefix, selectedId) {
+  const sel = $(prefix + 'CampEventGroup');
+  if (!sel) return;
+  // 지금 연결된 묶음은 보관 상태여도 목록에 남긴다(연결이 끊기는 것을 막는다).
+  const fetched = await fetchEventGroups(selectedId || '');
+  let groups;
+  if (fetched === null) {
+    // 조회 실패 — 「묶음 0건」과 반드시 구분한다. 선택지를 비우면 연결된 묶음이
+    //   목록에서 사라져 화면이 「묶지 않음」으로 보이고, 그대로 저장하면 연결이
+    //   조용히 끊긴다. 마지막으로 받아 둔 목록을 쓰고 사용자에게 알린다.
+    groups = _eventGroupCache || [];
+    toast('행사 묶음 목록을 불러오지 못했습니다. 저장 전에 묶음이 맞는지 확인해 주세요.');
+  } else {
+    groups = fetched;
+    _eventGroupCache = fetched;
+  }
+  const opts = ['<option value="">묶지 않음 (하루짜리 행사)</option>'];
+  groups.forEach(g => {
+    const arch = g.status !== 'active' ? ' (보관)' : '';
+    opts.push(`<option value="${esc(g.id)}">${esc(g.name)}${arch}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+  sel.value = selectedId || '';
+  // 최종 방어선 — 연결된 묶음이 목록에 없으면(조회 실패로 캐시가 비었거나, 방금
+  //   다른 관리자가 지운 경우) 위 대입이 조용히 실패해 빈 값이 된다. 그대로 저장하면
+  //   연결이 끊기므로, 값을 지키는 자리표시 항목을 만들어 넣는다.
+  if (selectedId && sel.value !== selectedId) {
+    sel.insertAdjacentHTML('beforeend', `<option value="${esc(selectedId)}">(현재 연결된 묶음)</option>`);
+    sel.value = selectedId;
+  }
+}
+
+// 「새 묶음」 — 브랜드 신규 등록과 같은 즉석 입력 방식.
+async function openEventGroupCreate(prefix) {
+  const name = window.prompt('새 행사 묶음 이름을 입력하세요.\n예) REVERB 팝업 2026년 8월\n\n같은 행사의 캠페인들을 이 이름으로 묶습니다.');
+  if (name === null) return;
+  const nm = String(name).trim();
+  if (!nm) { toast('묶음 이름을 입력해 주세요.'); return; }
+
+  const res = await createEventGroup(nm);
+  if (!res.ok) {
+    if (res.duplicate) {
+      // 띄어쓰기·대소문자만 다른 이름은 서버가 같은 값으로 보고 막는다(마이그레이션 292).
+      toast('같은 이름의 묶음이 이미 있습니다. 목록에서 골라 주세요.');
+      await fillEventGroupSelect(prefix, $(prefix + 'CampEventGroup')?.value || '');
+      return;
+    }
+    toast('묶음을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  await fillEventGroupSelect(prefix, res.group?.id || '');
+  toast(`「${nm}」 묶음을 만들었습니다.`);
+}
+
 // 신규 등록 폼 초기화 시 호출 (폼을 비울 때 행사 설정도 함께 초기화)
 function resetEventFormFields(prefix) {
   const em = $(prefix + 'CampEventMode'); if (em) em.checked = false;
   const io = $(prefix + 'CampInviteOnly'); if (io) io.checked = false;
   const cc = $(prefix + 'CampInviteCode'); if (cc) cc.value = '';
   const pl = $(prefix + 'CampEventPlace'); if (pl) pl.value = '';
+  fillEventGroupSelect(prefix, '');
   if (prefix === 'new') _pendingNewInviteCode = null;
   _recruitTypeBeforeEvent[prefix] = null;
   const warn = $(prefix + 'CampInviteWarn');
