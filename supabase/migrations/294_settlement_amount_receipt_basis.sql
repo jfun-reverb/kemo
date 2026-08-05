@@ -212,7 +212,11 @@ AS $$
       WHEN cd.recruit_type = 'monitor'
            AND rl.purchase_amount IS NOT NULL AND rl.purchase_amount > 0
            AND cd.product_price   IS NOT NULL AND cd.product_price   > 0
-        THEN floor(LEAST(rl.purchase_amount, cd.product_price::numeric))::bigint
+        -- ⚠️ 버림 결과가 0 이하면 NULL 로 떨어뜨린다(2026-08-05 개발서버 실측에서 발견).
+        -- 안 그러면 "금액 미확정"인데 금액 칸만 0 으로 채워져, 같은 미확정 3종 중
+        -- 이 케이스만 관리자 화면에 「0엔」으로 표시돼 "0엔 지급 건인가?"로 읽힌다
+        -- (저장은 amount_issue 로 걸러져 안 되므로 금전 사고는 아니지만 표시가 어긋난다).
+        THEN NULLIF(GREATEST(floor(LEAST(rl.purchase_amount, cd.product_price::numeric)), 0), 0)::bigint
       WHEN cd.recruit_type = 'monitor' THEN NULL::bigint  -- 아래 amount_issue 로 사유가 채워짐
       ELSE cd.reward
     END AS amount_jpy,
