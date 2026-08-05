@@ -399,9 +399,9 @@
 
 | 파일 | 내용 |
 |---|---|
-| `supabase/migrations/293_settlements_receipt_amount_columns.sql` | `amount_source` CHECK 에 **`receipt_amount`** 추가 + 감사용 칸 2개(`receipt_amount_jpy`·`amount_cap_jpy`) |
-| `supabase/migrations/294_settlement_amount_receipt_basis.sql` | 헬퍼 `_settlement_cert_candidates()` DROP 후 재생성 + 호출 함수 3개 재정의 |
-| `supabase/migrations/295_receipt_settlement_lock_guard.sql` | 영수증 신규 제출 차단 트리거 `trg_receipt_settlement_lock` |
+| `supabase/migrations/299_settlements_receipt_amount_columns.sql` | `amount_source` CHECK 에 **`receipt_amount`** 추가 + 감사용 칸 2개(`receipt_amount_jpy`·`amount_cap_jpy`) |
+| `supabase/migrations/300_settlement_amount_receipt_basis.sql` | 헬퍼 `_settlement_cert_candidates()` DROP 후 재생성 + 호출 함수 3개 재정의 |
+| `supabase/migrations/301_receipt_settlement_lock_guard.sql` | 영수증 신규 제출 차단 트리거 `trg_receipt_settlement_lock` |
 
 **초안 대비 변경 사항**
 
@@ -440,7 +440,7 @@
 
 | 대상 | 내용 |
 |---|---|
-| `supabase/migrations/296_update_receipt_admin_settlement_guard.sql` | 영수증 사후 수정 가드 + 정산액 재계산. **베이스는 178**(전수 확인) |
+| `supabase/migrations/302_update_receipt_admin_settlement_guard.sql` | 영수증 사후 수정 가드 + 정산액 재계산. **베이스는 178**(전수 확인) |
 | `dev/js/admin-settlements.js` | 금액 출처에 「영수증 금액」 이름표 추가 · 상한 적용 근거 표시(목록·송금완료 모달·「과거 미등록」) · 엑셀 3개 열 |
 | `dev/js/admin-deliverables.js` | 결과물 검수 화면에 「이 금액이 정산 지급액이 됩니다」 경고(리뷰어형 한정) |
 | `dev/lib/storage.js` | 정산 조회에 감사용 칸 2개 추가 · 결과물 조회에 `product_price` 추가 |
@@ -460,15 +460,15 @@
 
 **아직 안 한 것**
 
-- 296 개발서버 적용·검증
-- 영수증 **신규 제출**에 대한 관리자 화면 경고(정산대기 건) — 295가 서버 차단만 하고, 화면 경고는 아직 없다
+- 302 개발서버 적용·검증
+- 영수증 **신규 제출**에 대한 관리자 화면 경고(정산대기 건) — 301이 서버 차단만 하고, 화면 경고는 아직 없다
 - 2.5·3·4·5단계
 
 ### 2.5단계 — 영수증 입력 안내 + 차단 문구 (2026-08-05)
 
 | 대상 | 내용 |
 |---|---|
-| `dev/js/ui.js` | 영수증 제출 차단(295) 오류를 **일본어·한국어 문구로 등록**. ⚠️ 없으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다 — 운영 배포 전 발견 |
+| `dev/js/ui.js` | 영수증 제출 차단(301) 오류를 **일본어·한국어 문구로 등록**. ⚠️ 없으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다 — 운영 배포 전 발견 |
 | `dev/index.html` · `dev/js/application.js` · `dev/lib/i18n/{ja,ko}.js` | 활동관리 영수증 「구매금액」 아래 안내 4줄(`renderReceiptPayoutNote`) |
 
 **확정 문안** (제품 가격은 캠페인마다 자동 치환)
@@ -497,7 +497,7 @@
 | (마) | 홍보 메일 | 전체형으로 교체 |
 | (바) | 다국어 열쇠말 | `rewardPaybackFull`·`rewardPaybackShort` 신설, 옛 `rewardPayback` **제거**(잔존 참조 0 확인) |
 | (아) | 인플루언서 정산 화면 | 「영수증 구매 금액 기준으로 계산」 한 줄. 조회에 `amount_source` 추가 |
-| (자) | 자주 묻는 질문 | `supabase/migrations/297_faq_receipt_payback_amount.sql` — 「최대 금액인데 적게 들어왔어요」 |
+| (자) | 자주 묻는 질문 | `supabase/migrations/303_faq_receipt_payback_amount.sql` — 「최대 금액인데 적게 들어왔어요」 |
 
 **확정 문안**
 
@@ -514,6 +514,6 @@
 
 **아직 안 한 것**
 
-- 297 개발서버 적용
+- 303 개발서버 적용
 - 브라우저 실측(480px 하단 고정 바 잘림·언어 전환)
 - 4·5단계

@@ -129,7 +129,7 @@ async function openCampaign(id) {
           <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
           ${camp.product_price>0?(camp.recruit_type === 'monitor'
             // 리뷰어형 — 받는 금액이 응모 시점에 확정되지 않으므로(영수증 실결제액 기준,
-            // 294) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
+            // 300) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
             // 작은 보조 줄로 내린다. 시딩·방문형은 제품 가치가 확정이라 기존 그대로.
             ? `<div style="display:inline-block;background:var(--light-pink);border-radius:8px;padding:7px 12px;margin-bottom:4px">
                  <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()))}</div>
@@ -1754,7 +1754,7 @@ function previewReceipt(input) {
 }
 
 // 영수증 글자 자동입력 (기기 안 처리). 빈 칸만 채우고, 실패해도 제출엔 영향 없음.
-// 영수증 구매금액 아래 「이 금액이 그대로 송금됩니다」 안내(마이그레이션 294 이후).
+// 영수증 구매금액 아래 「이 금액이 그대로 송금됩니다」 안내(마이그레이션 300 이후).
 // ⚠️ 리뷰어형(monitor)에서만 그린다 — 방문형(visit)도 이 폼으로 현장 사진을 내지만
 // 방문형 정산은 현금 리워드 기준이라, 띄우면 사실과 다른 안내가 된다.
 // 상한(제품 가격)이 없거나 0 이면 3번 줄(상한 안내)만 빼고 나머지는 그대로 보여준다.
@@ -1772,6 +1772,14 @@ function renderReceiptPayoutNote(camp) {
     + `<ol style="margin:0;padding-left:18px">${lines.map(s => `<li style="margin-bottom:2px">${esc(s)}</li>`).join('')}</ol>`;
   box.style.display = '';
 }
+
+// 언어 전환 시 이 안내만 옛 언어로 남지 않게 다시 그린다 — 동적 렌더라 applyI18n
+// 대상이 아니고, app.js 의 langchange 재렌더 목록에도 활동관리 화면은 없다.
+// (마이페이지 정산 화면이 쓰는 패턴과 같다 — mypage.js)
+window.addEventListener('langchange', () => {
+  const page = $('page-activity');
+  if (page && page.classList.contains('active') && _activityCamp) renderReceiptPayoutNote(_activityCamp);
+});
 
 async function runReceiptAutofill() {
   const btn = $('receiptOcrBtn');

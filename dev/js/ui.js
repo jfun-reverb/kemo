@@ -135,7 +135,7 @@ function friendlyErrorJa(e) {
   //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
   if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
   if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
-  // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 295) — 서버가 코드 접두어를 붙여
+  // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
   // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
@@ -371,6 +371,11 @@ document.addEventListener('keydown', (e) => {
     // campBundleModal 은 DOM 이동 복귀 로직이 있어 전용 닫기 함수로 위임
     if (top.id === 'campBundleModal' && typeof closeCampBundleModal === 'function') {
       closeCampBundleModal();
+    // 오리엔시트 상세는 닫을 때 목록의 메모 배지를 다시 계산해야 한다.
+    //   여기서 일반 closeModal 로 닫으면 그 갱신이 빠져, 상세를 읽고 ESC 로 닫았을 때
+    //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
+    } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
+      osCloseModal('orientDetailModal');
     } else {
       closeModal(top.id);
     }

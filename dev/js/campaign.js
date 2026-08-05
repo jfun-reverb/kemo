@@ -285,7 +285,7 @@ function buildCampCards(camps) {
     const isClickable = !isScheduled;
     // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
     // 그런데 reward=0·product_price>0 이라 「製品無償提供」로 표시돼 왔다(오래된 오표기).
-    // 294 로 지급 기준이 영수증 실결제액이 되면서 상세·하단 바와도 어긋나므로 여기서 바로잡는다.
+    // 300 으로 지급 기준이 영수증 실결제액이 되면서 상세·하단 바와도 어긋나므로 여기서 바로잡는다.
     const reward = c.recruit_type === 'monitor' && c.product_price > 0
       ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
       : c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
