@@ -64,6 +64,22 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
 .lang-toggle button.on{background:var(--ink);color:#fff}
 .badge-env{font-size:10px;font-weight:800;background:var(--amber);color:#fff;padding:2px 7px;border-radius:5px}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+/* ── 지금 보고 있는 행사 ──
+   부스에서 하루 종일 띄워 두는 화면이라, 「무엇을 보고 있는지」가 항상 눈에 있어야
+   한다. 날짜가 바뀌어 다른 캠페인으로 넘어간 것을 모르면 빈 명단을 보고 당황한다. */
+.scope-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;margin-bottom:12px;font-size:16px;font-weight:800;color:var(--ink)}
+.scope-bar .material-icons-round{font-size:20px;color:var(--muted)}
+.scope-sub{font-size:13px;font-weight:700;color:var(--muted)}
+/* ── 행사 고르기 ──
+   장갑 낀 손으로도 누를 수 있게 항목을 크게 잡는다(최소 높이 56px). */
+.picker-title{font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px}
+.picker-item{display:block;width:100%;text-align:left;min-height:56px;
+  padding:14px;margin-top:10px;border:1px solid var(--line);border-radius:12px;
+  background:#fff;color:var(--ink);font-size:17px;font-weight:800;font-family:inherit;cursor:pointer}
+.picker-item:hover{border-color:var(--ink)}
+.picker-item .picker-sub{display:block;margin-top:4px;font-size:13px;font-weight:600;color:var(--muted)}
 label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
 input[type=text],input[type=email],input[type=password]{
   width:100%;padding:14px 12px;border:1px solid var(--line);border-radius:10px;
@@ -225,8 +241,25 @@ button{font-family:inherit;cursor:pointer}
     </div>
   </div>
 
+  <!-- 행사 고르기 (주소에 행사가 없거나, 주소가 잘못됐을 때) -->
+  <div class="card" id="pickerCard" style="display:none">
+    <div class="picker-title" data-i18n="pickTitle">어느 행사를 확인하시나요?</div>
+    <div class="hint" data-i18n="pickHint">이 화면은 고른 행사 하나만 보여 줍니다. 다른 행사를 보려면 이 페이지를 새로고침해 다시 고르세요.</div>
+    <div class="hint" id="pickerErr" style="color:var(--red);display:none"></div>
+    <div id="pickerList"></div>
+  </div>
+
   <!-- 본 화면 -->
   <div id="mainArea" style="display:none">
+
+    <!-- 지금 보고 있는 행사. 묶음이면 캠페인 개수를 함께 적는다 — 없으면 캠페인 A 에서
+         열었는데 B 이름이 명단에 나와 「고장 났다」로 읽힌다. -->
+    <div class="scope-bar" id="scopeBar" style="display:none">
+      <span class="material-icons-round notranslate" translate="no">event</span>
+      <span id="scopeName"></span>
+      <span class="scope-sub" id="scopeSub"></span>
+    </div>
+
 
     <div class="cols">
     <div class="col-left">
@@ -347,6 +380,13 @@ const SCAN_I18N = {
     noSlots: '등록된 타임이 없습니다.', noSlotsThisDate: '이 날짜에 등록된 타임이 없습니다.',
     noAttendees: '예약자가 없습니다.',
     rosterFailed: '명단을 불러오지 못했습니다. 인터넷 연결을 확인하고 「새로고침」을 눌러 주세요.',
+    pickTitle: '어느 행사를 확인하시나요?',
+    pickHint: '이 화면은 고른 행사 하나만 보여 줍니다. 다른 행사를 보려면 이 페이지를 새로고침해 다시 고르세요.',
+    pickNone: '진행 중인 행사가 없습니다. 관리자 화면에서 행사 캠페인을 먼저 만들어 주세요.',
+    scopeCampCount: '캠페인 {n}개',
+    scopeNotFound: '주소에 적힌 행사를 찾을 수 없습니다. 아래에서 골라 주세요.',
+    scopeLoadFailed: '행사 목록을 불러오지 못했습니다. 인터넷 연결을 확인하고 이 페이지를 새로고침해 주세요.',
+    scopeUnnamed: '(이름 없는 행사)',
     enterBtn: '입장', enteredAt: '입장', waitingN: '대기', enteredCount: '입장',
     resetBtn: '입장 기록 초기화',
     resetAsk: '{scope} 입장 기록을 되돌립니다.\n예약 자체는 그대로 두고 입장 시각만 지웁니다.\n계속할까요?',
@@ -391,6 +431,13 @@ const SCAN_I18N = {
     noSlots: '登録された時間帯がありません。', noSlotsThisDate: 'この日付に登録された時間帯がありません。',
     noAttendees: '予約者がいません。',
     rosterFailed: 'リストを読み込めませんでした。通信環境をご確認のうえ「再読み込み」をおしてください。',
+    pickTitle: 'どのイベントを確認しますか？',
+    pickHint: 'この画面は選んだイベント1つだけを表示します。ほかのイベントを見るには、このページを再読み込みして選びなおしてください。',
+    pickNone: '進行中のイベントがありません。管理画面でイベントキャンペーンを先に作成してください。',
+    scopeCampCount: 'キャンペーン{n}件',
+    scopeNotFound: 'アドレスのイベントが見つかりません。下から選んでください。',
+    scopeLoadFailed: 'イベント一覧を読み込めませんでした。通信環境をご確認のうえ、このページを再読み込みしてください。',
+    scopeUnnamed: '（名称未設定のイベント）',
     enterBtn: '入場', enteredAt: '入場', waitingN: 'キャンセル待ち', enteredCount: '入場',
     resetBtn: '入場記録をリセット',
     resetAsk: '{scope}入場記録をもとに戻します。\n予約はそのままで、入場時刻だけを消します。\n続けますか？',
@@ -498,6 +545,143 @@ async function doLogin() {
   await afterLogin();
 }
 
+// ── 보는 범위 (마이그레이션 291·292 — 행사 묶음) ────────────────────
+// 이 화면은 **한 행사만** 보여 준다. 여러 행사가 한 화면에 섞이면 부스에서
+// 남의 행사 예약자를 들여보내게 된다.
+// ⚠️ 같은 행사가 날짜별로 여러 캠페인으로 나뉜 경우(이번 팝업이 그렇다)는
+//    「행사 묶음」으로 묶여 있어야 사흘이 한 화면에 들어온다. 안 묶으면 날짜가
+//    바뀌는 아침에 명단이 빈다.
+let _scopeCampaignIds = null;   // null = 아직 안 정해짐
+let _scopeName = '';
+let _scopeCampCount = 0;
+let _pickerChoices = [];   // 고르기 화면에 그린 항목(인덱스로 고른다)
+
+function scopeFromUrl() {
+  const p = new URLSearchParams(location.search);
+  return {group: p.get('group') || '', campaign: p.get('campaign') || ''};
+}
+
+// 행사 캠페인 전부(삭제된 것 제외) + 묶음 이름. 고르기 목록과 범위 판정에 함께 쓴다.
+async function fetchEventScopeSource() {
+  const {data: camps, error} = await sb.from('campaigns')
+    .select('id, title, event_group_id, deleted_at')
+    .eq('event_mode', true)
+    .is('deleted_at', null)
+    .order('created_at', {ascending: false});
+  if (error) throw error;
+  const ids = [...new Set((camps || []).map(c => c.event_group_id).filter(Boolean))];
+  let groups = [];
+  if (ids.length) {
+    const {data: gs} = await sb.from('event_groups').select('id,name,status').in('id', ids);
+    groups = gs || [];
+  }
+  return {camps: camps || [], groups};
+}
+
+// 고를 수 있는 항목을 만든다. **묶음이 있으면 묶음 하나로 합친다** — 묶음에 속한
+// 캠페인을 개별로도 늘어놓으면 담당자가 「첫날」만 골라 이틀차 명단이 비는
+// 사고가 그대로 되살아난다(묶음을 만든 이유가 사라진다).
+function buildScopeChoices(camps, groups) {
+  const gmap = {};
+  groups.forEach(g => { gmap[g.id] = g; });
+  const out = [], seen = {};
+  camps.forEach(c => {
+    const g = c.event_group_id ? gmap[c.event_group_id] : null;
+    // 보관 묶음은 고르기 목록에서 뺀다(§4-1). 주소로 지정해 열면 정상 동작한다.
+    if (g && g.status !== 'active') return;
+    if (g) {
+      if (seen[g.id]) { seen[g.id].campIds.push(c.id); return; }
+      seen[g.id] = {kind: 'group', id: g.id, name: g.name, campIds: [c.id]};
+      out.push(seen[g.id]);
+    } else {
+      out.push({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id]});
+    }
+  });
+  return out;
+}
+
+function applyScope(choice) {
+  _scopeCampaignIds = choice.campIds.slice();
+  _scopeName = choice.name;
+  _scopeCampCount = choice.campIds.length;
+  $('pickerCard').style.display = 'none';
+  $('mainArea').style.display = '';
+  renderScopeBar();
+  $('codeInput')?.focus();
+  loadRoster();
+}
+
+function renderScopeBar() {
+  const bar = $('scopeBar');
+  if (!bar) return;
+  $('scopeName').textContent = _scopeName || '';
+  // 묶음이면 캠페인이 몇 개 들어 있는지 반드시 보여 준다.
+  $('scopeSub').textContent = _scopeCampCount > 1
+    ? T('scopeCampCount', {n: _scopeCampCount}) : '';
+  bar.style.display = '';
+}
+
+function renderPicker(choices, errMsg) {
+  $('mainArea').style.display = 'none';
+  $('pickerCard').style.display = '';
+  const err = $('pickerErr');
+  if (errMsg) { err.textContent = errMsg; err.style.display = ''; } else { err.style.display = 'none'; }
+  const box = $('pickerList');
+  if (!choices.length) {
+    // ⚠️ 오류 안내가 있으면 「행사가 없다」를 겹쳐 띄우지 않는다. 통신이 끊긴 것뿐인데
+    //    「캠페인을 먼저 만들라」가 함께 뜨면 부스에서 반대 방향으로 움직이게 된다.
+    box.innerHTML = errMsg ? '' : `<div class="empty">${esc(T('pickNone'))}</div>`;
+    return;
+  }
+  box.innerHTML = choices.map((c, i) => `
+    <button type="button" class="picker-item" onclick="pickScope(${i})">
+      ${esc(c.name)}
+      ${c.campIds.length > 1 ? `<span class="picker-sub">${esc(T('scopeCampCount', {n: c.campIds.length}))}</span>` : ''}
+    </button>`).join('');
+  _pickerChoices = choices;
+}
+
+function pickScope(idx) {
+  const c = _pickerChoices[idx];
+  if (c) applyScope(c);
+}
+
+// 주소를 읽어 범위를 정한다. 못 정하면 고르기 화면.
+// ⚠️ 고른 뒤 주소에 식별자를 **써넣지 않는다.** 써넣으면 새로고침해도 같은 행사로
+//    돌아와, 잘못 골랐을 때 빠져나갈 길이 없다.
+async function resolveScope() {
+  const {group, campaign} = scopeFromUrl();
+  let src;
+  try {
+    src = await fetchEventScopeSource();
+  } catch (e) {
+    console.warn('[resolveScope]', e);
+    renderPicker([], T('scopeLoadFailed'));
+    return;
+  }
+  const {camps, groups} = src;
+
+  if (group) {
+    const g = groups.find(x => x.id === group);
+    const ids = camps.filter(c => c.event_group_id === group).map(c => c.id);
+    // 지운 묶음·오타 난 주소는 **빈 명단이 아니라** 안내를 띄우고 고르게 한다.
+    if (!ids.length) { renderPicker(buildScopeChoices(camps, groups), T('scopeNotFound')); return; }
+    applyScope({kind: 'group', id: group, name: g?.name || T('scopeUnnamed'), campIds: ids});
+    return;
+  }
+  if (campaign) {
+    const c = camps.find(x => x.id === campaign);
+    if (!c) { renderPicker(buildScopeChoices(camps, groups), T('scopeNotFound')); return; }
+    applyScope({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id]});
+    return;
+  }
+
+  const choices = buildScopeChoices(camps, groups);
+  // 행사가 하나뿐이면 고르게 하지 않는다 — 누를 것이 하나인 화면은 걸림돌일 뿐이다.
+  if (choices.length === 1) { applyScope(choices[0]); return; }
+  renderPicker(choices, '');
+}
+
 async function afterLogin() {
   // 관리자만 쓸 수 있는 화면이다. 서버 함수도 관리자 가드가 있지만, 관리자가 아닌
   // 사람이 로그인해 빈 화면만 보는 막다른 골목을 만들지 않으려고 여기서 먼저 안내한다.
@@ -516,12 +700,12 @@ async function afterLogin() {
     return;
   }
   $('loginCard').style.display = 'none';
-  $('mainArea').style.display = '';
   $('logoutBtn').style.display = '';
-  $('codeInput').focus();
   // 개발서버에서만 초기화 버튼을 그린다(운영에는 서버 함수 자체가 없다).
   if (SUPABASE_ENV === 'staging') $('resetBtn').style.display = '';
-  loadRoster();
+  // 범위가 정해져야 명단을 부른다. 정해지면 resolveScope 가 본 화면을 띄우고
+  //   loadRoster 까지 이어서 한다(고르기 화면이면 아직 안 부른다).
+  await resolveScope();
 }
 
 async function doLogout() {
@@ -737,10 +921,16 @@ async function loadRoster() {
   const box = $('rosterList');
   if (!box) return;
 
+  // 범위가 아직 안 정해졌으면 부르지 않는다(고르기 화면 상태).
+  if (!_scopeCampaignIds || !_scopeCampaignIds.length) return;
+
   try {
     // 날짜 목록은 타임 표에서 얻는다(예약이 0건인 날짜도 골라 볼 수 있어야 한다).
+    // ⚠️ **이 행사의 캠페인으로 한정한다.** 안 걸면 다른 팝업 행사의 타임까지 섞여
+    //    부스에서 남의 행사 예약자를 들여보내게 된다.
     const {data: allSlots, error: e0} = await sb.from('event_slots')
       .select('id, slot_date, start_time, end_time, audience_label')
+      .in('campaign_id', _scopeCampaignIds)
       .order('slot_date', {ascending: true})
       .order('start_time', {ascending: true});
     if (e0) throw e0;
@@ -852,11 +1042,17 @@ async function resetCheckins() {
   const btn = $('resetBtn');
   btn.disabled = true;
   try {
-    const {data, error} = await sb.rpc('dev_reset_event_checkin', {
-      p_campaign_id: null,
-      p_slot_date: scope
-    });
-    if (error) throw error;
+    // ⚠️ 사정거리를 **지금 보고 있는 행사**로 좁힌다. 화면은 「이 행사」인데 버튼이
+    //    모든 행사를 지우면 인지와 동작이 어긋나고, 다른 행사 검증 데이터가 함께 날아간다.
+    //    서버 함수는 캠페인을 하나만 받으므로, 묶음이면 캠페인마다 한 번씩 부른다.
+    const targets = _scopeCampaignIds || [];
+    if (!targets.length) throw new Error('scope not resolved');
+    let data = 0;
+    for (const cid of targets) {
+      const r = await sb.rpc('dev_reset_event_checkin', {p_campaign_id: cid, p_slot_date: scope});
+      if (r.error) throw r.error;
+      data += Number(r.data) || 0;
+    }
     _recent = [];
     $('recentCard').style.display = 'none';
     $('recentList').innerHTML = '';
