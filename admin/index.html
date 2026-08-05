@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785915635';
+  var CURRENT_BUILD = 'v1785917226';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2801,7 +2801,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 16:40 · 16f1c33</span>
+          <span class="admin-build-text">2026-08-05 17:07 · 2da15d1</span>
         </div>
       </div>
     </aside>
@@ -12957,6 +12957,18 @@ async function fetchEventGroups(keepId) {
       .order('name', {ascending: true});
     if (error) throw error;
     return (data || []).filter(g => g.status === 'active' || (keepId && g.id === keepId));
+  } catch(e) { return null; }
+}
+
+// 지정한 묶음들의 이름만. 캠페인 목록 배지가 쓴다(보관 상태도 포함해야 하므로
+//   위 fetchEventGroups 와 용도가 다르다).
+//   ⚠️ 실패는 null — 호출부가 「이름을 못 받았다」와 「묶음이 없다」를 구분해야 한다.
+async function fetchEventGroupNamesByIds(ids) {
+  if (!db || !ids || !ids.length) return null;
+  try {
+    const {data, error} = await db.from('event_groups').select('id,name').in('id', ids);
+    if (error) throw error;
+    return data || [];
   } catch(e) { return null; }
 }
 
@@ -36004,6 +36016,23 @@ async function saveEventInviteAfterCampaignSave(prefix, campaignId) {
 //    캐시하면 같은 자리에서 같은 사고가 난다.
 let _eventGroupCache = null;
 
+// 캠페인 목록 배지에 쓸 「묶음 id → 이름」. 목록 렌더는 동기 함수라 미리 채워 둔다.
+//   ⚠️ 조회 실패는 **빈 맵으로 덮지 않는다** — 배지가 사라지면 「안 묶였다」로 읽혀
+//      운영자가 멀쩡한 묶음을 다시 지정하려 든다.
+let _eventGroupNames = {};
+
+// ⚠️ 나중에 묶음 이름을 고치는 화면이 생기면, 그 저장 함수에서 이 맵도 갱신하거나
+//    이 함수를 다시 불러야 한다(목록이 캐시를 쓸 때는 여기까지 안 온다).
+async function loadEventGroupNames(camps) {
+  const ids = [...new Set((camps || []).map(c => c && c.event_group_id).filter(Boolean))];
+  if (!ids.length) { _eventGroupNames = {}; return; }
+  const rows = await fetchEventGroupNamesByIds(ids);
+  if (rows === null) return;   // 조회 실패 — 옛 맵을 그대로 둔다(위 주석 참조)
+  const map = {};
+  rows.forEach(g => { map[g.id] = g.name; });
+  _eventGroupNames = map;
+}
+
 async function fillEventGroupSelect(prefix, selectedId) {
   const sel = $(prefix + 'CampEventGroup');
   if (!sel) return;
@@ -37219,7 +37248,16 @@ function eventCampBadges(c) {
   const inv = c.is_invite_only
     ? `<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">lock</span>비공개</span>`
     : '';
-  return ev + inv;
+  // 같은 행사로 묶인 캠페인 — 목록에서 안 보이면 **빠뜨린 캠페인을 알아챌 방법이 없다.**
+  //   묶음을 만든 이유가 「사흘이 한 화면에 들어오는 것」인데, 하나만 안 묶여도
+  //   그날 아침 부스 명단이 빈다.
+  const gname = c.event_group_id
+    ? (typeof _eventGroupNames !== 'undefined' ? _eventGroupNames[c.event_group_id] : '')
+    : '';
+  const grp = c.event_group_id
+    ? `<span title="같은 행사로 묶인 캠페인입니다. 현장 확인 화면을 열면 이 묶음의 캠페인이 함께 나옵니다." style="background:#EEF2FF;color:#4338CA;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">link</span>${esc(gname || '묶음(이름 미확인)')}</span>`
+    : '';
+  return ev + inv + grp;
 }
 
 // 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
@@ -37337,6 +37375,8 @@ async function loadAdminCampaigns(useCache) {
     allCampaigns = camps.slice();
     // 「삭제됨」 탭 건수·목록용 보관 캠페인 캐시 갱신 (실데이터 조회 시에만)
     try { _deletedCampsCache = await fetchDeletedCampaigns(); } catch(e) { _deletedCampsCache = []; }
+    // 행사 묶음 이름 — 목록 배지에 쓴다. 목록 렌더는 동기라 여기서 미리 받아 둔다.
+    if (typeof loadEventGroupNames === 'function') await loadEventGroupNames(camps);
   }
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
