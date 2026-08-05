@@ -346,8 +346,11 @@ async function openCampaign(id) {
         reapplyNotice = document.createElement('div');
         reapplyNotice.id = reapplyNoticeId;
         reapplyNotice.style.cssText = 'background:#F5F5F5;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center';
-        floatApplyBtn.parentNode?.insertBefore(reapplyNotice, floatApplyBtn);
       }
+      // 안내는 버튼 줄 「위」에 놓는다. 버튼의 부모는 가로 한 줄(flex)이라
+      //   거기에 넣으면 제목·리워드 칸(flex:1)이 0px 로 찌부러져 글자가 세로로 쌓인다.
+      const floatRow = floatApplyBtn.parentNode;
+      if (fb && floatRow?.parentNode === fb && reapplyNotice.parentNode !== fb) fb.insertBefore(reapplyNotice, floatRow);
       reapplyNotice.textContent = t('detail.reapplyNotice');
       reapplyNotice.style.display = '';
     } else if (reapplyNotice) {
@@ -467,6 +470,7 @@ function renderEventSlotList() {
       : '';
     return `
       <button type="button" class="event-slot${picked ? ' on' : ''}${full ? ' full' : ''}"
+              aria-pressed="${picked ? 'true' : 'false'}"
               onclick="selectEventSlot('${s.id}')">
         <span class="event-slot-time">${esc(timeLabel)}</span>
         ${s.audience_label ? `<span class="event-slot-aud">${esc(s.audience_label)}</span>` : ''}
