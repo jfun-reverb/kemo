@@ -1,5 +1,5 @@
 -- ============================================================
--- 295_orient_sheet_memos.sql
+-- 297_orient_sheet_memos.sql
 -- 2026-08-05
 --
 -- 목적:
@@ -46,7 +46,7 @@
 -- 낙관적 락(version)을 걸지 않는다 — 의도된 확정 결정 (마지막 저장 승리):
 --   메모는 짧고 작성자·시각이 항상 남아 되짚을 수 있다는 판단.
 --
--- 이 파일이 하지 않는 것 (범위 밖 — 다음 마이그레이션 296이 담당):
+-- 이 파일이 하지 않는 것 (범위 밖 — 다음 마이그레이션 298이 담당):
 --   - 읽음 처리 원격 호출 함수(mark_orient_sheet_memos_read)
 --   - 집계 조회 원격 호출 함수(get_orient_sheet_memo_summaries)
 --   메모 자체의 작성·수정·삭제는 이 표에 대한 일반 조회/쓰기로 처리한다
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS public.orient_sheet_memos (
 );
 
 COMMENT ON TABLE public.orient_sheet_memos IS
-  '[295] 오리엔시트 모집 건(카드)별 내부 메모. 관리자 전용, 브랜드사 비노출. '
+  '[297] 오리엔시트 모집 건(카드)별 내부 메모. 관리자 전용, 브랜드사 비노출. '
   '메모마다 row 1개(brand_application_memos[080] 구조 미러). '
   'orient_sheet_id 는 ON DELETE CASCADE — 시트 삭제 시 함께 삭제(의도된 결정, 감사 미보존).';
 
@@ -114,7 +114,7 @@ COMMENT ON COLUMN public.orient_sheet_memos.author_name IS
 CREATE INDEX IF NOT EXISTS idx_orient_sheet_memos_sheet_created
   ON public.orient_sheet_memos (orient_sheet_id, created_at DESC);
 
--- 집계 조회(296의 get_orient_sheet_memo_summaries)가 (시트, 카드) 짝으로 묶을 때
+-- 집계 조회(298의 get_orient_sheet_memo_summaries)가 (시트, 카드) 짝으로 묶을 때
 CREATE INDEX IF NOT EXISTS idx_orient_sheet_memos_sheet_card
   ON public.orient_sheet_memos (orient_sheet_id, card_uid);
 
@@ -163,7 +163,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.touch_orient_sheet_memos_updated_at IS
-  '[295] orient_sheet_memos BEFORE UPDATE 트리거. updated_at 자동 갱신 — 화면의 "수정됨" 표시 근거.';
+  '[297] orient_sheet_memos BEFORE UPDATE 트리거. updated_at 자동 갱신 — 화면의 "수정됨" 표시 근거.';
 
 DROP TRIGGER IF EXISTS trg_orient_sheet_memos_updated_at ON public.orient_sheet_memos;
 
@@ -190,9 +190,9 @@ CREATE INDEX IF NOT EXISTS idx_orient_sheet_memo_reads_auth
   ON public.orient_sheet_memo_reads (auth_id);
 
 COMMENT ON TABLE public.orient_sheet_memo_reads IS
-  '[295] orient_sheet_memos 의 관리자별 읽음 이력. brand_application_memo_reads(125) '
+  '[297] orient_sheet_memos 의 관리자별 읽음 이력. brand_application_memo_reads(125) '
   '패턴 미러. memo_id FK ON DELETE CASCADE 로 메모 삭제 시 자동 정리. '
-  '읽음 처리 단위는 시트(마이그레이션 296 mark_orient_sheet_memos_read 참조) — '
+  '읽음 처리 단위는 시트(마이그레이션 298 mark_orient_sheet_memos_read 참조) — '
   '카드에 붙은 메모뿐 아니라 카드가 사라진 고아 메모도 함께 처리된다.';
 
 ALTER TABLE public.orient_sheet_memo_reads ENABLE ROW LEVEL SECURITY;
@@ -209,7 +209,7 @@ CREATE POLICY "orient_sheet_memo_reads_insert"
   TO authenticated
   WITH CHECK (auth_id = auth.uid() AND public.is_admin());
 
--- UPDATE/DELETE 정책 없음 — mark_orient_sheet_memos_read 원격 호출 함수(296) 전용
+-- UPDATE/DELETE 정책 없음 — mark_orient_sheet_memos_read 원격 호출 함수(298) 전용
 
 
 -- ============================================================

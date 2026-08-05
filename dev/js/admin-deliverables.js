@@ -1121,7 +1121,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -1144,7 +1144,9 @@ async function renderDelivCombinedBody(applicationId) {
       userId = app.user_id || null;
       if (!appStatus) appStatus = app.status || null;
       if (app.campaign_id) {
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
+        // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
+        // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price').eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -1431,6 +1433,21 @@ async function deleteMismatchedPostRow(deliverableId) {
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
 // (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
+// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 294 이후).
+// 리뷰어형 정산액 = min(이 금액, 캠페인 상시가) 이므로, 검수자가 영수증 사진과 이
+// 숫자를 대조하지 않으면 잘못된 금액이 그대로 송금된다 — 사양서 §2-1 ①·§3-4.
+// 리뷰어형(monitor)에서만 뜬다. 시딩·방문형은 이 값이 돈과 무관하다.
+function receiptPayoutHint(d) {
+  const camp = (d && (d.campaigns || d.campaign)) || {};
+  if (camp.recruit_type !== 'monitor') return '';
+  const cap = Number(camp.product_price);
+  const capText = Number.isFinite(cap) && cap > 0 ? ` 상한 ¥${cap.toLocaleString()}` : '';
+  return `<div style="margin-top:4px;font-size:11px;color:#B45309;background:#FEF3C7;border:1px solid #FDE68A;border-radius:5px;padding:5px 8px;line-height:1.5">
+    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">payments</span>
+    이 금액이 <strong>정산 지급액</strong>이 됩니다${capText ? `(${capText.trim()} 초과 시 상한까지만)` : ''}. 영수증 사진과 숫자를 대조해 주세요.
+  </div>`;
+}
+
 function renderReceiptInfoBlock(d, isExcluded) {
   if (!d || d.kind !== 'receipt') return '';
   // 검수 불필요(신청 반려·취소)면 영수증 인플레이스 「수정」도 막는다 — 상단 "검수 불필요" 배너와 일관.
@@ -1453,7 +1470,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
       </div>
       <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
       <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}</div>
+      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}${receiptPayoutHint(d)}</div>
       <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
       <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>
     </div>`;
@@ -1608,6 +1625,10 @@ async function saveReceiptEdit(id) {
       await openDelivDetail(_delivDetailCurrent.id);
     }
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
+    // 마이그레이션 296 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
+    // (재계산 또는 금액 미확정 시 자동 보류). 정산 페인과 사이드바 「정산대기」 배지가
+    // 메모리 캐시를 쓰므로 함께 갱신하지 않으면 관리자가 그 변화를 못 본다.
+    if (typeof refreshPane === 'function') await refreshPane('settlements');
   } catch(e) {
     const msg = (e && e.message) ? e.message : String(e);
     toast(friendlyError(msg), 'error');

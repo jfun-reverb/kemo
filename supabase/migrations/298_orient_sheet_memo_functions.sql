@@ -1,9 +1,9 @@
 -- ============================================================
--- 296_orient_sheet_memo_functions.sql
+-- 298_orient_sheet_memo_functions.sql
 -- 2026-08-05
 --
 -- 목적:
---   오리엔시트 내부 메모(마이그레이션 295)를 위한 원격 호출 함수 2개.
+--   오리엔시트 내부 메모(마이그레이션 297)를 위한 원격 호출 함수 2개.
 --   brand_application_memo_reads 의 mark_brand_app_memos_read /
 --   get_brand_app_memo_summaries(마이그레이션 125)와 같은 형태.
 --
@@ -29,16 +29,16 @@
 --       끌어와 그릴 재료가 사라진다(사양서 §설계 3 경고, 의도된 설계).
 --
 -- 이 파일이 하지 않는 것:
---   메모 자체의 작성·수정·삭제는 이 함수들에 없다 — 295의 행 단위 보안 정책으로
+--   메모 자체의 작성·수정·삭제는 이 함수들에 없다 — 297의 행 단위 보안 정책으로
 --   일반 조회/쓰기 경로를 그대로 쓴다(brand_application_memos 와 동일).
 --
 -- 보안:
 --   두 함수 모두 SECURITY DEFINER + SET search_path = '' + public.is_admin() 가드.
---   등급 분기 없음(관리자 전원) — 표(295)의 행 단위 보안 정책과 동일한 결.
+--   등급 분기 없음(관리자 전원) — 표(297)의 행 단위 보안 정책과 동일한 결.
 --   REVOKE FROM anon(비로그인 차단) → GRANT TO authenticated(관리자 아닌
 --   authenticated 는 함수 안 is_admin() 가드에서 걸러진다 — 125와 동일 패턴).
 --
--- 선행 조건: 마이그레이션 295(표 2개) 적용 완료.
+-- 선행 조건: 마이그레이션 297(표 2개) 적용 완료.
 --
 -- 롤백: 함수 2개 DROP. 파일 하단 [롤백 SQL] 참조.
 -- ============================================================
@@ -89,7 +89,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.mark_orient_sheet_memos_read IS
-  '[296] 오리엔시트 하나(p_orient_sheet_id)의 모든 내부 메모를 본인(auth.uid()) 기준 '
+  '[298] 오리엔시트 하나(p_orient_sheet_id)의 모든 내부 메모를 본인(auth.uid()) 기준 '
   '일괄 읽음 처리. 카드 고유 번호를 받지 않음 — 읽음 처리 단위는 카드가 아니라 시트. '
   '카드가 사라진 고아 메모도 함께 처리된다. 반환: 처리된 행 수.';
 
@@ -164,7 +164,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_orient_sheet_memo_summaries IS
-  '[296] (orient_sheet_id, card_uid) 짝 단위 내부 메모 집계. 반환: total_count/'
+  '[298] (orient_sheet_id, card_uid) 짝 단위 내부 메모 집계. 반환: total_count/'
   'unread_count(본인 기준 — 읽음 기록이 있거나 **본인이 쓴 메모**는 읽은 것으로 본다)/'
   'latest_body_html/latest_created_at. '
   '⚠️ orient_sheet_memos 표 기준으로만 낸다 — orient_sheets.data.cards 의 현재 '
@@ -311,7 +311,7 @@ BEGIN
   IF NOT ok THEN fails := fails + 1; END IF;
   rpt := rpt || format('7. 시트 삭제 시 메모·읽음기록 연쇄 삭제 ....... %s', CASE WHEN ok THEN '합격' ELSE '불합격' END) || chr(10);
 
-  RAISE EXCEPTION E'\n\n===== 마이그레이션 295·296 검증 결과 =====\n%\n판정: %\n\n(이 오류는 시험 데이터를 되돌리기 위해 일부러 낸 것입니다.\n 위 7줄이 모두 「합격」이면 통과입니다.)\n',
+  RAISE EXCEPTION E'\n\n===== 마이그레이션 297·298 검증 결과 =====\n%\n판정: %\n\n(이 오류는 시험 데이터를 되돌리기 위해 일부러 낸 것입니다.\n 위 7줄이 모두 「합격」이면 통과입니다.)\n',
     rpt,
     CASE WHEN fails = 0 THEN '전체 통과 ✅' ELSE fails::text || '건 불합격 ❌' END;
 END;
