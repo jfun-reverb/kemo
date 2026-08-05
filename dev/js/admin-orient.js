@@ -230,7 +230,7 @@ function osRowHtml(s) {
     <td style="white-space:nowrap">
       ${(!osIsExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
-      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${s.id}')">상세</button>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${esc(s.id)}')">상세</button>
       <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
     </td>
   </tr>`;
@@ -246,18 +246,25 @@ function osRowMemoCell(s) {
   // 메모가 있으면 아이콘이 진해지고, 안 읽은 게 있으면 아이콘 우측 위에 수가 붙는다.
   //   숫자만 덩그러니 두면 그게 무엇의 수인지 알 수 없어 아이콘을 기준으로 삼는다.
   const tip = total
-    ? `내부 메모 ${total}개${unread ? ` · 아직 열어보지 않음 ${unread}개` : ''}`
+    ? `눌러서 메모 보기 — 내부 메모 ${total}개${unread ? ` · 아직 열어보지 않음 ${unread}개` : ''}`
     : '내부 메모 없음';
+  // 메모가 있을 때만 누를 수 있다. 누르면 상세가 열리고, 안 읽은 메모가 있는 묶음은
+  //   그 안에서 자동으로 펼쳐진다(osOpenDetail).
+  const clickable = total > 0;
+  const tag = clickable ? 'button' : 'span';
+  const attrs = clickable
+    ? ` type="button" onclick="osOpenDetail('${esc(s.id)}')" style="cursor:pointer;border:0;background:transparent;padding:0;`
+    : ' style="';
   // ⚠️ 스타일을 인라인으로 둔다 — .os-memo-unread 클래스는 상세 모달 본문에 함께
   //    끼워 넣는 <style> 안에만 있어서 목록에는 적용되지 않는다.
-  return `<span title="${esc(tip)}" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px">`
+  return `<${tag} title="${esc(tip)}"${attrs}position:relative;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px">`
     + `<span class="material-icons-round notranslate" translate="no" style="font-size:19px;color:${total ? '#161618' : '#dcdce0'}">sticky_note_2</span>`
     + (unread
         ? `<span style="position:absolute;top:-3px;right:-5px;min-width:15px;height:15px;padding:0 4px;`
           + `border-radius:999px;background:var(--pink,#E91E63);color:#fff;font-size:9.5px;font-weight:800;`
           + `line-height:15px;text-align:center;box-sizing:border-box;box-shadow:0 0 0 1.5px #fff">${unread > 99 ? '99+' : unread}</span>`
         : '')
-    + '</span>';
+    + `</${tag}>`;
 }
 
 // 그 시트에 달린 메모 총 개수(안 읽은 수가 아니라 전체 — 삭제 경고에 쓴다)
@@ -819,6 +826,14 @@ async function osOpenDetail(id) {
   } catch (_) { _osDetailMemos = []; _osMemoSummary = {}; }
   osSetDetailTitle(s);
   body.innerHTML = osDetailHtml(s, catMap);
+  // 자동으로 펼쳐진 메모 묶음이 오른쪽 칸 아래쪽에 있으면 화면 밖이라 못 본다.
+  //   모집 건이 여럿인 시트에서 「펼쳐 뒀다」가 무의미해지므로 그 자리로 맞춰 준다.
+  //   ⚠️ scrollIntoView 는 모달 바깥(페이지)까지 움직일 수 있어 칸 안에서만 계산한다.
+  const memoPane = body.querySelector('.os-pane-right');
+  const firstOpen = memoPane && memoPane.querySelector('.os-memo.open');
+  if (memoPane && firstOpen) {
+    memoPane.scrollTop += firstOpen.getBoundingClientRect().top - memoPane.getBoundingClientRect().top - 8;
+  }
   // ⚠️ 읽음 처리는 **화면을 그린 뒤**에 보낸다.
   //   먼저 보내면 안 읽은 수가 0이 되어 「안 읽은 메모가 있으면 자동 펼침」 판정이
   //   전부 거짓이 되고, 놓치지 않게 하는 장치가 죽는다(사양서 §의심 11).
