@@ -10235,6 +10235,18 @@ async function fetchEventGroups(keepId) {
   } catch(e) { return null; }
 }
 
+// 지정한 묶음들의 이름만. 캠페인 목록 배지가 쓴다(보관 상태도 포함해야 하므로
+//   위 fetchEventGroups 와 용도가 다르다).
+//   ⚠️ 실패는 null — 호출부가 「이름을 못 받았다」와 「묶음이 없다」를 구분해야 한다.
+async function fetchEventGroupNamesByIds(ids) {
+  if (!db || !ids || !ids.length) return null;
+  try {
+    const {data, error} = await db.from('event_groups').select('id,name').in('id', ids);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return null; }
+}
+
 // 즉석 추가. 이름이 이미 있으면(공백·대소문자 차이 포함) 서버가 막는다.
 //   반환 {ok, group} 또는 {ok:false, duplicate:true} — 호출부가 안내를 고른다.
 async function createEventGroup(name) {

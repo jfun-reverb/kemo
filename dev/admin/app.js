@@ -62,11 +62,20 @@ function setAdminScreenSelect() {
 // 같은 페인 재클릭 시엔 loader만 다시 호출해 강제 갱신.
 function navAdminPaneReload(pane) {
   pane = pane || 'dashboard';
-  if (typeof switchAdminPane === 'function') {
-    switchAdminPane(pane, null, true);
-  } else {
-    location.hash = '#' + pane;
-  }
+  const go = () => {
+    if (typeof switchAdminPane === 'function') {
+      switchAdminPane(pane, null, true);
+    } else {
+      location.hash = '#' + pane;
+    }
+  };
+  // 캠페인 폼에 저장 안 한 변경이 있으면 먼저 묻는다.
+  //   ⚠️ 게이트를 switchAdminPane 에 두지 않는 이유 — 그 함수는 **저장 성공 후 목록
+  //      복귀**·동시 저장 충돌 복귀·권한 리다이렉트·브라우저 뒤로가기가 전부 지나간다.
+  //      거기 두면 「저장했는데 저장 안 됐다고 묻는」 모습이 된다. 사이드바는 이 함수
+  //      하나로 모이므로 여기가 정확한 자리다.
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
+  go();
 }
 
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)

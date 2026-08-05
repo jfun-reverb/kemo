@@ -259,8 +259,17 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCampNgItems('new');
     renderCampBundleSummary('nset', 'new');
     setupCampPreview('new');
+    // ★ 「저장 안 한 변경」 기준값 — 신규 폼도 여기서 뜬다.
+    //   안 두면 ①편집 폼 기준값으로 신규 폼을 재게 되어 **모든 칸이 「바뀜」**으로 잡히거나
+    //   ②세션 첫 진입에서는 기준이 없어 **진짜 입력을 하나도 못 잡는다**(리뷰에서 잡힌 결함).
+    const _newDirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
     // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
-    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
+    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new')).then(() => {
+      // 리치 편집기는 위에서 다음 tick 에 비우므로 그 뒤에 뜬다.
+      setTimeout(() => {
+        if (typeof captureCampDirtyBaseline === 'function') captureCampDirtyBaseline('new', null, _newDirtySeq);
+      }, 120);
+    });
   }
   if (pane === 'edit-campaign') {
     setupCampPreview('edit');
