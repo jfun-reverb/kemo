@@ -333,7 +333,7 @@ async function fillEventGroupSelect(prefix, selectedId) {
     groups = fetched;
     _eventGroupCache = fetched;
   }
-  const opts = ['<option value="">묶지 않음 (하루짜리 행사)</option>'];
+  const opts = ['<option value="">묶지 않음 (이 캠페인 하나로 운영)</option>'];
   groups.forEach(g => {
     const arch = g.status !== 'active' ? ' (보관)' : '';
     opts.push(`<option value="${esc(g.id)}">${esc(g.name)}${arch}</option>`);
