@@ -919,19 +919,19 @@ async function openEventTicketsPane(campId, campTitle) {
 //    전환을 겨냥한 것이고, 현장 확인은 부스 단말에 계속 띄워 두고 쓰는 제3의 화면이다.
 //    같은 탭에서 열면 보던 예약 현황이 사라져 돌아오는 데 손이 더 든다.
 // ⚠️ 도메인을 붙이지 않는다 — 개발서버에서 누르면 개발, 운영에서 누르면 운영에서 열려야 한다.
-async function openEventScanPage(campaignId) {
+// ⚠️ **비동기로 만들지 말 것.** 버튼이 눌린 뒤 조회를 기다렸다가 창을 열면 사용자
+//    제스처가 끊겨 브라우저가 새 탭을 차단한다(2026-08-05 실측). 묶음 값은
+//    ADMIN_LIST_COLUMNS 로 목록과 함께 미리 받아 두고 여기서는 읽기만 한다.
+function openEventScanPage(campaignId) {
   const campId = campaignId || _eventPaneCampId;
   if (!campId) { toast('캠페인을 찾을 수 없습니다.'); return; }
   // 묶음이 있으면 **묶음으로** 연다. 캠페인으로 열면 같은 행사인데 다른 날짜 캠페인의
   //   예약자가 안 보여, 날짜가 바뀌는 아침에 명단이 빈 것처럼 보인다.
-  let groupId = null;
-  try {
-    const {data} = (await db?.from('campaigns').select('event_group_id').eq('id', campId).maybeSingle()) || {};
-    groupId = data?.event_group_id || null;
-  } catch (e) {
-    // 조회 실패는 캠페인 단위로 폴백한다 — 못 여는 것보다 좁게라도 여는 편이 낫다.
-    console.warn('[openEventScanPage]', e);
-  }
+  //   캐시에 없으면(운영현황에서 곧바로 들어온 경우 등) 캠페인 단위로 연다 —
+  //   못 여는 것보다 좁게라도 여는 편이 낫고, 그때는 화면 위 이름표에
+  //   「캠페인 N개」가 안 떠서 좁게 열렸다는 것이 드러난다.
+  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === campId);
+  const groupId = camp?.event_group_id || null;
   const q = groupId ? `group=${encodeURIComponent(groupId)}` : `campaign=${encodeURIComponent(campId)}`;
   window.open(`/event-scan.html?${q}`, '_blank', 'noopener');
 }
