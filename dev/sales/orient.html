@@ -1015,7 +1015,13 @@ function cardHtml(id, card) {
   const imgArr = Array.isArray(card.images) && card.images.length ? card.images : [{ value: '' }];
   const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type, x.name)).join('');
 
-  return `<div class="ocard" id="${id}" data-card-id="${id}">
+  // 카드 고유 번호(uid)와 발행 표시 2종은 폼이 만들지 않는다 — 불러온 값을 그대로
+  // 담아 두었다가 저장 때 되돌려 보내기만 한다. uid 를 만드는 곳은 서버 저장 함수 한 곳뿐.
+  const uidAttr = card.uid ? ` data-uid="${escAttr(card.uid)}"` : '';
+  const campAttr = card.campaign_id ? ` data-campaign-id="${escAttr(card.campaign_id)}"` : '';
+  const linkedAttr = card.linked_existing ? ' data-linked-existing="1"' : '';
+
+  return `<div class="ocard" id="${id}" data-card-id="${id}"${uidAttr}${campAttr}${linkedAttr}>
     <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
       <div class="ocard-head-main">
         <span class="ocard-chip">형식</span>
@@ -1482,7 +1488,7 @@ function collectCard(el) {
   const hashtags = el.querySelector('.f-hashtags').value
     .split(/[\s,]+/).map(s => s.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
 
-  return {
+  const out = {
     form_type: ft,
     product: {
       name: el.querySelector('.f-product-name').value.trim(),
@@ -1516,6 +1522,18 @@ function collectCard(el) {
     cautions: richValue(el.querySelector('.f-cautions')),
     images,
   };
+
+  // 값이 있을 때만 되돌려 보낸다.
+  //   · uid          — 없으면 서버 저장 함수가 물려주거나 새로 만든다
+  //   · campaign_id  — 빈 키를 새로 만들면 관리자 화면이 「발행됨」으로 잘못 읽는다
+  //   · linked_existing — 위와 같은 이유로 참일 때만 넣는다
+  const uid = el.getAttribute('data-uid');
+  if (uid) out.uid = uid;
+  const campaignId = el.getAttribute('data-campaign-id');
+  if (campaignId) out.campaign_id = campaignId;
+  if (el.getAttribute('data-linked-existing')) out.linked_existing = true;
+
+  return out;
 }
 
 function collectData() {
