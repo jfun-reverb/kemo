@@ -607,9 +607,20 @@ function normalizeCsetItem(s) {
 // 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link/Image 6버튼
 //   이미지 버튼: 파일 선택 다이얼로그 → uploadContentImage → 커서 위치 <img> 삽입
 //   외부 URL 직접 삽입 차단 (sanitize 단계 src 화이트리스트로 후방 차단)
-function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
-  const safe = (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml(initialHtml || '')
+//
+// 4번째 인자 opts (선택) — 넘기지 않으면 기존과 완전히 같게 동작한다.
+//   { allowImage:false }  이미지 버튼을 감춘다 (오리엔시트 내부 메모용)
+//   { sanitize: fn }      초기값 정화 함수를 바꾼다 (기본 sanitizeCautionHtml)
+// ⚠️ 이미지를 감출 땐 sanitize 도 함께 바꿔야 한다. 버튼만 감추면 붙여넣기로
+//    들어온 이미지는 그대로 통과한다(sanitizeCautionHtml 이 <img> 를 허용).
+function miniEditorHtml(initialHtml, onChangeAttr, placeholder, opts) {
+  const o = opts || {};
+  const allowImage = o.allowImage !== false;   // 기본 true = 기존 호출부 동작 보존
+  const sanitizeFn = typeof o.sanitize === 'function'
+    ? o.sanitize
+    : (typeof sanitizeCautionHtml === 'function' ? sanitizeCautionHtml : null);
+  const safe = sanitizeFn
+    ? sanitizeFn(initialHtml || '')
     : String(initialHtml || '').replace(/<script/gi, '&lt;script');
   const ph = esc(placeholder || '');
   return `
@@ -621,7 +632,7 @@ function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
         <button type="button" onclick="miniEditorCmd(this,'strikeThrough')" title="취소선" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;text-decoration:line-through;font-size:12px">S</button>
         <span style="width:1px;background:var(--line);margin:2px 4px"></span>
         <button type="button" onclick="miniEditorCmd(this,'link')" title="링크 추가 (텍스트 선택 후 클릭)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">link</span>링크</button>
-        <button type="button" onclick="miniEditorInsertImageClick(this)" title="이미지 삽입 (5MB 이하 jpg/png/webp)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">image</span>이미지</button>
+        ${allowImage ? '<button type="button" onclick="miniEditorInsertImageClick(this)" title="이미지 삽입 (5MB 이하 jpg/png/webp)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">image</span>이미지</button>' : ''}
       </div>
       <div class="mini-editor-content" contenteditable="true" data-placeholder="${ph}" style="padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none" oninput="${onChangeAttr}" onpaste="miniEditorPaste(event)">${safe}</div>
     </div>`;
