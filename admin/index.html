@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785905126';
+  var CURRENT_BUILD = 'v1785909848';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2801,7 +2801,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 13:45 · f49ffae</span>
+          <span class="admin-build-text">2026-08-05 15:04 · 2bbcb97</span>
         </div>
       </div>
     </aside>
@@ -16186,13 +16186,13 @@ function osSetDetailTitle(s) {
 async function osOpenDetail(id) {
   ensureOrientModals();
   const body = document.getElementById('osDetailBody');
-  body.innerHTML = '<p style="color:var(--muted);padding:8px">불러오는 중…</p>';
+  body.innerHTML = '<p style="color:var(--muted);padding:20px;width:100%">불러오는 중…</p>';
   osSetDetailTitle(null);
   document.getElementById('orientDetailModal').classList.add('open');
   let s;
   try { s = await fetchOrientSheetById(id); }
-  catch (e) { body.innerHTML = '<p style="padding:8px">불러오지 못했습니다.</p>'; return; }
-  if (!s) { body.innerHTML = '<p style="padding:8px">데이터가 없습니다.</p>'; return; }
+  catch (e) { body.innerHTML = '<p style="padding:20px;width:100%">불러오지 못했습니다.</p>'; return; }
+  if (!s) { body.innerHTML = '<p style="padding:20px;width:100%">데이터가 없습니다.</p>'; return; }
   _osDetailSheet = s;
   // 발행된 카드의 연결 캠페인 번호·상태 조회 (활성=번호 링크 / 보관삭제=삭제됨 / 맵에 없음=완전삭제)
   try {
@@ -16241,6 +16241,25 @@ function osOpenDetailNewWindow() {
 // 상세 모달 전용 스코프 스타일 (가독성: 항목 구분선 + 라벨/값 위계 + 카드 제목)
 const OS_DETAIL_STYLE = `<style>
   .os-detail{container-type:inline-size}
+  /* ── 좌우 2단(시트 내용 | 내부 메모) ── */
+  /*  각 칸이 자기 스크롤을 갖는다. min-height:0 이 없으면 flex 자식이 안 줄어들어
+      스크롤이 안 생기고 바깥이 대신 늘어난다. */
+  .os-split{display:flex;flex:1;width:100%;min-height:0;align-items:stretch}
+  .os-pane{min-height:0;overflow-y:auto;padding:20px}
+  .os-pane-left{flex:1 1 58%;min-width:0;container-type:inline-size}
+  .os-pane-right{flex:1 1 42%;min-width:0;border-left:1px solid #ececf0;background:#fbfbfc}
+  /*  좁은 화면에서는 위아래로 쌓는다 — 두 칸을 억지로 붙이면 둘 다 못 읽는다.
+      이때는 바깥 한 덩어리로 스크롤한다(칸별 스크롤이 겹치면 더 불편하다). */
+  @media (max-width:900px){
+    .os-split{flex-direction:column;overflow-y:auto}
+    .os-pane{overflow:visible}
+    .os-pane-right{border-left:0;border-top:1px solid #ececf0}
+  }
+  /*  메모가 길어져도 이 칸이 무슨 칸인지 보이게 머리줄을 붙여 둔다 */
+  .os-memo-panel-title{font-weight:800;font-size:13px;color:#161618;margin-bottom:10px;
+    display:flex;align-items:center;gap:6px;position:sticky;top:-20px;z-index:1;
+    background:#fbfbfc;padding:20px 0 8px;margin-top:-20px}
+  .os-memo-panel-empty{color:var(--muted,#8a8a90);font-size:12.5px;line-height:1.6}
   .os-card{border:1px solid #ececf0;border-radius:12px;padding:14px 16px;margin-bottom:14px;background:#fff}
   .os-card-title{font-weight:800;font-size:14px;color:#161618;margin-bottom:2px}
   .os-card-head{display:flex;align-items:center;gap:8px;margin-bottom:2px;padding-bottom:8px}
@@ -16255,7 +16274,7 @@ const OS_DETAIL_STYLE = `<style>
   .os-field-val a{color:var(--pink,#1A1A1A);text-decoration:underline}
   .os-empty{color:#bbb;font-weight:400}
   /* ── 내부 메모 ── */
-  .os-memo{border-top:1px solid #f2f2f2;margin-top:10px;padding-top:8px}
+  .os-memo{border:1px solid #ececf0;border-radius:12px;background:#fff;margin-bottom:10px;padding:10px 12px}
   .os-memo-head{display:flex;align-items:center;gap:6px;width:100%;border:0;background:transparent;
     cursor:pointer;padding:4px 0;font-size:12.5px;font-weight:700;color:#161618;text-align:left}
   .os-memo-head .os-memo-caret{font-size:18px;color:var(--muted,#8a8a90);transition:transform .15s}
@@ -16307,10 +16326,14 @@ function osDetailHtml(s, catMap, readonly) {
   } else {
     bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard;
   }
-  // 「삭제된 모집 건의 메모」 — 맨 아래, 해당 메모가 있을 때만.
-  //   새창 출력(readonly)에는 카드 메모와 마찬가지로 넣지 않는다.
-  if (!readonly) bodyHtml += osOrphanMemoHtml();
-  return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
+  // 새창 출력(readonly)은 한 덩어리 그대로 — 메모를 아예 그리지 않으므로 나눌 것이 없다.
+  //   그 출력물은 인쇄·브랜드 화면 공유 대상이라 내부 대화가 들어가면 안 된다.
+  if (readonly) return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
+  // 모달은 좌우 2단 — 시트 내용을 보면서 메모를 읽고 쓸 수 있게. 각 칸이 따로 스크롤된다.
+  return OS_DETAIL_STYLE + `<div class="os-detail os-split">
+    <div class="os-pane os-pane-left">${bodyHtml}</div>
+    <div class="os-pane os-pane-right">${osMemoPanelHtml(cards)}</div>
+  </div>`;
 }
 
 function osFieldRow(label, valHtml, wide) {
@@ -16377,12 +16400,13 @@ function osCardDetail(c, idx, catMap, readonly) {
   inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng), true) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions), true) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
 
+  // ⚠️ 제목은 osCardTitle 로만 만든다 — 오른쪽 메모 묶음 머리줄도 같은 함수를 쓴다.
+  //    여기서 따로 계산하면 왼쪽 카드 제목과 오른쪽 메모 이름이 어긋난다.
   const head = `<div class="os-card-head">
-    ${osTypeChip(ft)}<span class="os-name">${esc(p.name || ('제품 ' + (idx + 1)))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
-  // 내부 메모 — 새창 출력(readonly)에는 넣지 않는다(인쇄·화면 공유 시 내부 대화 노출 방지).
-  //   카드에 고유 번호가 없으면(옛 시트가 아직 채워지기 전) 붙일 자리가 없어 생략한다.
-  const memo = (!readonly && c && c.uid) ? osMemoSectionHtml(c.uid, idx) : '';
-  return `<div class="os-card">${head}<div class="os-fields">${inner}</div>${memo}</div>`;
+    ${osTypeChip(ft)}<span class="os-name">${esc(osCardTitle(c, idx))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
+  // 메모는 이 카드 안이 아니라 **오른쪽 칸**에 모아 그린다(osMemoPanelHtml).
+  //   시트 내용을 읽으면서 동시에 메모를 쓸 수 있어야 해서 좌우로 나눴다.
+  return `<div class="os-card">${head}<div class="os-fields">${inner}</div></div>`;
 }
 
 // 카드 헤더 우측 — 발행 버튼(제출됨·미발행·형식 선택) / 발행됨 배지 / 형식 미선택 안내
@@ -16481,10 +16505,36 @@ function osMemoItemHtml(m) {
     </div></div>`;
 }
 
-// 카드 1개의 메모 영역. slotKey = 카드 순번(숫자) — 새 메모 입력칸 식별용
+// 오른쪽 메모 칸 전체 — 모집 건마다 묶음 하나 + 맨 아래 「삭제된 모집 건의 메모」
+function osMemoPanelHtml(cards) {
+  const list = Array.isArray(cards) ? cards : [];
+  const groups = list.map((c, i) => (c && c.uid) ? osMemoSectionHtml(c.uid, i, osCardTitle(c, i)) : '').join('');
+  const orphan = osOrphanMemoHtml();
+  // 붙일 자리가 없어 메모를 못 남기는 두 경우의 안내 — 문구를 한 곳에만 둔다
+  const noSlotMsg = list.length
+    ? '이 시트의 모집 건에는 아직 고유 번호가 없어 메모를 남길 수 없습니다.'
+    : '브랜드가 모집 건을 작성하면 여기에 메모를 남길 수 있습니다.';
+  // groups 가 비면 남길 자리가 없다는 뜻 — 고아 메모가 있으면 그 아래 함께 보여준다
+  const body = groups
+    ? groups + orphan
+    : `<div class="os-memo-panel-empty">${noSlotMsg}</div>` + orphan;
+  return `<div class="os-memo-panel">
+    <div class="os-memo-panel-title">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--muted,#8a8a90)">sticky_note_2</span>
+      내부 메모 <span style="font-weight:600;color:var(--muted,#8a8a90);font-size:11.5px">· 관리자만 보입니다</span>
+    </div>${body}</div>`;
+}
+
+// 메모 묶음 머리줄에 쓰는 모집 건 이름 (상세 왼쪽 카드 제목과 같은 규칙)
+function osCardTitle(c, idx) {
+  const p = (c && c.product) || {};
+  return p.name || ('제품 ' + (idx + 1));
+}
+
+// 모집 건 1개의 메모 묶음. slotKey = 카드 순번(숫자) — 새 메모 입력칸 식별용
 //   「삭제된 모집 건의 메모」는 카드별로 묶어 제품명을 얹어야 해서 이 함수를 쓰지 않고
 //   osOrphanMemoHtml 이 같은 모양의 마크업을 따로 만든다.
-function osMemoSectionHtml(uid, slotKey) {
+function osMemoSectionHtml(uid, slotKey, cardName) {
   const list = osMemosOfCard(uid);
   const unread = osMemoUnread(list);
   const open = unread > 0;   // 안 읽은 메모가 있으면 자동 펼침 (놓치지 않게 하는 장치)
@@ -16505,7 +16555,8 @@ function osMemoSectionHtml(uid, slotKey) {
   return `<div class="os-memo${open ? ' open' : ''}" data-memo-slot="${slotKey}">
     <button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
       <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
-      <span>내부 메모 ${list.length}개</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cardName || '모집 건')}</span>
+      <span style="color:var(--muted,#8a8a90);font-weight:600;font-size:11.5px;flex-shrink:0">${list.length}</span>
       ${unread ? `<span class="os-memo-unread">${unread}</span>` : ''}
     </button>
     <div class="os-memo-body">${items}${form}</div>
@@ -16530,7 +16581,8 @@ function osOrphanMemoHtml() {
     <div class="os-memo${unread > 0 ? ' open' : ''}" data-memo-slot="orphan">
       <button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
         <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
-        <span>내부 메모 ${list.length}개</span>
+        <span style="flex:1;min-width:0">지워진 모집 건</span>
+        <span style="color:var(--muted,#8a8a90);font-weight:600;font-size:11.5px;flex-shrink:0">${list.length}</span>
         ${unread ? `<span class="os-memo-unread">${unread}</span>` : ''}
       </button>
       <div class="os-memo-body">${groups}</div>
@@ -16556,7 +16608,6 @@ async function osRefreshMemos() {
   document.querySelectorAll('#osDetailBody .os-memo').forEach(el => {
     const slot = el.getAttribute('data-memo-slot');
     const wasOpen = el.classList.contains('open');
-    let html;
     if (slot === 'orphan') {
       const box = el.closest('.os-memo-orphan');
       if (box) { box.outerHTML = osOrphanMemoHtml(); return; }
@@ -16564,8 +16615,7 @@ async function osRefreshMemos() {
     }
     const idx = parseInt(slot, 10);
     if (isNaN(idx) || !cards[idx]) return;
-    html = osMemoSectionHtml(cards[idx].uid, idx);
-    el.outerHTML = html;
+    el.outerHTML = osMemoSectionHtml(cards[idx].uid, idx, osCardTitle(cards[idx], idx));
     // 펼쳐 둔 상태 유지 — 자동 펼침(안 읽은 메모)과 별개로 사용자가 연 것도 지킨다
     if (wasOpen) {
       const next = document.querySelector(`#osDetailBody .os-memo[data-memo-slot="${idx}"]`);
@@ -17079,10 +17129,12 @@ function ensureOrientModals() {
     </div>
   </div>
   <div class="modal-overlay" id="orientDetailModal">
-    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal" style="max-width:1040px;width:96vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header"><h2 id="osDetailTitle">오리엔시트 내용</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDetailModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
-      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="osDetailBody"></div>
+      <!-- 좌우 2단(시트 내용 | 내부 메모)이라 스크롤은 각 칸이 따로 갖는다.
+           여기서 overflow-y:auto 를 주면 바깥이 함께 스크롤돼 「따로 스크롤」이 깨진다. -->
+      <div class="modal-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex" id="osDetailBody"></div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osOpenDetailNewWindow()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">open_in_new</span> 새창으로 열기</button>
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDetailModal')">닫기</button></div>
