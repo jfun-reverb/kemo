@@ -286,8 +286,13 @@ function buildCampCards(camps) {
     // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
     // 그런데 reward=0·product_price>0 이라 「製品無償提供」로 표시돼 왔다(오래된 오표기).
     // 300 으로 지급 기준이 영수증 실결제액이 되면서 상세·하단 바와도 어긋나므로 여기서 바로잡는다.
-    const reward = c.recruit_type === 'monitor' && c.product_price > 0
-      ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
+    // ⚠️ 리뷰어형은 「제품 가격이 없을 때」도 현금 리워드 분기로 떨어지면 안 된다 —
+    //    정산이 reward 를 쓰지 않으므로 지급되지 않는 금액을 약속하게 된다.
+    //    제품 가격이 없으면 상한을 말할 수 없으므로 금액 없이 「페이백」만 표시한다.
+    const reward = c.recruit_type === 'monitor'
+      ? (c.product_price > 0
+          ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
+          : `<strong>${esc(t('campaign.rewardPaybackNoCap'))}</strong>`)
       : c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
     const isNew = !isScheduled && !isClosedLike && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);

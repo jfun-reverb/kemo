@@ -659,6 +659,7 @@ window.I18N_KO = {
     rewardProduct: '제품 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>제품 무상 제공</strong>',
     rewardPaybackShort: '페이백 (최대 ¥{price})',  // 리뷰어형 카드용
+    rewardPaybackNoCap: '구매 금액 페이백',        // 제품 가격이 없는 리뷰어형
     rewardFreeSimple: '<strong>무상 제공</strong>',
     channelAll: '전체',
     moreBtn: '더 보기',

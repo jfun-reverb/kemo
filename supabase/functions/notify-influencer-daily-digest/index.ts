@@ -225,6 +225,7 @@ interface CampRow {
   title: string | null;
   recruit_type: string | null;
   reward: number | null;
+  product_price: number | null;   // レビュアー型の上限表示（購入金額をペイバック 最大 ¥N）
   purchase_end: string | null;
   submission_end: string | null;
   proxy_purchase: boolean | null;
@@ -331,7 +332,9 @@ Deno.serve(async (req: Request) => {
   if (allCampIds.length > 0) {
     const { data: camps } = await sb
       .from("campaigns")
-      .select("id, campaign_no, title, recruit_type, reward, purchase_end, submission_end, proxy_purchase, channel")
+      // product_price — レビュアー型の報酬欄「購入金額をペイバック（最大 ¥N）」の上限表示に使う。
+      // 抜けると上限が消えたまま案内が届く（2026-08-05）。
+      .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel")
       .in("id", allCampIds);
     (camps || []).forEach((c: CampRow) => campMap.set(c.id, c));
   }
@@ -561,7 +564,17 @@ Deno.serve(async (req: Request) => {
       if (sec.approved.length > 0) {
         const rows = sec.approved.map((a) => {
           const c = campMap.get(a.campaign_id);
-          const rewardStr = c?.reward ? `¥${c.reward.toLocaleString("en-US")}` : "-";
+          // 報酬欄 — 募集形式で分ける（2026-08-05）。
+          //   レビュアー型(monitor) は精算額が「レシート実支払額（商品価格を上限に切り捨て）」
+          //   なので、campaigns.reward は計算に一切使われない（マイグレーション300）。
+          //   ここを分けないと当選者に「報酬 -」とだけ届き、いくら戻るのかが伝わらない。
+          //   ⚠️ レビュアー型に現金報酬を足して表示してはいけない — 支払われない金額の約束になる。
+          const price = Number(c?.product_price ?? 0);
+          const rewardStr = c?.recruit_type === "monitor"
+            ? (price > 0
+                ? `購入金額をペイバック（最大 ¥${price.toLocaleString("en-US")}）`
+                : "購入金額をペイバック")
+            : (c?.reward ? `¥${c.reward.toLocaleString("en-US")}` : "-");
           // 提出期限 표기 — 모집 형식별 분기(2026-08-04 사양서 §설계 단계1-B).
           //   レビュー認証写真(모니터형)/투고물(시딩·방문형)이 각자 요구하는 제출물만 표시.
           //   리뷰어형은 게시물(投稿物) 제출 경로가 없으므로 절대 여기 섞지 않는다.

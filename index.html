@@ -4557,6 +4557,7 @@ window.I18N_JA = {
     rewardProduct: '製品 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>製品無償提供</strong>',
     rewardPaybackShort: 'ペイバック（最大 ¥{price}）',  // レビュアー型カード用
+    rewardPaybackNoCap: '購入金額をペイバック',           // 商品価格が未設定のレビュアー型
     rewardFreeSimple: '<strong>無償提供</strong>',
     channelAll: 'すべて',
     moreBtn: 'もっと見る',
@@ -5362,6 +5363,7 @@ window.I18N_KO = {
     rewardProduct: '제품 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>제품 무상 제공</strong>',
     rewardPaybackShort: '페이백 (최대 ¥{price})',  // 리뷰어형 카드용
+    rewardPaybackNoCap: '구매 금액 페이백',        // 제품 가격이 없는 리뷰어형
     rewardFreeSimple: '<strong>무상 제공</strong>',
     channelAll: '전체',
     moreBtn: '더 보기',
@@ -12064,8 +12066,13 @@ function buildCampCards(camps) {
     // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
     // 그런데 reward=0·product_price>0 이라 「製品無償提供」로 표시돼 왔다(오래된 오표기).
     // 300 으로 지급 기준이 영수증 실결제액이 되면서 상세·하단 바와도 어긋나므로 여기서 바로잡는다.
-    const reward = c.recruit_type === 'monitor' && c.product_price > 0
-      ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
+    // ⚠️ 리뷰어형은 「제품 가격이 없을 때」도 현금 리워드 분기로 떨어지면 안 된다 —
+    //    정산이 reward 를 쓰지 않으므로 지급되지 않는 금액을 약속하게 된다.
+    //    제품 가격이 없으면 상한을 말할 수 없으므로 금액 없이 「페이백」만 표시한다.
+    const reward = c.recruit_type === 'monitor'
+      ? (c.product_price > 0
+          ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
+          : `<strong>${esc(t('campaign.rewardPaybackNoCap'))}</strong>`)
       : c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
     const isNew = !isScheduled && !isClosedLike && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
@@ -12725,7 +12732,14 @@ async function openCampaign(id) {
                </div>`
             : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
           ):''}
-          ${camp.reward>0?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
+          ${/* 현금 리워드 줄 — ⚠️ 리뷰어형(monitor)에는 그리지 않는다. 정산 계산이
+                리뷰어형에서 campaigns.reward 를 아예 쓰지 않으므로(마이그레이션 300은
+                min(영수증, 상시가) 하나로만 정한다), 표시하면 **지급되지 않는 금액을
+                약속**하게 된다. 운영 실측(2026-08-05) 리뷰어형 74개 중 현금 리워드가
+                설정된 것은 0개라 실제 노출은 없었지만, 앞으로 누가 값을 넣으면 바로 새어
+                나가는 자리라 막는다. 합산 지급(amount_source='product_plus_reward')이
+                구현되면 그때 되살린다. */''}
+          ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
           // 캠페인 상세 표 — 시간 흐름 순으로 행 배치
