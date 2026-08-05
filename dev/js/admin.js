@@ -3053,9 +3053,12 @@ function renderCampPreview(mode) {
     ? L.paybackFull.replace('{price}', camp.product_price.toLocaleString())
     : '';
   const rewardLabelJa = L.freeProvide;
+  // ⚠️ 리뷰어형에는 현금 리워드를 덧붙이지 않는다 — 정산 계산이 리뷰어형에서
+  //    campaigns.reward 를 쓰지 않으므로(마이그레이션 300), 붙이면 지급되지 않는 금액을
+  //    약속하는 미리보기가 된다. 인플루언서 상세(application.js)와 같은 판단.
   const rewardText = (camp.product_price>0 || camp.reward>0)
     ? (isPaybackPreview
-        ? `${paybackFullText}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
+        ? paybackFullText
         : `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`)
     : '';
 
@@ -3088,7 +3091,7 @@ function renderCampPreview(mode) {
             ? `<div class="cp-price-box"><span class="cp-price-label" style="font-size:13px;font-weight:800">${esc(paybackFullText)}</span></div>`
             : `<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`
           ):''}
-          ${camp.reward>0?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} 報酬</div>`:''}
+          ${(camp.reward>0 && !isMonitorPreview)?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} 報酬</div>`:''}
         </div>
         <div class="cp-info">
           ${(()=>{

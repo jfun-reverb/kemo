@@ -681,6 +681,7 @@ window.I18N_JA = {
     rewardProduct: '製品 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>製品無償提供</strong>',
     rewardPaybackShort: 'ペイバック（最大 ¥{price}）',  // レビュアー型カード用
+    rewardPaybackNoCap: '購入金額をペイバック',           // 商品価格が未設定のレビュアー型
     rewardFreeSimple: '<strong>無償提供</strong>',
     channelAll: 'すべて',
     moreBtn: 'もっと見る',

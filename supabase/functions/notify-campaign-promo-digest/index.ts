@@ -172,7 +172,10 @@ function buildRewardText(camp: CampaignRow): string {
   } else {
     parts.push("商品無償提供");
   }
-  if (cash > 0) {
+  // ⚠️ レビュアー型には現金報酬を足さない — 精算計算が monitor で campaigns.reward を
+  //    使わないため（マイグレーション300）、足すと支払われない金額の約束になる。
+  //    アプリの詳細ページ・管理者プレビューと同じ判断（2026-08-05）。
+  if (cash > 0 && camp.recruit_type !== "monitor") {
     parts.push(`${formatYenLabel(cash)} 報酬`);
   }
   return parts.join(" + ");
