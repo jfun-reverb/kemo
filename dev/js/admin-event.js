@@ -300,6 +300,23 @@ async function saveEventInviteAfterCampaignSave(prefix, campaignId) {
 //    캐시하면 같은 자리에서 같은 사고가 난다.
 let _eventGroupCache = null;
 
+// 캠페인 목록 배지에 쓸 「묶음 id → 이름」. 목록 렌더는 동기 함수라 미리 채워 둔다.
+//   ⚠️ 조회 실패는 **빈 맵으로 덮지 않는다** — 배지가 사라지면 「안 묶였다」로 읽혀
+//      운영자가 멀쩡한 묶음을 다시 지정하려 든다.
+let _eventGroupNames = {};
+
+// ⚠️ 나중에 묶음 이름을 고치는 화면이 생기면, 그 저장 함수에서 이 맵도 갱신하거나
+//    이 함수를 다시 불러야 한다(목록이 캐시를 쓸 때는 여기까지 안 온다).
+async function loadEventGroupNames(camps) {
+  const ids = [...new Set((camps || []).map(c => c && c.event_group_id).filter(Boolean))];
+  if (!ids.length) { _eventGroupNames = {}; return; }
+  const rows = await fetchEventGroupNamesByIds(ids);
+  if (rows === null) return;   // 조회 실패 — 옛 맵을 그대로 둔다(위 주석 참조)
+  const map = {};
+  rows.forEach(g => { map[g.id] = g.name; });
+  _eventGroupNames = map;
+}
+
 async function fillEventGroupSelect(prefix, selectedId) {
   const sel = $(prefix + 'CampEventGroup');
   if (!sel) return;

@@ -249,7 +249,16 @@ function eventCampBadges(c) {
   const inv = c.is_invite_only
     ? `<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">lock</span>비공개</span>`
     : '';
-  return ev + inv;
+  // 같은 행사로 묶인 캠페인 — 목록에서 안 보이면 **빠뜨린 캠페인을 알아챌 방법이 없다.**
+  //   묶음을 만든 이유가 「사흘이 한 화면에 들어오는 것」인데, 하나만 안 묶여도
+  //   그날 아침 부스 명단이 빈다.
+  const gname = c.event_group_id
+    ? (typeof _eventGroupNames !== 'undefined' ? _eventGroupNames[c.event_group_id] : '')
+    : '';
+  const grp = c.event_group_id
+    ? `<span title="같은 행사로 묶인 캠페인입니다. 현장 확인 화면을 열면 이 묶음의 캠페인이 함께 나옵니다." style="background:#EEF2FF;color:#4338CA;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">link</span>${esc(gname || '묶음(이름 미확인)')}</span>`
+    : '';
+  return ev + inv + grp;
 }
 
 // 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
@@ -367,6 +376,8 @@ async function loadAdminCampaigns(useCache) {
     allCampaigns = camps.slice();
     // 「삭제됨」 탭 건수·목록용 보관 캠페인 캐시 갱신 (실데이터 조회 시에만)
     try { _deletedCampsCache = await fetchDeletedCampaigns(); } catch(e) { _deletedCampsCache = []; }
+    // 행사 묶음 이름 — 목록 배지에 쓴다. 목록 렌더는 동기라 여기서 미리 받아 둔다.
+    if (typeof loadEventGroupNames === 'function') await loadEventGroupNames(camps);
   }
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
