@@ -235,8 +235,10 @@
 
 - **하는 일:** 화면이 쓸 데이터 접근 함수를 한곳에 모은다.
 - **담당 파일:** `dev/lib/storage.js` ⚠️**핫스팟**
-- **산출 계약:** 함수 이름 그대로 —
-  `fetchOrientMemos(시트id)` / `insertOrientMemo(시트id, 카드고유번호, 카드이름, 본문)` / `updateOrientMemo(메모id, 본문)` / `deleteOrientMemo(메모id)` / `markOrientMemosRead(시트id)` / `fetchOrientMemoSummaries()`
+- **산출 계약:** 함수 이름·인자 그대로 —
+  `fetchOrientMemos(시트id)` / **`insertOrientMemo(시트id, 카드고유번호, 카드이름, 본문, 작성자id, 작성자이름)`** / `updateOrientMemo(메모id, 본문)` / `deleteOrientMemo(메모id)` / `markOrientMemosRead(시트id)` / `fetchOrientMemoSummaries()`
+  ⚠️ `insertOrientMemo` 는 **인자 6개**다(작성자 정보를 화면에서 넘긴다 — 기존 `insertBrandAppMemo` 와 같은 결). 4개로 잘못 부르면 작성자·작성자 이름이 조용히 비고, 계정이 지워진 뒤 「누가 썼는지」를 잃는다.
+  - `fetchOrientMemoSummaries()` 반환 키 = `` `${시트id}_${카드고유번호}` ``, 값 = `{count, unreadCount, latest, latestAt}`
 - **선행 의존:** 작업 5
 - **완료 정의:** 기존 `fetchBrandAppMemos`(2535줄) 계열과 같은 자리·같은 모양(`db?.from()` 사용, 오류 시 빈 값 반환)으로 붙었고, 관리자 화면 개발자 도구에서 6개를 한 번씩 불러 정상 응답을 받았다
 - **필요 검문소:** `reverb-reviewer`

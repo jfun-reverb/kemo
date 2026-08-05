@@ -225,6 +225,62 @@ function sanitizeCautionHtml(html) {
   return wrapper.innerHTML;
 }
 
+// 오리엔시트 내부 메모 전용 sanitize.
+// 허용: 굵게·기울임·밑줄·취소선 + 링크 + 단락(<p>)·줄바꿈(<br>)
+// 차단: **이미지 포함** 그 외 전부
+//
+// ⚠️ sanitizeCautionHtml 을 재사용하지 않는 이유 —
+//   그 함수는 허용 목록에 <img> 가 들어 있다(캠페인 안내문·오리엔 리뷰 가이드가
+//   이미지를 정상적으로 쓴다). 메모는 「사진 붙이기 없음」이 확정 결정이라
+//   붙여넣기로 들어온 이미지까지 지워야 하는데, 그렇다고 sanitizeCautionHtml 에서
+//   이미지를 빼면 이미지를 쓰는 기존 화면이 전부 깨진다. 그래서 정책을 분리한다.
+//   (사양서 docs/specs/2026-08-05-orient-sheet-internal-memo.md 확정 결정 ③)
+//
+// 저장할 때와 화면에 그릴 때 **양쪽에서** 부른다. 관리자가 다른 화면에서 복사해
+// 붙인 내용이 저장된 뒤 다른 관리자 화면에 그려지므로 저장형 위험이 성립한다.
+function sanitizeMemoHtml(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') {
+    console.warn('[sanitizeMemoHtml] DOMPurify not loaded');
+    return '';
+  }
+  // 사전 정규화: Chrome contenteditable 이 Enter 시 줄을 <div> 로 감싼다.
+  // <div> 를 제거하면 줄바꿈이 사라지므로 허용 태그 <p> 로 먼저 치환.
+  let normalized = String(html);
+  if (/<div\b/i.test(normalized)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('div').forEach(d => {
+      const p = document.createElement('p');
+      while (d.firstChild) p.appendChild(d.firstChild);
+      if (d.parentNode) d.parentNode.replaceChild(p, d);
+    });
+    normalized = tmp.innerHTML;
+  }
+  const clean = DOMPurify.sanitize(normalized, {
+    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br','p'],
+    ALLOWED_ATTR: ['href','target','rel'],
+    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
+    FORBID_ATTR: ['src','srcset','style','onerror','onload','onclick','onmouseover','onfocus','class','id']
+  });
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = clean;
+  // 링크 정규화: http/https/mailto 만 허용, target=_blank + rel=noopener 자동 부여
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    const href = (a.getAttribute('href') || '').trim();
+    if (!/^https?:\/\/|^mailto:/i.test(href)) {
+      if (/^[\w.-]+\.[a-z]{2,}/i.test(href)) {
+        a.setAttribute('href', 'https://' + href.replace(/^\/+/, ''));
+      } else {
+        a.removeAttribute('href');
+      }
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+  });
+  return wrapper.innerHTML;
+}
+
 // 미니 에디터 콘텐츠 이미지 src 화이트리스트.
 //   - https 만 허용 (http/data:/blob:/javascript: 모두 거부)
 //   - 호스트는 *.supabase.co (운영·개발 Supabase Storage 모두 포함)
