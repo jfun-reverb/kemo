@@ -122,6 +122,10 @@ const ADMIN_LIST_COLUMNS = [
   // 목록에서 행사 캠페인을 구분하고(타임 관리·예약 현황 진입), 비공개 캠페인에
   // 자물쇠 표시를 하려면 목록 조회 단계에서 두 값이 필요하다.
   'event_mode', 'is_invite_only',
+  // 행사 묶음(마이그레이션 291) — 「현장 확인 열기」 버튼이 **기다리지 않고** 판단해야 한다.
+  //   버튼이 눌린 뒤 조회를 하면 그 비동기 때문에 사용자 제스처가 끊겨 브라우저가
+  //   새 탭을 차단한다(실측). 목록 조회 때 함께 받아 두면 동기로 열 수 있다.
+  'event_group_id',
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
@@ -4264,6 +4268,50 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
 //    {ok:false, reason:'...'} 를 돌려준다. 호출부는 반드시 ok 를 확인하고
 //    reason 별 안내 문구를 골라야 한다 — 실패를 조용히 성공으로 넘기면
 //    방문객이 예약된 줄 알고 현장에 온다.
+
+// ── 행사 묶음 (마이그레이션 291·292) ─────────────────────────────
+// 같은 행사를 여러 캠페인으로 나눈 경우 하나로 묶는다. 사양서
+//   docs/specs/2026-08-05-event-group-and-scoped-checkin.md §4-1
+//
+// 목록. 기본은 사용중(active)만 — 보관한 묶음을 새로 고르지 못하게 한다.
+// ⚠️ keepId 는 「편집 중인 캠페인이 이미 연결한 묶음」을 뜻한다. 그 묶음이
+//    보관 상태면 선택지에서 빠지는데, 그러면 폼이 빈 값으로 열리고 저장할 때
+//    빈 값이 그대로 쓰여 **연결이 조용히 끊긴다**(사양서 §4-2 3번). 그래서
+//    보관이어도 그 하나만은 남긴다.
+// ⚠️ 실패는 **null**, 「진짜 0건」은 **빈 배열**로 구분해 돌려준다(이 프로젝트의
+//    다른 조회 함수들이 예외를 삼키고 [] 를 주는 관행과 다르다 — 여기서는 그
+//    관행이 위험하다). 실패를 0건으로 넘기면 호출부가 선택지를 비우고, 그 상태로
+//    저장하면 **연결이 조용히 끊긴다.** 그게 이 칸이 막으려는 사고 자체다.
+async function fetchEventGroups(keepId) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.from('event_groups')
+      .select('id,name,status')
+      .order('name', {ascending: true});
+    if (error) throw error;
+    return (data || []).filter(g => g.status === 'active' || (keepId && g.id === keepId));
+  } catch(e) { return null; }
+}
+
+// 즉석 추가. 이름이 이미 있으면(공백·대소문자 차이 포함) 서버가 막는다.
+//   반환 {ok, group} 또는 {ok:false, duplicate:true} — 호출부가 안내를 고른다.
+async function createEventGroup(name) {
+  if (!db) return {ok: false};
+  const nm = String(name || '').trim();
+  if (!nm) return {ok: false, empty: true};
+  try {
+    const {data, error} = await db.from('event_groups')
+      .insert({name: nm})
+      .select('id,name,status')
+      .maybeSingle();
+    if (error) {
+      // 23505 = 유일 제약 위반. 띄어쓰기만 다른 이름을 넣은 경우가 여기로 온다.
+      if (error.code === '23505') return {ok: false, duplicate: true};
+      throw error;
+    }
+    return {ok: true, group: data};
+  } catch(e) { return {ok: false, error: e?.message || String(e)}; }
+}
 
 // 타임 목록. 로그인한 사람 전체가 조회할 수 있다(사양서 §0 결정 16).
 async function fetchEventSlots(campaignId) {

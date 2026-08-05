@@ -373,6 +373,14 @@
                   <input type="text" id="editCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
                   <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
                 </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">같은 행사 묶음</label>
+                  <div class="event-group-row">
+                    <select id="editCampEventGroup" class="form-input" style="max-width:280px"></select>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('edit')">새 묶음</button>
+                  </div>
+                  <div class="form-hint">하루짜리 행사면 비워 두세요. <b>같은 행사를 날짜별로 여러 캠페인으로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에서 한 번에 보입니다. 안 묶으면 날짜가 바뀔 때 명단이 빈 화면이 됩니다.</div>
+                </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div id="editCampInviteRow" class="event-invite-row" style="display:none">
                   <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
@@ -781,6 +789,14 @@
                   <label class="form-label">행사장 안내 (일본어)</label>
                   <input type="text" id="newCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
                   <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">같은 행사 묶음</label>
+                  <div class="event-group-row">
+                    <select id="newCampEventGroup" class="form-input" style="max-width:280px"></select>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('new')">새 묶음</button>
+                  </div>
+                  <div class="form-hint">하루짜리 행사면 비워 두세요. <b>같은 행사를 날짜별로 여러 캠페인으로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에서 한 번에 보입니다. 안 묶으면 날짜가 바뀔 때 명단이 빈 화면이 됩니다.</div>
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div id="newCampInviteRow" class="event-invite-row" style="display:none">
@@ -1258,6 +1274,7 @@
               <div class="admin-filter-group" style="flex-shrink:0">
                 <select id="eventTicketSlotFilter" class="admin-filter" style="width:auto" onchange="onEventTicketSlotFilterChange(this.value)"></select>
               </div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
             </div>
             <div class="admin-table-wrap">
