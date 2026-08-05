@@ -136,7 +136,14 @@ async function openCampaign(id) {
                </div>`
             : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
           ):''}
-          ${camp.reward>0?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
+          ${/* 현금 리워드 줄 — ⚠️ 리뷰어형(monitor)에는 그리지 않는다. 정산 계산이
+                리뷰어형에서 campaigns.reward 를 아예 쓰지 않으므로(마이그레이션 300은
+                min(영수증, 상시가) 하나로만 정한다), 표시하면 **지급되지 않는 금액을
+                약속**하게 된다. 운영 실측(2026-08-05) 리뷰어형 74개 중 현금 리워드가
+                설정된 것은 0개라 실제 노출은 없었지만, 앞으로 누가 값을 넣으면 바로 새어
+                나가는 자리라 막는다. 합산 지급(amount_source='product_plus_reward')이
+                구현되면 그때 되살린다. */''}
+          ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
           // 캠페인 상세 표 — 시간 흐름 순으로 행 배치
