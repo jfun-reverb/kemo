@@ -258,6 +258,7 @@ window.I18N_JA = {
       title: '報酬・精算',
       totalLabel: '累計受取額',
       pendingLabel: 'お支払い予定',
+      basisReceipt: 'レシートの購入金額をもとに計算',
       empty: 'まだ精算はありません。',
       paypalMissing: '報酬のお振込みにはPayPalメールアドレスの登録が必要です。',
       paypalLink: 'PayPal登録',
@@ -481,7 +482,11 @@ window.I18N_JA = {
     appliedBtn: '応募済み',
     manageBtn: '活動管理',
     rewardProduct: '円相当の製品を無償提供',
-    rewardPayback: '円ペイバック',
+    // レビュアー型のペイバック — 294 で「レシート実支払額（商品価格を上限に切り捨て）」に
+    // なったため、金額を約束する言い方をやめた。全体形＝詳細ページ・管理者プレビュー・
+    // お知らせメール / 短縮形＝下部固定バー・一覧カード。{price} は商品価格
+    rewardPaybackFull: '購入金額をペイバック（最大 ¥{price}）',
+    rewardPaybackShort: 'ペイバック（最大 ¥{price}）',
     rewardCash: '+ 現金報酬 ¥{amount}',
     rewardFree: '製品全額無償提供',
     rewardProductAmount: '製品 ¥{price}円相当',
@@ -675,6 +680,7 @@ window.I18N_JA = {
     slotFormat: '{applied}/{slots}名',
     rewardProduct: '製品 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>製品無償提供</strong>',
+    rewardPaybackShort: 'ペイバック（最大 ¥{price}）',  // レビュアー型カード用
     rewardFreeSimple: '<strong>無償提供</strong>',
     channelAll: 'すべて',
     moreBtn: 'もっと見る',

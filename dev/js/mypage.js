@@ -569,6 +569,11 @@ async function renderMySettlements() {
       ${imgHtml}
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(title)}</div>
+        ${r.amount_source === 'receipt_amount'
+          // 「왜 이 금액인가」를 인플루언서가 스스로 알 수 있게 한다(294 이후 리뷰어형).
+          // 옛 기준으로 만들어진 행에는 이 값이 없어 아무것도 그리지 않는다.
+          ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('mypage.settlements.basisReceipt'))}</div>`
+          : ''}
         ${paidLine}
       </div>
       <div style="text-align:right;flex-shrink:0">
