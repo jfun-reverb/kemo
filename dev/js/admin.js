@@ -690,6 +690,10 @@ function getRichValue(id) {
 
 async function openEditCampaign(campId) {
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  // ★ 「저장 안 한 변경」 기준값을 **맨 앞에서 비운다.** 안 비우면 직전 캠페인의
+  //   늦게 도착한 기준값이 이 캠페인을 덮어, 열자마자 경고가 뜨거나 진짜 변경을 놓친다
+  //   (_recruitTypeBeforeEvent 와 같은 함정 — 2026-08-03 사고 유형).
+  const _dirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
@@ -719,13 +723,13 @@ async function openEditCampaign(campId) {
   sv('editCampBrand', camp.brand);
   sv('editCampBrandKo', camp.brand_ko || '');
   // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
-  loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
+  const _brandChain = loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
       // 기존 연결 값 복원(저장 보존). 화면 표시는 renderSurveyLinkReadonly 가 읽기전용 라벨로 처리.
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
     }
     // hint + 서베이 연결 읽기전용 표시 갱신 (onCampBrandChange 내부에서 renderSurveyLinkReadonly 호출)
-    onCampBrandChange('edit');
+    await onCampBrandChange('edit');
   });
   sv('editCampProduct', camp.product);
   sv('editCampProductKo', camp.product_ko || '');
@@ -862,11 +866,28 @@ async function openEditCampaign(campId) {
   // 오프라인 행사 설정(행사 모드·비공개·초대 번호) 채우기.
   //   초대 번호는 캠페인 표가 아니라 별도 표라 비동기 조회가 필요하다 — 화면 전환을
   //   막지 않도록 await 하지 않고, 값이 오면 그때 칸에 들어간다.
-  if (typeof loadEventSettingsIntoEditForm === 'function') {
-    loadEventSettingsIntoEditForm(camp);
-  }
+  const _evtFill = (typeof loadEventSettingsIntoEditForm === 'function')
+    ? loadEventSettingsIntoEditForm(camp) : null;
 
   switchAdminPane('edit-campaign', null);
+
+  // ★ 기준값은 **늦게 도착하는 칸이 채워진 뒤** 뜬다(브랜드 드롭다운·행사 묶음·초대 번호).
+  //   화면보다 먼저 뜨면 값이 도착하는 순간 「사용자가 고친 것」이 되어 열자마자 경고가 뜬다.
+  //   그 사이 몇 백 밀리초에 친 글자는 기준에 포함돼 못 잡지만, **못 잡는 쪽이 거짓 경고보다 낫다** —
+  //   거짓 경고가 한 번 나면 그때부터 아무도 안 읽는다.
+  // ⚠️ 브랜드 드롭다운 체인(_brandChain)도 함께 기다린다 — 이 체인은 선택지를 통째로
+  //    다시 그리므로, 기준값을 먼저 뜨면 그 순간 「브랜드가 바뀌었다」로 잡힌다.
+  Promise.all([
+    Promise.resolve(_evtFill).catch(() => {}),
+    Promise.resolve(_brandChain).catch(() => {}),
+  ]).then(() => {
+    // 리치 편집기·번들 렌더가 다음 tick 에 끝나므로 한 박자 더 둔다.
+    setTimeout(() => {
+      if (typeof captureCampDirtyBaseline === 'function') {
+        captureCampDirtyBaseline('edit', camp.id, _dirtySeq);
+      }
+    }, 120);
+  });
 }
 
 // 캠페인 편집 폼: 신청 동의 영향 영역 readonly 토글
@@ -2532,6 +2553,10 @@ async function saveCampaignEdit() {
 
     allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다','success');
+    // 저장이 끝났으니 「저장 안 한 변경」 기준값을 비운다.
+    //   지금은 폼을 다시 열 때마다 전체를 비우므로 없어도 도달 가능한 거짓 경고는 없지만,
+    //   그 리셋 지점 중 하나가 나중에 빠지면 옛 기준으로 판단하게 된다.
+    if (typeof resetCampDirtyBaseline === 'function') resetCampDirtyBaseline();
     switchAdminPane('campaigns', null);
   } catch(err) {
     // 저장이 실패했으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
@@ -2658,7 +2683,10 @@ async function executeDeleteCampaign() {
     // 캠페인 진행현황에서 삭제한 경우(헤더 더보기 메뉴), 사라진 캠페인 화면에 남지 않도록 목록으로 돌려보낸다
     if (typeof currentCampApplicantId !== 'undefined' && currentCampApplicantId === campId
         && $('adminPane-camp-applicants')?.classList.contains('on')) {
-      switchAdminPane('campaigns', null);
+      // 저장이 끝났으니 기준값을 비운다 — 안 비우면 목록에서 다시 들어올 때
+    //   옛 기준으로 판단해 「저장 안 된 변경」이 있다고 잘못 묻는다.
+    if (typeof resetCampDirtyBaseline === 'function') resetCampDirtyBaseline();
+    switchAdminPane('campaigns', null);
     }
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
@@ -4875,6 +4903,9 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
 async function onCampVisibilityToggle(prefix) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   if (!toggle || toggle.disabled) return;
+  // 이 토글은 누르는 즉시 저장된다 — 「저장하지 않고 나가기」로 되돌아가지 않는다.
+  //   경고창이 그 사실을 한 줄로 알리도록 표시해 둔다.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   var isCurrentlyOn = toggle.classList.contains('is-on');
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
   if (isCurrentlyOn) {
@@ -4889,6 +4920,8 @@ async function onCampVisibilityToggle(prefix) {
         // 폼 상태 드롭다운도 갱신 (있으면)
         var statusSel = $('editCampStatus');
         if (statusSel) statusSel.value = 'expired';
+        // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
+        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility OFF]', e);
@@ -4907,6 +4940,7 @@ async function onCampVisibilityToggle(prefix) {
         _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
         var statusSel = $('editCampStatus');
         if (statusSel) statusSel.value = newStatus;
+        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility ON]', e);

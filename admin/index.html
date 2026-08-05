@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785918104';
+  var CURRENT_BUILD = 'v1785920695';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2801,7 +2801,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 17:21 · 37fd30b</span>
+          <span class="admin-build-text">2026-08-05 18:04 · a1c4e5d</span>
         </div>
       </div>
     </aside>
@@ -3000,7 +3000,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div class="camp-form-main">
           <div class="product-form">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">← 목록으로</button>
               <div class="product-form-title" style="margin:0">캠페인 편집</div>
               <span id="editCampNoBadge" style="display:none;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:0.02em;background:var(--pink-soft,#fdf5fb);color:var(--pink);padding:3px 10px;border-radius:6px;cursor:pointer" title="클릭하여 복사"></span>
               <div id="editCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
@@ -3391,7 +3391,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-ghost" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">취소</button>
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
             </div>
           </div>
@@ -3711,7 +3711,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-ghost" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">취소</button>
               <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
             </div>
           </div>
@@ -6587,6 +6587,27 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div style="display:flex;gap:10px;margin-top:22px;justify-content:center">
         <button class="btn btn-ghost" id="confirmModalCancelBtn" style="min-width:100px" onclick="resolveConfirmModal(false)">취소</button>
         <button class="btn btn-primary" id="confirmModalOkBtn" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 저장 안 한 변경을 두고 나가려 할 때 (캠페인 편집·신규 폼)
+     ⚠️ z-index 는 confirmModal(610)·sensitiveChangeModal(620) 보다 아래. 저장을 고르면
+        이 창을 먼저 닫고 저장 절차의 확인창이 뜨는 순서라, 겹칠 일이 없어야 한다. -->
+<div class="modal-overlay" id="campLeaveModal" style="z-index:600">
+  <div class="modal" style="max-width:460px;border-radius:24px;margin:auto">
+    <div class="modal-body" style="padding:28px 24px 22px">
+      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:10px">저장하지 않은 변경이 있습니다</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7">고친 항목</div>
+      <div id="campLeaveModalBody" style="font-size:14px;font-weight:700;color:var(--ink);line-height:1.7;margin:2px 0 14px"></div>
+      <div id="campLeaveModalNote" style="display:none;font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:10px;padding:10px 12px">
+        행사 시간대와 캠페인 노출 설정은 <b>누른 즉시 저장</b>돼 되돌아가지 않습니다.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="campLeaveCancel()">계속 편집</button>
+        <button class="btn btn-ghost" style="color:var(--red)" onclick="campLeaveDiscardAndGo()">저장하지 않고 나가기</button>
+        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장하고 나가기</button>
       </div>
     </div>
   </div>
@@ -14589,8 +14610,17 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCampNgItems('new');
     renderCampBundleSummary('nset', 'new');
     setupCampPreview('new');
+    // ★ 「저장 안 한 변경」 기준값 — 신규 폼도 여기서 뜬다.
+    //   안 두면 ①편집 폼 기준값으로 신규 폼을 재게 되어 **모든 칸이 「바뀜」**으로 잡히거나
+    //   ②세션 첫 진입에서는 기준이 없어 **진짜 입력을 하나도 못 잡는다**(리뷰에서 잡힌 결함).
+    const _newDirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
     // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
-    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
+    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new')).then(() => {
+      // 리치 편집기는 위에서 다음 tick 에 비우므로 그 뒤에 뜬다.
+      setTimeout(() => {
+        if (typeof captureCampDirtyBaseline === 'function') captureCampDirtyBaseline('new', null, _newDirtySeq);
+      }, 120);
+    });
   }
   if (pane === 'edit-campaign') {
     setupCampPreview('edit');
@@ -36485,6 +36515,8 @@ async function deleteEventSlotRow(slotId) {
 
 // ── 타임 추가 (한 줄씩) ───────────────────────────────────────
 async function addEventSlotRow() {
+  // 시간대는 누르는 즉시 저장된다 — 이탈 경고가 그 사실을 알리도록 표시.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   const date  = $('eventSlotNewDate')?.value || '';
   const start = $('eventSlotNewStart')?.value || '';
   const end   = $('eventSlotNewEnd')?.value || '';
@@ -37001,6 +37033,242 @@ async function fetchEventDerivedForSave(campaignId) {
 //   ⚠️ 저장 시점에는 화면 체크박스가 곧 저장될 값이므로 그것을 본다.
 function isEventModeForm(prefix) {
   return !!$(prefix + 'CampEventMode')?.checked;
+}
+
+// ══════════════════════════════════════
+// 캠페인 폼 — 저장 안 한 변경을 두고 나가려 할 때 묻기
+//   사용자 요청 2026-08-05. 계획은 reverb-planner 조사 결과를 따른다.
+//
+// 설계 요지 3줄
+//   ① 기준값은 **화면(DOM)에서** 뜬다 — 데이터베이스 값과 비교하면 리치 텍스트 왕복·
+//      번들 청소로 글자가 미세하게 달라져 「안 바꿨는데 경고」가 뜬다(이 폼에서 이미 두 번 터진 유형).
+//   ② 기준값은 **늦게 도착하는 칸이 다 채워진 뒤** 뜬다(브랜드·행사 묶음·초대 번호).
+//      그 전에 뜨면 값이 도착하는 순간 「사용자가 고친 것」이 된다 → 열자마자 경고.
+//   ③ 기준값이 없으면 **묻지 않는다.** 이 기능은 없어도 원래대로 돌아갈 뿐이라,
+//      거짓 경고보다 미검출이 낫다. 한 번 거짓 경고가 나면 그때부터 아무도 안 읽는다.
+// ══════════════════════════════════════
+
+// ⚠️ 모듈 전역 3종. 캠페인마다 비우는 자리를 반드시 지킨다 —
+//    안 비우면 캠페인 A 의 기준값이 B 를 덮어 B 에서 즉시 경고가 뜨거나
+//    B 의 진짜 변경을 놓친다(_recruitTypeBeforeEvent 와 같은 함정, 2026-08-03 사고 유형).
+let _campDirtyBaseline = null;    // 기준값 {키: 값}
+let _campDirtyFor = '';           // 그 기준값이 어느 캠페인 것인지
+let _campDirtyPrefix = '';        // 어느 폼('edit'|'new') 것인지 — 다르면 비교하지 않는다.
+                                  //   안 두면 편집 폼 기준값으로 신규 폼을 재는 순간
+                                  //   **모든 칸이 「바뀜」**으로 잡힌다(리뷰에서 잡힌 결함).
+let _campFormOpenSeq = 0;         // 폼을 연 횟수. 늦게 도착한 기준값이 지금 것인지 가른다
+
+// 감지에서 빼는 것 — **이미 저장된 것**과 비교가 무의미한 것.
+//   「저장 안 됨」이라고 말하면 거짓이 되는 항목이 여기 들어간다.
+const CAMP_DIRTY_SKIP_PREFIX = [
+  'eventSlot',      // 행사 시간대 — 누르는 즉시 저장된다
+  'tagWrap_',       // 태그 위젯의 임시 입력칸(칩으로 확정되기 전 값)
+];
+// ⚠️ 상태 드롭다운(editCampStatus)은 **빼지 않는다.** 관리자가 손으로 바꾸는 칸이기도 해서
+//    통째로 빼면 그 변경을 못 잡는다. 대신 「노출 토글」이 즉시 저장한 직후에만
+//    기준값의 그 칸을 새 값으로 맞춰, 토글로 인한 변화만 조용히 넘긴다(syncCampDirtyStatus).
+const CAMP_DIRTY_SKIP_IDS = [];
+
+// ⚠️ id 가 없다고 건너뛰면 **모집 타입·채널·콘텐츠 종류가 통째로 빠진다** — 이 셋은
+//    id 없이 name 만 갖거나(라디오), 체크박스에 id 가 없다(채널·콘텐츠는 화면에서 그린다).
+//    가장 자주 만지는 칸들이라 빠지면 기능이 반쪽이 된다(리뷰에서 잡힌 결함).
+//    → id 가 없으면 name 을 키로 쓰고, 그것도 없을 때만 건너뛴다.
+function campDirtyKey(el) {
+  const id = el.id || '';
+  if (id) return id;
+  const nm = el.getAttribute('name') || '';
+  if (!nm) return '';
+  // 같은 name 의 라디오·체크박스가 여럿이므로 값까지 키에 담아 각각을 구분한다.
+  if (el.type === 'radio' || el.type === 'checkbox') return `name:${nm}:${el.value}`;
+  return `name:${nm}`;
+}
+
+function campDirtySkip(el) {
+  if (el.type === 'file') return true;
+  const key = campDirtyKey(el);
+  if (!key) return true;
+  const id = el.id || '';
+  if (id && CAMP_DIRTY_SKIP_IDS.includes(id)) return true;
+  if (id && CAMP_DIRTY_SKIP_PREFIX.some(p => id.startsWith(p))) return true;
+  // 화면에서 그리는 시간대 표는 id 가 없을 수 있으니 소속 구역으로도 거른다.
+  if (el.closest && el.closest('[id^="eventSlot"], [id$="EventSlotsBox"]')) return true;
+  return false;
+}
+
+// 폼 한 벌의 현재 값을 모은다. prefix 는 'edit' | 'new'.
+function snapshotCampForm(prefix) {
+  const pane = document.getElementById('adminPane-' + (prefix === 'edit' ? 'edit-campaign' : 'add-campaign'));
+  if (!pane) return null;
+  const snap = {};
+  pane.querySelectorAll('input, select, textarea').forEach(el => {
+    if (campDirtySkip(el)) return;
+    snap[campDirtyKey(el)] = (el.type === 'checkbox' || el.type === 'radio') ? String(el.checked) : String(el.value ?? '');
+  });
+  // 리치 텍스트는 DOM 칸이 아니라 편집기 안에 있다. 저장 때 쓰는 값을 그대로 읽고,
+  //   비교 전 정규화한다(서식만 다른 경우를 「바뀜」으로 보지 않으려고 — 기존 함수 재사용).
+  RICH_EDITOR_IDS.forEach(id => {
+    if (!id.startsWith(prefix)) return;
+    try {
+      const v = (typeof getRichValue === 'function') ? getRichValue(id) : '';
+      snap['rich:' + id] = (typeof normalizeRichForCompare === 'function') ? normalizeRichForCompare(v) : v;
+    } catch (e) { /* 편집기가 아직 없으면 건너뛴다 */ }
+  });
+  return snap;
+}
+
+// 기준값 뜨기. 늦게 도착하는 칸까지 채워진 뒤에 불러야 한다.
+//   seq 가 지금 열린 폼의 것과 다르면 **버린다**(옆 캠페인 오염 차단).
+function captureCampDirtyBaseline(prefix, campId, seq) {
+  if (seq !== undefined && seq !== _campFormOpenSeq) return;
+  _campDirtyBaseline = snapshotCampForm(prefix);
+  _campDirtyFor = campId || '';
+  _campDirtyPrefix = prefix;
+}
+
+// 폼을 열 때 맨 앞에서 부른다. 늦게 오는 옛 기준값을 무효로 만든다.
+function resetCampDirtyBaseline() {
+  _campFormOpenSeq += 1;
+  _campDirtyBaseline = null;
+  _campDirtyFor = '';
+  _campDirtyPrefix = '';
+  _campDirtyImmediateTouched = false;
+  return _campFormOpenSeq;
+}
+
+// 「누르는 즉시 저장되는 것」을 이번에 만졌는지. 경고창 안내 한 줄을 붙일지 가른다.
+let _campDirtyImmediateTouched = false;
+function markCampImmediateSaved() { _campDirtyImmediateTouched = true; }
+
+// 노출 토글이 즉시 저장한 뒤, 그 때문에 바뀐 상태 칸을 기준값에도 반영한다.
+//   이렇게 해야 「토글만 눌렀는데 저장 안 됨」 거짓 경고가 안 뜨면서,
+//   관리자가 상태를 **손으로** 바꾼 경우는 그대로 잡힌다.
+function syncCampDirtyStatus(prefix) {
+  if (!_campDirtyBaseline) return;
+  const el = document.getElementById(prefix + 'CampStatus');
+  if (el) _campDirtyBaseline[el.id] = String(el.value ?? '');
+}
+
+// 바뀐 항목의 **한국어 이름** 목록. 없으면 빈 배열.
+//   기준값이 없으면(아직 안 떴거나 폼이 아니면) 빈 배열 — 모르면 막지 않는다.
+function campDirtyChangedLabels(prefix) {
+  if (!_campDirtyBaseline) return [];
+  if (_campDirtyPrefix !== prefix) return [];   // 다른 폼의 기준값으로는 재지 않는다
+  const now = snapshotCampForm(prefix);
+  if (!now) return [];
+  const labels = [];
+  const seen = {};
+  const pushLabel = (key) => {
+    let id = key.startsWith('rich:') ? key.slice(5) : key;
+    let el = null;
+    if (id.startsWith('name:')) {
+      const nm = id.split(':')[1];
+      el = document.querySelector(`#adminPane-${prefix === 'edit' ? 'edit' : 'add'}-campaign [name="${nm}"]`);
+    }
+    // 화면의 라벨을 우선 쓰고, 없으면 칸 이름 그대로.
+    let name = '';
+    if (!el) el = document.getElementById(id);
+    const grp = el && el.closest ? el.closest('.form-group') : null;
+    const lb = grp ? grp.querySelector('.form-label') : null;
+    if (lb) name = lb.textContent.replace(/필수|선택/g, '').trim();
+    if (!name) name = id;
+    if (seen[name]) return;
+    seen[name] = 1;
+    labels.push(name);
+  };
+  Object.keys(now).forEach(k => { if (_campDirtyBaseline[k] !== now[k]) pushLabel(k); });
+  // 이미지는 별도 플래그가 이미 있다(추가·삭제·순서·자르기 모두 세운다).
+  if (prefix === 'edit' && typeof editCampImgChanged !== 'undefined' && editCampImgChanged) {
+    if (!seen['이미지']) { seen['이미지'] = 1; labels.push('이미지'); }
+  }
+  // 주의사항·참여방법·금지사항 번들은 기존 비교 함수를 그대로 쓴다 —
+  //   거짓 감지를 막는 정규화가 이미 들어 있고, 그 자리에서 회귀가 두 번 났다.
+  if (prefix === 'edit' && typeof detectSensitiveChange === 'function') {
+    try {
+      const d = detectSensitiveChange(buildSensitivePayloadForDirty());
+      if (d && d.changed && !seen['주의사항·참여방법·금지사항']) {
+        seen['주의사항·참여방법·금지사항'] = 1;
+        labels.push('주의사항·참여방법·금지사항');
+      }
+    } catch (e) { /* 비교 못 하면 그냥 넘어간다 */ }
+  }
+  return labels;
+}
+
+// 번들 비교에 넘길 값.
+// ⚠️ **저장 경로가 부르는 함수를 그대로 쓴다.** 값을 손으로 흉내 내면 이름이 하나만
+//    달라도 항상 빈 값이 넘어가 **모든 캠페인에서 거짓 경고**가 뜬다(리뷰에서 실제로 잡힌 결함).
+function buildSensitivePayloadForDirty() {
+  const p = {};
+  if (typeof collectCampCsetPayload === 'function') Object.assign(p, collectCampCsetPayload('edit'));
+  if (typeof collectCampPsetPayload === 'function') Object.assign(p, collectCampPsetPayload('edit'));
+  if (typeof collectCampNsetPayload === 'function') Object.assign(p, collectCampNsetPayload('edit'));
+  return p;
+}
+
+// 지금 편집·신규 폼이 열려 있고 저장 안 한 변경이 있으면 그 접두사를 돌려준다.
+function activeDirtyCampForm() {
+  const isVisible = id => {
+    const p = document.getElementById(id);
+    return p && getComputedStyle(p).display !== 'none';
+  };
+  if (isVisible('adminPane-edit-campaign')) {
+    const labels = campDirtyChangedLabels('edit');
+    if (labels.length) return {prefix: 'edit', labels};
+  }
+  if (isVisible('adminPane-add-campaign')) {
+    const labels = campDirtyChangedLabels('new');
+    if (labels.length) return {prefix: 'new', labels};
+  }
+  return null;
+}
+
+// ── 경고창 ────────────────────────────────────────────────
+// 기존 showConfirm 은 버튼 2개 고정이라 쓸 수 없다(저장하고 나가기 / 저장 안 하고 나가기 / 취소).
+let _campLeaveGo = null;   // 「나가기」를 고르면 실행할 이동 함수
+
+function campLeaveGuard(go) {
+  const d = activeDirtyCampForm();
+  if (!d) { go(); return; }        // 변경 없음 — 그냥 보낸다
+  _campLeaveGo = go;
+
+  const list = d.labels.slice(0, 5).join(' · ');
+  const more = d.labels.length > 5 ? ` 그 외 ${d.labels.length - 5}곳` : '';
+  const body = document.getElementById('campLeaveModalBody');
+  if (body) body.textContent = `${list}${more}`;
+
+  // 「저장하지 않고 나가기」를 눌러도 되돌아가지 않는 것이 있으면 그때만 알린다.
+  const note = document.getElementById('campLeaveModalNote');
+  if (note) {
+    note.style.display = _campDirtyImmediateTouched ? '' : 'none';
+  }
+  // 신규 등록 폼은 저장 절차가 달라 이번 범위에서 「저장하고 나가기」를 제공하지 않는다.
+  const saveBtn = document.getElementById('campLeaveSaveBtn');
+  if (saveBtn) saveBtn.style.display = (d.prefix === 'edit') ? '' : 'none';
+
+  openModal('campLeaveModal');
+}
+
+// 저장하고 나가기 — 경고창을 **먼저 닫는다.** 저장 함수가 확인창을 또 띄울 수 있는데,
+//   확인창 인프라는 결과를 담는 자리가 하나뿐이라 겹쳐 띄우면 서로를 잡아먹는다.
+// ⚠️ 여기서 화면 이동을 하지 않는다. 저장이 성공하면 저장 함수가 스스로 목록으로 가고,
+//    실패·취소면 폼에 남는 게 맞다(고친 내용을 들고 화면을 떠나면 그대로 유실된다).
+function campLeaveSaveAndGo() {
+  closeModal('campLeaveModal');
+  _campLeaveGo = null;
+  if (typeof saveCampaignEdit === 'function') saveCampaignEdit();
+}
+
+function campLeaveDiscardAndGo() {
+  closeModal('campLeaveModal');
+  const go = _campLeaveGo;
+  _campLeaveGo = null;
+  resetCampDirtyBaseline();   // 기준값을 비워 다음 화면에서 옛 값으로 판단하지 않게 한다
+  if (typeof go === 'function') go();
+}
+
+function campLeaveCancel() {
+  closeModal('campLeaveModal');
+  _campLeaveGo = null;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -37695,6 +37963,10 @@ function getRichValue(id) {
 
 async function openEditCampaign(campId) {
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  // ★ 「저장 안 한 변경」 기준값을 **맨 앞에서 비운다.** 안 비우면 직전 캠페인의
+  //   늦게 도착한 기준값이 이 캠페인을 덮어, 열자마자 경고가 뜨거나 진짜 변경을 놓친다
+  //   (_recruitTypeBeforeEvent 와 같은 함정 — 2026-08-03 사고 유형).
+  const _dirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
@@ -37724,13 +37996,13 @@ async function openEditCampaign(campId) {
   sv('editCampBrand', camp.brand);
   sv('editCampBrandKo', camp.brand_ko || '');
   // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
-  loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
+  const _brandChain = loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
       // 기존 연결 값 복원(저장 보존). 화면 표시는 renderSurveyLinkReadonly 가 읽기전용 라벨로 처리.
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
     }
     // hint + 서베이 연결 읽기전용 표시 갱신 (onCampBrandChange 내부에서 renderSurveyLinkReadonly 호출)
-    onCampBrandChange('edit');
+    await onCampBrandChange('edit');
   });
   sv('editCampProduct', camp.product);
   sv('editCampProductKo', camp.product_ko || '');
@@ -37867,11 +38139,28 @@ async function openEditCampaign(campId) {
   // 오프라인 행사 설정(행사 모드·비공개·초대 번호) 채우기.
   //   초대 번호는 캠페인 표가 아니라 별도 표라 비동기 조회가 필요하다 — 화면 전환을
   //   막지 않도록 await 하지 않고, 값이 오면 그때 칸에 들어간다.
-  if (typeof loadEventSettingsIntoEditForm === 'function') {
-    loadEventSettingsIntoEditForm(camp);
-  }
+  const _evtFill = (typeof loadEventSettingsIntoEditForm === 'function')
+    ? loadEventSettingsIntoEditForm(camp) : null;
 
   switchAdminPane('edit-campaign', null);
+
+  // ★ 기준값은 **늦게 도착하는 칸이 채워진 뒤** 뜬다(브랜드 드롭다운·행사 묶음·초대 번호).
+  //   화면보다 먼저 뜨면 값이 도착하는 순간 「사용자가 고친 것」이 되어 열자마자 경고가 뜬다.
+  //   그 사이 몇 백 밀리초에 친 글자는 기준에 포함돼 못 잡지만, **못 잡는 쪽이 거짓 경고보다 낫다** —
+  //   거짓 경고가 한 번 나면 그때부터 아무도 안 읽는다.
+  // ⚠️ 브랜드 드롭다운 체인(_brandChain)도 함께 기다린다 — 이 체인은 선택지를 통째로
+  //    다시 그리므로, 기준값을 먼저 뜨면 그 순간 「브랜드가 바뀌었다」로 잡힌다.
+  Promise.all([
+    Promise.resolve(_evtFill).catch(() => {}),
+    Promise.resolve(_brandChain).catch(() => {}),
+  ]).then(() => {
+    // 리치 편집기·번들 렌더가 다음 tick 에 끝나므로 한 박자 더 둔다.
+    setTimeout(() => {
+      if (typeof captureCampDirtyBaseline === 'function') {
+        captureCampDirtyBaseline('edit', camp.id, _dirtySeq);
+      }
+    }, 120);
+  });
 }
 
 // 캠페인 편집 폼: 신청 동의 영향 영역 readonly 토글
@@ -39537,6 +39826,10 @@ async function saveCampaignEdit() {
 
     allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다','success');
+    // 저장이 끝났으니 「저장 안 한 변경」 기준값을 비운다.
+    //   지금은 폼을 다시 열 때마다 전체를 비우므로 없어도 도달 가능한 거짓 경고는 없지만,
+    //   그 리셋 지점 중 하나가 나중에 빠지면 옛 기준으로 판단하게 된다.
+    if (typeof resetCampDirtyBaseline === 'function') resetCampDirtyBaseline();
     switchAdminPane('campaigns', null);
   } catch(err) {
     // 저장이 실패했으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
@@ -39663,7 +39956,10 @@ async function executeDeleteCampaign() {
     // 캠페인 진행현황에서 삭제한 경우(헤더 더보기 메뉴), 사라진 캠페인 화면에 남지 않도록 목록으로 돌려보낸다
     if (typeof currentCampApplicantId !== 'undefined' && currentCampApplicantId === campId
         && $('adminPane-camp-applicants')?.classList.contains('on')) {
-      switchAdminPane('campaigns', null);
+      // 저장이 끝났으니 기준값을 비운다 — 안 비우면 목록에서 다시 들어올 때
+    //   옛 기준으로 판단해 「저장 안 된 변경」이 있다고 잘못 묻는다.
+    if (typeof resetCampDirtyBaseline === 'function') resetCampDirtyBaseline();
+    switchAdminPane('campaigns', null);
     }
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
@@ -41880,6 +42176,9 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
 async function onCampVisibilityToggle(prefix) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   if (!toggle || toggle.disabled) return;
+  // 이 토글은 누르는 즉시 저장된다 — 「저장하지 않고 나가기」로 되돌아가지 않는다.
+  //   경고창이 그 사실을 한 줄로 알리도록 표시해 둔다.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   var isCurrentlyOn = toggle.classList.contains('is-on');
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
   if (isCurrentlyOn) {
@@ -41894,6 +42193,8 @@ async function onCampVisibilityToggle(prefix) {
         // 폼 상태 드롭다운도 갱신 (있으면)
         var statusSel = $('editCampStatus');
         if (statusSel) statusSel.value = 'expired';
+        // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
+        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility OFF]', e);
@@ -41912,6 +42213,7 @@ async function onCampVisibilityToggle(prefix) {
         _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
         var statusSel = $('editCampStatus');
         if (statusSel) statusSel.value = newStatus;
+        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility ON]', e);
@@ -42012,11 +42314,20 @@ function setAdminScreenSelect() {
 // 같은 페인 재클릭 시엔 loader만 다시 호출해 강제 갱신.
 function navAdminPaneReload(pane) {
   pane = pane || 'dashboard';
-  if (typeof switchAdminPane === 'function') {
-    switchAdminPane(pane, null, true);
-  } else {
-    location.hash = '#' + pane;
-  }
+  const go = () => {
+    if (typeof switchAdminPane === 'function') {
+      switchAdminPane(pane, null, true);
+    } else {
+      location.hash = '#' + pane;
+    }
+  };
+  // 캠페인 폼에 저장 안 한 변경이 있으면 먼저 묻는다.
+  //   ⚠️ 게이트를 switchAdminPane 에 두지 않는 이유 — 그 함수는 **저장 성공 후 목록
+  //      복귀**·동시 저장 충돌 복귀·권한 리다이렉트·브라우저 뒤로가기가 전부 지나간다.
+  //      거기 두면 「저장했는데 저장 안 됐다고 묻는」 모습이 된다. 사이드바는 이 함수
+  //      하나로 모이므로 여기가 정확한 자리다.
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
+  go();
 }
 
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)
