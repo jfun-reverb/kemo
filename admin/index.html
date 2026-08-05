@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785898823';
+  var CURRENT_BUILD = 'v1785902289';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2801,7 +2801,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-05 12:00 · d1cad30</span>
+          <span class="admin-build-text">2026-08-05 12:58 · ae6a7d0</span>
         </div>
       </div>
     </aside>
@@ -9386,7 +9386,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -9408,7 +9408,7 @@ async function fetchDeliverableById(id) {
   try {
     const {data, error} = await db?.from('deliverables').select(`
       *,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1, product_price)
     `).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return null;
@@ -12461,9 +12461,12 @@ async function fetchSettlements(opts) {
       // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
       // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
       // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
+      // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 293 추가 — 리뷰어형이 영수증
+      // 실결제액 기준으로 바뀌면서(294), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
+      // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
-        amount_source, reward_part_jpy,
+        amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
@@ -26032,7 +26035,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -26055,7 +26058,9 @@ async function renderDelivCombinedBody(applicationId) {
       userId = app.user_id || null;
       if (!appStatus) appStatus = app.status || null;
       if (app.campaign_id) {
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
+        // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
+        // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price').eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -26342,6 +26347,21 @@ async function deleteMismatchedPostRow(deliverableId) {
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
 // (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
+// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 294 이후).
+// 리뷰어형 정산액 = min(이 금액, 캠페인 상시가) 이므로, 검수자가 영수증 사진과 이
+// 숫자를 대조하지 않으면 잘못된 금액이 그대로 송금된다 — 사양서 §2-1 ①·§3-4.
+// 리뷰어형(monitor)에서만 뜬다. 시딩·방문형은 이 값이 돈과 무관하다.
+function receiptPayoutHint(d) {
+  const camp = (d && (d.campaigns || d.campaign)) || {};
+  if (camp.recruit_type !== 'monitor') return '';
+  const cap = Number(camp.product_price);
+  const capText = Number.isFinite(cap) && cap > 0 ? ` 상한 ¥${cap.toLocaleString()}` : '';
+  return `<div style="margin-top:4px;font-size:11px;color:#B45309;background:#FEF3C7;border:1px solid #FDE68A;border-radius:5px;padding:5px 8px;line-height:1.5">
+    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">payments</span>
+    이 금액이 <strong>정산 지급액</strong>이 됩니다${capText ? `(${capText.trim()} 초과 시 상한까지만)` : ''}. 영수증 사진과 숫자를 대조해 주세요.
+  </div>`;
+}
+
 function renderReceiptInfoBlock(d, isExcluded) {
   if (!d || d.kind !== 'receipt') return '';
   // 검수 불필요(신청 반려·취소)면 영수증 인플레이스 「수정」도 막는다 — 상단 "검수 불필요" 배너와 일관.
@@ -26364,7 +26384,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
       </div>
       <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
       <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}</div>
+      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}${receiptPayoutHint(d)}</div>
       <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
       <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>
     </div>`;
@@ -26519,6 +26539,10 @@ async function saveReceiptEdit(id) {
       await openDelivDetail(_delivDetailCurrent.id);
     }
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
+    // 마이그레이션 296 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
+    // (재계산 또는 금액 미확정 시 자동 보류). 정산 페인과 사이드바 「정산대기」 배지가
+    // 메모리 캐시를 쓰므로 함께 갱신하지 않으면 관리자가 그 변화를 못 본다.
+    if (typeof refreshPane === 'function') await refreshPane('settlements');
   } catch(e) {
     const msg = (e && e.message) ? e.message : String(e);
     toast(friendlyError(msg), 'error');
@@ -33222,10 +33246,12 @@ function settlementAmountYen(v) {
 
 // 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
 // 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
-//   product_price = 리뷰어형(가구매 포함) 캠페인 제품 가격을 페이백
-//   reward        = 시딩·방문형 캠페인 현금 리워드
-//   NULL          = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
+//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(294~)
+//   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (294 이전에 만들어진 행)
+//   reward         = 시딩·방문형 캠페인 현금 리워드
+//   NULL           = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
 const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
+  receipt_amount: '영수증 금액',
   product_price: '제품 가격',
   product_plus_reward: '제품＋보수',
   reward: '현금 리워드',
@@ -33233,12 +33259,36 @@ const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
 function settlementAmountSourceLabel(source) {
   return SETTLEMENT_AMOUNT_SOURCE_LABELS[source] || '';
 }
-function settlementAmountSourceBadge(source) {
-  const label = settlementAmountSourceLabel(source);
-  return label
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(label)}</div>`
+
+// 상한 적용 여부(마이그레이션 293 receipt_amount_jpy/amount_cap_jpy).
+// 영수증이 캠페인 상시가보다 커서 상한에서 잘린 건인지 판정한다 — 관리자가
+// 「영수증에는 3,500엔인데 왜 3,200엔만 지급되나」를 화면에서 바로 알 수 있어야 한다
+// (2026-08-05 사용자 명시 요구). 두 값이 다 있어야 판정 가능(옛 행은 비어 있음).
+function settlementCapApplied(s) {
+  s = s || {};
+  // ⚠️ Number(null) 은 0 이라 isFinite 를 통과한다 — null 검사를 먼저 해야
+  // 「두 값이 다 있을 때만 판정」이 실제로 성립한다(293 적용 이전 행은 둘 다 비어 있음).
+  if (s.receipt_amount_jpy == null || s.amount_cap_jpy == null) return false;
+  const receipt = Number(s.receipt_amount_jpy);
+  const cap = Number(s.amount_cap_jpy);
+  if (!Number.isFinite(receipt) || !Number.isFinite(cap)) return false;
+  return receipt > cap;
+}
+// 금액 셀 아래 보조 줄 — 출처 배지 + (상한이 걸렸으면) 그 근거.
+function settlementAmountNote(s) {
+  s = s || {};
+  const label = settlementAmountSourceLabel(s.amount_source);
+  const capped = settlementCapApplied(s);
+  const parts = [];
+  if (label) parts.push(esc(label));
+  if (capped) {
+    parts.push(`영수증 ${settlementAmountYen(s.receipt_amount_jpy)} → <span style="color:var(--pink);font-weight:600">상한 적용</span>`);
+  }
+  return parts.length
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4">${parts.join('<br>')}</div>`
     : '';
 }
+// (settlementAmountSourceBadge 는 settlementAmountNote 로 흡수돼 삭제 — 2026-08-05)
 
 // 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
 //   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
@@ -33485,7 +33535,7 @@ function renderSettlementRow(s) {
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
-    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountSourceBadge(s.amount_source)}</td>
+    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountNote(s)}</td>
     <td>${paypalCell}</td>
     <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
@@ -33560,7 +33610,14 @@ function openSettlementPayModal(id) {
         <div style="color:var(--muted)">캠페인</div>
         <div>${esc(camp.title || '—')}</div>
         <div style="color:var(--muted)">송금 금액</div>
-        <div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>
+        <div><div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>${
+          // 상한이 걸린 건은 송금 직전에 근거를 보여준다 — 「영수증에는 더 큰 금액이
+          // 적혀 있는데 왜 이 금액인가」를 여기서 확인하지 못하면 관리자가 목록으로
+          // 되돌아가 대조해야 한다(2026-08-05 사용자 요구).
+          settlementCapApplied(s)
+            ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">영수증 ${settlementAmountYen(s.receipt_amount_jpy)} · 상한 ${settlementAmountYen(s.amount_cap_jpy)} <span style="color:var(--pink);font-weight:600">적용됨</span></div>`
+            : ''
+        }</div>
         <div style="color:var(--muted)">PayPal</div>
         <div style="font-weight:600;word-break:break-all">${hasPaypal ? esc(s.paypal_email) : '<span style="color:#C33">미등록 — 송금 불가</span>'}</div>
       </div>`;
@@ -33773,6 +33830,11 @@ async function exportSettlementsExcel() {
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
+      // 293 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
+      // 옛 행(상시가·현금 리워드 기준)은 빈 칸으로 남는다.
+      { header: '영수증금액(¥)', key: 'receipt', width: 14 },
+      { header: '상한(¥)',    key: 'cap',      width: 12 },
+      { header: '상한적용',   key: 'capped',   width: 10 },
       { header: 'PayPal',     key: 'paypal',   width: 26 },
       { header: '상태',       key: 'status',   width: 10 },
       { header: '인증성공일', key: 'certdate', width: 14 },
@@ -33793,6 +33855,11 @@ async function exportSettlementsExcel() {
         title:    camp.title || '',
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
+        // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 293 이전 행이
+        // 「영수증 0엔」으로 찍혀 실제로 0원에 샀다는 오해를 준다.
+        receipt:  (s.receipt_amount_jpy != null) ? Number(s.receipt_amount_jpy) : '',
+        cap:      (s.amount_cap_jpy != null) ? Number(s.amount_cap_jpy) : '',
+        capped:   settlementCapApplied(s) ? 'O' : '',
         paypal:   s.paypal_email || '',
         status:   settlementStatusKo(s.status),
         certdate: s.created_at ? formatDate(s.created_at) : '',
@@ -33996,7 +34063,7 @@ function renderPastUnregRow(r) {
     ? `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="${esc(r.amount_issue)}">금액 미확정</span>`
       + `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.amount_issue)}</div>`
     : `<div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</div>`
-      + settlementAmountSourceBadge(r.amount_source);
+      + settlementAmountNote(r);  // 출처 배지 + 상한이 걸렸으면 그 근거(293·294)
   const certCell = r.cert_at
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';

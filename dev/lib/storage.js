@@ -886,7 +886,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -908,7 +908,7 @@ async function fetchDeliverableById(id) {
   try {
     const {data, error} = await db?.from('deliverables').select(`
       *,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1, product_price)
     `).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return null;
@@ -3961,9 +3961,12 @@ async function fetchSettlements(opts) {
       // amount_source/reward_part_jpy 는 마이그레이션 261 추가 — 금액이 캠페인 제품 가격에서
       // 나왔는지(리뷰어형) 현금 리워드에서 나왔는지(시딩·방문형) 목록에서 구분해 보여주기 위함.
       // 261 이전에 만들어진 기존 행은 'reward' 로 백필됨(NULL 이면 화면이 배지를 생략).
+      // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 293 추가 — 리뷰어형이 영수증
+      // 실결제액 기준으로 바뀌면서(294), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
+      // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
-        amount_source, reward_part_jpy,
+        amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
