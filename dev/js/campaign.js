@@ -458,9 +458,16 @@ function consumeInviteReturn() {
 //   서버 함수는 「맞나/틀리나」만 답한다 — 번호 자체는 절대 내려오지 않는다.
 async function canOpenInviteCampaign(camp) {
   if (!(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(camp))) return true;
-  if (!currentUser) return false;   // 비로그인은 서버가 어차피 false 를 준다
   const code = getInviteCodeForCampaign(camp.id);
-  if (!code) return false;
+  if (!code) return false;          // 번호가 아예 없으면 게이트(번호 입력·로그인 안내)
+  // 링크를 타고 온 **비로그인** 방문객에게는 모집 내용을 보여준다(2026-08-06 사용자 결정).
+  //   초대장을 받은 사람이 무슨 행사인지도 못 보고 가입부터 해야 하면 그 자리에서 떠난다.
+  //   ⚠️ 번호가 **진짜인지는 여기서 확인하지 않는다** — 확인 함수가 로그인한 사람 전용이라
+  //      비로그인은 물어볼 수 없다. 그래서 틀린 번호를 붙여도 모집 내용은 보인다.
+  //      대신 ①방문 날짜는 서버가 로그인한 사람에게만 내려주고 ②예약은 예약 함수가
+  //      번호를 다시 검사한다(마이그레이션 283·284) — **실제 방어선은 그쪽**이다.
+  //      캠페인 표 자체가 공개 조회라 화면을 막아도 브라우저로는 어차피 보이는 값이다.
+  if (!currentUser) return true;
   try {
     return await verifyInviteCode(camp.id, code);
   } catch (e) {

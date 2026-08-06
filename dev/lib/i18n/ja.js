@@ -67,6 +67,7 @@ window.I18N_JA = {
     inviteSubmit: 'かくにんする',
     inviteInvalid: '招待番号を確認してください。',
     inviteNeedLogin: 'このイベントをごらんになるには、ログインまたは会員登録が必要です。',
+    slotNeedLogin: 'ログインすると、来場する日時をえらべます。',
     inviteLoginBtn: 'ログイン',
     inviteSignupBtn: '会員登録',
   },

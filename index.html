@@ -614,6 +614,11 @@ html.preview-mode #page-detail .detail-back{display:none}
   text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .invite-gate-form .btn{margin-top:12px;min-height:48px}
 .invite-gate-err{font-size:12px;color:var(--red);margin-top:8px;text-align:center}
+/* 비로그인이 초대 링크로 들어왔을 때, 방문 날짜 자리에 놓이는 안내.
+   타임 표는 로그인한 사람에게만 내려오므로 빈 목록 대신 여기서 길을 알려 준다. */
+.event-slot-login{padding:18px 16px;background:var(--surface-container-low);border-radius:14px;text-align:center}
+.event-slot-login-msg{font-size:14px;font-weight:700;color:var(--ink);line-height:1.7}
+.event-slot-login .invite-gate-btns{margin-top:14px}
 /* 만석 타임을 고르면 그 줄 바로 아래에 붙는 안내 — 목록 끝에 두면 이른 시간을
    고른 사람이 한참 스크롤해야 보게 된다. */
 .event-slot-note{font-size:12px;color:var(--dark-pink);background:var(--light-pink);
@@ -3943,6 +3948,7 @@ window.I18N_JA = {
     inviteSubmit: 'かくにんする',
     inviteInvalid: '招待番号を確認してください。',
     inviteNeedLogin: 'このイベントをごらんになるには、ログインまたは会員登録が必要です。',
+    slotNeedLogin: 'ログインすると、来場する日時をえらべます。',
     inviteLoginBtn: 'ログイン',
     inviteSignupBtn: '会員登録',
   },
@@ -4767,6 +4773,7 @@ window.I18N_KO = {
     inviteSubmit: '확인하기',
     inviteInvalid: '초대 번호를 확인해 주세요.',
     inviteNeedLogin: '이 행사를 보려면 로그인 또는 회원가입이 필요합니다.',
+    slotNeedLogin: '로그인하면 방문 날짜와 시간을 고를 수 있습니다.',
     inviteLoginBtn: '로그인',
     inviteSignupBtn: '회원가입',
   },
@@ -12259,9 +12266,16 @@ function consumeInviteReturn() {
 //   서버 함수는 「맞나/틀리나」만 답한다 — 번호 자체는 절대 내려오지 않는다.
 async function canOpenInviteCampaign(camp) {
   if (!(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(camp))) return true;
-  if (!currentUser) return false;   // 비로그인은 서버가 어차피 false 를 준다
   const code = getInviteCodeForCampaign(camp.id);
-  if (!code) return false;
+  if (!code) return false;          // 번호가 아예 없으면 게이트(번호 입력·로그인 안내)
+  // 링크를 타고 온 **비로그인** 방문객에게는 모집 내용을 보여준다(2026-08-06 사용자 결정).
+  //   초대장을 받은 사람이 무슨 행사인지도 못 보고 가입부터 해야 하면 그 자리에서 떠난다.
+  //   ⚠️ 번호가 **진짜인지는 여기서 확인하지 않는다** — 확인 함수가 로그인한 사람 전용이라
+  //      비로그인은 물어볼 수 없다. 그래서 틀린 번호를 붙여도 모집 내용은 보인다.
+  //      대신 ①방문 날짜는 서버가 로그인한 사람에게만 내려주고 ②예약은 예약 함수가
+  //      번호를 다시 검사한다(마이그레이션 283·284) — **실제 방어선은 그쪽**이다.
+  //      캠페인 표 자체가 공개 조회라 화면을 막아도 브라우저로는 어차피 보이는 값이다.
+  if (!currentUser) return true;
   try {
     return await verifyInviteCode(camp.id, code);
   } catch (e) {
@@ -13025,6 +13039,23 @@ async function loadEventSlotPicker(camp) {
   const listEl = $('eventSlotList');
   if (!listEl) return;
 
+  // 비로그인에게는 방문 날짜를 물어봐도 서버가 안 내려준다(타임 표는 로그인한 사람 전용).
+  //   그대로 두면 「타임이 하나도 없는 행사」로 보이므로, 왜 안 보이는지와 다음에 할 일을
+  //   알려 준다. 예약은 어차피 로그인해야 하므로 여기서 길을 열어 주는 편이 짧다.
+  if (!currentUser) {
+    const tabs = $('eventSlotDateTabs');
+    if (tabs) tabs.innerHTML = '';
+    listEl.innerHTML = `
+      <div class="event-slot-login">
+        <div class="event-slot-login-msg">${esc(t('event.slotNeedLogin'))}</div>
+        <div class="invite-gate-btns">
+          <button type="button" class="btn btn-primary" onclick="goInviteAuth('${esc(camp.id)}','signup')">${esc(t('event.inviteSignupBtn'))}</button>
+          <button type="button" class="btn btn-ghost" onclick="goInviteAuth('${esc(camp.id)}','login')">${esc(t('event.inviteLoginBtn'))}</button>
+        </div>
+      </div>`;
+    return;
+  }
+
   try {
     const [slots, counts] = await Promise.all([
       fetchEventSlots(camp.id),
@@ -13484,6 +13515,15 @@ async function _submitApplicationInner() {
 // ── FLOAT BAR + LOGIN PROMPT ──
 function handleFloatApply() {
   if (!currentUser) {
+    // 초대 링크로 들어온 비로그인 방문객이 여기서 로그인하면 **그 행사로 돌아와야 한다.**
+    //   안 적어 두면 로그인 뒤 홈으로 떨어지고, 초대 링크를 다시 찾아 열어야 한다.
+    //   (게이트 화면의 로그인 버튼은 goInviteAuth 가 같은 일을 한다 — 여기는 그 짝이다.)
+    const _c = (typeof allCampaigns !== 'undefined' && allCampaigns)
+      ? allCampaigns.find(c => c.id === currentCampaignId) : null;
+    if (_c && typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(_c)
+        && typeof rememberInviteReturn === 'function') {
+      rememberInviteReturn(_c.id);
+    }
     const o = $('loginPromptOverlay');
     if (o) { o.style.display='flex'; }
     return;

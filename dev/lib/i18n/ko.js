@@ -63,6 +63,7 @@ window.I18N_KO = {
     inviteSubmit: '확인하기',
     inviteInvalid: '초대 번호를 확인해 주세요.',
     inviteNeedLogin: '이 행사를 보려면 로그인 또는 회원가입이 필요합니다.',
+    slotNeedLogin: '로그인하면 방문 날짜와 시간을 고를 수 있습니다.',
     inviteLoginBtn: '로그인',
     inviteSignupBtn: '회원가입',
   },

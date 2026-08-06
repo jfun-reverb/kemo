@@ -408,6 +408,23 @@ async function loadEventSlotPicker(camp) {
   const listEl = $('eventSlotList');
   if (!listEl) return;
 
+  // 비로그인에게는 방문 날짜를 물어봐도 서버가 안 내려준다(타임 표는 로그인한 사람 전용).
+  //   그대로 두면 「타임이 하나도 없는 행사」로 보이므로, 왜 안 보이는지와 다음에 할 일을
+  //   알려 준다. 예약은 어차피 로그인해야 하므로 여기서 길을 열어 주는 편이 짧다.
+  if (!currentUser) {
+    const tabs = $('eventSlotDateTabs');
+    if (tabs) tabs.innerHTML = '';
+    listEl.innerHTML = `
+      <div class="event-slot-login">
+        <div class="event-slot-login-msg">${esc(t('event.slotNeedLogin'))}</div>
+        <div class="invite-gate-btns">
+          <button type="button" class="btn btn-primary" onclick="goInviteAuth('${esc(camp.id)}','signup')">${esc(t('event.inviteSignupBtn'))}</button>
+          <button type="button" class="btn btn-ghost" onclick="goInviteAuth('${esc(camp.id)}','login')">${esc(t('event.inviteLoginBtn'))}</button>
+        </div>
+      </div>`;
+    return;
+  }
+
   try {
     const [slots, counts] = await Promise.all([
       fetchEventSlots(camp.id),
@@ -867,6 +884,15 @@ async function _submitApplicationInner() {
 // ── FLOAT BAR + LOGIN PROMPT ──
 function handleFloatApply() {
   if (!currentUser) {
+    // 초대 링크로 들어온 비로그인 방문객이 여기서 로그인하면 **그 행사로 돌아와야 한다.**
+    //   안 적어 두면 로그인 뒤 홈으로 떨어지고, 초대 링크를 다시 찾아 열어야 한다.
+    //   (게이트 화면의 로그인 버튼은 goInviteAuth 가 같은 일을 한다 — 여기는 그 짝이다.)
+    const _c = (typeof allCampaigns !== 'undefined' && allCampaigns)
+      ? allCampaigns.find(c => c.id === currentCampaignId) : null;
+    if (_c && typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(_c)
+        && typeof rememberInviteReturn === 'function') {
+      rememberInviteReturn(_c.id);
+    }
     const o = $('loginPromptOverlay');
     if (o) { o.style.display='flex'; }
     return;
