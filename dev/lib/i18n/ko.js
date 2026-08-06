@@ -54,6 +54,7 @@ window.I18N_KO = {
     ticketCancelFailGeneric: '취소하지 못했습니다. 다시 시도해 주세요.',
     ticketQrFailed: 'QR 코드를 표시하지 못했습니다. 접수처에 예약번호를 알려 주세요.',
     ticketPlaceTbd: '장소 안내는 정해지는 대로 알려 드립니다.',
+    placeTbdShort: '장소는 추후 안내',
     ticketAlreadyCancelled: '이 예약은 이미 취소됐습니다.',
     ticketTabCancelled: '취소',
     // ── 초대 전용 캠페인 진입 ──

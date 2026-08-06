@@ -324,12 +324,21 @@ async function openCampaign(id) {
   if (floatName) floatName.textContent = camp.title;
   if (floatReward) {
     const isMonitor = camp.recruit_type === 'monitor';
-    // 하단 고정 바는 폭이 좁아(480px) 전체형을 넣으면 잘린다 — 리뷰어형은 축약형.
-    floatReward.textContent = camp.product_price>0
-      ? (isMonitor
-          ? t('detail.rewardPaybackShort').replace('{price}', camp.product_price.toLocaleString())
-          : `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`)
-      : t('detail.rewardFree');
+    // 행사(방문 예약)는 **제품을 주지 않는다.** 리워드가 0이라 그냥 두면 「製品全額無償提供」이
+    //   떠서, 놀러 오는 방문객이 제품을 받는 줄 안다(2026-08-06 확인). 그 자리에는 방문객이
+    //   실제로 알아야 하는 것 — 어디로 가면 되는지 — 를 넣고, 안 정해졌으면 비워 둔다.
+    if ((typeof isEventCampaign === 'function') && isEventCampaign(camp)) {
+      //   아직 안 정한 행사면 빈 줄 대신 그렇다고 말한다 — 빈 줄은 「안 불러와졌나」로 읽힌다.
+      //   티켓 화면은 같은 자리에 긴 문장을 쓰지만 이 바는 폭이 좁아 짧은 쪽을 따로 둔다.
+      floatReward.textContent = String(camp.event_place || '').trim() || t('event.placeTbdShort');
+    } else {
+      // 하단 고정 바는 폭이 좁아(480px) 전체형을 넣으면 잘린다 — 리뷰어형은 축약형.
+      floatReward.textContent = camp.product_price>0
+        ? (isMonitor
+            ? t('detail.rewardPaybackShort').replace('{price}', camp.product_price.toLocaleString())
+            : `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`)
+        : t('detail.rewardFree');
+    }
   }
   if (floatProductPageBtn) {
     floatProductPageBtn.style.display = camp.product_url ? 'inline-flex' : 'none';
@@ -337,7 +346,12 @@ async function openCampaign(id) {
   }
   if (floatApplyBtn) {
     if (_myApp?.status === 'approved') {
-      floatApplyBtn.textContent=t('detail.manageBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
+      // 행사(방문 예약)는 낼 결과물이 없다 — 누르면 입장 티켓으로 가므로 **이름도 그렇게 적는다.**
+      //   「活動管理」는 결과물을 내는 캠페인의 말이라, 놀러 온 방문객에게는 뜻이 안 통한다
+      //   (누르면 티켓이 나오는데 이름만 다른 상태였다 — 2026-08-06 확인).
+      const _isEvt = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+      floatApplyBtn.textContent = _isEvt ? t('event.ticketMenu') : t('detail.manageBtn');
+      floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
       floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 비공개 캠페인(준비중·노출종료) — 응모이력에서 진입한 경우에만 여기 도달한다(위 가드 참조).

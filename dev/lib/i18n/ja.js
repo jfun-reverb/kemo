@@ -58,6 +58,7 @@ window.I18N_JA = {
     ticketCancelFailGeneric: 'キャンセルできませんでした。もう一度おためしください。',
     ticketQrFailed: 'QRコードを表示できませんでした。受付で予約番号をおつたえください。',
     ticketPlaceTbd: '会場のごあんないは、決まりしだいおしらせします。',
+    placeTbdShort: '会場は後日おしらせ',
     ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
     ticketTabCancelled: 'キャンセル',
     // ── 招待制キャンペーンの入口 ──
