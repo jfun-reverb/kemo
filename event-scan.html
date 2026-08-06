@@ -402,6 +402,9 @@ const SCAN_I18N = {
     failNotFound: '없는 예약번호입니다', failCancelled: '취소된 예약입니다',
     failWaitlist: '대기 상태라 입장할 수 없습니다',
     failPerm: '권한이 없습니다. 다시 로그인해 주세요',
+    failOutOfScope: '다른 행사의 예약입니다',
+    outOfScopeNote: '이 화면은 지금 고른 행사만 확인합니다. 위에 적힌 행사 담당자에게 안내해 주세요.',
+    failScopeMissing: '확인할 행사가 정해지지 않았습니다. 화면을 새로고침해 주세요',
     failNetwork: '확인하지 못했습니다. 인터넷 연결을 확인해 주세요',
     failGeneric: '확인하지 못했습니다',
     offlineNote: '인터넷이 끊기면 이 화면은 손입력도 함께 멈춥니다. 예약자 확인이 서버에 물어보는 방식이기 때문입니다. 그럴 때는 당일 아침에 인쇄해 둔 명단으로 눈으로 대조한 뒤, 인터넷이 돌아오면 관리자 화면의 「예약 현황」에서 손으로 입장 처리해 주세요.',
@@ -453,6 +456,9 @@ const SCAN_I18N = {
     failNotFound: '存在しない予約番号です', failCancelled: 'キャンセルされた予約です',
     failWaitlist: 'キャンセル待ちのため入場できません',
     failPerm: '権限がありません。もう一度ログインしてください',
+    failOutOfScope: '別のイベントのご予約です',
+    outOfScopeNote: 'この画面は、いま選んでいるイベントだけを確認します。上に表示されたイベントのご担当へご案内ください。',
+    failScopeMissing: '確認するイベントが決まっていません。画面を再読み込みしてください',
     failNetwork: '確認できませんでした。通信環境をご確認ください',
     failGeneric: '確認できませんでした',
     offlineNote: 'インターネットが切れると、この画面は手入力も止まります。予約者の確認をサーバーに問い合わせる方式のためです。そのときは当日朝に印刷したリストで目視照合し、回復後に管理画面の「予約状況」から手動で入場処理してください。',
@@ -735,7 +741,13 @@ async function checkIn(code, confirmOtherDay) {
   try {
     const {data, error} = await sb.rpc('check_in_ticket', {
       p_ticket_code: code,
-      p_confirm_other_day: !!confirmOtherDay
+      p_confirm_other_day: !!confirmOtherDay,
+      // ⚠️ **이 화면이 담당하는 캠페인 목록을 반드시 함께 보낸다.**
+      //    안 보내면 서버가 reason='scope_required' 로 거부한다(마이그레이션 304, fail-closed).
+      //    범위를 안 보내던 시절에는 다른 행사 예약 번호를 넣어도 「오늘이 아닙니다」로만
+      //    안내하고 입장 처리 버튼을 내줬다 — 부스에서 남의 행사 손님을 들여보내는 자리였다
+      //    (2026-08-06 실측). 명단 조회에만 범위를 걸고 여기에 안 건 것이 원인이었다.
+      p_scope_campaign_ids: _scopeCampaignIds
     });
     if (error) throw error;
     const res = data || {ok: false, reason: 'not_found'};
@@ -758,6 +770,9 @@ function failMessage(reason) {
     waitlist_cannot_enter: 'failWaitlist',
     permission_denied:     'failPerm',
     other_day:             'otherDayTitle',
+    // 다른 행사 예약 — 되묻지 않고 그대로 막는다(showResult 의 ask 는 other_day 에만 참).
+    out_of_scope:          'failOutOfScope',
+    scope_required:        'failScopeMissing',
     _network:              'failNetwork'
   })[reason];
   return T(key || 'failGeneric');
@@ -804,7 +819,15 @@ function showResult(res, code) {
   //      (중복 입장을 막지 않고 알리기만 하는 것과 같은 정신 — 사양서 §2-8 U3).
   const day = $('rmDayBadge');
   const slotDate = res.slot ? String(res.slot.slot_date || '').slice(0, 10) : '';
-  if (slotDate) {
+  // ⚠️ 범위 밖(다른 행사) 예약은 **날짜 배지를 쓰지 않고 행사 이름을 보여준다.**
+  //    날짜만 말하면 「같은 행사인데 날짜만 다르구나」로 읽혀 그냥 들여보내게 된다 —
+  //    2026-08-06 실측 사고가 정확히 그 모양이었다. 서버도 같은 이유로 범위를 먼저 본다.
+  if (res.reason === 'out_of_scope') {
+    day.className = 'rm-daybadge other';
+    day.textContent = res.campaign_title || '';
+    day.style.display = res.campaign_title ? '' : 'none';
+  } else if (slotDate) {
+    day.style.display = '';
     const today = jstToday();
     if (slotDate === today) {
       day.className = 'rm-daybadge today';
@@ -818,6 +841,7 @@ function showResult(res, code) {
   } else {
     day.className = 'rm-daybadge';
     day.textContent = '';
+    day.style.display = '';
   }
 
   $('rmTitle').textContent = head;
@@ -831,6 +855,9 @@ function showResult(res, code) {
   setOrHide('rmSub', dup
     ? T('firstEnter', {t: fmtTime(res.entered_at), n: res.scan_count})
     : ask ? T('otherDayAsk')
+    // 범위 밖이면 「왜 여기서 안 되는지 · 어디로 안내할지」를 한 줄로 알려 준다.
+    //   되묻는 흐름이 아니라 그대로 막히는 자리라, 직원이 다음 행동을 알 수 있어야 한다.
+    : res.reason === 'out_of_scope' ? T('outOfScopeNote')
     : (!ok && res.waitlist_position ? T('waitPos', {n: res.waitlist_position}) : ''));
 
   _modalOpen = true;

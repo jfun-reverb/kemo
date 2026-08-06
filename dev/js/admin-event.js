@@ -1162,7 +1162,11 @@ async function cancelTicketFromAdmin(ticketId) {
 // 쓰임새: 행사장 인터넷이 끊겨 종이 명단으로 대조한 뒤, 복구되면 손으로 반영하는 경로(사양서 §2-8 U1).
 async function checkInFromAdmin(ticketCode, confirmOtherDay) {
   try {
-    const res = await checkInTicket(ticketCode, confirmOtherDay);
+    // 이 화면은 캠페인 한 건 안에서만 쓰이므로 범위는 그 캠페인 하나다.
+    //   ⚠️ 안 넘기면 서버가 reason='scope_required' 로 거부한다(마이그레이션 304, fail-closed).
+    //      「범위 없음」을 통과시키면 오늘 실측된 사고(다른 행사 예약 입장)가 그대로 되살아난다.
+    const res = await checkInTicket(ticketCode, confirmOtherDay,
+      _eventPaneCampId ? [_eventPaneCampId] : null);
 
     // 예약 날짜가 오늘이 아니면 서버가 기록하지 않고 되돌려보낸다(마이그레이션 287).
     //   운영자가 날짜를 보고 판단한 뒤에만 기록한다 — 먼저 기록하고 알리면 거를 기회가 없다.
@@ -1199,7 +1203,10 @@ function eventCheckInFailMessage(reason) {
     cancelled:             '취소된 예약입니다',
     waitlist_cannot_enter: '대기 상태라 입장할 수 없습니다',
     other_day:             '오늘 예약이 아닙니다',
-    permission_denied:     '권한이 없습니다'
+    permission_denied:     '권한이 없습니다',
+    // 이 화면은 캠페인 한 건만 다루므로, 다른 캠페인 예약번호를 넣으면 여기로 온다.
+    out_of_scope:          '이 캠페인의 예약이 아닙니다',
+    scope_required:        '어느 캠페인인지 정해지지 않았습니다. 화면을 새로고침해 주세요'
   })[reason] || '확인하지 못했습니다';
 }
 

@@ -10367,7 +10367,10 @@ async function cancelEventTicket(ticketId) {
 // ⚠️ 예약 날짜가 오늘이 아니면 {ok:false, reason:'other_day'} 가 오고 **아직 기록되지 않았다**.
 //    호출부가 운영자에게 되묻고, 확인받으면 두 번째 인자를 true 로 다시 불러야 한다.
 // ⚠️ 자립형 확인 페이지(작업 7)는 이 파일을 못 쓰므로 호출을 그 파일 안에 직접 쓴다.
-async function checkInTicket(ticketCode, confirmOtherDay) {
+// ⚠️ 세 번째 인자(이 화면이 담당하는 캠페인 목록)는 **선택이 아니라 필수**다.
+//    안 넘기면 서버가 reason='scope_required' 로 거부한다(마이그레이션 304, fail-closed).
+//    범위를 안 보던 시절엔 다른 행사 예약 번호로도 입장 처리가 됐다(2026-08-06 실측).
+async function checkInTicket(ticketCode, confirmOtherDay, scopeCampaignIds) {
   if (!db) throw new Error('DB 미연결');
   let res = null;
   await retryWithRefresh(async () => {
@@ -10375,7 +10378,8 @@ async function checkInTicket(ticketCode, confirmOtherDay) {
       p_ticket_code: ticketCode,
       // 다른 날 예약이면 서버가 기록하지 않고 되돌려보낸다(마이그레이션 287).
       // 운영자가 확인한 뒤에만 true 로 다시 부른다.
-      p_confirm_other_day: !!confirmOtherDay
+      p_confirm_other_day: !!confirmOtherDay,
+      p_scope_campaign_ids: scopeCampaignIds || null
     });
     if (error) throw error;
     res = data;
