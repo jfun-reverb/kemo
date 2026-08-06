@@ -3951,16 +3951,15 @@
 <div class="modal-overlay" id="campLeaveModal" style="z-index:600">
   <div class="modal" style="max-width:460px;border-radius:24px;margin:auto">
     <div class="modal-body" style="padding:28px 24px 22px">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:10px">저장하지 않은 변경이 있습니다</div>
-      <div style="font-size:13px;color:var(--muted);line-height:1.7">고친 항목</div>
-      <div id="campLeaveModalBody" style="font-size:14px;font-weight:700;color:var(--ink);line-height:1.7;margin:2px 0 14px"></div>
+      <div id="campLeaveModalTitle" style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">저장하지 않은 변경이 있습니다</div>
+      <div style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:14px">저장하지 않고 나가시겠습니까?</div>
       <div id="campLeaveModalNote" style="display:none;font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:10px;padding:10px 12px">
         행사 시간대와 캠페인 노출 설정은 <b>누른 즉시 저장</b>돼 되돌아가지 않습니다.
       </div>
       <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap">
-        <button class="btn btn-ghost" onclick="campLeaveCancel()">계속 편집</button>
+        <button class="btn btn-ghost" onclick="campLeaveCancel()">취소</button>
         <button class="btn btn-ghost" style="color:var(--red)" onclick="campLeaveDiscardAndGo()">저장하지 않고 나가기</button>
-        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장하고 나가기</button>
+        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장</button>
       </div>
     </div>
   </div>

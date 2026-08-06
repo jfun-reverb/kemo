@@ -233,25 +233,29 @@ function activeDirtyCampForm() {
 // ── 경고창 ────────────────────────────────────────────────
 // 기존 showConfirm 은 버튼 2개 고정이라 쓸 수 없다(저장하고 나가기 / 저장 안 하고 나가기 / 취소).
 let _campLeaveGo = null;   // 「나가기」를 고르면 실행할 이동 함수
+let _campLeaveSavePrefix = '';   // 「저장」이 어느 폼을 저장할지('edit' | 'new')
 
 function campLeaveGuard(go) {
   const d = activeDirtyCampForm();
   if (!d) { go(); return; }        // 변경 없음 — 그냥 보낸다
   _campLeaveGo = go;
 
-  const list = d.labels.slice(0, 5).join(' · ');
-  const more = d.labels.length > 5 ? ` 그 외 ${d.labels.length - 5}곳` : '';
-  const body = document.getElementById('campLeaveModalBody');
-  if (body) body.textContent = `${list}${more}`;
+  // 어느 폼을 저장할지 기억해 둔다 — 「저장」이 부를 함수가 갈린다.
+  _campLeaveSavePrefix = d.prefix;
+
+  // 아직 저장 안 된 것이 「새로 적은 것」인지 「고친 것」인지에 따라 말이 달라진다.
+  //   ⚠️ 바뀐 항목 목록은 **일부러 보여주지 않는다**(2026-08-06 사용자 결정) —
+  //      나갈지 말지 정하는 자리라 목록을 읽을 일이 없고, 길어지면 버튼을 가린다.
+  const title = document.getElementById('campLeaveModalTitle');
+  if (title) {
+    title.textContent = (d.prefix === 'edit') ? '수정된 정보가 있습니다' : '입력한 정보가 있습니다';
+  }
 
   // 「저장하지 않고 나가기」를 눌러도 되돌아가지 않는 것이 있으면 그때만 알린다.
   const note = document.getElementById('campLeaveModalNote');
   if (note) {
     note.style.display = _campDirtyImmediateTouched ? '' : 'none';
   }
-  // 신규 등록 폼은 저장 절차가 달라 이번 범위에서 「저장하고 나가기」를 제공하지 않는다.
-  const saveBtn = document.getElementById('campLeaveSaveBtn');
-  if (saveBtn) saveBtn.style.display = (d.prefix === 'edit') ? '' : 'none';
 
   openModal('campLeaveModal');
 }
@@ -260,10 +264,18 @@ function campLeaveGuard(go) {
 //   확인창 인프라는 결과를 담는 자리가 하나뿐이라 겹쳐 띄우면 서로를 잡아먹는다.
 // ⚠️ 여기서 화면 이동을 하지 않는다. 저장이 성공하면 저장 함수가 스스로 목록으로 가고,
 //    실패·취소면 폼에 남는 게 맞다(고친 내용을 들고 화면을 떠나면 그대로 유실된다).
+// 「저장」 — 두 저장 함수 모두 **성공하면 스스로 목록으로 나가고 실패하면 폼에 남는다.**
+//   그래서 여기서 따로 이동시키지 않는다. 필수 항목이 비어 저장이 막히면 관리자는
+//   폼에 남아 무엇이 빠졌는지 보게 된다(그대로 내보내면 입력이 사라진다).
 function campLeaveSaveAndGo() {
+  const prefix = _campLeaveSavePrefix;
   closeModal('campLeaveModal');
   _campLeaveGo = null;
-  if (typeof saveCampaignEdit === 'function') saveCampaignEdit();
+  if (prefix === 'edit') {
+    if (typeof saveCampaignEdit === 'function') saveCampaignEdit();
+  } else if (typeof addCampaign === 'function') {
+    addCampaign();
+  }
 }
 
 function campLeaveDiscardAndGo() {

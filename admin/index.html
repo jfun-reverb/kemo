@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785987285';
+  var CURRENT_BUILD = 'v1785987757';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-06 12:34 · f194ba2</span>
+          <span class="admin-build-text">2026-08-06 12:42 · f886772</span>
         </div>
       </div>
     </aside>
@@ -6615,16 +6615,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 <div class="modal-overlay" id="campLeaveModal" style="z-index:600">
   <div class="modal" style="max-width:460px;border-radius:24px;margin:auto">
     <div class="modal-body" style="padding:28px 24px 22px">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:10px">저장하지 않은 변경이 있습니다</div>
-      <div style="font-size:13px;color:var(--muted);line-height:1.7">고친 항목</div>
-      <div id="campLeaveModalBody" style="font-size:14px;font-weight:700;color:var(--ink);line-height:1.7;margin:2px 0 14px"></div>
+      <div id="campLeaveModalTitle" style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">저장하지 않은 변경이 있습니다</div>
+      <div style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:14px">저장하지 않고 나가시겠습니까?</div>
       <div id="campLeaveModalNote" style="display:none;font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:10px;padding:10px 12px">
         행사 시간대와 캠페인 노출 설정은 <b>누른 즉시 저장</b>돼 되돌아가지 않습니다.
       </div>
       <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap">
-        <button class="btn btn-ghost" onclick="campLeaveCancel()">계속 편집</button>
+        <button class="btn btn-ghost" onclick="campLeaveCancel()">취소</button>
         <button class="btn btn-ghost" style="color:var(--red)" onclick="campLeaveDiscardAndGo()">저장하지 않고 나가기</button>
-        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장하고 나가기</button>
+        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장</button>
       </div>
     </div>
   </div>
@@ -13763,6 +13762,10 @@ document.addEventListener('keydown', (e) => {
     //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
     } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
       osCloseModal('orientDetailModal');
+    // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
+    //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
+    } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {
+      campLeaveCancel();
     } else {
       closeModal(top.id);
     }
@@ -37349,25 +37352,29 @@ function activeDirtyCampForm() {
 // ── 경고창 ────────────────────────────────────────────────
 // 기존 showConfirm 은 버튼 2개 고정이라 쓸 수 없다(저장하고 나가기 / 저장 안 하고 나가기 / 취소).
 let _campLeaveGo = null;   // 「나가기」를 고르면 실행할 이동 함수
+let _campLeaveSavePrefix = '';   // 「저장」이 어느 폼을 저장할지('edit' | 'new')
 
 function campLeaveGuard(go) {
   const d = activeDirtyCampForm();
   if (!d) { go(); return; }        // 변경 없음 — 그냥 보낸다
   _campLeaveGo = go;
 
-  const list = d.labels.slice(0, 5).join(' · ');
-  const more = d.labels.length > 5 ? ` 그 외 ${d.labels.length - 5}곳` : '';
-  const body = document.getElementById('campLeaveModalBody');
-  if (body) body.textContent = `${list}${more}`;
+  // 어느 폼을 저장할지 기억해 둔다 — 「저장」이 부를 함수가 갈린다.
+  _campLeaveSavePrefix = d.prefix;
+
+  // 아직 저장 안 된 것이 「새로 적은 것」인지 「고친 것」인지에 따라 말이 달라진다.
+  //   ⚠️ 바뀐 항목 목록은 **일부러 보여주지 않는다**(2026-08-06 사용자 결정) —
+  //      나갈지 말지 정하는 자리라 목록을 읽을 일이 없고, 길어지면 버튼을 가린다.
+  const title = document.getElementById('campLeaveModalTitle');
+  if (title) {
+    title.textContent = (d.prefix === 'edit') ? '수정된 정보가 있습니다' : '입력한 정보가 있습니다';
+  }
 
   // 「저장하지 않고 나가기」를 눌러도 되돌아가지 않는 것이 있으면 그때만 알린다.
   const note = document.getElementById('campLeaveModalNote');
   if (note) {
     note.style.display = _campDirtyImmediateTouched ? '' : 'none';
   }
-  // 신규 등록 폼은 저장 절차가 달라 이번 범위에서 「저장하고 나가기」를 제공하지 않는다.
-  const saveBtn = document.getElementById('campLeaveSaveBtn');
-  if (saveBtn) saveBtn.style.display = (d.prefix === 'edit') ? '' : 'none';
 
   openModal('campLeaveModal');
 }
@@ -37376,10 +37383,18 @@ function campLeaveGuard(go) {
 //   확인창 인프라는 결과를 담는 자리가 하나뿐이라 겹쳐 띄우면 서로를 잡아먹는다.
 // ⚠️ 여기서 화면 이동을 하지 않는다. 저장이 성공하면 저장 함수가 스스로 목록으로 가고,
 //    실패·취소면 폼에 남는 게 맞다(고친 내용을 들고 화면을 떠나면 그대로 유실된다).
+// 「저장」 — 두 저장 함수 모두 **성공하면 스스로 목록으로 나가고 실패하면 폼에 남는다.**
+//   그래서 여기서 따로 이동시키지 않는다. 필수 항목이 비어 저장이 막히면 관리자는
+//   폼에 남아 무엇이 빠졌는지 보게 된다(그대로 내보내면 입력이 사라진다).
 function campLeaveSaveAndGo() {
+  const prefix = _campLeaveSavePrefix;
   closeModal('campLeaveModal');
   _campLeaveGo = null;
-  if (typeof saveCampaignEdit === 'function') saveCampaignEdit();
+  if (prefix === 'edit') {
+    if (typeof saveCampaignEdit === 'function') saveCampaignEdit();
+  } else if (typeof addCampaign === 'function') {
+    addCampaign();
+  }
 }
 
 function campLeaveDiscardAndGo() {
