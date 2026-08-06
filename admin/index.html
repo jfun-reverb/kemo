@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785986061';
+  var CURRENT_BUILD = 'v1785987285';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-06 12:14 · 4f02e5f</span>
+          <span class="admin-build-text">2026-08-06 12:34 · f194ba2</span>
         </div>
       </div>
     </aside>
@@ -37141,12 +37141,18 @@ let _campFormOpenSeq = 0;         // 폼을 연 횟수. 늦게 도착한 기준�
 //   「저장 안 됨」이라고 말하면 거짓이 되는 항목이 여기 들어간다.
 const CAMP_DIRTY_SKIP_PREFIX = [
   'eventSlot',      // 행사 시간대 — 누르는 즉시 저장된다
+  // 시간대 **일괄 만들기** 입력칸(날짜·시작·간격·정원 등). 캠페인 저장과 아무 상관이 없고
+  //   「만들기」를 누르면 그 자리에서 시간대가 저장된다. 빼지 않으면 관리자가 시간대를
+  //   만들려고 값을 넣기만 해도 나갈 때 「저장하지 않은 변경이 있습니다」가 뜬다 —
+  //   그 경고는 사실이 아니고, 그 값들은 저장할 대상도 아니다(2026-08-06 전수 점검에서 발견).
+  'eventBulk',
   'tagWrap_',       // 태그 위젯의 임시 입력칸(칩으로 확정되기 전 값)
 ];
 // ⚠️ 상태 드롭다운(editCampStatus)은 **빼지 않는다.** 관리자가 손으로 바꾸는 칸이기도 해서
 //    통째로 빼면 그 변경을 못 잡는다. 대신 「노출 토글」이 즉시 저장한 직후에만
 //    기준값의 그 칸을 새 값으로 맞춰, 토글로 인한 변화만 조용히 넘긴다(syncCampDirtyStatus).
-const CAMP_DIRTY_SKIP_IDS = [];
+//   숨은 칸은 사람이 고칠 수 없으므로 「고친 항목」에 뜨면 안 된다.
+const CAMP_DIRTY_SKIP_IDS = ['editCampId'];
 
 // ⚠️ id 가 없다고 건너뛰면 **모집 타입·채널·콘텐츠 종류가 통째로 빠진다** — 이 셋은
 //    id 없이 name 만 갖거나(라디오), 체크박스에 id 가 없다(채널·콘텐츠는 화면에서 그린다).
@@ -37227,6 +37233,46 @@ function syncCampDirtyStatus(prefix) {
   if (el) _campDirtyBaseline[el.id] = String(el.value ?? '');
 }
 
+// 화면에 라벨이 없는 칸의 이름. 열쇠는 `newCamp`·`editCamp` 접두어를 뗀 나머지라
+//   신규·편집 양쪽이 한 줄을 함께 쓴다.
+//   ⚠️ 여기에 없어도 사용자에게 영문 이름이 새지는 않는다(못 찾으면 「그 밖의 항목」).
+//      다만 그렇게만 보이므로, 자주 고치는 칸이면 이름을 적어 두는 게 낫다.
+//   ⚠️ 화면에 라벨이 **있는** 칸은 여기 적지 않는다 — 위 두 자리에서 이미 찾으므로
+//      영원히 안 쓰이는 줄이 되고, 나중에 화면 라벨을 고쳐도 여기가 안 따라온다.
+const CAMP_DIRTY_FIELD_NAMES = {
+  InviteCode: '초대 번호'
+};
+
+// 칸 하나의 **사람이 읽을 이름**. 못 찾으면 빈 문자열을 준다(부르는 쪽이 대체 이름을 넣는다).
+//   ⚠️ 여기서 **절대 영문 id 를 돌려주지 않는다.** `newCampEventMode` 같은 글자가 사용자
+//      화면에 그대로 뜬 적이 있고(2026-08-06 지적), 사용자는 비개발자라 읽을 수 없다.
+//      「못 찾았다」를 빈 문자열로만 알리고, 영문인지 아닌지를 글자 모양으로 짐작하지 않는다
+//      (짐작하면 「PayPal 이메일」 같은 정상 라벨이 언젠가 함께 걸린다).
+function resolveCampDirtyFieldLabel(el, id) {
+  const grp = el && el.closest ? el.closest('.form-group') : null;
+  const lb = grp ? grp.querySelector('.form-label') : null;
+  if (lb) {
+    // 라벨에는 「필수」 배지·잠금 안내 같은 곁가지가 붙어 있다. 첫 줄의 이름만 남긴다 —
+    //   안 그러면 「모집 타입 lock행사 모드 — 방문형 고정」처럼 읽기 어려운 이름이 나온다.
+    const own = [...lb.childNodes]
+      .filter(n => n.nodeType === 3)          // 글자 마디만(배지·아이콘 제외)
+      .map(n => n.textContent).join(' ');
+    const name = (own || lb.textContent).replace(/필수|선택/g, '').split('\n')[0].trim();
+    if (name) return name;
+  }
+  // 체크박스·라디오는 `.form-group`+`.form-label` 구조가 아니라 **자기 <label> 안에**
+  //   글자가 있다(행사 모드·비공개 등). 위에서 못 찾으면 여기서 찾는다.
+  if (el && el.closest) {
+    const own = el.closest('label');
+    if (own) {
+      const name = (own.textContent || '').replace(/\s+/g, ' ').trim();
+      if (name) return name;
+    }
+  }
+  // 라벨이 아예 없는 칸(초대 번호처럼 버튼 옆에 홀로 있는 입력칸)은 이름을 정해 둔다.
+  return CAMP_DIRTY_FIELD_NAMES[String(id).replace(/^(new|edit)Camp/, '')] || '';
+}
+
 // 바뀐 항목의 **한국어 이름** 목록. 없으면 빈 배열.
 //   기준값이 없으면(아직 안 떴거나 폼이 아니면) 빈 배열 — 모르면 막지 않는다.
 function campDirtyChangedLabels(prefix) {
@@ -37243,20 +37289,12 @@ function campDirtyChangedLabels(prefix) {
       const nm = id.split(':')[1];
       el = document.querySelector(`#adminPane-${prefix === 'edit' ? 'edit' : 'add'}-campaign [name="${nm}"]`);
     }
-    // 화면의 라벨을 우선 쓰고, 없으면 칸 이름 그대로.
-    let name = '';
     if (!el) el = document.getElementById(id);
-    const grp = el && el.closest ? el.closest('.form-group') : null;
-    const lb = grp ? grp.querySelector('.form-label') : null;
-    if (lb) {
-      // 라벨에는 「필수」 배지·잠금 안내 같은 곁가지가 붙어 있다. 첫 줄의 이름만 남긴다 —
-      //   안 그러면 「모집 타입 lock행사 모드 — 방문형 고정」처럼 읽기 어려운 이름이 나온다.
-      const own = [...lb.childNodes]
-        .filter(n => n.nodeType === 3)          // 글자 마디만(배지·아이콘 제외)
-        .map(n => n.textContent).join(' ');
-      name = (own || lb.textContent).replace(/필수|선택/g, '').split('\n')[0].trim();
-    }
-    if (!name) name = id;
+    // 못 찾으면 빈 문자열이 온다 — 그때만 대체 이름을 쓴다. 찾은 이름은 모양을 따지지 않는다.
+    let name = resolveCampDirtyFieldLabel(el, id);
+    if (!name) name = '그 밖의 항목';
+    // 긴 라벨은 목록이 읽히지 않으므로 자른다(체크박스 글자가 문장인 경우가 있다).
+    if (name.length > 24) name = name.slice(0, 23) + '…';
     if (seen[name]) return;
     seen[name] = 1;
     labels.push(name);
