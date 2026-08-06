@@ -353,6 +353,17 @@ async function openCampaign(id) {
       floatApplyBtn.textContent = _isEvt ? t('event.ticketMenu') : t('detail.manageBtn');
       floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
       floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
+    } else if (alreadyApplied && (typeof isEventCampaign === 'function') && isEventCampaign(camp)) {
+      // 행사에서 「심사중」은 **대기(캔슬 대기)** 라는 뜻이다(예약 함수가 대기를 그렇게 저장한다).
+      //   그런데 여기서 「応募済み」 + 비활성 버튼으로 그리면 두 가지가 잘못된다 —
+      //   ① 확정된 것처럼 읽힌다 ② 자기 대기 순번을 보거나 취소하러 갈 길이 이 화면에서 끊긴다
+      //   (응모 이력 카드에는 티켓 버튼이 있지만 상세에서 바로 못 간다 — 2026-08-06 확인).
+      floatApplyBtn.textContent = t('event.waitlistBtn');
+      floatApplyBtn.disabled = false;
+      floatApplyBtn.className = 'btn btn-ghost btn-sm';
+      floatApplyBtn.onclick = () => {
+        if (typeof openTicketForCampaign === 'function') openTicketForCampaign(camp.id);
+      };
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 비공개 캠페인(준비중·노출종료) — 응모이력에서 진입한 경우에만 여기 도달한다(위 가드 참조).
     //   상세는 보여주되 응모는 막는다. 취소 이력이 있으면 「재응모」 버튼이 열려 버리므로 이 분기가 필요하다.

@@ -30,6 +30,7 @@ window.I18N_KO = {
     // ── 입장 티켓 화면 ──
     ticketTitle: '입장 티켓',
     ticketMenu: '입장 티켓',
+    waitlistBtn: '대기 중 — 순번 보기',
     cancelViaTicket: '눌러서 「입장 티켓」 화면으로 이동합니다. 거기서 취소할 수 있습니다.',
     ticketCodeLabel: '예약번호',
     ticketNameLabel: '이름',

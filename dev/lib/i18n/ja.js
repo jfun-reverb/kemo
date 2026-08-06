@@ -34,6 +34,7 @@ window.I18N_JA = {
     // ── 入場チケット画面 ──
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
+    waitlistBtn: 'キャンセル待ち — 順番をみる',
     cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
