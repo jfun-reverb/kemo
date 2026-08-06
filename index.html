@@ -3910,7 +3910,7 @@ window.I18N_JA = {
     // ── 入場チケット画面 ──
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
-    cancelViaTicket: 'このキャンペーンは「入場チケット」からキャンセルしてください。',
+    cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
     ticketWhenLabel: '来場日時',
@@ -4734,7 +4734,7 @@ window.I18N_KO = {
     // ── 입장 티켓 화면 ──
     ticketTitle: '입장 티켓',
     ticketMenu: '입장 티켓',
-    cancelViaTicket: '이 캠페인은 「입장 티켓」에서 취소해 주세요.',
+    cancelViaTicket: '눌러서 「입장 티켓」 화면으로 이동합니다. 거기서 취소할 수 있습니다.',
     ticketCodeLabel: '예약번호',
     ticketNameLabel: '이름',
     ticketWhenLabel: '방문 일시',
@@ -16091,10 +16091,19 @@ function openApplyActionModal(appId) {
   const isApproved = app.status === 'approved';
   const ds = (_myDelivsByApp[appId] || []);
   const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+  // 이 응모가 오프라인 행사(방문 예약)인지 — 아래 두 버튼이 모두 이 값으로 갈린다.
+  //   판정은 isEventCampaign 하나만 쓴다(화면마다 다른 판정을 만들지 않는다).
+  const _campForAction = allCampaigns.find(c => c.id === app.campaign_id) || {};
+  const isEventAction = (typeof isEventCampaign === 'function') && isEventCampaign(_campForAction);
   // 결과물 제출 버튼: approved 만 활성. pending 은 비활성 + 안내 텍스트
+  //   ⚠️ 행사 캠페인은 결과물을 내지 않으므로 이 줄 자체를 그리지 않는다. 눌러도 티켓
+  //      화면으로 돌아가긴 하지만(openActivityPage 의 행사 분기), 「영수증·게시 URL을
+  //      제출합니다」가 활성으로 보이는 것만으로 방문객은 무엇을 내야 하는지 헷갈린다.
+  //   ⚠️ 모달을 재사용하므로 일반 캠페인에서는 반드시 다시 보이게 되돌린다.
   const submitBtn = $('applyActionSubmitBtn');
   const submitHint = $('applyActionSubmitHint');
-  if (submitBtn && submitHint) {
+  if (submitBtn) submitBtn.style.display = isEventAction ? 'none' : 'flex';
+  if (submitBtn && submitHint && !isEventAction) {
     submitBtn.disabled = !isApproved;
     submitBtn.style.opacity = isApproved ? '1' : '.5';
     submitBtn.style.cursor = isApproved ? 'pointer' : 'not-allowed';
@@ -16108,23 +16117,29 @@ function openApplyActionModal(appId) {
   // 응모 취소 버튼: 결과물 approved 있으면 비활성 + tooltip, 없으면 활성
   const cancelBtn = $('applyActionCancelBtn');
   const cancelHint = $('applyActionCancelHint');
-  // 오프라인 행사는 이 버튼으로 취소할 수 없다 — 신청만 취소되면 예약(입장 티켓)이
-  //   확정으로 남아 어긋난다. 서버(마이그레이션 289)가 아예 막으므로, 여기서 미리
-  //   「입장 티켓에서 취소하라」고 길을 알려 준다. 안 그러면 눌러도 늘 실패하는
-  //   막다른 길이 된다(2026-08-04 리뷰 지적).
-  const _campForCancel = allCampaigns.find(c => c.id === app.campaign_id) || {};
-  const isEventCancel = (typeof isEventCampaign === 'function') && isEventCampaign(_campForCancel);
+  // 오프라인 행사는 이 버튼으로 곧장 취소할 수 없다 — 신청만 취소되면 예약(입장 티켓)이
+  //   확정으로 남아 어긋난다. 서버(마이그레이션 289)가 아예 막는다.
+  //   그래서 회색으로 죽이지 않고 **누를 수 있게 두되 입장 티켓 화면으로 보낸다**.
+  //   행사 캠페인은 이 줄이 더보기 메뉴의 유일한 항목이라, 죽여 두면 메뉴 전체가
+  //   아무것도 못 하는 껍데기가 된다(2026-08-06 사용자 확인).
   if (cancelBtn && cancelHint) {
-    const blocked = hasApprovedDeliv || isEventCancel;
-    const reason = isEventCancel ? t('event.cancelViaTicket') : t('appHistory.cancelDisabledDeliv');
+    const blocked = hasApprovedDeliv && !isEventAction;
+    const reason = isEventAction ? t('event.cancelViaTicket') : t('appHistory.cancelDisabledDeliv');
     cancelBtn.disabled = blocked;
     cancelBtn.style.opacity = blocked ? '.5' : '1';
     cancelBtn.style.cursor = blocked ? 'not-allowed' : 'pointer';
     cancelBtn.title = blocked ? reason : '';
-    cancelBtn.onclick = blocked
-      ? null
-      : () => { closeApplyActionModal(); openCancelModalFor(app.id); };
-    cancelHint.textContent = blocked ? reason : t('appHistory.action.cancelHint');
+    if (blocked) {
+      cancelBtn.onclick = null;
+    } else if (isEventAction) {
+      cancelBtn.onclick = () => {
+        closeApplyActionModal();
+        if (typeof openTicketForCampaign === 'function') openTicketForCampaign(app.campaign_id);
+      };
+    } else {
+      cancelBtn.onclick = () => { closeApplyActionModal(); openCancelModalFor(app.id); };
+    }
+    cancelHint.textContent = (blocked || isEventAction) ? reason : t('appHistory.action.cancelHint');
   }
   openModal('applyActionModal');
 }
