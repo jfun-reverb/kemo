@@ -212,10 +212,40 @@ async function copyInviteLink(prefix) {
     return;
   }
   if (!code) { toast('초대 번호를 먼저 만들어 주세요', 'error'); return; }
+
+  // ⚠️ **화면의 번호가 아직 저장 전일 수 있다.** 「번호 생성」은 글자를 칸에 넣을 뿐이고
+  //    실제 저장은 캠페인 저장 때 별도 표(event_invites)에 들어간다. 저장하지 않은 번호로
+  //    링크를 만들어 주면 **받은 사람이 열었을 때 열리지 않는다** — 게다가 이미 보낸
+  //    뒤에야 알게 된다(2026-08-06 사용자 보고: 초대 링크가 안 열림).
+  //    그래서 복사 전에 서버에 그 번호가 실제로 있는지 확인한다.
+  //   ⚠️ 「번호가 없다」와 「못 물어봤다」를 **구분**한다. 통신이 끊겨 조회만 실패했을 뿐인데
+  //      「저장 안 됨」이라고 말하면, 멀쩡히 저장된 캠페인의 링크를 못 만들고 관리자는
+  //      이미 한 저장을 또 하게 된다(이 프로젝트가 여러 곳에서 지켜 온 구분).
+  let saved = null;
+  try {
+    saved = await fetchEventInviteStrict(campId);
+  } catch (e) {
+    console.warn('[copyInviteLink] 초대 번호 조회 실패', e);
+    toast('초대 번호를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요', 'error');
+    return;
+  }
+  if (!saved || !saved.code || String(saved.code).toUpperCase() !== String(code).toUpperCase()) {
+    toast('아직 저장되지 않은 번호입니다. 캠페인을 저장한 뒤 복사해 주세요', 'error');
+    return;
+  }
+
   const link = eventInviteLink(campId, code);
+  // 비공개가 꺼져 있으면 링크는 열리지만 **누구나 볼 수 있다.** 막지는 않는다 —
+  //   번호를 먼저 만들고 나중에 비공개로 돌리는 순서도 정상 운영이다.
+  //   ⚠️ 안내를 따로 띄우지 않고 **성공 문구에 함께 담는다.** 토스트는 한 개짜리라
+  //      먼저 띄운 경고가 뒤이은 성공 문구에 즉시 덮여 사실상 보이지 않는다.
+  const openWarn = !$(prefix + 'CampInviteOnly')?.checked;
+  const okMsg = openWarn
+    ? '복사했습니다 — 다만 비공개가 꺼져 있어 지금은 누구나 볼 수 있습니다'
+    : '초대 링크를 복사했습니다';
   try {
     await navigator.clipboard.writeText(link);
-    toast('초대 링크를 복사했습니다');
+    toast(okMsg, openWarn ? 'error' : undefined);
   } catch (e) {
     // 클립보드 권한이 없는 환경 대비 — 값을 보여 주고 수동 복사하게 한다.
     window.prompt('아래 링크를 복사해 주세요', link);
