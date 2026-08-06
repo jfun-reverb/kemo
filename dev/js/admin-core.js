@@ -218,6 +218,12 @@ function switchAdminPane(pane, el, pushHistory) {
     history.pushState({pane: pane}, '', '#' + pane);
   }
   if (pane === 'add-campaign') {
+    // ★ 행사 모드 초기화를 **가장 먼저** 한다.
+    //   안 하면 직전에 켠 체크박스가 남아, 바로 아래에서 모집 형식을 리뷰어로 되돌리는
+    //   순간 「행사 모드 ON + 리뷰어형」이라는 금지 조합이 되어 다음 캠페인 등록이
+    //   데이터베이스 제약(마이그레이션 280)에 걸려 통째로 실패한다. 그 오류 문구로는
+    //   원인이 화면 위쪽 체크박스라는 걸 알 수 없다(2026-08-03 리뷰 지적).
+    if (typeof resetEventFormFields === 'function') resetEventFormFields('new');
     initTagInput('tagWrap_newCampHashtags');
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
@@ -253,8 +259,17 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCampNgItems('new');
     renderCampBundleSummary('nset', 'new');
     setupCampPreview('new');
+    // ★ 「저장 안 한 변경」 기준값 — 신규 폼도 여기서 뜬다.
+    //   안 두면 ①편집 폼 기준값으로 신규 폼을 재게 되어 **모든 칸이 「바뀜」**으로 잡히거나
+    //   ②세션 첫 진입에서는 기준이 없어 **진짜 입력을 하나도 못 잡는다**(리뷰에서 잡힌 결함).
+    const _newDirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
     // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
-    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
+    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new')).then(() => {
+      // 리치 편집기는 위에서 다음 tick 에 비우므로 그 뒤에 뜬다.
+      setTimeout(() => {
+        if (typeof captureCampDirtyBaseline === 'function') captureCampDirtyBaseline('new', null, _newDirtySeq);
+      }, 120);
+    });
   }
   if (pane === 'edit-campaign') {
     setupCampPreview('edit');

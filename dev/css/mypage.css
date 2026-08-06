@@ -150,3 +150,54 @@
 
 /* 읽기 전용 표시 필드 (생년월일·성별 — 수정은 관리자만, 연령 정책 PR4) */
 .form-readonly{padding:12px 14px;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;min-height:48px;display:flex;align-items:center;box-sizing:border-box}
+
+/* ══════════════════════════════════════
+   입장 티켓 화면 — 오프라인 행사 예약(사양서 2026-07-30 §4-3)
+   접수처에서 화면을 보여 주는 용도라, 예약번호와 QR 을 가장 크고 또렷하게 둔다.
+   ══════════════════════════════════════ */
+.ticket-card{background:#fff;border:1px solid var(--line);border-radius:16px;
+  padding:20px 18px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.ticket-card.off{opacity:.6}
+.ticket-camp{font-size:13px;font-weight:700;color:var(--pink);margin-bottom:14px;line-height:1.4}
+.ticket-qr-wrap{display:flex;justify-content:center;align-items:center;min-height:200px;margin-bottom:10px}
+.ticket-qr-wrap canvas{border-radius:8px}
+.ticket-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
+.ticket-entered{margin-top:8px;font-size:12px;font-weight:700;color:var(--green)}
+
+.ticket-rows{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;text-align:left}
+.ticket-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:13px}
+.ticket-row span{flex:0 0 84px;color:var(--muted);font-size:12px}
+.ticket-row b{flex:1;color:var(--ink);font-weight:700;word-break:break-word}
+/* 예약번호는 손으로 불러 주는 값이라 크고 자간을 벌린다 */
+.ticket-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:.14em}
+
+.ticket-state{padding:22px 8px}
+.ticket-state .material-icons-round{font-size:44px;color:var(--muted)}
+.ticket-state-wait .material-icons-round{color:var(--pink)}
+.ticket-state-title{font-size:17px;font-weight:800;color:var(--ink);margin-top:8px}
+.ticket-state-hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+
+.ticket-switch{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none}
+.ticket-switch::-webkit-scrollbar{display:none}
+.ticket-switch-btn{flex-shrink:0;min-height:44px;padding:8px 14px;border-radius:20px;
+  border:1px solid var(--line);background:#fff;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
+.ticket-switch-btn.on{border-color:var(--pink);background:var(--light-pink);color:var(--pink);font-weight:700}
+
+.ticket-cancel{margin-top:16px;min-height:48px}
+.ticket-cancel:disabled{opacity:.45;cursor:not-allowed}
+.ticket-msg{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
+.ticket-msg-err{color:var(--red);font-size:12px;line-height:1.7}
+
+/* 입장 확인 완료 — QR 자리에 뜬다(사용자 요청 2026-08-03) */
+.ticket-state-done{padding:20px 8px}
+.ticket-check{width:88px;height:88px;margin:0 auto 6px;display:block}
+.ticket-check circle{stroke:var(--green);stroke-width:4;fill:none;
+  stroke-dasharray:238;stroke-dashoffset:238;animation:tkCircle .5s cubic-bezier(.65,0,.45,1) forwards}
+.ticket-check path{stroke:var(--green);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:60;stroke-dashoffset:60;animation:tkCheck .35s cubic-bezier(.65,0,.45,1) .45s forwards}
+.ticket-state-done .ticket-state-title{color:var(--green)}
+@keyframes tkCircle{to{stroke-dashoffset:0}}
+@keyframes tkCheck{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){
+  .ticket-check circle,.ticket-check path{animation:none;stroke-dashoffset:0}
+}

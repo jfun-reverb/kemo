@@ -63,7 +63,9 @@ window._supabaseLoaded = false;
   <div style="display:flex;gap:10px;align-items:center">
     <div style="flex:1;min-width:0">
       <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px"></div>
+      <!-- 행사 캠페인은 이 자리에 행사장이 들어간다(최대 200자). 제목과 같이 한 줄로 잘라
+           바 높이가 늘어나지 않게 한다 — 안 그러면 긴 주소가 들어올 때 바가 두 줄이 된다. -->
+      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
     <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
     <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
@@ -624,6 +626,18 @@ window._supabaseLoaded = false;
 <!-- ══════════════════════════════════
      PAGE: CAMPAIGN DETAIL
 ══════════════════════════════════ -->
+<!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
+     진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
+<div id="page-ticket" class="page">
+  <div class="container" style="padding-top:16px;padding-bottom:40px">
+    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
+      <span data-i18n="event.ticketTitle">入場チケット</span>
+    </div>
+    <div id="ticketBody"></div>
+  </div>
+</div>
+
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
     <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
@@ -692,6 +706,10 @@ window._supabaseLoaded = false;
           <div class="form-group">
             <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
             <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
+            <!-- 이 금액이 곧 송금액이 된다는 안내(리뷰어형 한정) — renderReceiptPayoutNote 가
+                 모집 형식을 보고 표시 여부와 상한 금액을 채운다. 방문형도 이 폼을 쓰지만
+                 방문형 정산은 현금 리워드라 이 안내가 뜨면 틀린 말이 된다. -->
+            <div id="receiptPayoutNote" style="display:none;margin-top:8px;font-size:12px;line-height:1.6;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px"></div>
           </div>
         </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>

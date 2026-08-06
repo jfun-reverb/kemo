@@ -275,6 +275,12 @@ async function renderMyApplyList() {
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
+    // 오프라인 행사 예약이면 「入場チケット」 버튼을 함께 둔다(진입 2곳 중 하나 — 사양서 §4-3).
+    //   티켓 id 는 응모 이력에 없으므로 캠페인만 넘기고, 티켓 화면이 내 예약 중에서 찾는다.
+    const ticketBtn = (typeof isEventCampaign === 'function' && isEventCampaign(camp)
+                       && a.status !== 'cancelled')
+      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">confirmation_number</span></button>`
+      : '';
     const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
@@ -286,7 +292,7 @@ async function renderMyApplyList() {
         ${cancelledLine}
         ${badgeRow}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${ticketBtn}${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
 }
@@ -563,6 +569,11 @@ async function renderMySettlements() {
       ${imgHtml}
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(title)}</div>
+        ${r.amount_source === 'receipt_amount'
+          // 「왜 이 금액인가」를 인플루언서가 스스로 알 수 있게 한다(300 이후 리뷰어형).
+          // 옛 기준으로 만들어진 행에는 이 값이 없어 아무것도 그리지 않는다.
+          ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('mypage.settlements.basisReceipt'))}</div>`
+          : ''}
         ${paidLine}
       </div>
       <div style="text-align:right;flex-shrink:0">
@@ -682,10 +693,19 @@ function openApplyActionModal(appId) {
   const isApproved = app.status === 'approved';
   const ds = (_myDelivsByApp[appId] || []);
   const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+  // 이 응모가 오프라인 행사(방문 예약)인지 — 아래 두 버튼이 모두 이 값으로 갈린다.
+  //   판정은 isEventCampaign 하나만 쓴다(화면마다 다른 판정을 만들지 않는다).
+  const _campForAction = allCampaigns.find(c => c.id === app.campaign_id) || {};
+  const isEventAction = (typeof isEventCampaign === 'function') && isEventCampaign(_campForAction);
   // 결과물 제출 버튼: approved 만 활성. pending 은 비활성 + 안내 텍스트
+  //   ⚠️ 행사 캠페인은 결과물을 내지 않으므로 이 줄 자체를 그리지 않는다. 눌러도 티켓
+  //      화면으로 돌아가긴 하지만(openActivityPage 의 행사 분기), 「영수증·게시 URL을
+  //      제출합니다」가 활성으로 보이는 것만으로 방문객은 무엇을 내야 하는지 헷갈린다.
+  //   ⚠️ 모달을 재사용하므로 일반 캠페인에서는 반드시 다시 보이게 되돌린다.
   const submitBtn = $('applyActionSubmitBtn');
   const submitHint = $('applyActionSubmitHint');
-  if (submitBtn && submitHint) {
+  if (submitBtn) submitBtn.style.display = isEventAction ? 'none' : 'flex';
+  if (submitBtn && submitHint && !isEventAction) {
     submitBtn.disabled = !isApproved;
     submitBtn.style.opacity = isApproved ? '1' : '.5';
     submitBtn.style.cursor = isApproved ? 'pointer' : 'not-allowed';
@@ -699,17 +719,29 @@ function openApplyActionModal(appId) {
   // 응모 취소 버튼: 결과물 approved 있으면 비활성 + tooltip, 없으면 활성
   const cancelBtn = $('applyActionCancelBtn');
   const cancelHint = $('applyActionCancelHint');
+  // 오프라인 행사는 이 버튼으로 곧장 취소할 수 없다 — 신청만 취소되면 예약(입장 티켓)이
+  //   확정으로 남아 어긋난다. 서버(마이그레이션 289)가 아예 막는다.
+  //   그래서 회색으로 죽이지 않고 **누를 수 있게 두되 입장 티켓 화면으로 보낸다**.
+  //   행사 캠페인은 이 줄이 더보기 메뉴의 유일한 항목이라, 죽여 두면 메뉴 전체가
+  //   아무것도 못 하는 껍데기가 된다(2026-08-06 사용자 확인).
   if (cancelBtn && cancelHint) {
-    cancelBtn.disabled = hasApprovedDeliv;
-    cancelBtn.style.opacity = hasApprovedDeliv ? '.5' : '1';
-    cancelBtn.style.cursor = hasApprovedDeliv ? 'not-allowed' : 'pointer';
-    cancelBtn.title = hasApprovedDeliv ? t('appHistory.cancelDisabledDeliv') : '';
-    cancelBtn.onclick = hasApprovedDeliv
-      ? null
-      : () => { closeApplyActionModal(); openCancelModalFor(app.id); };
-    cancelHint.textContent = hasApprovedDeliv
-      ? t('appHistory.cancelDisabledDeliv')
-      : t('appHistory.action.cancelHint');
+    const blocked = hasApprovedDeliv && !isEventAction;
+    const reason = isEventAction ? t('event.cancelViaTicket') : t('appHistory.cancelDisabledDeliv');
+    cancelBtn.disabled = blocked;
+    cancelBtn.style.opacity = blocked ? '.5' : '1';
+    cancelBtn.style.cursor = blocked ? 'not-allowed' : 'pointer';
+    cancelBtn.title = blocked ? reason : '';
+    if (blocked) {
+      cancelBtn.onclick = null;
+    } else if (isEventAction) {
+      cancelBtn.onclick = () => {
+        closeApplyActionModal();
+        if (typeof openTicketForCampaign === 'function') openTicketForCampaign(app.campaign_id);
+      };
+    } else {
+      cancelBtn.onclick = () => { closeApplyActionModal(); openCancelModalFor(app.id); };
+    }
+    cancelHint.textContent = (blocked || isEventAction) ? reason : t('appHistory.action.cancelHint');
   }
   openModal('applyActionModal');
 }

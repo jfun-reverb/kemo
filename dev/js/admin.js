@@ -193,15 +193,19 @@ function classifyDeadlineChange(orig, next) {
 }
 // 확인창 본문·버튼 라벨 생성. 반환 {message, okLabel} 또는 null(확인 불필요)
 function buildDeadlineChangeConfirm(kind, ctx) {
+  // 행사 캠페인은 「응모」가 아니라 「예약」이다 — 대상도 인플루언서가 아니라 방문객.
+  const W = ctx.isEvent
+    ? { apply: '예약', who: '방문 예약 화면', act: '예약할' }
+    : { apply: '응모', who: '인플루언서 화면', act: '응모할' };
   const appLine = ctx.appCount > 0
-    ? `\n· 이미 접수된 응모 ${ctx.appCount}건은 그대로 유지됩니다.`
+    ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
     : '';
   if (kind === 'reopen') {
     const head = `모집을 다시 열까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}`;
     if (ctx.isDraft) {
       return {
         message: head + `\n상태     ${ctx.statusFrom} (그대로)\n`
-          + `\n· 준비 중이라 인플루언서 화면에는 아직 보이지 않습니다.`
+          + `\n· 준비 중이라 ${W.who}에는 아직 보이지 않습니다.`
           + `\n· 공개하려면 상태를 「모집중」으로 직접 바꿔 주세요.` + appLine,
         okLabel: '마감일만 저장'
       };
@@ -212,7 +216,7 @@ function buildDeadlineChangeConfirm(kind, ctx) {
       : `\n상태     ${ctx.statusFrom} (그대로)\n`;
     return {
       message: head + statusLine
-        + `\n· 인플루언서 화면에 응모 버튼이 다시 열립니다.` + appLine
+        + `\n· ${W.who}에 ${W.apply} 버튼이 다시 열립니다.` + appLine
         + (ctx.submissionEnd ? `\n· 결과물 제출 마감일은 ${String(ctx.submissionEnd).slice(0,10)} 입니다.` : ''),
       okLabel: '모집 다시 열기'
     };
@@ -221,14 +225,14 @@ function buildDeadlineChangeConfirm(kind, ctx) {
     return {
       message: `모집 기간을 줄일까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}\n`
         + appLine.replace('\n· ', '\n· ')
-        + `\n· 아직 응모하지 않은 인플루언서는 ${ctx.to} 24시(일본 시간)부터 응모할 수 없습니다.`,
+        + `\n· 아직 ${W.apply}하지 않은 사람은 ${ctx.to} 24시(일본 시간)부터 ${W.act} 수 없습니다.`,
       okLabel: '줄여서 저장'
     };
   }
   if (kind === 'clear') {
     return {
-      message: `마감일을 비우면 응모가 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
-        + `\n· 이 캠페인에서만 응모 마감 차단이 해제되어 언제든 응모가 들어옵니다.`
+      message: `마감일을 비우면 ${W.apply}이 무기한 열립니다\n\n마감일   ${ctx.from}  →  (없음)\n`
+        + `\n· 이 캠페인에서만 ${W.apply} 마감 차단이 해제되어 언제든 ${W.apply}이 들어옵니다.`
         + `\n· 나중에 닫으려면 마감일을 다시 넣거나 상태를 「모집마감」으로 바꿔야 합니다.`
         + `\n\n실수로 지운 것이 아닌지 확인해 주세요.`,
       okLabel: '마감일 없이 저장'
@@ -236,6 +240,27 @@ function buildDeadlineChangeConfirm(kind, ctx) {
   }
   return null;
 }
+// 캠페인 목록에서 오프라인 행사·비공개를 한눈에 구분하는 배지.
+//   없으면 행만 봐서는 알 수 없어(채널 칸은 「—」, 제출 마감은 빈칸) 더보기 메뉴를
+//   열어 「예약 현황」이 있는지로만 판별해야 했다.
+function eventCampBadges(c) {
+  if (!(typeof isEventCampaign === 'function' && isEventCampaign(c))) return '';
+  const ev = `<span style="background:#E8F7EF;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">행사</span>`;
+  const inv = c.is_invite_only
+    ? `<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">lock</span>비공개</span>`
+    : '';
+  // 같은 행사로 묶인 캠페인 — 목록에서 안 보이면 **빠뜨린 캠페인을 알아챌 방법이 없다.**
+  //   묶음을 만든 이유가 「사흘이 한 화면에 들어오는 것」인데, 하나만 안 묶여도
+  //   그날 아침 부스 명단이 빈다.
+  const gname = c.event_group_id
+    ? (typeof _eventGroupNames !== 'undefined' ? _eventGroupNames[c.event_group_id] : '')
+    : '';
+  const grp = c.event_group_id
+    ? `<span title="같은 행사로 묶인 캠페인입니다. 현장 확인 화면을 열면 이 묶음의 캠페인이 함께 나옵니다." style="background:#EEF2FF;color:#4338CA;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">link</span>${esc(gname || '묶음(이름 미확인)')}</span>`
+    : '';
+  return ev + inv + grp;
+}
+
 // 「삭제됨」 탭 데이터 캐시 — loadAdminCampaigns(useCache=false) 시 fetchDeletedCampaigns 로 갱신.
 //   탭 건수 표시 + 삭제됨 탭 목록 렌더 양쪽에서 사용.
 var _deletedCampsCache = [];
@@ -351,6 +376,8 @@ async function loadAdminCampaigns(useCache) {
     allCampaigns = camps.slice();
     // 「삭제됨」 탭 건수·목록용 보관 캠페인 캐시 갱신 (실데이터 조회 시에만)
     try { _deletedCampsCache = await fetchDeletedCampaigns(); } catch(e) { _deletedCampsCache = []; }
+    // 행사 묶음 이름 — 목록 배지에 쓴다. 목록 렌더는 동기라 여기서 미리 받아 둔다.
+    if (typeof loadEventGroupNames === 'function') await loadEventGroupNames(camps);
   }
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
@@ -485,6 +512,7 @@ async function loadAdminCampaigns(useCache) {
           <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${typeLabel(c.recruit_type)}
+              ${eventCampBadges(c)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
@@ -661,7 +689,23 @@ function getRichValue(id) {
 // ════════════════════════════════════════════════════════════════════
 
 async function openEditCampaign(campId) {
+  // ★ 편집 중이던 캠페인에 저장 안 한 변경이 있으면 먼저 묻는다.
+  //   이 함수는 목록 더보기·미리보기·진행현황·채널 경고 모달 **네 곳**에서 불린다.
+  //   버튼마다 게이트를 붙이면 하나 빠뜨리는 순간 그 길로 조용히 날아가므로 여기서 한 번에 막는다.
+  //   ⚠️ 넷 중 **실제로 충돌하는 건 사이드바의 채널 코드 경고 모달 하나**다 — 나머지 셋은
+  //      편집 폼이 닫힌 상태(페인이 상호 배타)에서만 눌리므로 게이트가 발동하지 않는다.
+  //      그래도 함수 자리에 두는 이유는, 나중에 다른 화면에서 모달로 편집을 열게 되면
+  //      **그때 자동으로 보호되기** 때문이다.
+  //   「저장하지 않고 나가기」를 고르면 기준값이 비워져 아래 재호출은 그대로 통과한다.
+  if (typeof activeDirtyCampForm === 'function' && activeDirtyCampForm()) {
+    campLeaveGuard(() => openEditCampaign(campId));
+    return;
+  }
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  // ★ 「저장 안 한 변경」 기준값을 **맨 앞에서 비운다.** 안 비우면 직전 캠페인의
+  //   늦게 도착한 기준값이 이 캠페인을 덮어, 열자마자 경고가 뜨거나 진짜 변경을 놓친다
+  //   (_recruitTypeBeforeEvent 와 같은 함정 — 2026-08-03 사고 유형).
+  const _dirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
@@ -691,13 +735,13 @@ async function openEditCampaign(campId) {
   sv('editCampBrand', camp.brand);
   sv('editCampBrandKo', camp.brand_ko || '');
   // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
-  loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
+  const _brandChain = loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
       // 기존 연결 값 복원(저장 보존). 화면 표시는 renderSurveyLinkReadonly 가 읽기전용 라벨로 처리.
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
     }
     // hint + 서베이 연결 읽기전용 표시 갱신 (onCampBrandChange 내부에서 renderSurveyLinkReadonly 호출)
-    onCampBrandChange('edit');
+    await onCampBrandChange('edit');
   });
   sv('editCampProduct', camp.product);
   sv('editCampProductKo', camp.product_ko || '');
@@ -743,7 +787,14 @@ async function openEditCampaign(campId) {
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===rtVal);});
   const checkedRt = document.querySelector(`input[name="editRecruitType"][value="${rtVal}"]`);
   if (checkedRt) toggleEditRT(checkedRt);
-  applyDeadlineFieldsVisibility('edit', rtVal);
+  // 아래 함수가 「행사인가」를 이 체크박스로 판정한다. 이 값을 채우는 건 한참 뒤
+  // (loadEventSettingsIntoEditForm)라, 먼저 맞춰 두지 않으면 첫 그림이 직전 캠페인의
+  // 행사 여부로 그려진다. 나중에 같은 값으로 다시 세팅돼도 결과는 같다(멱등).
+  const _emEl = $('editCampEventMode');
+  if (_emEl) _emEl.checked = !!camp.event_mode;
+  // camp 를 직접 넘긴다 — 구매 기간 입력칸을 보일지는 「저장된 두 기간이 다른가」로
+  // 갈리는데, 그 판정 원본(_editCampOriginal)은 아래에서 한참 뒤에 담긴다.
+  applyDeadlineFieldsVisibility('edit', rtVal, camp);
 
   // lookup_values 동적 렌더 (병렬)
   const selectedChannels = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -808,6 +859,18 @@ async function openEditCampaign(campId) {
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
+    // 기간 표기 판정(campaignPeriodRowKind)에 쓰는 4종. recruit_type 이 빠지면 헬퍼가
+    //   늘 'none' 을 돌려줘 「구매 기간이 다르게 저장된 캠페인은 입력칸을 보여준다」는
+    //   예외가 통째로 죽는다 — deadline·channel 이 같은 이유로 죽었던 선례가 있다.
+    recruit_type: camp.recruit_type || '',
+    recruit_start: camp.recruit_start || '',
+    purchase_start: camp.purchase_start || '',
+    purchase_end: camp.purchase_end || '',
+    // 제출 마감 라벨이 「영수증만」인지 가른다. 폼에 입력칸이 없어 저장된 값이 유일한 출처.
+    proxy_purchase: !!camp.proxy_purchase,
+    // 행사 여부 — 「예약이 있는데 행사 모드를 끄는」 것을 막는 게이트의 기준.
+    //   이 키가 없으면 그 게이트가 통째로 죽은 코드가 된다(아래 채널 주석의 선례와 같은 실수).
+    event_mode: !!camp.event_mode,
     // 채널 — ①모집 형식 라디오를 눌러도 「저장된 채널」이 화면에서 증발하지 않게 하고
     //        ②저장 시 「결과물이 있는 채널을 뺐는지」를 비교하는 기준.
     //   ⚠️ 이 키가 없으면 두 장치가 조용히 죽는다(마감일 확인창이 스냅샷에 deadline 키가
@@ -823,7 +886,31 @@ async function openEditCampaign(campId) {
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
 
+  // 오프라인 행사 설정(행사 모드·비공개·초대 번호) 채우기.
+  //   초대 번호는 캠페인 표가 아니라 별도 표라 비동기 조회가 필요하다 — 화면 전환을
+  //   막지 않도록 await 하지 않고, 값이 오면 그때 칸에 들어간다.
+  const _evtFill = (typeof loadEventSettingsIntoEditForm === 'function')
+    ? loadEventSettingsIntoEditForm(camp) : null;
+
   switchAdminPane('edit-campaign', null);
+
+  // ★ 기준값은 **늦게 도착하는 칸이 채워진 뒤** 뜬다(브랜드 드롭다운·행사 묶음·초대 번호).
+  //   화면보다 먼저 뜨면 값이 도착하는 순간 「사용자가 고친 것」이 되어 열자마자 경고가 뜬다.
+  //   그 사이 몇 백 밀리초에 친 글자는 기준에 포함돼 못 잡지만, **못 잡는 쪽이 거짓 경고보다 낫다** —
+  //   거짓 경고가 한 번 나면 그때부터 아무도 안 읽는다.
+  // ⚠️ 브랜드 드롭다운 체인(_brandChain)도 함께 기다린다 — 이 체인은 선택지를 통째로
+  //    다시 그리므로, 기준값을 먼저 뜨면 그 순간 「브랜드가 바뀌었다」로 잡힌다.
+  Promise.all([
+    Promise.resolve(_evtFill).catch(() => {}),
+    Promise.resolve(_brandChain).catch(() => {}),
+  ]).then(() => {
+    // 리치 편집기·번들 렌더가 다음 tick 에 끝나므로 한 박자 더 둔다.
+    setTimeout(() => {
+      if (typeof captureCampDirtyBaseline === 'function') {
+        captureCampDirtyBaseline('edit', camp.id, _dirtySeq);
+      }
+    }, 120);
+  });
 }
 
 // 캠페인 편집 폼: 신청 동의 영향 영역 readonly 토글
@@ -1438,12 +1525,39 @@ function removeEditCampImg(idx) {
 //   참조하므로 파일 분리 시 같은 모듈로 묶기
 // ════════════════════════════════════════════════════════════════════
 
+// 날짜 규칙이 볼 「결과물 제출 마감일」 — 행사 모드면 **없는 것으로** 본다.
+//   행사 캠페인은 결과물이 없어 그 칸을 숨기고 저장 때 비운다(EVENT_MODE_CLEARED_FIELDS).
+//   그런데 폼 입력칸에는 켜기 전 값이 그대로 남아 있어서, 그 값을 규칙이 계속 읽으면
+//   ① 방문 기간 달력이 그 날짜까지로 잠기고 ② 「방문 마감일은 …결과물 제출 마감일 사이여야
+//   합니다」라는, 화면에 있지도 않은 칸을 가리키는 경고가 뜬다(2026-08-03 사용자 보고).
+//   숨김·저장 시 비움·규칙 제외는 **같은 판정**을 써야 어긋나지 않는다.
+function campRuleSubmissionEnd(prefix) {
+  if (_campPrefixIsEvent(prefix)) return '';
+  return $(prefix + 'SubmissionEnd')?.value || '';
+}
+
+function _campPrefixIsEvent(prefix) {
+  return (typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new');
+}
+
+// 날짜 규칙이 볼 「방문 기간」 — 행사 모드면 **없는 것으로** 본다. 제출 마감일과 같은 이유다.
+//   행사 캠페인의 방문 날짜는 「행사 시간」이 정하고 그 칸은 화면에서 숨긴다. 값은 저장된
+//   진짜 날짜라 남겨 두는데(지우면 멀쩡한 값이 사라진다), 그대로 두면 모집 시작일을
+//   뒤로 미룰 때 「방문 시작일은 모집 시작일~… 사이여야 합니다」로 **저장이 막힌다** —
+//   화면에 있지도 않은 칸을 가리키는 오류라 관리자가 손쓸 방법이 없다(2026-08-03 리뷰 지적).
+function campRuleVisitRange(prefix) {
+  if (_campPrefixIsEvent(prefix)) return ['', ''];
+  return [$(prefix + 'VisitStart')?.value || '', $(prefix + 'VisitEnd')?.value || ''];
+}
+
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
 //   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
 //   - monitor: 구매 기간 종료일 + 19일
 //   - visit:   방문 기간 종료일 + 19일
 //   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 19일
 async function suggestSubmissionEnd(prefix, baseKind) {
+  // 행사 캠페인은 결과물 제출이 없다 — 숨긴 칸을 채우겠냐고 묻지 않는다.
+  if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return;
   const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
     : baseKind === 'visit' ? 'VisitEnd'
     : 'Deadline';
@@ -1473,8 +1587,8 @@ function syncCampDateMinMax(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
-  const ve = $(prefix+'VisitEnd')?.value || '';
-  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const ve = campRuleVisitRange(prefix)[1];
+  const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
   // 구매·방문: lower ~ upperPV
@@ -1521,7 +1635,7 @@ function syncCampRangePickerBounds(prefix) {
   if (!_campRangePickers) return;
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
   ['Purchase', 'Visit'].forEach(kind => {
@@ -1539,9 +1653,8 @@ function validateCampDateRanges(prefix) {
   const dl = $(prefix+'Deadline')?.value || '';
   const ps = $(prefix+'PurchaseStart')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
-  const vs = $(prefix+'VisitStart')?.value || '';
-  const ve = $(prefix+'VisitEnd')?.value || '';
-  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const [vs, ve] = campRuleVisitRange(prefix);
+  const se = campRuleSubmissionEnd(prefix);
   const errs = [];
   const lower = rs || dl || '';
   // 구매·방문 일자의 상한은 결과물 제출 마감일
@@ -1686,7 +1799,10 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
     // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +19일 fallback 제안
-    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'newRecruitType';
+    // ⚠️ 라디오 name 은 편집만 editRecruitType 이고 **신규는 recruitType** 이다.
+    //    newRecruitType 으로 찾으면 아무것도 안 잡혀 늘 monitor 로 폴백했고, 그래서
+    //    신규 등록에서는 기프팅의 「모집 종료 +19일」 제안이 한 번도 뜨지 않았다.
+    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'recruitType';
     const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
     if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
   }
@@ -2116,6 +2232,39 @@ async function saveCampaignEdit() {
     const brandJa = (_editBrand?.name_ja || '').trim();
     const brandEn = (_editBrand?.name_en || '').trim();
 
+    // 행사 캠페인 판정 — 아래 여러 게이트가 이 값으로 갈린다.
+    //   ⚠️ 선언이 첫 사용보다 **뒤**에 있으면 저장이 통째로 죽는다(const 는 선언 전 참조 불가).
+    const _isEventEdit = (typeof isEventModeForm === 'function') && isEventModeForm('edit');
+
+    // ── 예약이 들어온 뒤 행사 모드를 끄는 것은 막는다 ──────────────
+    //   끄면 그 순간 ①관리자 더보기의 「예약 현황」이 사라져 입장 처리·명단 확인
+    //   경로가 통째로 없어지고 ②방문객 화면이 티켓 대신 결과물 제출 폼으로 열리며
+    //   ③행사라서 억눌러 둔 「당선」 알림이 방문객에게 나가기 시작한다.
+    //   되돌릴 길이 화면에 없는 상태라 되묻지 않고 막는다(예약 0건이면 자유).
+    if (_editCampOriginal?.event_mode && !_isEventEdit) {
+      const _tk = (typeof countActiveEventTickets === 'function')
+        ? await countActiveEventTickets(campId) : 0;
+      if (_tk > 0) {
+        const _el = $('alertModalMessage');
+        // ⚠️ 이 모달은 가운데 정렬이다(다른 알림과 공용). 목록을 그대로 넣으면 글머리
+        //    기호가 줄마다 다른 자리에 놓여 읽기 어렵다 — 이 안내만 왼쪽으로 맞춘다.
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75;text-align:left">
+          <div style="text-align:center;margin-bottom:14px">이 캠페인에는 살아 있는 예약이 <b style="color:var(--red-d)">${_tk}건</b> 있습니다.</div>
+          <div style="font-weight:700">「오프라인 행사 캠페인」을 끄면</div>
+          <ul style="margin:6px 0 0;padding-left:18px">
+            <li>예약 현황·입장 확인으로 들어갈 길이 없어지고,</li>
+            <li>방문객 화면이 예약표 대신 결과물 제출 폼으로 바뀌며,</li>
+            <li>행사라서 막아 둔 「당선」 알림이 방문객에게 나가기 시작합니다.</li>
+          </ul>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+            먼저 예약을 정리한 뒤에 꺼 주세요. 모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.
+          </div>
+        </div>`;
+        openModal('alertModal');
+        return;
+      }
+    }
+
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
@@ -2123,7 +2272,7 @@ async function saveCampaignEdit() {
     //   이미 끝난 캠페인의 다른 항목만 고치는 경우를 막지 않으려고 「변경됐을 때만」으로 좁혔다.
     //   승인된 인플루언서 전원이 그 순간 제출 불가가 되는 변경이라 확인창이 아니라 차단이다.
     {
-      const _seNew = gv('editCampSubmissionEnd') || '';
+      const _seNew = campRuleSubmissionEnd('editCamp');   // 행사면 '' — 숨긴 칸으로 저장을 막지 않는다
       const _seOld = (_editCampOriginal && _editCampOriginal.submission_end) || '';
       const _today = (typeof jstTodayStr === 'function') ? jstTodayStr() : new Date().toISOString().slice(0,10);
       if (_seNew && String(_seNew).slice(0,10) !== String(_seOld).slice(0,10)
@@ -2163,8 +2312,9 @@ async function saveCampaignEdit() {
         statusFrom: campStatusLabelKo(origStatus),
         statusTo:   (_dlKind === 'reopen' && _reopenTargets.includes(origStatus)) ? campStatusLabelKo('active') : null,
         appCount: _appCount,
-        submissionEnd: gv('editCampSubmissionEnd') || null,
-        isDraft: origStatus === 'draft'
+        submissionEnd: campRuleSubmissionEnd('editCamp') || null,   // 행사 캠페인엔 그 줄을 안 붙인다
+        isDraft: origStatus === 'draft',
+        isEvent: _isEventEdit          // 문구를 「응모」 대신 「예약」으로
       };
       const _c = buildDeadlineChangeConfirm(_dlKind, _ctx);
       if (_c) {
@@ -2184,7 +2334,9 @@ async function saveCampaignEdit() {
     //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
     //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
     //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
-    if (!editChannel) {
+    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
+    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
+    if (!editChannel && !_isEventEdit) {
       toast('채널을 1개 이상 선택해야 합니다','error');
       return;
     }
@@ -2198,7 +2350,8 @@ async function saveCampaignEdit() {
       const _origCh = String(_editCampOriginal?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
       const _nextCh = editChannel.split(',').map(s => s.trim()).filter(Boolean);
       const _removed = _origCh.filter(c => !_nextCh.includes(c));
-      if (_removed.length) {
+      // 행사 모드로 바꾸면 채널이 통째로 비는 것이 정상이라 확인창을 띄우지 않는다.
+      if (_removed.length && !_isEventEdit) {
         let _affected = 0;
         try { _affected = await countDeliverablesByChannels(campId, _removed); }
         catch(e) { console.warn('[saveCampaignEdit] 채널 제거 영향 조회 실패', e); }
@@ -2237,6 +2390,13 @@ async function saveCampaignEdit() {
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
       reward_note: gv('editCampRewardNote') || null,
+      // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
+      event_mode: !!$('editCampEventMode')?.checked,
+      is_invite_only: !!$('editCampInviteOnly')?.checked,
+      event_place: ($('editCampEventPlace')?.value || '').trim() || null,
+      // 행사가 아니면 묶음도 없다. 화면에서 즉시 비우지 않고 여기서 거른다 —
+      //   즉시 비우면 실수로 껐다 켰을 때 값이 안 돌아와 연결이 조용히 끊긴다.
+      event_group_id: ($('editCampEventMode')?.checked ? ($('editCampEventGroup')?.value || '') : '') || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -2340,6 +2500,29 @@ async function saveCampaignEdit() {
     // 동시 저장 방어(마이그레이션 275) — 편집 화면을 연 뒤 다른 관리자가 먼저 저장했으면 덮지 않는다.
     //   ⚠️ 아래 「주의사항·참여방법 변경 이력 기록」보다 **먼저** 판정해야 한다. 충돌이면 그 블록을
     //      아예 타지 않아야 저장되지도 않은 변경이 이력에 남는 일이 없다.
+    // 행사 모드에서 숨긴 칸은 값도 비운다.
+    //   숨기기만 하면 「일반 캠페인을 만들다가 뒤늦게 행사로 바꾼」 경우 먼저 고른
+    //   채널·콘텐츠가 그대로 저장된다. 그리는 쪽에서도 막지만(상세·미리보기)
+    //   저장까지 비워야 낡은 값이 쌓이지 않는다.
+    //   ⚠️ 특히 submission_end 가 남으면 자동 종료(closed→ended)가 그 날짜를 보고
+    //      행사와 무관하게 캠페인을 끝내 버린다.
+    //   ⚠️ 객체 **안쪽**이 아니라 완성된 뒤에 덮어쓴다 — 안에 끼우면 같은 키가
+    //      뒤에 또 나와 값이 되살아난다(실제로 submission_end 가 그랬다).
+    if (_isEventEdit) {
+      Object.assign(updates, EVENT_MODE_CLEARED_FIELDS);
+      // 방문 기간·모집 인원은 「행사 시간」에서 계산한다 — 손으로 적은 값과 시간대가
+      // 어긋나 방문객 화면에 서로 다른 날짜가 나란히 뜨던 것을 없앤다.
+      //   시간대가 0줄이면 방문 기간은 위에서 비운 채로 남는다(그게 사실이다).
+      //   모집 인원은 0으로 만들지 않는다 — 목록의 「N/M명」 분모가 0이 되면 못 읽는다.
+      const _d = (typeof fetchEventDerivedForSave === 'function')
+        ? await fetchEventDerivedForSave(campId) : null;
+      if (_d) {
+        updates.visit_start = _d.visit_start;
+        updates.visit_end   = _d.visit_end;
+        if (_d.slots > 0) updates.slots = _d.slots;
+      }
+    }
+
     const _saveResult = await updateCampaign(campId, updates, _editCampOriginal?.version);
     if (_saveResult && _saveResult.conflict) {
       // 저장이 취소됐으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
@@ -2352,6 +2535,12 @@ async function saveCampaignEdit() {
       allCampaigns = await fetchCampaigns();
       switchAdminPane('campaigns', null);
       return;
+    }
+
+    // 초대 번호는 캠페인 표가 아니라 별도 표(event_invites)라 따로 넣는다.
+    //   저장 충돌(위 conflict 분기)로 돌아간 경우에는 여기 도달하지 않는다.
+    if (typeof saveEventInviteAfterCampaignSave === 'function') {
+      await saveEventInviteAfterCampaignSave('edit', campId);
     }
 
     // Phase 2 — 주의사항/참여방법 변경 감지 시 audit 이력 기록
@@ -2387,6 +2576,10 @@ async function saveCampaignEdit() {
 
     allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다','success');
+    // 저장이 끝났으니 「저장 안 한 변경」 기준값을 비운다.
+    //   지금은 폼을 다시 열 때마다 전체를 비우므로 없어도 도달 가능한 거짓 경고는 없지만,
+    //   그 리셋 지점 중 하나가 나중에 빠지면 옛 기준으로 판단하게 된다.
+    if (typeof resetCampDirtyBaseline === 'function') resetCampDirtyBaseline();
     switchAdminPane('campaigns', null);
   } catch(err) {
     // 저장이 실패했으므로 이번에 올린 이미지는 아무 데서도 참조되지 않는다 → 정리.
@@ -2434,6 +2627,15 @@ async function duplicateCampaign(campId) {
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
       winner_announce: src.winner_announce,
+      // 오프라인 행사 설정 — 안 넣으면 복제본이 「행사가 아닌 방문형」이 된다.
+      //   제약(마이그레이션 280)은 「행사면 방문형」만 요구해 반대 방향은 통과하므로
+      //   아무것도 안 막고 조용히 빠졌다. 시간대는 캠페인마다 다르므로 복제하지 않는다.
+      event_mode: !!src.event_mode,
+      is_invite_only: !!src.is_invite_only,
+      event_place: src.event_place || null,
+      // 묶음도 이어받는다 — 같은 행사의 다음 날 캠페인은 복제로 만드는 게 흔한데,
+      //   안 이어받으면 복제본만 묶음에서 빠져 현장 화면 명단이 그 날짜만 빈다.
+      event_group_id: src.event_group_id || null,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -2442,6 +2644,9 @@ async function duplicateCampaign(campId) {
       participation_steps: src.participation_steps || null,
       status: 'draft'
     };
+    // 복제본도 「새로 만들어지는 캠페인」이다(결정 5) — 원본이 두 기간이 다르더라도
+    // 복제본은 같게 맞춰 태어난다. 원본은 건드리지 않는다.
+    applyMonitorPeriodCopy(copy);
     await insertCampaign(copy);
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
@@ -2504,7 +2709,10 @@ async function executeDeleteCampaign() {
     // 캠페인 진행현황에서 삭제한 경우(헤더 더보기 메뉴), 사라진 캠페인 화면에 남지 않도록 목록으로 돌려보낸다
     if (typeof currentCampApplicantId !== 'undefined' && currentCampApplicantId === campId
         && $('adminPane-camp-applicants')?.classList.contains('on')) {
-      switchAdminPane('campaigns', null);
+      // 저장이 끝났으니 기준값을 비운다 — 안 비우면 목록에서 다시 들어올 때
+    //   옛 기준으로 판단해 「저장 안 된 변경」이 있다고 잘못 묻는다.
+    if (typeof resetCampDirtyBaseline === 'function') resetCampDirtyBaseline();
+    switchAdminPane('campaigns', null);
     }
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();  // 활성 목록에서 사라지고, 「삭제됨」 탭 건수가 갱신됨
@@ -2714,10 +2922,26 @@ function buildPreviewCamp(mode) {
     slots: parseInt(val(g+'Slots'))||10,
     min_followers: parseInt(val(g+'MinFollowers'))||0,
     primary_channel: val(g+'PrimaryChannel')||null,
+    // 행사 여부 — 이게 없으면 isEventCampaign 이 늘 거짓이라, 미리보기의 행사 분기가
+    // 한 번도 안 걸린다. 폼에서 숨긴 칸(채널·콘텐츠·제출마감·당선발표·리워드)이
+    // 미리보기에는 그대로 떠서, 인플루언서가 실제로 보는 화면과 달라진다.
+    event_mode: !!$(g + 'EventMode')?.checked,
+    is_invite_only: !!$(g + 'InviteOnly')?.checked,
+    event_place: (val(g+'EventPlace') || '').trim() || null,
     recruit_start: val(g+'RecruitStart')||null,
     deadline: val(g+'Deadline')||null,
-    purchase_start: val(g+'PurchaseStart')||null,
-    purchase_end: val(g+'PurchaseEnd')||null,
+    // ⚠️ 리뷰어형은 구매 기간 입력칸을 폼에서 숨긴다(결정 9). 그 칸을 그대로 읽으면
+    //    빈 값이 되어 **미리보기에서만** 구매 줄이 사라지고, 실제로 저장될 캠페인과
+    //    어긋난다. 저장 규칙(applyMonitorPeriodCopy)과 같은 값으로 채워 맞춘다.
+    ...(function(){
+      const ps = val(g+'PurchaseStart')||null, pe = val(g+'PurchaseEnd')||null;
+      // 신규 폼만 보정한다. 그 폼은 구매칸이 늘 숨겨져 비어 있고 저장할 때 복사 규칙이
+      // 걸리므로, 미리 채워야 미리보기가 실제 저장될 캠페인과 같아진다.
+      //   ⚠️ 편집 폼은 보정하면 안 된다 — 칸이 숨겨져도 저장된 값은 그대로 들어 있고,
+      //      구매 기간이 **아예 없는** 캠페인까지 합쳐진 모습으로 잘못 그려진다.
+      if (mode !== 'edit' && recruitType === 'monitor' && !ps && !pe) return { purchase_start: val(g+'RecruitStart')||null, purchase_end: val(g+'Deadline')||null };
+      return { purchase_start: ps, purchase_end: pe };
+    })(),
     visit_start: val(g+'VisitStart')||null,
     visit_end: val(g+'VisitEnd')||null,
     submission_end: val(g+'SubmissionEnd')||null,
@@ -2752,10 +2976,20 @@ const CP_I18N = {
   ja: {
     preview:'プレビュー', noImage:'画像なし', apply:'応募', productPage:'商品ページ',
     rtLabel:{monitor:'レビュアー', gifting:'ギフティング', visit:'訪問型'},
-    payback:'円ペイバック', freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
+    paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）',
+    freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
     kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
+    // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
+    //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
+    kRecruitPurchasePeriod:'募集・購入期間',
+    kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
+    paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNotice1Split:'購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNotice2:'期間が過ぎてからご購入された場合は、対象外となります。',
+    kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
+    evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、LINEにてご連絡',
     secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
@@ -2764,16 +2998,111 @@ const CP_I18N = {
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
     rtLabel:{monitor:'리뷰어', gifting:'기프팅', visit:'방문형'},
-    payback:'엔 페이백', freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
+    paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})',
+    freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
+    kRecruitPurchasePeriod:'모집/구매 기간',
+    kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
+    paybackNotice1:'모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNotice1Split:'구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNotice2:'기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
+    kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
+    evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 LINE으로 연락',
     secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
     secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
   }
 };
+
+// 미리보기에 넣을 행사 시간 요약 — 날짜마다 「N타임 · 첫 시각〜마지막 시각」.
+//   시간대는 캠페인 표가 아니라 별도 표에 있어 폼 값으로는 못 만든다. 편집 화면이
+//   방금 읽어 둔 목록(_eventSlotsCache)을 그대로 쓴다.
+// 'YYYY-MM-DD' → '8/8(土)'. 방문객 화면(application.js formatEventSlotDateLabel)과 같은 규칙.
+function eventPreviewDateLabel(d, lang) {
+  const dt = new Date(d + 'T00:00:00+09:00');
+  if (isNaN(dt.getTime())) return d;
+  const wd = dt.toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'ja-JP', {weekday: 'short', timeZone: 'Asia/Tokyo'});
+  return `${dt.getMonth() + 1}/${dt.getDate()}(${wd.replace(/[()]/g, '')})`;
+}
+
+// 미리보기의 타임 선택표 — 방문객이 실제로 누르는 버튼을 그대로 보여 준다.
+//   정보표의 「방문 일시」 한 줄만으로는 **고르는 화면이 어떻게 생겼는지** 알 수 없어
+//   「선택하는 버튼이 안 보인다」는 말이 나왔다(2026-08-04 지적).
+//   ⚠️ 방문객 화면의 클래스(.event-slot 등)는 인플루언서 빌드에만 있어 여기서 못 쓴다.
+//      같은 생김새를 인라인으로 다시 그린다 — 바꿀 때 양쪽을 함께 봐야 한다
+//      (원본: dev/js/application.js 의 renderEventSlotList).
+//   ⚠️ 누르는 흉내만 낸다. 미리보기는 값을 바꾸지 않는다.
+function eventSlotPickerPreviewHtml(L, mode, lang) {
+  const head = `<div class="cp-section-heading">${esc(L.kEventTimes)}</div>`;
+  // ⚠️ 바로 아래 eventTimesPreviewHtml 과 **같은 가드가 필요하다.** `_eventSlotsCache` 는
+  //    편집 화면 전용이라, 신규 등록 화면에서 그대로 읽으면 직전에 편집하던 다른
+  //    캠페인의 시간대가 새 캠페인 미리보기에 뜬다. (같은 실수를 두 번 했다 — 앞 커밋에서
+  //    한쪽만 고치고 이 함수에 옮기지 못했다.)
+  if (mode !== 'edit') {
+    return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
+  }
+  // 방문객 화면과 **같은 기준으로** 지난 날짜를 뺀다(`loadEventSlotPicker`, application.js).
+  //   이 함수는 「방문객에게 이렇게 보인다」를 그대로 흉내내는 자리라, 여기만 지난 날짜를
+  //   남기면 관리자가 실제와 다른 화면을 보고 판단한다. 오늘 것은 시각이 지났어도 남긴다.
+  //   ⚠️ 바로 아래 eventTimesPreviewHtml 은 **반대로 전부 보여준다** — 그쪽은 방문객 화면이
+  //      아니라 관리자가 등록한 시간대 현황 요약이라, 지난 날짜를 빼면 자기가 만든 것을 못 본다.
+  const _todayJst = (typeof jstTodayStr === 'function')
+    ? jstTodayStr()
+    : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const rows = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
+    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false
+        && String(r.slot_date).slice(0, 10) >= _todayJst) : [];
+  const dates = [...new Set(rows.map(r => String(r.slot_date).slice(0, 10)))].sort();
+  if (!rows.length) {
+    return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
+  }
+  const active = dates[0];
+  const dLabel = d => eventPreviewDateLabel(d, lang);
+  const tabs = dates.length > 1
+    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">` + dates.map(d =>
+        `<span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;border:1px solid ${d === active ? 'var(--ink)' : 'var(--line)'};background:${d === active ? 'var(--ink)' : '#fff'};color:${d === active ? '#fff' : 'var(--muted)'}">${esc(dLabel(d))}</span>`
+      ).join('') + `</div>`
+    : `<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(dLabel(dates[0]))}</div>`;
+  const list = rows.filter(r => String(r.slot_date).slice(0, 10) === active).map(r => {
+    const st = String(r.start_time || '').slice(0, 5);
+    const en = r.end_time ? String(r.end_time).slice(0, 5) : '';
+    const time = en ? `${st}〜${en}` : st;
+    const cnt = (typeof _eventSlotCounts !== 'undefined' && _eventSlotCounts) ? (_eventSlotCounts[r.id] || {}) : {};
+    const cap = Number(r.capacity || 0);
+    const left = (cnt.remaining != null) ? Number(cnt.remaining) : cap;
+    const full = left <= 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--line);border-radius:10px;background:${full ? 'var(--surface-container-low)' : '#fff'}">
+      <span style="font-size:13px;font-weight:700;color:${full ? 'var(--muted)' : 'var(--ink)'}">${esc(time)}</span>
+      ${r.audience_label ? `<span style="font-size:11px;color:var(--muted)">${esc(r.audience_label)}</span>` : ''}
+      <span style="font-size:11px;font-weight:600;color:${full ? 'var(--muted)' : 'var(--dark-pink)'}">${full ? esc(L.evtFull) : esc(L.evtRemain).replace('{n}', left)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="cp-sec">${head}${tabs}${list}</div>`;
+}
+
+function eventTimesPreviewHtml(L, mode) {
+  // ⚠️ `_eventSlotsCache` 는 **편집 화면 전용** 캐시다. 신규 등록 화면은 시간대를 걸
+  //    캠페인 식별자가 아직 없어 이 캐시를 채우지 않으므로, 그대로 읽으면 직전에
+  //    편집하던 **다른 캠페인의 시간대**가 새 캠페인 미리보기에 뜬다 — 관리자가
+  //    「이미 등록돼 있다」고 오해해 진짜 시간대를 안 만들 수 있다.
+  if (mode !== 'edit') return `<span style="color:var(--muted)">${esc(L.evtNoTimes)}</span>`;
+  const rows = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
+    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false) : [];
+  if (!rows.length) return `<span style="color:var(--muted)">${esc(L.evtNoTimes)}</span>`;
+  const byDate = {};
+  rows.forEach(r => {
+    const d = String(r.slot_date).slice(0, 10);
+    (byDate[d] = byDate[d] || []).push(String(r.start_time || '').slice(0, 5));
+  });
+  return Object.keys(byDate).sort().map(d => {
+    const times = byDate[d].filter(Boolean).sort();
+    const span = times.length ? `${times[0]}〜${times[times.length - 1]}` : '';
+    return `<div>${esc(d.replace(/-/g, '/'))} · ${times.length}${esc(L.evtTimeUnit)}${span ? ` · ${esc(span)}` : ''}</div>`;
+  }).join('');
+}
 
 function renderCampPreview(mode) {
   const el = document.getElementById(mode === 'edit' ? 'editCampPreviewContent' : 'newCampPreviewContent');
@@ -2809,13 +3138,33 @@ function renderCampPreview(mode) {
   const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
   // monitor(리뷰어) 캠페인은 「ペイバック」 워딩, 그 외는 기존 「相当の製品を無償提供」
   const isMonitorPreview = camp.recruit_type === 'monitor';
-  const rewardLabelJa = isMonitorPreview ? L.payback : L.freeProvide;
+  // 리뷰어형은 인플루언서 상세와 **같은 전체형 문구**를 쓴다(영수증 실결제액 기준으로
+  // 바뀌어 금액을 약속하지 않는다). 미리보기가 실제 화면과 다르면 운영자가 잘못된
+  // 안내를 승인하게 된다.
+  // ⚠️ 전체형 문구에는 「（最大 ¥N）」이 **이미 들어 있다.** 그래서 이 값을 쓰는 자리는
+  //    「¥금액 + 라벨」로 붙이면 금액이 두 번 찍힌다 — 아래 paybackFullText 를 쓰는 곳은
+  //    금액 접두를 빼고, 그 외(시딩·방문형)만 종전처럼 rewardLabelJa 를 붙인다.
+  const isPaybackPreview = isMonitorPreview && camp.product_price > 0;
+  const paybackFullText = isPaybackPreview
+    ? L.paybackFull.replace('{price}', camp.product_price.toLocaleString())
+    : '';
+  const rewardLabelJa = L.freeProvide;
+  // ⚠️ 리뷰어형에는 현금 리워드를 덧붙이지 않는다 — 정산 계산이 리뷰어형에서
+  //    campaigns.reward 를 쓰지 않으므로(마이그레이션 300), 붙이면 지급되지 않는 금액을
+  //    약속하는 미리보기가 된다. 인플루언서 상세(application.js)와 같은 판단.
   const rewardText = (camp.product_price>0 || camp.reward>0)
-    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
+    ? (isPaybackPreview
+        ? paybackFullText
+        : `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`)
     : '';
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
   const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
+  // 인플루언서 상세와 같은 판정 — 미리보기가 실제 화면과 달라 보이면 안 된다.
+  //   ⚠️ 여기(함수 몸통)에 둔다. 아래 정보표를 만드는 즉시실행 함수 **안**에 두면 그 안에서만
+  //      유효해서, 바깥의 타임 선택표 줄이 이 이름을 못 찾고 **미리보기 전체가 멈춘다** —
+  //      행사든 아니든, 편집이든 신규 등록이든 모든 캠페인에서(2026-08-04 실측).
+  const isEventPreview = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
 
   el.innerHTML = `
     <div class="cp-frame">
@@ -2833,9 +3182,22 @@ function renderCampPreview(mode) {
           ${(()=>{const bl=brandLabelInflu(camp);return bl?`<div class="cp-brand">${esc(bl)}</div>`:'';})()}
           ${rtLabel?`<div class="cp-rt">${esc(rtLabel)}</div>`:''}
           <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
-          ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`:''}
-          ${camp.reward>0?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} 報酬</div>`:''}
+          ${camp.product_price>0?(isPaybackPreview
+            // 리뷰어형 — 금액이 문구 안에 있으므로 금액 배지를 따로 세우지 않는다
+            ? `<div class="cp-price-box"><span class="cp-price-label" style="font-size:13px;font-weight:800">${esc(paybackFullText)}</span></div>`
+            : `<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`
+          ):''}
+          ${(camp.reward>0 && !isMonitorPreview)?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} 報酬</div>`:''}
         </div>
+        ${(()=>{
+          // 페이백 안내 — 인플루언서 상세와 같은 자리(정보표 바로 위)·같은 문구.
+          if (!isMonitorPreview) return '';
+          const k = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+          const l1 = k === 'split' ? L.paybackNotice1Split : L.paybackNotice1;
+          return `<div style="margin:10px 12px 0;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:11px;line-height:1.6;color:#1e40af">
+            <div>${esc(l1)}</div><div>${esc(L.paybackNotice2)}</div>
+          </div>`;
+        })()}
         <div class="cp-info">
           ${(()=>{
             // 시간 흐름 순: 製品名 → 募集タイプ → チャンネル → コンテンツ → 募集期間 → 購入/訪問 → 提出締切 → 募集人数
@@ -2843,22 +3205,36 @@ function renderCampPreview(mode) {
             const rows = [];
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kProduct)}</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitType)}</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>`);
-            if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
-            if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
-            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
-            if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
-            if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSubmitDeadline)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
+            if (channelNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kChannel)}</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
+            if (contentTypeNames.length && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kContentType)}</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
+            // 인플루언서 상세와 **같은 헬퍼**로 판정한다 — 판정이 두 벌이 되면 미리보기와
+            // 실제 화면이 갈라진다(관리자가 본 것과 인플루언서가 보는 것이 달라진다).
+            const cpPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodKind === 'merged' ? L.kRecruitPurchasePeriod : L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
+            if (isMonitorPreview && cpPeriodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
+            if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
+            if (camp.submission_end && !isEventPreview) {
+              const cpSubCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
+              const cpSubLabel = cpSubCode === 'receiptOnly' ? L.kSubmitDeadlineProxy
+                               : cpSubCode === 'receiptAndPost' ? L.kSubmitDeadlineMonitor
+                               : L.kSubmitDeadline;
+              rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpSubLabel)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
+            }
             if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSlots)}</div><div class="cp-info-val">${camp.slots}${esc(L.unit)}</div></div>`);
-            if (camp.min_followers) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
+            // 행사 캠페인의 방문 날짜·시각 — 방문객 화면에서는 아래 타임 선택표가 이 자리를
+            // 대신하지만, 미리보기는 그 표를 그리지 않아 **행사 시간이 통째로 안 보였다**.
+            // 관리자가 방금 만든 시간대가 미리보기에 없으면 안 만들어진 것처럼 읽힌다.
+            if (isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kEventTimes)}</div><div class="cp-info-val">${eventTimesPreviewHtml(L, mode)}</div></div>`);
+            if (camp.min_followers && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
             // 리뷰어(monitor) 캠페인은 当選発表·報酬 행 제외
-            if (!isMonitorPreview) {
+            if (!isMonitorPreview && !isEventPreview) {
               rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kWinnerAnnounce)}</div><div class="cp-info-val">${esc(camp.winner_announce||L.winnerDefault)}</div></div>`);
               if (rewardText || camp.reward_note) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kReward)}</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`);
             }
             return rows.join('');
           })()}
         </div>
+        ${isEventPreview ? eventSlotPickerPreviewHtml(L, mode, lang) : ''}
         ${steps.length ? `<div class="cp-participation">
           <div class="cp-section-heading">${esc(L.secParticipation)}</div>
           ${steps.map((s,i)=>{
@@ -2904,7 +3280,11 @@ function renderCampPreview(mode) {
         })() : ''}
       </div>
       <div class="cp-cta">
-        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:''}</small></div>
+        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?(isPaybackPreview
+          // 하단 고정 바 — 인플루언서 앱과 같은 축약형(폭이 좁다)
+          ? esc(L.paybackShort.replace('{price}', camp.product_price.toLocaleString()))
+          : `¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`
+        ):''}</small></div>
         <div class="cp-cta-btn">${esc(L.apply)}</div>
       </div>
     </div>`;
@@ -3051,10 +3431,27 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const auditPurgeItem = isSuper
     ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
+  // 오프라인 행사 캠페인에만 예약 현황을 띄운다.
+  //   시간대(타임) 관리는 캠페인 **편집 화면 안**으로 옮겼다(2026-08-03) — 그 캠페인의
+  //   설정이라 고쳐 쓰는 자리에 함께 있는 것이 자연스럽다.
+  //   사이드바 상설 항목은 만들지 않는다 — 행사는 소수·기간 한정이라 상설로 두면
+  //   평소엔 빈 화면으로 남는다(작업표 결정).
+  const _campForEvent = (typeof allCampaigns !== 'undefined' && allCampaigns)
+    ? allCampaigns.find(c => c.id === campId) : null;
+  const _isEventMenu = (typeof isEventCampaign === 'function') && isEventCampaign(_campForEvent);
+  const eventItems = _isEventMenu
+    ? `<div class="camp-more-item" onclick="openEventTicketsPane('${campId}', this.dataset.t)" data-t="${esc(campTitle)}"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">event_available</span>예약 현황</div>`
+    : '';
+  // 행사 캠페인은 결과물이 없다 — 내려받아도 빈 표라 「없는 것을 찾게」 만든다.
+  //   대신 예약 명단 엑셀이 진행현황의 예약 탭에 있다.
+  const delivExcelItem = _isEventMenu ? ''
+    : `<div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>`;
+
   menu.innerHTML = `
+    ${eventItems}
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
-    <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
+    ${delivExcelItem}
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
     ${auditPurgeItem}
@@ -3310,7 +3707,9 @@ async function addCampaign() {
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
-  if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
+  if (!ch && !((typeof isEventModeForm === 'function') && isEventModeForm('new'))) {
+    toast('채널을 1개 이상 선택해주세요','error'); return;
+  }
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
   // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
@@ -3360,6 +3759,12 @@ async function addCampaign() {
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
     reward_note: ($('newCampRewardNote')?.value || '').trim() || null,
+    // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 캠페인 표가 아니라
+    // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
+    event_mode: !!$('newCampEventMode')?.checked,
+    is_invite_only: !!$('newCampInviteOnly')?.checked,
+    event_place: ($('newCampEventPlace')?.value || '').trim() || null,
+    event_group_id: ($('newCampEventMode')?.checked ? ($('newCampEventGroup')?.value || '') : '') || null,
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,
@@ -3387,8 +3792,20 @@ async function addCampaign() {
     ...collectCampNsetPayload('new'),
   };
 
+  // 편집 저장과 같은 이유 — 숨긴 칸은 값도 비운다(saveCampaignEdit 주석 참고)
+  if ((typeof isEventModeForm === 'function') && isEventModeForm('new')) {
+    Object.assign(camp, EVENT_MODE_CLEARED_FIELDS);
+  }
+
+  applyMonitorPeriodCopy(camp);
+
   const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
+
+  // 초대 번호는 캠페인 id 가 있어야 넣을 수 있어 저장 뒤에 따로 처리한다.
+  if (_newCampId && typeof saveEventInviteAfterCampaignSave === 'function') {
+    await saveEventInviteAfterCampaignSave('new', _newCampId);
+  }
 
   // ── 오리엔시트 카드 발행 소비 ──
   if (_opc && _newCampId) {
@@ -3476,7 +3893,10 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   const wrapId = formMode === 'edit' ? 'editCampMinFollowersGroup' : 'newCampMinFollowersGroup';
   const wrap = $(wrapId);
   if (!wrap) return;
-  wrap.style.display = recruitType === 'monitor' ? 'none' : '';
+  // 행사 캠페인은 SNS 계정 조건이 없다 — 위 applyDeadlineFieldsVisibility 와 같은 이유로
+  // 판정을 여기에 둔다(호출 순서에 기대지 않는다).
+  const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
+  wrap.style.display = (recruitType === 'monitor' || isEvent) ? 'none' : '';
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
@@ -3649,21 +4069,97 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
 
 // Stage 1: 모집 타입별 기한 필드 표시/숨김 (monitor=구매기간, visit=방문기간)
 // 숨겨지는 필드는 값도 초기화 — 타입 변경 후 저장 시 잔여 값 DB 오염 방지
-function applyDeadlineFieldsVisibility(formMode, recruitType) {
+//   savedCamp — 「저장된 두 기간이 다른가」 판정에 쓸 원본. 편집 폼을 여는 시점에는
+//   _editCampOriginal 이 아직 직전 캠페인 것이라(정식 대입이 한참 뒤다) 호출자가 직접
+//   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
+function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
-  const showPurchase = (recruitType === 'monitor');
-  const showVisit = (recruitType === 'visit');
-  if (purchaseRow) purchaseRow.style.display = showPurchase ? '' : 'none';
-  if (visitRow) visitRow.style.display = showVisit ? '' : 'none';
-  if (!showPurchase) {
+  // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는
+  //    「행사 시간」(시간대 표)이 정한다. 이 판정을 **여기에 둬야** 한다.
+  //    호출자 쪽에서만 숨기면, 형식이 바뀔 때 도는 비동기 렌더가 나중에 끝나면서
+  //    「방문형이니 보여라」로 되살린다 — 실제로 신규 등록 화면에서 그랬다
+  //    (2026-08-03 브라우저 테스트). 규칙을 한곳에 두면 순서와 무관해진다.
+  const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
+  const typeWantsPurchase = (recruitType === 'monitor');
+  const typeWantsVisit    = (recruitType === 'visit');
+  // 리뷰어형은 구매 기간을 모집 기간과 같게 저장하므로 입력칸을 감춘다(결정 9).
+  //   ⚠️ **숨기는 기준과 값 비우는 기준을 절대 한 변수로 묶지 않는다.** 아래 값 비우기는
+  //      `typeWantsPurchase` 그대로 써야 한다 — 여기에 showPurchaseRow 를 쓰면 리뷰어형의
+  //      구매 기간이 통째로 지워지고, 그 상태로 저장하면 결정 5가 지키기로 한 옛 값이
+  //      사라진다(바로 아래 주석의 선례와 같은 실수).
+  //   예외: 편집 폼에서 두 기간이 **다르게 저장된** 캠페인은 보여준다. 안 그러면 그 값을
+  //      화면에서 볼 수도 고칠 수도 없는데 저장은 되는 상태가 된다.
+  //   ⚠️ 판정 원본에 recruit_type 이 없으면 헬퍼가 늘 'none' 을 돌려줘 이 예외가 통째로
+  //      죽은 코드가 된다. 스냅샷에 그 키를 함께 담는 이유다.
+  const splitSrc = savedCamp || _editCampOriginal;
+  const editedIsSplit = (formMode === 'edit')
+    && (typeof campaignPeriodRowKind === 'function')
+    && campaignPeriodRowKind(splitSrc) === 'split';
+  const showPurchaseRow = typeWantsPurchase && !isEvent && editedIsSplit;
+  if (purchaseRow) purchaseRow.style.display = showPurchaseRow ? '' : 'none';
+  if (visitRow)    visitRow.style.display    = (typeWantsVisit && !isEvent) ? '' : 'none';
+  // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
+  //   둘을 한 덩어리로 두면 ①편집 폼을 여는 순간(행사 체크박스가 아직 이 캠페인 것으로
+  //   안 바뀐 시점) 직전 캠페인의 행사 여부가 새어 들어와 **멀쩡한 방문형 캠페인의
+  //   방문 날짜가 지워지고** ②행사 모드를 켰다 끄면 원래 있던 날짜가 사라진다.
+  //   숨기는 것과 지우는 것은 목적이 다르다(2026-08-03 리뷰 지적).
+  if (!typeWantsPurchase) {
     const ps = $(prefix + 'PurchaseStart'); if (ps) ps.value = '';
     const pe = $(prefix + 'PurchaseEnd'); if (pe) pe.value = '';
   }
-  if (!showVisit) {
+  if (!typeWantsVisit) {
     const vs = $(prefix + 'VisitStart'); if (vs) vs.value = '';
     const ve = $(prefix + 'VisitEnd'); if (ve) ve.value = '';
+  }
+  applyCampPeriodLabels(formMode, recruitType, savedCamp);
+}
+
+// 앞으로 만들어지는 리뷰어형 캠페인은 구매 기간을 모집 기간과 같게 저장한다(결정 1·5).
+//   화면에서 두 줄을 한 줄로 합치더라도 **저장 칸은 계속 채워 둔다** — 결과물 정렬·취소
+//   사유 판정·엑셀·운영현황·자동응답 등 12곳이 이 값을 읽는다.
+//   ⚠️ 호출처는 신규 등록·복제 **두 곳뿐**이다. 편집 저장(saveCampaignEdit)에서는 부르지
+//      않는다 — 아무 조건 없이 넣으면 편집 저장만으로 옛 구매 기간이 덮여, 「새로 만드는
+//      캠페인부터」라는 결정과 어긋나고 관리자가 구매 기간을 되찾을 길도 사라진다.
+function applyMonitorPeriodCopy(payload) {
+  if (!payload || payload.recruit_type !== 'monitor') return payload;
+  payload.purchase_start = payload.recruit_start || null;
+  payload.purchase_end = payload.deadline || null;
+  return payload;
+}
+
+// 폼 라벨을 그 캠페인의 모집 형식에 맞춘 이름으로 바꾼다(결정 10).
+//   폼은 캠페인 하나만 다루므로 인플루언서 화면과 같은 말을 쓴다. 여러 형식이 섞이는
+//   목록의 열 제목은 바꾸지 않는다 — 리뷰어형 전용 이름을 붙이면 나머지 행에 틀린 이름이 된다.
+//   ⚠️ 시딩·방문형으로 되돌리는 분기가 반드시 있어야 한다. 없으면 형식을 바꿔도 리뷰어형
+//      이름이 남아 「결과물」을 내는 캠페인에 「영수증」이라 적힌다.
+function applyCampPeriodLabels(formMode, recruitType, savedCamp) {
+  const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const isMonitor = recruitType === 'monitor';
+  const recruitLabel = $(prefix + 'RecruitRangeLabel');
+  if (recruitLabel) {
+    // ⚠️ 판정은 **세 갈래**다(merged·split·none). 「split 이 아니면 합친다」로 뭉개면
+    //    구매 기간이 **아예 없는** 캠페인(none)까지 「모집/구매 기간」으로 보이는데,
+    //    인플루언서 화면은 그런 캠페인을 「모집 기간」으로 그린다 — 관리자가 방금 확인한
+    //    이름과 실제 화면이 어긋난다.
+    //    신규 폼은 저장할 때 복사 규칙이 반드시 걸려 항상 merged 가 되므로 합친 이름이 맞다.
+    const src = savedCamp || (formMode === 'edit' ? _editCampOriginal : null);
+    const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(src) : 'none';
+    const showMerged = isMonitor && (formMode !== 'edit' || kind === 'merged');
+    recruitLabel.textContent = showMerged ? '모집/구매 기간' : '모집 기간';
+  }
+  const subLabel = $(prefix + 'SubmissionEndLabel');
+  if (subLabel) {
+    // 가구매는 영수증만 낸다 — 인증샷을 이름에 넣으면 낼 수 없는 것을 내라는 말이 된다.
+    //   ⚠️ 가구매 여부는 **폼에 입력칸이 없다.** 신규는 오리엔시트 발행 맥락이 정하고,
+    //      편집은 저장된 값을 그대로 유지한다(저장 payload 에 이 칸이 없다).
+    const isProxy = savedCamp ? !!savedCamp.proxy_purchase
+      : (formMode === 'edit' ? !!_editCampOriginal?.proxy_purchase
+         : !!(window._orientPublishCtx && window._orientPublishCtx.isProxy));
+    subLabel.textContent = !isMonitor ? '결과물 제출 마감일'
+      : isProxy ? '영수증 제출 마감일'
+      : '영수증·게시물 인증샷 제출 마감일';
   }
 }
 
@@ -4552,6 +5048,9 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
 async function onCampVisibilityToggle(prefix) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   if (!toggle || toggle.disabled) return;
+  // 이 토글은 누르는 즉시 저장된다 — 「저장하지 않고 나가기」로 되돌아가지 않는다.
+  //   경고창이 그 사실을 한 줄로 알리도록 표시해 둔다.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   var isCurrentlyOn = toggle.classList.contains('is-on');
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
   if (isCurrentlyOn) {
@@ -4566,6 +5065,8 @@ async function onCampVisibilityToggle(prefix) {
         // 폼 상태 드롭다운도 갱신 (있으면)
         var statusSel = $('editCampStatus');
         if (statusSel) statusSel.value = 'expired';
+        // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
+        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility OFF]', e);
@@ -4584,6 +5085,7 @@ async function onCampVisibilityToggle(prefix) {
         _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
         var statusSel = $('editCampStatus');
         if (statusSel) statusSel.value = newStatus;
+        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility ON]', e);

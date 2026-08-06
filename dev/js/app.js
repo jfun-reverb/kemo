@@ -42,6 +42,11 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
+  // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
+  //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
+  if (page === 'ticket' || page.startsWith('ticket-')) {
+    pageName = 'ticket';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
@@ -70,6 +75,12 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
+  }
+  // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
+  // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
+  if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
+      && typeof cleanupTicketPage === 'function') {
+    cleanupTicketPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -199,9 +210,15 @@ window.addEventListener('popstate', function(e) {
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
     if (sub) openMypageSub(sub, false); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
-    openCampaign(page.replace('detail-',''));
+    // 초대 링크(#detail-{id}?invite=CODE)로 들어올 수 있어 식별자만 떼어낸다.
+    //   ⚠️ replace 만 하면 '?invite=...' 까지 캠페인 식별자로 넘어가 캠페인을 못 찾는다.
+    openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
+    else navigate('mypage', false);
+  } else if (page === 'ticket' || page.startsWith('ticket-')) {
+    // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
+    if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
     else navigate('mypage', false);
   } else {
     navigate(page, false);
@@ -213,7 +230,7 @@ window.addEventListener('langchange', function() {
   const page = location.hash.replace('#','') || 'home';
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
   else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
-  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-','')); }
   else if (page === 'app-cancel') {
     // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
     // JS 로 동적 채운 영역(경고 메시지, 카테고리 select)은 stale.
@@ -418,6 +435,11 @@ async function init() {
           // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
           if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
           if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
+          // 초대 링크로 들어와 가입한 뒤 **확인 메일 링크로 돌아온** 경우의 복귀.
+          //   운영서버는 가입 시 이메일 확인이 필수라 handleSignup 이 세션 없이 먼저 끝난다
+          //   → 그 경로는 auth.js 의 복귀 코드에 닿지 못한다. 확인 링크로 세션이 생기는
+          //   이 자리가 신규 가입자의 실제 복귀 지점이다(2026-08-03 리뷰 지적).
+          if (typeof consumeInviteReturn === 'function') { try { consumeInviteReturn(); } catch(_){} }
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -475,7 +497,10 @@ async function init() {
   } else if (isRecoveryInProgress || urlHasRecoveryCode) {
     // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
   } else if (hash && hash.startsWith('detail-')) {
-    const campId = hash.replace('detail-','');
+    // 초대 링크로 처음 들어온 경우 — 번호를 먼저 기억해 두고 상세를 연다.
+    //   기억해 두지 않으면 상세 게이트가 번호를 다시 묻고, 예약 함수에도 못 넘긴다.
+    const campId = (typeof captureInviteFromHash === 'function')
+      ? captureInviteFromHash(hash) : hash.replace('detail-','');
     openCampaign(campId);
   } else if (hash && hash.startsWith('unsubscribe')) {
     // 메일 1-click 수신거부 — #unsubscribe?token=... (비로그인 진입 가능)
@@ -491,6 +516,11 @@ async function init() {
     // 응모건 메시지 페이지 새로고침 복원 — openMessagesPage 가 캐시(_myApps) 보장
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
+    else navigate('mypage', false);
+  } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
+    // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
+    const tid = hash.replace('ticket-', '').replace('ticket', '');
+    if (typeof openTicketPage === 'function') openTicketPage(tid, 'mypage', false);
     else navigate('mypage', false);
   } else if (hash === 'activity') {
     // 활동관리 페이지 새로고침 — _activityAppId·_activityCamp 글로벌이 NULL 이라 데이터 복원 불가.
@@ -528,6 +558,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
     : initHash);

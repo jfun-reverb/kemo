@@ -345,7 +345,7 @@
             <div class="camp-form-main">
           <div class="product-form">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">← 목록으로</button>
               <div class="product-form-title" style="margin:0">캠페인 편집</div>
               <span id="editCampNoBadge" style="display:none;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:0.02em;background:var(--pink-soft,#fdf5fb);color:var(--pink);padding:3px 10px;border-radius:6px;cursor:pointer" title="클릭하여 복사"></span>
               <div id="editCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
@@ -355,6 +355,46 @@
               </div>
             </div>
             <input type="hidden" id="editCampId">
+
+            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
+            <div class="event-mode-box">
+              <label class="event-mode-main">
+                <input type="checkbox" id="editCampEventMode" onchange="onEventModeToggle('edit')">
+                <span>오프라인 행사(방문 예약) 캠페인</span>
+              </label>
+              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
+              <div id="editCampEventOpts" class="event-mode-opts" style="display:none">
+                <div class="form-group" style="margin-top:0;margin-bottom:0">
+                  <label class="form-label">행사장 안내 (일본어)</label>
+                  <input type="text" id="editCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
+                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">같은 행사 묶음</label>
+                  <div class="event-group-row">
+                    <select id="editCampEventGroup" class="form-input" style="max-width:280px"></select>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('edit')">새 묶음</button>
+                  </div>
+                  <div class="form-hint">이 캠페인 하나로 끝나는 행사면 비워 두세요. <b>한 행사를 캠페인 여러 개로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에 한 번에 나옵니다. 안 묶으면 다른 캠페인 날짜가 왔을 때 명단이 빈 화면이 됩니다.</div>
+                </div>
+                <!-- 비공개 + 초대 번호를 한 줄에. 켜야만 번호가 필요하므로 켠 자리 바로 옆에서 이어 쓴다. -->
+                <div class="event-invite-line" style="margin-top:12px">
+                  <label class="event-mode-main">
+                    <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
+                    <span>비공개 — 초대받은 사람만 신청</span>
+                  </label>
+                  <div id="editCampInviteRow" class="event-invite-row" style="display:none">
+                    <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                    <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteGenBtn" onclick="genInviteCode('edit')">번호 생성</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteCopyBtn" onclick="copyInviteLink('edit')">
+                      <span class="material-icons-round notranslate" translate="no" style="font-size:15px">link</span> 초대 링크 복사
+                    </button>
+                  </div>
+                </div>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
+              </div>
+            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -386,7 +426,7 @@
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="editCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor');applyMinFollowersVisibility('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting');applyMinFollowersVisibility('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
@@ -399,6 +439,7 @@
                   <input type="number" id="editCampSlots" class="form-input" placeholder="20" min="1" style="flex:1">
                   <span style="font-size:13px;color:var(--muted);font-weight:600">명</span>
                 </div>
+                <div class="form-hint" id="editCampSlotsEventHint" style="display:none;color:var(--dark-pink)"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -449,9 +490,10 @@
                   <input type="number" id="editCampProductPrice" class="form-input" min="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="editCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="editCampReward" class="form-input" min="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
+                  <div class="form-hint" id="editCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -495,7 +537,7 @@
             <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label" id="editCampRecruitRangeLabelWrap"><span id="editCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="editCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="recruit" readonly>
                 <input type="hidden" id="editCampRecruitStart">
                 <input type="hidden" id="editCampDeadline">
@@ -519,13 +561,108 @@
                 <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
+                <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
                 <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
             </div>
             <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
+            <!-- 행사 시간 — 행사 모드일 때만 보인다. 모집 조건 안에 두는 이유: 방문 날짜·시각·
+                 정원은 그 캠페인을 언제 몇 명 받느냐는 조건이라 모집 인원·기간과 한 묶음이다
+                 (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지 후 위치 재조정). -->
+            <div id="editCampSlotSection" style="display:none">
+              <label class="form-label" style="margin:4px 0 8px">
+                행사 시간 <span style="font-size:11px;font-weight:400;color:var(--muted)">(방문 날짜·시각·시간대별 정원)</span>
+              </label>
+              <div id="eventSlotsSummary" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+
+              <!-- 하루치 일괄 생성 — 처음 만들 때만 쓰는 도구라 접어 둔다.
+                   늘 펼쳐 두면 날짜·시각 칸이 화면의 절반을 차지해 정작 자주 보는
+                   타임 목록이 밀린다(사용자 요청 2026-08-04). -->
+              <button type="button" class="btn btn-ghost btn-sm" id="eventBulkToggleBtn" onclick="toggleEventBulkPanel()" style="margin-bottom:10px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">expand_more</span> 하루치 일괄 생성
+              </button>
+              <div class="admin-card" id="eventBulkPanel" style="padding:12px 14px;margin-bottom:10px;display:none">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                  <span style="font-size:13px;font-weight:700">하루치 일괄 생성</span>
+                  <!-- 생김새는 이 화면이 이미 쓰는 도움말 아이콘(.tier-help-icon)을 그대로 따른다 —
+                       물음표 버튼이 화면마다 다르게 생기면 같은 뜻인지 매번 다시 배워야 한다. -->
+                  <button type="button" class="tier-help-icon" onclick="toggleEventBulkHelp()"
+                          title="입력 항목 설명 보기" aria-label="입력 항목 설명 보기"
+                          style="border:0;padding:0;font-family:inherit">?</button>
+                </div>
+                <div class="admin-filter-bar" style="flex-wrap:wrap">
+                  <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventBulkDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
+                  <div class="admin-filter-group"><label>시작 시각</label><input type="text" id="eventBulkStart" class="admin-filter evt-fp-time" value="11:00" placeholder="00:00" readonly style="width:90px"></div>
+                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="text" id="eventBulkLastStart" class="admin-filter evt-fp-time" value="18:30" placeholder="00:00" readonly style="width:90px"></div>
+                  <div class="admin-filter-group"><label title="다음 타임이 몇 분 뒤에 시작하는지">간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label title="한 타임이 몇 분 동안인지 — 끝 시각 계산에만 씁니다. 0이면 끝 시각 없이 시작 시각만 표시">한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
+                  <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
+                </div>
+                <div id="eventBulkPreview" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+                <!-- 설명은 제목 옆 도움말 버튼(?)으로만 연다 — 늘 펼쳐 두면 정작 봐야 할
+                     「N줄이 만들어집니다」 미리 보기가 긴 글에 묻힌다(사용자 요청 2026-08-04). -->
+                <div class="form-hint" id="eventBulkHelp" style="margin-top:8px;display:none;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;line-height:1.8;color:var(--muted)">
+                  <b>간격</b>은 다음 타임이 몇 분 뒤에 시작하는지, <b>한 타임 길이</b>는 한 타임이 몇 분 동안인지입니다 — 길이는 <b>끝 시각을 계산할 때만</b> 씁니다.
+                  0으로 두면 끝 시각 없이 시작 시각만 표시됩니다. 길이가 간격보다 길면 타임끼리 시간이 겹칩니다(정원은 타임마다 따로 셉니다).<br>
+                  「마지막 시작 시각」까지 포함해서 만들고, 같은 시각이 이미 있으면 건너뜁니다.
+                </div>
+              </div>
+
+              <div class="admin-filter-bar" style="flex-wrap:wrap">
+                <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventSlotNewDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
+                <div class="admin-filter-group"><label>시작</label>
+                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
+                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
+                    <div class="evt-time-clearable">
+                      <input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:104px">
+                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewStart')" title="시작 비우기" aria-label="시작 비우기">
+                        <span class="material-icons-round notranslate" translate="no">close</span>
+                      </button>
+                    </div>
+                  </div>
+                <div class="admin-filter-group"><label>종료(선택)</label>
+                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
+                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
+                    <div class="evt-time-clearable">
+                      <input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="비워 두면 시작만" readonly style="width:124px">
+                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewEnd')" title="종료(선택) 비우기" aria-label="종료(선택) 비우기">
+                        <span class="material-icons-round notranslate" translate="no">close</span>
+                      </button>
+                    </div>
+                  </div>
+                <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
+                <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">타임 추가</button>
+              </div>
+
+              <!-- 날짜 탭 — 여러 날 행사는 한 표에 다 쌓이면 어느 날 것인지 안 보인다.
+                   0~1일이면 렌더하지 않는다(고를 게 없는 탭은 자리만 차지한다). -->
+              <div id="eventSlotDateTabs" class="status-tab-bar" style="margin-top:12px;display:none"></div>
+
+              <div class="admin-card" style="margin-top:10px">
+                <!-- 선택 삭제 줄 — 고른 게 있을 때만 보인다 -->
+                <div id="eventSlotBulkBar" style="display:none;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface-container-low)">
+                  <span id="eventSlotBulkCount" style="font-size:13px;font-weight:700"></span>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="deleteSelectedEventSlots()">선택 삭제</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="clearEventSlotSelection()">선택 해제</button>
+                </div>
+                <div class="admin-table-wrap">
+                <table class="data-table">
+                  <thead><tr>
+                    <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventSlotSelectAll" onchange="toggleEventSlotSelectAll(this.checked)" title="보이는 타임 전체 선택"></th>
+                    <th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th>
+                  </tr></thead>
+                  <tbody id="eventSlotsBody"></tbody>
+                </table>
+                </div>
+              </div>
+              <div class="form-hint" style="margin-top:6px">시간대는 아래 「변경 저장」과 <b>무관하게 바로 반영</b>됩니다. 정원 칸을 고쳐 쓰면 그 자리에서 저장됩니다.</div>
+            </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -602,7 +739,7 @@
 
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-ghost" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">취소</button>
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
             </div>
           </div>
@@ -638,6 +775,44 @@
             </div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
+            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
+            <div class="event-mode-box">
+              <label class="event-mode-main">
+                <input type="checkbox" id="newCampEventMode" onchange="onEventModeToggle('new')">
+                <span>오프라인 행사(방문 예약) 캠페인</span>
+              </label>
+              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
+              <div id="newCampEventOpts" class="event-mode-opts" style="display:none">
+                <div class="form-hint" style="margin-bottom:10px">방문 날짜·시각·시간대별 정원은 <b>캠페인을 저장한 뒤</b> 편집 화면에서 등록합니다. 시간대는 캠페인에 속한 값이라 캠페인이 먼저 만들어져야 붙일 수 있습니다.</div>
+                <div class="form-group" style="margin-top:0;margin-bottom:0">
+                  <label class="form-label">행사장 안내 (일본어)</label>
+                  <input type="text" id="newCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
+                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">같은 행사 묶음</label>
+                  <div class="event-group-row">
+                    <select id="newCampEventGroup" class="form-input" style="max-width:280px"></select>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('new')">새 묶음</button>
+                  </div>
+                  <div class="form-hint">이 캠페인 하나로 끝나는 행사면 비워 두세요. <b>한 행사를 캠페인 여러 개로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에 한 번에 나옵니다. 안 묶으면 다른 캠페인 날짜가 왔을 때 명단이 빈 화면이 됩니다.</div>
+                </div>
+                <!-- 비공개 + 초대 번호를 한 줄에(편집 화면과 같은 배치). -->
+                <div class="event-invite-line" style="margin-top:12px">
+                  <label class="event-mode-main">
+                    <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
+                    <span>비공개 — 초대받은 사람만 신청</span>
+                  </label>
+                  <div id="newCampInviteRow" class="event-invite-row" style="display:none">
+                    <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                    <button type="button" class="btn btn-ghost btn-sm" id="newCampInviteGenBtn" onclick="genInviteCode('new')">번호 생성</button>
+                  </div>
+                </div>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div class="form-hint" id="newCampInviteSaveHint" style="display:none">초대 링크는 캠페인을 저장한 뒤 편집 화면에서 복사할 수 있습니다.</div>
+              </div>
+            </div>
+
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -671,7 +846,7 @@
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="newCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
@@ -738,9 +913,10 @@
                   <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="newCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
+                  <div class="form-hint" id="newCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -784,7 +960,7 @@
             <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label" id="newCampRecruitRangeLabelWrap"><span id="newCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="newCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="recruit" readonly>
                 <input type="hidden" id="newCampRecruitStart">
                 <input type="hidden" id="newCampDeadline">
@@ -808,7 +984,7 @@
                 <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
+                <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="newCampSubmissionEnd" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
                 <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="newCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
@@ -886,7 +1062,7 @@
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-ghost" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">취소</button>
               <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
             </div>
           </div>
@@ -1092,6 +1268,25 @@
             <table class="data-table">
               <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
+            </table>
+            </div>
+          </div>
+          <!-- 예약 현황 탭 — 행사 캠페인 전용. 예전에는 별도 화면(#adminPane-event-tickets)이었는데
+               같은 캠페인을 두 화면에서 봐야 했다. **복사가 아니라 옮겼다** — 두 벌로 두면
+               한쪽만 고쳐져 어긋난다(사용자 요청 2026-08-04). -->
+          <div class="admin-card" id="campTicketsCard" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
+              <div id="eventTicketStatusTabs" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
+              <div class="admin-filter-group" style="flex-shrink:0">
+                <select id="eventTicketSlotFilter" class="admin-filter" style="width:auto" onchange="onEventTicketSlotFilterChange(this.value)"></select>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
+            </div>
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
+              <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
           </div>
@@ -3745,6 +3940,26 @@
       <div style="display:flex;gap:10px;margin-top:22px;justify-content:center">
         <button class="btn btn-ghost" id="confirmModalCancelBtn" style="min-width:100px" onclick="resolveConfirmModal(false)">취소</button>
         <button class="btn btn-primary" id="confirmModalOkBtn" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 저장 안 한 변경을 두고 나가려 할 때 (캠페인 편집·신규 폼)
+     ⚠️ z-index 는 confirmModal(610)·sensitiveChangeModal(620) 보다 아래. 저장을 고르면
+        이 창을 먼저 닫고 저장 절차의 확인창이 뜨는 순서라, 겹칠 일이 없어야 한다. -->
+<div class="modal-overlay" id="campLeaveModal" style="z-index:600">
+  <div class="modal" style="max-width:460px;border-radius:24px;margin:auto">
+    <div class="modal-body" style="padding:28px 24px 22px">
+      <div id="campLeaveModalTitle" style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">저장하지 않은 변경이 있습니다</div>
+      <div style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:14px">저장하지 않고 나가시겠습니까?</div>
+      <div id="campLeaveModalNote" style="display:none;font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:10px;padding:10px 12px">
+        행사 시간대와 캠페인 노출 설정은 <b>누른 즉시 저장</b>돼 되돌아가지 않습니다.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="campLeaveCancel()">취소</button>
+        <button class="btn btn-ghost" style="color:var(--red)" onclick="campLeaveDiscardAndGo()">저장하지 않고 나가기</button>
+        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장</button>
       </div>
     </div>
   </div>

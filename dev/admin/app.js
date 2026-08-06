@@ -62,11 +62,20 @@ function setAdminScreenSelect() {
 // 같은 페인 재클릭 시엔 loader만 다시 호출해 강제 갱신.
 function navAdminPaneReload(pane) {
   pane = pane || 'dashboard';
-  if (typeof switchAdminPane === 'function') {
-    switchAdminPane(pane, null, true);
-  } else {
-    location.hash = '#' + pane;
-  }
+  const go = () => {
+    if (typeof switchAdminPane === 'function') {
+      switchAdminPane(pane, null, true);
+    } else {
+      location.hash = '#' + pane;
+    }
+  };
+  // 캠페인 폼에 저장 안 한 변경이 있으면 먼저 묻는다.
+  //   ⚠️ 게이트를 switchAdminPane 에 두지 않는 이유 — 그 함수는 **저장 성공 후 목록
+  //      복귀**·동시 저장 충돌 복귀·권한 리다이렉트·브라우저 뒤로가기가 전부 지나간다.
+  //      거기 두면 「저장했는데 저장 안 됐다고 묻는」 모습이 된다. 사이드바는 이 함수
+  //      하나로 모이므로 여기가 정확한 자리다.
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
+  go();
 }
 
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)
@@ -197,6 +206,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
+  // 예약 현황도 「어느 캠페인인지」를 화면 상태로만 들고 있어(주소에 없다),
+  // 새로고침하면 캠페인을 잃고 빈 표만 남는다 → 캠페인 목록으로 돌려보낸다.
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];

@@ -15,6 +15,11 @@ function openNavPanel() {
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
   }
+  // 오프라인 행사 예약 유무 최신화 — 「入場チケット」 항목을 띄울지 판단한다.
+  //   첫 렌더는 이전에 받아 둔 값으로 그리고, 조회가 끝나면 다시 그린다(프로필과 같은 방식).
+  if (currentUser && typeof preloadEventTickets === 'function') {
+    preloadEventTickets().then(() => renderNavMenu()).catch(() => {});
+  }
   // 프로필 최신화 — 폼 저장 직후 햄버거를 열어도 계정 카드·未登録 배지가 정확하도록.
   // 첫 렌더는 현재 currentUserProfile(stale 가능)로 즉시 그리고, fetch 완료 시 다시 그린다.
   if (currentUser && !currentUser._isAdmin && typeof db !== 'undefined' && db) {
@@ -66,13 +71,19 @@ function renderNavMenu() {
       // 「報酬・精算」은 정산 공개 스위치(settlement_settings.influencer_visible)가 켜졌을 때만 노출.
       // 현재는 「관리자만 기록」 단계라 잠금 — DB 값만 true 로 바꾸면 코드 수정 없이 다시 나타난다.
       ...(settlementPublic() ? [{sub:'settlements', label: t('mypage.menu.settlements')}] : []),
+      // 「入場チケット」은 오프라인 행사 예약이 있을 때만 — 없으면 눌러도 볼 게 없다.
+      //   목적지가 마이페이지 하위가 아니라 별도 화면이라 sub 대신 page 로 표시한다.
+      ...((typeof hasEventTicket === 'function' && hasEventTicket())
+          ? [{page:'ticket', label: t('event.ticketMenu')}] : []),
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
     html += `<div class="nav-accordion${_navMypageOpen ? ' open' : ''}" id="navMypageAccordion">`;
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
-      <button class="nav-subitem" onclick="navigate('mypage', false);openMypageSub('${s.sub}');closeNavPanel()">
+      <button class="nav-subitem" onclick="${s.page === 'ticket'
+          ? `closeNavPanel();openTicketPage(null,'mypage')`
+          : `navigate('mypage', false);openMypageSub('${s.sub}');closeNavPanel()`}">
         <span class="nav-label">${esc(s.label)}</span>
         ${s.unreg ? `<span class="nav-unreg-badge">${esc(t('common.unregistered'))}</span>` : ''}
       </button>
@@ -277,7 +288,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -311,6 +322,13 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
     if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
+    refreshNotifBadge();
+    return;
+  }
+  // 대기 승격 알림 → 입장 티켓 화면 (마이그레이션 283, ref_table='event_tickets')
+  //   분기가 없으면 알림은 뜨는데 눌러도 아무 데도 가지 않는다.
+  if (kind === 'event_waitlist_promoted' && refId && currentUser) {
+    if (typeof openTicketPage === 'function') openTicketPage(refId, 'mypage');
     refreshNotifBadge();
     return;
   }

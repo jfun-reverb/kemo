@@ -1066,6 +1066,8 @@ const PANE_REFRESHERS = {
   'applications': async () => {
     if (typeof loadApplications === 'function') await loadApplications();
   },
+  // 오프라인 행사 예약 현황은 이 페인의 **탭**이라 별도 항목이 없다 — 여기를 다시
+  //   그리면 예약 표도 함께 갱신된다(loadCampApplicants 안에서 호출).
   'camp-applicants': async () => {
     if (typeof loadCampApplicants === 'function') await loadCampApplicants();
   },
@@ -1111,7 +1113,7 @@ const PANE_REFRESHERS = {
     // 명단 저장·삭제 모달 후 호출 — 재조회(fetchOutboundInfluencers + 목록 재렌더)로 갱신.
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
-  }
+  },
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
@@ -1390,6 +1392,76 @@ function submissionDeadlinePassed(camp) {
 }
 
 // ══════════════════════════════════════
+// 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283
+//   사양서: docs/specs/2026-07-30-offline-popup-ticketing.md
+// ══════════════════════════════════════
+// 행사(티켓) 캠페인인가.
+//   ⚠️ 이 판정을 여러 곳에서 각자 만들지 않는다. 신청 게이트·활동관리 대체·타임
+//      선택표·관리자 폼이 전부 이 함수 하나를 쓴다 — 판정이 두 벌이 되면 「어떤
+//      화면에서는 행사인데 다른 화면에서는 아닌」 어긋남이 생긴다.
+//   ⚠️ 모집 형식(recruit_type)으로 판정하지 않는다. 행사 캠페인도 형식은 방문형(visit)
+//      그대로이고, 형식에 새 값을 만들지 않는 것이 이 기능의 설계 전제다(사양서 §3).
+function isEventCampaign(camp) {
+  return !!(camp && camp.event_mode === true);
+}
+
+// 비공개(초대 전용) 캠페인인가 — 목록 제외·상세 게이트 판정용.
+//   화면 단계 필터라 이것만으로는 막히지 않는다. 실효 방어선은 예약 함수의
+//   초대 번호 재검증이다(마이그레이션 283 reserve_event_ticket).
+function isInviteOnlyCampaign(camp) {
+  return !!(camp && camp.is_invite_only === true);
+}
+
+// 예약 타임 시작까지 남은 시간이 취소 마감(2시간)을 넘겼는가.
+//   ⚠️ 화면 표시(취소 버튼 비활성)용 **안내**일 뿐이다. 실제 판정은 서버가 일본 시각
+//      기준으로 한다(283 cancel_event_ticket) — 기기 시각은 믿지 않는다.
+//      화면이 허용해도 서버가 cancel_window_passed 로 거부할 수 있고, 그 경우
+//      호출부는 서버 답을 그대로 안내해야 한다.
+const EVENT_CANCEL_WINDOW_HOURS = 2;
+function eventCancelWindowPassed(slotDate, startTime) {
+  if (!slotDate || !startTime) return false;
+  // 'YYYY-MM-DD' + 'HH:MM' 또는 'HH:MM:SS' 를 일본 시각(+09:00)으로 명시해 해석한다.
+  // 시간대를 안 붙이면 보는 사람 기기의 시간대로 해석돼 해외 접속 시 어긋난다.
+  const ts = Date.parse(`${String(slotDate).slice(0, 10)}T${String(startTime).slice(0, 8)}+09:00`);
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() > (ts - EVENT_CANCEL_WINDOW_HOURS * 3600 * 1000);
+}
+
+// ══════════════════════════════════════
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
+//      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
+//   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
+//      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
+//
+//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
+//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
+//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+function campaignPeriodRowKind(camp) {
+  if (!camp || camp.recruit_type !== 'monitor') return 'none';
+  const ps = camp.purchase_start || '';
+  const pe = camp.purchase_end || '';
+  if (!ps && !pe) return 'none';
+  const rs = camp.recruit_start || '';
+  const dl = camp.deadline || '';
+  // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어
+  //    같은 날짜가 다르게 판정된다. recruit_start 가 비어 있으면(화면이 「오늘」로
+  //    폴백하는 캠페인) 기준이 없으므로 merged 가 아니다.
+  if (ps && pe && rs && dl && ps === rs && pe === dl) return 'merged';
+  return 'split';
+}
+
+// 결과물 제출 마감 줄의 이름을 무엇으로 부를지(사양서 결정 7).
+//   'receiptOnly'    = 가구매 리뷰어형 — 영수증만 낸다. 인증샷을 이름에 넣으면 사실과 다르다
+//   'receiptAndPost' = 일반 리뷰어형 — 영수증 + 채널별 게시물 인증샷
+//   'default'        = 시딩·방문형 — 이름을 바꾸지 않는다
+function campaignSubmissionLabelCode(camp) {
+  if (!camp || camp.recruit_type !== 'monitor') return 'default';
+  return camp.proxy_purchase === true ? 'receiptOnly' : 'receiptAndPost';
+}
+
+// ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
@@ -1549,11 +1621,23 @@ function maskedFieldByPermission(val, emptyLabel) {
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
 //   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
+// 이 캠페인이 「다 끝난 날」 — 종료(ended) 판정의 기준.
+//   보통은 결과물 제출 마감일이다. 그런데 **오프라인 행사 캠페인은 결과물이 없어**
+//   그 날짜를 비워 두므로(EVENT_MODE_CLEARED_FIELDS), 기준이 없어서 「모집마감」에서
+//   영영 안 넘어갔다. 행사는 마지막 방문일이 끝나는 날이다(방문 기간은 행사 시간에서 계산).
+function campaignFinishDate(camp) {
+  if (!camp) return null;
+  if (camp.submission_end) return camp.submission_end;
+  if (typeof isEventCampaign === 'function' && isEventCampaign(camp) && camp.visit_end) return camp.visit_end;
+  return null;
+}
+
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
   if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
-    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
+    const _fin = campaignFinishDate(camp);
+    const sub = _fin ? Date.parse(_fin) : null;
     if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
     return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }

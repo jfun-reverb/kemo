@@ -2,6 +2,78 @@
 // i18n — 일본어 (기본)
 // ══════════════════════════════════════
 window.I18N_JA = {
+  // ══════════════════════════════════════
+  // 오프라인 행사 예약(티켓팅) — 사양서 2026-07-30
+  //   방문객 대상 문구. 초등학생 눈높이 + 한 문장 한 동작(.claude/rules/ui.md).
+  // ══════════════════════════════════════
+  event: {
+    slotPickerTitle: '来場する日時をえらんでください',
+    slotPickerHint: 'えらんだあとに「申請」ボタンをおしてください。',
+    slotRemaining: 'あと{n}名',
+    slotFull: '満席',
+    slotFullWaitlist: '満席（キャンセル待ち）',
+    slotWaitlistNote: '満席のため、キャンセル待ちでの申し込みになります。',
+    slotClosed: '受付をしめきりました',
+    slotNone: '日時がまだ登録されていません。しばらくしてからもう一度ごらんください。',
+    slotLoading: '日時を読み込んでいます…',
+    slotLoadFailed: '日時を読み込めませんでした。通信環境をご確認のうえ、もう一度おためしください。',
+    selectSlotFirst: '来場する日時をえらんでください',
+    selected: 'えらんだ日時',
+    applyDone: '予約が確定しました。入場チケットをご確認ください。',
+    waitlistDone: 'キャンセル待ちに登録しました。あきが出たらお知らせします。',
+    // 予約できなかった理由 — 一つずつ、次にすることまで書く
+    failInviteRequired: 'このイベントは招待された方のみお申し込みいただけます。',
+    failInviteMismatch: '招待番号がちがうようです。お送りしたリンクをもう一度ひらいてください。',
+    failAlreadyApplied: 'すでにこのイベントを予約しています。予約は1回だけです。',
+    failSlotClosed: 'この日時は受付をしめきりました。ほかの日時をえらんでください。',
+    failDeadlinePassed: '募集期間がおわりました。',
+    failBirthdate: '予約するには、まず生年月日をご登録ください。',
+    failUnderAge: 'このイベントは満18歳以上の方がご利用いただけます。',
+    failNotFound: 'この日時が見つかりませんでした。画面を更新してもう一度おためしください。',
+    failGeneric: '予約できませんでした。もう一度おためしください。',
+    // ── 入場チケット画面 ──
+    ticketTitle: '入場チケット',
+    ticketMenu: '入場チケット',
+    waitlistBtn: 'キャンセル待ち — 順番をみる',
+    cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
+    ticketCodeLabel: '予約番号',
+    ticketNameLabel: 'お名前',
+    ticketWhenLabel: '来場日時',
+    ticketPlaceLabel: '会場',
+    ticketQrHint: '受付でこの画面をおみせください。',
+    ticketWaitlistTitle: 'キャンセル待ち {n}番',
+    ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
+    ticketCancelledTitle: 'この予約はキャンセルされました',
+    ticketEnteredAt: '入場ずみ（{time}）',
+    ticketEnteredTitle: '入場が確認されました',
+    ticketEnteredHint: 'ごゆっくりおたのしみください。',
+    ticketEmpty: 'ご予約はまだありません。',
+    ticketLoadFailed: 'チケットを読み込めませんでした。通信環境をご確認のうえ、もう一度おためしください。',
+    ticketNotFound: 'このチケットが見つかりませんでした。',
+    ticketCancelBtn: '予約をキャンセルする',
+    ticketCancelConfirm: 'この予約をキャンセルします。よろしいですか？\nキャンセルしたあとに、ほかの日時であらためて予約できます。',
+    ticketCancelDone: '予約をキャンセルしました。',
+    ticketCancelClosed: '開始2時間前をすぎたため、ご自身ではキャンセルできません。運営までごれんらくください。',
+    ticketCancelClosedShort: 'キャンセル受付は終了しました',
+    ticketCancelFailEntered: 'すでに入場ずみのため、キャンセルできません。',
+    ticketCancelFailGeneric: 'キャンセルできませんでした。もう一度おためしください。',
+    ticketQrFailed: 'QRコードを表示できませんでした。受付で予約番号をおつたえください。',
+    ticketPlaceTbd: '会場のごあんないは、決まりしだいおしらせします。',
+    placeTbdShort: '会場は後日おしらせ',
+    ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
+    ticketTabCancelled: 'キャンセル',
+    // ── 招待制キャンペーンの入口 ──
+    inviteGateTitle: '招待された方だけがごらんになれます',
+    inviteGateHint: 'お送りしたリンクをひらくと、そのままごらんになれます。\n番号をおもちの方は、下に入力してください。',
+    inviteInputLabel: '招待番号（8文字）',
+    inviteSubmit: 'かくにんする',
+    inviteInvalid: '招待番号を確認してください。',
+    inviteNeedLogin: 'このイベントをごらんになるには、ログインまたは会員登録が必要です。',
+    slotNeedLogin: 'ログインすると、来場する日時をえらべます。',
+    inviteLoginBtn: 'ログイン',
+    inviteSignupBtn: '会員登録',
+  },
+
   common: {
     save: '保存する',
     cancel: 'キャンセル',
@@ -189,6 +261,7 @@ window.I18N_JA = {
       title: '報酬・精算',
       totalLabel: '累計受取額',
       pendingLabel: 'お支払い予定',
+      basisReceipt: 'レシートの購入金額をもとに計算',
       empty: 'まだ精算はありません。',
       paypalMissing: '報酬のお振込みにはPayPalメールアドレスの登録が必要です。',
       paypalLink: 'PayPal登録',
@@ -401,6 +474,16 @@ window.I18N_JA = {
     purchasePeriod: '購入および領収書提出期間',
     visitPeriod: '訪問期間',
     submissionEnd: '成果物提出締切',
+    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
+    //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
+    //   캠페인·시딩·방문형이 계속 쓴다).
+    recruitPurchasePeriod: '募集・購入期間',
+    submissionEndMonitor: 'レシート・投稿スクショの提出締切',
+    submissionEndProxy: 'レシートの提出締切',
+    // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
+    paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',
     applyBtn: '申請',
@@ -412,7 +495,11 @@ window.I18N_JA = {
     appliedBtn: '応募済み',
     manageBtn: '活動管理',
     rewardProduct: '円相当の製品を無償提供',
-    rewardPayback: '円ペイバック',
+    // レビュアー型のペイバック — 294 で「レシート実支払額（商品価格を上限に切り捨て）」に
+    // なったため、金額を約束する言い方をやめた。全体形＝詳細ページ・管理者プレビュー・
+    // お知らせメール / 短縮形＝下部固定バー・一覧カード。{price} は商品価格
+    rewardPaybackFull: '購入金額をペイバック（最大 ¥{price}）',
+    rewardPaybackShort: 'ペイバック（最大 ¥{price}）',
     rewardCash: '+ 現金報酬 ¥{amount}',
     rewardFree: '製品全額無償提供',
     rewardProductAmount: '製品 ¥{price}円相当',
@@ -542,6 +629,12 @@ window.I18N_JA = {
     orderNumberLabel: '注文番号',
     purchaseDateLabel: '購入日',
     purchaseAmountLabel: '購入金額 (円)',
+    // レビュアー型のみ表示（訪問型は現金報酬なので出さない）。{price} は商品価格
+    payoutNoteTitle: 'ここに入力した金額が、そのままお振込み額になります',
+    payoutNote1: 'レシートに書かれた「実際にお支払いした金額」を入力してください',
+    payoutNote2: 'クーポンやポイントを使った場合は、差し引いたあとの金額です',
+    payoutNote3: '商品価格（¥{price}）を超えた場合は、承認されないことがあります。承認された場合も、お振込みは商品価格までとなります',
+    payoutNote4: '提出する前に、レシートの数字ともう一度見くらべてください',
     needOrderNumber: '注文番号を入力してください',
     orderNumberTooLong: '注文番号は200文字以内で入力してください',
     needPurchaseDate: '購入日を入力してください',
@@ -600,6 +693,8 @@ window.I18N_JA = {
     slotFormat: '{applied}/{slots}名',
     rewardProduct: '製品 + <strong>¥{reward}</strong>',
     rewardFreeStrong: '<strong>製品無償提供</strong>',
+    rewardPaybackShort: 'ペイバック（最大 ¥{price}）',  // レビュアー型カード用
+    rewardPaybackNoCap: '購入金額をペイバック',           // 商品価格が未設定のレビュアー型
     rewardFreeSimple: '<strong>無償提供</strong>',
     channelAll: 'すべて',
     moreBtn: 'もっと見る',

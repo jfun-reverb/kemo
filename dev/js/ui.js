@@ -92,6 +92,7 @@ const _ERR_DICT = {
     slotsFull: '募集定員に達したため、応募を受け付けておりません',
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
     submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
+    settlementLockedReceipt: 'このキャンペーンはすでに精算の手続きが済んでいるため、レシートを新しく提出することはできません。ご不明な点はお問い合わせください',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
     postDuplicate: '同じURLは既に提出済みです',
     // 「失敗」ではなく「すでに完了している」と読めることが重要（実際に一度目は成功している）
@@ -114,6 +115,7 @@ const _ERR_DICT = {
     slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
     submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
+    settlementLockedReceipt: '이 캠페인은 이미 정산 처리가 끝나 영수증을 새로 제출할 수 없습니다. 궁금한 점은 문의해 주세요',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
     postDuplicate: '같은 URL은 이미 제출되었습니다',
     // 「실패」가 아니라 「이미 되어 있다」로 읽혀야 한다(첫 요청은 실제로 성공했다)
@@ -133,6 +135,9 @@ function friendlyErrorJa(e) {
   //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
   if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
   if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
+  // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
+  // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
+  if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
   // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
   if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
   if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
@@ -371,6 +376,10 @@ document.addEventListener('keydown', (e) => {
     //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
     } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
       osCloseModal('orientDetailModal');
+    // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
+    //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
+    } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {
+      campLeaveCancel();
     } else {
       closeModal(top.id);
     }
