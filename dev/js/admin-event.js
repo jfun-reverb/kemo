@@ -989,6 +989,31 @@ function eventTicketViewStatus(t) {
   return t.entered_at ? 'entered' : 'noshow';   // 확정인데 입장 전 = 아직 안 옴
 }
 
+// 「처리자」 칸 — 그 예약을 **마지막으로 건드린 사람**을 보여준다.
+//   입장한 예약은 입장 처리한 관리자, 취소된 예약은 취소한 사람.
+//   ⚠️ 취소 주체는 마이그레이션 288 부터 데이터에 있었지만 **어느 화면에도 그리지 않아**,
+//      「누가 취소했는지」를 알려면 데이터베이스를 직접 조회해야 했다(2026-08-06 확인).
+//      취소를 두고 다툴 일이 생겼을 때 운영진이 화면에서 바로 답할 수 있어야 한다.
+//   ⚠️ 288 이전에 취소된 예약은 주체가 비어 있다 — 「기록 없음」으로 정직하게 표시한다.
+//      빈칸으로 두면 본인 취소인지 기록이 없는 것인지 구분되지 않는다.
+function eventTicketHandlerCell(t) {
+  const small = s => `<div style="font-size:11px;color:var(--muted)">${s}</div>`;
+  if (t.entered_at) {
+    return esc(t.entered_by_name || '')
+      + (t.scan_count > 1 ? small(`확인 ${t.scan_count}회`) : '');
+  }
+  if (t.status === 'cancelled') {
+    if (t.cancelled_by_role === 'admin') {
+      return '운영진 취소'
+        + (t.cancelled_by_name ? small(esc(t.cancelled_by_name)) : '')
+        + (t.admin_cancel_note ? small('사유: ' + esc(t.admin_cancel_note)) : '');
+    }
+    if (t.cancelled_by_role === 'influencer') return '본인 취소';
+    return `<span style="color:var(--muted)">기록 없음</span>`;
+  }
+  return '';
+}
+
 function eventTicketStatusLabel(key) {
   return ({
     confirmed: '확정',
@@ -1107,8 +1132,12 @@ function renderEventTicketsTable() {
         <td style="color:${badgeColor};font-weight:700">
           ${eventTicketStatusLabel(v)}${t.status === 'waitlist' && t.waitlist_position ? ` ${t.waitlist_position}번` : ''}
         </td>
-        <td>${t.entered_at ? esc(formatDateTime(t.entered_at)) : '-'}</td>
-        <td>${esc(t.entered_by_name || '')}${t.scan_count > 1 ? `<div style="font-size:11px;color:var(--muted)">확인 ${t.scan_count}회</div>` : ''}</td>
+        <td>${t.entered_at ? esc(formatDateTime(t.entered_at))
+             : (t.status === 'cancelled' && t.cancelled_at
+                // ⚠️ 이 칸의 헤더는 「입장 시각」이다. 취소 시각을 같은 칸에 넣으므로 **글자로**
+                //    무엇인지 밝힌다 — 회색만으로 구분하면 훑어보다 입장 시각으로 읽는다.
+                ? `<span style="color:var(--muted)">취소: ${esc(formatDateTime(t.cancelled_at))}</span>` : '-')}</td>
+        <td>${eventTicketHandlerCell(t)}</td>
         <td style="white-space:nowrap">${canCheckIn
               ? `<button class="btn btn-ghost btn-sm" onclick="checkInFromAdmin('${esc(t.ticket_code)}')">입장 처리</button>`
               : ''}${canCancel

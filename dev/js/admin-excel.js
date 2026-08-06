@@ -1942,6 +1942,11 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '입장 시각', key: 'ent',  width: 20 },
       { header: '처리자',   key: 'by',    width: 12 },
       { header: '확인 횟수', key: 'scan', width: 9 },
+      // 취소를 두고 다툴 일이 생기면 이 세 칸이 근거가 된다. 화면에서도 같은 값을 보여주지만,
+      //   내려받은 파일 쪽이 「그때 이랬다」를 남기기에 낫다(2026-08-06 사용자 요청).
+      { header: '취소 시각', key: 'cancAt',   width: 20 },
+      { header: '취소한 사람', key: 'cancBy', width: 14 },
+      { header: '취소 사유(내부)', key: 'cancNote', width: 24 },
       { header: '감사용',   key: 'audit', width: 8 },
     ];
     // 타임 순 → 이름 순. 입구에서 종이를 넘기며 찾는 순서와 같게 맞춘다.
@@ -1965,6 +1970,14 @@ async function exportEventTicketsExcel(campaignId) {
         ent:   t.entered_at ? new Date(t.entered_at).toLocaleString('ko-KR') : '',
         by:    t.entered_by_name || '',
         scan:  Number(t.scan_count || 0),
+        cancAt: t.cancelled_at ? new Date(t.cancelled_at).toLocaleString('ko-KR') : '',
+        // 취소 주체는 마이그레이션 288 부터 기록된다. 그 전에 취소된 예약은 비어 있는데,
+        //   빈칸으로 두면 본인 취소와 구분되지 않으므로 「기록 없음」이라고 적는다.
+        cancBy: t.status !== 'cancelled' ? ''
+                : t.cancelled_by_role === 'admin' ? ('운영진' + (t.cancelled_by_name ? ' · ' + t.cancelled_by_name : ''))
+                : t.cancelled_by_role === 'influencer' ? '본인'
+                : '기록 없음',
+        cancNote: t.admin_cancel_note || '',
         audit: inf.is_audit ? 'O' : ''
       });
     });
