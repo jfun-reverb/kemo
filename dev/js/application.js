@@ -417,7 +417,17 @@ async function loadEventSlotPicker(camp) {
     // (늦게 도착한 응답이 다른 캠페인 화면을 덮어쓰는 것 방지).
     if (currentCampaignId !== camp.id) return;
 
-    _eventSlotsForDetail = (slots || []).filter(s => s.is_active);
+    // 이미 끝난 **날짜**의 타임은 고를 수 없게 뺀다. 행사가 여러 날이면 둘째 날 아침에
+    //   첫날 탭이 맨 앞에 남아 그게 기본으로 열리고, 지나간 날 예약이 그대로 만들어진다
+    //   (서버는 지난 타임을 막지 않는다 — 2026-08-06 테스트에서 실제로 성립했다).
+    //   ⚠️ **오늘 것은 시각이 지났어도 남긴다.** 14시 타임을 14시 10분에 현장에서
+    //      받아 줘야 하는 경우가 있어, 날짜 단위로만 자른다(2026-08-06 사용자 결정).
+    //   ⚠️ 기준은 기기 시각이 아니라 **일본 날짜**(jstTodayStr) — 현장 확인 화면과 같은 기준.
+    const _today = (typeof jstTodayStr === 'function')
+      ? jstTodayStr()
+      : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    _eventSlotsForDetail = (slots || []).filter(s =>
+      s.is_active && String(s.slot_date).slice(0, 10) >= _today);   // 'YYYY-MM-DD' 는 사전순 = 날짜순
     _eventSlotCountsForDetail = counts || {};
 
     if (!_eventSlotsForDetail.length) {
@@ -425,6 +435,7 @@ async function loadEventSlotPicker(camp) {
       return;
     }
     const dates = [...new Set(_eventSlotsForDetail.map(s => String(s.slot_date).slice(0, 10)))].sort();
+    // 지난 날짜를 이미 뺐으므로 dates[0] 는 「오늘 또는 그 이후 가장 가까운 날」이다.
     _eventSlotActiveDate = dates[0];
     renderEventSlotDateTabs(dates);
     renderEventSlotList();

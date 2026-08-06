@@ -3008,8 +3008,17 @@ function eventSlotPickerPreviewHtml(L, mode, lang) {
   if (mode !== 'edit') {
     return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
   }
+  // 방문객 화면과 **같은 기준으로** 지난 날짜를 뺀다(`loadEventSlotPicker`, application.js).
+  //   이 함수는 「방문객에게 이렇게 보인다」를 그대로 흉내내는 자리라, 여기만 지난 날짜를
+  //   남기면 관리자가 실제와 다른 화면을 보고 판단한다. 오늘 것은 시각이 지났어도 남긴다.
+  //   ⚠️ 바로 아래 eventTimesPreviewHtml 은 **반대로 전부 보여준다** — 그쪽은 방문객 화면이
+  //      아니라 관리자가 등록한 시간대 현황 요약이라, 지난 날짜를 빼면 자기가 만든 것을 못 본다.
+  const _todayJst = (typeof jstTodayStr === 'function')
+    ? jstTodayStr()
+    : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const rows = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
-    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false) : [];
+    ? _eventSlotsCache.filter(r => r && r.slot_date && r.is_active !== false
+        && String(r.slot_date).slice(0, 10) >= _todayJst) : [];
   const dates = [...new Set(rows.map(r => String(r.slot_date).slice(0, 10)))].sort();
   if (!rows.length) {
     return `<div class="cp-sec">${head}<div style="font-size:12px;color:var(--muted);padding:8px 0">${esc(L.evtNoTimes)}</div></div>`;
