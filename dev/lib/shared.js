@@ -1428,6 +1428,40 @@ function eventCancelWindowPassed(slotDate, startTime) {
 }
 
 // ══════════════════════════════════════
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
+//      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
+//   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
+//      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
+//
+//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
+//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
+//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+function campaignPeriodRowKind(camp) {
+  if (!camp || camp.recruit_type !== 'monitor') return 'none';
+  const ps = camp.purchase_start || '';
+  const pe = camp.purchase_end || '';
+  if (!ps && !pe) return 'none';
+  const rs = camp.recruit_start || '';
+  const dl = camp.deadline || '';
+  // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어
+  //    같은 날짜가 다르게 판정된다. recruit_start 가 비어 있으면(화면이 「오늘」로
+  //    폴백하는 캠페인) 기준이 없으므로 merged 가 아니다.
+  if (ps && pe && rs && dl && ps === rs && pe === dl) return 'merged';
+  return 'split';
+}
+
+// 결과물 제출 마감 줄의 이름을 무엇으로 부를지(사양서 결정 7).
+//   'receiptOnly'    = 가구매 리뷰어형 — 영수증만 낸다. 인증샷을 이름에 넣으면 사실과 다르다
+//   'receiptAndPost' = 일반 리뷰어형 — 영수증 + 채널별 게시물 인증샷
+//   'default'        = 시딩·방문형 — 이름을 바꾸지 않는다
+function campaignSubmissionLabelCode(camp) {
+  if (!camp || camp.recruit_type !== 'monitor') return 'default';
+  return camp.proxy_purchase === true ? 'receiptOnly' : 'receiptAndPost';
+}
+
+// ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움

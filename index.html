@@ -3608,6 +3608,40 @@ function eventCancelWindowPassed(slotDate, startTime) {
 }
 
 // ══════════════════════════════════════
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
+//      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
+//   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
+//      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
+//
+//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
+//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
+//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+function campaignPeriodRowKind(camp) {
+  if (!camp || camp.recruit_type !== 'monitor') return 'none';
+  const ps = camp.purchase_start || '';
+  const pe = camp.purchase_end || '';
+  if (!ps && !pe) return 'none';
+  const rs = camp.recruit_start || '';
+  const dl = camp.deadline || '';
+  // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어
+  //    같은 날짜가 다르게 판정된다. recruit_start 가 비어 있으면(화면이 「오늘」로
+  //    폴백하는 캠페인) 기준이 없으므로 merged 가 아니다.
+  if (ps && pe && rs && dl && ps === rs && pe === dl) return 'merged';
+  return 'split';
+}
+
+// 결과물 제출 마감 줄의 이름을 무엇으로 부를지(사양서 결정 7).
+//   'receiptOnly'    = 가구매 리뷰어형 — 영수증만 낸다. 인증샷을 이름에 넣으면 사실과 다르다
+//   'receiptAndPost' = 일반 리뷰어형 — 영수증 + 채널별 게시물 인증샷
+//   'default'        = 시딩·방문형 — 이름을 바꾸지 않는다
+function campaignSubmissionLabelCode(camp) {
+  if (!camp || camp.recruit_type !== 'monitor') return 'default';
+  return camp.proxy_purchase === true ? 'receiptOnly' : 'receiptAndPost';
+}
+
+// ══════════════════════════════════════
 // 인플루언서 추천 명단(아웃바운드) — 세분(category)→계열(series) 매핑
 //   lookup_values(ob_category/ob_series)에 부모 컬럼을 두지 않으므로(마이그레이션 227 주석)
 //   이 코드 상수로 매핑한다. outbound_influencers.category_code 저장 시 series_code 자동 채움
@@ -4357,6 +4391,16 @@ window.I18N_JA = {
     purchasePeriod: '購入および領収書提出期間',
     visitPeriod: '訪問期間',
     submissionEnd: '成果物提出締切',
+    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
+    //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
+    //   캠페인·시딩·방문형이 계속 쓴다).
+    recruitPurchasePeriod: '募集・購入期間',
+    submissionEndMonitor: 'レシート・投稿スクショの提出締切',
+    submissionEndProxy: 'レシートの提出締切',
+    // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
+    paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',
     applyBtn: '申請',
@@ -5171,6 +5215,14 @@ window.I18N_KO = {
     purchasePeriod: '구매 및 영수증 제출 기간',
     visitPeriod: '방문 기간',
     submissionEnd: '결과물 제출 마감',
+    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
+    recruitPurchasePeriod: '모집/구매 기간',
+    submissionEndMonitor: '영수증·게시물 인증샷 제출 마감일',
+    submissionEndProxy: '영수증 제출 마감일',
+    // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
+    paybackNoticeLine1: '모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1Split: '구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine2: '기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     peopleUnit: '명',
     noSetting: '—',
     applyBtn: '응모',
@@ -12783,6 +12835,21 @@ async function openCampaign(id) {
           ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
+          // 페이백 안내 — 리뷰어형이면 항상(가구매 포함) 정보표 바로 위에 한 상자.
+          //   ⚠️ 색은 「注意事項(必読)」(빨강)과 구분되는 정보 안내 톤으로 한다.
+          //      같은 빨강을 쓰면 인플루언서 눈에 경고가 두 벌이 되어 둘 다 안 읽힌다.
+          //   ⚠️ 첫 줄은 그 캠페인이 화면에 어떻게 그려지는지에 맞춰 갈린다(결정 11) —
+          //      두 줄로 그려지는 캠페인에서 「모집/구매 기간」이라 하면 화면 어디에도
+          //      없는 이름을 가리키게 된다.
+          if (camp.recruit_type !== 'monitor') return '';
+          const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+          const line1 = t(kind === 'split' ? 'detail.paybackNoticeLine1Split' : 'detail.paybackNoticeLine1');
+          return `<div id="campaignPaybackNotice" style="margin:10px 0 0;padding:11px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:12px;line-height:1.6;color:#1e40af">
+            <div>${esc(line1)}</div>
+            <div>${esc(t('detail.paybackNoticeLine2'))}</div>
+          </div>`;
+        })()}
+        ${(()=>{
           // 캠페인 상세 표 — 시간 흐름 순으로 행 배치
           // 순서: 상품명 → 모집타입 → 채널 → 콘텐츠 → 모집기간 → 구매/방문기간 → 결과물 제출 마감 → 모집인원
           //       → (monitor 외) 당선 발표 → (monitor 외) 리워드
@@ -12791,7 +12858,11 @@ async function openCampaign(id) {
           // 숨겼지만, 예전에 저장된 값이나 행사로 바꾸기 전 값이 남아 있을 수 있어
           // **그리는 쪽에서도 막는다** — 저장된 값과 무관하게 행사면 안 그린다.
           const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
-          const KEY = 'width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
+          // 라벨 칸 폭 — 낼 것을 다 적은 제출 마감 이름(「レシート・投稿スクショの提出締切」)이
+          //   90픽셀에서 **네 줄**로 접혀 110픽셀로 넓혔다(2026-08-06 브라우저 실측).
+          //   ⚠️ 전 행 공통 값이라 바꾸면 모든 줄에 영향을 준다 — 나머지 라벨은 전부 한 줄이라
+          //      넓혀도 안전한 것을 확인했다.
+          const KEY = 'width:110px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
           const VAL = 'padding:10px 13px;flex:1;font-size:12px';
           const ROW = 'display:flex;border-top:1px solid #faf5f9';
           const rows = [];
@@ -12804,8 +12875,13 @@ async function openCampaign(id) {
               rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.contentType')}</div><div style="${VAL};display:flex;gap:4px;flex-wrap:wrap">${ctList.map(c=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', c))}</span>`).join('')}</div></div>`);
             }
           }
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitPeriod')}</div><div style="${VAL}">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div></div>`);
-          if (isMonitor && (camp.purchase_start || camp.purchase_end)) {
+          // 리뷰어형에서 모집 기간과 구매 기간이 같으면 「모집/구매 기간」 한 줄로 합친다.
+          //   판정은 공용 헬퍼 하나만 쓴다 — 관리자 미리보기도 같은 함수를 부른다.
+          //   ⚠️ 다르게 저장된 캠페인은 지금처럼 두 줄로 남긴다(결정 5). 조건 없이 합치면
+          //      그 캠페인의 구매 마감일이 화면에서 사라진다.
+          const periodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodKind === 'merged' ? 'detail.recruitPurchasePeriod' : 'detail.recruitPeriod')}</div><div style="${VAL}">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div></div>`);
+          if (isMonitor && periodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
           }
           // 행사 캠페인은 아래 타임 선택표가 날짜를 보여준다 — 여기에 또 적으면
@@ -12814,7 +12890,14 @@ async function openCampaign(id) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
           }
           if (camp.submission_end && !isEvent) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.submissionEnd')}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
+            // 낼 것을 이름에 적는다 — 리뷰어형은 영수증(+게시물 인증샷), 가구매는 영수증만.
+            //   ⚠️ 가구매를 안 가리고 「인증샷」을 넣으면 낼 수 없는 것을 내라는 말이 된다
+            //      (마감 안내 메일이 같은 실수를 해 리뷰어형에게 게시물 독촉이 나갔던 선례).
+            const labelCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
+            const subKey = labelCode === 'receiptOnly' ? 'detail.submissionEndProxy'
+                         : labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
+                         : 'detail.submissionEnd';
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t(subKey)}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
           }
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합

@@ -474,6 +474,16 @@ window.I18N_JA = {
     purchasePeriod: '購入および領収書提出期間',
     visitPeriod: '訪問期間',
     submissionEnd: '成果物提出締切',
+    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
+    //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
+    //   캠페인·시딩·방문형이 계속 쓴다).
+    recruitPurchasePeriod: '募集・購入期間',
+    submissionEndMonitor: 'レシート・投稿スクショの提出締切',
+    submissionEndProxy: 'レシートの提出締切',
+    // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
+    paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',
     applyBtn: '申請',
