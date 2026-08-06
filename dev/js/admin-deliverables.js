@@ -1121,7 +1121,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -1146,7 +1146,7 @@ async function renderDelivCombinedBody(applicationId) {
       if (app.campaign_id) {
         // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
         // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price').eq('id', app.campaign_id).maybeSingle();
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end').eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -1448,6 +1448,28 @@ function receiptPayoutHint(d) {
   </div>`;
 }
 
+// 구매일이 그 캠페인의 구매 기간을 벗어났는지 알린다(사양서 2026-08-06 결정 4·8).
+//   **막지 않는다.** 승인 버튼은 그대로 눌리고, 봐줄지는 사람이 판단한다.
+//   ⚠️ 판정에 필요한 값이 없으면 **경고를 띄우지 않는다** — 조회 실패나 값 없음을
+//      「위반」으로 읽으면 멀쩡한 건에 빨간 글씨가 붙는다.
+//   ⚠️ 바로 위 receiptPayoutHint 가 앰버를 쓴다. 같은 색을 연달아 두면 둘 다 안 읽힌다.
+function receiptPurchaseWindowWarning(d) {
+  if (!d || d.kind !== 'receipt') return '';
+  const camp = (d.campaigns || d.campaign) || {};
+  if (camp.recruit_type !== 'monitor') return '';
+  const ps = camp.purchase_start || '', pe = camp.purchase_end || '';
+  if (!ps || !pe) return '';
+  const pd = String(d.purchase_date || '').slice(0, 10);
+  if (!pd) return '';   // 미입력은 이미 빨강으로 표시된다 — 중복 경고 없음
+  if (pd >= ps && pd <= pe) return '';
+  return `<div style="margin-top:4px;font-size:11px;color:#991B1B;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:5px;padding:5px 8px;line-height:1.5">
+    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">event_busy</span>
+    구매일이 <strong>모집/구매 기간(${esc(ps)} ~ ${esc(pe)}) 밖</strong>입니다.
+    배송 지연·품절 등 <strong>우리 쪽 사정</strong>으로 기간 안에 구매할 수 없었던 경우에만 승인하고,
+    그 밖의 경우에는 반려합니다.
+  </div>`;
+}
+
 function renderReceiptInfoBlock(d, isExcluded) {
   if (!d || d.kind !== 'receipt') return '';
   // 검수 불필요(신청 반려·취소)면 영수증 인플레이스 「수정」도 막는다 — 상단 "검수 불필요" 배너와 일관.
@@ -1469,7 +1491,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
         ${canEdit ? `<button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="enterReceiptEditMode('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}
       </div>
       <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
+      <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}${receiptPurchaseWindowWarning(d)}</div>
       <div><span style="color:var(--muted)">구매금액</span> · ${amtView}${receiptPayoutHint(d)}</div>
       <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
       <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>

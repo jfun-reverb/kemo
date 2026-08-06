@@ -537,7 +537,7 @@
             <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label" id="editCampRecruitRangeLabelWrap"><span id="editCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="editCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="recruit" readonly>
                 <input type="hidden" id="editCampRecruitStart">
                 <input type="hidden" id="editCampDeadline">
@@ -561,7 +561,7 @@
                 <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
+                <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
                 <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
@@ -960,7 +960,7 @@
             <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label" id="newCampRecruitRangeLabelWrap"><span id="newCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="newCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="recruit" readonly>
                 <input type="hidden" id="newCampRecruitStart">
                 <input type="hidden" id="newCampDeadline">
@@ -984,7 +984,7 @@
                 <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
+                <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="newCampSubmissionEnd" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
                 <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="newCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
