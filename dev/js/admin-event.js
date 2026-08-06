@@ -160,6 +160,10 @@ function applyInviteOnlyRow(prefix) {
   const on = !!$(prefix + 'CampInviteOnly')?.checked;
   const row = $(prefix + 'CampInviteRow');
   if (row) row.style.display = on ? '' : 'none';
+  // 신규 등록 화면에만 있는 안내(저장 뒤에야 링크를 복사할 수 있다는 것).
+  //   비공개를 켠 사람에게만 필요하므로 같이 여닫는다. 편집 화면엔 이 칸이 없다.
+  const saveHint = $(prefix + 'CampInviteSaveHint');
+  if (saveHint) saveHint.style.display = on ? '' : 'none';
 }
 
 function onInviteOnlyToggle(prefix) {

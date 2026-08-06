@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1785984919';
+  var CURRENT_BUILD = 'v1785986061';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2620,7 +2620,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   color:var(--ink);cursor:pointer}
 .event-mode-main input[type=checkbox]{accent-color:var(--pink);width:15px;height:15px;cursor:pointer}
 .event-mode-opts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
-.event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* 「비공개」 체크와 초대 번호를 한 줄에. 번호는 켰을 때만 나타나 오른쪽으로 이어진다.
+   좁아지면 번호 묶음이 통째로 아래로 내려간다(체크 글자와 번호가 쪼개지지 않게). */
+.event-invite-line{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.event-invite-line>.event-mode-main{flex-shrink:0}
 /* 행사 묶음 — 고르는 칸과 「새 묶음」 버튼을 한 줄에. 좁아지면 버튼이 아래로 내려간다. */
 .event-group-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
@@ -2808,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-06 11:55 · d6a053c</span>
+          <span class="admin-build-text">2026-08-06 12:14 · 4f02e5f</span>
         </div>
       </div>
     </aside>
@@ -3026,12 +3030,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </label>
               <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
               <div id="editCampEventOpts" class="event-mode-opts" style="display:none">
-                <label class="event-mode-main">
-                  <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
-                  <span>비공개 — 초대받은 사람만 신청</span>
-                </label>
-                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
-                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                <div class="form-group" style="margin-top:0;margin-bottom:0">
                   <label class="form-label">행사장 안내 (일본어)</label>
                   <input type="text" id="editCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
                   <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
@@ -3044,13 +3043,21 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   </div>
                   <div class="form-hint">이 캠페인 하나로 끝나는 행사면 비워 두세요. <b>한 행사를 캠페인 여러 개로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에 한 번에 나옵니다. 안 묶으면 다른 캠페인 날짜가 왔을 때 명단이 빈 화면이 됩니다.</div>
                 </div>
-                <div id="editCampInviteRow" class="event-invite-row" style="display:none">
-                  <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
-                  <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteGenBtn" onclick="genInviteCode('edit')">번호 생성</button>
-                  <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteCopyBtn" onclick="copyInviteLink('edit')">
-                    <span class="material-icons-round notranslate" translate="no" style="font-size:15px">link</span> 초대 링크 복사
-                  </button>
+                <!-- 비공개 + 초대 번호를 한 줄에. 켜야만 번호가 필요하므로 켠 자리 바로 옆에서 이어 쓴다. -->
+                <div class="event-invite-line" style="margin-top:12px">
+                  <label class="event-mode-main">
+                    <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
+                    <span>비공개 — 초대받은 사람만 신청</span>
+                  </label>
+                  <div id="editCampInviteRow" class="event-invite-row" style="display:none">
+                    <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                    <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteGenBtn" onclick="genInviteCode('edit')">번호 생성</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteCopyBtn" onclick="copyInviteLink('edit')">
+                      <span class="material-icons-round notranslate" translate="no" style="font-size:15px">link</span> 초대 링크 복사
+                    </button>
+                  </div>
                 </div>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
               </div>
             </div>
@@ -3443,12 +3450,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
               <div id="newCampEventOpts" class="event-mode-opts" style="display:none">
                 <div class="form-hint" style="margin-bottom:10px">방문 날짜·시각·시간대별 정원은 <b>캠페인을 저장한 뒤</b> 편집 화면에서 등록합니다. 시간대는 캠페인에 속한 값이라 캠페인이 먼저 만들어져야 붙일 수 있습니다.</div>
-                <label class="event-mode-main">
-                  <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
-                  <span>비공개 — 초대받은 사람만 신청</span>
-                </label>
-                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
-                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                <div class="form-group" style="margin-top:0;margin-bottom:0">
                   <label class="form-label">행사장 안내 (일본어)</label>
                   <input type="text" id="newCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
                   <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
@@ -3461,11 +3463,19 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   </div>
                   <div class="form-hint">이 캠페인 하나로 끝나는 행사면 비워 두세요. <b>한 행사를 캠페인 여러 개로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에 한 번에 나옵니다. 안 묶으면 다른 캠페인 날짜가 왔을 때 명단이 빈 화면이 됩니다.</div>
                 </div>
-                <div id="newCampInviteRow" class="event-invite-row" style="display:none">
-                  <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
-                  <button type="button" class="btn btn-ghost btn-sm" id="newCampInviteGenBtn" onclick="genInviteCode('new')">번호 생성</button>
-                  <span class="form-hint" style="margin:0">캠페인을 저장한 뒤 편집 화면에서 초대 링크를 복사할 수 있습니다.</span>
+                <!-- 비공개 + 초대 번호를 한 줄에(편집 화면과 같은 배치). -->
+                <div class="event-invite-line" style="margin-top:12px">
+                  <label class="event-mode-main">
+                    <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
+                    <span>비공개 — 초대받은 사람만 신청</span>
+                  </label>
+                  <div id="newCampInviteRow" class="event-invite-row" style="display:none">
+                    <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                    <button type="button" class="btn btn-ghost btn-sm" id="newCampInviteGenBtn" onclick="genInviteCode('new')">번호 생성</button>
+                  </div>
                 </div>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div class="form-hint" id="newCampInviteSaveHint" style="display:none">초대 링크는 캠페인을 저장한 뒤 편집 화면에서 복사할 수 있습니다.</div>
               </div>
             </div>
 
@@ -35936,6 +35946,10 @@ function applyInviteOnlyRow(prefix) {
   const on = !!$(prefix + 'CampInviteOnly')?.checked;
   const row = $(prefix + 'CampInviteRow');
   if (row) row.style.display = on ? '' : 'none';
+  // 신규 등록 화면에만 있는 안내(저장 뒤에야 링크를 복사할 수 있다는 것).
+  //   비공개를 켠 사람에게만 필요하므로 같이 여닫는다. 편집 화면엔 이 칸이 없다.
+  const saveHint = $(prefix + 'CampInviteSaveHint');
+  if (saveHint) saveHint.style.display = on ? '' : 'none';
 }
 
 function onInviteOnlyToggle(prefix) {

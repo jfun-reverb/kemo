@@ -2157,7 +2157,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   color:var(--ink);cursor:pointer}
 .event-mode-main input[type=checkbox]{accent-color:var(--pink);width:15px;height:15px;cursor:pointer}
 .event-mode-opts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
-.event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* 「비공개」 체크와 초대 번호를 한 줄에. 번호는 켰을 때만 나타나 오른쪽으로 이어진다.
+   좁아지면 번호 묶음이 통째로 아래로 내려간다(체크 글자와 번호가 쪼개지지 않게). */
+.event-invite-line{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.event-invite-line>.event-mode-main{flex-shrink:0}
 /* 행사 묶음 — 고르는 칸과 「새 묶음」 버튼을 한 줄에. 좁아지면 버튼이 아래로 내려간다. */
 .event-group-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
