@@ -922,6 +922,18 @@ function previewBulkSlots() {
   };
   const overlap = dur > 0 && dur > step
     ? `<div style="margin-top:4px;color:var(--gold)">한 타임 길이(${dur}분)가 간격(${step}분)보다 길어 타임끼리 시간이 겹칩니다.</div>` : '';
+  // ⚠️ 자정을 넘는 타임은 **저장이 거부된다** — 표에 「끝 시각은 시작 시각보다 뒤여야
+  //    한다」는 제약이 걸려 있어(마이그레이션 281), 23:30+60분=00:30 은 들어가지 않는다.
+  //    미리 보기가 「익일 00:30」 이라고 적어 만들어질 것처럼 보이던 자리라, 여기서 막는다.
+  const midnight = dur > 0 && times.filter(t => {
+    const [h, m] = t.split(':').map(n => parseInt(n, 10));
+    return h * 60 + m + dur >= 24 * 60;
+  });
+  const midnightWarn = (midnight && midnight.length)
+    ? `<div style="margin-top:4px;color:var(--red-d)"><b>${midnight.length}줄은 만들어지지 않습니다</b> — `
+      + `${esc(midnight.join(', '))} 은 끝 시각이 자정을 넘습니다. `
+      + `타임은 하루 안에서 끝나야 하므로, 한 타임 길이를 줄이거나 마지막 시작 시각을 앞당겨 주세요.</div>`
+    : '';
   // 날짜가 비어 있으면 목록은 그대로 보여 주되, 만들려면 날짜가 필요하다고 알린다.
   //   ⚠️ 이때 첫 문장을 「만들어집니다」로 두면, 바로 아래 「고르면 만들어집니다」와
   //      부딪혀 지금 만들어지는 건지 아닌지를 두 번 읽게 된다. 시제를 갈라 둔다.
@@ -929,7 +941,7 @@ function previewBulkSlots() {
     : '<div style="margin-top:4px;color:var(--gold)">「날짜」를 고르면 이대로 만들어집니다.</div>';
   const lead = date ? `<b>${times.length}줄</b>이 만들어집니다` : `<b>${times.length}줄</b>`;
   el.innerHTML = times.length
-    ? `${lead} — ${esc(times.map(label).join(', '))}${overlap}${needDate}`
+    ? `${lead} — ${esc(times.map(label).join(', '))}${overlap}${midnightWarn}${needDate}`
     : '만들어질 줄이 없습니다. 시작·마지막 시각과 제외 시각을 확인해 주세요.';
 }
 
@@ -966,7 +978,7 @@ async function bulkGenerateSlots(campaignId, opts) {
     return `${pad(Math.floor(v / 60) % 24)}:${pad(v % 60)}`;
   };
 
-  let made = 0, dup = 0, failed = 0;
+  let made = 0, dup = 0, failed = 0, midnightFailed = 0;
   const base = _eventSlotsCache.length;
   for (let i = 0; i < times.length; i++) {
     try {
@@ -983,13 +995,26 @@ async function bulkGenerateSlots(campaignId, opts) {
     } catch (e) {
       // 이미 있는 줄은 건너뛴다 — 같은 버튼을 두 번 눌러도 중복이 안 생긴다.
       if (String(e?.code) === '23505') dup++;
-      else { failed++; console.error('[bulkGenerateSlots]', times[i], e); }
+      else {
+        failed++;
+        // 끝 시각이 자정을 넘어 표 제약(마이그레이션 281)에 걸린 경우를 따로 센다.
+        if (String(e?.code) === '23514' || /end_time/.test(String(e?.message || ''))) midnightFailed++;
+        console.error('[bulkGenerateSlots]', times[i], e);
+      }
     }
   }
 
   let msg = `${made}줄을 만들었습니다`;
   if (dup)    msg += ` · 이미 있던 ${dup}줄은 건너뜀`;
-  if (failed) msg += ` · ${failed}줄 실패`;
+  // 실패 사유가 「자정을 넘음」이면 그렇다고 알린다 — 그냥 「N줄 실패」로만 두면
+  // 무엇을 고쳐야 할지 알 수 없다(미리 보기에서도 막지만 최종 안내를 맞춰 둔다).
+  //   ⚠️ 자정 초과와 다른 사유가 섞였을 때 전부를 자정 탓으로 돌리면, 운영자가 엉뚱한
+  //      곳을 고치며 시간을 버린다. 건수를 나눠 적는다.
+  if (failed) {
+    if (midnightFailed === failed)   msg += ` · ${failed}줄은 끝 시각이 자정을 넘어 만들지 못했습니다`;
+    else if (midnightFailed > 0)     msg += ` · ${midnightFailed}줄은 끝 시각이 자정을 넘고, ${failed - midnightFailed}줄은 다른 사유로 만들지 못했습니다`;
+    else                             msg += ` · ${failed}줄 실패`;
+  }
   toast(msg, failed ? 'error' : 'success');
   await renderEventSlotsPane(campId);
 }
