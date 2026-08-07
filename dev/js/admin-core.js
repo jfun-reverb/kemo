@@ -239,6 +239,24 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', 'monitor');
     applyDeadlineFieldsVisibility('new', 'monitor');
+    // 모집 기간·결과물 제출 마감일 비우기.
+    //   ⚠️ 바로 위 applyDeadlineFieldsVisibility 는 **형식에 안 맞는 칸**(구매·방문·선정)만
+    //      비운다. 모집 기간과 제출 마감은 모든 형식이 쓰는 칸이라 거기서 안 지워지고,
+    //      그래서 등록하다 만 캠페인의 날짜가 **다음 신규 등록에 그대로 딸려왔다**.
+    //      그대로 저장하면 엉뚱한 기간으로 캠페인이 열린다(2026-08-07 사용자 발견).
+    //   ⚠️ 칸 값만 지우면 달력이 기억한 날짜가 남아, 달력을 열고 「적용」만 눌러도
+    //      되살아난다. 달력까지 함께 비운다.
+    ['RecruitStart', 'Deadline', 'SubmissionEnd'].forEach(suffix => {
+      const el = document.getElementById('newCamp' + suffix);
+      if (el) el.value = '';
+    });
+    const _newRangeFp = (typeof _campRangePickers === 'object' && _campRangePickers)
+      ? _campRangePickers['newCampRecruitRange'] : null;
+    if (_newRangeFp) _newRangeFp.clear(false);
+    else { const _rr = document.getElementById('newCampRecruitRange'); if (_rr) _rr.value = ''; }
+    const _newSingleFp = (typeof _campSinglePickers === 'object' && _campSinglePickers)
+      ? _campSinglePickers['newCampSubmissionEnd'] : null;
+    if (_newSingleFp) _newSingleFp.clear(false);
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
       ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
