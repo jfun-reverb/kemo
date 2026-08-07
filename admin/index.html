@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786008915';
+  var CURRENT_BUILD = 'v1786060963';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-06 18:35 · 7a16488</span>
+          <span class="admin-build-text">2026-08-07 09:02 · c143ba5</span>
         </div>
       </div>
     </aside>
@@ -5452,6 +5452,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0">
         <span style="font-size:14px;font-weight:700;color:var(--ink)">캠페인 미리보기</span>
         <div style="display:flex;align-items:center;gap:8px">
+          <div class="cp-lang-toggle" id="campPreviewModalLangToggle">
+            <button type="button" data-lang="ja" class="active" onclick="setCampPreviewModalLang('ja')">日本語</button>
+            <button type="button" data-lang="ko" onclick="setCampPreviewModalLang('ko')">한국어</button>
+          </div>
           <button class="btn btn-primary btn-xs" id="campPreviewEditBtn" onclick="">편집</button>
           <span class="material-icons-round notranslate" translate="no" style="font-size:20px;cursor:pointer;color:var(--muted)" onclick="closeModal('campPreviewModal')">close</span>
         </div>
@@ -40866,7 +40870,56 @@ function openCampPreviewModal(campId) {
   // preview=1 → 인플루언서 화면이 상단 바·되돌아가기 줄을 감춘 채 뜬다(index.html 부팅 스크립트)
   frame.src = '/?preview=1&v=' + Date.now() + '#detail-' + campId;
   editBtn.onclick = function() { closeModal('campPreviewModal'); openEditCampaign(campId); };
+  // 인플루언서가 실제로 보는 화면은 일본어다 — 언제 열든 그 상태에서 시작한다.
+  //   ⚠️ 관리자 브라우저에 「한국어」가 저장돼 있으면 iframe 이 한국어로 뜬다.
+  //      로드가 끝난 뒤 일본어로 맞춰야 토글 표시와 실제 화면이 어긋나지 않는다.
+  _campPreviewModalLang = 'ja';
+  syncCampPreviewModalLangToggle();
+  frame.onload = function() { applyCampPreviewModalLang(_campPreviewModalLang); };
   openModal('campPreviewModal');
+}
+
+// 캠페인 목록의 「미리보기」 모달 언어 — 폼 옆 미리보기와 달리 인플루언서 앱을 그대로
+// 띄우므로(iframe), 그 안의 전환 함수를 직접 부른다.
+let _campPreviewModalLang = 'ja';
+
+function setCampPreviewModalLang(lang) {
+  if (lang !== 'ja' && lang !== 'ko') return;
+  _campPreviewModalLang = lang;
+  syncCampPreviewModalLangToggle();
+  applyCampPreviewModalLang(lang);
+}
+
+function syncCampPreviewModalLangToggle() {
+  const box = $('campPreviewModalLangToggle');
+  if (!box) return;
+  box.querySelectorAll('button[data-lang]').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === _campPreviewModalLang);
+  });
+}
+
+function applyCampPreviewModalLang(lang) {
+  // ⚠️ 다른 출처가 되면 contentWindow 의 속성을 읽는 것만으로 예외가 난다.
+  //    지금은 늘 같은 출처(상대 경로)라 도달하지 않지만, 조용히 실패하게 두는 게
+  //    이 함수의 방어 의도다 — 읽는 지점부터 감싼다.
+  let win, hasSetLang;
+  try {
+    win = $('campPreviewFrame')?.contentWindow;
+    hasSetLang = !!win && typeof win.setLang === 'function';
+  } catch (e) { return false; }
+  if (!hasSetLang) return false;   // 아직 로드 전이면 onload 가 다시 부른다
+  // ⚠️ 인플루언서 앱의 setLang 은 고른 언어를 **저장한다**(localStorage 'reverb.lang').
+  //    그대로 두면 관리자가 미리보기에서 한국어를 한 번 본 것만으로, 나중에 본인이 여는
+  //    인플루언서 화면까지 한국어로 뜬다(같은 도메인이라 저장소를 공유한다).
+  //    화면 전환은 그대로 두고 **저장값만 원래대로 되돌린다**.
+  let before = null, had = false;
+  try { before = win.localStorage.getItem('reverb.lang'); had = (before !== null); } catch (e) {}
+  win.setLang(lang);
+  try {
+    if (had) win.localStorage.setItem('reverb.lang', before);
+    else win.localStorage.removeItem('reverb.lang');
+  } catch (e) {}
+  return true;
 }
 
 // position:fixed 로 body 에 append 된 팝오버/드롭다운을 anchor 위치에 배치하되 viewport 안에 머무르게 보정.

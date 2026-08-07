@@ -2788,6 +2788,10 @@
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0">
         <span style="font-size:14px;font-weight:700;color:var(--ink)">캠페인 미리보기</span>
         <div style="display:flex;align-items:center;gap:8px">
+          <div class="cp-lang-toggle" id="campPreviewModalLangToggle">
+            <button type="button" data-lang="ja" class="active" onclick="setCampPreviewModalLang('ja')">日本語</button>
+            <button type="button" data-lang="ko" onclick="setCampPreviewModalLang('ko')">한국어</button>
+          </div>
           <button class="btn btn-primary btn-xs" id="campPreviewEditBtn" onclick="">편집</button>
           <span class="material-icons-round notranslate" translate="no" style="font-size:20px;cursor:pointer;color:var(--muted)" onclick="closeModal('campPreviewModal')">close</span>
         </div>
