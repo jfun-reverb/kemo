@@ -155,7 +155,7 @@ async function openCampaign(id) {
           if (camp.recruit_type !== 'monitor') return '';
           const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
           const line1 = t(kind === 'split' ? 'detail.paybackNoticeLine1Split' : 'detail.paybackNoticeLine1');
-          return `<div id="campaignPaybackNotice" style="margin:10px 0 0;padding:11px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:12px;line-height:1.6;color:#1e40af">
+          return `<div id="campaignPaybackNotice" style="margin:0 0 12px;padding:11px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:12px;line-height:1.6;color:#1e40af">
             <div>${esc(line1)}</div>
             <div>${esc(t('detail.paybackNoticeLine2'))}</div>
           </div>`;
