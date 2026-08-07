@@ -12,6 +12,12 @@
 // 처리 흐름:
 //   1. INSERT mutex (digest_date UNIQUE) — 첫 배치만
 //   2. get_promo_digest_targets(KST 오늘) RPC — 발송 대상자 N명
+//      ⚠️ 이 RPC 는 그날 이미 기록된(campaign_promo_digest_sent 행이 있는) 인플을
+//         제외한 「남은 사람만」 돌려준다 — 호출할 때마다 명단이 줄어드는 구조.
+//         그래서 매 라운드 항상 앞에서부터 200명을 자른다(옛 offset 이동 금지 —
+//         이미 줄어든 명단에 또 offset 을 더하면 한 무리가 통째로 안 뽑힌다. 마이그321 배경).
+//   2.5. 정체 감지 (이어달리기 2회차부터) — 직전 라운드 시작 시점 잔여 인원과 비교해
+//        줄지 않았으면 즉시 중단(아래 「무한 반복 방어」 참고)
 //   3. 양 섹션 모두 0건이면 status='skipped_no_data' + 종료
 //   4. 캠페인 일괄 조회 + monitor approved count 일괄 조회
 //   5. 200명 배치 직렬 발송 (Brevo SMTP):
@@ -27,11 +33,29 @@
 //   - (influencer_id, digest_date) UNIQUE 가 인플 단위 멱등
 //   - chained 자기재호출: body.source='chained' → 첫 배치 mutex INSERT 스킵
 //
+// 무한 반복 방어 (2026-08 전수조사 C-3):
+//   - 명단이 스스로 줄어드는 구조라, mark_promo_digest_sent 기록이 계속 실패하면
+//     같은 사람이 명단에서 안 빠져 같은 배치가 영원히 되풀이될 수 있다(그러면 같은
+//     사람에게 메일이 여러 번 나갈 위험도 같이 커진다).
+//   - [정체 감지 — 1차 방어] 매 이어달리기마다 「직전 라운드 시작 시점의 잔여 인원 수」를
+//     다음 호출에 실어 보낸다(prevRemainingCount). 새로 받은 명단 수가 그보다 줄지
+//     않았으면 — 즉 직전 라운드가 아무도 못 줄였으면 — 그 자리에서 즉시 멈춘다.
+//     같은 무리를 반복 발송하기 전(최대 1라운드 지연)에 걸러내는 게 목적.
+//   - [이어달리기 횟수 상한 — 2차 방어] 그래도 못 잡는 경우를 대비해 MAX_CHAIN_COUNT 로
+//     절대 상한을 둔다. 도달하면 원인 불문 멈추고 사유를 error_message 에 남긴다.
+//   - 둘 다 걸려도 정상 흐름(전원 처리 완료로 자연 종료)에는 전혀 영향 없다.
+//   - ⚠️ 정체 감지가 잡는 것은 「라운드 전체가 안 줄어드는」 경우뿐이다. 200명 중
+//     몇 명만 기록에 실패하면 전체 잔여는 정상적으로 줄어 감지에 안 걸리는데,
+//     그 몇 명은 다음 라운드에 다시 뽑혀 메일을 또 받는다(마이그321 이 명단 정렬을
+//     고정한 뒤로는 같은 앞쪽 자리에 남아 거의 곧바로 재발송된다). 그래서 발송 기록은
+//     실패 시 한 번 재시도하고, 두 번 다 실패하면 console.error 로 남긴다(아래 발송 루프).
+//
 // 부분 실패 (사양서 §4-3):
 //   - 전부 성공 → status='sent'
 //   - 일부 실패 → status='partial'
 //   - 전부 실패 → status='failed'
 //   - 데이터 0건 → status='skipped_no_data'
+//   - 정체 감지·상한 도달로 조기 중단 → status='partial'(일부라도 보냈으면) 또는 'failed'
 //
 // 환경변수:
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (자동 주입)
@@ -56,6 +80,14 @@ const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 //   인플 200 명 × 약 0.6초 (Brevo + DB + 슬립) ≒ 120초
 //   Deno 150 초 timeout 안에 안전. 1,398 명 → 약 7 배치 chained.
 const BATCH_SIZE = 200;
+
+// 이어달리기(자기재호출) 최대 횟수 — 무한 반복 2차 방어(위 파일 상단 주석 참고).
+// 200명 × 약 101라운드 ≒ 2만 명까지 커버 — 현재 대상자(약 1,400명) 대비 넉넉한 여유.
+// 정상 흐름에서는 절대 이 값까지 도달하지 않는다(대상자가 아무리 늘어도 전원
+// 처리 완료 시 hasMore 가 false 로 떨어져 이어달리기가 스스로 멈춘다). 오직
+// 「명단이 안 줄어드는 이상 상황」이 정체 감지(1차 방어)를 뚫고도 계속될 때만
+// 이 상한이 개입한다.
+const MAX_CHAIN_COUNT = 100;
 
 // Brevo rate limit 보호용 슬립 (admin-daily-digest 동일 패턴)
 const BREVO_SLEEP_MS = 100;
@@ -271,7 +303,13 @@ interface CampaignRow {
 interface RequestBody {
   source?: "cron" | "manual" | "chained";
   digestDate?: string;
-  batchOffset?: number;
+  // 이어달리기 횟수 — 0 = 최초 호출(cron/manual), 1 이상 = 자기재호출(chained).
+  // 옛 batchOffset(명단 위치 오프셋)을 대체. 명단이 매번 「남은 사람만」으로
+  // 줄어드는 구조라 위치가 아니라 횟수로 진행 상황을 센다(위 파일 상단 주석 참고).
+  chainCount?: number;
+  // 직전 라운드가 시작할 때 남아있던 인원 수 — 정체 감지(1차 방어)에만 사용.
+  // chainCount=0(최초 호출)에는 없음.
+  prevRemainingCount?: number;
   // 운영 디버그 — testRecipient 지정 시 자격 매칭 우회 + 단일 수신자 강제 발송.
   // mutex/RPC/exposure/digest_sent 모두 스킵. service_role 인증 필수.
   testRecipient?: string;
@@ -434,9 +472,7 @@ function renderMailBody(args: {
 
   const campaignsUrl = `${args.publicAppUrl}/#campaigns`;
   const unsubscribeUrl = `${args.publicAppUrl}/#unsubscribe?token=${encodeURIComponent(args.target.unsubscribe_token)}`;
-  // PR 4 — 마이페이지 「メール受信設定」 토글 머지 시 본 라인과 메일 템플릿
-  //         메인 wrapper 의 「マイページから設定を変更…」 줄 함께 복구
-  // const mypageSettingsUrl = `${args.publicAppUrl}/#mypage-email-settings`;
+  const mypageSettingsUrl = `${args.publicAppUrl}/#mypage-email-settings`;
 
   const html = render(mainTpl, {
     influencer_name: escapeHtml(influencerName),
@@ -444,8 +480,8 @@ function renderMailBody(args: {
     deadline_section_html: deadlineSectionHtml,
     campaigns_url: escapeHtml(campaignsUrl),
     unsubscribe_url: escapeHtml(unsubscribeUrl),
-    // mypage_settings_url: escapeHtml(mypageSettingsUrl),  // PR 4 머지 시 복구
-    agreed_at_label: "マーケティング情報配信にご同意いただいた方にお送りしています",
+    mypage_settings_url: escapeHtml(mypageSettingsUrl),
+    agreed_at_label: "このメールは、マーケティング情報の配信にご同意いただいた方にお送りしています",
   });
 
   // 제목 — 신규/마감 건수에 따라 분기
@@ -470,7 +506,10 @@ function renderMailBody(args: {
   if (d1Count > 0) textLines.push(`・締切間近 (D-1): ${d1Count}件`);
   textLines.push("");
   textLines.push(`すべてのキャンペーンを見る: ${campaignsUrl}`);
-  // PR 4 머지 시 복구: textLines.push(`配信停止: ${unsubscribeUrl}`);
+  // 수신거부 안내 — 일본 특정전자메일법 요구. HTML 을 못 읽는 환경에도 반드시 남아야 한다
+  textLines.push("");
+  textLines.push(`配信停止: ${unsubscribeUrl}`);
+  textLines.push(`メール受信設定: ${mypageSettingsUrl}`);
   const text = textLines.join("\n");
 
   return { html, subject, text };
@@ -559,7 +598,8 @@ function selfInvokeChained(args: {
   supaUrl: string;
   serviceKey: string;
   digestDate: string;
-  nextOffset: number;
+  chainCount: number;
+  prevRemainingCount: number;
 }): void {
   const url = `${args.supaUrl.replace(/\/$/, "")}/functions/v1/notify-campaign-promo-digest`;
   // await 하지 않음 — 본 호출은 즉시 반환
@@ -572,7 +612,8 @@ function selfInvokeChained(args: {
     body: JSON.stringify({
       source: "chained",
       digestDate: args.digestDate,
-      batchOffset: args.nextOffset,
+      chainCount: args.chainCount,
+      prevRemainingCount: args.prevRemainingCount,
     }),
   }).catch((e) => {
     console.error("[notify-campaign-promo] chained invoke failed", e);
@@ -606,11 +647,11 @@ Deno.serve(async (req: Request) => {
 
   const source: "cron" | "manual" | "chained" = body.source ?? "cron";
   const digestDate = body.digestDate || computeDigestDate();
-  const batchOffset = body.batchOffset ?? 0;
-  const isFirstBatch = batchOffset === 0;
+  const chainCount = body.chainCount ?? 0;
+  const isFirstBatch = chainCount === 0;
   const todayKst = digestDate; // 컬럼명 동일 — RPC 가 이미 KST 윈도우 기준 처리
 
-  console.log("[notify-campaign-promo] start", { source, digestDate, batchOffset, isFirstBatch });
+  console.log("[notify-campaign-promo] start", { source, digestDate, chainCount, isFirstBatch });
 
   // ── 0. testRecipient 모드 (운영 디버그) ─────────────────────────
   //   body.testRecipient 가 있으면 자격 매칭 / mutex / 로그 모두 우회.
@@ -881,7 +922,52 @@ Deno.serve(async (req: Request) => {
       });
     }
     const targets: PromoTarget[] = (targetsData || []) as PromoTarget[];
-    console.log("[notify-campaign-promo] targets", { count: targets.length });
+    console.log("[notify-campaign-promo] targets", { count: targets.length, chainCount });
+
+    // ── 2.5 정체 감지 (이어달리기 2회차부터, 무한 반복 1차 방어) ──
+    //    get_promo_digest_targets 는 「그날 이미 기록된 사람」을 뺀 명단을 준다.
+    //    직전 라운드 시작 시점의 잔여 인원(prevRemainingCount)과 이번 라운드 잔여
+    //    인원을 비교해, 줄지 않았다면 직전 라운드가 아무도 기록시키지 못한 것 —
+    //    즉 mark_promo_digest_sent 기록이 반복 실패 중이라는 뜻이다. 이 상태로
+    //    계속 이어달리면 같은 사람에게 메일이 여러 번 나갈 수 있어 즉시 멈춘다.
+    if (chainCount > 0 && body.prevRemainingCount != null && targets.length >= body.prevRemainingCount) {
+      console.error("[notify-campaign-promo] stall detected — chain aborted", {
+        chainCount, prevRemainingCount: body.prevRemainingCount, currentRemaining: targets.length,
+      });
+      const { data: sumRows, error: sumError } = await sb
+        .from("campaign_promo_digest_sent")
+        .select("status")
+        .eq("digest_date", digestDate);
+      let cumSent = 0, cumSkipped = 0, cumFailed = 0;
+      if (!sumError) {
+        (sumRows || []).forEach((r: { status: string }) => {
+          if (r.status === "sent") cumSent++;
+          else if (r.status === "skipped") cumSkipped++;
+          else if (r.status === "failed") cumFailed++;
+        });
+      }
+      const stallCampaignIdSet = new Set<string>();
+      targets.forEach((t) => {
+        (t.new_campaign_ids || []).forEach((id) => stallCampaignIdSet.add(id));
+        (t.deadline_d1_campaign_ids || []).forEach((id) => stallCampaignIdSet.add(id));
+      });
+      await finalizeRun({
+        status: cumSent > 0 ? "partial" : "failed",
+        sentCount: cumSent,
+        skippedCount: cumSkipped,
+        failedCount: cumFailed,
+        includedCampaignIds: [...stallCampaignIdSet],
+        errorMessage:
+          `정체 감지로 중단 (이어달리기 #${chainCount}): 직전 잔여 ${body.prevRemainingCount}명 → ` +
+          `이번 잔여 ${targets.length}명(변화 없음). mark_promo_digest_sent 기록이 반복 실패 중일 가능성 — ` +
+          `campaign_promo_digest_sent 로그 확인 필요.`,
+        finishedAt: new Date().toISOString(),
+      });
+      return new Response(
+        JSON.stringify({ ok: false, stalled: true, chainCount, remaining: targets.length, digestDate }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
 
     // ── 3. 데이터 0건 처리 ──
     if (targets.length === 0) {
@@ -941,10 +1027,18 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 5. 배치 슬라이싱 ──
-    const batchTargets = targets.slice(batchOffset, batchOffset + BATCH_SIZE);
-    const hasMore = batchOffset + BATCH_SIZE < targets.length;
+    //    targets 는 이미 「오늘 아직 안 받은 사람만」이므로 항상 앞에서부터 자른다.
+    //    (옛 batchOffset 이동 방식은 줄어든 명단에 또 offset 을 더해 한 무리가
+    //    통째로 안 뽑히는 결함이 있었다 — 마이그레이션 321 배경)
+    const batchTargets = targets.slice(0, BATCH_SIZE);
+    const hasMore = targets.length > BATCH_SIZE;
+    const nextChainCount = chainCount + 1;
+    // 이어달리기 상한 도달 시 hasMore 여도 더 이상 자기재호출하지 않는다(무한 반복 2차 방어)
+    const chainCapReached = hasMore && nextChainCount > MAX_CHAIN_COUNT;
+    // 이번 라운드가 끝난 뒤 실제로 또 이어달릴 예정인지 — finalStatus·finished_at 판단에 사용
+    const willChainAgain = hasMore && !chainCapReached;
     console.log("[notify-campaign-promo] batch", {
-      batchOffset, batchSize: batchTargets.length, hasMore, total: targets.length,
+      chainCount, batchSize: batchTargets.length, hasMore, chainCapReached, total: targets.length,
     });
 
     // ── 6. 직렬 발송 ──
@@ -1054,30 +1148,58 @@ Deno.serve(async (req: Request) => {
       }
 
       // 발송 결과 기록
+      //
+      // ⚠️ 이 기록이 실패하면 그 사람은 다음 라운드 명단에 「아직 못 받은 사람」으로 다시 뽑힌다
+      //    — 메일은 이미 나간 뒤인데 또 나간다. 정체 감지(위 2.5 단계)는 「라운드 전체가
+      //    안 줄어드는」 경우만 잡으므로, 200명 중 몇 명만 기록에 실패하는 이 경우는 못 잡는다.
+      //    게다가 마이그321에서 명단 정렬을 고정해(ORDER BY influencer_id) 실패한 사람이
+      //    다음 라운드에도 같은 앞쪽 자리에 남는다 — 거의 곧바로 재발송된다.
+      //    그래서 실패하면 한 번 더 시도한다. 원인 대부분은 순간적인 연결 문제라 재시도로 걷힌다.
+      //    두 번 다 실패하면 error 로 남긴다(warn 은 눈에 안 띈다).
       const includedIds = [...newIds, ...d1Ids];
-      const { error: markError } = await sb.rpc("mark_promo_digest_sent", {
+      const markSentArgs = {
         p_influencer_id: target.influencer_id,
         p_digest_date: digestDate,
         p_status: "sent",
         p_skip_reason: null,
         p_error_message: null,
         p_included_campaign_ids: includedIds,
-      });
-      if (markError) console.warn("[notify-campaign-promo] mark sent failed", markError);
+      };
+      let { error: markError } = await sb.rpc("mark_promo_digest_sent", markSentArgs);
+      if (markError) {
+        console.warn("[notify-campaign-promo] mark sent failed — retrying once", target.influencer_id, markError);
+        await sleep(300);
+        ({ error: markError } = await sb.rpc("mark_promo_digest_sent", markSentArgs));
+      }
+      if (markError) {
+        // 여기까지 오면 다음 라운드에 재발송될 수 있다 — 운영자가 반드시 봐야 하는 자리
+        console.error(
+          "[notify-campaign-promo] mark sent failed twice — this influencer may receive a duplicate mail",
+          target.influencer_id, markError,
+        );
+      }
 
       batchSent++;
       await sleep(BREVO_SLEEP_MS);
     }
 
     console.log("[notify-campaign-promo] batch result", {
-      batchOffset, batchSent, batchSkipped, batchFailed,
+      chainCount, batchSent, batchSkipped, batchFailed,
     });
 
     // ── 7. chained 자기재호출 (fire-and-forget) ──
-    if (hasMore) {
+    //    상한(MAX_CHAIN_COUNT) 도달 시엔 hasMore 여도 더 이상 이어달리지 않는다.
+    if (willChainAgain) {
       selfInvokeChained({
         supaUrl, serviceKey, digestDate,
-        nextOffset: batchOffset + BATCH_SIZE,
+        chainCount: nextChainCount,
+        // 이번 라운드 「처리 전」 잔여 인원 — 다음 라운드가 이 값과 비교해 정체를 감지한다
+        prevRemainingCount: targets.length,
+      });
+    } else if (chainCapReached) {
+      console.error("[notify-campaign-promo] chain cap reached — stopping", {
+        chainCount, maxChainCount: MAX_CHAIN_COUNT,
+        unprocessedRemaining: Math.max(targets.length - batchTargets.length, 0),
       });
     }
 
@@ -1101,10 +1223,12 @@ Deno.serve(async (req: Request) => {
 
     // status 결정
     let finalStatus: "sent" | "partial" | "failed" | "skipped_no_data" = "sent";
-    if (hasMore) {
-      finalStatus = "partial"; // 진행 중
+    if (willChainAgain) {
+      finalStatus = "partial"; // 진행 중 — 이어달리기 예정
     } else if (cumSent === 0 && cumFailed === 0 && cumSkipped === 0) {
       finalStatus = "skipped_no_data";
+    } else if (chainCapReached) {
+      finalStatus = "partial"; // 상한 도달로 조기 종료 — 처리 못 한 인원이 남음(error_message 참고)
     } else if (cumSent > 0 && cumFailed === 0) {
       finalStatus = "sent";
     } else if (cumSent === 0 && cumFailed > 0) {
@@ -1117,9 +1241,15 @@ Deno.serve(async (req: Request) => {
     // 단순화: 매번 캠페인 ID 합집합으로 UPDATE (총수는 같음)
     const includedCampaignIds = campaignIds;
 
-    const errMsg = batchFailures.length > 0
-      ? `batch@${batchOffset}: ${batchFailures.length} failure(s). first: ${batchFailures[0].email}(${batchFailures[0].error})`
-      : null;
+    const unprocessedRemaining = Math.max(targets.length - batchTargets.length, 0);
+    const errMsg = chainCapReached
+      ? `chain cap reached at #${chainCount} (max ${MAX_CHAIN_COUNT}) — ${unprocessedRemaining} influencer(s) not processed.` +
+        (batchFailures.length > 0
+          ? ` also ${batchFailures.length} failure(s) this round, first: ${batchFailures[0].email}(${batchFailures[0].error})`
+          : "")
+      : batchFailures.length > 0
+        ? `chain@${chainCount}: ${batchFailures.length} failure(s). first: ${batchFailures[0].email}(${batchFailures[0].error})`
+        : null;
 
     await finalizeRun({
       status: finalStatus,
@@ -1130,12 +1260,12 @@ Deno.serve(async (req: Request) => {
       failedCount: cumFailed,
       includedCampaignIds,
       errorMessage: errMsg,
-      // 마지막 배치(hasMore=false) 시점에만 finished_at 기록 — chained 중간은 NULL 유지
-      finishedAt: hasMore ? undefined : new Date().toISOString(),
+      // 더 이상 이어달리지 않는 시점(정상 완료 또는 상한 도달)에만 finished_at 기록
+      finishedAt: willChainAgain ? undefined : new Date().toISOString(),
     });
 
     console.log("[notify-campaign-promo] done", {
-      digestDate, batchOffset, batchSize: batchTargets.length, hasMore,
+      digestDate, chainCount, batchSize: batchTargets.length, hasMore, chainCapReached,
       cumSent, cumSkipped, cumFailed, finalStatus,
     });
 
@@ -1143,9 +1273,10 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         ok: true,
         digestDate,
-        batchOffset,
+        chainCount,
         batchSize: batchTargets.length,
         hasMore,
+        chainCapReached,
         batchSent, batchSkipped, batchFailed,
         cumSent, cumSkipped, cumFailed,
         finalStatus,

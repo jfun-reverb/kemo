@@ -24,10 +24,15 @@
     {{deadline_section_html}}  섹션 2 본문 (0건이면 빈 문자열로 통째 생략)
     {{campaigns_url}}          하단 「すべてのキャンペーンを見る」 CTA URL
 
-  PR 4 머지 시 복구 예정 placeholder (현 본문에 미사용 — 인플 페이지 수신거부/설정 라우트 구현 후 본문 다시 부착):
-    {{unsubscribe_url}}        1-click 수신거부 URL (토큰 포함)
-    {{mypage_settings_url}}    마이페이지 메일 수신 설정 URL
-    {{agreed_at_label}}        동의 시점 라벨 (예: 「2024年5月にマーケティング情報配信に同意いただきました」)
+    {{unsubscribe_url}}        1-click 수신거부 URL (토큰 포함) — 인플 앱 `#unsubscribe?token=`(로그인 불필요)
+    {{mypage_settings_url}}    마이페이지 「メール受信設定」 URL — 인플 앱 `#mypage-email-settings`
+    {{agreed_at_label}}        마케팅 수신 동의 안내 문구
+
+  ⚠️ 수신거부 줄은 지우지 말 것 — 일본 특정전자메일법이 요구하는 표시다.
+     2026-05-19 최초 작성 때 「PR 4 머지 시 복구」로 주석 처리됐는데, 그 PR 4(마이페이지 메일 수신 설정)는
+     2026-05-20 에 머지됐고 수신거부 라우트도 그때 함께 살아 있었다. 그런데 이 본문만 돌아오지 못해
+     **홍보 메일이 수신거부 안내 없이 계속 나갔다**(2026-08-08 전수조사에서 발견·복구).
+     빈 값이 들어가도 링크가 깨지지 않도록, 주소를 못 만드는 경우엔 발송 자체를 하지 않는 쪽이 맞다.
 
   관련 사양:
     docs/specs/2026-05-19-campaign-promo-email.md §5, §16-5, §17-7
@@ -48,7 +53,13 @@
     <a href="{{campaigns_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">すべてのキャンペーンを見る</a>
   </div>
 
-  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+  <p style="margin:24px 0 0;padding-top:14px;border-top:1px solid #eee;color:#999;font-size:11px;line-height:1.7">
+    {{agreed_at_label}}。<br>
+    今後このお知らせが不要な場合は、<a href="{{unsubscribe_url}}" style="color:#666;text-decoration:underline;font-weight:700">こちらから配信を停止</a>できます。<br>
+    受信するメールの種類は、マイページの<a href="{{mypage_settings_url}}" style="color:#666;text-decoration:underline">「メール受信設定」</a>からいつでも変更できます。
+  </p>
+
+  <p style="margin:14px 0 0;color:#999;font-size:11px;line-height:1.6">
     REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
     お問い合わせは LINE <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#999;text-decoration:underline">@reverb.jp</a> までお願いいたします。<br>
     <br>
