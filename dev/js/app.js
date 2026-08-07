@@ -20,6 +20,19 @@
 let _detailFrom = null;
 let _screenTitle = null;  // iOS GNB 제목용 — openCampaign/openActivityPage 가 담고 navigate 가 읽는다
 
+// ── 뒤로가기 — 쌓은 만큼만 되감는다 ─────────────────────────────
+// 화면에 들어오며 히스토리 항목을 쌓았는지 기억해 두고, 뒤로가기 버튼은 그것을 **소비해서**
+// 돌아간다(history.back). 예전에는 뒤로가기가 목적지로 **새 항목을 쌓는** 방식이라, 같은 화면을
+// 왕복할 때마다 스택이 두 칸씩 길어졌다. 그러면 가장자리 스와이프로 뒤로 갈 때 지나온 화면이
+// 몇 번씩 다시 나온다(입장 티켓을 반복해서 열면 응모이력이 계속 나오던 실제 보고).
+//   쌓지 않고 들어온 경우(새로고침·popstate 복원)는 되감을 항목이 없으므로 폴백으로 이동한다.
+const _pushedInto = {};
+function markPushedInto(screen, pushed) { _pushedInto[screen] = (pushed !== false); }
+function goBackFrom(screen, fallback) {
+  if (_pushedInto[screen]) { _pushedInto[screen] = false; history.back(); return; }
+  if (typeof fallback === 'function') fallback();
+}
+
 // iOS GNB 뒤로가기 버튼의 동작 — 현재 화면에 맞는 복귀 함수로 위임.
 //   상세와 활동관리는 돌아갈 곳이 서로 달라 화면 id 로 분기한다.
 function gnbBackAction() {
@@ -41,14 +54,19 @@ function gnbBackAction() {
 function navigateBackFromDetail() {
   const from = _detailFrom;
   _detailFrom = null;
-  if (from === 'mypage') {
-    navigate('mypage', false);
-    openMypageSub('applications');
-  } else if (from === 'campaigns') {
-    navigate('campaigns');
-  } else {
-    navigate('home');
-  }
+  const _fallback = function () {
+    if (from === 'mypage') {
+      navigate('mypage', false);
+      openMypageSub('applications');
+    } else if (from === 'campaigns') {
+      navigate('campaigns');
+    } else {
+      navigate('home');
+    }
+  };
+  // 들어오며 쌓은 항목이 있으면 그것을 되감는다 — 새 항목을 쌓아 돌아가면 상세를 반복해서
+  // 열고 닫을 때마다 스택이 길어져, 스와이프 뒤로가기가 지나온 화면을 여러 번 보여 준다.
+  goBackFrom('detail', _fallback);
 }
 
 function navigate(page, pushHistory) {
@@ -119,8 +137,25 @@ function navigate(page, pushHistory) {
   //   ⚠️ 같은 화면으로 다시 오는 경우는 쌓지 않는다 — 탭을 두 번 누르거나 이미 보고 있는 화면으로
   //      이동하는 경로가 여럿이라, 쌓아 두면 뒤로가기가 화면 변화 없이 헛돈다.
   if (pushHistory !== false) {
-    if (location.hash === '#' + page) history.replaceState({page}, '', '#' + page);
-    else history.pushState({page}, '', '#' + page);
+    // 「같은 화면인가」는 쿼리를 뺀 부분끼리 비교한다.
+    //   ⚠️ 해시에 쿼리가 붙는 화면이 있다 — 초대 링크(#detail-{id}?invite=CODE)·비밀번호 재설정
+    //      (#reset-pw?token_hash=...). 통째로 비교하면 그 화면을 다시 그릴 때마다 「다른 화면」으로
+    //      보여 항목이 쌓이고, 뒤로가기가 그 자리를 맴돌아 아무 데도 못 간다.
+    //   ⚠️ 양쪽 다 정규화해야 한다. 한쪽만 하면 page 에 쿼리가 실려 오는 재설정 링크가 어긋난다.
+    const _hashBase = location.hash.split('?')[0];
+    const _pageBase = '#' + page.split('?')[0];
+    if (_hashBase === _pageBase) {
+      // 같은 화면 재렌더 — 주소 인자를 아예 넘기지 않아 지금 주소를 그대로 둔다.
+      //   ⚠️ '#' + page 로 덮으면 ?invite=CODE 가 지워져, 새로고침 시 비공개 캠페인에 다시 못 들어간다.
+      history.replaceState({page}, '');
+    } else {
+      history.pushState({page}, '', '#' + page);
+      // 되감을 항목이 생긴 바로 그 순간에만 표시한다 — 화면을 **다시 그리는** 호출(신청 완료 후
+      // 상세 재렌더·티켓 날짜 전환 등)은 여기 오지 않으므로 이미 세워 둔 표시를 지우지 않는다.
+      //   ⚠️ 표시를 각 화면 함수에서 하면 재렌더가 「안 쌓았다」로 덮어써, 뒤로가기가 되감기 대신
+      //      새 항목을 쌓는 옛 동작으로 돌아간다.
+      markPushedInto(pageName, true);
+    }
   }
 
   if (page === 'admin') {
@@ -282,10 +317,14 @@ window.addEventListener('popstate', function(e) {
     else if (sub) openMypageSub(sub, false);
     else closeMypageSub();
   } else if (page.startsWith('detail-')) {
+    // 뒤로/앞으로 이동으로 여기 도착했다는 것은 스택 안에 되감을 항목이 있다는 뜻이다.
+    // 표시해 두지 않으면 화면 안 뒤로가기 버튼이 되감기 대신 새 항목을 쌓는다.
+    markPushedInto('detail', true);
     // 초대 링크(#detail-{id}?invite=CODE)로 들어올 수 있어 식별자만 떼어낸다.
     //   ⚠️ replace 만 하면 '?invite=...' 까지 캠페인 식별자로 넘어가 캠페인을 못 찾는다.
     openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
+    markPushedInto('messages', true);
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
   } else if (page.startsWith('legal-')) {
@@ -294,11 +333,13 @@ window.addEventListener('popstate', function(e) {
     _legalOpenedInApp = true;
     openLegalPage(page.replace('legal-',''), undefined, false);
   } else if (page === 'activity') {
+    markPushedInto('activity', true);
     // 앞으로가기로 활동관리 복귀. openActivityPage 를 부르면 그 안의 navigate 가 히스토리를 또 쌓으므로
     // 화면 전환만 하고, iOS 큰 제목 관찰자만 다시 건다(제목은 _screenTitle 이 그대로 유지).
     navigate(page, false);
     if (typeof setupLargeTitle === 'function') setupLargeTitle('page-activity', 'activityCampTitle');
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
+    markPushedInto('ticket', true);
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
     if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
     else navigate('mypage', false);

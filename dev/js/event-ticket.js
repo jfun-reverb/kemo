@@ -92,9 +92,19 @@ function cleanupTicketPage() {
 }
 
 function backFromTicket() {
-  if (_ticketFrom === 'detail') { history.back(); return; }
-  navigate('mypage', false);
-  if (typeof openMypageSub === 'function') openMypageSub('applications');
+  // 캠페인 상세에서 들어온 경우도 되감기로 통일 — 여기만 goBackFrom 을 우회하면 표시가 소비되지
+  // 않은 채 남아, 나중에 이 함수를 손볼 때 어긋나기 쉽다(지금은 동작 차이 없음).
+  if (_ticketFrom === 'detail') {
+    if (typeof goBackFrom === 'function') goBackFrom('ticket', function () { history.back(); });
+    else history.back();
+    return;
+  }
+  const _fallback = function () {
+    navigate('mypage', false);
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  };
+  if (typeof goBackFrom === 'function') goBackFrom('ticket', _fallback);
+  else _fallback();
 }
 
 // ── 렌더 ──────────────────────────────────────────────────────

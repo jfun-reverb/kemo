@@ -149,10 +149,14 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 
 // 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
 function navigateBackFromMessages() {
-  navigate('mypage', false);
-  // 탭 하이라이트 보정은 openMypageSub 안에 있다 — 여기서 또 부르면 같은 규칙이 두 곳에 생겨,
-  // 나중에 한쪽만 고쳤을 때 경로마다 탭이 달라진다.
-  if (typeof openMypageSub === 'function') openMypageSub('applications');
+  const _fallback = function () {
+    navigate('mypage', false);
+    // 탭 하이라이트 보정은 openMypageSub 안에 있다 — 여기서 또 부르면 같은 규칙이 두 곳에 생겨,
+    // 나중에 한쪽만 고쳤을 때 경로마다 탭이 달라진다.
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  };
+  if (typeof goBackFrom === 'function') goBackFrom('messages', _fallback);
+  else _fallback();
 }
 
 // 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).
