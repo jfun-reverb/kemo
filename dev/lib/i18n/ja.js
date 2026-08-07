@@ -473,6 +473,7 @@ window.I18N_JA = {
     postDeadlineRelative: '受取後 {days}日以内',
     purchasePeriod: '購入および領収書提出期間',
     visitPeriod: '訪問期間',
+    selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
     // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
     //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
