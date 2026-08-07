@@ -1,0 +1,276 @@
+-- ════════════════════════════════════════════════════════════════════
+-- migration 311: campaign-images 버킷 — 익명 「목록 조회」만 차단
+--                (직접 공개 링크는 그대로 열어 둔다)
+-- ────────────────────────────────────────────────────────────────────
+-- 근거: docs/research/2026-08-07-codebase-audit-findings.md M2
+--       docs/specs/2026-08-07-audit-remediation-plan.md 묶음 B
+--         "다만 목록 조회 차단은 지금 해도 된다(별개 조각)" (2026-08-07
+--         사용자 확인 — 묶음 B 전체[버킷 비공개 전환]는 보류)
+--
+-- ⚠️⚠️ 이 마이그레이션은 임시 조치다 ⚠️⚠️
+--   근본 해결(버킷을 비공개로 바꾸고 서명 주소로 전환)은 묶음 B 전체이며,
+--   **브랜드 페이지(포털)를 만들 때 함께** 한다. 지금 버킷을 통째로
+--   비공개로 바꾸면 안 되는 이유는 아래 "왜 버킷은 그대로 공개로
+--   두는가" 참조 — 브랜드사가 이 공개 링크로 영수증을 확인하는 중이라,
+--   지금 비공개 전환하면 그 자리에서 브랜드사 업무가 멈춘다(2026-08-07
+--   사용자 확인). 이 마이그레이션은 그 전환 전까지 "바깥 사람이 목록을
+--   훑어서 파일명을 알아내는 경로"만 먼저 닫는다.
+--
+-- ── 실측(2026-08-07, 운영, docs/research/…measurement-queries.md M2) ──
+--   로그인 없이 `POST /storage/v1/object/list/campaign-images` 호출 →
+--   200 OK, 영수증 파일명 1,000건 이상(응답 상한에 걸림) + 리뷰 인증샷
+--   87건이 그대로 반환됐고, 그중 하나를
+--   `/storage/v1/object/public/campaign-images/receipts/<파일명>` 으로
+--   열어 실제 사진(image/jpeg)이 뜨는 것까지 확인했다. 노출은 가정이
+--   아니라 실측 사실이다.
+--
+-- ── 현재 정책(변경 전) — 009_create_storage.sql 원본 ─────────────────
+--   INSERT INTO storage.buckets (id, name, public)
+--     VALUES ('campaign-images', 'campaign-images', true);
+--
+--   CREATE POLICY "campaign_images_select"
+--     ON storage.objects FOR SELECT
+--     USING (bucket_id = 'campaign-images');   -- TO 절 없음 → PUBLIC
+--                                               --   (anon + authenticated
+--                                               --    양쪽 다 통과)
+--
+--   INSERT/UPDATE/DELETE 3개 정책은 전부 `EXISTS(admins WHERE
+--   auth_id=auth.uid())` 로 이미 관리자 한정이라 이번 변경 대상이
+--   아니다(그대로 둔다).
+--
+-- ── 재정의 기준 전수 확인 (.claude/rules/supabase.md 관례) ───────────
+--   "campaign_images_select" 를 만들거나 다시 정의한 파일을 전수
+--   grep(`grep -rln "campaign_images_select\|campaign-images"
+--   supabase/migrations/ supabase/patches/`) 한 결과:
+--     · 009_create_storage.sql
+--         — 최초 CREATE POLICY(원본, 위 인용).
+--     · 084_security_advisor_cleanup.sql (§8, 310행 부근)
+--         — Security Advisor 가 이 정책의 LIST 경고를 잡았지만
+--           **의도적으로 손대지 않기로 결정**한 이력이 주석으로 남아
+--           있다: "버킷이 public=true 인 것은 의도된 설계(비로그인
+--           인플루언서도 이미지 열람 가능) / private 으로 전환하면
+--           anon 사용자 캠페인 이미지 접근 불가 → UX 회귀 / 향후:
+--           버킷 private 전환 + signed URL 방식으로 전환 시 재검토."
+--           정책 정의(DROP/CREATE) 자체는 없음 — 결정만 기록.
+--     · 179_audit_influencer_account.sql, 200_orient_upload_bucket_
+--       and_policy.sql — 둘 다 이 버킷을 주석에서 "기존 버킷(참고용)"
+--       으로만 언급, 정책 정의 없음.
+--     · supabase/patches/2026-04-15_dev_storage_setup.sql
+--         — 개발서버 전용 복구 패치(버킷·정책이 누락됐던 개발서버만
+--           대상). 009 와 **문자 그대로 동일한** 정책을 DROP+CREATE.
+--           운영에는 적용된 적 없음(009 가 이미 있었으므로).
+--   즉 **009 가 유일한 원본이고 084 가 "바꾸지 않기로" 결정한 이력이며,
+--   지금 이 마이그레이션이 084 이후 최초로 그 결정을 뒤집는 지점**이다
+--   — 단, 084 가 걱정한 "anon 이미지 열람 불가"는 아래에서 확인하듯
+--   이번 변경으로는 발생하지 않는다(버킷 공개 플래그는 그대로 두므로).
+--
+-- ── ① 직접 공개 링크는 이번 변경 후에도 계속 열리는가 (가장 중요) ─────
+--   결론: **연다.** 근거 3가지:
+--
+--   (a) Supabase Storage 아키텍처 — 버킷의 `public=true` 는
+--       `storage.objects` 의 행 단위 보안 정책(RLS)과 **별도의 스위치**
+--       다. `/storage/v1/object/public/{bucket}/{path}` 와 그 위에 얹힌
+--       이미지 변환 경로(`/storage/v1/render/image/public/...`, Pro
+--       플랜 Image Transformations)는 버킷이 public 인지만 확인하고
+--       storage.objects 의 SELECT 정책은 아예 평가하지 않는다 — 이게
+--       "public 버킷"이라는 기능 자체의 정의다(비공개 버킷이었다면
+--       이 경로는 애초에 404/400 을 반환하고, RLS 로 anon 을 허용해도
+--       이 공개 경로가 살아나지 않는다). RLS SELECT 정책이 실제로
+--       관여하는 경로는 `list()`(파일 목록), `/object/authenticated/...`
+--       (인증 필요 다운로드), `createSignedUrl()`(서명 주소 발급
+--       권한 확인) 세 가지다.
+--
+--   (b) 이 근거는 이 코드베이스 안에서도 이미 교차 확인된다 — 084 의
+--       주석이 "private 으로 전환하면 anon 접근 불가 → UX 회귀"라고
+--       적은 것은, RLS 정책만으로는 이 접근을 막을 수 없고 **버킷
+--       자체를 private 으로 바꿔야만** anon 접근이 끊긴다는 뜻이다
+--       (만약 RLS SELECT 정책이 이 공개 경로에 관여했다면, 084 는
+--       "private 전환 대신 anon 을 허용하는 RLS 정책을 유지하면 된다"
+--       라고 적었을 것이다 — 실제로는 "private 전환 + signed URL 로
+--       재설계"라는, RLS 와 무관한 완전히 다른 접근 방식을 "향후
+--       재검토" 대상으로 남겼다. 이게 곧 묶음 B 다).
+--
+--   (c) 클라이언트 코드가 이 URL 을 만드는 방식이 RLS 를 아예 거치지
+--       않는 방식이다 — `dev/lib/storage.js` 의 `getPublicUrl(path)`
+--       (1493·1528번째 줄)는 Supabase JS SDK 의 **로컬 문자열 조합
+--       함수**로, 네트워크 요청도 인증 헤더도 없이 그냥
+--       `{SUPABASE_URL}/storage/v1/object/public/campaign-images/{path}`
+--       문자열을 만들 뿐이다. `dev/js/ui.js` 의 `imgThumb()`(225번째
+--       줄)도 이 문자열을 `/object/public/` → `/render/image/public/`
+--       로 치환만 한다. 이 두 함수 어디에도 로그인 여부·RLS 평가가
+--       개입할 지점이 없다 — 지금 인플루언서 앱이 **비로그인 상태로
+--       캠페인 사진을 문제없이 보고 있는 것 자체**가 이 경로가 RLS 와
+--       무관하게 동작한다는 실증이다(이 앱은 이미 하루에도 수백 번
+--       이 경로로 비로그인 이미지를 서빙한다).
+--
+--   ⚠️ 이 근거는 Supabase Storage 의 공개 문서화된 아키텍처(공개
+--   버킷=RLS 우회)에 대한 이해이며, 이번 마이그레이션 실행 **직후**
+--   반드시 아래 검증 3단계로 실측 재확인한다(추정만으로 끝내지
+--   않는다).
+--
+-- ── ② 인플루언서 앱이 이 버킷을 어떻게 읽는지 (list() 사용 없음 확인) ──
+--   `grep -rn "storage\.from(.*)\.list(\|\.storage\.list(" dev/
+--   supabase/` 전수 확인 결과 이 저장소 전체에 Storage `list()` API
+--   호출이 **단 한 곳도 없다**. 비로그인 방문자가 캠페인 목록·상세를
+--   볼 때 이미지는 오직 `getPublicUrl()` 로 만든 문자열(및 그걸 감싼
+--   `imgThumb()`)을 `<img src>` 에 그대로 박아 넣는 방식뿐이다 — 위 ①
+--   근거대로 이 경로는 이번 변경의 영향을 받지 않는다.
+--
+-- ── ③ 관리자 앱이 list() 를 쓰는 곳이 있는지 ──────────────────────────
+--   같은 grep 결과, 관리자 앱(`dev/js/admin*.js`)도 campaign-images
+--   에 대해 `list()` 를 호출하는 곳이 없다. 업로드(`upload()`)·삭제
+--   (`remove()`)·공개 URL 조합(`getPublicUrl()`)만 쓴다. 관리자는
+--   항상 로그인 상태(`authenticated` 역할)이므로, 설사 향후 `list()`
+--   를 쓰는 코드가 추가되더라도 이번 정책 변경으로는 막히지 않는다
+--   (`TO authenticated` 로 좁히는 것이지 완전히 막는 게 아니다).
+--
+-- ── ④ service_role(Edge Function·배치)에 영향이 있는지 ────────────────
+--   `grep -rln "campaign-images" supabase/functions/` 결과 이 버킷을
+--   참조하는 Edge Function 이 없다(영수증·인증샷은 클라이언트가 직접
+--   Storage 에 업로드하는 구조라 서버 함수가 개입하지 않음). 설사
+--   있었더라도 무관하다 — `service_role` 키는 Supabase 에서
+--   `BYPASSRLS` 속성을 가진 역할이라 storage.objects 의 행 단위
+--   보안 정책 자체를 전부 우회한다(정책의 USING/TO 절과 무관하게
+--   항상 통과). 이번 변경은 `service_role` 동작에 어떤 영향도 주지
+--   않는다.
+--
+-- ── 왜 버킷은 그대로 공개(public=true)로 두는가 ───────────────────────
+--   버킷을 비공개로 바꾸면 위 ①의 (a)~(c) 근거가 전부 반대로
+--   작동한다 — `/object/public/...` 경로 자체가 죽어 **브랜드사가
+--   쓰는 영수증 링크와 인플루언서 앱의 모든 캠페인 사진 링크가 함께
+--   깨진다**(2026-08-07 사용자 확인: 브랜드사가 이 공개 링크로 영수증
+--   확인 중). 그래서 이번 조치는 버킷 설정(`public`)은 전혀 건드리지
+--   않고, `storage.objects` 의 SELECT 정책 대상 역할(`TO`)만 좁힌다
+--   — 정책은 `list()`·인증 다운로드·서명 주소 발급에만 관여하고,
+--   공개 직접 링크에는 애초에 관여하지 않기 때문에 이 조합이 가능하다.
+--
+-- ── 데이터베이스 변경 ────────────────────────────────────────────────
+--   "campaign_images_select" 정책을 DROP 후 동일한 USING 조건으로
+--   재생성하되, 대상 역할을 `TO authenticated` 로 좁힌다(기존 =
+--   `TO` 절 없음 = PUBLIC = anon 포함 전원). USING 조건 문자열은
+--   009 원본과 완전히 동일 — 바뀌는 것은 대상 역할뿐이다.
+--   INSERT/UPDATE/DELETE 3개 정책·버킷의 public 플래그는 무변경.
+--
+-- ── 롤백 ─────────────────────────────────────────────────────────────
+--   BEGIN;
+--     DROP POLICY IF EXISTS "campaign_images_select" ON storage.objects;
+--     CREATE POLICY "campaign_images_select"
+--       ON storage.objects FOR SELECT
+--       USING (bucket_id = 'campaign-images');
+--   COMMIT;
+--   -- 009 원본(= 이번 변경 전) 상태로 완전히 복원된다. 즉시 적용 —
+--   -- 익명 목록 조회가 다시 열린다.
+-- ════════════════════════════════════════════════════════════════════
+
+BEGIN;
+
+DROP POLICY IF EXISTS "campaign_images_select" ON storage.objects;
+
+CREATE POLICY "campaign_images_select"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'campaign-images');
+
+COMMENT ON POLICY "campaign_images_select" ON storage.objects IS
+  '[311] 009 원본과 USING 조건 동일, 대상 역할만 authenticated 로 축소. '
+  '목적: 로그인 없는 storage list() 목록 조회 차단(2026-08-07 운영 '
+  '실측 — 영수증 1,000건+·인증샷 87건 노출). 버킷 public=true 는 '
+  '무변경이라 /object/public/·/render/image/public/ 직접 링크는 '
+  '로그인 여부와 무관하게 계속 열린다(공개 버킷 직접 경로는 이 RLS '
+  '정책을 거치지 않음 — 근거는 이 파일 상단 "① 직접 공개 링크는 이번 '
+  '변경 후에도 계속 열리는가" 참조). 임시 조치 — 근본 해결(버킷 '
+  '비공개 전환 + 서명 주소)은 묶음 B, 브랜드 포털 착수 시 함께 진행.';
+
+COMMIT;
+
+-- ════════════════════════════════════════════════════════════════════
+-- 검증 (마이그레이션 실행 후 1단계씩 순서대로 결과를 확인하며 진행할
+-- 것 — 한 번에 다 실행하지 말 것. .claude/rules/supabase.md
+-- 「SQL 검증 순차 안내」 준수)
+--
+-- ⚠️ 이 마이그레이션이 만드는 방어선은 행 단위 보안 정책(RLS) 그
+--   자체다. Supabase SQL 편집기는 보통 이를 우회하는 권한
+--   (postgres/service_role)으로 실행되므로, 2·3·4단계는 SQL
+--   편집기가 아니라 **실제 HTTP 요청**(브라우저 시크릿 창 콘솔 또는
+--   curl)으로 검증해야 신뢰할 수 있다 — docs/research/2026-08-07-
+--   audit-measurement-queries.md M2 의 실측 방법과 동일한 방식.
+-- ════════════════════════════════════════════════════════════════════
+
+-- 1단계 — 정책 정의가 반영됐는지(메타데이터 조회 — RLS 평가가 아니라
+--   정의 확인이라 SQL 편집기로 충분. pg_policies 뷰 하나로 충분하며
+--   조인 불필요):
+--
+-- SELECT policyname, cmd, roles, qual AS using_식
+--   FROM pg_policies
+--  WHERE schemaname = 'storage' AND tablename = 'objects'
+--    AND policyname = 'campaign_images_select';
+-- → roles = '{authenticated}' (기존엔 '{public}' 이었을 것), using_식은
+--   변경 전과 동일하게 "bucket_id = 'campaign-images'::text" 여야 한다.
+--
+-- 버킷 public 플래그가 여전히 true 인지도 함께 확인:
+-- SELECT id, public FROM storage.buckets WHERE id = 'campaign-images';
+-- → public = true (이번 마이그레이션은 이 값을 절대 바꾸지 않는다)
+
+-- 2단계 — 실제 차단 확인 ①: 로그인 없이 목록 조회 (시크릿 창 콘솔
+--   또는 curl, M2 실측과 동일한 요청):
+--
+--   const r = await fetch(
+--     '{SUPABASE_URL}/storage/v1/object/list/campaign-images',
+--     { method: 'POST',
+--       headers: { 'Content-Type': 'application/json', apikey: '{ANON_KEY}' },
+--       body: JSON.stringify({ prefix: 'receipts', limit: 5 }) }
+--   );
+--   console.log(r.status, await r.json());
+--
+--   {SUPABASE_URL}·{ANON_KEY} 는 dev/lib/supabase.js 의 SUPABASE_ENVS
+--   값(공개 전제라 노출해도 되는 anon/publishable 키 — .claude/rules/
+--   security.md 참조).
+--
+--   → 마이그레이션 적용 **전**에는 파일 배열이 채워져 반환됐다(M2
+--     실측). 적용 **후**에는 HTTP 상태·응답이 다음 중 하나여야 한다:
+--     - 200 OK + 빈 배열 `[]` (행 단위 보안 정책이 전 행을 걸러낸
+--       "정상적인 0건" 응답 — 403 이 아니라 이 형태로 나올 수 있다.
+--       Storage list 엔드포인트는 권한 오류가 아니라 "조건에 맞는
+--       행이 없음"으로 처리하기 때문)
+--     - 또는 403/401 (호스팅 버전에 따라 명시적 거부로 나올 수도
+--       있음)
+--   두 형태 모두 "목록이 안 나온다"는 결과면 성공. 파일 배열이 채워져
+--   나오면 이 마이그레이션이 실패한 것 — 즉시 1단계로 돌아가 정책이
+--   실제로 authenticated 로 좁혀졌는지 재확인할 것.
+
+-- 3단계 — 실제 차단 확인 ②(가장 중요): 로그인 없이 직접 공개 링크는
+--   여전히 열리는가. 2단계 이전(마이그레이션 적용 전)에 이미 알고
+--   있는 실제 파일 경로 하나, 또는 관리자 화면에서 아무 캠페인이나
+--   열어 이미지 URL 을 하나 복사해 시크릿 창에서:
+--
+--   curl -I "{SUPABASE_URL}/storage/v1/object/public/campaign-images/<경로>"
+--
+--   → HTTP/2 200, content-type: image/*. 마이그레이션 적용 전후로
+--     결과가 **동일**해야 한다(200 그대로). 이게 403/404 로 바뀌면
+--     이 마이그레이션이 브랜드사 업무를 끊은 것이므로 **즉시 롤백**
+--     하고 원인을 재조사할 것 — 이 파일 상단 "① 직접 공개 링크는
+--     이번 변경 후에도 계속 열리는가" 근거가 틀렸다는 뜻이다.
+--
+--   인플루언서 앱도 함께 확인: 시크릿 창에서 캠페인 목록 화면을 열어
+--   썸네일이 평소처럼 보이는지(이미지가 깨지거나 빈 회색 박스로
+--   나오면 실패).
+
+-- 4단계 — 로그인 상태에서는 목록 조회가 여전히 되는지(관리자 화면이
+--   이 경로를 쓰게 되더라도 막히지 않아야 함 — 실제 로그인 세션의
+--   access_token 필요):
+--
+--   const { data: { session } } = await db.auth.getSession();
+--   const r = await fetch(
+--     '{SUPABASE_URL}/storage/v1/object/list/campaign-images',
+--     { method: 'POST',
+--       headers: {
+--         'Content-Type': 'application/json',
+--         apikey: '{ANON_KEY}',
+--         Authorization: `Bearer ${session.access_token}`
+--       },
+--       body: JSON.stringify({ prefix: 'receipts', limit: 5 }) }
+--   );
+--   console.log(r.status, await r.json());
+--   → 200 OK + 파일 배열이 채워져 반환된다(authenticated 역할이므로
+--     정책 통과).
+-- ════════════════════════════════════════════════════════════════════
