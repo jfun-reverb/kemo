@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786061836';
+  var CURRENT_BUILD = 'v1786062920';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-07 09:17 · 8e40df2</span>
+          <span class="admin-build-text">2026-08-07 09:35 · a524832</span>
         </div>
       </div>
     </aside>
@@ -3232,6 +3232,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <input type="hidden" id="editCampSelectionStart">
                 <input type="hidden" id="editCampSelectionEnd">
                 <div class="form-hint">시딩형용. 응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면에 안 나옴</div>
+                <div id="editCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
@@ -3662,6 +3663,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <input type="hidden" id="newCampSelectionStart">
                 <input type="hidden" id="newCampSelectionEnd">
                 <div class="form-hint">시딩형용. 응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면에 안 나옴</div>
+                <div id="newCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
@@ -39093,6 +39095,7 @@ async function suggestSubmissionEnd(prefix, baseKind) {
   if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return;
   const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
     : baseKind === 'visit' ? 'VisitEnd'
+    : baseKind === 'selection' ? 'SelectionEnd'
     : 'Deadline';
   const baseDate = $(prefix + baseSuffix)?.value;
   if (!baseDate) return;
@@ -39104,7 +39107,7 @@ async function suggestSubmissionEnd(prefix, baseKind) {
   const suggested = `${yyyy}-${mm}-${dd}`;
   const seEl = $(prefix+'SubmissionEnd');
   if (!seEl || seEl.value === suggested) return;
-  const baseLabel = {purchase: '구매 기간 종료', visit: '방문 기간 종료', recruit: '모집 종료'}[baseKind] || '기준일';
+  const baseLabel = {purchase: '구매 기간 종료', visit: '방문 기간 종료', selection: '선정 기간 종료', recruit: '모집 종료'}[baseKind] || '기준일';
   const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(${baseLabel} + 19일)`);
   if (ok) {
     seEl.value = suggested;
@@ -39124,8 +39127,11 @@ function syncCampDateMinMax(prefix) {
   const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
-  // 구매·방문: lower ~ upperPV
-  ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd'].forEach(suffix => {
+  // 구매·방문·선정: lower ~ upperPV
+  //   선정 기간이 여기 끼는 이유 — 뽑는 일이 모집보다 먼저 일어날 수는 없다(2026-08-07 결정).
+  //   하한 기준은 구매·방문과 **같은 모집 시작일**이다. 모집 마감으로 잡으면 모집 도중에
+  //   먼저 온 사람부터 뽑는 운영이 막힌다.
+  ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd','SelectionStart','SelectionEnd'].forEach(suffix => {
     const el = $(prefix+suffix);
     if (!el) return;
     if (lower) el.min = lower; else el.removeAttribute('min');
@@ -39171,7 +39177,10 @@ function syncCampRangePickerBounds(prefix) {
   const se = campRuleSubmissionEnd(prefix);
   const lower = rs || dl || '';
   const upperPV = se || '';
-  ['Purchase', 'Visit'].forEach(kind => {
+  // 선정도 같은 창 안에 둔다 — 달력에서 모집 시작 이전 날짜를 아예 못 고르게 한다.
+  //   ⚠️ 숨은 칸의 min/max 만으로는 달력이 안 따른다. 사람이 실제로 누르는 건 달력이라
+  //      여기에 넣어야 막힌다.
+  ['Purchase', 'Visit', 'Selection'].forEach(kind => {
     const fp = _campRangePickers[prefix + kind + 'Range'];
     if (!fp) return;
     fp.set('minDate', lower || null);
@@ -39188,6 +39197,8 @@ function validateCampDateRanges(prefix) {
   const pe = $(prefix+'PurchaseEnd')?.value || '';
   const [vs, ve] = campRuleVisitRange(prefix);
   const se = campRuleSubmissionEnd(prefix);
+  const ss = $(prefix+'SelectionStart')?.value || '';
+  const sne = $(prefix+'SelectionEnd')?.value || '';
   const errs = [];
   const lower = rs || dl || '';
   // 구매·방문 일자의 상한은 결과물 제출 마감일
@@ -39206,6 +39217,11 @@ function validateCampDateRanges(prefix) {
   if (!inPVRange(vs)) errs.push({kind:'visit', msg:`방문 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (!inPVRange(ve)) errs.push({kind:'visit', msg:`방문 마감일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (vs && ve && new Date(ve) < new Date(vs)) errs.push({kind:'visit', msg:'방문 마감일은 방문 시작일 이후여야 합니다'});
+  // 선정 기간 — 뽑는 일이 모집보다 먼저일 수는 없다(2026-08-07 결정).
+  //   달력이 이미 막지만, 달력을 거치지 않고 들어오는 값도 있어 저장 직전에 한 번 더 본다.
+  if (!inPVRange(ss)) errs.push({kind:'selection', msg:`선정 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
+  if (!inPVRange(sne)) errs.push({kind:'selection', msg:`선정 종료일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
+  if (ss && sne && new Date(sne) < new Date(ss)) errs.push({kind:'selection', msg:'선정 종료일은 선정 시작일 이후여야 합니다'});
   // 결과물 제출 마감일: 모집 시작 이후 + 구매·방문 종료일 이후
   if (se && lower && new Date(se) < new Date(lower)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일 이후여야 합니다'});
   if (se && pe && new Date(se) < new Date(pe)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 구매 종료일 이후여야 합니다'});
@@ -39233,6 +39249,7 @@ function validateCampDateRanges(prefix) {
 // 종류별 row 아래 div 매핑 — 한 row에 여러 위반이 있으면 같은 div에 누적 표시
 const CAMP_DATE_WARN_TARGETS = {
   recruit:    'RecruitWarn',
+  selection:  'SelectionWarn',
   purchase:   'PurchaseWarn',
   visit:      'VisitWarn',
   submission: 'SubmissionWarn',
@@ -39343,16 +39360,12 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (endEl)   endEl.value   = _fpFormatYmd(end);
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
-    // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +19일 fallback 제안
-    // ⚠️ 라디오 name 은 편집만 editRecruitType 이고 **신규는 recruitType** 이다.
-    //    newRecruitType 으로 찾으면 아무것도 안 잡혀 늘 monitor 로 폴백했고, 그래서
-    //    신규 등록에서는 기프팅의 「모집 종료 +19일」 제안이 한 번도 뜨지 않았다.
-    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'recruitType';
-    const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
-    if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
+    // ⓘ 시딩형의 제출 마감 제안은 **선정 기간 기준으로 옮겼다**(2026-08-07 사용자 결정).
+    //    제출 마감은 「뽑고 난 뒤」를 재는 게 맞아서다. 선정 기간을 비워 두면 제안이
+    //    안 뜨고 직접 입력한다 — 「언제 뜨는지」가 상황마다 갈리지 않도록 폴백을 두지 않았다.
   }
-  // monitor=구매 종료, visit=방문 종료 기준 +19일 제안
-  if ((kind === 'purchase' || kind === 'visit') && end) {
+  // monitor=구매 종료, visit=방문 종료, gifting=선정 종료 기준 +19일 제안
+  if ((kind === 'purchase' || kind === 'visit' || kind === 'selection') && end) {
     suggestSubmissionEnd(prefix, kind);
   }
   syncCampDateMinMax(prefix);
