@@ -128,7 +128,7 @@ function _renderAdminAccountsTable(admins, subs, kinds, isSuper) {
     <td>${renderInviteCell(a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td><div style="display:flex;gap:5px">
-      <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
+      ${isSuper ? `<button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>` : ''}
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
       ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:var(--red-d)" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
@@ -293,6 +293,15 @@ function openAddAdminModal() {
 }
 
 function openEditAdmin(id, email, name, role) {
+  // 관리자 수정(등급 포함)은 최고 관리자만. 목록 버튼도 최고 관리자에게만 그리지만,
+  // 이 함수를 직접 부르는 경로가 남아 있어 진입에서도 막는다.
+  //   ⚠️ 이건 화면 제어일 뿐이고 **최종 방어선은 데이터베이스 정책**이다
+  //      (마이그레이션 310 — 본인 행에서 등급을 못 바꾸게 하는 「바뀐 뒤 값 검사」).
+  //      정책이 없던 동안은 가장 낮은 등급이 이 화면으로 스스로 최고 관리자가 될 수 있었다.
+  if (currentAdminInfo?.role !== 'super_admin') {
+    toast('관리자 수정은 최고 관리자만 할 수 있습니다. 본인 이름은 「내 계정」에서 바꿀 수 있습니다.', 'error');
+    return;
+  }
   $('addAdminModalTitle').textContent = '관리자 수정';
   $('editAdminId').value = id;
   $('adminFormEmail').value = email;
