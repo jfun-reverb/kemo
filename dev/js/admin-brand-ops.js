@@ -208,7 +208,8 @@ async function loadBrandOpsDetail() {
   var results = await Promise.all([
     getBrandOpsDetail(_brandOpsDetailId),
     fetchApplications(),
-    db ? db.from('influencers').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
+    // ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212, 조치 계획 묶음 E-1).
+    db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
   ]);
   var detail = results[0];
   var apps = results[1] || [];
