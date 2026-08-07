@@ -6864,7 +6864,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -7022,8 +7022,13 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status)')
+      // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
+      //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
+      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
       .eq('campaign_id', campaignId)
+      // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
+      //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
+      .neq('status', 'draft')
       .order('submitted_at', {ascending: false});
     if (error) throw error;
     return data || [];
