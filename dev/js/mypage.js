@@ -963,13 +963,12 @@ async function submitCancelApplicationFromPage() {
     showErr(t(errKey));
     return;
   }
-  // 성공 — 알림 생성, 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
-  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === appId)?.campaign_id)) || {};
-  try {
-    if (typeof insertApplicationCancelledNotification === 'function') {
-      await insertApplicationCancelledNotification(appId, camp.title || '');
-    }
-  } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
+  // 성공 — 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
+  //   ⚠️ 취소 알림은 **서버가 만든다**(마이그레이션 309). 예전에는 여기서 브라우저가
+  //      `notifications` 에 직접 넣었는데, 그 표는 서버 함수·트리거만 쓸 수 있어
+  //      **도입 이래 한 번도 성공한 적이 없었다**(운영 실측 취소 30건 / 알림 0건).
+  //      실패가 `catch(_e) {}` 로 삼켜져 아무도 몰랐다. 여기서 다시 부르면 알림이
+  //      두 개가 되므로 되살리지 말 것.
   toast(t('appHistory.cancel.success'));
   _cancelTargetAppId = null;
   await loadMyApplications();
