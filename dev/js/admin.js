@@ -1819,6 +1819,16 @@ function _ensureFpFooterNode(fp) {
 
 // 「적용」 클릭 시 selectedDates를 hidden input에 반영하고 검증/minMax/제안 일괄 실행.
 // fp._reverbMeta = {prefix, kind, startSuffix, endSuffix} 가 setupCampRangePickers에서 부착돼 있어야 함.
+// 날짜를 골라도 폼 옆 미리보기가 안 따라오던 것을 알린다.
+//   미리보기는 폼 영역의 input·change 이벤트로 다시 그리는데, 날짜 선택기는 값을
+//   **숨은 칸에 직접 대입**해서 그 이벤트가 나지 않는다. 게다가 「적용」 버튼이 있는
+//   달력은 화면 맨 위(body)에 따로 떠 있어 폼 영역 밖이라 클릭도 안 잡힌다.
+//   그래서 날짜를 넣고도 다른 칸을 건드릴 때까지 미리보기가 옛 상태로 남아 있었다
+//   (2026-08-07 사용자 발견 — 선정 기간만이 아니라 모집·구매·방문 전부 같았다).
+function _notifyCampFormChanged() {
+  try { window.dispatchEvent(new Event('reverb:campFormChange')); } catch (e) {}
+}
+
 function _commitFpRangeToHiddenInputs(fp) {
   const meta = fp && fp._reverbMeta;
   if (!meta) return;
@@ -1842,6 +1852,7 @@ function _commitFpRangeToHiddenInputs(fp) {
   }
   syncCampDateMinMax(prefix);
   validateCampDateRangesInline(prefix);
+  _notifyCampFormChanged();
 }
 
 // 푸터 요약 텍스트 동기화 (selectedDates 기반)
@@ -2094,6 +2105,7 @@ function _commitFpSingleToInput(fp) {
   if (el) el.value = v;
   syncCampDateMinMax(prefix);
   validateCampDateRangesInline(prefix);
+  _notifyCampFormChanged();
 }
 // 모집 시작일이 오늘 이전이면 캘린더 popup 하단에 빨간 글씨 표시 (차단·모달 닫힘 없음)
 function updateRecruitPastWarn(fp, startDate) {
