@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786086683';
+  var CURRENT_BUILD = 'v1786092970';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -443,8 +443,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
 /* Pull-to-Refresh 인디케이터 — 모바일 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 */
 #ptrIndicator{
-  position:fixed; top:0; left:50%;
-  transform:translate(-50%, -56px);
+  /* 시작 높이 — 웹은 0(화면 맨 위). iOS 앱은 ios-theme.css 가 노치·다이내믹 아일랜드 높이로 덮는다.
+     숨김 위치도 이 값만큼 함께 밀어야 아이콘이 화면 위로 완전히 감춰진다(app.js 도 같은 식을 쓴다). */
+  --ptr-offset: 0px;
+  position:fixed; top:var(--ptr-offset); left:50%;
+  transform:translate(-50%, calc(-56px - var(--ptr-offset)));
   width:40px; height:40px;
   border-radius:50%;
   background:#fff;
@@ -2817,7 +2820,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-07 16:11 · 57575ec</span>
+          <span class="admin-build-text">2026-08-07 17:56 · 4656be5</span>
         </div>
       </div>
     </aside>

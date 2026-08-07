@@ -492,7 +492,9 @@ function setupPTR() {
   let isRefreshing = false;
 
   const reset = () => {
-    indicator.style.transform = 'translate(-50%, -56px)';
+    // 숨김 위치 — components.css 의 초기값과 같은 식. --ptr-offset 은 화면 맨 위에서 얼마나
+    // 내려 시작하는지(iOS 앱은 노치 높이)이고, 그만큼 더 올려야 완전히 감춰진다.
+    indicator.style.transform = 'translate(-50%, calc(-56px - var(--ptr-offset)))';
     indicator.classList.remove('active');
     if (activePage) {
       activePage.style.transition = 'transform .25s ease';

@@ -136,6 +136,10 @@ body.kb-open .page.active { padding-bottom: 8px; }
 .nav-panel-body { padding-bottom: env(safe-area-inset-bottom); }
 /* 약관 통지 배너 — 웹은 top:56px 고정이라 늘어난 GNB(56px + 상태바) 뒤에 가림 → 상태바만큼 내림 */
 #policyNoticeBannerWrap { top: calc(var(--ios-nav-h) + env(safe-area-inset-top)); }
+/* 당겨서 새로고침 아이콘 — 웹은 화면 맨 위에서 시작하지만, 기기에서는 그 자리가 카메라·
+   다이내믹 아일랜드라 아이콘이 가린다. 그 높이만큼 내려서 시작한다.
+   (숨김 위치도 이 값을 함께 쓰므로 components.css 초기값·app.js 리셋이 자동으로 따라온다) */
+#ptrIndicator { --ptr-offset: env(safe-area-inset-top); }
 
 /* ───────────────────────────────────────────
    4. 카드 — iOS식 부드러운 그림자 + 큰 둥근 모서리, 테두리 제거
