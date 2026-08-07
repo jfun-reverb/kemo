@@ -764,3 +764,124 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
    ⚠️ 이 id 규칙이 body.kb-open .page.active 를 이긴다 — 상세 화면에 입력칸이 생기면
       키보드 위에 이 여백이 흰 띠로 남는다. 그때는 여기에도 kb-open 분기를 더할 것. */
 #page-detail.page.active { padding-bottom: calc(var(--ios-tab-space) + 8px); }
+
+/* ══════════════════════════════════════════════════════════════════
+   입장 티켓 화면 — iOS Wallet 패스 톤
+   접수처에 화면을 내밀어 보여 주는 용도라, 예약번호와 QR 이 주인공이다.
+   실물 티켓 은유(가운데 절취선 + 좌우 노치)를 쓴다 — 사람들이 이미 아는 형태라
+   「이건 내밀어 보여 주는 것」이라는 게 설명 없이 읽힌다.
+   웹 원본은 dev/css/mypage.css 「입장 티켓 화면」 절. 여기서는 앱만 덮는다.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 카드가 떠 보이도록 이 화면만 iOS 그룹 배경. 좌우 노치가 이 색으로 파인다 —
+   둘은 한 쌍이라 배경을 흰색으로 되돌리면 노치가 사라진 것처럼 보인다. */
+#page-ticket.page.active { background: var(--ios-grouped-bg); }
+
+/* 화면 자체 헤더(← 入場チケット) — 상단바를 숨긴 화면이라 이 줄이 네비바 제목 역할을 한다 */
+#page-ticket .detail-back {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 17px !important; font-weight: 700;
+  letter-spacing: -.02em;                /* 큰 글자는 자간을 좁혀야 뭉치지 않는다 */
+  color: var(--ink);
+  padding: 6px 0 2px; margin-bottom: 14px !important;
+  min-height: 44px;                      /* 손가락 기준 */
+}
+#page-ticket .detail-back .material-icons-round { font-size: 22px !important; color: var(--ink); }
+#page-ticket .detail-back:active { opacity: .5; }
+/* ⚠️ 짝 화면인 #page-app-cancel 에는 위 제목 톤을 주지 않는다 — 그쪽 헤더 문구는 「戻る」(뒤로)이고
+   제목(「応募を取り消しますか？」)이 그 아래 따로 있어, 제목 톤을 입히면 뒤로가기가 제목처럼 보인다.
+   손가락 기준만 맞춘다. */
+#page-app-cancel .detail-back { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* 티켓이 여러 장일 때의 전환 — iOS 세그먼트 컨트롤(.lang-toggle 과 같은 톤) */
+.ticket-switch {
+  background: var(--ios-fill); border-radius: 10px;
+  padding: 3px; gap: 2px; margin-bottom: 14px;
+}
+/* ⚠️ min-height 를 웹의 44px 에서 38px 로 줄인 것은 의도다 — 애플 세그먼트 컨트롤 실측이
+   32~36pt 라 44px 면 알약이 아니라 버튼 무더기로 보인다. 이건 화면 전환용 보조 컨트롤이고
+   목적지가 바로 아래 카드로 보이므로, 손가락 기준 44px 를 지켜야 하는 주 동작과 성격이 다르다. */
+.ticket-switch-btn {
+  border: none !important; background: transparent !important;
+  border-radius: 8px !important; min-height: 38px; padding: 7px 14px !important;
+  color: var(--muted) !important; font-weight: 600 !important;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+}
+.ticket-switch-btn.on {
+  background: #fff !important; color: var(--ink) !important; font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.14), 0 1px 1px rgba(0,0,0,.04);
+}
+
+/* 티켓 본체 */
+.ticket-card {
+  border: none;
+  border-radius: 20px;
+  padding: 22px 18px 18px;
+  box-shadow: var(--ios-card-shadow);
+  position: relative;                    /* 아래 노치의 기준 */
+}
+.ticket-camp {
+  font-size: 14px; letter-spacing: -.01em; margin-bottom: 16px;
+}
+.ticket-qr-wrap canvas { border-radius: 12px; }
+.ticket-hint { font-size: 12.5px; line-height: 1.55; }
+
+/* 절취선 — 실선 hairline 두 겹 대신 점선 하나로 남기되 색만 iOS 톤으로 */
+.ticket-rows {
+  position: relative;
+  margin-top: 18px; padding-top: 16px;
+  border-top: 1px dashed rgba(0,0,0,.14);
+}
+/* 좌우 노치. 카드 padding(18px)만큼 바깥으로 밀어 카드 가장자리에 반쯤 걸치게 둔다.
+   ⚠️ .ticket-card 에 overflow:hidden 을 주면 이 반원이 잘려 티켓처럼 안 보인다. */
+.ticket-rows::before,
+.ticket-rows::after {
+  content: ''; position: absolute; top: -11px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ios-grouped-bg);
+}
+.ticket-rows::before { left: -28px; }
+.ticket-rows::after  { right: -28px; }
+
+/* 정보 줄 — iOS 설정앱처럼 라벨은 왼쪽 회색, 값은 오른쪽 */
+.ticket-row {
+  align-items: center;
+  padding: 10px 0;
+  border-top: .5px solid rgba(0,0,0,.08);
+}
+.ticket-rows .ticket-row:first-child { border-top: none; }
+.ticket-row span { flex: 0 0 auto; min-width: 76px; font-size: 13px; font-weight: 500; }
+.ticket-row b { text-align: right; font-size: 14px; font-weight: 600; }
+
+/* 예약번호 — 접수처에서 눈으로 읽고 손으로 불러 주는 값이라 가장 크게.
+   연회색 알약을 깔아 「옮겨 적는 값」이라는 걸 드러낸다. */
+.ticket-row b.ticket-code {
+  flex: 0 0 auto;
+  margin-left: auto;               /* 알약은 내용만큼만 넓으므로, 다른 줄의 값과 오른쪽 끝을 맞춘다 */
+  font-size: 19px; font-weight: 700;
+  background: var(--ios-fill); border-radius: 8px;
+  padding: 4px 10px; letter-spacing: .1em;
+}
+
+/* 취소 — 되돌릴 수 없는 동작이라 iOS 파괴적 동작 톤(빨간 글자, 채움 없음).
+   버튼처럼 튀지 않게 두어 실수로 누르는 것을 줄인다.
+   ⚠️ 색은 iOS 시스템 레드(#FF3B30)가 아니라 한 단계 어두운 값 — 시스템 레드는 흰 배경에서
+      대비가 3.55:1 이라 본문 크기 글자의 접근성 기준(4.5:1)에 못 미친다. 예약을 되돌릴 수 없게
+      만드는 글자라 읽기 어려우면 안 된다. */
+.ticket-cancel {
+  margin-top: 18px !important; min-height: 44px !important;
+  background: transparent !important; border: none !important;
+  border-top: .5px solid rgba(0,0,0,.08) !important;
+  border-radius: 0 !important;
+  color: #D70015 !important; font-size: 15px !important; font-weight: 600 !important;
+  padding-top: 16px !important;
+}
+.ticket-cancel:active { opacity: .5; }
+.ticket-cancel:disabled { color: var(--muted) !important; opacity: .45 !important; }
+
+/* 상태 화면(대기·입장완료·취소) — 카드 안에서 아이콘이 주인공 */
+.ticket-state { padding: 26px 8px 20px; }
+.ticket-state .material-icons-round { font-size: 48px !important; }
+.ticket-state-title { font-size: 19px; letter-spacing: -.02em; margin-top: 10px; }
+.ticket-state-hint { font-size: 12.5px; line-height: 1.65; }
+.ticket-msg { font-size: 13.5px; }
