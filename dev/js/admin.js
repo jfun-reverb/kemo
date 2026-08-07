@@ -3243,7 +3243,7 @@ function renderCampPreview(mode) {
           if (!isMonitorPreview) return '';
           const k = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
           const l1 = k === 'split' ? L.paybackNotice1Split : L.paybackNotice1;
-          return `<div style="margin:10px 12px 0;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:11px;line-height:1.6;color:#1e40af">
+          return `<div style="margin:0 12px 12px;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:11px;line-height:1.6;color:#1e40af">
             <div>${esc(l1)}</div><div>${esc(L.paybackNotice2)}</div>
           </div>`;
         })()}
