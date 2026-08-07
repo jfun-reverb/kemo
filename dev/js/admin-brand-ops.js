@@ -293,10 +293,15 @@ async function hydrateCampCertBars() {
   await Promise.all(slotEls.map(async function(el) {
     var campId = el.getAttribute('data-camp-cert');
     var slotsN = parseInt(el.getAttribute('data-slots') || '0', 10);
+    // 화면 속성으로 흉내 낸 캠페인 — 조회가 실제 캠페인 행을 물어오면 그걸로 갈아탄다(아래).
+    //   흉내 객체에는 가구매(proxy_purchase) 여부가 없어, 그대로 두면 가구매 캠페인의
+    //   인증 성공 막대가 0에서 굳는다(결과물 관리·정산은 성공으로 세는데 이 화면만 다름).
     var camp = { id: campId, recruit_type: el.getAttribute('data-rt') || '', channel: el.getAttribute('data-ch') || '' };
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
+    // 결과물이 0건이면 갈아탈 대상이 없지만, 그때는 인증 성공도 0이라 판정에 쓰이지 않는다.
+    if (delivs.length && delivs[0].campaigns) camp = delivs[0].campaigns;
     // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
     // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
     var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
