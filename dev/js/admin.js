@@ -1688,6 +1688,12 @@ function validateCampDateRanges(prefix) {
   if (!inPVRange(ss)) errs.push({kind:'selection', msg:`선정 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (!inPVRange(sne)) errs.push({kind:'selection', msg:`선정 종료일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (ss && sne && new Date(sne) < new Date(ss)) errs.push({kind:'selection', msg:'선정 종료일은 선정 시작일 이후여야 합니다'});
+  // 선정이 모집보다 **먼저 끝날** 수는 없다(2026-08-07 사용자 지적).
+  //   시작은 모집 중이어도 된다(먼저 온 사람부터 뽑는 운영). 하지만 모집이 아직 열려 있는데
+  //   선정이 끝나면 **그 뒤에 응모한 사람은 심사조차 받지 못한다** — 화면상으로도 말이 안 된다.
+  if (sne && dl && new Date(sne) < new Date(dl)) {
+    errs.push({kind:'selection', msg:'선정 종료일은 모집 마감일 이후여야 합니다. 모집이 끝나기 전에 선정이 끝나면 그 뒤 응모자는 심사받지 못합니다'});
+  }
   // 결과물 제출 마감일: 모집 시작 이후 + 구매·방문 종료일 이후
   if (se && lower && new Date(se) < new Date(lower)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일 이후여야 합니다'});
   if (se && pe && new Date(se) < new Date(pe)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 구매 종료일 이후여야 합니다'});
