@@ -1734,3 +1734,68 @@ async function withSubmitLock(key, btn, busyLabel, fn) {
 function clearSubmitLocks() {
   _submitLocks.clear();
 }
+
+// =============================================================================
+// 앱 오류 기록 헬퍼 — 「사용자에게 문구만 보여주고 흔적은 안 남기는」 자리를 막는다
+//   사양: docs/specs/2026-08-07-app-error-visibility.md
+//
+// 배경(실제 사고): 본인 응모 취소 함수가 2026-05-12 부터 약 3개월간 **모든 호출이 실패**
+//   했는데 관리자 오류 로그에 흔적이 0건이었다. 원인은 두 겹 —
+//     ① 데이터 접근 계층이 오류를 예외로 던지지 않고 `{ok:false, error}` 로 **반환**해
+//        전역 미처리 예외 수집기에 안 걸렸고,
+//     ② 화면이 그 값을 자체 문구 사전으로 매핑하며 `friendlyErrorJa()` 를 안 거쳐
+//        「처리된 오류」 수집 훅(ui.js)도 안 돌았다.
+//   그래서 인플루언서에게는 「취소하지 못했습니다」만 보이고 아무 데도 안 남았다.
+//
+// 이 헬퍼는 **화면 문구도 반환값도 바꾸지 않고 기록만 얹는다.** 오류를 예외로 승격하지
+//   않는 이유: 승격하면 인플루언서 화면이 「아무 반응 없음」이 되어 지금보다 나빠진다.
+//
+// ⚠️ 인플루언서 앱 전용으로 동작한다. `collectClientError` 가 인플루언서 빌드에만
+//    들어 있어(build.sh), 관리자 앱에서 부르면 조용히 아무 일도 하지 않는다.
+//    관리자 앱 수집은 별도 작업.
+// =============================================================================
+
+// 「미리 정의된 업무 거부」로 볼 패턴 — 결함이 아니라 정상 동작이다.
+//   여기에 걸리면 기록은 하되 `is_expected=true` 로 표시해, 관리자 오류 로그에서
+//   진짜 결함과 갈라 볼 수 있게 한다(전부 안 남기면 「거부가 늘었다」는 신호까지 잃는다).
+//   ⚠️ 새 서버 거부 코드를 만들 때 여기에도 추가할 것 — 빠뜨리면 정상 거부가
+//      「예상 못 한 오류」로 쌓여 진짜 결함이 묻힌다.
+const APP_ERROR_EXPECTED_PATTERNS = [
+  // 세션 만료 — 다시 로그인하면 되는 정상 상황
+  /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
+  // 로그인·가입 거부 — 비밀번호 오입력·기가입·메일 미확인은 결함이 아니다.
+  //   ⚠️ 메일 미확인은 서버가 주는 문구가 자리마다 다르다 — 코드값 `email_not_confirmed`
+  //      와 사람이 읽는 `Email not confirmed`(공백) 둘 다 잡아야 한다. 하나만 넣으면
+  //      운영에서 가장 흔한 거절이 「예상 못 한 오류」로 쌓인다(운영은 메일 확인 필수).
+  /Invalid login credentials|already registered|already exists|email.?not.?confirmed/i,
+  // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
+  /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
+  // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
+  //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
+  //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
+  /event_status_change_blocked/,
+  /모집 정원|slots_full|under_age|age_policy/,
+  // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
+  /uidx_applications_user_campaign|applications_user_camp_active_uidx/,
+  /deliverables_review_image_app_channel_uniq|uidx_deliverables_post_url/,
+  /post_already_approved/,
+];
+
+// 오류 1건을 관리자 오류 로그로 보낸다. 절대 throw 하지 않는다.
+//   context       : 어느 기능인지 나타내는 **고정 문자열**(함수 이름 권장).
+//                   ⚠️ 사용자 입력값·식별자를 넣지 말 것 — 그대로 저장된다.
+//   err           : Error 객체 · 문자열 · 서버가 준 거부 코드 아무거나
+//   expectedCodes : 이 자리에서 「정상 거부」로 볼 코드 목록(배열). 화면이 이미 사전으로
+//                   매핑하고 있는 코드들을 그대로 넘기면 된다.
+function logAppError(context, err, expectedCodes) {
+  if (typeof collectClientError !== 'function') return;   // 관리자 앱 등 — 무음
+  try {
+    const s = String((err && err.message) || err || '');
+    if (!s) return;
+    let expected = APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(s));
+    if (!expected && expectedCodes && expectedCodes.length) {
+      expected = expectedCodes.some(c => c && (s === c || s.indexOf(c) >= 0));
+    }
+    collectClientError(err, 'handled', { context: context, expected: expected });
+  } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }
+}

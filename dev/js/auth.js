@@ -99,7 +99,8 @@ async function handleSignup(e) {
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
     // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
-    if (error) { errEl.textContent=t('authError.signupFailed'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
+    // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
+    if (error) { logAppError('handleSignup', error); errEl.textContent=t('authError.signupFailed'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
@@ -111,12 +112,17 @@ async function handleSignup(e) {
       }
       try {
         await upsertInfluencer({id: data.user.id, ...userData});
-      } catch(dbErr) {}
+      } catch(dbErr) {
+        // ⚠️ 계정은 만들어졌는데 프로필 행이 안 생긴 상태로 넘어간다(무음).
+        //    가입은 성공한 것처럼 보이므로 기록이 없으면 영영 드러나지 않는다.
+        logAppError('handleSignup.upsertInfluencer', dbErr);
+      }
       currentUser = data.user;
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
     // 영문 예외 메시지 노출 금지 — 일반 안내로 통일
+    logAppError('handleSignup', e);
     errEl.textContent=t('authError.signupFailed'); errEl.style.display='block';
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
@@ -146,6 +152,8 @@ async function handleLogin(e) {
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
+      // 비밀번호 오입력·메일 미확인은 정상 거부로 자동 분류된다(shared.js 패턴 목록).
+      logAppError('handleLogin', error);
       if (error.message?.includes('Email not confirmed')) {
         errEl.textContent=t('authError.emailUnverifiedDetail');
       } else {
@@ -170,7 +178,11 @@ async function handleLogin(e) {
         try {
           await upsertInfluencer({id: data.user.id, email, created_at: new Date().toISOString()});
           currentUserProfile = {id: data.user.id, email};
-        } catch(e) {}
+        } catch(e) {
+          // ⚠️ 프로필 없는 계정을 되살리는 마지막 구제 경로다. 여기까지 실패하면
+          //    그 사람은 프로필 없이 앱을 쓰게 되는데 지금까지 무음이었다.
+          logAppError('handleLogin.upsertInfluencer', e);
+        }
       }
       toast(t('auth.toast.welcomeBack'),'success'); updateGnb();
       // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
@@ -178,6 +190,7 @@ async function handleLogin(e) {
       navigate('home');
     }
   } catch(e) {
+    logAppError('handleLogin', e);
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
   }
   btn.disabled=false; btn.textContent=t('auth.login.btn');
@@ -217,7 +230,10 @@ async function handleForgotPassword(e) {
     const authClient = (typeof dbAuthRequest !== 'undefined' && dbAuthRequest) ? dbAuthRequest : db;
     const {error} = await authClient.auth.resetPasswordForEmail(email);
     if (error) {
-      // 영문 서버 메시지·계정 존재 힌트 노출 금지 — 일반 안내로 통일
+      // 영문 서버 메시지·계정 존재 힌트 노출 금지 — 일반 안내로 통일.
+      //   ⚠️ 인플루언서 비밀번호 찾기는 실제로 고장 난 적이 있는 경로다(2026-07-20).
+      //      화면 문구는 그대로 두고 원인만 남긴다.
+      logAppError('handleForgotPassword', error);
       errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
@@ -226,6 +242,7 @@ async function handleForgotPassword(e) {
       $('forgotForm').reset();
     }
   } catch (err) {
+    logAppError('handleForgotPassword', err);
     errEl.textContent = t('authError.genericError');
     errEl.style.display = 'block';
   }
@@ -268,6 +285,7 @@ async function handleResetPassword(e) {
     const {error} = await db.auth.updateUser({password: pw});
     if (error) {
       // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
+      logAppError('handleResetPassword', error);
       errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
@@ -277,6 +295,7 @@ async function handleResetPassword(e) {
       navigate('login');
     }
   } catch (err) {
+    logAppError('handleResetPassword', err);
     errEl.textContent = t('authError.genericError');
     errEl.style.display = 'block';
   }

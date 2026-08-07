@@ -156,6 +156,9 @@ async function handleUnsubscribePage(token) {
       show(elInvalid);
     }
   } catch(e) {
+    // ⚠️ 통신 장애도 「잘못된 링크」 화면이 된다 — 수신거부를 하려던 사람이
+    //    링크가 죽은 줄 알고 포기한다(법적으로 민감한 경로라 흔적이 필요하다).
+    logAppError('handleUnsubscribePage', e);
     show(elInvalid);
   }
 }
@@ -189,11 +192,13 @@ async function handleRecoveryTokenLink(tokenHash) {
   if (!tokenHash || !db) { failed(); return; }
   try {
     const {error} = await db.auth.verifyOtp({token_hash: tokenHash, type: 'recovery'});
-    if (error) { failed(); return; }
+    // 만료된 링크는 정상 거부지만, 그 밖의 원인이면 비밀번호를 못 바꾸는 상태가 된다.
+    if (error) { logAppError('handleRecoveryTokenLink', error); failed(); return; }
     show(elForm);
     // 주소에서 일회용 값 제거 — 이미 쓴 값이라, 남겨두면 새로고침 시 만료 화면이 떠 혼란을 준다.
     try { history.replaceState({page:'reset-pw'}, '', '#reset-pw'); } catch(e) {}
   } catch(e) {
+    logAppError('handleRecoveryTokenLink', e);
     failed();
   }
 }

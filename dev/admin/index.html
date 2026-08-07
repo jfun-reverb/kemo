@@ -1819,6 +1819,14 @@
                 </select>
               </div>
               <div class="admin-filter-group">
+                <label>종류</label>
+                <select id="errFilterExpected" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
+                  <option value="real">예상 못 한 오류만</option>
+                  <option value="expected">정상 거부만</option>
+                  <option value="">전체</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
                 <label>앱</label>
                 <select id="errFilterSource" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>

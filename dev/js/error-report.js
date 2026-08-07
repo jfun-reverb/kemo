@@ -64,8 +64,12 @@
     return 'fp' + (h >>> 0).toString(36);
   }
 
-  // fingerprint: 메시지 정규화(숫자·UUID 제거) + 스택 첫 위치
-  function _fingerprint(msg, stack) {
+  // fingerprint: 메시지 정규화(숫자·UUID 제거) + 스택 첫 위치 + 맥락(어느 기능인지)
+  //   ⚠️ 맥락을 넣는 이유 — 데이터 접근 계층이 오류를 「예외」가 아니라 「문자열 반환값」으로
+  //      넘기는 자리가 많다. 그런 값은 스택이 비어 있어, 서로 다른 기능에서 난 같은 문구가
+  //      한 행으로 뭉친다(어디서 났는지 영영 알 수 없음). 맥락이 그 자리를 대신한다.
+  //   ⚠️ 맥락이 없으면 계산식이 종전과 완전히 동일하다 — 기존에 쌓인 행과 계속 합쳐진다.
+  function _fingerprint(msg, stack, context) {
     const norm = (msg || '')
       .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '#uuid#')
       .replace(/\d+/g, '#')
@@ -74,7 +78,7 @@
       .replace(/:\d+:\d+/g, '')
       .replace(/\d+/g, '#')
       .slice(0, 120);
-    return _hash(norm + '|' + loc);
+    return _hash(norm + '|' + loc + (context ? '|' + context : ''));
   }
 
   function _isNoise(msg, stack, kind) {
@@ -98,7 +102,11 @@
   }
 
   // 에러 1건 수집 → 마스킹 → reportClientError RPC. 절대 throw 안 함.
-  async function collectClientError(err, kind) {
+  //   opts.context  : 어느 기능에서 났는지(함수 이름 등 고정 문자열). ⚠️ 사용자 입력값·식별자
+  //                   금지 — 그대로 저장되므로 개인정보가 실릴 수 있다.
+  //   opts.expected : true 면 「미리 정의된 업무 거부」(마감 지남·정원 초과 등). 관리자 화면이
+  //                   이 값으로 진짜 결함과 갈라 보여준다. 판정은 shared.js 의 logAppError.
+  async function collectClientError(err, kind, opts) {
     if (_reporting) return;
     try {
       const msg = _toMessage(err);
@@ -107,7 +115,8 @@
       // kind 를 넘겨야 2층 일반 규칙이 「미처리 예외에만」 적용된다.
       if (_isNoise(msg, stack, kind)) return;
 
-      const fp = _fingerprint(msg, stack);
+      const context = (opts && opts.context) ? String(opts.context).slice(0, 80) : null;
+      const fp = _fingerprint(msg, stack, context);
       const now = Date.now();
       const last = _recentFp.get(fp);
       if (last && (now - last) < DEBOUNCE_MS) return;   // 디바운스
@@ -126,8 +135,11 @@
         p_error_code: codeMatch ? codeMatch[1] : null,
         p_stack: _mask(stack).slice(0, 4000),
         p_page_hash: _mask((location.hash || '').replace(/\d+/g, '#')).slice(0, 200),
-        p_context: null,
+        // 맥락도 마스킹을 거친다 — 고정 문자열만 넣기로 했으나, 실수로 값이 섞여도
+        // 개인정보가 그대로 저장되지 않게 하는 마지막 방어선(서버가 한 번 더 가린다).
+        p_context: context ? _mask(context) : null,
         p_user_agent: (navigator.userAgent || '').slice(0, 512),
+        p_is_expected: !!(opts && opts.expected),
       };
 
       _reporting = true;

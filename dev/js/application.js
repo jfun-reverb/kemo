@@ -521,6 +521,7 @@ async function loadEventSlotPicker(camp) {
     renderEventSlotList();
   } catch (e) {
     console.warn('[loadEventSlotPicker]', e);
+    logAppError('loadEventSlotPicker', e);
     // 조회 실패를 「타임 없음」으로 보여 주면 방문객이 행사가 끝난 줄 안다 — 다시 시도하라고 알린다.
     listEl.innerHTML = `<div style="font-size:13px;color:var(--red);padding:12px 0">${t('event.slotLoadFailed')}</div>`;
   }
@@ -657,11 +658,21 @@ async function submitEventReservation(camp) {
     res = await reserveEventTicket(_selectedEventSlotId, inviteCode, cautionAgreedAt, cautionSnapshot);
   } catch (e) {
     console.error('[submitEventReservation]', e);
+    logAppError('reserveEventTicket', e);
     toast(t('event.failGeneric'), 'error');
     return;
   }
 
   if (!res || !res.ok) {
+    // 사전에 있는 사유는 정상 거부. 그 밖의 값은 예상 못 한 오류로 기록된다
+    // (기본 문구 event.failGeneric 이 원인을 덮어 버리는 자리라 기록이 유일한 단서다).
+    //   ⚠️ `invalid_campaign_type`·`permission_denied` 는 **일부러 뺐다** — 화면 사전에는
+    //      있지만 「행사가 아닌 캠페인에 예약을 시도」·「남의 자리를 건드림」이라 정상 동작이
+    //      아니다. 정상 거부로 분류하면 진짜 결함이 조용히 묻힌다.
+    logAppError('reserveEventTicket', (res && res.reason) || 'no_result', [
+      'invite_required', 'invite_mismatch', 'already_applied', 'slot_closed',
+      'deadline_passed', 'birthdate_required', 'under_age', 'not_found'
+    ]);
     toast(eventReserveFailMessage(res && res.reason), 'error');
     // 정원이 방금 찼거나 타임이 닫힌 경우는 화면 숫자가 낡은 것이므로 다시 불러온다.
     if (res && (res.reason === 'slot_closed' || res.reason === 'not_found')) {
@@ -918,6 +929,9 @@ async function _submitApplicationInner() {
     if (camp) camp.applied_count = (camp.applied_count||0) + 1;
   } catch(e) {
     if (e.message?.includes('row-level security')) {
+      // ⚠️ 이 분기는 return 으로 빠져나가 아래 friendlyErrorJa 를 안 거친다 —
+      //    세션 만료로 보이지만 실제로는 접근 정책 결함일 수도 있어 기록해 둔다.
+      logAppError('submitApplication.rls', e);
       toast(t('apply.sessionExpired'),'error');
       closeModal('applyModal');
       currentUser = null; currentUserProfile = null;
@@ -1245,7 +1259,8 @@ async function openActivityPage(applicationId, campaignId, from) {
         const hasApprovedDeliv = ds.some(d => d.status === 'approved');
         canCancel = !hasApprovedDeliv;
       }
-    } catch(_e) { canCancel = false; }
+    // ⚠️ 조회가 실패하면 취소 버튼이 **조용히 사라진다**(취소가 막힌 것처럼 보인다).
+    } catch(_e) { logAppError('openActivityPage.cancelCheck', _e); canCancel = false; }
     cancelBtnEl.style.display = canCancel ? '' : 'none';
     cancelBtnEl.dataset.appId = applicationId;
   }

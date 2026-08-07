@@ -96,6 +96,9 @@ async function fetchCampaigns() {
     }
     return DEMO_CAMPAIGNS.slice();
   } catch(e) {
+    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
+    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    logAppError('fetchCampaigns', e);
     return DEMO_CAMPAIGNS.slice();
   }
 }
@@ -792,7 +795,12 @@ async function countActiveApplications(campaignId) {
       .in('status', ['pending', 'approved']);
     if (error) throw error;
     return count || 0;
-  } catch(e) { return 0; }
+  } catch(e) {
+    // ⚠️ 조회 실패가 0(=「아무도 응모 안 함」)으로 읽혀 **정원이 남은 것처럼 보인다**.
+    //    반환값은 종전 그대로 두고 기록만 남긴다 — 뒤바뀐 판정을 사후에 추적하기 위함.
+    logAppError('countActiveApplications', e);
+    return 0;
+  }
 }
 
 async function insertApplication(app) {
@@ -815,12 +823,16 @@ async function checkDuplicateApplication(userId, campaignId) {
   if (!db) return false;
   // cancelled 행은 재응모 허용을 위해 중복으로 보지 않는다 (migration 104,
   // partial unique index `applications_user_camp_active_uidx` 와 일치).
-  const {data} = await db.from('applications')
+  // ⚠️ 조회가 실패하면 「중복 아님」으로 읽혀 검사를 그냥 통과한다(서버 유일 제약이
+  //    최종 방어선이라 잘못 저장되지는 않지만, 인플루언서에게는 원인 모를 오류로 보인다).
+  //    반환값은 종전 그대로 두고 오류만 받아 기록한다.
+  const {data, error} = await db.from('applications')
     .select('id')
     .eq('user_id', userId)
     .eq('campaign_id', campaignId)
     .neq('status', 'cancelled')
     .maybeSingle();
+  if (error) logAppError('checkDuplicateApplication', error);
   return !!data;
 }
 
@@ -943,7 +955,7 @@ async function fetchMyNotifications(opts) {
     const {data, error} = await q;
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[fetchMyNotifications]', e); return []; }
+  } catch(e) { console.error('[fetchMyNotifications]', e); logAppError('fetchMyNotifications', e); return []; }
 }
 
 // 알림 1건 읽음 처리
@@ -957,7 +969,7 @@ async function markNotificationRead(notificationId) {
         .is('read_at', null);
       if (error) throw error;
     });
-  } catch(e) { console.error('[markNotificationRead]', e); }
+  } catch(e) { console.error('[markNotificationRead]', e); logAppError('markNotificationRead', e); }
 }
 
 // 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
@@ -978,7 +990,7 @@ async function markNotificationsReadByRef(refTable, refId) {
         .is('read_at', null);
       if (error) throw error;
     });
-  } catch(e) { console.error('[markNotificationsReadByRef]', e); }
+  } catch(e) { console.error('[markNotificationsReadByRef]', e); logAppError('markNotificationsReadByRef', e); }
 }
 
 // 특정 응모건의 미읽음 message_received 알림 일괄 읽음 처리
@@ -998,7 +1010,7 @@ async function markMessageNotificationsRead(applicationId) {
         .is('read_at', null);
       if (error) throw error;
     });
-  } catch(e) { console.error('[markMessageNotificationsRead]', e); }
+  } catch(e) { console.error('[markMessageNotificationsRead]', e); logAppError('markMessageNotificationsRead', e); }
 }
 
 // 알림 1건 삭제 (본인만)
@@ -1009,7 +1021,7 @@ async function deleteNotification(id) {
       const {error} = await db?.from('notifications').delete().eq('id', id);
       if (error) throw error;
     });
-  } catch(e) { console.error('[deleteNotification]', e); }
+  } catch(e) { console.error('[deleteNotification]', e); logAppError('deleteNotification', e); }
 }
 
 // 전체 알림 읽음 처리
@@ -1027,7 +1039,7 @@ async function markAllNotificationsRead() {
         .is('read_at', null);
       if (error) throw error;
     });
-  } catch(e) { console.error('[markAllNotificationsRead]', e); }
+  } catch(e) { console.error('[markAllNotificationsRead]', e); logAppError('markAllNotificationsRead', e); }
 }
 
 // 본인 응모 취소 완료 알림 (notifications kind='application_cancelled')
@@ -1059,7 +1071,7 @@ async function insertApplicationCancelledNotification(applicationId, campaignTit
     });
   } catch(e) {
     // 알림 INSERT 실패는 사용자 흐름 차단 안 함 (취소 자체는 RPC 로 이미 성공)
-    console.warn('[insertApplicationCancelledNotification]', e);
+    console.warn('[insertApplicationCancelledNotification]', e); logAppError('insertApplicationCancelledNotification', e);
   }
 }
 
@@ -1102,7 +1114,7 @@ async function fetchDeliverablesForUser(filters) {
     const {data, error} = await query;
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[fetchDeliverablesForUser]', e); return []; }
+  } catch(e) { console.error('[fetchDeliverablesForUser]', e); logAppError('fetchDeliverablesForUser', e); return []; }
 }
 
 // ── Draft 플로우 (Stage: draft 제출 플로우) ──
@@ -1369,7 +1381,7 @@ async function deleteDraftDeliverable(id) {
       if (error) throw error;
       ok = true;
     });
-  } catch(e) { console.error('[deleteDraftDeliverable]', e); }
+  } catch(e) { console.error('[deleteDraftDeliverable]', e); logAppError('deleteDraftDeliverable', e); }
   return ok;
 }
 
@@ -1399,11 +1411,14 @@ async function submitDrafts(applicationId, kind) {
         count++;
         // 제출 이벤트 로그 (RPC submit_deliverable) — 실패해도 제출 자체는 유효하므로 무음
         try { await db.rpc('submit_deliverable', {p_deliverable_id: row.id}); }
-        catch(e) { console.error('[submit_deliverable rpc]', e); }
+        catch(e) { console.error('[submit_deliverable rpc]', e); logAppError('submit_deliverable', e); }
       } catch(e) {
         failed++;
         if (!firstErr) firstErr = e;
         console.error('[submitDrafts row]', row.id, e);
+        // ⚠️ 1건이라도 성공하면 아래에서 firstErr 를 버린다(호출부로 안 던짐) —
+        //    그래서 「일부만 올라간」 상황이 어디에도 안 남았다.
+        logAppError('submitDrafts', e);
       }
     }
   });
@@ -1426,7 +1441,7 @@ async function fetchDeliverableGate(applicationId) {
     if (error) throw error;
     return Array.isArray(data) ? data : null;
   } catch(e) {
-    console.error('[fetchDeliverableGate]', e);
+    console.error('[fetchDeliverableGate]', e); logAppError('fetchDeliverableGate', e);
     return null;
   }
 }
@@ -2985,7 +3000,7 @@ async function fetchCancelReasons() {
     .eq('kind', 'cancel_reason')
     .eq('active', true)
     .order('sort_order');
-  if (error) { console.error('[fetchCancelReasons]', error); return []; }
+  if (error) { console.error('[fetchCancelReasons]', error); logAppError('fetchCancelReasons', error); return []; }
   return data || [];
 }
 
@@ -3014,7 +3029,7 @@ async function cancelApplication(applicationId, opts) {
   } catch(e) {
     // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
     const msg = e?.message || 'unknown';
-    console.error('[cancelApplication]', e);
+    console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
     return {ok: false, error: msg};
   }
 }
@@ -3065,7 +3080,7 @@ async function unsubscribeByToken(token) {
     return {ok: false, error: data?.reason || 'invalid_token'};
   } catch(e) {
     // 잘못된 UUID 형식 등은 무효 토큰으로 처리
-    console.error('[unsubscribeByToken]', e);
+    console.error('[unsubscribeByToken]', e); logAppError('unsubscribeByToken', e);
     return {ok: false, error: 'invalid_token'};
   }
 }
@@ -3083,7 +3098,7 @@ async function resubscribeMarketing() {
     });
     return {ok: true};
   } catch(e) {
-    console.error('[resubscribeMarketing]', e);
+    console.error('[resubscribeMarketing]', e); logAppError('resubscribeMarketing', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }
@@ -3107,7 +3122,7 @@ async function updateMarketingOptIn(value) {
     });
     return {ok: true};
   } catch(e) {
-    console.error('[updateMarketingOptIn]', e);
+    console.error('[updateMarketingOptIn]', e); logAppError('updateMarketingOptIn', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }
@@ -3163,7 +3178,9 @@ async function withdrawOwnMessage(messageId, attachmentPaths = []) {
   if (attachmentPaths && attachmentPaths.length) {
     // 본인 회수는 첨부 즉시 삭제 (개인정보 최소화). 실패해도 회수 자체는 성공이므로 경고만.
     try { await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths); }
-    catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); }
+    // ⚠️ 여기서 실패하면 회수했다고 표시된 메시지의 첨부 파일이 저장소에 남는다
+    //    (개인정보). 기록이 없으면 남은 파일을 찾아 지울 방법이 없었다.
+    catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); logAppError('withdrawOwnMessage.attachment', e); }
   }
 }
 
@@ -3196,7 +3213,7 @@ async function fetchInfluencerUnreadMessageThreads() {
     .select('application_id, campaign_id, unread_for_influencer, last_message_at')
     .gt('unread_for_influencer', 0)
     .order('last_message_at', { ascending: false });
-  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); return []; }
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return []; }
   return data || [];
 }
 
@@ -3490,7 +3507,7 @@ async function fetchFaqNodes() {
     .select('*')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
-  if (error) { console.warn('[fetchFaqNodes]', error); return []; }
+  if (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
   return data || [];
 }
 
@@ -3584,7 +3601,7 @@ async function recordFaqInteraction(applicationId, faqNodeId, action) {
       if (error) throw error;
       return { ok: true, data };
     });
-  } catch (e) { console.error('[recordFaqInteraction]', e); return { ok: false, error: e?.message }; }
+  } catch (e) { console.error('[recordFaqInteraction]', e); logAppError('recordFaqInteraction', e); return { ok: false, error: e?.message }; }
 }
 
 // 관리자 응모건 상태 한 줄(§3-1)용 — 응모 1건의 status + 결과물 status 배열을 함께 조회.
@@ -3645,18 +3662,28 @@ async function fetchClientErrors(filters = {}) {
       if (filters.status) q = q.eq('status', filters.status);
       if (filters.source) q = q.eq('source', filters.source);
       if (filters.since)  q = q.gte('last_seen_at', filters.since);
+      // 마이그레이션 308 — 「미리 정의된 업무 거부」(마감 지남·정원 초과 등)를 갈라 본다.
+      //   ⚠️ true/false 를 명시적으로 비교한다. `if (filters.expected)` 로 쓰면 false 가
+      //      「필터 없음」으로 읽혀 「예상 못 한 오류만」 보기가 통째로 죽는다.
+      if (filters.expected === true || filters.expected === false) {
+        q = q.eq('is_expected', filters.expected);
+      }
       return q.order('last_seen_at', { ascending: false });
     });
   } catch (e) { console.error('[fetchClientErrors]', e); return []; }
 }
 
 // 미해결(open) 오류 건수 — 사이드바 배지용
+//   ⚠️ 「미리 정의된 업무 거부」는 세지 않는다(마이그레이션 308). 마감 지남·정원 초과처럼
+//      정상 동작인 것까지 배지에 얹으면 숫자가 늘 떠 있게 되고, 그러면 「원래 빨간 게 있는
+//      화면」으로 학습돼 진짜 결함을 놓친다 — 이번 사고(3개월 침묵)와 같은 결말이 된다.
 async function fetchClientErrorOpenCount() {
   if (!db) return 0;
   try {
     const { count, error } = await db.from('client_error_logs')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'open');
+      .eq('status', 'open')
+      .eq('is_expected', false);
     if (error) throw error;
     return count || 0;
   } catch (e) { console.error('[fetchClientErrorOpenCount]', e); return 0; }
@@ -4110,7 +4137,7 @@ async function isSettlementPublic() {
     const {data, error} = await db.rpc('is_settlement_public');
     if (error) throw error;
     return data === true;
-  } catch(e) { console.error('[isSettlementPublic]', e); return false; }
+  } catch(e) { console.error('[isSettlementPublic]', e); logAppError('isSettlementPublic', e); return false; }
 }
 
 // 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
@@ -4127,7 +4154,7 @@ async function fetchMySettlements() {
     `).order('created_at', {ascending: false});
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[fetchMySettlements]', e); return []; }
+  } catch(e) { console.error('[fetchMySettlements]', e); logAppError('fetchMySettlements', e); return []; }
 }
 
 // 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
@@ -4450,7 +4477,11 @@ async function fetchEventSlots(campaignId) {
       .order('start_time', {ascending: true});
     if (error) throw error;
     return data || [];
-  } catch(e) { return []; }
+  } catch(e) {
+    // 시간대를 못 받으면 예약 화면이 빈 채로 열린다 — 기록만 추가(반환값 유지).
+    logAppError('fetchEventSlots', e);
+    return [];
+  }
 }
 
 // 타임별 정원·확정·대기 수. 방문객은 남의 티켓 행을 볼 수 없어 직접 셀 수 없으므로
@@ -4473,7 +4504,11 @@ async function fetchEventSlotCounts(campaignId) {
       };
     });
     return map;
-  } catch(e) { return {}; }
+  } catch(e) {
+    // 잔여 좌석을 못 받으면 화면이 「자리 없음」처럼 보인다 — 기록만 추가(반환값 유지).
+    logAppError('fetchEventSlotCounts', e);
+    return {};
+  }
 }
 
 // 타임 등록·수정 (캠페인 관리 권한 이상). row.id 가 있으면 수정, 없으면 신규.
@@ -4569,7 +4604,11 @@ async function fetchMyEventTickets() {
       .order('created_at', {ascending: false});
     if (error) throw error;
     return data || [];
-  } catch(e) { return []; }
+  } catch(e) {
+    // 내 예약을 못 받으면 「예약 내역 없음」으로 보인다 — 기록만 추가(반환값 유지).
+    logAppError('fetchMyEventTickets', e);
+    return [];
+  }
 }
 
 // 캠페인별 티켓 전체(관리자 예약 현황·리포트). 인플루언서 이름을 함께 가져온다.
@@ -4626,7 +4665,12 @@ async function verifyInviteCode(campaignId, code) {
     });
     if (error) throw error;
     return data === true;
-  } catch(e) { return false; }
+  } catch(e) {
+    // ⚠️ 조회 실패도 false 라, 인플루언서 화면에는 「번호가 틀렸습니다」로 보인다.
+    //    (통신 장애를 오입력으로 뒤집어씌우는 자리 — 반환값은 종전 유지, 기록만 추가)
+    logAppError('verifyInviteCode', e);
+    return false;
+  }
 }
 
 // ── 초대 번호 발급·조회 (캠페인 관리 권한 이상, 작업 2 관리자 폼용) ──
