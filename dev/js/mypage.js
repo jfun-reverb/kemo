@@ -443,8 +443,9 @@ async function changePassword() {
   if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent=t('authError.serverError'); err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
-  // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
-  if (error) { err.textContent=t('authError.genericError'); err.style.display='block'; return; }
+  // 영문 서버 메시지 노출 금지 — 일반 안내로 통일.
+  //   ⚠️ 그 대신 원문이 어디에도 안 남았다. 화면 문구는 그대로 두고 기록만 추가한다.
+  if (error) { logAppError('changePassword', error); err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }
@@ -528,7 +529,8 @@ async function renderMySettlements() {
   }
 
   let rows = [];
-  try { rows = await fetchMySettlements(); } catch(e) { rows = []; }
+  // ⚠️ 조회 실패가 「정산 내역 0건」과 구분되지 않는다(금전 화면이라 오해 여지가 크다).
+  try { rows = await fetchMySettlements(); } catch(e) { logAppError('renderMySettlements', e); rows = []; }
   // 취소 건 숨김
   rows = (rows || []).filter(r => r && r.status !== 'cancelled');
 
@@ -941,6 +943,14 @@ async function submitCancelApplicationFromPage() {
       showErr(t('appHistory.cancel.reasonNowRequired'));
       return;
     }
+    // ⚠️ 이 사전이 「3개월 침묵」의 정확한 지점이었다. 취소 함수가 서버에서 죽어 있었는데
+    //    그 오류가 사전에 없어 errorGeneric(「취소하지 못했습니다」)으로 덮였고,
+    //    friendlyErrorJa 를 안 거쳐 관리자 오류 로그에도 안 남았다.
+    //    문구·동작은 그대로 두고, 사전에 없는 값일 때만 「예상 못 한 오류」로 기록한다.
+    const CANCEL_EXPECTED = [
+      'not_owner', 'invalid_status', 'deliverable_already_approved',
+      'reason_required', 'acknowledgement_required', 'application_not_found'
+    ];
     const errKey = {
       'not_owner':                    'appHistory.cancel.errorOwner',
       'invalid_status':               'appHistory.cancel.errorStatus',
@@ -949,6 +959,7 @@ async function submitCancelApplicationFromPage() {
       'acknowledgement_required':     'appHistory.cancel.errorAck',
       'application_not_found':        'appHistory.cancel.errorNotFound'
     }[res.error] || 'appHistory.cancel.errorGeneric';
+    logAppError('submitCancelApplication', res.error, CANCEL_EXPECTED);
     showErr(t(errKey));
     return;
   }

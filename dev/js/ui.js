@@ -480,7 +480,9 @@ async function lookupZipProfile() {
       if (city) city.value = (r.address2||'') + (r.address3||'');
       toast('住所を自動入力しました', 'success');
     } else { toast('該当する住所が見つかりませんでした', 'error'); }
-  } catch(e) { toast('住所検索に失敗しました', 'error'); }
+  // 외부 주소 검색 서비스(zipcloud) 장애는 우리 잘못이 아니지만, 「주소 입력이 안 된다」는
+  // 문의가 들어왔을 때 원인을 짚으려면 기록이 있어야 한다.
+  } catch(e) { logAppError('lookupZipProfile', e); toast('住所検索に失敗しました', 'error'); }
 }
 
 async function lookupZip() {

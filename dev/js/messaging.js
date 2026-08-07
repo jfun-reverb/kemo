@@ -62,7 +62,7 @@ async function refreshMessageModal() {
     if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(_msgCurrentAppId);
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
-  } catch (e) { console.error('[refreshMessageModal]', e); }
+  } catch (e) { console.error('[refreshMessageModal]', e); logAppError('refreshMessageModal', e); }
 }
 
 // 응모건 메시지 페이지 열기 (모달→페이지 전환, 2026-05-22)
@@ -143,6 +143,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
     _startMsgPoll(); // 페이지 열린 동안 새 메시지 도착 감지 시작
   } catch (e) {
     console.error('[openMessagesPage]', e);
+    logAppError('openMessagesPage', e);
     if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
   }
 }
@@ -276,6 +277,7 @@ async function openMsgLightbox(path) {
     if (url) { img.src = url; }
     else { closeMsgLightbox(); toast(t('messaging.attachError')); }
   } catch (e) {
+    logAppError('openMsgLightbox', e);
     closeMsgLightbox();
     toast(t('messaging.attachError'));
   }
@@ -299,6 +301,7 @@ async function confirmWithdrawMessage(messageId, attachmentPaths) {
     _msgLastCount = msgs?.length || 0; // 도착 감지 기준 동기화 (회수로 인한 변동 반영)
   } catch (e) {
     console.error('[confirmWithdrawMessage]', e);
+    logAppError('confirmWithdrawMessage', e);
     toast(t('messaging.withdrawFailed'));
   }
 }
@@ -351,6 +354,8 @@ async function sendMessageFromModal() {
           attachments.push(await uploadMessageAttachment(f, _msgCurrentAppId));
         } catch (e) {
           console.error('[sendMessageFromModal] 첨부 업로드', e);
+          // too_large 는 정상 거부(용량 초과 안내) — 그 외는 예상 못 한 오류로 기록된다.
+          logAppError('uploadMessageAttachment', e, ['too_large']);
           toast(e?.message === 'too_large' ? t('messaging.attachTooLarge') : t('messaging.attachUploadFailed'));
           return;   // 잠금 해제는 헬퍼 finally 가 한다
         }
@@ -370,6 +375,9 @@ async function sendMessageFromModal() {
       console.error('[sendMessageFromModal]', e);
       // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
       // 그 외 DB 내부 에러(42702 등)는 일반 메시지로 — 원문 노출 방지
+      //   ⚠️ 바로 그 「일반 메시지로 덮는」 경로가 취소 사고와 같은 모양이다.
+      //      P0001(서버가 의도적으로 거부)은 정상 거부, 나머지는 예상 못 한 오류로 기록.
+      logAppError('sendApplicationMessage', e, e?.code === 'P0001' ? [String(e.message || '')] : null);
       toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
     }
   });
@@ -506,6 +514,8 @@ async function setupFaqGate(app, camp) {
     _faqLoaded = true;
   } catch (e) {
     console.error('[setupFaqGate]', e);
+    // ⚠️ 실패하면 자주 묻는 질문이 통째로 사라진 채 문의 창구가 열린다(사용자는 이유를 모름).
+    logAppError('setupFaqGate', e);
     _faqNodes = [];
     _faqLoaded = true;
   }
