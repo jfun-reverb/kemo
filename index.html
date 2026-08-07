@@ -4390,6 +4390,7 @@ window.I18N_JA = {
     postDeadlineRelative: '受取後 {days}日以内',
     purchasePeriod: '購入および領収書提出期間',
     visitPeriod: '訪問期間',
+    selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
     // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
     //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
@@ -5214,6 +5215,7 @@ window.I18N_KO = {
     postDeadlineRelative: '수령 후 {days}일 이내',
     purchasePeriod: '구매 및 영수증 제출 기간',
     visitPeriod: '방문 기간',
+    selectionPeriod: '선정 기간',
     submissionEnd: '결과물 제출 마감',
     // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
     recruitPurchasePeriod: '모집/구매 기간',
@@ -6012,6 +6014,9 @@ const ADMIN_LIST_COLUMNS = [
   'recruit_start', 'deadline',
   'purchase_start', 'purchase_end',
   'visit_start', 'visit_end',
+  // 선정 기간(307) — 지금 목록 화면이 그리지는 않지만, 형제인 구매·방문 기간이 여기 있다.
+  //   빠뜨리면 나중에 목록·진행현황에 이 줄을 붙일 때 값이 조용히 비어 나온다.
+  'selection_start', 'selection_end',
   'submission_end',
   'order_index', 'created_at', 'updated_at',
   // 오프라인 행사(티켓) 캠페인 — 마이그레이션 280.
@@ -12881,6 +12886,13 @@ async function openCampaign(id) {
           //      그 캠페인의 구매 마감일이 화면에서 사라진다.
           const periodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodKind === 'merged' ? 'detail.recruitPurchasePeriod' : 'detail.recruitPeriod')}</div><div style="${VAL}">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div></div>`);
+          // 선정 기간 — 시딩형만(2026-08-07 결정). 모집 기간 바로 아래에 둔다
+          //   (인플루언서가 겪는 순서: 모집 → 선정 → 결과물 제출 마감).
+          //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다 — 지금까지 등록된 캠페인은 전부 비어 있다.
+          //   ⚠️ 기존 「당선 발표」 줄은 그대로 둔다(날짜 vs 알리는 방법 — 서로 다른 정보).
+          if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.selectionPeriod')}</div><div style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
+          }
           if (isMonitor && periodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
           }

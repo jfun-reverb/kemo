@@ -116,6 +116,9 @@ const ADMIN_LIST_COLUMNS = [
   'recruit_start', 'deadline',
   'purchase_start', 'purchase_end',
   'visit_start', 'visit_end',
+  // 선정 기간(307) — 지금 목록 화면이 그리지는 않지만, 형제인 구매·방문 기간이 여기 있다.
+  //   빠뜨리면 나중에 목록·진행현황에 이 줄을 붙일 때 값이 조용히 비어 나온다.
+  'selection_start', 'selection_end',
   'submission_end',
   'order_index', 'created_at', 'updated_at',
   // 오프라인 행사(티켓) 캠페인 — 마이그레이션 280.
