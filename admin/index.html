@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786083482';
+  var CURRENT_BUILD = 'v1786084516';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-07 15:18 · b93d543</span>
+          <span class="admin-build-text">2026-08-07 15:35 · adfed25</span>
         </div>
       </div>
     </aside>
@@ -14710,7 +14710,17 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
-  if (paneEl) paneEl.classList.add('on');
+  if (paneEl) {
+    paneEl.classList.add('on');
+    // 화면을 열 때 **맨 위에서 시작**한다.
+    //   ⚠️ 페인은 각자 스크롤 컨테이너(`.admin-pane.on{overflow-y:auto}`)라, 브라우저가
+    //      숨겨진 동안의 스크롤 위치를 기억했다가 다시 보일 때 그대로 복원한다. 그래서
+    //      「새 캠페인 등록」을 눌러도 지난번에 보던 중간 지점에서 폼이 뜬다(실측 재현).
+    //   ⚠️ 목록 페인(`.admin-pane-list`)은 페인 자체가 `overflow:hidden` 이고 안쪽
+    //      `.admin-table-wrap` 이 스크롤하므로 이 한 줄에 영향받지 않는다 — 목록은
+    //      지금처럼 보던 위치를 유지한다(의도된 동작).
+    paneEl.scrollTop = 0;
+  }
   // 캠페인 등록·편집 진입 시 flatpickr range/single picker mount (idempotent)
   if (pane === 'add-campaign' || pane === 'edit-campaign') {
     if (typeof setupCampRangePickers === 'function') setupCampRangePickers();
