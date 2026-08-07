@@ -8,13 +8,17 @@ let campPageTypeFilter = 'all';
 let currentTypeFilter = 'all';
 
 // ── 기본 캠페인 데이터 (DB가 비어있을 때 표시됨) ──
+//   ⚠️ 마감일은 **상대 날짜**로 계산한다. 예전에는 하드코딩 과거 날짜였는데, 화면이 마감일을
+//      직접 보게 되면서(2026-07-30 마감 서버 강제) Supabase 미연결 폴백 시 데모 캠페인이
+//      전부 「募集締切」로 보이고 응모 버튼이 닫혀 데모 체험 자체가 막혔다.
+const _demoDeadline = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
 DEMO_CAMPAIGNS = [
-  {id:'demo-1',recruit_type:'monitor',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',product_price:3200,reward:0,slots:25,applied_count:18,deadline:'2026-05-30',post_days:7,content_types:'インスタ/フィード,インスタ/リール',description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-2',recruit_type:'monitor',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',product_price:4500,reward:0,slots:20,applied_count:12,deadline:'2026-05-25',post_days:10,content_types:'インスタ/フィード',description:'ROUND LABの大人気バーチュラトナーを体験していただける方を募集します。',hashtags:'#roundlab #ラウンドラボ #バーチュラトナー #韓国コスメ',mentions:'@roundlab_jp',appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-3',recruit_type:'monitor',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',product_price:3800,reward:1000,slots:15,applied_count:9,deadline:'2026-06-01',post_days:14,content_types:'インスタ/フィード,インスタ/リール,インスタ/ストーリー',description:'DR.Gの人気クッションファンデーションを体験していただける方を募集！報酬¥1,000付き。',hashtags:'#drg #ドクタージー #クッションファンデ #韓国コスメ',mentions:'@drg_japan',appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-4',recruit_type:'gifting',title:'MEDIHEAL マスクパック体験団',brand:'MEDIHEAL · メディヒール',product:'TEAトゥリーケアマスクパック 10枚',type:'nano',channel:'instagram',category:'beauty',emoji:'🩺',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',product_price:2000,reward:0,slots:30,applied_count:22,deadline:'2026-05-20',post_days:7,content_types:'インスタ/フィード,TikTok',description:'MEDIHEALのTEAトゥリーマスクパックを体験していただける方を募集します。',hashtags:'#mediheal #メディヒール #マスクパック #スキンケア',mentions:'@mediheal_japan',appeal:'ティーツリー成分が肌トラブルをケア。毛穴引き締め効果も。',guide:'着用中・着用後の自然な表情を撮影。朝・夜のスキンケアシーンに合わせてください。',ng:'加工しすぎた写真NG。マスク着用以外の用途での撮影NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-5',recruit_type:'gifting',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',product_price:1500,reward:500,slots:20,applied_count:15,deadline:'2026-05-31',post_days:7,content_types:'インスタ/リール,TikTok',description:'PERIPERAの人気リップを体験！報酬¥500付き。カラー発色が美しいグロウティントです。',hashtags:'#peripera #ペリペラ #リップ #韓国コスメ #Kビューティ',mentions:'@peripera_japan',appeal:'ウォータリーなテクスチャーで唇に密着。鮮やかな発色が長時間持続。',guide:'リップスウォッチや着用シーンを撮影。明るい照明で発色が伝わるように。',ng:'口元以外の過度なフィルターNG。競合リップとの比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:'2026-06-15',post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！報酬¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
+  {id:'demo-1',recruit_type:'monitor',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',product_price:3200,reward:0,slots:25,applied_count:18,deadline:_demoDeadline(20),post_days:7,content_types:'インスタ/フィード,インスタ/リール',description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-2',recruit_type:'monitor',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',product_price:4500,reward:0,slots:20,applied_count:12,deadline:_demoDeadline(15),post_days:10,content_types:'インスタ/フィード',description:'ROUND LABの大人気バーチュラトナーを体験していただける方を募集します。',hashtags:'#roundlab #ラウンドラボ #バーチュラトナー #韓国コスメ',mentions:'@roundlab_jp',appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-3',recruit_type:'monitor',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',product_price:3800,reward:1000,slots:15,applied_count:9,deadline:_demoDeadline(25),post_days:14,content_types:'インスタ/フィード,インスタ/リール,インスタ/ストーリー',description:'DR.Gの人気クッションファンデーションを体験していただける方を募集！報酬¥1,000付き。',hashtags:'#drg #ドクタージー #クッションファンデ #韓国コスメ',mentions:'@drg_japan',appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-4',recruit_type:'gifting',title:'MEDIHEAL マスクパック体験団',brand:'MEDIHEAL · メディヒール',product:'TEAトゥリーケアマスクパック 10枚',type:'nano',channel:'instagram',category:'beauty',emoji:'🩺',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',product_price:2000,reward:0,slots:30,applied_count:22,deadline:_demoDeadline(10),post_days:7,content_types:'インスタ/フィード,TikTok',description:'MEDIHEALのTEAトゥリーマスクパックを体験していただける方を募集します。',hashtags:'#mediheal #メディヒール #マスクパック #スキンケア',mentions:'@mediheal_japan',appeal:'ティーツリー成分が肌トラブルをケア。毛穴引き締め効果も。',guide:'着用中・着用後の自然な表情を撮影。朝・夜のスキンケアシーンに合わせてください。',ng:'加工しすぎた写真NG。マスク着用以外の用途での撮影NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-5',recruit_type:'gifting',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',product_price:1500,reward:500,slots:20,applied_count:15,deadline:_demoDeadline(21),post_days:7,content_types:'インスタ/リール,TikTok',description:'PERIPERAの人気リップを体験！報酬¥500付き。カラー発色が美しいグロウティントです。',hashtags:'#peripera #ペリペラ #リップ #韓国コスメ #Kビューティ',mentions:'@peripera_japan',appeal:'ウォータリーなテクスチャーで唇に密着。鮮やかな発色が長時間持続。',guide:'リップスウォッチや着用シーンを撮影。明るい照明で発色が伝わるように。',ng:'口元以外の過度なフィルターNG。競合リップとの比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:_demoDeadline(35),post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！報酬¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
 ];
 
 async function loadCampaigns() {
@@ -26,8 +30,15 @@ async function loadCampaigns() {
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
 //   scheduled / active / closed(모집마감) / ended(종료) = 노출 (closed=募集締切, ended=終了 오버레이)
 //   draft / expired = 비노출 (expired 는 운영자가 수동 토글 OFF 한 캠페인)
+//   is_invite_only = 비공개(초대 전용) — 목록·홈·건수·채널 필터에서 전부 뺀다.
+//     이 함수가 그 네 곳의 단일 소스라 여기 한 줄이면 전부 적용된다.
+//     ⚠️ 이건 **화면 단계 필터**다. 캠페인 자체는 브라우저로 내려오므로 이것만으로는
+//        내용이 완전히 감춰지지 않는다. 예약을 실제로 막는 것은 서버의 초대 번호
+//        재검증이다(마이그레이션 283 reserve_event_ticket). 사양서 §2-6 의 세 겹 중 첫 겹.
 function visibleCamps(camps) {
-  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended');
+  return camps.filter(c =>
+    !(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(c)) &&
+    (c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended'));
 }
 
 // 인플루언서 노출 캠페인의 정렬: 모집중(active) > 모집예정(scheduled) > 모집완료(closed)
@@ -283,12 +294,26 @@ function buildCampCards(camps) {
   return camps.map(c => {
     const isFull = c.recruit_type === 'monitor' && (c.applied_count||0) >= c.slots;
     const isScheduled = c.status === 'scheduled';
-    const isClosed = c.status === 'closed';
+    // 마감 판정은 상태 + 마감일 경과를 함께 본다(사양서 2026-07-29 §설계 5-(1) 단방향 규칙).
+    //   목록을 열어 둔 채 자정을 넘기면 캐시의 status 는 active 로 남아 「募集中」으로 보이는데
+    //   서버는 거부한다. 마감일도 직접 봐야 그 혼선이 사라진다.
+    const isClosed = c.status === 'closed'
+      || (!isScheduled && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(c));
     const isEnded = c.status === 'ended';
     const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
     const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
-    const reward = c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
+    // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
+    // 그런데 reward=0·product_price>0 이라 「製品無償提供」로 표시돼 왔다(오래된 오표기).
+    // 300 으로 지급 기준이 영수증 실결제액이 되면서 상세·하단 바와도 어긋나므로 여기서 바로잡는다.
+    // ⚠️ 리뷰어형은 「제품 가격이 없을 때」도 현금 리워드 분기로 떨어지면 안 된다 —
+    //    정산이 reward 를 쓰지 않으므로 지급되지 않는 금액을 약속하게 된다.
+    //    제품 가격이 없으면 상한을 말할 수 없으므로 금액 없이 「페이백」만 표시한다.
+    const reward = c.recruit_type === 'monitor'
+      ? (c.product_price > 0
+          ? `<strong>${esc(t('campaign.rewardPaybackShort').replace('{price}', c.product_price.toLocaleString()))}</strong>`
+          : `<strong>${esc(t('campaign.rewardPaybackNoCap'))}</strong>`)
+      : c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
     const isNew = !isScheduled && !isClosedLike && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
     const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
@@ -297,7 +322,7 @@ function buildCampCards(camps) {
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
-        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
+        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(24,24,27,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
         ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
         ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
         ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
@@ -351,4 +376,179 @@ function renderCampaigns(camps) {
   const sliced = visible.slice(0, HOME_CAMP_LIMIT);
   grid.innerHTML = buildCampCards(sliced);
   if (moreBtnWrap) moreBtnWrap.style.display = visible.length > HOME_CAMP_LIMIT ? '' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+// 초대 전용(비공개) 캠페인 진입 — 사양서 2026-07-30 §4-3 「초대 전용 진입」
+//
+// 방어는 세 겹이고 이 파일은 그중 **화면 두 겹**을 맡는다.
+//   ① 목록에서 제외        — visibleCamps (이 파일 위쪽)
+//   ② 상세 진입 게이트     — 아래 renderInviteGate
+//   ③ 예약 함수 서버 재검증 — 마이그레이션 283/284 (실효 방어선)
+// ⚠️ ①②는 화면 단계라 우회할 수 있다. 실제로 예약을 막는 것은 ③뿐이다.
+// ══════════════════════════════════════════════════════════════
+
+// 초대 링크 형식: #detail-{캠페인id}?invite=CODE
+//   형식을 정한 곳은 관리자 쪽(admin-event.js eventInviteLink) 한 곳이다.
+function parseInviteFromHash(hash) {
+  const raw = String(hash || location.hash || '').replace(/^#/, '');
+  if (!raw.startsWith('detail-')) return null;
+  const [path, query] = raw.split('?');
+  const campaignId = path.replace('detail-', '');
+  let inviteCode = null;
+  if (query) {
+    try { inviteCode = new URLSearchParams(query).get('invite'); } catch (e) {}
+  }
+  return {campaignId, inviteCode};
+}
+
+// 캠페인 식별자만 떼어낸다 — 해시에 초대 번호가 붙어 있어도 안전하게 쓰기 위함.
+//   ⚠️ 이게 없으면 `detail-{id}?invite=X` 전체가 캠페인 식별자로 넘어가 캠페인을 못 찾는다.
+function campaignIdFromHash(hash) {
+  const p = parseInviteFromHash(hash);
+  return p ? p.campaignId : String(hash || '').replace('detail-', '').split('?')[0];
+}
+
+// 식별자를 떼어내면서 **초대 번호가 있으면 함께 기억**한다.
+//   해시를 거쳐 상세로 가는 모든 경로(첫 진입·뒤로가기·언어 전환)가 이걸 쓴다.
+//   한 곳만 빠뜨리면 저장소가 비어 있을 때 게이트가 번호를 다시 묻는다.
+function captureInviteFromHash(hash) {
+  const p = parseInviteFromHash(hash);
+  if (!p) return String(hash || '').replace('detail-', '').split('?')[0];
+  if (p.inviteCode) rememberInviteCtx(p.campaignId, String(p.inviteCode).trim().toUpperCase());
+  return p.campaignId;
+}
+
+// 확인된 초대 번호를 캠페인별로 기억한다.
+//   ⚠️ 세션 저장소가 아니라 **브라우저 저장소**를 쓴다. 가입 확인 메일 링크는 보통
+//      새 탭에서 열리는데 세션 저장소는 탭이 바뀌면 남지 않아, 신규 가입자가
+//      돌아올 곳을 잃는다(2026-08-03 리뷰 지적). 담기는 값은 본인이 받은 초대
+//      번호와 캠페인 식별자뿐이라 개인정보가 아니다.
+const INVITE_CTX_KEY = 'reverb.inviteCtx';
+
+function rememberInviteCtx(campaignId, code) {
+  if (!campaignId || !code) return;
+  try {
+    const all = readInviteCtxAll();
+    all[campaignId] = code;
+    localStorage.setItem(INVITE_CTX_KEY, JSON.stringify(all));
+  } catch (e) { /* 저장소를 못 써도 화면은 계속 동작한다 */ }
+}
+
+function readInviteCtxAll() {
+  try {
+    const raw = localStorage.getItem(INVITE_CTX_KEY);
+    const v = raw ? JSON.parse(raw) : null;
+    return (v && typeof v === 'object') ? v : {};
+  } catch (e) { return {}; }
+}
+
+// 작업 3의 예약 함수가 이 값을 서버로 보낸다.
+function getInviteCodeForCampaign(campaignId) {
+  return readInviteCtxAll()[campaignId] || null;
+}
+
+// 가입·로그인 뒤 돌아갈 캠페인. 초대 링크로 들어온 비로그인 방문객이
+// 가입만 하고 이탈하는 것을 막는다(사양서 §2-8 U7).
+//   위와 같은 이유로 브라우저 저장소를 쓴다(확인 메일이 새 탭에서 열려도 남아야 한다).
+const INVITE_RETURN_KEY = 'reverb.inviteReturn';
+
+function rememberInviteReturn(campaignId) {
+  try { localStorage.setItem(INVITE_RETURN_KEY, campaignId || ''); } catch (e) {}
+}
+
+// 로그인·가입 성공 직후 호출. 돌아갈 곳이 있으면 그 캠페인으로 보내고 true 를 준다.
+//   ⚠️ 한 번 쓰면 반드시 지운다 — 안 지우면 다음 로그인 때 엉뚱한 캠페인으로 튄다.
+function consumeInviteReturn() {
+  let campId = '';
+  try {
+    campId = localStorage.getItem(INVITE_RETURN_KEY) || '';
+    localStorage.removeItem(INVITE_RETURN_KEY);
+  } catch (e) { return false; }
+  if (!campId) return false;
+  const code = getInviteCodeForCampaign(campId);
+  const suffix = code ? `?invite=${encodeURIComponent(code)}` : '';
+  // 해시를 초대 번호까지 붙여 되돌려 놓고 상세를 연다 — 새로고침해도 같은 자리로 온다.
+  try { history.replaceState({page: 'detail-' + campId}, '', `#detail-${campId}${suffix}`); } catch (e) {}
+  if (typeof openCampaign === 'function') openCampaign(campId);
+  return true;
+}
+
+// 이 캠페인을 열어도 되는가. 초대 전용이 아니면 항상 통과.
+//   서버 함수는 「맞나/틀리나」만 답한다 — 번호 자체는 절대 내려오지 않는다.
+async function canOpenInviteCampaign(camp) {
+  if (!(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(camp))) return true;
+  const code = getInviteCodeForCampaign(camp.id);
+  if (!code) return false;          // 번호가 아예 없으면 게이트(번호 입력·로그인 안내)
+  // 링크를 타고 온 **비로그인** 방문객에게는 모집 내용을 보여준다(2026-08-06 사용자 결정).
+  //   초대장을 받은 사람이 무슨 행사인지도 못 보고 가입부터 해야 하면 그 자리에서 떠난다.
+  //   ⚠️ 번호가 **진짜인지는 여기서 확인하지 않는다** — 확인 함수가 로그인한 사람 전용이라
+  //      비로그인은 물어볼 수 없다. 그래서 틀린 번호를 붙여도 모집 내용은 보인다.
+  //      대신 ①방문 날짜는 서버가 로그인한 사람에게만 내려주고 ②예약은 예약 함수가
+  //      번호를 다시 검사한다(마이그레이션 283·284) — **실제 방어선은 그쪽**이다.
+  //      캠페인 표 자체가 공개 조회라 화면을 막아도 브라우저로는 어차피 보이는 값이다.
+  if (!currentUser) return true;
+  try {
+    return await verifyInviteCode(camp.id, code);
+  } catch (e) {
+    console.warn('[canOpenInviteCampaign]', e);
+    return false;   // 확인하지 못했으면 열지 않는다(fail-closed)
+  }
+}
+
+// 게이트 화면 — 상세 안에 그린다. 별도 페이지를 만들지 않는다(경로가 늘면 복귀 경로도 는다).
+//   ⚠️ 캠페인 이름·이미지·내용은 **한 글자도 그리지 않는다.**
+function renderInviteGate(campaignId) {
+  const el = $('detailContent');
+  if (!el) return;
+  const needLogin = !currentUser;
+  el.innerHTML = `
+    <div id="eventInviteGate" class="invite-gate">
+      <span class="material-icons-round notranslate" translate="no">lock</span>
+      <div class="invite-gate-title">${esc(t('event.inviteGateTitle'))}</div>
+      <div class="invite-gate-hint">${esc(t('event.inviteGateHint'))}</div>
+      ${needLogin ? `
+        <div class="invite-gate-hint">${esc(t('event.inviteNeedLogin'))}</div>
+        <div class="invite-gate-btns">
+          <button type="button" class="btn btn-primary" onclick="goInviteAuth('${esc(campaignId)}','signup')">${esc(t('event.inviteSignupBtn'))}</button>
+          <button type="button" class="btn btn-ghost" onclick="goInviteAuth('${esc(campaignId)}','login')">${esc(t('event.inviteLoginBtn'))}</button>
+        </div>
+      ` : `
+        <div class="invite-gate-form">
+          <label class="form-label" for="eventInviteCodeInput">${esc(t('event.inviteInputLabel'))}</label>
+          <input type="text" id="eventInviteCodeInput" class="form-input" maxlength="8"
+                 autocapitalize="characters" autocomplete="off" spellcheck="false">
+          <div id="eventInviteError" class="invite-gate-err" style="display:none">${esc(t('event.inviteInvalid'))}</div>
+          <button type="button" class="btn btn-primary btn-block" onclick="submitInviteCode('${esc(campaignId)}')">${esc(t('event.inviteSubmit'))}</button>
+        </div>
+      `}
+    </div>`;
+}
+
+// 가입·로그인으로 보내면서 돌아올 곳을 기억한다.
+function goInviteAuth(campaignId, which) {
+  rememberInviteReturn(campaignId);
+  navigate(which === 'signup' ? 'signup' : 'login');
+}
+
+async function submitInviteCode(campaignId) {
+  const input = $('eventInviteCodeInput');
+  const errEl = $('eventInviteError');
+  const code = (input?.value || '').trim().toUpperCase();
+  if (errEl) errEl.style.display = 'none';
+  if (!code) { if (errEl) errEl.style.display = ''; return; }
+
+  let ok = false;
+  try { ok = await verifyInviteCode(campaignId, code); }
+  catch (e) { console.warn('[submitInviteCode]', e); }
+
+  if (!ok) {
+    // 틀린 번호는 안내만 — 캠페인이 있는지 없는지도 알려 주지 않는다.
+    if (errEl) errEl.style.display = '';
+    return;
+  }
+  rememberInviteCtx(campaignId, code);
+  // 주소에도 번호를 남겨 새로고침·뒤로가기에서 다시 묻지 않게 한다.
+  try { history.replaceState({page: 'detail-' + campaignId}, '', `#detail-${campaignId}?invite=${encodeURIComponent(code)}`); } catch (e) {}
+  if (typeof openCampaign === 'function') openCampaign(campaignId);
 }

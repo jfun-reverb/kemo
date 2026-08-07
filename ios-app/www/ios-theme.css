@@ -125,6 +125,10 @@ body.kb-open .page.active { padding-bottom: 8px; }
 .gnb-burger { display: none !important; }
 /* 메시지 페이지는 상단바를 숨기고 자체 헤더를 쓴다(app.js) → 상태바 높이만 비운다 */
 #page-messages.page.active { padding-top: env(safe-area-inset-top); }
+/* 입장 티켓·응모 취소도 같은 구조(자체 헤더 .detail-back). app.js 의 _selfHeaderPages 와 짝 —
+   한쪽만 고치면 상단바가 숨은 자리에 빈 띠가 남거나 헤더가 두 줄로 겹친다. */
+#page-ticket.page.active,
+#page-app-cancel.page.active { padding-top: env(safe-area-inset-top); }
 /* 응모 바는 아래(파일 끝 「캠페인 상세 응모 바」 절)에서 상단 고정으로 다시 잡는다 */
 /* 화면 하단에 고정으로 뜨는 나머지 요소들도 탭바 위로 (웹은 탭바가 없어 bottom 값이 작다) */
 .floating-auth-cta { bottom: calc(var(--ios-tab-space) + 20px) !important; }

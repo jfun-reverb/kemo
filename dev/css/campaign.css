@@ -2,11 +2,38 @@
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
 
+/* ── 인플루언서 앱 전용 브랜드 색 (원래 로즈) ──────────────────────────
+   관리자 화면 모노톤 재설계(2026-07)가 공용 base.css 의 브랜드 색을 회색조로
+   바꾸면서 인플루언서 화면까지 함께 흑백이 됐다. 관리자는 회색조를 유지해야 하므로
+   base.css 를 되돌리지 않고, **인플루언서 빌드에만 포함되는 이 파일에서** 재정의한다.
+
+   왜 여기가 맞는가: build.sh 의 인플루언서 CSS 순서가
+     base.css → components.css → campaign.css → auth.css → mypage.css
+   라 이 선언이 base.css 를 덮고, 관리자 빌드(base → components → admin)에는
+   이 파일이 아예 안 들어간다. 두 화면의 색이 서로 간섭하지 않는다.
+
+   ⚠️ 인플루언서 앱 색을 바꿀 땐 base.css 가 아니라 여기를 고칠 것.
+      base.css 를 고치면 관리자 화면 회색조가 깨진다.
+
+   값은 모노톤 재설계 이전에 실제로 쓰던 팔레트 그대로다(신규 색이 아님).
+──────────────────────────────────────────────────────────── */
+:root {
+  --primary: #C878A3;          /* 참여 버튼·주요 동작 */
+  --primary-dark: #7D4A6A;     /* hover */
+  --primary-light: #FDF0F7;
+  --primary-container: #FDF0F7;
+  --pink: #C878A3;             /* 아이콘·포인트 */
+  --baby-pink: #E0B8CA;        /* 어두운 배경 위 강조 글자(히어로 제목) */
+  --dark-pink: #7D4A6A;
+  --light-pink: #FDF0F7;
+  --ink2: #2D1F2B;
+}
+
 /* Hero */
-.hero{background:linear-gradient(135deg,#2D1F2B 0%,#56475D 100%);padding:32px 0 0;overflow:hidden;position:relative}
-.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(200,120,163,.2) 0,transparent 55%);pointer-events:none}
+.hero{background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);padding:32px 0 0;overflow:hidden;position:relative}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(24,24,27,.2) 0,transparent 55%);pointer-events:none}
 .hero-inner{position:relative;z-index:1;padding-bottom:0}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(200,120,163,.18);border:1px solid rgba(200,120,163,.28);color:#E0B8CA;padding:4px 12px;border-radius:var(--r-full);font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#E4E4E7;padding:4px 12px;border-radius:var(--r-full);font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
 .hero-h1{font-size:24px;font-weight:900;color:#fff;line-height:1.2;letter-spacing:-.01em;margin-bottom:10px}
 .hero-h1 span{color:var(--baby-pink)}
 .hero-jp{font-family:'Noto Sans JP',sans-serif;font-weight:400;font-size:18px;color:rgba(255,255,255,.4);display:block;margin-top:6px}
@@ -55,6 +82,10 @@
 /* Campaign detail */
 .detail-back{display:inline-flex;align-items:center;gap:6px;color:var(--on-surface-variant);font-size:13px;cursor:pointer;margin-bottom:20px;transition:all .2s;padding:6px 0}
 .detail-back:hover{color:var(--primary)}
+/* 관리자 「캠페인 미리보기」 전용 (index.html 이 ?preview=1 을 보고 <html> 에 표시를 붙인다).
+   미리보기 창에서는 눌러도 갈 곳이 없는 상단 바(로고·햄버거)와 되돌아가기 줄을 감춘다. */
+html.preview-mode .gnb{display:none}
+html.preview-mode #page-detail .detail-back{display:none}
 .detail-layout{display:grid;grid-template-columns:1fr;gap:0}
 .detail-main{}
 .detail-header{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:24px;margin-bottom:16px;box-shadow:var(--elevation-1)}
@@ -93,3 +124,56 @@
 .caution-box li{font-size:13px;color:var(--on-surface);line-height:1.7}
 .caution-box .caution-custom{margin-top:10px;font-size:13px;line-height:1.7;color:var(--on-surface)}
 .caution-box .caution-custom a{color:var(--pink);text-decoration:underline}
+
+/* ══════════════════════════════════════
+   오프라인 행사 타임 선택표 — 사양서 2026-07-30 §4-3
+   모바일 전용 화면이라 손가락으로 누르는 크기(최소 48px)를 지킨다.
+   ══════════════════════════════════════ */
+.event-date-tabs{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  margin-bottom:12px;scrollbar-width:none;padding-bottom:2px}
+.event-date-tabs::-webkit-scrollbar{display:none}
+.event-date-tab{flex-shrink:0;min-height:44px;padding:8px 14px;border-radius:20px;
+  border:1px solid var(--line);background:#fff;color:var(--muted);
+  font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.event-date-tab.on{border-color:var(--pink);background:var(--light-pink);color:var(--pink);font-weight:700}
+
+.event-slot-list{display:flex;flex-direction:column;gap:8px}
+.event-slot{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;
+  padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;
+  cursor:pointer;text-align:left;font-family:inherit}
+.event-slot.on{border-color:var(--pink);border-width:2px;background:var(--light-pink)}
+/* 만석도 누를 수 있다 — 대기 신청 경로이기 때문. 색으로만 구분하고 막지 않는다. */
+.event-slot.full{background:#FAFAFA}
+.event-slot.full.on{background:var(--light-pink)}
+.event-slot-time{font-size:15px;font-weight:700;color:var(--ink);flex-shrink:0}
+.event-slot.on .event-slot-time{color:var(--pink)}
+.event-slot-aud{font-size:11px;color:var(--muted);background:#F1F1F1;border-radius:5px;padding:2px 7px}
+.event-slot-remain{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0}
+.event-slot.full .event-slot-remain{color:var(--dark-pink)}
+
+/* ── 초대 전용 캠페인 게이트 — 사양서 2026-07-30 §4-3 ──
+   캠페인 내용은 한 글자도 그리지 않는다. 여기 보이는 것은 안내와 입력칸뿐. */
+.invite-gate{padding:44px 20px;text-align:center}
+.invite-gate .material-icons-round{font-size:44px;color:var(--muted)}
+.invite-gate-title{font-size:16px;font-weight:800;color:var(--ink);margin-top:10px}
+.invite-gate-hint{font-size:13px;color:var(--muted);line-height:1.8;margin-top:10px;white-space:pre-line}
+.invite-gate-btns{display:flex;gap:8px;justify-content:center;margin-top:20px}
+.invite-gate-btns .btn{min-height:48px;min-width:120px}
+.invite-gate-form{margin-top:20px;text-align:left}
+/* 입력칸 글자 크기는 16px 이상 — 모바일에서 자동 확대되지 않게 */
+.invite-gate-form .form-input{font-size:17px;letter-spacing:.16em;text-align:center;
+  text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.invite-gate-form .btn{margin-top:12px;min-height:48px}
+.invite-gate-err{font-size:12px;color:var(--red);margin-top:8px;text-align:center}
+/* 비로그인이 초대 링크로 들어왔을 때, 방문 날짜 자리에 놓이는 안내.
+   타임 표는 로그인한 사람에게만 내려오므로 빈 목록 대신 여기서 길을 알려 준다. */
+.event-slot-login{padding:18px 16px;background:var(--surface-container-low);border-radius:14px;text-align:center}
+.event-slot-login-msg{font-size:14px;font-weight:700;color:var(--ink);line-height:1.7}
+.event-slot-login .invite-gate-btns{margin-top:14px}
+/* 만석 타임을 고르면 그 줄 바로 아래에 붙는 안내 — 목록 끝에 두면 이른 시간을
+   고른 사람이 한참 스크롤해야 보게 된다. */
+.event-slot-note{font-size:12px;color:var(--dark-pink);background:var(--light-pink);
+  border-radius:8px;padding:9px 11px;margin:-2px 0 2px;line-height:1.6}
+/* 날짜가 하나뿐일 때 — 고를 것은 없지만 며칠인지는 반드시 보여야 한다 */
+.event-date-single{display:inline-block;padding:8px 14px;border-radius:20px;
+  background:var(--light-pink);color:var(--pink);font-size:14px;font-weight:800;margin-bottom:12px}

@@ -127,6 +127,9 @@ async function handleSignup(e) {
   toast(t('auth.toast.welcome'),'success');
   updateGnb();
   btn.disabled=false; btn.textContent=t('auth.signup.btn');
+  // 초대 링크로 들어와 가입한 경우 그 캠페인으로 되돌린다(사양서 §2-8 U7).
+  //   안 돌려보내면 가입만 하고 이탈한다 — 첫날 초대분이 그대로 새는 자리다.
+  if (typeof consumeInviteReturn === 'function' && consumeInviteReturn()) return;
   navigate('home');
 }
 
@@ -180,9 +183,13 @@ async function handleLogin(e) {
           currentUserProfile = {id: data.user.id, email};
         } catch(e) {}
       }
-      toast(t('auth.toast.welcomeBack'),'success'); updateGnb(); navigate('home');
+      toast(t('auth.toast.welcomeBack'),'success'); updateGnb();
       // 네이티브 앱(iOS)에서만 푸시 권한 요청 + 토큰 등록. 웹엔 _enablePush 가 없어 no-op.
+      //   초대 복귀보다 먼저 — 아래 return 뒤에 두면 초대 링크로 들어온 사람만 푸시 등록이 빠진다.
       if (window._enablePush) { try { window._enablePush(); } catch(e){} }
+      // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
+      if (typeof consumeInviteReturn === 'function' && consumeInviteReturn()) return;
+      navigate('home');
     }
   } catch(e) {
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
@@ -220,8 +227,12 @@ async function handleForgotPassword(e) {
   btn.innerHTML = '<span class="spinner"></span>';
 
   try {
-    const redirectUrl = location.origin + '/#reset-pw';
-    const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
+    // 보조 클라이언트로 요청 — 다른 기기에서도 열 수 있는 토큰을 받기 위함(supabase.js 주석 참조).
+    // redirectTo 는 일부러 넘기지 않는다: 넘기면 인증 서버가 그 주소를 검증·정규화하면서
+    //   `#` 뒷부분을 통째로 버려(`.../#` 만 남음) 착지 화면을 못 찾는다.
+    //   되돌아갈 주소는 메일 서식이 `{{ .SiteURL }}/#reset-pw?token_hash=...` 로 직접 만든다.
+    const authClient = (typeof dbAuthRequest !== 'undefined' && dbAuthRequest) ? dbAuthRequest : db;
+    const {error} = await authClient.auth.resetPasswordForEmail(email);
     if (error) {
       // 영문 서버 메시지·계정 존재 힌트 노출 금지 — 일반 안내로 통일
       errEl.textContent = t('authError.genericError');

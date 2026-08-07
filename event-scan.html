@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>입장 확인 — REVERB</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#18181B; --muted:#71717A; --line:#E4E4E7; --bg:#F4F4F5;
+  --pink:#EC4899; --green:#16A34A; --amber:#D97706; --red:#DC2626;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:14px 14px 60px}
+
+/* 태블릿·노트북에서는 왼쪽에 스캔·손입력, 오른쪽에 명단을 둔다(사용자 요청 2026-08-03).
+   입구에 노트북을 놓고 쓰는 경우 명단이 화면 아래로 밀려 스크롤해야 하는 것을 막는다.
+   휴대폰(900px 미만)은 지금처럼 한 줄로 쌓인다. */
+@media (min-width:900px){
+  /* 브라우저 자체는 스크롤되지 않게 한다. 화면을 넘치는 것은 각 단 **안에서** 스크롤한다
+     (사용자 요청 2026-08-03). 휴대폰(900px 미만)은 그대로 페이지가 스크롤된다 —
+     좁은 화면에서 전부를 한 화면에 넣는 것은 불가능하다. */
+  html,body{height:100%;overflow:hidden}
+  .wrap{max-width:1100px;height:100dvh;display:flex;flex-direction:column;
+        overflow:hidden;padding-bottom:14px}
+  #mainArea{flex:1;min-height:0;display:flex;flex-direction:column}
+  .cols{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+        gap:16px;align-items:stretch}
+  /* min-height:0 이 없으면 격자 칸이 내용 높이만큼 늘어나 안쪽 스크롤이 안 생긴다 */
+  .col-left{min-height:0;overflow-y:auto}
+  .col-right{min-height:0;display:flex;flex-direction:column}
+  /* 스크롤 막대가 카드 **안쪽**에 오게 한다 — 밖에 있으면 카드와 따로 노는 것처럼 보인다 */
+  .col-right > .card{flex:1;min-height:0;display:flex;flex-direction:column}
+  /* 테두리로 「여기가 따로 스크롤되는 영역」임을 드러낸다 — 없으면 카드 아래쪽
+     내용이 잘린 것처럼 보인다.
+     ⚠️ 가로 여백은 0 이다. 여기에 여백을 주면 안쪽 띠와 줄맞춤이 어긋나고,
+        음수 여백으로 되돌리면 좌우 스크롤이 생긴다. 세로 여백도 0 —
+        값을 주면 시간대 제목(sticky)이 그만큼 내려가 붙고 그 위 틈으로 내용이 비친다. */
+  #rosterList{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0;
+    border:1px solid var(--line);border-radius:10px}
+  /* 첫 띠의 윗줄은 스크롤 영역 테두리와 겹쳐 두 줄로 보인다 */
+  #rosterList .slot-group:first-child .slot-title{border-top:none}
+}
+.topbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+
+.topbar h1{font-size:17px;font-weight:800;margin:0;flex:0 0 auto}
+.topbar-gap{flex:1 1 auto}
+.roster-summary{font-size:15px;font-weight:800;color:var(--ink);
+  padding:9px 10px;margin-bottom:8px;border-radius:9px;background:var(--bg)}
+.roster-summary .rs-entered{color:var(--green)}
+.roster-summary .rs-wait{color:var(--amber);font-weight:700}
+.date-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.date-tab{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--line);
+  background:#fff;color:var(--muted);font-size:14px;font-weight:700;flex-shrink:0}
+.date-tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.lang-toggle{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-shrink:0}
+.lang-toggle button{min-height:26px;padding:0 9px;border:none;background:#fff;color:var(--muted);
+  font-size:11px;font-weight:700}
+.lang-toggle button.on{background:var(--ink);color:#fff}
+.badge-env{font-size:10px;font-weight:800;background:var(--amber);color:#fff;padding:2px 7px;border-radius:5px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+/* ── 지금 보고 있는 행사 ──
+   부스에서 하루 종일 띄워 두는 화면이라, 「무엇을 보고 있는지」가 항상 눈에 있어야
+   한다. 날짜가 바뀌어 다른 캠페인으로 넘어간 것을 모르면 빈 명단을 보고 당황한다. */
+.scope-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;margin-bottom:12px;font-size:16px;font-weight:800;color:var(--ink)}
+.scope-bar .material-icons-round{font-size:20px;color:var(--muted)}
+.scope-sub{font-size:13px;font-weight:700;color:var(--muted)}
+/* ── 행사 고르기 ──
+   장갑 낀 손으로도 누를 수 있게 항목을 크게 잡는다(최소 높이 56px). */
+.picker-title{font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px}
+.picker-item{display:block;width:100%;text-align:left;min-height:56px;
+  padding:14px;margin-top:10px;border:1px solid var(--line);border-radius:12px;
+  background:#fff;color:var(--ink);font-size:17px;font-weight:800;font-family:inherit;cursor:pointer}
+.picker-item:hover{border-color:var(--ink)}
+.picker-item .picker-sub{display:block;margin-top:4px;font-size:13px;font-weight:600;color:var(--muted)}
+label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=email],input[type=password]{
+  width:100%;padding:14px 12px;border:1px solid var(--line);border-radius:10px;
+  font-size:17px;font-family:inherit;background:#fff;color:var(--ink)}
+#codeInput{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:26px;letter-spacing:.2em;text-align:center;text-transform:uppercase;padding:16px 10px}
+/* 예시 글자는 입력값과 확실히 구분되게 아주 연하게 — 안 그러면 이미 입력된 것처럼 보인다 */
+/* 안내 문장이라 예약번호용 넓은 자간·큰 글자를 그대로 쓰면 넘치고 읽기 어렵다.
+   입력값은 그대로 크고 또렷하게, 안내만 작고 연하게 둔다. */
+#codeInput::placeholder{color:#C4C4C8;font-weight:400;font-size:13px;letter-spacing:0;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+#codeInput::-webkit-input-placeholder{color:#C4C4C8;font-weight:400;font-size:13px;letter-spacing:0;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+
+button{font-family:inherit;cursor:pointer}
+.btn{width:100%;min-height:52px;border:none;border-radius:10px;background:var(--ink);color:#fff;
+  font-size:15px;font-weight:700;margin-top:10px}
+.btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5}
+.hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+
+/* ── 인증 완료 모달 ──────────────────────────────────────────
+   확인 버튼을 눌러야 닫힌다(사용자 결정 2026-08-03). 한 명씩 눈으로 대조하고
+   넘어가는 흐름이라, 자동으로 사라지면 못 보고 지나칠 수 있다. */
+#resultModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+  align-items:center;justify-content:center;padding:20px;z-index:100}
+#resultModal.open{display:flex}
+.rm-box{background:#fff;border-radius:20px;padding:28px 22px 20px;width:100%;max-width:400px;
+  text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.rm-title{font-size:19px;font-weight:800;margin-top:16px}
+.rm-name{font-size:32px;font-weight:900;line-height:1.2;margin-top:18px;word-break:keep-all}
+.rm-kana{font-size:15px;color:var(--muted);margin-top:4px}
+.rm-when{font-size:20px;font-weight:800;margin-top:16px}
+.rm-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;
+  letter-spacing:.18em;font-weight:800;margin-top:12px;padding:10px;border-radius:10px;background:var(--bg)}
+.rm-sub{font-size:14px;color:var(--muted);margin-top:12px;line-height:1.6}
+.rm-ask .rm-title{color:var(--red)}
+.rm-ask .rm-mark circle,.rm-ask .rm-mark path{stroke:var(--red)}
+#rmConfirmBtn{background:var(--green)}
+.rm-ask #rmCloseBtn{background:#fff;color:var(--muted);border:1px solid var(--line)}
+.rm-ok .rm-title{color:var(--green)}
+.rm-dup .rm-title{color:var(--amber)}
+.rm-bad .rm-title{color:var(--red)}
+
+/* 예약 날짜 배지 — 다른 날 예약자가 그냥 들어오는 것을 막는다.
+   운영진이 모달에서 가장 먼저 보게 위쪽에 크게 둔다. */
+.rm-daybadge{display:none;margin-top:14px;padding:10px 12px;border-radius:10px;
+  font-size:16px;font-weight:800;line-height:1.5}
+.rm-daybadge.today{display:block;background:#F0FDF4;color:var(--green)}
+.rm-daybadge.other{display:block;background:#FEF2F2;color:var(--red);font-size:18px}
+
+/* 체크 표시 — 원을 그린 뒤 체크가 그려진다 */
+.rm-mark{width:88px;height:88px;margin:0 auto;display:block}
+.rm-mark circle{stroke-width:4;fill:none;stroke-dasharray:238;stroke-dashoffset:238;
+  animation:rmCircle .5s cubic-bezier(.65,0,.45,1) forwards}
+.rm-mark path{stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:60;stroke-dashoffset:60;animation:rmCheck .35s cubic-bezier(.65,0,.45,1) .45s forwards}
+/* 엑스는 두 획이라 두 번째 획을 조금 늦게 그린다 */
+.rm-mark path.x2{animation-delay:.62s}
+.rm-ok .rm-mark circle,.rm-ok .rm-mark path{stroke:var(--green)}
+.rm-dup .rm-mark circle,.rm-dup .rm-mark path{stroke:var(--amber)}
+.rm-bad .rm-mark circle,.rm-bad .rm-mark path{stroke:var(--red)}
+@keyframes rmCircle{to{stroke-dashoffset:0}}
+@keyframes rmCheck{to{stroke-dashoffset:0}}
+/* 움직임을 줄이도록 설정한 기기에서는 그리지 않고 바로 보여 준다 */
+@media (prefers-reduced-motion:reduce){
+  .rm-mark circle,.rm-mark path{animation:none;stroke-dashoffset:0}
+}
+
+.recent-item{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
+.recent-item:first-child{border-top:none}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.ok{background:var(--green)} .dot.dup{background:var(--amber)} .dot.bad{background:var(--red)}
+.dot.ask{background:var(--red)}
+
+/* 명단 — QR 을 못 찾거나 휴대폰을 두고 온 방문객을 이름으로 찾는 경로.
+   ⚠️ 가로 여백은 **한 곳에서만** 준다(.slot-title 과 .att 에 같은 값).
+      한쪽에만 주면 줄마다 이름이 좌우로 튀고, 음수 여백으로 넓히면 좌우 스크롤이 생긴다. */
+.slot-group{margin-top:8px}
+.slot-group:first-child{margin-top:0}
+/* 시간대 제목은 얇은 띠 — 목록이 어디서 끊기는지 한눈에 보이게.
+   스크롤해도 위에 붙으므로 배경이 불투명해야 한다(투명하면 뒤 글자가 비친다). */
+.slot-title{font-size:13px;font-weight:800;color:var(--pink);padding:7px 10px;
+  position:sticky;top:0;z-index:1;background:var(--bg);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.att{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line)}
+.att:last-child{border-bottom:none}
+.att-name{flex:1;font-size:15px;font-weight:700;min-width:0}
+.att-kana{font-size:11px;color:var(--muted);font-weight:400}
+.att-btn{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--ink);
+  background:#fff;font-size:13px;font-weight:700;flex-shrink:0}
+/* 입장 완료한 사람을 **흐리게 하지 않고 초록으로 살려서** 보여 준다
+   (사용자 요청 2026-08-03 — 「활성된 것처럼」).
+   ⚠️ 여백은 위 .att 와 똑같이 둔다 — 여기만 더 주면 이름이 한 칸씩 밀려 보인다. */
+.att.done{background:#F0FDF4}
+.att.done .att-name{color:var(--green)}
+.att-done-mark{font-size:12px;font-weight:800;color:var(--green);flex-shrink:0;
+  display:inline-flex;align-items:center;gap:3px}
+.att-wait{font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0}
+/* 시간대별 「예약자가 없습니다」는 띠와 같은 줄맞춤으로 — 가운데 정렬하면
+   시간대마다 글이 좌우로 튀어 목록이 들쭉날쭉해 보인다. */
+.empty{padding:12px 10px;font-size:13px;color:var(--muted);line-height:1.7}
+/* 목록 전체를 대신하는 안내(불러오는 중·오류·타임 없음)는 가운데로 */
+#rosterList > .empty{padding:28px 12px;text-align:center}
+
+/* 안쪽 스크롤 막대 — 얇고 옅게. 기본 막대는 두껍고 회색 트랙까지 그려져
+   목록 옆에 또 하나의 기둥처럼 보인다. 손가락으로 잡는 용도가 아니라
+   「지금 어디쯤인지」만 알려 주면 되는 자리다. */
+.col-left,#rosterList{scrollbar-width:thin;scrollbar-color:#D4D4D8 transparent}
+.col-left::-webkit-scrollbar,#rosterList::-webkit-scrollbar{width:6px}
+.col-left::-webkit-scrollbar-track,#rosterList::-webkit-scrollbar-track{background:transparent}
+.col-left::-webkit-scrollbar-thumb,#rosterList::-webkit-scrollbar-thumb{
+  background:#D4D4D8;border-radius:3px}
+.col-left::-webkit-scrollbar-thumb:hover,#rosterList::-webkit-scrollbar-thumb:hover{background:#A1A1AA}
+.offline-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:14px;
+  padding-top:12px;border-top:1px dashed var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1 data-i18n="pageTitle">입장 확인</h1>
+    <div class="lang-toggle" role="group" aria-label="language">
+      <button type="button" id="langKo" class="on" onclick="setLang('ko')">한국어</button>
+      <button type="button" id="langJa" onclick="setLang('ja')">日本語</button>
+    </div>
+    <span class="topbar-gap"></span>
+    <span class="badge-env" id="envBadge" style="display:none">DEV</span>
+    <button class="att-btn" id="logoutBtn" style="display:none" onclick="doLogout()" data-i18n="logout">로그아웃</button>
+    <!-- 개발서버에서만 보인다. 운영 데이터베이스에는 이 기능의 서버 함수 자체가 없다. -->
+    <button class="att-btn" id="resetBtn" style="display:none;border-color:var(--amber);color:var(--amber)"
+            onclick="resetCheckins()" data-i18n="resetBtn">입장 기록 초기화 (개발 전용)</button>
+  </div>
+
+  <!-- 로그인 (관리자 계정) -->
+  <div class="card" id="loginCard" style="display:none">
+    <label for="loginEmail" data-i18n="adminEmail">관리자 이메일</label>
+    <input type="email" id="loginEmail" autocomplete="username" inputmode="email">
+    <label for="loginPw" style="margin-top:12px" data-i18n="password">비밀번호</label>
+    <input type="password" id="loginPw" autocomplete="current-password">
+    <button class="btn" id="loginBtn" onclick="doLogin()" data-i18n="login">로그인</button>
+    <div class="hint" id="loginErr" style="color:var(--red);display:none"></div>
+    <div class="hint" data-i18n="loginKeep">행사장에서 계속 쓰는 화면이라 로그인 상태를 유지합니다. 행사가 끝나면 로그아웃해 주세요.</div>
+  </div>
+
+  <!-- 인증 결과 모달 -->
+  <div id="resultModal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <div class="rm-box" id="rmBox">
+      <div id="rmMarkWrap"></div>
+      <div class="rm-daybadge" id="rmDayBadge"></div>
+      <div class="rm-title" id="rmTitle"></div>
+      <div class="rm-name" id="rmName"></div>
+      <div class="rm-kana" id="rmKana"></div>
+      <div class="rm-when" id="rmWhen"></div>
+      <div class="rm-code" id="rmCode"></div>
+      <div class="rm-sub" id="rmSub"></div>
+      <button class="btn" id="rmConfirmBtn" style="display:none" onclick="confirmOtherDay()" data-i18n="doCheckIn">입장 처리</button>
+      <button class="btn" id="rmCloseBtn" onclick="closeResultModal()" data-i18n="confirm">확인</button>
+    </div>
+  </div>
+
+  <!-- 행사 고르기 (주소에 행사가 없거나, 주소가 잘못됐을 때) -->
+  <div class="card" id="pickerCard" style="display:none">
+    <div class="picker-title" data-i18n="pickTitle">어느 행사를 확인하시나요?</div>
+    <div class="hint" data-i18n="pickHint">이 화면은 고른 행사 하나만 보여 줍니다. 다른 행사를 보려면 이 페이지를 새로고침해 다시 고르세요.</div>
+    <div class="hint" id="pickerErr" style="color:var(--red);display:none"></div>
+    <div id="pickerList"></div>
+  </div>
+
+  <!-- 본 화면 -->
+  <div id="mainArea" style="display:none">
+
+    <!-- 지금 보고 있는 행사. 묶음이면 캠페인 개수를 함께 적는다 — 없으면 캠페인 A 에서
+         열었는데 B 이름이 명단에 나와 「고장 났다」로 읽힌다. -->
+    <div class="scope-bar" id="scopeBar" style="display:none">
+      <span class="material-icons-round notranslate" translate="no">event</span>
+      <span id="scopeName"></span>
+      <span class="scope-sub" id="scopeSub"></span>
+    </div>
+
+
+    <div class="cols">
+    <div class="col-left">
+    <div class="card" id="scanCard">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="margin:0;flex:1" data-i18n="qrScan">QR 스캔</label>
+        <button class="att-btn" id="scanToggleBtn" onclick="toggleScanner()" data-i18n-scan="1">카메라 켜기</button>
+      </div>
+      <div id="scannerWrap" style="display:none">
+        <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
+          <video id="scannerVideo" playsinline muted style="width:100%;display:block;max-height:52vh;object-fit:cover"></video>
+          <!-- 조준 틀 — 어디에 대야 하는지 알려 준다 -->
+          <div style="position:absolute;inset:14% 18%;border:3px solid rgba(255,255,255,.85);border-radius:12px;pointer-events:none"></div>
+        </div>
+        <div class="hint" data-i18n="camAim">방문객 화면의 QR 을 틀 안에 맞춰 주세요. 읽히면 자동으로 확인됩니다.</div>
+      </div>
+      <div class="hint" id="scanErr" style="display:none;color:var(--red)"></div>
+      <div class="hint" id="scanIdleHint" data-i18n="camIdle">카메라를 못 쓰는 기기이거나 권한을 허용하지 않아도 괜찮습니다. 아래 예약번호 손입력으로 그대로 진행하세요.</div>
+    </div>
+
+    <div class="card">
+      <label for="codeInput" data-i18n="codeLabel">예약번호 8자리</label>
+      <input type="text" id="codeInput" maxlength="8" autocomplete="off" autocapitalize="characters"
+             spellcheck="false" inputmode="text" data-i18n-ph="codePlaceholder">
+      <button class="btn" id="checkBtn" onclick="submitCode()" data-i18n="confirm">확인</button>
+      <div class="hint" data-i18n="codeHint">방문객 화면의 QR 아래에 있는 번호입니다.</div>
+    </div>
+
+    <div class="card" id="recentCard" style="display:none">
+      <label data-i18n="recent">최근 확인</label>
+      <div id="recentList"></div>
+    </div>
+    <div class="offline-note" data-i18n="offlineNote"></div>
+    </div><!-- /col-left -->
+
+    <div class="col-right">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="margin:0;flex:1" data-i18n="roster">예약자 명단</label>
+        <button class="att-btn" onclick="loadRoster()" data-i18n="refresh">새로고침</button>
+      </div>
+      <div id="rosterDate" class="date-tabs" role="group"></div>
+      <div id="rosterSummary" class="roster-summary"></div>
+      <div class="hint" data-i18n="rosterHint">QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.</div>
+      <div id="rosterList"><div class="empty" data-i18n="loading">불러오는 중…</div></div>
+    </div>
+    </div><!-- /col-right -->
+    </div><!-- /cols -->
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// 현장 입장 확인 페이지 (자립형) — 사양서 2026-07-30 §4-4
+//
+// 관리자 앱 안에 둘 수 없다: 관리자 앱은 PC 전체폭 고정이고 모바일 껍데기 적용이
+// 금지돼 있다(.claude/rules/ui.md). 그래서 관리자 비밀번호 설정 페이지와 같은
+// 자립형 정적 페이지로 만든다.
+//
+// ⚠️ 자립형이라 dev/lib/storage.js 를 쓸 수 없다. 호출을 이 파일 안에 직접 쓴다.
+//    쓰는 서버 함수는 check_in_ticket 하나뿐이고, 오늘 명단만 표를 직접 조회한다.
+// ══════════════════════════════════════════════════════════════
+
+// ⚠️ supabase.md 「URL/Key 는 SUPABASE_ENVS 에서만」 규칙의 명시적 예외.
+//    자립형 페이지라 dev/lib/supabase.js(빌드 산출물에만 포함)를 못 불러온다
+//    — admin-setpw.html · sales/orient.html 과 같은 사유.
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+const SUPABASE_ENV = /^(www\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+
+// ★ persistSession 은 true — 행사장에서 하루 종일 쓰는 화면이라 세션이 유지돼야 한다.
+//   (관리자 비밀번호 설정 페이지는 모드에 따라 false 인데, 그건 링크 착지 임시 세션이
+//    다른 탭의 관리자 앱을 열어버리는 것을 막으려는 것이라 목적이 정반대다.)
+const sb = window.supabase
+  ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key, {
+      auth: {flowType: 'pkce', detectSessionInUrl: false, persistSession: true, autoRefreshToken: true}
+    })
+  : null;
+
+
+// ══════════════════════════════════════════════════════════════
+// 화면 문구 (한국어 / 일본어)
+//   ⚠️ 「관리자 화면은 한국어」 규칙(.claude/rules/ui.md)의 **의도적 예외**다.
+//      이 화면은 관리자 앱이 아니라 행사장 입구에서 쓰는 별도 화면이고, 부스에
+//      일본인 운영진이 설 수 있다(사용자 2026-08-03). 관리자 앱 본체는 한국어 그대로다.
+// ══════════════════════════════════════════════════════════════
+const SCAN_I18N = {
+  ko: {
+    pageTitle: '입장 확인',
+    logout: '로그아웃', login: '로그인',
+    adminEmail: '관리자 이메일', password: '비밀번호',
+    loginKeep: '행사장에서 계속 쓰는 화면이라 로그인 상태를 유지합니다. 행사가 끝나면 로그아웃해 주세요.',
+    loginNeedBoth: '이메일과 비밀번호를 입력해 주세요.',
+    loginWrong: '이메일 또는 비밀번호가 올바르지 않습니다.',
+    adminOnly: '관리자 계정으로만 사용할 수 있는 화면입니다.',
+    noServer: '서버에 연결할 수 없습니다. 새로고침해 주세요.',
+    qrScan: 'QR 스캔', camOn: '카메라 켜기', camOff: '카메라 끄기',
+    camAim: '방문객 화면의 QR 을 틀 안에 맞춰 주세요. 읽히면 자동으로 확인됩니다.',
+    camIdle: '카메라를 못 쓰는 기기이거나 권한을 허용하지 않아도 괜찮습니다. 아래 예약번호 손입력으로 그대로 진행하세요.',
+    camDenied: '카메라 사용이 허용되지 않았습니다. 예약번호 손입력을 사용해 주세요.',
+    camUnavailable: '카메라를 쓸 수 없는 기기입니다. 예약번호 손입력을 사용해 주세요.',
+    qrLibFailed: 'QR 읽기 기능을 불러오지 못했습니다. 예약번호 손입력을 사용해 주세요.',
+    codeLabel: '예약번호 8자리', codePlaceholder: '스캔이 안되나요? 예약번호 8자리(ABCD2345)를 입력하세요.', confirm: '확인',
+    codeHint: '방문객 화면의 QR 아래에 있는 번호입니다. 헷갈리는 글자(0 O 1 I L)는 쓰지 않습니다. 다 입력한 뒤 「확인」을 눌러 주세요.',
+    loading: '불러오는 중…',
+    recent: '최근 확인',
+    roster: '예약자 명단', refresh: '새로고침', allDates: '전체 기간', todaySuffix: ' (오늘)',
+    rsReserved: '예약 {r}명', rsEntered: '입장 {e}명 ({p}%)', rsWaiting: '대기 {w}명',
+    rosterHint: 'QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.',
+    noSlots: '등록된 타임이 없습니다.', noSlotsThisDate: '이 날짜에 등록된 타임이 없습니다.',
+    noAttendees: '예약자가 없습니다.',
+    rosterFailed: '명단을 불러오지 못했습니다. 인터넷 연결을 확인하고 「새로고침」을 눌러 주세요.',
+    pickTitle: '어느 행사를 확인하시나요?',
+    pickHint: '이 화면은 고른 행사 하나만 보여 줍니다. 다른 행사를 보려면 이 페이지를 새로고침해 다시 고르세요.',
+    pickNone: '진행 중인 행사가 없습니다. 관리자 화면에서 행사 캠페인을 먼저 만들어 주세요.',
+    scopeCampCount: '캠페인 {n}개',
+    scopeNotFound: '주소에 적힌 행사를 찾을 수 없습니다. 아래에서 골라 주세요.',
+    scopeLoadFailed: '행사 목록을 불러오지 못했습니다. 인터넷 연결을 확인하고 이 페이지를 새로고침해 주세요.',
+    scopeUnnamed: '(이름 없는 행사)',
+    enterBtn: '입장', enteredAt: '입장', waitingN: '대기', enteredCount: '입장',
+    resetBtn: '입장 기록 초기화',
+    resetAsk: '{scope} 입장 기록을 되돌립니다.\n예약 자체는 그대로 두고 입장 시각만 지웁니다.\n계속할까요?',
+    resetScopeAll: '전체 기간의', resetScopeDate: '{d} 의',
+    resetDone: '입장 기록 {n}건을 되돌렸습니다.',
+    resetFailed: '초기화하지 못했습니다. 개발 데이터베이스에 패치를 적용했는지 확인해 주세요.',
+    okTitle: '인증이 완료되었습니다', dupTitle: '이미 인증 처리가 완료되었습니다',
+    otherDayTitle: '오늘 예약이 아닙니다', otherDayAsk: '이대로 입장 처리할까요?',
+    doCheckIn: '입장 처리', cancel: '취소',
+    todayOk: '오늘 예약입니다', notToday: '오늘이 아닙니다 · ', pastDate: '지난 날짜입니다 · ',
+    dateFmt: '{m}월 {d}일 예약',
+    firstEnter: '첫 입장 {t} · 확인 {n}회', waitPos: '대기 {n}번',
+    failNotFound: '없는 예약번호입니다', failCancelled: '취소된 예약입니다',
+    failWaitlist: '대기 상태라 입장할 수 없습니다',
+    failPerm: '권한이 없습니다. 다시 로그인해 주세요',
+    failOutOfScope: '다른 행사의 예약입니다',
+    outOfScopeNote: '이 화면은 지금 고른 행사만 확인합니다. 위에 적힌 행사 담당자에게 안내해 주세요.',
+    failScopeMissing: '확인할 행사가 정해지지 않았습니다. 화면을 새로고침해 주세요',
+    failNetwork: '확인하지 못했습니다. 인터넷 연결을 확인해 주세요',
+    failGeneric: '확인하지 못했습니다',
+    offlineNote: '인터넷이 끊기면 이 화면은 손입력도 함께 멈춥니다. 예약자 확인이 서버에 물어보는 방식이기 때문입니다. 그럴 때는 당일 아침에 인쇄해 둔 명단으로 눈으로 대조한 뒤, 인터넷이 돌아오면 관리자 화면의 「예약 현황」에서 손으로 입장 처리해 주세요.',
+  },
+  ja: {
+    pageTitle: '入場確認',
+    logout: 'ログアウト', login: 'ログイン',
+    adminEmail: '管理者メールアドレス', password: 'パスワード',
+    loginKeep: '会場で使いつづける画面のため、ログイン状態を保持します。イベントが終わったらログアウトしてください。',
+    loginNeedBoth: 'メールアドレスとパスワードを入力してください。',
+    loginWrong: 'メールアドレスまたはパスワードが正しくありません。',
+    adminOnly: '管理者アカウントのみご利用いただけます。',
+    noServer: 'サーバーに接続できません。画面を更新してください。',
+    qrScan: 'QRスキャン', camOn: 'カメラをオン', camOff: 'カメラをオフ',
+    camAim: '来場者の画面のQRを枠に合わせてください。読み取れると自動で確認します。',
+    camIdle: 'カメラが使えない端末でも問題ありません。権限を許可しなくても大丈夫です。下の予約番号の手入力でそのまま進められます。',
+    camDenied: 'カメラの使用が許可されていません。予約番号の手入力をご利用ください。',
+    camUnavailable: 'カメラが使えない端末です。予約番号の手入力をご利用ください。',
+    qrLibFailed: 'QR読み取り機能を読み込めませんでした。予約番号の手入力をご利用ください。',
+    codeLabel: '予約番号 8桁', codePlaceholder: 'スキャンできませんか？予約番号8桁（ABCD2345）を入力してください。', confirm: '確認',
+    codeHint: '来場者の画面のQRの下にある番号です。まぎらわしい文字（0 O 1 I L）は使いません。すべて入力してから「確認」をおしてください。',
+    loading: '読み込んでいます…',
+    recent: '最近の確認',
+    roster: '予約者リスト', refresh: '再読み込み', allDates: '全期間', todaySuffix: '（本日）',
+    rsReserved: '予約 {r}名', rsEntered: '入場 {e}名（{p}%）', rsWaiting: 'キャンセル待ち {w}名',
+    rosterHint: 'QRが見つからない方・スマホをお忘れの方は、お名前をタップして入場処理してください。',
+    noSlots: '登録された時間帯がありません。', noSlotsThisDate: 'この日付に登録された時間帯がありません。',
+    noAttendees: '予約者がいません。',
+    rosterFailed: 'リストを読み込めませんでした。通信環境をご確認のうえ「再読み込み」をおしてください。',
+    pickTitle: 'どのイベントを確認しますか？',
+    pickHint: 'この画面は選んだイベント1つだけを表示します。ほかのイベントを見るには、このページを再読み込みして選びなおしてください。',
+    pickNone: '進行中のイベントがありません。管理画面でイベントキャンペーンを先に作成してください。',
+    scopeCampCount: 'キャンペーン{n}件',
+    scopeNotFound: 'アドレスのイベントが見つかりません。下から選んでください。',
+    scopeLoadFailed: 'イベント一覧を読み込めませんでした。通信環境をご確認のうえ、このページを再読み込みしてください。',
+    scopeUnnamed: '（名称未設定のイベント）',
+    enterBtn: '入場', enteredAt: '入場', waitingN: 'キャンセル待ち', enteredCount: '入場',
+    resetBtn: '入場記録をリセット',
+    resetAsk: '{scope}入場記録をもとに戻します。\n予約はそのままで、入場時刻だけを消します。\n続けますか？',
+    resetScopeAll: '全期間の', resetScopeDate: '{d} の',
+    resetDone: '入場記録を{n}件もとに戻しました。',
+    resetFailed: 'リセットできませんでした。開発データベースにパッチを適用したかご確認ください。',
+    okTitle: '認証が完了しました', dupTitle: 'すでに認証処理が完了しています',
+    otherDayTitle: '本日のご予約ではありません', otherDayAsk: 'このまま入場処理しますか？',
+    doCheckIn: '入場処理', cancel: 'キャンセル',
+    todayOk: '本日のご予約です', notToday: '本日ではありません · ', pastDate: '過去の日付です · ',
+    dateFmt: '{m}月{d}日のご予約',
+    firstEnter: '初回入場 {t} · 確認 {n}回', waitPos: 'キャンセル待ち {n}番',
+    failNotFound: '存在しない予約番号です', failCancelled: 'キャンセルされた予約です',
+    failWaitlist: 'キャンセル待ちのため入場できません',
+    failPerm: '権限がありません。もう一度ログインしてください',
+    failOutOfScope: '別のイベントのご予約です',
+    outOfScopeNote: 'この画面は、いま選んでいるイベントだけを確認します。上に表示されたイベントのご担当へご案内ください。',
+    failScopeMissing: '確認するイベントが決まっていません。画面を再読み込みしてください',
+    failNetwork: '確認できませんでした。通信環境をご確認ください',
+    failGeneric: '確認できませんでした',
+    offlineNote: 'インターネットが切れると、この画面は手入力も止まります。予約者の確認をサーバーに問い合わせる方式のためです。そのときは当日朝に印刷したリストで目視照合し、回復後に管理画面の「予約状況」から手動で入場処理してください。',
+  }
+};
+
+let _lang = 'ko';
+try { const v = localStorage.getItem('reverb.scanLang'); if (v === 'ja' || v === 'ko') _lang = v; } catch (e) {}
+
+function T(key, vars) {
+  let v = (SCAN_I18N[_lang] || SCAN_I18N.ko)[key];
+  if (v == null) v = SCAN_I18N.ko[key] || key;
+  if (vars) Object.keys(vars).forEach(k => { v = v.split('{' + k + '}').join(vars[k]); });
+  return v;
+}
+
+function setLang(lang) {
+  _lang = (lang === 'ja') ? 'ja' : 'ko';
+  try { localStorage.setItem('reverb.scanLang', _lang); } catch (e) {}
+  applyLang();
+  // 이미 그려진 목록·날짜 단추도 새 언어로 다시 그린다.
+  if ($('mainArea').style.display !== 'none') { renderScopeBar(); loadRoster(); }
+  // 고르기 화면도 마찬가지다 — 여기 문구(오류 안내·「캠페인 N개」)는 자바스크립트로
+  //   직접 넣는 것이라 data-i18n 갱신만으로는 안 바뀐다.
+  if ($('pickerCard').style.display !== 'none') renderPicker(_pickerChoices, _pickerErrKey);
+}
+
+// data-i18n 이 붙은 요소의 글자를 바꾼다. 화면에 이미 떠 있는 모달은 건드리지 않는다
+// (읽는 도중 글자가 바뀌면 오히려 혼란 — 다음 확인부터 새 언어로 나온다).
+function applyLang() {
+  document.documentElement.lang = _lang;
+  document.title = T('pageTitle') + ' — REVERB';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    // 결과 모달이 떠 있는 동안은 그 안을 건드리지 않는다 — 운영진이 읽는 도중
+    // 글자가 바뀌면 오히려 혼란스럽다. 모달 밖(상단 언어 단추)은 눌러야 하므로
+    // 화면 비활성(inert)에서 제외돼 있고, 그래서 이 예외가 실제로 필요하다.
+    if (_modalOpen && el.closest('#resultModal')) return;
+    el.textContent = T(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = T(el.getAttribute('data-i18n-ph'));
+  });
+  document.querySelectorAll('[data-i18n-scan]').forEach(el => {
+    // 카메라 버튼은 상태에 따라 글자가 달라 별도 처리
+    el.textContent = _scanStream ? T('camOff') : T('camOn');
+  });
+  const kb = $('langKo'), jb = $('langJa');
+  if (kb) kb.classList.toggle('on', _lang === 'ko');
+  if (jb) jb.classList.toggle('on', _lang === 'ja');
+}
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let _recent = [];      // 최근 확인 5건
+let _modalOpen = false;   // 결과 모달이 떠 있는 동안 카메라 인식을 멈춘다
+let _pendingOtherDay = null;   // 다른 날 예약이라 되묻는 중인 예약번호
+let _busy = false;
+
+// ── 로그인 ────────────────────────────────────────────────────
+async function boot() {
+  if (SUPABASE_ENV === 'staging') $('envBadge').style.display = '';
+  if (!sb) {
+    // 화면 안에서 알린다 — 이 프로젝트는 경고창(alert)을 쓰지 않는다.
+    $('loginCard').style.display = '';
+    $('loginErr').textContent = T('noServer');
+    $('loginErr').style.display = '';
+    return;
+  }
+
+  const {data} = await sb.auth.getSession();
+  if (data?.session) { await afterLogin(); }
+  else { $('loginCard').style.display = ''; $('loginEmail').focus(); }
+}
+
+async function doLogin() {
+  const email = $('loginEmail').value.trim();
+  const pw = $('loginPw').value;
+  const err = $('loginErr');
+  err.style.display = 'none';
+  if (!email || !pw) { err.textContent = T('loginNeedBoth'); err.style.display = ''; return; }
+
+  $('loginBtn').disabled = true;
+  const {error} = await sb.auth.signInWithPassword({email, password: pw});
+  $('loginBtn').disabled = false;
+  if (error) {
+    // 계정이 있는지 없는지 알려 주지 않는다(계정 열거 방지 — .claude/rules/security.md).
+    err.textContent = T('loginWrong');
+    err.style.display = '';
+    return;
+  }
+  await afterLogin();
+}
+
+// ── 보는 범위 (마이그레이션 291·292 — 행사 묶음) ────────────────────
+// 이 화면은 **한 행사만** 보여 준다. 여러 행사가 한 화면에 섞이면 부스에서
+// 남의 행사 예약자를 들여보내게 된다.
+// ⚠️ 같은 행사가 날짜별로 여러 캠페인으로 나뉜 경우(이번 팝업이 그렇다)는
+//    「행사 묶음」으로 묶여 있어야 사흘이 한 화면에 들어온다. 안 묶으면 날짜가
+//    바뀌는 아침에 명단이 빈다.
+let _scopeCampaignIds = null;   // null = 아직 안 정해짐
+let _scopeName = '';
+let _scopeCampCount = 0;
+let _pickerChoices = [];   // 고르기 화면에 그린 항목(인덱스로 고른다)
+let _pickerErrKey = '';    // 오류 안내는 완성된 문장이 아니라 **키**로 들고 있는다
+                           //   (언어를 바꾸면 그 언어로 다시 그려야 하므로)
+
+function scopeFromUrl() {
+  const p = new URLSearchParams(location.search);
+  return {group: p.get('group') || '', campaign: p.get('campaign') || ''};
+}
+
+// 행사 캠페인 전부(삭제된 것 제외) + 묶음 이름. 고르기 목록과 범위 판정에 함께 쓴다.
+async function fetchEventScopeSource() {
+  const {data: camps, error} = await sb.from('campaigns')
+    .select('id, title, event_group_id, deleted_at')
+    .eq('event_mode', true)
+    .is('deleted_at', null)
+    .order('created_at', {ascending: false});
+  if (error) throw error;
+  const ids = [...new Set((camps || []).map(c => c.event_group_id).filter(Boolean))];
+  let groups = [];
+  if (ids.length) {
+    const {data: gs} = await sb.from('event_groups').select('id,name,status').in('id', ids);
+    groups = gs || [];
+  }
+  return {camps: camps || [], groups};
+}
+
+// 고를 수 있는 항목을 만든다. **묶음이 있으면 묶음 하나로 합친다** — 묶음에 속한
+// 캠페인을 개별로도 늘어놓으면 담당자가 「첫날」만 골라 이틀차 명단이 비는
+// 사고가 그대로 되살아난다(묶음을 만든 이유가 사라진다).
+function buildScopeChoices(camps, groups) {
+  const gmap = {};
+  groups.forEach(g => { gmap[g.id] = g; });
+  const out = [], seen = {};
+  camps.forEach(c => {
+    const g = c.event_group_id ? gmap[c.event_group_id] : null;
+    // 보관 묶음은 고르기 목록에서 뺀다(§4-1). 주소로 지정해 열면 정상 동작한다.
+    if (g && g.status !== 'active') return;
+    if (g) {
+      if (seen[g.id]) { seen[g.id].campIds.push(c.id); return; }
+      seen[g.id] = {kind: 'group', id: g.id, name: g.name, campIds: [c.id]};
+      out.push(seen[g.id]);
+    } else {
+      out.push({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id]});
+    }
+  });
+  return out;
+}
+
+function applyScope(choice) {
+  _scopeCampaignIds = choice.campIds.slice();
+  _scopeName = choice.name;
+  _scopeCampCount = choice.campIds.length;
+  $('pickerCard').style.display = 'none';
+  $('mainArea').style.display = '';
+  renderScopeBar();
+  $('codeInput')?.focus();
+  loadRoster();
+}
+
+function renderScopeBar() {
+  const bar = $('scopeBar');
+  if (!bar) return;
+  $('scopeName').textContent = _scopeName || '';
+  // 묶음이면 캠페인이 몇 개 들어 있는지 반드시 보여 준다.
+  $('scopeSub').textContent = _scopeCampCount > 1
+    ? T('scopeCampCount', {n: _scopeCampCount}) : '';
+  bar.style.display = '';
+}
+
+function renderPicker(choices, errKey) {
+  $('mainArea').style.display = 'none';
+  $('pickerCard').style.display = '';
+  const err = $('pickerErr');
+  _pickerErrKey = errKey || '';
+  if (_pickerErrKey) { err.textContent = T(_pickerErrKey); err.style.display = ''; } else { err.style.display = 'none'; }
+  const box = $('pickerList');
+  if (!choices.length) {
+    // ⚠️ 오류 안내가 있으면 「행사가 없다」를 겹쳐 띄우지 않는다. 통신이 끊긴 것뿐인데
+    //    「캠페인을 먼저 만들라」가 함께 뜨면 부스에서 반대 방향으로 움직이게 된다.
+    box.innerHTML = _pickerErrKey ? '' : `<div class="empty">${esc(T('pickNone'))}</div>`;
+    return;
+  }
+  box.innerHTML = choices.map((c, i) => `
+    <button type="button" class="picker-item" onclick="pickScope(${i})">
+      ${esc(c.name)}
+      ${c.campIds.length > 1 ? `<span class="picker-sub">${esc(T('scopeCampCount', {n: c.campIds.length}))}</span>` : ''}
+    </button>`).join('');
+  _pickerChoices = choices;
+}
+
+function pickScope(idx) {
+  const c = _pickerChoices[idx];
+  if (c) applyScope(c);
+}
+
+// 주소를 읽어 범위를 정한다. 못 정하면 고르기 화면.
+// ⚠️ 고른 뒤 주소에 식별자를 **써넣지 않는다.** 써넣으면 새로고침해도 같은 행사로
+//    돌아와, 잘못 골랐을 때 빠져나갈 길이 없다.
+async function resolveScope() {
+  const {group, campaign} = scopeFromUrl();
+  let src;
+  try {
+    src = await fetchEventScopeSource();
+  } catch (e) {
+    console.warn('[resolveScope]', e);
+    renderPicker([], 'scopeLoadFailed');
+    return;
+  }
+  const {camps, groups} = src;
+
+  if (group) {
+    const g = groups.find(x => x.id === group);
+    const ids = camps.filter(c => c.event_group_id === group).map(c => c.id);
+    // 지운 묶음·오타 난 주소는 **빈 명단이 아니라** 안내를 띄우고 고르게 한다.
+    if (!ids.length) { renderPicker(buildScopeChoices(camps, groups), 'scopeNotFound'); return; }
+    applyScope({kind: 'group', id: group, name: g?.name || T('scopeUnnamed'), campIds: ids});
+    return;
+  }
+  if (campaign) {
+    const c = camps.find(x => x.id === campaign);
+    if (!c) { renderPicker(buildScopeChoices(camps, groups), 'scopeNotFound'); return; }
+    applyScope({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id]});
+    return;
+  }
+
+  const choices = buildScopeChoices(camps, groups);
+  // 행사가 하나뿐이면 고르게 하지 않는다 — 누를 것이 하나인 화면은 걸림돌일 뿐이다.
+  if (choices.length === 1) { applyScope(choices[0]); return; }
+  renderPicker(choices, '');
+}
+
+async function afterLogin() {
+  // 관리자만 쓸 수 있는 화면이다. 서버 함수도 관리자 가드가 있지만, 관리자가 아닌
+  // 사람이 로그인해 빈 화면만 보는 막다른 골목을 만들지 않으려고 여기서 먼저 안내한다.
+  const {data: s} = await sb.auth.getUser();
+  const uid = s?.user?.id;
+  let isAdmin = false;
+  if (uid) {
+    const {data: a} = await sb.from('admins').select('id').eq('auth_id', uid).maybeSingle();
+    isAdmin = !!a;
+  }
+  if (!isAdmin) {
+    $('loginCard').style.display = '';
+    $('loginErr').textContent = T('adminOnly');
+    $('loginErr').style.display = '';
+    await sb.auth.signOut();
+    return;
+  }
+  $('loginCard').style.display = 'none';
+  $('logoutBtn').style.display = '';
+  // 개발서버에서만 초기화 버튼을 그린다(운영에는 서버 함수 자체가 없다).
+  if (SUPABASE_ENV === 'staging') $('resetBtn').style.display = '';
+  // 범위가 정해져야 명단을 부른다. 정해지면 resolveScope 가 본 화면을 띄우고
+  //   loadRoster 까지 이어서 한다(고르기 화면이면 아직 안 부른다).
+  await resolveScope();
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── 예약번호 확인 ─────────────────────────────────────────────
+async function submitCode() {
+  if (_busy) return;
+  const code = ($('codeInput').value || '').trim().toUpperCase();
+  if (!code) { $('codeInput').focus(); return; }
+  await checkIn(code);
+}
+
+// 손입력·명단 클릭·(작업 8의) 카메라 스캔이 전부 이 함수를 지난다.
+async function checkIn(code, confirmOtherDay) {
+  if (_busy) return;
+  _busy = true;
+  $('checkBtn').disabled = true;
+  try {
+    const {data, error} = await sb.rpc('check_in_ticket', {
+      p_ticket_code: code,
+      p_confirm_other_day: !!confirmOtherDay,
+      // ⚠️ **이 화면이 담당하는 캠페인 목록을 반드시 함께 보낸다.**
+      //    안 보내면 서버가 reason='scope_required' 로 거부한다(마이그레이션 304, fail-closed).
+      //    범위를 안 보내던 시절에는 다른 행사 예약 번호를 넣어도 「오늘이 아닙니다」로만
+      //    안내하고 입장 처리 버튼을 내줬다 — 부스에서 남의 행사 손님을 들여보내는 자리였다
+      //    (2026-08-06 실측). 명단 조회에만 범위를 걸고 여기에 안 건 것이 원인이었다.
+      p_scope_campaign_ids: _scopeCampaignIds
+    });
+    if (error) throw error;
+    const res = data || {ok: false, reason: 'not_found'};
+    showResult(res, code);
+    // 되묻는 중이면 아직 아무것도 안 바뀌었다 — 굳이 다시 받아오지 않는다.
+    if (res.reason !== 'other_day') loadRoster();
+  } catch (e) {
+    console.warn('[checkIn]', e);
+    showResult({ok: false, reason: '_network'}, code);
+  } finally {
+    _busy = false;
+    $('checkBtn').disabled = false;
+  }
+}
+
+function failMessage(reason) {
+  const key = ({
+    not_found:             'failNotFound',
+    cancelled:             'failCancelled',
+    waitlist_cannot_enter: 'failWaitlist',
+    permission_denied:     'failPerm',
+    other_day:             'otherDayTitle',
+    // 다른 행사 예약 — 되묻지 않고 그대로 막는다(showResult 의 ask 는 other_day 에만 참).
+    out_of_scope:          'failOutOfScope',
+    scope_required:        'failScopeMissing',
+    _network:              'failNetwork'
+  })[reason];
+  return T(key || 'failGeneric');
+}
+
+function slotText(slot) {
+  if (!slot) return '';
+  const d = String(slot.slot_date || '').slice(5, 10).replace('-', '/');
+  const st = String(slot.start_time || '').slice(0, 5);
+  const en = slot.end_time ? String(slot.end_time).slice(0, 5) : '';
+  return `${d} ${en ? `${st}~${en}` : st}`;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'}); }
+  catch (e) { return ''; }
+}
+
+// 결과를 모달로 띄운다(사용자 결정 2026-08-03 — 자동 넘김에서 변경).
+//   확인 버튼을 눌러야 닫히므로 한 명씩 확실히 대조하고 넘어간다.
+//   ⚠️ 모달이 떠 있는 동안은 카메라가 다음 QR 을 읽어도 무시한다(_modalOpen) —
+//      안 그러면 대기줄의 다른 QR 이 겹쳐 들어와 화면이 덮인다.
+function showResult(res, code) {
+  const ok = !!res.ok;
+  const ask = !ok && res.reason === 'other_day';   // 아직 기록되지 않았다 — 물어보는 중
+  const dup = ok && res.already_entered;
+  const cls = ask ? 'ask' : (dup ? 'dup' : (ok ? 'ok' : 'bad'));
+  const head = ask ? T('otherDayTitle')
+             : (dup ? T('dupTitle') : (ok ? T('okTitle') : failMessage(res.reason)));
+  _pendingOtherDay = ask ? code : null;
+
+  const box = $('rmBox');
+  box.className = 'rm-box rm-' + cls;
+
+  // 성공·중복은 체크, 실패·되묻기는 엑스. 매번 새로 만들어 넣어야 애니메이션이 다시 그려진다.
+  //   ⚠️ 되묻는 중에는 **아직 입장 처리가 안 된 상태**다. 체크를 그리면 이미 끝난 줄 안다.
+  $('rmMarkWrap').innerHTML = markSvg(ok);
+  $('rmConfirmBtn').style.display = ask ? '' : 'none';
+  $('rmCloseBtn').textContent = ask ? T('cancel') : T('confirm');
+
+  // 오늘 예약인지 아닌지를 가장 먼저 보이게 한다 — 다른 날 예약자가 그냥 들어오는 것을 막는다.
+  //   ⚠️ 입장 자체를 막지는 않는다. 사정이 있어 다른 날 오신 분을 들여보낼지는 사람이 판단한다
+  //      (중복 입장을 막지 않고 알리기만 하는 것과 같은 정신 — 사양서 §2-8 U3).
+  const day = $('rmDayBadge');
+  const slotDate = res.slot ? String(res.slot.slot_date || '').slice(0, 10) : '';
+  // ⚠️ 범위 밖(다른 행사) 예약은 **날짜 배지를 쓰지 않고 행사 이름을 보여준다.**
+  //    날짜만 말하면 「같은 행사인데 날짜만 다르구나」로 읽혀 그냥 들여보내게 된다 —
+  //    2026-08-06 실측 사고가 정확히 그 모양이었다. 서버도 같은 이유로 범위를 먼저 본다.
+  if (res.reason === 'out_of_scope') {
+    day.className = 'rm-daybadge other';
+    day.textContent = res.campaign_title || '';
+    day.style.display = res.campaign_title ? '' : 'none';
+  } else if (slotDate) {
+    day.style.display = '';
+    const today = jstToday();
+    if (slotDate === today) {
+      day.className = 'rm-daybadge today';
+      day.textContent = T('todayOk');
+    } else {
+      day.className = 'rm-daybadge other';
+      const mm = slotDate.slice(5, 7).replace(/^0/, ''), dd = slotDate.slice(8, 10).replace(/^0/, '');
+      day.textContent = (slotDate > today ? T('notToday') : T('pastDate'))
+        + T('dateFmt', {m: mm, d: dd});
+    }
+  } else {
+    day.className = 'rm-daybadge';
+    day.textContent = '';
+    day.style.display = '';
+  }
+
+  $('rmTitle').textContent = head;
+  // 없는 예약번호처럼 정보가 없는 경우엔 빈 줄이 남지 않게 아예 숨긴다.
+  setOrHide('rmName', res.name_kanji);
+  setOrHide('rmKana', res.name_kana);
+  setOrHide('rmWhen', res.slot
+    ? slotText(res.slot) + (res.slot.audience_label ? ' · ' + res.slot.audience_label : '')
+    : '');
+  $('rmCode').textContent = code;
+  setOrHide('rmSub', dup
+    ? T('firstEnter', {t: fmtTime(res.entered_at), n: res.scan_count})
+    : ask ? T('otherDayAsk')
+    // 범위 밖이면 「왜 여기서 안 되는지 · 어디로 안내할지」를 한 줄로 알려 준다.
+    //   되묻는 흐름이 아니라 그대로 막히는 자리라, 직원이 다음 행동을 알 수 있어야 한다.
+    : res.reason === 'out_of_scope' ? T('outOfScopeNote')
+    : (!ok && res.waitlist_position ? T('waitPos', {n: res.waitlist_position}) : ''));
+
+  _modalOpen = true;
+  $('resultModal').classList.add('open');
+  // 뒤 화면을 통째로 비활성화한다. 안 하면 Tab 으로 초점이 배경의 예약번호 칸으로 빠지고,
+  // 그 칸은 8자를 채우면 스스로 확인을 보내므로 **모달 내용이 조용히 다음 결과로 덮인다**.
+  $('mainArea').inert = true;
+  $('rmCloseBtn').focus();
+
+  pushRecent({cls, code, name: res.name_kanji || '', head});
+}
+
+function setOrHide(id, text) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.display = text ? '' : 'none';
+}
+
+// 성공·중복이면 체크, 실패면 엑스.
+function markSvg(ok) {
+  const paths = ok
+    ? '<path d="M26 45 L39 58 L63 33"></path>'
+    : '<path d="M30 30 L58 58"></path><path class="x2" d="M58 30 L30 58"></path>';
+  return `<svg class="rm-mark" viewBox="0 0 88 88" aria-hidden="true">
+    <circle cx="44" cy="44" r="38"></circle>${paths}</svg>`;
+}
+
+// 「입장 처리」를 눌렀을 때만 서버가 기록한다.
+async function confirmOtherDay() {
+  const code = _pendingOtherDay;
+  if (!code) return;
+  _pendingOtherDay = null;
+  closeResultModal();
+  await checkIn(code, true);
+}
+
+function closeResultModal() {
+  _modalOpen = false;
+  _pendingOtherDay = null;
+  $('resultModal').classList.remove('open');
+  $('mainArea').inert = false;
+  $('codeInput').value = '';
+  // 카메라를 쓰는 중이면 입력칸에 초점을 주지 않는다 — 휴대폰 자판이 올라와 화면을 가린다.
+  if (!_scanStream) $('codeInput').focus();
+}
+
+function pushRecent(item) {
+  _recent.unshift(item);
+  _recent = _recent.slice(0, 5);
+  $('recentCard').style.display = '';
+  $('recentList').innerHTML = _recent.map(r => `
+    <div class="recent-item">
+      <span class="dot ${r.cls}"></span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name || r.head)}</span>
+      <span style="font-family:ui-monospace,monospace;color:var(--muted)">${esc(r.code)}</span>
+    </div>`).join('');
+}
+
+// ── 예약자 명단 (날짜 선택) ───────────────────────────────────
+// 처음엔 오늘만 보여 줬는데, 행사 전에는 늘 비어 보여 명단을 확인할 수 없었다.
+// 날짜 단추를 두고 기본값은 「오늘 · 오늘 예약이 없으면 가장 가까운 날짜」로 한다
+// (사용자 결정 2026-08-03). 「전체」도 고를 수 있다.
+let _rosterDates = [];
+let _rosterPick = null;   // 'YYYY-MM-DD' 또는 'all'
+
+function jstToday() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// ⚠️ 한 번에 오는 행이 1000개에서 잘린다(PostgREST 상한). 이틀차 정원만 1,440명이라
+//    **하루만 골라도** 뒤쪽 사람들이 명단에서 통째로 사라진다 — 현장에서 「예약했는데
+//    명단에 없다」가 되는 자리다. 나눠서 전부 받아온다.
+//    (관리자 앱의 fetchEventTicketsByCampaign 도 같은 이유로 나눠 받는다. 이 파일은
+//     자립형이라 그 헬퍼를 못 써서 여기 다시 쓴다.)
+async function fetchAllTickets(slotIds) {
+  const PAGE = 1000;
+  let all = [], from = 0;
+  for (;;) {
+    const {data, error} = await sb.from('event_tickets')
+      .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencer_id (name_kanji, name_kana)')
+      .in('slot_id', slotIds)
+      .neq('status', 'cancelled')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+async function loadRoster() {
+  const box = $('rosterList');
+  if (!box) return;
+
+  // 범위가 아직 안 정해졌으면 부르지 않는다(고르기 화면 상태).
+  if (!_scopeCampaignIds || !_scopeCampaignIds.length) return;
+
+  try {
+    // 날짜 목록은 타임 표에서 얻는다(예약이 0건인 날짜도 골라 볼 수 있어야 한다).
+    // ⚠️ **이 행사의 캠페인으로 한정한다.** 안 걸면 다른 팝업 행사의 타임까지 섞여
+    //    부스에서 남의 행사 예약자를 들여보내게 된다.
+    const {data: allSlots, error: e0} = await sb.from('event_slots')
+      .select('id, slot_date, start_time, end_time, audience_label')
+      .in('campaign_id', _scopeCampaignIds)
+      .order('slot_date', {ascending: true})
+      .order('start_time', {ascending: true});
+    if (e0) throw e0;
+
+    if (!prepareRosterDates(allSlots)) {
+      box.innerHTML = `<div class="empty">${esc(T('noSlots'))}</div>`;
+      renderRosterSummary([]);
+      return;
+    }
+
+    const slots = (_rosterPick === 'all')
+      ? allSlots
+      : (allSlots || []).filter(s => String(s.slot_date).slice(0, 10) === _rosterPick);
+
+    if (!slots.length) {
+      box.innerHTML = `<div class="empty">${esc(T('noSlotsThisDate'))}</div>`;
+      renderRosterSummary([]);
+      return;
+    }
+
+    const tickets = await fetchAllTickets(slots.map(s => s.id));
+
+    const bySlot = {};
+    (tickets || []).forEach(t => { (bySlot[t.slot_id] = bySlot[t.slot_id] || []).push(t); });
+
+    renderRosterSummary(tickets);
+
+    box.innerHTML = slots.map(s => {
+      const rows = (bySlot[s.id] || []).sort((a, b) =>
+        String((a.influencers || {}).name_kana || '').localeCompare(String((b.influencers || {}).name_kana || '')));
+      const entered = rows.filter(r => r.entered_at).length;
+      const confirmed = rows.filter(r => r.status === 'confirmed').length;
+      return `
+        <div class="slot-group">
+          <div class="slot-title">${esc(slotText(s))} · ${esc(T('enteredCount'))} ${entered}/${confirmed}${s.audience_label ? ' · ' + esc(s.audience_label) : ''}</div>
+          ${rows.length ? rows.map(r => attendeeRow(r)).join('')
+                        : `<div class="empty" style="padding:12px 4px">${esc(T('noAttendees'))}</div>`}
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.warn('[loadRoster]', e);
+    // 조회 실패를 「예약자 없음」으로 보여 주면 운영진이 명단이 빈 줄 안다.
+    box.innerHTML = `<div class="empty" style="color:var(--red)">${esc(T('rosterFailed'))}</div>`;
+  }
+}
+
+// 날짜 목록을 추리고 기본 선택값을 정한다. 고를 날짜가 없으면 false.
+function prepareRosterDates(allSlots) {
+  _rosterDates = [...new Set((allSlots || []).map(s => String(s.slot_date).slice(0, 10)))].sort();
+  if (!_rosterDates.length) { $('rosterDate').innerHTML = ''; return false; }
+  if (!_rosterPick) {
+    const today = jstToday();
+    // 오늘이 있으면 오늘, 없으면 아직 안 지난 가장 가까운 날짜, 그것도 없으면 마지막 날짜
+    _rosterPick = _rosterDates.includes(today)
+      ? today
+      : (_rosterDates.find(d => d >= today) || _rosterDates[_rosterDates.length - 1]);
+  }
+  renderRosterDateOptions();
+  return true;
+}
+
+// 날짜를 버튼으로 늘어놓는다 — 드롭다운은 열고·고르고·닫는 세 동작이라
+// 입구에서 한 손으로 쓰기 불편하다(사용자 요청 2026-08-03).
+// 고른 기간의 예약·입장 수. 시간대별 줄에도 같은 숫자가 나오지만, 기간 전체를
+// 한눈에 보려면 위쪽에 합계가 있어야 한다(사용자 요청 2026-08-03).
+//   ⚠️ 목록을 그릴 때 쓰는 바로 그 자료로 센다 — 따로 조회해서 세면 두 숫자가 어긋난다.
+function renderRosterSummary(tickets) {
+  const el = $('rosterSummary');
+  if (!el) return;
+  const rows = tickets || [];
+  const reserved = rows.filter(t => t.status === 'confirmed').length;
+  const entered  = rows.filter(t => t.status === 'confirmed' && t.entered_at).length;
+  const waiting  = rows.filter(t => t.status === 'waitlist').length;
+  const pct = reserved ? Math.round(entered / reserved * 100) : 0;
+
+  // 조각별로 조립한다 — 완성된 문장에서 숫자를 찾아 색을 입히려 하면 언어마다
+  // 어미가 달라 엉뚱한 곳이 잡힌다.
+  const parts = [
+    esc(T('rsReserved', {r: reserved})),
+    `<span class="rs-entered">${esc(T('rsEntered', {e: entered, p: pct}))}</span>`
+  ];
+  if (waiting) parts.push(`<span class="rs-wait">${esc(T('rsWaiting', {w: waiting}))}</span>`);
+  el.innerHTML = parts.join(' · ');
+}
+
+function renderRosterDateOptions() {
+  const box = $('rosterDate');
+  if (!box) return;
+  const today = jstToday();
+  const btn = (val, label, on) =>
+    `<button type="button" class="date-tab${on ? ' on' : ''}" aria-pressed="${on}"
+             onclick="onRosterDateChange('${val}')">${esc(label)}</button>`;
+  box.innerHTML =
+    _rosterDates.map(d => btn(d, d.slice(5).replace('-', '/') + (d === today ? T('todaySuffix') : ''), d === _rosterPick)).join('')
+    + btn('all', T('allDates'), _rosterPick === 'all');
+}
+
+// 【개발 전용】 입장 확인 기록을 되돌려 같은 QR 로 다시 테스트할 수 있게 한다.
+//   ⚠️ 이 버튼이 보이는 것은 개발 도메인일 때뿐이고, 진짜 방어선은 **운영 데이터베이스에
+//      서버 함수가 아예 없다는 것**이다(supabase/patches/2026-08-03-dev-reset-event-checkin.sql).
+//      화면 조건만으로 막으면 누군가 운영에서 조건을 우회했을 때 실제 방문객 기록이 지워진다.
+async function resetCheckins() {
+  const scope = (_rosterPick && _rosterPick !== 'all') ? _rosterPick : null;
+  const label = scope
+    ? T('resetScopeDate', {d: T('dateFmt', {m: scope.slice(5, 7).replace(/^0/, ''), d: scope.slice(8, 10).replace(/^0/, '')})})
+    : T('resetScopeAll');
+  if (!window.confirm(T('resetAsk', {scope: label}))) return;
+
+  const btn = $('resetBtn');
+  btn.disabled = true;
+  try {
+    // ⚠️ 사정거리를 **지금 보고 있는 행사**로 좁힌다. 화면은 「이 행사」인데 버튼이
+    //    모든 행사를 지우면 인지와 동작이 어긋나고, 다른 행사 검증 데이터가 함께 날아간다.
+    //    서버 함수는 캠페인을 하나만 받으므로, 묶음이면 캠페인마다 한 번씩 부른다.
+    const targets = _scopeCampaignIds || [];
+    if (!targets.length) throw new Error('scope not resolved');
+    let data = 0;
+    for (const cid of targets) {
+      const r = await sb.rpc('dev_reset_event_checkin', {p_campaign_id: cid, p_slot_date: scope});
+      if (r.error) throw r.error;
+      data += Number(r.data) || 0;
+    }
+    _recent = [];
+    $('recentCard').style.display = 'none';
+    $('recentList').innerHTML = '';
+    _lastScanned = {code: '', at: 0};   // 방금 읽은 QR 을 바로 다시 읽을 수 있게
+    alertInline(T('resetDone', {n: Number(data) || 0}));
+    loadRoster();
+  } catch (e) {
+    console.warn('[resetCheckins]', e);
+    alertInline(T('resetFailed'), true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// 화면 안 짧은 안내(경고창을 쓰지 않는다).
+function alertInline(msg, isErr) {
+  const el = $('scanErr');
+  el.textContent = msg;
+  el.style.color = isErr ? 'var(--red)' : 'var(--amber)';
+  el.style.display = '';
+  setTimeout(() => { el.style.display = 'none'; el.style.color = 'var(--red)'; }, 4000);
+}
+
+function onRosterDateChange(v) {
+  _rosterPick = v || null;
+  loadRoster();
+}
+
+function attendeeRow(r) {
+  const inf = r.influencers || {};
+  const done = !!r.entered_at;
+  const waiting = r.status === 'waitlist';
+  return `
+    <div class="att${done ? ' done' : ''}">
+      <div class="att-name">${esc(inf.name_kanji || '-')}
+        <span class="att-kana">${esc(inf.name_kana || '')}</span>
+      </div>
+      ${waiting ? `<span class="att-wait">${esc(T('waitingN'))} ${r.waitlist_position || ''}</span>`
+        : done ? `<span class="att-done-mark"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">check_circle</span>${esc(T('enteredAt'))} ${esc(fmtTime(r.entered_at))}</span>`
+        : `<button class="att-btn" onclick="checkIn('${esc(r.ticket_code)}')">${esc(T('enterBtn'))}</button>`}
+    </div>`;
+}
+
+// ── 카메라 QR 스캔 (작업 8) ───────────────────────────────────
+// ⚠️ 이 조각은 **버려도 행사 운영이 가능하다**. 손입력만으로 충분하며, 그래서
+//    손입력을 먼저 만들었다(사양서 §8 안전선). 여기서 무슨 일이 나도 손입력을
+//    막지 않는 것이 이 코드의 첫 번째 규칙이다.
+let _scanStream = null;
+let _scanRaf = null;
+let _jsqrLoading = null;
+let _lastScanned = {code: '', at: 0};
+
+function loadQrReader() {
+  if (typeof window.jsQR !== 'undefined') return Promise.resolve();
+  if (_jsqrLoading) return _jsqrLoading;
+  _jsqrLoading = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    // 브라우저에서 전역 jsQR 함수를 만드는 묶음 파일임을 실측 확인하고 고정했다.
+    el.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    el.onload = () => resolve();
+    el.onerror = () => { _jsqrLoading = null; reject(new Error('qr_reader_failed')); };
+    document.head.appendChild(el);
+  });
+  return _jsqrLoading;
+}
+
+async function toggleScanner() {
+  if (_scanStream) { stopScanner(); return; }
+  await startScanner();
+}
+
+async function startScanner() {
+  const err = $('scanErr');
+  err.style.display = 'none';
+  try {
+    await loadQrReader();
+  } catch (e) {
+    err.textContent = T('qrLibFailed');
+    err.style.display = '';
+    return;
+  }
+  try {
+    // 후면 카메라 우선. 없으면 브라우저가 알아서 가진 것을 준다.
+    _scanStream = await navigator.mediaDevices.getUserMedia({
+      video: {facingMode: {ideal: 'environment'}}, audio: false
+    });
+  } catch (e) {
+    console.warn('[startScanner]', e);
+    err.textContent = (e && e.name === 'NotAllowedError') ? T('camDenied') : T('camUnavailable');
+    err.style.display = '';
+    return;
+  }
+  const video = $('scannerVideo');
+  video.srcObject = _scanStream;
+  await video.play().catch(() => {});
+  $('scannerWrap').style.display = '';
+  $('scanIdleHint').style.display = 'none';
+  $('scanToggleBtn').textContent = T('camOff');
+  scanLoop();
+}
+
+function stopScanner() {
+  if (_scanRaf) { cancelAnimationFrame(_scanRaf); _scanRaf = null; }
+  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  const video = $('scannerVideo');
+  if (video) video.srcObject = null;
+  $('scannerWrap').style.display = 'none';
+  $('scanIdleHint').style.display = '';
+  $('scanToggleBtn').textContent = T('camOn');
+}
+
+function scanLoop() {
+  const video = $('scannerVideo');
+  if (!_scanStream || !video) return;
+  // 모달이 떠 있으면 읽지 않는다 — 대기줄의 다른 QR 이 겹쳐 들어와 화면을 덮는 것 방지.
+  if (video.readyState === video.HAVE_ENOUGH_DATA && !_busy && !_modalOpen) {
+    // 화면 전체를 읽으면 느리다. 가로 480 기준으로 줄여 읽는다.
+    const w = 480;
+    const h = Math.round(video.videoHeight * (w / video.videoWidth)) || 360;
+    const cv = scanLoop._cv || (scanLoop._cv = document.createElement('canvas'));
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d', {willReadFrequently: true});
+    try {
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const found = window.jsQR(img.data, w, h, {inversionAttempts: 'dontInvert'});
+      if (found && found.data) onScanned(String(found.data).trim().toUpperCase());
+    } catch (e) { /* 한 프레임 실패는 무시하고 다음 프레임에서 다시 시도 */ }
+  }
+  _scanRaf = requestAnimationFrame(scanLoop);
+}
+
+function onScanned(raw) {
+  // 예약번호 형식이 아니면 무시한다 — 행사장에는 다른 QR(포스터·명함 등)도 많다.
+  const code = raw.replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z0-9]{8}$/.test(code)) return;
+  // 같은 QR 이 카메라 앞에 계속 있으면 초당 수십 번 읽힌다. 3초 안의 같은 번호는 무시.
+  const now = Date.now();
+  if (_lastScanned.code === code && now - _lastScanned.at < 3000) return;
+  _lastScanned = {code, at: now};
+  checkIn(code);
+}
+
+// 화면을 벗어나거나 탭이 가려지면 카메라를 끈다(배터리·과열·사생활).
+document.addEventListener('visibilitychange', () => { if (document.hidden && _scanStream) stopScanner(); });
+window.addEventListener('pagehide', stopScanner);
+
+// 예약번호 입력칸: 8자리를 채우면 바로 확인한다(현장에서 버튼을 한 번 덜 누르게).
+// 대문자·영숫자만 남긴다. **자동 확인은 하지 않는다** — 8자를 채우자마자 확인해 버리면
+// 오타를 고칠 틈이 없고, 결과가 뜬 뒤에야 잘못 친 것을 알게 된다(사용자 요청 2026-08-03).
+$('codeInput').addEventListener('input', function () {
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
+$('codeInput').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); submitCode(); }
+});
+$('loginPw')?.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+});
+
+applyLang();
+boot();
+</script>
+</body>
+</html>

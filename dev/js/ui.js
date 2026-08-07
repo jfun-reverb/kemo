@@ -90,8 +90,14 @@ const _ERR_DICT = {
     emailUnverified: 'メールアドレスの認証が完了していません',
     credentials: 'メールアドレスまたはパスワードが正しくありません',
     slotsFull: '募集定員に達したため、応募を受け付けておりません',
+    recruitDeadlinePassed: '募集期間が終了したため、応募できません',
+    submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
+    settlementLockedReceipt: 'このキャンペーンはすでに精算の手続きが済んでいるため、レシートを新しく提出することはできません。ご不明な点はお問い合わせください',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
-    postDuplicate: '同じURLは既に提出済みです'
+    postDuplicate: '同じURLは既に提出済みです',
+    // 「失敗」ではなく「すでに完了している」と読めることが重要（実際に一度目は成功している）
+    applyDuplicate: 'このキャンペーンにはすでに応募済みです。応募履歴からご確認いただけます',
+    reviewImageDuplicate: 'このチャンネルのレビュー画像はすでに登録されています'
   },
   ko: {
     unknown: '오류가 발생했습니다',
@@ -107,8 +113,14 @@ const _ERR_DICT = {
     emailUnverified: '이메일 인증이 완료되지 않았습니다',
     credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
     slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
+    recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
+    submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
+    settlementLockedReceipt: '이 캠페인은 이미 정산 처리가 끝나 영수증을 새로 제출할 수 없습니다. 궁금한 점은 문의해 주세요',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
-    postDuplicate: '같은 URL은 이미 제출되었습니다'
+    postDuplicate: '같은 URL은 이미 제출되었습니다',
+    // 「실패」가 아니라 「이미 되어 있다」로 읽혀야 한다(첫 요청은 실제로 성공했다)
+    applyDuplicate: '이미 응모하신 캠페인입니다. 응모 이력에서 확인하실 수 있습니다',
+    reviewImageDuplicate: '이 채널의 리뷰 인증샷은 이미 등록되어 있습니다'
   }
 };
 
@@ -119,9 +131,27 @@ function friendlyErrorJa(e) {
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
   if (!s) return t.unknown;
+  // 마감 차단 — 데이터베이스 검사 장치가 코드 접두어를 붙여 거부한다(사양서 2026-07-29 마감 서버 강제).
+  //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
+  if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
+  if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
+  // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
+  // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
+  if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
   // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
   if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
   if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
+  // 응모·리뷰 인증샷 중복 — 일반 duplicate 보다 **먼저** 매칭해야 한다.
+  //   ⚠️ 응모 중복 제약이 **두 개 공존**한다. 마이그레이션 104 가 옛 것을 지우려 했으나
+  //      지울 이름을 잘못 적어(`IF EXISTS` 라 조용히 통과) 둘 다 살아 있다 —
+  //      옛 `uidx_applications_user_campaign`(마이그50, **운영 오류 로그에 실제로 찍힌 쪽**) 과
+  //      새 `applications_user_camp_active_uidx`(마이그104). 어느 쪽에 걸릴지 정해져 있지
+  //      않으므로 둘 다 매칭한다. 하나만 넣으면 이 안내가 조용히 일반 문구로 떨어진다.
+  //   일반 문구(「이미 등록되어 있습니다」)로는 인플루언서가 **성공인지 실패인지 판단할 수 없다.**
+  //   실제로 이 오류가 나는 상황은 「첫 요청은 성공했고 두 번째가 거부된」 경우라, 뜻이
+  //   「실패」가 아니라 **「이미 되어 있다」**로 읽혀야 한다(사양서 2026-07-31 §3 1-4).
+  if (/uidx_applications_user_campaign|applications_user_camp_active_uidx/.test(s)) return t.applyDuplicate;
+  if (/deliverables_review_image_app_channel_uniq/.test(s)) return t.reviewImageDuplicate;
   if (/duplicate key|unique constraint|already exists/.test(s)) return t.duplicate;
   if (/permission denied|Permission denied|violates row-level security/.test(s)) return t.permission;
   if (/violates foreign key/.test(s)) return t.fk;
@@ -144,8 +174,30 @@ function toast(msg, type='') {
 }
 function loading(v) { document.getElementById('loadingOverlay').classList.toggle('show', v); }
 function $(id) { return document.getElementById(id); }
-function formatDate(d) { return d ? new Date(d).toLocaleDateString('ja-JP') : ''; }
-function formatDateTime(d) { if(!d) return ''; const dt=new Date(d); return dt.toLocaleDateString('ja-JP')+' '+dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
+// 사이트 공통 날짜 표기 — YYYY/MM/DD (월·일 앞자리 0 채움). 관리자·인플루언서 화면 동일.
+//   로케일 함수(toLocaleDateString)는 브라우저 언어에 따라 2026/7/3 · 2026. 7. 3. 등으로 흔들리고
+//   자릿수가 들쭉날쭉해 표 정렬이 어긋나므로, 로케일에 기대지 않고 직접 조합한다.
+//   ※ 문장형 표기(「2026년 7월 22일」·「2026年7月22日」 — 약관 시행일 등)와 차트 축·좁은 칸의
+//     축약(M/D)은 성격이 달라 이 함수를 쓰지 않는다.
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '/' + String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0');
+}
+// 시:분만 — 날짜와 시각을 두 줄로 나눠 보여줄 때(변경 이력 카드 등)
+function formatTimeHm(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+}
+function formatDateTime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return formatDate(dt) + ' ' + formatTimeHm(dt);
+}
 function dDayLabel(d) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
@@ -319,6 +371,15 @@ document.addEventListener('keydown', (e) => {
     // campBundleModal 은 DOM 이동 복귀 로직이 있어 전용 닫기 함수로 위임
     if (top.id === 'campBundleModal' && typeof closeCampBundleModal === 'function') {
       closeCampBundleModal();
+    // 오리엔시트 상세는 닫을 때 목록의 메모 배지를 다시 계산해야 한다.
+    //   여기서 일반 closeModal 로 닫으면 그 갱신이 빠져, 상세를 읽고 ESC 로 닫았을 때
+    //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
+    } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
+      osCloseModal('orientDetailModal');
+    // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
+    //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
+    } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {
+      campLeaveCancel();
     } else {
       closeModal(top.id);
     }
@@ -577,7 +638,7 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
-        '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
+        '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span></button>' +
       '</div>' +
     '</div>';
   }).join('');

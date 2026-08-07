@@ -10,16 +10,72 @@ function toggleAdminSidebar() {
   icon.textContent = layout.classList.contains('collapsed') ? 'menu_open' : 'menu';
 }
 
+// ── 아웃바운드 전용 모드 (?app=outbound) ──────────────────────────────
+// 같은 관리자 앱·같은 로그인이지만 별도 입구 URL(globalreverb.com/admin/?app=outbound).
+// 이 모드에선 사이드바를 아웃바운드 관련 항목만 남기고 나머지·그룹 라벨을 숨겨,
+// 영업팀이 REVERB 운영 메뉴와 덜 섞인 화면으로 진입한다. 기존 관리자가 두 모드를 오감
+// (복귀 링크로 전환). 보안 경계 아님 — 데이터는 outbound.view RLS 가 서버 강제.
+window._adminAppMode = (new URLSearchParams(location.search).get('app') === 'outbound') ? 'outbound' : null;
+
+// 모드 UI 적용: 아웃바운드·내계정 외 사이드바 항목 + 그룹 라벨 숨김 + 복귀 링크 노출.
+// 권한 없는(menu.outbound hidden = campaign_manager) 사용자는 모드 해제(빈 화면 함정 방지).
+function applyOutboundModeUI() {
+  if (window._adminAppMode !== 'outbound') return;
+  if (typeof isHidden === 'function' && isHidden('menu.outbound')) {
+    // 권한 없음(campaign_manager) — 모드 해제 + 이미 적용됐을 필터·페인 복원.
+    // (DOMContentLoaded 가 권한 로드 전 fail-open 으로 모드를 켜놨을 수 있음)
+    // ⚠️ 개별 .admin-si[data-pane] 항목은 여기서 복원하지 않는다 — 이 함수는 반드시 init()에서
+    //   applyLookupMenuVisibility() 뒤에 호출돼(app.js init 순서), 개별 항목은 이미 권한 기준으로
+    //   설정된 상태다. 여기서 다 보이게 하면 오히려 hidden 항목(정산 등)이 노출된다. 두 호출 순서 유지 필수.
+    window._adminAppMode = null;
+    document.querySelectorAll('.admin-si-lbl').forEach(function(l){ l.style.display = ''; });
+    // outbound 페인이 이미 활성화됐으면 대시보드로 명시 이동(빈 화면 함정 방지).
+    // switchAdminPane 이 있으면(init 단계) 여기서 처리하고 부트 페인 진입을 스킵시킴.
+    if (typeof switchAdminPane === 'function') {
+      switchAdminPane('dashboard', null, false);
+      window._bootPaneHandled = true;
+    }
+    return;
+  }
+  document.querySelectorAll('.admin-si-lbl').forEach(function(l){ l.style.display = 'none'; });
+  document.querySelectorAll('.admin-si[data-pane]').forEach(function(si){
+    var p = si.dataset.pane;
+    if (p !== 'outbound' && p !== 'my-account') si.style.display = 'none';
+  });
+}
+
+// 화면 이동 드롭다운 — 전체 관리자 / 아웃바운드 전용(?app=outbound) / 인플루언서 화면 전환.
+function switchAdminScreen(target) {
+  if (target === 'outbound') window.location.href = location.pathname + '?app=outbound';
+  else if (target === 'influencer') window.location.href = '/';
+  else window.location.href = location.pathname;   // full: 쿼리 제거하고 전체 관리자
+}
+
+// 드롭다운 현재값을 실제 화면 상태에 맞춤 (아웃바운드 전용 모드면 그 항목 선택).
+function setAdminScreenSelect() {
+  var sel = document.getElementById('adminScreenSelect');
+  if (sel) sel.value = (window._adminAppMode === 'outbound') ? 'outbound' : 'full';
+}
+
 // 사이드바 메뉴 클릭 — SPA 페인 전환 (전체 페이지 reload 제거).
 // switchAdminPane이 페인별 loader를 호출해 fresh load 보장하므로 stale 이슈 없음.
 // 같은 페인 재클릭 시엔 loader만 다시 호출해 강제 갱신.
 function navAdminPaneReload(pane) {
   pane = pane || 'dashboard';
-  if (typeof switchAdminPane === 'function') {
-    switchAdminPane(pane, null, true);
-  } else {
-    location.hash = '#' + pane;
-  }
+  const go = () => {
+    if (typeof switchAdminPane === 'function') {
+      switchAdminPane(pane, null, true);
+    } else {
+      location.hash = '#' + pane;
+    }
+  };
+  // 캠페인 폼에 저장 안 한 변경이 있으면 먼저 묻는다.
+  //   ⚠️ 게이트를 switchAdminPane 에 두지 않는 이유 — 그 함수는 **저장 성공 후 목록
+  //      복귀**·동시 저장 충돌 복귀·권한 리다이렉트·브라우저 뒤로가기가 전부 지나간다.
+  //      거기 두면 「저장했는데 저장 안 됐다고 묻는」 모습이 된다. 사이드바는 이 함수
+  //      하나로 모이므로 여기가 정확한 자리다.
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
+  go();
 }
 
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)
@@ -44,7 +100,10 @@ async function init() {
     var session = sessionResult?.data?.session;
 
     if (!session) {
-      window.location.href = '/#login';
+      // 관리자 전용 로그인 화면으로. 예전에는 인플루언서 앱(/#login)으로 보냈는데,
+      // 그 화면은 일본어·모바일 전용이라 관리자가 일본어 화면에서 로그인하게 됐다.
+      // (세션은 있으나 admins 행이 없는 경우는 아래 분기 그대로 — 여기로 보내면 무한 왕복)
+      window.location.href = '/admin-setpw.html?mode=login';
       return;
     }
 
@@ -66,13 +125,17 @@ async function init() {
       try { setRolePermMap(await fetchRolePermissions()); } catch (_) { /* fail-open */ }
     }
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+    applyOutboundModeUI();   // 아웃바운드 전용 모드면 권한 기준 노출 위에 사이드바 필터 덮어씀
+    setAdminScreenSelect();  // 화면 이동 드롭다운 현재값 반영(모드 확정 후)
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 
     // 세션 만료/갱신 감지
     db.auth.onAuthStateChange(function(event) {
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
         currentUser = null; currentUserProfile = null;
-        window.location.href = '/#login';
+        // 부팅 시 무세션 진입과 같은 목적지 — 세션이 끊겨 다시 로그인해야 하는 상황이라
+        // 관리자 전용 한국어 로그인 화면으로 보낸다(예전엔 인플루언서 앱 일본어 화면).
+        window.location.href = '/admin-setpw.html?mode=login';
       }
     });
 
@@ -88,6 +151,9 @@ async function init() {
     if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
     if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
+    // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
+    //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
+    if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
@@ -102,7 +168,11 @@ async function init() {
     //  - 그 외 페인: 각 페인 loader 가 자기 데이터를 스스로 fetch → 무거운 3종 스킵
     //    (allCampaigns 는 shared.js 에서 []로 초기화. 캠페인 페인은 loadAdminCampaigns 가 lite 로 채움)
     var hash = location.hash.replace('#','');
-    if (hash && hash !== 'dashboard') {
+    // 아웃바운드 전용 모드는 진입 화면이 없으면(또는 dashboard면) 아웃바운드로 직행
+    if (window._adminAppMode === 'outbound' && (!hash || hash === 'dashboard')) hash = 'outbound';
+    if (window._bootPaneHandled) {
+      // applyOutboundModeUI 가 권한 없는 모드 진입을 대시보드로 이미 전환·로드함 → 중복 스킵
+    } else if (hash && hash !== 'dashboard') {
       await Promise.resolve(switchAdminPane(hash, null, false));
     } else {
       history.replaceState({pane:'dashboard'}, '', '#dashboard');
@@ -135,7 +205,9 @@ document.addEventListener('DOMContentLoaded', function() {
   try { if (typeof setupBrandAppDateRange === 'function') setupBrandAppDateRange(); } catch(e) {}
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
-  var initHash = location.hash.replace('#','') || 'dashboard';
+  var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
+  // 예약 현황도 「어느 캠페인인지」를 화면 상태로만 들고 있어(주소에 없다),
+  // 새로고침하면 캠페인을 잃고 빈 표만 남는다 → 캠페인 목록으로 돌려보낸다.
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
@@ -149,6 +221,10 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.admin-si').forEach(function(s) {
     if (s.dataset.pane === sidePane) s.classList.add('on');
   });
+  // 아웃바운드 전용 모드면 cloak 제거 전 사이드바 필터 적용 (초기 깜빡임 방지).
+  // 권한 기준 최종 판정(campaign_manager 해제)은 init()의 applyLookupMenuVisibility 뒤 재호출.
+  applyOutboundModeUI();
+  setAdminScreenSelect();
   // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();

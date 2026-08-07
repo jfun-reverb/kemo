@@ -1,0 +1,1102 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e4]:
+    - complementary [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - button "menu" [ref=f1e7] [cursor=pointer]
+        - generic [ref=f1e9]:
+          - generic [ref=f1e10] [cursor=pointer]: Reverb
+          - generic [ref=f1e11]: STAGING
+      - generic [ref=f1e12]:
+        - generic [ref=f1e13]: 공지
+        - generic [ref=f1e14] [cursor=pointer]:
+          - generic [ref=f1e15]: campaign
+          - generic [ref=f1e16]: 공지사항
+        - generic [ref=f1e17] [cursor=pointer]:
+          - generic [ref=f1e18]: upcoming
+          - generic [ref=f1e19]: 오픈 예정 기능
+        - generic [ref=f1e20]: 대시보드
+        - generic [ref=f1e21] [cursor=pointer]:
+          - generic [ref=f1e22]: dashboard
+          - generic [ref=f1e23]: 전체 현황
+        - generic [ref=f1e24]: 캠페인
+        - generic [ref=f1e25] [cursor=pointer]:
+          - generic [ref=f1e26]: monitor_heart
+          - generic [ref=f1e27]: 운영 현황
+        - generic [ref=f1e28] [cursor=pointer]:
+          - generic [ref=f1e29]: campaign
+          - generic [ref=f1e30]: 캠페인 관리
+        - generic [ref=f1e31] [cursor=pointer]:
+          - generic [ref=f1e133]: assignment
+          - generic [ref=f1e134]: 인플 신청 관리
+          - generic [ref=f1e135]: "1"
+        - generic [ref=f1e34] [cursor=pointer]:
+          - generic [ref=f1e136]: fact_check
+          - generic [ref=f1e137]: 결과물 관리
+          - generic "검수대기만 보기" [ref=f1e138]: "4"
+        - generic [ref=f1e37] [cursor=pointer]:
+          - generic [ref=f1e38]: forum
+          - generic [ref=f1e39]: 메시지
+        - generic [ref=f1e40]: 브랜드
+        - generic [ref=f1e41] [cursor=pointer]:
+          - generic [ref=f1e42]: insights
+          - generic [ref=f1e43]: 현황 대시보드
+        - generic [ref=f1e44] [cursor=pointer]:
+          - generic [ref=f1e45]: corporate_fare
+          - generic [ref=f1e46]: 회사 관리
+        - generic [ref=f1e47] [cursor=pointer]:
+          - generic [ref=f1e48]: business
+          - generic [ref=f1e49]: 브랜드 관리
+        - generic [ref=f1e50] [cursor=pointer]:
+          - generic [ref=f1e139]: assignment_turned_in
+          - generic [ref=f1e140]: 오리엔시트 현황
+          - generic [ref=f1e141]: "1"
+        - generic [ref=f1e53] [cursor=pointer]:
+          - generic [ref=f1e142]: storefront
+          - generic [ref=f1e143]: 서베이 신청 목록
+          - generic [ref=f1e144]: "4"
+        - generic [ref=f1e56]: 회원 관리
+        - generic [ref=f1e57] [cursor=pointer]:
+          - generic [ref=f1e58]: group
+          - generic [ref=f1e59]: 인플루언서 목록
+        - generic [ref=f1e60] [cursor=pointer]:
+          - generic [ref=f1e61]: payments
+          - generic [ref=f1e62]: 정산 관리
+          - generic "정산대기만 보기" [ref=f1e145]: "16"
+        - generic [ref=f1e63]: 관리자 설정
+        - generic [ref=f1e146] [cursor=pointer]:
+          - generic [ref=f1e147]: tune
+          - generic [ref=f1e148]: 기준 데이터
+        - generic [ref=f1e149] [cursor=pointer]:
+          - generic [ref=f1e150]: quiz
+          - generic [ref=f1e151]: 자주 묻는 질문
+        - generic [ref=f1e64] [cursor=pointer]:
+          - generic [ref=f1e65]: admin_panel_settings
+          - generic [ref=f1e66]: 관리자 계정
+        - generic [ref=f1e67] [cursor=pointer]:
+          - generic [ref=f1e68]: bug_report
+          - generic [ref=f1e69]: 오류 로그
+        - generic [ref=f1e70] [cursor=pointer]:
+          - generic [ref=f1e71]: 김
+          - generic [ref=f1e72]: 김영근1
+        - generic [ref=f1e73] [cursor=pointer]:
+          - generic [ref=f1e74]: logout
+          - generic [ref=f1e75]: 로그아웃
+      - generic [ref=f1e76]:
+        - combobox [ref=f1e78] [cursor=pointer]:
+          - option "전체 관리자 화면" [selected]
+          - option "인플루언서 추천 명단"
+          - option "인플루언서 화면"
+        - generic "배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용" [ref=f1e79]:
+          - generic [ref=f1e80]: history
+          - text: 2026-07-23 08:47 · 83780a3
+    - main [ref=f1e81]:
+      - generic [ref=f1e82]:
+        - generic [ref=f1e83]:
+          - generic [ref=f1e84]:
+            - generic [ref=f1e85]:
+              - generic [ref=f1e86]: 캠페인 관리
+              - button "+ 신규 캠페인" [ref=f1e87] [cursor=pointer]
+            - generic [ref=f1e88]:
+              - generic [ref=f1e89]:
+                - generic [ref=f1e90]: 캠페인 타입
+                - button "전체 타입" [ref=f1e92] [cursor=pointer]
+              - generic [ref=f1e93]:
+                - generic [ref=f1e94]: 검색
+                - generic [ref=f1e96]:
+                  - generic [ref=f1e97]: search
+                  - searchbox "캠페인명 · 브랜드 · 캠페인번호 검색" [ref=f1e98]
+            - generic [ref=f1e99]:
+              - button "전체(28)" [ref=f1e152] [cursor=pointer]
+              - button "준비(3)" [ref=f1e153] [cursor=pointer]
+              - button "모집예정(1)" [ref=f1e154] [cursor=pointer]
+              - button "모집중(0)" [ref=f1e155] [cursor=pointer]
+              - button "모집마감(6)" [ref=f1e156] [cursor=pointer]
+              - button "종료(16)" [ref=f1e157] [cursor=pointer]
+              - button "노출종료(2)" [ref=f1e158] [cursor=pointer]
+              - button "삭제됨(0)" [ref=f1e159] [cursor=pointer]
+          - generic [ref=f1e100]:
+            - generic [ref=f1e101]:
+              - generic [ref=f1e102]: 캠페인 목록
+              - generic [ref=f1e104]:
+                - button "download 신청자 엑셀" [disabled] [ref=f1e105]:
+                  - generic [ref=f1e160]: download
+                  - text: 신청자 엑셀
+                - button "download 결과물 엑셀" [disabled] [ref=f1e107]:
+                  - generic [ref=f1e161]: download
+                  - text: 결과물 엑셀
+                - button "순서 변경" [ref=f1e109] [cursor=pointer]
+            - table [ref=f1e111]:
+              - rowgroup [ref=f1e112]:
+                - row [ref=f1e162]:
+                  - columnheader [ref=f1e163]:
+                    - checkbox "필터 결과 전체 선택" [ref=f1e164]
+                  - columnheader "캠페인" [ref=f1e165]
+                  - columnheader "채널" [ref=f1e166]
+                  - columnheader "브랜드" [ref=f1e167]
+                  - columnheader "제품" [ref=f1e168]
+                  - columnheader "상태 info_outline ▲▼" [ref=f1e169]:
+                    - text: 상태
+                    - generic "상태별 클라이언트 노출 안내" [ref=f1e170] [cursor=pointer]: info_outline
+                    - text: ▲▼
+                  - columnheader "노출" [ref=f1e171]
+                  - columnheader "신청 (신청/모집)(승인/대기) ▲▼" [ref=f1e172]
+                  - columnheader "모집기간" [ref=f1e173]
+                  - columnheader "구매기간" [ref=f1e174]
+                  - columnheader "결과물 제출 마감" [ref=f1e175]
+                  - columnheader "조회 ▲▼" [ref=f1e176]
+                  - columnheader "등록일 ▲▼" [ref=f1e177]
+                  - columnheader "수정일 ▲▼" [ref=f1e178]
+                  - columnheader [ref=f1e179]
+              - rowgroup [ref=f1e129]:
+                - row [ref=f1e180]:
+                  - cell [ref=f1e181]:
+                    - checkbox [ref=f1e182]
+                  - cell "📦 리뷰어 B0005-C001 【デモ】トナー モニター募集 search" [ref=f1e183]:
+                    - generic [ref=f1e184]:
+                      - generic [ref=f1e185]: 📦
+                      - generic [ref=f1e187]:
+                        - generic [ref=f1e188]:
+                          - generic [ref=f1e189]: 리뷰어
+                          - generic [ref=f1e190]: B0005-C001
+                        - generic [ref=f1e191]:
+                          - strong [ref=f1e192]: 【デモ】トナー モニター募集
+                          - button "search" [ref=f1e193] [cursor=pointer]
+                  - cell "Qoo10" [ref=f1e195]
+                  - cell "株式会社グリーンライフ (한국법인)" [ref=f1e198]
+                  - cell "데모 토너 200ml デモトナー 200ml" [ref=f1e199]:
+                    - text: 데모 토너 200ml
+                    - generic [ref=f1e200]: デモトナー 200ml
+                  - cell "준비 ▾" [ref=f1e201]:
+                    - generic [ref=f1e203] [cursor=pointer]:
+                      - text: 준비
+                      - generic [ref=f1e204]: ▾
+                  - cell [ref=f1e205]:
+                    - switch "캠페인 노출 ON/OFF" [disabled] [ref=f1e206]
+                  - cell "0 / 30명 0승인" [ref=f1e208]:
+                    - generic [ref=f1e209]:
+                      - button "0 / 30명" [ref=f1e211] [cursor=pointer]
+                      - generic [ref=f1e212]: 0승인
+                  - cell "2026/7/1 ~ 2026/7/20 D+3" [ref=f1e213]
+                  - cell "—" [ref=f1e214]
+                  - cell "2026/8/3 D-11" [ref=f1e215]
+                  - cell "3" [ref=f1e216]
+                  - cell "2026/6/23" [ref=f1e217]
+                  - cell "2026/6/23 16:27" [ref=f1e218]
+                  - cell "more_vert" [ref=f1e219]
+                - row [ref=f1e221]:
+                  - cell [ref=f1e222]:
+                    - checkbox [ref=f1e223]
+                  - cell "📦 리뷰어 B0001-C005 [テスト] 영수증 OCR 더미 5 — ヘアケア search" [ref=f1e224]:
+                    - generic [ref=f1e225]:
+                      - generic [ref=f1e226]: 📦
+                      - generic [ref=f1e228]:
+                        - generic [ref=f1e229]:
+                          - generic [ref=f1e230]: 리뷰어
+                          - generic [ref=f1e231]: B0001-C005
+                        - generic [ref=f1e232]:
+                          - strong [ref=f1e233]: "[テスト] 영수증 OCR 더미 5 — ヘアケア"
+                          - button "search" [ref=f1e234] [cursor=pointer]
+                  - cell "X(Twitter)" [ref=f1e236]
+                  - cell "데일리 스낵 코리아" [ref=f1e239]
+                  - cell "테스트 헤어오일 100ml テストヘアオイル 100ml" [ref=f1e240]:
+                    - text: 테스트 헤어오일 100ml
+                    - generic [ref=f1e241]: テストヘアオイル 100ml
+                  - cell "모집마감 ▾" [ref=f1e242]:
+                    - generic [ref=f1e244] [cursor=pointer]:
+                      - text: 모집마감
+                      - generic [ref=f1e245]: ▾
+                  - cell [ref=f1e246]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e247] [cursor=pointer]
+                  - cell "0 / 10명 0승인" [ref=f1e249]:
+                    - generic [ref=f1e250]:
+                      - button "0 / 10명" [ref=f1e252] [cursor=pointer]
+                      - generic [ref=f1e253]: 0승인
+                  - cell "2026/6/7 ~ 2026/7/9 D+14" [ref=f1e254]
+                  - cell "2026/6/9 ~ 2026/7/9 D+14" [ref=f1e255]
+                  - cell "2026/8/8 D-16" [ref=f1e256]
+                  - cell "19" [ref=f1e257]
+                  - cell "2026/6/10" [ref=f1e258]
+                  - cell "2026/6/10 01:40" [ref=f1e259]
+                  - cell "more_vert" [ref=f1e260]
+                - row [ref=f1e262]:
+                  - cell [ref=f1e263]:
+                    - checkbox [ref=f1e264]
+                  - cell "📦 리뷰어 B0001-C004 [テスト] 영수증 OCR 더미 4 — Qoo10食品 search" [ref=f1e265]:
+                    - generic [ref=f1e266]:
+                      - generic [ref=f1e267]: 📦
+                      - generic [ref=f1e269]:
+                        - generic [ref=f1e270]:
+                          - generic [ref=f1e271]: 리뷰어
+                          - generic [ref=f1e272]: B0001-C004
+                        - generic [ref=f1e273]:
+                          - strong [ref=f1e274]: "[テスト] 영수증 OCR 더미 4 — Qoo10食品"
+                          - button "search" [ref=f1e275] [cursor=pointer]
+                  - cell "Qoo10" [ref=f1e277]
+                  - cell "데일리 스낵 코리아" [ref=f1e280]
+                  - cell "테스트 한국과자 200g テスト韓国スナック 200g" [ref=f1e281]:
+                    - text: 테스트 한국과자 200g
+                    - generic [ref=f1e282]: テスト韓国スナック 200g
+                  - cell "모집마감 ▾" [ref=f1e283]:
+                    - generic [ref=f1e285] [cursor=pointer]:
+                      - text: 모집마감
+                      - generic [ref=f1e286]: ▾
+                  - cell [ref=f1e287]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e288] [cursor=pointer]
+                  - cell "0 / 10명 0승인" [ref=f1e290]:
+                    - generic [ref=f1e291]:
+                      - button "0 / 10명" [ref=f1e293] [cursor=pointer]
+                      - generic [ref=f1e294]: 0승인
+                  - cell "2026/6/6 ~ 2026/7/9 D+14" [ref=f1e295]
+                  - cell "2026/6/8 ~ 2026/7/10 D+13" [ref=f1e296]
+                  - cell "2026/8/8 D-16" [ref=f1e297]
+                  - cell "1" [ref=f1e298]
+                  - cell "2026/6/10" [ref=f1e299]
+                  - cell "2026/6/10 01:40" [ref=f1e300]
+                  - cell "more_vert" [ref=f1e301]
+                - row [ref=f1e303]:
+                  - cell [ref=f1e304]:
+                    - checkbox [ref=f1e305]
+                  - cell "📦 리뷰어 B0001-C003 [テスト] 영수증 OCR 더미 3 — マスクパック search" [ref=f1e306]:
+                    - generic [ref=f1e307]:
+                      - generic [ref=f1e308]: 📦
+                      - generic [ref=f1e310]:
+                        - generic [ref=f1e311]:
+                          - generic [ref=f1e312]: 리뷰어
+                          - generic [ref=f1e313]: B0001-C003
+                        - generic [ref=f1e314]:
+                          - strong [ref=f1e315]: "[テスト] 영수증 OCR 더미 3 — マスクパック"
+                          - button "search" [ref=f1e316] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e318]
+                  - cell "데일리 스낵 코리아" [ref=f1e321]
+                  - cell "테스트 마스크팩 10매 テストマスクパック 10枚入り" [ref=f1e322]:
+                    - text: 테스트 마스크팩 10매
+                    - generic [ref=f1e323]: テストマスクパック 10枚入り
+                  - cell "모집마감 ▾" [ref=f1e324]:
+                    - generic [ref=f1e326] [cursor=pointer]:
+                      - text: 모집마감
+                      - generic [ref=f1e327]: ▾
+                  - cell [ref=f1e328]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e329] [cursor=pointer]
+                  - cell "0 / 10명 0승인" [ref=f1e331]:
+                    - generic [ref=f1e332]:
+                      - button "0 / 10명" [ref=f1e334] [cursor=pointer]
+                      - generic [ref=f1e335]: 0승인
+                  - cell "2026/6/4 ~ 2026/7/9 D+14" [ref=f1e336]
+                  - cell "2026/6/7 ~ 2026/7/12 D+11" [ref=f1e337]
+                  - cell "2026/8/8 D-16" [ref=f1e338]
+                  - cell "2" [ref=f1e339]
+                  - cell "2026/6/10" [ref=f1e340]
+                  - cell "2026/6/10 01:40" [ref=f1e341]
+                  - cell "more_vert" [ref=f1e342]
+                - row [ref=f1e344]:
+                  - cell [ref=f1e345]:
+                    - checkbox [ref=f1e346]
+                  - cell "📦 리뷰어 B0001-C002 [テスト] 영수증 OCR 더미 2 — 日焼け止め search" [ref=f1e347]:
+                    - generic [ref=f1e348]:
+                      - generic [ref=f1e349]: 📦
+                      - generic [ref=f1e351]:
+                        - generic [ref=f1e352]:
+                          - generic [ref=f1e353]: 리뷰어
+                          - generic [ref=f1e354]: B0001-C002
+                        - generic [ref=f1e355]:
+                          - strong [ref=f1e356]: "[テスト] 영수증 OCR 더미 2 — 日焼け止め"
+                          - button "search" [ref=f1e357] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e359]
+                  - cell "데일리 스낵 코리아" [ref=f1e362]
+                  - cell "테스트 선크림 SPF50+ テスト日焼け止め SPF50+" [ref=f1e363]:
+                    - text: 테스트 선크림 SPF50+
+                    - generic [ref=f1e364]: テスト日焼け止め SPF50+
+                  - cell "모집마감 ▾" [ref=f1e365]:
+                    - generic [ref=f1e367] [cursor=pointer]:
+                      - text: 모집마감
+                      - generic [ref=f1e368]: ▾
+                  - cell [ref=f1e369]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e370] [cursor=pointer]
+                  - cell "0 / 10명 0승인" [ref=f1e372]:
+                    - generic [ref=f1e373]:
+                      - button "0 / 10명" [ref=f1e375] [cursor=pointer]
+                      - generic [ref=f1e376]: 0승인
+                  - cell "2026/6/2 ~ 2026/7/9 D+14" [ref=f1e377]
+                  - cell "2026/6/6 ~ 2026/7/11 D+12" [ref=f1e378]
+                  - cell "2026/8/8 D-16" [ref=f1e379]
+                  - cell "0" [ref=f1e380]
+                  - cell "2026/6/10" [ref=f1e381]
+                  - cell "2026/6/10 01:40" [ref=f1e382]
+                  - cell "more_vert" [ref=f1e383]
+                - row [ref=f1e385]:
+                  - cell [ref=f1e386]:
+                    - checkbox [ref=f1e387]
+                  - cell "📦 리뷰어 B0001-C001 [テスト] 영수증 OCR 더미 1 — セラム search" [ref=f1e388]:
+                    - generic [ref=f1e389]:
+                      - generic [ref=f1e390]: 📦
+                      - generic [ref=f1e392]:
+                        - generic [ref=f1e393]:
+                          - generic [ref=f1e394]: 리뷰어
+                          - generic [ref=f1e395]: B0001-C001
+                        - generic [ref=f1e396]:
+                          - strong [ref=f1e397]: "[テスト] 영수증 OCR 더미 1 — セラム"
+                          - button "search" [ref=f1e398] [cursor=pointer]
+                  - cell "Qoo10" [ref=f1e400]
+                  - cell "데일리 스낵 코리아" [ref=f1e403]
+                  - cell "테스트 미용액 30ml テスト美容液 30ml" [ref=f1e404]:
+                    - text: 테스트 미용액 30ml
+                    - generic [ref=f1e405]: テスト美容液 30ml
+                  - cell "모집마감 ▾" [ref=f1e406]:
+                    - generic [ref=f1e408] [cursor=pointer]:
+                      - text: 모집마감
+                      - generic [ref=f1e409]: ▾
+                  - cell [ref=f1e410]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e411] [cursor=pointer]
+                  - cell "1 / 10명 1승인" [ref=f1e413]:
+                    - generic [ref=f1e414]:
+                      - button "1 / 10명" [ref=f1e417] [cursor=pointer]
+                      - generic [ref=f1e418]: 1승인
+                  - cell "2026/5/30 ~ 2026/7/9 D+14" [ref=f1e419]
+                  - cell "—" [ref=f1e420]
+                  - cell "2026/8/8 D-16" [ref=f1e421]
+                  - cell "4" [ref=f1e422]
+                  - cell "2026/6/10" [ref=f1e423]
+                  - cell "2026/6/10 10:59" [ref=f1e424]
+                  - cell "more_vert" [ref=f1e425]
+                - row [ref=f1e427]:
+                  - cell [ref=f1e428]:
+                    - checkbox [ref=f1e429]
+                  - cell "리뷰어 B0008-C002 test1 search" [ref=f1e430]:
+                    - generic [ref=f1e434]:
+                      - generic [ref=f1e435]:
+                        - generic [ref=f1e436]: 리뷰어
+                        - generic [ref=f1e437]: B0008-C002
+                      - generic [ref=f1e438]:
+                        - strong [ref=f1e439]: test1
+                        - button "search" [ref=f1e440] [cursor=pointer]
+                  - cell "Qoo10 & @cosme" [ref=f1e442]:
+                    - generic [ref=f1e443]:
+                      - generic [ref=f1e444]: Qoo10
+                      - generic [ref=f1e445]: "&"
+                      - generic [ref=f1e446]: "@cosme"
+                  - cell "글로우 스킨케어" [ref=f1e447]
+                  - cell "test1" [ref=f1e448]
+                  - cell "종료 ▾" [ref=f1e449]:
+                    - generic [ref=f1e451] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e452]: ▾
+                  - cell [ref=f1e453]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e454] [cursor=pointer]
+                  - cell "0 / 20명 0승인" [ref=f1e456]:
+                    - generic [ref=f1e457]:
+                      - button "0 / 20명" [ref=f1e459] [cursor=pointer]
+                      - generic [ref=f1e460]: 0승인
+                  - cell "2026/6/3 ~ 2026/6/4 D+49" [ref=f1e461]
+                  - cell "2026/6/3 ~ 2026/6/4 D+49" [ref=f1e462]
+                  - cell "2026/6/18 D+35" [ref=f1e463]
+                  - cell "5" [ref=f1e464]
+                  - cell "2026/6/4" [ref=f1e465]
+                  - cell "2026/6/4 17:36" [ref=f1e466]
+                  - cell "more_vert" [ref=f1e467]
+                - row [ref=f1e469]:
+                  - cell [ref=f1e470]:
+                    - checkbox [ref=f1e471]
+                  - cell "📦 리뷰어 B0008-C001 채널 두개 올려야하는 캠페인 search" [ref=f1e472]:
+                    - generic [ref=f1e473]:
+                      - generic [ref=f1e474]: 📦
+                      - generic [ref=f1e476]:
+                        - generic [ref=f1e477]:
+                          - generic [ref=f1e478]: 리뷰어
+                          - generic [ref=f1e479]: B0008-C001
+                        - generic [ref=f1e480]:
+                          - strong [ref=f1e481]: 채널 두개 올려야하는 캠페인
+                          - button "search" [ref=f1e482] [cursor=pointer]
+                  - cell "Qoo10 & @cosme" [ref=f1e484]:
+                    - generic [ref=f1e485]:
+                      - generic [ref=f1e486]: Qoo10
+                      - generic [ref=f1e487]: "&"
+                      - generic [ref=f1e488]: "@cosme"
+                  - cell "글로우 스킨케어" [ref=f1e489]
+                  - cell "테스트 폼클랭징 テストフォームクランジング" [ref=f1e490]:
+                    - text: 테스트 폼클랭징
+                    - generic [ref=f1e491]: テストフォームクランジング
+                  - cell "종료 ▾" [ref=f1e492]:
+                    - generic [ref=f1e494] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e495]: ▾
+                  - cell [ref=f1e496]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e497] [cursor=pointer]
+                  - cell "1 / 2명 1승인" [ref=f1e499]:
+                    - generic [ref=f1e500]:
+                      - button "1 / 2명" [ref=f1e503] [cursor=pointer]
+                      - generic [ref=f1e504]: 1승인
+                  - cell "2026/5/27 ~ 2026/5/28 D+56" [ref=f1e505]
+                  - cell "2026/5/27 ~ 2026/5/28 D+56" [ref=f1e506]
+                  - cell "2026/5/29 D+55" [ref=f1e507]
+                  - cell "5" [ref=f1e508]
+                  - cell "2026/5/28" [ref=f1e509]
+                  - cell "2026/5/28 11:49" [ref=f1e510]
+                  - cell "more_vert" [ref=f1e511]
+                - row [ref=f1e513]:
+                  - cell [ref=f1e514]:
+                    - checkbox [ref=f1e515]
+                  - cell "📦 기프팅 B0030-C002 [DUMMY] 복수사유-모집저조 캠페인 search" [ref=f1e516]:
+                    - generic [ref=f1e517]:
+                      - generic [ref=f1e518]: 📦
+                      - generic [ref=f1e520]:
+                        - generic [ref=f1e521]:
+                          - generic [ref=f1e522]: 기프팅
+                          - generic [ref=f1e523]: B0030-C002
+                        - generic [ref=f1e524]:
+                          - strong [ref=f1e525]: "[DUMMY] 복수사유-모집저조 캠페인"
+                          - button "search" [ref=f1e526] [cursor=pointer]
+                  - cell "X(Twitter)" [ref=f1e528]
+                  - cell "[DUMMY] 긴급-복수사유" [ref=f1e531]
+                  - cell "—" [ref=f1e532]
+                  - cell "종료 ▾" [ref=f1e533]:
+                    - generic [ref=f1e535] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e536]: ▾
+                  - cell [ref=f1e537]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e538] [cursor=pointer]
+                  - cell "2 / 30명 1승인" [ref=f1e540]:
+                    - generic [ref=f1e541]:
+                      - button "2 / 30명" [ref=f1e544] [cursor=pointer]
+                      - generic [ref=f1e545]: 1승인
+                  - cell "— ~ 2026/5/26 D+58" [ref=f1e546]
+                  - cell "—" [ref=f1e547]
+                  - cell "2026/6/9 D+44" [ref=f1e548]
+                  - cell "3" [ref=f1e549]
+                  - cell "2026/5/22" [ref=f1e550]
+                  - cell "2026/5/22 09:34" [ref=f1e551]
+                  - cell "more_vert" [ref=f1e552]
+                - row [ref=f1e554]:
+                  - cell [ref=f1e555]:
+                    - checkbox [ref=f1e556]
+                  - cell "📦 기프팅 B0030-C001 [DUMMY] 복수사유-D1 캠페인 search" [ref=f1e557]:
+                    - generic [ref=f1e558]:
+                      - generic [ref=f1e559]: 📦
+                      - generic [ref=f1e561]:
+                        - generic [ref=f1e562]:
+                          - generic [ref=f1e563]: 기프팅
+                          - generic [ref=f1e564]: B0030-C001
+                        - generic [ref=f1e565]:
+                          - strong [ref=f1e566]: "[DUMMY] 복수사유-D1 캠페인"
+                          - button "search" [ref=f1e567] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e569]
+                  - cell "[DUMMY] 긴급-복수사유" [ref=f1e572]
+                  - cell "—" [ref=f1e573]
+                  - cell "종료 ▾" [ref=f1e574]:
+                    - generic [ref=f1e576] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e577]: ▾
+                  - cell [ref=f1e578]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e579] [cursor=pointer]
+                  - cell "0 / 10명 0승인" [ref=f1e581]:
+                    - generic [ref=f1e582]:
+                      - button "0 / 10명" [ref=f1e584] [cursor=pointer]
+                      - generic [ref=f1e585]: 0승인
+                  - cell "— ~ 2026/5/23 D+61" [ref=f1e586]
+                  - cell "—" [ref=f1e587]
+                  - cell "2026/6/6 D+47" [ref=f1e588]
+                  - cell "2" [ref=f1e589]
+                  - cell "2026/5/22" [ref=f1e590]
+                  - cell "2026/5/22 09:34" [ref=f1e591]
+                  - cell "more_vert" [ref=f1e592]
+                - row [ref=f1e594]:
+                  - cell [ref=f1e595]:
+                    - checkbox [ref=f1e596]
+                  - cell "📦 기프팅 B0032-C001 [DUMMY] 모집저조-마감여유 캠페인 search" [ref=f1e597]:
+                    - generic [ref=f1e598]:
+                      - generic [ref=f1e599]: 📦
+                      - generic [ref=f1e601]:
+                        - generic [ref=f1e602]:
+                          - generic [ref=f1e603]: 기프팅
+                          - generic [ref=f1e604]: B0032-C001
+                        - generic [ref=f1e605]:
+                          - strong [ref=f1e606]: "[DUMMY] 모집저조-마감여유 캠페인"
+                          - button "search" [ref=f1e607] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e609]
+                  - cell "[DUMMY] 주의-모집저조" [ref=f1e612]
+                  - cell "—" [ref=f1e613]
+                  - cell "종료 ▾" [ref=f1e614]:
+                    - generic [ref=f1e616] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e617]: ▾
+                  - cell [ref=f1e618]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e619] [cursor=pointer]
+                  - cell "5 / 10명 3승인" [ref=f1e621]:
+                    - generic [ref=f1e622]:
+                      - button "5 / 10명" [ref=f1e625] [cursor=pointer]
+                      - generic [ref=f1e626]: 3승인
+                  - cell "— ~ 2026/6/11 D+42" [ref=f1e627]
+                  - cell "—" [ref=f1e628]
+                  - cell "2026/6/25 D+28" [ref=f1e629]
+                  - cell "2" [ref=f1e630]
+                  - cell "2026/5/22" [ref=f1e631]
+                  - cell "2026/5/22 09:34" [ref=f1e632]
+                  - cell "more_vert" [ref=f1e633]
+                - row [ref=f1e635]:
+                  - cell [ref=f1e636]:
+                    - checkbox [ref=f1e637]
+                  - cell "📦 기프팅 B0031-C001 [DUMMY] D-3 마감 캠페인 search" [ref=f1e638]:
+                    - generic [ref=f1e639]:
+                      - generic [ref=f1e640]: 📦
+                      - generic [ref=f1e642]:
+                        - generic [ref=f1e643]:
+                          - generic [ref=f1e644]: 기프팅
+                          - generic [ref=f1e645]: B0031-C001
+                        - generic [ref=f1e646]:
+                          - strong [ref=f1e647]: "[DUMMY] D-3 마감 캠페인"
+                          - button "search" [ref=f1e648] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e650]
+                  - cell "[DUMMY] 대응필요-마감3일" [ref=f1e653]
+                  - cell "—" [ref=f1e654]
+                  - cell "종료 ▾" [ref=f1e655]:
+                    - generic [ref=f1e657] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e658]: ▾
+                  - cell [ref=f1e659]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e660] [cursor=pointer]
+                  - cell "3 / 5명 3승인" [ref=f1e662]:
+                    - generic [ref=f1e663]:
+                      - button "3 / 5명" [ref=f1e666] [cursor=pointer]
+                      - generic [ref=f1e667]: 3승인
+                  - cell "— ~ 2026/5/25 D+59" [ref=f1e668]
+                  - cell "—" [ref=f1e669]
+                  - cell "2026/6/8 D+45" [ref=f1e670]
+                  - cell "2" [ref=f1e671]
+                  - cell "2026/5/22" [ref=f1e672]
+                  - cell "2026/5/22 09:34" [ref=f1e673]
+                  - cell "more_vert" [ref=f1e674]
+                - row [ref=f1e676]:
+                  - cell [ref=f1e677]:
+                    - checkbox [ref=f1e678]
+                  - cell "📦 리뷰어 B0029-C001 [DUMMY] 모집저조 리뷰어 캠페인 search" [ref=f1e679]:
+                    - generic [ref=f1e680]:
+                      - generic [ref=f1e681]: 📦
+                      - generic [ref=f1e683]:
+                        - generic [ref=f1e684]:
+                          - generic [ref=f1e685]: 리뷰어
+                          - generic [ref=f1e686]: B0029-C001
+                        - generic [ref=f1e687]:
+                          - strong [ref=f1e688]: "[DUMMY] 모집저조 리뷰어 캠페인"
+                          - button "search" [ref=f1e689] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e691]
+                  - cell "[DUMMY] 긴급-모집저조" [ref=f1e694]
+                  - cell "—" [ref=f1e695]
+                  - cell "종료 ▾" [ref=f1e696]:
+                    - generic [ref=f1e698] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e699]: ▾
+                  - cell [ref=f1e700]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e701] [cursor=pointer]
+                  - cell "1 / 20명 1승인" [ref=f1e703]:
+                    - generic [ref=f1e704]:
+                      - button "1 / 20명" [ref=f1e707] [cursor=pointer]
+                      - generic [ref=f1e708]: 1승인
+                  - cell "— ~ 2026/5/27 D+57" [ref=f1e709]
+                  - cell "—" [ref=f1e710]
+                  - cell "2026/6/10 D+43" [ref=f1e711]
+                  - cell "0" [ref=f1e712]
+                  - cell "2026/5/22" [ref=f1e713]
+                  - cell "2026/5/22 09:34" [ref=f1e714]
+                  - cell "more_vert" [ref=f1e715]
+                - row [ref=f1e717]:
+                  - cell [ref=f1e718]:
+                    - checkbox [ref=f1e719]
+                  - cell "📦 기프팅 B0028-C003 [DUMMY] 취소다발-cancelB 캠페인 search" [ref=f1e720]:
+                    - generic [ref=f1e721]:
+                      - generic [ref=f1e722]: 📦
+                      - generic [ref=f1e724]:
+                        - generic [ref=f1e725]:
+                          - generic [ref=f1e726]: 기프팅
+                          - generic [ref=f1e727]: B0028-C003
+                        - generic [ref=f1e728]:
+                          - strong [ref=f1e729]: "[DUMMY] 취소다발-cancelB 캠페인"
+                          - button "search" [ref=f1e730] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e732]
+                  - cell "[DUMMY] 긴급-취소다발" [ref=f1e735]
+                  - cell "—" [ref=f1e736]
+                  - cell "준비 ▾" [ref=f1e737]:
+                    - generic [ref=f1e739] [cursor=pointer]:
+                      - text: 준비
+                      - generic [ref=f1e740]: ▾
+                  - cell [ref=f1e741]:
+                    - switch "캠페인 노출 ON/OFF" [disabled] [ref=f1e742]
+                  - cell "0 / 1명 0승인" [ref=f1e744]:
+                    - generic [ref=f1e745]:
+                      - button "0 / 1명" [ref=f1e747] [cursor=pointer]
+                      - generic [ref=f1e748]: 0승인
+                  - cell "— ~ 2026/6/11 D+42" [ref=f1e749]
+                  - cell "—" [ref=f1e750]
+                  - cell "2026/6/25 D+28" [ref=f1e751]
+                  - cell "0" [ref=f1e752]
+                  - cell "2026/5/22" [ref=f1e753]
+                  - cell "2026/5/22 09:34" [ref=f1e754]
+                  - cell "more_vert" [ref=f1e755]
+                - row [ref=f1e757]:
+                  - cell [ref=f1e758]:
+                    - checkbox [ref=f1e759]
+                  - cell "📦 기프팅 B0028-C002 [DUMMY] 취소다발-cancelA 캠페인 search" [ref=f1e760]:
+                    - generic [ref=f1e761]:
+                      - generic [ref=f1e762]: 📦
+                      - generic [ref=f1e764]:
+                        - generic [ref=f1e765]:
+                          - generic [ref=f1e766]: 기프팅
+                          - generic [ref=f1e767]: B0028-C002
+                        - generic [ref=f1e768]:
+                          - strong [ref=f1e769]: "[DUMMY] 취소다발-cancelA 캠페인"
+                          - button "search" [ref=f1e770] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e772]
+                  - cell "[DUMMY] 긴급-취소다발" [ref=f1e775]
+                  - cell "—" [ref=f1e776]
+                  - cell "준비 ▾" [ref=f1e777]:
+                    - generic [ref=f1e779] [cursor=pointer]:
+                      - text: 준비
+                      - generic [ref=f1e780]: ▾
+                  - cell [ref=f1e781]:
+                    - switch "캠페인 노출 ON/OFF" [disabled] [ref=f1e782]
+                  - cell "0 / 1명 0승인" [ref=f1e784]:
+                    - generic [ref=f1e785]:
+                      - button "0 / 1명" [ref=f1e787] [cursor=pointer]
+                      - generic [ref=f1e788]: 0승인
+                  - cell "— ~ 2026/6/11 D+42" [ref=f1e789]
+                  - cell "—" [ref=f1e790]
+                  - cell "2026/6/25 D+28" [ref=f1e791]
+                  - cell "0" [ref=f1e792]
+                  - cell "2026/5/22" [ref=f1e793]
+                  - cell "2026/5/22 09:34" [ref=f1e794]
+                  - cell "more_vert" [ref=f1e795]
+                - row [ref=f1e797]:
+                  - cell [ref=f1e798]:
+                    - checkbox [ref=f1e799]
+                  - cell "📦 기프팅 B0027-C001 [DUMMY] D-1 마감임박 캠페인 search" [ref=f1e800]:
+                    - generic [ref=f1e801]:
+                      - generic [ref=f1e802]: 📦
+                      - generic [ref=f1e804]:
+                        - generic [ref=f1e805]:
+                          - generic [ref=f1e806]: 기프팅
+                          - generic [ref=f1e807]: B0027-C001
+                        - generic [ref=f1e808]:
+                          - strong [ref=f1e809]: "[DUMMY] D-1 마감임박 캠페인"
+                          - button "search" [ref=f1e810] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e812]
+                  - cell "[DUMMY] 긴급-마감임박" [ref=f1e815]
+                  - cell "—" [ref=f1e816]
+                  - cell "종료 ▾" [ref=f1e817]:
+                    - generic [ref=f1e819] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e820]: ▾
+                  - cell [ref=f1e821]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e822] [cursor=pointer]
+                  - cell "2 / 2명 2승인" [ref=f1e824]:
+                    - generic [ref=f1e825]:
+                      - button "2 / 2명" [ref=f1e828] [cursor=pointer]
+                      - generic [ref=f1e829]: 2승인
+                  - cell "— ~ 2026/5/23 D+61" [ref=f1e830]
+                  - cell "—" [ref=f1e831]
+                  - cell "2026/6/6 D+47" [ref=f1e832]
+                  - cell "0" [ref=f1e833]
+                  - cell "2026/5/22" [ref=f1e834]
+                  - cell "2026/5/22 09:34" [ref=f1e835]
+                  - cell "more_vert" [ref=f1e836]
+                - row [ref=f1e838]:
+                  - cell [ref=f1e839]:
+                    - checkbox [ref=f1e840]
+                  - cell "📦 기프팅 B0028-C001 [DUMMY] 취소다발-메인 캠페인 search" [ref=f1e841]:
+                    - generic [ref=f1e842]:
+                      - generic [ref=f1e843]: 📦
+                      - generic [ref=f1e845]:
+                        - generic [ref=f1e846]:
+                          - generic [ref=f1e847]: 기프팅
+                          - generic [ref=f1e848]: B0028-C001
+                        - generic [ref=f1e849]:
+                          - strong [ref=f1e850]: "[DUMMY] 취소다발-메인 캠페인"
+                          - button "search" [ref=f1e851] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e853]
+                  - cell "[DUMMY] 긴급-취소다발" [ref=f1e856]
+                  - cell "—" [ref=f1e857]
+                  - cell "종료 ▾" [ref=f1e858]:
+                    - generic [ref=f1e860] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e861]: ▾
+                  - cell [ref=f1e862]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e863] [cursor=pointer]
+                  - cell "2 / 2명 2승인" [ref=f1e865]:
+                    - generic [ref=f1e866]:
+                      - button "2 / 2명" [ref=f1e869] [cursor=pointer]
+                      - generic [ref=f1e870]: 2승인
+                  - cell "— ~ 2026/6/5 D+48" [ref=f1e871]
+                  - cell "—" [ref=f1e872]
+                  - cell "2026/6/19 D+34" [ref=f1e873]
+                  - cell "0" [ref=f1e874]
+                  - cell "2026/5/22" [ref=f1e875]
+                  - cell "2026/5/22 09:34" [ref=f1e876]
+                  - cell "more_vert" [ref=f1e877]
+                - row [ref=f1e879]:
+                  - cell [ref=f1e880]:
+                    - checkbox [ref=f1e881]
+                  - cell "📦 기프팅 B0033-C001 [DUMMY] 정상 캠페인 search" [ref=f1e882]:
+                    - generic [ref=f1e883]:
+                      - generic [ref=f1e884]: 📦
+                      - generic [ref=f1e886]:
+                        - generic [ref=f1e887]:
+                          - generic [ref=f1e888]: 기프팅
+                          - generic [ref=f1e889]: B0033-C001
+                        - generic [ref=f1e890]:
+                          - strong [ref=f1e891]: "[DUMMY] 정상 캠페인"
+                          - button "search" [ref=f1e892] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e894]
+                  - cell "[DUMMY] 정상" [ref=f1e897]
+                  - cell "—" [ref=f1e898]
+                  - cell "종료 ▾" [ref=f1e899]:
+                    - generic [ref=f1e901] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e902]: ▾
+                  - cell [ref=f1e903]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e904] [cursor=pointer]
+                  - cell "2 / 2명 1승인" [ref=f1e906]:
+                    - generic [ref=f1e907]:
+                      - button "2 / 2명" [ref=f1e910] [cursor=pointer]
+                      - generic [ref=f1e911]: 1승인
+                  - cell "— ~ 2026/6/21 D+32" [ref=f1e912]
+                  - cell "—" [ref=f1e913]
+                  - cell "2026/7/5 D+18" [ref=f1e914]
+                  - cell "6" [ref=f1e915]
+                  - cell "2026/5/22" [ref=f1e916]
+                  - cell "2026/5/22 09:34" [ref=f1e917]
+                  - cell "more_vert" [ref=f1e918]
+                - row [ref=f1e920]:
+                  - cell [ref=f1e921]:
+                    - checkbox [ref=f1e922]
+                  - cell "📦 리뷰어 B0017-C002 バイオーム8X 毛穴うるおい美容液＆クリームセット search" [ref=f1e923]:
+                    - generic [ref=f1e924]:
+                      - generic [ref=f1e925]: 📦
+                      - generic [ref=f1e927]:
+                        - generic [ref=f1e928]:
+                          - generic [ref=f1e929]: 리뷰어
+                          - generic [ref=f1e930]: B0017-C002
+                        - generic [ref=f1e931]:
+                          - strong [ref=f1e932]: バイオーム8X 毛穴うるおい美容液＆クリームセット
+                          - button "search" [ref=f1e933] [cursor=pointer]
+                  - cell "Qoo10 & @cosme" [ref=f1e935]:
+                    - generic [ref=f1e936]:
+                      - generic [ref=f1e937]: Qoo10
+                      - generic [ref=f1e938]: "&"
+                      - generic [ref=f1e939]: "@cosme"
+                  - cell "F&B 스튜디오" [ref=f1e940]
+                  - cell "라비엘 바이옴 8X 히알루론산 앰플 バイオーム8X 毛穴うるおい美容液＆クリームセット" [ref=f1e941]:
+                    - text: 라비엘 바이옴 8X 히알루론산 앰플
+                    - generic [ref=f1e942]: バイオーム8X 毛穴うるおい美容液＆クリームセット
+                  - cell "종료 ▾" [ref=f1e943]:
+                    - generic [ref=f1e945] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e946]: ▾
+                  - cell [ref=f1e947]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e948] [cursor=pointer]
+                  - cell "0 / 23명 0승인" [ref=f1e950]:
+                    - generic [ref=f1e951]:
+                      - button "0 / 23명" [ref=f1e953] [cursor=pointer]
+                      - generic [ref=f1e954]: 0승인
+                  - cell "2026/5/15 ~ 2026/5/25 D+59" [ref=f1e955]
+                  - cell "2026/5/15 ~ 2026/5/25 D+59" [ref=f1e956]
+                  - cell "2026/6/1 D+52" [ref=f1e957]
+                  - cell "12" [ref=f1e958]
+                  - cell "2026/5/18" [ref=f1e959]
+                  - cell "2026/7/15 15:53" [ref=f1e960]
+                  - cell "more_vert" [ref=f1e961]
+                - row [ref=f1e963]:
+                  - cell [ref=f1e964]:
+                    - checkbox [ref=f1e965]
+                  - cell "리뷰어 B0026-C001 【検証】モニター2段階 検証用キャンペーン search" [ref=f1e966]:
+                    - generic [ref=f1e970]:
+                      - generic [ref=f1e971]:
+                        - generic [ref=f1e972]: 리뷰어
+                        - generic [ref=f1e973]: B0026-C001
+                      - generic [ref=f1e974]:
+                        - strong [ref=f1e975]: 【検証】モニター2段階 検証用キャンペーン
+                        - button "search" [ref=f1e976] [cursor=pointer]
+                  - cell "—" [ref=f1e978]
+                  - cell "【検証】モニター2段階" [ref=f1e979]
+                  - cell "モニター2段階 検証用ダミー商品" [ref=f1e980]
+                  - cell "모집마감 ▾" [ref=f1e981]:
+                    - generic [ref=f1e983] [cursor=pointer]:
+                      - text: 모집마감
+                      - generic [ref=f1e984]: ▾
+                  - cell [ref=f1e985]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e986] [cursor=pointer]
+                  - cell "1 / 10명 1승인" [ref=f1e988]:
+                    - generic [ref=f1e989]:
+                      - button "1 / 10명" [ref=f1e992] [cursor=pointer]
+                      - generic [ref=f1e993]: 1승인
+                  - cell "2026/5/6 ~ 2026/5/20 D+64" [ref=f1e994]
+                  - cell "2026/5/6 ~ 2026/5/13 D+71" [ref=f1e995]
+                  - cell "—" [ref=f1e996]
+                  - cell "34" [ref=f1e997]
+                  - cell "2026/5/6" [ref=f1e998]
+                  - cell "2026/5/12 19:38" [ref=f1e999]
+                  - cell "more_vert" [ref=f1e1000]
+                - row [ref=f1e1002]:
+                  - cell [ref=f1e1003]:
+                    - checkbox [ref=f1e1004]
+                  - cell "📦 리뷰어 B0019-C002 0506 테스트 캠페인-승인 관리 search" [ref=f1e1005]:
+                    - generic [ref=f1e1006]:
+                      - generic [ref=f1e1007]: 📦
+                      - generic [ref=f1e1009]:
+                        - generic [ref=f1e1010]:
+                          - generic [ref=f1e1011]: 리뷰어
+                          - generic [ref=f1e1012]: B0019-C002
+                        - generic [ref=f1e1013]:
+                          - strong [ref=f1e1014]: 0506 테스트 캠페인-승인 관리
+                          - button "search" [ref=f1e1015] [cursor=pointer]
+                  - cell "Qoo10" [ref=f1e1017]
+                  - cell "[TEST] TestBrand A" [ref=f1e1020]
+                  - cell "테스트제품" [ref=f1e1021]
+                  - cell "종료 ▾" [ref=f1e1022]:
+                    - generic [ref=f1e1024] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e1025]: ▾
+                  - cell [ref=f1e1026]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e1027] [cursor=pointer]
+                  - cell "1 / 5명 1승인" [ref=f1e1029]:
+                    - generic [ref=f1e1030]:
+                      - button "1 / 5명" [ref=f1e1033] [cursor=pointer]
+                      - generic [ref=f1e1034]: 1승인
+                  - cell "2026/5/6 ~ 2026/5/7 D+77" [ref=f1e1035]
+                  - cell "2026/5/6 ~ 2026/5/7 D+77" [ref=f1e1036]
+                  - cell "2026/5/8 D+76" [ref=f1e1037]
+                  - cell "23" [ref=f1e1038]
+                  - cell "2026/5/6" [ref=f1e1039]
+                  - cell "2026/5/27 20:54" [ref=f1e1040]
+                  - cell "more_vert" [ref=f1e1041]
+                - row [ref=f1e1043]:
+                  - cell [ref=f1e1044]:
+                    - checkbox [ref=f1e1045]
+                  - cell "리뷰어 B0016-C001 [복사] 주의사항 검토 search" [ref=f1e1046]:
+                    - generic [ref=f1e1050]:
+                      - generic [ref=f1e1051]:
+                        - generic [ref=f1e1052]: 리뷰어
+                        - generic [ref=f1e1053]: B0016-C001
+                      - generic [ref=f1e1054]:
+                        - strong [ref=f1e1055]: "[복사] 주의사항 검토"
+                        - button "search" [ref=f1e1056] [cursor=pointer]
+                  - cell "Qoo10" [ref=f1e1058]
+                  - cell "慎重なブランド" [ref=f1e1061]
+                  - cell "민감한 제품" [ref=f1e1062]
+                  - cell "종료 ▾" [ref=f1e1063]:
+                    - generic [ref=f1e1065] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e1066]: ▾
+                  - cell [ref=f1e1067]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e1068] [cursor=pointer]
+                  - cell "0 / 20명 0승인" [ref=f1e1070]:
+                    - generic [ref=f1e1071]:
+                      - button "0 / 20명" [ref=f1e1073] [cursor=pointer]
+                      - generic [ref=f1e1074]: 0승인
+                  - cell "2026/4/1 ~ 2026/4/11 D+103" [ref=f1e1075]
+                  - cell "2026/4/10 ~ 2026/4/18 D+96" [ref=f1e1076]
+                  - cell "2026/5/28 D+56" [ref=f1e1077]
+                  - cell "22" [ref=f1e1078]
+                  - cell "2026/4/27" [ref=f1e1079]
+                  - cell "2026/5/15 17:16" [ref=f1e1080]
+                  - cell "more_vert" [ref=f1e1081]
+                - row [ref=f1e1083]:
+                  - cell [ref=f1e1084]:
+                    - checkbox [ref=f1e1085]
+                  - cell "리뷰어 B0018-C001 주의사항 검토 search" [ref=f1e1086]:
+                    - generic [ref=f1e1090]:
+                      - generic [ref=f1e1091]:
+                        - generic [ref=f1e1092]: 리뷰어
+                        - generic [ref=f1e1093]: B0018-C001
+                      - generic [ref=f1e1094]:
+                        - strong [ref=f1e1095]: 주의사항 검토
+                        - button "search" [ref=f1e1096] [cursor=pointer]
+                  - cell "Qoo10" [ref=f1e1098]
+                  - cell "慎重なブランド01" [ref=f1e1101]
+                  - cell "민감한 제품80ml 敏感な製品80ml" [ref=f1e1102]:
+                    - text: 민감한 제품80ml
+                    - generic [ref=f1e1103]: 敏感な製品80ml
+                  - cell "종료 ▾" [ref=f1e1104]:
+                    - generic [ref=f1e1106] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e1107]: ▾
+                  - cell [ref=f1e1108]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e1109] [cursor=pointer]
+                  - cell "1 / 20명 0승인" [ref=f1e1111]:
+                    - generic [ref=f1e1112]:
+                      - button "1 / 20명" [ref=f1e1114] [cursor=pointer]
+                      - generic [ref=f1e1115]: 0승인
+                  - cell "— ~ 2026/4/30 D+84" [ref=f1e1116]
+                  - cell "2026/5/1 ~ 2026/5/8 D+76" [ref=f1e1117]
+                  - cell "2026/5/13 D+71" [ref=f1e1118]
+                  - cell "18" [ref=f1e1119]
+                  - cell "2026/4/22" [ref=f1e1120]
+                  - cell "2026/4/28 17:41" [ref=f1e1121]
+                  - cell "more_vert" [ref=f1e1122]
+                - row [ref=f1e1124]:
+                  - cell [ref=f1e1125]:
+                    - checkbox [ref=f1e1126]
+                  - cell "+2 기프팅 B0022-C001 エンモードプロ / フェイスラインケア・リフティング / EMSマッサージャー search" [ref=f1e1127]:
+                    - generic [ref=f1e1128]:
+                      - generic [ref=f1e1129]: "+2"
+                      - generic [ref=f1e1132]:
+                        - generic [ref=f1e1133]:
+                          - generic [ref=f1e1134]: 기프팅
+                          - generic [ref=f1e1135]: B0022-C001
+                        - generic [ref=f1e1136]:
+                          - strong [ref=f1e1137]: エンモードプロ / フェイスラインケア・リフティング / EMSマッサージャー
+                          - button "search" [ref=f1e1138] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e1140]
+                  - cell "이니스프리" [ref=f1e1143]
+                  - cell "エンモードプロ / フェイスラインケア・リフティング / EMSマッサージャー" [ref=f1e1144]
+                  - cell "종료 ▾" [ref=f1e1145]:
+                    - generic [ref=f1e1147] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e1148]: ▾
+                  - cell [ref=f1e1149]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e1150] [cursor=pointer]
+                  - cell "0 / 20명 0승인" [ref=f1e1152]:
+                    - generic [ref=f1e1153]:
+                      - button "0 / 20명" [ref=f1e1155] [cursor=pointer]
+                      - generic [ref=f1e1156]: 0승인
+                  - cell "— ~ 2026/4/22 D+92" [ref=f1e1157]
+                  - cell "—" [ref=f1e1158]
+                  - cell "2026/4/21 D+93" [ref=f1e1159]
+                  - cell "17" [ref=f1e1160]
+                  - cell "2026/4/19" [ref=f1e1161]
+                  - cell "2026/5/8 16:42" [ref=f1e1162]
+                  - cell "more_vert" [ref=f1e1163]
+                - row [ref=f1e1165]:
+                  - cell [ref=f1e1166]:
+                    - checkbox [ref=f1e1167]
+                  - cell "+4 리뷰어 B0019-C001 [TEST] モニター用テストキャンペーン search" [ref=f1e1168]:
+                    - generic [ref=f1e1169]:
+                      - generic [ref=f1e1170]: "+4"
+                      - generic [ref=f1e1173]:
+                        - generic [ref=f1e1174]:
+                          - generic [ref=f1e1175]: 리뷰어
+                          - generic [ref=f1e1176]: B0019-C001
+                        - generic [ref=f1e1177]:
+                          - strong [ref=f1e1178]: "[TEST] モニター用テストキャンペーン"
+                          - button "search" [ref=f1e1179] [cursor=pointer]
+                  - cell "Qoo10 or @cosme" [ref=f1e1181]:
+                    - generic [ref=f1e1182]:
+                      - generic [ref=f1e1183]: Qoo10
+                      - generic [ref=f1e1184]: or
+                      - generic [ref=f1e1185]: "@cosme"
+                  - cell "[TEST] TestBrand A" [ref=f1e1186]
+                  - cell "テスト商品 A (モニター)" [ref=f1e1187]
+                  - cell "종료 ▾" [ref=f1e1188]:
+                    - generic [ref=f1e1190] [cursor=pointer]:
+                      - text: 종료
+                      - generic [ref=f1e1191]: ▾
+                  - cell [ref=f1e1192]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e1193] [cursor=pointer]
+                  - cell "7 / 1명 5승인" [ref=f1e1195]:
+                    - generic [ref=f1e1196]:
+                      - button "7 / 1명" [ref=f1e1199] [cursor=pointer]
+                      - generic [ref=f1e1200]: 5승인
+                  - cell "— ~ 2026/4/29 D+85" [ref=f1e1201]
+                  - cell "2026/4/16 ~ 2026/5/6 D+78" [ref=f1e1202]
+                  - cell "2026/5/25 D+59" [ref=f1e1203]
+                  - cell "87" [ref=f1e1204]
+                  - cell "2026/4/15" [ref=f1e1205]
+                  - cell "2026/4/15 19:19" [ref=f1e1206]
+                  - cell "more_vert" [ref=f1e1207]
+                - row [ref=f1e1209]:
+                  - cell [ref=f1e1210]:
+                    - checkbox [ref=f1e1211]
+                  - cell "기프팅 B0017-C001 [TEST] ギフティング用テストキャンペーン search" [ref=f1e1212]:
+                    - generic [ref=f1e1216]:
+                      - generic [ref=f1e1217]:
+                        - generic [ref=f1e1218]: 기프팅
+                        - generic [ref=f1e1219]: B0017-C001
+                      - generic [ref=f1e1220]:
+                        - strong [ref=f1e1221]: "[TEST] ギフティング用テストキャンペーン"
+                        - button "search" [ref=f1e1222] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e1224]
+                  - cell "[TEST] TestBrand B" [ref=f1e1227]
+                  - cell "テスト商品 B (ギフティング)" [ref=f1e1228]
+                  - cell "노출종료 ▾" [ref=f1e1229]:
+                    - generic [ref=f1e1231] [cursor=pointer]:
+                      - text: 노출종료
+                      - generic [ref=f1e1232]: ▾
+                  - cell [ref=f1e1233]:
+                    - switch "캠페인 노출 ON/OFF" [ref=f1e1234] [cursor=pointer]
+                  - cell "2 / 15명 2승인" [ref=f1e1236]:
+                    - generic [ref=f1e1237]:
+                      - button "2 / 15명" [ref=f1e1240] [cursor=pointer]
+                      - generic [ref=f1e1241]: 2승인
+                  - cell "— ~ 2026/4/29 D+85" [ref=f1e1242]
+                  - cell "—" [ref=f1e1243]
+                  - cell "2026/5/25 D+59" [ref=f1e1244]
+                  - cell "6" [ref=f1e1245]
+                  - cell "2026/4/15" [ref=f1e1246]
+                  - cell "2026/4/15 19:19" [ref=f1e1247]
+                  - cell "more_vert" [ref=f1e1248]
+                - row [ref=f1e1250]:
+                  - cell [ref=f1e1251]:
+                    - checkbox [ref=f1e1252]
+                  - cell "방문형 B0021-C001 [TEST] 訪問型テストキャンペーン search" [ref=f1e1253]:
+                    - generic [ref=f1e1257]:
+                      - generic [ref=f1e1258]:
+                        - generic [ref=f1e1259]: 방문형
+                        - generic [ref=f1e1260]: B0021-C001
+                      - generic [ref=f1e1261]:
+                        - strong [ref=f1e1262]: "[TEST] 訪問型テストキャンペーン"
+                        - button "search" [ref=f1e1263] [cursor=pointer]
+                  - cell "Instagram" [ref=f1e1265]
+                  - cell "[TEST] TestBrand C" [ref=f1e1268]
+                  - cell "テスト店舗訪問 (来店)" [ref=f1e1269]
+                  - cell "노출종료 ▾" [ref=f1e1270]:
+                    - generic [ref=f1e1272] [cursor=pointer]:
+                      - text: 노출종료
+                      - generic [ref=f1e1273]: ▾
+                  - cell [ref=f1e1274]:
+                    - switch "캠페인 노출 ON/OFF" [ref=f1e1275] [cursor=pointer]
+                  - cell "1 / 10명 1승인" [ref=f1e1277]:
+                    - generic [ref=f1e1278]:
+                      - button "1 / 10명" [ref=f1e1281] [cursor=pointer]
+                      - generic [ref=f1e1282]: 1승인
+                  - cell "— ~ 2026/4/29 D+85" [ref=f1e1283]
+                  - cell "2026/4/22 ~ 2026/5/20 D+64" [ref=f1e1284]
+                  - cell "2026/5/25 D+59" [ref=f1e1285]
+                  - cell "3" [ref=f1e1286]
+                  - cell "2026/4/15" [ref=f1e1287]
+                  - cell "2026/4/15 19:19" [ref=f1e1288]
+                  - cell "more_vert" [ref=f1e1289]
+                - row [ref=f1e1291]:
+                  - cell [ref=f1e1292]:
+                    - checkbox [ref=f1e1293]
+                  - cell "+2 기프팅 B0020-C001 [TEST] 환경 분리 테스트 search" [ref=f1e1294]:
+                    - generic [ref=f1e1295]:
+                      - generic [ref=f1e1296]: "+2"
+                      - generic [ref=f1e1299]:
+                        - generic [ref=f1e1300]:
+                          - generic [ref=f1e1301]: 기프팅
+                          - generic [ref=f1e1302]: B0020-C001
+                        - generic [ref=f1e1303]:
+                          - strong [ref=f1e1304]: "[TEST] 환경 분리 테스트"
+                          - button "search" [ref=f1e1305] [cursor=pointer]
+                  - cell "Instagram or X(Twitter)" [ref=f1e1307]:
+                    - generic [ref=f1e1308]:
+                      - generic [ref=f1e1309]: Instagram
+                      - generic [ref=f1e1310]: or
+                      - generic [ref=f1e1311]: X(Twitter)
+                  - cell "테스트브랜드" [ref=f1e1312]
+                  - cell "테스트세럼 1000ml" [ref=f1e1313]
+                  - cell "모집예정 ▾" [ref=f1e1314]:
+                    - generic [ref=f1e1316] [cursor=pointer]:
+                      - text: 모집예정
+                      - generic [ref=f1e1317]: ▾
+                  - cell [ref=f1e1318]:
+                    - switch "캠페인 노출 ON/OFF" [checked] [ref=f1e1319] [cursor=pointer]
+                  - cell "0 / 1명 0승인" [ref=f1e1321]:
+                    - generic [ref=f1e1322]:
+                      - button "0 / 1명" [ref=f1e1324] [cursor=pointer]
+                      - generic [ref=f1e1325]: 0승인
+                  - cell "— ~ 2026/4/17 D+97" [ref=f1e1326]
+                  - cell "—" [ref=f1e1327]
+                  - cell "—" [ref=f1e1328]
+                  - cell "36" [ref=f1e1329]
+                  - cell "2026/4/14" [ref=f1e1330]
+                  - cell "2026/4/14 12:06" [ref=f1e1331]
+                  - cell "more_vert" [ref=f1e1332]
+        - text: 입력하면 미리보기가 표시됩니다 입력하면 미리보기가 표시됩니다
+  - text: "* * * * * * * * * * * *"

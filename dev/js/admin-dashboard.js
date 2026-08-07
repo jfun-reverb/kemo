@@ -5,7 +5,7 @@
 // 대시보드 페인 (admin.js 파일 분리).
 //   · 메인 로드 + KPI + 캠페인 분포 + 최근 신청 (loadAdminData/renderCampaignBreakdown/renderRecentAppsTable)
 //   · 회원가입 추이 차트 + 프로필 완성률 + 배송지 도도부현 도넛 (Chart.js)
-//   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/ADDRESS_DIST_COLORS
+//   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/accentRamp
 //
 // ⚠ loadAdminData 는 switchAdminPane(admin-core.js) loaders + 부트(app.js)가 호출 → 전역 유지(이름 변경 금지).
 // ⚠ loadAdminData 가 refreshAdminNoticeBadge/renderDashboardNotices/showAdminUnreadNoticesIfAny(admin-notices.js),
@@ -110,15 +110,15 @@ function renderRecentAppsTable(apps, camps, users) {
         </div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
+        <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
@@ -130,27 +130,35 @@ function renderCampaignBreakdown(camps) {
   if (!statusEl || !chEl) return;
 
   const statusDef = [
-    {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
-    {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
-    {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'closed',    label:'모집마감', color:'#B91C5C', bg:'#FFE4EC'},
-    {key:'ended',     label:'종료',     color:'#3949AB', bg:'#E8EAF6'},
-    {key:'expired',   label:'노출종료', color:'#666666', bg:'#EEEEEE'},
+    // 색은 목록 화면 상태 배지(components.css .badge-*)와 같은 값을 쓴다.
+    // 두 화면이 다르면 같은 「모집중」이 화면마다 다른 초록으로 보인다.
+    // 전체 현황은 전부 무채색 — 칩에는 「준비」「모집중」처럼 이름이 이미 쓰여 있어
+    // 색으로 구분할 필요가 없다(색 단독으로 정보를 전달하지 않는다는 원칙과도 맞음).
+    // 배경은 메인 컬러, 글자는 흰색. 라벨까지 대비 기준을 넘는 건 흰색뿐이라
+    // (연보라 4.33:1 미달) 숫자·라벨 모두 흰색이고 위계는 글자 크기로 준다.
+    {key:'draft',     label:'준비',     color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'scheduled', label:'모집예정', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'active',    label:'모집중',   color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'closed',    label:'모집마감', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'ended',     label:'종료',     color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'expired',   label:'노출종료', color:'#fff', bg:'rgba(255,255,255,.16)'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
   statusEl.innerHTML = statusDef.map(s => `
     <div style="flex:1;min-width:90px;background:${s.bg};border-radius:10px;padding:10px 12px">
       <div style="font-size:20px;font-weight:800;color:${s.color}">${statusCount[s.key]||0}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.label}</div>
+      <div style="font-size:11px;color:${s.color};opacity:.9;margin-top:2px">${s.label}</div>
     </div>`).join('');
 
   const chDef = [
-    {key:'instagram', label:'Instagram', color:'#C13584', bg:'#FCE8F3'},
-    {key:'x', label:'X(Twitter)', color:'#0F1419', bg:'#EEEEEE'},
-    {key:'qoo10', label:'Qoo10', color:'#B26A00', bg:'#FFF4E5'},
-    {key:'tiktok', label:'TikTok', color:'#010101', bg:'#E8F7F9'},
-    {key:'youtube', label:'YouTube', color:'#C4302B', bg:'#FDECEC'},
+    // 채널은 상태가 아니라 분류다. 이름이 이미 무엇인지 말해주므로 색을 쓰지 않는다.
+    // (목록 화면의 채널 칩도 회색이라 그쪽과 통일)
+    {key:'instagram', label:'Instagram', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'x', label:'X(Twitter)', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'qoo10', label:'Qoo10', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'tiktok', label:'TikTok', color:'#fff', bg:'rgba(255,255,255,.16)'},
+    {key:'youtube', label:'YouTube', color:'#fff', bg:'rgba(255,255,255,.16)'},
   ];
   const chCount = {};
   camps.forEach(c => {
@@ -161,7 +169,7 @@ function renderCampaignBreakdown(camps) {
   chEl.innerHTML = chDef.map(c => `
     <div style="flex:1;min-width:90px;background:${c.bg};border-radius:10px;padding:10px 12px">
       <div style="font-size:20px;font-weight:800;color:${c.color}">${chCount[c.key]||0}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.label}</div>
+      <div style="font-size:11px;color:${c.color};opacity:.9;margin-top:2px">${c.label}</div>
     </div>`).join('');
 }
 
@@ -191,18 +199,50 @@ var PREFECTURE_KO = {
   '宮崎県':'미야자키현','鹿児島県':'가고시마현','沖縄県':'오키나와현'
 };
 
-// 파이 차트용 컬러 팔레트 (Top 10 + 미등록/해외)
-var ADDRESS_DIST_COLORS = [
-  '#E8344E','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
-  '#5BA86E','#E87A96','#3E79B8','#D49158','#7CA565'
-];
+// 차트용 포인트 컬러 램프 (2026-07-20 — 메인 컬러 #625EBD 계열)
+//   가장 큰 조각이 메인 컬러가 되도록 메인에서 시작해 점점 옅어진다.
+//   ⚠️ 밝은 쪽만 쓰므로 구분 폭이 좁다 — 3조각 19.8 / 4조각 12.8 / 5조각 9.5 (기준 15).
+//      4조각부터는 가운데 단계들이 서로 비슷해 보이므로 범례·툴팁으로 읽어야 한다.
+function accentRamp(n) {
+  const H = 243 / 360, S = 0.419, LO = 0.555, HI = 0.93;   // LO = 메인 컬러의 명도
+  if (n <= 0) return [];
+  if (n === 1) return ['#625EBD'];
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = LO + (HI - LO) * i / (n - 1);
+    const sat = S * (1 - 0.30 * (t - LO) / (HI - LO));   // 옅어질수록 채도도 낮춰 탁하지 않게
+    out.push(_hslHex(H, sat, t));
+  }
+  return out;
+}
+
+// HSL → #RRGGBB
+function _hslHex(h, s, l) {
+  const f = n => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
+// 막대용 세로 그라데이션 — 위는 진하게, 아래로 갈수록 살짝 옅게
+function accentBarGradient(ctx, area, from, to) {
+  if (!area) return from;
+  const g = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+  g.addColorStop(0, from);
+  g.addColorStop(1, to);
+  return g;
+}
+
 
 // Chart.js 옵션 빌더 — legend/tooltip 퍼센티지 포맷 (렌더 함수 길이 축소 목적 분리)
 // ════════════════════════════════════════════════════════════════════
 // SECTION: DASHBOARD — 주소 도넛 + 가입 추이 + 프로필 완성률
 // ════════════════════════════════════════════════════════════════════
 
-function buildAddressChartOptions(stats) {
+// onPanel = 메인 컬러 패널 위에 놓이는 차트인지. 배송지 도넛은 흰 카드 위라 false.
+function buildAddressChartOptions(stats, onPanel) {
   const totalForPct = stats && stats.total ? stats.total : 0;
   const pctOf = (value) => totalForPct ? ((value / totalForPct) * 100).toFixed(1) : '0.0';
   return {
@@ -216,6 +256,7 @@ function buildAddressChartOptions(stats) {
           boxWidth: 12,
           padding: 10,
           font: { size: 12 },
+          color: onPanel ? '#fff' : undefined,   // 메인 컬러 패널 위에서는 기본 회색이 안 읽힘
           generateLabels(chart) {
             const data = chart.data;
             return data.labels.map((label, i) => {
@@ -223,7 +264,7 @@ function buildAddressChartOptions(stats) {
               return {
                 text: `${label}  ${value}명 (${pctOf(value)}%)`,
                 fillStyle: data.datasets[0].backgroundColor[i],
-                strokeStyle: '#fff',
+                strokeStyle: onPanel ? '#625EBD' : '#fff',
                 lineWidth: 1,
                 index: i
               };
@@ -257,10 +298,13 @@ function renderAddressDistribution(users) {
     // 라벨을 한국어로 변환 (매핑 없으면 원문 유지)
     const labels = stats.top.map(r => PREFECTURE_KO[r.name] || r.name);
     const values = stats.top.map(r => r.count);
-    const colors = stats.top.map((_, i) => ADDRESS_DIST_COLORS[i % ADDRESS_DIST_COLORS.length]);
+    // 미등록·해외까지 포함한 전체 조각 수로 램프를 만들어 명도를 최대한 벌린다
+    const sliceCount = stats.top.length + (stats.unregistered > 0 ? 1 : 0) + (stats.overseas > 0 ? 1 : 0);
+    const ramp = accentRamp(sliceCount);
+    const colors = stats.top.map((_, i) => ramp[i]);
 
-    if (stats.unregistered > 0) { labels.push('미등록'); values.push(stats.unregistered); colors.push('#BDBDC4'); }
-    if (stats.overseas > 0) { labels.push('해외'); values.push(stats.overseas); colors.push('#8A8A90'); }
+    if (stats.unregistered > 0) { labels.push('미등록'); values.push(stats.unregistered); colors.push(ramp[colors.length]); }
+    if (stats.overseas > 0) { labels.push('해외'); values.push(stats.overseas); colors.push(ramp[colors.length]); }
 
     if (_addressDistChart) { _addressDistChart.destroy(); _addressDistChart = null; }
 
@@ -297,7 +341,6 @@ function renderAddressDistribution(users) {
 // 데이터 0건이면 빈 상태 안내, 소표본(생년월일 등록 30명 미만)이면 참고용 캡션.
 function renderAgeGenderDistribution(users) {
   const totalLabel = $('ageGenderTotal');
-  const collectBars = $('ageGenderCollectBars');
   const body = $('ageGenderBody');
   const empty = $('ageGenderEmpty');
   const caption = $('ageGenderCaption');
@@ -311,20 +354,6 @@ function renderAgeGenderDistribution(users) {
     const total = stats.total;
     if (totalLabel) totalLabel.textContent = `생년월일 ${stats.ageRegistered}·성별 ${stats.genderRegistered} / 전체 ${total}명`;
 
-    // 수집률 막대 (renderProfileCompletion 패턴)
-    const pct = v => total ? Math.round(v / total * 100) : 0;
-    const bar = (label, val, color) => `
-      <div style="margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
-          <span style="color:var(--ink)">${label}</span><span style="color:var(--muted);font-weight:600">${val}%</span>
-        </div>
-        <div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${val}%;background:${color};border-radius:3px;transition:width .4s"></div>
-        </div>
-      </div>`;
-    if (collectBars) collectBars.innerHTML =
-      bar('생년월일 등록', pct(stats.ageRegistered), '#5B7CFF') +
-      bar('성별 등록', pct(stats.genderRegistered), '#28C76F');
 
     if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
     if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
@@ -356,14 +385,19 @@ function renderAgeGenderDistribution(users) {
         labels: ageRows.map(b => b.label),
         datasets: [{
           data: ageRows.map(b => b.count),
-          backgroundColor: ageRows.map(b => (b.label === '미등록' || b.label === '이상치') ? '#BDBDC4' : '#5B7CFF'),
+          backgroundColor: (c) => ageRows.map(b => (b.label === '미등록' || b.label === '이상치')
+            ? '#D4D4DA'
+            : accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2')),
           borderRadius: 4
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.y}명` } } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,.06)' } },
+          x: { grid: { display: false } }
+        }
       }
     });
 
@@ -374,7 +408,7 @@ function renderAgeGenderDistribution(users) {
         labels: ['남성', '여성', '그 외', '응답 안 함', '미등록'],
         datasets: [{
           data: [stats.gender.male, stats.gender.female, stats.gender.other, stats.gender.undisclosed, stats.gender.unregistered],
-          backgroundColor: ['#5B7CFF', '#E87A96', '#F4A43A', '#9B59B6', '#BDBDC4'],
+          backgroundColor: accentRamp(5),   // ⚠️ 5조각은 인접차 9.5 로 기준 미달 — 범례로 읽는 전제
           borderColor: '#fff', borderWidth: 2
         }]
       },
@@ -388,14 +422,14 @@ function renderAgeGenderDistribution(users) {
       const crossRows = [...AGE_GENDER_BUCKETS, '미등록'];
       const cell = v => v > 0 ? v : '<span style="color:var(--muted)">-</span>';
       crossEl.innerHTML =
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
-        '<thead><tr><th style="text-align:left;padding:4px 6px;color:var(--muted);font-weight:600">연령대</th>' +
-        gHead.map(h => `<th style="text-align:right;padding:4px 6px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">' +
+        '<thead><tr><th style="text-align:left;padding:8px;color:var(--muted);font-weight:600">연령대</th>' +
+        gHead.map(h => `<th style="text-align:right;padding:8px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
         '</tr></thead><tbody>' +
         crossRows.map(rk => {
           const r = stats.cross[rk] || {};
-          return `<tr style="border-top:1px solid var(--line)"><td style="padding:4px 6px;color:var(--ink)">${rk}</td>` +
-            gKeys.map(gk => `<td style="text-align:right;padding:4px 6px">${cell(r[gk] || 0)}</td>`).join('') + '</tr>';
+          return `<tr style="border-top:1px solid var(--line)"><td style="padding:11px 8px;color:var(--ink)">${rk}</td>` +
+            gKeys.map(gk => `<td style="text-align:right;padding:11px 8px">${cell(r[gk] || 0)}</td>`).join('') + '</tr>';
         }).join('') +
         '</tbody></table>';
     }
@@ -466,10 +500,13 @@ function renderSignupChart(users, days) {
       datasets: [{
         label: '신규 가입',
         data: counts,
-        backgroundColor: 'rgba(200,120,163,.6)',
-        borderColor: 'rgba(200,120,163,1)',
-        borderWidth: 1,
-        borderRadius: 4
+        backgroundColor: (c) => accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2'),
+        borderColor: '#625EBD',
+        borderWidth: 0,
+        borderRadius: 4,
+        categoryPercentage: 0.7,   // 막대 사이 간격 확보 — 겹칠 때 붙어 보이지 않게
+        barPercentage: 0.7,
+        maxBarThickness: 18        // 칸이 넓어도 막대는 얇게 유지
       }]
     },
     options: {
@@ -507,26 +544,44 @@ function renderProfileCompletion(users) {
   const hasAddr = users.filter(u => u.prefecture).length;
   // has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라 등록 여부만 필요
   const hasPaypal = users.filter(u => u.has_paypal).length;
+  // 생년월일·성별 등록률 — 「회원 연령·성별 분포」에 있던 것을 여기로 옮김.
+  // 판정 기준은 그쪽 집계(storage.js computeAgeGenderStats)와 동일하게 맞춘다:
+  //   생년월일 = 나이 계산이 되는 유효한 값 / 성별 = 미등록이 아닌 값(응답 안 함 포함)
+  const GENDERS = ['male','female','other','undisclosed'];
+  const hasBirthdate = users.filter(u => {
+    const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate || '') : null;
+    return age != null && age >= 18 && age <= 120;   // 상한도 있어야 storage.js bucketOf 와 같은 모수
+  }).length;
+  const hasGender = users.filter(u => GENDERS.includes(u.gender)).length;
 
   const pct = v => Math.round(v / total * 100);
+  // 막대 굵기 — 한 곳에서 조절 (큰 항목 / 하위 채널)
+  const BAR_H = 10, BAR_H_SUB = 7;
   const bar = (label, val, color, sub) => `
-    <div style="margin-bottom:${sub ? 4 : 8}px;${sub ? 'padding-left:12px' : ''}">
-      <div style="display:flex;justify-content:space-between;font-size:${sub ? 10 : 11}px;margin-bottom:3px">
+    <div style="margin-bottom:${sub ? 3 : 5}px;${sub ? 'padding-left:12px' : ''}">
+      <div style="display:flex;justify-content:space-between;font-size:${sub ? 10 : 11}px;margin-bottom:2px">
         <span style="color:${sub ? 'var(--muted)' : 'var(--ink)'}">${label}</span><span style="color:var(--muted);font-weight:600">${val}%</span>
       </div>
-      <div style="height:${sub ? 4 : 6}px;background:var(--bg);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${val}%;background:${color};border-radius:3px;transition:width .4s;opacity:${sub ? '.6' : '1'}"></div>
+      <div style="height:${sub ? BAR_H_SUB : BAR_H}px;background:var(--bg);border-radius:4px;overflow:hidden;display:block">
+        <div style="height:100%;width:${val}%;background:${color === 'accent' ? 'linear-gradient(90deg,#625EBD 0%,#8F8CD2 100%)' : (color === 'accent-sub' ? 'linear-gradient(90deg,#A8A6D5 0%,#C9C8E3 100%)' : color)};border-radius:4px;transition:width .4s"></div>
       </div>
     </div>`;
 
+  // 큰 항목(SNS·배송지·PayPal) 사이 간격 — 한 곳에서 조절
+  const GROUP_GAP = '<div style="height:9px"></div>';
   $('profileCompletionBars').innerHTML =
-    bar('SNS', pct(hasSns), '#5B7CFF', false) +
-    bar('Instagram', pct(hasIg), '#5B7CFF', true) +
-    bar('X (Twitter)', pct(hasX), '#5B7CFF', true) +
-    bar('TikTok', pct(hasTiktok), '#5B7CFF', true) +
-    bar('YouTube', pct(hasYt), '#5B7CFF', true) +
-    '<div style="margin-top:4px"></div>' +
-    bar('배송지', pct(hasAddr), '#FF9F43', false) +
-    bar('PayPal', pct(hasPaypal), '#28C76F', false);
+    bar('SNS', pct(hasSns), 'accent', false) +
+    bar('Instagram', pct(hasIg), 'accent-sub', true) +
+    bar('X (Twitter)', pct(hasX), 'accent-sub', true) +
+    bar('TikTok', pct(hasTiktok), 'accent-sub', true) +
+    bar('YouTube', pct(hasYt), 'accent-sub', true) +
+    GROUP_GAP +
+    bar('배송지', pct(hasAddr), 'accent', false) +
+    GROUP_GAP +
+    bar('PayPal', pct(hasPaypal), 'accent', false) +
+    GROUP_GAP +
+    bar('생년월일', pct(hasBirthdate), 'accent', false) +
+    GROUP_GAP +
+    bar('성별', pct(hasGender), 'accent', false);
 }
 

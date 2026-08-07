@@ -16,6 +16,13 @@
     var fav = document.getElementById('appFavicon');
     if (fav) fav.href = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23f59e0b'/><text x='32' y='42' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='22' fill='%23fff'>DEV</text></svg>";
   }
+  /* 관리자 「캠페인 미리보기」가 이 화면을 작은 창(iframe)으로 띄울 때 ?preview=1 을 붙인다.
+     미리보기는 캠페인 내용만 확인하는 자리라, 눌러도 갈 곳이 없는 상단 바(로고·햄버거)와
+     「キャンペーン一覧へ」 되돌아가기 줄을 감춘다. 실제 인플루언서 화면은 파라미터가 없어 그대로.
+     <html> 에 표시를 붙이므로 화면이 그려지기 전에 적용돼 깜빡임이 없다. */
+  if (new URLSearchParams(location.search).get('preview') === '1') {
+    document.documentElement.classList.add('preview-mode');
+  }
 })();
 </script>
 <style id="app-cloak">.page{visibility:hidden!important}</style>
@@ -45,7 +52,7 @@ window._supabaseLoaded = false;
 
 <!-- ── GLOBAL ELEMENTS ── -->
 <div id="toast"></div>
-<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
 <!-- Pull-to-Refresh 인디케이터 — 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 -->
 <div id="ptrIndicator" aria-hidden="true">
   <span class="material-icons-round notranslate" translate="no">refresh</span>
@@ -56,7 +63,9 @@ window._supabaseLoaded = false;
   <div style="display:flex;gap:10px;align-items:center">
     <div style="flex:1;min-width:0">
       <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px"></div>
+      <!-- 행사 캠페인은 이 자리에 행사장이 들어간다(최대 200자). 제목과 같이 한 줄로 잘라
+           바 높이가 늘어나지 않게 한다 — 안 그러면 긴 주소가 들어올 때 바가 두 줄이 된다. -->
+      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
     <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
     <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
@@ -639,6 +648,18 @@ window._supabaseLoaded = false;
 <!-- ══════════════════════════════════
      PAGE: CAMPAIGN DETAIL
 ══════════════════════════════════ -->
+<!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
+     진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
+<div id="page-ticket" class="page">
+  <div class="container" style="padding-top:16px;padding-bottom:40px">
+    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
+      <span data-i18n="event.ticketTitle">入場チケット</span>
+    </div>
+    <div id="ticketBody"></div>
+  </div>
+</div>
+
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
     <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
@@ -707,6 +728,10 @@ window._supabaseLoaded = false;
           <div class="form-group">
             <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
             <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
+            <!-- 이 금액이 곧 송금액이 된다는 안내(리뷰어형 한정) — renderReceiptPayoutNote 가
+                 모집 형식을 보고 표시 여부와 상한 금액을 채운다. 방문형도 이 폼을 쓰지만
+                 방문형 정산은 현금 리워드라 이 안내가 뜨면 틀린 말이 된다. -->
+            <div id="receiptPayoutNote" style="display:none;margin-top:8px;font-size:12px;line-height:1.6;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px"></div>
           </div>
         </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
@@ -751,7 +776,6 @@ window._supabaseLoaded = false;
             <option value="qoo10">Qoo10</option>
             <option value="lips">LIPS</option>
             <option value="cosme">@cosme</option>
-            <option value="other">その他</option>
           </select>
           <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
         </div>
@@ -825,6 +849,26 @@ window._supabaseLoaded = false;
 <div id="page-reset-pw" class="page">
   <div class="auth-wrap">
     <div class="auth-card fade-up">
+      <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
+      <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
+        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています...</div>
+      </div>
+      <!-- 만료·무효 링크 안내 -->
+      <div id="resetPwExpired" style="display:none">
+        <div class="auth-logo">
+          <div class="auth-logo-mark">R</div>
+          <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
+        </div>
+        <ol style="font-size:14px;line-height:1.9;color:var(--text);padding-left:20px;margin:0 0 20px">
+          <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
+          <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
+          <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
+        </ol>
+        <button type="button" class="btn btn-primary btn-block" onclick="navigate('forgot')" data-i18n="auth.reset.expiredBtn">もう一度メールを送る</button>
+      </div>
+      <!-- 새 비밀번호 입력 폼 (기본 표시 — 옛 형식 링크는 이 상태로 바로 착지) -->
+      <div id="resetPwFormWrap">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
         <div class="auth-title" data-i18n="auth.reset.title">新しいパスワード</div>
@@ -849,6 +893,7 @@ window._supabaseLoaded = false;
         <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn" data-i18n="auth.reset.btn">パスワードを変更</button>
       </form>
+      </div><!-- /resetPwFormWrap -->
     </div>
   </div>
 </div>
@@ -1337,7 +1382,7 @@ window._supabaseLoaded = false;
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()" data-i18n="apply.submitNow">今すぐ応募する →</button>
+      <button id="applySubmitBtn" class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()" data-i18n="apply.submitNow">今すぐ応募する →</button>
     </div>
   </div>
 </div>

@@ -62,6 +62,9 @@ async function loadMessagesInbox() {
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
   switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
+  // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
+  const _ucb = document.getElementById('inboxUnresolvedCheckbox');
+  if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   await refreshInboxData();
@@ -389,6 +392,14 @@ function toggleInboxUnresolved(checked) {
   renderInboxCampaignList();
   renderInboxThreadList();
 }
+
+// 사이드바 메시지 배지 클릭 → 「미응대만」 (기준: openDelivPendingReview)
+function openMessagesUnresolved() {
+  _inboxFilters.unresolvedOnly = true;
+  const cb = document.getElementById('inboxUnresolvedCheckbox'); if (cb) cb.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('messages');
+  else { renderInboxCampaignList(); renderInboxThreadList(); }
+}
 function changeInboxSince(v) {
   const custom = document.getElementById('inboxCustomRange');
   if (v === 'custom') {
@@ -640,11 +651,9 @@ function admStatusLineKo(key, camp) {
   return text.replace('{date}', mmdd);
 }
 
+// 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 MM/DD 축약 폐지)
 function _admMMDD(d) {
-  const ms = Date.parse(d || '');
-  if (isNaN(ms)) return '';
-  const dt = new Date(ms);
-  return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
+  return formatDate(d);
 }
 
 // FAQ 열람 이력 패널 토글(§3-2) — 시간순 「언제 / 질문 제목 / 받은 답변 요약 / 결과」.
@@ -1014,9 +1023,11 @@ function renderApplicantMsgBtn(app) {
   if (!app || !app.id) return '';
   const unread = _applicantMsgUnreadMap.get(app.id) || 0;
   const badge = unread > 0 ? `<span class="applicant-msg-badge">${unread > 99 ? '99+' : unread}</span>` : '';
-  return `<button type="button" class="applicant-msg-btn" title="메시지" data-msgbtn="${esc(app.id)}"
+  // 아이콘 전용 — 이름 칸 오른쪽 끝에 놓이므로 글자 없이 아이콘 하나(뜻은 title·aria-label 로)
+  const label = unread > 0 ? `메시지 (읽지 않음 ${unread}건)` : '메시지';
+  return `<button type="button" class="applicant-msg-btn" title="${esc(label)}" aria-label="${esc(label)}" data-msgbtn="${esc(app.id)}"
     onclick="openAdminMessageModal('${esc(app.id)}','${esc(app.campaign_id || '')}')">
-    <span class="material-icons-round notranslate" translate="no">forum</span><span>메시지</span>${badge}</button>`;
+    <span class="material-icons-round notranslate" translate="no">forum</span>${badge}</button>`;
 }
 
 // 모달 열어 읽음 처리 후 특정 응모 행 배지 갱신 (DOM 직접 — 행 전체 재렌더 회피)

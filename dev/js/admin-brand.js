@@ -124,7 +124,7 @@ var BRAND_APP_STATUS = {
   'paid':                {label:'입금완료',         color:'#6A2',   bg:'#EFE'},
   'kakao_room_created':  {label:'카톡방 생성',      color:'#A57',   bg:'#FBF2DE'},
   'orient_sheet_sent':   {label:'오리엔시트 전달',  color:'#735',   bg:'#F2E6F0'},
-  'schedule_sent':       {label:'일정 전달',        color:'#A36',   bg:'#FDEEF4'},
+  'schedule_sent':       {label:'일정 전달',        color:'#52525B', bg:'#F4F4F5'},
   'campaign_registered': {label:'캠페인 등록',      color:'#274',   bg:'#E6F3E8'},
   'done':                {label:'최종완료',         color:'#555',   bg:'#EEE'},
   'rejected':            {label:'반려',             color:'#999',   bg:'#F5F5F5'}
@@ -166,11 +166,13 @@ function brandAppStatusSelectStyled(opts) {
     + (opts.disabled ? ' disabled' : '')
     + (opts.onchange ? ' onchange="'+opts.onchange+'"' : '')
     + (opts.onclick ? ' onclick="'+opts.onclick+'"' : '');
+  var arrowEnc = encodeURIComponent(s.color);
+  var arrowRight = sizeSm ? '9px' : '12px';
   return '<select class="brand-app-status-sel"' + extraAttrs
-    + ' style="background:'+s.bg+';color:'+s.color+';font-size:'+fontSize+';font-weight:700;padding:'+padding+';border-radius:6px;'
+    + ' style="background-color:'+s.bg+';color:'+s.color+';font-size:'+fontSize+';font-weight:700;padding:'+padding+';border-radius:6px;'
     + 'border:0;cursor:pointer;appearance:none;-webkit-appearance:none;'
-    + 'background-image:linear-gradient(45deg,transparent 50%,'+s.color+' 50%),linear-gradient(-45deg,transparent 50%,'+s.color+' 50%);'
-    + 'background-position:'+arrowPos1+','+arrowPos2+';background-size:'+arrowSize+';background-repeat:no-repeat">'
+    + 'background-image:url(\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22'+arrowEnc+'%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M2 6l3-3 3 3%22/%3E%3Cpath d=%22M2 10l3 3 3-3%22/%3E%3C/svg%3E\');'
+    + 'background-position:calc(100% - '+arrowRight+') center;background-size:9px 14px;background-repeat:no-repeat">'
     + optionsHtml + '</select>';
 }
 
@@ -312,10 +314,7 @@ function fmtKrw(n) {
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  try {
-    var d = new Date(iso);
-    return d.toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\s+/g,'');
-  } catch(e) { return '—'; }
+  return formatDate(iso) || '—';   // 사이트 공통 표기 YYYY/MM/DD (ui.js)
 }
 
 // 브랜드 서베이 신청 목록 엑셀 다운로드 (현재 필터·정렬 결과)
@@ -380,8 +379,9 @@ async function exportBrandApplicationsExcel() {
     };
     var fmtDateOnly = function(iso) {
       if (!iso) return '';
-      try { return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }); }
-      catch(e) { return String(iso); }
+      // 사이트 공통 표기 YYYY/MM/DD. 브라우저 시간대 기준이지만 운영·인플 모두 한국/일본(UTC+9)이라
+      // 기존 Asia/Seoul 고정과 결과가 같다.
+      return formatDate(iso) || String(iso);
     };
 
     var totalProductRows = 0;
@@ -533,7 +533,6 @@ function copyBrandProductUrl(url) {
 var _brandDashApps = null;
 var _brandTrendChart = null;
 var _brandFormDonut = null;
-var _brandStatusDonut = null;
 var _brandTrendDays = 7;
 
 var BRAND_STATUS_LABEL_KO = {
@@ -542,19 +541,19 @@ var BRAND_STATUS_LABEL_KO = {
   orient_sheet_sent: '오리엔시트 전달', schedule_sent: '일정 전달',
   campaign_registered: '캠페인 등록', done: '최종완료', rejected: '반려'
 };
-// 색상은 단계의 의미에 따라 유지 (코드 ↔ 의미 매핑 불변)
-var BRAND_STATUS_COLOR = {
-  new:                 '#C878A3',   // 핑크 (대기)
-  reviewing:           '#E8A355',   // 오렌지
-  quoted:              '#5B8FD6',   // 블루 (견적)
-  paid:                '#6BB38E',   // 그린 (입금)
-  kakao_room_created:  '#F4C95D',   // 옐로우 (카톡)
-  orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
-  schedule_sent:       '#D97AA6',   // 진한 핑크 (일정)
-  campaign_registered: '#4CA070',   // 연한 그린 (등록)
-  done:                '#1F9D55',   // 짙은 그린 (최종완료)
-  rejected:            '#B0B0B8'    // 회색 (종료)
-};
+// (2026-07-23) 대시보드 전용 색표 BRAND_STATUS_COLOR 제거.
+//   같은 「견적 전달」이 신청 목록에서는 청록, 대시보드에서는 파랑으로 보이는 불일치가 있었다.
+//   최근 신청 배지는 신청 목록과 같은 BRAND_APP_STATUS(위 120행)를 쓰고,
+//   단계별 분포는 색 대신 이름·숫자를 적은 칸으로 보여준다(전체 현황 「상태별 캠페인」과 같은 방식).
+// 차트 색 — 전체 현황과 같은 메인 컬러 계열(accentRamp)을 쓴다.
+//   accentRamp 는 admin-dashboard.js 에 있고 빌드에서 이 파일보다 뒤에 이어붙지만,
+//   호출 시점은 화면에 들어온 뒤라 함수 선언 끌어올림 덕에 안전하다.
+//   그래도 만약을 대비해 못 찾으면 고정값으로 떨어진다(차트가 색 때문에 안 그려지는 일은 없게).
+function _brandRamp(i) {
+  if (typeof accentRamp === 'function') { var r = accentRamp(2); if (r && r[i]) return r[i]; }
+  return ['#625EBD', '#A9A6E0'][i] || '#625EBD';
+}
+
 var BRAND_FUNNEL_STAGES = [
   {key:'new',                 nameKo:'접수',          nameEn:'new'},
   {key:'reviewing',           nameKo:'검토',          nameEn:'reviewing'},
@@ -570,23 +569,38 @@ var BRAND_FUNNEL_STAGES = [
 var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:-1};
 
 async function loadBrandDashboard() {
-  // 로딩 표시
   setBrandDashLoading(true);
   _brandDashApps = await fetchBrandApplications();
-  setBrandDashLoading(false);
-  renderBrandDashboard();
+  renderBrandDashboard();          // 그리면서 각 영역의 회전 표시가 실제 내용으로 대체된다
+  renderBrandSurveyClosedNotice(); // 공개 접수 잠금 안내 (조회 실패 시 조용히 숨김)
 }
 
+// 새로고침을 누르면 숫자뿐 아니라 깔때기·분포·그래프·목록도 함께 회전 표시로 바꾼다.
+// (예전엔 숫자 칸만 바뀌고 나머지는 옛 값이 그대로 떠 있어 「눌렀는데 안 바뀌네」로 보였다)
 function setBrandDashLoading(loading) {
-  var ids = ['brandKpiTotal','brandKpiReviewer','brandKpiSeeding','brandKpiThisMonth',
-             'brandKpiPending','brandKpiQuoted','brandKpiDone','brandKpiLeadTime',
-             'brandKpiEstimated','brandKpiFinal'];
-  if (loading) {
-    ids.forEach(function(id){
-      var el = $(id);
-      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span>';
-    });
-  }
+  if (!loading) return;
+  var spin = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--accent)"></span>';
+  ['brandKpiTotal','brandKpiThisMonth','brandKpiPending','brandKpiLeadTime'].forEach(function(id){
+    var el = $(id); if (el) el.innerHTML = spin;
+  });
+  // 메인 컬러 카드 위에서는 흰 회전 표시 (.accent-card .spinner 규칙이 색을 맞춰준다)
+  ['brandKpiEstimated','brandKpiFinal'].forEach(function(id){
+    var el = $(id); if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>';
+  });
+  var block = '<div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px">' + spin + '</div>';
+  ['brandFunnel','brandStatusChips','brandRecentList','brandLongPendingList'].forEach(function(id){
+    var el = $(id); if (el) el.innerHTML = block;
+  });
+}
+
+// 공개 접수가 잠겨 있으면(brand_survey_settings.submissions_open=false) 안내 줄을 띄운다.
+// 조회에 실패해도 화면을 막지 않는다 — 안내는 보조 정보이므로 조용히 숨긴 채 넘어간다.
+async function renderBrandSurveyClosedNotice() {
+  var box = $('brandSurveyClosedNotice');
+  if (!box) return;
+  var open = null;
+  try { open = await fetchBrandSurveyOpen(); } catch (e) { open = null; }
+  box.style.display = (open === false) ? 'flex' : 'none';
 }
 
 function renderBrandDashboard() {
@@ -594,7 +608,7 @@ function renderBrandDashboard() {
   renderBrandKPIs(apps);
   renderBrandFunnel(apps);
   renderBrandFormDonut(apps);
-  renderBrandStatusDonut(apps);
+  renderBrandStatusChips(apps);
   renderBrandTrendChart(apps, _brandTrendDays);
   renderBrandRecent(apps);
   renderBrandLongPending(apps);
@@ -618,17 +632,17 @@ function _flattenAppsToProducts(apps) {
   return flat;
 }
 
+// 지표 4칸 — 전체 신청 / 이번달 신청 / 검수 대기 / 평균 처리일
+//   (2026-07-23) 옛 8칸에서 리뷰어·시딩·견적 전달·최종완료를 뺐다. 각각 바로 아래
+//   「폼 종류 분포」·「전환 깔때기」에 같은 내용이 또 있어 두 번 읽게 했다.
+//   ⚠️ 남은 4칸 중 「검수 대기」만 제품 단위(신청 1건에 제품 3개면 3) — 라벨에 「(제품 기준)」 표기.
 function renderBrandKPIs(apps) {
   var now = new Date();
   var thisMonth = now.toISOString().slice(0,7); // 'YYYY-MM'
-  var reviewerN = apps.filter(function(a){ return a.form_type === 'reviewer'; }).length;
-  var seedingN  = apps.filter(function(a){ return a.form_type === 'seeding'; }).length;
   var thisMonthN = apps.filter(function(a){ return (a.created_at||'').slice(0,7) === thisMonth; }).length;
   // status 단위 카운트는 제품 단위로 (Phase B). 합계·avgLead·estimated/finalSum은 신청 단위 유지(평탄화 시 X배 부풀림 방지)
   var flat = _flattenAppsToProducts(apps);
   var pendingN = flat.filter(function(f){ return f.status === 'new' || f.status === 'reviewing'; }).length;
-  var quotedN  = flat.filter(function(f){ return f.status === 'quoted'; }).length;
-  var doneN    = flat.filter(function(f){ return f.status === 'done'; }).length;
 
   // 평균 처리일: done 건만 대상, created_at -> reviewed_at 차이(폴백 updated_at)
   var leadDays = [];
@@ -654,12 +668,8 @@ function renderBrandKPIs(apps) {
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
 
   $('brandKpiTotal').textContent    = apps.length;
-  $('brandKpiReviewer').textContent = reviewerN;
-  $('brandKpiSeeding').textContent  = seedingN;
   $('brandKpiThisMonth').textContent = thisMonthN;
   $('brandKpiPending').textContent  = pendingN;
-  $('brandKpiQuoted').textContent   = quotedN;
-  $('brandKpiDone').textContent     = doneN;
   $('brandKpiLeadTime').textContent = avgLead !== null ? avgLead.toFixed(1) + '일' : '—';
   $('brandKpiEstimated').textContent = fmtKRW(estimated);
   $('brandKpiFinal').textContent     = fmtKRW(finalSum);
@@ -707,8 +717,8 @@ function renderBrandFunnel(apps) {
         + esc(stage.nameKo)
         + ' <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:4px">' + esc(stage.nameEn) + '</span>'
       + '</div>'
-      + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
-      + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
+      + '<div style="height:12px;background:rgba(24,24,27,.08);border-radius:100px;overflow:hidden;position:relative">'
+      + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--accent),#8F8CD2);transition:width 0.4s"></div>'
       + '</div>'
       + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
       + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
@@ -742,7 +752,7 @@ function renderBrandFormDonut(apps) {
       labels: ['리뷰어', '나노 시딩'],
       datasets: [{
         data: [reviewerN, seedingN],
-        backgroundColor: ['#C878A3', '#5B8FD6'],
+        backgroundColor: [_brandRamp(0), _brandRamp(1)],
         borderColor: '#fff',
         borderWidth: 2
       }]
@@ -764,53 +774,30 @@ function renderBrandFormDonut(apps) {
   });
 }
 
-function renderBrandStatusDonut(apps) {
-  var canvas = $('brandStatusDonut');
-  var empty = $('brandStatusEmpty');
+// 단계별 신청 분포 — 메인 컬러 카드 위의 흰 칸 격자 (전체 현황 「상태별 캠페인」과 같은 방식).
+//   (2026-07-23) 도넛에서 바꿨다. 단계가 10가지라 한 색 계열의 원으로는 조각 구분이 불가능하고,
+//   칸에는 단계 이름이 이미 적혀 있어 색으로 구분할 필요 자체가 없다.
+function renderBrandStatusChips(apps) {
+  var host = $('brandStatusChips');
   var totalLabel = $('brandStatusTotal');
-  if (!canvas) return;
-  if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
-
-  // Phase B: 제품 단위 카운트
-  var flat = _flattenAppsToProducts(apps);
+  if (!host) return;
+  var flat = _flattenAppsToProducts(apps);          // 제품 단위 (신청 1건에 제품 3개면 3)
   var keys = ['new','reviewing','quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
-  var counts = keys.map(function(k){ return flat.filter(function(f){ return f.status === k; }).length; });
-  var total = counts.reduce(function(s,n){ return s+n; }, 0);
+  var counts = {};
+  keys.forEach(function(k){ counts[k] = 0; });
+  flat.forEach(function(f){ if (counts[f.status] != null) counts[f.status]++; });
+  var total = keys.reduce(function(s,k){ return s + counts[k]; }, 0);
   if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '개') : '';
   if (!total) {
-    canvas.style.display = 'none';
-    if (empty) empty.style.display = 'flex';
+    host.innerHTML = '<div style="font-size:12px;color:#fff;opacity:.9;padding:14px 2px">아직 접수된 신청이 없습니다</div>';
     return;
   }
-  canvas.style.display = 'block';
-  if (empty) empty.style.display = 'none';
-
-  _brandStatusDonut = new Chart(canvas.getContext('2d'), {
-    type: 'doughnut',
-    data: {
-      labels: keys.map(function(k){ return BRAND_STATUS_LABEL_KO[k]; }),
-      datasets: [{
-        data: counts,
-        backgroundColor: keys.map(function(k){ return BRAND_STATUS_COLOR[k]; }),
-        borderColor: '#fff',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '62%',
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-        tooltip: {
-          callbacks: {
-            label: function(ctx) {
-              var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-              return ctx.label + ': ' + ctx.parsed + '개 (' + pct + '%)';
-            }
-          }
-        }
-      }
-    }
-  });
+  host.innerHTML = keys.map(function(k){
+    return '<div style="flex:1;min-width:96px;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 12px">'
+      + '<div style="font-size:20px;font-weight:800;color:#fff">' + counts[k] + '</div>'
+      + '<div style="font-size:11px;color:#fff;opacity:.9;margin-top:2px">' + esc(BRAND_STATUS_LABEL_KO[k] || k) + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 function renderBrandTrendChart(apps, days) {
@@ -836,8 +823,8 @@ function renderBrandTrendChart(apps, days) {
     data: {
       labels: labels,
       datasets: [
-        { label: '리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
-        { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
+        { label: '리뷰어', data: reviewerData, backgroundColor: _brandRamp(0), borderRadius: 3, stack: 'applications' },
+        { label: '나노 시딩',    data: seedingData,  backgroundColor: _brandRamp(1), borderRadius: 3, stack: 'applications' }
       ]
     },
     options: {
@@ -873,14 +860,14 @@ function renderBrandRecent(apps) {
   host.innerHTML = top5.map(function(a){
     var formLabel = a.form_type === 'reviewer' ? '리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
     var dateStr = (a.created_at || '').slice(0,10);
-    var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
-    var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(200,120,163,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
+    // 배지는 신청 목록 화면과 같은 색표를 쓴다 — 같은 상태가 화면마다 다른 색이던 문제 해소
+    var st = BRAND_APP_STATUS[a.status] || {label: a.status, color:'#666', bg:'#EEE'};
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(24,24,27,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
       +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(a.application_no || '') + ' · ' + esc(dateStr) + '</div>'
       + '</div>'
-      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:' + statusColor + '20;color:' + statusColor + '">' + esc(statusLabel) + '</span>'
+      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:' + st.bg + ';color:' + st.color + '">' + esc(st.label) + '</span>'
       + '</div>';
   }).join('');
 }
@@ -898,20 +885,23 @@ function renderBrandLongPending(apps) {
     return (a.created_at || '').localeCompare(b.created_at || '');
   });
   if (countLabel) countLabel.textContent = longPending.length ? (longPending.length + '건') : '';
-  if (!longPending.length) {
-    host.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">3일 이상 대기 중인 신청 없음</div>';
-    return;
-  }
+  // 밀린 게 없으면 카드를 통째로 숨기고, 오른쪽 「접수·처리 현황」이 전체 폭을 쓰게 한다.
+  // (「없음」만 적힌 빈 카드가 화면 위쪽 절반을 차지하지 않도록)
+  var card = $('brandLongPendingCard');
+  var grid = $('brandDashTopGrid');
+  if (card) card.style.display = longPending.length ? '' : 'none';
+  if (grid) grid.classList.toggle('single', !longPending.length);
+  if (!longPending.length) { host.innerHTML = ''; return; }
   host.innerHTML = longPending.slice(0,5).map(function(a){
     var formLabel = a.form_type === 'reviewer' ? '리뷰어' : '나노 시딩';
     var dateStr = (a.created_at || '').slice(0,10);
     var waitDays = Math.floor((Date.now() - new Date(a.created_at).getTime()) / (1000*60*60*24));
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #E8A355;border-radius:8px;cursor:pointer;transition:background 0.15s;background:rgba(232,163,85,.04)" onmouseover="this.style.background=\'rgba(232,163,85,.1)\'" onmouseout="this.style.background=\'rgba(232,163,85,.04)\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--gold);border-radius:8px;cursor:pointer;transition:background 0.15s;background:var(--gold-l)" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
       +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(dateStr) + '</div>'
       + '</div>'
-      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:#E8A35520;color:#E8A355">' + waitDays + '일 대기</span>'
+      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:#fff;color:var(--gold)">' + waitDays + '일 대기</span>'
       + '</div>';
   }).join('');
 }
@@ -1028,7 +1018,7 @@ function openBrandAppOrientListModal(appId) {
       + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
   } else {
     sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<thead><tr style="background:var(--th-bg);color:var(--th-fg)">'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">발급일</th>'
@@ -1078,7 +1068,7 @@ var BRANDS_PAGE_SIZE = 50;
 
 async function loadBrandsPane() {
   var tbody = $('brandsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
   _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
   // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
@@ -1114,7 +1104,7 @@ function renderBrandsList() {
       : '<span style="color:var(--muted)">—</span>';
     var statusBadge = b.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
+      : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
@@ -1149,7 +1139,7 @@ async function openBrandDetailModal(id) {
   var bodyEl = $('brandDetailBody');
   var footerEl = $('brandDetailFooter');
   if (!modal || !bodyEl) return;
-  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
   var [b, apps, companies, campCount] = await Promise.all([
@@ -1258,7 +1248,7 @@ function renderBrandDetailHeaderHtml(b) {
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
       + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
-      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : '#16a34a') + '">'
+      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : 'var(--green)') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
       + '</select>'
@@ -1273,7 +1263,7 @@ function syncBrandStatusVisual(sel) {
     sel.style.color = '#666';
   } else {
     sel.style.backgroundColor = '#E8F5E9';
-    sel.style.color = '#16a34a';
+    sel.style.color = 'var(--green)';
   }
 }
 
@@ -1326,7 +1316,7 @@ function renderBrandAppBundleCard(a) {
     + '<span style="color:var(--muted)">제품 <strong style="color:var(--ink)">' + prods.length + '개</strong></span>'
     + '<span style="color:var(--muted)">총 수량 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : '—') + '</strong></span>'
     + (totalFinal > 0 ? '<span style="color:var(--muted)">최종 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(totalFinal) + '</strong></span>' : '')
-    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:#16a34a;font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
+    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:var(--green);font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
     + '<span style="color:var(--muted);margin-left:auto">예상 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</strong></span>'
   + '</div>';
 
@@ -1343,7 +1333,7 @@ function renderBrandAppBundleCard(a) {
     var urlClamp = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all';
     var urlCell = p.url
       ? (urlSafe
-          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--pink);text-decoration:none">' + esc(p.url) + '</a>'
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--ink)">' + esc(p.url) + '</a>'
           : '<span title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--muted)">' + esc(p.url) + '</span>')
       : dash;
     // 숫자 컬럼들은 nowrap 으로 한 줄 보장 (¥ / ₩ + 쉼표 표기가 두 줄로 잘리지 않게).
@@ -1376,7 +1366,7 @@ function renderBrandAppBundleCard(a) {
         + '<col style="width:100px">'    // 이체수수료
         + '<col style="width:110px">'    // 소계
       + '</colgroup>'
-      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<thead><tr style="background:var(--th-bg);color:var(--th-fg)">'
         + '<th style="padding:6px 8px;text-align:left">제품명</th>'
         + '<th style="padding:6px 8px;text-align:left">URL</th>'
         + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">수량</th>'
@@ -1693,10 +1683,12 @@ async function saveBrandDetail() {
 }
 
 // 캠페인 폼에서 호출 시 callbackPrefix='new'|'edit' 전달 → 등록 후 해당 select 자동 갱신·선택
+// 오리엔시트 발급 모달에서 호출 시 'orient' → 등록 후 발급 모달의 브랜드 검색칸에 자동 선택
 var _newBrandCallbackPrefix = null;
+var NEW_BRAND_CALLBACKS = ['new', 'edit', 'orient'];
 
 async function openNewBrandModal(callbackPrefix) {
-  _newBrandCallbackPrefix = (callbackPrefix === 'new' || callbackPrefix === 'edit') ? callbackPrefix : null;
+  _newBrandCallbackPrefix = NEW_BRAND_CALLBACKS.indexOf(callbackPrefix) >= 0 ? callbackPrefix : null;
   // 빈 brand 객체로 모달 열기
   _brandsCurrentId = null;
   var modal = $('brandDetailModal');
@@ -1736,8 +1728,13 @@ async function submitNewBrand() {
     var prefix = _newBrandCallbackPrefix;
     _newBrandCallbackPrefix = null;
     _campBrandsCache = null;  // 신규 brand 포함하기 위해 캐시 무효화
-    await loadCampBrandSelect(prefix, result.data.id);
-    await onCampBrandChange(prefix);
+    if (prefix === 'orient') {
+      // 오리엔시트 발급 모달로 복귀 — 브랜드 목록 갱신 + 방금 만든 브랜드 자동 선택
+      if (typeof osAfterNewBrand === 'function') await osAfterNewBrand(result.data.id);
+    } else {
+      await loadCampBrandSelect(prefix, result.data.id);
+      await onCampBrandChange(prefix);
+    }
   } else {
     await refreshPane('brands');
   }
@@ -1753,7 +1750,7 @@ async function loadBrandApplications() {
   if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
   _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -2225,7 +2222,7 @@ function renderBrandAppJourney(a) {
       + line;
   }).join('');
   var badges = '';
-  if (st.mixed) badges += '<span style="background:#FDEEF4;color:#A36;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
+  if (st.mixed) badges += '<span style="background:#F4F4F5;color:#52525B;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
   if (st.rejected) badges += '<span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">반려 포함</span>';
   return '<div style="padding:6px 4px 2px"><div style="display:flex;align-items:center;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px">진행 단계' + badges + '</div>'
     + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
@@ -2303,7 +2300,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   var emptyAction = '<td></td>';
 
   // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
-  var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
+  var rowStyle = isFirst ? 'border-top:2px solid rgba(24,24,27,.35)' : '';
 
   // 「직접등록」은 신청번호 옆 작은 칩으로 표시 (사용자 요청 2026-05-12).
   // 폼·채널 배지 줄에서는 제거 — 한 신청에 한 번만 노출되어 시각 잡음 감소.
@@ -2325,8 +2322,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     }).join('');
   }
   // 폼 라벨 컬러 분기: 리뷰어=핑크, 시딩=파랑. 한눈에 구분되도록 라이트 배경 + 톤 진한 글자.
-  var formBg = a.form_type === 'reviewer' ? '#FCE4EC' : '#E3F2FD';
-  var formFg = a.form_type === 'reviewer' ? '#B91D5F' : '#1565C0';
+  var formBg = a.form_type === 'reviewer' ? '#F4F4F5' : '#E3F2FD';
+  var formFg = a.form_type === 'reviewer' ? '#18181B' : '#1565C0';
   var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
     + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + manualBadgeInline + '</div>'
@@ -2338,7 +2335,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var brandName = a.brand?.name || a.brand_name || '—';
     var brandNo = a.brand?.brand_no || '';
     if (a.brand_id) {
-      return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
         + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
       + '</td>';
     }
@@ -2463,7 +2460,7 @@ async function openBrandAppHistoryModal(id) {
   var bodyEl  = document.getElementById('brandAppHistoryBody');
   if (!modal || !titleEl || !bodyEl) return;
   titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + (cur.brand_name || '') : '신청 이력') + ' — 변경 이력';
-  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
   modal.classList.add('open');
   var rows = await fetchBrandApplicationHistory(id);
   _brandAppHistoryCache.set(id, rows || []);
@@ -2900,7 +2897,7 @@ async function openBrandAppMemoModal(id, productIdx) {
   var newInput = document.getElementById('brandAppMemoNewInput');
   if (!modal || !titleEl || !bodyEl) return;
   titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + productName : ('제품 ' + (_brandAppMemoModalCurrentProductIdx + 1))) + ' — 내부 메모';
-  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (newInput) newInput.value = '';
   modal.classList.add('open');
   await loadBrandAppMemoList();
@@ -3184,7 +3181,7 @@ function renderBrandAppHistoryTableHtml(historyArr) {
   });
 
   return '<table style="width:100%;font-size:12px;border-collapse:collapse">'
-    + '<thead><tr style="background:var(--surface-dim);color:var(--muted);font-weight:600">'
+    + '<thead><tr style="background:var(--th-bg);color:var(--th-fg);font-weight:600">'
       + '<th style="text-align:left;padding:8px 10px;width:140px">시간</th>'
       + '<th style="text-align:left;padding:8px 10px;width:80px">담당</th>'
       + '<th style="text-align:left;padding:8px 10px;width:130px">제품</th>'
@@ -3215,12 +3212,12 @@ function openBrandAppFromDashboard(id) {
   if (typeof switchAdminPane === 'function') switchAdminPane('brand-applications', null);
 }
 
-// 일정 셀용 짧은 날짜 포맷 ("2026/5/1") — 표 폭 절약
+// 일정 셀용 날짜 포맷 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23)
 function fmtDateShort(d) {
   if (!d) return '';
   var dt = (d instanceof Date) ? d : new Date(d);
   if (isNaN(dt.getTime())) return String(d);
-  return dt.getFullYear() + '/' + (dt.getMonth() + 1) + '/' + dt.getDate();
+  return formatDate(dt);
 }
 
 // 모집기간·배송기간 셀 (range) — display + ✎ 인라인 편집
@@ -3629,7 +3626,7 @@ function renderQuoteSentDisplay(isoOrNull, urlOrNull, locked) {
       + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">open_in_new</span></a>'
     : '';
   var content = hasValue
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--green);font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
       + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
     : '<span style="color:var(--muted);font-size:11px">미전달</span>';
   return content
@@ -3999,7 +3996,7 @@ async function saveGoogleSheetUrl(appId) {
   _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(appId);
   closeGsUrlModal();
-  await loadBrandApplications();   // 목록 재렌더(셀 갱신) — brand-applications 는 refreshPane 미등록
+  await loadBrandApplications();   // 목록 재렌더(셀 갱신)
   toast(nextUrl ? '구글시트 URL이 저장되었습니다.' : '구글시트 URL을 제거했습니다.');
 }
 

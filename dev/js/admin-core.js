@@ -45,7 +45,7 @@ function initTagInput(wrapId) {
     // IME 입력 중 콤마 처리
     if (input.value.includes(',')) {
       const parts = input.value.split(',');
-      parts.forEach(p => { const v = p.replace(/[#@]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
+      parts.forEach(p => { const v = p.replace(/[#@\uFF03\uFF20]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
       input.value = '';
     }
   });
@@ -53,8 +53,11 @@ function initTagInput(wrapId) {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const val = input.value.replace(/[,#@]/g, '').trim();
-      if (val) { addTag(wrapId, targetId, prefix, val); input.value = ''; }
+      // 중간 공백이 든 채로 한 덩어리 태그가 만들어지지 않게 공백에서도 끊는다
+      // (해시태그·멘션은 공백을 담을 수 없고, 담기면 저장·재편집에서 뭉개진다)
+      input.value.replace(/[,#@\uFF03\uFF20]/g, '').split(/\s+/).map(s => s.trim()).filter(Boolean)
+        .forEach(v => addTag(wrapId, targetId, prefix, v));
+      input.value = '';
     }
     if (e.key === 'Backspace' && !input.value) {
       const tags = wrap.querySelectorAll('.tag-label');
@@ -88,7 +91,14 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
   // 기존 태그 제거
   wrap.querySelectorAll('.tag-label').forEach(el => el.remove());
   if (!value) return;
-  value.split(',').map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean).forEach(t => addTag(wrapId, targetId, prefix, t));
+  // ⚠️ 구분자는 쉼표 + 공백 둘 다.
+  //    저장은 쉼표로 하지만 예전 데이터·손입력은 「#テスト #韓国スナック」처럼 공백으로 구분돼 있다.
+  //    쉼표로만 나누면 통째로 한 덩어리가 되고 안쪽 # 이 전부 지워져,
+  //    편집 저장 한 번에 여러 태그가 하나로 뭉개진다(2026-07-27 운영 확인).
+  //    해시태그·멘션은 값 안에 공백이 들어가면 안 되는 값이라(입력 단계에서도 공백으로 끊음)
+  //    공백을 구분자로 써도 안전하다.
+  value.split(/[,\s]+/).map(s => s.replace(/[#@\uFF03\uFF20]/g, '').trim()).filter(Boolean)
+    .forEach(t => addTag(wrapId, targetId, prefix, t));
 }
 
 // 에러 메시지를 한국어로 변환
@@ -99,6 +109,8 @@ function loadTagsFromValue(wrapId, targetId, prefix, value) {
 function friendlyError(msg) {
   if (!msg) return '알 수 없는 오류 [ERR_UNKNOWN]';
   const s = String(msg);
+  // 마이그레이션 251 — 정산 기록이 있는 대상 삭제 차단(사전 체크 트리거)
+  if (s.includes('settlement_exists_cannot_delete')) return '정산 기록이 있어 삭제할 수 없습니다. 먼저 정산 관리 화면에서 상태를 확인해 주세요. [ERR_SETTLEMENT_EXISTS]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
   if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
   if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
@@ -129,11 +141,15 @@ function switchAdminPane(pane, el, pushHistory) {
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
-  if (pane === 'permissions' && !_isSuper) {
-    if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
-    return switchAdminPane('dashboard', null, pushHistory);
-  }
-  if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+  if (pane === 'permissions') {
+    // ⚠️ 권한 관리 화면은 등급만 보고 판단하며, 숨김 설정을 절대 적용하지 않는다.
+    //    슈퍼관리자가 스스로를 제한할 수 있게 되면서(마이그레이션 268~270), 이 화면까지
+    //    숨길 수 있으면 되돌릴 방법이 없어진다. 여기가 유일한 복구 경로다.
+    if (!_isSuper) {
+      if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
+      return switchAdminPane('dashboard', null, pushHistory);
+    }
+  } else if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
@@ -202,6 +218,12 @@ function switchAdminPane(pane, el, pushHistory) {
     history.pushState({pane: pane}, '', '#' + pane);
   }
   if (pane === 'add-campaign') {
+    // ★ 행사 모드 초기화를 **가장 먼저** 한다.
+    //   안 하면 직전에 켠 체크박스가 남아, 바로 아래에서 모집 형식을 리뷰어로 되돌리는
+    //   순간 「행사 모드 ON + 리뷰어형」이라는 금지 조합이 되어 다음 캠페인 등록이
+    //   데이터베이스 제약(마이그레이션 280)에 걸려 통째로 실패한다. 그 오류 문구로는
+    //   원인이 화면 위쪽 체크박스라는 걸 알 수 없다(2026-08-03 리뷰 지적).
+    if (typeof resetEventFormFields === 'function') resetEventFormFields('new');
     initTagInput('tagWrap_newCampHashtags');
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
@@ -217,6 +239,24 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', 'monitor');
     applyDeadlineFieldsVisibility('new', 'monitor');
+    // 모집 기간·결과물 제출 마감일 비우기.
+    //   ⚠️ 바로 위 applyDeadlineFieldsVisibility 는 **형식에 안 맞는 칸**(구매·방문·선정)만
+    //      비운다. 모집 기간과 제출 마감은 모든 형식이 쓰는 칸이라 거기서 안 지워지고,
+    //      그래서 등록하다 만 캠페인의 날짜가 **다음 신규 등록에 그대로 딸려왔다**.
+    //      그대로 저장하면 엉뚱한 기간으로 캠페인이 열린다(2026-08-07 사용자 발견).
+    //   ⚠️ 칸 값만 지우면 달력이 기억한 날짜가 남아, 달력을 열고 「적용」만 눌러도
+    //      되살아난다. 달력까지 함께 비운다.
+    ['RecruitStart', 'Deadline', 'SubmissionEnd'].forEach(suffix => {
+      const el = document.getElementById('newCamp' + suffix);
+      if (el) el.value = '';
+    });
+    const _newRangeFp = (typeof _campRangePickers === 'object' && _campRangePickers)
+      ? _campRangePickers['newCampRecruitRange'] : null;
+    if (_newRangeFp) _newRangeFp.clear(false);
+    else { const _rr = document.getElementById('newCampRecruitRange'); if (_rr) _rr.value = ''; }
+    const _newSingleFp = (typeof _campSinglePickers === 'object' && _campSinglePickers)
+      ? _campSinglePickers['newCampSubmissionEnd'] : null;
+    if (_newSingleFp) _newSingleFp.clear(false);
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
       ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
@@ -237,8 +277,17 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCampNgItems('new');
     renderCampBundleSummary('nset', 'new');
     setupCampPreview('new');
+    // ★ 「저장 안 한 변경」 기준값 — 신규 폼도 여기서 뜬다.
+    //   안 두면 ①편집 폼 기준값으로 신규 폼을 재게 되어 **모든 칸이 「바뀜」**으로 잡히거나
+    //   ②세션 첫 진입에서는 기준이 없어 **진짜 입력을 하나도 못 잡는다**(리뷰에서 잡힌 결함).
+    const _newDirtySeq = (typeof resetCampDirtyBaseline === 'function') ? resetCampDirtyBaseline() : 0;
     // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
-    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
+    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new')).then(() => {
+      // 리치 편집기는 위에서 다음 tick 에 비우므로 그 뒤에 뜬다.
+      setTimeout(() => {
+        if (typeof captureCampDirtyBaseline === 'function') captureCampDirtyBaseline('new', null, _newDirtySeq);
+      }, 120);
+    });
   }
   if (pane === 'edit-campaign') {
     setupCampPreview('edit');
@@ -290,9 +339,7 @@ function initMultiFilters() {
   createMultiFilter('appTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => renderAppCampList());
-  createMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
-  ], () => renderAppCampList());
+  // 신청 상태는 다중 필터가 아니라 상태 탭(appStatusTabBar)으로 분리 — admin-applications.js 참조
   // 결과물관리 — 신청(application) 1행 단위로 영수증·결과물 양쪽 상태를 같이 표시
   createMultiFilter('delivRecruitTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
@@ -303,6 +350,7 @@ function initMultiFilters() {
   createMultiFilter('delivResultStatusMulti', '전체', [
     {value:'pending',label:'검수대기'},{value:'approved',label:'승인'},{value:'rejected',label:'비승인'},{value:'none',label:'미제출'}
   ], () => renderDeliverablesList());
+  // 인증 상태는 다중 필터가 아니라 상태 탭(delivCertStatusTabBar)으로 분리 — admin-deliverables.js 참조
   // 광고주 신청
   createMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
@@ -478,7 +526,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   // 검색형(opt-in) — 옵션이 많은 드롭다운(캠페인 등)에서만 사용. 기본 false → 기존 전 페인 무영향
   const searchHtml = opts.searchable
     ? `<div class="mf-search-box"><input type="search" class="mf-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="${esc(opts.searchPlaceholder || '検索')}"></div>`
-      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#E8344E);background:var(--light-pink,#FDEEF4);border:1px solid var(--pink,#E8344E);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
+      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#1A1A1A);background:var(--light-pink,#F4F4F5);border:1px solid var(--pink,#1A1A1A);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
     : '';
   const emptyHtml = opts.searchable ? `<div class="mf-search-empty" style="display:none">일치하는 항목이 없습니다</div>` : '';
   // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)
@@ -626,11 +674,20 @@ let _confirmResolver = null;
 // SECTION: CORE — 범용 확인 모달
 // ════════════════════════════════════════════════════════════════════
 
-function showConfirm(message) {
+// showConfirm(message[, okLabel, cancelLabel])
+//   버튼 이름을 상황에 맞게 지정할 수 있다(2026-07-30). 안 주면 「확인/취소」 기본값이라
+//   기존 호출부는 전혀 영향받지 않는다.
+//   ⚠️ 버튼이 「확인/취소」로 고정돼 있던 탓에 「취소하면 저장되지 않습니다」 같은 설명을 본문에
+//      욱여넣어야 했고 문구가 어색해졌다. 되돌릴 수 없는 동작은 버튼 이름에 행동을 적는 게 안전하다.
+function showConfirm(message, okLabel, cancelLabel) {
   return new Promise(resolve => {
     _confirmResolver = resolve;
     const msg = $('confirmModalMessage');
     if (msg) msg.textContent = message;
+    const okBtn = $('confirmModalOkBtn');
+    const cancelBtn = $('confirmModalCancelBtn');
+    if (okBtn) okBtn.textContent = okLabel || '확인';
+    if (cancelBtn) cancelBtn.textContent = cancelLabel || '취소';
     openModal('confirmModal');
   });
 }
@@ -700,6 +757,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'influencerFullDetailModal', 'infDetailModal', 'influencerFlagEditModal',
   // 캠페인·번들
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
+  // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
+  'channelDriftModal',
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
@@ -707,13 +766,15 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
   // 오리엔시트 (동적 생성 — ensureOrientModals 가 initDraggableModals 재호출로 옵저버 부착)
-  'orientDetailModal', 'orientCreateModal',
+  'orientDetailModal', 'orientCreateModal', 'orientPublishModal',
   // 메시지
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
   'bulkMessageModal', 'broadcastDetailModal',
   // 이미지 확대 창 — 배경 안 덮고(뒤 화면 조작 가능) 드래그·리사이즈로 영수증 보며 입력
   'imageLightbox',
+  // 아웃바운드 인플루언서 명단 등록·편집 (입력 항목 많아 드래그·리사이즈 유용)
+  'outboundEditModal',
 ]);
 
 function makeModalDraggableResizable(modalEl) {
@@ -838,4 +899,220 @@ function initDraggableModals() {
     new MutationObserver(() => _applyDraggableIfOpen(overlay))
       .observe(overlay, { attributes: true, attributeFilter: ['class'] });
   });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 채널 코드 어긋남 경보 배너 (마이그레이션 277·278)
+// ════════════════════════════════════════════════════════════════════
+//   2026-07-30 @cosme 사고 — 승인된 리뷰 인증샷 55건이 두 달간 화면·인증 성공·정산
+//   세 곳에서 사라져 보였는데 **감지 수단이 없어 아무도 몰랐다.** 그 감지 결과를
+//   사람이 매일 보는 자리에 띄운다.
+//
+//   ⚠️ **0건이면 아무것도 그리지 않는다.** 숫자가 늘 떠 있으면 「원래 빨간 게 있는
+//      화면」으로 학습되어, 정작 진짜 문제가 생겼을 때 또 두 달을 놓친다. 운영 실측을
+//      A·B·C 전부 0으로 만든 뒤에 이 배너를 켰다(2026-07-31).
+//   ⚠️ 조회 실패 시에도 안 그린다 — 감지 실패가 본 업무를 막지 않는다.
+
+// 층별 의미 — 사람이 읽을 문구. 코드가 아니라 「무엇이 잘못됐는지」를 말한다.
+//   ⚠️ `fix` 는 **담당자가 실제로 무엇을 눌러야 하는지**를 말한다. 원인만 알리고 조치를
+//      안 알려주면 담당자가 「그래서 뭘 어떻게?」에서 막히고, 결국 경고를 무시하게 된다 —
+//      그러면 배너를 안 만든 것과 같아진다(2026-07-31 사용자 지적).
+//   ⚠️ `fix` 만 `esc()` 없이 그대로 넣는다(강조 태그 `<b>` 를 쓰기 위해). **여기 있는
+//      세 문구는 전부 코드 상수**라 안전하다 — 데이터베이스나 사용자 입력에서 온 값은
+//      이 표에 절대 넣지 말 것. 배너의 다른 값(캠페인명·채널 코드)은 전부 `esc()` 를 거친다.
+const CHANNEL_DRIFT_LAYERS = {
+  A: {
+    label: '지금 판정에서 빠져 있는 결과물',
+    desc: '캠페인이 요구하지 않는 채널로 저장돼 있어, 인플루언서 화면·인증 성공·정산에서 함께 빠집니다.',
+    severe: true
+  },
+  B: {
+    label: '기준 데이터에 없는 채널을 쓰는 캠페인',
+    desc: '아직 결과물은 멀쩡하지만, 이 상태로 결과물이 쌓이면 위 문제로 이어집니다.',
+    severe: false
+  },
+  C: {
+    label: '기준 데이터에 없는 채널로 제출된 결과물',
+    desc: '어떤 캠페인 채널과도 영영 일치하지 않는 값입니다.',
+    severe: false
+  }
+};
+
+// 조치 안내 — **결과물 종류(kind)마다 실제로 할 수 있는 일이 다르다.**
+//   ⚠️ 「검수 창의 채널 불일치 표시에서 지운다」는 도구는 **게시물(post)에만 있다**
+//      (admin-deliverables.js 의 mismatchedBox·deleteMismatchedPostRow 는 kind='post'
+//      전용이고 그것도 시딩·방문형에서만 계산된다). **리뷰 인증샷(review_image)은
+//      채널이 어긋나면 그 채널로 조회되지 않아 검수 창에 아예 안 나타난다** — 정리
+//      도구가 없다. 2026-07-30 @cosme 사고가 정확히 이 경우였다.
+//      종류를 안 가리고 「검수 창에서 지우세요」라고 안내하면, 정작 같은 사고가 또 났을 때
+//      **없는 도구를 찾게 만든다.** 그래서 종류별로 분기하고, 도구가 없으면 없다고 말한다.
+//   반환값은 HTML(강조 태그 포함) — 전부 코드 상수라 esc 하지 않는다. 데이터에서 온 값을
+//   이 문자열에 절대 끼워 넣지 말 것.
+function channelDriftFixHtml(layer, kind) {
+  const CLEANUP_POST =
+    '결과물 관리에서 그 건의 검수 창을 열면 「채널 불일치」 표시가 있고, <b>슈퍼관리자</b>가 그 행을 지울 수 있습니다(이미 승인된 결과물은 보호되어 안 지워집니다).';
+  const CLEANUP_REVIEW =
+    '<b>리뷰 인증샷은 관리자 화면에 정리 도구가 없습니다.</b> 채널이 어긋나면 검수 창에서 그 채널로 조회되지 않아 화면에 나타나지 않습니다(2026-07-30 사고가 이 경우였습니다). <b>개발 담당자에게 알려 데이터베이스에서 직접 고쳐야 합니다.</b>';
+  const cleanup = (kind === 'review_image') ? CLEANUP_REVIEW : CLEANUP_POST;
+
+  if (layer === 'A') {
+    return '<b>둘 중 어느 쪽이 맞는지 먼저 정하세요.</b><br>' +
+      '① <b>캠페인 쪽이 맞다면</b>(그 채널은 원래 안 받는 게 맞다) 결과물을 정리합니다 — ' + cleanup + '<br>' +
+      '② <b>결과물 쪽이 맞다면</b>(인플루언서가 실제로 그 채널에 올린 게 맞다) 아래 「캠페인 편집 열기」로 가서 그 채널을 체크해 추가합니다. ' +
+      '단 모집 형식에서 고를 수 없는 채널이면 이 길은 막혀 있어 ①만 가능합니다.';
+  }
+  if (layer === 'B') {
+    return '아래 「캠페인 편집 열기」로 가서 <b>채널을 올바른 값으로 다시 고르세요.</b> ' +
+      '그 채널이 원래 있어야 하는 것이라면, 기준 데이터에서 같은 코드로 다시 만들어도 됩니다.';
+  }
+  // C — 기준 데이터에 없는 값이라 캠페인에 추가하는 길 자체가 없다
+  return '<b>결과물을 정리하는 것 말고는 방법이 없습니다.</b> 기준 데이터에 없는 값이라 캠페인에 추가할 수도 없습니다.<br>' +
+    '이 항목은 캠페인이 특정되지 않습니다(여러 캠페인의 값이 함께 묶일 수 있음). ' +
+    '결과물 관리에서 <b>위에 적힌 채널 값</b>으로 찾은 뒤 정리하세요 — ' + cleanup;
+}
+
+// ── 감지 결과 상태 ──
+//   부팅 시 1회 조회해 사이드바에 표시한다. **화면에 들어가야만 알 수 있으면 늦다** —
+//   이번 사고가 「두 달간 아무도 몰랐다」였으므로 어느 화면에 있든 눈에 띄어야 한다.
+let _channelDriftRows = null;   // null = 아직 조회 안 함 / [] = 어긋남 없음
+
+// 감지 결과를 새로 받아 사이드바 표시·페인 버튼을 갱신한다.
+//   0건이면 전부 숨긴다 — 숫자가 늘 떠 있으면 「원래 빨간 게 있는 화면」으로 학습돼
+//   정작 진짜 문제를 또 놓친다.
+async function refreshChannelDriftIndicators() {
+  const rows = await fetchChannelDriftAlerts();
+  _channelDriftRows = Array.isArray(rows) ? rows : [];
+  applyChannelDriftIndicators();
+}
+
+// 캐시된 결과로 사이드바·페인 버튼을 다시 그린다(재조회 없음).
+function applyChannelDriftIndicators() {
+  const rows = _channelDriftRows || [];
+  const has = rows.length > 0;
+  const severe = rows.some(function(r) { return r.layer === 'A'; });
+  const total = rows.reduce(function(n, r) { return n + Number(r.affected_count || 0); }, 0);
+
+  // 사이드바 — 결과물 관리(발견하는 자리)·기준 데이터(원인을 만드는 자리) 두 곳.
+  //   ⚠️ **메뉴 아이콘 자체를 경고 모양으로 바꾼다**(별도 표시를 옆에 붙이지 않는다).
+  //      접힌 사이드바에서는 아이콘만 보이므로, 아이콘이 바뀌어야 접힌 상태에서도 눈에 띈다.
+  //      원래 아이콘 이름은 data 속성에 보관해 두고 경고가 없어지면 그대로 되돌린다 —
+  //      하드코딩해 두면 나중에 메뉴 아이콘을 바꿀 때 여기가 stale 이 된다.
+  //   ⚠️ 아이콘 클릭은 **기존대로 화면 이동**이다. 모달은 그 화면의 제목 옆 버튼으로 연다
+  //      (작은 아이콘에 다른 동작을 얹으면 메뉴를 누르려다 모달이 뜬다).
+  [['adminDelivSi', 'fact_check'], ['adminLookupsSi', 'tune']].forEach(function(pair) {
+    const item = document.getElementById(pair[0]);
+    if (!item) return;
+    const icon = item.querySelector('.si-icon');
+    if (!icon) return;
+    if (!icon.dataset.baseIcon) icon.dataset.baseIcon = (icon.textContent || pair[1]).trim();
+    if (has) {
+      icon.textContent = 'report_problem';
+      icon.style.color = severe ? '#C33' : '#B8741A';
+      item.title = `채널 코드가 어긋난 항목 ${total}건 — 이 화면에서 조치 방법을 볼 수 있습니다`;
+    } else {
+      icon.textContent = icon.dataset.baseIcon;
+      icon.style.color = '';
+      item.title = '';
+    }
+  });
+
+  // 페인 제목 옆 버튼 — 경고가 없으면 버튼 자체를 감춘다
+  ['delivDriftBtn', 'lookupDriftBtn'].forEach(function(id) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.style.display = has ? 'inline-flex' : 'none';
+    if (!has) return;
+    btn.style.background = severe ? '#FFF5F5' : '#FEF3C7';
+    btn.style.borderColor = severe ? '#C33' : '#FBBF24';
+    btn.style.color = severe ? '#C33' : '#92400E';
+    btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">report_problem</span> 채널 어긋남 ${total}건`;
+  });
+}
+
+// 경고 모달 — 조치 방법을 보면서 따라 할 수 있게 **띄워둔 채 다른 화면을 조작**할 수 있다
+//   (DRAGGABLE_ADMIN_MODALS 등록 → 드래그·크기 조정 가능).
+async function openChannelDriftModal() {
+  const body = document.getElementById('channelDriftModalBody');
+  const overlay = document.getElementById('channelDriftModal');
+  if (!body || !overlay) return;
+  overlay.classList.add('open');
+  if (_channelDriftRows === null) {
+    body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">확인 중…</div>';
+    await refreshChannelDriftIndicators();
+  }
+  body.innerHTML = channelDriftModalHtml(_channelDriftRows || []);
+}
+
+function closeChannelDriftModal() {
+  const overlay = document.getElementById('channelDriftModal');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// 모달 본문 — 층별로 「무엇이 잘못됐나 → 어느 건인가 → 어떻게 조치하나」 순서.
+//   조치는 **행마다** 붙인다. 같은 층 안에서도 결과물 종류가 다르면 할 수 있는 일이 다르다.
+// 어긋남 1행 카드 — 「어느 캠페인·어느 채널·몇 건」 + 그 행에 맞는 조치 방법.
+//   조치는 결과물 종류마다 다르므로 행 단위로 붙인다(channelDriftFixHtml).
+function channelDriftRowHtml(layer, r) {
+  const camp = r.campaign_no
+    ? `${esc(r.campaign_no)} ${esc(r.campaign_title || '')}`
+    : '<span style="color:var(--muted)">(캠페인이 특정되지 않음)</span>';
+  const kindKo = r.kind ? esc(channelDriftKindKo(r.kind)) : '';
+  const goBtn = r.campaign_id
+    ? `<button class="btn btn-ghost btn-xs" style="margin-top:8px" onclick="openEditCampaign('${esc(r.campaign_id)}')">캠페인 편집 열기</button>`
+    : '';
+  return `
+    <div style="padding:11px 13px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-top:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">${camp}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">
+        저장된 채널 <code>${esc(r.channel_code || '')}</code>${kindKo ? ' · ' + kindKo : ''} · ${Number(r.affected_count || 0)}건
+      </div>
+      <div style="margin-top:8px;padding:9px 11px;background:var(--bg);border-radius:6px;font-size:12px;line-height:1.7;color:var(--ink)">
+        <b>조치 방법</b><br>${channelDriftFixHtml(layer, r.kind)}
+      </div>
+      ${goBtn}
+    </div>`;
+}
+
+function channelDriftModalHtml(rows) {
+  if (!rows.length) {
+    return '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">어긋난 채널 코드가 없습니다.</div>';
+  }
+  const byLayer = {};
+  rows.forEach(function(r) {
+    const L = r.layer || '?';
+    if (!byLayer[L]) byLayer[L] = {count: 0, rows: []};
+    byLayer[L].count += Number(r.affected_count || 0);
+    byLayer[L].rows.push(r);
+  });
+
+  const blocks = Object.keys(CHANNEL_DRIFT_LAYERS)
+    .filter(function(L) { return byLayer[L]; })
+    .map(function(L) {
+      const meta = CHANNEL_DRIFT_LAYERS[L];
+      const g = byLayer[L];
+      const tone = meta.severe ? {bg: '#FFF5F5', bd: '#C33', ink: '#C33'} : {bg: '#FEF3C7', bd: '#FBBF24', ink: '#92400E'};
+      const items = g.rows.map(function(r) { return channelDriftRowHtml(L, r); }).join('');
+      return `
+        <div style="margin-bottom:18px">
+          <div style="padding:10px 13px;background:${tone.bg};border:1px solid ${tone.bd};border-radius:8px;color:${tone.ink}">
+            <div style="font-size:13px;font-weight:700">${esc(meta.label)} — 모두 ${g.count}건</div>
+            <div style="font-size:12px;margin-top:2px;opacity:.9">${esc(meta.desc)}</div>
+          </div>
+          ${items}
+        </div>`;
+    }).join('');
+
+  return blocks + `
+    <div style="padding:11px 13px;background:var(--bg);border-radius:8px;font-size:12px;line-height:1.7;color:var(--muted)">
+      <b>왜 이런 일이 생기나</b><br>
+      시스템은 「캠페인이 요구한 채널」과 「제출된 결과물의 채널」이 <b>같은 글자인지</b>로 판단합니다.
+      한쪽만 바뀌면 그 결과물은 인플루언서 화면·인증 성공·정산 <b>세 곳에서 동시에</b> 빠집니다.
+      그래서 채널 코드를 바꾸거나 지울 때는 <b>기준 데이터 · 캠페인 · 이미 제출된 결과물</b> 세 곳을 함께 옮겨야 합니다.
+    </div>`;
+}
+
+// 결과물 종류 코드를 사람이 읽는 말로
+function channelDriftKindKo(kind) {
+  const MAP = {receipt: '영수증', review_image: '리뷰 인증샷', post: '게시물'};
+  return MAP[kind] || kind || '';
 }

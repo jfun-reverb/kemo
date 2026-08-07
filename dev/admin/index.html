@@ -62,7 +62,7 @@
 <body style="background:#F8F5F8">
 <!-- 글로벌 요소 -->
 <div id="toast"></div>
-<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
 
 <!-- 이미지 크롭 모달 -->
 <div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
@@ -90,13 +90,13 @@
           <span class="material-icons-round" style="font-size:20px">menu</span>
         </button>
         <span class="sidebar-toggle-label" style="display:flex;align-items:center;gap:8px">
-          <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;cursor:pointer" onclick="navAdminPaneReload('dashboard')">Reverb</span>
+          <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#18181B;cursor:pointer" onclick="navAdminPaneReload('dashboard')">Reverb</span>
           <span id="stagingBadgeSide" style="display:none;background:#f59e0b;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px">STAGING</span>
         </span>
       </div>
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
-        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openNoticesUnread()" title="미읽음만 보기">0</span></div>
         <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
@@ -105,7 +105,7 @@
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
-        <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
         <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
@@ -114,27 +114,36 @@
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
-        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none">0</span></div>
-        <div class="admin-si" data-pane="outbound" onclick="navAdminPaneReload('outbound')"><span class="si-icon material-icons-round notranslate" translate="no">contact_page</span><span class="si-text">인플루언서 추천 명단</span></div>
+        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openSettlementsPending()" title="정산대기만 보기">0</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
-        <div class="admin-si" data-pane="permissions" id="adminPermissionsSi" onclick="navAdminPaneReload('permissions')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">shield</span><span class="si-text">권한 관리</span></div>
-        <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <!-- 권한 관리 사이드바 항목은 2026-07-29 제거 — 진입은 「관리자 계정」 화면 안의
+             「권한 관리」 버튼(#btnPermManageBtn, super_admin 에게만 노출) 하나로 일원화.
+             ⚠️ 그래서 슈퍼관리자는 「관리자 계정」 메뉴를 숨길 수 없다(잠금 사고 방지) —
+             클라 PERM_SUPER_LOCKED + 서버 마이그레이션 271 이 write 로 고정한다.
+             이 항목을 되살릴 일이 생기면 그 두 잠금도 함께 재검토할 것. -->
+        <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openErrorsOpen()" title="미해결만 보기">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
-        </div>
-        <div class="admin-si" onclick="window.location.href='/'">
-          <span class="si-icon material-icons-round" style="font-size:18px">open_in_new</span>
-          <span class="si-text" style="font-size:12px">인플루언서 화면</span>
         </div>
         <div class="admin-si" onclick="adminLogout()">
           <span class="si-icon material-icons-round" style="font-size:18px">logout</span>
           <span class="si-text" style="font-size:12px">로그아웃</span>
         </div>
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
+      </div>
+      <!-- 하단 고정: 화면 전환 드롭다운 + 버전 정보 -->
+      <div class="admin-side-foot">
+        <div class="admin-si" id="adminScreenSwitcher" style="cursor:default;padding:0">
+          <select id="adminScreenSelect" onchange="switchAdminScreen(this.value)" style="width:100%;font-size:12px;background-color:#fff;border:1px solid #E4E4E7;border-radius:6px;padding:6px 26px 6px 10px;color:#18181B;cursor:pointer">
+            <option value="full">전체 관리자 화면</option>
+            <option value="outbound">인플루언서 추천 명단</option>
+            <option value="influencer">인플루언서 화면</option>
+          </select>
+        </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
           <span class="admin-build-text">__BUILD_DATETIME_KST__ · __GIT_SHA_SHORT__</span>
@@ -156,39 +165,45 @@
 
         <!-- DASHBOARD PANE -->
         <div id="adminPane-dashboard" class="admin-pane">
-          <!-- 최근 공지 3건 -->
-          <div class="admin-card" id="dashboardNoticesCard" style="margin-bottom:16px;display:none">
-            <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--pink)">campaign</span><span class="admin-card-title">최근 공지</span></div>
-              <a href="#admin-notices" onclick="switchAdminPane('admin-notices',null)" style="font-size:11px;color:var(--pink);text-decoration:none">전체 보기 ▸</a>
+          <!-- 최근 공지 + 전체 현황 KPI — 2단 -->
+          <div class="dash-top-grid" id="dashTopGrid">
+            <!-- 최근 공지 3건 -->
+            <div class="admin-card" id="dashboardNoticesCard" style="margin-bottom:0;display:none">
+              <div class="admin-card-header">
+                <div style="display:flex;align-items:center;gap:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--accent)">campaign</span><span class="admin-card-title">최근 공지</span></div>
+                <a href="#admin-notices" onclick="switchAdminPane('admin-notices',null)" style="font-size:11px">전체 보기 ▸</a>
+              </div>
+              <div style="padding:0" id="dashboardNoticesBody"></div>
             </div>
-            <div style="padding:0" id="dashboardNoticesBody"></div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">전체 현황</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">새로고침</button>
-          </div>
-          <div class="kpi-row">
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
+            <!-- 전체 현황 — 최근 공지와 같은 카드 구조 -->
+            <div class="admin-card" style="margin-bottom:0">
+              <div class="admin-card-header">
+                <span class="admin-card-title">전체 현황</span>
+                <button class="btn btn-ghost btn-xs" onclick="loadAdminData()">새로고침</button>
+              </div>
+              <div class="kpi-row">
+                <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
+                <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
+                <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
+                <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
+              </div>
+            </div>
           </div>
 
           <!-- 캠페인 분포 -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">상태별 캠페인</div>
-              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+          <div class="dash-2col">
+            <div class="admin-card accent-card" style="padding:16px">
+              <div class="admin-card-title" style="margin-bottom:10px">상태별 캠페인</div>
+              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:var(--muted)">(복수 채널 중복 집계)</span></div>
-              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+            <div class="admin-card accent-card" style="padding:16px">
+              <div class="admin-card-title" style="margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:#fff;opacity:.9">(복수 채널 중복 집계)</span></div>
+              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
 
-          <!-- 회원가입 현황 -->
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+          <!-- 회원가입 추이 · 프로필 완성률 · 배송지 분포 — 3열 -->
+          <div class="dash-3col">
             <div class="admin-card">
               <div class="admin-card-header">
                 <span class="admin-card-title">회원가입 추이</span>
@@ -200,58 +215,59 @@
               </div>
               <div style="padding:16px;height:240px"><canvas id="signupChart"></canvas></div>
               <div style="display:flex;gap:12px;padding:0 16px 16px">
-                <div style="flex:1;background:#FFF0F6;border-radius:10px;padding:12px 14px">
-                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+                <div style="flex:1;background:var(--surface-dim);border-radius:10px;padding:12px 14px">
+                  <div style="font-size:22px;font-weight:800;color:var(--ink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div>
                   <div style="font-size:11px;color:var(--muted);margin-top:2px">오늘 가입</div>
                 </div>
-                <div style="flex:1;background:#F0F4FF;border-radius:10px;padding:12px 14px">
-                  <div style="font-size:22px;font-weight:800;color:#5B7CFF" id="kpiSignupWeek"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(91,124,255,.2);border-top-color:#5B7CFF"></span></div>
+                <div style="flex:1;background:var(--surface-dim);border-radius:10px;padding:12px 14px">
+                  <div style="font-size:22px;font-weight:800;color:var(--ink)" id="kpiSignupWeek"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div>
                   <div style="font-size:11px;color:var(--muted);margin-top:2px">이번주 가입 (<span id="kpiWeekRange"></span>)</div>
                 </div>
               </div>
             </div>
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">프로필 완성률</div>
-              <div id="profileCompletionBars"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">프로필 완성률</span>
+              </div>
+              <div id="profileCompletionBars" style="padding:16px"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div></div>
             </div>
-          </div>
-
-          <!-- 배송지 분포 (도도부현 Top 10 + 未登録/海外) -->
-          <div class="admin-card" style="margin-bottom:16px">
-            <div class="admin-card-header">
-              <span class="admin-card-title">배송지 분포 (도도부현)</span>
-              <span id="addressDistTotal" style="font-size:11px;color:var(--muted)"></span>
-            </div>
-            <div style="padding:16px;position:relative;height:260px">
-              <canvas id="addressDistChart"></canvas>
-              <div id="addressDistEmpty" style="display:none;text-align:center;color:var(--muted);padding:60px 0;font-size:13px">집계할 배송지 데이터가 없습니다</div>
-              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">배송지 분포 (도도부현)</span>
+                <span id="addressDistTotal" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div style="padding:16px;position:relative;height:260px;margin:auto 0">
+                <canvas id="addressDistChart"></canvas>
+                <div id="addressDistEmpty" style="display:none;text-align:center;color:var(--muted);padding:60px 0;font-size:13px">집계할 배송지 데이터가 없습니다</div>
+                <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--ink)"></span></div>
+              </div>
             </div>
           </div>
 
           <!-- 회원 연령·성별 분포 (마케팅 구간 + 성별 도넛 + 교차표) -->
-          <div class="admin-card" style="margin-bottom:16px">
+          <div class="admin-card dash-section">
             <div class="admin-card-header">
               <span class="admin-card-title">회원 연령·성별 분포</span>
               <span id="ageGenderTotal" style="font-size:11px;color:var(--muted)"></span>
             </div>
             <div style="padding:16px">
-              <div id="ageGenderCollectBars" style="margin-bottom:14px"></div>
               <div id="ageGenderEmpty" style="display:none;text-align:center;color:var(--muted);padding:32px 0;font-size:13px">아직 생년월일·성별 데이터가 수집되지 않았습니다. 신규 가입과 응모 시 점진적으로 채워집니다.</div>
               <div id="ageGenderBody">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                  <div>
-                    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">연령대 분포</div>
+                  <div class="chart-panel">
+                    <div class="chart-panel-title">연령대 분포</div>
                     <div style="position:relative;height:200px"><canvas id="ageDistChart"></canvas></div>
                   </div>
-                  <div>
-                    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">성별 분포</div>
+                  <div class="chart-panel">
+                    <div class="chart-panel-title">성별 분포</div>
                     <div style="position:relative;height:200px"><canvas id="genderDistChart"></canvas></div>
                   </div>
                 </div>
                 <div id="ageGenderCaption" style="display:none;font-size:11px;color:var(--muted);margin-top:8px"></div>
-                <div style="font-size:11px;color:var(--muted);margin:14px 0 6px">연령대 × 성별 (단위: 명, 만 18세 미만은 정책상 0)</div>
-                <div id="ageGenderCrossTable"></div>
+                <div class="chart-panel" style="margin-top:16px">
+                  <div class="chart-panel-title">연령대 × 성별 <span style="font-size:11px;font-weight:400;color:var(--muted)">(단위: 명, 만 18세 미만은 정책상 0)</span></div>
+                  <div id="ageGenderCrossTable"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -263,9 +279,15 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
-              <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+                <!-- 상태별 인플루언서 노출 안내 — 표 헤더 아이콘은 눈에 안 띄어 상단 버튼으로 옮김(2026-07-29) -->
+                <button class="btn btn-ghost btn-sm" onclick="openCampStatusHelp()" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">help_outline</span>도움말
+                </button>
+              </div>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div id="campFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>캠페인 타입</label>
                 <div id="campTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
@@ -286,7 +308,7 @@
           <div class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">캠페인 목록</span><span id="adminCampSelectedCount" style="font-size:12px;color:var(--pink);font-weight:600;display:none"></span></div>
-              <div style="display:flex;align-items:center;gap:6px">
+              <div id="campListToolbar" style="display:flex;align-items:center;gap:6px">
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
@@ -296,7 +318,7 @@
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="adminCampTableHead"><tr>
-  <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
+  <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
   <th>캠페인</th>
   <th>채널</th>
   <th>브랜드</th>
@@ -311,7 +333,7 @@
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -323,7 +345,7 @@
             <div class="camp-form-main">
           <div class="product-form">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">← 목록으로</button>
               <div class="product-form-title" style="margin:0">캠페인 편집</div>
               <span id="editCampNoBadge" style="display:none;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:0.02em;background:var(--pink-soft,#fdf5fb);color:var(--pink);padding:3px 10px;border-radius:6px;cursor:pointer" title="클릭하여 복사"></span>
               <div id="editCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
@@ -333,6 +355,46 @@
               </div>
             </div>
             <input type="hidden" id="editCampId">
+
+            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
+            <div class="event-mode-box">
+              <label class="event-mode-main">
+                <input type="checkbox" id="editCampEventMode" onchange="onEventModeToggle('edit')">
+                <span>오프라인 행사(방문 예약) 캠페인</span>
+              </label>
+              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
+              <div id="editCampEventOpts" class="event-mode-opts" style="display:none">
+                <div class="form-group" style="margin-top:0;margin-bottom:0">
+                  <label class="form-label">행사장 안내 (일본어)</label>
+                  <input type="text" id="editCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
+                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">같은 행사 묶음</label>
+                  <div class="event-group-row">
+                    <select id="editCampEventGroup" class="form-input" style="max-width:280px"></select>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('edit')">새 묶음</button>
+                  </div>
+                  <div class="form-hint">이 캠페인 하나로 끝나는 행사면 비워 두세요. <b>한 행사를 캠페인 여러 개로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에 한 번에 나옵니다. 안 묶으면 다른 캠페인 날짜가 왔을 때 명단이 빈 화면이 됩니다.</div>
+                </div>
+                <!-- 비공개 + 초대 번호를 한 줄에. 켜야만 번호가 필요하므로 켠 자리 바로 옆에서 이어 쓴다. -->
+                <div class="event-invite-line" style="margin-top:12px">
+                  <label class="event-mode-main">
+                    <input type="checkbox" id="editCampInviteOnly" onchange="onInviteOnlyToggle('edit')">
+                    <span>비공개 — 초대받은 사람만 신청</span>
+                  </label>
+                  <div id="editCampInviteRow" class="event-invite-row" style="display:none">
+                    <input type="text" id="editCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                    <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteGenBtn" onclick="genInviteCode('edit')">번호 생성</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="editCampInviteCopyBtn" onclick="copyInviteLink('edit')">
+                      <span class="material-icons-round notranslate" translate="no" style="font-size:15px">link</span> 초대 링크 복사
+                    </button>
+                  </div>
+                </div>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
+              </div>
+            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -351,6 +413,7 @@
                   <select id="editCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('edit')">
                     <option value="">선택 안 함 (외부 캠페인)</option>
                   </select>
+                  <div class="custom-srcapp-readonly" id="editCampSourceAppReadonly" style="display:none"></div>
                   <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="edit" aria-haspopup="listbox" aria-expanded="false">
                     <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
                   </button>
@@ -363,7 +426,7 @@
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="editCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor');applyMinFollowersVisibility('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting');applyMinFollowersVisibility('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
@@ -376,6 +439,7 @@
                   <input type="number" id="editCampSlots" class="form-input" placeholder="20" min="1" style="flex:1">
                   <span style="font-size:13px;color:var(--muted);font-weight:600">명</span>
                 </div>
+                <div class="form-hint" id="editCampSlotsEventHint" style="display:none;color:var(--dark-pink)"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -426,9 +490,10 @@
                   <input type="number" id="editCampProductPrice" class="form-input" min="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="editCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="editCampReward" class="form-input" min="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
+                  <div class="form-hint" id="editCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -472,7 +537,7 @@
             <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label" id="editCampRecruitRangeLabelWrap"><span id="editCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="editCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="recruit" readonly>
                 <input type="hidden" id="editCampRecruitStart">
                 <input type="hidden" id="editCampDeadline">
@@ -495,14 +560,117 @@
                 <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
                 <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
+              <div class="form-group" id="editCampSelectionRow" style="display:none">
+                <label class="form-label">선정 기간</label>
+                <input type="text" id="editCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="selection" readonly>
+                <input type="hidden" id="editCampSelectionStart">
+                <input type="hidden" id="editCampSelectionEnd">
+                <div class="form-hint">시딩형용. 응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면에 안 나옴</div>
+                <div id="editCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
               <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
+                <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
                 <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
             </div>
             <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
+            <!-- 행사 시간 — 행사 모드일 때만 보인다. 모집 조건 안에 두는 이유: 방문 날짜·시각·
+                 정원은 그 캠페인을 언제 몇 명 받느냐는 조건이라 모집 인원·기간과 한 묶음이다
+                 (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지 후 위치 재조정). -->
+            <div id="editCampSlotSection" style="display:none">
+              <label class="form-label" style="margin:4px 0 8px">
+                행사 시간 <span style="font-size:11px;font-weight:400;color:var(--muted)">(방문 날짜·시각·시간대별 정원)</span>
+              </label>
+              <div id="eventSlotsSummary" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+
+              <!-- 하루치 일괄 생성 — 처음 만들 때만 쓰는 도구라 접어 둔다.
+                   늘 펼쳐 두면 날짜·시각 칸이 화면의 절반을 차지해 정작 자주 보는
+                   타임 목록이 밀린다(사용자 요청 2026-08-04). -->
+              <button type="button" class="btn btn-ghost btn-sm" id="eventBulkToggleBtn" onclick="toggleEventBulkPanel()" style="margin-bottom:10px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">expand_more</span> 하루치 일괄 생성
+              </button>
+              <div class="admin-card" id="eventBulkPanel" style="padding:12px 14px;margin-bottom:10px;display:none">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                  <span style="font-size:13px;font-weight:700">하루치 일괄 생성</span>
+                  <!-- 생김새는 이 화면이 이미 쓰는 도움말 아이콘(.tier-help-icon)을 그대로 따른다 —
+                       물음표 버튼이 화면마다 다르게 생기면 같은 뜻인지 매번 다시 배워야 한다. -->
+                  <button type="button" class="tier-help-icon" onclick="toggleEventBulkHelp()"
+                          title="입력 항목 설명 보기" aria-label="입력 항목 설명 보기"
+                          style="border:0;padding:0;font-family:inherit">?</button>
+                </div>
+                <div class="admin-filter-bar" style="flex-wrap:wrap">
+                  <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventBulkDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
+                  <div class="admin-filter-group"><label>시작 시각</label><input type="text" id="eventBulkStart" class="admin-filter evt-fp-time" value="11:00" placeholder="00:00" readonly style="width:90px"></div>
+                  <div class="admin-filter-group"><label>마지막 시작 시각</label><input type="text" id="eventBulkLastStart" class="admin-filter evt-fp-time" value="18:30" placeholder="00:00" readonly style="width:90px"></div>
+                  <div class="admin-filter-group"><label title="다음 타임이 몇 분 뒤에 시작하는지">간격(분)</label><input type="number" id="eventBulkInterval" class="admin-filter" value="30" min="5" style="width:80px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label title="한 타임이 몇 분 동안인지 — 끝 시각 계산에만 씁니다. 0이면 끝 시각 없이 시작 시각만 표시">한 타임 길이(분)</label><input type="number" id="eventBulkDuration" class="admin-filter" value="0" min="0" style="width:90px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>제외할 시각</label><input type="text" id="eventBulkSkip" class="admin-filter" placeholder="13:00, 13:30" style="width:140px" oninput="previewBulkSlots()" onchange="previewBulkSlots()"></div>
+                  <div class="admin-filter-group"><label>정원</label><input type="number" id="eventBulkCapacity" class="admin-filter" value="90" min="0" style="width:80px"></div>
+                  <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventBulkLabel" class="admin-filter" placeholder="일반 고객" style="width:120px"></div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="bulkGenerateSlots()">일괄 생성</button>
+                </div>
+                <div id="eventBulkPreview" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+                <!-- 설명은 제목 옆 도움말 버튼(?)으로만 연다 — 늘 펼쳐 두면 정작 봐야 할
+                     「N줄이 만들어집니다」 미리 보기가 긴 글에 묻힌다(사용자 요청 2026-08-04). -->
+                <div class="form-hint" id="eventBulkHelp" style="margin-top:8px;display:none;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;line-height:1.8;color:var(--muted)">
+                  <b>간격</b>은 다음 타임이 몇 분 뒤에 시작하는지, <b>한 타임 길이</b>는 한 타임이 몇 분 동안인지입니다 — 길이는 <b>끝 시각을 계산할 때만</b> 씁니다.
+                  0으로 두면 끝 시각 없이 시작 시각만 표시됩니다. 길이가 간격보다 길면 타임끼리 시간이 겹칩니다(정원은 타임마다 따로 셉니다).<br>
+                  「마지막 시작 시각」까지 포함해서 만들고, 같은 시각이 이미 있으면 건너뜁니다.
+                </div>
+              </div>
+
+              <div class="admin-filter-bar" style="flex-wrap:wrap">
+                <div class="admin-filter-group"><label>날짜</label><input type="text" id="eventSlotNewDate" class="admin-filter evt-fp-date" placeholder="연도-월-일" readonly></div>
+                <div class="admin-filter-group"><label>시작</label>
+                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
+                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
+                    <div class="evt-time-clearable">
+                      <input type="text" id="eventSlotNewStart" class="admin-filter evt-fp-time" placeholder="00:00" readonly style="width:104px">
+                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewStart')" title="시작 비우기" aria-label="시작 비우기">
+                        <span class="material-icons-round notranslate" translate="no">close</span>
+                      </button>
+                    </div>
+                  </div>
+                <div class="admin-filter-group"><label>종료(선택)</label>
+                    <!-- 비우기 버튼은 칸 **안쪽 오른쪽**에, 값이 있을 때만 보인다.
+                         칸 밖에 두면 옆 칸과의 사이에 떠서 구분 기호처럼 읽힌다. -->
+                    <div class="evt-time-clearable">
+                      <input type="text" id="eventSlotNewEnd" class="admin-filter evt-fp-time" placeholder="비워 두면 시작만" readonly style="width:124px">
+                      <button type="button" class="evt-time-clear" onclick="clearEventTimeField('eventSlotNewEnd')" title="종료(선택) 비우기" aria-label="종료(선택) 비우기">
+                        <span class="material-icons-round notranslate" translate="no">close</span>
+                      </button>
+                    </div>
+                  </div>
+                <div class="admin-filter-group"><label>정원</label><input type="number" id="eventSlotNewCapacity" class="admin-filter" value="100" min="0" style="width:80px"></div>
+                <div class="admin-filter-group"><label>대상 표기</label><input type="text" id="eventSlotNewLabel" class="admin-filter" placeholder="인플루언서" style="width:120px"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addEventSlotRow()">타임 추가</button>
+              </div>
+
+              <!-- 날짜 탭 — 여러 날 행사는 한 표에 다 쌓이면 어느 날 것인지 안 보인다.
+                   0~1일이면 렌더하지 않는다(고를 게 없는 탭은 자리만 차지한다). -->
+              <div id="eventSlotDateTabs" class="status-tab-bar" style="margin-top:12px;display:none"></div>
+
+              <div class="admin-card" style="margin-top:10px">
+                <!-- 선택 삭제 줄 — 고른 게 있을 때만 보인다 -->
+                <div id="eventSlotBulkBar" style="display:none;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface-container-low)">
+                  <span id="eventSlotBulkCount" style="font-size:13px;font-weight:700"></span>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="deleteSelectedEventSlots()">선택 삭제</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="clearEventSlotSelection()">선택 해제</button>
+                </div>
+                <div class="admin-table-wrap">
+                <table class="data-table">
+                  <thead><tr>
+                    <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventSlotSelectAll" onchange="toggleEventSlotSelectAll(this.checked)" title="보이는 타임 전체 선택"></th>
+                    <th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th>
+                  </tr></thead>
+                  <tbody id="eventSlotsBody"></tbody>
+                </table>
+                </div>
+              </div>
+              <div class="form-hint" style="margin-top:6px">시간대는 아래 「변경 저장」과 <b>무관하게 바로 반영</b>됩니다. 정원 칸을 고쳐 쓰면 그 자리에서 저장됩니다.</div>
+            </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -510,6 +678,12 @@
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
                 <div class="tag-input-warn" id="tagWarn_editCampHashtags" style="display:none"></div>
                 <input type="hidden" id="editCampHashtags">
+                <!-- 옛 데이터에 해시태그와 함께 저장된 안내문(※ …) 보존용. 값이 있을 때만 노출 -->
+                <div id="editCampHashtagNoteGroup" style="display:none;margin-top:6px">
+                  <label class="form-label" style="font-size:11px;color:var(--muted)">해시태그 뒤 안내문</label>
+                  <textarea id="editCampHashtagNote" class="form-input" rows="2" style="font-size:12px"></textarea>
+                  <div class="form-hint" style="font-size:11px;color:var(--muted)">해시태그 칸에 함께 저장돼 있던 안내 문구입니다. 저장하면 태그 뒤에 그대로 유지됩니다.</div>
+                </div>
               </div>
               <div class="form-group"><label class="form-label">필수 멘션</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampMentions"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampMentions" data-prefix="@"></div>
@@ -573,7 +747,7 @@
 
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-ghost" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">취소</button>
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
             </div>
           </div>
@@ -581,7 +755,13 @@
             <aside class="camp-preview-pane" id="editCampPreviewPane">
               <div class="camp-preview-pane-header">
                 <span>미리보기</span>
-                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="cp-lang-toggle" id="editCampPreviewLangToggle">
+                    <button type="button" data-lang="ja" class="active" onclick="setCampPreviewLang('edit','ja')">日本語</button>
+                    <button type="button" data-lang="ko" onclick="setCampPreviewLang('edit','ko')">한국어</button>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                </div>
               </div>
               <div id="editCampPreviewContent" class="camp-preview-content"></div>
             </aside>
@@ -603,6 +783,44 @@
             </div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
+            <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
+            <div class="event-mode-box">
+              <label class="event-mode-main">
+                <input type="checkbox" id="newCampEventMode" onchange="onEventModeToggle('new')">
+                <span>오프라인 행사(방문 예약) 캠페인</span>
+              </label>
+              <div class="form-hint">켜면 시간대별 예약과 입장 QR로 동작합니다. 모집 형식은 <b>방문형</b>으로, 리워드는 <b>0엔</b>으로 고정됩니다.</div>
+              <div id="newCampEventOpts" class="event-mode-opts" style="display:none">
+                <div class="form-hint" style="margin-bottom:10px">방문 날짜·시각·시간대별 정원은 <b>캠페인을 저장한 뒤</b> 편집 화면에서 등록합니다. 시간대는 캠페인에 속한 값이라 캠페인이 먼저 만들어져야 붙일 수 있습니다.</div>
+                <div class="form-group" style="margin-top:0;margin-bottom:0">
+                  <label class="form-label">행사장 안내 (일본어)</label>
+                  <input type="text" id="newCampEventPlace" class="form-input" maxlength="200" placeholder="例）渋谷ヒカリエ 8F ホールA">
+                  <div class="form-hint">입장 티켓 화면에 그대로 표시됩니다. 비워 두면 「장소는 정해지는 대로 안내」 문구가 나갑니다.</div>
+                </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                  <label class="form-label">같은 행사 묶음</label>
+                  <div class="event-group-row">
+                    <select id="newCampEventGroup" class="form-input" style="max-width:280px"></select>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openEventGroupCreate('new')">새 묶음</button>
+                  </div>
+                  <div class="form-hint">이 캠페인 하나로 끝나는 행사면 비워 두세요. <b>한 행사를 캠페인 여러 개로 나눴다면 전부 같은 묶음으로 지정</b>해야 현장 확인 화면에 한 번에 나옵니다. 안 묶으면 다른 캠페인 날짜가 왔을 때 명단이 빈 화면이 됩니다.</div>
+                </div>
+                <!-- 비공개 + 초대 번호를 한 줄에(편집 화면과 같은 배치). -->
+                <div class="event-invite-line" style="margin-top:12px">
+                  <label class="event-mode-main">
+                    <input type="checkbox" id="newCampInviteOnly" onchange="onInviteOnlyToggle('new')">
+                    <span>비공개 — 초대받은 사람만 신청</span>
+                  </label>
+                  <div id="newCampInviteRow" class="event-invite-row" style="display:none">
+                    <input type="text" id="newCampInviteCode" class="form-input" readonly placeholder="번호 생성을 눌러 주세요" style="max-width:160px;font-family:monospace;letter-spacing:.08em">
+                    <button type="button" class="btn btn-ghost btn-sm" id="newCampInviteGenBtn" onclick="genInviteCode('new')">번호 생성</button>
+                  </div>
+                </div>
+                <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
+                <div class="form-hint" id="newCampInviteSaveHint" style="display:none">초대 링크는 캠페인을 저장한 뒤 편집 화면에서 복사할 수 있습니다.</div>
+              </div>
+            </div>
+
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -623,19 +841,20 @@
                   <select id="newCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('new')">
                     <option value="">선택 안 함 (외부 캠페인)</option>
                   </select>
+                  <div class="custom-srcapp-readonly" id="newCampSourceAppReadonly" style="display:none"></div>
                   <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="new" aria-haspopup="listbox" aria-expanded="false">
                     <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
                   </button>
                   <div class="custom-srcapp-panel" role="listbox" data-srcapp-panel="new"></div>
                 </div>
-                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">신청 연결 시 캠페인 번호가 <code>B0001-A001-C001</code> 형식으로 채번됩니다.</div>
+                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">브랜드를 선택하면 캠페인 번호가 자동 채번됩니다.</div>
                 <input type="hidden" id="newCampBrand">
                 <input type="hidden" id="newCampBrandKo">
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span><span class="lock-note" id="newCampRecruitTypeLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 방문형 고정</span></label>
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
@@ -702,9 +921,10 @@
                   <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">리워드 금액 (¥)</label>
+                  <label class="form-label">리워드 금액 (¥)<span class="lock-note" id="newCampRewardLockNote" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">lock</span>행사 모드 — 0엔 고정</span></label>
                   <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
                   <div class="form-hint">0엔 = 제품 제공만</div>
+                  <div class="form-hint" id="newCampRewardEventHint" style="display:none;color:var(--pink)">오프라인 행사 캠페인이라 0엔으로 고정됩니다. 금액을 넣으면 정산 대기가 생깁니다.</div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">리워드 추가 정보</label>
@@ -748,7 +968,7 @@
             <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label" id="newCampRecruitRangeLabelWrap"><span id="newCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="newCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="recruit" readonly>
                 <input type="hidden" id="newCampRecruitStart">
                 <input type="hidden" id="newCampDeadline">
@@ -771,8 +991,16 @@
                 <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
                 <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
+              <div class="form-group" id="newCampSelectionRow" style="display:none">
+                <label class="form-label">선정 기간</label>
+                <input type="text" id="newCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="selection" readonly>
+                <input type="hidden" id="newCampSelectionStart">
+                <input type="hidden" id="newCampSelectionEnd">
+                <div class="form-hint">시딩형용. 응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면에 안 나옴</div>
+                <div id="newCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
               <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
+                <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="newCampSubmissionEnd" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
                 <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="newCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
@@ -850,7 +1078,7 @@
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-ghost" onclick="campLeaveGuard(() => switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })()))">취소</button>
               <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
             </div>
           </div>
@@ -858,7 +1086,13 @@
             <aside class="camp-preview-pane" id="newCampPreviewPane">
               <div class="camp-preview-pane-header">
                 <span>미리보기</span>
-                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="cp-lang-toggle" id="newCampPreviewLangToggle">
+                    <button type="button" data-lang="ja" class="active" onclick="setCampPreviewLang('new','ja')">日本語</button>
+                    <button type="button" data-lang="ko" onclick="setCampPreviewLang('new','ko')">한국어</button>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+                </div>
               </div>
               <div id="newCampPreviewContent" class="camp-preview-content"></div>
             </aside>
@@ -936,7 +1170,7 @@
               <thead id="infTableHead">
                 <tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>PayPal</th><th>등록일</th></tr>
               </thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1000,16 +1234,20 @@
               <button id="campApplicantsBackBtn" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
               <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
               <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
+              <button class="btn btn-ghost btn-sm" title="더보기" onclick="openCampDetailMoreMenu(event, this)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">more_vert</span></button>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-              <div class="admin-filter-group">
-                <label>상태</label>
-                <select id="campAppFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
+            <div id="campApplicantsSummary" class="camp-ops-summary"></div>
+            <div id="campDetailTabBar" class="status-tab-bar" style="margin-bottom:12px"></div>
+            <div id="campAppFilterBar" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <!-- 검수 상태는 결과물 탭에서만 노출 (신청 상태는 카드 안 탭으로 이동) -->
+              <div class="admin-filter-group" id="campDelivReviewFilterGroup" style="display:none">
+                <label>검수 상태</label>
+                <select id="campDelivReviewFilter" class="admin-filter" style="width:auto" onchange="loadCampApplicants()">
                   <option value="">전체</option>
-                  <option value="pending">심사중</option>
-                  <option value="approved">승인</option>
-                  <option value="rejected">미승인</option>
-                  <option value="cancelled">취소</option>
+                  <option value="pending">검수대기</option>
+                  <option value="rejected">반려 있음</option>
+                  <option value="approved">모두 승인</option>
                 </select>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
@@ -1021,15 +1259,50 @@
               </div>
             </div>
           </div>
-          <div id="campApplicantsSummary" class="camp-ops-summary"></div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span><span id="campApplicantsStats" style="font-size:12px;color:var(--muted)"></span></div>
+          <div class="admin-card" id="campApplicantsCard">
+            <!-- 카드 제목·건수 줄은 없음 — 상태 탭이 이름과 건수를 함께 보여준다 -->
+            <!-- 상태 탭 줄 우측에 그 탭의 엑셀 버튼 (탭 바는 스크롤 영역이라 밖에서 감싼다) -->
+            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
+              <div id="campAppStatusTabBar" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportCampaignApplicationsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 신청자 엑셀</button>
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>오리엔시트 발송</th><th>결과물</th><th>처리</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <tbody id="campApplicantsBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+            </table>
+            </div>
+          </div>
+          <!-- 결과물 탭 — 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow) 재사용, 캠페인 반복 열은 생략(compact) -->
+          <div class="admin-card" id="campDelivCard" style="display:none">
+            <!-- 카드 제목·건수 줄은 없음 — 인증 상태 탭이 건수를 함께 보여준다 -->
+            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
+              <div id="campDelivCertTabBar" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportCampaignDeliverables(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 결과물 엑셀</button>
+            </div>
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
+              <tbody id="campDelivBody"></tbody>
+            </table>
+            </div>
+          </div>
+          <!-- 예약 현황 탭 — 행사 캠페인 전용. 예전에는 별도 화면(#adminPane-event-tickets)이었는데
+               같은 캠페인을 두 화면에서 봐야 했다. **복사가 아니라 옮겼다** — 두 벌로 두면
+               한쪽만 고쳐져 어긋난다(사용자 요청 2026-08-04). -->
+          <div class="admin-card" id="campTicketsCard" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin:12px 16px 8px;border-bottom:1px solid var(--surface-dim)">
+              <div id="eventTicketStatusTabs" class="status-tab-bar" style="flex:1;margin-bottom:0;border-bottom:none"></div>
+              <div class="admin-filter-group" style="flex-shrink:0">
+                <select id="eventTicketSlotFilter" class="admin-filter" style="width:auto" onchange="onEventTicketSlotFilterChange(this.value)"></select>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
+              <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
+            </div>
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
+              <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
           </div>
@@ -1054,10 +1327,6 @@
                 <label>캠페인 상태</label>
                 <div id="appCampStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>신청 상태</label>
-                <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -1069,6 +1338,8 @@
                 </div>
               </div>
             </div>
+            <!-- 신청 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="appStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <!-- 테이블 리스트 -->
             <div class="admin-card" id="appCampList">
@@ -1078,7 +1349,7 @@
               <div class="admin-table-wrap">
               <table class="data-table">
                 <thead id="appTableHead"><tr><th style="min-width:240px">캠페인</th><th style="min-width:110px">채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
             </div>
@@ -1088,7 +1359,11 @@
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+                <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
+                <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+              </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
                 관리자 대리 등록
@@ -1118,7 +1393,7 @@
               </div>
               <div class="admin-filter-group">
                 <label>최근 제출일</label>
-                <input type="text" id="delivSubmittedRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff">
+                <input type="text" id="delivSubmittedRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>결과물 미제출</label>
@@ -1153,6 +1428,8 @@
                 </div>
               </div>
             </div>
+            <!-- 인증 상태 탭 (다중 필터 대체 — 신청 1건 = 4종 중 하나로 상호 배타) -->
+            <div id="delivCertStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -1163,17 +1440,17 @@
               <thead><tr>
                 <th>캠페인</th>
                 <th>채널</th>
-                <th>브랜드</th>
+                <th class="deliv-col-brand">브랜드</th>
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
                 <th style="width:132px;white-space:nowrap">인증 상태</th>
-                <th style="width:230px">영수증</th>
-                <th style="width:195px">결과물</th>
-                <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
-                <th style="width:120px">처리</th>
+                <th class="deliv-col-receipt">영수증</th>
+                <th class="deliv-col-result">결과물</th>
+                <th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
+                <th class="deliv-col-action">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1192,13 +1469,20 @@
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
-                  과거 미등록
+                  과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
                 </button>
                 <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
                   엑셀
                 </button>
               </div>
+            </div>
+            <!-- 금액 확인 필요 안내 — 인증은 끝났는데 캠페인에 금액이 없어 정산을 만들 수 없는 건.
+                 0건이면 통째로 숨긴다(평소엔 안 보이는 게 정상). -->
+            <div id="settlementAmountIssueBanner" style="display:none;padding:10px 12px;background:#FFF4F4;border:1px solid #F2B8B8;border-radius:8px;font-size:12px;line-height:1.6;color:#8A2B2B;margin-bottom:12px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">error_outline</span>
+              <span id="settlementAmountIssueText"></span>
+              <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openPastUnregView()">확인하러 가기</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1223,7 +1507,7 @@
               <table class="data-table">
                 <thead><tr>
                   <th>인플루언서</th>
-                  <th>캠페인</th>
+                  <th style="min-width:240px">캠페인</th>
                   <th style="width:110px">금액(¥)</th>
                   <th style="width:200px">PayPal</th>
                   <th style="width:90px">상태</th>
@@ -1231,7 +1515,7 @@
                   <th style="width:120px">송금완료일</th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
-                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1252,10 +1536,31 @@
               여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <!-- 필터 — 캠페인 단위로 나눠 처리하도록(대량 오조작 방지). 필터를 바꾸면 선택은 초기화된다 -->
+            <div class="admin-filter-bar" style="margin-bottom:10px">
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <div id="pastUnregCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>모집 형식</label>
+                <select id="pastUnregTypeFilter" class="admin-filter" style="width:140px" onchange="onPastUnregFilterChange()">
+                  <option value="">전체</option>
+                  <option value="monitor">리뷰어형</option>
+                  <option value="gifting">기프팅</option>
+                  <option value="visit">방문형</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:180px">
+                <label>인플루언서 검색</label>
+                <input type="text" id="pastUnregSearch" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="이름 · 가나" oninput="onPastUnregFilterChange()">
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="resetPastUnregFilters()">초기화</button>
+            </div>
+            <div class="admin-filter-bar">
               <div class="admin-filter-group" style="flex:1;min-width:220px">
                 <label>메모 (선택 · 처리 건에 함께 기록)</label>
-                <input type="text" id="pastUnregMemo" class="form-input" style="height:38px" placeholder="예: 시스템 도입 전 외부 지급">
+                <input type="text" id="pastUnregMemo" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="예: 시스템 도입 전 외부 지급">
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
@@ -1270,83 +1575,159 @@
             <div class="admin-table-wrap">
               <table class="data-table">
                 <thead><tr>
-                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 목록 전체 선택"></th>
+                  <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 필터 결과 전체 선택"></th>
                   <th>인플루언서</th>
                   <th>캠페인</th>
-                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:150px">금액(¥)</th>
                   <th style="width:130px">인증성공일</th>
                   <th style="width:100px">PayPal</th>
                 </tr></thead>
-                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
           </div><!-- /settlementPastView -->
         </div>
 
-        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD. admin-outbound.js -->
+        <!-- OUTBOUND (인플루언서 추천 명단) PANE — 아웃바운드 시딩·타이업 명단 CRUD + 조건 추천. admin-outbound.js -->
         <div id="adminPane-outbound" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
-                <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+            <!-- 명단 / 추천 전환 탭 (2단계 — 사양서 2026-07-08 §PR 2단계) -->
+            <div class="outbound-tabbar">
+              <button id="outboundTabList" class="outbound-tab is-active" onclick="outboundTab('list')">명단</button>
+              <button id="outboundTabReco" class="outbound-tab" onclick="outboundTab('recommend')">조건 추천</button>
+            </div>
+
+            <!-- 명단 컨트롤 (제목·버튼·필터) -->
+            <div id="outboundListControls">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 추천 명단</div>
+                  <div style="font-size:12px;color:var(--muted)">영업팀이 직접 컨택하는 아웃바운드 시딩·타이업 인플루언서 명단(내부 자산)</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                    엑셀
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
+                    신규 등록
+                  </button>
+                </div>
               </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn btn-ghost btn-sm" onclick="exportOutboundExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
-                  엑셀
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="openOutboundEditModal(null)">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_add</span>
-                  신규 등록
-                </button>
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열</label>
+                  <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>세분</label>
+                  <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="outboundTierFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>가용상태</label>
+                  <select id="outboundAvailFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="available">진행가능</option>
+                    <option value="adjusting">조율중</option>
+                    <option value="unavailable">불가</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="outboundChannelFilter" class="admin-filter" style="width:auto" onchange="renderOutboundList()">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                  <label>검색</label>
+                  <div style="position:relative">
+                    <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+                  </div>
+                </div>
               </div>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-              <div class="admin-filter-group">
-                <label>계열</label>
-                <div id="outboundSeriesMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 계열</button><div class="mf-drop" style="min-width:200px"></div></div>
+
+            <!-- 추천 조건 입력 (숨김) — 계열 필수, 나머지 선택 -->
+            <div id="outboundRecoControls" style="display:none">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">조건 추천</div>
+                <div style="font-size:12px;color:var(--muted)">계열만 필수, 나머지는 선택입니다. 성과 데이터가 쌓이기 전이라 조건 적합도 기준으로 정렬합니다.</div>
               </div>
-              <div class="admin-filter-group">
-                <label>세분</label>
-                <div id="outboundCategoryMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 세분</button><div class="mf-drop" style="min-width:200px"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>등급</label>
-                <select id="outboundTierFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
-                <label>가용상태</label>
-                <select id="outboundAvailFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                  <option value="available">진행가능</option>
-                  <option value="adjusting">조율중</option>
-                  <option value="unavailable">불가</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
-                <label>채널</label>
-                <select id="outboundChannelFilter" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderOutboundList()">
-                  <option value="">전체</option>
-                  <option value="ig">Instagram</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="x">X</option>
-                </select>
-              </div>
-              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
-                <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="outboundSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 계정 · 소속사 검색" oninput="renderOutboundList()">
+              <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div class="admin-filter-group">
+                  <label>계열 <span style="color:var(--pink)">*</span></label>
+                  <select id="recoSeries" class="admin-filter" style="width:auto">
+                    <option value="">선택하세요</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>모집형식</label>
+                  <select id="recoFormat" class="admin-filter" style="width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="feed">피드</option>
+                    <option value="reels">릴스</option>
+                    <option value="story">스토리</option>
+                    <option value="tiktok">틱톡</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>등급</label>
+                  <select id="recoTier" class="admin-filter" style="width:auto">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>채널</label>
+                  <select id="recoChannel" class="admin-filter" style="width:auto">
+                    <option value="">전체</option>
+                    <option value="ig">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <label>예산 (¥)</label>
+                  <input type="text" id="recoBudget" class="admin-filter" inputmode="numeric" autocomplete="off" placeholder="¥ 미입력" style="width:110px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>인원수</label>
+                  <input type="text" id="recoHeadcount" class="admin-filter" inputmode="numeric" autocomplete="off" placeholder="명" style="width:70px">
+                </div>
+                <div class="admin-filter-group">
+                  <label>광고목적</label>
+                  <select id="recoPurpose" class="admin-filter" style="width:auto">
+                    <option value="">선택 안 함</option>
+                    <option value="new">신제품</option>
+                    <option value="sale">세일</option>
+                    <option value="branding">브랜딩</option>
+                  </select>
+                </div>
+                <div class="admin-filter-group">
+                  <button class="btn btn-primary btn-sm" onclick="runOutboundRecommend()" style="height:32px">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">auto_awesome</span>
+                    추천
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-          <div class="admin-card">
+
+          <!-- 명단 결과 카드 -->
+          <div id="outboundListCard" class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 명단</span><span id="outboundTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
@@ -1354,17 +1735,45 @@
               <table class="data-table">
                 <thead><tr>
                   <th style="width:56px">대표</th>
-                  <th>이름</th>
-                  <th style="width:140px">계정</th>
+                  <th style="width:140px">이름</th>
                   <th style="width:90px">계열</th>
                   <th style="width:90px">세분</th>
-                  <th style="width:120px">등급</th>
-                  <th style="width:150px">주채널 팔로워</th>
+                  <th style="width:120px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
+                  <th style="width:100px">Instagram</th>
+                  <th style="width:100px">TikTok</th>
+                  <th style="width:100px">YouTube</th>
+                  <th style="width:90px">X</th>
                   <th style="width:90px">가용상태</th>
                   <th style="width:130px">소속사</th>
                   <th style="width:90px">처리</th>
                 </tr></thead>
-                <tbody id="outboundTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="outboundTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 추천 결과 카드 (숨김) -->
+          <div id="outboundRecoCard" class="admin-card" style="display:none">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">추천 결과</span><span id="recoResultCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:44px">순위</th>
+                  <th style="width:70px">적합도</th>
+                  <th style="width:140px">이름</th>
+                  <th style="width:80px">계열</th>
+                  <th style="width:110px">등급 <span class="tier-help-icon" onclick="event.stopPropagation(); toggleTierHelp(this)" title="등급 기준 보기">?</span></th>
+                  <th style="width:100px">Instagram</th>
+                  <th style="width:100px">TikTok</th>
+                  <th style="width:100px">YouTube</th>
+                  <th style="width:90px">X</th>
+                  <th style="width:110px">선택형식 단가</th>
+                  <th style="width:80px">가용</th>
+                  <th>근거</th>
+                </tr></thead>
+                <tbody id="recoTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">계열을 선택하고 「추천」을 누르세요.</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1380,11 +1789,12 @@
               </div>
               <div class="perm-actions">
                 <span class="perm-changecount">변경 없음</span>
+                <button class="btn btn-xs" id="permSuperRestoreBtn" onclick="restoreSuperPermDefaults()" disabled title="슈퍼관리자 권한만 전권으로 되돌립니다 (다른 등급 설정은 그대로)">슈퍼관리자만 복원</button>
                 <button class="btn btn-xs" id="permRestoreBtn" onclick="restorePermDefaults()" disabled>기본값 복원</button>
                 <button class="btn btn-primary btn-xs" id="permSaveBtn" onclick="savePermChanges()" disabled>저장</button>
               </div>
             </div>
-            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. 지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>
+            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>항목마다 <b>제한이 어디까지 먹히는지</b>가 다릅니다. <span class="perm-tag perm-tag-server">서버 차단</span>은 데이터까지 막히고, <span class="perm-tag">화면에서만</span>은 메뉴·버튼만 감춰지며(데이터는 서버에서 열려 있음), <span class="perm-tag perm-tag-none">슈퍼 적용 안 됨</span>은 슈퍼관리자에게는 설정이 적용되지 않습니다. 슈퍼관리자 제한은 실수 방지용이며 이 화면에서 언제든 되돌릴 수 있습니다.</span></div>
           </div>
           <div class="admin-card">
             <div id="permPaneBody"><!-- admin-permissions.js 가 그리드 렌더 --></div>
@@ -1401,7 +1811,7 @@
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>상태</label>
-                <select id="errFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterStatus" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="open">미해결</option>
                   <option value="resolved">해결됨</option>
                   <option value="ignored">무시</option>
@@ -1410,7 +1820,7 @@
               </div>
               <div class="admin-filter-group">
                 <label>앱</label>
-                <select id="errFilterSource" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterSource" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
                   <option value="influencer">인플루언서</option>
                   <option value="admin">관리자</option>
@@ -1418,7 +1828,7 @@
               </div>
               <div class="admin-filter-group">
                 <label>기간</label>
-                <select id="errFilterDays" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                <select id="errFilterDays" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
                   <option value="7">최근 7일</option>
                   <option value="30">최근 30일</option>
@@ -1440,7 +1850,7 @@
             <div class="admin-table-wrap">
               <table class="data-table">
                 <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th style="width:60px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
-                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1492,7 +1902,7 @@
               <div class="admin-filter-group">
                 <label>미응대</label>
                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
-                  <input type="checkbox" onchange="toggleInboxUnresolved(this.checked)" style="margin:0">
+                  <input type="checkbox" id="inboxUnresolvedCheckbox" onchange="toggleInboxUnresolved(this.checked)" style="margin:0">
                   <span>미응대만</span>
                 </label>
               </div>
@@ -1534,136 +1944,106 @@
         </div>
 
         <div id="adminPane-brand-dashboard" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
-            <div>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이 현황</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">광고주 신청 접수·검수·성약 현황 요약 (brand_applications 기반)</div>
+          <!-- 공개 접수 중단 안내 — brand_survey_settings.submissions_open 이 꺼져 있을 때만.
+               신규 유입 0 이 고장으로 오해되는 걸 막는 안내이고, 잠금을 푸는 기능은 없다. -->
+          <div id="brandSurveyClosedNotice" class="dash-section" style="display:none;align-items:center;gap:8px;background:var(--gold-l);border:1px solid var(--gold);border-radius:12px;padding:10px 14px">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--gold)">lock</span>
+            <span style="font-size:12px;color:var(--ink)">현재 <strong>광고주 공개 신청 폼이 잠겨</strong> 있습니다 — 새 신청이 들어오지 않아 아래 신규 유입 숫자는 0으로 표시됩니다.</span>
+          </div>
+
+          <!-- 상단 2단: 장기 대기(먼저 볼 것) | 접수·처리 현황 -->
+          <div class="dash-top-grid" id="brandDashTopGrid">
+            <div class="admin-card" id="brandLongPendingCard" style="margin-bottom:0;display:none">
+              <div class="admin-card-header">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--gold)">schedule</span>
+                  <span class="admin-card-title">장기 대기 (접수 후 3일 이상)</span>
+                </div>
+                <span id="brandLongPendingCount" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div id="brandLongPendingList" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="loadBrandDashboard()" style="display:inline-flex;align-items:center;gap:4px" title="데이터 새로고침">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span>
-                새로고침
-              </button>
-              <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 광고주 설문 페이지 열기">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
-                설문 페이지
-              </a>
+            <div class="admin-card" style="margin-bottom:0">
+              <div class="admin-card-header">
+                <span class="admin-card-title">접수·처리 현황</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="loadBrandDashboard()">새로고침</button>
+                  <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-xs" title="새 탭에서 광고주 설문 페이지 열기">설문 페이지</a>
+                </div>
+              </div>
+              <div class="kpi-row">
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiTotal">—</div><div class="kpi-lbl">전체 신청</div></div>
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiPending">—</div><div class="kpi-lbl">검수 대기 <span style="opacity:.75">(제품 기준)</span></div></div>
+                <div class="kpi-card"><div class="kpi-val" id="brandKpiLeadTime">—</div><div class="kpi-lbl">평균 처리일 (접수→완료)</div></div>
+              </div>
             </div>
           </div>
 
-          <!-- KPI Row 1: 전체 · 리뷰어 · 시딩 · 이번달 -->
-          <div class="kpi-row">
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiReviewer">—</div><div class="kpi-lbl">리뷰어 (Qoo10)</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiSeeding">—</div><div class="kpi-lbl">시딩 (나노)</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
-          </div>
-
-          <!-- KPI Row 2: 검수 대기 · 견적 전달 · 입금완료 · 평균 처리일 -->
-          <div class="kpi-row" style="margin-top:12px">
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiPending">—</div><div class="kpi-lbl">검수 대기 (new+reviewing)</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiQuoted">—</div><div class="kpi-lbl">견적 전달 (quoted)</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiDone">—</div><div class="kpi-lbl">최종완료 (done)</div></div>
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiLeadTime">—</div><div class="kpi-lbl">평균 처리일 (new→done)</div></div>
-          </div>
-
-          <!-- 견적 합계 -->
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px">
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
-              <div id="brandKpiEstimated" style="font-size:20px;font-weight:800;color:var(--ink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px">초기 접수 기준 추정치</div>
-            </div>
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
-              <div id="brandKpiFinal" style="font-size:20px;font-weight:800;color:var(--pink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px">quoted 이상 단계 합산</div>
+          <!-- 견적 금액 — 메인 컬러 카드 -->
+          <div class="admin-card accent-card dash-section" style="padding:16px">
+            <div class="admin-card-title" style="margin-bottom:10px">견적 금액 <span style="font-size:10px;font-weight:400;color:#fff;opacity:.9">(원)</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <div style="flex:1;min-width:200px;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 12px">
+                <div style="font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums" id="brandKpiEstimated">—</div>
+                <div style="font-size:11px;color:#fff;opacity:.9;margin-top:2px">접수 기준 예상 견적 (전체)</div>
+              </div>
+              <div style="flex:1;min-width:200px;background:rgba(255,255,255,.16);border-radius:10px;padding:10px 12px">
+                <div style="font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums" id="brandKpiFinal">—</div>
+                <div style="font-size:11px;color:#fff;opacity:.9;margin-top:2px">견적 전달 이후 단계 합계</div>
+              </div>
             </div>
           </div>
 
           <!-- 전환 깔때기 -->
-          <div class="admin-card" style="margin-top:16px;padding:18px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">전환 깔때기 (접수 → 최종완료)</div>
-              <div style="font-size:10px;color:var(--muted)">각 단계는 "해당 단계 이상 도달한 건수" 기준</div>
+          <div class="admin-card dash-section">
+            <div class="admin-card-header">
+              <span class="admin-card-title">전환 깔때기 (접수 → 최종완료)</span>
+              <span style="font-size:11px;color:var(--muted)">각 단계는 「그 단계 이상 도달한 제품 수」 기준</span>
             </div>
-            <div id="brandFunnel" style="display:flex;flex-direction:column;gap:8px">
-              <div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">데이터 로드 중…</div>
-            </div>
+            <div id="brandFunnel" style="padding:16px;display:flex;flex-direction:column;gap:8px"></div>
           </div>
 
-          <!-- 도넛 2개 + 일별 추이 -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">폼 종류 분포</div>
+          <!-- 단계별 신청 분포 — 메인 컬러 카드 + 흰 칸 (상태 도넛 대체) -->
+          <div class="admin-card accent-card dash-section" style="padding:16px">
+            <div class="admin-card-title" style="margin-bottom:10px">단계별 신청 분포 <span style="font-size:10px;font-weight:400;color:#fff;opacity:.9">(제품 기준 · <span id="brandStatusTotal"></span>)</span></div>
+            <div id="brandStatusChips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          </div>
+
+          <!-- 2단: 폼 종류 분포 | 일별 신청 추이 -->
+          <div class="dash-2col">
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">폼 종류 분포</span>
                 <span id="brandFormTotal" style="font-size:11px;color:var(--muted)"></span>
               </div>
-              <div style="height:200px;position:relative">
+              <div style="padding:16px;height:220px;position:relative">
                 <canvas id="brandFormDonut"></canvas>
-                <div id="brandFormEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
+                <div id="brandFormEmpty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
               </div>
             </div>
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">상태 분포</div>
-                <span id="brandStatusTotal" style="font-size:11px;color:var(--muted)"></span>
-              </div>
-              <div style="height:200px;position:relative">
-                <canvas id="brandStatusDonut"></canvas>
-                <div id="brandStatusEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="admin-card" style="margin-top:16px;padding:18px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">일별 신청 추이</div>
-              <div style="display:flex;gap:6px">
-                <button class="brand-trend-btn on" data-days="7" onclick="switchBrandTrendPeriod(7,this)">7일</button>
-                <button class="brand-trend-btn" data-days="30" onclick="switchBrandTrendPeriod(30,this)">30일</button>
-                <button class="brand-trend-btn" data-days="90" onclick="switchBrandTrendPeriod(90,this)">90일</button>
-              </div>
-            </div>
-            <div style="height:220px;position:relative">
-              <canvas id="brandTrendChart"></canvas>
-            </div>
-          </div>
-
-          <!-- 최근 신청 + 장기 대기 리스트 -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">최근 신청 5건</div>
-                <a href="#brand-applications" onclick="switchAdminPane('brand-applications',null)" style="font-size:11px;color:var(--pink);text-decoration:none">신청 목록 ▸</a>
-              </div>
-              <div id="brandRecentList" style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">로드 중…</div></div>
-            </div>
-            <div class="admin-card" style="padding:18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13px;font-weight:700;color:var(--ink)">장기 대기 (new 3일+)</div>
-                <span id="brandLongPendingCount" style="font-size:11px;color:var(--muted)"></span>
-              </div>
-              <div id="brandLongPendingList" style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">로드 중…</div></div>
-            </div>
-          </div>
-
-          <!-- Vercel Analytics 링크 카드 (Phase 1: 링크만, Phase 2 Edge Function 연동 예정) -->
-          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(200,120,163,.06),rgba(80,120,200,.06))">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-              <div>
-                <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--pink)">leaderboard</span>
-                  설문 페이지 접속 통계
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">일별 신청 추이</span>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-ghost btn-xs brand-trend-btn on" data-days="7" onclick="switchBrandTrendPeriod(7,this)">7일</button>
+                  <button class="btn btn-ghost btn-xs brand-trend-btn" data-days="30" onclick="switchBrandTrendPeriod(30,this)">30일</button>
+                  <button class="btn btn-ghost btn-xs brand-trend-btn" data-days="90" onclick="switchBrandTrendPeriod(90,this)">90일</button>
                 </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:4px">index / reviewer / seeding 페이지별 방문자·고유방문자·유입경로는 Vercel Web Analytics 대시보드에서 확인 (쿠키 미사용)</div>
               </div>
-              <a href="https://vercel.com/jfun-reverbs-projects/reverb-sales/analytics" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
-                Vercel Analytics 열기
-              </a>
+              <div style="padding:16px;height:220px;position:relative"><canvas id="brandTrendChart"></canvas></div>
             </div>
           </div>
+
+          <!-- 최근 신청 5건 -->
+          <div class="admin-card dash-section">
+            <div class="admin-card-header">
+              <span class="admin-card-title">최근 신청 5건</span>
+              <a href="#brand-applications" onclick="switchAdminPane('brand-applications',null)" style="font-size:11px">신청 목록 ▸</a>
+            </div>
+            <div id="brandRecentList" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
         </div>
 
         <!-- BRANDS (브랜드 마스터) PANE -->
@@ -1672,7 +2052,7 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:18px;font-weight:700;color:var(--ink)">운영 현황</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">운영 현황</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드별 진행 상황을 한눈에. 경고 단계가 높은 브랜드부터 표시됩니다</div>
               </div>
               <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
@@ -1718,7 +2098,7 @@
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
         <div id="adminPane-brand-ops-detail" class="admin-pane">
-          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div></div>
         </div>
 
         <!-- LINK CAMPAIGN MODAL (캠페인 ↔ 신청 연결) -->
@@ -1741,7 +2121,7 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:18px;font-weight:700;color:var(--ink)">회사 관리</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">회사 관리</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">회사 마스터. 회사 1개에 브랜드 여러 개가 소속됩니다</div>
               </div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -1785,7 +2165,7 @@
                   <th style="width:100px">상태</th>
                   <th style="width:240px">작업</th>
                 </tr></thead>
-                <tbody id="companiesTableBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="companiesTableBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1837,7 +2217,7 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:18px;font-weight:700;color:var(--ink)">브랜드 관리</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 관리</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">광고주 마스터. 신청 목록과 별도로 브랜드 단위로 관리</div>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openNewBrandModal()" style="display:inline-flex;align-items:center;gap:4px">
@@ -1882,7 +2262,7 @@
                   <th style="width:100px">상태</th>
                   <th style="width:220px">메모</th>
                 </tr></thead>
-                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1994,7 +2374,7 @@
                 <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2035,9 +2415,10 @@
                   <th style="width:120px">발급일</th>
                   <th style="width:120px">작성 기한</th>
                   <th style="width:140px">제출일시</th>
+                  <th style="width:70px">메모</th>
                   <th style="width:170px">관리</th>
                 </tr></thead>
-                <tbody id="orientTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+                <tbody id="orientTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2048,7 +2429,11 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div>
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
+                  <!-- 채널 어긋남 경고 — 여기가 원인을 만드는 자리라 같은 신호를 띄운다 -->
+                  <button id="lookupDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+                </div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">캠페인에서 사용하는 채널·카테고리·콘텐츠 종류·NG 프리셋을 관리합니다 (campaign_admin 이상)</div>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
@@ -2074,7 +2459,7 @@
             <table class="data-table">
               <thead id="lookupTableHead"></thead>
               <tbody id="lookupsTableBody">
-                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
             </div>
@@ -2099,7 +2484,7 @@
                 <button class="btn btn-ghost btn-xs" id="btnFaqCatReorder" onclick="toggleFaqReorder('category')">순서 변경</button>
               </div>
               <div class="faq-list" id="faqCatList">
-                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>
               </div>
               <div class="faq-col-footer">
                 <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqEditModal(null, null, 'category')">+ 카테고리 추가</button>
@@ -2138,6 +2523,13 @@
                 </select>
               </div>
               <div class="admin-filter-group">
+                <label>미읽음</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;height:32px">
+                  <input type="checkbox" id="adminNoticeUnreadFilter" onchange="renderAdminNotices()" style="margin:0">
+                  <span>미읽음만</span>
+                </label>
+              </div>
+              <div class="admin-filter-group">
                 <label>카테고리</label>
                 <select id="adminNoticeCatFilter" class="admin-filter" onchange="renderAdminNotices()">
                   <option value="all">전체</option>
@@ -2174,7 +2566,10 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 계정</div>
-              <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+              <div style="display:flex;gap:8px">
+                <button id="btnPermManageBtn" class="btn btn-ghost btn-sm" style="display:none" onclick="navAdminPaneReload('permissions')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;margin-right:2px">shield</span>권한 관리</button>
+                <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+              </div>
             </div>
           </div>
           <div class="admin-card">
@@ -2183,8 +2578,8 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th>등록일</th><th>처리</th></tr></thead>
-              <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th style="width:170px" title="초대 메일 발송 여부와 본인이 비밀번호를 설정했는지">초대 메일</th><th>등록일</th><th>처리</th></tr></thead>
+              <tbody id="adminAccountsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2267,7 +2662,7 @@
           <option value="super_admin">슈퍼관리자</option>
         </select>
       </div>
-      <div id="adminFormInviteNotice" style="background:#FDF0F7;border:1px solid rgba(200,120,163,.25);border-radius:10px;padding:10px 12px;font-size:11px;color:#7D4A6A;line-height:1.6;margin-bottom:10px">
+      <div id="adminFormInviteNotice" style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:10px 12px;font-size:11px;color:#52525B;line-height:1.6;margin-bottom:10px">
         추가 시 초대 이메일이 발송됩니다. 받는 분이 이메일 링크로 직접 비밀번호를 설정해야 로그인 가능합니다.
       </div>
       <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
@@ -2349,8 +2744,8 @@
       <div style="font-size:17px;font-weight:800;color:var(--ink)">캠페인 삭제</div>
     </div>
     <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">
-      이 작업은 되돌릴 수 없습니다.<br>
-      해당 캠페인의 <strong>모든 신청 데이터도 함께 삭제</strong>됩니다.
+      이 캠페인은 <strong>30일간 「삭제됨」 탭에 보관</strong>되며 그 안에 복구할 수 있습니다. 30일 후 자동으로 완전 삭제됩니다.<br>
+      <strong style="color:#B3261E">단, 응모자·신청 내역은 즉시 삭제되어 복구해도 되돌릴 수 없습니다.</strong>
     </div>
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">삭제할 캠페인</div>
@@ -2367,6 +2762,17 @@
       <button class="btn btn-ghost" onclick="closeDeleteCampModal()" style="flex:1;border-radius:12px;padding:14px">취소</button>
       <button class="btn" id="deleteCampBtn" disabled onclick="executeDeleteCampaign()" style="flex:1;border-radius:12px;padding:14px;background:#B3261E;color:#fff;opacity:.4;cursor:not-allowed">삭제</button>
     </div>
+  </div>
+</div>
+
+<!-- 삭제된 캠페인 정보 (읽기 전용) — 「삭제됨」 탭 제목 클릭 시. 인플 앱이 삭제 캠페인을 못 봐 iframe 미리보기 불가라 관리자용 정보 요약 -->
+<div id="deletedCampDetailModal" class="modal-overlay">
+  <div class="modal" style="max-width:560px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">삭제된 캠페인 정보 <span style="font-size:12px;color:var(--muted);font-weight:400">(읽기 전용)</span></div>
+      <div class="modal-close" onclick="closeModal('deletedCampDetailModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body" id="deletedCampDetailBody" style="overflow-y:auto"></div>
   </div>
 </div>
 
@@ -2398,6 +2804,10 @@
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0">
         <span style="font-size:14px;font-weight:700;color:var(--ink)">캠페인 미리보기</span>
         <div style="display:flex;align-items:center;gap:8px">
+          <div class="cp-lang-toggle" id="campPreviewModalLangToggle">
+            <button type="button" data-lang="ja" class="active" onclick="setCampPreviewModalLang('ja')">日本語</button>
+            <button type="button" data-lang="ko" onclick="setCampPreviewModalLang('ko')">한국어</button>
+          </div>
           <button class="btn btn-primary btn-xs" id="campPreviewEditBtn" onclick="">편집</button>
           <span class="material-icons-round notranslate" translate="no" style="font-size:20px;cursor:pointer;color:var(--muted)" onclick="closeModal('campPreviewModal')">close</span>
         </div>
@@ -2545,7 +2955,7 @@
 
 <!-- 캠페인 상태 도움말 모달 -->
 <div class="modal-overlay" id="campStatusHelpModal" style="z-index:600">
-  <div class="modal" style="max-width:640px;border-radius:16px;margin:auto;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
+  <div class="modal" style="max-width:760px;border-radius:16px;margin:auto;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">캠페인 상태 안내 — 노출 · 저절로 바뀜 · 수정 가능 여부</div>
       <div class="modal-close" onclick="closeModal('campStatusHelpModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -2556,44 +2966,48 @@
       <table class="data-table" style="width:100%;font-size:12px">
         <thead>
           <tr style="background:var(--surface-dim)">
-            <th style="padding:8px 10px;text-align:left">상태</th>
-            <th style="padding:8px 10px;text-align:left">뜻</th>
+            <th style="padding:8px 10px;text-align:left;width:92px;white-space:nowrap">상태</th>
+            <th style="padding:8px 10px;text-align:left;width:170px">뜻</th>
             <th style="padding:8px 10px;text-align:left">인플루언서에게 보이나요</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#EEE;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">준비</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#EEE;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">준비</span></td>
             <td style="padding:8px 10px">아직 만드는 중</td>
-            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임</td>
+            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임 <span style="font-weight:400;color:var(--muted)">(링크로도 못 들어감 · 단, 이미 응모한 사람은 응모이력에서 볼 수 있음)</span></td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#FFF8E1;color:#8B6914;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집예정</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#FFF8E1;color:#8B6914;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집예정</span></td>
             <td style="padding:8px 10px">곧 모집 시작</td>
             <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (近日公開)</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#E6F3E8;color:#274;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집중</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#E6F3E8;color:#274;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집중</span></td>
             <td style="padding:8px 10px">지금 모집 중</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中)</td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">보임 (募集中) <span style="color:var(--gold)">*</span></td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#FCE4EC;color:#AD1457;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#FFE4EC;color:#B91C5C;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">모집마감</span></td>
             <td style="padding:8px 10px">모집 끝 · 결과물 받는 중</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">보임 (募集締切), 끌 때까지</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#E8EAF6;color:#283593;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">종료</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#E8EAF6;color:#283593;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">종료</span></td>
             <td style="padding:8px 10px">결과물까지 다 끝남</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">보임 (終了), 끌 때까지</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">노출종료</span></td>
+            <td style="padding:8px 10px;white-space:nowrap"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">노출종료</span></td>
             <td style="padding:8px 10px">운영자가 화면에서 내림</td>
-            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임</td>
+            <td style="padding:8px 10px;color:var(--red);font-weight:600">안 보임 <span style="font-weight:400;color:var(--muted)">(링크로도 못 들어감 · 단, 이미 응모한 사람은 응모이력에서 볼 수 있음)</span></td>
           </tr>
         </tbody>
       </table>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
+        <span style="color:var(--gold)">*</span> 상태가 「모집중」이어도 <strong>모집 마감일이 지나면</strong> 인플루언서 화면에는 「募集締切」로 보이고 응모 버튼이 닫힙니다.
+        화면은 상태뿐 아니라 <strong>날짜도 함께</strong> 보기 때문입니다(일본 시간 기준, 마감일 당일 24시까지 응모 가능).
+      </div>
 
       <div style="margin-top:18px;padding:14px;background:var(--light-pink);border-radius:10px;font-size:12px;line-height:1.7">
         <div style="font-weight:700;color:var(--dark-pink);margin-bottom:6px">② 상태가 저절로 바뀌는 경우</div>
@@ -2602,28 +3016,35 @@
           <li>모집 <strong>마감일</strong>이 지나면 → 모집중에서 <strong>모집마감</strong>으로 저절로</li>
           <li>결과물 <strong>제출 마감일</strong>이 지나면 → 모집마감에서 <strong>종료</strong>로 저절로</li>
           <li><strong>노출종료</strong>는 저절로 안 됨 — 운영자가 「캠페인 노출」을 꺼야만 됩니다</li>
+          <li>상태를 <strong>「모집마감」으로 바꿀 때</strong> 마감일이 아직 남아 있으면, 확인 후 <strong>마감일도 오늘로 함께</strong> 저장됩니다(「지금 마감」)</li>
         </ul>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08);color:var(--ink)">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle;color:var(--gold)">warning</span>
+          <strong>「저절로」는 정해진 시각에 알아서 도는 것이 아닙니다.</strong> 누군가(관리자나 인플루언서) <strong>캠페인 목록을 열 때</strong> 갱신됩니다.
+          아무도 열지 않으면 마감일이 지나도 상태는 그대로 남아 있을 수 있습니다.
+          다만 그 경우에도 <strong>응모는 받지 않습니다</strong> — 화면과 서버가 날짜를 각각 확인하기 때문입니다.
+        </div>
       </div>
 
       <div style="font-size:13px;font-weight:700;color:var(--ink);margin:18px 0 8px">③ 상태에 따라 고칠 수 있는 것 / 없는 것</div>
       <table class="data-table" style="width:100%;font-size:12px">
         <thead>
           <tr style="background:var(--surface-dim)">
-            <th style="padding:8px 10px;text-align:left">무엇을</th>
-            <th style="padding:8px 10px;text-align:left">준비 · 모집예정 · 모집중</th>
-            <th style="padding:8px 10px;text-align:left">모집마감 · 종료 · 노출종료</th>
+            <th style="padding:8px 10px;text-align:left;width:38%">무엇을</th>
+            <th style="padding:8px 10px;text-align:left;width:31%">준비 · 모집예정 · 모집중</th>
+            <th style="padding:8px 10px;text-align:left;width:31%">모집마감 · 종료 · 노출종료</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style="padding:8px 10px">모집 기간(시작·마감일)</td>
             <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음 <span style="color:var(--gold)">†</span></td>
           </tr>
           <tr>
             <td style="padding:8px 10px">결과물 제출 마감일</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
-            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음</td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음 <span style="color:var(--gold)">‡</span></td>
+            <td style="padding:8px 10px;color:var(--green);font-weight:600">고칠 수 있음 <span style="color:var(--gold)">‡</span></td>
           </tr>
           <tr>
             <td style="padding:8px 10px">구매 · 방문 기간</td>
@@ -2640,10 +3061,17 @@
       <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
         * 주의사항·참여방법·NG는 신청자가 1명이라도 있으면 「정말 바꿀까요?」 확인창이 뜹니다.<br>
         * 「모집중」·「모집예정」으로 저장하려면 모집 마감일이 아직 안 지났어야 합니다.<br>
-        * 날짜는 서로 순서가 맞아야 저장됩니다 (모집마감 &gt; 시작, 제출마감 &gt; 구매·방문 종료 등).
+        * 날짜는 서로 순서가 맞아야 저장됩니다 (모집마감 &gt; 시작, 제출마감 &gt; 구매·방문 종료 등).<br>
+        <span style="color:var(--gold)">†</span> <strong>모집을 다시 여는 경우</strong> — 마감일이 <strong>이미 지났는데</strong>, 그것을 <strong>아직 오지 않은 날짜로</strong> 바꾸면(예: 마감일 7월 25일 → 8월 10일로 수정) 확인창이 뜹니다.
+        저장하면 <strong>상태도 「모집중」으로 함께</strong> 바뀝니다. 마감일만 따로 저장할 수는 없고, 취소하면 마감일도 저장되지 않습니다.<br>
+        <span style="color:var(--gold)">‡</span> 결과물 제출 마감일에는 제약이 두 가지 있습니다 —
+        <strong>㉠ 과거 날짜로는 바꿀 수 없습니다</strong>(승인된 인플루언서가 그 순간 제출할 수 없게 되므로),
+        <strong>㉡ 모집 마감일보다 이르면 저장이 막힙니다</strong>(응모는 받는데 결과물은 낼 수 없는 상태가 되므로).<br>
+        <span style="color:var(--dark-pink)">■</span> <strong>제출 마감일을 바꾸면 승인된 인플루언서에게 알림이 갑니다</strong>(늘려도, 줄여도). 모집 마감일 변경은 알림이 가지 않습니다.
       </div>
       <div style="margin-top:14px;padding:12px 14px;background:var(--surface-dim);border-radius:10px;font-size:12px;line-height:1.6;color:var(--ink)">
-        <strong>한 줄 정리:</strong> 날짜는 거의 다 고칠 수 있고, 모집마감 이후엔 <strong>주의사항·참여방법·NG</strong>만 잠깁니다.
+        <strong>한 줄 정리:</strong> 날짜는 거의 다 고칠 수 있지만 <strong>서로 순서가 맞아야</strong> 하고, 모집마감 이후엔 <strong>주의사항·참여방법·NG</strong>가 잠깁니다.<br>
+        마감일이 지나면 <strong>응모·결과물 제출이 자동으로 막힙니다</strong>(상태와 상관없이). 마감 뒤에도 낼 수 있는 것은 <strong>반려된 항목의 재제출</strong>뿐입니다.
       </div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--line);text-align:right">
@@ -3314,12 +3742,31 @@
 
 <!-- 캠페인 변경 이력 모달 (Phase 2 — super_admin 한정)
      campaign_caution_history 행을 시간 역순 타임라인으로 표시. 각 행 클릭 → prev/next diff 펼침 -->
+<!-- 채널 코드 어긋남 — 경고 내용 + 조치 방법.
+     조치를 따라 하는 동안 띄워둘 수 있어야 하므로 DRAGGABLE_ADMIN_MODALS 에 등록돼
+     드래그·크기 조정이 된다(admin-core.js). -->
+<div class="modal-overlay" id="channelDriftModal" style="z-index:626">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#C33;font-size:22px">report_problem</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">채널 코드가 어긋난 항목</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">창을 열어둔 채로 조치를 진행할 수 있습니다 (제목을 끌어 옮기거나 모서리로 크기 조정)</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeChannelDriftModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="channelDriftModalBody" style="padding:16px 22px 20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="cautionHistoryModal" style="z-index:625">
   <div class="modal" style="max-width:820px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="material-icons-round notranslate" translate="no" style="color:var(--pink);font-size:22px">history</span>
-        <div style="font-size:16px;font-weight:700;color:var(--ink)">주의사항 / 참여방법 변경 이력</div>
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 변경 이력</div>
       </div>
       <button class="btn btn-ghost btn-xs" onclick="closeCautionHistoryModal()" style="padding:4px 10px">✕</button>
     </div>
@@ -3387,6 +3834,12 @@
   </div>
 </div>
 
+<!-- 등급 열 헤더 「?」 도움말 팝오버 (admin-outbound.js toggleTierHelp, fixed 배치) -->
+<div id="tierHelpPop" style="display:none;position:fixed;z-index:9999;background:#333;color:#fff;font-size:11px;padding:8px 12px;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.25);max-width:300px">
+  <div style="font-weight:600;margin-bottom:3px">등급 기준 (팔로워)</div>
+  <div class="tier-help-body"></div>
+</div>
+
 <!-- 인플루언서 추천 명단 등록·편집 모달 (admin-outbound.js) -->
 <div class="modal-overlay" id="outboundEditModal" style="z-index:615">
   <div class="modal" style="max-width:720px;width:96vw;border-radius:18px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
@@ -3434,15 +3887,15 @@
       </div>
 
       <!-- 채널 -->
-      <div class="outbound-form-section-title">채널 (핸들 · 팔로워)</div>
+      <div class="outbound-form-section-title">채널 (아이디 · 팔로워)</div>
       <div style="display:grid;grid-template-columns:1fr 130px;gap:8px 14px;align-items:end">
-        <div class="form-group"><label class="form-label">Instagram 핸들</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">Instagram 아이디</label><input type="text" id="obIgHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obIgFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">TikTok 핸들</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">TikTok 아이디</label><input type="text" id="obTiktokHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obTiktokFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">YouTube 핸들</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">YouTube 아이디</label><input type="text" id="obYoutubeHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">구독자</label><input type="text" id="obYoutubeFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
-        <div class="form-group"><label class="form-label">X 핸들</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
+        <div class="form-group"><label class="form-label">X 아이디</label><input type="text" id="obXHandle" class="form-input" placeholder="@ 또는 URL"></div>
         <div class="form-group"><label class="form-label">팔로워</label><input type="text" id="obXFollowers" class="form-input" inputmode="numeric" placeholder="미입력"></div>
       </div>
 
@@ -3505,8 +3958,28 @@
     <div class="modal-body" style="padding:28px 24px 22px">
       <div id="confirmModalMessage" style="font-size:14px;line-height:1.7;color:var(--ink);white-space:pre-line"></div>
       <div style="display:flex;gap:10px;margin-top:22px;justify-content:center">
-        <button class="btn btn-ghost" style="min-width:100px" onclick="resolveConfirmModal(false)">취소</button>
-        <button class="btn btn-primary" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
+        <button class="btn btn-ghost" id="confirmModalCancelBtn" style="min-width:100px" onclick="resolveConfirmModal(false)">취소</button>
+        <button class="btn btn-primary" id="confirmModalOkBtn" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 저장 안 한 변경을 두고 나가려 할 때 (캠페인 편집·신규 폼)
+     ⚠️ z-index 는 confirmModal(610)·sensitiveChangeModal(620) 보다 아래. 저장을 고르면
+        이 창을 먼저 닫고 저장 절차의 확인창이 뜨는 순서라, 겹칠 일이 없어야 한다. -->
+<div class="modal-overlay" id="campLeaveModal" style="z-index:600">
+  <div class="modal" style="max-width:460px;border-radius:24px;margin:auto">
+    <div class="modal-body" style="padding:28px 24px 22px">
+      <div id="campLeaveModalTitle" style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">저장하지 않은 변경이 있습니다</div>
+      <div style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:14px">저장하지 않고 나가시겠습니까?</div>
+      <div id="campLeaveModalNote" style="display:none;font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:10px;padding:10px 12px">
+        행사 시간대와 캠페인 노출 설정은 <b>누른 즉시 저장</b>돼 되돌아가지 않습니다.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="campLeaveCancel()">취소</button>
+        <button class="btn btn-ghost" style="color:var(--red)" onclick="campLeaveDiscardAndGo()">저장하지 않고 나가기</button>
+        <button class="btn btn-primary" id="campLeaveSaveBtn" onclick="campLeaveSaveAndGo()">저장</button>
       </div>
     </div>
   </div>

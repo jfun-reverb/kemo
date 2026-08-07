@@ -1,0 +1,49 @@
+// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지
+// docs/email-templates/ 변경 후 sync 스크립트 실행 시 자동 갱신
+//
+// 백틱·${...} 패턴은 sed로 escape 처리. 새 템플릿 추가 시 패턴 점검 필요
+
+export const TEMPLATES: Record<string, string> = {
+  "admin-password-reset": `<!DOCTYPE html>
+<!--
+  Mail: 관리자 비밀번호 재설정 — 본인이 요청한 재설정 링크 (admin password reset)
+  Trigger: 관리자 로그인 화면의 「비밀번호를 잊으셨나요」 → Edge Function
+           admin-password-reset-request (익명 호출) → 이 템플릿으로 발송
+  To:      요청한 이메일이 실제 관리자인 경우에만 (아니면 발송 자체를 안 함)
+  Lang:    KO (관리자 페이지는 한국어 — ui.md)
+
+  Placeholders:
+    {{admin_name}}   관리자 이름
+    {{link}}         비밀번호 재설정 링크 (/admin-setpw.html?mode=reset&… 서버 발급)
+    {{expires}}      링크 유효 기한 안내 문구
+
+  Note:
+    초대 메일(admin-invite.html)과 문구 목적이 달라 별도 템플릿으로 둔다.
+    「본인이 요청하지 않았다면」 안내는 이 메일에 필수 — 남이 남의 주소로 요청할 수 있는
+    공개 경로(로그인 화면)에서 발송되기 때문.
+    관리자 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
+-->
+<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">비밀번호를 재설정해 주세요</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">{{admin_name}} 님</p>
+  <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">
+    REVERB JP 관리자 비밀번호 재설정이 요청되었습니다.
+    아래 버튼을 눌러 새 비밀번호를 설정해 주세요.
+  </p>
+  <div style="text-align:center;margin:0 0 22px">
+    <a href="{{link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px">비밀번호 재설정하기</a>
+  </div>
+  <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+    <div style="color:#888;font-size:12px;line-height:1.6">{{expires}}</div>
+    <div style="color:#888;font-size:12px;margin-top:10px;line-height:1.6">버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주세요.</div>
+    <div style="font-family:monospace;font-size:12px;color:#555;word-break:break-all;margin-top:4px">{{link}}</div>
+  </div>
+  <div style="background:#FFF7F8;border:1px solid #F5D9DE;border-radius:12px;padding:14px 16px;margin-bottom:20px;font-size:12px;color:#555;line-height:1.7">
+    재설정 요청을 여러 번 하시면 <strong>가장 최근에 받은 링크만</strong> 사용할 수 있습니다. 이전에 받은 메일의 링크는 더 이상 동작하지 않습니다.
+  </div>
+  <p style="margin:0 0 18px;font-size:12px;color:#888;line-height:1.7">
+    본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 비밀번호는 그대로 유지됩니다.
+  </p>
+  <p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+</div>`,
+};

@@ -36,6 +36,7 @@ globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
 - **목록 페인 (campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts)**: `admin-pane-list` 클래스 사용. flex column 구조로 제목+필터 고정, 카드 헤더 고정, thead sticky, tbody만 스크롤
 - **목록 페인 HTML 구조 통일 필수**: 7개 페인의 HTML 구조(admin-sticky-header → admin-card → admin-card-header → admin-table-wrap → table)가 반드시 동일해야 함. 래퍼 div 추가/제거 시 7개 모두 확인
 - 대시보드(adminPane-dashboard)와 상세/폼 페인(add-campaign/edit-campaign/influencer-detail/my-account)은 목록이 아니므로 admin-pane-list 미적용 — 자연 스크롤
+- **필터 줄 컨트롤은 전용 클래스만 사용 (높이 32px 고정)**: 드롭다운·날짜/텍스트 입력 = `admin-filter`, 돋보기 아이콘 붙은 검색칸 = `admin-filter-search`, 다중 선택 버튼 = `mf-btn`, 감싸는 줄 = `admin-filter-bar` + 항목마다 `admin-filter-group`. **폼 화면용 `form-input` 에 인라인 padding·height 를 붙여 필터를 만들지 말 것** — 화면마다 자연 높이가 달라져 28·31·38px 로 어긋난다(2026-07-24 전수 정정, 운영 배포 완료). 새 필터를 만들 땐 옆 화면과 렌더 높이가 같은지 확인
 
 ## UI 텍스트 언어 규칙
 - 인플루언서 페이지: 일본어 (한국어/영어 금지)

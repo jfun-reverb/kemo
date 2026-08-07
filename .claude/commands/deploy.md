@@ -1,16 +1,22 @@
-Vercel에 프로젝트 배포:
+# /deploy — (사용 중단) 배포는 /세션종료 로
 
-1. **빌드**: `cd dev && bash build.sh` 실행
-2. **빌드 확인**:
-   - ../index.html 생성 확인
-   - ../admin/index.html 생성 확인
-3. **변경사항 확인**: `git diff --stat`으로 변경 파일 목록 확인
-4. **커밋**:
-   - dev/ 파일과 루트 index.html, admin/index.html 함께 스테이징
-   - conventional commit 메시지 (영어)
-   - console.log 등 디버그 코드 잔존 여부 확인
-5. **푸시**: 현재 브랜치에 푸시
-6. **배포 확인**:
-   - Vercel 자동 배포 (푸시 시 트리거)
-   - 인플루언서 앱: https://globalreverb.com/
-   - 관리자 앱: https://globalreverb.com/admin/
+> ⚠️ 옛 개인 배포 순서표(리뷰·기능 브랜치·운영 확인 없이 현재 브랜치를 바로 운영에 밀어넣는 방식)는 현행 규칙과 충돌해 **사용을 중단**합니다. 이 명령을 부르면 아래 올바른 경로로 안내만 하고, 직접 배포는 하지 않습니다.
+
+## 메인 Claude가 할 일 (이 명령 호출 시)
+
+`/deploy` 요청이 들어오면 **바로 배포하지 말고**, 무엇을 배포하려는지 확인한 뒤 아래 규칙대로 라우팅한다.
+
+### 올바른 배포 경로
+1. **작업 마무리 + 배포 준비** → `/세션종료` 사용.
+   - 내부에서 reverb-reviewer 검수 → `bash dev/build.sh` 빌드 → 기능 브랜치 → dev PR 생성까지 자동 처리한다.
+2. **개발서버(dev) 반영** → 위 게이트(리뷰 GO·빌드·충돌 해소) 통과 후 **Claude가 PR 머지까지 진행**(위임). 근거: `.claude/rules/git.md` 「개발서버 배포(dev 머지)는 위임」.
+3. **운영서버(main) 반영** → **반드시 사용자 확인**(AskUserQuestion: 지금 운영 배포 / 개발서버 검증 후 / 보류). 자동 진행 금지. 근거: `.claude/rules/git.md` 「운영서버 배포 확인 (필수)」.
+
+### 배포가 안 될 때(진단)
+- 운영 미반영·빌드 안 됨 등은 `/배포진단` 사용. 운영 배포는 GitHub Actions 워크플로(`.github/workflows/deploy-prod.yml`)가 담당하므로 1순위 확인처는 Actions 실행 로그다.
+
+## 관련 규칙·명령
+- `.claude/commands/세션종료.md` — 표준 배포 마무리 흐름
+- `.claude/rules/git.md` — 배포 워크플로·에이전트 호출 의무·운영 배포 확인
+- `.claude/rules/build.md` — `bash dev/build.sh` 빌드 의무
+- `.claude/commands/배포진단.md` — 배포 실패 진단 플레이북

@@ -49,6 +49,81 @@ function settlementAmountYen(v) {
   return '¥' + (Number(v) || 0).toLocaleString();
 }
 
+// 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
+// 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
+//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(300~)
+//   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (300 이전에 만들어진 행)
+//   reward         = 시딩·방문형 캠페인 현금 리워드
+//   NULL           = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
+const SETTLEMENT_AMOUNT_SOURCE_LABELS = {
+  receipt_amount: '영수증 금액',
+  product_price: '제품 가격',
+  product_plus_reward: '제품＋보수',
+  reward: '현금 리워드',
+};
+function settlementAmountSourceLabel(source) {
+  return SETTLEMENT_AMOUNT_SOURCE_LABELS[source] || '';
+}
+
+// 상한 적용 여부(마이그레이션 299 receipt_amount_jpy/amount_cap_jpy).
+// 영수증이 캠페인 상시가보다 커서 상한에서 잘린 건인지 판정한다 — 관리자가
+// 「영수증에는 3,500엔인데 왜 3,200엔만 지급되나」를 화면에서 바로 알 수 있어야 한다
+// (2026-08-05 사용자 명시 요구). 두 값이 다 있어야 판정 가능(옛 행은 비어 있음).
+function settlementCapApplied(s) {
+  s = s || {};
+  // ⚠️ Number(null) 은 0 이라 isFinite 를 통과한다 — null 검사를 먼저 해야
+  // 「두 값이 다 있을 때만 판정」이 실제로 성립한다(299 적용 이전 행은 둘 다 비어 있음).
+  if (s.receipt_amount_jpy == null || s.amount_cap_jpy == null) return false;
+  const receipt = Number(s.receipt_amount_jpy);
+  const cap = Number(s.amount_cap_jpy);
+  if (!Number.isFinite(receipt) || !Number.isFinite(cap)) return false;
+  return receipt > cap;
+}
+// 금액 셀 아래 보조 줄 — 출처 배지 + (상한이 걸렸으면) 그 근거.
+function settlementAmountNote(s) {
+  s = s || {};
+  const label = settlementAmountSourceLabel(s.amount_source);
+  const capped = settlementCapApplied(s);
+  const parts = [];
+  if (label) parts.push(esc(label));
+  if (capped) {
+    parts.push(`영수증 ${settlementAmountYen(s.receipt_amount_jpy)} → <span style="color:var(--pink);font-weight:600">상한 적용</span>`);
+  }
+  return parts.length
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4">${parts.join('<br>')}</div>`
+    : '';
+}
+// (settlementAmountSourceBadge 는 settlementAmountNote 로 흡수돼 삭제 — 2026-08-05)
+
+// 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
+//   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
+// 헬퍼는 전부 기존 공용(imgThumb·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
+// 빌드 순서상 셋 다 이 파일보다 먼저 로드된다. 썸네일·모집타입은 fetchSettlements 가
+// campaigns 임베드로 이미 가져오는 img1·recruit_type 사용(추가 조회 없음).
+function settlementCampCell(camp) {
+  camp = camp || {};
+  const campNoBadge = camp.campaign_no
+    ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>`
+    : '';
+  const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function')
+    ? getRecruitTypeBadgeKoSm(camp.recruit_type) : '';
+  // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(프로젝트 규칙 imgThumb + data-orig)
+  const thumb = camp.img1
+    ? `<img src="${esc(imgThumb(camp.img1, 96, 70))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
+    : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`;
+  const badgeRow = (rtBadge || campNoBadge)
+    ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div>`
+    : '';
+  const previewBtn = (typeof campPreviewBtn === 'function' && camp.id) ? campPreviewBtn(camp.id) : '';
+  return `<div style="display:flex;align-items:center;gap:10px">
+      <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">${thumb}</div>
+      <div style="min-width:0;flex:1">
+        ${badgeRow}
+        <div style="display:flex;align-items:flex-start;gap:4px"><span style="font-size:13px;word-break:break-word;line-height:1.4;flex:1">${esc(camp.title || '—')}</span>${previewBtn}</div>
+      </div>
+    </div>`;
+}
+
 // ════════════════════════════════════════════════════════════════════
 // SECTION: SETTLEMENTS — 로드 / 조회 / 렌더
 // ════════════════════════════════════════════════════════════════════
@@ -68,6 +143,12 @@ async function loadSettlements() {
     // 권한 없음(campaign_manager)·RPC 실패 등은 무시 — 기존 정산행은 그대로 조회한다.
   }
   await reloadSettlementsData();
+  // 과거 미등록 건수 배지 + 금액 확인 필요 안내.
+  // ⚠️ 페인 **진입 시에만** 호출한다(reloadSettlementsData 에 넣지 않음) — 이 조회는 승인 응모
+  //   전건을 스캔하므로, 정산 1건 처리할 때마다(refreshPane 경유) 큰 쿼리가 따라붙으면 안 된다.
+  //   정산 처리(송금완료·보류·취소)는 과거 미등록 건수를 바꾸지 않으므로 갱신할 이유도 없다.
+  //   과거 미등록 화면에서 실제로 건수가 줄어드는 경로(pastUnregRegister)에서만 따로 호출한다.
+  refreshPastUnregEntryInfo();   // await 안 함 — 목록 표시를 막지 않는다
 }
 
 // 데이터 재조회(백필 없음) — 처리 모달 저장 후 refreshPane('settlements') 가 호출
@@ -76,6 +157,39 @@ async function reloadSettlementsData() {
   _settlementsLoaded = true;
   renderSettlementsList();
   refreshSettlementSidebarBadge();
+}
+
+// 「과거 미등록」 진입 버튼 배지 + 「금액 확인 필요」 안내 갱신.
+//   · 총 과거 미등록 건수 → 버튼 옆 배지
+//   · 그중 금액을 정할 수 없는 건(amount_issue) → 상단 빨간 안내. 0건이면 숨김(평소 상태)
+// ⚠️ 한계: 이 조회는 **정산 도입일 이전** 건만 반환한다(get_past_unregistered_settlements 의
+//   컷오프 필터). 도입일을 세팅한 뒤 새로 생기는 「인증 성공했는데 캠페인에 금액이 없는」 건은
+//   여기에도 자동 등록에도 잡히지 않아 조용히 누락된다(사양서 §2-1 ①). 도입일 세팅 시
+//   전용 조회를 추가할 것. 현재는 도입일이 비어 있어 전 구간이 이 조회에 들어온다.
+async function refreshPastUnregEntryInfo() {
+  const badge = $('pastUnregEntryBadge');
+  const banner = $('settlementAmountIssueBanner');
+  const text = $('settlementAmountIssueText');
+  if (!badge && !banner) return;
+  let rows = [];
+  try {
+    rows = await fetchPastUnregisteredSettlements();
+  } catch (e) {
+    return;  // 권한 없음·조회 실패는 무시(기존 목록 표시에 영향 주지 않는다)
+  }
+  const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
+  if (badge) {
+    badge.textContent = rows.length ? String(rows.length) : '';
+    badge.style.display = rows.length ? '' : 'none';
+  }
+  if (banner && text) {
+    if (issueCount > 0) {
+      text.textContent = `인증은 끝났지만 캠페인에 금액이 없어 정산을 만들 수 없는 건이 ${issueCount}건 있습니다. 캠페인의 제품 가격(리뷰어형) 또는 리워드 금액(기프팅·방문형)을 입력하면 자동으로 등록됩니다.`;
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
 }
 
 function readSettlementFilters() {
@@ -108,6 +222,17 @@ function renderSettlementStatusTabs() {
 function setSettlementStatusTab(btn) {
   _settlementFilters.status = btn.dataset.status || '';
   renderSettlementsList();
+}
+
+// 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
+function openSettlementsPending() {
+  _settlementFilters.status = 'pending';
+  _settlementFilters.search = '';
+  _settlementFilters.campaignIds = [];
+  const s = document.getElementById('settlementSearch'); if (s) s.value = '';
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('settlements');
+  else reloadSettlementsData();
 }
 
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
@@ -190,12 +315,9 @@ function renderSettlementRow(s) {
   const auditB = (typeof auditBadgeHtml === 'function') ? auditBadgeHtml(inf) : '';
   const infSub = [inf.name_kana ? esc(inf.name_kana) : '', inf.email ? esc(inf.email) : '']
     .filter(Boolean).join(' · ');
-  const infCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
+  const infCell = `<div class="link-cell" onclick="openInfluencerModal('${esc(inf.id || '')}')">${infName}${auditB}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}`;
 
-  const campNo = camp.campaign_no
-    ? `<div><span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span></div>`
-    : '';
-  const campCell = `${campNo}<div style="font-size:13px">${esc(camp.title || '—')}</div>`;
+  const campCell = settlementCampCell(camp);
 
   // PayPal — 정산행 스냅샷(직접 컬럼). 미등록이면 빨간 경고 배지(송금 불가).
   const paypalCell = s.paypal_email
@@ -209,12 +331,18 @@ function renderSettlementRow(s) {
     ? `<span style="font-size:12px">${formatDate(s.paid_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
+  // 신청 반려·취소로 자동 보류된 건(고정 메모 '신청 반려로 자동 보류')은 관리자가 구분하도록 앰버 배지.
+  //   복원은 on_hold 의 「보류 해제」 버튼(mark_settlement_revert)으로 정산대기 복귀.
+  const autoHoldBadge = (s.status === 'on_hold' && (s.memo || '').includes('자동 보류'))
+    ? `<div style="margin-top:3px"><span style="font-size:10px;background:#FEF3C7;color:#92400E;font-weight:600;padding:1px 6px;border-radius:3px" title="신청이 반려·취소되어 자동 보류된 정산입니다. 신청을 다시 승인했다면 「보류 해제」로 정산대기로 되돌리세요.">자동 보류(신청 반려)</span></div>`
+    : '';
+
   return `<tr class="${inf.is_audit ? 'audit-row' : ''}">
     <td>${infCell}</td>
     <td>${campCell}</td>
-    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</td>
+    <td><div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(s.amount_jpy)}</div>${settlementAmountNote(s)}</td>
     <td>${paypalCell}</td>
-    <td>${settlementStatusBadge(s.status)}</td>
+    <td>${settlementStatusBadge(s.status)}${autoHoldBadge}</td>
     <td>${certDate}</td>
     <td>${paidDate}</td>
     <td>${settlementActionCell(s)}</td>
@@ -287,7 +415,14 @@ function openSettlementPayModal(id) {
         <div style="color:var(--muted)">캠페인</div>
         <div>${esc(camp.title || '—')}</div>
         <div style="color:var(--muted)">송금 금액</div>
-        <div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>
+        <div><div style="font-weight:700;font-size:18px;color:var(--ink)">${settlementAmountYen(s.amount_jpy)}</div>${
+          // 상한이 걸린 건은 송금 직전에 근거를 보여준다 — 「영수증에는 더 큰 금액이
+          // 적혀 있는데 왜 이 금액인가」를 여기서 확인하지 못하면 관리자가 목록으로
+          // 되돌아가 대조해야 한다(2026-08-05 사용자 요구).
+          settlementCapApplied(s)
+            ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">영수증 ${settlementAmountYen(s.receipt_amount_jpy)} · 상한 ${settlementAmountYen(s.amount_cap_jpy)} <span style="color:var(--pink);font-weight:600">적용됨</span></div>`
+            : ''
+        }</div>
         <div style="color:var(--muted)">PayPal</div>
         <div style="font-weight:600;word-break:break-all">${hasPaypal ? esc(s.paypal_email) : '<span style="color:#C33">미등록 — 송금 불가</span>'}</div>
       </div>`;
@@ -499,6 +634,12 @@ async function exportSettlementsExcel() {
       { header: '캠페인번호', key: 'campno',   width: 16 },
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
+      { header: '금액구분',   key: 'amtsrc',   width: 12 },
+      // 299 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
+      // 옛 행(상시가·현금 리워드 기준)은 빈 칸으로 남는다.
+      { header: '영수증금액(¥)', key: 'receipt', width: 14 },
+      { header: '상한(¥)',    key: 'cap',      width: 12 },
+      { header: '상한적용',   key: 'capped',   width: 10 },
       { header: 'PayPal',     key: 'paypal',   width: 26 },
       { header: '상태',       key: 'status',   width: 10 },
       { header: '인증성공일', key: 'certdate', width: 14 },
@@ -518,6 +659,12 @@ async function exportSettlementsExcel() {
         campno:   camp.campaign_no || '',
         title:    camp.title || '',
         amount:   Number(s.amount_jpy) || 0,
+        amtsrc:   settlementAmountSourceLabel(s.amount_source),
+        // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 299 이전 행이
+        // 「영수증 0엔」으로 찍혀 실제로 0원에 샀다는 오해를 준다.
+        receipt:  (s.receipt_amount_jpy != null) ? Number(s.receipt_amount_jpy) : '',
+        cap:      (s.amount_cap_jpy != null) ? Number(s.amount_cap_jpy) : '',
+        capped:   settlementCapApplied(s) ? 'O' : '',
         paypal:   s.paypal_email || '',
         status:   settlementStatusKo(s.status),
         certdate: s.created_at ? formatDate(s.created_at) : '',
@@ -553,22 +700,40 @@ async function exportSettlementsExcel() {
 //     대량 수백 건 목록 + 필터 툴바 + IntersectionObserver lazy-load 를 위해)
 //   · 다중선택(체크박스 + 전체선택) → 일괄 「송금완료 기록」(paid) / 「정산대기 추가」(pending)
 //   · 무알림은 서버(register_past_settlements)가 보장 — 화면은 안내 문구만
-//   · 송금완료 기록은 되돌릴 수 없어 확인 모달(showConfirm) — 건수·합계 표시
+//   · 송금완료 기록은 되돌릴 수 없어 확인 모달(showConfirm) — 건수·합계·캠페인별 요약 표시
 //
 // 선택 상태는 application_id 기준 Set(_pastUnregSelected)이 단일 소스 —
 //   lazy-load 로 행이 나눠 렌더돼도 체크 상태가 유지된다.
+//
+// ── 대량 오조작 방지 장치 (사양서 2026-07-23 §3-3 (다)) ──
+// 리뷰어형 금액 규칙(마이그레이션 261·262)이 켜지면 이 목록이 수십 건 → 수백 건으로
+// 불어난다. 그런데 바로 옆이 되돌릴 수 없는 「송금완료 기록」 버튼이라 아래 4가지를 둔다:
+//   ① 캠페인·모집형식·인플루언서 필터 — 캠페인 하나씩 띄워 놓고 처리하는 흐름이 기본
+//   ② 전체 선택은 **현재 필터 결과만** 대상. 필터를 바꾸면 선택을 초기화한다
+//      (화면에 안 보이는 건이 선택된 채 확정되는 사고가 가장 위험 — onPastUnregFilterChange
+//       가 필터 3종·초기화 버튼 모든 경로에서 _pastUnregSelected 를 비운다)
+//   ③ 금액 미확정(amount_issue) 행은 체크박스 비활성 + 사유 배지. 서버도 조용히 건너뛰므로
+//      화면에서 미리 잠가 「처리했는데 건수가 줄어 있는」 혼란을 막는다
+//   ④ 확인 모달에 캠페인별 건수·합계 요약 — 무엇을 확정하는지 눈으로 보고 누르게
 
-let _pastUnregRows = [];
+let _pastUnregRows = [];                 // 서버 조회 원본(필터 전)
+let _pastUnregFiltered = [];             // 필터 통과분 — 렌더·전체선택·툴바의 기준
 let _pastUnregById = {};                 // application_id → 행
 let _pastUnregSelected = new Set();      // 선택된 application_id
 var pastUnregLazy = null;
 const PAST_UNREG_PAGE_SIZE = 50;
+const PAST_UNREG_TYPE_LABELS = { monitor: '리뷰어형', gifting: '기프팅', visit: '방문형' };
 
 function openPastUnregView() {
   const main = $('settlementMainView');
   const past = $('settlementPastView');
   if (main) main.style.display = 'none';
   if (past) past.style.display = 'flex';
+  // 재진입 시 이전 필터가 남아 「목록이 비어 보이는」 오해를 만들지 않도록 값만 리셋
+  // (resetPastUnregFilters 를 쓰면 데이터 로드 전에 빈 목록이 한 번 렌더돼 깜빡인다)
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('pastUnregCampMulti', '전체 캠페인');
+  const typeEl = $('pastUnregTypeFilter'); if (typeEl) typeEl.value = '';
+  const searchEl = $('pastUnregSearch');   if (searchEl) searchEl.value = '';
   loadPastUnregSettlements();
 }
 
@@ -583,7 +748,7 @@ function closePastUnregView() {
 // 과거 미등록 목록 조회 → 맵 구성 + 선택 초기화 + 렌더
 async function loadPastUnregSettlements() {
   const tbody = $('pastUnregTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   try {
     _pastUnregRows = await fetchPastUnregisteredSettlements();
   } catch (e) {
@@ -592,6 +757,65 @@ async function loadPastUnregSettlements() {
   _pastUnregById = {};
   _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregById[r.application_id] = r; });
   _pastUnregSelected.clear();
+  syncPastUnregCampaignOptions();
+  applyPastUnregFilters();
+}
+
+// ── 필터 ─────────────────────────────────────────────────────────────
+// 캠페인 옵션은 조회 결과의 distinct 캠페인 + 캠페인별 건수(캠페인 필터 자신은 제외 —
+// 정산 메인·결과물 페인 campCounts 규칙 미러).
+function syncPastUnregCampaignOptions() {
+  if (!$('pastUnregCampMulti') || typeof syncCampMultiFilter !== 'function') return;
+  const { type, search } = readPastUnregFilters();
+  const seen = new Map();
+  const campCounts = {};
+  _pastUnregRows.forEach(r => {
+    if (r.campaign_id && !seen.has(r.campaign_id)) {
+      seen.set(r.campaign_id, { id: r.campaign_id, title: r.campaign_title, campaign_no: r.campaign_no });
+    }
+    if (r.campaign_id && passesPastUnregNonCamp(r, type, search)) {
+      campCounts[r.campaign_id] = (campCounts[r.campaign_id] || 0) + 1;
+    }
+  });
+  syncCampMultiFilter('pastUnregCampMulti', [...seen.values()], () => onPastUnregFilterChange(), campCounts);
+}
+
+function readPastUnregFilters() {
+  return {
+    campaignIds: (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('pastUnregCampMulti') : [],
+    type: $('pastUnregTypeFilter')?.value || '',
+    search: ($('pastUnregSearch')?.value || '').trim(),
+  };
+}
+
+// 캠페인 필터를 제외한 조건(캠페인별 건수 집계 기준과 목록 필터가 같은 함수를 쓰도록 분리)
+function passesPastUnregNonCamp(r, type, search) {
+  if (type && r.recruit_type !== type) return false;
+  if (search && !matchSearchTokens(search, [r.influencer_name, r.influencer_name_kana])) return false;
+  return true;
+}
+
+// 필터 변경 — ⚠️ 선택을 반드시 초기화한다. 화면에 안 보이는 건이 선택된 채
+// 「송금완료 기록」(되돌릴 수 없음)으로 확정되는 것이 이 화면 최대 위험.
+function onPastUnregFilterChange() {
+  _pastUnregSelected.clear();
+  syncPastUnregCampaignOptions();
+  applyPastUnregFilters();
+}
+
+function resetPastUnregFilters() {
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('pastUnregCampMulti', '전체 캠페인');
+  const typeEl = $('pastUnregTypeFilter'); if (typeEl) typeEl.value = '';
+  const searchEl = $('pastUnregSearch');   if (searchEl) searchEl.value = '';
+  onPastUnregFilterChange();
+}
+
+function applyPastUnregFilters() {
+  const { campaignIds, type, search } = readPastUnregFilters();
+  _pastUnregFiltered = _pastUnregRows.filter(r => {
+    if (campaignIds.length && !campaignIds.includes(r.campaign_id)) return false;
+    return passesPastUnregNonCamp(r, type, search);
+  });
   renderPastUnregList();
 }
 
@@ -599,48 +823,76 @@ function renderPastUnregList() {
   const tbody = $('pastUnregTableBody');
   if (!tbody) return;
   const cnt = $('pastUnregTotalCount');
-  if (cnt) cnt.textContent = `총 ${_pastUnregRows.length}건`;
+  if (cnt) {
+    const total = _pastUnregRows.length;
+    const shown = _pastUnregFiltered.length;
+    cnt.textContent = shown === total ? `총 ${total}건` : `${shown}건 / 전체 ${total}건`;
+  }
 
   const scrollRoot = tbody.closest('.admin-table-wrap');
   if (pastUnregLazy) pastUnregLazy.destroy();
   pastUnregLazy = mountLazyList({
     tbody,
     scrollRoot,
-    rows: _pastUnregRows,
+    rows: _pastUnregFiltered,
     renderRow: renderPastUnregRow,
     pageSize: PAST_UNREG_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">과거 미등록 인증성공 건이 없습니다.</td></tr>',
+    emptyHtml: `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">${
+      _pastUnregRows.length ? '조건에 맞는 건이 없습니다. 필터를 확인해 주세요.' : '과거 미등록 인증성공 건이 없습니다.'
+    }</td></tr>`,
   });
   updatePastUnregToolbar();
 }
 
+// 금액을 정할 수 없는 행 — 서버(register_past_settlements)도 조용히 건너뛰므로
+// 화면에서 미리 선택을 잠가, 처리 후 건수가 줄어 있는 혼란을 막는다.
+function pastUnregHasIssue(r) { return !!(r && r.amount_issue); }
+
+function pastUnregSelectableRows() {
+  return _pastUnregFiltered.filter(r => r.application_id && !pastUnregHasIssue(r));
+}
+
 function renderPastUnregRow(r) {
+  const issue = pastUnregHasIssue(r);
   const checked = _pastUnregSelected.has(r.application_id) ? ' checked' : '';
   const name = esc(r.influencer_name || '—');
   const kana = r.influencer_name_kana
     ? `<div style="font-size:10px;color:var(--muted)">${esc(r.influencer_name_kana)}</div>` : '';
-  const campNo = '';  // 조회 RPC 는 campaign_no 미반환 — 제목만 표시
-  const campCell = `${campNo}<div style="font-size:13px">${esc(r.campaign_title || '—')}</div>`;
+  const campNo = r.campaign_no
+    ? `<div style="font-size:10px;color:var(--muted)">${esc(r.campaign_no)}</div>` : '';
+  const typeLabel = PAST_UNREG_TYPE_LABELS[r.recruit_type] || r.recruit_type || '';
+  const campCell = `${campNo}<div style="font-size:13px">${esc(r.campaign_title || '—')}</div>`
+    + (typeLabel ? `<div style="font-size:10px;color:var(--muted)">${esc(typeLabel)}</div>` : '');
+  // 금액 — 미확정이면 사유 배지, 정상이면 금액 + 출처 배지(정산 목록과 같은 헬퍼)
+  const amountCell = issue
+    ? `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="${esc(r.amount_issue)}">금액 미확정</span>`
+      + `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.amount_issue)}</div>`
+    : `<div style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</div>`
+      + settlementAmountNote(r);  // 출처 배지 + 상한이 걸렸으면 그 근거(299·300)
   const certCell = r.cert_at
     ? `<span style="font-size:12px">${formatDate(r.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">불명</span>';
   const paypalCell = r.has_paypal
-    ? '<span style="background:#E8F5E9;color:#16A34A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
+    ? '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">등록</span>'
     : '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px" title="PayPal 미등록">미등록</span>';
-  return `<tr>
-    <td><input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}></td>
+  const checkCell = issue
+    ? '<input type="checkbox" disabled title="금액을 정할 수 없어 처리 대상에서 제외됩니다">'
+    : `<input type="checkbox" class="past-unreg-check" data-app-id="${esc(r.application_id)}" onchange="pastUnregOnRowCheck(this)"${checked}>`;
+  return `<tr${issue ? ' style="opacity:.6"' : ''}>
+    <td>${checkCell}</td>
     <td><div style="font-weight:600">${name}</div>${kana}</td>
     <td>${campCell}</td>
-    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${settlementAmountYen(r.amount_jpy)}</td>
+    <td>${amountCell}</td>
     <td>${certCell}</td>
     <td>${paypalCell}</td>
   </tr>`;
 }
 
-// 전체 선택/해제 — 현재 목록(_pastUnregRows) 전 건을 Set 에 반영 후 재렌더
+// 전체 선택/해제 — ⚠️ 대상은 **현재 필터 결과 중 처리 가능한 행**만(전체 조회분 아님).
+// 금액 미확정 행은 애초에 선택되지 않는다.
 function pastUnregToggleAll(cb) {
   if (cb && cb.checked) {
-    _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregSelected.add(r.application_id); });
+    pastUnregSelectableRows().forEach(r => _pastUnregSelected.add(r.application_id));
   } else {
     _pastUnregSelected.clear();
   }
@@ -661,7 +913,7 @@ function updatePastUnregToolbar() {
   let count = 0, sum = 0;
   _pastUnregSelected.forEach(id => {
     const r = _pastUnregById[id];
-    if (r) { count++; sum += Number(r.amount_jpy) || 0; }
+    if (r && !pastUnregHasIssue(r)) { count++; sum += Number(r.amount_jpy) || 0; }
   });
   const info = $('pastUnregSelectedInfo');
   if (info) info.textContent = count ? `선택 ${count}건 · 합계 ${settlementAmountYen(sum)}` : '';
@@ -671,23 +923,59 @@ function updatePastUnregToolbar() {
   if (pendingBtn) pendingBtn.disabled = count === 0;
   const all = $('pastUnregSelectAll');
   if (all) {
-    const total = _pastUnregRows.length;
+    const total = pastUnregSelectableRows().length;
     all.checked = total > 0 && count === total;
     all.indeterminate = count > 0 && count < total;
   }
 }
 
+// 확인 모달용 캠페인별 요약 — 「무엇을 확정하는지」를 눈으로 보고 누르게 한다.
+// 캠페인이 많으면 상위 5개만 보이고 나머지는 묶어서 표시(모달이 길어져 버튼이
+// 화면 밖으로 밀리는 것 방지).
+function pastUnregCampaignSummary(rows) {
+  const byCamp = new Map();
+  rows.forEach(r => {
+    const key = r.campaign_id || '—';
+    const cur = byCamp.get(key) || { label: r.campaign_no ? `[${r.campaign_no}] ${r.campaign_title || ''}` : (r.campaign_title || '(캠페인 없음)'), count: 0, sum: 0 };
+    cur.count++;
+    cur.sum += Number(r.amount_jpy) || 0;
+    byCamp.set(key, cur);
+  });
+  const list = [...byCamp.values()].sort((a, b) => b.count - a.count);
+  const MAX = 5;
+  const lines = list.slice(0, MAX).map(c => `· ${c.label} — ${c.count}건 / ${settlementAmountYen(c.sum)}`);
+  if (list.length > MAX) {
+    const rest = list.slice(MAX);
+    const restCount = rest.reduce((n, c) => n + c.count, 0);
+    const restSum = rest.reduce((n, c) => n + c.sum, 0);
+    lines.push(`· 그 외 ${rest.length}개 캠페인 — ${restCount}건 / ${settlementAmountYen(restSum)}`);
+  }
+  return { campaignCount: list.length, lines };
+}
+
 // 선택 건 일괄 처리 — targetStatus: 'paid'(송금완료 기록) | 'pending'(정산대기 추가)
 async function pastUnregRegister(targetStatus) {
-  const ids = [..._pastUnregSelected].filter(id => _pastUnregById[id]);
+  // 금액 미확정 건은 서버가 건너뛰므로 여기서도 제외(체크박스는 이미 잠겨 있지만 이중 방어)
+  const rows = [..._pastUnregSelected]
+    .map(id => _pastUnregById[id])
+    .filter(r => r && !pastUnregHasIssue(r));
+  const ids = rows.map(r => r.application_id);
   if (!ids.length) { toast('선택된 건이 없습니다', 'warn'); return; }
-  let sum = 0;
-  ids.forEach(id => { sum += Number(_pastUnregById[id].amount_jpy) || 0; });
+  const sum = rows.reduce((n, r) => n + (Number(r.amount_jpy) || 0), 0);
+  const summary = pastUnregCampaignSummary(rows);
 
   if (targetStatus === 'paid') {
     const ok = await showConfirm(
-      `선택한 ${ids.length}건(합계 ${settlementAmountYen(sum)})을 송금완료로 기록합니다.\n`
+      `${summary.campaignCount}개 캠페인 · ${ids.length}건 · 합계 ${settlementAmountYen(sum)}\n\n`
+      + `${summary.lines.join('\n')}\n\n`
+      + `위 건을 송금완료로 기록합니다.\n`
       + `이미 외부에서 지급을 마친 건만 처리하세요. 송금완료 기록은 되돌릴 수 없습니다.\n계속하시겠습니까?`);
+    if (!ok) return;
+  } else {
+    const ok = await showConfirm(
+      `${summary.campaignCount}개 캠페인 · ${ids.length}건 · 합계 ${settlementAmountYen(sum)}\n\n`
+      + `${summary.lines.join('\n')}\n\n`
+      + `위 건을 정산대기로 추가합니다. 아직 지급하지 않은 건만 처리하세요.\n계속하시겠습니까?`);
     if (!ok) return;
   }
 
@@ -708,4 +996,7 @@ async function pastUnregRegister(targetStatus) {
   if (memoEl) memoEl.value = '';
   await loadPastUnregSettlements();   // 과거 목록 재조회(처리된 건은 목록에서 사라짐)
   await refreshPane('settlements');   // 정산 메인 목록·정산대기 배지 갱신 (quality.md)
+  // 처리한 만큼 과거 미등록 건수가 실제로 줄어드는 유일한 경로 — 진입 버튼 배지·안내를 여기서 갱신
+  // (reloadSettlementsData 에는 넣지 않는다 — 정산 처리마다 전건 스캔이 붙는 것을 피하려고)
+  refreshPastUnregEntryInfo();
 }

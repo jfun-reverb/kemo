@@ -7,7 +7,11 @@
   try {
     const hasCode = new URLSearchParams(location.search).has('code');
     const hasRecoveryHash = location.hash.includes('type=recovery') || location.hash.includes('access_token=');
-    if (hasCode || hasRecoveryHash) {
+    // 새 형식 링크 #reset-pw?token_hash=... (2026-07-20) — 기존 조건은 그대로 두고 조건만 추가.
+    // 검증 성공 시 진짜 로그인 상태가 되므로, 비밀번호를 안 바꾸고 이탈해도 로그인된 채로 남지 않도록
+    // 기존 「재설정 중에는 로그인 취급 안 함」 장치를 그대로 타게 한다.
+    const hasNewRecoveryLink = location.hash.startsWith('#reset-pw?');
+    if (hasCode || hasRecoveryHash || hasNewRecoveryLink) {
       sessionStorage.setItem('reverb.recovery', '1');
     }
   } catch(e) {}
@@ -63,16 +67,45 @@ function navigate(page, pushHistory) {
   if (page.startsWith('legal-')) {
     pageName = 'legal';
   }
+  // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
+  //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
+  if (page === 'ticket' || page.startsWith('ticket-')) {
+    pageName = 'ticket';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
   }
+  // #reset-pw?token_hash=... — 비밀번호 재설정 새 형식(수신거부와 같은 모양). 페이지명만 분리
+  if (page.startsWith('reset-pw')) {
+    pageName = 'reset-pw';
+    // 값 없이 들어오는 경우(옛 형식 착지·만료 화면을 본 뒤 재진입)는 폼 상태로 복원.
+    // 값이 있는 경우는 handleRecoveryTokenLink 가 상태를 직접 관리한다.
+    if (!page.includes('?')) {
+      const _v = $('resetPwVerifying'), _f = $('resetPwFormWrap'), _x = $('resetPwExpired');
+      if (_v) _v.style.display = 'none';
+      if (_x) _x.style.display = 'none';
+      if (_f) _f.style.display = '';
+    }
+  }
+
+  // 제출 연타 잠금 초기화 — 화면을 옮기면 잠금 키를 전부 비운다.
+  //   ⚠️ 이게 없으면 업로드 도중 화면을 나갔다 다시 들어왔을 때 키가 남아 **다음 제출이
+  //      조용히 막힌다**(아무 반응이 없어 사용자가 원인을 알 수 없는 형태).
+  //      잠금은 한 화면 안에서 연타를 막는 게 목적이라 화면이 바뀌면 유지할 이유가 없다.
+  if (typeof clearSubmitLocks === 'function') clearSubmitLocks();
 
   // 메시지 페이지를 떠나면 폴링·상태 정리 (같은 페이지 내 다른 응모건 이동은 제외)
   const _prevActivePage = document.querySelector('#appShell .page.active');
   if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
+  }
+  // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
+  // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
+  if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
+      && typeof cleanupTicketPage === 'function') {
+    cleanupTicketPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -134,12 +167,15 @@ function navigate(page, pushHistory) {
   if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
   // 마이페이지를 떠나면 상단바에 올려 둔 응모이력 상태 필터를 제자리로 돌려놓는다
   if (pageName !== 'mypage' && typeof moveApplyFilterToGnb === 'function') moveApplyFilterToGnb(false);
-  // iOS: 약관·메시지 화면은 자체 헤더(뒤로가기·제목)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
+  // iOS: 화면 안에 자체 헤더(뒤로가기·제목)를 가진 페이지는 GNB 로고 줄이 중복된다 → 상단바 숨김.
+  //   ⚠️ 자체 헤더(.detail-back)를 쓰는 화면을 새로 만들면 이 목록에도 넣어야 한다.
+  //      빠뜨리면 헤더가 두 줄로 겹쳐 보인다(입장 티켓·응모 취소가 실제로 그랬다).
   //   웹은 '' 로 되돌려 CSS 를 따른다(항상 표시).
+  const _selfHeaderPages = ['legal', 'messages', 'ticket', 'app-cancel'];
   const _gnb = document.querySelector('.gnb');
   if (_gnb) {
     const _isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    _gnb.style.display = (_isNative && (pageName === 'legal' || pageName === 'messages')) ? 'none' : '';
+    _gnb.style.display = (_isNative && _selfHeaderPages.includes(pageName)) ? 'none' : '';
   }
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
@@ -191,6 +227,44 @@ async function handleUnsubscribePage(token) {
   }
 }
 
+// 비밀번호 재설정 새 형식 링크 처리 (#reset-pw?token_hash=...) — 2026-07-20
+//   메일 서식이 일회용 값을 주소의 `#` 뒤에 담아 보내므로, 메일 추적 서버·보안 스캐너가
+//   주소를 열어도 값이 서버에 전달되지 않아 소모되지 않는다. 실제 소모는 아래 verifyOtp
+//   호출(브라우저에서 사람이 도착한 뒤)에서 처음 일어난다.
+//   성공 시 세션이 생기고, 기존 #page-reset-pw 폼 + handleResetPassword 를 그대로 탄다.
+async function handleRecoveryTokenLink(tokenHash) {
+  const elVerifying = $('resetPwVerifying');
+  const elForm = $('resetPwFormWrap');
+  const elExpired = $('resetPwExpired');
+  const show = (target) => {
+    [elVerifying, elForm, elExpired].forEach(el => { if (el) el.style.display = 'none'; });
+    if (target) target.style.display = '';
+  };
+
+  // 검증 성공 시 진짜 로그인 세션이 만들어진다. 재설정 플래그를 먼저 세워
+  // 기존 안전장치(로그인 취급 안 함 / 재설정 화면 유도)를 그대로 작동시킨다.
+  try { sessionStorage.setItem('reverb.recovery', '1'); } catch(e) {}
+
+  // 검증 실패 = 세션이 만들어지지 않음. 플래그를 남겨두면 「재설정 중」으로 오인해
+  // 이후 새로고침 시 빈 재설정 폼으로 떨어진다 → 실패 시 반드시 되돌린다.
+  const failed = () => {
+    try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
+    show(elExpired);
+  };
+
+  show(elVerifying);
+  if (!tokenHash || !db) { failed(); return; }
+  try {
+    const {error} = await db.auth.verifyOtp({token_hash: tokenHash, type: 'recovery'});
+    if (error) { failed(); return; }
+    show(elForm);
+    // 주소에서 일회용 값 제거 — 이미 쓴 값이라, 남겨두면 새로고침 시 만료 화면이 떠 혼란을 준다.
+    try { history.replaceState({page:'reset-pw'}, '', '#reset-pw'); } catch(e) {}
+  } catch(e) {
+    failed();
+  }
+}
+
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
   const page = e.state?.page || location.hash.replace('#','') || 'home';
@@ -205,7 +279,9 @@ window.addEventListener('popstate', function(e) {
     else if (sub) openMypageSub(sub, false);
     else closeMypageSub();
   } else if (page.startsWith('detail-')) {
-    openCampaign(page.replace('detail-',''));
+    // 초대 링크(#detail-{id}?invite=CODE)로 들어올 수 있어 식별자만 떼어낸다.
+    //   ⚠️ replace 만 하면 '?invite=...' 까지 캠페인 식별자로 넘어가 캠페인을 못 찾는다.
+    openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
@@ -219,6 +295,10 @@ window.addEventListener('popstate', function(e) {
     // 화면 전환만 하고, iOS 큰 제목 관찰자만 다시 건다(제목은 _screenTitle 이 그대로 유지).
     navigate(page, false);
     if (typeof setupLargeTitle === 'function') setupLargeTitle('page-activity', 'activityCampTitle');
+  } else if (page === 'ticket' || page.startsWith('ticket-')) {
+    // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
+    if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
+    else navigate('mypage', false);
   } else {
     navigate(page, false);
   }
@@ -229,7 +309,7 @@ window.addEventListener('langchange', function() {
   const page = location.hash.replace('#','') || 'home';
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
   else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
-  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-','')); }
   else if (page === 'app-cancel') {
     // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
     // JS 로 동적 채운 영역(경고 메시지, 카테고리 select)은 stale.
@@ -484,6 +564,11 @@ async function init() {
       currentUserProfile = profile;
     }
   }
+  // 정산 인플루언서 공개 스위치 로드 (로그인 상태에서만 조회 가능).
+  // updateGnb → renderNavMenu 보다 먼저 채워야 햄버거에 「報酬・精算」이 깜빡 보였다 사라지지 않는다.
+  if (currentUser && typeof isSettlementPublic === 'function') {
+    try { setSettlementPublic(await isSettlementPublic()); } catch(_) {}
+  }
   updateGnb();
 
   // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
@@ -528,12 +613,21 @@ async function init() {
             const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
             currentUserProfile = profile;
           }
+          // 정산 인플루언서 공개 스위치 로드 (init 과 동일 — 로그인 직후 메뉴 렌더 전에 확정)
+          if (typeof isSettlementPublic === 'function') {
+            try { setSettlementPublic(await isSettlementPublic()); } catch(_) {}
+          }
           updateGnb();
           // 로그인 시 알림 폴링 시작
           if (typeof startNotifPolling === 'function') startNotifPolling();
           // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
           if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
           if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
+          // 초대 링크로 들어와 가입한 뒤 **확인 메일 링크로 돌아온** 경우의 복귀.
+          //   운영서버는 가입 시 이메일 확인이 필수라 handleSignup 이 세션 없이 먼저 끝난다
+          //   → 그 경로는 auth.js 의 복귀 코드에 닿지 못한다. 확인 링크로 세션이 생기는
+          //   이 자리가 신규 가입자의 실제 복귀 지점이다(2026-08-03 리뷰 지적).
+          if (typeof consumeInviteReturn === 'function') { try { consumeInviteReturn(); } catch(_){} }
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -581,10 +675,20 @@ async function init() {
                              location.hash.includes('type=recovery') ||
                              location.hash.includes('access_token=');
 
-  if (isRecoveryInProgress || urlHasRecoveryCode) {
+  if (hash && hash.startsWith('reset-pw?')) {
+    // 비밀번호 재설정 새 형식 — #reset-pw?token_hash=... (비로그인 진입).
+    // 위 recovery 스킵 분기보다 먼저 둔다. 새 형식도 재설정 플래그를 세우므로
+    // 뒤에 두면 스킵에 걸려 검증이 실행되지 않는다.
+    const tokenHash = new URLSearchParams(hash.split('?')[1] || '').get('token_hash');
+    navigate('reset-pw', false);
+    handleRecoveryTokenLink(tokenHash);
+  } else if (isRecoveryInProgress || urlHasRecoveryCode) {
     // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
   } else if (hash && hash.startsWith('detail-')) {
-    const campId = hash.replace('detail-','');
+    // 초대 링크로 처음 들어온 경우 — 번호를 먼저 기억해 두고 상세를 연다.
+    //   기억해 두지 않으면 상세 게이트가 번호를 다시 묻고, 예약 함수에도 못 넘긴다.
+    const campId = (typeof captureInviteFromHash === 'function')
+      ? captureInviteFromHash(hash) : hash.replace('detail-','');
     openCampaign(campId);
   } else if (hash && (hash.startsWith('legal-') || hash === 'legal')) {
     // 약관 딥링크·새로고침 — 종류 없는 구 링크(#legal)는 이용약관으로
@@ -604,6 +708,11 @@ async function init() {
     // 응모건 메시지 페이지 새로고침 복원 — openMessagesPage 가 캐시(_myApps) 보장
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
+    else navigate('mypage', false);
+  } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
+    // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
+    const tid = hash.replace('ticket-', '').replace('ticket', '');
+    if (typeof openTicketPage === 'function') openTicketPage(tid, 'mypage', false);
     else navigate('mypage', false);
   } else if (hash === 'activity') {
     // 활동관리 페이지 새로고침 — _activityAppId·_activityCamp 글로벌이 NULL 이라 데이터 복원 불가.
@@ -651,7 +760,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
+    : initHash.startsWith('reset-pw') ? 'reset-pw'
     : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');

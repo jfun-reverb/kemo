@@ -24,7 +24,7 @@ echo "🔨 REVERB JP 빌드 시작..."
 # 1. CLIENT 빌드 → ../index.html
 # ══════════════════════════════════════
 CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css")
-CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/image-compress.js" "lib/ocr-receipt.js" "lib/storage.js" "lib/legal.js" "js/error-report.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/messaging.js" "js/app.js")
+CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/image-compress.js" "lib/ocr-receipt.js" "lib/storage.js" "lib/legal.js" "js/error-report.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/event-ticket.js" "js/notifications.js" "js/mypage.js" "js/messaging.js" "js/app.js")
 
 : > "$BUILD_TMP/client.css"
 for f in "${CLIENT_CSS_FILES[@]}"; do
@@ -75,7 +75,7 @@ PYTHON_SCRIPT
 mkdir -p ../admin
 
 ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do
@@ -145,6 +145,28 @@ if [ -d "sales" ]; then
     cp sales/images/* ../sales/images/
   fi
   echo "  ✅ Sales 폼 복사 완료 → ../sales/"
+fi
+
+# ══════════════════════════════════════
+# 4. 관리자 비밀번호 설정 페이지 → ../admin-setpw.html (self-contained HTML 단순 복사)
+#    - 관리자 초대 메일의 착지 페이지. 로그인 전에 열리므로 /admin/ 안에 둘 수 없음
+#      (admin/app.js 가 무세션이면 인플루언서 앱으로 리다이렉트)
+#    - 확장자 포함 경로로 접근 (루트 사이트는 vercel.json 이 없어 cleanUrls 미적용)
+# ══════════════════════════════════════
+if [ -f "admin-setpw.html" ]; then
+  cp admin-setpw.html ../admin-setpw.html
+  echo "  ✅ 관리자 비밀번호 설정 페이지 복사 완료 → ../admin-setpw.html"
+fi
+
+# ══════════════════════════════════════
+# 5. 현장 입장 확인 페이지 → ../event-scan.html (self-contained HTML 단순 복사)
+#    - 행사장에서 휴대폰으로 쓰는 화면. 관리자 앱은 PC 전체폭 고정이라 그 안에 둘 수 없음
+#      (.claude/rules/ui.md — 관리자 페이지에 모바일 쉘 적용 금지)
+#    - 확장자 포함 경로로 접근 (루트 사이트는 vercel.json 이 없어 cleanUrls 미적용)
+# ══════════════════════════════════════
+if [ -f "event-scan.html" ]; then
+  cp event-scan.html ../event-scan.html
+  echo "  ✅ 현장 입장 확인 페이지 복사 완료 → ../event-scan.html"
 fi
 
 echo "📦 빌드 완료 ($VERSION)"

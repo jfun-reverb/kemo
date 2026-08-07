@@ -55,11 +55,16 @@ const ADMIN_NOTICE_CAT_LABEL = {
   warning: '경고',
   general: '일반',
 };
+// 공지 종류 라벨 — 네 가지 모두 같은 포인트 컬러 스타일로 통일(연보라 배경 + 보라 글자, 6.07:1).
+// 배지에 이름이 이미 쓰여 있어 색으로 종류를 구분할 필요가 없다.
+// ⚠️ 「주의」도 같은 색이라 목록을 훑을 때 위험 공지가 눈에 띄지 않는다 —
+//    구분이 필요해지면 warning 만 var(--red-l)/var(--red-d) 로 되돌리면 된다.
+const NOTICE_LABEL_STYLE = 'background:var(--accent-tint);color:var(--accent-deep)';
 const ADMIN_NOTICE_CAT_STYLE = {
-  system_update: 'background:#E3F2FD;color:#1565C0',
-  release: 'background:#E8F5E9;color:#2E7D32',
-  warning: 'background:#FFEBEE;color:#C62828',
-  general: 'background:#F5F5F5;color:#616161',
+  system_update: NOTICE_LABEL_STYLE,
+  release: NOTICE_LABEL_STYLE,
+  warning: NOTICE_LABEL_STYLE,
+  general: NOTICE_LABEL_STYLE,
 };
 
 // ════════════════════════════════════════════════════════════════════
@@ -94,16 +99,29 @@ function refreshAdminNoticeBadge() {
   else badge.style.display = 'none';
 }
 
+// 사이드바 공지 배지 클릭 → 다른 필터 초기화 후 「미읽음만」 (기준: openDelivPendingReview)
+function openNoticesUnread() {
+  const cat = document.getElementById('adminNoticeCatFilter'); if (cat) cat.value = 'all';
+  const st = document.getElementById('adminNoticeStatusFilter'); if (st) st.value = 'all';
+  const sch = document.getElementById('adminNoticeSearch'); if (sch) sch.value = '';
+  const un = document.getElementById('adminNoticeUnreadFilter'); if (un) un.checked = true;
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('admin-notices');
+  else renderAdminNotices();
+}
+
 function renderAdminNotices() {
   const body = $('adminNoticeBody');
   if (!body) return;
   const cat = $('adminNoticeCatFilter')?.value || 'all';
   const status = $('adminNoticeStatusFilter')?.value || 'all';
   const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
+  const unreadOnly = $('adminNoticeUnreadFilter')?.checked;
   let list = (_adminNoticesCache || []).slice();
   if (cat !== 'all') list = list.filter(n => n.category === cat);
   if (status !== 'all') list = list.filter(n => (n.status || 'draft') === status);
   if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
+  // 미읽음만 = 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
+  if (unreadOnly) list = list.filter(n => n.status === 'published' && !n.is_read);
   const total = $('adminNoticeTotal');
   if (total) total.textContent = `${list.length}건`;
   const isSuper = currentAdminInfo?.role === 'super_admin';
@@ -125,7 +143,7 @@ function renderAdminNotices() {
       <td>${unreadDot}${readCellInner}</td>
       <td>${adminNoticeStatusPill(n.status)}</td>
       <td>${adminNoticeCatPill(n.category)}</td>
-      <td style="font-weight:600;color:var(--ink)">${pinIcon}${esc(n.title)}</td>
+      <td style="font-weight:${n.is_read?'400':'600'};color:var(--ink)">${pinIcon}${esc(n.title)}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(n.created_by_name || '—')}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${dateStr}</td>
       <td>${canEdit(n) ? `<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openAdminNoticeEdit(this.closest('tr').dataset.id)"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}</td>
@@ -361,9 +379,12 @@ function renderDashboardNotices() {
   const card = $('dashboardNoticesCard');
   const body = $('dashboardNoticesBody');
   if (!card || !body) return;
+  const grid = $('dashTopGrid');
   const list = (_adminNoticesCache || []).filter(n => n.status === 'published').slice(0, 3);
-  if (!list.length) { card.style.display = 'none'; return; }
+  // 공지가 없으면 왼쪽 칸이 비므로 KPI 가 전체 폭을 쓰도록 1단으로 전환
+  if (!list.length) { card.style.display = 'none'; if (grid) grid.classList.add('no-notices'); return; }
   card.style.display = '';
+  if (grid) grid.classList.remove('no-notices');
   body.innerHTML = list.map(n => `
     <div style="padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openAdminNoticeView('${esc(n.id)}')">
       ${!n.is_read ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#C62828;flex-shrink:0"></span>' : '<span style="display:inline-block;width:6px;height:6px;flex-shrink:0"></span>'}

@@ -37,12 +37,13 @@ function toggleDelivSort(col) {
   renderDeliverablesList();
 }
 
-function resetDelivFiltersAndSort() {
+function resetDelivFiltersAndSort(skipRender) {
   resetMultiFilter('delivRecruitTypeMulti', '전체 타입');
   resetMultiFilter('delivReceiptStatusMulti', '전체');
   resetMultiFilter('delivResultStatusMulti', '전체');
   resetMultiFilter('delivChannelMulti', '전체 채널');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
+  _delivCertTab = '';  // 인증 상태 탭 → 전체
   const q = $('delivSearch'); if (q) q.value = '';
   // 검색창 접기 + 돋보기 버튼 강조 해제
   const sbox = $('delivSearchBox'); if (sbox) sbox.style.display = 'none';
@@ -50,12 +51,13 @@ function resetDelivFiltersAndSort() {
   // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
+  _delivPendingOnly = false;  // 검수대기만(배지 클릭) 해제
   // 최근 제출일 기간 초기화
   _delivSubmittedFrom = ''; _delivSubmittedTo = '';
   if (_delivSubmittedFp) _delivSubmittedFp.clear();
   const dr = $('delivSubmittedRange'); if (dr) dr.classList.remove('filter-active');
   _delivSort = {col: null, dir: null};
-  renderDeliverablesList();
+  if (!skipRender) renderDeliverablesList();  // 배지 클릭(openDelivPendingReview)은 이중 렌더 방지로 생략
 }
 
 function applyDelivSortIndicators() {
@@ -73,6 +75,19 @@ function applyDelivSortIndicators() {
 
 async function loadDeliverables() {
   await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
+  // 채널 어긋남 경고 버튼 갱신 — 0건이면 버튼째 숨긴다. 실패해도 목록은 이미 떠 있다.
+  if (typeof refreshChannelDriftIndicators === 'function') {
+    refreshChannelDriftIndicators();
+  }
+}
+
+// 사이드바 검수대기 배지 클릭 — 결과물 관리 페인을 「검수대기만」 상태로 열어 배지 숫자와 목록을 일치시킴.
+//   다른 필터를 모두 초기화한 뒤 검수대기만 켜서, 배지 숫자 = 눈앞 목록 길이가 되게 한다.
+function openDelivPendingReview() {
+  resetDelivFiltersAndSort(true);  // 다른 필터·검색·기간 초기화(렌더는 생략 — 아래 navAdminPaneReload 가 렌더)
+  _delivPendingOnly = true;       // 그 뒤 검수대기만 ON
+  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('deliverables');
+  else renderDeliverablesList();
 }
 
 // 사이드바 "결과물 관리" 메뉴 옆 검수 대기(pending) 배지 갱신
@@ -81,7 +96,14 @@ async function refreshDelivSidebarBadge() {
   if (!el) return;
   try {
     const n = await fetchPendingDeliverableCount();
-    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+    // 배지(숫자) 클릭 → 「검수대기만」 보기. event.stopPropagation 으로 메뉴 진입(페인 이동)과 분리.
+    const badge = n>0 ? `<span class="admin-si-badge" onclick="event.stopPropagation();openDelivPendingReview()" style="cursor:pointer" title="검수대기만 보기">${n>999?'999+':n}</span>` : '';
+    // ⚠️ 이 함수는 항목 innerHTML 을 **통째로 다시 쓴다.** 채널 어긋남 경고는 `.si-icon`
+    //    자체를 경고 모양으로 바꾸는 방식이라, 여기서 아이콘이 원래대로 다시 그려지면
+    //    경고 표시가 지워진다. 그래서 직후에 반드시 다시 입힌다(재조회 없이 캐시로).
+    //    ⚠️ 이 항목에 표시를 추가·변경할 때도 같은 함정이 있다.
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
+    if (typeof applyChannelDriftIndicators === 'function') applyChannelDriftIndicators();
   } catch(e) { /* 무시 */ }
 }
 
@@ -102,6 +124,43 @@ const DELIV_PAGE_SIZE = 50;
 var _delivSubmittedFrom = '';
 var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
+// 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
+var _delivPendingOnly = false;
+// 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
+//   신청 1건 = computeCertStatus 4종 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _delivCertTab = '';
+
+// 인증 상태 탭 정의 — 화면 인증 상태 열(computeCertStatus)과 동일 4종 + 전체
+const DELIV_CERT_STATUS_TABS = [
+  { code: '',           label: '전체' },
+  { code: 'none',       label: '미제출' },
+  { code: 'submitting', label: '인증샷 제출중' },
+  { code: 'success',    label: '인증성공' },
+  { code: 'excluded',   label: '검수 불필요' },
+];
+
+// 인증 상태 탭 바 렌더 — 건수는 renderDeliverablesList 가 넘겨준 certStatusCounts(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 그룹은 4종 중 하나). renderDeliverablesList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderDelivCertStatusTabs(counts) {
+  const bar = $('delivCertStatusTabBar');
+  if (!bar) return;
+  const c = counts || {success:0, submitting:0, none:0, excluded:0};
+  const totalAll = (c.success||0) + (c.submitting||0) + (c.none||0) + (c.excluded||0);
+  const active = _delivCertTab || '';
+  bar.innerHTML = DELIV_CERT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setDelivCertStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 인증 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderDeliverablesList 내부 재렌더로 갱신)
+function setDelivCertStatusTab(btn) {
+  _delivCertTab = btn.dataset.status || '';
+  renderDeliverablesList();
+}
 
 // timestamptz ISO → 브라우저 로컬 날짜(YYYY-MM-DD). 기간 필터 비교용 (운영자 KST 기준)
 function delivLocalDate(iso) {
@@ -159,7 +218,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
@@ -184,6 +243,9 @@ async function renderDeliverablesList() {
   const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const channelVals = getMultiFilterValues('delivChannelMulti');
+  // 인증 상태 탭(단일, ''=전체) 4종: success(인증성공)/submitting(인증샷 제출중)/none(미제출)/excluded(검수 불필요)
+  //   전체 탭은 검수 불필요를 포함해 보여준다(과거 「검수 불필요 포함」 토글 기본 ON 동작을 계승). 특정 탭은 그 상태만.
+  const certTab = _delivCertTab || '';
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
@@ -216,15 +278,20 @@ async function renderDeliverablesList() {
   // 자기 자신 필터를 skip 인자로 지정하면 그 필터만 무시. 나머지는 모두 AND 적용.
   const passesFilters = (g, opts) => {
     opts = opts || {};
+    // 검수대기만 모드(사이드바 배지 클릭)는 모든 카운트에도 반영 → 탭 건수 = 목록 길이 정합(전체 탭 "전체(N)" 오인 방지)
+    if (_delivPendingOnly && !groupHasPendingReview(g)) return false;
     if (!opts.skipRecruit && recruitTypeVals.length > 0 && !recruitTypeVals.includes(g.campaign?.recruit_type)) return false;
     if (!opts.skipCamp && delivCampVals.length > 0 && !delivCampVals.includes(g.campaign?.id)) return false;
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
+      // 검수 불필요(신청 반려·취소)는 검수 상태 필터 대상이 아님 — 상태 필터 선택 시 제외
+      if (isCertExcluded(g)) return false;
       // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 영수증 단계가 없음
       if (g.campaign?.recruit_type !== 'monitor') return false;
       const s = g.receipt ? g.receipt.status : 'none';
       if (!receiptStatusVals.includes(s)) return false;
     }
     if (!opts.skipResult && resultStatusVals.length > 0) {
+      if (isCertExcluded(g)) return false;  // 검수 불필요는 결과물 상태 필터 대상 아님
       const rt2 = g.campaign?.recruit_type;
       if (rt2 === 'monitor') {
         // 다중채널: 채널별 상태 중 하나라도 선택값에 들면 통과 (ANY)
@@ -241,6 +308,7 @@ async function renderDeliverablesList() {
       if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
     }
     if (!opts.skipChannel && channelVals.length > 0 && !delivGroupMatchesChannel(g, channelVals)) return false;
+    if (!opts.skipCert && certTab && computeCertStatus(g) !== certTab) return false;
     if (_delivSubmittedFrom || _delivSubmittedTo) {
       const d = delivLocalDate(g.latest_submitted_at);
       if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
@@ -255,8 +323,9 @@ async function renderDeliverablesList() {
   // legacy_no_channel: 사양 2 전 post_channel NULL 인 review_image 행이 있는 monitor 신청 (385건, 2026-05-28)
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
   const channelCounts = {};  // {channel_code: n} + '__none__': 채널 미상 n
+  const certStatusCounts = {success:0, submitting:0, none:0, excluded:0};
   for (const g of allGroups) {
-    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외
+    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외. 인증 탭은 passesFilters 에 반영됨(전체 탭이면 검수 불필요 포함).
     if (passesFilters(g, {skipCamp: true})) {
       const cid = g.campaign?.id;
       if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
@@ -266,13 +335,21 @@ async function renderDeliverablesList() {
       const rt = g.campaign?.recruit_type;
       if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
     }
+    // 인증 상태 탭 카운트: 자기 자신(인증 탭) 제외 → 다른 필터 적용 후 computeCertStatus 로 분류.
+    //   4종 모두 세며(검수 불필요 포함) 전체 탭 건수 = 4종 합.
+    if (passesFilters(g, {skipCert: true})) {
+      const cs = computeCertStatus(g);
+      if (cs in certStatusCounts) certStatusCounts[cs]++;
+    }
     // 영수증 상태 카운트: 리뷰어(monitor) 그룹만 합산 (기프팅·방문형 'none' 오집계 차단)
-    if (passesFilters(g, {skipReceipt: true}) && g.campaign?.recruit_type === 'monitor') {
+    //   검수 불필요(신청 반려·취소)는 검수 상태가 아니므로 집계 제외
+    if (passesFilters(g, {skipReceipt: true}) && g.campaign?.recruit_type === 'monitor' && !isCertExcluded(g)) {
       const rs = g.receipt ? g.receipt.status : 'none';
       if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
     }
     // 결과물 상태 카운트: 자기 자신(결과물 필터) 제외 → 영수증·캠페인·모집타입·검색 모두 적용
-    if (passesFilters(g, {skipResult: true})) {
+    //   검수 불필요는 집계 제외
+    if (passesFilters(g, {skipResult: true}) && !isCertExcluded(g)) {
       const rt = g.campaign?.recruit_type;
       if (rt === 'monitor') {
         // 다중채널: 그룹이 가진 상태 종류마다 +1 (ANY 매칭과 정합 — 중복 집계 허용)
@@ -332,18 +409,22 @@ async function renderDeliverablesList() {
     delivChannelOpts.push({value:'__none__', label:'채널 미상', count: channelCounts['__none__']});
   }
   syncMultiFilter('delivChannelMulti', '전체 채널', delivChannelOpts, () => renderDeliverablesList());
+  // 인증 상태 탭 바 — 화면 인증 상태 열과 동일 4종(검수 불필요 포함) + 전체. 다중 필터 대체.
+  renderDelivCertStatusTabs(certStatusCounts);
 
   // 필터 적용
   let filtered = Array.from(groups.values());
   if (recruitTypeVals.length > 0) filtered = filtered.filter(g => g.campaign && recruitTypeVals.includes(g.campaign.recruit_type));
   if (delivCampVals.length > 0) filtered = filtered.filter(g => g.campaign && delivCampVals.includes(g.campaign.id));
   if (receiptStatusVals.length > 0) filtered = filtered.filter(g => {
+    if (isCertExcluded(g)) return false;  // 검수 불필요는 검수 상태 필터 대상 아님
     // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 표시 안 함
     if (g.campaign?.recruit_type !== 'monitor') return false;
     const s = g.receipt ? g.receipt.status : 'none';
     return receiptStatusVals.includes(s);
   });
   if (resultStatusVals.length > 0) filtered = filtered.filter(g => {
+    if (isCertExcluded(g)) return false;  // 검수 불필요는 결과물 상태 필터 대상 아님
     const rt = g.campaign?.recruit_type;
     if (rt === 'monitor') {
       // 다중채널: 채널별 상태 중 하나라도 선택값에 들면 통과 (ANY)
@@ -356,6 +437,8 @@ async function renderDeliverablesList() {
   });
   // 채널 필터 — monitor=캠페인 채널, gifting/visit=post_channel, 미상=__none__
   if (channelVals.length > 0) filtered = filtered.filter(g => delivGroupMatchesChannel(g, channelVals));
+  // 인증 상태 탭 — computeCertStatus(화면 인증 상태 열 단일 소스)로 판정. 전체 탭('')은 필터 없음(검수 불필요 포함).
+  if (certTab) filtered = filtered.filter(g => computeCertStatus(g) === certTab);
   // 최근 제출일 기간 필터 — 그룹의 latest_submitted_at(로컬 날짜)이 선택 범위 안 (양끝 포함, 제출일 없으면 제외)
   if (_delivSubmittedFrom || _delivSubmittedTo) filtered = filtered.filter(g => {
     const d = delivLocalDate(g.latest_submitted_at);
@@ -377,10 +460,15 @@ async function renderDeliverablesList() {
       return all.some(d => d && d.submitted_by_admin);
     });
   }
+  // 검수대기만 (사이드바 배지 클릭) — 신청 단위 최신 결과물이 검수대기인 신청만. 배지 숫자 = 목록 길이.
+  if (_delivPendingOnly) filtered = filtered.filter(groupHasPendingReview);
+  // (인증 상태 탭이 검수 불필요 노출을 담당 — 전체 탭=포함, 특정 탭=위 404행에서 처리. 별도 토글 없음)
 
-  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
+  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·인증탭·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
+    || _delivPendingOnly
+    || !!_delivCertTab
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
     || ($('delivProxyOnly') && $('delivProxyOnly').checked);
   if (_delivExtraActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
@@ -448,6 +536,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
     if (!groups.has(appId)) {
       groups.set(appId, {
         application_id: appId, campaign: camp || null, influencer: inf || null,
+        application_status: null,  // 신청 status(approved/pending/rejected/cancelled) — 검수 불필요 판정용
         receipt: null, result: null, reviewByChannel: {},
         hasLegacyReviewImage: false, latest_submitted_at: null,
       });
@@ -459,6 +548,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
     const camp = d.campaigns || campMap.get(d.campaign_id) || null;
     const g = upsertGroup(d.application_id, camp, d.influencers);
     if (!g.influencer && d.influencers) g.influencer = d.influencers;
+    if (!g.application_status && d.applications?.status) g.application_status = d.applications.status;
     const subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
       if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
@@ -479,7 +569,8 @@ function buildDeliverableGroups(delivs, campMap, opts) {
   if (opts.includeApps) {
     for (const app of opts.includeApps) {
       if (groups.has(app.id)) continue;
-      upsertGroup(app.id, campMap.get(app.campaign_id) || null, (opts.infMap || {})[app.user_id] || null);
+      const g = upsertGroup(app.id, campMap.get(app.campaign_id) || null, (opts.infMap || {})[app.user_id] || null);
+      g.application_status = app.status || 'approved';  // includeApps 는 승인 신청만
     }
   }
   _finalizeMonitorReprs(groups);
@@ -524,14 +615,29 @@ function countCertSuccess(delivs, camp) {
   return n;
 }
 
-// 인증 상태(신청 1건 단위) — 3종: success(인증성공) / submitting(인증샷 제출중) / none(미제출)
+// 인증 상태 상세 (computeCertStatus 판정 근거 — 검수 불필요는 아래 isCertExcluded 가 앞단 처리)
 //   리뷰어(monitor): 영수증(receipt) + 채널별 인증샷(review_image)
 //     - 둘 다 전혀 없음 → 미제출
 //     - 영수증 승인 + 인증샷 모두 승인 → 인증성공
 //     - 그 외(영수증 검수중/반려, 인증샷 검수중/미제출/반려) → 인증샷 제출중
 //   시딩(gifting)·방문(visit): 게시물(post)만
 //     - 미제출 → 미제출 / 승인 → 인증성공 / 그 외(검수중·반려) → 인증샷 제출중
+// 검수 불필요 판정 — 신청이 승인 후 반려/취소되면 그 결과물은 검수 대상이 아니다.
+//   결과물 status 는 안 바꾸고 신청 status 만 참조하므로, 재승인 시 자동으로 다시 검수 대상이 된다.
+function isCertExcluded(g) {
+  return g && (g.application_status === 'rejected' || g.application_status === 'cancelled');
+}
+
+// 인증 상태(신청 1건 단위) — 4종: excluded(검수 불필요) / success(인증성공) / submitting(인증샷 제출중) / none(미제출)
+//
+// ⚠️ **이 판정을 고칠 때 메일 발송 함수도 함께 봐야 한다.**
+//    `supabase/functions/notify-influencer-daily-digest/index.ts` 가 마감 안내 대상을
+//    고를 때 같은 규칙을 **서버에서 다시 구현**하고 있다(리뷰어형은 캠페인 요구 채널마다
+//    인증샷이 있어야 인증 성공). 두 앱이라 코드를 공유할 수 없어 규칙이 두 곳에 있다 —
+//    한쪽만 고치면 화면과 메일이 서로 다른 말을 하게 된다.
+//    (사양서 `docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md` §설계 단계 2)
 function computeCertStatus(g) {
+  if (isCertExcluded(g)) return 'excluded';  // 신청 반려·취소 → 검수 불필요 (인증성공 집계·검수 대상에서 제외)
   const camp = g && g.campaign ? g.campaign : null;
   const rt = camp ? camp.recruit_type : null;
   if (rt === 'monitor') {
@@ -552,14 +658,34 @@ function computeCertStatus(g) {
   return 'submitting';
 }
 // 인증 상태 한국어 라벨 (엑셀 공용)
+// 검수대기 신청 판정 — 신청의 각 결과물 "최신 1건" 중 하나라도 검수대기(pending)면 true.
+//   사이드바 배지(count_pending_review_applications RPC, 신청 단위)와 같은 기준으로,
+//   배지 클릭 「검수대기만」 필터가 배지 숫자와 목록 길이를 일치시킨다.
+//   재제출로 쌓인 옛 pending 행은 buildDeliverableGroups 가 이미 최신만 대표로 잡아 자동 제외.
+//   검수 불필요(신청 반려·취소)는 대상 아님.
+function groupHasPendingReview(g) {
+  if (!g || isCertExcluded(g)) return false;
+  if (g.receipt && g.receipt.status === 'pending') return true;  // 영수증 최신 검수대기
+  const rt = g.campaign ? g.campaign.recruit_type : null;
+  if (rt === 'monitor') {
+    if (g.result_status_repr === 'pending') return true;  // 채널별 인증샷 최신 중 검수대기
+    // result_status_repr 은 rejected>pending 우선순위라 「채널 A 반려 + 채널 B 검수대기」면 'rejected'가 된다.
+    // 배지 RPC 는 채널별 최신 pending 을 그대로 세므로, 목록도 채널 최신에 pending 이 하나라도 있으면 검수대기로 본다(정합).
+    if (Object.values(g.reviewByChannel || {}).some(d => d && d.status === 'pending')) return true;
+  } else if (g.result && g.result.status === 'pending') {
+    return true;  // 게시물 최신 검수대기 (gifting/visit)
+  }
+  return false;
+}
 function certStatusLabelKo(g) {
   const s = computeCertStatus(g);
-  return s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
+  return s === 'excluded' ? '검수 불필요' : s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
 }
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
   // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
   const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
+  if (s === 'excluded')   return `<span class="badge badge-gray" style="${st}" title="신청이 승인 후 반려·취소되어 검수가 불필요합니다">검수 불필요</span>`;
   if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
   if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
   return `<span class="badge badge-gray" style="${st}">미제출</span>`;
@@ -567,7 +693,11 @@ function certStatusBadge(g) {
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
 // 양쪽 모두 「승인」(또는 gifting의 경우 결과물 단독 「승인」)이면 좌측 초록 보더 = 「완료」
-function renderDelivAppRow(g) {
+// opts.compact: 단일 캠페인 화면(캠페인 진행현황 「결과물 목록」 탭)에서 호출.
+//   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
+//   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
+function renderDelivAppRow(g, opts) {
+  const compact = !!(opts && opts.compact);
   const camp = g.campaign || {};
   const inf = g.influencer || {};
   const rt = camp.recruit_type;
@@ -618,18 +748,20 @@ function renderDelivAppRow(g) {
 
   const brandLabel = brandLabelAdmin(camp);
 
-  return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
+  const campCols = compact ? '' : `
     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div style="display:flex;align-items:flex-start;gap:4px"><span style="flex:1">${esc(camp.title || '—')}</span>${campPreviewBtn(camp.id)}</div></td>
     <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
-    <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
+    <td class="deliv-col-brand" style="font-size:12px;color:var(--ink);word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
-    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
+    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>`;
+
+  return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">${campCols}
+    <td><div class="applicant-name-cell"><div class="applicant-name-info"><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</div>${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
-    <td>${receiptCell}</td>
-    <td>${resultCell}</td>
-    <td>${submittedCell}</td>
-    <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
+    <td class="deliv-col-receipt">${receiptCell}</td>
+    <td class="deliv-col-result">${resultCell}</td>
+    <td class="deliv-col-submitted">${submittedCell}</td>
+    <td class="deliv-col-action"><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
   </tr>`;
 }
 
@@ -706,7 +838,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
     if (d.post_url) {
       let host = '';
       try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url; }
-      preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
+      preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--ink);display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
     // 채널 불일치 경고 배지 (2026-06-16, 묶음2) — 캠페인 요구 채널에 없는 post_channel(예: 인스타 캠페인에 lips)
     //   단 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면(현재 정상) 숨김 (opts.hasValidApprovedPost).
@@ -979,6 +1111,7 @@ async function renderDelivCombinedBody(applicationId) {
   let allDelivs = [];
   let camp = null;
   let userId = null;
+  let appStatus = null;  // 신청 status — 검수 불필요(반려·취소) 판정용
   if (db) {
     const delivRes = await db?.from('deliverables').select(`
       id, kind, status, version, application_id, user_id, campaign_id,
@@ -987,13 +1120,15 @@ async function renderDelivCombinedBody(applicationId) {
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
+      applications:application_id (status),
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
     if (allDelivs[0]) {
       camp = allDelivs[0].campaigns || null;
       userId = allDelivs[0].user_id || null;
+      appStatus = allDelivs[0].applications?.status || null;
     }
   }
 
@@ -1002,13 +1137,16 @@ async function renderDelivCombinedBody(applicationId) {
   //   PGRST200("no foreign key relationship")으로 실패한다 → application 행 조회 후 campaign_id 로
   //   campaigns 를 별도 조회하는 2단계 방식으로 처리(미제출 행 검수 진입 시 캠페인 정보 누락 버그 수정).
   if (!camp && db) {
-    const appRes = await db?.from('applications').select('user_id, campaign_id').eq('id', applicationId).maybeSingle();
+    const appRes = await db?.from('applications').select('user_id, campaign_id, status').eq('id', applicationId).maybeSingle();
     if (appRes?.error) console.error('[deliv-combined app]', appRes.error);
     const app = appRes?.data || null;
     if (app) {
       userId = app.user_id || null;
+      if (!appStatus) appStatus = app.status || null;
       if (app.campaign_id) {
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
+        // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
+        // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end').eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -1021,6 +1159,9 @@ async function renderDelivCombinedBody(applicationId) {
   }
 
   const rt = camp.recruit_type;
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 이 신청의 결과물은 검수 대상이 아니다.
+  //   승인/반려/되돌리기/대리등록 등 검수 액션 버튼을 모두 감추고 안내만 표시(재승인 시 자동 복원).
+  const isExcluded = appStatus === 'rejected' || appStatus === 'cancelled';
   const infMap = userId ? await fetchInfluencersByIds([userId]) : {};
   const inf = infMap[userId] || null;
 
@@ -1128,13 +1269,13 @@ async function renderDelivCombinedBody(applicationId) {
       const chLabelStr = chLabelFn(ch);
       return '<div class="deliv-combined-panel">'
         + '<div class="deliv-combined-panel-header"><span>「' + esc(chLabelStr) + '」 리뷰 ' + stepLabel2 + '</span>' + statusBadge + '</div>'
-        + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(d, events) + '</div>'
+        + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(d, events, isExcluded) + '</div>'
         + '</div>';
     }).join('');
   } else {
     resultPanelsHtml = '<div class="deliv-combined-panel">'
       + '<div class="deliv-combined-panel-header"><span>' + esc(resultLabel) + ' ' + stepLabel2 + '</span>' + resultStatusBadge + '</div>'
-      + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(result, resultEvents) + '</div>'
+      + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(result, resultEvents, isExcluded) + '</div>'
       + '</div>';
   }
 
@@ -1155,7 +1296,7 @@ async function renderDelivCombinedBody(applicationId) {
         const thumb = orig
           ? `<img src="${esc(typeof imgThumb === 'function' ? imgThumb(orig, 64, 60) : orig)}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
-        const dateStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ja-JP') : '';
+        const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
         if (emptyChannels.length === 0) {
           control = '<span style="font-size:12px;color:var(--muted)">지정 가능한 채널이 없습니다 (모든 채널이 이미 채워짐)</span>'
@@ -1208,26 +1349,47 @@ async function renderDelivCombinedBody(applicationId) {
   }
 
   // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
-  const totalPanels = (showReceipt ? 1 : 1) + (isMonitorMulti ? campChannels.length : 1);
-  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
+  //   영수증 단계가 없는(gifting/visit) 모집 타입은 영수증 패널 자체를 안 그린다 → 카운트 0
+  const totalPanels = (showReceipt ? 1 : 0) + (isMonitorMulti ? campChannels.length : 1);
+  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi'
+    : totalPanels === 1 ? 'deliv-combined-grid deliv-combined-grid-single'
+    : 'deliv-combined-grid';
+  // 패널 1개(영수증 없는 gifting/visit)면 모달 폭도 좁게 — 넓은 빈 공간 방지
+  const modalEl = document.querySelector('#delivCombinedModal .modal');
+  if (modalEl) modalEl.classList.toggle('deliv-combined-single', totalPanels === 1);
+
+  // 검수 불필요(신청 반려·취소) 안내 배너 — 이 안에선 검수 액션이 모두 비활성이라는 걸 상단에서 알린다
+  const excludedBanner = isExcluded
+    ? `<div style="margin-bottom:14px;padding:12px 14px;background:var(--surface-dim);border:1px solid var(--outline);border-radius:8px;font-size:13px;color:var(--ink);line-height:1.6">
+         <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px;color:var(--muted)">block</span>
+         이 신청은 <strong>${appStatus === 'cancelled' ? '취소' : '반려'}</strong>되어 <strong>검수가 불필요</strong>합니다. 승인·반려·되돌리기·대리 등록 등 검수 작업은 할 수 없습니다.
+         <span style="color:var(--muted)">신청을 다시 승인하면 검수가 자동으로 재개됩니다.</span>
+       </div>`
+    : '';
 
   body.innerHTML = `
+    ${excludedBanner}
     <div class="${gridClass}">
       ${showReceipt
         ? `<div class="deliv-combined-panel">
             <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
-            <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents)}</div>
+            <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents, isExcluded)}</div>
           </div>`
-        : `<div class="deliv-combined-panel" style="opacity:.6">
-            <div class="deliv-combined-panel-header" style="color:var(--muted)"><span>영수증 (해당 없음)</span></div>
-            <div class="deliv-combined-panel-body" style="color:var(--muted);text-align:center;padding:40px;font-size:13px">이 모집 타입은 영수증 단계가 없습니다.</div>
-          </div>`}
+        : ''}
       ${resultPanelsHtml}
     </div>
     ${channelSummaryBox}
     ${unassignedBox}
     ${mismatchedBox}
   `;
+
+  // 대리 등록 버튼 — 매 렌더마다 권한(campaign_manager 차단) + 검수 불필요를 함께 대칭 판정
+  //   (openDelivCombined 를 거치지 않는 직접 재렌더 경로 대비 — 숨김이 안 풀리는 잠재 결함 방지)
+  const proxyBtn = $('delivCombinedProxyBtn');
+  if (proxyBtn) {
+    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
+    proxyBtn.style.display = (isManager || isExcluded) ? 'none' : '';
+  }
 }
 
 // 채널 미지정 review_image 에 채널 지정 (마이그레이션 162). 드롭다운 선택값으로 assign RPC 호출 후 모달·목록 재렌더.
@@ -1271,9 +1433,48 @@ async function deleteMismatchedPostRow(deliverableId) {
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
 // (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
-function renderReceiptInfoBlock(d) {
+// 구매금액이 곧 지급액이 된다는 사실을 검수 화면에서 알린다(마이그레이션 300 이후).
+// 리뷰어형 정산액 = min(이 금액, 캠페인 상시가) 이므로, 검수자가 영수증 사진과 이
+// 숫자를 대조하지 않으면 잘못된 금액이 그대로 송금된다 — 사양서 §2-1 ①·§3-4.
+// 리뷰어형(monitor)에서만 뜬다. 시딩·방문형은 이 값이 돈과 무관하다.
+function receiptPayoutHint(d) {
+  const camp = (d && (d.campaigns || d.campaign)) || {};
+  if (camp.recruit_type !== 'monitor') return '';
+  const cap = Number(camp.product_price);
+  const capText = Number.isFinite(cap) && cap > 0 ? ` 상한 ¥${cap.toLocaleString()}` : '';
+  return `<div style="margin-top:4px;font-size:11px;color:#B45309;background:#FEF3C7;border:1px solid #FDE68A;border-radius:5px;padding:5px 8px;line-height:1.5">
+    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">payments</span>
+    이 금액이 <strong>정산 지급액</strong>이 됩니다${capText ? `(${capText.trim()} 초과 시 상한까지만)` : ''}. 영수증 사진과 숫자를 대조해 주세요.
+  </div>`;
+}
+
+// 구매일이 그 캠페인의 구매 기간을 벗어났는지 알린다(사양서 2026-08-06 결정 4·8).
+//   **막지 않는다.** 승인 버튼은 그대로 눌리고, 봐줄지는 사람이 판단한다.
+//   ⚠️ 판정에 필요한 값이 없으면 **경고를 띄우지 않는다** — 조회 실패나 값 없음을
+//      「위반」으로 읽으면 멀쩡한 건에 빨간 글씨가 붙는다.
+//   ⚠️ 바로 위 receiptPayoutHint 가 앰버를 쓴다. 같은 색을 연달아 두면 둘 다 안 읽힌다.
+function receiptPurchaseWindowWarning(d) {
   if (!d || d.kind !== 'receipt') return '';
-  const canEdit = isCampaignAdminOrAbove();
+  const camp = (d.campaigns || d.campaign) || {};
+  if (camp.recruit_type !== 'monitor') return '';
+  const ps = camp.purchase_start || '', pe = camp.purchase_end || '';
+  if (!ps || !pe) return '';
+  const pd = String(d.purchase_date || '').slice(0, 10);
+  if (!pd) return '';   // 미입력은 이미 빨강으로 표시된다 — 중복 경고 없음
+  if (pd >= ps && pd <= pe) return '';
+  return `<div style="margin-top:4px;font-size:11px;color:#991B1B;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:5px;padding:5px 8px;line-height:1.5">
+    <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">event_busy</span>
+    구매일이 <strong>모집/구매 기간(${esc(ps)} ~ ${esc(pe)}) 밖</strong>입니다.
+    배송 지연·품절 등 <strong>우리 쪽 사정</strong>으로 기간 안에 구매할 수 없었던 경우에만 승인하고,
+    그 밖의 경우에는 반려합니다.
+  </div>`;
+}
+
+function renderReceiptInfoBlock(d, isExcluded) {
+  if (!d || d.kind !== 'receipt') return '';
+  // 검수 불필요(신청 반려·취소)면 영수증 인플레이스 「수정」도 막는다 — 상단 "검수 불필요" 배너와 일관.
+  //   변경 이력 보기(읽기 전용)는 유지.
+  const canEdit = isCampaignAdminOrAbove() && !isExcluded;
   const id = String(d.id);
   const receiptUrl = d.receipt_url || '';
   const orderNo = d.order_number || '';
@@ -1290,8 +1491,8 @@ function renderReceiptInfoBlock(d) {
         ${canEdit ? `<button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="enterReceiptEditMode('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}
       </div>
       <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
-      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}</div>
+      <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}${receiptPurchaseWindowWarning(d)}</div>
+      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}${receiptPayoutHint(d)}</div>
       <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
       <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>
     </div>`;
@@ -1446,6 +1647,10 @@ async function saveReceiptEdit(id) {
       await openDelivDetail(_delivDetailCurrent.id);
     }
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
+    // 마이그레이션 302 이후 이 저장이 연결된 정산의 금액·상태까지 바꿀 수 있다
+    // (재계산 또는 금액 미확정 시 자동 보류). 정산 페인과 사이드바 「정산대기」 배지가
+    // 메모리 캐시를 쓰므로 함께 갱신하지 않으면 관리자가 그 변화를 못 본다.
+    if (typeof refreshPane === 'function') await refreshPane('settlements');
   } catch(e) {
     const msg = (e && e.message) ? e.message : String(e);
     toast(friendlyError(msg), 'error');
@@ -1552,7 +1757,7 @@ function toggleDelivEventsRest(scopeId, hiddenCount) {
 
 // 합본 모달 안 한 패널의 본문 — 이미지/URL/메타/반려사유/이력 타임라인/액션버튼
 // events: deliverable_events 배열 (제출/재제출/승인/반려/되돌리기 타임라인)
-function renderDelivPanelContent(d, events) {
+function renderDelivPanelContent(d, events, isExcluded) {
   if (!d) {
     return '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">아직 제출되지 않았습니다.</div>';
   }
@@ -1587,7 +1792,7 @@ function renderDelivPanelContent(d, events) {
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
     // review_image kind는 해당 없음
     if (d.kind === 'receipt') {
-      html += renderReceiptInfoBlock(d);
+      html += renderReceiptInfoBlock(d, isExcluded);
     }
   } else {
     html += `<div style="font-size:13px;line-height:1.7;margin-bottom:10px">
@@ -1614,7 +1819,12 @@ function renderDelivPanelContent(d, events) {
       <button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:11px;padding:4px 10px" onclick="deleteMismatchedPostRow('${esc(d.id)}')">채널 불일치 게시물 삭제</button>
     </div>`;
   }
-  if (d.status === 'pending') {
+  if (isExcluded) {
+    // 검수 불필요(신청 반려·취소) — 모든 검수 액션 버튼을 감추고 안내만 표시. 재승인 시 자동 복원.
+    html += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);text-align:right">
+      <span style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px">block</span> 검수 불필요 — 캠페인 신청이 반려·취소됨</span>
+    </div>`;
+  } else if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;
     if (isProxy && isSuperAdmin) {
       html += `<button class="deliv-proxy-revoke-btn" onclick="revokeAdminProxyDeliv('${esc(d.id)}')" title="잘못 등록한 대리 등록을 회수합니다">대리 등록 회수</button>`;

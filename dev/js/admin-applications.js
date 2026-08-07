@@ -23,6 +23,13 @@ var _campApplicantsFrom = 'campaigns';
 
 async function openCampApplicants(campId, campTitle, from) {
   currentCampApplicantId = campId;
+  // 다른 캠페인을 열 때 탭·인증 상태 필터를 초기화 (직전 캠페인의 필터가 남아 「0건」으로 보이는 혼란 방지)
+  _campDetailTab = 'applicants';
+  _campAppStatusTab = '';
+  _campDelivCertTab = '';
+  const _rf = $('campDelivReviewFilter'); if (_rf) _rf.value = '';
+  const _sq = $('campAppSearch'); if (_sq) _sq.value = '';
+  applyCampDetailTabVisibility();
   _campApplicantsFrom = (from === 'brand-ops') ? 'brand-ops' : 'campaigns';
   // 제목: 인자로 받으면 즉시 표시, 없으면 loadCampApplicants 가 캠페인 조회 후 보강
   $('campApplicantsTitle').textContent = campTitle || '';
@@ -44,7 +51,7 @@ var campApplicantsLazy = null;
 const CAMP_APPLICANTS_PAGE_SIZE = 50;
 
 async function loadCampApplicants() {
-  const filter = $('campAppFilterStatus')?.value || '';
+  const filter = _campAppStatusTab || '';   // 신청 상태 탭(단일, ''=전체) — 구 드롭다운 대체
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
@@ -67,8 +74,21 @@ async function loadCampApplicants() {
       ]);
     });
   }
-  const approved = apps.filter(a=>a.status==='approved').length;
-  const pending = apps.filter(a=>a.status==='pending').length;
+  // 신청 상태 탭 건수 — 자기 필터(상태)는 빼고 검색만 반영해야 탭을 눌러도 숫자가 안 흔들린다
+  const searchedApps = searchQ
+    ? allApps.filter(a => {
+        const u = _users.find(x => x.email === a.user_email) || {};
+        return matchSearchTokens(searchQ, [
+          a.user_name, a.user_email,
+          u.name_kanji, u.name, u.name_kana,
+          a.ig_id, a.user_ig,
+          u.ig, u.x, u.tiktok, u.youtube,
+        ]);
+      })
+    : allApps;
+  const appStatusCounts = { pending: 0, approved: 0, rejected: 0, cancelled: 0 };
+  searchedApps.forEach(a => { if (appStatusCounts[a.status] != null) appStatusCounts[a.status]++; });
+  renderCampAppStatusTabs(appStatusCounts);
 
   let camp = allCampaigns.find(c=>c.id===currentCampApplicantId);
   if (!camp) {
@@ -78,18 +98,17 @@ async function loadCampApplicants() {
   }
   // 제목이 비어 있으면(운영현황 진입) 캠페인명으로 보강
   if (camp && !($('campApplicantsTitle')?.textContent || '').trim()) $('campApplicantsTitle').textContent = camp.title || '';
+  // ★ 행사 판정은 **신청자 행을 그리기 전에** 정해야 한다. 행 안의 「미승인」 버튼이 이 값을
+  //   문자열로 구워 넣는데, 목록은 그 뒤로 다시 그려지지 않는다. 아래쪽에서 정하면 직전
+  //   캠페인의 값(또는 초기값 false)이 구워져 **행사인데 안전 확인창이 안 뜬다**
+  //   — 가장 흔한 경로(다른 캠페인 → 행사 캠페인)에서 정확히 안 뜬다(2026-08-04 리뷰 지적).
+  _campDetailIsEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+
   const slots = camp?.slots || 0;
   const remaining = Math.max(slots - allApproved, 0);
   $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
 
-  $('campApplicantsSubtitle').textContent = `신청자 목록`;
-  $('campApplicantsStats').innerHTML = `
-    <span style="color:var(--ink);font-weight:600">${total}명 신청</span>
-    <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--green)">승인 ${approved}명</span>
-    <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--gold)">심사중 ${pending}명</span>
-  `;
+  // (2026-07-23) 카드 제목·건수 줄 제거 — 상태 탭이 이름과 건수를 함께 보여준다
 
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
   const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
@@ -105,13 +124,16 @@ async function loadCampApplicants() {
   const channelMatch = camp?.channel_match || 'or';
   const body = $('campApplicantsBody');
   if (!body) return;
-  const snsCell = (channel, raw) => {
+  // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
+  // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  const snsCell = (channel, raw, followers) => {
     const handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : (raw || '').replace(/^@/,'').trim();
     if (!handle) return '—';
     const safe = esc(handle);
     const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(channel, handle) : '';
     const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
-    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+    return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
+      + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const renderCampApplicantRow = (a) => {
     const _u = _users.find(u=>u.email===a.user_email)||{};
@@ -120,30 +142,30 @@ async function loadCampApplicants() {
     const ttF = (_u.tiktok_followers||0).toLocaleString();
     const ytF = (_u.youtube_followers||0).toLocaleString();
     const totalF = ((_u.ig_followers||0)+(_u.x_followers||0)+(_u.tiktok_followers||0)+(_u.youtube_followers||0)).toLocaleString();
-    const otCell = renderOtCell(a, isPostType);
-    const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
     // 마스킹된 관리자 등급에겐 line_id 가 NULL 로 오므로 has_line 로 존재 여부만 정확히 판정(PR3 조각 B)
     const _lineDisp = maskedFieldByFlag(_u.line_id, _u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
-      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
-      <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
+      <div class="applicant-name-cell">
+        <div class="applicant-name-info">
+          <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
+        </div>
+        ${renderApplicantMsgBtn(a)}
+      </div>
     </td>
-    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-    <td>${snsCell('x', _u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-    <td>${snsCell('tiktok', _u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-    <td>${snsCell('youtube', _u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig, igF)}</td>
+    <td>${snsCell('x', _u.x, xF)}</td>
+    <td>${snsCell('tiktok', _u.tiktok, ttF)}</td>
+    <td>${snsCell('youtube', _u.youtube, ytF)}</td>
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
-    <td>${otCell}</td>
-    <td>${delivCell}</td>
     <td style="white-space:nowrap">
-      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">되돌리기</button></div>`}
     </td>
   </tr>`;
   };
@@ -154,8 +176,232 @@ async function loadCampApplicants() {
     rows: apps,
     renderRow: renderCampApplicantRow,
     pageSize: CAMP_APPLICANTS_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
   });
+
+  // 결과물 탭 렌더 + 상단 탭 건수 갱신 (같은 데이터로 한 번에 — 추가 조회 없음)
+  const delivTotal = renderCampDelivTab(camp, allDelivs, allApps, _users);
+
+  // 행사 캠페인은 예약 표를 함께 그린다. 조회는 예약 화면이 쓰던 것 그대로 재사용한다
+  //   — 화면을 옮겼을 뿐 판정을 새로 만들지 않는다.
+  let ticketTotal = 0;
+  if (_campDetailIsEvent && typeof renderEventTicketsPane === 'function') {
+    await renderEventTicketsPane(camp.id);
+    ticketTotal = (typeof _eventTicketsCache !== 'undefined' && Array.isArray(_eventTicketsCache))
+      ? _eventTicketsCache.filter(t => t.status !== 'cancelled').length : 0;
+    // 요약 카드는 위(110행)에서 이미 그려졌는데, 그때는 예약을 아직 안 읽어 0 으로 나온다.
+    //   읽고 나서 다시 그린다. 그 사이 다른 캠페인으로 옮겼으면 덮지 않는다(낡은 카드 방지).
+    if (currentCampApplicantId === camp.id) {
+      renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
+    }
+  } else if (_campDetailTab === 'tickets') {
+    _campDetailTab = 'applicants';   // 행사가 아닌 캠페인에 예약 탭이 남아 있으면 빈 화면이 된다
+  }
+  renderCampDetailTabs(total, delivTotal, ticketTotal);
+}
+
+// 「되돌리기」 — 「미승인」과 같은 이유로 행사에서는 서버가 막는다. 눌러서 실패해 보고
+//   아는 것보다 미리 알려 주는 편이 낫다(두 버튼의 안내 방식을 맞춘다).
+async function revertApplication(appId, isEvent) {
+  if (isEvent) { showEventStatusBlockedNotice('되돌리기'); return; }
+  await updateAppStatus(appId, 'pending');
+}
+
+// 행사 캠페인에서 신청 상태를 직접 바꾸려 할 때의 안내 — 두 버튼이 같은 문구를 쓴다.
+//   문구를 두 벌로 두면 한쪽만 고쳐진다.
+function showEventStatusBlockedNotice(what) {
+  const el = $('alertModalMessage');
+  if (el) el.innerHTML = `<div style="font-size:13px;line-height:1.8;text-align:left">
+    <div style="text-align:center;margin-bottom:14px">오프라인 행사는 여기서 「${esc(what)}」 할 수 없습니다.</div>
+    신청 상태만 바꾸면 <b>예약(입장 티켓)은 그대로 남아</b> 서로 어긋납니다.
+    입장 확인은 신청 상태를 보지 않으므로, 반려한 사람이 현장에서 입장 처리됩니다.
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+      캠페인 진행현황의 <b>「예약 현황」 탭</b>에서 <b>「취소」</b>를 눌러 주세요.
+      예약과 신청이 함께 취소되고, 대기 1번이 자동으로 올라갑니다.
+    </div>
+  </div>`;
+  openModal('alertModal');
+}
+
+// 「미승인」 — 행사 캠페인에서는 이 버튼을 쓰지 않는다.
+//   신청만 반려되고 예약(티켓)은 확정으로 남는데, 입장 확인은 신청 상태를 보지 않아
+//   **반려한 사람이 그대로 입장 처리된다**(2026-08-04 발견). 마이그레이션 289 가
+//   서버에서 아예 막으므로, 화면에서는 **어디로 가야 하는지**를 알려 준다.
+//   ⚠️ 같은 버튼이 **세 화면**에 있다 — 진행현황·신청 관리·대시보드의 「최근 신청」.
+//      한 곳만 고치면 구멍이 남는다(실제로 처음엔 두 곳만 고쳐 하나를 빠뜨렸다).
+async function rejectApplication(appId, isEvent) {
+  if (isEvent) { showEventStatusBlockedNotice('미승인'); return; }
+  await updateAppStatus(appId, 'rejected');
+}
+
+// ── 캠페인 진행현황: 신청자 목록 / 결과물 목록 탭 ─────────────────────
+//   결과물 표는 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow)를 compact 로 재사용한다.
+//   두 화면이 따로 놀지 않게 판정·렌더를 단일 소스로 유지하는 게 목적.
+var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables' | 'tickets'
+var _campDetailIsEvent = false;      // 지금 보고 있는 캠페인이 오프라인 행사인가
+var _campAppStatusTab = '';          // 신청자 탭 안의 신청 상태 필터('' = 전체)
+var _campDelivCertTab = '';          // 결과물 탭 안의 인증 상태 필터('' = 전체)
+
+// 신청 상태 탭 — 신청 관리 페인과 같은 5종(APP_STATUS_TABS) 재사용. 건수는 검색만 반영한 집계.
+function renderCampAppStatusTabs(countsMap) {
+  const bar = $('campAppStatusTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const totalAll = (c.pending||0) + (c.approved||0) + (c.rejected||0) + (c.cancelled||0);
+  bar.innerHTML = APP_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const cls = 'status-tab-btn' + (tab.code === _campAppStatusTab ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setCampAppStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+function setCampAppStatusTab(btn) {
+  _campAppStatusTab = btn.dataset.status || '';
+  loadCampApplicants();
+}
+
+// delivCount 는 결과물 탭이 실제로 그리는 행 수(미제출 승인 신청 포함) — 탭 숫자와 목록 길이를 일치시킨다.
+function renderCampDetailTabs(appCount, delivCount, ticketCount) {
+  const bar = $('campDetailTabBar');
+  if (!bar) return;
+  // 행사 캠페인은 결과물이 없다 — 그 탭의 숫자는 「미제출 빈 행」이라 밀린 것처럼 보인다.
+  //   대신 예약 현황을 앞에 둔다(별도 화면에서 옮겨 왔다, 2026-08-04).
+  const tabs = _campDetailIsEvent
+    ? [
+        { code: 'tickets',    label: '예약 현황',   n: ticketCount || 0 },
+        { code: 'applicants', label: '신청자 목록', n: appCount || 0 },
+      ]
+    : [
+        { code: 'applicants',   label: '신청자 목록', n: appCount || 0 },
+        { code: 'deliverables', label: '결과물 목록', n: delivCount || 0 },
+      ];
+  bar.innerHTML = tabs.map(t => {
+    const cls = 'status-tab-btn' + (t.code === _campDetailTab ? ' on' : '') + (t.n === 0 ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-tab="${t.code}" onclick="setCampDetailTab(this)">`
+      + `${t.label}<span class="tab-count">(${t.n})</span></button>`;
+  }).join('');
+  applyCampDetailTabVisibility();
+}
+
+function setCampDetailTab(btn) {
+  setCampDetailTabByCode(btn.dataset.tab || 'applicants');
+}
+
+function setCampDetailTabByCode(code) {
+  _campDetailTab = code || 'applicants';
+  const bar = $('campDetailTabBar');
+  if (bar) bar.querySelectorAll('.status-tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === _campDetailTab));
+  applyCampDetailTabVisibility();
+}
+
+// 탭에 따라 카드·필터 노출 전환. 상태·검색 필터는 신청자 목록 전용이라 결과물 탭에선 감춘다.
+function applyCampDetailTabVisibility() {
+  const isDeliv = _campDetailTab === 'deliverables';
+  const isTicket = _campDetailTab === 'tickets';
+  const appCard = $('campApplicantsCard');
+  const delivCard = $('campDelivCard');
+  const ticketCard = $('campTicketsCard');
+  const filterBar = $('campAppFilterBar');
+  if (appCard) appCard.style.display = (isDeliv || isTicket) ? 'none' : '';
+  if (delivCard) delivCard.style.display = isDeliv ? '' : 'none';
+  if (ticketCard) ticketCard.style.display = isTicket ? '' : 'none';
+  // 검색은 신청자·결과물 탭 전용 — 예약 표는 자체 필터(타임·상태)를 쓴다.
+  if (filterBar) filterBar.style.display = isTicket ? 'none' : 'flex';
+  // 검수 상태 드롭다운은 결과물 탭 전용
+  const reviewGroup = $('campDelivReviewFilterGroup');
+  if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
+}
+
+// (2026-07-23) 헤더 엑셀 버튼(exportCampDetailExcel)은 각 탭의 상태 탭 줄 우측 버튼으로 이동.
+//   신청자 탭 → exportCampaignApplicationsExcel / 결과물 탭 → exportCampaignDeliverables 를 직접 호출한다.
+
+// 헤더 더보기 버튼 — 캠페인 목록 행의 더보기 메뉴를 그대로 재사용(편집·복제·엑셀·이력·삭제)
+function openCampDetailMoreMenu(e, btn) {
+  if (!currentCampApplicantId) return;
+  const title = ($('campApplicantsTitle')?.textContent || '').trim();
+  toggleCampMoreMenu(e, btn, currentCampApplicantId, title);
+}
+
+// 결과물 탭 본문 — 인증 상태 탭 + 표.
+//   미제출 승인 신청도 빈 행으로 포함해야 「미제출」 집계가 결과물 관리 페인과 같아진다(includeApps).
+function renderCampDelivTab(camp, allDelivs, allApps, users) {
+  const tbody = $('campDelivBody');
+  if (!tbody) return 0;
+  if (!camp) { tbody.innerHTML = ''; return 0; }
+  const campMap = new Map([[camp.id, camp]]);
+  const infMap = {};
+  (users || []).forEach(u => { if (u.id) infMap[u.id] = u; });
+  const approvedApps = (allApps || []).filter(a => a.status === 'approved');
+  const groups = buildDeliverableGroups(allDelivs || [], campMap, { includeApps: approvedApps, infMap });
+  let list = Array.from(groups.values());
+  // 신청 status 를 그룹에 채워 「검수 불필요」(반려·취소된 신청) 판정이 결과물 관리와 같아지게 한다
+  const appStatusById = {};
+  const userIdByApp = {};
+  (allApps || []).forEach(a => { appStatusById[a.id] = a.status; userIdByApp[a.id] = a.user_id; });
+  list.forEach(g => {
+    if (!g.application_status) g.application_status = appStatusById[g.application_id] || null;
+    // fetchDeliverablesByCampaign 은 influencers 를 조인하지 않으므로(경량 조회) 이름이 비어 보인다.
+    // 이미 로드해 둔 인플루언서 목록으로 신청→회원을 이어 채운다. 추가 조회 없음.
+    if (!g.influencer) g.influencer = infMap[userIdByApp[g.application_id]] || null;
+  });
+
+  const totalAllGroups = list.length;   // 어떤 필터도 적용 전 — 상단 「결과물 목록」 탭 숫자와 일치시킨다
+
+  // 검색(인플루언서 이름·메일·SNS)과 검수 상태는 인증 상태 탭보다 먼저 적용해,
+  // 탭 건수가 「지금 검색한 결과 안에서의 분포」를 보여주게 한다(신청자 탭과 같은 규칙).
+  const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
+  if (searchQ) {
+    list = list.filter(g => {
+      const u = g.influencer || {};
+      return matchSearchTokens(searchQ, [u.name, u.name_kanji, u.name_kana, u.email, u.ig, u.x, u.tiktok, u.youtube]);
+    });
+  }
+  const reviewFilter = $('campDelivReviewFilter')?.value || '';
+  if (reviewFilter) list = list.filter(g => campDelivReviewState(g) === reviewFilter);
+
+  const counts = { success: 0, submitting: 0, none: 0, excluded: 0 };
+  list.forEach(g => { const s = computeCertStatus(g); if (counts[s] != null) counts[s]++; });
+  renderCampDelivCertTabs(counts);
+
+  if (_campDelivCertTab) list = list.filter(g => computeCertStatus(g) === _campDelivCertTab);
+  // 최근 제출 순(미제출은 뒤로)
+  list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
+
+  tbody.innerHTML = list.length
+    ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
+  return totalAllGroups;
+}
+
+// 신청 1건의 검수 진행 상태 — 「검수 상태」 드롭다운 판정용.
+//   제출된 결과물(영수증·게시물·채널별 인증샷)을 한 묶음으로 보고 가장 급한 상태를 대표값으로 삼는다.
+//   검수대기 > 반려 > 모두 승인 순 (미제출은 어디에도 안 걸림 → 'none')
+function campDelivReviewState(g) {
+  const items = [g.receipt, g.result].concat(Object.values(g.reviewByChannel || {})).filter(Boolean);
+  if (!items.length) return 'none';
+  if (items.some(d => d.status === 'pending')) return 'pending';
+  if (items.some(d => d.status === 'rejected')) return 'rejected';
+  if (items.every(d => d.status === 'approved')) return 'approved';
+  return 'none';
+}
+
+function renderCampDelivCertTabs(counts) {
+  const bar = $('campDelivCertTabBar');
+  if (!bar) return;
+  const c = counts || {};
+  const totalAll = (c.success||0) + (c.submitting||0) + (c.none||0) + (c.excluded||0);
+  bar.innerHTML = DELIV_CERT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const cls = 'status-tab-btn' + (tab.code === _campDelivCertTab ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setCampDelivCertTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+function setCampDelivCertTab(btn) {
+  _campDelivCertTab = btn.dataset.status || '';
+  loadCampApplicants();
 }
 
 // ── 캠페인 진행현황 상단 요약 카드 ───────────────────────────────────
@@ -178,7 +424,10 @@ function campOpsOverviewCard(camp) {
   const channels = (camp.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
   const chSep = camp.channel_match === 'and' ? ' & ' : ' / ';
   const channelTxt = channels.map(ch => esc(getChannelLabel(ch))).join(chSep);
-  const priceTxt = (camp.product_price != null && camp.product_price !== '') ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
+  const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  // 행사는 제품 금액을 0으로 저장한다 — 그대로 두면 「0円」이 값처럼 보인다.
+  const priceTxt = (!isEvent && camp.product_price != null && camp.product_price !== '' && Number(camp.product_price) > 0)
+    ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
   const recruitRange = brandOpsDateRange(camp.recruit_start, camp.deadline);
   let buyRange = '', buyLabel = '';
   if (camp.recruit_type === 'monitor') { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
@@ -193,6 +442,8 @@ function campOpsOverviewCard(camp) {
         ${camp.campaign_no?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(camp.campaign_no)}</div>`:''}
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:11px">
           <span style="background:var(--surface-dim);padding:1px 8px;border-radius:8px">${esc(typeKo)}</span>
+          ${isEvent?`<span style="background:#E8F7EF;color:#0E7E4A;font-weight:700;padding:1px 8px;border-radius:8px">행사</span>`:''}
+          ${isEvent && camp.is_invite_only?`<span style="background:var(--surface-container-low);color:var(--muted);font-weight:700;padding:1px 8px;border-radius:8px">비공개</span>`:''}
           ${channelTxt?`<span style="color:var(--muted)">${channelTxt}</span>`:''}
           ${priceTxt?`<span style="color:var(--ink);font-weight:600">${priceTxt}</span>`:''}
         </div>
@@ -201,13 +452,16 @@ function campOpsOverviewCard(camp) {
     <div style="margin-top:10px;border-top:1px solid var(--surface-dim);padding-top:8px">
       ${recruitRange?`<div class="camp-ops-row"><span class="k">모집</span><span class="v">${esc(recruitRange)}</span></div>`:''}
       ${buyRange?`<div class="camp-ops-row"><span class="k">${buyLabel}</span><span class="v">${esc(buyRange)}</span></div>`:''}
-      ${submitTxt?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
+      ${(!isEvent && submitTxt)?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
+      ${(isEvent && camp.event_place)?`<div class="camp-ops-row"><span class="k">행사장</span><span class="v">${esc(camp.event_place)}</span></div>`:''}
     </div>
   </div>`;
 }
 
-// 모집·결과물 현황 카드 — 진행바 3종(모집/제출/승인) + 보조 수치
+// 모집·결과물 현황 카드 — 진행바 3종(모집/제출/승인) + 보조 수치.
+//   행사 캠페인은 결과물이 없어 「제출·인증」이 영원히 0이라 오해를 부른다 → 예약·입장으로 바꾼다.
 function campOpsStatusCard(camp, allApps, allDelivs, stats) {
+  if ((typeof isEventCampaign === 'function') && isEventCampaign(camp)) return campOpsEventStatusCard(camp.id);
   const slots = stats.slots || 0;
   const approved = stats.approved || 0;
   const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
@@ -225,8 +479,42 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
     ${brandOpsRateBar('인증 성공', certPct, certSuccess, slots)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
-      <span>승인 <strong style="color:#16a34a">${approved}</strong>명</span>
+      <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
       <span>심사중 <strong style="color:#f59e0b">${stats.pending}</strong>명</span>
+    </div>
+  </div>`;
+}
+
+// 행사 캠페인의 현황 카드 — 예약 확정 / 입장 완료.
+//   ⚠️ 분모 정원은 `campaigns.slots`(저장 시점 스냅샷)가 아니라 **시간대 정원 합계**를 쓴다.
+//      시간대를 고치고 캠페인을 저장하지 않으면 스냅샷이 낡아, 브랜드 보고에 틀린 수를 낸다.
+//   ⚠️ 숫자는 예약 화면과 **같은 함수**(eventTicketCounts)로 센다 — 따로 세면 두 곳이 갈린다.
+function campOpsEventStatusCard(campId) {
+  // ⚠️ 아래 캐시는 예약 화면이 채운다. 이 카드는 예약을 읽기 **전에도** 한 번 그려지는데,
+  //    그때 캐시에는 **직전에 보던 다른 행사 캠페인의 숫자**가 남아 있다(0 이 아니다).
+  //    그 값을 그대로 보여 주면 잘못된 수가 잠깐 진짜처럼 보인다 — 이 캠페인 것이 아니면
+  //    수 대신 「—」 를 낸다(읽고 나서 다시 그린다).
+  const ready = (typeof _eventPaneCampId !== 'undefined') && campId && _eventPaneCampId === campId;
+  if (!ready) {
+    return `<div class="camp-ops-card">
+      <div class="camp-ops-card-title">예약 · 입장 현황</div>
+      <div style="font-size:12px;color:var(--muted);padding:12px 0">불러오는 중…</div>
+    </div>`;
+  }
+  const c = (typeof eventTicketCounts === 'function') ? eventTicketCounts('') : null;
+  if (!c) return '';
+  const cap = (typeof _eventSlotsCache !== 'undefined' && Array.isArray(_eventSlotsCache))
+    ? _eventSlotsCache.filter(r => r && r.is_active !== false).reduce((n, r) => n + Number(r.capacity || 0), 0) : 0;
+  const bookPct  = cap > 0 ? Math.round(c.confirmed / cap * 100) : null;
+  const enterPct = c.confirmed > 0 ? Math.round(c.entered / c.confirmed * 100) : null;
+  return `<div class="camp-ops-card">
+    <div class="camp-ops-card-title">예약 · 입장 현황</div>
+    ${brandOpsRateBar('예약 확정', bookPct, c.confirmed, cap)}
+    ${brandOpsRateBar('입장 완료', enterPct, c.entered, c.confirmed)}
+    <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+      <span>대기 <strong style="color:#f59e0b">${c.waitlist}</strong>명</span>
+      <span>미입장 <strong style="color:var(--ink)">${c.noshow}</strong>명</span>
+      <span>취소 <strong>${c.cancelled}</strong>명</span>
     </div>
   </div>`;
 }
@@ -241,7 +529,12 @@ async function appendCampOpsCostCard(camp) {
   if (currentCampApplicantId !== camp.id) return;
   if (!app) return;
   const box = $('campApplicantsSummary');
-  if (box) box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
+  if (!box) return;
+  // ⚠️ 행사 캠페인은 요약을 두 번 그린다(예약을 읽기 전·후). 이 함수는 기다리지 않고
+  //    떠나므로 두 번의 조회가 각각 카드를 붙여 **비용 카드가 두 장 겹칠** 수 있다.
+  //    이미 붙어 있으면 지우고 다시 붙인다.
+  box.querySelectorAll('[data-cost-card]').forEach(el => el.remove());
+  box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
 }
 
 function campOpsCostCard(app) {
@@ -257,7 +550,7 @@ function campOpsCostCard(app) {
   const recruitFeeTxt = recruitFee > 0 ? recruitFee.toLocaleString('ko-KR') + '원' : '—';
   const url = app.quote_sent_url || '';
   const safeUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(url) : url;
-  return `<div class="camp-ops-card">
+  return `<div class="camp-ops-card" data-cost-card>
     <div class="camp-ops-card-title">비용</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px">연결 신청 ${esc(app.application_no||'')} 기준</div>
     <div class="camp-ops-row"><span class="k">${quoteLabel}</span><span class="v">${esc(quoteTxt)}</span></div>
@@ -266,79 +559,10 @@ function campOpsCostCard(app) {
   </div>`;
 }
 
-// Stage 4: OT 체크박스 셀 (gifting/visit 승인 건만 활성)
-function renderOtCell(a, isPostType) {
-  if (!isPostType) return '<span style="font-size:10px;color:var(--muted)">—</span>';
-  if (a.status !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
-  const checked = !!a.oriented_at;
-  const label = checked ? formatDate(a.oriented_at) : '미발송';
-  return `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px">
-    <input type="checkbox" ${checked?'checked':''} onchange="onOtToggle('${a.id}', this)" style="margin:0">
-    <span style="color:${checked?'var(--green)':'var(--muted)'}">${label}</span>
-  </label>`;
-}
-
-async function onOtToggle(appId, checkbox) {
-  const wantChecked = checkbox.checked;
-  if (!wantChecked) {
-    const ok = await showConfirm('OT 발송 체크를 해제하시겠습니까?\n"미발송" 상태로 되돌립니다.');
-    if (!ok) { checkbox.checked = true; return; }
-  }
-  const isoOrNull = wantChecked ? new Date().toISOString() : null;
-  const ok = await updateApplicationOrientedAt(appId, isoOrNull);
-  if (!ok) {
-    toast('OT 상태 변경에 실패했습니다', 'warn');
-    checkbox.checked = !wantChecked;
-    return;
-  }
-  toast(wantChecked ? 'OT 발송으로 체크했습니다' : 'OT 발송 체크를 해제했습니다');
-  loadCampApplicants();
-}
-
-// Stage 4: 결과물 요약 셀 (건수 + 상태 분포 + 상세 링크)
-// Stage 5: channel_match('and')면 선택 채널 각각 approved post deliverable 필요 → 완료 판정
-function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPostType) {
-  if (appStatus !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
-  if (!list.length) return '<span style="font-size:11px;color:var(--muted)">미제출</span>';
-  const counts = {pending: 0, approved: 0, rejected: 0};
-  list.forEach(d => { counts[d.status] = (counts[d.status] || 0) + 1; });
-  const parts = [];
-  if (counts.approved) parts.push(`<span style="color:#2D7A3E">승인 ${counts.approved}</span>`);
-  if (counts.pending) parts.push(`<span style="color:#B8741A">검수대기 ${counts.pending}</span>`);
-  if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
-  // 마이그레이션 160: 결과물 중 1개라도 대리 등록이면 「대리 N」 텍스트 배지 + 호버 툴팁
-  // 결과물 관리 페인의 「대리」 배지와 일관성 (사용자 결정 2026-05-28: 기호 단독→텍스트 배지)
-  const proxyCount = list.filter(d => d.submitted_by_admin).length;
-  const proxyMarker = proxyCount > 0
-    ? ` <span style="display:inline-block;background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;line-height:14px;white-space:nowrap" title="관리자 대리 등록 ${proxyCount}건">대리${proxyCount > 1 ? ' ' + proxyCount : ''}</span>`
-    : '';
-  const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
-  const completeBadge = complete
-    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
-    : '';
-  const latest = list[0];
-  // 사용자 결정 2026-05-28: 캠페인 진행 현황의 「상세」 진입을 결과물 관리 페인과 동일한
-  // 합본 검수 모달(영수증+결과물 한 화면)로 통일. application_id 로 진입.
-  const appId = (latest && latest.application_id) || '';
-  return `<div style="font-size:10px">${parts.join(' · ')}${proxyMarker}</div>
-    ${completeBadge}
-    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivCombined('${esc(appId)}')">상세</button>`;
-}
-
-// Stage 5: 완료 판정 — channel_match별
-// - post 타입 AND: 선택 채널 각각 approved post deliverable 필요
-// - post 타입 OR: 1개라도 approved면 완료
-// - receipt 타입(monitor): 1개라도 approved면 완료 (채널 개념 없음)
-function isApplicationComplete(delivs, selectedChannels, channelMatch, isPostType) {
-  const approved = delivs.filter(d => d.status === 'approved');
-  if (!approved.length) return false;
-  if (!isPostType) return true;  // monitor는 approved 하나면 완료
-  if (channelMatch === 'and') {
-    if (!selectedChannels.length) return false;  // 채널 미설정 AND는 완료 불가
-    return selectedChannels.every(ch => approved.some(d => (d.post_channel || '') === ch));
-  }
-  return true;  // or
-}
+// (2026-07-23) 「오리엔시트 발송」 체크 셀(renderOtCell/onOtToggle)과 「결과물」 요약 셀
+// (renderDelivCell/isApplicationComplete)은 열 제거와 함께 삭제됨.
+//   - 오리엔시트 발송 체크: 사용자 결정으로 기능 폐기(applications.oriented_at 컬럼·기존 값은 보존)
+//   - 결과물 요약: 같은 페인의 「결과물 목록」 탭이 결과물 관리와 동일한 표로 대체
 
 
 // ── 신청 관리 (캠페인별) ──
@@ -356,6 +580,42 @@ async function loadApplications() {
 
 var appSortKey = 'created';
 var appSortDir = 'desc';
+
+// 신청 상태 탭 (단일 선택, ''=전체). 다중 필터 appStatusMulti 를 대체.
+//   신청 1건 = status 4종(pending/approved/rejected/cancelled) 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _appStatusTab = '';
+
+// 신청 상태 탭 정의 — 처리 흐름 순서(심사중 → 승인/미승인 → 취소) + 전체
+const APP_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '심사중' },
+  { code: 'approved',  label: '승인' },
+  { code: 'rejected',  label: '미승인' },
+  { code: 'cancelled', label: '취소' },
+];
+
+// 신청 상태 탭 바 렌더 — 건수는 renderAppCampList 가 넘겨준 appStatusCountsMap(자기 필터 제외 집계).
+//   전체 탭 = 4종 합(모든 신청은 4종 중 하나). renderAppCampList 가 매번 호출 → 필터 변경 즉시 반영.
+function renderAppStatusTabs(countsMap) {
+  const bar = $('appStatusTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const totalAll = (c.pending||0) + (c.approved||0) + (c.rejected||0) + (c.cancelled||0);
+  const active = _appStatusTab || '';
+  bar.innerHTML = APP_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setAppStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 신청 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (활성 표시는 renderAppCampList 내부 재렌더로 갱신)
+function setAppStatusTab(btn) {
+  _appStatusTab = btn.dataset.status || '';
+  renderAppCampList();
+}
 
 function toggleAppSort(key) {
   if (appSortKey === key) {
@@ -425,14 +685,14 @@ async function renderAppCampList() {
   const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
   const appTypeVals = getMultiFilterValues('appTypeMulti');
   const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
-  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  const appStatusTab = _appStatusTab || '';  // 신청 상태 탭(단일, ''=전체)
   const campFilterVals = getMultiFilterValues('appCampMulti');
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   // 단일 신청이 필터를 통과하는지 — skip 지정 시 그 필터만 무시(옵션별 동적 카운트용)
   const passesAppFilters = (a, skip) => {
     if (skip !== 'type'       && appTypeVals.length       && !appTypeVals.includes(campRtLookup.get(a.campaign_id))) return false;
     if (skip !== 'campStatus' && appCampStatusVals.length && !appCampStatusVals.includes(campStatusLookup.get(a.campaign_id))) return false;
-    if (skip !== 'status'     && appStatusVals.length     && !appStatusVals.includes(a.status)) return false;
+    if (skip !== 'status'     && appStatusTab            && a.status !== appStatusTab) return false;
     if (skip !== 'camp'       && campFilterVals.length    && !campFilterVals.includes(a.campaign_id)) return false;
     if (searchVal && !matchSearchTokens(searchVal, [a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code])) return false;
     return true;
@@ -465,19 +725,16 @@ async function renderAppCampList() {
     {value:'ended',     label:'종료',     count: appCampStatusCounts.ended     || 0},
     {value:'expired',   label:'노출종료', count: appCampStatusCounts.expired   || 0},
   ], () => renderAppCampList());
-  syncMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
-    {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
-    {value:'rejected',  label:'미승인', count: appStatusCountsMap.rejected  || 0},
-    {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
-  ], () => renderAppCampList());
+  // 신청 상태 탭 바 — 다중 필터 대체(전체 + 4종). 건수는 자기 필터 제외 집계.
+  renderAppStatusTabs(appStatusCountsMap);
 
   // 필터 적용 — 위에서 정의한 passesAppFilters 로 일괄 (타입·캠페인상태·신청상태·캠페인·검색 모두 포함)
   //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
   apps = apps.filter(a => passesAppFilters(a));
 
   // 보기 초기화 버튼 — 필터·검색·정렬 중 하나라도 비기본이면 노출 (필터+정렬+검색 통합)
-  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+    || !!_appStatusTab
     || !!(($('appSearch')?.value || '').trim())
     || !(appSortKey === 'created' && appSortDir === 'desc');
   const _appViewBtn = $('btnAppViewReset'); if (_appViewBtn) _appViewBtn.style.display = _appViewActive ? '' : 'none';
@@ -546,17 +803,21 @@ async function renderAppCampList() {
         ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
-        <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
+        <div class="applicant-name-cell">
+          <div class="applicant-name-info">
+            <div class="link-cell" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
+          </div>
+          ${renderApplicantMsgBtn(a)}
+        </div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
   };
@@ -572,6 +833,32 @@ async function renderAppCampList() {
   });
   // cancel_reason 캐시 미리 채움 — 상세 모달에서 카테고리 라벨 즉시 표시
   ensureCancelReasonsCache();
+}
+
+// 미승인(rejected)·되돌리기(pending) 전 가드 — 진행 가능하면 true, 차단/사용자 취소면 false.
+//   (A) 송금완료(paid) 정산이 있으면 완전 차단(서버 트리거 마이그레이션 247 이 최종 방어선이나,
+//       여기서 관리자에게 친절한 안내로 먼저 막는다. campaign_manager 는 정산 조회 권한이 없어
+//       이 헬퍼가 0을 반환할 수 있으나, 그 경우에도 서버 트리거가 차단하므로 안전)
+//   (B) 제출된 결과물(draft 제외)이 있으면 확인 후 진행 — 확인 시 결과물은 검수 불필요로 빠지고
+//       정산은 자동 보류(마이그레이션 246)된다
+async function guardRejectOrRevert(appId, status) {
+  if (typeof hasPaidSettlementForApplication === 'function' && await hasPaidSettlementForApplication(appId)) {
+    $('alertModalMessage').innerHTML = '이미 <strong>송금 완료된 정산</strong>이 있어<br>이 신청은 미승인·되돌리기 할 수 없습니다.';
+    openModal('alertModal');
+    return false;
+  }
+  if (typeof fetchDeliverablesByApplication === 'function') {
+    const dels = await fetchDeliverablesByApplication(appId);
+    const submitted = (dels || []).filter(d => d && d.status !== 'draft');
+    if (submitted.length > 0) {
+      const latest = submitted.map(d => d.submitted_at || d.created_at).filter(Boolean).sort().slice(-1)[0];
+      const dateStr = latest ? formatDate(latest) : '';
+      const actLabel = status === 'rejected' ? '미승인' : '되돌리기';
+      const ok = await showConfirm(`${dateStr ? dateStr + '에 ' : ''}제출된 결과물이 있습니다. 그래도 ${actLabel} 하시겠습니까?`);
+      if (!ok) return false;
+    }
+  }
+  return true;
 }
 
 async function updateAppStatus(appId, status) {
@@ -604,6 +891,8 @@ async function updateAppStatus(appId, status) {
         }
       }
     }
+    // 미승인(rejected)·되돌리기(pending) 가드 — 승인 후 결과물/정산이 붙은 신청 보호
+    if ((status === 'rejected' || status === 'pending') && !(await guardRejectOrRevert(appId, status))) return;
     const reviewerName = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
     await updateApplication(appId, {
       status,
@@ -617,6 +906,14 @@ async function updateAppStatus(appId, status) {
     loadAdminData();
     if (typeof loadCampApplicants === 'function' && currentCampApplicantId) loadCampApplicants();
   } catch(e) {
+    const _m = (e && e.message) || '';
+    // 서버 트리거(마이그레이션 247)가 송금완료 정산 때문에 막은 경우 — UI 가드를 우회한 등급
+    // (정산 조회 권한 없는 campaign_manager)에도 친절한 안내로 전환
+    if (_m.includes('settlement_already_paid')) {
+      $('alertModalMessage').innerHTML = '이미 <strong>송금 완료된 정산</strong>이 있어<br>이 신청은 미승인·되돌리기 할 수 없습니다.';
+      openModal('alertModal');
+      return;
+    }
     toast('상태 변경 오류: '+friendlyError(e.message),'error');
   }
 }

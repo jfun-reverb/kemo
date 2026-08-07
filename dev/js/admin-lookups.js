@@ -33,6 +33,11 @@ async function loadLookupsPane() {
     return;
   }
   await renderLookupsTable();
+  // 채널 어긋남 경고 버튼 갱신 — 여기가 **원인을 만드는 자리**다(채널 코드를 지우거나
+  //   바꾸는 화면). 결과물 관리와 같은 함수를 쓴다. 0건이면 버튼째 숨긴다.
+  if (typeof refreshChannelDriftIndicators === 'function') {
+    refreshChannelDriftIndicators();
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -51,8 +56,8 @@ function switchLookupTab(kind, btn) {
     b.style.fontWeight = '600';
   });
   if (btn) {
-    btn.style.color = 'var(--pink)';
-    btn.style.borderBottomColor = 'var(--pink)';
+    btn.style.color = 'var(--accent-ink)';
+    btn.style.borderBottomColor = 'var(--accent)';
     btn.style.fontWeight = '700';
   }
   renderLookupsTable();
@@ -82,7 +87,7 @@ async function renderLookupsTable() {
     </tr>`;
   }
   const colspan = 5 + (showRt ? 1 : 0);
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try {
     rows = await fetchLookupsAll(_currentLookupKind);
@@ -126,7 +131,7 @@ async function renderLookupsTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -329,7 +334,7 @@ async function renderPsetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchParticipationSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -365,7 +370,7 @@ async function renderPsetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openPsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -410,7 +415,7 @@ function renderPsetSteps() {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="psetMoveStep(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_psetCurrentSteps.length-1?'disabled':''} onclick="psetMoveStep(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -500,7 +505,7 @@ async function renderCsetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchCautionSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -538,7 +543,7 @@ async function renderCsetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openCsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -602,9 +607,20 @@ function normalizeCsetItem(s) {
 // 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link/Image 6버튼
 //   이미지 버튼: 파일 선택 다이얼로그 → uploadContentImage → 커서 위치 <img> 삽입
 //   외부 URL 직접 삽입 차단 (sanitize 단계 src 화이트리스트로 후방 차단)
-function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
-  const safe = (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml(initialHtml || '')
+//
+// 4번째 인자 opts (선택) — 넘기지 않으면 기존과 완전히 같게 동작한다.
+//   { allowImage:false }  이미지 버튼을 감춘다 (오리엔시트 내부 메모용)
+//   { sanitize: fn }      초기값 정화 함수를 바꾼다 (기본 sanitizeCautionHtml)
+// ⚠️ 이미지를 감출 땐 sanitize 도 함께 바꿔야 한다. 버튼만 감추면 붙여넣기로
+//    들어온 이미지는 그대로 통과한다(sanitizeCautionHtml 이 <img> 를 허용).
+function miniEditorHtml(initialHtml, onChangeAttr, placeholder, opts) {
+  const o = opts || {};
+  const allowImage = o.allowImage !== false;   // 기본 true = 기존 호출부 동작 보존
+  const sanitizeFn = typeof o.sanitize === 'function'
+    ? o.sanitize
+    : (typeof sanitizeCautionHtml === 'function' ? sanitizeCautionHtml : null);
+  const safe = sanitizeFn
+    ? sanitizeFn(initialHtml || '')
     : String(initialHtml || '').replace(/<script/gi, '&lt;script');
   const ph = esc(placeholder || '');
   return `
@@ -616,7 +632,7 @@ function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
         <button type="button" onclick="miniEditorCmd(this,'strikeThrough')" title="취소선" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;text-decoration:line-through;font-size:12px">S</button>
         <span style="width:1px;background:var(--line);margin:2px 4px"></span>
         <button type="button" onclick="miniEditorCmd(this,'link')" title="링크 추가 (텍스트 선택 후 클릭)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">link</span>링크</button>
-        <button type="button" onclick="miniEditorInsertImageClick(this)" title="이미지 삽입 (5MB 이하 jpg/png/webp)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">image</span>이미지</button>
+        ${allowImage ? '<button type="button" onclick="miniEditorInsertImageClick(this)" title="이미지 삽입 (5MB 이하 jpg/png/webp)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">image</span>이미지</button>' : ''}
       </div>
       <div class="mini-editor-content" contenteditable="true" data-placeholder="${ph}" style="padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none" oninput="${onChangeAttr}" onpaste="miniEditorPaste(event)">${safe}</div>
     </div>`;
@@ -946,7 +962,7 @@ function renderCsetItems() {
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="csetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_csetCurrentItems.length-1?'disabled':''} onclick="csetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_csetCurrentItems.length<=1?'disabled':''} onclick="csetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_csetCurrentItems.length<=1?'disabled':''} onclick="csetRemoveItem(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1049,7 +1065,7 @@ async function renderNgSetTable() {
     </tr>`;
   }
   const colspan = _lookupReorderMode ? 5 : 6;
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchNgSetsAll(); } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
@@ -1087,7 +1103,7 @@ async function renderNgSetTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -1128,11 +1144,11 @@ function renderNgSetItems() {
   wrap.innerHTML = _nsetCurrentItems.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red-d)">NG ${idx+1}</span>
         <div style="display:flex;gap:4px">
           <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="nsetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
           <button type="button" class="btn btn-ghost btn-xs" ${idx===_nsetCurrentItems.length-1?'disabled':''} onclick="nsetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
-          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:var(--red-d)">삭제</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">

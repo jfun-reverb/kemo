@@ -129,6 +129,10 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
 // gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
 function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status)
+         || (result && result.applications && result.applications.status) || null;
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   if (recruitType === 'monitor') {
     var hasReceipt = !!receipt;
     // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
@@ -138,7 +142,9 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
     }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
-    if (receipt && receipt.status === 'approved' && result && result.status === 'approved') return '인증성공';
+    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
+    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
+    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
     return '인증샷 제출중';
   }
   // gifting / visit — 게시물(post) 단독
@@ -149,6 +155,10 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
 function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
+  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   var hasReceipt = !!receipt;
   // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
   if (proxyPurchase) {
@@ -747,8 +757,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var submittedStr = d.submitted_at ? formatDate(d.submitted_at) : '';
+      var reviewedStr = d.reviewed_at ? formatDate(d.reviewed_at) : '';
       var statusStr = statusLabelMap[d.status] || d.status || '';
       var urlCellValue = '';
       if (d.kind === 'post') {
@@ -1184,8 +1194,8 @@ async function exportCampaignDeliverables(campId) {
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var submittedStr = d.submitted_at ? formatDate(d.submitted_at) : '';
+      var reviewedStr = d.reviewed_at ? formatDate(d.reviewed_at) : '';
       var statusStr = statusLabelMap[d.status] || d.status || '';
       // URL 셀: post는 게시물 URL, receipt/review_image는 receipt_url 기반 하이퍼링크
       var urlCellValue = '';
@@ -1462,8 +1472,8 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
   var renderDeliv6 = function(d) {
     if (!d) return ['', '', '', '', '', ''];
-    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var sub = d.submitted_at ? formatDate(d.submitted_at) : '';
+    var rev = d.reviewed_at ? formatDate(d.reviewed_at) : '';
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {
@@ -1667,8 +1677,8 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
   var renderDeliv6 = function(d) {
     if (!d) return ['', '', '', '', '', ''];
-    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
-    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var sub = d.submitted_at ? formatDate(d.submitted_at) : '';
+    var rev = d.reviewed_at ? formatDate(d.reviewed_at) : '';
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {
@@ -1863,6 +1873,130 @@ async function exportInfluencersExcel() {
     toast('엑셀 다운로드 완료 (' + rows.length + '명' + (includeSensitive ? ', 민감정보 포함' : '') + ')');
   } catch (e) {
     toast('엑셀 생성 실패: ' + friendlyError(e.message || e), 'error');
+  } finally {
+    _markExportEnd();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 오프라인 행사 예약 명단 엑셀 — 사양서 2026-07-30 §4-5 「리포트」
+//   행사 당일 아침에 인쇄해 눈으로 대조하는 종이 명단의 원본이다.
+//   인터넷이 끊기면 손입력 확인도 함께 멈추므로(사양서 §2-8 U1) 이 인쇄물이
+//   유일한 대비책이다 — 타임 순으로 정렬해 입구에서 찾기 쉽게 만든다.
+// ══════════════════════════════════════════════════════════════
+async function exportEventTicketsExcel(campaignId) {
+  var campId = campaignId || (typeof _eventPaneCampId !== 'undefined' ? _eventPaneCampId : null);
+  if (!campId) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
+  if (!_checkExportAllowed()) return;
+
+  _markExportStart();
+  try {
+    var slots = await fetchEventSlots(campId);
+    var tickets = await fetchEventTicketsByCampaign(campId);
+    if (!tickets.length) { toast('내보낼 예약이 없습니다', 'warn'); return; }
+
+    await loadExcelJS();
+    var wb = new ExcelJS.Workbook();
+
+    // ── 시트 1: 타임별 집계 ──────────────────────────────────
+    var ws1 = wb.addWorksheet('타임별 집계');
+    ws1.columns = [
+      { header: '날짜',   key: 'date',  width: 12 },
+      { header: '시각',   key: 'time',  width: 14 },
+      { header: '대상',   key: 'aud',   width: 14 },
+      { header: '정원',   key: 'cap',   width: 8 },
+      { header: '확정',   key: 'conf',  width: 8 },
+      { header: '입장',   key: 'ent',   width: 8 },
+      { header: '미입장', key: 'no',    width: 9 },
+      { header: '대기',   key: 'wait',  width: 8 },
+      { header: '취소',   key: 'canc',  width: 8 },
+    ];
+    slots.forEach(function (s) {
+      var mine = tickets.filter(function (t) { return t.slot_id === s.id; });
+      var conf = mine.filter(function (t) { return t.status === 'confirmed'; });
+      var ent = conf.filter(function (t) { return !!t.entered_at; });
+      ws1.addRow({
+        date: String(s.slot_date || '').slice(0, 10),
+        time: (typeof fmtSlotTime === 'function') ? fmtSlotTime(s) : String(s.start_time || '').slice(0, 5),
+        aud:  s.audience_label || '',
+        cap:  Number(s.capacity || 0),
+        conf: conf.length,
+        ent:  ent.length,
+        no:   conf.length - ent.length,
+        wait: mine.filter(function (t) { return t.status === 'waitlist'; }).length,
+        canc: mine.filter(function (t) { return t.status === 'cancelled'; }).length
+      });
+    });
+    ws1.getRow(1).font = { bold: true };
+
+    // ── 시트 2: 방문객 명단 ──────────────────────────────────
+    var ws2 = wb.addWorksheet('방문객 명단');
+    ws2.columns = [
+      { header: '날짜',     key: 'date',  width: 12 },
+      { header: '시각',     key: 'time',  width: 14 },
+      { header: '이름(한자)', key: 'kanji', width: 16 },
+      { header: '이름(가나)', key: 'kana',  width: 18 },
+      { header: '예약번호', key: 'code',  width: 12 },
+      { header: '상태',     key: 'st',    width: 12 },
+      { header: '대기순번', key: 'wp',    width: 9 },
+      { header: '입장 시각', key: 'ent',  width: 20 },
+      { header: '처리자',   key: 'by',    width: 12 },
+      { header: '확인 횟수', key: 'scan', width: 9 },
+      // 취소를 두고 다툴 일이 생기면 이 세 칸이 근거가 된다. 화면에서도 같은 값을 보여주지만,
+      //   내려받은 파일 쪽이 「그때 이랬다」를 남기기에 낫다(2026-08-06 사용자 요청).
+      { header: '취소 시각', key: 'cancAt',   width: 20 },
+      { header: '취소한 사람', key: 'cancBy', width: 14 },
+      { header: '취소 사유(내부)', key: 'cancNote', width: 24 },
+      { header: '감사용',   key: 'audit', width: 8 },
+    ];
+    // 타임 순 → 이름 순. 입구에서 종이를 넘기며 찾는 순서와 같게 맞춘다.
+    var sorted = tickets.slice().sort(function (a, b) {
+      var sa = a.event_slots || {}, sb = b.event_slots || {};
+      var ka = String(sa.slot_date || '') + String(sa.start_time || '') + String((a.influencers || {}).name_kana || '');
+      var kb = String(sb.slot_date || '') + String(sb.start_time || '') + String((b.influencers || {}).name_kana || '');
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    sorted.forEach(function (t) {
+      var s = t.event_slots || {}, inf = t.influencers || {};
+      var view = (typeof eventTicketViewStatus === 'function') ? eventTicketViewStatus(t) : t.status;
+      ws2.addRow({
+        date:  String(s.slot_date || '').slice(0, 10),
+        time:  (typeof fmtSlotTime === 'function') ? fmtSlotTime(s) : String(s.start_time || '').slice(0, 5),
+        kanji: inf.name_kanji || '',
+        kana:  inf.name_kana || '',
+        code:  t.ticket_code || '',
+        st:    (typeof eventTicketStatusLabel === 'function') ? eventTicketStatusLabel(view) : view,
+        wp:    t.waitlist_position || '',
+        ent:   t.entered_at ? new Date(t.entered_at).toLocaleString('ko-KR') : '',
+        by:    t.entered_by_name || '',
+        scan:  Number(t.scan_count || 0),
+        cancAt: t.cancelled_at ? new Date(t.cancelled_at).toLocaleString('ko-KR') : '',
+        // 취소 주체는 마이그레이션 288 부터 기록된다. 그 전에 취소된 예약은 비어 있는데,
+        //   빈칸으로 두면 본인 취소와 구분되지 않으므로 「기록 없음」이라고 적는다.
+        cancBy: t.status !== 'cancelled' ? ''
+                : t.cancelled_by_role === 'admin' ? ('운영진' + (t.cancelled_by_name ? ' · ' + t.cancelled_by_name : ''))
+                : t.cancelled_by_role === 'influencer' ? '본인'
+                : '기록 없음',
+        cancNote: t.admin_cancel_note || '',
+        audit: inf.is_audit ? 'O' : ''
+      });
+    });
+    ws2.getRow(1).font = { bold: true };
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var aEl = document.createElement('a');
+    aEl.href = url;
+    var ts = new Date();
+    var ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.download = 'event-tickets-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('명단 엑셀 다운로드 완료 (' + tickets.length + '건)');
+  } catch (e) {
+    console.error('[exportEventTicketsExcel]', e);
+    toast(friendlyError(e), 'error');
   } finally {
     _markExportEnd();
   }

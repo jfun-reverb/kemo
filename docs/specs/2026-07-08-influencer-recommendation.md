@@ -12,7 +12,7 @@
 ## 현재 상태 (2026-07-08 기준)
 
 ### 원본 데이터 (구글시트)
-- 인플루언서 약 50명. 컬럼 성격별 묶음:
+- 인플루언서 **917명**(기획 당시 "약 50명"으로 오판 → 2026-07-14 실측 정정, §구현 결과 참조). 컬럼 성격별 묶음:
   - **매칭 기준**: 계정주제(뷰티/색조·뷰티/기초·패션·라이프/브이로그·푸드·키즈맘·기타), 등급(마이크로 1~5만 / 미들 5~30만 / 메가 30만+), 채널별 팔로워(인스타·틱톡·유튜브·X)
   - **가격**: 피드/릴스/스토리/틱톡/2차사용 단가, 소속별 시딩 비용 (절반 이상 비어 있음)
   - **운영 메모**: 컨텍 창구(한나·JFUN·아유네 등), 소속사, 연락·가격회신 날짜, 부가설명(협상 이력)
@@ -160,5 +160,41 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
-_(미착수)_
+## 구현 결과
+
+### 1단계 — 명단 관리 (dev 배포 완료)
+- **구현일:** 2026-07-09 / **관련 PR:** #704 (dev 머지)
+- 마이그레이션 226(`outbound_influencers` 테이블)·227(lookup `ob_series`/`ob_category`/`ob_tier` 시드)·228(권한 `menu.outbound`/`outbound.view` 시드)·229(Storage 버킷 `outbound-influencer-images` + 정책). 관리자 페인 `#outbound`(`dev/js/admin-outbound.js`) + storage 함수 6종 + `OB_CATEGORY_SERIES`(shared.js). 구글시트 이관 — **최초 50명(오판) → 2026-07-14 전량 917명 재이관으로 정정**(아래 별도 항목).
+
+### 데이터 재이관 정정 (2026-07-14)
+- **문제**: 1단계-c 이관이 시트를 "약 50명"으로 잘못 파악(앞부분만 확인) → 앞 50명만 등록, 실제 시트 **917명** 중 약 860명 누락.
+- **조치**: 전량 재이관. seed `outbound_influencers_import.sql` 917행으로 교체(BEGIN/DELETE ALL/INSERT/COMMIT 멱등 래퍼) + 마이그레이션 236(`ob_category`에 health·tech 추가) + `OB_CATEGORY_SERIES`에 health→life·tech→other.
+- **확정 규칙(사용자 2026-07-14)**: 카테고리 헬스/다이어트=health·테크/기타=tech 신규 / 등급 없는 68명은 팔로워로 자동 추정 / 917명 전부 등록(계정ID 없는 6명 포함) / 전량 재이관(삭제 전 백업).
+- **분포**: 카테고리 color 302·fashion 229·vlog 176·base 82·kidsmom 51·health 46·tech 17·food 13·other 1 / 계열 beauty 384·life 273·fashion 229·food 13·other 18 / 등급 micro 214·middle 541·mega 162.
+- **배포**: 사용자 결정 = 개발서버엔 남기지 않고(검증 후 되돌림) **운영서버에만 등록**. 마이그236 → seed 순서.
+- **이미지 업로드 스모크 검증 성공(2026-07-14, 개발서버):** 마이그229 Storage 정책 `has_permission('outbound.view','write')`가 로그인 관리자 세션에서 업로드 정상 허용 확인 — 폴백(`is_campaign_admin` 교체) 불필요 확정.
+- 운영 미배포.
+
+### 2단계 — 조건 추천 (dev 구현 완료)
+- **구현일:** 2026-07-14 / **관련 PR:** (feature/outbound-recommend-stage2)
+- **DB 변경 없음** — 기존 전건 조회(`fetchOutboundInfluencers`) + 화면단 계산.
+
+**확정 설계 (사용자 6개 결정, 2026-07-14):**
+1. 화면 위치 = 명단 페인(`#outbound`) 내 「명단 / 조건 추천」 전환 탭 (신규 표·권한 없음, `outbound.view` 재사용)
+2. 카테고리 입력 = **계열만**(필수). 세분 입력 없음
+3. 예산 기준 = 선택한 모집형식 단가(feed/reels/story/tiktok → `price_*`), 형식 미선택 시 예산 축 정렬에서 제외
+4. 미상·상태 = 가격 NULL은 중립(점수 0) / `availability` 조율중·불가는 하위 그룹 / `is_active=false`는 후보 제외
+5. 광고목적(신제품·세일·브랜딩) = 입력만 받고 **정렬 미반영**(3단계 성과 축적 후 활용)
+6. 인원수 N = 전체 정렬 노출 + N번째 뒤 구분선("요청 N명 / 매칭 M명")
+
+**초안 대비 변경 사항:**
+- 사양서 §C(적합도 점수 계산)의 성과 축은 2단계에서 **상수 0**(3단계에 생김) — 콜드스타트로 조건 적합도만 사용.
+- 세분(category) 가점은 넣지 않음(입력을 계열만 받기로 확정).
+
+**구현 상세:**
+- 정렬: ①가용 그룹(available 먼저, 조율중·불가 하위) → ②점수 내림 → ③주채널 팔로워 내림 → ④등록 최신순 (`compareOutboundReco`)
+- 점수(`outboundRecoScore`, 상수 `RECO_SCORE`): 등급 정확 일치 +30 / 한 칸 차이(`sort_order` 인접) +10, 요구 채널 보유 +20, 예산 내 +20 / 초과 −20 / 미상 0. 계열은 필수 필터라 점수 없이 「계열 일치」 배지만.
+- 각 결과에 점수 근거 배지(계열·등급·채널·예산) 노출 — 콜드스타트 신뢰 확보(사양서 §의심 1).
+- 파일: `dev/admin/index.html`(탭·폼·결과표), `dev/js/admin-outbound.js`(`outboundTab`·`runOutboundRecommend`·`outboundRecoScore` 등), `dev/css/admin.css`(`.outbound-tab*`·`.reco-badge*`·`.reco-divider`).
+
+**미착수:** 3단계(성과 기록)·4단계(성과 반영 추천)·5단계(브랜드 뷰). 운영 미배포.

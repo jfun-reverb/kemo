@@ -27,10 +27,19 @@ model: sonnet
 - [ ] 매직 넘버 → 의미 있는 변수
 - [ ] 3회 이상 반복 로직은 공통 함수로
 
+### 관리자 모달 페인 갱신 (2026-07-14 추가 — quality.md 위임 반영)
+- [ ] 관리자 페인의 **수정·편집·삭제·토글** 모달 저장 함수 끝에 `refreshPane(paneId)` 또는 동등한 목록·집계 재렌더 호출이 있는지. 없으면 🟡 Warning — 모달이 닫혀도 뒤의 목록·배지가 stale로 남는 사용자 보고가 반복됨
+- [ ] 신규 페인이면 `PANE_REFRESHERS`(dev/lib/shared.js)에 매핑이 추가됐는지
+- 근거 규칙: `.claude/rules/quality.md` 「관리자 모달 페인 갱신 (필수)」 — 이 규칙이 점검 주체를 reverb-reviewer로 명시 위임(정의↔규칙 드리프트 해소)
+
 ### 레이아웃 분리
 - [ ] 인플루언서 페이지에 PC 레이아웃 적용 안 함
 - [ ] 관리자 페이지에 모바일 쉘/바텀탭 적용 안 함
 - [ ] 인플루언서 UI = 일본어, 관리자 UI = 한국어
+
+### iOS 하이브리드 앱 영향 (2026-07-14 추가 — 가벼운 알림, 앱 로딩 방식 확정까지 잠정)
+- [ ] 인플루언서 화면의 **HTML 구조·CSS 클래스명·주요 id**를 바꾸는 변경이면 🟡 Warning 한 줄 — `feature/ios-app` 브랜치의 iOS 전용 오버라이드(`ios-theme.css`·바텀 탭바·`sync-ios.sh` 주입 자산·`native-push.js`)가 조용히 깨질 수 있음. 실제 사고 이력(주입 자산 누락으로 테마 통째 미적용, 추적 오래 걸림) 있음
+- ⚠️ 지금은 **알림만** — 정식 회귀 점검 규칙은 앱 로딩 방식(운영 주소 직접 로딩 등) 확정 후 고문이 고정. 근거: HANDOFF `docs/specs/2026-07-14-influencer-app-transition-handoff.md` §6
 
 ### 빌드
 - [ ] dev/ 수정 후 `cd dev && bash build.sh` 실행 여부

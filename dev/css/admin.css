@@ -2,25 +2,136 @@
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
 
+/* ── 관리자 전용 색 토큰 (2026-07-20 무채색 톤 정리) ──────────────
+   base.css 는 인플루언서 빌드와 공용이므로 여기서만 덮어쓴다.
+   (인플루언서는 campaign.css 에서 로즈 계열을 되살리는 것과 같은 구조)
+
+   왜 바꾸나 — 무채색 전환 후 회색이 너무 옅어 글자가 안 읽혔다.
+     비활성 탭 var(--muted) = 2.80:1 · 0건 탭 #aaa = 2.32:1 · --faint = 2.56:1
+     (웹 접근성 본문 기준 4.5:1)
+   그리고 표 머리·행 hover 는 배경이 흰색이 아니라 연회색(--surface-dim)이라,
+   흰 배경에서 겨우 통과하던 회색이 그 위에서는 떨어졌다. 두 배경 모두에서
+   통과하는 값으로 올린다. */
+#page-admin{
+  --muted:#6E6E77;   /* 보조 텍스트 — 흰 배경 5.05:1 / 연회색 배경 4.6:1 (양쪽 통과) */
+  --faint:#8A8A93;   /* 장식·비활성 아이콘 전용. 글자에는 쓰지 말 것(3.4:1) */
+
+  /* ── 메인 포인트 컬러 (2026-07-20, 보라 #625EBD) ─────────────
+     무채색 바탕에 이 색 하나만 얹는다. 색은 「누를 수 있는 것」과
+     강조 라벨에만 쓰고, 면·배경·본문은 계속 무채색으로 둔다.
+
+     앞서 쓰던 파랑(#0F9EED)은 흰 배경에서 2.94:1 이라 글자에 못 써서
+     「장식용/글자용」 2단계로 나눠야 했다. 이 보라는 흰 배경 5.45:1,
+     연회색 배경 4.96:1, 위에 흰 글자도 5.45:1 로 전부 통과 —
+     한 색으로 다 되므로 --accent 와 --accent-ink 가 같은 값이다.
+     (두 이름은 기존 코드가 참조 중이라 유지) */
+  --accent:#625EBD;        /* 아이콘·활성 표시·강조 라벨 */
+  --accent-ink:#625EBD;    /* 글자·채움 배경 — 흰 배경 5.45:1 */
+  --accent-deep:#4F4AB5;   /* hover·눌림 — 7.05:1 */
+  --accent-tint:#EDEDF8;   /* 연한 강조 배경 */
+}
+
+/* ── 표 열제목 셀 (2026-07-23) ───────────────────────────────────
+   모든 관리자 표의 머리줄을 짙은 회색 + 흰 글씨로. 열제목 줄과 데이터 줄이
+   한눈에 갈리고, 가로 스크롤이 긴 표에서 머리줄이 떠 있는 게 분명해진다.
+   대비 #52525B 위 흰 글씨 = 7.7:1 (본문 기준 4.5:1 통과)
+
+   ⚠️ 위 #page-admin 블록이 아니라 :root 에 두는 이유 —
+   인플루언서 상세·캠페인 상태 안내 같은 일부 모달은 #page-admin 밖(body 직속)에
+   있어서, #page-admin 스코프에 두면 그 안의 표에서 변수가 안 풀린다.
+   그러면 배경이 투명해지고 글자만 흰색으로 남아 흰 배경에 흰 글씨가 된다.
+   이 파일은 관리자 빌드에만 들어가므로(build.sh CLIENT_CSS_FILES 에 없음)
+   :root 에 둬도 인플루언서 화면에는 영향이 없다. */
+:root{
+  --th-bg:#52525B;
+  --th-fg:#FFFFFF;
+}
+
+/* ── 테두리형 버튼(.btn-ghost) 가독성 (무채색 전환 보정) ──────────────
+   무채색 전환 후 공용 components.css 의 .btn-ghost 는 배경 투명 + 테두리 var(--outline)
+   (#E4E4E7) 인데, 이 테두리가 흰 배경·흰 카드 위에서 대비 ~1.2:1 로 거의 안 보여
+   「엑셀 다운로드」·「순서 변경」 같은 관리자 버튼이 버튼처럼 안 보였다(사용자 보고).
+   관리자에서만 테두리·글자 대비를 올린다(무채색 톤 유지 — 색은 안 넣음).
+     · 테두리 --faint(#8A8A93): 흰 배경 대비 ~3:1 (비텍스트 UI 요소 기준 통과)
+     · 글자   --muted(#6E6E77): 흰/연회색 배경 양쪽 본문 대비 통과
+   비활성(disabled) 은 공용 .btn:disabled(opacity:.38) 그대로 — 이 값 위에서 흐려진다. */
+#page-admin .btn-ghost{
+  color:var(--muted);
+  border-color:var(--faint);
+}
+#page-admin .btn-ghost:hover{
+  background:var(--surface-dim);
+  border-color:var(--muted);
+  color:var(--ink);
+}
+
+/* ── 「누를 수 있는 것」 표시 규칙 (무채색 유지) ──────────────────
+   색으로 구분하지 않는다. 굵기 + 밑줄로만 구분한다.
+   무채색 테마에서 --pink 별칭이 본문과 같은 검정이 되면서, 링크·클릭 가능한
+   이름이 평범한 글자와 똑같아 보이던 문제를 해결한다. */
+.link-cell{
+  font-weight:600;
+  color:var(--accent-ink);
+  cursor:pointer;
+  text-decoration:underline;
+  text-decoration-color:rgba(98,94,189,.35);   /* 평소엔 연하게 — 표가 시끄러워지지 않도록 */
+  text-underline-offset:3px;
+  text-decoration-thickness:1px;
+  transition:text-decoration-color .15s,color .15s;
+}
+/* 빨강 배지의 글자색이 공용 components.css 에서 var(--pink) 로 지정돼 있는데,
+   관리자에선 그 별칭이 검정이라 「빨간 배경 + 검정 글자」가 됐다. 관리자에서만 바로잡는다.
+   (components.css 는 인플루언서 빌드와 공용이라 직접 못 고침) */
+#page-admin .badge-red{color:var(--red)}
+
+.link-cell:hover{color:var(--accent-deep);text-decoration-color:var(--accent)}
+.link-cell:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:3px}
+
+/* 표·카드 안의 링크도 같은 규칙 — 무채색이라 색만으로는 링크인지 알 수 없다.
+   버튼 모양 요소(.btn/.admin-btn/칩/배지)는 이미 생김새로 구분되므로 제외. */
+.admin-body a:not([class*="btn"]):not([class*="chip"]):not([class*="badge"]):not([class*="tab"]){
+  color:var(--accent-ink);
+  text-decoration:underline;
+  text-decoration-color:rgba(98,94,189,.35);
+  text-underline-offset:3px;
+  text-decoration-thickness:1px;
+  transition:text-decoration-color .15s;
+}
+.admin-body a:not([class*="btn"]):not([class*="chip"]):not([class*="badge"]):not([class*="tab"]):hover{
+  color:var(--accent-deep);
+  text-decoration-color:var(--accent);
+}
+/* 미리보기 안(인플루언서 화면 재현)은 이 규칙에서 제외 — 실물과 달라지면 안 된다 */
+.cp-frame a{text-decoration:none;color:inherit}
+
 /* 관리자 페이지는 PC 전용 — 모바일 auto-zoom 방지용 16px 불필요 */
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
-#page-admin select.form-input{padding-right:32px;background-position:right 10px center}
-/* 필터 공통 */
-.admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
+/* 관리자 select 화살표·여백 통일 (무채색 리디자인, 2026-07-16) — form-input·admin-filter·admin-select 3종 공통 위아래 chevron */
+#page-admin select.form-input,
+select.admin-filter,
+select.admin-select,
+select.perm-sel{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;background-size:9px 14px;padding-right:28px}
+/* 사이드바 화면 이동 드롭다운도 동일 chevron (인라인 background-color 와 공존) */
+#adminScreenSelect{-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 9px center;background-size:9px 14px}
+/* 필터 공통 — 필터 줄에 서는 컨트롤(드롭다운·검색칸·다중선택 버튼·버튼)은 모두 32px 고정.
+   ⚠️ 높이를 클래스마다 자연 높이(패딩+폰트)에 맡기면 페인마다 28·31·38px 로 어긋난다(2026-07-24 정정). */
+.admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);height:32px;box-sizing:border-box}
+/* 텍스트·날짜 입력칸은 드롭다운 화살표가 없으므로 우측 여백을 정상화 */
+input.admin-filter{padding-right:8px}
 .admin-filter.active{background-color:#fff}
 /* 숫자 입력칸: 증감 화살표(스피너) 제거 → 직접 입력만. 드롭다운용 우측 패딩도 정상화 */
 .admin-filter.no-spinner{padding-right:8px}
 .no-spinner::-webkit-inner-spin-button,
 .no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .no-spinner[type=number]{-moz-appearance:textfield;appearance:textfield}
-.admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
+.admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;height:32px;box-sizing:border-box;outline:none}
 /* 페이지 제목 + 필터 영역 */
 .admin-sticky-header{padding-bottom:12px}
 /* 필터 영역 한 줄 정렬 (검색 + 필터를 같은 행에. 다른 목록 페인과 동일 패턴) */
 .admin-filter-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
 /* 운영 현황 페인 — 브랜드 카드 그리드 */
-.brand-ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.brand-ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
 .brand-ops-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;transition:box-shadow .15s,transform .15s}
 .brand-ops-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
 @keyframes brandOpsPulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -31,11 +142,19 @@
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+/* 필터 줄에 같이 서는 버튼(보기 초기화·검색 토글 등)도 드롭다운과 같은 높이로 */
+.admin-filter-bar .btn,.admin-filter-group .btn{height:32px}
 .admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
+/* 보기 초기화 버튼 — 진한 회색 채움 + 흰 글자 (사용자 요청)
+   ⚠️ #page-admin 스코프 필수 — 이 버튼들은 .btn-ghost 이기도 해서, 위 `#page-admin .btn-ghost{color:--muted}`
+   (특이도 1,1,0)가 여기 `#id{color:#fff}`(1,0,0)를 이겨 흰 글자를 회색으로 덮어버렸다(글자 안 보임 회귀).
+   #page-admin 접두로 특이도를 (2,0,0)으로 올려 흰 글자를 지킨다. */
+#page-admin #btnCampViewReset,#page-admin #btnInfViewReset,#page-admin #btnAppViewReset,#page-admin #btnDelivFilterReset,#page-admin #btnBrandAppViewReset{background:var(--muted);color:#fff;border:1px solid var(--muted)}
+#page-admin #btnCampViewReset:hover,#page-admin #btnInfViewReset:hover,#page-admin #btnAppViewReset:hover,#page-admin #btnDelivFilterReset:hover,#page-admin #btnBrandAppViewReset:hover{background:var(--muted);border-color:var(--muted);color:#fff;opacity:1}
 .mf-wrap{position:relative;display:inline-block}
-.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
-.mf-btn::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted)}
-.mf-btn.has-selection{background:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
+.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 9px center;background-size:9px 14px;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;height:32px;box-sizing:border-box;text-align:left;position:relative}
+.mf-btn::after{content:none}
+.mf-btn.has-selection{background-color:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
 /* 다중 선택 드롭다운: 콘텐츠 폭만큼 늘어나되 viewport·사이드바 영역에 맞춰 max-width 캡 → 좁은 화면에선 자동 줄어듦 + 줄바꿈 */
 .mf-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:160px;width:max-content;max-width:min(560px,calc(100vw - 240px));background:#fff;border:1px solid var(--outline);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:100;padding:4px 0;max-height:240px;overflow-y:auto}
 .mf-drop.open{display:block}
@@ -58,24 +177,32 @@
 /* 결과물 관리 — 검색 돋보기 버튼 활성 강조 + 기간 선택 활성 표시 */
 #btnDelivSearchToggle.active{color:var(--primary);border-color:var(--primary)}
 .admin-filter-search.filter-active{border-color:var(--primary);color:var(--primary)}
-.admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
+.admin-layout{display:grid;grid-template-columns:240px 1fr;height:100vh;transition:grid-template-columns .25s ease;background:var(--admin-canvas)}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
-.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.4) transparent}
+.admin-side{background:var(--admin-canvas);padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
+.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:transparent transparent}
+.admin-side-scroll:hover{scrollbar-color:rgba(0,0,0,.2) transparent}
 .admin-side-scroll::-webkit-scrollbar{width:6px}
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
-.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:3px}
-.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
-.admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
-.admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);padding:20px 20px 6px;text-transform:none;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
+/* 평소엔 스크롤바 숨김, 마우스 올릴 때(스크롤 시)만 표시 */
+.admin-side-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;transition:background .2s}
+.admin-side-scroll:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
+.admin-side-scroll:hover::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.3)}
+.admin-si{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#8A8A93;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
+.admin-si:hover{color:var(--ink)}
+/* 선택된 메뉴는 검정, 선택 안 된 메뉴는 흐리게 — 대비로만 구분한다.
+   ⚠️ 사이드바 배경이 연회색(#ECECEE)이라 흰 배경보다 대비가 불리하다.
+      비활성 #8A8A93 는 2.90:1 로 본문 기준(4.5:1) 아래 — 「흐리게」를 우선한 의도적 선택.
+      선택된 항목은 15.02:1 로 또렷하므로 「지금 어디인지」는 확실히 보인다. */
+.admin-si.on{color:var(--ink);border-left-color:var(--ink);font-weight:600}
+.admin-si.on .si-icon{color:var(--ink)}
+.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
 .sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
-.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
-.sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
-.sidebar-toggle:active{background:rgba(255,255,255,.18)}
-.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.35);transition:opacity .2s}
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:var(--on-surface-variant);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
+.sidebar-toggle:hover{background:var(--surface-dim);color:var(--on-surface)}
+.sidebar-toggle:active{background:var(--outline)}
+.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--on-surface-variant);transition:opacity .2s}
 .admin-layout.collapsed .sidebar-toggle-wrap{justify-content:center;padding:4px 0;margin:0 0 8px}
 .admin-layout.collapsed .sidebar-toggle-label{opacity:0;width:0;overflow:hidden}
 .si-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center}
@@ -84,28 +211,32 @@
 .admin-layout.collapsed .si-text{opacity:0;width:0;overflow:hidden}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
-.admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #1A0F18;border-radius:10px;box-sizing:content-box}
+.admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface-container);border-radius:10px;box-sizing:content-box}
 /* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
-.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:rgba(255,255,255,.35);font-variant-numeric:tabular-nums;border-top:1px solid rgba(255,255,255,.06);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+/* 사이드바 하단 고정 영역 (화면 전환 드롭다운 + 버전 정보) */
+.admin-side-foot{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--outline);display:flex;flex-direction:column;gap:8px}
+.admin-build-info{padding:0;font-size:10px;line-height:1.4;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
 .admin-build-info .admin-build-text{vertical-align:middle}
-.admin-layout.collapsed .admin-build-info{display:none}
-.admin-main{background:var(--surface-container-low);height:100%;overflow:hidden}
+.admin-layout.collapsed .admin-side-foot{display:none}
+.admin-main{background:var(--surface);margin:14px 6px;height:calc(100vh - 28px);border:1px solid var(--outline);border-radius:16px;overflow:hidden;box-sizing:border-box}
 
-.admin-body{padding:24px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
+.admin-body{padding:16px 16px 8px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
 .admin-pane{display:none}.admin-pane.on{display:block;flex:1;min-height:0;overflow-y:auto}
 /* 목록 페인 (7개 — campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts): 고정 헤더 + 테이블만 스크롤 */
 .admin-pane-list.on{display:flex!important;flex-direction:column;overflow:hidden!important}
 .admin-pane-list .admin-sticky-header{flex-shrink:0}
 .admin-pane-list .admin-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative}
-.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
+/* 목록 페인의 카드 제목 줄 — 제목과 오른쪽 버튼만 있는 줄이라 여백을 줄여 표를 더 보여준다
+   (공용 .admin-card-header 16px → 8px, 64px → 48px). 대시보드 카드는 별도 min-height 유지. */
+.admin-pane-list .admin-card-header{flex-shrink:0;z-index:6;position:relative;padding-top:8px;padding-bottom:8px}
+.admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r12) var(--r12);background:#FAFAFA}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
-.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+.admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--th-bg)}
 /* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
 .admin-pane-list #campApplicantsSummary{flex-shrink:0}
 .camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
 .camp-ops-summary:empty{display:none;margin:0}
-.camp-ops-card{background:var(--surface);border-radius:var(--r16);box-shadow:var(--elevation-1);padding:14px 16px;min-width:0}
+.camp-ops-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:14px 16px;min-width:0}
 .camp-ops-card-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.02em}
 .camp-ops-row{display:flex;gap:8px;font-size:12px;line-height:1.6}
 .camp-ops-row .k{color:var(--muted);flex-shrink:0;min-width:64px}
@@ -139,10 +270,13 @@
 .status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
 .status-tab-bar::-webkit-scrollbar{display:none}
 .status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
-.status-tab-btn:hover{background:var(--surface-dim)}
-.status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
+.status-tab-btn:hover{background:var(--surface-dim);color:var(--accent-ink)}
+.status-tab-btn.on{color:var(--accent-ink);border-bottom-color:var(--accent);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
-.status-tab-btn.zero-count{color:#aaa}
+/* 0건 탭은 색을 더 흐리게 하지 않는다 — 흐리게 하면 읽히지 않고(2.3:1),
+   「0건」이라는 정보는 옆의 건수 숫자가 이미 말해준다(색만으로 정보 전달 금지) */
+.status-tab-btn.zero-count{color:var(--muted)}
+.status-tab-btn.zero-count .tab-count{opacity:.7}
 
 /* 브랜드 서베이 신청 목록 — 신청 단위 좌측 색 띠 4px (같은 신청 행끼리 동일 색, 짝/홀 교대) */
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
@@ -151,7 +285,10 @@
 /* 관리자 목록 표 — 세로(열) 구분선 공통 (캠페인·신청·결과물·인플루언서·브랜드 서베이 등 11개 표 통일).
    기존 #brandAppTableBody / #adminPane-campaigns 전용 규칙은 본 공통 규칙으로 흡수.
    가로(행) 구분선은 .data-table 공통 규칙에서 별도 처리. */
-.data-table thead th{border-right:1px solid rgba(0,0,0,.06)}
+.data-table thead th{border-right:1px solid rgba(255,255,255,.16)}
+/* 열제목 셀 안의 아이콘·정렬 화살표는 회색 토큰을 인라인으로 참조하는 곳이 있어,
+   토큰 자체를 머리줄 안에서만 밝은 값으로 덮는다(개별 선택자 추적 불필요). */
+.data-table thead th,.perm-table thead th{--muted:rgba(255,255,255,.82);--faint:rgba(255,255,255,.65);--accent:#FFFFFF;--accent-ink:#FFFFFF;--pink:#FFFFFF}
 .data-table thead th:last-child{border-right:none}
 .data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
 .data-table tbody td:last-child{border-right:none}
@@ -167,6 +304,20 @@
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
 #adminPane-campaigns .data-table{min-width:2150px}
+/* 「삭제됨」 탭(7컬럼)은 활성 목록용 min-width(2150)·1~3열 sticky/폭 강제 대신 콘텐츠 폭 + 캠페인명(첫 열)만 좌측 고정 */
+#adminPane-campaigns .data-table.deleted-mode{min-width:0;width:100%}
+/* 활성 목록의 캠페인(2)·채널(3) 폭·sticky 강제를 삭제됨 컬럼 구성(캠페인/채널/브랜드…)에 맞게 해제 —
+   삭제됨은 체크박스 열이 없어 열이 하나씩 앞당겨지므로 기존 nth-child(2)/(3) 규칙이 엉뚱한 열에 걸린다 */
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(2),
+#adminPane-campaigns .data-table.deleted-mode th:nth-child(3),
+#adminPane-campaigns .data-table.deleted-mode td:nth-child(3){width:auto;min-width:0;max-width:none;position:static;left:auto;box-shadow:none}
+/* 캠페인명(첫 열)만 좌측 고정 + 체크박스용 44px 폭 강제 해제 */
+#adminPane-campaigns .data-table.deleted-mode th:first-child,
+#adminPane-campaigns .data-table.deleted-mode td:first-child{position:sticky;left:0;background:var(--surface);z-index:4;width:auto;min-width:0;max-width:340px}
+#adminPane-campaigns .data-table.deleted-mode th:first-child{z-index:6}
+/* 헤더 첫 열은 다른 헤더 셀과 같은 배경(--th-bg)으로 — 바디 sticky 셀만 surface */
+#adminPane-campaigns .data-table.deleted-mode thead th:first-child{background:var(--th-bg)}
 
 /* 1열 체크박스 (44px) — sticky
    thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
@@ -174,19 +325,19 @@
 #adminPane-campaigns .data-table th:nth-child(1),
 #adminPane-campaigns .data-table td:nth-child(1){width:44px;min-width:44px;max-width:44px;box-sizing:border-box}
 #adminPane-campaigns .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--th-bg)}
 
 /* 2열 캠페인 (380px) — sticky */
 #adminPane-campaigns .data-table th:nth-child(2),
 #adminPane-campaigns .data-table td:nth-child(2){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-campaigns .data-table tbody td:nth-child(2){position:sticky;left:44px;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table thead th:nth-child(2){left:44px;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(2){left:44px;z-index:7;background:var(--th-bg)}
 
 /* 3열 채널 (150px) — sticky + 우측 그림자 (sticky 영역 경계 시각화, 2026-06-16 채널 열 신설 → 고정 영역 끝) */
 #adminPane-campaigns .data-table th:nth-child(3),
 #adminPane-campaigns .data-table td:nth-child(3){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-campaigns .data-table tbody td:nth-child(3){position:sticky;left:424px;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table thead th:nth-child(3){left:424px;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(3){left:424px;z-index:7;background:var(--th-bg)}
 #adminPane-campaigns .data-table tbody td:nth-child(3),
 #adminPane-campaigns .data-table thead th:nth-child(3){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 
@@ -207,11 +358,11 @@
 #adminPane-applications .data-table th:nth-child(1),
 #adminPane-applications .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-applications .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--th-bg)}
 #adminPane-applications .data-table th:nth-child(2),
 #adminPane-applications .data-table td:nth-child(2){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-applications .data-table tbody td:nth-child(2){position:sticky;left:380px;z-index:3;background:var(--surface)}
-#adminPane-applications .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--surface-dim)}
+#adminPane-applications .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--th-bg)}
 #adminPane-applications .data-table tbody td:nth-child(2),
 #adminPane-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-applications .data-table tbody tr:hover td:nth-child(1),
@@ -225,16 +376,28 @@
 #adminPane-deliverables .data-table th:nth-child(1),
 #adminPane-deliverables .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-deliverables .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--th-bg)}
 #adminPane-deliverables .data-table th:nth-child(2),
 #adminPane-deliverables .data-table td:nth-child(2){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-deliverables .data-table tbody td:nth-child(2){position:sticky;left:380px;z-index:3;background:var(--surface)}
-#adminPane-deliverables .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--surface-dim)}
+#adminPane-deliverables .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--th-bg)}
 #adminPane-deliverables .data-table tbody td:nth-child(2),
 #adminPane-deliverables .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
 #adminPane-deliverables .data-table thead th{white-space:nowrap}
+/* 영수증·결과물·최근 제출 열 (2026-07-23)
+   width 로만 주면 표가 화면 폭에 맞추려 열을 압축해(230px 지정이 실제 98px) 배지가 「검수대/기」로
+   쪼개지고 제출 일시가 두 줄로 끊겼다. min-width 는 압축 대상이 아니라 폭이 지켜진다.
+   캠페인 진행현황 「결과물 목록」 탭은 캠페인 열이 빠져 열 순서가 달라지므로,
+   nth-child 대신 칸에 붙인 이름으로 지정한다. */
+.deliv-col-brand{min-width:140px;max-width:180px}
+.deliv-col-receipt{min-width:150px}
+.deliv-col-result{min-width:220px}
+.deliv-col-submitted{min-width:140px;white-space:nowrap}
+/* 처리 열도 같이 잡아준다 — 위 세 열에 최소 폭을 주면 표가 남은 공간을 여기서 깎아
+   「검수」 버튼 글자가 세로로 쪼개졌다. */
+.deliv-col-action{min-width:90px;white-space:nowrap}
 
 /* 브랜드 관리 — 첫 컬럼(brand_no) 좌측 고정. 컬럼 폭은 inline style로 이미 명시됨 */
 #adminPane-brands .admin-table-wrap{overflow-x:auto}
@@ -256,31 +419,45 @@
 /* 신청 그룹 시각화 — 같은 신청의 두 번째 이상 제품 행은 행 구분선 제거 (묶음 영역으로 보이게).
    첫 행(data-first="1") 위쪽 핑크 보더는 인라인 style로 부여 */
 #adminPane-brand-applications .data-table tbody tr[data-product-idx]:not([data-first="1"]) td{border-top:none}
+#adminPane-dashboard .kpi-row,
+#adminPane-brand-dashboard .kpi-row{grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;margin-bottom:0}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
-.kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
-.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.kpi-r::after{background:var(--primary)}.kpi-g::after{background:var(--green)}.kpi-b::after{background:var(--blue)}.kpi-o::after{background:var(--gold)}
-.kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--on-surface)}
-.kpi-lbl{font-size:12px;color:var(--on-surface-variant);font-weight:500}
+/* KPI 카드는 「상태별 캠페인」 칩과 같은 회색 박스 — 카드 안에 들어가므로
+   테두리 대신 연회색 면으로 구분한다(카드 테두리와 이중이 되지 않게). */
+#adminPane-dashboard .kpi-card,
+#adminPane-brand-dashboard .kpi-card{background:var(--surface-dim);border:none;border-radius:10px;padding:14px 16px}
+/* KPI 카드 상단 띠 제거 — 색이 무엇을 뜻하는지 어디에도 안 적혀 있어 정보를 주지 않았다.
+   .kpi-r/g/b/o 클래스는 HTML 여러 곳에 남아 있어 이름은 두고 표시만 없앤다.
+   (2026-07-23) 브랜드 서베이 현황도 지표를 카드 안에 넣어 같은 모양이 됐다 —
+   예전에 여기 있던 「브랜드 쪽은 카드 래퍼가 없어 안 맞는다」는 단서는 해소됐다. */
+.kpi-card::after{content:none}
+#adminPane-dashboard .kpi-val,
+#adminPane-brand-dashboard .kpi-val{font-size:20px;margin-bottom:2px}
+.kpi-val{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;color:var(--ink)}
+#adminPane-dashboard .kpi-lbl,
+#adminPane-brand-dashboard .kpi-lbl{font-size:11px}
+.kpi-lbl{font-size:12px;color:var(--muted);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
-.signup-period-btn.on{background:var(--primary)!important;color:#fff!important}
+.signup-period-btn.on{background:var(--ink)!important;color:#fff!important}
 .brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}
-.brand-trend-btn:hover{border-color:var(--pink);color:var(--pink)}
-.brand-trend-btn.on{background:var(--pink);color:#fff;border-color:var(--pink)}
-.btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:#B3261E;color:#B3261E}
-.btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
+.brand-trend-btn:hover{border-color:var(--ink);color:var(--ink)}
+.brand-trend-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* 빨강 위험 버튼(계정 완전 삭제 등)의 hover/active 경고색 유지 — #page-admin 스코프로 특이도를
+   맞춰야 위 #page-admin .btn-ghost:hover(무채색) 가 이 빨강 신호를 덮어쓰지 않는다(가독성 보정 회귀 방지) */
+#page-admin .btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:var(--red-d);color:var(--red-d)}
+#page-admin .btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
 .sort-arrows{cursor:pointer;font-size:9px;color:var(--muted);margin-left:2px;user-select:none;letter-spacing:-1px}
-.sort-arrows:hover{color:var(--primary)}
-.sort-arrows.asc{color:var(--primary)}
+.sort-arrows:hover{color:var(--accent-ink)}
+.sort-arrows.asc{color:var(--accent-ink)}
 .sort-arrows.asc::after{content:'▲';font-size:9px}
-.sort-arrows.desc{color:var(--primary)}
+.sort-arrows.desc{color:var(--accent-ink)}
 .sort-arrows.desc::after{content:'▼';font-size:9px}
 .sort-arrows.asc,.sort-arrows.desc{letter-spacing:0}
 .camp-more-btn:hover{background:var(--surface-dim)}
 .camp-more-menu{position:fixed;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:120px}
 .camp-more-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--ink);transition:background .12s;white-space:nowrap}
 .camp-more-item:hover{background:var(--surface-dim)}
-.camp-more-danger{color:#B3261E}
+.camp-more-danger{color:var(--red-d)}
 .camp-more-danger:hover{background:rgba(179,38,30,.08)}
 .status-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:110px}
 .status-dropdown-item{padding:6px 10px;border-radius:6px;cursor:pointer;transition:background .12s}
@@ -295,13 +472,16 @@
 .os-copy-btn:active{background:var(--baby-pink)}
 .os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
+.data-table th{padding:4px 12px;background:var(--th-bg);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--th-fg);text-align:left;border-bottom:1px solid var(--outline)}
+/* 표 안 체크박스는 기본값(baseline)이라 글자 기준선에 맞춰 위로 치우친다.
+   열제목 줄을 얇게 줄이면서 그 치우침이 눈에 띄어 셀 중앙 정렬로 고정. */
+.data-table th input[type="checkbox"],.data-table td input[type="checkbox"]{vertical-align:middle;margin:0}
 .admin-table-wrap{overflow-y:auto}
-.data-table td{padding:10px 10px;border-bottom:1px solid var(--surface-dim);color:var(--on-surface);vertical-align:middle}
+.data-table td{padding:12px 12px;border-bottom:1px solid var(--outline);color:var(--on-surface);vertical-align:middle;background:var(--surface)}
 .data-table tr:last-child td{border-bottom:none}
-.data-table tr:hover td{background:var(--surface-dim)}
-.admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
-.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
+.data-table tr:hover td{background:var(--surface-container)}
+.admin-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);overflow:hidden;margin-bottom:16px}
+.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--outline);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 /* ── 오픈 예정 기능 보드 (D-day) ── */
 .upcoming-table{width:100%}
@@ -316,7 +496,7 @@
 .upcoming-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--muted);font-size:13px}
 .upcoming-empty .material-icons-round{font-size:40px;color:var(--outline-variant)}
 
-.product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
+.product-form{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:28px;margin-bottom:20px}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}
 
@@ -336,7 +516,7 @@
 
 /* タグ入力 */
 .tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border:1.5px solid var(--outline);border-radius:var(--r12);background:var(--surface);min-height:42px;align-items:center;cursor:text}
-.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
 .tag-input{border:none;outline:none;font-size:14px;background:transparent;min-width:80px;flex:1;padding:2px 0;color:var(--ink)}
 .tag-label{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--light-pink);color:var(--dark-pink);border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
 .tag-label button{border:none;background:none;cursor:pointer;font-size:14px;color:var(--dark-pink);padding:0;line-height:1;opacity:.7}
@@ -348,25 +528,39 @@
 .lookup-toggle input{opacity:0;width:0;height:0}
 .lookup-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:22px;transition:.2s}
 .lookup-toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--pink)}
+.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--accent-ink)}
 .lookup-toggle input:checked + .lookup-toggle-slider::before{transform:translateX(16px)}
 .lookup-toggle input:disabled + .lookup-toggle-slider{opacity:.5;cursor:not-allowed}
 
 /* 캠페인 폼 2컬럼 (폼 + 실시간 미리보기) */
 .camp-form-2col{display:flex;gap:20px;align-items:flex-start}
 .camp-form-main{flex:1;min-width:0}
-.camp-preview-pane{width:420px;flex-shrink:0;position:sticky;top:0;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1);max-height:calc(100vh - 48px);transition:width .2s}
+.camp-preview-pane{width:420px;flex-shrink:0;position:sticky;top:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;max-height:calc(100vh - 48px);transition:width .2s}
 .camp-preview-pane-header{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;background:var(--surface-dim);color:var(--ink);flex-shrink:0}
 .camp-preview-pane-header button{padding:2px 6px}
+.cp-lang-toggle{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.cp-lang-toggle button{padding:2px 8px;font-size:11px;font-weight:600;border:none;background:#fff;color:var(--muted);cursor:pointer;line-height:1.7}
+.cp-lang-toggle button.active{background:var(--primary);color:#fff}
+.camp-preview-pane.collapsed .cp-lang-toggle{display:none}
 .camp-preview-content{flex:1;overflow-y:auto;padding:0;background:#E5E5E5;display:flex;justify-content:center;min-height:560px}
 .camp-preview-content:empty::before{content:"입력하면 미리보기가 표시됩니다";color:var(--muted);font-size:12px;align-self:center}
 /* 인플루언서 상세 페이지 레이아웃 복제 */
+/* 캠페인 미리보기는 「인플루언서가 실제로 보는 화면」을 확인하는 용도다.
+   관리자 무채색을 그대로 입히면 실물과 달라져 미리보기 구실을 못 하므로,
+   이 안에서만 인플루언서 로즈 팔레트를 되살린다(campaign.css 와 같은 값). */
+.cp-frame{
+  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
+  --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;
+  /* 회색도 인플루언서 빌드 원래 값으로 되돌린다 — 위에서 관리자용으로 진하게 조정한
+     값이 상속되면 미리보기가 실물보다 진해 보인다 */
+  --muted:#71717A;--faint:#A1A1AA;
+}
 .cp-frame{width:100%;max-width:400px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
 .cp-gnb{background:#1b1b1f;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
 .cp-gnb-badge{background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
 .cp-body-scroll{flex:1;overflow-y:auto;padding-bottom:64px}
-.cp-hero{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#F8BBD0 0%,#F48FB1 100%);overflow:hidden}
+.cp-hero{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#18181B 0%,#3F3F46 100%);overflow:hidden}
 .cp-hero > img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f5f5f5}
 .cp-hero-ct{position:absolute;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap;z-index:2}
 .cp-hero-ct-chip{background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;backdrop-filter:blur(4px)}
@@ -409,8 +603,8 @@
 .cp-sec-body .rich-content *{font-size:inherit!important}
 /* 캠페인 미리보기·상세 — 브랜드 어필 / 촬영 가이드 / NG 사항 박스
    var(--bg) 흐린 회색이 가독성 떨어진다는 사용자 보고 → 옅은 핑크/라일락 + 보더로 구분 강조 */
-.cp-sec-bg-pink{background:#fff5ff;padding:10px 12px;border-radius:8px;border:1px solid #f0d8e8}
-.cp-sec-bg-guide{background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8}
+.cp-sec-bg-pink{background:var(--surface-dim);padding:10px 12px;border-radius:8px;border:1px solid var(--outline)}
+.cp-sec-bg-guide{background:#FAFAFA;padding:12px;border-radius:8px;border:1px solid var(--outline)}
 .cp-sec-bg-ng{background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd}
 .cp-sec-subtitle{font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 /* 하단 고정 CTA 모방 */
@@ -430,7 +624,7 @@
 .mini-editor-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .mini-editor-toolbar{display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:#fafafa}
 .mini-editor-toolbar button{border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
-.mini-editor-toolbar button:hover{background:rgba(200,120,163,.1)}
+.mini-editor-toolbar button:hover{background:rgba(24,24,27,.1)}
 .mini-editor-content{padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none;word-break:break-word}
 .mini-editor-content:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
 .mini-editor-content a{color:var(--pink);text-decoration:underline}
@@ -478,7 +672,7 @@
 }
 .mini-editor-link-popover .melp-url:focus{
   border-color:var(--pink);
-  box-shadow:0 0 0 2px rgba(200,120,163,0.15);
+  box-shadow:0 0 0 2px rgba(24,24,27,0.15);
 }
 .mini-editor-link-popover .melp-btn{
   border:0;
@@ -492,9 +686,9 @@
   color:var(--ink);
 }
 .mini-editor-link-popover .melp-btn:hover{
-  background:rgba(200,120,163,0.12);
+  background:rgba(24,24,27,0.12);
 }
-.mini-editor-link-popover .melp-delete{color:#B3261E}
+.mini-editor-link-popover .melp-delete{color:var(--red-d)}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
 
 /* 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제) */
@@ -535,7 +729,7 @@
   white-space:nowrap;
 }
 .mini-editor-img-popover .meip-size:hover{
-  background:rgba(200,120,163,0.12);
+  background:rgba(24,24,27,0.12);
 }
 .mini-editor-img-popover .meip-size.is-active{
   background:var(--pink);
@@ -554,7 +748,7 @@
   cursor:pointer;
   padding:6px;
   border-radius:4px;
-  color:#B3261E;
+  color:var(--red-d);
   display:inline-flex;
   align-items:center;
 }
@@ -910,11 +1104,11 @@
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.prevMonthDay,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.nextMonthDay{
-  color:#C7BCC4;
+  color:var(--outline);
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled:hover{
   background:transparent;
-  color:#C7BCC4;
+  color:var(--outline);
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.selected,
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange,
@@ -977,7 +1171,7 @@
   padding:12px 16px;
   margin:10px -8px 0;          /* popup 좌우 padding 8px 상쇄 — 푸터 좌우 끝까지 확장 */
   border-top:1px solid var(--line);
-  background:var(--surface-container-low,#F8F5F8);
+  background:var(--surface-container-low,#F7F7F8);
   border-bottom-left-radius:14px;
   border-bottom-right-radius:14px;
 }
@@ -1048,6 +1242,16 @@
 .deliv-combined-grid.deliv-combined-grid-multi {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
+/* 패널 1개(영수증 단계 없는 gifting/visit) — 1컬럼 + 모달 폭 축소 (넓은 빈 공간 방지) */
+.deliv-combined-grid.deliv-combined-grid-single {
+  grid-template-columns: 1fr;
+}
+#delivCombinedModal .modal.deliv-combined-single {
+  /* !important 필수 — 모달 인라인 style(max-width:1080px) + 드래그·리사이즈 인프라
+     (makeModalDraggableResizable 가 open 시 인라인 max-width 를 매번 재설정)를 이겨야 폭이 실제로 줄어든다.
+     선례: 위 admin.css 의 max-width:none !important (같은 드래그 인프라 대응) */
+  max-width: 620px !important;
+}
 @media (max-width: 900px) {
   .deliv-combined-grid {
     grid-template-columns: 1fr;
@@ -1094,35 +1298,36 @@
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
-.brand-app-pay-cell .pay-row.is-checked{background:#FCE4EC;color:#B91D5F}
+.brand-app-pay-cell .pay-row.is-checked{background:var(--surface-dim);color:var(--ink)}
 /* 무료모집은 차별화 — 초록 톤. 비용 청구 안 함을 시각으로 분리 */
-.brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:#16A34A}
+.brand-app-pay-cell .pay-row.is-checked.pay-free{background:#E8F5E9;color:var(--green)}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
-.brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(200,120,163,.12);color:var(--pink)}
+.brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(24,24,27,.12);color:var(--pink)}
 .brand-app-pay-cell .pay-refresh-btn:disabled{opacity:.5;cursor:not-allowed}
 .brand-app-pay-cell .pay-refresh-btn .material-icons-round{font-size:15px}
 
 /* 가격체크 드롭다운 (제품별 4상태) — 신청 목록 페인 「가격체크」 컬럼.
    마켓 등록 가격과 신청 금액 비교 결과 (가격높음/낮음/동일) 또는 미선택. */
-.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;appearance:auto}
-.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background:#fafafa;font-weight:400}
-.brand-app-pricecheck-select.pc-higher{background:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
-.brand-app-pricecheck-select.pc-lower{background:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
-.brand-app-pricecheck-select.pc-equal{background:#EEEEEE;color:#555555;border-color:#D0D0D0}
+.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
+.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background-color:#fafafa;font-weight:400}
+.brand-app-pricecheck-select.pc-higher{background-color:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
+.brand-app-pricecheck-select.pc-lower{background-color:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
+.brand-app-pricecheck-select.pc-equal{background-color:#EEEEEE;color:#555555;border-color:#D0D0D0}
 .brand-app-pricecheck-select:focus{outline:2px solid var(--accent);outline-offset:1px}
 
 /* 캠페인 등록·편집 폼 「부모 신청 선택」 커스텀 드롭다운 — 제품명 + 메타 2줄.
    트리거는 .form-input 룩앤필을 그대로 따라가 다른 폼 입력과 시각 일관성 유지. */
 .custom-srcapp-wrap{position:relative;margin-top:6px}
 .custom-srcapp-wrap > select[data-srcapp-hidden]{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
-.custom-srcapp-trigger{width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--r12);padding:8px 36px 8px 12px;font-size:13px;line-height:1.5;color:var(--on-surface);cursor:pointer;position:relative;font-family:inherit;box-sizing:border-box;transition:all .2s cubic-bezier(.2,0,0,1)}
+/* 서베이 신청 연결 — 신규 선택 UI는 숨기고(공개 제출 중단), 기존 연결만 읽기전용 라벨로 표시 */
+.custom-srcapp-readonly{margin-top:6px;padding:7px 10px;font-size:12px;color:var(--on-surface-variant,#666);background:var(--surface-dim,#f5f5f5);border:1px solid var(--line);border-radius:8px}
+.custom-srcapp-trigger{width:100%;text-align:left;background:var(--surface) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>') no-repeat right 12px center;background-size:9px 14px;border:1.5px solid var(--outline);border-radius:var(--r12);padding:8px 36px 8px 12px;font-size:13px;line-height:1.5;color:var(--on-surface);cursor:pointer;position:relative;font-family:inherit;box-sizing:border-box;transition:all .2s cubic-bezier(.2,0,0,1)}
 .custom-srcapp-trigger:hover{border-color:var(--primary)}
-.custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
-.custom-srcapp-trigger.is-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
-.custom-srcapp-trigger::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;border-right:1.5px solid #999;border-bottom:1.5px solid #999;transform:translateY(-70%) rotate(45deg);pointer-events:none;transition:transform .15s}
-.custom-srcapp-trigger.is-open::after{transform:translateY(-30%) rotate(-135deg)}
+.custom-srcapp-trigger:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
+.custom-srcapp-trigger.is-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(24,24,27,.12)}
+.custom-srcapp-trigger::after{content:none}
 .custom-srcapp-trigger-main{font-size:13px;font-weight:600;color:var(--on-surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .custom-srcapp-trigger-main.is-placeholder{font-weight:400;color:var(--on-surface-variant)}
 .custom-srcapp-trigger-meta{font-size:11px;color:var(--on-surface-variant);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1130,8 +1335,8 @@
 .custom-srcapp-panel.is-open{display:block}
 .custom-srcapp-option{padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f1f1;transition:background .12s}
 .custom-srcapp-option:last-child{border-bottom:none}
-.custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:#fff4f8}
-.custom-srcapp-option.is-selected{background:#fdeef4}
+.custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:var(--surface-dim)}
+.custom-srcapp-option.is-selected{background:var(--surface-dim)}
 .custom-srcapp-option-main{font-size:13px;font-weight:600;color:var(--on-surface);line-height:1.4;word-break:break-word}
 .custom-srcapp-option-main.is-empty{font-weight:400;color:var(--on-surface-variant);font-style:italic}
 .custom-srcapp-option-meta{font-size:11px;color:var(--on-surface-variant);margin-top:3px;line-height:1.3}
@@ -1143,7 +1348,7 @@
 .visibility-toggle-label{font-size:14px;font-weight:700;color:var(--ink)}
 .visibility-toggle-status{font-size:12px;color:var(--muted);margin-left:auto}
 .visibility-toggle-status.is-off{color:#C33;font-weight:600}
-.visibility-toggle{position:relative;width:48px;height:26px;border-radius:13px;border:none;cursor:pointer;background:#9CA3AF;padding:0;transition:background .2s;flex-shrink:0}
+.visibility-toggle{position:relative;width:48px;height:26px;border-radius:13px;border:none;cursor:pointer;background:var(--faint);padding:0;transition:background .2s;flex-shrink:0}
 .visibility-toggle.is-on{background:#22C55E}
 .visibility-toggle.is-disabled{opacity:.4;cursor:not-allowed}
 .visibility-toggle:focus{outline:none;box-shadow:0 0 0 3px rgba(34,197,94,.22)}
@@ -1219,7 +1424,7 @@
 .inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 「내가 보낸 순」 — 좌측 캠페인 목록 비활성, 대화 카드에 캠페인·브랜드 라벨 */
 .inbox-camp-disabled{opacity:.45;pointer-events:none}
-.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#c2185b);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#000000);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
 .inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
@@ -1234,7 +1439,7 @@
 .adm-msg-search{flex:0 1 220px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit}
 .adm-msg-bar-btn{padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:var(--ink)}
 .adm-msg-bar-btn.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
-.adm-msg-bar-btn.done{background:#E8F5E9;color:#16A34A;border-color:#A7D7B0;cursor:default}
+.adm-msg-bar-btn.done{background:#E8F5E9;color:var(--green);border-color:#A7D7B0;cursor:default}
 .adm-msg-thread{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
 /* 메시지 — 말풍선 + 옆 메타(시간·읽음·액션). 메타는 풍선 바깥쪽(상대=오른쪽, mine=왼쪽) */
 .msg-row{display:flex;gap:8px;align-items:flex-end;max-width:85%;align-self:flex-start;flex-direction:row-reverse}
@@ -1244,8 +1449,8 @@
 .msg-bubble .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink);margin-bottom:4px}
 .msg-card-body{font-size:13px;line-height:1.6;color:var(--ink);word-break:break-word}
 /* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 일본어 원문은 아래 작은 글씨 */
-.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,#E5E5EA);font-size:11px;line-height:1.5;color:var(--muted)}
-.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,var(--outline));font-size:11px;line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,var(--outline));border-radius:6px;font-size:10px;color:var(--muted)}
 .msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
 .msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
@@ -1300,7 +1505,7 @@
 .adm-faq-hist-when{font-size:11px;color:var(--muted)}
 .adm-faq-hist-act{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:var(--surface-dim);color:var(--muted)}
 .adm-faq-hist-act.handoff{background:var(--red-l);color:var(--red)}
-.adm-faq-hist-act.resolved{background:#E8F5E9;color:#16A34A}
+.adm-faq-hist-act.resolved{background:#E8F5E9;color:var(--green)}
 .adm-faq-hist-q{font-size:12px;font-weight:600;color:var(--ink)}
 .adm-faq-hist-cnt{font-weight:400;color:var(--muted);font-size:11px}
 .adm-faq-hist-a{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
@@ -1308,10 +1513,16 @@
 .adm-faq-chip{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--dark-pink);background:var(--light-pink);border:1px dashed var(--pink);border-radius:8px;padding:3px 8px;margin:2px 0}
 .adm-faq-chip .material-icons-round{font-size:13px}
 /* 응모 행 메시지 버튼 */
-.applicant-msg-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:11px;color:var(--ink);position:relative}
+/* 인플루언서 이름·계정 정보 칸 (신청 관리·캠페인 진행현황·결과물 관리 공용)
+   — 정보는 왼쪽에 쌓고, 메시지 버튼은 칸 오른쪽 끝에 아이콘 하나로 띄운다. */
+.applicant-name-cell{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.applicant-name-info{min-width:0}
+/* 글자 없는 아이콘 버튼 — 뜻은 title·aria-label 로 전달. 이름이 길어도 안 찌부러지게 flex-shrink:0 */
+.applicant-msg-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;flex-shrink:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;color:var(--ink);position:relative}
 .applicant-msg-btn:hover{background:var(--light-pink);border-color:var(--pink)}
-.applicant-msg-btn .material-icons-round{font-size:14px;color:var(--pink)}
-.applicant-msg-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--pink);color:#fff;font-size:10px;font-weight:700;margin-left:2px}
+.applicant-msg-btn .material-icons-round{font-size:16px;color:var(--pink)}
+/* 미열람 배지 — 버튼이 작아져 옆에 못 붙이므로 오른쪽 위 모서리에 겹쳐 띄운다(흰 테두리로 버튼과 분리) */
+.applicant-msg-badge{position:absolute;top:-6px;right:-6px;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;border:1px solid #fff;background:var(--pink);color:#fff;font-size:10px;font-weight:700}
 
 /* ══════════════════════════════════
    FAQ (자동응답) 페인 — 좌우 2단 마스터-디테일 (마이그레이션 146)
@@ -1339,7 +1550,7 @@
 /* 측정 배지 */
 .faq-stats{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .faq-stat{font-size:10px;color:var(--muted);background:var(--surface-dim);border-radius:6px;padding:1px 6px}
-.faq-stat-warn{color:#B3261E;background:#FDECEA;font-weight:700}
+.faq-stat-warn{color:var(--red-d);background:#FDECEA;font-weight:700}
 /* 편집 모달 — 한·일 2열 */
 .faq-bilingual{display:flex;gap:14px}
 .faq-bilingual > .form-group{flex:1;min-width:0}
@@ -1365,16 +1576,16 @@
 .deliv-proxy-notice .deliv-proxy-cascade{display:block;margin-top:6px;padding-top:6px;border-top:1px dashed #FBBF24;font-size:11px;color:#78350F}
 
 /* 회수 버튼 (super_admin 전용) */
-.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:#DC2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .deliv-proxy-revoke-btn:hover{background:#B91C1C}
-.deliv-proxy-revoke-btn[disabled]{background:#9CA3AF;cursor:not-allowed}
+.deliv-proxy-revoke-btn[disabled]{background:var(--faint);cursor:not-allowed}
 
 /* 대리 등록 모달 폼 */
 .admin-proxy-modal-form{display:flex;flex-direction:column;gap:14px;padding:6px 0}
 .admin-proxy-modal-form .form-row{display:flex;flex-direction:column;gap:4px}
 .admin-proxy-modal-form .form-row label{font-size:12px;font-weight:600;color:var(--ink)}
 .admin-proxy-modal-form .form-row .form-help{font-size:11px;color:var(--muted)}
-.admin-proxy-modal-form .form-row.required label::after{content:" *";color:#DC2626}
+.admin-proxy-modal-form .form-row.required label::after{content:" *";color:var(--red)}
 .admin-proxy-modal-form select,
 .admin-proxy-modal-form input[type="text"],
 .admin-proxy-modal-form input[type="date"],
@@ -1382,7 +1593,7 @@
 .admin-proxy-modal-form input[type="url"],
 .admin-proxy-modal-form textarea{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
 .admin-proxy-modal-form textarea{min-height:64px;resize:vertical}
-.admin-proxy-kind-section{display:none;padding:12px;background:#F9FAFB;border:1px solid var(--line);border-radius:8px}
+.admin-proxy-kind-section{display:none;padding:12px;background:var(--surface-container);border:1px solid var(--line);border-radius:8px}
 .admin-proxy-kind-section.active{display:block}
 .admin-proxy-kind-section .kind-section-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
 .admin-proxy-image-preview{margin-top:6px;max-width:180px;max-height:180px;border:1px solid var(--line);border-radius:6px;display:none}
@@ -1404,15 +1615,15 @@
 /* ─── 관리자 대리 등록 모달 — 검색 가능 드롭다운 (combobox) ────────── */
 .admin-proxy-combobox{position:relative}
 .admin-proxy-combobox-input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
-.admin-proxy-combobox-input:disabled{background:#F3F4F6;color:var(--muted);cursor:not-allowed}
-.admin-proxy-combobox-input:focus{outline:none;border-color:var(--pink)}
+.admin-proxy-combobox-input:disabled{background:var(--surface-dim);color:var(--muted);cursor:not-allowed}
+.admin-proxy-combobox-input:focus{outline:none;border-color:var(--accent-ink);box-shadow:0 0 0 3px rgba(98,94,189,.18)}
 .admin-proxy-combobox-list{display:none;position:absolute;top:100%;left:0;right:0;z-index:10;max-height:240px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,.06);margin-top:-1px}
 .admin-proxy-combobox-list.open{display:block}
 .admin-proxy-combobox-list .item{padding:8px 10px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line)}
 .admin-proxy-combobox-list .item:last-child{border-bottom:none}
 .admin-proxy-combobox-list .item:hover,
 .admin-proxy-combobox-list .item.focused{background:#FFF5F8;color:var(--dark-pink)}
-.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:#F9FAFB}
+.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:var(--surface-container)}
 .admin-proxy-combobox-list .item-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .admin-proxy-combobox-list .empty{padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}
 
@@ -1428,6 +1639,9 @@
   top:50%;
   transform:translate(-50%,-50%);
   margin:0;               /* 인라인 margin:auto 무효화 */
+  border-radius:16px;
+  box-shadow:var(--elevation-4);
+  overflow:visible;       /* 코너 리사이즈 핸들이 radius 클리핑에 안 잘리게. 본문 스크롤은 .modal-body 전담 */
   min-width:320px;
   min-height:160px;
   display:flex;           /* 인라인 flex 없는 모달(addAdmin/adminEmailSubs/lookupEdit)도 본문 스크롤 보장 */
@@ -1449,6 +1663,17 @@
 .modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
 
+/* 채널 어긋남 경고 창(#channelDriftModal): **배경을 덮지 않는다.**
+   「창을 열어둔 채 조치를 진행할 수 있습니다」라고 안내해 놓고 덮개가 클릭을 가로채면
+   그 안내가 거짓말이 된다(2026-07-31 사용자 지적 — 조치 방법을 보며 뒤 화면을 눌러야 하는데
+   눌리지 않았다). #imageLightbox 와 같은 방식: overlay 는 클릭 통과, 창(.modal)만 잡는다.
+   닫기는 X 버튼·ESC(ui.js 전역 핸들러가 최상단 .modal-overlay.open 을 닫는다).
+   배경 클릭 닫기는 없다 — 여기서는 뒤를 누르는 게 정상 동작이므로. */
+#channelDriftModal{background:transparent;pointer-events:none}
+#channelDriftModal .modal{pointer-events:auto;box-shadow:0 8px 32px rgba(0,0,0,.28)}
+/* 드래그 초기화가 인라인 크기를 지우므로 .draggable 에 기본 크기를 준다(#imageLightbox 와 동일 이유) */
+#channelDriftModal .modal.draggable{width:760px;height:auto;max-width:92vw;max-height:88vh}
+
 /* 이미지 확대 창(#imageLightbox): 배경을 덮지 않아 뒤 화면(검수 모달 입력 등) 조작 가능 + 드래그·리사이즈 떠있는 창.
    overlay 는 클릭 통과(pointer-events:none), 창(.modal)만 잡힘. 배경 클릭 닫기 없음 — 닫기는 X·ESC. */
 #imageLightbox{background:transparent;pointer-events:none}
@@ -1460,7 +1685,7 @@
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
-.lightbox-zoom-ctrl .material-icons-round:hover{color:#FFD2E0}
+.lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
@@ -1540,7 +1765,7 @@
 .admin-detail-row:last-child { border-bottom: none; }
 .admin-detail-label { flex-shrink: 0; width: 84px; color: var(--muted); font-weight: 600; }
 .admin-input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink); background: #fff; }
-.admin-input:focus { outline: none; border-color: var(--pink); }
+.admin-input:focus { outline: none; border-color: var(--accent-ink); box-shadow: 0 0 0 3px rgba(98,94,189,.18); }
 
 /* ── 일괄 발송 / 발송 이력 (PR 3, 마이그레이션 167) ── */
 .inbox-tabs { display: flex; gap: 4px; }
@@ -1582,11 +1807,11 @@
    모든 인플·응모·결과물 행에 auditBadgeHtml() 로 강제 노출. 주황 톤(경고 아닌 식별용). */
 .audit-badge {
   display: inline-block;
-  padding: 2px 7px;
-  margin-left: 5px;
+  padding: 1px 5px;
+  margin-left: 4px;
   background: #ff9800;
   color: #fff;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1.4;
   border-radius: 3px;
@@ -1617,7 +1842,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   padding: 10px 12px; color: #9A3412; font-size: 13px; line-height: 1.5;
 }
 .perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
-.perm-caret { font-size: 20px; color: var(--muted, #6B7280); vertical-align: middle; margin-right: 4px; }
+.perm-caret { font-size: 20px; color: var(--muted, var(--muted)); vertical-align: middle; margin-right: 4px; }
 /* 하나의 표 — table-layout:fixed 로 열 너비 고정, 열 헤더는 맨 위 1회(반복 제거) + 스크롤 시 상단 고정.
    ⚠️ border-collapse:separate 필수 — collapse 모드에선 sticky thead 의 배경·경계가 스크롤 시 깨져 아래 행과 겹친다.
    separate + border-spacing:0 + border-bottom(행 구분) 으로 sticky 를 안전하게 고정. */
@@ -1626,18 +1851,40 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
 .perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
 .perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
-.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
-/* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
-.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
-.perm-cat-row:hover td { background: #F3F4F6; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 27px; padding-top: 4px; padding-bottom: 4px; box-sizing: border-box; background: var(--th-bg); color: var(--th-fg); font-weight: 600; }
+/* category 구분 행 — 열 헤더(27px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기
+   ⚠️ 이 top 값은 위 .perm-table thead th 의 height 와 같아야 한다(어긋나면 그 틈으로 지나가는 행이 비친다). */
+.perm-cat-row td { position: sticky; top: 27px; z-index: 2; text-align: left; background: var(--surface-container); font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-cat-row:hover td { background: var(--surface-dim); }
 /* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
 .perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
 .perm-table th:not(.perm-th-feat) { width: 20%; }
 .perm-feat { color: var(--ink, #111827); }
 .perm-cell { min-width: 96px; }
-.perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
+.perm-locked { color: var(--muted, var(--faint)); font-size: 12px; }
 .perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
-.perm-sel.perm-dirty { border-color: var(--pink, #EC4899); background: #FDF2F8; font-weight: 600; }
+/* 미저장 변경 표시 — 배경은 아래 값별 색(.perm-lv-*)이 담당하므로 여기선 테두리만 */
+.perm-sel.perm-dirty { border-color: var(--primary); font-weight: 600; }
+
+/* 접근 수준(쓰기·읽기·숨김)을 색 + 아이콘으로 구분 (2026-07-29)
+   글자만으로는 세 값이 한눈에 안 들어온다는 지적. 색만으로 구분하지 않도록 아이콘을 함께 쓴다.
+   아이콘은 select 안에 넣을 수 없어 감싸는 칸에 겹쳐 놓고, select 왼쪽 여백으로 자리를 만든다. */
+.perm-sel-wrap{position:relative;display:inline-flex;align-items:center}
+.perm-sel-ico{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none}
+/* 좌: 아이콘 자리, 우: select 기본 화살표 자리. 값이 세 글자라 폭을 더 줄 필요는 없다. */
+.perm-sel-wrap .perm-sel{padding:3px 20px 3px 21px;font-size:12px;font-weight:600;line-height:1.5;background-position:right 7px center;background-size:8px 12px}
+/* ⚠️ background 축약형을 쓰면 select.perm-sel 의 화살표 이미지(background-image)가 지워진다.
+   반드시 background-color 만 지정할 것 (2026-07-29 화살표 실종 사고). */
+.perm-lv-write .perm-sel{background-color:#EAF7EF;border-color:#9AD4B2;color:#166534}
+.perm-lv-write .perm-sel-ico{color:#1F8A4C}
+.perm-lv-read .perm-sel{background-color:#EEF3FE;border-color:#A9C2F5;color:#1D4ED8}
+.perm-lv-read .perm-sel-ico{color:#2563EB}
+.perm-lv-hidden .perm-sel{background-color:var(--surface-container-low);border-color:var(--outline);color:var(--muted)}
+.perm-lv-hidden .perm-sel-ico{color:var(--muted)}
+/* 저장 안 된 변경은 어떤 값이든 테두리를 굵게 — 색 구분과 겹치지 않게 두께로 표시 */
+/* ⚠️ 여기서 var(--pink) 를 쓰지 않는다 — 2026-07-16 무채색 개편으로 그 변수는 거의 검정(#1A1A1A)이라
+   테두리(검정)와 그림자(핑크)가 서로 다른 계열이 된다. 강조색을 직접 지정해 두 값을 맞춘다. */
+.perm-sel-wrap .perm-sel.perm-dirty{border-width:2px;border-color:#DC2626;box-shadow:0 0 0 2px rgba(220,38,38,.14)}
 .perm-tag {
   display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
@@ -1645,7 +1892,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .perm-tag-super { background: #F3E8FF; color: #7E22CE; }
 /* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
 .perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
+.perm-changecount { font-size: 12px; color: var(--muted, var(--muted)); }
 
 /* ── 인플루언서 추천 명단(아웃바운드) 편집 모달 섹션 제목 ── */
 .outbound-form-section-title {
@@ -1660,3 +1907,355 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 대표 게시물 링크 행 (JS 렌더) */
 .ob-post-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .ob-post-row .form-input { flex: 1; }
+
+/* ── 아웃바운드: 명단/조건 추천 전환 탭 (2단계) ── */
+.outbound-tabbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.outbound-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.outbound-tab:hover { color: var(--accent-ink); }
+.outbound-tab.is-active {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
+
+/* ── 아웃바운드: 조건 추천 결과 근거 배지 ── */
+.reco-badge {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin: 1px 0;
+  white-space: nowrap;
+}
+.reco-badge-ok    { background: #E8F5E9; color: var(--green); }
+.reco-badge-soft  { background: #EEF2FF; color: #4338CA; }
+.reco-badge-muted { background: var(--surface-dim); color: var(--muted); }
+.reco-badge-over  { background: #FEE2E2; color: var(--red); }
+
+/* 요청 인원 경계 구분선 행 */
+.reco-divider td {
+  background: #FAFAFA;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
+/* 화면 이동 드롭다운 — 사이드바 접힘(56px) 시 숨김(native select가 width:0로 눌려 조작 불가 방지) */
+.admin-layout.collapsed #adminScreenSwitcher { display: none; }
+
+/* 등급 열 헤더 도움말 「?」 아이콘 (아웃바운드 명단·조건 추천) */
+.tier-help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--muted, #71717A); color: #fff;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  vertical-align: middle; margin-left: 2px; user-select: none;
+}
+.tier-help-icon:hover { background: var(--ink, #18181B); }
+
+/* 최근 공지 — 마지막 행의 아래 구분선을 없앤다.
+   카드 자체의 아래 테두리와 같은 색·같은 굵기라, 둘이 맞붙으면 2px 띠가 되어
+   그림자가 진 것처럼 보였다. 다른 카드들과 같은 테두리 하나만 남긴다. */
+#dashboardNoticesBody > div:last-child{border-bottom:none}
+
+/* 스크롤바를 콘텐츠에 붙이지 않고 화면 오른쪽 끝으로 (2026-07-20)
+   .admin-body 의 좌우 여백(16px) 안쪽에서 스크롤이 일어나던 구조라,
+   스크롤바가 카드 바로 옆에 딱 붙어 있었다.
+   스크롤 영역을 오른쪽 여백만큼 바깥으로 넓히고(margin-right 음수),
+   그만큼 안쪽 여백을 주면 → 스크롤바는 맨 오른쪽, 콘텐츠는 여백 유지.
+   목록형 페인(.admin-pane-list)은 표 안에서 따로 스크롤하므로 제외한다. */
+.admin-pane.on:not(.admin-pane-list){
+  margin-right:-16px;
+  padding-right:16px;
+}
+
+/* 최근 공지 + 전체 현황 KPI 2단 (2026-07-20)
+   공지가 없을 때는 카드가 숨겨지므로, 그때는 KPI 가 전체 폭을 쓰도록
+   .no-notices 클래스로 1단 전환한다(renderDashboardNotices 에서 토글). */
+/* 두 카드 높이를 같게 — align-items 기본값(stretch)에 카드 높이 100% */
+.dash-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap)}
+.dash-top-grid > .admin-card,
+.dash-top-grid > div > .admin-card{height:100%;display:flex;flex-direction:column}
+/* 제목 영역 높이를 두 카드가 똑같이 — 안에 든 것(링크/버튼)이 달라도 같은 높이 */
+.dash-top-grid .admin-card-header{min-height:53px;box-sizing:border-box}
+/* .single — 왼쪽 카드를 숨겼을 때(공지 0건 / 장기 대기 0건) 오른쪽이 전체 폭을 쓴다 */
+.dash-top-grid.no-notices,
+.dash-top-grid.single{grid-template-columns:1fr}
+.dash-top-grid.single .kpi-row{grid-template-columns:repeat(4,1fr)}
+.dash-top-grid .kpi-row{grid-template-columns:1fr 1fr}   /* 반폭이라 2×2 */
+.dash-top-grid.no-notices .kpi-row{grid-template-columns:repeat(4,1fr)}  /* 전체 폭이면 한 줄 4개 */
+@media (max-width:1280px){
+  .dash-top-grid{grid-template-columns:1fr}
+  .dash-top-grid .kpi-row{grid-template-columns:repeat(4,1fr)}
+}
+
+/* 회원가입 추이 · 프로필 완성률 · 배송지 분포 3열 (2026-07-20)
+   세 칸 폭은 동일하게. 좁은 화면에서는 2열 → 1열로 단계적으로 접는다. */
+.dash-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap);align-items:start}
+.dash-3col > .admin-card{margin-bottom:0;height:100%;display:flex;flex-direction:column}
+.dash-3col .admin-card-header{min-height:53px;box-sizing:border-box}
+@media (max-width:1500px){ .dash-3col{grid-template-columns:1fr 1fr} }
+@media (max-width:1000px){ .dash-3col{grid-template-columns:1fr} }
+
+/* 메인 컬러 카드 (2026-07-20)
+   레퍼런스 구조 — 박스 전체가 메인 컬러, 안쪽 칩은 그 위에 얹히는 옅은 면.
+   칩을 각각 메인 컬러로 칠하는 게 아니라 「면 위의 면」으로 계층을 만든다. */
+.admin-card.accent-card{
+  background:var(--accent);
+  border-color:var(--accent);
+}
+.admin-card.accent-card .admin-card-title{color:#fff}                  /* 흰 글자 5.45:1 */
+.admin-card.accent-card .spinner{border-color:rgba(255,255,255,.3);border-top-color:#fff}
+
+/* 대시보드 섹션 간격 (2026-07-20)
+   좌우(칸 사이)보다 상하(섹션 사이)를 넓게 둬서 가로 묶음과 세로 구분이 구별되게 한다. */
+/* ⚠️ 이 두 값이 .dash-2col/.dash-3col/.dash-top-grid 의 칸 간격이다.
+   변수가 없는 화면에서 그 클래스를 쓰면 간격이 0이 되어 카드가 서로 붙는다.
+   대시보드 성격의 화면을 새로 만들면 여기 선택자에 함께 넣을 것. */
+#adminPane-dashboard,
+#adminPane-brand-dashboard{--dash-gap:16px;--dash-vgap:28px}
+.dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:var(--dash-gap);margin-bottom:var(--dash-vgap)}
+/* 카드 기본 아래 여백(16px)을 없앤다 — 섹션 여백과 겹쳐 아래쪽만 넓어 보였다.
+   간격은 섹션(--dash-vgap)이 전담한다. */
+.dash-2col > .admin-card,
+.dash-top-grid > .admin-card,
+.dash-3col > .admin-card{margin-bottom:0}
+.dash-section{margin-bottom:var(--dash-vgap)}
+@media (max-width:1000px){ .dash-2col{grid-template-columns:1fr} }
+
+/* 차트 패널 (2026-07-20) — 흰 면 + 테두리로 구획을 나눈다.
+   색 있는 면 위에 차트를 놓으면 막대·축이 쓸 수 있는 대비 폭이 줄어 데이터가 덜 보인다. */
+.chart-panel{background:var(--surface);border:1px solid var(--outline);border-radius:12px;padding:14px 16px}
+.chart-panel-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
+
+/* ── 캠페인 변경 이력 · 항목별 차이 표시 (2026-07-27) ──────────────────
+   좌우 2단 전체 나열 대신 항목 1줄씩 놓고 추가·삭제·수정을 색으로 구분한다.
+   글자 강조(.diff-mark)는 순수 텍스트를 이스케이프한 뒤에만 감싼다 — 원본 HTML에
+   직접 끼워 넣으면 태그가 쪼개져 화면이 깨지고 보안 구멍이 된다(shared.js 주석 참조). */
+.diff-section{margin-bottom:16px}
+.diff-section:last-child{margin-bottom:0}
+.diff-section-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.diff-section-title{font-size:12px;font-weight:700;color:var(--ink)}
+.diff-section-sum{font-size:11px;color:var(--muted)}
+.diff-notice{font-size:12px;color:var(--on-surface-variant);background:var(--surface-container);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+
+.diff-row{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#fff}
+.diff-row-add{border-color:#a7d8b4;background:#f2fbf5}
+.diff-row-del{border-color:#f0b4b4;background:#fdf4f4}
+.diff-row-mod{border-color:#e8cf94;background:#fffcf3}
+.diff-row-format{border-color:#c9c9dd;background:#f8f8fc}
+.diff-row-same{border-color:var(--line);background:#fff;opacity:.62}
+.diff-row-body{flex:1;min-width:0;font-size:12px;line-height:1.65;color:var(--ink)}
+
+.diff-tag{flex-shrink:0;font-size:10px;font-weight:700;border-radius:5px;padding:2px 6px;white-space:nowrap;line-height:1.5}
+.diff-tag-add{background:#1f8a4c;color:#fff}
+.diff-tag-del{background:#c0392b;color:#fff}
+.diff-tag-mod{background:#b8860b;color:#fff}
+.diff-tag-format{background:#6b6b8a;color:#fff}
+.diff-tag-same{background:var(--surface-container);color:var(--muted)}
+
+.diff-lang{display:flex;gap:6px;align-items:flex-start;margin-top:4px}
+.diff-lang:first-child{margin-top:0}
+.diff-lang-tag{flex-shrink:0;font-size:10px;color:var(--muted);background:var(--surface-container);border-radius:4px;padding:1px 5px;margin-top:2px}
+.diff-lang-body{flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.diff-step{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px}
+.diff-step-title{font-weight:700}
+.diff-moved{font-weight:400;color:var(--muted)}
+
+.diff-line{position:relative;padding:1px 0;overflow-wrap:anywhere}
+.diff-line-tag{display:inline-block;min-width:16px;font-size:10px;color:var(--muted);margin-right:4px}
+/* 줄 전체 취소선은 「항목이 통째로 사라진 경우」에만.
+   글자만 고친 수정에까지 걸면 안 바뀐 글자까지 그어져 오히려 읽기 어려워진다(2026-07-27 지적). */
+.diff-line-whole-prev{color:#8a3b32;text-decoration:line-through;text-decoration-color:rgba(192,57,43,.45)}
+.diff-line-whole-prev .diff-line-tag{text-decoration:none}
+.diff-empty{color:var(--muted)}
+
+/* 한 줄 안에서 지워진 글자·새 글자를 나란히 (한글 문서 「변경 내용 추적」 방식) */
+.diff-mark{border-radius:2px;padding:0 1px}
+.diff-mark-del{color:#c0392b;text-decoration:line-through;text-decoration-thickness:1.5px}
+.diff-mark-add{color:#1f6f43;background:#e6f6ec;text-decoration:underline;text-decoration-thickness:1.5px;font-weight:600}
+
+.diff-collapse{margin-top:6px}
+.diff-collapse>summary{font-size:11px;color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:2px 0}
+.diff-collapse>summary::before{content:'▸';font-size:10px}
+.diff-collapse[open]>summary::before{content:'▾'}
+.diff-collapse>summary::-webkit-details-marker{display:none}
+.diff-collapse-raw{margin-top:4px}
+.diff-raw-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.diff-raw-tag{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px}
+.diff-raw-lang{font-size:10px;color:var(--muted);margin-top:4px}
+@media (max-width:900px){ .diff-raw-grid{grid-template-columns:1fr} }
+
+/* ── 캠페인 변경 이력 카드 (2026-07-27) ─────────────────────────────
+   날짜를 왼쪽에 고정 폭으로 세우고, 가운데에 「무엇이 어떻게 바뀌었는지」 한 줄을 둔다.
+   예전엔 배지(주의사항·자동)만 있어서 열어보기 전에는 내용을 알 수 없었다. */
+.chist-card{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;background:#fff}
+.chist-card-quiet{background:var(--surface-container-low);opacity:.75}
+.chist-head{padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px}
+.chist-head:hover{background:var(--surface-container)}
+.chist-when{flex-shrink:0;width:96px;text-align:center;border-right:1px solid var(--line);padding-right:12px}
+.chist-date{font-size:12px;font-weight:700;color:var(--ink);line-height:1.3;white-space:nowrap}
+.chist-time{font-size:11px;color:var(--muted);line-height:1.3}
+.chist-body{flex:1;min-width:0}
+.chist-summary{font-size:13px;font-weight:600;color:var(--ink);line-height:1.5;word-break:keep-all}
+.chist-meta{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
+.chist-caret{font-size:18px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.chist-quiet-fold{margin-top:10px}
+.chist-quiet-fold>summary{font-size:12px;color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:4px 0}
+.chist-quiet-fold>summary::before{content:'▸';font-size:10px}
+.chist-quiet-fold[open]>summary::before{content:'▾'}
+.chist-quiet-fold>summary::-webkit-details-marker{display:none}
+
+/* 전체 항목 변경 이력 표 (항목 / 이전 / 이후) — 마이그레이션 265·266 */
+.chist-detail{padding:12px 14px;background:var(--surface-container-low);border-top:1px solid var(--line)}
+.chist-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.chist-table th,.chist-table td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;word-break:break-word}
+.chist-table thead th{font-size:11px;font-weight:700;color:var(--muted);background:transparent;border-bottom:1.5px solid var(--outline)}
+.chist-table thead th:first-child{width:26%}
+.chist-table tbody th{font-weight:600;color:var(--ink);background:transparent}
+.chist-table tbody tr:last-child th,.chist-table tbody tr:last-child td{border-bottom:none}
+.chist-td-prev{color:var(--muted)}
+.chist-empty{color:var(--muted)}
+.chist-clip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.chist-thumb{width:auto;max-width:120px;max-height:60px;border-radius:4px;border:1px solid var(--line);display:block}
+/* 권한 효과 배지 — 「이 설정이 실제로 먹히는가」 (2026-07-29) */
+.perm-tag-server { background:#FEE2E2; color:#B91C1C; }
+.perm-tag-none { background:var(--surface-container); color:var(--muted); }
+
+/* ── 오프라인 행사(방문 예약) 설정 박스 — 캠페인 등록·편집 폼 상단 ──
+   사양서 docs/specs/2026-07-30-offline-popup-ticketing.md §4-5.
+   평소 캠페인과 동작이 크게 갈리는 설정이라, 폼 안에서 눈에 띄게 구획한다. */
+.event-mode-box{border:1px solid var(--line);border-left:3px solid var(--pink);border-radius:10px;
+  padding:12px 14px;margin-bottom:16px;background:var(--surface-dim,#FAFAFA)}
+/* ── 꺼져 있을 때는 체크박스 한 줄만 ──
+   행사 캠페인은 가끔 만드는 것인데 폼 맨 위에서 가장 큰 자리를 차지하고 있었다.
+   ⚠️ 자리를 아래로 옮기지는 않는다 — 이 체크박스를 켜면 모집 형식이 방문형으로
+   고정되므로, 모집 형식을 고르기 **전에** 눈에 들어와야 순서가 맞다. */
+.event-mode-box:not(.on){border-left-color:var(--line);background:transparent;padding:8px 12px;margin-bottom:12px}
+.event-mode-box:not(.on) > .form-hint{display:none}
+.event-mode-box:not(.on) .event-mode-main{font-weight:600;color:var(--muted)}
+.event-mode-main{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;
+  color:var(--ink);cursor:pointer}
+.event-mode-main input[type=checkbox]{accent-color:var(--pink);width:15px;height:15px;cursor:pointer}
+.event-mode-opts{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.event-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* 「비공개」 체크와 초대 번호를 한 줄에. 번호는 켰을 때만 나타나 오른쪽으로 이어진다.
+   좁아지면 번호 묶음이 통째로 아래로 내려간다(체크 글자와 번호가 쪼개지지 않게). */
+.event-invite-line{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.event-invite-line>.event-mode-main{flex-shrink:0}
+/* 행사 묶음 — 고르는 칸과 「새 묶음」 버튼을 한 줄에. 좁아지면 버튼이 아래로 내려간다. */
+.event-group-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ── 행사 모드에서 잠기는 칸의 시각 표시 ──
+   라디오는 input 이 display:none 이고 라벨이 모양을 담당한다. 그래서 input 에
+   disabled 를 걸어도 **라벨은 그대로 멀쩡해 보인다** — 「입력해야 할 것」과
+   「못 하는 것」이 구분되지 않는다는 지적(2026-08-03). 라벨·입력칸에 직접 표시한다.
+   ⚠️ 테두리·배경은 toggleRT 가 인라인 스타일로 덮어쓰므로 여기서 건드리지 않는다.
+      인라인 스타일을 이길 수 있는 축(불투명도·회색조·커서)만 쓴다. */
+.choice-locked{opacity:.4;filter:grayscale(1);cursor:not-allowed}
+.field-locked{background:var(--surface-dim,#F1F1F1)!important;color:var(--muted)!important;
+  cursor:not-allowed;border-style:dashed!important}
+.lock-note{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;
+  color:var(--muted);background:var(--surface-dim,#F1F1F1);border-radius:5px;padding:1px 6px;margin-left:6px}
+
+/* ──────────────────────────────────────
+   행사 시간 — 시각 선택기(flatpickr, 달력 없이 시·분만)
+   이 프로젝트엔 시각 전용 선택기 선례가 없어 강조색이 기본 파랑으로 뜬다.
+   같은 화면의 날짜 달력(.reverb-range-cal)과 같은 핑크로 맞춘다.
+   ────────────────────────────────────── */
+.flatpickr-calendar.evt-time-cal{
+  border-radius:14px;
+  box-shadow:0 8px 28px rgba(0,0,0,.14);
+  border:1px solid var(--line);
+}
+/* 24시간 표기라 오전·오후 칸은 그려지지 않는다 — 시·분만 칠한다 */
+.flatpickr-calendar.evt-time-cal .flatpickr-time input:hover,
+.flatpickr-calendar.evt-time-cal .flatpickr-time input:focus{
+  background:var(--light-pink);
+}
+.flatpickr-calendar.evt-time-cal .flatpickr-time input{
+  font-weight:700;
+  color:var(--ink);
+}
+/* 숫자를 누르면 브라우저가 글자를 선택하면서 **자기 기본 파란색**을 칠한다.
+   이 화면 테마는 무채색이라(--light-pink 가 실제로는 #F4F4F5 회색) 칸 배경은 회색인데
+   그 안 숫자만 파랗게 떠서 따로 논다. 선택색도 테마 색으로 맞춘다.
+   같은 이유로 날짜 달력의 연도 칸에도 함께 건다.
+   ⚠️ 파이어폭스는 입력칸 안 글자 선택에 이 규칙을 적용하지 않는다(브라우저 자체 제약이라
+      우회 불가) — 그 브라우저에서는 여전히 기본 파란색으로 보인다. */
+.flatpickr-calendar.evt-time-cal .flatpickr-time input::selection,
+.flatpickr-calendar.reverb-range-cal .numInput::selection{
+  background:var(--ink);
+  color:#fff;
+}
+/* 지금 고르고 있는 칸의 테두리.
+   ⚠️ `outline` 으로 그리면 세 가지가 어긋난다 — ①칸은 둥근데 테두리는 직각이고
+      ②아래쪽이 상자 밖으로 밀려 잘려서 얇아 보이며 ③모서리 반경을 못 따라간다.
+      안쪽 그림자(box-shadow inset)는 항상 칸 **안쪽**에 그려져 둥근 모서리를 그대로
+      따라가고 잘리지도 않는다. 브라우저 기본 테두리만 끄고 이걸로 대체한다.
+   (지우기만 하면 키보드로 옮겨 다닐 때 위치를 알 수 없다 — 배경은 마우스를 올려도
+    같은 색이라 구분이 안 된다.) */
+.flatpickr-calendar.evt-time-cal .flatpickr-time input{
+  border-radius:8px;
+}
+.flatpickr-calendar.evt-time-cal .flatpickr-time input:focus{
+  outline:none;
+  box-shadow:inset 0 0 0 2px var(--ink);
+}
+
+/* 위·아래 화살표는 **마우스가 올라간 칸**이나 **지금 고르고 있는 칸**에만 보인다.
+   기본값은 마우스만 따라가서, 키보드로 분(分) 칸에 가 있어도 화살표는 시(時) 칸 옆에
+   남아 있다 — 어느 칸을 조작하는 중인지 어긋나 보인다. */
+.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowUp,
+.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowDown{
+  opacity:0;
+  transition:opacity .12s;
+}
+.flatpickr-calendar.evt-time-cal .numInputWrapper:hover span.arrowUp,
+.flatpickr-calendar.evt-time-cal .numInputWrapper:hover span.arrowDown,
+.flatpickr-calendar.evt-time-cal .numInputWrapper:focus-within span.arrowUp,
+.flatpickr-calendar.evt-time-cal .numInputWrapper:focus-within span.arrowDown{
+  opacity:1;
+}
+.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowUp:hover:after{
+  border-bottom-color:var(--pink);
+}
+.flatpickr-calendar.evt-time-cal .numInputWrapper span.arrowDown:hover:after{
+  border-top-color:var(--pink);
+}
+
+/* ──────────────────────────────────────
+   행사 시간 — 시각 칸 안쪽 「비우기」 단추
+   칸 **밖**에 두면 옆 칸과의 사이에 떠서 구분 기호(곱하기)처럼 읽힌다.
+   값이 있을 때만 보이므로 빈 칸 옆에 정체 모를 표시가 남지 않는다.
+   ────────────────────────────────────── */
+.evt-time-clearable{ position:relative; display:inline-flex; align-items:center; }
+.evt-time-clearable > input{ padding-right:24px; }
+.evt-time-clear{
+  position:absolute; right:4px; top:50%; transform:translateY(-50%);
+  display:none; align-items:center; justify-content:center;
+  width:18px; height:18px; border-radius:50%;
+  color:var(--muted); cursor:pointer;
+}
+.evt-time-clearable.has-value .evt-time-clear{ display:inline-flex; }
+.evt-time-clear:hover{ background:var(--light-pink); color:var(--ink); }
+.evt-time-clear .material-icons-round{ font-size:14px; }

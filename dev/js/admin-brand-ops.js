@@ -17,7 +17,7 @@ function openBrandOpsDetail(brandId) {
 
 // alert_level → 색·라벨 매핑 (관리자 UI 한국어)
 var BRAND_OPS_ALERT = {
-  danger:  { color: '#dc2626', bg: '#FDECEA', label: '긴급',     pulse: true },
+  danger:  { color: 'var(--red)', bg: '#FDECEA', label: '긴급',     pulse: true },
   warning: { color: '#f97316', bg: '#FFF3E8', label: '대응 필요', pulse: false },
   caution: { color: '#f59e0b', bg: '#FEF9E7', label: '주의',     pulse: false },
   normal:  { color: '#cbd5e1', bg: '#fff',    label: '',         pulse: false }
@@ -64,7 +64,7 @@ function brandOpsAlertReasonLines(b) {
 
 async function loadBrandOps() {
   var grid = $('brandOpsGrid');
-  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
   // 회사 드롭다운(전체/회사별/미분류) — 최초 1회 또는 매 로드 시 갱신
   _brandOpsCompanies = await fetchCompanies({ status: 'all' });
   fillBrandOpsCompanyFilter();
@@ -142,7 +142,7 @@ function brandOpsRateBar(label, rate, approved, total) {
   var sub = (total !== undefined && total !== null) ? ('(' + (approved||0) + '/' + (total||0) + ')') : '';
   return '<div style="margin-top:6px">'
     + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
-    + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? '#16a34a' : pct >= 30 ? '#f59e0b' : '#dc2626') + '"></div></div>'
+    + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)') + '"></div></div>'
     + '</div>';
 }
 
@@ -194,6 +194,7 @@ function renderBrandOpsCard(b) {
 var _brandOpsDetailId = null;
 var _brandOpsDetailData = null;
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
+var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
 
 async function loadBrandOpsDetail() {
   var body = $('brandOpsDetailBody');
@@ -201,7 +202,7 @@ async function loadBrandOpsDetail() {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">운영 현황에서 브랜드를 선택하세요</div>';
     return;
   }
-  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
 
   // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
   var results = await Promise.all([
@@ -212,6 +213,7 @@ async function loadBrandOpsDetail() {
   var detail = results[0];
   var apps = results[1] || [];
   var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
+  _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
   _brandOpsDetailData = detail;
   if (!detail || !detail.brand) {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">브랜드 정보를 불러올 수 없습니다</div>';
@@ -294,7 +296,10 @@ async function hydrateCampCertBars() {
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
-    var success = countCertSuccess(delivs, camp);
+    // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
+    // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
+    var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
+    var success = countCertSuccess(scoped, camp);
     var pct = slotsN > 0 ? Math.round(success / slotsN * 100) : null;
     el.innerHTML = brandOpsRateBar('인증 성공', pct, success, slotsN);
   }));
@@ -342,12 +347,9 @@ var BRAND_OPS_CAMP_STATUS_COLOR = {
 // 캠페인 모집 타입 한글 (admin.js 의 RECRUIT_TYPE_LABEL_KO 폴백)
 var BRAND_OPS_RECRUIT_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
 
-// M/D 짧은 날짜
+// 기간 표시용 날짜 — 사이트 공통 표기 YYYY/MM/DD 로 통일 (2026-07-23, 구 M/D 축약 폐지)
 function brandOpsShortDate(d) {
-  if (!d) return '';
-  var dt = new Date(d);
-  if (isNaN(dt)) return '';
-  return (dt.getMonth() + 1) + '/' + dt.getDate();
+  return formatDate(d);
 }
 
 // 채널 문자열(콤마구분) → 한글 라벨, 복수면 channel_match 구분자
@@ -372,7 +374,7 @@ function brandOpsCampTypeChannel(c) {
   var typeKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined' && RECRUIT_TYPE_LABEL_KO[c.recruit_type]) || BRAND_OPS_RECRUIT_TYPE_KO[c.recruit_type] || c.recruit_type || '';
   var chText = brandOpsChannelText(c.channel, c.channel_match);
   return '<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-bottom:3px">'
-    + (typeKo ? '<span style="background:#F3E9F0;color:var(--pink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
+    + (typeKo ? '<span style="background:var(--surface-dim);color:var(--ink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
     + (chText ? '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(chText) + '</span>' : '')
     + '</div>';
 }

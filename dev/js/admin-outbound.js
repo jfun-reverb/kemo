@@ -54,6 +54,7 @@ const OUTBOUND_AVAIL_META = {
 async function loadOutbound() {
   await loadOutboundLookups();
   populateOutboundTierFilter();
+  populateRecoFormOptions();   // 조건 추천 탭 계열·등급 select 옵션
   await reloadOutboundData();
 }
 
@@ -82,7 +83,40 @@ async function reloadOutboundData() {
 
 function outboundSeriesLabel(code) { return code ? (_obSeriesMap[code] || code) : '—'; }
 function outboundCategoryLabel(code) { return code ? (_obCategoryMap[code] || code) : '—'; }
-function outboundTierLabel(code) { return code ? (_obTierMap[code] || code) : '—'; }
+// 등급 표시 — 팔로워 기준 괄호는 떼고 이름만(마이크로/미들/메가). 기준은 등급 열 헤더 도움말(?)로 안내.
+function outboundTierLabel(code) {
+  if (!code) return '—';
+  var nm = _obTierMap[code] || code;
+  return String(nm).replace(/\s*\(.*$/, '').trim();
+}
+
+// 등급 기준 도움말 항목 — lookup 원본 name_ko(괄호 포함)를 그대로 사용(시트 기준 바뀌면 자동 반영).
+function tierHelpItems() {
+  if (_obTier && _obTier.length) return _obTier.map(function(r){ return r.name_ko; });
+  return ['마이크로 (1만~5만)', '미들 (5만~30만)', '메가 (30만~)'];
+}
+
+// 등급 열 헤더 「?」 클릭 — 아이콘 아래에 기준 팝오버 토글(fixed 배치라 테이블 overflow 무관).
+function toggleTierHelp(icon) {
+  var pop = document.getElementById('tierHelpPop');
+  if (!pop) return;
+  if (pop.style.display === 'block' && pop._anchor === icon) { pop.style.display = 'none'; pop._anchor = null; return; }
+  var body = pop.querySelector('.tier-help-body');
+  if (body) body.innerHTML = tierHelpItems().map(function(t){ return '<div>· ' + esc(t) + '</div>'; }).join('');
+  var r = icon.getBoundingClientRect();
+  pop.style.left = Math.round(r.left) + 'px';
+  pop.style.top = Math.round(r.bottom + 6) + 'px';
+  pop.style.display = 'block';
+  pop._anchor = icon;
+}
+
+// 외부 클릭 시 등급 도움말 팝오버 닫기 (아이콘 자신 클릭은 toggle 이 처리)
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('tierHelpPop');
+  if (pop && pop.style.display === 'block' && !(e.target && e.target.classList && e.target.classList.contains('tier-help-icon'))) {
+    pop.style.display = 'none'; pop._anchor = null;
+  }
+});
 
 function outboundAvailBadge(status) {
   const meta = OUTBOUND_AVAIL_META[status] || { ko: status || '—', cls: 'badge-gray' };
@@ -173,7 +207,7 @@ function renderOutboundList() {
     rows,
     renderRow: renderOutboundRow,
     pageSize: OUTBOUND_PAGE_SIZE,
-    emptyHtml: `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
+    emptyHtml: `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">${esc(emptyMsg)}</td></tr>`,
   });
 }
 
@@ -190,16 +224,7 @@ function renderOutboundRow(o) {
     }
   }
 
-  const nameCell = `<div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
-  const accountCell = o.account_id
-    ? `<span style="font-size:12px">${esc(o.account_id)}</span>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
-
-  const primary = outboundPrimaryChannel(o);
-  const primaryCell = primary
-    ? `<div style="font-size:12px"><span style="color:var(--muted)">${esc(primary.ch.label)}</span> ${esc(outboundFollowersDisplay(primary.followers))}</div>`
-      + `<div style="font-size:10px;color:var(--muted)">@${esc(primary.handle)}</div>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+  const nameCell = `<div class="link-cell" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
 
   const agencyCell = o.agency
     ? `<span style="font-size:12px">${esc(o.agency)}</span>`
@@ -208,11 +233,10 @@ function renderOutboundRow(o) {
   return `<tr>
     <td>${thumbCell}</td>
     <td>${nameCell}</td>
-    <td>${accountCell}</td>
     <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
     <td style="font-size:12px">${esc(outboundCategoryLabel(o.category_code))}</td>
     <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
-    <td>${primaryCell}</td>
+    ${outboundChannelCells(o)}
     <td>${outboundAvailBadge(o.availability)}</td>
     <td>${agencyCell}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="openOutboundEditModal('${id}')">편집</button></td>
@@ -223,6 +247,26 @@ function renderOutboundRow(o) {
 function outboundFollowersDisplay(v) {
   if (v == null) return '(미상)';
   return Number(v).toLocaleString() + '명';
+}
+
+// 채널 key(ig) → snsProfileUrl 채널명(instagram) 매핑. 나머지는 동일.
+const OUTBOUND_CH_SNS = { ig: 'instagram', tiktok: 'tiktok', youtube: 'youtube', x: 'x' };
+
+// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
+function outboundChannelFollowersCell(o, ch) {
+  const handle = o[ch.handleCol];
+  if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
+  const handleHtml = url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">@${esc(handle)}</a>`
+    : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
+  return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
+    + `<div>${handleHtml}</div>`;
+}
+
+// 4채널 팔로워 <td> 4칸 (명단·추천 결과 공용, OUTBOUND_CHANNELS 순서 = ig·tiktok·youtube·x)
+function outboundChannelCells(o) {
+  return OUTBOUND_CHANNELS.map(ch => `<td>${outboundChannelFollowersCell(o, ch)}</td>`).join('');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -557,13 +601,13 @@ async function exportOutboundExcel() {
       { header: '계열',      key: 'series',  width: 10 },
       { header: '세분',      key: 'category',width: 10 },
       { header: '등급',      key: 'tier',    width: 16 },
-      { header: 'IG핸들',    key: 'ig',      width: 16 },
+      { header: 'IG아이디',    key: 'ig',      width: 16 },
       { header: 'IG팔로워',  key: 'igf',     width: 12 },
-      { header: 'TikTok핸들',key: 'tt',      width: 16 },
+      { header: 'TikTok아이디',key: 'tt',      width: 16 },
       { header: 'TikTok팔로워',key: 'ttf',   width: 12 },
-      { header: 'YouTube핸들',key: 'yt',     width: 16 },
+      { header: 'YouTube아이디',key: 'yt',     width: 16 },
       { header: 'YouTube구독',key: 'ytf',    width: 12 },
-      { header: 'X핸들',     key: 'x',       width: 16 },
+      { header: 'X아이디',     key: 'x',       width: 16 },
       { header: 'X팔로워',   key: 'xf',      width: 12 },
       { header: '피드(¥)',   key: 'pfeed',   width: 12 },
       { header: '릴스(¥)',   key: 'preels',  width: 12 },
@@ -582,7 +626,7 @@ async function exportOutboundExcel() {
       ws.addRow({
         name: o.name_ko || '', account: o.account_id || '',
         series: outboundSeriesLabel(o.series_code), category: outboundCategoryLabel(o.category_code),
-        tier: outboundTierLabel(o.tier_code),
+        tier: (o.tier_code ? (_obTierMap[o.tier_code] || o.tier_code) : ''),   // 엑셀은 기준 포함 원본(오프라인이라 도움말 팝오버 접근 불가)
         ig: o.ig_handle || '', igf: o.ig_followers == null ? '' : o.ig_followers,
         tt: o.tiktok_handle || '', ttf: o.tiktok_followers == null ? '' : o.tiktok_followers,
         yt: o.youtube_handle || '', ytf: o.youtube_followers == null ? '' : o.youtube_followers,
@@ -613,4 +657,203 @@ async function exportOutboundExcel() {
   } finally {
     if (typeof _markExportEnd === 'function') _markExportEnd();
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: OUTBOUND — 조건 추천 (2단계, 사양서 2026-07-08 §PR 2단계)
+//   계열 필수 필터 → 등급·채널·예산 가점 정렬. DB 변경 없음(전건 조회 + 클라 계산).
+//   성과 축(3단계)은 아직 없어 조건 적합도만으로 정렬한다(콜드스타트).
+// ════════════════════════════════════════════════════════════════════
+
+// 모집형식 → outbound_influencers 가격 컬럼 매핑 (예산 판정 기준)
+const OUTBOUND_FORMAT_PRICE = {
+  feed:   'price_feed',
+  reels:  'price_reels',
+  story:  'price_story',
+  tiktok: 'price_tiktok',
+};
+
+// 가점 상수 (한 곳에 모아 매직넘버 제거)
+const RECO_SCORE = {
+  tierExact:   30,   // 등급 정확 일치
+  tierAdjacent: 10,  // 등급 한 칸 차이
+  channelHave: 20,   // 요구 채널 보유
+  budgetIn:    20,   // 예산 내
+  budgetOver: -20,   // 예산 초과
+};
+
+// 명단 / 조건 추천 탭 전환
+function outboundTab(which) {
+  const isList = (which !== 'recommend');
+  $('outboundTabList')?.classList.toggle('is-active', isList);
+  $('outboundTabReco')?.classList.toggle('is-active', !isList);
+  const setShow = (id, show) => { const el = $(id); if (el) el.style.display = show ? '' : 'none'; };
+  setShow('outboundListControls', isList);
+  setShow('outboundListCard', isList);
+  setShow('outboundRecoControls', !isList);
+  setShow('outboundRecoCard', !isList);
+  if (!isList) populateRecoFormOptions();
+}
+
+// 추천 조건 폼의 계열·등급 select 옵션 채움 (lookup 로드 후·탭 진입 시)
+function populateRecoFormOptions() {
+  const s = $('recoSeries');
+  if (s) {
+    const cur = s.value;
+    s.innerHTML = '<option value="">선택하세요</option>'
+      + _obSeries.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+    s.value = cur;
+  }
+  const t = $('recoTier');
+  if (t) {
+    const cur = t.value;
+    t.innerHTML = '<option value="">전체</option>'
+      + _obTier.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`).join('');
+    t.value = cur;
+  }
+}
+
+// 등급 code → 순서값(sort_order). 인접 판정용. 미상이면 null.
+function obTierOrder(code) {
+  const r = _obTier.find(x => x.code === code);
+  if (!r || r.sort_order == null) return null;
+  return Number(r.sort_order);
+}
+
+// available=상위(0), 그 외(조율중·불가)=하위(1). is_active=false 는 후보에서 이미 제외.
+function outboundRecoAvailGroup(o) {
+  return (o.availability === 'available') ? 0 : 1;
+}
+
+// 한 인플루언서의 조건 적합도 점수·근거. 계열은 호출 전 필수 필터돼 여기선 항상 「계열 일치」.
+function outboundRecoScore(o, cond) {
+  const reasons = [{ t: '계열 일치', cls: 'ok' }];
+  let score = 0;
+
+  // 등급: 정확 일치 +30 / 한 칸 차이 +10 (sort_order 기준)
+  if (cond.tier) {
+    if (o.tier_code === cond.tier) {
+      score += RECO_SCORE.tierExact;
+      reasons.push({ t: '등급 일치', cls: 'ok' });
+    } else {
+      const oOrd = obTierOrder(o.tier_code), cOrd = obTierOrder(cond.tier);
+      if (oOrd != null && cOrd != null && Math.abs(oOrd - cOrd) === 1) {
+        score += RECO_SCORE.tierAdjacent;
+        reasons.push({ t: '등급 인접', cls: 'soft' });
+      }
+    }
+  }
+
+  // 채널: 요구 채널 핸들 보유 +20 (팔로워 규모는 동점 정렬에서만 반영)
+  if (cond.channel) {
+    const ch = OUTBOUND_CHANNELS.find(c => c.key === cond.channel);
+    if (ch && o[ch.handleCol]) {
+      score += RECO_SCORE.channelHave;
+      reasons.push({ t: ch.label + ' 보유', cls: 'ok' });
+    }
+  }
+
+  // 예산: 모집형식 선택 + 예산 입력 시만. 미상은 0(중립). 초과는 감점(제외 아님).
+  if (cond.format && cond.budget != null) {
+    const price = o[OUTBOUND_FORMAT_PRICE[cond.format]];
+    if (price == null) {
+      reasons.push({ t: '가격 미상', cls: 'muted' });
+    } else if (Number(price) <= cond.budget) {
+      score += RECO_SCORE.budgetIn;
+      reasons.push({ t: '예산 내', cls: 'ok' });
+    } else {
+      score += RECO_SCORE.budgetOver;
+      reasons.push({ t: '예산 초과', cls: 'over' });
+    }
+  }
+
+  return { score, reasons };
+}
+
+// 정렬: ①가용 그룹(available 먼저) ②점수 내림 ③주채널 팔로워 내림 ④등록 최신순
+function compareOutboundReco(a, b) {
+  const ga = outboundRecoAvailGroup(a.o), gb = outboundRecoAvailGroup(b.o);
+  if (ga !== gb) return ga - gb;
+  if (b.score !== a.score) return b.score - a.score;
+  const pa = outboundPrimaryChannel(a.o), pb = outboundPrimaryChannel(b.o);
+  const fva = pa ? pa.fv : -1, fvb = pb ? pb.fv : -1;
+  if (fvb !== fva) return fvb - fva;
+  return String(b.o.created_at || '').localeCompare(String(a.o.created_at || ''));
+}
+
+// 추천 실행 — 계열 필수 필터 + is_active + 점수 정렬 → 결과 렌더
+function runOutboundRecommend() {
+  const series = $('recoSeries')?.value || '';
+  if (!series) { toast('계열을 선택하세요', 'warn'); return; }
+  const cond = {
+    series,
+    format:  ($('recoFormat')?.value || ''),
+    tier:    ($('recoTier')?.value || ''),
+    channel: ($('recoChannel')?.value || ''),
+    budget:  outboundParseNum('recoBudget'),
+    headcount: outboundParseNum('recoHeadcount'),
+    purpose: ($('recoPurpose')?.value || ''),   // 2단계는 기록만(정렬 미반영)
+  };
+  // 계열 필수 필터 + 비활성(is_active=false) 제외
+  const cands = _outbound.filter(o => o.is_active !== false && o.series_code === series);
+  const scored = cands.map(o => {
+    const s = outboundRecoScore(o, cond);
+    return { o, score: s.score, reasons: s.reasons };
+  });
+  scored.sort(compareOutboundReco);
+  renderOutboundReco(scored, cond);
+}
+
+// 결과 렌더 — 전체 정렬 노출 + 요청 인원 N번째 뒤 구분선
+function renderOutboundReco(scored, cond) {
+  const tbody = $('recoTableBody');
+  if (!tbody) return;
+  const cnt = $('recoResultCount');
+  const N = cond.headcount;
+  if (cnt) cnt.textContent = N ? `요청 ${N}명 / 매칭 ${scored.length}명` : `매칭 ${scored.length}명`;
+
+  if (!scored.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 계열에 진행 가능한 인플루언서가 없습니다.</td></tr>';
+    return;
+  }
+
+  const priceCol = cond.format ? OUTBOUND_FORMAT_PRICE[cond.format] : null;
+  let html = '';
+  scored.forEach((row, i) => {
+    if (N && i === N) {
+      html += `<tr class="reco-divider"><td colspan="12">요청 인원 ${N}명 경계 — 아래는 차선 후보</td></tr>`;
+    }
+    html += renderOutboundRecoRow(row, i + 1, priceCol);
+  });
+  tbody.innerHTML = html;
+}
+
+function renderOutboundRecoRow(row, rank, priceCol) {
+  const o = row.o;
+  const id = esc(o.id);
+  const nameCell = `<div class="link-cell" onclick="openOutboundEditModal('${id}')">${esc(o.name_ko || '—')}</div>`;
+
+  // 선택형식 단가
+  let priceCell = '<span style="color:var(--muted);font-size:11px">—</span>';
+  if (priceCol) {
+    const v = o[priceCol];
+    priceCell = (v == null)
+      ? '<span style="color:var(--muted);font-size:11px">미상</span>'
+      : `<span style="font-size:12px">¥${Number(v).toLocaleString()}</span>`;
+  }
+
+  const badges = row.reasons.map(r =>
+    `<span class="reco-badge reco-badge-${esc(r.cls)}">${esc(r.t)}</span>`).join(' ');
+
+  return `<tr>
+    <td style="text-align:center;font-weight:700;color:var(--muted)">${rank}</td>
+    <td style="text-align:center;font-weight:700">${row.score}</td>
+    <td>${nameCell}</td>
+    <td style="font-size:12px">${esc(outboundSeriesLabel(o.series_code))}</td>
+    <td style="font-size:12px">${esc(outboundTierLabel(o.tier_code))}</td>
+    ${outboundChannelCells(o)}
+    <td>${priceCell}</td>
+    <td>${outboundAvailBadge(o.availability)}</td>
+    <td style="white-space:normal">${badges}</td>
+  </tr>`;
 }
