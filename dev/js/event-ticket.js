@@ -66,6 +66,7 @@ async function openTicketPage(ticketId, from, push) {
     _ticketList = await fetchMyEventTickets();
   } catch (e) {
     console.error('[openTicketPage]', e);
+    logAppError('openTicketPage', e);
     if (body) body.innerHTML = `<div class="ticket-msg ticket-msg-err">${esc(t('event.ticketLoadFailed'))}</div>`;
     return;
   }
@@ -284,11 +285,19 @@ async function cancelMyTicket(ticketId) {
     res = await cancelEventTicket(ticketId);
   } catch (e) {
     console.error('[cancelMyTicket]', e);
+    logAppError('cancelEventTicket', e);
     toast(t('event.ticketCancelFailGeneric'), 'error');
     return;
   }
 
   if (!res || !res.ok) {
+    // 사전에 있는 사유는 정상 거부, 그 밖의 값(서버 결함 등)은 예상 못 한 오류로 기록한다.
+    //   ⚠️ `permission_denied` 는 **일부러 뺐다** — 본인 예약만 취소할 수 있으므로
+    //      이 값이 나오면 정상 동작이 아니다(결함 또는 잘못된 호출).
+    logAppError('cancelEventTicket', (res && res.reason) || 'no_result', [
+      'cancel_window_passed', 'already_entered', 'cancelled',
+      'settlement_paid_cannot_cancel', 'not_found'
+    ]);
     const map = {
       cancel_window_passed:          'event.ticketCancelClosed',
       already_entered:               'event.ticketCancelFailEntered',
@@ -316,6 +325,7 @@ async function openTicketForCampaign(campaignId) {
     _ticketList = await fetchMyEventTickets();
   } catch (e) {
     console.error('[openTicketForCampaign]', e);
+    logAppError('openTicketForCampaign', e);
     toast(t('event.ticketLoadFailed'), 'error');
     return;
   }
