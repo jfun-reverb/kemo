@@ -726,6 +726,12 @@ async function init() {
     navigate(hash, false);
   } else {
     history.replaceState({page:'home'}, '', '#home');
+    // iOS 탭바 — 이 분기만 navigate() 를 안 거치므로(replaceState 뿐) 탭을 여기서 직접 켠다.
+    //   ⚠️ 이 호출을 위 분기 바깥(공통 자리)으로 빼지 말 것. 다른 분기는 navigate·openMypageSub·
+    //      openTicketPage 가 이미 정확한 탭을 켜 둔 뒤라, 공통 자리에서 화면 id 만 보고 다시 켜면
+    //      그 값을 덮어쓴다. 실제로 #mypage-applications 로 새로고침하면 화면은 응모이력인데
+    //      탭만 マイページ 로 남았다(티켓 화면 복귀 버그와 같은 원인).
+    if (typeof updateActiveTab === 'function') updateActiveTab('home');
   }
 
   // 초기화 완료 — cloak 해제
@@ -737,12 +743,8 @@ async function init() {
   if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
   if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
 
-  // iOS 탭바 초기 활성 동기화 — 초기 로드는 navigate 미경유(replaceState)라 별도 호출
-  if (typeof updateActiveTab === 'function') {
-    const _ap = document.querySelector('#appShell .page.active');
-    const _pid = _ap ? _ap.id.replace('page-', '') : 'home';
-    updateActiveTab({home: 'home', campaigns: 'campaigns', mypage: 'mypage', detail: 'campaigns'}[_pid] || 'home');
-  }
+  // (iOS 탭바 초기 활성화는 위 라우팅 분기 안에서 각자 처리한다 — 여기서 화면 id 만 보고
+  //  일괄로 켜면 서브 화면 구분이 없어 応募履歴 를 マイページ 로 덮어쓴다.)
 }
 
 document.addEventListener('DOMContentLoaded', async function() {

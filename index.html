@@ -16391,6 +16391,11 @@ function openMypageSub(sub, pushHistory) {
   // iOS GNB 뒤로가기 — 마이페이지 목록에서 들어온 서브 화면에만.
   //   응모이력은 바텀 탭바의 항목이라 돌아갈 「위」 화면이 없다.
   if (typeof setGnbBack === 'function') setGnbBack(sub !== 'applications');
+  // iOS 바텀 탭 — 応募履歴 는 탭바의 항목 자체라 그 탭을, 나머지 서브 화면은 マイページ 를 켠다.
+  //   ⚠️ 탭 하이라이트를 tabNav(탭을 직접 누른 경우)에만 두면, 티켓·메시지 화면에서 나오는
+  //      것처럼 **밖에서 navigate('mypage') 를 거쳐 들어온 경로**가 화면은 응모이력인데
+  //      탭만 マイページ 로 켜진 채 남는다. 화면을 바꾸는 이 자리에서 함께 맞춘다.
+  if (typeof updateActiveTab === 'function') updateActiveTab(sub === 'applications' ? 'activity' : 'mypage');
   moveApplyFilterToGnb(sub === 'applications');
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
@@ -16406,6 +16411,9 @@ function closeMypageSub() {
   if (def) def.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('mypage.menu.applications') : '応募履歴');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 응모이력은 탭바 항목 — 뒤로가기 없음
+  // 이 화면은 応募履歴 이므로 탭도 그쪽. navigate('mypage') 는 먼저 マイページ 탭을 켜므로
+  // 화면을 실제로 바꾸는 여기서 되돌린다 (openMypageSub·openMypageList 와 같은 규칙).
+  if (typeof updateActiveTab === 'function') updateActiveTab('activity');
   moveApplyFilterToGnb(true);
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
@@ -16418,6 +16426,8 @@ function openMypageList(pushHistory) {
   if (el) el.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 목록은 탭바 최상위 — 뒤로가기 없음
+  // 목록은 マイページ 탭 자체 (openMypageSub 와 짝 — 화면을 바꾸는 자리에서 탭도 함께 맞춘다)
+  if (typeof updateActiveTab === 'function') updateActiveTab('mypage');
   // 応募履歴 → マイページ 는 같은 페이지 안의 전환이라 navigate 의 복귀 로직이 안 걸린다. 여기서 되돌린다.
   moveApplyFilterToGnb(false);
   // 앱 버전 — 네이티브 빌드가 심어 둔 값이 있을 때만 노출(웹은 값이 없어 숨김 유지)
@@ -17130,9 +17140,9 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 // 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
 function navigateBackFromMessages() {
   navigate('mypage');
+  // 탭 하이라이트 보정은 openMypageSub 안에 있다 — 여기서 또 부르면 같은 규칙이 두 곳에 생겨,
+  // 나중에 한쪽만 고쳤을 때 경로마다 탭이 달라진다.
   if (typeof openMypageSub === 'function') openMypageSub('applications');
-  // navigate('mypage') 가 iOS 바텀 탭을 「마이페이지」로 켜므로, 화면(응모이력)과 맞게 탭을 되돌린다.
-  if (typeof updateActiveTab === 'function') updateActiveTab('activity');
 }
 
 // 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).
@@ -18458,6 +18468,12 @@ async function init() {
     navigate(hash, false);
   } else {
     history.replaceState({page:'home'}, '', '#home');
+    // iOS 탭바 — 이 분기만 navigate() 를 안 거치므로(replaceState 뿐) 탭을 여기서 직접 켠다.
+    //   ⚠️ 이 호출을 위 분기 바깥(공통 자리)으로 빼지 말 것. 다른 분기는 navigate·openMypageSub·
+    //      openTicketPage 가 이미 정확한 탭을 켜 둔 뒤라, 공통 자리에서 화면 id 만 보고 다시 켜면
+    //      그 값을 덮어쓴다. 실제로 #mypage-applications 로 새로고침하면 화면은 응모이력인데
+    //      탭만 マイページ 로 남았다(티켓 화면 복귀 버그와 같은 원인).
+    if (typeof updateActiveTab === 'function') updateActiveTab('home');
   }
 
   // 초기화 완료 — cloak 해제
@@ -18469,12 +18485,8 @@ async function init() {
   if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
   if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
 
-  // iOS 탭바 초기 활성 동기화 — 초기 로드는 navigate 미경유(replaceState)라 별도 호출
-  if (typeof updateActiveTab === 'function') {
-    const _ap = document.querySelector('#appShell .page.active');
-    const _pid = _ap ? _ap.id.replace('page-', '') : 'home';
-    updateActiveTab({home: 'home', campaigns: 'campaigns', mypage: 'mypage', detail: 'campaigns'}[_pid] || 'home');
-  }
+  // (iOS 탭바 초기 활성화는 위 라우팅 분기 안에서 각자 처리한다 — 여기서 화면 id 만 보고
+  //  일괄로 켜면 서브 화면 구분이 없어 応募履歴 를 マイページ 로 덮어쓴다.)
 }
 
 document.addEventListener('DOMContentLoaded', async function() {

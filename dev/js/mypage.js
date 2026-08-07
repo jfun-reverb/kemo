@@ -518,6 +518,11 @@ function openMypageSub(sub, pushHistory) {
   // iOS GNB 뒤로가기 — 마이페이지 목록에서 들어온 서브 화면에만.
   //   응모이력은 바텀 탭바의 항목이라 돌아갈 「위」 화면이 없다.
   if (typeof setGnbBack === 'function') setGnbBack(sub !== 'applications');
+  // iOS 바텀 탭 — 応募履歴 는 탭바의 항목 자체라 그 탭을, 나머지 서브 화면은 マイページ 를 켠다.
+  //   ⚠️ 탭 하이라이트를 tabNav(탭을 직접 누른 경우)에만 두면, 티켓·메시지 화면에서 나오는
+  //      것처럼 **밖에서 navigate('mypage') 를 거쳐 들어온 경로**가 화면은 응모이력인데
+  //      탭만 マイページ 로 켜진 채 남는다. 화면을 바꾸는 이 자리에서 함께 맞춘다.
+  if (typeof updateActiveTab === 'function') updateActiveTab(sub === 'applications' ? 'activity' : 'mypage');
   moveApplyFilterToGnb(sub === 'applications');
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
@@ -533,6 +538,9 @@ function closeMypageSub() {
   if (def) def.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('mypage.menu.applications') : '応募履歴');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 응모이력은 탭바 항목 — 뒤로가기 없음
+  // 이 화면은 応募履歴 이므로 탭도 그쪽. navigate('mypage') 는 먼저 マイページ 탭을 켜므로
+  // 화면을 실제로 바꾸는 여기서 되돌린다 (openMypageSub·openMypageList 와 같은 규칙).
+  if (typeof updateActiveTab === 'function') updateActiveTab('activity');
   moveApplyFilterToGnb(true);
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
@@ -545,6 +553,8 @@ function openMypageList(pushHistory) {
   if (el) el.classList.add('active');
   if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
   if (typeof setGnbBack === 'function') setGnbBack(false);   // 목록은 탭바 최상위 — 뒤로가기 없음
+  // 목록은 マイページ 탭 자체 (openMypageSub 와 짝 — 화면을 바꾸는 자리에서 탭도 함께 맞춘다)
+  if (typeof updateActiveTab === 'function') updateActiveTab('mypage');
   // 応募履歴 → マイページ 는 같은 페이지 안의 전환이라 navigate 의 복귀 로직이 안 걸린다. 여기서 되돌린다.
   moveApplyFilterToGnb(false);
   // 앱 버전 — 네이티브 빌드가 심어 둔 값이 있을 때만 노출(웹은 값이 없어 숨김 유지)
