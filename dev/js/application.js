@@ -1431,7 +1431,7 @@ function navigateBackFromActivity() {
   // 새로고침으로 직접 진입한 경우 _activityCampId·_activityFrom 모두 NULL —
   // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
   if (_activityFrom === 'mypage' || !_activityCampId) {
-    navigate('mypage');
+    navigate('mypage', false);
     openMypageSub('applications');
   } else {
     openCampaign(_activityCampId);

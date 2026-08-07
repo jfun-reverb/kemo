@@ -14378,7 +14378,7 @@ function navigateBackFromActivity() {
   // 새로고침으로 직접 진입한 경우 _activityCampId·_activityFrom 모두 NULL —
   // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
   if (_activityFrom === 'mypage' || !_activityCampId) {
-    navigate('mypage');
+    navigate('mypage', false);
     openMypageSub('applications');
   } else {
     openCampaign(_activityCampId);
@@ -16399,7 +16399,17 @@ function openMypageSub(sub, pushHistory) {
   moveApplyFilterToGnb(sub === 'applications');
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
-    history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
+    const _url = '#mypage-' + sub;
+    // ⚠️ 두 경우는 쌓지 않고 현재 항목을 갈아 끼운다.
+    //   ① 지금이 '#mypage' — navigate('mypage') 가 방금 만든 항목인데, 마이페이지는 늘 서브 화면이
+    //      뜨므로 거기에 **머무를 수 없다**. 그 위에 또 쌓으면 뒤로가기 한 번이 그 빈 항목을 소모만
+    //      하고 화면은 그대로라, 「몇 번을 눌러도 같은 화면」으로 느껴진다(실제 사용자 보고).
+    //   ② 이미 같은 서브 화면 — 같은 곳을 다시 열어도 뒤로 갈 곳이 늘면 안 된다.
+    if (location.hash === '#mypage' || location.hash === _url) {
+      history.replaceState({page:'mypage', sub}, '', _url);
+    } else {
+      history.pushState({page:'mypage', sub}, '', _url);
+    }
   }
 }
 
@@ -16456,7 +16466,12 @@ function openMypageList(pushHistory) {
     });
   }
   if (pushHistory !== false) {
-    history.pushState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+    // openMypageSub 와 같은 규칙 — '#mypage'(머무를 수 없는 중간 항목)와 자기 자신 위에는 안 쌓는다
+    if (location.hash === '#mypage' || location.hash === '#mypage-list') {
+      history.replaceState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+    } else {
+      history.pushState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+    }
   }
 }
 
@@ -16871,7 +16886,7 @@ function navigateBackFromCancelApp() {
         return;
       }
     }
-    navigate('mypage');
+    navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
 }
@@ -16943,7 +16958,7 @@ async function submitCancelApplicationFromPage() {
   _cancelTargetAppId = null;
   await loadMyApplications();
   if (typeof navigate === 'function') {
-    navigate('mypage');
+    navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
   // cancelled 탭으로 자동 이동해 사용자가 결과 즉시 확인
@@ -17139,7 +17154,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 
 // 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
 function navigateBackFromMessages() {
-  navigate('mypage');
+  navigate('mypage', false);
   // 탭 하이라이트 보정은 openMypageSub 안에 있다 — 여기서 또 부르면 같은 규칙이 두 곳에 생겨,
   // 나중에 한쪽만 고쳤을 때 경로마다 탭이 달라진다.
   if (typeof openMypageSub === 'function') openMypageSub('applications');
@@ -17724,14 +17739,14 @@ function faqNavigate(target) {
       openActivityPage(app.id, app.campaign_id, 'mypage');
       return;
     }
-    if (typeof navigate === 'function') navigate('mypage');
+    if (typeof navigate === 'function') navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications');
     return;
   }
   // #mypage-* → 마이페이지 서브 (sub = 'profile-sns' 등)
   if (target.startsWith('#mypage-')) {
     const sub = target.replace('#mypage-', '');
-    if (typeof navigate === 'function') navigate('mypage');
+    if (typeof navigate === 'function') navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub(sub);
     return;
   }
@@ -17784,7 +17799,7 @@ function navigateBackFromDetail() {
   const from = _detailFrom;
   _detailFrom = null;
   if (from === 'mypage') {
-    navigate('mypage');
+    navigate('mypage', false);
     openMypageSub('applications');
   } else if (from === 'campaigns') {
     navigate('campaigns');
@@ -17858,8 +17873,11 @@ function navigate(page, pushHistory) {
   } catch (e) { /* analytics 실패 무시 */ }
 
   // 브라우저 히스토리에 기록 (뒤로가기 지원)
+  //   ⚠️ 같은 화면으로 다시 오는 경우는 쌓지 않는다 — 탭을 두 번 누르거나 이미 보고 있는 화면으로
+  //      이동하는 경로가 여럿이라, 쌓아 두면 뒤로가기가 화면 변화 없이 헛돈다.
   if (pushHistory !== false) {
-    history.pushState({page}, '', '#' + page);
+    if (location.hash === '#' + page) history.replaceState({page}, '', '#' + page);
+    else history.pushState({page}, '', '#' + page);
   }
 
   if (page === 'admin') {
@@ -18076,17 +18094,36 @@ function updateActiveNav(page) {
 
 // ── iOS 바텀 탭바 (iOS 앱 전용) ──
 // 탭 클릭 라우팅. 응모이력=마이페이지 안 응모이력 화면, 마이페이지=목록(목차) 화면.
+// 탭바가 직접 가리키는 네 화면. 「지금 탭 화면에 있나」를 판정하는 데만 쓴다.
+const TAB_HASHES = ['#home', '#campaigns', '#mypage-applications', '#mypage-list'];
+
 function tabNav(tab) {
-  if (tab === 'home') navigate('home');
-  else if (tab === 'campaigns') navigate('campaigns');
+  // 탭 「사이」 이동은 히스토리에 쌓지 않는다 — 네 탭은 위아래 관계가 아니라 나란한 화면이라
+  // 「뒤로」의 대상이 아니다(iOS 탭바 앱의 표준). 쌓으면 탭을 오간 만큼 뒤로가기가 화면 변화
+  // 없이 헛돌아, 사용자에겐 「몇 번을 눌러도 같은 화면」으로 보인다(실제 보고).
+  //   ⚠️ 단 **탭 위에 얹힌 화면**(캠페인 상세·활동관리·티켓)에서 탭을 누른 경우는 쌓는다.
+  //      거기서도 지워 버리면 보고 있던 상세가 뒤로가기로 돌아갈 수 없게 사라진다.
+  //   ⚠️ 이 값은 아래 navigate() 가 화면을 바꾸기 **전에** 읽어야 한다.
+  const _fromTabScreen = TAB_HASHES.includes(location.hash);
+  let _state = null, _hash = '';
+  if (tab === 'home') { navigate('home', false); _state = {page:'home'}; _hash = '#home'; }
+  else if (tab === 'campaigns') { navigate('campaigns', false); _state = {page:'campaigns'}; _hash = '#campaigns'; }
   else if (tab === 'activity') {
-    if (!currentUser) { navigate('login'); return; }
-    navigate('mypage');
-    if (typeof openMypageSub === 'function') openMypageSub('applications');
+    if (!currentUser) { navigate('login'); return; }   // 로그인 화면은 정상적으로 쌓는다(돌아올 곳이 있어야 한다)
+    navigate('mypage', false);
+    if (typeof openMypageSub === 'function') openMypageSub('applications', false);
+    _state = {page:'mypage', sub:'applications'}; _hash = '#mypage-applications';
   } else if (tab === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
-    navigate('mypage');
-    if (typeof openMypageList === 'function') openMypageList();
+    navigate('mypage', false);
+    if (typeof openMypageList === 'function') openMypageList(false);
+    _state = {page:'mypage', sub:'list'}; _hash = '#mypage-list';
+  }
+  // 탭에서 탭으로면 현재 항목을 갈아 끼우고, 상세·활동관리·티켓 위에서 눌렀으면 새로 쌓는다.
+  //   어느 쪽이든 주소는 갱신돼야 새로고침·공유가 지금 화면을 복원한다.
+  if (_hash) {
+    if (_fromTabScreen) history.replaceState(_state, '', _hash);
+    else history.pushState(_state, '', _hash);
   }
   updateActiveTab(tab);
 }

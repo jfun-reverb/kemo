@@ -526,7 +526,17 @@ function openMypageSub(sub, pushHistory) {
   moveApplyFilterToGnb(sub === 'applications');
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
-    history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
+    const _url = '#mypage-' + sub;
+    // ⚠️ 두 경우는 쌓지 않고 현재 항목을 갈아 끼운다.
+    //   ① 지금이 '#mypage' — navigate('mypage') 가 방금 만든 항목인데, 마이페이지는 늘 서브 화면이
+    //      뜨므로 거기에 **머무를 수 없다**. 그 위에 또 쌓으면 뒤로가기 한 번이 그 빈 항목을 소모만
+    //      하고 화면은 그대로라, 「몇 번을 눌러도 같은 화면」으로 느껴진다(실제 사용자 보고).
+    //   ② 이미 같은 서브 화면 — 같은 곳을 다시 열어도 뒤로 갈 곳이 늘면 안 된다.
+    if (location.hash === '#mypage' || location.hash === _url) {
+      history.replaceState({page:'mypage', sub}, '', _url);
+    } else {
+      history.pushState({page:'mypage', sub}, '', _url);
+    }
   }
 }
 
@@ -583,7 +593,12 @@ function openMypageList(pushHistory) {
     });
   }
   if (pushHistory !== false) {
-    history.pushState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+    // openMypageSub 와 같은 규칙 — '#mypage'(머무를 수 없는 중간 항목)와 자기 자신 위에는 안 쌓는다
+    if (location.hash === '#mypage' || location.hash === '#mypage-list') {
+      history.replaceState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+    } else {
+      history.pushState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+    }
   }
 }
 
@@ -998,7 +1013,7 @@ function navigateBackFromCancelApp() {
         return;
       }
     }
-    navigate('mypage');
+    navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
 }
@@ -1070,7 +1085,7 @@ async function submitCancelApplicationFromPage() {
   _cancelTargetAppId = null;
   await loadMyApplications();
   if (typeof navigate === 'function') {
-    navigate('mypage');
+    navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
   // cancelled 탭으로 자동 이동해 사용자가 결과 즉시 확인

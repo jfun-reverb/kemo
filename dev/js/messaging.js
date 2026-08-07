@@ -149,7 +149,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 
 // 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
 function navigateBackFromMessages() {
-  navigate('mypage');
+  navigate('mypage', false);
   // 탭 하이라이트 보정은 openMypageSub 안에 있다 — 여기서 또 부르면 같은 규칙이 두 곳에 생겨,
   // 나중에 한쪽만 고쳤을 때 경로마다 탭이 달라진다.
   if (typeof openMypageSub === 'function') openMypageSub('applications');
@@ -734,14 +734,14 @@ function faqNavigate(target) {
       openActivityPage(app.id, app.campaign_id, 'mypage');
       return;
     }
-    if (typeof navigate === 'function') navigate('mypage');
+    if (typeof navigate === 'function') navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications');
     return;
   }
   // #mypage-* → 마이페이지 서브 (sub = 'profile-sns' 등)
   if (target.startsWith('#mypage-')) {
     const sub = target.replace('#mypage-', '');
-    if (typeof navigate === 'function') navigate('mypage');
+    if (typeof navigate === 'function') navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub(sub);
     return;
   }

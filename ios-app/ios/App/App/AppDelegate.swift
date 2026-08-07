@@ -27,6 +27,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        enableEdgeSwipeBack()
+    }
+
+    /// 화면 왼쪽 가장자리를 오른쪽으로 미는 iOS 기본 뒤로가기 제스처를 켠다.
+    /// Capacitor 는 이 값을 설정 파일로 노출하지 않아 웹뷰에 직접 넣어야 한다.
+    /// 여기(앱이 활성화될 때)에 둔 것은 웹뷰가 만들어진 뒤라야 값을 넣을 수 있기 때문이고,
+    /// 같은 값을 다시 넣는 것은 비용이 없어 매번 호출해도 무방하다.
+    private func enableEdgeSwipeBack() {
+        guard let vc = window?.rootViewController as? CAPBridgeViewController else { return }
+        vc.webView?.allowsBackForwardNavigationGestures = true
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
