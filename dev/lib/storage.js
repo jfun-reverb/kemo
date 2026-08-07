@@ -4548,6 +4548,22 @@ async function cancelEventTicket(ticketId) {
   return res || {ok: false, reason: 'not_found'};
 }
 
+// 대기자 승격(관리자 전용, 마이그레이션 317). 그 타임의 **남은 자리만큼** 대기자를
+// 순번대로 확정시키고 각자에게 알림을 보낸다.
+//   ⚠️ 예전에는 대기자를 올릴 방법이 **화면에 아예 없었다** — 확정자가 취소해야만
+//      한 명씩 올라갔고, 현장에서 「이 타임 10명 더 받자」가 성립하지 않았다.
+//   대기자나 남은 자리가 없으면 실패가 아니라 `{ok:true, promoted:0}` 으로 조용히 끝난다.
+async function promoteEventWaitlist(slotId) {
+  if (!db) throw new Error('DB 미연결');
+  let res = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('promote_event_waitlist', {p_slot_id: slotId});
+    if (error) throw error;
+    res = data;
+  });
+  return res || {ok: false, reason: 'not_found'};
+}
+
 // 현장 입장 확인(관리자 전용). 이미 입장한 티켓도 ok:true 로 오되
 // already_entered=true + entered_at(첫 입장 시각)이 함께 온다.
 // ⚠️ 예약 날짜가 오늘이 아니면 {ok:false, reason:'other_day'} 가 오고 **아직 기록되지 않았다**.

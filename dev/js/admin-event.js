@@ -649,6 +649,8 @@ function renderEventSlotsTable() {
   body.innerHTML = visibleEventSlots().map(s => {
     const c = _eventSlotCounts[s.id] || {confirmed: 0, waitlist: 0, remaining: Number(s.capacity || 0)};
     const full = c.remaining <= 0;
+    // 잔여(remaining)는 서버에서 음수를 0으로 자르므로 초과분을 알 수 없다 — 직접 센다.
+    const over = Math.max(0, Number(c.confirmed || 0) - Number(s.capacity || 0));
     const booked = Number(c.confirmed || 0) + Number(c.waitlist || 0);
     return `
       <tr data-slot-id="${s.id}">
@@ -660,8 +662,11 @@ function renderEventSlotsTable() {
         <td><input type="number" min="0" class="admin-filter" style="width:80px"
               value="${Number(s.capacity || 0)}" onchange="onEventSlotCapacityChange('${s.id}', this.value)"></td>
         <td>${esc(s.audience_label || '-')}</td>
-        <td style="color:${full ? 'var(--pink)' : 'var(--ink)'}">
-          ${c.confirmed}/${Number(s.capacity || 0)}${full ? ' <b>(마감)</b>' : ''}
+        <td style="color:${over > 0 ? 'var(--red-d)' : (full ? 'var(--pink)' : 'var(--ink)')}">
+          ${c.confirmed}/${Number(s.capacity || 0)}${
+            // ⚠️ 확정이 정원을 넘은 상태는 잔여가 0으로 잘려 「마감」으로만 보였다.
+            //    그러면 **행사 당일에야 좌석이 모자란 걸 안다.** 초과 인원을 숫자로 드러낸다.
+            over > 0 ? ` <b>(정원 초과 ${over}명)</b>` : (full ? ' <b>(마감)</b>' : '')}
         </td>
         <td>${c.waitlist ? c.waitlist + '명' : '-'}</td>
         <td style="white-space:nowrap">
@@ -757,9 +762,42 @@ function fmtSlotTime(s) {
 async function onEventSlotCapacityChange(slotId, value) {
   const cap = parseInt(value, 10);
   if (!Number.isFinite(cap) || cap < 0) { toast('정원은 0 이상 숫자여야 합니다', 'error'); return; }
+
+  const c = _eventSlotCounts[slotId] || {};
+  const confirmed = Number(c.confirmed || 0);
+  const waiting   = Number(c.waitlist  || 0);
+
+  // 정원을 줄여 **이미 확정된 인원보다 작아지는** 경우 — 막지 않고 묻는다.
+  //   ⚠️ 화면의 잔여 표시는 음수를 0으로 자르기 때문에, 초과 상태가 「마감」으로만 보인다.
+  //      그대로 두면 **행사 당일에야 좌석이 모자란 걸 안다.** 여기서 숫자를 보여준다.
+  if (cap < confirmed) {
+    // ⚠️ 확인 모달 본문은 textContent 라 태그가 안 먹는다 — 줄바꿈만 쓴다.
+    const ok = await showConfirm(
+      `이미 ${confirmed}명이 확정됐는데 정원을 ${cap}명으로 줄이면 ${confirmed - cap}명이 초과 상태가 됩니다.\n\n`
+      + `확정된 예약은 자동으로 취소되지 않습니다 — 현장에서 좌석이 모자랄 수 있습니다.`,
+      '그래도 줄이기', '그만두기');
+    if (!ok) { await renderEventSlotsPane(_eventPaneCampId); return; }   // 입력칸을 원래 값으로 되돌린다
+  }
+
   try {
     await upsertEventSlot({id: slotId, capacity: cap});
-    toast('정원을 저장했습니다');
+
+    // 정원을 늘렸고 대기자가 있으면 **남은 자리만큼 승격**시킨다(마이그레이션 317).
+    //   ⚠️ 예전에는 올릴 방법이 아예 없어, 확정자가 취소해야만 한 명씩 올라갔다.
+    //   대기자·자리가 없으면 조용히 0명으로 끝나므로 항상 불러도 무해하다.
+    let promoted = 0;
+    if (waiting > 0 && cap > confirmed) {
+      try {
+        const r = await promoteEventWaitlist(slotId);
+        promoted = Number(r && r.promoted || 0);
+      } catch (e) {
+        console.error('[promoteEventWaitlist]', e);
+        toast('정원은 저장했지만 대기자 승격에 실패했습니다: ' + friendlyError(e), 'error');
+      }
+    }
+    toast(promoted > 0
+      ? `정원을 저장했습니다 · 대기자 ${promoted}명이 확정으로 올라갔습니다`
+      : '정원을 저장했습니다');
     await renderEventSlotsPane(_eventPaneCampId);
   } catch (e) {
     console.error('[onEventSlotCapacityChange]', e);
