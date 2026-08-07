@@ -167,7 +167,17 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
-  if (paneEl) paneEl.classList.add('on');
+  if (paneEl) {
+    paneEl.classList.add('on');
+    // 화면을 열 때 **맨 위에서 시작**한다.
+    //   ⚠️ 페인은 각자 스크롤 컨테이너(`.admin-pane.on{overflow-y:auto}`)라, 브라우저가
+    //      숨겨진 동안의 스크롤 위치를 기억했다가 다시 보일 때 그대로 복원한다. 그래서
+    //      「새 캠페인 등록」을 눌러도 지난번에 보던 중간 지점에서 폼이 뜬다(실측 재현).
+    //   ⚠️ 목록 페인(`.admin-pane-list`)은 페인 자체가 `overflow:hidden` 이고 안쪽
+    //      `.admin-table-wrap` 이 스크롤하므로 이 한 줄에 영향받지 않는다 — 목록은
+    //      지금처럼 보던 위치를 유지한다(의도된 동작).
+    paneEl.scrollTop = 0;
+  }
   // 캠페인 등록·편집 진입 시 flatpickr range/single picker mount (idempotent)
   if (pane === 'add-campaign' || pane === 'edit-campaign') {
     if (typeof setupCampRangePickers === 'function') setupCampRangePickers();
