@@ -152,6 +152,8 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 function navigateBackFromMessages() {
   navigate('mypage');
   if (typeof openMypageSub === 'function') openMypageSub('applications');
+  // navigate('mypage') 가 iOS 바텀 탭을 「마이페이지」로 켜므로, 화면(응모이력)과 맞게 탭을 되돌린다.
+  if (typeof updateActiveTab === 'function') updateActiveTab('activity');
 }
 
 // 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).

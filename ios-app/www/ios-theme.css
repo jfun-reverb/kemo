@@ -99,7 +99,18 @@ body.kb-open .page.active { padding-bottom: 8px; }
   background: none; border: none; cursor: pointer; color: var(--muted);
   -webkit-tap-highlight-color: transparent;
   transition: background .2s ease, color .2s ease, padding .2s ease;
+  position: relative;  /* 아래 ::after(터치 영역 확장)의 기준 */
 }
+/* 손가락이 닿는 범위를 알약 안쪽 전체로 넓힌다 — 보이는 알약·선택 배경 크기는 그대로.
+   버튼(44px)이 알약(56px) 한가운데라 위아래 6px 씩이 눌리지 않던 것을 메운다.
+   좌우는 탭 사이 간격(2px)의 절반씩만 — 더 늘리면 이웃 탭 위에 겹쳐 엉뚱한 탭이 눌린다. */
+.ios-tab::after {
+  content: ''; position: absolute;
+  top: -6px; bottom: -6px; left: -1px; right: -1px;
+}
+/* 양 끝 탭은 이웃이 없는 바깥쪽으로 알약 안여백(6px)까지 흡수 */
+.ios-tab:first-child::after { left: -6px; }
+.ios-tab:last-child::after { right: -6px; }
 .ios-tab .material-icons-round { font-size: 23px; }
 .ios-tab-label { display: none; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .ios-tab.on { background: var(--light-pink); color: var(--primary); padding: 0 16px 0 14px; }
@@ -533,7 +544,7 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   border-radius: 14px;
   overflow: hidden;
   border: .5px solid rgba(0,0,0,.08);
-  margin: 4px 16px 0;
+  margin: 4px 8px 0;   /* 좌우 여백 축소(16→8) — 메시지 아이콘을 ⋮ 옆에 함께 노출하려 폭 확보 */
 }
 /* 응모 0건이면 안내 문구만 들어간다 → 빈 카드 껍데기가 남지 않게 테두리·배경 제거.
    :has 미지원(iOS 16.3 이하)이면 예전처럼 테두리가 남을 뿐, 안내 문구는 정상 표시된다. */
@@ -654,14 +665,14 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   box-shadow: 0 1px 3px rgba(0,0,0,.04);
 }
 .apply-item:last-child { border-bottom: .5px solid rgba(0,0,0,.10) !important; margin-bottom: 0; }
-/* 메시지 버튼은 더보기 메뉴로 이동 */
-.apply-msg-btn { display: none !important; }
-/* ⋮ 버튼의 미읽음 점 — 카드만 훑어도 안 읽은 메시지가 있는지 보이게 */
+/* 메시지 버튼을 ⋮ 옆에 다시 노출(웹과 동일 배치). 미읽음 배지는 메시지 버튼이 가진다.
+   ↩ 되돌리려면: .apply-msg-btn 를 display:none !important 로, .apply-menu-dot 를 display:flex 로. */
+.apply-msg-btn { display: inline-flex !important; }
 .apply-card-menu-btn { position: relative; }
-/* 미읽음 건수 배지 — 앱에는 카드에 메시지 버튼이 없어 ⋮ 가 유일한 진입점이다.
-   점 하나로는 몇 건인지 알 수 없어 숫자를 띄운다(10건 이상은 9+). */
+/* 메시지 버튼이 배지를 가지므로 ⋮ 의 미읽음 점은 숨긴다(중복 방지 — 웹과 동일). */
 .apply-menu-dot {
-  display: flex; align-items: center; justify-content: center;
+  display: none;
+  align-items: center; justify-content: center;
   position: absolute; top: 1px; right: 0;
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px;
