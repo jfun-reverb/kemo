@@ -868,7 +868,10 @@ async function updateAppStatus(appId, status) {
       const {data: app} = await db?.from('applications').select('campaign_id, user_id').eq('id', appId).maybeSingle();
       if (app) {
         // 감사용 응모는 정원과 무관하게 승인 허용 (격리 — 마이그레이션 179·181)
-        const {data: applicant} = await db?.from('influencers').select('is_audit').eq('id', app.user_id).maybeSingle();
+        //   ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212). 원본을 직접
+        //      부르면 민감정보 가림이 적용되지 않고, 그 통로를 열어 두면 정책을 좁혀도
+        //      우회로가 남는다(전수조사 1-3 / 조치 계획 묶음 E-1).
+        const {data: applicant} = await db?.from('influencers_admin_view').select('is_audit').eq('id', app.user_id).maybeSingle();
         if (!applicant?.is_audit) {
           const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
           const slots = camp?.slots || 0;
@@ -878,7 +881,7 @@ async function updateAppStatus(appId, status) {
             const ids = approvedApps.map(a => a.user_id).filter(Boolean);
             let auditSet = new Set();
             if (ids.length) {
-              const {data: auditRows} = await db?.from('influencers').select('id').eq('is_audit', true).in('id', ids) || {};
+              const {data: auditRows} = await db?.from('influencers_admin_view').select('id').eq('is_audit', true).in('id', ids) || {};
               auditSet = new Set((auditRows || []).map(r => r.id));
             }
             const nonAuditApproved = approvedApps.filter(a => !auditSet.has(a.user_id)).length;
