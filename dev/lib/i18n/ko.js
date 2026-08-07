@@ -456,6 +456,7 @@ window.I18N_KO = {
     postDeadlineRelative: '수령 후 {days}일 이내',
     purchasePeriod: '구매 및 영수증 제출 기간',
     visitPeriod: '방문 기간',
+    selectionPeriod: '선정 기간',
     submissionEnd: '결과물 제출 마감',
     // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
     recruitPurchasePeriod: '모집/구매 기간',

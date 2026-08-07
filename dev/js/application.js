@@ -192,6 +192,13 @@ async function openCampaign(id) {
           //      그 캠페인의 구매 마감일이 화면에서 사라진다.
           const periodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodKind === 'merged' ? 'detail.recruitPurchasePeriod' : 'detail.recruitPeriod')}</div><div style="${VAL}">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div></div>`);
+          // 선정 기간 — 시딩형만(2026-08-07 결정). 모집 기간 바로 아래에 둔다
+          //   (인플루언서가 겪는 순서: 모집 → 선정 → 결과물 제출 마감).
+          //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다 — 지금까지 등록된 캠페인은 전부 비어 있다.
+          //   ⚠️ 기존 「당선 발표」 줄은 그대로 둔다(날짜 vs 알리는 방법 — 서로 다른 정보).
+          if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.selectionPeriod')}</div><div style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
+          }
           if (isMonitor && periodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
           }

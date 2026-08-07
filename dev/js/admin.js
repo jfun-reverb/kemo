@@ -759,6 +759,7 @@ async function openEditCampaign(campId) {
     recruit:  [camp.recruit_start || '', camp.deadline || ''],
     purchase: [camp.purchase_start || '', camp.purchase_end || ''],
     visit:    [camp.visit_start || '', camp.visit_end || ''],
+    selection: [camp.selection_start || '', camp.selection_end || ''],
   });
   // 일자 입력 min/max 동기화 + 인라인 경고 초기 평가
   syncCampDateMinMax('editCamp');
@@ -1717,6 +1718,18 @@ const RANGE_KIND_HIDDEN_IDS = {
   recruit:  ['RecruitStart', 'Deadline'],
   purchase: ['PurchaseStart', 'PurchaseEnd'],
   visit:    ['VisitStart', 'VisitEnd'],
+  selection: ['SelectionStart', 'SelectionEnd'],
+};
+
+// 종류 → 화면에 보이는 입력칸 id 조각.
+//   ⚠️ 예전엔 이 매핑이 삼항식(`recruit? … : purchase? … : 'VisitRange'`)이라
+//      **목록에 없는 종류가 전부 방문 기간 칸으로 떨어졌다.** 종류를 늘릴 때마다
+//      같은 사고가 나는 모양이라 표로 바꿨다 — 빠뜨리면 조용히 틀리는 대신 아무 일도 안 한다.
+const RANGE_KIND_INPUT_IDS = {
+  recruit:  'RecruitRange',
+  purchase: 'PurchaseRange',
+  visit:    'VisitRange',
+  selection: 'SelectionRange',
 };
 
 // flatpickr 캘린더 popup 하단에 추가하는 인라인 경고 div를 1회만 생성·재사용
@@ -2168,7 +2181,7 @@ function setupCampRangePickers() {
 function applyCampRangeValues(prefix, values) {
   // values = { recruit:[start,end], purchase:[start,end], visit:[start,end] }
   Object.keys(RANGE_KIND_HIDDEN_IDS).forEach(kind => {
-    const id = prefix + (kind === 'recruit' ? 'RecruitRange' : kind === 'purchase' ? 'PurchaseRange' : 'VisitRange');
+    const id = prefix + (RANGE_KIND_INPUT_IDS[kind] || '');
     const fp = _campRangePickers[id];
     const pair = (values && values[kind]) || [null, null];
     const [s, e] = pair;
@@ -2402,6 +2415,8 @@ async function saveCampaignEdit() {
       purchase_start: gv('editCampPurchaseStart')||null,
       purchase_end: gv('editCampPurchaseEnd')||null,
       visit_start: gv('editCampVisitStart')||null,
+      selection_start: gv('editCampSelectionStart')||null,
+      selection_end: gv('editCampSelectionEnd')||null,
       visit_end: gv('editCampVisitEnd')||null,
       submission_end: gv('editCampSubmissionEnd')||null,
       winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
@@ -2625,6 +2640,7 @@ async function duplicateCampaign(campId) {
       recruit_start: src.recruit_start, deadline: src.deadline,
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
       visit_start: src.visit_start, visit_end: src.visit_end,
+      selection_start: src.selection_start, selection_end: src.selection_end,
       submission_end: src.submission_end,
       winner_announce: src.winner_announce,
       // 오프라인 행사 설정 — 안 넣으면 복제본이 「행사가 아닌 방문형」이 된다.
@@ -2943,6 +2959,8 @@ function buildPreviewCamp(mode) {
       return { purchase_start: ps, purchase_end: pe };
     })(),
     visit_start: val(g+'VisitStart')||null,
+    selection_start: val(g+'SelectionStart')||null,
+    selection_end: val(g+'SelectionEnd')||null,
     visit_end: val(g+'VisitEnd')||null,
     submission_end: val(g+'SubmissionEnd')||null,
     winner_announce: val(g+'WinnerAnnounce')||'',
@@ -2984,6 +3002,7 @@ const CP_I18N = {
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
     kRecruitPurchasePeriod:'募集・購入期間',
+    kSelectionPeriod:'選定期間',
     kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNotice1Split:'購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
@@ -3004,6 +3023,7 @@ const CP_I18N = {
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
     kRecruitPurchasePeriod:'모집/구매 기간',
+    kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
     paybackNotice1:'모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice1Split:'구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
@@ -3211,6 +3231,8 @@ function renderCampPreview(mode) {
             // 실제 화면이 갈라진다(관리자가 본 것과 인플루언서가 보는 것이 달라진다).
             const cpPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodKind === 'merged' ? L.kRecruitPurchasePeriod : L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
+            // 선정 기간 — 시딩형만. 모집 기간 바로 아래(모집 → 선정 → 제출 마감 순).
+            if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
             if (isMonitorPreview && cpPeriodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
             if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end && !isEventPreview) {
@@ -3820,6 +3842,8 @@ async function addCampaign() {
     purchase_start: $('newCampPurchaseStart')?.value||null,
     purchase_end: $('newCampPurchaseEnd')?.value||null,
     visit_start: $('newCampVisitStart')?.value||null,
+    selection_start: $('newCampSelectionStart')?.value||null,
+    selection_end: $('newCampSelectionEnd')?.value||null,
     visit_end: $('newCampVisitEnd')?.value||null,
     submission_end: $('newCampSubmissionEnd')?.value||null,
     winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
@@ -4149,6 +4173,11 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const showPurchaseRow = typeWantsPurchase && !isEvent && editedIsSplit;
   if (purchaseRow) purchaseRow.style.display = showPurchaseRow ? '' : 'none';
   if (visitRow)    visitRow.style.display    = (typeWantsVisit && !isEvent) ? '' : 'none';
+  // 선정 기간 — 시딩형만(2026-08-07 결정). 리뷰어형은 「당선 발표」 개념 자체가 없고,
+  //   방문형은 행사 모드일 때 타임표가 날짜를 정하므로 넣지 않는다.
+  const typeWantsSelection = (recruitType === 'gifting');
+  const selectionRow = $(prefix + 'SelectionRow');
+  if (selectionRow) selectionRow.style.display = typeWantsSelection ? '' : 'none';
   // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
   //   둘을 한 덩어리로 두면 ①편집 폼을 여는 순간(행사 체크박스가 아직 이 캠페인 것으로
   //   안 바뀐 시점) 직전 캠페인의 행사 여부가 새어 들어와 **멀쩡한 방문형 캠페인의
@@ -4161,6 +4190,19 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   if (!typeWantsVisit) {
     const vs = $(prefix + 'VisitStart'); if (vs) vs.value = '';
     const ve = $(prefix + 'VisitEnd'); if (ve) ve.value = '';
+  }
+  // 형식을 바꿔 저장할 때 남은 값이 데이터베이스에 들어가지 않게 비운다(위 두 짝과 같은 규칙).
+  //   ⚠️ 칸 값만 지우면 **달력이 기억한 날짜는 그대로 남는다.** 그러면 형식을 되돌린 뒤
+  //      달력을 열어 아무것도 안 고르고 「적용」만 눌러도 지웠던 날짜가 되살아난다
+  //      (「적용」이 달력의 기억을 칸에 옮겨 적기 때문). 달력까지 함께 비운다.
+  //      ⓘ 구매·방문 기간 두 짝에도 같은 구멍이 있다(기존부터 — 그쪽은 화면 글자마저 남아
+  //        증상이 더 눈에 띈다). 이번 변경 범위가 아니라 손대지 않았다.
+  if (!typeWantsSelection) {
+    const ss = $(prefix + 'SelectionStart'); if (ss) ss.value = '';
+    const se = $(prefix + 'SelectionEnd'); if (se) se.value = '';
+    const selFp = _campRangePickers[prefix + 'SelectionRange'];
+    if (selFp) selFp.clear(false);
+    else { const sr = $(prefix + 'SelectionRange'); if (sr) sr.value = ''; }
   }
   applyCampPeriodLabels(formMode, recruitType, savedCamp);
 }
