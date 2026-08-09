@@ -118,7 +118,11 @@ async function loadMyApplications() {
   // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지
   allCampaigns = await fetchCampaigns();
   renderMyApplyTabs();
-  renderMyApplyList();
+  // ⚠️ 반드시 기다린다 — renderMyApplyList 안에서 결과물 캐시(_myDelivsByApp)를 채운다.
+  //   안 기다리면 이 함수를 await 한 쪽은 캐시가 빈 채로 다음 화면을 그린다.
+  //   실제 증상: 알림에서 바로 메시지 화면으로 들어가면 반려 사유가 안 보이고,
+  //   응모이력을 거쳐 들어가면 보였다 — 같은 화면인데 경로에 따라 달랐다(전수조사 F-13).
+  await renderMyApplyList();
 }
 
 // 상태 필터 드롭다운(제목 우측) 렌더 — 각 항목에 건수 병기. 進行中(기본) 우선 노출

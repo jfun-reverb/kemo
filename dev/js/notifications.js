@@ -312,9 +312,10 @@ function renderNotifModal(items) {
 async function onNotifItemClick(id, kind, refTable, refId) {
   // 같은 참조(결과물·신청)에 대한 트리거 다건 INSERT 시 한 번 클릭으로 일괄 정리
   //   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected 2건).
-  //   ref 없는 일반 알림만 단일 read.
-  if (refTable && refId) {
-    await markNotificationsReadByRef(refTable, refId);
+  //   ⚠️ 종류(kind)를 함께 넘긴다 — 없으면 성격이 다른 알림까지 함께 지워진다(전수조사 F-3).
+  //   ref 나 kind 가 없는 알림은 그 한 건만 읽음 처리.
+  if (refTable && refId && kind) {
+    await markNotificationsReadByRef(refTable, refId, kind);
   } else {
     await markNotificationRead(id);
   }

@@ -973,13 +973,22 @@ async function markNotificationRead(notificationId) {
 }
 
 // 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
-//   같은 결과물(deliverables)·신청(applications)에 대해 trigger 가 여러 건 INSERT 한 경우
+//   같은 결과물에 대해 트리거가 여러 건 넣은 경우
 //   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected)
-//   사용자가 알림 1건 클릭만으로 해당 참조의 모든 미읽음을 일괄 정리.
-async function markNotificationsReadByRef(refTable, refId) {
+//   알림 1건 클릭만으로 함께 정리한다.
+//
+//   ⚠️ 종류(kind)까지 봐야 한다 — 대상만 보고 지우면 성격이 다른 알림이 함께 사라진다.
+//   응모(applications)에는 당첨·취소·메시지·기한변경 4종이 같은 대상으로 달려 있어서,
+//   「메시지 도착」을 누르면 「캠페인에 당첨되셨습니다」가 소리 없이 없어졌다(전수조사 F-3).
+//   함께 지워도 되는 종류 목록은 shared.js 의 notifReadKinds 가 정한다.
+async function markNotificationsReadByRef(refTable, refId, kind) {
   if (!db || !refTable || !refId) return;
   const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
   if (!uid) return;
+  // 종류를 모르면 일괄 처리하지 않는다 — 무엇을 함께 지워도 되는지 판단할 근거가 없다.
+  //   (호출하는 쪽이 이 경우 알림 1건만 읽음 처리한다)
+  const kinds = (typeof notifReadKinds === 'function') ? notifReadKinds(kind) : (kind ? [kind] : []);
+  if (!kinds.length) return;
   try {
     await retryWithRefresh(async () => {
       const {error} = await db?.from('notifications')
@@ -987,6 +996,7 @@ async function markNotificationsReadByRef(refTable, refId) {
         .eq('user_id', uid)
         .eq('ref_table', refTable)
         .eq('ref_id', refId)
+        .in('kind', kinds)
         .is('read_at', null);
       if (error) throw error;
     });
