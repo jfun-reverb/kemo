@@ -1798,6 +1798,9 @@ function notifReadKinds(kind) {
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
+  // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
+  //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
+  /Auth session missing/i,
   // 로그인·가입 거부 — 비밀번호 오입력·기가입·메일 미확인은 결함이 아니다.
   //   ⚠️ 메일 미확인은 서버가 주는 문구가 자리마다 다르다 — 코드값 `email_not_confirmed`
   //      와 사람이 읽는 `Email not confirmed`(공백) 둘 다 잡아야 한다. 하나만 넣으면

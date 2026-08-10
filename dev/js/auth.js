@@ -286,6 +286,18 @@ async function handleResetPassword(e) {
     if (error) {
       // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
       logAppError('handleResetPassword', error);
+      // 「세션 없음」은 링크가 만료됐거나 이미 쓰인 것이다. 일반 문구로 덮으면
+      //   사용자는 **무엇을 해야 할지 알 수 없다**(2026-08-08 운영 오류 1건 — 아이폰 사파리).
+      //   이미 있는 만료 안내 화면(다시 보내기 버튼 포함)으로 보낸다.
+      if (/Auth session missing/i.test(String(error.message || ''))) {
+        const _f = $('resetPwFormWrap'), _x = $('resetPwExpired');
+        if (_f && _x) { _f.style.display = 'none'; _x.style.display = ''; }
+        else { errEl.textContent = t('authError.genericError'); errEl.style.display = 'block'; }
+        try { sessionStorage.removeItem('reverb.recovery'); } catch(_e) {}
+        btn.disabled = false;
+        btn.textContent = t('auth.reset.btn');
+        return;
+      }
       errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {

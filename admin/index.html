@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786345366';
+  var CURRENT_BUILD = 'v1786351384';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-10 16:02 · 79b52b1</span>
+          <span class="admin-build-text">2026-08-10 17:43 · eacfeb8</span>
         </div>
       </div>
     </aside>
@@ -8717,6 +8717,9 @@ function notifReadKinds(kind) {
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
+  // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
+  //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
+  /Auth session missing/i,
   // 로그인·가입 거부 — 비밀번호 오입력·기가입·메일 미확인은 결함이 아니다.
   //   ⚠️ 메일 미확인은 서버가 주는 문구가 자리마다 다르다 — 코드값 `email_not_confirmed`
   //      와 사람이 읽는 `Email not confirmed`(공백) 둘 다 잡아야 한다. 하나만 넣으면
@@ -43395,6 +43398,11 @@ async function init() {
     if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
     if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
+    // 사용자 앱 오류 — **부팅 시 1회.** 예전에는 오류 로그 화면을 열 때(목록을 그릴 때)만
+    //   갱신해서, **그 화면에 들어가야 비로소 숫자가 떴다.** 오류는 들어가 볼 이유가 없을 때
+    //   쌓이는 것이라, 「들어가야만 알 수 있는 알림」은 알림이 아니다(2026-08-10 사용자 지적).
+    //   0건이면 아무것도 안 그린다. 「예상 못 한 오류」만 센다(정상 거부는 제외).
+    if (typeof updateClientErrorBadge === 'function') updateClientErrorBadge();
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
