@@ -326,8 +326,32 @@ Deno.serve(async (req: Request) => {
   // ── 1. INSERT 선행 mutex (status='failed' 마커) ──
   //    brand_daily_digest_runs.digest_date UNIQUE 가 mutex 역할
   //    → 동시 호출 차단 (notify-admin-daily-digest 패턴 동일)
+  //
+  //    [F-5, 2026-08] 예전엔 23505(이미 있음) 를 만나면 무조건 "이미
+  //    처리됨"으로 끝냈다. 그런데 이 마커 행이 처리 도중 함수가 죽으면
+  //    (타임아웃·플랫폼 재시작 등) status='failed'·error_message=
+  //    'in-flight' 인 채로 영원히 남는다 — 그러면 그날은 몇 번을 다시
+  //    불러도 "이미 처리됨" 취급돼 발송이 영영 안 나가는데, 재호출은
+  //    200(정상 응답)을 주므로 운영자는 "보냈는데 안 온다"로 오인한다.
+  //
+  //    지금은 23505 를 만나면 기존 행을 직접 읽어 ①이미 끝난 상태
+  //    (sent/skipped_no_data)면 그대로 스킵 ②아직 안 끝난 상태(failed)면
+  //    RETRY_COOLDOWN_MS 가 지났을 때만 "내가 이어받는다"는 조건부 UPDATE
+  //    를 시도한다. 이 UPDATE 는 직전에 읽은 run_at 값이 그대로일 때만
+  //    통과한다(낙관적 락 — dev/lib/storage.js updateCampaign() 의 version
+  //    조건부 UPDATE 와 같은 원리). 두 재호출이 동시에 들어와도 먼저
+  //    커밋한 쪽만 통과하고 나머지는 조건 불일치로 0행 UPDATE.
+  //
+  //    RETRY_COOLDOWN_MS = 10분 — notify-admin-daily-digest 와 동일 근거
+  //    (체이닝 없는 단발성 실행, Deno 실행 시간 상한 약 150초의 약 4배 여유).
+  const RETRY_COOLDOWN_MS = 10 * 60 * 1000;
+  // [리뷰 반영 1/2026-08] "내가 지금 이 실행의 주인"임을 끝까지(finalizeRun 까지)
+  // 들고 갈 값. mutex 를 잡은 방식(새 INSERT vs 재시도 UPDATE)에 따라 아래에서
+  // 채운다 — notify-admin-daily-digest 와 동일 근거(쿨다운 판단이 틀려서 원본과
+  // 재시도가 동시에 살아있어도, 최종 상태 기록만큼은 소유권 확인으로 한쪽만 이김).
+  let ownedRunAt: string | null = null;
   {
-    const { error } = await sb
+    const { data: inserted, error } = await sb
       .from("brand_daily_digest_runs")
       .insert({
         digest_date: digestDate,
@@ -335,31 +359,94 @@ Deno.serve(async (req: Request) => {
         sections_summary: {},
         recipients_count: 0,
         error_message: "in-flight",
-      });
+      })
+      .select("run_at")
+      .maybeSingle();
     if (error) {
       if ((error as { code?: string }).code === "23505") {
-        // 이미 처리됨 (중복 호출 차단)
-        console.log("[notify-brand-daily] already processed", digestDate);
-        return new Response(
-          JSON.stringify({ ok: true, skipped: true, reason: "already_processed", digestDate }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
+        const { data: existing, error: selErr } = await sb
+          .from("brand_daily_digest_runs")
+          .select("status, run_at")
+          .eq("digest_date", digestDate)
+          .maybeSingle();
+        if (selErr || !existing) {
+          console.error("[notify-brand-daily] existing row lookup failed after 23505", selErr);
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "already_processed", digestDate }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (existing.status === "sent" || existing.status === "skipped_no_data") {
+          console.log("[notify-brand-daily] already processed (terminal)", digestDate, existing.status);
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "already_processed", digestDate, priorStatus: existing.status }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        const runAtMs = new Date(existing.run_at as string).getTime();
+        const elapsedMs = Date.now() - runAtMs;
+        if (elapsedMs < RETRY_COOLDOWN_MS) {
+          console.log("[notify-brand-daily] recent failed/in-flight row, cooldown not elapsed — skip retry", {
+            digestDate, elapsedMs, cooldownMs: RETRY_COOLDOWN_MS,
+          });
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "recent_failure_cooldown", digestDate, elapsedMs }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        const retryRunAt = new Date().toISOString();
+        const { data: claimed, error: claimErr } = await sb
+          .from("brand_daily_digest_runs")
+          .update({
+            status: "failed",
+            sections_summary: {},
+            recipients_count: 0,
+            error_message: "in-flight (retry)",
+            run_at: retryRunAt,
+          })
+          .eq("digest_date", digestDate)
+          .eq("run_at", existing.run_at as string)
+          .select("id");
+        if (claimErr || !claimed || claimed.length === 0) {
+          console.log("[notify-brand-daily] lost retry race or already claimed", digestDate, claimErr);
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "retry_race_lost", digestDate }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        ownedRunAt = retryRunAt; // 방금 내가 써넣은 값 — finalizeRun 의 소유권 조건으로 재사용
+        console.warn("[notify-brand-daily] retrying stale/failed run", digestDate, { priorRunAt: existing.run_at });
+        // 아래로 흘러 정상 처리 진행 (INSERT 대신 이 UPDATE 로 mutex 를 확보한 상태)
+      } else {
+        console.error("[notify-brand-daily] mutex INSERT failed", error);
+        return new Response(JSON.stringify({ error: "mutex insert failed", detail: error.message }), {
+          status: 500, headers: { "content-type": "application/json" },
+        });
       }
-      console.error("[notify-brand-daily] mutex INSERT failed", error);
-      return new Response(JSON.stringify({ error: "mutex insert failed", detail: error.message }), {
-        status: 500, headers: { "content-type": "application/json" },
-      });
+    } else {
+      ownedRunAt = (inserted?.run_at as string | undefined) ?? null;
+      if (!ownedRunAt) {
+        console.error("[notify-brand-daily] mutex INSERT succeeded but run_at missing from response — ownership check disabled for this run", digestDate);
+      }
     }
   }
 
   // 헬퍼: 종료 시 brand_daily_digest_runs UPDATE
+  //
+  // [리뷰 반영 1] mutex 를 "잡을 때"는 run_at 조건부 UPDATE 로 소유권을
+  // 확인하면서 "끝낼 때"(finalizeRun)는 digest_date 로만 UPDATE 했었다 —
+  // 쿨다운(10분) 이 검증 안 된 실행시간 가정에 기대므로, 실제 실행이 그보다
+  // 길어지면 재시도가 오판해 소유권을 가져가고 원본·재시도가 둘 다 계속
+  // 돌 수 있다. ownedRunAt 이 있으면 그 값으로도 조건을 걸고, 0행이면
+  // (그 사이 다른 실행이 run_at 을 바꿔써서 내가 더 이상 주인이 아니면)
+  // 덮어쓰지 않고 console.error 로만 남긴다.
   const finalizeRun = async (payload: {
     status: "sent" | "skipped_no_data" | "failed";
     sections_summary: Record<string, number>;
     recipients_count: number;
     error_message?: string | null;
   }) => {
-    const { error } = await sb
+    let q = sb
       .from("brand_daily_digest_runs")
       .update({
         status: payload.status,
@@ -368,7 +455,18 @@ Deno.serve(async (req: Request) => {
         error_message: payload.error_message ?? null,
       })
       .eq("digest_date", digestDate);
-    if (error) console.error("[notify-brand-daily] finalize UPDATE failed", error);
+    if (ownedRunAt != null) q = q.eq("run_at", ownedRunAt);
+    const { data, error } = await q.select("id");
+    if (error) {
+      console.error("[notify-brand-daily] finalize UPDATE failed", error);
+      return;
+    }
+    if (ownedRunAt != null && (!data || data.length === 0)) {
+      console.error(
+        "[notify-brand-daily] finalizeRun: 소유권을 잃어 최종 상태를 기록하지 못함(run_at 불일치) — 덮어쓰지 않음",
+        digestDate, ownedRunAt, payload.status,
+      );
+    }
   };
 
   try {
@@ -525,6 +623,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 8. 발송 — 1인 1통 분리 (To 헤더 노출 차단) ──
+    //
+    // [리뷰 반영 3] ⚠️ 잔여 위험 — "누구에게 보냈는지" 개별 기록이 없다
+    // (recipients_count 집계만 남음). 이 실행이 일부 관리자에게 보낸 뒤
+    // 죽으면, 나중 재시도(쿨다운 10분 경과 후)는 이미 받은 사람을 몰라
+    // adminEmails 전원에게 처음부터 다시 보낸다. 수동 재시도 전에 Brevo
+    // 발송 이력으로 직전 실행이 몇 명까지 갔는지 먼저 확인할 것.
     let successCount = 0;
     const failures: { email: string; error: string }[] = [];
     for (const email of adminEmails) {
