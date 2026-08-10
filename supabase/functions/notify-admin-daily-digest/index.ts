@@ -1013,35 +1013,38 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const receivedRows = (receivedRes.data || []) as ReceivedRow[];
-    const cancelledRows = (cancelledRes.data || []) as CancelledRow[];
-    const submittedEvents = (submittedEventsRes.data || []) as SubmittedEvent[];
-    const deliverableReprocessEvents = (deliverableReprocessEventsRes.data || []) as DeliverableReprocessEvent[];
-    const applicationReprocessEvents = (applicationReprocessEventsRes.data || []) as ApplicationReprocessEvent[];
+    // [F-7] 아래 5개를 let 으로 선언 — 감사용 계정(is_audit=true) 행을 걸러낸
+    // 뒤 같은 이름으로 재대입한다(하단 [F-7] 필터링 블록). 이후 코드(HTML 렌더
+    // 포함)는 전부 이 이름을 그대로 참조하므로 변수명은 바꾸지 않는다.
+    let receivedRows = (receivedRes.data || []) as ReceivedRow[];
+    let cancelledRows = (cancelledRes.data || []) as CancelledRow[];
+    let submittedEvents = (submittedEventsRes.data || []) as SubmittedEvent[];
+    let deliverableReprocessEvents = (deliverableReprocessEventsRes.data || []) as DeliverableReprocessEvent[];
+    let applicationReprocessEvents = (applicationReprocessEventsRes.data || []) as ApplicationReprocessEvent[];
 
-    const sectionsSummary = {
+    // ── 3. 4섹션 모두 0건(감사용 계정 필터 적용 전) → 스킵 ──
+    //    이 시점엔 아직 감사용 여부를 판정할 수 없다(섹션 3·4 는 deliverable_id/
+    //    application_id 만 갖고 있어 user_id 를 알려면 아래 [F-7] 배치 lookup 이
+    //    끝나야 함). 여기서는 "애초에 아무 일도 없던 날"만 먼저 걸러 불필요한
+    //    조회를 피한다 — 아래에 [F-7] 필터 후 재확인이 한 번 더 있다.
+    const totalCountRaw =
+      receivedRows.length + cancelledRows.length + submittedEvents.length +
+      deliverableReprocessEvents.length + applicationReprocessEvents.length;
+    console.log("[notify-admin-daily] sections (raw, 감사용 필터 전)", {
       received: receivedRows.length,
       cancelled: cancelledRows.length,
       submitted: submittedEvents.length,
       reprocessed: deliverableReprocessEvents.length + applicationReprocessEvents.length,
-    };
-    const totalCount =
-      sectionsSummary.received +
-      sectionsSummary.cancelled +
-      sectionsSummary.submitted +
-      sectionsSummary.reprocessed;
-
-    console.log("[notify-admin-daily] sections", sectionsSummary);
-
-    // ── 3. 4섹션 모두 0건 → 스킵 ──
-    if (totalCount === 0) {
+    });
+    if (totalCountRaw === 0) {
+      const emptySummary = { received: 0, cancelled: 0, submitted: 0, reprocessed: 0 };
       await finalizeRun({
         status: "skipped_no_data",
-        sections_summary: sectionsSummary,
+        sections_summary: emptySummary,
         recipients_count: 0,
       });
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "no_data", digestDate, sectionsSummary }),
+        JSON.stringify({ ok: true, skipped: true, reason: "no_data", digestDate, sectionsSummary: emptySummary }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
     }
@@ -1085,13 +1088,101 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 전체 campaign_id / user_id 모음
+    // ── [F-7] 감사용 계정(is_audit=true) 제외 ────────────────────────
+    //   감사용 계정은 운영팀이 인플루언서 동선을 시뮬레이션하는 공용 계정이다
+    //   (마이그레이션 179). 응모수·정원·대시보드 KPI·운영현황·엑셀에서는 이미
+    //   격리돼 있는데(마이그레이션 179·181) 이 관리자 다이제스트는 그 목록에
+    //   없었다 — 관리자가 매일 받는 요약 메일에 가짜 활동이 실제 신청·취소·
+    //   제출·재처리와 섞여 나갔다(전수조사 F-7).
+    //   섹션 1·2(receivedRows/cancelledRows)는 user_id 를 직접 갖고 있어
+    //   바로 거를 수 있지만, 섹션 3·4(submittedEvents/deliverableReprocess
+    //   Events/applicationReprocessEvents)는 deliverable_id/application_id 만
+    //   갖고 있어 방금 채운 deliverableMap/reprocessAppMap 이 있어야 user_id 를
+    //   알 수 있다 — 그래서 이 필터를 그 두 맵이 준비된 지금 위치에서 한다.
+    //   판정 기준은 이 저장소의 다른 곳(마이그레이션 181·218·231·232·242·259)과
+    //   동일하게 `is_audit = true`(컬럼이 NOT NULL DEFAULT false 라 COALESCE
+    //   불필요 — CLAUDE.md quality 규칙 「다른 곳과 같은 방식을 따르라」).
+    const auditUserIds = new Set<string>();
+    {
+      const { data: auditRows, error } = await sb
+        .from("influencers")
+        .select("id")
+        .eq("is_audit", true);
+      if (error) {
+        // 조회 실패 시 아무도 감사용으로 간주하지 않는다(모르면 지우지 않는다) —
+        // 실제 관리자에게 갈 메일을 잘못 걸러 조용히 사라지게 하는 것보다,
+        // 드물게 감사용 계정 활동이 한 줄 섞이는 쪽이 안전하다.
+        console.warn("[notify-admin-daily] audit influencer lookup failed — 감사용 계정을 걸러내지 못했습니다", error);
+      } else {
+        (auditRows || []).forEach((r: { id: string }) => auditUserIds.add(r.id));
+      }
+    }
+    if (auditUserIds.size > 0) {
+      receivedRows = receivedRows.filter((r) => !auditUserIds.has(r.user_id));
+      cancelledRows = cancelledRows.filter((r) => !auditUserIds.has(r.user_id));
+      submittedEvents = submittedEvents.filter((e) => {
+        const d = deliverableMap.get(e.deliverable_id);
+        return !d || !auditUserIds.has(d.user_id); // 조회 실패(d 없음)는 배제하지 않음
+      });
+      deliverableReprocessEvents = deliverableReprocessEvents.filter((e) => {
+        const d = deliverableMap.get(e.deliverable_id);
+        return !d || !auditUserIds.has(d.user_id);
+      });
+      applicationReprocessEvents = applicationReprocessEvents.filter((e) => {
+        const a = reprocessAppMap.get(e.application_id);
+        return !a || !auditUserIds.has(a.user_id);
+      });
+    }
+
+    // [F-7] 감사용 계정 필터 반영한 최종 섹션 집계 — 메일 본문·제목·배지·
+    //   admin_daily_digest_runs 로그가 전부 이 값을 쓴다(총 5곳, 위 grep 확인).
+    const sectionsSummary = {
+      received: receivedRows.length,
+      cancelled: cancelledRows.length,
+      submitted: submittedEvents.length,
+      reprocessed: deliverableReprocessEvents.length + applicationReprocessEvents.length,
+    };
+    const totalCount =
+      sectionsSummary.received +
+      sectionsSummary.cancelled +
+      sectionsSummary.submitted +
+      sectionsSummary.reprocessed;
+
+    console.log("[notify-admin-daily] sections (감사용 제외 후)", sectionsSummary);
+
+    // [F-7] 그날 활동이 전부 감사용 계정이었던 경우 — 위 totalCountRaw 체크는
+    //   통과했지만(진짜 데이터가 있었음) 필터 후 0건이면 여기서 다시 스킵한다.
+    if (totalCount === 0) {
+      await finalizeRun({
+        status: "skipped_no_data",
+        sections_summary: sectionsSummary,
+        recipients_count: 0,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "no_data_after_audit_exclude", digestDate, sectionsSummary }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    // 전체 campaign_id / user_id 모음 — 감사용 필터를 이미 거친 배열/맵 순회만 쓴다
+    // ([F-7] deliverableMap·reprocessAppMap 자체는 감사용 항목도 여전히 담고 있는
+    //  범용 조회표라, 그걸 통째로 순회하지 않고 필터된 이벤트 배열을 기준으로 삼는다).
     const campaignIds = new Set<string>();
     const userIds = new Set<string>();
     receivedRows.forEach((r) => { campaignIds.add(r.campaign_id); userIds.add(r.user_id); });
     cancelledRows.forEach((r) => { campaignIds.add(r.campaign_id); userIds.add(r.user_id); });
-    deliverableMap.forEach((d) => { campaignIds.add(d.campaign_id); userIds.add(d.user_id); });
-    reprocessAppMap.forEach((a) => { campaignIds.add(a.campaign_id); userIds.add(a.user_id); });
+    submittedEvents.forEach((e) => {
+      const d = deliverableMap.get(e.deliverable_id);
+      if (d) { campaignIds.add(d.campaign_id); userIds.add(d.user_id); }
+    });
+    deliverableReprocessEvents.forEach((e) => {
+      const d = deliverableMap.get(e.deliverable_id);
+      if (d) { campaignIds.add(d.campaign_id); userIds.add(d.user_id); }
+    });
+    applicationReprocessEvents.forEach((e) => {
+      const a = reprocessAppMap.get(e.application_id);
+      if (a) { campaignIds.add(a.campaign_id); userIds.add(a.user_id); }
+    });
 
     const campaignMap = new Map<string, CampaignRow>();
     if (campaignIds.size > 0) {
