@@ -535,6 +535,7 @@ Deno.serve(async (req: Request) => {
     interface DelivInfo {
       kinds: Set<string>;
       reviewChannels: Set<string>;
+      postChannels: Set<string>;
     }
     const delivByApp = new Map<string, DelivInfo>(); // app_id → 제출 현황
     if (approvedAppIds.length > 0) {
@@ -549,11 +550,15 @@ Deno.serve(async (req: Request) => {
         delivs.forEach((d) => {
           let info = delivByApp.get(d.application_id);
           if (!info) {
-            info = { kinds: new Set(), reviewChannels: new Set() };
+            info = { kinds: new Set(), reviewChannels: new Set(), postChannels: new Set() };
             delivByApp.set(d.application_id, info);
           }
           info.kinds.add(d.kind);
           if (d.kind === "review_image" && d.post_channel) info.reviewChannels.add(d.post_channel);
+          // 게시물도 채널별로 — 시딩·방문형이 요구한 채널 전부를 내야 인증 성공이다
+          //   (마이그레이션 331). 예전에는 「게시물이 하나라도 있으면」 안내를 멈춰서,
+          //   2채널 중 1채널만 낸 사람은 나머지 마감 안내를 **한 통도 못 받았다.**
+          if (d.kind === "post" && d.post_channel) info.postChannels.add(d.post_channel);
         });
       } catch (e) {
         console.warn("[notify-infl-digest] deliverable lookup failed", (e as Error).message);
@@ -628,7 +633,7 @@ Deno.serve(async (req: Request) => {
     (appsApproved || []).forEach((a: AppRow) => {
       const camp = campMap.get(a.campaign_id);
       if (!camp) return;
-      const delivInfo = delivByApp.get(a.id) || { kinds: new Set<string>(), reviewChannels: new Set<string>() };
+      const delivInfo = delivByApp.get(a.id) || { kinds: new Set<string>(), reviewChannels: new Set<string>(), postChannels: new Set<string>() };
       const delivKinds = delivInfo.kinds;
 
       // 영수증 (monitor 한정 — 리뷰어형은 가구매 여부와 무관하게 항상 영수증 제출)
@@ -648,14 +653,23 @@ Deno.serve(async (req: Request) => {
       // (submission_end 만 사용 — post_deadline 은 마이그레이션 129 에서 제거됨)
       if (
         (camp.recruit_type === "gifting" || camp.recruit_type === "visit") &&
-        camp.submission_end && !delivKinds.has("post")
+        camp.submission_end
       ) {
-        const d = dateDiffDays(camp.submission_end, todayDate);
-        if (d === 5 || d === 1) {
-          // [F-9] deadline_date(camp.submission_end) 를 열쇠에 포함 — 위 receipt 와 동일 이유.
-          const key = `${a.user_id}|${a.campaign_id}|post|${d}|${camp.submission_end}`;
-          if (!sentMap.has(key)) {
-            acc(a.user_id).deadline.push({ kind: "post", app: a, deadlineDate: camp.submission_end, dMinus: d });
+        // ⚠️ 「게시물이 하나라도 있으면 안 보낸다」가 아니다 — 요구한 채널 **전부**를 내야
+        //   인증 성공이므로(마이그레이션 331), 아직 안 낸 채널이 하나라도 있으면 안내한다.
+        //   채널이 기록 안 된 옛 캠페인은 채널별로 따질 근거가 없어 종전대로 「하나라도 있으면 멈춤」.
+        const requiredPostChannels = (camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+        const missingPost = requiredPostChannels.length > 0
+          ? requiredPostChannels.filter((ch) => !delivInfo.postChannels.has(ch))
+          : (delivKinds.has("post") ? [] : ["*"]);
+        if (missingPost.length > 0) {
+          const d = dateDiffDays(camp.submission_end, todayDate);
+          if (d === 5 || d === 1) {
+            // [F-9] deadline_date(camp.submission_end) 를 열쇠에 포함 — 위 receipt 와 동일 이유.
+            const key = `${a.user_id}|${a.campaign_id}|post|${d}|${camp.submission_end}`;
+            if (!sentMap.has(key)) {
+              acc(a.user_id).deadline.push({ kind: "post", app: a, deadlineDate: camp.submission_end, dMinus: d });
+            }
           }
         }
       }

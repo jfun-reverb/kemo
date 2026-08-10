@@ -126,9 +126,13 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
   return 'approved';
 }
 
-// gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
+// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
+//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
+//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
+//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
+//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
   // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
   var _as = (receipt && receipt.applications && receipt.applications.status)
          || (result && result.applications && result.applications.status) || null;
@@ -147,9 +151,18 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
     // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
     return '인증샷 제출중';
   }
-  // gifting / visit — 게시물(post) 단독
+  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
+  var _chs = (campChannels || []).filter(Boolean);
+  if (_chs.length > 0) {
+    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
+    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
+    if (_repr === 'approved') return '인증성공';
+    if (_repr !== 'none') return '인증샷 제출중';
+    return result ? '인증샷 제출중' : '미제출';
+  }
+  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
+  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
   if (!result) return '미제출';
-  if (result.status === 'approved') return '인증성공';
   return '인증샷 제출중';
 }
 
@@ -632,13 +645,18 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       var ck = (d._campMeta && d._campMeta.id) || '';
       var key = ck + '|' + (d.application_id || ('user-' + d.user_id));
       if (!groups[key]) {
-        groups[key] = { key: key, camp: d._campMeta || {}, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null };
+        groups[key] = { key: key, camp: d._campMeta || {}, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null, postByCh: {} };
       }
       var g = groups[key];
       if (d.kind === 'receipt') {
         if (!g.receipt || (d.updated_at || '') > (g.receipt.updated_at || '')) g.receipt = d;
       } else if (d.kind === 'review_image' || d.kind === 'post') {
         if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
+        // 시딩·방문형 채널 완성 판정용 — 게시물만 채널별로 따로 모은다(위 _excelCertStatusKo 참고)
+        if (d.kind === 'post' && d.post_channel) {
+          var _pv = g.postByCh[d.post_channel];
+          if (!_pv || (d.updated_at || '') > (_pv.updated_at || '')) g.postByCh[d.post_channel] = d;
+        }
       }
     });
     var groupList = Object.values(groups);
@@ -808,7 +826,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase),
+        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase,
+          (cc.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
         // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (T~Y열=20~25)
@@ -1098,7 +1117,7 @@ async function exportCampaignDeliverables(campId) {
     delivs.forEach(function(d) {
       var key = d.application_id || ('user-' + d.user_id);  // application_id 없으면 user_id 폴백
       if (!groups[key]) {
-        groups[key] = {key: key, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null};
+        groups[key] = {key: key, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null, postByCh: {}};
       }
       var g = groups[key];
       if (d.kind === 'receipt') {
@@ -1106,13 +1125,18 @@ async function exportCampaignDeliverables(campId) {
         if (!g.receipt || (d.updated_at || '') > (g.receipt.updated_at || '')) g.receipt = d;
       } else if (d.kind === 'review_image' || d.kind === 'post') {
         if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
+        // 시딩·방문형 채널 완성 판정용 — 게시물만 채널별로 따로 모은다(_excelCertStatusKo 참고)
+        if (d.kind === 'post' && d.post_channel) {
+          var _pv = g.postByCh[d.post_channel];
+          if (!_pv || (d.updated_at || '') > (_pv.updated_at || '')) g.postByCh[d.post_channel] = d;
+        }
       }
     });
     // 미제출(결과물 0건) 신청 행 추가 — 승인 신청 중 결과물 그룹에 없는 건은 빈 행으로 (인증 상태 '미제출')
     (approvedApps || []).forEach(function(app) {
       var key = app.id;
       if (groups[key]) return;
-      groups[key] = {key: key, application_id: app.id, user_id: app.user_id, receipt: null, result: null};
+      groups[key] = {key: key, application_id: app.id, user_id: app.user_id, receipt: null, result: null, postByCh: {}};
     });
     var groupList = Object.values(groups);
     // 인플루언서 이름순 정렬 (한자 우선)
@@ -1257,7 +1281,8 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase),
+        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase,
+          (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
         // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (R~W열=18~23)
