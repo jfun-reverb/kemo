@@ -151,6 +151,11 @@ async function init() {
     if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
     if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
+    // 사용자 앱 오류 — **부팅 시 1회.** 예전에는 오류 로그 화면을 열 때(목록을 그릴 때)만
+    //   갱신해서, **그 화면에 들어가야 비로소 숫자가 떴다.** 오류는 들어가 볼 이유가 없을 때
+    //   쌓이는 것이라, 「들어가야만 알 수 있는 알림」은 알림이 아니다(2026-08-10 사용자 지적).
+    //   0건이면 아무것도 안 그린다. 「예상 못 한 오류」만 센다(정상 거부는 제외).
+    if (typeof updateClientErrorBadge === 'function') updateClientErrorBadge();
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
