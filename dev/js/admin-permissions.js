@@ -4,8 +4,11 @@
 //   그리드에서 super_admin 이 접근수준(쓰기/읽기/숨김)을 설정.
 //   저장 = update_role_permissions RPC(일괄·원자·이력·권한상승/충돌 가드, storage.js saveRolePermissions).
 //   ⚠️ 이 설정은 "화면 표시 제어"다. 실제 데이터 접근 차단이 아니다(서버 RLS/has_permission 이 방어선, PR3).
-//      그래서 상단 경고 배너에 범례를 두고, 기능마다 「서버 차단 / 화면에서만 / 슈퍼 적용 안 됨」
-//      배지를 붙인다(PERM_EFFECT_BADGE — 슈퍼관리자 자기 제한 관점).
+//      그래서 상단 경고 배너에 범례를 두고, 기능마다 「서버 차단 / 화면에서만 / 설정 미적용」
+//      배지를 붙인다(PERM_EFFECT_BADGE).
+//      ⚠️ 이 배지는 **모든 등급에 해당한다.** 예전엔 「슈퍼관리자 자기 제한 관점」으로만 적혀 있어,
+//      「설정 미적용」 항목의 설정이 **캠페인관리자·캠페인매니저에게도 똑같이 무효**라는 사실이
+//      어디에도 없었다 — 운영자가 그 칸을 「숨김」으로 두고 막혔다고 믿을 수 있었다.
 // ════════════════════════════════════════════════════════════════════
 
 const PERM_ROLES = [
@@ -44,11 +47,14 @@ function permCellValue(role, key) {
 //      메뉴를 못 봐도 슈퍼의 복구 경로와 무관하고, 사용자 결정이 「나머지는 권한에 따라」이기 때문.
 const PERM_SUPER_LOCKED = ['permissions.manage', 'admin.manage', 'menu.permissions', 'menu.admin-accounts'];
 
-// 「이 설정이 실제로 먹히는가」 배지 — 슈퍼관리자 열에만 의미가 있다
+// 이 설정이 「어디까지 실제로 먹히는지」 — ⚠️ **모든 등급에 해당한다.**
+//   예전 문구는 「슈퍼관리자가 제한하면…」이라고만 적어, `none` 항목의 설정이
+//   **캠페인관리자·캠페인매니저에게도 똑같이 무효**라는 사실이 어디에도 없었다.
+//   그래서 운영자는 그 칸을 「숨김」으로 바꿔 두고 막혔다고 믿을 수 있었다.
 const PERM_EFFECT_BADGE = {
-  server: '<span class="perm-tag perm-tag-server" title="슈퍼관리자가 제한하면 서버에서 데이터까지 막힙니다">서버 차단</span>',
-  client: '<span class="perm-tag" title="슈퍼관리자가 제한하면 메뉴·버튼만 감춰집니다. 데이터는 서버에서 그대로 열려 있습니다">화면에서만</span>',
-  none:   '<span class="perm-tag perm-tag-none" title="서버·화면 모두 등급을 직접 보고 판단해, 슈퍼관리자에게는 이 설정이 적용되지 않습니다">슈퍼 적용 안 됨</span>'
+  server: '<span class="perm-tag perm-tag-server" title="이 설정은 서버가 직접 확인합니다 — 숨김으로 두면 데이터까지 막힙니다">서버 차단</span>',
+  client: '<span class="perm-tag" title="이 설정은 메뉴·버튼만 감춥니다. 데이터는 서버에서 그대로 열려 있어, 주소를 직접 부르면 읽힙니다">화면에서만</span>',
+  none:   '<span class="perm-tag perm-tag-none" title="서버도 화면도 등급을 직접 보고 판단합니다 — 이 칸을 어떻게 바꿔도 아무 일도 일어나지 않습니다(모든 등급 공통)">설정 미적용</span>'
 };
 
 async function loadPermissionsPane() {
@@ -198,7 +204,8 @@ function buildSuperPermConfirmText(superKeys, totalCount) {
     const lv = ({ write: '쓰기', read: '읽기', hidden: '숨김' })[_permEdited[k]] || _permEdited[k];
     const eff = permSuperEffect(feat);
     const note = eff === 'server' ? ' (서버에서 데이터까지 막힘)'
-               : eff === 'none' ? ' (슈퍼관리자에게는 적용되지 않음)' : '';
+               : eff === 'none' ? ' (⚠️ 이 항목은 설정이 적용되지 않습니다 — 등급으로만 정해집니다)'
+               : ' (메뉴·버튼만 감춰짐 — 데이터는 열려 있음)';
     return '· ' + label + ' → ' + lv + note;
   });
   return '슈퍼관리자 권한 ' + superKeys.length + '개를 바꿉니다.\n\n'
