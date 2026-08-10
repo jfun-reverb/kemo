@@ -251,6 +251,8 @@ interface SentRow {
   campaign_id: string;
   kind: string;
   d_minus: number;
+  deadline_date: string; // [F-9] 마감일이 연장되면 새 마감일 기준으로 재안내가 나가야 하므로
+                          // 중복 차단 열쇠에 포함 — 마이그레이션 322 로 DB 쪽 UNIQUE 제약도 5-튜플로 확장
 }
 
 Deno.serve(async (req: Request) => {
@@ -560,20 +562,24 @@ Deno.serve(async (req: Request) => {
 
     // 7. 마감 임박 발송 이력 (중복 차단) 일괄 조회
     //    ⚠️ [F-4] approvedCampIds 로 걸러도 이 표는 발송 이력이 계속 쌓이는
-    //    구조(같은 캠페인·인플·kind·d_minus 조합마다 1행, 캠페인이 오래
-    //    돌수록 늘어남) — 페이지 나눔 + 안정 정렬(id).
-    const sentMap = new Set<string>(); // key: influencer_id|campaign_id|kind|d_minus
+    //    구조(같은 캠페인·인플·kind·d_minus·deadline_date 조합마다 1행, 캠페인이
+    //    오래 돌수록 늘어남) — 페이지 나눔 + 안정 정렬(id).
+    //    [F-9] 열쇠에 deadline_date 를 포함한다 — 마감일을 연장한 뒤에는
+    //    "이전 마감일 기준으로 이미 보냈다"는 이력이 새 마감일의 D-5/D-1 안내를
+    //    막으면 안 된다. 마이그레이션 322 로 DB UNIQUE 제약도 5-튜플로 확장했다
+    //    (이 키가 서버 제약과 어긋나면 11번의 벌크 INSERT 가 23505 로 막힌다).
+    const sentMap = new Set<string>(); // key: influencer_id|campaign_id|kind|d_minus|deadline_date
     if (approvedAppIds.length > 0) {
       const approvedCampIds = [...new Set((appsApproved || []).map((a) => a.campaign_id))];
       try {
         const sent = await fetchAllPaged<SentRow>(() =>
           sb.from("deadline_reminder_email_sent")
-            .select("influencer_id, campaign_id, kind, d_minus")
+            .select("influencer_id, campaign_id, kind, d_minus, deadline_date")
             .in("campaign_id", approvedCampIds)
             .order("id", { ascending: true })
         );
         sent.forEach((s) => {
-          sentMap.add(`${s.influencer_id}|${s.campaign_id}|${s.kind}|${s.d_minus}`);
+          sentMap.add(`${s.influencer_id}|${s.campaign_id}|${s.kind}|${s.d_minus}|${s.deadline_date}`);
         });
       } catch (e) {
         console.warn("[notify-infl-digest] deadline reminder log lookup failed", (e as Error).message);
@@ -629,7 +635,9 @@ Deno.serve(async (req: Request) => {
       if (camp.recruit_type === "monitor" && camp.purchase_end && !delivKinds.has("receipt")) {
         const d = dateDiffDays(camp.purchase_end, todayDate);
         if (d === 5 || d === 1) {
-          const key = `${a.user_id}|${a.campaign_id}|receipt|${d}`;
+          // [F-9] deadline_date(camp.purchase_end) 를 열쇠에 포함 — 마감 연장 시
+          // 옛 마감일로 이미 보낸 이력이 새 마감일의 재안내를 막지 않게 한다.
+          const key = `${a.user_id}|${a.campaign_id}|receipt|${d}|${camp.purchase_end}`;
           if (!sentMap.has(key)) {
             acc(a.user_id).deadline.push({ kind: "receipt", app: a, deadlineDate: camp.purchase_end, dMinus: d });
           }
@@ -644,7 +652,8 @@ Deno.serve(async (req: Request) => {
       ) {
         const d = dateDiffDays(camp.submission_end, todayDate);
         if (d === 5 || d === 1) {
-          const key = `${a.user_id}|${a.campaign_id}|post|${d}`;
+          // [F-9] deadline_date(camp.submission_end) 를 열쇠에 포함 — 위 receipt 와 동일 이유.
+          const key = `${a.user_id}|${a.campaign_id}|post|${d}|${camp.submission_end}`;
           if (!sentMap.has(key)) {
             acc(a.user_id).deadline.push({ kind: "post", app: a, deadlineDate: camp.submission_end, dMinus: d });
           }
@@ -665,7 +674,8 @@ Deno.serve(async (req: Request) => {
           if (missingChannels.length > 0) {
             const d = dateDiffDays(camp.submission_end, todayDate);
             if (d === 5 || d === 1) {
-              const key = `${a.user_id}|${a.campaign_id}|review_image|${d}`;
+              // [F-9] deadline_date(camp.submission_end) 를 열쇠에 포함 — 위 receipt 와 동일 이유.
+              const key = `${a.user_id}|${a.campaign_id}|review_image|${d}|${camp.submission_end}`;
               if (!sentMap.has(key)) {
                 acc(a.user_id).deadline.push({
                   kind: "review_image",
@@ -904,7 +914,11 @@ Deno.serve(async (req: Request) => {
 
         // 마감 임박 발송 이력 누적 (벌크 INSERT 용)
         sec.deadline.forEach((d) => {
-          const dedupKey = `${uid}|${d.app.campaign_id}|${d.kind}|${d.dMinus}`;
+          // 마감일까지 포함한다 — 저장할 행의 열쇠(마이그레이션 322 의 5개 조합)와 같은 모양이어야
+          //   이 안에서 거른 것과 데이터베이스가 거부하는 것이 어긋나지 않는다.
+          //   지금은 캠페인 정보를 실행당 한 번만 읽어 한 실행 안에서 마감일이 바뀔 수 없지만,
+          //   그 전제가 깨지면 조용히 갈린다.
+          const dedupKey = `${uid}|${d.app.campaign_id}|${d.kind}|${d.dMinus}|${d.deadlineDate}`;
           if (sentDuringRun.has(dedupKey)) return;
           sentDuringRun.add(dedupKey);
           sentInserts.push({

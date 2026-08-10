@@ -75,6 +75,42 @@ interface WebhookPayload {
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
+// ──────────────────────────────────────────────────────────────────
+// 호출자 확인(전수조사 후속 F-10, 2026-08) — **증명된 구멍만 막는다**
+//
+// 이 함수는 데이터베이스 웹훅으로 불린다. 인증 없이 부르면 플랫폼이 401 을 돌려주지만,
+//   **사이트에 그대로 박혀 있는 공개 키로 부르면 200 이 나온다**(2026-08-10 운영에서
+//   직접 확인). 즉 누구나 임의의 내용으로 이 주소를 불러 관리자에게 메일을 보내게 할 수 있었다.
+//
+// ⚠️ 그런데 「정상 웹훅이 무엇을 보내는지」는 확인할 방법이 없다 — 웹훅 설정은 대시보드에서
+//   손으로 하고 저장소·문서 어디에도 기록이 없다. 그래서 「특정 값이어야 통과」로 막지 않는다.
+//   그 값이 아니면 **이 메일이 통째로 죽는데**, 메일이 죽는 쪽이 임의 촉발보다 나쁘다
+//   (신규 광고주 신청이 들어와도 아무도 모르게 된다).
+//
+// → **공개 키로 온 호출만 거부**하고 나머지는 통과시킨다. 증명된 경로는 확실히 닫히고,
+//   정상 경로는 무엇이든 안 막힌다.
+//   ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신해야 한다.
+//   ⚠️ 통과한 호출이 무엇이었는지 기록한다(토큰 자체는 절대 안 남긴다). 실제 웹훅이 보내는
+//   값을 알게 되면 그때 「그 값이어야 통과」로 좁힐 수 있다. **그 전까지는 좁히지 마라.**
+// ──────────────────────────────────────────────────────────────────
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
 }
@@ -320,6 +356,12 @@ async function buildBrandEmail(row: BrandApplication): Promise<{ subject: string
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  if (rejectPublicKeyCaller(req, "notify-brand-application")) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   try {
