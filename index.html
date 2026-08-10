@@ -749,6 +749,8 @@ html.preview-mode #page-detail .detail-back{display:none}
 .msg-attach-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .msg-attach-remove .material-icons-round{font-size:14px}
 .msg-input-row{flex-shrink:0;display:flex;align-items:flex-end;gap:8px}
+/* 취소된 응모 — 작성 줄 자리에 들어가는 안내 한 줄(F-11) */
+.msg-readonly-note{flex-shrink:0;padding:10px 12px;font-size:13px;line-height:1.6;color:var(--muted);background:#F5F5F5;border-radius:8px;text-align:center}
 .msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
 .msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;min-height:40px;max-height:120px;box-sizing:border-box;font-family:inherit}
 .msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -1146,6 +1148,8 @@ html.preview-mode #page-detail .detail-back{display:none}
   <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
   <div class="msg-modal-input-area">
     <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
+    <!-- 취소된 응모: 읽기만 가능하다는 안내. 작성 줄 대신 이 줄을 보여준다(F-11) -->
+    <div id="msgReadOnlyNote" class="msg-readonly-note" style="display:none" data-i18n="messaging.cancelledReadOnly"></div>
     <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
     <div class="msg-input-row">
       <label class="msg-attach-btn" aria-label="attach image">
@@ -4782,7 +4786,7 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
-    cancelledBlocked: 'キャンセルされた応募はお問い合わせをご利用いただけません。',
+    cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
     loading: '読み込み中...',
@@ -5597,7 +5601,7 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
-    cancelledBlocked: '취소된 응모는 문의하기를 이용할 수 없습니다.',
+    cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
     loading: '불러오는 중...',
@@ -16916,11 +16920,13 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   if ((typeof _myApps === 'undefined' || !_myApps || !_myApps.length) && typeof loadMyApplications === 'function') {
     try { await loadMyApplications(); } catch (_e) {}
   }
-  // 취소된 응모는 메시지 진입 차단 (사용자 결정 2026-05-22)
-  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(applicationId)) {
-    if (typeof toast === 'function') toast(t('messaging.cancelledBlocked'));
-    return;
-  }
+  // 취소된 응모는 **읽기만** 허용한다(F-11, 2026-08-10 사용자 결정).
+  //   2026-05-22 에는 진입 자체를 막았는데, 관리자가 보낸 메시지는 그대로 도착하고
+  //   알림도 가서 **눌러도 못 들어가는 막다른 길**이 됐다. 안 읽음 배지가 영영 안 지워지고,
+  //   관리자 쪽에는 「안 읽음」으로 남아 무시한 것처럼 보였다.
+  //   → 들어가서 읽을 수는 있게 하고(배지도 지워진다), **새로 쓰지는 못하게** 한다.
+  //   차단 의도(취소된 건으로 새 문의를 시작하지 않는다)는 그대로 지켜진다.
+  const _msgReadOnly = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
   _msgCurrentAppId = applicationId;
   _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
@@ -16941,6 +16947,18 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === app?.campaign_id) || {};
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
+
+  // 읽기 전용(취소된 응모) — 작성 줄을 감추고 안내 한 줄로 바꾼다.
+  //   ⚠️ 모달이 아니라 페이지를 재사용하므로, 취소 아닌 응모로 들어올 때 **반드시 되돌린다.**
+  {
+    const inputRow = document.querySelector('#page-messages .msg-input-row');
+    const note = $('msgReadOnlyNote');
+    if (inputRow) inputRow.style.display = _msgReadOnly ? 'none' : '';
+    if (note) {
+      note.style.display = _msgReadOnly ? '' : 'none';
+      if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
+    }
+  }
 
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
@@ -17177,6 +17195,12 @@ function renderMsgAttachPreview() {
 // ── 전송 ──
 async function sendMessageFromModal() {
   if (!_msgCurrentAppId) return;
+  // 취소된 응모는 읽기만 가능하다(F-11). 작성 줄은 감춰 두지만, 화면 상태가 어긋난 채로
+  //   이 함수에 닿는 경로(캐시가 늦게 채워져 취소 판정이 나중에 바뀌는 등)가 있어 여기서도 막는다.
+  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
+    if (typeof toast === 'function') toast(t('messaging.cancelledReadOnly'));
+    return;
+  }
   const inputEl = $('msgModalInput');
   const body = (inputEl?.value || '').trim();
   if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
