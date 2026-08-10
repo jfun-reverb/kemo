@@ -537,7 +537,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
       groups.set(appId, {
         application_id: appId, campaign: camp || null, influencer: inf || null,
         application_status: null,  // 신청 status(approved/pending/rejected/cancelled) — 검수 불필요 판정용
-        receipt: null, result: null, reviewByChannel: {},
+        receipt: null, result: null, reviewByChannel: {}, postByChannel: {},
         hasLegacyReviewImage: false, latest_submitted_at: null,
       });
     }
@@ -561,6 +561,13 @@ function buildDeliverableGroups(delivs, campMap, opts) {
       }
     } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+      // 채널별 최신 1건 — 시딩·방문형도 「요구한 채널 전부 승인」으로 판정하기 위함(마이그레이션 331).
+      //   예전에는 result(채널 무관 최신 1건)만 봐서, 인스타·틱톡 둘 다 요구해도
+      //   **하나만 승인되면 인증 성공 + 리워드 전액**이 나갔다. 리뷰 인증샷은 원래부터 채널별이었다.
+      if (d.post_channel) {
+        const prevP = g.postByChannel[d.post_channel];
+        if (!prevP || subAt > (prevP.submitted_at || '')) g.postByChannel[d.post_channel] = d;
+      }
       (g.posts = g.posts || []).push(d);  // 채널 불일치 배지 판정용 — 신청의 모든 post 보존 (result 는 최신 1건)
     }
     if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
@@ -603,6 +610,29 @@ function _finalizeMonitorReprs(groups) {
     //   박스(unassignedBox)는 allDelivs 별도 계산이라 그대로 노출 → 거기서 정리 가능.
     if (g.hasLegacyReviewImage && repr !== 'approved') stateSet.add('legacy_no_channel');
     g.result_states = [...stateSet];
+  }
+  _finalizePostReprs(groups);
+}
+
+// 시딩·방문형 신청의 「대표 게시물 상태」 post_status_repr — 위 리뷰어형과 같은 규칙.
+//   ⚠️ 예전에는 이 계산이 아예 없었고, 인증 판정이 **채널 무관 최신 게시물 1건**만 봤다.
+//   그래서 인스타·틱톡을 둘 다 내라고 해 놓고 **하나만 승인되면 인증 성공 + 리워드 전액**이 나갔다
+//   (사용자 결정 2026-08-10 — 「둘 다 받아야 완료」. 마이그레이션 331 이 서버 판정을 같이 바꿨다).
+//   ⚠️ 서버(331)와 **같은 규칙**이어야 한다 — 채널 비교는 캠페인 토큰만 다듬고 결과물 값은 원본
+//   그대로, 대소문자 구분(마이그레이션 319 로 통일한 축).
+//   ⚠️ 채널이 비어 있으면 성공으로 보지 않는다 — 리뷰어형과 같다(판정할 근거가 없다).
+function _finalizePostReprs(groups) {
+  for (const g of groups.values()) {
+    const rt = g.campaign?.recruit_type;
+    if (rt !== 'gifting' && rt !== 'visit') continue;
+    const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (channels.length === 0) { g.post_status_repr = 'none'; continue; }
+    const states = channels.map(ch => (g.postByChannel[ch]?.status) || 'none');
+    let repr = 'approved';
+    if (states.includes('rejected')) repr = 'rejected';
+    else if (states.includes('pending')) repr = 'pending';
+    else if (states.includes('none')) repr = 'none';
+    g.post_status_repr = repr;
   }
 }
 
@@ -652,10 +682,15 @@ function computeCertStatus(g) {
     if (g.receipt && g.receipt.status === 'approved' && g.result_status_repr === 'approved') return 'success';
     return 'submitting';
   }
-  // gifting / visit — 게시물(post) 단독
-  if (!g || !g.result) return 'none';
-  if (g.result.status === 'approved') return 'success';
-  return 'submitting';
+  // gifting / visit — **요구한 채널 전부**가 승인돼야 성공(2026-08-10 결정, 마이그레이션 331).
+  //   예전에는 `g.result`(채널 무관 최신 1건)만 봐서 하나만 승인돼도 성공이었다.
+  //   ⚠️ 채널이 빈 캠페인은 판정할 근거가 없어 성공이 되지 않는다(리뷰어형과 같다).
+  if (!g) return 'none';
+  const repr = g.post_status_repr;
+  if (repr === 'approved') return 'success';
+  if (repr && repr !== 'none') return 'submitting';
+  // 대표 상태가 없거나 'none' — 아무것도 안 냈으면 미제출, 뭔가 냈으면 진행 중
+  return g.result ? 'submitting' : 'none';
 }
 // 인증 상태 한국어 라벨 (엑셀 공용)
 // 검수대기 신청 판정 — 신청의 각 결과물 "최신 1건" 중 하나라도 검수대기(pending)면 true.

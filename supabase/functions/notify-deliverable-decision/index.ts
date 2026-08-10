@@ -237,16 +237,17 @@ async function fetchChannelLabelMap(
 //   대소문자·트림 처리는 마이그레이션 300 과 동일하게: 캠페인 쪽 토큰만 trim, 결과물의
 //   post_channel 값은 원본 그대로(대소문자 구분) — 다르게 하면 화면·정산과 또 갈린다.
 // 반환값 null = 조회 실패(호출부는 "모르면 완료라고 말하지 않는다"로 처리할 것).
-async function fetchMissingReviewChannels(
+async function fetchMissingChannels(
   sb: any,
   applicationId: string,
   requiredChannels: string[],
+  kind: "review_image" | "post",
 ): Promise<string[] | null> {
   const { data, error } = await sb
     .from("deliverables")
     .select("post_channel, status, submitted_at, updated_at")
     .eq("application_id", applicationId)
-    .eq("kind", "review_image")
+    .eq("kind", kind)
     .not("post_channel", "is", null)
     // 임시저장은 「아직 안 낸 것」 — 세지 않는다.
     //   지금은 채널당 행이 하나뿐이라(마이그레이션 158 의 중복 금지 + 재제출이 새 행 대신
@@ -289,9 +290,11 @@ async function fetchMissingReviewChannels(
 // 판정 근거는 dev/js/admin-deliverables.js 의 computeCertStatus·_finalizeMonitorReprs 및
 // 마이그레이션 300 의 _settlement_cert_candidates()(channel_cert CTE)와 어긋나지 않게 맞췄다.
 //
-// post(시딩·방문형 게시물) 승인은 이번 수정 대상이 아니다 — 신청당 승인된 게시물 1건이면
-// 인증 성공이 성립해(마이그레이션 300 post_latest, 채널을 안 봄) 기존 "전부 완료" 문구가
-// 시스템 판정과 이미 일치한다. 그 판정 자체가 옳은지는 별개 사안(범위 밖).
+// post(시딩·방문형 게시물) 분기도 **마이그레이션 331 로 채널 완성도 판정이 추가됐다**(2026-08-10).
+// ⚠️ 이 자리에는 원래 「게시물 1건이면 인증 성공이라 기존 '전부 완료' 문구가 시스템 판정과
+// 이미 일치한다」고 적혀 있었다. 그 근거였던 규칙(300 의 post_latest — 채널을 안 봄)을
+// **331 이 뒤집었다** — 요구한 채널 전부가 승인돼야 성공이다. 주석을 안 고쳤으면
+// 다음 사람이 「post 는 손대지 않은 자리」로 읽었을 것이다. 아래 분기 참조.
 //
 // rejected 케이스에서는 호출되지 않음(템플릿 자체가 다름).
 async function buildNextStepBlock(
@@ -364,7 +367,7 @@ async function buildNextStepBlock(
         `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
       );
     }
-    const missingChannels = await fetchMissingReviewChannels(sb, applicationId, requiredChannels);
+    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "review_image");
     // 조회 실패 — 완료 여부를 모르는 채 "완료"라고 말하지 않는다. 최소한의 진행 상황만 전달.
     if (missingChannels === null) {
       return nextStepBox(
@@ -399,9 +402,44 @@ async function buildNextStepBlock(
   }
 
   if (kind === "post") {
+    // ⚠️ 예전에는 여기서 무조건 「전부 완료·지급 준비」라고 했다. 근거는 「시딩·방문형은
+    //   승인된 게시물 1건이면 인증 성공」이었는데, **마이그레이션 331 이 그 규칙을 뒤집었다**
+    //   (요구한 채널 전부가 승인돼야 성공 — 2026-08-10 사용자 결정).
+    //   그대로 두면 **서버는 지급 대상이 아닌데 메일은 지급을 예고**한다. 리뷰 인증샷 분기와
+    //   같은 방식으로 채널 완성 여부를 본다.
+    const requiredChannels = (camp.channel || "")
+      .split(",").map((c) => c.trim()).filter(Boolean);
+    // 채널이 기록 안 된 옛 캠페인 — 판정할 근거가 없다. 서버 판정에서도 인증 성공이 되지 않으므로
+    //   완료를 단정하지 않는다(리뷰 인증샷 분기와 같은 판단).
+    if (requiredChannels.length === 0) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">投稿URLが承認されました。次のステップは「活動管理」でご確認ください。</div>`,
+      );
+    }
+    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "post");
+    if (missingChannels === null) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">投稿URLが承認されました。他のチャンネル分の提出状況は「活動管理」でご確認ください。</div>`,
+      );
+    }
+    if (missingChannels.length === 0) {
+      return nextStepBox(
+        "green",
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+      );
+    }
+    let missingLabel = "他のチャンネル分";
+    if (requiredChannels.length >= 2) {
+      const labelMap = await fetchChannelLabelMap(sb, missingChannels);
+      const labels = missingChannels.map((ch) => labelMap.get(ch)).filter(Boolean) as string[];
+      missingLabel = labels.length === missingChannels.length ? labels.join("・") : "他のチャンネル分";
+    }
     return nextStepBox(
-      "green",
-      `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+      "blue",
+      `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>次のステップ — 残りの投稿URLの提出</strong></div>` +
+      `<div style="font-size:13px;color:#222;line-height:1.7">${escapeHtml(missingLabel)}の投稿URLがまだ未提出、または未承認です。「活動管理」から提出してください。</div>`,
     );
   }
   return "";
