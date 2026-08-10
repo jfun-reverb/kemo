@@ -1555,10 +1555,13 @@ function setRolePermMap(rows) {
 }
 const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 
-// 슈퍼관리자가 스스로를 제한했을 때 그 설정이 「어디까지 실제로 먹히는지」.
+// 이 설정이 「어디까지 실제로 먹히는지」 — ⚠️ **모든 등급에 해당한다**(슈퍼관리자 전용 판정 아님).
 //   server = 서버가 데이터까지 막음  ·  client = 화면에서만 사라짐  ·  none = 아무 일도 안 일어남
 //   ⚠️ none 인 항목들은 서버 가드가 is_campaign_admin() 하드코딩이고 화면 가드도 등급 직접 비교라
-//      권한 설정을 무시한다. 그 12개를 진짜로 막으려면 서버 가드를 갈아끼우는 별도 작업이 필요하다
+//      권한 설정을 무시한다 — **캠페인관리자·캠페인매니저 칸도 똑같이 무효다.**
+//      2026-08-10(I-15) 에 화면 배지 이름을 「슈퍼 적용 안 됨」→「설정 미적용」으로 바꾸고
+//      문구를 등급 중립으로 정정했다. 그 전에는 운영자가 그 칸을 「숨김」으로 두고 막혔다고 믿을 수 있었다.
+//      그 12개를 진짜로 막으려면 서버 가드를 갈아끼우는 별도 작업이 필요하다
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
