@@ -4102,6 +4102,7 @@ async function fetchSettlements(opts) {
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
+        cert_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -4373,9 +4374,14 @@ async function fetchPastUnregisteredSettlements() {
 //   p_target_status: 'paid'(이미 외부 PayPal 지급 완료) | 'pending'(아직 미지급, 정산 대기)
 //   서버가 has_permission('settlement.pay','write') 게이트 + settlement_events 이력 기록.
 // 반환: registered_count(정수 — 실제 등록된 건수. 이미 정산행 있는 건은 skip 되어 제외).
+// 반환: {registered, skippedNoPaypal}
+//   ⚠️ 예전에는 등록 건수(숫자) 하나만 돌려줬다. 마이그레이션 324 가 「송금완료로 기록하려는데
+//   페이팔이 없는 건」을 배치에서 빼기 시작했는데(단건은 원래 막았다), 빠진 건수를 안 보여주면
+//   관리자는 **왜 고른 수보다 적게 처리됐는지 알 수 없다.**
 async function registerPastSettlements(applicationIds, targetStatus, memo) {
   if (!db) throw new Error('DB 미연결');
   let registered = 0;
+  let skippedNoPaypal = 0;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('register_past_settlements', {
       p_application_ids: applicationIds,
@@ -4383,12 +4389,12 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
       p_memo: memo || null
     });
     if (error) throw error;
-    // 스칼라(정수) 또는 {registered_count} 단일 행 양쪽 대응
-    registered = Array.isArray(data)
-      ? (data[0]?.registered_count ?? data[0] ?? 0)
-      : (data?.registered_count ?? data ?? 0);
+    // 스칼라(정수) 또는 {registered_count, skipped_no_paypal_count} 단일 행 양쪽 대응
+    const row = Array.isArray(data) ? data[0] : data;
+    registered = (row?.registered_count ?? row ?? 0);
+    skippedNoPaypal = (row?.skipped_no_paypal_count ?? 0);
   });
-  return Number(registered) || 0;
+  return { registered: Number(registered) || 0, skippedNoPaypal: Number(skippedNoPaypal) || 0 };
 }
 
 // ── 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283 ──────────────────
