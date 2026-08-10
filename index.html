@@ -6327,15 +6327,47 @@ function computeCampaignStatus(camp) {
 // campaigns 행은 deleted_at 만 세팅해 30일간 보관한다(개인정보 즉시 파기 원칙).
 // 정산(settlements) 이 걸린 신청이 있으면 251 트리거가 막아 예외로 반환(그대로 throw).
 // 반환값 = 삭제된 신청 건수(정보용, 화면에서 안내 문구에 활용 가능).
+// 반환: {deletedApplications, storageResult}
+//   ⚠️ 예전에는 지운 신청 건수(숫자)만 돌려받고 **저장소 파일은 아무것도 안 지웠다.**
+//   보관 삭제는 캠페인 행만 30일 남기고 신청·결과물은 즉시 파기하는데, 그 결과물이 가리키던
+//   **영수증·인증샷·메시지 첨부는 공개 버킷에 그대로 남았다.** 게다가 데이터베이스에서 경로가
+//   사라져 **나중에 찾아 지울 방법조차 없었다.**
+//   마이그레이션 325 가 「신청을 지우기 직전에 경로를 모아 돌려주도록」 바꿨고, 실제 파일 삭제는
+//   여기서 한다(감사용 계정 청소 `purgeAuditDataForCampaign` 과 같은 방식).
+//   ⚠️ 캠페인 이미지(img1~8)는 **일부러 안 지운다** — 개인정보가 아니고, 30일간 캠페인 행이
+//   살아 있어 지금 지우면 복구했을 때 사진 없는 캠페인이 된다.
 async function softDeleteCampaign(campaignId) {
   if (!db) throw new Error('DB 미연결');
-  let deletedApps = 0;
-  await retryWithRefresh(async () => {
+  return await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('soft_delete_campaign', {p_campaign_id: campaignId});
     if (error) throw error;
-    deletedApps = data || 0;
+
+    // ⚠️ 실제 모양은 `data.deleted.applications`(중첩)다. 평면으로 읽으면 늘 0 이 나오는데,
+    //   지금은 이 값을 화면에 안 써서 티가 안 난다 — 나중에 「신청 N건 삭제」 문구에 그대로
+    //   쓰면 조용히 0 이 뜬다.
+    const deletedApplications = (data && typeof data === 'object')
+      ? ((data.deleted && data.deleted.applications) ?? 0)
+      : (data || 0);   // 마이그레이션 325 적용 전(숫자 반환) 대비
+
+    const paths = (data && typeof data === 'object') ? data.storage_paths_to_delete : null;
+    if (!paths) return { deletedApplications, storageResult: null };
+
+    const msgPaths = Array.isArray(paths.message_attachments)
+      ? paths.message_attachments.filter(Boolean)
+      : [];
+    // 영수증·인증샷은 전체 주소로 저장돼 있어 버킷 상대 경로로 바꿔야 한다(기존 헬퍼 재사용).
+    const receiptPaths = Array.isArray(paths.receipt_images)
+      ? paths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    // 파일 삭제가 실패해도 **캠페인 삭제 자체는 이미 끝났다** — 여기서 예외를 던지면
+    //   화면이 「삭제 실패」로 보여 관리자가 다시 누르게 된다(이미 지워진 것을 또 지운다).
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+    return { deletedApplications, storageResult: { msgResult, receiptResult } };
   });
-  return deletedApps;
 }
 
 // 복구 — RPC restore_campaign(마이그레이션 256). campaign_admin 이상.
@@ -7747,18 +7779,21 @@ async function activateLookup(id) {
 }
 
 // 캠페인에서 사용 중인지 확인 (channel/category만 의미. content_type은 콤마 문자열 검사)
+//   ⚠️ **보관 삭제된 캠페인은 세지 않는다**(`deleted_at IS NULL`). 안 그러면 이미 지운 캠페인
+//   때문에 「사용 중」으로 판정돼 기준 데이터를 영영 못 지운다 — 관리자는 어느 캠페인이
+//   붙잡고 있는지 화면 어디서도 찾을 수 없다(활성 목록에 안 보이므로).
 async function isLookupInUse(row) {
   if (!db || !row) return false;
   if (row.kind === 'channel') {
-    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('channel', `%${row.code}%`);
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).is('deleted_at', null).ilike('channel', `%${row.code}%`);
     return (count || 0) > 0;
   }
   if (row.kind === 'category') {
-    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).eq('category', row.code);
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).is('deleted_at', null).eq('category', row.code);
     return (count || 0) > 0;
   }
   if (row.kind === 'content_type') {
-    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('content_types', `%${row.name_ja}%`);
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).is('deleted_at', null).ilike('content_types', `%${row.name_ja}%`);
     return (count || 0) > 0;
   }
   // ng_item lookup은 비활성(active=false) 처리됨 — ng_sets 번들로 대체 (migration 107)
@@ -8507,7 +8542,10 @@ async function fetchCampaignCountsByBrand() {
     var counts = {};
     var from = 0, size = 1000;
     while (true) {
+      // 보관 삭제된 캠페인은 세지 않는다 — 브랜드 목록의 「캠페인 수」가 실제보다 부풀어
+      //   보이고, 관리자가 그 숫자를 근거로 「아직 캠페인이 남았다」고 오판한다.
       const {data, error} = await db?.from('campaigns').select('brand_id')
+        .is('deleted_at', null)
         .not('brand_id', 'is', null).range(from, from + size - 1);
       if (error) throw error;
       (data || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
@@ -8523,7 +8561,10 @@ async function fetchCampaignCountsByBrand() {
 async function countCampaignsByBrand(brandId) {
   if (!db) return 0;
   try {
-    const {count, error} = await db?.from('campaigns').select('id', {count:'exact', head:true}).eq('brand_id', brandId);
+    // 보관 삭제된 캠페인 제외 — 서버의 브랜드 삭제 판정(마이그레이션 325)과 같은 기준.
+    //   기준이 어긋나면 화면은 「0개」인데 삭제는 「캠페인이 남아 있다」로 막힌다.
+    const {count, error} = await db?.from('campaigns').select('id', {count:'exact', head:true})
+      .is('deleted_at', null).eq('brand_id', brandId);
     if (error) throw error;
     return count || 0;
   } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
@@ -17400,12 +17441,32 @@ function renderFaqBody(text, ctx) {
 // ── FAQ 노드 로드 (게이트→봇 카드 전환 2026-05-22) ──
 //   진입 시 1회 active 노드 로드만. 추천 안내는 renderMessageThread 가 스레드 맨 위
 //   봇 카드(_faqBotCardHtml)로 그린다. 입력란 위 고정 게이트는 폐기.
+// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
+//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
+function faqNodeChainActive(node, byId) {
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur.active) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
+  }
+  return true;
+}
+
 async function setupFaqGate(app, camp) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
   try {
     const all = await fetchFaqNodes();
-    _faqNodes = (all || []).filter(n => n.active);
+    // 자기 자신뿐 아니라 **위쪽(카테고리)이 살아 있는지도** 본다.
+    //   예전에는 `n.active` 만 봐서, 관리자가 카테고리를 비활성해도 그 안의 질문이
+    //   추천 카드에 계속 떴다 — 「안 보이게 했다」고 생각한 내용이 인플루언서에게 그대로 갔다.
+    //   위로 거슬러 올라가며 하나라도 꺼져 있으면 뺀다(도중에 부모가 없으면 거기서 멈춘다).
+    const _byId = {};
+    (all || []).forEach(n => { if (n && n.id) _byId[n.id] = n; });
+    _faqNodes = (all || []).filter(n => faqNodeChainActive(n, _byId));
     _faqLoaded = true;
   } catch (e) {
     console.error('[setupFaqGate]', e);

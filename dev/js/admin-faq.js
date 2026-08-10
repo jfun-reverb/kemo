@@ -208,7 +208,13 @@ async function toggleFaqNodeActive(id, active) {
   if (!r.ok) { toast('상태 변경 실패: ' + (r.error || ''), 'error'); await refreshPane('faq'); return; }
   const n = _faqNodes.find(x => x.id === id);
   if (n) n.active = !!active;
-  toast('변경되었습니다');
+  // 카테고리를 끄면 그 안의 질문도 함께 안 보이게 된다 — 질문 각각은 「활성」 그대로라
+  //   화면만 봐서는 몇 개가 숨겨졌는지 알 수 없다. 건수를 알려 준다.
+  //   (인플루언서 쪽 판정은 `faqNodeChainActive` — 위쪽이 꺼져 있으면 뺀다)
+  const childCount = (n && n.kind === 'category' && !active) ? _faqItemsOf(id).filter(q => q.active).length : 0;
+  toast(childCount > 0
+    ? `변경되었습니다. 이 카테고리의 질문 ${childCount}개도 함께 노출되지 않습니다`
+    : '변경되었습니다');
 }
 
 // 카테고리 삭제 (자식 질문 cascade 경고)
