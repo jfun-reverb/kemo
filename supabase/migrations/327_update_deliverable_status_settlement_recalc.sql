@@ -22,7 +22,7 @@
 --   "인플루언서가 반려된 영수증을 다시 제출 → 관리자가 그 새 영수증을 승인"
 --   (update_deliverable_status, 마이그레이션 035 원본, 084 는 REVOKE/GRANT만 재실행
 --   해 로직 변경 없음 — grep 재확인: `grep -rl "FUNCTION public.update_deliverable_status"
---   supabase/migrations/*.sql` → 035·084 두 곳뿐, 084 는 CREATE 문 없이 REVOKE/GRANT
+--   supabase/migrations/ *.sql` → 035·084 두 곳뿐, 084 는 CREATE 문 없이 REVOKE/GRANT
 --   만 있음. 035 가 현재 유효한 유일한 본문 정의).
 --
 --   영수증은 재제출할 때마다 새 행이 쌓이는 구조다(301 파일 상단 설명 그대로 —
@@ -142,8 +142,8 @@
 --   UPDATE) 301 의 대상 자체가 아니다(302 파일이 이미 확인해 둔 사실, 변경 없음).
 --
 -- ── 「최신 영수증」을 고르는 다른 지점이 더 있는가 — 전수 확인 결과 ──
---   `grep -rn "kind = 'receipt'" supabase/migrations/*.sql` + `grep -rn
---   "ORDER BY.*submitted_at" supabase/migrations/*.sql` 로 전수 확인했다.
+--   `grep -rn "kind = 'receipt'" supabase/migrations/ *.sql` + `grep -rn
+--   "ORDER BY.*submitted_at" supabase/migrations/ *.sql` 로 전수 확인했다.
 --   ① _settlement_cert_candidates()(현재 원본 318) — 이미 임시저장 제외(원래부터
 --      이번 정정의 기준으로 삼은 곳).
 --   ② update_receipt_admin — 이번에 정정(위 참고).
@@ -900,12 +900,12 @@ ORDER BY differs DESC, o.application_id;
 
 -- ══════════════ C. 다른 「최신 영수증」 선택 지점 부재 확인 ══════════════
 
--- [C1] 이 두 함수·헬�퍼(_settlement_cert_candidates, 318) 외에 "kind='receipt'" +
+-- [C1] 이 두 함수·헬퍼(_settlement_cert_candidates, 318) 외에 "kind='receipt'" +
 --   "정렬 후 1건"을 고르는 살아있는 정의가 더 있는지 최종 재확인(정적 확인 — 이
 --   파일 상단 "다른 지점이 더 있는가" 절의 grep 을 그대로 다시 실행해 결과가
 --   같은지 확인. SQL Editor 가 아니라 로컬에서 아래 두 명령을 실행):
---     grep -rn "kind = 'receipt'" supabase/migrations/*.sql
---     grep -rn "ORDER BY.*submitted_at" supabase/migrations/*.sql
+--     grep -rn "kind = 'receipt'" supabase/migrations/ *.sql
+--     grep -rn "ORDER BY.*submitted_at" supabase/migrations/ *.sql
 --   기대: 위 목록(①~⑨)과 동일한 결과 — 새로운 지점이 추가돼 있지 않아야 한다.
 
 */
