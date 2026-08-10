@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786335002';
+  var CURRENT_BUILD = 'v1786337846';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-10 13:10 · 84d887b</span>
+          <span class="admin-build-text">2026-08-10 13:57 · 85664ad</span>
         </div>
       </div>
     </aside>
@@ -8721,6 +8721,7 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   /Invalid login credentials|already registered|already exists|email.?not.?confirmed/i,
   // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
   /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
+  /campaign_deleted|recruit_not_open/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
@@ -13776,6 +13777,7 @@ const _ERR_DICT = {
     credentials: 'メールアドレスまたはパスワードが正しくありません',
     slotsFull: '募集定員に達したため、応募を受け付けておりません',
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
+    recruitNotOpen: 'このキャンペーンは現在応募を受け付けていません',
     submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
     settlementLockedReceipt: 'このキャンペーンはすでに精算の手続きが済んでいるため、レシートを新しく提出することはできません。ご不明な点はお問い合わせください',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
@@ -13799,6 +13801,7 @@ const _ERR_DICT = {
     credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
     slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
+    recruitNotOpen: '이 캠페인은 현재 응모를 받지 않습니다',
     submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
     settlementLockedReceipt: '이 캠페인은 이미 정산 처리가 끝나 영수증을 새로 제출할 수 없습니다. 궁금한 점은 문의해 주세요',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
@@ -13820,6 +13823,9 @@ function friendlyErrorJa(e) {
   //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
   if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
   if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
+  // 캠페인이 모집중이 아니거나 삭제됐을 때(마이그레이션 326). 정상 동선에서는 화면이 먼저 막아
+  //   도달하지 않지만, 등록해 두지 않으면 그 순간 **일본어 화면에 한국어 원문**이 그대로 뜬다.
+  if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
@@ -23410,9 +23416,17 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
     } else {
       // visible
       if (fromAdmin) {
-        // 운영팀 발신 + 25분 이내 → 회수 (회수는 withdraw_own_message RPC 가 본인 검증)
+        // 운영팀 발신 + **내가 보낸 것** + 25분 이내 → 회수
+        //   ⚠️ 예전에는 「운영팀 발신」만 봤다. 그래서 **다른 관리자 메시지에도 버튼이 뜨고,
+        //   누르면 서버가 본인이 아니라며 거부**했다(일본어 오류가 한국어 화면에 노출).
+        //   판정 값 `sender_id` 는 마이그레이션 326 이 조회에 추가했다(관리자에게만 채워진다).
+        //   ⚠️ 일괄 발송 회수(아래 `canWithdraw`)에는 최고 관리자 예외가 있지만 **여기엔 넣지 마라** —
+        //   개별 회수 함수(`withdraw_own_message`)에는 그 예외가 없어, 버튼만 뜨고 또 실패한다.
+        //   ⚠️ `sender_id` 가 비어 있으면(마이그레이션 326 적용 전) 버튼을 안 그린다 —
+        //   누구 것인지 모르는 채 그리면 예전 상태로 돌아간다.
+        const isMine = !!msg.sender_id && msg.sender_id === currentAdminInfo?.auth_id;
         const elapsed = now - new Date(msg.created_at).getTime();
-        if (elapsed < ADM_MSG_WITHDRAW_LIMIT_MS) {
+        if (isMine && elapsed < ADM_MSG_WITHDRAW_LIMIT_MS) {
           const pathsJson = esc(JSON.stringify(atts.map(a => a.path)));
           actions += `<button type="button" class="adm-msg-act withdraw" onclick='confirmAdmWithdraw("${esc(msg.id)}", ${pathsJson})'>회수</button>`;
         }
