@@ -544,12 +544,15 @@ async function confirmSettlementReason() {
 //   · 처리 버튼과 달리 읽기 전용(낙관적 락 없음). 취소 건도 열람 가능.
 
 // action 코드 → 한국어 라벨 (결과물 이력 타임라인 라벨 매핑 패턴 미러)
+//   ⚠️ 서버가 쓰는 동작 코드가 늘면 여기에도 한 줄 추가할 것 — 빠지면 한국어 화면에
+//   영어 코드가 그대로 뜬다(`recalc` 가 실제로 그랬다. 마이그레이션 302 가 추가한 값).
 const SETTLEMENT_EVENT_LABELS = {
   create: '생성(자동 등록)',
   pay:    '송금 완료',
   hold:   '보류',
   cancel: '취소',
   revert: '보류 해제',
+  recalc: '금액 재계산(영수증 수정)',
 };
 
 async function openSettlementHistoryModal(id) {
