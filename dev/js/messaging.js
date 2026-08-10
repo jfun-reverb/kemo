@@ -745,6 +745,15 @@ async function faqMarkResolved(itemId) {
 
 // [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록
 async function faqStartDirectContact(itemId) {
+  // 읽기 전용(취소된 응모)에서는 보낼 곳이 없다 — 이 버튼은 입력창으로 데려가는 게 전부라
+  //   그대로 두면 눌러도 아무 일이 안 일어나는 또 다른 막다른 길이 된다(F-11 리뷰 지적).
+  //   기록도 남기지 않는다 — 실제로 문의로 이어지지 않은 클릭이 관리자 화면의
+  //   「직접문의 전환수」에 섞이면 그 숫자가 사실과 달라진다.
+  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
+    closeFaqOverlay();
+    if (typeof toast === 'function') toast(t('messaging.cancelledReadOnly'));
+    return;
+  }
   await recordFaqInteraction(_msgCurrentAppId, itemId || null, 'handoff');
   closeFaqOverlay();
   const inputEl = $('msgModalInput');

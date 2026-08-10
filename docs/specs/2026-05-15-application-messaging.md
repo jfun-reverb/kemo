@@ -1339,7 +1339,7 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 
 **변경:**
 - `#msgModal`(`.msg-modal` 오버레이) → `#page-messages`(`.page`, `#appShell` 내부). 페이지는 기존 모바일 키보드 패턴(`#appShell` `position:fixed` + visualViewport)을 상속해 키보드 가림 문제 근본 해결.
-- 진입 `openMessagesPage(applicationId, from, pushHistory)` — 캐시 보장(`_myApps` 비면 `loadMyApplications`) + 취소건 차단(`isApplicationCancelled`→toast `messaging.cancelledBlocked`) + `navigate('messages-'+id)` 라우팅.
+- 진입 `openMessagesPage(applicationId, from, pushHistory)` — 캐시 보장(`_myApps` 비면 `loadMyApplications`) + 취소건 **읽기 전용**(`isApplicationCancelled` → 작성 줄 숨김 + `messaging.cancelledReadOnly` 안내. **2026-08-10 변경** — 그 전에는 진입 자체를 막아 관리자 메시지·알림이 가도 못 들어가는 막다른 길이었다) + `navigate('messages-'+id)` 라우팅.
 - 이탈 정리 `cleanupMessagesPage()` — navigate 의 페이지 전환 훅(이전 active 가 `page-messages` 이고 다른 페이지로 가면 호출)에서 폴링 정지·상태 초기화.
 - 헤더 뒤로가기 `navigateBackFromMessages()` → 응모이력 복귀.
 - 라우팅 5곳에 `messages-{id}` 분기: `navigate`/`popstate`/초기 해시 복원/DOMContentLoaded initPage/`updateActiveNav`. 해시 `#messages-{id}` 로 새로고침 복원(detail 패턴).
@@ -1347,6 +1347,7 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 - 진입점 교체: `dev/js/mypage.js`(메시지 버튼), `dev/js/notifications.js`(message_received 알림) → `openMessagesPage`.
 
 **사용자 결정:** 뒤로가기 버튼 둠 / 취소 응모 진입 차단 / 개발서버까지만 배포(메시지 운영 보류 유지).
+→ ⚠️ **취소 응모 진입 차단은 2026-08-10 에 「읽기 전용」으로 바뀌었다**(전수조사 F-11). 관리자 메시지와 알림은 그대로 갔는데 눌러도 못 들어가, 안 읽음 배지가 영영 안 지워지고 관리자 쪽에는 무시한 것처럼 보였다. 지금은 들어가 읽을 수 있고(배지도 지워진다) 새로 쓰지만 못 한다.
 **DB 변경:** 없음.
 
 ### PR 1 — 기반 인프라 + 인플루언서 메시지 (2026-05-20)
@@ -1430,7 +1431,7 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 | 같은 응모건 일괄 누적 | **허용** | 사용자 명시 "단체 정의 달리해서 여러 번 보낼 수도" |
 | 첨부 구조 | **1개 원본 + N명 공유** (같은 Storage 경로) | 용량·관리 단순. 회수 시 자연 동기. 사양서 §3-5 「관리자 처분·일괄 회수는 영구 보존」 일관 |
 | 회수 권한 | **발송자 본인 또는 super_admin** | 사양서 §3-5 ③ 유지 |
-| cancelled 응모 | **기본 필터에서 제외** | 인플 화면 cancelled 진입 차단(PR 1) → 발송해도 못 봄. 향후 명시 옵션은 v2 |
+| cancelled 응모 | **기본 필터에서 제외** | ⚠️ 사유였던 「인플 화면 진입 차단」은 **2026-08-10 에 읽기 전용으로 바뀌어 이제 볼 수 있다**(F-11). 기본 제외 자체를 유지할지는 재검토 대상 |
 | 운영 배포 게이트 | **약관 4종 갱신 + 사전 통지 발송 + 시행일 도래 후 PR 3 단독 운영 배포** | 2026-05-28 사용자 결정 — 약관 절차 우선 가속, PR 4·5 와 분리 트랙. 한국 개인정보 보호법(PIPA) + 일본 개인정보보호법(APPI) 중대 변경 의무 충족 후에만 가능. 절차는 본 PR 3 §8 참조 |
 | 90일 차단 | **관리자 일괄도 면제** | 개별 send 정책과 일관 (`is_admin()` 면제 분기) |
 | Rate limit | **개별 100건/시간과 별도** | 일괄 RPC 안에서는 시간 제한 없이 1회 200명만 검증 |
