@@ -189,13 +189,15 @@ async function fetchCampaignApplicationCounts() {
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
 async function autoOpenCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // ⚠️ 판정은 **일본 시각**으로 한다(jstTodayStr). 예전에는 기기 시계(new Date + setHours)를
+  //   썼는데, 주석은 「일본 시각 기준」이라 적혀 있으면서 실제로는 그 관리자의 시계를 따랐다.
+  //   해외에서 접속하거나 시계가 잘못 맞춰진 기기에서는 하루 어긋나고, 그 어긋남이
+  //   **캠페인 상태를 실제로 바꾼다**(되돌리려면 손으로 고쳐야 한다).
+  //   서버 검사 장치(마이그레이션 272)와 화면 판정(recruitDeadlinePassed)이 이미 이 기준이다.
+  const today = jstTodayStr();                       // 'YYYY-MM-DD'
   const toOpen = camps.filter(c => {
     if (c.status !== 'scheduled' || !c.recruit_start) return false;
-    const rs = new Date(c.recruit_start);
-    rs.setHours(0, 0, 0, 0);
-    return now >= rs;
+    return String(c.recruit_start).slice(0, 10) <= today;   // 사전순 = 날짜순
   });
   if (!toOpen.length) return camps;
   const results = await Promise.allSettled(toOpen.map(c => {
@@ -215,13 +217,12 @@ async function autoOpenCampaigns(camps) {
 // 마감일 경과 캠페인 자동 상태 변경 (병렬 UPDATE)
 async function autoCloseCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // 일본 시각 기준 — autoOpenCampaigns 의 주석 참고. 마감일 **당일 24시까지는 안 지난 것**으로
+  //   보는 규칙(서버 트리거 272·화면 recruitDeadlinePassed 와 동일)을 그대로 따른다.
+  const today = jstTodayStr();
   const toClose = camps.filter(c => {
     if (c.status !== 'active' || !c.deadline) return false;
-    const dl = new Date(c.deadline);
-    dl.setHours(23, 59, 59, 999);
-    return now > dl;
+    return String(c.deadline).slice(0, 10) < today;
   });
   if (!toClose.length) return camps;
   const results = await Promise.allSettled(toClose.map(c => {
@@ -242,15 +243,16 @@ async function autoCloseCampaigns(camps) {
 //   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
 async function autoEndCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // 일본 시각 기준 — autoOpenCampaigns 의 주석 참고.
+  //   ⚠️ 이 전이가 특히 중요하다 — 「종료」로 바뀌면 심사중 응모가 **전원 자동 낙첨**되는
+  //   검사 장치가 깨어난다(마이그레이션 176). 기기 시계로 하루 일찍 판정하면 그 사람들이
+  //   하루 일찍 떨어진다.
+  const today = jstTodayStr();
   const toEnd = camps.filter(c => {
     // 행사 캠페인은 제출 마감일이 없어 마지막 방문일을 기준으로 삼는다(campaignFinishDate).
     const fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(c) : c.submission_end;
     if (c.status !== 'closed' || !fin) return false;
-    const se = new Date(fin);
-    se.setHours(23, 59, 59, 999);
-    return now > se;
+    return String(fin).slice(0, 10) < today;
   });
   if (!toEnd.length) return camps;
   const results = await Promise.allSettled(toEnd.map(c => {
@@ -326,15 +328,47 @@ function computeCampaignStatus(camp) {
 // campaigns 행은 deleted_at 만 세팅해 30일간 보관한다(개인정보 즉시 파기 원칙).
 // 정산(settlements) 이 걸린 신청이 있으면 251 트리거가 막아 예외로 반환(그대로 throw).
 // 반환값 = 삭제된 신청 건수(정보용, 화면에서 안내 문구에 활용 가능).
+// 반환: {deletedApplications, storageResult}
+//   ⚠️ 예전에는 지운 신청 건수(숫자)만 돌려받고 **저장소 파일은 아무것도 안 지웠다.**
+//   보관 삭제는 캠페인 행만 30일 남기고 신청·결과물은 즉시 파기하는데, 그 결과물이 가리키던
+//   **영수증·인증샷·메시지 첨부는 공개 버킷에 그대로 남았다.** 게다가 데이터베이스에서 경로가
+//   사라져 **나중에 찾아 지울 방법조차 없었다.**
+//   마이그레이션 325 가 「신청을 지우기 직전에 경로를 모아 돌려주도록」 바꿨고, 실제 파일 삭제는
+//   여기서 한다(감사용 계정 청소 `purgeAuditDataForCampaign` 과 같은 방식).
+//   ⚠️ 캠페인 이미지(img1~8)는 **일부러 안 지운다** — 개인정보가 아니고, 30일간 캠페인 행이
+//   살아 있어 지금 지우면 복구했을 때 사진 없는 캠페인이 된다.
 async function softDeleteCampaign(campaignId) {
   if (!db) throw new Error('DB 미연결');
-  let deletedApps = 0;
-  await retryWithRefresh(async () => {
+  return await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('soft_delete_campaign', {p_campaign_id: campaignId});
     if (error) throw error;
-    deletedApps = data || 0;
+
+    // ⚠️ 실제 모양은 `data.deleted.applications`(중첩)다. 평면으로 읽으면 늘 0 이 나오는데,
+    //   지금은 이 값을 화면에 안 써서 티가 안 난다 — 나중에 「신청 N건 삭제」 문구에 그대로
+    //   쓰면 조용히 0 이 뜬다.
+    const deletedApplications = (data && typeof data === 'object')
+      ? ((data.deleted && data.deleted.applications) ?? 0)
+      : (data || 0);   // 마이그레이션 325 적용 전(숫자 반환) 대비
+
+    const paths = (data && typeof data === 'object') ? data.storage_paths_to_delete : null;
+    if (!paths) return { deletedApplications, storageResult: null };
+
+    const msgPaths = Array.isArray(paths.message_attachments)
+      ? paths.message_attachments.filter(Boolean)
+      : [];
+    // 영수증·인증샷은 전체 주소로 저장돼 있어 버킷 상대 경로로 바꿔야 한다(기존 헬퍼 재사용).
+    const receiptPaths = Array.isArray(paths.receipt_images)
+      ? paths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    // 파일 삭제가 실패해도 **캠페인 삭제 자체는 이미 끝났다** — 여기서 예외를 던지면
+    //   화면이 「삭제 실패」로 보여 관리자가 다시 누르게 된다(이미 지워진 것을 또 지운다).
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+    return { deletedApplications, storageResult: { msgResult, receiptResult } };
   });
-  return deletedApps;
 }
 
 // 복구 — RPC restore_campaign(마이그레이션 256). campaign_admin 이상.
@@ -1601,6 +1635,27 @@ async function countDeliverablesByChannels(campaignId, channels) {
   }).length;
 }
 
+// 한 캠페인의 심사중(pending) 응모 건수.
+//   캠페인을 「종료」·「노출종료」로 바꾸기 전 확인 창에 쓴다 — 그 전이가 심사중 응모를
+//   **전원 자동 낙첨**시키기 때문이다(마이그레이션 176).
+//   ⚠️ 셀 수 없으면 **-1** 을 돌려준다. 0 으로 뭉개면 「정말 0건이라 안 물어본 것」과
+//   「못 물어봐서 안 물어본 것」이 구분되지 않아, 조회 한 번 실패했다고 조용히
+//   여러 명이 떨어질 수 있다.
+async function countPendingApplications(campaignId) {
+  if (!db || !campaignId) return -1;
+  try {
+    const {count, error} = await db.from('applications')
+      .select('id', {count: 'exact', head: true})
+      .eq('campaign_id', campaignId)
+      .eq('status', 'pending');
+    if (error) throw error;
+    return typeof count === 'number' ? count : -1;
+  } catch (e) {
+    console.error('[countPendingApplications]', e);
+    return -1;
+  }
+}
+
 // 캠페인 이미지 공개 URL 배열을 Storage 에서 삭제 (고아 파일 정리용).
 //   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
 //   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
@@ -1725,18 +1780,21 @@ async function activateLookup(id) {
 }
 
 // 캠페인에서 사용 중인지 확인 (channel/category만 의미. content_type은 콤마 문자열 검사)
+//   ⚠️ **보관 삭제된 캠페인은 세지 않는다**(`deleted_at IS NULL`). 안 그러면 이미 지운 캠페인
+//   때문에 「사용 중」으로 판정돼 기준 데이터를 영영 못 지운다 — 관리자는 어느 캠페인이
+//   붙잡고 있는지 화면 어디서도 찾을 수 없다(활성 목록에 안 보이므로).
 async function isLookupInUse(row) {
   if (!db || !row) return false;
   if (row.kind === 'channel') {
-    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('channel', `%${row.code}%`);
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).is('deleted_at', null).ilike('channel', `%${row.code}%`);
     return (count || 0) > 0;
   }
   if (row.kind === 'category') {
-    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).eq('category', row.code);
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).is('deleted_at', null).eq('category', row.code);
     return (count || 0) > 0;
   }
   if (row.kind === 'content_type') {
-    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('content_types', `%${row.name_ja}%`);
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).is('deleted_at', null).ilike('content_types', `%${row.name_ja}%`);
     return (count || 0) > 0;
   }
   // ng_item lookup은 비활성(active=false) 처리됨 — ng_sets 번들로 대체 (migration 107)
@@ -2485,7 +2543,10 @@ async function fetchCampaignCountsByBrand() {
     var counts = {};
     var from = 0, size = 1000;
     while (true) {
+      // 보관 삭제된 캠페인은 세지 않는다 — 브랜드 목록의 「캠페인 수」가 실제보다 부풀어
+      //   보이고, 관리자가 그 숫자를 근거로 「아직 캠페인이 남았다」고 오판한다.
       const {data, error} = await db?.from('campaigns').select('brand_id')
+        .is('deleted_at', null)
         .not('brand_id', 'is', null).range(from, from + size - 1);
       if (error) throw error;
       (data || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
@@ -2501,7 +2562,10 @@ async function fetchCampaignCountsByBrand() {
 async function countCampaignsByBrand(brandId) {
   if (!db) return 0;
   try {
-    const {count, error} = await db?.from('campaigns').select('id', {count:'exact', head:true}).eq('brand_id', brandId);
+    // 보관 삭제된 캠페인 제외 — 서버의 브랜드 삭제 판정(마이그레이션 325)과 같은 기준.
+    //   기준이 어긋나면 화면은 「0개」인데 삭제는 「캠페인이 남아 있다」로 막힌다.
+    const {count, error} = await db?.from('campaigns').select('id', {count:'exact', head:true})
+      .is('deleted_at', null).eq('brand_id', brandId);
     if (error) throw error;
     return count || 0;
   } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
@@ -4102,6 +4166,7 @@ async function fetchSettlements(opts) {
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
+        cert_at,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -4373,9 +4438,14 @@ async function fetchPastUnregisteredSettlements() {
 //   p_target_status: 'paid'(이미 외부 PayPal 지급 완료) | 'pending'(아직 미지급, 정산 대기)
 //   서버가 has_permission('settlement.pay','write') 게이트 + settlement_events 이력 기록.
 // 반환: registered_count(정수 — 실제 등록된 건수. 이미 정산행 있는 건은 skip 되어 제외).
+// 반환: {registered, skippedNoPaypal}
+//   ⚠️ 예전에는 등록 건수(숫자) 하나만 돌려줬다. 마이그레이션 324 가 「송금완료로 기록하려는데
+//   페이팔이 없는 건」을 배치에서 빼기 시작했는데(단건은 원래 막았다), 빠진 건수를 안 보여주면
+//   관리자는 **왜 고른 수보다 적게 처리됐는지 알 수 없다.**
 async function registerPastSettlements(applicationIds, targetStatus, memo) {
   if (!db) throw new Error('DB 미연결');
   let registered = 0;
+  let skippedNoPaypal = 0;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('register_past_settlements', {
       p_application_ids: applicationIds,
@@ -4383,12 +4453,12 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
       p_memo: memo || null
     });
     if (error) throw error;
-    // 스칼라(정수) 또는 {registered_count} 단일 행 양쪽 대응
-    registered = Array.isArray(data)
-      ? (data[0]?.registered_count ?? data[0] ?? 0)
-      : (data?.registered_count ?? data ?? 0);
+    // 스칼라(정수) 또는 {registered_count, skipped_no_paypal_count} 단일 행 양쪽 대응
+    const row = Array.isArray(data) ? data[0] : data;
+    registered = (row?.registered_count ?? row ?? 0);
+    skippedNoPaypal = (row?.skipped_no_paypal_count ?? 0);
   });
-  return Number(registered) || 0;
+  return { registered: Number(registered) || 0, skippedNoPaypal: Number(skippedNoPaypal) || 0 };
 }
 
 // ── 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283 ──────────────────

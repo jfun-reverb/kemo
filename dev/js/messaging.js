@@ -74,11 +74,13 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   if ((typeof _myApps === 'undefined' || !_myApps || !_myApps.length) && typeof loadMyApplications === 'function') {
     try { await loadMyApplications(); } catch (_e) {}
   }
-  // 취소된 응모는 메시지 진입 차단 (사용자 결정 2026-05-22)
-  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(applicationId)) {
-    if (typeof toast === 'function') toast(t('messaging.cancelledBlocked'));
-    return;
-  }
+  // 취소된 응모는 **읽기만** 허용한다(F-11, 2026-08-10 사용자 결정).
+  //   2026-05-22 에는 진입 자체를 막았는데, 관리자가 보낸 메시지는 그대로 도착하고
+  //   알림도 가서 **눌러도 못 들어가는 막다른 길**이 됐다. 안 읽음 배지가 영영 안 지워지고,
+  //   관리자 쪽에는 「안 읽음」으로 남아 무시한 것처럼 보였다.
+  //   → 들어가서 읽을 수는 있게 하고(배지도 지워진다), **새로 쓰지는 못하게** 한다.
+  //   차단 의도(취소된 건으로 새 문의를 시작하지 않는다)는 그대로 지켜진다.
+  const _msgReadOnly = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
   _msgCurrentAppId = applicationId;
   _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
@@ -99,6 +101,18 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === app?.campaign_id) || {};
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
+
+  // 읽기 전용(취소된 응모) — 작성 줄을 감추고 안내 한 줄로 바꾼다.
+  //   ⚠️ 모달이 아니라 페이지를 재사용하므로, 취소 아닌 응모로 들어올 때 **반드시 되돌린다.**
+  {
+    const inputRow = document.querySelector('#page-messages .msg-input-row');
+    const note = $('msgReadOnlyNote');
+    if (inputRow) inputRow.style.display = _msgReadOnly ? 'none' : '';
+    if (note) {
+      note.style.display = _msgReadOnly ? '' : 'none';
+      if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
+    }
+  }
 
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
@@ -335,6 +349,12 @@ function renderMsgAttachPreview() {
 // ── 전송 ──
 async function sendMessageFromModal() {
   if (!_msgCurrentAppId) return;
+  // 취소된 응모는 읽기만 가능하다(F-11). 작성 줄은 감춰 두지만, 화면 상태가 어긋난 채로
+  //   이 함수에 닿는 경로(캐시가 늦게 채워져 취소 판정이 나중에 바뀌는 등)가 있어 여기서도 막는다.
+  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
+    if (typeof toast === 'function') toast(t('messaging.cancelledReadOnly'));
+    return;
+  }
   const inputEl = $('msgModalInput');
   const body = (inputEl?.value || '').trim();
   if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
@@ -505,12 +525,32 @@ function renderFaqBody(text, ctx) {
 // ── FAQ 노드 로드 (게이트→봇 카드 전환 2026-05-22) ──
 //   진입 시 1회 active 노드 로드만. 추천 안내는 renderMessageThread 가 스레드 맨 위
 //   봇 카드(_faqBotCardHtml)로 그린다. 입력란 위 고정 게이트는 폐기.
+// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
+//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
+function faqNodeChainActive(node, byId) {
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur.active) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
+  }
+  return true;
+}
+
 async function setupFaqGate(app, camp) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
   try {
     const all = await fetchFaqNodes();
-    _faqNodes = (all || []).filter(n => n.active);
+    // 자기 자신뿐 아니라 **위쪽(카테고리)이 살아 있는지도** 본다.
+    //   예전에는 `n.active` 만 봐서, 관리자가 카테고리를 비활성해도 그 안의 질문이
+    //   추천 카드에 계속 떴다 — 「안 보이게 했다」고 생각한 내용이 인플루언서에게 그대로 갔다.
+    //   위로 거슬러 올라가며 하나라도 꺼져 있으면 뺀다(도중에 부모가 없으면 거기서 멈춘다).
+    const _byId = {};
+    (all || []).forEach(n => { if (n && n.id) _byId[n.id] = n; });
+    _faqNodes = (all || []).filter(n => faqNodeChainActive(n, _byId));
     _faqLoaded = true;
   } catch (e) {
     console.error('[setupFaqGate]', e);
@@ -725,6 +765,15 @@ async function faqMarkResolved(itemId) {
 
 // [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록
 async function faqStartDirectContact(itemId) {
+  // 읽기 전용(취소된 응모)에서는 보낼 곳이 없다 — 이 버튼은 입력창으로 데려가는 게 전부라
+  //   그대로 두면 눌러도 아무 일이 안 일어나는 또 다른 막다른 길이 된다(F-11 리뷰 지적).
+  //   기록도 남기지 않는다 — 실제로 문의로 이어지지 않은 클릭이 관리자 화면의
+  //   「직접문의 전환수」에 섞이면 그 숫자가 사실과 달라진다.
+  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
+    closeFaqOverlay();
+    if (typeof toast === 'function') toast(t('messaging.cancelledReadOnly'));
+    return;
+  }
   await recordFaqInteraction(_msgCurrentAppId, itemId || null, 'handoff');
   closeFaqOverlay();
   const inputEl = $('msgModalInput');

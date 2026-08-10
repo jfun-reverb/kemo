@@ -324,9 +324,13 @@ function renderSettlementRow(s) {
     ? `<span style="font-size:12px;word-break:break-all">${esc(s.paypal_email)}</span>`
     : `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="PayPal 미등록 — 송금 불가">미등록</span>`;
 
-  const certDate = s.created_at
-    ? `<span style="font-size:12px">${formatDate(s.created_at)}</span>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+  // 인증 성공 시점(마이그레이션 324) — 그 전에는 **등록일**을 인증성공일이라 보여줬다.
+  //   과거분을 오늘 등록하면 오늘로 찍혀, 실제로 언제 인증에 성공했는지가 어디에도 안 남았다.
+  //   ⚠️ 324 이전에 만들어진 행은 그 시점을 되살릴 방법이 없어 비어 있다 —
+  //   등록일로 슬쩍 대신하지 않는다. 틀린 날짜를 맞는 척 보여주는 게 더 나쁘다.
+  const certDate = s.cert_at
+    ? `<span style="font-size:12px">${formatDate(s.cert_at)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)" title="이 값을 저장하기 전에 등록된 건이라 시점을 알 수 없습니다">기록 없음</span>';
   const paidDate = s.paid_at
     ? `<span style="font-size:12px">${formatDate(s.paid_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
@@ -544,12 +548,15 @@ async function confirmSettlementReason() {
 //   · 처리 버튼과 달리 읽기 전용(낙관적 락 없음). 취소 건도 열람 가능.
 
 // action 코드 → 한국어 라벨 (결과물 이력 타임라인 라벨 매핑 패턴 미러)
+//   ⚠️ 서버가 쓰는 동작 코드가 늘면 여기에도 한 줄 추가할 것 — 빠지면 한국어 화면에
+//   영어 코드가 그대로 뜬다(`recalc` 가 실제로 그랬다. 마이그레이션 302 가 추가한 값).
 const SETTLEMENT_EVENT_LABELS = {
   create: '생성(자동 등록)',
   pay:    '송금 완료',
   hold:   '보류',
   cancel: '취소',
   revert: '보류 해제',
+  recalc: '금액 재계산(영수증 수정)',
 };
 
 async function openSettlementHistoryModal(id) {
@@ -667,7 +674,8 @@ async function exportSettlementsExcel() {
         capped:   settlementCapApplied(s) ? 'O' : '',
         paypal:   s.paypal_email || '',
         status:   settlementStatusKo(s.status),
-        certdate: s.created_at ? formatDate(s.created_at) : '',
+        // 인증 성공 시점(324). 옛 행은 비어 있다 — 등록일로 대신 채우지 않는다(화면과 같은 이유)
+        certdate: s.cert_at ? formatDate(s.cert_at) : '',
         paiddate: s.paid_at ? formatDate(s.paid_at) : '',
       });
     });
@@ -985,8 +993,15 @@ async function pastUnregRegister(targetStatus) {
   if (payBtn) payBtn.disabled = true;
   if (pendingBtn) pendingBtn.disabled = true;
   try {
-    const n = await registerPastSettlements(ids, targetStatus, memo);
-    toast(`${n}건을 ${targetStatus === 'paid' ? '송금완료로 기록' : '정산대기로 추가'}했습니다`);
+    const { registered, skippedNoPaypal } = await registerPastSettlements(ids, targetStatus, memo);
+    const doneWord = targetStatus === 'paid' ? '송금완료로 기록' : '정산대기로 추가';
+    // 페이팔이 없어 빠진 건은 반드시 알린다 — 안 알리면 고른 수보다 적게 처리된 이유를 알 수 없다.
+    //   (단건 「송금완료 기록」은 원래 막던 조건인데 일괄만 통과하던 것을 마이그레이션 324 가 맞췄다)
+    if (skippedNoPaypal > 0) {
+      toast(`${registered}건을 ${doneWord}했습니다. ${skippedNoPaypal}건은 PayPal 미등록이라 제외했습니다`, 'warn');
+    } else {
+      toast(`${registered}건을 ${doneWord}했습니다`);
+    }
   } catch (e) {
     toast('처리 실패: ' + friendlyError(e.message || e), 'error');
     updatePastUnregToolbar();  // 버튼 재활성
