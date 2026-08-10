@@ -525,12 +525,32 @@ function renderFaqBody(text, ctx) {
 // ── FAQ 노드 로드 (게이트→봇 카드 전환 2026-05-22) ──
 //   진입 시 1회 active 노드 로드만. 추천 안내는 renderMessageThread 가 스레드 맨 위
 //   봇 카드(_faqBotCardHtml)로 그린다. 입력란 위 고정 게이트는 폐기.
+// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
+//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
+function faqNodeChainActive(node, byId) {
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur.active) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
+  }
+  return true;
+}
+
 async function setupFaqGate(app, camp) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
   try {
     const all = await fetchFaqNodes();
-    _faqNodes = (all || []).filter(n => n.active);
+    // 자기 자신뿐 아니라 **위쪽(카테고리)이 살아 있는지도** 본다.
+    //   예전에는 `n.active` 만 봐서, 관리자가 카테고리를 비활성해도 그 안의 질문이
+    //   추천 카드에 계속 떴다 — 「안 보이게 했다」고 생각한 내용이 인플루언서에게 그대로 갔다.
+    //   위로 거슬러 올라가며 하나라도 꺼져 있으면 뺀다(도중에 부모가 없으면 거기서 멈춘다).
+    const _byId = {};
+    (all || []).forEach(n => { if (n && n.id) _byId[n.id] = n; });
+    _faqNodes = (all || []).filter(n => faqNodeChainActive(n, _byId));
     _faqLoaded = true;
   } catch (e) {
     console.error('[setupFaqGate]', e);

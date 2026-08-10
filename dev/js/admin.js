@@ -2752,7 +2752,19 @@ async function executeDeleteCampaign() {
       // 보관 삭제(soft delete) — soft_delete_campaign RPC(마이그레이션 255)가 서버에서
       //   ① 신청·결과물(개인정보) 즉시 완전 파기(정산 걸린 건은 마이그레이션 251 트리거가 원자적 차단)
       //   ② campaigns.deleted_at 세팅(캠페인 메타데이터만 30일 보관) 을 트랜잭션으로 처리한다.
-      await softDeleteCampaign(campId);
+      //   ③ 그 결과물이 가리키던 **저장소 파일**(영수증·인증샷·메시지 첨부)을 화면이 이어서 지운다
+      //      — 서버는 지울 경로를 돌려주기만 한다(마이그레이션 325). 예전에는 이 단계가 아예 없어
+      //      공개 버킷에 파일이 영구히 남았고, 경로도 사라져 나중에 찾을 방법이 없었다.
+      const _del = await softDeleteCampaign(campId);
+      const _sr = _del && _del.storageResult;
+      const _failed = _sr
+        ? ((_sr.msgResult?.failedPaths?.length || 0) + (_sr.receiptResult?.failedPaths?.length || 0))
+        : 0;
+      // 파일 삭제 실패는 캠페인 삭제를 되돌리지 않는다(이미 끝났다) — 다만 조용히 넘기면
+      //   지워진 줄 알고 넘어가므로 알린다. 남은 파일은 경로가 사라져 손으로 찾기 어렵다.
+      if (_failed > 0) {
+        toast(`캠페인은 삭제됐지만 첨부 파일 ${_failed}건을 지우지 못했습니다`, 'warn');
+      }
     }
     closeDeleteCampModal();
     // 캠페인 진행현황에서 삭제한 경우(헤더 더보기 메뉴), 사라진 캠페인 화면에 남지 않도록 목록으로 돌려보낸다
