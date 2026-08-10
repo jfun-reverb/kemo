@@ -768,7 +768,7 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
-    cancelledBlocked: 'キャンセルされた応募はお問い合わせをご利用いただけません。',
+    cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
     loading: '読み込み中...',
