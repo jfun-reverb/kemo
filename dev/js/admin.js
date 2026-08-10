@@ -2341,6 +2341,10 @@ async function saveCampaignEdit() {
     //   ⚠️ 초안은 closed → active 한 방향만 다뤘는데, 자동 마감이 active 만 닫으므로
     //      ended·expired·draft + 미래 마감일은 방치되고 있었다. 재개 대상을 4개 상태로 넓혔다.
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
+    // 편집 폼에서 상태를 직접 「종료」·「노출종료」로 바꿔 저장하는 길 — 상태 드롭다운·노출 토글을
+    //   전혀 거치지 않고 바로 저장된다. 결과는 같다(심사중 응모 전원 낙첨).
+    //   ⚠️ 리뷰에서 이 경로가 **무경고로 열려 있는 게** 드러났다 — 앞의 세 곳만 막아 뒀었다.
+    if (editStatus !== origStatus && !await confirmCampaignEndMassReject(campId, editStatus)) return;
     const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
     const _dlKind = classifyDeadlineChange(_origDeadline, editDeadline);
     // 재개(과거 → 미래)로 상태를 함께 되돌릴 대상. draft 는 마감일만으로 공개해서는 안 되므로 상태 유지.
@@ -3677,6 +3681,33 @@ function toggleStatusDropdown(badgeEl) {
   }, 0);
 }
 
+// 캠페인을 「종료」·「노출종료」로 보내기 전 확인 — **네 경로가 같은 함수를 쓴다.**
+//   그 두 상태로 바뀌면 심사중 응모가 **전원 자동 낙첨**된다(마이그레이션 176 검사 장치).
+//   되돌리는 일괄 방법이 없고 인플루언서에게 알림도 안 간다.
+//   ⚠️ 같은 결과를 내는 자리가 **네 곳**이다 — 상태 드롭다운(changeCampStatus)·편집 폼 저장
+//   (saveCampaignEdit)·편집 폼 노출 토글(onCampVisibilityToggle)·목록 빠른 토글
+//   (onCampQuickVisibilityToggle). 각자 확인하게 두면 새 경로가 생길 때마다 빠진다
+//   (실제로 처음 두 곳만 넣었다가 리뷰에서 나머지 둘이 뚫려 있는 게 드러났다).
+//   **새로 이 두 상태로 보내는 경로를 만들면 여기를 부를 것.**
+//   반환: true = 진행해도 됨 / false = 사용자가 돌아가기를 눌렀음
+async function confirmCampaignEndMassReject(campId, newStatus) {
+  if (newStatus !== 'ended' && newStatus !== 'expired') return true;
+  const word = newStatus === 'ended' ? '종료' : '노출종료';
+  // ⚠️ 셀 수 없으면 -1 이다. 0 으로 뭉개면 「진짜 0건」과 「못 물어봄」이 구분되지 않아
+  //   조회 한 번 실패로 조용히 여러 명이 떨어진다.
+  const n = campId ? await countPendingApplications(campId) : 0;
+  if (n === 0) return true;
+  const msg = n > 0
+    ? `「${word}」로 바꾸면 심사중인 응모 ${n}건이 모두 미승인 처리됩니다.\n`
+      + `\n· 되돌리는 일괄 방법이 없습니다 — 한 건씩 손으로 되돌려야 합니다.`
+      + `\n· 인플루언서에게 별도 안내는 가지 않습니다.`
+      + `\n\n먼저 심사를 마치려면 「돌아가기」를 누르세요.`
+    : `심사중인 응모가 몇 건인지 확인하지 못했습니다.\n`
+      + `\n「${word}」로 바꾸면 심사중 응모는 모두 미승인 처리됩니다.`
+      + `\n\n그대로 진행할까요?`;
+  return await showConfirm(msg, n > 0 ? `${word}로 바꾸기` : '진행', '돌아가기');
+}
+
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
   if (newStatus === 'active' || newStatus === 'scheduled') {
@@ -3710,6 +3741,7 @@ async function changeCampStatus(campId, newStatus) {
       _extraUpdates.deadline = _today;
     }
   }
+  if (!await confirmCampaignEndMassReject(campId, newStatus)) return;
   try {
     await updateCampaign(campId, Object.assign({status: newStatus}, _extraUpdates));
     // PR 2: loadAdminCampaigns 가 fetchCampaignsForAdminList 로 allCampaigns 를 갱신.
@@ -5175,8 +5207,14 @@ async function onCampVisibilityToggle(prefix) {
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
   if (isCurrentlyOn) {
     // ON → OFF: 확인 모달
+    //   ⚠️ 이 전이(expired)는 **심사중 응모를 전원 자동 낙첨**시킨다(마이그레이션 176).
+    //   예전 문구는 「화면에서 사라진다」만 말해, 사람이 떨어진다는 사실은 알리지 않았다.
+    //   상태 드롭다운의 「종료」와 결과가 같으므로 같은 내용을 알린다.
     var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
     if (!ok) return;
+    // 노출 끄기는 status='expired' 로 가는 길이라 심사중 응모가 전원 낙첨된다 — 상태
+    //   드롭다운의 「노출종료」와 결과가 같으므로 같은 확인을 거친다.
+    if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
     if (campId) {
       try {
         await toggleCampaignVisibility(campId, false);
@@ -5226,6 +5264,8 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
   if (willTurnOff) {
     var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
     if (!ok) return;
+    // 편집 폼 토글과 같은 결과(status='expired') — 같은 확인을 거친다.
+    if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
   }
   try {
     var newStatus = await toggleCampaignVisibility(campId, !willTurnOff);

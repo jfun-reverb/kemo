@@ -189,13 +189,15 @@ async function fetchCampaignApplicationCounts() {
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
 async function autoOpenCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // ⚠️ 판정은 **일본 시각**으로 한다(jstTodayStr). 예전에는 기기 시계(new Date + setHours)를
+  //   썼는데, 주석은 「일본 시각 기준」이라 적혀 있으면서 실제로는 그 관리자의 시계를 따랐다.
+  //   해외에서 접속하거나 시계가 잘못 맞춰진 기기에서는 하루 어긋나고, 그 어긋남이
+  //   **캠페인 상태를 실제로 바꾼다**(되돌리려면 손으로 고쳐야 한다).
+  //   서버 검사 장치(마이그레이션 272)와 화면 판정(recruitDeadlinePassed)이 이미 이 기준이다.
+  const today = jstTodayStr();                       // 'YYYY-MM-DD'
   const toOpen = camps.filter(c => {
     if (c.status !== 'scheduled' || !c.recruit_start) return false;
-    const rs = new Date(c.recruit_start);
-    rs.setHours(0, 0, 0, 0);
-    return now >= rs;
+    return String(c.recruit_start).slice(0, 10) <= today;   // 사전순 = 날짜순
   });
   if (!toOpen.length) return camps;
   const results = await Promise.allSettled(toOpen.map(c => {
@@ -215,13 +217,12 @@ async function autoOpenCampaigns(camps) {
 // 마감일 경과 캠페인 자동 상태 변경 (병렬 UPDATE)
 async function autoCloseCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // 일본 시각 기준 — autoOpenCampaigns 의 주석 참고. 마감일 **당일 24시까지는 안 지난 것**으로
+  //   보는 규칙(서버 트리거 272·화면 recruitDeadlinePassed 와 동일)을 그대로 따른다.
+  const today = jstTodayStr();
   const toClose = camps.filter(c => {
     if (c.status !== 'active' || !c.deadline) return false;
-    const dl = new Date(c.deadline);
-    dl.setHours(23, 59, 59, 999);
-    return now > dl;
+    return String(c.deadline).slice(0, 10) < today;
   });
   if (!toClose.length) return camps;
   const results = await Promise.allSettled(toClose.map(c => {
@@ -242,15 +243,16 @@ async function autoCloseCampaigns(camps) {
 //   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
 async function autoEndCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // 일본 시각 기준 — autoOpenCampaigns 의 주석 참고.
+  //   ⚠️ 이 전이가 특히 중요하다 — 「종료」로 바뀌면 심사중 응모가 **전원 자동 낙첨**되는
+  //   검사 장치가 깨어난다(마이그레이션 176). 기기 시계로 하루 일찍 판정하면 그 사람들이
+  //   하루 일찍 떨어진다.
+  const today = jstTodayStr();
   const toEnd = camps.filter(c => {
     // 행사 캠페인은 제출 마감일이 없어 마지막 방문일을 기준으로 삼는다(campaignFinishDate).
     const fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(c) : c.submission_end;
     if (c.status !== 'closed' || !fin) return false;
-    const se = new Date(fin);
-    se.setHours(23, 59, 59, 999);
-    return now > se;
+    return String(fin).slice(0, 10) < today;
   });
   if (!toEnd.length) return camps;
   const results = await Promise.allSettled(toEnd.map(c => {
@@ -1599,6 +1601,27 @@ async function countDeliverablesByChannels(campaignId, channels) {
     const st = d.applications && d.applications.status;
     return st !== 'rejected' && st !== 'cancelled';
   }).length;
+}
+
+// 한 캠페인의 심사중(pending) 응모 건수.
+//   캠페인을 「종료」·「노출종료」로 바꾸기 전 확인 창에 쓴다 — 그 전이가 심사중 응모를
+//   **전원 자동 낙첨**시키기 때문이다(마이그레이션 176).
+//   ⚠️ 셀 수 없으면 **-1** 을 돌려준다. 0 으로 뭉개면 「정말 0건이라 안 물어본 것」과
+//   「못 물어봐서 안 물어본 것」이 구분되지 않아, 조회 한 번 실패했다고 조용히
+//   여러 명이 떨어질 수 있다.
+async function countPendingApplications(campaignId) {
+  if (!db || !campaignId) return -1;
+  try {
+    const {count, error} = await db.from('applications')
+      .select('id', {count: 'exact', head: true})
+      .eq('campaign_id', campaignId)
+      .eq('status', 'pending');
+    if (error) throw error;
+    return typeof count === 'number' ? count : -1;
+  } catch (e) {
+    console.error('[countPendingApplications]', e);
+    return -1;
+  }
 }
 
 // 캠페인 이미지 공개 URL 배열을 Storage 에서 삭제 (고아 파일 정리용).

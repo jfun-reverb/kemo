@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786330424';
+  var CURRENT_BUILD = 'v1786332493';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-10 11:53 · 8cca388</span>
+          <span class="admin-build-text">2026-08-10 12:28 · a37f3c9</span>
         </div>
       </div>
     </aside>
@@ -8942,13 +8942,15 @@ async function fetchCampaignApplicationCounts() {
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
 async function autoOpenCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // ⚠️ 판정은 **일본 시각**으로 한다(jstTodayStr). 예전에는 기기 시계(new Date + setHours)를
+  //   썼는데, 주석은 「일본 시각 기준」이라 적혀 있으면서 실제로는 그 관리자의 시계를 따랐다.
+  //   해외에서 접속하거나 시계가 잘못 맞춰진 기기에서는 하루 어긋나고, 그 어긋남이
+  //   **캠페인 상태를 실제로 바꾼다**(되돌리려면 손으로 고쳐야 한다).
+  //   서버 검사 장치(마이그레이션 272)와 화면 판정(recruitDeadlinePassed)이 이미 이 기준이다.
+  const today = jstTodayStr();                       // 'YYYY-MM-DD'
   const toOpen = camps.filter(c => {
     if (c.status !== 'scheduled' || !c.recruit_start) return false;
-    const rs = new Date(c.recruit_start);
-    rs.setHours(0, 0, 0, 0);
-    return now >= rs;
+    return String(c.recruit_start).slice(0, 10) <= today;   // 사전순 = 날짜순
   });
   if (!toOpen.length) return camps;
   const results = await Promise.allSettled(toOpen.map(c => {
@@ -8968,13 +8970,12 @@ async function autoOpenCampaigns(camps) {
 // 마감일 경과 캠페인 자동 상태 변경 (병렬 UPDATE)
 async function autoCloseCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // 일본 시각 기준 — autoOpenCampaigns 의 주석 참고. 마감일 **당일 24시까지는 안 지난 것**으로
+  //   보는 규칙(서버 트리거 272·화면 recruitDeadlinePassed 와 동일)을 그대로 따른다.
+  const today = jstTodayStr();
   const toClose = camps.filter(c => {
     if (c.status !== 'active' || !c.deadline) return false;
-    const dl = new Date(c.deadline);
-    dl.setHours(23, 59, 59, 999);
-    return now > dl;
+    return String(c.deadline).slice(0, 10) < today;
   });
   if (!toClose.length) return camps;
   const results = await Promise.allSettled(toClose.map(c => {
@@ -8995,15 +8996,16 @@ async function autoCloseCampaigns(camps) {
 //   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
 async function autoEndCampaigns(camps) {
   if (!db) return camps;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // 일본 시각 기준 — autoOpenCampaigns 의 주석 참고.
+  //   ⚠️ 이 전이가 특히 중요하다 — 「종료」로 바뀌면 심사중 응모가 **전원 자동 낙첨**되는
+  //   검사 장치가 깨어난다(마이그레이션 176). 기기 시계로 하루 일찍 판정하면 그 사람들이
+  //   하루 일찍 떨어진다.
+  const today = jstTodayStr();
   const toEnd = camps.filter(c => {
     // 행사 캠페인은 제출 마감일이 없어 마지막 방문일을 기준으로 삼는다(campaignFinishDate).
     const fin = (typeof campaignFinishDate === 'function') ? campaignFinishDate(c) : c.submission_end;
     if (c.status !== 'closed' || !fin) return false;
-    const se = new Date(fin);
-    se.setHours(23, 59, 59, 999);
-    return now > se;
+    return String(fin).slice(0, 10) < today;
   });
   if (!toEnd.length) return camps;
   const results = await Promise.allSettled(toEnd.map(c => {
@@ -10352,6 +10354,27 @@ async function countDeliverablesByChannels(campaignId, channels) {
     const st = d.applications && d.applications.status;
     return st !== 'rejected' && st !== 'cancelled';
   }).length;
+}
+
+// 한 캠페인의 심사중(pending) 응모 건수.
+//   캠페인을 「종료」·「노출종료」로 바꾸기 전 확인 창에 쓴다 — 그 전이가 심사중 응모를
+//   **전원 자동 낙첨**시키기 때문이다(마이그레이션 176).
+//   ⚠️ 셀 수 없으면 **-1** 을 돌려준다. 0 으로 뭉개면 「정말 0건이라 안 물어본 것」과
+//   「못 물어봐서 안 물어본 것」이 구분되지 않아, 조회 한 번 실패했다고 조용히
+//   여러 명이 떨어질 수 있다.
+async function countPendingApplications(campaignId) {
+  if (!db || !campaignId) return -1;
+  try {
+    const {count, error} = await db.from('applications')
+      .select('id', {count: 'exact', head: true})
+      .eq('campaign_id', campaignId)
+      .eq('status', 'pending');
+    if (error) throw error;
+    return typeof count === 'number' ? count : -1;
+  } catch (e) {
+    console.error('[countPendingApplications]', e);
+    return -1;
+  }
 }
 
 // 캠페인 이미지 공개 URL 배열을 Storage 에서 삭제 (고아 파일 정리용).
@@ -40195,6 +40218,10 @@ async function saveCampaignEdit() {
     //   ⚠️ 초안은 closed → active 한 방향만 다뤘는데, 자동 마감이 active 만 닫으므로
     //      ended·expired·draft + 미래 마감일은 방치되고 있었다. 재개 대상을 4개 상태로 넓혔다.
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
+    // 편집 폼에서 상태를 직접 「종료」·「노출종료」로 바꿔 저장하는 길 — 상태 드롭다운·노출 토글을
+    //   전혀 거치지 않고 바로 저장된다. 결과는 같다(심사중 응모 전원 낙첨).
+    //   ⚠️ 리뷰에서 이 경로가 **무경고로 열려 있는 게** 드러났다 — 앞의 세 곳만 막아 뒀었다.
+    if (editStatus !== origStatus && !await confirmCampaignEndMassReject(campId, editStatus)) return;
     const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
     const _dlKind = classifyDeadlineChange(_origDeadline, editDeadline);
     // 재개(과거 → 미래)로 상태를 함께 되돌릴 대상. draft 는 마감일만으로 공개해서는 안 되므로 상태 유지.
@@ -41531,6 +41558,33 @@ function toggleStatusDropdown(badgeEl) {
   }, 0);
 }
 
+// 캠페인을 「종료」·「노출종료」로 보내기 전 확인 — **네 경로가 같은 함수를 쓴다.**
+//   그 두 상태로 바뀌면 심사중 응모가 **전원 자동 낙첨**된다(마이그레이션 176 검사 장치).
+//   되돌리는 일괄 방법이 없고 인플루언서에게 알림도 안 간다.
+//   ⚠️ 같은 결과를 내는 자리가 **네 곳**이다 — 상태 드롭다운(changeCampStatus)·편집 폼 저장
+//   (saveCampaignEdit)·편집 폼 노출 토글(onCampVisibilityToggle)·목록 빠른 토글
+//   (onCampQuickVisibilityToggle). 각자 확인하게 두면 새 경로가 생길 때마다 빠진다
+//   (실제로 처음 두 곳만 넣었다가 리뷰에서 나머지 둘이 뚫려 있는 게 드러났다).
+//   **새로 이 두 상태로 보내는 경로를 만들면 여기를 부를 것.**
+//   반환: true = 진행해도 됨 / false = 사용자가 돌아가기를 눌렀음
+async function confirmCampaignEndMassReject(campId, newStatus) {
+  if (newStatus !== 'ended' && newStatus !== 'expired') return true;
+  const word = newStatus === 'ended' ? '종료' : '노출종료';
+  // ⚠️ 셀 수 없으면 -1 이다. 0 으로 뭉개면 「진짜 0건」과 「못 물어봄」이 구분되지 않아
+  //   조회 한 번 실패로 조용히 여러 명이 떨어진다.
+  const n = campId ? await countPendingApplications(campId) : 0;
+  if (n === 0) return true;
+  const msg = n > 0
+    ? `「${word}」로 바꾸면 심사중인 응모 ${n}건이 모두 미승인 처리됩니다.\n`
+      + `\n· 되돌리는 일괄 방법이 없습니다 — 한 건씩 손으로 되돌려야 합니다.`
+      + `\n· 인플루언서에게 별도 안내는 가지 않습니다.`
+      + `\n\n먼저 심사를 마치려면 「돌아가기」를 누르세요.`
+    : `심사중인 응모가 몇 건인지 확인하지 못했습니다.\n`
+      + `\n「${word}」로 바꾸면 심사중 응모는 모두 미승인 처리됩니다.`
+      + `\n\n그대로 진행할까요?`;
+  return await showConfirm(msg, n > 0 ? `${word}로 바꾸기` : '진행', '돌아가기');
+}
+
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
   if (newStatus === 'active' || newStatus === 'scheduled') {
@@ -41564,6 +41618,7 @@ async function changeCampStatus(campId, newStatus) {
       _extraUpdates.deadline = _today;
     }
   }
+  if (!await confirmCampaignEndMassReject(campId, newStatus)) return;
   try {
     await updateCampaign(campId, Object.assign({status: newStatus}, _extraUpdates));
     // PR 2: loadAdminCampaigns 가 fetchCampaignsForAdminList 로 allCampaigns 를 갱신.
@@ -43029,8 +43084,14 @@ async function onCampVisibilityToggle(prefix) {
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
   if (isCurrentlyOn) {
     // ON → OFF: 확인 모달
+    //   ⚠️ 이 전이(expired)는 **심사중 응모를 전원 자동 낙첨**시킨다(마이그레이션 176).
+    //   예전 문구는 「화면에서 사라진다」만 말해, 사람이 떨어진다는 사실은 알리지 않았다.
+    //   상태 드롭다운의 「종료」와 결과가 같으므로 같은 내용을 알린다.
     var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
     if (!ok) return;
+    // 노출 끄기는 status='expired' 로 가는 길이라 심사중 응모가 전원 낙첨된다 — 상태
+    //   드롭다운의 「노출종료」와 결과가 같으므로 같은 확인을 거친다.
+    if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
     if (campId) {
       try {
         await toggleCampaignVisibility(campId, false);
@@ -43080,6 +43141,8 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
   if (willTurnOff) {
     var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
     if (!ok) return;
+    // 편집 폼 토글과 같은 결과(status='expired') — 같은 확인을 거친다.
+    if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
   }
   try {
     var newStatus = await toggleCampaignVisibility(campId, !willTurnOff);
