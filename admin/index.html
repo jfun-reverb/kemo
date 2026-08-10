@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786106801';
+  var CURRENT_BUILD = 'v1786319792';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-07 21:46 · 3c788b3</span>
+          <span class="admin-build-text">2026-08-10 08:56 · 2608340</span>
         </div>
       </div>
     </aside>
@@ -7919,7 +7919,12 @@ function faqComputeStatus(status, delivs, camp) {
   if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
 
   if (status === 'approved') {
-    const ds = Array.isArray(delivs) ? delivs : [];
+    // 임시저장(draft)은 「아직 안 낸 것」이라 판정에서 뺀다.
+    //   ⚠️ 거르는 자리가 여기여야 한다 — 호출하는 쪽에서 걸러 오게 하면 한쪽이 빠뜨렸을 때
+    //   두 화면이 다른 답을 낸다. 실제로 그랬다: 관리자 쪽 조회는 임시저장을 빼는데
+    //   인플루언서 쪽은 안 빼서, 사진만 올려 두고 제출을 안 한 사람에게
+    //   「제출하신 결과물을 확인 중입니다」가 떴다. 그 사람은 끝난 줄 알고 마감을 놓친다.
+    const ds = (Array.isArray(delivs) ? delivs : []).filter(d => d && d.status !== 'draft');
     // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
     if (ds.length) {
       const allApproved = ds.every(d => d.status === 'approved');
@@ -8673,6 +8678,33 @@ function clearSubmitLocks() {
 //    들어 있어(build.sh), 관리자 앱에서 부르면 조용히 아무 일도 하지 않는다.
 //    관리자 앱 수집은 별도 작업.
 // =============================================================================
+
+// =============================================================================
+// 알림 「한 번에 읽음 처리할 묶음」 (전수조사 F-3)
+// =============================================================================
+// 알림 하나를 누르면 같은 대상(ref_table + ref_id)의 안 읽은 알림을 함께 읽음 처리한다.
+// 원래 의도는 **같은 사건이 여러 줄로 쌓인 경우**를 한 번에 정리하는 것이었다
+//   (예: 관리자가 검수를 되돌렸다가 다시 처리 → 「변경됨」+「반려됨」 2건).
+//
+// ⚠️ 그런데 대상만 보고 종류를 안 봐서, **서로 다른 사건까지 함께 지워졌다.**
+//    응모(applications)에는 성격이 전혀 다른 알림 4종이 같은 대상으로 달린다 —
+//    「캠페인에 당첨되셨습니다」·「응모가 취소되었습니다」·「메시지가 도착했습니다」·
+//    「제출 기한이 바뀌었습니다」. 메시지 알림 하나를 누르면 **당첨 알림이 소리 없이 사라졌다.**
+//
+// 그래서 「같은 것을 말하는 종류끼리만」 묶는다. 목록에 없는 종류는 자기 자신만 읽음 처리한다.
+// ⚠️ 알림 종류를 새로 만들 때 여기 묶을지 판단할 것. **판단이 서지 않으면 넣지 마라** —
+//    안 묶으면 알림이 하나 더 남을 뿐이지만, 잘못 묶으면 못 본 알림이 사라진다.
+const NOTIF_READ_GROUPS = [
+  // 결과물 한 건의 검수 상태가 오가며 쌓인 줄들 — 같은 것을 말한다
+  ['deliverable_rejected', 'deliverable_changed', 'deliverable_approved', 'deliverable_proxy_submitted'],
+];
+
+// 이 종류와 함께 읽음 처리해도 되는 종류 목록. 묶음에 없으면 자기 자신만.
+function notifReadKinds(kind) {
+  if (!kind) return [];
+  const group = NOTIF_READ_GROUPS.find(g => g.indexOf(kind) >= 0);
+  return group ? group.slice() : [kind];
+}
 
 // 「미리 정의된 업무 거부」로 볼 패턴 — 결함이 아니라 정상 동작이다.
 //   여기에 걸리면 기록은 하되 `is_expected=true` 로 표시해, 관리자 오류 로그에서
@@ -9622,7 +9654,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -9694,13 +9726,22 @@ async function markNotificationRead(notificationId) {
 }
 
 // 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
-//   같은 결과물(deliverables)·신청(applications)에 대해 trigger 가 여러 건 INSERT 한 경우
+//   같은 결과물에 대해 트리거가 여러 건 넣은 경우
 //   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected)
-//   사용자가 알림 1건 클릭만으로 해당 참조의 모든 미읽음을 일괄 정리.
-async function markNotificationsReadByRef(refTable, refId) {
+//   알림 1건 클릭만으로 함께 정리한다.
+//
+//   ⚠️ 종류(kind)까지 봐야 한다 — 대상만 보고 지우면 성격이 다른 알림이 함께 사라진다.
+//   응모(applications)에는 당첨·취소·메시지·기한변경 4종이 같은 대상으로 달려 있어서,
+//   「메시지 도착」을 누르면 「캠페인에 당첨되셨습니다」가 소리 없이 없어졌다(전수조사 F-3).
+//   함께 지워도 되는 종류 목록은 shared.js 의 notifReadKinds 가 정한다.
+async function markNotificationsReadByRef(refTable, refId, kind) {
   if (!db || !refTable || !refId) return;
   const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
   if (!uid) return;
+  // 종류를 모르면 일괄 처리하지 않는다 — 무엇을 함께 지워도 되는지 판단할 근거가 없다.
+  //   (호출하는 쪽이 이 경우 알림 1건만 읽음 처리한다)
+  const kinds = (typeof notifReadKinds === 'function') ? notifReadKinds(kind) : (kind ? [kind] : []);
+  if (!kinds.length) return;
   try {
     await retryWithRefresh(async () => {
       const {error} = await db?.from('notifications')
@@ -9708,6 +9749,7 @@ async function markNotificationsReadByRef(refTable, refId) {
         .eq('user_id', uid)
         .eq('ref_table', refTable)
         .eq('ref_id', refId)
+        .in('kind', kinds)
         .is('read_at', null);
       if (error) throw error;
     });
@@ -9780,8 +9822,13 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status)')
+      // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
+      //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
+      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
       .eq('campaign_id', campaignId)
+      // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
+      //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
+      .neq('status', 'draft')
       .order('submitted_at', {ascending: false});
     if (error) throw error;
     return data || [];
@@ -22292,10 +22339,15 @@ async function hydrateCampCertBars() {
   await Promise.all(slotEls.map(async function(el) {
     var campId = el.getAttribute('data-camp-cert');
     var slotsN = parseInt(el.getAttribute('data-slots') || '0', 10);
+    // 화면 속성으로 흉내 낸 캠페인 — 조회가 실제 캠페인 행을 물어오면 그걸로 갈아탄다(아래).
+    //   흉내 객체에는 가구매(proxy_purchase) 여부가 없어, 그대로 두면 가구매 캠페인의
+    //   인증 성공 막대가 0에서 굳는다(결과물 관리·정산은 성공으로 세는데 이 화면만 다름).
     var camp = { id: campId, recruit_type: el.getAttribute('data-rt') || '', channel: el.getAttribute('data-ch') || '' };
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
+    // 결과물이 0건이면 갈아탈 대상이 없지만, 그때는 인증 성공도 0이라 판정에 쓰이지 않는다.
+    if (delivs.length && delivs[0].campaigns) camp = delivs[0].campaigns;
     // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
     // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
     var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
@@ -26955,7 +27007,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, proxy_purchase, product_price, purchase_start, purchase_end)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -29802,12 +29854,17 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     var key = d.application_id || ('user-' + d.user_id);
     if (!groups[key]) groups[key] = {key:key, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}, latest:''};
     var g = groups[key];
-    var subAt = d.updated_at || d.submitted_at || '';
+    // ⚠️ 「가장 최근」 기준은 **제출 시각**이다. 예전엔 여기만 수정 시각을 먼저 봐서,
+    //    관리자가 영수증을 고친 건이 화면·정산과 **다른 행**으로 뽑혔다. 구매 금액이
+    //    곧 정산 금액이라(마이그레이션 300) **엑셀로 정산을 대조하면 숫자가 어긋난다.**
+    //    운영 실측 2026-08-07: 영수증이 여러 행 쌓인 응모 65건 중 **36건**에서 기준이 갈렸다.
+    //    화면(admin-deliverables.js buildDeliverableGroups)·정산과 같은 기준으로 맞춘다.
+    var subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image' && d.post_channel) {
       var prev = g.reviewByCh[d.post_channel];
-      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
     }
     if (subAt > g.latest) g.latest = subAt;
   });
@@ -30022,12 +30079,17 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       groups[key] = {key:key, camp:camp, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}};
     }
     var g = groups[key];
-    var subAt = d.updated_at || d.submitted_at || '';
+    // ⚠️ 「가장 최근」 기준은 **제출 시각**이다. 예전엔 여기만 수정 시각을 먼저 봐서,
+    //    관리자가 영수증을 고친 건이 화면·정산과 **다른 행**으로 뽑혔다. 구매 금액이
+    //    곧 정산 금액이라(마이그레이션 300) **엑셀로 정산을 대조하면 숫자가 어긋난다.**
+    //    운영 실측 2026-08-07: 영수증이 여러 행 쌓인 응모 65건 중 **36건**에서 기준이 갈렸다.
+    //    화면(admin-deliverables.js buildDeliverableGroups)·정산과 같은 기준으로 맞춘다.
+    var subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image' && d.post_channel) {
       var prev = g.reviewByCh[d.post_channel];
-      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
     }
   });
   var groupList = Object.values(groups).sort(function(a, b) {
@@ -30563,9 +30625,10 @@ function renderRecentAppsTable(apps, camps, users) {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
+      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
+        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;

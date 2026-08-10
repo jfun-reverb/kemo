@@ -901,7 +901,7 @@ async function fetchDeliverables(filters) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -973,13 +973,22 @@ async function markNotificationRead(notificationId) {
 }
 
 // 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
-//   같은 결과물(deliverables)·신청(applications)에 대해 trigger 가 여러 건 INSERT 한 경우
+//   같은 결과물에 대해 트리거가 여러 건 넣은 경우
 //   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected)
-//   사용자가 알림 1건 클릭만으로 해당 참조의 모든 미읽음을 일괄 정리.
-async function markNotificationsReadByRef(refTable, refId) {
+//   알림 1건 클릭만으로 함께 정리한다.
+//
+//   ⚠️ 종류(kind)까지 봐야 한다 — 대상만 보고 지우면 성격이 다른 알림이 함께 사라진다.
+//   응모(applications)에는 당첨·취소·메시지·기한변경 4종이 같은 대상으로 달려 있어서,
+//   「메시지 도착」을 누르면 「캠페인에 당첨되셨습니다」가 소리 없이 없어졌다(전수조사 F-3).
+//   함께 지워도 되는 종류 목록은 shared.js 의 notifReadKinds 가 정한다.
+async function markNotificationsReadByRef(refTable, refId, kind) {
   if (!db || !refTable || !refId) return;
   const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
   if (!uid) return;
+  // 종류를 모르면 일괄 처리하지 않는다 — 무엇을 함께 지워도 되는지 판단할 근거가 없다.
+  //   (호출하는 쪽이 이 경우 알림 1건만 읽음 처리한다)
+  const kinds = (typeof notifReadKinds === 'function') ? notifReadKinds(kind) : (kind ? [kind] : []);
+  if (!kinds.length) return;
   try {
     await retryWithRefresh(async () => {
       const {error} = await db?.from('notifications')
@@ -987,6 +996,7 @@ async function markNotificationsReadByRef(refTable, refId) {
         .eq('user_id', uid)
         .eq('ref_table', refTable)
         .eq('ref_id', refId)
+        .in('kind', kinds)
         .is('read_at', null);
       if (error) throw error;
     });
@@ -1059,8 +1069,13 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status)')
+      // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
+      //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
+      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
       .eq('campaign_id', campaignId)
+      // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
+      //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
+      .neq('status', 'draft')
       .order('submitted_at', {ascending: false});
     if (error) throw error;
     return data || [];

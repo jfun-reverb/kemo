@@ -1358,12 +1358,17 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     var key = d.application_id || ('user-' + d.user_id);
     if (!groups[key]) groups[key] = {key:key, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}, latest:''};
     var g = groups[key];
-    var subAt = d.updated_at || d.submitted_at || '';
+    // ⚠️ 「가장 최근」 기준은 **제출 시각**이다. 예전엔 여기만 수정 시각을 먼저 봐서,
+    //    관리자가 영수증을 고친 건이 화면·정산과 **다른 행**으로 뽑혔다. 구매 금액이
+    //    곧 정산 금액이라(마이그레이션 300) **엑셀로 정산을 대조하면 숫자가 어긋난다.**
+    //    운영 실측 2026-08-07: 영수증이 여러 행 쌓인 응모 65건 중 **36건**에서 기준이 갈렸다.
+    //    화면(admin-deliverables.js buildDeliverableGroups)·정산과 같은 기준으로 맞춘다.
+    var subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image' && d.post_channel) {
       var prev = g.reviewByCh[d.post_channel];
-      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
     }
     if (subAt > g.latest) g.latest = subAt;
   });
@@ -1578,12 +1583,17 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       groups[key] = {key:key, camp:camp, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}};
     }
     var g = groups[key];
-    var subAt = d.updated_at || d.submitted_at || '';
+    // ⚠️ 「가장 최근」 기준은 **제출 시각**이다. 예전엔 여기만 수정 시각을 먼저 봐서,
+    //    관리자가 영수증을 고친 건이 화면·정산과 **다른 행**으로 뽑혔다. 구매 금액이
+    //    곧 정산 금액이라(마이그레이션 300) **엑셀로 정산을 대조하면 숫자가 어긋난다.**
+    //    운영 실측 2026-08-07: 영수증이 여러 행 쌓인 응모 65건 중 **36건**에서 기준이 갈렸다.
+    //    화면(admin-deliverables.js buildDeliverableGroups)·정산과 같은 기준으로 맞춘다.
+    var subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image' && d.post_channel) {
       var prev = g.reviewByCh[d.post_channel];
-      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
     }
   });
   var groupList = Object.values(groups).sort(function(a, b) {
