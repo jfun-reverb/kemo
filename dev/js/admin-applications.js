@@ -429,9 +429,16 @@ function campOpsOverviewCard(camp) {
   const priceTxt = (!isEvent && camp.product_price != null && camp.product_price !== '' && Number(camp.product_price) > 0)
     ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
   const recruitRange = brandOpsDateRange(camp.recruit_start, camp.deadline);
+  // 기간 줄 — 판정은 공용 헬퍼 하나만 쓴다(캠페인 목록과 같은 소스).
+  //   ⚠️ 리뷰어형은 구매 기간이 모집 기간과 **글자 그대로 같게** 저장되므로, 그대로 두면
+  //      같은 날짜가 두 줄로 반복된다. 그럴 때는 구매 줄을 없애고 모집 줄 이름에 합친다.
+  //   ⚠️ 갈래를 이름으로 지목한다 — 부정 조건을 쓰면 갈래가 늘 때 조용히 잘못 걸린다.
+  const periodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+  const recruitLabel = (periodKind === 'merged' || periodKind === 'monitorNoPurchase') ? '모집·구매' : '모집';
   let buyRange = '', buyLabel = '';
-  if (camp.recruit_type === 'monitor') { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
-  else if (camp.recruit_type === 'visit') { buyRange = brandOpsDateRange(camp.visit_start, camp.visit_end); buyLabel = '방문'; }
+  if (periodKind === 'split')        { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
+  else if (periodKind === 'visit')   { buyRange = brandOpsDateRange(camp.visit_start, camp.visit_end);       buyLabel = '방문'; }
+  else if (periodKind === 'gifting') { buyRange = brandOpsDateRange(camp.selection_start, camp.selection_end); buyLabel = '선정'; }
   const submitTxt = camp.submission_end ? formatDate(camp.submission_end) : '';
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">캠페인 개요</div>
@@ -450,7 +457,7 @@ function campOpsOverviewCard(camp) {
       </div>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--surface-dim);padding-top:8px">
-      ${recruitRange?`<div class="camp-ops-row"><span class="k">모집</span><span class="v">${esc(recruitRange)}</span></div>`:''}
+      ${recruitRange?`<div class="camp-ops-row"><span class="k">${esc(recruitLabel)}</span><span class="v">${esc(recruitRange)}</span></div>`:''}
       ${buyRange?`<div class="camp-ops-row"><span class="k">${buyLabel}</span><span class="v">${esc(buyRange)}</span></div>`:''}
       ${(!isEvent && submitTxt)?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
       ${(isEvent && camp.event_place)?`<div class="camp-ops-row"><span class="k">행사장</span><span class="v">${esc(camp.event_place)}</span></div>`:''}

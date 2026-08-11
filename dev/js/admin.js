@@ -307,8 +307,8 @@ function updateCampTableHead() {
       <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th>모집기간</th>
-      <th>구매기간</th>
+      <th>기간</th>
+      <th>선정기간</th>
       <th>결과물 제출 마감</th>
       <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -547,20 +547,10 @@ async function loadAdminCampaigns(useCache) {
           <span style="font-size:10px;font-weight:600;color:${approvedCnt>0?'var(--pink)':'var(--muted)'}">${approvedCnt}승인${pendingCnt>0?` · <span style="color:var(--gold)">${pendingCnt}대기</span>`:''}</span>
         </div>
       </td>
-      ${adminReorderMode ? '' : (()=>{
-        // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종.
-        //   각 셀 종료일 옆에 D-day 라벨 (모집 마감·구매 마감·결과물 마감 임박 시각화)
-        //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
-        // 셀 헬퍼는 dev/js/ui.js 의 공용 periodRangeCell/periodSingleCell (결과물 관리와 공용).
-        var ps = (c.recruit_type === 'monitor') ? c.purchase_start
-               : (c.recruit_type === 'visit')   ? c.visit_start  : '';
-        var pe = (c.recruit_type === 'monitor') ? c.purchase_end
-               : (c.recruit_type === 'visit')   ? c.visit_end    : '';
-        return `
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.recruit_start, c.deadline)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`;
-      })()}
+      ${adminReorderMode ? '' : `
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${campaignPeriodsCell(c)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.selection_start, c.selection_end)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`}
       <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
@@ -569,8 +559,10 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  // 일반 모드 15컬럼(체크/캠페인/채널/브랜드/제품/상태/노출/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 일반 모드 15컬럼(체크/캠페인/채널/브랜드/제품/상태/노출/신청/기간/선정기간/제출마감/조회/등록일/수정일/액션)
   // 순서변경 모드(순서/캠페인/채널/브랜드/제품/상태/노출/신청/조회/등록일/수정일) / 일반 모드 컬럼 수
+  // ⚠️ 열 개수는 위 머리글(updateCampTableHead)과 반드시 같아야 한다 — 2026-08-11 에
+  //    모집·구매를 「기간」 한 열로 합치고(-1) 선정기간 열을 새로 넣어(+1) 15 를 유지한다.
   const emptyHtml = `<tr><td colspan="${adminReorderMode ? 11 : 15}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
