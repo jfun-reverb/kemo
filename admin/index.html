@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786434098';
+  var CURRENT_BUILD = 'v1786445031';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-11 16:41 · 01aa0bf</span>
+          <span class="admin-build-text">2026-08-11 19:43 · 0410382</span>
         </div>
       </div>
     </aside>
@@ -23290,12 +23290,15 @@ const ADM_STATUS_LINE_KO = {
 };
 
 // statusLine 한국어 문구 — 관리자 화면은 항상 한국어.
-//   {date} 치환은 인플 측과 동일(영수증=구매/제출 마감, 제출기한=제출 마감).
+//   {date} 치환은 인플 측과 동일(영수증·제출기한 모두 제출 마감일).
+//   ⚠️ 영수증도 **결과물 제출 마감일**이다(2026-08-11) — 구매 종료일이 아니다.
+//      인플루언서 화면(messaging.js)과 반드시 같은 순서를 써야 한다. 어긋나면 관리자와
+//      인플루언서가 서로 다른 날짜를 보며 대화하게 된다.
 function admStatusLineKo(key, camp) {
   const text = ADM_STATUS_LINE_KO[key] || '';
   if (!text) return '';
   let mmdd = '';
-  if (key === 'receipt') mmdd = _admMMDD(camp?.purchase_end || camp?.submission_end);
+  if (key === 'receipt') mmdd = _admMMDD(camp?.submission_end || camp?.purchase_end);
   else if (key === 'post_deadline') mmdd = _admMMDD(camp?.submission_end);
   return text.replace('{date}', mmdd);
 }

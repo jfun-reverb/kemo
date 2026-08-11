@@ -17391,8 +17391,12 @@ function renderAppStatusLine(app, camp) {
   _faqStage = stage;
 
   // 마감일 치환용 (영수증/제출 기한 케이스)
+  // ⚠️ 영수증 마감은 **결과물 제출 마감일**이다(2026-08-11). 구매 종료일이 아니다 —
+  //   08-06 부터 신규 리뷰어형은 구매 기간을 모집 기간과 같게 저장하므로, 구매 종료일을
+  //   쓰면 실제보다 2주 이른 날짜를 말하게 된다. 캠페인 상세 화면과 같은 날짜여야 한다.
+  //   제출 마감일이 비어 있는 옛 캠페인만 구매 종료일로 물러선다(운영 1건).
   const deadlineMs = (key === 'receipt')
-    ? Date.parse(camp?.purchase_end || camp?.submission_end || '')
+    ? Date.parse(camp?.submission_end || camp?.purchase_end || '')
     : (key === 'post_deadline' ? Date.parse(camp?.submission_end || '') : NaN);
   const mmdd = isNaN(deadlineMs) ? '' : formatMMDD(deadlineMs);
 

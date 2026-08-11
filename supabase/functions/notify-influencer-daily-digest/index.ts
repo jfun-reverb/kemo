@@ -637,14 +637,22 @@ Deno.serve(async (req: Request) => {
       const delivKinds = delivInfo.kinds;
 
       // 영수증 (monitor 한정 — 리뷰어형은 가구매 여부와 무관하게 항상 영수증 제출)
-      if (camp.recruit_type === "monitor" && camp.purchase_end && !delivKinds.has("receipt")) {
-        const d = dateDiffDays(camp.purchase_end, todayDate);
+      // ⚠️ 마감일은 **결과물 제출 마감일**이다(2026-08-11). 구매 종료일이 아니다 —
+      //   08-06 부터 신규 리뷰어형은 구매 기간을 모집 기간과 같게 저장하므로, 구매 종료일을
+      //   쓰면 **실제보다 2주 이른 날짜로 독촉**하게 된다(캠페인 상세 화면과 어긋남).
+      //   제출 마감일이 비어 있는 옛 캠페인만 구매 종료일로 물러선다(운영 실측 1건).
+      const receiptDeadline = camp.submission_end || camp.purchase_end;
+      if (camp.recruit_type === "monitor" && receiptDeadline && !delivKinds.has("receipt")) {
+        const d = dateDiffDays(receiptDeadline, todayDate);
         if (d === 5 || d === 1) {
-          // [F-9] deadline_date(camp.purchase_end) 를 열쇠에 포함 — 마감 연장 시
-          // 옛 마감일로 이미 보낸 이력이 새 마감일의 재안내를 막지 않게 한다.
-          const key = `${a.user_id}|${a.campaign_id}|receipt|${d}|${camp.purchase_end}`;
+          // [F-9] deadline_date 를 열쇠에 포함 — 마감 연장 시 옛 마감일로 이미 보낸 이력이
+          // 새 마감일의 재안내를 막지 않게 한다.
+          // ⚠️ 이번 기준 변경으로 열쇠가 바뀌어, 구매 종료일 기준으로 이미 받은 사람에게
+          //    **한 번 더 나간다.** 두 번째가 맞는 날짜라 의도된 결과다(사양서 결정 4) —
+          //    배포 다음 날 아침 발송량이 느는 것을 사고로 오해하지 말 것.
+          const key = `${a.user_id}|${a.campaign_id}|receipt|${d}|${receiptDeadline}`;
           if (!sentMap.has(key)) {
-            acc(a.user_id).deadline.push({ kind: "receipt", app: a, deadlineDate: camp.purchase_end, dMinus: d });
+            acc(a.user_id).deadline.push({ kind: "receipt", app: a, deadlineDate: receiptDeadline, dMinus: d });
           }
         }
       }
@@ -822,11 +830,16 @@ Deno.serve(async (req: Request) => {
             //   리뷰어형은 게시물(投稿物) 제출 경로가 없으므로 절대 여기 섞지 않는다.
             const deadlineParts: string[] = [];
             if (c?.recruit_type === "monitor") {
-              if (c.purchase_end) {
-                deadlineParts.push(`レシート ${formatJpDateShort(c.purchase_end)} まで`);
-              }
-              if (!c.proxy_purchase && c.submission_end) {
-                deadlineParts.push(`レビュー認証写真 ${formatJpDateShort(c.submission_end)} まで`);
+              // ⚠️ 영수증도 **결과물 제출 마감일**이다(2026-08-11) — 구매 종료일이 아니다.
+              //   구매 종료일을 쓰면 실제보다 2주 이른 날짜를 말하게 된다(캠페인 상세와 어긋남).
+              //   제출 마감일이 비어 있는 옛 캠페인만 구매 종료일로 물러선다.
+              const dl = c.submission_end || c.purchase_end;
+              if (dl) {
+                // 영수증과 리뷰 인증샷이 같은 날짜이므로 **한 줄로 합친다**(사양서 결정 3).
+                //   캠페인 상세 화면도 「영수증·게시물 인증샷 제출 마감일」로 한 번만 말한다.
+                //   가구매(proxy_purchase)는 인증샷을 안 내므로 영수증만.
+                const what = c.proxy_purchase ? "レシート" : "レシート・レビュー認証写真";
+                deadlineParts.push(`${what} ${formatJpDateShort(dl)} まで`);
               }
             } else if ((c?.recruit_type === "gifting" || c?.recruit_type === "visit") && c?.submission_end) {
               deadlineParts.push(`投稿物 ${formatJpDateShort(c.submission_end)} まで`);
