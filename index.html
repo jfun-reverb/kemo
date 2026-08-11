@@ -13196,7 +13196,11 @@ async function openCampaign(id) {
           //   날짜가 주인공이고 이름표는 보조라 흐린 작은 글씨. whitespace:nowrap 로 이름표
           //   자체가 반으로 쪼개지는 것만 막고, 좁은 화면에서 이름표 통째로 다음 줄에
           //   내려가는 것은 허용한다(글자가 잘리는 것보다 낫다).
-          const PTAG = 'margin-left:5px;color:var(--muted);font-size:11px;white-space:nowrap';
+          //   ⚠️ 왼쪽 여백은 **5픽셀이 아니라 3픽셀**이다. 폭 375픽셀(현행 최소 기기)에서
+          //      실측하니 값 칸 192픽셀에 날짜+여백+이름표가 191.8픽셀 — 여유가 0.2픽셀뿐이라
+          //      글꼴이 제때 안 불러와져 다른 글꼴로 대체되기만 해도 접혔다. 3픽셀이면 2.2픽셀이
+          //      남는다. **다시 넓히지 말 것**(2026-08-11 브라우저 실측).
+          const PTAG = 'margin-left:3px;color:var(--muted);font-size:11px;white-space:nowrap';
           const rows = [];
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const rt=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)'],gifting:['var(--gold-l)','var(--gold)'],visit:['#E8F7EF','#0E7E4A']};const m=map[rt];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()}</div></div>`);

@@ -3302,7 +3302,13 @@ function renderCampPreview(mode) {
             // 리뷰어형은 항상 「모집 및 구매 기간」 한 줄. split 만 날짜를 두 줄로 놓고
             //   각각 이름표를 단다(2026-08-11 결정). 인플루언서 상세와 같은 모양이어야 한다.
             const cpMerged = (cpPeriodKind === 'merged' || cpPeriodKind === 'split' || cpPeriodKind === 'monitorNoPurchase');
-            const cpTag = 'margin-left:5px;color:#999;font-size:11px;white-space:nowrap';
+            // ⚠️ 왼쪽 여백 3픽셀은 **인플루언서 상세의 PTAG(application.js)와 같은 값**이다.
+            //    관리자 앱에는 그 파일이 없어(빌드 목록이 따로다) 값을 옮겨 적을 수밖에 없는데,
+            //    두 벌인 채 한쪽만 고치면 관리자가 미리보기로 본 것과 인플루언서가 보는 것이
+            //    갈린다. 한쪽을 고치면 **반드시 다른 쪽도 함께** 고칠 것.
+            //    (5픽셀이던 것을 2026-08-11 에 줄였다 — 폭 375픽셀에서 이름표가 접히기
+            //     직전이었다. 근거는 application.js 의 PTAG 주석에 있다.)
+            const cpTag = 'margin-left:3px;color:#999;font-size:11px;white-space:nowrap';
             const cpRecruitDates = `${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}`;
             const cpPeriodValue = (cpPeriodKind === 'split')
               ? `<div>${cpRecruitDates}<span style="${cpTag}">${esc(L.kPeriodTagRecruit)}</span></div>`
