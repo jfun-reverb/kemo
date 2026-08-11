@@ -464,8 +464,9 @@ window.I18N_KO = {
     //   ⚠️ recruitPeriod 는 시딩·방문형이 계속 쓴다.
     recruitPurchasePeriod: '모집 및 구매 기간',
     // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
-    periodTagRecruit: '(모집기간)',
-    periodTagPurchase: '(구매기간)',
+    //   ⚠️ 축약형 — 좁은 화면에서 접히지 않게(일본어 쪽 주석 참조).
+    periodTagRecruit: '(모집)',
+    periodTagPurchase: '(구매)',
     submissionEndMonitor: '영수증·게시물 인증샷 제출 마감일',
     submissionEndProxy: '영수증 제출 마감일',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.

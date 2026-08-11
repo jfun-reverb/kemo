@@ -3069,7 +3069,7 @@ const CP_I18N = {
     kRecruitPurchasePeriod:'募集・購入期間',
     // 두 기간이 다른 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
     //   ⚠️ dev/lib/i18n/ja.js 의 detail.periodTag* 와 **반드시 같은 말**이어야 한다.
-    kPeriodTagRecruit:'（募集期間）', kPeriodTagPurchase:'（購入期間）',
+    kPeriodTagRecruit:'（募集）', kPeriodTagPurchase:'（購入）',
     kSelectionPeriod:'選定期間',
     kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
@@ -3091,7 +3091,7 @@ const CP_I18N = {
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
     kRecruitPurchasePeriod:'모집 및 구매 기간',
-    kPeriodTagRecruit:'(모집기간)', kPeriodTagPurchase:'(구매기간)',
+    kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
     kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
     paybackNotice1:'모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
