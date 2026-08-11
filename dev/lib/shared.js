@@ -1442,14 +1442,25 @@ function eventCancelWindowPassed(slotDate, startTime) {
 //   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
 //      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
 //
-//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
-//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
-//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+//   'merged'           = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치
+//                        → 「모집 및 구매 기간」 한 줄, 날짜 한 줄
+//   'split'            = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족
+//                        → 「모집 및 구매 기간」 한 줄, **날짜 두 줄에 각각 이름표**
+//   'monitorNoPurchase'= 리뷰어형인데 구매 두 칸이 다 빔(운영 10건, 옛 캠페인)
+//                        → merged 와 같게 그린다(2026-08-11 결정)
+//   'none'             = **시딩·방문형 전용** — 구매라는 개념이 없다. 「모집 기간」
+//
+// ⚠️ 2026-08-11 에 갈래를 넷으로 넓혔다. 그 전에는 `none` 이 「구매 칸 빈 리뷰어형」과
+//    「시딩·방문형」 **두 뜻을 겸했다.** 「구매 칸이 비어도 합쳐 그린다」로 바뀌면서
+//    그 겸용이 위험해졌다 — `none` 을 합치는 쪽에 넣으면 **구매라는 개념이 없는
+//    시딩·방문형에까지 「구매 기간」이 붙는다.** 뜻을 갈라 두면 그 실수가 안 난다.
+// ⚠️ 새 호출부는 `!== 'split'` 같은 **부정 조건을 쓰지 말 것.** 갈래가 또 늘면
+//    조용히 잘못된 쪽으로 빨려 들어간다. 원하는 갈래를 이름으로 지목한다.
 function campaignPeriodRowKind(camp) {
   if (!camp || camp.recruit_type !== 'monitor') return 'none';
   const ps = camp.purchase_start || '';
   const pe = camp.purchase_end || '';
-  if (!ps && !pe) return 'none';
+  if (!ps && !pe) return 'monitorNoPurchase';
   const rs = camp.recruit_start || '';
   const dl = camp.deadline || '';
   // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어
