@@ -454,7 +454,9 @@ window.I18N_KO = {
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
     postDeadlineRelative: '수령 후 {days}일 이내',
-    purchasePeriod: '구매 및 영수증 제출 기간',
+    // ⚠️ 옛 이름은 「구매 및 영수증 제출 기간」 — 2026-08-11 에 「영수증은 결과물 제출
+    //   마감일까지」로 확정하면서 사실과 달라졌다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '구매 기간',
     visitPeriod: '방문 기간',
     selectionPeriod: '선정 기간',
     submissionEnd: '결과물 제출 마감',
@@ -464,7 +466,7 @@ window.I18N_KO = {
     submissionEndProxy: '영수증 제출 마감일',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
-    paybackNoticeLine1Split: '구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1Split: '구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNoticeLine2: '기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     peopleUnit: '명',
     noSetting: '—',

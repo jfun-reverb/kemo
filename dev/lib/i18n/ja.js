@@ -471,7 +471,10 @@ window.I18N_JA = {
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
-    purchasePeriod: '購入および領収書提出期間',
+    // ⚠️ 옛 이름은 「購入および領収書提出期間」이었다. 2026-08-11 에 「영수증은 결과물
+    //   제출 마감일까지」로 확정하면서(사양서 receipt-deadline-mail-fix 결정 1) 그 이름이
+    //   **사실과 달라졌다** — 영수증 마감은 이 기간이 아니다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '購入期間',
     visitPeriod: '訪問期間',
     selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
@@ -483,7 +486,7 @@ window.I18N_JA = {
     submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
-    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',

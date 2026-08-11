@@ -3049,7 +3049,10 @@ const CP_I18N = {
     paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）',
     freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
-    kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
+    // ⚠️ kPurchasePeriod 옛 이름 「購入および領収書提出期間」 — 2026-08-11 에 영수증 마감이
+    //   결과물 제출 마감일로 확정되며 사실과 달라져 「購入期間」으로. 인플루언서 i18n
+    //   (dev/lib/i18n/*.js 의 detail.purchasePeriod) 과 **반드시 같은 말**이어야 한다.
+    kRecruitPeriod:'募集期間', kPurchasePeriod:'購入期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
@@ -3057,7 +3060,7 @@ const CP_I18N = {
     kSelectionPeriod:'選定期間',
     kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
-    paybackNotice1Split:'購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNotice1Split:'購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNotice2:'期間が過ぎてからご購入された場合は、対象外となります。',
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
     evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
@@ -3072,13 +3075,13 @@ const CP_I18N = {
     paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})',
     freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
-    kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
+    kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
     kRecruitPurchasePeriod:'모집/구매 기간',
     kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
     paybackNotice1:'모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
-    paybackNotice1Split:'구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNotice1Split:'구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice2:'기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
     evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
