@@ -324,15 +324,24 @@
   <th>브랜드</th>
   <th>제품</th>
   <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">▲▼</span></th>
+  <!-- 「노출」 칸은 2026-08-11 까지 여기에만 빠져 있었다(동적 갱신 쪽에는 있었다).
+       화면을 열면 updateCampTableHead() 가 곧바로 다시 그려 눈에 띄지 않았지만,
+       그 탓에 아래 스피너의 칸 수도 계속 어긋난 채였다. -->
+  <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
   <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
-  <th>모집기간</th>
-  <th>구매기간</th>
+  <!-- 모집·구매·방문 기간을 한 칸에 모으고 줄마다 이름표를 단다(2026-08-11).
+       선정 기간은 시딩형 전용이라 자기 열을 따로 갖는다.
+       ⚠️ 이 머리글은 updateCampTableHead() 에도 같은 내용이 있다 — 함께 고칠 것. -->
+  <th>기간</th>
+  <th>선정기간</th>
   <th>결과물 제출 마감</th>
   <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">▲▼</span></th>
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
+              <!-- colspan 은 위 머리글 칸 수(15)와 같아야 한다 — 그 전에는 「노출」 칸이
+                   빠진 채 세어 어긋나 있었다(2026-08-11 정정) -->
               <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>

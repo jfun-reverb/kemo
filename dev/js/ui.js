@@ -224,6 +224,43 @@ function periodSingleCell(d) {
   if (!d) return '<span style="color:var(--muted)">—</span>';
   return formatDate(d) + ' ' + dDayLabel(d);
 }
+
+// ══════════════════════════════════════
+// 관리자 화면 — 한 캠페인의 기간을 **한 칸에** 모아 그린다(2026-08-11 결정).
+//   모집·구매·방문·선정 기간을 각각 다른 열에 두면 형식마다 빈 열이 생기고, 리뷰어형은
+//   모집·구매가 **글자 그대로 같은 값**이라 같은 날짜가 두 번 나왔다. 한 칸에 모으고
+//   줄마다 「(모집)」 같은 이름표를 달아, 어느 행을 봐도 무슨 기간인지 알게 한다.
+//
+//   ⚠️ **이름표는 항상 붙인다.** 「두 줄일 때만」으로 하면 리뷰어형과 시딩형의 한 줄짜리
+//      행이 똑같이 보여, 그 날짜가 무슨 기간인지 모집 형식 열을 다시 봐야 한다.
+//   ⚠️ 이 함수는 **관리자 전용**이다 — 이름표가 한국어다. 인플루언서 화면은 자기 표를
+//      따로 그리고 번역 열쇠말(`detail.periodTag*`)을 쓴다.
+//   ⚠️ 판정은 `campaignPeriodRowKind` 하나만 쓴다. 화면마다 다시 만들면 캠페인 목록과
+//      진행현황 카드가 서로 다른 이름을 부르게 된다(이 사양의 근본 원인이 그것이었다).
+//   ⚠️ 순서는 **날짜 → 이름표 → 남은 날짜 배지**. 날짜가 주인공이고 이름표는 보조라
+//      흐린 작은 글씨로 둔다.
+function campaignPeriodsCell(camp) {
+  if (!camp) return '<span style="color:var(--muted)">—</span>';
+  const TAG = 'margin-left:3px;color:var(--muted);font-size:10px;white-space:nowrap';
+  // 한 줄 = 날짜 범위 + 이름표 + D배지. 두 칸이 다 비면 그리지 않는다(호출부가 거른다).
+  const row = (s, e, tagText) => {
+    const txt = (s ? formatDate(s) : '—') + ' ~ ' + (e ? formatDate(e) : '—');
+    return `<div>${txt}<span style="${TAG}">(${tagText})</span>${e ? dDayLabel(e) : ''}</div>`;
+  };
+  const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+  const recruit = tag => row(camp.recruit_start, camp.deadline, tag);
+  // 갈래를 **이름으로 지목**한다 — 부정 조건을 쓰면 갈래가 늘 때 조용히 잘못된 쪽으로 간다.
+  if (kind === 'merged' || kind === 'monitorNoPurchase') return recruit('모집·구매');
+  if (kind === 'split')   return recruit('모집') + row(camp.purchase_start, camp.purchase_end, '구매');
+  if (kind === 'visit')   return recruit('모집') + row(camp.visit_start, camp.visit_end, '방문');
+  // ⚠️ 시딩형 선정 기간은 **여기 넣지 않는다.** 캠페인 목록에서는 선정 기간이 자기 열을
+  //    따로 갖는다(2026-08-11 결정, `2026-08-11-selection-period-visibility.md` 결정 1).
+  //    갈래 `gifting` 자체는 진행현황 요약 카드가 「선정」 줄을 그릴 때 쓴다.
+  if (kind === 'gifting') return recruit('모집');
+  // 'none' — 두 번째 기간이 없는 시딩·방문형. 모집 기간만 그린다.
+  if (!camp.recruit_start && !camp.deadline) return '<span style="color:var(--muted)">—</span>';
+  return recruit('모집');
+}
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
 // 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백

@@ -119,8 +119,8 @@ const ADMIN_LIST_COLUMNS = [
   'recruit_start', 'deadline',
   'purchase_start', 'purchase_end',
   'visit_start', 'visit_end',
-  // 선정 기간(307) — 지금 목록 화면이 그리지는 않지만, 형제인 구매·방문 기간이 여기 있다.
-  //   빠뜨리면 나중에 목록·진행현황에 이 줄을 붙일 때 값이 조용히 비어 나온다.
+  // 선정 기간(307) — 2026-08-11 부터 캠페인 목록의 **별도 「선정기간」 열**과 진행현황
+  //   요약 카드(「선정」 줄)가 시딩형에 이 값을 그린다. 빼면 둘 다 조용히 비어 나온다.
   'selection_start', 'selection_end',
   'submission_end',
   'order_index', 'created_at', 'updated_at',

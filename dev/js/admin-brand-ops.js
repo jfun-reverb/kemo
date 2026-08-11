@@ -400,12 +400,18 @@ function brandOpsMiniDateLine(text) {
 }
 
 // 제출 진행바 하단 텍스트: 리뷰어=구매기간 / 방문형=방문기간 + 제출마감
+//   ⚠️ 리뷰어형은 구매 기간이 모집 기간과 **글자 그대로 같게** 저장된다. 그 날짜는 바로 위
+//      모집 진행바 아래에 이미 있으므로, 같으면 여기서는 그리지 않는다(2026-08-11). 판정은
+//      공용 헬퍼 하나만 쓴다 — 캠페인 목록·진행현황 카드와 같은 소스.
+//   ⚠️ 시딩형 선정 기간은 여기 넣지 않는다. 이 줄은 **제출** 진행바에 딸린 설명이고 선정은
+//      모집 단계의 일이라, 넣으면 진행바가 말하는 것과 다른 이야기가 붙는다.
 function brandOpsSubmitDateText(c) {
   var parts = [];
-  if (c.recruit_type === 'monitor') {
+  var kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(c) : 'none';
+  if (kind === 'split') {
     var pr = brandOpsDateRange(c.purchase_start, c.purchase_end);
     if (pr) parts.push('구매 ' + pr);
-  } else if (c.recruit_type === 'visit') {
+  } else if (kind === 'visit') {
     var vr = brandOpsDateRange(c.visit_start, c.visit_end);
     if (vr) parts.push('방문 ' + vr);
   }
