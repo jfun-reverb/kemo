@@ -486,8 +486,11 @@ window.I18N_JA = {
     recruitPurchasePeriod: '募集・購入期間',
     // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
     //   ⚠️ 관리자 미리보기(admin.js CP_I18N)에 같은 말이 한 벌 더 있다 — 같이 고칠 것.
-    periodTagRecruit: '（募集期間）',
-    periodTagPurchase: '（購入期間）',
+    //   ⚠️ **축약형이다.** 「（募集期間）」로 쓰면 폭 375픽셀 화면(아이폰 SE 등)에서
+    //      값 칸이 218픽셀뿐이라 이름표가 다음 줄로 접힌다(브라우저 실측). 글자 크기만
+    //      줄여서는 안 들어가고 낱말을 줄여야 한 줄에 맞는다.
+    periodTagRecruit: '（募集）',
+    periodTagPurchase: '（購入）',
     submissionEndMonitor: 'レシート・投稿スクショの提出締切',
     submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.

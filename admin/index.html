@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786450914';
+  var CURRENT_BUILD = 'v1786451109';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-11 21:21 · 8203d06</span>
+          <span class="admin-build-text">2026-08-11 21:25 · 9d57ef6</span>
         </div>
       </div>
     </aside>
@@ -41122,7 +41122,7 @@ const CP_I18N = {
     kRecruitPurchasePeriod:'募集・購入期間',
     // 두 기간이 다른 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
     //   ⚠️ dev/lib/i18n/ja.js 의 detail.periodTag* 와 **반드시 같은 말**이어야 한다.
-    kPeriodTagRecruit:'（募集期間）', kPeriodTagPurchase:'（購入期間）',
+    kPeriodTagRecruit:'（募集）', kPeriodTagPurchase:'（購入）',
     kSelectionPeriod:'選定期間',
     kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
@@ -41144,7 +41144,7 @@ const CP_I18N = {
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
     kRecruitPurchasePeriod:'모집 및 구매 기간',
-    kPeriodTagRecruit:'(모집기간)', kPeriodTagPurchase:'(구매기간)',
+    kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
     kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
     paybackNotice1:'모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
