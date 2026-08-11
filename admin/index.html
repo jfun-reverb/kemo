@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786417621';
+  var CURRENT_BUILD = 'v1786434098';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2812,7 +2812,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-11 12:07 · c0bee7c</span>
+          <span class="admin-build-text">2026-08-11 16:41 · 01aa0bf</span>
         </div>
       </div>
     </aside>
@@ -40408,6 +40408,10 @@ async function saveCampaignEdit() {
       return;
     }
 
+    // 리뷰어형 제품 금액 미입력 확인 (막지 않음) — 등록 화면과 같은 판정을 쓴다.
+    //   편집에도 거는 이유: 여기만 빠지면 편집으로 금액을 0 으로 만드는 길이 그대로 남는다.
+    if (!await confirmMonitorWithoutPrice(editRecruitType, gv('editCampProductPrice'))) return;
+
     // ★ 결과물이 이미 제출된 채널을 빼려 하면 확인받는다 (@cosme 사고 재발 방지)
     //   막지 않고 묻는다 — 잘못 들어간 채널을 빼야 하는 정당한 경우까지 막으면 편집
     //   화면이 막다른 길이 된다(오늘 고친 「채널이 안 보여 저장이 막히던」 문제와 같은 함정).
@@ -40717,6 +40721,9 @@ async function duplicateCampaign(campId) {
     // 복제본도 「새로 만들어지는 캠페인」이다(결정 5) — 원본이 두 기간이 다르더라도
     // 복제본은 같게 맞춰 태어난다. 원본은 건드리지 않는다.
     applyMonitorPeriodCopy(copy);
+    // 복제도 같은 확인을 거친다 — 원본이 제품 금액 0 이면 복제본도 0 으로 태어난다.
+    //   등록·편집만 막으면 「0 인 캠페인을 복제해 늘리는」 길이 그대로 남는다.
+    if (!await confirmMonitorWithoutPrice(copy.recruit_type, copy.product_price)) return;
     await insertCampaign(copy);
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
@@ -41741,6 +41748,22 @@ async function confirmCampaignEndMassReject(campId, newStatus) {
   return await showConfirm(msg, n > 0 ? `${word}로 바꾸기` : '진행', '돌아가기');
 }
 
+// 리뷰어형(monitor)인데 제품 금액이 비었으면 확인받는다. 막지는 않는다 — 금액을 나중에
+//   채우는 정상적인 순서가 있고, 막으면 그 흐름이 통째로 끊긴다(2026-08-11 사용자 결정).
+// ⚠️ **등록·편집 두 곳에서 같이 부른다.** 등록만 막으면 편집으로 0 을 넣는 길이 그대로 남는다.
+// ⚠️ 시딩·방문형은 대상이 아니다 — 그쪽 정산 기준은 `reward` 라 제품 금액이 0이어도 정상이다.
+async function confirmMonitorWithoutPrice(recruitType, price) {
+  if (recruitType !== 'monitor') return true;
+  if (Number(price) > 0) return true;
+  return await showConfirm(
+    '제품 금액이 비어 있습니다.\n'
+    + '\n리뷰어형은 이 금액이 페이백 상한입니다. 비운 채로 저장하면 —'
+    + '\n· 인플루언서 화면에 「購入金額をペイバック（最大 ¥N）」 안내가 뜨지 않습니다.'
+    + '\n· 정산 자동 등록에서 빠집니다(「금액 미확정」). 「과거 미등록」 화면에는 나타납니다.'
+    + '\n\n금액을 먼저 넣으려면 「돌아가기」를 누르세요.',
+    '이대로 저장', '돌아가기');
+}
+
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
   if (newStatus === 'active' || newStatus === 'scheduled') {
@@ -41875,6 +41898,10 @@ async function addCampaign() {
   if (!ch && !((typeof isEventModeForm === 'function') && isEventModeForm('new'))) {
     toast('채널을 1개 이상 선택해주세요','error'); return;
   }
+
+  // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
+  //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
+  if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
   // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
