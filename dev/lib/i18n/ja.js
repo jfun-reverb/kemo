@@ -471,19 +471,35 @@ window.I18N_JA = {
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
-    purchasePeriod: '購入および領収書提出期間',
+    // ⚠️ 옛 이름은 「購入および領収書提出期間」이었다. 2026-08-11 에 「영수증은 결과물
+    //   제출 마감일까지」로 확정하면서(사양서 receipt-deadline-mail-fix 결정 1) 그 이름이
+    //   **사실과 달라졌다** — 영수증 마감은 이 기간이 아니다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '購入期間',
     visitPeriod: '訪問期間',
     selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
-    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
-    //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
-    //   캠페인·시딩·방문형이 계속 쓴다).
+    // 리뷰어형 기간 표기 — **리뷰어형은 전부** 이 이름으로 그린다(2026-08-11).
+    //   두 기간이 다르게 저장된 옛 캠페인은 이 이름 아래 날짜를 두 줄로 놓고
+    //   각 줄에 아래 periodTag* 를 붙인다.
+    //   ⚠️ recruitPeriod 는 **시딩·방문형이** 계속 쓴다. purchasePeriod 는 이제
+    //      부르는 곳이 없지만 되살아날 수 있어 남겨 둔다.
     recruitPurchasePeriod: '募集・購入期間',
+    // 방문형에서 방문 기간이 모집 기간과 똑같이 저장된 캠페인(2026-08-12). 같은 날짜를
+    //   두 줄로 보여 주지 않고 이 이름으로 한 줄에 합친다. 방문 기간이 따로 있는
+    //   캠페인은 종전대로 recruitPeriod + visitPeriod 두 줄이다.
+    recruitVisitPeriod: '募集・訪問期間',
+    // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ 관리자 미리보기(admin.js CP_I18N)에 같은 말이 한 벌 더 있다 — 같이 고칠 것.
+    //   ⚠️ **축약형이다.** 「（募集期間）」로 쓰면 폭 375픽셀 화면(아이폰 SE 등)에서
+    //      값 칸이 218픽셀뿐이라 이름표가 다음 줄로 접힌다(브라우저 실측). 글자 크기만
+    //      줄여서는 안 들어가고 낱말을 줄여야 한 줄에 맞는다.
+    periodTagRecruit: '（募集）',
+    periodTagPurchase: '（購入）',
     submissionEndMonitor: 'レシート・投稿スクショの提出締切',
     submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
-    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',

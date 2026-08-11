@@ -1433,21 +1433,58 @@ function eventCancelWindowPassed(slotDate, startTime) {
 }
 
 // ══════════════════════════════════════
-// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 기간」을
 // 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 「구매 기간」의 옛 이름은 「구매 및 영수증 제출 기간」이었다. 2026-08-11 에
+//      「영수증은 결과물 제출 마감일까지」로 확정하면서 그 이름이 사실과 달라져 바꿨다.
 //   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
 //      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
 //   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
 //      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
 //
-//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
-//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
-//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+//   'merged'           = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치
+//                        → 「모집 및 구매 기간」 한 줄, 날짜 한 줄
+//   'split'            = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족
+//                        → 「모집 및 구매 기간」 한 줄, **날짜 두 줄에 각각 이름표**
+//   'monitorNoPurchase'= 리뷰어형인데 구매 두 칸이 다 빔(운영 10건, 옛 캠페인)
+//                        → merged 와 같게 그린다(2026-08-11 결정)
+//   'visitMerged'      = 방문형 + 방문 기간이 모집 기간과 일치 → 「모집·방문」 한 줄
+//   'visit'            = 방문형 + 방문 기간이 따로 있음 → 모집·방문 **두 줄**
+//   'gifting'          = 시딩형 + 선정 기간에 값이 있음 → 모집·선정 **두 줄**
+//   'none'             = 위 어디에도 안 드는 나머지 — 「모집 기간」 한 줄만.
+//                        (선정 기간이 빈 시딩형, 방문 기간이 빈 방문형이 여기 온다)
+//
+// ⚠️ 2026-08-11 에 갈래를 넷으로 넓혔다. 그 전에는 `none` 이 「구매 칸 빈 리뷰어형」과
+//    「시딩·방문형」 **두 뜻을 겸했다.** 「구매 칸이 비어도 합쳐 그린다」로 바뀌면서
+//    그 겸용이 위험해졌다 — `none` 을 합치는 쪽에 넣으면 **구매라는 개념이 없는
+//    시딩·방문형에까지 「구매 기간」이 붙는다.** 뜻을 갈라 두면 그 실수가 안 난다.
+// ⚠️ 같은 날 `visit`·`gifting` 을 더해 여섯이 됐다. 관리자 캠페인 목록이 모집·구매·방문·
+//    선정 네 기간을 **한 열**에 넣으면서, 그 열의 행마다 「(방문)」·「(선정)」 이름표를
+//    붙여야 했기 때문이다. 그 전에는 방문형과 시딩형이 함께 `none` 이라 **두 번째 줄을
+//    가진 행을 가려낼 수 없었다.** 두 번째 기간이 빈 캠페인은 그릴 줄이 없으므로 `none`.
+// ⚠️ 새 호출부는 `!== 'split'` 같은 **부정 조건을 쓰지 말 것.** 갈래가 또 늘면
+//    조용히 잘못된 쪽으로 빨려 들어간다. 원하는 갈래를 이름으로 지목한다.
 function campaignPeriodRowKind(camp) {
-  if (!camp || camp.recruit_type !== 'monitor') return 'none';
+  if (!camp) return 'none';
+  // 리뷰어형이 아닌 갈래를 먼저 걸러낸다 — 아래 구매 기간 검사는 monitor 전용이다.
+  if (camp.recruit_type === 'visit') {
+    const vs = camp.visit_start || '', ve = camp.visit_end || '';
+    if (!vs && !ve) return 'none';
+    // 리뷰어형의 merged 와 같은 판정 — 날짜 문자열 그대로 비교한다(new Date() 금지).
+    //   ⚠️ 방문형은 리뷰어형과 달리 **사람이 손으로 넣어 우연히 같아진 것**이다(리뷰어형은
+    //      저장 규칙이 강제로 같게 만든다). 그래도 화면에 같은 날짜가 두 줄 나오는 모습은
+    //      똑같아, 보는 사람에게는 구분할 이유가 없다(2026-08-12 결정).
+    const rs = camp.recruit_start || '', dl = camp.deadline || '';
+    if (vs && ve && rs && dl && vs === rs && ve === dl) return 'visitMerged';
+    return 'visit';
+  }
+  if (camp.recruit_type === 'gifting') {
+    return (camp.selection_start || camp.selection_end) ? 'gifting' : 'none';
+  }
+  if (camp.recruit_type !== 'monitor') return 'none';
   const ps = camp.purchase_start || '';
   const pe = camp.purchase_end || '';
-  if (!ps && !pe) return 'none';
+  if (!ps && !pe) return 'monitorNoPurchase';
   const rs = camp.recruit_start || '';
   const dl = camp.deadline || '';
   // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어

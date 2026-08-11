@@ -1497,9 +1497,15 @@ function receiptPurchaseWindowWarning(d) {
   const pd = String(d.purchase_date || '').slice(0, 10);
   if (!pd) return '';   // 미입력은 이미 빨강으로 표시된다 — 중복 경고 없음
   if (pd >= ps && pd <= pe) return '';
+  // 기간 이름은 **인플루언서가 그 캠페인에서 실제로 본 이름**과 같아야 한다(2026-08-11).
+  //   두 기간이 같으면 화면이 「모집 및 구매 기간」 한 줄, 다르면 그 줄 안의 「(구매기간)」이다.
+  //   ⚠️ 예전엔 갈래를 안 보고 늘 「모집/구매 기간」이라 불러, 두 기간이 다른 캠페인에서
+  //      화면에 없는 이름을 근거로 반려를 판단하게 했다.
+  const _pk = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'merged';
+  const _pname = (_pk === 'split') ? '구매기간' : '모집 및 구매 기간';
   return `<div style="margin-top:4px;font-size:11px;color:#991B1B;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:5px;padding:5px 8px;line-height:1.5">
     <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">event_busy</span>
-    구매일이 <strong>모집/구매 기간(${esc(ps)} ~ ${esc(pe)}) 밖</strong>입니다.
+    구매일이 <strong>${esc(_pname)}(${esc(ps)} ~ ${esc(pe)}) 밖</strong>입니다.
     배송 지연·품절 등 <strong>우리 쪽 사정</strong>으로 기간 안에 구매할 수 없었던 경우에만 승인하고,
     그 밖의 경우에는 반려합니다.
   </div>`;

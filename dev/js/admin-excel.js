@@ -292,8 +292,12 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     //   monitor 캠페인은 purchase_start/end, visit 캠페인은 visit_start/end 를 같은 컬럼에 매핑.
     //   gifting 캠페인은 구매·방문 개념이 없어 빈칸.
     //   2026-05-18: 게시 마감/노출 마감 컬럼 제거 (post_deadline 폐기 — migration 129)
-    { header: '구매기간 시작',   key: 'pstart',   width: 14 },
-    { header: '구매기간 마감',   key: 'pend',     width: 14 },
+    //   ⚠️ 화면(캠페인 목록·진행현황 카드)은 2026-08-11 에 기간을 한 칸으로 합쳤지만
+    //      **엑셀은 합치지 않는다.** 걸러 보고 정렬하는 용도라, 한 칸에 두 기간을 넣거나
+    //      「모집과 같음」 같은 글자를 넣으면 필터·정렬·피벗이 깨진다. 열은 둘 대로 두고
+    //      이름만 실제 내용에 맞게 고쳤다(이 두 열은 방문형이면 방문 기간이 들어간다).
+    { header: '구매·방문 시작',  key: 'pstart',   width: 14 },
+    { header: '구매·방문 마감',  key: 'pend',     width: 14 },
     { header: '결과물 제출 마감',key: 'subend',   width: 16 },
     { header: '슬롯',            key: 'slots',    width: 8 },
     { header: '신청 수',         key: 'apps',     width: 10 },

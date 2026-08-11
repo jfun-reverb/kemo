@@ -3617,21 +3617,58 @@ function eventCancelWindowPassed(slotDate, startTime) {
 }
 
 // ══════════════════════════════════════
-// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 기간」을
 // 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 「구매 기간」의 옛 이름은 「구매 및 영수증 제출 기간」이었다. 2026-08-11 에
+//      「영수증은 결과물 제출 마감일까지」로 확정하면서 그 이름이 사실과 달라져 바꿨다.
 //   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
 //      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
 //   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
 //      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
 //
-//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
-//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
-//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+//   'merged'           = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치
+//                        → 「모집 및 구매 기간」 한 줄, 날짜 한 줄
+//   'split'            = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족
+//                        → 「모집 및 구매 기간」 한 줄, **날짜 두 줄에 각각 이름표**
+//   'monitorNoPurchase'= 리뷰어형인데 구매 두 칸이 다 빔(운영 10건, 옛 캠페인)
+//                        → merged 와 같게 그린다(2026-08-11 결정)
+//   'visitMerged'      = 방문형 + 방문 기간이 모집 기간과 일치 → 「모집·방문」 한 줄
+//   'visit'            = 방문형 + 방문 기간이 따로 있음 → 모집·방문 **두 줄**
+//   'gifting'          = 시딩형 + 선정 기간에 값이 있음 → 모집·선정 **두 줄**
+//   'none'             = 위 어디에도 안 드는 나머지 — 「모집 기간」 한 줄만.
+//                        (선정 기간이 빈 시딩형, 방문 기간이 빈 방문형이 여기 온다)
+//
+// ⚠️ 2026-08-11 에 갈래를 넷으로 넓혔다. 그 전에는 `none` 이 「구매 칸 빈 리뷰어형」과
+//    「시딩·방문형」 **두 뜻을 겸했다.** 「구매 칸이 비어도 합쳐 그린다」로 바뀌면서
+//    그 겸용이 위험해졌다 — `none` 을 합치는 쪽에 넣으면 **구매라는 개념이 없는
+//    시딩·방문형에까지 「구매 기간」이 붙는다.** 뜻을 갈라 두면 그 실수가 안 난다.
+// ⚠️ 같은 날 `visit`·`gifting` 을 더해 여섯이 됐다. 관리자 캠페인 목록이 모집·구매·방문·
+//    선정 네 기간을 **한 열**에 넣으면서, 그 열의 행마다 「(방문)」·「(선정)」 이름표를
+//    붙여야 했기 때문이다. 그 전에는 방문형과 시딩형이 함께 `none` 이라 **두 번째 줄을
+//    가진 행을 가려낼 수 없었다.** 두 번째 기간이 빈 캠페인은 그릴 줄이 없으므로 `none`.
+// ⚠️ 새 호출부는 `!== 'split'` 같은 **부정 조건을 쓰지 말 것.** 갈래가 또 늘면
+//    조용히 잘못된 쪽으로 빨려 들어간다. 원하는 갈래를 이름으로 지목한다.
 function campaignPeriodRowKind(camp) {
-  if (!camp || camp.recruit_type !== 'monitor') return 'none';
+  if (!camp) return 'none';
+  // 리뷰어형이 아닌 갈래를 먼저 걸러낸다 — 아래 구매 기간 검사는 monitor 전용이다.
+  if (camp.recruit_type === 'visit') {
+    const vs = camp.visit_start || '', ve = camp.visit_end || '';
+    if (!vs && !ve) return 'none';
+    // 리뷰어형의 merged 와 같은 판정 — 날짜 문자열 그대로 비교한다(new Date() 금지).
+    //   ⚠️ 방문형은 리뷰어형과 달리 **사람이 손으로 넣어 우연히 같아진 것**이다(리뷰어형은
+    //      저장 규칙이 강제로 같게 만든다). 그래도 화면에 같은 날짜가 두 줄 나오는 모습은
+    //      똑같아, 보는 사람에게는 구분할 이유가 없다(2026-08-12 결정).
+    const rs = camp.recruit_start || '', dl = camp.deadline || '';
+    if (vs && ve && rs && dl && vs === rs && ve === dl) return 'visitMerged';
+    return 'visit';
+  }
+  if (camp.recruit_type === 'gifting') {
+    return (camp.selection_start || camp.selection_end) ? 'gifting' : 'none';
+  }
+  if (camp.recruit_type !== 'monitor') return 'none';
   const ps = camp.purchase_start || '';
   const pe = camp.purchase_end || '';
-  if (!ps && !pe) return 'none';
+  if (!ps && !pe) return 'monitorNoPurchase';
   const rs = camp.recruit_start || '';
   const dl = camp.deadline || '';
   // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어
@@ -4496,19 +4533,35 @@ window.I18N_JA = {
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
-    purchasePeriod: '購入および領収書提出期間',
+    // ⚠️ 옛 이름은 「購入および領収書提出期間」이었다. 2026-08-11 에 「영수증은 결과물
+    //   제출 마감일까지」로 확정하면서(사양서 receipt-deadline-mail-fix 결정 1) 그 이름이
+    //   **사실과 달라졌다** — 영수증 마감은 이 기간이 아니다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '購入期間',
     visitPeriod: '訪問期間',
     selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
-    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
-    //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
-    //   캠페인·시딩·방문형이 계속 쓴다).
+    // 리뷰어형 기간 표기 — **리뷰어형은 전부** 이 이름으로 그린다(2026-08-11).
+    //   두 기간이 다르게 저장된 옛 캠페인은 이 이름 아래 날짜를 두 줄로 놓고
+    //   각 줄에 아래 periodTag* 를 붙인다.
+    //   ⚠️ recruitPeriod 는 **시딩·방문형이** 계속 쓴다. purchasePeriod 는 이제
+    //      부르는 곳이 없지만 되살아날 수 있어 남겨 둔다.
     recruitPurchasePeriod: '募集・購入期間',
+    // 방문형에서 방문 기간이 모집 기간과 똑같이 저장된 캠페인(2026-08-12). 같은 날짜를
+    //   두 줄로 보여 주지 않고 이 이름으로 한 줄에 합친다. 방문 기간이 따로 있는
+    //   캠페인은 종전대로 recruitPeriod + visitPeriod 두 줄이다.
+    recruitVisitPeriod: '募集・訪問期間',
+    // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ 관리자 미리보기(admin.js CP_I18N)에 같은 말이 한 벌 더 있다 — 같이 고칠 것.
+    //   ⚠️ **축약형이다.** 「（募集期間）」로 쓰면 폭 375픽셀 화면(아이폰 SE 등)에서
+    //      값 칸이 218픽셀뿐이라 이름표가 다음 줄로 접힌다(브라우저 실측). 글자 크기만
+    //      줄여서는 안 들어가고 낱말을 줄여야 한 줄에 맞는다.
+    periodTagRecruit: '（募集）',
+    periodTagPurchase: '（購入）',
     submissionEndMonitor: 'レシート・投稿スクショの提出締切',
     submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
-    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',
@@ -5321,17 +5374,26 @@ window.I18N_KO = {
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
     postDeadlineRelative: '수령 후 {days}일 이내',
-    purchasePeriod: '구매 및 영수증 제출 기간',
+    // ⚠️ 옛 이름은 「구매 및 영수증 제출 기간」 — 2026-08-11 에 「영수증은 결과물 제출
+    //   마감일까지」로 확정하면서 사실과 달라졌다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '구매 기간',
     visitPeriod: '방문 기간',
     selectionPeriod: '선정 기간',
     submissionEnd: '결과물 제출 마감',
-    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
-    recruitPurchasePeriod: '모집/구매 기간',
+    // 리뷰어형 기간 표기 — **리뷰어형은 전부** 이 이름으로 그린다(2026-08-11).
+    //   ⚠️ recruitPeriod 는 시딩·방문형이 계속 쓴다.
+    recruitPurchasePeriod: '모집 및 구매 기간',
+    // 방문형에서 방문 기간이 모집 기간과 똑같이 저장된 캠페인(2026-08-12).
+    recruitVisitPeriod: '모집 및 방문 기간',
+    // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ 축약형 — 좁은 화면에서 접히지 않게(일본어 쪽 주석 참조).
+    periodTagRecruit: '(모집)',
+    periodTagPurchase: '(구매)',
     submissionEndMonitor: '영수증·게시물 인증샷 제출 마감일',
     submissionEndProxy: '영수증 제출 마감일',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
-    paybackNoticeLine1: '모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
-    paybackNoticeLine1Split: '구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1: '모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1Split: '구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNoticeLine2: '기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     peopleUnit: '명',
     noSetting: '—',
@@ -6125,8 +6187,8 @@ const ADMIN_LIST_COLUMNS = [
   'recruit_start', 'deadline',
   'purchase_start', 'purchase_end',
   'visit_start', 'visit_end',
-  // 선정 기간(307) — 지금 목록 화면이 그리지는 않지만, 형제인 구매·방문 기간이 여기 있다.
-  //   빠뜨리면 나중에 목록·진행현황에 이 줄을 붙일 때 값이 조용히 비어 나온다.
+  // 선정 기간(307) — 2026-08-11 부터 캠페인 목록의 **별도 「선정기간」 열**과 진행현황
+  //   요약 카드(「선정」 줄)가 시딩형에 이 값을 그린다. 빼면 둘 다 조용히 비어 나온다.
   'selection_start', 'selection_end',
   'submission_end',
   'order_index', 'created_at', 'updated_at',
@@ -11350,6 +11412,44 @@ function periodSingleCell(d) {
   if (!d) return '<span style="color:var(--muted)">—</span>';
   return formatDate(d) + ' ' + dDayLabel(d);
 }
+
+// ══════════════════════════════════════
+// 관리자 화면 — 한 캠페인의 기간을 **한 칸에** 모아 그린다(2026-08-11 결정).
+//   모집·구매·방문·선정 기간을 각각 다른 열에 두면 형식마다 빈 열이 생기고, 리뷰어형은
+//   모집·구매가 **글자 그대로 같은 값**이라 같은 날짜가 두 번 나왔다. 한 칸에 모으고
+//   줄마다 「(모집)」 같은 이름표를 달아, 어느 행을 봐도 무슨 기간인지 알게 한다.
+//
+//   ⚠️ **이름표는 항상 붙인다.** 「두 줄일 때만」으로 하면 리뷰어형과 시딩형의 한 줄짜리
+//      행이 똑같이 보여, 그 날짜가 무슨 기간인지 모집 형식 열을 다시 봐야 한다.
+//   ⚠️ 이 함수는 **관리자 전용**이다 — 이름표가 한국어다. 인플루언서 화면은 자기 표를
+//      따로 그리고 번역 열쇠말(`detail.periodTag*`)을 쓴다.
+//   ⚠️ 판정은 `campaignPeriodRowKind` 하나만 쓴다. 화면마다 다시 만들면 캠페인 목록과
+//      진행현황 카드가 서로 다른 이름을 부르게 된다(이 사양의 근본 원인이 그것이었다).
+//   ⚠️ 순서는 **날짜 → 이름표 → 남은 날짜 배지**. 날짜가 주인공이고 이름표는 보조라
+//      흐린 작은 글씨로 둔다.
+function campaignPeriodsCell(camp) {
+  if (!camp) return '<span style="color:var(--muted)">—</span>';
+  const TAG = 'margin-left:3px;color:var(--muted);font-size:10px;white-space:nowrap';
+  // 한 줄 = 날짜 범위 + 이름표 + D배지. 두 칸이 다 비면 그리지 않는다(호출부가 거른다).
+  const row = (s, e, tagText) => {
+    const txt = (s ? formatDate(s) : '—') + ' ~ ' + (e ? formatDate(e) : '—');
+    return `<div>${txt}<span style="${TAG}">(${tagText})</span>${e ? dDayLabel(e) : ''}</div>`;
+  };
+  const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+  const recruit = tag => row(camp.recruit_start, camp.deadline, tag);
+  // 갈래를 **이름으로 지목**한다 — 부정 조건을 쓰면 갈래가 늘 때 조용히 잘못된 쪽으로 간다.
+  if (kind === 'merged' || kind === 'monitorNoPurchase') return recruit('모집·구매');
+  if (kind === 'visitMerged') return recruit('모집·방문');
+  if (kind === 'split')   return recruit('모집') + row(camp.purchase_start, camp.purchase_end, '구매');
+  if (kind === 'visit')   return recruit('모집') + row(camp.visit_start, camp.visit_end, '방문');
+  // ⚠️ 시딩형 선정 기간은 **여기 넣지 않는다.** 캠페인 목록에서는 선정 기간이 자기 열을
+  //    따로 갖는다(2026-08-11 결정, `2026-08-11-selection-period-visibility.md` 결정 1).
+  //    갈래 `gifting` 자체는 진행현황 요약 카드가 「선정」 줄을 그릴 때 쓴다.
+  if (kind === 'gifting') return recruit('모집');
+  // 'none' — 두 번째 기간이 없는 시딩·방문형. 모집 기간만 그린다.
+  if (!camp.recruit_start && !camp.deadline) return '<span style="color:var(--muted)">—</span>';
+  return recruit('모집');
+}
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
 // 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백
@@ -13133,6 +13233,11 @@ async function openCampaign(id) {
           //      없는 이름을 가리키게 된다.
           if (camp.recruit_type !== 'monitor') return '';
           const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+          // 2026-08-11 이후 세 갈래가 모두 화면에 있는 이름을 가리킨다 —
+          //   merged·monitorNoPurchase = 줄 이름이 「모집 및 구매 기간」이라 기본 문구가 맞고,
+          //   split = 두 번째 날짜 줄에 「(구매 기간)」 이름표가 붙어 있어 Split 문구가 맞다.
+          //   ⚠️ 그 전에는 구매 칸이 빈 캠페인(운영 10건)이 화면엔 「모집 기간」인데 안내문은
+          //      「모집·구매 기간」이라 **없는 이름을 가리켰다.** 줄 이름을 합치며 해소됐다.
           const line1 = t(kind === 'split' ? 'detail.paybackNoticeLine1Split' : 'detail.paybackNoticeLine1');
           return `<div id="campaignPaybackNotice" style="margin:0 0 12px;padding:11px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:12px;line-height:1.6;color:#1e40af">
             <div>${esc(line1)}</div>
@@ -13155,6 +13260,15 @@ async function openCampaign(id) {
           const KEY = 'width:110px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
           const VAL = 'padding:10px 13px;flex:1;font-size:12px';
           const ROW = 'display:flex;border-top:1px solid #faf5f9';
+          // 「모집 및 구매 기간」이 날짜 두 줄로 갈릴 때 각 줄 끝에 붙는 이름표.
+          //   날짜가 주인공이고 이름표는 보조라 흐린 작은 글씨. whitespace:nowrap 로 이름표
+          //   자체가 반으로 쪼개지는 것만 막고, 좁은 화면에서 이름표 통째로 다음 줄에
+          //   내려가는 것은 허용한다(글자가 잘리는 것보다 낫다).
+          //   ⚠️ 왼쪽 여백은 **5픽셀이 아니라 3픽셀**이다. 폭 375픽셀(현행 최소 기기)에서
+          //      실측하니 값 칸 192픽셀에 날짜+여백+이름표가 191.8픽셀 — 여유가 0.2픽셀뿐이라
+          //      글꼴이 제때 안 불러와져 다른 글꼴로 대체되기만 해도 접혔다. 3픽셀이면 2.2픽셀이
+          //      남는다. **다시 넓히지 말 것**(2026-08-11 브라우저 실측).
+          const PTAG = 'margin-left:3px;color:var(--muted);font-size:11px;white-space:nowrap';
           const rows = [];
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const rt=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)'],gifting:['var(--gold-l)','var(--gold)'],visit:['#E8F7EF','#0E7E4A']};const m=map[rt];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()}</div></div>`);
@@ -13165,12 +13279,32 @@ async function openCampaign(id) {
               rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.contentType')}</div><div style="${VAL};display:flex;gap:4px;flex-wrap:wrap">${ctList.map(c=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', c))}</span>`).join('')}</div></div>`);
             }
           }
-          // 리뷰어형에서 모집 기간과 구매 기간이 같으면 「모집/구매 기간」 한 줄로 합친다.
-          //   판정은 공용 헬퍼 하나만 쓴다 — 관리자 미리보기도 같은 함수를 부른다.
-          //   ⚠️ 다르게 저장된 캠페인은 지금처럼 두 줄로 남긴다(결정 5). 조건 없이 합치면
-          //      그 캠페인의 구매 마감일이 화면에서 사라진다.
+          // 판정은 공용 헬퍼 하나만 쓴다 — 관리자 미리보기도 같은 함수를 부른다.
+          //   ⚠️ 두 기간이 다르게 저장된 캠페인의 **구매 마감일이 화면에서 사라지면 안 된다**
+          //      (결정 5). 그래서 합치되 날짜는 두 줄로 남기고 이름표를 붙인다.
           const periodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodKind === 'merged' ? 'detail.recruitPurchasePeriod' : 'detail.recruitPeriod')}</div><div style="${VAL}">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div></div>`);
+          // 리뷰어형은 **항상** 「모집 및 구매 기간」 한 줄로 부른다(2026-08-11 결정).
+          //   두 기간이 다르게 저장된 옛 캠페인(split)만 날짜를 두 줄로 놓고 각각 이름표를 단다.
+          //   ⚠️ 갈래를 이름으로 지목한다 — `!== 'none'` 같은 부정 조건을 쓰면 갈래가 늘 때
+          //      시딩·방문형이 조용히 「구매 기간」 쪽으로 빨려 들어간다.
+          const periodMerged = (periodKind === 'merged' || periodKind === 'split' || periodKind === 'monitorNoPurchase');
+          // 방문형도 방문 기간이 모집 기간과 똑같이 저장돼 있으면 한 줄로 합친다(2026-08-12).
+          //   이름만 「방문」으로 갈릴 뿐 이유는 리뷰어형과 같다 — 같은 날짜를 두 번 보여
+          //   주지 않는다. 방문 기간이 따로 있으면 종전대로 아래에 「訪問期間」 줄이 선다.
+          //   ⚠️ 행사 캠페인은 제외한다. 행사의 실제 방문 시각은 **아래 타임 선택표**가
+          //      정하는데, 이 줄이 「訪問期間」을 겸하면 그걸 대표하는 것처럼 읽힌다.
+          //      (행사는 방문 기간 별도 줄도 원래 안 그린다 — 아래 !isEvent 조건)
+          const periodVisitMerged = (periodKind === 'visitMerged') && !isEvent;
+          const recruitDates = `${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}`;
+          // split 은 날짜가 두 줄이고 각 줄 끝에 어느 기간인지 붙는다. 이름표는 보조 정보라
+          //   흐린 작은 글씨로 — 날짜가 주인공이다.
+          const periodValue = (periodKind === 'split')
+            ? `<div>${recruitDates}<span style="${PTAG}">${esc(t('detail.periodTagRecruit'))}</span></div>`
+              + `<div style="margin-top:3px">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}<span style="${PTAG}">${esc(t('detail.periodTagPurchase'))}</span></div>`
+            : recruitDates;
+          const periodLabelKey = periodMerged ? 'detail.recruitPurchasePeriod'
+                               : periodVisitMerged ? 'detail.recruitVisitPeriod' : 'detail.recruitPeriod';
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodLabelKey)}</div><div style="${VAL}">${periodValue}</div></div>`);
           // 선정 기간 — 시딩형만(2026-08-07 결정). 모집 기간 바로 아래에 둔다
           //   (인플루언서가 겪는 순서: 모집 → 선정 → 결과물 제출 마감).
           //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다 — 지금까지 등록된 캠페인은 전부 비어 있다.
@@ -13178,12 +13312,13 @@ async function openCampaign(id) {
           if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.selectionPeriod')}</div><div style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
           }
-          if (isMonitor && periodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
-          }
+          // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다. split 은 위 「모집 및 구매 기간」
+          //    줄 안에서 두 번째 날짜 줄로 그린다 — 여기에 되살리면 같은 날짜가 두 번 나온다.
           // 행사 캠페인은 아래 타임 선택표가 날짜를 보여준다 — 여기에 또 적으면
           // 방문객이 두 벌의 날짜를 보게 된다(예전엔 그 둘이 어긋나기까지 했다).
-          if (camp.recruit_type === 'visit' && !isEvent && (camp.visit_start || camp.visit_end)) {
+          // ⚠️ 방문 기간이 모집 기간과 똑같이 저장된 캠페인(visitMerged)은 위 줄이 이미
+          //    「募集・訪問期間」이므로 여기서 또 그리면 같은 날짜가 두 번 나온다.
+          if (camp.recruit_type === 'visit' && !isEvent && !periodVisitMerged && (camp.visit_start || camp.visit_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
           }
           if (camp.submission_end && !isEvent) {
