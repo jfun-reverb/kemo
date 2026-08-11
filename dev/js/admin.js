@@ -2899,8 +2899,11 @@ async function openDeletedCampDetail(campId) {
   //   어느 칸의 것인지 사라진다). 대신 **이름을 화면과 맞춘다** — 두 기간이 같게 저장된
   //   캠페인이면 위 줄이 곧 「모집 및 구매 기간」이고, 아래 구매 줄은 그 사본이라 감춘다.
   const delPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(c) : 'none';
-  const delMergedName = (delPeriodKind === 'merged' || delPeriodKind === 'monitorNoPurchase');
-  const delPeriodLabel = delMergedName ? '모집 및 구매 기간' : '모집 기간';
+  // 방문형도 두 기간이 같으면 같은 이유로 합친다(2026-08-12). 이름만 「방문」으로 갈린다.
+  const delVisitMerged = (delPeriodKind === 'visitMerged');
+  const delMergedName = (delPeriodKind === 'merged' || delPeriodKind === 'monitorNoPurchase' || delVisitMerged);
+  const delPeriodLabel = delVisitMerged ? '모집 및 방문 기간'
+                       : delMergedName  ? '모집 및 구매 기간' : '모집 기간';
   const delPurchaseLabel = c.recruit_type === 'visit' ? '방문 기간' : '구매 기간';
   // ⚠️ 값을 비워야 줄이 사라진다 — row() 는 **값**이 비면 안 그린다. 이름만 비우면
   //    이름 없는 빈 줄이 남는다.
@@ -3059,6 +3062,8 @@ const CP_I18N = {
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
     kRecruitPurchasePeriod:'募集・購入期間',
+    // 방문 기간이 모집 기간과 똑같이 저장된 방문형(2026-08-12) — i18n 의 detail.recruitVisitPeriod 와 같은 말.
+    kRecruitVisitPeriod:'募集・訪問期間',
     // 두 기간이 다른 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
     //   ⚠️ dev/lib/i18n/ja.js 의 detail.periodTag* 와 **반드시 같은 말**이어야 한다.
     kPeriodTagRecruit:'（募集）', kPeriodTagPurchase:'（購入）',
@@ -3083,6 +3088,7 @@ const CP_I18N = {
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
     kRecruitPurchasePeriod:'모집 및 구매 기간',
+    kRecruitVisitPeriod:'모집 및 방문 기간',
     kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
     kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
@@ -3294,6 +3300,9 @@ function renderCampPreview(mode) {
             // 리뷰어형은 항상 「모집 및 구매 기간」 한 줄. split 만 날짜를 두 줄로 놓고
             //   각각 이름표를 단다(2026-08-11 결정). 인플루언서 상세와 같은 모양이어야 한다.
             const cpMerged = (cpPeriodKind === 'merged' || cpPeriodKind === 'split' || cpPeriodKind === 'monitorNoPurchase');
+            // 방문형도 방문 기간이 모집 기간과 똑같으면 한 줄로 합친다(2026-08-12) — 인플루언서 상세와 같다.
+            //   ⚠️ 행사는 제외 — 실제 방문 시각은 타임 선택표가 정한다(인플루언서 상세와 같은 조건).
+            const cpVisitMerged = (cpPeriodKind === 'visitMerged') && !isEventPreview;
             // ⚠️ 왼쪽 여백 3픽셀은 **인플루언서 상세의 PTAG(application.js)와 같은 값**이다.
             //    관리자 앱에는 그 파일이 없어(빌드 목록이 따로다) 값을 옮겨 적을 수밖에 없는데,
             //    두 벌인 채 한쪽만 고치면 관리자가 미리보기로 본 것과 인플루언서가 보는 것이
@@ -3306,12 +3315,15 @@ function renderCampPreview(mode) {
               ? `<div>${cpRecruitDates}<span style="${cpTag}">${esc(L.kPeriodTagRecruit)}</span></div>`
                 + `<div style="margin-top:3px">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}<span style="${cpTag}">${esc(L.kPeriodTagPurchase)}</span></div>`
               : cpRecruitDates;
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpMerged ? L.kRecruitPurchasePeriod : L.kRecruitPeriod)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
+            const cpPeriodLabel = cpMerged ? L.kRecruitPurchasePeriod
+                                : cpVisitMerged ? L.kRecruitVisitPeriod : L.kRecruitPeriod;
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodLabel)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
             // 선정 기간 — 시딩형만. 모집 기간 바로 아래(모집 → 선정 → 제출 마감 순).
             if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
             // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다 — split 은 위 줄 안에서 그린다.
             //    되살리면 같은 날짜가 두 번 나온다(인플루언서 상세도 같은 구조).
-            if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
+            // ⚠️ visitMerged 는 위 줄이 이미 「모집·방문 기간」이라 여기서 또 그리면 중복이다.
+            if (camp.recruit_type === 'visit' && !isEventPreview && !cpVisitMerged && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end && !isEventPreview) {
               const cpSubCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
               const cpSubLabel = cpSubCode === 'receiptOnly' ? L.kSubmitDeadlineProxy

@@ -434,7 +434,8 @@ function campOpsOverviewCard(camp) {
   //      같은 날짜가 두 줄로 반복된다. 그럴 때는 구매 줄을 없애고 모집 줄 이름에 합친다.
   //   ⚠️ 갈래를 이름으로 지목한다 — 부정 조건을 쓰면 갈래가 늘 때 조용히 잘못 걸린다.
   const periodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
-  const recruitLabel = (periodKind === 'merged' || periodKind === 'monitorNoPurchase') ? '모집·구매' : '모집';
+  const recruitLabel = (periodKind === 'merged' || periodKind === 'monitorNoPurchase') ? '모집·구매'
+                     : (periodKind === 'visitMerged') ? '모집·방문' : '모집';
   let buyRange = '', buyLabel = '';
   if (periodKind === 'split')        { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
   else if (periodKind === 'visit')   { buyRange = brandOpsDateRange(camp.visit_start, camp.visit_end);       buyLabel = '방문'; }
