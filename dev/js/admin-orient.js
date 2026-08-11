@@ -1588,7 +1588,6 @@ function osUnlinkFailMsg(reason) {
 }
 
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
-function osPriceNum(v) { const n = parseInt(String(v == null ? '' : v).replace(/[^0-9]/g, ''), 10); return isNaN(n) ? '' : n; }
 
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
@@ -1609,12 +1608,16 @@ function osPrefillChannels(card) {
   return map[m] ? [map[m]] : [];
 }
 
-// 가격·행사를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
+// 발행 형식 안내를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
+// ⚠️ 상시가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
+//   ①「캠페인 어느 칸에도 자동으로 넣지 않는다」는 결정이 제품 가격 칸에만 적용되면 반쪽이다.
+//     상시가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
+//     확인하지 않은 금액을 사실인 것처럼 보여 준다.
+//   ②`reward_note` 는 **인플루언서 응모 화면에 그대로 노출**된다(application.js). 브랜드가 쓴
+//     한국어가 일본어 화면에 실리는 자리다.
 function osBuildRewardNote(card) {
-  const s = card.sale || {};
   const parts = [];
   if (card.form_type === 'proxy_purchase') parts.push('[가구매] 영수증만 제출 (리뷰·게시 없음)');
-  if (s.price_regular) parts.push('상시가 ' + s.price_regular);
   return parts.join(' / ');
 }
 
@@ -1686,7 +1689,14 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampTitle', '');
   osSetVal('newCampSlots', p.slots || '');
   osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
-  osSetVal('newCampProductPrice', osPriceNum(card.sale && card.sale.price_regular));
+  // ⚠️ 상시가는 **캠페인 어느 칸에도 자동으로 넣지 않는다**(2026-08-11 사용자 결정).
+  //   브랜드가 오리엔시트에 적은 값이라, 그대로 실으면 **관리자가 확인하지 않은 금액이
+  //   그대로 지급 상한**이 된다(리뷰어형 정산 = min(영수증 실결제액, product_price)).
+  //   상시가는 발행 화면의 오리엔 상세에서 눈으로 확인하고 관리자가 직접 입력한다.
+  //   ⚠️ 리뷰어형에서 이 칸이 0인 채로 발행되면 ①인플루언서 화면에 페이백 상한 안내가
+  //      안 뜨고 ②정산이 「금액 미확정」으로 자동 등록에서 빠진다(마이그레이션 300).
+  //      후자는 마이그레이션 324 이후 「과거 미등록」 화면에 나타나므로 조용히 사라지진 않는다.
+  osSetVal('newCampProductPrice', 0);
   osSetVal('newCampRewardNote', osBuildRewardNote(card));
   // 해시태그는 히든 입력칸에 직접 넣지 않고 태그 칩 위젯을 거친다.
   //   값을 공백으로 이어 붙여 넣으면 ①칩이 안 그려져 관리자 화면에서 안 보이고
