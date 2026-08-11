@@ -3617,8 +3617,10 @@ function eventCancelWindowPassed(slotDate, startTime) {
 }
 
 // ══════════════════════════════════════
-// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 기간」을
 // 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 「구매 기간」의 옛 이름은 「구매 및 영수증 제출 기간」이었다. 2026-08-11 에
+//      「영수증은 결과물 제출 마감일까지」로 확정하면서 그 이름이 사실과 달라져 바꿨다.
 //   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
 //      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
 //   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
@@ -4496,7 +4498,10 @@ window.I18N_JA = {
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
-    purchasePeriod: '購入および領収書提出期間',
+    // ⚠️ 옛 이름은 「購入および領収書提出期間」이었다. 2026-08-11 에 「영수증은 결과물
+    //   제출 마감일까지」로 확정하면서(사양서 receipt-deadline-mail-fix 결정 1) 그 이름이
+    //   **사실과 달라졌다** — 영수증 마감은 이 기간이 아니다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '購入期間',
     visitPeriod: '訪問期間',
     selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
@@ -4508,7 +4513,7 @@ window.I18N_JA = {
     submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
-    paybackNoticeLine1Split: '購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNoticeLine1Split: '購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNoticeLine2: '期間が過ぎてからご購入された場合は、対象外となります。',
     peopleUnit: '名',
     noSetting: '—',
@@ -5321,7 +5326,9 @@ window.I18N_KO = {
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
     postDeadlineRelative: '수령 후 {days}일 이내',
-    purchasePeriod: '구매 및 영수증 제출 기간',
+    // ⚠️ 옛 이름은 「구매 및 영수증 제출 기간」 — 2026-08-11 에 「영수증은 결과물 제출
+    //   마감일까지」로 확정하면서 사실과 달라졌다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '구매 기간',
     visitPeriod: '방문 기간',
     selectionPeriod: '선정 기간',
     submissionEnd: '결과물 제출 마감',
@@ -5331,7 +5338,7 @@ window.I18N_KO = {
     submissionEndProxy: '영수증 제출 마감일',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
-    paybackNoticeLine1Split: '구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1Split: '구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNoticeLine2: '기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     peopleUnit: '명',
     noSetting: '—',
