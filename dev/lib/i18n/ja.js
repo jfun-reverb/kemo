@@ -478,10 +478,16 @@ window.I18N_JA = {
     visitPeriod: '訪問期間',
     selectionPeriod: '選定期間',
     submissionEnd: '成果物提出締切',
-    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
-    //   위 recruitPeriod·purchasePeriod·submissionEnd 는 지우지 않는다(두 줄로 그리는
-    //   캠페인·시딩·방문형이 계속 쓴다).
+    // 리뷰어형 기간 표기 — **리뷰어형은 전부** 이 이름으로 그린다(2026-08-11).
+    //   두 기간이 다르게 저장된 옛 캠페인은 이 이름 아래 날짜를 두 줄로 놓고
+    //   각 줄에 아래 periodTag* 를 붙인다.
+    //   ⚠️ recruitPeriod 는 **시딩·방문형이** 계속 쓴다. purchasePeriod 는 이제
+    //      부르는 곳이 없지만 되살아날 수 있어 남겨 둔다.
     recruitPurchasePeriod: '募集・購入期間',
+    // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ 관리자 미리보기(admin.js CP_I18N)에 같은 말이 한 벌 더 있다 — 같이 고칠 것.
+    periodTagRecruit: '（募集期間）',
+    periodTagPurchase: '（購入期間）',
     submissionEndMonitor: 'レシート・投稿スクショの提出締切',
     submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.

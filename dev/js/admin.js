@@ -2903,6 +2903,16 @@ async function openDeletedCampDetail(campId) {
   const imgGallery = imgs.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${imgs.map(u => `<div style="width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim)">${renderCroppedImg(u, null, {thumb:144, quality:70, lazy:true})}</div>`).join('')}</div>` : '';
   const purchaseVisit = c.recruit_type==='monitor' ? periodRangeCell(c.purchase_start, c.purchase_end)
                       : c.recruit_type==='visit'   ? periodRangeCell(c.visit_start, c.visit_end) : '';
+  // 이 화면은 **읽기 전용**이라 두 줄을 합칠 수 없다(합치면 삭제 전에 저장돼 있던 값이
+  //   어느 칸의 것인지 사라진다). 대신 **이름을 화면과 맞춘다** — 두 기간이 같게 저장된
+  //   캠페인이면 위 줄이 곧 「모집 및 구매 기간」이고, 아래 구매 줄은 그 사본이라 감춘다.
+  const delPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(c) : 'none';
+  const delMergedName = (delPeriodKind === 'merged' || delPeriodKind === 'monitorNoPurchase');
+  const delPeriodLabel = delMergedName ? '모집 및 구매 기간' : '모집 기간';
+  const delPurchaseLabel = c.recruit_type === 'visit' ? '방문 기간' : '구매 기간';
+  // ⚠️ 값을 비워야 줄이 사라진다 — row() 는 **값**이 비면 안 그린다. 이름만 비우면
+  //    이름 없는 빈 줄이 남는다.
+  const delPurchaseCell = delMergedName ? '' : purchaseVisit;
   body.innerHTML = `
     <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#B3261E">
       <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">delete</span>
@@ -2920,8 +2930,8 @@ async function openDeletedCampDetail(campId) {
     ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
     ${row('리워드', esc(c.reward || ''))}
     ${row('리워드 안내', esc(c.reward_note || ''))}
-    ${row('모집 기간', periodRangeCell(c.recruit_start, c.deadline))}
-    ${row('구매/방문 기간', purchaseVisit)}
+    ${row(delPeriodLabel, periodRangeCell(c.recruit_start, c.deadline))}
+    ${row(delPurchaseLabel, delPurchaseCell)}
     ${row('결과물 제출 마감', c.submission_end ? periodSingleCell(c.submission_end) : '')}
     ${row('생성일시', c.created_at ? formatDateTime(c.created_at) : '')}
     ${row('생성자', createdByLabel)}
@@ -3057,6 +3067,9 @@ const CP_I18N = {
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
     kRecruitPurchasePeriod:'募集・購入期間',
+    // 두 기간이 다른 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ dev/lib/i18n/ja.js 의 detail.periodTag* 와 **반드시 같은 말**이어야 한다.
+    kPeriodTagRecruit:'（募集期間）', kPeriodTagPurchase:'（購入期間）',
     kSelectionPeriod:'選定期間',
     kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
@@ -3077,10 +3090,11 @@ const CP_I18N = {
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
-    kRecruitPurchasePeriod:'모집/구매 기간',
+    kRecruitPurchasePeriod:'모집 및 구매 기간',
+    kPeriodTagRecruit:'(모집기간)', kPeriodTagPurchase:'(구매기간)',
     kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
-    paybackNotice1:'모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNotice1:'모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice1Split:'구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice2:'기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
@@ -3285,10 +3299,20 @@ function renderCampPreview(mode) {
             // 인플루언서 상세와 **같은 헬퍼**로 판정한다 — 판정이 두 벌이 되면 미리보기와
             // 실제 화면이 갈라진다(관리자가 본 것과 인플루언서가 보는 것이 달라진다).
             const cpPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodKind === 'merged' ? L.kRecruitPurchasePeriod : L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
+            // 리뷰어형은 항상 「모집 및 구매 기간」 한 줄. split 만 날짜를 두 줄로 놓고
+            //   각각 이름표를 단다(2026-08-11 결정). 인플루언서 상세와 같은 모양이어야 한다.
+            const cpMerged = (cpPeriodKind === 'merged' || cpPeriodKind === 'split' || cpPeriodKind === 'monitorNoPurchase');
+            const cpTag = 'margin-left:5px;color:#999;font-size:11px;white-space:nowrap';
+            const cpRecruitDates = `${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}`;
+            const cpPeriodValue = (cpPeriodKind === 'split')
+              ? `<div>${cpRecruitDates}<span style="${cpTag}">${esc(L.kPeriodTagRecruit)}</span></div>`
+                + `<div style="margin-top:3px">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}<span style="${cpTag}">${esc(L.kPeriodTagPurchase)}</span></div>`
+              : cpRecruitDates;
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpMerged ? L.kRecruitPurchasePeriod : L.kRecruitPeriod)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
             // 선정 기간 — 시딩형만. 모집 기간 바로 아래(모집 → 선정 → 제출 마감 순).
             if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
-            if (isMonitorPreview && cpPeriodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
+            // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다 — split 은 위 줄 안에서 그린다.
+            //    되살리면 같은 날짜가 두 번 나온다(인플루언서 상세도 같은 구조).
             if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end && !isEventPreview) {
               const cpSubCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
@@ -4333,15 +4357,19 @@ function applyCampPeriodLabels(formMode, recruitType, savedCamp) {
   const isMonitor = recruitType === 'monitor';
   const recruitLabel = $(prefix + 'RecruitRangeLabel');
   if (recruitLabel) {
-    // ⚠️ 판정은 **세 갈래**다(merged·split·none). 「split 이 아니면 합친다」로 뭉개면
-    //    구매 기간이 **아예 없는** 캠페인(none)까지 「모집/구매 기간」으로 보이는데,
-    //    인플루언서 화면은 그런 캠페인을 「모집 기간」으로 그린다 — 관리자가 방금 확인한
-    //    이름과 실제 화면이 어긋난다.
-    //    신규 폼은 저장할 때 복사 규칙이 반드시 걸려 항상 merged 가 되므로 합친 이름이 맞다.
+    // 기준은 「구매 입력칸이 지금 보이는가」다 — 보이면 그 칸이 구매 기간을 맡으므로
+    //   이 칸은 「모집 기간」, 안 보이면 이 칸 하나가 둘을 겸하므로 합친 이름.
+    //   ⚠️ 갈래를 이름으로 지목한다. 「split 이 아니면」 같은 부정 조건은 쓰지 않는다 —
+    //      갈래가 늘면 시딩·방문형(none)까지 합친 이름 쪽으로 빨려 들어간다.
+    //   ⚠️ 2026-08-11 에 monitorNoPurchase(구매 칸이 빈 리뷰어형)를 합치는 쪽에 넣었다.
+    //      인플루언서 화면이 그 캠페인을 「모집 및 구매 기간」으로 그리게 됐기 때문 —
+    //      여기만 「모집 기간」으로 두면 관리자가 방금 확인한 이름과 실제 화면이 어긋난다.
+    //      신규 폼은 저장 시 복사 규칙이 걸려 항상 merged 가 되므로 합친 이름이 맞다.
     const src = savedCamp || (formMode === 'edit' ? _editCampOriginal : null);
     const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(src) : 'none';
-    const showMerged = isMonitor && (formMode !== 'edit' || kind === 'merged');
-    recruitLabel.textContent = showMerged ? '모집/구매 기간' : '모집 기간';
+    const showMerged = isMonitor
+      && (formMode !== 'edit' || kind === 'merged' || kind === 'monitorNoPurchase');
+    recruitLabel.textContent = showMerged ? '모집 및 구매 기간' : '모집 기간';
   }
   const subLabel = $(prefix + 'SubmissionEndLabel');
   if (subLabel) {
