@@ -641,12 +641,15 @@ const ADM_STATUS_LINE_KO = {
 };
 
 // statusLine 한국어 문구 — 관리자 화면은 항상 한국어.
-//   {date} 치환은 인플 측과 동일(영수증=구매/제출 마감, 제출기한=제출 마감).
+//   {date} 치환은 인플 측과 동일(영수증·제출기한 모두 제출 마감일).
+//   ⚠️ 영수증도 **결과물 제출 마감일**이다(2026-08-11) — 구매 종료일이 아니다.
+//      인플루언서 화면(messaging.js)과 반드시 같은 순서를 써야 한다. 어긋나면 관리자와
+//      인플루언서가 서로 다른 날짜를 보며 대화하게 된다.
 function admStatusLineKo(key, camp) {
   const text = ADM_STATUS_LINE_KO[key] || '';
   if (!text) return '';
   let mmdd = '';
-  if (key === 'receipt') mmdd = _admMMDD(camp?.purchase_end || camp?.submission_end);
+  if (key === 'receipt') mmdd = _admMMDD(camp?.submission_end || camp?.purchase_end);
   else if (key === 'post_deadline') mmdd = _admMMDD(camp?.submission_end);
   return text.replace('{date}', mmdd);
 }
