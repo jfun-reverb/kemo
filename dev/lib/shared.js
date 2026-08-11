@@ -1448,7 +1448,8 @@ function eventCancelWindowPassed(slotDate, startTime) {
 //                        → 「모집 및 구매 기간」 한 줄, **날짜 두 줄에 각각 이름표**
 //   'monitorNoPurchase'= 리뷰어형인데 구매 두 칸이 다 빔(운영 10건, 옛 캠페인)
 //                        → merged 와 같게 그린다(2026-08-11 결정)
-//   'visit'            = 방문형 + 방문 기간에 값이 있음 → 모집·방문 **두 줄**
+//   'visitMerged'      = 방문형 + 방문 기간이 모집 기간과 일치 → 「모집·방문」 한 줄
+//   'visit'            = 방문형 + 방문 기간이 따로 있음 → 모집·방문 **두 줄**
 //   'gifting'          = 시딩형 + 선정 기간에 값이 있음 → 모집·선정 **두 줄**
 //   'none'             = 위 어디에도 안 드는 나머지 — 「모집 기간」 한 줄만.
 //                        (선정 기간이 빈 시딩형, 방문 기간이 빈 방문형이 여기 온다)
@@ -1467,7 +1468,15 @@ function campaignPeriodRowKind(camp) {
   if (!camp) return 'none';
   // 리뷰어형이 아닌 갈래를 먼저 걸러낸다 — 아래 구매 기간 검사는 monitor 전용이다.
   if (camp.recruit_type === 'visit') {
-    return (camp.visit_start || camp.visit_end) ? 'visit' : 'none';
+    const vs = camp.visit_start || '', ve = camp.visit_end || '';
+    if (!vs && !ve) return 'none';
+    // 리뷰어형의 merged 와 같은 판정 — 날짜 문자열 그대로 비교한다(new Date() 금지).
+    //   ⚠️ 방문형은 리뷰어형과 달리 **사람이 손으로 넣어 우연히 같아진 것**이다(리뷰어형은
+    //      저장 규칙이 강제로 같게 만든다). 그래도 화면에 같은 날짜가 두 줄 나오는 모습은
+    //      똑같아, 보는 사람에게는 구분할 이유가 없다(2026-08-12 결정).
+    const rs = camp.recruit_start || '', dl = camp.deadline || '';
+    if (vs && ve && rs && dl && vs === rs && ve === dl) return 'visitMerged';
+    return 'visit';
   }
   if (camp.recruit_type === 'gifting') {
     return (camp.selection_start || camp.selection_end) ? 'gifting' : 'none';

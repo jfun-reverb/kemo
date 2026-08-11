@@ -251,6 +251,7 @@ function campaignPeriodsCell(camp) {
   const recruit = tag => row(camp.recruit_start, camp.deadline, tag);
   // 갈래를 **이름으로 지목**한다 — 부정 조건을 쓰면 갈래가 늘 때 조용히 잘못된 쪽으로 간다.
   if (kind === 'merged' || kind === 'monitorNoPurchase') return recruit('모집·구매');
+  if (kind === 'visitMerged') return recruit('모집·방문');
   if (kind === 'split')   return recruit('모집') + row(camp.purchase_start, camp.purchase_end, '구매');
   if (kind === 'visit')   return recruit('모집') + row(camp.visit_start, camp.visit_end, '방문');
   // ⚠️ 시딩형 선정 기간은 **여기 넣지 않는다.** 캠페인 목록에서는 선정 기간이 자기 열을
