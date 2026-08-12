@@ -818,6 +818,23 @@ input.admin-filter{padding-right:8px}
   border-bottom-left-radius:0;
   border-bottom-right-radius:0;
 }
+/* ⚠️ 위 규칙만으로는 **거의 아무것도 잡지 못한다.** 이 편집기는 이미지를 글자처럼 다뤄서,
+   연달아 넣으면 문단마다 하나씩이 아니라 **한 문단 안에 이미지 여러 개**가 들어간다
+   (브라우저에서 실측: `<p><img><img><img></p>`). 위 규칙은 운영자가 이미지 사이에서
+   엔터를 쳐 문단을 나눈 경우만 해당된다.
+   그래서 **같은 문단 안에서 이웃한 이미지**도 함께 붙인다. 이쪽이 실제 사용 형태다.
+   ⚠️ 이미지 사이에 글이 끼어 있어도 이 규칙은 붙여 버린다(선택자로는 글자를 볼 수 없다).
+      저장 뒤 실제 화면은 글을 보고 정확히 판정하므로, 그 경우엔 편집기 쪽이 근사치다. */
+.quill-wrap .ql-editor img + img{
+  margin-top:0;
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+.quill-wrap .ql-editor img:has(+ img){
+  margin-bottom:0;
+  border-bottom-left-radius:0;
+  border-bottom-right-radius:0;
+}
 .quill-wrap .ql-container.ql-snow{
   border:0;
   border-radius:0 0 8px 8px;
