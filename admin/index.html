@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786531428';
+  var CURRENT_BUILD = 'v1786532135';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2810,6 +2810,38 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .evt-time-clear:hover{ background:var(--light-pink); color:var(--ink); }
 .evt-time-clear .material-icons-round{ font-size:14px; }
 
+/* 캠페인 콘텐츠 가이드 — 이미지 등록 안내 (신규 등록·편집 두 폼이 같은 문구를 쓴다) */
+.rich-img-help{
+  margin:-4px 0 14px;
+  padding:10px 12px;
+  background:var(--surface-dim);
+  border:1px solid var(--outline);
+  border-radius:8px;
+  font-size:12px;
+  line-height:1.7;
+  color:var(--muted);
+}
+.rich-img-help:empty{display:none}
+.rich-img-help-title{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-weight:700;
+  color:var(--ink);
+  margin-bottom:5px;
+}
+.rich-img-help-title .material-icons-round{font-size:16px;color:var(--pink)}
+.rich-img-help ul{margin:0;padding-left:16px}
+.rich-img-help li{margin:2px 0}
+.rich-img-help b{color:var(--ink);font-weight:600}
+.rich-img-help code{
+  background:var(--surface);
+  border:1px solid var(--outline);
+  border-radius:3px;
+  padding:0 3px;
+  font-size:11px;
+}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2899,7 +2931,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-12 19:43 · dfa8597</span>
+          <span class="admin-build-text">2026-08-12 19:55 · 94f645d</span>
         </div>
       </div>
     </aside>
@@ -3442,6 +3474,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="form-hint" style="margin-top:6px">시간대는 아래 「변경 저장」과 <b>무관하게 바로 반영</b>됩니다. 정원 칸을 고쳐 쓰면 그 자리에서 저장됩니다.</div>
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
+            <div class="rich-img-help" id="editCampRichImgHelp"></div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
@@ -3792,6 +3825,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
+            <div class="rich-img-help" id="newCampRichImgHelp"></div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
@@ -7161,7 +7195,7 @@ function normalizeLinks(wrapper) {
 }
 
 // HTML 문자열을 sanitize 해서 안전한 HTML 반환
-function sanitizeRich(html) {
+function sanitizeRich(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
@@ -7183,7 +7217,9 @@ function sanitizeRich(html) {
   normalizeQuillLists(wrapper);
   normalizeLinks(wrapper);
   // 미니 에디터와 **같은 이미지 정책**을 쓴다(공용 함수) — 규칙이 갈리지 않게.
-  _applyContentImagePolicy(wrapper);
+  //   ⚠️ `opts.displayWidth` 는 **표시할 때만** 준다(`richHtml`). 저장 경로(`getRichValue`)는
+  //      옵션 없이 불러 **원본 주소가 그대로 저장**된다 — 줄인 주소가 저장되면 원본을 잃는다.
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -7253,8 +7289,9 @@ function sanitizeCautionHtml(html) {
 //   허용 주소가 아니면 **지운다** — 외부 URL 직접 입력(추적·서버 공격)과 임시 주소
 //   (blob:, data:, http:) 를 함께 막는다. data: 차단이 곧 **base64 폭증 방지**다
 //   (캠페인 리치 텍스트가 원래 이미지를 통째로 막았던 이유 — FEATURE_SPEC §리치 텍스트).
-function _applyContentImagePolicy(wrapper) {
+function _applyContentImagePolicy(wrapper, opts) {
   if (!wrapper) return;
+  const showW = (opts && opts.displayWidth) || 0;
   wrapper.querySelectorAll('img').forEach(img => {
     const src = (img.getAttribute('src') || '').trim();
     if (!_isAllowedContentImageSrc(src)) {
@@ -7277,6 +7314,18 @@ function _applyContentImagePolicy(wrapper) {
     } else if (size && size !== 'orig') {
       // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
       img.removeAttribute('data-rich-size');
+    }
+    // 볼 때는 화면 폭에 맞게 줄여서 내려받는다 — 캠페인 설명에 이미지가 여러 장이면
+    //   원본을 다 받느라 느리다. 원본 주소는 `data-orig` 에 남겨, 변환이 실패하면
+    //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
+    //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
+    //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
+    if (showW && typeof imgThumb === 'function') {
+      const thumb = imgThumb(src, showW, 75);
+      if (thumb && thumb !== src) {
+        img.setAttribute('data-orig', src);
+        img.setAttribute('src', thumb);
+      }
     }
   });
   // ⚠️ 연속 판정은 **허용 안 된 이미지를 지운 뒤에** 해야 한다. 먼저 하면 중간에 낀
@@ -7504,8 +7553,28 @@ function richHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
-  return sanitizeRich(value);
+  // 이 함수는 **화면에 그릴 때만** 쓴다(저장은 `getRichValue` → `sanitizeRich` 직행).
+  //   그래서 여기서만 표시 폭을 준다 — 자세한 이유는 `_applyContentImagePolicy` 주석.
+  return sanitizeRich(value, { displayWidth: RICH_DISPLAY_WIDTH });
 }
+
+// 인플루언서 앱은 폭 480픽셀. 화면이 촘촘한 기기를 감안해 두 배로 받는다.
+const RICH_DISPLAY_WIDTH = 960;
+
+// 줄인 이미지를 못 불러오면 **원본으로 되돌린다.** 저장소 변환이 막히거나 실패해도
+//   화면에서 이미지가 사라지지 않게 하는 안전망이다(프로젝트 규칙 — 썸네일은 원본 폴백 필수).
+//   ⚠️ 이미지 오류는 위로 전달되지 않으므로 **캡처 단계**로 들어야 잡힌다.
+//   ⚠️ 한 번 되돌린 뒤에는 다시 시도하지 않는다(주소가 같아져 무한 반복이 된다).
+(function _attachRichImageFallback() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('error', ev => {
+    const el = ev.target;
+    if (!el || el.tagName !== 'IMG') return;
+    const orig = el.getAttribute('data-orig');
+    if (!orig || el.getAttribute('src') === orig) return;
+    el.setAttribute('src', orig);
+  }, true);
+})();
 
 // ══════════════════════════════════════════════════════════════════════════
 // 민감 항목(주의사항·참여방법·NG 사항) 변경 비교 — 캠페인 변경 이력 화면용
@@ -39184,6 +39253,33 @@ async function _insertRichImages(q, files, opts) {
   }
 }
 
+// 이미지 등록 안내 — **문구는 한 벌**로 두고 두 폼(신규 등록·편집)의 빈 자리에 같은
+//   내용을 채운다. 두 마크업에 각각 적으면 한쪽만 고쳐져 화면마다 다른 말을 하게 된다.
+function renderRichImageHelp() {
+  const html = ''
+    + '<div class="rich-img-help-title">'
+    + '<span class="material-icons-round notranslate" translate="no">image</span>이미지 넣는 법</div>'
+    + '<ul>'
+    + '<li>툴바의 이미지 단추를 누르거나, 화면을 캡처해 <b>그대로 붙여넣으면</b> 올라갑니다.</li>'
+    + '<li><b>JPG · PNG · WebP</b>만 되고, 한 장에 <b>5MB</b>까지입니다. 아이폰 기본 형식(HEIC)은 안 됩니다.</li>'
+    + '<li>한 번에 <b>' + RICH_IMG_MAX_COUNT + '장</b>까지 고를 수 있고, <b>파일 이름 순서</b>대로 들어갑니다'
+    + ' (예: <code>1.jpg</code>, <code>2.jpg</code>, <code>10.jpg</code>).</li>'
+    + '<li><b>세로로 자른 긴 이미지</b>는 여러 장을 한 번에 고르면 <b>사이가 붙어 한 장처럼</b> 보입니다.'
+    + ' 사이에 글자를 넣으면 떨어집니다.</li>'
+    + '<li>이미지는 <b>가로 폭에 꽉 차게</b> 보입니다. 크기는 조절할 수 없습니다.'
+    + ' 가로가 ' + RICH_IMG_MAX_WIDTH + '픽셀보다 크면 올릴 때 자동으로 줄입니다'
+    + '(가로세로 비율은 그대로라 잘리지 않습니다).</li>'
+    + '<li>노션 등 <b>다른 사이트의 이미지는 주소만 붙여넣어도 들어가지 않습니다.</b>'
+    + ' 파일로 저장한 뒤 올려 주세요.</li>'
+    + '<li><b>인플루언서 개인정보가 담긴 이미지(영수증 · 명단 · 연락처)는 올리지 마세요.</b>'
+    + ' 이 칸의 이미지는 주소를 아는 사람이면 누구나 볼 수 있습니다.</li>'
+    + '</ul>';
+  ['newCamp', 'editCamp'].forEach(prefix => {
+    const el = $(prefix + 'RichImgHelp');
+    if (el) el.innerHTML = html;
+  });
+}
+
 // 사람이 기대하는 순서로 정렬한다.
 //   ⚠️ `numeric` 이 없으면 **`1` 다음에 `10`** 이 온다(글자 하나씩 비교하므로 `1` 뒤의 `0`
 //      을 먼저 본다). 잘라 올리는 이미지는 `배너_1 … 배너_10` 식이라 이 옵션이 핵심이다.
@@ -39459,6 +39555,7 @@ async function openEditCampaign(campId) {
   // 캠페인 노출 토글 — status 기준으로 ON/OFF 표시
   _renderCampVisibilityToggle('edit', camp.status, { recruit_start: camp.recruit_start, deadline: camp.deadline });
   maybeShowCampVisibilityHint('edit');
+  renderRichImageHelp();
   // flatpickr range picker mount + 값 주입 (모집·구매·방문 3개)
   setupCampRangePickers();
   applyCampRangeValues('editCamp', {
@@ -44147,6 +44244,7 @@ function _resetNewCampVisibilityToggle() {
   _renderCampVisibilityToggle('new', 'active', { recruit_start: '', deadline: '' });
   setCampVisibilitySub(true);
   maybeShowCampVisibilityHint('new');
+  renderRichImageHelp();
 }
 
 // ══════════════════════════════════════

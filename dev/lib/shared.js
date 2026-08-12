@@ -123,7 +123,7 @@ function normalizeLinks(wrapper) {
 }
 
 // HTML 문자열을 sanitize 해서 안전한 HTML 반환
-function sanitizeRich(html) {
+function sanitizeRich(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
@@ -145,7 +145,9 @@ function sanitizeRich(html) {
   normalizeQuillLists(wrapper);
   normalizeLinks(wrapper);
   // 미니 에디터와 **같은 이미지 정책**을 쓴다(공용 함수) — 규칙이 갈리지 않게.
-  _applyContentImagePolicy(wrapper);
+  //   ⚠️ `opts.displayWidth` 는 **표시할 때만** 준다(`richHtml`). 저장 경로(`getRichValue`)는
+  //      옵션 없이 불러 **원본 주소가 그대로 저장**된다 — 줄인 주소가 저장되면 원본을 잃는다.
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -215,8 +217,9 @@ function sanitizeCautionHtml(html) {
 //   허용 주소가 아니면 **지운다** — 외부 URL 직접 입력(추적·서버 공격)과 임시 주소
 //   (blob:, data:, http:) 를 함께 막는다. data: 차단이 곧 **base64 폭증 방지**다
 //   (캠페인 리치 텍스트가 원래 이미지를 통째로 막았던 이유 — FEATURE_SPEC §리치 텍스트).
-function _applyContentImagePolicy(wrapper) {
+function _applyContentImagePolicy(wrapper, opts) {
   if (!wrapper) return;
+  const showW = (opts && opts.displayWidth) || 0;
   wrapper.querySelectorAll('img').forEach(img => {
     const src = (img.getAttribute('src') || '').trim();
     if (!_isAllowedContentImageSrc(src)) {
@@ -239,6 +242,18 @@ function _applyContentImagePolicy(wrapper) {
     } else if (size && size !== 'orig') {
       // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
       img.removeAttribute('data-rich-size');
+    }
+    // 볼 때는 화면 폭에 맞게 줄여서 내려받는다 — 캠페인 설명에 이미지가 여러 장이면
+    //   원본을 다 받느라 느리다. 원본 주소는 `data-orig` 에 남겨, 변환이 실패하면
+    //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
+    //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
+    //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
+    if (showW && typeof imgThumb === 'function') {
+      const thumb = imgThumb(src, showW, 75);
+      if (thumb && thumb !== src) {
+        img.setAttribute('data-orig', src);
+        img.setAttribute('src', thumb);
+      }
     }
   });
   // ⚠️ 연속 판정은 **허용 안 된 이미지를 지운 뒤에** 해야 한다. 먼저 하면 중간에 낀
@@ -466,8 +481,28 @@ function richHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
-  return sanitizeRich(value);
+  // 이 함수는 **화면에 그릴 때만** 쓴다(저장은 `getRichValue` → `sanitizeRich` 직행).
+  //   그래서 여기서만 표시 폭을 준다 — 자세한 이유는 `_applyContentImagePolicy` 주석.
+  return sanitizeRich(value, { displayWidth: RICH_DISPLAY_WIDTH });
 }
+
+// 인플루언서 앱은 폭 480픽셀. 화면이 촘촘한 기기를 감안해 두 배로 받는다.
+const RICH_DISPLAY_WIDTH = 960;
+
+// 줄인 이미지를 못 불러오면 **원본으로 되돌린다.** 저장소 변환이 막히거나 실패해도
+//   화면에서 이미지가 사라지지 않게 하는 안전망이다(프로젝트 규칙 — 썸네일은 원본 폴백 필수).
+//   ⚠️ 이미지 오류는 위로 전달되지 않으므로 **캡처 단계**로 들어야 잡힌다.
+//   ⚠️ 한 번 되돌린 뒤에는 다시 시도하지 않는다(주소가 같아져 무한 반복이 된다).
+(function _attachRichImageFallback() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('error', ev => {
+    const el = ev.target;
+    if (!el || el.tagName !== 'IMG') return;
+    const orig = el.getAttribute('data-orig');
+    if (!orig || el.getAttribute('src') === orig) return;
+    el.setAttribute('src', orig);
+  }, true);
+})();
 
 // ══════════════════════════════════════════════════════════════════════════
 // 민감 항목(주의사항·참여방법·NG 사항) 변경 비교 — 캠페인 변경 이력 화면용

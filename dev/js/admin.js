@@ -754,6 +754,33 @@ async function _insertRichImages(q, files, opts) {
   }
 }
 
+// 이미지 등록 안내 — **문구는 한 벌**로 두고 두 폼(신규 등록·편집)의 빈 자리에 같은
+//   내용을 채운다. 두 마크업에 각각 적으면 한쪽만 고쳐져 화면마다 다른 말을 하게 된다.
+function renderRichImageHelp() {
+  const html = ''
+    + '<div class="rich-img-help-title">'
+    + '<span class="material-icons-round notranslate" translate="no">image</span>이미지 넣는 법</div>'
+    + '<ul>'
+    + '<li>툴바의 이미지 단추를 누르거나, 화면을 캡처해 <b>그대로 붙여넣으면</b> 올라갑니다.</li>'
+    + '<li><b>JPG · PNG · WebP</b>만 되고, 한 장에 <b>5MB</b>까지입니다. 아이폰 기본 형식(HEIC)은 안 됩니다.</li>'
+    + '<li>한 번에 <b>' + RICH_IMG_MAX_COUNT + '장</b>까지 고를 수 있고, <b>파일 이름 순서</b>대로 들어갑니다'
+    + ' (예: <code>1.jpg</code>, <code>2.jpg</code>, <code>10.jpg</code>).</li>'
+    + '<li><b>세로로 자른 긴 이미지</b>는 여러 장을 한 번에 고르면 <b>사이가 붙어 한 장처럼</b> 보입니다.'
+    + ' 사이에 글자를 넣으면 떨어집니다.</li>'
+    + '<li>이미지는 <b>가로 폭에 꽉 차게</b> 보입니다. 크기는 조절할 수 없습니다.'
+    + ' 가로가 ' + RICH_IMG_MAX_WIDTH + '픽셀보다 크면 올릴 때 자동으로 줄입니다'
+    + '(가로세로 비율은 그대로라 잘리지 않습니다).</li>'
+    + '<li>노션 등 <b>다른 사이트의 이미지는 주소만 붙여넣어도 들어가지 않습니다.</b>'
+    + ' 파일로 저장한 뒤 올려 주세요.</li>'
+    + '<li><b>인플루언서 개인정보가 담긴 이미지(영수증 · 명단 · 연락처)는 올리지 마세요.</b>'
+    + ' 이 칸의 이미지는 주소를 아는 사람이면 누구나 볼 수 있습니다.</li>'
+    + '</ul>';
+  ['newCamp', 'editCamp'].forEach(prefix => {
+    const el = $(prefix + 'RichImgHelp');
+    if (el) el.innerHTML = html;
+  });
+}
+
 // 사람이 기대하는 순서로 정렬한다.
 //   ⚠️ `numeric` 이 없으면 **`1` 다음에 `10`** 이 온다(글자 하나씩 비교하므로 `1` 뒤의 `0`
 //      을 먼저 본다). 잘라 올리는 이미지는 `배너_1 … 배너_10` 식이라 이 옵션이 핵심이다.
@@ -1029,6 +1056,7 @@ async function openEditCampaign(campId) {
   // 캠페인 노출 토글 — status 기준으로 ON/OFF 표시
   _renderCampVisibilityToggle('edit', camp.status, { recruit_start: camp.recruit_start, deadline: camp.deadline });
   maybeShowCampVisibilityHint('edit');
+  renderRichImageHelp();
   // flatpickr range picker mount + 값 주입 (모집·구매·방문 3개)
   setupCampRangePickers();
   applyCampRangeValues('editCamp', {
@@ -5717,6 +5745,7 @@ function _resetNewCampVisibilityToggle() {
   _renderCampVisibilityToggle('new', 'active', { recruit_start: '', deadline: '' });
   setCampVisibilitySub(true);
   maybeShowCampVisibilityHint('new');
+  renderRichImageHelp();
 }
 
 // ══════════════════════════════════════
