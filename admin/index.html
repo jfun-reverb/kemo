@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786524539';
+  var CURRENT_BUILD = 'v1786526062';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2896,7 +2896,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-12 17:48 · 8393b56</span>
+          <span class="admin-build-text">2026-08-12 18:14 · 9cc1ef1</span>
         </div>
       </div>
     </aside>
@@ -39186,8 +39186,13 @@ function getRichValue(id) {
   const q = getRichEditor(id);
   if (!q) return '';
   // 빈 에디터 판정: Quill의 기본 placeholder 처리
-  const plain = q.getText().trim();
-  if (!plain) return '';
+  //   ⚠️ **글자만 세면 안 된다.** 이 편집기는 이미지를 글자로 치지 않아서, 이미지만 넣고
+  //      글을 안 쓰면 「빈 편집기」로 판정돼 **내용이 통째로 버려진다**(2026-08-12 실측 —
+  //      캠페인을 저장했는데 설명이 빈 문자열로 들어갔고 미리보기에도 안 떴다).
+  //   ⚠️ 이 함수 하나가 **저장·미리보기·이탈 경고** 세 곳을 좌우한다. 여기서 빈 값을
+  //      돌려주면 세 곳이 함께 이미지를 못 본다.
+  const plain = q.getText().replace(/[\u0000\uFEFF]/g, '').trim();
+  if (!plain && !q.root.querySelector('img')) return '';
   // 2026-05-07: root.innerHTML이 인접 리스트를 분리해 출력하는 버그 회피.
   // Quill 2.x getSemanticHTML 우선 사용, 미존재 시 root.innerHTML로 폴백.
   let raw;

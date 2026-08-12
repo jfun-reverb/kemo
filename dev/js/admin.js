@@ -866,8 +866,13 @@ function getRichValue(id) {
   const q = getRichEditor(id);
   if (!q) return '';
   // 빈 에디터 판정: Quill의 기본 placeholder 처리
-  const plain = q.getText().trim();
-  if (!plain) return '';
+  //   ⚠️ **글자만 세면 안 된다.** 이 편집기는 이미지를 글자로 치지 않아서, 이미지만 넣고
+  //      글을 안 쓰면 「빈 편집기」로 판정돼 **내용이 통째로 버려진다**(2026-08-12 실측 —
+  //      캠페인을 저장했는데 설명이 빈 문자열로 들어갔고 미리보기에도 안 떴다).
+  //   ⚠️ 이 함수 하나가 **저장·미리보기·이탈 경고** 세 곳을 좌우한다. 여기서 빈 값을
+  //      돌려주면 세 곳이 함께 이미지를 못 본다.
+  const plain = q.getText().replace(/[\u0000\uFEFF]/g, '').trim();
+  if (!plain && !q.root.querySelector('img')) return '';
   // 2026-05-07: root.innerHTML이 인접 리스트를 분리해 출력하는 버그 회피.
   // Quill 2.x getSemanticHTML 우선 사용, 미존재 시 root.innerHTML로 폴백.
   let raw;
