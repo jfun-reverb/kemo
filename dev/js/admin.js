@@ -4248,6 +4248,15 @@ async function renderCategorySelect(formMode, currentCode) {
 
 async function filterChannelsByRecruitType(formMode, recruitType) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
+  // ★ 기간 칸(구매·방문·선정) 표시부터 **먼저** 맞춘다.
+  //   이 함수는 아래에서 채널·참여방법·주의사항·NG 네 목록을 데이터베이스에서 불러오느라
+  //   약 1초를 쓰고, 그 뒤에야 같은 함수를 한 번 더 부른다(맨 아래). 그동안 칸이 없어서
+  //   **오리엔시트로 발행한 직후 시딩형 선정 기간 칸이 안 보인다는 지적**이 나왔다
+  //   (2026-08-12 담당자 확인). 발행은 화면을 맨 위로 올리고 알림을 띄우므로 그 1초가
+  //   그대로 「칸이 없는 화면」이 된다.
+  //   ⚠️ 아래 호출을 지우면 안 된다 — 이 함수가 도는 동안 형식이 또 바뀔 수 있고,
+  //      마지막 호출이 최종 상태를 확정한다. 같은 인자로 두 번 불러도 결과는 같다.
+  applyDeadlineFieldsVisibility(formMode, recruitType);
   // 체크 상태는 화면에서 그대로 가져오되, **보존 대상은 「저장된 채널」로 따로 준다.**
   //   ⚠️ 화면 체크값을 보존 대상으로 쓰면 안 된다 — 리뷰어형에서 Qoo10 을 고른 뒤 시딩으로
   //      바꿨을 때 Qoo10 이 「(기존)」으로 살아남아 신규 캠페인이 모집 형식과 안 맞는 채널로
