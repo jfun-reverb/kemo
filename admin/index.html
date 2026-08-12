@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786518530';
+  var CURRENT_BUILD = 'v1786521041';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1240,6 +1240,17 @@ input.admin-filter{padding-right:8px}
   background:#fafafa;
   border-radius:8px 8px 0 0;
   flex-shrink:0;
+}
+/* 편집기 안에 넣은 이미지 — **여기서 직접 잡아야 한다.**
+   정화 함수(sanitizeRich)가 붙이는 .rich-img 는 「저장할 때·화면에 그릴 때」만 걸리고
+   편집기 안 DOM 에는 안 걸린다. 빠뜨리면 인플루언서 화면은 멀쩡한데 **편집기에서만**
+   원본 크기로 상자를 뚫고 나온다(2026-08-12). 표시는 인플루언서 쪽 .rich-img 와 맞춘다. */
+.quill-wrap .ql-editor img{
+  max-width:100%;
+  height:auto;
+  display:block;
+  margin:8px auto;
+  border-radius:6px;
 }
 .quill-wrap .ql-container.ql-snow{
   border:0;
@@ -2825,7 +2836,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-12 16:08 · 1249285</span>
+          <span class="admin-build-text">2026-08-12 16:50 · e7a574b</span>
         </div>
       </div>
     </aside>
@@ -7094,15 +7105,22 @@ function sanitizeRich(html) {
     return '';
   }
   const clean = DOMPurify.sanitize(String(html), {
-    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
-    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
-    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    // ⚠️ img 를 허용하되 **주소는 아래 _applyContentImagePolicy 가 다시 거른다** —
+    //    우리 저장소(https + *.supabase.co)만 남고 나머지는 지워진다. 특히 `data:` 가
+    //    막히는 것이 중요하다. 이 칸이 원래 이미지를 통째로 막았던 이유가 붙여넣기로
+    //    딸려오는 **base64 덩어리가 데이터베이스 글자 칸을 수 MB로 부풀리는 것**이었다
+    //    (2026-08-12 에 허용으로 바꾸며 그 우려를 주소 화이트리스트로 대체).
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS.concat(['img']),
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR.concat(['src','alt','loading','decoding','data-rich-size']),
+    FORBID_TAGS: ['script','iframe','style','object','embed','svg'],
     FORBID_ATTR: ['style','onerror','onload','onclick']
   });
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
   normalizeQuillLists(wrapper);
   normalizeLinks(wrapper);
+  // 미니 에디터와 **같은 이미지 정책**을 쓴다(공용 함수) — 규칙이 갈리지 않게.
+  _applyContentImagePolicy(wrapper);
   return wrapper.innerHTML;
 }
 
@@ -7162,9 +7180,18 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  // 이미지 src 화이트리스트: https + Supabase Storage 도메인만.
-  //   외부 URL 직접 입력 (예: evil.com) 차단 — 추적·서버 공격 가능성 0.
-  //   소유 자산이 아닌 임시 URL(blob:, data:, http:) 도 차단.
+  _applyContentImagePolicy(wrapper);
+  return wrapper.innerHTML;
+}
+
+// 본문 이미지 정책 — **미니 에디터(주의사항·참여방법·NG)와 캠페인 리치 텍스트가 함께 쓴다.**
+//   ⚠️ 두 곳에 복사하지 말 것. 규칙이 갈리면 「참여방법에서는 되는데 캠페인 설명에서는
+//      안 되는」 식으로 어긋나고, 한쪽만 고친 채 배포되기 쉽다(2026-08-12 공용화).
+//   허용 주소가 아니면 **지운다** — 외부 URL 직접 입력(추적·서버 공격)과 임시 주소
+//   (blob:, data:, http:) 를 함께 막는다. data: 차단이 곧 **base64 폭증 방지**다
+//   (캠페인 리치 텍스트가 원래 이미지를 통째로 막았던 이유 — FEATURE_SPEC §리치 텍스트).
+function _applyContentImagePolicy(wrapper) {
+  if (!wrapper) return;
   wrapper.querySelectorAll('img').forEach(img => {
     const src = (img.getAttribute('src') || '').trim();
     if (!_isAllowedContentImageSrc(src)) {
@@ -7178,6 +7205,9 @@ function sanitizeCautionHtml(html) {
     // alt 누락 시 빈 문자열 (장식용으로 처리)
     if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
     // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    //   ⚠️ 캠페인 리치 텍스트(Quill)는 이 값을 **저장하지 못한다** — Quill 이미지 조각이
+    //      alt·width·height 외 속성을 버리기 때문. 그래서 그쪽은 가로 100% 고정이다
+    //      (2026-08-12 결정). 미니 에디터에서 넘어온 값만 여기서 살아난다.
     const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
     if (size === 'sm' || size === 'md' || size === 'lg') {
       img.classList.add('rich-img-' + size);
@@ -7186,7 +7216,6 @@ function sanitizeCautionHtml(html) {
       img.removeAttribute('data-rich-size');
     }
   });
-  return wrapper.innerHTML;
 }
 
 // 오리엔시트 내부 메모 전용 sanitize.
@@ -38825,13 +38854,18 @@ function getRichEditor(id) {
           ['bold','italic','underline','strike'],
           [{ 'list': 'ordered' }, { 'list': 'bullet' }],
           ['link','blockquote'],
+          ['image'],
           ['clean']
         ],
-        handlers: { link: linkHandler }
+        handlers: { link: linkHandler, image: () => quillImageHandler(id) }
       },
       clipboard: { matchVisual: false }
     },
-    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+    // ⚠️ `image` 가 여기 없으면 **편집기에 넣는 순간 사라진다** — 정화 함수(sanitizeRich)를
+    //    아무리 열어도 저장까지 가지도 못한다. 두 곳은 한 세트다(2026-08-12).
+    //    ⓘ 관리자 공지사항은 같은 정화 함수를 쓰지만 **자기 편집기를 따로 만들고 이 목록에
+    //      image 를 넣지 않으므로** 동작이 그대로다(사용자 결정 — 캠페인 세 칸만 연다).
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote','image']
   });
   // 툴바+본문을 wrap 으로 감싸 미니 에디터와 같은 통합 박스 외관으로 전환
   const toolbar = q.getModule('toolbar')?.container;
@@ -38842,9 +38876,109 @@ function getRichEditor(id) {
     wrap.appendChild(toolbar);
     wrap.appendChild(host);
   }
+  // 붙여넣기 이미지 처리 — 화면 캡처는 올리고, 가져올 수 없는 외부 이미지는 안내한다.
+  _attachRichImagePaste(q, id);
   richEditors[id] = q;
   return q;
 }
+// ══════════════════════════════════════
+// 캠페인 리치 텍스트 — 이미지 넣기 (2026-08-12)
+//   사양서 docs/specs/2026-08-12-quill-image-upload.md
+// ══════════════════════════════════════
+
+// 검사 규칙은 미니 에디터(miniEditorInsertImageClick)와 **같은 값·같은 문구**를 쓴다 —
+//   두 편집기가 다른 말을 하면 운영자가 어느 쪽이 맞는지 알 수 없다.
+const RICH_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const RICH_IMG_MAX_BYTES = 5 * 1024 * 1024;
+
+// 파일 하나를 올려 편집기 커서 자리에 넣는다. 실패하면 안내만 하고 아무것도 안 넣는다.
+async function _insertRichImage(q, file) {
+  if (!RICH_IMG_TYPES.includes(file.type)) {
+    toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다', 'error');
+    return false;
+  }
+  if (file.size > RICH_IMG_MAX_BYTES) {
+    toast('이미지는 5MB 이하만 업로드할 수 있습니다', 'error');
+    return false;
+  }
+  const url = await uploadContentImage(file);
+  // 커서 위치에 넣는다. 커서가 없으면(편집기를 안 눌렀으면) 맨 끝.
+  const range = q.getSelection(true);
+  const at = range ? range.index : q.getLength();
+  q.insertEmbed(at, 'image', url, 'user');
+  q.setSelection(at + 1, 0, 'silent');
+  return true;
+}
+
+// 툴바 이미지 단추.
+function quillImageHandler(id) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  // 임시 파일 입력 — DOM 에 붙여야 일부 브라우저에서 click() 이 동작한다(미니 에디터와 같은 이유).
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = RICH_IMG_TYPES.join(',');
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    try {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      toast('이미지 업로드 중…', 'info');
+      if (await _insertRichImage(q, file)) toast('이미지를 넣었습니다', 'success');
+    } catch (e) {
+      console.error('[quillImageHandler]', e);
+      toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error');
+    } finally {
+      input.remove();
+    }
+  });
+  input.click();
+}
+
+// 붙여넣기 — 화면 캡처·이미지 파일은 **자동으로 올린다**. 주소만 온 외부 이미지는
+//   가져올 수 없으므로(노션 등이 교차 출처 접근을 막는다 — 2026-08-12 실측) 안내한다.
+//   ⚠️ 이 장치가 없으면 **지금보다 나빠진다**: 외부 이미지가 편집기에 멀쩡히 보이다가
+//      저장한 뒤에야 조용히 사라져, 운영자가 원인을 알 수 없다.
+//   ⚠️ 미니 에디터처럼 붙여넣기를 평문으로 바꾸지 **않는다** — 그러면 이 편집기의 존재
+//      이유인 노션 서식(제목·목록·인용구) 유지가 죽는다.
+function _attachRichImagePaste(q, id) {
+  q.root.addEventListener('paste', ev => {
+    const items = Array.from((ev.clipboardData && ev.clipboardData.items) || []);
+    const files = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+                       .map(it => it.getAsFile()).filter(Boolean);
+    if (files.length) {
+      // 클립보드에 파일 자체가 들어 있다(화면 캡처·이미지 복사) — 그대로 올린다.
+      ev.preventDefault();
+      (async () => {
+        toast('이미지 업로드 중…', 'info');
+        let ok = 0;
+        for (const f of files) {
+          try { if (await _insertRichImage(q, f)) ok++; }
+          catch (e) { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); }
+        }
+        if (ok) toast(ok + '개 이미지를 넣었습니다', 'success');
+      })();
+      return;
+    }
+    // 파일이 아니라 HTML 이 온 경우 — 그 안에 남의 서버 주소를 가리키는 이미지가 있으면
+    //   붙여넣기 뒤에 **미리 알린다**(막는 것은 아래 text-change 가 한다).
+    const html = ev.clipboardData && ev.clipboardData.getData('text/html');
+    if (html && /<img\b/i.test(html)) {
+      setTimeout(() => toast('외부 이미지는 넣을 수 없습니다. 이미지 단추로 올려 주세요', 'info'), 60);
+    }
+  });
+  // 붙여넣기·끌어놓기로 들어온 **허용되지 않은 주소의 이미지를 그 자리에서 제거**한다.
+  //   저장할 때까지 두면 「보였다가 사라지는」 상황이 된다.
+  q.on('text-change', (delta, old, source) => {
+    if (source !== 'user') return;
+    const bad = Array.from(q.root.querySelectorAll('img')).filter(img =>
+      !(typeof _isAllowedContentImageSrc === 'function' && _isAllowedContentImageSrc((img.getAttribute('src') || '').trim())));
+    if (!bad.length) return;
+    bad.forEach(img => img.remove());
+  });
+}
+
 function setRichValue(id, html) {
   const q = getRichEditor(id);
   if (!q) return;

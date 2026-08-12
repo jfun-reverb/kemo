@@ -630,13 +630,18 @@ function getRichEditor(id) {
           ['bold','italic','underline','strike'],
           [{ 'list': 'ordered' }, { 'list': 'bullet' }],
           ['link','blockquote'],
+          ['image'],
           ['clean']
         ],
-        handlers: { link: linkHandler }
+        handlers: { link: linkHandler, image: () => quillImageHandler(id) }
       },
       clipboard: { matchVisual: false }
     },
-    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+    // ⚠️ `image` 가 여기 없으면 **편집기에 넣는 순간 사라진다** — 정화 함수(sanitizeRich)를
+    //    아무리 열어도 저장까지 가지도 못한다. 두 곳은 한 세트다(2026-08-12).
+    //    ⓘ 관리자 공지사항은 같은 정화 함수를 쓰지만 **자기 편집기를 따로 만들고 이 목록에
+    //      image 를 넣지 않으므로** 동작이 그대로다(사용자 결정 — 캠페인 세 칸만 연다).
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote','image']
   });
   // 툴바+본문을 wrap 으로 감싸 미니 에디터와 같은 통합 박스 외관으로 전환
   const toolbar = q.getModule('toolbar')?.container;
@@ -647,9 +652,109 @@ function getRichEditor(id) {
     wrap.appendChild(toolbar);
     wrap.appendChild(host);
   }
+  // 붙여넣기 이미지 처리 — 화면 캡처는 올리고, 가져올 수 없는 외부 이미지는 안내한다.
+  _attachRichImagePaste(q, id);
   richEditors[id] = q;
   return q;
 }
+// ══════════════════════════════════════
+// 캠페인 리치 텍스트 — 이미지 넣기 (2026-08-12)
+//   사양서 docs/specs/2026-08-12-quill-image-upload.md
+// ══════════════════════════════════════
+
+// 검사 규칙은 미니 에디터(miniEditorInsertImageClick)와 **같은 값·같은 문구**를 쓴다 —
+//   두 편집기가 다른 말을 하면 운영자가 어느 쪽이 맞는지 알 수 없다.
+const RICH_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const RICH_IMG_MAX_BYTES = 5 * 1024 * 1024;
+
+// 파일 하나를 올려 편집기 커서 자리에 넣는다. 실패하면 안내만 하고 아무것도 안 넣는다.
+async function _insertRichImage(q, file) {
+  if (!RICH_IMG_TYPES.includes(file.type)) {
+    toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다', 'error');
+    return false;
+  }
+  if (file.size > RICH_IMG_MAX_BYTES) {
+    toast('이미지는 5MB 이하만 업로드할 수 있습니다', 'error');
+    return false;
+  }
+  const url = await uploadContentImage(file);
+  // 커서 위치에 넣는다. 커서가 없으면(편집기를 안 눌렀으면) 맨 끝.
+  const range = q.getSelection(true);
+  const at = range ? range.index : q.getLength();
+  q.insertEmbed(at, 'image', url, 'user');
+  q.setSelection(at + 1, 0, 'silent');
+  return true;
+}
+
+// 툴바 이미지 단추.
+function quillImageHandler(id) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  // 임시 파일 입력 — DOM 에 붙여야 일부 브라우저에서 click() 이 동작한다(미니 에디터와 같은 이유).
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = RICH_IMG_TYPES.join(',');
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    try {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      toast('이미지 업로드 중…', 'info');
+      if (await _insertRichImage(q, file)) toast('이미지를 넣었습니다', 'success');
+    } catch (e) {
+      console.error('[quillImageHandler]', e);
+      toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error');
+    } finally {
+      input.remove();
+    }
+  });
+  input.click();
+}
+
+// 붙여넣기 — 화면 캡처·이미지 파일은 **자동으로 올린다**. 주소만 온 외부 이미지는
+//   가져올 수 없으므로(노션 등이 교차 출처 접근을 막는다 — 2026-08-12 실측) 안내한다.
+//   ⚠️ 이 장치가 없으면 **지금보다 나빠진다**: 외부 이미지가 편집기에 멀쩡히 보이다가
+//      저장한 뒤에야 조용히 사라져, 운영자가 원인을 알 수 없다.
+//   ⚠️ 미니 에디터처럼 붙여넣기를 평문으로 바꾸지 **않는다** — 그러면 이 편집기의 존재
+//      이유인 노션 서식(제목·목록·인용구) 유지가 죽는다.
+function _attachRichImagePaste(q, id) {
+  q.root.addEventListener('paste', ev => {
+    const items = Array.from((ev.clipboardData && ev.clipboardData.items) || []);
+    const files = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+                       .map(it => it.getAsFile()).filter(Boolean);
+    if (files.length) {
+      // 클립보드에 파일 자체가 들어 있다(화면 캡처·이미지 복사) — 그대로 올린다.
+      ev.preventDefault();
+      (async () => {
+        toast('이미지 업로드 중…', 'info');
+        let ok = 0;
+        for (const f of files) {
+          try { if (await _insertRichImage(q, f)) ok++; }
+          catch (e) { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); }
+        }
+        if (ok) toast(ok + '개 이미지를 넣었습니다', 'success');
+      })();
+      return;
+    }
+    // 파일이 아니라 HTML 이 온 경우 — 그 안에 남의 서버 주소를 가리키는 이미지가 있으면
+    //   붙여넣기 뒤에 **미리 알린다**(막는 것은 아래 text-change 가 한다).
+    const html = ev.clipboardData && ev.clipboardData.getData('text/html');
+    if (html && /<img\b/i.test(html)) {
+      setTimeout(() => toast('외부 이미지는 넣을 수 없습니다. 이미지 단추로 올려 주세요', 'info'), 60);
+    }
+  });
+  // 붙여넣기·끌어놓기로 들어온 **허용되지 않은 주소의 이미지를 그 자리에서 제거**한다.
+  //   저장할 때까지 두면 「보였다가 사라지는」 상황이 된다.
+  q.on('text-change', (delta, old, source) => {
+    if (source !== 'user') return;
+    const bad = Array.from(q.root.querySelectorAll('img')).filter(img =>
+      !(typeof _isAllowedContentImageSrc === 'function' && _isAllowedContentImageSrc((img.getAttribute('src') || '').trim())));
+    if (!bad.length) return;
+    bad.forEach(img => img.remove());
+  });
+}
+
 function setRichValue(id, html) {
   const q = getRichEditor(id);
   if (!q) return;

@@ -778,6 +778,17 @@ input.admin-filter{padding-right:8px}
   border-radius:8px 8px 0 0;
   flex-shrink:0;
 }
+/* 편집기 안에 넣은 이미지 — **여기서 직접 잡아야 한다.**
+   정화 함수(sanitizeRich)가 붙이는 .rich-img 는 「저장할 때·화면에 그릴 때」만 걸리고
+   편집기 안 DOM 에는 안 걸린다. 빠뜨리면 인플루언서 화면은 멀쩡한데 **편집기에서만**
+   원본 크기로 상자를 뚫고 나온다(2026-08-12). 표시는 인플루언서 쪽 .rich-img 와 맞춘다. */
+.quill-wrap .ql-editor img{
+  max-width:100%;
+  height:auto;
+  display:block;
+  margin:8px auto;
+  border-radius:6px;
+}
 .quill-wrap .ql-container.ql-snow{
   border:0;
   border-radius:0 0 8px 8px;

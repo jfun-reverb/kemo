@@ -1718,7 +1718,9 @@ rejected: any stage → rejected 로 분기 가능 (reviewing 이후 어느 단�
 
 ### 38.5 미니 에디터 (link bubble popover)
 - 본문 한·일 입력은 미니 리치 에디터(5-button: bold/italic/link-add/list/clear) — 링크 바늘 popover로 URL·라벨 입력
-- 이미지 태그는 저장 시 제거 (base64 폭증 방지)
+- **이미지 넣기 가능**(2026-05-12 도입 — 이 줄은 그전까지 「저장 시 제거」라고 적혀 있었다). 업로드는 `uploadContentImage` → `campaign-images/content/`(5MB·jpg/png/webp), 크기 4단계(작게/중간/크게/원본)
+- **캠페인 리치 텍스트(Quill) 세 칸도 2026-08-12부터 같은 방식으로 이미지를 넣는다** — 업로드 함수·정책 함수(`_applyContentImagePolicy`)를 **함께 쓴다**. 다만 Quill 은 크기 정보를 저장 때 버리므로 **가로 100% 고정**. 상세는 `docs/specs/2026-08-12-quill-image-upload.md`
+- ⚠️ **주소 화이트리스트가 유일한 방어선** — `https:` + `*.supabase.co` 만 남기고 나머지는 지운다. `data:` 차단이 곧 **base64 폭증 방지**(원래 이미지를 통째로 막았던 이유)
 - DOMPurify 저장+렌더 이중 sanitize
 
 ### 38.6 행 단위 보안 정책(RLS)
