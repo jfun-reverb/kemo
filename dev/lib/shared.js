@@ -123,22 +123,31 @@ function normalizeLinks(wrapper) {
 }
 
 // HTML 문자열을 sanitize 해서 안전한 HTML 반환
-function sanitizeRich(html) {
+function sanitizeRich(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
     return '';
   }
   const clean = DOMPurify.sanitize(String(html), {
-    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
-    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
-    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    // ⚠️ img 를 허용하되 **주소는 아래 _applyContentImagePolicy 가 다시 거른다** —
+    //    우리 저장소(https + *.supabase.co)만 남고 나머지는 지워진다. 특히 `data:` 가
+    //    막히는 것이 중요하다. 이 칸이 원래 이미지를 통째로 막았던 이유가 붙여넣기로
+    //    딸려오는 **base64 덩어리가 데이터베이스 글자 칸을 수 MB로 부풀리는 것**이었다
+    //    (2026-08-12 에 허용으로 바꾸며 그 우려를 주소 화이트리스트로 대체).
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS.concat(['img']),
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR.concat(['src','alt','loading','decoding','data-rich-size']),
+    FORBID_TAGS: ['script','iframe','style','object','embed','svg'],
     FORBID_ATTR: ['style','onerror','onload','onclick']
   });
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
   normalizeQuillLists(wrapper);
   normalizeLinks(wrapper);
+  // 미니 에디터와 **같은 이미지 정책**을 쓴다(공용 함수) — 규칙이 갈리지 않게.
+  //   ⚠️ `opts.displayWidth` 는 **표시할 때만** 준다(`richHtml`). 저장 경로(`getRichValue`)는
+  //      옵션 없이 불러 **원본 주소가 그대로 저장**된다 — 줄인 주소가 저장되면 원본을 잃는다.
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -198,9 +207,19 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  // 이미지 src 화이트리스트: https + Supabase Storage 도메인만.
-  //   외부 URL 직접 입력 (예: evil.com) 차단 — 추적·서버 공격 가능성 0.
-  //   소유 자산이 아닌 임시 URL(blob:, data:, http:) 도 차단.
+  _applyContentImagePolicy(wrapper);
+  return wrapper.innerHTML;
+}
+
+// 본문 이미지 정책 — **미니 에디터(주의사항·참여방법·NG)와 캠페인 리치 텍스트가 함께 쓴다.**
+//   ⚠️ 두 곳에 복사하지 말 것. 규칙이 갈리면 「참여방법에서는 되는데 캠페인 설명에서는
+//      안 되는」 식으로 어긋나고, 한쪽만 고친 채 배포되기 쉽다(2026-08-12 공용화).
+//   허용 주소가 아니면 **지운다** — 외부 URL 직접 입력(추적·서버 공격)과 임시 주소
+//   (blob:, data:, http:) 를 함께 막는다. data: 차단이 곧 **base64 폭증 방지**다
+//   (캠페인 리치 텍스트가 원래 이미지를 통째로 막았던 이유 — FEATURE_SPEC §리치 텍스트).
+function _applyContentImagePolicy(wrapper, opts) {
+  if (!wrapper) return;
+  const showW = (opts && opts.displayWidth) || 0;
   wrapper.querySelectorAll('img').forEach(img => {
     const src = (img.getAttribute('src') || '').trim();
     if (!_isAllowedContentImageSrc(src)) {
@@ -214,6 +233,9 @@ function sanitizeCautionHtml(html) {
     // alt 누락 시 빈 문자열 (장식용으로 처리)
     if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
     // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    //   ⚠️ 캠페인 리치 텍스트(Quill)는 이 값을 **저장하지 못한다** — Quill 이미지 조각이
+    //      alt·width·height 외 속성을 버리기 때문. 그래서 그쪽은 가로 100% 고정이다
+    //      (2026-08-12 결정). 미니 에디터에서 넘어온 값만 여기서 살아난다.
     const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
     if (size === 'sm' || size === 'md' || size === 'lg') {
       img.classList.add('rich-img-' + size);
@@ -221,8 +243,48 @@ function sanitizeCautionHtml(html) {
       // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
       img.removeAttribute('data-rich-size');
     }
+    // 볼 때는 화면 폭에 맞게 줄여서 내려받는다 — 캠페인 설명에 이미지가 여러 장이면
+    //   원본을 다 받느라 느리다. 원본 주소는 `data-orig` 에 남겨, 변환이 실패하면
+    //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
+    //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
+    //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
+    if (showW && typeof imgThumb === 'function') {
+      const thumb = imgThumb(src, showW, 75);
+      if (thumb && thumb !== src) {
+        img.setAttribute('data-orig', src);
+        img.setAttribute('src', thumb);
+      }
+    }
   });
-  return wrapper.innerHTML;
+  // ⚠️ 연속 판정은 **허용 안 된 이미지를 지운 뒤에** 해야 한다. 먼저 하면 중간에 낀
+  //    외부 이미지 때문에 「연속이 아니다」로 잘못 보고, 그 이미지가 지워진 뒤엔
+  //    실제로 붙어 있는데도 여백이 남는다.
+  _markStackedImages(wrapper);
+}
+
+// 바로 이어지는 이미지끼리는 여백을 없앤다 — **세로로 자른 긴 이미지를 나눠 올리는**
+//   흔한 방식에서 사이가 벌어져 끊겨 보이기 때문이다(2026-08-12 운영 요청).
+//   여백은 세 겹으로 쌓인다: 앞 이미지 아래(8) + 문단 아래(8) + 뒤 이미지 위(8) ≈ 24픽셀.
+//   ⚠️ **글과 이미지 사이 여백은 건드리지 않는다** — 전부 0으로 만들면 설명글이 답답해진다.
+//   ⚠️ 표시는 **앞 블록**에 붙인다. 뒤 블록에만 붙이면 앞 문단의 아래 여백이 남는다.
+function _markStackedImages(wrapper) {
+  // 이미지 하나만 든 블록(문단)이면 그 문단이 기준, 이미지가 맨 위에 그냥 있으면 이미지 자신.
+  const blockOf = img => {
+    const p = img.parentElement;
+    if (!p || p === wrapper) return img;
+    // 문단 안에 이미지 말고 눈에 보이는 내용이 더 있으면 「이미지만 있는 블록」이 아니다.
+    const hasOther = Array.from(p.childNodes).some(n =>
+      n !== img && !(n.nodeType === 3 && !n.textContent.trim()) && !(n.nodeType === 1 && n.tagName === 'BR'));
+    return hasOther ? img : p;
+  };
+  const blocks = Array.from(wrapper.querySelectorAll('img')).map(blockOf);
+  const isImageBlock = el => blocks.includes(el);
+  blocks.forEach(b => {
+    // 다음 형제(빈 텍스트는 건너뜀)도 이미지 블록이면 둘을 붙인다.
+    let n = b.nextSibling;
+    while (n && n.nodeType === 3 && !n.textContent.trim()) n = n.nextSibling;
+    if (n && n.nodeType === 1 && isImageBlock(n)) b.classList.add('rich-img-joined');
+  });
 }
 
 // 오리엔시트 내부 메모 전용 sanitize.
@@ -419,8 +481,28 @@ function richHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
-  return sanitizeRich(value);
+  // 이 함수는 **화면에 그릴 때만** 쓴다(저장은 `getRichValue` → `sanitizeRich` 직행).
+  //   그래서 여기서만 표시 폭을 준다 — 자세한 이유는 `_applyContentImagePolicy` 주석.
+  return sanitizeRich(value, { displayWidth: RICH_DISPLAY_WIDTH });
 }
+
+// 인플루언서 앱은 폭 480픽셀. 화면이 촘촘한 기기를 감안해 두 배로 받는다.
+const RICH_DISPLAY_WIDTH = 960;
+
+// 줄인 이미지를 못 불러오면 **원본으로 되돌린다.** 저장소 변환이 막히거나 실패해도
+//   화면에서 이미지가 사라지지 않게 하는 안전망이다(프로젝트 규칙 — 썸네일은 원본 폴백 필수).
+//   ⚠️ 이미지 오류는 위로 전달되지 않으므로 **캡처 단계**로 들어야 잡힌다.
+//   ⚠️ 한 번 되돌린 뒤에는 다시 시도하지 않는다(주소가 같아져 무한 반복이 된다).
+(function _attachRichImageFallback() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('error', ev => {
+    const el = ev.target;
+    if (!el || el.tagName !== 'IMG') return;
+    const orig = el.getAttribute('data-orig');
+    if (!orig || el.getAttribute('src') === orig) return;
+    el.setAttribute('src', orig);
+  }, true);
+})();
 
 // ══════════════════════════════════════════════════════════════════════════
 // 민감 항목(주의사항·참여방법·NG 사항) 변경 비교 — 캠페인 변경 이력 화면용

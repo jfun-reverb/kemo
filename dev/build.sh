@@ -75,7 +75,10 @@ PYTHON_SCRIPT
 mkdir -p ../admin
 
 ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/admin.js" "admin/app.js")
+# ⚠️ image-compress.js 는 storage.js 의 uploadMessageAttachment 가 부른다. 이 목록에 없던
+#    동안 관리자 화면에서 메시지에 이미지를 첨부하면 **함수가 없어 반드시 실패**했다
+#    (2026-08-12 발견 — 정의 0개 / 호출 1개). 캠페인 이미지 축소에도 쓴다.
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do
@@ -109,7 +112,10 @@ with open(src_html, "r", encoding="utf-8") as f:
 
 # admin HTML의 CSS/JS 링크 제거 (../css/, ../js/, ../lib/ 경로)
 html = re.sub(r'<link\s+rel="stylesheet"\s+href="\.\./css/[^"]+"\s*/?>\n?', '', html)
-html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app|ocr-receipt)\.js"\s*></script>\n?', '', html)
+# ⚠️ 여기 이름을 빠뜨리면 그 <script> 태그가 **산출물에 그대로 남아** 없는 경로를 부른다
+#    (관리자 화면은 /admin/ 아래라 ../lib/ 은 루트를 가리키는데 루트에 lib/ 폴더가 없다).
+#    ADMIN_JS_FILES 에 파일을 추가할 때 이 목록도 **같이** 고칠 것.
+html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app|ocr-receipt|image-compress)\.js"\s*></script>\n?', '', html)
 
 # 사이드바 최하단 빌드 버전 placeholder 치환
 html = html.replace("__BUILD_DATETIME_KST__", build_datetime_kst)

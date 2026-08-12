@@ -630,13 +630,18 @@ function getRichEditor(id) {
           ['bold','italic','underline','strike'],
           [{ 'list': 'ordered' }, { 'list': 'bullet' }],
           ['link','blockquote'],
+          ['image'],
           ['clean']
         ],
-        handlers: { link: linkHandler }
+        handlers: { link: linkHandler, image: () => quillImageHandler(id) }
       },
       clipboard: { matchVisual: false }
     },
-    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+    // ⚠️ `image` 가 여기 없으면 **편집기에 넣는 순간 사라진다** — 정화 함수(sanitizeRich)를
+    //    아무리 열어도 저장까지 가지도 못한다. 두 곳은 한 세트다(2026-08-12).
+    //    ⓘ 관리자 공지사항은 같은 정화 함수를 쓰지만 **자기 편집기를 따로 만들고 이 목록에
+    //      image 를 넣지 않으므로** 동작이 그대로다(사용자 결정 — 캠페인 세 칸만 연다).
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote','image']
   });
   // 툴바+본문을 wrap 으로 감싸 미니 에디터와 같은 통합 박스 외관으로 전환
   const toolbar = q.getModule('toolbar')?.container;
@@ -647,9 +652,312 @@ function getRichEditor(id) {
     wrap.appendChild(toolbar);
     wrap.appendChild(host);
   }
+  // 붙여넣기 이미지 처리 — 화면 캡처는 올리고, 가져올 수 없는 외부 이미지는 안내한다.
+  _attachRichImagePaste(q, id);
   richEditors[id] = q;
   return q;
 }
+// ══════════════════════════════════════
+// 캠페인 리치 텍스트 — 이미지 넣기 (2026-08-12)
+//   사양서 docs/specs/2026-08-12-quill-image-upload.md
+// ══════════════════════════════════════
+
+// 검사 규칙은 미니 에디터(miniEditorInsertImageClick)와 **같은 값·같은 문구**를 쓴다 —
+//   두 편집기가 다른 말을 하면 운영자가 어느 쪽이 맞는지 알 수 없다.
+const RICH_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const RICH_IMG_MAX_BYTES = 5 * 1024 * 1024;
+// 한 번에 넣을 수 있는 장수 — 폴더를 통째로 고르는 사고를 막는다(되돌리기 단추가 없는 자리다)
+const RICH_IMG_MAX_COUNT = 20;
+// 올리기 전에 줄이는 기준. **가로 폭만** 본다 — 세로로 자른 긴 배너를 긴 변 기준으로
+// 줄이면 통째로 축소돼 글자가 뭉개진다. 가로가 이보다 좁으면 원본 그대로 올라간다.
+const RICH_IMG_MAX_WIDTH = 1600;
+
+// 올리기 전에 가로 폭만 줄인다. 실패하면 **원본 그대로** 올린다 — 줄이지 못하는 것이
+// 못 올리는 것보다 낫다(전에 없던 단계가 업로드를 막으면 안 된다).
+async function _shrinkRichImage(file) {
+  if (typeof compressImageFile !== 'function') return file;
+  try {
+    return await compressImageFile(file, {
+      maxWidth: RICH_IMG_MAX_WIDTH,
+      maxBytes: RICH_IMG_MAX_BYTES,
+      keepIfSmall: true,     // 줄일 필요가 없으면 원본 그대로 (투명한 PNG 보호)
+      quality: 0.85
+    });
+  } catch (e) {
+    console.warn('[_shrinkRichImage] 축소 실패 — 원본으로 올립니다', e);
+    return file;
+  }
+}
+
+// 여러 장을 **차례대로** 넣는다.
+//   ⚠️ 한꺼번에 올리면(병렬) 빨리 끝난 것이 먼저 들어가 **순서가 뒤집힌다.** 한 장씩
+//      기다리면 순서가 저절로 지켜지고, 한 장씩 나타나 진행 상황이 눈에 보인다.
+//   ⚠️ 넣을 자리는 **처음에 한 번만** 정하고 하나씩 뒤로 민다. 매번 커서를 다시 읽으면
+//      운영자가 다른 칸을 누르는 순간 자리를 빼앗고 이미지가 흩어진다.
+async function _insertRichImages(q, files, opts) {
+  // ⚠️ 이미 올리는 중이면 **두 번째 호출을 막는다.** 편집기 잠금(`q.enable(false)`)은 글을
+  //    쓰는 자리만 막고 **툴바 단추는 그대로 눌린다.** 한 장짜리는 진행 표시도 안 떠서,
+  //    느릴 때 운영자가 다시 누르기 쉽다. 그러면 두 벌이 각자 자리를 세어 순서가 뒤섞인다.
+  if (q.__richImgBusy) { toast('이미지를 올리는 중입니다. 끝난 뒤에 다시 눌러 주세요', 'info'); return; }
+
+  const sort = !opts || opts.sort !== false;
+  let list = Array.from(files || []);
+  if (!list.length) return;
+  if (sort) list = _richImagesInNameOrder(list);
+
+  // ① 올리기 **전에** 거른다 — 아직 아무것도 안 올라가 되돌릴 것이 없다
+  const bad = list.filter(f => !RICH_IMG_TYPES.includes(f.type) || f.size > RICH_IMG_MAX_BYTES);
+  const ok = list.filter(f => !bad.includes(f));
+  // ⚠️ 장수 검사를 **확인 창보다 먼저** 한다. 뒤에 두면 「나머지만 넣을까요」에 확인을 누른
+  //    직후 장수 초과로 통째로 취소돼, 답한 것이 헛수고가 된다.
+  if (ok.length > RICH_IMG_MAX_COUNT) {
+    toast('한 번에 ' + RICH_IMG_MAX_COUNT + '장까지 넣을 수 있습니다', 'error');
+    return;
+  }
+  if (bad.length) {
+    const names = bad.slice(0, 5).map(f => f.name).join(', ') + (bad.length > 5 ? ' 외 ' + (bad.length - 5) + '개' : '');
+    if (!ok.length) { toast('넣을 수 있는 이미지가 없습니다 — ' + names, 'error'); return; }
+    if (!confirm('다음 ' + bad.length + '개는 넣을 수 없습니다 (JPG·PNG·WebP, 한 장 5MB까지)\n\n'
+      + names + '\n\n나머지 ' + ok.length + '장만 넣을까요?')) return;
+  }
+
+  const range = q.getSelection(true);
+  let at = range ? range.index : q.getLength();
+  const failed = [];
+  // ⚠️ **편집기를 잠그면(`q.enable(false)`) 안 된다.** 잠긴 편집기는 `'user'` 로 들어오는
+  //    변경을 통째로 무시해서, 업로드는 성공하는데 **이미지가 한 장도 안 들어간다**
+  //    (2026-08-12 실측: 잠근 채 0장 / 푼 뒤 정상). 자리 어긋남을 막으려다 기능 자체를
+  //    막았던 자리다. 중복 실행은 아래 표시(`__richImgBusy`)로만 막는다.
+  q.__richImgBusy = true;
+  try {
+    for (let i = 0; i < ok.length; i++) {
+      const f = ok[i];
+      if (ok.length > 1) toast('이미지 올리는 중 (' + (i + 1) + '/' + ok.length + ') — ' + f.name, 'info');
+      try {
+        const url = await uploadContentImage(await _shrinkRichImage(f));
+        // 올리는 사이 운영자가 글을 지웠을 수 있다 — 문서 길이를 넘으면 맨 끝에 넣는다.
+        at = Math.min(at, q.getLength());
+        q.insertEmbed(at, 'image', url, 'user');
+        at++;
+      } catch (e) {
+        console.error('[_insertRichImages]', f.name, e);
+        failed.push(f.name);             // ② 올리는 중 실패는 **되는 것만** 넣고 이름을 알린다
+      }
+    }
+  } finally {
+    q.__richImgBusy = false;
+    q.setSelection(Math.min(at, q.getLength()), 0, 'silent');
+  }
+
+  const done = ok.length - failed.length;
+  if (failed.length) {
+    toast(done + '장을 넣었습니다. 실패: ' + failed.join(', '), 'error');
+  } else if (done) {
+    toast(done > 1 ? done + '장을 넣었습니다' : '이미지를 넣었습니다', 'success');
+  }
+}
+
+// 이미지 등록 안내 — **문구는 한 벌**로 두고 두 폼(신규 등록·편집)의 빈 자리에 같은
+//   내용을 채운다. 두 마크업에 각각 적으면 한쪽만 고쳐져 화면마다 다른 말을 하게 된다.
+function renderRichImageHelp() {
+  const html = ''
+    + '<div class="rich-img-help-title">'
+    + '<span class="material-icons-round notranslate" translate="no">image</span>이미지 넣는 법</div>'
+    + '<ul>'
+    + '<li>툴바의 이미지 단추를 누르거나, 화면을 캡처해 <b>그대로 붙여넣으면</b> 올라갑니다.</li>'
+    + '<li><b>JPG · PNG · WebP</b>만 되고, 한 장에 <b>5MB</b>까지입니다. 아이폰 기본 형식(HEIC)은 안 됩니다.</li>'
+    + '<li>한 번에 <b>' + RICH_IMG_MAX_COUNT + '장</b>까지 고를 수 있고, <b>파일 이름 순서</b>대로 들어갑니다'
+    + ' (예: <code>1.jpg</code>, <code>2.jpg</code>, <code>10.jpg</code>).</li>'
+    + '<li><b>세로로 자른 긴 이미지</b>는 여러 장을 한 번에 고르면 <b>사이가 붙어 한 장처럼</b> 보입니다.'
+    + ' 사이에 글자를 넣으면 떨어집니다.</li>'
+    + '<li>이미지는 <b>가로 폭에 꽉 차게</b> 보입니다. 크기는 조절할 수 없습니다.'
+    + ' 가로가 ' + RICH_IMG_MAX_WIDTH + '픽셀보다 크면 올릴 때 자동으로 줄입니다'
+    + '(가로세로 비율은 그대로라 잘리지 않습니다).</li>'
+    + '<li>노션 등 <b>다른 사이트의 이미지는 주소만 붙여넣어도 들어가지 않습니다.</b>'
+    + ' 파일로 저장한 뒤 올려 주세요.</li>'
+    + '<li><b>인플루언서 개인정보가 담긴 이미지(영수증 · 명단 · 연락처)는 올리지 마세요.</b>'
+    + ' 이 칸의 이미지는 주소를 아는 사람이면 누구나 볼 수 있습니다.</li>'
+    + '</ul>';
+  ['newCamp', 'editCamp'].forEach(prefix => {
+    const el = $(prefix + 'RichImgHelp');
+    if (el) el.innerHTML = html;
+  });
+}
+
+// 사람이 기대하는 순서로 정렬한다.
+//   ⚠️ `numeric` 이 없으면 **`1` 다음에 `10`** 이 온다(글자 하나씩 비교하므로 `1` 뒤의 `0`
+//      을 먼저 본다). 잘라 올리는 이미지는 `배너_1 … 배너_10` 식이라 이 옵션이 핵심이다.
+function _richImagesInNameOrder(files) {
+  return files.slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+// 툴바 이미지 단추.
+function quillImageHandler(id) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  // 임시 파일 입력 — DOM 에 붙여야 일부 브라우저에서 click() 이 동작한다(미니 에디터와 같은 이유).
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = RICH_IMG_TYPES.join(',');
+  input.multiple = true;              // 여러 장을 한 번에 — 파일 이름 순으로 들어간다
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    try {
+      if (!input.files || !input.files.length) return;
+      await _insertRichImages(q, input.files);
+    } catch (e) {
+      console.error('[quillImageHandler]', e);
+      toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error');
+    } finally {
+      input.remove();
+    }
+  });
+  input.click();
+}
+
+// 붙여넣기 — 화면 캡처·이미지 파일은 **자동으로 올린다**. 주소만 온 외부 이미지는
+//   가져올 수 없으므로(노션 등이 교차 출처 접근을 막는다 — 2026-08-12 실측) 안내한다.
+//   ⚠️ 이 장치가 없으면 **지금보다 나빠진다**: 외부 이미지가 편집기에 멀쩡히 보이다가
+//      저장한 뒤에야 조용히 사라져, 운영자가 원인을 알 수 없다.
+//   ⚠️ 미니 에디터처럼 붙여넣기를 평문으로 바꾸지 **않는다** — 그러면 이 편집기의 존재
+//      이유인 노션 서식(제목·목록·인용구) 유지가 죽는다.
+function _attachRichImagePaste(q, id) {
+  q.root.addEventListener('paste', ev => {
+    const items = Array.from((ev.clipboardData && ev.clipboardData.items) || []);
+    const files = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+                       .map(it => it.getAsFile()).filter(Boolean);
+    if (files.length) {
+      // 클립보드에 파일 자체가 들어 있다(화면 캡처·이미지 복사) — 그대로 올린다.
+      ev.preventDefault();
+      // 툴바와 **같은 함수**를 쓴다 — 두 경로가 따로 놀면 「단추로는 되는데 붙여넣기는
+      //   다르게 동작하는」 어긋남이 생긴다.
+      //   ⚠️ 다만 **이름순 정렬은 하지 않는다.** 클립보드 파일은 이름이 없거나 전부
+      //      `image.png` 로 겹쳐, 정렬하면 오히려 복사한 차례가 흐트러진다.
+      _insertRichImages(q, files, { sort: false })
+        .catch(e => { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); });
+      return;
+    }
+    // 파일이 아니라 HTML 이 온 경우 — 그 안에 남의 서버 주소를 가리키는 이미지가 있으면
+    //   붙여넣기 뒤에 **미리 알린다**(막는 것은 아래 text-change 가 한다).
+    const html = ev.clipboardData && ev.clipboardData.getData('text/html');
+    if (html && /<img\b/i.test(html)) {
+      setTimeout(() => toast('외부 이미지는 넣을 수 없습니다. 이미지 단추로 올려 주세요', 'info'), 60);
+    }
+  });
+  // 붙여넣기·끌어놓기로 들어온 **허용되지 않은 주소의 이미지를 그 자리에서 제거**한다.
+  //   저장할 때까지 두면 「보였다가 사라지는」 상황이 된다.
+  q.on('text-change', (delta, old, source) => {
+    if (source !== 'user') return;
+    const bad = Array.from(q.root.querySelectorAll('img')).filter(img =>
+      !(typeof _isAllowedContentImageSrc === 'function' && _isAllowedContentImageSrc((img.getAttribute('src') || '').trim())));
+    if (!bad.length) return;
+    bad.forEach(img => img.remove());
+  });
+}
+
+// ── 편집기 안 이미지 클릭 메뉴 (2026-08-12) ──
+//   올린 이미지를 나중에 다시 받고 싶다는 요청. 참여방법 편집기가 이미 「클릭하면 작은 메뉴」
+//   방식이라 같은 모양으로 맞춘다.
+//   ⚠️ 클릭 즉시 내려받지 않는다 — 편집기에서 이미지를 누르는 건 보통 「고르기」 동작이라,
+//      글을 고치려다 누른 것만으로 파일이 받아지면 성가시다.
+let _richImgMenu = null;
+let _richImgMenuTrack = null;   // 스크롤·창 크기 변화를 따라다니는 처리기
+
+function closeRichImageMenu() {
+  if (_richImgMenuTrack) {
+    window.removeEventListener('scroll', _richImgMenuTrack, true);
+    window.removeEventListener('resize', _richImgMenuTrack);
+    _richImgMenuTrack = null;
+  }
+  if (_richImgMenu) { _richImgMenu.remove(); _richImgMenu = null; }
+  document.querySelectorAll('.quill-wrap .ql-editor img.is-selected')
+    .forEach(el => el.classList.remove('is-selected'));
+}
+
+// 메뉴를 **그 이미지의 오른쪽 위 모서리 안쪽**에 붙인다.
+//   ⚠️ 화면 기준(fixed)으로 한 번만 놓으면 **스크롤할 때 이미지와 따로 논다** — 다른 이미지
+//      위에 떠 있어 어느 것의 메뉴인지 알 수 없다(2026-08-12 운영 지적). 그래서 스크롤·창
+//      크기 변화마다 다시 계산한다.
+//   ⚠️ 정중앙이 아니라 모서리인 이유 — 가운데면 이미지 내용을 가린다.
+function _placeRichImageMenu(pop, img) {
+  const r = img.getBoundingClientRect();
+  const w = pop.offsetWidth || 150, h = pop.offsetHeight || 32;
+  const pad = 8;
+  // 기본은 이미지 오른쪽 위 안쪽. 이미지가 메뉴보다 좁으면 이미지 왼쪽에 맞춘다.
+  let left = (r.width >= w + pad * 2) ? (r.right - w - pad) : r.left;
+  let top = r.top + pad;
+  // 화면 밖으로 나가지 않게 보정
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+  pop.style.position = 'fixed';
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+}
+
+// 저장소가 `?download` 를 안 받아 준다(2026-08-12 실측 — 내려받기 헤더가 안 붙는다).
+//   그래서 파일을 받아서 저장한다. 우리 저장소는 다른 화면에서 가져오는 것이 허용돼 있다.
+async function downloadRichImage(url) {
+  try {
+    toast('이미지를 받는 중…', 'info');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = (url.split('/').pop() || 'image').split('?')[0];
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // 바로 지우면 브라우저가 아직 읽는 중일 수 있다.
+    setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+  } catch (e) {
+    console.error('[downloadRichImage]', e);
+    toast('이미지를 받지 못했습니다: ' + friendlyError(e.message || e), 'error');
+  }
+}
+
+function openRichImageMenu(img) {
+  closeRichImageMenu();
+  img.classList.add('is-selected');
+  const pop = document.createElement('div');
+  pop.className = 'mini-editor-img-popover no-tail';   // 참여방법 편집기와 같은 모양(꼬리만 뺀다)
+  pop.innerHTML = '<button type="button" class="meip-size" data-act="download">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span> 원본 내려받기</button>';
+  document.body.appendChild(pop);
+  _placeRichImageMenu(pop, img);
+  _richImgMenu = pop;
+  // 스크롤·창 크기가 바뀌면 따라간다. 이미지가 화면 밖으로 나가면 닫는다 —
+  //   안 보이는 이미지의 메뉴가 화면 구석에 남아 있으면 무엇의 메뉴인지 알 수 없다.
+  //   ⚠️ scroll 은 **캡처 단계**로 듣는다. 편집기가 자체 스크롤 영역 안에 있어,
+  //      그러지 않으면 창 스크롤만 잡히고 안쪽 스크롤은 놓친다.
+  _richImgMenuTrack = () => {
+    if (!_richImgMenu) return;
+    const r = img.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) { closeRichImageMenu(); return; }
+    _placeRichImageMenu(_richImgMenu, img);
+  };
+  window.addEventListener('scroll', _richImgMenuTrack, true);
+  window.addEventListener('resize', _richImgMenuTrack);
+  pop.querySelector('[data-act="download"]').addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const src = img.getAttribute('src') || '';
+    closeRichImageMenu();
+    if (src) downloadRichImage(src);
+  });
+}
+
+// 편집기 안 이미지 클릭 — 위임 처리기 하나로 세 칸을 모두 받는다.
+document.addEventListener('click', ev => {
+  const img = ev.target.closest && ev.target.closest('.quill-wrap .ql-editor img');
+  if (img) { ev.preventDefault(); openRichImageMenu(img); return; }
+  // 메뉴 밖을 누르면 닫는다.
+  if (_richImgMenu && !ev.target.closest('.mini-editor-img-popover')) closeRichImageMenu();
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeRichImageMenu(); });
+
 function setRichValue(id, html) {
   const q = getRichEditor(id);
   if (!q) return;
@@ -660,8 +968,13 @@ function getRichValue(id) {
   const q = getRichEditor(id);
   if (!q) return '';
   // 빈 에디터 판정: Quill의 기본 placeholder 처리
-  const plain = q.getText().trim();
-  if (!plain) return '';
+  //   ⚠️ **글자만 세면 안 된다.** 이 편집기는 이미지를 글자로 치지 않아서, 이미지만 넣고
+  //      글을 안 쓰면 「빈 편집기」로 판정돼 **내용이 통째로 버려진다**(2026-08-12 실측 —
+  //      캠페인을 저장했는데 설명이 빈 문자열로 들어갔고 미리보기에도 안 떴다).
+  //   ⚠️ 이 함수 하나가 **저장·미리보기·이탈 경고** 세 곳을 좌우한다. 여기서 빈 값을
+  //      돌려주면 세 곳이 함께 이미지를 못 본다.
+  const plain = q.getText().replace(/[\u0000\uFEFF]/g, '').trim();
+  if (!plain && !q.root.querySelector('img')) return '';
   // 2026-05-07: root.innerHTML이 인접 리스트를 분리해 출력하는 버그 회피.
   // Quill 2.x getSemanticHTML 우선 사용, 미존재 시 root.innerHTML로 폴백.
   let raw;
@@ -746,6 +1059,7 @@ async function openEditCampaign(campId) {
   // 캠페인 노출 토글 — status 기준으로 ON/OFF 표시
   _renderCampVisibilityToggle('edit', camp.status, { recruit_start: camp.recruit_start, deadline: camp.deadline });
   maybeShowCampVisibilityHint('edit');
+  renderRichImageHelp();
   // flatpickr range picker mount + 값 주입 (모집·구매·방문 3개)
   setupCampRangePickers();
   applyCampRangeValues('editCamp', {
@@ -5434,6 +5748,7 @@ function _resetNewCampVisibilityToggle() {
   _renderCampVisibilityToggle('new', 'active', { recruit_start: '', deadline: '' });
   setCampVisibilitySub(true);
   maybeShowCampVisibilityHint('new');
+  renderRichImageHelp();
 }
 
 // ══════════════════════════════════════

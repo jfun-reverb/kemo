@@ -717,6 +717,8 @@ input.admin-filter{padding-right:8px}
   border-top:1px solid var(--line);
   transform:rotate(45deg);
 }
+/* 이미지 위에 겹쳐 띄우는 경우엔 꼬리를 없앤다 — 가리킬 대상이 자기 아래라 방향이 어색하다 */
+.mini-editor-img-popover.no-tail::before{display:none}
 .mini-editor-img-popover .meip-size{
   border:0;
   background:transparent;
@@ -777,6 +779,64 @@ input.admin-filter{padding-right:8px}
   background:#fafafa;
   border-radius:8px 8px 0 0;
   flex-shrink:0;
+}
+/* 편집기 안에 넣은 이미지 — **여기서 직접 잡아야 한다.**
+   정화 함수(sanitizeRich)가 붙이는 .rich-img 는 「저장할 때·화면에 그릴 때」만 걸리고
+   편집기 안 DOM 에는 안 걸린다. 빠뜨리면 인플루언서 화면은 멀쩡한데 **편집기에서만**
+   원본 크기로 상자를 뚫고 나온다(2026-08-12). 표시는 인플루언서 쪽 .rich-img 와 맞춘다. */
+.quill-wrap .ql-editor img{
+  max-width:100%;
+  height:auto;
+  display:block;
+  margin:8px auto;
+  border-radius:6px;
+  cursor:pointer;   /* 눌러서 메뉴(원본 내려받기)를 열 수 있다는 신호 */
+}
+/* 클릭해 메뉴가 열린 이미지 — 참여방법 편집기와 같은 표시 */
+.quill-wrap .ql-editor img.is-selected{
+  outline:2px solid var(--pink);
+  outline-offset:2px;
+}
+/* 편집기 안에서도 이어지는 이미지는 붙여 보여준다 — 저장 뒤 실제 화면과 같아야
+   운영자가 「올릴 때 본 모습」을 믿을 수 있다. 정화가 붙이는 표시(rich-img-joined)는
+   편집기 DOM 에 없으므로 **여기서는 이웃 관계로 직접 판정**한다.
+   ⚠️ 이 규칙이 없으면 편집기에서만 벌어져 보이고 미리보기·실제 화면은 붙어 있다. */
+/* ⚠️ 판정을 저장 쪽(_markStackedImages 의 「이미지 말고 다른 내용이 없는 문단」)과 맞춘다.
+   `p:has(> img)` 만 쓰면 글과 이미지가 한 문단에 섞인 경우까지 잡혀, **편집기에서는
+   붙어 보이는데 저장하면 벌어지는** 어긋남이 생긴다(리뷰 지적).
+   「이미지 하나뿐인 문단」을 `img:only-child` 로 가려 저장 쪽 판정과 같게 맞춘다. */
+/* ⚠️ 다음 문단을 가리킬 때 `:has(+ p:has(...))` 처럼 **괄호 안에 또 괄호를 쓰면 안 된다** —
+   브라우저가 그 줄을 통째로 버려서 **아무 효과도 없다**(2026-08-12 실측: 살아남은 규칙 0개).
+   같은 뜻을 `+ p > img:only-child` 로 풀어 쓴다. */
+.quill-wrap .ql-editor p:has(> img:only-child) + p:has(> img:only-child) img{
+  margin-top:0;
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+.quill-wrap .ql-editor p:has(> img:only-child):has(+ p > img:only-child){
+  margin-bottom:0;
+}
+.quill-wrap .ql-editor p:has(> img:only-child):has(+ p > img:only-child) img{
+  margin-bottom:0;
+  border-bottom-left-radius:0;
+  border-bottom-right-radius:0;
+}
+/* ⚠️ 위 규칙만으로는 **거의 아무것도 잡지 못한다.** 이 편집기는 이미지를 글자처럼 다뤄서,
+   연달아 넣으면 문단마다 하나씩이 아니라 **한 문단 안에 이미지 여러 개**가 들어간다
+   (브라우저에서 실측: `<p><img><img><img></p>`). 위 규칙은 운영자가 이미지 사이에서
+   엔터를 쳐 문단을 나눈 경우만 해당된다.
+   그래서 **같은 문단 안에서 이웃한 이미지**도 함께 붙인다. 이쪽이 실제 사용 형태다.
+   ⚠️ 이미지 사이에 글이 끼어 있어도 이 규칙은 붙여 버린다(선택자로는 글자를 볼 수 없다).
+      저장 뒤 실제 화면은 글을 보고 정확히 판정하므로, 그 경우엔 편집기 쪽이 근사치다. */
+.quill-wrap .ql-editor img + img{
+  margin-top:0;
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+.quill-wrap .ql-editor img:has(+ img){
+  margin-bottom:0;
+  border-bottom-left-radius:0;
+  border-bottom-right-radius:0;
 }
 .quill-wrap .ql-container.ql-snow{
   border:0;
@@ -2272,3 +2332,35 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .evt-time-clearable.has-value .evt-time-clear{ display:inline-flex; }
 .evt-time-clear:hover{ background:var(--light-pink); color:var(--ink); }
 .evt-time-clear .material-icons-round{ font-size:14px; }
+
+/* 캠페인 콘텐츠 가이드 — 이미지 등록 안내 (신규 등록·편집 두 폼이 같은 문구를 쓴다) */
+.rich-img-help{
+  margin:-4px 0 14px;
+  padding:10px 12px;
+  background:var(--surface-dim);
+  border:1px solid var(--outline);
+  border-radius:8px;
+  font-size:12px;
+  line-height:1.7;
+  color:var(--muted);
+}
+.rich-img-help:empty{display:none}
+.rich-img-help-title{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-weight:700;
+  color:var(--ink);
+  margin-bottom:5px;
+}
+.rich-img-help-title .material-icons-round{font-size:16px;color:var(--pink)}
+.rich-img-help ul{margin:0;padding-left:16px}
+.rich-img-help li{margin:2px 0}
+.rich-img-help b{color:var(--ink);font-weight:600}
+.rich-img-help code{
+  background:var(--surface);
+  border:1px solid var(--outline);
+  border-radius:3px;
+  padding:0 3px;
+  font-size:11px;
+}

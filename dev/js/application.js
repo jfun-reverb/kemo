@@ -13,7 +13,13 @@ async function openCampaign(id) {
   //   ⚠️ 단 **응모이력에서 온 진입은 막지 않는다**. 본인이 응모했던 캠페인을 관리자가 나중에
   //      노출 종료로 내리는 것은 정상 운영인데, 그때 본인 응모이력에서 상세조차 볼 수 없으면
   //      「내가 신청한 게 사라졌다」가 된다. 그 경로는 상세를 보여주고 응모 버튼만 닫는다(아래 버튼 판정).
-  if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage') {
+  //   ⚠️ **관리자 미리보기(?preview=1)는 통과시킨다.** 미리보기가 정작 필요한 것이 아직
+  //      공개 안 한 캠페인인데, 여기서 막으면 「준비」 상태 캠페인은 어떻게 보일지 확인할
+  //      길이 아예 없다(2026-08-12 운영 보고 — 목록으로 튕기며 「공개되지 않았습니다」).
+  //      미리보기는 관리자만 여는 자리라 이 가드가 막으려던 「몰래 접수되는 응모」와 무관하다
+  //      (그 화면에는 응모 버튼을 눌러도 진행할 사용자 세션이 없다).
+  const _isPreview = document.documentElement.classList.contains('preview-mode');
+  if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage' && !_isPreview) {
     if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
     if (typeof navigate === 'function') navigate('campaigns');
     return;

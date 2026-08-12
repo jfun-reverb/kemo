@@ -408,6 +408,20 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* 미니 에디터(참여방법/주의사항/NG) 콘텐츠 이미지: 가로 100% 가운데 정렬, 모서리 둥글림 */
 .rich-img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
 .mini-editor-content .rich-img{margin:6px auto}
+/* 바로 이어지는 이미지끼리는 딱 붙인다 — 세로로 자른 긴 이미지를 나눠 올릴 때
+   사이가 벌어지면 한 장이 끊겨 보인다(2026-08-12). 표시(`rich-img-joined`)는
+   정화 단계에서 **앞 블록**에 붙는다.
+   ⚠️ 세 겹을 다 없애야 한다 — 앞 문단 아래·앞 이미지 아래·뒤 이미지 위.
+      하나라도 남으면 그만큼 틈이 보인다. 글과 이미지 사이는 그대로 둔다.
+   ⚠️ 이어붙인 이미지는 모서리 둥글리기도 없앤다. 안 그러면 이음매에 흰 각이 생긴다. */
+.rich-img-joined{margin-bottom:0 !important}
+.rich-img-joined .rich-img{margin-bottom:0}
+.rich-img-joined + * .rich-img,
+.rich-img-joined + .rich-img{margin-top:0}
+.rich-img-joined.rich-img,
+.rich-img-joined .rich-img{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.rich-img-joined + * .rich-img,
+.rich-img-joined + .rich-img{border-top-left-radius:0;border-top-right-radius:0}
 /* 사이즈 프리셋 4단계 — data-rich-size 속성에 따라 sanitize 후처리에서 클래스 부여 */
 .rich-img.rich-img-sm{max-width:25%}
 .rich-img.rich-img-md{max-width:50%}
@@ -2307,22 +2321,31 @@ function normalizeLinks(wrapper) {
 }
 
 // HTML 문자열을 sanitize 해서 안전한 HTML 반환
-function sanitizeRich(html) {
+function sanitizeRich(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
     return '';
   }
   const clean = DOMPurify.sanitize(String(html), {
-    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
-    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
-    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    // ⚠️ img 를 허용하되 **주소는 아래 _applyContentImagePolicy 가 다시 거른다** —
+    //    우리 저장소(https + *.supabase.co)만 남고 나머지는 지워진다. 특히 `data:` 가
+    //    막히는 것이 중요하다. 이 칸이 원래 이미지를 통째로 막았던 이유가 붙여넣기로
+    //    딸려오는 **base64 덩어리가 데이터베이스 글자 칸을 수 MB로 부풀리는 것**이었다
+    //    (2026-08-12 에 허용으로 바꾸며 그 우려를 주소 화이트리스트로 대체).
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS.concat(['img']),
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR.concat(['src','alt','loading','decoding','data-rich-size']),
+    FORBID_TAGS: ['script','iframe','style','object','embed','svg'],
     FORBID_ATTR: ['style','onerror','onload','onclick']
   });
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
   normalizeQuillLists(wrapper);
   normalizeLinks(wrapper);
+  // 미니 에디터와 **같은 이미지 정책**을 쓴다(공용 함수) — 규칙이 갈리지 않게.
+  //   ⚠️ `opts.displayWidth` 는 **표시할 때만** 준다(`richHtml`). 저장 경로(`getRichValue`)는
+  //      옵션 없이 불러 **원본 주소가 그대로 저장**된다 — 줄인 주소가 저장되면 원본을 잃는다.
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -2382,9 +2405,19 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  // 이미지 src 화이트리스트: https + Supabase Storage 도메인만.
-  //   외부 URL 직접 입력 (예: evil.com) 차단 — 추적·서버 공격 가능성 0.
-  //   소유 자산이 아닌 임시 URL(blob:, data:, http:) 도 차단.
+  _applyContentImagePolicy(wrapper);
+  return wrapper.innerHTML;
+}
+
+// 본문 이미지 정책 — **미니 에디터(주의사항·참여방법·NG)와 캠페인 리치 텍스트가 함께 쓴다.**
+//   ⚠️ 두 곳에 복사하지 말 것. 규칙이 갈리면 「참여방법에서는 되는데 캠페인 설명에서는
+//      안 되는」 식으로 어긋나고, 한쪽만 고친 채 배포되기 쉽다(2026-08-12 공용화).
+//   허용 주소가 아니면 **지운다** — 외부 URL 직접 입력(추적·서버 공격)과 임시 주소
+//   (blob:, data:, http:) 를 함께 막는다. data: 차단이 곧 **base64 폭증 방지**다
+//   (캠페인 리치 텍스트가 원래 이미지를 통째로 막았던 이유 — FEATURE_SPEC §리치 텍스트).
+function _applyContentImagePolicy(wrapper, opts) {
+  if (!wrapper) return;
+  const showW = (opts && opts.displayWidth) || 0;
   wrapper.querySelectorAll('img').forEach(img => {
     const src = (img.getAttribute('src') || '').trim();
     if (!_isAllowedContentImageSrc(src)) {
@@ -2398,6 +2431,9 @@ function sanitizeCautionHtml(html) {
     // alt 누락 시 빈 문자열 (장식용으로 처리)
     if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
     // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    //   ⚠️ 캠페인 리치 텍스트(Quill)는 이 값을 **저장하지 못한다** — Quill 이미지 조각이
+    //      alt·width·height 외 속성을 버리기 때문. 그래서 그쪽은 가로 100% 고정이다
+    //      (2026-08-12 결정). 미니 에디터에서 넘어온 값만 여기서 살아난다.
     const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
     if (size === 'sm' || size === 'md' || size === 'lg') {
       img.classList.add('rich-img-' + size);
@@ -2405,8 +2441,48 @@ function sanitizeCautionHtml(html) {
       // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
       img.removeAttribute('data-rich-size');
     }
+    // 볼 때는 화면 폭에 맞게 줄여서 내려받는다 — 캠페인 설명에 이미지가 여러 장이면
+    //   원본을 다 받느라 느리다. 원본 주소는 `data-orig` 에 남겨, 변환이 실패하면
+    //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
+    //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
+    //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
+    if (showW && typeof imgThumb === 'function') {
+      const thumb = imgThumb(src, showW, 75);
+      if (thumb && thumb !== src) {
+        img.setAttribute('data-orig', src);
+        img.setAttribute('src', thumb);
+      }
+    }
   });
-  return wrapper.innerHTML;
+  // ⚠️ 연속 판정은 **허용 안 된 이미지를 지운 뒤에** 해야 한다. 먼저 하면 중간에 낀
+  //    외부 이미지 때문에 「연속이 아니다」로 잘못 보고, 그 이미지가 지워진 뒤엔
+  //    실제로 붙어 있는데도 여백이 남는다.
+  _markStackedImages(wrapper);
+}
+
+// 바로 이어지는 이미지끼리는 여백을 없앤다 — **세로로 자른 긴 이미지를 나눠 올리는**
+//   흔한 방식에서 사이가 벌어져 끊겨 보이기 때문이다(2026-08-12 운영 요청).
+//   여백은 세 겹으로 쌓인다: 앞 이미지 아래(8) + 문단 아래(8) + 뒤 이미지 위(8) ≈ 24픽셀.
+//   ⚠️ **글과 이미지 사이 여백은 건드리지 않는다** — 전부 0으로 만들면 설명글이 답답해진다.
+//   ⚠️ 표시는 **앞 블록**에 붙인다. 뒤 블록에만 붙이면 앞 문단의 아래 여백이 남는다.
+function _markStackedImages(wrapper) {
+  // 이미지 하나만 든 블록(문단)이면 그 문단이 기준, 이미지가 맨 위에 그냥 있으면 이미지 자신.
+  const blockOf = img => {
+    const p = img.parentElement;
+    if (!p || p === wrapper) return img;
+    // 문단 안에 이미지 말고 눈에 보이는 내용이 더 있으면 「이미지만 있는 블록」이 아니다.
+    const hasOther = Array.from(p.childNodes).some(n =>
+      n !== img && !(n.nodeType === 3 && !n.textContent.trim()) && !(n.nodeType === 1 && n.tagName === 'BR'));
+    return hasOther ? img : p;
+  };
+  const blocks = Array.from(wrapper.querySelectorAll('img')).map(blockOf);
+  const isImageBlock = el => blocks.includes(el);
+  blocks.forEach(b => {
+    // 다음 형제(빈 텍스트는 건너뜀)도 이미지 블록이면 둘을 붙인다.
+    let n = b.nextSibling;
+    while (n && n.nodeType === 3 && !n.textContent.trim()) n = n.nextSibling;
+    if (n && n.nodeType === 1 && isImageBlock(n)) b.classList.add('rich-img-joined');
+  });
 }
 
 // 오리엔시트 내부 메모 전용 sanitize.
@@ -2603,8 +2679,28 @@ function richHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
-  return sanitizeRich(value);
+  // 이 함수는 **화면에 그릴 때만** 쓴다(저장은 `getRichValue` → `sanitizeRich` 직행).
+  //   그래서 여기서만 표시 폭을 준다 — 자세한 이유는 `_applyContentImagePolicy` 주석.
+  return sanitizeRich(value, { displayWidth: RICH_DISPLAY_WIDTH });
 }
+
+// 인플루언서 앱은 폭 480픽셀. 화면이 촘촘한 기기를 감안해 두 배로 받는다.
+const RICH_DISPLAY_WIDTH = 960;
+
+// 줄인 이미지를 못 불러오면 **원본으로 되돌린다.** 저장소 변환이 막히거나 실패해도
+//   화면에서 이미지가 사라지지 않게 하는 안전망이다(프로젝트 규칙 — 썸네일은 원본 폴백 필수).
+//   ⚠️ 이미지 오류는 위로 전달되지 않으므로 **캡처 단계**로 들어야 잡힌다.
+//   ⚠️ 한 번 되돌린 뒤에는 다시 시도하지 않는다(주소가 같아져 무한 반복이 된다).
+(function _attachRichImageFallback() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('error', ev => {
+    const el = ev.target;
+    if (!el || el.tagName !== 'IMG') return;
+    const orig = el.getAttribute('data-orig');
+    if (!orig || el.getAttribute('src') === orig) return;
+    el.setAttribute('src', orig);
+  }, true);
+})();
 
 // ══════════════════════════════════════════════════════════════════════════
 // 민감 항목(주의사항·참여방법·NG 사항) 변경 비교 — 캠페인 변경 이력 화면용
@@ -5915,8 +6011,25 @@ async function compressImageFile(file, opts = {}) {
     catch (e2) { console.error('[compressImageFile] 디코드 실패', e2); throw new Error('decode_failed'); }
   }
 
-  // 3) Canvas 리사이즈 (긴 변 maxEdge)
-  const scale = Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+  // 3) Canvas 리사이즈
+  //   기본은 **긴 변** 기준(영수증·메시지 첨부 — 가로세로 어느 쪽도 너무 크면 안 된다).
+  //   ⚠️ `maxWidth` 를 주면 **가로 폭만** 본다. 세로로 자른 긴 배너(캠페인 설명용)를
+  //      긴 변 기준으로 줄이면 세로 길이 때문에 통째로 축소돼 **글자가 뭉개진다**.
+  //      그런 이미지는 가로가 좁아 사실상 줄어들지 않는 것이 맞다.
+  const scale = cfg.maxWidth
+    ? Math.min(1, cfg.maxWidth / bitmap.width)
+    : Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+  // 3-1) 줄일 필요가 없으면 **원본 그대로** 돌려준다 (`keepIfSmall` 을 준 경우만).
+  //   ⚠️ 다시 그리면 JPEG 로 바뀌어 **투명한 PNG 의 배경이 검게** 되고, 줄이지도 않으면서
+  //      품질만 깎인다. 캠페인 설명 이미지는 대부분 이 경우다(가로가 화면 폭보다 좁다).
+  //   ⚠️ 기존 호출부(메시지 첨부·영수증)는 **항상 JPEG 로 저장하는 전제**라 이 옵션을 주지
+  //      않는다 — 반환 형식이 바뀌면 저장 경로의 확장자·형식과 어긋난다.
+  if (cfg.keepIfSmall && scale === 1 && !isHeicFile(file)) {
+    if (bitmap.close) bitmap.close();
+    if (file.size > cfg.maxBytes) throw new Error('too_large');
+    return file;
+  }
+
   const w = Math.max(1, Math.round(bitmap.width * scale));
   const h = Math.max(1, Math.round(bitmap.height * scale));
   const canvas = document.createElement('canvas');
@@ -13111,7 +13224,13 @@ async function openCampaign(id) {
   //   ⚠️ 단 **응모이력에서 온 진입은 막지 않는다**. 본인이 응모했던 캠페인을 관리자가 나중에
   //      노출 종료로 내리는 것은 정상 운영인데, 그때 본인 응모이력에서 상세조차 볼 수 없으면
   //      「내가 신청한 게 사라졌다」가 된다. 그 경로는 상세를 보여주고 응모 버튼만 닫는다(아래 버튼 판정).
-  if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage') {
+  //   ⚠️ **관리자 미리보기(?preview=1)는 통과시킨다.** 미리보기가 정작 필요한 것이 아직
+  //      공개 안 한 캠페인인데, 여기서 막으면 「준비」 상태 캠페인은 어떻게 보일지 확인할
+  //      길이 아예 없다(2026-08-12 운영 보고 — 목록으로 튕기며 「공개되지 않았습니다」).
+  //      미리보기는 관리자만 여는 자리라 이 가드가 막으려던 「몰래 접수되는 응모」와 무관하다
+  //      (그 화면에는 응모 버튼을 눌러도 진행할 사용자 세션이 없다).
+  const _isPreview = document.documentElement.classList.contains('preview-mode');
+  if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage' && !_isPreview) {
     if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
     if (typeof navigate === 'function') navigate('campaigns');
     return;
