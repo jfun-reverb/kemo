@@ -717,6 +717,8 @@ input.admin-filter{padding-right:8px}
   border-top:1px solid var(--line);
   transform:rotate(45deg);
 }
+/* 이미지 위에 겹쳐 띄우는 경우엔 꼬리를 없앤다 — 가리킬 대상이 자기 아래라 방향이 어색하다 */
+.mini-editor-img-popover.no-tail::before{display:none}
 .mini-editor-img-popover .meip-size{
   border:0;
   background:transparent;
