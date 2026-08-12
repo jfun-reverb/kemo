@@ -361,6 +361,12 @@
                 <div class="visibility-toggle-label">캠페인 노출</div>
                 <button type="button" id="editCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('edit')"><span class="visibility-toggle-knob"></span></button>
                 <div class="visibility-toggle-status" id="editCampVisibilityStatus"></div>
+                <!-- 신규 폼과 같은 힌트. 한쪽에서 닫으면 양쪽 다 안 뜬다(같은 기억을 본다). -->
+                <div class="visibility-hint" id="editCampVisibilityHint" style="display:none">
+                  <span class="material-icons-round notranslate" translate="no">lightbulb</span>
+                  <div>힌트: 이 스위치를 끄면 인플루언서 화면에서 <strong>즉시 사라집니다</strong>. 다시 켜면 기간에 맞는 상태로 돌아옵니다.</div>
+                  <button type="button" class="visibility-hint-close" onclick="dismissCampVisibilityHint()">닫기</button>
+                </div>
               </div>
             </div>
             <input type="hidden" id="editCampId">
@@ -790,9 +796,16 @@
                 <div class="visibility-toggle-label">캠페인 노출</div>
                 <button type="button" id="newCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('new')"><span class="visibility-toggle-knob"></span></button>
                 <div class="visibility-toggle-status" id="newCampVisibilityStatus"></div>
+                <!-- 스위치가 무슨 일을 하는지 처음 한 번만 알린다. 닫으면 이 브라우저에서 다시 안 뜬다. -->
+                <div class="visibility-hint" id="newCampVisibilityHint" style="display:none">
+                  <span class="material-icons-round notranslate" translate="no">lightbulb</span>
+                  <div>힌트: 이 스위치를 끄면 <strong>「준비」 상태로 저장</strong>되어 인플루언서에게 보이지 않습니다. 내용을 다 채운 뒤 공개하고 싶을 때 쓰세요.</div>
+                  <button type="button" class="visibility-hint-close" onclick="dismissCampVisibilityHint()">닫기</button>
+                </div>
               </div>
             </div>
-            <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
+            <!-- 스위치 상태에 따라 문구가 바뀐다(setCampVisibilitySub) — 켜짐이면 바로 공개, 꺼짐이면 준비 상태 -->
+            <div class="product-form-sub" id="newCampVisibilitySub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
             <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
             <div class="event-mode-box">

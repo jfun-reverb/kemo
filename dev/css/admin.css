@@ -1344,7 +1344,20 @@ input.admin-filter{padding-right:8px}
 
 /* 캠페인 노출 토글 — 폼 헤더 행 안 우측 끝에 배치(margin-left:auto inline).
    목록 빠른 토글은 .is-mini 변형 사용. 사양서 2026-05-13-campaign-visibility-toggle.md §9 참고. */
-.visibility-toggle-row{display:flex;align-items:center;gap:10px}
+.visibility-toggle-row{display:flex;align-items:center;gap:10px;position:relative}
+/* 노출 스위치 힌트 말풍선 — 스위치를 끄면 무슨 일이 생기는지 처음 한 번만 알린다.
+   닫으면 이 브라우저에서는 다시 안 뜬다(기억은 localStorage). 스위치 바로 아래에
+   꼬리를 달아 어느 조작 장치를 가리키는지 분명히 한다. */
+.visibility-hint{position:absolute;top:calc(100% + 10px);right:0;z-index:20;width:330px;
+  display:flex;align-items:flex-start;gap:8px;padding:11px 12px;border-radius:10px;
+  background:#1F2937;color:#F9FAFB;font-size:12px;line-height:1.6;font-weight:500;
+  box-shadow:0 6px 18px rgba(0,0,0,.22);text-align:left}
+.visibility-hint::before{content:'';position:absolute;top:-6px;right:26px;width:12px;height:12px;
+  background:#1F2937;transform:rotate(45deg)}
+.visibility-hint .material-icons-round{font-size:16px;color:#FDE68A;flex-shrink:0;margin-top:1px}
+.visibility-hint-close{margin-left:auto;flex-shrink:0;background:none;border:none;cursor:pointer;
+  color:#9CA3AF;font-size:11px;font-weight:700;padding:2px 4px;align-self:flex-start}
+.visibility-hint-close:hover{color:#F9FAFB}
 .visibility-toggle-label{font-size:14px;font-weight:700;color:var(--ink)}
 .visibility-toggle-status{font-size:12px;color:var(--muted);margin-left:auto}
 .visibility-toggle-status.is-off{color:#C33;font-weight:600}

@@ -745,6 +745,7 @@ async function openEditCampaign(campId) {
   sv('editCampSubmissionEnd', camp.submission_end||'');
   // 캠페인 노출 토글 — status 기준으로 ON/OFF 표시
   _renderCampVisibilityToggle('edit', camp.status, { recruit_start: camp.recruit_start, deadline: camp.deadline });
+  maybeShowCampVisibilityHint('edit');
   // flatpickr range picker mount + 값 주입 (모집·구매·방문 3개)
   setupCampRangePickers();
   applyCampRangeValues('editCamp', {
@@ -4029,7 +4030,21 @@ async function addCampaign() {
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'),
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
-    status:'draft',
+    // 상태 — 폼 위쪽 「캠페인 노출」 스위치가 정한다(2026-08-12).
+    //   켜짐 = 기간에 맞는 자연 상태(모집 시작일이 미래면 「모집예정」, 아니면 「모집중」)
+    //   꺼짐 = 「준비」 — 인플루언서에게 안 보인다. 내용을 다 채운 뒤 목록에서 공개한다
+    //   ⚠️ 이 값과 폼 안내 문구(setCampVisibilitySub)가 어긋나면 화면이 거짓말을 한다.
+    //      예전에는 스위치와 무관하게 늘 「준비」로 저장하면서 안내문은 「바로 공개됩니다」라
+    //      적혀 있어, 등록해도 화면에 안 나온다는 문의가 반복됐다.
+    status: (function() {
+      const on = $('newCampVisibilityToggle')?.classList.contains('is-on');
+      if (!on) return 'draft';
+      const rs = $('newCampRecruitStart')?.value || null;
+      const dl = $('newCampDeadline')?.value || null;
+      return (typeof computeCampaignStatus === 'function')
+        ? computeCampaignStatus({ recruit_start: rs, deadline: dl, submission_end: $('newCampSubmissionEnd')?.value || null })
+        : 'active';
+    })(),
     // 생성자 기록 — campaigns.created_by(감사용). 캠페인 RLS(001)는 is_admin()만 보고 created_by 미참조라 권한 영향 없음.
     created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
     // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
@@ -5309,12 +5324,17 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   var statusEl = $(prefix + 'CampVisibilityStatus');
   if (!toggle) return;
-  var isOff = status === 'expired';
-  var isDraft = status === 'draft';
+  // ⚠️ 신규 등록 폼에서 「준비」는 **사람이 방금 스위치를 끈 결과**다 — 꺼진 모습으로 보이고
+  //    다시 켤 수 있어야 한다. 편집 폼의 「준비」는 아직 한 번도 공개된 적 없는 캠페인이라
+  //    노출 토글 자체를 잠근다(상태 드롭다운으로 올려야 한다). 둘을 같이 다루면 신규 폼에서
+  //    한 번 끈 뒤 되돌릴 수 없는 막다른 길이 된다.
+  var isNewForm = (prefix === 'new');
+  var isOff = (status === 'expired') || (isNewForm && status === 'draft');
+  var lockForDraft = (status === 'draft') && !isNewForm;
   toggle.classList.toggle('is-on', !isOff);
-  toggle.classList.toggle('is-disabled', isDraft);
+  toggle.classList.toggle('is-disabled', lockForDraft);
   toggle.setAttribute('aria-checked', isOff ? 'false' : 'true');
-  toggle.disabled = isDraft;
+  toggle.disabled = lockForDraft;
   if (statusEl) {
     var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출종료 (수동)' };
     statusEl.textContent = '상태: ' + (labels[status] || status || '미정');
@@ -5329,11 +5349,24 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
 async function onCampVisibilityToggle(prefix) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   if (!toggle || toggle.disabled) return;
-  // 이 토글은 누르는 즉시 저장된다 — 「저장하지 않고 나가기」로 되돌아가지 않는다.
-  //   경고창이 그 사실을 한 줄로 알리도록 표시해 둔다.
-  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   var isCurrentlyOn = toggle.classList.contains('is-on');
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
+  // ★ 신규 등록 폼은 **아직 저장 전**이다 — 지울 응모도, 사라질 화면도 없다.
+  //   확인창("즉시 사라집니다")·낙첨 경고는 이미 공개된 캠페인 이야기라 여기서는 묻지 않고,
+  //   화면 표시와 안내 문구만 바꾼다. 실제 상태는 등록 버튼을 누를 때 addCampaign 이 정한다.
+  //   ⚠️ 「누른 즉시 저장됨」 표시(markCampImmediateSaved)도 여기서는 하지 않는다 — 신규 폼은
+  //      정말로 아무것도 저장되지 않아, 표시하면 나갈 때 「되돌아가지 않습니다」라는
+  //      **거짓 안내**가 뜬다(리뷰 지적).
+  if (!campId) {
+    var willBeOn = !isCurrentlyOn;
+    _renderCampVisibilityToggle(prefix, willBeOn ? 'active' : 'draft',
+      { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+    setCampVisibilitySub(willBeOn);
+    return;
+  }
+  // 여기부터는 편집 폼(이미 저장된 캠페인)뿐이다 — 토글은 누르는 즉시 데이터베이스에 저장되고
+  //   「저장하지 않고 나가기」로 되돌아가지 않는다. 나갈 때 경고창이 그 사실을 알리도록 표시해 둔다.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   if (isCurrentlyOn) {
     // ON → OFF: 확인 모달
     //   ⚠️ 이 전이(expired)는 **심사중 응모를 전원 자동 낙첨**시킨다(마이그레이션 176).
@@ -5344,43 +5377,33 @@ async function onCampVisibilityToggle(prefix) {
     // 노출 끄기는 status='expired' 로 가는 길이라 심사중 응모가 전원 낙첨된다 — 상태
     //   드롭다운의 「노출종료」와 결과가 같으므로 같은 확인을 거친다.
     if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
-    if (campId) {
-      try {
-        await toggleCampaignVisibility(campId, false);
-        toast('캠페인 노출이 OFF (노출종료) 로 변경되었습니다');
-        _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
-        // 폼 상태 드롭다운도 갱신 (있으면)
-        var statusSel = $('editCampStatus');
-        if (statusSel) statusSel.value = 'expired';
-        // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
-        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
-        await refreshPane('campaigns');
-      } catch (e) {
-        console.error('[toggleCampaignVisibility OFF]', e);
-        toast('변경 실패: ' + friendlyError(e.message || e), 'error');
-      }
-    } else {
-      // 신규 등록 폼은 아직 DB에 없음 — UI 상태만 변경
+    try {
+      await toggleCampaignVisibility(campId, false);
+      toast('캠페인 노출이 OFF (노출종료) 로 변경되었습니다');
       _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+      // 폼 상태 드롭다운도 갱신 (있으면)
+      var statusSel = $('editCampStatus');
+      if (statusSel) statusSel.value = 'expired';
+      // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
+      if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
+      await refreshPane('campaigns');
+    } catch (e) {
+      console.error('[toggleCampaignVisibility OFF]', e);
+      toast('변경 실패: ' + friendlyError(e.message || e), 'error');
     }
   } else {
     // OFF → ON: 즉시 자연 상태 재계산
-    if (campId) {
-      try {
-        var newStatus = await toggleCampaignVisibility(campId, true);
-        toast('캠페인 노출이 ON 으로 변경되었습니다');
-        _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
-        var statusSel = $('editCampStatus');
-        if (statusSel) statusSel.value = newStatus;
-        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
-        await refreshPane('campaigns');
-      } catch (e) {
-        console.error('[toggleCampaignVisibility ON]', e);
-        toast('변경 실패: ' + friendlyError(e.message || e), 'error');
-      }
-    } else {
-      // 신규 등록 폼 — 기본 active 로 가정
-      _renderCampVisibilityToggle(prefix, 'active', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+    try {
+      var newStatus = await toggleCampaignVisibility(campId, true);
+      toast('캠페인 노출이 ON 으로 변경되었습니다');
+      _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+      var statusSel = $('editCampStatus');
+      if (statusSel) statusSel.value = newStatus;
+      if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
+      await refreshPane('campaigns');
+    } catch (e) {
+      console.error('[toggleCampaignVisibility ON]', e);
+      toast('변경 실패: ' + friendlyError(e.message || e), 'error');
     }
   }
 }
@@ -5409,4 +5432,38 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
 // 신규 등록 폼이 열릴 때 토글 초기 상태(ON)로 리셋 — switchAdminPane 에서 사용
 function _resetNewCampVisibilityToggle() {
   _renderCampVisibilityToggle('new', 'active', { recruit_start: '', deadline: '' });
+  setCampVisibilitySub(true);
+  maybeShowCampVisibilityHint('new');
+}
+
+// ══════════════════════════════════════
+// 노출 스위치 — 안내 문구 · 힌트 말풍선
+// ══════════════════════════════════════
+
+// 신규 등록 폼 제목 아래 한 줄. 스위치 상태에 따라 **실제 저장 결과**를 말한다.
+//   ⚠️ 이 문구와 addCampaign 의 status 결정이 어긋나면 화면이 거짓말을 한다 — 함께 고칠 것.
+function setCampVisibilitySub(isOn) {
+  const el = $('newCampVisibilitySub');
+  if (!el) return;
+  el.textContent = isOn
+    ? '등록 후 바로 인플루언서에게 공개됩니다'
+    : '「준비」 상태로 저장되어 인플루언서에게 보이지 않습니다. 나중에 목록에서 공개할 수 있습니다';
+}
+
+// 힌트 말풍선 — 스위치를 끄면 무슨 일이 생기는지 **처음 한 번만** 알린다.
+//   ⚠️ 기억은 이 브라우저에만 남는다(localStorage). 다른 PC·시크릿 창에서는 다시 뜬다 —
+//      계정 단위로 기억하려면 데이터베이스가 필요해 여기서는 쓰지 않았다.
+const CAMP_VISIBILITY_HINT_KEY = 'reverb.hint.campVisibility';
+
+function maybeShowCampVisibilityHint(prefix) {
+  const el = $(prefix + 'CampVisibilityHint');
+  if (!el) return;
+  let seen = false;
+  try { seen = localStorage.getItem(CAMP_VISIBILITY_HINT_KEY) === '1'; } catch (e) { seen = false; }
+  el.style.display = seen ? 'none' : '';
+}
+
+function dismissCampVisibilityHint() {
+  try { localStorage.setItem(CAMP_VISIBILITY_HINT_KEY, '1'); } catch (e) { /* 저장 못 해도 닫기는 된다 */ }
+  ['new', 'edit'].forEach(p => { const el = $(p + 'CampVisibilityHint'); if (el) el.style.display = 'none'; });
 }
