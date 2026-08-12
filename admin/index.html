@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786527699';
+  var CURRENT_BUILD = 'v1786531428';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2899,7 +2899,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-12 18:41 · ff69dfd</span>
+          <span class="admin-build-text">2026-08-12 19:43 · dfa8597</span>
         </div>
       </div>
     </aside>
@@ -8964,6 +8964,113 @@ function logAppError(context, err, expectedCodes) {
     }
     collectClientError(err, 'handled', { context: context, expected: expected });
   } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// image-compress.js — 클라이언트 이미지 압축/HEIC 변환 공통 헬퍼
+//   메시지 첨부(application-message-attachments) 업로드 전처리.
+//   사양서 docs/specs/2026-05-15-application-messaging.md §3-2.
+//   추후 영수증·캠페인 이미지 업로드에도 확산 적용 예정(§10).
+//
+//   - HEIC(iPhone 사진) 자동 감지 → JPEG 변환 (heic2any CDN lazy-load)
+//   - Canvas 리사이즈: 긴 변 2048px, JPEG quality 0.85
+//   - EXIF Orientation 자동 보정 (createImageBitmap imageOrientation)
+//   - 압축 후 2MB 초과 시 예외
+// ════════════════════════════════════════════════════════════════════
+
+const IMG_COMPRESS_DEFAULTS = {
+  maxEdge: 2048,        // 긴 변 최대 픽셀 (영수증 작은 글씨 가독)
+  quality: 0.85,        // JPEG 품질
+  maxBytes: 2 * 1024 * 1024,  // 압축 후 한도 2MB
+};
+
+const HEIC2ANY_CDN = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+let _heic2anyLoading = null;
+
+// heic2any 라이브러리 lazy-load (한 번만)
+function loadHeic2any() {
+  if (typeof window.heic2any === 'function') return Promise.resolve();
+  if (_heic2anyLoading) return _heic2anyLoading;
+  _heic2anyLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = HEIC2ANY_CDN;
+    s.onload = () => resolve();
+    s.onerror = () => { _heic2anyLoading = null; reject(new Error('heic2any_load_failed')); };
+    document.head.appendChild(s);
+  });
+  return _heic2anyLoading;
+}
+
+// HEIC/HEIF 여부 판별 (MIME 또는 확장자)
+function isHeicFile(file) {
+  const type = (file.type || '').toLowerCase();
+  const name = (file.name || '').toLowerCase();
+  return /image\/(heic|heif)/.test(type) || /\.(heic|heif)$/.test(name);
+}
+
+// 메인 압축 함수. file(File/Blob) → 압축된 JPEG File 반환.
+// 실패 코드: 'heic_convert_failed' | 'decode_failed' | 'compress_failed' | 'too_large'
+async function compressImageFile(file, opts = {}) {
+  const cfg = Object.assign({}, IMG_COMPRESS_DEFAULTS, opts);
+  let workBlob = file;
+
+  // 1) HEIC → JPEG 선변환
+  if (isHeicFile(file)) {
+    try {
+      await loadHeic2any();
+      const converted = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: cfg.quality });
+      workBlob = Array.isArray(converted) ? converted[0] : converted;
+    } catch (e) {
+      console.error('[compressImageFile] HEIC 변환 실패', e);
+      throw new Error('heic_convert_failed');
+    }
+  }
+
+  // 2) 디코드 (EXIF Orientation 보정 — imageOrientation:'from-image')
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(workBlob, { imageOrientation: 'from-image' });
+  } catch (e) {
+    // 일부 브라우저는 옵션 미지원 → 폴백
+    try { bitmap = await createImageBitmap(workBlob); }
+    catch (e2) { console.error('[compressImageFile] 디코드 실패', e2); throw new Error('decode_failed'); }
+  }
+
+  // 3) Canvas 리사이즈
+  //   기본은 **긴 변** 기준(영수증·메시지 첨부 — 가로세로 어느 쪽도 너무 크면 안 된다).
+  //   ⚠️ `maxWidth` 를 주면 **가로 폭만** 본다. 세로로 자른 긴 배너(캠페인 설명용)를
+  //      긴 변 기준으로 줄이면 세로 길이 때문에 통째로 축소돼 **글자가 뭉개진다**.
+  //      그런 이미지는 가로가 좁아 사실상 줄어들지 않는 것이 맞다.
+  const scale = cfg.maxWidth
+    ? Math.min(1, cfg.maxWidth / bitmap.width)
+    : Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+  // 3-1) 줄일 필요가 없으면 **원본 그대로** 돌려준다 (`keepIfSmall` 을 준 경우만).
+  //   ⚠️ 다시 그리면 JPEG 로 바뀌어 **투명한 PNG 의 배경이 검게** 되고, 줄이지도 않으면서
+  //      품질만 깎인다. 캠페인 설명 이미지는 대부분 이 경우다(가로가 화면 폭보다 좁다).
+  //   ⚠️ 기존 호출부(메시지 첨부·영수증)는 **항상 JPEG 로 저장하는 전제**라 이 옵션을 주지
+  //      않는다 — 반환 형식이 바뀌면 저장 경로의 확장자·형식과 어긋난다.
+  if (cfg.keepIfSmall && scale === 1 && !isHeicFile(file)) {
+    if (bitmap.close) bitmap.close();
+    if (file.size > cfg.maxBytes) throw new Error('too_large');
+    return file;
+  }
+
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+
+  // 4) JPEG 인코딩
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', cfg.quality));
+  if (!blob) throw new Error('compress_failed');
+  if (blob.size > cfg.maxBytes) throw new Error('too_large');
+
+  const baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
+  return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
 }
 
 // ══════════════════════════════════════
@@ -38989,24 +39096,100 @@ function getRichEditor(id) {
 //   두 편집기가 다른 말을 하면 운영자가 어느 쪽이 맞는지 알 수 없다.
 const RICH_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const RICH_IMG_MAX_BYTES = 5 * 1024 * 1024;
+// 한 번에 넣을 수 있는 장수 — 폴더를 통째로 고르는 사고를 막는다(되돌리기 단추가 없는 자리다)
+const RICH_IMG_MAX_COUNT = 20;
+// 올리기 전에 줄이는 기준. **가로 폭만** 본다 — 세로로 자른 긴 배너를 긴 변 기준으로
+// 줄이면 통째로 축소돼 글자가 뭉개진다. 가로가 이보다 좁으면 원본 그대로 올라간다.
+const RICH_IMG_MAX_WIDTH = 1600;
 
-// 파일 하나를 올려 편집기 커서 자리에 넣는다. 실패하면 안내만 하고 아무것도 안 넣는다.
-async function _insertRichImage(q, file) {
-  if (!RICH_IMG_TYPES.includes(file.type)) {
-    toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다', 'error');
-    return false;
+// 올리기 전에 가로 폭만 줄인다. 실패하면 **원본 그대로** 올린다 — 줄이지 못하는 것이
+// 못 올리는 것보다 낫다(전에 없던 단계가 업로드를 막으면 안 된다).
+async function _shrinkRichImage(file) {
+  if (typeof compressImageFile !== 'function') return file;
+  try {
+    return await compressImageFile(file, {
+      maxWidth: RICH_IMG_MAX_WIDTH,
+      maxBytes: RICH_IMG_MAX_BYTES,
+      keepIfSmall: true,     // 줄일 필요가 없으면 원본 그대로 (투명한 PNG 보호)
+      quality: 0.85
+    });
+  } catch (e) {
+    console.warn('[_shrinkRichImage] 축소 실패 — 원본으로 올립니다', e);
+    return file;
   }
-  if (file.size > RICH_IMG_MAX_BYTES) {
-    toast('이미지는 5MB 이하만 업로드할 수 있습니다', 'error');
-    return false;
+}
+
+// 여러 장을 **차례대로** 넣는다.
+//   ⚠️ 한꺼번에 올리면(병렬) 빨리 끝난 것이 먼저 들어가 **순서가 뒤집힌다.** 한 장씩
+//      기다리면 순서가 저절로 지켜지고, 한 장씩 나타나 진행 상황이 눈에 보인다.
+//   ⚠️ 넣을 자리는 **처음에 한 번만** 정하고 하나씩 뒤로 민다. 매번 커서를 다시 읽으면
+//      운영자가 다른 칸을 누르는 순간 자리를 빼앗고 이미지가 흩어진다.
+async function _insertRichImages(q, files, opts) {
+  // ⚠️ 이미 올리는 중이면 **두 번째 호출을 막는다.** 편집기 잠금(`q.enable(false)`)은 글을
+  //    쓰는 자리만 막고 **툴바 단추는 그대로 눌린다.** 한 장짜리는 진행 표시도 안 떠서,
+  //    느릴 때 운영자가 다시 누르기 쉽다. 그러면 두 벌이 각자 자리를 세어 순서가 뒤섞인다.
+  if (q.__richImgBusy) { toast('이미지를 올리는 중입니다. 끝난 뒤에 다시 눌러 주세요', 'info'); return; }
+
+  const sort = !opts || opts.sort !== false;
+  let list = Array.from(files || []);
+  if (!list.length) return;
+  if (sort) list = _richImagesInNameOrder(list);
+
+  // ① 올리기 **전에** 거른다 — 아직 아무것도 안 올라가 되돌릴 것이 없다
+  const bad = list.filter(f => !RICH_IMG_TYPES.includes(f.type) || f.size > RICH_IMG_MAX_BYTES);
+  const ok = list.filter(f => !bad.includes(f));
+  // ⚠️ 장수 검사를 **확인 창보다 먼저** 한다. 뒤에 두면 「나머지만 넣을까요」에 확인을 누른
+  //    직후 장수 초과로 통째로 취소돼, 답한 것이 헛수고가 된다.
+  if (ok.length > RICH_IMG_MAX_COUNT) {
+    toast('한 번에 ' + RICH_IMG_MAX_COUNT + '장까지 넣을 수 있습니다', 'error');
+    return;
   }
-  const url = await uploadContentImage(file);
-  // 커서 위치에 넣는다. 커서가 없으면(편집기를 안 눌렀으면) 맨 끝.
+  if (bad.length) {
+    const names = bad.slice(0, 5).map(f => f.name).join(', ') + (bad.length > 5 ? ' 외 ' + (bad.length - 5) + '개' : '');
+    if (!ok.length) { toast('넣을 수 있는 이미지가 없습니다 — ' + names, 'error'); return; }
+    if (!confirm('다음 ' + bad.length + '개는 넣을 수 없습니다 (JPG·PNG·WebP, 한 장 5MB까지)\n\n'
+      + names + '\n\n나머지 ' + ok.length + '장만 넣을까요?')) return;
+  }
+
   const range = q.getSelection(true);
-  const at = range ? range.index : q.getLength();
-  q.insertEmbed(at, 'image', url, 'user');
-  q.setSelection(at + 1, 0, 'silent');
-  return true;
+  let at = range ? range.index : q.getLength();
+  const failed = [];
+  q.__richImgBusy = true;
+  q.enable(false);                       // 넣는 동안 편집기를 잠근다 (자리 어긋남 방지)
+  try {
+    for (let i = 0; i < ok.length; i++) {
+      const f = ok[i];
+      if (ok.length > 1) toast('이미지 올리는 중 (' + (i + 1) + '/' + ok.length + ') — ' + f.name, 'info');
+      try {
+        const url = await uploadContentImage(await _shrinkRichImage(f));
+        q.insertEmbed(at, 'image', url, 'user');
+        at++;
+      } catch (e) {
+        console.error('[_insertRichImages]', f.name, e);
+        failed.push(f.name);             // ② 올리는 중 실패는 **되는 것만** 넣고 이름을 알린다
+      }
+    }
+  } finally {
+    q.__richImgBusy = false;
+    q.enable(true);
+    // 잠금을 푼 뒤 커서를 마지막 이미지 뒤로. 길이를 넘어가면 맨 끝으로.
+    q.setSelection(Math.min(at, q.getLength()), 0, 'silent');
+  }
+
+  const done = ok.length - failed.length;
+  if (failed.length) {
+    toast(done + '장을 넣었습니다. 실패: ' + failed.join(', '), 'error');
+  } else if (done) {
+    toast(done > 1 ? done + '장을 넣었습니다' : '이미지를 넣었습니다', 'success');
+  }
+}
+
+// 사람이 기대하는 순서로 정렬한다.
+//   ⚠️ `numeric` 이 없으면 **`1` 다음에 `10`** 이 온다(글자 하나씩 비교하므로 `1` 뒤의 `0`
+//      을 먼저 본다). 잘라 올리는 이미지는 `배너_1 … 배너_10` 식이라 이 옵션이 핵심이다.
+function _richImagesInNameOrder(files) {
+  return files.slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 // 툴바 이미지 단추.
@@ -39017,14 +39200,13 @@ function quillImageHandler(id) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = RICH_IMG_TYPES.join(',');
+  input.multiple = true;              // 여러 장을 한 번에 — 파일 이름 순으로 들어간다
   input.style.display = 'none';
   document.body.appendChild(input);
   input.addEventListener('change', async () => {
     try {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      toast('이미지 업로드 중…', 'info');
-      if (await _insertRichImage(q, file)) toast('이미지를 넣었습니다', 'success');
+      if (!input.files || !input.files.length) return;
+      await _insertRichImages(q, input.files);
     } catch (e) {
       console.error('[quillImageHandler]', e);
       toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error');
@@ -39049,15 +39231,12 @@ function _attachRichImagePaste(q, id) {
     if (files.length) {
       // 클립보드에 파일 자체가 들어 있다(화면 캡처·이미지 복사) — 그대로 올린다.
       ev.preventDefault();
-      (async () => {
-        toast('이미지 업로드 중…', 'info');
-        let ok = 0;
-        for (const f of files) {
-          try { if (await _insertRichImage(q, f)) ok++; }
-          catch (e) { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); }
-        }
-        if (ok) toast(ok + '개 이미지를 넣었습니다', 'success');
-      })();
+      // 툴바와 **같은 함수**를 쓴다 — 두 경로가 따로 놀면 「단추로는 되는데 붙여넣기는
+      //   다르게 동작하는」 어긋남이 생긴다.
+      //   ⚠️ 다만 **이름순 정렬은 하지 않는다.** 클립보드 파일은 이름이 없거나 전부
+      //      `image.png` 로 겹쳐, 정렬하면 오히려 복사한 차례가 흐트러진다.
+      _insertRichImages(q, files, { sort: false })
+        .catch(e => { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); });
       return;
     }
     // 파일이 아니라 HTML 이 온 경우 — 그 안에 남의 서버 주소를 가리키는 이미지가 있으면

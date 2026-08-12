@@ -666,24 +666,100 @@ function getRichEditor(id) {
 //   두 편집기가 다른 말을 하면 운영자가 어느 쪽이 맞는지 알 수 없다.
 const RICH_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const RICH_IMG_MAX_BYTES = 5 * 1024 * 1024;
+// 한 번에 넣을 수 있는 장수 — 폴더를 통째로 고르는 사고를 막는다(되돌리기 단추가 없는 자리다)
+const RICH_IMG_MAX_COUNT = 20;
+// 올리기 전에 줄이는 기준. **가로 폭만** 본다 — 세로로 자른 긴 배너를 긴 변 기준으로
+// 줄이면 통째로 축소돼 글자가 뭉개진다. 가로가 이보다 좁으면 원본 그대로 올라간다.
+const RICH_IMG_MAX_WIDTH = 1600;
 
-// 파일 하나를 올려 편집기 커서 자리에 넣는다. 실패하면 안내만 하고 아무것도 안 넣는다.
-async function _insertRichImage(q, file) {
-  if (!RICH_IMG_TYPES.includes(file.type)) {
-    toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다', 'error');
-    return false;
+// 올리기 전에 가로 폭만 줄인다. 실패하면 **원본 그대로** 올린다 — 줄이지 못하는 것이
+// 못 올리는 것보다 낫다(전에 없던 단계가 업로드를 막으면 안 된다).
+async function _shrinkRichImage(file) {
+  if (typeof compressImageFile !== 'function') return file;
+  try {
+    return await compressImageFile(file, {
+      maxWidth: RICH_IMG_MAX_WIDTH,
+      maxBytes: RICH_IMG_MAX_BYTES,
+      keepIfSmall: true,     // 줄일 필요가 없으면 원본 그대로 (투명한 PNG 보호)
+      quality: 0.85
+    });
+  } catch (e) {
+    console.warn('[_shrinkRichImage] 축소 실패 — 원본으로 올립니다', e);
+    return file;
   }
-  if (file.size > RICH_IMG_MAX_BYTES) {
-    toast('이미지는 5MB 이하만 업로드할 수 있습니다', 'error');
-    return false;
+}
+
+// 여러 장을 **차례대로** 넣는다.
+//   ⚠️ 한꺼번에 올리면(병렬) 빨리 끝난 것이 먼저 들어가 **순서가 뒤집힌다.** 한 장씩
+//      기다리면 순서가 저절로 지켜지고, 한 장씩 나타나 진행 상황이 눈에 보인다.
+//   ⚠️ 넣을 자리는 **처음에 한 번만** 정하고 하나씩 뒤로 민다. 매번 커서를 다시 읽으면
+//      운영자가 다른 칸을 누르는 순간 자리를 빼앗고 이미지가 흩어진다.
+async function _insertRichImages(q, files, opts) {
+  // ⚠️ 이미 올리는 중이면 **두 번째 호출을 막는다.** 편집기 잠금(`q.enable(false)`)은 글을
+  //    쓰는 자리만 막고 **툴바 단추는 그대로 눌린다.** 한 장짜리는 진행 표시도 안 떠서,
+  //    느릴 때 운영자가 다시 누르기 쉽다. 그러면 두 벌이 각자 자리를 세어 순서가 뒤섞인다.
+  if (q.__richImgBusy) { toast('이미지를 올리는 중입니다. 끝난 뒤에 다시 눌러 주세요', 'info'); return; }
+
+  const sort = !opts || opts.sort !== false;
+  let list = Array.from(files || []);
+  if (!list.length) return;
+  if (sort) list = _richImagesInNameOrder(list);
+
+  // ① 올리기 **전에** 거른다 — 아직 아무것도 안 올라가 되돌릴 것이 없다
+  const bad = list.filter(f => !RICH_IMG_TYPES.includes(f.type) || f.size > RICH_IMG_MAX_BYTES);
+  const ok = list.filter(f => !bad.includes(f));
+  // ⚠️ 장수 검사를 **확인 창보다 먼저** 한다. 뒤에 두면 「나머지만 넣을까요」에 확인을 누른
+  //    직후 장수 초과로 통째로 취소돼, 답한 것이 헛수고가 된다.
+  if (ok.length > RICH_IMG_MAX_COUNT) {
+    toast('한 번에 ' + RICH_IMG_MAX_COUNT + '장까지 넣을 수 있습니다', 'error');
+    return;
   }
-  const url = await uploadContentImage(file);
-  // 커서 위치에 넣는다. 커서가 없으면(편집기를 안 눌렀으면) 맨 끝.
+  if (bad.length) {
+    const names = bad.slice(0, 5).map(f => f.name).join(', ') + (bad.length > 5 ? ' 외 ' + (bad.length - 5) + '개' : '');
+    if (!ok.length) { toast('넣을 수 있는 이미지가 없습니다 — ' + names, 'error'); return; }
+    if (!confirm('다음 ' + bad.length + '개는 넣을 수 없습니다 (JPG·PNG·WebP, 한 장 5MB까지)\n\n'
+      + names + '\n\n나머지 ' + ok.length + '장만 넣을까요?')) return;
+  }
+
   const range = q.getSelection(true);
-  const at = range ? range.index : q.getLength();
-  q.insertEmbed(at, 'image', url, 'user');
-  q.setSelection(at + 1, 0, 'silent');
-  return true;
+  let at = range ? range.index : q.getLength();
+  const failed = [];
+  q.__richImgBusy = true;
+  q.enable(false);                       // 넣는 동안 편집기를 잠근다 (자리 어긋남 방지)
+  try {
+    for (let i = 0; i < ok.length; i++) {
+      const f = ok[i];
+      if (ok.length > 1) toast('이미지 올리는 중 (' + (i + 1) + '/' + ok.length + ') — ' + f.name, 'info');
+      try {
+        const url = await uploadContentImage(await _shrinkRichImage(f));
+        q.insertEmbed(at, 'image', url, 'user');
+        at++;
+      } catch (e) {
+        console.error('[_insertRichImages]', f.name, e);
+        failed.push(f.name);             // ② 올리는 중 실패는 **되는 것만** 넣고 이름을 알린다
+      }
+    }
+  } finally {
+    q.__richImgBusy = false;
+    q.enable(true);
+    // 잠금을 푼 뒤 커서를 마지막 이미지 뒤로. 길이를 넘어가면 맨 끝으로.
+    q.setSelection(Math.min(at, q.getLength()), 0, 'silent');
+  }
+
+  const done = ok.length - failed.length;
+  if (failed.length) {
+    toast(done + '장을 넣었습니다. 실패: ' + failed.join(', '), 'error');
+  } else if (done) {
+    toast(done > 1 ? done + '장을 넣었습니다' : '이미지를 넣었습니다', 'success');
+  }
+}
+
+// 사람이 기대하는 순서로 정렬한다.
+//   ⚠️ `numeric` 이 없으면 **`1` 다음에 `10`** 이 온다(글자 하나씩 비교하므로 `1` 뒤의 `0`
+//      을 먼저 본다). 잘라 올리는 이미지는 `배너_1 … 배너_10` 식이라 이 옵션이 핵심이다.
+function _richImagesInNameOrder(files) {
+  return files.slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 // 툴바 이미지 단추.
@@ -694,14 +770,13 @@ function quillImageHandler(id) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = RICH_IMG_TYPES.join(',');
+  input.multiple = true;              // 여러 장을 한 번에 — 파일 이름 순으로 들어간다
   input.style.display = 'none';
   document.body.appendChild(input);
   input.addEventListener('change', async () => {
     try {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      toast('이미지 업로드 중…', 'info');
-      if (await _insertRichImage(q, file)) toast('이미지를 넣었습니다', 'success');
+      if (!input.files || !input.files.length) return;
+      await _insertRichImages(q, input.files);
     } catch (e) {
       console.error('[quillImageHandler]', e);
       toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error');
@@ -726,15 +801,12 @@ function _attachRichImagePaste(q, id) {
     if (files.length) {
       // 클립보드에 파일 자체가 들어 있다(화면 캡처·이미지 복사) — 그대로 올린다.
       ev.preventDefault();
-      (async () => {
-        toast('이미지 업로드 중…', 'info');
-        let ok = 0;
-        for (const f of files) {
-          try { if (await _insertRichImage(q, f)) ok++; }
-          catch (e) { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); }
-        }
-        if (ok) toast(ok + '개 이미지를 넣었습니다', 'success');
-      })();
+      // 툴바와 **같은 함수**를 쓴다 — 두 경로가 따로 놀면 「단추로는 되는데 붙여넣기는
+      //   다르게 동작하는」 어긋남이 생긴다.
+      //   ⚠️ 다만 **이름순 정렬은 하지 않는다.** 클립보드 파일은 이름이 없거나 전부
+      //      `image.png` 로 겹쳐, 정렬하면 오히려 복사한 차례가 흐트러진다.
+      _insertRichImages(q, files, { sort: false })
+        .catch(e => { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); });
       return;
     }
     // 파일이 아니라 HTML 이 온 경우 — 그 안에 남의 서버 주소를 가리키는 이미지가 있으면

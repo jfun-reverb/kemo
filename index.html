@@ -5976,8 +5976,25 @@ async function compressImageFile(file, opts = {}) {
     catch (e2) { console.error('[compressImageFile] 디코드 실패', e2); throw new Error('decode_failed'); }
   }
 
-  // 3) Canvas 리사이즈 (긴 변 maxEdge)
-  const scale = Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+  // 3) Canvas 리사이즈
+  //   기본은 **긴 변** 기준(영수증·메시지 첨부 — 가로세로 어느 쪽도 너무 크면 안 된다).
+  //   ⚠️ `maxWidth` 를 주면 **가로 폭만** 본다. 세로로 자른 긴 배너(캠페인 설명용)를
+  //      긴 변 기준으로 줄이면 세로 길이 때문에 통째로 축소돼 **글자가 뭉개진다**.
+  //      그런 이미지는 가로가 좁아 사실상 줄어들지 않는 것이 맞다.
+  const scale = cfg.maxWidth
+    ? Math.min(1, cfg.maxWidth / bitmap.width)
+    : Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+  // 3-1) 줄일 필요가 없으면 **원본 그대로** 돌려준다 (`keepIfSmall` 을 준 경우만).
+  //   ⚠️ 다시 그리면 JPEG 로 바뀌어 **투명한 PNG 의 배경이 검게** 되고, 줄이지도 않으면서
+  //      품질만 깎인다. 캠페인 설명 이미지는 대부분 이 경우다(가로가 화면 폭보다 좁다).
+  //   ⚠️ 기존 호출부(메시지 첨부·영수증)는 **항상 JPEG 로 저장하는 전제**라 이 옵션을 주지
+  //      않는다 — 반환 형식이 바뀌면 저장 경로의 확장자·형식과 어긋난다.
+  if (cfg.keepIfSmall && scale === 1 && !isHeicFile(file)) {
+    if (bitmap.close) bitmap.close();
+    if (file.size > cfg.maxBytes) throw new Error('too_large');
+    return file;
+  }
+
   const w = Math.max(1, Math.round(bitmap.width * scale));
   const h = Math.max(1, Math.round(bitmap.height * scale));
   const canvas = document.createElement('canvas');
