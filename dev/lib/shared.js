@@ -241,6 +241,35 @@ function _applyContentImagePolicy(wrapper) {
       img.removeAttribute('data-rich-size');
     }
   });
+  // ⚠️ 연속 판정은 **허용 안 된 이미지를 지운 뒤에** 해야 한다. 먼저 하면 중간에 낀
+  //    외부 이미지 때문에 「연속이 아니다」로 잘못 보고, 그 이미지가 지워진 뒤엔
+  //    실제로 붙어 있는데도 여백이 남는다.
+  _markStackedImages(wrapper);
+}
+
+// 바로 이어지는 이미지끼리는 여백을 없앤다 — **세로로 자른 긴 이미지를 나눠 올리는**
+//   흔한 방식에서 사이가 벌어져 끊겨 보이기 때문이다(2026-08-12 운영 요청).
+//   여백은 세 겹으로 쌓인다: 앞 이미지 아래(8) + 문단 아래(8) + 뒤 이미지 위(8) ≈ 24픽셀.
+//   ⚠️ **글과 이미지 사이 여백은 건드리지 않는다** — 전부 0으로 만들면 설명글이 답답해진다.
+//   ⚠️ 표시는 **앞 블록**에 붙인다. 뒤 블록에만 붙이면 앞 문단의 아래 여백이 남는다.
+function _markStackedImages(wrapper) {
+  // 이미지 하나만 든 블록(문단)이면 그 문단이 기준, 이미지가 맨 위에 그냥 있으면 이미지 자신.
+  const blockOf = img => {
+    const p = img.parentElement;
+    if (!p || p === wrapper) return img;
+    // 문단 안에 이미지 말고 눈에 보이는 내용이 더 있으면 「이미지만 있는 블록」이 아니다.
+    const hasOther = Array.from(p.childNodes).some(n =>
+      n !== img && !(n.nodeType === 3 && !n.textContent.trim()) && !(n.nodeType === 1 && n.tagName === 'BR'));
+    return hasOther ? img : p;
+  };
+  const blocks = Array.from(wrapper.querySelectorAll('img')).map(blockOf);
+  const isImageBlock = el => blocks.includes(el);
+  blocks.forEach(b => {
+    // 다음 형제(빈 텍스트는 건너뜀)도 이미지 블록이면 둘을 붙인다.
+    let n = b.nextSibling;
+    while (n && n.nodeType === 3 && !n.textContent.trim()) n = n.nextSibling;
+    if (n && n.nodeType === 1 && isImageBlock(n)) b.classList.add('rich-img-joined');
+  });
 }
 
 // 오리엔시트 내부 메모 전용 sanitize.

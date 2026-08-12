@@ -789,6 +789,27 @@ input.admin-filter{padding-right:8px}
   margin:8px auto;
   border-radius:6px;
 }
+/* 편집기 안에서도 이어지는 이미지는 붙여 보여준다 — 저장 뒤 실제 화면과 같아야
+   운영자가 「올릴 때 본 모습」을 믿을 수 있다. 정화가 붙이는 표시(rich-img-joined)는
+   편집기 DOM 에 없으므로 **여기서는 이웃 관계로 직접 판정**한다.
+   ⚠️ 이 규칙이 없으면 편집기에서만 벌어져 보이고 미리보기·실제 화면은 붙어 있다. */
+/* ⚠️ 판정을 저장 쪽(_markStackedImages 의 「이미지 말고 다른 내용이 없는 문단」)과 맞춘다.
+   `p:has(> img)` 만 쓰면 글과 이미지가 한 문단에 섞인 경우까지 잡혀, **편집기에서는
+   붙어 보이는데 저장하면 벌어지는** 어긋남이 생긴다(리뷰 지적).
+   「이미지 하나뿐인 문단」을 `img:only-child` 로 가려 저장 쪽 판정과 같게 맞춘다. */
+.quill-wrap .ql-editor p:has(> img:only-child) + p:has(> img:only-child) img{
+  margin-top:0;
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+.quill-wrap .ql-editor p:has(> img:only-child):has(+ p:has(> img:only-child)){
+  margin-bottom:0;
+}
+.quill-wrap .ql-editor p:has(> img:only-child):has(+ p:has(> img:only-child)) img{
+  margin-bottom:0;
+  border-bottom-left-radius:0;
+  border-bottom-right-radius:0;
+}
 .quill-wrap .ql-container.ql-snow{
   border:0;
   border-radius:0 0 8px 8px;
