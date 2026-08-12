@@ -4022,6 +4022,11 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
   //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
   /Auth session missing/i,
+  // 새 비밀번호가 예전 것과 같을 때 — 다른 비밀번호를 넣으면 되는 정상 거부.
+  //   ⚠️ 안 넣으면 사람이 같은 비밀번호를 넣을 때마다 「미해결」 배지가 오른다. 실제로
+  //      운영에서 한 사람이 5번 반복해 그대로 쌓였다(2026-08-11~12). 화면이 이유를
+  //      알려주도록 고친 것과 **한 세트**다 — 안내만 고치고 이 줄을 빠뜨리면 배지는 그대로다.
+  /different from the old password|same_password/i,
   // 로그인·가입 거부 — 비밀번호 오입력·기가입·메일 미확인은 결함이 아니다.
   //   ⚠️ 메일 미확인은 서버가 주는 문구가 자리마다 다르다 — 코드값 `email_not_confirmed`
   //      와 사람이 읽는 `Email not confirmed`(공백) 둘 다 잡아야 한다. 하나만 넣으면
@@ -13054,6 +13059,20 @@ async function handleResetPassword(e) {
         if (_f && _x) { _f.style.display = 'none'; _x.style.display = ''; }
         else { errEl.textContent = t('authError.genericError'); errEl.style.display = 'block'; }
         try { sessionStorage.removeItem('reverb.recovery'); } catch(_e) {}
+        btn.disabled = false;
+        btn.textContent = t('auth.reset.btn');
+        return;
+      }
+      // 「예전과 같은 비밀번호」도 같은 이유로 갈라낸다 — 이 화면은 지금 쓰는 비밀번호를
+      //   입력받지 않아 화면에서 미리 막을 수 없고, **서버가 거부한 뒤에야** 알 수 있다.
+      //   일반 문구로 덮으면 왜 안 되는지 몰라 같은 비밀번호를 다시 넣게 된다 —
+      //   운영에서 한 사람이 **5번 반복**했다(2026-08-11~12 오류 로그).
+      //   ⚠️ 서버 영문 메시지를 그대로 보여주지 않는다. 마이페이지 비밀번호 변경이 이미
+      //      쓰는 번역 문구(auth.pwSameAsCurrent)를 **같이** 쓴다 — 두 화면이 같은 말을 해야 한다.
+      if (/different from the old password/i.test(String(error.message || ''))
+          || String(error.code || '') === 'same_password') {
+        errEl.textContent = t('auth.pwSameAsCurrent');
+        errEl.style.display = 'block';
         btn.disabled = false;
         btn.textContent = t('auth.reset.btn');
         return;
