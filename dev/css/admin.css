@@ -2332,3 +2332,35 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .evt-time-clearable.has-value .evt-time-clear{ display:inline-flex; }
 .evt-time-clear:hover{ background:var(--light-pink); color:var(--ink); }
 .evt-time-clear .material-icons-round{ font-size:14px; }
+
+/* 캠페인 콘텐츠 가이드 — 이미지 등록 안내 (신규 등록·편집 두 폼이 같은 문구를 쓴다) */
+.rich-img-help{
+  margin:-4px 0 14px;
+  padding:10px 12px;
+  background:var(--surface-dim);
+  border:1px solid var(--outline);
+  border-radius:8px;
+  font-size:12px;
+  line-height:1.7;
+  color:var(--muted);
+}
+.rich-img-help:empty{display:none}
+.rich-img-help-title{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-weight:700;
+  color:var(--ink);
+  margin-bottom:5px;
+}
+.rich-img-help-title .material-icons-round{font-size:16px;color:var(--pink)}
+.rich-img-help ul{margin:0;padding-left:16px}
+.rich-img-help li{margin:2px 0}
+.rich-img-help b{color:var(--ink);font-weight:600}
+.rich-img-help code{
+  background:var(--surface);
+  border:1px solid var(--outline);
+  border-radius:3px;
+  padding:0 3px;
+  font-size:11px;
+}
