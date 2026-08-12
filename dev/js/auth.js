@@ -298,6 +298,20 @@ async function handleResetPassword(e) {
         btn.textContent = t('auth.reset.btn');
         return;
       }
+      // 「예전과 같은 비밀번호」도 같은 이유로 갈라낸다 — 이 화면은 지금 쓰는 비밀번호를
+      //   입력받지 않아 화면에서 미리 막을 수 없고, **서버가 거부한 뒤에야** 알 수 있다.
+      //   일반 문구로 덮으면 왜 안 되는지 몰라 같은 비밀번호를 다시 넣게 된다 —
+      //   운영에서 한 사람이 **5번 반복**했다(2026-08-11~12 오류 로그).
+      //   ⚠️ 서버 영문 메시지를 그대로 보여주지 않는다. 마이페이지 비밀번호 변경이 이미
+      //      쓰는 번역 문구(auth.pwSameAsCurrent)를 **같이** 쓴다 — 두 화면이 같은 말을 해야 한다.
+      if (/different from the old password/i.test(String(error.message || ''))
+          || String(error.code || '') === 'same_password') {
+        errEl.textContent = t('auth.pwSameAsCurrent');
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = t('auth.reset.btn');
+        return;
+      }
       errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
