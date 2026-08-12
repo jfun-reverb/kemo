@@ -761,11 +761,37 @@ function _attachRichImagePaste(q, id) {
 //   ⚠️ 클릭 즉시 내려받지 않는다 — 편집기에서 이미지를 누르는 건 보통 「고르기」 동작이라,
 //      글을 고치려다 누른 것만으로 파일이 받아지면 성가시다.
 let _richImgMenu = null;
+let _richImgMenuTrack = null;   // 스크롤·창 크기 변화를 따라다니는 처리기
 
 function closeRichImageMenu() {
+  if (_richImgMenuTrack) {
+    window.removeEventListener('scroll', _richImgMenuTrack, true);
+    window.removeEventListener('resize', _richImgMenuTrack);
+    _richImgMenuTrack = null;
+  }
   if (_richImgMenu) { _richImgMenu.remove(); _richImgMenu = null; }
   document.querySelectorAll('.quill-wrap .ql-editor img.is-selected')
     .forEach(el => el.classList.remove('is-selected'));
+}
+
+// 메뉴를 **그 이미지의 오른쪽 위 모서리 안쪽**에 붙인다.
+//   ⚠️ 화면 기준(fixed)으로 한 번만 놓으면 **스크롤할 때 이미지와 따로 논다** — 다른 이미지
+//      위에 떠 있어 어느 것의 메뉴인지 알 수 없다(2026-08-12 운영 지적). 그래서 스크롤·창
+//      크기 변화마다 다시 계산한다.
+//   ⚠️ 정중앙이 아니라 모서리인 이유 — 가운데면 이미지 내용을 가린다.
+function _placeRichImageMenu(pop, img) {
+  const r = img.getBoundingClientRect();
+  const w = pop.offsetWidth || 150, h = pop.offsetHeight || 32;
+  const pad = 8;
+  // 기본은 이미지 오른쪽 위 안쪽. 이미지가 메뉴보다 좁으면 이미지 왼쪽에 맞춘다.
+  let left = (r.width >= w + pad * 2) ? (r.right - w - pad) : r.left;
+  let top = r.top + pad;
+  // 화면 밖으로 나가지 않게 보정
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+  pop.style.position = 'fixed';
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
 }
 
 // 저장소가 `?download` 를 안 받아 준다(2026-08-12 실측 — 내려받기 헤더가 안 붙는다).
@@ -795,19 +821,24 @@ function openRichImageMenu(img) {
   closeRichImageMenu();
   img.classList.add('is-selected');
   const pop = document.createElement('div');
-  pop.className = 'mini-editor-img-popover';   // 참여방법 편집기와 같은 모양을 쓴다
+  pop.className = 'mini-editor-img-popover no-tail';   // 참여방법 편집기와 같은 모양(꼬리만 뺀다)
   pop.innerHTML = '<button type="button" class="meip-size" data-act="download">'
     + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span> 원본 내려받기</button>';
   document.body.appendChild(pop);
-  if (typeof _positionMenuInViewport === 'function') {
-    _positionMenuInViewport(pop, img.getBoundingClientRect(), { placement: 'below', gap: 6 });
-  } else {
-    const r = img.getBoundingClientRect();
-    pop.style.position = 'fixed';
-    pop.style.top = (r.bottom + 6) + 'px';
-    pop.style.left = r.left + 'px';
-  }
+  _placeRichImageMenu(pop, img);
   _richImgMenu = pop;
+  // 스크롤·창 크기가 바뀌면 따라간다. 이미지가 화면 밖으로 나가면 닫는다 —
+  //   안 보이는 이미지의 메뉴가 화면 구석에 남아 있으면 무엇의 메뉴인지 알 수 없다.
+  //   ⚠️ scroll 은 **캡처 단계**로 듣는다. 편집기가 자체 스크롤 영역 안에 있어,
+  //      그러지 않으면 창 스크롤만 잡히고 안쪽 스크롤은 놓친다.
+  _richImgMenuTrack = () => {
+    if (!_richImgMenu) return;
+    const r = img.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) { closeRichImageMenu(); return; }
+    _placeRichImageMenu(_richImgMenu, img);
+  };
+  window.addEventListener('scroll', _richImgMenuTrack, true);
+  window.addEventListener('resize', _richImgMenuTrack);
   pop.querySelector('[data-act="download"]').addEventListener('click', ev => {
     ev.preventDefault(); ev.stopPropagation();
     const src = img.getAttribute('src') || '';
