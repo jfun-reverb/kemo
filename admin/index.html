@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1786522626';
+  var CURRENT_BUILD = 'v1786523564';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1265,6 +1265,12 @@ input.admin-filter{padding-right:8px}
   display:block;
   margin:8px auto;
   border-radius:6px;
+  cursor:pointer;   /* 눌러서 메뉴(원본 내려받기)를 열 수 있다는 신호 */
+}
+/* 클릭해 메뉴가 열린 이미지 — 참여방법 편집기와 같은 표시 */
+.quill-wrap .ql-editor img.is-selected{
+  outline:2px solid var(--pink);
+  outline-offset:2px;
 }
 /* 편집기 안에서도 이어지는 이미지는 붙여 보여준다 — 저장 뒤 실제 화면과 같아야
    운영자가 「올릴 때 본 모습」을 믿을 수 있다. 정화가 붙이는 표시(rich-img-joined)는
@@ -2871,7 +2877,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-12 17:17 · 76ee91a</span>
+          <span class="admin-build-text">2026-08-12 17:32 · cf10c6c</span>
         </div>
       </div>
     </aside>
@@ -15044,6 +15050,13 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // 편집기에서 띄운 작은 메뉴들을 먼저 닫는다. 이것들은 `document.body` 에 화면 고정으로
+  //   붙어 있어 **화면을 옮겨도 그대로 떠 있다**(페인은 클래스 토글로 감출 뿐 DOM 이 남는다).
+  //   ⚠️ 이번에 캠페인 편집기 이미지 메뉴를 만들며 발견했지만, 참여방법·주의사항·NG 편집기의
+  //      이미지·링크 메뉴도 **원래부터 같은 문제**를 갖고 있었다 — 함께 정리한다(2026-08-12).
+  if (typeof closeRichImageMenu === 'function') closeRichImageMenu();
+  if (typeof closeMiniEditorImagePopover === 'function') closeMiniEditorImagePopover();
+  if (typeof closeMiniEditorLinkPopover === 'function') closeMiniEditorLinkPopover();
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
@@ -39042,6 +39055,76 @@ function _attachRichImagePaste(q, id) {
     bad.forEach(img => img.remove());
   });
 }
+
+// ── 편집기 안 이미지 클릭 메뉴 (2026-08-12) ──
+//   올린 이미지를 나중에 다시 받고 싶다는 요청. 참여방법 편집기가 이미 「클릭하면 작은 메뉴」
+//   방식이라 같은 모양으로 맞춘다.
+//   ⚠️ 클릭 즉시 내려받지 않는다 — 편집기에서 이미지를 누르는 건 보통 「고르기」 동작이라,
+//      글을 고치려다 누른 것만으로 파일이 받아지면 성가시다.
+let _richImgMenu = null;
+
+function closeRichImageMenu() {
+  if (_richImgMenu) { _richImgMenu.remove(); _richImgMenu = null; }
+  document.querySelectorAll('.quill-wrap .ql-editor img.is-selected')
+    .forEach(el => el.classList.remove('is-selected'));
+}
+
+// 저장소가 `?download` 를 안 받아 준다(2026-08-12 실측 — 내려받기 헤더가 안 붙는다).
+//   그래서 파일을 받아서 저장한다. 우리 저장소는 다른 화면에서 가져오는 것이 허용돼 있다.
+async function downloadRichImage(url) {
+  try {
+    toast('이미지를 받는 중…', 'info');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = (url.split('/').pop() || 'image').split('?')[0];
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // 바로 지우면 브라우저가 아직 읽는 중일 수 있다.
+    setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+  } catch (e) {
+    console.error('[downloadRichImage]', e);
+    toast('이미지를 받지 못했습니다: ' + friendlyError(e.message || e), 'error');
+  }
+}
+
+function openRichImageMenu(img) {
+  closeRichImageMenu();
+  img.classList.add('is-selected');
+  const pop = document.createElement('div');
+  pop.className = 'mini-editor-img-popover';   // 참여방법 편집기와 같은 모양을 쓴다
+  pop.innerHTML = '<button type="button" class="meip-size" data-act="download">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span> 원본 내려받기</button>';
+  document.body.appendChild(pop);
+  if (typeof _positionMenuInViewport === 'function') {
+    _positionMenuInViewport(pop, img.getBoundingClientRect(), { placement: 'below', gap: 6 });
+  } else {
+    const r = img.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.top = (r.bottom + 6) + 'px';
+    pop.style.left = r.left + 'px';
+  }
+  _richImgMenu = pop;
+  pop.querySelector('[data-act="download"]').addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const src = img.getAttribute('src') || '';
+    closeRichImageMenu();
+    if (src) downloadRichImage(src);
+  });
+}
+
+// 편집기 안 이미지 클릭 — 위임 처리기 하나로 세 칸을 모두 받는다.
+document.addEventListener('click', ev => {
+  const img = ev.target.closest && ev.target.closest('.quill-wrap .ql-editor img');
+  if (img) { ev.preventDefault(); openRichImageMenu(img); return; }
+  // 메뉴 밖을 누르면 닫는다.
+  if (_richImgMenu && !ev.target.closest('.mini-editor-img-popover')) closeRichImageMenu();
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeRichImageMenu(); });
 
 function setRichValue(id, html) {
   const q = getRichEditor(id);

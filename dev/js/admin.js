@@ -755,6 +755,76 @@ function _attachRichImagePaste(q, id) {
   });
 }
 
+// ── 편집기 안 이미지 클릭 메뉴 (2026-08-12) ──
+//   올린 이미지를 나중에 다시 받고 싶다는 요청. 참여방법 편집기가 이미 「클릭하면 작은 메뉴」
+//   방식이라 같은 모양으로 맞춘다.
+//   ⚠️ 클릭 즉시 내려받지 않는다 — 편집기에서 이미지를 누르는 건 보통 「고르기」 동작이라,
+//      글을 고치려다 누른 것만으로 파일이 받아지면 성가시다.
+let _richImgMenu = null;
+
+function closeRichImageMenu() {
+  if (_richImgMenu) { _richImgMenu.remove(); _richImgMenu = null; }
+  document.querySelectorAll('.quill-wrap .ql-editor img.is-selected')
+    .forEach(el => el.classList.remove('is-selected'));
+}
+
+// 저장소가 `?download` 를 안 받아 준다(2026-08-12 실측 — 내려받기 헤더가 안 붙는다).
+//   그래서 파일을 받아서 저장한다. 우리 저장소는 다른 화면에서 가져오는 것이 허용돼 있다.
+async function downloadRichImage(url) {
+  try {
+    toast('이미지를 받는 중…', 'info');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = (url.split('/').pop() || 'image').split('?')[0];
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // 바로 지우면 브라우저가 아직 읽는 중일 수 있다.
+    setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+  } catch (e) {
+    console.error('[downloadRichImage]', e);
+    toast('이미지를 받지 못했습니다: ' + friendlyError(e.message || e), 'error');
+  }
+}
+
+function openRichImageMenu(img) {
+  closeRichImageMenu();
+  img.classList.add('is-selected');
+  const pop = document.createElement('div');
+  pop.className = 'mini-editor-img-popover';   // 참여방법 편집기와 같은 모양을 쓴다
+  pop.innerHTML = '<button type="button" class="meip-size" data-act="download">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span> 원본 내려받기</button>';
+  document.body.appendChild(pop);
+  if (typeof _positionMenuInViewport === 'function') {
+    _positionMenuInViewport(pop, img.getBoundingClientRect(), { placement: 'below', gap: 6 });
+  } else {
+    const r = img.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.top = (r.bottom + 6) + 'px';
+    pop.style.left = r.left + 'px';
+  }
+  _richImgMenu = pop;
+  pop.querySelector('[data-act="download"]').addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const src = img.getAttribute('src') || '';
+    closeRichImageMenu();
+    if (src) downloadRichImage(src);
+  });
+}
+
+// 편집기 안 이미지 클릭 — 위임 처리기 하나로 세 칸을 모두 받는다.
+document.addEventListener('click', ev => {
+  const img = ev.target.closest && ev.target.closest('.quill-wrap .ql-editor img');
+  if (img) { ev.preventDefault(); openRichImageMenu(img); return; }
+  // 메뉴 밖을 누르면 닫는다.
+  if (_richImgMenu && !ev.target.closest('.mini-editor-img-popover')) closeRichImageMenu();
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeRichImageMenu(); });
+
 function setRichValue(id, html) {
   const q = getRichEditor(id);
   if (!q) return;

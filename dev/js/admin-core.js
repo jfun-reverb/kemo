@@ -138,6 +138,13 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // 편집기에서 띄운 작은 메뉴들을 먼저 닫는다. 이것들은 `document.body` 에 화면 고정으로
+  //   붙어 있어 **화면을 옮겨도 그대로 떠 있다**(페인은 클래스 토글로 감출 뿐 DOM 이 남는다).
+  //   ⚠️ 이번에 캠페인 편집기 이미지 메뉴를 만들며 발견했지만, 참여방법·주의사항·NG 편집기의
+  //      이미지·링크 메뉴도 **원래부터 같은 문제**를 갖고 있었다 — 함께 정리한다(2026-08-12).
+  if (typeof closeRichImageMenu === 'function') closeRichImageMenu();
+  if (typeof closeMiniEditorImagePopover === 'function') closeMiniEditorImagePopover();
+  if (typeof closeMiniEditorLinkPopover === 'function') closeMiniEditorLinkPopover();
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');

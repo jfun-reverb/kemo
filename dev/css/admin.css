@@ -788,6 +788,12 @@ input.admin-filter{padding-right:8px}
   display:block;
   margin:8px auto;
   border-radius:6px;
+  cursor:pointer;   /* 눌러서 메뉴(원본 내려받기)를 열 수 있다는 신호 */
+}
+/* 클릭해 메뉴가 열린 이미지 — 참여방법 편집기와 같은 표시 */
+.quill-wrap .ql-editor img.is-selected{
+  outline:2px solid var(--pink);
+  outline-offset:2px;
 }
 /* 편집기 안에서도 이어지는 이미지는 붙여 보여준다 — 저장 뒤 실제 화면과 같아야
    운영자가 「올릴 때 본 모습」을 믿을 수 있다. 정화가 붙이는 표시(rich-img-joined)는
