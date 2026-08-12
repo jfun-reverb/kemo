@@ -298,6 +298,12 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     //      이름만 실제 내용에 맞게 고쳤다(이 두 열은 방문형이면 방문 기간이 들어간다).
     { header: '구매·방문 시작',  key: 'pstart',   width: 14 },
     { header: '구매·방문 마감',  key: 'pend',     width: 14 },
+    // 선정 기간(마이그레이션 307) — **시딩형 전용**이라 다른 형식은 빈칸이다.
+    //   ⚠️ 위 구매·방문 열에 끼워 넣지 않는다. 그 열은 「그 형식이 제품을 사거나 방문하는
+    //      기간」이고 선정은 「응모자 중 참여자를 고르는 기간」이라 뜻이 다르다 — 한 칸에
+    //      섞으면 걸러 보거나 정렬할 때 서로 다른 것이 한 줄로 딸려 온다.
+    { header: '선정 시작',       key: 'selstart', width: 14 },
+    { header: '선정 마감',       key: 'selend',   width: 14 },
     { header: '결과물 제출 마감',key: 'subend',   width: 16 },
     { header: '슬롯',            key: 'slots',    width: 8 },
     { header: '신청 수',         key: 'apps',     width: 10 },
@@ -321,6 +327,11 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     if (c.recruit_type === 'visit')   return c.visit_end || '';
     return '';
   };
+  // 선정 기간은 시딩형만 쓴다. 다른 형식에 값이 남아 있더라도 내보내지 않는다 —
+  //   화면(캠페인 목록·진행현황 카드)도 시딩형에만 그리므로 엑셀만 다르면 어긋난다.
+  var pickSelection = function(c, key) {
+    return (c.recruit_type === 'gifting') ? (c[key] || '') : '';
+  };
   campaigns.forEach(function(c) {
     var campApps = (appsByCampId && appsByCampId[c.id]) || [];
     var approvedCnt = campApps.filter(function(a){ return a.status === 'approved'; }).length;
@@ -337,6 +348,8 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
       deadline: c.deadline ? formatDate(c.deadline) : '',
       pstart:   ps ? formatDate(ps) : '',
       pend:     pe ? formatDate(pe) : '',
+      selstart: (function(v){ return v ? formatDate(v) : ''; })(pickSelection(c, 'selection_start')),
+      selend:   (function(v){ return v ? formatDate(v) : ''; })(pickSelection(c, 'selection_end')),
       subend:   c.submission_end ? formatDate(c.submission_end) : '',
       slots:    Number(c.slots || 0),
       apps:     campApps.length,

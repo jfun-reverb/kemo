@@ -1664,6 +1664,15 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 
+  // 형식이 정해졌으면 기간 칸(구매·방문·선정) 표시부터 맞춘다 — 아래 라디오를 세우기까지
+  //   브랜드 목록·연결 신청을 조회하느라 0.4초쯤 걸리고, 그 사이 화면은 바로 위
+  //   switchAdminPane 이 리뷰어형 기준으로 초기화해 둔 상태다. 그대로 두면 **시딩형인데
+  //   선정 기간 칸이 없는 화면**이 잠깐 보인다 — 발행 직후 화면이 맨 위로 올라가고 알림이
+  //   뜨는 순간이라, 담당자가 그때 훑어보고 「생성할 때는 칸이 없다」고 지적했다(2026-08-12).
+  //   ⚠️ 아래 라디오 change 도 같은 함수를 부른다 — 여기 한 번 더 부르는 것은 그 사이의
+  //      빈 구간을 없애기 위한 것이고, 최종 상태는 라디오 쪽이 확정한다.
+  if (typeof applyDeadlineFieldsVisibility === 'function') applyDeadlineFieldsVisibility('new', recruitType);
+
   // 브랜드 선택 + cascade (native select)
   if (typeof loadCampBrandSelect === 'function') await loadCampBrandSelect('new', brandId);
   osSetVal('newCampBrandId', brandId || '');
