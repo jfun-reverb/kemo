@@ -755,7 +755,8 @@ async function openEditCampaign(campId) {
   });
   // 일자 입력 min/max 동기화 + 인라인 경고 초기 평가
   syncCampDateMinMax('editCamp');
-  validateCampDateRangesInline('editCamp');
+  // ⚠️ camp 를 넘긴다 — 이 시점 _editCampOriginal 은 아직 직전 캠페인 것이다(대입은 아래).
+  validateCampDateRangesInline('editCamp', camp);
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
@@ -1543,6 +1544,31 @@ function campRuleVisitRange(prefix) {
   return [$(prefix + 'VisitStart')?.value || '', $(prefix + 'VisitEnd')?.value || ''];
 }
 
+// 이 폼이 **실제로 저장하게 될** 구매 기간. 화면에 구매 칸이 보이면 그 칸의 값이고,
+//   안 보이면 「모집 및 구매 기간」 한 칸이 둘을 겸하므로 모집 기간이다.
+//   ⚠️ 저장(saveCampaignEdit)과 검증(validateCampDateRanges)이 **반드시 이 함수 하나를**
+//      쓴다. 두 곳이 각자 계산하면 「검증은 옛 값으로 막는데 저장은 새 값을 쓰는」 어긋남이
+//      생긴다 — 실제로 그래서 복제한 캠페인의 날짜만 바꾸면 저장이 막혔고, 그 칸이 화면에
+//      없어 고칠 수도 없었다(2026-08-12).
+//   ⚠️ 판정식은 그 칸을 보이고 숨기는 조건(applyDeadlineFieldsVisibility 의 editedIsSplit)과
+//      같아야 한다. 어긋나면 보이는 칸을 덮거나 안 보이는 칸을 방치한다.
+//   ⚠️ savedCamp 를 받는 이유 — 편집 폼을 **여는 도중**에도 이 함수가 불리는데(openEditCampaign
+//      이 인라인 경고를 초기 평가한다), 그 시점의 `_editCampOriginal` 은 **아직 직전에 편집하던
+//      캠페인 것**이다(실제 대입은 한참 뒤). 바로 옆 applyDeadlineFieldsVisibility 가 같은 이유로
+//      camp 를 세 번째 인자로 받는다 — 같은 방식으로 맞춘다.
+function campRulePurchaseRange(prefix, savedCamp) {
+  const formMode = (prefix === 'editCamp') ? 'edit' : 'new';
+  const rtEl = document.querySelector(`input[name="${formMode === 'edit' ? 'editRecruitType' : 'recruitType'}"]:checked`);
+  const rt = rtEl?.value || 'monitor';
+  const raw = [$(prefix + 'PurchaseStart')?.value || '', $(prefix + 'PurchaseEnd')?.value || ''];
+  if (rt !== 'monitor') return raw;
+  const src = (formMode === 'edit') ? (savedCamp || _editCampOriginal) : null;
+  const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(src) : 'none';
+  // 두 기간이 다르게 저장된 옛 캠페인만 칸이 보인다 — 그때는 사람이 고친 값을 그대로 쓴다.
+  if (formMode === 'edit' && kind === 'split') return raw;
+  return [$(prefix + 'RecruitStart')?.value || '', $(prefix + 'Deadline')?.value || ''];
+}
+
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
 //   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
 //   - monitor: 구매 기간 종료일 + 19일
@@ -1648,11 +1674,12 @@ function syncCampRangePickerBounds(prefix) {
 
 // 입력값 검증 (저장 시 + onchange 인라인 경고). 위반 메시지 배열 반환.
 //   경계: 모집 시작일 ~ 결과물 제출 마감일 (post_deadline 제거 — migration 129)
-function validateCampDateRanges(prefix) {
+function validateCampDateRanges(prefix, savedCamp) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const ps = $(prefix+'PurchaseStart')?.value || '';
-  const pe = $(prefix+'PurchaseEnd')?.value || '';
+  // 화면에 안 보이는 구매 칸은 저장 때 모집 기간을 따라간다 — 검사도 **저장될 값**으로 한다.
+  //   폼에 남은 옛 값으로 검사하면, 고칠 수 없는 칸 때문에 저장이 막힌다(2026-08-12).
+  const [ps, pe] = campRulePurchaseRange(prefix, savedCamp);
   const [vs, ve] = campRuleVisitRange(prefix);
   const se = campRuleSubmissionEnd(prefix);
   const ss = $(prefix+'SelectionStart')?.value || '';
@@ -2220,8 +2247,8 @@ function applyCampRangeValues(prefix, values) {
 }
 
 // onchange 인라인 경고 — 종류별로 분산해서 해당 row 바로 아래 div 에 출력 (저장 차단은 별도 체크)
-function validateCampDateRangesInline(prefix) {
-  const errs = validateCampDateRanges(prefix);
+function validateCampDateRangesInline(prefix, savedCamp) {
+  const errs = validateCampDateRanges(prefix, savedCamp);
   const groups = Object.create(null);
   Object.keys(CAMP_DATE_WARN_TARGETS).forEach(k => { groups[k] = []; });
   errs.forEach(e => { if (groups[e.kind]) groups[e.kind].push(e.msg); });
@@ -2441,8 +2468,21 @@ async function saveCampaignEdit() {
       event_group_id: ($('editCampEventMode')?.checked ? ($('editCampEventGroup')?.value || '') : '') || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
-      purchase_start: gv('editCampPurchaseStart')||null,
-      purchase_end: gv('editCampPurchaseEnd')||null,
+      // 구매 기간 — 화면에 그 칸이 **보일 때만** 폼 값을 그대로 쓴다. 안 보이는 캠페인은
+      //   화면이 「모집 및 구매 기간」 한 칸으로 둘을 겸한다고 약속하므로 모집 기간을 따라간다.
+      //   ⚠️ 이게 없으면 **복제한 캠페인의 날짜만 바꿔 재사용하는 흔한 작업이 막힌다** —
+      //      모집 기간만 새로 잡히고 구매 기간은 옛 날짜로 남아, 저장할 때 「구매 시작일은
+      //      모집 시작일~결과물 제출 마감일 사이여야 합니다」로 걸린다. 그런데 그 칸이
+      //      화면에 없어 고칠 수가 없다(2026-08-12 담당자 보고, 브라우저 재현 확인).
+      //   ⚠️ 두 기간이 다르게 저장된 옛 캠페인(split)은 칸이 보이므로 **손대지 않는다** —
+      //      2026-08-06 이 「편집 저장은 구매 기간을 덮지 않는다」로 정한 것이 지키려던 값이
+      //      바로 그것이다. 판정식은 그 칸을 보이고 숨기는 조건(applyDeadlineFieldsVisibility
+      //      의 editedIsSplit)과 **같아야 한다** — 어긋나면 보이는 칸을 덮거나 안 보이는 칸을
+      //      방치하게 된다.
+      ...(function() {
+        const [pStart, pEnd] = campRulePurchaseRange('editCamp');
+        return { purchase_start: pStart || null, purchase_end: pEnd || null };
+      })(),
       visit_start: gv('editCampVisitStart')||null,
       selection_start: gv('editCampSelectionStart')||null,
       selection_end: gv('editCampSelectionEnd')||null,
