@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787038395';
+  var CURRENT_BUILD = 'v1787040950';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2931,7 +2931,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 16:33 · 010d683</span>
+          <span class="admin-build-text">2026-08-18 17:15 · 6d53ffe</span>
         </div>
       </div>
     </aside>
@@ -4295,7 +4295,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
         <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
         <div id="adminPane-settlements" class="admin-pane admin-pane-list">
-          <!-- 메인 뷰(정산 목록) — 과거 미등록 뷰와 같은 페인 안에서 토글 전환 -->
+          <!-- 메인 뷰(정산 목록) — 「미등록」 탭·지급 준비 뷰와 같은 페인 안에서 전환 -->
           <div id="settlementMainView" style="display:flex;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -4307,10 +4307,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <button class="btn btn-ghost btn-sm" onclick="openPayoutPrepView()" title="지급 예정일별로 얼마를 보내야 하는지 봅니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
                   지급 준비
-                </button>
-                <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
-                  과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
                 </button>
                 <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
@@ -4339,8 +4335,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
             <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
+            <!-- 「미등록」 탭 안내 — 도입일 유무로 문구가 갈린다(applyUnregisteredNotice) -->
+            <div id="unregisteredNotice" style="display:none;font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px"></div>
           </div>
-          <div class="admin-card">
+          <div id="settlementListCard" class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">정산 목록</span><span id="settlementsTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="settlementsSumAmount" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
             </div>
@@ -4362,8 +4360,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           </div>
           </div><!-- /settlementMainView -->
 
-          <!-- 과거 미등록 인증성공 뷰 (정산 도입 이전 과거분 관리자 직접 처리) — 기본 숨김 -->
-          <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 메인/과거미등록과 같은 페인 안에서 토글 -->
+          <!-- 「미등록」 탭의 내용물 (인증 성공했으나 정산 행이 아직 없는 건) — 상태 탭에서 전환, 기본 숨김
+               ⚠️ 「과거」라는 말을 쓰지 않는다 — 도입일이 켜지면 과거가 아닌 건도 여기 들어온다(사양서 §4-2) -->
+          <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 같은 페인 안에서 전환 -->
           <div id="settlementPayoutView" style="display:none;flex-direction:column;flex:1;min-height:0">
             <div class="admin-sticky-header">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -4392,10 +4391,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
                 정산 목록으로
               </button>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">과거 미등록 인증성공</div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">미등록</div>
             </div>
+            <!-- ⚠️ 「이 건이 무엇인가」는 위 #unregisteredNotice 한 곳에서만 말한다.
+                 여기 있던 「정산 도입 이전에…」 문구는 지웠다 — ①같은 말을 두 곳에서 하면
+                 두 안내가 겹쳐 뜨고 ②마이그레이션 337 로 컷오프 조건이 빠져 **도입일 이후
+                 건도 이 탭에 들어오므로** 「도입 이전」이라는 전제 자체가 사실과 달라졌다.
+                 아래는 **처리할 때 알아야 할 것**만 남긴다(성격이 다르다). -->
             <div style="padding:10px 12px;background:#FFF7E6;border:1px solid #E9C46A;border-radius:8px;font-size:12px;line-height:1.6;color:#7A5C00;margin-bottom:12px">
-              정산 도입 이전에 인증에 성공했지만 아직 정산에 등록되지 않은 건입니다.
               여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
@@ -4426,14 +4429,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <input type="text" id="pastUnregMemo" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="예: 시스템 도입 전 외부 지급">
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
-                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled>선택 정산대기 추가</button>
+                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled style="opacity:.55" title="3단계 이후 사용 가능합니다">선택 송금완료 기록</button>
+                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled style="opacity:.55" title="3단계 이후 사용 가능합니다">선택 정산대기 추가</button>
               </div>
             </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">과거 미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
             </div>
             <div class="admin-table-wrap">
               <table class="data-table">
@@ -10975,6 +10978,24 @@ async function fetchBlockedAdminTables() {
   } catch(e) {
     console.warn('[fetchBlockedAdminTables]', e);
     return null;
+  }
+}
+
+// 정산 도입일(컷오프). 「미등록」 탭 안내 문구가 이 값 하나로 갈린다.
+//   ⚠️ 세 상태를 구분한다: 조회 실패(undefined) · 미설정(null) · 설정됨(문자열).
+//      실패를 「미설정」으로 단정하면 **안내 문구가 반대로 나간다** — 「자동 등록이
+//      꺼져 있다」와 「자동으로 만들어진다」는 서로 반대말이다.
+//   ⚠️ 조회 권한은 has_permission('settlement.view','read') (마이그레이션 230).
+async function fetchSettlementCutoff() {
+  if (!db) return undefined;
+  try {
+    const {data, error} = await db.from('settlement_settings')
+      .select('cutoff_at').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data ? (data.cutoff_at || null) : null;
+  } catch (e) {
+    console.warn('[fetchSettlementCutoff]', e);
+    return undefined;   // ⚠️ null 로 바꾸지 말 것 — 「실패」와 「미설정」이 섞인다
   }
 }
 
@@ -35675,6 +35696,12 @@ const SETTLEMENT_STATUS_META = {
 //   전체 탭은 code '' (취소 포함 전 상태), getFilteredSettlements 의 `if (status)` 로 필터 skip.
 const SETTLEMENT_STATUS_TABS = [
   { code: '',          label: '전체' },
+  // ★ 「미등록」 = 인증에 성공했으나 **정산 행이 아직 없는 응모**.
+  //   ⚠️ 다른 탭과 달리 `settlements` 표에 행이 없어 `_settlements` 로는 못 센다.
+  //      별도 조회(get_past_unregistered_settlements)의 결과를 쓴다.
+  //   ⚠️ 화면에서 「과거」라는 말을 완전히 뺀다 — 도입일이 켜지면 「과거」가 아닌 건도
+  //      여기 들어오므로, 그 이름을 남기면 그때 거짓말이 된다(사양서 §4-2).
+  { code: 'unregistered', label: '미등록', virtual: true },
   { code: 'pending',   label: '정산대기' },
   { code: 'paid',      label: '송금완료' },
   { code: 'on_hold',   label: '보류' },
@@ -35773,12 +35800,10 @@ function settlementCampCell(camp) {
 
 // 페인 진입 로더 — ①인증성공 응모 백필(멱등, best-effort) ②전건 조회 ③렌더 + 배지
 async function loadSettlements() {
-  // 과거 미등록 뷰를 열어둔 채 페인을 떠났다가 재진입해도 항상 메인 목록으로 복귀
+  // 재진입 시 열려 있던 화면을 정리한다 — 안 닫으면 **옛 데이터가 그대로** 남는다.
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
   }
-  // 지급 준비 뷰도 같이 닫는다 — 안 닫으면 다른 페인에 갔다 오면 **옛 데이터가 그대로**
-  // 남고(다시 그리지도 않는다) 메인 목록은 계속 숨겨져 있다.
   if ($('settlementPayoutView') && $('settlementPayoutView').style.display !== 'none') {
     closePayoutPrepView();
   }
@@ -35797,6 +35822,14 @@ async function loadSettlements() {
   //   정산 처리(송금완료·보류·취소)는 과거 미등록 건수를 바꾸지 않으므로 갱신할 이유도 없다.
   //   과거 미등록 화면에서 실제로 건수가 줄어드는 경로(pastUnregRegister)에서만 따로 호출한다.
   refreshPastUnregEntryInfo();   // await 안 함 — 목록 표시를 막지 않는다
+
+  // ★ 정산 관리의 **첫 화면은 「지급 준비」**다(2026-08-18 사용자 결정).
+  //   ⚠️ 그 전에는 정산 목록의 「정산대기」 탭으로 열렸는데, 자동 등록이 꺼져 있어
+  //      **정산대기가 구조적으로 0건**이라 들어올 때마다 빈 화면이 보였다.
+  //      지급 준비는 「이번 달에 누구에게 얼마 보내나」에 답하는 화면이고 실제 데이터가 있다.
+  //   ⚠️ 돌아가는 길은 그 화면 상단의 「← 정산 목록」 버튼이다(closePayoutPrepView).
+  //   ⚠️ 조회 실패해도 화면 전환은 그대로 둔다 — 그 화면이 실패를 스스로 알린다.
+  openPayoutPrepView();          // await 안 함 — 목록 조회를 막지 않는다
 }
 
 // 데이터 재조회(백필 없음) — 처리 모달 저장 후 refreshPane('settlements') 가 호출
@@ -35810,15 +35843,14 @@ async function reloadSettlementsData() {
 // 「과거 미등록」 진입 버튼 배지 + 「금액 확인 필요」 안내 갱신.
 //   · 총 과거 미등록 건수 → 버튼 옆 배지
 //   · 그중 금액을 정할 수 없는 건(amount_issue) → 상단 빨간 안내. 0건이면 숨김(평소 상태)
-// ⚠️ 한계: 이 조회는 **정산 도입일 이전** 건만 반환한다(get_past_unregistered_settlements 의
-//   컷오프 필터). 도입일을 세팅한 뒤 새로 생기는 「인증 성공했는데 캠페인에 금액이 없는」 건은
-//   여기에도 자동 등록에도 잡히지 않아 조용히 누락된다(사양서 §2-1 ①). 도입일 세팅 시
-//   전용 조회를 추가할 것. 현재는 도입일이 비어 있어 전 구간이 이 조회에 들어온다.
+// ✅ 마이그레이션 337 로 **컷오프 조건이 빠져** 도입일과 무관하게 전 구간이 나온다.
+//   (그 전에는 도입일 이후 건이 통째로 빠져 「미등록인데 목록에 없다」가 될 상태였다.)
+//
+// 진입 버튼 배지가 없어져(2단계) 이 함수가 하는 일이 바뀌었다:
+//   ① 「미등록」 **탭 건수** 갱신  ② **사이드바 경고 표시**  ③ 금액 미확정 안내
 async function refreshPastUnregEntryInfo() {
-  const badge = $('pastUnregEntryBadge');
   const banner = $('settlementAmountIssueBanner');
   const text = $('settlementAmountIssueText');
-  if (!badge && !banner) return;
   let rows = [];
   try {
     rows = await fetchPastUnregisteredSettlements();
@@ -35828,11 +35860,11 @@ async function refreshPastUnregEntryInfo() {
   // ⚠️ 조회 실패는 null 이다(빈 목록 아님). 0 으로 덮으면 배지가 사라져
   //    「미등록 건이 없다」로 보인다 — 실패했을 뿐인데. 그대로 두고 나간다.
   if (rows === null) return;
+  _pastUnregRows = rows;
+  _pastUnregLoaded = true;
+  renderSettlementStatusTabs();      // 탭 건수 「…」 → 실제 숫자
+  applySettlementUnregWarning();     // 사이드바 경고
   const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
-  if (badge) {
-    badge.textContent = rows.length ? String(rows.length) : '';
-    badge.style.display = rows.length ? '' : 'none';
-  }
   if (banner && text) {
     if (issueCount > 0) {
       text.textContent = `인증은 끝났지만 캠페인에 금액이 없어 정산을 만들 수 없는 건이 ${issueCount}건 있습니다. 캠페인의 제품 가격(리뷰어형) 또는 리워드 금액(기프팅·방문형)을 입력하면 자동으로 등록됩니다.`;
@@ -35861,18 +35893,77 @@ function renderSettlementStatusTabs() {
   const totalAll = _settlements.length;
   const active = _settlementFilters.status || '';
   bar.innerHTML = SETTLEMENT_STATUS_TABS.map(tab => {
-    const n = tab.code === '' ? totalAll : (counts[tab.code] || 0);
+    // ⚠️ 미등록은 정산 행이 없어 `counts` 에 안 잡힌다. 별도 조회 결과에서 센다.
+    //    아직 안 받아왔으면 건수 자리를 비운다 — **0 으로 그리면 「없다」로 읽힌다.**
+    const n = tab.code === ''            ? totalAll
+            : tab.virtual                ? (_pastUnregLoaded ? _pastUnregRows.length : null)
+            : (counts[tab.code] || 0);
     const isOn = tab.code === active;
     const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    // 아직 안 받아온 미등록은 건수를 「…」로 — 0 과 구분한다
+    const cnt = (n === null) ? '…' : n;
     return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setSettlementStatusTab(this)">`
-      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+      + `${esc(tab.label)}<span class="tab-count">(${cnt})</span></button>`;
   }).join('');
 }
 
 // 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (탭 활성 표시는 renderSettlementsList 내부 재렌더로 갱신)
 function setSettlementStatusTab(btn) {
   _settlementFilters.status = btn.dataset.status || '';
+  // ★ 「미등록」은 정산 행이 없어 같은 목록에 못 그린다 — 전용 화면으로 바꿔 그린다.
+  //   ⚠️ 옛 「과거 미등록」 뷰의 함수·요소를 **옮기지 않고 그대로 재사용**한다.
+  //      18개 함수·14개 요소를 옮기다 하나 빠뜨리면 **기능이 조용히 사라지는데**
+  //      화면상 티가 안 난다(필터 하나가 없어져도 원래 있었는지 아무도 모른다).
+  //      바뀌는 것은 **진입 경로뿐**이라 안쪽은 건드릴 이유가 없다.
+  if (_settlementFilters.status === 'unregistered') { showUnregisteredTab(); return; }
+  hideUnregisteredTab();
   renderSettlementsList();
+}
+
+// 「미등록」 탭 — 옛 뷰를 그 자리에서 보여준다(별도 화면이 아니라 탭의 내용물).
+function showUnregisteredTab() {
+  const main = $('settlementMainView'), past = $('settlementPastView');
+  if (!past) return;
+  // 상태 탭 바는 계속 보여야 하므로 메인 뷰의 **목록 부분만** 감춘다.
+  const listCard = $('settlementListCard');
+  if (listCard) listCard.style.display = 'none';
+  past.style.display = 'flex';
+  if (main) main.style.display = 'flex';
+  const notice = $('unregisteredNotice');
+  if (notice) notice.style.display = '';
+  renderSettlementStatusTabs();
+  applyUnregisteredNotice();
+  loadPastUnregSettlements();
+}
+
+function hideUnregisteredTab() {
+  const past = $('settlementPastView');
+  if (past && past.style.display !== 'none') {
+    if (pastUnregLazy) { pastUnregLazy.destroy(); pastUnregLazy = null; }
+    past.style.display = 'none';
+  }
+  const listCard = $('settlementListCard');
+  if (listCard) listCard.style.display = '';
+  const notice = $('unregisteredNotice');
+  if (notice) notice.style.display = 'none';
+}
+
+// 탭 아래 안내 한 줄. ⚠️ **도입일 설정 전후로 문구가 달라야 한다**(사양서 §4-2) —
+//   도입일이 비어 있는 동안은 자동 등록이 **구조적으로 0건**이라, 「자동으로 만들어진다」고
+//   쓰면 그 자체가 거짓말이 된다. 판정은 `cutoff_at` 유무 **한 곳에서만** 한다.
+async function applyUnregisteredNotice() {
+  const el = $('unregisteredNotice');
+  if (!el) return;
+  let cutoff;
+  try { cutoff = await fetchSettlementCutoff(); } catch (e) { cutoff = undefined; }
+  if (cutoff === undefined) {
+    // ⚠️ 조회 실패를 「도입일 없음」으로 단정하지 않는다 — 문구가 반대가 된다.
+    el.textContent = '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다.';
+    return;
+  }
+  el.innerHTML = cutoff
+    ? '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다. 이 화면에 들어오면 도입일 이후 건은 자동으로 만들어지며, <b>금액을 정할 수 없는 건</b>만 여기 남습니다.'
+    : '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다. <b>지금은 자동 등록이 꺼져 있어 손으로 등록해야 합니다.</b>';
 }
 
 // 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
@@ -36097,6 +36188,14 @@ function closeSettlementPayModal() {
 }
 
 async function confirmSettlementPay() {
+  // ★ **세 번째 문.** 3단계 전에는 여기도 잠근다.
+  //   ⚠️ 사양서 §8 은 「문이 둘」이라 적었지만 그건 **그때 센 것이 둘뿐**이었기 때문이고,
+  //      근거로 든 논리(「3단계 전에 기록하면 오늘 날짜·계산 금액으로 확정되고 되돌릴 수
+  //      없다」)가 **이 경로에 그대로 적용된다.** 논리가 같은데 결론이 다를 이유가 없다.
+  //   ⚠️ **송금완료만** 잠근다 — 보류·취소·보류 해제는 날짜·금액을 안 다루므로 그대로 둔다.
+  //      정산대기 건에 문제가 생겼을 때 **보류로 옮기는 길은 열려 있어야** 한다.
+  //   ⚠️ 3단계에서 **세 문을 다 푼다.** 두 개만 풀면 화면이 반쪽으로 남는다.
+  if (settlementBulkLocked()) return;
   const ctx = _settlementModalCtx;
   if (!ctx) return;
   const memo = ($('settlementPayMemo')?.value || '').trim();
@@ -36375,6 +36474,7 @@ async function exportSettlementsExcel() {
 //      화면에서 미리 잠가 「처리했는데 건수가 줄어 있는」 혼란을 막는다
 //   ④ 확인 모달에 캠페인별 건수·합계 요약 — 무엇을 확정하는지 눈으로 보고 누르게
 
+let _pastUnregLoaded = false;            // 미등록 조회를 한 번이라도 받았나 (0건과 미조회 구분)
 let _pastUnregRows = [];                 // 서버 조회 원본(필터 전)
 let _pastUnregFiltered = [];             // 필터 통과분 — 렌더·전체선택·툴바의 기준
 let _pastUnregById = {};                 // application_id → 행
@@ -36383,7 +36483,14 @@ var pastUnregLazy = null;
 const PAST_UNREG_PAGE_SIZE = 50;
 const PAST_UNREG_TYPE_LABELS = { monitor: '리뷰어형', gifting: '기프팅', visit: '방문형' };
 
+// ⚠️ 옛 진입 함수 — `index.html` 의 onclick 이 아직 부른다(「확인하러 가기」 등).
+//   지우지 않고 **탭으로 위임**한다. 지우면 그 버튼들이 조용히 죽는다.
 function openPastUnregView() {
+  _settlementFilters.status = 'unregistered';
+  showUnregisteredTab();
+}
+
+function _legacyOpenPastUnregView_unused() {
   const main = $('settlementMainView');
   const past = $('settlementPastView');
   if (main) main.style.display = 'none';
@@ -36396,12 +36503,11 @@ function openPastUnregView() {
   loadPastUnregSettlements();
 }
 
+// 옛 이탈 함수 — 「전체」 탭으로 돌아간다.
 function closePastUnregView() {
-  const main = $('settlementMainView');
-  const past = $('settlementPastView');
-  if (pastUnregLazy) { pastUnregLazy.destroy(); pastUnregLazy = null; }
-  if (past) past.style.display = 'none';
-  if (main) main.style.display = 'flex';
+  _settlementFilters.status = '';
+  hideUnregisteredTab();
+  renderSettlementsList();
 }
 
 // 과거 미등록 목록 조회 → 맵 구성 + 선택 초기화 + 렌더
@@ -36415,6 +36521,8 @@ async function loadPastUnregSettlements() {
   }
   // 이 화면은 종전대로 빈 목록으로 다룬다(실패 구분은 지급 준비 화면에서만 쓴다).
   if (_pastUnregRows === null) _pastUnregRows = [];
+  _pastUnregLoaded = true;          // 탭 건수를 「…」에서 실제 숫자로
+  renderSettlementStatusTabs();
   _pastUnregById = {};
   _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregById[r.application_id] = r; });
   _pastUnregSelected.clear();
@@ -36499,7 +36607,7 @@ function renderPastUnregList() {
     renderRow: renderPastUnregRow,
     pageSize: PAST_UNREG_PAGE_SIZE,
     emptyHtml: `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">${
-      _pastUnregRows.length ? '조건에 맞는 건이 없습니다. 필터를 확인해 주세요.' : '과거 미등록 인증성공 건이 없습니다.'
+      _pastUnregRows.length ? '조건에 맞는 건이 없습니다. 필터를 확인해 주세요.' : '미등록 건이 없습니다.'
     }</td></tr>`,
   });
   updatePastUnregToolbar();
@@ -36615,7 +36723,28 @@ function pastUnregCampaignSummary(rows) {
 }
 
 // 선택 건 일괄 처리 — targetStatus: 'paid'(송금완료 기록) | 'pending'(정산대기 추가)
+// ★ 3단계 전에는 이 경로를 **잠근다.**
+//   ⚠️ 지금 기록하면 **오늘 날짜·계산 금액으로 확정**되고 되돌릴 수 없다(사양서 §1-7).
+//      실제 보낸 날짜·금액을 넣을 수 있게 되는 것은 3단계(마이그레이션 C·E)다.
+//   ⚠️ **잠그는 문은 셋이다** — ①1단계 지급 준비의 「보냄」 ②미등록 탭의 일괄 처리
+//      ③**개별 송금완료 모달**(confirmSettlementPay). 사양서 §8 은 둘이라 적었으나
+//      그건 그때 센 것이 둘뿐이었기 때문이고, 같은 논리가 ③에도 적용된다(2026-08-18 확인).
+//      하나라도 열어 두면 「3단계 전 처리 금지」가 그 문으로 뚫린다.
+//   ⚠️ 3단계에서 **세 문을 다 푸는 것**이 그 단계의 완료 조건이다. 안 풀면 화면이 영영 반쪽이다.
+//   ⚠️ 보류·취소·보류 해제는 **잠그지 않는다** — 날짜·금액을 안 다루고, 잠그면 정산대기 건에
+//      문제가 생겼을 때 옮길 곳이 없어지는 진짜 기능 축소가 된다.
+const SETTLEMENT_BULK_UNLOCKED = false;   // 3단계에서 true 로 (짝: payoutSendLocked)
+
+function settlementBulkLocked() {
+  if (SETTLEMENT_BULK_UNLOCKED) return false;
+  if (typeof toast === 'function') {
+    toast('아직 기록할 수 없습니다 — 실제 보낸 날짜와 금액을 입력할 수 있게 된 뒤에 열립니다', 'info');
+  }
+  return true;
+}
+
 async function pastUnregRegister(targetStatus) {
+  if (settlementBulkLocked()) return;   // ★ 3단계 전 확정 기록 차단
   // 금액 미확정 건은 서버가 건너뛰므로 여기서도 제외(체크박스는 이미 잠겨 있지만 이중 방어)
   const rows = [..._pastUnregSelected]
     .map(id => _pastUnregById[id])
@@ -37091,6 +37220,40 @@ function renderPayoutPersonBody() {
     <div style="position:sticky;bottom:0;background:var(--bg,#fff);border-top:1px solid var(--line);padding:10px 2px;font-size:13px">
       선택 ${_payoutSelected.size}묶음 · ${selectedRows.length}건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b>
     </div>`;
+}
+
+// 사이드바 「정산 관리」 옆 작은 경고 — **미등록이 있을 때만**.
+//   ⚠️ 배지 숫자 자체는 「정산대기」 건수 그대로 둔다(뜻이 흔들리지 않게, 사양서 §4-2).
+//      경고는 그 옆에 따로 붙인다.
+//   ⚠️ **0건이면 아무것도 안 그린다.** 늘 떠 있는 표시는 학습되어 무시된다 —
+//      채널 어긋남 감지 장치에서 이미 세운 원칙이다.
+//   ⚠️ 탭 건수와 혼동하지 말 것 — 탭 건수는 「몇 건 있나」라는 **사실 표시**라 0이어도
+//      그대로 두고, 이 경고는 **경보**라 0이면 사라진다.
+function applySettlementUnregWarning() {
+  const item = document.getElementById('adminSettlementsSi');
+  if (!item) return;
+  let mark = item.querySelector('.unreg-warn');
+  const n = _pastUnregLoaded ? _pastUnregRows.length : 0;
+  if (!n) { if (mark) mark.remove(); return; }
+  if (!mark) {
+    mark = document.createElement('span');
+    mark.className = 'unreg-warn material-icons-round notranslate';
+    mark.setAttribute('translate', 'no');
+    mark.style.cssText = 'font-size:14px;color:#B8741A;margin-left:4px;cursor:pointer';
+    mark.textContent = 'report_problem';
+    // ⚠️ 페인 전환을 **기다린 뒤** 탭을 연다. 안 기다리면 loadSettlements() 안의
+    //    미등록 조회와 showUnregisteredTab() 의 조회가 **같은 전역변수를 동시에 쓰고**
+    //    나중에 끝난 쪽이 앞선 쪽 상태를 덮는다(_pastUnregRows·_pastUnregById 어긋남).
+    //    기존 openSettlementsPending() 도 「필터 먼저, 화면 나중」 순서를 쓴다.
+    mark.onclick = async function(e) {
+      e.stopPropagation();
+      await switchAdminPane('settlements');
+      _settlementFilters.status = 'unregistered';
+      showUnregisteredTab();
+    };
+    item.appendChild(mark);
+  }
+  mark.title = `아직 정산 행이 만들어지지 않은 건 ${n}건 — 「미등록」 탭에서 볼 수 있습니다`;
 }
 
 // ═════════════════════════════════════════════════════════════════
