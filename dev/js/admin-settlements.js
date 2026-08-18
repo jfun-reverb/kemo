@@ -1933,8 +1933,19 @@ function payoutPaypalHtml(p) {
 }
 
 // 건별 줄만 (묶음 줄과 따로 쓸 수 있게 분리)
-function payoutDueItemsHtml(list) {
+function payoutDueItemsHtml(list, sent) {
   return list.map(function(r) {
+    // ⚠️ **이미 보낸 건은 버튼을 안 단다.** 안 보낸 줄과 똑같이 보이면 「이미 기록됨」이라는
+    //    요약이 바로 위 줄들을 가리키는 것처럼 읽혀, 보낸 것에 또 「보냄」이 붙은 줄로 오해된다
+    //    (2026-08-18 실제 지적). 흐리게 + 「기록됨」 표로 갈라 놓는다.
+    if (sent) {
+      return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted);opacity:.7">
+        <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
+        <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
+        <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
+        <div style="width:52px;text-align:right"><span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px">기록됨</span></div>
+      </div>`;
+    }
     // ⚠️ 건을 가리키는 열쇠는 **응모 id** 를 쓴다 — 정산 행이 아직 없는 건(미등록)에는
     //    정산 id 자체가 없다. 응모 id 는 두 갈래 모두에 있다.
     return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
@@ -2018,8 +2029,9 @@ function payoutPersonCardHtml(entry) {
     ${single
       ? payoutDueItemsHtml(entry.dues[dues[0]])
       : dues.map(function(d) { return payoutDueGroupHtml(p.id, d, entry.dues[d]); }).join('')}
-    ${entry.paid.length ? `<div style="border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-size:12px;color:#16A34A">
-        이미 기록됨 ${entry.paid.length}건 · ${esc(_payoutYen(paidSum))}
+    ${entry.paid.length ? `<div style="border-top:1px dashed var(--line);margin-top:6px;padding-top:6px">
+        <div style="font-size:12px;color:#16A34A;padding-left:26px">이미 기록됨 ${entry.paid.length}건 · ${esc(_payoutYen(paidSum))}</div>
+        ${payoutDueItemsHtml(entry.paid, true)}
       </div>` : ''}
   </div>`;
 }
