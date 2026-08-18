@@ -123,22 +123,31 @@ function normalizeLinks(wrapper) {
 }
 
 // HTML 문자열을 sanitize 해서 안전한 HTML 반환
-function sanitizeRich(html) {
+function sanitizeRich(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
     return '';
   }
   const clean = DOMPurify.sanitize(String(html), {
-    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
-    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
-    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    // ⚠️ img 를 허용하되 **주소는 아래 _applyContentImagePolicy 가 다시 거른다** —
+    //    우리 저장소(https + *.supabase.co)만 남고 나머지는 지워진다. 특히 `data:` 가
+    //    막히는 것이 중요하다. 이 칸이 원래 이미지를 통째로 막았던 이유가 붙여넣기로
+    //    딸려오는 **base64 덩어리가 데이터베이스 글자 칸을 수 MB로 부풀리는 것**이었다
+    //    (2026-08-12 에 허용으로 바꾸며 그 우려를 주소 화이트리스트로 대체).
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS.concat(['img']),
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR.concat(['src','alt','loading','decoding','data-rich-size']),
+    FORBID_TAGS: ['script','iframe','style','object','embed','svg'],
     FORBID_ATTR: ['style','onerror','onload','onclick']
   });
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
   normalizeQuillLists(wrapper);
   normalizeLinks(wrapper);
+  // 미니 에디터와 **같은 이미지 정책**을 쓴다(공용 함수) — 규칙이 갈리지 않게.
+  //   ⚠️ `opts.displayWidth` 는 **표시할 때만** 준다(`richHtml`). 저장 경로(`getRichValue`)는
+  //      옵션 없이 불러 **원본 주소가 그대로 저장**된다 — 줄인 주소가 저장되면 원본을 잃는다.
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -198,9 +207,19 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  // 이미지 src 화이트리스트: https + Supabase Storage 도메인만.
-  //   외부 URL 직접 입력 (예: evil.com) 차단 — 추적·서버 공격 가능성 0.
-  //   소유 자산이 아닌 임시 URL(blob:, data:, http:) 도 차단.
+  _applyContentImagePolicy(wrapper);
+  return wrapper.innerHTML;
+}
+
+// 본문 이미지 정책 — **미니 에디터(주의사항·참여방법·NG)와 캠페인 리치 텍스트가 함께 쓴다.**
+//   ⚠️ 두 곳에 복사하지 말 것. 규칙이 갈리면 「참여방법에서는 되는데 캠페인 설명에서는
+//      안 되는」 식으로 어긋나고, 한쪽만 고친 채 배포되기 쉽다(2026-08-12 공용화).
+//   허용 주소가 아니면 **지운다** — 외부 URL 직접 입력(추적·서버 공격)과 임시 주소
+//   (blob:, data:, http:) 를 함께 막는다. data: 차단이 곧 **base64 폭증 방지**다
+//   (캠페인 리치 텍스트가 원래 이미지를 통째로 막았던 이유 — FEATURE_SPEC §리치 텍스트).
+function _applyContentImagePolicy(wrapper, opts) {
+  if (!wrapper) return;
+  const showW = (opts && opts.displayWidth) || 0;
   wrapper.querySelectorAll('img').forEach(img => {
     const src = (img.getAttribute('src') || '').trim();
     if (!_isAllowedContentImageSrc(src)) {
@@ -214,6 +233,9 @@ function sanitizeCautionHtml(html) {
     // alt 누락 시 빈 문자열 (장식용으로 처리)
     if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
     // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    //   ⚠️ 캠페인 리치 텍스트(Quill)는 이 값을 **저장하지 못한다** — Quill 이미지 조각이
+    //      alt·width·height 외 속성을 버리기 때문. 그래서 그쪽은 가로 100% 고정이다
+    //      (2026-08-12 결정). 미니 에디터에서 넘어온 값만 여기서 살아난다.
     const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
     if (size === 'sm' || size === 'md' || size === 'lg') {
       img.classList.add('rich-img-' + size);
@@ -221,8 +243,48 @@ function sanitizeCautionHtml(html) {
       // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
       img.removeAttribute('data-rich-size');
     }
+    // 볼 때는 화면 폭에 맞게 줄여서 내려받는다 — 캠페인 설명에 이미지가 여러 장이면
+    //   원본을 다 받느라 느리다. 원본 주소는 `data-orig` 에 남겨, 변환이 실패하면
+    //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
+    //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
+    //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
+    if (showW && typeof imgThumb === 'function') {
+      const thumb = imgThumb(src, showW, 75);
+      if (thumb && thumb !== src) {
+        img.setAttribute('data-orig', src);
+        img.setAttribute('src', thumb);
+      }
+    }
   });
-  return wrapper.innerHTML;
+  // ⚠️ 연속 판정은 **허용 안 된 이미지를 지운 뒤에** 해야 한다. 먼저 하면 중간에 낀
+  //    외부 이미지 때문에 「연속이 아니다」로 잘못 보고, 그 이미지가 지워진 뒤엔
+  //    실제로 붙어 있는데도 여백이 남는다.
+  _markStackedImages(wrapper);
+}
+
+// 바로 이어지는 이미지끼리는 여백을 없앤다 — **세로로 자른 긴 이미지를 나눠 올리는**
+//   흔한 방식에서 사이가 벌어져 끊겨 보이기 때문이다(2026-08-12 운영 요청).
+//   여백은 세 겹으로 쌓인다: 앞 이미지 아래(8) + 문단 아래(8) + 뒤 이미지 위(8) ≈ 24픽셀.
+//   ⚠️ **글과 이미지 사이 여백은 건드리지 않는다** — 전부 0으로 만들면 설명글이 답답해진다.
+//   ⚠️ 표시는 **앞 블록**에 붙인다. 뒤 블록에만 붙이면 앞 문단의 아래 여백이 남는다.
+function _markStackedImages(wrapper) {
+  // 이미지 하나만 든 블록(문단)이면 그 문단이 기준, 이미지가 맨 위에 그냥 있으면 이미지 자신.
+  const blockOf = img => {
+    const p = img.parentElement;
+    if (!p || p === wrapper) return img;
+    // 문단 안에 이미지 말고 눈에 보이는 내용이 더 있으면 「이미지만 있는 블록」이 아니다.
+    const hasOther = Array.from(p.childNodes).some(n =>
+      n !== img && !(n.nodeType === 3 && !n.textContent.trim()) && !(n.nodeType === 1 && n.tagName === 'BR'));
+    return hasOther ? img : p;
+  };
+  const blocks = Array.from(wrapper.querySelectorAll('img')).map(blockOf);
+  const isImageBlock = el => blocks.includes(el);
+  blocks.forEach(b => {
+    // 다음 형제(빈 텍스트는 건너뜀)도 이미지 블록이면 둘을 붙인다.
+    let n = b.nextSibling;
+    while (n && n.nodeType === 3 && !n.textContent.trim()) n = n.nextSibling;
+    if (n && n.nodeType === 1 && isImageBlock(n)) b.classList.add('rich-img-joined');
+  });
 }
 
 // 오리엔시트 내부 메모 전용 sanitize.
@@ -419,8 +481,28 @@ function richHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
-  return sanitizeRich(value);
+  // 이 함수는 **화면에 그릴 때만** 쓴다(저장은 `getRichValue` → `sanitizeRich` 직행).
+  //   그래서 여기서만 표시 폭을 준다 — 자세한 이유는 `_applyContentImagePolicy` 주석.
+  return sanitizeRich(value, { displayWidth: RICH_DISPLAY_WIDTH });
 }
+
+// 인플루언서 앱은 폭 480픽셀. 화면이 촘촘한 기기를 감안해 두 배로 받는다.
+const RICH_DISPLAY_WIDTH = 960;
+
+// 줄인 이미지를 못 불러오면 **원본으로 되돌린다.** 저장소 변환이 막히거나 실패해도
+//   화면에서 이미지가 사라지지 않게 하는 안전망이다(프로젝트 규칙 — 썸네일은 원본 폴백 필수).
+//   ⚠️ 이미지 오류는 위로 전달되지 않으므로 **캡처 단계**로 들어야 잡힌다.
+//   ⚠️ 한 번 되돌린 뒤에는 다시 시도하지 않는다(주소가 같아져 무한 반복이 된다).
+(function _attachRichImageFallback() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('error', ev => {
+    const el = ev.target;
+    if (!el || el.tagName !== 'IMG') return;
+    const orig = el.getAttribute('data-orig');
+    if (!orig || el.getAttribute('src') === orig) return;
+    el.setAttribute('src', orig);
+  }, true);
+})();
 
 // ══════════════════════════════════════════════════════════════════════════
 // 민감 항목(주의사항·참여방법·NG 사항) 변경 비교 — 캠페인 변경 이력 화면용
@@ -1000,7 +1082,12 @@ function faqComputeStatus(status, delivs, camp) {
   if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
 
   if (status === 'approved') {
-    const ds = Array.isArray(delivs) ? delivs : [];
+    // 임시저장(draft)은 「아직 안 낸 것」이라 판정에서 뺀다.
+    //   ⚠️ 거르는 자리가 여기여야 한다 — 호출하는 쪽에서 걸러 오게 하면 한쪽이 빠뜨렸을 때
+    //   두 화면이 다른 답을 낸다. 실제로 그랬다: 관리자 쪽 조회는 임시저장을 빼는데
+    //   인플루언서 쪽은 안 빼서, 사진만 올려 두고 제출을 안 한 사람에게
+    //   「제출하신 결과물을 확인 중입니다」가 떴다. 그 사람은 끝난 줄 알고 마감을 놓친다.
+    const ds = (Array.isArray(delivs) ? delivs : []).filter(d => d && d.status !== 'draft');
     // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
     if (ds.length) {
       const allApproved = ds.every(d => d.status === 'approved');
@@ -1428,21 +1515,58 @@ function eventCancelWindowPassed(slotDate, startTime) {
 }
 
 // ══════════════════════════════════════
-// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 및 영수증 제출 기간」을
+// 캠페인 기간 표기 — 리뷰어형의 「모집 기간」과 「구매 기간」을
 // 한 줄로 합칠지 판정한다(사양서 2026-08-06 결정 5).
+//   ⚠️ 「구매 기간」의 옛 이름은 「구매 및 영수증 제출 기간」이었다. 2026-08-11 에
+//      「영수증은 결과물 제출 마감일까지」로 확정하면서 그 이름이 사실과 달라져 바꿨다.
 //   ⚠️ 판정을 화면마다 따로 만들지 않는다. 인플루언서 상세·관리자 미리보기가
 //      이 함수 하나를 쓴다 — 두 벌이 되면 미리보기와 실제 화면이 어긋난다.
 //   ⚠️ **번역문을 돌려주지 않는다.** 관리자 빌드(dev/build.sh ADMIN_JS_FILES)에는
 //      i18n 파일이 없어 t() 가 존재하지 않는다. 코드값만 주고 문구는 각 앱이 고른다.
 //
-//   'merged' = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치 → 한 줄
-//   'split'  = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족 → 지금처럼 두 줄
-//   'none'   = 그 밖 전부(구매 두 칸 다 빈 리뷰어형 · 시딩 · 방문형) → 구매 줄 없음
+//   'merged'           = 리뷰어형 + 구매 두 칸 모두 값 있음 + 둘 다 모집 기간과 일치
+//                        → 「모집 및 구매 기간」 한 줄, 날짜 한 줄
+//   'split'            = 리뷰어형 + 구매 칸 중 하나라도 값 있으나 위 조건 불충족
+//                        → 「모집 및 구매 기간」 한 줄, **날짜 두 줄에 각각 이름표**
+//   'monitorNoPurchase'= 리뷰어형인데 구매 두 칸이 다 빔(운영 10건, 옛 캠페인)
+//                        → merged 와 같게 그린다(2026-08-11 결정)
+//   'visitMerged'      = 방문형 + 방문 기간이 모집 기간과 일치 → 「모집·방문」 한 줄
+//   'visit'            = 방문형 + 방문 기간이 따로 있음 → 모집·방문 **두 줄**
+//   'gifting'          = 시딩형 + 선정 기간에 값이 있음 → 모집·선정 **두 줄**
+//   'none'             = 위 어디에도 안 드는 나머지 — 「모집 기간」 한 줄만.
+//                        (선정 기간이 빈 시딩형, 방문 기간이 빈 방문형이 여기 온다)
+//
+// ⚠️ 2026-08-11 에 갈래를 넷으로 넓혔다. 그 전에는 `none` 이 「구매 칸 빈 리뷰어형」과
+//    「시딩·방문형」 **두 뜻을 겸했다.** 「구매 칸이 비어도 합쳐 그린다」로 바뀌면서
+//    그 겸용이 위험해졌다 — `none` 을 합치는 쪽에 넣으면 **구매라는 개념이 없는
+//    시딩·방문형에까지 「구매 기간」이 붙는다.** 뜻을 갈라 두면 그 실수가 안 난다.
+// ⚠️ 같은 날 `visit`·`gifting` 을 더해 여섯이 됐다. 관리자 캠페인 목록이 모집·구매·방문·
+//    선정 네 기간을 **한 열**에 넣으면서, 그 열의 행마다 「(방문)」·「(선정)」 이름표를
+//    붙여야 했기 때문이다. 그 전에는 방문형과 시딩형이 함께 `none` 이라 **두 번째 줄을
+//    가진 행을 가려낼 수 없었다.** 두 번째 기간이 빈 캠페인은 그릴 줄이 없으므로 `none`.
+// ⚠️ 새 호출부는 `!== 'split'` 같은 **부정 조건을 쓰지 말 것.** 갈래가 또 늘면
+//    조용히 잘못된 쪽으로 빨려 들어간다. 원하는 갈래를 이름으로 지목한다.
 function campaignPeriodRowKind(camp) {
-  if (!camp || camp.recruit_type !== 'monitor') return 'none';
+  if (!camp) return 'none';
+  // 리뷰어형이 아닌 갈래를 먼저 걸러낸다 — 아래 구매 기간 검사는 monitor 전용이다.
+  if (camp.recruit_type === 'visit') {
+    const vs = camp.visit_start || '', ve = camp.visit_end || '';
+    if (!vs && !ve) return 'none';
+    // 리뷰어형의 merged 와 같은 판정 — 날짜 문자열 그대로 비교한다(new Date() 금지).
+    //   ⚠️ 방문형은 리뷰어형과 달리 **사람이 손으로 넣어 우연히 같아진 것**이다(리뷰어형은
+    //      저장 규칙이 강제로 같게 만든다). 그래도 화면에 같은 날짜가 두 줄 나오는 모습은
+    //      똑같아, 보는 사람에게는 구분할 이유가 없다(2026-08-12 결정).
+    const rs = camp.recruit_start || '', dl = camp.deadline || '';
+    if (vs && ve && rs && dl && vs === rs && ve === dl) return 'visitMerged';
+    return 'visit';
+  }
+  if (camp.recruit_type === 'gifting') {
+    return (camp.selection_start || camp.selection_end) ? 'gifting' : 'none';
+  }
+  if (camp.recruit_type !== 'monitor') return 'none';
   const ps = camp.purchase_start || '';
   const pe = camp.purchase_end || '';
-  if (!ps && !pe) return 'none';
+  if (!ps && !pe) return 'monitorNoPurchase';
   const rs = camp.recruit_start || '';
   const dl = camp.deadline || '';
   // ⚠️ 비교는 날짜 문자열 그대로 한다. new Date() 로 바꾸면 시각·시간대가 끼어들어
@@ -1550,10 +1674,13 @@ function setRolePermMap(rows) {
 }
 const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 
-// 슈퍼관리자가 스스로를 제한했을 때 그 설정이 「어디까지 실제로 먹히는지」.
+// 이 설정이 「어디까지 실제로 먹히는지」 — ⚠️ **모든 등급에 해당한다**(슈퍼관리자 전용 판정 아님).
 //   server = 서버가 데이터까지 막음  ·  client = 화면에서만 사라짐  ·  none = 아무 일도 안 일어남
 //   ⚠️ none 인 항목들은 서버 가드가 is_campaign_admin() 하드코딩이고 화면 가드도 등급 직접 비교라
-//      권한 설정을 무시한다. 그 12개를 진짜로 막으려면 서버 가드를 갈아끼우는 별도 작업이 필요하다
+//      권한 설정을 무시한다 — **캠페인관리자·캠페인매니저 칸도 똑같이 무효다.**
+//      2026-08-10(I-15) 에 화면 배지 이름을 「슈퍼 적용 안 됨」→「설정 미적용」으로 바꾸고
+//      문구를 등급 중립으로 정정했다. 그 전에는 운영자가 그 칸을 「숨김」으로 두고 막혔다고 믿을 수 있었다.
+//      그 12개를 진짜로 막으려면 서버 가드를 갈아끼우는 별도 작업이 필요하다
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
@@ -1733,4 +1860,105 @@ async function withSubmitLock(key, btn, busyLabel, fn) {
 //      조용히 막힌다**(아무 반응이 없어 원인을 알 수 없는 형태로). navigate 훅에서 부른다.
 function clearSubmitLocks() {
   _submitLocks.clear();
+}
+
+// =============================================================================
+// 앱 오류 기록 헬퍼 — 「사용자에게 문구만 보여주고 흔적은 안 남기는」 자리를 막는다
+//   사양: docs/specs/2026-08-07-app-error-visibility.md
+//
+// 배경(실제 사고): 본인 응모 취소 함수가 2026-05-12 부터 약 3개월간 **모든 호출이 실패**
+//   했는데 관리자 오류 로그에 흔적이 0건이었다. 원인은 두 겹 —
+//     ① 데이터 접근 계층이 오류를 예외로 던지지 않고 `{ok:false, error}` 로 **반환**해
+//        전역 미처리 예외 수집기에 안 걸렸고,
+//     ② 화면이 그 값을 자체 문구 사전으로 매핑하며 `friendlyErrorJa()` 를 안 거쳐
+//        「처리된 오류」 수집 훅(ui.js)도 안 돌았다.
+//   그래서 인플루언서에게는 「취소하지 못했습니다」만 보이고 아무 데도 안 남았다.
+//
+// 이 헬퍼는 **화면 문구도 반환값도 바꾸지 않고 기록만 얹는다.** 오류를 예외로 승격하지
+//   않는 이유: 승격하면 인플루언서 화면이 「아무 반응 없음」이 되어 지금보다 나빠진다.
+//
+// ⚠️ 인플루언서 앱 전용으로 동작한다. `collectClientError` 가 인플루언서 빌드에만
+//    들어 있어(build.sh), 관리자 앱에서 부르면 조용히 아무 일도 하지 않는다.
+//    관리자 앱 수집은 별도 작업.
+// =============================================================================
+
+// =============================================================================
+// 알림 「한 번에 읽음 처리할 묶음」 (전수조사 F-3)
+// =============================================================================
+// 알림 하나를 누르면 같은 대상(ref_table + ref_id)의 안 읽은 알림을 함께 읽음 처리한다.
+// 원래 의도는 **같은 사건이 여러 줄로 쌓인 경우**를 한 번에 정리하는 것이었다
+//   (예: 관리자가 검수를 되돌렸다가 다시 처리 → 「변경됨」+「반려됨」 2건).
+//
+// ⚠️ 그런데 대상만 보고 종류를 안 봐서, **서로 다른 사건까지 함께 지워졌다.**
+//    응모(applications)에는 성격이 전혀 다른 알림 4종이 같은 대상으로 달린다 —
+//    「캠페인에 당첨되셨습니다」·「응모가 취소되었습니다」·「메시지가 도착했습니다」·
+//    「제출 기한이 바뀌었습니다」. 메시지 알림 하나를 누르면 **당첨 알림이 소리 없이 사라졌다.**
+//
+// 그래서 「같은 것을 말하는 종류끼리만」 묶는다. 목록에 없는 종류는 자기 자신만 읽음 처리한다.
+// ⚠️ 알림 종류를 새로 만들 때 여기 묶을지 판단할 것. **판단이 서지 않으면 넣지 마라** —
+//    안 묶으면 알림이 하나 더 남을 뿐이지만, 잘못 묶으면 못 본 알림이 사라진다.
+const NOTIF_READ_GROUPS = [
+  // 결과물 한 건의 검수 상태가 오가며 쌓인 줄들 — 같은 것을 말한다
+  ['deliverable_rejected', 'deliverable_changed', 'deliverable_approved', 'deliverable_proxy_submitted'],
+];
+
+// 이 종류와 함께 읽음 처리해도 되는 종류 목록. 묶음에 없으면 자기 자신만.
+function notifReadKinds(kind) {
+  if (!kind) return [];
+  const group = NOTIF_READ_GROUPS.find(g => g.indexOf(kind) >= 0);
+  return group ? group.slice() : [kind];
+}
+
+// 「미리 정의된 업무 거부」로 볼 패턴 — 결함이 아니라 정상 동작이다.
+//   여기에 걸리면 기록은 하되 `is_expected=true` 로 표시해, 관리자 오류 로그에서
+//   진짜 결함과 갈라 볼 수 있게 한다(전부 안 남기면 「거부가 늘었다」는 신호까지 잃는다).
+//   ⚠️ 새 서버 거부 코드를 만들 때 여기에도 추가할 것 — 빠뜨리면 정상 거부가
+//      「예상 못 한 오류」로 쌓여 진짜 결함이 묻힌다.
+const APP_ERROR_EXPECTED_PATTERNS = [
+  // 세션 만료 — 다시 로그인하면 되는 정상 상황
+  /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
+  // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
+  //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
+  /Auth session missing/i,
+  // 새 비밀번호가 예전 것과 같을 때 — 다른 비밀번호를 넣으면 되는 정상 거부.
+  //   ⚠️ 안 넣으면 사람이 같은 비밀번호를 넣을 때마다 「미해결」 배지가 오른다. 실제로
+  //      운영에서 한 사람이 5번 반복해 그대로 쌓였다(2026-08-11~12). 화면이 이유를
+  //      알려주도록 고친 것과 **한 세트**다 — 안내만 고치고 이 줄을 빠뜨리면 배지는 그대로다.
+  /different from the old password|same_password/i,
+  // 로그인·가입 거부 — 비밀번호 오입력·기가입·메일 미확인은 결함이 아니다.
+  //   ⚠️ 메일 미확인은 서버가 주는 문구가 자리마다 다르다 — 코드값 `email_not_confirmed`
+  //      와 사람이 읽는 `Email not confirmed`(공백) 둘 다 잡아야 한다. 하나만 넣으면
+  //      운영에서 가장 흔한 거절이 「예상 못 한 오류」로 쌓인다(운영은 메일 확인 필수).
+  /Invalid login credentials|already registered|already exists|email.?not.?confirmed/i,
+  // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
+  /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
+  /campaign_deleted|recruit_not_open/,
+  // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
+  //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
+  //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
+  /event_status_change_blocked/,
+  /모집 정원|slots_full|under_age|age_policy/,
+  // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
+  /uidx_applications_user_campaign|applications_user_camp_active_uidx/,
+  /deliverables_review_image_app_channel_uniq|uidx_deliverables_post_url/,
+  /post_already_approved/,
+];
+
+// 오류 1건을 관리자 오류 로그로 보낸다. 절대 throw 하지 않는다.
+//   context       : 어느 기능인지 나타내는 **고정 문자열**(함수 이름 권장).
+//                   ⚠️ 사용자 입력값·식별자를 넣지 말 것 — 그대로 저장된다.
+//   err           : Error 객체 · 문자열 · 서버가 준 거부 코드 아무거나
+//   expectedCodes : 이 자리에서 「정상 거부」로 볼 코드 목록(배열). 화면이 이미 사전으로
+//                   매핑하고 있는 코드들을 그대로 넘기면 된다.
+function logAppError(context, err, expectedCodes) {
+  if (typeof collectClientError !== 'function') return;   // 관리자 앱 등 — 무음
+  try {
+    const s = String((err && err.message) || err || '');
+    if (!s) return;
+    let expected = APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(s));
+    if (!expected && expectedCodes && expectedCodes.length) {
+      expected = expectedCodes.some(c => c && (s === c || s.indexOf(c) >= 0));
+    }
+    collectClientError(err, 'handled', { context: context, expected: expected });
+  } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }
 }

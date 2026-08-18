@@ -360,6 +360,8 @@ window._supabaseLoaded = false;
   <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
   <div class="msg-modal-input-area">
     <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
+    <!-- 취소된 응모: 읽기만 가능하다는 안내. 작성 줄 대신 이 줄을 보여준다(F-11) -->
+    <div id="msgReadOnlyNote" class="msg-readonly-note" style="display:none" data-i18n="messaging.cancelledReadOnly"></div>
     <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
     <div class="msg-input-row">
       <label class="msg-attach-btn" aria-label="attach image">

@@ -454,17 +454,26 @@ window.I18N_KO = {
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
     postDeadlineRelative: '수령 후 {days}일 이내',
-    purchasePeriod: '구매 및 영수증 제출 기간',
+    // ⚠️ 옛 이름은 「구매 및 영수증 제출 기간」 — 2026-08-11 에 「영수증은 결과물 제출
+    //   마감일까지」로 확정하면서 사실과 달라졌다. 이 줄은 구매 기간만 가리킨다.
+    purchasePeriod: '구매 기간',
     visitPeriod: '방문 기간',
     selectionPeriod: '선정 기간',
     submissionEnd: '결과물 제출 마감',
-    // 리뷰어형 기간 표기 — 모집 기간과 구매 기간이 같은 캠페인만 이 이름으로 합쳐 그린다.
-    recruitPurchasePeriod: '모집/구매 기간',
+    // 리뷰어형 기간 표기 — **리뷰어형은 전부** 이 이름으로 그린다(2026-08-11).
+    //   ⚠️ recruitPeriod 는 시딩·방문형이 계속 쓴다.
+    recruitPurchasePeriod: '모집 및 구매 기간',
+    // 방문형에서 방문 기간이 모집 기간과 똑같이 저장된 캠페인(2026-08-12).
+    recruitVisitPeriod: '모집 및 방문 기간',
+    // 두 기간이 다르게 저장된 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ 축약형 — 좁은 화면에서 접히지 않게(일본어 쪽 주석 참조).
+    periodTagRecruit: '(모집)',
+    periodTagPurchase: '(구매)',
     submissionEndMonitor: '영수증·게시물 인증샷 제출 마감일',
     submissionEndProxy: '영수증 제출 마감일',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
-    paybackNoticeLine1: '모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
-    paybackNoticeLine1Split: '구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1: '모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNoticeLine1Split: '구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNoticeLine2: '기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     peopleUnit: '명',
     noSetting: '—',
@@ -743,7 +752,7 @@ window.I18N_KO = {
     openBtn: '메시지',
     unreadHint: '읽지 않은 메시지 {n}건',
     titleFor: '{name} 관련 문의',
-    cancelledBlocked: '취소된 응모는 문의하기를 이용할 수 없습니다.',
+    cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
     loading: '불러오는 중...',

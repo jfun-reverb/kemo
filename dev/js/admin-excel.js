@@ -126,9 +126,13 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
   return 'approved';
 }
 
-// gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
+// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
+//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
+//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
+//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
+//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
   // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
   var _as = (receipt && receipt.applications && receipt.applications.status)
          || (result && result.applications && result.applications.status) || null;
@@ -147,9 +151,18 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
     // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
     return '인증샷 제출중';
   }
-  // gifting / visit — 게시물(post) 단독
+  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
+  var _chs = (campChannels || []).filter(Boolean);
+  if (_chs.length > 0) {
+    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
+    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
+    if (_repr === 'approved') return '인증성공';
+    if (_repr !== 'none') return '인증샷 제출중';
+    return result ? '인증샷 제출중' : '미제출';
+  }
+  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
+  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
   if (!result) return '미제출';
-  if (result.status === 'approved') return '인증성공';
   return '인증샷 제출중';
 }
 
@@ -279,8 +292,18 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     //   monitor 캠페인은 purchase_start/end, visit 캠페인은 visit_start/end 를 같은 컬럼에 매핑.
     //   gifting 캠페인은 구매·방문 개념이 없어 빈칸.
     //   2026-05-18: 게시 마감/노출 마감 컬럼 제거 (post_deadline 폐기 — migration 129)
-    { header: '구매기간 시작',   key: 'pstart',   width: 14 },
-    { header: '구매기간 마감',   key: 'pend',     width: 14 },
+    //   ⚠️ 화면(캠페인 목록·진행현황 카드)은 2026-08-11 에 기간을 한 칸으로 합쳤지만
+    //      **엑셀은 합치지 않는다.** 걸러 보고 정렬하는 용도라, 한 칸에 두 기간을 넣거나
+    //      「모집과 같음」 같은 글자를 넣으면 필터·정렬·피벗이 깨진다. 열은 둘 대로 두고
+    //      이름만 실제 내용에 맞게 고쳤다(이 두 열은 방문형이면 방문 기간이 들어간다).
+    { header: '구매·방문 시작',  key: 'pstart',   width: 14 },
+    { header: '구매·방문 마감',  key: 'pend',     width: 14 },
+    // 선정 기간(마이그레이션 307) — **시딩형 전용**이라 다른 형식은 빈칸이다.
+    //   ⚠️ 위 구매·방문 열에 끼워 넣지 않는다. 그 열은 「그 형식이 제품을 사거나 방문하는
+    //      기간」이고 선정은 「응모자 중 참여자를 고르는 기간」이라 뜻이 다르다 — 한 칸에
+    //      섞으면 걸러 보거나 정렬할 때 서로 다른 것이 한 줄로 딸려 온다.
+    { header: '선정 시작',       key: 'selstart', width: 14 },
+    { header: '선정 마감',       key: 'selend',   width: 14 },
     { header: '결과물 제출 마감',key: 'subend',   width: 16 },
     { header: '슬롯',            key: 'slots',    width: 8 },
     { header: '신청 수',         key: 'apps',     width: 10 },
@@ -304,6 +327,11 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     if (c.recruit_type === 'visit')   return c.visit_end || '';
     return '';
   };
+  // 선정 기간은 시딩형만 쓴다. 다른 형식에 값이 남아 있더라도 내보내지 않는다 —
+  //   화면(캠페인 목록·진행현황 카드)도 시딩형에만 그리므로 엑셀만 다르면 어긋난다.
+  var pickSelection = function(c, key) {
+    return (c.recruit_type === 'gifting') ? (c[key] || '') : '';
+  };
   campaigns.forEach(function(c) {
     var campApps = (appsByCampId && appsByCampId[c.id]) || [];
     var approvedCnt = campApps.filter(function(a){ return a.status === 'approved'; }).length;
@@ -320,6 +348,8 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
       deadline: c.deadline ? formatDate(c.deadline) : '',
       pstart:   ps ? formatDate(ps) : '',
       pend:     pe ? formatDate(pe) : '',
+      selstart: (function(v){ return v ? formatDate(v) : ''; })(pickSelection(c, 'selection_start')),
+      selend:   (function(v){ return v ? formatDate(v) : ''; })(pickSelection(c, 'selection_end')),
       subend:   c.submission_end ? formatDate(c.submission_end) : '',
       slots:    Number(c.slots || 0),
       apps:     campApps.length,
@@ -632,13 +662,18 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       var ck = (d._campMeta && d._campMeta.id) || '';
       var key = ck + '|' + (d.application_id || ('user-' + d.user_id));
       if (!groups[key]) {
-        groups[key] = { key: key, camp: d._campMeta || {}, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null };
+        groups[key] = { key: key, camp: d._campMeta || {}, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null, postByCh: {} };
       }
       var g = groups[key];
       if (d.kind === 'receipt') {
         if (!g.receipt || (d.updated_at || '') > (g.receipt.updated_at || '')) g.receipt = d;
       } else if (d.kind === 'review_image' || d.kind === 'post') {
         if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
+        // 시딩·방문형 채널 완성 판정용 — 게시물만 채널별로 따로 모은다(위 _excelCertStatusKo 참고)
+        if (d.kind === 'post' && d.post_channel) {
+          var _pv = g.postByCh[d.post_channel];
+          if (!_pv || (d.updated_at || '') > (_pv.updated_at || '')) g.postByCh[d.post_channel] = d;
+        }
       }
     });
     var groupList = Object.values(groups);
@@ -808,7 +843,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase),
+        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase,
+          (cc.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
         // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (T~Y열=20~25)
@@ -1098,7 +1134,7 @@ async function exportCampaignDeliverables(campId) {
     delivs.forEach(function(d) {
       var key = d.application_id || ('user-' + d.user_id);  // application_id 없으면 user_id 폴백
       if (!groups[key]) {
-        groups[key] = {key: key, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null};
+        groups[key] = {key: key, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null, postByCh: {}};
       }
       var g = groups[key];
       if (d.kind === 'receipt') {
@@ -1106,13 +1142,18 @@ async function exportCampaignDeliverables(campId) {
         if (!g.receipt || (d.updated_at || '') > (g.receipt.updated_at || '')) g.receipt = d;
       } else if (d.kind === 'review_image' || d.kind === 'post') {
         if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
+        // 시딩·방문형 채널 완성 판정용 — 게시물만 채널별로 따로 모은다(_excelCertStatusKo 참고)
+        if (d.kind === 'post' && d.post_channel) {
+          var _pv = g.postByCh[d.post_channel];
+          if (!_pv || (d.updated_at || '') > (_pv.updated_at || '')) g.postByCh[d.post_channel] = d;
+        }
       }
     });
     // 미제출(결과물 0건) 신청 행 추가 — 승인 신청 중 결과물 그룹에 없는 건은 빈 행으로 (인증 상태 '미제출')
     (approvedApps || []).forEach(function(app) {
       var key = app.id;
       if (groups[key]) return;
-      groups[key] = {key: key, application_id: app.id, user_id: app.user_id, receipt: null, result: null};
+      groups[key] = {key: key, application_id: app.id, user_id: app.user_id, receipt: null, result: null, postByCh: {}};
     });
     var groupList = Object.values(groups);
     // 인플루언서 이름순 정렬 (한자 우선)
@@ -1257,7 +1298,8 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase),
+        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase,
+          (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
         // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (R~W열=18~23)
@@ -1358,12 +1400,17 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     var key = d.application_id || ('user-' + d.user_id);
     if (!groups[key]) groups[key] = {key:key, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}, latest:''};
     var g = groups[key];
-    var subAt = d.updated_at || d.submitted_at || '';
+    // ⚠️ 「가장 최근」 기준은 **제출 시각**이다. 예전엔 여기만 수정 시각을 먼저 봐서,
+    //    관리자가 영수증을 고친 건이 화면·정산과 **다른 행**으로 뽑혔다. 구매 금액이
+    //    곧 정산 금액이라(마이그레이션 300) **엑셀로 정산을 대조하면 숫자가 어긋난다.**
+    //    운영 실측 2026-08-07: 영수증이 여러 행 쌓인 응모 65건 중 **36건**에서 기준이 갈렸다.
+    //    화면(admin-deliverables.js buildDeliverableGroups)·정산과 같은 기준으로 맞춘다.
+    var subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image' && d.post_channel) {
       var prev = g.reviewByCh[d.post_channel];
-      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
     }
     if (subAt > g.latest) g.latest = subAt;
   });
@@ -1578,12 +1625,17 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       groups[key] = {key:key, camp:camp, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}};
     }
     var g = groups[key];
-    var subAt = d.updated_at || d.submitted_at || '';
+    // ⚠️ 「가장 최근」 기준은 **제출 시각**이다. 예전엔 여기만 수정 시각을 먼저 봐서,
+    //    관리자가 영수증을 고친 건이 화면·정산과 **다른 행**으로 뽑혔다. 구매 금액이
+    //    곧 정산 금액이라(마이그레이션 300) **엑셀로 정산을 대조하면 숫자가 어긋난다.**
+    //    운영 실측 2026-08-07: 영수증이 여러 행 쌓인 응모 65건 중 **36건**에서 기준이 갈렸다.
+    //    화면(admin-deliverables.js buildDeliverableGroups)·정산과 같은 기준으로 맞춘다.
+    var subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image' && d.post_channel) {
       var prev = g.reviewByCh[d.post_channel];
-      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
     }
   });
   var groupList = Object.values(groups).sort(function(a, b) {

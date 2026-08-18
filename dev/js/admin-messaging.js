@@ -641,12 +641,15 @@ const ADM_STATUS_LINE_KO = {
 };
 
 // statusLine 한국어 문구 — 관리자 화면은 항상 한국어.
-//   {date} 치환은 인플 측과 동일(영수증=구매/제출 마감, 제출기한=제출 마감).
+//   {date} 치환은 인플 측과 동일(영수증·제출기한 모두 제출 마감일).
+//   ⚠️ 영수증도 **결과물 제출 마감일**이다(2026-08-11) — 구매 종료일이 아니다.
+//      인플루언서 화면(messaging.js)과 반드시 같은 순서를 써야 한다. 어긋나면 관리자와
+//      인플루언서가 서로 다른 날짜를 보며 대화하게 된다.
 function admStatusLineKo(key, camp) {
   const text = ADM_STATUS_LINE_KO[key] || '';
   if (!text) return '';
   let mmdd = '';
-  if (key === 'receipt') mmdd = _admMMDD(camp?.purchase_end || camp?.submission_end);
+  if (key === 'receipt') mmdd = _admMMDD(camp?.submission_end || camp?.purchase_end);
   else if (key === 'post_deadline') mmdd = _admMMDD(camp?.submission_end);
   return text.replace('{date}', mmdd);
 }
@@ -783,9 +786,17 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
     } else {
       // visible
       if (fromAdmin) {
-        // 운영팀 발신 + 25분 이내 → 회수 (회수는 withdraw_own_message RPC 가 본인 검증)
+        // 운영팀 발신 + **내가 보낸 것** + 25분 이내 → 회수
+        //   ⚠️ 예전에는 「운영팀 발신」만 봤다. 그래서 **다른 관리자 메시지에도 버튼이 뜨고,
+        //   누르면 서버가 본인이 아니라며 거부**했다(일본어 오류가 한국어 화면에 노출).
+        //   판정 값 `sender_id` 는 마이그레이션 326 이 조회에 추가했다(관리자에게만 채워진다).
+        //   ⚠️ 일괄 발송 회수(아래 `canWithdraw`)에는 최고 관리자 예외가 있지만 **여기엔 넣지 마라** —
+        //   개별 회수 함수(`withdraw_own_message`)에는 그 예외가 없어, 버튼만 뜨고 또 실패한다.
+        //   ⚠️ `sender_id` 가 비어 있으면(마이그레이션 326 적용 전) 버튼을 안 그린다 —
+        //   누구 것인지 모르는 채 그리면 예전 상태로 돌아간다.
+        const isMine = !!msg.sender_id && msg.sender_id === currentAdminInfo?.auth_id;
         const elapsed = now - new Date(msg.created_at).getTime();
-        if (elapsed < ADM_MSG_WITHDRAW_LIMIT_MS) {
+        if (isMine && elapsed < ADM_MSG_WITHDRAW_LIMIT_MS) {
           const pathsJson = esc(JSON.stringify(atts.map(a => a.path)));
           actions += `<button type="button" class="adm-msg-act withdraw" onclick='confirmAdmWithdraw("${esc(msg.id)}", ${pathsJson})'>회수</button>`;
         }

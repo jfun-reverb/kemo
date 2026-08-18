@@ -91,6 +91,7 @@ const _ERR_DICT = {
     credentials: 'メールアドレスまたはパスワードが正しくありません',
     slotsFull: '募集定員に達したため、応募を受け付けておりません',
     recruitDeadlinePassed: '募集期間が終了したため、応募できません',
+    recruitNotOpen: 'このキャンペーンは現在応募を受け付けていません',
     submissionDeadlinePassed: '提出期限が過ぎているため、提出できません。差し戻された項目のみ再提出できます',
     settlementLockedReceipt: 'このキャンペーンはすでに精算の手続きが済んでいるため、レシートを新しく提出することはできません。ご不明な点はお問い合わせください',
     postApproved: 'この投稿は既に承認済みのため、再提出できません',
@@ -114,6 +115,7 @@ const _ERR_DICT = {
     credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
     slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
     recruitDeadlinePassed: '모집 기간이 종료되어 신청할 수 없습니다',
+    recruitNotOpen: '이 캠페인은 현재 응모를 받지 않습니다',
     submissionDeadlinePassed: '제출 기한이 지나 제출할 수 없습니다. 반려된 항목만 다시 제출할 수 있습니다',
     settlementLockedReceipt: '이 캠페인은 이미 정산 처리가 끝나 영수증을 새로 제출할 수 없습니다. 궁금한 점은 문의해 주세요',
     postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
@@ -135,6 +137,9 @@ function friendlyErrorJa(e) {
   //   일반 permission·duplicate 규칙보다 먼저 매칭해야 「권한이 없습니다」로 뭉개지지 않는다.
   if (/recruit_deadline_passed/.test(s)) return t.recruitDeadlinePassed;
   if (/submission_deadline_passed/.test(s)) return t.submissionDeadlinePassed;
+  // 캠페인이 모집중이 아니거나 삭제됐을 때(마이그레이션 326). 정상 동선에서는 화면이 먼저 막아
+  //   도달하지 않지만, 등록해 두지 않으면 그 순간 **일본어 화면에 한국어 원문**이 그대로 뜬다.
+  if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
@@ -218,6 +223,44 @@ function periodRangeCell(s, e) {
 function periodSingleCell(d) {
   if (!d) return '<span style="color:var(--muted)">—</span>';
   return formatDate(d) + ' ' + dDayLabel(d);
+}
+
+// ══════════════════════════════════════
+// 관리자 화면 — 한 캠페인의 기간을 **한 칸에** 모아 그린다(2026-08-11 결정).
+//   모집·구매·방문·선정 기간을 각각 다른 열에 두면 형식마다 빈 열이 생기고, 리뷰어형은
+//   모집·구매가 **글자 그대로 같은 값**이라 같은 날짜가 두 번 나왔다. 한 칸에 모으고
+//   줄마다 「(모집)」 같은 이름표를 달아, 어느 행을 봐도 무슨 기간인지 알게 한다.
+//
+//   ⚠️ **이름표는 항상 붙인다.** 「두 줄일 때만」으로 하면 리뷰어형과 시딩형의 한 줄짜리
+//      행이 똑같이 보여, 그 날짜가 무슨 기간인지 모집 형식 열을 다시 봐야 한다.
+//   ⚠️ 이 함수는 **관리자 전용**이다 — 이름표가 한국어다. 인플루언서 화면은 자기 표를
+//      따로 그리고 번역 열쇠말(`detail.periodTag*`)을 쓴다.
+//   ⚠️ 판정은 `campaignPeriodRowKind` 하나만 쓴다. 화면마다 다시 만들면 캠페인 목록과
+//      진행현황 카드가 서로 다른 이름을 부르게 된다(이 사양의 근본 원인이 그것이었다).
+//   ⚠️ 순서는 **날짜 → 이름표 → 남은 날짜 배지**. 날짜가 주인공이고 이름표는 보조라
+//      흐린 작은 글씨로 둔다.
+function campaignPeriodsCell(camp) {
+  if (!camp) return '<span style="color:var(--muted)">—</span>';
+  const TAG = 'margin-left:3px;color:var(--muted);font-size:10px;white-space:nowrap';
+  // 한 줄 = 날짜 범위 + 이름표 + D배지. 두 칸이 다 비면 그리지 않는다(호출부가 거른다).
+  const row = (s, e, tagText) => {
+    const txt = (s ? formatDate(s) : '—') + ' ~ ' + (e ? formatDate(e) : '—');
+    return `<div>${txt}<span style="${TAG}">(${tagText})</span>${e ? dDayLabel(e) : ''}</div>`;
+  };
+  const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
+  const recruit = tag => row(camp.recruit_start, camp.deadline, tag);
+  // 갈래를 **이름으로 지목**한다 — 부정 조건을 쓰면 갈래가 늘 때 조용히 잘못된 쪽으로 간다.
+  if (kind === 'merged' || kind === 'monitorNoPurchase') return recruit('모집·구매');
+  if (kind === 'visitMerged') return recruit('모집·방문');
+  if (kind === 'split')   return recruit('모집') + row(camp.purchase_start, camp.purchase_end, '구매');
+  if (kind === 'visit')   return recruit('모집') + row(camp.visit_start, camp.visit_end, '방문');
+  // ⚠️ 시딩형 선정 기간은 **여기 넣지 않는다.** 캠페인 목록에서는 선정 기간이 자기 열을
+  //    따로 갖는다(2026-08-11 결정, `2026-08-11-selection-period-visibility.md` 결정 1).
+  //    갈래 `gifting` 자체는 진행현황 요약 카드가 「선정」 줄을 그릴 때 쓴다.
+  if (kind === 'gifting') return recruit('모집');
+  // 'none' — 두 번째 기간이 없는 시딩·방문형. 모집 기간만 그린다.
+  if (!camp.recruit_start && !camp.deadline) return '<span style="color:var(--muted)">—</span>';
+  return recruit('모집');
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
@@ -480,7 +523,9 @@ async function lookupZipProfile() {
       if (city) city.value = (r.address2||'') + (r.address3||'');
       toast('住所を自動入力しました', 'success');
     } else { toast('該当する住所が見つかりませんでした', 'error'); }
-  } catch(e) { toast('住所検索に失敗しました', 'error'); }
+  // 외부 주소 검색 서비스(zipcloud) 장애는 우리 잘못이 아니지만, 「주소 입력이 안 된다」는
+  // 문의가 들어왔을 때 원인을 짚으려면 기록이 있어야 한다.
+  } catch(e) { logAppError('lookupZipProfile', e); toast('住所検索に失敗しました', 'error'); }
 }
 
 async function lookupZip() {

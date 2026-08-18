@@ -492,6 +492,7 @@ async function canOpenInviteCampaign(camp) {
     return await verifyInviteCode(camp.id, code);
   } catch (e) {
     console.warn('[canOpenInviteCampaign]', e);
+    logAppError('canOpenInviteCampaign', e);
     return false;   // 확인하지 못했으면 열지 않는다(fail-closed)
   }
 }
@@ -540,7 +541,9 @@ async function submitInviteCode(campaignId) {
 
   let ok = false;
   try { ok = await verifyInviteCode(campaignId, code); }
-  catch (e) { console.warn('[submitInviteCode]', e); }
+  // ⚠️ 통신 장애로 확인을 못 해도 아래에서 「번호가 틀렸습니다」로 안내된다.
+  //    (화면은 그대로 두되, 오입력이 아니라 장애였다는 사실은 남겨야 한다)
+  catch (e) { console.warn('[submitInviteCode]', e); logAppError('submitInviteCode', e); }
 
   if (!ok) {
     // 틀린 번호는 안내만 — 캠페인이 있는지 없는지도 알려 주지 않는다.

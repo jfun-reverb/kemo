@@ -28,15 +28,29 @@ function _clientErrStatusBadge(status) {
   return `<span style="display:inline-block;background:${s.bg};color:${s.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">${s.ko}</span>`;
 }
 
+// 「정상 거부」 배지 (마이그레이션 308) — 마감 지남·정원 초과·중복 응모처럼 **결함이 아닌**
+//   서버의 의도적 거절. 기록은 남기되(거절이 갑자기 늘어나는 것도 신호다) 진짜 결함과
+//   눈으로 갈라 볼 수 있게 표시한다. 사이드바 배지 숫자에는 포함되지 않는다.
+function _clientErrExpectedBadge(r) {
+  if (!r || !r.is_expected) return '';
+  return `<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px">정상 거부</span>`;
+}
+
 async function loadClientErrors() {
   const status = $('errFilterStatus') ? $('errFilterStatus').value : 'open';
   const source = $('errFilterSource') ? $('errFilterSource').value : '';
   const days   = $('errFilterDays') ? $('errFilterDays').value : '';
   const searchQ = ($('errSearch') ? $('errSearch').value : '').trim().toLowerCase();
 
+  // 「종류」 필터 — 기본은 「예상 못 한 오류만」(빈 값 = 전체). 정상 거부가 목록을 채우면
+  //   진짜 결함이 묻히므로, 처음 화면은 결함만 보이게 둔다.
+  const expected = $('errFilterExpected') ? $('errFilterExpected').value : 'real';
+
   const filters = {};
   if (status) filters.status = status;
   if (source) filters.source = source;
+  if (expected === 'real')     filters.expected = false;
+  else if (expected === 'expected') filters.expected = true;
   if (days) {
     const d = new Date();
     d.setDate(d.getDate() - parseInt(days, 10));
@@ -64,8 +78,8 @@ async function loadClientErrors() {
     return `<tr data-id="${esc(r.id)}">
       <td>${_clientErrStatusBadge(r.status)}</td>
       <td style="max-width:380px">
-        <div style="font-size:13px;color:var(--ink);word-break:break-word;cursor:pointer" onclick="openClientErrorDetail('${esc(r.id)}')">${esc(msgShort) || '—'}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(kindKo)} · ${esc(srcKo)}${r.page_hash ? ' · ' + esc(r.page_hash) : ''}</div>
+        <div style="font-size:13px;color:var(--ink);word-break:break-word;cursor:pointer" onclick="openClientErrorDetail('${esc(r.id)}')">${esc(msgShort) || '—'}${_clientErrExpectedBadge(r)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${r.context ? '<b>' + esc(r.context) + '</b> · ' : ''}${esc(kindKo)} · ${esc(srcKo)}${r.page_hash ? ' · ' + esc(r.page_hash) : ''}</div>
       </td>
       <td style="font-size:11px;color:var(--muted)">${r.error_code ? esc(r.error_code) : '—'}</td>
       <td style="text-align:center;font-weight:700;color:${r.occurrence_count > 10 ? 'var(--red)' : 'var(--ink)'}">${r.occurrence_count || 1}</td>
@@ -99,6 +113,9 @@ function openErrorsOpen() {
   const st = document.getElementById('errFilterStatus'); if (st) st.value = 'open';
   const src = document.getElementById('errFilterSource'); if (src) src.value = '';
   const dys = document.getElementById('errFilterDays'); if (dys) dys.value = '';
+  // 배지 숫자는 「예상 못 한 오류」만 센다 — 눌러서 열리는 목록도 같은 기준이어야
+  // 「배지 3인데 목록은 12건」 같은 어긋남이 안 생긴다.
+  const exp = document.getElementById('errFilterExpected'); if (exp) exp.value = 'real';
   const sch = document.getElementById('errSearch'); if (sch) sch.value = '';
   if (typeof navAdminPaneReload === 'function') navAdminPaneReload('errors');
   else loadClientErrors();
@@ -115,9 +132,10 @@ function openClientErrorDetail(id) {
   if (body) {
     body.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        ${_clientErrStatusBadge(r.status)}
+        ${_clientErrStatusBadge(r.status)}${_clientErrExpectedBadge(r)}
         <span style="font-size:12px;color:var(--muted)">${esc(kindKo)} · ${esc(srcKo)} · ${r.occurrence_count || 1}회 발생</span>
       </div>
+      ${r.is_expected ? `<div style="font-size:12px;color:var(--muted);background:var(--surface-dim);padding:8px 10px;border-radius:6px;margin-bottom:10px">서버가 <b>의도적으로 거절</b>한 건입니다(마감 지남·정원 초과·중복 등). 결함이 아니므로 조치는 필요 없지만, 같은 거절이 갑자기 늘면 화면 안내가 부족하다는 신호일 수 있습니다.</div>` : ''}
       <div class="admin-detail-row"><div class="admin-detail-label">메시지</div><div style="word-break:break-word;color:var(--ink)">${esc(r.message) || '—'}</div></div>
       ${r.error_code ? `<div class="admin-detail-row"><div class="admin-detail-label">코드</div><div>${esc(r.error_code)}</div></div>` : ''}
       ${r.page_hash ? `<div class="admin-detail-row"><div class="admin-detail-label">발생 화면</div><div>${esc(r.page_hash)}</div></div>` : ''}

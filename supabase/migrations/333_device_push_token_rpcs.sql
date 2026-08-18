@@ -1,10 +1,10 @@
 -- ============================================================
--- 193_device_push_token_rpcs.sql
+-- 333_device_push_token_rpcs.sql
 -- 2026-06-22
 --
 -- 목적:
 --   기기 푸시 토큰 등록·해지 RPC 2개.
---   192_device_push_tokens.sql 이 먼저 적용되어 있어야 함.
+--   332_device_push_tokens.sql 이 먼저 적용되어 있어야 함.
 --
 -- 변경 내용:
 --   [A] register_push_token(p_token, p_platform) — authenticated GRANT
@@ -94,7 +94,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.register_push_token(text, text) IS
-  '[193] 기기 APNs 푸시 토큰 등록/갱신. SECURITY DEFINER — device_push_tokens RLS 우회 경유. '
+  '[333] 기기 APNs 푸시 토큰 등록/갱신. SECURITY DEFINER — device_push_tokens RLS 우회 경유. '
   '같은 token 으로 계정 전환 시 user_id 를 현재 로그인 사용자로 갱신해 이전 사용자 알림 차단.';
 
 GRANT EXECUTE ON FUNCTION public.register_push_token(text, text) TO authenticated;
@@ -140,7 +140,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.revoke_push_token(text) IS
-  '[193] 기기 APNs 푸시 토큰 해지 (로그아웃·알림 권한 철회 시 호출). '
+  '[333] 기기 APNs 푸시 토큰 해지 (로그아웃·알림 권한 철회 시 호출). '
   'SECURITY DEFINER — 본인(auth.uid()) 소유 토큰만 DELETE. 타인 토큰은 WHERE 불일치로 무시.';
 
 GRANT EXECUTE ON FUNCTION public.revoke_push_token(text) TO authenticated;

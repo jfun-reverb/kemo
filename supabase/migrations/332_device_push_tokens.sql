@@ -1,5 +1,5 @@
 -- ============================================================
--- 192_device_push_tokens.sql
+-- 332_device_push_tokens.sql
 -- 2026-06-22
 --
 -- 목적:
@@ -20,7 +20,7 @@
 --         (발송 대상 조회 시 활성 토큰만 빠르게 필터)
 --   [C] 행 단위 보안 정책(RLS)
 --       - SELECT: 본인(auth.uid() = user_id) 또는 관리자(is_admin())
---       - INSERT/UPDATE/DELETE: 직접 DML 금지 — 193 마이그레이션의 RPC 경유
+--       - INSERT/UPDATE/DELETE: 직접 DML 금지 — 333 마이그레이션의 RPC 경유
 --         (RLS 정책 없음 → anon/authenticated 모두 직접 DML 차단)
 --
 -- 행 단위 보안 정책 영향:
@@ -32,7 +32,7 @@
 --
 -- 적용 순서:
 --   1. 개발서버 SQL Editor 실행 + 검증
---   2. 193_device_push_token_rpcs.sql 적용
+--   2. 333_device_push_token_rpcs.sql 적용
 --   3. 운영서버 동일 순서 적용
 --
 -- 롤백:
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.device_push_tokens (
 );
 
 COMMENT ON TABLE public.device_push_tokens IS
-  '[192] iOS 기기 APNs 푸시 토큰 저장. 발송 로직은 별도 Edge Function(다음 단계). '
+  '[332] iOS 기기 APNs 푸시 토큰 저장. 발송 로직은 별도 Edge Function(다음 단계). '
   'token 은 기기 단위 UNIQUE — 계정 전환 시 user_id·last_seen_at 갱신으로 이전 사용자 알림 차단.';
 
 COMMENT ON COLUMN public.device_push_tokens.user_id IS
@@ -106,7 +106,7 @@ CREATE POLICY "device_push_tokens_select_own"
 
 -- INSERT / UPDATE / DELETE 직접 DML 차단
 -- → RLS 정책 없음(Default Deny). register_push_token / revoke_push_token RPC(SECURITY DEFINER)만 허용.
--- (마이그레이션 193에서 SECURITY DEFINER 함수로 우회)
+-- (마이그레이션 333에서 SECURITY DEFINER 함수로 우회)
 
 
 COMMIT;

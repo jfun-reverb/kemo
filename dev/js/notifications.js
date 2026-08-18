@@ -267,6 +267,7 @@ async function openNotifModal() {
     await buildNotifRecruitTypeMap(items);
     renderNotifModal(items);
   } catch(e) {
+    logAppError('openNotifModal', e);
     if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
   }
 }
@@ -311,9 +312,10 @@ function renderNotifModal(items) {
 async function onNotifItemClick(id, kind, refTable, refId) {
   // 같은 참조(결과물·신청)에 대한 트리거 다건 INSERT 시 한 번 클릭으로 일괄 정리
   //   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected 2건).
-  //   ref 없는 일반 알림만 단일 read.
-  if (refTable && refId) {
-    await markNotificationsReadByRef(refTable, refId);
+  //   ⚠️ 종류(kind)를 함께 넘긴다 — 없으면 성격이 다른 알림까지 함께 지워진다(전수조사 F-3).
+  //   ref 나 kind 가 없는 알림은 그 한 건만 읽음 처리.
+  if (refTable && refId && kind) {
+    await markNotificationsReadByRef(refTable, refId, kind);
   } else {
     await markNotificationRead(id);
   }
@@ -361,7 +363,12 @@ async function onNotifItemClick(id, kind, refTable, refId) {
         refreshNotifBadge();
         return;
       }
-    } catch(e) {}
+    } catch(e) {
+      // ⚠️ 여기서 조회가 **일시적으로** 실패해도 아래에서 알림을 영구 삭제한다.
+      //    (「참조가 사라졌다」와 「지금 못 읽었다」를 구분하지 않는다 — 동작 개선은 후속,
+      //     지금은 그런 일이 실제로 일어나는지 볼 수 있게 기록부터 남긴다.)
+      logAppError('notifClick.applicationRef', e);
+    }
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
     refreshNotifBadge();
@@ -377,7 +384,10 @@ async function onNotifItemClick(id, kind, refTable, refId) {
         refreshNotifBadge();
         return;
       }
-    } catch(e) {}
+    } catch(e) {
+      // ⚠️ 위와 같은 자리 — 일시적 조회 실패도 알림 영구 삭제로 이어진다(후속 개선 대상).
+      logAppError('notifClick.deliverableRef', e);
+    }
     // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');

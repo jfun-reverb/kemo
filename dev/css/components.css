@@ -316,6 +316,20 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* 미니 에디터(참여방법/주의사항/NG) 콘텐츠 이미지: 가로 100% 가운데 정렬, 모서리 둥글림 */
 .rich-img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
 .mini-editor-content .rich-img{margin:6px auto}
+/* 바로 이어지는 이미지끼리는 딱 붙인다 — 세로로 자른 긴 이미지를 나눠 올릴 때
+   사이가 벌어지면 한 장이 끊겨 보인다(2026-08-12). 표시(`rich-img-joined`)는
+   정화 단계에서 **앞 블록**에 붙는다.
+   ⚠️ 세 겹을 다 없애야 한다 — 앞 문단 아래·앞 이미지 아래·뒤 이미지 위.
+      하나라도 남으면 그만큼 틈이 보인다. 글과 이미지 사이는 그대로 둔다.
+   ⚠️ 이어붙인 이미지는 모서리 둥글리기도 없앤다. 안 그러면 이음매에 흰 각이 생긴다. */
+.rich-img-joined{margin-bottom:0 !important}
+.rich-img-joined .rich-img{margin-bottom:0}
+.rich-img-joined + * .rich-img,
+.rich-img-joined + .rich-img{margin-top:0}
+.rich-img-joined.rich-img,
+.rich-img-joined .rich-img{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.rich-img-joined + * .rich-img,
+.rich-img-joined + .rich-img{border-top-left-radius:0;border-top-right-radius:0}
 /* 사이즈 프리셋 4단계 — data-rich-size 속성에 따라 sanitize 후처리에서 클래스 부여 */
 .rich-img.rich-img-sm{max-width:25%}
 .rich-img.rich-img-md{max-width:50%}

@@ -138,6 +138,13 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // 편집기에서 띄운 작은 메뉴들을 먼저 닫는다. 이것들은 `document.body` 에 화면 고정으로
+  //   붙어 있어 **화면을 옮겨도 그대로 떠 있다**(페인은 클래스 토글로 감출 뿐 DOM 이 남는다).
+  //   ⚠️ 이번에 캠페인 편집기 이미지 메뉴를 만들며 발견했지만, 참여방법·주의사항·NG 편집기의
+  //      이미지·링크 메뉴도 **원래부터 같은 문제**를 갖고 있었다 — 함께 정리한다(2026-08-12).
+  if (typeof closeRichImageMenu === 'function') closeRichImageMenu();
+  if (typeof closeMiniEditorImagePopover === 'function') closeMiniEditorImagePopover();
+  if (typeof closeMiniEditorLinkPopover === 'function') closeMiniEditorLinkPopover();
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
@@ -167,7 +174,17 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
-  if (paneEl) paneEl.classList.add('on');
+  if (paneEl) {
+    paneEl.classList.add('on');
+    // 화면을 열 때 **맨 위에서 시작**한다.
+    //   ⚠️ 페인은 각자 스크롤 컨테이너(`.admin-pane.on{overflow-y:auto}`)라, 브라우저가
+    //      숨겨진 동안의 스크롤 위치를 기억했다가 다시 보일 때 그대로 복원한다. 그래서
+    //      「새 캠페인 등록」을 눌러도 지난번에 보던 중간 지점에서 폼이 뜬다(실측 재현).
+    //   ⚠️ 목록 페인(`.admin-pane-list`)은 페인 자체가 `overflow:hidden` 이고 안쪽
+    //      `.admin-table-wrap` 이 스크롤하므로 이 한 줄에 영향받지 않는다 — 목록은
+    //      지금처럼 보던 위치를 유지한다(의도된 동작).
+    paneEl.scrollTop = 0;
+  }
   // 캠페인 등록·편집 진입 시 flatpickr range/single picker mount (idempotent)
   if (pane === 'add-campaign' || pane === 'edit-campaign') {
     if (typeof setupCampRangePickers === 'function') setupCampRangePickers();

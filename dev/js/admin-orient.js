@@ -1588,7 +1588,6 @@ function osUnlinkFailMsg(reason) {
 }
 
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
-function osPriceNum(v) { const n = parseInt(String(v == null ? '' : v).replace(/[^0-9]/g, ''), 10); return isNaN(n) ? '' : n; }
 
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
@@ -1609,12 +1608,16 @@ function osPrefillChannels(card) {
   return map[m] ? [map[m]] : [];
 }
 
-// 가격·행사를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
+// 발행 형식 안내를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
+// ⚠️ 상시가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
+//   ①「캠페인 어느 칸에도 자동으로 넣지 않는다」는 결정이 제품 가격 칸에만 적용되면 반쪽이다.
+//     상시가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
+//     확인하지 않은 금액을 사실인 것처럼 보여 준다.
+//   ②`reward_note` 는 **인플루언서 응모 화면에 그대로 노출**된다(application.js). 브랜드가 쓴
+//     한국어가 일본어 화면에 실리는 자리다.
 function osBuildRewardNote(card) {
-  const s = card.sale || {};
   const parts = [];
   if (card.form_type === 'proxy_purchase') parts.push('[가구매] 영수증만 제출 (리뷰·게시 없음)');
-  if (s.price_regular) parts.push('상시가 ' + s.price_regular);
   return parts.join(' / ');
 }
 
@@ -1661,6 +1664,15 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 
+  // 형식이 정해졌으면 기간 칸(구매·방문·선정) 표시부터 맞춘다 — 아래 라디오를 세우기까지
+  //   브랜드 목록·연결 신청을 조회하느라 0.4초쯤 걸리고, 그 사이 화면은 바로 위
+  //   switchAdminPane 이 리뷰어형 기준으로 초기화해 둔 상태다. 그대로 두면 **시딩형인데
+  //   선정 기간 칸이 없는 화면**이 잠깐 보인다 — 발행 직후 화면이 맨 위로 올라가고 알림이
+  //   뜨는 순간이라, 담당자가 그때 훑어보고 「생성할 때는 칸이 없다」고 지적했다(2026-08-12).
+  //   ⚠️ 아래 라디오 change 도 같은 함수를 부른다 — 여기 한 번 더 부르는 것은 그 사이의
+  //      빈 구간을 없애기 위한 것이고, 최종 상태는 라디오 쪽이 확정한다.
+  if (typeof applyDeadlineFieldsVisibility === 'function') applyDeadlineFieldsVisibility('new', recruitType);
+
   // 브랜드 선택 + cascade (native select)
   if (typeof loadCampBrandSelect === 'function') await loadCampBrandSelect('new', brandId);
   osSetVal('newCampBrandId', brandId || '');
@@ -1686,7 +1698,14 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampTitle', '');
   osSetVal('newCampSlots', p.slots || '');
   osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
-  osSetVal('newCampProductPrice', osPriceNum(card.sale && card.sale.price_regular));
+  // ⚠️ 상시가는 **캠페인 어느 칸에도 자동으로 넣지 않는다**(2026-08-11 사용자 결정).
+  //   브랜드가 오리엔시트에 적은 값이라, 그대로 실으면 **관리자가 확인하지 않은 금액이
+  //   그대로 지급 상한**이 된다(리뷰어형 정산 = min(영수증 실결제액, product_price)).
+  //   상시가는 발행 화면의 오리엔 상세에서 눈으로 확인하고 관리자가 직접 입력한다.
+  //   ⚠️ 리뷰어형에서 이 칸이 0인 채로 발행되면 ①인플루언서 화면에 페이백 상한 안내가
+  //      안 뜨고 ②정산이 「금액 미확정」으로 자동 등록에서 빠진다(마이그레이션 300).
+  //      후자는 마이그레이션 324 이후 「과거 미등록」 화면에 나타나므로 조용히 사라지진 않는다.
+  osSetVal('newCampProductPrice', 0);
   osSetVal('newCampRewardNote', osBuildRewardNote(card));
   // 해시태그는 히든 입력칸에 직접 넣지 않고 태그 칩 위젯을 거친다.
   //   값을 공백으로 이어 붙여 넣으면 ①칩이 안 그려져 관리자 화면에서 안 보이고

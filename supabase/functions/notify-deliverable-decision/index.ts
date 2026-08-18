@@ -185,35 +185,261 @@ function safeUrl(url: string): string {
   }
 }
 
-// 승인 메일에 들어갈 "다음 단계" 안내 블록 (kind 별 분기).
-// receipt(영수증 승인)        → STEP 2 리뷰 이미지 제출 안내
-// review_image(monitor 최종)  → 전 제출 완료, 보상 지급 대기
-// post(gifting/visit 최종)    → 게시 URL 검수 완료, 보상 지급 대기
+// 승인 메일 캠페인 정보 — buildNextStepBlock 분기에 필요한 최소 칸.
+// (기존엔 kind 하나만 보고 문구를 정해서, 모집 형식이 다른 캠페인에 틀린 안내가
+//  나가고 있었다 — 2026-08-04 마감 안내 오발송 사고와 같은 뿌리. 전수조사 묶음 F.)
+interface NextStepCampaign {
+  recruit_type: string | null;
+  proxy_purchase: boolean | null;
+  channel: string | null;
+}
+
+// 공통 스타일 헬퍼 — 파란(다음 단계 남음) / 초록(완료) 두 톤만 쓴다(기존 색 그대로 유지).
+function nextStepBox(tone: "blue" | "green", bodyHtml: string): string {
+  const bg = tone === "blue" ? "#F0F9FF" : "#F0FDF4";
+  const border = tone === "blue" ? "#BAE6FD" : "#BBF7D0";
+  const labelColor = tone === "blue" ? "#075985" : "#166534";
+  return (
+    `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:16px 18px;margin-bottom:22px">` +
+    `<div style="font-size:11px;font-weight:700;color:${labelColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">次のステップ</div>` +
+    bodyHtml +
+    `</div>`
+  );
+}
+
+// ⚠️ sb 매개변수를 `ReturnType<typeof createClient>` 로 타이핑하지 않는다 — 오버로드된
+//    제네릭 함수라 그 타입과 실제 호출부(핸들러 안의 const sb = createClient(...)) 타입이
+//    구조적으로 어긋나 deno check 가 새 오류를 낸다(이 프로젝트의 다른 메일 함수에도
+//    이미 있는 기존 결함, notify-influencer-daily-digest 등). 되돌리지 말 것.
+
+// 채널 코드 → 일본어 라벨. lookup_values(kind='channel') 가 단일 소스(다른 메일 함수와 동일).
+async function fetchChannelLabelMap(
+  sb: any,
+  codes: string[],
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (codes.length === 0) return map;
+  const { data } = await sb
+    .from("lookup_values")
+    .select("code, name_ja")
+    .eq("kind", "channel")
+    .in("code", codes);
+  (data || []).forEach((c: { code: string; name_ja: string | null }) => {
+    if (c.name_ja) map.set(c.code, c.name_ja);
+  });
+  return map;
+}
+
+// review_image(리뷰 인증샷) 채널별 완성 여부 조회.
+// 캠페인이 요구하는 채널마다 "최신 1건"이 approved 인지 확인 — 관리자 화면(computeCertStatus/
+// _finalizeMonitorReprs)·정산 헬퍼(_settlement_cert_candidates 의 channel_cert CTE)와 같은 판정.
+// ⚠️ 채널 비교는 항상 split(',') 후 대조(단일 === 비교 금지 — 멀티채널 누락 위험).
+//   대소문자·트림 처리는 마이그레이션 300 과 동일하게: 캠페인 쪽 토큰만 trim, 결과물의
+//   post_channel 값은 원본 그대로(대소문자 구분) — 다르게 하면 화면·정산과 또 갈린다.
+// 반환값 null = 조회 실패(호출부는 "모르면 완료라고 말하지 않는다"로 처리할 것).
+async function fetchMissingChannels(
+  sb: any,
+  applicationId: string,
+  requiredChannels: string[],
+  kind: "review_image" | "post",
+): Promise<string[] | null> {
+  const { data, error } = await sb
+    .from("deliverables")
+    .select("post_channel, status, submitted_at, updated_at")
+    .eq("application_id", applicationId)
+    .eq("kind", kind)
+    .not("post_channel", "is", null)
+    // 임시저장은 「아직 안 낸 것」 — 세지 않는다.
+    //   지금은 채널당 행이 하나뿐이라(마이그레이션 158 의 중복 금지 + 재제출이 새 행 대신
+    //   기존 행을 고침) 걸러도 결과가 같지만, 화면·정산(마이그레이션 318)이 모두 같은
+    //   기준을 쓰므로 여기만 다르게 두지 않는다. 그 제약이 바뀌면 조용히 어긋난다.
+    .neq("status", "draft");
+  if (error) {
+    console.error("[notify-deliverable-decision] review_image channel fetch failed", error);
+    return null;
+  }
+  // 채널별 최신 1건(submitted_at desc, updated_at desc 타이브레이크) — buildDeliverableGroups 와 동일 기준.
+  const latestByChannel = new Map<string, { status: string; submitted_at: string | null; updated_at: string | null }>();
+  for (const row of (data || []) as { post_channel: string | null; status: string; submitted_at: string | null; updated_at: string | null }[]) {
+    if (!row.post_channel) continue;
+    const prev = latestByChannel.get(row.post_channel);
+    if (!prev) {
+      latestByChannel.set(row.post_channel, row);
+      continue;
+    }
+    const a = row.submitted_at || "";
+    const b = prev.submitted_at || "";
+    if (a > b || (a === b && (row.updated_at || "") > (prev.updated_at || ""))) {
+      latestByChannel.set(row.post_channel, row);
+    }
+  }
+  return requiredChannels.filter((ch) => {
+    const latest = latestByChannel.get(ch);
+    return !latest || latest.status !== "approved";
+  });
+}
+
+// 승인 메일에 들어갈 "다음 단계" 안내 블록 (kind × 모집 형식 별 분기).
+//
+// ⚠️ 예전엔 kind 하나만 보고 문구를 정해서 아래 두 가지가 틀린 안내로 나가고 있었다:
+//   ① 영수증(receipt) 승인 → 무조건 "리뷰 인증샷을 내라" — 가구매(proxy_purchase) 캠페인은
+//      영수증만 받고 인증샷을 요구하지 않는데도 내라고 했고, 방문형(visit)은 다음 단계가
+//      리뷰 인증샷이 아니라 게시물 URL 인데도 같은 문구가 나갔다.
+//   ② 리뷰 인증샷(review_image) 승인 → 무조건 "전부 제출 완료" — 캠페인이 요구하는 채널이
+//      여러 개인데 1채널만 승인돼도 이 문구가 가서, 받은 사람이 나머지 채널을 안 냈다.
+// 판정 근거는 dev/js/admin-deliverables.js 의 computeCertStatus·_finalizeMonitorReprs 및
+// 마이그레이션 300 의 _settlement_cert_candidates()(channel_cert CTE)와 어긋나지 않게 맞췄다.
+//
+// post(시딩·방문형 게시물) 분기도 **마이그레이션 331 로 채널 완성도 판정이 추가됐다**(2026-08-10).
+// ⚠️ 이 자리에는 원래 「게시물 1건이면 인증 성공이라 기존 '전부 완료' 문구가 시스템 판정과
+// 이미 일치한다」고 적혀 있었다. 그 근거였던 규칙(300 의 post_latest — 채널을 안 봄)을
+// **331 이 뒤집었다** — 요구한 채널 전부가 승인돼야 성공이다. 주석을 안 고쳤으면
+// 다음 사람이 「post 는 손대지 않은 자리」로 읽었을 것이다. 아래 분기 참조.
+//
 // rejected 케이스에서는 호출되지 않음(템플릿 자체가 다름).
-function buildNextStepBlock(kind: string, activityLink: string): string {
+async function buildNextStepBlock(
+  sb: any,
+  kind: string,
+  applicationId: string,
+  camp: NextStepCampaign,
+): Promise<string> {
+  const recruitType = camp.recruit_type || null;
+  const isMonitor = recruitType === "monitor";
+  const isProxyPurchase = isMonitor && !!camp.proxy_purchase;
+
   if (kind === "receipt") {
-    return (
-      `<div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:16px 18px;margin-bottom:22px">` +
-      `<div style="font-size:11px;font-weight:700;color:#075985;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">次のステップ</div>` +
-      `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>STEP 2 — レビュー画像の提出</strong></div>` +
-      `<div style="font-size:13px;color:#222;line-height:1.7">レシートが承認されました。掲載されたレビューのスクリーンショットを「活動管理」からアップロードしてください。</div>` +
-      `</div>`
+    // 방문형(visit)은 receipt 가 "현장 사진" 이고, 다음 단계는 게시물 URL 제출이다
+    // (인증 성공 판정은 post 단독 — visit 은 receipt 를 안 본다. CLAUDE.md 활동관리 §참조).
+    if (recruitType === "visit") {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>次のステップ — 投稿URLの提出</strong></div>` +
+        `<div style="font-size:13px;color:#222;line-height:1.7">現地写真が承認されました。次は「活動管理」からSNS投稿のURLを提出してください。</div>`,
+      );
+    }
+    // 가구매(proxy_purchase): 영수증만 받는 캠페인 — 리뷰 인증샷 제출 자체가 없다.
+    // (computeCertStatus 의 proxy_purchase 분기와 동일 기준 — 영수증 승인 = 인증 성공)
+    if (isProxyPurchase) {
+      return nextStepBox(
+        "green",
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+      );
+    }
+    // 리뷰어형(monitor) 일반 — 기존 STEP 2 안내(변경 없음).
+    if (isMonitor) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>STEP 2 — レビュー画像の提出</strong></div>` +
+        `<div style="font-size:13px;color:#222;line-height:1.7">レシートが承認されました。掲載されたレビューのスクリーンショットを「活動管理」からアップロードしてください。</div>`,
+      );
+    }
+    // gifting 등 receipt 를 원래 제출하지 않는 형식·recruit_type 미상 — 데이터가 예상과 다른
+    // 방어적 상황. 「완료」도「다음 단계는 이것」도 단정하지 않고 활동관리 확인만 안내한다
+    // (모르면 완료라고 말하지 않는다).
+    return nextStepBox(
+      "blue",
+      `<div style="font-size:13px;color:#222;line-height:1.7">レシートが承認されました。次のステップは「活動管理」でご確認ください。</div>`,
     );
   }
+
   if (kind === "review_image") {
-    return (
-      `<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:16px 18px;margin-bottom:22px">` +
-      `<div style="font-size:11px;font-weight:700;color:#166534;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">次のステップ</div>` +
-      `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>` +
-      `</div>`
+    // review_image 는 현재 UI 상 리뷰어형(monitor)·가구매 아님 캠페인에서만 발생한다.
+    // 예상과 다른 조합(recruit_type 이 monitor 가 아니거나 가구매)이 들어오면 방어적으로
+    // 완료를 단정하지 않는다.
+    if (!isMonitor || isProxyPurchase) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
+      );
+    }
+    const requiredChannels = (camp.channel || "")
+      .split(",").map((c) => c.trim()).filter(Boolean);
+    // 채널이 지정되지 않은 옛(레거시) 캠페인 — 채널별 판정 자체가 불가능하다.
+    //   ⚠️ 여기서 "전부 완료"라고 말하면 안 된다. 이 캠페인은 시스템 어디서도 인증 성공이
+    //   되지 않는다 — 화면 판정(_finalizeMonitorReprs)은 채널이 0개면 'approved' 로
+    //   갈 경로 자체가 없고, 정산 판정(마이그레이션 300·318)도 채널이 비면 후보에 안 든다.
+    //   즉 "담당자 확인 후 보수를 지급합니다"는 지켜지지 않을 약속이 된다.
+    //   이 분기가 고치려던 실패 유형(시스템 판정보다 앞서가는 완료 약속)을 조건만 바꿔
+    //   되풀이하는 자리라, 아래 다른 방어 분기와 같은 중립 문구로 맞춘다.
+    if (requiredChannels.length === 0) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
+      );
+    }
+    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "review_image");
+    // 조회 실패 — 완료 여부를 모르는 채 "완료"라고 말하지 않는다. 최소한의 진행 상황만 전달.
+    if (missingChannels === null) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。他のチャンネル分の提出状況は「活動管理」でご確認ください。</div>`,
+      );
+    }
+    if (missingChannels.length === 0) {
+      return nextStepBox(
+        "green",
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+      );
+    }
+    // 아직 남은 채널이 있다 — 요구 채널이 2개 이상일 때만 이름을 병기(단일 채널이면
+    // 군더더기라 daily-digest 메일과 같은 기준으로 생략).
+    let missingLabel = "他のチャンネル分";
+    if (requiredChannels.length >= 2) {
+      const labelMap = await fetchChannelLabelMap(sb, missingChannels);
+      // 이름을 못 찾으면 코드값(channel-96r9y3 같은 것)을 그대로 보여주지 않는다.
+      //   그런 값이 메일에 실리면 받는 사람은 무엇을 내야 하는지 알 수 없다.
+      //   기준 데이터에서 채널이 사라지는 일은 실제로 있었다(채널 코드 이관 사고).
+      const labels = missingChannels.map((ch) => labelMap.get(ch)).filter(Boolean) as string[];
+      missingLabel = labels.length === missingChannels.length
+        ? labels.join("・")
+        : "他のチャンネル分";
+    }
+    return nextStepBox(
+      "blue",
+      `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>次のステップ — 残りのレビュー画像の提出</strong></div>` +
+      `<div style="font-size:13px;color:#222;line-height:1.7">${escapeHtml(missingLabel)}のレビュー画像がまだ未提出、または未承認です。「活動管理」から提出してください。</div>`,
     );
   }
+
   if (kind === "post") {
-    return (
-      `<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:16px 18px;margin-bottom:22px">` +
-      `<div style="font-size:11px;font-weight:700;color:#166534;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">次のステップ</div>` +
-      `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>` +
-      `</div>`
+    // ⚠️ 예전에는 여기서 무조건 「전부 완료·지급 준비」라고 했다. 근거는 「시딩·방문형은
+    //   승인된 게시물 1건이면 인증 성공」이었는데, **마이그레이션 331 이 그 규칙을 뒤집었다**
+    //   (요구한 채널 전부가 승인돼야 성공 — 2026-08-10 사용자 결정).
+    //   그대로 두면 **서버는 지급 대상이 아닌데 메일은 지급을 예고**한다. 리뷰 인증샷 분기와
+    //   같은 방식으로 채널 완성 여부를 본다.
+    const requiredChannels = (camp.channel || "")
+      .split(",").map((c) => c.trim()).filter(Boolean);
+    // 채널이 기록 안 된 옛 캠페인 — 판정할 근거가 없다. 서버 판정에서도 인증 성공이 되지 않으므로
+    //   완료를 단정하지 않는다(리뷰 인증샷 분기와 같은 판단).
+    if (requiredChannels.length === 0) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">投稿URLが承認されました。次のステップは「活動管理」でご確認ください。</div>`,
+      );
+    }
+    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "post");
+    if (missingChannels === null) {
+      return nextStepBox(
+        "blue",
+        `<div style="font-size:13px;color:#222;line-height:1.7">投稿URLが承認されました。他のチャンネル分の提出状況は「活動管理」でご確認ください。</div>`,
+      );
+    }
+    if (missingChannels.length === 0) {
+      return nextStepBox(
+        "green",
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+      );
+    }
+    let missingLabel = "他のチャンネル分";
+    if (requiredChannels.length >= 2) {
+      const labelMap = await fetchChannelLabelMap(sb, missingChannels);
+      const labels = missingChannels.map((ch) => labelMap.get(ch)).filter(Boolean) as string[];
+      missingLabel = labels.length === missingChannels.length ? labels.join("・") : "他のチャンネル分";
+    }
+    return nextStepBox(
+      "blue",
+      `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>次のステップ — 残りの投稿URLの提出</strong></div>` +
+      `<div style="font-size:13px;color:#222;line-height:1.7">${escapeHtml(missingLabel)}の投稿URLがまだ未提出、または未承認です。「活動管理」から提出してください。</div>`,
     );
   }
   return "";
@@ -319,12 +545,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // 결과물 + 캠페인 + 인플루언서 정보 조회
+  // application_id·campaigns.recruit_type/proxy_purchase/channel 은 buildNextStepBlock 이
+  // "다음 단계" 안내를 모집 형식별로 분기하는 데 필요(2026-08 전수조사 묶음 F).
   const { data: deliv, error: delivErr } = await sb
     .from("deliverables")
     .select(`
-      id, kind, status, post_url, post_channel,
+      id, application_id, kind, status, post_url, post_channel,
       submitted_at, reviewed_at, reject_reason,
-      campaigns:campaign_id (id, title, brand)
+      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel)
     `)
     .eq("id", note.ref_id)
     .maybeSingle();
@@ -377,8 +605,20 @@ Deno.serve(async (req: Request) => {
       `</div>`
     : "";
 
-  // 승인 케이스에만 들어가는 다음 단계 안내 블록 (kind 별 분기).
-  const nextStepBlock = decision === "approved" ? buildNextStepBlock(deliv.kind, activityLink) : "";
+  // 승인 케이스에만 들어가는 다음 단계 안내 블록 (kind × 모집 형식 별 분기).
+  // ⚠️ 이 블록을 만드는 데 데이터베이스 조회가 최대 2회 들어간다(채널 완성 여부·채널 이름).
+  //    예전엔 문자열 조립뿐이라 실패할 수 없었다. 여기서 예외가 밖으로 나가면
+  //    **검수 결과 메일 자체가 통째로 안 나가고**(mail_sent_at 이 비어 손으로 복구해야 한다),
+  //    인플루언서는 승인·반려 사실을 아예 못 받는다. 안내 한 줄보다 메일이 나가는 게 먼저다.
+  let nextStepBlock = "";
+  if (decision === "approved") {
+    try {
+      nextStepBlock = await buildNextStepBlock(sb, deliv.kind, (deliv as any).application_id, camp as NextStepCampaign);
+    } catch (e) {
+      console.error("[notify-deliverable-decision] next step block failed — sending without it", e);
+      nextStepBlock = "";
+    }
+  }
 
   // 템플릿 변수 빌드 (placeholder 키는 모든 6개 템플릿에서 공통)
   // post_url 은 href 속성에 들어가므로 http(s) 스킴만 통과시키는 safeUrl 적용.

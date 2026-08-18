@@ -118,7 +118,11 @@ async function loadMyApplications() {
   // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지
   allCampaigns = await fetchCampaigns();
   renderMyApplyTabs();
-  renderMyApplyList();
+  // ⚠️ 반드시 기다린다 — renderMyApplyList 안에서 결과물 캐시(_myDelivsByApp)를 채운다.
+  //   안 기다리면 이 함수를 await 한 쪽은 캐시가 빈 채로 다음 화면을 그린다.
+  //   실제 증상: 알림에서 바로 메시지 화면으로 들어가면 반려 사유가 안 보이고,
+  //   응모이력을 거쳐 들어가면 보였다 — 같은 화면인데 경로에 따라 달랐다(전수조사 F-13).
+  await renderMyApplyList();
 }
 
 // 상태 필터 드롭다운(제목 우측) 렌더 — 각 항목에 건수 병기. 進行中(기본) 우선 노출
@@ -449,8 +453,9 @@ async function changePassword() {
   if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent=t('authError.serverError'); err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
-  // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
-  if (error) { err.textContent=t('authError.genericError'); err.style.display='block'; return; }
+  // 영문 서버 메시지 노출 금지 — 일반 안내로 통일.
+  //   ⚠️ 그 대신 원문이 어디에도 안 남았다. 화면 문구는 그대로 두고 기록만 추가한다.
+  if (error) { logAppError('changePassword', error); err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }
@@ -630,7 +635,8 @@ async function renderMySettlements() {
   }
 
   let rows = [];
-  try { rows = await fetchMySettlements(); } catch(e) { rows = []; }
+  // ⚠️ 조회 실패가 「정산 내역 0건」과 구분되지 않는다(금전 화면이라 오해 여지가 크다).
+  try { rows = await fetchMySettlements(); } catch(e) { logAppError('renderMySettlements', e); rows = []; }
   // 취소 건 숨김
   rows = (rows || []).filter(r => r && r.status !== 'cancelled');
 
@@ -1063,6 +1069,14 @@ async function submitCancelApplicationFromPage() {
       showErr(t('appHistory.cancel.reasonNowRequired'));
       return;
     }
+    // ⚠️ 이 사전이 「3개월 침묵」의 정확한 지점이었다. 취소 함수가 서버에서 죽어 있었는데
+    //    그 오류가 사전에 없어 errorGeneric(「취소하지 못했습니다」)으로 덮였고,
+    //    friendlyErrorJa 를 안 거쳐 관리자 오류 로그에도 안 남았다.
+    //    문구·동작은 그대로 두고, 사전에 없는 값일 때만 「예상 못 한 오류」로 기록한다.
+    const CANCEL_EXPECTED = [
+      'not_owner', 'invalid_status', 'deliverable_already_approved',
+      'reason_required', 'acknowledgement_required', 'application_not_found'
+    ];
     const errKey = {
       'not_owner':                    'appHistory.cancel.errorOwner',
       'invalid_status':               'appHistory.cancel.errorStatus',
@@ -1071,16 +1085,16 @@ async function submitCancelApplicationFromPage() {
       'acknowledgement_required':     'appHistory.cancel.errorAck',
       'application_not_found':        'appHistory.cancel.errorNotFound'
     }[res.error] || 'appHistory.cancel.errorGeneric';
+    logAppError('submitCancelApplication', res.error, CANCEL_EXPECTED);
     showErr(t(errKey));
     return;
   }
-  // 성공 — 알림 생성, 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
-  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === appId)?.campaign_id)) || {};
-  try {
-    if (typeof insertApplicationCancelledNotification === 'function') {
-      await insertApplicationCancelledNotification(appId, camp.title || '');
-    }
-  } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
+  // 성공 — 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
+  //   ⚠️ 취소 알림은 **서버가 만든다**(마이그레이션 309). 예전에는 여기서 브라우저가
+  //      `notifications` 에 직접 넣었는데, 그 표는 서버 함수·트리거만 쓸 수 있어
+  //      **도입 이래 한 번도 성공한 적이 없었다**(운영 실측 취소 30건 / 알림 0건).
+  //      실패가 `catch(_e) {}` 로 삼켜져 아무도 몰랐다. 여기서 다시 부르면 알림이
+  //      두 개가 되므로 되살리지 말 것.
   toast(t('appHistory.cancel.success'));
   _cancelTargetAppId = null;
   await loadMyApplications();

@@ -1536,8 +1536,31 @@ function collectCard(el) {
   return out;
 }
 
+// 카드 고유 번호(uid) 되받기 — 마이그레이션 329
+//   ⚠️ 폼은 uid 를 **만들지 않는다**(만드는 곳은 서버 저장 함수 한 곳뿐 — 마이그레이션 293).
+//   그래서 서버가 붙인 번호를 **돌려받아 담아 두지 않으면 폼은 자기 카드의 번호를 영영 모른다.**
+//   293 의 물려주기 규칙은 「카드 개수가 같을 때만」이라, 번호를 안 실어 보내는 상태에서
+//   **카드를 하나만 추가해도 모든 카드가 새 번호를 받고 관리자 메모가 전부 고아**가 된다.
+//
+//   ⚠️ 짝짓기는 **요청을 만들 때 훑은 그 요소 목록**에만 순서대로 적용한다.
+//   응답이 온 뒤 화면을 다시 훑으면 그 사이 사용자가 카드를 추가·삭제했을 때
+//   한 칸씩 밀려 붙는다 — 293 이 경계한 바로 그 사고가 이쪽에서 재현된다.
+let lastCollectedCardEls = [];
+
+function applyCardUids(cardEls, uids) {
+  if (!Array.isArray(cardEls) || !Array.isArray(uids)) return;
+  for (let i = 0; i < cardEls.length && i < uids.length; i++) {
+    const uid = uids[i];
+    if (!uid || !cardEls[i]) continue;
+    // 조건 없이 덮어쓴다 — 서버가 「있으면 그대로 유지」(293 규칙 ①)하므로
+    //   이미 붙어 있던 카드는 같은 값이 다시 들어올 뿐이다.
+    cardEls[i].setAttribute('data-uid', String(uid));
+  }
+}
+
 function collectData() {
-  const cards = Array.from(document.querySelectorAll('.ocard')).map(collectCard);
+  lastCollectedCardEls = Array.from(document.querySelectorAll('.ocard'));
+  const cards = lastCollectedCardEls.map(collectCard);
   return {
     brand: {
       name: $('f_brand_name').value.trim(),
@@ -1584,6 +1607,7 @@ function localBackup(data) {
 async function doAutosave() {
   if (conflicted || !sb || !token) return;
   const data = collectData();
+  const cardEls = lastCollectedCardEls.slice();   // 요청 시점의 목록을 붙잡아 둔다(위 주석)
   localBackup(data);
   try {
     const { data: res, error } = await sb.rpc('save_orient_draft', {
@@ -1593,6 +1617,7 @@ async function doAutosave() {
 
     if (res && res.success === true) {
       currentVersion = res.version;
+      applyCardUids(cardEls, res.card_uids);   // 서버가 붙인 번호를 담아 둔다(다음 저장 때 실어 보냄)
       dirty = false;
       const now = new Date();
       const hh = String(now.getHours()).padStart(2, '0');
@@ -1778,6 +1803,7 @@ async function submitSheet() {
   const invalid = findInvalidField();
   if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
   const data = collectData();
+  const cardEls = lastCollectedCardEls.slice();   // 요청 시점의 목록을 붙잡아 둔다(위 주석)
 
   const btn = $('btnSubmit');
   btn.disabled = true;
@@ -1793,6 +1819,7 @@ async function submitSheet() {
 
     if (res && res.success === true) {
       currentVersion = res.version;
+      applyCardUids(cardEls, res.card_uids);   // 제출 뒤에도 수정할 수 있으므로 여기서도 담아 둔다
       currentStatus = 'submitted';
       dirty = false;
       try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}

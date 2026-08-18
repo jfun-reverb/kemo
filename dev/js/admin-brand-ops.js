@@ -208,7 +208,8 @@ async function loadBrandOpsDetail() {
   var results = await Promise.all([
     getBrandOpsDetail(_brandOpsDetailId),
     fetchApplications(),
-    db ? db.from('influencers').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
+    // ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212, 조치 계획 묶음 E-1).
+    db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
   ]);
   var detail = results[0];
   var apps = results[1] || [];
@@ -292,10 +293,15 @@ async function hydrateCampCertBars() {
   await Promise.all(slotEls.map(async function(el) {
     var campId = el.getAttribute('data-camp-cert');
     var slotsN = parseInt(el.getAttribute('data-slots') || '0', 10);
+    // 화면 속성으로 흉내 낸 캠페인 — 조회가 실제 캠페인 행을 물어오면 그걸로 갈아탄다(아래).
+    //   흉내 객체에는 가구매(proxy_purchase) 여부가 없어, 그대로 두면 가구매 캠페인의
+    //   인증 성공 막대가 0에서 굳는다(결과물 관리·정산은 성공으로 세는데 이 화면만 다름).
     var camp = { id: campId, recruit_type: el.getAttribute('data-rt') || '', channel: el.getAttribute('data-ch') || '' };
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
+    // 결과물이 0건이면 갈아탈 대상이 없지만, 그때는 인증 성공도 0이라 판정에 쓰이지 않는다.
+    if (delivs.length && delivs[0].campaigns) camp = delivs[0].campaigns;
     // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
     // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
     var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
@@ -394,12 +400,18 @@ function brandOpsMiniDateLine(text) {
 }
 
 // 제출 진행바 하단 텍스트: 리뷰어=구매기간 / 방문형=방문기간 + 제출마감
+//   ⚠️ 리뷰어형은 구매 기간이 모집 기간과 **글자 그대로 같게** 저장된다. 그 날짜는 바로 위
+//      모집 진행바 아래에 이미 있으므로, 같으면 여기서는 그리지 않는다(2026-08-11). 판정은
+//      공용 헬퍼 하나만 쓴다 — 캠페인 목록·진행현황 카드와 같은 소스.
+//   ⚠️ 시딩형 선정 기간은 여기 넣지 않는다. 이 줄은 **제출** 진행바에 딸린 설명이고 선정은
+//      모집 단계의 일이라, 넣으면 진행바가 말하는 것과 다른 이야기가 붙는다.
 function brandOpsSubmitDateText(c) {
   var parts = [];
-  if (c.recruit_type === 'monitor') {
+  var kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(c) : 'none';
+  if (kind === 'split') {
     var pr = brandOpsDateRange(c.purchase_start, c.purchase_end);
     if (pr) parts.push('구매 ' + pr);
-  } else if (c.recruit_type === 'visit') {
+  } else if (kind === 'visit') {
     var vr = brandOpsDateRange(c.visit_start, c.visit_end);
     if (vr) parts.push('방문 ' + vr);
   }

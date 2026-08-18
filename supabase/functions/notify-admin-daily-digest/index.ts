@@ -777,8 +777,41 @@ Deno.serve(async (req: Request) => {
 
   // ── 1. INSERT 선행 mutex (status='failed' 마커) ──
   //    digest_date UNIQUE 가 mutex 역할 → 동시 호출 차단
+  //
+  //    [F-5, 2026-08] 예전엔 23505(이미 있음) 를 만나면 무조건 "이미
+  //    처리됨"으로 끝냈다. 그런데 이 마커 행이 처리 도중 함수가 죽으면
+  //    (타임아웃·플랫폼 재시작 등) status='failed'·error_message=
+  //    'in-flight' 인 채로 영원히 남는다 — 그러면 그날은 몇 번을 다시
+  //    불러도 "이미 처리됨" 취급돼 발송이 영영 안 나가는데, 재호출은
+  //    200(정상 응답)을 주므로 운영자는 "보냈는데 안 온다"로 오인한다.
+  //    복구법이 코드·주석 어디에도 없었다.
+  //
+  //    지금은 23505 를 만나면 기존 행을 직접 읽어 ①이미 끝난 상태
+  //    (sent/skipped_no_data)면 그대로 스킵 ②아직 안 끝난 상태(failed
+  //    — 크래시였을 수도, 진짜 실패로 끝났을 수도 있다)면
+  //    RETRY_COOLDOWN_MS 가 지났을 때만 "내가 이어받는다"는 조건부
+  //    UPDATE 를 시도한다. 이 UPDATE 는 직전에 읽은 run_at 값이 그대로일
+  //    때만 통과한다(낙관적 락 — dev/lib/storage.js updateCampaign() 의
+  //    version 조건부 UPDATE 와 같은 원리. run_at 을 새 시각으로 같이
+  //    바꿔 쓰므로, 두 재호출이 동시에 들어와도 먼저 커밋한 쪽만 통과하고
+  //    나머지는 조건 불일치로 0행 UPDATE — "먼저 잡은 쪽만 진행"이 보장됨).
+  //
+  //    RETRY_COOLDOWN_MS = 10분 — 이 함수는 체이닝 없는 단발성 실행이라
+  //    정상 처리는 Deno Edge Function 실행 시간 상한(이 저장소의 다른
+  //    함수 주석 기준 약 150초, 예: notify-campaign-promo-digest·
+  //    notify-policy-change) 안에 반드시 끝나거나 플랫폼에 죽는다. 10분은
+  //    그 150초의 약 4배 여유 — 실제로 아직 실행 중인 프로세스와 충돌할
+  //    가능성을 사실상 배제하면서도, 당일 안에 재시도가 통하기 충분히 짧다.
+  const RETRY_COOLDOWN_MS = 10 * 60 * 1000;
+  // [리뷰 반영 1/2026-08] "내가 지금 이 실행의 주인"임을 끝까지(finalizeRun 까지)
+  // 들고 갈 값. mutex 를 잡은 방식(새 INSERT vs 재시도 UPDATE)에 따라 아래에서
+  // 채운다. finalizeRun 이 이 값으로 조건부 UPDATE 를 하므로, 쿨다운 판단이
+  // 틀려서(실행 상한 가정이 빗나가서) 원본과 재시도가 동시에 살아있어도 최종
+  // 상태 기록만큼은 한쪽이 이긴다 — 이미 나간 메일은 못 되돌리지만 로그가
+  // 거짓으로 덮이는 건 막는다.
+  let ownedRunAt: string | null = null;
   {
-    const { error } = await sb
+    const { data: inserted, error } = await sb
       .from("admin_daily_digest_runs")
       .insert({
         digest_date: digestDate,
@@ -786,31 +819,105 @@ Deno.serve(async (req: Request) => {
         sections_summary: {},
         recipients_count: 0,
         error_message: "in-flight",
-      });
+      })
+      .select("run_at")
+      .maybeSingle();
     if (error) {
       if ((error as { code?: string }).code === "23505") {
-        // 이미 처리됨 (중복 호출 차단)
-        console.log("[notify-admin-daily] already processed", digestDate);
-        return new Response(
-          JSON.stringify({ ok: true, skipped: true, reason: "already_processed", digestDate }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
+        const { data: existing, error: selErr } = await sb
+          .from("admin_daily_digest_runs")
+          .select("status, run_at")
+          .eq("digest_date", digestDate)
+          .maybeSingle();
+        if (selErr || !existing) {
+          console.error("[notify-admin-daily] existing row lookup failed after 23505", selErr);
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "already_processed", digestDate }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (existing.status === "sent" || existing.status === "skipped_no_data") {
+          // 이미 끝난 상태(성공/데이터없음) — 재시도 없이 그대로 스킵
+          console.log("[notify-admin-daily] already processed (terminal)", digestDate, existing.status);
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "already_processed", digestDate, priorStatus: existing.status }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // status === 'failed' — 크래시로 멈췄거나 진짜 실패. 최소 대기 시간 확인.
+        const runAtMs = new Date(existing.run_at as string).getTime();
+        const elapsedMs = Date.now() - runAtMs;
+        if (elapsedMs < RETRY_COOLDOWN_MS) {
+          // 아직 실행 중일 가능성을 배제 못 함 — 재시도하지 않고 대기 안내만
+          console.log("[notify-admin-daily] recent failed/in-flight row, cooldown not elapsed — skip retry", {
+            digestDate, elapsedMs, cooldownMs: RETRY_COOLDOWN_MS,
+          });
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "recent_failure_cooldown", digestDate, elapsedMs }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // 쿨다운 경과 — 조건부 UPDATE 로 "내가 이어받는다" 시도
+        const retryRunAt = new Date().toISOString();
+        const { data: claimed, error: claimErr } = await sb
+          .from("admin_daily_digest_runs")
+          .update({
+            status: "failed",
+            sections_summary: {},
+            recipients_count: 0,
+            error_message: "in-flight (retry)",
+            run_at: retryRunAt,
+          })
+          .eq("digest_date", digestDate)
+          .eq("run_at", existing.run_at as string)
+          .select("id");
+        if (claimErr || !claimed || claimed.length === 0) {
+          // 다른 재호출이 먼저 가져갔거나 그 사이 상태가 바뀜 — 이번 호출은 양보
+          console.log("[notify-admin-daily] lost retry race or already claimed", digestDate, claimErr);
+          return new Response(
+            JSON.stringify({ ok: true, skipped: true, reason: "retry_race_lost", digestDate }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        ownedRunAt = retryRunAt; // 방금 내가 써넣은 값 — finalizeRun 의 소유권 조건으로 재사용
+        console.warn("[notify-admin-daily] retrying stale/failed run", digestDate, { priorRunAt: existing.run_at });
+        // 아래로 흘러 정상 처리 진행 (INSERT 대신 이 UPDATE 로 mutex 를 확보한 상태)
+      } else {
+        console.error("[notify-admin-daily] mutex INSERT failed", error);
+        return new Response(JSON.stringify({ error: "mutex insert failed", detail: error.message }), {
+          status: 500, headers: { "content-type": "application/json" },
+        });
       }
-      console.error("[notify-admin-daily] mutex INSERT failed", error);
-      return new Response(JSON.stringify({ error: "mutex insert failed", detail: error.message }), {
-        status: 500, headers: { "content-type": "application/json" },
-      });
+    } else {
+      ownedRunAt = (inserted?.run_at as string | undefined) ?? null;
+      if (!ownedRunAt) {
+        // INSERT 는 성공했는데 run_at 을 못 읽어온 경우(있어선 안 되지만) —
+        // 소유권 검증 없이 진행한다는 걸 로그에 남긴다.
+        console.error("[notify-admin-daily] mutex INSERT succeeded but run_at missing from response — ownership check disabled for this run", digestDate);
+      }
     }
   }
 
   // 헬퍼: 종료 시 admin_daily_digest_runs UPDATE
+  //
+  // [리뷰 반영 1] mutex 를 "잡을 때"는 run_at 조건부 UPDATE 로 소유권을
+  // 확인하면서 "끝낼 때"(finalizeRun)는 digest_date 로만 UPDATE 했었다 —
+  // 자기가 그 실행의 주인인지 다시 확인하지 않았다. 쿨다운(10분) 은 「실행
+  // 시간 상한 약 150초」라는 검증 안 된 가정에 기대는데, 실제 상한이 더
+  // 길거나 이 실행이 우연히 느려져 쿨다운을 넘기면, 재시도가 "죽었다"고
+  // 오판해 소유권을 가져가는 데 성공하고 원본과 재시도가 둘 다 계속 돈다
+  // — 그러면 최종 상태를 서로 덮어써서 로그가 거짓말을 하게 된다(메일
+  // 자체의 중복은 별개 — 그건 이미 나간 뒤라 여기서 못 막는다).
+  // 그래서 ownedRunAt 이 있으면 그 값으로도 조건을 걸고, 0행이면(=그 사이
+  // 다른 실행이 run_at 을 바꿔써서 내가 더 이상 주인이 아니면) 덮어쓰지
+  // 않고 console.error 로만 남긴다.
   const finalizeRun = async (payload: {
     status: "sent" | "skipped_no_data" | "failed";
     sections_summary: Record<string, number>;
     recipients_count: number;
     error_message?: string | null;
   }) => {
-    const { error } = await sb
+    let q = sb
       .from("admin_daily_digest_runs")
       .update({
         status: payload.status,
@@ -819,7 +926,18 @@ Deno.serve(async (req: Request) => {
         error_message: payload.error_message ?? null,
       })
       .eq("digest_date", digestDate);
-    if (error) console.error("[notify-admin-daily] finalize UPDATE failed", error);
+    if (ownedRunAt != null) q = q.eq("run_at", ownedRunAt);
+    const { data, error } = await q.select("id");
+    if (error) {
+      console.error("[notify-admin-daily] finalize UPDATE failed", error);
+      return;
+    }
+    if (ownedRunAt != null && (!data || data.length === 0)) {
+      console.error(
+        "[notify-admin-daily] finalizeRun: 소유권을 잃어 최종 상태를 기록하지 못함(run_at 불일치) — 덮어쓰지 않음",
+        digestDate, ownedRunAt, payload.status,
+      );
+    }
   };
 
   try {
@@ -895,35 +1013,38 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const receivedRows = (receivedRes.data || []) as ReceivedRow[];
-    const cancelledRows = (cancelledRes.data || []) as CancelledRow[];
-    const submittedEvents = (submittedEventsRes.data || []) as SubmittedEvent[];
-    const deliverableReprocessEvents = (deliverableReprocessEventsRes.data || []) as DeliverableReprocessEvent[];
-    const applicationReprocessEvents = (applicationReprocessEventsRes.data || []) as ApplicationReprocessEvent[];
+    // [F-7] 아래 5개를 let 으로 선언 — 감사용 계정(is_audit=true) 행을 걸러낸
+    // 뒤 같은 이름으로 재대입한다(하단 [F-7] 필터링 블록). 이후 코드(HTML 렌더
+    // 포함)는 전부 이 이름을 그대로 참조하므로 변수명은 바꾸지 않는다.
+    let receivedRows = (receivedRes.data || []) as ReceivedRow[];
+    let cancelledRows = (cancelledRes.data || []) as CancelledRow[];
+    let submittedEvents = (submittedEventsRes.data || []) as SubmittedEvent[];
+    let deliverableReprocessEvents = (deliverableReprocessEventsRes.data || []) as DeliverableReprocessEvent[];
+    let applicationReprocessEvents = (applicationReprocessEventsRes.data || []) as ApplicationReprocessEvent[];
 
-    const sectionsSummary = {
+    // ── 3. 4섹션 모두 0건(감사용 계정 필터 적용 전) → 스킵 ──
+    //    이 시점엔 아직 감사용 여부를 판정할 수 없다(섹션 3·4 는 deliverable_id/
+    //    application_id 만 갖고 있어 user_id 를 알려면 아래 [F-7] 배치 lookup 이
+    //    끝나야 함). 여기서는 "애초에 아무 일도 없던 날"만 먼저 걸러 불필요한
+    //    조회를 피한다 — 아래에 [F-7] 필터 후 재확인이 한 번 더 있다.
+    const totalCountRaw =
+      receivedRows.length + cancelledRows.length + submittedEvents.length +
+      deliverableReprocessEvents.length + applicationReprocessEvents.length;
+    console.log("[notify-admin-daily] sections (raw, 감사용 필터 전)", {
       received: receivedRows.length,
       cancelled: cancelledRows.length,
       submitted: submittedEvents.length,
       reprocessed: deliverableReprocessEvents.length + applicationReprocessEvents.length,
-    };
-    const totalCount =
-      sectionsSummary.received +
-      sectionsSummary.cancelled +
-      sectionsSummary.submitted +
-      sectionsSummary.reprocessed;
-
-    console.log("[notify-admin-daily] sections", sectionsSummary);
-
-    // ── 3. 4섹션 모두 0건 → 스킵 ──
-    if (totalCount === 0) {
+    });
+    if (totalCountRaw === 0) {
+      const emptySummary = { received: 0, cancelled: 0, submitted: 0, reprocessed: 0 };
       await finalizeRun({
         status: "skipped_no_data",
-        sections_summary: sectionsSummary,
+        sections_summary: emptySummary,
         recipients_count: 0,
       });
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "no_data", digestDate, sectionsSummary }),
+        JSON.stringify({ ok: true, skipped: true, reason: "no_data", digestDate, sectionsSummary: emptySummary }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
     }
@@ -967,13 +1088,101 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 전체 campaign_id / user_id 모음
+    // ── [F-7] 감사용 계정(is_audit=true) 제외 ────────────────────────
+    //   감사용 계정은 운영팀이 인플루언서 동선을 시뮬레이션하는 공용 계정이다
+    //   (마이그레이션 179). 응모수·정원·대시보드 KPI·운영현황·엑셀에서는 이미
+    //   격리돼 있는데(마이그레이션 179·181) 이 관리자 다이제스트는 그 목록에
+    //   없었다 — 관리자가 매일 받는 요약 메일에 가짜 활동이 실제 신청·취소·
+    //   제출·재처리와 섞여 나갔다(전수조사 F-7).
+    //   섹션 1·2(receivedRows/cancelledRows)는 user_id 를 직접 갖고 있어
+    //   바로 거를 수 있지만, 섹션 3·4(submittedEvents/deliverableReprocess
+    //   Events/applicationReprocessEvents)는 deliverable_id/application_id 만
+    //   갖고 있어 방금 채운 deliverableMap/reprocessAppMap 이 있어야 user_id 를
+    //   알 수 있다 — 그래서 이 필터를 그 두 맵이 준비된 지금 위치에서 한다.
+    //   판정 기준은 이 저장소의 다른 곳(마이그레이션 181·218·231·232·242·259)과
+    //   동일하게 `is_audit = true`(컬럼이 NOT NULL DEFAULT false 라 COALESCE
+    //   불필요 — CLAUDE.md quality 규칙 「다른 곳과 같은 방식을 따르라」).
+    const auditUserIds = new Set<string>();
+    {
+      const { data: auditRows, error } = await sb
+        .from("influencers")
+        .select("id")
+        .eq("is_audit", true);
+      if (error) {
+        // 조회 실패 시 아무도 감사용으로 간주하지 않는다(모르면 지우지 않는다) —
+        // 실제 관리자에게 갈 메일을 잘못 걸러 조용히 사라지게 하는 것보다,
+        // 드물게 감사용 계정 활동이 한 줄 섞이는 쪽이 안전하다.
+        console.warn("[notify-admin-daily] audit influencer lookup failed — 감사용 계정을 걸러내지 못했습니다", error);
+      } else {
+        (auditRows || []).forEach((r: { id: string }) => auditUserIds.add(r.id));
+      }
+    }
+    if (auditUserIds.size > 0) {
+      receivedRows = receivedRows.filter((r) => !auditUserIds.has(r.user_id));
+      cancelledRows = cancelledRows.filter((r) => !auditUserIds.has(r.user_id));
+      submittedEvents = submittedEvents.filter((e) => {
+        const d = deliverableMap.get(e.deliverable_id);
+        return !d || !auditUserIds.has(d.user_id); // 조회 실패(d 없음)는 배제하지 않음
+      });
+      deliverableReprocessEvents = deliverableReprocessEvents.filter((e) => {
+        const d = deliverableMap.get(e.deliverable_id);
+        return !d || !auditUserIds.has(d.user_id);
+      });
+      applicationReprocessEvents = applicationReprocessEvents.filter((e) => {
+        const a = reprocessAppMap.get(e.application_id);
+        return !a || !auditUserIds.has(a.user_id);
+      });
+    }
+
+    // [F-7] 감사용 계정 필터 반영한 최종 섹션 집계 — 메일 본문·제목·배지·
+    //   admin_daily_digest_runs 로그가 전부 이 값을 쓴다(총 5곳, 위 grep 확인).
+    const sectionsSummary = {
+      received: receivedRows.length,
+      cancelled: cancelledRows.length,
+      submitted: submittedEvents.length,
+      reprocessed: deliverableReprocessEvents.length + applicationReprocessEvents.length,
+    };
+    const totalCount =
+      sectionsSummary.received +
+      sectionsSummary.cancelled +
+      sectionsSummary.submitted +
+      sectionsSummary.reprocessed;
+
+    console.log("[notify-admin-daily] sections (감사용 제외 후)", sectionsSummary);
+
+    // [F-7] 그날 활동이 전부 감사용 계정이었던 경우 — 위 totalCountRaw 체크는
+    //   통과했지만(진짜 데이터가 있었음) 필터 후 0건이면 여기서 다시 스킵한다.
+    if (totalCount === 0) {
+      await finalizeRun({
+        status: "skipped_no_data",
+        sections_summary: sectionsSummary,
+        recipients_count: 0,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "no_data_after_audit_exclude", digestDate, sectionsSummary }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    // 전체 campaign_id / user_id 모음 — 감사용 필터를 이미 거친 배열/맵 순회만 쓴다
+    // ([F-7] deliverableMap·reprocessAppMap 자체는 감사용 항목도 여전히 담고 있는
+    //  범용 조회표라, 그걸 통째로 순회하지 않고 필터된 이벤트 배열을 기준으로 삼는다).
     const campaignIds = new Set<string>();
     const userIds = new Set<string>();
     receivedRows.forEach((r) => { campaignIds.add(r.campaign_id); userIds.add(r.user_id); });
     cancelledRows.forEach((r) => { campaignIds.add(r.campaign_id); userIds.add(r.user_id); });
-    deliverableMap.forEach((d) => { campaignIds.add(d.campaign_id); userIds.add(d.user_id); });
-    reprocessAppMap.forEach((a) => { campaignIds.add(a.campaign_id); userIds.add(a.user_id); });
+    submittedEvents.forEach((e) => {
+      const d = deliverableMap.get(e.deliverable_id);
+      if (d) { campaignIds.add(d.campaign_id); userIds.add(d.user_id); }
+    });
+    deliverableReprocessEvents.forEach((e) => {
+      const d = deliverableMap.get(e.deliverable_id);
+      if (d) { campaignIds.add(d.campaign_id); userIds.add(d.user_id); }
+    });
+    applicationReprocessEvents.forEach((e) => {
+      const a = reprocessAppMap.get(e.application_id);
+      if (a) { campaignIds.add(a.campaign_id); userIds.add(a.user_id); }
+    });
 
     const campaignMap = new Map<string, CampaignRow>();
     if (campaignIds.size > 0) {
@@ -1144,6 +1353,18 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 9. 메일 발송 ── 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
+    //
+    // [리뷰 반영 3] ⚠️ 잔여 위험 — 이 루프는 "누구에게 보냈는지"를 개별로
+    // 기록하는 표가 없다(집계 recipients_count 만 남음). 그래서 이 실행이
+    // 일부 관리자에게 보낸 뒤 죽으면(F-5 로 재시도가 안전해졌다고 해서
+    // 이 문제까지 없어진 건 아님), 나중에(쿨다운 10분 경과 후) 재시도가
+    // 들어와도 "누가 이미 받았는지" 알 길이 없어 adminEmails 전원에게
+    // 처음부터 다시 보낸다 — 이미 받은 관리자는 같은 다이제스트를 두 번
+    // 받는다. 운영자가 이 함수를 수동으로 다시 부르기 전에는 Brevo
+    // 발송 이력(또는 admin_daily_digest_runs.error_message 의 실패 목록)
+    // 으로 직전 실행이 몇 명까지 보냈는지 먼저 확인할 것 — 「재시도가
+    // 안전해졌다」는 자물쇠(mutex) 자체의 중복 실행 얘기지, 이 루프의
+    // 부분 발송 뒤 재시도 중복까지 막아주는 게 아니다.
     let successCount = 0;
     const failures: { email: string; error: string }[] = [];
     for (const email of adminEmails) {

@@ -85,11 +85,28 @@ model: sonnet
 - [ ] `docs/FEATURE_SPEC.md`에 반영 필요한 기능 변경인가?
 - [ ] 마이그레이션 파일에 목적/롤백 주석이 있는가?
 - [ ] **요청서(`docs/specs/<날짜>-<주제>.md`)가 있는 PR은 요청서 항목 ↔ 실제 변경 diff 일치 확인** — 요청서에 명시된 파일·함수·마이그레이션이 diff에 전부 반영됐는지, diff에 요청서 범위 밖 변경이 없는지 교차 체크. 불일치 시 🟡 Warning + 구체적 누락/초과 항목 명시
-- [ ] **`docs/OPERATOR_GUIDE.md` 변경 시 동기화 마커 점검** — 수정한 섹션 헤더 바로 아래 `<!-- NOTION:SYNCED YYYY-MM-DD -->` 가 `<!-- NOTION:PENDING -->` 로 바뀌었는지. 안 바뀌었으면 🟡 Warning + 변경 섹션 번호 명시 (`.claude/rules/notion-sync.md` 규약)
+- [ ] **`docs/OPERATOR_GUIDE.md` 를 고쳤으면 🟡 Warning** — 이 파일은 **2026-08-07 동결된 보관본**이다. 실무자 가이드 정본은 Notion 이므로 이 파일을 고쳐도 실무자에게 전달되지 않는다. 「Notion 「관리자 가이드」 데이터베이스를 대신 고칠 것」으로 안내 (`.claude/rules/notion-sync.md`)
+- [ ] **실무자 화면 동작이 바뀌는 변경이면 Notion 갱신 필요 여부 보고** — 관리자 화면의 메뉴·탭·버튼·상태 종류·배포 상태(잠금/보류 포함)가 바뀌는 diff 면 🟡 Warning + **어느 화면 페이지의 무엇을 고쳐야 하는지** 명시. (수정은 메인 Claude 또는 사용자가 Notion 에서 수행)
 - [ ] **`docs/email-templates/` 변경 시 `_templates/` 미러 동기화 점검** — `git diff --stat` 에 `docs/email-templates/*.html` 변경이 있으면 `cmp -s docs/email-templates/<file> supabase/functions/notify-brand-application/_templates/<file>` 명령을 Bash로 실행해서 일치 검증. 불일치면 🔴 Critical + `bash scripts/sync-email-templates.sh` 실행 지시
 - [ ] **CLAUDE.md `## Features` 섹션 누락 감지 강화** — 신규 페인(adminPane-*) 추가 / 신규 lookup `kind` / 신규 RPC / 신규 마이그레이션이 있는데 CLAUDE.md 본문에 해당 키워드 grep 결과 0건이면 🟡 Warning
 
 → 누락 감지 시 🟡 Warning으로 보고하고 **어느 파일 어느 섹션**에 무엇을 추가해야 하는지 구체적으로 제안 (수정은 메인 Claude가 수행)
+
+### 낱말 전파 — 한 자리만 고친 문구 변경 감지 (2026-08-11 추가)
+
+화면에 **이름으로 등장하는 말**(기간·날짜 이름 / 상태·단계 이름 / 화면·메뉴·버튼 이름 / 금액 기준 안내문 / 모집 형식·채널)을 바꾼 diff 면 **옛 표현이 다른 곳에 남았는지 기계적으로 검색**한다. 오탈자·띄어쓰기·색상 변경은 대상 아님.
+
+- [ ] diff 에서 **없어진 문자열**(옛 이름)을 뽑아, 아래 5곳에 잔존하는지 `grep -rn` 으로 확인
+  1. `dev/` (번역 파일 `dev/lib/i18n/{ja,ko}.js` 포함)
+  2. `supabase/functions/` — 메일 본문
+  3. `docs/email-templates/` (+ `_templates/` 미러)
+  4. `supabase/migrations/`·`supabase/seed/` — 자주 묻는 질문(`faq_nodes`) 문안
+  5. `dev/js/admin-excel.js` — 엑셀 열 이름
+- [ ] **옛 표현이 남아 있으면 🟡 Warning** + 남은 파일·라인을 전부 나열하고, 「의도적으로 남긴 것인지 사용자에게 확인」을 메인 Claude 에게 요구. 일본어 문구면 **한국어 뜻을 함께** 적어 보고할 것(`.claude/rules/interaction.md` 병기 의무)
+- [ ] 새 **공용 판정 헬퍼**(`dev/lib/shared.js` 등)를 추가한 diff 면, 그 함수를 호출하는 자리 수를 세서 보고 — 옛 문구를 그대로 쓰는 화면이 함께 남아 있으면 🟡 Warning
+- 근거 규칙: `.claude/rules/request-validation.md` 「낱말 전파 점검」
+
+→ 실제 사고: 제출 마감 이름을 바꾸며 헬퍼를 만들어 놓고 네 자리에서만 써서, **매일 아침 나가는 메일이 2주 이른 날짜**를 안내한 채 5일간 방치됨
 
 ### 구조 적합성 — 무조건 실행 흔적 점검 (2026-05-21 추가)
 - [ ] 구조 영향 변경(데이터베이스 구조/화면 흐름/기능 동작/여러 파일 동시 수정)인데 **기존 구조·패턴과 충돌·중복·우회한 흔적**이 보이면 🟡 Warning — 개발 세션이 적합성 검토 없이 「무조건 실행」했을 가능성. 예: 기존 헬퍼·RPC·페인 패턴을 따르지 않고 별도 경로를 새로 판 경우, 기존 흐름과 모순되는 분기를 추가한 경우

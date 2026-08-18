@@ -43,7 +43,7 @@
 
 ### 알림
 - `fetchMyNotifications(opts)` / `markNotificationRead(...)` / `deleteNotification(...)` / `markAllNotificationsRead()` (515~571)
-- `insertApplicationCancelledNotification(...)` — 취소 알림 자동 생성 (576~604)
+- (취소 알림 생성 함수는 **삭제됨** — 마이그레이션 309로 서버 `cancel_application` 안으로 이관. `notifications` 는 쓰기 정책이 없어 브라우저에서 넣으면 반드시 실패한다)
 
 ### 기준 데이터 (lookup_values + 번들 3종)
 - `invalidateLookupCache(kind)` / `fetchLookups(kind)` / `fetchLookupsAll(kind)` (912~939)

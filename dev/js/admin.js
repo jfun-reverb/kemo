@@ -307,8 +307,8 @@ function updateCampTableHead() {
       <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th>모집기간</th>
-      <th>구매기간</th>
+      <th>기간</th>
+      <th>선정기간</th>
       <th>결과물 제출 마감</th>
       <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -547,20 +547,10 @@ async function loadAdminCampaigns(useCache) {
           <span style="font-size:10px;font-weight:600;color:${approvedCnt>0?'var(--pink)':'var(--muted)'}">${approvedCnt}승인${pendingCnt>0?` · <span style="color:var(--gold)">${pendingCnt}대기</span>`:''}</span>
         </div>
       </td>
-      ${adminReorderMode ? '' : (()=>{
-        // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종.
-        //   각 셀 종료일 옆에 D-day 라벨 (모집 마감·구매 마감·결과물 마감 임박 시각화)
-        //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
-        // 셀 헬퍼는 dev/js/ui.js 의 공용 periodRangeCell/periodSingleCell (결과물 관리와 공용).
-        var ps = (c.recruit_type === 'monitor') ? c.purchase_start
-               : (c.recruit_type === 'visit')   ? c.visit_start  : '';
-        var pe = (c.recruit_type === 'monitor') ? c.purchase_end
-               : (c.recruit_type === 'visit')   ? c.visit_end    : '';
-        return `
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.recruit_start, c.deadline)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`;
-      })()}
+      ${adminReorderMode ? '' : `
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${campaignPeriodsCell(c)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.selection_start, c.selection_end)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`}
       <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
@@ -569,8 +559,10 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  // 일반 모드 15컬럼(체크/캠페인/채널/브랜드/제품/상태/노출/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 일반 모드 15컬럼(체크/캠페인/채널/브랜드/제품/상태/노출/신청/기간/선정기간/제출마감/조회/등록일/수정일/액션)
   // 순서변경 모드(순서/캠페인/채널/브랜드/제품/상태/노출/신청/조회/등록일/수정일) / 일반 모드 컬럼 수
+  // ⚠️ 열 개수는 위 머리글(updateCampTableHead)과 반드시 같아야 한다 — 2026-08-11 에
+  //    모집·구매를 「기간」 한 열로 합치고(-1) 선정기간 열을 새로 넣어(+1) 15 를 유지한다.
   const emptyHtml = `<tr><td colspan="${adminReorderMode ? 11 : 15}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
@@ -638,13 +630,18 @@ function getRichEditor(id) {
           ['bold','italic','underline','strike'],
           [{ 'list': 'ordered' }, { 'list': 'bullet' }],
           ['link','blockquote'],
+          ['image'],
           ['clean']
         ],
-        handlers: { link: linkHandler }
+        handlers: { link: linkHandler, image: () => quillImageHandler(id) }
       },
       clipboard: { matchVisual: false }
     },
-    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+    // ⚠️ `image` 가 여기 없으면 **편집기에 넣는 순간 사라진다** — 정화 함수(sanitizeRich)를
+    //    아무리 열어도 저장까지 가지도 못한다. 두 곳은 한 세트다(2026-08-12).
+    //    ⓘ 관리자 공지사항은 같은 정화 함수를 쓰지만 **자기 편집기를 따로 만들고 이 목록에
+    //      image 를 넣지 않으므로** 동작이 그대로다(사용자 결정 — 캠페인 세 칸만 연다).
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote','image']
   });
   // 툴바+본문을 wrap 으로 감싸 미니 에디터와 같은 통합 박스 외관으로 전환
   const toolbar = q.getModule('toolbar')?.container;
@@ -655,9 +652,310 @@ function getRichEditor(id) {
     wrap.appendChild(toolbar);
     wrap.appendChild(host);
   }
+  // 붙여넣기 이미지 처리 — 화면 캡처는 올리고, 가져올 수 없는 외부 이미지는 안내한다.
+  _attachRichImagePaste(q, id);
   richEditors[id] = q;
   return q;
 }
+// ══════════════════════════════════════
+// 캠페인 리치 텍스트 — 이미지 넣기 (2026-08-12)
+//   사양서 docs/specs/2026-08-12-quill-image-upload.md
+// ══════════════════════════════════════
+
+// 검사 규칙은 미니 에디터(miniEditorInsertImageClick)와 **같은 값·같은 문구**를 쓴다 —
+//   두 편집기가 다른 말을 하면 운영자가 어느 쪽이 맞는지 알 수 없다.
+const RICH_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const RICH_IMG_MAX_BYTES = 5 * 1024 * 1024;
+// 한 번에 넣을 수 있는 장수 — 폴더를 통째로 고르는 사고를 막는다(되돌리기 단추가 없는 자리다)
+const RICH_IMG_MAX_COUNT = 20;
+// 올리기 전에 줄이는 기준. **가로 폭만** 본다 — 세로로 자른 긴 배너를 긴 변 기준으로
+// 줄이면 통째로 축소돼 글자가 뭉개진다. 가로가 이보다 좁으면 원본 그대로 올라간다.
+const RICH_IMG_MAX_WIDTH = 1600;
+
+// 올리기 전에 가로 폭만 줄인다. 실패하면 **원본 그대로** 올린다 — 줄이지 못하는 것이
+// 못 올리는 것보다 낫다(전에 없던 단계가 업로드를 막으면 안 된다).
+async function _shrinkRichImage(file) {
+  if (typeof compressImageFile !== 'function') return file;
+  try {
+    return await compressImageFile(file, {
+      maxWidth: RICH_IMG_MAX_WIDTH,
+      maxBytes: RICH_IMG_MAX_BYTES,
+      keepIfSmall: true,     // 줄일 필요가 없으면 원본 그대로 (투명한 PNG 보호)
+      quality: 0.85
+    });
+  } catch (e) {
+    console.warn('[_shrinkRichImage] 축소 실패 — 원본으로 올립니다', e);
+    return file;
+  }
+}
+
+// 여러 장을 **차례대로** 넣는다.
+//   ⚠️ 한꺼번에 올리면(병렬) 빨리 끝난 것이 먼저 들어가 **순서가 뒤집힌다.** 한 장씩
+//      기다리면 순서가 저절로 지켜지고, 한 장씩 나타나 진행 상황이 눈에 보인다.
+//   ⚠️ 넣을 자리는 **처음에 한 번만** 정하고 하나씩 뒤로 민다. 매번 커서를 다시 읽으면
+//      운영자가 다른 칸을 누르는 순간 자리를 빼앗고 이미지가 흩어진다.
+async function _insertRichImages(q, files, opts) {
+  // ⚠️ 이미 올리는 중이면 **두 번째 호출을 막는다.** 편집기 잠금(`q.enable(false)`)은 글을
+  //    쓰는 자리만 막고 **툴바 단추는 그대로 눌린다.** 한 장짜리는 진행 표시도 안 떠서,
+  //    느릴 때 운영자가 다시 누르기 쉽다. 그러면 두 벌이 각자 자리를 세어 순서가 뒤섞인다.
+  if (q.__richImgBusy) { toast('이미지를 올리는 중입니다. 끝난 뒤에 다시 눌러 주세요', 'info'); return; }
+
+  const sort = !opts || opts.sort !== false;
+  let list = Array.from(files || []);
+  if (!list.length) return;
+  if (sort) list = _richImagesInNameOrder(list);
+
+  // ① 올리기 **전에** 거른다 — 아직 아무것도 안 올라가 되돌릴 것이 없다
+  const bad = list.filter(f => !RICH_IMG_TYPES.includes(f.type) || f.size > RICH_IMG_MAX_BYTES);
+  const ok = list.filter(f => !bad.includes(f));
+  // ⚠️ 장수 검사를 **확인 창보다 먼저** 한다. 뒤에 두면 「나머지만 넣을까요」에 확인을 누른
+  //    직후 장수 초과로 통째로 취소돼, 답한 것이 헛수고가 된다.
+  if (ok.length > RICH_IMG_MAX_COUNT) {
+    toast('한 번에 ' + RICH_IMG_MAX_COUNT + '장까지 넣을 수 있습니다', 'error');
+    return;
+  }
+  if (bad.length) {
+    const names = bad.slice(0, 5).map(f => f.name).join(', ') + (bad.length > 5 ? ' 외 ' + (bad.length - 5) + '개' : '');
+    if (!ok.length) { toast('넣을 수 있는 이미지가 없습니다 — ' + names, 'error'); return; }
+    if (!confirm('다음 ' + bad.length + '개는 넣을 수 없습니다 (JPG·PNG·WebP, 한 장 5MB까지)\n\n'
+      + names + '\n\n나머지 ' + ok.length + '장만 넣을까요?')) return;
+  }
+
+  const range = q.getSelection(true);
+  let at = range ? range.index : q.getLength();
+  const failed = [];
+  // ⚠️ **편집기를 잠그면(`q.enable(false)`) 안 된다.** 잠긴 편집기는 `'user'` 로 들어오는
+  //    변경을 통째로 무시해서, 업로드는 성공하는데 **이미지가 한 장도 안 들어간다**
+  //    (2026-08-12 실측: 잠근 채 0장 / 푼 뒤 정상). 자리 어긋남을 막으려다 기능 자체를
+  //    막았던 자리다. 중복 실행은 아래 표시(`__richImgBusy`)로만 막는다.
+  q.__richImgBusy = true;
+  try {
+    for (let i = 0; i < ok.length; i++) {
+      const f = ok[i];
+      if (ok.length > 1) toast('이미지 올리는 중 (' + (i + 1) + '/' + ok.length + ') — ' + f.name, 'info');
+      try {
+        const url = await uploadContentImage(await _shrinkRichImage(f));
+        // 올리는 사이 운영자가 글을 지웠을 수 있다 — 문서 길이를 넘으면 맨 끝에 넣는다.
+        at = Math.min(at, q.getLength());
+        q.insertEmbed(at, 'image', url, 'user');
+        at++;
+      } catch (e) {
+        console.error('[_insertRichImages]', f.name, e);
+        failed.push(f.name);             // ② 올리는 중 실패는 **되는 것만** 넣고 이름을 알린다
+      }
+    }
+  } finally {
+    q.__richImgBusy = false;
+    q.setSelection(Math.min(at, q.getLength()), 0, 'silent');
+  }
+
+  const done = ok.length - failed.length;
+  if (failed.length) {
+    toast(done + '장을 넣었습니다. 실패: ' + failed.join(', '), 'error');
+  } else if (done) {
+    toast(done > 1 ? done + '장을 넣었습니다' : '이미지를 넣었습니다', 'success');
+  }
+}
+
+// 이미지 등록 안내 — **문구는 한 벌**로 두고 두 폼(신규 등록·편집)의 빈 자리에 같은
+//   내용을 채운다. 두 마크업에 각각 적으면 한쪽만 고쳐져 화면마다 다른 말을 하게 된다.
+function renderRichImageHelp() {
+  const html = ''
+    + '<div class="rich-img-help-title">'
+    + '<span class="material-icons-round notranslate" translate="no">image</span>이미지 넣는 법</div>'
+    + '<ul>'
+    + '<li>툴바의 이미지 버튼 또는 화면을 캡처해 붙여넣기(Ctrl 또는 Cmd + V)로 입력이 가능합니다.</li>'
+    + '<li><b>JPG · PNG · WebP</b>만 되고, 한 장에 <b>5MB</b>까지입니다.</li>'
+    + '<li>한 번에 최대 <b>' + RICH_IMG_MAX_COUNT + '장</b>까지 등록이 가능하며, <b>파일 이름 순서</b>대로 들어갑니다'
+    + ' (예: <code>1.jpg</code>, <code>2.jpg</code>, <code>10.jpg</code>).</li>'
+    // ⚠️ 「줄바꿈하면 여백이 생긴다」로 쓰지 말 것 — 실측(2026-08-12)상 **엔터 한 번으로 문단을
+    //    나눠도 붙는다.** 여백이 생기는 것은 **빈 줄**이나 **글자**가 사이에 들어갔을 때다.
+    + '<li>여러 장을 한 번에 등록 시 <b>사이가 붙어 한 장처럼</b> 보입니다.'
+    + ' 사이에 글자를 넣거나 <b>빈 줄</b>을 넣으면 이미지 사이에 여백이 생깁니다.</li>'
+    + '<li>이미지 크기 조절은 불가능하며 <b>모바일 화면 폭</b>에 맞춰 크기가 조절됩니다.'
+    + ' 가로가 <b>' + RICH_IMG_MAX_WIDTH + 'px</b>보다 클 경우 자동으로 줄입니다(가로세로 비율은 유지됩니다).</li>'
+    + '<li><b>인플루언서 등 개인정보가 담긴 이미지(영수증 · 명단 · 연락처)는 올리지 마세요.</b></li>'
+    + '</ul>';
+  ['newCamp', 'editCamp'].forEach(prefix => {
+    const el = $(prefix + 'RichImgHelp');
+    if (el) el.innerHTML = html;
+  });
+}
+
+// 사람이 기대하는 순서로 정렬한다.
+//   ⚠️ `numeric` 이 없으면 **`1` 다음에 `10`** 이 온다(글자 하나씩 비교하므로 `1` 뒤의 `0`
+//      을 먼저 본다). 잘라 올리는 이미지는 `배너_1 … 배너_10` 식이라 이 옵션이 핵심이다.
+function _richImagesInNameOrder(files) {
+  return files.slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+// 툴바 이미지 단추.
+function quillImageHandler(id) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  // 임시 파일 입력 — DOM 에 붙여야 일부 브라우저에서 click() 이 동작한다(미니 에디터와 같은 이유).
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = RICH_IMG_TYPES.join(',');
+  input.multiple = true;              // 여러 장을 한 번에 — 파일 이름 순으로 들어간다
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    try {
+      if (!input.files || !input.files.length) return;
+      await _insertRichImages(q, input.files);
+    } catch (e) {
+      console.error('[quillImageHandler]', e);
+      toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error');
+    } finally {
+      input.remove();
+    }
+  });
+  input.click();
+}
+
+// 붙여넣기 — 화면 캡처·이미지 파일은 **자동으로 올린다**. 주소만 온 외부 이미지는
+//   가져올 수 없으므로(노션 등이 교차 출처 접근을 막는다 — 2026-08-12 실측) 안내한다.
+//   ⚠️ 이 장치가 없으면 **지금보다 나빠진다**: 외부 이미지가 편집기에 멀쩡히 보이다가
+//      저장한 뒤에야 조용히 사라져, 운영자가 원인을 알 수 없다.
+//   ⚠️ 미니 에디터처럼 붙여넣기를 평문으로 바꾸지 **않는다** — 그러면 이 편집기의 존재
+//      이유인 노션 서식(제목·목록·인용구) 유지가 죽는다.
+function _attachRichImagePaste(q, id) {
+  q.root.addEventListener('paste', ev => {
+    const items = Array.from((ev.clipboardData && ev.clipboardData.items) || []);
+    const files = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+                       .map(it => it.getAsFile()).filter(Boolean);
+    if (files.length) {
+      // 클립보드에 파일 자체가 들어 있다(화면 캡처·이미지 복사) — 그대로 올린다.
+      ev.preventDefault();
+      // 툴바와 **같은 함수**를 쓴다 — 두 경로가 따로 놀면 「단추로는 되는데 붙여넣기는
+      //   다르게 동작하는」 어긋남이 생긴다.
+      //   ⚠️ 다만 **이름순 정렬은 하지 않는다.** 클립보드 파일은 이름이 없거나 전부
+      //      `image.png` 로 겹쳐, 정렬하면 오히려 복사한 차례가 흐트러진다.
+      _insertRichImages(q, files, { sort: false })
+        .catch(e => { console.error('[richImagePaste]', e); toast('이미지 업로드 실패: ' + friendlyError(e.message || e), 'error'); });
+      return;
+    }
+    // 파일이 아니라 HTML 이 온 경우 — 그 안에 남의 서버 주소를 가리키는 이미지가 있으면
+    //   붙여넣기 뒤에 **미리 알린다**(막는 것은 아래 text-change 가 한다).
+    const html = ev.clipboardData && ev.clipboardData.getData('text/html');
+    if (html && /<img\b/i.test(html)) {
+      setTimeout(() => toast('외부 이미지는 넣을 수 없습니다. 이미지 단추로 올려 주세요', 'info'), 60);
+    }
+  });
+  // 붙여넣기·끌어놓기로 들어온 **허용되지 않은 주소의 이미지를 그 자리에서 제거**한다.
+  //   저장할 때까지 두면 「보였다가 사라지는」 상황이 된다.
+  q.on('text-change', (delta, old, source) => {
+    if (source !== 'user') return;
+    const bad = Array.from(q.root.querySelectorAll('img')).filter(img =>
+      !(typeof _isAllowedContentImageSrc === 'function' && _isAllowedContentImageSrc((img.getAttribute('src') || '').trim())));
+    if (!bad.length) return;
+    bad.forEach(img => img.remove());
+  });
+}
+
+// ── 편집기 안 이미지 클릭 메뉴 (2026-08-12) ──
+//   올린 이미지를 나중에 다시 받고 싶다는 요청. 참여방법 편집기가 이미 「클릭하면 작은 메뉴」
+//   방식이라 같은 모양으로 맞춘다.
+//   ⚠️ 클릭 즉시 내려받지 않는다 — 편집기에서 이미지를 누르는 건 보통 「고르기」 동작이라,
+//      글을 고치려다 누른 것만으로 파일이 받아지면 성가시다.
+let _richImgMenu = null;
+let _richImgMenuTrack = null;   // 스크롤·창 크기 변화를 따라다니는 처리기
+
+function closeRichImageMenu() {
+  if (_richImgMenuTrack) {
+    window.removeEventListener('scroll', _richImgMenuTrack, true);
+    window.removeEventListener('resize', _richImgMenuTrack);
+    _richImgMenuTrack = null;
+  }
+  if (_richImgMenu) { _richImgMenu.remove(); _richImgMenu = null; }
+  document.querySelectorAll('.quill-wrap .ql-editor img.is-selected')
+    .forEach(el => el.classList.remove('is-selected'));
+}
+
+// 메뉴를 **그 이미지의 오른쪽 위 모서리 안쪽**에 붙인다.
+//   ⚠️ 화면 기준(fixed)으로 한 번만 놓으면 **스크롤할 때 이미지와 따로 논다** — 다른 이미지
+//      위에 떠 있어 어느 것의 메뉴인지 알 수 없다(2026-08-12 운영 지적). 그래서 스크롤·창
+//      크기 변화마다 다시 계산한다.
+//   ⚠️ 정중앙이 아니라 모서리인 이유 — 가운데면 이미지 내용을 가린다.
+function _placeRichImageMenu(pop, img) {
+  const r = img.getBoundingClientRect();
+  const w = pop.offsetWidth || 150, h = pop.offsetHeight || 32;
+  const pad = 8;
+  // 기본은 이미지 오른쪽 위 안쪽. 이미지가 메뉴보다 좁으면 이미지 왼쪽에 맞춘다.
+  let left = (r.width >= w + pad * 2) ? (r.right - w - pad) : r.left;
+  let top = r.top + pad;
+  // 화면 밖으로 나가지 않게 보정
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+  pop.style.position = 'fixed';
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+}
+
+// 저장소가 `?download` 를 안 받아 준다(2026-08-12 실측 — 내려받기 헤더가 안 붙는다).
+//   그래서 파일을 받아서 저장한다. 우리 저장소는 다른 화면에서 가져오는 것이 허용돼 있다.
+async function downloadRichImage(url) {
+  try {
+    toast('이미지를 받는 중…', 'info');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = (url.split('/').pop() || 'image').split('?')[0];
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // 바로 지우면 브라우저가 아직 읽는 중일 수 있다.
+    setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+  } catch (e) {
+    console.error('[downloadRichImage]', e);
+    toast('이미지를 받지 못했습니다: ' + friendlyError(e.message || e), 'error');
+  }
+}
+
+function openRichImageMenu(img) {
+  closeRichImageMenu();
+  img.classList.add('is-selected');
+  const pop = document.createElement('div');
+  pop.className = 'mini-editor-img-popover no-tail';   // 참여방법 편집기와 같은 모양(꼬리만 뺀다)
+  pop.innerHTML = '<button type="button" class="meip-size" data-act="download">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span> 원본 내려받기</button>';
+  document.body.appendChild(pop);
+  _placeRichImageMenu(pop, img);
+  _richImgMenu = pop;
+  // 스크롤·창 크기가 바뀌면 따라간다. 이미지가 화면 밖으로 나가면 닫는다 —
+  //   안 보이는 이미지의 메뉴가 화면 구석에 남아 있으면 무엇의 메뉴인지 알 수 없다.
+  //   ⚠️ scroll 은 **캡처 단계**로 듣는다. 편집기가 자체 스크롤 영역 안에 있어,
+  //      그러지 않으면 창 스크롤만 잡히고 안쪽 스크롤은 놓친다.
+  _richImgMenuTrack = () => {
+    if (!_richImgMenu) return;
+    const r = img.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) { closeRichImageMenu(); return; }
+    _placeRichImageMenu(_richImgMenu, img);
+  };
+  window.addEventListener('scroll', _richImgMenuTrack, true);
+  window.addEventListener('resize', _richImgMenuTrack);
+  pop.querySelector('[data-act="download"]').addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const src = img.getAttribute('src') || '';
+    closeRichImageMenu();
+    if (src) downloadRichImage(src);
+  });
+}
+
+// 편집기 안 이미지 클릭 — 위임 처리기 하나로 세 칸을 모두 받는다.
+document.addEventListener('click', ev => {
+  const img = ev.target.closest && ev.target.closest('.quill-wrap .ql-editor img');
+  if (img) { ev.preventDefault(); openRichImageMenu(img); return; }
+  // 메뉴 밖을 누르면 닫는다.
+  if (_richImgMenu && !ev.target.closest('.mini-editor-img-popover')) closeRichImageMenu();
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeRichImageMenu(); });
+
 function setRichValue(id, html) {
   const q = getRichEditor(id);
   if (!q) return;
@@ -668,8 +966,13 @@ function getRichValue(id) {
   const q = getRichEditor(id);
   if (!q) return '';
   // 빈 에디터 판정: Quill의 기본 placeholder 처리
-  const plain = q.getText().trim();
-  if (!plain) return '';
+  //   ⚠️ **글자만 세면 안 된다.** 이 편집기는 이미지를 글자로 치지 않아서, 이미지만 넣고
+  //      글을 안 쓰면 「빈 편집기」로 판정돼 **내용이 통째로 버려진다**(2026-08-12 실측 —
+  //      캠페인을 저장했는데 설명이 빈 문자열로 들어갔고 미리보기에도 안 떴다).
+  //   ⚠️ 이 함수 하나가 **저장·미리보기·이탈 경고** 세 곳을 좌우한다. 여기서 빈 값을
+  //      돌려주면 세 곳이 함께 이미지를 못 본다.
+  const plain = q.getText().replace(/[\u0000\uFEFF]/g, '').trim();
+  if (!plain && !q.root.querySelector('img')) return '';
   // 2026-05-07: root.innerHTML이 인접 리스트를 분리해 출력하는 버그 회피.
   // Quill 2.x getSemanticHTML 우선 사용, 미존재 시 root.innerHTML로 폴백.
   let raw;
@@ -753,6 +1056,8 @@ async function openEditCampaign(campId) {
   sv('editCampSubmissionEnd', camp.submission_end||'');
   // 캠페인 노출 토글 — status 기준으로 ON/OFF 표시
   _renderCampVisibilityToggle('edit', camp.status, { recruit_start: camp.recruit_start, deadline: camp.deadline });
+  maybeShowCampVisibilityHint('edit');
+  renderRichImageHelp();
   // flatpickr range picker mount + 값 주입 (모집·구매·방문 3개)
   setupCampRangePickers();
   applyCampRangeValues('editCamp', {
@@ -763,7 +1068,8 @@ async function openEditCampaign(campId) {
   });
   // 일자 입력 min/max 동기화 + 인라인 경고 초기 평가
   syncCampDateMinMax('editCamp');
-  validateCampDateRangesInline('editCamp');
+  // ⚠️ camp 를 넘긴다 — 이 시점 _editCampOriginal 은 아직 직전 캠페인 것이다(대입은 아래).
+  validateCampDateRangesInline('editCamp', camp);
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
@@ -1551,6 +1857,31 @@ function campRuleVisitRange(prefix) {
   return [$(prefix + 'VisitStart')?.value || '', $(prefix + 'VisitEnd')?.value || ''];
 }
 
+// 이 폼이 **실제로 저장하게 될** 구매 기간. 화면에 구매 칸이 보이면 그 칸의 값이고,
+//   안 보이면 「모집 및 구매 기간」 한 칸이 둘을 겸하므로 모집 기간이다.
+//   ⚠️ 저장(saveCampaignEdit)과 검증(validateCampDateRanges)이 **반드시 이 함수 하나를**
+//      쓴다. 두 곳이 각자 계산하면 「검증은 옛 값으로 막는데 저장은 새 값을 쓰는」 어긋남이
+//      생긴다 — 실제로 그래서 복제한 캠페인의 날짜만 바꾸면 저장이 막혔고, 그 칸이 화면에
+//      없어 고칠 수도 없었다(2026-08-12).
+//   ⚠️ 판정식은 그 칸을 보이고 숨기는 조건(applyDeadlineFieldsVisibility 의 editedIsSplit)과
+//      같아야 한다. 어긋나면 보이는 칸을 덮거나 안 보이는 칸을 방치한다.
+//   ⚠️ savedCamp 를 받는 이유 — 편집 폼을 **여는 도중**에도 이 함수가 불리는데(openEditCampaign
+//      이 인라인 경고를 초기 평가한다), 그 시점의 `_editCampOriginal` 은 **아직 직전에 편집하던
+//      캠페인 것**이다(실제 대입은 한참 뒤). 바로 옆 applyDeadlineFieldsVisibility 가 같은 이유로
+//      camp 를 세 번째 인자로 받는다 — 같은 방식으로 맞춘다.
+function campRulePurchaseRange(prefix, savedCamp) {
+  const formMode = (prefix === 'editCamp') ? 'edit' : 'new';
+  const rtEl = document.querySelector(`input[name="${formMode === 'edit' ? 'editRecruitType' : 'recruitType'}"]:checked`);
+  const rt = rtEl?.value || 'monitor';
+  const raw = [$(prefix + 'PurchaseStart')?.value || '', $(prefix + 'PurchaseEnd')?.value || ''];
+  if (rt !== 'monitor') return raw;
+  const src = (formMode === 'edit') ? (savedCamp || _editCampOriginal) : null;
+  const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(src) : 'none';
+  // 두 기간이 다르게 저장된 옛 캠페인만 칸이 보인다 — 그때는 사람이 고친 값을 그대로 쓴다.
+  if (formMode === 'edit' && kind === 'split') return raw;
+  return [$(prefix + 'RecruitStart')?.value || '', $(prefix + 'Deadline')?.value || ''];
+}
+
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
 //   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
 //   - monitor: 구매 기간 종료일 + 19일
@@ -1656,11 +1987,12 @@ function syncCampRangePickerBounds(prefix) {
 
 // 입력값 검증 (저장 시 + onchange 인라인 경고). 위반 메시지 배열 반환.
 //   경계: 모집 시작일 ~ 결과물 제출 마감일 (post_deadline 제거 — migration 129)
-function validateCampDateRanges(prefix) {
+function validateCampDateRanges(prefix, savedCamp) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const ps = $(prefix+'PurchaseStart')?.value || '';
-  const pe = $(prefix+'PurchaseEnd')?.value || '';
+  // 화면에 안 보이는 구매 칸은 저장 때 모집 기간을 따라간다 — 검사도 **저장될 값**으로 한다.
+  //   폼에 남은 옛 값으로 검사하면, 고칠 수 없는 칸 때문에 저장이 막힌다(2026-08-12).
+  const [ps, pe] = campRulePurchaseRange(prefix, savedCamp);
   const [vs, ve] = campRuleVisitRange(prefix);
   const se = campRuleSubmissionEnd(prefix);
   const ss = $(prefix+'SelectionStart')?.value || '';
@@ -2228,8 +2560,8 @@ function applyCampRangeValues(prefix, values) {
 }
 
 // onchange 인라인 경고 — 종류별로 분산해서 해당 row 바로 아래 div 에 출력 (저장 차단은 별도 체크)
-function validateCampDateRangesInline(prefix) {
-  const errs = validateCampDateRanges(prefix);
+function validateCampDateRangesInline(prefix, savedCamp) {
+  const errs = validateCampDateRanges(prefix, savedCamp);
   const groups = Object.create(null);
   Object.keys(CAMP_DATE_WARN_TARGETS).forEach(k => { groups[k] = []; });
   errs.forEach(e => { if (groups[e.kind]) groups[e.kind].push(e.msg); });
@@ -2341,6 +2673,10 @@ async function saveCampaignEdit() {
     //   ⚠️ 초안은 closed → active 한 방향만 다뤘는데, 자동 마감이 active 만 닫으므로
     //      ended·expired·draft + 미래 마감일은 방치되고 있었다. 재개 대상을 4개 상태로 넓혔다.
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
+    // 편집 폼에서 상태를 직접 「종료」·「노출종료」로 바꿔 저장하는 길 — 상태 드롭다운·노출 토글을
+    //   전혀 거치지 않고 바로 저장된다. 결과는 같다(심사중 응모 전원 낙첨).
+    //   ⚠️ 리뷰에서 이 경로가 **무경고로 열려 있는 게** 드러났다 — 앞의 세 곳만 막아 뒀었다.
+    if (editStatus !== origStatus && !await confirmCampaignEndMassReject(campId, editStatus)) return;
     const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
     const _dlKind = classifyDeadlineChange(_origDeadline, editDeadline);
     // 재개(과거 → 미래)로 상태를 함께 되돌릴 대상. draft 는 마감일만으로 공개해서는 안 되므로 상태 유지.
@@ -2382,6 +2718,10 @@ async function saveCampaignEdit() {
       toast('채널을 1개 이상 선택해야 합니다','error');
       return;
     }
+
+    // 리뷰어형 제품 금액 미입력 확인 (막지 않음) — 등록 화면과 같은 판정을 쓴다.
+    //   편집에도 거는 이유: 여기만 빠지면 편집으로 금액을 0 으로 만드는 길이 그대로 남는다.
+    if (!await confirmMonitorWithoutPrice(editRecruitType, gv('editCampProductPrice'))) return;
 
     // ★ 결과물이 이미 제출된 채널을 빼려 하면 확인받는다 (@cosme 사고 재발 방지)
     //   막지 않고 묻는다 — 잘못 들어간 채널을 빼야 하는 정당한 경우까지 막으면 편집
@@ -2441,8 +2781,21 @@ async function saveCampaignEdit() {
       event_group_id: ($('editCampEventMode')?.checked ? ($('editCampEventGroup')?.value || '') : '') || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
-      purchase_start: gv('editCampPurchaseStart')||null,
-      purchase_end: gv('editCampPurchaseEnd')||null,
+      // 구매 기간 — 화면에 그 칸이 **보일 때만** 폼 값을 그대로 쓴다. 안 보이는 캠페인은
+      //   화면이 「모집 및 구매 기간」 한 칸으로 둘을 겸한다고 약속하므로 모집 기간을 따라간다.
+      //   ⚠️ 이게 없으면 **복제한 캠페인의 날짜만 바꿔 재사용하는 흔한 작업이 막힌다** —
+      //      모집 기간만 새로 잡히고 구매 기간은 옛 날짜로 남아, 저장할 때 「구매 시작일은
+      //      모집 시작일~결과물 제출 마감일 사이여야 합니다」로 걸린다. 그런데 그 칸이
+      //      화면에 없어 고칠 수가 없다(2026-08-12 담당자 보고, 브라우저 재현 확인).
+      //   ⚠️ 두 기간이 다르게 저장된 옛 캠페인(split)은 칸이 보이므로 **손대지 않는다** —
+      //      2026-08-06 이 「편집 저장은 구매 기간을 덮지 않는다」로 정한 것이 지키려던 값이
+      //      바로 그것이다. 판정식은 그 칸을 보이고 숨기는 조건(applyDeadlineFieldsVisibility
+      //      의 editedIsSplit)과 **같아야 한다** — 어긋나면 보이는 칸을 덮거나 안 보이는 칸을
+      //      방치하게 된다.
+      ...(function() {
+        const [pStart, pEnd] = campRulePurchaseRange('editCamp');
+        return { purchase_start: pStart || null, purchase_end: pEnd || null };
+      })(),
       visit_start: gv('editCampVisitStart')||null,
       selection_start: gv('editCampSelectionStart')||null,
       selection_end: gv('editCampSelectionEnd')||null,
@@ -2692,6 +3045,9 @@ async function duplicateCampaign(campId) {
     // 복제본도 「새로 만들어지는 캠페인」이다(결정 5) — 원본이 두 기간이 다르더라도
     // 복제본은 같게 맞춰 태어난다. 원본은 건드리지 않는다.
     applyMonitorPeriodCopy(copy);
+    // 복제도 같은 확인을 거친다 — 원본이 제품 금액 0 이면 복제본도 0 으로 태어난다.
+    //   등록·편집만 막으면 「0 인 캠페인을 복제해 늘리는」 길이 그대로 남는다.
+    if (!await confirmMonitorWithoutPrice(copy.recruit_type, copy.product_price)) return;
     await insertCampaign(copy);
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
@@ -2748,7 +3104,19 @@ async function executeDeleteCampaign() {
       // 보관 삭제(soft delete) — soft_delete_campaign RPC(마이그레이션 255)가 서버에서
       //   ① 신청·결과물(개인정보) 즉시 완전 파기(정산 걸린 건은 마이그레이션 251 트리거가 원자적 차단)
       //   ② campaigns.deleted_at 세팅(캠페인 메타데이터만 30일 보관) 을 트랜잭션으로 처리한다.
-      await softDeleteCampaign(campId);
+      //   ③ 그 결과물이 가리키던 **저장소 파일**(영수증·인증샷·메시지 첨부)을 화면이 이어서 지운다
+      //      — 서버는 지울 경로를 돌려주기만 한다(마이그레이션 325). 예전에는 이 단계가 아예 없어
+      //      공개 버킷에 파일이 영구히 남았고, 경로도 사라져 나중에 찾을 방법이 없었다.
+      const _del = await softDeleteCampaign(campId);
+      const _sr = _del && _del.storageResult;
+      const _failed = _sr
+        ? ((_sr.msgResult?.failedPaths?.length || 0) + (_sr.receiptResult?.failedPaths?.length || 0))
+        : 0;
+      // 파일 삭제 실패는 캠페인 삭제를 되돌리지 않는다(이미 끝났다) — 다만 조용히 넘기면
+      //   지워진 줄 알고 넘어가므로 알린다. 남은 파일은 경로가 사라져 손으로 찾기 어렵다.
+      if (_failed > 0) {
+        toast(`캠페인은 삭제됐지만 첨부 파일 ${_failed}건을 지우지 못했습니다`, 'warn');
+      }
     }
     closeDeleteCampModal();
     // 캠페인 진행현황에서 삭제한 경우(헤더 더보기 메뉴), 사라진 캠페인 화면에 남지 않도록 목록으로 돌려보낸다
@@ -2880,6 +3248,19 @@ async function openDeletedCampDetail(campId) {
   const imgGallery = imgs.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${imgs.map(u => `<div style="width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim)">${renderCroppedImg(u, null, {thumb:144, quality:70, lazy:true})}</div>`).join('')}</div>` : '';
   const purchaseVisit = c.recruit_type==='monitor' ? periodRangeCell(c.purchase_start, c.purchase_end)
                       : c.recruit_type==='visit'   ? periodRangeCell(c.visit_start, c.visit_end) : '';
+  // 이 화면은 **읽기 전용**이라 두 줄을 합칠 수 없다(합치면 삭제 전에 저장돼 있던 값이
+  //   어느 칸의 것인지 사라진다). 대신 **이름을 화면과 맞춘다** — 두 기간이 같게 저장된
+  //   캠페인이면 위 줄이 곧 「모집 및 구매 기간」이고, 아래 구매 줄은 그 사본이라 감춘다.
+  const delPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(c) : 'none';
+  // 방문형도 두 기간이 같으면 같은 이유로 합친다(2026-08-12). 이름만 「방문」으로 갈린다.
+  const delVisitMerged = (delPeriodKind === 'visitMerged');
+  const delMergedName = (delPeriodKind === 'merged' || delPeriodKind === 'monitorNoPurchase' || delVisitMerged);
+  const delPeriodLabel = delVisitMerged ? '모집 및 방문 기간'
+                       : delMergedName  ? '모집 및 구매 기간' : '모집 기간';
+  const delPurchaseLabel = c.recruit_type === 'visit' ? '방문 기간' : '구매 기간';
+  // ⚠️ 값을 비워야 줄이 사라진다 — row() 는 **값**이 비면 안 그린다. 이름만 비우면
+  //    이름 없는 빈 줄이 남는다.
+  const delPurchaseCell = delMergedName ? '' : purchaseVisit;
   body.innerHTML = `
     <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#B3261E">
       <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">delete</span>
@@ -2897,8 +3278,8 @@ async function openDeletedCampDetail(campId) {
     ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
     ${row('리워드', esc(c.reward || ''))}
     ${row('리워드 안내', esc(c.reward_note || ''))}
-    ${row('모집 기간', periodRangeCell(c.recruit_start, c.deadline))}
-    ${row('구매/방문 기간', purchaseVisit)}
+    ${row(delPeriodLabel, periodRangeCell(c.recruit_start, c.deadline))}
+    ${row(delPurchaseLabel, delPurchaseCell)}
     ${row('결과물 제출 마감', c.submission_end ? periodSingleCell(c.submission_end) : '')}
     ${row('생성일시', c.created_at ? formatDateTime(c.created_at) : '')}
     ${row('생성자', createdByLabel)}
@@ -3026,15 +3407,23 @@ const CP_I18N = {
     paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）',
     freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
-    kRecruitPeriod:'募集期間', kPurchasePeriod:'購入および領収書提出期間', kVisitPeriod:'訪問期間',
+    // ⚠️ kPurchasePeriod 옛 이름 「購入および領収書提出期間」 — 2026-08-11 에 영수증 마감이
+    //   결과물 제출 마감일로 확정되며 사실과 달라져 「購入期間」으로. 인플루언서 i18n
+    //   (dev/lib/i18n/*.js 의 detail.purchasePeriod) 과 **반드시 같은 말**이어야 한다.
+    kRecruitPeriod:'募集期間', kPurchasePeriod:'購入期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
     kRecruitPurchasePeriod:'募集・購入期間',
+    // 방문 기간이 모집 기간과 똑같이 저장된 방문형(2026-08-12) — i18n 의 detail.recruitVisitPeriod 와 같은 말.
+    kRecruitVisitPeriod:'募集・訪問期間',
+    // 두 기간이 다른 옛 캠페인에서 날짜 줄 끝에 붙는 이름표(2026-08-11).
+    //   ⚠️ dev/lib/i18n/ja.js 의 detail.periodTag* 와 **반드시 같은 말**이어야 한다.
+    kPeriodTagRecruit:'（募集）', kPeriodTagPurchase:'（購入）',
     kSelectionPeriod:'選定期間',
     kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
-    paybackNotice1Split:'購入および領収書提出期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
+    paybackNotice1Split:'購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNotice2:'期間が過ぎてからご購入された場合は、対象外となります。',
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
     evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
@@ -3049,13 +3438,15 @@ const CP_I18N = {
     paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})',
     freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
-    kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 및 영수증 제출 기간', kVisitPeriod:'방문 기간',
+    kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
-    kRecruitPurchasePeriod:'모집/구매 기간',
+    kRecruitPurchasePeriod:'모집 및 구매 기간',
+    kRecruitVisitPeriod:'모집 및 방문 기간',
+    kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
     kSelectionPeriod:'선정 기간',
     kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
-    paybackNotice1:'모집/구매 기간에 구매하신 경우에만 페이백 대상입니다.',
-    paybackNotice1Split:'구매 및 영수증 제출 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNotice1:'모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
+    paybackNotice1Split:'구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice2:'기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
     evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
@@ -3259,11 +3650,33 @@ function renderCampPreview(mode) {
             // 인플루언서 상세와 **같은 헬퍼**로 판정한다 — 판정이 두 벌이 되면 미리보기와
             // 실제 화면이 갈라진다(관리자가 본 것과 인플루언서가 보는 것이 달라진다).
             const cpPeriodKind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(camp) : 'none';
-            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodKind === 'merged' ? L.kRecruitPurchasePeriod : L.kRecruitPeriod)}</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
+            // 리뷰어형은 항상 「모집 및 구매 기간」 한 줄. split 만 날짜를 두 줄로 놓고
+            //   각각 이름표를 단다(2026-08-11 결정). 인플루언서 상세와 같은 모양이어야 한다.
+            const cpMerged = (cpPeriodKind === 'merged' || cpPeriodKind === 'split' || cpPeriodKind === 'monitorNoPurchase');
+            // 방문형도 방문 기간이 모집 기간과 똑같으면 한 줄로 합친다(2026-08-12) — 인플루언서 상세와 같다.
+            //   ⚠️ 행사는 제외 — 실제 방문 시각은 타임 선택표가 정한다(인플루언서 상세와 같은 조건).
+            const cpVisitMerged = (cpPeriodKind === 'visitMerged') && !isEventPreview;
+            // ⚠️ 왼쪽 여백 3픽셀은 **인플루언서 상세의 PTAG(application.js)와 같은 값**이다.
+            //    관리자 앱에는 그 파일이 없어(빌드 목록이 따로다) 값을 옮겨 적을 수밖에 없는데,
+            //    두 벌인 채 한쪽만 고치면 관리자가 미리보기로 본 것과 인플루언서가 보는 것이
+            //    갈린다. 한쪽을 고치면 **반드시 다른 쪽도 함께** 고칠 것.
+            //    (5픽셀이던 것을 2026-08-11 에 줄였다 — 폭 375픽셀에서 이름표가 접히기
+            //     직전이었다. 근거는 application.js 의 PTAG 주석에 있다.)
+            const cpTag = 'margin-left:3px;color:#999;font-size:11px;white-space:nowrap';
+            const cpRecruitDates = `${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}`;
+            const cpPeriodValue = (cpPeriodKind === 'split')
+              ? `<div>${cpRecruitDates}<span style="${cpTag}">${esc(L.kPeriodTagRecruit)}</span></div>`
+                + `<div style="margin-top:3px">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}<span style="${cpTag}">${esc(L.kPeriodTagPurchase)}</span></div>`
+              : cpRecruitDates;
+            const cpPeriodLabel = cpMerged ? L.kRecruitPurchasePeriod
+                                : cpVisitMerged ? L.kRecruitVisitPeriod : L.kRecruitPeriod;
+            rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodLabel)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
             // 선정 기간 — 시딩형만. 모집 기간 바로 아래(모집 → 선정 → 제출 마감 순).
             if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
-            if (isMonitorPreview && cpPeriodKind !== 'merged' && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kPurchasePeriod)}</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
-            if (camp.recruit_type === 'visit' && !isEventPreview && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
+            // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다 — split 은 위 줄 안에서 그린다.
+            //    되살리면 같은 날짜가 두 번 나온다(인플루언서 상세도 같은 구조).
+            // ⚠️ visitMerged 는 위 줄이 이미 「모집·방문 기간」이라 여기서 또 그리면 중복이다.
+            if (camp.recruit_type === 'visit' && !isEventPreview && !cpVisitMerged && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end && !isEventPreview) {
               const cpSubCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
               const cpSubLabel = cpSubCode === 'receiptOnly' ? L.kSubmitDeadlineProxy
@@ -3677,6 +4090,49 @@ function toggleStatusDropdown(badgeEl) {
   }, 0);
 }
 
+// 캠페인을 「종료」·「노출종료」로 보내기 전 확인 — **네 경로가 같은 함수를 쓴다.**
+//   그 두 상태로 바뀌면 심사중 응모가 **전원 자동 낙첨**된다(마이그레이션 176 검사 장치).
+//   되돌리는 일괄 방법이 없고 인플루언서에게 알림도 안 간다.
+//   ⚠️ 같은 결과를 내는 자리가 **네 곳**이다 — 상태 드롭다운(changeCampStatus)·편집 폼 저장
+//   (saveCampaignEdit)·편집 폼 노출 토글(onCampVisibilityToggle)·목록 빠른 토글
+//   (onCampQuickVisibilityToggle). 각자 확인하게 두면 새 경로가 생길 때마다 빠진다
+//   (실제로 처음 두 곳만 넣었다가 리뷰에서 나머지 둘이 뚫려 있는 게 드러났다).
+//   **새로 이 두 상태로 보내는 경로를 만들면 여기를 부를 것.**
+//   반환: true = 진행해도 됨 / false = 사용자가 돌아가기를 눌렀음
+async function confirmCampaignEndMassReject(campId, newStatus) {
+  if (newStatus !== 'ended' && newStatus !== 'expired') return true;
+  const word = newStatus === 'ended' ? '종료' : '노출종료';
+  // ⚠️ 셀 수 없으면 -1 이다. 0 으로 뭉개면 「진짜 0건」과 「못 물어봄」이 구분되지 않아
+  //   조회 한 번 실패로 조용히 여러 명이 떨어진다.
+  const n = campId ? await countPendingApplications(campId) : 0;
+  if (n === 0) return true;
+  const msg = n > 0
+    ? `「${word}」로 바꾸면 심사중인 응모 ${n}건이 모두 미승인 처리됩니다.\n`
+      + `\n· 되돌리는 일괄 방법이 없습니다 — 한 건씩 손으로 되돌려야 합니다.`
+      + `\n· 인플루언서에게 별도 안내는 가지 않습니다.`
+      + `\n\n먼저 심사를 마치려면 「돌아가기」를 누르세요.`
+    : `심사중인 응모가 몇 건인지 확인하지 못했습니다.\n`
+      + `\n「${word}」로 바꾸면 심사중 응모는 모두 미승인 처리됩니다.`
+      + `\n\n그대로 진행할까요?`;
+  return await showConfirm(msg, n > 0 ? `${word}로 바꾸기` : '진행', '돌아가기');
+}
+
+// 리뷰어형(monitor)인데 제품 금액이 비었으면 확인받는다. 막지는 않는다 — 금액을 나중에
+//   채우는 정상적인 순서가 있고, 막으면 그 흐름이 통째로 끊긴다(2026-08-11 사용자 결정).
+// ⚠️ **등록·편집 두 곳에서 같이 부른다.** 등록만 막으면 편집으로 0 을 넣는 길이 그대로 남는다.
+// ⚠️ 시딩·방문형은 대상이 아니다 — 그쪽 정산 기준은 `reward` 라 제품 금액이 0이어도 정상이다.
+async function confirmMonitorWithoutPrice(recruitType, price) {
+  if (recruitType !== 'monitor') return true;
+  if (Number(price) > 0) return true;
+  return await showConfirm(
+    '제품 금액이 비어 있습니다.\n'
+    + '\n리뷰어형은 이 금액이 페이백 상한입니다. 비운 채로 저장하면 —'
+    + '\n· 인플루언서 화면에 「購入金額をペイバック（最大 ¥N）」 안내가 뜨지 않습니다.'
+    + '\n· 정산 자동 등록에서 빠집니다(「금액 미확정」). 「과거 미등록」 화면에는 나타납니다.'
+    + '\n\n금액을 먼저 넣으려면 「돌아가기」를 누르세요.',
+    '이대로 저장', '돌아가기');
+}
+
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
   if (newStatus === 'active' || newStatus === 'scheduled') {
@@ -3710,6 +4166,7 @@ async function changeCampStatus(campId, newStatus) {
       _extraUpdates.deadline = _today;
     }
   }
+  if (!await confirmCampaignEndMassReject(campId, newStatus)) return;
   try {
     await updateCampaign(campId, Object.assign({status: newStatus}, _extraUpdates));
     // PR 2: loadAdminCampaigns 가 fetchCampaignsForAdminList 로 allCampaigns 를 갱신.
@@ -3811,6 +4268,10 @@ async function addCampaign() {
     toast('채널을 1개 이상 선택해주세요','error'); return;
   }
 
+  // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
+  //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
+  if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
+
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
   // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
   // 가이드 비었으면 매니저는 차단, campaign_admin 이상은 사유 입력 긴급 발행 우회(기록).
@@ -3881,7 +4342,21 @@ async function addCampaign() {
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'),
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
-    status:'draft',
+    // 상태 — 폼 위쪽 「캠페인 노출」 스위치가 정한다(2026-08-12).
+    //   켜짐 = 기간에 맞는 자연 상태(모집 시작일이 미래면 「모집예정」, 아니면 「모집중」)
+    //   꺼짐 = 「준비」 — 인플루언서에게 안 보인다. 내용을 다 채운 뒤 목록에서 공개한다
+    //   ⚠️ 이 값과 폼 안내 문구(setCampVisibilitySub)가 어긋나면 화면이 거짓말을 한다.
+    //      예전에는 스위치와 무관하게 늘 「준비」로 저장하면서 안내문은 「바로 공개됩니다」라
+    //      적혀 있어, 등록해도 화면에 안 나온다는 문의가 반복됐다.
+    status: (function() {
+      const on = $('newCampVisibilityToggle')?.classList.contains('is-on');
+      if (!on) return 'draft';
+      const rs = $('newCampRecruitStart')?.value || null;
+      const dl = $('newCampDeadline')?.value || null;
+      return (typeof computeCampaignStatus === 'function')
+        ? computeCampaignStatus({ recruit_start: rs, deadline: dl, submission_end: $('newCampSubmissionEnd')?.value || null })
+        : 'active';
+    })(),
     // 생성자 기록 — campaigns.created_by(감사용). 캠페인 RLS(001)는 is_admin()만 보고 created_by 미참조라 권한 영향 없음.
     created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
     // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
@@ -4140,6 +4615,15 @@ async function renderCategorySelect(formMode, currentCode) {
 
 async function filterChannelsByRecruitType(formMode, recruitType) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
+  // ★ 기간 칸(구매·방문·선정) 표시부터 **먼저** 맞춘다.
+  //   이 함수는 아래에서 채널·참여방법·주의사항·NG 네 목록을 데이터베이스에서 불러오느라
+  //   약 1초를 쓰고, 그 뒤에야 같은 함수를 한 번 더 부른다(맨 아래). 그동안 칸이 없어서
+  //   **오리엔시트로 발행한 직후 시딩형 선정 기간 칸이 안 보인다는 지적**이 나왔다
+  //   (2026-08-12 담당자 확인). 발행은 화면을 맨 위로 올리고 알림을 띄우므로 그 1초가
+  //   그대로 「칸이 없는 화면」이 된다.
+  //   ⚠️ 아래 호출을 지우면 안 된다 — 이 함수가 도는 동안 형식이 또 바뀔 수 있고,
+  //      마지막 호출이 최종 상태를 확정한다. 같은 인자로 두 번 불러도 결과는 같다.
+  applyDeadlineFieldsVisibility(formMode, recruitType);
   // 체크 상태는 화면에서 그대로 가져오되, **보존 대상은 「저장된 채널」로 따로 준다.**
   //   ⚠️ 화면 체크값을 보존 대상으로 쓰면 안 된다 — 리뷰어형에서 Qoo10 을 고른 뒤 시딩으로
   //      바꿨을 때 Qoo10 이 「(기존)」으로 살아남아 신규 캠페인이 모집 형식과 안 맞는 채널로
@@ -4259,15 +4743,19 @@ function applyCampPeriodLabels(formMode, recruitType, savedCamp) {
   const isMonitor = recruitType === 'monitor';
   const recruitLabel = $(prefix + 'RecruitRangeLabel');
   if (recruitLabel) {
-    // ⚠️ 판정은 **세 갈래**다(merged·split·none). 「split 이 아니면 합친다」로 뭉개면
-    //    구매 기간이 **아예 없는** 캠페인(none)까지 「모집/구매 기간」으로 보이는데,
-    //    인플루언서 화면은 그런 캠페인을 「모집 기간」으로 그린다 — 관리자가 방금 확인한
-    //    이름과 실제 화면이 어긋난다.
-    //    신규 폼은 저장할 때 복사 규칙이 반드시 걸려 항상 merged 가 되므로 합친 이름이 맞다.
+    // 기준은 「구매 입력칸이 지금 보이는가」다 — 보이면 그 칸이 구매 기간을 맡으므로
+    //   이 칸은 「모집 기간」, 안 보이면 이 칸 하나가 둘을 겸하므로 합친 이름.
+    //   ⚠️ 갈래를 이름으로 지목한다. 「split 이 아니면」 같은 부정 조건은 쓰지 않는다 —
+    //      갈래가 늘면 시딩·방문형(none)까지 합친 이름 쪽으로 빨려 들어간다.
+    //   ⚠️ 2026-08-11 에 monitorNoPurchase(구매 칸이 빈 리뷰어형)를 합치는 쪽에 넣었다.
+    //      인플루언서 화면이 그 캠페인을 「모집 및 구매 기간」으로 그리게 됐기 때문 —
+    //      여기만 「모집 기간」으로 두면 관리자가 방금 확인한 이름과 실제 화면이 어긋난다.
+    //      신규 폼은 저장 시 복사 규칙이 걸려 항상 merged 가 되므로 합친 이름이 맞다.
     const src = savedCamp || (formMode === 'edit' ? _editCampOriginal : null);
     const kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(src) : 'none';
-    const showMerged = isMonitor && (formMode !== 'edit' || kind === 'merged');
-    recruitLabel.textContent = showMerged ? '모집/구매 기간' : '모집 기간';
+    const showMerged = isMonitor
+      && (formMode !== 'edit' || kind === 'merged' || kind === 'monitorNoPurchase');
+    recruitLabel.textContent = showMerged ? '모집 및 구매 기간' : '모집 기간';
   }
   const subLabel = $(prefix + 'SubmissionEndLabel');
   if (subLabel) {
@@ -5148,12 +5636,17 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   var statusEl = $(prefix + 'CampVisibilityStatus');
   if (!toggle) return;
-  var isOff = status === 'expired';
-  var isDraft = status === 'draft';
+  // ⚠️ 신규 등록 폼에서 「준비」는 **사람이 방금 스위치를 끈 결과**다 — 꺼진 모습으로 보이고
+  //    다시 켤 수 있어야 한다. 편집 폼의 「준비」는 아직 한 번도 공개된 적 없는 캠페인이라
+  //    노출 토글 자체를 잠근다(상태 드롭다운으로 올려야 한다). 둘을 같이 다루면 신규 폼에서
+  //    한 번 끈 뒤 되돌릴 수 없는 막다른 길이 된다.
+  var isNewForm = (prefix === 'new');
+  var isOff = (status === 'expired') || (isNewForm && status === 'draft');
+  var lockForDraft = (status === 'draft') && !isNewForm;
   toggle.classList.toggle('is-on', !isOff);
-  toggle.classList.toggle('is-disabled', isDraft);
+  toggle.classList.toggle('is-disabled', lockForDraft);
   toggle.setAttribute('aria-checked', isOff ? 'false' : 'true');
-  toggle.disabled = isDraft;
+  toggle.disabled = lockForDraft;
   if (statusEl) {
     var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출종료 (수동)' };
     statusEl.textContent = '상태: ' + (labels[status] || status || '미정');
@@ -5168,52 +5661,61 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
 async function onCampVisibilityToggle(prefix) {
   var toggle = $(prefix + 'CampVisibilityToggle');
   if (!toggle || toggle.disabled) return;
-  // 이 토글은 누르는 즉시 저장된다 — 「저장하지 않고 나가기」로 되돌아가지 않는다.
-  //   경고창이 그 사실을 한 줄로 알리도록 표시해 둔다.
-  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   var isCurrentlyOn = toggle.classList.contains('is-on');
   var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
+  // ★ 신규 등록 폼은 **아직 저장 전**이다 — 지울 응모도, 사라질 화면도 없다.
+  //   확인창("즉시 사라집니다")·낙첨 경고는 이미 공개된 캠페인 이야기라 여기서는 묻지 않고,
+  //   화면 표시와 안내 문구만 바꾼다. 실제 상태는 등록 버튼을 누를 때 addCampaign 이 정한다.
+  //   ⚠️ 「누른 즉시 저장됨」 표시(markCampImmediateSaved)도 여기서는 하지 않는다 — 신규 폼은
+  //      정말로 아무것도 저장되지 않아, 표시하면 나갈 때 「되돌아가지 않습니다」라는
+  //      **거짓 안내**가 뜬다(리뷰 지적).
+  if (!campId) {
+    var willBeOn = !isCurrentlyOn;
+    _renderCampVisibilityToggle(prefix, willBeOn ? 'active' : 'draft',
+      { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+    setCampVisibilitySub(willBeOn);
+    return;
+  }
+  // 여기부터는 편집 폼(이미 저장된 캠페인)뿐이다 — 토글은 누르는 즉시 데이터베이스에 저장되고
+  //   「저장하지 않고 나가기」로 되돌아가지 않는다. 나갈 때 경고창이 그 사실을 알리도록 표시해 둔다.
+  if (typeof markCampImmediateSaved === 'function') markCampImmediateSaved();
   if (isCurrentlyOn) {
     // ON → OFF: 확인 모달
+    //   ⚠️ 이 전이(expired)는 **심사중 응모를 전원 자동 낙첨**시킨다(마이그레이션 176).
+    //   예전 문구는 「화면에서 사라진다」만 말해, 사람이 떨어진다는 사실은 알리지 않았다.
+    //   상태 드롭다운의 「종료」와 결과가 같으므로 같은 내용을 알린다.
     var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
     if (!ok) return;
-    if (campId) {
-      try {
-        await toggleCampaignVisibility(campId, false);
-        toast('캠페인 노출이 OFF (노출종료) 로 변경되었습니다');
-        _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
-        // 폼 상태 드롭다운도 갱신 (있으면)
-        var statusSel = $('editCampStatus');
-        if (statusSel) statusSel.value = 'expired';
-        // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
-        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
-        await refreshPane('campaigns');
-      } catch (e) {
-        console.error('[toggleCampaignVisibility OFF]', e);
-        toast('변경 실패: ' + friendlyError(e.message || e), 'error');
-      }
-    } else {
-      // 신규 등록 폼은 아직 DB에 없음 — UI 상태만 변경
+    // 노출 끄기는 status='expired' 로 가는 길이라 심사중 응모가 전원 낙첨된다 — 상태
+    //   드롭다운의 「노출종료」와 결과가 같으므로 같은 확인을 거친다.
+    if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
+    try {
+      await toggleCampaignVisibility(campId, false);
+      toast('캠페인 노출이 OFF (노출종료) 로 변경되었습니다');
       _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+      // 폼 상태 드롭다운도 갱신 (있으면)
+      var statusSel = $('editCampStatus');
+      if (statusSel) statusSel.value = 'expired';
+      // 토글이 바꾼 값은 이미 저장됐으니 기준값에도 반영한다(거짓 경고 방지).
+      if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
+      await refreshPane('campaigns');
+    } catch (e) {
+      console.error('[toggleCampaignVisibility OFF]', e);
+      toast('변경 실패: ' + friendlyError(e.message || e), 'error');
     }
   } else {
     // OFF → ON: 즉시 자연 상태 재계산
-    if (campId) {
-      try {
-        var newStatus = await toggleCampaignVisibility(campId, true);
-        toast('캠페인 노출이 ON 으로 변경되었습니다');
-        _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
-        var statusSel = $('editCampStatus');
-        if (statusSel) statusSel.value = newStatus;
-        if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
-        await refreshPane('campaigns');
-      } catch (e) {
-        console.error('[toggleCampaignVisibility ON]', e);
-        toast('변경 실패: ' + friendlyError(e.message || e), 'error');
-      }
-    } else {
-      // 신규 등록 폼 — 기본 active 로 가정
-      _renderCampVisibilityToggle(prefix, 'active', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+    try {
+      var newStatus = await toggleCampaignVisibility(campId, true);
+      toast('캠페인 노출이 ON 으로 변경되었습니다');
+      _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+      var statusSel = $('editCampStatus');
+      if (statusSel) statusSel.value = newStatus;
+      if (typeof syncCampDirtyStatus === 'function') syncCampDirtyStatus(prefix);
+      await refreshPane('campaigns');
+    } catch (e) {
+      console.error('[toggleCampaignVisibility ON]', e);
+      toast('변경 실패: ' + friendlyError(e.message || e), 'error');
     }
   }
 }
@@ -5226,6 +5728,8 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
   if (willTurnOff) {
     var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
     if (!ok) return;
+    // 편집 폼 토글과 같은 결과(status='expired') — 같은 확인을 거친다.
+    if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
   }
   try {
     var newStatus = await toggleCampaignVisibility(campId, !willTurnOff);
@@ -5240,4 +5744,39 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
 // 신규 등록 폼이 열릴 때 토글 초기 상태(ON)로 리셋 — switchAdminPane 에서 사용
 function _resetNewCampVisibilityToggle() {
   _renderCampVisibilityToggle('new', 'active', { recruit_start: '', deadline: '' });
+  setCampVisibilitySub(true);
+  maybeShowCampVisibilityHint('new');
+  renderRichImageHelp();
+}
+
+// ══════════════════════════════════════
+// 노출 스위치 — 안내 문구 · 힌트 말풍선
+// ══════════════════════════════════════
+
+// 신규 등록 폼 제목 아래 한 줄. 스위치 상태에 따라 **실제 저장 결과**를 말한다.
+//   ⚠️ 이 문구와 addCampaign 의 status 결정이 어긋나면 화면이 거짓말을 한다 — 함께 고칠 것.
+function setCampVisibilitySub(isOn) {
+  const el = $('newCampVisibilitySub');
+  if (!el) return;
+  el.textContent = isOn
+    ? '등록 후 바로 인플루언서에게 공개됩니다'
+    : '「준비」 상태로 저장되어 인플루언서에게 보이지 않습니다. 나중에 목록에서 공개할 수 있습니다';
+}
+
+// 힌트 말풍선 — 스위치를 끄면 무슨 일이 생기는지 **처음 한 번만** 알린다.
+//   ⚠️ 기억은 이 브라우저에만 남는다(localStorage). 다른 PC·시크릿 창에서는 다시 뜬다 —
+//      계정 단위로 기억하려면 데이터베이스가 필요해 여기서는 쓰지 않았다.
+const CAMP_VISIBILITY_HINT_KEY = 'reverb.hint.campVisibility';
+
+function maybeShowCampVisibilityHint(prefix) {
+  const el = $(prefix + 'CampVisibilityHint');
+  if (!el) return;
+  let seen = false;
+  try { seen = localStorage.getItem(CAMP_VISIBILITY_HINT_KEY) === '1'; } catch (e) { seen = false; }
+  el.style.display = seen ? 'none' : '';
+}
+
+function dismissCampVisibilityHint() {
+  try { localStorage.setItem(CAMP_VISIBILITY_HINT_KEY, '1'); } catch (e) { /* 저장 못 해도 닫기는 된다 */ }
+  ['new', 'edit'].forEach(p => { const el = $(p + 'CampVisibilityHint'); if (el) el.style.display = 'none'; });
 }

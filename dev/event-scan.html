@@ -404,6 +404,7 @@ const SCAN_I18N = {
     failPerm: '권한이 없습니다. 다시 로그인해 주세요',
     failOutOfScope: '다른 행사의 예약입니다',
     outOfScopeNote: '이 화면은 지금 고른 행사만 확인합니다. 위에 적힌 행사 담당자에게 안내해 주세요.',
+    outOfScopeReopen: '이 화면이 행사 하루치만 열려 있습니다. 관리자 화면의 「예약 현황」에서 이 화면을 다시 열면 행사 전체 날짜를 함께 확인할 수 있습니다.',
     failScopeMissing: '확인할 행사가 정해지지 않았습니다. 화면을 새로고침해 주세요',
     failNetwork: '확인하지 못했습니다. 인터넷 연결을 확인해 주세요',
     failGeneric: '확인하지 못했습니다',
@@ -458,6 +459,7 @@ const SCAN_I18N = {
     failPerm: '権限がありません。もう一度ログインしてください',
     failOutOfScope: '別のイベントのご予約です',
     outOfScopeNote: 'この画面は、いま選んでいるイベントだけを確認します。上に表示されたイベントのご担当へご案内ください。',
+    outOfScopeReopen: 'この画面は1日分だけ開いています。管理画面の「予約状況」からこの画面を開き直すと、イベント全日程をまとめて確認できます。',
     failScopeMissing: '確認するイベントが決まっていません。画面を再読み込みしてください',
     failNetwork: '確認できませんでした。通信環境をご確認ください',
     failGeneric: '確認できませんでした',
@@ -605,16 +607,30 @@ function buildScopeChoices(camps, groups) {
       seen[g.id] = {kind: 'group', id: g.id, name: g.name, campIds: [c.id]};
       out.push(seen[g.id]);
     } else {
-      out.push({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id]});
+      // inGroup — 「묶음에 속하는데 그 묶음을 못 찾아 캠페인 하나로 떨어진」 경우를 표시한다.
+      //   범위 밖 예약을 만났을 때 「다시 열면 된다」고 안내할지 판단하는 근거다.
+      out.push({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id],
+                inGroup: !!c.event_group_id});
     }
   });
   return out;
+}
+
+// 이 화면이 **행사 하루치만** 열려 있는가 — 묶음에 속한 캠페인인데 묶음이 아니라
+//   캠페인 하나로 열린 경우다. 그때 다른 날 예약자가 오면 「담당자에게 안내하라」가
+//   아니라 **「이 화면을 묶음으로 다시 열라」**가 답이다.
+//   ⚠️ 묶음이 아예 없는 단일 행사는 다시 열어도 달라지지 않으므로 여기 해당하지 않는다.
+let _scopeIsPartOfGroup = false;
+function _scopeIsCampaignOnly() {
+  return _scopeIsPartOfGroup && _scopeCampCount <= 1;
 }
 
 function applyScope(choice) {
   _scopeCampaignIds = choice.campIds.slice();
   _scopeName = choice.name;
   _scopeCampCount = choice.campIds.length;
+  // 캠페인 하나로 열렸을 때, 그 캠페인이 묶음에 속하는지 기억해 둔다.
+  _scopeIsPartOfGroup = choice.kind === 'campaign' && !!choice.inGroup;
   $('pickerCard').style.display = 'none';
   $('mainArea').style.display = '';
   renderScopeBar();
@@ -684,7 +700,8 @@ async function resolveScope() {
   if (campaign) {
     const c = camps.find(x => x.id === campaign);
     if (!c) { renderPicker(buildScopeChoices(camps, groups), 'scopeNotFound'); return; }
-    applyScope({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id]});
+    applyScope({kind: 'campaign', id: c.id, name: c.title || T('scopeUnnamed'), campIds: [c.id],
+                inGroup: !!c.event_group_id});
     return;
   }
 
@@ -857,7 +874,11 @@ function showResult(res, code) {
     : ask ? T('otherDayAsk')
     // 범위 밖이면 「왜 여기서 안 되는지 · 어디로 안내할지」를 한 줄로 알려 준다.
     //   되묻는 흐름이 아니라 그대로 막히는 자리라, 직원이 다음 행동을 알 수 있어야 한다.
-    : res.reason === 'out_of_scope' ? T('outOfScopeNote')
+    // ⚠️ 같은 행사인데 **묶음이 아니라 캠페인 하나로 열려서** 막힌 경우가 있다.
+    //    그때는 「담당자에게 안내하라」가 답이 아니다 — 이 화면을 묶음으로 다시 열면
+    //    바로 들어온다. 어느 경우인지 화면이 스스로 알 수 있으므로(주소가 group= 이
+    //    아니라 campaign= 이다) 문구를 갈라 준다.
+    : res.reason === 'out_of_scope' ? T(_scopeIsCampaignOnly() ? 'outOfScopeReopen' : 'outOfScopeNote')
     : (!ok && res.waitlist_position ? T('waitPos', {n: res.waitlist_position}) : ''));
 
   _modalOpen = true;
@@ -941,6 +962,10 @@ async function fetchAllTickets(slotIds) {
       .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencer_id (name_kanji, name_kana)')
       .in('slot_id', slotIds)
       .neq('status', 'cancelled')
+      // ⚠️ 정렬 기준이 없으면 페이지를 나눠 받을 때 **순서가 매번 달라져** 두 번째
+      //    페이지에서 일부가 빠지거나 겹친다. 나눠 받는 조회에는 반드시 고정된 기준이
+      //    있어야 한다(관리자 앱의 같은 조회도 `created_at` 으로 정렬한다).
+      .order('created_at', { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
     all = all.concat(data || []);
