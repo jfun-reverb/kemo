@@ -1511,7 +1511,10 @@
         <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
         <div id="adminPane-settlements" class="admin-pane admin-pane-list">
           <!-- 메인 뷰(정산 목록) — 「미등록」 탭·지급 준비 뷰와 같은 페인 안에서 전환 -->
-          <div id="settlementMainView" style="display:flex;flex-direction:column;flex:1;min-height:0">
+          <!-- ⚠️ 처음 표시는 **감춤**이다. 정산 관리의 첫 화면은 지급 준비인데(2026-08-18 결정),
+               여기를 보이게 두면 새로고침 때 **목록이 한 번 번쩍했다가** 지급 준비로 바뀐다.
+               표시의 기본값을 도착지와 맞춰 그 깜빡임을 없앤다. -->
+          <div id="settlementMainView" style="display:none;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
@@ -1588,7 +1591,7 @@
           <!-- 「미등록」 탭의 내용물 (인증 성공했으나 정산 행이 아직 없는 건) — 상태 탭에서 전환, 기본 숨김
                ⚠️ 「과거」라는 말을 쓰지 않는다 — 도입일이 켜지면 과거가 아닌 건도 여기 들어온다(사양서 §4-2) -->
           <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 같은 페인 안에서 전환 -->
-          <div id="settlementPayoutView" style="display:none;flex-direction:column;flex:1;min-height:0">
+          <div id="settlementPayoutView" style="display:flex;flex-direction:column;flex:1;min-height:0">
             <div class="admin-sticky-header">
               <!-- ⚠️ 이 화면이 정산 관리의 **첫 화면**이다(2026-08-18 사용자 결정).
                    그래서 머리글도 곁가지가 아니라 **메인 화면 모양**으로 둔다 —
