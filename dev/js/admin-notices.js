@@ -99,9 +99,44 @@ function refreshAdminNoticeBadge() {
   else badge.style.display = 'none';
 }
 
+// 카테고리 탭 (단일 선택, ''=전체). 구 드롭다운 adminNoticeCatFilter 를 대체.
+//   공지 1건 = 카테고리 4종 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
+var _adminNoticeCatTab = '';
+
+// 카테고리 탭 정의 — 순서는 구 드롭다운·ADMIN_NOTICE_CAT_LABEL 과 동일
+const ADMIN_NOTICE_CAT_TABS = [
+  { code: '',              label: '전체' },
+  { code: 'system_update', label: ADMIN_NOTICE_CAT_LABEL.system_update },
+  { code: 'release',       label: ADMIN_NOTICE_CAT_LABEL.release },
+  { code: 'warning',       label: ADMIN_NOTICE_CAT_LABEL.warning },
+  { code: 'general',       label: ADMIN_NOTICE_CAT_LABEL.general },
+];
+
+// 카테고리 탭 바 렌더 — 건수는 renderAdminNotices 가 넘겨준 집계(카테고리 외 필터만 적용).
+//   전체 탭 = 그 집계의 합(카테고리가 4종 밖인 legacy 행도 합에는 들어간다).
+function renderAdminNoticeCatTabs(countsMap, totalAll) {
+  const bar = $('adminNoticeCatTabBar');
+  if (!bar) return;
+  const c = countsMap || {};
+  const active = _adminNoticeCatTab || '';
+  bar.innerHTML = ADMIN_NOTICE_CAT_TABS.map(tab => {
+    const n = tab.code === '' ? (totalAll || 0) : (c[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-cat="${tab.code}" onclick="setAdminNoticeCatTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 카테고리 탭 클릭 → 단일 카테고리 필터로 목록 재렌더 (활성 표시는 renderAdminNotices 내부 재렌더로 갱신)
+function setAdminNoticeCatTab(btn) {
+  _adminNoticeCatTab = btn.dataset.cat || '';
+  renderAdminNotices();
+}
+
 // 사이드바 공지 배지 클릭 → 다른 필터 초기화 후 「미읽음만」 (기준: openDelivPendingReview)
 function openNoticesUnread() {
-  const cat = document.getElementById('adminNoticeCatFilter'); if (cat) cat.value = 'all';
+  _adminNoticeCatTab = '';
   const st = document.getElementById('adminNoticeStatusFilter'); if (st) st.value = 'all';
   const sch = document.getElementById('adminNoticeSearch'); if (sch) sch.value = '';
   const un = document.getElementById('adminNoticeUnreadFilter'); if (un) un.checked = true;
@@ -112,16 +147,22 @@ function openNoticesUnread() {
 function renderAdminNotices() {
   const body = $('adminNoticeBody');
   if (!body) return;
-  const cat = $('adminNoticeCatFilter')?.value || 'all';
+  const cat = _adminNoticeCatTab || '';
   const status = $('adminNoticeStatusFilter')?.value || 'all';
   const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
   const unreadOnly = $('adminNoticeUnreadFilter')?.checked;
   let list = (_adminNoticesCache || []).slice();
-  if (cat !== 'all') list = list.filter(n => n.category === cat);
   if (status !== 'all') list = list.filter(n => (n.status || 'draft') === status);
   if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
   // 미읽음만 = 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
   if (unreadOnly) list = list.filter(n => n.status === 'published' && !n.is_read);
+  // 카테고리 탭 건수 = 자기 필터(카테고리)를 뺀 나머지 필터만 적용한 집계 → 탭을 눌러도 다른 탭 숫자가 안 변한다
+  // ⚠️ 세는 열쇠와 거르는 열쇠가 같아야 한다(`n.category` 그대로) — 빈 값에 기본 카테고리를 씌워 세면
+  //    그 행은 「일반」 숫자에는 들어가고 「일반」 탭 목록에는 안 나온다. DB 는 4종 NOT NULL(마이그레이션 063).
+  const catCounts = {};
+  list.forEach(n => { const k = n.category; if (k) catCounts[k] = (catCounts[k] || 0) + 1; });
+  renderAdminNoticeCatTabs(catCounts, list.length);
+  if (cat !== '') list = list.filter(n => n.category === cat);
   const total = $('adminNoticeTotal');
   if (total) total.textContent = `${list.length}건`;
   const isSuper = currentAdminInfo?.role === 'super_admin';
