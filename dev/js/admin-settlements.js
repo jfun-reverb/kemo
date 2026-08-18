@@ -1932,11 +1932,9 @@ function payoutPaypalHtml(p) {
   return '<span style="font-size:11px;color:#C33">페이팔 미등록</span>';
 }
 
-// 지급일 묶음 한 줄 (+ 펼치면 건별)
-function payoutDueGroupHtml(personId, due, list) {
-  const key = personId + '|' + due;
-  const checked = _payoutSelected.has(key) ? 'checked' : '';
-  const items = list.map(function(r) {
+// 건별 줄만 (묶음 줄과 따로 쓸 수 있게 분리)
+function payoutDueItemsHtml(list) {
+  return list.map(function(r) {
     // ⚠️ 건을 가리키는 열쇠는 **응모 id** 를 쓴다 — 정산 행이 아직 없는 건(미등록)에는
     //    정산 id 자체가 없다. 응모 id 는 두 갈래 모두에 있다.
     return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
@@ -1949,6 +1947,13 @@ function payoutDueGroupHtml(personId, due, list) {
         : ''}</div>
     </div>`;
   }).join('');
+}
+
+// 지급일 묶음 한 줄 (+ 펼치면 건별)
+function payoutDueGroupHtml(personId, due, list) {
+  const key = personId + '|' + due;
+  const checked = _payoutSelected.has(key) ? 'checked' : '';
+  const items = payoutDueItemsHtml(list);
   return `<div style="border-top:1px dashed var(--line);padding:6px 0">
     <div style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" ${checked} onchange="togglePayoutSelect('${esc(key)}')" style="width:15px;height:15px">
@@ -1989,16 +1994,30 @@ function payoutPersonCardHtml(entry) {
   const dues = Object.keys(entry.dues).sort();
   const allUnsent = dues.reduce(function(a, d) { return a.concat(entry.dues[d]); }, []);
   const paidSum = _payoutSum(entry.paid);
+  // ⚠️ 회차가 **하나뿐이면** 그 회차 줄이 사람 머리와 같은 말을 두 번 한다(날짜·건수·금액).
+  //    그때는 줄을 없애고 **체크박스는 이름 왼쪽, 「보냄」은 합계 오른쪽**으로 옮긴다.
+  //    회차가 둘 이상이면 어느 회차인지 갈라야 하므로 종전대로 회차 줄을 남긴다.
+  const single = dues.length === 1;
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      ${single
+        ? `<input type="checkbox" ${_payoutSelected.has(p.id + '|' + dues[0]) ? 'checked' : ''}
+             onchange="togglePayoutSelect('${esc(p.id + '|' + dues[0])}')" style="width:15px;height:15px">`
+        : ''}
       <div style="font-weight:700;font-size:13px">${esc(p.name || '(이름 미상)')}</div>
       ${p.kana ? `<div style="font-size:11px;color:var(--muted)">${esc(p.kana)}</div>` : ''}
       ${payoutPaypalHtml(p)}
-      <div style="margin-left:auto;font-size:12px">
-        ${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px">${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b></span>
+        ${single
+          ? `<button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+               onclick="openPayoutSendModal('${esc(p.id + '|' + dues[0])}')" title="이 사람의 이 회차를 송금완료로 기록">보냄</button>`
+          : ''}
       </div>
     </div>
-    ${dues.map(function(d) { return payoutDueGroupHtml(p.id, d, entry.dues[d]); }).join('')}
+    ${single
+      ? payoutDueItemsHtml(entry.dues[dues[0]])
+      : dues.map(function(d) { return payoutDueGroupHtml(p.id, d, entry.dues[d]); }).join('')}
     ${entry.paid.length ? `<div style="border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-size:12px;color:#16A34A">
         이미 기록됨 ${entry.paid.length}건 · ${esc(_payoutYen(paidSum))}
       </div>` : ''}
