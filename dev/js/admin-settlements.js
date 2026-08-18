@@ -2218,9 +2218,17 @@ function renderPayoutPersonBody() {
     ${progressHtml}
     ${entries.length ? entries.map(payoutPersonCardHtml).join('')
       : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}
-    <div style="position:sticky;bottom:0;background:var(--bg,#fff);border-top:1px solid var(--line);padding:10px 2px;font-size:13px">
-      선택 ${_payoutSelected.size}묶음 · ${selectedRows.length}건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b>
-    </div>`;
+    ${_payoutSelected.size ? `
+    <!-- ⚠️ **고른 것이 있을 때만** 띄운다. 늘 「선택 0묶음 · 0건 · ¥0」 이 깔려 있으면
+         읽을 것이 없는 줄이 화면 아래를 계속 차지한다.
+         ⚠️ 좌우 여백은 카드와 **같은 18px** — 바깥 감싸개의 여백을 그대로 받지 않는다
+            (그래서 예전에는 글자가 왼쪽 끝에 붙어 보였다). -->
+    <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);
+                margin:0 -18px -16px;padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:10px">
+      <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
+      <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
+              onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
+    </div>` : ''}`;
 }
 
 // 사이드바 「정산 관리」 옆 작은 경고 — **미등록이 있을 때만**.
