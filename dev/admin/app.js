@@ -159,6 +159,9 @@ async function init() {
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
+    // 막힌 표 감지 — 부팅 시 1회. **그 화면에 들어가야만 알 수 있으면 늦다**
+    //   (2026-08-07 사고가 11일간 안 보였던 이유가 그것이다).
+    if (typeof refreshBlockedTableIndicators === 'function') refreshBlockedTableIndicators();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
