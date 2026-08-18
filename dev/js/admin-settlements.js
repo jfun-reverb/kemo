@@ -1723,53 +1723,53 @@ function payoutDueRowHtml(due, rows, todayStr) {
   const cnt = rows.length;
   const sum = rows.reduce(function(a, r) { return a + r.amount; }, 0);
   // ★ 그 회차 안에서 보낸 것 / 아직 안 보낸 것을 가른다.
-  //   왼쪽 숫자는 **그 날 전체**, 오른쪽 두 덩이가 그 내역이다 — 셋을 함께 봐야
+  //   왼쪽 숫자는 **그 날 전체**, 오른쪽 두 열이 그 내역이다 — 셋을 함께 봐야
   //   「얼마나 남았나」와 「원래 얼마였나」를 같이 알 수 있다.
   const sent   = rows.filter(function(r) { return r.status === 'paid'; });
   const unsent = rows.filter(_payoutUnsent);
-  const sentSum   = _payoutSum(sent);
-  const unsentSum = _payoutSum(unsent);
   const unknown = rows.filter(function(r) { return r.amountUnknown; }).length;
   // ⚠️ **몇 건인지 반드시 숫자로 적는다.** 「섞여 있을 수 있습니다」로 쓰면 얼마나 섞였는지
-  //    몰라 이 회차의 숫자를 통째로 못 믿게 된다. 몇 건인지 알면 나머지는 믿을 수 있다.
-  //    ⚠️ 0건인 회차에는 아무것도 안 그린다 — 늘 떠 있으면 아무도 안 읽는다.
+  //    몰라 이 회차의 숫자를 통째로 못 믿게 된다. 0건인 회차에는 아무것도 안 그린다.
   const recordOnly = rows.filter(function(r) { return r.recordDateOnly; }).length;
   const overdue = due < todayStr;
-  // ⚠️ 「이번 달」 구역 안에도 이미 지난 회차가 있다 — 이번 달이라고 안심시키면 안 된다.
   const days = Math.round((Date.parse(due + 'T00:00:00+09:00') - Date.parse(todayStr + 'T00:00:00+09:00')) / 86400000);
   const when = overdue
     ? `<span style="color:#C33;font-weight:700">지남 ${-days}일</span>`
     : (days === 0 ? '<span style="color:#B8741A;font-weight:700">오늘</span>' : `<span style="color:var(--muted)">D-${days}</span>`);
-  return `<div style="display:flex;align-items:center;gap:14px;padding:9px 12px;border-bottom:1px solid var(--line)">
-    <div style="width:96px;font-weight:700;font-size:13px">${esc(due)}</div>
-    <div style="width:64px;text-align:right;font-size:13px">${cnt}건</div>
-    <div style="width:110px;text-align:right;font-weight:700;font-size:13px">${esc(_payoutYen(sum))}</div>
-    <div style="width:84px">${when}</div>
-    <!-- 그 회차의 내역 — 0건인 쪽은 흐리게 두어 「없다」가 한눈에 보이게 한다 -->
-    <div style="width:150px;text-align:right;font-size:12px;${sent.length ? 'color:#16A34A' : 'color:var(--muted);opacity:.55'}"
-         title="이미 송금한 것">송금완료 ${sent.length}건 · ${esc(_payoutYen(sentSum))}</div>
-    <div style="width:150px;text-align:right;font-size:12px;${unsent.length ? 'color:#C33;font-weight:600' : 'color:var(--muted);opacity:.55'}"
-         title="아직 안 보낸 것">미지급 ${unsent.length}건 · ${esc(_payoutYen(unsentSum))}</div>
-    ${unknown ? `<div style="font-size:11px;color:#C33">금액 미확정 ${unknown}건</div>` : ''}
-    ${recordOnly ? `<div style="font-size:11px;color:#9A3412;cursor:help" title="${esc(SETTLEMENT_RECORD_DATE_TIP)}">기록일로 남은 건 ${recordOnly}건</div>` : ''}
-    <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
-            onclick="openPayoutPersonList('${esc(due)}')">상세</button>
-  </div>`;
+  // 0건인 쪽은 흐리게 — 「없다」가 한눈에 보이게.
+  const cell = (n, amt, color) => n
+    ? `<div style="font-weight:600;color:${color}">${n}건</div><div style="font-size:11px;color:${color}">${esc(_payoutYen(amt))}</div>`
+    : '<span style="color:var(--muted);opacity:.5">—</span>';
+  const notes = [];
+  if (unknown)    notes.push(`<span style="color:#C33">금액 미확정 ${unknown}건</span>`);
+  if (recordOnly) notes.push(`<span style="color:#9A3412;cursor:help" title="${esc(SETTLEMENT_RECORD_DATE_TIP)}">기록일 ${recordOnly}건</span>`);
+  return `<tr>
+    <td style="font-weight:700;white-space:nowrap">${esc(due)}</td>
+    <td style="text-align:right;white-space:nowrap">${cnt}건</td>
+    <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(sum))}</td>
+    <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
+    <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
+    <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
+    <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+        onclick="openPayoutPersonList('${esc(due)}')">상세</button></td>
+  </tr>`;
 }
 
+// 구역 머리 + 그 구역의 회차들. ⚠️ **표 하나 안**에 넣는다 — 구역마다 표를 따로 만들면
+//    열 너비가 제각각이라 좌우가 안 맞는다(그게 표로 바꾼 이유다).
 function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
-  const rows = dues.map(function(d) { return payoutDueRowHtml(d, byDue[d], todayStr); }).join('');
   const cnt = dues.reduce(function(a, d) { return a + byDue[d].length; }, 0);
   const sum = dues.reduce(function(a, d) {
     return a + byDue[d].reduce(function(b, r) { return b + r.amount; }, 0);
   }, 0);
-  return `<div style="margin-bottom:18px">
-    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
-      <div style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</div>
-      ${dues.length ? `<div style="font-size:12px;color:var(--muted)">${cnt}건 · ${esc(_payoutYen(sum))}</div>` : ''}
-    </div>
-    ${dues.length ? rows : `<div style="padding:10px 12px;color:var(--muted);font-size:12px">${esc(emptyText)}</div>`}
-  </div>`;
+  const head = `<tr><td colspan="7" style="padding-top:14px;border-bottom:0">
+      <span style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</span>
+      ${dues.length ? `<span style="font-size:12px;color:var(--muted);margin-left:8px">${cnt}건 · ${esc(_payoutYen(sum))}</span>` : ''}
+    </td></tr>`;
+  const body = dues.length
+    ? dues.map(function(d) { return payoutDueRowHtml(d, byDue[d], todayStr); }).join('')
+    : `<tr><td colspan="7" style="color:var(--muted);font-size:12px">${esc(emptyText)}</td></tr>`;
+  return head + body;
 }
 
 function renderPayoutSummary() {
@@ -1806,9 +1806,21 @@ function renderPayoutSummary() {
   const noDate = rows.filter(function(r) { return !r.due; });
 
   body.innerHTML =
-    payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
+    `<table class="data-table" style="width:100%">
+      <thead><tr>
+        <th style="width:110px">지급 예정일</th>
+        <th style="width:70px;text-align:right">건수</th>
+        <th style="width:110px;text-align:right">금액</th>
+        <th style="width:150px">기한</th>
+        <th style="width:110px;text-align:right">송금완료</th>
+        <th style="width:110px;text-align:right">미지급</th>
+        <th style="width:70px"></th>
+      </tr></thead>
+      <tbody>`
+  + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
+  + `</tbody></table>`
   + `<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <div style="font-weight:700;font-size:13px">지급 완료</div>
