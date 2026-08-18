@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787054530';
+  var CURRENT_BUILD = 'v1787054818';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 21:02 · 5ee4c69</span>
+          <span class="admin-build-text">2026-08-18 21:06 · 269038d</span>
         </div>
       </div>
     </aside>
@@ -36093,9 +36093,14 @@ async function loadSettlements() {
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
   }
-  if ($('settlementPayoutView') && $('settlementPayoutView').style.display !== 'none') {
-    closePayoutPrepView();
-  }
+  // ⚠️ **지급 준비는 여기서 닫지 않는다.** 닫으면 정산 목록이 켜지고, 이 함수 끝에서
+  //    다시 지급 준비로 돌아온다 — 그 사이가 **목록이 번쩍이는 구간**이다.
+  //    (HTML 의 처음 표시가 지급 준비라, 첫 진입에도 이 조건이 참이 되어 매번 번쩍였다.)
+  //    옛 데이터가 남을 걱정은 없다 — 아래 openPayoutPrepView() 가 처음부터 다시 그린다.
+  //    다만 지난번에 보던 **회차·검색어·선택은 비운다**(안 비우면 남의 회차가 열린 채로 뜬다).
+  _payoutDueFilter = null;
+  _payoutPersonSearch = '';
+  if (typeof _payoutSelected !== 'undefined' && _payoutSelected) _payoutSelected.clear();
   try {
     const r = await backfillSettlements();
     if (r && r.created_count > 0 && typeof toast === 'function') {
