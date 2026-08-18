@@ -1932,6 +1932,19 @@ function payoutPaypalHtml(p) {
   return '<span style="font-size:11px;color:#C33">페이팔 미등록</span>';
 }
 
+// 건별 줄의 **열 제목**. ⚠️ 없으면 오른쪽 날짜가 무슨 날짜인지 알 수 없다 —
+//   운영팀은 지급 예정일·송금일·승인일을 한 화면에서 함께 보므로, 제목 없는 날짜는
+//   곧 오해가 된다(2026-08-18 지적). 건별 줄과 **같은 폭**으로 맞춰 그린다.
+function payoutItemsHeadHtml() {
+  return `<div style="display:flex;gap:10px;align-items:center;padding:2px 0 3px 26px;font-size:10px;color:var(--muted);
+              letter-spacing:.03em;border-bottom:1px solid var(--line);margin-bottom:2px">
+    <div style="flex:1">캠페인</div>
+    <div style="width:96px;text-align:right">결과물 승인일</div>
+    <div style="width:88px;text-align:right">금액</div>
+    <div style="width:52px"></div>
+  </div>`;
+}
+
 // 건별 줄만 (묶음 줄과 따로 쓸 수 있게 분리)
 function payoutDueItemsHtml(list, sent) {
   return list.map(function(r) {
@@ -2026,6 +2039,7 @@ function payoutPersonCardHtml(entry) {
           : ''}
       </div>
     </div>
+    ${payoutItemsHeadHtml()}
     ${single
       ? payoutDueItemsHtml(entry.dues[dues[0]])
       : dues.map(function(d) { return payoutDueGroupHtml(p.id, d, entry.dues[d]); }).join('')}
