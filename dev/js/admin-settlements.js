@@ -1769,7 +1769,10 @@ function renderPayoutSummary() {
   const dues = Object.keys(byDue).sort();
 
   const thisM = dues.filter(function(d) { return _payoutMonthOf(d) === thisMonth; });
-  const before = dues.filter(function(d) { return _payoutMonthOf(d) < thisMonth; });
+  // ⚠️ 밀린 것은 **최근 회차가 위**로 온다(내림차순). 다른 두 구역은 「곧 올 것」을 먼저
+  //    보는 게 맞아 오름차순이지만, 밀린 것은 **가장 최근에 놓친 회차**부터 처리하게 된다.
+  //    ('YYYY-MM-DD' 는 사전순 = 시간순이라 문자열 그대로 뒤집으면 된다)
+  const before = dues.filter(function(d) { return _payoutMonthOf(d) < thisMonth; }).slice().reverse();
   const after  = dues.filter(function(d) { return _payoutMonthOf(d) > thisMonth; });
 
   // 「지급 완료」 — ⚠️ 예정일 조건을 걸지 않는다. 걸면 미리 보낸 건·당일 보낸 건·
@@ -1785,7 +1788,7 @@ function renderPayoutSummary() {
   body.innerHTML =
     payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
-  + payoutSectionHtml('다음 달 이후', '#6B7280', after, byDue, todayStr, '다음 달 이후 예정이 없습니다.')
+  + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   + `<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <div style="font-weight:700;font-size:13px">지급 완료</div>
