@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787062311';
+  var CURRENT_BUILD = 'v1787062534';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 23:11 · 89b201a</span>
+          <span class="admin-build-text">2026-08-18 23:15 · f0b29e8</span>
         </div>
       </div>
     </aside>
@@ -38082,7 +38082,13 @@ function renderPayoutPersonList() {
   const body = $('payoutSummaryBody');
   if (!body) return;
   body.innerHTML = `
-   <div style="padding:16px 18px">
+   <div style="padding:0 18px 16px">
+    <!-- ⚠️ 머리(뒤로가기·제목·검색·스위치)와 요약·선택 정보를 **위에 붙여** 둔다.
+         목록이 길어 스크롤하면 「지금 어느 회차를 보고 있고 얼마가 남았는지」가 화면 밖으로
+         나가고, 고른 건수도 맨 아래에 있어 **고를 때마다 끝까지 내려가야** 했다.
+         ⚠️ 좌우로 -18px 빼고 다시 채우는 것은 감싸개 여백을 덮어 배경이 끊기지 않게 하려는 것.
+            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다. -->
+    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${
@@ -38105,6 +38111,8 @@ function renderPayoutPersonList() {
         </div>
         ${payoutGroupSwitchHtml()}
       </div>
+    </div>
+      <div id="payoutStickyInfo"></div>
     </div>
     <div id="payoutPersonListBody"></div>
    </div>`;
@@ -38187,22 +38195,21 @@ function renderPayoutPersonBody() {
         paidCnt ? ` · 송금완료 <b style="color:#16A34A">${paidCnt}건 ${esc(_payoutYen(paidSum2))}</b>` : ''}</div>`
     : `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 중 <b style="color:var(--ink)">${doneCount}명</b> 처리 · ${total - doneCount}명 남음</div>`;
 
+  const info = $('payoutStickyInfo');
+  if (info) {
+    info.innerHTML = progressHtml
+      + (_payoutSelected.size ? `
+      <div style="border-top:1px solid var(--line);padding:8px 0;font-size:13px;display:flex;align-items:center;gap:10px">
+        <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
+        <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
+                onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
+      </div>` : '<div style="height:8px"></div>');
+  }
   body.innerHTML = `
-    ${progressHtml}
     ${entries.length ? entries.map(payoutPersonCardHtml).join('')
       : `<div id="payoutEmptyBox" style="padding:24px;text-align:center;color:var(--muted);font-size:13px">${
           _payoutSearchTokens.length ? '찾는 중…' : '대상이 없습니다.'}</div>`}
-    ${_payoutSelected.size ? `
-    <!-- ⚠️ **고른 것이 있을 때만** 띄운다. 늘 「선택 0묶음 · 0건 · ¥0」 이 깔려 있으면
-         읽을 것이 없는 줄이 화면 아래를 계속 차지한다.
-         ⚠️ 좌우 여백은 카드와 **같은 18px** — 바깥 감싸개의 여백을 그대로 받지 않는다
-            (그래서 예전에는 글자가 왼쪽 끝에 붙어 보였다). -->
-    <div style="position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);
-                margin:0 -18px -16px;padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:10px">
-      <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
-      <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
-              onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
-    </div>` : ''}`;
+    `;
 
   // 비었으면 **왜 없는지** 찾아본다(화면을 그린 뒤 비동기 — 목록 표시를 막지 않는다)
   if (!entries.length && _payoutSearchTokens.length) payoutExplainMissing(_payoutPersonSearch);
