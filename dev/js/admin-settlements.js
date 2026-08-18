@@ -2003,6 +2003,23 @@ function onPayoutPersonSearch(v) {
 //      고르면 「이 사람에게 얼마를 보내나」가 갈라져 오히려 금액을 틀리게 만든다.
 let _payoutGroupBy = 'person';   // 'person' | 'campaign'
 
+// 회원별 / 캠페인별 전환 스위치.
+//   ⚠️ 화면 공용 탭 클래스(`status-tab`)를 쓰면 이 자리에서는 **스타일이 안 먹어 글자만**
+//      보인다(그 클래스는 페인 머리글의 탭 바 안에서만 모양이 잡힌다). 여기서는 주변
+//      CSS 에 기대지 않고 **눌리는 스위치 모양을 직접** 그린다 — 안 그러면 누를 수 있는
+//      것인지조차 안 보인다.
+function payoutGroupSwitchHtml() {
+  const on  = 'background:var(--pink);color:#fff;font-weight:700';
+  const off = 'background:transparent;color:var(--muted);font-weight:600';
+  const base = 'border:0;border-radius:7px;padding:5px 14px;font-size:12px;cursor:pointer;line-height:1.4;white-space:nowrap';
+  return `<div style="display:inline-flex;gap:2px;padding:2px;background:#F1F1F3;border:1px solid var(--line);border-radius:9px">
+    <button type="button" style="${base};${_payoutGroupBy === 'person' ? on : off}"
+            onclick="setPayoutGroupBy('person')" title="사람별로 묶어 봅니다(송금 처리는 여기서)">회원별</button>
+    <button type="button" style="${base};${_payoutGroupBy === 'campaign' ? on : off}"
+            onclick="setPayoutGroupBy('campaign')" title="캠페인별로 묶어 봅니다(보기 전용)">캠페인별</button>
+  </div>`;
+}
+
 function setPayoutGroupBy(v) {
   if (_payoutGroupBy === v) return;
   _payoutGroupBy = v;
@@ -2048,10 +2065,7 @@ function renderPayoutPersonList() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
-      <div class="status-tab-bar" style="margin:0;gap:4px">
-        <button class="status-tab${_payoutGroupBy === 'person' ? ' active' : ''}" onclick="setPayoutGroupBy('person')">회원별</button>
-        <button class="status-tab${_payoutGroupBy === 'campaign' ? ' active' : ''}" onclick="setPayoutGroupBy('campaign')">캠페인별</button>
-      </div>
+      ${payoutGroupSwitchHtml()}
       <input id="payoutPersonSearchInput" class="admin-filter-search"
              placeholder="이름(한자·가나)·페이팔 이메일로 검색"
              value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)"
