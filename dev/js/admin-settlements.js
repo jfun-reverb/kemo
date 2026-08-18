@@ -2102,8 +2102,12 @@ function renderPayoutPersonBody() {
   if (!body) return;
   const all = _payoutRows || [];
   // 지급일 필터가 있으면 그 회차만(화면 ㄴ), 없으면 전 기간(화면 ㄷ).
+  // ★ 그 회차의 **보낸 것까지 함께** 보여준다(2026-08-18 사용자 요청).
+  //   ⚠️ 예전에는 안 보낸 것만 넘겼다. 그러면 절반을 보낸 회차에서 **이미 보낸 사람이
+  //      목록에서 사라져**, 「이 사람 보냈던가」를 확인할 데가 없었다.
+  //   보낸 것은 사람 카드 안에서 「이미 기록됨」 줄로 따로 묶인다(groupSettlementsByPerson).
   let rows = _payoutDueFilter
-    ? all.filter(function(r) { return r.due === _payoutDueFilter && _payoutUnsent(r); })
+    ? all.filter(function(r) { return r.due === _payoutDueFilter; })
     : all;
   // ── 캠페인별 보기 (보기 전용) ────────────────────────────────
   if (_payoutGroupBy === 'campaign') {
@@ -2162,9 +2166,13 @@ function renderPayoutPersonBody() {
   //   ⚠️ **회차 상세(화면 ㄴ)에서는 쓰지 않는다.** 그 화면은 「아직 안 보낸 것」만 넘겨받아
   //      이미 보낸 사람이 애초에 목록에 없다 — 「N명 중 0명 처리」가 **구조적으로 항상 0**이라
   //      진행이 멈춘 것처럼 보인다. 전 기간(화면 ㄷ)에서만 뜻이 있다.
+  const unsentSum = entries.reduce(function(a, e) {
+    return a + Object.keys(e.dues).reduce(function(b, d) { return b + _payoutSum(e.dues[d]); }, 0); }, 0);
+  const paidCnt = entries.reduce(function(a, e) { return a + e.paid.length; }, 0);
+  const paidSum2 = entries.reduce(function(a, e) { return a + _payoutSum(e.paid); }, 0);
   const progressHtml = _payoutDueFilter
-    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 · 합계 <b style="color:var(--ink)">${esc(_payoutYen(entries.reduce(function(a, e) {
-        return a + Object.keys(e.dues).reduce(function(b, d) { return b + _payoutSum(e.dues[d]); }, 0); }, 0)))}</b></div>`
+    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 · 미지급 <b style="color:#C33">${esc(_payoutYen(unsentSum))}</b>${
+        paidCnt ? ` · 송금완료 <b style="color:#16A34A">${paidCnt}건 ${esc(_payoutYen(paidSum2))}</b>` : ''}</div>`
     : `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 중 <b style="color:var(--ink)">${doneCount}명</b> 처리 · ${total - doneCount}명 남음</div>`;
 
   body.innerHTML = `
