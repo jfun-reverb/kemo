@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787055071';
+  var CURRENT_BUILD = 'v1787055107';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 21:11 · 5a4d8c1</span>
+          <span class="admin-build-text">2026-08-18 21:11 · 9f7bee4</span>
         </div>
       </div>
     </aside>
@@ -4408,12 +4408,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <button class="btn btn-ghost btn-sm" onclick="closePayoutPrepView()" title="건별 목록·상태 탭·개별 처리로 이동합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px">list_alt</span> 정산 목록
                 </button>
-              </div>
-              <!-- 한시 안내 — ⚠️ 487건 기록(4단계)이 끝나면 **반드시 제거**한다.
-                   남겨 두면 진짜 미지급이 생겨도 「어차피 기록 안 된 것」으로 무시된다. -->
-              <div id="payoutTempNotice" style="background:#FEF3C7;border:1px solid #FBBF24;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;line-height:1.7">
-                시스템 밖에서 이미 지급된 건이 아직 기록되지 않았습니다.
-                기록이 끝나기 전까지 <b>이 숫자는 실제 미지급액이 아닙니다</b>.
               </div>
             </div>
             <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
