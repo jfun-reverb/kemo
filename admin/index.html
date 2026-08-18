@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787050530';
+  var CURRENT_BUILD = 'v1787051873';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2931,7 +2931,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 19:55 · 8141c6f</span>
+          <span class="admin-build-text">2026-08-18 20:17 · ce07553</span>
         </div>
       </div>
     </aside>
@@ -37508,6 +37508,10 @@ function _payoutUnsent(r) { return r.status === 'unregistered' || r.status === '
 async function openPayoutPrepView() {
   const main = $('settlementMainView'), view = $('settlementPayoutView');
   if (!main || !view) return;
+  // ⚠️ 「미등록」 화면은 목록 화면의 **형제**라, 목록만 감추면 그대로 남는다.
+  //    안 감추면 지급 준비와 미등록이 **세로로 겹쳐 한 화면에 둘 다** 뜬다
+  //    (2026-08-18 운영에서 실제로 그렇게 보였다). 세 화면은 서로 배타여야 한다.
+  hideUnregisteredTab();
   main.style.display = 'none';
   view.style.display = 'flex';
   const body = $('payoutSummaryBody');
@@ -37543,6 +37547,12 @@ function closePayoutPrepView() {
   const main = $('settlementMainView'), view = $('settlementPayoutView');
   if (view) view.style.display = 'none';
   if (main) main.style.display = 'flex';
+  // 지급 준비로 가기 전에 「미등록」 탭을 보고 있었다면 그 자리로 돌려준다 —
+  // 돌아왔더니 다른 탭이면 방금 보던 목록을 다시 찾아 들어가야 한다.
+  if (_settlementFilters && _settlementFilters.status === 'unregistered'
+      && typeof showUnregisteredTab === 'function') {
+    showUnregisteredTab();
+  }
 }
 
 // 'YYYY-MM' 을 n달 옮긴다(문자열 연산 — 시간대가 끼어들 자리가 없다)
