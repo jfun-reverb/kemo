@@ -2011,8 +2011,8 @@ let _payoutGroupBy = 'person';   // 'person' | 'campaign'
 function payoutGroupSwitchHtml() {
   const on  = 'background:var(--pink);color:#fff;font-weight:700';
   const off = 'background:transparent;color:var(--muted);font-weight:600';
-  const base = 'border:0;border-radius:7px;padding:5px 14px;font-size:12px;cursor:pointer;line-height:1.4;white-space:nowrap';
-  return `<div style="display:inline-flex;gap:2px;padding:2px;background:#F1F1F3;border:1px solid var(--line);border-radius:9px">
+  const base = 'border:0;border-radius:6px;padding:2px 11px;font-size:11px;cursor:pointer;line-height:1.5;white-space:nowrap';
+  return `<div style="display:inline-flex;gap:2px;padding:1px;background:#F1F1F3;border:1px solid var(--line);border-radius:8px">
     <button type="button" style="${base};${_payoutGroupBy === 'person' ? on : off}"
             onclick="setPayoutGroupBy('person')" title="사람별로 묶어 봅니다(송금 처리는 여기서)">회원별</button>
     <button type="button" style="${base};${_payoutGroupBy === 'campaign' ? on : off}"
@@ -2065,11 +2065,11 @@ function renderPayoutPersonList() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
-      ${payoutGroupSwitchHtml()}
       <input id="payoutPersonSearchInput" class="admin-filter-search"
              placeholder="이름(한자·가나)·페이팔 이메일로 검색"
              value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)"
              style="min-width:260px;margin-left:auto">
+      ${payoutGroupSwitchHtml()}
     </div>
     <div id="payoutPersonListBody"></div>`;
   renderPayoutPersonBody();
