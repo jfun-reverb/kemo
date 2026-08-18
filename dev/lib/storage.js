@@ -4345,11 +4345,18 @@ async function fetchSettlements(opts) {
       // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 299 추가 — 리뷰어형이 영수증
       // 실결제액 기준으로 바뀌면서(300), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
       // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
+      // paid_amount_jpy 는 마이그레이션 338 추가 — **실제로 보낸 금액**.
+      //   ⚠️ NULL 은 「계산 금액(amount_jpy)과 같음」이지 0원이 아니다(Number(null) 이 0 이라
+      //      그냥 넘기면 「0엔 송금」으로 읽힌다).
+      //   ⚠️ 이 열 목록은 명시형이라, 새 칸을 여기 안 적으면 화면은 **오류 없이 빈 값**을 그린다.
+      // ★★ 조회문 문자열 **안쪽에는 주석을 넣지 말 것.** 그 글자가 열 이름으로 그대로
+      //    전달돼 조회 전체가 깨지고(PGRST100), 아래 catch 가 그 오류를 삼켜
+      //    **화면이 통째로 빈다.** 2026-08-18 개발서버에서 실제로 재현됐다.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
-        cert_at,
+        cert_at, paid_amount_jpy,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -4386,12 +4393,16 @@ async function isSettlementPublic() {
 // 필터 없이 그대로 조회해도 안전.
 // ⚠️ 마이그레이션 240 이후 본인 조회 정책에 공개 스위치가 함께 걸려 있어, 잠금 상태에서는
 //    서버가 0건을 반환한다(화면 가림과 이중 방어).
+// 인플루언서 본인 정산 조회.
+//   paid_amount_jpy(마이그레이션 338) = 실제로 보낸 금액. 없으면 계산 금액과 같다는 뜻.
+//   ⚠️ 이 칸을 안 가져오면 인플루언서 화면이 **계산 금액**을 받은 금액인 양 보여준다.
+//   ★★ 조회문 문자열 안쪽에 주석을 넣지 말 것 — 열 이름으로 전달돼 조회가 통째로 깨진다.
 async function fetchMySettlements() {
   if (!db) return [];
   try {
     const {data, error} = await db.from('settlements').select(`
       id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
-      amount_source,
+      amount_source, paid_amount_jpy,
       campaigns:campaign_id (id, title, brand, img1)
     `).order('created_at', {ascending: false});
     if (error) throw error;
@@ -4413,16 +4424,70 @@ async function backfillSettlements() {
   return result;
 }
 
-// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222). pending → paid 전이,
-// paypal_email 재조회·미등록 시 차단, settlement_paid 알림 발행, settlement_events 이력 기록.
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222 → 241 → 339).
+// pending → paid 전이, paypal_email 재조회·미등록 시 차단, settlement_events 이력 기록.
+// 인플루언서 알림은 정산이 공개(is_settlement_public)일 때만 — 241 의 잠금 게이트.
 // 버전 충돌 시 -1 반환("이미 처리됨" 토스트). 정산 관리 페인(admin-settlements.js)에서 호출.
-async function markSettlementPaid(id, version, memo) {
+//
+// [339] paidAt·paidAmount 는 **실제로 언제·얼마를 보냈는지**. 둘 다 생략 가능하고,
+//   생략하면 종전과 똑같이 「지금 시각 · 계산값과 같음」으로 동작한다.
+//   ⚠️ paidAmount 의 null 은 「계산값(amount_jpy)과 같음」이지 0원이 아니다.
+//   ⚠️ 빈 문자열을 그대로 넘기면 서버가 자료형 오류를 낸다 — 반드시 null 로 바꿔 보낸다.
+async function markSettlementPaid(id, version, memo, paidAt, paidAmount) {
   if (!db) throw new Error('DB 미연결');
   let newVersion = -1;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('mark_settlement_paid', {
       p_settlement_id: id,
       p_version: version,
+      p_memo: memo || null,
+      p_paid_at: paidAt || null,
+      p_paid_amount_jpy: (paidAmount === 0 || paidAmount) ? Number(paidAmount) : null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// [340] 정산대기 여러 건을 한 번에 송금완료로 — RPC mark_settlements_paid_bulk.
+// ⚠️ 실패해도 통째로 되돌리지 않는다. **건너뛴 건수를 사유별로** 돌려주므로 호출부는
+//    반드시 그 숫자를 보여줘야 한다 — 「몇 건 처리했습니다」만 띄우면 나머지가 왜 빠졌는지
+//    아무도 모른다(이 저장소가 반복해 겪은 「조용히 사라짐」).
+// 반환: {paid, skippedNoPaypal, skippedNotPending, notFound}
+async function markSettlementsPaidBulk(ids, paidAt, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let row = {};
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlements_paid_bulk', {
+      p_settlement_ids: ids,
+      p_paid_at: paidAt || null,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    row = (Array.isArray(data) ? data[0] : data) || {};
+  });
+  return {
+    paid:              Number(row.paid_count) || 0,
+    skippedNoPaypal:   Number(row.skipped_no_paypal_count) || 0,
+    skippedNotPending: Number(row.skipped_not_pending_count) || 0,
+    notFound:          Number(row.not_found_count) || 0
+  };
+}
+
+// [341] 이미 송금완료된 건의 **실제 송금일·송금액만** 정정 — RPC correct_settlement_payment.
+// 상태·계산 금액(amount_jpy)은 안 바뀌고 알림도 없다. 버전 충돌 시 -1.
+// ⚠️ 인자 null 은 「그 칸은 안 고침」이다. 둘 다 null 이면 서버가 거부한다.
+// ⚠️ 사유(memo)는 **필수** — 금전 기록을 사후에 고치는 자리라 서버도 빈 값을 거부한다.
+async function correctSettlementPayment(id, version, paidAt, paidAmount, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('correct_settlement_payment', {
+      p_settlement_id: id,
+      p_version: version,
+      p_paid_at: paidAt || null,
+      p_paid_amount_jpy: (paidAmount === 0 || paidAmount) ? Number(paidAmount) : null,
       p_memo: memo || null
     });
     if (error) throw error;
@@ -4631,7 +4696,11 @@ async function fetchPastUnregisteredSettlements() {
 //   ⚠️ 예전에는 등록 건수(숫자) 하나만 돌려줬다. 마이그레이션 324 가 「송금완료로 기록하려는데
 //   페이팔이 없는 건」을 배치에서 빼기 시작했는데(단건은 원래 막았다), 빠진 건수를 안 보여주면
 //   관리자는 **왜 고른 수보다 적게 처리됐는지 알 수 없다.**
-async function registerPastSettlements(applicationIds, targetStatus, memo) {
+// [339] paidAt — 실제로 보낸 날짜. 생략하면 종전대로 지금 시각.
+//   ⚠️ 금액 인자는 **없다.** 일괄이라 건마다 다른 금액을 하나로 못 넣는다 —
+//      계산값과 다른 건은 등록한 뒤 correctSettlementPayment 로 개별 정정한다.
+//   ⚠️ 「정산대기로 등록」인데 송금일을 주면 서버가 거부한다(아직 안 보낸 상태다).
+async function registerPastSettlements(applicationIds, targetStatus, memo, paidAt) {
   if (!db) throw new Error('DB 미연결');
   let registered = 0;
   let skippedNoPaypal = 0;
@@ -4639,7 +4708,8 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
     const {data, error} = await db.rpc('register_past_settlements', {
       p_application_ids: applicationIds,
       p_target_status: targetStatus,
-      p_memo: memo || null
+      p_memo: memo || null,
+      p_paid_at: paidAt || null
     });
     if (error) throw error;
     // 스칼라(정수) 또는 {registered_count, skipped_no_paypal_count} 단일 행 양쪽 대응

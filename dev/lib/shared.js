@@ -1992,3 +1992,21 @@ function logAppError(context, err, expectedCodes) {
     collectClientError(err, 'handled', { context: context, expected: expected });
   } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }
 }
+
+// ── 정산: 그 건에서 **실제로 오간 금액** ───────────────────────────────
+// 마이그레이션 338 이 `paid_amount_jpy`(실제로 보낸 금액)를 만들면서, 한 정산의 금액이
+// **두 칸**이 됐다. `amount_jpy` 는 시스템이 계산한 값이고 계산 근거(영수증 금액·상한·
+// 출처)와 짝을 이루는 스냅샷이라 **덮지 않는다**. 실제로 다르게 보낸 건만 새 칸에 남는다.
+//
+// ⚠️ **합계를 내는 자리는 반드시 이 함수를 쓴다.** 한 곳이라도 `amount_jpy` 만 더하면
+//    그 화면의 총액만 조용히 다르고, 어느 화면이 맞는지 아무도 모른다. 특히
+//    **사람으로 묶은 소계**는 실제 이체 금액을 정하는 숫자라 틀리면 돈이 틀린다.
+// ⚠️ 빈 값(`null`)은 「계산 금액과 같음」이지 **0원이 아니다.** `Number(null)` 이 0 이라
+//    그냥 더하면 그 건이 통째로 사라진다.
+// ⚠️ 정산 행이 아직 없는 「미등록」 목록에는 이 칸 자체가 없다 — 그때도 계산 금액을
+//    돌려주므로 같은 함수를 그대로 쓸 수 있다.
+function settlementEffectiveAmount(s) {
+  if (!s) return 0;
+  const actual = s.paid_amount_jpy;
+  return Number((actual === null || actual === undefined) ? s.amount_jpy : actual) || 0;
+}
