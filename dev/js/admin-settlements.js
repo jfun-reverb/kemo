@@ -213,9 +213,14 @@ async function loadSettlements() {
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
   }
-  if ($('settlementPayoutView') && $('settlementPayoutView').style.display !== 'none') {
-    closePayoutPrepView();
-  }
+  // ⚠️ **지급 준비는 여기서 닫지 않는다.** 닫으면 정산 목록이 켜지고, 이 함수 끝에서
+  //    다시 지급 준비로 돌아온다 — 그 사이가 **목록이 번쩍이는 구간**이다.
+  //    (HTML 의 처음 표시가 지급 준비라, 첫 진입에도 이 조건이 참이 되어 매번 번쩍였다.)
+  //    옛 데이터가 남을 걱정은 없다 — 아래 openPayoutPrepView() 가 처음부터 다시 그린다.
+  //    다만 지난번에 보던 **회차·검색어·선택은 비운다**(안 비우면 남의 회차가 열린 채로 뜬다).
+  _payoutDueFilter = null;
+  _payoutPersonSearch = '';
+  if (typeof _payoutSelected !== 'undefined' && _payoutSelected) _payoutSelected.clear();
   try {
     const r = await backfillSettlements();
     if (r && r.created_count > 0 && typeof toast === 'function') {
