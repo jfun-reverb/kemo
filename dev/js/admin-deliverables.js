@@ -2087,7 +2087,14 @@ async function _loadAdminProxyApprovedApps() {
   const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
   const [campRows, infRows] = await Promise.all([
     _proxyFetchByIds('campaigns', 'id, title, brand, brand_ja, brand_en, recruit_type, channel, campaign_no', campIds),
-    _proxyFetchByIds('influencers', 'id, name, name_kana, email', userIds)
+    // ⚠️ 원본 표(influencers)가 아니라 가림막 통로(influencers_admin_view)로 부른다.
+    //    마이그레이션 312 가 원본 표의 「관리자면 통과」 정책을 지워, 원본을 직접 부르면
+    //    관리자에게도 0행이 돌아온다 — 오류가 아니라 조용한 0행이라 아무 경고 없이
+    //    아래 join 에서 후보가 전부 걸러지고 「일치하는 캠페인 없음」만 뜬다(실제 사고).
+    //    ⚠️ 312 의 교체 목록이 `.from('influencers')` 문자열 검색으로 만들어져,
+    //    표 이름을 인자로 넘기는 이 호출만 빠졌다. 앞으로 표 이름을 변수로 넘기는 조회를
+    //    만들 때는 그 검색에 안 걸린다는 것을 염두에 둘 것.
+    _proxyFetchByIds('influencers_admin_view', 'id, name, name_kana, email', userIds)
   ]);
   const campMap = {};
   campRows.forEach(c => { campMap[c.id] = c; });
