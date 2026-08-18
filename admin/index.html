@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787046471';
+  var CURRENT_BUILD = 'v1787046604';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2931,7 +2931,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 18:47 · db051f9</span>
+          <span class="admin-build-text">2026-08-18 18:50 · 785e2ad</span>
         </div>
       </div>
     </aside>
@@ -35894,6 +35894,8 @@ function _settlementDateInputValue(ts) {
 //
 // ⚠️ 이름을 「2026년 8월 5일」이 아니라 **「실제 송금일을 넣을 수 있게 된 날」**로 지었다.
 //    날짜만 박아 두면 **왜 그 날인지가 코드에서 사라진다.**
+// ⚠️ 이 날짜와 비교하는 것은 **행이 만들어진 날**(`created_at`)이다. 송금일이 아니다 —
+//    아래 settlementPaidAtIsRecordDate 주석 참조.
 // ⚠️ 이 값이 맞는 근거(2026-08-18 운영 실측): 정산 행은 **204건뿐이고 송금일이 7/30(1건)·
 //    8/4(203건)에 몰려 있다. 8/5 이후는 0건.** 그리고 송금 기록 경로는 1단계부터 **잠겨
 //    있어**, 이 기능이 나가는 순간(잠금 해제 = 작업 7)까지 새 행이 생길 수 없다.
@@ -35904,7 +35906,14 @@ const SETTLEMENT_ACTUAL_PAID_AT_SINCE = '2026-08-05';
 
 function settlementPaidAtIsRecordDate(s) {
   if (!s || !s.paid_at) return false;
-  const d = _settlementDateInputValue(s.paid_at);
+  // ★ 기준은 **행이 만들어진 날**(created_at)이지 송금일이 아니다.
+  //   ⚠️ 송금일로 재면 앞으로 등록할 과거분이 전부 잘못 걸린다 — 6월에 보낸 돈을
+  //      지금 6월 15일로 **정확히** 적어 넣어도 「기록일」이라고 표시된다. 그건 이 기능이
+  //      하려는 일 자체(과거 날짜를 제대로 적기)를 부정하는 표시다.
+  //      2026-08-18 개발서버에서 실제로 그렇게 떴다 — 화면을 열어 보기 전에는 안 보였다.
+  //   ⚠️ 반대로 만들어진 날로 재면 정확히 「그 칸이 없던 때에 등록된 행」만 걸린다.
+  //      운영 204건은 7/30~8/4 에 만들어졌고, 앞으로 만들어질 행은 전부 이 날 이후다.
+  const d = _settlementDateInputValue(s.created_at);
   return !!d && d < SETTLEMENT_ACTUAL_PAID_AT_SINCE;
 }
 
