@@ -7957,6 +7957,24 @@ async function fetchBlockedAdminTables() {
   }
 }
 
+// 정산 도입일(컷오프). 「미등록」 탭 안내 문구가 이 값 하나로 갈린다.
+//   ⚠️ 세 상태를 구분한다: 조회 실패(undefined) · 미설정(null) · 설정됨(문자열).
+//      실패를 「미설정」으로 단정하면 **안내 문구가 반대로 나간다** — 「자동 등록이
+//      꺼져 있다」와 「자동으로 만들어진다」는 서로 반대말이다.
+//   ⚠️ 조회 권한은 has_permission('settlement.view','read') (마이그레이션 230).
+async function fetchSettlementCutoff() {
+  if (!db) return undefined;
+  try {
+    const {data, error} = await db.from('settlement_settings')
+      .select('cutoff_at').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data ? (data.cutoff_at || null) : null;
+  } catch (e) {
+    console.warn('[fetchSettlementCutoff]', e);
+    return undefined;   // ⚠️ null 로 바꾸지 말 것 — 「실패」와 「미설정」이 섞인다
+  }
+}
+
 // 막힌 표 감지의 **가장 오래된 코드 점검 시각**.
 //   이름이 「가장 오래된」인 이유는 아래 ★ 주석 참조 — **최신이 아니다.**
 //
