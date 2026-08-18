@@ -878,27 +878,41 @@ async function confirmSettlementCorrect() {
 // ⚠️ 서버는 **통째로 실패시키지 않고 건너뛴다.** 처리 후 몇 건이 왜 빠졌는지 반드시
 //    보여줘야 한다 — 「N건 처리」만 띄우면 나머지가 어디로 갔는지 아무도 모른다.
 
-function openSettlementBulkPayModal() {
-  const ids = Array.from(_settlementSelected);
-  if (!ids.length) { toast('먼저 처리할 건을 선택해 주세요', 'warn'); return; }
-  const rows = ids.map(id => _settlements.find(x => x.id === id)).filter(Boolean);
-  const sum = rows.reduce((a, r) => a + settlementEffectiveAmount(r), 0);
-  const people = new Set(rows.map(r => r.influencer_id)).size;
+// 일괄 송금완료의 **진입점이 둘**이다 — 목록의 선택, 그리고 지급 준비 화면의 「보냄」.
+//   두 벌로 만들면 한쪽만 고치게 되므로 **처리는 한 함수**로 모으고, 진입점은 여기에
+//   무엇을 처리할지만 담는다.
+//   ⚠️ 두 종류가 섞인다: 정산 행이 있는 건(`settlementIds`)과 아직 없는 건(`applicationIds`).
+//      서버 함수가 다르므로 아래 confirm 이 **둘 다** 부른다.
+let _bulkPayCtx = null;   // {settlementIds:[], applicationIds:[], from:'list'|'payout', summaryHtml}
 
+function _openBulkPayModal() {
   const body = $('settlementBulkPayBody');
-  if (body) {
-    body.innerHTML = `
-      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">이번에 기록할 내용</div>
-        <div style="font-size:15px;font-weight:700;color:var(--ink)">${rows.length}건 · ${people}명 · 합계 ${settlementAmountYen(sum)}</div>
-      </div>`;
-  }
+  if (body) body.innerHTML = (_bulkPayCtx && _bulkPayCtx.summaryHtml) || '';
   const dateEl = $('settlementBulkPayDate');
   if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
   const memoEl = $('settlementBulkPayMemo');
   if (memoEl) memoEl.value = '';
   onSettlementBulkPayInput();
   openModal('settlementBulkPayModal');
+}
+
+function openSettlementBulkPayModal() {
+  const ids = Array.from(_settlementSelected);
+  if (!ids.length) { toast('먼저 처리할 건을 선택해 주세요', 'warn'); return; }
+  const rows = ids.map(id => _settlements.find(x => x.id === id)).filter(Boolean);
+  const sum = rows.reduce((a, r) => a + settlementEffectiveAmount(r), 0);
+  const people = new Set(rows.map(r => r.influencer_id)).size;
+  _bulkPayCtx = {
+    settlementIds: rows.map(r => r.id),
+    applicationIds: [],
+    from: 'list',
+    summaryHtml: `
+      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">이번에 기록할 내용</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink)">${rows.length}건 · ${people}명 · 합계 ${settlementAmountYen(sum)}</div>
+      </div>`
+  };
+  _openBulkPayModal();
 }
 
 function onSettlementBulkPayInput() {
@@ -909,39 +923,78 @@ function onSettlementBulkPayInput() {
 
 function closeSettlementBulkPayModal() {
   closeModal('settlementBulkPayModal');
+  _bulkPayCtx = null;
 }
 
 async function confirmSettlementBulkPay() {
-  // ⚠️ 새 경로도 같은 잠금 — 위 「기록 정정」과 같은 이유. 작업 7에서 함께 열린다.
   if (settlementBulkLocked()) return;
-  const ids = Array.from(_settlementSelected);
-  if (!ids.length) { toast('선택된 건이 없습니다', 'warn'); return; }
+  const ctx = _bulkPayCtx;
+  if (!ctx) return;
   const memo = ($('settlementBulkPayMemo')?.value || '').trim();
   if (!memo) { toast('처리 사유를 입력해 주세요', 'warn'); return; }
   const paidAt = _settlementJstMidnight(($('settlementBulkPayDate')?.value || '').trim());
   const btn = $('settlementBulkPayConfirmBtn');
   if (btn) btn.disabled = true;
-  let res;
-  try {
-    res = await markSettlementsPaidBulk(ids, paidAt, memo);
-  } catch (e) {
-    toast('일괄 처리 실패: ' + friendlyError(e.message || e), 'error');
+
+  let done = 0;
+  const skipped = [];
+  const failed = [];
+
+  // ① 정산 행이 이미 있는 건 — 상태만 송금완료로
+  if (ctx.settlementIds.length) {
+    try {
+      const r = await markSettlementsPaidBulk(ctx.settlementIds, paidAt, memo);
+      done += r.paid;
+      if (r.skippedNoPaypal)   skipped.push(`PayPal 미등록 ${r.skippedNoPaypal}건`);
+      if (r.skippedNotPending) skipped.push(`이미 처리됨·보류·취소 ${r.skippedNotPending}건`);
+      if (r.notFound)          skipped.push(`사라진 건 ${r.notFound}건`);
+    } catch (e) { failed.push('정산대기 건: ' + friendlyError(e.message || e)); }
+  }
+
+  // ② 아직 정산 행이 없는 건 — 송금완료 상태로 새로 만든다
+  //    ⚠️ 한쪽이 실패해도 다른 쪽은 이미 처리됐을 수 있다. **되돌리지 않고 그대로 알린다** —
+  //       조용히 삼키면 「눌렀는데 절반만 됐다」를 아무도 모른다.
+  if (ctx.applicationIds.length) {
+    try {
+      const r = await registerPastSettlements(ctx.applicationIds, 'paid', memo, paidAt);
+      done += r.registered;
+      if (r.skippedNoPaypal) skipped.push(`PayPal 미등록 ${r.skippedNoPaypal}건(미등록분)`);
+    } catch (e) { failed.push('미등록 건: ' + friendlyError(e.message || e)); }
+  }
+
+  if (failed.length && !done) {
+    toast('기록 실패 — ' + failed.join(' / '), 'error');
     if (btn) btn.disabled = false;
     return;
   }
-  // 건너뛴 사유를 **전부** 문장으로 보여준다(0건인 사유는 빼서 문장이 길어지지 않게).
-  const skipped = [];
-  if (res.skippedNoPaypal)   skipped.push(`PayPal 미등록 ${res.skippedNoPaypal}건`);
-  if (res.skippedNotPending) skipped.push(`이미 처리됨·보류·취소 ${res.skippedNotPending}건`);
-  if (res.notFound)          skipped.push(`사라진 건 ${res.notFound}건`);
-  toast(skipped.length
-    ? `${res.paid}건을 송금완료로 기록했습니다. 건너뜀 — ${skipped.join(' · ')}`
-    : `${res.paid}건을 송금완료로 기록했습니다.`,
-    skipped.length ? 'warn' : 'success');
+  const tail = []
+    .concat(skipped.length ? ['건너뜀 — ' + skipped.join(' · ')] : [])
+    .concat(failed.length  ? ['실패 — ' + failed.join(' / ')] : []);
+  toast(`${done}건을 송금완료로 기록했습니다.` + (tail.length ? ' ' + tail.join(' / ') : ''),
+        tail.length ? 'warn' : 'success');
 
   closeModal('settlementBulkPayModal');
-  _settlementSelected.clear();
+  if (ctx.from === 'list') _settlementSelected.clear();
+  _bulkPayCtx = null;
+  await _settlementRefreshKeepingView(ctx.from);
+}
+
+// 처리 뒤 **보고 있던 화면을 실제로 다시 그린다.**
+//   ⚠️ `refreshPane('settlements')` 는 `reloadSettlementsData()` 를 부를 뿐이고, 그것은
+//      `_settlements` 재조회 + 목록 재렌더 + 사이드바 배지까지만 한다. **지급 준비 화면의
+//      `_payoutRows` 는 건드리지 않는다** — 그 값을 다시 채우는 곳은 `openPayoutPrepView()`
+//      하나뿐이다.
+//   ⚠️ 그래서 「보냄」으로 방금 기록한 사람이 **계속 「안 보낸 것」으로 남는다.** 이 화면의
+//      존재 이유(이번 회차에 누구에게 얼마를 보내야 하는가)를 정면으로 무너뜨리고,
+//      관리자가 같은 사람을 또 누르게 만든다. 2026-08-18 리뷰 지적.
+//   ⚠️ 사람 목록을 보던 중이었다면 **그 회차로 되돌아간다** — 요약으로 튕기면 방금 처리한
+//      자리를 다시 찾아 들어가야 한다.
+async function _settlementRefreshKeepingView(from) {
+  const due = _payoutDueFilter;           // 지급 준비에서 보던 회차(없으면 요약 화면)
   await refreshPane('settlements');
+  if (from !== 'payout') return;          // 목록 경로는 목록만 다시 그리면 된다
+  await openPayoutPrepView();             // _payoutRows 재계산 + 요약 재렌더
+  if (due) await openPayoutPersonList(due);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1465,7 +1518,13 @@ function pastUnregCampaignSummary(rows) {
 //   ⚠️ 3단계에서 **세 문을 다 푸는 것**이 그 단계의 완료 조건이다. 안 풀면 화면이 영영 반쪽이다.
 //   ⚠️ 보류·취소·보류 해제는 **잠그지 않는다** — 날짜·금액을 안 다루고, 잠그면 정산대기 건에
 //      문제가 생겼을 때 옮길 곳이 없어지는 진짜 기능 축소가 된다.
-const SETTLEMENT_BULK_UNLOCKED = false;   // 3단계에서 true 로 (짝: payoutSendLocked)
+// ★ 2026-08-18 열림. 이제 **실제로 보낸 날짜·금액을 입력할 수 있으므로**(마이그레이션
+//   338·339·340·341) 잠가 둘 이유가 사라졌다. 잠금의 근거는 「오늘 날짜·계산 금액으로
+//   확정되고 되돌릴 수 없다」였고, 그 두 가지가 모두 해소됐다 —
+//   날짜·금액은 입력받고, 틀리면 `correct_settlement_payment` 로 고친다.
+// ⚠️ 이 하나로 **네 경로가 함께 열린다**(단건 송금완료·과거 미등록 일괄·기록 정정·
+//    정산대기 일괄). 다시 잠글 일이 생기면 여기만 false 로 되돌리면 된다.
+const SETTLEMENT_BULK_UNLOCKED = true;
 
 function settlementBulkLocked() {
   if (SETTLEMENT_BULK_UNLOCKED) return false;
@@ -1830,7 +1889,7 @@ function payoutDueGroupHtml(personId, due, list) {
       <div style="width:110px;font-size:12px;font-weight:600">${esc(due)}</div>
       <div style="width:50px;text-align:right;font-size:12px">${list.length}건</div>
       <div style="width:96px;text-align:right;font-weight:700;font-size:12px">${esc(_payoutSum(list) ? _payoutYen(_payoutSum(list)) : '—')}</div>
-      <button class="btn btn-ghost btn-xs" onclick="payoutSendLocked()" style="padding:2px 10px;opacity:.55" title="3단계 이후 사용 가능합니다">보냄</button>
+      <button class="btn btn-ghost btn-xs" onclick="openPayoutSendModal('${esc(key)}')" style="padding:2px 10px" title="이 사람의 이 회차를 송금완료로 기록합니다">보냄</button>
     </div>
     ${items}
   </div>`;
@@ -1862,12 +1921,41 @@ function togglePayoutSelect(key) {
   renderPayoutPersonBody();   // 검색창·검색어를 유지한 채 목록만 갱신
 }
 
-// 잠긴 「보냄」 — ⚠️ 3단계 전에 기록하면 **오늘 날짜·계산 금액으로 확정**되고
-//   되돌릴 수 없다(사양서 §1-7). 이 잠금이 그것을 막는 유일한 장치다.
-function payoutSendLocked() {
-  if (typeof toast === 'function') {
-    toast('아직 기록할 수 없습니다 — 실제 보낸 날짜와 금액을 입력할 수 있게 된 뒤에 열립니다', 'info');
-  }
+// 「보냄」 — 한 사람의 한 회차를 통째로 송금완료로 기록한다.
+//   ⚠️ **그 묶음에는 두 종류가 섞여 있다.** 정산 행이 이미 있는 건(정산대기)과, 아직
+//      정산 행조차 없는 건(미등록)이다. 서버 함수가 서로 다르므로 둘로 나눠 부른다.
+//      한쪽만 부르면 **보냈다고 눌렀는데 절반만 기록되고** 나머지는 조용히 남는다.
+//   ⚠️ 금액을 정할 수 없는 건(amount_issue)은 **빼고 건수를 알린다.** 서버도 건너뛰므로
+//      안 빼면 「고른 수보다 적게 처리됐다」가 된다.
+function openPayoutSendModal(key) {
+  const cut = String(key).indexOf('|');
+  const personId = String(key).slice(0, cut);
+  const due = String(key).slice(cut + 1);
+  const rows = (_payoutRows || []).filter(function (r) {
+    return r.influencerId === personId
+        && (r.due || '(지급일 기록 없음)') === due
+        && _payoutUnsent(r);
+  });
+  if (!rows.length) { toast('보낼 건이 없습니다', 'warn'); return; }
+
+  const usable = rows.filter(function (r) { return !r.amountUnknown; });
+  const unknown = rows.length - usable.length;
+  if (!usable.length) { toast('금액을 정할 수 없는 건뿐이라 기록할 수 없습니다', 'warn'); return; }
+
+  const person = payoutPersonOf(rows[0]);
+  _bulkPayCtx = {
+    settlementIds:  usable.filter(function (r) { return r.kind === 'settlement';   }).map(function (r) { return r.settlementId; }),
+    applicationIds: usable.filter(function (r) { return r.kind === 'unregistered'; }).map(function (r) { return r.applicationId; }),
+    from: 'payout',
+    summaryHtml: `
+      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${esc(person.name || '(이름 미상)')} · ${esc(due)} 회차</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink)">${usable.length}건 · 합계 ${settlementAmountYen(_payoutSum(usable))}</div>
+        ${unknown ? `<div style="font-size:12px;color:#C33;margin-top:6px">금액을 정할 수 없는 ${unknown}건은 빠집니다.</div>` : ''}
+        ${payoutPaypalHtml(person)}
+      </div>`
+  };
+  _openBulkPayModal();
 }
 
 async function openPayoutPersonList(dueStr) {
