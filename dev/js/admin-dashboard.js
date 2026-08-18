@@ -69,6 +69,9 @@ async function loadAdminData(preloaded) {
   renderSignupKPIs(statsUsers);
   renderSignupChart(statsUsers, 30);
   renderProfileCompletion(statsUsers);
+  // 일별 방문자수 (마이그레이션 332) — 별도 표라 statsUsers 재사용 불가, 자체 조회.
+  // 실패해도 대시보드 나머지를 막지 않는다(함수 안에서 안내로 대체).
+  loadVisitChart();
   // 배송지 분포(도도부현 Top N) — 통계용 statsUsers 재사용 (중복 쿼리 방지)
   renderAddressDistribution(statsUsers);
   // 회원 연령·성별 분포(연령대 막대 + 성별 도넛 + 교차표) — statsUsers 재사용(감사용 제외)
@@ -528,6 +531,134 @@ function switchSignupPeriod(days, btn) {
   document.querySelectorAll('.signup-period-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   renderSignupChart(_allUsers, days);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 일별 방문자수 (마이그레이션 332)
+// ════════════════════════════════════════════════════════════════════
+// ⚠️ 날짜 기준이 회원가입 차트와 다르다. 가입 차트는 `toISOString()`(협정 세계시)로
+//    날짜를 자르지만, 방문 집계는 서버가 **일본 표준시** 날짜로 적립한다. 여기서 세계시로
+//    자르면 하루가 밀려 어제 숫자가 오늘 칸에 그려진다 — 반드시 `_visitDateTodayKst()` 사용.
+// ⚠️ 도입 이전 구간은 그리지 않는다. 0 으로 채우면 「그날 방문자가 없었다」로 읽힌다.
+
+var _visitChart = null;
+var _visitRows = null;   // null = 아직 조회 안 함 또는 조회 실패 / [] = 기록 0건 (구분 필수)
+var _visitPeriod = 30;
+
+// 오늘 날짜(일본 표준시, +09:00) 문자열
+function _visitDateTodayKst() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0');
+}
+
+// 날짜 문자열 하루 더하기 — 시간대가 끼어들지 않게 협정 세계시 자정으로 고정해 계산한다
+// (문자열을 다시 문자열로 돌려주므로 로컬 시간대와 무관하다)
+function _visitDateShift(dateStr, deltaDays) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
+// days=0 이면 기록 전체. 그 외에는 최근 days 일이되 **도입일 이전으로는 안 간다**.
+function _computeVisitSeries(rows, days) {
+  const byDate = {};
+  rows.forEach(r => { byDate[r.visit_date] = r.visitor_count || 0; });
+  const dates = Object.keys(byDate).sort();
+  const firstDate = dates[0];
+  const lastDate = dates[dates.length - 1];
+  // 오른쪽 끝은 「오늘」이되, 기록이 그보다 앞서 있으면 그 기록까지 그린다.
+  // ⚠️ 없으면 차트가 통째로 빈다 — 날짜는 서버(일본 표준시)가 찍고 여기 판정은 관리자 PC
+  //    시계라, 자정 직후 PC 시계가 몇 분만 느려도 「기록일 > 오늘」이 되어 그릴 칸이 0개가 된다.
+  const today = _visitDateTodayKst();
+  const rightEdge = lastDate > today ? lastDate : today;
+
+  let start = firstDate;
+  if (days !== 0) {
+    const wanted = _visitDateShift(rightEdge, -(days - 1));
+    // 도입일보다 앞선 구간은 자른다 (데이터가 없는 것이지 방문자 0명이 아니다)
+    start = wanted > firstDate ? wanted : firstDate;
+  }
+
+  const labels = [], counts = [];
+  for (let ds = start; ds <= rightEdge; ds = _visitDateShift(ds, 1)) {
+    const parts = ds.split('-');
+    labels.push(Number(parts[1]) + '/' + Number(parts[2]));
+    counts.push(byDate[ds] || 0);   // 도입 이후의 빈 날은 진짜 0명이 맞다
+  }
+  return { labels, counts, firstDate };
+}
+
+function renderVisitChart(days) {
+  const body = $('visitChartBody');
+  const empty = $('visitChartEmpty');
+  const note = $('visitChartNote');
+  if (!body || !empty) return;
+
+  const show = (msg) => {
+    if (_visitChart) { _visitChart.destroy(); _visitChart = null; }
+    body.style.display = 'none';
+    empty.style.display = '';
+    empty.textContent = msg;
+    if (note) note.textContent = '';
+  };
+
+  // 조회 실패 — 0 을 그리면 거짓말이 되므로 안내로 대체
+  if (_visitRows === null) { show('방문자수를 불러오지 못했습니다. 새로고침해 주세요.'); return; }
+  if (!_visitRows.length) { show('아직 방문 기록이 없습니다. 집계를 시작한 날부터 표시됩니다.'); return; }
+
+  const { labels, counts, firstDate } = _computeVisitSeries(_visitRows, days);
+  body.style.display = '';
+  empty.style.display = 'none';
+
+  const canvas = $('visitChart');
+  if (!canvas) return;
+  if (_visitChart) _visitChart.destroy();
+
+  _visitChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '방문자',
+        data: counts,
+        backgroundColor: (c) => accentBarGradient(c.chart.ctx, c.chart.chartArea, '#625EBD', '#8F8CD2'),
+        borderColor: '#625EBD',
+        borderWidth: 0,
+        borderRadius: 4,
+        categoryPercentage: 0.7,
+        barPercentage: 0.7,
+        maxBarThickness: 18
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.05)' } },
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  if (note) {
+    const p = firstDate.split('-');
+    note.textContent = `${Number(p[0])}년 ${Number(p[1])}월 ${Number(p[2])}일부터 집계 — 그 이전 기간은 기록이 없어 표시하지 않습니다.`;
+  }
+}
+
+async function loadVisitChart() {
+  _visitRows = await fetchSiteDailyVisits('influencer');
+  renderVisitChart(_visitPeriod);
+}
+
+function switchVisitPeriod(days, btn) {
+  document.querySelectorAll('.visit-period-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  _visitPeriod = days;
+  renderVisitChart(days);
 }
 
 function renderProfileCompletion(users) {

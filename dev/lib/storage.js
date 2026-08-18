@@ -560,6 +560,31 @@ function _siteVisitLooksHuman() {
   return true;
 }
 
+// 관리자 대시보드 방문자 차트용 조회 (조회는 is_admin() 정책).
+// ⚠️ 조회 실패는 null, 기록이 0건이면 [] — 반드시 구분한다(마이그레이션 276 에서 세운 원칙).
+//    실패를 [] 로 뭉개면 화면이 「그날 방문자 0명」으로 그려 거짓말이 된다.
+// 하루 1행이라 1000행 상한(PostgREST)에 닿으려면 2.7년 걸리지만, 규칙대로 전건 페이지네이션.
+async function fetchSiteDailyVisits(app) {
+  if (!db) return null;
+  const kind = app || 'influencer';
+  try {
+    const rows = [];
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('site_daily_visits')
+        .select('visit_date, visitor_count, page_view_count')
+        .eq('app', kind)
+        .order('visit_date', {ascending: true})
+        .range(from, from + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return rows;
+  } catch (e) {
+    return null;  // 조회 실패 — 호출부가 0 과 구분해 안내를 띄운다
+  }
+}
+
 async function recordSiteVisit(app) {
   if (!db) return;
   const kind = app || 'influencer';
