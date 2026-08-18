@@ -1556,20 +1556,30 @@
           <div id="settlementListCard" class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">정산 목록</span><span id="settlementsTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="settlementsSumAmount" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+              <!-- 선택 건 일괄 송금완료 — 「정산대기」 탭에서 1건 이상 골랐을 때만 나타난다 -->
+              <div id="settlementBulkBar" style="display:none;align-items:center;gap:10px;padding:6px 10px;background:#FFF6FA;border:1px solid var(--pink);border-radius:8px">
+                <span id="settlementBulkCount" style="font-size:12px;font-weight:700;color:var(--dark-pink)"></span>
+                <button class="btn btn-primary btn-xs" onclick="openSettlementBulkPayModal()">선택 건 송금완료 기록</button>
+                <button class="btn btn-ghost btn-xs" onclick="settlementClearSelection()">선택 해제</button>
+              </div>
             </div>
             <div class="admin-table-wrap">
               <table class="data-table">
                 <thead><tr>
+                  <!-- 선택 칸 — 「정산대기」 탭에서만 체크박스가 그려진다(다른 상태는 일괄 대상이 아니다) -->
+                  <th style="width:34px"><input type="checkbox" id="settlementSelectAll" onchange="settlementToggleAll(this)" title="보이는 정산대기 건 전체 선택"></th>
                   <th>인플루언서</th>
                   <th style="min-width:240px">캠페인</th>
                   <th style="width:110px">금액(¥)</th>
+                  <!-- 실제로 보낸 금액. 계산값과 같으면 「계산액 그대로」 — 「0원」이 아니다 -->
+                  <th style="width:110px">실제 송금액</th>
                   <th style="width:200px">PayPal</th>
                   <th style="width:90px">상태</th>
                   <th style="width:120px">인증성공일</th>
                   <th style="width:120px">송금완료일</th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
-                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="settlementsTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -3894,9 +3904,27 @@
       <div id="settlementPayWarn" style="display:none;padding:10px 12px;background:#FFE4E4;border:1px solid #C33;border-radius:8px;font-size:12px;line-height:1.55;color:#C33;margin-bottom:14px">
         <strong>PayPal 미등록:</strong> 이 인플루언서는 PayPal 주소가 없어 송금할 수 없습니다. 인플루언서에게 등록을 요청하세요.
       </div>
-      <div class="form-group">
-        <label class="form-label">메모 (송금 참조번호 등, 선택)</label>
-        <input type="text" id="settlementPayMemo" class="form-input" placeholder="예: PayPal 거래번호">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">실제 송금일</label>
+          <input type="date" id="settlementPayDate" class="form-input" onchange="onSettlementPayInput()">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 오늘로 기록됩니다.</div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">실제 송금액 (¥)</label>
+          <input type="number" id="settlementPayAmount" class="form-input" min="1" step="1" placeholder="계산 금액 그대로" oninput="onSettlementPayInput()">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 위 계산 금액 그대로입니다.</div>
+        </div>
+      </div>
+      <!-- 계산값과 다른 금액·이상한 날짜를 넣었을 때만 나타난다 — 누르기 전에 보여준다 -->
+      <div id="settlementPayAmountDiff" style="display:none;margin-top:10px;padding:8px 10px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412"></div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">처리 사유 <span style="color:#C33">*</span></label>
+        <input type="text" id="settlementPayMemo" class="form-input" placeholder="예: 8월 15일 회차 · PayPal 거래번호 1234" oninput="onSettlementPayInput()">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          <!-- 2026-08-18 조사에서 「왜 이 금액인가」를 되짚을 단서가 메모뿐이었다. 그래서 필수로 둔다. -->
+          나중에 이 기록을 되짚을 유일한 단서입니다. 비워 둘 수 없습니다.
+        </div>
       </div>
       <div style="font-size:11px;color:var(--muted);line-height:1.5">외부 PayPal에서 송금을 마친 뒤 이 버튼을 누르세요. 실제 송금 완료 후에만 처리하세요.</div>
     </div>
@@ -3924,6 +3952,77 @@
     <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeSettlementReasonModal()">취소</button>
       <button class="btn btn-primary" id="settlementReasonConfirmBtn" onclick="confirmSettlementReason()">보류 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 기록 정정 모달 (correct_settlement_payment · 마이그레이션 341)
+     이미 송금완료된 건의 **실제 송금일·송금액만** 고친다. 상태·계산 금액은 안 바뀌고 알림도 없다. -->
+<div class="modal-overlay" id="settlementCorrectModal" style="z-index:615">
+  <div class="modal" style="max-width:500px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 기록 정정</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementCorrectBody"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">실제 송금일</label>
+          <input type="date" id="settlementCorrectDate" class="form-input" onchange="onSettlementCorrectInput()">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">실제 송금액 (¥)</label>
+          <input type="number" id="settlementCorrectAmount" class="form-input" min="1" step="1" oninput="onSettlementCorrectInput()">
+        </div>
+      </div>
+      <div id="settlementCorrectWarn" style="display:none;margin-top:10px;padding:8px 10px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.55">
+        고치지 않을 칸은 <b>비워 두세요</b> — 비운 칸은 지금 값 그대로 둡니다.
+        <br>⚠️ 송금액을 「계산 금액과 같음」으로 되돌리려면 계산 금액을 그대로 입력하세요.
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">정정 사유 <span style="color:#C33">*</span></label>
+        <input type="text" id="settlementCorrectMemo" class="form-input" placeholder="예: 환율 차감분 반영 · 입력 오류 수정" oninput="onSettlementCorrectInput()">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">이미 확정된 금전 기록을 고치는 자리입니다. 사유 없이는 저장되지 않습니다.</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px">
+        상태(송금완료)와 시스템 계산 금액은 바뀌지 않습니다. 인플루언서에게 알림도 가지 않습니다.
+        무엇을 무엇으로 고쳤는지는 「이력」에 남습니다.
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementCorrectModal()">취소</button>
+      <button class="btn btn-primary" id="settlementCorrectConfirmBtn" onclick="confirmSettlementCorrect()">정정 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 선택 건 일괄 송금완료 모달 (mark_settlements_paid_bulk · 마이그레이션 340) -->
+<div class="modal-overlay" id="settlementBulkPayModal" style="z-index:615">
+  <div class="modal" style="max-width:520px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">선택 건 송금완료 기록</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementBulkPayBody"></div>
+      <div class="form-group">
+        <label class="form-label">실제 송금일</label>
+        <input type="date" id="settlementBulkPayDate" class="form-input" onchange="onSettlementBulkPayInput()">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 오늘로 기록됩니다. 선택한 건 전부에 같은 날짜가 적힙니다.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">처리 사유 <span style="color:#C33">*</span></label>
+        <input type="text" id="settlementBulkPayMemo" class="form-input" placeholder="예: 8월 15일 회차 일괄 송금" oninput="onSettlementBulkPayInput()">
+      </div>
+      <div style="padding:10px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412">
+        금액은 <b>건마다 시스템 계산 금액</b>으로 기록됩니다. 실제로 다르게 보낸 건은
+        기록한 뒤 그 행의 「기록 정정」으로 고치세요.
+        <br>⚠️ PayPal 미등록 건은 <b>건너뜁니다</b>. 처리 후 몇 건이 왜 빠졌는지 알려 드립니다.
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementBulkPayModal()">취소</button>
+      <button class="btn btn-primary" id="settlementBulkPayConfirmBtn" onclick="confirmSettlementBulkPay()">송금완료 기록</button>
     </div>
   </div>
 </div>

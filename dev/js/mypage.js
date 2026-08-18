@@ -540,8 +540,11 @@ async function renderMySettlements() {
 
   const yen = n => '¥' + Number(n || 0).toLocaleString('ja-JP');
   // 누적 수령액 = 송금 완료(paid)만 합산 / 지급 예정 = 대기(pending) 합산(보조 표기)
-  const paidTotal = rows.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount_jpy || 0), 0);
-  const pendingTotal = rows.filter(r => r.status === 'pending').reduce((s, r) => s + Number(r.amount_jpy || 0), 0);
+  // ⚠️ **실제로 받은 금액**으로 센다. 계산값만 더하면 다르게 보낸 건이 섞였을 때
+  //    인플루언서가 보는 누적 수령액이 실제 입금액과 어긋난다(공용 헬퍼 settlementEffectiveAmount).
+  //    이 화면은 지금 잠겨 있지만 코드는 살아 있어, 안 고치면 켜는 날 틀린 값이 뜬다.
+  const paidTotal = rows.filter(r => r.status === 'paid').reduce((s, r) => s + settlementEffectiveAmount(r), 0);
+  const pendingTotal = rows.filter(r => r.status === 'pending').reduce((s, r) => s + settlementEffectiveAmount(r), 0);
 
   if (totalEl) {
     totalEl.innerHTML = `
@@ -583,7 +586,7 @@ async function renderMySettlements() {
         ${paidLine}
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(yen(r.amount_jpy))}</div>
+        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(yen(settlementEffectiveAmount(r)))}</div>
         <span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:${meta.bg};color:${meta.color}">${esc(statusLabel)}</span>
       </div>
     </div>`;
