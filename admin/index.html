@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787060451';
+  var CURRENT_BUILD = 'v1787060602';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 22:40 · d0b3d72</span>
+          <span class="admin-build-text">2026-08-18 22:43 · cf615cb</span>
         </div>
       </div>
     </aside>
@@ -38141,7 +38141,8 @@ function renderPayoutPersonBody() {
   body.innerHTML = `
     ${progressHtml}
     ${entries.length ? entries.map(payoutPersonCardHtml).join('')
-      : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}
+      : `<div id="payoutEmptyBox" style="padding:24px;text-align:center;color:var(--muted);font-size:13px">${
+          _payoutSearchTokens.length ? '찾는 중…' : '대상이 없습니다.'}</div>`}
     ${_payoutSelected.size ? `
     <!-- ⚠️ **고른 것이 있을 때만** 띄운다. 늘 「선택 0묶음 · 0건 · ¥0」 이 깔려 있으면
          읽을 것이 없는 줄이 화면 아래를 계속 차지한다.
@@ -38153,6 +38154,66 @@ function renderPayoutPersonBody() {
       <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
               onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
     </div>` : ''}`;
+
+  // 비었으면 **왜 없는지** 찾아본다(화면을 그린 뒤 비동기 — 목록 표시를 막지 않는다)
+  if (!entries.length && _payoutSearchTokens.length) payoutExplainMissing(_payoutPersonSearch);
+}
+
+// 검색 결과가 비었을 때 왜 없는지 알려준다.
+//   ⚠️ 「대상이 없습니다」만 띄우면 **이 화면에 없는 것**인지 **아예 정산 대상이 아닌 것**인지
+//      구분이 안 된다. 지급대장과 맞추는 자리라 그 차이가 곧 「내가 빠뜨렸나」를 가른다.
+//   ⚠️ 이 조회는 **화면이 빈 경우에만** 돈다 — 검색할 때마다 사람 표를 뒤지면 느려진다.
+//   ⚠️ 보류·취소 건은 이 화면 목록에서 애초에 빠져 있다(지급 대상이 아니라서). 그래서
+//      「이름은 있는데 목록에 없다」가 생기고, 그 이유를 여기서 말해 준다.
+async function payoutExplainMissing(query) {
+  const box = document.getElementById('payoutEmptyBox');
+  if (!box) return;
+  const q = String(query || '').trim();
+  if (!q) { box.textContent = '대상이 없습니다.'; return; }
+  let people = [];
+  try {
+    const words = q.split(/[\s\u3000]+/).filter(Boolean);
+    const key = words[0];   // 첫 낱말로 넓게 훑고 나머지는 아래에서 걸러낸다
+    const r = await db.from('influencers_admin_view')
+      .select('id,name,name_kana,email')
+      .or('name.ilike.%' + key + '%,name_kana.ilike.%' + key + '%').limit(50);
+    if (r.error) throw r.error;
+    people = (r.data || []).filter(function (x) {
+      return payoutSearchHit([x.name, x.name_kana, x.email], _payoutSearchTokens);
+    });
+  } catch (e) {
+    box.innerHTML = '이 이름으로 더 찾아보지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
+    return;
+  }
+  if (!people.length) {
+    box.innerHTML = '「' + esc(q) + '」 로 찾은 인플루언서가 없습니다. 이름 표기를 확인해 주세요.';
+    return;
+  }
+  const ids = people.map(function (x) { return x.id; });
+  const byInf = {};
+  try {
+    const st = await db.from('settlements').select('influencer_id,status').in('influencer_id', ids);
+    (st.data || []).forEach(function (x) {
+      byInf[x.influencer_id] = byInf[x.influencer_id] || {};
+      byInf[x.influencer_id][x.status] = (byInf[x.influencer_id][x.status] || 0) + 1;
+    });
+  } catch (e) { /* 상태를 못 읽어도 이름은 보여준다 */ }
+  const LABEL = { pending: '정산대기', paid: '송금완료', on_hold: '보류', cancelled: '취소' };
+  box.style.textAlign = 'left';
+  box.innerHTML = '<div style="font-size:13px;color:var(--ink);margin-bottom:8px">이 화면에는 없지만, 같은 이름의 인플루언서를 '
+    + people.length + '명 찾았습니다.</div>'
+    + people.map(function (x) {
+        const st = byInf[x.id] || {};
+        const parts = Object.keys(st).map(function (k) { return (LABEL[k] || k) + ' ' + st[k] + '건'; });
+        return '<div style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px">'
+          + '<div style="font-weight:700;font-size:13px">' + esc(x.name || '(이름 없음)')
+          + ' <span style="font-size:11px;color:var(--muted);font-weight:400">' + esc(x.name_kana || '') + '</span></div>'
+          + '<div style="font-size:12px;color:var(--muted);margin-top:2px">'
+          + (parts.length
+              ? '정산 ' + esc(parts.join(' · ')) + ' — 보류·취소는 이 화면에 안 나옵니다.'
+              : '<b>정산 건이 없습니다.</b> 인증에 성공한 응모가 없어 지급 대상이 아닙니다.')
+          + '</div></div>';
+      }).join('');
 }
 
 // 사이드바 「정산 관리」 옆 작은 경고 — **미등록이 있을 때만**.
