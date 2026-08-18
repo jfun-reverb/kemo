@@ -236,6 +236,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();
+  // 로딩 화면도 함께 걷는다(가림막과 짝 — 하나만 지우면 화면이 가려진 채 남는다).
+  var boot = document.getElementById('admin-boot');
+  if (boot) boot.remove();
 
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();

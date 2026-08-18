@@ -42,24 +42,42 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<!-- ⚠️ 아래 라이브러리는 **defer** 로 미룬다. 안 미루면 각각 내려받아 실행할 때까지
+     문서 읽기가 멈춰, 새로고침 때 **새 화면이 안 그려지고 이전 화면이 그대로** 남는다.
+     전부 함수 안에서만 쓰이므로(2026-08-18 전수 확인) 화면이 준비된 뒤 실행돼도 된다.
+     ⚠️ **Supabase 만은 미루면 안 된다** — `db = window.supabase.createClient(...)` 가
+        최상위에서 즉시 돌아, 미루면 `db` 가 빈 채 남고 관리자 화면이 **조용히** 죽는다
+        (그 자리가 try/catch 라 오류도 안 뜬다). -->
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" defer></script>
 <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/ko.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/ko.js" defer></script>
 <link rel="stylesheet" href="../css/base.css">
 <link rel="stylesheet" href="../css/components.css">
 <link rel="stylesheet" href="../css/admin.css">
-<style id="admin-cloak">body{visibility:hidden!important}</style>
+<!-- ⚠️ 가림막 — 화면이 준비될 때까지 몸통을 감춘다(페인 전환 깜빡임 방지).
+     ★ 다만 **로딩 화면 하나는 보이게** 남긴다. 전부 안 보이게 하면 브라우저가 그릴 것이
+       없어, 새로고침 때 **이전 화면을 그대로 띄운 채** 몇 초를 기다린다(2026-08-18 실측:
+       첫 그림이 화면 준비 시각과 똑같았다 = 그 전까지 아무것도 안 그렸다는 뜻).
+     ⚠️ `#admin-boot` 의 visibility 를 되살리는 이 한 줄을 빼면 그 증상이 그대로 돌아온다. -->
+<style id="admin-cloak">body{visibility:hidden!important}#admin-boot{visibility:visible!important}</style>
 <!-- Vercel Web Analytics + Speed Insights (운영 사용자 실측 Core Web Vitals 수집) -->
 <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body style="background:#F8F5F8">
+<!-- 로딩 화면 — 가림막이 걷힐 때 app.js 가 지운다. 문서 앞쪽에 있어야 **먼저 그려진다.** -->
+<div id="admin-boot" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#fff;font-family:system-ui,-apple-system,sans-serif">
+  <div style="width:26px;height:26px;border:3px solid rgba(24,24,27,.15);border-top-color:#E85D9C;border-radius:50%;animation:admin-boot-spin .8s linear infinite"></div>
+  <div style="font-size:13px;color:#6E6E77">불러오는 중…</div>
+</div>
+<style>@keyframes admin-boot-spin{to{transform:rotate(360deg)}}</style>
+
 <!-- 글로벌 요소 -->
 <div id="toast"></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
