@@ -1619,18 +1619,10 @@
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
                 <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
                   <div style="font-size:18px;font-weight:800;color:var(--ink)">정산 관리</div>
-                  <div style="font-size:13px;font-weight:700;color:var(--dark-pink)">지급 준비</div>
-                  <div style="font-size:12px;color:var(--muted)">지급 예정일별로 누구에게 얼마를 보내야 하는지 봅니다</div>
                 </div>
                 <button class="btn btn-ghost btn-sm" onclick="closePayoutPrepView()" title="건별 목록·상태 탭·개별 처리로 이동합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px">list_alt</span> 정산 목록
                 </button>
-              </div>
-              <!-- 한시 안내 — ⚠️ 487건 기록(4단계)이 끝나면 **반드시 제거**한다.
-                   남겨 두면 진짜 미지급이 생겨도 「어차피 기록 안 된 것」으로 무시된다. -->
-              <div id="payoutTempNotice" style="background:#FEF3C7;border:1px solid #FBBF24;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;line-height:1.7">
-                시스템 밖에서 이미 지급된 건이 아직 기록되지 않았습니다.
-                기록이 끝나기 전까지 <b>이 숫자는 실제 미지급액이 아닙니다</b>.
               </div>
             </div>
             <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
