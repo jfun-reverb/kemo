@@ -4780,7 +4780,14 @@ async function fetchEventTicketsByCampaign(campaignId) {
   try {
     return await fetchAllPaged(() =>
       db.from('event_tickets')
-        .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencer_id (name_kanji, name_kana, email, is_audit)')
+        // ⚠️ 이름은 원본 표(influencers)가 아니라 가림막 통로(influencers_admin_view)로 받는다.
+        //    마이그레이션 312 가 원본 표의 「관리자면 통과」 정책을 지워, 원본을 직접 끼워 부르면
+        //    예약 행은 다 오는데 **끼운 쪽만 전부 null** 이 된다 — 오류가 0건이라 이름 칸만
+        //    조용히 `-` 로 비고 아무도 모른다(실제 사고, 2026-08-07~18).
+        //    ⚠️ 별명 `influencers:` 를 그대로 둔다 — 받는 쪽(admin-event.js·admin-excel.js)이
+        //    `t.influencers` 로 읽는다. 반대로 `influencers_admin_view:influencer_id (…)` 로 쓰면
+        //    **오류도 안 나고 조회도 성공하는데 값은 계속 빈다**(열 이름으로 연결돼 원본 표로 되돌아간다).
+        .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencers_admin_view (name_kanji, name_kana, email, is_audit)')
         .eq('campaign_id', campaignId)
         .order('created_at', {ascending: true})
     );

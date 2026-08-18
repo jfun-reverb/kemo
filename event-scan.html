@@ -959,7 +959,12 @@ async function fetchAllTickets(slotIds) {
   let all = [], from = 0;
   for (;;) {
     const {data, error} = await sb.from('event_tickets')
-      .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencer_id (name_kanji, name_kana)')
+      // ⚠️ 이름은 가림막 통로(influencers_admin_view)로 받는다. 마이그레이션 312 가 원본
+      //    표(influencers)의 「관리자면 통과」 정책을 지워, 원본을 끼우면 예약은 다 오는데
+      //    이름만 전부 null 이 된다 — 현장에서 「이름을 눌러 입장 처리」할 이름이 사라진다.
+      //    ⚠️ 이 파일은 storage.js 를 안 써 **자체 조회를 갖고 있다** — 공용 함수를 고쳐도 안 따라온다.
+      //    ⚠️ 별명 `influencers:` 유지. `influencers_admin_view:influencer_id (…)` 는 오류 없이 값만 비게 된다.
+      .select('id, ticket_code, status, waitlist_position, entered_at, slot_id, influencers:influencers_admin_view (name_kanji, name_kana)')
       .in('slot_id', slotIds)
       .neq('status', 'cancelled')
       // ⚠️ 정렬 기준이 없으면 페이지를 나눠 받을 때 **순서가 매번 달라져** 두 번째
