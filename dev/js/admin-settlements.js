@@ -1624,6 +1624,7 @@ function buildPayoutRows(unregRows, settlementRows) {
       kind: 'unregistered',
       status: 'unregistered',           // 아직 정산 행이 없다
       due: payoutDueDate(r.cert_at),
+      certAt: r.cert_at,          // 결과물 최종 승인(인증 성공) 시각
       amount: settlementEffectiveAmount(r),
       amountUnknown: !r.amount_jpy,     // 금액을 정할 수 없는 건(amount_issue)
       influencerId: r.influencer_id,
@@ -1639,6 +1640,7 @@ function buildPayoutRows(unregRows, settlementRows) {
       kind: 'settlement',
       status: s.status,                 // pending | paid
       due: payoutDueDate(s.cert_at),
+      certAt: s.cert_at,          // 결과물 최종 승인(인증 성공) 시각
       // ★ 지급 준비 화면의 사람별 소계는 **실제 이체 금액을 정하는 숫자**다.
       //   계산값만 쓰면 이미 다르게 보낸 건이 섞였을 때 그 소계가 곧 틀린 송금액이 된다.
       amount: settlementEffectiveAmount(s),
@@ -1934,9 +1936,16 @@ function payoutDueGroupHtml(personId, due, list) {
   const key = personId + '|' + due;
   const checked = _payoutSelected.has(key) ? 'checked' : '';
   const items = list.map(function(r) {
-    return `<div style="display:flex;gap:10px;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
+    // ⚠️ 건을 가리키는 열쇠는 **응모 id** 를 쓴다 — 정산 행이 아직 없는 건(미등록)에는
+    //    정산 id 자체가 없다. 응모 id 는 두 갈래 모두에 있다.
+    return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
       <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
+      <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
       <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
+      <div style="width:52px;text-align:right">${r.applicationId
+        ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px"
+             onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
+        : ''}</div>
     </div>`;
   }).join('');
   return `<div style="border-top:1px dashed var(--line);padding:6px 0">
@@ -1949,6 +1958,29 @@ function payoutDueGroupHtml(personId, due, list) {
     </div>
     ${items}
   </div>`;
+}
+
+// 건별 「보냄」 — 그 한 건만 송금완료로 기록한다.
+//   ⚠️ 묶음 「보냄」과 **같은 창·같은 처리**를 쓴다(_bulkPayCtx). 처리 경로가 갈리면
+//      한쪽만 고치게 된다 — 실제로 그 형태의 사고를 이 저장소가 여러 번 겪었다.
+function openPayoutSendOneModal(appId) {
+  const r = (_payoutRows || []).find(function (x) { return x.applicationId === appId && _payoutUnsent(x); });
+  if (!r) { toast('이미 처리됐거나 대상을 찾을 수 없습니다', 'warn'); return; }
+  if (r.amountUnknown) { toast('금액을 정할 수 없어 기록할 수 없습니다', 'warn'); return; }
+  const person = payoutPersonOf(r);
+  _bulkPayCtx = {
+    settlementIds:  r.kind === 'settlement'   ? [r.settlementId]  : [],
+    applicationIds: r.kind === 'unregistered' ? [r.applicationId] : [],
+    from: 'payout',
+    summaryHtml: `
+      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${esc(person.name || '(이름 미상)')} · ${esc(r.due || '(예정일 없음)')} 회차 · 1건</div>
+        <div style="font-size:13px;margin-bottom:4px">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink)">${settlementAmountYen(r.amount)}</div>
+        ${payoutPaypalHtml(person)}
+      </div>`
+  };
+  _openBulkPayModal();
 }
 
 function payoutPersonCardHtml(entry) {
