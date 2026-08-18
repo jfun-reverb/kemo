@@ -388,6 +388,12 @@ async function init() {
   }
   updateGnb();
 
+  // 일별 방문자수 집계 (마이그레이션 332) — 부팅 1회.
+  // ⚠️ 반드시 세션 복원 뒤에 부른다 — 관리자·감사용 계정 제외는 서버가 로그인 정보로
+  //    판정하므로, 복원 전에 부르면 운영자 접속이 방문자로 세어진다.
+  // 실패해도 화면에 영향 없음(함수 안에서 삼킨다).
+  if (typeof recordSiteVisit === 'function') recordSiteVisit('influencer');
+
   // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
   // - implicit flow: #access_token=...&type=recovery
   // - PKCE flow: ?code=... (with recovery intent)
