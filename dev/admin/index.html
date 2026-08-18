@@ -1510,7 +1510,7 @@
 
         <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
         <div id="adminPane-settlements" class="admin-pane admin-pane-list">
-          <!-- 메인 뷰(정산 목록) — 과거 미등록 뷰와 같은 페인 안에서 토글 전환 -->
+          <!-- 메인 뷰(정산 목록) — 「미등록」 탭·지급 준비 뷰와 같은 페인 안에서 전환 -->
           <div id="settlementMainView" style="display:flex;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1522,10 +1522,6 @@
                 <button class="btn btn-ghost btn-sm" onclick="openPayoutPrepView()" title="지급 예정일별로 얼마를 보내야 하는지 봅니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
                   지급 준비
-                </button>
-                <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
-                  과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
                 </button>
                 <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
@@ -1554,8 +1550,10 @@
               </div>
             </div>
             <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
+            <!-- 「미등록」 탭 안내 — 도입일 유무로 문구가 갈린다(applyUnregisteredNotice) -->
+            <div id="unregisteredNotice" style="display:none;font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px"></div>
           </div>
-          <div class="admin-card">
+          <div id="settlementListCard" class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">정산 목록</span><span id="settlementsTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="settlementsSumAmount" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
             </div>
@@ -1577,8 +1575,9 @@
           </div>
           </div><!-- /settlementMainView -->
 
-          <!-- 과거 미등록 인증성공 뷰 (정산 도입 이전 과거분 관리자 직접 처리) — 기본 숨김 -->
-          <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 메인/과거미등록과 같은 페인 안에서 토글 -->
+          <!-- 「미등록」 탭의 내용물 (인증 성공했으나 정산 행이 아직 없는 건) — 상태 탭에서 전환, 기본 숨김
+               ⚠️ 「과거」라는 말을 쓰지 않는다 — 도입일이 켜지면 과거가 아닌 건도 여기 들어온다(사양서 §4-2) -->
+          <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 같은 페인 안에서 전환 -->
           <div id="settlementPayoutView" style="display:none;flex-direction:column;flex:1;min-height:0">
             <div class="admin-sticky-header">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1607,10 +1606,14 @@
                 <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
                 정산 목록으로
               </button>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">과거 미등록 인증성공</div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">미등록</div>
             </div>
+            <!-- ⚠️ 「이 건이 무엇인가」는 위 #unregisteredNotice 한 곳에서만 말한다.
+                 여기 있던 「정산 도입 이전에…」 문구는 지웠다 — ①같은 말을 두 곳에서 하면
+                 두 안내가 겹쳐 뜨고 ②마이그레이션 337 로 컷오프 조건이 빠져 **도입일 이후
+                 건도 이 탭에 들어오므로** 「도입 이전」이라는 전제 자체가 사실과 달라졌다.
+                 아래는 **처리할 때 알아야 할 것**만 남긴다(성격이 다르다). -->
             <div style="padding:10px 12px;background:#FFF7E6;border:1px solid #E9C46A;border-radius:8px;font-size:12px;line-height:1.6;color:#7A5C00;margin-bottom:12px">
-              정산 도입 이전에 인증에 성공했지만 아직 정산에 등록되지 않은 건입니다.
               여기서 처리한 건만 인플루언서에게 정산으로 노출되며, <b>처리 시 인플루언서에게 알림이 가지 않습니다.</b>
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
@@ -1641,14 +1644,14 @@
                 <input type="text" id="pastUnregMemo" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="예: 시스템 도입 전 외부 지급">
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled>선택 송금완료 기록</button>
-                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled>선택 정산대기 추가</button>
+                <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled style="opacity:.55" title="3단계 이후 사용 가능합니다">선택 송금완료 기록</button>
+                <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled style="opacity:.55" title="3단계 이후 사용 가능합니다">선택 정산대기 추가</button>
               </div>
             </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">과거 미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">미등록 목록</span><span id="pastUnregTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="pastUnregSelectedInfo" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
             </div>
             <div class="admin-table-wrap">
               <table class="data-table">
