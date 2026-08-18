@@ -1807,7 +1807,7 @@ function renderPayoutSummary() {
   const noDate = rows.filter(function(r) { return !r.due; });
 
   body.innerHTML =
-    `<table class="data-table" style="width:100%">
+    `<div class="admin-table-wrap"><table class="data-table" style="width:100%">
       <thead><tr>
         <th style="width:110px">지급 예정일</th>
         <th style="width:70px;text-align:right">건수</th>
@@ -1821,8 +1821,8 @@ function renderPayoutSummary() {
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
-  + `</tbody></table>`
-  + `<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
+  + `</tbody></table></div>`
+  + `<div style="border-top:1px solid var(--line);padding:14px 18px 16px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <div style="font-weight:700;font-size:13px">지급 완료</div>
         <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(-1)" style="padding:2px 8px">‹</button>
@@ -2095,6 +2095,7 @@ function renderPayoutPersonList() {
   const body = $('payoutSummaryBody');
   if (!body) return;
   body.innerHTML = `
+   <div style="padding:16px 18px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
@@ -2116,7 +2117,8 @@ function renderPayoutPersonList() {
         ${payoutGroupSwitchHtml()}
       </div>
     </div>
-    <div id="payoutPersonListBody"></div>`;
+    <div id="payoutPersonListBody"></div>
+   </div>`;
   renderPayoutPersonBody();
 }
 
