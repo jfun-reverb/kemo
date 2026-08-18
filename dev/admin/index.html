@@ -2565,16 +2565,6 @@
                   <span>미읽음만</span>
                 </label>
               </div>
-              <div class="admin-filter-group">
-                <label>카테고리</label>
-                <select id="adminNoticeCatFilter" class="admin-filter" onchange="renderAdminNotices()">
-                  <option value="all">전체</option>
-                  <option value="system_update">시스템 업데이트</option>
-                  <option value="release">릴리스</option>
-                  <option value="warning">경고</option>
-                  <option value="general">일반</option>
-                </select>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="position:relative">
@@ -2583,6 +2573,8 @@
                 </div>
               </div>
             </div>
+            <!-- 카테고리 탭 (구 드롭다운 대체 — 공지 1건 = 카테고리 4종 중 하나로 상호 배타) -->
+            <div id="adminNoticeCatTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
