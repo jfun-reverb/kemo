@@ -2065,11 +2065,13 @@ function renderPayoutPersonList() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
+      <!-- ⚠️ 오른쪽 끝을 차지하는 것은 **스위치**다. 검색칸에 margin-left:auto 를 주면
+           검색칸이 오른쪽 끝을 밀어내 스위치가 **다음 줄로 내려간다**(줄이 접힌다). -->
       <input id="payoutPersonSearchInput" class="admin-filter-search"
              placeholder="이름(한자·가나)·페이팔 이메일로 검색"
              value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)"
-             style="min-width:260px;margin-left:auto">
-      ${payoutGroupSwitchHtml()}
+             style="flex:1;min-width:200px;max-width:420px">
+      <div style="margin-left:auto">${payoutGroupSwitchHtml()}</div>
     </div>
     <div id="payoutPersonListBody"></div>`;
   renderPayoutPersonBody();
