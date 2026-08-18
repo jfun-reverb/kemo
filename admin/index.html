@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787054360';
+  var CURRENT_BUILD = 'v1787054530';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -57,7 +57,12 @@
 <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/ko.js" defer></script>
-<style id="admin-cloak">body{visibility:hidden!important}</style>
+<!-- ⚠️ 가림막 — 화면이 준비될 때까지 몸통을 감춘다(페인 전환 깜빡임 방지).
+     ★ 다만 **로딩 화면 하나는 보이게** 남긴다. 전부 안 보이게 하면 브라우저가 그릴 것이
+       없어, 새로고침 때 **이전 화면을 그대로 띄운 채** 몇 초를 기다린다(2026-08-18 실측:
+       첫 그림이 화면 준비 시각과 똑같았다 = 그 전까지 아무것도 안 그렸다는 뜻).
+     ⚠️ `#admin-boot` 의 visibility 를 되살리는 이 한 줄을 빼면 그 증상이 그대로 돌아온다. -->
+<style id="admin-cloak">body{visibility:hidden!important}#admin-boot{visibility:visible!important}</style>
 <!-- Vercel Web Analytics + Speed Insights (운영 사용자 실측 Core Web Vitals 수집) -->
 <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
@@ -2851,6 +2856,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 </style>
 </head>
 <body style="background:#F8F5F8">
+<!-- 로딩 화면 — 가림막이 걷힐 때 app.js 가 지운다. 문서 앞쪽에 있어야 **먼저 그려진다.** -->
+<div id="admin-boot" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#fff;font-family:system-ui,-apple-system,sans-serif">
+  <div style="width:26px;height:26px;border:3px solid rgba(24,24,27,.15);border-top-color:#E85D9C;border-radius:50%;animation:admin-boot-spin .8s linear infinite"></div>
+  <div style="font-size:13px;color:#6E6E77">불러오는 중…</div>
+</div>
+<style>@keyframes admin-boot-spin{to{transform:rotate(360deg)}}</style>
+
 <!-- 글로벌 요소 -->
 <div id="toast"></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></div></div>
@@ -2937,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 20:59 · 8b82aa3</span>
+          <span class="admin-build-text">2026-08-18 21:02 · 5ee4c69</span>
         </div>
       </div>
     </aside>
@@ -46656,6 +46668,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();
+  // 로딩 화면도 함께 걷는다(가림막과 짝 — 하나만 지우면 화면이 가려진 채 남는다).
+  var boot = document.getElementById('admin-boot');
+  if (boot) boot.remove();
 
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();
