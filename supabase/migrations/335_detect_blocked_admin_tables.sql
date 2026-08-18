@@ -118,7 +118,11 @@ BEGIN
   WITH tbl AS (
     -- public 스키마의 "진짜 표"만(뷰·시퀀스 제외) — 가림막 뷰 자신이
     -- 감지 대상이 되지 않게 relkind='r' 로 제한한다.
-    SELECT c.relname AS tname, c.relrowsecurity AS rls_enabled
+    -- ⚠️ ::text 캐스팅 필수 — pg_class.relname 은 `name` 형이라, RETURNS TABLE 에
+    --    text 로 선언한 칸과 형이 달라 호출 시 42804 로 터진다. 함수를 만드는
+    --    구문은 본문의 형을 검사하지 않아 **적용은 성공하고 부를 때 터진다**
+    --    (2026-08-18 개발서버에서 실제로 그렇게 났다).
+    SELECT c.relname::text AS tname, c.relrowsecurity AS rls_enabled
       FROM pg_catalog.pg_class c
       JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = 'public'
@@ -185,8 +189,8 @@ BEGIN
     --   dv: (뷰의 내부 SELECT 규칙) → (그 뷰 자신) 의존 관계(deptype='i')
     --   dt: 같은 규칙(dv.objid=dt.objid) → (그 규칙이 실제로 읽는 표) 의존 관계
     SELECT DISTINCT
-      t.relname AS base_table,
-      v.relname AS view_name
+      t.relname::text AS base_table,   -- ⚠️ ::text — 위와 같은 이유
+      v.relname::text AS view_name
       FROM pg_catalog.pg_namespace nv,
            pg_catalog.pg_class     v,
            pg_catalog.pg_depend    dv,
@@ -233,16 +237,18 @@ BEGIN
   )
   SELECT
     c.tname                                                     AS table_name,
+    -- ⚠️ ::text 캐스팅 — 글자 상수만 든 분기는 형이 확정되지 않아(unknown)
+    --    RETURNS TABLE 의 text 칸과 안 맞아 42804 가 날 수 있다. 위 relname 과 같은 유형.
     CASE
       WHEN s.table_name IS NULL     THEN 'unverified'
       WHEN sub.view_name IS NOT NULL THEN 'B'
       ELSE 'A'
-    END                                                          AS grade,
+    END::text                                                    AS grade,
     CASE
       WHEN s.table_name IS NOT NULL AND sub.view_name IS NULL THEN
         CASE WHEN c.policy_count = 0 THEN 'no_policy' ELSE 'no_admin_clause' END
       ELSE NULL
-    END                                                          AS a_reason,
+    END::text                                                    AS a_reason,
     c.has_admin_clause,
     c.has_public_clause,
     sub.view_name                                                AS substitute_view,
