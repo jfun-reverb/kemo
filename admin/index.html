@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787011233';
+  var CURRENT_BUILD = 'v1787013598';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2931,7 +2931,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 09:00 · c44222f</span>
+          <span class="admin-build-text">2026-08-18 09:39 · 4bf30b4</span>
         </div>
       </div>
     </aside>
@@ -9650,6 +9650,63 @@ async function incrementViewCount(campId) {
   if (!db || !campId) return;
   if (!_markCampaignViewed(campId)) return;
   await db.rpc('increment_campaign_view', { p_campaign_id: campId });
+}
+
+// ── 사이트 일별 방문자수 집계 (마이그레이션 332) ──
+// 같은 브라우저는 하루 1회만 「방문자 1명」으로 센다. 날짜 기준은 위 조회수와 같은 +09:00.
+// 관리자·감사용 계정 제외는 서버가 판정한다(record_site_visit) — 세션이 확립된 뒤 불러야
+// 로그인 정보가 실려 그 판정이 돈다. 호출 위치는 app.js 의 세션 복원 직후.
+//
+// ⚠️ 저장소를 못 쓰는 환경(사생활 보호 모드 등)에서 위 조회수 게이트는 「그냥 통과」시키는데
+//    여기서는 **반대로 세지 않는다.** 조회수는 캠페인마다 행이 나뉘어 한 사람이 부풀려도 그
+//    캠페인 하나로 끝나지만, 방문자수는 사이트 전체가 하루 한 행이라 그런 사용자 1명이
+//    새로고침한 횟수가 그대로 그날 방문자수가 된다. 부풀리는 실패보다 누락하는 실패가 낫다
+//    (틀리게 늘어난 숫자가 광고주 자료로 나가면 되돌릴 수 없다).
+//    → 두 정책이 정반대인 것은 의도한 것이다. 「일관성 없다」며 맞추지 말 것.
+const SITE_VISIT_SEEN_KEY = 'reverb.siteVisit';
+
+// 오늘 첫 방문이면 'new', 오늘 이미 왔으면 'repeat', 저장소를 못 쓰면 null(집계 안 함).
+function _markSiteVisited(app) {
+  const today = _viewCountTodayKst();
+  try {
+    const raw = localStorage.getItem(SITE_VISIT_SEEN_KEY);
+    const seen = raw ? JSON.parse(raw) : {};
+    if (seen[app] === today) return 'repeat';
+    // 날짜가 바뀐 항목은 정리 (무한 증식 방지)
+    const fresh = {};
+    Object.keys(seen).forEach(k => { if (seen[k] === today) fresh[k] = today; });
+    fresh[app] = today;
+    localStorage.setItem(SITE_VISIT_SEEN_KEY, JSON.stringify(fresh));
+    return 'new';
+  } catch (e) {
+    return null;
+  }
+}
+
+// 가벼운 봇 방어 — 자동화 브라우저 표시 + 미리 불러오기 상태 제외.
+// ⚠️ 헤드리스 브라우저 기반 봇은 이걸로 못 거른다. 화면에 「참고 지표」임을 밝힐 것.
+// ⚠️ 화면이 가려진 상태(hidden)는 제외하지 않는다 — 탭을 뒤에 열어 두는 것도 사람이다.
+//    거기까지 조이면 정상 방문객이 누락된다(사용자가 고른 것은 「가벼운 방어」).
+function _siteVisitLooksHuman() {
+  try {
+    if (navigator.webdriver) return false;
+    if (document.prerendering) return false;
+    if (document.visibilityState === 'prerender') return false;
+  } catch (e) {}
+  return true;
+}
+
+async function recordSiteVisit(app) {
+  if (!db) return;
+  const kind = app || 'influencer';
+  if (!_siteVisitLooksHuman()) return;
+  const mark = _markSiteVisited(kind);
+  if (!mark) return;  // 저장소를 못 쓰면 세지 않는다 (위 주석 참조)
+  try {
+    await db.rpc('record_site_visit', { p_app: kind, p_is_new_visitor: mark === 'new' });
+  } catch (e) {
+    // 방문 집계 실패가 화면을 막으면 안 된다 — 조용히 넘긴다
+  }
 }
 
 // ── Influencers ──
