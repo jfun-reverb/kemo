@@ -1728,9 +1728,11 @@ function payoutDueRowHtml(due, rows, todayStr) {
   const sent   = rows.filter(function(r) { return r.status === 'paid'; });
   const unsent = rows.filter(_payoutUnsent);
   const unknown = rows.filter(function(r) { return r.amountUnknown; }).length;
-  // ⚠️ **몇 건인지 반드시 숫자로 적는다.** 「섞여 있을 수 있습니다」로 쓰면 얼마나 섞였는지
-  //    몰라 이 회차의 숫자를 통째로 못 믿게 된다. 0건인 회차에는 아무것도 안 그린다.
-  const recordOnly = rows.filter(function(r) { return r.recordDateOnly; }).length;
+  // ⚠️ 「기록일 N건」은 여기 안 그린다(2026-08-18 사용자 결정). 지금은 그 값이 송금완료
+  //    건수와 **똑같아** 같은 정보가 두 번 나온다 — 옛 행은 전부 송금완료이기 때문이다.
+  //    ⚠️ 앞으로 새로 송금완료가 쌓이면 두 값은 갈라진다. 그때도 「그 날짜가 실제 송금일이
+  //       아니다」는 표시는 **정산 목록의 행별 「기록일」 표**에 그대로 남아 있으니
+  //       정보가 사라지는 것은 아니다. 여기서만 안 보일 뿐이다.
   const overdue = due < todayStr;
   const days = Math.round((Date.parse(due + 'T00:00:00+09:00') - Date.parse(todayStr + 'T00:00:00+09:00')) / 86400000);
   const when = overdue
@@ -1741,8 +1743,7 @@ function payoutDueRowHtml(due, rows, todayStr) {
     ? `<div style="font-weight:600;color:${color}">${n}건</div><div style="font-size:11px;color:${color}">${esc(_payoutYen(amt))}</div>`
     : '<span style="color:var(--muted);opacity:.5">—</span>';
   const notes = [];
-  if (unknown)    notes.push(`<span style="color:#C33">금액 미확정 ${unknown}건</span>`);
-  if (recordOnly) notes.push(`<span style="color:#9A3412;cursor:help" title="${esc(SETTLEMENT_RECORD_DATE_TIP)}">기록일 ${recordOnly}건</span>`);
+  if (unknown) notes.push(`<span style="color:#C33">금액 미확정 ${unknown}건</span>`);
   return `<tr>
     <td style="font-weight:700;white-space:nowrap">${esc(due)}</td>
     <td style="text-align:right;white-space:nowrap">${cnt}건</td>
