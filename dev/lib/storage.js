@@ -4345,17 +4345,18 @@ async function fetchSettlements(opts) {
       // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 299 추가 — 리뷰어형이 영수증
       // 실결제액 기준으로 바뀌면서(300), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
       // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
+      // paid_amount_jpy 는 마이그레이션 338 추가 — **실제로 보낸 금액**.
+      //   ⚠️ NULL 은 「계산 금액(amount_jpy)과 같음」이지 0원이 아니다(Number(null) 이 0 이라
+      //      그냥 넘기면 「0엔 송금」으로 읽힌다).
+      //   ⚠️ 이 열 목록은 명시형이라, 새 칸을 여기 안 적으면 화면은 **오류 없이 빈 값**을 그린다.
+      // ★★ 조회문 문자열 **안쪽에는 주석을 넣지 말 것.** 그 글자가 열 이름으로 그대로
+      //    전달돼 조회 전체가 깨지고(PGRST100), 아래 catch 가 그 오류를 삼켜
+      //    **화면이 통째로 빈다.** 2026-08-18 개발서버에서 실제로 재현됐다.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
-        cert_at,
-        // paid_amount_jpy 는 마이그레이션 338 추가 — **실제로 보낸 금액**.
-        //   ⚠️ NULL 은 「계산 금액(amount_jpy)과 같음」이지 0원이 아니다. 화면·엑셀이
-        //      그 뜻을 지켜야 한다(Number(null) 이 0 이라 그냥 넘기면 「0엔 송금」으로 읽힌다).
-        //   ⚠️ 이 열 목록은 명시형이라, 새 칸을 여기 안 적으면 화면은 **오류 없이 빈 값**을
-        //      그린다 — 이 저장소가 반복해 겪은 「조용히 사라짐」이다.
-        paid_amount_jpy,
+        cert_at, paid_amount_jpy,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -4392,15 +4393,16 @@ async function isSettlementPublic() {
 // 필터 없이 그대로 조회해도 안전.
 // ⚠️ 마이그레이션 240 이후 본인 조회 정책에 공개 스위치가 함께 걸려 있어, 잠금 상태에서는
 //    서버가 0건을 반환한다(화면 가림과 이중 방어).
+// 인플루언서 본인 정산 조회.
+//   paid_amount_jpy(마이그레이션 338) = 실제로 보낸 금액. 없으면 계산 금액과 같다는 뜻.
+//   ⚠️ 이 칸을 안 가져오면 인플루언서 화면이 **계산 금액**을 받은 금액인 양 보여준다.
+//   ★★ 조회문 문자열 안쪽에 주석을 넣지 말 것 — 열 이름으로 전달돼 조회가 통째로 깨진다.
 async function fetchMySettlements() {
   if (!db) return [];
   try {
     const {data, error} = await db.from('settlements').select(`
       id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
-      amount_source,
-      // 실제로 보낸 금액(마이그레이션 338). 없으면 계산 금액과 같다는 뜻.
-      // ⚠️ 이 칸을 안 가져오면 인플루언서 화면이 **계산 금액**을 받은 금액인 양 보여준다.
-      paid_amount_jpy,
+      amount_source, paid_amount_jpy,
       campaigns:campaign_id (id, title, brand, img1)
     `).order('created_at', {ascending: false});
     if (error) throw error;
