@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787059816';
+  var CURRENT_BUILD = 'v1787060451';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 22:30 · c20f480</span>
+          <span class="admin-build-text">2026-08-18 22:40 · d0b3d72</span>
         </div>
       </div>
     </aside>
@@ -37763,6 +37763,7 @@ let _payoutPersonInfo = null;   // influencer_id → {name, name_kana, paypal_em
 let _payoutDueFilter = null;    // 'YYYY-MM-DD' = 그 회차만 / null = 전 기간(사람 검색)
 // 「지급일 기록 없음」 묶음을 가리키는 표시자. 날짜가 아니라 **날짜가 없는 것**을 고른다.
 const PAYOUT_NO_DUE = '__nodue__';
+let _payoutSearchTokens = [];   // 검색어를 낱말로 쪼갠 것(순서·공백 무관 비교용)
 let _payoutPersonSearch = '';
 let _payoutSelected = new Set();  // 선택한 열쇠말(influencerId|due)
 
@@ -37942,8 +37943,23 @@ function backToPayoutSummary() {
   renderPayoutSummary();
 }
 
+// 검색어를 **낱말로 쪼갠다.** 이름은 저장 방식이 제각각이라 글자를 그대로 이어 찾으면
+//   놓치는 경우가 많다 — 실제 데이터에 「田中　敬子」처럼 **전각 공백**으로 저장된 이름이 있고,
+//   사람은 「敬子 田中」처럼 순서를 바꿔 치기도 한다. 둘 다 지금 방식으로는 못 찾는다.
+//   ⚠️ 그래서 ①공백(전각·반각 모두)을 없애 견주고 ②낱말이 여럿이면 **전부 들어 있는지**를
+//      본다(순서 무관). 낱말 하나짜리 검색은 종전과 똑같이 동작한다.
+function _payoutNorm(v) {
+  return String(v || '').toLowerCase().replace(/[\s\u3000]+/g, '');
+}
+function payoutSearchHit(fields, tokens) {
+  if (!tokens.length) return true;
+  const hay = fields.filter(Boolean).map(_payoutNorm).join(' ');
+  return tokens.every(function (t) { return hay.includes(t); });
+}
+
 function onPayoutPersonSearch(v) {
   _payoutPersonSearch = (v || '').trim().toLowerCase();
+  _payoutSearchTokens = (v || '').trim().split(/[\s\u3000]+/).filter(Boolean).map(_payoutNorm);
   renderPayoutPersonBody();   // ⚠️ 껍데기를 다시 그리면 검색창 포커스가 날아간다
 }
 
@@ -38068,9 +38084,7 @@ function renderPayoutPersonBody() {
       // 캠페인 이름으로 못 찾으면 이 화면에서 검색이 반쪽이 된다.
       cr = cr.filter(function (r) {
         const p = payoutPersonOf(r);
-        return [p.name, p.kana, p.paypal, r.campaignTitle, r.campaignNo].some(function (v) {
-          return v && String(v).toLowerCase().includes(_payoutPersonSearch);
-        });
+        return payoutSearchHit([p.name, p.kana, p.paypal, r.campaignTitle, r.campaignNo], _payoutSearchTokens);
       });
     }
     const byCamp = groupPayoutRowsByCampaign(cr);
@@ -38096,9 +38110,7 @@ function renderPayoutPersonBody() {
   if (_payoutPersonSearch) {
     entries = entries.filter(function(e) {
       const p = e.person;
-      return [p.name, p.kana, p.paypal].some(function(v) {
-        return v && String(v).toLowerCase().includes(_payoutPersonSearch);
-      });
+      return payoutSearchHit([p.name, p.kana, p.paypal], _payoutSearchTokens);
     });
   }
   entries.sort(function(a, b) { return String(a.person.name || '').localeCompare(String(b.person.name || '')); });
