@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787058592';
+  var CURRENT_BUILD = 'v1787058645';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 22:09 · ffd3546</span>
+          <span class="admin-build-text">2026-08-18 22:10 · f1bc7b9</span>
         </div>
       </div>
     </aside>
@@ -4405,9 +4405,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
                   <div style="font-size:18px;font-weight:800;color:var(--ink)">정산 관리</div>
                 </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)" title="지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span> 사람으로 찾기
+                </button>
                 <button class="btn btn-ghost btn-sm" onclick="closePayoutPrepView()" title="건별 목록·상태 탭·개별 처리로 이동합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px">list_alt</span> 정산 목록
                 </button>
+                </div>
               </div>
             </div>
             <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
@@ -37699,11 +37704,6 @@ function renderPayoutSummary() {
       <!-- ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
            회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다. -->
       <div>
-        <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span>
-          사람으로 찾기 (전 기간)
-        </button>
-        <span style="font-size:11px;color:var(--muted);margin-left:8px">지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다</span>
       </div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
         <div style="font-weight:700;font-size:13px">지급일 기록 없음</div>

@@ -1824,11 +1824,6 @@ function renderPayoutSummary() {
       <!-- ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
            회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다. -->
       <div>
-        <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span>
-          사람으로 찾기 (전 기간)
-        </button>
-        <span style="font-size:11px;color:var(--muted);margin-left:8px">지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다</span>
       </div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
         <div style="font-weight:700;font-size:13px">지급일 기록 없음</div>
