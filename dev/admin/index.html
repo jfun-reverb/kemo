@@ -244,6 +244,27 @@
             </div>
           </div>
 
+          <!-- 일별 방문자수 (마이그레이션 332) — 세는 기준을 제목 옆에 반드시 밝힌다.
+               Vercel 통계와 기준이 달라 숫자가 어긋나는데, 기준이 안 적혀 있으면 답할 근거가 없다. -->
+          <div class="admin-card dash-section">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span class="admin-card-title">일별 방문자수</span>
+                <span style="font-size:11px;color:var(--muted)">인플루언서 사이트 · 같은 브라우저는 하루 1회 · 관리자·감사용 계정 제외 · 참고 지표</span>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-ghost btn-xs visit-period-btn" data-period="7" onclick="switchVisitPeriod(7,this)">7일</button>
+                <button class="btn btn-ghost btn-xs visit-period-btn on" data-period="30" onclick="switchVisitPeriod(30,this)">30일</button>
+                <button class="btn btn-ghost btn-xs visit-period-btn" data-period="0" onclick="switchVisitPeriod(0,this)">전체</button>
+              </div>
+            </div>
+            <div style="padding:16px">
+              <div id="visitChartEmpty" style="display:none;text-align:center;color:var(--muted);padding:32px 0;font-size:13px"></div>
+              <div id="visitChartBody" style="height:240px"><canvas id="visitChart"></canvas></div>
+              <div id="visitChartNote" style="font-size:11px;color:var(--muted);margin-top:10px"></div>
+            </div>
+          </div>
+
           <!-- 회원 연령·성별 분포 (마케팅 구간 + 성별 도넛 + 교차표) -->
           <div class="admin-card dash-section">
             <div class="admin-card-header">

@@ -360,7 +360,7 @@
 - `storage.js`: `fetchSettlements(opts)`(관리자·1000행 페이지네이션)·`fetchMySettlements()`(인플 본인)·`backfillSettlements()`·`hasPaidSettlementForApplication(appId)`(반려 가드용)
 
 ### 일별 방문자수 (마이그레이션 332, 2026-08-18)
-> 인플루언서 사이트에 하루 몇 명이 들어왔는지. **1단계(수집)만 적용** — 화면은 아직 없다(데이터가 며칠 쌓인 뒤 관리자 대시보드에 붙인다).
+> 인플루언서 사이트에 하루 몇 명이 들어왔는지. **수집·화면 모두 적용**(2026-08-18 같은 날 2단계까지). 화면 = 관리자 대시보드 「일별 방문자수」 카드(회원가입 추이 아래·연령 성별 분포 위), 기간 7일/30일/전체.
 - `site_daily_visits` — `(visit_date, app)` 유일. `visitor_count`(브라우저 단위 하루 1회) + `page_view_count`(보조 지표, 화면 미사용). **개인을 식별할 수 있는 값은 한 칸도 없다**(IP·기기정보·사용자 식별자 미저장). 조회는 `is_admin()`, **쓰기 정책 없음**(함수만 씀 — `client_error_logs` 와 같은 형태)
 - `record_site_visit(p_app, p_is_new_visitor)` — anon·authenticated 호출. 263(`increment_campaign_view`)을 그대로 본떠 관리자·감사용 계정을 서버가 제외. ⚠️ **날짜는 서버가 만든다**(클라이언트가 보내면 과거 날짜를 부풀릴 수 있다). 앱 구분이 화이트리스트 밖이면 **조용히 종료**(방문 집계가 화면을 막으면 안 된다)
 - ⚠️ **저장소를 못 쓰면 세지 않는다 — 조회수(263)와 정반대이고 의도한 것이다.** 조회수는 캠페인마다 행이 나뉘어 한 사람이 부풀려도 그 캠페인 하나지만, 방문자수는 사이트 전체가 하루 한 행이라 그런 사용자 1명의 새로고침이 그대로 그날 방문자수가 된다. 「일관성 없다」며 맞추지 말 것 (`_markSiteVisited`·`recordSiteVisit`, storage.js)
@@ -369,6 +369,10 @@
 - 봇 방어는 가벼운 수준(`navigator.webdriver` + 미리 불러오기 제외) — **헤드리스 봇은 못 거른다.** 화면에 「참고 지표」임을 밝힐 것. 하루 상한·보존기간 정리는 두지 않음(근거는 마이그레이션 파일 주석)
 - 개인정보처리방침은 §8 한 줄 추가로 끝(수집 항목 표 무변경 — 개인정보가 아니다). 한·일 동시 개정 완료
 - 도입 이전 구간은 **백필 없음** — 화면은 0으로 그리지 말 것(「그날 방문자 0명」으로 오독된다)
+- **화면**(`dev/js/admin-dashboard.js` `_computeVisitSeries`/`renderVisitChart`/`loadVisitChart`/`switchVisitPeriod`, 조회 `fetchSiteDailyVisits`): ⚠️ **날짜 기준이 옆 회원가입 차트와 다르다** — 가입 차트는 `toISOString()`(협정 세계시)로 자르는데 방문 집계는 서버가 **일본 표준시** 날짜로 적립한다. 세계시로 자르면 어제 숫자가 오늘 칸에 그려진다(`_visitDateTodayKst`·`_visitDateShift` 사용, 두 함수 모두 문자열 연산이라 시간대 무관)
+- ⚠️ **조회 실패(`null`)와 기록 0건(`[]`)을 구분**해 서로 다른 안내를 띄운다 — 어느 쪽도 0을 그리지 않는다(마이그레이션 276 에서 세운 원칙). ⚠️ **도입 이전 구간은 자르되 도입 이후의 빈 날은 0이 맞다**(진짜 방문 0명)
+- ⚠️ 차트 오른쪽 끝은 「오늘」이 아니라 **`max(오늘, 마지막 기록일)`** — 날짜는 서버가 찍고 화면 판정은 관리자 PC 시계라, 자정 직후 시계가 몇 분만 느려도 「기록일 > 오늘」이 되어 **그릴 칸이 0개가 된다**(개발 중 실제로 재현됨)
+- 열람 권한은 **관리자 전원**(`is_admin()` — 등급 무관). 권한 카탈로그에 새 열쇠말을 만들지 않고 대시보드 권한을 상속
 
 ### 메일·기준 데이터·알림
 - `lookup_values` — 캠페인 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason/**admin_proxy_reason**), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`. channel 만 recruit_types 사용. `admin_proxy_reason`(마이그레이션 160) 시드 4건: shipping_delay/system_error/inflexible_deadline/other
