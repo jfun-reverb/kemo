@@ -1626,7 +1626,10 @@
               </div>
             </div>
             <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
-              <div id="payoutSummaryBody" style="padding:16px 18px"></div>
+              <!-- ⚠️ 여백은 **안쪽에서** 준다. 다른 화면의 표는 `admin-table-wrap` 안에 바로
+                   들어가 카드 여백을 안 받는데, 여기만 감싸개에 여백이 있어 표가 안쪽으로
+                   밀려 보였다. 표는 여백 없이, 표 아닌 내용만 자기 여백을 갖는다. -->
+              <div id="payoutSummaryBody"></div>
             </div>
           </div>
 

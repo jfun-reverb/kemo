@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787058208';
+  var CURRENT_BUILD = 'v1787058328';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 22:03 · f45adc4</span>
+          <span class="admin-build-text">2026-08-18 22:05 · 3966aa9</span>
         </div>
       </div>
     </aside>
@@ -4411,7 +4411,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
             <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
-              <div id="payoutSummaryBody" style="padding:16px 18px"></div>
+              <!-- ⚠️ 여백은 **안쪽에서** 준다. 다른 화면의 표는 `admin-table-wrap` 안에 바로
+                   들어가 카드 여백을 안 받는데, 여기만 감싸개에 여백이 있어 표가 안쪽으로
+                   밀려 보였다. 표는 여백 없이, 표 아닌 내용만 자기 여백을 갖는다. -->
+              <div id="payoutSummaryBody"></div>
             </div>
           </div>
 
@@ -37679,7 +37682,7 @@ function renderPayoutSummary() {
   const noDate = rows.filter(function(r) { return !r.due; });
 
   body.innerHTML =
-    `<table class="data-table" style="width:100%">
+    `<div class="admin-table-wrap"><table class="data-table" style="width:100%">
       <thead><tr>
         <th style="width:110px">지급 예정일</th>
         <th style="width:70px;text-align:right">건수</th>
@@ -37693,8 +37696,8 @@ function renderPayoutSummary() {
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
-  + `</tbody></table>`
-  + `<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
+  + `</tbody></table></div>`
+  + `<div style="border-top:1px solid var(--line);padding:14px 18px 16px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <div style="font-weight:700;font-size:13px">지급 완료</div>
         <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(-1)" style="padding:2px 8px">‹</button>
@@ -37967,6 +37970,7 @@ function renderPayoutPersonList() {
   const body = $('payoutSummaryBody');
   if (!body) return;
   body.innerHTML = `
+   <div style="padding:16px 18px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
@@ -37988,7 +37992,8 @@ function renderPayoutPersonList() {
         ${payoutGroupSwitchHtml()}
       </div>
     </div>
-    <div id="payoutPersonListBody"></div>`;
+    <div id="payoutPersonListBody"></div>
+   </div>`;
   renderPayoutPersonBody();
 }
 
