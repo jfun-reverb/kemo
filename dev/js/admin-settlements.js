@@ -1780,8 +1780,10 @@ function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
 // 지급 예정일을 계산할 수 없는 건 — 인증 성공일이 없어서다.
 //   ⚠️ 날짜가 없으니 회차로 못 나눈다. **한 줄로 묶어** 다른 구역과 같은 표 안에 둔다 —
 //      표 밖에 두면 그것만 다른 물건처럼 보이고, 아예 안 두면 **어디에도 안 보인다.**
-//   ⚠️ 0건이어도 그린다. 여기서 「0건」은 「빠진 게 없다」는 확인이라 값이 있다.
+//   ⚠️ **내역이 있을 때만 그린다**(2026-08-18 사용자 결정). 늘 「0건」이 떠 있으면
+//      「원래 있는 줄」로 학습돼, 정작 생겼을 때 눈에 안 들어온다.
 function payoutNoDueSectionHtml(rows) {
+  if (!rows.length) return '';
   const color = '#B8741A';
   const sent   = rows.filter(function(r) { return r.status === 'paid'; });
   const unsent = rows.filter(_payoutUnsent);
@@ -1792,9 +1794,6 @@ function payoutNoDueSectionHtml(rows) {
       <span style="font-weight:700;font-size:13px;color:${color}">지급일 기록 없음</span>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">인증 성공일이 없어 지급 예정일을 계산할 수 없는 건</span>
     </td></tr>`;
-  if (!rows.length) {
-    return head + `<tr><td colspan="7" style="color:var(--muted);font-size:12px">없습니다.</td></tr>`;
-  }
   return head + `<tr>
     <td style="font-weight:700;white-space:nowrap;color:var(--muted)">기록 없음</td>
     <td style="text-align:right;white-space:nowrap">${rows.length}건</td>
@@ -1850,7 +1849,9 @@ function renderPayoutSummary() {
       </tr></thead>
       <tbody>`
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
-  + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
+  // ⚠️ 색은 **여섯 자리로** 적는다. 제목 배경을 색+투명도로 만드는데, 세 자리(#C33)에
+  //    붙이면 없는 값이 되어 **그 구역만 배경이 안 깔린다**(2026-08-18 운영에서 확인).
+  + payoutSectionHtml('지난 달 이전 — 밀린 것', '#CC3333', before, byDue, todayStr, '밀린 것이 없습니다.')
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   + payoutNoDueSectionHtml(rows.filter(function(r) { return !r.due; }))
   + `</tbody></table></div>`
