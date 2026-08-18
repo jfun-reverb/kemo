@@ -1657,6 +1657,10 @@ function _payoutUnsent(r) { return r.status === 'unregistered' || r.status === '
 async function openPayoutPrepView() {
   const main = $('settlementMainView'), view = $('settlementPayoutView');
   if (!main || !view) return;
+  // ⚠️ 「미등록」 화면은 목록 화면의 **형제**라, 목록만 감추면 그대로 남는다.
+  //    안 감추면 지급 준비와 미등록이 **세로로 겹쳐 한 화면에 둘 다** 뜬다
+  //    (2026-08-18 운영에서 실제로 그렇게 보였다). 세 화면은 서로 배타여야 한다.
+  hideUnregisteredTab();
   main.style.display = 'none';
   view.style.display = 'flex';
   const body = $('payoutSummaryBody');
@@ -1692,6 +1696,12 @@ function closePayoutPrepView() {
   const main = $('settlementMainView'), view = $('settlementPayoutView');
   if (view) view.style.display = 'none';
   if (main) main.style.display = 'flex';
+  // 지급 준비로 가기 전에 「미등록」 탭을 보고 있었다면 그 자리로 돌려준다 —
+  // 돌아왔더니 다른 탭이면 방금 보던 목록을 다시 찾아 들어가야 한다.
+  if (_settlementFilters && _settlementFilters.status === 'unregistered'
+      && typeof showUnregisteredTab === 'function') {
+    showUnregisteredTab();
+  }
 }
 
 // 'YYYY-MM' 을 n달 옮긴다(문자열 연산 — 시간대가 끼어들 자리가 없다)
