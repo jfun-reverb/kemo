@@ -1940,6 +1940,7 @@ function payoutItemsHeadHtml() {
               letter-spacing:.03em;border-bottom:1px solid var(--line);margin-bottom:2px">
     <div style="flex:1">캠페인</div>
     <div style="width:96px;text-align:right">결과물 승인일</div>
+    <div style="width:96px;text-align:right">송금 완료일</div>
     <div style="width:88px;text-align:right">금액</div>
     <div style="width:52px"></div>
   </div>`;
@@ -1955,6 +1956,7 @@ function payoutDueItemsHtml(list, sent) {
       return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted);opacity:.7">
         <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
         <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
+        <div style="width:96px;text-align:right" title="실제로 송금한 날(기록된 값)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
         <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
         <div style="width:52px;text-align:right"><span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px">기록됨</span></div>
       </div>`;
@@ -1964,6 +1966,8 @@ function payoutDueItemsHtml(list, sent) {
     return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
       <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
       <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
+      <!-- 아직 안 보낸 줄이라 송금일은 비어 있다 — 열을 비워 두어야 아래 보낸 줄과 자리가 맞는다 -->
+      <div style="width:96px;text-align:right;color:var(--muted);opacity:.5">—</div>
       <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
       <div style="width:52px;text-align:right">${r.applicationId
         ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px"
