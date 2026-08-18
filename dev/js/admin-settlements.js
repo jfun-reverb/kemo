@@ -36,11 +36,33 @@ function _settlementDateInputValue(ts) {
   if (Number.isNaN(t)) return '';
   return new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
-// 오늘(일본 표준시) — 날짜 칸의 최댓값. 앞날 날짜는 서버도 거부하지만,
-// 화면에서 미리 막아 주면 눌러 보고 실패하는 왕복이 없다.
-function _settlementTodayJst() {
-  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+// ── 「송금완료일」이 실제 송금일이 아니라 **기록일**인 행을 가르는 날 ──────────
+// 이 날 전에 등록된 정산은 **실제 송금일을 넣을 칸 자체가 없어서**, 등록한 날짜(`now()`)가
+// 송금일 자리에 들어가 있다. 실제로는 그보다 앞서 보낸 돈이다.
+//
+// ⚠️ 이름을 「2026년 8월 5일」이 아니라 **「실제 송금일을 넣을 수 있게 된 날」**로 지었다.
+//    날짜만 박아 두면 **왜 그 날인지가 코드에서 사라진다.**
+// ⚠️ 이 값이 맞는 근거(2026-08-18 운영 실측): 정산 행은 **204건뿐이고 송금일이 7/30(1건)·
+//    8/4(203건)에 몰려 있다. 8/5 이후는 0건.** 그리고 송금 기록 경로는 1단계부터 **잠겨
+//    있어**, 이 기능이 나가는 순간(잠금 해제 = 작업 7)까지 새 행이 생길 수 없다.
+//    즉 8/5 ~ 배포일 사이는 **비어 있을 수밖에 없어** 어느 날로 잡아도 결과가 같다.
+// ⚠️ 그 전제가 깨지면(잠금을 먼저 풀고 나중에 배포한다면) 이 날짜를 **실제 배포일로
+//    옮겨야 한다.** 안 옮기면 그 사이 기록된 건이 「정확한 날짜」로 잘못 취급된다.
+const SETTLEMENT_ACTUAL_PAID_AT_SINCE = '2026-08-05';
+
+function settlementPaidAtIsRecordDate(s) {
+  if (!s || !s.paid_at) return false;
+  const d = _settlementDateInputValue(s.paid_at);
+  return !!d && d < SETTLEMENT_ACTUAL_PAID_AT_SINCE;
 }
+
+// 말풍선 문구 — 한 곳에 모아 둔다(목록·지급 준비 두 곳이 같은 말을 해야 한다).
+const SETTLEMENT_RECORD_DATE_TIP = [
+  '이 날짜는 시스템에 기록한 날입니다.',
+  '실제로 송금한 날이 아닙니다 — 실제 송금일을 남기는 칸이 생기기 전에 등록된 건이라, 등록한 날짜가 대신 들어가 있습니다.',
+  '실제 송금일은 지급대장을 확인해 주세요.'
+].join('\n');
 var settlementsLazy = null;
 const SETTLEMENTS_PAGE_SIZE = 50;
 
@@ -513,8 +535,14 @@ function renderSettlementRow(s) {
   const certDate = s.cert_at
     ? `<span style="font-size:12px">${formatDate(s.cert_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)" title="이 값을 저장하기 전에 등록된 건이라 시점을 알 수 없습니다">기록 없음</span>';
+  // ⚠️ 이 칸에는 **실제 송금일과 기록일이 섞여 있다.** 열 이름은 「송금완료일」 그대로 두고
+  //    (「실제 송금일」로 바꾸면 옛 행에 대해 화면이 사실이 아닌 말을 하게 된다),
+  //    섞인 쪽에만 표를 붙인다 — 늘 떠 있는 안내는 아무도 안 읽는다.
   const paidDate = s.paid_at
     ? `<span style="font-size:12px">${formatDate(s.paid_at)}</span>`
+      + (settlementPaidAtIsRecordDate(s)
+          ? `<div style="margin-top:2px"><span style="font-size:10px;background:#EEE;color:#666;padding:1px 5px;border-radius:3px;cursor:help" title="${esc(SETTLEMENT_RECORD_DATE_TIP)}">기록일</span></div>`
+          : '')
     : '<span style="font-size:11px;color:var(--muted)">—</span>';
 
   // 신청 반려·취소로 자동 보류된 건(고정 메모 '신청 반려로 자동 보류')은 관리자가 구분하도록 앰버 배지.
@@ -632,7 +660,7 @@ function openSettlementPayModal(id) {
   if (memo) memo.value = '';
   // [339] 실제 송금일·금액 — 비워 두면 「오늘 · 계산 금액 그대로」로 종전과 같이 동작한다.
   const dateEl = $('settlementPayDate');
-  if (dateEl) { dateEl.value = ''; dateEl.max = _settlementTodayJst(); }
+  if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
   const amtEl = $('settlementPayAmount');
   if (amtEl) amtEl.value = '';
   onSettlementPayInput();
@@ -765,7 +793,7 @@ function openSettlementCorrectModal(id) {
       </div>`;
   }
   const dateEl = $('settlementCorrectDate');
-  if (dateEl) { dateEl.value = ''; dateEl.max = _settlementTodayJst(); }
+  if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
   const amtEl = $('settlementCorrectAmount');
   if (amtEl) amtEl.value = '';
   const memoEl = $('settlementCorrectMemo');
@@ -857,7 +885,7 @@ function openSettlementBulkPayModal() {
       </div>`;
   }
   const dateEl = $('settlementBulkPayDate');
-  if (dateEl) { dateEl.value = ''; dateEl.max = _settlementTodayJst(); }
+  if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
   const memoEl = $('settlementBulkPayMemo');
   if (memoEl) memoEl.value = '';
   onSettlementBulkPayInput();
@@ -1542,6 +1570,8 @@ function buildPayoutRows(unregRows, settlementRows) {
       // ★ 지급 준비 화면의 사람별 소계는 **실제 이체 금액을 정하는 숫자**다.
       //   계산값만 쓰면 이미 다르게 보낸 건이 섞였을 때 그 소계가 곧 틀린 송금액이 된다.
       amount: settlementEffectiveAmount(s),
+      // 그 회차 합계가 「실제 송금일 기준」인지 「등록한 날 기준」인지 가르는 표시.
+      recordDateOnly: settlementPaidAtIsRecordDate(s),
       amountUnknown: false,
       influencerId: s.influencer_id,
       name: null, nameKana: null,       // 이름은 작업 3에서 통로로 채운다
@@ -1610,6 +1640,10 @@ function payoutDueRowHtml(due, rows, todayStr) {
   const cnt = rows.length;
   const sum = rows.reduce(function(a, r) { return a + r.amount; }, 0);
   const unknown = rows.filter(function(r) { return r.amountUnknown; }).length;
+  // ⚠️ **몇 건인지 반드시 숫자로 적는다.** 「섞여 있을 수 있습니다」로 쓰면 얼마나 섞였는지
+  //    몰라 이 회차의 숫자를 통째로 못 믿게 된다. 몇 건인지 알면 나머지는 믿을 수 있다.
+  //    ⚠️ 0건인 회차에는 아무것도 안 그린다 — 늘 떠 있으면 아무도 안 읽는다.
+  const recordOnly = rows.filter(function(r) { return r.recordDateOnly; }).length;
   const overdue = due < todayStr;
   // ⚠️ 「이번 달」 구역 안에도 이미 지난 회차가 있다 — 이번 달이라고 안심시키면 안 된다.
   const days = Math.round((Date.parse(due + 'T00:00:00+09:00') - Date.parse(todayStr + 'T00:00:00+09:00')) / 86400000);
@@ -1622,6 +1656,7 @@ function payoutDueRowHtml(due, rows, todayStr) {
     <div style="width:110px;text-align:right;font-weight:700;font-size:13px">${esc(_payoutYen(sum))}</div>
     <div style="width:84px">${when}</div>
     ${unknown ? `<div style="font-size:11px;color:#C33">금액 미확정 ${unknown}건</div>` : ''}
+    ${recordOnly ? `<div style="font-size:11px;color:#9A3412;cursor:help" title="${esc(SETTLEMENT_RECORD_DATE_TIP)}">기록일로 남은 건 ${recordOnly}건</div>` : ''}
     <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
             onclick="openPayoutPersonList('${esc(due)}')">상세</button>
   </div>`;
