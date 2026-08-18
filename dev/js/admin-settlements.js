@@ -1763,9 +1763,11 @@ function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
   }, 0);
   // 구역 머리 — 배경을 깔아 회차 줄과 확실히 구분한다.
   //   ⚠️ 색은 구역 색을 **아주 옅게** 깐다(원색을 깔면 회차 줄의 빨강·초록 숫자가 묻힌다).
+  //   ⚠️ 왼쪽 색 막대는 뺐다(2026-08-18) — 배경만으로 충분히 구분되고, 막대가 있으면
+  //      표의 첫 열 세로선과 겹쳐 줄이 어긋나 보였다.
   //   ⚠️ `background` 는 `td` 에 준다 — `tr` 에 주면 셀 배경(.data-table td 의 흰 배경)이
   //      위에 덮여 아무것도 안 보인다.
-  const head = `<tr><td colspan="7" style="background:${color}14;border-left:3px solid ${color};padding:7px 12px;border-bottom:1px solid var(--outline)">
+  const head = `<tr><td colspan="7" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
       <span style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</span>
       ${dues.length ? `<span style="font-size:12px;color:var(--muted);margin-left:8px">${cnt}건 · ${esc(_payoutYen(sum))}</span>` : ''}
     </td></tr>`;
@@ -1773,6 +1775,36 @@ function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
     ? dues.map(function(d) { return payoutDueRowHtml(d, byDue[d], todayStr); }).join('')
     : `<tr><td colspan="7" style="color:var(--muted);font-size:12px">${esc(emptyText)}</td></tr>`;
   return head + body;
+}
+
+// 지급 예정일을 계산할 수 없는 건 — 인증 성공일이 없어서다.
+//   ⚠️ 날짜가 없으니 회차로 못 나눈다. **한 줄로 묶어** 다른 구역과 같은 표 안에 둔다 —
+//      표 밖에 두면 그것만 다른 물건처럼 보이고, 아예 안 두면 **어디에도 안 보인다.**
+//   ⚠️ 0건이어도 그린다. 여기서 「0건」은 「빠진 게 없다」는 확인이라 값이 있다.
+function payoutNoDueSectionHtml(rows) {
+  const color = '#B8741A';
+  const sent   = rows.filter(function(r) { return r.status === 'paid'; });
+  const unsent = rows.filter(_payoutUnsent);
+  const cell = (n, amt, c) => n
+    ? `<div style="font-weight:600;color:${c}">${n}건</div><div style="font-size:11px;color:${c}">${esc(_payoutYen(amt))}</div>`
+    : '<span style="color:var(--muted);opacity:.5">—</span>';
+  const head = `<tr><td colspan="7" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
+      <span style="font-weight:700;font-size:13px;color:${color}">지급일 기록 없음</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">인증 성공일이 없어 지급 예정일을 계산할 수 없는 건</span>
+    </td></tr>`;
+  if (!rows.length) {
+    return head + `<tr><td colspan="7" style="color:var(--muted);font-size:12px">없습니다.</td></tr>`;
+  }
+  return head + `<tr>
+    <td style="font-weight:700;white-space:nowrap;color:var(--muted)">기록 없음</td>
+    <td style="text-align:right;white-space:nowrap">${rows.length}건</td>
+    <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(_payoutSum(rows)))}</td>
+    <td style="white-space:nowrap;color:var(--muted)">—</td>
+    <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
+    <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
+    <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+        onclick="openPayoutPersonList('${PAYOUT_NO_DUE}')">상세</button></td>
+  </tr>`;
 }
 
 function renderPayoutSummary() {
@@ -1820,6 +1852,7 @@ function renderPayoutSummary() {
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
+  + payoutNoDueSectionHtml(rows.filter(function(r) { return !r.due; }))
   + `</tbody></table></div>`
   + `<div style="border-top:1px solid var(--line);padding:14px 18px 16px">
       <!-- ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
@@ -1845,6 +1878,8 @@ function renderPayoutSummary() {
 
 let _payoutPersonInfo = null;   // influencer_id → {name, name_kana, paypal_email} / null = 조회 실패
 let _payoutDueFilter = null;    // 'YYYY-MM-DD' = 그 회차만 / null = 전 기간(사람 검색)
+// 「지급일 기록 없음」 묶음을 가리키는 표시자. 날짜가 아니라 **날짜가 없는 것**을 고른다.
+const PAYOUT_NO_DUE = '__nodue__';
 let _payoutPersonSearch = '';
 let _payoutSelected = new Set();  // 선택한 열쇠말(influencerId|due)
 
@@ -2072,7 +2107,9 @@ function renderPayoutPersonList() {
    <div style="padding:16px 18px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
-      <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
+      <div style="font-weight:700;font-size:14px">${
+        !_payoutDueFilter ? '전체 기간'
+        : (_payoutDueFilter === PAYOUT_NO_DUE ? '지급일 기록 없음' : esc(_payoutDueFilter) + ' 지급 예정')}</div>
       <!-- 검색칸과 스위치를 **한 덩어리로 묶어 오른쪽 끝**에 붙인다.
            ⚠️ 「admin-filter-search」 는 돋보기 아이콘 자리로 왼쪽 28px 을 비워 두는 클래스다.
               아이콘을 같이 안 넣으면 그만큼이 그냥 빈 여백으로 보인다(다른 화면은 전부
@@ -2106,9 +2143,10 @@ function renderPayoutPersonBody() {
   //   ⚠️ 예전에는 안 보낸 것만 넘겼다. 그러면 절반을 보낸 회차에서 **이미 보낸 사람이
   //      목록에서 사라져**, 「이 사람 보냈던가」를 확인할 데가 없었다.
   //   보낸 것은 사람 카드 안에서 「이미 기록됨」 줄로 따로 묶인다(groupSettlementsByPerson).
-  let rows = _payoutDueFilter
-    ? all.filter(function(r) { return r.due === _payoutDueFilter; })
-    : all;
+  let rows = !_payoutDueFilter ? all
+    : (_payoutDueFilter === PAYOUT_NO_DUE
+        ? all.filter(function(r) { return !r.due; })
+        : all.filter(function(r) { return r.due === _payoutDueFilter; }));
   // ── 캠페인별 보기 (보기 전용) ────────────────────────────────
   if (_payoutGroupBy === 'campaign') {
     let cr = rows;
