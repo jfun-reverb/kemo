@@ -1608,7 +1608,6 @@ async function pastUnregRegister(targetStatus) {
 // ══════════════════════════════════════════════════════════════════
 
 let _payoutRows = null;        // null = 아직 조회 안 함 / [] = 대상 없음
-let _payoutPaidMonth = null;   // 「지급 완료」 묶음이 보여줄 달 'YYYY-MM'
 
 // 지급 흐름에서 벗어난 상태 — 네 묶음 어디에도 넣지 않는다(사양서 §4-1).
 const PAYOUT_EXCLUDED_STATUS = new Set(['on_hold', 'cancelled']);
@@ -1693,7 +1692,6 @@ async function openPayoutPrepView() {
   // ⚠️ 사람 정보 캐시를 비운다 — 안 비우면 그 사이 새로 생긴 정산 행의 인플루언서가
   //    「(이름 미상)·페이팔 미등록」으로 보인다(조회를 안 하니 값이 없을 뿐인데).
   _payoutPersonInfo = null;
-  if (!_payoutPaidMonth) _payoutPaidMonth = jstTodayStr().slice(0, 7);
   renderPayoutSummary();
 }
 
@@ -1802,10 +1800,6 @@ function renderPayoutSummary() {
 
   // 「지급 완료」 — ⚠️ 예정일 조건을 걸지 않는다. 걸면 미리 보낸 건·당일 보낸 건·
   //   예정일이 미래인 건이 화면에서 사라진다(사양서 §4-1).
-  const paidAll = rows.filter(function(r) { return r.status === 'paid' && r.due; });
-  const paidThis = paidAll.filter(function(r) { return _payoutMonthOf(r.due) === _payoutPaidMonth; });
-  const paidSum = paidThis.reduce(function(a, r) { return a + r.amount; }, 0);
-
   // 「지급일 기록 없음」 — cert_at 이 비어 예정일을 계산할 수 없는 것. 건수만.
   //   ⚠️ 보류·취소는 여기도 안 넣는다(이미 buildPayoutRows 에서 빠졌다).
   const noDate = rows.filter(function(r) { return !r.due; });
@@ -1827,18 +1821,9 @@ function renderPayoutSummary() {
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   + `</tbody></table></div>`
   + `<div style="border-top:1px solid var(--line);padding:14px 18px 16px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <div style="font-weight:700;font-size:13px">지급 완료</div>
-        <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(-1)" style="padding:2px 8px">‹</button>
-        <div style="font-size:13px;font-weight:700;min-width:74px;text-align:center">${esc(_payoutPaidMonth || '')}</div>
-        <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(1)" style="padding:2px 8px">›</button>
-        <div style="font-size:13px;color:var(--muted)">${paidThis.length}건 · ${esc(_payoutYen(paidSum))}</div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.7">
-        지급 예정일이 그 달인 건 중 <b>이미 보낸 것</b>입니다. 실제 보낸 날짜가 아니라 <b>예정일</b>로 나눕니다
-        — 6월 15일 예정분을 7월에 보냈어도 「6월」에 들어갑니다.
-      </div>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <!-- ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
+           회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다. -->
+      <div>
         <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)">
           <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span>
           사람으로 찾기 (전 기간)
@@ -1857,10 +1842,6 @@ function renderPayoutSummary() {
 
 // 「지급 완료」가 보여줄 달을 옮긴다. ⚠️ **과거·미래 양방향** — 과거만 되면
 //   예정일이 미래인 지급 완료 건(4단계에서 등록할 115건)에 영영 못 닿는다.
-function shiftPayoutPaidMonth(delta) {
-  _payoutPaidMonth = _payoutShiftMonth(_payoutPaidMonth || jstTodayStr().slice(0, 7), delta);
-  renderPayoutSummary();
-}
 
 // ══════════════════════════════════════════════════════════════════
 // 지급 준비 — 사람별 묶음(화면 ㄴ) · 사람 검색(화면 ㄷ)
