@@ -1464,6 +1464,36 @@ function visibleUpcomingFeatures() {
 function jstTodayStr() {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
+// ══════════════════════════════════════
+// 정산 지급 예정일 (사양서 2026-08-18-settlement-list-unification… §4-1)
+//   인증 성공일(cert_at)이 그 달 15일 이전이면 **다음 달 15일**,
+//   16일 이후면 **다음 달 말일**에 보낸다. 캠페인 참여방법에 한·일 양쪽으로
+//   박혀 있는 약속이라 시스템이 그 날짜를 알아야 한다.
+//
+// ⚠️ 「말일」을 30일로 고정하면 안 된다 — 2월·31일인 달·윤년에서 틀린다(1년에 7번).
+// ⚠️ 반드시 **일본 시각 날짜**로 판정한다. 시각을 그대로 쓰면 15일/16일 경계가
+//    보는 사람의 시간대에 따라 흔들린다.
+// ⚠️ 돌려주는 값은 **'YYYY-MM-DD' 문자열**이다(작업표 초안의 Date 에서 바꿈).
+//    이 저장소는 날짜를 문자열로 다루는 관행이고(jstTodayStr·recruitDeadlinePassed·
+//    _visitDateTodayKst), 문자열 비교가 곧 날짜순이라 시간대가 끼어들 자리가 없다.
+//    Date 로 돌려주면 받는 쪽이 getMonth() 를 부르는 순간 **보는 사람의 시간대**로
+//    읽혀 하루가 밀린다 — 이 저장소가 이미 여러 번 당한 함정이다.
+// ⚠️ **계산은 이 함수 하나로만 한다.** 카드·목록·엑셀이 각자 계산하면 어긋난다.
+function payoutDueDate(certAt) {
+  if (!certAt) return null;
+  const t = Date.parse(certAt);
+  if (Number.isNaN(t)) return null;
+  // 일본 시각으로 옮긴 뒤 UTC 칸을 읽는다(로컬 칸을 읽으면 기기 시간대가 섞인다)
+  const jst = new Date(t + 9 * 3600 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = jst.getUTCMonth();          // 0~11
+  const day = jst.getUTCDate();
+  const due = (day <= 15)
+    ? new Date(Date.UTC(y, m + 1, 15))  // 다음 달 15일
+    : new Date(Date.UTC(y, m + 2, 0));  // 그 다음 달 0일 = **다음 달 말일**(달마다 자동)
+  return due.toISOString().slice(0, 10);
+}
+
 // 모집 마감일이 지났는가 (마감일 당일 24시까지는 아직 안 지난 것으로 본다 = 서버와 동일)
 //   마감일이 없으면 false(무기한) — 서버도 NULL 은 통과시킨다
 function recruitDeadlinePassed(camp) {

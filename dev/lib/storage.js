@@ -1572,6 +1572,37 @@ async function fetchInfluencersByIds(userIds) {
   } catch(e) { return {}; }
 }
 
+// 정산 지급 준비 화면용 — 인플루언서 id 목록으로 **이름·페이팔 이메일**을 한 번에.
+//   대장이 「받는 분 이름 · 페이팔 이메일 · 금액 · 날짜」로 적혀 있어 대조에 이 둘이 필요하다.
+//
+// ⚠️ **반드시 가림막 통로(influencers_admin_view)로만 부른다.** 원본 표(influencers)는
+//    마이그레이션 312 로 「관리자면 통과」 정책이 없어져 **오류 없이 조용히 빈 결과**가 온다
+//    (2026-08-07 사고와 정확히 같은 자리). 통로를 거치면 권한 체계도 그대로 따른다 —
+//    `influencer.sensitive_pii` 읽기 권한이 없는 등급에게는 서버가 이메일을 NULL 로 가린다.
+// ⚠️ **실패하면 null, 없으면 {}** — 이 둘을 합치면 「조회 실패」와 「등록 안 함」이 화면에서
+//    같은 빈칸이 된다. 돈을 보내는 화면에서 그 둘은 절대 같지 않다.
+// ⚠️ **한 건씩 부르지 않는다.** 121명이면 조회가 121번 나간다. 다만 id 가 많으면 주소가
+//    길어져 잘리므로 200개씩 나눠 부른다(_proxyFetchByIds 와 같은 이유).
+async function fetchPayoutInfluencerInfo(influencerIds) {
+  if (!db) return null;
+  const ids = [...new Set((influencerIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const map = {};
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kana, paypal_email')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(function(r) { map[r.id] = r; });
+    }
+    return map;
+  } catch (e) {
+    console.warn('[fetchPayoutInfluencerInfo]', e);
+    return null;   // ⚠️ {} 로 바꾸지 말 것 — 화면이 「확인 실패」와 「미등록」을 못 가른다
+  }
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
@@ -4530,7 +4561,13 @@ async function fetchPastUnregisteredSettlements() {
     const {data, error} = await db.rpc('get_past_unregistered_settlements');
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+  } catch(e) {
+    console.error('[fetchPastUnregisteredSettlements]', e);
+    // ⚠️ **[] 로 바꾸지 말 것.** 실패를 빈 목록으로 돌려주면 「보낼 것이 없음」과 구분이
+    //    안 되고, 지급 준비 화면이 조용히 「이번 달 지급 예정이 없습니다」로 그린다 —
+    //    운영팀이 그 달 지급을 통째로 건너뛴다. 받는 쪽에서 null 을 따로 다룬다.
+    return null;
+  }
 }
 
 // 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.

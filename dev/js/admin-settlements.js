@@ -134,6 +134,11 @@ async function loadSettlements() {
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
   }
+  // 지급 준비 뷰도 같이 닫는다 — 안 닫으면 다른 페인에 갔다 오면 **옛 데이터가 그대로**
+  // 남고(다시 그리지도 않는다) 메인 목록은 계속 숨겨져 있다.
+  if ($('settlementPayoutView') && $('settlementPayoutView').style.display !== 'none') {
+    closePayoutPrepView();
+  }
   try {
     const r = await backfillSettlements();
     if (r && r.created_count > 0 && typeof toast === 'function') {
@@ -177,6 +182,9 @@ async function refreshPastUnregEntryInfo() {
   } catch (e) {
     return;  // 권한 없음·조회 실패는 무시(기존 목록 표시에 영향 주지 않는다)
   }
+  // ⚠️ 조회 실패는 null 이다(빈 목록 아님). 0 으로 덮으면 배지가 사라져
+  //    「미등록 건이 없다」로 보인다 — 실패했을 뿐인데. 그대로 두고 나간다.
+  if (rows === null) return;
   const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
   if (badge) {
     badge.textContent = rows.length ? String(rows.length) : '';
@@ -762,6 +770,8 @@ async function loadPastUnregSettlements() {
   } catch (e) {
     _pastUnregRows = [];
   }
+  // 이 화면은 종전대로 빈 목록으로 다룬다(실패 구분은 지급 준비 화면에서만 쓴다).
+  if (_pastUnregRows === null) _pastUnregRows = [];
   _pastUnregById = {};
   _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregById[r.application_id] = r; });
   _pastUnregSelected.clear();
@@ -1014,4 +1024,428 @@ async function pastUnregRegister(targetStatus) {
   // 처리한 만큼 과거 미등록 건수가 실제로 줄어드는 유일한 경로 — 진입 버튼 배지·안내를 여기서 갱신
   // (reloadSettlementsData 에는 넣지 않는다 — 정산 처리마다 전건 스캔이 붙는 것을 피하려고)
   refreshPastUnregEntryInfo();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SECTION: 지급 준비 화면 (사양서 2026-08-18-settlement-list-unification… §4-1 화면 ㄱ)
+//
+// ▶ 왜 필요한가
+//   시스템이 **지급 기한을 몰랐다.** 캠페인 참여방법에는 「다음 달 15일 / 말일」이
+//   한·일 양쪽으로 박혀 있는데 화면 어디에도 그 날짜가 없어, 운영팀이 「이번 달에
+//   누구에게 얼마를 보내야 하는지」를 시스템 밖에서 세고 있었다.
+//
+// ▶ 무엇을 모으나
+//   **미등록 건**(아직 정산 행이 없는 인증 성공분)과 **정산 행**을 한데 놓고
+//   지급 예정일(payoutDueDate)로 묶는다. 두 곳에 흩어져 있으면 합계가 안 나온다.
+// ══════════════════════════════════════════════════════════════════
+
+let _payoutRows = null;        // null = 아직 조회 안 함 / [] = 대상 없음
+let _payoutPaidMonth = null;   // 「지급 완료」 묶음이 보여줄 달 'YYYY-MM'
+
+// 지급 흐름에서 벗어난 상태 — 네 묶음 어디에도 넣지 않는다(사양서 §4-1).
+const PAYOUT_EXCLUDED_STATUS = new Set(['on_hold', 'cancelled']);
+
+// 'YYYY-MM-DD' → 'YYYY-MM'
+function _payoutMonthOf(dueStr) { return dueStr ? String(dueStr).slice(0, 7) : null; }
+
+// 미등록 + 정산 행을 한 목록으로. 지급 예정일은 payoutDueDate 하나로만 계산한다.
+//   ⚠️ 카드·목록·엑셀이 각자 계산하면 어긋난다(사양서 §4-1).
+function buildPayoutRows(unregRows, settlementRows) {
+  const out = [];
+  (unregRows || []).forEach(function(r) {
+    out.push({
+      kind: 'unregistered',
+      status: 'unregistered',           // 아직 정산 행이 없다
+      due: payoutDueDate(r.cert_at),
+      amount: Number(r.amount_jpy || 0),
+      amountUnknown: !r.amount_jpy,     // 금액을 정할 수 없는 건(amount_issue)
+      influencerId: r.influencer_id,
+      name: r.influencer_name, nameKana: r.influencer_name_kana,
+      campaignNo: r.campaign_no, campaignTitle: r.campaign_title,
+      applicationId: r.application_id,
+    });
+  });
+  (settlementRows || []).forEach(function(s) {
+    if (PAYOUT_EXCLUDED_STATUS.has(s.status)) return;   // 보류·취소 제외
+    const camp = s.campaigns || {};
+    out.push({
+      kind: 'settlement',
+      status: s.status,                 // pending | paid
+      due: payoutDueDate(s.cert_at),
+      amount: Number(s.amount_jpy || 0),
+      amountUnknown: false,
+      influencerId: s.influencer_id,
+      name: null, nameKana: null,       // 이름은 작업 3에서 통로로 채운다
+      campaignNo: camp.campaign_no, campaignTitle: camp.title,
+      applicationId: s.application_id,
+      settlementId: s.id, paypalEmail: s.paypal_email, paidAt: s.paid_at,
+    });
+  });
+  return out;
+}
+
+// 아직 안 보낸 것 = 미등록 + 정산대기. 「기한 초과」와 「다가오는」의 공통 조건이다.
+function _payoutUnsent(r) { return r.status === 'unregistered' || r.status === 'pending'; }
+
+async function openPayoutPrepView() {
+  const main = $('settlementMainView'), view = $('settlementPayoutView');
+  if (!main || !view) return;
+  main.style.display = 'none';
+  view.style.display = 'flex';
+  const body = $('payoutSummaryBody');
+  if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
+
+  // 미등록 건은 별도 조회(정산 행이 아직 없어 _settlements 에 안 들어 있다).
+  let unreg = null;
+  try { unreg = await fetchPastUnregisteredSettlements(); } catch (e) { unreg = null; }
+  // ⚠️ **한계** — 정산 행 쪽은 실패를 구분하지 못한다. fetchSettlements() 가 실패해도
+  //    빈 목록을 돌려주는데, 그 함수는 관리자 화면 전반이 쓰고 있어 이번 범위에서
+  //    바꾸지 않았다. 즉 아래가 조용히 비면 「정산 행이 없다」와 「못 불러왔다」가 같아 보인다.
+  //    미등록 쪽(위)은 구분되므로, 화면이 통째로 비는 최악은 막힌다.
+  if (!_settlementsLoaded) { try { await reloadSettlementsData(); } catch (e) {} }
+
+  // ⚠️ 조회 실패(null)와 0건([])을 구분한다 — 실패를 「보낼 게 없음」으로 그리면
+  //    운영팀이 이번 달 지급을 통째로 건너뛴다.
+  if (unreg === null) {
+    _payoutRows = null;
+    if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">'
+      + '<b style="color:var(--ink)">미등록 건을 불러오지 못했습니다.</b><br>'
+      + '조회가 실패한 것이라 <b>보낼 것이 없다는 뜻이 아닙니다</b>.<br>잠시 뒤 다시 열어 보세요.</div>';
+    return;
+  }
+  _payoutRows = buildPayoutRows(unreg, _settlements);
+  // ⚠️ 사람 정보 캐시를 비운다 — 안 비우면 그 사이 새로 생긴 정산 행의 인플루언서가
+  //    「(이름 미상)·페이팔 미등록」으로 보인다(조회를 안 하니 값이 없을 뿐인데).
+  _payoutPersonInfo = null;
+  if (!_payoutPaidMonth) _payoutPaidMonth = jstTodayStr().slice(0, 7);
+  renderPayoutSummary();
+}
+
+function closePayoutPrepView() {
+  const main = $('settlementMainView'), view = $('settlementPayoutView');
+  if (view) view.style.display = 'none';
+  if (main) main.style.display = 'flex';
+}
+
+// 'YYYY-MM' 을 n달 옮긴다(문자열 연산 — 시간대가 끼어들 자리가 없다)
+function _payoutShiftMonth(ym, delta) {
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+function _payoutYen(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+
+// 지급 예정일 한 줄
+function payoutDueRowHtml(due, rows, todayStr) {
+  const cnt = rows.length;
+  const sum = rows.reduce(function(a, r) { return a + r.amount; }, 0);
+  const unknown = rows.filter(function(r) { return r.amountUnknown; }).length;
+  const overdue = due < todayStr;
+  // ⚠️ 「이번 달」 구역 안에도 이미 지난 회차가 있다 — 이번 달이라고 안심시키면 안 된다.
+  const days = Math.round((Date.parse(due + 'T00:00:00+09:00') - Date.parse(todayStr + 'T00:00:00+09:00')) / 86400000);
+  const when = overdue
+    ? `<span style="color:#C33;font-weight:700">지남 ${-days}일</span>`
+    : (days === 0 ? '<span style="color:#B8741A;font-weight:700">오늘</span>' : `<span style="color:var(--muted)">D-${days}</span>`);
+  return `<div style="display:flex;align-items:center;gap:14px;padding:9px 12px;border-bottom:1px solid var(--line)">
+    <div style="width:96px;font-weight:700;font-size:13px">${esc(due)}</div>
+    <div style="width:64px;text-align:right;font-size:13px">${cnt}건</div>
+    <div style="width:110px;text-align:right;font-weight:700;font-size:13px">${esc(_payoutYen(sum))}</div>
+    <div style="width:84px">${when}</div>
+    ${unknown ? `<div style="font-size:11px;color:#C33">금액 미확정 ${unknown}건</div>` : ''}
+    <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
+            onclick="openPayoutPersonList('${esc(due)}')">상세</button>
+  </div>`;
+}
+
+function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
+  const rows = dues.map(function(d) { return payoutDueRowHtml(d, byDue[d], todayStr); }).join('');
+  const cnt = dues.reduce(function(a, d) { return a + byDue[d].length; }, 0);
+  const sum = dues.reduce(function(a, d) {
+    return a + byDue[d].reduce(function(b, r) { return b + r.amount; }, 0);
+  }, 0);
+  return `<div style="margin-bottom:18px">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+      <div style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</div>
+      ${dues.length ? `<div style="font-size:12px;color:var(--muted)">${cnt}건 · ${esc(_payoutYen(sum))}</div>` : ''}
+    </div>
+    ${dues.length ? rows : `<div style="padding:10px 12px;color:var(--muted);font-size:12px">${esc(emptyText)}</div>`}
+  </div>`;
+}
+
+function renderPayoutSummary() {
+  const body = $('payoutSummaryBody');
+  if (!body) return;
+  const rows = _payoutRows || [];
+  const todayStr = jstTodayStr();
+  const thisMonth = todayStr.slice(0, 7);
+
+  // 아직 안 보낸 것을 지급 예정일로 묶는다
+  const byDue = {};
+  rows.filter(function(r) { return _payoutUnsent(r) && r.due; })
+      .forEach(function(r) { (byDue[r.due] = byDue[r.due] || []).push(r); });
+  const dues = Object.keys(byDue).sort();
+
+  const thisM = dues.filter(function(d) { return _payoutMonthOf(d) === thisMonth; });
+  const before = dues.filter(function(d) { return _payoutMonthOf(d) < thisMonth; });
+  const after  = dues.filter(function(d) { return _payoutMonthOf(d) > thisMonth; });
+
+  // 「지급 완료」 — ⚠️ 예정일 조건을 걸지 않는다. 걸면 미리 보낸 건·당일 보낸 건·
+  //   예정일이 미래인 건이 화면에서 사라진다(사양서 §4-1).
+  const paidAll = rows.filter(function(r) { return r.status === 'paid' && r.due; });
+  const paidThis = paidAll.filter(function(r) { return _payoutMonthOf(r.due) === _payoutPaidMonth; });
+  const paidSum = paidThis.reduce(function(a, r) { return a + r.amount; }, 0);
+
+  // 「지급일 기록 없음」 — cert_at 이 비어 예정일을 계산할 수 없는 것. 건수만.
+  //   ⚠️ 보류·취소는 여기도 안 넣는다(이미 buildPayoutRows 에서 빠졌다).
+  const noDate = rows.filter(function(r) { return !r.due; });
+
+  body.innerHTML =
+    payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
+  + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
+  + payoutSectionHtml('다음 달 이후', '#6B7280', after, byDue, todayStr, '다음 달 이후 예정이 없습니다.')
+  + `<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="font-weight:700;font-size:13px">지급 완료</div>
+        <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(-1)" style="padding:2px 8px">‹</button>
+        <div style="font-size:13px;font-weight:700;min-width:74px;text-align:center">${esc(_payoutPaidMonth || '')}</div>
+        <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(1)" style="padding:2px 8px">›</button>
+        <div style="font-size:13px;color:var(--muted)">${paidThis.length}건 · ${esc(_payoutYen(paidSum))}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">
+        지급 예정일이 그 달인 건 중 <b>이미 보낸 것</b>입니다. 실제 보낸 날짜가 아니라 <b>예정일</b>로 나눕니다
+        — 6월 15일 예정분을 7월에 보냈어도 「6월」에 들어갑니다.
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span>
+          사람으로 찾기 (전 기간)
+        </button>
+        <span style="font-size:11px;color:var(--muted);margin-left:8px">지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다</span>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+        <div style="font-weight:700;font-size:13px">지급일 기록 없음</div>
+        <div style="font-size:13px;color:var(--muted)">${noDate.length}건</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:2px">
+        인증 성공일이 남아 있지 않아 지급 예정일을 계산할 수 없는 건입니다. 위 묶음 어디에도 안 들어갑니다.
+      </div>
+    </div>`;
+}
+
+// 「지급 완료」가 보여줄 달을 옮긴다. ⚠️ **과거·미래 양방향** — 과거만 되면
+//   예정일이 미래인 지급 완료 건(4단계에서 등록할 115건)에 영영 못 닿는다.
+function shiftPayoutPaidMonth(delta) {
+  _payoutPaidMonth = _payoutShiftMonth(_payoutPaidMonth || jstTodayStr().slice(0, 7), delta);
+  renderPayoutSummary();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 지급 준비 — 사람별 묶음(화면 ㄴ) · 사람 검색(화면 ㄷ)
+//
+// ⚠️ **둘은 같은 화면이다.** 지급일 필터가 걸렸느냐만 다르다(사양서 §4-1).
+//    별도 화면으로 만들면 한쪽만 고쳐지는 자리가 생긴다.
+//
+// ▶ 왜 사람으로 묶나
+//   운영팀이 **이체 수수료를 아끼려 한 사람의 여러 건을 합해 한 번에** 보낸다.
+//   그래서 「이 사람에게 얼마」가 한 줄로 나와야 페이팔에서 바로 칠 수 있다.
+// ══════════════════════════════════════════════════════════════════
+
+let _payoutPersonInfo = null;   // influencer_id → {name, name_kana, paypal_email} / null = 조회 실패
+let _payoutDueFilter = null;    // 'YYYY-MM-DD' = 그 회차만 / null = 전 기간(사람 검색)
+let _payoutPersonSearch = '';
+let _payoutSelected = new Set();  // 선택한 열쇠말(influencerId|due)
+
+// 이름·이메일을 통로에서 채운다. ⚠️ 원본 표를 직접 부르지 않는다(storage.js 주석 참조).
+async function ensurePayoutPersonInfo() {
+  const ids = [...new Set((_payoutRows || []).map(function(r) { return r.influencerId; }).filter(Boolean))];
+  if (!ids.length) { _payoutPersonInfo = {}; return; }
+  _payoutPersonInfo = await fetchPayoutInfluencerInfo(ids);   // 실패하면 null
+}
+
+// 한 사람의 표시 이름 — 미등록 건은 조회가 이름을 주고, 정산 행은 통로에서 채운다.
+function payoutPersonOf(r) {
+  const info = (_payoutPersonInfo && _payoutPersonInfo[r.influencerId]) || null;
+  return {
+    id: r.influencerId,
+    name: r.name || (info && info.name) || null,
+    kana: r.nameKana || (info && info.name_kana) || null,
+    // ⚠️ 세 상태를 구분한다: 값 있음 / 등록 안 함 / **확인 실패**.
+    //    셋을 같은 빈칸으로 그리면 돈을 보내는 사람이 무엇을 해야 할지 모른다.
+    paypal: r.paypalEmail || (info && info.paypal_email) || null,
+    paypalUnknown: _payoutPersonInfo === null && !r.paypalEmail,
+  };
+}
+
+// 사람 → 지급일 → 건 으로 묶는다.
+function groupSettlementsByPerson(rows) {
+  const byPerson = {};
+  rows.forEach(function(r) {
+    const key = r.influencerId || '(미상)';
+    if (!byPerson[key]) byPerson[key] = { person: payoutPersonOf(r), dues: {}, paid: [] };
+    // 이름이 뒤 행에서 채워질 수 있으므로 비어 있으면 갱신
+    const p = payoutPersonOf(r);
+    if (!byPerson[key].person.name && p.name) byPerson[key].person = p;
+    if (r.status === 'paid') { byPerson[key].paid.push(r); return; }
+    const d = r.due || '(지급일 기록 없음)';
+    (byPerson[key].dues[d] = byPerson[key].dues[d] || []).push(r);
+  });
+  return byPerson;
+}
+
+function _payoutSum(list) { return list.reduce(function(a, r) { return a + r.amount; }, 0); }
+
+function payoutPaypalHtml(p) {
+  if (p.paypal) return `<span style="font-size:11px;color:var(--muted);font-family:monospace">${esc(p.paypal)}</span>`;
+  if (p.paypalUnknown) return '<span style="font-size:11px;color:#B8741A">페이팔 확인 실패</span>';
+  return '<span style="font-size:11px;color:#C33">페이팔 미등록</span>';
+}
+
+// 지급일 묶음 한 줄 (+ 펼치면 건별)
+function payoutDueGroupHtml(personId, due, list) {
+  const key = personId + '|' + due;
+  const checked = _payoutSelected.has(key) ? 'checked' : '';
+  const items = list.map(function(r) {
+    return `<div style="display:flex;gap:10px;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
+      <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
+      <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
+    </div>`;
+  }).join('');
+  return `<div style="border-top:1px dashed var(--line);padding:6px 0">
+    <div style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" ${checked} onchange="togglePayoutSelect('${esc(key)}')" style="width:15px;height:15px">
+      <div style="width:110px;font-size:12px;font-weight:600">${esc(due)}</div>
+      <div style="width:50px;text-align:right;font-size:12px">${list.length}건</div>
+      <div style="width:96px;text-align:right;font-weight:700;font-size:12px">${esc(_payoutSum(list) ? _payoutYen(_payoutSum(list)) : '—')}</div>
+      <button class="btn btn-ghost btn-xs" onclick="payoutSendLocked()" style="padding:2px 10px;opacity:.55" title="3단계 이후 사용 가능합니다">보냄</button>
+    </div>
+    ${items}
+  </div>`;
+}
+
+function payoutPersonCardHtml(entry) {
+  const p = entry.person;
+  const dues = Object.keys(entry.dues).sort();
+  const allUnsent = dues.reduce(function(a, d) { return a.concat(entry.dues[d]); }, []);
+  const paidSum = _payoutSum(entry.paid);
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-weight:700;font-size:13px">${esc(p.name || '(이름 미상)')}</div>
+      ${p.kana ? `<div style="font-size:11px;color:var(--muted)">${esc(p.kana)}</div>` : ''}
+      ${payoutPaypalHtml(p)}
+      <div style="margin-left:auto;font-size:12px">
+        ${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b>
+      </div>
+    </div>
+    ${dues.map(function(d) { return payoutDueGroupHtml(p.id, d, entry.dues[d]); }).join('')}
+    ${entry.paid.length ? `<div style="border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-size:12px;color:#16A34A">
+        이미 기록됨 ${entry.paid.length}건 · ${esc(_payoutYen(paidSum))}
+      </div>` : ''}
+  </div>`;
+}
+
+function togglePayoutSelect(key) {
+  if (_payoutSelected.has(key)) _payoutSelected.delete(key); else _payoutSelected.add(key);
+  renderPayoutPersonBody();   // 검색창·검색어를 유지한 채 목록만 갱신
+}
+
+// 잠긴 「보냄」 — ⚠️ 3단계 전에 기록하면 **오늘 날짜·계산 금액으로 확정**되고
+//   되돌릴 수 없다(사양서 §1-7). 이 잠금이 그것을 막는 유일한 장치다.
+function payoutSendLocked() {
+  if (typeof toast === 'function') {
+    toast('아직 기록할 수 없습니다 — 실제 보낸 날짜와 금액을 입력할 수 있게 된 뒤에 열립니다', 'info');
+  }
+}
+
+async function openPayoutPersonList(dueStr) {
+  _payoutDueFilter = dueStr || null;
+  _payoutSelected.clear();
+  const body = $('payoutSummaryBody');
+  if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
+  if (_payoutPersonInfo === undefined || _payoutPersonInfo === null) await ensurePayoutPersonInfo();
+  renderPayoutPersonList();
+}
+
+function backToPayoutSummary() {
+  _payoutDueFilter = null;
+  _payoutPersonSearch = '';
+  _payoutSelected.clear();
+  renderPayoutSummary();
+}
+
+function onPayoutPersonSearch(v) {
+  _payoutPersonSearch = (v || '').trim().toLowerCase();
+  renderPayoutPersonBody();   // ⚠️ 껍데기를 다시 그리면 검색창 포커스가 날아간다
+}
+
+// 껍데기(뒤로가기·제목·검색창)는 **한 번만** 그린다.
+//   ⚠️ 검색창을 목록과 함께 다시 그리면 **한 글자 칠 때마다 포커스를 잃는다** —
+//      입력칸이 통째로 새 노드로 바뀌기 때문이다. 「사람으로 빨리 찾기」가 이 작업의
+//      존재 이유(487번 → 121번)인데 그러면 한 글자마다 다시 클릭해야 한다.
+//      관리자 메시지 화면(admin-messaging.js)이 같은 이유로 검색창을 바깥에 둔다.
+function renderPayoutPersonList() {
+  const body = $('payoutSummaryBody');
+  if (!body) return;
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
+      <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
+      <input id="payoutPersonSearchInput" class="admin-filter-search"
+             placeholder="이름(한자·가나)·페이팔 이메일로 검색"
+             value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)"
+             style="min-width:260px;margin-left:auto">
+    </div>
+    <div id="payoutPersonListBody"></div>`;
+  renderPayoutPersonBody();
+}
+
+// 목록만 다시 그린다(검색창은 건드리지 않는다).
+function renderPayoutPersonBody() {
+  const body = $('payoutPersonListBody');
+  if (!body) return;
+  const all = _payoutRows || [];
+  // 지급일 필터가 있으면 그 회차만(화면 ㄴ), 없으면 전 기간(화면 ㄷ).
+  let rows = _payoutDueFilter
+    ? all.filter(function(r) { return r.due === _payoutDueFilter && _payoutUnsent(r); })
+    : all;
+  const byPerson = groupSettlementsByPerson(rows);
+  let entries = Object.keys(byPerson).map(function(k) { return byPerson[k]; });
+
+  // 사람 검색 — 한자·가나·페이팔 이메일 셋 다에서 찾는다(대장이 어느 쪽으로 적혀 있는지 모른다)
+  if (_payoutPersonSearch) {
+    entries = entries.filter(function(e) {
+      const p = e.person;
+      return [p.name, p.kana, p.paypal].some(function(v) {
+        return v && String(v).toLowerCase().includes(_payoutPersonSearch);
+      });
+    });
+  }
+  entries.sort(function(a, b) { return String(a.person.name || '').localeCompare(String(b.person.name || '')); });
+
+  const selectedRows = [];
+  entries.forEach(function(e) {
+    Object.keys(e.dues).forEach(function(d) {
+      if (_payoutSelected.has(e.person.id + '|' + d)) selectedRows.push.apply(selectedRows, e.dues[d]);
+    });
+  });
+
+  const total = entries.length;
+  const doneCount = entries.filter(function(e) { return e.paid.length > 0; }).length;
+
+  // 진행 표시 — ⚠️ 이게 없으면 어디까지 했는지 안 보여 중간에 놓는다(8월에 실제로 그랬다).
+  //   ⚠️ **회차 상세(화면 ㄴ)에서는 쓰지 않는다.** 그 화면은 「아직 안 보낸 것」만 넘겨받아
+  //      이미 보낸 사람이 애초에 목록에 없다 — 「N명 중 0명 처리」가 **구조적으로 항상 0**이라
+  //      진행이 멈춘 것처럼 보인다. 전 기간(화면 ㄷ)에서만 뜻이 있다.
+  const progressHtml = _payoutDueFilter
+    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 · 합계 <b style="color:var(--ink)">${esc(_payoutYen(entries.reduce(function(a, e) {
+        return a + Object.keys(e.dues).reduce(function(b, d) { return b + _payoutSum(e.dues[d]); }, 0); }, 0)))}</b></div>`
+    : `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 중 <b style="color:var(--ink)">${doneCount}명</b> 처리 · ${total - doneCount}명 남음</div>`;
+
+  body.innerHTML = `
+    ${progressHtml}
+    ${entries.length ? entries.map(payoutPersonCardHtml).join('')
+      : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}
+    <div style="position:sticky;bottom:0;background:var(--bg,#fff);border-top:1px solid var(--line);padding:10px 2px;font-size:13px">
+      선택 ${_payoutSelected.size}묶음 · ${selectedRows.length}건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b>
+    </div>`;
 }
