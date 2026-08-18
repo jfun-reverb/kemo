@@ -1800,9 +1800,10 @@ function renderPayoutSummary() {
 
   // 「지급 완료」 — ⚠️ 예정일 조건을 걸지 않는다. 걸면 미리 보낸 건·당일 보낸 건·
   //   예정일이 미래인 건이 화면에서 사라진다(사양서 §4-1).
-  // 「지급일 기록 없음」 — cert_at 이 비어 예정일을 계산할 수 없는 것. 건수만.
-  //   ⚠️ 보류·취소는 여기도 안 넣는다(이미 buildPayoutRows 에서 빠졌다).
-  const noDate = rows.filter(function(r) { return !r.due; });
+  // ⚠️ 「지급일 기록 없음」 표시는 뺐다(2026-08-18 사용자 결정. 그 시점 운영 0건).
+  //    그 건들은 **어느 구역에도 안 들어간다** — 인증 성공일이 없어 지급 예정일을 계산할 수
+  //    없기 때문이다. 즉 지금은 생기면 **화면 어디에도 안 보인다.** 다시 보이게 하려면
+  //    `rows.filter(r => !r.due)` 를 세어 **0건이 아닐 때만** 한 줄 띄우면 된다.
 
   body.innerHTML =
     `<div class="admin-table-wrap"><table class="data-table" style="width:100%">
@@ -1824,13 +1825,6 @@ function renderPayoutSummary() {
       <!-- ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
            회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다. -->
       <div>
-      </div>
-      <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
-        <div style="font-weight:700;font-size:13px">지급일 기록 없음</div>
-        <div style="font-size:13px;color:var(--muted)">${noDate.length}건</div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:2px">
-        인증 성공일이 남아 있지 않아 지급 예정일을 계산할 수 없는 건입니다. 위 묶음 어디에도 안 들어갑니다.
       </div>
     </div>`;
 }
