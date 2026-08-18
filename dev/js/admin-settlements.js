@@ -1997,6 +1997,50 @@ function onPayoutPersonSearch(v) {
 //      입력칸이 통째로 새 노드로 바뀌기 때문이다. 「사람으로 빨리 찾기」가 이 작업의
 //      존재 이유(487번 → 121번)인데 그러면 한 글자마다 다시 클릭해야 한다.
 //      관리자 메시지 화면(admin-messaging.js)이 같은 이유로 검색창을 바깥에 둔다.
+// 지급 상세를 **회원별 / 캠페인별** 어느 쪽으로 묶어 볼지.
+//   ⚠️ 실제 송금은 **사람에게** 하므로 「보냄」과 선택은 회원별에서만 뜻이 있다.
+//      캠페인별은 **보기 전용**이다 — 한 사람이 여러 캠페인에 걸쳐 있어, 캠페인 쪽에서
+//      고르면 「이 사람에게 얼마를 보내나」가 갈라져 오히려 금액을 틀리게 만든다.
+let _payoutGroupBy = 'person';   // 'person' | 'campaign'
+
+function setPayoutGroupBy(v) {
+  if (_payoutGroupBy === v) return;
+  _payoutGroupBy = v;
+  renderPayoutPersonList();
+}
+
+function groupPayoutRowsByCampaign(rows) {
+  const by = {};
+  rows.forEach(function (r) {
+    const key = (r.campaignNo || '') + '|' + (r.campaignTitle || '(캠페인 미상)');
+    if (!by[key]) by[key] = { no: r.campaignNo, title: r.campaignTitle, rows: [] };
+    by[key].rows.push(r);
+  });
+  return by;
+}
+
+function payoutCampaignCardHtml(entry) {
+  const rows = entry.rows.slice().sort(function (a, b) { return b.amount - a.amount; });
+  const people = new Set(rows.map(function (r) { return r.influencerId; })).size;
+  const items = rows.map(function (r) {
+    const p = payoutPersonOf(r);
+    return `<div style="display:flex;gap:10px;align-items:baseline;padding:3px 0;font-size:12px;border-top:1px dashed var(--line)">
+      <div style="min-width:150px;font-weight:600;color:var(--ink)">${esc(p.name || '(이름 미상)')}</div>
+      <div style="flex:1;color:var(--muted)">${esc(p.kana || '')}</div>
+      <div style="width:96px;text-align:right;color:var(--muted)">${esc(r.due || '(예정일 없음)')}</div>
+      <div style="width:88px;text-align:right;font-weight:700">${esc(_payoutYen(r.amount))}</div>
+    </div>`;
+  }).join('');
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+      ${entry.no ? `<div style="font-size:11px;color:var(--muted)">${esc(entry.no)}</div>` : ''}
+      <div style="font-weight:700;font-size:13px">${esc(entry.title || '(캠페인 미상)')}</div>
+      <div style="margin-left:auto;font-size:12px">${rows.length}건 · ${people}명 · <b>${esc(_payoutYen(_payoutSum(rows)))}</b></div>
+    </div>
+    ${items}
+  </div>`;
+}
+
 function renderPayoutPersonList() {
   const body = $('payoutSummaryBody');
   if (!body) return;
@@ -2004,6 +2048,10 @@ function renderPayoutPersonList() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
+      <div class="status-tab-bar" style="margin:0;gap:4px">
+        <button class="status-tab${_payoutGroupBy === 'person' ? ' active' : ''}" onclick="setPayoutGroupBy('person')">회원별</button>
+        <button class="status-tab${_payoutGroupBy === 'campaign' ? ' active' : ''}" onclick="setPayoutGroupBy('campaign')">캠페인별</button>
+      </div>
       <input id="payoutPersonSearchInput" class="admin-filter-search"
              placeholder="이름(한자·가나)·페이팔 이메일로 검색"
              value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)"
@@ -2022,6 +2070,35 @@ function renderPayoutPersonBody() {
   let rows = _payoutDueFilter
     ? all.filter(function(r) { return r.due === _payoutDueFilter && _payoutUnsent(r); })
     : all;
+  // ── 캠페인별 보기 (보기 전용) ────────────────────────────────
+  if (_payoutGroupBy === 'campaign') {
+    let cr = rows;
+    if (_payoutPersonSearch) {
+      // 검색은 사람뿐 아니라 **캠페인 이름·번호**에서도 찾는다 — 캠페인별로 보는 중이니
+      // 캠페인 이름으로 못 찾으면 이 화면에서 검색이 반쪽이 된다.
+      cr = cr.filter(function (r) {
+        const p = payoutPersonOf(r);
+        return [p.name, p.kana, p.paypal, r.campaignTitle, r.campaignNo].some(function (v) {
+          return v && String(v).toLowerCase().includes(_payoutPersonSearch);
+        });
+      });
+    }
+    const byCamp = groupPayoutRowsByCampaign(cr);
+    const list = Object.keys(byCamp).map(function (k) { return byCamp[k]; })
+      .sort(function (a, b) { return _payoutSum(b.rows) - _payoutSum(a.rows); });
+    body.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        캠페인 ${list.length}개 · ${cr.length}건 · 합계 <b style="color:var(--ink)">${esc(_payoutYen(_payoutSum(cr)))}</b>
+      </div>
+      <div style="padding:8px 10px;background:#F7F7F8;border:1px solid var(--line);border-radius:8px;font-size:12px;line-height:1.6;color:var(--muted);margin-bottom:12px">
+        캠페인별은 <b>보기 전용</b>입니다. 송금은 사람에게 하므로 실제 처리는 「회원별」에서 하세요 —
+        한 사람이 여러 캠페인에 걸쳐 있어, 캠페인 쪽에서 고르면 그 사람에게 보낼 금액이 갈라집니다.
+      </div>
+      ${list.length ? list.map(payoutCampaignCardHtml).join('')
+        : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}`;
+    return;
+  }
+
   const byPerson = groupSettlementsByPerson(rows);
   let entries = Object.keys(byPerson).map(function(k) { return byPerson[k]; });
 
