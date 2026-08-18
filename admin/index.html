@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787055244';
+  var CURRENT_BUILD = 'v1787057649';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-18 21:14 · cc83dc4</span>
+          <span class="admin-build-text">2026-08-18 21:54 · 0f7b8e2</span>
         </div>
       </div>
     </aside>
@@ -37594,6 +37594,13 @@ function _payoutYen(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
 function payoutDueRowHtml(due, rows, todayStr) {
   const cnt = rows.length;
   const sum = rows.reduce(function(a, r) { return a + r.amount; }, 0);
+  // ★ 그 회차 안에서 보낸 것 / 아직 안 보낸 것을 가른다.
+  //   왼쪽 숫자는 **그 날 전체**, 오른쪽 두 덩이가 그 내역이다 — 셋을 함께 봐야
+  //   「얼마나 남았나」와 「원래 얼마였나」를 같이 알 수 있다.
+  const sent   = rows.filter(function(r) { return r.status === 'paid'; });
+  const unsent = rows.filter(_payoutUnsent);
+  const sentSum   = _payoutSum(sent);
+  const unsentSum = _payoutSum(unsent);
   const unknown = rows.filter(function(r) { return r.amountUnknown; }).length;
   // ⚠️ **몇 건인지 반드시 숫자로 적는다.** 「섞여 있을 수 있습니다」로 쓰면 얼마나 섞였는지
   //    몰라 이 회차의 숫자를 통째로 못 믿게 된다. 몇 건인지 알면 나머지는 믿을 수 있다.
@@ -37610,6 +37617,11 @@ function payoutDueRowHtml(due, rows, todayStr) {
     <div style="width:64px;text-align:right;font-size:13px">${cnt}건</div>
     <div style="width:110px;text-align:right;font-weight:700;font-size:13px">${esc(_payoutYen(sum))}</div>
     <div style="width:84px">${when}</div>
+    <!-- 그 회차의 내역 — 0건인 쪽은 흐리게 두어 「없다」가 한눈에 보이게 한다 -->
+    <div style="width:150px;text-align:right;font-size:12px;${sent.length ? 'color:#16A34A' : 'color:var(--muted);opacity:.55'}"
+         title="이미 송금한 것">송금완료 ${sent.length}건 · ${esc(_payoutYen(sentSum))}</div>
+    <div style="width:150px;text-align:right;font-size:12px;${unsent.length ? 'color:#C33;font-weight:600' : 'color:var(--muted);opacity:.55'}"
+         title="아직 안 보낸 것">미지급 ${unsent.length}건 · ${esc(_payoutYen(unsentSum))}</div>
     ${unknown ? `<div style="font-size:11px;color:#C33">금액 미확정 ${unknown}건</div>` : ''}
     ${recordOnly ? `<div style="font-size:11px;color:#9A3412;cursor:help" title="${esc(SETTLEMENT_RECORD_DATE_TIP)}">기록일로 남은 건 ${recordOnly}건</div>` : ''}
     <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
@@ -37639,9 +37651,12 @@ function renderPayoutSummary() {
   const todayStr = jstTodayStr();
   const thisMonth = todayStr.slice(0, 7);
 
-  // 아직 안 보낸 것을 지급 예정일로 묶는다
+  // 지급 예정일로 묶는다 — ★ **보낸 것까지 전부** 넣는다.
+  //   ⚠️ 예전에는 안 보낸 것만 넣어, 회차 옆 숫자가 「그 날 보내야 할 전체」가 아니라
+  //      「아직 안 보낸 것」이었다. 절반을 보내면 숫자가 줄어들어, **그 회차가 원래 몇 건이었는지**
+  //      화면 어디에서도 알 수 없었다. 이제 전체를 보여주고 그 안에서 보냄·미지급을 가른다.
   const byDue = {};
-  rows.filter(function(r) { return _payoutUnsent(r) && r.due; })
+  rows.filter(function(r) { return r.due; })
       .forEach(function(r) { (byDue[r.due] = byDue[r.due] || []).push(r); });
   const dues = Object.keys(byDue).sort();
 
