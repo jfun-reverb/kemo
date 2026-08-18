@@ -1693,6 +1693,23 @@ async function fetchChannelDriftAlerts() {
   }
 }
 
+// 관리자가 못 읽게 된 표 감지 (마이그레이션 334·335).
+//   A=통로도 대체 뷰도 없음 / B=대체 뷰는 있는데 아직 원본 표를 읽는 자리가 남음 /
+//   unverified=코드 점검을 아직 안 돌려서 모름.
+//   ⚠️ 실패하면 null, 0건이면 [] — 화면이 둘을 다르게 다룬다. 어느 쪽도 0으로 그리지
+//      않는다(감지 실패를 「이상 없음」으로 그리면 이 장치가 있으나 마나가 된다).
+async function fetchBlockedAdminTables() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('detect_blocked_admin_tables');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch(e) {
+    console.warn('[fetchBlockedAdminTables]', e);
+    return null;
+  }
+}
+
 // 그 캠페인에서 특정 채널들로 이미 제출된 결과물 건수.
 //   캠페인에서 채널을 뺄 때 「이 채널로 낸 결과물이 화면·인증 성공·정산에서 빠진다」를
 //   정확한 숫자로 경고하기 위한 조회. 임시저장(draft)은 아직 제출이 아니므로 제외한다.
