@@ -2071,9 +2071,11 @@ function renderPayoutPersonList() {
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
       <!-- 검색칸과 스위치를 **한 덩어리로 묶어 오른쪽 끝**에 붙인다.
-           ⚠️ `admin-filter-search` 는 **돋보기 아이콘 자리**로 왼쪽 28px 을 비워 두는 클래스다.
-              아이콘을 같이 안 넣으면 그만큼이 **그냥 빈 여백**으로 보인다(다른 화면은 전부
-              `position:relative` 감싸개 + 아이콘 한 쌍으로 쓴다 — 같은 모양을 지킨다). -->
+           ⚠️ 「admin-filter-search」 는 돋보기 아이콘 자리로 왼쪽 28px 을 비워 두는 클래스다.
+              아이콘을 같이 안 넣으면 그만큼이 그냥 빈 여백으로 보인다(다른 화면은 전부
+              감싸개 + 아이콘 한 쌍으로 쓴다 — 같은 모양을 지킨다).
+           ⚠️ 이 주석은 **문자열 안**이다. 여기에 backtick 을 쓰면 문자열이 그 자리에서
+              끊겨 파일 전체가 깨진다(2026-08-18 실제로 그랬다). 「」 로 감쌀 것. -->
       <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
         <div style="position:relative;width:260px">
           <span class="material-icons-round notranslate" translate="no"
