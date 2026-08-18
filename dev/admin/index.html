@@ -1519,6 +1519,10 @@
                 <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openPayoutPrepView()" title="지급 예정일별로 얼마를 보내야 하는지 봅니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
+                  지급 준비
+                </button>
                 <button class="btn btn-ghost btn-sm" onclick="openPastUnregView()" title="정산 도입 이전에 인증 성공한 과거 건을 관리자가 직접 처리합니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">history</span>
                   과거 미등록<span id="pastUnregEntryBadge" style="display:none;margin-left:5px;font-size:11px;font-weight:700;background:var(--light-pink);color:var(--dark-pink);padding:1px 6px;border-radius:9px"></span>
@@ -1574,6 +1578,28 @@
           </div><!-- /settlementMainView -->
 
           <!-- 과거 미등록 인증성공 뷰 (정산 도입 이전 과거분 관리자 직접 처리) — 기본 숨김 -->
+          <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 메인/과거미등록과 같은 페인 안에서 토글 -->
+          <div id="settlementPayoutView" style="display:none;flex-direction:column;flex:1;min-height:0">
+            <div class="admin-sticky-header">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <button class="btn btn-ghost btn-sm" onclick="closePayoutPrepView()" style="padding:2px 8px">← 정산 목록</button>
+                  <div style="font-size:16px;font-weight:700;color:var(--ink)">지급 준비</div>
+                  <div style="font-size:12px;color:var(--muted)">지급 예정일별로 누구에게 얼마를 보내야 하는지 봅니다</div>
+                </div>
+              </div>
+              <!-- 한시 안내 — ⚠️ 487건 기록(4단계)이 끝나면 **반드시 제거**한다.
+                   남겨 두면 진짜 미지급이 생겨도 「어차피 기록 안 된 것」으로 무시된다. -->
+              <div id="payoutTempNotice" style="background:#FEF3C7;border:1px solid #FBBF24;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;line-height:1.7">
+                시스템 밖에서 이미 지급된 건이 아직 기록되지 않았습니다.
+                기록이 끝나기 전까지 <b>이 숫자는 실제 미지급액이 아닙니다</b>.
+              </div>
+            </div>
+            <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
+              <div id="payoutSummaryBody" style="padding:16px 18px"></div>
+            </div>
+          </div>
+
           <div id="settlementPastView" style="display:none;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
@@ -1857,7 +1883,11 @@
         <div id="adminPane-errors" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">오류 로그</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">오류 로그</div>
+                <!-- 막힌 표 경고 — 0건이면 applyBlockedTableIndicators 가 버튼째 숨긴다 -->
+                <button id="blockedTablesBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openBlockedTableModal()"></button>
+              </div>
               <div style="font-size:12px;color:var(--muted)">사용자 앱에서 발생한 오류 (개인정보는 자동 마스킹)</div>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
@@ -3803,6 +3833,23 @@
 <!-- 채널 코드 어긋남 — 경고 내용 + 조치 방법.
      조치를 따라 하는 동안 띄워둘 수 있어야 하므로 DRAGGABLE_ADMIN_MODALS 에 등록돼
      드래그·크기 조정이 된다(admin-core.js). -->
+<!-- 관리자가 못 읽게 된 표 (마이그레이션 334·335) — 오류 로그 화면에서 연다 -->
+<div class="modal-overlay" id="blockedTablesModal" style="z-index:627">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#C33;font-size:22px">report_problem</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자가 못 읽게 된 표</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">창을 열어둔 채로 조치를 진행할 수 있습니다 (제목을 끌어 옮기거나 모서리로 크기 조정)</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBlockedTableModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="blockedTablesModalBody" style="padding:16px 22px 20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="channelDriftModal" style="z-index:626">
   <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
