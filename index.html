@@ -3662,6 +3662,36 @@ function visibleUpcomingFeatures() {
 function jstTodayStr() {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
+// ══════════════════════════════════════
+// 정산 지급 예정일 (사양서 2026-08-18-settlement-list-unification… §4-1)
+//   인증 성공일(cert_at)이 그 달 15일 이전이면 **다음 달 15일**,
+//   16일 이후면 **다음 달 말일**에 보낸다. 캠페인 참여방법에 한·일 양쪽으로
+//   박혀 있는 약속이라 시스템이 그 날짜를 알아야 한다.
+//
+// ⚠️ 「말일」을 30일로 고정하면 안 된다 — 2월·31일인 달·윤년에서 틀린다(1년에 7번).
+// ⚠️ 반드시 **일본 시각 날짜**로 판정한다. 시각을 그대로 쓰면 15일/16일 경계가
+//    보는 사람의 시간대에 따라 흔들린다.
+// ⚠️ 돌려주는 값은 **'YYYY-MM-DD' 문자열**이다(작업표 초안의 Date 에서 바꿈).
+//    이 저장소는 날짜를 문자열로 다루는 관행이고(jstTodayStr·recruitDeadlinePassed·
+//    _visitDateTodayKst), 문자열 비교가 곧 날짜순이라 시간대가 끼어들 자리가 없다.
+//    Date 로 돌려주면 받는 쪽이 getMonth() 를 부르는 순간 **보는 사람의 시간대**로
+//    읽혀 하루가 밀린다 — 이 저장소가 이미 여러 번 당한 함정이다.
+// ⚠️ **계산은 이 함수 하나로만 한다.** 카드·목록·엑셀이 각자 계산하면 어긋난다.
+function payoutDueDate(certAt) {
+  if (!certAt) return null;
+  const t = Date.parse(certAt);
+  if (Number.isNaN(t)) return null;
+  // 일본 시각으로 옮긴 뒤 UTC 칸을 읽는다(로컬 칸을 읽으면 기기 시간대가 섞인다)
+  const jst = new Date(t + 9 * 3600 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = jst.getUTCMonth();          // 0~11
+  const day = jst.getUTCDate();
+  const due = (day <= 15)
+    ? new Date(Date.UTC(y, m + 1, 15))  // 다음 달 15일
+    : new Date(Date.UTC(y, m + 2, 0));  // 그 다음 달 0일 = **다음 달 말일**(달마다 자동)
+  return due.toISOString().slice(0, 10);
+}
+
 // 모집 마감일이 지났는가 (마감일 당일 24시까지는 아직 안 지난 것으로 본다 = 서버와 동일)
 //   마감일이 없으면 false(무기한) — 서버도 NULL 은 통과시킨다
 function recruitDeadlinePassed(camp) {
@@ -7758,6 +7788,37 @@ async function fetchInfluencersByIds(userIds) {
   } catch(e) { return {}; }
 }
 
+// 정산 지급 준비 화면용 — 인플루언서 id 목록으로 **이름·페이팔 이메일**을 한 번에.
+//   대장이 「받는 분 이름 · 페이팔 이메일 · 금액 · 날짜」로 적혀 있어 대조에 이 둘이 필요하다.
+//
+// ⚠️ **반드시 가림막 통로(influencers_admin_view)로만 부른다.** 원본 표(influencers)는
+//    마이그레이션 312 로 「관리자면 통과」 정책이 없어져 **오류 없이 조용히 빈 결과**가 온다
+//    (2026-08-07 사고와 정확히 같은 자리). 통로를 거치면 권한 체계도 그대로 따른다 —
+//    `influencer.sensitive_pii` 읽기 권한이 없는 등급에게는 서버가 이메일을 NULL 로 가린다.
+// ⚠️ **실패하면 null, 없으면 {}** — 이 둘을 합치면 「조회 실패」와 「등록 안 함」이 화면에서
+//    같은 빈칸이 된다. 돈을 보내는 화면에서 그 둘은 절대 같지 않다.
+// ⚠️ **한 건씩 부르지 않는다.** 121명이면 조회가 121번 나간다. 다만 id 가 많으면 주소가
+//    길어져 잘리므로 200개씩 나눠 부른다(_proxyFetchByIds 와 같은 이유).
+async function fetchPayoutInfluencerInfo(influencerIds) {
+  if (!db) return null;
+  const ids = [...new Set((influencerIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const map = {};
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kana, paypal_email')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(function(r) { map[r.id] = r; });
+    }
+    return map;
+  } catch (e) {
+    console.warn('[fetchPayoutInfluencerInfo]', e);
+    return null;   // ⚠️ {} 로 바꾸지 말 것 — 화면이 「확인 실패」와 「미등록」을 못 가른다
+  }
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
@@ -10716,7 +10777,13 @@ async function fetchPastUnregisteredSettlements() {
     const {data, error} = await db.rpc('get_past_unregistered_settlements');
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+  } catch(e) {
+    console.error('[fetchPastUnregisteredSettlements]', e);
+    // ⚠️ **[] 로 바꾸지 말 것.** 실패를 빈 목록으로 돌려주면 「보낼 것이 없음」과 구분이
+    //    안 되고, 지급 준비 화면이 조용히 「이번 달 지급 예정이 없습니다」로 그린다 —
+    //    운영팀이 그 달 지급을 통째로 건너뛴다. 받는 쪽에서 null 을 따로 다룬다.
+    return null;
+  }
 }
 
 // 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.

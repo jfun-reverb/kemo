@@ -134,6 +134,11 @@ async function loadSettlements() {
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
   }
+  // 지급 준비 뷰도 같이 닫는다 — 안 닫으면 다른 페인에 갔다 오면 **옛 데이터가 그대로**
+  // 남고(다시 그리지도 않는다) 메인 목록은 계속 숨겨져 있다.
+  if ($('settlementPayoutView') && $('settlementPayoutView').style.display !== 'none') {
+    closePayoutPrepView();
+  }
   try {
     const r = await backfillSettlements();
     if (r && r.created_count > 0 && typeof toast === 'function') {
@@ -177,6 +182,9 @@ async function refreshPastUnregEntryInfo() {
   } catch (e) {
     return;  // 권한 없음·조회 실패는 무시(기존 목록 표시에 영향 주지 않는다)
   }
+  // ⚠️ 조회 실패는 null 이다(빈 목록 아님). 0 으로 덮으면 배지가 사라져
+  //    「미등록 건이 없다」로 보인다 — 실패했을 뿐인데. 그대로 두고 나간다.
+  if (rows === null) return;
   const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
   if (badge) {
     badge.textContent = rows.length ? String(rows.length) : '';
@@ -762,6 +770,8 @@ async function loadPastUnregSettlements() {
   } catch (e) {
     _pastUnregRows = [];
   }
+  // 이 화면은 종전대로 빈 목록으로 다룬다(실패 구분은 지급 준비 화면에서만 쓴다).
+  if (_pastUnregRows === null) _pastUnregRows = [];
   _pastUnregById = {};
   _pastUnregRows.forEach(r => { if (r.application_id) _pastUnregById[r.application_id] = r; });
   _pastUnregSelected.clear();
@@ -1014,4 +1024,206 @@ async function pastUnregRegister(targetStatus) {
   // 처리한 만큼 과거 미등록 건수가 실제로 줄어드는 유일한 경로 — 진입 버튼 배지·안내를 여기서 갱신
   // (reloadSettlementsData 에는 넣지 않는다 — 정산 처리마다 전건 스캔이 붙는 것을 피하려고)
   refreshPastUnregEntryInfo();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SECTION: 지급 준비 화면 (사양서 2026-08-18-settlement-list-unification… §4-1 화면 ㄱ)
+//
+// ▶ 왜 필요한가
+//   시스템이 **지급 기한을 몰랐다.** 캠페인 참여방법에는 「다음 달 15일 / 말일」이
+//   한·일 양쪽으로 박혀 있는데 화면 어디에도 그 날짜가 없어, 운영팀이 「이번 달에
+//   누구에게 얼마를 보내야 하는지」를 시스템 밖에서 세고 있었다.
+//
+// ▶ 무엇을 모으나
+//   **미등록 건**(아직 정산 행이 없는 인증 성공분)과 **정산 행**을 한데 놓고
+//   지급 예정일(payoutDueDate)로 묶는다. 두 곳에 흩어져 있으면 합계가 안 나온다.
+// ══════════════════════════════════════════════════════════════════
+
+let _payoutRows = null;        // null = 아직 조회 안 함 / [] = 대상 없음
+let _payoutPaidMonth = null;   // 「지급 완료」 묶음이 보여줄 달 'YYYY-MM'
+
+// 지급 흐름에서 벗어난 상태 — 네 묶음 어디에도 넣지 않는다(사양서 §4-1).
+const PAYOUT_EXCLUDED_STATUS = new Set(['on_hold', 'cancelled']);
+
+// 'YYYY-MM-DD' → 'YYYY-MM'
+function _payoutMonthOf(dueStr) { return dueStr ? String(dueStr).slice(0, 7) : null; }
+
+// 미등록 + 정산 행을 한 목록으로. 지급 예정일은 payoutDueDate 하나로만 계산한다.
+//   ⚠️ 카드·목록·엑셀이 각자 계산하면 어긋난다(사양서 §4-1).
+function buildPayoutRows(unregRows, settlementRows) {
+  const out = [];
+  (unregRows || []).forEach(function(r) {
+    out.push({
+      kind: 'unregistered',
+      status: 'unregistered',           // 아직 정산 행이 없다
+      due: payoutDueDate(r.cert_at),
+      amount: Number(r.amount_jpy || 0),
+      amountUnknown: !r.amount_jpy,     // 금액을 정할 수 없는 건(amount_issue)
+      influencerId: r.influencer_id,
+      name: r.influencer_name, nameKana: r.influencer_name_kana,
+      campaignNo: r.campaign_no, campaignTitle: r.campaign_title,
+      applicationId: r.application_id,
+    });
+  });
+  (settlementRows || []).forEach(function(s) {
+    if (PAYOUT_EXCLUDED_STATUS.has(s.status)) return;   // 보류·취소 제외
+    const camp = s.campaigns || {};
+    out.push({
+      kind: 'settlement',
+      status: s.status,                 // pending | paid
+      due: payoutDueDate(s.cert_at),
+      amount: Number(s.amount_jpy || 0),
+      amountUnknown: false,
+      influencerId: s.influencer_id,
+      name: null, nameKana: null,       // 이름은 작업 3에서 통로로 채운다
+      campaignNo: camp.campaign_no, campaignTitle: camp.title,
+      applicationId: s.application_id,
+      settlementId: s.id, paypalEmail: s.paypal_email, paidAt: s.paid_at,
+    });
+  });
+  return out;
+}
+
+// 아직 안 보낸 것 = 미등록 + 정산대기. 「기한 초과」와 「다가오는」의 공통 조건이다.
+function _payoutUnsent(r) { return r.status === 'unregistered' || r.status === 'pending'; }
+
+async function openPayoutPrepView() {
+  const main = $('settlementMainView'), view = $('settlementPayoutView');
+  if (!main || !view) return;
+  main.style.display = 'none';
+  view.style.display = 'flex';
+  const body = $('payoutSummaryBody');
+  if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
+
+  // 미등록 건은 별도 조회(정산 행이 아직 없어 _settlements 에 안 들어 있다).
+  let unreg = null;
+  try { unreg = await fetchPastUnregisteredSettlements(); } catch (e) { unreg = null; }
+  // ⚠️ **한계** — 정산 행 쪽은 실패를 구분하지 못한다. fetchSettlements() 가 실패해도
+  //    빈 목록을 돌려주는데, 그 함수는 관리자 화면 전반이 쓰고 있어 이번 범위에서
+  //    바꾸지 않았다. 즉 아래가 조용히 비면 「정산 행이 없다」와 「못 불러왔다」가 같아 보인다.
+  //    미등록 쪽(위)은 구분되므로, 화면이 통째로 비는 최악은 막힌다.
+  if (!_settlementsLoaded) { try { await reloadSettlementsData(); } catch (e) {} }
+
+  // ⚠️ 조회 실패(null)와 0건([])을 구분한다 — 실패를 「보낼 게 없음」으로 그리면
+  //    운영팀이 이번 달 지급을 통째로 건너뛴다.
+  if (unreg === null) {
+    _payoutRows = null;
+    if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">'
+      + '<b style="color:var(--ink)">미등록 건을 불러오지 못했습니다.</b><br>'
+      + '조회가 실패한 것이라 <b>보낼 것이 없다는 뜻이 아닙니다</b>.<br>잠시 뒤 다시 열어 보세요.</div>';
+    return;
+  }
+  _payoutRows = buildPayoutRows(unreg, _settlements);
+  if (!_payoutPaidMonth) _payoutPaidMonth = jstTodayStr().slice(0, 7);
+  renderPayoutSummary();
+}
+
+function closePayoutPrepView() {
+  const main = $('settlementMainView'), view = $('settlementPayoutView');
+  if (view) view.style.display = 'none';
+  if (main) main.style.display = 'flex';
+}
+
+// 'YYYY-MM' 을 n달 옮긴다(문자열 연산 — 시간대가 끼어들 자리가 없다)
+function _payoutShiftMonth(ym, delta) {
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+function _payoutYen(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+
+// 지급 예정일 한 줄
+function payoutDueRowHtml(due, rows, todayStr) {
+  const cnt = rows.length;
+  const sum = rows.reduce(function(a, r) { return a + r.amount; }, 0);
+  const unknown = rows.filter(function(r) { return r.amountUnknown; }).length;
+  const overdue = due < todayStr;
+  // ⚠️ 「이번 달」 구역 안에도 이미 지난 회차가 있다 — 이번 달이라고 안심시키면 안 된다.
+  const days = Math.round((Date.parse(due + 'T00:00:00+09:00') - Date.parse(todayStr + 'T00:00:00+09:00')) / 86400000);
+  const when = overdue
+    ? `<span style="color:#C33;font-weight:700">지남 ${-days}일</span>`
+    : (days === 0 ? '<span style="color:#B8741A;font-weight:700">오늘</span>' : `<span style="color:var(--muted)">D-${days}</span>`);
+  return `<div style="display:flex;align-items:center;gap:14px;padding:9px 12px;border-bottom:1px solid var(--line)">
+    <div style="width:96px;font-weight:700;font-size:13px">${esc(due)}</div>
+    <div style="width:64px;text-align:right;font-size:13px">${cnt}건</div>
+    <div style="width:110px;text-align:right;font-weight:700;font-size:13px">${esc(_payoutYen(sum))}</div>
+    <div style="width:84px">${when}</div>
+    ${unknown ? `<div style="font-size:11px;color:#C33">금액 미확정 ${unknown}건</div>` : ''}
+  </div>`;
+}
+
+function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
+  const rows = dues.map(function(d) { return payoutDueRowHtml(d, byDue[d], todayStr); }).join('');
+  const cnt = dues.reduce(function(a, d) { return a + byDue[d].length; }, 0);
+  const sum = dues.reduce(function(a, d) {
+    return a + byDue[d].reduce(function(b, r) { return b + r.amount; }, 0);
+  }, 0);
+  return `<div style="margin-bottom:18px">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+      <div style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</div>
+      ${dues.length ? `<div style="font-size:12px;color:var(--muted)">${cnt}건 · ${esc(_payoutYen(sum))}</div>` : ''}
+    </div>
+    ${dues.length ? rows : `<div style="padding:10px 12px;color:var(--muted);font-size:12px">${esc(emptyText)}</div>`}
+  </div>`;
+}
+
+function renderPayoutSummary() {
+  const body = $('payoutSummaryBody');
+  if (!body) return;
+  const rows = _payoutRows || [];
+  const todayStr = jstTodayStr();
+  const thisMonth = todayStr.slice(0, 7);
+
+  // 아직 안 보낸 것을 지급 예정일로 묶는다
+  const byDue = {};
+  rows.filter(function(r) { return _payoutUnsent(r) && r.due; })
+      .forEach(function(r) { (byDue[r.due] = byDue[r.due] || []).push(r); });
+  const dues = Object.keys(byDue).sort();
+
+  const thisM = dues.filter(function(d) { return _payoutMonthOf(d) === thisMonth; });
+  const before = dues.filter(function(d) { return _payoutMonthOf(d) < thisMonth; });
+  const after  = dues.filter(function(d) { return _payoutMonthOf(d) > thisMonth; });
+
+  // 「지급 완료」 — ⚠️ 예정일 조건을 걸지 않는다. 걸면 미리 보낸 건·당일 보낸 건·
+  //   예정일이 미래인 건이 화면에서 사라진다(사양서 §4-1).
+  const paidAll = rows.filter(function(r) { return r.status === 'paid' && r.due; });
+  const paidThis = paidAll.filter(function(r) { return _payoutMonthOf(r.due) === _payoutPaidMonth; });
+  const paidSum = paidThis.reduce(function(a, r) { return a + r.amount; }, 0);
+
+  // 「지급일 기록 없음」 — cert_at 이 비어 예정일을 계산할 수 없는 것. 건수만.
+  //   ⚠️ 보류·취소는 여기도 안 넣는다(이미 buildPayoutRows 에서 빠졌다).
+  const noDate = rows.filter(function(r) { return !r.due; });
+
+  body.innerHTML =
+    payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
+  + payoutSectionHtml('지난 달 이전 — 밀린 것', '#C33', before, byDue, todayStr, '밀린 것이 없습니다.')
+  + payoutSectionHtml('다음 달 이후', '#6B7280', after, byDue, todayStr, '다음 달 이후 예정이 없습니다.')
+  + `<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="font-weight:700;font-size:13px">지급 완료</div>
+        <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(-1)" style="padding:2px 8px">‹</button>
+        <div style="font-size:13px;font-weight:700;min-width:74px;text-align:center">${esc(_payoutPaidMonth || '')}</div>
+        <button class="btn btn-ghost btn-xs" onclick="shiftPayoutPaidMonth(1)" style="padding:2px 8px">›</button>
+        <div style="font-size:13px;color:var(--muted)">${paidThis.length}건 · ${esc(_payoutYen(paidSum))}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">
+        지급 예정일이 그 달인 건 중 <b>이미 보낸 것</b>입니다. 실제 보낸 날짜가 아니라 <b>예정일</b>로 나눕니다
+        — 6월 15일 예정분을 7월에 보냈어도 「6월」에 들어갑니다.
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+        <div style="font-weight:700;font-size:13px">지급일 기록 없음</div>
+        <div style="font-size:13px;color:var(--muted)">${noDate.length}건</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:2px">
+        인증 성공일이 남아 있지 않아 지급 예정일을 계산할 수 없는 건입니다. 위 묶음 어디에도 안 들어갑니다.
+      </div>
+    </div>`;
+}
+
+// 「지급 완료」가 보여줄 달을 옮긴다. ⚠️ **과거·미래 양방향** — 과거만 되면
+//   예정일이 미래인 지급 완료 건(4단계에서 등록할 115건)에 영영 못 닿는다.
+function shiftPayoutPaidMonth(delta) {
+  _payoutPaidMonth = _payoutShiftMonth(_payoutPaidMonth || jstTodayStr().slice(0, 7), delta);
+  renderPayoutSummary();
 }
