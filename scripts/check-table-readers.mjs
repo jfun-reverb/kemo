@@ -229,17 +229,67 @@ function scanTable(table, files, excluded, helpers) {
 //    조회를 좁히는 신호 = 조회 정책을 지우거나 바꾸는 것.
 // ──────────────────────────────────────────────────────────────────
 function tablesNarrowedBy(sqlPath) {
-  const sql = readFileSync(sqlPath, 'utf8')
-    .replace(/^\s*--.*$/gm, '');   // 주석 줄 제거 — 예시·설명에 적힌 표 이름을 줍지 않게
-  const found = new Set();
-  for (const re of [
-    /DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?[^\s]+\s+ON\s+(?:public\.)?"?([A-Za-z0-9_]+)"?/gi,
-    /ALTER\s+TABLE\s+(?:public\.)?"?([A-Za-z0-9_]+)"?[\s\S]{0,80}?ROW\s+LEVEL\s+SECURITY/gi,
-  ]) {
-    let m;
-    while ((m = re.exec(sql)) !== null) found.add(m[1]);
+  let raw;
+  try {
+    raw = readFileSync(sqlPath, 'utf8');
+  } catch (e) {
+    // ⚠️ 파일이 없으면 **조용히 넘어간다.** 훅에서 도는 도구라 여기서 오류 스택을
+    //    쏟으면 사람이 「뭔가 망가졌다」로 읽는다. 파일을 지우거나 이름을 바꾼 커밋,
+    //    작업 폴더 경로가 다른 경우에 실제로 생긴다.
+    return null;   // ⚠️ [] 아님 — 「파일 없음」과 「좁히는 게 없음」은 다른 상태다
   }
-  return [...found];
+
+  // ★ 주석을 **둘 다** 지운다. 이 저장소는 파일 하단에 **롤백 SQL 을 `/* */` 안에**
+  //   적어두는 관행이 있어(084·137·240·325), 안 지우면 **실행되지 않는 구문이
+  //   「다시 만듦」으로 읽힌다.** 084 는 익명 사용자의 신청서 등록 권한을 영구히
+  //   없앤 보안 마이그레이션인데, 주석 속 롤백 문구 때문에 통째로 사라졌었다.
+  const sql = raw
+    .replace(/\/\*[\s\S]*?\*\//g, '')   // 여러 줄 주석
+    .replace(/^\s*--.*$/gm, '');          // 한 줄 주석
+
+  // 이 파일에서 **새로 만드는** 표는 검사 대상이 아니다. 새 표에 처음 정책을 다는 것은
+  //   「좁히는」 게 아니라 「세우는」 것이고, 그 표를 읽는 자리가 있는 건 정상이다.
+  const created = new Set();
+  for (const m of sql.matchAll(
+    /CREATE\s+(?:OR\s+REPLACE\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?([A-Za-z0-9_]+)"?/gi
+  )) created.add(m[1]);
+
+  // ★ 정책 이름은 **따옴표 안을 통째로** 잡는다. 공백 든 이름이 실제로 쓰인다
+  //   (`"faq_nodes: authenticated can select"` 등 4개). 첫 공백에서 끊으면 그 넷이
+  //   전부 `faq_nodes:` 하나로 묶여 **서로 다른 정책이 같은 것으로** 읽힌다.
+  const POLICY = '(?:"([^"]+)"|(\\S+))';
+  const recreated = new Set();
+  for (const m of sql.matchAll(
+    new RegExp(`CREATE\\s+POLICY\\s+${POLICY}\\s+ON\\s+(?:public\\.)?"?([A-Za-z0-9_]+)"?`, 'gi')
+  )) recreated.add((m[1] ?? m[2]) + '\u0000' + m[3]);
+
+  const removed = new Set();     // 통로가 사라짐 — 확정
+  const unverified = [];         // 같은 이름으로 다시 만듦 — 조건 변경 여부 모름
+
+  for (const m of sql.matchAll(
+    new RegExp(`DROP\\s+POLICY\\s+(?:IF\\s+EXISTS\\s+)?${POLICY}\\s+ON\\s+(?:public\\.)?"?([A-Za-z0-9_]+)"?`, 'gi')
+  )) {
+    const name = m[1] ?? m[2], table = m[3];
+    if (created.has(table)) continue;                    // 이 파일이 만든 표
+    if (recreated.has(name + '\u0000' + table)) {
+      // ★ **숨기지 않는다.** 같은 이름으로 다시 만들었다고 안전한 게 아니다 —
+      //   조건이 좁아졌을 수 있고, 그건 **이 파일만 봐서는 알 수 없다**(이전 정의가
+      //   다른 마이그레이션에 있다). 실제로 240 이 그 형태로 정산 조회를 잠갔다.
+      //   기계가 판정 못 하는 것을 **사람이 볼 수 있는 크기로 잘라서** 넘긴다.
+      unverified.push({ table, policy: name });
+      continue;
+    }
+    removed.add(table);
+  }
+
+  // 이미 있던 표에 행 보안을 **새로 켜는** 것 (그 순간 기존 조회가 막힌다)
+  for (const m of sql.matchAll(
+    /ALTER\s+TABLE\s+(?:public\.)?"?([A-Za-z0-9_]+)"?[\s\S]{0,80}?ROW\s+LEVEL\s+SECURITY/gi
+  )) {
+    if (!created.has(m[1])) removed.add(m[1]);
+  }
+
+  return { removed: [...removed], unverified };
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -305,16 +355,44 @@ if (!sqlPath && !tablesArg) {
 }
 
 let tables;
+let unverified = [];
 if (sqlPath) {
-  tables = tablesNarrowedBy(sqlPath);
-  if (tables.length === 0) {
+  const narrowed = tablesNarrowedBy(sqlPath);
+  if (narrowed === null) {
+    // 파일 없음 — 「검사했는데 안전하다」로 읽히지 않게 원인을 그대로 밝힌다
+    console.log(`\n파일을 찾지 못해 건너뜁니다: ${relative(REPO, sqlPath)}`);
+    process.exit(0);
+  }
+  tables = narrowed.removed;
+  unverified = narrowed.unverified;
+  if (!tables.length && !unverified.length) {
     console.log(`\n조회 허가를 좁히는 구문을 못 찾았습니다: ${relative(REPO, sqlPath)}`);
     console.log('→ 이 파일은 조회 정책을 건드리지 않는 것으로 보입니다. 검사할 것이 없습니다.');
     process.exit(0);
   }
-  console.log(`\n▶ ${relative(REPO, sqlPath)} 가 좁히는 표: ${tables.join(', ')}`);
+  if (tables.length) console.log(`\n▶ ${relative(REPO, sqlPath)} 가 좁히는 표: ${tables.join(', ')}`);
 } else {
   tables = tablesArg.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+// ★ 「모른다」를 「없다」로 적지 않는다. 같은 이름으로 다시 만든 정책은 **조건이
+//   좁아졌을 수 있고 이 파일만 봐서는 알 수 없다**(이전 정의가 다른 마이그레이션에 있다).
+//   숨기면 240(정산 조회 잠금) 같은 진짜가 조용히 사라진다.
+//   ⚠️ **확인 방법을 그 자리에 적는다** — 「안내」가 아니라 「작업 지시」가 되어야 읽힌다.
+function printUnverified() {
+  if (!unverified.length) return;
+  console.log('\n⚠️  같은 이름으로 다시 만든 정책 — 조건이 좁아졌는지 확인해 주세요');
+  console.log('    (이 파일만 봐서는 이전 조건을 알 수 없어 기계가 판정하지 못합니다)');
+  for (const u of unverified) {
+    console.log(`\n    ${u.table}.${u.policy}`);
+    console.log(`      이전 정의 보기:  git log -p -S '${u.policy}' -- supabase/migrations/`);
+    console.log(`      좁아졌다면:      node ${relative(REPO, process.argv[1])} --tables ${u.table}`);
+  }
+}
+
+if (!tables.length) {   // 미검증만 있는 경우
+  printUnverified();
+  process.exit(0);       // ⚠️ 확정이 아니므로 3 을 쓰지 않는다(출력에는 반드시 남는다)
 }
 
 const excluded = influencerOnlyFiles();
@@ -334,6 +412,8 @@ for (const r of results) {
   }
   if (r.skipped.write) console.log(`   (쓰기 ${r.skipped.write}곳은 셈에서 뺐습니다 — 읽기만 셉니다)`);
 }
+
+printUnverified();
 
 if (doRecord) await record(results);
 
