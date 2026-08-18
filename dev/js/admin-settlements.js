@@ -2070,13 +2070,23 @@ function renderPayoutPersonList() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${_payoutDueFilter ? esc(_payoutDueFilter) + ' 지급 예정' : '전체 기간'}</div>
-      <!-- ⚠️ 오른쪽 끝을 차지하는 것은 **스위치**다. 검색칸에 margin-left:auto 를 주면
-           검색칸이 오른쪽 끝을 밀어내 스위치가 **다음 줄로 내려간다**(줄이 접힌다). -->
-      <input id="payoutPersonSearchInput" class="admin-filter-search"
-             placeholder="이름(한자·가나)·페이팔 이메일로 검색"
-             value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)"
-             style="flex:1;min-width:200px;max-width:420px">
-      <div style="margin-left:auto">${payoutGroupSwitchHtml()}</div>
+      <!-- 검색칸과 스위치를 **한 덩어리로 묶어 오른쪽 끝**에 붙인다.
+           ⚠️ 「admin-filter-search」 는 돋보기 아이콘 자리로 왼쪽 28px 을 비워 두는 클래스다.
+              아이콘을 같이 안 넣으면 그만큼이 그냥 빈 여백으로 보인다(다른 화면은 전부
+              감싸개 + 아이콘 한 쌍으로 쓴다 — 같은 모양을 지킨다).
+           ⚠️ 이 주석은 **문자열 안**이다. 여기에 backtick 을 쓰면 문자열이 그 자리에서
+              끊겨 파일 전체가 깨진다(2026-08-18 실제로 그랬다). 「」 로 감쌀 것. -->
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+        <div style="position:relative;width:260px">
+          <span class="material-icons-round notranslate" translate="no"
+                style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+          <input id="payoutPersonSearchInput" type="search" class="admin-filter-search"
+                 autocomplete="off" data-lpignore="true" data-1p-ignore="true"
+                 placeholder="이름(한자·가나)·페이팔 이메일로 검색"
+                 value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)">
+        </div>
+        ${payoutGroupSwitchHtml()}
+      </div>
     </div>
     <div id="payoutPersonListBody"></div>`;
   renderPayoutPersonBody();
