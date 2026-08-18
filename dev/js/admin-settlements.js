@@ -1763,9 +1763,11 @@ function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
   }, 0);
   // 구역 머리 — 배경을 깔아 회차 줄과 확실히 구분한다.
   //   ⚠️ 색은 구역 색을 **아주 옅게** 깐다(원색을 깔면 회차 줄의 빨강·초록 숫자가 묻힌다).
+  //   ⚠️ 왼쪽 색 막대는 뺐다(2026-08-18) — 배경만으로 충분히 구분되고, 막대가 있으면
+  //      표의 첫 열 세로선과 겹쳐 줄이 어긋나 보였다.
   //   ⚠️ `background` 는 `td` 에 준다 — `tr` 에 주면 셀 배경(.data-table td 의 흰 배경)이
   //      위에 덮여 아무것도 안 보인다.
-  const head = `<tr><td colspan="7" style="background:${color}14;border-left:3px solid ${color};padding:7px 12px;border-bottom:1px solid var(--outline)">
+  const head = `<tr><td colspan="7" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
       <span style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</span>
       ${dues.length ? `<span style="font-size:12px;color:var(--muted);margin-left:8px">${cnt}건 · ${esc(_payoutYen(sum))}</span>` : ''}
     </td></tr>`;
@@ -1786,7 +1788,7 @@ function payoutNoDueSectionHtml(rows) {
   const cell = (n, amt, c) => n
     ? `<div style="font-weight:600;color:${c}">${n}건</div><div style="font-size:11px;color:${c}">${esc(_payoutYen(amt))}</div>`
     : '<span style="color:var(--muted);opacity:.5">—</span>';
-  const head = `<tr><td colspan="7" style="background:${color}14;border-left:3px solid ${color};padding:7px 12px;border-bottom:1px solid var(--outline)">
+  const head = `<tr><td colspan="7" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
       <span style="font-weight:700;font-size:13px;color:${color}">지급일 기록 없음</span>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">인증 성공일이 없어 지급 예정일을 계산할 수 없는 건</span>
     </td></tr>`;
