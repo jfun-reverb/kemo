@@ -282,8 +282,8 @@ window.I18N_JA = {
       savedOff: 'キャンペーン情報メールの配信を停止しました',
     },
     withdraw: '退会する',
-    withdrawConfirm: '本当に退会しますか？',
-    withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
+    // ⚠️ 옛 열쇠말 2개는 지웠다 — 「受け付けました(접수했습니다)」가 거짓말이었다. 자세한 것은 ko.js 참고.
+    withdrawGuide: '退会をご希望の方は、運営までLINEでご連絡ください。担当者がご案内します。',
     // 주의사항 비교 (Phase 2)
     caution: {
       compareToggle: '現在の文言と比較',
