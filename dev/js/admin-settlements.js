@@ -397,10 +397,7 @@ function showUnregisteredTab() {
     //    목록을 도로 켤 때 `flex:1` 을 되돌리는 짝이 hideUnregisteredTab 에 있다.
     main.style.flex = '0 0 auto';
   }
-  const notice = $('unregisteredNotice');
-  if (notice) notice.style.display = '';
   renderSettlementStatusTabs();
-  applyUnregisteredNotice();
   loadPastUnregSettlements();
 }
 
@@ -434,27 +431,10 @@ function hideUnregisteredTab() {
   }
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = '';
-  const notice = $('unregisteredNotice');
-  if (notice) notice.style.display = 'none';
 }
 
-// 탭 아래 안내 한 줄. ⚠️ **도입일 설정 전후로 문구가 달라야 한다**(사양서 §4-2) —
-//   도입일이 비어 있는 동안은 자동 등록이 **구조적으로 0건**이라, 「자동으로 만들어진다」고
-//   쓰면 그 자체가 거짓말이 된다. 판정은 `cutoff_at` 유무 **한 곳에서만** 한다.
-async function applyUnregisteredNotice() {
-  const el = $('unregisteredNotice');
-  if (!el) return;
-  let cutoff;
-  try { cutoff = await fetchSettlementCutoff(); } catch (e) { cutoff = undefined; }
-  if (cutoff === undefined) {
-    // ⚠️ 조회 실패를 「도입일 없음」으로 단정하지 않는다 — 문구가 반대가 된다.
-    el.textContent = '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다.';
-    return;
-  }
-  el.innerHTML = cutoff
-    ? '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다. 이 화면에 들어오면 도입일 이후 건은 자동으로 만들어지며, <b>금액을 정할 수 없는 건</b>만 여기 남습니다.'
-    : '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다. <b>지금은 자동 등록이 꺼져 있어 손으로 등록해야 합니다.</b>';
-}
+// (미등록 탭 아래 안내 한 줄은 없앴다 — 2026-08-19 사용자 요청. 도입일 유무로 문구를 갈라
+//  보여주던 applyUnregisteredNotice() 도 함께 제거했다.)
 
 // 정산 관리로 **열 화면을 지정해서** 들어간다 — 사이드바의 숫자 배지·경고 표시 공용.
 //   ⚠️ 필터만 걸고 들어가면 안 된다. 페인 진입이 **첫 화면으로 지급 준비를 켜면서 그 필터를
@@ -999,6 +979,22 @@ function _openBulkPayModal() {
   if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
   const memoEl = $('settlementBulkPayMemo');
   if (memoEl) memoEl.value = '';
+  // ★ 「정산대기 추가」 모드 — 아직 보내지 않은 건이라 **송금일이 없다.**
+  //   ⚠️ 송금일 칸을 남겨 두면 「지금 보낸 것」으로 오해해 날짜를 넣게 되고, 그 값은
+  //      정산대기 등록에 쓰이지 않아 **입력한 것이 조용히 버려진다.**
+  const pending = !!(_bulkPayCtx && _bulkPayCtx.mode === 'pending');
+  const dateGroup = $('settlementBulkPayDateGroup');
+  if (dateGroup) dateGroup.style.display = pending ? 'none' : '';
+  const titleEl = $('settlementBulkPayTitle');
+  if (titleEl) titleEl.textContent = pending ? '선택 건 정산대기 추가' : '선택 건 송금완료 기록';
+  const btn = $('settlementBulkPayConfirmBtn');
+  if (btn) btn.textContent = pending ? '정산대기 추가' : '송금완료 기록';
+  const warn = $('settlementBulkPayWarn');
+  if (warn) warn.innerHTML = pending
+    ? '<b>아직 지급하지 않은 건만</b> 처리하세요. 정산대기로 올려 두면 나중에 「송금완료 기록」으로 마무리합니다.'
+      + '<br>⚠️ 인플루언서에게는 알림이 가지 않습니다.'
+    : '금액은 <b>건마다 시스템 계산 금액</b>으로 기록됩니다. 실제로 다르게 보낸 건은 기록한 뒤 그 행의 「기록 정정」으로 고치세요.'
+      + '<br>⚠️ PayPal 미등록 건은 <b>건너뜁니다</b>. 처리 후 몇 건이 왜 빠졌는지 알려 드립니다.';
   onSettlementBulkPayInput();
   openModal('settlementBulkPayModal');
 }
@@ -1058,6 +1054,26 @@ async function confirmSettlementBulkPay() {
     } catch (e) { failed.push('정산대기 건: ' + friendlyError(e.message || e)); }
   }
 
+  // ★ 「정산대기 추가」 모드 — 아직 안 보낸 건이라 송금일을 넘기지 않는다.
+  //   ⚠️ 이 모드에는 페이팔 확인이 걸리지 않는다(돈을 보내는 것이 아니라 목록에 올리는 것뿐).
+  //      마이그레이션 324 가 「일괄 송금완료」에만 페이팔 검사를 넣은 것과 같은 판단이다.
+  if (ctx.mode === 'pending') {
+    try {
+      const r = await registerPastSettlements(ctx.applicationIds, 'pending', memo);
+      done += r.registered;
+    } catch (e) { failed.push('정산대기 추가: ' + friendlyError(e.message || e)); }
+    if (failed.length && !done) {
+      toast('처리 실패 — ' + failed.join(' / '), 'error');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    toast(`${done}건을 정산대기로 추가했습니다`);
+    closeModal('settlementBulkPayModal');
+    _bulkPayCtx = null;
+    await _settlementRefreshKeepingView(ctx.from);
+    return;
+  }
+
   // ② 아직 정산 행이 없는 건 — 송금완료 상태로 새로 만든다
   //    ⚠️ 한쪽이 실패해도 다른 쪽은 이미 처리됐을 수 있다. **되돌리지 않고 그대로 알린다** —
   //       조용히 삼키면 「눌렀는데 절반만 됐다」를 아무도 모른다.
@@ -1103,6 +1119,14 @@ async function confirmSettlementBulkPay() {
 async function _settlementRefreshKeepingView(from) {
   const due = _payoutDueFilter;           // 지급 준비에서 보던 회차(없으면 요약 화면)
   await refreshPane('settlements');
+  // ★ 미등록 탭에서 처리한 경우 — **그 목록을 다시 불러온다.** 안 하면 방금 처리한 건이
+  //   목록에 그대로 남아 「처리가 안 됐나」로 읽히고, 다시 골라 누르게 된다(중복 처리 시도).
+  //   ⚠️ 탭 건수·사이드바 경고도 이 경로에서만 실제로 줄어든다.
+  if (from === 'unreg') {
+    await loadPastUnregSettlements();
+    refreshPastUnregEntryInfo();          // await 안 함 — 목록 표시를 막지 않는다
+    return;
+  }
   if (from !== 'payout') return;          // 목록 경로는 목록만 다시 그리면 된다
   await openPayoutPrepView();             // _payoutRows 재계산 + 요약 재렌더
   if (due) await openPayoutPersonList(due);
@@ -1665,7 +1689,12 @@ function settlementBulkLocked() {
   return true;
 }
 
-async function pastUnregRegister(targetStatus) {
+// 미등록 선택 건 처리 — **확인 모달에서 사유를 함께 받는다**(2026-08-19 사용자 요청).
+//   ⚠️ 예전에는 목록 위 메모칸에 먼저 적고 버튼을 눌렀다. 그러면 확인 창에 「무엇을 기록하는지」는
+//      있는데 **어떤 사유로 기록하는지는 안 보였다.** 되돌릴 수 없는 기록이라 한 화면에서 본다.
+//   ⚠️ 처리는 일괄 송금완료와 **같은 함수**(confirmSettlementBulkPay)를 쓴다 — 두 벌로 만들면
+//      한쪽만 고치게 된다(이 파일 위쪽 `_bulkPayCtx` 주석의 원칙).
+function pastUnregRegister(targetStatus) {
   if (settlementBulkLocked()) return;   // ★ 3단계 전 확정 기록 차단
   // 금액 미확정 건은 서버가 건너뛰므로 여기서도 제외(체크박스는 이미 잠겨 있지만 이중 방어)
   const rows = [..._pastUnregSelected]
@@ -1675,49 +1704,23 @@ async function pastUnregRegister(targetStatus) {
   if (!ids.length) { toast('선택된 건이 없습니다', 'warn'); return; }
   const sum = rows.reduce((n, r) => n + settlementEffectiveAmount(r), 0);
   const summary = pastUnregCampaignSummary(rows);
+  const people = new Set(rows.map(r => r.influencer_id)).size;
 
-  if (targetStatus === 'paid') {
-    const ok = await showConfirm(
-      `${summary.campaignCount}개 캠페인 · ${ids.length}건 · 합계 ${settlementAmountYen(sum)}\n\n`
-      + `${summary.lines.join('\n')}\n\n`
-      + `위 건을 송금완료로 기록합니다.\n`
-      + `이미 외부에서 지급을 마친 건만 처리하세요. 송금완료 기록은 되돌릴 수 없습니다.\n계속하시겠습니까?`);
-    if (!ok) return;
-  } else {
-    const ok = await showConfirm(
-      `${summary.campaignCount}개 캠페인 · ${ids.length}건 · 합계 ${settlementAmountYen(sum)}\n\n`
-      + `${summary.lines.join('\n')}\n\n`
-      + `위 건을 정산대기로 추가합니다. 아직 지급하지 않은 건만 처리하세요.\n계속하시겠습니까?`);
-    if (!ok) return;
-  }
-
-  const memo = ($('pastUnregMemo')?.value || '').trim();
-  const payBtn = $('pastUnregPayBtn');
-  const pendingBtn = $('pastUnregPendingBtn');
-  if (payBtn) payBtn.disabled = true;
-  if (pendingBtn) pendingBtn.disabled = true;
-  try {
-    const { registered, skippedNoPaypal } = await registerPastSettlements(ids, targetStatus, memo);
-    const doneWord = targetStatus === 'paid' ? '송금완료로 기록' : '정산대기로 추가';
-    // 페이팔이 없어 빠진 건은 반드시 알린다 — 안 알리면 고른 수보다 적게 처리된 이유를 알 수 없다.
-    //   (단건 「송금완료 기록」은 원래 막던 조건인데 일괄만 통과하던 것을 마이그레이션 324 가 맞췄다)
-    if (skippedNoPaypal > 0) {
-      toast(`${registered}건을 ${doneWord}했습니다. ${skippedNoPaypal}건은 PayPal 미등록이라 제외했습니다`, 'warn');
-    } else {
-      toast(`${registered}건을 ${doneWord}했습니다`);
-    }
-  } catch (e) {
-    toast('처리 실패: ' + friendlyError(e.message || e), 'error');
-    updatePastUnregToolbar();  // 버튼 재활성
-    return;
-  }
-  const memoEl = $('pastUnregMemo');
-  if (memoEl) memoEl.value = '';
-  await loadPastUnregSettlements();   // 과거 목록 재조회(처리된 건은 목록에서 사라짐)
-  await refreshPane('settlements');   // 정산 메인 목록·정산대기 배지 갱신 (quality.md)
-  // 처리한 만큼 과거 미등록 건수가 실제로 줄어드는 유일한 경로 — 진입 버튼 배지·안내를 여기서 갱신
-  // (reloadSettlementsData 에는 넣지 않는다 — 정산 처리마다 전건 스캔이 붙는 것을 피하려고)
-  refreshPastUnregEntryInfo();
+  _bulkPayCtx = {
+    settlementIds: [],                 // 미등록 건은 정산 행이 아직 없다
+    applicationIds: ids,
+    mode: targetStatus === 'pending' ? 'pending' : 'paid',
+    from: 'unreg',
+    summaryHtml: `
+      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${summary.campaignCount}개 캠페인 · ${people}명</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px">${ids.length}건 · 합계 ${settlementAmountYen(sum)}</div>
+        <div style="border-top:1px solid var(--line);padding-top:6px;max-height:200px;overflow:auto;font-size:12px;line-height:1.7">
+          ${summary.lines.map(t => `<div>${esc(t)}</div>`).join('')}
+        </div>
+      </div>`
+  };
+  _openBulkPayModal();
 }
 
 // ══════════════════════════════════════════════════════════════════

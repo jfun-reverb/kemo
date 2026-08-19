@@ -1746,6 +1746,9 @@ async function fetchBlockedAdminTables() {
 //      실패를 「미설정」으로 단정하면 **안내 문구가 반대로 나간다** — 「자동 등록이
 //      꺼져 있다」와 「자동으로 만들어진다」는 서로 반대말이다.
 //   ⚠️ 조회 권한은 has_permission('settlement.view','read') (마이그레이션 230).
+// ⚠️ **지금 부르는 곳이 없다**(2026-08-19). 이 값으로 문구를 갈라 보여주던 미등록 탭 안내를
+//    없애면서 유일한 호출부가 사라졌다. 지우지 않은 이유는 사양서 5단계(도입일 설정 화면)가
+//    이 조회를 그대로 쓸 예정이기 때문 — 「왜 안 쓰이지」로 헷갈리지 않도록 적어 둔다.
 async function fetchSettlementCutoff() {
   if (!db) return undefined;
   try {
