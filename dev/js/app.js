@@ -381,11 +381,6 @@ async function init() {
       currentUserProfile = profile;
     }
   }
-  // 정산 인플루언서 공개 스위치 로드 (로그인 상태에서만 조회 가능).
-  // updateGnb → renderNavMenu 보다 먼저 채워야 햄버거에 「報酬・精算」이 깜빡 보였다 사라지지 않는다.
-  if (currentUser && typeof isSettlementPublic === 'function') {
-    try { setSettlementPublic(await isSettlementPublic()); } catch(_) {}
-  }
   updateGnb();
 
   // 일별 방문자수 집계 (마이그레이션 332) — 부팅 1회.
@@ -435,10 +430,6 @@ async function init() {
           } else {
             const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
             currentUserProfile = profile;
-          }
-          // 정산 인플루언서 공개 스위치 로드 (init 과 동일 — 로그인 직후 메뉴 렌더 전에 확정)
-          if (typeof isSettlementPublic === 'function') {
-            try { setSettlementPublic(await isSettlementPublic()); } catch(_) {}
           }
           updateGnb();
           // 로그인 시 알림 폴링 시작
