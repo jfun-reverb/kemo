@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787098646';
+  var CURRENT_BUILD = 'v1787100670';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-19 09:17 · fe3bc81</span>
+          <span class="admin-build-text">2026-08-19 09:51 · 051972a</span>
         </div>
       </div>
     </aside>
@@ -38162,8 +38162,12 @@ function renderPayoutPersonList() {
          목록이 길어 스크롤하면 「지금 어느 회차를 보고 있고 얼마가 남았는지」가 화면 밖으로
          나가고, 고른 건수도 맨 아래에 있어 **고를 때마다 끝까지 내려가야** 했다.
          ⚠️ 좌우로 -18px 빼고 다시 채우는 것은 감싸개 여백을 덮어 배경이 끊기지 않게 하려는 것.
-            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다. -->
-    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0">
+            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다.
+         ⚠️ **아래쪽 구분선은 꼭 있어야 한다.** 없으면 목록이 이 영역 바로 밑으로 파고들어
+            잘린 줄이 붙은 채로 보이고, 어디까지가 고정 영역인지 알 수 없다(2026-08-19 지적).
+            선은 이 감싸개에 준다 — 안쪽 요소에 주면 선택 줄이 생겼다 없어질 때 선도 함께
+            사라진다(선택 줄은 있을 때만 그려진다). -->
+    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0;border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${
