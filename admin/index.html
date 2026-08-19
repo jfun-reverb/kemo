@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787098646';
+  var CURRENT_BUILD = 'v1787100913';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-19 09:17 · fe3bc81</span>
+          <span class="admin-build-text">2026-08-19 09:55 · bcfd99d</span>
         </div>
       </div>
     </aside>
@@ -37685,9 +37685,9 @@ function payoutDueRowHtml(due, rows, todayStr) {
     <td style="font-weight:700;white-space:nowrap">${esc(due)}</td>
     <td style="text-align:right;white-space:nowrap">${cnt}건</td>
     <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(sum))}</td>
-    <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
+    <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
     <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
         onclick="openPayoutPersonList('${esc(due)}')">상세</button></td>
   </tr>`;
@@ -37737,9 +37737,9 @@ function payoutNoDueSectionHtml(rows) {
     <td style="font-weight:700;white-space:nowrap;color:var(--muted)">기록 없음</td>
     <td style="text-align:right;white-space:nowrap">${rows.length}건</td>
     <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(_payoutSum(rows)))}</td>
-    <td style="white-space:nowrap;color:var(--muted)">—</td>
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
+    <td style="white-space:nowrap;color:var(--muted)">—</td>
     <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
         onclick="openPayoutPersonList('${PAYOUT_NO_DUE}')">상세</button></td>
   </tr>`;
@@ -37781,9 +37781,13 @@ function renderPayoutSummary() {
         <th style="width:110px">지급 예정일</th>
         <th style="width:70px;text-align:right">건수</th>
         <th style="width:110px;text-align:right">금액</th>
-        <th style="width:150px">기한</th>
         <th style="width:110px;text-align:right">송금완료</th>
         <th style="width:110px;text-align:right">미지급</th>
+        <!-- ★ 「기한」은 **미지급 바로 옆**이다. 기한이 말하는 대상이 미지급이기 때문 —
+             「미지급 22건인데 지급 기한이 4일 지났다」로 읽혀야 한다(2026-08-19 사용자 지적).
+             금액 옆에 있을 때는 그 회차 전체 금액에 걸린 말처럼 읽혔다.
+             ⚠️ 열을 옮길 때는 **머리글·회차 줄·「지급일 기록 없음」 줄 셋을 함께** 옮긴다. -->
+        <th style="width:150px">기한</th>
         <th style="width:70px"></th>
       </tr></thead>
       <tbody>`
@@ -38162,8 +38166,12 @@ function renderPayoutPersonList() {
          목록이 길어 스크롤하면 「지금 어느 회차를 보고 있고 얼마가 남았는지」가 화면 밖으로
          나가고, 고른 건수도 맨 아래에 있어 **고를 때마다 끝까지 내려가야** 했다.
          ⚠️ 좌우로 -18px 빼고 다시 채우는 것은 감싸개 여백을 덮어 배경이 끊기지 않게 하려는 것.
-            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다. -->
-    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0">
+            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다.
+         ⚠️ **아래쪽 구분선은 꼭 있어야 한다.** 없으면 목록이 이 영역 바로 밑으로 파고들어
+            잘린 줄이 붙은 채로 보이고, 어디까지가 고정 영역인지 알 수 없다(2026-08-19 지적).
+            선은 이 감싸개에 준다 — 안쪽 요소에 주면 선택 줄이 생겼다 없어질 때 선도 함께
+            사라진다(선택 줄은 있을 때만 그려진다). -->
+    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0;border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${
@@ -38189,7 +38197,10 @@ function renderPayoutPersonList() {
     </div>
       <div id="payoutStickyInfo"></div>
     </div>
-    <div id="payoutPersonListBody"></div>
+    <!-- ⚠️ 여백은 **고정 영역이 아니라 목록 쪽**에 준다. 고정 영역 안에 넣으면 스크롤 중에도
+         그만큼 흰 띠가 따라다녀 화면이 좁아진다. 목록에 주면 **맨 위에서만** 벌어지고,
+         스크롤하면 자연스럽게 구분선 밑으로 들어간다(2026-08-19 사용자 지적). -->
+    <div id="payoutPersonListBody" style="margin-top:14px"></div>
    </div>`;
   renderPayoutPersonBody();
 }
