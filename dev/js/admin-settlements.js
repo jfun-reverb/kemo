@@ -376,7 +376,15 @@ function showUnregisteredTab() {
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = 'none';
   past.style.display = 'flex';
-  if (main) main.style.display = 'flex';
+  if (main) {
+    main.style.display = 'flex';
+    // ⚠️ **메인 뷰가 남은 높이를 다 먹지 않게 한다.** 이 페인은 세로 flex 이고 메인 뷰에
+    //    `flex:1` 이 걸려 있어, 목록을 감춰도 **머리글만 남은 채 화면 절반을 차지**한다.
+    //    그러면 그 아래 미등록 목록이 저 밑으로 밀려 **한참 스크롤해야 보인다**
+    //    (2026-08-19 사용자 보고 — 겹침을 고친 뒤에도 남아 있던 두 번째 원인).
+    //    목록을 도로 켤 때 `flex:1` 을 되돌리는 짝이 hideUnregisteredTab 에 있다.
+    main.style.flex = '0 0 auto';
+  }
   const notice = $('unregisteredNotice');
   if (notice) notice.style.display = '';
   renderSettlementStatusTabs();
@@ -385,6 +393,10 @@ function showUnregisteredTab() {
 }
 
 function hideUnregisteredTab() {
+  // 메인 뷰가 다시 목록을 담으므로 **남은 높이를 채우도록 되돌린다**(showUnregisteredTab 의 짝).
+  //   안 되돌리면 목록이 머리글 높이에 갇혀 스크롤이 안 된다.
+  const main = $('settlementMainView');
+  if (main) main.style.flex = '1';
   const past = $('settlementPastView');
   if (past && past.style.display !== 'none') {
     if (pastUnregLazy) { pastUnregLazy.destroy(); pastUnregLazy = null; }
