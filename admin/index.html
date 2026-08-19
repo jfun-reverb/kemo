@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787101463';
+  var CURRENT_BUILD = 'v1787102071';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-19 10:04 · 676e381</span>
+          <span class="admin-build-text">2026-08-19 10:14 · 8a761de</span>
         </div>
       </div>
     </aside>
@@ -36256,7 +36256,15 @@ function showUnregisteredTab() {
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = 'none';
   past.style.display = 'flex';
-  if (main) main.style.display = 'flex';
+  if (main) {
+    main.style.display = 'flex';
+    // ⚠️ **메인 뷰가 남은 높이를 다 먹지 않게 한다.** 이 페인은 세로 flex 이고 메인 뷰에
+    //    `flex:1` 이 걸려 있어, 목록을 감춰도 **머리글만 남은 채 화면 절반을 차지**한다.
+    //    그러면 그 아래 미등록 목록이 저 밑으로 밀려 **한참 스크롤해야 보인다**
+    //    (2026-08-19 사용자 보고 — 겹침을 고친 뒤에도 남아 있던 두 번째 원인).
+    //    목록을 도로 켤 때 `flex:1` 을 되돌리는 짝이 hideUnregisteredTab 에 있다.
+    main.style.flex = '0 0 auto';
+  }
   const notice = $('unregisteredNotice');
   if (notice) notice.style.display = '';
   renderSettlementStatusTabs();
@@ -36265,6 +36273,10 @@ function showUnregisteredTab() {
 }
 
 function hideUnregisteredTab() {
+  // 메인 뷰가 다시 목록을 담으므로 **남은 높이를 채우도록 되돌린다**(showUnregisteredTab 의 짝).
+  //   안 되돌리면 목록이 머리글 높이에 갇혀 스크롤이 안 된다.
+  const main = $('settlementMainView');
+  if (main) main.style.flex = '1';
   const past = $('settlementPastView');
   if (past && past.style.display !== 'none') {
     if (pastUnregLazy) { pastUnregLazy.destroy(); pastUnregLazy = null; }
