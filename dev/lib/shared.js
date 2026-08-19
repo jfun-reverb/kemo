@@ -1742,10 +1742,7 @@ function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 //   미로드·조회 실패는 false(fail-closed) — 표시 쪽도 안전측으로 잠근다.
 //   (관리자 메뉴 권한 캐시가 fail-open 인 것과 반대. 여기선 새어나가는 쪽이 더 위험하므로 엄격.)
 //   ⚠️ 서버(행 단위 보안 정책·알림 발행 함수)도 같은 함수로 잠겨 있어 이 캐시는 표시용 보조다.
-// ══════════════════════════════════════
-let _settlementPublic = false;
-function setSettlementPublic(v) { _settlementPublic = (v === true); }
-function settlementPublic() { return _settlementPublic === true; }
+// 정산 공개 여부 캐시(settlementPublic)는 없앴다 — 인플루언서 정산 노출 자체를 제거했다(2026-08-19).
 
 // ══════════════════════════════════════
 // 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)

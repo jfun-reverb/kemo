@@ -243,6 +243,7 @@ window.I18N_KO = {
       paypal: 'PayPal',
       password: '비밀번호 변경',
       emailSettings: '메일 수신 설정',
+      // ⚠️ 정산 화면은 없앴다(2026-08-19, 마이그레이션 343). 되살릴 가능성이 있어 열쇠말만 남긴다 — 지우면 되살릴 때 한·일 두 파일을 다시 채워야 한다. 지금 쓰는 곳은 없다.
       settlements: '보상·정산',
       logout: '로그아웃',
       language: '言語 / 언어',
