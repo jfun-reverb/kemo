@@ -1,0 +1,86 @@
+// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지
+// docs/email-templates/ 변경 후 sync 스크립트 실행 시 자동 갱신
+//
+// 백틱·${...} 패턴은 sed로 escape 처리. 새 템플릿 추가 시 패턴 점검 필요
+
+export const TEMPLATES: Record<string, string> = {
+  "withdrawal-scheduled": `<!DOCTYPE html>
+<!--
+  Mail: 회원 탈퇴 — 「대기 → 예정」 전이 안내 (인플루언서용)
+  Trigger: pg_cron(withdrawal-states-advance-daily, 매일 KST 04:45)가
+           withdrawal_requests.status 를 pending_payout→scheduled 로 바꾼 뒤,
+           별도 cron(withdrawal-scheduled-mail-daily, 매일 KST 09:00)이
+           notify-withdrawal-scheduled Edge Function 을 불러 미발송분을 처리.
+  To:      인플루언서 본인 (auth.users.email)
+  Lang:    JA
+
+  Placeholders:
+    {{influencer_name}}   인플루언서 이름 (name_kanji || name)
+    {{scheduled_date_jp}} 탈퇴 예정일 (YYYY年MM月DD日)
+    {{mypage_url}}        마이페이지 URL (탈퇴 취소 진입점 — 회원 탈퇴 화면[작업 9]
+                           이 아직 없어 우선 마이페이지 루트로 안내. 작업 9 배포 후에도
+                           이 템플릿은 수정 불필요 — 마이페이지에서 탈퇴 관리 메뉴로
+                           이어지는 구조이면 그대로 유효)
+    {{site_url}}          사이트 루트 URL
+    {{help_line_url}}     LINE 문의 URL
+
+  ── 한국어 뜻(담당자 전달용, 화면에는 노출되지 않음) ──────────────────
+    제목: "[REVERB] 탈퇴 예정일 안내 ({{예정일}})"
+    본문: "{{이름}} 님, 평소 REVERB JP를 이용해 주셔서 감사합니다.
+          받으실 보수 지급이 모두 끝나 탈퇴 예정일이 확정되었음을 안내드립니다.
+          [박스] 탈퇴 예정일: {{예정일}}
+          {{예정일}}에 탈퇴됩니다. 그때까지는 마이페이지에서 탈퇴를 취소할 수 있습니다.
+          [버튼] 마이페이지 열기
+          문의사항이 있으시면 아래 LINE으로 연락해 주세요."
+    푸터(4줄, 전 템플릿 공통 문구): "REVERB JP 멤버십에 연동되어 자동 발송됩니다 ·
+          문의는 LINE @reverb.jp 로 · © JFUN Corp.·주식회사 제이펀 · 사이트 URL"
+  ──────────────────────────────────────────────────────────────────
+-->
+<div style="font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Manrope',Arial,sans-serif;color:#222;max-width:600px">
+
+  <!-- 헤더 -->
+  <div style="background:#E8344E;border-radius:12px 12px 0 0;padding:28px 32px 24px">
+    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">REVERB JP</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.3">退会予定日が確定しました</div>
+  </div>
+
+  <!-- 본문 -->
+  <div style="background:#fff;border:1px solid #EAEAE4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px 24px">
+
+    <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.7">{{influencer_name}} 様<br>
+    いつも REVERB JP をご利用いただきありがとうございます。<br>
+    お支払いの手続きが完了し、退会予定日が確定しましたのでお知らせいたします。</p>
+
+    <!-- 예정일 박스 -->
+    <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:10px;padding:16px 18px;margin-bottom:22px;font-size:13px">
+      <div style="color:#888;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px">退会予定日</div>
+      <div style="font-weight:800;font-size:20px;color:#161618">{{scheduled_date_jp}}</div>
+    </div>
+
+    <p style="margin:0 0 22px;font-size:14px;color:#444;line-height:1.7">
+      {{scheduled_date_jp}} に退会となります。<br>
+      それまでは、マイページから退会をキャンセルすることができます。
+    </p>
+
+    <!-- 마이페이지 버튼 -->
+    <div style="text-align:center;margin:26px 0 20px">
+      <a href="{{mypage_url}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 36px;border-radius:8px;letter-spacing:0.02em">マイページを開く</a>
+    </div>
+
+    <p style="margin:0;font-size:12px;color:#888;line-height:1.7">
+      ご不明な点がございましたら、LINE までお問い合わせください。
+    </p>
+
+  </div>
+
+  <!-- 푸터 (통일) -->
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
+    お問い合わせは LINE <a href="{{help_line_url}}" style="color:#999;text-decoration:underline">@reverb.jp</a> までお願いいたします。<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="{{site_url}}" style="color:#999;text-decoration:underline">{{site_url}}</a>
+  </p>
+
+</div>`,
+};
