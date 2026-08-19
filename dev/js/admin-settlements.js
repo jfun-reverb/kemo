@@ -17,6 +17,13 @@ let _settlements = [];
 let _settlementsLoaded = false;
 let _settlementFilters = { status: 'pending', campaignIds: [], search: '' };
 let _settlementModalCtx = null;  // 열려 있는 처리 모달 대상 {id, version, mode?}
+// 정산 관리에 **들어갈 때 열 화면** — 'list'(정산 목록) / 'unregistered'(미등록) / null(기본=지급 준비).
+//   ⚠️ 필터만 걸고 페인을 전환하면 안 된다. `loadSettlements()` 는 마지막에 **늘** 지급 준비를
+//      켜므로, 걸어 둔 필터가 화면에 반영되지 않는다 — 사이드바 「정산대기」 배지가 실제로
+//      그랬다(2026-08-18 「첫 화면=지급 준비」 변경 이후, 눌러도 지급 준비만 떴다).
+//   ⚠️ **한 번 쓰고 버린다** — `loadSettlements()` 시작에서 꺼내 즉시 비운다. 안 비우면
+//      다음에 그냥 들어올 때도 그 화면이 열린다.
+let _settlementEntryView = null;
 // 「정산대기」 탭에서 일괄 송금완료로 고른 정산 id 들.
 //   ⚠️ 화면에 그려진 행만이 아니라 **필터를 통과한 정산대기 전부**가 선택 대상이다
 //      (목록이 조금씩 그려지는 구조라, 보이는 것만 고르면 스크롤 위치에 따라 결과가 달라진다).
@@ -209,6 +216,9 @@ function settlementCampCell(camp) {
 
 // 페인 진입 로더 — ①인증성공 응모 백필(멱등, best-effort) ②전건 조회 ③렌더 + 배지
 async function loadSettlements() {
+  // ★ 이번 진입에서 열 화면. **여기서 꺼내 즉시 비운다**(한 번 쓰고 버리는 값).
+  const entryView = _settlementEntryView;
+  _settlementEntryView = null;
   // 재진입 시 열려 있던 화면을 정리한다 — 안 닫으면 **옛 데이터가 그대로** 남는다.
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
@@ -243,7 +253,23 @@ async function loadSettlements() {
   //      지급 준비는 「이번 달에 누구에게 얼마 보내나」에 답하는 화면이고 실제 데이터가 있다.
   //   ⚠️ 돌아가는 길은 그 화면 상단의 「← 정산 목록」 버튼이다(closePayoutPrepView).
   //   ⚠️ 조회 실패해도 화면 전환은 그대로 둔다 — 그 화면이 실패를 스스로 알린다.
-  openPayoutPrepView();          // await 안 함 — 목록 조회를 막지 않는다
+  //   ⚠️ 다만 **부르는 쪽이 열 화면을 지정했으면 그쪽을 따른다**(`_settlementEntryView`).
+  //      사이드바의 배지·경고 표시처럼 「이 목록을 보여 달라」고 들어오는 경로가 있는데,
+  //      여기서 무조건 지급 준비를 켜면 그 요청이 조용히 덮인다.
+  if (entryView === 'unregistered') {
+    // 지급 준비 화면은 showUnregisteredTab() 이 직접 닫는다(세 화면 배타).
+    _settlementFilters.status = 'unregistered';
+    showUnregisteredTab();
+  } else if (entryView === 'list') {
+    // ⚠️ 전제 — 이 값을 거는 곳(enterSettlementsWithView)이 상태 탭을 함께 목록 쪽으로
+    //    맞춰 둔다. 안 맞춰 두면 아래 closePayoutPrepView() 가 「미등록」이라 판단해
+    //    방금 감춘 미등록 화면을 다시 켠다.
+    hideUnregisteredTab();
+    closePayoutPrepView();
+    renderSettlementsList();     // 걸어 둔 상태 탭·필터를 화면에 반영
+  } else {
+    openPayoutPrepView();        // await 안 함 — 목록 조회를 막지 않는다
+  }
 }
 
 // 데이터 재조회(백필 없음) — 처리 모달 저장 후 refreshPane('settlements') 가 호출
@@ -338,6 +364,14 @@ function setSettlementStatusTab(btn) {
 function showUnregisteredTab() {
   const main = $('settlementMainView'), past = $('settlementPastView');
   if (!past) return;
+  // ⚠️ **지급 준비 화면을 여기서 반드시 닫는다.** 세 화면(정산 목록·미등록·지급 준비)은
+  //    서로 배타여야 하는데, 지급 준비는 목록 화면의 **형제**라 이 함수가 메인 뷰를 켜는
+  //    것만으로는 안 사라진다 — 지급 준비와 미등록이 **세로로 겹쳐 한 화면에 둘 다** 뜬다.
+  //    실제 경로: 사이드바 「정산 관리」 옆 경고 표시 클릭 → 페인 진입이 첫 화면으로
+  //    지급 준비를 켜고(loadSettlements), 그 직후 이 함수가 미등록을 켠다(2026-08-19 보고).
+  //    openPayoutPrepView() 가 반대 방향으로 hideUnregisteredTab() 을 부르는 것과 짝이다.
+  const payout = $('settlementPayoutView');
+  if (payout) payout.style.display = 'none';
   // 상태 탭 바는 계속 보여야 하므로 메인 뷰의 **목록 부분만** 감춘다.
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = 'none';
@@ -380,15 +414,38 @@ async function applyUnregisteredNotice() {
     : '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다. <b>지금은 자동 등록이 꺼져 있어 손으로 등록해야 합니다.</b>';
 }
 
+// 정산 관리로 **열 화면을 지정해서** 들어간다 — 사이드바의 숫자 배지·경고 표시 공용.
+//   ⚠️ 필터만 걸고 들어가면 안 된다. 페인 진입이 **첫 화면으로 지급 준비를 켜면서 그 필터를
+//      덮는다** — 배지를 눌러도 정산대기 목록이 아니라 지급 준비가 뜨던 원인이다.
+//   ⚠️ 필터도 의도도 **실제로 이동이 일어나는 순간에만** 건다. 미리 걸면 캠페인 폼의
+//      「저장 안 한 변경」 확인창에서 **취소**했을 때 이동은 없이 값만 남아, 한참 뒤 그냥
+//      정산 관리에 들어올 때 엉뚱한 화면이 열린다(2026-08-19 리뷰 지적).
+//   ⚠️ `navAdminPaneReload` 를 그대로 못 쓰는 이유가 이것뿐이다 — 그 함수는 값을 걸 자리를
+//      내주지 않는다. 나머지 동작(히스토리 기록·사이드바 활성 표시)은 그 함수와 똑같이
+//      `switchAdminPane(pane, null, true)` 로 맞춘다. 저장 확인 게이트도 그대로 탄다.
+function enterSettlementsWithView(view) {
+  const go = function() {
+    _settlementFilters.status = (view === 'unregistered') ? 'unregistered' : 'pending';
+    _settlementFilters.search = '';
+    _settlementFilters.campaignIds = [];
+    const s = document.getElementById('settlementSearch'); if (s) s.value = '';
+    if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+    if (typeof switchAdminPane === 'function') {
+      _settlementEntryView = view;      // 진입 로더가 꺼내 쓰고 즉시 비운다
+      switchAdminPane('settlements', null, true);
+      return;
+    }
+    // 페인 전환 함수가 없으면(빌드 어긋남) 의도를 소비할 곳도 없다 — 제자리에서 직접 그린다.
+    if (view === 'unregistered') { showUnregisteredTab(); return; }
+    hideUnregisteredTab(); closePayoutPrepView(); reloadSettlementsData();
+  };
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
+  go();
+}
+
 // 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
 function openSettlementsPending() {
-  _settlementFilters.status = 'pending';
-  _settlementFilters.search = '';
-  _settlementFilters.campaignIds = [];
-  const s = document.getElementById('settlementSearch'); if (s) s.value = '';
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
-  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('settlements');
-  else reloadSettlementsData();
+  enterSettlementsWithView('list');
 }
 
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
@@ -979,7 +1036,11 @@ async function confirmSettlementBulkPay() {
         tail.length ? 'warn' : 'success');
 
   closeModal('settlementBulkPayModal');
+  // 처리한 선택은 비운다 — 남겨 두면 「선택 3묶음 · 0건 · ¥0」 처럼 뜻 없는 줄이 남는다.
+  //   ⚠️ 회차 상세로 돌아가는 경로는 openPayoutPersonList() 가 어차피 비우지만, 전 기간
+  //      화면에서 처리하면 그 경로를 안 타므로 여기서 직접 비운다.
   if (ctx.from === 'list') _settlementSelected.clear();
+  else if (typeof _payoutSelected !== 'undefined' && _payoutSelected) _payoutSelected.clear();
   _bulkPayCtx = null;
   await _settlementRefreshKeepingView(ctx.from);
 }
@@ -1748,9 +1809,9 @@ function payoutDueRowHtml(due, rows, todayStr) {
     <td style="font-weight:700;white-space:nowrap">${esc(due)}</td>
     <td style="text-align:right;white-space:nowrap">${cnt}건</td>
     <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(sum))}</td>
-    <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
+    <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
     <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
         onclick="openPayoutPersonList('${esc(due)}')">상세</button></td>
   </tr>`;
@@ -1800,9 +1861,9 @@ function payoutNoDueSectionHtml(rows) {
     <td style="font-weight:700;white-space:nowrap;color:var(--muted)">기록 없음</td>
     <td style="text-align:right;white-space:nowrap">${rows.length}건</td>
     <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(_payoutSum(rows)))}</td>
-    <td style="white-space:nowrap;color:var(--muted)">—</td>
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
+    <td style="white-space:nowrap;color:var(--muted)">—</td>
     <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
         onclick="openPayoutPersonList('${PAYOUT_NO_DUE}')">상세</button></td>
   </tr>`;
@@ -1844,9 +1905,13 @@ function renderPayoutSummary() {
         <th style="width:110px">지급 예정일</th>
         <th style="width:70px;text-align:right">건수</th>
         <th style="width:110px;text-align:right">금액</th>
-        <th style="width:150px">기한</th>
         <th style="width:110px;text-align:right">송금완료</th>
         <th style="width:110px;text-align:right">미지급</th>
+        <!-- ★ 「기한」은 **미지급 바로 옆**이다. 기한이 말하는 대상이 미지급이기 때문 —
+             「미지급 22건인데 지급 기한이 4일 지났다」로 읽혀야 한다(2026-08-19 사용자 지적).
+             금액 옆에 있을 때는 그 회차 전체 금액에 걸린 말처럼 읽혔다.
+             ⚠️ 열을 옮길 때는 **머리글·회차 줄·「지급일 기록 없음」 줄 셋을 함께** 옮긴다. -->
+        <th style="width:150px">기한</th>
         <th style="width:70px"></th>
       </tr></thead>
       <tbody>`
@@ -2096,6 +2161,69 @@ function openPayoutSendModal(key) {
   _openBulkPayModal();
 }
 
+// 「선택한 건 보냄」 — 체크한 묶음 전부를 한 번에 송금완료로 기록한다.
+//   ★ 왜 필요한가 — 실제 송금이 **여러 건을 합해 한 번에** 나간다(이체 수수료 때문).
+//      선택 합계로 지급대장 한 줄과 금액을 맞춰 놓고도, 기록은 다시 하나씩 눌러야 했다.
+//   ⚠️ 처리는 묶음 「보냄」과 **같은 창·같은 함수**를 쓴다(`_bulkPayCtx`). 경로가 갈리면
+//      한쪽만 고치게 된다 — 이 저장소가 여러 번 겪은 사고 형태다.
+//   ⚠️ **여러 사람이 섞일 수 있다.** 페이팔은 사람마다 다르므로 요약에 사람 수를 밝히고,
+//      페이팔이 없는 사람은 **서버가 건너뛰므로**(마이그레이션 324) 미리 이름으로 알린다.
+//   ⚠️ 선택 열쇠말은 `사람id|회차` 이고, 회차가 없는 건은 `(지급일 기록 없음)` 이다 —
+//      `groupSettlementsByPerson` 이 그렇게 묶는다. **그 규칙과 어긋나면 고른 것과 다른
+//      건이 처리된다.** 묶음 「보냄」(openPayoutSendModal)과 같은 식을 쓴다.
+//   ⚠️ 체크박스는 **회원별 보기에만** 있다. 캠페인별 보기로 바꿔도 선택은 그대로 남으므로
+//      이 버튼도 선택이 있는 한 그대로 동작한다(고른 것을 잃지 않는다).
+function openPayoutSendSelectedModal() {
+  if (!_payoutSelected.size) { toast('먼저 보낼 묶음을 선택해 주세요', 'warn'); return; }
+  const rows = (_payoutRows || []).filter(function (r) {
+    // ⚠️ 사람 쪽은 **폴백을 두지 않는다.** 체크박스가 심는 열쇠말은 `payoutPersonOf(r).id`
+    //    = `r.influencerId` 그대로다. 여기서만 '(미상)' 으로 바꾸면 두 열쇠말이 어긋난다.
+    return _payoutUnsent(r)
+        && _payoutSelected.has(r.influencerId + '|' + (r.due || '(지급일 기록 없음)'));
+  });
+  if (!rows.length) { toast('보낼 건이 없습니다 — 고른 것이 이미 처리됐을 수 있습니다', 'warn'); return; }
+
+  const usable = rows.filter(function (r) { return !r.amountUnknown; });
+  const unknown = rows.length - usable.length;
+  if (!usable.length) { toast('금액을 정할 수 없는 건뿐이라 기록할 수 없습니다', 'warn'); return; }
+
+  // 사람별로 묶어 보여 준다 — 대장과 맞추는 자리라 「누구에게 얼마」가 보여야 한다.
+  const byPerson = {};
+  usable.forEach(function (r) {
+    const id = r.influencerId || '(미상)';
+    if (!byPerson[id]) byPerson[id] = { person: payoutPersonOf(r), rows: [] };
+    if (!byPerson[id].person.name) byPerson[id].person = payoutPersonOf(r);
+    byPerson[id].rows.push(r);
+  });
+  const people = Object.keys(byPerson).map(function (id) { return byPerson[id]; });
+  const noPaypal = people.filter(function (e) { return !e.person.paypal && !e.person.paypalUnknown; });
+  const unsurePaypal = people.filter(function (e) { return e.person.paypalUnknown; });
+
+  const lines = people.map(function (e) {
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0">
+        <span style="font-weight:600">${esc(e.person.name || '(이름 미상)')}</span>
+        ${payoutPaypalHtml(e.person)}
+        <span style="margin-left:auto">${e.rows.length}건 · <b>${esc(_payoutYen(_payoutSum(e.rows)))}</b></span>
+      </div>`;
+  }).join('');
+
+  _bulkPayCtx = {
+    settlementIds:  usable.filter(function (r) { return r.kind === 'settlement';   }).map(function (r) { return r.settlementId; }),
+    applicationIds: usable.filter(function (r) { return r.kind === 'unregistered'; }).map(function (r) { return r.applicationId; }),
+    from: 'payout',
+    summaryHtml: `
+      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">선택한 ${_payoutSelected.size}묶음</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px">${people.length}명 · ${usable.length}건 · 합계 ${settlementAmountYen(_payoutSum(usable))}</div>
+        <div style="border-top:1px solid var(--line);padding-top:6px;max-height:220px;overflow:auto">${lines}</div>
+        ${unknown ? `<div style="font-size:12px;color:#C33;margin-top:8px">금액을 정할 수 없는 ${unknown}건은 빠집니다.</div>` : ''}
+        ${noPaypal.length ? `<div style="font-size:12px;color:#C33;margin-top:6px">페이팔이 없는 ${noPaypal.length}명(${esc(noPaypal.map(function(e){return e.person.name || '(이름 미상)';}).join(' · '))})은 <b>기록되지 않고 건너뜁니다</b>.</div>` : ''}
+        ${unsurePaypal.length ? `<div style="font-size:12px;color:#B8741A;margin-top:6px">페이팔을 확인하지 못한 ${unsurePaypal.length}명이 있습니다 — 그 사람은 건너뛸 수 있습니다.</div>` : ''}
+      </div>`
+  };
+  _openBulkPayModal();
+}
+
 async function openPayoutPersonList(dueStr) {
   _payoutDueFilter = dueStr || null;
   _payoutSelected.clear();
@@ -2225,8 +2353,12 @@ function renderPayoutPersonList() {
          목록이 길어 스크롤하면 「지금 어느 회차를 보고 있고 얼마가 남았는지」가 화면 밖으로
          나가고, 고른 건수도 맨 아래에 있어 **고를 때마다 끝까지 내려가야** 했다.
          ⚠️ 좌우로 -18px 빼고 다시 채우는 것은 감싸개 여백을 덮어 배경이 끊기지 않게 하려는 것.
-            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다. -->
-    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0">
+            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다.
+         ⚠️ **아래쪽 구분선은 꼭 있어야 한다.** 없으면 목록이 이 영역 바로 밑으로 파고들어
+            잘린 줄이 붙은 채로 보이고, 어디까지가 고정 영역인지 알 수 없다(2026-08-19 지적).
+            선은 이 감싸개에 준다 — 안쪽 요소에 주면 선택 줄이 생겼다 없어질 때 선도 함께
+            사라진다(선택 줄은 있을 때만 그려진다). -->
+    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0;border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
       <div style="font-weight:700;font-size:14px">${
@@ -2252,7 +2384,10 @@ function renderPayoutPersonList() {
     </div>
       <div id="payoutStickyInfo"></div>
     </div>
-    <div id="payoutPersonListBody"></div>
+    <!-- ⚠️ 여백은 **고정 영역이 아니라 목록 쪽**에 준다. 고정 영역 안에 넣으면 스크롤 중에도
+         그만큼 흰 띠가 따라다녀 화면이 좁아진다. 목록에 주면 **맨 위에서만** 벌어지고,
+         스크롤하면 자연스럽게 구분선 밑으로 들어간다(2026-08-19 사용자 지적). -->
+    <div id="payoutPersonListBody" style="margin-top:14px"></div>
    </div>`;
   renderPayoutPersonBody();
 }
@@ -2339,7 +2474,9 @@ function renderPayoutPersonBody() {
       + (_payoutSelected.size ? `
       <div style="border-top:1px solid var(--line);padding:8px 0;font-size:13px;display:flex;align-items:center;gap:10px">
         <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
-        <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
+        <button class="btn btn-primary btn-xs" style="margin-left:auto;padding:3px 12px"
+                onclick="openPayoutSendSelectedModal()" title="고른 묶음을 한 번에 송금완료로 기록합니다">선택한 건 보냄</button>
+        <button class="btn btn-ghost btn-xs" style="padding:2px 10px"
                 onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
       </div>` : '<div style="height:8px"></div>');
   }
@@ -2429,15 +2566,14 @@ function applySettlementUnregWarning() {
     mark.setAttribute('translate', 'no');
     mark.style.cssText = 'font-size:14px;color:#B8741A;margin-left:4px;cursor:pointer';
     mark.textContent = 'report_problem';
-    // ⚠️ 페인 전환을 **기다린 뒤** 탭을 연다. 안 기다리면 loadSettlements() 안의
-    //    미등록 조회와 showUnregisteredTab() 의 조회가 **같은 전역변수를 동시에 쓰고**
-    //    나중에 끝난 쪽이 앞선 쪽 상태를 덮는다(_pastUnregRows·_pastUnregById 어긋남).
-    //    기존 openSettlementsPending() 도 「필터 먼저, 화면 나중」 순서를 쓴다.
-    mark.onclick = async function(e) {
+    // ⚠️ 열 화면을 **지정해서** 들어간다(배지와 같은 헬퍼). 지정 없이 필터만 걸면 페인
+    //    진입이 첫 화면으로 지급 준비를 켜고, 뒤늦게 미등록을 켜면 두 화면이 **세로로 겹쳐
+    //    둘 다** 보인다(2026-08-19 사용자 보고).
+    //  ⚠️ 미등록 조회는 여전히 두 번 돈다(진입 로더의 건수 갱신 + 미등록 화면의 목록).
+    //     같은 조회라 결과가 같아 화면은 어긋나지 않지만, 줄이려면 진입 로더 쪽을 손봐야 한다.
+    mark.onclick = function(e) {
       e.stopPropagation();
-      await switchAdminPane('settlements');
-      _settlementFilters.status = 'unregistered';
-      showUnregisteredTab();
+      enterSettlementsWithView('unregistered');
     };
     item.appendChild(mark);
   }
