@@ -1694,6 +1694,10 @@ const ADMIN_PERMISSION_CATALOG = [
   // ── 인플루언서 추천 명단(아웃바운드) 1개 — 마이그레이션 228 role_permissions 시드와 1:1 ──
   //    RLS(마이그레이션 226)·Storage(229)가 has_permission('outbound.view', ...)로 서버 강제 → server_enforced=true.
   { key: 'outbound.view',                 label_ko: '인플루언서 추천 명단 조회·편집',                category: '회원 관리',    server_enforced: true },
+  // ── 회원 탈퇴 대행 1개 — 마이그레이션 355 role_permissions 시드와 1:1 ──
+  //    request_withdrawal_for_member·cancel_withdrawal_admin(357)이 has_permission 으로
+  //    서버 강제 → server_enforced=true. 화면 버튼 숨김은 표시 제어일 뿐이다.
+  { key: 'withdrawal.proxy_request',      label_ko: '회원 대신 탈퇴 신청·되돌리기',                  category: '회원 관리',    server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -1720,7 +1724,7 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
-  'outbound.view', 'campaign.caution_history_view'
+  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';

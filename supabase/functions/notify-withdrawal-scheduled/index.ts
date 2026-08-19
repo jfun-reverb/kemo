@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
   // 1. 대상 조회 — 재시도 대상까지 자연스럽게 포함(전 실행 실패분도 오늘 다시 잡힘)
   const { data: candidates, error: candErr } = await sb
     .from("withdrawal_requests")
-    .select("id, influencer_id, scheduled_date, scheduled_mail_attempt_count")
+    .select("id, influencer_id, scheduled_date, scheduled_mail_attempt_count, requested_by_kind")
     .eq("status", "scheduled")
     .is("scheduled_mail_sent_at", null)
     .order("requested_at", { ascending: true });
@@ -242,18 +242,38 @@ Deno.serve(async (req: Request) => {
       const influencerName = inf.name_kanji || inf.name || "";
       const scheduledDateJp = formatJpDateFullFromDateStr(row.scheduled_date);
 
+      // 관리자가 대신 접수한 건이면 그 사실을 본문에 밝힌다.
+      //   ⚠️ 이 메일이 **회원에게 닿는 유일한 통지**다(정산 알림을 없앤 뒤로).
+      //     대행 접수인데 아무 말이 없으면 회원은 「내가 신청한 적 없는데?」가 된다.
+      //   ⚠️ 강제(자격 상실)도 같은 문구를 쓰지 않는다 — 그쪽은 「요청에 따라」가
+      //     사실이 아니다. 지금은 화면이 강제를 안 보내지만, 열리는 날 이 분기를
+      //     함께 손볼 것.
+      const isProxy = row.requested_by_kind === "admin_proxy";
+      const proxyNotice = isProxy
+        ? `<p style="margin:0 0 20px;padding:12px 14px;background:#F7F4EE;border-left:3px solid #E8344E;border-radius:4px;font-size:13px;color:#444;line-height:1.7">`
+          + `お客様からのご依頼にもとづき、運営が代わって退会のお手続きを行いました。`
+          + `<br>お心当たりがない場合は、下記よりご連絡ください。</p>`
+        : "";
+
       const html = render(tpl, {
         influencer_name: escapeHtml(influencerName || "-"),
         scheduled_date_jp: escapeHtml(scheduledDateJp),
         mypage_url: mypageUrl,
         site_url: publicAppUrl,
         help_line_url: helpLineUrl,
+        // ⚠️ 이 값만 이스케이프하지 않는다 — 위에서 만든 고정 HTML 조각이고
+        //   사용자 입력이 섞이지 않는다.
+        proxy_notice: proxyNotice,
       });
 
       const subject = `【REVERB】退会予定日のお知らせ（${scheduledDateJp}）`;
       const text = [
         `${influencerName} 様`,
         "",
+        ...(isProxy
+          ? ["お客様からのご依頼にもとづき、運営が代わって退会のお手続きを行いました。",
+             "お心当たりがない場合は、下記よりご連絡ください。", ""]
+          : []),
         `退会予定日: ${scheduledDateJp}`,
         "それまでは、マイページから退会をキャンセルできます。",
         "",
