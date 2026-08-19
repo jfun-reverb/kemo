@@ -17,6 +17,11 @@
                            이어지는 구조이면 그대로 유효)
     {{site_url}}          사이트 루트 URL
     {{help_line_url}}     LINE 문의 URL
+    {{proxy_notice}}      관리자 대행 접수일 때만 들어가는 한 문단 (아닐 땐 빈 문자열)
+                          ⚠️ 이 값만 HTML 조각이라 이스케이프하지 않는다 — 함수가
+                             고정 문구를 그대로 넣는다(사용자 입력이 아니다).
+                             회원이 「내가 신청한 적 없는데?」로 읽지 않게 하는 것이
+                             이 문단의 존재 이유다.
 
   ── 한국어 뜻(담당자 전달용, 화면에는 노출되지 않음) ──────────────────
     제목: "[REVERB] 탈퇴 예정일 안내 ({{예정일}})"
@@ -44,6 +49,8 @@
     <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.7">{{influencer_name}} 様<br>
     いつも REVERB JP をご利用いただきありがとうございます。<br>
     お支払いの手続きが完了し、退会予定日が確定しましたのでお知らせいたします。</p>
+
+    {{proxy_notice}}
 
     <!-- 예정일 박스 -->
     <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:10px;padding:16px 18px;margin-bottom:22px;font-size:13px">
