@@ -1544,7 +1544,9 @@
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
                   지급 준비
                 </button>
-                <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                <!-- ⚠️ 미등록 탭에서는 숨긴다 — 이 버튼은 **정산 목록**을 내보내므로, 필터를 공용으로
+                     합친 뒤에는 「보고 있는 미등록 목록이 나오겠지」로 읽혀 다른 자료를 받게 된다. -->
+                <button class="btn btn-ghost btn-sm" id="settlementExcelBtn" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
                   엑셀
                 </button>
@@ -1562,13 +1564,26 @@
                 <label>캠페인</label>
                 <div id="settlementCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
+              <!-- 「모집 형식」·「초기화」는 **미등록 탭에서만** 나타난다(showUnregisteredTab/hideUnregisteredTab 이 짝으로 토글).
+                   ⚠️ 숨길 때 값도 함께 비운다 — 안 비우면 걸린 줄 모르는 필터가 남아
+                      「전체 선택 → 송금완료 기록」으로 이어진다(되돌릴 수 없는 기록이다). -->
+              <div class="admin-filter-group" id="settlementTypeFilterGroup" style="display:none">
+                <label>모집 형식</label>
+                <select id="settlementTypeFilter" class="admin-filter" style="width:140px" onchange="onSettlementFilterChange()">
+                  <option value="">전체</option>
+                  <option value="monitor">리뷰어형</option>
+                  <option value="gifting">기프팅</option>
+                  <option value="visit">방문형</option>
+                </select>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderSettlementsList()">
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 가나 · 이메일 검색" oninput="onSettlementFilterChange()">
                 </div>
               </div>
+              <button class="btn btn-ghost btn-sm" id="settlementResetBtn" style="display:none" onclick="resetPastUnregFilters()">초기화</button>
             </div>
             <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
             <!-- 「미등록」 탭 안내 — 도입일 유무로 문구가 갈린다(applyUnregisteredNotice) -->
@@ -1640,13 +1655,10 @@
 
           <div id="settlementPastView" style="display:none;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-              <button class="btn btn-ghost btn-sm" onclick="closePastUnregView()">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
-                정산 목록으로
-              </button>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">미등록</div>
-            </div>
+            <!-- ⚠️ 백버튼·「미등록」 제목은 없앴다(2026-08-19) — 위쪽 상태 탭이 이미 어느 탭인지
+                 말하고 있어 같은 말을 두 번 하고, 돌아가는 길도 둘이 됐다. 돌아가기는 「전체」 탭.
+                 ⚠️ `closePastUnregView()` 함수 자체는 **지우지 않는다** — 페인 재진입 정리(loadSettlements)와
+                    안내 배너의 「확인하러 가기」가 아직 그 길을 쓴다. -->
             <!-- ⚠️ 「이 건이 무엇인가」는 위 #unregisteredNotice 한 곳에서만 말한다.
                  여기 있던 「정산 도입 이전에…」 문구는 지웠다 — ①같은 말을 두 곳에서 하면
                  두 안내가 겹쳐 뜨고 ②마이그레이션 337 로 컷오프 조건이 빠져 **도입일 이후
@@ -1656,27 +1668,8 @@
               <b>인플루언서에게는 정산이 보이지 않고 알림도 가지 않습니다.</b> 이 기록은 운영팀 장부용입니다.
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
-            <!-- 필터 — 캠페인 단위로 나눠 처리하도록(대량 오조작 방지). 필터를 바꾸면 선택은 초기화된다 -->
-            <div class="admin-filter-bar" style="margin-bottom:10px">
-              <div class="admin-filter-group">
-                <label>캠페인</label>
-                <div id="pastUnregCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>모집 형식</label>
-                <select id="pastUnregTypeFilter" class="admin-filter" style="width:140px" onchange="onPastUnregFilterChange()">
-                  <option value="">전체</option>
-                  <option value="monitor">리뷰어형</option>
-                  <option value="gifting">기프팅</option>
-                  <option value="visit">방문형</option>
-                </select>
-              </div>
-              <div class="admin-filter-group" style="flex:1;min-width:180px">
-                <label>인플루언서 검색</label>
-                <input type="text" id="pastUnregSearch" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="이름 · 가나 · 이메일" oninput="onPastUnregFilterChange()">
-              </div>
-              <button class="btn btn-ghost btn-sm" onclick="resetPastUnregFilters()">초기화</button>
-            </div>
+            <!-- ⚠️ 캠페인·모집 형식·검색·초기화는 **위쪽 공용 줄로 옮겼다**(2026-08-19).
+                 여기 있던 것을 지운 것이라, 공용 줄 쪽이 미등록 탭에서 제대로 보이는지 확인할 것. -->
             <div class="admin-filter-bar">
               <div class="admin-filter-group" style="flex:1;min-width:220px">
                 <label>메모 (선택 · 처리 건에 함께 기록)</label>
