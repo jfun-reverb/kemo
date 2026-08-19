@@ -1423,7 +1423,11 @@ function readPastUnregFilters() {
 // 캠페인 필터를 제외한 조건(캠페인별 건수 집계 기준과 목록 필터가 같은 함수를 쓰도록 분리)
 function passesPastUnregNonCamp(r, type, search) {
   if (type && r.recruit_type !== type) return false;
-  if (search && !matchSearchTokens(search, [r.influencer_name, r.influencer_name_kana])) return false;
+  // 이름·가나·이메일 — 다른 탭(정산 목록)과 **같은 세 가지**로 찾는다(2026-08-19 사용자 결정).
+  //   ⚠️ 이메일은 마이그레이션 344 로 서버 함수가 내려주기 시작한 값이다. 적용 전에는 그 칸이
+  //      비어 있는데, matchSearchTokens 가 빈 값을 그냥 건너뛰므로 **이름·가나 검색은 그대로**
+  //      동작한다(화면이 데이터베이스보다 먼저 배포돼도 안 깨진다).
+  if (search && !matchSearchTokens(search, [r.influencer_name, r.influencer_name_kana, r.influencer_email])) return false;
   return true;
 }
 
