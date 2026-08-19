@@ -9538,6 +9538,33 @@ async function requestWithdrawal(reasonCode, reasonNote) {
   }
 }
 
+// 회원(본인) 탈퇴 취소 RPC 호출 (마이그레이션 349).
+// 인자 없음 — 사람당 활성 탈퇴 신청은 항상 1건뿐이라 대상을 지정할 필요가 없다.
+// 반환은 cancel_withdrawal() 의 jsonb 결과를 그대로 전달한다.
+//   성공: { ok:true, status:'cancelled', previous_status:'pending_payout'|'scheduled' }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//          'audit_account_blocked'|'already_done'|'already_cancelled'|
+//          'admin_requested' }
+//   ⚠️ 'admin_requested' — 관리자가 대신 신청한(자격 상실 등) 탈퇴는 본인이
+//          취소할 수 없다. 'already_done' — 이미 확정된 탈퇴는 되돌릴 수 없다.
+//   네트워크/예외 실패: { ok:false, error: <메시지> } — reason 이 아니라
+//          error 키로 온다. 호출 측에서 반드시 구분해서 분기할 것.
+async function cancelWithdrawal() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('cancel_withdrawal');
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[cancelWithdrawal]', e); logAppError('cancelWithdrawal', e);
+    return {ok: false, error: msg};
+  }
+}
+
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
 // allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
 // 모달에서 「저장」 클릭 시 호출. RLS 가 본인 또는 super_admin 만 허용.
