@@ -1060,12 +1060,12 @@ async function fetchMyNotifications(opts) {
     const uid = s?.user?.id;
     if (!uid) return [];
     let q = db?.from('notifications').select('*').eq('user_id', uid).order('created_at', {ascending: false});
-    // 정산 잠금(관리자만 기록) 중에는 정산 알림 2종을 목록·미읽음 배지 양쪽에서 제외.
-    // 단일 지점에서 걸러야 「배지 숫자는 있는데 목록은 비어있음」 불일치가 안 생긴다
-    // (refreshNotifBadge 가 이 함수 결과 개수를 그대로 배지에 쓰므로).
-    if (typeof settlementPublic === 'function' && !settlementPublic()) {
-      q = q.not('kind', 'in', '(settlement_paid,settlement_paypal_required)');
-    }
+    // 정산 알림 2종은 **항상** 목록·미읽음 배지 양쪽에서 제외한다(2026-08-19 — 인플루언서
+    // 정산 노출을 없앴다). 서버도 더 이상 만들지 않지만(마이그레이션 343), 옛 행이 남아 있어도
+    // 보이지 않게 여기서도 막는다 — 눌러도 갈 화면이 없다.
+    // ⚠️ 단일 지점에서 걸러야 「배지 숫자는 있는데 목록은 비어있음」 불일치가 안 생긴다
+    //    (refreshNotifBadge 가 이 함수 결과 개수를 그대로 배지에 쓴다).
+    q = q.not('kind', 'in', '(settlement_paid,settlement_paypal_required)');
     if (opts?.unreadOnly) q = q.is('read_at', null);
     if (opts?.limit) q = q.limit(opts.limit);
     const {data, error} = await q;
@@ -4377,38 +4377,11 @@ async function fetchSettlements(opts) {
   } catch(e) { console.error('[fetchSettlements]', e); return []; }
 }
 
-// 정산 인플루언서 공개 여부 조회 (is_settlement_public, 마이그레이션 240).
-// 불리언만 반환하는 SECURITY DEFINER 함수 — 로그인 사용자면 누구나 호출 가능.
-// 실패 시 false(잠금) 로 폴백해 안전측으로 동작.
-async function isSettlementPublic() {
-  if (!db) return false;
-  try {
-    const {data, error} = await db.rpc('is_settlement_public');
-    if (error) throw error;
-    return data === true;
-  } catch(e) { console.error('[isSettlementPublic]', e); logAppError('isSettlementPublic', e); return false; }
-}
-
 // 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
 // 필터 없이 그대로 조회해도 안전.
-// ⚠️ 마이그레이션 240 이후 본인 조회 정책에 공개 스위치가 함께 걸려 있어, 잠금 상태에서는
-//    서버가 0건을 반환한다(화면 가림과 이중 방어).
-// 인플루언서 본인 정산 조회.
-//   paid_amount_jpy(마이그레이션 338) = 실제로 보낸 금액. 없으면 계산 금액과 같다는 뜻.
-//   ⚠️ 이 칸을 안 가져오면 인플루언서 화면이 **계산 금액**을 받은 금액인 양 보여준다.
-//   ★★ 조회문 문자열 안쪽에 주석을 넣지 말 것 — 열 이름으로 전달돼 조회가 통째로 깨진다.
-async function fetchMySettlements() {
-  if (!db) return [];
-  try {
-    const {data, error} = await db.from('settlements').select(`
-      id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
-      amount_source, paid_amount_jpy,
-      campaigns:campaign_id (id, title, brand, img1)
-    `).order('created_at', {ascending: false});
-    if (error) throw error;
-    return data || [];
-  } catch(e) { console.error('[fetchMySettlements]', e); logAppError('fetchMySettlements', e); return []; }
-}
+// ⚠️ 인플루언서 본인 정산 조회 함수(fetchMySettlements)는 **없앴다**(2026-08-19).
+//    서버의 본인 조회 정책도 함께 지웠으므로(마이그레이션 343) 되살리려면 정책부터 되돌려야
+//    한다 — 함수만 되살리면 조회가 오류 없이 **0건**을 돌려줘 원인을 찾기 어렵다.
 
 // 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
 // 재검증하므로 campaign_manager 가 호출하면 42501(permission_denied) 에러.

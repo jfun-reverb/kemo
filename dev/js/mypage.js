@@ -475,12 +475,10 @@ async function toggleMarketingEmail(checked) {
 }
 
 function openMypageSub(sub, pushHistory) {
-  // 정산 잠금(관리자만 기록) 중에는 「報酬・精算」 화면 진입을 차단하고 응모이력으로 폴백.
-  // 햄버거에서 항목을 숨겨도 과거 북마크·브라우저 뒤로가기·해시 직접 입력(#mypage-settlements)으로
-  // 들어올 수 있고, 그 경우 서버가 0건을 주므로 텅 빈 화면이 노출된다.
-  if (sub === 'settlements' && typeof settlementPublic === 'function' && !settlementPublic()) {
-    sub = 'applications';
-  }
+  // ⚠️ 「報酬・精算」 화면은 없앴다(2026-08-19). 이 되돌림은 **지우면 안 된다** — 과거 북마크·
+  //    브라우저 뒤로가기·해시 직접 입력(#mypage-settlements)으로 들어올 수 있는데, 화면이 없으면
+  //    어느 것도 활성화되지 않아 **텅 빈 마이페이지**가 뜬다.
+  if (sub === 'settlements') sub = 'applications';
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
@@ -488,8 +486,6 @@ function openMypageSub(sub, pushHistory) {
   // 즉시 채워 빈 박스/stale 선택 방지. 데이터 로드(loadMyApplications) 전이라도 항목은 보이고,
   // 로드 완료 후 renderMyApplyTabs 재호출로 건수까지 갱신된다.
   if (sub === 'applications' && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
-  // 報酬・精算 진입 시 정산 내역 렌더 (본인 RLS 조회).
-  if (sub === 'settlements' && typeof renderMySettlements === 'function') renderMySettlements();
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
@@ -503,94 +499,6 @@ function closeMypageSub() {
   const def = $('mypage-sub-applications');
   if (def) def.classList.add('active');
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 報酬・精算 조회 (인플루언서 정산 관리 PR3 — 마이페이지 조회 화면)
-// fetchMySettlements() 는 RLS 로 본인행만 반환. 취소(cancelled) 건은 화면에서 숨김.
-// ════════════════════════════════════════════════════════════════════
-
-// 정산 상태 → 라벨 키·pill 색. 동적 렌더라 applyI18n 미적용 → langchange 시 renderMySettlements 재호출로 갱신.
-function settlementStatusMeta(status) {
-  const map = {
-    pending: {key:'mypage.settlements.status.pending', bg:'#EFEFF2', color:'#5B5B66'},
-    paid:    {key:'mypage.settlements.status.paid',    bg:'#E6F4EA', color:'#2D7A3E'},
-    on_hold: {key:'mypage.settlements.status.onHold',  bg:'#FBEFDD', color:'#B8741A'},
-  };
-  return map[status] || map.pending;
-}
-
-async function renderMySettlements() {
-  const totalEl = $('mySettlementTotal');
-  const listEl = $('mySettlementsList');
-  const noticeEl = $('mySettlementPaypalNotice');
-  if (!listEl) return;
-
-  // PayPal 미등록 안내 표시/숨김 (등록됐으면 숨김)
-  if (noticeEl) {
-    const hasPaypal = !!(currentUserProfile && currentUserProfile.paypal_email);
-    noticeEl.style.display = hasPaypal ? 'none' : '';
-  }
-
-  let rows = [];
-  // ⚠️ 조회 실패가 「정산 내역 0건」과 구분되지 않는다(금전 화면이라 오해 여지가 크다).
-  try { rows = await fetchMySettlements(); } catch(e) { logAppError('renderMySettlements', e); rows = []; }
-  // 취소 건 숨김
-  rows = (rows || []).filter(r => r && r.status !== 'cancelled');
-
-  const yen = n => '¥' + Number(n || 0).toLocaleString('ja-JP');
-  // 누적 수령액 = 송금 완료(paid)만 합산 / 지급 예정 = 대기(pending) 합산(보조 표기)
-  // ⚠️ **실제로 받은 금액**으로 센다. 계산값만 더하면 다르게 보낸 건이 섞였을 때
-  //    인플루언서가 보는 누적 수령액이 실제 입금액과 어긋난다(공용 헬퍼 settlementEffectiveAmount).
-  //    이 화면은 지금 잠겨 있지만 코드는 살아 있어, 안 고치면 켜는 날 틀린 값이 뜬다.
-  const paidTotal = rows.filter(r => r.status === 'paid').reduce((s, r) => s + settlementEffectiveAmount(r), 0);
-  const pendingTotal = rows.filter(r => r.status === 'pending').reduce((s, r) => s + settlementEffectiveAmount(r), 0);
-
-  if (totalEl) {
-    totalEl.innerHTML = `
-      <div style="background:linear-gradient(135deg,var(--pink),var(--dark-pink));border-radius:14px;padding:18px 20px;color:#fff;margin-bottom:16px">
-        <div style="font-size:12px;opacity:.9;margin-bottom:6px">${esc(t('mypage.settlements.totalLabel'))}</div>
-        <div style="font-size:28px;font-weight:800;letter-spacing:.5px">${esc(yen(paidTotal))}</div>
-        ${pendingTotal > 0 ? `<div style="font-size:11px;opacity:.9;margin-top:8px">${esc(t('mypage.settlements.pendingLabel'))} ${esc(yen(pendingTotal))}</div>` : ''}
-      </div>`;
-  }
-
-  // 내역 0건 (취소 제외 후)
-  if (!rows.length) {
-    listEl.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:40px 16px">${esc(t('mypage.settlements.empty'))}</div>`;
-    return;
-  }
-
-  listEl.innerHTML = rows.map(r => {
-    const camp = r.campaigns || {};
-    const title = camp.title || '';
-    const orig = camp.img1 || '';
-    const thumb = orig ? (typeof imgThumb === 'function' ? imgThumb(orig, 120, 60) : orig) : '';
-    const meta = settlementStatusMeta(r.status);
-    const statusLabel = t(meta.key);
-    const paidLine = (r.status === 'paid' && r.paid_at)
-      ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(formatDate(r.paid_at))}</div>`
-      : '';
-    const imgHtml = thumb
-      ? `<img src="${esc(thumb)}" data-orig="${esc(orig)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0" loading="lazy" decoding="async" alt="">`
-      : `<div style="width:52px;height:52px;border-radius:10px;background:var(--light-pink);flex-shrink:0"></div>`;
-    return `<div style="display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)">
-      ${imgHtml}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(title)}</div>
-        ${r.amount_source === 'receipt_amount'
-          // 「왜 이 금액인가」를 인플루언서가 스스로 알 수 있게 한다(300 이후 리뷰어형).
-          // 옛 기준으로 만들어진 행에는 이 값이 없어 아무것도 그리지 않는다.
-          ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('mypage.settlements.basisReceipt'))}</div>`
-          : ''}
-        ${paidLine}
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(yen(settlementEffectiveAmount(r)))}</div>
-        <span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:${meta.bg};color:${meta.color}">${esc(statusLabel)}</span>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 // 언어 토글 버튼 상태 업데이트
@@ -615,12 +523,6 @@ window.addEventListener('langchange', updateLangToggleUI);
 // 언어 전환 시 응모이력 상태 드롭다운 라벨(進行中 등) 갱신 — 동적 렌더라 applyI18n 미적용 대상
 window.addEventListener('langchange', () => {
   if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
-});
-
-// 언어 전환 시 정산 화면이 열려 있으면 동적 pill·금액 라벨 갱신 (applyI18n 미적용 대상)
-window.addEventListener('langchange', () => {
-  const view = $('mypage-sub-settlements');
-  if (view && view.classList.contains('active') && typeof renderMySettlements === 'function') renderMySettlements();
 });
 
 // 생년월일·성별 읽기 전용 표시 갱신 (loadMyPage + 언어 전환 공용 — 동적 텍스트라 applyI18n 미적용)
