@@ -17,6 +17,13 @@ let _settlements = [];
 let _settlementsLoaded = false;
 let _settlementFilters = { status: 'pending', campaignIds: [], search: '' };
 let _settlementModalCtx = null;  // 열려 있는 처리 모달 대상 {id, version, mode?}
+// 정산 관리에 **들어갈 때 열 화면** — 'list'(정산 목록) / 'unregistered'(미등록) / null(기본=지급 준비).
+//   ⚠️ 필터만 걸고 페인을 전환하면 안 된다. `loadSettlements()` 는 마지막에 **늘** 지급 준비를
+//      켜므로, 걸어 둔 필터가 화면에 반영되지 않는다 — 사이드바 「정산대기」 배지가 실제로
+//      그랬다(2026-08-18 「첫 화면=지급 준비」 변경 이후, 눌러도 지급 준비만 떴다).
+//   ⚠️ **한 번 쓰고 버린다** — `loadSettlements()` 시작에서 꺼내 즉시 비운다. 안 비우면
+//      다음에 그냥 들어올 때도 그 화면이 열린다.
+let _settlementEntryView = null;
 // 「정산대기」 탭에서 일괄 송금완료로 고른 정산 id 들.
 //   ⚠️ 화면에 그려진 행만이 아니라 **필터를 통과한 정산대기 전부**가 선택 대상이다
 //      (목록이 조금씩 그려지는 구조라, 보이는 것만 고르면 스크롤 위치에 따라 결과가 달라진다).
@@ -209,6 +216,9 @@ function settlementCampCell(camp) {
 
 // 페인 진입 로더 — ①인증성공 응모 백필(멱등, best-effort) ②전건 조회 ③렌더 + 배지
 async function loadSettlements() {
+  // ★ 이번 진입에서 열 화면. **여기서 꺼내 즉시 비운다**(한 번 쓰고 버리는 값).
+  const entryView = _settlementEntryView;
+  _settlementEntryView = null;
   // 재진입 시 열려 있던 화면을 정리한다 — 안 닫으면 **옛 데이터가 그대로** 남는다.
   if ($('settlementPastView') && $('settlementPastView').style.display !== 'none') {
     closePastUnregView();
@@ -243,7 +253,23 @@ async function loadSettlements() {
   //      지급 준비는 「이번 달에 누구에게 얼마 보내나」에 답하는 화면이고 실제 데이터가 있다.
   //   ⚠️ 돌아가는 길은 그 화면 상단의 「← 정산 목록」 버튼이다(closePayoutPrepView).
   //   ⚠️ 조회 실패해도 화면 전환은 그대로 둔다 — 그 화면이 실패를 스스로 알린다.
-  openPayoutPrepView();          // await 안 함 — 목록 조회를 막지 않는다
+  //   ⚠️ 다만 **부르는 쪽이 열 화면을 지정했으면 그쪽을 따른다**(`_settlementEntryView`).
+  //      사이드바의 배지·경고 표시처럼 「이 목록을 보여 달라」고 들어오는 경로가 있는데,
+  //      여기서 무조건 지급 준비를 켜면 그 요청이 조용히 덮인다.
+  if (entryView === 'unregistered') {
+    // 지급 준비 화면은 showUnregisteredTab() 이 직접 닫는다(세 화면 배타).
+    _settlementFilters.status = 'unregistered';
+    showUnregisteredTab();
+  } else if (entryView === 'list') {
+    // ⚠️ 전제 — 이 값을 거는 곳(enterSettlementsWithView)이 상태 탭을 함께 목록 쪽으로
+    //    맞춰 둔다. 안 맞춰 두면 아래 closePayoutPrepView() 가 「미등록」이라 판단해
+    //    방금 감춘 미등록 화면을 다시 켠다.
+    hideUnregisteredTab();
+    closePayoutPrepView();
+    renderSettlementsList();     // 걸어 둔 상태 탭·필터를 화면에 반영
+  } else {
+    openPayoutPrepView();        // await 안 함 — 목록 조회를 막지 않는다
+  }
 }
 
 // 데이터 재조회(백필 없음) — 처리 모달 저장 후 refreshPane('settlements') 가 호출
@@ -388,15 +414,38 @@ async function applyUnregisteredNotice() {
     : '인증에 성공했지만 아직 정산 행이 만들어지지 않은 건입니다. <b>지금은 자동 등록이 꺼져 있어 손으로 등록해야 합니다.</b>';
 }
 
+// 정산 관리로 **열 화면을 지정해서** 들어간다 — 사이드바의 숫자 배지·경고 표시 공용.
+//   ⚠️ 필터만 걸고 들어가면 안 된다. 페인 진입이 **첫 화면으로 지급 준비를 켜면서 그 필터를
+//      덮는다** — 배지를 눌러도 정산대기 목록이 아니라 지급 준비가 뜨던 원인이다.
+//   ⚠️ 필터도 의도도 **실제로 이동이 일어나는 순간에만** 건다. 미리 걸면 캠페인 폼의
+//      「저장 안 한 변경」 확인창에서 **취소**했을 때 이동은 없이 값만 남아, 한참 뒤 그냥
+//      정산 관리에 들어올 때 엉뚱한 화면이 열린다(2026-08-19 리뷰 지적).
+//   ⚠️ `navAdminPaneReload` 를 그대로 못 쓰는 이유가 이것뿐이다 — 그 함수는 값을 걸 자리를
+//      내주지 않는다. 나머지 동작(히스토리 기록·사이드바 활성 표시)은 그 함수와 똑같이
+//      `switchAdminPane(pane, null, true)` 로 맞춘다. 저장 확인 게이트도 그대로 탄다.
+function enterSettlementsWithView(view) {
+  const go = function() {
+    _settlementFilters.status = (view === 'unregistered') ? 'unregistered' : 'pending';
+    _settlementFilters.search = '';
+    _settlementFilters.campaignIds = [];
+    const s = document.getElementById('settlementSearch'); if (s) s.value = '';
+    if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+    if (typeof switchAdminPane === 'function') {
+      _settlementEntryView = view;      // 진입 로더가 꺼내 쓰고 즉시 비운다
+      switchAdminPane('settlements', null, true);
+      return;
+    }
+    // 페인 전환 함수가 없으면(빌드 어긋남) 의도를 소비할 곳도 없다 — 제자리에서 직접 그린다.
+    if (view === 'unregistered') { showUnregisteredTab(); return; }
+    hideUnregisteredTab(); closePayoutPrepView(); reloadSettlementsData();
+  };
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
+  go();
+}
+
 // 사이드바 「정산 관리」 배지 클릭 → 다른 필터 초기화 후 「정산대기」만 (기준: openDelivPendingReview)
 function openSettlementsPending() {
-  _settlementFilters.status = 'pending';
-  _settlementFilters.search = '';
-  _settlementFilters.campaignIds = [];
-  const s = document.getElementById('settlementSearch'); if (s) s.value = '';
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
-  if (typeof navAdminPaneReload === 'function') navAdminPaneReload('settlements');
-  else reloadSettlementsData();
+  enterSettlementsWithView('list');
 }
 
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
@@ -2437,15 +2486,14 @@ function applySettlementUnregWarning() {
     mark.setAttribute('translate', 'no');
     mark.style.cssText = 'font-size:14px;color:#B8741A;margin-left:4px;cursor:pointer';
     mark.textContent = 'report_problem';
-    // ⚠️ 페인 전환을 **기다린 뒤** 탭을 연다. 안 기다리면 loadSettlements() 안의
-    //    미등록 조회와 showUnregisteredTab() 의 조회가 **같은 전역변수를 동시에 쓰고**
-    //    나중에 끝난 쪽이 앞선 쪽 상태를 덮는다(_pastUnregRows·_pastUnregById 어긋남).
-    //    기존 openSettlementsPending() 도 「필터 먼저, 화면 나중」 순서를 쓴다.
-    mark.onclick = async function(e) {
+    // ⚠️ 열 화면을 **지정해서** 들어간다(배지와 같은 헬퍼). 지정 없이 필터만 걸면 페인
+    //    진입이 첫 화면으로 지급 준비를 켜고, 뒤늦게 미등록을 켜면 두 화면이 **세로로 겹쳐
+    //    둘 다** 보인다(2026-08-19 사용자 보고).
+    //  ⚠️ 미등록 조회는 여전히 두 번 돈다(진입 로더의 건수 갱신 + 미등록 화면의 목록).
+    //     같은 조회라 결과가 같아 화면은 어긋나지 않지만, 줄이려면 진입 로더 쪽을 손봐야 한다.
+    mark.onclick = function(e) {
       e.stopPropagation();
-      await switchAdminPane('settlements');
-      _settlementFilters.status = 'unregistered';
-      showUnregisteredTab();
+      enterSettlementsWithView('unregistered');
     };
     item.appendChild(mark);
   }
