@@ -17067,6 +17067,11 @@ function populateMyApplyChannelOptions() {
 
 let _cancelTargetAppId = null;
 let _cancelReasonsCache = null;
+// 지난 기록의 사유 라벨 조회용 — 목록에서 감춘 사유(회원 탈퇴·운영진 취소)도 포함해야
+// 이미 그 사유로 취소된 응모의 상세가 빈 칸으로 보이지 않는다.
+// ⚠️ 고르는 드롭다운(_cancelReasonsCache)과 절대 합치지 말 것 — 합치면 회원이
+//    「회원 탈퇴」·「운영진 취소」를 자기 취소 사유로 고를 수 있게 된다.
+let _cancelReasonsAllCache = null;
 
 // 클라이언트측 cancel_phase 계산 — 서버 RPC 의 CASE 와 동일 우선순위.
 // 모달 분기(단순 vs 사유 입력)와 phase 라벨 표시에 사용. 서버가 최종 검증.
@@ -17392,8 +17397,8 @@ async function submitCancelApplicationFromPage() {
 async function openCancelDetailModal(appId) {
   const app = _myApps.find(a => a.id === appId);
   if (!app) return;
-  if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
-  const reason = _cancelReasonsCache.find(r => r.code === app.cancel_reason_code);
+  if (!_cancelReasonsAllCache) _cancelReasonsAllCache = await fetchCancelReasons({ includeInactive: true });
+  const reason = _cancelReasonsAllCache.find(r => r.code === app.cancel_reason_code);
   const setText = (id, text) => { const el = $(id); if (el) el.textContent = text || ''; };
   setText('cancelDetailDatetime', app.cancelled_at ? formatDate(app.cancelled_at) : '—');
   // 현재 언어 토글에 맞춰 카테고리 라벨 표시
