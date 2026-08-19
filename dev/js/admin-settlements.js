@@ -338,6 +338,14 @@ function setSettlementStatusTab(btn) {
 function showUnregisteredTab() {
   const main = $('settlementMainView'), past = $('settlementPastView');
   if (!past) return;
+  // ⚠️ **지급 준비 화면을 여기서 반드시 닫는다.** 세 화면(정산 목록·미등록·지급 준비)은
+  //    서로 배타여야 하는데, 지급 준비는 목록 화면의 **형제**라 이 함수가 메인 뷰를 켜는
+  //    것만으로는 안 사라진다 — 지급 준비와 미등록이 **세로로 겹쳐 한 화면에 둘 다** 뜬다.
+  //    실제 경로: 사이드바 「정산 관리」 옆 경고 표시 클릭 → 페인 진입이 첫 화면으로
+  //    지급 준비를 켜고(loadSettlements), 그 직후 이 함수가 미등록을 켠다(2026-08-19 보고).
+  //    openPayoutPrepView() 가 반대 방향으로 hideUnregisteredTab() 을 부르는 것과 짝이다.
+  const payout = $('settlementPayoutView');
+  if (payout) payout.style.display = 'none';
   // 상태 탭 바는 계속 보여야 하므로 메인 뷰의 **목록 부분만** 감춘다.
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = 'none';
