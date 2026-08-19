@@ -509,11 +509,17 @@ function updateLangToggleUI() {
   });
 }
 
-// 회원 탈퇴 핸들러 (i18n 대응)
+// 회원 탈퇴 안내 (i18n 대응)
+//   ⚠️ **확인창을 띄우지 않는다.** 「정말 탈퇴하시겠습니까?」라고 물으려면 「예」를 눌렀을 때
+//      실제로 탈퇴가 돼야 하는데, 지금은 **서버에 아무 일도 일어나지 않는다.** 묻는 것 자체가
+//      거짓 전제라 없앴다(2026-08-19). 「접수했습니다」라는 안내도 같은 이유로 지웠다.
+//   ⚠️ **연락처는 남긴다** — 지우면 갈 곳이 0개가 된다(응모를 한 번도 안 한 회원은 앱 안에
+//      창구가 없다). 앱 안 문의 창구가 생기면 그때 LINE 안내를 지운다(작업표 작업 2).
+//   진짜 탈퇴 기능은 사양서 `docs/specs/2026-08-18-member-withdrawal.md`.
 function handleWithdraw() {
-  const confirmMsg = typeof t === 'function' ? t('mypage.withdrawConfirm') : '本当に退会しますか？';
-  const toastMsg = typeof t === 'function' ? t('mypage.withdrawToast') : '退会申請を受け付けました。運営にLINEでご連絡ください。';
-  if (confirm(confirmMsg)) toast(toastMsg);
+  const guide = typeof t === 'function' ? t('mypage.withdrawGuide')
+    : '退会をご希望の方は、運営までLINEでご連絡ください。担当者がご案内します。';
+  toast(guide);
 }
 
 // 초기 + langchange 이벤트에서 토글 상태 갱신
