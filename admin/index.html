@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787121961';
+  var CURRENT_BUILD = 'v1787123349';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-19 15:46 · 6754f32</span>
+          <span class="admin-build-text">2026-08-19 16:09 · 58f6e61</span>
         </div>
       </div>
     </aside>
@@ -4329,7 +4329,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
                   지급 준비
                 </button>
-                <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                <!-- ⚠️ 미등록 탭에서는 숨긴다 — 이 버튼은 **정산 목록**을 내보내므로, 필터를 공용으로
+                     합친 뒤에는 「보고 있는 미등록 목록이 나오겠지」로 읽혀 다른 자료를 받게 된다. -->
+                <button class="btn btn-ghost btn-sm" id="settlementExcelBtn" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
                   엑셀
                 </button>
@@ -4347,13 +4349,26 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>캠페인</label>
                 <div id="settlementCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
+              <!-- 「모집 형식」·「초기화」는 **미등록 탭에서만** 나타난다(showUnregisteredTab/hideUnregisteredTab 이 짝으로 토글).
+                   ⚠️ 숨길 때 값도 함께 비운다 — 안 비우면 걸린 줄 모르는 필터가 남아
+                      「전체 선택 → 송금완료 기록」으로 이어진다(되돌릴 수 없는 기록이다). -->
+              <div class="admin-filter-group" id="settlementTypeFilterGroup" style="display:none">
+                <label>모집 형식</label>
+                <select id="settlementTypeFilter" class="admin-filter" style="width:140px" onchange="onSettlementFilterChange()">
+                  <option value="">전체</option>
+                  <option value="monitor">리뷰어형</option>
+                  <option value="gifting">기프팅</option>
+                  <option value="visit">방문형</option>
+                </select>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderSettlementsList()">
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 가나 · 이메일 검색" oninput="onSettlementFilterChange()">
                 </div>
               </div>
+              <button class="btn btn-ghost btn-sm" id="settlementResetBtn" style="display:none" onclick="resetPastUnregFilters()">초기화</button>
             </div>
             <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
             <!-- 「미등록」 탭 안내 — 도입일 유무로 문구가 갈린다(applyUnregisteredNotice) -->
@@ -4425,13 +4440,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
           <div id="settlementPastView" style="display:none;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-              <button class="btn btn-ghost btn-sm" onclick="closePastUnregView()">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">arrow_back</span>
-                정산 목록으로
-              </button>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">미등록</div>
-            </div>
+            <!-- ⚠️ 백버튼·「미등록」 제목은 없앴다(2026-08-19) — 위쪽 상태 탭이 이미 어느 탭인지
+                 말하고 있어 같은 말을 두 번 하고, 돌아가는 길도 둘이 됐다. 돌아가기는 「전체」 탭.
+                 ⚠️ `closePastUnregView()` 함수 자체는 **지우지 않는다** — 페인 재진입 정리(loadSettlements)와
+                    안내 배너의 「확인하러 가기」가 아직 그 길을 쓴다. -->
             <!-- ⚠️ 「이 건이 무엇인가」는 위 #unregisteredNotice 한 곳에서만 말한다.
                  여기 있던 「정산 도입 이전에…」 문구는 지웠다 — ①같은 말을 두 곳에서 하면
                  두 안내가 겹쳐 뜨고 ②마이그레이션 337 로 컷오프 조건이 빠져 **도입일 이후
@@ -4441,27 +4453,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <b>인플루언서에게는 정산이 보이지 않고 알림도 가지 않습니다.</b> 이 기록은 운영팀 장부용입니다.
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
-            <!-- 필터 — 캠페인 단위로 나눠 처리하도록(대량 오조작 방지). 필터를 바꾸면 선택은 초기화된다 -->
-            <div class="admin-filter-bar" style="margin-bottom:10px">
-              <div class="admin-filter-group">
-                <label>캠페인</label>
-                <div id="pastUnregCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>모집 형식</label>
-                <select id="pastUnregTypeFilter" class="admin-filter" style="width:140px" onchange="onPastUnregFilterChange()">
-                  <option value="">전체</option>
-                  <option value="monitor">리뷰어형</option>
-                  <option value="gifting">기프팅</option>
-                  <option value="visit">방문형</option>
-                </select>
-              </div>
-              <div class="admin-filter-group" style="flex:1;min-width:180px">
-                <label>인플루언서 검색</label>
-                <input type="text" id="pastUnregSearch" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="이름 · 가나 · 이메일" oninput="onPastUnregFilterChange()">
-              </div>
-              <button class="btn btn-ghost btn-sm" onclick="resetPastUnregFilters()">초기화</button>
-            </div>
+            <!-- ⚠️ 캠페인·모집 형식·검색·초기화는 **위쪽 공용 줄로 옮겼다**(2026-08-19).
+                 여기 있던 것을 지운 것이라, 공용 줄 쪽이 미등록 탭에서 제대로 보이는지 확인할 것. -->
             <div class="admin-filter-bar">
               <div class="admin-filter-group" style="flex:1;min-width:220px">
                 <label>메모 (선택 · 처리 건에 함께 기록)</label>
@@ -36205,7 +36198,18 @@ function renderSettlementStatusTabs() {
 
 // 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (탭 활성 표시는 renderSettlementsList 내부 재렌더로 갱신)
 function setSettlementStatusTab(btn) {
-  _settlementFilters.status = btn.dataset.status || '';
+  const prev = _settlementFilters.status || '';
+  const next = btn.dataset.status || '';
+  // ★ **미등록을 오가는 전환에서만** 공용 필터를 비운다(2026-08-19 사용자 결정).
+  //   ⚠️ 미등록(509건)과 정산 목록(204건)은 **대상 자료가 다르다.** 선택이 넘어가면 한쪽에만
+  //      있는 캠페인은 말없이 사라지고, 양쪽에 있는 캠페인은 걸린 채 남는다 — 그 상태에서
+  //      「전체 선택 → 송금완료 기록」을 누르면 되돌릴 수 없다.
+  //   ⚠️ 상태 탭끼리(송금완료 ↔ 보류)는 **비우지 않는다** — 같은 자료라 유지가 맞고, 지금까지의
+  //      동작이기도 하다. 이 비대칭은 의도된 것이다.
+  if (prev !== next && (prev === 'unregistered' || next === 'unregistered')) {
+    clearSettlementSharedFilters();
+  }
+  _settlementFilters.status = next;
   // ★ 「미등록」은 정산 행이 없어 같은 목록에 못 그린다 — 전용 화면으로 바꿔 그린다.
   //   ⚠️ 옛 「과거 미등록」 뷰의 함수·요소를 **옮기지 않고 그대로 재사용**한다.
   //      18개 함수·14개 요소를 옮기다 하나 빠뜨리면 **기능이 조용히 사라지는데**
@@ -36228,6 +36232,7 @@ function showUnregisteredTab() {
   //    openPayoutPrepView() 가 반대 방향으로 hideUnregisteredTab() 을 부르는 것과 짝이다.
   const payout = $('settlementPayoutView');
   if (payout) payout.style.display = 'none';
+  applySettlementSharedFilterMode(true);
   // 상태 탭 바는 계속 보여야 하므로 메인 뷰의 **목록 부분만** 감춘다.
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = 'none';
@@ -36248,7 +36253,25 @@ function showUnregisteredTab() {
   loadPastUnregSettlements();
 }
 
+// 공용 줄의 미등록 전용 요소를 켜고 끈다 — 「모집 형식」·「초기화」는 미등록에서만,
+// 「엑셀」은 미등록에서만 감춘다(그 버튼은 **정산 목록**을 내보낸다).
+//   ⚠️ 끌 때 「모집 형식」 **값도 비운다.** 안 비우면 걸린 줄 모르는 필터가 남아, 다른 탭에서
+//      돌아왔을 때 목록이 조용히 걸러진 채로 보인다 — 그 상태의 「전체 선택」이 가장 위험하다.
+function applySettlementSharedFilterMode(isUnregistered) {
+  const typeGroup = $('settlementTypeFilterGroup');
+  if (typeGroup) typeGroup.style.display = isUnregistered ? '' : 'none';
+  const resetBtn = $('settlementResetBtn');
+  if (resetBtn) resetBtn.style.display = isUnregistered ? '' : 'none';
+  const excelBtn = $('settlementExcelBtn');
+  if (excelBtn) excelBtn.style.display = isUnregistered ? 'none' : '';
+  if (!isUnregistered) {
+    const typeEl = $('settlementTypeFilter');
+    if (typeEl) typeEl.value = '';
+  }
+}
+
 function hideUnregisteredTab() {
+  applySettlementSharedFilterMode(false);
   // 메인 뷰가 다시 목록을 담으므로 **남은 높이를 채우도록 되돌린다**(showUnregisteredTab 의 짝).
   //   안 되돌리면 목록이 머리글 높이에 갇혀 스크롤이 안 된다.
   const main = $('settlementMainView');
@@ -36335,6 +36358,9 @@ function getFilteredSettlements() {
 //   · campCounts: 캠페인별 정산 건수. 캠페인 필터는 제외하고 상태 탭·검색은 반영(자기 자신 필터 제외
 //     — 결과물 페인 campCounts 규칙 미러). 카운트 = 그 캠페인만 선택했을 때 실제 결과와 일치.
 function syncSettlementCampaignOptions() {
+  // ⚠️ 미등록 탭에서는 손대지 않는다(위 syncPastUnregCampaignOptions 와 짝) — 두 탭은
+  //    대상 자료가 달라 선택지 목록이 서로 다르다.
+  if (_settlementFilters.status === 'unregistered') return;
   if (!$('settlementCampMulti')) return;
   readSettlementFilters();  // campCounts 가 최신 검색어·상태를 반영하도록 먼저 갱신
   const { status, search } = _settlementFilters;
@@ -36357,7 +36383,7 @@ function syncSettlementCampaignOptions() {
     }
   });
   const campOptionsSource = [...seen.values()];
-  syncCampMultiFilter('settlementCampMulti', campOptionsSource, () => renderSettlementsList(), campCounts);
+  syncCampMultiFilter('settlementCampMulti', campOptionsSource, () => onSettlementFilterChange(), campCounts);
 }
 
 function renderSettlementsList() {
@@ -37205,22 +37231,17 @@ const PAST_UNREG_TYPE_LABELS = { monitor: '리뷰어형', gifting: '기프팅', 
 // ⚠️ 옛 진입 함수 — `index.html` 의 onclick 이 아직 부른다(「확인하러 가기」 등).
 //   지우지 않고 **탭으로 위임**한다. 지우면 그 버튼들이 조용히 죽는다.
 function openPastUnregView() {
+  // ⚠️ **공용 필터를 먼저 비운다.** 이 버튼(「확인하러 가기」)은 정산 목록 화면 상단 안내에서
+  //    눌리는데, 그 화면에 걸어 둔 캠페인·검색이 그대로 미등록 탭으로 따라온다. 그러면
+  //    「금액을 확인해야 하는 건 전부」를 보러 왔는데 **일부가 조용히 빠진 목록**이 열린다.
+  //    사이드바 배지·경고 표시 경로(enterSettlementsWithView)는 이미 비우고 들어간다.
+  clearSettlementSharedFilters();
   _settlementFilters.status = 'unregistered';
   showUnregisteredTab();
 }
 
-function _legacyOpenPastUnregView_unused() {
-  const main = $('settlementMainView');
-  const past = $('settlementPastView');
-  if (main) main.style.display = 'none';
-  if (past) past.style.display = 'flex';
-  // 재진입 시 이전 필터가 남아 「목록이 비어 보이는」 오해를 만들지 않도록 값만 리셋
-  // (resetPastUnregFilters 를 쓰면 데이터 로드 전에 빈 목록이 한 번 렌더돼 깜빡인다)
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('pastUnregCampMulti', '전체 캠페인');
-  const typeEl = $('pastUnregTypeFilter'); if (typeEl) typeEl.value = '';
-  const searchEl = $('pastUnregSearch');   if (searchEl) searchEl.value = '';
-  loadPastUnregSettlements();
-}
+// (옛 진입 함수 `_legacyOpenPastUnregView_unused` 는 없앴다 — 부르는 곳이 0곳인데
+//  없어진 화면 요소를 가리키고 있었다. 2026-08-19)
 
 // 옛 이탈 함수 — 「전체」 탭으로 돌아간다.
 function closePastUnregView() {
@@ -37253,7 +37274,10 @@ async function loadPastUnregSettlements() {
 // 캠페인 옵션은 조회 결과의 distinct 캠페인 + 캠페인별 건수(캠페인 필터 자신은 제외 —
 // 정산 메인·결과물 페인 campCounts 규칙 미러).
 function syncPastUnregCampaignOptions() {
-  if (!$('pastUnregCampMulti') || typeof syncCampMultiFilter !== 'function') return;
+  // ⚠️ 미등록 탭이 아닐 때는 손대지 않는다 — 안 막으면 처리 직후 목록 갱신이 정산 행 기준으로
+  //    선택지를 덮어써, 미등록 화면에서 방금 고른 캠페인이 사라진다.
+  if (_settlementFilters.status !== 'unregistered') return;
+  if (!$('settlementCampMulti') || typeof syncCampMultiFilter !== 'function') return;
   const { type, search } = readPastUnregFilters();
   const seen = new Map();
   const campCounts = {};
@@ -37265,15 +37289,26 @@ function syncPastUnregCampaignOptions() {
       campCounts[r.campaign_id] = (campCounts[r.campaign_id] || 0) + 1;
     }
   });
-  syncCampMultiFilter('pastUnregCampMulti', [...seen.values()], () => onPastUnregFilterChange(), campCounts);
+  syncCampMultiFilter('settlementCampMulti', [...seen.values()], () => onSettlementFilterChange(), campCounts);
 }
 
+// 미등록 탭 필터 — **위쪽 공용 줄**을 읽는다(2026-08-19 통합). 전용 필터 줄은 없앴다.
+//   ⚠️ 검색어를 소문자로 만들지 않아도 된다 — `matchSearchTokens` 가 찾는 말을 스스로 낮춘다.
 function readPastUnregFilters() {
   return {
-    campaignIds: (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('pastUnregCampMulti') : [],
-    type: $('pastUnregTypeFilter')?.value || '',
-    search: ($('pastUnregSearch')?.value || '').trim(),
+    campaignIds: (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('settlementCampMulti') : [],
+    type: $('settlementTypeFilter')?.value || '',
+    search: ($('settlementSearch')?.value || '').trim(),
   };
+}
+
+// ★ 공용 필터(캠페인·검색·모집 형식)가 바뀌었을 때의 **단일 분배기**.
+//   ⚠️ 화면마다 다른 함수를 직접 매달지 않는다 — 캠페인 드롭다운은 선택지가 같으면 다시
+//      만들어지지 않아 **옛 탭의 동작이 그대로 남는 일**이 생긴다(그러면 미등록에서 눌렀는데
+//      정산 목록이 그려지고, 선택 초기화도 안 돈다). 분배기 하나면 그 구멍이 없다.
+function onSettlementFilterChange() {
+  if (_settlementFilters.status === 'unregistered') { onPastUnregFilterChange(); return; }
+  renderSettlementsList();
 }
 
 // 캠페인 필터를 제외한 조건(캠페인별 건수 집계 기준과 목록 필터가 같은 함수를 쓰도록 분리)
@@ -37296,10 +37331,17 @@ function onPastUnregFilterChange() {
 }
 
 function resetPastUnregFilters() {
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('pastUnregCampMulti', '전체 캠페인');
-  const typeEl = $('pastUnregTypeFilter'); if (typeEl) typeEl.value = '';
-  const searchEl = $('pastUnregSearch');   if (searchEl) searchEl.value = '';
+  clearSettlementSharedFilters();
   onPastUnregFilterChange();
+}
+
+// 공용 줄(캠페인·검색·모집 형식)을 비운다 — 초기화 버튼과 탭 전환이 함께 쓴다.
+function clearSettlementSharedFilters() {
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('settlementCampMulti', '전체 캠페인');
+  const typeEl = $('settlementTypeFilter'); if (typeEl) typeEl.value = '';
+  const searchEl = $('settlementSearch');   if (searchEl) searchEl.value = '';
+  _settlementFilters.campaignIds = [];
+  _settlementFilters.search = '';
 }
 
 function applyPastUnregFilters() {
