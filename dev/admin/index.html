@@ -1586,8 +1586,6 @@
               <button class="btn btn-ghost btn-sm" id="settlementResetBtn" style="display:none" onclick="resetPastUnregFilters()">초기화</button>
             </div>
             <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
-            <!-- 「미등록」 탭 안내 — 도입일 유무로 문구가 갈린다(applyUnregisteredNotice) -->
-            <div id="unregisteredNotice" style="display:none;font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px"></div>
           </div>
           <div id="settlementListCard" class="admin-card">
             <div class="admin-card-header">
@@ -1659,23 +1657,20 @@
                  말하고 있어 같은 말을 두 번 하고, 돌아가는 길도 둘이 됐다. 돌아가기는 「전체」 탭.
                  ⚠️ `closePastUnregView()` 함수 자체는 **지우지 않는다** — 페인 재진입 정리(loadSettlements)와
                     안내 배너의 「확인하러 가기」가 아직 그 길을 쓴다. -->
-            <!-- ⚠️ 「이 건이 무엇인가」는 위 #unregisteredNotice 한 곳에서만 말한다.
-                 여기 있던 「정산 도입 이전에…」 문구는 지웠다 — ①같은 말을 두 곳에서 하면
-                 두 안내가 겹쳐 뜨고 ②마이그레이션 337 로 컷오프 조건이 빠져 **도입일 이후
-                 건도 이 탭에 들어오므로** 「도입 이전」이라는 전제 자체가 사실과 달라졌다.
-                 아래는 **처리할 때 알아야 할 것**만 남긴다(성격이 다르다). -->
+            <!-- 아래 상자는 **처리할 때 알아야 할 것**만 말한다.
+                 ⚠️ 「이 건이 무엇인가」를 설명하던 탭 아래 한 줄은 없앴다(2026-08-19 사용자 요청).
+                    되살릴 때 같은 말을 두 곳에서 하지 않도록 주의할 것. -->
             <div style="padding:10px 12px;background:#FFF7E6;border:1px solid #E9C46A;border-radius:8px;font-size:12px;line-height:1.6;color:#7A5C00;margin-bottom:12px">
               <b>인플루언서에게는 정산이 보이지 않고 알림도 가지 않습니다.</b> 이 기록은 운영팀 장부용입니다.
               이미 외부에서 지급을 마친 건은 「송금완료 기록」, 아직 지급하지 않은 건은 「정산대기 추가」로 처리하세요.
             </div>
             <!-- ⚠️ 캠페인·모집 형식·검색·초기화는 **위쪽 공용 줄로 옮겼다**(2026-08-19).
                  여기 있던 것을 지운 것이라, 공용 줄 쪽이 미등록 탭에서 제대로 보이는지 확인할 것. -->
+            <!-- ⚠️ 메모칸은 **확인 모달 안으로 옮겼다**(2026-08-19). 여기 있으면 「사유를 먼저 적고
+                 나중에 버튼을 누르는」 순서라, 확인 창에 무엇을 기록하는지는 있는데 **어떤 사유로
+                 기록하는지는 안 보였다.** 되돌릴 수 없는 기록이라 한 화면에서 함께 봐야 한다. -->
             <div class="admin-filter-bar">
-              <div class="admin-filter-group" style="flex:1;min-width:220px">
-                <label>메모 (선택 · 처리 건에 함께 기록)</label>
-                <input type="text" id="pastUnregMemo" class="admin-filter" style="width:100%;box-sizing:border-box" placeholder="예: 시스템 도입 전 외부 지급">
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
                 <button class="btn btn-primary btn-sm" id="pastUnregPayBtn" onclick="pastUnregRegister('paid')" disabled title="선택한 건을 이미 송금한 것으로 기록합니다">선택 송금완료 기록</button>
                 <button class="btn btn-ghost btn-sm" id="pastUnregPendingBtn" onclick="pastUnregRegister('pending')" disabled title="선택한 건을 정산대기로 추가합니다(아직 송금 전)">선택 정산대기 추가</button>
               </div>
@@ -4023,11 +4018,12 @@
 <div class="modal-overlay" id="settlementBulkPayModal" style="z-index:615">
   <div class="modal" style="max-width:520px;border-radius:20px;margin:auto">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
-      <div style="font-size:16px;font-weight:700;color:var(--ink)">선택 건 송금완료 기록</div>
+      <div id="settlementBulkPayTitle" style="font-size:16px;font-weight:700;color:var(--ink)">선택 건 송금완료 기록</div>
     </div>
     <div class="modal-body" style="padding:20px 22px">
       <div id="settlementBulkPayBody"></div>
-      <div class="form-group">
+      <!-- 「정산대기 추가」 모드에서는 이 칸을 감춘다 — 아직 보내지 않은 건이라 송금일이 없다. -->
+      <div class="form-group" id="settlementBulkPayDateGroup">
         <label class="form-label">실제 송금일</label>
         <input type="date" id="settlementBulkPayDate" class="form-input" onchange="onSettlementBulkPayInput()">
         <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 오늘로 기록됩니다. 선택한 건 전부에 같은 날짜가 적힙니다.</div>
@@ -4036,7 +4032,7 @@
         <label class="form-label">처리 사유 <span style="color:#C33">*</span></label>
         <input type="text" id="settlementBulkPayMemo" class="form-input" placeholder="예: 8월 15일 회차 일괄 송금" oninput="onSettlementBulkPayInput()">
       </div>
-      <div style="padding:10px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412">
+      <div id="settlementBulkPayWarn" style="padding:10px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412">
         금액은 <b>건마다 시스템 계산 금액</b>으로 기록됩니다. 실제로 다르게 보낸 건은
         기록한 뒤 그 행의 「기록 정정」으로 고치세요.
         <br>⚠️ PayPal 미등록 건은 <b>건너뜁니다</b>. 처리 후 몇 건이 왜 빠졌는지 알려 드립니다.
