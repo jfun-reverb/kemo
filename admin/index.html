@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787128773';
+  var CURRENT_BUILD = 'v1787134344';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-19 17:39 · cdf4d92</span>
+          <span class="admin-build-text">2026-08-19 19:12 · d7cdb1b</span>
         </div>
       </div>
     </aside>
@@ -12615,13 +12615,19 @@ async function fetchAdminEmailKinds() {
 
 // 취소 사유 카테고리 목록 (lookup_values kind='cancel_reason')
 // 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
-async function fetchCancelReasons() {
+// 응모 취소 사유 목록.
+//   ⚠️ **고르게 하려고 부르는 곳과, 지난 기록의 이름을 찾으려고 부르는 곳이 다르다.**
+//      고르는 화면(인플루언서 취소 모달)은 **활성만** 있어야 하지만, 관리자 화면·엑셀이
+//      과거 응모의 사유 이름을 찾을 때는 **비활성도 필요하다** — 나중에 비활성으로 돌린
+//      사유가 붙은 옛 기록이 화면에 **코드값 그대로**(예: `withdrawal`) 노출되기 때문이다.
+//      그래서 `{includeInactive:true}` 를 주면 활성 조건을 뺀다(기본값은 종전대로 활성만).
+async function fetchCancelReasons(opts) {
   if (!db) return [];
-  const {data, error} = await db?.from('lookup_values')
-    .select('code, name_ko, name_ja, sort_order')
-    .eq('kind', 'cancel_reason')
-    .eq('active', true)
-    .order('sort_order');
+  let q = db?.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order, active')
+    .eq('kind', 'cancel_reason');
+  if (!opts || opts.includeInactive !== true) q = q.eq('active', true);
+  const {data, error} = await q.order('sort_order');
   if (error) { console.error('[fetchCancelReasons]', error); logAppError('fetchCancelReasons', error); return []; }
   return data || [];
 }
@@ -12652,6 +12658,37 @@ async function cancelApplication(applicationId, opts) {
     // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
     const msg = e?.message || 'unknown';
     console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 회원(본인) 탈퇴 신청 RPC 호출 (마이그레이션 347).
+// 반환은 request_withdrawal() 의 jsonb 결과를 그대로 전달한다 — 함수 자신의
+// 정상 응답이 이미 {ok, ...} 형태이므로 여기서 다시 감싸지 않는다.
+//   성공: { ok:true, status:'pending_payout'|'scheduled', scheduled_date,
+//          cancelled_count, uncancelled_count, unpaid_count }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//          'audit_account_blocked'|'invalid_reason' }
+//   ⚠️ 'reason_required' 는 **없다** — 사유는 선택이다(2026-08-19 결정). 안 고르고도 탈퇴된다.
+//   네트워크/예외 실패: { ok:false, error: <메시지> } — reason 이 아니라
+//          error 키로 온다. 호출 측에서 반드시 구분해서 분기할 것
+//          (data.reason 이 있으면 업무 실패, data.error 면 통신·서버 예외).
+async function requestWithdrawal(reasonCode, reasonNote) {
+  if (!db) return {ok: false, error: 'no_db'};
+  const payload = {
+    p_reason_code: reasonCode || null,
+    p_reason_note: reasonNote || null
+  };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('request_withdrawal', payload);
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[requestWithdrawal]', e); logAppError('requestWithdrawal', e);
     return {ok: false, error: msg};
   }
 }
@@ -26485,8 +26522,11 @@ function cancelPhaseLabelKo(phase) {
 }
 
 // cancel_reason 카테고리 캐시 lazy load
+//   ⚠️ **비활성 사유까지 받아 온다.** 이 캐시는 「고르게 하려고」가 아니라 「지난 기록의
+//      이름을 찾으려고」 쓰는 것이라, 나중에 비활성으로 돌린 사유가 붙은 옛 응모가
+//      **코드값 그대로** 보이면 안 된다. 고르는 화면(인플루언서)은 활성만 받는다.
 async function ensureCancelReasonsCache() {
-  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons();
+  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons({includeInactive: true});
   return _cancelReasonsCache;
 }
 function cancelReasonLabelKo(code) {

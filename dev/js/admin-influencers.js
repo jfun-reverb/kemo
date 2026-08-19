@@ -465,8 +465,11 @@ function cancelPhaseLabelKo(phase) {
 }
 
 // cancel_reason 카테고리 캐시 lazy load
+//   ⚠️ **비활성 사유까지 받아 온다.** 이 캐시는 「고르게 하려고」가 아니라 「지난 기록의
+//      이름을 찾으려고」 쓰는 것이라, 나중에 비활성으로 돌린 사유가 붙은 옛 응모가
+//      **코드값 그대로** 보이면 안 된다. 고르는 화면(인플루언서)은 활성만 받는다.
 async function ensureCancelReasonsCache() {
-  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons();
+  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons({includeInactive: true});
   return _cancelReasonsCache;
 }
 function cancelReasonLabelKo(code) {

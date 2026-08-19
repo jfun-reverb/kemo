@@ -9460,13 +9460,19 @@ async function fetchAdminEmailKinds() {
 
 // 취소 사유 카테고리 목록 (lookup_values kind='cancel_reason')
 // 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
-async function fetchCancelReasons() {
+// 응모 취소 사유 목록.
+//   ⚠️ **고르게 하려고 부르는 곳과, 지난 기록의 이름을 찾으려고 부르는 곳이 다르다.**
+//      고르는 화면(인플루언서 취소 모달)은 **활성만** 있어야 하지만, 관리자 화면·엑셀이
+//      과거 응모의 사유 이름을 찾을 때는 **비활성도 필요하다** — 나중에 비활성으로 돌린
+//      사유가 붙은 옛 기록이 화면에 **코드값 그대로**(예: `withdrawal`) 노출되기 때문이다.
+//      그래서 `{includeInactive:true}` 를 주면 활성 조건을 뺀다(기본값은 종전대로 활성만).
+async function fetchCancelReasons(opts) {
   if (!db) return [];
-  const {data, error} = await db?.from('lookup_values')
-    .select('code, name_ko, name_ja, sort_order')
-    .eq('kind', 'cancel_reason')
-    .eq('active', true)
-    .order('sort_order');
+  let q = db?.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order, active')
+    .eq('kind', 'cancel_reason');
+  if (!opts || opts.includeInactive !== true) q = q.eq('active', true);
+  const {data, error} = await q.order('sort_order');
   if (error) { console.error('[fetchCancelReasons]', error); logAppError('fetchCancelReasons', error); return []; }
   return data || [];
 }
@@ -9497,6 +9503,37 @@ async function cancelApplication(applicationId, opts) {
     // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
     const msg = e?.message || 'unknown';
     console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 회원(본인) 탈퇴 신청 RPC 호출 (마이그레이션 347).
+// 반환은 request_withdrawal() 의 jsonb 결과를 그대로 전달한다 — 함수 자신의
+// 정상 응답이 이미 {ok, ...} 형태이므로 여기서 다시 감싸지 않는다.
+//   성공: { ok:true, status:'pending_payout'|'scheduled', scheduled_date,
+//          cancelled_count, uncancelled_count, unpaid_count }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//          'audit_account_blocked'|'invalid_reason' }
+//   ⚠️ 'reason_required' 는 **없다** — 사유는 선택이다(2026-08-19 결정). 안 고르고도 탈퇴된다.
+//   네트워크/예외 실패: { ok:false, error: <메시지> } — reason 이 아니라
+//          error 키로 온다. 호출 측에서 반드시 구분해서 분기할 것
+//          (data.reason 이 있으면 업무 실패, data.error 면 통신·서버 예외).
+async function requestWithdrawal(reasonCode, reasonNote) {
+  if (!db) return {ok: false, error: 'no_db'};
+  const payload = {
+    p_reason_code: reasonCode || null,
+    p_reason_note: reasonNote || null
+  };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('request_withdrawal', payload);
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[requestWithdrawal]', e); logAppError('requestWithdrawal', e);
     return {ok: false, error: msg};
   }
 }
