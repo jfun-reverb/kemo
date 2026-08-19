@@ -903,7 +903,13 @@ function renderRich(el, raw) {
 // 일본어 제목의 전각 공백과 붙여넣은 반각 공백이 달라도 검색되도록 한다.
 // searchVal 은 호출 측에서 trim().toLowerCase() 한 값을 넘긴다.
 function matchSearchTokens(searchVal, fields) {
-  const tokens = (searchVal || '').split(/[\s　]+/).filter(Boolean);
+  // ⚠️ **찾는 말도 소문자로 맞춘다.** 뒤지는 쪽만 소문자로 바꾸고 찾는 말은 그대로 두면,
+  //    대문자로 입력한 순간 **아무것도 안 걸린다**(`Sakura` → 0건). 오류가 아니라 빈 결과라
+  //    「그 사람이 없다」로 읽힌다 — 지급대장과 대조하는 자리에서는 사람을 빠뜨리는 방향이다.
+  //    부르는 쪽에서 미리 소문자로 만드는 화면도 있지만(정산 목록·결과물), 안 하는 화면이
+  //    섞여 있어(미등록 탭·인플루언서 목록 일부 경로) **여기 한 곳에서 맞춘다.**
+  //    이미 소문자인 말을 한 번 더 낮추는 것은 아무 일도 하지 않으므로 기존 화면은 무영향.
+  const tokens = (searchVal || '').toLowerCase().split(/[\s　]+/).filter(Boolean);
   if (!tokens.length) return true;
   const haystack = fields.map(v => (v || '').toLowerCase()).join(' ');
   return tokens.every(tok => haystack.includes(tok));
