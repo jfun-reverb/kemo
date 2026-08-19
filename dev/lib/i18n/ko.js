@@ -272,8 +272,11 @@ window.I18N_KO = {
       savedOff: '캠페인 정보 메일 수신을 중지했습니다',
     },
     withdraw: '회원 탈퇴',
-    withdrawConfirm: '정말 탈퇴하시겠습니까?',
-    withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+    // ⚠️ 옛 열쇠말 2개(withdrawConfirm·withdrawToast)는 지웠다 — 「접수했습니다」가 **거짓말**이었기
+    //    때문이다(누르면 서버에 아무 일도 일어나지 않는다). 이름까지 바꾼 이유는 남겨 두면
+    //    나중에 누가 옛 문구를 되살리기 때문. 진짜 탈퇴 기능은 사양서 2026-08-18-member-withdrawal.
+    //    ⚠️ 「지금은 받지 않습니다」로 쓰지 말 것 — 약관 제6조 1항(언제든지 신청)과 부딪힌다.
+    withdrawGuide: '탈퇴를 원하시는 분은 운영팀으로 LINE 연락해 주세요. 담당자가 안내해 드립니다.',
     // 주의사항 비교 (Phase 2)
     caution: {
       compareToggle: '현재 문구와 비교',
