@@ -1036,7 +1036,11 @@ async function confirmSettlementBulkPay() {
         tail.length ? 'warn' : 'success');
 
   closeModal('settlementBulkPayModal');
+  // 처리한 선택은 비운다 — 남겨 두면 「선택 3묶음 · 0건 · ¥0」 처럼 뜻 없는 줄이 남는다.
+  //   ⚠️ 회차 상세로 돌아가는 경로는 openPayoutPersonList() 가 어차피 비우지만, 전 기간
+  //      화면에서 처리하면 그 경로를 안 타므로 여기서 직접 비운다.
   if (ctx.from === 'list') _settlementSelected.clear();
+  else if (typeof _payoutSelected !== 'undefined' && _payoutSelected) _payoutSelected.clear();
   _bulkPayCtx = null;
   await _settlementRefreshKeepingView(ctx.from);
 }
@@ -2157,6 +2161,69 @@ function openPayoutSendModal(key) {
   _openBulkPayModal();
 }
 
+// 「선택한 건 보냄」 — 체크한 묶음 전부를 한 번에 송금완료로 기록한다.
+//   ★ 왜 필요한가 — 실제 송금이 **여러 건을 합해 한 번에** 나간다(이체 수수료 때문).
+//      선택 합계로 지급대장 한 줄과 금액을 맞춰 놓고도, 기록은 다시 하나씩 눌러야 했다.
+//   ⚠️ 처리는 묶음 「보냄」과 **같은 창·같은 함수**를 쓴다(`_bulkPayCtx`). 경로가 갈리면
+//      한쪽만 고치게 된다 — 이 저장소가 여러 번 겪은 사고 형태다.
+//   ⚠️ **여러 사람이 섞일 수 있다.** 페이팔은 사람마다 다르므로 요약에 사람 수를 밝히고,
+//      페이팔이 없는 사람은 **서버가 건너뛰므로**(마이그레이션 324) 미리 이름으로 알린다.
+//   ⚠️ 선택 열쇠말은 `사람id|회차` 이고, 회차가 없는 건은 `(지급일 기록 없음)` 이다 —
+//      `groupSettlementsByPerson` 이 그렇게 묶는다. **그 규칙과 어긋나면 고른 것과 다른
+//      건이 처리된다.** 묶음 「보냄」(openPayoutSendModal)과 같은 식을 쓴다.
+//   ⚠️ 체크박스는 **회원별 보기에만** 있다. 캠페인별 보기로 바꿔도 선택은 그대로 남으므로
+//      이 버튼도 선택이 있는 한 그대로 동작한다(고른 것을 잃지 않는다).
+function openPayoutSendSelectedModal() {
+  if (!_payoutSelected.size) { toast('먼저 보낼 묶음을 선택해 주세요', 'warn'); return; }
+  const rows = (_payoutRows || []).filter(function (r) {
+    // ⚠️ 사람 쪽은 **폴백을 두지 않는다.** 체크박스가 심는 열쇠말은 `payoutPersonOf(r).id`
+    //    = `r.influencerId` 그대로다. 여기서만 '(미상)' 으로 바꾸면 두 열쇠말이 어긋난다.
+    return _payoutUnsent(r)
+        && _payoutSelected.has(r.influencerId + '|' + (r.due || '(지급일 기록 없음)'));
+  });
+  if (!rows.length) { toast('보낼 건이 없습니다 — 고른 것이 이미 처리됐을 수 있습니다', 'warn'); return; }
+
+  const usable = rows.filter(function (r) { return !r.amountUnknown; });
+  const unknown = rows.length - usable.length;
+  if (!usable.length) { toast('금액을 정할 수 없는 건뿐이라 기록할 수 없습니다', 'warn'); return; }
+
+  // 사람별로 묶어 보여 준다 — 대장과 맞추는 자리라 「누구에게 얼마」가 보여야 한다.
+  const byPerson = {};
+  usable.forEach(function (r) {
+    const id = r.influencerId || '(미상)';
+    if (!byPerson[id]) byPerson[id] = { person: payoutPersonOf(r), rows: [] };
+    if (!byPerson[id].person.name) byPerson[id].person = payoutPersonOf(r);
+    byPerson[id].rows.push(r);
+  });
+  const people = Object.keys(byPerson).map(function (id) { return byPerson[id]; });
+  const noPaypal = people.filter(function (e) { return !e.person.paypal && !e.person.paypalUnknown; });
+  const unsurePaypal = people.filter(function (e) { return e.person.paypalUnknown; });
+
+  const lines = people.map(function (e) {
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0">
+        <span style="font-weight:600">${esc(e.person.name || '(이름 미상)')}</span>
+        ${payoutPaypalHtml(e.person)}
+        <span style="margin-left:auto">${e.rows.length}건 · <b>${esc(_payoutYen(_payoutSum(e.rows)))}</b></span>
+      </div>`;
+  }).join('');
+
+  _bulkPayCtx = {
+    settlementIds:  usable.filter(function (r) { return r.kind === 'settlement';   }).map(function (r) { return r.settlementId; }),
+    applicationIds: usable.filter(function (r) { return r.kind === 'unregistered'; }).map(function (r) { return r.applicationId; }),
+    from: 'payout',
+    summaryHtml: `
+      <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">선택한 ${_payoutSelected.size}묶음</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px">${people.length}명 · ${usable.length}건 · 합계 ${settlementAmountYen(_payoutSum(usable))}</div>
+        <div style="border-top:1px solid var(--line);padding-top:6px;max-height:220px;overflow:auto">${lines}</div>
+        ${unknown ? `<div style="font-size:12px;color:#C33;margin-top:8px">금액을 정할 수 없는 ${unknown}건은 빠집니다.</div>` : ''}
+        ${noPaypal.length ? `<div style="font-size:12px;color:#C33;margin-top:6px">페이팔이 없는 ${noPaypal.length}명(${esc(noPaypal.map(function(e){return e.person.name || '(이름 미상)';}).join(' · '))})은 <b>기록되지 않고 건너뜁니다</b>.</div>` : ''}
+        ${unsurePaypal.length ? `<div style="font-size:12px;color:#B8741A;margin-top:6px">페이팔을 확인하지 못한 ${unsurePaypal.length}명이 있습니다 — 그 사람은 건너뛸 수 있습니다.</div>` : ''}
+      </div>`
+  };
+  _openBulkPayModal();
+}
+
 async function openPayoutPersonList(dueStr) {
   _payoutDueFilter = dueStr || null;
   _payoutSelected.clear();
@@ -2407,7 +2474,9 @@ function renderPayoutPersonBody() {
       + (_payoutSelected.size ? `
       <div style="border-top:1px solid var(--line);padding:8px 0;font-size:13px;display:flex;align-items:center;gap:10px">
         <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
-        <button class="btn btn-ghost btn-xs" style="margin-left:auto;padding:2px 10px"
+        <button class="btn btn-primary btn-xs" style="margin-left:auto;padding:3px 12px"
+                onclick="openPayoutSendSelectedModal()" title="고른 묶음을 한 번에 송금완료로 기록합니다">선택한 건 보냄</button>
+        <button class="btn btn-ghost btn-xs" style="padding:2px 10px"
                 onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
       </div>` : '<div style="height:8px"></div>');
   }
