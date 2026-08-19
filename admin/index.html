@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787135891';
+  var CURRENT_BUILD = 'v1787137677';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-19 19:38 · 3230778</span>
+          <span class="admin-build-text">2026-08-19 20:07 · 56b4f7a</span>
         </div>
       </div>
     </aside>
@@ -12689,6 +12689,33 @@ async function requestWithdrawal(reasonCode, reasonNote) {
   } catch(e) {
     const msg = e?.message || 'unknown';
     console.error('[requestWithdrawal]', e); logAppError('requestWithdrawal', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 회원(본인) 탈퇴 취소 RPC 호출 (마이그레이션 349).
+// 인자 없음 — 사람당 활성 탈퇴 신청은 항상 1건뿐이라 대상을 지정할 필요가 없다.
+// 반환은 cancel_withdrawal() 의 jsonb 결과를 그대로 전달한다.
+//   성공: { ok:true, status:'cancelled', previous_status:'pending_payout'|'scheduled' }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//          'audit_account_blocked'|'already_done'|'already_cancelled'|
+//          'admin_requested' }
+//   ⚠️ 'admin_requested' — 관리자가 대신 신청한(자격 상실 등) 탈퇴는 본인이
+//          취소할 수 없다. 'already_done' — 이미 확정된 탈퇴는 되돌릴 수 없다.
+//   네트워크/예외 실패: { ok:false, error: <메시지> } — reason 이 아니라
+//          error 키로 온다. 호출 측에서 반드시 구분해서 분기할 것.
+async function cancelWithdrawal() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('cancel_withdrawal');
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[cancelWithdrawal]', e); logAppError('cancelWithdrawal', e);
     return {ok: false, error: msg};
   }
 }

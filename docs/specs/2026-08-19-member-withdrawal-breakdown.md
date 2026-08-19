@@ -482,8 +482,57 @@ S1(문의 창구 사양서) ──→ 2 (LINE 제거 · 창구 연결)
 - 그 자리가 **대기자에게 넘어가지 않는다**(정원이 한정된 팝업에서 자리 하나가 죽는다)
 - 개인정보 파기 대상인데 `event_tickets` 행이 남는다
 
-**정할 것** — 예정일 도래 처리(작업 6·7)에서 ①`cancel_event_ticket` 을 함께 부를지(대기 승격까지 자동으로 됨) ②관리자에게 알려 손으로 취소하게 할지 ③탈퇴 신청 시점에 행사 예약이 있으면 아예 안내하고 막을지.
-⚠️ ①이 맞아 보이지만 `cancel_event_ticket` 은 **시작 2시간 전까지**라는 시간 제한이 있어, 행사 당일 탈퇴는 여전히 안 된다.
+**★ 결정 (2026-08-19 사용자)** — **예약 실행이 직접 취소하고, 취소한 사실을 관리자에게도 남긴다.**
+
+⚠️ **기존 취소 함수 둘 다 배치에서는 못 쓴다**(조사 결과):
+| 함수 | 막는 것 |
+|---|---|
+| `cancel_event_ticket`(283) | **시작 2시간 전까지**(`cancel_window_passed`) + 본인 `auth.uid()` 필요 |
+| `cancel_event_ticket_admin`(288) | 시간 제한은 없으나 `auth.uid() IS NOT NULL AND is_admin()` 필요 |
+
+예약 실행은 pg_cron 이라 로그인 사용자가 없어 **둘 다 거부**된다.
+
+⚠️ **그렇다고 취소 로직을 새로 베껴 쓰지 않는다** — 오늘 하루 종일 문제가 된 「같은 판단이 여러 곳」의 세 번째 사본이 된다. 대기자 승격·순번 재정렬은 288 이 이미 `_promote_next_event_waitlist(slot_id)`·`_renumber_event_waitlist(slot_id)` 로 **공용화해 뒀으므로 그대로 부른다**. 새로 쓰는 것은 티켓 행을 `cancelled` 로 바꾸는 부분뿐.
+→ 작성 시 **셋이 공용 내부 함수를 쓰도록 뽑아내는 쪽**을 우선 검토할 것(283·288 재정의 위험과 저울질).
+
+⚠️ **막힌 예약은 그대로 둔다** — `already_entered`(이미 입장함)·`settlement_paid_cannot_cancel`(송금완료 정산 있음)은 288 이 막는 정당한 조건이고, 배치도 같은 이유로 못 취소한다. 이 경우도 **관리자에게 남긴다**.
+
+⚠️ **관리자 통지 방법** — 알림·메일을 새로 만들지 말고 **탈퇴 신청 행에 기록**하고 관리자 화면(작업 14)에서 보여준다(`uncancelled_count` 와 같은 방식). 취소 성공·실패 양쪽 다.
+
+⚠️ **시점 주의** — 탈퇴는 5일 뒤 확정이라 **8/23 신청 → 8/28 확정**이 행사 첫날과 겹친다.
+
+### 작업 6 — 탈퇴 취소 함수 ✅ 작성 완료 (2026-08-19, **적용 전**)
+
+마이그레이션 **349**. `cancel_withdrawal()`(인자 없음) → jsonb
+`{ok, status:'cancelled', previous_status}` / 실패 시
+`{ok:false, reason:'not_authenticated'|'not_found'|'audit_account_blocked'|'already_done'|'already_cancelled'|'admin_requested'}`
+
+**요청 시점에 지시받은 것 + 이번 작업에서 새로 판단한 것**
+
+| | 무엇 | 근거 |
+|---|---|---|
+| ㄱ | **`requested_by_kind='admin'` 행은 거부**(`admin_requested`) | 작업표에 없던 결정 — 요청 본문에 명시. 안 막으면 약관 제6조 3항(자격 상실)의 강제 탈퇴가 본인 취소 버튼 하나로 무력화된다. `influencer_id=auth.uid()` 만으로는 못 막는다 — 관리자가 대신 신청해도 `influencer_id` 는 그 회원 본인이라서, 반드시 `requested_by_kind` 를 직접 봐야 걸러진다 |
+| ㄴ | **`done`·`cancelled` 는 각각 다른 사유로 거부** | `already_done`/`already_cancelled` 로 분리 — "신청 자체가 없다"(`not_found`)와 구분해야 클라이언트가 다른 안내를 보여줄 수 있다 |
+| ㄷ | **`completed_at` 은 안 건드린다**(방어적 NULL 대입도 안 함) | 취소 가능한 대상이 애초에 `pending_payout`/`scheduled` 뿐이라, 이 함수가 다루는 행의 `completed_at` 은 항상 NULL — 값이 있는데 여기 들어왔다면 그 자체가 버그이므로 조용히 덮지 않고 `already_done` 가드가 먼저 걸리게 둔다 |
+| ㄹ | **재신청→재취소 반복을 막지 않는다** | Q6 결정("몇 번 탈퇴하려다 말았나가 이탈 신호") — 반복 자체가 관찰 대상. 새로 열리는 남용 경로 없음(재가입 차단은 `done` 만 봄, 응모 취소 루프는 취소할 게 없으면 0회 반복) — 파일 내 "그 외 설계 메모"에 근거 상세 기록 |
+| ㅁ | **취소 이력은 새 행 적립으로 남는다** | `cancel_withdrawal` 은 기존 행을 지우지 않고 `status='cancelled'` 로만 바꾸고, 재신청(347)의 멱등 분기는 활성 상태(`pending_payout`/`scheduled`)만 찾으므로 `cancelled` 행은 못 찾아 **새 행을 INSERT** 한다 → 재활성화가 아니라 이력 누적 |
+| ㅂ | **철회된 응모는 안 되살린다**(요청에서 이미 확정 — 이유를 함수 주석에 상술) | `cancel_application` 자체가 편도(취소를 되돌리는 기능 없음) + 되살리면 마감·정원 경과와 충돌 가능 + 사양서 §4-6 ⑦ 이 이미 "되살아나지 않는다"로 명시 |
+| ㅅ | **홍보 대상 복귀는 별도 처리 없음** | 작업 16(`get_promo_digest_targets` 재정의, 이번 범위 밖·미착수)이 상태를 다시 읽는 구조라면 `cancelled` 전환만으로 자동 복귀 — 지금은 그 조건 자체가 아직 없어 "복귀"랄 것도 없다 |
+
+⚠️ **잠금 순서를 347 과 맞췄다** — `influencers` 먼저 `FOR UPDATE`, 그다음 `withdrawal_requests` 대상 행. 순서가 어긋나면 `request_withdrawal`과 `cancel_withdrawal`을 동시에 부를 때 교착 위험. **작업 7(상태 전이 예약 실행)도 같은 순서를 지킬 것** — 파일 내 주석으로 남김.
+
+⚠️ **감사용 계정 가드는 347 과 동일**(`audit_account_blocked`) — 정상 흐름에서는 감사용 계정이 활성 탈퇴 신청을 가질 수 없지만(347 이 애초에 거부), 비정상 경로 방어로 이 함수에도 동일하게 걸어 둠.
+
+`dev/lib/storage.js` 에 `cancelWithdrawal()` 래퍼 추가(`requestWithdrawal()` 바로 옆) — 인자 없음, 반환 형태·오류 구분(`reason` vs `error`)은 347 래퍼와 동일 패턴.
+
+**적용 후 반드시 눈으로 볼 것** — ⚠️ **SQL 편집기로는 호출 검증 불가**(본인 확인 가드로 무조건 `not_authenticated`). 시험 데이터 준비(INSERT/UPDATE)는 서비스 키로 SQL 편집기에서 가능하지만, **실제 `cancel_withdrawal()` 호출은 반드시 로그인한 브라우저 콘솔**에서:
+- ★ `haruka.test@reverb.jp` 로 재신청(`request_withdrawal`) → 취소(`cancel_withdrawal`) → `status='cancelled'` 확인 (이 계정은 정산 미지급 건이 있어 `pending_payout` 경로만 자연 재현됨 — **작업 7이 아직 없어 `pending_payout`↔`scheduled` 자동 전이가 안 돌기 때문에, `scheduled` 취소까지 보려면 미지급 0건인 별도 계정이 필요**함을 파일에 명시)
+- 같은 행을 다시 취소 호출 → `already_cancelled`
+- 재신청 → **새 행**이 생기고 이전 행은 `cancelled` 로 남는지(이력 보존) 조회로 확인
+- (선택) 서비스 키로 `status='done'` 흉내 → `already_done` / `requested_by_kind='admin'` 행 직접 INSERT → `admin_requested`
+- 마지막에 시험 데이터 정리(`DELETE FROM withdrawal_requests WHERE influencer_id=...`)
+
+마이그레이션 파일에 위 절차 전체가 **1단계씩 순서대로** 상세 기술돼 있음(`349_cancel_withdrawal_function.sql` 하단).
 
 ### 나머지 작업
 
