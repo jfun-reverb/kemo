@@ -66,7 +66,8 @@ export const TEMPLATES: Record<string, string> = {
 
     <p style="margin:0 0 22px;font-size:14px;color:#444;line-height:1.7">
       {{scheduled_date_jp}} に退会となります。<br>
-      それまでは、マイページから退会をキャンセルすることができます。
+      それまでは、マイページから退会をキャンセルすることができます。<br>
+      <span style="color:#666;font-size:13px">退会が完了した日から6か月間は、同じメールアドレスで新しくご登録いただけません。</span>
     </p>
 
     <!-- 마이페이지 버튼 -->
