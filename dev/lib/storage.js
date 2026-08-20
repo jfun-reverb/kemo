@@ -3402,6 +3402,27 @@ async function fetchWithdrawalPrecheck(influencerId) {
   }
 }
 
+// 이 이메일이 탈퇴 후 재가입 제한 기간인가 (마이그레이션 361).
+//   반환: true(막힘) / false(안 막힘) / null(못 물어봄)
+//
+// ⚠️ **못 물어봤을 때 null 을 돌려주는 것이 중요하다.** 부르는 쪽이 `=== true` 로만
+//    막아야 통신 장애 때 정상 가입을 막지 않는다. 서버 트리거(362)가 최종 방어선이라
+//    화면이 못 막아도 실피해가 없다 — 반대로 화면이 잘못 막으면 가입이 죽는다.
+// ⚠️ 로그인 전에 부른다(가입 화면) — 서버 함수가 비로그인에게도 열려 있다.
+// ⚠️ 막혔을 때 **언제 풀리는지는 돌려받지 않는다** — 그 날짜에서 6개월을 빼면 탈퇴
+//    확정일이 나와, 그 이메일이 언제 탈퇴했는지가 누구에게나 드러난다.
+async function isEmailWithdrawalBlocked(email) {
+  if (!db || !email) return null;
+  try {
+    const {data, error} = await db.rpc('is_email_withdrawal_blocked', {p_email: email});
+    if (error) throw error;
+    return data === true;
+  } catch(e) {
+    console.error('[isEmailWithdrawalBlocked]', e); logAppError('isEmailWithdrawalBlocked', e);
+    return null;   // 못 물어봤다 — 부르는 쪽이 막지 않는다
+  }
+}
+
 // 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).
 //   성공: { ok:true, has_request, status, scheduled_date,
 //           login_blocked, write_blocked }
