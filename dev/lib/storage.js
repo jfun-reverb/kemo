@@ -3534,6 +3534,135 @@ async function cancelWithdrawalAdmin(influencerId, note) {
   }
 }
 
+// ── 회원별 탈퇴 상태 맵 (관리자 목록 배지·필터용, 작업 14) ──
+//
+// 반환: { [influencerId]: {status, scheduled_date, requested_by_kind, ever_cancelled} }
+//       조회 실패는 **`null`** — 아래 「왜 빈 객체가 아닌가」 참고.
+//
+// ★ **이 배지는 있으면 좋은 것이 아니라 없으면 화면이 깨져 보이는 것이다.**
+//   확정(`done`)되는 순간 마이그레이션 352 가 이름·이메일·연락처 등 18칸을
+//   비운다. 그러면 그 회원은 목록에서 **이름 없는 빈 행**이 되고, 검색에도
+//   안 걸리고, 엑셀에도 그대로 들어간다. 배지가 없으면 「데이터가 깨졌나」로
+//   읽힌다.
+//
+// ⚠️ **회원당 여러 행이다.** 345 의 활성 행 유일 색인이 `cancelled` 를 빼서,
+//   취소 뒤 재신청이 새 줄로 쌓인다(이력 보존). 그래서 **최신 1건**을 현재
+//   상태로 삼고, 그 밖에 취소된 행이 있으면 `ever_cancelled` 로 따로 표시한다.
+//
+// ⚠️ **1000행 상한** — 단일 `.select()` 는 1000건에서 잘린다. `fetchAllPaged`
+//   로 전건을 받는다(`.claude/rules/supabase.md` 「PostgREST 1000-row cap」).
+//
+// 🔴 **왜 실패 시 빈 객체가 아니라 `null` 인가**
+//   이 저장소의 관행은 예외를 삼키고 `{}`·`[]` 를 돌려주는 것이다
+//   (`fetchViolationCountsByInfluencer` 가 그렇다). 그런데 여기서 그러면
+//   **조회가 실패해도 「탈퇴한 사람이 아무도 없다」로 그려진다** — 이름 없는
+//   빈 행에 아무 배지도 안 붙어, 배지를 만든 이유가 통째로 사라진다.
+//   → 화면은 `null` 이면 **배지·필터를 아예 안 그린다**(0건인 척하지 않는다).
+async function fetchWithdrawalStatesByInfluencer() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() =>
+      db.from('withdrawal_requests')
+        .select('influencer_id, status, scheduled_date, requested_by_kind, requested_at')
+        .order('requested_at', {ascending: false})
+    );
+    const map = {};
+    rows.forEach(r => {
+      const cur = map[r.influencer_id];
+      if (!cur) {
+        // 정렬이 최신순이라 처음 만나는 것이 최신 행이다.
+        map[r.influencer_id] = {
+          status: r.status,
+          scheduled_date: r.scheduled_date,
+          requested_by_kind: r.requested_by_kind,
+          ever_cancelled: r.status === 'cancelled',
+        };
+      } else if (r.status === 'cancelled') {
+        // 최신은 아니지만 취소 이력이 있다 — 필터에서 따로 찾을 수 있게.
+        cur.ever_cancelled = true;
+      }
+    });
+    return map;
+  } catch(e) {
+    console.warn('[fetchWithdrawalStatesByInfluencer] 조회 실패 — 배지를 그리지 않는다', e);
+    return null;
+  }
+}
+
+// ── 「탈퇴 처리 점검」 경고 집계 (마이그레이션 366, 작업 14) ──
+//
+// 반환: {media_overdue, media_overdue_admin_locked, email_block_overdue,
+//        stuck_confirm, stuck_confirm_admin_locked, stuck_influencer_ids}
+//       조회 실패·권한 없음은 **`null`**.
+//
+// 🔴 **판정을 화면이 흉내 내지 않는다.** 「밀린 파기가 0 으로 안 내려가는」
+//   원인(관리자 계정 겸직)은 화면이 원리적으로 못 센다 — 확정되는 순간 352 가
+//   이메일을 자리표시 주소로 바꿔, 화면이 관리자를 대조하던 이메일이 사라진다.
+//   서버는 `admins.auth_id = influencers.id` 로 보므로 영향을 안 받는다.
+//
+// ⚠️ 날짜 판정도 서버 몫이다(일본 시각). 화면이 다시 계산하면 관리자 PC 시계에
+//   의존한다 — 방문자수 차트에서 자정 직후 시계가 몇 분만 느려도 그릴 칸이
+//   0개가 되던 함정을 실제로 겪었다.
+async function fetchWithdrawalOpsAlert() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_withdrawal_ops_alert');
+    if (error) {
+      // 권한 없음(42501)도 여기로 온다 — 그 등급에는 경고를 안 그리는 게 맞고,
+      // 그것이 「밀린 것 없음」으로 보이면 안 된다.
+      console.warn('[fetchWithdrawalOpsAlert] 조회 실패 — 경고를 그리지 않는다', error);
+      return null;
+    }
+    return data || null;
+  } catch(e) {
+    console.warn('[fetchWithdrawalOpsAlert]', e);
+    return null;
+  }
+}
+
+// ── 밀린 파기 건수 (마이그레이션 364, 작업 14 경고용) ──
+//
+// 🔴 **실패를 0 으로 돌려주지 않는다 — `null` 이다.**
+//   이 저장소가 여러 번 세운 원칙(마이그레이션 276): 「조회 실패」와 「0건」은
+//   다른 사실이다. 0 으로 뭉개면 화면이 「밀린 것 없음」으로 그리는데, 실제로는
+//   **못 물어본 것**일 수 있다. 그 둘을 섞으면 파기가 멈춰 있어도 화면은
+//   조용하다 — 이 경고가 막으려던 바로 그 상황이다.
+//   → 화면은 `null` 이면 **아무것도 안 그린다**(0 과 같은 모습이지만 이유가
+//     다르다. 「0건이라 안 그림」과 「몰라서 안 그림」을 콘솔로 구분할 수 있게
+//     로그는 남긴다).
+//
+// ⚠️ 서버 함수는 관리자가 아니면 **0 이 아니라 42501 오류**를 낸다(364).
+//   그 경우도 여기서는 `null` 이 된다 — 권한 없는 등급에게 경고를 안 그리는
+//   것이 맞고, 그게 「0건」으로 보이면 안 된다.
+//
+// ⚠️ **이 값은 「항상 0 이 정상」이 아니다.** 관리자를 겸한 회원은 파기 대상
+//   목록에서는 빠지지만(352 가 그 회원의 확정을 거부한다) 이 건수에는 계속
+//   잡힌다 — 의도된 설계다(눈에 보이게). 그래서 0 이 아닌 상태가 계속되면
+//   「배치가 멈췄다」가 아니라 「사람이 처리해야 할 회원이 있다」일 수 있다.
+async function fetchOverdueWithdrawalPurgeCounts() {
+  if (!db) return null;
+  try {
+    const [media, email] = await Promise.all([
+      db.rpc('count_overdue_withdrawal_media_purge'),
+      db.rpc('count_overdue_withdrawal_email_blocks'),
+    ]);
+    // 둘 중 하나라도 실패하면 전체를 모르는 것으로 본다 — 반쪽 숫자로
+    // 「이만큼 밀렸다」고 그리면 나머지 절반이 조용히 사라진다.
+    if (media.error || email.error) {
+      console.warn('[fetchOverdueWithdrawalPurgeCounts] 조회 실패',
+        media.error || email.error);
+      return null;
+    }
+    return {
+      media: Number(media.data) || 0,   // 영수증·인증샷
+      email: Number(email.data) || 0,   // 재가입 차단 해시
+    };
+  } catch(e) {
+    console.warn('[fetchOverdueWithdrawalPurgeCounts]', e);
+    return null;
+  }
+}
+
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
 // allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
 // 모달에서 「저장」 클릭 시 호출. RLS 가 본인 또는 super_admin 만 허용.

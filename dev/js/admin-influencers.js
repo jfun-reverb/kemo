@@ -20,18 +20,25 @@ let currentInfTab = 'all';
 
 var infUsersCache = null;
 var _infViolationCounts = {};
+// 회원별 탈퇴 상태 맵 (작업 14).
+// ⚠️ **초기값이 `null` 이고 그게 「모름」을 뜻한다** — 빈 객체 `{}` 로 두면
+//    「탈퇴한 사람이 아무도 없다」와 구분되지 않아, 조회 실패 시에도 배지가
+//    조용히 사라진다. 화면은 `null` 이면 배지·필터를 아예 안 그린다.
+var _infWithdrawalStates = null;
 
 // ════════════════════════════════════════════════════════════════════
 // SECTION: INFLUENCERS — 목록 + 필터 + 정렬 + 행 빌더
 // ════════════════════════════════════════════════════════════════════
 
 async function loadAdminInfluencers() {
-  const [users, violations] = await Promise.all([
+  const [users, violations, withdrawals] = await Promise.all([
     fetchInfluencers(),
     fetchViolationCountsByInfluencer(),
+    fetchWithdrawalStatesByInfluencer(),   // 실패 시 null — 배지를 안 그린다
   ]);
   infUsersCache = users;
   _infViolationCounts = violations;
+  _infWithdrawalStates = withdrawals;
   initInfPrefectureMulti();
   applyInfExcelSensitiveVisibility();
   renderInfluencersPane();
@@ -71,6 +78,11 @@ function getFilteredInfluencersForView() {
   const users = infUsersCache || [];
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
+  // 탈퇴 상태 필터 (작업 14).
+  // ⚠️ 상태 맵 조회에 실패했으면(`null`) **필터를 무시한다** — 전원을 걸러내
+  //    「0명 표시」로 보이면 「탈퇴한 사람이 이렇게 많나」로 오독된다.
+  //    배지도 같은 이유로 안 그려지므로 화면이 일관되게 「탈퇴 정보 없음」이 된다.
+  const withdrawSel = _infWithdrawalStates ? ($('infFilterWithdrawSelect')?.value || 'all') : 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
   // 주소지(다중) — 미선택이면 빈 배열(=전체). classifyPrefecture 로 정식/未登録/海外 분류 후 매칭
   const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
@@ -95,6 +107,18 @@ function getFilteredInfluencersForView() {
     if (violationSel === 'clean' && (vc > 0 || u.is_blacklisted)) return false;
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
+    if (withdrawSel !== 'all') {
+      const w = _infWithdrawalStates[u.id];
+      const st = w?.status;
+      const inProgress = (st === 'pending_payout' || st === 'scheduled');
+      if (withdrawSel === 'none'      && (inProgress || st === 'done')) return false;
+      if (withdrawSel === 'active'    && !inProgress) return false;
+      if (withdrawSel === 'done'      && st !== 'done') return false;
+      // 「취소 이력 있음」은 지금 상태가 아니라 **과거에 한 번이라도 취소했는가**다.
+      // 탈퇴를 신청했다 되돌린 회원을 따로 보려는 용도라, 그 뒤 재신청해서
+      // 지금 진행 중인 회원도 포함된다.
+      if (withdrawSel === 'cancelled' && !w?.ever_cancelled) return false;
+    }
     if (!matchSearch(u)) return false;
     if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
     if (minF != null || maxF != null) {
@@ -116,11 +140,12 @@ function renderInfluencersPane() {
   if (resetBtn) {
     const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
     const violationSel = $('infFilterViolationSelect')?.value || 'all';
+    const withdrawSel = $('infFilterWithdrawSelect')?.value || 'all';
     const searchQ = ($('infSearch')?.value || '').trim();
     const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
     const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
     const hasSort = !(infSortKey === 'created' && infSortDir === 'desc');
-    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || withdrawSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
     resetBtn.style.display = anyActive ? '' : 'none';
   }
   renderInfTable(filtered);
@@ -130,6 +155,7 @@ function renderInfluencersPane() {
 function resetInfView() {
   const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
+  const wd = $('infFilterWithdrawSelect'); if (wd) wd.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
   const s = $('infSearch'); if (s) s.value = '';
   if (typeof resetMultiFilter === 'function') resetMultiFilter('infPrefectureMulti', '전체 지역');
@@ -220,6 +246,42 @@ function influencerStatusBadges(u) {
   return parts.join('');
 }
 
+// 탈퇴 상태 배지 (목록용, 작업 14)
+//
+// ★ **없으면 화면이 깨져 보인다.** 확정(`done`)되면 마이그레이션 352 가 이름·
+//   이메일·연락처 18칸을 비워, 그 회원은 목록에서 **이름 없는 빈 행**이 된다.
+//   배지가 그 행의 유일한 설명이다.
+//
+// ⚠️ **조회 실패면 아무것도 안 그린다**(`_infWithdrawalStates === null`).
+//   0건인 척하지 않는다 — 「탈퇴한 사람이 없다」와 「못 물어봤다」는 다른 사실이다.
+// ⚠️ 이력만 있는 경우(취소됨)는 **안 그린다** — 「0이면 아무것도 안 그린다」 원칙.
+//   그런 회원은 목록 필터 「취소 이력 있음」으로만 찾는다.
+function influencerWithdrawalBadge(u) {
+  if (!_infWithdrawalStates) return '';          // 조회 실패 — 그리지 않는다
+  const w = _infWithdrawalStates[u.id];
+  if (!w) return '';
+  const base = 'display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px';
+  const icon = (n) => `<span class="material-icons-round notranslate" translate="no" style="font-size:11px">${n}</span>`;
+  if (w.status === 'done') {
+    return `<span title="탈퇴 완료 — 개인정보가 파기되어 이름·연락처가 비어 있습니다" style="${base};background:#ECEFF1;color:#455A64">${icon('person_off')}탈퇴 완료</span>`;
+  }
+  if (w.status === 'scheduled') {
+    const d = w.scheduled_date ? String(w.scheduled_date).slice(5).replace('-', '/') : '';
+    return `<span title="탈퇴 예정일 ${esc(w.scheduled_date || '미정')}" style="${base};background:#FFF3E0;color:#E65100">${icon('schedule')}탈퇴 예정${d ? ' ' + d : ''}</span>`;
+  }
+  if (w.status === 'pending_payout') {
+    return `<span title="탈퇴 신청됨 — 미지급 보수가 남아 대기 중입니다" style="${base};background:#FFF3E0;color:#E65100">${icon('hourglass_top')}탈퇴 대기</span>`;
+  }
+  return '';                                      // cancelled — 배지 없음
+}
+
+// 탈퇴가 진행 중이거나 끝난 회원인가 (행 흐리기·배지 배타 판정용).
+function infWithdrawalActive(u) {
+  if (!_infWithdrawalStates) return false;
+  const s = _infWithdrawalStates[u.id]?.status;
+  return s === 'done' || s === 'scheduled' || s === 'pending_payout';
+}
+
 function buildInfRowAll(u) {
   const igF = (u.ig_followers||0).toLocaleString();
   const xF = (u.x_followers||0).toLocaleString();
@@ -244,8 +306,12 @@ function buildInfRowAll(u) {
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  // 행 흐리기: 블랙리스트(기존) 또는 **탈퇴 완료**.
+  // ⚠️ 탈퇴 예정·대기는 흐리지 않는다 — 아직 살아 있는 회원이고, 오히려 그
+  //    기간에 운영이 챙겨야 할 일(미지급 보수 등)이 남아 있다.
+  const dimmed = u.is_blacklisted || (_infWithdrawalStates && _infWithdrawalStates[u.id]?.status === 'done');
+  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${dimmed?' style="opacity:.55"':''}>
+    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}${influencerWithdrawalBadge(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig, igF)}</td>
     <td>${snsCell('x', u.x, xF)}</td>
     <td>${snsCell('tiktok', u.tiktok, ttF)}</td>
@@ -873,6 +939,10 @@ async function submitWithdrawProxy() {
 
   // 상세 모달은 닫지 않는다 — 방금 무슨 일이 일어났는지 카드에서 바로 보여준다
   await renderInfluencerWithdrawalPanel(u);
+  // ⚠️ `refreshPane('influencers')` 는 **캐시에서 다시 그리기**라 탈퇴 상태 맵을
+  //    갱신하지 않는다(`rerenderInfluencersFromCache`). 먼저 맵을 다시 받아야
+  //    목록 배지가 방금 만든 신청을 반영한다 — 안 하면 「저장했는데 목록이 그대로」다.
+  _infWithdrawalStates = await fetchWithdrawalStatesByInfluencer();
   await refreshPane('influencers');
 }
 
@@ -930,6 +1000,8 @@ async function submitWithdrawUndo() {
   closeModal('withdrawUndoModal');
   toast('탈퇴 신청을 되돌렸습니다 · 철회된 응모는 되살아나지 않습니다', 'success');
   await renderInfluencerWithdrawalPanel(u);
+  // 위 submitWithdrawProxy 와 같은 이유 — 캐시 재렌더는 탈퇴 상태를 안 갱신한다.
+  _infWithdrawalStates = await fetchWithdrawalStatesByInfluencer();
   await refreshPane('influencers');
 }
 

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787190585';
+  var CURRENT_BUILD = 'v1787208905';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2916,7 +2916,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="orient-sheets" id="adminOrientSheetsSi" onclick="navAdminPaneReload('orient-sheets')"><span class="si-icon material-icons-round">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span></div>
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
-        <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+        <div class="admin-si" id="adminInfluencersSi" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openSettlementsPending()" title="정산대기만 보기">0</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-20 10:49 · 085c395</span>
+          <span class="admin-build-text">2026-08-20 15:55 · 7059a5a</span>
         </div>
       </div>
     </aside>
@@ -3958,7 +3958,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div id="adminPane-influencers" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
+                <!-- 탈퇴 처리 점검 경고 — 0건이면 applyWithdrawalOpsIndicators 가 버튼째 숨긴다 -->
+                <button id="withdrawOpsBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openWithdrawalOpsModal()"></button>
+              </div>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -3976,6 +3980,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <option value="clean">위반 없음</option>
                   <option value="has">위반 있음</option>
                   <option value="blacklist">블랙리스트</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>탈퇴</label>
+                <select id="infFilterWithdrawSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
+                  <option value="all">전체</option>
+                  <option value="none">탈퇴 제외</option>
+                  <option value="active">진행 중</option>
+                  <option value="done">탈퇴 완료</option>
+                  <option value="cancelled">취소 이력 있음</option>
                 </select>
               </div>
               <div class="admin-filter-group">
@@ -6664,6 +6678,24 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <button class="btn btn-ghost btn-xs" onclick="closeBlockedTableModal()" style="padding:4px 10px">✕</button>
     </div>
     <div id="blockedTablesModalBody" style="padding:16px 22px 20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+<!-- 탈퇴 처리 점검 (작업 14) — 채널 어긋남 모달과 같은 형태.
+     창을 띄운 채 다른 화면을 조작할 수 있게 DRAGGABLE_ADMIN_MODALS 에 등록한다. -->
+<div class="modal-overlay" id="withdrawOpsModal" style="z-index:628">
+  <div class="modal" style="max-width:680px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#C33;font-size:22px">report_problem</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">탈퇴 처리 점검</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">창을 열어둔 채로 조치를 진행할 수 있습니다 (제목을 끌어 옮기거나 모서리로 크기 조정)</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeWithdrawalOpsModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="withdrawOpsModalBody" style="padding:16px 22px 20px;overflow-y:auto;flex:1"></div>
   </div>
 </div>
 
@@ -12991,6 +13023,135 @@ async function cancelWithdrawalAdmin(influencerId, note) {
   }
 }
 
+// ── 회원별 탈퇴 상태 맵 (관리자 목록 배지·필터용, 작업 14) ──
+//
+// 반환: { [influencerId]: {status, scheduled_date, requested_by_kind, ever_cancelled} }
+//       조회 실패는 **`null`** — 아래 「왜 빈 객체가 아닌가」 참고.
+//
+// ★ **이 배지는 있으면 좋은 것이 아니라 없으면 화면이 깨져 보이는 것이다.**
+//   확정(`done`)되는 순간 마이그레이션 352 가 이름·이메일·연락처 등 18칸을
+//   비운다. 그러면 그 회원은 목록에서 **이름 없는 빈 행**이 되고, 검색에도
+//   안 걸리고, 엑셀에도 그대로 들어간다. 배지가 없으면 「데이터가 깨졌나」로
+//   읽힌다.
+//
+// ⚠️ **회원당 여러 행이다.** 345 의 활성 행 유일 색인이 `cancelled` 를 빼서,
+//   취소 뒤 재신청이 새 줄로 쌓인다(이력 보존). 그래서 **최신 1건**을 현재
+//   상태로 삼고, 그 밖에 취소된 행이 있으면 `ever_cancelled` 로 따로 표시한다.
+//
+// ⚠️ **1000행 상한** — 단일 `.select()` 는 1000건에서 잘린다. `fetchAllPaged`
+//   로 전건을 받는다(`.claude/rules/supabase.md` 「PostgREST 1000-row cap」).
+//
+// 🔴 **왜 실패 시 빈 객체가 아니라 `null` 인가**
+//   이 저장소의 관행은 예외를 삼키고 `{}`·`[]` 를 돌려주는 것이다
+//   (`fetchViolationCountsByInfluencer` 가 그렇다). 그런데 여기서 그러면
+//   **조회가 실패해도 「탈퇴한 사람이 아무도 없다」로 그려진다** — 이름 없는
+//   빈 행에 아무 배지도 안 붙어, 배지를 만든 이유가 통째로 사라진다.
+//   → 화면은 `null` 이면 **배지·필터를 아예 안 그린다**(0건인 척하지 않는다).
+async function fetchWithdrawalStatesByInfluencer() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() =>
+      db.from('withdrawal_requests')
+        .select('influencer_id, status, scheduled_date, requested_by_kind, requested_at')
+        .order('requested_at', {ascending: false})
+    );
+    const map = {};
+    rows.forEach(r => {
+      const cur = map[r.influencer_id];
+      if (!cur) {
+        // 정렬이 최신순이라 처음 만나는 것이 최신 행이다.
+        map[r.influencer_id] = {
+          status: r.status,
+          scheduled_date: r.scheduled_date,
+          requested_by_kind: r.requested_by_kind,
+          ever_cancelled: r.status === 'cancelled',
+        };
+      } else if (r.status === 'cancelled') {
+        // 최신은 아니지만 취소 이력이 있다 — 필터에서 따로 찾을 수 있게.
+        cur.ever_cancelled = true;
+      }
+    });
+    return map;
+  } catch(e) {
+    console.warn('[fetchWithdrawalStatesByInfluencer] 조회 실패 — 배지를 그리지 않는다', e);
+    return null;
+  }
+}
+
+// ── 「탈퇴 처리 점검」 경고 집계 (마이그레이션 366, 작업 14) ──
+//
+// 반환: {media_overdue, media_overdue_admin_locked, email_block_overdue,
+//        stuck_confirm, stuck_confirm_admin_locked, stuck_influencer_ids}
+//       조회 실패·권한 없음은 **`null`**.
+//
+// 🔴 **판정을 화면이 흉내 내지 않는다.** 「밀린 파기가 0 으로 안 내려가는」
+//   원인(관리자 계정 겸직)은 화면이 원리적으로 못 센다 — 확정되는 순간 352 가
+//   이메일을 자리표시 주소로 바꿔, 화면이 관리자를 대조하던 이메일이 사라진다.
+//   서버는 `admins.auth_id = influencers.id` 로 보므로 영향을 안 받는다.
+//
+// ⚠️ 날짜 판정도 서버 몫이다(일본 시각). 화면이 다시 계산하면 관리자 PC 시계에
+//   의존한다 — 방문자수 차트에서 자정 직후 시계가 몇 분만 느려도 그릴 칸이
+//   0개가 되던 함정을 실제로 겪었다.
+async function fetchWithdrawalOpsAlert() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_withdrawal_ops_alert');
+    if (error) {
+      // 권한 없음(42501)도 여기로 온다 — 그 등급에는 경고를 안 그리는 게 맞고,
+      // 그것이 「밀린 것 없음」으로 보이면 안 된다.
+      console.warn('[fetchWithdrawalOpsAlert] 조회 실패 — 경고를 그리지 않는다', error);
+      return null;
+    }
+    return data || null;
+  } catch(e) {
+    console.warn('[fetchWithdrawalOpsAlert]', e);
+    return null;
+  }
+}
+
+// ── 밀린 파기 건수 (마이그레이션 364, 작업 14 경고용) ──
+//
+// 🔴 **실패를 0 으로 돌려주지 않는다 — `null` 이다.**
+//   이 저장소가 여러 번 세운 원칙(마이그레이션 276): 「조회 실패」와 「0건」은
+//   다른 사실이다. 0 으로 뭉개면 화면이 「밀린 것 없음」으로 그리는데, 실제로는
+//   **못 물어본 것**일 수 있다. 그 둘을 섞으면 파기가 멈춰 있어도 화면은
+//   조용하다 — 이 경고가 막으려던 바로 그 상황이다.
+//   → 화면은 `null` 이면 **아무것도 안 그린다**(0 과 같은 모습이지만 이유가
+//     다르다. 「0건이라 안 그림」과 「몰라서 안 그림」을 콘솔로 구분할 수 있게
+//     로그는 남긴다).
+//
+// ⚠️ 서버 함수는 관리자가 아니면 **0 이 아니라 42501 오류**를 낸다(364).
+//   그 경우도 여기서는 `null` 이 된다 — 권한 없는 등급에게 경고를 안 그리는
+//   것이 맞고, 그게 「0건」으로 보이면 안 된다.
+//
+// ⚠️ **이 값은 「항상 0 이 정상」이 아니다.** 관리자를 겸한 회원은 파기 대상
+//   목록에서는 빠지지만(352 가 그 회원의 확정을 거부한다) 이 건수에는 계속
+//   잡힌다 — 의도된 설계다(눈에 보이게). 그래서 0 이 아닌 상태가 계속되면
+//   「배치가 멈췄다」가 아니라 「사람이 처리해야 할 회원이 있다」일 수 있다.
+async function fetchOverdueWithdrawalPurgeCounts() {
+  if (!db) return null;
+  try {
+    const [media, email] = await Promise.all([
+      db.rpc('count_overdue_withdrawal_media_purge'),
+      db.rpc('count_overdue_withdrawal_email_blocks'),
+    ]);
+    // 둘 중 하나라도 실패하면 전체를 모르는 것으로 본다 — 반쪽 숫자로
+    // 「이만큼 밀렸다」고 그리면 나머지 절반이 조용히 사라진다.
+    if (media.error || email.error) {
+      console.warn('[fetchOverdueWithdrawalPurgeCounts] 조회 실패',
+        media.error || email.error);
+      return null;
+    }
+    return {
+      media: Number(media.data) || 0,   // 영수증·인증샷
+      email: Number(email.data) || 0,   // 재가입 차단 해시
+    };
+  } catch(e) {
+    console.warn('[fetchOverdueWithdrawalPurgeCounts]', e);
+    return null;
+  }
+}
+
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
 // allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
 // 모달에서 「저장」 클릭 시 호출. RLS 가 본인 또는 super_admin 만 허용.
@@ -16705,6 +16866,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
   // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
   'channelDriftModal',
+  // 탈퇴 처리 점검 — 같은 이유(「회원 열기」로 상세를 여는 동안 목록이 보여야 한다)
+  'withdrawOpsModal',
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
@@ -16915,6 +17078,191 @@ function channelDriftFixHtml(layer, kind) {
   return '<b>결과물을 정리하는 것 말고는 방법이 없습니다.</b> 기준 데이터에 없는 값이라 캠페인에 추가할 수도 없습니다.<br>' +
     '이 항목은 캠페인이 특정되지 않습니다(여러 캠페인의 값이 함께 묶일 수 있음). ' +
     '결과물 관리에서 <b>위에 적힌 채널 값</b>으로 찾은 뒤 정리하세요 — ' + cleanup;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 탈퇴 처리 점검 경고 (작업 14, 마이그레이션 366)
+// ════════════════════════════════════════════════════════════════════
+//   밀린 파기 2종 + 예정일이 지났는데 확정되지 않은 탈퇴를 한 자리에 모은다.
+//   채널 감지 장치와 같은 3단(사이드바 아이콘 · 페인 제목 옆 버튼 · 모달) —
+//   **화면에 들어가야만 알 수 있으면 늦다**는 같은 이유다.
+//
+//   ⚠️ **「항상 0 이 정상」이 아니다.** 관리자 계정을 겸한 회원이 있으면
+//      숫자가 0 으로 안 내려간다(352 가 그 회원의 파기를 거부하므로 확정이
+//      매일 롤백된다). 그래서 모달이 **「무엇을 하면 사라지는지」**를 반드시
+//      말해야 한다 — 안 그러면 원인 모를 숫자가 영영 떠 있게 되고, 그게 바로
+//      채널 감지 장치가 피하려던 학습 효과다.
+//
+//   ⚠️ 판정은 전부 서버(366)가 한다. 화면이 흉내 내면 안 된다 — 확정된 회원은
+//      이메일이 지워져 화면의 관리자 대조가 원리적으로 불가능하다.
+let _withdrawalOpsAlert = null;   // null = 아직 조회 안 함 또는 조회 실패
+
+async function refreshWithdrawalOpsIndicators() {
+  _withdrawalOpsAlert = await fetchWithdrawalOpsAlert();
+  applyWithdrawalOpsIndicators();
+}
+
+// 이 경고에서 「보여줄 것이 있는가」 — 0건이면 아무것도 안 그린다.
+// ⚠️ 조회 실패(`null`)도 안 그린다. 0건인 척하는 것이 아니라, 모르는 것을
+//    아는 척하지 않는 것이다(콘솔에는 경고가 남는다).
+function _withdrawalOpsTotal(a) {
+  if (!a) return 0;
+  return Number(a.media_overdue || 0)
+       + Number(a.email_block_overdue || 0)
+       + Number(a.stuck_confirm || 0);
+}
+
+function applyWithdrawalOpsIndicators() {
+  const a = _withdrawalOpsAlert;
+  const total = _withdrawalOpsTotal(a);
+  const has = total > 0;
+  // 확정이 멈춰 있는 것이 가장 무겁다 — 회원이 탈퇴를 기다리는 중이고,
+  // 예약 실행 자체가 멈춘 신호일 수도 있다.
+  const severe = has && Number(a.stuck_confirm || 0) > 0;
+
+  // 사이드바 — 인플루언서 목록(이 경고가 가리키는 회원들이 있는 자리).
+  // ⚠️ 채널 감지 장치와 **같은 항목을 쓰지 않는다**(그쪽은 결과물·기준 데이터).
+  //    한 항목에 두 경고를 얹으면 아이콘을 서로 덮어써 나중 것만 남는다.
+  const item = document.getElementById('adminInfluencersSi');
+  if (item) {
+    const icon = item.querySelector('.si-icon');
+    if (icon) {
+      if (!icon.dataset.baseIcon) icon.dataset.baseIcon = (icon.textContent || 'group').trim();
+      if (has) {
+        icon.textContent = 'report_problem';
+        icon.style.color = severe ? '#C33' : '#B8741A';
+        item.title = `탈퇴 처리 점검 ${total}건 — 이 화면에서 확인할 수 있습니다`;
+      } else {
+        icon.textContent = icon.dataset.baseIcon;
+        icon.style.color = '';
+        item.title = '';
+      }
+    }
+  }
+
+  const btn = document.getElementById('withdrawOpsBtn');
+  if (btn) {
+    btn.style.display = has ? 'inline-flex' : 'none';
+    if (has) {
+      btn.style.background  = severe ? '#FFF5F5' : '#FEF3C7';
+      btn.style.borderColor = severe ? '#C33' : '#FBBF24';
+      btn.style.color       = severe ? '#C33' : '#92400E';
+      btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">report_problem</span> 탈퇴 처리 점검 ${total}건`;
+    }
+  }
+}
+
+async function openWithdrawalOpsModal() {
+  const body = document.getElementById('withdrawOpsModalBody');
+  const overlay = document.getElementById('withdrawOpsModal');
+  if (!body || !overlay) return;
+  overlay.classList.add('open');
+  if (_withdrawalOpsAlert === null) {
+    body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">확인 중…</div>';
+    await refreshWithdrawalOpsIndicators();
+  }
+  body.innerHTML = withdrawalOpsModalHtml(_withdrawalOpsAlert);
+}
+
+function closeWithdrawalOpsModal() {
+  const overlay = document.getElementById('withdrawOpsModal');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// 모달 본문 — 항목마다 「몇 건인가 → 무엇을 하면 사라지는가」.
+//   ⚠️ 조치를 안 적으면 숫자만 남아 아무도 안 보게 된다.
+function withdrawalOpsModalHtml(a) {
+  if (!a) {
+    return `<div style="padding:16px;font-size:13px;color:var(--muted)">
+      점검 정보를 불러오지 못했습니다. 권한이 없거나 일시적인 통신 문제일 수 있습니다.
+      <br>새로고침해도 같으면 개발 담당자에게 알려 주세요.
+    </div>`;
+  }
+  const n = (v) => Number(v || 0);
+  const rows = [];
+
+  // ① 멈춘 확정 — 가장 무겁다(회원이 기다리는 중이고 예약이 멈춘 신호일 수 있다)
+  if (n(a.stuck_confirm) > 0) {
+    const locked = n(a.stuck_confirm_admin_locked);
+    const other  = n(a.stuck_confirm) - locked;
+    const parts = [];
+    if (locked > 0) {
+      parts.push(`<div style="margin-top:6px;padding-left:10px;border-left:2px solid #FBBF24">
+        <b>${locked}건</b>은 <b>관리자 계정을 겸한 회원</b>이라 자동으로 확정되지 않습니다.
+        <br>→ 그 회원의 <b>관리자 권한을 먼저 해제</b>하면 다음 새벽에 처리됩니다.
+      </div>`);
+    }
+    if (other > 0) {
+      parts.push(`<div style="margin-top:6px;padding-left:10px;border-left:2px solid #C33">
+        <b>${other}건</b>은 원인이 다릅니다 — 처리 중 오류이거나 <b>예약 실행이 멈춰</b> 있을 수 있습니다.
+        <br>→ <b>개발 담당자에게 알려 주세요.</b>
+      </div>`);
+    }
+    rows.push(_withdrawOpsRow('schedule', '#C33',
+      `예정일이 지났는데 확정되지 않은 탈퇴 ${n(a.stuck_confirm)}건`,
+      parts.join('') + _withdrawOpsMemberLinks(a.stuck_influencer_ids, n(a.stuck_confirm))));
+  }
+
+  // ② 밀린 영수증·인증샷 파기
+  if (n(a.media_overdue) > 0) {
+    const locked = n(a.media_overdue_admin_locked);
+    let sub = `<div style="margin-top:6px;color:var(--muted)">보관 기한이 지났는데 아직 지워지지 않았습니다.</div>`;
+    if (locked > 0) {
+      sub += `<div style="margin-top:6px;padding-left:10px;border-left:2px solid #FBBF24">
+        그중 <b>${locked}건</b>은 <b>관리자 계정을 겸한 회원</b>이라 자동으로 지워지지 않습니다.
+        <br>→ <b>관리자 권한을 먼저 해제</b>하면 다음 새벽에 정리됩니다.
+      </div>`;
+    }
+    rows.push(_withdrawOpsRow('delete_forever', '#B8741A',
+      `파기 기한이 지난 영수증·인증샷 ${n(a.media_overdue)}건`, sub));
+  }
+
+  // ③ 밀린 재가입 차단 기록
+  if (n(a.email_block_overdue) > 0) {
+    rows.push(_withdrawOpsRow('lock_clock', '#B8741A',
+      `보관기간이 끝난 재가입 차단 기록 ${n(a.email_block_overdue)}건`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         새벽 정리가 안 돌았을 수 있습니다. 며칠째 그대로면 개발 담당자에게 알려 주세요.
+         <br>⚠️ 이 숫자가 남아 있어도 <b>6개월이 지난 사람의 재가입은 정상으로 열립니다</b> —
+         보관기간 초과 자체가 문제입니다.
+       </div>`));
+  }
+
+  if (!rows.length) {
+    return `<div style="padding:16px;font-size:13px;color:var(--muted)">점검할 항목이 없습니다.</div>`;
+  }
+  return `<div style="padding:4px 2px">${rows.join('')}</div>`;
+}
+
+function _withdrawOpsRow(icon, color, title, bodyHtml) {
+  return `<div style="padding:12px 14px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;font-size:13px;line-height:1.6">
+    <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:${color}">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:17px">${icon}</span>${esc(title)}
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+// 「회원 열기」 — 서버가 고유번호만 주므로(이름·이메일은 이미 파기됐거나 파기 직전),
+// 상세 화면이 자기 권한으로 필요한 값을 다시 조회한다.
+function _withdrawOpsMemberLinks(ids, total) {
+  const list = Array.isArray(ids) ? ids : [];
+  if (!list.length) return '';
+  // 🔴 **여기서 이 모달을 먼저 닫아야 한다.** 인플루언서 상세
+  //    (`influencerFullDetailModal`)는 z-index 500 인데 이 모달은 628 이라,
+  //    닫지 않으면 상세가 **뒤로 숨고** 이 모달의 배경이 클릭까지 가로챈다
+  //    — 눌러도 아무 일도 안 일어나는 막다른 길이 된다.
+  // ⚠️ z-index 를 올려 해결하지 않는다. 이 저장소 관행은 「베이스 모달 위에
+  //    액션 모달」이고(상세 500 → 대행 신청 640), 상세에서 파생되는 모달이
+  //    여럿이라 순서를 건드리면 그쪽을 전부 다시 봐야 한다.
+  const btns = list.map((id, i) =>
+    `<button class="btn btn-ghost btn-xs" onclick="closeWithdrawalOpsModal();openInfluencerDetail('${esc(id)}')">회원 ${i + 1}</button>`
+  ).join(' ');
+  // 상한 50 — 그보다 많으면 개별 조치가 아니라 예약 실행 점검이 답이다.
+  const more = total > list.length
+    ? `<div style="margin-top:4px;color:var(--muted);font-size:12px">외 ${total - list.length}명 — 건수가 많으면 개별 조치보다 예약 실행 점검이 먼저입니다.</div>`
+    : '';
+  return `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${btns}</div>${more}`;
 }
 
 // ── 감지 결과 상태 ──
@@ -26383,18 +26731,25 @@ let currentInfTab = 'all';
 
 var infUsersCache = null;
 var _infViolationCounts = {};
+// 회원별 탈퇴 상태 맵 (작업 14).
+// ⚠️ **초기값이 `null` 이고 그게 「모름」을 뜻한다** — 빈 객체 `{}` 로 두면
+//    「탈퇴한 사람이 아무도 없다」와 구분되지 않아, 조회 실패 시에도 배지가
+//    조용히 사라진다. 화면은 `null` 이면 배지·필터를 아예 안 그린다.
+var _infWithdrawalStates = null;
 
 // ════════════════════════════════════════════════════════════════════
 // SECTION: INFLUENCERS — 목록 + 필터 + 정렬 + 행 빌더
 // ════════════════════════════════════════════════════════════════════
 
 async function loadAdminInfluencers() {
-  const [users, violations] = await Promise.all([
+  const [users, violations, withdrawals] = await Promise.all([
     fetchInfluencers(),
     fetchViolationCountsByInfluencer(),
+    fetchWithdrawalStatesByInfluencer(),   // 실패 시 null — 배지를 안 그린다
   ]);
   infUsersCache = users;
   _infViolationCounts = violations;
+  _infWithdrawalStates = withdrawals;
   initInfPrefectureMulti();
   applyInfExcelSensitiveVisibility();
   renderInfluencersPane();
@@ -26434,6 +26789,11 @@ function getFilteredInfluencersForView() {
   const users = infUsersCache || [];
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
+  // 탈퇴 상태 필터 (작업 14).
+  // ⚠️ 상태 맵 조회에 실패했으면(`null`) **필터를 무시한다** — 전원을 걸러내
+  //    「0명 표시」로 보이면 「탈퇴한 사람이 이렇게 많나」로 오독된다.
+  //    배지도 같은 이유로 안 그려지므로 화면이 일관되게 「탈퇴 정보 없음」이 된다.
+  const withdrawSel = _infWithdrawalStates ? ($('infFilterWithdrawSelect')?.value || 'all') : 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
   // 주소지(다중) — 미선택이면 빈 배열(=전체). classifyPrefecture 로 정식/未登録/海外 분류 후 매칭
   const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
@@ -26458,6 +26818,18 @@ function getFilteredInfluencersForView() {
     if (violationSel === 'clean' && (vc > 0 || u.is_blacklisted)) return false;
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
+    if (withdrawSel !== 'all') {
+      const w = _infWithdrawalStates[u.id];
+      const st = w?.status;
+      const inProgress = (st === 'pending_payout' || st === 'scheduled');
+      if (withdrawSel === 'none'      && (inProgress || st === 'done')) return false;
+      if (withdrawSel === 'active'    && !inProgress) return false;
+      if (withdrawSel === 'done'      && st !== 'done') return false;
+      // 「취소 이력 있음」은 지금 상태가 아니라 **과거에 한 번이라도 취소했는가**다.
+      // 탈퇴를 신청했다 되돌린 회원을 따로 보려는 용도라, 그 뒤 재신청해서
+      // 지금 진행 중인 회원도 포함된다.
+      if (withdrawSel === 'cancelled' && !w?.ever_cancelled) return false;
+    }
     if (!matchSearch(u)) return false;
     if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
     if (minF != null || maxF != null) {
@@ -26479,11 +26851,12 @@ function renderInfluencersPane() {
   if (resetBtn) {
     const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
     const violationSel = $('infFilterViolationSelect')?.value || 'all';
+    const withdrawSel = $('infFilterWithdrawSelect')?.value || 'all';
     const searchQ = ($('infSearch')?.value || '').trim();
     const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
     const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
     const hasSort = !(infSortKey === 'created' && infSortDir === 'desc');
-    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || withdrawSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
     resetBtn.style.display = anyActive ? '' : 'none';
   }
   renderInfTable(filtered);
@@ -26493,6 +26866,7 @@ function renderInfluencersPane() {
 function resetInfView() {
   const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
+  const wd = $('infFilterWithdrawSelect'); if (wd) wd.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
   const s = $('infSearch'); if (s) s.value = '';
   if (typeof resetMultiFilter === 'function') resetMultiFilter('infPrefectureMulti', '전체 지역');
@@ -26583,6 +26957,42 @@ function influencerStatusBadges(u) {
   return parts.join('');
 }
 
+// 탈퇴 상태 배지 (목록용, 작업 14)
+//
+// ★ **없으면 화면이 깨져 보인다.** 확정(`done`)되면 마이그레이션 352 가 이름·
+//   이메일·연락처 18칸을 비워, 그 회원은 목록에서 **이름 없는 빈 행**이 된다.
+//   배지가 그 행의 유일한 설명이다.
+//
+// ⚠️ **조회 실패면 아무것도 안 그린다**(`_infWithdrawalStates === null`).
+//   0건인 척하지 않는다 — 「탈퇴한 사람이 없다」와 「못 물어봤다」는 다른 사실이다.
+// ⚠️ 이력만 있는 경우(취소됨)는 **안 그린다** — 「0이면 아무것도 안 그린다」 원칙.
+//   그런 회원은 목록 필터 「취소 이력 있음」으로만 찾는다.
+function influencerWithdrawalBadge(u) {
+  if (!_infWithdrawalStates) return '';          // 조회 실패 — 그리지 않는다
+  const w = _infWithdrawalStates[u.id];
+  if (!w) return '';
+  const base = 'display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px';
+  const icon = (n) => `<span class="material-icons-round notranslate" translate="no" style="font-size:11px">${n}</span>`;
+  if (w.status === 'done') {
+    return `<span title="탈퇴 완료 — 개인정보가 파기되어 이름·연락처가 비어 있습니다" style="${base};background:#ECEFF1;color:#455A64">${icon('person_off')}탈퇴 완료</span>`;
+  }
+  if (w.status === 'scheduled') {
+    const d = w.scheduled_date ? String(w.scheduled_date).slice(5).replace('-', '/') : '';
+    return `<span title="탈퇴 예정일 ${esc(w.scheduled_date || '미정')}" style="${base};background:#FFF3E0;color:#E65100">${icon('schedule')}탈퇴 예정${d ? ' ' + d : ''}</span>`;
+  }
+  if (w.status === 'pending_payout') {
+    return `<span title="탈퇴 신청됨 — 미지급 보수가 남아 대기 중입니다" style="${base};background:#FFF3E0;color:#E65100">${icon('hourglass_top')}탈퇴 대기</span>`;
+  }
+  return '';                                      // cancelled — 배지 없음
+}
+
+// 탈퇴가 진행 중이거나 끝난 회원인가 (행 흐리기·배지 배타 판정용).
+function infWithdrawalActive(u) {
+  if (!_infWithdrawalStates) return false;
+  const s = _infWithdrawalStates[u.id]?.status;
+  return s === 'done' || s === 'scheduled' || s === 'pending_payout';
+}
+
 function buildInfRowAll(u) {
   const igF = (u.ig_followers||0).toLocaleString();
   const xF = (u.x_followers||0).toLocaleString();
@@ -26607,8 +27017,12 @@ function buildInfRowAll(u) {
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  // 행 흐리기: 블랙리스트(기존) 또는 **탈퇴 완료**.
+  // ⚠️ 탈퇴 예정·대기는 흐리지 않는다 — 아직 살아 있는 회원이고, 오히려 그
+  //    기간에 운영이 챙겨야 할 일(미지급 보수 등)이 남아 있다.
+  const dimmed = u.is_blacklisted || (_infWithdrawalStates && _infWithdrawalStates[u.id]?.status === 'done');
+  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${dimmed?' style="opacity:.55"':''}>
+    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}${influencerWithdrawalBadge(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig, igF)}</td>
     <td>${snsCell('x', u.x, xF)}</td>
     <td>${snsCell('tiktok', u.tiktok, ttF)}</td>
@@ -27236,6 +27650,10 @@ async function submitWithdrawProxy() {
 
   // 상세 모달은 닫지 않는다 — 방금 무슨 일이 일어났는지 카드에서 바로 보여준다
   await renderInfluencerWithdrawalPanel(u);
+  // ⚠️ `refreshPane('influencers')` 는 **캐시에서 다시 그리기**라 탈퇴 상태 맵을
+  //    갱신하지 않는다(`rerenderInfluencersFromCache`). 먼저 맵을 다시 받아야
+  //    목록 배지가 방금 만든 신청을 반영한다 — 안 하면 「저장했는데 목록이 그대로」다.
+  _infWithdrawalStates = await fetchWithdrawalStatesByInfluencer();
   await refreshPane('influencers');
 }
 
@@ -27293,6 +27711,8 @@ async function submitWithdrawUndo() {
   closeModal('withdrawUndoModal');
   toast('탈퇴 신청을 되돌렸습니다 · 철회된 응모는 되살아나지 않습니다', 'success');
   await renderInfluencerWithdrawalPanel(u);
+  // 위 submitWithdrawProxy 와 같은 이유 — 캐시 재렌더는 탈퇴 상태를 안 갱신한다.
+  _infWithdrawalStates = await fetchWithdrawalStatesByInfluencer();
   await refreshPane('influencers');
 }
 
@@ -30317,6 +30737,23 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
 }
 
 // ─── 엑셀 export 공용 헬퍼 ─────────────────────────────────────────
+// 탈퇴 상태 한국어 (엑셀 열, 작업 14).
+// ⚠️ 화면 배지와 달리 **취소 이력도 적는다** — 화면은 「0이면 안 그린다」라
+//    이력만 있는 회원에 배지를 안 붙이지만, 엑셀은 나중에 걸러 보는 용도라
+//    빈 칸보다 사실이 적혀 있는 편이 낫다.
+// ⚠️ 상태 맵 조회에 실패했으면(`null`) **「확인 불가」**로 적는다. 빈 칸으로
+//    두면 「탈퇴 안 한 회원」과 구분되지 않는다.
+function _excelWithdrawStatusKo(u) {
+  if (typeof _infWithdrawalStates === 'undefined' || _infWithdrawalStates === null) return '확인 불가';
+  var w = _infWithdrawalStates[u && u.id];
+  if (!w) return '';
+  if (w.status === 'done')           return '탈퇴 완료';
+  if (w.status === 'scheduled')      return '탈퇴 예정' + (w.scheduled_date ? ' (' + w.scheduled_date + ')' : '');
+  if (w.status === 'pending_payout') return '탈퇴 대기(지급)';
+  if (w.status === 'cancelled')      return '취소함';
+  return '';
+}
+
 // 인플루언서 이름 — 한자/가나 별도 컬럼용 (사용자 요청 형식)
 function _excelInfluencerNameParts(u) {
   if (!u) return {kanji: '', kana: ''};
@@ -32118,7 +32555,12 @@ async function exportInfluencersExcel() {
       { header: '합계 팔로워', key: 'total', width: 12 },
       { header: '도도부현', key: 'pref', width: 12 },
       { header: '시군구', key: 'city', width: 16 },
-      { header: '등록일', key: 'created', width: 12 }
+      { header: '등록일', key: 'created', width: 12 },
+      // 탈퇴 상태 (작업 14) — 민감정보가 아니라 **기본 열**이다.
+      // 필터가 화면과 공유라 탈퇴 회원이 이미 결과에 섞여 들어가는데, 확정되면
+      // 이름·이메일·연락처가 전부 비어 있어(마이그레이션 352) 이 열이 없으면
+      // 「빈 행이 왜 있지」가 된다. 그 행의 유일한 설명이다.
+      { header: '탈퇴 상태', key: 'withdraw', width: 12 }
     ];
     if (includeSensitive) {
       cols.push(
@@ -32151,7 +32593,8 @@ async function exportInfluencersExcel() {
         total:   (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0),
         pref:    u.prefecture || '',
         city:    u.city || '',
-        created: u.created_at ? formatDate(u.created_at) : ''
+        created: u.created_at ? formatDate(u.created_at) : '',
+        withdraw: _excelWithdrawStatusKo(u)
       };
       if (includeSensitive) {
         row.phone    = u.phone || '';
@@ -47657,6 +48100,10 @@ async function init() {
     // 막힌 표 감지 — 부팅 시 1회. **그 화면에 들어가야만 알 수 있으면 늦다**
     //   (2026-08-07 사고가 11일간 안 보였던 이유가 그것이다).
     if (typeof refreshBlockedTableIndicators === 'function') refreshBlockedTableIndicators();
+    // 탈퇴 처리 점검 — 부팅 시 1회. 위와 같은 이유다.
+    //   ⚠️ 이 경고는 **「항상 0 이 정상」이 아니다** — 관리자 계정을 겸한 회원이
+    //   있으면 숫자가 0 으로 안 내려간다(모달이 조치 방법을 안내한다).
+    if (typeof refreshWithdrawalOpsIndicators === 'function') refreshWithdrawalOpsIndicators();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
