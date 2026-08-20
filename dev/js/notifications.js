@@ -93,7 +93,10 @@ function renderNavMenu() {
     // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
     // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
-    // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크 (확인 후 LINE 안내)
+    // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크.
+    //   2026-08-20 부터 **실제 탈퇴 화면**으로 간다(그전에는 LINE 안내 토스트였다).
+    //   ⚠️ 그 화면은 동적 렌더라 `data-i18n` 이 안 걸린다 — 언어 전환 재렌더는
+    //      `mypage.js` 의 langchange 리스너가 맡는다.
     html += `<button class="nav-withdraw" onclick="closeNavPanel();handleWithdraw()">${esc(t('mypage.withdraw'))}</button>`;
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
