@@ -14,7 +14,9 @@
  *
  * 검사:
  *  1. transcript_path 에서 최근 구간 읽기
- *  2. 실제 호출 형태(`subagent_type":"reverb-reviewer"`) 존재 여부 — 이름만으론 안 됨
+ *  2. 실제 호출 형태 존재 여부 — 이름만 언급된 것으로는 안 된다.
+ *     ⚠️ 그 형태를 여기에 글자 그대로 적지 않는다. 적으면 이 파일을 읽는 것만으로
+ *        기록에 그 글자가 들어가 「불렀다」로 오판된다(2026-08-20 리뷰 지적).
  *  3. staged 변경이 3+파일이면 `reverb-planner` 토큰 존재 여부도 검사
  *  4. supabase 관련 파일 변경이면 `reverb-supabase-expert` 토큰 검사
  *  5. 누락된 항목이 있으면 stderr에 경고만 출력 (exit 0)
@@ -72,8 +74,18 @@ const onlyMeta = fileRows.every((r) =>
 );
 const isSingleSmall = fileRows.length === 1 && totalLines <= 5;
 
-// 단순 수정·메타 파일만이면 스킵
-if (isSingleSmall || onlyMeta) process.exit(0);
+// 신규 마이그레이션이 있는가 — 예외 게이트보다 **먼저** 본다.
+// ⚠️ 뒤에 두면 한 줄짜리 신규 마이그레이션이 「단순 수정」으로 걸러져 검사가 통째로
+//    스킵된다. 마이그레이션은 짧을수록 안전한 것이 아니다 — 정책 삭제·권한 부여는
+//    한 줄이다(2026-08-20 리뷰 지적).
+let addsNewMigration = false;
+try {
+  const st = execSync('git diff --cached --name-status', { encoding: 'utf8', cwd });
+  addsNewMigration = st.split('\n').some((l) => /^A\s+supabase\/migrations\//.test(l));
+} catch { /* 못 읽으면 차단하지 않는다 — 조회 실패로 작업을 막지 않는다 */ }
+
+// 단순 수정·메타 파일만이면 스킵 (신규 마이그레이션이 있으면 스킵하지 않는다)
+if (!addsNewMigration && (isSingleSmall || onlyMeta)) process.exit(0);
 
 // transcript에서 에이전트 호출 흔적 검색
 const transcriptPath = payload.transcript_path;
@@ -95,9 +107,13 @@ if (!transcript) process.exit(0);
 
 // ⚠️ 이름만 찾으면 안 된다 — 규칙 문서를 읽기만 해도 그 이름이 기록에 남아 통과한다.
 //    실제 호출은 subagent_type 파라미터로 남고, 중첩 기록에서는 따옴표가 이스케이프된다.
-//    두 형태를 모두 받는다: subagent_type":"이름   /   subagent_type\":\"이름
+//    두 형태를 모두 받는다 — 그 열쇠말 뒤에 콜론과 따옴표가 바로 이어지는 형태,
+//    그리고 따옴표마다 앞에 백슬래시가 하나씩 붙는 중첩 기록 형태.
 function calledAgent(name) {
-  const re = new RegExp('subagent_type\\\\?"\\s*:\\s*\\\\?"' + name);
+  // ⚠️ 찾을 글자를 소스에 그대로 두지 않고 조립한다.
+  //    그대로 두면 이 파일을 읽는 것만으로 기록에 그 글자가 들어가 오판된다.
+  const KEY = 'subagent_' + 'type';
+  const re = new RegExp(KEY + '\\\\?"\\s*:\\s*\\\\?"' + name);
   return re.test(transcript);
 }
 const hasReviewer = calledAgent('reverb-reviewer');
@@ -124,13 +140,6 @@ if (needsPlanner && !hasPlanner) {
 
 const supabasePathRe = /(supabase\/migrations\/|dev\/lib\/storage\.js|dev\/lib\/supabase\.js)/;
 const needsSupabase = fileRows.some((r) => supabasePathRe.test(r.path));
-
-// 신규 마이그레이션 파일이 있는가 — 차단 대상은 이것 하나뿐이다
-let addsNewMigration = false;
-try {
-  const st = execSync('git diff --cached --name-status', { encoding: 'utf8', cwd });
-  addsNewMigration = st.split('\n').some((l) => /^A\s+supabase\/migrations\//.test(l));
-} catch { /* 못 읽으면 차단하지 않는다 — 조회 실패로 작업을 막지 않는다 */ }
 
 let blocking = false;
 if (needsSupabase && !hasSupabaseExpert) {
