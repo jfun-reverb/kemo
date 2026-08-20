@@ -39,9 +39,11 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - bcrypt round는 10 사용 (`gen_salt('bf', 10)`)
 
 ## 관리자 추가 (필수)
-- `invite_admin(email, name, role)` RPC 사용
-- 클라이언트는 RPC 성공 후 `resetPasswordForEmail()` 호출하여 초대 메일 발송
-- 받은 사람이 메일 링크로 직접 비밀번호 설정 (이메일 유효성 자동 검증)
+- `invite_admin(email, name, role)` 원격 호출 함수로 계정 생성
+- 이어서 **`sendAdminInviteMail(email, 'invite')`**(storage.js) → Edge Function `notify-admin-invite` 가 **서버에서** 비밀번호 설정 링크를 발급하고 관리자 전용 한국어 메일을 Brevo 로 보낸다
+- 받은 사람은 자립형 페이지 `/admin-setpw.html` 에서 직접 설정
+- 🔴 **`resetPasswordForEmail()` 을 쓰지 않는다** — 되살리지 말 것. 이유 둘: ①메일 양식이 종류별로 하나뿐이라 인플루언서 비밀번호 찾기와 문구를 공유하게 된다 ②`flowType:'pkce'` 라 코드 교환 검증값이 **호출한 브라우저**(초대한 관리자)에 저장돼, 링크를 여는 초대 대상의 다른 브라우저에서는 교환이 **반드시 실패**한다. 메일은 정상 도착하고 링크만 안 먹어서 실패가 조용하다. 2026-07-20 개편(사양서 `docs/specs/2026-07-20-admin-invite-mail-and-setpw.md`)
+- ⚠️ 위 금지는 **관리자 초대 경로에만** 해당한다. 인플루언서 비밀번호 찾기(`dev/js/auth.js`)는 지금도 `resetPasswordForEmail` 을 쓰며 그게 맞다
 - **`create_admin()` 함수는 deprecated — 호출 시 예외 발생** (migration 032)
 
 ## 관리자 삭제 (2택)
