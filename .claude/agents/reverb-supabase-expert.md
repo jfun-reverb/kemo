@@ -20,12 +20,16 @@ model: sonnet
 - **Client**: `dev/lib/supabase.js` 옵션, `dev/lib/storage.js` 함수 추가
 
 ## 핵심 테이블
-- `campaigns` (status: draft/scheduled/active/paused/closed)
-- `influencers` (id = auth.users.id, paypal_email, primary_sns, 동의 필드)
-- `applications` (status: pending/approved/rejected, reviewed_by/at)
-- `admins` (role: super_admin/campaign_admin/campaign_manager)
-- `receipts` (application_id, receipt_url, purchase_date, purchase_amount)
-- `lookup_values` (kind: channel/category/content_type/ng_item, recruit_types[])
+
+⚠️ **상태값·컬럼 목록을 이 문서에 베껴 적지 않는다.** 코드가 바뀌면 여기만 남아 갈린다 — 실제로 이 목록은 없어진 `paused` 상태를 계속 나열하고(마이그레이션 097 에서 제거), `applications` 의 `cancelled` 를 빠뜨리고, `lookup_values` 종류를 4개로 적어 둔 채(실제 열몇 개) 오래 있었다.
+
+- **표·컬럼 구조**: `CLAUDE.md` 의 `## Database Schema` 섹션이 정리된 출처
+- **상태값처럼 자주 바뀌는 것**: 작업 전 실제 제약을 확인한다
+  ```bash
+  grep -rn "CHECK" supabase/migrations/*.sql | grep -i "<표이름>" | tail -5
+  ```
+- 자주 다루는 표: `campaigns` · `influencers`(id = auth.users.id) · `applications` · `deliverables`(영수증·인증샷·게시물 통합) · `admins` · `settlements` · `lookup_values` · `orient_sheets` · `event_tickets` · `withdrawal_requests`
+- ⚠️ `receipts` 는 `deliverables` 로 통합됐다. `dev/lib/storage.js` 에 그 표를 조회하는 함수가 아직 남아 있지만 **호출부가 없다**(죽은 코드) — 새 코드에서 쓰지 말 것
 
 ## Auth 플로우 체크리스트 (필수)
 새 유저 생성 또는 auth.users 조작 시:
@@ -44,8 +48,10 @@ model: sonnet
 - [ ] 재설정 완료 후 signOut + 로그인 페이지
 
 관리자 추가:
-- [ ] `invite_admin(email, name, role)` RPC 사용 (create_admin은 deprecated)
-- [ ] 생성 직후 `resetPasswordForEmail()` 호출로 초대 메일 발송
+- [ ] `invite_admin(email, name, role)` 원격 호출 함수 사용 (`create_admin` 은 deprecated)
+- [ ] 이어서 `sendAdminInviteMail(email, 'invite')`(storage.js) → Edge Function `notify-admin-invite` 가 **서버에서** 링크 발급 + 관리자 전용 한국어 메일 발송
+- [ ] 🔴 **`resetPasswordForEmail()` 을 쓰지 않는다 — 되살리지 말 것.** `flowType:'pkce'` 라 코드 교환 검증값이 **초대한 사람의 브라우저**에 저장돼, 링크를 여는 초대 대상의 다른 브라우저에서는 **반드시 실패**한다. 메일은 정상 도착하고 링크만 안 먹어서 실패가 조용하다 (2026-07-20 개편)
+- [ ] ⚠️ 이 금지는 **관리자 초대 경로에만** 해당. 인플루언서 비밀번호 찾기(`dev/js/auth.js`)는 지금도 `resetPasswordForEmail` 을 쓰며 그게 맞다
 
 ## DB 작업 체크리스트
 - [ ] `db?.from()` null-safe (DEMO_MODE 대응)

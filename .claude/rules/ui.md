@@ -31,10 +31,15 @@ globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
 ## 관리자 앱 구조
 - 2단 고정 레이아웃: 좌측 사이드바 + 우측 메인 (각각 독립 스크롤, 상단 GNB 없음)
 - 사이드바 상단: Reverb 로고 + 접기 토글
-- 사이드바 메뉴 영역(스크롤 가능, 단일 영역): 공지사항 → 대시보드 → 캠페인(관리/신청/결과물) → 브랜드 서베이(현황/브랜드 관리/신청 목록) → 회원관리(인플루언서) → 관리자설정(기준데이터[super_admin 한정]/관리자계정) → 접속자 프로필(#sidebarAdminProfile → my-account) → 인플루언서 화면 → 로그아웃 (이전에 별도 고정 푸터로 분리되어 있던 인플루언서 화면/로그아웃 두 항목은 2026-05-07 이후 스크롤 영역에 포함)
+- 사이드바 메뉴 영역(스크롤 가능, 단일 영역) — **항목 목록은 `dev/admin/index.html` 의 `data-pane` 속성이 단일 소스다.** 여기에 베껴 적지 않는다(2026-08 기준 20개이고 계속 늘어난다. 실제로 이 문서는 정산·오류 로그·자주 묻는 질문·메시지·오리엔시트·회사 관리·오픈 예정 항목이 빠진 채 오래 남아 있었다).
+- 구조 규칙만 기억한다: 공지 → 대시보드 → 업무 그룹들 → 관리자 설정 → **접속자 프로필**(`#sidebarAdminProfile` → my-account) → 인플루언서 화면 → 로그아웃. 인플루언서 화면·로그아웃 두 항목은 2026-05-07 이후 별도 고정 푸터가 아니라 스크롤 영역에 포함된다.
+- 항목 노출은 등급별 권한(`menu.*`)에 따라 달라지므로, 「이 항목이 있다/없다」를 문서로 단정하지 않는다.
 - 관리자 페인: #adminPane-dashboard, #adminPane-campaigns 등 (add-campaign/edit-campaign은 서브 페인)
-- **목록 페인 (campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts)**: `admin-pane-list` 클래스 사용. flex column 구조로 제목+필터 고정, 카드 헤더 고정, thead sticky, tbody만 스크롤
-- **목록 페인 HTML 구조 통일 필수**: 7개 페인의 HTML 구조(admin-sticky-header → admin-card → admin-card-header → admin-table-wrap → table)가 반드시 동일해야 함. 래퍼 div 추가/제거 시 7개 모두 확인
+- **목록 페인**: `admin-pane-list` 클래스를 붙인다. flex column 구조로 제목+필터 고정, 카드 헤더 고정, thead sticky, tbody만 스크롤. **어느 페인이 목록 페인인지는 `dev/admin/index.html` 에서 그 클래스가 붙은 페인이 단일 소스다**(2026-08 기준 17개이고 계속 는다 — 여기에 나열하지 않는다).
+- **목록 페인 HTML 구조 통일 필수**: 구조(admin-sticky-header → admin-card → admin-card-header → admin-table-wrap → table)가 **모든 목록 페인에서 동일**해야 한다. 래퍼 div 를 추가·제거하면 `admin-pane-list` 가 붙은 페인을 전부 확인한다:
+  ```bash
+  grep -o 'id="adminPane-[a-z-]*"[^>]*admin-pane-list' dev/admin/index.html
+  ```
 - 대시보드(adminPane-dashboard)와 상세/폼 페인(add-campaign/edit-campaign/influencer-detail/my-account)은 목록이 아니므로 admin-pane-list 미적용 — 자연 스크롤
 - **필터 줄 컨트롤은 전용 클래스만 사용 (높이 32px 고정)**: 드롭다운·날짜/텍스트 입력 = `admin-filter`, 돋보기 아이콘 붙은 검색칸 = `admin-filter-search`, 다중 선택 버튼 = `mf-btn`, 감싸는 줄 = `admin-filter-bar` + 항목마다 `admin-filter-group`. **폼 화면용 `form-input` 에 인라인 padding·height 를 붙여 필터를 만들지 말 것** — 화면마다 자연 높이가 달라져 28·31·38px 로 어긋난다(2026-07-24 전수 정정, 운영 배포 완료). 새 필터를 만들 땐 옆 화면과 렌더 높이가 같은지 확인
 
