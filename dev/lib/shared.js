@@ -1970,6 +1970,10 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
   /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
   /campaign_deleted|recruit_not_open/,
+  // 탈퇴 절차 중인 계정의 쓰기 차단(마이그레이션 359) — 서버의 의도적 거부다.
+  //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
+  //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
+  /account_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.

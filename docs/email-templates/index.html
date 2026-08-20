@@ -386,6 +386,30 @@
     </div>
   </div>
 
+  <!-- ⑬ 탈퇴 예정일 안내 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">탈퇴 예정일 안내</div>
+    <div class="card-desc">회원이 탈퇴를 신청하고 받을 보수가 정리되면, 탈퇴 예정일과 「그때까지 취소할 수 있다」는 것을 알립니다. 관리자가 대신 접수한 건이면 그 사실을 밝히는 문단이 추가됩니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">탈퇴 신청이 「예정」 상태가 된 다음 날 아침에 한 번 보냅니다. 받을 보수가 남아 있어 「지급 대기」인 동안에는 보내지 않고, 지급이 끝나 예정일이 정해진 뒤에 나갑니다. 이미 받은 사람에게는 다시 안 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국·일본 시각 오전 9시 (대상자에게 1통, 대상 0명이면 미발송)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= 한국·일본 09:00) — withdrawal-scheduled-mail-daily → notify-withdrawal-scheduled</div>
+      <div><b>수신자:</b> withdrawal_requests.status='scheduled' 이고 scheduled_mail_sent_at 이 비어 있는 회원 본인</div>
+      <div><b>언어:</b> JA</div>
+      <div><b>대행 문단:</b> 관리자가 대신 접수(admin_proxy)한 건이면 「회원님의 요청에 따라 운영팀이 대신 절차를 진행했습니다」 문단이 들어갑니다. 본인 신청이면 없습니다</div>
+      <div><b>중요:</b> 인플루언서 정산 알림을 없앤 뒤로 <b>이 메일이 회원에게 닿는 유일한 통지</b>입니다 — 탈퇴를 기다리는 사람은 앱에 안 들어오고, 확정되면 로그인이 막힙니다</div>
+      <div><b>실패 처리:</b> 메일이 실패해도 탈퇴 진행은 멈추지 않습니다(멈추면 「대기」에서 영영 못 나갑니다). 발송에 성공한 뒤에만 발송 시각을 기록합니다</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="withdrawal-scheduled.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="withdrawal-scheduled.html">원본</a>
+    </div>
+  </div>
+
 </div>
 
 <h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>

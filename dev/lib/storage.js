@@ -3402,6 +3402,37 @@ async function fetchWithdrawalPrecheck(influencerId) {
   }
 }
 
+// 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).
+//   성공: { ok:true, has_request, status, scheduled_date,
+//           login_blocked, write_blocked }
+//   실패: { ok:false, reason:'not_authenticated' } / { ok:false, error }
+//
+// ★ `login_blocked` 와 `write_blocked` 는 **다른 값이고, 그게 핵심이다.**
+//   · login_blocked — 탈퇴가 **확정된 경우만**. 강제 로그아웃 기준
+//   · write_blocked — 확정 **또는 예정일 경과**. 서버 차단과 같은 기준
+//   예정일이 지났는데 예약 실행이 아직 안 돈 구간의 회원은 **로그인은 되고 쓰기만
+//   막혀야** 한다 — 안 그러면 탈퇴 취소 버튼에 닿지 못한다.
+//
+// ⚠️ 실패는 **막지 않는 쪽으로** 폴백한다(로그아웃시키지 않는다). 통신 장애로 정상
+//    회원을 쫓아내는 쪽이 훨씬 나쁘고, 서버 차단이 최종 방어선이다.
+// ⚠️ 화면이 `scheduled_date` 를 오늘과 비교하지 말 것 — 기기 시계로 갈린다.
+//    판정은 서버가 이미 했다.
+async function fetchMyWithdrawalState() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_my_withdrawal_state');
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[fetchMyWithdrawalState]', e); logAppError('fetchMyWithdrawalState', e);
+    return {ok: false, error: msg};
+  }
+}
+
 // 한 회원의 탈퇴 신청 이력 (최신순) — 관리자 화면용.
 // 조회 정책이 「본인 또는 관리자」라 관리자는 남의 것도 볼 수 있다(마이그레이션 345).
 // ⚠️ 사전 조회(fetchWithdrawalPrecheck)와 역할이 다르다 — 저쪽은 「지금 무엇을
