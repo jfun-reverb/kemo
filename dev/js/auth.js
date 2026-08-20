@@ -330,3 +330,59 @@ async function handleResetPassword(e) {
   btn.textContent = t('auth.reset.btn');
 }
 
+
+// ══════════════════════════════════════
+// 탈퇴가 확정된 계정을 로그아웃시킨다 (마이그레이션 358·359 — 작업 8)
+//
+//   ⚠️ 이건 **보조 장치**다. 최종 방어선은 서버의 차단 장치(359)이고, 이 함수는
+//      화면을 안 거치는 사람까지 막지 못한다. 그래도 필요한 이유는, 파기로 비워진
+//      마이페이지를 회원이 계속 들여다보며 **다시 입력하라고 재촉받는** 상태를
+//      끊어 주기 때문이다.
+//
+//   ★ **`login_blocked` 만 본다 — `write_blocked` 를 쓰면 안 된다.**
+//      예정일이 지났지만 예약 실행이 아직 안 돈 구간의 회원까지 로그아웃시키면
+//      **탈퇴 취소 버튼에 닿지 못한다.** 취소는 회원에게 유리한 동작이다.
+//
+//   ⚠️ 조회에 실패하면 **아무것도 하지 않는다**(fail-open). 통신 장애로 정상 회원을
+//      쫓아내는 쪽이 훨씬 나쁘고, 서버가 최종 방어선이라 실피해가 없다.
+//      (마이그레이션 276 이 세운 「서버에 못 물어본 경우엔 막지 않는다」 원칙)
+// ══════════════════════════════════════
+let _withdrawalLogoutChecked = false;
+
+async function enforceWithdrawalLogout() {
+  // 같은 세션에서 두 번 이상 돌지 않게 — 부팅과 로그인 이벤트 양쪽에서 불린다
+  if (_withdrawalLogoutChecked) return;
+  if (!currentUser) return;
+  // 관리자는 대상이 아니다(관리자를 겸한 회원은 파기 자체가 거부된다 — 마이그레이션 352)
+  if (currentUser._isAdmin) return;
+  if (typeof fetchMyWithdrawalState !== 'function') return;
+
+  _withdrawalLogoutChecked = true;
+
+  const st = await fetchMyWithdrawalState();
+  // ok 가 아니거나 login_blocked 가 명시적으로 true 가 아니면 아무것도 안 한다
+  if (!st || st.ok !== true || st.login_blocked !== true) return;
+
+  const msg = typeof t === 'function' ? t('auth.withdrawnLogout')
+    : '退会手続きが完了したため、ログアウトしました。ご不明な点は運営までLINEでご連絡ください。';
+
+  try {
+    await db?.auth?.signOut();
+  } catch (e) {
+    console.error('[enforceWithdrawalLogout] signOut', e);
+  }
+  currentUser = null;
+  currentUserProfile = null;
+  if (typeof updateGnb === 'function') updateGnb();
+  if (typeof navigate === 'function') navigate('login');
+
+  // 안내는 사라지지 않게 로그인 화면에 남긴다 — 되돌릴 수 없는 사건이라 2.8초 뒤
+  //   사라지는 알림으로는 부족하다. (#loginError 는 정적 요소라 다시 그려지지 않는다)
+  const errEl = typeof $ === 'function' ? $('loginError') : null;
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.style.display = '';
+  } else if (typeof toast === 'function') {
+    toast(msg);
+  }
+}

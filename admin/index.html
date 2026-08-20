@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787156850';
+  var CURRENT_BUILD = 'v1787187850';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2949,7 +2949,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-20 01:27 · 8e03b1b</span>
+          <span class="admin-build-text">2026-08-20 10:04 · cc14902</span>
         </div>
       </div>
     </aside>
@@ -9296,6 +9296,10 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
   /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
   /campaign_deleted|recruit_not_open/,
+  // 탈퇴 절차 중인 계정의 쓰기 차단(마이그레이션 359) — 서버의 의도적 거부다.
+  //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
+  //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
+  /account_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
@@ -12855,6 +12859,37 @@ async function fetchWithdrawalPrecheck(influencerId) {
   }
 }
 
+// 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).
+//   성공: { ok:true, has_request, status, scheduled_date,
+//           login_blocked, write_blocked }
+//   실패: { ok:false, reason:'not_authenticated' } / { ok:false, error }
+//
+// ★ `login_blocked` 와 `write_blocked` 는 **다른 값이고, 그게 핵심이다.**
+//   · login_blocked — 탈퇴가 **확정된 경우만**. 강제 로그아웃 기준
+//   · write_blocked — 확정 **또는 예정일 경과**. 서버 차단과 같은 기준
+//   예정일이 지났는데 예약 실행이 아직 안 돈 구간의 회원은 **로그인은 되고 쓰기만
+//   막혀야** 한다 — 안 그러면 탈퇴 취소 버튼에 닿지 못한다.
+//
+// ⚠️ 실패는 **막지 않는 쪽으로** 폴백한다(로그아웃시키지 않는다). 통신 장애로 정상
+//    회원을 쫓아내는 쪽이 훨씬 나쁘고, 서버 차단이 최종 방어선이다.
+// ⚠️ 화면이 `scheduled_date` 를 오늘과 비교하지 말 것 — 기기 시계로 갈린다.
+//    판정은 서버가 이미 했다.
+async function fetchMyWithdrawalState() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_my_withdrawal_state');
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[fetchMyWithdrawalState]', e); logAppError('fetchMyWithdrawalState', e);
+    return {ok: false, error: msg};
+  }
+}
+
 // 한 회원의 탈퇴 신청 이력 (최신순) — 관리자 화면용.
 // 조회 정책이 「본인 또는 관리자」라 관리자는 남의 것도 볼 수 있다(마이그레이션 345).
 // ⚠️ 사전 조회(fetchWithdrawalPrecheck)와 역할이 다르다 — 저쪽은 「지금 무엇을
@@ -14910,6 +14945,10 @@ const _ERR_DICT = {
   ja: {
     unknown: 'エラーが発生しました',
     duplicate: 'すでに登録されています',
+    // 탈퇴 절차 중인 계정의 쓰기 차단(마이그레이션 359)
+    //   ⚠️ 「완료」가 아니라 「절차 중」이다 — 넓은 판정에는 「예정일은 지났지만 아직
+    //     확정 전」인 구간이 들어 있어, 「완료」로 쓰면 그 구간에서 사실과 다르다.
+    accountWithdrawn: '退会の手続き中のため、この操作はできません。',
     permission: '権限がありません',
     fk: '関連データがあるため処理できません',
     notnull: '必須項目が不足しています',
@@ -14934,6 +14973,7 @@ const _ERR_DICT = {
   ko: {
     unknown: '오류가 발생했습니다',
     duplicate: '이미 등록된 데이터입니다',
+    accountWithdrawn: '탈퇴 절차 진행 중이라 이 작업을 할 수 없습니다.',
     permission: '권한이 없습니다',
     fk: '연결된 데이터가 있어 처리할 수 없습니다',
     notnull: '필수 항목이 누락되었습니다',
@@ -14971,6 +15011,9 @@ function friendlyErrorJa(e) {
   // 캠페인이 모집중이 아니거나 삭제됐을 때(마이그레이션 326). 정상 동선에서는 화면이 먼저 막아
   //   도달하지 않지만, 등록해 두지 않으면 그 순간 **일본어 화면에 한국어 원문**이 그대로 뜬다.
   if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
+  // 탈퇴 절차 중인 계정(마이그레이션 359) — 일반 permission 규칙보다 **먼저** 매칭해야
+  //   「권한이 없습니다」로 뭉개지지 않는다.
+  if (/account_withdrawn/.test(s)) return t.accountWithdrawn;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;

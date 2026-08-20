@@ -79,6 +79,10 @@ const _ERR_DICT = {
   ja: {
     unknown: 'エラーが発生しました',
     duplicate: 'すでに登録されています',
+    // 탈퇴 절차 중인 계정의 쓰기 차단(마이그레이션 359)
+    //   ⚠️ 「완료」가 아니라 「절차 중」이다 — 넓은 판정에는 「예정일은 지났지만 아직
+    //     확정 전」인 구간이 들어 있어, 「완료」로 쓰면 그 구간에서 사실과 다르다.
+    accountWithdrawn: '退会の手続き中のため、この操作はできません。',
     permission: '権限がありません',
     fk: '関連データがあるため処理できません',
     notnull: '必須項目が不足しています',
@@ -103,6 +107,7 @@ const _ERR_DICT = {
   ko: {
     unknown: '오류가 발생했습니다',
     duplicate: '이미 등록된 데이터입니다',
+    accountWithdrawn: '탈퇴 절차 진행 중이라 이 작업을 할 수 없습니다.',
     permission: '권한이 없습니다',
     fk: '연결된 데이터가 있어 처리할 수 없습니다',
     notnull: '필수 항목이 누락되었습니다',
@@ -140,6 +145,9 @@ function friendlyErrorJa(e) {
   // 캠페인이 모집중이 아니거나 삭제됐을 때(마이그레이션 326). 정상 동선에서는 화면이 먼저 막아
   //   도달하지 않지만, 등록해 두지 않으면 그 순간 **일본어 화면에 한국어 원문**이 그대로 뜬다.
   if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
+  // 탈퇴 절차 중인 계정(마이그레이션 359) — 일반 permission 규칙보다 **먼저** 매칭해야
+  //   「권한이 없습니다」로 뭉개지지 않는다.
+  if (/account_withdrawn/.test(s)) return t.accountWithdrawn;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
