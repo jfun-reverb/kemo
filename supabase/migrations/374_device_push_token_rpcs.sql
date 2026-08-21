@@ -126,6 +126,12 @@ COMMENT ON FUNCTION public.register_push_token(text, text) IS
 --   이 함수들은 SECURITY DEFINER 라 그대로 두면 안 된다(안쪽 auth.uid() NULL 가드가 막아 주긴
 --   하지만, 막는 것과 부를 수 없는 것은 다르다).
 --   ⚠️ `has_function_privilege` 로 보면 회수 여부가 안 드러난다 — 확인하려면 `proacl::text` 를 볼 것.
+--   🔴 **되돌릴 일이 생겨도 REVOKE 를 GRANT 로 뒤집지 말 것.** 이 두 함수의 올바른 상태는
+--      **`authenticated` 하나뿐**이다 — PUBLIC·anon 은 애초에 열려 있으면 안 되는 것이었고,
+--      Postgres 기본값 때문에 실수로 열려 있었을 뿐이다. 그대로 뒤집으면 **원래 없던
+--      비로그인 접근을 새로 여는** 셈이라, 되돌리기가 원래보다 나쁜 상태를 만든다.
+--      (2026-08-21 다른 세션이 375 에서 같은 함정을 실제로 겪었다 — 넷 중 셋은 원래부터
+--       로그인 전용이었는데 되돌리기 안내가 「GRANT 로 바꾸면 된다」로 적혀 있었다.)
 REVOKE ALL ON FUNCTION public.register_push_token(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.register_push_token(text, text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.register_push_token(text, text) TO authenticated;
