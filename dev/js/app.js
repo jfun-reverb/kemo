@@ -318,7 +318,22 @@ window.addEventListener('popstate', function(e) {
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
-    if (sub === 'list') { if (typeof openMypageList === 'function') openMypageList(false); }
+    if (sub === 'list') {
+      if (typeof openMypageList === 'function') openMypageList(false);
+      // 주소를 목록으로 되돌린다 — 바로 위 navigate('mypage') 가 부르는 closeMypageSub() 가
+      //   현재 항목을 '#mypage-applications' 로 갈아 끼워, 화면은 목록인데 주소만 응모이력으로
+      //   남는다(2026-08-21 시뮬레이터 실측). 그대로 두면 새로고침·다음 뒤로가기가 목록이
+      //   아니라 응모이력으로 간다. openMypageList(false) 는 history 를 안 건드리므로 여기서 맞춘다.
+      //   ⚠️ sub==='list' 는 iOS 바텀 탭바 전용 화면에서만 생긴다 — 웹은 이 분기에 안 들어온다.
+      //   ⚠️ 위 navigate 가 **로그인 화면으로 튕겼을 수 있다** — 세션이 만료되면 mypage 분기가
+      //      navigate('login') 으로 새 항목을 쌓고 빠져나가는데, 이 코드는 그대로 이어진다.
+      //      그때 주소를 덮으면 **화면은 로그인인데 주소는 마이페이지 목록**이 된다. 실제로
+      //      마이페이지가 켜져 있을 때만 손댄다.
+      const _act = document.querySelector('#appShell .page.active');
+      if (_act && _act.id === 'page-mypage') {
+        try { history.replaceState({page:'mypage', sub:'list'}, '', '#mypage-list'); } catch(e) {}
+      }
+    }
     else if (sub) openMypageSub(sub, false);
     else closeMypageSub();
   } else if (page.startsWith('detail-')) {

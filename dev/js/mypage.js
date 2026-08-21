@@ -667,7 +667,19 @@ function handleWithdraw() {
 //    화면은 그대로 — 뒤로가기를 눌러야 그제야 뜨는 기이한 경로까지 생긴다).
 //    2026-05-22 응모건 메시지에서 겪은 「누르면 막다른 길」과 같은 유형이다.
 function openWithdrawScreen() {
-  navigate('mypage', false);
+  // iOS 앱 전용 예외 — 이미 마이페이지 안이면 navigate 를 건너뛴다.
+  //   navigate('mypage') 는 반드시 closeMypageSub() 를 부르고, 그 함수가 현재 history 항목을
+  //   '#mypage-applications' 로 **갈아 끼운다**(replaceState). 그래서 iOS 의 「マイページ」 목록에서
+  //   「退会する」를 누르면, 돌아갈 자리가 목록에서 応募履歴 으로 바뀐 뒤 탈퇴 화면이 얹혀
+  //   **뒤로가기가 들어온 자리로 안 돌아간다**(2026-08-21 시뮬레이터 실측).
+  //   ⚠️ 웹은 종전 그대로 둔다 — 웹에는 이 목록 화면이 없고 햄버거는 어느 화면에서나 눌리는
+  //      전역 링크라, 되돌림이 오히려 맞는 동작이다. 웹 쪽 판단은 개발 세션에 넘겼다.
+  //   ⚠️ 아래 「navigate 를 반드시 먼저 부른다」 주석은 여전히 유효하다 — 건너뛰는 경우는
+  //      **이미 그 페이지가 켜져 있을 때뿐**이라 「누르면 막다른 길」은 생기지 않는다.
+  const _native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const _active = document.querySelector('#appShell .page.active');
+  const _onMypage = !!(_active && _active.id === 'page-mypage');
+  if (!(_native && _onMypage)) navigate('mypage', false);
   openMypageSub('withdraw');
 }
 
