@@ -109,7 +109,7 @@ S1(문의 창구 사양서) ──→ 2 (LINE 제거 · 창구 연결)
 | **10** | 파기 ㄱ — **확정 즉시** | 마이그레이션 1 | `purge_withdrawn_personal_data()` (칸 비우기 + `auth.users`·`auth.identities` 이메일 바꿔치기) | 7 | ✓ | 개발 |
 | **11** | 재가입 차단 (6개월) | 마이그레이션 1~2 · `dev/js/auth.js` | 표 `withdrawal_email_blocks` · `is_email_withdrawal_blocked()` · 집행 지점(Q3) · `purge_expired_withdrawal_email_blocks()` | 7 | ✓ | 개발 |
 | **12** | 파기 ㄴ — **6개월 · 저장소 파일** (영수증·인증샷) | 마이그레이션 **2** · **Edge Function 신설** | `list_pending_withdrawal_media_purge()` · `mark_withdrawal_media_purged()` · `count_overdue_withdrawal_media_purge()` · **`purge-withdrawal-media`** | 7 | ✓ | 개발 |
-| **12-B** | 파기 ㄴ-2 — **6개월 · 메시지 첨부** (2026-08-20 신설·분리) | 마이그레이션 1 · 위 Edge Function 확장 · `dev/js/admin-messaging.js` | 목록 함수 kind 확장 + 통 `application-message-attachments` 추가 + 첨부 없는 메시지 렌더 | **12** | ✓ | 개발 |
+| **12-B** | 파기 ㄴ-2 — **6개월 · 메시지 첨부** (2026-08-20 신설·분리 · **2026-08-21 착수**) | 마이그레이션 **3**(368·371·372) · **신규** Edge Function · `admin-messaging.js`·`messaging.js`·`shared.js`·`admin-core.js` | 목록·표시 함수 3종 + 통 `application-message-attachments` 파기 + 첨부 「파기됨」 렌더 + **작업 14 경고에 넷째 줄** | **12** · (경고는 **14**) | ✓ | 개발 |
 | **13** | 파기 ㄷ — **5년 · 페이팔** | 마이그레이션 1 | `purge_withdrawn_paypal()` (두 곳: `influencers` · `settlements`) | 7 | ✓ | 개발 |
 | **14** | 관리자 화면 | `dev/js/admin-influencers.js` · `dev/admin/index.html` 🔴 | `renderInfluencerWithdrawalPanel(u)` · 목록 배지 · 필터 · 밀린 파기 경고 | 5, 12 | ✗ | 개발 |
 | **15** | ★ 시행 전 잠금 · 자동 해제 | 마이그레이션 1 · `dev/js/mypage.js` | 표 `withdrawal_settings` · `is_withdrawal_open()` · 화면 두 모습 | **S1·S3**, 9 | ✗ | 개발 |
@@ -1055,15 +1055,25 @@ A는 아무 잘못이 없는데 남의 탈퇴 때문에 자기 예약을 못 버
 
 ---
 
-### 작업 12-B — 파기 ㄴ-2 · 응모건 메시지 첨부 (신설, 미착수)
+### 작업 12-B — 파기 ㄴ-2 · 응모건 메시지 첨부 (**착수 완료 · 개발 검증 남음**, 2026-08-21)
 
 작업 12 에서 분리(2026-08-20 사용자 결정). 회원이 응모건 메시지에 보낸 사진도 탈퇴 확정 6개월 뒤 파기한다.
 
+**★ 별도 작업표가 있다 — `docs/specs/2026-08-21-message-attachment-purge-breakdown.md` 가 이 조각의 단일 소스다.**
+아래는 요약이고, 착수 전 확인한 함정·확정된 결정·구현 결과는 전부 그쪽에 있다.
+
 - **통이 다르다** — `application-message-attachments`(비공개). 경로는 이미 통 안 상대 경로라 주소 변환이 필요 없다
-- ⚠️ **첨부를 비우면 저장이 거부되는 검사**가 있다(사진만 보낸 메시지는 첨부가 있어야 한다) — 우회 방법이 필요
-- ⚠️ **관리자 메시지 화면이 「주소 없는 첨부」를 견디도록** 함께 고쳐야 한다
-- ⚠️ 그 배열에 **관리자가 보낸 첨부도 섞여 있다** — 보낸 사람을 가려야 한다
-- 💡 작업 12 의 장치를 그대로 쓴다 — 목록 함수의 kind 목록과 Edge Function 의 통 이름만 넓히면 된다
+- ⚠️ **첨부를 비우면 저장이 거부되는 검사**가 있다(사진만 보낸 메시지는 첨부가 있어야 한다) → **비우지 않고 같은 개수의 「파기됨」 표시로 치환**해 해결(2026-08-21 결정 Q3 — 몇 장이 오갔는지는 남는다)
+- ⚠️ **관리자 메시지 화면이 「주소 없는 첨부」를 견디도록** 함께 고쳐야 한다 → 12-B-4 로 **먼저 배포 완료**(파기보다 화면이 앞서야 한다)
+- ⚠️ 그 배열에 **관리자가 보낸 첨부도 섞여 있다** — 보낸 사람을 가려야 한다 → `sender_kind = 'influencer'` 로 한정(2026-08-21 결정 Q1)
+- 🔴 **「작업 12 의 장치를 그대로 쓴다 — kind 목록과 통 이름만 넓히면 된다」는 지금 코드에서 성립하지 않았다.**
+  결과물은 「행 하나 = 파일 하나」인데 메시지는 **한 메시지에 사진이 최대 5장**이고, 파기 표시 방식도(칸 비우기 vs 배열 치환) 다르다.
+  → **별개 장치로 만들었다.** 재사용한 것은 기한 판정 `_withdrawal_media_purge_due_ids()` **하나뿐**이다(2026-08-21 결정 Q2).
+
+**산출물:** 마이그레이션 **368**(본체 · 개발 적용) · **371**(예약) · **372**(경고 집계 확장) +
+Edge Function `purge-withdrawal-message-attachments` + 화면 3곳(`shared.js`·`admin-messaging.js`·`messaging.js`·`admin-core.js`).
+
+**남은 것:** Edge Function 배포 → 371·372 적용 → **개발서버에서 사진이 실제로 사라지는 것 확인** → 운영.
 
 ---
 

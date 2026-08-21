@@ -484,6 +484,7 @@
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
 - 세션 만료 대응: `retryWithRefresh()` 로 RLS/JWT 에러 시 세션 갱신 후 1회 재시도
+- **함수 실행 권한 — 회수 방향이 둘이다**(2026-08-21, 마이그레이션 369·370): 「내부 전용」이라 주석에 적힌 함수가 **공개 키로 실제 호출 가능**했다(개발서버에서 200 응답으로 증명). 원인은 기본값이 겹쳐서다 — **Postgres 는 새 함수에 PUBLIC 실행 권한**을 주고, **Supabase 는 거기 더해 `anon`·`authenticated` 에 개별로** 준다. `REVOKE ALL FROM PUBLIC` 은 개별 부여를 못 걷고, `REVOKE … FROM anon, authenticated` 는 PUBLIC 부여를 못 걷는다 — **서로를 대신하지 못한다.** 369 가 되돌릴 수 없는 일을 하는 9개, **370 이 나머지 15개**를 닫았다. ⚠️ **`has_function_privilege` 만 보면 어느 방향인지 모른다**(PUBLIC 이 남아 있으면 로그인·비로그인 둘 다 `true`) — `p.proacl::text` 의 **맨 앞 `=X/`** 유무를 함께 볼 것. ⚠️ **개발과 운영의 권한 상태가 다르다** — 같은 함수가 개발은 PUBLIC·운영은 역할별이었고 `check_admin_password_reset_rate_limit` 는 운영에서만 이미 닫혀 있었다. **저장소 문서로는 못 알아낸다**(084 에 PUBLIC 회수 기록만 있고 되돌린 기록이 없는데도 개발엔 살아 있었다) — 반드시 각 데이터베이스를 직접 조회할 것. ⚠️ `REVOKE` 는 **대상이 없어도 「Success」**다 — 돌린 뒤 권한을 다시 조회해 눈으로 확인. ⚠️ 안쪽 호출이 사는 이유는 트리거·감싸는 함수가 **`SECURITY DEFINER`** 라 소유자 권한으로 돌기 때문이다 — **`SECURITY INVOKER` 로 부르는 자리를 새로 만들면 그 순간 끊긴다**(`recompute_campaign_applied_count` 는 응모가 들어올 때마다 타는 경로라 잘못 건드리면 **응모가 통째로 막힌다**. 되돌리기 전 트랜잭션 안에서 증명하는 절차가 370 파일 주석에 있다). ⚠️ **순수 계산 함수 3종은 일부러 안 닫았다**(`_meets_min_followers`·`_withdrawal_email_hash`·`_accumulate_legacy_no` — 표를 안 읽어 샐 것이 없다)
 
 ## Test Accounts
 - 관리자: admin@kemo.jp / admin1234
