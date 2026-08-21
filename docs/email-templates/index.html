@@ -537,8 +537,78 @@
 
 </div>
 
-<h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>
+<h2>메일이 안 가는 상황 (앱 알림만 / 미구현)</h2>
+<div class="footer-note" style="margin:0 0 16px">
+  <b>⚠️ 아래 상황에서는 회원에게 메일이 가지 않습니다 — 앱 안 알림만 뜹니다.</b><br>
+  회원이 앱에 안 들어오면 그 사실을 모릅니다. CS 응대 시 「메일 못 받았다」는 문의가 오면 아래 목록부터 확인하세요.<br>
+  <br>
+  각 카드의 <b>계획 있음</b>은 만들기로 정해져 있으나 아직 안 만든 것, <b>계획 없음</b>은 만들지 안 만들지도 아직 안 정한 것입니다.
+</div>
 <div class="grid">
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">행사 예약 확정 · 대기 승격 안내</div>
+    <div class="card-desc">오프라인 팝업 방문 예약이 확정되거나, 대기자가 자리를 받았을 때.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">
+        방문객이 예약을 마치면 <b>화면에서 바로 큐알(QR)과 예약번호를 보여 주므로</b> 메일 없이도 티켓을 받을 수 있습니다.
+        문제는 <b>대기자가 나중에 확정으로 올라갈 때</b>입니다 — 앞사람이 취소하면 자동으로 자리가 넘어가는데,
+        그 사실이 <b>앱 안 알림으로만</b> 갑니다. 앱에 안 들어오면 자기 자리가 생긴 것을 모른 채 행사가 끝납니다.
+      </div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (미구현 — 예약 확정 직후 · 대기 승격 직후 발송 예정)</div>
+    </div>
+    <div class="card-meta"><span class="status-soon">계획 있음 · 미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">응모건 메시지 답장 알림</div>
+    <div class="card-desc">운영팀이 회원의 문의에 답장했을 때.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">
+        회원이 응모건에 대해 문의하고 운영팀이 답장하면, 지금은 <b>앱 안 알림만</b> 뜹니다.
+        회원 입장에서는 <b>답장이 왔는지 확인하려고 앱에 다시 들어와야</b> 합니다 —
+        답장을 오래 못 보는 문의가 여기서 생깁니다.
+      </div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (미구현 — 관리자 답장 후 일정 시간 뒤 묶어서 발송 예정)</div>
+    </div>
+    <div class="card-meta"><span class="status-soon">계획 있음 · 미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">응모 취소 완료 안내 (본인)</div>
+    <div class="card-desc">회원이 스스로 응모를 취소했을 때.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">
+        회원이 응모를 취소하면 <b>관리자에게는</b> 다음 날 아침 「관리자 일일 통합 다이제스트」로 전달됩니다.
+        그런데 <b>취소한 본인에게는 앱 안 알림만</b> 갑니다 — 회원용 일일 다이제스트에는 취소 항목이 없습니다
+        (그 메일은 신청·승인·반려·마감 임박 네 가지만 다룹니다).
+      </div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (미정 — 만들지 여부가 아직 안 정해졌습니다)</div>
+    </div>
+    <div class="card-meta"><span class="status-soon">계획 없음</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 대리 등록 안내</div>
+    <div class="card-desc">운영자가 회원 대신 결과물을 등록했을 때.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">
+        배송 지연·시스템 오류 같은 사정으로 운영자가 회원 대신 결과물을 등록하면
+        <b>자동으로 승인 처리</b>되는데, 그 사실이 <b>앱 안 알림으로만</b> 갑니다.
+        회원은 자기가 안 낸 결과물이 등록·승인된 것을 모를 수 있습니다.
+      </div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (미정 — 만들지 여부가 아직 안 정해졌습니다)</div>
+    </div>
+    <div class="card-meta"><span class="status-soon">계획 없음</span></div>
+  </div>
 
   <div class="card disabled">
     <div class="card-tag tag-infl">Influencer</div>
@@ -549,7 +619,7 @@
       <div class="cc-text">관리자가 인플루언서에게 「OT(오리엔테이션) 자료를 보냈어요」 알림을 보낼 때 보냅니다. 현재 미구현.</div>
       <div class="cc-timing"><strong>발송 시점:</strong> (미구현 — 관리자가 OT 발송 체크박스 토글 시 즉시 발송 예정)</div>
     </div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
+    <div class="card-meta"><span class="status-soon">계획 있음 · 미구현</span></div>
   </div>
 
 </div>
@@ -562,7 +632,9 @@
   <code>{name}.preview.html</code> — 메일 클라이언트 frame + 샘플 데이터로 렌더된 미리보기<br>
   <br>
   <b>🔄 Edge Function 동기화</b><br>
-  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code> 의 미러본을, 결과물 메일 6종은 <code>notify-deliverable-decision/</code>, 응모 취소·인플 다이제스트·관리자 접수 요약·관리자 통합 다이제스트·캠페인 홍보 메일 5종은 각각 같은 이름 Edge Function 의 <code>_templates/</code> + <code>templates.ts</code> 미러본을 사용. HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
+  이 폴더가 <b>원본</b>이고, 메일을 실제로 보내는 함수 <b>12개</b>는 각자 <code>_templates/</code> 안에 <b>복사본</b>을 갖고 있습니다(함수가 배포될 때 자기 폴더 안 파일만 읽을 수 있기 때문).<br>
+  🔴 <b>그래서 이 폴더의 HTML 을 고치기만 하면 메일은 안 바뀝니다.</b> 고친 뒤 반드시 <code>bash scripts/sync-email-templates.sh</code> 를 돌려 복사본을 맞추고, 그 다음 함수를 다시 배포해야 합니다.<br>
+  자세한 가이드는 <a href="README.md">README.md</a> 참고.
 </div>
 
 </body>
