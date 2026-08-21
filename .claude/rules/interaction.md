@@ -174,6 +174,7 @@ Grep("(캐페인|캐웩인|캠패인|켐페인|행버거|재생각|부와다니|
 □ reverb-reviewer 호출 완료
 □ Supabase/Auth/RLS/마이그레이션 변경 있으면 → reverb-supabase-expert 호출 완료
 □ 인증/신청/관리자 플로우 변경 또는 운영 배포 직전 → reverb-qa-tester **권장**(자동 호출 아님 — 다른 세션이 Playwright 안 쓸 때 단일 세션에서 실행. 동시 실행 시 먼저 돌던 테스트가 멈춤)
+□ 크롬으로 직접 화면을 확인할 때 → **마우스를 실제로 옮기고 볼 자리로 스크롤한다** (`.claude/rules/browser-qa.md`) — 사용자가 보며 따라올 수 있어야 한다
 □ 기능 추가·개선·리팩토링 시작 전 (규모 무관) → reverb-planner 호출 완료
 ```
 

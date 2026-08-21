@@ -1019,6 +1019,9 @@ function _withdrawalOpsTotal(a) {
   if (!a) return 0;
   return Number(a.media_overdue || 0)
        + Number(a.email_block_overdue || 0)
+       // ⚠️ 서버(372)가 이 열쇠말을 안 주는 환경에서는 0 이 된다 — 배포 순서가
+       //    뒤바뀌어도 나머지 경고는 그대로 뜬다(그 줄만 안 그려진다).
+       + Number(a.message_attachment_overdue || 0)
        + Number(a.stuck_confirm || 0);
 }
 
@@ -1136,6 +1139,22 @@ function withdrawalOpsModalHtml(a) {
          <br>⚠️ 이 숫자가 남아 있어도 <b>6개월이 지난 사람의 재가입은 정상으로 열립니다</b> —
          보관기간 초과 자체가 문제입니다.
        </div>`));
+  }
+
+  // ④ 밀린 메시지 사진 파기 (마이그레이션 368·372, 작업 12-B-5)
+  //   ⚠️ ②(영수증·인증샷)와 **다른 장치다.** 통도 다르고(비공개) 예약 실행도
+  //      따로 돈다 — 하나가 멈춰도 다른 하나는 정상일 수 있어 줄을 나눈다.
+  if (n(a.message_attachment_overdue) > 0) {
+    const locked = n(a.message_attachment_overdue_admin_locked);
+    let sub = `<div style="margin-top:6px;color:var(--muted)">보관 기한이 지났는데 아직 지워지지 않았습니다.</div>`;
+    if (locked > 0) {
+      sub += `<div style="margin-top:6px;padding-left:10px;border-left:2px solid #FBBF24">
+        그중 <b>${locked}건</b>은 <b>관리자 계정을 겸한 회원</b>이라 자동으로 지워지지 않습니다.
+        <br>→ <b>관리자 권한을 먼저 해제</b>하면 다음 새벽에 정리됩니다.
+      </div>`;
+    }
+    rows.push(_withdrawOpsRow('image_not_supported', '#B8741A',
+      `파기 기한이 지난 응모건 메시지 사진 ${n(a.message_attachment_overdue)}건`, sub));
   }
 
   if (!rows.length) {
