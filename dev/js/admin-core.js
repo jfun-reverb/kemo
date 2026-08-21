@@ -776,6 +776,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
   // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
   'channelDriftModal',
+  // 탈퇴 처리 점검 — 같은 이유(「회원 열기」로 상세를 여는 동안 목록이 보여야 한다)
+  'withdrawOpsModal',
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
@@ -986,6 +988,191 @@ function channelDriftFixHtml(layer, kind) {
   return '<b>결과물을 정리하는 것 말고는 방법이 없습니다.</b> 기준 데이터에 없는 값이라 캠페인에 추가할 수도 없습니다.<br>' +
     '이 항목은 캠페인이 특정되지 않습니다(여러 캠페인의 값이 함께 묶일 수 있음). ' +
     '결과물 관리에서 <b>위에 적힌 채널 값</b>으로 찾은 뒤 정리하세요 — ' + cleanup;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 탈퇴 처리 점검 경고 (작업 14, 마이그레이션 366)
+// ════════════════════════════════════════════════════════════════════
+//   밀린 파기 2종 + 예정일이 지났는데 확정되지 않은 탈퇴를 한 자리에 모은다.
+//   채널 감지 장치와 같은 3단(사이드바 아이콘 · 페인 제목 옆 버튼 · 모달) —
+//   **화면에 들어가야만 알 수 있으면 늦다**는 같은 이유다.
+//
+//   ⚠️ **「항상 0 이 정상」이 아니다.** 관리자 계정을 겸한 회원이 있으면
+//      숫자가 0 으로 안 내려간다(352 가 그 회원의 파기를 거부하므로 확정이
+//      매일 롤백된다). 그래서 모달이 **「무엇을 하면 사라지는지」**를 반드시
+//      말해야 한다 — 안 그러면 원인 모를 숫자가 영영 떠 있게 되고, 그게 바로
+//      채널 감지 장치가 피하려던 학습 효과다.
+//
+//   ⚠️ 판정은 전부 서버(366)가 한다. 화면이 흉내 내면 안 된다 — 확정된 회원은
+//      이메일이 지워져 화면의 관리자 대조가 원리적으로 불가능하다.
+let _withdrawalOpsAlert = null;   // null = 아직 조회 안 함 또는 조회 실패
+
+async function refreshWithdrawalOpsIndicators() {
+  _withdrawalOpsAlert = await fetchWithdrawalOpsAlert();
+  applyWithdrawalOpsIndicators();
+}
+
+// 이 경고에서 「보여줄 것이 있는가」 — 0건이면 아무것도 안 그린다.
+// ⚠️ 조회 실패(`null`)도 안 그린다. 0건인 척하는 것이 아니라, 모르는 것을
+//    아는 척하지 않는 것이다(콘솔에는 경고가 남는다).
+function _withdrawalOpsTotal(a) {
+  if (!a) return 0;
+  return Number(a.media_overdue || 0)
+       + Number(a.email_block_overdue || 0)
+       + Number(a.stuck_confirm || 0);
+}
+
+function applyWithdrawalOpsIndicators() {
+  const a = _withdrawalOpsAlert;
+  const total = _withdrawalOpsTotal(a);
+  const has = total > 0;
+  // 확정이 멈춰 있는 것이 가장 무겁다 — 회원이 탈퇴를 기다리는 중이고,
+  // 예약 실행 자체가 멈춘 신호일 수도 있다.
+  const severe = has && Number(a.stuck_confirm || 0) > 0;
+
+  // 사이드바 — 인플루언서 목록(이 경고가 가리키는 회원들이 있는 자리).
+  // ⚠️ 채널 감지 장치와 **같은 항목을 쓰지 않는다**(그쪽은 결과물·기준 데이터).
+  //    한 항목에 두 경고를 얹으면 아이콘을 서로 덮어써 나중 것만 남는다.
+  const item = document.getElementById('adminInfluencersSi');
+  if (item) {
+    const icon = item.querySelector('.si-icon');
+    if (icon) {
+      if (!icon.dataset.baseIcon) icon.dataset.baseIcon = (icon.textContent || 'group').trim();
+      if (has) {
+        icon.textContent = 'report_problem';
+        icon.style.color = severe ? '#C33' : '#B8741A';
+        item.title = `탈퇴 처리 점검 ${total}건 — 이 화면에서 확인할 수 있습니다`;
+      } else {
+        icon.textContent = icon.dataset.baseIcon;
+        icon.style.color = '';
+        item.title = '';
+      }
+    }
+  }
+
+  const btn = document.getElementById('withdrawOpsBtn');
+  if (btn) {
+    btn.style.display = has ? 'inline-flex' : 'none';
+    if (has) {
+      btn.style.background  = severe ? '#FFF5F5' : '#FEF3C7';
+      btn.style.borderColor = severe ? '#C33' : '#FBBF24';
+      btn.style.color       = severe ? '#C33' : '#92400E';
+      btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">report_problem</span> 탈퇴 처리 점검 ${total}건`;
+    }
+  }
+}
+
+async function openWithdrawalOpsModal() {
+  const body = document.getElementById('withdrawOpsModalBody');
+  const overlay = document.getElementById('withdrawOpsModal');
+  if (!body || !overlay) return;
+  overlay.classList.add('open');
+  if (_withdrawalOpsAlert === null) {
+    body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">확인 중…</div>';
+    await refreshWithdrawalOpsIndicators();
+  }
+  body.innerHTML = withdrawalOpsModalHtml(_withdrawalOpsAlert);
+}
+
+function closeWithdrawalOpsModal() {
+  const overlay = document.getElementById('withdrawOpsModal');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// 모달 본문 — 항목마다 「몇 건인가 → 무엇을 하면 사라지는가」.
+//   ⚠️ 조치를 안 적으면 숫자만 남아 아무도 안 보게 된다.
+function withdrawalOpsModalHtml(a) {
+  if (!a) {
+    return `<div style="padding:16px;font-size:13px;color:var(--muted)">
+      점검 정보를 불러오지 못했습니다. 권한이 없거나 일시적인 통신 문제일 수 있습니다.
+      <br>새로고침해도 같으면 개발 담당자에게 알려 주세요.
+    </div>`;
+  }
+  const n = (v) => Number(v || 0);
+  const rows = [];
+
+  // ① 멈춘 확정 — 가장 무겁다(회원이 기다리는 중이고 예약이 멈춘 신호일 수 있다)
+  if (n(a.stuck_confirm) > 0) {
+    const locked = n(a.stuck_confirm_admin_locked);
+    const other  = n(a.stuck_confirm) - locked;
+    const parts = [];
+    if (locked > 0) {
+      parts.push(`<div style="margin-top:6px;padding-left:10px;border-left:2px solid #FBBF24">
+        <b>${locked}건</b>은 <b>관리자 계정을 겸한 회원</b>이라 자동으로 확정되지 않습니다.
+        <br>→ 그 회원의 <b>관리자 권한을 먼저 해제</b>하면 다음 새벽에 처리됩니다.
+      </div>`);
+    }
+    if (other > 0) {
+      parts.push(`<div style="margin-top:6px;padding-left:10px;border-left:2px solid #C33">
+        <b>${other}건</b>은 원인이 다릅니다 — 처리 중 오류이거나 <b>예약 실행이 멈춰</b> 있을 수 있습니다.
+        <br>→ <b>개발 담당자에게 알려 주세요.</b>
+      </div>`);
+    }
+    rows.push(_withdrawOpsRow('schedule', '#C33',
+      `예정일이 지났는데 확정되지 않은 탈퇴 ${n(a.stuck_confirm)}건`,
+      parts.join('') + _withdrawOpsMemberLinks(a.stuck_influencer_ids, n(a.stuck_confirm))));
+  }
+
+  // ② 밀린 영수증·인증샷 파기
+  if (n(a.media_overdue) > 0) {
+    const locked = n(a.media_overdue_admin_locked);
+    let sub = `<div style="margin-top:6px;color:var(--muted)">보관 기한이 지났는데 아직 지워지지 않았습니다.</div>`;
+    if (locked > 0) {
+      sub += `<div style="margin-top:6px;padding-left:10px;border-left:2px solid #FBBF24">
+        그중 <b>${locked}건</b>은 <b>관리자 계정을 겸한 회원</b>이라 자동으로 지워지지 않습니다.
+        <br>→ <b>관리자 권한을 먼저 해제</b>하면 다음 새벽에 정리됩니다.
+      </div>`;
+    }
+    rows.push(_withdrawOpsRow('delete_forever', '#B8741A',
+      `파기 기한이 지난 영수증·인증샷 ${n(a.media_overdue)}건`, sub));
+  }
+
+  // ③ 밀린 재가입 차단 기록
+  if (n(a.email_block_overdue) > 0) {
+    rows.push(_withdrawOpsRow('lock_clock', '#B8741A',
+      `보관기간이 끝난 재가입 차단 기록 ${n(a.email_block_overdue)}건`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         새벽 정리가 안 돌았을 수 있습니다. 며칠째 그대로면 개발 담당자에게 알려 주세요.
+         <br>⚠️ 이 숫자가 남아 있어도 <b>6개월이 지난 사람의 재가입은 정상으로 열립니다</b> —
+         보관기간 초과 자체가 문제입니다.
+       </div>`));
+  }
+
+  if (!rows.length) {
+    return `<div style="padding:16px;font-size:13px;color:var(--muted)">점검할 항목이 없습니다.</div>`;
+  }
+  return `<div style="padding:4px 2px">${rows.join('')}</div>`;
+}
+
+function _withdrawOpsRow(icon, color, title, bodyHtml) {
+  return `<div style="padding:12px 14px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;font-size:13px;line-height:1.6">
+    <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:${color}">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:17px">${icon}</span>${esc(title)}
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+// 「회원 열기」 — 서버가 고유번호만 주므로(이름·이메일은 이미 파기됐거나 파기 직전),
+// 상세 화면이 자기 권한으로 필요한 값을 다시 조회한다.
+function _withdrawOpsMemberLinks(ids, total) {
+  const list = Array.isArray(ids) ? ids : [];
+  if (!list.length) return '';
+  // 🔴 **여기서 이 모달을 먼저 닫아야 한다.** 인플루언서 상세
+  //    (`influencerFullDetailModal`)는 z-index 500 인데 이 모달은 628 이라,
+  //    닫지 않으면 상세가 **뒤로 숨고** 이 모달의 배경이 클릭까지 가로챈다
+  //    — 눌러도 아무 일도 안 일어나는 막다른 길이 된다.
+  // ⚠️ z-index 를 올려 해결하지 않는다. 이 저장소 관행은 「베이스 모달 위에
+  //    액션 모달」이고(상세 500 → 대행 신청 640), 상세에서 파생되는 모달이
+  //    여럿이라 순서를 건드리면 그쪽을 전부 다시 봐야 한다.
+  const btns = list.map((id, i) =>
+    `<button class="btn btn-ghost btn-xs" onclick="closeWithdrawalOpsModal();openInfluencerDetail('${esc(id)}')">회원 ${i + 1}</button>`
+  ).join(' ');
+  // 상한 50 — 그보다 많으면 개별 조치가 아니라 예약 실행 점검이 답이다.
+  const more = total > list.length
+    ? `<div style="margin-top:4px;color:var(--muted);font-size:12px">외 ${total - list.length}명 — 건수가 많으면 개별 조치보다 예약 실행 점검이 먼저입니다.</div>`
+    : '';
+  return `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${btns}</div>${more}`;
 }
 
 // ── 감지 결과 상태 ──

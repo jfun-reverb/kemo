@@ -13,7 +13,8 @@ globs: "dev/**/*.js,dev/**/*.html,supabase/**/*.sql"
 - SECURITY DEFINER 함수는 `SET search_path = ''` 필수 (search_path 탈취 방어)
 
 ## 관리자 생성/삭제
-- 초대 방식 (`invite_admin` 원격 호출 함수(RPC) + `resetPasswordForEmail`) + 2택 삭제 모달 + 자기 삭제 차단
+- 초대 방식 (`invite_admin` 원격 호출 함수 + **서버 발급 초대 메일**) + 2택 삭제 모달 + 자기 삭제 차단
+- 🔴 관리자 초대에 `resetPasswordForEmail` 을 쓰지 않는다(되살리면 조용히 실패) — 이유는 `.claude/rules/supabase.md` 「관리자 추가」 참조
 - 상세 RPC·deprecated 함수 목록은 `.claude/rules/supabase.md` 「관리자 추가 (필수)」/「관리자 삭제 (2택)」 섹션 참조
 
 ## Supabase / RLS

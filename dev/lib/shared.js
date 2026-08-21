@@ -903,7 +903,13 @@ function renderRich(el, raw) {
 // 일본어 제목의 전각 공백과 붙여넣은 반각 공백이 달라도 검색되도록 한다.
 // searchVal 은 호출 측에서 trim().toLowerCase() 한 값을 넘긴다.
 function matchSearchTokens(searchVal, fields) {
-  const tokens = (searchVal || '').split(/[\s　]+/).filter(Boolean);
+  // ⚠️ **찾는 말도 소문자로 맞춘다.** 뒤지는 쪽만 소문자로 바꾸고 찾는 말은 그대로 두면,
+  //    대문자로 입력한 순간 **아무것도 안 걸린다**(`Sakura` → 0건). 오류가 아니라 빈 결과라
+  //    「그 사람이 없다」로 읽힌다 — 지급대장과 대조하는 자리에서는 사람을 빠뜨리는 방향이다.
+  //    부르는 쪽에서 미리 소문자로 만드는 화면도 있지만(정산 목록·결과물), 안 하는 화면이
+  //    섞여 있어(미등록 탭·인플루언서 목록 일부 경로) **여기 한 곳에서 맞춘다.**
+  //    이미 소문자인 말을 한 번 더 낮추는 것은 아무 일도 하지 않으므로 기존 화면은 무영향.
+  const tokens = (searchVal || '').toLowerCase().split(/[\s　]+/).filter(Boolean);
   if (!tokens.length) return true;
   const haystack = fields.map(v => (v || '').toLowerCase()).join(' ');
   return tokens.every(tok => haystack.includes(tok));
@@ -1464,6 +1470,36 @@ function visibleUpcomingFeatures() {
 function jstTodayStr() {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
+// ══════════════════════════════════════
+// 정산 지급 예정일 (사양서 2026-08-18-settlement-list-unification… §4-1)
+//   인증 성공일(cert_at)이 그 달 15일 이전이면 **다음 달 15일**,
+//   16일 이후면 **다음 달 말일**에 보낸다. 캠페인 참여방법에 한·일 양쪽으로
+//   박혀 있는 약속이라 시스템이 그 날짜를 알아야 한다.
+//
+// ⚠️ 「말일」을 30일로 고정하면 안 된다 — 2월·31일인 달·윤년에서 틀린다(1년에 7번).
+// ⚠️ 반드시 **일본 시각 날짜**로 판정한다. 시각을 그대로 쓰면 15일/16일 경계가
+//    보는 사람의 시간대에 따라 흔들린다.
+// ⚠️ 돌려주는 값은 **'YYYY-MM-DD' 문자열**이다(작업표 초안의 Date 에서 바꿈).
+//    이 저장소는 날짜를 문자열로 다루는 관행이고(jstTodayStr·recruitDeadlinePassed·
+//    _visitDateTodayKst), 문자열 비교가 곧 날짜순이라 시간대가 끼어들 자리가 없다.
+//    Date 로 돌려주면 받는 쪽이 getMonth() 를 부르는 순간 **보는 사람의 시간대**로
+//    읽혀 하루가 밀린다 — 이 저장소가 이미 여러 번 당한 함정이다.
+// ⚠️ **계산은 이 함수 하나로만 한다.** 카드·목록·엑셀이 각자 계산하면 어긋난다.
+function payoutDueDate(certAt) {
+  if (!certAt) return null;
+  const t = Date.parse(certAt);
+  if (Number.isNaN(t)) return null;
+  // 일본 시각으로 옮긴 뒤 UTC 칸을 읽는다(로컬 칸을 읽으면 기기 시간대가 섞인다)
+  const jst = new Date(t + 9 * 3600 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = jst.getUTCMonth();          // 0~11
+  const day = jst.getUTCDate();
+  const due = (day <= 15)
+    ? new Date(Date.UTC(y, m + 1, 15))  // 다음 달 15일
+    : new Date(Date.UTC(y, m + 2, 0));  // 그 다음 달 0일 = **다음 달 말일**(달마다 자동)
+  return due.toISOString().slice(0, 10);
+}
+
 // 모집 마감일이 지났는가 (마감일 당일 24시까지는 아직 안 지난 것으로 본다 = 서버와 동일)
 //   마감일이 없으면 false(무기한) — 서버도 NULL 은 통과시킨다
 function recruitDeadlinePassed(camp) {
@@ -1658,6 +1694,10 @@ const ADMIN_PERMISSION_CATALOG = [
   // ── 인플루언서 추천 명단(아웃바운드) 1개 — 마이그레이션 228 role_permissions 시드와 1:1 ──
   //    RLS(마이그레이션 226)·Storage(229)가 has_permission('outbound.view', ...)로 서버 강제 → server_enforced=true.
   { key: 'outbound.view',                 label_ko: '인플루언서 추천 명단 조회·편집',                category: '회원 관리',    server_enforced: true },
+  // ── 회원 탈퇴 대행 1개 — 마이그레이션 355 role_permissions 시드와 1:1 ──
+  //    request_withdrawal_for_member·cancel_withdrawal_admin(357)이 has_permission 으로
+  //    서버 강제 → server_enforced=true. 화면 버튼 숨김은 표시 제어일 뿐이다.
+  { key: 'withdrawal.proxy_request',      label_ko: '회원 대신 탈퇴 신청·되돌리기',                  category: '회원 관리',    server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -1684,7 +1724,7 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
-  'outbound.view', 'campaign.caution_history_view'
+  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
@@ -1712,10 +1752,7 @@ function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 //   미로드·조회 실패는 false(fail-closed) — 표시 쪽도 안전측으로 잠근다.
 //   (관리자 메뉴 권한 캐시가 fail-open 인 것과 반대. 여기선 새어나가는 쪽이 더 위험하므로 엄격.)
 //   ⚠️ 서버(행 단위 보안 정책·알림 발행 함수)도 같은 함수로 잠겨 있어 이 캐시는 표시용 보조다.
-// ══════════════════════════════════════
-let _settlementPublic = false;
-function setSettlementPublic(v) { _settlementPublic = (v === true); }
-function settlementPublic() { return _settlementPublic === true; }
+// 정산 공개 여부 캐시(settlementPublic)는 없앴다 — 인플루언서 정산 노출 자체를 제거했다(2026-08-19).
 
 // ══════════════════════════════════════
 // 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)
@@ -1933,6 +1970,10 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
   /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
   /campaign_deleted|recruit_not_open/,
+  // 탈퇴 절차 중인 계정의 쓰기 차단(마이그레이션 359) — 서버의 의도적 거부다.
+  //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
+  //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
+  /account_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
@@ -1961,4 +2002,22 @@ function logAppError(context, err, expectedCodes) {
     }
     collectClientError(err, 'handled', { context: context, expected: expected });
   } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }
+}
+
+// ── 정산: 그 건에서 **실제로 오간 금액** ───────────────────────────────
+// 마이그레이션 338 이 `paid_amount_jpy`(실제로 보낸 금액)를 만들면서, 한 정산의 금액이
+// **두 칸**이 됐다. `amount_jpy` 는 시스템이 계산한 값이고 계산 근거(영수증 금액·상한·
+// 출처)와 짝을 이루는 스냅샷이라 **덮지 않는다**. 실제로 다르게 보낸 건만 새 칸에 남는다.
+//
+// ⚠️ **합계를 내는 자리는 반드시 이 함수를 쓴다.** 한 곳이라도 `amount_jpy` 만 더하면
+//    그 화면의 총액만 조용히 다르고, 어느 화면이 맞는지 아무도 모른다. 특히
+//    **사람으로 묶은 소계**는 실제 이체 금액을 정하는 숫자라 틀리면 돈이 틀린다.
+// ⚠️ 빈 값(`null`)은 「계산 금액과 같음」이지 **0원이 아니다.** `Number(null)` 이 0 이라
+//    그냥 더하면 그 건이 통째로 사라진다.
+// ⚠️ 정산 행이 아직 없는 「미등록」 목록에는 이 칸 자체가 없다 — 그때도 계산 금액을
+//    돌려주므로 같은 함수를 그대로 쓸 수 있다.
+function settlementEffectiveAmount(s) {
+  if (!s) return 0;
+  const actual = s.paid_amount_jpy;
+  return Number((actual === null || actual === undefined) ? s.amount_jpy : actual) || 0;
 }

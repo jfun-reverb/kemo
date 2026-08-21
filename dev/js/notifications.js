@@ -68,9 +68,9 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
       {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
       {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
-      // 「報酬・精算」은 정산 공개 스위치(settlement_settings.influencer_visible)가 켜졌을 때만 노출.
-      // 현재는 「관리자만 기록」 단계라 잠금 — DB 값만 true 로 바꾸면 코드 수정 없이 다시 나타난다.
-      ...(settlementPublic() ? [{sub:'settlements', label: t('mypage.menu.settlements')}] : []),
+      // 「報酬・精算」 항목은 **없앴다**(2026-08-19 사용자 결정 — 정산은 관리자만 기록하고
+      // 인플루언서에게는 화면·알림 어느 쪽으로도 내보내지 않는다). 되살리려면 이 줄과 함께
+      // 마이페이지 화면(#mypage-sub-settlements)·조회 함수·서버 조회 정책을 같이 되돌려야 한다.
       // 「入場チケット」은 오프라인 행사 예약이 있을 때만 — 없으면 눌러도 볼 게 없다.
       //   목적지가 마이페이지 하위가 아니라 별도 화면이라 sub 대신 page 로 표시한다.
       ...((typeof hasEventTicket === 'function' && hasEventTicket())
@@ -93,7 +93,10 @@ function renderNavMenu() {
     // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
     // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
-    // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크 (확인 후 LINE 안내)
+    // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크.
+    //   2026-08-20 부터 **실제 탈퇴 화면**으로 간다(그전에는 LINE 안내 토스트였다).
+    //   ⚠️ 그 화면은 동적 렌더라 `data-i18n` 이 안 걸린다 — 언어 전환 재렌더는
+    //      `mypage.js` 의 langchange 리스너가 맡는다.
     html += `<button class="nav-withdraw" onclick="closeNavPanel();handleWithdraw()">${esc(t('mypage.withdraw'))}</button>`;
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
@@ -334,22 +337,9 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     refreshNotifBadge();
     return;
   }
-  // 정산 알림 → 마이페이지 해당 화면 이동 (ref_table='settlements' 이므로 kind 로 분기 — else 로 새지 않게 deliverables 판정보다 앞)
-  if (kind === 'settlement_paypal_required' && currentUser) {
-    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('paypal'); }
-    refreshNotifBadge();
-    return;
-  }
-  if (kind === 'settlement_paid' && currentUser) {
-    // 정산 잠금 중에는 이 알림이 목록에서 걸러져 도달하지 않지만, 만일의 경로(구 캐시 등)에도
-    // 정산 화면이 열리지 않도록 방어. 잠금이면 응모이력으로 폴백.
-    if (typeof navigate === 'function') {
-      navigate('mypage', false);
-      openMypageSub(settlementPublic() ? 'settlements' : 'applications');
-    }
-    refreshNotifBadge();
-    return;
-  }
+  // 정산 알림 라우팅은 **없앴다**(2026-08-19). 서버가 그 알림을 더 이상 만들지 않고
+  // (마이그레이션 343), 조회에서도 걸러내므로 여기에 도달할 길이 없다. 남겨 두면
+  // 「없는 화면으로 보내는」 코드가 된다.
   // 제출 마감일 변경 알림 → 활동관리(결과물 제출) 화면 이동 (마이그레이션 273)
   //   ref_table='applications' 라 application_cancelled·application_approved 와 표가 겹치므로
   //   kind 로 한정한다(위 message_received 와 같은 이유 — else 로 새면 엉뚱한 화면으로 간다).

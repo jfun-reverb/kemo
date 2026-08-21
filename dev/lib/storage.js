@@ -516,6 +516,88 @@ async function incrementViewCount(campId) {
   await db.rpc('increment_campaign_view', { p_campaign_id: campId });
 }
 
+// ── 사이트 일별 방문자수 집계 (마이그레이션 332) ──
+// 같은 브라우저는 하루 1회만 「방문자 1명」으로 센다. 날짜 기준은 위 조회수와 같은 +09:00.
+// 관리자·감사용 계정 제외는 서버가 판정한다(record_site_visit) — 세션이 확립된 뒤 불러야
+// 로그인 정보가 실려 그 판정이 돈다. 호출 위치는 app.js 의 세션 복원 직후.
+//
+// ⚠️ 저장소를 못 쓰는 환경(사생활 보호 모드 등)에서 위 조회수 게이트는 「그냥 통과」시키는데
+//    여기서는 **반대로 세지 않는다.** 조회수는 캠페인마다 행이 나뉘어 한 사람이 부풀려도 그
+//    캠페인 하나로 끝나지만, 방문자수는 사이트 전체가 하루 한 행이라 그런 사용자 1명이
+//    새로고침한 횟수가 그대로 그날 방문자수가 된다. 부풀리는 실패보다 누락하는 실패가 낫다
+//    (틀리게 늘어난 숫자가 광고주 자료로 나가면 되돌릴 수 없다).
+//    → 두 정책이 정반대인 것은 의도한 것이다. 「일관성 없다」며 맞추지 말 것.
+const SITE_VISIT_SEEN_KEY = 'reverb.siteVisit';
+
+// 오늘 첫 방문이면 'new', 오늘 이미 왔으면 'repeat', 저장소를 못 쓰면 null(집계 안 함).
+function _markSiteVisited(app) {
+  const today = _viewCountTodayKst();
+  try {
+    const raw = localStorage.getItem(SITE_VISIT_SEEN_KEY);
+    const seen = raw ? JSON.parse(raw) : {};
+    if (seen[app] === today) return 'repeat';
+    // 날짜가 바뀐 항목은 정리 (무한 증식 방지)
+    const fresh = {};
+    Object.keys(seen).forEach(k => { if (seen[k] === today) fresh[k] = today; });
+    fresh[app] = today;
+    localStorage.setItem(SITE_VISIT_SEEN_KEY, JSON.stringify(fresh));
+    return 'new';
+  } catch (e) {
+    return null;
+  }
+}
+
+// 가벼운 봇 방어 — 자동화 브라우저 표시 + 미리 불러오기 상태 제외.
+// ⚠️ 헤드리스 브라우저 기반 봇은 이걸로 못 거른다. 화면에 「참고 지표」임을 밝힐 것.
+// ⚠️ 화면이 가려진 상태(hidden)는 제외하지 않는다 — 탭을 뒤에 열어 두는 것도 사람이다.
+//    거기까지 조이면 정상 방문객이 누락된다(사용자가 고른 것은 「가벼운 방어」).
+function _siteVisitLooksHuman() {
+  try {
+    if (navigator.webdriver) return false;
+    if (document.prerendering) return false;
+    if (document.visibilityState === 'prerender') return false;
+  } catch (e) {}
+  return true;
+}
+
+// 관리자 대시보드 방문자 차트용 조회 (조회는 is_admin() 정책).
+// ⚠️ 조회 실패는 null, 기록이 0건이면 [] — 반드시 구분한다(마이그레이션 276 에서 세운 원칙).
+//    실패를 [] 로 뭉개면 화면이 「그날 방문자 0명」으로 그려 거짓말이 된다.
+// 하루 1행이라 1000행 상한(PostgREST)에 닿으려면 2.7년 걸리지만, 규칙대로 전건 페이지네이션.
+async function fetchSiteDailyVisits(app) {
+  if (!db) return null;
+  const kind = app || 'influencer';
+  try {
+    const rows = [];
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('site_daily_visits')
+        .select('visit_date, visitor_count, page_view_count')
+        .eq('app', kind)
+        .order('visit_date', {ascending: true})
+        .range(from, from + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return rows;
+  } catch (e) {
+    return null;  // 조회 실패 — 호출부가 0 과 구분해 안내를 띄운다
+  }
+}
+
+async function recordSiteVisit(app) {
+  if (!db) return;
+  const kind = app || 'influencer';
+  if (!_siteVisitLooksHuman()) return;
+  const mark = _markSiteVisited(kind);
+  if (!mark) return;  // 저장소를 못 쓰면 세지 않는다 (위 주석 참조)
+  try {
+    await db.rpc('record_site_visit', { p_app: kind, p_is_new_visitor: mark === 'new' });
+  } catch (e) {
+    // 방문 집계 실패가 화면을 막으면 안 된다 — 조용히 넘긴다
+  }
+}
+
 // ── Influencers ──
 // includeAudit 기본 true = 기존 동작 보존(전건 반환).
 // 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
@@ -978,12 +1060,12 @@ async function fetchMyNotifications(opts) {
     const uid = s?.user?.id;
     if (!uid) return [];
     let q = db?.from('notifications').select('*').eq('user_id', uid).order('created_at', {ascending: false});
-    // 정산 잠금(관리자만 기록) 중에는 정산 알림 2종을 목록·미읽음 배지 양쪽에서 제외.
-    // 단일 지점에서 걸러야 「배지 숫자는 있는데 목록은 비어있음」 불일치가 안 생긴다
-    // (refreshNotifBadge 가 이 함수 결과 개수를 그대로 배지에 쓰므로).
-    if (typeof settlementPublic === 'function' && !settlementPublic()) {
-      q = q.not('kind', 'in', '(settlement_paid,settlement_paypal_required)');
-    }
+    // 정산 알림 2종은 **항상** 목록·미읽음 배지 양쪽에서 제외한다(2026-08-19 — 인플루언서
+    // 정산 노출을 없앴다). 서버도 더 이상 만들지 않지만(마이그레이션 343), 옛 행이 남아 있어도
+    // 보이지 않게 여기서도 막는다 — 눌러도 갈 화면이 없다.
+    // ⚠️ 단일 지점에서 걸러야 「배지 숫자는 있는데 목록은 비어있음」 불일치가 안 생긴다
+    //    (refreshNotifBadge 가 이 함수 결과 개수를 그대로 배지에 쓴다).
+    q = q.not('kind', 'in', '(settlement_paid,settlement_paypal_required)');
     if (opts?.unreadOnly) q = q.is('read_at', null);
     if (opts?.limit) q = q.limit(opts.limit);
     const {data, error} = await q;
@@ -1490,6 +1572,37 @@ async function fetchInfluencersByIds(userIds) {
   } catch(e) { return {}; }
 }
 
+// 정산 지급 준비 화면용 — 인플루언서 id 목록으로 **이름·페이팔 이메일**을 한 번에.
+//   대장이 「받는 분 이름 · 페이팔 이메일 · 금액 · 날짜」로 적혀 있어 대조에 이 둘이 필요하다.
+//
+// ⚠️ **반드시 가림막 통로(influencers_admin_view)로만 부른다.** 원본 표(influencers)는
+//    마이그레이션 312 로 「관리자면 통과」 정책이 없어져 **오류 없이 조용히 빈 결과**가 온다
+//    (2026-08-07 사고와 정확히 같은 자리). 통로를 거치면 권한 체계도 그대로 따른다 —
+//    `influencer.sensitive_pii` 읽기 권한이 없는 등급에게는 서버가 이메일을 NULL 로 가린다.
+// ⚠️ **실패하면 null, 없으면 {}** — 이 둘을 합치면 「조회 실패」와 「등록 안 함」이 화면에서
+//    같은 빈칸이 된다. 돈을 보내는 화면에서 그 둘은 절대 같지 않다.
+// ⚠️ **한 건씩 부르지 않는다.** 121명이면 조회가 121번 나간다. 다만 id 가 많으면 주소가
+//    길어져 잘리므로 200개씩 나눠 부른다(_proxyFetchByIds 와 같은 이유).
+async function fetchPayoutInfluencerInfo(influencerIds) {
+  if (!db) return null;
+  const ids = [...new Set((influencerIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const map = {};
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kana, paypal_email')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(function(r) { map[r.id] = r; });
+    }
+    return map;
+  } catch (e) {
+    console.warn('[fetchPayoutInfluencerInfo]', e);
+    return null;   // ⚠️ {} 로 바꾸지 말 것 — 화면이 「확인 실패」와 「미등록」을 못 가른다
+  }
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
@@ -1608,6 +1721,79 @@ async function fetchChannelDriftAlerts() {
   } catch(e) {
     console.warn('[fetchChannelDriftAlerts]', e);
     return null;
+  }
+}
+
+// 관리자가 못 읽게 된 표 감지 (마이그레이션 334·335).
+//   A=통로도 대체 뷰도 없음 / B=대체 뷰는 있는데 아직 원본 표를 읽는 자리가 남음 /
+//   unverified=코드 점검을 아직 안 돌려서 모름.
+//   ⚠️ 실패하면 null, 0건이면 [] — 화면이 둘을 다르게 다룬다. 어느 쪽도 0으로 그리지
+//      않는다(감지 실패를 「이상 없음」으로 그리면 이 장치가 있으나 마나가 된다).
+async function fetchBlockedAdminTables() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('detect_blocked_admin_tables');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch(e) {
+    console.warn('[fetchBlockedAdminTables]', e);
+    return null;
+  }
+}
+
+// 정산 도입일(컷오프). 「미등록」 탭 안내 문구가 이 값 하나로 갈린다.
+//   ⚠️ 세 상태를 구분한다: 조회 실패(undefined) · 미설정(null) · 설정됨(문자열).
+//      실패를 「미설정」으로 단정하면 **안내 문구가 반대로 나간다** — 「자동 등록이
+//      꺼져 있다」와 「자동으로 만들어진다」는 서로 반대말이다.
+//   ⚠️ 조회 권한은 has_permission('settlement.view','read') (마이그레이션 230).
+// ⚠️ **지금 부르는 곳이 없다**(2026-08-19). 이 값으로 문구를 갈라 보여주던 미등록 탭 안내를
+//    없애면서 유일한 호출부가 사라졌다. 지우지 않은 이유는 사양서 5단계(도입일 설정 화면)가
+//    이 조회를 그대로 쓸 예정이기 때문 — 「왜 안 쓰이지」로 헷갈리지 않도록 적어 둔다.
+async function fetchSettlementCutoff() {
+  if (!db) return undefined;
+  try {
+    const {data, error} = await db.from('settlement_settings')
+      .select('cutoff_at').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    return data ? (data.cutoff_at || null) : null;
+  } catch (e) {
+    console.warn('[fetchSettlementCutoff]', e);
+    return undefined;   // ⚠️ null 로 바꾸지 말 것 — 「실패」와 「미설정」이 섞인다
+  }
+}
+
+// 막힌 표 감지의 **가장 오래된 코드 점검 시각**.
+//   이름이 「가장 오래된」인 이유는 아래 ★ 주석 참조 — **최신이 아니다.**
+//
+// ⚠️ 감지 함수(detect_blocked_admin_tables)는 **통과한 표를 안 돌려준다**(0건이면 화면에
+//    아무것도 안 그리기 위해). 그래서 **다 통과했을 때 「언제 확인한 것인가」를 알 길이
+//    그 함수에는 없다.** 기록 표를 직접 봐야 한다.
+// ⚠️ 이게 왜 필요한가 — 화면의 0건은 「지금 이상 없음」이 아니라 **「마지막 점검 때
+//    이상 없었음」**이다. 점검을 한 달 안 돌리면 화면은 계속 초록인데 실제 상태는 모른다.
+//    **낡은 초록이 늘 빨간 것보다 나쁘다** — 빨간 건 무시라도 하지만 초록은 안심시킨다.
+// ⚠️ 세 상태를 구분해 돌려준다: 조회 실패(null) · 한 번도 점검 안 함({at:null}) ·
+//    마지막 시각({at:'…'}). 셋을 합치면 「모른다」가 「이상 없다」로 읽힌다.
+async function fetchOldestTableScanAt() {
+  if (!db) return null;
+  try {
+    // ★ **가장 오래된** 점검 시각을 쓴다(가장 최근이 아니다).
+    //   검사는 표를 지목해 돌리는 구조(`--tables 표이름`)라, 표 50개 중 하나만 오늘
+    //   재점검해도 「가장 최근」은 오늘이 된다. 그러면 나머지 49개가 몇 달 전 기준인데
+    //   화면은 「오늘 확인함」이라고 말한다 — **이 기능이 막으려는 낡은 초록을 날짜
+    //   하나로 뭉뚱그려 재생산하는 것**이다(리뷰 지적).
+    //   가장 오래된 것을 쓰면 「전부 이 시점 이후로는 확인됨」이 보장된다.
+    // ⚠️ 한계: 이 표에 **감시 대상이 아니게 된 표의 옛 기록**이 남아 있으면 필요 이상으로
+    //   오래돼 보인다. 「모른다」 쪽으로 기우는 방향이라 안전측이지만, 정확히 하려면
+    //   서버가 **지금 후보인 표들만** 기준으로 계산해 줘야 한다(후속 과제).
+    const {data, error} = await db.from('admin_table_access_scan')
+      .select('scanned_at')
+      .order('scanned_at', {ascending: true})
+      .limit(1);
+    if (error) throw error;
+    return { at: (data && data[0]) ? data[0].scanned_at : null };
+  } catch (e) {
+    console.warn('[fetchOldestTableScanAt]', e);
+    return null;   // ⚠️ {at:null} 로 바꾸지 말 것 — 「조회 실패」와 「점검 안 함」은 다르다
   }
 }
 
@@ -3051,13 +3237,19 @@ async function fetchAdminEmailKinds() {
 
 // 취소 사유 카테고리 목록 (lookup_values kind='cancel_reason')
 // 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
-async function fetchCancelReasons() {
+// 응모 취소 사유 목록.
+//   ⚠️ **고르게 하려고 부르는 곳과, 지난 기록의 이름을 찾으려고 부르는 곳이 다르다.**
+//      고르는 화면(인플루언서 취소 모달)은 **활성만** 있어야 하지만, 관리자 화면·엑셀이
+//      과거 응모의 사유 이름을 찾을 때는 **비활성도 필요하다** — 나중에 비활성으로 돌린
+//      사유가 붙은 옛 기록이 화면에 **코드값 그대로**(예: `withdrawal`) 노출되기 때문이다.
+//      그래서 `{includeInactive:true}` 를 주면 활성 조건을 뺀다(기본값은 종전대로 활성만).
+async function fetchCancelReasons(opts) {
   if (!db) return [];
-  const {data, error} = await db?.from('lookup_values')
-    .select('code, name_ko, name_ja, sort_order')
-    .eq('kind', 'cancel_reason')
-    .eq('active', true)
-    .order('sort_order');
+  let q = db?.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order, active')
+    .eq('kind', 'cancel_reason');
+  if (!opts || opts.includeInactive !== true) q = q.eq('active', true);
+  const {data, error} = await q.order('sort_order');
   if (error) { console.error('[fetchCancelReasons]', error); logAppError('fetchCancelReasons', error); return []; }
   return data || [];
 }
@@ -3089,6 +3281,385 @@ async function cancelApplication(applicationId, opts) {
     const msg = e?.message || 'unknown';
     console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
     return {ok: false, error: msg};
+  }
+}
+
+// 회원(본인) 탈퇴 신청 RPC 호출 (현재 원본 마이그레이션 357).
+// 반환은 request_withdrawal() 의 jsonb 결과를 그대로 전달한다 — 함수 자신의
+// 정상 응답이 이미 {ok, ...} 형태이므로 여기서 다시 감싸지 않는다.
+//   성공: { ok:true, status:'pending_payout'|'scheduled', scheduled_date,
+//          cancelled_count, uncancelled_count, unpaid_count }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//          'audit_account_blocked'|'invalid_reason'|'locked_needs_support'|
+//          'admin_account_excluded' }
+//   ⚠️ 'admin_account_excluded' (마이그레이션 357) — 관리자 계정을 겸한 회원이다.
+//          로그인 계정을 관리자와 같이 쓰기 때문에 확정 단계의 파기가 거부한다 →
+//          신청 시점에 막는다(안 막으면 매일 재시도되며 영영 대기에 갇힌다).
+//   ⚠️ 'reason_required' 는 **없다** — 사유는 선택이다(2026-08-19 결정). 안 고르고도 탈퇴된다.
+//   ⚠️ 'locked_needs_support' (마이그레이션 354) — 시행일 전인데 걸린 것이 있어
+//          자동 처리를 못 한다. 이때만 `blockers` 가 함께 온다(무엇이 몇 건인지).
+//          **응모는 하나도 취소되지 않았고 신청도 안 만들어졌다** — 화면은 문의
+//          창구로 안내하면 된다. `backstop:true` 가 함께 오면 사전 판정이 놓친
+//          경우라 종류를 알 수 없고 건수(`uncancellable_apps`)만 온다.
+//   ⚠️ 화면은 이 함수를 부르기 전에 fetchWithdrawalPrecheck() 로 mode 를 먼저
+//          보고 그린다 — 이 사유는 그 사이에 상태가 바뀐 경우의 최종 방어선이다.
+//   네트워크/예외 실패: { ok:false, error: <메시지> } — reason 이 아니라
+//          error 키로 온다. 호출 측에서 반드시 구분해서 분기할 것
+//          (data.reason 이 있으면 업무 실패, data.error 면 통신·서버 예외).
+async function requestWithdrawal(reasonCode, reasonNote) {
+  if (!db) return {ok: false, error: 'no_db'};
+  const payload = {
+    p_reason_code: reasonCode || null,
+    p_reason_note: reasonNote || null
+  };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('request_withdrawal', payload);
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[requestWithdrawal]', e); logAppError('requestWithdrawal', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 회원(본인) 탈퇴 취소 RPC 호출 (현재 원본 마이그레이션 356).
+// 인자 없음 — 사람당 활성 탈퇴 신청은 항상 1건뿐이라 대상을 지정할 필요가 없다.
+// 반환은 cancel_withdrawal() 의 jsonb 결과를 그대로 전달한다.
+//   성공: { ok:true, status:'cancelled', previous_status:'pending_payout'|'scheduled' }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//          'audit_account_blocked'|'already_done'|'already_cancelled'|
+//          'admin_requested' }
+//   ⚠️ 'admin_requested' — **자격 상실 강제 탈퇴**(admin_forced)만 본인이 취소할 수
+//          없다. **관리자 대행**(admin_proxy — 회원이 요청해서 대신 눌러 준 것)은
+//          본인이 취소할 수 있다(마이그레이션 356 이 좁혔다). 사유 코드 이름은
+//          그대로 둔다 — 뜻이 같고 화면이 이미 그 코드로 문구를 그린다. 'already_done' — 이미 확정된 탈퇴는 되돌릴 수 없다.
+//   네트워크/예외 실패: { ok:false, error: <메시지> } — reason 이 아니라
+//          error 키로 온다. 호출 측에서 반드시 구분해서 분기할 것.
+async function cancelWithdrawal() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('cancel_withdrawal');
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[cancelWithdrawal]', e); logAppError('cancelWithdrawal', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 탈퇴 화면이 **누르기 전에** 부르는 사전 조회 RPC (마이그레이션 353).
+// 서버가 화면 모습(mode)을 정해 주므로, 화면은 mode 만 보고 그린다.
+// 화면이 「시행일 전인데 조건이…」를 스스로 계산하면 시행 후에 지워야 할 자리가
+// 화면마다 생긴다.
+//   성공: { ok:true,
+//           mode:'open'|'locked_auto'|'locked_support',
+//           is_open:boolean,
+//           blockers:{ approved_deliverable_apps, event_apps,
+//                      settlement_rows, unpaid_count },
+//           active_request:{ status, scheduled_date } | null }
+//   업무 실패(정상 흐름): { ok:false, reason:'not_authenticated'|'not_found'|
+//           'forbidden'|'audit_account_blocked'|'admin_account_excluded',
+//           mode:'locked_support' }
+//   통신·서버 예외: { ok:false, error:<메시지>, mode:'locked_support' }
+//
+// ⚠️ **실패는 전부 잠금 쪽으로 폴백한다(fail-closed).** 조회에 실패했는데 화면을
+//    열어 두면 회원이 「탈퇴하기」를 눌렀다가 서버에 거부당해 원인 모를 오류를
+//    본다. 못 물어봤으면 막는 쪽이 안전하다.
+// ⚠️ mode 는 실패 응답에도 항상 있다 — 화면이 `data.mode` 하나만 보고 그릴 수
+//    있게 하기 위해서다(호출부마다 폴백을 다시 쓰면 한 곳이 빠진다).
+// ⚠️ 시행일 날짜는 어떤 경우에도 오지 않는다(사양서 §5 ⑤ — 지키지 못할 수 있는
+//    날짜를 약속하지 않는다).
+//
+// influencerId 를 주면 그 회원 것을 본다 — **관리자만** 허용되고, 아니면
+// reason:'forbidden'. 관리자 화면이 같은 판정을 다시 만들지 않게 하려고 열어 뒀다.
+async function fetchWithdrawalPrecheck(influencerId) {
+  const locked = m => ({ok: false, mode: 'locked_support', ...m});
+  if (!db) return locked({error: 'no_db'});
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_withdrawal_precheck',
+        influencerId ? {p_influencer_id: influencerId} : {});
+      if (error) throw error;
+      return data;
+    });
+    if (!result || result.ok !== true) {
+      // 업무 실패에도 mode 를 붙여 화면이 한 갈래로 처리하게 한다.
+      return locked({reason: result?.reason || 'unknown'});
+    }
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[fetchWithdrawalPrecheck]', e); logAppError('fetchWithdrawalPrecheck', e);
+    return locked({error: msg});
+  }
+}
+
+// 이 이메일이 탈퇴 후 재가입 제한 기간인가 (마이그레이션 361).
+//   반환: true(막힘) / false(안 막힘) / null(못 물어봄)
+//
+// ⚠️ **못 물어봤을 때 null 을 돌려주는 것이 중요하다.** 부르는 쪽이 `=== true` 로만
+//    막아야 통신 장애 때 정상 가입을 막지 않는다. 서버 트리거(362)가 최종 방어선이라
+//    화면이 못 막아도 실피해가 없다 — 반대로 화면이 잘못 막으면 가입이 죽는다.
+// ⚠️ 로그인 전에 부른다(가입 화면) — 서버 함수가 비로그인에게도 열려 있다.
+// ⚠️ 막혔을 때 **언제 풀리는지는 돌려받지 않는다** — 그 날짜에서 6개월을 빼면 탈퇴
+//    확정일이 나와, 그 이메일이 언제 탈퇴했는지가 누구에게나 드러난다.
+async function isEmailWithdrawalBlocked(email) {
+  if (!db || !email) return null;
+  try {
+    const {data, error} = await db.rpc('is_email_withdrawal_blocked', {p_email: email});
+    if (error) throw error;
+    return data === true;
+  } catch(e) {
+    console.error('[isEmailWithdrawalBlocked]', e); logAppError('isEmailWithdrawalBlocked', e);
+    return null;   // 못 물어봤다 — 부르는 쪽이 막지 않는다
+  }
+}
+
+// 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).
+//   성공: { ok:true, has_request, status, scheduled_date,
+//           login_blocked, write_blocked }
+//   실패: { ok:false, reason:'not_authenticated' } / { ok:false, error }
+//
+// ★ `login_blocked` 와 `write_blocked` 는 **다른 값이고, 그게 핵심이다.**
+//   · login_blocked — 탈퇴가 **확정된 경우만**. 강제 로그아웃 기준
+//   · write_blocked — 확정 **또는 예정일 경과**. 서버 차단과 같은 기준
+//   예정일이 지났는데 예약 실행이 아직 안 돈 구간의 회원은 **로그인은 되고 쓰기만
+//   막혀야** 한다 — 안 그러면 탈퇴 취소 버튼에 닿지 못한다.
+//
+// ⚠️ 실패는 **막지 않는 쪽으로** 폴백한다(로그아웃시키지 않는다). 통신 장애로 정상
+//    회원을 쫓아내는 쪽이 훨씬 나쁘고, 서버 차단이 최종 방어선이다.
+// ⚠️ 화면이 `scheduled_date` 를 오늘과 비교하지 말 것 — 기기 시계로 갈린다.
+//    판정은 서버가 이미 했다.
+async function fetchMyWithdrawalState() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_my_withdrawal_state');
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[fetchMyWithdrawalState]', e); logAppError('fetchMyWithdrawalState', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 한 회원의 탈퇴 신청 이력 (최신순) — 관리자 화면용.
+// 조회 정책이 「본인 또는 관리자」라 관리자는 남의 것도 볼 수 있다(마이그레이션 345).
+// ⚠️ 사전 조회(fetchWithdrawalPrecheck)와 역할이 다르다 — 저쪽은 「지금 무엇을
+//    그릴까」(mode) 판정이고, 이쪽은 **주체·처리자·되돌린 기록까지 담긴 원본 행**이다.
+//    되돌리기 버튼을 그리려면 주체(requested_by_kind)를 알아야 하는데 사전 조회는
+//    그 값을 주지 않는다.
+async function fetchWithdrawalRequests(influencerId) {
+  if (!db || !influencerId) return [];
+  try {
+    const {data, error} = await db.from('withdrawal_requests')
+      .select('*')
+      .eq('influencer_id', influencerId)
+      .order('requested_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) {
+    console.error('[fetchWithdrawalRequests]', e); logAppError('fetchWithdrawalRequests', e);
+    return [];
+  }
+}
+
+// 관리자가 회원 대신 탈퇴를 신청 (마이그레이션 357).
+//   kind: 'admin_proxy'(대행 — 회원이 요청) | 'admin_forced'(강제 — 자격 상실)
+//   ⚠️ **기본값을 두지 않는다.** 둘은 결과가 정반대다(대행은 회원이 취소할 수 있고
+//      강제는 못 한다). 부르는 쪽이 반드시 명시할 것.
+//   ⚠️ 근거 메모(note)는 **필수** — 회원 요청은 시스템 밖(라인·메일)에서 오므로
+//      자유 텍스트가 유일한 증거다.
+//   성공: { ok:true, status, scheduled_date, cancelled_count, uncancelled_count,
+//          unpaid_count, requested_by_kind }
+//   업무 실패: { ok:false, reason:'not_authenticated'|'forbidden'|'invalid_kind'|
+//          'reason_note_required'|'not_found'|'audit_account_blocked'|
+//          'admin_account_excluded'|'already_requested'|'invalid_reason'|
+//          'cancel_applications_failed' }
+//   ⚠️ 시행 전 잠금(353·354)을 **건너뛴다** — 이 함수가 잠금이 넘긴 사람을 처리하는
+//      도구이기 때문이다. 그래서 화면이 「무슨 일이 일어나는지」를 먼저 보여줘야 한다.
+async function requestWithdrawalForMember(influencerId, kind, reasonCode, reasonNote) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('request_withdrawal_for_member', {
+        p_influencer_id: influencerId,
+        p_kind:          kind,
+        p_reason_code:   reasonCode || null,
+        p_reason_note:   reasonNote || null
+      });
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[requestWithdrawalForMember]', e); logAppError('requestWithdrawalForMember', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 관리자가 대신 넣은 탈퇴 신청을 되돌린다 (마이그레이션 357).
+// ⚠️ 대상은 **관리자가 만든 신청만**(대행·강제). 회원이 스스로 낸 것은
+//    `self_requested` 로 거부된다 — 그건 본인이 취소한다.
+// ⚠️ 근거 메모 필수. 되돌릴 수 없는 처리를 되돌리는 자리다.
+// ⚠️ **철회된 응모는 되살아나지 않는다** — 되돌려도 그 회원의 응모는 취소된 채다.
+async function cancelWithdrawalAdmin(influencerId, note) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('cancel_withdrawal_admin', {
+        p_influencer_id: influencerId,
+        p_note:          note || null
+      });
+      if (error) throw error;
+      return data;
+    });
+    return result;
+  } catch(e) {
+    const msg = e?.message || 'unknown';
+    console.error('[cancelWithdrawalAdmin]', e); logAppError('cancelWithdrawalAdmin', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// ── 회원별 탈퇴 상태 맵 (관리자 목록 배지·필터용, 작업 14) ──
+//
+// 반환: { [influencerId]: {status, scheduled_date, requested_by_kind, ever_cancelled} }
+//       조회 실패는 **`null`** — 아래 「왜 빈 객체가 아닌가」 참고.
+//
+// ★ **이 배지는 있으면 좋은 것이 아니라 없으면 화면이 깨져 보이는 것이다.**
+//   확정(`done`)되는 순간 마이그레이션 352 가 이름·이메일·연락처 등 18칸을
+//   비운다. 그러면 그 회원은 목록에서 **이름 없는 빈 행**이 되고, 검색에도
+//   안 걸리고, 엑셀에도 그대로 들어간다. 배지가 없으면 「데이터가 깨졌나」로
+//   읽힌다.
+//
+// ⚠️ **회원당 여러 행이다.** 345 의 활성 행 유일 색인이 `cancelled` 를 빼서,
+//   취소 뒤 재신청이 새 줄로 쌓인다(이력 보존). 그래서 **최신 1건**을 현재
+//   상태로 삼고, 그 밖에 취소된 행이 있으면 `ever_cancelled` 로 따로 표시한다.
+//
+// ⚠️ **1000행 상한** — 단일 `.select()` 는 1000건에서 잘린다. `fetchAllPaged`
+//   로 전건을 받는다(`.claude/rules/supabase.md` 「PostgREST 1000-row cap」).
+//
+// 🔴 **왜 실패 시 빈 객체가 아니라 `null` 인가**
+//   이 저장소의 관행은 예외를 삼키고 `{}`·`[]` 를 돌려주는 것이다
+//   (`fetchViolationCountsByInfluencer` 가 그렇다). 그런데 여기서 그러면
+//   **조회가 실패해도 「탈퇴한 사람이 아무도 없다」로 그려진다** — 이름 없는
+//   빈 행에 아무 배지도 안 붙어, 배지를 만든 이유가 통째로 사라진다.
+//   → 화면은 `null` 이면 **배지·필터를 아예 안 그린다**(0건인 척하지 않는다).
+async function fetchWithdrawalStatesByInfluencer() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() =>
+      db.from('withdrawal_requests')
+        .select('influencer_id, status, scheduled_date, requested_by_kind, requested_at')
+        .order('requested_at', {ascending: false})
+    );
+    const map = {};
+    rows.forEach(r => {
+      const cur = map[r.influencer_id];
+      if (!cur) {
+        // 정렬이 최신순이라 처음 만나는 것이 최신 행이다.
+        map[r.influencer_id] = {
+          status: r.status,
+          scheduled_date: r.scheduled_date,
+          requested_by_kind: r.requested_by_kind,
+          ever_cancelled: r.status === 'cancelled',
+        };
+      } else if (r.status === 'cancelled') {
+        // 최신은 아니지만 취소 이력이 있다 — 필터에서 따로 찾을 수 있게.
+        cur.ever_cancelled = true;
+      }
+    });
+    return map;
+  } catch(e) {
+    console.warn('[fetchWithdrawalStatesByInfluencer] 조회 실패 — 배지를 그리지 않는다', e);
+    return null;
+  }
+}
+
+// ── 「탈퇴 처리 점검」 경고 집계 (마이그레이션 366, 작업 14) ──
+//
+// 반환: {media_overdue, media_overdue_admin_locked, email_block_overdue,
+//        stuck_confirm, stuck_confirm_admin_locked, stuck_influencer_ids}
+//       조회 실패·권한 없음은 **`null`**.
+//
+// 🔴 **판정을 화면이 흉내 내지 않는다.** 「밀린 파기가 0 으로 안 내려가는」
+//   원인(관리자 계정 겸직)은 화면이 원리적으로 못 센다 — 확정되는 순간 352 가
+//   이메일을 자리표시 주소로 바꿔, 화면이 관리자를 대조하던 이메일이 사라진다.
+//   서버는 `admins.auth_id = influencers.id` 로 보므로 영향을 안 받는다.
+//
+// ⚠️ 날짜 판정도 서버 몫이다(일본 시각). 화면이 다시 계산하면 관리자 PC 시계에
+//   의존한다 — 방문자수 차트에서 자정 직후 시계가 몇 분만 느려도 그릴 칸이
+//   0개가 되던 함정을 실제로 겪었다.
+async function fetchWithdrawalOpsAlert() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_withdrawal_ops_alert');
+    if (error) {
+      // 권한 없음(42501)도 여기로 온다 — 그 등급에는 경고를 안 그리는 게 맞고,
+      // 그것이 「밀린 것 없음」으로 보이면 안 된다.
+      console.warn('[fetchWithdrawalOpsAlert] 조회 실패 — 경고를 그리지 않는다', error);
+      return null;
+    }
+    return data || null;
+  } catch(e) {
+    console.warn('[fetchWithdrawalOpsAlert]', e);
+    return null;
+  }
+}
+
+// ── 밀린 파기 건수 (마이그레이션 364, 작업 14 경고용) ──
+//
+// 🔴 **실패를 0 으로 돌려주지 않는다 — `null` 이다.**
+//   이 저장소가 여러 번 세운 원칙(마이그레이션 276): 「조회 실패」와 「0건」은
+//   다른 사실이다. 0 으로 뭉개면 화면이 「밀린 것 없음」으로 그리는데, 실제로는
+//   **못 물어본 것**일 수 있다. 그 둘을 섞으면 파기가 멈춰 있어도 화면은
+//   조용하다 — 이 경고가 막으려던 바로 그 상황이다.
+//   → 화면은 `null` 이면 **아무것도 안 그린다**(0 과 같은 모습이지만 이유가
+//     다르다. 「0건이라 안 그림」과 「몰라서 안 그림」을 콘솔로 구분할 수 있게
+//     로그는 남긴다).
+//
+// ⚠️ 서버 함수는 관리자가 아니면 **0 이 아니라 42501 오류**를 낸다(364).
+//   그 경우도 여기서는 `null` 이 된다 — 권한 없는 등급에게 경고를 안 그리는
+//   것이 맞고, 그게 「0건」으로 보이면 안 된다.
+//
+// ⚠️ **이 값은 「항상 0 이 정상」이 아니다.** 관리자를 겸한 회원은 파기 대상
+//   목록에서는 빠지지만(352 가 그 회원의 확정을 거부한다) 이 건수에는 계속
+//   잡힌다 — 의도된 설계다(눈에 보이게). 그래서 0 이 아닌 상태가 계속되면
+//   「배치가 멈췄다」가 아니라 「사람이 처리해야 할 회원이 있다」일 수 있다.
+async function fetchOverdueWithdrawalPurgeCounts() {
+  if (!db) return null;
+  try {
+    const [media, email] = await Promise.all([
+      db.rpc('count_overdue_withdrawal_media_purge'),
+      db.rpc('count_overdue_withdrawal_email_blocks'),
+    ]);
+    // 둘 중 하나라도 실패하면 전체를 모르는 것으로 본다 — 반쪽 숫자로
+    // 「이만큼 밀렸다」고 그리면 나머지 절반이 조용히 사라진다.
+    if (media.error || email.error) {
+      console.warn('[fetchOverdueWithdrawalPurgeCounts] 조회 실패',
+        media.error || email.error);
+      return null;
+    }
+    return {
+      media: Number(media.data) || 0,   // 영수증·인증샷
+      email: Number(email.data) || 0,   // 재가입 차단 해시
+    };
+  } catch(e) {
+    console.warn('[fetchOverdueWithdrawalPurgeCounts]', e);
+    return null;
   }
 }
 
@@ -4211,11 +4782,18 @@ async function fetchSettlements(opts) {
       // receipt_amount_jpy/amount_cap_jpy 는 마이그레이션 299 추가 — 리뷰어형이 영수증
       // 실결제액 기준으로 바뀌면서(300), 상한(캠페인 상시가)에 걸려 잘린 건을 관리자가
       // 「영수증 ¥3,500 → 상한 적용 ¥3,200」처럼 근거와 함께 보게 하기 위함.
+      // paid_amount_jpy 는 마이그레이션 338 추가 — **실제로 보낸 금액**.
+      //   ⚠️ NULL 은 「계산 금액(amount_jpy)과 같음」이지 0원이 아니다(Number(null) 이 0 이라
+      //      그냥 넘기면 「0엔 송금」으로 읽힌다).
+      //   ⚠️ 이 열 목록은 명시형이라, 새 칸을 여기 안 적으면 화면은 **오류 없이 빈 값**을 그린다.
+      // ★★ 조회문 문자열 **안쪽에는 주석을 넣지 말 것.** 그 글자가 열 이름으로 그대로
+      //    전달돼 조회 전체가 깨지고(PGRST100), 아래 catch 가 그 오류를 삼켜
+      //    **화면이 통째로 빈다.** 2026-08-18 개발서버에서 실제로 재현됐다.
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
-        cert_at,
+        cert_at, paid_amount_jpy,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -4236,34 +4814,11 @@ async function fetchSettlements(opts) {
   } catch(e) { console.error('[fetchSettlements]', e); return []; }
 }
 
-// 정산 인플루언서 공개 여부 조회 (is_settlement_public, 마이그레이션 240).
-// 불리언만 반환하는 SECURITY DEFINER 함수 — 로그인 사용자면 누구나 호출 가능.
-// 실패 시 false(잠금) 로 폴백해 안전측으로 동작.
-async function isSettlementPublic() {
-  if (!db) return false;
-  try {
-    const {data, error} = await db.rpc('is_settlement_public');
-    if (error) throw error;
-    return data === true;
-  } catch(e) { console.error('[isSettlementPublic]', e); logAppError('isSettlementPublic', e); return false; }
-}
-
 // 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
 // 필터 없이 그대로 조회해도 안전.
-// ⚠️ 마이그레이션 240 이후 본인 조회 정책에 공개 스위치가 함께 걸려 있어, 잠금 상태에서는
-//    서버가 0건을 반환한다(화면 가림과 이중 방어).
-async function fetchMySettlements() {
-  if (!db) return [];
-  try {
-    const {data, error} = await db.from('settlements').select(`
-      id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
-      amount_source,
-      campaigns:campaign_id (id, title, brand, img1)
-    `).order('created_at', {ascending: false});
-    if (error) throw error;
-    return data || [];
-  } catch(e) { console.error('[fetchMySettlements]', e); logAppError('fetchMySettlements', e); return []; }
-}
+// ⚠️ 인플루언서 본인 정산 조회 함수(fetchMySettlements)는 **없앴다**(2026-08-19).
+//    서버의 본인 조회 정책도 함께 지웠으므로(마이그레이션 343) 되살리려면 정책부터 되돌려야
+//    한다 — 함수만 되살리면 조회가 오류 없이 **0건**을 돌려줘 원인을 찾기 어렵다.
 
 // 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
 // 재검증하므로 campaign_manager 가 호출하면 42501(permission_denied) 에러.
@@ -4279,16 +4834,70 @@ async function backfillSettlements() {
   return result;
 }
 
-// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222). pending → paid 전이,
-// paypal_email 재조회·미등록 시 차단, settlement_paid 알림 발행, settlement_events 이력 기록.
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222 → 241 → 339).
+// pending → paid 전이, paypal_email 재조회·미등록 시 차단, settlement_events 이력 기록.
+// 인플루언서 알림은 정산이 공개(is_settlement_public)일 때만 — 241 의 잠금 게이트.
 // 버전 충돌 시 -1 반환("이미 처리됨" 토스트). 정산 관리 페인(admin-settlements.js)에서 호출.
-async function markSettlementPaid(id, version, memo) {
+//
+// [339] paidAt·paidAmount 는 **실제로 언제·얼마를 보냈는지**. 둘 다 생략 가능하고,
+//   생략하면 종전과 똑같이 「지금 시각 · 계산값과 같음」으로 동작한다.
+//   ⚠️ paidAmount 의 null 은 「계산값(amount_jpy)과 같음」이지 0원이 아니다.
+//   ⚠️ 빈 문자열을 그대로 넘기면 서버가 자료형 오류를 낸다 — 반드시 null 로 바꿔 보낸다.
+async function markSettlementPaid(id, version, memo, paidAt, paidAmount) {
   if (!db) throw new Error('DB 미연결');
   let newVersion = -1;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('mark_settlement_paid', {
       p_settlement_id: id,
       p_version: version,
+      p_memo: memo || null,
+      p_paid_at: paidAt || null,
+      p_paid_amount_jpy: (paidAmount === 0 || paidAmount) ? Number(paidAmount) : null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// [340] 정산대기 여러 건을 한 번에 송금완료로 — RPC mark_settlements_paid_bulk.
+// ⚠️ 실패해도 통째로 되돌리지 않는다. **건너뛴 건수를 사유별로** 돌려주므로 호출부는
+//    반드시 그 숫자를 보여줘야 한다 — 「몇 건 처리했습니다」만 띄우면 나머지가 왜 빠졌는지
+//    아무도 모른다(이 저장소가 반복해 겪은 「조용히 사라짐」).
+// 반환: {paid, skippedNoPaypal, skippedNotPending, notFound}
+async function markSettlementsPaidBulk(ids, paidAt, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let row = {};
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlements_paid_bulk', {
+      p_settlement_ids: ids,
+      p_paid_at: paidAt || null,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    row = (Array.isArray(data) ? data[0] : data) || {};
+  });
+  return {
+    paid:              Number(row.paid_count) || 0,
+    skippedNoPaypal:   Number(row.skipped_no_paypal_count) || 0,
+    skippedNotPending: Number(row.skipped_not_pending_count) || 0,
+    notFound:          Number(row.not_found_count) || 0
+  };
+}
+
+// [341] 이미 송금완료된 건의 **실제 송금일·송금액만** 정정 — RPC correct_settlement_payment.
+// 상태·계산 금액(amount_jpy)은 안 바뀌고 알림도 없다. 버전 충돌 시 -1.
+// ⚠️ 인자 null 은 「그 칸은 안 고침」이다. 둘 다 null 이면 서버가 거부한다.
+// ⚠️ 사유(memo)는 **필수** — 금전 기록을 사후에 고치는 자리라 서버도 빈 값을 거부한다.
+async function correctSettlementPayment(id, version, paidAt, paidAmount, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('correct_settlement_payment', {
+      p_settlement_id: id,
+      p_version: version,
+      p_paid_at: paidAt || null,
+      p_paid_amount_jpy: (paidAmount === 0 || paidAmount) ? Number(paidAmount) : null,
       p_memo: memo || null
     });
     if (error) throw error;
@@ -4480,7 +5089,13 @@ async function fetchPastUnregisteredSettlements() {
     const {data, error} = await db.rpc('get_past_unregistered_settlements');
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+  } catch(e) {
+    console.error('[fetchPastUnregisteredSettlements]', e);
+    // ⚠️ **[] 로 바꾸지 말 것.** 실패를 빈 목록으로 돌려주면 「보낼 것이 없음」과 구분이
+    //    안 되고, 지급 준비 화면이 조용히 「이번 달 지급 예정이 없습니다」로 그린다 —
+    //    운영팀이 그 달 지급을 통째로 건너뛴다. 받는 쪽에서 null 을 따로 다룬다.
+    return null;
+  }
 }
 
 // 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.
@@ -4491,7 +5106,11 @@ async function fetchPastUnregisteredSettlements() {
 //   ⚠️ 예전에는 등록 건수(숫자) 하나만 돌려줬다. 마이그레이션 324 가 「송금완료로 기록하려는데
 //   페이팔이 없는 건」을 배치에서 빼기 시작했는데(단건은 원래 막았다), 빠진 건수를 안 보여주면
 //   관리자는 **왜 고른 수보다 적게 처리됐는지 알 수 없다.**
-async function registerPastSettlements(applicationIds, targetStatus, memo) {
+// [339] paidAt — 실제로 보낸 날짜. 생략하면 종전대로 지금 시각.
+//   ⚠️ 금액 인자는 **없다.** 일괄이라 건마다 다른 금액을 하나로 못 넣는다 —
+//      계산값과 다른 건은 등록한 뒤 correctSettlementPayment 로 개별 정정한다.
+//   ⚠️ 「정산대기로 등록」인데 송금일을 주면 서버가 거부한다(아직 안 보낸 상태다).
+async function registerPastSettlements(applicationIds, targetStatus, memo, paidAt) {
   if (!db) throw new Error('DB 미연결');
   let registered = 0;
   let skippedNoPaypal = 0;
@@ -4499,7 +5118,8 @@ async function registerPastSettlements(applicationIds, targetStatus, memo) {
     const {data, error} = await db.rpc('register_past_settlements', {
       p_application_ids: applicationIds,
       p_target_status: targetStatus,
-      p_memo: memo || null
+      p_memo: memo || null,
+      p_paid_at: paidAt || null
     });
     if (error) throw error;
     // 스칼라(정수) 또는 {registered_count, skipped_no_paypal_count} 단일 행 양쪽 대응
@@ -4747,7 +5367,14 @@ async function fetchEventTicketsByCampaign(campaignId) {
   try {
     return await fetchAllPaged(() =>
       db.from('event_tickets')
-        .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencer_id (name_kanji, name_kana, email, is_audit)')
+        // ⚠️ 이름은 원본 표(influencers)가 아니라 가림막 통로(influencers_admin_view)로 받는다.
+        //    마이그레이션 312 가 원본 표의 「관리자면 통과」 정책을 지워, 원본을 직접 끼워 부르면
+        //    예약 행은 다 오는데 **끼운 쪽만 전부 null** 이 된다 — 오류가 0건이라 이름 칸만
+        //    조용히 `-` 로 비고 아무도 모른다(실제 사고, 2026-08-07~18).
+        //    ⚠️ 별명 `influencers:` 를 그대로 둔다 — 받는 쪽(admin-event.js·admin-excel.js)이
+        //    `t.influencers` 로 읽는다. 반대로 `influencers_admin_view:influencer_id (…)` 로 쓰면
+        //    **오류도 안 나고 조회도 성공하는데 값은 계속 빈다**(열 이름으로 연결돼 원본 표로 되돌아간다).
+        .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencers_admin_view (name_kanji, name_kana, email, is_audit)')
         .eq('campaign_id', campaignId)
         .order('created_at', {ascending: true})
     );

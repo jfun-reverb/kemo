@@ -65,6 +65,23 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
 }
 
 // ─── 엑셀 export 공용 헬퍼 ─────────────────────────────────────────
+// 탈퇴 상태 한국어 (엑셀 열, 작업 14).
+// ⚠️ 화면 배지와 달리 **취소 이력도 적는다** — 화면은 「0이면 안 그린다」라
+//    이력만 있는 회원에 배지를 안 붙이지만, 엑셀은 나중에 걸러 보는 용도라
+//    빈 칸보다 사실이 적혀 있는 편이 낫다.
+// ⚠️ 상태 맵 조회에 실패했으면(`null`) **「확인 불가」**로 적는다. 빈 칸으로
+//    두면 「탈퇴 안 한 회원」과 구분되지 않는다.
+function _excelWithdrawStatusKo(u) {
+  if (typeof _infWithdrawalStates === 'undefined' || _infWithdrawalStates === null) return '확인 불가';
+  var w = _infWithdrawalStates[u && u.id];
+  if (!w) return '';
+  if (w.status === 'done')           return '탈퇴 완료';
+  if (w.status === 'scheduled')      return '탈퇴 예정' + (w.scheduled_date ? ' (' + w.scheduled_date + ')' : '');
+  if (w.status === 'pending_payout') return '탈퇴 대기(지급)';
+  if (w.status === 'cancelled')      return '취소함';
+  return '';
+}
+
 // 인플루언서 이름 — 한자/가나 별도 컬럼용 (사용자 요청 형식)
 function _excelInfluencerNameParts(u) {
   if (!u) return {kanji: '', kana: ''};
@@ -1866,7 +1883,12 @@ async function exportInfluencersExcel() {
       { header: '합계 팔로워', key: 'total', width: 12 },
       { header: '도도부현', key: 'pref', width: 12 },
       { header: '시군구', key: 'city', width: 16 },
-      { header: '등록일', key: 'created', width: 12 }
+      { header: '등록일', key: 'created', width: 12 },
+      // 탈퇴 상태 (작업 14) — 민감정보가 아니라 **기본 열**이다.
+      // 필터가 화면과 공유라 탈퇴 회원이 이미 결과에 섞여 들어가는데, 확정되면
+      // 이름·이메일·연락처가 전부 비어 있어(마이그레이션 352) 이 열이 없으면
+      // 「빈 행이 왜 있지」가 된다. 그 행의 유일한 설명이다.
+      { header: '탈퇴 상태', key: 'withdraw', width: 12 }
     ];
     if (includeSensitive) {
       cols.push(
@@ -1899,7 +1921,8 @@ async function exportInfluencersExcel() {
         total:   (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0),
         pref:    u.prefecture || '',
         city:    u.city || '',
-        created: u.created_at ? formatDate(u.created_at) : ''
+        created: u.created_at ? formatDate(u.created_at) : '',
+        withdraw: _excelWithdrawStatusKo(u)
       };
       if (includeSensitive) {
         row.phone    = u.phone || '';

@@ -20,18 +20,25 @@ let currentInfTab = 'all';
 
 var infUsersCache = null;
 var _infViolationCounts = {};
+// 회원별 탈퇴 상태 맵 (작업 14).
+// ⚠️ **초기값이 `null` 이고 그게 「모름」을 뜻한다** — 빈 객체 `{}` 로 두면
+//    「탈퇴한 사람이 아무도 없다」와 구분되지 않아, 조회 실패 시에도 배지가
+//    조용히 사라진다. 화면은 `null` 이면 배지·필터를 아예 안 그린다.
+var _infWithdrawalStates = null;
 
 // ════════════════════════════════════════════════════════════════════
 // SECTION: INFLUENCERS — 목록 + 필터 + 정렬 + 행 빌더
 // ════════════════════════════════════════════════════════════════════
 
 async function loadAdminInfluencers() {
-  const [users, violations] = await Promise.all([
+  const [users, violations, withdrawals] = await Promise.all([
     fetchInfluencers(),
     fetchViolationCountsByInfluencer(),
+    fetchWithdrawalStatesByInfluencer(),   // 실패 시 null — 배지를 안 그린다
   ]);
   infUsersCache = users;
   _infViolationCounts = violations;
+  _infWithdrawalStates = withdrawals;
   initInfPrefectureMulti();
   applyInfExcelSensitiveVisibility();
   renderInfluencersPane();
@@ -71,6 +78,11 @@ function getFilteredInfluencersForView() {
   const users = infUsersCache || [];
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
+  // 탈퇴 상태 필터 (작업 14).
+  // ⚠️ 상태 맵 조회에 실패했으면(`null`) **필터를 무시한다** — 전원을 걸러내
+  //    「0명 표시」로 보이면 「탈퇴한 사람이 이렇게 많나」로 오독된다.
+  //    배지도 같은 이유로 안 그려지므로 화면이 일관되게 「탈퇴 정보 없음」이 된다.
+  const withdrawSel = _infWithdrawalStates ? ($('infFilterWithdrawSelect')?.value || 'all') : 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
   // 주소지(다중) — 미선택이면 빈 배열(=전체). classifyPrefecture 로 정식/未登録/海外 분류 후 매칭
   const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
@@ -95,6 +107,18 @@ function getFilteredInfluencersForView() {
     if (violationSel === 'clean' && (vc > 0 || u.is_blacklisted)) return false;
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
+    if (withdrawSel !== 'all') {
+      const w = _infWithdrawalStates[u.id];
+      const st = w?.status;
+      const inProgress = (st === 'pending_payout' || st === 'scheduled');
+      if (withdrawSel === 'none'      && (inProgress || st === 'done')) return false;
+      if (withdrawSel === 'active'    && !inProgress) return false;
+      if (withdrawSel === 'done'      && st !== 'done') return false;
+      // 「취소 이력 있음」은 지금 상태가 아니라 **과거에 한 번이라도 취소했는가**다.
+      // 탈퇴를 신청했다 되돌린 회원을 따로 보려는 용도라, 그 뒤 재신청해서
+      // 지금 진행 중인 회원도 포함된다.
+      if (withdrawSel === 'cancelled' && !w?.ever_cancelled) return false;
+    }
     if (!matchSearch(u)) return false;
     if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
     if (minF != null || maxF != null) {
@@ -116,11 +140,12 @@ function renderInfluencersPane() {
   if (resetBtn) {
     const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
     const violationSel = $('infFilterViolationSelect')?.value || 'all';
+    const withdrawSel = $('infFilterWithdrawSelect')?.value || 'all';
     const searchQ = ($('infSearch')?.value || '').trim();
     const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
     const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
     const hasSort = !(infSortKey === 'created' && infSortDir === 'desc');
-    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || withdrawSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
     resetBtn.style.display = anyActive ? '' : 'none';
   }
   renderInfTable(filtered);
@@ -130,6 +155,7 @@ function renderInfluencersPane() {
 function resetInfView() {
   const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
+  const wd = $('infFilterWithdrawSelect'); if (wd) wd.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
   const s = $('infSearch'); if (s) s.value = '';
   if (typeof resetMultiFilter === 'function') resetMultiFilter('infPrefectureMulti', '전체 지역');
@@ -220,6 +246,42 @@ function influencerStatusBadges(u) {
   return parts.join('');
 }
 
+// 탈퇴 상태 배지 (목록용, 작업 14)
+//
+// ★ **없으면 화면이 깨져 보인다.** 확정(`done`)되면 마이그레이션 352 가 이름·
+//   이메일·연락처 18칸을 비워, 그 회원은 목록에서 **이름 없는 빈 행**이 된다.
+//   배지가 그 행의 유일한 설명이다.
+//
+// ⚠️ **조회 실패면 아무것도 안 그린다**(`_infWithdrawalStates === null`).
+//   0건인 척하지 않는다 — 「탈퇴한 사람이 없다」와 「못 물어봤다」는 다른 사실이다.
+// ⚠️ 이력만 있는 경우(취소됨)는 **안 그린다** — 「0이면 아무것도 안 그린다」 원칙.
+//   그런 회원은 목록 필터 「취소 이력 있음」으로만 찾는다.
+function influencerWithdrawalBadge(u) {
+  if (!_infWithdrawalStates) return '';          // 조회 실패 — 그리지 않는다
+  const w = _infWithdrawalStates[u.id];
+  if (!w) return '';
+  const base = 'display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px';
+  const icon = (n) => `<span class="material-icons-round notranslate" translate="no" style="font-size:11px">${n}</span>`;
+  if (w.status === 'done') {
+    return `<span title="탈퇴 완료 — 개인정보가 파기되어 이름·연락처가 비어 있습니다" style="${base};background:#ECEFF1;color:#455A64">${icon('person_off')}탈퇴 완료</span>`;
+  }
+  if (w.status === 'scheduled') {
+    const d = w.scheduled_date ? String(w.scheduled_date).slice(5).replace('-', '/') : '';
+    return `<span title="탈퇴 예정일 ${esc(w.scheduled_date || '미정')}" style="${base};background:#FFF3E0;color:#E65100">${icon('schedule')}탈퇴 예정${d ? ' ' + d : ''}</span>`;
+  }
+  if (w.status === 'pending_payout') {
+    return `<span title="탈퇴 신청됨 — 미지급 보수가 남아 대기 중입니다" style="${base};background:#FFF3E0;color:#E65100">${icon('hourglass_top')}탈퇴 대기</span>`;
+  }
+  return '';                                      // cancelled — 배지 없음
+}
+
+// 탈퇴가 진행 중이거나 끝난 회원인가 (행 흐리기·배지 배타 판정용).
+function infWithdrawalActive(u) {
+  if (!_infWithdrawalStates) return false;
+  const s = _infWithdrawalStates[u.id]?.status;
+  return s === 'done' || s === 'scheduled' || s === 'pending_payout';
+}
+
 function buildInfRowAll(u) {
   const igF = (u.ig_followers||0).toLocaleString();
   const xF = (u.x_followers||0).toLocaleString();
@@ -244,8 +306,12 @@ function buildInfRowAll(u) {
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  // 행 흐리기: 블랙리스트(기존) 또는 **탈퇴 완료**.
+  // ⚠️ 탈퇴 예정·대기는 흐리지 않는다 — 아직 살아 있는 회원이고, 오히려 그
+  //    기간에 운영이 챙겨야 할 일(미지급 보수 등)이 남아 있다.
+  const dimmed = u.is_blacklisted || (_infWithdrawalStates && _infWithdrawalStates[u.id]?.status === 'done');
+  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${dimmed?' style="opacity:.55"':''}>
+    <td><div class="link-cell" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}${influencerWithdrawalBadge(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig, igF)}</td>
     <td>${snsCell('x', u.x, xF)}</td>
     <td>${snsCell('tiktok', u.tiktok, ttF)}</td>
@@ -363,6 +429,9 @@ async function openInfluencerDetail(userId) {
   await renderInfluencerStatusPanel(u);
   renderInfluencerFlagsPanel(u.id);
 
+  // 탈퇴 신청 (작업 19) — 상태 관리 뒤. 조회가 늦어도 다른 칸을 막지 않게 기다리지 않는다.
+  renderInfluencerWithdrawalPanel(u);
+
   // 신청 이력
   const apps = await fetchApplications({user_id: userId});
   const camps = await fetchCampaigns();
@@ -465,8 +534,11 @@ function cancelPhaseLabelKo(phase) {
 }
 
 // cancel_reason 카테고리 캐시 lazy load
+//   ⚠️ **비활성 사유까지 받아 온다.** 이 캐시는 「고르게 하려고」가 아니라 「지난 기록의
+//      이름을 찾으려고」 쓰는 것이라, 나중에 비활성으로 돌린 사유가 붙은 옛 응모가
+//      **코드값 그대로** 보이면 안 된다. 고르는 화면(인플루언서)은 활성만 받는다.
 async function ensureCancelReasonsCache() {
-  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons();
+  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons({includeInactive: true});
   return _cancelReasonsCache;
 }
 function cancelReasonLabelKo(code) {
@@ -636,6 +708,332 @@ async function renderInfluencerStatusPanel(u) {
       </div>
     </div>
   `;
+}
+
+// ══════════════════════════════════════
+// 탈퇴 신청 패널 (마이그레이션 355·356·357 — 작업 19)
+//
+//   ⚠️ 화면은 **서버가 준 mode 만 보고** 그린다. 「시행일 전인데 조건이…」를 화면이
+//      스스로 계산하면 시행 후에 지워야 할 자리가 화면마다 생긴다.
+//   ⚠️ 사전 조회(precheck)와 신청 이력(requests)은 **역할이 다르다** — 앞은 「지금
+//      무엇을 그릴까」, 뒤는 주체·처리자·되돌린 기록이 담긴 원본 행이다.
+// ══════════════════════════════════════
+var _withdrawPanel = {influencerId: null, precheck: null, requests: [], reasons: null};
+
+const WITHDRAW_STATUS_LABEL_KO = {
+  pending_payout: '지급 대기',
+  scheduled:      '탈퇴 예정',
+  done:           '탈퇴 완료',
+  cancelled:      '취소됨'
+};
+const WITHDRAW_KIND_LABEL_KO = {
+  self:         '본인 신청',
+  admin_proxy:  '관리자 대행',
+  admin_forced: '관리자 강제(자격 상실)'
+};
+function withdrawStatusLabelKo(s) { return WITHDRAW_STATUS_LABEL_KO[s] || s || '—'; }
+function withdrawKindLabelKo(k)   { return WITHDRAW_KIND_LABEL_KO[k]   || k || '—'; }
+
+// 걸린 것 → 사람이 읽는 한 줄. 0건은 아예 안 그린다(늘 떠 있는 숫자는 아무도 안 본다).
+function withdrawBlockerLines(b) {
+  if (!b) return [];
+  const out = [];
+  if (b.approved_deliverable_apps > 0)
+    out.push({text: `승인된 결과물이 있는 응모 ${b.approved_deliverable_apps}건 — <strong>철회되지 않습니다</strong>`});
+  if (b.event_apps > 0)
+    out.push({text: `행사(팝업) 예약 ${b.event_apps}건 — <strong>다음 날 새벽에 취소되고 자리가 대기자에게 넘어갑니다</strong>`, warn: true});
+  if (b.settlement_rows > 0)
+    out.push({text: `정산 기록 ${b.settlement_rows}건 — 개인정보를 지워도 거래 기록은 남습니다`});
+  if (b.unpaid_count > 0)
+    out.push({text: `받지 못한 보수 ${b.unpaid_count}건 — <strong>지급이 끝난 뒤에야 탈퇴가 확정됩니다</strong>(몇 달 걸릴 수 있습니다)`, warn: true});
+  return out;
+}
+
+// 진행 중인 탈퇴 신청 카드에서 「지금 무엇이 남아 있나」를 두 줄로 나눠 보여준다.
+//
+// 🔴 **합계 하나로 「손으로 확인이 필요합니다」라고 쓰면 안 된다.** 서버가 주는
+//    `uncancelled_count` 는 **접수 시점**에 철회하지 못한 수이고, 그 안에는 성격이
+//    정반대인 둘이 섞여 있다:
+//      ① 승인된 결과물이 있는 응모 — 자동으로 철회되는 일이 **영영 없다**(사람 몫)
+//      ② 행사(팝업) 응모 — 예약 실행이 **다음 날 새벽에** 티켓과 응모 행을 함께
+//         취소한다(마이그레이션 350). 사람이 할 일이 없다.
+//    접수 **직전** 확인 창은 이 둘을 따로 안내하는데(withdrawBlockerLines) 접수
+//    **뒤** 카드가 합쳐 버려, 운영자가 없는 일을 찾게 된다(2026-08-21 개발서버 검증).
+//
+// ⚠️ 그래서 **접수 시점의 합계를 쪼개지 않고, 지금 값을 다시 본다.** 사전 조회의
+//    두 값은 **살아 있는 응모(pending·approved)만** 세므로(353), 배치가 행사 응모를
+//    취소하면 ②가 저절로 0이 된다. 합계에서 빼는 방식으로는 그렇게 안 된다 —
+//    지난 값에서 지금 값을 빼면 배치가 돈 뒤 오히려 숫자가 틀어진다.
+//
+// ⚠️ 사전 조회에 실패했으면(`blockers` 없음) **아무 줄도 그리지 않는다.** 여기서
+//    0으로 단정하면 「사람이 볼 게 없다」는 틀린 안심을 준다.
+function withdrawLeftoverLines(b) {
+  if (!b) return '';
+  const out = [];
+  if (b.approved_deliverable_apps > 0) {
+    out.push(`<div style="color:#C62828"><strong style="font-weight:700">승인된 결과물이 있는 응모 ${b.approved_deliverable_apps}건</strong> — 철회되지 않습니다. 손으로 확인해 주세요</div>`);
+  }
+  if (b.event_apps > 0) {
+    out.push(`<div style="color:var(--muted)">행사(팝업) 예약 ${b.event_apps}건 — 다음 날 새벽에 자동으로 정리됩니다</div>`);
+  }
+  return out.join('');
+}
+
+async function renderInfluencerWithdrawalPanel(u) {
+  const body = $('infDetailWithdrawBody');
+  const summary = $('infDetailWithdrawSummary');
+  if (!body) return;
+  _withdrawPanel = {influencerId: u.id, precheck: null, requests: [], reasons: _withdrawPanel.reasons};
+
+  const [pre, reqs] = await Promise.all([
+    fetchWithdrawalPrecheck(u.id),
+    fetchWithdrawalRequests(u.id)
+  ]);
+  // 화면을 그리는 사이 관리자가 다른 회원을 열었으면 버린다(늦게 온 응답이 남의
+  // 카드를 덮어쓰지 않게).
+  if (_withdrawPanel.influencerId !== u.id) return;
+  _withdrawPanel.precheck = pre;
+  _withdrawPanel.requests = reqs;
+
+  const active = (reqs || []).find(r => r.status === 'pending_payout' || r.status === 'scheduled');
+  const past   = (reqs || []).filter(r => r !== active);
+  if (summary) summary.textContent = reqs.length ? `${reqs.length}건` : '';
+
+  // ① 아예 대상이 아닌 계정 — 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다
+  if (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked')) {
+    const msg = pre.reason === 'admin_account_excluded'
+      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다.</span>'
+      : '감사용 계정이라 탈퇴 대상이 아닙니다.';
+    body.innerHTML = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7">${msg}</div>`;
+    return;
+  }
+
+  // ★ 조회에 실패했으면 **버튼을 그리지 않는다.**
+  //   서버 함수가 아직 없거나(마이그레이션 미적용) 통신이 끊긴 상황인데, 여기서
+  //   버튼을 그리면 눌렀을 때 데이터베이스 원문 오류가 그대로 뜬다. 정산 3단계에서
+  //   「버튼은 열렸는데 함수가 없던」 사고가 실제로 있었다.
+  //   ⚠️ 실패는 storage.js 가 mode:'locked_support' 로 폴백해 오므로, ok 여부로만
+  //     판정한다(mode 만 보면 「정상인데 걸린 회원」과 구분이 안 된다).
+  const preOk = !!(pre && pre.ok === true);
+  const canProxy = preOk && canWrite('withdrawal.proxy_request');
+  let html = '';
+
+  if (!preOk) {
+    html += `<div style="padding:10px 12px;background:#FFF8E1;border-left:3px solid #F9A825;border-radius:4px;font-size:12px;color:var(--ink);line-height:1.7;margin-bottom:12px">
+      탈퇴 처리 상태를 불러오지 못했습니다 — <strong>대신 신청 기능을 열지 않았습니다.</strong><br>
+      <span style="color:var(--muted)">서버 준비가 끝나지 않았거나 통신이 끊겼을 수 있습니다. 새로고침해도 같으면 개발팀에 알려 주세요.</span>
+    </div>`;
+  }
+
+  if (active) {
+    const isAdminMade = active.requested_by_kind !== 'self';
+    html += `
+      <div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <span class="badge" style="background:#FFF3E0;color:#E65100">${esc(withdrawStatusLabelKo(active.status))}</span>
+          <span style="font-size:12px;color:var(--muted)">${esc(withdrawKindLabelKo(active.requested_by_kind))}</span>
+        </div>
+        <div style="font-size:12px;color:var(--ink);line-height:1.8">
+          <div><strong style="font-weight:700">신청</strong> · ${formatDateTime(active.requested_at)}</div>
+          ${active.scheduled_date ? `<div><strong style="font-weight:700">예정일</strong> · ${esc(active.scheduled_date)}</div>`
+                                  : `<div style="color:var(--muted)">받지 못한 보수가 있어 예정일이 아직 정해지지 않았습니다</div>`}
+          ${active.reason_code ? `<div><strong style="font-weight:700">사유</strong> · ${esc(withdrawReasonLabel(active.reason_code))}</div>` : ''}
+          ${active.reason_note ? `<div style="color:var(--muted);white-space:pre-wrap">${esc(active.reason_note)}</div>` : ''}
+          ${active.uncancelled_count > 0 ? `<div style="color:var(--muted)">접수 때 철회하지 못한 응모 ${active.uncancelled_count}건</div>` : ''}
+          ${withdrawLeftoverLines(preOk ? (pre && pre.blockers) : null)}
+          ${active.event_tickets_blocked_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">정리 못 한 행사 예약 ${active.event_tickets_blocked_count}건</strong></div>` : ''}
+        </div>
+      </div>`;
+    if (canProxy && isAdminMade) {
+      html += `<button class="btn btn-ghost btn-xs" onclick="openWithdrawUndoModal()">되돌리기</button>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">관리자가 넣은 신청만 되돌릴 수 있습니다. 본인이 신청한 건은 회원이 직접 취소합니다.</div>`;
+    } else if (canProxy) {
+      html += `<div style="font-size:11px;color:var(--muted)">회원이 직접 신청한 건입니다 — 취소도 회원이 앱에서 합니다.</div>`;
+    }
+  } else {
+    const lines = withdrawBlockerLines(pre && pre.blockers);
+    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
+    if (canProxy) {
+      html += `<button class="btn btn-xs" style="background:#FB8C00;color:#fff;border:none" onclick="openWithdrawProxyModal()">회원 대신 탈퇴 신청</button>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">회원이 직접 요청한 경우에만 사용하세요.</div>`;
+      if (lines.length) {
+        html += `<div style="margin-top:10px;font-size:11px;color:var(--muted)">이 회원은 처리 시 확인할 것이 ${lines.length}가지 있습니다 — 버튼을 누르면 자세히 보여드립니다.</div>`;
+      }
+    }
+  }
+
+  if (past.length) {
+    html += `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px">지난 기록 ${past.length}건</div>
+      ${past.map(r => `<div style="font-size:11px;color:var(--muted);line-height:1.8">
+        ${formatDateTime(r.requested_at)} · ${esc(withdrawStatusLabelKo(r.status))} · ${esc(withdrawKindLabelKo(r.requested_by_kind))}
+        ${r.admin_cancel_note ? `<br><span style="color:var(--ink)">되돌림 사유</span> · ${esc(r.admin_cancel_note)}` : ''}
+      </div>`).join('')}
+    </div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+// 탈퇴 사유 코드 → 한국어 라벨. 목록을 아직 안 받았으면 코드값 그대로 보여준다
+// (없는 이름을 지어내지 않는다).
+function withdrawReasonLabel(code) {
+  const found = (_withdrawPanel.reasons || []).find(r => r.code === code);
+  return found ? (found.name_ko || found.code) : code;
+}
+
+async function ensureWithdrawReasons() {
+  if (_withdrawPanel.reasons) return _withdrawPanel.reasons;
+  try {
+    _withdrawPanel.reasons = await fetchLookups('withdraw_reason') || [];
+  } catch (e) {
+    console.error('[ensureWithdrawReasons]', e);
+    _withdrawPanel.reasons = [];
+  }
+  return _withdrawPanel.reasons;
+}
+
+async function openWithdrawProxyModal() {
+  const u = _currentDetailInfluencer;
+  const pre = _withdrawPanel.precheck;
+  if (!u || _withdrawPanel.influencerId !== u.id) { toast('회원 정보를 다시 불러와 주세요', 'error'); return; }
+
+  $('wpTarget').textContent = `${u.name || '(이름 없음)'} · ${u.email || ''}`;
+  $('wpNote').value = '';
+  $('wpAck').checked = false;
+  wpSyncSubmit();
+
+  // 무슨 일이 일어나는지 — 서버가 준 숫자를 그대로 보여준다(화면이 다시 세지 않는다)
+  const lines = withdrawBlockerLines(pre && pre.blockers);
+  $('wpEffects').innerHTML = `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#FAFAFA">
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px">접수하면 이렇게 됩니다</div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.8">
+        <div>· 취소할 수 있는 응모가 <strong>모두 철회</strong>됩니다</div>
+        <div>· 받을 보수가 없으면 <strong>5일 뒤 탈퇴가 확정</strong>됩니다</div>
+        <div>· 회원은 그 전까지 앱에서 <strong>스스로 취소</strong>할 수 있습니다</div>
+      </div>
+      ${lines.length ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;line-height:1.8">
+        ${lines.map(l => `<div style="color:${l.warn ? '#C62828' : 'var(--ink)'}">· ${l.text}</div>`).join('')}
+      </div>` : ''}
+    </div>`;
+
+  // 시행일 전 경고 — 서버가 준 is_open 만 본다
+  //   ⚠️ `is_open === false` 만 보면 **조회 실패 폴백에는 그 칸이 없어** 경고가
+  //     조용히 안 뜬다. 못 물어본 경우도 잠금 쪽으로 본다(fail-closed).
+  $('wpLockWarn').innerHTML = (pre && (pre.is_open === false || pre.ok !== true))
+    ? `<div style="border:1px solid #FFCDD2;background:#FFEBEE;border-radius:10px;padding:12px 14px;font-size:12px;color:#C62828;line-height:1.8">
+         <strong style="font-weight:700">아직 약관 개정 시행 전입니다.</strong><br>
+         회원이 직접 요청한 경우에만 처리하고, 무엇이 어떻게 되는지 먼저 안내해 주세요.
+       </div>`
+    : '';
+
+  const reasons = await ensureWithdrawReasons();
+  const sel = $('wpReasonCode');
+  sel.innerHTML = '<option value="">선택 안 함</option>' +
+    reasons.map(r => `<option value="${esc(r.code)}">${esc(r.name_ko || r.code)}</option>`).join('');
+
+  openModal('withdrawProxyModal');
+}
+
+// 근거 메모와 확인 체크가 둘 다 있어야 실행 버튼이 켜진다
+function wpSyncSubmit() {
+  const btn = $('wpSubmitBtn');
+  if (!btn) return;
+  const noteOk = ($('wpNote').value || '').trim().length > 0;
+  const ackOk  = $('wpAck').checked;
+  btn.disabled = !(noteOk && ackOk);
+}
+
+async function submitWithdrawProxy() {
+  const u = _currentDetailInfluencer;
+  if (!u) return;
+  const btn = $('wpSubmitBtn');
+  btn.disabled = true;
+
+  // ⚠️ 이번에 여는 것은 대행뿐이다 — 강제(admin_forced)는 값만 있고 화면이 안 보낸다
+  //    (되돌릴 수단이 없는 처리를 약관 개정 전에 열지 않는다, 2026-08-19 결정).
+  const res = await requestWithdrawalForMember(
+    u.id, 'admin_proxy', $('wpReasonCode').value || null, ($('wpNote').value || '').trim());
+
+  if (!res || res.ok !== true) {
+    btn.disabled = false;
+    toast(withdrawProxyErrorKo(res), 'error');
+    return;
+  }
+
+  closeModal('withdrawProxyModal');
+  const parts = [`탈퇴 신청 접수 (${withdrawStatusLabelKo(res.status)})`];
+  if (res.cancelled_count   > 0) parts.push(`응모 ${res.cancelled_count}건 철회`);
+  if (res.uncancelled_count > 0) parts.push(`${res.uncancelled_count}건은 철회 못 함`);
+  toast(parts.join(' · '), 'success');
+
+  // 상세 모달은 닫지 않는다 — 방금 무슨 일이 일어났는지 카드에서 바로 보여준다
+  await renderInfluencerWithdrawalPanel(u);
+  // ⚠️ `refreshPane('influencers')` 는 **캐시에서 다시 그리기**라 탈퇴 상태 맵을
+  //    갱신하지 않는다(`rerenderInfluencersFromCache`). 먼저 맵을 다시 받아야
+  //    목록 배지가 방금 만든 신청을 반영한다 — 안 하면 「저장했는데 목록이 그대로」다.
+  _infWithdrawalStates = await fetchWithdrawalStatesByInfluencer();
+  await refreshPane('influencers');
+}
+
+// 실패 사유를 하나도 「알 수 없는 오류」로 뭉뚱그리지 않는다 — 화면이 원래 안 그렸어야
+// 하는 상황(권한 없음·중복·겸직)이 여기 오면 그게 최종 방어선이 걸린 것이라, 무엇이
+// 막았는지 그대로 알려 줘야 원인을 찾을 수 있다.
+function withdrawProxyErrorKo(res) {
+  const map = {
+    not_authenticated:         '로그인이 풀렸습니다. 새로고침 후 다시 시도해 주세요',
+    forbidden:                 '이 작업을 할 권한이 없습니다',
+    invalid_kind:              '신청 종류가 잘못 전달됐습니다',
+    reason_note_required:      '요청 근거를 적어 주세요',
+    not_found:                 '회원을 찾을 수 없습니다',
+    audit_account_blocked:     '감사용 계정은 탈퇴 대상이 아닙니다',
+    admin_account_excluded:    '관리자 계정을 겸한 회원입니다 — 관리자 권한을 먼저 해제해야 합니다',
+    already_requested:         '이미 진행 중인 탈퇴 신청이 있습니다',
+    invalid_reason:            '선택한 사유가 더 이상 쓰이지 않습니다. 목록을 새로고침해 주세요',
+    cancel_applications_failed:'응모 철회 중 문제가 생겨 접수하지 않았습니다',
+    self_requested:            '회원이 직접 신청한 건은 관리자가 되돌릴 수 없습니다',
+    note_required:             '되돌리는 이유를 적어 주세요'
+  };
+  if (res && res.reason && map[res.reason]) return map[res.reason];
+  if (res && res.reason) return '처리하지 못했습니다 (' + res.reason + ')';
+  return '처리하지 못했습니다: ' + ((res && res.error) || '알 수 없는 오류');
+}
+
+function openWithdrawUndoModal() {
+  const u = _currentDetailInfluencer;
+  if (!u) return;
+  $('wuTarget').textContent = `${u.name || '(이름 없음)'} · ${u.email || ''}`;
+  $('wuNote').value = '';
+  wuSyncSubmit();
+  openModal('withdrawUndoModal');
+}
+
+function wuSyncSubmit() {
+  const btn = $('wuSubmitBtn');
+  if (!btn) return;
+  btn.disabled = ($('wuNote').value || '').trim().length === 0;
+}
+
+async function submitWithdrawUndo() {
+  const u = _currentDetailInfluencer;
+  if (!u) return;
+  const btn = $('wuSubmitBtn');
+  btn.disabled = true;
+
+  const res = await cancelWithdrawalAdmin(u.id, ($('wuNote').value || '').trim());
+  if (!res || res.ok !== true) {
+    btn.disabled = false;
+    toast(withdrawProxyErrorKo(res), 'error');
+    return;
+  }
+
+  closeModal('withdrawUndoModal');
+  toast('탈퇴 신청을 되돌렸습니다 · 철회된 응모는 되살아나지 않습니다', 'success');
+  await renderInfluencerWithdrawalPanel(u);
+  // 위 submitWithdrawProxy 와 같은 이유 — 캐시 재렌더는 탈퇴 상태를 안 갱신한다.
+  _infWithdrawalStates = await fetchWithdrawalStatesByInfluencer();
+  await refreshPane('influencers');
 }
 
 // 사유 코드 단건 조회 — blacklist/violation 양쪽 lookup 에서 검색

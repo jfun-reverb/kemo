@@ -159,6 +159,13 @@ async function init() {
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
+    // 막힌 표 감지 — 부팅 시 1회. **그 화면에 들어가야만 알 수 있으면 늦다**
+    //   (2026-08-07 사고가 11일간 안 보였던 이유가 그것이다).
+    if (typeof refreshBlockedTableIndicators === 'function') refreshBlockedTableIndicators();
+    // 탈퇴 처리 점검 — 부팅 시 1회. 위와 같은 이유다.
+    //   ⚠️ 이 경고는 **「항상 0 이 정상」이 아니다** — 관리자 계정을 겸한 회원이
+    //   있으면 숫자가 0 으로 안 내려간다(모달이 조치 방법을 안내한다).
+    if (typeof refreshWithdrawalOpsIndicators === 'function') refreshWithdrawalOpsIndicators();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
@@ -233,6 +240,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();
+  // 로딩 화면도 함께 걷는다(가림막과 짝 — 하나만 지우면 화면이 가려진 채 남는다).
+  var boot = document.getElementById('admin-boot');
+  if (boot) boot.remove();
 
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();

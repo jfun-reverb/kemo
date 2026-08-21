@@ -1070,11 +1070,6 @@ window._supabaseLoaded = false;
           <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="paypal" data-i18n="mypage.badge.unregistered">未登録</span>
           <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
         </button>
-        <button class="mypage-list-cell" onclick="openMypageSub('settlements')">
-          <span class="material-icons-round notranslate mlc-icon" translate="no">payments</span>
-          <span class="mlc-label" data-i18n="mypage.menu.settlements">報酬・精算</span>
-          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
-        </button>
         <button class="mypage-list-cell" onclick="openMypageSub('password')">
           <span class="material-icons-round notranslate mlc-icon" translate="no">lock</span>
           <span class="mlc-label" data-i18n="mypage.menu.password">パスワード変更</span>
@@ -1325,24 +1320,23 @@ window._supabaseLoaded = false;
     </div>
   </div>
 
-  <!-- 報酬・精算 (인플루언서 정산 조회 — renderMySettlements in mypage.js) -->
-  <div id="mypage-sub-settlements" class="mypage-view">
+  <!-- 報酬・精算(인플루언서 정산 조회) 화면은 없앴다 — 2026-08-19. 되살리려면 마이그레이션 343 의 「되돌리는 방법」부터 볼 것(서버 조회 정책이 없으면 화면만 되살아나고 목록은 0건이 된다). -->
+
+  <!-- ══════════════════════════════════
+       회원 탈퇴 (사양서 §4-4 — 화면 문구의 단일 소스)
+       ──────────────────────────────────
+       ⚠️ 안이 통째로 비어 있다 — `renderWithdrawView()` 가 서버 판정에 따라 채운다.
+          다섯 모습(A 안내 / B 운영팀 처리 / C 대기 / D 예정 / E 예외) 중 하나가 그려진다.
+       ⚠️ **하단 고정 버튼 바를 쓰지 않는다** — `#appShell` 이 visualViewport 로 높이를
+          줄이는 구조라, 고정 바를 두면 키보드가 열릴 때 입력칸을 덮는다. 버튼은 문서
+          흐름 안 맨 아래에 두고 자연 스크롤에 맡긴다.
+       ══════════════════════════════════ -->
+  <div id="mypage-sub-withdraw" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="mypage-sub-title" data-i18n="mypage.settlements.title">報酬・精算</span>
+      <span class="mypage-sub-title" data-i18n="mypage.withdrawView.title">退会について</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
-      <!-- PayPal 미등록 안내 (기본 숨김, renderMySettlements 가 미등록 시 표시) -->
-      <div id="mySettlementPaypalNotice" style="display:none;background:var(--light-pink);border-radius:10px;padding:14px 16px;margin-bottom:16px">
-        <div style="font-size:12px;color:var(--dark-pink);line-height:1.6;margin-bottom:10px">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">account_balance_wallet</span>
-          <span data-i18n="mypage.settlements.paypalMissing">報酬のお振込みにはPayPalメールアドレスの登録が必要です。</span>
-        </div>
-        <button class="btn btn-primary btn-block" onclick="openMypageSub('paypal')" data-i18n="mypage.settlements.paypalLink">PayPal登録</button>
-      </div>
-      <!-- 누적 수령액 큰 카드 (동적 렌더) -->
-      <div id="mySettlementTotal"></div>
-      <!-- 정산 내역 리스트 (동적 렌더) -->
-      <div id="mySettlementsList"></div>
+      <div id="withdrawViewBody"></div>
     </div>
   </div>
 </div>
