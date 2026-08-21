@@ -749,6 +749,36 @@ function withdrawBlockerLines(b) {
   return out;
 }
 
+// 진행 중인 탈퇴 신청 카드에서 「지금 무엇이 남아 있나」를 두 줄로 나눠 보여준다.
+//
+// 🔴 **합계 하나로 「손으로 확인이 필요합니다」라고 쓰면 안 된다.** 서버가 주는
+//    `uncancelled_count` 는 **접수 시점**에 철회하지 못한 수이고, 그 안에는 성격이
+//    정반대인 둘이 섞여 있다:
+//      ① 승인된 결과물이 있는 응모 — 자동으로 철회되는 일이 **영영 없다**(사람 몫)
+//      ② 행사(팝업) 응모 — 예약 실행이 **다음 날 새벽에** 티켓과 응모 행을 함께
+//         취소한다(마이그레이션 350). 사람이 할 일이 없다.
+//    접수 **직전** 확인 창은 이 둘을 따로 안내하는데(withdrawBlockerLines) 접수
+//    **뒤** 카드가 합쳐 버려, 운영자가 없는 일을 찾게 된다(2026-08-21 개발서버 검증).
+//
+// ⚠️ 그래서 **접수 시점의 합계를 쪼개지 않고, 지금 값을 다시 본다.** 사전 조회의
+//    두 값은 **살아 있는 응모(pending·approved)만** 세므로(353), 배치가 행사 응모를
+//    취소하면 ②가 저절로 0이 된다. 합계에서 빼는 방식으로는 그렇게 안 된다 —
+//    지난 값에서 지금 값을 빼면 배치가 돈 뒤 오히려 숫자가 틀어진다.
+//
+// ⚠️ 사전 조회에 실패했으면(`blockers` 없음) **아무 줄도 그리지 않는다.** 여기서
+//    0으로 단정하면 「사람이 볼 게 없다」는 틀린 안심을 준다.
+function withdrawLeftoverLines(b) {
+  if (!b) return '';
+  const out = [];
+  if (b.approved_deliverable_apps > 0) {
+    out.push(`<div style="color:#C62828"><strong style="font-weight:700">승인된 결과물이 있는 응모 ${b.approved_deliverable_apps}건</strong> — 철회되지 않습니다. 손으로 확인해 주세요</div>`);
+  }
+  if (b.event_apps > 0) {
+    out.push(`<div style="color:var(--muted)">행사(팝업) 예약 ${b.event_apps}건 — 다음 날 새벽에 자동으로 정리됩니다</div>`);
+  }
+  return out.join('');
+}
+
 async function renderInfluencerWithdrawalPanel(u) {
   const body = $('infDetailWithdrawBody');
   const summary = $('infDetailWithdrawSummary');
@@ -809,7 +839,8 @@ async function renderInfluencerWithdrawalPanel(u) {
                                   : `<div style="color:var(--muted)">받지 못한 보수가 있어 예정일이 아직 정해지지 않았습니다</div>`}
           ${active.reason_code ? `<div><strong style="font-weight:700">사유</strong> · ${esc(withdrawReasonLabel(active.reason_code))}</div>` : ''}
           ${active.reason_note ? `<div style="color:var(--muted);white-space:pre-wrap">${esc(active.reason_note)}</div>` : ''}
-          ${active.uncancelled_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">철회 못 한 응모 ${active.uncancelled_count}건</strong> — 손으로 확인이 필요합니다</div>` : ''}
+          ${active.uncancelled_count > 0 ? `<div style="color:var(--muted)">접수 때 철회하지 못한 응모 ${active.uncancelled_count}건</div>` : ''}
+          ${withdrawLeftoverLines(preOk ? (pre && pre.blockers) : null)}
           ${active.event_tickets_blocked_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">정리 못 한 행사 예약 ${active.event_tickets_blocked_count}건</strong></div>` : ''}
         </div>
       </div>`;
