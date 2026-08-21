@@ -52,9 +52,17 @@
 --   - 운영(production, 도쿄): nrwtujmlbktxjgdwlpjj   ← 아래 기본값
 --   - 개발(staging, 도쿄)   : qysmxtipobomefudyixw
 --
--- 적용 이력:
---   - 개발: 미적용(2026-08-21 작성 시점)
+-- 적용 이력 (★ 파일 이름으로 판단하지 말 것 — 데이터베이스에만 남는다):
+--   - 개발: **2026-08-21 적용 완료** (주소의 프로젝트 식별자를 개발 것으로 바꿔 등록)
 --   - 운영: 미적용
+--
+--   개발 적용 시 확인한 것:
+--     · Edge Function 배포 완료 후 등록했다(순서 지킴)
+--     · 등록 **전에** 예약과 **같은 방식**(net.http_post + vault 의 edge_function_jwt)으로
+--       한 번 불러 `200 {"ok":true,"candidates":0,"deleted_files":0,"marked":0}` 확인.
+--       → 주소·인증·함수·안쪽 조회까지 전 구간이 도는 것을 본 뒤 예약을 걸었다.
+--       ⚠️ 이 확인을 건너뛰면 매일 404 인데 **SQL 쪽은 성공으로 끝나** 아무 데도 안 남는다.
+--     · 등록 후 다른 잡과 시각이 안 겹치는 것 확인(19:30 둘 / 19:45 / 20:00 / 20:15 / **20:30**)
 --
 -- 롤백:
 --   SELECT cron.unschedule('withdrawal-message-attachment-purge-daily');
