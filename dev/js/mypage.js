@@ -486,6 +486,14 @@ function openMypageSub(sub, pushHistory) {
   // 즉시 채워 빈 박스/stale 선택 방지. 데이터 로드(loadMyApplications) 전이라도 항목은 보이고,
   // 로드 완료 후 renderMyApplyTabs 재호출로 건수까지 갱신된다.
   if (sub === 'applications' && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+  // 탈퇴 화면은 안이 비어 있어 **서버 판정을 받아야 그려진다**(§4-4).
+  //   ⚠️ 이 줄이 없으면 해시로 직접 들어오거나(#mypage-withdraw) 뒤로가기로 돌아올 때
+  //      **껍데기만 뜨고 안이 빈 채로 남는다** — 햄버거로 들어온 경우만 채워진다.
+  if (sub === 'withdraw' && typeof loadWithdrawView === 'function') {
+    const b = $('withdrawViewBody');
+    if (b) b.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px">${esc(wt('loading'))}</div>`;
+    loadWithdrawView();
+  }
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
@@ -509,17 +517,406 @@ function updateLangToggleUI() {
   });
 }
 
-// 회원 탈퇴 안내 (i18n 대응)
-//   ⚠️ **확인창을 띄우지 않는다.** 「정말 탈퇴하시겠습니까?」라고 물으려면 「예」를 눌렀을 때
-//      실제로 탈퇴가 돼야 하는데, 지금은 **서버에 아무 일도 일어나지 않는다.** 묻는 것 자체가
-//      거짓 전제라 없앴다(2026-08-19). 「접수했습니다」라는 안내도 같은 이유로 지웠다.
-//   ⚠️ **연락처는 남긴다** — 지우면 갈 곳이 0개가 된다(응모를 한 번도 안 한 회원은 앱 안에
-//      창구가 없다). 앱 안 문의 창구가 생기면 그때 LINE 안내를 지운다(작업표 작업 2).
-//   진짜 탈퇴 기능은 사양서 `docs/specs/2026-08-18-member-withdrawal.md`.
+// 회원 탈퇴 — 햄버거 「退会する」 진입점.
+//   2026-08-19 까지는 「LINE 으로 연락해 주세요」 토스트 한 줄이었다(서버에 아무 일도
+//   일어나지 않아, 묻는 것 자체가 거짓 전제였다). 2026-08-20 부터 **실제 화면**으로 간다.
+//   사양서 `docs/specs/2026-08-18-member-withdrawal.md` §4-4 가 문구의 단일 소스.
 function handleWithdraw() {
-  const guide = typeof t === 'function' ? t('mypage.withdrawGuide')
-    : '退会をご希望の方は、運営までLINEでご連絡ください。担当者がご案内します。';
-  toast(guide);
+  openWithdrawScreen();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 회원 탈퇴 화면 (사양서 §4-4 — 문구·판정 순서의 단일 소스)
+// ════════════════════════════════════════════════════════════════════
+//
+// 🔴 **접수까지 실제로 동작한다.** 「탈퇴하기」를 누르면 2단 확인을 거쳐
+//    `request_withdrawal` 이 불리고 **살아 있는 응모가 함께 철회된다 — 되돌릴 수 없다.**
+// ✅ **「탈퇴 그만두기」(취소)도 동작한다** — `cancelWithdrawFromScreen()`. 【C. 대기】·
+//    【D. 예정】 두 화면에 버튼이 있다.
+//    ⚠️ 취소해도 **위에서 철회된 응모는 되살아나지 않는다.** 되돌릴 수 있는 것은
+//       「탈퇴 절차」뿐이다 — 시험할 때 이 둘을 헷갈리지 말 것.
+//    ⚠️ 이 주석은 **한때 「취소는 아직 비활성」이라고 사실과 반대로 적혀 있었다**
+//       (취소를 구현한 커밋이 헤더를 같이 안 고쳤다, 2026-08-21 정정). 이 구역을
+//       고칠 때 **아래 함수들과 이 머리말이 같은 말을 하는지** 확인할 것.
+//
+// 판정 순서 (§4-4-1) — **이 순서가 곧 설계다**:
+//   ① active_request 가 있나?   ← mode 보다 먼저 (조회에 성공했을 때만)
+//   ② 조회 실패·특수 계정인가?
+//   ③ mode
+//
+// 🔴 **①을 ③보다 먼저 두는 이유** — `mode`(353)는 「지금 신청할 수 있나」만 답한다.
+//    이미 신청한 회원의 상태가 그 뒤에 바뀌면(정산 행이 생기는 등) `locked_support` 가
+//    되는데, `mode` 를 먼저 보면 **그 회원의 「탈퇴 그만두기」 버튼이 사라져 5일 유예를
+//    화면이 빼앗는다.**
+//
+// 🔴 **`ok !== true` 면 `mode` 를 믿지 않는다** — `fetchWithdrawalPrecheck` 는 조회
+//    실패·권한 오류를 **전부 `locked_support` 로 덮는다**(fail-closed, 의도된 설계).
+//    그대로 그리면 통신이 끊긴 회원에게 **「운영팀이 확인해 처리합니다」라는 사실이 아닌
+//    안내**가 뜬다 — 이 사양서가 고치려던 바로 그 유형이다.
+
+// ⚠️ 로딩 표시와 조회는 `openMypageSub` 안에서 한다 — 해시로 직접 들어오는 경로와
+//    **같은 자리**에서 처리해야 두 벌이 되지 않는다.
+//
+// 🔴 **`navigate('mypage', false)` 를 반드시 먼저 부른다.** `openMypageSub` 는
+//    `#page-mypage` **안의** 서브 화면만 바꿀 뿐, 그 페이지 자체를 켜지 않는다
+//    (`.page{display:none}`). 이 저장소의 다른 진입 경로(햄버거 아코디언·뒤로가기·
+//    해시 직접 진입)는 **예외 없이** navigate 를 먼저 부른다.
+//    ⚠️ GNB 「退会する」는 **어느 화면에서나 눌리는 전역 링크**라, 이 줄이 없으면
+//    홈·캠페인에서 눌렀을 때 **햄버거만 닫히고 아무 일도 안 일어난다**(주소만 바뀌고
+//    화면은 그대로 — 뒤로가기를 눌러야 그제야 뜨는 기이한 경로까지 생긴다).
+//    2026-05-22 응모건 메시지에서 겪은 「누르면 막다른 길」과 같은 유형이다.
+function openWithdrawScreen() {
+  navigate('mypage', false);
+  openMypageSub('withdraw');
+}
+
+// 문구 헬퍼 — `mypage.withdrawView.*` 를 짧게 부른다.
+function wt(key, vars) {
+  let s = (typeof t === 'function') ? t('mypage.withdrawView.' + key) : '';
+  if (!s || s === 'mypage.withdrawView.' + key) s = '';
+  if (vars) Object.keys(vars).forEach(k => { s = s.split('{' + k + '}').join(vars[k]); });
+  return s;
+}
+
+async function loadWithdrawView() {
+  let info = null, reasons = [];
+  try {
+    info = await fetchWithdrawalPrecheck();
+  } catch (e) {
+    console.warn('[loadWithdrawView] precheck', e);
+  }
+  // ⚠️ 사유 목록 조회 실패가 화면을 막지 않게 한다 — `fetchLookups` 는 다른 storage
+  //    함수와 달리 예외를 던진다. 사유는 **선택**이라, 실패하면 그 부분만 감추고
+  //    나머지는 그대로 보여준다.
+  try {
+    if (typeof fetchLookups === 'function') reasons = await fetchLookups('withdraw_reason') || [];
+  } catch (e) {
+    console.warn('[loadWithdrawView] reasons', e);
+  }
+  renderWithdrawView(info, reasons);
+}
+
+function renderWithdrawView(info, reasons) {
+  const body = $('withdrawViewBody');
+  if (!body) return;
+
+  // ① 신청이 이미 있나 — mode 보다 먼저 본다(조회에 성공했을 때만 값이 있다)
+  const req = (info && info.ok === true) ? info.active_request : null;
+  if (req && req.status === 'pending_payout') { body.innerHTML = withdrawPendingHtml(); return; }
+  if (req && req.status === 'scheduled')      { body.innerHTML = withdrawScheduledHtml(req); return; }
+
+  // ② 조회 실패·특수 계정 — mode 를 믿지 않는다
+  if (!info || info.ok !== true) { body.innerHTML = withdrawExceptionHtml(info); return; }
+
+  // ③ mode
+  if (info.mode === 'locked_support') { body.innerHTML = withdrawLockedHtml(info.blockers); return; }
+  body.innerHTML = withdrawNoticeHtml(info, reasons);
+}
+
+// ── 【A】 탈퇴 안내 — open · locked_auto ──
+//   ⚠️ `open` 과 `locked_auto` 는 **화면이 같다**(§4-4-1). 굳이 나눈 것은 관리자·문의
+//      응대용이라, 시행일이 와도 이 화면은 고칠 자리가 0이다.
+function withdrawNoticeHtml(info, reasons) {
+  const unpaid = Number(info?.blockers?.unpaid_count || 0);
+  // ⚠️ 「5일」을 한 문구로 덮지 않는다 — 미지급이 있으면 「지급이 끝난 뒤」가 앞에 붙는다.
+  //    한 문구로 둘 다 덮으면 한쪽이 거짓이 된다.
+  const scheduleLine = unpaid > 0 ? wt('aScheduleUnpaid', {n: unpaid}) : wt('aSchedule');
+  const li = (s) => `<li style="margin-bottom:10px">${esc(s)}</li>`;
+
+  // ⚠️ 사유는 **선택**이다(마이그레이션 347). 안 골라도 눌린다.
+  //    조회에 실패했으면 이 부분만 통째로 감춘다.
+  let reasonHtml = '';
+  if (Array.isArray(reasons) && reasons.length) {
+    const opts = reasons.map(r => {
+      const label = (typeof getLang === 'function' && getLang() === 'ko') ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko);
+      return `<label style="display:flex;align-items:center;gap:8px;padding:10px 0;font-size:14px">
+        <input type="radio" name="withdrawReason" value="${esc(r.code)}" onchange="onWithdrawReasonChange()">
+        <span>${esc(label)}</span></label>`;
+    }).join('');
+    reasonHtml = `<div style="margin-top:24px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
+      ${opts}
+      <textarea id="withdrawReasonNote" rows="3" placeholder="${esc(wt('aReasonPlaceholder'))}"
+        style="display:none;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit"></textarea>
+    </div>`;
+  }
+
+  return `<ul style="padding-left:18px;margin:8px 0 0;font-size:14px;line-height:1.7;color:var(--ink)">
+      ${li(wt('aCancelApps'))}
+      <li style="margin:-6px 0 10px;font-size:12px;color:var(--muted);list-style:none;margin-left:-18px;padding-left:0">${esc(wt('aCancelAppsSub'))}</li>
+      ${li(scheduleLine)}
+      ${li(wt('aPaypal'))}
+      ${li(wt('aIrreversible'))}
+    </ul>
+    ${reasonHtml}
+    <div style="display:flex;gap:8px;margin:28px 0 40px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
+      <button class="btn btn-primary" style="flex:1" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
+    </div>`;
+}
+
+// ── 2단 확인 (§4-4-2) ──
+//   ⚠️ **브라우저 확인창(`confirm`)을 쓰지 않는다** — 모바일에서 문구가 잘리고
+//      스타일을 못 맞추며, 이 저장소는 그 대화상자가 뜨면 자동화가 멈추는 문제도 있다.
+//      같은 화면 안에서 확인 단계로 **전환**한다.
+//   ⚠️ 고른 사유를 여기서 기억해 둔다 — 화면을 다시 그리면 입력칸이 사라진다.
+let _withdrawPending = null;
+
+function showWithdrawConfirm() {
+  const sel = document.querySelector('input[name="withdrawReason"]:checked');
+  const note = $('withdrawReasonNote');
+  _withdrawPending = {
+    code: sel ? sel.value : null,
+    // ⚠️ 「기타」가 아니면 자유 입력을 안 보낸다 — 다른 사유를 고르고 입력칸에
+    //    남아 있던 옛 글이 함께 저장되는 것을 막는다.
+    note: (sel && sel.value === 'other' && note) ? (note.value || '').trim() : '',
+  };
+  const body = $('withdrawViewBody');
+  if (!body) return;
+  body.innerHTML = `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
+    <div style="background:#FFF5F5;border:1px solid #F5C2C2;border-radius:8px;padding:14px;font-size:14px;line-height:1.7;color:#C33">
+      ${esc(wt('aConfirm'))}
+    </div>
+    <div style="display:flex;gap:8px;margin:28px 0 40px">
+      <button class="btn btn-ghost" style="flex:1" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
+      <button id="withdrawSubmitBtn" class="btn btn-primary" style="flex:1" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
+    </div>`;
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// 확인 단계에서 나올 때는 **반드시 이 함수로** 나온다.
+//   🔴 `loadWithdrawView()` 를 직접 부르면 `_withdrawPending` 이 남는다. 그러면
+//      언어 전환 재렌더가 `if (_withdrawPending) return;` 에 걸려 **조용히 죽는다** —
+//      확인 단계만 보호하려던 가드가 그 경계를 벗어나 스스로를 무력화한다.
+//      (재현: 탈퇴 화면 → 「탈퇴하기」 → 「돌아가기」 → 언어 변경 → 아무 반응 없음)
+function leaveWithdrawConfirm() {
+  _withdrawPending = null;
+  loadWithdrawView();
+}
+
+// ── 접수 (§4-4-7) ──
+//   🔴 **되돌릴 수 없는 동작이다** — 살아 있는 응모가 함께 철회된다.
+//   ⚠️ 연타를 막는다 — 두 번 눌러도 서버가 멱등으로 받지만, 화면이 두 번 그려지면
+//      회원은 무엇이 일어났는지 모른다.
+async function submitWithdraw() {
+  const btn = $('withdrawSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = wt('submitting'); }
+
+  let res = null;
+  try {
+    res = await requestWithdrawal(_withdrawPending?.code || null, _withdrawPending?.note || null);
+  } catch (e) {
+    console.warn('[submitWithdraw]', e);
+  }
+
+  if (!res || res.ok !== true) {
+    // ⚠️ 실패 사유를 하나도 「알 수 없는 오류」로 뭉뚱그리지 않는다 — 화면이 원래
+    //    안 그렸어야 하는 상황이 오면 그게 최종 방어선이 걸린 것이라, 무엇이
+    //    막았는지 알려 줘야 원인을 찾을 수 있다.
+    toast(withdrawErrorText(res), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = wt('aSubmitBtn'); }
+    // 잠금·중복이면 화면 자체가 낡은 것이므로 다시 판정받는다.
+    if (res && (res.reason === 'locked_needs_support' || res.reason === 'already_requested')) loadWithdrawView();
+    return;
+  }
+
+  _withdrawPending = null;
+  const body = $('withdrawViewBody');
+  if (body) body.innerHTML = withdrawResultHtml(res);
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// ── 3단계: 탈퇴 그만두기 (§4-4-5) ──
+//
+// 🔴 **5일 유예의 존재 이유가 이 버튼이다.** 화면·방침·상태표 세 곳이 「취소할 수 있다」고
+//    약속하는데 누를 자리가 없으면 **지키지 못할 약속이 하나 더 느는 것**이다.
+//
+// ⚠️ **확인창을 띄우지 않는다** — 취소는 회원에게 **유리한 방향**이고 되돌릴 수 있다
+//    (다시 신청하면 된다). 접수 때와 달리 막을 이유가 없다.
+//
+// ⚠️ **철회된 응모는 안 되살아난다** — 취소 성공 문구가 그 사실을 반드시 말한다.
+//    응모 취소는 별개 사건이고 캠페인이 이미 마감됐을 수 있다.
+async function cancelWithdrawFromScreen() {
+  const btn = $('withdrawCancelBtn');
+  if (btn) { btn.disabled = true; btn.textContent = wt('submitting'); }
+
+  let res = null;
+  try {
+    res = await cancelWithdrawal();
+  } catch (e) {
+    console.warn('[cancelWithdrawFromScreen]', e);
+  }
+
+  if (!res || res.ok !== true) {
+    toast(withdrawCancelErrorText(res), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = wt('dCancelBtn'); }
+    // 이미 확정·이미 취소면 화면이 낡은 것 — 다시 판정받는다.
+    if (res && (res.reason === 'already_done' || res.reason === 'already_cancelled')) loadWithdrawView();
+    return;
+  }
+
+  toast(wt('dCancelled'), 'success');
+  // 취소했으니 처음 상태(【A】 또는 【B】)로 돌아간다 — 서버에 다시 물어본다.
+  loadWithdrawView();
+}
+
+// ⚠️ `admin_requested`(자격 상실 강제 탈퇴)만 본인이 못 되돌린다. 관리자 **대행**은
+//    회원이 요청해서 대신 눌러 준 것이라 본인이 취소할 수 있다(마이그레이션 356).
+function withdrawCancelErrorText(res) {
+  const map = {
+    admin_requested:       'dCancelAdminOnly',
+    already_done:          'errAlready',
+    already_cancelled:     'errAlready',
+    not_authenticated:     'errAuth',
+    not_found:             'errAuth',
+    // ⚠️ 감사용 계정은 사전 조회(【E】)가 이미 막아 여기까지 오지 않는다.
+    //    그래도 채워 둔다 — 접수 쪽(`withdrawErrorText`)이 같은 사유를 챙기고 있어
+    //    한쪽만 비면 나중에 「왜 여기만 일반 문구지」가 된다.
+    audit_account_blocked: 'eAudit',
+  };
+  return wt(map[res?.reason] || 'errUnknown');
+}
+
+function withdrawErrorText(res) {
+  const map = {
+    locked_needs_support:   'errLocked',
+    // ⚠️ `already_requested` 는 **이 화면에서는 안 온다** — 본인 신청 함수(357)의
+    //    멱등 분기는 `ok:false` 가 아니라 **`ok:true` 로 기존 상태를 그대로** 돌려준다.
+    //    이 사유는 관리자 대행 함수(`request_withdrawal_for_member`) 전용이다.
+    //    방어용으로만 남긴다 — 서버가 바뀌어 이 값이 오게 되면 문구가 없어 곤란해진다.
+    already_requested:      'errAlready',
+    invalid_reason:         'errReason',
+    not_authenticated:      'errAuth',
+    not_found:              'errAuth',
+    audit_account_blocked:  'eAudit',
+    admin_account_excluded: 'eAdmin',
+  };
+  return wt(map[res?.reason] || 'errUnknown');
+}
+
+// ── 신청 결과 (§4-4-7) — 숫자는 여기서만 말한다 ──
+//   ⚠️ **0건인 줄은 안 그린다.**
+//   ⚠️ **「새로 접수」와 「이미 있던 것」을 구분하지 않는다** — 357 의 멱등 분기는
+//      `cancelled_count:0` 을 돌려주는데, **응모가 원래 없던 회원의 정상 접수도
+//      똑같은 모양**이라 화면이 갈라낼 방법이 없다. 억지로 나누면 정상 접수를
+//      「이미 진행 중」으로 잘못 말한다. 0건 줄을 안 그리는 것으로 충분하다 —
+//      예정일과 상태가 뜨므로 접수됐다는 것은 전해진다.
+function withdrawResultHtml(res) {
+  const n = (v) => Number(v || 0);
+  const lines = [];
+  if (n(res.cancelled_count) > 0)   lines.push(`<li>${esc(wt('rCancelled', {n: n(res.cancelled_count)}))}</li>`);
+  if (n(res.uncancelled_count) > 0) {
+    lines.push(`<li>${esc(wt('rUncancelled', {n: n(res.uncancelled_count)}))}
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
+  }
+  const listHtml = lines.length
+    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.join('')}</ul>` : '';
+
+  // 상태에 따라 아래 안내가 갈린다 — 예정일이 있으면 그 날짜, 없으면 「대기」 안내.
+  let statusHtml = '';
+  if (res.status === 'scheduled' && res.scheduled_date) {
+    statusHtml = `<div style="margin-top:18px;font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
+      <div style="font-size:14px;line-height:1.7;color:var(--ink);margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
+  } else {
+    statusHtml = `<div style="margin-top:18px;font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>`;
+  }
+
+  // 철회 못 한 응모가 있으면 문의 안내 — 그 응모가 어떻게 되는지 달리 알 길이 없다.
+  const contactHtml = n(res.uncancelled_count) > 0
+    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}</div>` : '';
+
+  return `<div style="font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('rTitle'))}</div>
+    ${listHtml}${statusHtml}${contactHtml}
+    <div style="margin:28px 0 40px">
+      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
+    </div>`;
+}
+
+// 「その他」(기타)를 골랐을 때만 자유 입력칸을 보인다(§4-3).
+function onWithdrawReasonChange() {
+  const sel = document.querySelector('input[name="withdrawReason"]:checked');
+  const note = $('withdrawReasonNote');
+  if (!note) return;
+  const show = sel && sel.value === 'other';
+  note.style.display = show ? '' : 'none';
+  // 입력칸이 나타날 때 키보드에 가리지 않게 시야로 끌어온다.
+  if (show) setTimeout(() => note.scrollIntoView({block: 'center', behavior: 'smooth'}), 80);
+}
+
+// ── 【B】 운영팀 처리 — locked_support ──
+//   ⚠️ **0건인 줄은 그리지 않는다.**
+//   🔴 **「정산 기록 ◯건」은 쓰지 않는다** — 정산은 회원에게서 통째로 없앤 화면이라
+//      (마이그레이션 343) 건수만 던지면 **볼 데가 없는 것을 가리킨다.**
+//      그 항목만 걸린 회원에게는 「응모나 보수 절차가 남아 있어서」 한 줄로 대신한다.
+function withdrawLockedHtml(b) {
+  const n = (v) => Number(v || 0);
+  const lines = [];
+  if (n(b?.approved_deliverable_apps) > 0) lines.push(wt('bApproved', {n: n(b.approved_deliverable_apps)}));
+  if (n(b?.event_apps) > 0)                lines.push(wt('bEvent',    {n: n(b.event_apps)}));
+  if (n(b?.unpaid_count) > 0)              lines.push(wt('bUnpaid',   {n: n(b.unpaid_count)}));
+  // 세 줄이 다 비면(= 정산 기록만 걸림) 뭉뚱그린 한 줄
+  const detail = lines.length
+    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
+    : `<div style="margin:14px 0;font-size:14px;color:var(--muted)">${esc(wt('bOther'))}</div>`;
+
+  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('bIntro'))}</div>
+    ${detail}
+    <div style="background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:var(--ink)">
+      ${esc(wt('bContact'))}
+    </div>
+    <div style="margin:28px 0 40px">
+      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+    </div>`;
+}
+
+// ── 【C】 대기 중 — pending_payout ──
+//   ⚠️ **「メールで」(메일로)라고 명시한다** — 정산 알림을 없앤 뒤로 예정일 안내 메일이
+//      회원에게 닿는 **유일한 통지**다(351). 「앱에서 알려드립니다」로 쓰면 안 온다.
+//   ⚠️ **예정일 칸 자체를 그리지 않는다** — 이 상태에는 예정일이 아직 없다.
+function withdrawPendingHtml() {
+  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('cTitle'))}</div>
+    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>
+    <div style="margin:28px 0 40px">
+      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+    </div>`;
+}
+
+// ── 【D】 예정 — scheduled ──
+//   ⚠️ **날짜는 서버가 준 값을 그대로 쓴다.** 화면이 「오늘 + 5일」을 계산하면 기기
+//      시계로 갈린다(서버는 일본 시각 기준). 「あと◯日」도 같은 이유로 안 쓴다.
+//   🔴 **예정일이 지났는데 아직 확정 전인 구간에도 이 화면이 그대로 떠야 한다** —
+//      358 이 로그아웃과 쓰기 차단을 **일부러 다른 값으로 나눈 이유**가 그 구간이고,
+//      거기서 「탈퇴 그만두기」에 닿는 자리는 이 화면 하나뿐이다.
+function withdrawScheduledHtml(req) {
+  const d = req?.scheduled_date ? withdrawDateLabel(req.scheduled_date) : '';
+  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
+    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('dCanCancel'))}</div>
+    <div style="margin:28px 0 40px">
+      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+    </div>`;
+}
+
+// 'YYYY-MM-DD' → 「YYYY年MM月DD日」 / 「YYYY년 MM월 DD일」
+// ⚠️ Date 객체를 거치지 않는다 — 서버가 일본 시각으로 만든 날짜라, 기기 시간대로
+//    다시 해석하면 하루가 밀린다.
+function withdrawDateLabel(ymd) {
+  const m = String(ymd).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(ymd || '');
+  const [, y, mo, d] = m;
+  const ko = (typeof getLang === 'function' && getLang() === 'ko');
+  return ko ? `${y}년 ${Number(mo)}월 ${Number(d)}일` : `${y}年${Number(mo)}月${Number(d)}日`;
+}
+
+// ── 【E】 예외 — 조회 실패·감사용·관리자 겸직 ──
+//   ⚠️ **어떤 실패도 「알 수 없는 오류」로 뭉뚱그리지 않는다.**
+function withdrawExceptionHtml(info) {
+  let msg = wt('eError');
+  if (info?.reason === 'audit_account_blocked')  msg = wt('eAudit');
+  if (info?.reason === 'admin_account_excluded') msg = wt('eAdmin');
+  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}</div>
+    <div style="margin:28px 0 40px">
+      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+    </div>`;
 }
 
 // 초기 + langchange 이벤트에서 토글 상태 갱신
@@ -549,6 +946,19 @@ function renderProfileAgeReadonly() {
 }
 window.addEventListener('langchange', renderProfileAgeReadonly);
 
+// 탈퇴 화면은 **동적 렌더**라 `data-i18n` 이 안 걸린다 — 언어를 바꾸면 다시 그려야 한다.
+//   ⚠️ 이 리스너가 없으면 화면을 보다가 언어를 바꾼 회원이 **다음 재진입까지 옛 언어**를 본다
+//      (다른 동적 화면들과 같은 처리 — 위 renderMyApplyTabs·renderProfileAgeReadonly).
+//   ⚠️ **확인 단계·결과 화면에서는 다시 그리지 않는다** — `loadWithdrawView()` 는 서버에
+//      다시 물어 【A】부터 그리므로, 확인 중이던 사람이 언어를 바꾸면 **고른 사유가 사라지고
+//      처음으로 돌아간다.** 그 두 상태는 잠깐 머무는 자리라 옛 언어로 두는 편이 낫다.
+window.addEventListener('langchange', () => {
+  const view = $('mypage-sub-withdraw');
+  if (!view || !view.classList.contains('active')) return;
+  if (_withdrawPending) return;          // 확인 단계·접수 중 — 건드리지 않는다
+  if (typeof loadWithdrawView === 'function') loadWithdrawView();
+});
+
 // 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
 function populateMyApplyChannelOptions() {
   const sel = $('myApplyChannel');
@@ -575,6 +985,11 @@ function populateMyApplyChannelOptions() {
 
 let _cancelTargetAppId = null;
 let _cancelReasonsCache = null;
+// 지난 기록의 사유 라벨 조회용 — 목록에서 감춘 사유(회원 탈퇴·운영진 취소)도 포함해야
+// 이미 그 사유로 취소된 응모의 상세가 빈 칸으로 보이지 않는다.
+// ⚠️ 고르는 드롭다운(_cancelReasonsCache)과 절대 합치지 말 것 — 합치면 회원이
+//    「회원 탈퇴」·「운영진 취소」를 자기 취소 사유로 고를 수 있게 된다.
+let _cancelReasonsAllCache = null;
 
 // 클라이언트측 cancel_phase 계산 — 서버 RPC 의 CASE 와 동일 우선순위.
 // 모달 분기(단순 vs 사유 입력)와 phase 라벨 표시에 사용. 서버가 최종 검증.
@@ -900,8 +1315,8 @@ async function submitCancelApplicationFromPage() {
 async function openCancelDetailModal(appId) {
   const app = _myApps.find(a => a.id === appId);
   if (!app) return;
-  if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
-  const reason = _cancelReasonsCache.find(r => r.code === app.cancel_reason_code);
+  if (!_cancelReasonsAllCache) _cancelReasonsAllCache = await fetchCancelReasons({ includeInactive: true });
+  const reason = _cancelReasonsAllCache.find(r => r.code === app.cancel_reason_code);
   const setText = (id, text) => { const el = $(id); if (el) el.textContent = text || ''; };
   setText('cancelDetailDatetime', app.cancelled_at ? formatDate(app.cancelled_at) : '—');
   // 현재 언어 토글에 맞춰 카테고리 라벨 표시

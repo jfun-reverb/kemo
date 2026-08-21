@@ -18,6 +18,7 @@
   .legend .auth { background:#E0DBE6; color:#5B3F66; }
   .legend .brand { background:#FBE2E7; color:#A02038; }
   .legend .infl { background:#E5EAE0; color:#3F5530; }
+  .legend .admin { background:#DDE4EE; color:#2F4460; }
   h2 { font-size:14px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#666; max-width:1100px; margin:32px auto 14px; }
   .grid { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px; }
   .card { background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); padding:20px 22px 18px; display:flex; flex-direction:column; transition:transform 0.15s, box-shadow 0.15s; }
@@ -27,6 +28,7 @@
   .tag-auth { background:#E0DBE6; color:#5B3F66; }
   .tag-brand { background:#FBE2E7; color:#A02038; }
   .tag-infl { background:#E5EAE0; color:#3F5530; }
+  .tag-admin { background:#DDE4EE; color:#2F4460; }
   .card-title { font-size:15px; font-weight:700; letter-spacing:-0.01em; margin-bottom:6px; line-height:1.4; }
   .card-desc { font-size:12px; color:#666; line-height:1.6; margin-bottom:14px; }
   /* 「언제 보내요?」 박스 — 운영자·CS 담당자용 평이한 한국어 발송 조건 안내 (사양서 2026-05-18 §8-3) */
@@ -59,6 +61,7 @@
     <span class="auth">Auth · Supabase 자동 발송</span>
     <span class="brand">Brand · Edge Function</span>
     <span class="infl">Influencer · Edge Function</span>
+    <span class="admin">Admin · 관리자 수신</span>
   </div>
 </div>
 
@@ -91,7 +94,7 @@
   <div class="card">
     <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">비밀번호 재설정 메일</div>
-    <div class="card-desc">"비밀번호 찾기" + 관리자 초대(invite_admin 후 resetPasswordForEmail) 공용. 1시간 만료.</div>
+    <div class="card-desc">회원이 「비밀번호를 잊으셨나요」를 눌렀을 때 보내는 재설정 링크. 1시간 만료.<br>⚠️ <b>관리자 초대는 더 이상 이 메일을 쓰지 않는다</b> — 2026-07-20 부터 별도 경로(「관리자 초대」 카드)로 갈렸다. 되살리면 링크가 조용히 안 먹는다(초대한 사람의 브라우저에 검증값이 남아, 링크를 여는 다른 브라우저에서는 반드시 실패).</div>
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">비밀번호를 잊었을 때 다시 만들 수 있는 링크를 보내거나, 새 관리자에게 처음 비밀번호 만드는 링크를 보낼 때 보냅니다.</div>
@@ -383,6 +386,152 @@
     <div class="card-actions">
       <a class="btn btn-primary" href="campaign-promo-digest.preview.html">미리보기</a>
       <a class="btn btn-ghost" href="campaign-promo-digest.html">원본 (메인)</a>
+    </div>
+  </div>
+
+  <!-- ⑬ 탈퇴 예정일 안내 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">탈퇴 예정일 안내</div>
+    <div class="card-desc">회원이 탈퇴를 신청하고 받을 보수가 정리되면, 탈퇴 예정일과 「그때까지 취소할 수 있다」는 것을 알립니다. 관리자가 대신 접수한 건이면 그 사실을 밝히는 문단이 추가됩니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">탈퇴 신청이 「예정」 상태가 된 다음 날 아침에 한 번 보냅니다. 받을 보수가 남아 있어 「지급 대기」인 동안에는 보내지 않고, 지급이 끝나 예정일이 정해진 뒤에 나갑니다. 이미 받은 사람에게는 다시 안 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국·일본 시각 오전 9시 (대상자에게 1통, 대상 0명이면 미발송)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= 한국·일본 09:00) — withdrawal-scheduled-mail-daily → notify-withdrawal-scheduled</div>
+      <div><b>수신자:</b> withdrawal_requests.status='scheduled' 이고 scheduled_mail_sent_at 이 비어 있는 회원 본인</div>
+      <div><b>언어:</b> JA</div>
+      <div><b>대행 문단:</b> 관리자가 대신 접수(admin_proxy)한 건이면 「회원님의 요청에 따라 운영팀이 대신 절차를 진행했습니다」 문단이 들어갑니다. 본인 신청이면 없습니다</div>
+      <div><b>중요:</b> 인플루언서 정산 알림을 없앤 뒤로 <b>이 메일이 회원에게 닿는 유일한 통지</b>입니다 — 탈퇴를 기다리는 사람은 앱에 안 들어오고, 확정되면 로그인이 막힙니다</div>
+      <div><b>실패 처리:</b> 메일이 실패해도 탈퇴 진행은 멈추지 않습니다(멈추면 「대기」에서 영영 못 나갑니다). 발송에 성공한 뒤에만 발송 시각을 기록합니다</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="withdrawal-scheduled.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="withdrawal-scheduled.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-auth">Auth</div>
+    <div class="card-title">관리자 초대</div>
+    <div class="card-desc">관리자 계정을 새로 추가하면, 그 사람에게 비밀번호를 직접 설정하라는 링크를 보냅니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">최고 관리자가 관리자 계정을 추가하는 순간 보냅니다. 이미 회원으로 가입돼 있던 사람을 관리자로 올린 경우에는 문구가 달라집니다 — 「기존 비밀번호로 로그인하시면 됩니다」로 나가고, 비밀번호를 덮어쓰지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 관리자 계정 추가 직후 (목록에서 「재발송」으로 다시 보낼 수 있음)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 관리자 추가(invite_admin) 직후 notify-admin-invite 호출</div>
+      <div><b>수신자:</b> 초대받은 관리자 본인</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>왜 인증 기본 발송을 안 쓰나:</b> 메일 양식이 종류별로 하나뿐이라 회원 비밀번호 찾기와 문구를 공유하게 되고, 링크를 여는 사람의 브라우저가 달라 교환이 실패한다</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="admin-invite.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-auth">Auth</div>
+    <div class="card-title">관리자 비밀번호 찾기</div>
+    <div class="card-desc">관리자가 비밀번호를 잊었을 때 재설정 링크를 보냅니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자 로그인 화면의 「비밀번호를 잊으셨나요」를 눌렀을 때 보냅니다. ⚠️ <b>관리자가 아닌 이메일을 넣어도 화면과 응답이 똑같습니다</b> — 그 이메일이 관리자인지 아닌지를 알려주지 않기 위해서입니다(요청이 몰려 제한에 걸렸을 때도 마찬가지).</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 요청 즉시 (같은 이메일 5분에 1회·하루 5회, 전체 시간당 30건 제한)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 로그인 화면 → admin-password-reset-request (익명 호출)</div>
+      <div><b>수신자:</b> 요청한 이메일이 실제 관리자일 때만 — 아니면 발송 자체를 안 함</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>요청 기록:</b> 이메일 원문은 저장하지 않고 해시만 남깁니다 — 유출돼도 관리자 명단이 되지 않게</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="admin-password-reset.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">브랜드 일일 보고</div>
+    <div class="card-desc">어제 브랜드가 제출한 오리엔시트를 하루치로 모아 관리자에게 보냅니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">매일 아침, 어제 하루 동안 새로 제출된 것과 수정 재제출된 것을 두 묶음으로 나눠 보냅니다. 둘 다 0건이면 보내지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (2섹션 모두 0건이면 미발송)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 → notify-brand-daily-digest</div>
+      <div><b>수신자:</b> 「브랜드 일일 보고」 수신을 켠 관리자</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>집계 기준:</b> 시각 기준 — 신규는 최초 제출 시각, 재제출은 마지막 제출 시각. 두 조건은 서로 겹치지 않습니다</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="brand-daily-digest.html">원본</a>
+      <a class="btn btn-ghost" href="brand-daily-digest.section.html">섹션 조각</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">오리엔시트 제출 알림</div>
+    <div class="card-desc">브랜드가 오리엔시트를 제출하면 관리자에게 바로 알립니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">브랜드가 작성 폼에서 「제출」을 누르는 순간 보냅니다. 신규 제출인지 수정 재제출인지 제목에서 구분됩니다. ⚠️ 재제출은 30분 안에 여러 번 눌러도 한 번만 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 제출 즉시 (관리자 1명당 1통 분리 발송)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 오리엔시트 제출 웹훅 → notify-orient-submitted</div>
+      <div><b>수신자:</b> 「브랜드 알림」 수신을 켠 관리자</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>과다 발송 방지:</b> 카드 일부 발행처럼 제출이 아닌 변경은 건너뛰고, 재제출은 30분 안에 반복되면 한 번만</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="orient-submitted-notify.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">약관·방침 개정 사전 통지</div>
+    <div class="card-desc">약관이나 개인정보처리방침을 고칠 때, 시행 30일 전에 회원 전원에게 알립니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">운영자가 개정 내용을 정하고 직접 한 번 실행할 때 보냅니다. 정기 발송이 아닙니다. ⚠️ 회원에게 불리한 변경은 <b>사전 통지 30일</b>이 필요합니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 운영자가 실행한 시점 1회 (회원 1명당 1통, 같은 개정으로 두 번 가지 않음)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 운영자가 notify-policy-change 를 수동 호출</div>
+      <div><b>수신자:</b> 전체 회원 — 홍보 수신 동의와 무관합니다(필수 고지)</div>
+      <div><b>언어:</b> JA</div>
+      <div><b>중복 방지:</b> 회원×개정 짝으로 한 번만. 같은 개정을 두 번 실행해도 두 번 가지 않습니다</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="policy-change-notice.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-admin">Admin</div>
+    <div class="card-title">캠페인 홍보 메일 — 관리자용</div>
+    <div class="card-desc">회원에게 나가는 홍보 메일과 같은 날, 그날 홍보된 캠페인 전체를 관리자에게도 한 통 보냅니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">회원용 홍보 메일이 나가는 날 함께 보냅니다. 회원 것과 달리 <b>자격 맞춤이 없어</b> 그날 홍보 대상이 된 캠페인 전부가 들어갑니다. 그날 홍보할 캠페인이 없으면 보내지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매주 월·목 한국시간 오전 9시 (회원 발송 첫 묶음에 편승)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 회원용 홍보 메일 함수의 첫 묶음에서 함께 호출 (별도 예약 없음)</div>
+      <div><b>수신자:</b> 「캠페인 홍보 메일」 수신을 켠 관리자 — 1명당 1통 분리</div>
+      <div><b>언어:</b> 안내문은 한국어, 캠페인 카드는 원본 일본어 그대로</div>
+      <div><b>왜 따로 있나:</b> 회원에게 무엇이 나갔는지 운영팀이 같은 날 확인할 수 있게</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="campaign-promo-digest.admin.html">원본</a>
+      <a class="btn btn-ghost" href="campaign-promo-digest.review-ko.html">한국어 검수판</a>
     </div>
   </div>
 

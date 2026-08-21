@@ -383,6 +383,11 @@ async function init() {
   }
   updateGnb();
 
+  // 탈퇴가 확정된 계정이면 로그아웃 (마이그레이션 358·359 — 작업 8)
+  //   ⚠️ 반드시 관리자 판별(currentUser._isAdmin)이 끝난 뒤에 부른다 — 앞에 두면
+  //      관리자를 로그아웃시킨다. 실패는 함수 안에서 삼키고 **아무것도 하지 않는다**.
+  if (typeof enforceWithdrawalLogout === 'function') enforceWithdrawalLogout();
+
   // 일별 방문자수 집계 (마이그레이션 332) — 부팅 1회.
   // ⚠️ 반드시 세션 복원 뒤에 부른다 — 관리자·감사용 계정 제외는 서버가 로그인 정보로
   //    판정하므로, 복원 전에 부르면 운영자 접속이 방문자로 세어진다.
@@ -432,6 +437,9 @@ async function init() {
             currentUserProfile = profile;
           }
           updateGnb();
+          // 탈퇴가 확정된 계정이면 로그아웃 (작업 8)
+          //   ⚠️ 여기를 빼면 앱을 안 껐다 켠 사람은 안 걸린다 — 부팅 경로만으로는 반쪽이다.
+          if (typeof enforceWithdrawalLogout === 'function') enforceWithdrawalLogout();
           // 로그인 시 알림 폴링 시작
           if (typeof startNotifPolling === 'function') startNotifPolling();
           // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
@@ -448,6 +456,12 @@ async function init() {
         try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
         currentUser = null;
         currentUserProfile = null;
+        // 탈퇴 확정 점검 표시 되돌리기 (작업 8)
+        //   ⚠️ 안 되돌리면 **같은 탭에서 두 번째로 로그인한 계정이 점검을 건너뛴다** —
+        //     앞사람 로그인 때 표시가 켜진 채로 남기 때문이다. 시험 계정을 갈아 끼우거나
+        //     한 기기를 나눠 쓰는 경우에 실제로 걸린다(서버 차단이 최종 방어선이라 쓰기는
+        //     막히지만, 파기된 마이페이지를 계속 보게 되는 것은 그대로다).
+        if (typeof _withdrawalLogoutChecked !== 'undefined') _withdrawalLogoutChecked = false;
         updateGnb();
         // 로그아웃 시 알림 폴링 중지
         if (typeof stopNotifPolling === 'function') stopNotifPolling();

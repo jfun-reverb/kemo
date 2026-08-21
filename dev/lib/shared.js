@@ -1694,6 +1694,10 @@ const ADMIN_PERMISSION_CATALOG = [
   // ── 인플루언서 추천 명단(아웃바운드) 1개 — 마이그레이션 228 role_permissions 시드와 1:1 ──
   //    RLS(마이그레이션 226)·Storage(229)가 has_permission('outbound.view', ...)로 서버 강제 → server_enforced=true.
   { key: 'outbound.view',                 label_ko: '인플루언서 추천 명단 조회·편집',                category: '회원 관리',    server_enforced: true },
+  // ── 회원 탈퇴 대행 1개 — 마이그레이션 355 role_permissions 시드와 1:1 ──
+  //    request_withdrawal_for_member·cancel_withdrawal_admin(357)이 has_permission 으로
+  //    서버 강제 → server_enforced=true. 화면 버튼 숨김은 표시 제어일 뿐이다.
+  { key: 'withdrawal.proxy_request',      label_ko: '회원 대신 탈퇴 신청·되돌리기',                  category: '회원 관리',    server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -1720,7 +1724,7 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
-  'outbound.view', 'campaign.caution_history_view'
+  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
@@ -1966,6 +1970,10 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 마감·정원·연령 등 서버가 코드 접두어로 거부하는 것들
   /recruit_deadline_passed|submission_deadline_passed|settlement_locked_receipt/,
   /campaign_deleted|recruit_not_open/,
+  // 탈퇴 절차 중인 계정의 쓰기 차단(마이그레이션 359) — 서버의 의도적 거부다.
+  //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
+  //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
+  /account_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.

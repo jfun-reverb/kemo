@@ -96,11 +96,32 @@ async function handleSignup(e) {
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
+  // 탈퇴 후 재가입 제한 기간인가 (마이그레이션 361·362 — 작업 11)
+  //   ⚠️ 이 대조는 **방어선이 아니다** — 막는 것은 서버 트리거(362)다. 여기서 먼저
+  //     걸러 주는 이유는 셋이다: ①서버 거부는 인증 서비스가 일반 오류로 덮어 회원이
+  //     이유를 알 수 없다 ②그 오류가 관리자 오류 로그에 「미해결」로 쌓인다
+  //     ③그런데 그 오류는 「정상 거부」 목록에 넣을 수 없다(일반 문구를 넣으면 진짜
+  //     데이터베이스 장애까지 함께 침묵한다).
+  //   ⚠️ 조회에 실패하면 **가입을 막지 않는다** — 서버가 최종 방어선이고, 통신 장애로
+  //     정상 가입을 막는 쪽이 훨씬 나쁘다.
+  if (typeof isEmailWithdrawalBlocked === 'function') {
+    const blocked = await isEmailWithdrawalBlocked(email);
+    if (blocked === true) {
+      // ⚠️ 여기만 innerHTML 을 쓴다 — 연락처를 **누를 수 있는 링크**로 줘야 하기
+      //   때문이다(2026-08-20 사용자 지시: 「안 되면 어디로 연락하는지 같이 안내」).
+      //   넣는 값은 번역 파일의 고정 문구라 사용자 입력이 섞이지 않는다.
+      showSignupFailure(errEl);
+      errEl.style.display='block';
+      btn.disabled=false; btn.textContent=t('auth.signup.btn');
+      return;
+    }
+  }
+
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
     // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
     // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
-    if (error) { logAppError('handleSignup', error); errEl.textContent=t('authError.signupFailed'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
+    if (error) { logAppError('handleSignup', error); showSignupFailure(errEl); btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
@@ -123,7 +144,7 @@ async function handleSignup(e) {
   } catch(e) {
     // 영문 예외 메시지 노출 금지 — 일반 안내로 통일
     logAppError('handleSignup', e);
-    errEl.textContent=t('authError.signupFailed'); errEl.style.display='block';
+    showSignupFailure(errEl);
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
@@ -330,3 +351,87 @@ async function handleResetPassword(e) {
   btn.textContent = t('auth.reset.btn');
 }
 
+
+// ══════════════════════════════════════
+// 탈퇴가 확정된 계정을 로그아웃시킨다 (마이그레이션 358·359 — 작업 8)
+//
+//   ⚠️ 이건 **보조 장치**다. 최종 방어선은 서버의 차단 장치(359)이고, 이 함수는
+//      화면을 안 거치는 사람까지 막지 못한다. 그래도 필요한 이유는, 파기로 비워진
+//      마이페이지를 회원이 계속 들여다보며 **다시 입력하라고 재촉받는** 상태를
+//      끊어 주기 때문이다.
+//
+//   ★ **`login_blocked` 만 본다 — `write_blocked` 를 쓰면 안 된다.**
+//      예정일이 지났지만 예약 실행이 아직 안 돈 구간의 회원까지 로그아웃시키면
+//      **탈퇴 취소 버튼에 닿지 못한다.** 취소는 회원에게 유리한 동작이다.
+//
+//   ⚠️ 조회에 실패하면 **아무것도 하지 않는다**(fail-open). 통신 장애로 정상 회원을
+//      쫓아내는 쪽이 훨씬 나쁘고, 서버가 최종 방어선이라 실피해가 없다.
+//      (마이그레이션 276 이 세운 「서버에 못 물어본 경우엔 막지 않는다」 원칙)
+// ══════════════════════════════════════
+let _withdrawalLogoutChecked = false;
+
+async function enforceWithdrawalLogout() {
+  // 같은 세션에서 두 번 이상 돌지 않게 — 부팅과 로그인 이벤트 양쪽에서 불린다
+  if (_withdrawalLogoutChecked) return;
+  if (!currentUser) return;
+  // 관리자는 대상이 아니다(관리자를 겸한 회원은 파기 자체가 거부된다 — 마이그레이션 352)
+  if (currentUser._isAdmin) return;
+  if (typeof fetchMyWithdrawalState !== 'function') return;
+
+  _withdrawalLogoutChecked = true;
+
+  const st = await fetchMyWithdrawalState();
+  // ok 가 아니거나 login_blocked 가 명시적으로 true 가 아니면 아무것도 안 한다
+  if (!st || st.ok !== true || st.login_blocked !== true) return;
+
+  const msg = typeof t === 'function' ? t('auth.withdrawnLogout')
+    : '退会手続きが完了したため、ログアウトしました。ご不明な点は運営までLINEでご連絡ください。';
+
+  try {
+    await db?.auth?.signOut();
+  } catch (e) {
+    console.error('[enforceWithdrawalLogout] signOut', e);
+  }
+  currentUser = null;
+  currentUserProfile = null;
+  if (typeof updateGnb === 'function') updateGnb();
+  if (typeof navigate === 'function') navigate('login');
+
+  // 안내는 사라지지 않게 로그인 화면에 남긴다 — 되돌릴 수 없는 사건이라 2.8초 뒤
+  //   사라지는 알림으로는 부족하다. (#loginError 는 정적 요소라 다시 그려지지 않는다)
+  const errEl = typeof $ === 'function' ? $('loginError') : null;
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.style.display = '';
+  } else if (typeof toast === 'function') {
+    toast(msg);
+  }
+}
+
+
+// 회원가입 실패를 화면에 알린다 — **모든 실패가 이 함수 하나를 쓴다**
+//
+//   ★ **왜 실패했는지 구분해 보여주지 않는다.** 이미 가입된 이메일이든, 탈퇴 후
+//     재가입 제한 기간이든, 서버 오류든 **똑같은 문구**가 뜬다.
+//     구분해 보여주면 아무나 임의의 이메일로 가입을 시도해 보고 **「이 사람이 최근에
+//     탈퇴했다」를 알아낼 수 있다** — 가입 화면은 누구나 열 수 있기 때문이다.
+//     (2026-08-20 검토 지적: 「본인은 메일로 이미 안다」는 근거는 계정 열거 방지
+//      논리로 성립하지 않는다 — 문제는 본인이 아니라 제3자다)
+//   ★ **연락할 곳은 항상 함께 준다**(2026-08-20 사용자 지시). 이유를 안 알리면서 갈
+//     곳도 없으면 회원은 고장으로 오해한 채 막힌다. 연락처를 **차단된 경우에만** 붙이면
+//     그 자체가 구분 신호가 되므로, **모든 실패에** 붙이는 것이 두 요구를 함께 지키는
+//     유일한 방법이다.
+//   ⚠️ 앱 안 문의 창구가 생기면(작업 2) 이 연락처를 그것으로 바꾼다.
+//   ⚠️ 여기만 innerHTML 을 쓴다 — 연락처를 **누를 수 있는 링크**로 줘야 하기 때문이다.
+//     넣는 값은 번역 파일의 고정 문구라 사용자 입력이 섞이지 않는다.
+function showSignupFailure(errEl) {
+  if (!errEl) return;
+  const msg  = typeof t === 'function' ? t('authError.signupFailed')
+    : '登録に失敗しました。しばらくしてからもう一度お試しください';
+  const help = typeof t === 'function' ? t('authError.signupHelp')
+    : 'お困りの場合は LINE までご連絡ください。';
+  errEl.innerHTML = esc(msg) + '<br>' + esc(help)
+    + ' <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener"'
+    + ' style="color:var(--pink);text-decoration:underline">@reverb.jp</a>';
+  errEl.style.display = 'block';
+}

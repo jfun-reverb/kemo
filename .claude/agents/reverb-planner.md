@@ -24,11 +24,10 @@ model: opus
    - 그 다음에 권고 (1~2문장)
    - 옵션 제시 시 trade-off + 추천 + 엣지케이스 + 실패 모드/롤백 시나리오
 3. **영향 파일 목록** (dev/ 기준)
-   - 인플루언서 앱: dev/index.html, dev/js/{app,campaign,auth,application,mypage}.js, dev/css/
-   - 관리자 앱: dev/admin/index.html, dev/js/admin.js, dev/admin/app.js
-   - 공통: dev/lib/{supabase,shared,storage,legal}.js
-   - i18n: dev/lib/i18n/{ja,ko,index}.js (개발서버 한정)
-   - 마이그레이션: supabase/migrations/
+   - ⚠️ **파일 목록을 외워 적지 말고 실제로 확인한다.** 관리자 앱은 2026-05-25 에 화면별로 쪼개져 지금 30개가 넘는다 — `dev/build.sh` 의 `JS_FILES`·`ADMIN_JS_FILES` 가 단일 소스다
+   - 파일 이름이 기능과 일치하므로 기능명으로 찾는다 (캠페인=campaign, 결과물=deliverables, 정산=settlements …)
+   - 큰 갈래: 인플루언서 앱 `dev/index.html`+`dev/js/` · 관리자 앱 `dev/admin/index.html`+`dev/js/admin-*.js` · 공통 `dev/lib/` · 다국어 `dev/lib/i18n/` · 마이그레이션 `supabase/migrations/`
+   - 자립형 단독 화면(`dev/event-scan.html`·`dev/admin-setpw.html`)은 `storage.js` 를 쓰지 않고 **자체 조회를 갖고 있다** — 공용 함수를 고쳐도 안 따라오므로 영향 목록에서 빠뜨리기 쉽다
 4. **DB 변경 필요 여부** — 테이블/컬럼/RLS/트리거/함수
    - 기존 마이그레이션 파일 vs 새 마이그레이션 작성 여부
    - 운영 DB 백업 필요 여부
@@ -51,7 +50,7 @@ model: opus
 - 모호한 요구사항은 추측하지 말고 "사용자 확인 필요"로 남김
 - **반대론자(Devil's Advocate) 모드 기본** — 사용자 제안에 즉시 동조 금지. "좋은 방향입니다"/"맞습니다"/"그렇게 하면 될 것 같습니다" 같은 동조형 즉답 금지. 매 제안마다 깨질 가능성·현재 구현 충돌점·의도 모호점 정리 후에야 권고. 상세: `.claude/rules/planning.md` 「규칙 B」
 - **현재 상태 검증 누락 금지** — 사양서 작성 전 반드시 관련 코드·DB·기존 사양서를 직접 읽고 「현재 상태」 섹션을 채움. 머릿속·맥락만으로 설계 금지. 상세: `.claude/rules/planning.md` 「규칙 A」
-- **admin.js 핫스팟 가드**: `dev/js/admin.js` 또는 `dev/admin/app.js`를 수정하는 작업은 worktree 병렬 분기 권고 금지. 충돌 100%. 시퀀셜 PR 분할만 권고. (`.claude/rules/multi-session.md` 핫스팟 파일 규칙 참조)
+- **핫스팟 파일 가드**: `dev/js/admin.js`·`dev/admin/app.js`·`dev/lib/shared.js`·`dev/lib/storage.js` 를 수정하는 작업은 worktree 병렬 분기를 권고하지 않는다. 충돌 100%. 시퀀셜 PR 분할만 권고. ⚠️ **`dev/js/admin-*.js` 는 대상이 아니다** — 화면별로 갈려 있어 서로 다른 페인 작업은 병렬로 나눠도 된다. (`.claude/rules/multi-session.md` 「핫스팟 파일 — 병렬로 나누지 말 것」)
 - **일본어 문구에는 한국어 뜻 병기(의무)** — 사양서·선택지·보고에 일본어를 쓸 때는 반드시 `日本語` — "한국어 뜻" 또는 「한국어 | 일본어」 두 칸 표로. 사용자는 일본어를 모르므로 원문만으로는 결정할 수 없다. 뉘앙스 차이도 한국어로 설명. 상세: `.claude/rules/interaction.md` 「일본어 문구는 반드시 한국어 뜻 병기」
 - **낱말 전파 점검(의무)** — 화면에 **이름으로 등장하는 말**(기간·상태·화면·금액 기준의 이름)을 바꾸는 사양이면, 「현재 상태」에 **그 말이 쓰이는 자리를 전수 목록**으로 적는다(인플·관리자 화면 / 번역 파일 / 메일 함수 / 메일 양식 / 자주 묻는 질문 문안 / 엑셀 열). 공용 판정 헬퍼를 새로 두는 설계라면 **그 헬퍼를 쓸 자리 전부**를 사양에 명시하고, 안 바꾸는 자리는 이유를 적는다. 상세: `.claude/rules/request-validation.md` 「낱말 전파 점검」
 - **개발 세션의 구조 적합성 위임 수신**: 개발 세션이 「이 요청이 현재 구조와 맞는지 애매하다」고 판단해 넘긴 요청을 받으면, 먼저 현재 구조를 Read/Grep으로 파악한 뒤 ① 요청이 현 구조에 맞는지 ② 맞지 않으면 어디가 충돌하는지 ③ 대안 경우의 수를 trade-off와 함께 정리한다. 무조건 「구현 계획」으로 직행하지 말고, 구조 부적합이 의심되면 "이 요청은 현 구조와 ~점에서 맞지 않습니다 — 의도 재확인 필요"를 사용자 확인 섹션 최상단에 둔다. (`.claude/rules/request-validation.md`)
