@@ -1,6 +1,15 @@
 -- ============================================================
--- 332_device_push_tokens.sql
--- 2026-06-22
+-- 373_device_push_tokens.sql
+-- 2026-06-22 (마지막 수정 2026-08-21 — 번호 재배정·재실행 안전성)
+--
+-- ⚠️ 적용 이력 — 「이걸 아직 안 돌렸나?」를 파일 이름으로 판단하지 말 것
+--   이 파일은 **번호가 두 번 바뀌었다**: 처음 192 → 332 → 373.
+--   개발 브랜치가 그 번호들을 먼저 써서 파일 이름이 겹쳤기 때문이다(332 는 일별 방문자수).
+--   ★ 개발 데이터베이스: **이미 적용됨** (2026-08-21 직접 조회로 확인 — 개발 200 / 운영 404) — 단 옛 192 번호로 들어갔다. 다시 돌릴 필요 없다.
+--      (적용 이력은 파일 이름이 아니라 데이터베이스에만 있어, 이름만 보면 안 돌린 것처럼 보인다.
+--       확인하려면 `device_push_tokens 표` 가 있는지 직접 조회할 것.)
+--   ★ 운영 데이터베이스: **아직 안 들어갔다.** iOS 푸시를 운영에 켤 때 373·374 순서로 적용.
+--   ⚠️ 이 파일은 통째로 다시 돌려도 안전하다(표·색인은 「있으면 건너뛰기」, 정책은 지우고 다시 만든다).
 --
 -- 목적:
 --   iOS 네이티브 푸시 알림 기기 토큰 저장 구조.
@@ -20,7 +29,7 @@
 --         (발송 대상 조회 시 활성 토큰만 빠르게 필터)
 --   [C] 행 단위 보안 정책(RLS)
 --       - SELECT: 본인(auth.uid() = user_id) 또는 관리자(is_admin())
---       - INSERT/UPDATE/DELETE: 직접 DML 금지 — 333 마이그레이션의 RPC 경유
+--       - INSERT/UPDATE/DELETE: 직접 DML 금지 — 374 마이그레이션의 RPC 경유
 --         (RLS 정책 없음 → anon/authenticated 모두 직접 DML 차단)
 --
 -- 행 단위 보안 정책 영향:
@@ -32,7 +41,7 @@
 --
 -- 적용 순서:
 --   1. 개발서버 SQL Editor 실행 + 검증
---   2. 333_device_push_token_rpcs.sql 적용
+--   2. 374_device_push_token_rpcs.sql 적용
 --   3. 운영서버 동일 순서 적용
 --
 -- 롤백:
@@ -58,7 +67,7 @@ CREATE TABLE IF NOT EXISTS public.device_push_tokens (
 );
 
 COMMENT ON TABLE public.device_push_tokens IS
-  '[332] iOS 기기 APNs 푸시 토큰 저장. 발송 로직은 별도 Edge Function(다음 단계). '
+  '[373] iOS 기기 APNs 푸시 토큰 저장. 발송 로직은 별도 Edge Function(다음 단계). '
   'token 은 기기 단위 UNIQUE — 계정 전환 시 user_id·last_seen_at 갱신으로 이전 사용자 알림 차단.';
 
 COMMENT ON COLUMN public.device_push_tokens.user_id IS
@@ -96,6 +105,10 @@ ALTER TABLE public.device_push_tokens ENABLE ROW LEVEL SECURITY;
 
 -- 본인 또는 관리자만 조회 가능
 -- (발송 백엔드는 service_role key 경유 → RLS 우회, 별도 정책 불필요)
+-- ⚠️ 정책 생성에는 「이미 있으면 건너뛰기」가 없어, 이 파일을 두 번 돌리면 여기서 멈춘다.
+--    표·색인 생성은 두 번 돌려도 괜찮은데 이 줄만 그렇지 않아 파일 전체가 재실행 불가였다.
+--    먼저 지우고 다시 만들어 재실행을 안전하게 한다(291·292 가 쓰는 방식).
+DROP POLICY IF EXISTS "device_push_tokens_select_own" ON public.device_push_tokens;
 CREATE POLICY "device_push_tokens_select_own"
   ON public.device_push_tokens
   FOR SELECT
@@ -106,7 +119,7 @@ CREATE POLICY "device_push_tokens_select_own"
 
 -- INSERT / UPDATE / DELETE 직접 DML 차단
 -- → RLS 정책 없음(Default Deny). register_push_token / revoke_push_token RPC(SECURITY DEFINER)만 허용.
--- (마이그레이션 333에서 SECURITY DEFINER 함수로 우회)
+-- (마이그레이션 374에서 SECURITY DEFINER 함수로 우회)
 
 
 COMMIT;

@@ -1,10 +1,21 @@
 -- ============================================================
--- 333_device_push_token_rpcs.sql
--- 2026-06-22
+-- 374_device_push_token_rpcs.sql
+-- 2026-06-22 (마지막 수정 2026-08-21 — 번호 재배정·실행 권한 회수 추가)
+--
+-- ⚠️ 적용 이력 — 「이걸 아직 안 돌렸나?」를 파일 이름으로 판단하지 말 것
+--   이 파일은 **번호가 두 번 바뀌었다**: 처음 193 → 333 → 374.
+--   개발 브랜치가 그 번호들을 먼저 써서 파일 이름이 겹쳤기 때문이다(332 는 일별 방문자수).
+--   ★ 개발 데이터베이스: **이미 적용됨** (2026-08-21 직접 조회로 확인 — 개발 200 / 운영 404) — 단 옛 193 번호로 들어갔다. 다시 돌릴 필요 없다.
+--      (적용 이력은 파일 이름이 아니라 데이터베이스에만 있어, 이름만 보면 안 돌린 것처럼 보인다.
+--       확인하려면 `register_push_token 함수` 가 있는지 직접 조회할 것.)
+--   ★ 운영 데이터베이스: **아직 안 들어갔다.** iOS 푸시를 운영에 켤 때 373·374 순서로 적용.
+--   ⚠️ **개발에 들어간 뒤 아래 REVOKE 네 줄을 나중에 더했다**(2026-08-21) — 개발 데이터베이스에는
+--      그 회수가 아직 안 들어갔다. 이 파일은 통째로 다시 돌려도 안전하다(함수는 CREATE OR REPLACE,
+--      권한 문장도 여러 번 돌려도 결과가 같다). 다음에 개발에 손댈 때 한 번 다시 돌릴 것.
 --
 -- 목적:
 --   기기 푸시 토큰 등록·해지 RPC 2개.
---   332_device_push_tokens.sql 이 먼저 적용되어 있어야 함.
+--   373_device_push_tokens.sql 이 먼저 적용되어 있어야 함.
 --
 -- 변경 내용:
 --   [A] register_push_token(p_token, p_platform) — authenticated GRANT
@@ -94,9 +105,17 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.register_push_token(text, text) IS
-  '[333] 기기 APNs 푸시 토큰 등록/갱신. SECURITY DEFINER — device_push_tokens RLS 우회 경유. '
+  '[374] 기기 APNs 푸시 토큰 등록/갱신. SECURITY DEFINER — device_push_tokens RLS 우회 경유. '
   '같은 token 으로 계정 전환 시 user_id 를 현재 로그인 사용자로 갱신해 이전 사용자 알림 차단.';
 
+-- ⚠️ 실행 권한은 **회수 먼저, 부여 나중**.
+--   Postgres 는 새 함수에 **PUBLIC(모두)** 실행 권한을 기본으로 준다. GRANT 만 적으면
+--   「authenticated 에게만 열었다」고 읽히지만 실제로는 **비로그인(anon)도 부를 수 있다.**
+--   이 함수들은 SECURITY DEFINER 라 그대로 두면 안 된다(안쪽 auth.uid() NULL 가드가 막아 주긴
+--   하지만, 막는 것과 부를 수 없는 것은 다르다).
+--   ⚠️ `has_function_privilege` 로 보면 회수 여부가 안 드러난다 — 확인하려면 `proacl::text` 를 볼 것.
+REVOKE ALL ON FUNCTION public.register_push_token(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.register_push_token(text, text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.register_push_token(text, text) TO authenticated;
 
 
@@ -140,9 +159,11 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.revoke_push_token(text) IS
-  '[333] 기기 APNs 푸시 토큰 해지 (로그아웃·알림 권한 철회 시 호출). '
+  '[374] 기기 APNs 푸시 토큰 해지 (로그아웃·알림 권한 철회 시 호출). '
   'SECURITY DEFINER — 본인(auth.uid()) 소유 토큰만 DELETE. 타인 토큰은 WHERE 불일치로 무시.';
 
+REVOKE ALL ON FUNCTION public.revoke_push_token(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.revoke_push_token(text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.revoke_push_token(text) TO authenticated;
 
 
