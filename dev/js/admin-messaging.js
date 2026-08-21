@@ -769,6 +769,14 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
     let attachHtml = '';
     if (atts.length) {
       attachHtml = `<div class="msg-attachments">${atts.map((a, i) => {
+        // 파기된 첨부(작업 12-B) — 주소가 없다.
+        //   ⚠️ **썸네일을 부르지도, 클릭을 붙이지도 않는다.** 예전에는 주소가 비면
+        //      빈 문자열로 확대를 열어 「이미지를 불러오지 못했습니다」가 떴는데,
+        //      그건 통신 장애·권한 문제일 때와 **글자 하나 다르지 않다.** 담당자가
+        //      6개월 지난 대화를 열어 보고 고장으로 오해하게 된다.
+        if (msgAttachmentPurged(a)) {
+          return `<div class="msg-attach-thumb purged" title="보관기간이 지나 파기됨"><span class="material-icons-round notranslate" translate="no">delete_forever</span><span>보관기간이 지나<br>파기됨</span></div>`;
+        }
         const elId = `admatt-${msg.id}-${i}`;
         loadAdmMsgAttachThumb(elId, a.path);
         return `<div class="msg-attach-thumb" id="${elId}" onclick="openAdmMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;

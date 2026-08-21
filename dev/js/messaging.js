@@ -229,8 +229,15 @@ function renderMessageThread(messages) {
     // 첨부 썸네일 (signed URL 비동기 로드)
     let attachHtml = '';
     const atts = Array.isArray(msg.attachments) ? msg.attachments : [];
-    if (atts.length) {
-      attachHtml = `<div class="msg-attachments">${atts.map((a, i) => {
+    // 파기된 첨부(작업 12-B)는 **그리지 않는다.**
+    //   ⚠️ 관리자 화면과 달리 「파기됨」 상자를 두지 않는 이유 — 탈퇴가 확정된 회원은
+    //      로그인 자체가 막히므로(작업 8) 이 화면에 도달할 수 없다. **도달할 수 없는
+    //      자리에 새 일본어 문구와 번역 열쇠말을 만들면 검증할 수 없는 문구가 는다.**
+    //   ⚠️ 그래도 걸러는 낸다 — 안 걸러면 어떤 이유로든 주소가 빈 첨부가 들어왔을 때
+    //      「이미지를 불러오지 못했습니다」가 그대로 뜬다.
+    const visibleAtts = atts.filter(a => !msgAttachmentPurged(a));
+    if (visibleAtts.length) {
+      attachHtml = `<div class="msg-attachments">${visibleAtts.map((a, i) => {
         const elId = `msgatt-${msg.id}-${i}`;
         loadMsgAttachThumb(elId, a.path);
         return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;

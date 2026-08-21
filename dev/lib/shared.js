@@ -2021,3 +2021,19 @@ function settlementEffectiveAmount(s) {
   const actual = s.paid_amount_jpy;
   return Number((actual === null || actual === undefined) ? s.amount_jpy : actual) || 0;
 }
+
+// ── 응모건 메시지: 파기된 첨부인가 ────────────────────────────────────
+// 회원이 탈퇴하고 6개월이 지나면 그 회원이 메시지에 보낸 사진을 지운다(작업 12-B).
+// 파일을 지운 뒤 첨부 원소를 **주소 없는 표시**로 바꾸는데, 그때 이 함수가 참이 된다.
+//
+// ⚠️ **`purged` 하나만 보지 않고 주소 없음도 함께 본다.** 파기 표시가 붙기 전이라도
+//    어떤 이유로든 주소가 빈 첨부가 들어오면 화면이 「이미지를 불러오지 못했습니다」를
+//    띄우는데, 그건 통신 장애일 때와 **글자 하나 다르지 않다.**
+//
+// 🔴 **이 판정을 화면마다 따로 쓰지 않는다.** 관리자 화면과 인플루언서 화면이 각각
+//    조건을 적으면, 한쪽만 고쳐 두 화면이 다른 말을 하는 결함이 된다 — 이 저장소에서
+//    가장 자주 반복된 유형이다.
+function msgAttachmentPurged(a) {
+  if (!a) return true;
+  return a.purged === true || !a.path;
+}
