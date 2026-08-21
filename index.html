@@ -20204,7 +20204,15 @@ function setupFloatBarDock() {
   const gnbH = gnb ? gnb.offsetHeight : 0;
   _floatBarObserver = new IntersectionObserver(entries => {
     // 제목이 상단바 아래 영역에서 사라지면(위로 지나가면) 도킹
-    entries.forEach(e => bar.classList.toggle('docked', !e.isIntersecting && e.boundingClientRect.top < gnbH));
+    entries.forEach(e => {
+      const past = !e.isIntersecting && e.boundingClientRect.top < gnbH;
+      bar.classList.toggle('docked', past);
+      // 상단바 배경도 같은 시점에 되돌린다 — 상세 화면은 대표 이미지를 덮으려고 상단바를
+      //   투명하게 만드는데(ios-theme), 그 상태가 스크롤해도 안 풀려 **이미지를 지나친 뒤에는
+      //   본문이 상단바와 상태바 자리로 그대로 비쳐 보였다**(2026-08-21 실기기 확인).
+      //   제목이 상단바를 지났다 = 대표 이미지는 이미 지나갔다 — 그 순간 유리 바로 복귀한다.
+      root.classList.toggle('past-hero', past);
+    });
   }, {root, rootMargin: `-${gnbH}px 0px 0px 0px`, threshold: 0});
   _floatBarObserver.observe(target);
 }
@@ -20212,6 +20220,10 @@ function teardownFloatBarDock() {
   if (_floatBarObserver) { _floatBarObserver.disconnect(); _floatBarObserver = null; }
   const bar = document.getElementById('detailFloatBar');
   if (bar) bar.classList.remove('docked');
+  // ⚠️ 표시를 안 지우면 다음 캠페인을 맨 위에서 열었을 때 상단바가 유리인 채로 남아,
+  //    대표 이미지 위에 흰 바가 얹힌다(도킹 표시와 반드시 같이 지운다).
+  const _pd = document.getElementById('page-detail');
+  if (_pd) _pd.classList.remove('past-hero');
 }
 
 // iOS 「큰 제목」 패턴 (iOS 앱 전용)
