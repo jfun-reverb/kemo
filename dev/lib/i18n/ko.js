@@ -738,6 +738,8 @@ window.I18N_KO = {
   campaign: {
     emptyState: '현재 모집 중인 캠페인이 없습니다',
     emptyStateSub: '곧 새로운 K브랜드 체험단이 등록됩니다',
+    emptyFiltered: '조건에 맞는 캠페인이 없습니다',
+    emptyFilteredSub: '다른 조건으로 찾아보세요',
     badgeUrgent: '마감 임박',
     badgeRecruiting: '모집중',
     badgeNew: 'NEW',

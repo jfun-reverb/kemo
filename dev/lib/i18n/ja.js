@@ -779,6 +779,8 @@ window.I18N_JA = {
   campaign: {
     emptyState: '現在募集中のキャンペーンはありません',
     emptyStateSub: '近日中に新しいKブランド体験団が登録されます',
+    emptyFiltered: '条件に合うキャンペーンはありません',
+    emptyFilteredSub: '別の条件で探してみてください',
     badgeUrgent: '締切間近',
     badgeRecruiting: '募集中',
     badgeNew: 'NEW',

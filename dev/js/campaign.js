@@ -238,6 +238,16 @@ function toggleCampPageSearch(force) {
   }
 }
 
+// 캠페인이 한 건도 없을 때의 안내.
+//   ⚠️ 문구가 「현재 모집 중인 캠페인이 없습니다」 하나로 고정돼 있어, 「모집예정」·「종료」 같은
+//      다른 탭을 골라 0건일 때도 **모집중 얘기를 했다**(2026-08-21 실기기 신고). 조건을 걸어
+//      찾은 결과가 없는 것과, 캠페인 자체가 없는 것을 나눠 말한다.
+function campEmptyStateHtml(isFiltered) {
+  const title = isFiltered ? t('campaign.emptyFiltered') : t('campaign.emptyState');
+  const sub = isFiltered ? t('campaign.emptyFilteredSub') : t('campaign.emptyStateSub');
+  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${esc(title)}</div><div class="empty-sub">${esc(sub)}</div></div>`;
+}
+
 function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
@@ -252,7 +262,7 @@ function renderCampaignGrid() {
   }
   camps = sortByStatusAndDeadline(camps);
   if (!camps.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    grid.innerHTML = campEmptyStateHtml(campPageTypeFilter !== 'all' || campPageStatusFilter !== 'all' || !!campPageSearch);
     return;
   }
   grid.innerHTML = buildCampCards(camps);
@@ -297,9 +307,12 @@ function buildCampCards(camps) {
     // 마감 판정은 상태 + 마감일 경과를 함께 본다(사양서 2026-07-29 §설계 5-(1) 단방향 규칙).
     //   목록을 열어 둔 채 자정을 넘기면 캐시의 status 는 active 로 남아 「募集中」으로 보이는데
     //   서버는 거부한다. 마감일도 직접 봐야 그 혼선이 사라진다.
-    const isClosed = c.status === 'closed'
-      || (!isScheduled && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(c));
     const isEnded = c.status === 'ended';
+    // ⚠️ 종료된 캠페인은 마감일도 이미 지났으므로 아래 조건에 **둘 다** 걸린다.
+    //    그대로 두면 썸네일 한가운데 「모집마감」과 「종료」 딱지가 겹쳐 찍혀 글자가 뭉개진다
+    //    (2026-08-21 실기기 신고). 더 나중 단계인 「종료」가 이긴다.
+    const isClosed = !isEnded && (c.status === 'closed'
+      || (!isScheduled && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(c)));
     const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
     const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
@@ -368,7 +381,7 @@ function renderCampaigns(camps) {
   const visible = sortByStatusAndDeadline(visibleCamps(camps));
   const moreBtnWrap = $('campMoreBtnWrap');
   if (!visible.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    grid.innerHTML = campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }
