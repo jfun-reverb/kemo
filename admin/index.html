@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787294177';
+  var CURRENT_BUILD = 'v1787296740';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2957,7 +2957,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-21 15:36 · 312e775</span>
+          <span class="admin-build-text">2026-08-21 16:19 · c99ceb9</span>
         </div>
       </div>
     </aside>
@@ -7314,7 +7314,15 @@ const SUPABASE_ENVS = {
 
 // 정규식은 globalreverb.com / www.globalreverb.com만 엄격히 매칭.
 // 다른 서브도메인(dev, staging, preview 등)이 실수로 production DB에 접근하는 것을 방지.
+//
+// ⚠️ 네이티브 앱(iOS)은 주소로 가를 수 없다 — 파일을 앱 안에 담아 띄우므로 hostname 이 늘
+//    'localhost' 라 아래 정규식에 절대 안 걸린다(= 언제나 staging). 그래서 **앱 빌드가 심어 둔
+//    값**을 먼저 본다. 값은 iOS 빌드 스크립트가 <head> 에 넣으며, 웹에는 이 값이 없어 종전 그대로다.
+//    ⚠️ 값이 SUPABASE_ENVS 에 실제로 있는 이름일 때만 따른다 — 오타가 들어오면 조용히
+//       undefined 로 접속하는 대신 아래 주소 판정으로 떨어지게 한다(안전한 쪽 = staging).
 function resolveSupabaseEnv(hostname) {
+  const forced = (typeof window !== 'undefined') ? window.__REVERB_FORCE_ENV__ : null;
+  if (forced && Object.prototype.hasOwnProperty.call(SUPABASE_ENVS, forced)) return forced;
   if (/^(www\.)?globalreverb\.com$/.test(hostname)) return 'production';
   return 'staging';
 }

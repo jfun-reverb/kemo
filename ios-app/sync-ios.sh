@@ -61,13 +61,29 @@ if '<script src="/native-push.js"></script>' not in h:
 # 4) 앱 버전 주입 — 마이페이지 하단에 표시. 웹에는 이 값이 없어 그 줄이 숨겨진다.
 #    ⚠️ 중복 검사는 반드시 주입할 태그 전체로 — 'window.__APP_VERSION__' 문자열만 보면
 #       주석·mypage.js 안의 같은 단어에 걸려 주입을 건너뛴다(2026-06-23 ios-theme.css 사고와 동형).
+# 5) 접속 서버 지정 — 앱은 localhost 로 떠 주소로 운영/개발을 못 가른다(supabase.js 참조).
+#    'production' 이면 운영 데이터베이스, 'staging' 이면 개발 데이터베이스에 붙는다.
+#    ⚠️ 여기가 앱이 어느 서버를 보는지 정하는 **유일한 자리**다. 되돌리려면 이 한 줄만 바꾼다.
+#    ⚠️ 중복 검사는 반드시 주입할 태그 전체로 — 이름(__REVERB_FORCE_ENV__)만 보면
+#       supabase.js 안의 같은 단어에 걸려 주입을 건너뛴다(2026-06-23 사고와 동형).
+#    ⚠️ 코드를 고치지 않고 한 번만 개발서버로 만들려면 `IOS_APP_ENV=staging bash sync-ios.sh`.
+#       (기본값을 바꿔 두고 그대로 커밋하는 사고를 막으려는 스위치다.)
+import os as _os
+APP_ENV = _os.environ.get('IOS_APP_ENV', 'production')
+if APP_ENV not in ('production', 'staging'):
+    print("  ❌ IOS_APP_ENV 는 production 또는 staging 이어야 합니다: " + APP_ENV)
+    sys.exit(1)
+env_tag = '<script>window.__REVERB_FORCE_ENV__="' + APP_ENV + '";</script>'
+if env_tag not in h:
+    h = h.replace('</head>', '  ' + env_tag + '\n</head>', 1)
+
 import os
 ver = os.environ.get('APP_VERSION_STRING', '')
 tag = '<script>window.__APP_VERSION__="' + ver.replace('"', '') + '";</script>'
 if tag not in h:
     h = h.replace('</head>', '  ' + tag + '\n</head>', 1)
 open(p, 'w', encoding='utf-8').write(h)
-print("  ✅ Vercel 분석 제거 + iOS 테마 + 네이티브 푸시 주입")
+print("  ✅ Vercel 분석 제거 + iOS 테마 + 네이티브 푸시 주입 + 접속 서버: " + APP_ENV)
 PY
 
 echo "📦 www/index.html 동기화 완료"
