@@ -203,6 +203,9 @@ function navigate(page, pushHistory) {
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // 응모 바 도킹 관찰자도 해제 (상세 진입이 다시 켠다)
   if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
+  // 이미지 자동 넘김도 함께 멈춘다 — 상세를 떠난 뒤에도 돌면 화면에 없는 요소를 계속 건드리고,
+  //   다음 캠페인을 열 때 타이머가 둘이 되어 사진이 두 칸씩 건너뛴다.
+  if (typeof stopSlideAuto === 'function') stopSlideAuto();
   // 마이페이지를 떠나면 상단바에 올려 둔 응모이력 상태 필터를 제자리로 돌려놓는다
   if (pageName !== 'mypage' && typeof moveApplyFilterToGnb === 'function') moveApplyFilterToGnb(false);
   // iOS: 화면 안에 자체 헤더(뒤로가기·제목)를 가진 페이지는 GNB 로고 줄이 중복된다 → 상단바 숨김.

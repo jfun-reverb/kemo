@@ -448,6 +448,40 @@ function openImageLightbox(url, alt) {
 
 // ── 이미지 슬라이더 ──
 let _slideIdx = 0;
+// 자동 넘김 — 이미지가 2장 이상인 캠페인에서만 돈다.
+//   ⚠️ 타이머를 끄는 자리를 반드시 짝으로 둔다. 상세를 떠난 뒤에도 돌면 화면에 없는 요소를
+//      계속 건드리고, 다음 캠페인을 열 때 두 개가 겹쳐 돈다.
+let _slideTimer = null;
+const SLIDE_INTERVAL_MS = 3500;
+
+function startSlideAuto() {
+  stopSlideAuto();
+  // 현재 장 번호를 0으로 되돌린다 — **중복 방어**다.
+  //   `openCampaign()`(application.js) 이 이미 같은 초기화를 하고 있어 지금은 없어도 동작한다.
+  //   여기에 한 번 더 두는 이유는, 이 값이 화면 밖 전역이라 남아 있으면 **자동 넘김이 첫 장이
+  //   보이는 화면에서 엉뚱한 장으로 건너뛰기** 때문이다 — 손으로 넘길 때만 쓰이던 시절보다
+  //   틀렸을 때의 티가 크다. ⚠️ 저쪽 초기화를 지우면 이 줄이 유일한 방어선이 된다.
+  _slideIdx = 0;
+  const slides = $('campSlides');
+  if (!slides || slides.children.length < 2) return;   // 한 장뿐이면 넘길 것이 없다
+  // 움직임을 줄이도록 설정한 사용자에게는 자동으로 움직이지 않는다(기기 접근성 설정).
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  } catch(e) {}
+  _slideTimer = setInterval(() => {
+    // 다른 화면으로 갔거나 앱이 뒤로 넘어갔으면 그동안은 넘기지 않는다.
+    //   ⚠️ 여기서 멈추기만 하고 타이머는 살려 둔다 — 돌아왔을 때 저절로 이어진다.
+    if (document.hidden) return;
+    const el = $('campSlides');
+    if (!el || !el.isConnected) { stopSlideAuto(); return; }
+    slideMove(1);
+  }, SLIDE_INTERVAL_MS);
+}
+
+function stopSlideAuto() {
+  if (_slideTimer) { clearInterval(_slideTimer); _slideTimer = null; }
+}
+
 function slideMove(dir) {
   const slides = $('campSlides');
   if (!slides) return;
@@ -455,6 +489,11 @@ function slideMove(dir) {
   _slideIdx = (_slideIdx + dir + count) % count;
   slideTo(_slideIdx);
 }
+// 사용자가 직접 넘기면 자동 넘김을 멈춘다 — 보고 있는 사진이 저절로 넘어가면 안 된다.
+//   화살표·점을 누르는 자리에서만 부른다(자동 넘김 자신은 slideMove 를 직접 쓴다).
+function slideMoveManual(dir) { stopSlideAuto(); slideMove(dir); }
+function slideToManual(idx) { stopSlideAuto(); slideTo(idx); }
+
 function slideTo(idx) {
   const slides = $('campSlides');
   if (!slides) return;

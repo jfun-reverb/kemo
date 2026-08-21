@@ -126,10 +126,10 @@ async function openCampaign(id) {
         }).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
-        <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
+        <button onclick="slideMoveManual(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
+        <button onclick="slideMoveManual(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
         <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
-          ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
+          ${slideImgs.map((_,i)=>`<div onclick="slideToManual(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
@@ -507,6 +507,8 @@ async function openCampaign(id) {
   navigate('detail-' + id);
   // iOS: 제목이 상단바 뒤로 넘어가면 응모 바를 위로 붙인다(navigate 뒤에 걸어야 teardown 에 안 씻김)
   if (typeof setupFloatBarDock === 'function') setupFloatBarDock();
+  // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
+  if (typeof startSlideAuto === 'function') startSlideAuto();
 
   // 오프라인 행사면 타임 선택표를 채운다(서버 집계라 비동기).
   //   화면 전환을 막지 않으려고 await 하지 않는다 — 숫자가 오면 그때 들어간다.

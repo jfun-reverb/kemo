@@ -11275,7 +11275,9 @@ async function fetchOrientSheetsByApplication(applicationId) {
 
 
 // ════════════════════════════════════════════════════════════════════
-// iOS 기기 푸시 토큰 관리 — 마이그레이션 332·333
+// iOS 기기 푸시 토큰 관리 — 마이그레이션 373·374
+//   ⚠️ 번호가 두 번 바뀌었다(처음 192·193 → 332·333 → 373·374). 개발 브랜치가 그 번호를
+//      먼저 써서 파일 이름이 겹쳤기 때문 — 개발 데이터베이스에는 이미 적용돼 있어 다시 돌릴 필요 없다.
 //   발송 로직(APNs Edge Function)은 별도 단계에서 구현.
 //   이 래퍼는 토큰 저장·갱신·해지만 담당.
 // ════════════════════════════════════════════════════════════════════
@@ -12819,6 +12821,40 @@ function openImageLightbox(url, alt) {
 
 // ── 이미지 슬라이더 ──
 let _slideIdx = 0;
+// 자동 넘김 — 이미지가 2장 이상인 캠페인에서만 돈다.
+//   ⚠️ 타이머를 끄는 자리를 반드시 짝으로 둔다. 상세를 떠난 뒤에도 돌면 화면에 없는 요소를
+//      계속 건드리고, 다음 캠페인을 열 때 두 개가 겹쳐 돈다.
+let _slideTimer = null;
+const SLIDE_INTERVAL_MS = 3500;
+
+function startSlideAuto() {
+  stopSlideAuto();
+  // 현재 장 번호를 0으로 되돌린다 — **중복 방어**다.
+  //   `openCampaign()`(application.js) 이 이미 같은 초기화를 하고 있어 지금은 없어도 동작한다.
+  //   여기에 한 번 더 두는 이유는, 이 값이 화면 밖 전역이라 남아 있으면 **자동 넘김이 첫 장이
+  //   보이는 화면에서 엉뚱한 장으로 건너뛰기** 때문이다 — 손으로 넘길 때만 쓰이던 시절보다
+  //   틀렸을 때의 티가 크다. ⚠️ 저쪽 초기화를 지우면 이 줄이 유일한 방어선이 된다.
+  _slideIdx = 0;
+  const slides = $('campSlides');
+  if (!slides || slides.children.length < 2) return;   // 한 장뿐이면 넘길 것이 없다
+  // 움직임을 줄이도록 설정한 사용자에게는 자동으로 움직이지 않는다(기기 접근성 설정).
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  } catch(e) {}
+  _slideTimer = setInterval(() => {
+    // 다른 화면으로 갔거나 앱이 뒤로 넘어갔으면 그동안은 넘기지 않는다.
+    //   ⚠️ 여기서 멈추기만 하고 타이머는 살려 둔다 — 돌아왔을 때 저절로 이어진다.
+    if (document.hidden) return;
+    const el = $('campSlides');
+    if (!el || !el.isConnected) { stopSlideAuto(); return; }
+    slideMove(1);
+  }, SLIDE_INTERVAL_MS);
+}
+
+function stopSlideAuto() {
+  if (_slideTimer) { clearInterval(_slideTimer); _slideTimer = null; }
+}
+
 function slideMove(dir) {
   const slides = $('campSlides');
   if (!slides) return;
@@ -12826,6 +12862,11 @@ function slideMove(dir) {
   _slideIdx = (_slideIdx + dir + count) % count;
   slideTo(_slideIdx);
 }
+// 사용자가 직접 넘기면 자동 넘김을 멈춘다 — 보고 있는 사진이 저절로 넘어가면 안 된다.
+//   화살표·점을 누르는 자리에서만 부른다(자동 넘김 자신은 slideMove 를 직접 쓴다).
+function slideMoveManual(dir) { stopSlideAuto(); slideMove(dir); }
+function slideToManual(idx) { stopSlideAuto(); slideTo(idx); }
+
 function slideTo(idx) {
   const slides = $('campSlides');
   if (!slides) return;
@@ -14565,10 +14606,10 @@ async function openCampaign(id) {
         }).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
-        <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
+        <button onclick="slideMoveManual(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
+        <button onclick="slideMoveManual(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
         <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
-          ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
+          ${slideImgs.map((_,i)=>`<div onclick="slideToManual(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
@@ -14946,6 +14987,8 @@ async function openCampaign(id) {
   navigate('detail-' + id);
   // iOS: 제목이 상단바 뒤로 넘어가면 응모 바를 위로 붙인다(navigate 뒤에 걸어야 teardown 에 안 씻김)
   if (typeof setupFloatBarDock === 'function') setupFloatBarDock();
+  // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
+  if (typeof startSlideAuto === 'function') startSlideAuto();
 
   // 오프라인 행사면 타임 선택표를 채운다(서버 집계라 비동기).
   //   화면 전환을 막지 않으려고 await 하지 않는다 — 숫자가 오면 그때 들어간다.
@@ -19953,6 +19996,9 @@ function navigate(page, pushHistory) {
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // 응모 바 도킹 관찰자도 해제 (상세 진입이 다시 켠다)
   if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
+  // 이미지 자동 넘김도 함께 멈춘다 — 상세를 떠난 뒤에도 돌면 화면에 없는 요소를 계속 건드리고,
+  //   다음 캠페인을 열 때 타이머가 둘이 되어 사진이 두 칸씩 건너뛴다.
+  if (typeof stopSlideAuto === 'function') stopSlideAuto();
   // 마이페이지를 떠나면 상단바에 올려 둔 응모이력 상태 필터를 제자리로 돌려놓는다
   if (pageName !== 'mypage' && typeof moveApplyFilterToGnb === 'function') moveApplyFilterToGnb(false);
   // iOS: 화면 안에 자체 헤더(뒤로가기·제목)를 가진 페이지는 GNB 로고 줄이 중복된다 → 상단바 숨김.
