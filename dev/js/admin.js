@@ -1189,6 +1189,15 @@ async function openEditCampaign(campId) {
     participation_steps: Array.isArray(camp.participation_steps) ? JSON.parse(JSON.stringify(camp.participation_steps)) : [],
     ng_set_id: camp.ng_set_id || null,
     ng_items: Array.isArray(camp.ng_items) ? JSON.parse(JSON.stringify(camp.ng_items)) : [],
+    // 선정 기간(2026-08-24) — 「행사여도 이미 값이 있으면 입력칸을 보여준다」 예외의 기준.
+    //   ⚠️ 이 두 키가 없으면 그 예외가 **편집 폼을 여는 순간 죽는다.** 폼을 열 때의 첫
+    //      호출은 camp 를 직접 받아 제대로 판정하지만, 곧이어 loadEventSettingsIntoEditForm
+    //      → applyEventModeFieldVisibility(admin-event.js)가 **savedCamp 없이** 다시 부르고,
+    //      모집 형식 라디오를 눌러도 마찬가지다. 그때부터는 이 스냅샷이 유일한 출처다.
+    //      → 값이 든 행사 방문형 캠페인이 「보이지도 고치지도 못하는데 저장은 되는」 상태가
+    //        된다. 바로 위 deadline·channel·event_mode 가 똑같이 죽었던 그 실수다.
+    selection_start: camp.selection_start || '',
+    selection_end: camp.selection_end || '',
   };
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
@@ -3671,8 +3680,13 @@ function renderCampPreview(mode) {
             const cpPeriodLabel = cpMerged ? L.kRecruitPurchasePeriod
                                 : cpVisitMerged ? L.kRecruitVisitPeriod : L.kRecruitPeriod;
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodLabel)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
-            // 선정 기간 — 시딩형만. 모집 기간 바로 아래(모집 → 선정 → 제출 마감 순).
-            if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
+            // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정).
+            //   모집 기간 바로 아래(모집 → 선정 → 방문 → 제출 마감 순).
+            //   ⚠️ 행사는 값이 있어도 안 그린다 — 근거와 **같은 조건을 쓰는 네 곳의 목록**은
+            //      인플루언서 상세(application.js)의 같은 자리 주석에 있다. 한 곳만 고치면
+            //      관리자가 본 것과 인플루언서가 보는 것이 갈린다.
+            if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEventPreview))
+                && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
             // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다 — split 은 위 줄 안에서 그린다.
             //    되살리면 같은 날짜가 두 번 나온다(인플루언서 상세도 같은 구조).
             // ⚠️ visitMerged 는 위 줄이 이미 「모집·방문 기간」이라 여기서 또 그리면 중복이다.
@@ -4679,18 +4693,33 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   //      화면에서 볼 수도 고칠 수도 없는데 저장은 되는 상태가 된다.
   //   ⚠️ 판정 원본에 recruit_type 이 없으면 헬퍼가 늘 'none' 을 돌려줘 이 예외가 통째로
   //      죽은 코드가 된다. 스냅샷에 그 키를 함께 담는 이유다.
-  const splitSrc = savedCamp || _editCampOriginal;
+  //   ⓘ 이 원본은 아래 「선정 기간」의 예외 판정도 함께 쓴다(두 기간이 같은 이유로
+  //     저장된 값을 봐야 한다). 그래서 이름이 split 전용이 아니다.
+  const savedSrc = savedCamp || _editCampOriginal;
   const editedIsSplit = (formMode === 'edit')
     && (typeof campaignPeriodRowKind === 'function')
-    && campaignPeriodRowKind(splitSrc) === 'split';
+    && campaignPeriodRowKind(savedSrc) === 'split';
   const showPurchaseRow = typeWantsPurchase && !isEvent && editedIsSplit;
   if (purchaseRow) purchaseRow.style.display = showPurchaseRow ? '' : 'none';
   if (visitRow)    visitRow.style.display    = (typeWantsVisit && !isEvent) ? '' : 'none';
-  // 선정 기간 — 시딩형만(2026-08-07 결정). 리뷰어형은 「당선 발표」 개념 자체가 없고,
-  //   방문형은 행사 모드일 때 타임표가 날짜를 정하므로 넣지 않는다.
-  const typeWantsSelection = (recruitType === 'gifting');
+  // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정. 2026-08-07 에는 시딩형만이었다).
+  //   리뷰어형은 「당선 발표」 개념 자체가 없다. 행사 방문형을 뺀 이유는 예약이 곧 당선(선착순)
+  //   이라 「뽑는 기간」이 성립하지 않아서다 — 옛 주석은 그 이유를 방문형 **전체**에 걸어
+  //   행사가 아닌 방문형(매장 방문 체험 등)까지 막고 있었다.
+  //   ★ 보여줄 기준과 값 비울 기준을 **일부러 두 변수로 나눈다.** 바로 위 구매·방문 짝이
+  //     같은 이유로 나뉘어 있고, 묶었다가 실제로 사고가 났다(2026-08-03).
+  //   예외: 행사여도 **이미 값이 저장돼 있으면** 칸을 보여준다. 값 비우기가 행사를 안 보므로
+  //     「방문형에 값을 넣고 나중에 행사를 켠」 캠페인은 값을 그대로 갖는데, 칸까지 숨기면
+  //     목록 열에는 보이는데 **고칠 자리가 없는 값**이 된다. 위 editedIsSplit 과 같은 선례다.
+  //   ⚠️ 「값이 있음」은 **저장된 캠페인**으로 판정한다 — 폼 칸은 이 함수가 방금 비웠을 수 있다.
+  //   ⚠️ 신규 등록 폼에는 이 예외가 없다(아직 저장된 값이 없어 formMode 로 갈린다).
+  const editedHasSelection = (formMode === 'edit')
+    && !!(savedSrc && (savedSrc.selection_start || savedSrc.selection_end));
+  const typeKeepsSelection = (recruitType === 'gifting' || recruitType === 'visit');
+  const showSelectionRow = (recruitType === 'gifting')
+    || (recruitType === 'visit' && (!isEvent || editedHasSelection));
   const selectionRow = $(prefix + 'SelectionRow');
-  if (selectionRow) selectionRow.style.display = typeWantsSelection ? '' : 'none';
+  if (selectionRow) selectionRow.style.display = showSelectionRow ? '' : 'none';
   // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
   //   둘을 한 덩어리로 두면 ①편집 폼을 여는 순간(행사 체크박스가 아직 이 캠페인 것으로
   //   안 바뀐 시점) 직전 캠페인의 행사 여부가 새어 들어와 **멀쩡한 방문형 캠페인의
@@ -4710,7 +4739,7 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   //      (「적용」이 달력의 기억을 칸에 옮겨 적기 때문). 달력까지 함께 비운다.
   //      ⓘ 구매·방문 기간 두 짝에도 같은 구멍이 있다(기존부터 — 그쪽은 화면 글자마저 남아
   //        증상이 더 눈에 띈다). 이번 변경 범위가 아니라 손대지 않았다.
-  if (!typeWantsSelection) {
+  if (!typeKeepsSelection) {
     const ss = $(prefix + 'SelectionStart'); if (ss) ss.value = '';
     const se = $(prefix + 'SelectionEnd'); if (se) se.value = '';
     const selFp = _campRangePickers[prefix + 'SelectionRange'];

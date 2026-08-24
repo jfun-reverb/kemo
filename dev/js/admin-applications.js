@@ -439,7 +439,19 @@ function campOpsOverviewCard(camp) {
   let buyRange = '', buyLabel = '';
   if (periodKind === 'split')        { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
   else if (periodKind === 'visit')   { buyRange = brandOpsDateRange(camp.visit_start, camp.visit_end);       buyLabel = '방문'; }
-  else if (periodKind === 'gifting') { buyRange = brandOpsDateRange(camp.selection_start, camp.selection_end); buyLabel = '선정'; }
+  // 선정 기간은 위 갈래 판정과 **무관한 독립 줄**이다(2026-08-24). 방문형은 「방문 기간」과
+  //   「선정 기간」을 둘 다 가질 수 있는데, 위 buyRange 는 두 번째 기간을 **한 줄만** 그리는
+  //   구조라 한쪽이 밀려난다. 신청자를 실제로 뽑는 화면이라 둘 다 보여야 한다(결정 2).
+  //   ⚠️ 갈래(campaignPeriodRowKind)를 늘려 풀지 않는다 — 그 헬퍼는 호출부가 14곳이다.
+  //   ⚠️ 시딩형은 예전에 이 갈래('gifting')로 그려졌다. 그 갈래의 뜻이 「시딩형 + 값 있음」과
+  //      정확히 같고 시딩형은 행사가 될 수 없어(데이터베이스 제약), 아래 조건으로 옮겨도
+  //      **시딩형 동작은 그대로**다.
+  //   ⚠️ 이 조건을 쓰는 자리는 **네 곳**이고 글자 그대로 같아야 한다 — 목록과 근거는
+  //      인플루언서 상세(application.js)의 같은 자리 주석에 있다.
+  //   ⚠️ 값이 비면 종전처럼 줄 자체를 안 그린다 — 「무조건 세 줄」이라는 뜻이 아니다.
+  const selRange = ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEvent))
+      && (camp.selection_start || camp.selection_end))
+    ? brandOpsDateRange(camp.selection_start, camp.selection_end) : '';
   const submitTxt = camp.submission_end ? formatDate(camp.submission_end) : '';
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">캠페인 개요</div>
@@ -459,6 +471,7 @@ function campOpsOverviewCard(camp) {
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--surface-dim);padding-top:8px">
       ${recruitRange?`<div class="camp-ops-row"><span class="k">${esc(recruitLabel)}</span><span class="v">${esc(recruitRange)}</span></div>`:''}
+      ${selRange?`<div class="camp-ops-row"><span class="k">선정</span><span class="v">${esc(selRange)}</span></div>`:''}
       ${buyRange?`<div class="camp-ops-row"><span class="k">${buyLabel}</span><span class="v">${esc(buyRange)}</span></div>`:''}
       ${(!isEvent && submitTxt)?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
       ${(isEvent && camp.event_place)?`<div class="camp-ops-row"><span class="k">행사장</span><span class="v">${esc(camp.event_place)}</span></div>`:''}
