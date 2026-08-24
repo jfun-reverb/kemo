@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787300812';
+  var CURRENT_BUILD = 'v1787552441';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2956,7 +2956,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-21 17:26 · 8544fb3</span>
+          <span class="admin-build-text">2026-08-24 15:20 · 210eeb5</span>
         </div>
       </div>
     </aside>
@@ -3383,7 +3383,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
 
-            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <!-- 기간 입력 — 시간 흐름 순: [모집] [구매(리뷰어형)] [선정] [방문(방문형)] [결과물 제출 마감일]
+                 ⚠️ 구매와 방문은 모집 형식이 달라 **동시에 보이지 않는다**. 그래서 실제로 보이는 순서는
+                    리뷰어형=모집·구매 / 시딩형=모집·선정 / 방문형=모집·선정·방문 이다.
+                 ⚠️ 선정을 방문 **앞**에 두는 이유 — 인플루언서 상세·미리보기·진행현황이 모두
+                    모집 → 선정 → 방문 순으로 그린다. 폼만 순서가 다르면 담당자가 헷갈린다
+                    (2026-08-24 사용자 지시). 순서를 바꿀 때는 신규·편집 **두 폼을 함께** 고칠 것. -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label" id="editCampRecruitRangeLabelWrap"><span id="editCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -3403,14 +3408,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="editCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group" id="editCampVisitRow" style="display:none">
-                <label class="form-label">방문 기간</label>
-                <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
-                <input type="hidden" id="editCampVisitStart">
-                <input type="hidden" id="editCampVisitEnd">
-                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
-                <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
               <div class="form-group" id="editCampSelectionRow" style="display:none">
                 <label class="form-label">선정 기간</label>
                 <input type="text" id="editCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="selection" readonly>
@@ -3418,6 +3415,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <input type="hidden" id="editCampSelectionEnd">
                 <div class="form-hint">응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면·캠페인 목록·진행현황에 안 나옵니다</div>
                 <div id="editCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
+              <div class="form-group" id="editCampVisitRow" style="display:none">
+                <label class="form-label">방문 기간</label>
+                <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
+                <input type="hidden" id="editCampVisitStart">
+                <input type="hidden" id="editCampVisitEnd">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+                <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
@@ -3824,7 +3829,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
 
-            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <!-- 기간 입력 — 시간 흐름 순: [모집] [구매(리뷰어형)] [선정] [방문(방문형)] [결과물 제출 마감일]
+                 ⚠️ 구매와 방문은 모집 형식이 달라 **동시에 보이지 않는다**. 그래서 실제로 보이는 순서는
+                    리뷰어형=모집·구매 / 시딩형=모집·선정 / 방문형=모집·선정·방문 이다.
+                 ⚠️ 선정을 방문 **앞**에 두는 이유 — 인플루언서 상세·미리보기·진행현황이 모두
+                    모집 → 선정 → 방문 순으로 그린다. 폼만 순서가 다르면 담당자가 헷갈린다
+                    (2026-08-24 사용자 지시). 순서를 바꿀 때는 신규·편집 **두 폼을 함께** 고칠 것. -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label" id="newCampRecruitRangeLabelWrap"><span id="newCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -3844,14 +3854,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="newCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group" id="newCampVisitRow" style="display:none">
-                <label class="form-label">방문 기간</label>
-                <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
-                <input type="hidden" id="newCampVisitStart">
-                <input type="hidden" id="newCampVisitEnd">
-                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
-                <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
               <div class="form-group" id="newCampSelectionRow" style="display:none">
                 <label class="form-label">선정 기간</label>
                 <input type="text" id="newCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="selection" readonly>
@@ -3859,6 +3861,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <input type="hidden" id="newCampSelectionEnd">
                 <div class="form-hint">응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면·캠페인 목록·진행현황에 안 나옵니다</div>
                 <div id="newCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
+              <div class="form-group" id="newCampVisitRow" style="display:none">
+                <label class="form-label">방문 기간</label>
+                <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
+                <input type="hidden" id="newCampVisitStart">
+                <input type="hidden" id="newCampVisitEnd">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+                <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
@@ -31068,7 +31078,8 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     //      이름만 실제 내용에 맞게 고쳤다(이 두 열은 방문형이면 방문 기간이 들어간다).
     { header: '구매·방문 시작',  key: 'pstart',   width: 14 },
     { header: '구매·방문 마감',  key: 'pend',     width: 14 },
-    // 선정 기간(마이그레이션 307) — **시딩형 전용**이라 다른 형식은 빈칸이다.
+    // 선정 기간(마이그레이션 307) — 시딩형과 **행사가 아닌 방문형**이 쓴다(2026-08-24 확장).
+    //   그 밖의 형식은 빈칸이다. 어느 형식에 나오는지의 판정은 아래 pickSelection 한 곳이다.
     //   ⚠️ 위 구매·방문 열에 끼워 넣지 않는다. 그 열은 「그 형식이 제품을 사거나 방문하는
     //      기간」이고 선정은 「응모자 중 참여자를 고르는 기간」이라 뜻이 다르다 — 한 칸에
     //      섞으면 걸러 보거나 정렬할 때 서로 다른 것이 한 줄로 딸려 온다.
@@ -31097,10 +31108,18 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     if (c.recruit_type === 'visit')   return c.visit_end || '';
     return '';
   };
-  // 선정 기간은 시딩형만 쓴다. 다른 형식에 값이 남아 있더라도 내보내지 않는다 —
-  //   화면(캠페인 목록·진행현황 카드)도 시딩형에만 그리므로 엑셀만 다르면 어긋난다.
+  // 선정 기간은 시딩형과 **행사가 아닌 방문형**이 쓴다(2026-08-24). 그 밖의 형식에 값이
+  //   남아 있더라도 내보내지 않는다 — 화면이 그리는 조건과 **글자 그대로 같게** 둔다.
+  //   엑셀만 다르면 「화면에는 뜨는데 엑셀 칸만 비는」 어긋남이 된다.
+  //   ⚠️ 이 조건을 쓰는 자리는 이 함수를 포함해 **네 곳**이다. 목록과 근거는 인플루언서
+  //      상세(application.js)의 같은 자리 주석에 있다.
+  //   ⚠️ 옛 주석은 따라가는 화면을 「캠페인 목록·진행현황 카드」라고 적었는데 **틀렸다** —
+  //      캠페인 목록 열은 모집 형식을 아예 안 본다(그 열이 먼저 생겼고 주석이 하루 뒤에
+  //      쓰였다). 주석이 「나는 X 를 따라간다」고 선언해도 그 X 를 직접 확인할 것.
   var pickSelection = function(c, key) {
-    return (c.recruit_type === 'gifting') ? (c[key] || '') : '';
+    var isEvt = (typeof isEventCampaign === 'function') && isEventCampaign(c);
+    var wants = (c.recruit_type === 'gifting') || (c.recruit_type === 'visit' && !isEvt);
+    return wants ? (c[key] || '') : '';
   };
   campaigns.forEach(function(c) {
     var campApps = (appsByCampId && appsByCampId[c.id]) || [];
@@ -34059,7 +34078,19 @@ function campOpsOverviewCard(camp) {
   let buyRange = '', buyLabel = '';
   if (periodKind === 'split')        { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
   else if (periodKind === 'visit')   { buyRange = brandOpsDateRange(camp.visit_start, camp.visit_end);       buyLabel = '방문'; }
-  else if (periodKind === 'gifting') { buyRange = brandOpsDateRange(camp.selection_start, camp.selection_end); buyLabel = '선정'; }
+  // 선정 기간은 위 갈래 판정과 **무관한 독립 줄**이다(2026-08-24). 방문형은 「방문 기간」과
+  //   「선정 기간」을 둘 다 가질 수 있는데, 위 buyRange 는 두 번째 기간을 **한 줄만** 그리는
+  //   구조라 한쪽이 밀려난다. 신청자를 실제로 뽑는 화면이라 둘 다 보여야 한다(결정 2).
+  //   ⚠️ 갈래(campaignPeriodRowKind)를 늘려 풀지 않는다 — 그 헬퍼는 호출부가 14곳이다.
+  //   ⚠️ 시딩형은 예전에 이 갈래('gifting')로 그려졌다. 그 갈래의 뜻이 「시딩형 + 값 있음」과
+  //      정확히 같고 시딩형은 행사가 될 수 없어(데이터베이스 제약), 아래 조건으로 옮겨도
+  //      **시딩형 동작은 그대로**다.
+  //   ⚠️ 이 조건을 쓰는 자리는 **네 곳**이고 글자 그대로 같아야 한다 — 목록과 근거는
+  //      인플루언서 상세(application.js)의 같은 자리 주석에 있다.
+  //   ⚠️ 값이 비면 종전처럼 줄 자체를 안 그린다 — 「무조건 세 줄」이라는 뜻이 아니다.
+  const selRange = ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEvent))
+      && (camp.selection_start || camp.selection_end))
+    ? brandOpsDateRange(camp.selection_start, camp.selection_end) : '';
   const submitTxt = camp.submission_end ? formatDate(camp.submission_end) : '';
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">캠페인 개요</div>
@@ -34079,6 +34110,7 @@ function campOpsOverviewCard(camp) {
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--surface-dim);padding-top:8px">
       ${recruitRange?`<div class="camp-ops-row"><span class="k">${esc(recruitLabel)}</span><span class="v">${esc(recruitRange)}</span></div>`:''}
+      ${selRange?`<div class="camp-ops-row"><span class="k">선정</span><span class="v">${esc(selRange)}</span></div>`:''}
       ${buyRange?`<div class="camp-ops-row"><span class="k">${buyLabel}</span><span class="v">${esc(buyRange)}</span></div>`:''}
       ${(!isEvent && submitTxt)?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
       ${(isEvent && camp.event_place)?`<div class="camp-ops-row"><span class="k">행사장</span><span class="v">${esc(camp.event_place)}</span></div>`:''}
@@ -43425,6 +43457,15 @@ async function openEditCampaign(campId) {
     participation_steps: Array.isArray(camp.participation_steps) ? JSON.parse(JSON.stringify(camp.participation_steps)) : [],
     ng_set_id: camp.ng_set_id || null,
     ng_items: Array.isArray(camp.ng_items) ? JSON.parse(JSON.stringify(camp.ng_items)) : [],
+    // 선정 기간(2026-08-24) — 「행사여도 이미 값이 있으면 입력칸을 보여준다」 예외의 기준.
+    //   ⚠️ 이 두 키가 없으면 그 예외가 **편집 폼을 여는 순간 죽는다.** 폼을 열 때의 첫
+    //      호출은 camp 를 직접 받아 제대로 판정하지만, 곧이어 loadEventSettingsIntoEditForm
+    //      → applyEventModeFieldVisibility(admin-event.js)가 **savedCamp 없이** 다시 부르고,
+    //      모집 형식 라디오를 눌러도 마찬가지다. 그때부터는 이 스냅샷이 유일한 출처다.
+    //      → 값이 든 행사 방문형 캠페인이 「보이지도 고치지도 못하는데 저장은 되는」 상태가
+    //        된다. 바로 위 deadline·channel·event_mode 가 똑같이 죽었던 그 실수다.
+    selection_start: camp.selection_start || '',
+    selection_end: camp.selection_end || '',
   };
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
@@ -44119,10 +44160,13 @@ function campRulePurchaseRange(prefix, savedCamp) {
 }
 
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
-//   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
-//   - monitor: 구매 기간 종료일 + 19일
-//   - visit:   방문 기간 종료일 + 19일
-//   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 19일
+//   baseKind: 'purchase'(리뷰어형) | 'visit'(방문형) | 'selection'(시딩형 전용)
+//   - 리뷰어형: 구매 기간 종료일 + 19일
+//   - 방문형:   방문 기간 종료일 + 19일 — 선정 기간은 기준이 아니다(2026-08-24,
+//               선정 칸이 방문형에도 열리며 두 달력이 각각 모달을 띄우던 것을 가름)
+//   - 시딩형:   선정 기간 종료일 + 19일 (2026-08-07 에 모집 종료 기준에서 이관.
+//               선정을 비워 두면 제안 없음 — 폴백을 일부러 안 뒀다)
+//   ⚠️ 어느 형식이 어느 기준을 쓰는지의 분기는 호출부(_commitFpRangeToHiddenInputs)에 있다.
 async function suggestSubmissionEnd(prefix, baseKind) {
   // 행사 캠페인은 결과물 제출이 없다 — 숨긴 칸을 채우겠냐고 묻지 않는다.
   if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return;
@@ -44415,7 +44459,18 @@ function _commitFpRangeToHiddenInputs(fp) {
     //    안 뜨고 직접 입력한다 — 「언제 뜨는지」가 상황마다 갈리지 않도록 폴백을 두지 않았다.
   }
   // monitor=구매 종료, visit=방문 종료, gifting=선정 종료 기준 +19일 제안
-  if ((kind === 'purchase' || kind === 'visit' || kind === 'selection') && end) {
+  //   ⚠️ 선정 기준 제안은 **시딩형 전용**이다. 선정 칸이 2026-08-24 부터 방문형에도
+  //      열렸는데(사양서 2026-08-24-visit-selection-period), 여기서 형식을 안 가르면
+  //      방문형에서 선정·방문 두 달력이 **각각 제안 모달을 띄워** 같은 칸을 두 번 묻는다
+  //      (2026-08-24 사용자 지적). 방문형의 제출 마감 기준은 종전대로 방문 종료다 —
+  //      결과물은 방문한 뒤에 나오지, 뽑힌 뒤에 나오는 게 아니다.
+  //   ⓘ 구매·방문 칸은 각각 리뷰어형·방문형에만 보여서 이런 겹침이 없다. 선정 칸만
+  //      두 형식이 공유해서 생기는 문제라, 가르는 조건도 선정에만 붙인다.
+  const _fpRt = document.querySelector(
+    `input[name="${prefix === 'editCamp' ? 'editRecruitType' : 'recruitType'}"]:checked`)?.value || '';
+  const _suggestOk = (kind === 'purchase' || kind === 'visit')
+    || (kind === 'selection' && _fpRt === 'gifting');
+  if (_suggestOk && end) {
     suggestSubmissionEnd(prefix, kind);
   }
   syncCampDateMinMax(prefix);
@@ -45907,8 +45962,13 @@ function renderCampPreview(mode) {
             const cpPeriodLabel = cpMerged ? L.kRecruitPurchasePeriod
                                 : cpVisitMerged ? L.kRecruitVisitPeriod : L.kRecruitPeriod;
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodLabel)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
-            // 선정 기간 — 시딩형만. 모집 기간 바로 아래(모집 → 선정 → 제출 마감 순).
-            if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
+            // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정).
+            //   모집 기간 바로 아래(모집 → 선정 → 방문 → 제출 마감 순).
+            //   ⚠️ 행사는 값이 있어도 안 그린다 — 근거와 **같은 조건을 쓰는 네 곳의 목록**은
+            //      인플루언서 상세(application.js)의 같은 자리 주석에 있다. 한 곳만 고치면
+            //      관리자가 본 것과 인플루언서가 보는 것이 갈린다.
+            if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEventPreview))
+                && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
             // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다 — split 은 위 줄 안에서 그린다.
             //    되살리면 같은 날짜가 두 번 나온다(인플루언서 상세도 같은 구조).
             // ⚠️ visitMerged 는 위 줄이 이미 「모집·방문 기간」이라 여기서 또 그리면 중복이다.
@@ -46915,18 +46975,33 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   //      화면에서 볼 수도 고칠 수도 없는데 저장은 되는 상태가 된다.
   //   ⚠️ 판정 원본에 recruit_type 이 없으면 헬퍼가 늘 'none' 을 돌려줘 이 예외가 통째로
   //      죽은 코드가 된다. 스냅샷에 그 키를 함께 담는 이유다.
-  const splitSrc = savedCamp || _editCampOriginal;
+  //   ⓘ 이 원본은 아래 「선정 기간」의 예외 판정도 함께 쓴다(두 기간이 같은 이유로
+  //     저장된 값을 봐야 한다). 그래서 이름이 split 전용이 아니다.
+  const savedSrc = savedCamp || _editCampOriginal;
   const editedIsSplit = (formMode === 'edit')
     && (typeof campaignPeriodRowKind === 'function')
-    && campaignPeriodRowKind(splitSrc) === 'split';
+    && campaignPeriodRowKind(savedSrc) === 'split';
   const showPurchaseRow = typeWantsPurchase && !isEvent && editedIsSplit;
   if (purchaseRow) purchaseRow.style.display = showPurchaseRow ? '' : 'none';
   if (visitRow)    visitRow.style.display    = (typeWantsVisit && !isEvent) ? '' : 'none';
-  // 선정 기간 — 시딩형만(2026-08-07 결정). 리뷰어형은 「당선 발표」 개념 자체가 없고,
-  //   방문형은 행사 모드일 때 타임표가 날짜를 정하므로 넣지 않는다.
-  const typeWantsSelection = (recruitType === 'gifting');
+  // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정. 2026-08-07 에는 시딩형만이었다).
+  //   리뷰어형은 「당선 발표」 개념 자체가 없다. 행사 방문형을 뺀 이유는 예약이 곧 당선(선착순)
+  //   이라 「뽑는 기간」이 성립하지 않아서다 — 옛 주석은 그 이유를 방문형 **전체**에 걸어
+  //   행사가 아닌 방문형(매장 방문 체험 등)까지 막고 있었다.
+  //   ★ 보여줄 기준과 값 비울 기준을 **일부러 두 변수로 나눈다.** 바로 위 구매·방문 짝이
+  //     같은 이유로 나뉘어 있고, 묶었다가 실제로 사고가 났다(2026-08-03).
+  //   예외: 행사여도 **이미 값이 저장돼 있으면** 칸을 보여준다. 값 비우기가 행사를 안 보므로
+  //     「방문형에 값을 넣고 나중에 행사를 켠」 캠페인은 값을 그대로 갖는데, 칸까지 숨기면
+  //     목록 열에는 보이는데 **고칠 자리가 없는 값**이 된다. 위 editedIsSplit 과 같은 선례다.
+  //   ⚠️ 「값이 있음」은 **저장된 캠페인**으로 판정한다 — 폼 칸은 이 함수가 방금 비웠을 수 있다.
+  //   ⚠️ 신규 등록 폼에는 이 예외가 없다(아직 저장된 값이 없어 formMode 로 갈린다).
+  const editedHasSelection = (formMode === 'edit')
+    && !!(savedSrc && (savedSrc.selection_start || savedSrc.selection_end));
+  const typeKeepsSelection = (recruitType === 'gifting' || recruitType === 'visit');
+  const showSelectionRow = (recruitType === 'gifting')
+    || (recruitType === 'visit' && (!isEvent || editedHasSelection));
   const selectionRow = $(prefix + 'SelectionRow');
-  if (selectionRow) selectionRow.style.display = typeWantsSelection ? '' : 'none';
+  if (selectionRow) selectionRow.style.display = showSelectionRow ? '' : 'none';
   // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
   //   둘을 한 덩어리로 두면 ①편집 폼을 여는 순간(행사 체크박스가 아직 이 캠페인 것으로
   //   안 바뀐 시점) 직전 캠페인의 행사 여부가 새어 들어와 **멀쩡한 방문형 캠페인의
@@ -46946,7 +47021,7 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   //      (「적용」이 달력의 기억을 칸에 옮겨 적기 때문). 달력까지 함께 비운다.
   //      ⓘ 구매·방문 기간 두 짝에도 같은 구멍이 있다(기존부터 — 그쪽은 화면 글자마저 남아
   //        증상이 더 눈에 띈다). 이번 변경 범위가 아니라 손대지 않았다.
-  if (!typeWantsSelection) {
+  if (!typeKeepsSelection) {
     const ss = $(prefix + 'SelectionStart'); if (ss) ss.value = '';
     const se = $(prefix + 'SelectionEnd'); if (se) se.value = '';
     const selFp = _campRangePickers[prefix + 'SelectionRange'];
