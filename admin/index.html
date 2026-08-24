@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787552441';
+  var CURRENT_BUILD = 'v1787558990';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2956,7 +2956,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-24 15:20 · 210eeb5</span>
+          <span class="admin-build-text">2026-08-24 17:09 · 954ed98</span>
         </div>
       </div>
     </aside>
@@ -44830,23 +44830,52 @@ function setupCampRangePickers() {
   });
 }
 // 편집 모달 열림·신규 폼 진입 시 외부에서 setDate 로 값 주입 (또는 클리어)
+//   ★ 순서가 이 함수의 전부다 — ①숨은 칸을 **먼저 전부** 채우고 ②그 값으로 날짜 제한을
+//     다시 건 다음 ③날짜 선택기에 넣는다. 셋을 한 번에 돌리면 안 된다.
+//   🔴 왜 — 선택기는 **제한 범위 밖 날짜를 조용히 거부**한다(오류도 로그도 없다). 그런데
+//      제한은 폼 칸 값을 읽어 정해지므로, 칸을 채우기 전에는 **직전에 편집하던 캠페인
+//      기준**으로 걸려 있다. 그래서 캠페인을 연달아 편집하면 새 캠페인 날짜가 직전 캠페인
+//      범위 밖일 때 화면에만 안 들어가고, 관리자는 「기간이 비었네」로 본다. 새로고침 후
+//      첫 편집만 멀쩡한 이유도 이것이다(그때는 제한이 아직 없다).
+//      ⚠️ 숨은 칸은 위에서 이미 채우므로 **저장해도 값은 안 날아간다** — 화면만 빈다.
+//      ⚠️ 모집 기간만 멀쩡했던 이유 = 그 칸에는 제한을 안 건다.
+//   ⚠️ 「제한을 잠깐 풀고 넣은 뒤 되돌린다」로는 안 고쳐진다 — **되돌리는 순간 선택기가
+//      범위 밖 값을 다시 지운다**(2026-08-24 브라우저 실측). 제한이 처음부터 이 캠페인
+//      기준이어야 한다.
+//   ⓘ 저장된 값이 원래부터 규칙 밖인 캠페인(예: 방문 시작이 모집 시작보다 앞)은 여전히
+//      화면에 안 들어간다. 그건 이 함수가 아니라 그 데이터가 규칙을 어긴 경우다.
+//   ★ 호출자와의 계약 — **RANGE_KIND_HIDDEN_IDS 밖의 관련 칸은 호출자가 이 함수보다
+//     먼저 채워야 한다.** 특히 `SubmissionEnd`(결과물 제출 마감일)는 이 함수가 안 건드리는데
+//     ②단계의 제한 계산이 그 값을 읽는다. 늦게 채우면 그 칸이 빈 것으로 보고 제한이
+//     느슨하게 걸린다. openEditCampaign 은 sv() 로 먼저 채우고, 오리엔 카드 발행 경로는
+//     화면 전환이 그 칸을 먼저 비워 주는 것에 기대고 있다(admin-core.js). 순서를 바꿀 때
+//     이 계약을 함께 볼 것.
 function applyCampRangeValues(prefix, values) {
-  // values = { recruit:[start,end], purchase:[start,end], visit:[start,end] }
-  Object.keys(RANGE_KIND_HIDDEN_IDS).forEach(kind => {
-    const id = prefix + (RANGE_KIND_INPUT_IDS[kind] || '');
-    const fp = _campRangePickers[id];
+  // values = { recruit:[start,end], purchase:[start,end], visit:[start,end], selection:[start,end] }
+  const kinds = Object.keys(RANGE_KIND_HIDDEN_IDS);
+  // ① 숨은 칸 먼저 — 아래 제한 계산이 이 값을 읽는다
+  kinds.forEach(kind => {
     const pair = (values && values[kind]) || [null, null];
     const [s, e] = pair;
     const [startSuffix, endSuffix] = RANGE_KIND_HIDDEN_IDS[kind];
     if ($(prefix + startSuffix)) $(prefix + startSuffix).value = s || '';
     if ($(prefix + endSuffix))   $(prefix + endSuffix).value   = e || '';
-    if (fp) {
-      if (s && e) fp.setDate([s, e], false);
-      else if (s) fp.setDate([s], false);
-      else fp.clear(false);
-      // setDate는 triggerChange=false라 onChange가 안 불려 푸터가 stale → 명시적으로 동기화
-      if (typeof _updateFpFooterSummary === 'function') _updateFpFooterSummary(fp);
-    }
+  });
+  // ② 이 캠페인 기준으로 제한을 다시 건다 (호출부에서도 뒤이어 한 번 더 부르지만,
+  //    주입 **전에** 걸려 있어야 하므로 여기서 미리 맞춘다. 이 함수를 되부르지 않는다)
+  if (typeof syncCampDateMinMax === 'function') syncCampDateMinMax(prefix);
+  // ③ 이제야 선택기에 넣는다
+  kinds.forEach(kind => {
+    const id = prefix + (RANGE_KIND_INPUT_IDS[kind] || '');
+    const fp = _campRangePickers[id];
+    if (!fp) return;
+    const pair = (values && values[kind]) || [null, null];
+    const [s, e] = pair;
+    if (s && e) fp.setDate([s, e], false);
+    else if (s) fp.setDate([s], false);
+    else fp.clear(false);
+    // setDate는 triggerChange=false라 onChange가 안 불려 푸터가 stale → 명시적으로 동기화
+    if (typeof _updateFpFooterSummary === 'function') _updateFpFooterSummary(fp);
   });
 }
 
