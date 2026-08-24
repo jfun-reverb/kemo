@@ -1892,10 +1892,13 @@ function campRulePurchaseRange(prefix, savedCamp) {
 }
 
 // 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
-//   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
-//   - monitor: 구매 기간 종료일 + 19일
-//   - visit:   방문 기간 종료일 + 19일
-//   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 19일
+//   baseKind: 'purchase'(리뷰어형) | 'visit'(방문형) | 'selection'(시딩형 전용)
+//   - 리뷰어형: 구매 기간 종료일 + 19일
+//   - 방문형:   방문 기간 종료일 + 19일 — 선정 기간은 기준이 아니다(2026-08-24,
+//               선정 칸이 방문형에도 열리며 두 달력이 각각 모달을 띄우던 것을 가름)
+//   - 시딩형:   선정 기간 종료일 + 19일 (2026-08-07 에 모집 종료 기준에서 이관.
+//               선정을 비워 두면 제안 없음 — 폴백을 일부러 안 뒀다)
+//   ⚠️ 어느 형식이 어느 기준을 쓰는지의 분기는 호출부(_commitFpRangeToHiddenInputs)에 있다.
 async function suggestSubmissionEnd(prefix, baseKind) {
   // 행사 캠페인은 결과물 제출이 없다 — 숨긴 칸을 채우겠냐고 묻지 않는다.
   if ((typeof isEventModeForm === 'function') && isEventModeForm(prefix === 'editCamp' ? 'edit' : 'new')) return;
@@ -2188,7 +2191,18 @@ function _commitFpRangeToHiddenInputs(fp) {
     //    안 뜨고 직접 입력한다 — 「언제 뜨는지」가 상황마다 갈리지 않도록 폴백을 두지 않았다.
   }
   // monitor=구매 종료, visit=방문 종료, gifting=선정 종료 기준 +19일 제안
-  if ((kind === 'purchase' || kind === 'visit' || kind === 'selection') && end) {
+  //   ⚠️ 선정 기준 제안은 **시딩형 전용**이다. 선정 칸이 2026-08-24 부터 방문형에도
+  //      열렸는데(사양서 2026-08-24-visit-selection-period), 여기서 형식을 안 가르면
+  //      방문형에서 선정·방문 두 달력이 **각각 제안 모달을 띄워** 같은 칸을 두 번 묻는다
+  //      (2026-08-24 사용자 지적). 방문형의 제출 마감 기준은 종전대로 방문 종료다 —
+  //      결과물은 방문한 뒤에 나오지, 뽑힌 뒤에 나오는 게 아니다.
+  //   ⓘ 구매·방문 칸은 각각 리뷰어형·방문형에만 보여서 이런 겹침이 없다. 선정 칸만
+  //      두 형식이 공유해서 생기는 문제라, 가르는 조건도 선정에만 붙인다.
+  const _fpRt = document.querySelector(
+    `input[name="${prefix === 'editCamp' ? 'editRecruitType' : 'recruitType'}"]:checked`)?.value || '';
+  const _suggestOk = (kind === 'purchase' || kind === 'visit')
+    || (kind === 'selection' && _fpRt === 'gifting');
+  if (_suggestOk && end) {
     suggestSubmissionEnd(prefix, kind);
   }
   syncCampDateMinMax(prefix);
