@@ -591,7 +591,12 @@
               </div>
             </div>
 
-            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <!-- 기간 입력 — 시간 흐름 순: [모집] [구매(리뷰어형)] [선정] [방문(방문형)] [결과물 제출 마감일]
+                 ⚠️ 구매와 방문은 모집 형식이 달라 **동시에 보이지 않는다**. 그래서 실제로 보이는 순서는
+                    리뷰어형=모집·구매 / 시딩형=모집·선정 / 방문형=모집·선정·방문 이다.
+                 ⚠️ 선정을 방문 **앞**에 두는 이유 — 인플루언서 상세·미리보기·진행현황이 모두
+                    모집 → 선정 → 방문 순으로 그린다. 폼만 순서가 다르면 담당자가 헷갈린다
+                    (2026-08-24 사용자 지시). 순서를 바꿀 때는 신규·편집 **두 폼을 함께** 고칠 것. -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label" id="editCampRecruitRangeLabelWrap"><span id="editCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -611,14 +616,6 @@
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="editCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group" id="editCampVisitRow" style="display:none">
-                <label class="form-label">방문 기간</label>
-                <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
-                <input type="hidden" id="editCampVisitStart">
-                <input type="hidden" id="editCampVisitEnd">
-                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
-                <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
               <div class="form-group" id="editCampSelectionRow" style="display:none">
                 <label class="form-label">선정 기간</label>
                 <input type="text" id="editCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="selection" readonly>
@@ -626,6 +623,14 @@
                 <input type="hidden" id="editCampSelectionEnd">
                 <div class="form-hint">응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면·캠페인 목록·진행현황에 안 나옵니다</div>
                 <div id="editCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
+              <div class="form-group" id="editCampVisitRow" style="display:none">
+                <label class="form-label">방문 기간</label>
+                <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
+                <input type="hidden" id="editCampVisitStart">
+                <input type="hidden" id="editCampVisitEnd">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+                <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
@@ -1032,7 +1037,12 @@
               </div>
             </div>
 
-            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <!-- 기간 입력 — 시간 흐름 순: [모집] [구매(리뷰어형)] [선정] [방문(방문형)] [결과물 제출 마감일]
+                 ⚠️ 구매와 방문은 모집 형식이 달라 **동시에 보이지 않는다**. 그래서 실제로 보이는 순서는
+                    리뷰어형=모집·구매 / 시딩형=모집·선정 / 방문형=모집·선정·방문 이다.
+                 ⚠️ 선정을 방문 **앞**에 두는 이유 — 인플루언서 상세·미리보기·진행현황이 모두
+                    모집 → 선정 → 방문 순으로 그린다. 폼만 순서가 다르면 담당자가 헷갈린다
+                    (2026-08-24 사용자 지시). 순서를 바꿀 때는 신규·편집 **두 폼을 함께** 고칠 것. -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label" id="newCampRecruitRangeLabelWrap"><span id="newCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -1052,14 +1062,6 @@
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="newCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group" id="newCampVisitRow" style="display:none">
-                <label class="form-label">방문 기간</label>
-                <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
-                <input type="hidden" id="newCampVisitStart">
-                <input type="hidden" id="newCampVisitEnd">
-                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
-                <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
               <div class="form-group" id="newCampSelectionRow" style="display:none">
                 <label class="form-label">선정 기간</label>
                 <input type="text" id="newCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="selection" readonly>
@@ -1067,6 +1069,14 @@
                 <input type="hidden" id="newCampSelectionEnd">
                 <div class="form-hint">응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면·캠페인 목록·진행현황에 안 나옵니다</div>
                 <div id="newCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
+              <div class="form-group" id="newCampVisitRow" style="display:none">
+                <label class="form-label">방문 기간</label>
+                <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
+                <input type="hidden" id="newCampVisitStart">
+                <input type="hidden" id="newCampVisitEnd">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+                <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
