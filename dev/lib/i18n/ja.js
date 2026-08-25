@@ -708,13 +708,20 @@ window.I18N_JA = {
     submitToAdminBtn: '管理者へ提出',
     draftBadge: '未提出',
     draftAdded: 'リストに追加しました',
+    // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
+    draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
+    draftPendingTitle: 'まだ提出していないものが{n}件あります',
+    draftPendingStep: '1. 下の「管理者へ提出」を押してください　2. 押すまで運営には届きません',
+    leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
     draftDeleted: '削除しました',
     submittedN: '{n}件を提出しました',
     submittedPartial: '{n}件を提出しました。提出できなかったものがあります',
+    submitPartialFailed: '「{channels}」は提出できませんでした',
     nothingToSubmit: '提出する項目がありません',
     postSection: '投稿URLの提出',
     postUrlLabel: '投稿URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... など',
+    badUrlShape: 'リンク（URL）が正しくないようです。もう一度貼り直してください',
     postChannelLabel: 'チャンネルを選択',
     postChannelHint: 'URLからチャンネルを自動判別できませんでした',
     // キャンペーンにチャンネルが設定されていない場合のみ表示（通常は起こりません）
@@ -776,6 +783,7 @@ window.I18N_JA = {
 
   // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
+    draft: '未提出',
     pending: '検査中',
     approved: '承認',
     rejected: '非承認',
@@ -917,6 +925,7 @@ window.I18N_JA = {
       visit: 'ご訪問後、投稿をご提出ください。',
       post_deadline: '成果物の提出期限：{date}',
       post_overdue: '提出期限を過ぎています。',
+      draft_pending: 'アップロードしたものが、まだ提出されていません。',
       reviewing: 'ご提出いただいた成果物を確認中です。',
       partial_reject: '一部の成果物が差し戻されました。差し戻し分をご確認の上、再提出ください。',
       all_reject: '成果物が差し戻されました。理由をご確認の上、再提出ください。',

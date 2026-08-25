@@ -1754,12 +1754,13 @@ function renderActivityReceiptList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('receipt', 0);
     return;
   }
-  let hasDraft = false;
+  let draftCount = 0;
   container.innerHTML = delivs.map(r => {
     const isDraft = r.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(r.status);
@@ -1791,7 +1792,8 @@ function renderActivityReceiptList(delivs) {
       ${reasonBox}
     </div>`;
   }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('receipt', draftCount);
 }
 
 // monitor 2단계 — 캠페인 채널 수만큼 「채널별 리뷰 이미지 카드」를 N개 동적 렌더.
@@ -1816,6 +1818,7 @@ function renderActivityReviewImageList(delivs, channels) {
   //   단순히 임시저장 유무(hasDraft)로 버튼을 띄우면, 마감이 지나 서버가 거부할 채널의
   //   임시저장만 남았을 때도 버튼이 눌리는 상태로 노출된다(2026-07-31 브라우저 검증에서 발견).
   let hasSubmittableDraft = false;
+  let submittableDraftCount = 0;   // 안내 줄 건수 — 버튼이 실제로 보낼 것과 같은 수여야 한다
   container.innerHTML = (channels || []).map(function(ch) {
     const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
@@ -1826,7 +1829,7 @@ function renderActivityReviewImageList(delivs, channels) {
 
     if (row) {
       const isDraft = row.status === 'draft';
-      if (isDraft && !formDisabled) hasSubmittableDraft = true;
+      if (isDraft && !formDisabled) { hasSubmittableDraft = true; submittableDraftCount++; }
       const stBadge = isDraft
         ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
@@ -1884,8 +1887,32 @@ function renderActivityReviewImageList(delivs, channels) {
     submitBtn.style.display = hasSubmittableDraft ? '' : 'none';
     submitBtn.disabled = !hasSubmittableDraft;
   }
+  renderDraftPendingBar('review_image', submittableDraftCount);
   // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
   if (typeof applyI18n === 'function') applyI18n(container);
+}
+
+
+// ── 「아직 제출 안 함」 안내 줄 (세 화면 공용) ────────────────────────────
+//   2026-08-25: 운영에서 결과물 26건이 임시저장으로 멈춰 있었다(게시물 23·인증샷 2·
+//   영수증 1 — 세 종류 전부, 4개월간 누적). 「リストに追加」만 누르고 끝난 줄 아는
+//   사람이 이어졌다. 같은 일이 2026-04-27 에도 있었고(마이그레이션 073 머리말),
+//   그때는 화면을 안 고쳤다.
+//   ⚠️ 세 화면이 반드시 이 함수 하나를 쓴다 — 따로 쓰면 화면마다 다른 말이 된다.
+//   ⚠️ 안내 줄은 **제출 버튼과 항상 같이** 뜨고 같이 사라진다. 버튼 없이 안내만
+//      남으면 「하라는데 할 수가 없는」 막다른 길이 된다.
+//   ⚠️ 0건이면 아무것도 안 그린다(정상 흐름의 몇 초도 미제출 상태다 — 상시 노출되면
+//      「원래 그런 화면」으로 학습돼 아무도 안 본다).
+const DRAFT_BAR_IDS = {receipt: 'draftBarReceipt', review_image: 'draftBarReviewImage', post: 'draftBarPost'};
+function renderDraftPendingBar(kind, count) {
+  const el = $(DRAFT_BAR_IDS[kind]);
+  if (!el) return;
+  const n = Number(count) || 0;
+  if (n <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML =
+    `<div class="dpb-title">${esc(String(t('activity.draftPendingTitle')).replace('{n}', String(n)))}</div>` +
+    `<div class="dpb-step">${esc(t('activity.draftPendingStep'))}</div>`;
+  el.style.display = '';
 }
 
 function renderActivityPostList(delivs) {
@@ -1895,12 +1922,13 @@ function renderActivityPostList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('post', 0);
     return;
   }
-  let hasDraft = false;
+  let draftCount = 0;
   container.innerHTML = delivs.map(d => {
     const isDraft = d.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
@@ -1927,7 +1955,8 @@ function renderActivityPostList(delivs) {
       ${reasonBox}
     </div>`;
   }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('post', draftCount);
 }
 
 function activityStatusBadge(status) {
@@ -2121,7 +2150,7 @@ async function _addDraftUrlInner() {
     $('postUrlInput').value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2187,7 +2216,7 @@ async function _addDraftImageInner() {
       const rd = $('receiptDate'); if (rd) rd.value = '';
       const ra = $('receiptAmount'); if (ra) ra.value = '';
     }
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2222,7 +2251,7 @@ async function _addDraftReviewImageInner(channel) {
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
     _reviewImgDataByChannel[channel] = null;
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }

@@ -641,6 +641,21 @@ html.preview-mode #page-detail .detail-back{display:none}
 .event-date-single{display:inline-block;padding:8px 14px;border-radius:20px;
   background:var(--light-pink);color:var(--pink);font-size:14px;font-weight:800;margin-bottom:12px}
 
+/* 아직 제출하지 않은 것이 있을 때 제출 버튼 바로 위에 뜨는 안내 줄.
+   ⚠️ 빨강(경고)이 아니라 주황(행동 유도)이다 — 「추가」와 「제출」 사이는
+   정상 흐름에서도 반드시 미제출 상태라, 빨강으로 두면 매번 떠서
+   「원래 빨간 화면」으로 학습된다. 임시저장 0건이면 아예 안 그린다. */
+.draft-pending-bar{
+  background:#FFF4E4; border:1px solid #F0C48A; border-left:4px solid #E8912D;
+  border-radius:6px; padding:10px 12px; margin-bottom:10px;
+}
+.draft-pending-bar .dpb-title{
+  font-size:13px; font-weight:700; color:#B8741A; line-height:1.5;
+}
+.draft-pending-bar .dpb-step{
+  font-size:12px; color:#8A5A14; line-height:1.7; margin-top:4px;
+}
+
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
@@ -1551,6 +1566,7 @@ html.preview-mode #page-detail .detail-back{display:none}
       </div>
       <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
       <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
+      <div id="draftBarReceipt" class="draft-pending-bar" style="display:none"></div>
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>
 
@@ -1564,6 +1580,7 @@ html.preview-mode #page-detail .detail-back{display:none}
       <div id="reviewImageBody" style="display:none">
         <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
         <div id="reviewImageList" style="margin-bottom:20px"></div>
+        <div id="draftBarReviewImage" class="draft-pending-bar" style="display:none"></div>
         <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
       </div>
     </div>
@@ -1594,6 +1611,7 @@ html.preview-mode #page-detail .detail-back{display:none}
         </div>
         <button id="addPostBtn" class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
+      <div id="draftBarPost" class="draft-pending-bar" style="display:none"></div>
       <button id="submitPostsBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('post')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>
   </div>
@@ -3304,20 +3322,31 @@ function faqComputeStatus(status, delivs, camp) {
       return { key: 'reviewing', stage: 'approved_post' };
     }
     // ② 결과물이 없으면 캠페인 일정으로
-    const phase = faqComputeCancelPhase(camp);
-    const isVisit = camp?.recruit_type === 'visit';
-    if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
-    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
-    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post') {
-      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
-      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
-      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
-      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
-      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
-      return { key: 'post_deadline', stage: 'approved_post' };
-    }
-    return { key: 'approved_fallback', stage: null };
+    const sched = (function() {
+      const phase = faqComputeCancelPhase(camp);
+      const isVisit = camp?.recruit_type === 'visit';
+      if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+      if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+      if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+      if (phase === 'post') {
+        // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+        // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+        // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+        const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+        if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+        return { key: 'post_deadline', stage: 'approved_post' };
+      }
+      return { key: 'approved_fallback', stage: null };
+    })();
+    // ③ 낸 것은 없는데 「올려만 둔」 것이 있으면, 일정 안내로 흘려보내지 않는다.
+    //   위 필터가 임시저장을 빼는 것은 「검수 중이라고 말하지 않기 위해서」였고 그건 맞다.
+    //   그런데 거기서 끝나서, 그 사람에게는 일정 문구만 떴다 — 무엇이 잘못됐는지 알 길이
+    //   없었다(운영 26건이 4개월간 그 상태로 쌓였다). 이제 한 줄 더 말해 준다.
+    //   ⚠️ stage 는 일정 기준 값을 **그대로** 쓴다 — 자주 묻는 질문 트리 노드가 stage 로
+    //   걸리므로 바꾸면 그 사람에게 보이는 질문 목록이 통째로 달라진다.
+    const hasDraft = (Array.isArray(delivs) ? delivs : []).some(d => d && d.status === 'draft');
+    if (hasDraft) return { key: 'draft_pending', stage: sched.stage };
+    return sched;
   }
   return { key: 'fallback', stage: null };
 }
@@ -4956,13 +4985,20 @@ window.I18N_JA = {
     submitToAdminBtn: '管理者へ提出',
     draftBadge: '未提出',
     draftAdded: 'リストに追加しました',
+    // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
+    draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
+    draftPendingTitle: 'まだ提出していないものが{n}件あります',
+    draftPendingStep: '1. 下の「管理者へ提出」を押してください　2. 押すまで運営には届きません',
+    leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
     draftDeleted: '削除しました',
     submittedN: '{n}件を提出しました',
     submittedPartial: '{n}件を提出しました。提出できなかったものがあります',
+    submitPartialFailed: '「{channels}」は提出できませんでした',
     nothingToSubmit: '提出する項目がありません',
     postSection: '投稿URLの提出',
     postUrlLabel: '投稿URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... など',
+    badUrlShape: 'リンク（URL）が正しくないようです。もう一度貼り直してください',
     postChannelLabel: 'チャンネルを選択',
     postChannelHint: 'URLからチャンネルを自動判別できませんでした',
     // キャンペーンにチャンネルが設定されていない場合のみ表示（通常は起こりません）
@@ -5024,6 +5060,7 @@ window.I18N_JA = {
 
   // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
+    draft: '未提出',
     pending: '検査中',
     approved: '承認',
     rejected: '非承認',
@@ -5165,6 +5202,7 @@ window.I18N_JA = {
       visit: 'ご訪問後、投稿をご提出ください。',
       post_deadline: '成果物の提出期限：{date}',
       post_overdue: '提出期限を過ぎています。',
+      draft_pending: 'アップロードしたものが、まだ提出されていません。',
       reviewing: 'ご提出いただいた成果物を確認中です。',
       partial_reject: '一部の成果物が差し戻されました。差し戻し分をご確認の上、再提出ください。',
       all_reject: '成果物が差し戻されました。理由をご確認の上、再提出ください。',
@@ -5870,13 +5908,20 @@ window.I18N_KO = {
     submitToAdminBtn: '관리자에게 제출',
     draftBadge: '미제출',
     draftAdded: '리스트에 추가했습니다',
+    // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
+    draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',
+    draftPendingTitle: '아직 제출하지 않은 것이 {n}건 있습니다',
+    draftPendingStep: '1. 아래 「관리자에게 제출」을 눌러 주세요  2. 누르기 전까지 운영팀에 전달되지 않습니다',
+    leaveWithDraft: '아직 제출하지 않은 것이 있습니다. 이대로 화면을 나가시겠습니까?',
     draftDeleted: '삭제했습니다',
     submittedN: '{n}건을 제출했습니다',
     submittedPartial: '{n}건을 제출했습니다. 제출하지 못한 항목이 있습니다',
+    submitPartialFailed: '「{channels}」은(는) 제출하지 못했습니다',
     nothingToSubmit: '제출할 항목이 없습니다',
     postSection: '게시물 URL 제출',
     postUrlLabel: '게시물 URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... 등',
+    badUrlShape: '링크(URL)가 올바르지 않은 것 같습니다. 다시 붙여넣어 주세요',
     postChannelLabel: '채널 선택',
     postChannelHint: 'URL에서 채널을 자동 판별하지 못했습니다',
     // 캠페인에 채널이 설정되지 않은 경우에만 표시 (통상 발생하지 않음)
@@ -5937,6 +5982,7 @@ window.I18N_KO = {
   },
 
   delivStatus: {
+    draft: '미제출',
     pending: '검수중',
     approved: '승인',
     rejected: '비승인',
@@ -6074,6 +6120,7 @@ window.I18N_KO = {
       visit: '방문 후 게시물을 제출해 주세요.',
       post_deadline: '결과물 제출 기한: {date}',
       post_overdue: '제출 기한이 지났습니다.',
+      draft_pending: '올리신 것이 아직 제출되지 않았습니다.',
       reviewing: '제출하신 결과물을 확인 중입니다.',
       partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
       all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',
@@ -16016,12 +16063,13 @@ function renderActivityReceiptList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('receipt', 0);
     return;
   }
-  let hasDraft = false;
+  let draftCount = 0;
   container.innerHTML = delivs.map(r => {
     const isDraft = r.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(r.status);
@@ -16053,7 +16101,8 @@ function renderActivityReceiptList(delivs) {
       ${reasonBox}
     </div>`;
   }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('receipt', draftCount);
 }
 
 // monitor 2단계 — 캠페인 채널 수만큼 「채널별 리뷰 이미지 카드」를 N개 동적 렌더.
@@ -16078,6 +16127,7 @@ function renderActivityReviewImageList(delivs, channels) {
   //   단순히 임시저장 유무(hasDraft)로 버튼을 띄우면, 마감이 지나 서버가 거부할 채널의
   //   임시저장만 남았을 때도 버튼이 눌리는 상태로 노출된다(2026-07-31 브라우저 검증에서 발견).
   let hasSubmittableDraft = false;
+  let submittableDraftCount = 0;   // 안내 줄 건수 — 버튼이 실제로 보낼 것과 같은 수여야 한다
   container.innerHTML = (channels || []).map(function(ch) {
     const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
@@ -16088,7 +16138,7 @@ function renderActivityReviewImageList(delivs, channels) {
 
     if (row) {
       const isDraft = row.status === 'draft';
-      if (isDraft && !formDisabled) hasSubmittableDraft = true;
+      if (isDraft && !formDisabled) { hasSubmittableDraft = true; submittableDraftCount++; }
       const stBadge = isDraft
         ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
@@ -16146,8 +16196,32 @@ function renderActivityReviewImageList(delivs, channels) {
     submitBtn.style.display = hasSubmittableDraft ? '' : 'none';
     submitBtn.disabled = !hasSubmittableDraft;
   }
+  renderDraftPendingBar('review_image', submittableDraftCount);
   // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
   if (typeof applyI18n === 'function') applyI18n(container);
+}
+
+
+// ── 「아직 제출 안 함」 안내 줄 (세 화면 공용) ────────────────────────────
+//   2026-08-25: 운영에서 결과물 26건이 임시저장으로 멈춰 있었다(게시물 23·인증샷 2·
+//   영수증 1 — 세 종류 전부, 4개월간 누적). 「リストに追加」만 누르고 끝난 줄 아는
+//   사람이 이어졌다. 같은 일이 2026-04-27 에도 있었고(마이그레이션 073 머리말),
+//   그때는 화면을 안 고쳤다.
+//   ⚠️ 세 화면이 반드시 이 함수 하나를 쓴다 — 따로 쓰면 화면마다 다른 말이 된다.
+//   ⚠️ 안내 줄은 **제출 버튼과 항상 같이** 뜨고 같이 사라진다. 버튼 없이 안내만
+//      남으면 「하라는데 할 수가 없는」 막다른 길이 된다.
+//   ⚠️ 0건이면 아무것도 안 그린다(정상 흐름의 몇 초도 미제출 상태다 — 상시 노출되면
+//      「원래 그런 화면」으로 학습돼 아무도 안 본다).
+const DRAFT_BAR_IDS = {receipt: 'draftBarReceipt', review_image: 'draftBarReviewImage', post: 'draftBarPost'};
+function renderDraftPendingBar(kind, count) {
+  const el = $(DRAFT_BAR_IDS[kind]);
+  if (!el) return;
+  const n = Number(count) || 0;
+  if (n <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML =
+    `<div class="dpb-title">${esc(String(t('activity.draftPendingTitle')).replace('{n}', String(n)))}</div>` +
+    `<div class="dpb-step">${esc(t('activity.draftPendingStep'))}</div>`;
+  el.style.display = '';
 }
 
 function renderActivityPostList(delivs) {
@@ -16157,12 +16231,13 @@ function renderActivityPostList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('post', 0);
     return;
   }
-  let hasDraft = false;
+  let draftCount = 0;
   container.innerHTML = delivs.map(d => {
     const isDraft = d.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
@@ -16189,7 +16264,8 @@ function renderActivityPostList(delivs) {
       ${reasonBox}
     </div>`;
   }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('post', draftCount);
 }
 
 function activityStatusBadge(status) {
@@ -16383,7 +16459,7 @@ async function _addDraftUrlInner() {
     $('postUrlInput').value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -16449,7 +16525,7 @@ async function _addDraftImageInner() {
       const rd = $('receiptDate'); if (rd) rd.value = '';
       const ra = $('receiptAmount'); if (ra) ra.value = '';
     }
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -16484,7 +16560,7 @@ async function _addDraftReviewImageInner(channel) {
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
     _reviewImgDataByChannel[channel] = null;
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -17591,11 +17667,18 @@ async function renderMyApplyList() {
       for (const kind of order) {
         const d = byKind[kind];
         if (!d) continue;
-        if (d.status === 'draft') continue;  // 임시저장(미제출)은 응모이력 배지에 표시 안 함
+        // 🔴 되돌리지 말 것 — 예전에는 여기서 임시저장(미제출)을 걸러 냈다.
+        //   그러면 「올려는 뒀지만 제출은 안 한」 사람이 응모이력에서 아무 신호도 못 받고,
+        //   활동관리에 다시 들어가야만 회색 배지 하나를 볼 수 있었다. 그 사람은 낸 줄 알고
+        //   마감을 놓친다 — 운영에서 26건이 그렇게 4개월간 쌓였고(게시물 23·인증샷 2·
+        //   영수증 1), 같은 일이 2026-04-27 에도 있었다(마이그레이션 073 머리말).
+        //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
         let bg = '#FFF4E4', color = '#B8741A';
-        if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
+        // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
+        if (d.status === 'draft') { bg = '#FFE9D6'; color = '#C05621'; }
+        else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
