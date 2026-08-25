@@ -27,8 +27,9 @@ globs: "*"
 
 **Why:** 개발서버는 검증 환경이라 롤백 부담이 작고, 사용자가 매 PR 머지를 손으로 누르는 반복을 없애려고 위임함. 운영(main)만 사람이 최종 판단 (2026-05-22 사용자 명시 지시 + "규칙에 남겨줘" 요청).
 
-## 거버넌스 문서는 고문/기획이 dev 직접 커밋 (dev push 금지의 예외, 2026-06-05)
-- 거버넌스 문서(`.claude/rules/*`·`.claude/agents/*`·`.claude/commands/*`·메모리·HANDOFF·`docs/specs/*` 신규)는 고문/기획 세션이 직접 수정하고 **같은 턴에 `dev` 직접 커밋·push** 한다. (목록 정의처는 `session-roles.md` §2 — 양쪽 동일 유지)
+## 거버넌스 문서는 고문이 dev 직접 커밋 (dev push 금지의 예외, 2026-06-05)
+- 거버넌스 문서(`.claude/rules/*`·`.claude/agents/*`·`.claude/commands/*`·메모리·HANDOFF·`docs/specs/*` 신규)는 **고문 세션이** 직접 수정하고 **같은 턴에 `dev` 직접 커밋·push** 한다. (목록 정의처는 `session-roles.md` §2 — 양쪽 동일 유지)
+- ⚠️ **기획 세션은 이 예외가 아니다** (2026-08-25 결정) — 기획은 `feature/기획-…` 브랜치에서 일하고 **사양서를 PR 로** 올린다. 이유: 기획이 `dev` 를 쥐면 **고문이 구조적으로 제자리를 잃는다**(git 은 같은 브랜치를 두 폴더에서 못 연다). ⚠️ 이 조항은 오래 「고문/기획」이라 적혀 있었지만 **`session-roles.md` §1·§2 표는 처음부터 기획을 `feature` 브랜치로 적고 있었다** — 규칙끼리 모순이던 것을 2026-08-25 에 **표 쪽으로** 맞췄다. 사양서 `docs/specs/2026-08-25-planner-commit-location.md`
 - `dev` 직접 push 금지 원칙(`multi-session.md`)의 **명시적 예외** — 거버넌스 문서는 개발 코드(`dev/*`·`supabase/*`)와 파일이 안 겹쳐 충돌 위험이 없다(고문=메인 폴더 `dev`, 개발=worktree `feature`, 다른 폴더+다른 브랜치).
 - 조건 3종: ① **거버넌스 문서만** (코드·빌드 산출물·마이그레이션 SQL·`CLAUDE.md` 는 제외 → 개발 세션) ② push 직전 `git pull --rebase origin dev` 로 최신화 ③ **미커밋 방치 금지**(고친 즉시 커밋 — 과거 유실 사고는 미커밋+브랜치 전환 조합이었음).
 - 세션별 전체 경계·인수인계는 `.claude/rules/session-roles.md` 정의처 참조.
