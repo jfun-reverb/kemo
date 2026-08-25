@@ -738,7 +738,18 @@ Deno.serve(async (req: Request) => {
 
       // 결과물(게시물) — 시딩(gifting)·방문형(visit) 전용. 리뷰어형(monitor)은 게시물 제출 경로가 없다.
       // (submission_end 만 사용 — post_deadline 은 마이그레이션 129 에서 제거됨)
+      //
+      // 🔴 행사(event_mode)는 제외한다 — 행사도 recruit_type='visit' 이라 이 조건에 걸린다.
+      //   방문객은 게시물을 내지 않으므로 「投稿物 … まで」(게시물 … 까지)는 **하지도 않을 일을
+      //   독촉하는** 안내가 된다. 당선 섹션의 제외(2026-08-24 결정 3)와 같은 판단이고 기준도
+      //   같다(선착순형 행사도 마찬가지라 event_mode 로 가른다).
+      //   ⚠️ 이 자리는 당선 섹션과 **다른 경로**다 — 저 위 필터는 「어제 심사된」 목록(appsReviewed)을
+      //      보고, 여기는 **누적 승인 전체**(appsApproved)를 본다. 그래서 저기만 고치면 여기는 안 걸린다.
+      //   ⚠️ 지금 행사 캠페인은 submission_end 가 비어 있어 잠자고 있을 뿐, **막는 것은 없었다.**
+      //      이 저장소는 정확히 같은 유형(모집 형식을 안 가린 마감 독촉)으로 운영에서 1,022건을
+      //      오발송한 적이 있다 — docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md
       if (
+        !camp.event_mode &&
         (camp.recruit_type === "gifting" || camp.recruit_type === "visit") &&
         camp.submission_end
       ) {
