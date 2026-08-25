@@ -205,9 +205,14 @@ html.preview-mode #page-detail .detail-back{display:none}
 .deliv-group-head:first-child{ margin-top:0; }
 
 /* 「지난 제출」의 이전 건 펼치기·접기 */
+/* 제목 줄 안에서 좌(제목)·우(펼치기) 로 갈린다 */
+.deliv-group-head-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
 .deliv-past-toggle{
-  display:block; width:100%; margin:2px 0 4px; padding:8px;
-  background:none; border:1px dashed var(--surface-dim); border-radius:6px;
-  font-size:12px; color:var(--muted); cursor:pointer;
+  flex-shrink:0; padding:3px 9px;
+  background:none; border:1px solid var(--surface-dim); border-radius:999px;
+  font-size:11px; font-weight:600; color:var(--muted); cursor:pointer;
+  line-height:1.5;
 }
 .deliv-past-toggle:hover{ color:var(--ink); border-color:var(--muted); }

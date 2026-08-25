@@ -668,10 +668,15 @@ html.preview-mode #page-detail .detail-back{display:none}
 .deliv-group-head:first-child{ margin-top:0; }
 
 /* 「지난 제출」의 이전 건 펼치기·접기 */
+/* 제목 줄 안에서 좌(제목)·우(펼치기) 로 갈린다 */
+.deliv-group-head-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
 .deliv-past-toggle{
-  display:block; width:100%; margin:2px 0 4px; padding:8px;
-  background:none; border:1px dashed var(--surface-dim); border-radius:6px;
-  font-size:12px; color:var(--muted); cursor:pointer;
+  flex-shrink:0; padding:3px 9px;
+  background:none; border:1px solid var(--surface-dim); border-radius:999px;
+  font-size:11px; font-weight:600; color:var(--muted); cursor:pointer;
+  line-height:1.5;
 }
 .deliv-past-toggle:hover{ color:var(--ink); border-color:var(--muted); }
 
@@ -16268,14 +16273,19 @@ function splitDeliverableGroups(rows, renderRow, key) {
   if (past.length) {
     const open = _activityPastOpen.has(_activityPastKey(key));
     const hidden = past.length - 1;
-    html += (both ? head('groupPast') : '') + renderRow(past[0]);
-    if (hidden > 0) {
-      if (open) html += past.slice(1).map(renderRow).join('');
+    // ⚠️ 제목 줄은 「나눌 것이 있을 때」뿐 아니라 「접을 것이 있을 때」도 그린다 —
+    //   펼치기 버튼이 그 줄에 얹히므로, 제목을 안 그리면 버튼도 함께 사라진다.
+    if (both || hidden > 0) {
       const label = open
         ? t('activity.pastLess')
         : String(t('activity.pastMore')).replace('{n}', String(hidden));
-      html += `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`;
+      const toggle = hidden > 0
+        ? `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`
+        : '';
+      html += `<div class="deliv-group-head deliv-group-head-row"><span>${esc(t('activity.groupPast'))}</span>${toggle}</div>`;
     }
+    html += renderRow(past[0]);
+    if (open && hidden > 0) html += past.slice(1).map(renderRow).join('');
   }
   if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
   return html;
