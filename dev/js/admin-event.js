@@ -24,6 +24,15 @@ let _eventSlotCounts = {};
 let _eventTicketsCache = [];
 let _eventTicketSlotFilter = '';  // 예약 현황의 타임 필터('' = 전체)
 let _eventTicketStatusTab = '';   // '' = 전체
+// 예약 현황이 보고 있는 캠페인 자체(선정형인지 판정하는 유일한 재료).
+//   ⚠️ id 만 들고 다니면 매 렌더마다 목록을 뒤져야 하고, 목록이 아직 안 채워진 진입
+//      경로(운영현황에서 곧바로 들어오는 길)에서 **조용히 선착순형으로 읽힌다.**
+//      그래서 부르는 쪽이 이미 찾아 둔 캠페인을 그대로 받아 들고 있는다.
+let _eventPaneCampObj = null;
+// 뽑기·탈락으로 고른 티켓 id (선정형 전용)
+const _eventTicketSelected = new Set();
+// 마지막 뽑기·탈락 실패 안내(줄 목록). 다음에 선택을 건드리면 지운다.
+let _eventTicketActionNotice = '';
 // 신규 등록 폼에서 만든 초대 번호는 캠페인이 저장되기 전까지 갈 곳이 없다.
 // addCampaign 이 성공한 뒤 그 캠페인 id 로 넣기 위해 잠시 들고 있는다.
 let _pendingNewInviteCode = null;
@@ -145,6 +154,11 @@ function applyEventModeFormLock(prefix) {
     const inv = $(prefix + 'CampInviteOnly');
     if (inv) inv.checked = false;
     applyInviteOnlyRow(prefix);
+    // 접수 방식도 선착순형으로 되돌린다 — 행사가 아니면 선정형이 저장될 수 없다
+    //   (마이그레이션 376 범위 제약). ⚠️ 예약이 있어 잠긴 캠페인은 건드리지 않는다:
+    //   실수로 껐다 다시 켰을 때 값이 안 돌아오면 「선정형이던 캠페인이 조용히
+    //   선착순형으로」 저장되는 길이 열린다(묶음 선택을 여기서 안 비우는 것과 같은 이유).
+    if (!_selectionModeLocked[prefix]) setCampSelectionMode(prefix, 'first_come');
     // ⚠️ 묶음 선택은 **여기서 비우지 않는다.** 실수로 껐다 다시 켜면 값이 안 돌아와
     //   조용히 연결이 끊긴다 — 이 칸이 막으려는 사고 그 자체다. 행사가 아닐 때
     //   묶음을 지우는 일은 **저장 시점**에 한다(행사장 안내 칸과 같은 방식).
@@ -154,6 +168,118 @@ function applyEventModeFormLock(prefix) {
 function onEventModeToggle(prefix) {
   applyEventModeFormLock(prefix);
   applyEventModeFieldVisibility(prefix);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 신청 접수 방식 — 선착순형 / 선정형 (마이그레이션 376 · 사양서 2026-08-24 §설계 0)
+//   선착순형 = 정원이 남아 있으면 그 자리에서 당선(종전과 동일, 기본값)
+//   선정형   = 정원과 무관하게 접수만 받고 관리자가 뽑는다
+// ══════════════════════════════════════════════════════════════
+
+// 예약이 이미 들어와 방식을 잠갔는가(폼별). 행사 모드를 껐다 켜는 경로에서
+//   값을 함부로 되돌리지 않기 위한 표시이기도 하다.
+const _selectionModeLocked = {new: false, edit: false};
+// 잠금 판정을 위해 예약 건수를 조회한 캠페인. 같은 캠페인을 편집하는 동안
+//   같은 조회가 반복되지 않게 한다(형식 라디오를 누를 때마다 표시 판정이 돈다).
+let _selectionLockLoadedFor = null;
+
+// 화면 값이 무엇이든 **데이터베이스가 허용하는 값만** 돌려준다.
+//   마이그레이션 376 의 campaigns_selection_mode_scope_chk 는 「행사 모드 그리고
+//   비공개」일 때만 선정형을 허용한다. 그 조건이 깨진 채 'selection' 이 저장되면
+//   저장이 통째로 데이터베이스 원문 오류로 실패한다 — 여기서 미리 접는다(fail-closed).
+function safeSelectionMode(mode, eventMode, inviteOnly) {
+  return (eventMode && inviteOnly && mode === 'selection') ? 'selection' : 'first_come';
+}
+
+// 폼에서 지금 고른 방식(화면 값 그대로 — 조건 보정 전).
+function pickedSelectionMode(prefix) {
+  return document.querySelector(`input[name="${prefix}CampSelectionMode"]:checked`)?.value || 'first_come';
+}
+
+// 🔴 저장 세 경로(addCampaign · saveCampaignEdit · duplicateCampaign)가 쓰는 값.
+//   ⚠️ 여기 한 곳에서만 만든다 — 경로마다 각자 만들면 한 곳이 빠져 복제본이 조용히
+//      선착순형이 된다(행사 설정이 복제에서 통째로 빠졌던 선례와 같은 실수).
+function campSelectionModeForSave(prefix) {
+  return safeSelectionMode(
+    pickedSelectionMode(prefix),
+    !!$(prefix + 'CampEventMode')?.checked,
+    !!$(prefix + 'CampInviteOnly')?.checked
+  );
+}
+
+function setCampSelectionMode(prefix, mode) {
+  const want = (mode === 'selection') ? 'selection' : 'first_come';
+  document.querySelectorAll(`input[name="${prefix}CampSelectionMode"]`)
+    .forEach(r => { r.checked = (r.value === want); });
+}
+
+// 라디오 두 개를 함께 잠그고 라벨에도 표시한다.
+//   ⚠️ 라디오는 disabled 만으로는 화면이 그대로라 「못 고치는 칸」인지 알 수 없다.
+//      행사 모드의 모집 형식 잠금과 같은 표시(.choice-locked)를 쓴다.
+function _setSelectionModeDisabled(prefix, off) {
+  document.querySelectorAll(`input[name="${prefix}CampSelectionMode"]`).forEach(r => {
+    r.disabled = !!off;
+    const lab = r.closest('label');
+    if (lab) lab.classList.toggle('choice-locked', !!off);
+  });
+}
+
+// 표시 판정 — 🔴 **조건이 둘이다**(행사 모드 그리고 비공개).
+//   ⚠️ 판정을 호출자 쪽에 두지 않는다. 캠페인을 여는 흐름에서 이 계열 함수가 여러 번
+//      불리는데(폼 잠금 · 칸 표시 · 초대 줄), 호출자에서만 숨기면 나중에 끝난 호출이
+//      다시 보이게 만든다(2026-08-03 실측 사고와 같은 형태).
+function applySelectionModeVisibility(prefix) {
+  const show = !!$(prefix + 'CampEventMode')?.checked && !!$(prefix + 'CampInviteOnly')?.checked;
+  const row = $(prefix + 'CampSelectionModeRow');
+  if (row) row.style.display = show ? '' : 'none';
+  if (!show) return;
+  // 편집 폼에서만 잠금을 본다 — 신규 등록은 아직 캠페인이 없어 예약도 있을 수 없다.
+  if (prefix !== 'edit') return;
+  const campId = $('editCampId')?.value || '';
+  if (campId && _selectionLockLoadedFor !== campId) refreshSelectionModeLock(campId);
+}
+
+// 예약이 한 건이라도 있으면 방식을 잠그고 **이유를 화면에 적는다**.
+//   판정 기준은 「모집 상태」가 아니라 실제 예약 유무다 — 상태는 되돌릴 수 있지만
+//   이미 들어온 예약은 되돌릴 수 없는 사실이다(사양서 §설계 0).
+async function refreshSelectionModeLock(campId) {
+  const note = $('editCampSelectionModeLockNote');
+  _selectionLockLoadedFor = campId;      // 같은 캠페인에 조회가 겹치지 않게 먼저 표시
+  _selectionModeLocked.edit = false;
+  _setSelectionModeDisabled('edit', false);
+  if (note) { note.style.display = 'none'; note.textContent = ''; }
+  if (!campId || typeof countActiveEventTickets !== 'function') return;
+
+  let n = 0;
+  try { n = await countActiveEventTickets(campId); }
+  catch (e) { console.warn('[refreshSelectionModeLock]', e); return; }
+
+  // ⚠️ 그 사이 다른 캠페인으로 넘어갔으면 이 답은 버린다. 늦게 도착한 답이 지금 화면을
+  //    덮으면 **다른 캠페인의 예약 건수로 이 캠페인이 잠긴다**.
+  if (($('editCampId')?.value || '') !== campId) return;
+  if (n <= 0) return;
+
+  _selectionModeLocked.edit = true;
+  _setSelectionModeDisabled('edit', true);
+  if (note) {
+    note.style.display = '';
+    note.innerHTML = `이미 예약이 <b>${esc(String(n))}건</b> 들어와 접수 방식을 바꿀 수 없습니다. `
+      + `방식이 바뀌면 이미 받은 예약의 뜻(즉시 당선 / 심사중)이 달라집니다.`;
+  }
+}
+
+// 신규 등록 폼·편집 폼을 채울 때 방식을 초기화한다.
+function resetSelectionModeField(prefix, mode) {
+  if (prefix === 'edit') {
+    _selectionLockLoadedFor = null;
+    _selectionModeLocked.edit = false;
+  } else {
+    _selectionModeLocked.new = false;
+  }
+  _setSelectionModeDisabled(prefix, false);
+  const note = $(prefix + 'CampSelectionModeLockNote');
+  if (note) { note.style.display = 'none'; note.textContent = ''; }
+  setCampSelectionMode(prefix, mode);
 }
 
 function applyInviteOnlyRow(prefix) {
@@ -166,10 +292,68 @@ function applyInviteOnlyRow(prefix) {
   if (saveHint) saveHint.style.display = on ? '' : 'none';
 }
 
-function onInviteOnlyToggle(prefix) {
+// 접수 방식 라디오를 손으로 바꿨을 때 — 선정 기간 칸을 다시 판정한다.
+//   🔴 S-10 이 「선정 기간은 선정형 행사에도 보인다」로 조건을 넓히면서, 그 칸의
+//      표시가 **이 라디오에 달리게 됐다.** 그런데 라디오에는 onchange 가 없어
+//      「선정형으로 바꿨는데 칸이 안 나타나는」 상태였다(모집 형식이나 행사 모드를
+//      건드려야 그때 반영됐다). 관리자는 왜 안 나오는지 알 길이 없다.
+//   ⚠️ 접수 방식 줄 **자신의** 표시는 여기서 건드리지 않는다 —
+//      applySelectionModeVisibility 한 곳에서만 판정한다(S-6 이 세운 규칙).
+//      여기는 「그 라디오 값에 딸린 다른 칸」만 다시 묻는다.
+//   ⚠️ setCampSelectionMode() 로 값을 넣을 때는 이 핸들러가 안 돈다(코드로 바꾼
+//      값에는 change 가 안 뜬다). 그 경로는 이미 표시 판정을 함께 부르므로 문제없다.
+function onSelectionModeChange(prefix) {
+  const rt = _currentRecruitType(prefix);
+  if (typeof applyDeadlineFieldsVisibility === 'function') {
+    applyDeadlineFieldsVisibility(prefix, rt || 'monitor');
+  }
+}
+
+async function onInviteOnlyToggle(prefix) {
+  const el = $(prefix + 'CampInviteOnly');
+
+  // 🔴 선정형으로 이미 예약을 받았으면 비공개를 끌 수 없다.
+  //   끄면 방식을 선착순형으로 되돌려야 하는데(아래), 이미 「심사중」으로 받아 둔
+  //   예약이 그 순간 뜻을 잃는다. 되돌릴 길이 화면에 없으므로 되묻지 않고 막는다.
+  //   ⚠️ 기준은 화면 라디오가 아니라 **저장된 방식**(_editCampOriginal)이다 — 라디오는
+  //      이 함수가 되돌린 뒤일 수 있어 「원래 선정형이었는가」를 못 말한다.
+  const savedMode = (typeof _editCampOriginal !== 'undefined' && _editCampOriginal)
+    ? (_editCampOriginal.event_selection_mode || 'first_come') : 'first_come';
+  if (prefix === 'edit' && el && !el.checked && savedMode === 'selection') {
+    const campId = $('editCampId')?.value || '';
+    let tk = 0;
+    try {
+      tk = (campId && typeof countActiveEventTickets === 'function')
+        ? await countActiveEventTickets(campId) : 0;
+    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = 0; }
+    if (tk > 0) {
+      el.checked = true;                     // 되돌린다 — 켠 상태가 사실이다
+      applyInviteOnlyRow(prefix);
+      applySelectionModeVisibility(prefix);
+      const _el = $('alertModalMessage');
+      if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75;text-align:left">
+        <div style="text-align:center;margin-bottom:14px">이 캠페인은 <b>선정형</b>으로 예약을 <b style="color:var(--red-d)">${esc(String(tk))}건</b> 받았습니다.</div>
+        <div>「비공개」를 끄면 접수 방식이 <b>선착순형</b>으로 돌아가야 하는데, 이미 「심사중」으로 받아 둔 예약이 그 순간 뜻을 잃습니다.</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+          모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.
+        </div>
+      </div>`;
+      if (typeof openModal === 'function') openModal('alertModal');
+      return;
+    }
+  }
+
   applyInviteOnlyRow(prefix);
+
+  // 🔴 비공개를 끄면 접수 방식을 선착순형으로 되돌린다.
+  //   안 되돌리면 그 저장이 마이그레이션 376 의 범위 제약(campaigns_selection_mode_scope_chk)에
+  //   막혀 데이터베이스 원문 오류로 실패한다. 행사 묶음(event_group_id)이 저장 시점에
+  //   같은 방식으로 걸러지는 것과 같은 이유다.
+  if (el && !el.checked) resetSelectionModeField(prefix, 'first_come');
+  applySelectionModeVisibility(prefix);
+
   // 비공개를 켰는데 번호가 없으면 하나 만들어 둔다(운영자가 잊고 저장하는 것 방지).
-  if ($(prefix + 'CampInviteOnly')?.checked && !$(prefix + 'CampInviteCode')?.value) {
+  if (el?.checked && !$(prefix + 'CampInviteCode')?.value) {
     genInviteCode(prefix);
   }
 }
@@ -269,6 +453,12 @@ async function loadEventSettingsIntoEditForm(camp) {
   if (io) io.checked = !!camp?.is_invite_only;
   const pl = $('editCampEventPlace');
   if (pl) pl.value = camp?.event_place || '';
+  // 접수 방식(마이그레이션 376) — 저장된 값으로 되돌린다.
+  //   ⚠️ **캠페인마다 반드시 다시 세운다.** 모듈 전역인 라디오·잠금 상태가 남아 있으면
+  //      다른 캠페인을 편집하다 들어왔을 때 직전 캠페인의 방식이 그대로 보인다
+  //      (_recruitTypeBeforeEvent 를 여기서 비우는 것과 같은 이유).
+  resetSelectionModeField('edit',
+    safeSelectionMode(camp?.event_selection_mode, !!camp?.event_mode, !!camp?.is_invite_only));
   // 묶음 선택지 — 지금 연결된 묶음을 keep 으로 넘긴다. 그게 보관 상태면 목록에서
   //   빠지는데, 빠진 채로 저장하면 빈 값이 쓰여 **연결이 조용히 끊긴다**.
   await fillEventGroupSelect('edit', camp?.event_group_id || '');
@@ -416,6 +606,8 @@ function resetEventFormFields(prefix) {
   const io = $(prefix + 'CampInviteOnly'); if (io) io.checked = false;
   const cc = $(prefix + 'CampInviteCode'); if (cc) cc.value = '';
   const pl = $(prefix + 'CampEventPlace'); if (pl) pl.value = '';
+  // 접수 방식은 기본값(선착순형)으로 — 안 켜면 지금과 완전히 같이 동작한다.
+  resetSelectionModeField(prefix, 'first_come');
   fillEventGroupSelect(prefix, '');
   if (prefix === 'new') _pendingNewInviteCode = null;
   _recruitTypeBeforeEvent[prefix] = null;
@@ -1057,14 +1249,40 @@ function openEventScanPage(campaignId) {
   window.open(`/event-scan.html?${q}`, '_blank', 'noopener');
 }
 
-async function renderEventTicketsPane(campaignId) {
+// 예약 현황이 보고 있는 캠페인을 확정한다.
+//   ① 부르는 쪽이 캠페인을 넘겨 줬으면 그것을 쓴다(가장 정확 — 진행현황이 방금 찾은 것).
+//   ② 안 넘겼는데 같은 캠페인을 이미 들고 있으면 그대로 둔다(취소·입장 뒤 다시 그리는 길).
+//   ③ 둘 다 아니면 목록 캐시에서 찾는다.
+function _setEventPaneCamp(campId, camp) {
+  if (camp && camp.id === campId) { _eventPaneCampObj = camp; return; }
+  if (_eventPaneCampObj && _eventPaneCampObj.id === campId) return;
+  const list = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns : [];
+  _eventPaneCampObj = list.find(c => c && c.id === campId) || null;
+}
+
+// 지금 보고 있는 캠페인이 **선정형 행사**인가 — 이 화면에서 선정형 분기의 유일한 기준.
+//   ⚠️ 「행사 모드」만으로 판정하지 말 것. 선착순형 행사도 event_mode 는 참이라,
+//      행사 전체가 뽑기 버튼을 달고 대기 순번을 잃는다(작업표 S-7 검증 17·17-B).
+function eventPaneIsSelection() {
+  return (typeof isSelectionEvent === 'function') && isSelectionEvent(_eventPaneCampObj);
+}
+
+// 표의 열 수 — 선정형이면 맨 앞 체크박스 칸이 하나 더 붙는다(빈 목록 안내문 colspan 용).
+function _eventTicketColSpan() { return eventPaneIsSelection() ? 9 : 8; }
+
+async function renderEventTicketsPane(campaignId, camp) {
   const campId = campaignId || _eventPaneCampId;
   if (!campId) return;
   _eventPaneCampId = campId;
+  _setEventPaneCamp(campId, camp);
+  // 다시 읽어 오면 고른 것은 버린다 — 화면에서 사라진 사람을 들고 있으면
+  //   서버가 not_found 로 통째로 거부한다.
+  _eventTicketSelected.clear();
+  _eventTicketActionNotice = '';
 
   // 제목은 진행현황 헤더(campApplicantsTitle)가 이미 보여 준다 — 여기서 또 그리지 않는다.
   const body = $('eventTicketsBody');
-  if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
+  if (body) body.innerHTML = `<tr><td colspan="${_eventTicketColSpan()}" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr>`;
 
   const [slots, tickets] = await Promise.all([
     fetchEventSlots(campId),
@@ -1111,7 +1329,12 @@ function eventTicketHandlerCell(t) {
   return '';
 }
 
-function eventTicketStatusLabel(key) {
+// 예약 상태를 사람이 읽는 말로.
+//   ⚠️ 선정형에서는 waitlist 가 「캔슬 대기」가 아니라 **「심사중」**이다(설계 1 — 같은 값을
+//      다른 뜻으로 재사용한다). 두 번째 인자를 안 주면 종전 그대로라, 아직 안 고친
+//      호출부(예약 명단 엑셀 등)는 영향받지 않는다.
+function eventTicketStatusLabel(key, selection) {
+  if (selection && key === 'waitlist') return '심사중';
   return ({
     confirmed: '확정',
     waitlist:  '대기',
@@ -1141,6 +1364,8 @@ function renderEventTicketSlotFilter() {
 
 function onEventTicketSlotFilterChange(v) {
   _eventTicketSlotFilter = v || '';
+  // 타임을 바꾸면 고른 것을 버린다(위 탭과 같은 이유).
+  clearEventTicketSelection(true);
   renderEventTicketStatusTabs();
   renderEventTicketsSummary();
   renderEventTicketsTable();
@@ -1151,19 +1376,26 @@ function renderEventTicketStatusTabs() {
   if (!bar) return;
   // 건수는 타임 필터를 적용한 뒤 센다 — 탭 숫자와 목록 길이가 어긋나지 않게.
   const pool = _eventTicketsCache.filter(t => !_eventTicketSlotFilter || t.slot_id === _eventTicketSlotFilter);
+  const sel = eventPaneIsSelection();
   bar.innerHTML = EVENT_TICKET_STATUS_TABS.map(tab => {
     const n = tab.key === ''
       ? pool.length
       : pool.filter(t => tab.key === 'confirmed' ? t.status === 'confirmed' : eventTicketViewStatus(t) === tab.key).length;
     const cls = 'status-tab-btn' + (_eventTicketStatusTab === tab.key ? ' on' : '')
       + (n === 0 && tab.key !== '' ? ' zero-count' : '');
+    // 탭 이름도 표의 배지와 같은 말이어야 한다 — 탭은 「대기」인데 행은 「심사중」이면
+    //   같은 사람을 두 이름으로 부르게 된다.
+    const label = (tab.key === '') ? tab.label : eventTicketStatusLabel(tab.key, sel);
     return `<button type="button" class="${cls}" onclick="onEventTicketStatusTab('${tab.key}')">`
-      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+      + `${esc(label)}<span class="tab-count">(${n})</span></button>`;
   }).join('');
 }
 
 function onEventTicketStatusTab(key) {
   _eventTicketStatusTab = key || '';
+  // 탭을 옮기면 고른 것을 버린다 — 안 보이는 사람을 들고 뽑기를 누르면
+  //   화면에 없는 이름이 처리된다.
+  clearEventTicketSelection(true);
   renderEventTicketStatusTabs();
   renderEventTicketsTable();
 }
@@ -1200,6 +1432,11 @@ function renderEventTicketsSummary() {
 function renderEventTicketsTable() {
   const body = $('eventTicketsBody');
   if (!body) return;
+  const sel = eventPaneIsSelection();
+  // 체크박스 칸(머리글)과 뽑기 줄은 선정형에서만 보인다.
+  const headCell = $('eventTicketSelectAllCell');
+  if (headCell) headCell.style.display = sel ? '' : 'none';
+  syncEventTicketSelectionBar();
   const rows = filteredEventTickets();
   if (!rows.length) {
     // 「시간대를 아직 안 만들었다」와 「시간대는 있는데 예약이 0건이다」는 할 일이 다르다.
@@ -1208,7 +1445,7 @@ function renderEventTicketsTable() {
       : (_eventTicketSlotFilter || _eventTicketStatusTab)
         ? '조건에 맞는 예약이 없습니다.'
         : '아직 예약이 없습니다.';
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">${msg}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${_eventTicketColSpan()}" style="text-align:center;color:var(--muted);padding:30px">${msg}</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(t => {
@@ -1220,14 +1457,22 @@ function renderEventTicketsTable() {
     const canCheckIn = (t.status === 'confirmed' && !t.entered_at);
     // 이미 입장했거나 이미 취소된 예약은 취소하지 않는다(서버도 같은 판정으로 막는다).
     const canCancel = (t.status !== 'cancelled' && !t.entered_at);
+    // 뽑기·탈락은 「심사중(waitlist)」인 사람에게만 한다. 서버도 같은 판정으로 막는다(379).
+    const canPick = sel && t.status === 'waitlist';
+    const pickCell = sel
+      ? `<td style="text-align:center;padding:4px">${canPick
+            ? `<input type="checkbox" class="event-ticket-cb" data-ticket-id="${esc(t.id)}"${_eventTicketSelected.has(t.id) ? ' checked' : ''} onchange="toggleEventTicketSelect('${esc(t.id)}', this.checked)">`
+            : ''}</td>`
+      : '';
     return `
       <tr>
+        ${pickCell}
         <td>${esc(String(s.slot_date || '').slice(0, 10))}</td>
         <td>${esc(fmtSlotTime(s))}</td>
         <td>${esc(inf.name_kanji || '-')}${audit}<div style="font-size:11px;color:var(--muted)">${esc(inf.name_kana || '')}</div></td>
         <td style="font-family:monospace">${esc(t.ticket_code)}</td>
         <td style="color:${badgeColor};font-weight:700">
-          ${eventTicketStatusLabel(v)}${t.status === 'waitlist' && t.waitlist_position ? ` ${t.waitlist_position}번` : ''}
+          ${eventTicketStatusLabel(v, sel)}${(!sel && t.status === 'waitlist' && t.waitlist_position) ? ` ${t.waitlist_position}번` : ''}
         </td>
         <td>${t.entered_at ? esc(formatDateTime(t.entered_at))
              : (t.status === 'cancelled' && t.cancelled_at
@@ -1244,6 +1489,296 @@ function renderEventTicketsTable() {
   }).join('');
 }
 
+// ══════════════════════════════════════════════════════════════
+// 선정형(직접 뽑기) — 뽑기 · 탈락
+//   사양서: docs/specs/2026-08-24-event-invite-only-selection.md (설계 2·6)
+//   작업표: 「S-7 — 관리자 예약 현황: 뽑기 · 떨어뜨리기」
+//   서버:   마이그레이션 379 pick_event_tickets · reject_event_tickets
+//
+// ⚠️ 이 묶음 전체가 **선정형에서만** 동작한다. 선착순형 행사·일반 공개 캠페인에서는
+//    버튼도 체크박스도 그리지 않는다(검증 17). 판정은 eventPaneIsSelection() 한 곳뿐.
+// ⚠️ 자동 승격을 꺼 둔 대가로(377), 확정자가 취소해 자리가 비면 **관리자가 직접 다시
+//    뽑아야 한다.** 그래서 이 줄은 확정자가 생긴 뒤에도 사라지지 않는다 — 심사중이
+//    한 명이라도 남아 있으면 행사가 끝날 때까지 계속 뽑을 수 있어야 한다(검증 16-B).
+// ══════════════════════════════════════════════════════════════
+
+// 지금 화면에 보이면서 뽑기·탈락 대상이 되는 예약(=심사중).
+//   타임 필터·상태 탭을 이미 통과한 목록에서만 고른다 — 「전체 선택」이 화면 밖 사람까지
+//   집어가면 관리자가 안 본 사람이 처리된다.
+function selectableEventTickets() {
+  if (!eventPaneIsSelection()) return [];
+  return filteredEventTickets().filter(t => t.status === 'waitlist');
+}
+
+function toggleEventTicketSelect(ticketId, checked) {
+  if (checked) _eventTicketSelected.add(ticketId); else _eventTicketSelected.delete(ticketId);
+  _eventTicketActionNotice = '';
+  syncEventTicketSelectionBar();
+}
+
+function toggleEventTicketSelectAll(checked) {
+  const ids = selectableEventTickets().map(t => t.id);
+  ids.forEach(id => { if (checked) _eventTicketSelected.add(id); else _eventTicketSelected.delete(id); });
+  document.querySelectorAll('.event-ticket-cb').forEach(cb => {
+    if (ids.includes(cb.dataset.ticketId)) cb.checked = !!checked;
+  });
+  _eventTicketActionNotice = '';
+  syncEventTicketSelectionBar();
+}
+
+// keepNotice=true 면 실패 안내를 지우지 않는다(필터·탭 이동처럼 선택만 비우는 경우).
+function clearEventTicketSelection(keepNotice) {
+  _eventTicketSelected.clear();
+  document.querySelectorAll('.event-ticket-cb').forEach(cb => { cb.checked = false; });
+  const all = $('eventTicketSelectAll');
+  if (all) { all.checked = false; all.indeterminate = false; }
+  if (!keepNotice) _eventTicketActionNotice = '';
+  syncEventTicketSelectionBar();
+}
+
+// 타임 1개의 정원 현황. 정원은 시간대 표에서, 확정·심사중 인원은 예약 캐시에서 센다.
+//   ⚠️ 두 곳에서 따로 세지 않으려고 이 함수 하나만 쓴다(요약 카드가 eventTicketCounts 를
+//      공유하는 것과 같은 이유).
+function eventSlotCapacityStat(slotId) {
+  const s = _eventSlotsCache.find(x => x && x.id === slotId) || null;
+  const capacity = Number(s?.capacity || 0);
+  const pool = _eventTicketsCache.filter(t => t.slot_id === slotId);
+  const confirmed = pool.filter(t => t.status === 'confirmed').length;
+  const waitlist  = pool.filter(t => t.status === 'waitlist').length;
+  return {slot: s, capacity, confirmed, waitlist, remaining: Math.max(capacity - confirmed, 0)};
+}
+
+// 뽑기 줄 왼쪽의 정원 현황 — 타임을 고르면 그 타임, 「전체 타임」이면 합계.
+//   ⚠️ 이 수가 안 보이면 관리자는 **몇 명을 더 뽑아야 하는지 알 수 없다**(S-7 산출 계약).
+function eventSelectionCapacitySummary() {
+  if (_eventTicketSlotFilter) {
+    const st = eventSlotCapacityStat(_eventTicketSlotFilter);
+    return {label: '이 타임 정원', capacity: st.capacity, confirmed: st.confirmed,
+            waitlist: st.waitlist, remaining: st.remaining};
+  }
+  // 합계는 「사용 안 함」으로 내린 타임을 뺀다 — 그 타임은 더 이상 채울 자리가 아니다.
+  const capacity = _eventSlotsCache
+    .filter(s => s && s.is_active !== false)
+    .reduce((n, s) => n + Number(s.capacity || 0), 0);
+  const confirmed = _eventTicketsCache.filter(t => t.status === 'confirmed').length;
+  const waitlist  = _eventTicketsCache.filter(t => t.status === 'waitlist').length;
+  return {label: '전체 정원', capacity, confirmed, waitlist,
+          remaining: Math.max(capacity - confirmed, 0)};
+}
+
+function _eventSlotWhen(slot) {
+  if (!slot) return '(사라진 타임)';
+  return `${String(slot.slot_date || '').slice(0, 10)} ${fmtSlotTime(slot)}`;
+}
+
+// 고른 사람들을 타임별로 묶는다 — 정원 판정이 타임 단위라(379) 이 묶음이 곧 판정 단위다.
+function selectedEventTicketsBySlot() {
+  const picked = _eventTicketsCache.filter(t => _eventTicketSelected.has(t.id));
+  const map = new Map();
+  picked.forEach(t => {
+    const row = map.get(t.slot_id) || {slotId: t.slot_id, tickets: []};
+    row.tickets.push(t);
+    map.set(t.slot_id, row);
+  });
+  return [...map.values()].map(row => {
+    const st = eventSlotCapacityStat(row.slotId);
+    return {...row, ...st, over: Math.max(row.tickets.length - st.remaining, 0)};
+  }).sort((a, b) => _eventSlotWhen(a.slot).localeCompare(_eventSlotWhen(b.slot)));
+}
+
+function syncEventTicketSelectionBar() {
+  const bar = $('eventTicketSelectionBar');
+  if (!bar) return;
+  const sel = eventPaneIsSelection();
+  bar.style.display = sel ? 'flex' : 'none';
+  if (!sel) return;
+
+  const cap = eventSelectionCapacitySummary();
+  const info = $('eventTicketCapacityInfo');
+  if (info) {
+    // 심사중 라벨은 표·탭과 같은 말을 쓴다(eventTicketStatusLabel 참고).
+    info.innerHTML =
+      `${esc(cap.label)} <b>${cap.capacity}</b>명 · 뽑은 사람 <b>${cap.confirmed}</b>명 · `
+      + `남은 자리 <b style="color:${cap.remaining > 0 ? 'var(--green)' : 'var(--red)'}">${cap.remaining}</b>명 · `
+      + `심사중 <b style="color:#D97706">${cap.waitlist}</b>명`;
+  }
+
+  const n = _eventTicketSelected.size;
+  const pickBtn = $('eventTicketPickBtn');
+  const rejBtn  = $('eventTicketRejectBtn');
+  const clrBtn  = $('eventTicketClearSelBtn');
+  if (pickBtn) { pickBtn.textContent = n ? `선택 ${n}명 뽑기` : '뽑기'; pickBtn.disabled = !n; }
+  if (rejBtn)  { rejBtn.textContent  = n ? `선택 ${n}명 탈락` : '탈락'; rejBtn.disabled  = !n; }
+  if (clrBtn)  clrBtn.style.display = n ? '' : 'none';
+
+  // 전체 선택 체크박스 상태 — 지금 보이는 심사중 인원 기준
+  const all = $('eventTicketSelectAll');
+  if (all) {
+    const total = selectableEventTickets().length;
+    const onScreen = selectableEventTickets().filter(t => _eventTicketSelected.has(t.id)).length;
+    all.checked = total > 0 && onScreen >= total;
+    all.indeterminate = onScreen > 0 && onScreen < total;
+  }
+
+  // 타임별 내역 — 「이 타임에서 몇 명이 넘치는지」를 **누르기 전에** 보여 준다.
+  //   서버는 정원을 넘기면 부분 통과 없이 전부 거부하므로(확정 6), 미리 안 보여 주면
+  //   관리자가 눌러 보고 나서야 다시 골라야 한다.
+  const bd = $('eventTicketSlotBreakdown');
+  if (bd) {
+    const groups = n ? selectedEventTicketsBySlot() : [];
+    if (!groups.length) { bd.style.display = 'none'; bd.innerHTML = ''; }
+    else {
+      bd.style.display = '';
+      bd.innerHTML = groups.map(g => {
+        const over = g.over > 0;
+        return `<div style="color:${over ? 'var(--red)' : 'var(--muted)'}">`
+          + `${esc(_eventSlotWhen(g.slot))} — 남은 자리 ${g.remaining}명 · 이번에 ${g.tickets.length}명`
+          + (over ? ` <b>→ ${g.over}명 초과</b>` : '')
+          + `</div>`;
+      }).join('');
+    }
+  }
+
+  const notice = $('eventTicketSelectionNotice');
+  if (notice) {
+    notice.style.display = _eventTicketActionNotice ? '' : 'none';
+    notice.innerHTML = _eventTicketActionNotice || '';
+  }
+}
+
+// 서버가 돌려준 거부 사유를 사람이 읽는 말로.
+//   🔴 **하나도 「알 수 없는 오류」로 뭉뚱그리지 않는다**(S-7 주의). 관리자는 이 안내를
+//      읽고 누구를 빼고 다시 누를지 정해야 한다.
+//   반환: {toast: '한 줄 요약', detail: '줄 목록 HTML(없으면 빈 문자열)'}
+function eventSelectionFailMessage(res, action) {
+  const verb = (action === 'pick') ? '뽑지' : '탈락 처리하지';
+  const r = res?.reason || '';
+  const line = s => `<div>${s}</div>`;
+
+  if (r === 'permission_denied') return {toast: '권한이 없습니다', detail: ''};
+  if (r === 'demo_mode')         return {toast: '데이터베이스에 연결되어 있지 않습니다', detail: ''};
+  if (r === 'invalid_input')     return {toast: '고른 사람이 없습니다', detail: ''};
+  if (r === 'not_found') {
+    return {toast: `예약을 찾을 수 없어 ${verb} 못했습니다`,
+            detail: line('화면과 실제 데이터가 어긋났습니다(다른 관리자가 방금 처리했을 수 있습니다). 화면을 새로 불러온 뒤 다시 골라 주세요.')};
+  }
+  if (r === 'not_selection_mode') {
+    return {toast: '이 캠페인은 직접 뽑기(선정형)가 아닙니다',
+            detail: line('캠페인의 접수 방식이 선착순형으로 바뀌었을 수 있습니다. 화면을 새로 불러와 확인해 주세요.')};
+  }
+  if (r === 'invalid_tickets') {
+    const names = (res.tickets || []).map(x => {
+      const why = ({
+        already_confirmed: '이미 당선 처리됨',
+        already_cancelled: '이미 탈락·취소됨',
+        invalid_status:    '처리할 수 없는 상태'
+      })[x.reason] || '처리할 수 없는 상태';
+      return line(`${esc(x.influencer_name || '(이름 미상)')} — ${why}`);
+    }).join('');
+    return {toast: `이미 처리된 사람이 섞여 있어 ${verb} 못했습니다`,
+            detail: names + line('아무도 처리되지 않았습니다. 화면을 새로 불러온 뒤 다시 골라 주세요.')};
+  }
+  if (r === 'capacity_exceeded') {
+    const rows = (res.slots || []).map(s => {
+      const when = `${String(s.slot_date || '').slice(0, 10)} ${String(s.start_time || '').slice(0, 5)}`;
+      // 서버가 준 값이라도 숫자로 바꿔서 넣는다 — innerHTML 에 문자열을 그대로 꽂지 않는다.
+      const cap  = Number(s.capacity || 0);
+      const done = Number(s.already_confirmed || 0);
+      const req  = Number(s.requested || 0);
+      const rest = Number(s.remaining || 0);
+      return line(`${esc(when)} — 정원 ${cap}명 · 이미 ${done}명 뽑음 · `
+        + `이번에 ${req}명 → <b>${done + req - cap}명 초과</b>(남은 자리 ${rest}명)`);
+    }).join('');
+    return {toast: '정원을 넘어 아무도 뽑지 않았습니다',
+            detail: rows + line('위 타임에서 초과한 만큼 빼고 다시 눌러 주세요.')};
+  }
+  return {toast: `${verb} 못했습니다 (사유 코드: ${esc(r || '응답 없음')})`,
+          detail: line('처리되지 않았습니다. 같은 일이 반복되면 이 사유 코드를 개발팀에 알려 주세요.')};
+}
+
+// 뽑기 — 고른 심사중 방문객을 한 번에 당선 처리한다.
+async function pickSelectedEventTickets() {
+  if (!eventPaneIsSelection()) return;
+  const ids = [..._eventTicketSelected];
+  if (!ids.length) { toast('뽑을 사람을 골라 주세요', 'error'); return; }
+
+  const groups = selectedEventTicketsBySlot();
+  const overGroups = groups.filter(g => g.over > 0);
+  if (overGroups.length) {
+    // 서버도 막지만(379), 여기서 먼저 막아야 관리자가 확인 창까지 갔다가 되돌아오지 않는다.
+    _eventTicketActionNotice = overGroups.map(g =>
+      `<div>${esc(_eventSlotWhen(g.slot))} — 남은 자리 ${g.remaining}명인데 ${g.tickets.length}명을 골랐습니다(<b>${g.over}명 초과</b>)</div>`
+    ).join('') + '<div>초과한 만큼 빼고 다시 눌러 주세요.</div>';
+    syncEventTicketSelectionBar();
+    toast('남은 자리보다 많이 골랐습니다', 'error');
+    return;
+  }
+
+  const detail = groups.map(g => `· ${_eventSlotWhen(g.slot)} — ${g.tickets.length}명`).join('\n');
+  const ok = await showConfirm(
+    `고른 ${ids.length}명을 당선 처리합니다.\n\n${detail}\n\n` +
+    `당선 알림이 바로 발송됩니다.\n되돌릴 수 없습니다 — 취소하려면 각 행의 「취소」를 눌러야 합니다.`,
+    '당선 처리');
+  if (!ok) return;
+
+  try {
+    const res = await pickEventTickets(ids);
+    if (!res || res.ok !== true) {
+      const m = eventSelectionFailMessage(res, 'pick');
+      _eventTicketActionNotice = m.detail;
+      syncEventTicketSelectionBar();
+      toast(m.toast, 'error');
+      return;
+    }
+    _eventTicketSelected.clear();
+    _eventTicketActionNotice = '';
+    toast(`${res.confirmed_count || ids.length}명을 당선 처리했습니다. 알림을 보냈습니다`);
+    // 표·요약·탭 숫자를 한 번에 맞춘다(취소 버튼과 같은 방식).
+    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
+    else await renderEventTicketsPane(_eventPaneCampId);
+  } catch (e) {
+    console.error('[pickSelectedEventTickets]', e);
+    toast(friendlyError(e), 'error');
+  }
+}
+
+// 탈락 — 고른 심사중 방문객을 한 번에 떨어뜨린다.
+//   ⚠️ 앱 알림은 **안 간다**(확정 1). 통지는 다음날 아침 「응모 결과」 메일이 맡는다 —
+//      확인 창 문구를 「알림이 가지 않습니다」로 적으면 사실과 다르다.
+async function rejectSelectedEventTickets() {
+  if (!eventPaneIsSelection()) return;
+  const ids = [..._eventTicketSelected];
+  if (!ids.length) { toast('탈락 처리할 사람을 골라 주세요', 'error'); return; }
+
+  const groups = selectedEventTicketsBySlot();
+  const detail = groups.map(g => `· ${_eventSlotWhen(g.slot)} — ${g.tickets.length}명`).join('\n');
+  const ok = await showConfirm(
+    `고른 ${ids.length}명을 탈락 처리합니다.\n\n${detail}\n\n` +
+    `다음날 아침 「응모 결과」 메일로 안내됩니다.\n되돌릴 수 없습니다.`,
+    '탈락 처리');
+  if (!ok) return;
+
+  try {
+    // 메모 칸은 아직 없다 — 필요해지면 여기 두 번째 인자로 넘긴다(서버는 이미 받는다).
+    const res = await rejectEventTickets(ids, null);
+    if (!res || res.ok !== true) {
+      const m = eventSelectionFailMessage(res, 'reject');
+      _eventTicketActionNotice = m.detail;
+      syncEventTicketSelectionBar();
+      toast(m.toast, 'error');
+      return;
+    }
+    _eventTicketSelected.clear();
+    _eventTicketActionNotice = '';
+    toast(`${res.rejected_count || ids.length}명을 탈락 처리했습니다`);
+    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
+    else await renderEventTicketsPane(_eventPaneCampId);
+  } catch (e) {
+    console.error('[rejectSelectedEventTickets]', e);
+    toast(friendlyError(e), 'error');
+  }
+}
+
 // 관리자 예약 취소 — 그동안 관리자에게는 예약을 정리할 수단이 아예 없어서,
 //   「신청 미승인」으로 대신 처리하다 **신청만 반려되고 티켓은 확정으로 남는** 어긋남이
 //   생겼다(입장 확인은 신청 상태를 안 본다). 이 버튼이 그 자리를 대신한다.
@@ -1253,10 +1788,16 @@ async function cancelTicketFromAdmin(ticketId) {
   const s = t?.event_slots || {};
   const who = inf.name_kanji || inf.name_kana || '이 방문객';
   const when = `${String(s.slot_date || '').slice(0, 10)} ${fmtSlotTime(s)}`;
+  // ⚠️ 선정형은 **자동 승격을 꺼 뒀다**(마이그레이션 377). 여기서 「대기 1번이 자동으로
+  //    올라간다」고 안내하면 사실과 다르고, 관리자가 빈 자리를 방치하게 된다 — 그 자리는
+  //    심사중인 사람 중에서 **직접 다시 뽑아야** 채워진다(작업표 S-7 검증 16-B).
+  const afterLine = eventPaneIsSelection()
+    ? `빈 자리는 자동으로 채워지지 않습니다 — 심사중인 분 중에서 직접 다시 뽑아 주세요.\n`
+    : `자리가 비면 대기 1번이 자동으로 확정으로 올라가고 알림이 갑니다.\n`;
   const ok = await showConfirm(
     `${who} 님의 예약을 취소할까요?\n\n` +
     `${when} · 예약번호 ${t?.ticket_code || ''}\n\n` +
-    `자리가 비면 대기 1번이 자동으로 확정으로 올라가고 알림이 갑니다.\n` +
+    afterLine +
     `되돌릴 수 없습니다 — 다시 넣으려면 본인이 새로 예약해야 합니다.`,
     '예약 취소');
   if (!ok) return;
@@ -1405,6 +1946,10 @@ function applyEventModeFieldVisibility(prefix) {
 
   // 모집 인원 잠금은 시간대 개수에 달렸다 — 켜고 끌 때마다 다시 판정한다.
   if (prefix === 'edit') syncEventDerivedFields();
+
+  // 접수 방식 줄(선착순형/선정형)의 표시. ⚠️ 이 함수 안에서 부른다 — 이 계열 함수가
+  //   한 흐름에서 여러 번 불리므로, 호출자 쪽에서만 숨기면 나중에 끝난 호출이 되살린다.
+  applySelectionModeVisibility(prefix);
 }
 
 // 저장 직전에 시간대를 **다시 읽어** 방문 기간·모집 인원을 계산한다.

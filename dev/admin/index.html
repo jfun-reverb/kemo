@@ -450,6 +450,27 @@
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
+                <!-- 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 · 사양서 2026-08-24 §설계 0
+                     ⚠️ 행사 모드 **그리고** 비공개일 때만 보인다(조건이 둘). 비공개만 보고 켜면
+                        행사가 아닌 캠페인에서도 뜬다. 표시 판정은 applySelectionModeVisibility
+                        (admin-event.js) 한 곳에서만 한다 — 호출자 쪽에서 숨기면 뒤늦게 끝난
+                        비동기 렌더가 되살린다(2026-08-03 실측 사고). -->
+                <div id="editCampSelectionModeRow" class="event-selection-row" style="display:none">
+                  <div class="event-selection-title">신청 접수 방식</div>
+                  <div class="event-selection-choices">
+                    <label class="event-selection-choice">
+                      <input type="radio" name="editCampSelectionMode" value="first_come" onchange="onSelectionModeChange('edit')" checked>
+                      <span>선착순형</span>
+                    </label>
+                    <label class="event-selection-choice">
+                      <input type="radio" name="editCampSelectionMode" value="selection" onchange="onSelectionModeChange('edit')">
+                      <span>선정형</span>
+                    </label>
+                  </div>
+                  <div class="form-hint"><b>선착순형</b> — 정원이 남아 있으면 그 자리에서 당선됩니다(지금과 같습니다).</div>
+                  <div class="form-hint"><b>선정형</b> — 정원과 상관없이 신청만 받고, 관리자가 직접 뽑습니다. <b>예약이 한 건이라도 들어오면 바꿀 수 없습니다.</b></div>
+                  <div class="form-hint" id="editCampSelectionModeLockNote" style="display:none"></div>
+                </div>
               </div>
             </div>
 
@@ -890,6 +911,26 @@
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="newCampInviteSaveHint" style="display:none">초대 링크는 캠페인을 저장한 뒤 편집 화면에서 복사할 수 있습니다.</div>
+                <!-- 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 · 사양서 2026-08-24 §설계 0
+                     ⚠️ 행사 모드 **그리고** 비공개일 때만 보인다(조건이 둘). 비공개만 보고 켜면
+                        행사가 아닌 캠페인에서도 뜬다. 표시 판정은 applySelectionModeVisibility
+                        (admin-event.js) 한 곳에서만 한다 — 호출자 쪽에서 숨기면 뒤늦게 끝난
+                        비동기 렌더가 되살린다(2026-08-03 실측 사고). -->
+                <div id="newCampSelectionModeRow" class="event-selection-row" style="display:none">
+                  <div class="event-selection-title">신청 접수 방식</div>
+                  <div class="event-selection-choices">
+                    <label class="event-selection-choice">
+                      <input type="radio" name="newCampSelectionMode" value="first_come" onchange="onSelectionModeChange('new')" checked>
+                      <span>선착순형</span>
+                    </label>
+                    <label class="event-selection-choice">
+                      <input type="radio" name="newCampSelectionMode" value="selection" onchange="onSelectionModeChange('new')">
+                      <span>선정형</span>
+                    </label>
+                  </div>
+                  <div class="form-hint"><b>선착순형</b> — 정원이 남아 있으면 그 자리에서 당선됩니다(지금과 같습니다).</div>
+                  <div class="form-hint"><b>선정형</b> — 정원과 상관없이 신청만 받고, 관리자가 직접 뽑습니다. <b>예약이 한 건이라도 들어오면 바꿀 수 없습니다.</b></div>
+                </div>
               </div>
             </div>
 
@@ -1380,7 +1421,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
+              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
@@ -1397,9 +1438,23 @@
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
             </div>
+            <!-- 선정형(직접 뽑기) 전용 줄 — 정원 현황 + 뽑기·탈락 버튼.
+                 ⚠️ 선착순형·일반 공개 캠페인에서는 **아예 안 보인다**(작업표 S-7 검증 17).
+                    보이는 조건은 admin-event.js 의 eventPaneIsSelection() 한 곳에서만 판정한다. -->
+            <div id="eventTicketSelectionBar" style="display:none;flex-direction:column;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--surface-container-low)">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span id="eventTicketCapacityInfo" style="font-size:13px;color:var(--ink)"></span>
+                <div style="flex:1;min-width:8px"></div>
+                <button type="button" class="btn btn-green btn-sm" id="eventTicketPickBtn" onclick="pickSelectedEventTickets()">뽑기</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="eventTicketRejectBtn" style="color:var(--red);border-color:var(--red)" onclick="rejectSelectedEventTickets()">탈락</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="eventTicketClearSelBtn" onclick="clearEventTicketSelection()">선택 해제</button>
+              </div>
+              <div id="eventTicketSlotBreakdown" style="display:none;font-size:12px;line-height:1.7"></div>
+              <div id="eventTicketSelectionNotice" style="display:none;font-size:12px;line-height:1.7;color:var(--red)"></div>
+            </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
+              <thead><tr><th id="eventTicketSelectAllCell" style="display:none;width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventTicketSelectAll" onchange="toggleEventTicketSelectAll(this.checked)" title="지금 보이는 심사중 방문객 전체 선택"></th><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
               <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
@@ -1543,12 +1598,13 @@
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
                 <th style="width:132px;white-space:nowrap">인증 상태</th>
+                <th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleDelivSort('cert_at')">▲▼</span></th>
                 <th class="deliv-col-receipt">영수증</th>
                 <th class="deliv-col-result">결과물</th>
                 <th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th class="deliv-col-action">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>

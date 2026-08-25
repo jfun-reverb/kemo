@@ -180,6 +180,8 @@ async function openCampaign(id) {
           // 숨겼지만, 예전에 저장된 값이나 행사로 바꾸기 전 값이 남아 있을 수 있어
           // **그리는 쪽에서도 막는다** — 저장된 값과 무관하게 행사면 안 그린다.
           const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+          // 선정형 행사인가 — 아래 「선정 기간」 줄을 가르는 판정(2026-08-24 선정형 사양서 설계 7).
+          const isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
           // 라벨 칸 폭 — 낼 것을 다 적은 제출 마감 이름(「レシート・投稿スクショの提出締切」)이
           //   90픽셀에서 **네 줄**로 접혀 110픽셀로 넓혔다(2026-08-06 브라우저 실측).
           //   ⚠️ 전 행 공통 값이라 바꾸면 모든 줄에 영향을 준다 — 나머지 라벨은 전부 한 줄이라
@@ -236,9 +238,15 @@ async function openCampaign(id) {
           //   아래에 둔다(인플루언서가 겪는 순서: 모집 → 선정 → 방문 → 결과물 제출 마감).
           //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다.
           //   ⚠️ 기존 「당선 발표」 줄은 그대로 둔다(날짜 vs 알리는 방법 — 서로 다른 정보).
-          //   ⚠️ **행사는 값이 있어도 안 그린다.** 관리자 폼이 행사일 때 입력칸을 숨기긴 하나
-          //      값을 지우지는 않으므로(일부러 그렇다), 「행사를 켜기 전에 넣어 둔 값」이 남아
-          //      있을 수 있다. 여기서 행사를 안 보면 그 줄이 방문객 화면에 떠 버린다.
+          //   ⚠️ **선착순형 행사는 값이 있어도 안 그린다.** 관리자 폼이 행사일 때 입력칸을
+          //      숨기긴 하나 값을 지우지는 않으므로(일부러 그렇다), 「행사를 켜기 전에 넣어 둔
+          //      값」이 남아 있을 수 있다. 여기서 행사를 안 보면 그 줄이 방문객 화면에 떠 버린다.
+          //   ★ **선정형 행사(isSelectionEvent)는 그린다** — 2026-08-24 선정형 사양서 설계 7.
+          //      선행 결정이 행사를 통째로 뺀 근거는 「예약이 곧 당선(선착순)이라 뽑는 기간이
+          //      성립하지 않는다」였는데, 선정형은 관리자가 실제로 뽑으므로 그 전제가 뒤집힌다.
+          //      ⚠️ 그래서 조건은 「행사」가 아니라 **「선정형」으로** 넓힌다 — 선착순형 비공개
+          //      행사에는 여전히 뜨면 안 된다(뽑는 기간이 없다). 갈래를 이름으로 지목하는
+          //      isSelectionEvent 를 쓰고 `!== 'first_come'` 같은 부정 조건을 쓰지 않는다.
           //   ★ 이 조건은 **네 곳에 있다 — ①인플루언서 캠페인 상세(application.js)
           //      ②관리자 미리보기(admin.js kSelectionPeriod) ③진행현황 개요 카드
           //      (admin-applications.js selRange) ④관리자 엑셀(admin-excel.js pickSelection).
@@ -246,7 +254,7 @@ async function openCampaign(id) {
           //      형식을 아예 안 보고 값만 있으면 그린다(운영 도구라 일부러 그렇다).
           //      한 곳만 고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다. 나머지 셋의
           //      주석은 이 자리를 가리키므로, **조건을 바꾸면 여기부터 고친다.**
-          if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEvent))
+          if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
               && (camp.selection_start || camp.selection_end)) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.selectionPeriod')}</div><div style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
           }
@@ -448,7 +456,19 @@ async function openCampaign(id) {
       //   그런데 여기서 「応募済み」 + 비활성 버튼으로 그리면 두 가지가 잘못된다 —
       //   ① 확정된 것처럼 읽힌다 ② 자기 대기 순번을 보거나 취소하러 갈 길이 이 화면에서 끊긴다
       //   (응모 이력 카드에는 티켓 버튼이 있지만 상세에서 바로 못 간다 — 2026-08-06 확인).
-      floatApplyBtn.textContent = t('event.waitlistBtn');
+      // 선정형이면 「캔슬 대기」가 아니라 「심사중」이다 — 뽑히기를 기다리는 것이라
+      //   순번을 보러 간다고 적으면 없는 순번을 찾게 된다(의심 ⑤).
+      //   ⚠️ 선정형에서 **떨어진 사람도 여기까지 온다.** 응모가 'rejected' 라 위
+      //      `_myApp` 조회(취소만 제외)에 걸려 alreadyApplied 가 참이 되고, 응모이력
+      //      카드를 누르면 이 상세로 들어온다. 그때 「심사중」이라고 적으면 **이미 끝난
+      //      일을 계속 기다리게 된다** — 낙선 알림을 안 보내기로 해(확정 1) 화면 표시가
+      //      유일한 통지이므로 더 나쁘다. 누르면 티켓 화면에서 이유를 볼 수 있게 열어 둔다.
+      //   ⚠️ 선착순형은 이 분기에 손대지 않는다 — 캠페인 종료 자동 낙첨(마이그레이션 176)에도
+      //      같은 어긋남이 있지만 이번 변경 이전부터 있던 별개 문제라 여기서 바꾸지 않는다.
+      const _selEvt = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+      floatApplyBtn.textContent = (_selEvt && _myApp?.status === 'rejected')
+        ? t('event.selectionRejectedBtn')
+        : (_selEvt ? t('event.selectionPendingBtn') : t('event.waitlistBtn'));
       floatApplyBtn.disabled = false;
       floatApplyBtn.className = 'btn btn-ghost btn-sm';
       floatApplyBtn.onclick = () => {
@@ -512,6 +532,10 @@ let _selectedEventSlotId = null;   // 이번 상세 화면에서 고른 타임
 let _eventSlotsForDetail = [];     // 이 캠페인의 타임 목록
 let _eventSlotCountsForDetail = {};// 타임별 정원·확정 수
 let _eventSlotActiveDate = '';     // 지금 보고 있는 날짜 탭
+// 지금 보고 있는 행사가 선정형인가 — 타임 선택표를 그리는 함수들이 camp 를 못 받아 여기 둔다.
+//   ⚠️ 선정형은 **정원을 안 세고 받는다**(마이그레이션 378). 그래서 「잔여 N명」·「만석」을
+//      그리면 안 된다 — 「잔여 0명」인 타임에도 접수가 되어 안내가 거짓이 된다(의심 ②).
+let _eventSelectionForDetail = false;
 
 async function loadEventSlotPicker(camp) {
   // 다른 캠페인을 열었을 수 있으니 매번 초기화한다.
@@ -519,6 +543,9 @@ async function loadEventSlotPicker(camp) {
   _eventSlotsForDetail = [];
   _eventSlotCountsForDetail = {};
   _eventSlotActiveDate = '';
+  // ⚠️ 여기서 반드시 다시 정한다. 안 되돌리면 선정형 행사를 한 번 열고 나서 여는
+  //    선착순형 행사에 「접수 중」이 남아 잔여·만석이 통째로 사라진다.
+  _eventSelectionForDetail = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
 
   const listEl = $('eventSlotList');
   if (!listEl) return;
@@ -619,12 +646,17 @@ function renderEventSlotList() {
   el.innerHTML = rows.map(s => {
     const c = _eventSlotCountsForDetail[s.id] || {remaining: Number(s.capacity || 0), waitlist: 0};
     const remaining = Number(c.remaining || 0);
-    const full = remaining <= 0;
+    // 선정형은 정원과 상관없이 신청을 받으므로 「만석」이라는 상태 자체가 없다.
+    //   full 을 늘 false 로 두면 회색 처리·대기 안내·토스트가 한꺼번에 안 뜬다.
+    const full = !_eventSelectionForDetail && remaining <= 0;
     const picked = _selectedEventSlotId === s.id;
     const st = String(s.start_time || '').slice(0, 5);
     const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
     const timeLabel = en ? `${st}〜${en}` : st;
-    const rightLabel = full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining);
+    // 선정형은 잔여를 쓰지 않는다(위 _eventSelectionForDetail 주석) — 접수 중임만 알린다.
+    const rightLabel = _eventSelectionForDetail
+      ? t('event.slotOpenLabel')
+      : (full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining));
     // ⚠️ 대기 안내는 **고른 줄 바로 아래**에 붙인다. 목록 맨 아래에 두면 이른 시간을
     //    고른 사람은 한참 스크롤해야 볼 수 있어 사실상 못 본다(2026-08-03 지적).
     const note = (picked && full)
@@ -642,7 +674,10 @@ function renderEventSlotList() {
 }
 
 // 고른 타임이 만석인가 — 신청 모달·안내가 같은 판정을 쓰게 한 곳에 둔다.
+//   ⚠️ 선정형에는 만석이 없다. 여기서 한 번만 막으면 신청 모달 상단의 대기 안내와
+//      타임을 고를 때 뜨는 토스트가 **둘 다** 안 뜬다(§1-2 자리 2).
 function isSelectedEventSlotFull() {
+  if (_eventSelectionForDetail) return false;
   const s = _eventSlotsForDetail.find(x => x.id === _selectedEventSlotId);
   if (!s) return false;
   const c = _eventSlotCountsForDetail[s.id] || {};
@@ -735,7 +770,13 @@ async function submitEventReservation(camp) {
   }
 
   closeModal('applyModal');
-  toast(res.status === 'waitlist' ? t('event.waitlistDone') : t('event.applyDone'), 'success');
+  // 선정형에서 `waitlist` 는 「캔슬 대기」가 아니라 「심사중」이다 — 「자리가 나면 알려
+  //   드립니다」로 안내하면 방문객이 **엉뚱한 것을 기다린다**(의심 ①).
+  //   ⚠️ 판정은 camp 로 한다(선택표용 플래그가 아니라) — 이 함수는 camp 를 받는다.
+  const _selEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+  toast(t(res.status === 'waitlist'
+            ? (_selEvent ? 'event.selectionDone' : 'event.waitlistDone')
+            : 'event.applyDone'), 'success');
 
   _selectedEventSlotId = null;
 
@@ -1713,12 +1754,13 @@ function renderActivityReceiptList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('receipt', 0);
     return;
   }
-  let hasDraft = false;
-  container.innerHTML = delivs.map(r => {
+  let draftCount = 0;
+  container.innerHTML = splitDeliverableGroups(delivs, r => {
     const isDraft = r.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(r.status);
@@ -1749,8 +1791,9 @@ function renderActivityReceiptList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  }, 'receipt');
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('receipt', draftCount);
 }
 
 // monitor 2단계 — 캠페인 채널 수만큼 「채널별 리뷰 이미지 카드」를 N개 동적 렌더.
@@ -1775,6 +1818,7 @@ function renderActivityReviewImageList(delivs, channels) {
   //   단순히 임시저장 유무(hasDraft)로 버튼을 띄우면, 마감이 지나 서버가 거부할 채널의
   //   임시저장만 남았을 때도 버튼이 눌리는 상태로 노출된다(2026-07-31 브라우저 검증에서 발견).
   let hasSubmittableDraft = false;
+  let submittableDraftCount = 0;   // 안내 줄 건수 — 버튼이 실제로 보낼 것과 같은 수여야 한다
   container.innerHTML = (channels || []).map(function(ch) {
     const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
@@ -1785,7 +1829,7 @@ function renderActivityReviewImageList(delivs, channels) {
 
     if (row) {
       const isDraft = row.status === 'draft';
-      if (isDraft && !formDisabled) hasSubmittableDraft = true;
+      if (isDraft && !formDisabled) { hasSubmittableDraft = true; submittableDraftCount++; }
       const stBadge = isDraft
         ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
@@ -1843,8 +1887,89 @@ function renderActivityReviewImageList(delivs, channels) {
     submitBtn.style.display = hasSubmittableDraft ? '' : 'none';
     submitBtn.disabled = !hasSubmittableDraft;
   }
+  renderDraftPendingBar('review_image', submittableDraftCount);
   // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
   if (typeof applyI18n === 'function') applyI18n(container);
+}
+
+
+// 결과물 목록을 「지난 제출」과 「제출할 항목」 두 무리로 나눈다.
+//   ⚠️ 왜 나누나 — 제출 버튼이 목록 **아래**에 있어서, 섞여 있으면 위의 모든 행을
+//   보내는 것처럼 보인다(2026-08-25 사용자 지적: 「비승인 3건까지 같이 제출되는
+//   것처럼 읽힌다」). 실제로 보내는 것은 임시저장뿐이다.
+//   ⚠️ 임시저장을 **아래쪽**에 둔다 — 버튼·안내 줄이 바로 뒤에 붙어야 「이것을 보낸다」가
+//   눈으로 이어진다.
+//   ⚠️ 한쪽 무리가 비면 제목을 안 붙인다 — 나눌 것이 없는데 제목만 있으면 군더더기다.
+//   ⚠️ 「지난 제출」은 **최근 1건만** 펼쳐 두고 나머지는 접는다 — 재제출을 거듭하면
+//   반려 이력이 쌓여, 정작 지금 해야 할 일(아래 「제출할 항목」)이 화면 밖으로 밀린다.
+//   ⚠️ 목록은 **제출 시각 내림차순**으로 들어온다(application.js 의 정렬). 그래서 첫
+//   번째가 최근이다 — 순서가 바뀌면 옛것이 대표로 뜨므로 그 정렬을 함께 볼 것.
+//   ⚠️ 펼친 상태는 다시 그려도 유지한다(_activityPastOpen) — 펼쳐 놓고 한 건 추가했다고
+//   접혀 버리면 방금 본 것을 다시 찾아야 한다.
+const _activityPastOpen = new Set();
+// ⚠️ 펼침 상태는 **응모건마다** 따로 기억한다. 종류(receipt·post)로만 키를 잡으면
+//   A 응모건에서 펼친 것이 B 응모건까지 펼쳐진 채로 넘어가, 그 화면도 늘어진 채
+//   시작한다 — 이 기능을 만든 이유(쌓인 이력에 할 일이 묻힌다)가 그대로 재발한다.
+function _activityPastKey(kind) { return String(_activityAppId || '') + ':' + kind; }
+function toggleActivityPastMore(kind) {
+  const k = _activityPastKey(kind);
+  if (_activityPastOpen.has(k)) _activityPastOpen.delete(k);
+  else _activityPastOpen.add(k);
+  // ⚠️ 서버를 다시 부르지 않는다 — 직전 조회 결과를 그대로 다시 그린다.
+  //   loadDeliverablesForActivity() 를 부르면 조회가 **매번 2회**(목록 + 제출 가부)
+  //   돌고 화면이 깜빡인다. 펼치기는 이미 받아 둔 것을 보여주는 일일 뿐이다.
+  //   ⚠️ 거르는 기준은 그 로더가 쓰는 것과 **같아야** 한다 — 종류로만 거른다.
+  const rows = (_activityLastDelivs || []).filter(d => d.kind === kind);
+  if (kind === 'receipt') renderActivityReceiptList(rows);
+  else if (kind === 'post') renderActivityPostList(rows);
+}
+function splitDeliverableGroups(rows, renderRow, key) {
+  const past = [], todo = [];
+  (rows || []).forEach(function(r) { (r.status === 'draft' ? todo : past).push(r); });
+  const head = k => `<div class="deliv-group-head">${esc(t('activity.' + k))}</div>`;
+  const both = past.length && todo.length;
+  let html = '';
+  if (past.length) {
+    const open = _activityPastOpen.has(_activityPastKey(key));
+    const hidden = past.length - 1;
+    // ⚠️ 제목 줄은 「나눌 것이 있을 때」뿐 아니라 「접을 것이 있을 때」도 그린다 —
+    //   펼치기 버튼이 그 줄에 얹히므로, 제목을 안 그리면 버튼도 함께 사라진다.
+    if (both || hidden > 0) {
+      const label = open
+        ? t('activity.pastLess')
+        : String(t('activity.pastMore')).replace('{n}', String(hidden));
+      const toggle = hidden > 0
+        ? `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`
+        : '';
+      html += `<div class="deliv-group-head deliv-group-head-row"><span>${esc(t('activity.groupPast'))}</span>${toggle}</div>`;
+    }
+    html += renderRow(past[0]);
+    if (open && hidden > 0) html += past.slice(1).map(renderRow).join('');
+  }
+  if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
+  return html;
+}
+
+// ── 「아직 제출 안 함」 안내 줄 (세 화면 공용) ────────────────────────────
+//   2026-08-25: 운영에서 결과물 26건이 임시저장으로 멈춰 있었다(게시물 23·인증샷 2·
+//   영수증 1 — 세 종류 전부, 4개월간 누적). 「リストに追加」만 누르고 끝난 줄 아는
+//   사람이 이어졌다. 같은 일이 2026-04-27 에도 있었고(마이그레이션 073 머리말),
+//   그때는 화면을 안 고쳤다.
+//   ⚠️ 세 화면이 반드시 이 함수 하나를 쓴다 — 따로 쓰면 화면마다 다른 말이 된다.
+//   ⚠️ 안내 줄은 **제출 버튼과 항상 같이** 뜨고 같이 사라진다. 버튼 없이 안내만
+//      남으면 「하라는데 할 수가 없는」 막다른 길이 된다.
+//   ⚠️ 0건이면 아무것도 안 그린다(정상 흐름의 몇 초도 미제출 상태다 — 상시 노출되면
+//      「원래 그런 화면」으로 학습돼 아무도 안 본다).
+const DRAFT_BAR_IDS = {receipt: 'draftBarReceipt', review_image: 'draftBarReviewImage', post: 'draftBarPost'};
+function renderDraftPendingBar(kind, count) {
+  const el = $(DRAFT_BAR_IDS[kind]);
+  if (!el) return;
+  const n = Number(count) || 0;
+  if (n <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML =
+    `<div class="dpb-title">${esc(String(t('activity.draftPendingTitle')).replace('{n}', String(n)))}</div>` +
+    `<div class="dpb-step">${esc(t('activity.draftPendingStep'))}</div>`;
+  el.style.display = '';
 }
 
 function renderActivityPostList(delivs) {
@@ -1854,12 +1979,13 @@ function renderActivityPostList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('post', 0);
     return;
   }
-  let hasDraft = false;
-  container.innerHTML = delivs.map(d => {
+  let draftCount = 0;
+  container.innerHTML = splitDeliverableGroups(delivs, d => {
     const isDraft = d.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
@@ -1885,8 +2011,9 @@ function renderActivityPostList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  }, 'post');
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('post', draftCount);
 }
 
 function activityStatusBadge(status) {
@@ -2080,7 +2207,7 @@ async function _addDraftUrlInner() {
     $('postUrlInput').value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2146,7 +2273,7 @@ async function _addDraftImageInner() {
       const rd = $('receiptDate'); if (rd) rd.value = '';
       const ra = $('receiptAmount'); if (ra) ra.value = '';
     }
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2181,7 +2308,7 @@ async function _addDraftReviewImageInner(channel) {
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
     _reviewImgDataByChannel[channel] = null;
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }

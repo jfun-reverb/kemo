@@ -218,7 +218,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
@@ -488,6 +488,19 @@ async function renderDeliverablesList() {
       const bStart = (b.campaign?.purchase_start || b.campaign?.visit_start || '');
       return aStart.localeCompare(bStart) * dir;
     });
+  } else if (_delivSort.col === 'cert_at') {
+    // 인증 성공일 정렬. ⚠️ 값이 빈 행(아직 인증 성공이 아닌 건)은 **방향과 무관하게 항상 뒤로**
+    //   보낸다 — 이 열은 빈 칸이 절반 넘어서, 오름차순에서 빈 칸이 앞을 다 채우면
+    //   정렬을 눌러도 아무것도 못 보게 된다.
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      const av = certSuccessAt(a) || '';
+      const bv = certSuccessAt(b) || '';
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv) * dir;
+    });
   } else if (_delivSort.col === 'submission_end') {
     // 결과물 제출 마감일 기준 정렬
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
@@ -520,7 +533,7 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -731,6 +744,39 @@ function certStatusBadge(g) {
 // opts.compact: 단일 캠페인 화면(캠페인 진행현황 「결과물 목록」 탭)에서 호출.
 //   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
 //   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
+// 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
+//   판정에 쓰인 결과물들의 승인 시각 중 **가장 늦은 것** = 마지막 한 건이 승인된 순간.
+//   서버 쪽 원본은 마이그레이션 331 의 `_settlement_cert_candidates()` — 형식별 분기가 같다:
+//     가구매      : 영수증 승인 시각
+//     리뷰어형    : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
+//     시딩·방문형 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//   ⚠️ 채널 목록은 `_finalizePostReprs` 와 **같은 곳**에서 얻는다(캠페인 channel 문자열).
+//      여기만 다른 데서 얻으면 「인증성공인데 날짜가 빈」 행이 생긴다.
+//   ⚠️ 인증 성공이 아닌 건은 빈 값이다 — 진행 중인 건에 날짜를 붙이면 끝난 것처럼 보인다.
+//   ⚠️ 옛 결과물에 승인 시각이 비어 있으면 **빈 값으로 둔다.** 등록일 같은 다른 날짜로
+//      대신 채우지 않는다 — 정산이 그 실수를 했고 마이그레이션 324 가 정정했다.
+//   ⚠️ 정산 화면과 **값은 같아도 대상은 다르다** — 정산 행이 없는 건(무보수 시딩·방문형은
+//      후보에서 제외, 마이그레이션 264)은 여기엔 날짜가 뜨지만 정산 목록엔 아예 없다.
+function certSuccessAt(g) {
+  if (!g || computeCertStatus(g) !== 'success') return null;
+  const camp = g.campaign || {};
+  const rt = camp.recruit_type;
+  const okAt = (d) => (d && d.status === 'approved' && d.reviewed_at) ? d.reviewed_at : null;
+  // 하나라도 시각이 없으면 전체를 빈 값으로 — 「가장 늦은 것」을 알 수 없기 때문
+  const latest = (arr) => {
+    let m = null;
+    for (const v of arr) { if (!v) return null; if (!m || v > m) m = v; }
+    return m;
+  };
+  const channels = String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  if (rt === 'monitor') {
+    const r = okAt(g.receipt);
+    if (camp.proxy_purchase) return r;
+    return latest([r].concat(channels.map(ch => okAt((g.reviewByChannel || {})[ch]))));
+  }
+  return latest(channels.map(ch => okAt((g.postByChannel || {})[ch])));
+}
+
 function renderDelivAppRow(g, opts) {
   const compact = !!(opts && opts.compact);
   const camp = g.campaign || {};
@@ -793,6 +839,7 @@ function renderDelivAppRow(g, opts) {
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">${campCols}
     <td><div class="applicant-name-cell"><div class="applicant-name-info"><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</div>${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
+    <td style="white-space:nowrap;font-size:12px">${(function(){ const at = certSuccessAt(g); return at ? esc(formatDate(at)) : '<span style="color:var(--muted)">—</span>'; })()}</td>
     <td class="deliv-col-receipt">${receiptCell}</td>
     <td class="deliv-col-result">${resultCell}</td>
     <td class="deliv-col-submitted">${submittedCell}</td>

@@ -41,6 +41,19 @@ function hasEventTicket() {
   return _ticketList.some(t => t && t.status !== 'cancelled');
 }
 
+// 선정 탈락(낙선)한 예약인가 — 예약표는 취소(cancelled), 딸린 응모는 미승인(rejected).
+//   선정형 행사에서 관리자가 「탈락」시키면 이 두 값이 갈린다(마이그레이션 379).
+//   ⚠️ 본인 취소·운영진 취소는 응모도 'cancelled' 라 여기 안 걸린다 — 그래서 두 경우를
+//      화면에서 가를 수 있다. 새 사유 코드를 만들지 않은 것이 이 판정의 전제다(확정 1).
+//   ⚠️ 응모 상태는 storage.js 의 fetchMyEventTickets 가 조회에 **끼워 붙인** 값이다.
+//      접근 정책에 막히면 오류 없이 null 이 온다 — 그때는 종전 「취소됨」으로 떨어진다.
+//      「낙선인데 취소라고 안내」가 되는 자리이므로 실제 로그인 브라우저에서 값이
+//      채워지는지 눈으로 확인해야 한다(마이그레이션 312 사고와 같은 유형).
+function isSelectionRejectedTicket(ticket) {
+  return !!(ticket && ticket.status === 'cancelled'
+            && ticket.applications && ticket.applications.status === 'rejected');
+}
+
 // 티켓 목록을 미리 받아 둔다(햄버거 메뉴 표시 판단용). 로그인 직후·메뉴 열 때 호출.
 async function preloadEventTickets() {
   if (!currentUser) { _ticketList = []; return; }
@@ -99,9 +112,22 @@ function backFromTicket() {
 }
 
 // ── 렌더 ──────────────────────────────────────────────────────
-// 티켓 가운데 영역 — 상태에 따라 QR / 대기 순번 / 취소 안내로 갈린다.
-function ticketMainHtml(ticket) {
+// 티켓 가운데 영역 — 상태에 따라 QR / 대기 순번 / 심사중 / 낙선 / 취소 안내로 갈린다.
+//   camp 는 선착순형·선정형을 가르는 데만 쓴다(선정형은 순번이 없다).
+function ticketMainHtml(ticket, camp) {
+  const selection = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp || {});
   if (ticket.status === 'cancelled') {
+    // 선정 탈락은 「취소됨」이 아니라 「선정되지 않았습니다」로 말한다 —
+    //   그러지 않으면 낙선자가 **자기가 취소한 줄 안다**(사양서 의심 ⑧).
+    //   판정은 응모 상태 하나로 한다(위 isSelectionRejectedTicket 주석 참조).
+    if (isSelectionRejectedTicket(ticket)) {
+      return `
+        <div class="ticket-state ticket-state-off">
+          <span class="material-icons-round notranslate" translate="no">event_busy</span>
+          <div class="ticket-state-title">${esc(t('event.ticketNotSelectedTitle'))}</div>
+          <div class="ticket-state-hint">${esc(t('event.ticketNotSelectedHint'))}</div>
+        </div>`;
+    }
     return `
       <div class="ticket-state ticket-state-off">
         <span class="material-icons-round notranslate" translate="no">event_busy</span>
@@ -109,6 +135,18 @@ function ticketMainHtml(ticket) {
       </div>`;
   }
   if (ticket.status === 'waitlist') {
+    // 선정형에서 `waitlist` 는 「캔슬 대기」가 아니라 **「심사중」**이다(설계 1 이 값을 재사용).
+    //   ⚠️ 순번을 그리지 않는다 — 선정형은 순번을 아예 안 넣고(마이그레이션 378),
+    //      「3번」처럼 보이면 **뽑히는 순서가 정해져 있다는 오해**를 준다(의심 ⑤).
+    //   ⚠️ 선착순형은 한 글자도 안 바뀐다 — 순번은 그쪽에서 의미가 살아 있는 값이다.
+    if (selection) {
+      return `
+        <div class="ticket-state ticket-state-wait">
+          <span class="material-icons-round notranslate" translate="no">hourglass_top</span>
+          <div class="ticket-state-title">${esc(t('event.ticketSelectionPendingTitle'))}</div>
+          <div class="ticket-state-hint">${esc(t('event.ticketSelectionPendingHint'))}</div>
+        </div>`;
+    }
     return `
       <div class="ticket-state ticket-state-wait">
         <span class="material-icons-round notranslate" translate="no">hourglass_top</span>
@@ -147,7 +185,7 @@ function ticketSwitchHtml(current) {
       ${_ticketList.map(x => `
         <button type="button" class="ticket-switch-btn${x.id === current.id ? ' on' : ''}"
                 onclick="openTicketPage('${x.id}', '${esc(_ticketFrom)}', false)">
-          ${esc(formatTicketWhenShort(x.event_slots || {}))}${x.status === 'cancelled' ? ` (${esc(t('event.ticketTabCancelled'))})` : ''}
+          ${esc(formatTicketWhenShort(x.event_slots || {}))}${x.status === 'cancelled' ? ` (${esc(t(isSelectionRejectedTicket(x) ? 'event.ticketTabRejected' : 'event.ticketTabCancelled'))})` : ''}
         </button>`).join('')}
     </div>`;
 }
@@ -168,7 +206,7 @@ function renderTicket(ticket) {
 
   const others = ticketSwitchHtml(ticket);
 
-  const main = ticketMainHtml(ticket);
+  const main = ticketMainHtml(ticket, camp);
 
   const canCancel = ticket.status !== 'cancelled' && !ticket.entered_at;
   const windowPassed = (typeof eventCancelWindowPassed === 'function')

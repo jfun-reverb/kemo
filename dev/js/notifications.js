@@ -292,7 +292,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}, event_selection_won:{icon:'celebration',color:'#16A34A'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -333,6 +333,15 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   // 대기 승격 알림 → 입장 티켓 화면 (마이그레이션 283, ref_table='event_tickets')
   //   분기가 없으면 알림은 뜨는데 눌러도 아무 데도 가지 않는다.
   if (kind === 'event_waitlist_promoted' && refId && currentUser) {
+    if (typeof openTicketPage === 'function') openTicketPage(refId, 'mypage');
+    refreshNotifBadge();
+    return;
+  }
+  // 행사 당선 알림 → 입장 티켓 화면 (마이그레이션 379 `pick_event_tickets` 가 직접 넣는다,
+  //   ref_table='event_tickets' · ref_id=티켓 id — 대기 승격과 목적지가 같다).
+  //   ⚠️ 위 대기 승격과 같은 이유로 분기가 없으면 눌러도 아무 데도 가지 않는다.
+  //   ⚠️ 아래 deliverables 분기와 표가 달라 else 로 새면 응모이력으로 빠진다.
+  if (kind === 'event_selection_won' && refId && currentUser) {
     if (typeof openTicketPage === 'function') openTicketPage(refId, 'mypage');
     refreshNotifBadge();
     return;

@@ -74,7 +74,27 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 
 ## SMTP / 이메일
 - 양 서버 모두 **Brevo** Custom SMTP 사용 (`smtp-relay.brevo.com:587`)
-- **Brevo 플랜: Starter 20,000 emails/월** (Monthly $29, 갱신일 매월 16일). Marketing+Transactional 공용 쿼터. 2026-04-16 Free 300/일 폭주로 Starter 업그레이드
+- **Brevo 플랜: Starter 20,000 emails/월** ($32/월, **2026-08-25 재구독**). Marketing+Transactional **공용 쿼터**. 2026-04-16 Free 300/일 폭주로 Starter 업그레이드
+  - ⚠️ **금액·용량·갱신일을 문서로 믿지 말 것** — 이 줄은 오래 「$29 · 갱신일 매월 16일」이었는데 **셋 다 사실과 달랐다**(2026-08-25 실측: 만료 전 40,000통/월, 만료일 8/20, 재구독가 $32). 판단이 필요하면 **Brevo 우측 상단 「Usage and plan」을 직접 열어** 볼 것
+  - 실사용량 참고(2026-08-25 실측): **7월 931통 · 8월 1~20일 1,487통**, 홍보 시작 후 피크 **하루 200통 이상**
+
+### 🔴 메일이 안 나갈 때 보는 순서 (2026-08-25 확립)
+
+**구독이 만료되면 Brevo 는 발송을 멈추고 큐에 쌓아 둔다 — 오류가 아니라 침묵이다.** 2026-08-20 20:25 만료 후 **5일간 회원가입 확인·비밀번호 재설정·검수 알림이 전부 안 나갔고**, 끊긴 것을 **회원 문의로만** 알았다(큐 476통).
+
+| # | 어디 | 무엇을 보나 |
+|---|---|---|
+| 1 | **Supabase 대시보드 → Logs → Auth** | 그 이메일로 검색. `/signup` 응답 코드 + `event_message` 의 `auth_event.action`(`user_confirmation_requested` 면 **발송 요청은 된 것**) |
+| 2 | **Brevo → Transactional → Logs** | 같은 주소로 검색. **0건이면 Brevo 에 도달조차 안 한 것** |
+| 3 | 🔴 **Brevo → 우측 상단 「Usage and plan」** | **구독 만료 · 크레딧 0 · `N paused emails`(큐)**. 2026-08-25 사고의 답이 여기 있었다 |
+| 4 | Brevo → Statistics | 기간을 넓혀 **발송이 언제 끊겼는지** |
+
+⚠️ **함정 셋 — 전부 「화면에 보이는 것을 확인 없이 사실로 읽은」 것이다**
+1. **`First opening`·`Opened`·`Clicked` 는 열람이지 발송이 아니다.** 발송을 보려면 **More filters → Events → `Sent`** 로 거른다. 이걸 오독해 「지금도 메일이 나가고 있다」고 잘못 보고했다
+2. **「Usage and plan」 팝업은 페이지 로드 시점 값이라 갱신되지 않는다.** 결제 뒤에도 옛 값(만료·큐 476)을 보여줘 「아직 복구 안 됨」으로 오판했다 — **새로고침하고 Real time 화면으로** 확인할 것
+3. **Brevo 수신자 검색은 정확 일치**다. 도메인으로 보려면 검색 종류를 **`Recipient domain`**, 제목은 **`Subject line`** 으로 바꾼다
+
+⚠️ **아직 없는 것** — 발송이 끊긴 것을 **자동으로 알려 주는 장치가 없다.** 그 알림도 메일이면 함께 죽으므로 **다른 경로**여야 한다.
 - Supabase 기본 메일 서버는 3-4건/시간 제한이라 운영 불가
 - Site URL은 반드시 `https://` 프로토콜 포함 (슬래시 누락 사고 사례 있음)
 - Redirect URLs에 양 환경 URL 모두 등록 (`https://globalreverb.com/**`, `https://dev.globalreverb.com/**`)

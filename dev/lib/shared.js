@@ -1107,20 +1107,31 @@ function faqComputeStatus(status, delivs, camp) {
       return { key: 'reviewing', stage: 'approved_post' };
     }
     // ② 결과물이 없으면 캠페인 일정으로
-    const phase = faqComputeCancelPhase(camp);
-    const isVisit = camp?.recruit_type === 'visit';
-    if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
-    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
-    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post') {
-      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
-      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
-      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
-      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
-      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
-      return { key: 'post_deadline', stage: 'approved_post' };
-    }
-    return { key: 'approved_fallback', stage: null };
+    const sched = (function() {
+      const phase = faqComputeCancelPhase(camp);
+      const isVisit = camp?.recruit_type === 'visit';
+      if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+      if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+      if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+      if (phase === 'post') {
+        // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+        // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+        // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+        const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+        if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+        return { key: 'post_deadline', stage: 'approved_post' };
+      }
+      return { key: 'approved_fallback', stage: null };
+    })();
+    // ③ 낸 것은 없는데 「올려만 둔」 것이 있으면, 일정 안내로 흘려보내지 않는다.
+    //   위 필터가 임시저장을 빼는 것은 「검수 중이라고 말하지 않기 위해서」였고 그건 맞다.
+    //   그런데 거기서 끝나서, 그 사람에게는 일정 문구만 떴다 — 무엇이 잘못됐는지 알 길이
+    //   없었다(운영 26건이 4개월간 그 상태로 쌓였다). 이제 한 줄 더 말해 준다.
+    //   ⚠️ stage 는 일정 기준 값을 **그대로** 쓴다 — 자주 묻는 질문 트리 노드가 stage 로
+    //   걸리므로 바꾸면 그 사람에게 보이는 질문 목록이 통째로 달라진다.
+    const hasDraft = (Array.isArray(delivs) ? delivs : []).some(d => d && d.status === 'draft');
+    if (hasDraft) return { key: 'draft_pending', stage: sched.stage };
+    return sched;
   }
   return { key: 'fallback', stage: null };
 }
@@ -1526,6 +1537,17 @@ function submissionDeadlinePassed(camp) {
 //      그대로이고, 형식에 새 값을 만들지 않는 것이 이 기능의 설계 전제다(사양서 §3).
 function isEventCampaign(camp) {
   return !!(camp && camp.event_mode === true);
+}
+
+// 선정형 행사인가 — 행사 모드 + 방식 칸이 'selection'(마이그레이션 376).
+//   ⚠️ 이 판정을 여러 곳에서 각자 만들지 않는다. isEventCampaign 바로 아래 두는 이유도
+//      같다 — 판정이 두 벌이 되면 「어떤 화면에서는 선정형인데 다른 화면에서는
+//      아닌」 어긋남이 생긴다(작업표 §4-2 경고).
+//   ⚠️ 호출부는 갈래를 이름으로 지목한다. `event_selection_mode !== 'first_come'` 같은
+//      부정 조건을 쓰지 않는다 — 갈래가 늘 때 조용히 잘못된 쪽으로 빨려 들어간다
+//      (이 저장소가 캠페인 기간 판정에서 겪은 일).
+function isSelectionEvent(camp) {
+  return !!(camp && camp.event_mode === true && camp.event_selection_mode === 'selection');
 }
 
 // 비공개(초대 전용) 캠페인인가 — 목록 제외·상세 게이트 판정용.

@@ -186,7 +186,10 @@ async function loadCampApplicants() {
   //   — 화면을 옮겼을 뿐 판정을 새로 만들지 않는다.
   let ticketTotal = 0;
   if (_campDetailIsEvent && typeof renderEventTicketsPane === 'function') {
-    await renderEventTicketsPane(camp.id);
+    // 캠페인 객체를 함께 넘긴다 — 예약 표가 「선정형인가」를 이 값으로 판정한다.
+    //   목록 캐시(allCampaigns)에서 다시 찾게 두면, 운영현황에서 곧바로 들어온 경로처럼
+    //   캐시가 비어 있을 때 **조용히 선착순형으로 읽혀** 뽑기 버튼이 안 뜬다.
+    await renderEventTicketsPane(camp.id, camp);
     ticketTotal = (typeof _eventTicketsCache !== 'undefined' && Array.isArray(_eventTicketsCache))
       ? _eventTicketsCache.filter(t => t.status !== 'cancelled').length : 0;
     // 요약 카드는 위(110행)에서 이미 그려졌는데, 그때는 예약을 아직 안 읽어 0 으로 나온다.
@@ -370,7 +373,7 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
 
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
+    : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
   return totalAllGroups;
 }
 
@@ -425,6 +428,8 @@ function campOpsOverviewCard(camp) {
   const chSep = camp.channel_match === 'and' ? ' & ' : ' / ';
   const channelTxt = channels.map(ch => esc(getChannelLabel(ch))).join(chSep);
   const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  // 선정형 행사인가 — 아래 「선정」 줄을 가르는 판정(2026-08-24 선정형 사양서 설계 7).
+  const isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
   // 행사는 제품 금액을 0으로 저장한다 — 그대로 두면 「0円」이 값처럼 보인다.
   const priceTxt = (!isEvent && camp.product_price != null && camp.product_price !== '' && Number(camp.product_price) > 0)
     ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
@@ -448,8 +453,10 @@ function campOpsOverviewCard(camp) {
   //      **시딩형 동작은 그대로**다.
   //   ⚠️ 이 조건을 쓰는 자리는 **네 곳**이고 글자 그대로 같아야 한다 — 목록과 근거는
   //      인플루언서 상세(application.js)의 같은 자리 주석에 있다.
+  //   ⚠️ 행사는 **선정형만** 그린다(2026-08-24 선정형 사양서 설계 7). 선착순형 비공개
+  //      행사에는 뽑는 기간이 없어 뜨면 안 된다.
   //   ⚠️ 값이 비면 종전처럼 줄 자체를 안 그린다 — 「무조건 세 줄」이라는 뜻이 아니다.
-  const selRange = ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEvent))
+  const selRange = ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
       && (camp.selection_start || camp.selection_end))
     ? brandOpsDateRange(camp.selection_start, camp.selection_end) : '';
   const submitTxt = camp.submission_end ? formatDate(camp.submission_end) : '';
@@ -482,7 +489,9 @@ function campOpsOverviewCard(camp) {
 // 모집·결과물 현황 카드 — 진행바 3종(모집/제출/승인) + 보조 수치.
 //   행사 캠페인은 결과물이 없어 「제출·인증」이 영원히 0이라 오해를 부른다 → 예약·입장으로 바꾼다.
 function campOpsStatusCard(camp, allApps, allDelivs, stats) {
-  if ((typeof isEventCampaign === 'function') && isEventCampaign(camp)) return campOpsEventStatusCard(camp.id);
+  // ⚠️ 캠페인 객체를 그대로 넘긴다 — 카드가 「선정형인가」를 판정해야 하는데
+  //    id 만 넘기면 그 판정 재료가 없다(선정형이면 「대기」가 아니라 「심사중」이다).
+  if ((typeof isEventCampaign === 'function') && isEventCampaign(camp)) return campOpsEventStatusCard(camp);
   const slots = stats.slots || 0;
   const approved = stats.approved || 0;
   const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
@@ -510,7 +519,11 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
 //   ⚠️ 분모 정원은 `campaigns.slots`(저장 시점 스냅샷)가 아니라 **시간대 정원 합계**를 쓴다.
 //      시간대를 고치고 캠페인을 저장하지 않으면 스냅샷이 낡아, 브랜드 보고에 틀린 수를 낸다.
 //   ⚠️ 숫자는 예약 화면과 **같은 함수**(eventTicketCounts)로 센다 — 따로 세면 두 곳이 갈린다.
-function campOpsEventStatusCard(campId) {
+//   ⚠️ 인자는 캠페인 **객체**다(2026-08-25, 선정형 추가). 선정형이면 같은 값(waitlist)이
+//      「캔슬 대기」가 아니라 「심사중」을 뜻해 이름표가 달라지므로 id 만으로는 부족하다.
+function campOpsEventStatusCard(camp) {
+  const campId = camp?.id || camp;   // 옛 호출부가 id 만 넘겨도 숫자는 그대로 나오게
+  const isSel = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
   // ⚠️ 아래 캐시는 예약 화면이 채운다. 이 카드는 예약을 읽기 **전에도** 한 번 그려지는데,
   //    그때 캐시에는 **직전에 보던 다른 행사 캠페인의 숫자**가 남아 있다(0 이 아니다).
   //    그 값을 그대로 보여 주면 잘못된 수가 잠깐 진짜처럼 보인다 — 이 캠페인 것이 아니면
@@ -530,10 +543,10 @@ function campOpsEventStatusCard(campId) {
   const enterPct = c.confirmed > 0 ? Math.round(c.entered / c.confirmed * 100) : null;
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">예약 · 입장 현황</div>
-    ${brandOpsRateBar('예약 확정', bookPct, c.confirmed, cap)}
+    ${brandOpsRateBar(isSel ? '선정 완료' : '예약 확정', bookPct, c.confirmed, cap)}
     ${brandOpsRateBar('입장 완료', enterPct, c.entered, c.confirmed)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
-      <span>대기 <strong style="color:#f59e0b">${c.waitlist}</strong>명</span>
+      <span>${isSel ? '심사중' : '대기'} <strong style="color:#f59e0b">${c.waitlist}</strong>명</span>
       <span>미입장 <strong style="color:var(--ink)">${c.noshow}</strong>명</span>
       <span>취소 <strong>${c.cancelled}</strong>명</span>
     </div>

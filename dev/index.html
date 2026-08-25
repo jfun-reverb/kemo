@@ -718,7 +718,8 @@ window._supabaseLoaded = false;
       </div>
       <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
       <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
-      <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+      <div id="draftBarReceipt" class="draft-pending-bar" style="display:none"></div>
+      <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
     </div>
 
     <!-- 리뷰 캡쳐 섹션 (monitor STEP 2 — 영수증 승인 후 노출) -->
@@ -731,7 +732,8 @@ window._supabaseLoaded = false;
       <div id="reviewImageBody" style="display:none">
         <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
         <div id="reviewImageList" style="margin-bottom:20px"></div>
-        <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+        <div id="draftBarReviewImage" class="draft-pending-bar" style="display:none"></div>
+        <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
       </div>
     </div>
 
@@ -761,7 +763,8 @@ window._supabaseLoaded = false;
         </div>
         <button id="addPostBtn" class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
-      <button id="submitPostsBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('post')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+      <div id="draftBarPost" class="draft-pending-bar" style="display:none"></div>
+      <button id="submitPostsBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('post')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
     </div>
   </div>
 </div>

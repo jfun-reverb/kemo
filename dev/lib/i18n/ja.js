@@ -13,6 +13,9 @@ window.I18N_JA = {
     slotFull: '満席',
     slotFullWaitlist: '満席（キャンセル待ち）',
     slotWaitlistNote: '満席のため、キャンセル待ちでの申し込みになります。',
+    // ── 選定制イベント（申し込みを受けて、あとで運営がえらぶ） ──
+    //   ⚠️ 上の「あと{n}名」「満席」は先着制でつかう。消さないこと。
+    slotOpenLabel: '受付中',
     slotClosed: '受付をしめきりました',
     slotNone: '日時がまだ登録されていません。しばらくしてからもう一度ごらんください。',
     slotLoading: '日時を読み込んでいます…',
@@ -21,6 +24,7 @@ window.I18N_JA = {
     selected: 'えらんだ日時',
     applyDone: '予約が確定しました。入場チケットをご確認ください。',
     waitlistDone: 'キャンセル待ちに登録しました。あきが出たらお知らせします。',
+    selectionDone: 'お申し込みを受けつけました。結果は、選定期間がおわったあとにおしらせします。',
     // 予約できなかった理由 — 一つずつ、次にすることまで書く
     failInviteRequired: 'このイベントは招待された方のみお申し込みいただけます。',
     failInviteMismatch: '招待番号がちがうようです。お送りしたリンクをもう一度ひらいてください。',
@@ -35,6 +39,8 @@ window.I18N_JA = {
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
     waitlistBtn: 'キャンセル待ち — 順番をみる',
+    selectionPendingBtn: '審査中 — 申請内容をみる',
+    selectionRejectedBtn: '落選 — 結果をみる',
     cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
@@ -44,6 +50,12 @@ window.I18N_JA = {
     ticketWaitlistTitle: 'キャンセル待ち {n}番',
     ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
     ticketCancelledTitle: 'この予約はキャンセルされました',
+    // 選定制で「えらばれなかった」場合。⚠️ キャンセルとは別のことばにする —
+    //   同じ「キャンセルされました」だと、ご自身でキャンセルしたと思われてしまう。
+    ticketSelectionPendingTitle: '審査中',
+    ticketSelectionPendingHint: 'えらばれた方には、この画面と通知でおしらせします。まだ入場はできません。',
+    ticketNotSelectedTitle: '選ばれませんでした',
+    ticketNotSelectedHint: 'こんかいはご縁がありませんでした。またのお申し込みをおまちしています。',
     ticketEnteredAt: '入場ずみ（{time}）',
     ticketEnteredTitle: '入場が確認されました',
     ticketEnteredHint: 'ごゆっくりおたのしみください。',
@@ -62,6 +74,7 @@ window.I18N_JA = {
     placeTbdShort: '会場は後日おしらせ',
     ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
     ticketTabCancelled: 'キャンセル',
+    ticketTabRejected: '落選',
     // ── 招待制キャンペーンの入口 ──
     inviteGateTitle: '招待された方だけがごらんになれます',
     inviteGateHint: 'お送りしたリンクをひらくと、そのままごらんになれます。\n番号をおもちの方は、下に入力してください。',
@@ -692,16 +705,27 @@ window.I18N_JA = {
     imageLabel: '画像',
     imageBtn: '画像を選択',
     addDraftBtn: 'リストに追加',
-    submitToAdminBtn: '管理者へ提出',
+    submitToAdminBtn: '提出する',
     draftBadge: '未提出',
     draftAdded: 'リストに追加しました',
+    // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
+    draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
+    groupPast: 'これまでの提出',
+    pastMore: '以前の提出をあと{n}件見る',
+    pastLess: '閉じる',
+    groupToSubmit: '提出する項目',
+    draftPendingTitle: 'まだ提出していないものが{n}件あります',
+    draftPendingStep: '1. 下の「提出する」ボタンを押してください\n2. 押すまで運営には届きません',
+    leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
     draftDeleted: '削除しました',
     submittedN: '{n}件を提出しました',
     submittedPartial: '{n}件を提出しました。提出できなかったものがあります',
+    submitPartialFailed: '「{channels}」は提出できませんでした',
     nothingToSubmit: '提出する項目がありません',
     postSection: '投稿URLの提出',
     postUrlLabel: '投稿URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... など',
+    badUrlShape: 'リンク（URL）が正しくないようです。もう一度貼り直してください',
     postChannelLabel: 'チャンネルを選択',
     postChannelHint: 'URLからチャンネルを自動判別できませんでした',
     // キャンペーンにチャンネルが設定されていない場合のみ表示（通常は起こりません）
@@ -763,6 +787,7 @@ window.I18N_JA = {
 
   // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
+    draft: '未提出',
     pending: '検査中',
     approved: '承認',
     rejected: '非承認',
@@ -770,7 +795,7 @@ window.I18N_JA = {
 
   // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
   delivKind: {
-    receipt: 'レシート提出',
+    receipt: 'レシート',
     reviewImage: 'レビュースクショ',
     post: '投稿URL',
   },
@@ -904,6 +929,7 @@ window.I18N_JA = {
       visit: 'ご訪問後、投稿をご提出ください。',
       post_deadline: '成果物の提出期限：{date}',
       post_overdue: '提出期限を過ぎています。',
+      draft_pending: 'アップロードしたものが、まだ提出されていません。',
       reviewing: 'ご提出いただいた成果物を確認中です。',
       partial_reject: '一部の成果物が差し戻されました。差し戻し分をご確認の上、再提出ください。',
       all_reject: '成果物が差し戻されました。理由をご確認の上、再提出ください。',

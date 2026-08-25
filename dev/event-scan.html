@@ -376,6 +376,7 @@ const SCAN_I18N = {
     recent: '최근 확인',
     roster: '예약자 명단', refresh: '새로고침', allDates: '전체 기간', todaySuffix: ' (오늘)',
     rsReserved: '예약 {r}명', rsEntered: '입장 {e}명 ({p}%)', rsWaiting: '대기 {w}명',
+    rsPending: '심사중 {w}명',
     rosterHint: 'QR 을 못 찾거나 휴대폰을 두고 오신 분은 이름을 눌러 입장 처리하세요.',
     noSlots: '등록된 타임이 없습니다.', noSlotsThisDate: '이 날짜에 등록된 타임이 없습니다.',
     noAttendees: '예약자가 없습니다.',
@@ -388,6 +389,9 @@ const SCAN_I18N = {
     scopeLoadFailed: '행사 목록을 불러오지 못했습니다. 인터넷 연결을 확인하고 이 페이지를 새로고침해 주세요.',
     scopeUnnamed: '(이름 없는 행사)',
     enterBtn: '입장', enteredAt: '입장', waitingN: '대기', enteredCount: '입장',
+    // 선정형 행사에서 waitlist 는 「캔슬 대기」가 아니라 **「심사중」**이다(설계 1).
+    //   관리자 화면 표·탭과 같은 말을 쓴다(admin-event.js 의 eventTicketStatusLabel).
+    pendingN: '심사중',
     resetBtn: '입장 기록 초기화',
     resetAsk: '{scope} 입장 기록을 되돌립니다.\n예약 자체는 그대로 두고 입장 시각만 지웁니다.\n계속할까요?',
     resetScopeAll: '전체 기간의', resetScopeDate: '{d} 의',
@@ -401,6 +405,8 @@ const SCAN_I18N = {
     firstEnter: '첫 입장 {t} · 확인 {n}회', waitPos: '대기 {n}번',
     failNotFound: '없는 예약번호입니다', failCancelled: '취소된 예약입니다',
     failWaitlist: '대기 상태라 입장할 수 없습니다',
+    // 선정형은 「자리가 나면 들어갈 수 있는 사람」이 아니다 — 아직 뽑히지 않은 사람이다.
+    failNotSelected: '아직 선정되지 않았습니다',
     failPerm: '권한이 없습니다. 다시 로그인해 주세요',
     failOutOfScope: '다른 행사의 예약입니다',
     outOfScopeNote: '이 화면은 지금 고른 행사만 확인합니다. 위에 적힌 행사 담당자에게 안내해 주세요.',
@@ -431,6 +437,7 @@ const SCAN_I18N = {
     recent: '最近の確認',
     roster: '予約者リスト', refresh: '再読み込み', allDates: '全期間', todaySuffix: '（本日）',
     rsReserved: '予約 {r}名', rsEntered: '入場 {e}名（{p}%）', rsWaiting: 'キャンセル待ち {w}名',
+    rsPending: '審査中 {w}名',
     rosterHint: 'QRが見つからない方・スマホをお忘れの方は、お名前をタップして入場処理してください。',
     noSlots: '登録された時間帯がありません。', noSlotsThisDate: 'この日付に登録された時間帯がありません。',
     noAttendees: '予約者がいません。',
@@ -443,6 +450,8 @@ const SCAN_I18N = {
     scopeLoadFailed: 'イベント一覧を読み込めませんでした。通信環境をご確認のうえ、このページを再読み込みしてください。',
     scopeUnnamed: '（名称未設定のイベント）',
     enterBtn: '入場', enteredAt: '入場', waitingN: 'キャンセル待ち', enteredCount: '入場',
+    // 「심사중」 — 방문객 화면(ticketSelectionPendingTitle)과 같은 말을 쓴다.
+    pendingN: '審査中',
     resetBtn: '入場記録をリセット',
     resetAsk: '{scope}入場記録をもとに戻します。\n予約はそのままで、入場時刻だけを消します。\n続けますか？',
     resetScopeAll: '全期間の', resetScopeDate: '{d} の',
@@ -456,6 +465,8 @@ const SCAN_I18N = {
     firstEnter: '初回入場 {t} · 確認 {n}回', waitPos: 'キャンセル待ち {n}番',
     failNotFound: '存在しない予約番号です', failCancelled: 'キャンセルされた予約です',
     failWaitlist: 'キャンセル待ちのため入場できません',
+    // 「아직 선정되지 않았습니다」
+    failNotSelected: 'まだ選ばれていません',
     failPerm: '権限がありません。もう一度ログインしてください',
     failOutOfScope: '別のイベントのご予約です',
     outOfScopeNote: 'この画面は、いま選んでいるイベントだけを確認します。上に表示されたイベントのご担当へご案内ください。',
@@ -574,14 +585,44 @@ function scopeFromUrl() {
   return {group: p.get('group') || '', campaign: p.get('campaign') || ''};
 }
 
+// 캠페인마다 「선정형 행사인가」. 명단·모달의 말을 가르는 단 하나의 기준이다.
+//   ⚠️ **이 파일은 shared.js 를 못 쓴다** — isSelectionEvent() 를 여기에 다시 쓴다.
+//      공용 함수를 고쳐도 이 화면은 따라오지 않는다(자립형 단독 화면).
+//   ⚠️ 「행사 모드」만 보면 안 된다. 선착순형 행사도 event_mode 는 참이라, 캔슬 대기
+//      순번이 뜻이 살아 있는 선착순형까지 「심사중」으로 바뀐다.
+let _campSelectionById = {};
+
+// 지금 보고 있는 행사 전체가 선정형인가 — true(전부 선정형) / false(전부 선착순형) /
+//   null(섞임). **타임 목록을 아직 못 받았을 때만 쓰는 보조 기준**이다.
+//   ⚠️ 이게 없으면 두 자리가 조용히 옛 문구로 샌다 — ①행사를 고른 직후, 명단을 받아오는
+//      짧은 사이에 예약번호를 넣었을 때 ②타임 조회가 실패해 그 세션 내내 표가 비었을 때.
+//      부스 단말은 화면을 켜 둔 채로 계속 쓰는 도구라 두 번째가 특히 오래간다.
+let _scopeAllSelection = false;
+
+function rememberScopeSelection(campIds) {
+  const vals = (campIds || []).map(id => !!_campSelectionById[id]);
+  _scopeAllSelection = !vals.length ? false
+    : vals.every(v => v) ? true
+    : vals.some(v => v) ? null   // 섞였다 — 단정하지 않는다
+    : false;
+}
+
 // 행사 캠페인 전부(삭제된 것 제외) + 묶음 이름. 고르기 목록과 범위 판정에 함께 쓴다.
 async function fetchEventScopeSource() {
   const {data: camps, error} = await sb.from('campaigns')
-    .select('id, title, event_group_id, deleted_at')
+    // ⚠️ event_selection_mode 를 **반드시 함께 받는다.** 안 받으면 값이 늘 비어
+    //    선정형 판정이 언제나 거짓이 되고, **오류도 안 난다**(조용히 옛 말로 나간다).
+    .select('id, title, event_group_id, deleted_at, event_mode, event_selection_mode')
     .eq('event_mode', true)
     .is('deleted_at', null)
     .order('created_at', {ascending: false});
   if (error) throw error;
+  // 캠페인 → 선정형 여부. 한 묶음 안에 선정형(초대 전용 날)과 선착순형(일반 공개 날)이
+  //   **섞일 수 있다** — 이번 팝업이 정확히 그 모양이라 묶음 하나로 뭉뚱그리면 안 된다.
+  _campSelectionById = {};
+  (camps || []).forEach(c => {
+    _campSelectionById[c.id] = (c.event_mode === true && c.event_selection_mode === 'selection');
+  });
   const ids = [...new Set((camps || []).map(c => c.event_group_id).filter(Boolean))];
   let groups = [];
   if (ids.length) {
@@ -627,6 +668,7 @@ function _scopeIsCampaignOnly() {
 
 function applyScope(choice) {
   _scopeCampaignIds = choice.campIds.slice();
+  rememberScopeSelection(_scopeCampaignIds);
   _scopeName = choice.name;
   _scopeCampCount = choice.campIds.length;
   // 캠페인 하나로 열렸을 때, 그 캠페인이 묶음에 속하는지 기억해 둔다.
@@ -780,7 +822,10 @@ async function checkIn(code, confirmOtherDay) {
   }
 }
 
-function failMessage(reason) {
+// ⚠️ 선정형에서는 입장 거부 사유가 「대기 상태」가 아니라 **「아직 선정되지 않았습니다」**다.
+//    「대기」라고 하면 부스에서 「자리 나면 넣어 주면 되겠네」로 읽힌다.
+function failMessage(reason, selection) {
+  if (selection && reason === 'waitlist_cannot_enter') return T('failNotSelected');
   const key = ({
     not_found:             'failNotFound',
     cancelled:             'failCancelled',
@@ -818,8 +863,11 @@ function showResult(res, code) {
   const ask = !ok && res.reason === 'other_day';   // 아직 기록되지 않았다 — 물어보는 중
   const dup = ok && res.already_entered;
   const cls = ask ? 'ask' : (dup ? 'dup' : (ok ? 'ok' : 'bad'));
+  // 이 예약이 **선정형 행사**의 것인가. 서버 응답에는 타임 id 가 없어 날짜·시각으로 되짚는다.
+  //   못 찾으면 거짓 → 옛 문구 그대로(선착순형과 같음).
+  const selSlot = isSelectionResultSlot(res.slot);
   const head = ask ? T('otherDayTitle')
-             : (dup ? T('dupTitle') : (ok ? T('okTitle') : failMessage(res.reason)));
+             : (dup ? T('dupTitle') : (ok ? T('okTitle') : failMessage(res.reason, selSlot)));
   _pendingOtherDay = ask ? code : null;
 
   const box = $('rmBox');
@@ -879,7 +927,9 @@ function showResult(res, code) {
     //    바로 들어온다. 어느 경우인지 화면이 스스로 알 수 있으므로(주소가 group= 이
     //    아니라 campaign= 이다) 문구를 갈라 준다.
     : res.reason === 'out_of_scope' ? T(_scopeIsCampaignOnly() ? 'outOfScopeReopen' : 'outOfScopeNote')
-    : (!ok && res.waitlist_position ? T('waitPos', {n: res.waitlist_position}) : ''));
+    // ⚠️ 선정형은 순번을 그리지 않는다(마이그레이션 378 이 애초에 안 넣는다). 「3번」처럼
+    //    보이면 뽑히는 순서가 정해져 있다는 오해를 준다 — 선착순형만 종전 그대로 순번을 쓴다.
+    : (!ok && !selSlot && res.waitlist_position ? T('waitPos', {n: res.waitlist_position}) : ''));
 
   _modalOpen = true;
   $('resultModal').classList.add('open');
@@ -980,6 +1030,53 @@ async function fetchAllTickets(slotIds) {
   return all;
 }
 
+// ── 타임별 「선정형인가」 ──────────────────────────────────────
+//   같은 행사 묶음 안에 초대 전용(선정형) 날과 일반 공개(선착순형) 날이 함께 들어올 수
+//   있어, 화면 전체를 하나로 뭉뚱그리면 **선착순형 쪽 「대기 N번」이 사라진다**.
+//   그래서 판정을 **타임 단위**로 들고 있는다.
+let _slotSelectionById = {};    // 타임 id → 선정형 여부
+let _slotSelectionByKey = {};   // '날짜|시작|끝' → true / false / null(캠페인마다 갈림)
+
+// ⚠️ 서버가 돌려주는 슬롯 조각(check_in_ticket)에 들어 있는 값만 쓴다 — 여기 없는 칸을
+//    쓰면 늘 안 맞아 판정이 통째로 죽는다. 대상 표시(audience_label)까지 넣어 두 캠페인이
+//    같은 날짜·시각을 쓰더라도 갈릴 확률을 줄인다.
+function _slotKey(slot) {
+  if (!slot) return '';
+  return [String(slot.slot_date || '').slice(0, 10),
+          String(slot.start_time || '').slice(0, 5),
+          String(slot.end_time || '').slice(0, 5),
+          String(slot.audience_label || '')].join('|');
+}
+
+function rememberSlotSelection(slots) {
+  _slotSelectionById = {};
+  _slotSelectionByKey = {};
+  (slots || []).forEach(s => {
+    const sel = !!_campSelectionById[s.campaign_id];
+    _slotSelectionById[s.id] = sel;
+    const k = _slotKey(s);
+    if (!k) return;
+    // 같은 날짜·시각에 선정형과 선착순형이 겹치면 어느 쪽인지 단정할 수 없다 → null.
+    //   그때는 옛 문구(대기)로 물러선다. 틀린 단정보다 낫다.
+    _slotSelectionByKey[k] = (k in _slotSelectionByKey && _slotSelectionByKey[k] !== sel)
+      ? null : sel;
+  });
+}
+
+function isSelectionSlot(slotId) { return !!_slotSelectionById[slotId]; }
+
+// 서버가 돌려준 결과(check_in_ticket)에는 타임 id 가 없고 날짜·시각만 있다.
+//   그래서 위에서 만들어 둔 '날짜|시작|끝' 표로 되짚는다.
+//   ⚠️ 표에 그 타임이 **아예 없을 때**(명단을 아직 못 받았거나 조회가 실패했을 때)는
+//      행사 전체 기준으로 물러선다 — 안 그러면 그동안 선정형인데 「대기 상태」로 안내한다.
+//   ⚠️ 표에 있는데 값이 null(같은 날짜·시각에 두 형식이 겹침)이면 **단정하지 않는다** —
+//      그때는 옛 문구가 맞다(행사 전체 기준으로 뒤집으면 없는 근거로 우기는 셈이 된다).
+function isSelectionResultSlot(slot) {
+  const k = _slotKey(slot);
+  if (!(k in _slotSelectionByKey)) return _scopeAllSelection === true;
+  return _slotSelectionByKey[k] === true;
+}
+
 async function loadRoster() {
   const box = $('rosterList');
   if (!box) return;
@@ -992,11 +1089,13 @@ async function loadRoster() {
     // ⚠️ **이 행사의 캠페인으로 한정한다.** 안 걸면 다른 팝업 행사의 타임까지 섞여
     //    부스에서 남의 행사 예약자를 들여보내게 된다.
     const {data: allSlots, error: e0} = await sb.from('event_slots')
-      .select('id, slot_date, start_time, end_time, audience_label')
+      // ⚠️ campaign_id 를 함께 받아야 타임마다 선정형인지 가를 수 있다(묶음은 섞일 수 있다).
+      .select('id, campaign_id, slot_date, start_time, end_time, audience_label')
       .in('campaign_id', _scopeCampaignIds)
       .order('slot_date', {ascending: true})
       .order('start_time', {ascending: true});
     if (e0) throw e0;
+    rememberSlotSelection(allSlots);
 
     if (!prepareRosterDates(allSlots)) {
       box.innerHTML = `<div class="empty">${esc(T('noSlots'))}</div>`;
@@ -1029,7 +1128,7 @@ async function loadRoster() {
       return `
         <div class="slot-group">
           <div class="slot-title">${esc(slotText(s))} · ${esc(T('enteredCount'))} ${entered}/${confirmed}${s.audience_label ? ' · ' + esc(s.audience_label) : ''}</div>
-          ${rows.length ? rows.map(r => attendeeRow(r)).join('')
+          ${rows.length ? rows.map(r => attendeeRow(r, isSelectionSlot(s.id))).join('')
                         : `<div class="empty" style="padding:12px 4px">${esc(T('noAttendees'))}</div>`}
         </div>`;
     }).join('');
@@ -1066,7 +1165,11 @@ function renderRosterSummary(tickets) {
   const rows = tickets || [];
   const reserved = rows.filter(t => t.status === 'confirmed').length;
   const entered  = rows.filter(t => t.status === 'confirmed' && t.entered_at).length;
-  const waiting  = rows.filter(t => t.status === 'waitlist').length;
+  // 대기(선착순형)와 심사중(선정형)은 **다른 것**이라 한 숫자로 합치지 않는다.
+  //   한 묶음에 두 가지가 섞여 있으면 두 조각이 나란히 나온다.
+  const waitRows = rows.filter(t => t.status === 'waitlist');
+  const waiting  = waitRows.filter(t => !isSelectionSlot(t.slot_id)).length;
+  const pending  = waitRows.filter(t =>  isSelectionSlot(t.slot_id)).length;
   const pct = reserved ? Math.round(entered / reserved * 100) : 0;
 
   // 조각별로 조립한다 — 완성된 문장에서 숫자를 찾아 색을 입히려 하면 언어마다
@@ -1076,6 +1179,7 @@ function renderRosterSummary(tickets) {
     `<span class="rs-entered">${esc(T('rsEntered', {e: entered, p: pct}))}</span>`
   ];
   if (waiting) parts.push(`<span class="rs-wait">${esc(T('rsWaiting', {w: waiting}))}</span>`);
+  if (pending) parts.push(`<span class="rs-wait">${esc(T('rsPending', {w: pending}))}</span>`);
   el.innerHTML = parts.join(' · ');
 }
 
@@ -1144,7 +1248,11 @@ function onRosterDateChange(v) {
   loadRoster();
 }
 
-function attendeeRow(r) {
+// ⚠️ 선정형이면 「대기 3」이 아니라 「심사중」이다. 이 화면은 부스 단말에 계속 띄워
+//    두고 쓰는 도구라, 「대기 3번」으로 보이면 운영자가 **자리가 나면 넣어 줄 사람**으로
+//    오해한다 — 선정형에서 안 뽑힌 사람은 그런 사람이 아니다.
+// ⚠️ 선착순형은 한 글자도 안 바뀐다 — 순번은 그쪽에서 뜻이 살아 있는 값이다.
+function attendeeRow(r, selection) {
   const inf = r.influencers || {};
   const done = !!r.entered_at;
   const waiting = r.status === 'waitlist';
@@ -1153,7 +1261,9 @@ function attendeeRow(r) {
       <div class="att-name">${esc(inf.name_kanji || '-')}
         <span class="att-kana">${esc(inf.name_kana || '')}</span>
       </div>
-      ${waiting ? `<span class="att-wait">${esc(T('waitingN'))} ${r.waitlist_position || ''}</span>`
+      ${waiting ? (selection
+          ? `<span class="att-wait">${esc(T('pendingN'))}</span>`
+          : `<span class="att-wait">${esc(T('waitingN'))} ${r.waitlist_position || ''}</span>`)
         : done ? `<span class="att-done-mark"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">check_circle</span>${esc(T('enteredAt'))} ${esc(fmtTime(r.entered_at))}</span>`
         : `<button class="att-btn" onclick="checkIn('${esc(r.ticket_code)}')">${esc(T('enterBtn'))}</button>`}
     </div>`;
