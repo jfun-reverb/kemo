@@ -4261,6 +4261,9 @@ window.I18N_JA = {
     slotFull: '満席',
     slotFullWaitlist: '満席（キャンセル待ち）',
     slotWaitlistNote: '満席のため、キャンセル待ちでの申し込みになります。',
+    // ── 選定制イベント（申し込みを受けて、あとで運営がえらぶ） ──
+    //   ⚠️ 上の「あと{n}名」「満席」は先着制でつかう。消さないこと。
+    slotOpenLabel: '受付中',
     slotClosed: '受付をしめきりました',
     slotNone: '日時がまだ登録されていません。しばらくしてからもう一度ごらんください。',
     slotLoading: '日時を読み込んでいます…',
@@ -4269,6 +4272,7 @@ window.I18N_JA = {
     selected: 'えらんだ日時',
     applyDone: '予約が確定しました。入場チケットをご確認ください。',
     waitlistDone: 'キャンセル待ちに登録しました。あきが出たらお知らせします。',
+    selectionDone: 'お申し込みを受けつけました。結果は、選定期間がおわったあとにおしらせします。',
     // 予約できなかった理由 — 一つずつ、次にすることまで書く
     failInviteRequired: 'このイベントは招待された方のみお申し込みいただけます。',
     failInviteMismatch: '招待番号がちがうようです。お送りしたリンクをもう一度ひらいてください。',
@@ -4283,6 +4287,8 @@ window.I18N_JA = {
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
     waitlistBtn: 'キャンセル待ち — 順番をみる',
+    selectionPendingBtn: '審査中 — 申請内容をみる',
+    selectionRejectedBtn: '落選 — 結果をみる',
     cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
@@ -4292,6 +4298,12 @@ window.I18N_JA = {
     ticketWaitlistTitle: 'キャンセル待ち {n}番',
     ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
     ticketCancelledTitle: 'この予約はキャンセルされました',
+    // 選定制で「えらばれなかった」場合。⚠️ キャンセルとは別のことばにする —
+    //   同じ「キャンセルされました」だと、ご自身でキャンセルしたと思われてしまう。
+    ticketSelectionPendingTitle: '審査中',
+    ticketSelectionPendingHint: 'えらばれた方には、この画面と通知でおしらせします。まだ入場はできません。',
+    ticketNotSelectedTitle: '選ばれませんでした',
+    ticketNotSelectedHint: 'こんかいはご縁がありませんでした。またのお申し込みをおまちしています。',
     ticketEnteredAt: '入場ずみ（{time}）',
     ticketEnteredTitle: '入場が確認されました',
     ticketEnteredHint: 'ごゆっくりおたのしみください。',
@@ -4310,6 +4322,7 @@ window.I18N_JA = {
     placeTbdShort: '会場は後日おしらせ',
     ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
     ticketTabCancelled: 'キャンセル',
+    ticketTabRejected: '落選',
     // ── 招待制キャンペーンの入口 ──
     inviteGateTitle: '招待された方だけがごらんになれます',
     inviteGateHint: 'お送りしたリンクをひらくと、そのままごらんになれます。\n番号をおもちの方は、下に入力してください。',
@@ -5198,6 +5211,9 @@ window.I18N_KO = {
     slotFull: '마감',
     slotFullWaitlist: '마감(대기 신청)',
     slotWaitlistNote: '자리가 다 차서 대기 신청이 됩니다.',
+    // ── 선정형 행사(신청을 받아 두고 나중에 운영진이 뽑는 방식) ──
+    //   ⚠️ 위의 「N명 남음」·「마감」은 선착순형이 계속 쓴다. 지우지 말 것.
+    slotOpenLabel: '접수 중',
     slotClosed: '접수가 끝났습니다',
     slotNone: '아직 등록된 시간이 없습니다. 조금 뒤에 다시 봐 주세요.',
     slotLoading: '시간을 불러오는 중…',
@@ -5206,6 +5222,7 @@ window.I18N_KO = {
     selected: '고른 시간',
     applyDone: '예약이 확정됐습니다. 입장 티켓을 확인해 주세요.',
     waitlistDone: '대기 신청을 했습니다. 자리가 나면 알려 드립니다.',
+    selectionDone: '신청을 접수했습니다. 결과는 선정 기간이 끝난 뒤에 알려 드립니다.',
     failInviteRequired: '이 행사는 초대받은 분만 신청할 수 있습니다.',
     failInviteMismatch: '초대 번호가 다릅니다. 받으신 링크를 다시 열어 주세요.',
     failAlreadyApplied: '이미 이 행사를 예약했습니다. 예약은 한 번만 가능합니다.',
@@ -5219,6 +5236,8 @@ window.I18N_KO = {
     ticketTitle: '입장 티켓',
     ticketMenu: '입장 티켓',
     waitlistBtn: '대기 중 — 순번 보기',
+    selectionPendingBtn: '심사 중 — 신청 내용 보기',
+    selectionRejectedBtn: '낙선 — 결과 보기',
     cancelViaTicket: '눌러서 「입장 티켓」 화면으로 이동합니다. 거기서 취소할 수 있습니다.',
     ticketCodeLabel: '예약번호',
     ticketNameLabel: '이름',
@@ -5228,6 +5247,12 @@ window.I18N_KO = {
     ticketWaitlistTitle: '대기 {n}번',
     ticketWaitlistHint: '자리가 나면 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
     ticketCancelledTitle: '이 예약은 취소됐습니다',
+    // 선정형에서 「뽑히지 않은」 경우. ⚠️ 취소와 다른 말을 쓴다 —
+    //   똑같이 「취소됐습니다」로 두면 본인이 취소한 줄 안다.
+    ticketSelectionPendingTitle: '심사 중',
+    ticketSelectionPendingHint: '뽑히신 분께는 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
+    ticketNotSelectedTitle: '선정되지 않았습니다',
+    ticketNotSelectedHint: '이번에는 함께하지 못했습니다. 다음 신청을 기다리겠습니다.',
     ticketEnteredAt: '입장 완료({time})',
     ticketEnteredTitle: '입장이 확인됐습니다',
     ticketEnteredHint: '즐거운 시간 보내세요.',
@@ -5246,6 +5271,7 @@ window.I18N_KO = {
     placeTbdShort: '장소는 추후 안내',
     ticketAlreadyCancelled: '이 예약은 이미 취소됐습니다.',
     ticketTabCancelled: '취소',
+    ticketTabRejected: '낙선',
     // ── 초대 전용 캠페인 진입 ──
     inviteGateTitle: '초대받은 분만 볼 수 있습니다',
     inviteGateHint: '보내 드린 링크를 열면 바로 보실 수 있습니다.\n번호를 갖고 계신 분은 아래에 입력해 주세요.',
@@ -14684,7 +14710,19 @@ async function openCampaign(id) {
       //   그런데 여기서 「応募済み」 + 비활성 버튼으로 그리면 두 가지가 잘못된다 —
       //   ① 확정된 것처럼 읽힌다 ② 자기 대기 순번을 보거나 취소하러 갈 길이 이 화면에서 끊긴다
       //   (응모 이력 카드에는 티켓 버튼이 있지만 상세에서 바로 못 간다 — 2026-08-06 확인).
-      floatApplyBtn.textContent = t('event.waitlistBtn');
+      // 선정형이면 「캔슬 대기」가 아니라 「심사중」이다 — 뽑히기를 기다리는 것이라
+      //   순번을 보러 간다고 적으면 없는 순번을 찾게 된다(의심 ⑤).
+      //   ⚠️ 선정형에서 **떨어진 사람도 여기까지 온다.** 응모가 'rejected' 라 위
+      //      `_myApp` 조회(취소만 제외)에 걸려 alreadyApplied 가 참이 되고, 응모이력
+      //      카드를 누르면 이 상세로 들어온다. 그때 「심사중」이라고 적으면 **이미 끝난
+      //      일을 계속 기다리게 된다** — 낙선 알림을 안 보내기로 해(확정 1) 화면 표시가
+      //      유일한 통지이므로 더 나쁘다. 누르면 티켓 화면에서 이유를 볼 수 있게 열어 둔다.
+      //   ⚠️ 선착순형은 이 분기에 손대지 않는다 — 캠페인 종료 자동 낙첨(마이그레이션 176)에도
+      //      같은 어긋남이 있지만 이번 변경 이전부터 있던 별개 문제라 여기서 바꾸지 않는다.
+      const _selEvt = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+      floatApplyBtn.textContent = (_selEvt && _myApp?.status === 'rejected')
+        ? t('event.selectionRejectedBtn')
+        : (_selEvt ? t('event.selectionPendingBtn') : t('event.waitlistBtn'));
       floatApplyBtn.disabled = false;
       floatApplyBtn.className = 'btn btn-ghost btn-sm';
       floatApplyBtn.onclick = () => {
@@ -14748,6 +14786,10 @@ let _selectedEventSlotId = null;   // 이번 상세 화면에서 고른 타임
 let _eventSlotsForDetail = [];     // 이 캠페인의 타임 목록
 let _eventSlotCountsForDetail = {};// 타임별 정원·확정 수
 let _eventSlotActiveDate = '';     // 지금 보고 있는 날짜 탭
+// 지금 보고 있는 행사가 선정형인가 — 타임 선택표를 그리는 함수들이 camp 를 못 받아 여기 둔다.
+//   ⚠️ 선정형은 **정원을 안 세고 받는다**(마이그레이션 378). 그래서 「잔여 N명」·「만석」을
+//      그리면 안 된다 — 「잔여 0명」인 타임에도 접수가 되어 안내가 거짓이 된다(의심 ②).
+let _eventSelectionForDetail = false;
 
 async function loadEventSlotPicker(camp) {
   // 다른 캠페인을 열었을 수 있으니 매번 초기화한다.
@@ -14755,6 +14797,9 @@ async function loadEventSlotPicker(camp) {
   _eventSlotsForDetail = [];
   _eventSlotCountsForDetail = {};
   _eventSlotActiveDate = '';
+  // ⚠️ 여기서 반드시 다시 정한다. 안 되돌리면 선정형 행사를 한 번 열고 나서 여는
+  //    선착순형 행사에 「접수 중」이 남아 잔여·만석이 통째로 사라진다.
+  _eventSelectionForDetail = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
 
   const listEl = $('eventSlotList');
   if (!listEl) return;
@@ -14855,12 +14900,17 @@ function renderEventSlotList() {
   el.innerHTML = rows.map(s => {
     const c = _eventSlotCountsForDetail[s.id] || {remaining: Number(s.capacity || 0), waitlist: 0};
     const remaining = Number(c.remaining || 0);
-    const full = remaining <= 0;
+    // 선정형은 정원과 상관없이 신청을 받으므로 「만석」이라는 상태 자체가 없다.
+    //   full 을 늘 false 로 두면 회색 처리·대기 안내·토스트가 한꺼번에 안 뜬다.
+    const full = !_eventSelectionForDetail && remaining <= 0;
     const picked = _selectedEventSlotId === s.id;
     const st = String(s.start_time || '').slice(0, 5);
     const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
     const timeLabel = en ? `${st}〜${en}` : st;
-    const rightLabel = full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining);
+    // 선정형은 잔여를 쓰지 않는다(위 _eventSelectionForDetail 주석) — 접수 중임만 알린다.
+    const rightLabel = _eventSelectionForDetail
+      ? t('event.slotOpenLabel')
+      : (full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining));
     // ⚠️ 대기 안내는 **고른 줄 바로 아래**에 붙인다. 목록 맨 아래에 두면 이른 시간을
     //    고른 사람은 한참 스크롤해야 볼 수 있어 사실상 못 본다(2026-08-03 지적).
     const note = (picked && full)
@@ -14878,7 +14928,10 @@ function renderEventSlotList() {
 }
 
 // 고른 타임이 만석인가 — 신청 모달·안내가 같은 판정을 쓰게 한 곳에 둔다.
+//   ⚠️ 선정형에는 만석이 없다. 여기서 한 번만 막으면 신청 모달 상단의 대기 안내와
+//      타임을 고를 때 뜨는 토스트가 **둘 다** 안 뜬다(§1-2 자리 2).
 function isSelectedEventSlotFull() {
+  if (_eventSelectionForDetail) return false;
   const s = _eventSlotsForDetail.find(x => x.id === _selectedEventSlotId);
   if (!s) return false;
   const c = _eventSlotCountsForDetail[s.id] || {};
@@ -14971,7 +15024,13 @@ async function submitEventReservation(camp) {
   }
 
   closeModal('applyModal');
-  toast(res.status === 'waitlist' ? t('event.waitlistDone') : t('event.applyDone'), 'success');
+  // 선정형에서 `waitlist` 는 「캔슬 대기」가 아니라 「심사중」이다 — 「자리가 나면 알려
+  //   드립니다」로 안내하면 방문객이 **엉뚱한 것을 기다린다**(의심 ①).
+  //   ⚠️ 판정은 camp 로 한다(선택표용 플래그가 아니라) — 이 함수는 camp 를 받는다.
+  const _selEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+  toast(t(res.status === 'waitlist'
+            ? (_selEvent ? 'event.selectionDone' : 'event.waitlistDone')
+            : 'event.applyDone'), 'success');
 
   _selectedEventSlotId = null;
 
@@ -16508,6 +16567,19 @@ function hasEventTicket() {
   return _ticketList.some(t => t && t.status !== 'cancelled');
 }
 
+// 선정 탈락(낙선)한 예약인가 — 예약표는 취소(cancelled), 딸린 응모는 미승인(rejected).
+//   선정형 행사에서 관리자가 「탈락」시키면 이 두 값이 갈린다(마이그레이션 379).
+//   ⚠️ 본인 취소·운영진 취소는 응모도 'cancelled' 라 여기 안 걸린다 — 그래서 두 경우를
+//      화면에서 가를 수 있다. 새 사유 코드를 만들지 않은 것이 이 판정의 전제다(확정 1).
+//   ⚠️ 응모 상태는 storage.js 의 fetchMyEventTickets 가 조회에 **끼워 붙인** 값이다.
+//      접근 정책에 막히면 오류 없이 null 이 온다 — 그때는 종전 「취소됨」으로 떨어진다.
+//      「낙선인데 취소라고 안내」가 되는 자리이므로 실제 로그인 브라우저에서 값이
+//      채워지는지 눈으로 확인해야 한다(마이그레이션 312 사고와 같은 유형).
+function isSelectionRejectedTicket(ticket) {
+  return !!(ticket && ticket.status === 'cancelled'
+            && ticket.applications && ticket.applications.status === 'rejected');
+}
+
 // 티켓 목록을 미리 받아 둔다(햄버거 메뉴 표시 판단용). 로그인 직후·메뉴 열 때 호출.
 async function preloadEventTickets() {
   if (!currentUser) { _ticketList = []; return; }
@@ -16566,9 +16638,22 @@ function backFromTicket() {
 }
 
 // ── 렌더 ──────────────────────────────────────────────────────
-// 티켓 가운데 영역 — 상태에 따라 QR / 대기 순번 / 취소 안내로 갈린다.
-function ticketMainHtml(ticket) {
+// 티켓 가운데 영역 — 상태에 따라 QR / 대기 순번 / 심사중 / 낙선 / 취소 안내로 갈린다.
+//   camp 는 선착순형·선정형을 가르는 데만 쓴다(선정형은 순번이 없다).
+function ticketMainHtml(ticket, camp) {
+  const selection = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp || {});
   if (ticket.status === 'cancelled') {
+    // 선정 탈락은 「취소됨」이 아니라 「선정되지 않았습니다」로 말한다 —
+    //   그러지 않으면 낙선자가 **자기가 취소한 줄 안다**(사양서 의심 ⑧).
+    //   판정은 응모 상태 하나로 한다(위 isSelectionRejectedTicket 주석 참조).
+    if (isSelectionRejectedTicket(ticket)) {
+      return `
+        <div class="ticket-state ticket-state-off">
+          <span class="material-icons-round notranslate" translate="no">event_busy</span>
+          <div class="ticket-state-title">${esc(t('event.ticketNotSelectedTitle'))}</div>
+          <div class="ticket-state-hint">${esc(t('event.ticketNotSelectedHint'))}</div>
+        </div>`;
+    }
     return `
       <div class="ticket-state ticket-state-off">
         <span class="material-icons-round notranslate" translate="no">event_busy</span>
@@ -16576,6 +16661,18 @@ function ticketMainHtml(ticket) {
       </div>`;
   }
   if (ticket.status === 'waitlist') {
+    // 선정형에서 `waitlist` 는 「캔슬 대기」가 아니라 **「심사중」**이다(설계 1 이 값을 재사용).
+    //   ⚠️ 순번을 그리지 않는다 — 선정형은 순번을 아예 안 넣고(마이그레이션 378),
+    //      「3번」처럼 보이면 **뽑히는 순서가 정해져 있다는 오해**를 준다(의심 ⑤).
+    //   ⚠️ 선착순형은 한 글자도 안 바뀐다 — 순번은 그쪽에서 의미가 살아 있는 값이다.
+    if (selection) {
+      return `
+        <div class="ticket-state ticket-state-wait">
+          <span class="material-icons-round notranslate" translate="no">hourglass_top</span>
+          <div class="ticket-state-title">${esc(t('event.ticketSelectionPendingTitle'))}</div>
+          <div class="ticket-state-hint">${esc(t('event.ticketSelectionPendingHint'))}</div>
+        </div>`;
+    }
     return `
       <div class="ticket-state ticket-state-wait">
         <span class="material-icons-round notranslate" translate="no">hourglass_top</span>
@@ -16614,7 +16711,7 @@ function ticketSwitchHtml(current) {
       ${_ticketList.map(x => `
         <button type="button" class="ticket-switch-btn${x.id === current.id ? ' on' : ''}"
                 onclick="openTicketPage('${x.id}', '${esc(_ticketFrom)}', false)">
-          ${esc(formatTicketWhenShort(x.event_slots || {}))}${x.status === 'cancelled' ? ` (${esc(t('event.ticketTabCancelled'))})` : ''}
+          ${esc(formatTicketWhenShort(x.event_slots || {}))}${x.status === 'cancelled' ? ` (${esc(t(isSelectionRejectedTicket(x) ? 'event.ticketTabRejected' : 'event.ticketTabCancelled'))})` : ''}
         </button>`).join('')}
     </div>`;
 }
@@ -16635,7 +16732,7 @@ function renderTicket(ticket) {
 
   const others = ticketSwitchHtml(ticket);
 
-  const main = ticketMainHtml(ticket);
+  const main = ticketMainHtml(ticket, camp);
 
   const canCancel = ticket.status !== 'cancelled' && !ticket.entered_at;
   const windowPassed = (typeof eventCancelWindowPassed === 'function')

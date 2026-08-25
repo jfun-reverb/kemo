@@ -448,7 +448,19 @@ async function openCampaign(id) {
       //   그런데 여기서 「応募済み」 + 비활성 버튼으로 그리면 두 가지가 잘못된다 —
       //   ① 확정된 것처럼 읽힌다 ② 자기 대기 순번을 보거나 취소하러 갈 길이 이 화면에서 끊긴다
       //   (응모 이력 카드에는 티켓 버튼이 있지만 상세에서 바로 못 간다 — 2026-08-06 확인).
-      floatApplyBtn.textContent = t('event.waitlistBtn');
+      // 선정형이면 「캔슬 대기」가 아니라 「심사중」이다 — 뽑히기를 기다리는 것이라
+      //   순번을 보러 간다고 적으면 없는 순번을 찾게 된다(의심 ⑤).
+      //   ⚠️ 선정형에서 **떨어진 사람도 여기까지 온다.** 응모가 'rejected' 라 위
+      //      `_myApp` 조회(취소만 제외)에 걸려 alreadyApplied 가 참이 되고, 응모이력
+      //      카드를 누르면 이 상세로 들어온다. 그때 「심사중」이라고 적으면 **이미 끝난
+      //      일을 계속 기다리게 된다** — 낙선 알림을 안 보내기로 해(확정 1) 화면 표시가
+      //      유일한 통지이므로 더 나쁘다. 누르면 티켓 화면에서 이유를 볼 수 있게 열어 둔다.
+      //   ⚠️ 선착순형은 이 분기에 손대지 않는다 — 캠페인 종료 자동 낙첨(마이그레이션 176)에도
+      //      같은 어긋남이 있지만 이번 변경 이전부터 있던 별개 문제라 여기서 바꾸지 않는다.
+      const _selEvt = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+      floatApplyBtn.textContent = (_selEvt && _myApp?.status === 'rejected')
+        ? t('event.selectionRejectedBtn')
+        : (_selEvt ? t('event.selectionPendingBtn') : t('event.waitlistBtn'));
       floatApplyBtn.disabled = false;
       floatApplyBtn.className = 'btn btn-ghost btn-sm';
       floatApplyBtn.onclick = () => {
@@ -512,6 +524,10 @@ let _selectedEventSlotId = null;   // 이번 상세 화면에서 고른 타임
 let _eventSlotsForDetail = [];     // 이 캠페인의 타임 목록
 let _eventSlotCountsForDetail = {};// 타임별 정원·확정 수
 let _eventSlotActiveDate = '';     // 지금 보고 있는 날짜 탭
+// 지금 보고 있는 행사가 선정형인가 — 타임 선택표를 그리는 함수들이 camp 를 못 받아 여기 둔다.
+//   ⚠️ 선정형은 **정원을 안 세고 받는다**(마이그레이션 378). 그래서 「잔여 N명」·「만석」을
+//      그리면 안 된다 — 「잔여 0명」인 타임에도 접수가 되어 안내가 거짓이 된다(의심 ②).
+let _eventSelectionForDetail = false;
 
 async function loadEventSlotPicker(camp) {
   // 다른 캠페인을 열었을 수 있으니 매번 초기화한다.
@@ -519,6 +535,9 @@ async function loadEventSlotPicker(camp) {
   _eventSlotsForDetail = [];
   _eventSlotCountsForDetail = {};
   _eventSlotActiveDate = '';
+  // ⚠️ 여기서 반드시 다시 정한다. 안 되돌리면 선정형 행사를 한 번 열고 나서 여는
+  //    선착순형 행사에 「접수 중」이 남아 잔여·만석이 통째로 사라진다.
+  _eventSelectionForDetail = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
 
   const listEl = $('eventSlotList');
   if (!listEl) return;
@@ -619,12 +638,17 @@ function renderEventSlotList() {
   el.innerHTML = rows.map(s => {
     const c = _eventSlotCountsForDetail[s.id] || {remaining: Number(s.capacity || 0), waitlist: 0};
     const remaining = Number(c.remaining || 0);
-    const full = remaining <= 0;
+    // 선정형은 정원과 상관없이 신청을 받으므로 「만석」이라는 상태 자체가 없다.
+    //   full 을 늘 false 로 두면 회색 처리·대기 안내·토스트가 한꺼번에 안 뜬다.
+    const full = !_eventSelectionForDetail && remaining <= 0;
     const picked = _selectedEventSlotId === s.id;
     const st = String(s.start_time || '').slice(0, 5);
     const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
     const timeLabel = en ? `${st}〜${en}` : st;
-    const rightLabel = full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining);
+    // 선정형은 잔여를 쓰지 않는다(위 _eventSelectionForDetail 주석) — 접수 중임만 알린다.
+    const rightLabel = _eventSelectionForDetail
+      ? t('event.slotOpenLabel')
+      : (full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining));
     // ⚠️ 대기 안내는 **고른 줄 바로 아래**에 붙인다. 목록 맨 아래에 두면 이른 시간을
     //    고른 사람은 한참 스크롤해야 볼 수 있어 사실상 못 본다(2026-08-03 지적).
     const note = (picked && full)
@@ -642,7 +666,10 @@ function renderEventSlotList() {
 }
 
 // 고른 타임이 만석인가 — 신청 모달·안내가 같은 판정을 쓰게 한 곳에 둔다.
+//   ⚠️ 선정형에는 만석이 없다. 여기서 한 번만 막으면 신청 모달 상단의 대기 안내와
+//      타임을 고를 때 뜨는 토스트가 **둘 다** 안 뜬다(§1-2 자리 2).
 function isSelectedEventSlotFull() {
+  if (_eventSelectionForDetail) return false;
   const s = _eventSlotsForDetail.find(x => x.id === _selectedEventSlotId);
   if (!s) return false;
   const c = _eventSlotCountsForDetail[s.id] || {};
@@ -735,7 +762,13 @@ async function submitEventReservation(camp) {
   }
 
   closeModal('applyModal');
-  toast(res.status === 'waitlist' ? t('event.waitlistDone') : t('event.applyDone'), 'success');
+  // 선정형에서 `waitlist` 는 「캔슬 대기」가 아니라 「심사중」이다 — 「자리가 나면 알려
+  //   드립니다」로 안내하면 방문객이 **엉뚱한 것을 기다린다**(의심 ①).
+  //   ⚠️ 판정은 camp 로 한다(선택표용 플래그가 아니라) — 이 함수는 camp 를 받는다.
+  const _selEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+  toast(t(res.status === 'waitlist'
+            ? (_selEvent ? 'event.selectionDone' : 'event.waitlistDone')
+            : 'event.applyDone'), 'success');
 
   _selectedEventSlotId = null;
 
