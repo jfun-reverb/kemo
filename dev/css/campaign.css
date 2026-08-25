@@ -191,4 +191,7 @@ html.preview-mode #page-detail .detail-back{display:none}
 }
 .draft-pending-bar .dpb-step{
   font-size:12px; color:#8A5A14; line-height:1.7; margin-top:4px;
+  /* 번호 단계는 줄을 나눠야 「단계」로 읽힌다 — 한 줄로 이어지면 좁은 화면에서
+     그냥 긴 문장이 된다(2026-08-25 브라우저 확인). 문구의 \n 을 살린다. */
+  white-space:pre-line;
 }
