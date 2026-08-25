@@ -35,6 +35,58 @@
 //          body := '{}'::jsonb); $$ );
 //
 // 사양서: docs/specs/2026-05-18-application-email-pipeline.md
+//
+// ──────────────────────────────────────────────────────────────────
+// 【발송 없이 확인하는 법】 — 행사 당선 제외(2026-08-24 결정 3, 조각 S-14)
+// ──────────────────────────────────────────────────────────────────
+// 🔴 개발서버에서 이 함수를 실제로 호출해 발송 시험을 하지 않는다
+//    (.claude/rules/supabase.md 「메일 발송 테스트 환경 정책」).
+//    ⚠️ 손으로 불러도 소용없다 — 같은 날 재실행은 자물쇠(digest_date UNIQUE)가
+//       막아 그냥 건너뛴다. **같은 조건을 데이터로 재현**하는 편이 발송 0통으로
+//       대상을 산출한다(2026-08-07 마감 안내 검증에서 쓴 방법).
+//
+// 아래를 SQL 편집기에서 그대로 돌리면 「내일 아침 이 메일의 당선·낙첨 두
+// 섹션에 무엇이 담길지」가 나온다. 조회뿐이라 아무것도 바꾸지 않는다.
+// (수신자 확정에는 메일 주소·탈퇴 여부 등 뒤쪽 조건이 더 붙는다 — 이 조회는
+//  S-14 가 가른 **섹션 분류**만 본다. 세 검증에 필요한 것이 그것이다.)
+//
+//   WITH win AS (   -- 이 함수의 어제 일본시각 창(computeWindow)을 그대로 재현
+//     SELECT  ts                        AS s,
+//             ts + interval '24 hours'  AS e
+//     FROM (
+//       SELECT ((((now() AT TIME ZONE 'Asia/Tokyo')::date - 1)::text)
+//               || 'T00:00:00+09:00')::timestamptz AS ts
+//     ) t
+//   )
+//   SELECT c.event_mode,
+//          a.status,
+//          CASE
+//            WHEN a.status = 'approved' AND c.event_mode THEN '제외됨(행사 당선 — 14-E)'
+//            WHEN a.status = 'approved'                  THEN '당선 메일 나감(14-F)'
+//            WHEN a.status = 'rejected' AND c.event_mode THEN '낙첨 메일 나감(14-D)'
+//            ELSE                                             '낙첨 메일 나감(기존)'
+//          END                                          AS "판정",
+//          count(*)                                     AS "건수"
+//   FROM applications a
+//   JOIN campaigns c ON c.id = a.campaign_id
+//   CROSS JOIN win
+//   WHERE a.status IN ('approved','rejected')
+//     AND a.reviewed_at >= win.s
+//     AND a.reviewed_at <  win.e
+//   GROUP BY 1, 2, 3
+//   ORDER BY 1, 2;
+//
+// 읽는 법 — 세 줄이 완료 정의 그대로다:
+//   14-E  event_mode=true  + approved → 「제외됨」  (0통이어야 맞다)
+//   14-D  event_mode=true  + rejected → 「나감」    (계속 가야 맞다)
+//   14-F  event_mode=false + approved → 「나감」    ← 가장 중요. 이 줄이
+//         비면 일반 캠페인 당선 안내가 통째로 멈춘 것이다
+//
+// ⚠️ 지금은 행사 줄이 아예 안 나오는 게 정상이다 — 행사 예약 경로가
+//    reviewed_at 을 채우지 않기 때문(그래서 8월 행사에서도 이 메일은 안 나갔다).
+//    조각 S-4 의 떨어뜨리기가 그 칸을 채우는 순간 열리는 문이라, 이 변경은
+//    **S-4 와 반드시 함께 나가야 한다.** S-4 적용 뒤 위 조회를 다시 돌려
+//    행사 줄이 「제외됨 / 나감」으로 갈리는지 눈으로 확인할 것.
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -239,6 +291,9 @@ interface CampRow {
   submission_end: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 행사(오프라인 팝업 방문 예약) 캠페인인가 — 당선 섹션 제외 판정용(2026-08-24 결정 3).
+  // ⚠️ 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **아무것도 안 걸러진다**(오류 없이 조용히).
+  event_mode: boolean | null;
 }
 interface DelivRow {
   application_id: string;
@@ -514,7 +569,9 @@ Deno.serve(async (req: Request) => {
           sb.from("campaigns")
             // product_price — レビュアー型の報酬欄「購入金額をペイバック（最大 ¥N）」の上限表示に使う。
             // 抜けると上限が消えたまま案内が届く（2026-08-05）。
-            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel")
+            // event_mode — 행사 캠페인은 당선 섹션에서 뺀다(2026-08-24 결정 3, 아래 8번 분류 참조).
+            //   빠뜨리면 제외 조건이 늘 거짓이 되어 방문객에게 「報酬 -」「提出期限」이 그대로 나간다.
+            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, event_mode")
             .in("id", allCampIds)
             .order("id", { ascending: true })
         );
@@ -615,8 +672,30 @@ Deno.serve(async (req: Request) => {
 
     (appsCreated || []).forEach((a: AppRow) => acc(a.user_id).received.push(a));
     (appsReviewed || []).forEach((a: AppRow) => {
-      if (a.status === "approved") acc(a.user_id).approved.push(a);
-      else if (a.status === "rejected") acc(a.user_id).rejected.push(a);
+      if (a.status === "approved") {
+        // 【행사 당선은 이 메일에서 뺀다】 — 2026-08-24 결정 3 (조각 S-14)
+        //   당선 섹션은 「報酬」(보수)와 「提出期限」(결과물 제출 마감)을 그리는데,
+        //   행사(오프라인 팝업 방문 예약) 방문객은 **보수도 결과물도 없다.**
+        //   마이그레이션 283 이 앱 알림(application_approved)을 행사에서 막을 때 든
+        //   사유 ①(「승인 알림 문구가 결과물 제출을 요구해 방문객에게 부적합」)이
+        //   **메일에는 그대로 남아 있었다** — 여기서 같은 기준으로 맞춘다.
+        //
+        // ⚠️ 기준은 `event_mode`(행사 전체)다. 선정형만이 아니다 — 선착순형 행사
+        //    당선자도 보수·결과물이 없고, 283 과 기준이 갈리면 앱 알림과 메일이
+        //    서로 다른 말을 하게 된다.
+        // ⚠️ **낙첨 섹션(rejected)은 일부러 그대로 둔다.** 캠페인 번호·제목·심사 시각과
+        //    「他のキャンペーンを見る」(다른 캠페인 보기)뿐이라 방문객에게도 맞고,
+        //    행사 낙선자에게 가는 통지 중 하나다(결정 1).
+        // ⚠️ 여기서 빼는 이유(렌더 단계가 아니라) — 제목·본문 요약이 `sec.approved.length`
+        //    로 건수를 세므로, 그리는 자리에서만 빼면 「承認 1件」이라 적힌 메일에 그
+        //    섹션이 없는 상태가 된다.
+        // ⚠️ 캠페인 조회가 실패하면(campMap 미적재, 위 5번은 warn 만 하고 계속 간다)
+        //    camp 가 undefined 라 이 조건이 거짓이 되어 **종전대로 발송**한다.
+        //    조회를 못 했다는 이유로 일반 캠페인 당선 안내를 삼키지 않는다.
+        const camp = campMap.get(a.campaign_id);
+        if (camp?.event_mode === true) return;
+        acc(a.user_id).approved.push(a);
+      } else if (a.status === "rejected") acc(a.user_id).rejected.push(a);
     });
 
     // 마감 임박 — appsApproved 전체에서 D-5/D-1 + 미제출 + 이력 없는 것만 추출
