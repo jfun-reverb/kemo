@@ -669,13 +669,20 @@ window.I18N_KO = {
     submitToAdminBtn: '관리자에게 제출',
     draftBadge: '미제출',
     draftAdded: '리스트에 추가했습니다',
+    // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
+    draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',
+    draftPendingTitle: '아직 제출하지 않은 것이 {n}건 있습니다',
+    draftPendingStep: '1. 아래 「관리자에게 제출」을 눌러 주세요  2. 누르기 전까지 운영팀에 전달되지 않습니다',
+    leaveWithDraft: '아직 제출하지 않은 것이 있습니다. 이대로 화면을 나가시겠습니까?',
     draftDeleted: '삭제했습니다',
     submittedN: '{n}건을 제출했습니다',
     submittedPartial: '{n}건을 제출했습니다. 제출하지 못한 항목이 있습니다',
+    submitPartialFailed: '「{channels}」은(는) 제출하지 못했습니다',
     nothingToSubmit: '제출할 항목이 없습니다',
     postSection: '게시물 URL 제출',
     postUrlLabel: '게시물 URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... 등',
+    badUrlShape: '링크(URL)가 올바르지 않은 것 같습니다. 다시 붙여넣어 주세요',
     postChannelLabel: '채널 선택',
     postChannelHint: 'URL에서 채널을 자동 판별하지 못했습니다',
     // 캠페인에 채널이 설정되지 않은 경우에만 표시 (통상 발생하지 않음)
@@ -736,6 +743,7 @@ window.I18N_KO = {
   },
 
   delivStatus: {
+    draft: '미제출',
     pending: '검수중',
     approved: '승인',
     rejected: '비승인',
@@ -873,6 +881,7 @@ window.I18N_KO = {
       visit: '방문 후 게시물을 제출해 주세요.',
       post_deadline: '결과물 제출 기한: {date}',
       post_overdue: '제출 기한이 지났습니다.',
+      draft_pending: '올리신 것이 아직 제출되지 않았습니다.',
       reviewing: '제출하신 결과물을 확인 중입니다.',
       partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
       all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',

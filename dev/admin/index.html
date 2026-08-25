@@ -1421,7 +1421,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
+              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
@@ -1598,12 +1598,13 @@
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
                 <th style="width:132px;white-space:nowrap">인증 상태</th>
+                <th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleDelivSort('cert_at')">▲▼</span></th>
                 <th class="deliv-col-receipt">영수증</th>
                 <th class="deliv-col-result">결과물</th>
                 <th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th class="deliv-col-action">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>

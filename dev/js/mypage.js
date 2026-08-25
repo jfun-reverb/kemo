@@ -262,11 +262,18 @@ async function renderMyApplyList() {
       for (const kind of order) {
         const d = byKind[kind];
         if (!d) continue;
-        if (d.status === 'draft') continue;  // 임시저장(미제출)은 응모이력 배지에 표시 안 함
+        // 🔴 되돌리지 말 것 — 예전에는 여기서 임시저장(미제출)을 걸러 냈다.
+        //   그러면 「올려는 뒀지만 제출은 안 한」 사람이 응모이력에서 아무 신호도 못 받고,
+        //   활동관리에 다시 들어가야만 회색 배지 하나를 볼 수 있었다. 그 사람은 낸 줄 알고
+        //   마감을 놓친다 — 운영에서 26건이 그렇게 4개월간 쌓였고(게시물 23·인증샷 2·
+        //   영수증 1), 같은 일이 2026-04-27 에도 있었다(마이그레이션 073 머리말).
+        //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
         let bg = '#FFF4E4', color = '#B8741A';
-        if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
+        // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
+        if (d.status === 'draft') { bg = '#FFE9D6'; color = '#C05621'; }
+        else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }

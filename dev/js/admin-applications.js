@@ -373,7 +373,7 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
 
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
+    : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
   return totalAllGroups;
 }
 
