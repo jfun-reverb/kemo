@@ -345,7 +345,8 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     if (c.recruit_type === 'visit')   return c.visit_end || '';
     return '';
   };
-  // 선정 기간은 시딩형과 **행사가 아닌 방문형**이 쓴다(2026-08-24). 그 밖의 형식에 값이
+  // 선정 기간은 시딩형과 **방문형**이 쓴다(행사는 선정형만 — 2026-08-24 결정 + 설계 7).
+  //   그 밖의 형식에 값이
   //   남아 있더라도 내보내지 않는다 — 화면이 그리는 조건과 **글자 그대로 같게** 둔다.
   //   엑셀만 다르면 「화면에는 뜨는데 엑셀 칸만 비는」 어긋남이 된다.
   //   ⚠️ 이 조건을 쓰는 자리는 이 함수를 포함해 **네 곳**이다. 목록과 근거는 인플루언서
@@ -353,9 +354,11 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   //   ⚠️ 옛 주석은 따라가는 화면을 「캠페인 목록·진행현황 카드」라고 적었는데 **틀렸다** —
   //      캠페인 목록 열은 모집 형식을 아예 안 본다(그 열이 먼저 생겼고 주석이 하루 뒤에
   //      쓰였다). 주석이 「나는 X 를 따라간다」고 선언해도 그 X 를 직접 확인할 것.
+  //   ⚠️ 행사는 **선정형만** 내보낸다 — 선착순형 비공개 행사에는 뽑는 기간이 없다.
   var pickSelection = function(c, key) {
     var isEvt = (typeof isEventCampaign === 'function') && isEventCampaign(c);
-    var wants = (c.recruit_type === 'gifting') || (c.recruit_type === 'visit' && !isEvt);
+    var isSel = (typeof isSelectionEvent === 'function') && isSelectionEvent(c);
+    var wants = (c.recruit_type === 'gifting') || (c.recruit_type === 'visit' && (!isEvt || isSel));
     return wants ? (c[key] || '') : '';
   };
   campaigns.forEach(function(c) {

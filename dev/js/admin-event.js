@@ -292,6 +292,23 @@ function applyInviteOnlyRow(prefix) {
   if (saveHint) saveHint.style.display = on ? '' : 'none';
 }
 
+// 접수 방식 라디오를 손으로 바꿨을 때 — 선정 기간 칸을 다시 판정한다.
+//   🔴 S-10 이 「선정 기간은 선정형 행사에도 보인다」로 조건을 넓히면서, 그 칸의
+//      표시가 **이 라디오에 달리게 됐다.** 그런데 라디오에는 onchange 가 없어
+//      「선정형으로 바꿨는데 칸이 안 나타나는」 상태였다(모집 형식이나 행사 모드를
+//      건드려야 그때 반영됐다). 관리자는 왜 안 나오는지 알 길이 없다.
+//   ⚠️ 접수 방식 줄 **자신의** 표시는 여기서 건드리지 않는다 —
+//      applySelectionModeVisibility 한 곳에서만 판정한다(S-6 이 세운 규칙).
+//      여기는 「그 라디오 값에 딸린 다른 칸」만 다시 묻는다.
+//   ⚠️ setCampSelectionMode() 로 값을 넣을 때는 이 핸들러가 안 돈다(코드로 바꾼
+//      값에는 change 가 안 뜬다). 그 경로는 이미 표시 판정을 함께 부르므로 문제없다.
+function onSelectionModeChange(prefix) {
+  const rt = _currentRecruitType(prefix);
+  if (typeof applyDeadlineFieldsVisibility === 'function') {
+    applyDeadlineFieldsVisibility(prefix, rt || 'monitor');
+  }
+}
+
 async function onInviteOnlyToggle(prefix) {
   const el = $(prefix + 'CampInviteOnly');
 

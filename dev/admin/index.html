@@ -459,11 +459,11 @@
                   <div class="event-selection-title">신청 접수 방식</div>
                   <div class="event-selection-choices">
                     <label class="event-selection-choice">
-                      <input type="radio" name="editCampSelectionMode" value="first_come" checked>
+                      <input type="radio" name="editCampSelectionMode" value="first_come" onchange="onSelectionModeChange('edit')" checked>
                       <span>선착순형</span>
                     </label>
                     <label class="event-selection-choice">
-                      <input type="radio" name="editCampSelectionMode" value="selection">
+                      <input type="radio" name="editCampSelectionMode" value="selection" onchange="onSelectionModeChange('edit')">
                       <span>선정형</span>
                     </label>
                   </div>
@@ -920,11 +920,11 @@
                   <div class="event-selection-title">신청 접수 방식</div>
                   <div class="event-selection-choices">
                     <label class="event-selection-choice">
-                      <input type="radio" name="newCampSelectionMode" value="first_come" checked>
+                      <input type="radio" name="newCampSelectionMode" value="first_come" onchange="onSelectionModeChange('new')" checked>
                       <span>선착순형</span>
                     </label>
                     <label class="event-selection-choice">
-                      <input type="radio" name="newCampSelectionMode" value="selection">
+                      <input type="radio" name="newCampSelectionMode" value="selection" onchange="onSelectionModeChange('new')">
                       <span>선정형</span>
                     </label>
                   </div>

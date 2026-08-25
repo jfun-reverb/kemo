@@ -428,6 +428,8 @@ function campOpsOverviewCard(camp) {
   const chSep = camp.channel_match === 'and' ? ' & ' : ' / ';
   const channelTxt = channels.map(ch => esc(getChannelLabel(ch))).join(chSep);
   const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  // 선정형 행사인가 — 아래 「선정」 줄을 가르는 판정(2026-08-24 선정형 사양서 설계 7).
+  const isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
   // 행사는 제품 금액을 0으로 저장한다 — 그대로 두면 「0円」이 값처럼 보인다.
   const priceTxt = (!isEvent && camp.product_price != null && camp.product_price !== '' && Number(camp.product_price) > 0)
     ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
@@ -451,8 +453,10 @@ function campOpsOverviewCard(camp) {
   //      **시딩형 동작은 그대로**다.
   //   ⚠️ 이 조건을 쓰는 자리는 **네 곳**이고 글자 그대로 같아야 한다 — 목록과 근거는
   //      인플루언서 상세(application.js)의 같은 자리 주석에 있다.
+  //   ⚠️ 행사는 **선정형만** 그린다(2026-08-24 선정형 사양서 설계 7). 선착순형 비공개
+  //      행사에는 뽑는 기간이 없어 뜨면 안 된다.
   //   ⚠️ 값이 비면 종전처럼 줄 자체를 안 그린다 — 「무조건 세 줄」이라는 뜻이 아니다.
-  const selRange = ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEvent))
+  const selRange = ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
       && (camp.selection_start || camp.selection_end))
     ? brandOpsDateRange(camp.selection_start, camp.selection_end) : '';
   const submitTxt = camp.submission_end ? formatDate(camp.submission_end) : '';

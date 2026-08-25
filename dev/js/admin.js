@@ -3699,6 +3699,8 @@ function renderCampPreview(mode) {
   //      유효해서, 바깥의 타임 선택표 줄이 이 이름을 못 찾고 **미리보기 전체가 멈춘다** —
   //      행사든 아니든, 편집이든 신규 등록이든 모든 캠페인에서(2026-08-04 실측).
   const isEventPreview = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  // 선정형 행사인가 — 아래 「선정 기간」 줄을 가르는 판정(2026-08-24 선정형 사양서 설계 7).
+  const isSelEventPreview = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
 
   el.innerHTML = `
     <div class="cp-frame">
@@ -3765,12 +3767,12 @@ function renderCampPreview(mode) {
             const cpPeriodLabel = cpMerged ? L.kRecruitPurchasePeriod
                                 : cpVisitMerged ? L.kRecruitVisitPeriod : L.kRecruitPeriod;
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodLabel)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
-            // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정).
+            // 선정 기간 — 시딩형과 **방문형**(행사는 선정형만. 2026-08-24 결정 + 선정형 설계 7).
             //   모집 기간 바로 아래(모집 → 선정 → 방문 → 제출 마감 순).
-            //   ⚠️ 행사는 값이 있어도 안 그린다 — 근거와 **같은 조건을 쓰는 네 곳의 목록**은
-            //      인플루언서 상세(application.js)의 같은 자리 주석에 있다. 한 곳만 고치면
-            //      관리자가 본 것과 인플루언서가 보는 것이 갈린다.
-            if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && !isEventPreview))
+            //   ⚠️ 선착순형 행사는 값이 있어도 안 그린다 — 근거와 **같은 조건을 쓰는 네 곳의
+            //      목록**은 인플루언서 상세(application.js)의 같은 자리 주석에 있다. 한 곳만
+            //      고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다.
+            if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEventPreview || isSelEventPreview)))
                 && (camp.selection_start || camp.selection_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kSelectionPeriod)}</div><div class="cp-info-val">${fmt(camp.selection_start)} 〜 ${fmt(camp.selection_end)}</div></div>`);
             // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다 — split 은 위 줄 안에서 그린다.
             //    되살리면 같은 날짜가 두 번 나온다(인플루언서 상세도 같은 구조).
@@ -4790,10 +4792,12 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const showPurchaseRow = typeWantsPurchase && !isEvent && editedIsSplit;
   if (purchaseRow) purchaseRow.style.display = showPurchaseRow ? '' : 'none';
   if (visitRow)    visitRow.style.display    = (typeWantsVisit && !isEvent) ? '' : 'none';
-  // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정. 2026-08-07 에는 시딩형만이었다).
-  //   리뷰어형은 「당선 발표」 개념 자체가 없다. 행사 방문형을 뺀 이유는 예약이 곧 당선(선착순)
-  //   이라 「뽑는 기간」이 성립하지 않아서다 — 옛 주석은 그 이유를 방문형 **전체**에 걸어
-  //   행사가 아닌 방문형(매장 방문 체험 등)까지 막고 있었다.
+  // 선정 기간 — 시딩형과 방문형(행사는 **선정형만**. 2026-08-24 결정 + 선정형 사양서 설계 7).
+  //   리뷰어형은 「당선 발표」 개념 자체가 없다. **선착순형** 행사 방문형을 빼는 이유는 예약이
+  //   곧 당선이라 「뽑는 기간」이 성립하지 않아서다 — 옛 주석은 그 이유를 방문형 **전체**에
+  //   걸어 행사가 아닌 방문형(매장 방문 체험 등)까지 막고 있었고, 그다음 판(2026-08-24)은
+  //   행사 **전체**에 걸어 선정형까지 막고 있었다. 선정형은 관리자가 실제로 뽑으므로 그
+  //   전제가 뒤집힌다 — 조건을 「행사」가 아니라 **「선정형」으로** 가른다.
   //   ★ 보여줄 기준과 값 비울 기준을 **일부러 두 변수로 나눈다.** 바로 위 구매·방문 짝이
   //     같은 이유로 나뉘어 있고, 묶었다가 실제로 사고가 났다(2026-08-03).
   //   예외: 행사여도 **이미 값이 저장돼 있으면** 칸을 보여준다. 값 비우기가 행사를 안 보므로
@@ -4803,9 +4807,17 @@ function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   //   ⚠️ 신규 등록 폼에는 이 예외가 없다(아직 저장된 값이 없어 formMode 로 갈린다).
   const editedHasSelection = (formMode === 'edit')
     && !!(savedSrc && (savedSrc.selection_start || savedSrc.selection_end));
+  //   ⚠️ 「선정형인가」는 **저장값이 아니라 폼의 라디오**로 본다 — 바로 위 isEvent 가 체크박스를
+  //      보는 것과 같은 이유다(지금 화면 값이 곧 저장될 값이다). 저장값을 보면 라디오를 막
+  //      선정형으로 바꾼 캠페인에서 칸이 안 뜬다.
+  //   🔴 아래 조건을 **화면 넷(인플루언서 상세·관리자 미리보기·진행현황·엑셀)과 글자 그대로
+  //      같게 만들지 않는다.** 폼에만 editedHasSelection 예외가 하나 더 있고, 그 분기를 지우면
+  //      바로 위에 적은 「목록 열에는 보이는데 고칠 자리가 없는 값」 상태가 되살아난다.
   const typeKeepsSelection = (recruitType === 'gifting' || recruitType === 'visit');
+  const pickedIsSelection = (typeof pickedSelectionMode === 'function')
+    && pickedSelectionMode(formMode) === 'selection';
   const showSelectionRow = (recruitType === 'gifting')
-    || (recruitType === 'visit' && (!isEvent || editedHasSelection));
+    || (recruitType === 'visit' && (!isEvent || pickedIsSelection || editedHasSelection));
   const selectionRow = $(prefix + 'SelectionRow');
   if (selectionRow) selectionRow.style.display = showSelectionRow ? '' : 'none';
   // ★ 값을 비우는 기준은 **형식**뿐이다 — 「행사라서 숨긴 것」은 값을 지울 이유가 아니다.
