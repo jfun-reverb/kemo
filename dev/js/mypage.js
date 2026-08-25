@@ -270,12 +270,15 @@ async function renderMyApplyList() {
         //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
-        let bg = '#FFF4E4', color = '#B8741A';
+        let bg = '#FFF4E4', color = '#B8741A', extra = '';
         // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
-        if (d.status === 'draft') { bg = '#FFE9D6'; color = '#C05621'; }
+        // ⚠️ 검수중(#FFF4E4/#B8741A)과 나란히 놓이는 자리다. 옅은 주황끼리는
+        //   구분이 안 돼(2026-08-25 브라우저 확인) 테두리를 넣고 색을 진하게 한다.
+        //   반려(빨강)와도 갈려야 한다 — 잘못한 게 아니라 아직 안 낸 것이다.
+        if (d.status === 'draft') { bg = '#FFE0B2'; color = '#8A3B00'; extra = 'border:1px solid #E8912D;'; }
         else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
-        items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+        items.push(`<span style="display:inline-block;${extra}background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       delivItemsHtml = items.join('');
     }

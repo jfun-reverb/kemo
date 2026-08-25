@@ -654,6 +654,9 @@ html.preview-mode #page-detail .detail-back{display:none}
 }
 .draft-pending-bar .dpb-step{
   font-size:12px; color:#8A5A14; line-height:1.7; margin-top:4px;
+  /* 번호 단계는 줄을 나눠야 「단계」로 읽힌다 — 한 줄로 이어지면 좁은 화면에서
+     그냥 긴 문장이 된다(2026-08-25 브라우저 확인). 문구의 \n 을 살린다. */
+  white-space:pre-line;
 }
 
 /* ══════════════════════════════════
@@ -1567,7 +1570,7 @@ html.preview-mode #page-detail .detail-back{display:none}
       <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
       <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
       <div id="draftBarReceipt" class="draft-pending-bar" style="display:none"></div>
-      <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+      <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
     </div>
 
     <!-- 리뷰 캡쳐 섹션 (monitor STEP 2 — 영수증 승인 후 노출) -->
@@ -1581,7 +1584,7 @@ html.preview-mode #page-detail .detail-back{display:none}
         <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
         <div id="reviewImageList" style="margin-bottom:20px"></div>
         <div id="draftBarReviewImage" class="draft-pending-bar" style="display:none"></div>
-        <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+        <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
       </div>
     </div>
 
@@ -1612,7 +1615,7 @@ html.preview-mode #page-detail .detail-back{display:none}
         <button id="addPostBtn" class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
       <div id="draftBarPost" class="draft-pending-bar" style="display:none"></div>
-      <button id="submitPostsBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('post')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+      <button id="submitPostsBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('post')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
     </div>
   </div>
 </div>
@@ -4982,13 +4985,13 @@ window.I18N_JA = {
     imageLabel: '画像',
     imageBtn: '画像を選択',
     addDraftBtn: 'リストに追加',
-    submitToAdminBtn: '管理者へ提出',
+    submitToAdminBtn: '提出する',
     draftBadge: '未提出',
     draftAdded: 'リストに追加しました',
     // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
     draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
     draftPendingTitle: 'まだ提出していないものが{n}件あります',
-    draftPendingStep: '1. 下の「管理者へ提出」を押してください　2. 押すまで運営には届きません',
+    draftPendingStep: '1. 下の「提出する」ボタンを押してください\n2. 押すまで運営には届きません',
     leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
     draftDeleted: '削除しました',
     submittedN: '{n}件を提出しました',
@@ -5905,13 +5908,13 @@ window.I18N_KO = {
     imageLabel: '이미지',
     imageBtn: '이미지 선택',
     addDraftBtn: '리스트에 추가',
-    submitToAdminBtn: '관리자에게 제출',
+    submitToAdminBtn: '제출하기',
     draftBadge: '미제출',
     draftAdded: '리스트에 추가했습니다',
     // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
     draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',
     draftPendingTitle: '아직 제출하지 않은 것이 {n}건 있습니다',
-    draftPendingStep: '1. 아래 「관리자에게 제출」을 눌러 주세요  2. 누르기 전까지 운영팀에 전달되지 않습니다',
+    draftPendingStep: '1. 아래 「제출하기」 버튼을 눌러 주세요\n2. 누르기 전까지 운영팀에 전달되지 않습니다',
     leaveWithDraft: '아직 제출하지 않은 것이 있습니다. 이대로 화면을 나가시겠습니까?',
     draftDeleted: '삭제했습니다',
     submittedN: '{n}건을 제출했습니다',
@@ -17675,12 +17678,15 @@ async function renderMyApplyList() {
         //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
-        let bg = '#FFF4E4', color = '#B8741A';
+        let bg = '#FFF4E4', color = '#B8741A', extra = '';
         // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
-        if (d.status === 'draft') { bg = '#FFE9D6'; color = '#C05621'; }
+        // ⚠️ 검수중(#FFF4E4/#B8741A)과 나란히 놓이는 자리다. 옅은 주황끼리는
+        //   구분이 안 돼(2026-08-25 브라우저 확인) 테두리를 넣고 색을 진하게 한다.
+        //   반려(빨강)와도 갈려야 한다 — 잘못한 게 아니라 아직 안 낸 것이다.
+        if (d.status === 'draft') { bg = '#FFE0B2'; color = '#8A3B00'; extra = 'border:1px solid #E8912D;'; }
         else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
-        items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+        items.push(`<span style="display:inline-block;${extra}background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       delivItemsHtml = items.join('');
     }
