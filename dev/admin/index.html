@@ -1438,9 +1438,23 @@
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
             </div>
+            <!-- 선정형(직접 뽑기) 전용 줄 — 정원 현황 + 뽑기·탈락 버튼.
+                 ⚠️ 선착순형·일반 공개 캠페인에서는 **아예 안 보인다**(작업표 S-7 검증 17).
+                    보이는 조건은 admin-event.js 의 eventPaneIsSelection() 한 곳에서만 판정한다. -->
+            <div id="eventTicketSelectionBar" style="display:none;flex-direction:column;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--surface-container-low)">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span id="eventTicketCapacityInfo" style="font-size:13px;color:var(--ink)"></span>
+                <div style="flex:1;min-width:8px"></div>
+                <button type="button" class="btn btn-green btn-sm" id="eventTicketPickBtn" onclick="pickSelectedEventTickets()">뽑기</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="eventTicketRejectBtn" style="color:var(--red);border-color:var(--red)" onclick="rejectSelectedEventTickets()">탈락</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="eventTicketClearSelBtn" onclick="clearEventTicketSelection()">선택 해제</button>
+              </div>
+              <div id="eventTicketSlotBreakdown" style="display:none;font-size:12px;line-height:1.7"></div>
+              <div id="eventTicketSelectionNotice" style="display:none;font-size:12px;line-height:1.7;color:var(--red)"></div>
+            </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
+              <thead><tr><th id="eventTicketSelectAllCell" style="display:none;width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventTicketSelectAll" onchange="toggleEventTicketSelectAll(this.checked)" title="지금 보이는 심사중 방문객 전체 선택"></th><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
               <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
