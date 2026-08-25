@@ -5269,6 +5269,37 @@ async function promoteEventWaitlist(slotId) {
   return res || {ok: false, reason: 'not_found'};
 }
 
+// 선정형 행사 — 지목한 심사중(waitlist) 티켓들을 한 번에 당선 확정(관리자 전용,
+// 마이그레이션 379). 타임별 정원을 넘기면 부분 통과 없이 전부 거부하고 어느 타임에서
+// 몇 명이 넘쳤는지(slots) · 이미 처리된 티켓이 있으면 누구인지(tickets) 를 함께 돌려준다
+// — 실패 사유를 삼키거나 뭉뚱그리지 말 것(관리자가 그 정보로 다시 골라 눌러야 한다).
+// 실패는 예외가 아니라 {ok:false, reason} 으로 온다.
+async function pickEventTickets(ticketIds) {
+  if (!db) return {ok: false, reason: 'demo_mode'};
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('pick_event_tickets', {p_ticket_ids: ticketIds});
+    if (error) throw error;
+    return data || {ok: false, reason: 'not_found'};
+  });
+}
+
+// 선정형 행사 — 지목한 심사중(waitlist) 티켓들을 한 번에 탈락 처리(관리자 전용,
+// 마이그레이션 379). 예약(event_tickets)은 cancelled, 신청(applications)은 **cancelled
+// 가 아니라 rejected** 로 갈라 저장한다(확정 1 — 다음날 아침 낙첨 메일을 타게 하기
+// 위함). 새 앱 알림은 없다 — 일반 모집 낙첨과 동일. 실패는 예외가 아니라
+// {ok:false, reason} 으로 온다.
+async function rejectEventTickets(ticketIds, reasonNote) {
+  if (!db) return {ok: false, reason: 'demo_mode'};
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('reject_event_tickets', {
+      p_ticket_ids: ticketIds,
+      p_reason_note: reasonNote || null
+    });
+    if (error) throw error;
+    return data || {ok: false, reason: 'not_found'};
+  });
+}
+
 // 현장 입장 확인(관리자 전용). 이미 입장한 티켓도 ok:true 로 오되
 // already_entered=true + entered_at(첫 입장 시각)이 함께 온다.
 // ⚠️ 예약 날짜가 오늘이 아니면 {ok:false, reason:'other_day'} 가 오고 **아직 기록되지 않았다**.
@@ -5296,11 +5327,19 @@ async function checkInTicket(ticketCode, confirmOtherDay, scopeCampaignIds) {
 
 // 본인 티켓 전체(취소분 포함 — 티켓 화면이 취소 상태도 보여준다).
 // 행 단위 보안 정책이 본인 행만 내려주므로 별도 조건이 필요 없다.
+// ⚠️ `applications:application_id (status)` 를 끼워 붙였다(S-5, 선정형 낙선 구분용) —
+//    바로 아래 fetchEventTicketsByCampaign 의 경고 주석과 같은 함정이다. 끼워 붙인
+//    표의 접근 정책에 막히면 예약 행은 다 오는데 끼운 쪽만 전부 null 이 되고,
+//    오류가 0건이라 아무도 모른다(마이그레이션 312, 2026-08-07~18 사고).
+//    ⚠️ 별명 `applications:` 을 그대로 둔다 — 바꾸면 오류도 안 나고 조회도 성공하는데
+//    값만 계속 빈다. status 하나만 받는다 — 새 사유 코드는 만들지 않기로 확정됐다
+//    (작업표 §12 확정 1, event_tickets.status='cancelled' + applications.status='rejected'
+//    조합으로 「선정 안 됨」을 가른다).
 async function fetchMyEventTickets() {
   if (!db) return [];
   try {
     const {data, error} = await db.from('event_tickets')
-      .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label)')
+      .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), applications:application_id (status)')
       .order('created_at', {ascending: false});
     if (error) throw error;
     return data || [];
