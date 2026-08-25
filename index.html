@@ -659,6 +659,14 @@ html.preview-mode #page-detail .detail-back{display:none}
   white-space:pre-line;
 }
 
+/* 결과물 목록의 무리 제목 — 「지난 제출」 / 「제출할 항목」.
+   제출 버튼이 목록 아래에 있어, 나누지 않으면 위의 모든 행을 보내는 것처럼 보인다. */
+.deliv-group-head{
+  font-size:11px; font-weight:700; color:var(--muted);
+  margin:14px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--surface-dim);
+}
+.deliv-group-head:first-child{ margin-top:0; }
+
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
@@ -4990,6 +4998,8 @@ window.I18N_JA = {
     draftAdded: 'リストに追加しました',
     // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
     draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
+    groupPast: 'これまでの提出',
+    groupToSubmit: '提出する項目',
     draftPendingTitle: 'まだ提出していないものが{n}件あります',
     draftPendingStep: '1. 下の「提出する」ボタンを押してください\n2. 押すまで運営には届きません',
     leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
@@ -5913,6 +5923,8 @@ window.I18N_KO = {
     draftAdded: '리스트에 추가했습니다',
     // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
     draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',
+    groupPast: '지난 제출',
+    groupToSubmit: '제출할 항목',
     draftPendingTitle: '아직 제출하지 않은 것이 {n}건 있습니다',
     draftPendingStep: '1. 아래 「제출하기」 버튼을 눌러 주세요\n2. 누르기 전까지 운영팀에 전달되지 않습니다',
     leaveWithDraft: '아직 제출하지 않은 것이 있습니다. 이대로 화면을 나가시겠습니까?',
@@ -16070,7 +16082,7 @@ function renderActivityReceiptList(delivs) {
     return;
   }
   let draftCount = 0;
-  container.innerHTML = delivs.map(r => {
+  container.innerHTML = splitDeliverableGroups(delivs, r => {
     const isDraft = r.status === 'draft';
     if (isDraft) draftCount++;
     const stBadge = isDraft
@@ -16103,7 +16115,7 @@ function renderActivityReceiptList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
+  });
   if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
   renderDraftPendingBar('receipt', draftCount);
 }
@@ -16205,6 +16217,24 @@ function renderActivityReviewImageList(delivs, channels) {
 }
 
 
+// 결과물 목록을 「지난 제출」과 「제출할 항목」 두 무리로 나눈다.
+//   ⚠️ 왜 나누나 — 제출 버튼이 목록 **아래**에 있어서, 섞여 있으면 위의 모든 행을
+//   보내는 것처럼 보인다(2026-08-25 사용자 지적: 「비승인 3건까지 같이 제출되는
+//   것처럼 읽힌다」). 실제로 보내는 것은 임시저장뿐이다.
+//   ⚠️ 임시저장을 **아래쪽**에 둔다 — 버튼·안내 줄이 바로 뒤에 붙어야 「이것을 보낸다」가
+//   눈으로 이어진다.
+//   ⚠️ 한쪽 무리가 비면 제목을 안 붙인다 — 나눌 것이 없는데 제목만 있으면 군더더기다.
+function splitDeliverableGroups(rows, renderRow) {
+  const past = [], todo = [];
+  (rows || []).forEach(function(r) { (r.status === 'draft' ? todo : past).push(r); });
+  const head = k => `<div class="deliv-group-head">${esc(t('activity.' + k))}</div>`;
+  const both = past.length && todo.length;
+  let html = '';
+  if (past.length) html += (both ? head('groupPast') : '') + past.map(renderRow).join('');
+  if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
+  return html;
+}
+
 // ── 「아직 제출 안 함」 안내 줄 (세 화면 공용) ────────────────────────────
 //   2026-08-25: 운영에서 결과물 26건이 임시저장으로 멈춰 있었다(게시물 23·인증샷 2·
 //   영수증 1 — 세 종류 전부, 4개월간 누적). 「リストに追加」만 누르고 끝난 줄 아는
@@ -16238,7 +16268,7 @@ function renderActivityPostList(delivs) {
     return;
   }
   let draftCount = 0;
-  container.innerHTML = delivs.map(d => {
+  container.innerHTML = splitDeliverableGroups(delivs, d => {
     const isDraft = d.status === 'draft';
     if (isDraft) draftCount++;
     const stBadge = isDraft
@@ -16266,7 +16296,7 @@ function renderActivityPostList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
+  });
   if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
   renderDraftPendingBar('post', draftCount);
 }

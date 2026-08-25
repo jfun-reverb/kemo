@@ -710,6 +710,8 @@ window.I18N_JA = {
     draftAdded: 'リストに追加しました',
     // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
     draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
+    groupPast: 'これまでの提出',
+    groupToSubmit: '提出する項目',
     draftPendingTitle: 'まだ提出していないものが{n}件あります',
     draftPendingStep: '1. 下の「提出する」ボタンを押してください\n2. 押すまで運営には届きません',
     leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
