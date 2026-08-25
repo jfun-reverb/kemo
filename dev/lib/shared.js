@@ -1528,6 +1528,17 @@ function isEventCampaign(camp) {
   return !!(camp && camp.event_mode === true);
 }
 
+// 선정형 행사인가 — 행사 모드 + 방식 칸이 'selection'(마이그레이션 376).
+//   ⚠️ 이 판정을 여러 곳에서 각자 만들지 않는다. isEventCampaign 바로 아래 두는 이유도
+//      같다 — 판정이 두 벌이 되면 「어떤 화면에서는 선정형인데 다른 화면에서는
+//      아닌」 어긋남이 생긴다(작업표 §4-2 경고).
+//   ⚠️ 호출부는 갈래를 이름으로 지목한다. `event_selection_mode !== 'first_come'` 같은
+//      부정 조건을 쓰지 않는다 — 갈래가 늘 때 조용히 잘못된 쪽으로 빨려 들어간다
+//      (이 저장소가 캠페인 기간 판정에서 겪은 일).
+function isSelectionEvent(camp) {
+  return !!(camp && camp.event_mode === true && camp.event_selection_mode === 'selection');
+}
+
 // 비공개(초대 전용) 캠페인인가 — 목록 제외·상세 게이트 판정용.
 //   화면 단계 필터라 이것만으로는 막히지 않는다. 실효 방어선은 예약 함수의
 //   초대 번호 재검증이다(마이그레이션 283 reserve_event_ticket).

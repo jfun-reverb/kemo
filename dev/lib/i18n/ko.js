@@ -10,6 +10,9 @@ window.I18N_KO = {
     slotFull: '마감',
     slotFullWaitlist: '마감(대기 신청)',
     slotWaitlistNote: '자리가 다 차서 대기 신청이 됩니다.',
+    // ── 선정형 행사(신청을 받아 두고 나중에 운영진이 뽑는 방식) ──
+    //   ⚠️ 위의 「N명 남음」·「마감」은 선착순형이 계속 쓴다. 지우지 말 것.
+    slotOpenLabel: '접수 중',
     slotClosed: '접수가 끝났습니다',
     slotNone: '아직 등록된 시간이 없습니다. 조금 뒤에 다시 봐 주세요.',
     slotLoading: '시간을 불러오는 중…',
@@ -18,6 +21,7 @@ window.I18N_KO = {
     selected: '고른 시간',
     applyDone: '예약이 확정됐습니다. 입장 티켓을 확인해 주세요.',
     waitlistDone: '대기 신청을 했습니다. 자리가 나면 알려 드립니다.',
+    selectionDone: '신청을 접수했습니다. 결과는 선정 기간이 끝난 뒤에 알려 드립니다.',
     failInviteRequired: '이 행사는 초대받은 분만 신청할 수 있습니다.',
     failInviteMismatch: '초대 번호가 다릅니다. 받으신 링크를 다시 열어 주세요.',
     failAlreadyApplied: '이미 이 행사를 예약했습니다. 예약은 한 번만 가능합니다.',
@@ -31,6 +35,8 @@ window.I18N_KO = {
     ticketTitle: '입장 티켓',
     ticketMenu: '입장 티켓',
     waitlistBtn: '대기 중 — 순번 보기',
+    selectionPendingBtn: '심사 중 — 신청 내용 보기',
+    selectionRejectedBtn: '낙선 — 결과 보기',
     cancelViaTicket: '눌러서 「입장 티켓」 화면으로 이동합니다. 거기서 취소할 수 있습니다.',
     ticketCodeLabel: '예약번호',
     ticketNameLabel: '이름',
@@ -40,6 +46,12 @@ window.I18N_KO = {
     ticketWaitlistTitle: '대기 {n}번',
     ticketWaitlistHint: '자리가 나면 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
     ticketCancelledTitle: '이 예약은 취소됐습니다',
+    // 선정형에서 「뽑히지 않은」 경우. ⚠️ 취소와 다른 말을 쓴다 —
+    //   똑같이 「취소됐습니다」로 두면 본인이 취소한 줄 안다.
+    ticketSelectionPendingTitle: '심사 중',
+    ticketSelectionPendingHint: '뽑히신 분께는 이 화면과 알림으로 알려 드립니다. 아직 입장할 수 없습니다.',
+    ticketNotSelectedTitle: '선정되지 않았습니다',
+    ticketNotSelectedHint: '이번에는 함께하지 못했습니다. 다음 신청을 기다리겠습니다.',
     ticketEnteredAt: '입장 완료({time})',
     ticketEnteredTitle: '입장이 확인됐습니다',
     ticketEnteredHint: '즐거운 시간 보내세요.',
@@ -58,6 +70,7 @@ window.I18N_KO = {
     placeTbdShort: '장소는 추후 안내',
     ticketAlreadyCancelled: '이 예약은 이미 취소됐습니다.',
     ticketTabCancelled: '취소',
+    ticketTabRejected: '낙선',
     // ── 초대 전용 캠페인 진입 ──
     inviteGateTitle: '초대받은 분만 볼 수 있습니다',
     inviteGateHint: '보내 드린 링크를 열면 바로 보실 수 있습니다.\n번호를 갖고 계신 분은 아래에 입력해 주세요.',

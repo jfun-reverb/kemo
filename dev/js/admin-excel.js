@@ -345,7 +345,8 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     if (c.recruit_type === 'visit')   return c.visit_end || '';
     return '';
   };
-  // 선정 기간은 시딩형과 **행사가 아닌 방문형**이 쓴다(2026-08-24). 그 밖의 형식에 값이
+  // 선정 기간은 시딩형과 **방문형**이 쓴다(행사는 선정형만 — 2026-08-24 결정 + 설계 7).
+  //   그 밖의 형식에 값이
   //   남아 있더라도 내보내지 않는다 — 화면이 그리는 조건과 **글자 그대로 같게** 둔다.
   //   엑셀만 다르면 「화면에는 뜨는데 엑셀 칸만 비는」 어긋남이 된다.
   //   ⚠️ 이 조건을 쓰는 자리는 이 함수를 포함해 **네 곳**이다. 목록과 근거는 인플루언서
@@ -353,9 +354,11 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   //   ⚠️ 옛 주석은 따라가는 화면을 「캠페인 목록·진행현황 카드」라고 적었는데 **틀렸다** —
   //      캠페인 목록 열은 모집 형식을 아예 안 본다(그 열이 먼저 생겼고 주석이 하루 뒤에
   //      쓰였다). 주석이 「나는 X 를 따라간다」고 선언해도 그 X 를 직접 확인할 것.
+  //   ⚠️ 행사는 **선정형만** 내보낸다 — 선착순형 비공개 행사에는 뽑는 기간이 없다.
   var pickSelection = function(c, key) {
     var isEvt = (typeof isEventCampaign === 'function') && isEventCampaign(c);
-    var wants = (c.recruit_type === 'gifting') || (c.recruit_type === 'visit' && !isEvt);
+    var isSel = (typeof isSelectionEvent === 'function') && isSelectionEvent(c);
+    var wants = (c.recruit_type === 'gifting') || (c.recruit_type === 'visit' && (!isEvt || isSel));
     return wants ? (c[key] || '') : '';
   };
   campaigns.forEach(function(c) {
@@ -1982,6 +1985,17 @@ async function exportEventTicketsExcel(campaignId) {
     await loadExcelJS();
     var wb = new ExcelJS.Workbook();
 
+    // 선정형 행사인가 — 이 파일에서 선정형 분기의 유일한 기준.
+    //   ⚠️ 「행사 모드」만 보면 안 된다. 선착순형 행사도 event_mode 는 참이라, 행사 전체가
+    //      「대기」를 잃고 「심사중」이 된다 — 선착순형에서 순번은 뜻이 살아 있는 값이다.
+    //   ⚠️ 캠페인을 못 찾으면 isSelectionEvent 가 거짓 → **종전 그대로** 나간다(안전측).
+    //      이 버튼은 예약 현황 페인에만 있어 _eventPaneCampObj 가 늘 채워져 있다.
+    var _evtCamp = (typeof _eventPaneCampObj !== 'undefined' && _eventPaneCampObj
+                    && _eventPaneCampObj.id === campId)
+      ? _eventPaneCampObj
+      : (Array.isArray(allCampaigns) ? allCampaigns : []).find(function (c) { return c.id === campId; });
+    var isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(_evtCamp);
+
     // ── 시트 1: 타임별 집계 ──────────────────────────────────
     var ws1 = wb.addWorksheet('타임별 집계');
     ws1.columns = [
@@ -1992,7 +2006,9 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '확정',   key: 'conf',  width: 8 },
       { header: '입장',   key: 'ent',   width: 8 },
       { header: '미입장', key: 'no',    width: 9 },
-      { header: '대기',   key: 'wait',  width: 8 },
+      // 선정형에서 waitlist 는 「캔슬 대기」가 아니라 **「심사중」**이다(설계 1 — 같은 값을
+      //   다른 뜻으로 재사용). 화면 표·탭과 같은 말을 쓴다(eventTicketStatusLabel 참고).
+      { header: isSelEvent ? '심사중' : '대기', key: 'wait', width: 8 },
       { header: '취소',   key: 'canc',  width: 8 },
     ];
     slots.forEach(function (s) {
@@ -2022,6 +2038,8 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '이름(가나)', key: 'kana',  width: 18 },
       { header: '예약번호', key: 'code',  width: 12 },
       { header: '상태',     key: 'st',    width: 12 },
+      // 선정형은 순번을 아예 안 넣는다(마이그레이션 378). 열은 자리를 지키되 **값을 비운다** —
+      //   「3번」처럼 보이면 뽑히는 순서가 정해져 있다는 오해를 준다.
       { header: '대기순번', key: 'wp',    width: 9 },
       { header: '입장 시각', key: 'ent',  width: 20 },
       { header: '처리자',   key: 'by',    width: 12 },
@@ -2049,8 +2067,9 @@ async function exportEventTicketsExcel(campaignId) {
         kanji: inf.name_kanji || '',
         kana:  inf.name_kana || '',
         code:  t.ticket_code || '',
-        st:    (typeof eventTicketStatusLabel === 'function') ? eventTicketStatusLabel(view) : view,
-        wp:    t.waitlist_position || '',
+        st:    (typeof eventTicketStatusLabel === 'function') ? eventTicketStatusLabel(view, isSelEvent) : view,
+        // 선정형은 순번이 없다 — 값이 남아 있더라도 내보내지 않는다(위 열 주석 참조).
+        wp:    isSelEvent ? '' : (t.waitlist_position || ''),
         ent:   t.entered_at ? new Date(t.entered_at).toLocaleString('ko-KR') : '',
         by:    t.entered_by_name || '',
         scan:  Number(t.scan_count || 0),

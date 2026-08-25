@@ -2245,6 +2245,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 행사 묶음 — 고르는 칸과 「새 묶음」 버튼을 한 줄에. 좁아지면 버튼이 아래로 내려간다. */
 .event-group-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
+/* ── 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 ──
+   행사 모드 + 비공개일 때만 나타나는 줄. 초대 번호 묶음 바로 아래에 붙어
+   「비공개로 받은 신청을 어떻게 처리하나」가 한자리에서 읽히게 한다.
+   ⚠️ 잠김 표시는 .choice-locked 를 그대로 쓴다(행사 모드의 모집 형식 잠금과 같은 모양). */
+.event-selection-row{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.event-selection-title{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.event-selection-choices{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.event-selection-choice{display:inline-flex;align-items:center;gap:6px;font-size:13px;
+  font-weight:600;color:var(--ink);cursor:pointer}
+.event-selection-choice input[type=radio]{accent-color:var(--pink);width:14px;height:14px;cursor:pointer}
+
 /* ── 행사 모드에서 잠기는 칸의 시각 표시 ──
    라디오는 input 이 display:none 이고 라벨이 모양을 담당한다. 그래서 input 에
    disabled 를 걸어도 **라벨은 그대로 멀쩡해 보인다** — 「입력해야 할 것」과

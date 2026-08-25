@@ -13,6 +13,9 @@ window.I18N_JA = {
     slotFull: '満席',
     slotFullWaitlist: '満席（キャンセル待ち）',
     slotWaitlistNote: '満席のため、キャンセル待ちでの申し込みになります。',
+    // ── 選定制イベント（申し込みを受けて、あとで運営がえらぶ） ──
+    //   ⚠️ 上の「あと{n}名」「満席」は先着制でつかう。消さないこと。
+    slotOpenLabel: '受付中',
     slotClosed: '受付をしめきりました',
     slotNone: '日時がまだ登録されていません。しばらくしてからもう一度ごらんください。',
     slotLoading: '日時を読み込んでいます…',
@@ -21,6 +24,7 @@ window.I18N_JA = {
     selected: 'えらんだ日時',
     applyDone: '予約が確定しました。入場チケットをご確認ください。',
     waitlistDone: 'キャンセル待ちに登録しました。あきが出たらお知らせします。',
+    selectionDone: 'お申し込みを受けつけました。結果は、選定期間がおわったあとにおしらせします。',
     // 予約できなかった理由 — 一つずつ、次にすることまで書く
     failInviteRequired: 'このイベントは招待された方のみお申し込みいただけます。',
     failInviteMismatch: '招待番号がちがうようです。お送りしたリンクをもう一度ひらいてください。',
@@ -35,6 +39,8 @@ window.I18N_JA = {
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
     waitlistBtn: 'キャンセル待ち — 順番をみる',
+    selectionPendingBtn: '審査中 — 申請内容をみる',
+    selectionRejectedBtn: '落選 — 結果をみる',
     cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
@@ -44,6 +50,12 @@ window.I18N_JA = {
     ticketWaitlistTitle: 'キャンセル待ち {n}番',
     ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
     ticketCancelledTitle: 'この予約はキャンセルされました',
+    // 選定制で「えらばれなかった」場合。⚠️ キャンセルとは別のことばにする —
+    //   同じ「キャンセルされました」だと、ご自身でキャンセルしたと思われてしまう。
+    ticketSelectionPendingTitle: '審査中',
+    ticketSelectionPendingHint: 'えらばれた方には、この画面と通知でおしらせします。まだ入場はできません。',
+    ticketNotSelectedTitle: '選ばれませんでした',
+    ticketNotSelectedHint: 'こんかいはご縁がありませんでした。またのお申し込みをおまちしています。',
     ticketEnteredAt: '入場ずみ（{time}）',
     ticketEnteredTitle: '入場が確認されました',
     ticketEnteredHint: 'ごゆっくりおたのしみください。',
@@ -62,6 +74,7 @@ window.I18N_JA = {
     placeTbdShort: '会場は後日おしらせ',
     ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
     ticketTabCancelled: 'キャンセル',
+    ticketTabRejected: '落選',
     // ── 招待制キャンペーンの入口 ──
     inviteGateTitle: '招待された方だけがごらんになれます',
     inviteGateHint: 'お送りしたリンクをひらくと、そのままごらんになれます。\n番号をおもちの方は、下に入力してください。',
