@@ -145,6 +145,11 @@ function applyEventModeFormLock(prefix) {
     const inv = $(prefix + 'CampInviteOnly');
     if (inv) inv.checked = false;
     applyInviteOnlyRow(prefix);
+    // 접수 방식도 선착순형으로 되돌린다 — 행사가 아니면 선정형이 저장될 수 없다
+    //   (마이그레이션 376 범위 제약). ⚠️ 예약이 있어 잠긴 캠페인은 건드리지 않는다:
+    //   실수로 껐다 다시 켰을 때 값이 안 돌아오면 「선정형이던 캠페인이 조용히
+    //   선착순형으로」 저장되는 길이 열린다(묶음 선택을 여기서 안 비우는 것과 같은 이유).
+    if (!_selectionModeLocked[prefix]) setCampSelectionMode(prefix, 'first_come');
     // ⚠️ 묶음 선택은 **여기서 비우지 않는다.** 실수로 껐다 다시 켜면 값이 안 돌아와
     //   조용히 연결이 끊긴다 — 이 칸이 막으려는 사고 그 자체다. 행사가 아닐 때
     //   묶음을 지우는 일은 **저장 시점**에 한다(행사장 안내 칸과 같은 방식).
@@ -154,6 +159,118 @@ function applyEventModeFormLock(prefix) {
 function onEventModeToggle(prefix) {
   applyEventModeFormLock(prefix);
   applyEventModeFieldVisibility(prefix);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 신청 접수 방식 — 선착순형 / 선정형 (마이그레이션 376 · 사양서 2026-08-24 §설계 0)
+//   선착순형 = 정원이 남아 있으면 그 자리에서 당선(종전과 동일, 기본값)
+//   선정형   = 정원과 무관하게 접수만 받고 관리자가 뽑는다
+// ══════════════════════════════════════════════════════════════
+
+// 예약이 이미 들어와 방식을 잠갔는가(폼별). 행사 모드를 껐다 켜는 경로에서
+//   값을 함부로 되돌리지 않기 위한 표시이기도 하다.
+const _selectionModeLocked = {new: false, edit: false};
+// 잠금 판정을 위해 예약 건수를 조회한 캠페인. 같은 캠페인을 편집하는 동안
+//   같은 조회가 반복되지 않게 한다(형식 라디오를 누를 때마다 표시 판정이 돈다).
+let _selectionLockLoadedFor = null;
+
+// 화면 값이 무엇이든 **데이터베이스가 허용하는 값만** 돌려준다.
+//   마이그레이션 376 의 campaigns_selection_mode_scope_chk 는 「행사 모드 그리고
+//   비공개」일 때만 선정형을 허용한다. 그 조건이 깨진 채 'selection' 이 저장되면
+//   저장이 통째로 데이터베이스 원문 오류로 실패한다 — 여기서 미리 접는다(fail-closed).
+function safeSelectionMode(mode, eventMode, inviteOnly) {
+  return (eventMode && inviteOnly && mode === 'selection') ? 'selection' : 'first_come';
+}
+
+// 폼에서 지금 고른 방식(화면 값 그대로 — 조건 보정 전).
+function pickedSelectionMode(prefix) {
+  return document.querySelector(`input[name="${prefix}CampSelectionMode"]:checked`)?.value || 'first_come';
+}
+
+// 🔴 저장 세 경로(addCampaign · saveCampaignEdit · duplicateCampaign)가 쓰는 값.
+//   ⚠️ 여기 한 곳에서만 만든다 — 경로마다 각자 만들면 한 곳이 빠져 복제본이 조용히
+//      선착순형이 된다(행사 설정이 복제에서 통째로 빠졌던 선례와 같은 실수).
+function campSelectionModeForSave(prefix) {
+  return safeSelectionMode(
+    pickedSelectionMode(prefix),
+    !!$(prefix + 'CampEventMode')?.checked,
+    !!$(prefix + 'CampInviteOnly')?.checked
+  );
+}
+
+function setCampSelectionMode(prefix, mode) {
+  const want = (mode === 'selection') ? 'selection' : 'first_come';
+  document.querySelectorAll(`input[name="${prefix}CampSelectionMode"]`)
+    .forEach(r => { r.checked = (r.value === want); });
+}
+
+// 라디오 두 개를 함께 잠그고 라벨에도 표시한다.
+//   ⚠️ 라디오는 disabled 만으로는 화면이 그대로라 「못 고치는 칸」인지 알 수 없다.
+//      행사 모드의 모집 형식 잠금과 같은 표시(.choice-locked)를 쓴다.
+function _setSelectionModeDisabled(prefix, off) {
+  document.querySelectorAll(`input[name="${prefix}CampSelectionMode"]`).forEach(r => {
+    r.disabled = !!off;
+    const lab = r.closest('label');
+    if (lab) lab.classList.toggle('choice-locked', !!off);
+  });
+}
+
+// 표시 판정 — 🔴 **조건이 둘이다**(행사 모드 그리고 비공개).
+//   ⚠️ 판정을 호출자 쪽에 두지 않는다. 캠페인을 여는 흐름에서 이 계열 함수가 여러 번
+//      불리는데(폼 잠금 · 칸 표시 · 초대 줄), 호출자에서만 숨기면 나중에 끝난 호출이
+//      다시 보이게 만든다(2026-08-03 실측 사고와 같은 형태).
+function applySelectionModeVisibility(prefix) {
+  const show = !!$(prefix + 'CampEventMode')?.checked && !!$(prefix + 'CampInviteOnly')?.checked;
+  const row = $(prefix + 'CampSelectionModeRow');
+  if (row) row.style.display = show ? '' : 'none';
+  if (!show) return;
+  // 편집 폼에서만 잠금을 본다 — 신규 등록은 아직 캠페인이 없어 예약도 있을 수 없다.
+  if (prefix !== 'edit') return;
+  const campId = $('editCampId')?.value || '';
+  if (campId && _selectionLockLoadedFor !== campId) refreshSelectionModeLock(campId);
+}
+
+// 예약이 한 건이라도 있으면 방식을 잠그고 **이유를 화면에 적는다**.
+//   판정 기준은 「모집 상태」가 아니라 실제 예약 유무다 — 상태는 되돌릴 수 있지만
+//   이미 들어온 예약은 되돌릴 수 없는 사실이다(사양서 §설계 0).
+async function refreshSelectionModeLock(campId) {
+  const note = $('editCampSelectionModeLockNote');
+  _selectionLockLoadedFor = campId;      // 같은 캠페인에 조회가 겹치지 않게 먼저 표시
+  _selectionModeLocked.edit = false;
+  _setSelectionModeDisabled('edit', false);
+  if (note) { note.style.display = 'none'; note.textContent = ''; }
+  if (!campId || typeof countActiveEventTickets !== 'function') return;
+
+  let n = 0;
+  try { n = await countActiveEventTickets(campId); }
+  catch (e) { console.warn('[refreshSelectionModeLock]', e); return; }
+
+  // ⚠️ 그 사이 다른 캠페인으로 넘어갔으면 이 답은 버린다. 늦게 도착한 답이 지금 화면을
+  //    덮으면 **다른 캠페인의 예약 건수로 이 캠페인이 잠긴다**.
+  if (($('editCampId')?.value || '') !== campId) return;
+  if (n <= 0) return;
+
+  _selectionModeLocked.edit = true;
+  _setSelectionModeDisabled('edit', true);
+  if (note) {
+    note.style.display = '';
+    note.innerHTML = `이미 예약이 <b>${esc(String(n))}건</b> 들어와 접수 방식을 바꿀 수 없습니다. `
+      + `방식이 바뀌면 이미 받은 예약의 뜻(즉시 당선 / 심사중)이 달라집니다.`;
+  }
+}
+
+// 신규 등록 폼·편집 폼을 채울 때 방식을 초기화한다.
+function resetSelectionModeField(prefix, mode) {
+  if (prefix === 'edit') {
+    _selectionLockLoadedFor = null;
+    _selectionModeLocked.edit = false;
+  } else {
+    _selectionModeLocked.new = false;
+  }
+  _setSelectionModeDisabled(prefix, false);
+  const note = $(prefix + 'CampSelectionModeLockNote');
+  if (note) { note.style.display = 'none'; note.textContent = ''; }
+  setCampSelectionMode(prefix, mode);
 }
 
 function applyInviteOnlyRow(prefix) {
@@ -166,10 +283,51 @@ function applyInviteOnlyRow(prefix) {
   if (saveHint) saveHint.style.display = on ? '' : 'none';
 }
 
-function onInviteOnlyToggle(prefix) {
+async function onInviteOnlyToggle(prefix) {
+  const el = $(prefix + 'CampInviteOnly');
+
+  // 🔴 선정형으로 이미 예약을 받았으면 비공개를 끌 수 없다.
+  //   끄면 방식을 선착순형으로 되돌려야 하는데(아래), 이미 「심사중」으로 받아 둔
+  //   예약이 그 순간 뜻을 잃는다. 되돌릴 길이 화면에 없으므로 되묻지 않고 막는다.
+  //   ⚠️ 기준은 화면 라디오가 아니라 **저장된 방식**(_editCampOriginal)이다 — 라디오는
+  //      이 함수가 되돌린 뒤일 수 있어 「원래 선정형이었는가」를 못 말한다.
+  const savedMode = (typeof _editCampOriginal !== 'undefined' && _editCampOriginal)
+    ? (_editCampOriginal.event_selection_mode || 'first_come') : 'first_come';
+  if (prefix === 'edit' && el && !el.checked && savedMode === 'selection') {
+    const campId = $('editCampId')?.value || '';
+    let tk = 0;
+    try {
+      tk = (campId && typeof countActiveEventTickets === 'function')
+        ? await countActiveEventTickets(campId) : 0;
+    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = 0; }
+    if (tk > 0) {
+      el.checked = true;                     // 되돌린다 — 켠 상태가 사실이다
+      applyInviteOnlyRow(prefix);
+      applySelectionModeVisibility(prefix);
+      const _el = $('alertModalMessage');
+      if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75;text-align:left">
+        <div style="text-align:center;margin-bottom:14px">이 캠페인은 <b>선정형</b>으로 예약을 <b style="color:var(--red-d)">${esc(String(tk))}건</b> 받았습니다.</div>
+        <div>「비공개」를 끄면 접수 방식이 <b>선착순형</b>으로 돌아가야 하는데, 이미 「심사중」으로 받아 둔 예약이 그 순간 뜻을 잃습니다.</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+          모집만 닫으려면 상태를 「모집마감」으로 바꾸면 됩니다.
+        </div>
+      </div>`;
+      if (typeof openModal === 'function') openModal('alertModal');
+      return;
+    }
+  }
+
   applyInviteOnlyRow(prefix);
+
+  // 🔴 비공개를 끄면 접수 방식을 선착순형으로 되돌린다.
+  //   안 되돌리면 그 저장이 마이그레이션 376 의 범위 제약(campaigns_selection_mode_scope_chk)에
+  //   막혀 데이터베이스 원문 오류로 실패한다. 행사 묶음(event_group_id)이 저장 시점에
+  //   같은 방식으로 걸러지는 것과 같은 이유다.
+  if (el && !el.checked) resetSelectionModeField(prefix, 'first_come');
+  applySelectionModeVisibility(prefix);
+
   // 비공개를 켰는데 번호가 없으면 하나 만들어 둔다(운영자가 잊고 저장하는 것 방지).
-  if ($(prefix + 'CampInviteOnly')?.checked && !$(prefix + 'CampInviteCode')?.value) {
+  if (el?.checked && !$(prefix + 'CampInviteCode')?.value) {
     genInviteCode(prefix);
   }
 }
@@ -269,6 +427,12 @@ async function loadEventSettingsIntoEditForm(camp) {
   if (io) io.checked = !!camp?.is_invite_only;
   const pl = $('editCampEventPlace');
   if (pl) pl.value = camp?.event_place || '';
+  // 접수 방식(마이그레이션 376) — 저장된 값으로 되돌린다.
+  //   ⚠️ **캠페인마다 반드시 다시 세운다.** 모듈 전역인 라디오·잠금 상태가 남아 있으면
+  //      다른 캠페인을 편집하다 들어왔을 때 직전 캠페인의 방식이 그대로 보인다
+  //      (_recruitTypeBeforeEvent 를 여기서 비우는 것과 같은 이유).
+  resetSelectionModeField('edit',
+    safeSelectionMode(camp?.event_selection_mode, !!camp?.event_mode, !!camp?.is_invite_only));
   // 묶음 선택지 — 지금 연결된 묶음을 keep 으로 넘긴다. 그게 보관 상태면 목록에서
   //   빠지는데, 빠진 채로 저장하면 빈 값이 쓰여 **연결이 조용히 끊긴다**.
   await fillEventGroupSelect('edit', camp?.event_group_id || '');
@@ -416,6 +580,8 @@ function resetEventFormFields(prefix) {
   const io = $(prefix + 'CampInviteOnly'); if (io) io.checked = false;
   const cc = $(prefix + 'CampInviteCode'); if (cc) cc.value = '';
   const pl = $(prefix + 'CampEventPlace'); if (pl) pl.value = '';
+  // 접수 방식은 기본값(선착순형)으로 — 안 켜면 지금과 완전히 같이 동작한다.
+  resetSelectionModeField(prefix, 'first_come');
   fillEventGroupSelect(prefix, '');
   if (prefix === 'new') _pendingNewInviteCode = null;
   _recruitTypeBeforeEvent[prefix] = null;
@@ -1405,6 +1571,10 @@ function applyEventModeFieldVisibility(prefix) {
 
   // 모집 인원 잠금은 시간대 개수에 달렸다 — 켜고 끌 때마다 다시 판정한다.
   if (prefix === 'edit') syncEventDerivedFields();
+
+  // 접수 방식 줄(선착순형/선정형)의 표시. ⚠️ 이 함수 안에서 부른다 — 이 계열 함수가
+  //   한 흐름에서 여러 번 불리므로, 호출자 쪽에서만 숨기면 나중에 끝난 호출이 되살린다.
+  applySelectionModeVisibility(prefix);
 }
 
 // 저장 직전에 시간대를 **다시 읽어** 방문 기간·모집 인원을 계산한다.

@@ -450,6 +450,27 @@
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
+                <!-- 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 · 사양서 2026-08-24 §설계 0
+                     ⚠️ 행사 모드 **그리고** 비공개일 때만 보인다(조건이 둘). 비공개만 보고 켜면
+                        행사가 아닌 캠페인에서도 뜬다. 표시 판정은 applySelectionModeVisibility
+                        (admin-event.js) 한 곳에서만 한다 — 호출자 쪽에서 숨기면 뒤늦게 끝난
+                        비동기 렌더가 되살린다(2026-08-03 실측 사고). -->
+                <div id="editCampSelectionModeRow" class="event-selection-row" style="display:none">
+                  <div class="event-selection-title">신청 접수 방식</div>
+                  <div class="event-selection-choices">
+                    <label class="event-selection-choice">
+                      <input type="radio" name="editCampSelectionMode" value="first_come" checked>
+                      <span>선착순형</span>
+                    </label>
+                    <label class="event-selection-choice">
+                      <input type="radio" name="editCampSelectionMode" value="selection">
+                      <span>선정형</span>
+                    </label>
+                  </div>
+                  <div class="form-hint"><b>선착순형</b> — 정원이 남아 있으면 그 자리에서 당선됩니다(지금과 같습니다).</div>
+                  <div class="form-hint"><b>선정형</b> — 정원과 상관없이 신청만 받고, 관리자가 직접 뽑습니다. <b>예약이 한 건이라도 들어오면 바꿀 수 없습니다.</b></div>
+                  <div class="form-hint" id="editCampSelectionModeLockNote" style="display:none"></div>
+                </div>
               </div>
             </div>
 
@@ -890,6 +911,26 @@
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="newCampInviteSaveHint" style="display:none">초대 링크는 캠페인을 저장한 뒤 편집 화면에서 복사할 수 있습니다.</div>
+                <!-- 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 · 사양서 2026-08-24 §설계 0
+                     ⚠️ 행사 모드 **그리고** 비공개일 때만 보인다(조건이 둘). 비공개만 보고 켜면
+                        행사가 아닌 캠페인에서도 뜬다. 표시 판정은 applySelectionModeVisibility
+                        (admin-event.js) 한 곳에서만 한다 — 호출자 쪽에서 숨기면 뒤늦게 끝난
+                        비동기 렌더가 되살린다(2026-08-03 실측 사고). -->
+                <div id="newCampSelectionModeRow" class="event-selection-row" style="display:none">
+                  <div class="event-selection-title">신청 접수 방식</div>
+                  <div class="event-selection-choices">
+                    <label class="event-selection-choice">
+                      <input type="radio" name="newCampSelectionMode" value="first_come" checked>
+                      <span>선착순형</span>
+                    </label>
+                    <label class="event-selection-choice">
+                      <input type="radio" name="newCampSelectionMode" value="selection">
+                      <span>선정형</span>
+                    </label>
+                  </div>
+                  <div class="form-hint"><b>선착순형</b> — 정원이 남아 있으면 그 자리에서 당선됩니다(지금과 같습니다).</div>
+                  <div class="form-hint"><b>선정형</b> — 정원과 상관없이 신청만 받고, 관리자가 직접 뽑습니다. <b>예약이 한 건이라도 들어오면 바꿀 수 없습니다.</b></div>
+                </div>
               </div>
             </div>
 

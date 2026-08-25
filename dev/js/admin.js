@@ -1178,6 +1178,11 @@ async function openEditCampaign(campId) {
     // 행사 여부 — 「예약이 있는데 행사 모드를 끄는」 것을 막는 게이트의 기준.
     //   이 키가 없으면 그 게이트가 통째로 죽은 코드가 된다(아래 채널 주석의 선례와 같은 실수).
     event_mode: !!camp.event_mode,
+    // 접수 방식(마이그레이션 376) — 「예약이 들어온 뒤에는 못 바꾼다」 게이트와
+    //   「선정형인데 비공개를 끄려 한다」 차단이 **저장된 값**을 기준으로 판정한다.
+    //   ⚠️ 이 키가 없으면 두 게이트가 편집 폼 안에서 통째로 죽은 코드가 된다 —
+    //      바로 위 deadline·channel·event_mode 가 똑같이 죽었던 그 실수다.
+    event_selection_mode: camp.event_selection_mode || 'first_come',
     // 채널 — ①모집 형식 라디오를 눌러도 「저장된 채널」이 화면에서 증발하지 않게 하고
     //        ②저장 시 「결과물이 있는 채널을 뺐는지」를 비교하는 기준.
     //   ⚠️ 이 키가 없으면 두 장치가 조용히 죽는다(마감일 확인창이 스냅샷에 deadline 키가
@@ -2691,6 +2696,32 @@ async function saveCampaignEdit() {
       }
     }
 
+    // ── 예약이 들어온 뒤 접수 방식을 바꾸는 것도 막는다 ──────────────
+    //   방식이 바뀌면 이미 받은 예약의 뜻이 달라진다(즉시 당선 ↔ 심사중).
+    //   화면 라디오 잠금은 눈에 보이는 절반일 뿐이고, 「비공개를 끄면 선착순형으로
+    //   되돌아간다」는 경로로도 값이 바뀔 수 있어 저장 직전에 한 번 더 본다.
+    //   ⚠️ 방식이 실제로 달라졌을 때만 조회한다(안 켠 캠페인은 조회조차 안 한다).
+    const _selModeEdit = (typeof campSelectionModeForSave === 'function')
+      ? campSelectionModeForSave('edit') : 'first_come';
+    const _selModeSaved = _editCampOriginal?.event_selection_mode || 'first_come';
+    if (_selModeSaved !== _selModeEdit) {
+      const _tk2 = (typeof countActiveEventTickets === 'function')
+        ? await countActiveEventTickets(campId) : 0;
+      if (_tk2 > 0) {
+        const _el = $('alertModalMessage');
+        const _nm = m => (m === 'selection' ? '선정형' : '선착순형');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75;text-align:left">
+          <div style="text-align:center;margin-bottom:14px">이 캠페인에는 살아 있는 예약이 <b style="color:var(--red-d)">${esc(String(_tk2))}건</b> 있습니다.</div>
+          <div>접수 방식을 <b>${_nm(_selModeSaved)}</b> → <b>${_nm(_selModeEdit)}</b> 로 바꿀 수 없습니다. 이미 받은 예약의 뜻(즉시 당선 / 심사중)이 달라지기 때문입니다.</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted)">
+            「비공개」를 끄는 것도 방식을 선착순형으로 되돌리는 일이라 같이 막힙니다. 먼저 예약을 정리해 주세요.
+          </div>
+        </div>`;
+        openModal('alertModal');
+        return;
+      }
+    }
+
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
@@ -2827,6 +2858,10 @@ async function saveCampaignEdit() {
       // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
       event_mode: !!$('editCampEventMode')?.checked,
       is_invite_only: !!$('editCampInviteOnly')?.checked,
+      // 접수 방식(마이그레이션 376). 값은 campSelectionModeForSave 가 「행사 그리고
+      //   비공개」 조건을 다시 확인해 접어 준다 — 조건이 깨진 채 선정형이 나가면
+      //   범위 제약에 막혀 저장이 통째로 실패한다.
+      event_selection_mode: _selModeEdit,
       event_place: ($('editCampEventPlace')?.value || '').trim() || null,
       // 행사가 아니면 묶음도 없다. 화면에서 즉시 비우지 않고 여기서 거른다 —
       //   즉시 비우면 실수로 껐다 켰을 때 값이 안 돌아와 연결이 조용히 끊긴다.
@@ -3082,6 +3117,13 @@ async function duplicateCampaign(campId) {
       //   아무것도 안 막고 조용히 빠졌다. 시간대는 캠페인마다 다르므로 복제하지 않는다.
       event_mode: !!src.event_mode,
       is_invite_only: !!src.is_invite_only,
+      // 🔴 접수 방식(마이그레이션 376)도 이어받는다 — 안 넣으면 선정형 캠페인의
+      //   복제본이 **아무 경고 없이 선착순형**이 된다. 기본값이 선착순형이라
+      //   제약에도 안 걸리고 화면에도 표시가 없다(바로 위 행사 설정이 통째로
+      //   빠져 있던 것과 같은 유형의 조용한 누락).
+      event_selection_mode: (typeof safeSelectionMode === 'function')
+        ? safeSelectionMode(src.event_selection_mode, !!src.event_mode, !!src.is_invite_only)
+        : 'first_come',
       event_place: src.event_place || null,
       // 묶음도 이어받는다 — 같은 행사의 다음 날 캠페인은 복제로 만드는 게 흔한데,
       //   안 이어받으면 복제본만 묶음에서 빠져 현장 화면 명단이 그 날짜만 빈다.
@@ -4381,6 +4423,9 @@ async function addCampaign() {
     // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
     event_mode: !!$('newCampEventMode')?.checked,
     is_invite_only: !!$('newCampInviteOnly')?.checked,
+    // 접수 방식(마이그레이션 376) — 행사 그리고 비공개일 때만 선정형이 나간다.
+    event_selection_mode: (typeof campSelectionModeForSave === 'function')
+      ? campSelectionModeForSave('new') : 'first_come',
     event_place: ($('newCampEventPlace')?.value || '').trim() || null,
     event_group_id: ($('newCampEventMode')?.checked ? ($('newCampEventGroup')?.value || '') : '') || null,
     slots, applied_count:0,
