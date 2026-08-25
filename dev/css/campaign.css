@@ -195,3 +195,11 @@ html.preview-mode #page-detail .detail-back{display:none}
      그냥 긴 문장이 된다(2026-08-25 브라우저 확인). 문구의 \n 을 살린다. */
   white-space:pre-line;
 }
+
+/* 결과물 목록의 무리 제목 — 「지난 제출」 / 「제출할 항목」.
+   제출 버튼이 목록 아래에 있어, 나누지 않으면 위의 모든 행을 보내는 것처럼 보인다. */
+.deliv-group-head{
+  font-size:11px; font-weight:700; color:var(--muted);
+  margin:14px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--surface-dim);
+}
+.deliv-group-head:first-child{ margin-top:0; }

@@ -1758,7 +1758,7 @@ function renderActivityReceiptList(delivs) {
     return;
   }
   let draftCount = 0;
-  container.innerHTML = delivs.map(r => {
+  container.innerHTML = splitDeliverableGroups(delivs, r => {
     const isDraft = r.status === 'draft';
     if (isDraft) draftCount++;
     const stBadge = isDraft
@@ -1791,7 +1791,7 @@ function renderActivityReceiptList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
+  });
   if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
   renderDraftPendingBar('receipt', draftCount);
 }
@@ -1893,6 +1893,24 @@ function renderActivityReviewImageList(delivs, channels) {
 }
 
 
+// 결과물 목록을 「지난 제출」과 「제출할 항목」 두 무리로 나눈다.
+//   ⚠️ 왜 나누나 — 제출 버튼이 목록 **아래**에 있어서, 섞여 있으면 위의 모든 행을
+//   보내는 것처럼 보인다(2026-08-25 사용자 지적: 「비승인 3건까지 같이 제출되는
+//   것처럼 읽힌다」). 실제로 보내는 것은 임시저장뿐이다.
+//   ⚠️ 임시저장을 **아래쪽**에 둔다 — 버튼·안내 줄이 바로 뒤에 붙어야 「이것을 보낸다」가
+//   눈으로 이어진다.
+//   ⚠️ 한쪽 무리가 비면 제목을 안 붙인다 — 나눌 것이 없는데 제목만 있으면 군더더기다.
+function splitDeliverableGroups(rows, renderRow) {
+  const past = [], todo = [];
+  (rows || []).forEach(function(r) { (r.status === 'draft' ? todo : past).push(r); });
+  const head = k => `<div class="deliv-group-head">${esc(t('activity.' + k))}</div>`;
+  const both = past.length && todo.length;
+  let html = '';
+  if (past.length) html += (both ? head('groupPast') : '') + past.map(renderRow).join('');
+  if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
+  return html;
+}
+
 // ── 「아직 제출 안 함」 안내 줄 (세 화면 공용) ────────────────────────────
 //   2026-08-25: 운영에서 결과물 26건이 임시저장으로 멈춰 있었다(게시물 23·인증샷 2·
 //   영수증 1 — 세 종류 전부, 4개월간 누적). 「リストに追加」만 누르고 끝난 줄 아는
@@ -1926,7 +1944,7 @@ function renderActivityPostList(delivs) {
     return;
   }
   let draftCount = 0;
-  container.innerHTML = delivs.map(d => {
+  container.innerHTML = splitDeliverableGroups(delivs, d => {
     const isDraft = d.status === 'draft';
     if (isDraft) draftCount++;
     const stBadge = isDraft
@@ -1954,7 +1972,7 @@ function renderActivityPostList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
+  });
   if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
   renderDraftPendingBar('post', draftCount);
 }
