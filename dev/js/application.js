@@ -1932,14 +1932,19 @@ function splitDeliverableGroups(rows, renderRow, key) {
   if (past.length) {
     const open = _activityPastOpen.has(_activityPastKey(key));
     const hidden = past.length - 1;
-    html += (both ? head('groupPast') : '') + renderRow(past[0]);
-    if (hidden > 0) {
-      if (open) html += past.slice(1).map(renderRow).join('');
+    // ⚠️ 제목 줄은 「나눌 것이 있을 때」뿐 아니라 「접을 것이 있을 때」도 그린다 —
+    //   펼치기 버튼이 그 줄에 얹히므로, 제목을 안 그리면 버튼도 함께 사라진다.
+    if (both || hidden > 0) {
       const label = open
         ? t('activity.pastLess')
         : String(t('activity.pastMore')).replace('{n}', String(hidden));
-      html += `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`;
+      const toggle = hidden > 0
+        ? `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`
+        : '';
+      html += `<div class="deliv-group-head deliv-group-head-row"><span>${esc(t('activity.groupPast'))}</span>${toggle}</div>`;
     }
+    html += renderRow(past[0]);
+    if (open && hidden > 0) html += past.slice(1).map(renderRow).join('');
   }
   if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
   return html;
