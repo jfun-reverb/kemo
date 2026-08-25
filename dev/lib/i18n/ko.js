@@ -672,6 +672,8 @@ window.I18N_KO = {
     // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
     draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',
     groupPast: '지난 제출',
+    pastMore: '이전 제출 {n}건 더 보기',
+    pastLess: '접기',
     groupToSubmit: '제출할 항목',
     draftPendingTitle: '아직 제출하지 않은 것이 {n}건 있습니다',
     draftPendingStep: '1. 아래 「제출하기」 버튼을 눌러 주세요\n2. 누르기 전까지 운영팀에 전달되지 않습니다',

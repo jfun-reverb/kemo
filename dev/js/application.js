@@ -1791,7 +1791,7 @@ function renderActivityReceiptList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  });
+  }, 'receipt');
   if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
   renderDraftPendingBar('receipt', draftCount);
 }
@@ -1900,13 +1900,47 @@ function renderActivityReviewImageList(delivs, channels) {
 //   ⚠️ 임시저장을 **아래쪽**에 둔다 — 버튼·안내 줄이 바로 뒤에 붙어야 「이것을 보낸다」가
 //   눈으로 이어진다.
 //   ⚠️ 한쪽 무리가 비면 제목을 안 붙인다 — 나눌 것이 없는데 제목만 있으면 군더더기다.
-function splitDeliverableGroups(rows, renderRow) {
+//   ⚠️ 「지난 제출」은 **최근 1건만** 펼쳐 두고 나머지는 접는다 — 재제출을 거듭하면
+//   반려 이력이 쌓여, 정작 지금 해야 할 일(아래 「제출할 항목」)이 화면 밖으로 밀린다.
+//   ⚠️ 목록은 **제출 시각 내림차순**으로 들어온다(application.js 의 정렬). 그래서 첫
+//   번째가 최근이다 — 순서가 바뀌면 옛것이 대표로 뜨므로 그 정렬을 함께 볼 것.
+//   ⚠️ 펼친 상태는 다시 그려도 유지한다(_activityPastOpen) — 펼쳐 놓고 한 건 추가했다고
+//   접혀 버리면 방금 본 것을 다시 찾아야 한다.
+const _activityPastOpen = new Set();
+// ⚠️ 펼침 상태는 **응모건마다** 따로 기억한다. 종류(receipt·post)로만 키를 잡으면
+//   A 응모건에서 펼친 것이 B 응모건까지 펼쳐진 채로 넘어가, 그 화면도 늘어진 채
+//   시작한다 — 이 기능을 만든 이유(쌓인 이력에 할 일이 묻힌다)가 그대로 재발한다.
+function _activityPastKey(kind) { return String(_activityAppId || '') + ':' + kind; }
+function toggleActivityPastMore(kind) {
+  const k = _activityPastKey(kind);
+  if (_activityPastOpen.has(k)) _activityPastOpen.delete(k);
+  else _activityPastOpen.add(k);
+  // ⚠️ 서버를 다시 부르지 않는다 — 직전 조회 결과를 그대로 다시 그린다.
+  //   loadDeliverablesForActivity() 를 부르면 조회가 **매번 2회**(목록 + 제출 가부)
+  //   돌고 화면이 깜빡인다. 펼치기는 이미 받아 둔 것을 보여주는 일일 뿐이다.
+  //   ⚠️ 거르는 기준은 그 로더가 쓰는 것과 **같아야** 한다 — 종류로만 거른다.
+  const rows = (_activityLastDelivs || []).filter(d => d.kind === kind);
+  if (kind === 'receipt') renderActivityReceiptList(rows);
+  else if (kind === 'post') renderActivityPostList(rows);
+}
+function splitDeliverableGroups(rows, renderRow, key) {
   const past = [], todo = [];
   (rows || []).forEach(function(r) { (r.status === 'draft' ? todo : past).push(r); });
   const head = k => `<div class="deliv-group-head">${esc(t('activity.' + k))}</div>`;
   const both = past.length && todo.length;
   let html = '';
-  if (past.length) html += (both ? head('groupPast') : '') + past.map(renderRow).join('');
+  if (past.length) {
+    const open = _activityPastOpen.has(_activityPastKey(key));
+    const hidden = past.length - 1;
+    html += (both ? head('groupPast') : '') + renderRow(past[0]);
+    if (hidden > 0) {
+      if (open) html += past.slice(1).map(renderRow).join('');
+      const label = open
+        ? t('activity.pastLess')
+        : String(t('activity.pastMore')).replace('{n}', String(hidden));
+      html += `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`;
+    }
+  }
   if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
   return html;
 }
@@ -1972,7 +2006,7 @@ function renderActivityPostList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  });
+  }, 'post');
   if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
   renderDraftPendingBar('post', draftCount);
 }
