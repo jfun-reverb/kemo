@@ -989,6 +989,24 @@ function normalizeUrlInput(raw) {
   return { url: s, changed: s !== orig };
 }
 
+// 게시물 주소가 「글 하나를 가리키는 모양」인가 (작업표 2026-08-25 작업 10)
+//   🔴 **막는 함수가 아니다.** 경고만 띄우는 데 쓴다 — 정상 주소를 막는 쪽이
+//      뭉개진 주소를 통과시키는 쪽보다 나쁘다(2026-08-26 결정 S2). 채널마다 주소 모양이
+//      계속 바뀌고 새 형식이 생기므로, 여기서 「아니다」라고 단정하면 멀쩡한 제출이 막힌다.
+//   ⚠️ `normalizeUrlInput` 은 **건드리지 않는다** — 그쪽은 인플루언서와 관리자 대리 등록이
+//      함께 쓰는 보정 함수라, 거기에 판정을 얹으면 두 화면의 동작이 같이 바뀐다.
+//   반환: true = 수상함(경고할 만함) / false = 판단 근거 없음(조용히 통과)
+function looksLikeBarePostUrl(url) {
+  try {
+    const u = new URL(String(url || ''));
+    // 경로가 사실상 비어 있으면 「그 채널의 첫 화면」이지 글 하나가 아니다.
+    //   예: https://www.instagram.com/ · https://x.com
+    const path = (u.pathname || '/').replace(/\/+$/, '');
+    if (path === '' || path === '/') return true;
+    return false;
+  } catch (e) { return false; }   // 모양을 못 읽으면 판단하지 않는다
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {

@@ -30,6 +30,18 @@ function navigateBackFromDetail() {
   }
 }
 
+// 활동관리에 붙잡아 둔 채 주소만 딴 데로 간 것을 되돌린다(이탈 확인에서 「취소」를 누른 경우).
+//   ⚠️ **화면이 실제로 활동관리일 때만** 손댄다 — 확인 없이 주소를 바꾸면 그 반대 어긋남
+//      (화면은 다른 곳, 주소는 활동관리)이 생긴다. 그런 전례가 이 저장소에 있다.
+function restoreActivityHash() {
+  try {
+    const cur = document.querySelector('#appShell .page.active');
+    if (!cur || cur.id !== 'page-activity') return;
+    if (location.hash === '#activity') return;
+    history.replaceState({page: 'activity'}, '', '#activity');
+  } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
+}
+
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
@@ -81,6 +93,27 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
       && typeof cleanupTicketPage === 'function') {
     cleanupTicketPage();
+  }
+  // 활동관리에 「올려만 두고 안 낸 것」을 남긴 채 떠나려 하면 한 번 묻는다.
+  //   ⚠️ 이 자리여야 한다 — 아래 pushState 보다 **앞**이라, 취소하면 주소가 안 움직인다.
+  //   ⚠️ 뒤로가기(popstate)도 결국 이 함수를 거치므로 그 경로까지 함께 잡힌다. 다만 그때는
+  //      주소가 **이미** 옮겨져 있어, 취소하면 주소만 어긋난 채 남는다 → 아래에서 되돌린다.
+  //   ⚠️ 판정 기준은 화면에 실제로 떠 있는 안내 줄의 건수(`_activityDraftPending`)와 같다.
+  //      따로 세면 「안내 줄은 없는데 나갈 때만 묻는」 어긋남이 생긴다.
+  if (_prevActivePage && _prevActivePage.id === 'page-activity' && pageName !== 'activity'
+      && typeof activityHasSubmittableDraft === 'function' && activityHasSubmittableDraft()) {
+    if (!confirm(t('activity.leaveWithDraft'))) {
+      restoreActivityHash();
+      // 🔴 **여기서 return 하는 것만으로는 부족하다.** 부르는 쪽은 자기 다음 줄을 계속 실행한다 —
+      //    예: navigateBackFromActivity() 는 `navigate('mypage')` 다음에 `openMypageSub('applications')`
+      //    를 부르고, 그 함수가 주소를 바꿔 **화면은 활동관리인데 주소는 응모이력**이 된다
+      //    (2026-08-26 브라우저 검증에서 실제로 재현). `navigate` 뒤에 무언가를 더 하는 자리가
+      //    스무 곳 가까워 **전부 고치는 방식은 반드시 하나를 빠뜨린다.**
+      //    → ①`false` 를 돌려줘 확인하는 쪽은 즉시 멈추게 하고
+      //      ②그래도 주소를 바꾸는 쪽이 있으면 **다음 차례에 되돌린다**(아래 backstop).
+      setTimeout(restoreActivityHash, 0);
+      return false;
+    }
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -209,7 +242,9 @@ window.addEventListener('popstate', function(e) {
   // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
   // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.
   if (page === 'mypage' || page.startsWith('mypage-')) {
-    navigate('mypage', false);
+    // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
+    //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
+    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.

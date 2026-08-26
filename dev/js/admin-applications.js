@@ -183,6 +183,12 @@ async function loadCampApplicants() {
     emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
   });
 
+  // 「올려두고 미제출」 표시용 집합 — 결과물 관리 화면과 **같은 함수**를 쓴다.
+  //   ⚠️ 여기서 안 채우면 같은 응모가 두 화면에서 다르게 보인다(한쪽만 「올려두고 미제출」).
+  //      조회 실패는 `null` 이 들어가고, 그러면 양쪽 다 그 표시를 안 그린다.
+  if (typeof fetchStalledDraftApplications === 'function') {
+    _delivStalledDraftApps = await fetchStalledDraftApplications();
+  }
   // 결과물 탭 렌더 + 상단 탭 건수 갱신 (같은 데이터로 한 번에 — 추가 조회 없음)
   const delivTotal = renderCampDelivTab(camp, allDelivs, allApps, _users);
 

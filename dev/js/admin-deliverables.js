@@ -87,6 +87,11 @@ async function loadDeliverables() {
   if (typeof refreshChannelDriftIndicators === 'function') {
     refreshChannelDriftIndicators();
   }
+  // 「올려두고 미제출」 감지도 같은 자리에서 — 위 목록 렌더가 이미 집합을 받아 왔지만,
+  //   사이드바·버튼 표시는 이 함수가 담당한다(0건이면 아무것도 안 그린다).
+  if (typeof refreshStalledDraftIndicators === 'function') {
+    refreshStalledDraftIndicators();
+  }
 }
 
 // 사이드바 검수대기 배지 클릭 — 결과물 관리 페인을 「검수대기만」 상태로 열어 배지 숫자와 목록을 일치시킴.
@@ -112,6 +117,9 @@ async function refreshDelivSidebarBadge() {
     //    ⚠️ 이 항목에 표시를 추가·변경할 때도 같은 함정이 있다.
     el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
     if (typeof applyChannelDriftIndicators === 'function') applyChannelDriftIndicators();
+    // ⚠️ 「올려두고 미제출」 표시도 위 innerHTML 에 지워졌다 — 여기서 함께 다시 입힌다.
+    //    빠뜨리면 배지가 갱신될 때마다 조용히 사라진다(같은 함정이 이미 한 번 있었다).
+    if (typeof applyStalledDraftIndicators === 'function') applyStalledDraftIndicators();
   } catch(e) { /* 무시 */ }
 }
 
@@ -298,6 +306,11 @@ async function renderDeliverablesList() {
     const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
     infMissingMap = await fetchInfluencersByIds(userIds);
   }
+
+  // 「올려두고 미제출」 표시용 별도 조회 — 판정에는 안 쓰인다(작업 7).
+  //   ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
+  //      0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
+  _delivStalledDraftApps = await fetchStalledDraftApplications();
 
   // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
   //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
@@ -781,14 +794,36 @@ function certStatusLabelKo(g) {
   const s = computeCertStatus(g);
   return s === 'excluded' ? '검수 불필요' : s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
 }
+// 「올려만 두고 제출 안 한」 신청 id 집합. `null` = 아직 안 봤거나 조회 실패 → **아무 표시도 안 한다.**
+//   ⚠️ 빈 Set(`new Set()`)과 `null` 은 다른 뜻이다 — 빈 Set 은 「봤는데 없다」, null 은 「모른다」.
+var _delivStalledDraftApps = null;
+// 그 신청이 「냈다가 멈춘」 것인가 (판정에는 안 쓰인다 — 표시 전용)
+function delivHasStalledDraft(g) {
+  if (!_delivStalledDraftApps || !g) return false;
+  return _delivStalledDraftApps.has(g.application_id);
+}
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
   // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
   const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
   if (s === 'excluded')   return `<span class="badge badge-gray" style="${st}" title="신청이 승인 후 반려·취소되어 검수가 불필요합니다">검수 불필요</span>`;
   if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
-  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
-  return `<span class="badge badge-gray" style="${st}">미제출</span>`;
+  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>${stalledChip(g, st)}`;
+  return `<span class="badge badge-gray" style="${st}">미제출</span>${stalledChip(g, st)}`;
+}
+
+// 「올려만 두고 제출 안 한 것이 남아 있음」 딱지 — 인증 상태 배지 **옆에 덧붙인다.**
+//   🔴 인증 상태를 갈아치우지 않는 이유: 실제로 가장 흔한 모양이 **「일부는 냈고 하나가 멈춘」**
+//      경우다(개발서버 실측 1건 — 영수증 승인 + 한 채널 검수중 + 다른 채널만 임시저장).
+//      그 사람의 인증 상태는 「인증샷 제출중」이 맞고, 그것을 「올려두고 미제출」로 바꾸면
+//      **틀린 말**이 된다. 그래서 상태는 그대로 두고 **딱지만 얹는다.**
+//   ⚠️ 처음에는 「아무것도 안 낸」 경우에만 라벨을 바꾸게 만들었는데, 그러면 감지 건수(1)와
+//      목록에 보이는 수(0)가 어긋난다 — 정작 실제 데이터가 그 반대 경우였다.
+//      **감지가 세는 것과 화면이 보여주는 것은 같은 기준이어야 한다.**
+//   ⚠️ 인증 상태 판정에는 일절 끼어들지 않는다(탭·집계·엑셀·정산 무영향).
+function stalledChip(g, st) {
+  if (!delivHasStalledDraft(g)) return '';
+  return ` <span class="badge badge-pink" style="${st}" title="본인이 올려는 뒀지만 「제출하기」를 누르지 않은 것이 남아 있습니다 — 그 건은 운영팀에 전달되지 않았습니다">올려만 둠</span>`;
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
@@ -2638,6 +2673,11 @@ async function submitAdminProxyDelivProxy() {
       if (!norm) return toast('URL 형식이 올바르지 않습니다', 'error');
       const url = norm.url;
       if (norm.changed) toast('URL을 수정했습니다: ' + url, 'success');
+      // 주소 모양 경고 (작업 10) — 인플루언서 화면과 **같은 판정 함수**를 쓴다.
+      //   🔴 막지 않는다. 한쪽만 넣으면 같은 주소가 화면마다 다르게 취급된다.
+      if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
+        toast('글 하나를 가리키는 주소가 아닌 것 같습니다 — 다시 확인해 주세요', 'warn');
+      }
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
       // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
       // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.

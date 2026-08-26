@@ -776,6 +776,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
   // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
   'channelDriftModal',
+  // 「올려두고 미제출」 안내 — 같은 이유(안내를 보면서 목록·메시지를 조작해야 한다)
+  'stalledDraftModal',
   // 탈퇴 처리 점검 — 같은 이유(「회원 열기」로 상세를 여는 동안 목록이 보여야 한다)
   'withdrawOpsModal',
   // 신청·결과물
@@ -1206,6 +1208,91 @@ async function refreshChannelDriftIndicators() {
   const rows = await fetchChannelDriftAlerts();
   _channelDriftRows = Array.isArray(rows) ? rows : [];
   applyChannelDriftIndicators();
+}
+
+// ── 「올려두고 미제출」 감지 (작업표 2026-08-25 작업 8) ──────────────────────
+//   본인이 올려는 뒀는데 「제출하기」를 안 눌러 운영팀에 안 닿은 건. 운영에서 26건이
+//   4개월간 쌓이는 동안 아무도 몰랐다 — 관리자 화면에서 「아예 안 낸 사람」과 똑같이
+//   「미제출」로 보였기 때문이다.
+//
+//   ⚠️ `null` = 아직 안 봤거나 조회 실패 → **아무것도 안 그린다.** 0건인 척하지 않는다
+//      (0으로 그리면 「없는 것」이 되어 이 장치가 막으려던 상태가 그대로 재현된다).
+var _stalledDraftCount = null;
+
+async function refreshStalledDraftIndicators() {
+  const ids = (typeof fetchStalledDraftApplications === 'function')
+    ? await fetchStalledDraftApplications() : null;
+  _stalledDraftCount = ids ? ids.size : null;
+  applyStalledDraftIndicators();
+}
+
+// 캐시된 값으로 표시만 다시 입힌다(재조회 없음).
+function applyStalledDraftIndicators() {
+  const n = _stalledDraftCount;
+  const has = typeof n === 'number' && n > 0;
+
+  // 사이드바 「결과물 관리」 — 🔴 **아이콘을 건드리지 않는다.**
+  //   그 아이콘은 채널 어긋남 경고가 이미 쓰고 있어, 여기서도 바꾸면 나중에 도는 쪽이
+  //   앞의 것을 덮어쓴다(이 저장소에서 실제로 겪은 유형). 그래서 **별도 표시를 덧붙인다** —
+  //   서로 다른 자리를 쓰므로 둘이 함께 떠 있어도 안 부딪힌다.
+  //   ⚠️ 배지 함수(refreshDelivSidebarBadge)가 항목 innerHTML 을 통째로 다시 쓰므로,
+  //      그 직후에 이 함수가 **반드시 다시 불려야** 한다. 안 그러면 조용히 지워진다.
+  const item = document.getElementById('adminDelivSi');
+  if (item) {
+    const old = item.querySelector('.si-stalled-dot');
+    if (old) old.remove();
+    if (has) {
+      const dot = document.createElement('span');
+      dot.className = 'si-stalled-dot';
+      // ⚠️ 딱지 이름(「올려만 둠」)과 **글자 그대로 같아야** 한다 — 여기만 옛 이름으로 남으면
+      //    안내를 보고 없는 표시를 찾게 된다(딱지 이름을 바꿀 때 이 줄을 함께 고칠 것).
+      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려만 둠」 딱지로 확인할 수 있습니다`;
+      item.appendChild(dot);
+    }
+  }
+
+  // 페인 제목 옆 버튼 — 0건이면 버튼째 감춘다(늘 떠 있으면 「원래 그런 화면」이 된다).
+  const btn = document.getElementById('delivStalledBtn');
+  if (btn) {
+    btn.style.display = has ? 'inline-flex' : 'none';
+    if (has) btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">upload_file</span> 올려두고 미제출 ${n}건`;
+  }
+}
+
+// 안내 모달 — 🔴 **여기서 고칠 수단은 없다.** 관리자 대신 제출 기록(작업 9)은 이번 범위에서
+//   빠졌다(2026-08-26 결정 S3=②). 그래서 「무엇을 할 수 있는지」를 정확히 말해 준다 —
+//   못 하는 일을 할 수 있는 것처럼 적으면 없는 버튼을 찾게 된다.
+function openStalledDraftModal() {
+  const body = document.getElementById('stalledDraftModalBody');
+  const overlay = document.getElementById('stalledDraftModal');
+  if (!body || !overlay) return;
+  const n = _stalledDraftCount;
+  body.innerHTML = `
+    <div style="padding:16px;font-size:13px;line-height:1.7;color:var(--ink)">
+      <div style="padding:12px 14px;background:#FFE4EC;border-left:3px solid #B91C5C;border-radius:8px;margin-bottom:14px">
+        <b>${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
+        본인 화면에는 남아 있지만 <b>운영팀에는 전달되지 않았습니다</b> — 검수 대상도, 인증 성공 판정 대상도 아닙니다.
+      </div>
+      <b>어디서 보나</b>
+      <div style="margin:6px 0 14px">
+        결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려만 둠</span> 딱지가 붙습니다.<br>
+        <span style="color:var(--muted);font-size:12px">인증 상태 자체(「미제출」·「인증샷 제출중」)는 그대로입니다 — <b>일부는 내고 하나만 멈춘</b> 경우가 흔해서, 상태를 갈아치우면 틀린 말이 됩니다.</span>
+      </div>
+      <b>지금 할 수 있는 것</b>
+      <div style="margin:6px 0 14px">
+        관리자가 대신 제출해 주는 기능은 <b>아직 없습니다.</b> 본인이 활동관리 화면에서 「제출하기」를 눌러야 합니다.<br>
+        해당 인플루언서에게 <b>응모건 메시지</b>로 안내해 주세요 — 목록 각 행의 메시지 버튼으로 바로 보낼 수 있습니다.
+      </div>
+      <div style="color:var(--muted);font-size:12px">
+        인플루언서 화면에는 안내 줄과 「미제출」 표시가 이미 들어가 있어, 앞으로 생기는 건은 줄어들 것으로 봅니다.
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function closeStalledDraftModal() {
+  const overlay = document.getElementById('stalledDraftModal');
+  if (overlay) overlay.classList.remove('open');
 }
 
 // 캐시된 결과로 사이드바·페인 버튼을 다시 그린다(재조회 없음).
