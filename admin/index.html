@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787733089';
+  var CURRENT_BUILD = 'v1787733286';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2972,7 +2972,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-26 17:31 · 2a39d25</span>
+          <span class="admin-build-text">2026-08-26 17:34 · b921157</span>
         </div>
       </div>
     </aside>
@@ -17592,7 +17592,9 @@ function applyStalledDraftIndicators() {
     if (has) {
       const dot = document.createElement('span');
       dot.className = 'si-stalled-dot';
-      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려두고 미제출」 배지로 확인할 수 있습니다`;
+      // ⚠️ 딱지 이름(「올려만 둠」)과 **글자 그대로 같아야** 한다 — 여기만 옛 이름으로 남으면
+      //    안내를 보고 없는 표시를 찾게 된다(딱지 이름을 바꿀 때 이 줄을 함께 고칠 것).
+      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려만 둠」 딱지로 확인할 수 있습니다`;
       item.appendChild(dot);
     }
   }

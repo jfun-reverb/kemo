@@ -1244,7 +1244,9 @@ function applyStalledDraftIndicators() {
     if (has) {
       const dot = document.createElement('span');
       dot.className = 'si-stalled-dot';
-      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려두고 미제출」 배지로 확인할 수 있습니다`;
+      // ⚠️ 딱지 이름(「올려만 둠」)과 **글자 그대로 같아야** 한다 — 여기만 옛 이름으로 남으면
+      //    안내를 보고 없는 표시를 찾게 된다(딱지 이름을 바꿀 때 이 줄을 함께 고칠 것).
+      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려만 둠」 딱지로 확인할 수 있습니다`;
       item.appendChild(dot);
     }
   }
