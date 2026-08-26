@@ -3228,6 +3228,24 @@ function normalizeUrlInput(raw) {
   return { url: s, changed: s !== orig };
 }
 
+// 게시물 주소가 「글 하나를 가리키는 모양」인가 (작업표 2026-08-25 작업 10)
+//   🔴 **막는 함수가 아니다.** 경고만 띄우는 데 쓴다 — 정상 주소를 막는 쪽이
+//      뭉개진 주소를 통과시키는 쪽보다 나쁘다(2026-08-26 결정 S2). 채널마다 주소 모양이
+//      계속 바뀌고 새 형식이 생기므로, 여기서 「아니다」라고 단정하면 멀쩡한 제출이 막힌다.
+//   ⚠️ `normalizeUrlInput` 은 **건드리지 않는다** — 그쪽은 인플루언서와 관리자 대리 등록이
+//      함께 쓰는 보정 함수라, 거기에 판정을 얹으면 두 화면의 동작이 같이 바뀐다.
+//   반환: true = 수상함(경고할 만함) / false = 판단 근거 없음(조용히 통과)
+function looksLikeBarePostUrl(url) {
+  try {
+    const u = new URL(String(url || ''));
+    // 경로가 사실상 비어 있으면 「그 채널의 첫 화면」이지 글 하나가 아니다.
+    //   예: https://www.instagram.com/ · https://x.com
+    const path = (u.pathname || '/').replace(/\/+$/, '');
+    if (path === '' || path === '/') return true;
+    return false;
+  } catch (e) { return false; }   // 모양을 못 읽으면 판단하지 않는다
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
@@ -7525,6 +7543,34 @@ async function fetchPendingDeliverableCount() {
     if (error) throw error;
     return data || 0;
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
+}
+
+// 「올려만 두고 제출 안 한」 신청 목록 (작업표 2026-08-25 작업 7)
+//   관리자 목록에서 **「냈다가 멈춘 사람」과 「아예 안 낸 사람」이 구분이 안 되던** 것을 푼다.
+//   둘 다 「미제출」로 똑같이 보여서, 운영에서 26건이 4개월간 쌓이는 동안 아무도 몰랐다.
+//
+//   🔴 **임시저장을 빼는 필터를 푸는 함수가 아니다.** 관리자 목록·인증 판정·정산 후보는
+//      임시저장을 계속 제외해야 한다(풀면 아직 내지도 않은 것이 검수 대상·지급 대상이 된다 —
+//      마이그레이션 318 이 고친 것과 정반대 방향의 사고다). 그래서 **별도 조회로
+//      「있다/없다」만** 얹는다. 판정에는 일절 끼어들지 않는다.
+//
+//   반환: 임시저장이 하나라도 있는 application_id 의 Set. **조회 실패는 `null`** —
+//     호출부는 그때 아무 표시도 하지 않는다(0건인 척하면 「없는 것」으로 읽힌다).
+async function fetchStalledDraftApplications() {
+  if (!db) return null;
+  try {
+    const ids = new Set();
+    // ⚠️ PostgREST 는 한 번에 1000행에서 잘린다 — 페이지로 나눠 전건을 본다.
+    //    임시저장이 많을 일은 드물지만, 잘리면 「있는데 없다고」 보이는 쪽으로 틀린다.
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('deliverables')
+        .select('application_id').eq('status', 'draft').range(from, from + 999);
+      if (error) throw error;
+      (data || []).forEach(r => { if (r.application_id) ids.add(r.application_id); });
+      if (!data || data.length < 1000) break;
+    }
+    return ids;
+  } catch(e) { console.error('[fetchStalledDraftApplications]', e); return null; }
 }
 
 // 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
@@ -16568,6 +16614,11 @@ async function _addDraftUrlInner() {
   if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
   const url = norm.url;
   if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
+  // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
+  //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 눈에 띄게 알려 주고 진행은 그대로 둔다.
+  if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
+    toast(t('activity.badUrlShape'), 'warn');
+  }
 
   const camp = _activityCamp || {};
 
