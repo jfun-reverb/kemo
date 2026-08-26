@@ -6,7 +6,9 @@ globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
 # UI/레이아웃 규칙
 
 ## 디자인 스킬 사용 (프론트 화면 추가/수정 시)
-- `dev/` 폴더의 화면 파일(`.html`/`.css`)을 만지면, 세션 첫 1회 `frontend-skill-reminder.js` 후크가 잠깐 멈춰 디자인 스킬 사용을 상기시킨다 (`.claude/settings.json` PreToolUse Write|Edit 등록).
+- `dev/` 폴더의 화면 파일(`.html`/`.css`)을 만지면, 세션 첫 1회 `frontend-skill-reminder.js` 후크가 디자인 스킬 사용을 상기시킨다 (`.claude/settings.json` PreToolUse — **Write|Edit 과 Bash 양쪽** 등록).
+  - ⚠️ **파일을 Bash(heredoc·python)로 써도 뜬다**(2026-08-25 추가). 그전에는 `Write`/`Edit` 도구에만 걸려 있어, Bash 로 파일을 쓰는 세션에서는 **이 후크가 한 번도 안 돌았다.**
+  - Write/Edit 경로는 잠깐 멈추고(1회), **Bash 경로는 안 멈추고 알림만** 띄운다 — 명령문 판정은 오탐이 날 수 있어 애먼 명령을 막지 않기 위해서다.
 - **새 화면을 처음 만들 때** → `Skill("document-skills:frontend-design")`
 - **기존 화면을 고치거나 다듬을 때** → `Skill("ui-ux-pro-max")` (review/improve 관점 우선)
 - 기존 컨벤션(모바일 480px·Material Icons·i18n·CSS 변수)을 깨지 않는 선에서 적용. 단순 로직/문구 변경이면 스킬 없이 진행 가능.
