@@ -1516,7 +1516,9 @@ function navigateBackFromActivity() {
   // 새로고침으로 직접 진입한 경우 _activityCampId·_activityFrom 모두 NULL —
   // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
   if (_activityFrom === 'mypage' || !_activityCampId) {
-    navigate('mypage');
+    // ⚠️ `navigate` 가 막으면(미제출 이탈 확인에서 「취소」) **여기서 멈춘다.**
+    //    안 멈추면 아래 줄이 주소만 응모이력으로 바꿔 화면과 어긋난다.
+    if (navigate('mypage') === false) return;
     openMypageSub('applications');
   } else {
     openCampaign(_activityCampId);

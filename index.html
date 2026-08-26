@@ -15885,7 +15885,9 @@ function navigateBackFromActivity() {
   // 새로고침으로 직접 진입한 경우 _activityCampId·_activityFrom 모두 NULL —
   // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
   if (_activityFrom === 'mypage' || !_activityCampId) {
-    navigate('mypage');
+    // ⚠️ `navigate` 가 막으면(미제출 이탈 확인에서 「취소」) **여기서 멈춘다.**
+    //    안 멈추면 아래 줄이 주소만 응모이력으로 바꿔 화면과 어긋난다.
+    if (navigate('mypage') === false) return;
     openMypageSub('applications');
   } else {
     openCampaign(_activityCampId);
@@ -19769,6 +19771,18 @@ function navigateBackFromDetail() {
   }
 }
 
+// 활동관리에 붙잡아 둔 채 주소만 딴 데로 간 것을 되돌린다(이탈 확인에서 「취소」를 누른 경우).
+//   ⚠️ **화면이 실제로 활동관리일 때만** 손댄다 — 확인 없이 주소를 바꾸면 그 반대 어긋남
+//      (화면은 다른 곳, 주소는 활동관리)이 생긴다. 그런 전례가 이 저장소에 있다.
+function restoreActivityHash() {
+  try {
+    const cur = document.querySelector('#appShell .page.active');
+    if (!cur || cur.id !== 'page-activity') return;
+    if (location.hash === '#activity') return;
+    history.replaceState({page: 'activity'}, '', '#activity');
+  } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
+}
+
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
@@ -19830,12 +19844,16 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-activity' && pageName !== 'activity'
       && typeof activityHasSubmittableDraft === 'function' && activityHasSubmittableDraft()) {
     if (!confirm(t('activity.leaveWithDraft'))) {
-      // 주소가 이미 옮겨진 경우에만 되돌린다. ⚠️ 화면이 활동관리인 것은 위에서 확인했다 —
-      //   확인 없이 주소를 손대면 「화면은 다른 곳, 주소는 활동관리」가 되는 전례가 있다.
-      try {
-        if (location.hash !== '#activity') history.pushState({page: 'activity'}, '', '#activity');
-      } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
-      return;
+      restoreActivityHash();
+      // 🔴 **여기서 return 하는 것만으로는 부족하다.** 부르는 쪽은 자기 다음 줄을 계속 실행한다 —
+      //    예: navigateBackFromActivity() 는 `navigate('mypage')` 다음에 `openMypageSub('applications')`
+      //    를 부르고, 그 함수가 주소를 바꿔 **화면은 활동관리인데 주소는 응모이력**이 된다
+      //    (2026-08-26 브라우저 검증에서 실제로 재현). `navigate` 뒤에 무언가를 더 하는 자리가
+      //    스무 곳 가까워 **전부 고치는 방식은 반드시 하나를 빠뜨린다.**
+      //    → ①`false` 를 돌려줘 확인하는 쪽은 즉시 멈추게 하고
+      //      ②그래도 주소를 바꾸는 쪽이 있으면 **다음 차례에 되돌린다**(아래 backstop).
+      setTimeout(restoreActivityHash, 0);
+      return false;
     }
   }
 
@@ -19965,7 +19983,9 @@ window.addEventListener('popstate', function(e) {
   // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
   // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.
   if (page === 'mypage' || page.startsWith('mypage-')) {
-    navigate('mypage', false);
+    // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
+    //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
+    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
