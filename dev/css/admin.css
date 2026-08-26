@@ -198,11 +198,6 @@ input.admin-filter{padding-right:8px}
 .admin-si.on .si-icon{color:var(--ink)}
 .admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
-/* 「올려두고 미제출」 표시 — 메뉴 아이콘은 채널 어긋남 경고가 이미 쓰므로 건드리지 않고,
-   작은 점을 옆에 덧붙인다. 검수대기 배지(숫자)와도 자리가 겹치지 않는다. */
-.si-stalled-dot{width:7px;height:7px;border-radius:50%;background:#B91C5C;flex-shrink:0;margin-left:4px}
-/* 접힌 사이드바에서는 글자가 없어 점이 아이콘에 붙는다 — 오른쪽 위 모서리로 띄운다 */
-.admin-layout.collapsed .si-stalled-dot{position:absolute;top:5px;right:8px;margin-left:0}
 .sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
 .sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:var(--on-surface-variant);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
 .sidebar-toggle:hover{background:var(--surface-dim);color:var(--on-surface)}

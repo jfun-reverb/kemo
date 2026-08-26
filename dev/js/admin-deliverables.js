@@ -117,9 +117,9 @@ async function refreshDelivSidebarBadge() {
     //    ⚠️ 이 항목에 표시를 추가·변경할 때도 같은 함정이 있다.
     el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
     if (typeof applyChannelDriftIndicators === 'function') applyChannelDriftIndicators();
-    // ⚠️ 「올려두고 미제출」 표시도 위 innerHTML 에 지워졌다 — 여기서 함께 다시 입힌다.
-    //    빠뜨리면 배지가 갱신될 때마다 조용히 사라진다(같은 함정이 이미 한 번 있었다).
-    if (typeof applyStalledDraftIndicators === 'function') applyStalledDraftIndicators();
+    // ⚠️ 「올려두고 미제출」 사이드바 표시를 없애면서(2026-08-26) 여기서 다시 입힐 것도
+    //    없어졌다. 그 표시를 되살리면 **이 자리에 재입힘 줄도 함께** 되살려야 한다 —
+    //    위 innerHTML 이 항목을 통째로 다시 쓰기 때문이다.
   } catch(e) { /* 무시 */ }
 }
 
