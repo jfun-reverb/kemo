@@ -1238,11 +1238,15 @@ function applyStalledDraftIndicators() {
   //       덮어쓴다. 그리고 배지 함수가 항목 innerHTML 을 통째로 다시 쓰므로 **그 직후에
   //       이 함수를 다시 부르는 줄**도 함께 되살려야 한다(안 그러면 조용히 지워진다).
 
-  // 페인 제목 옆 버튼 — 0건이면 버튼째 감춘다(늘 떠 있으면 「원래 그런 화면」이 된다).
+  // 표 「인증 상태」 열 제목 옆 경고 아이콘(2026-08-26 사용자 지시로 페인 제목 옆에서 옮김).
+  //   그 열의 「올려만 둠」 딱지를 가리키는 경고라, 딱지가 있는 열 옆이 맞는 자리다.
+  //   ⚠️ 0건이면 아이콘째 감춘다 — 늘 떠 있으면 「원래 그런 화면」이 되어 아무도 안 본다.
+  //   ⚠️ 건수는 **말풍선**으로만 말한다. 열 제목 줄은 폭이 좁아(132픽셀) 숫자를 글자로 붙이면
+  //      제목이 밀리거나 줄바꿈된다.
   const btn = document.getElementById('delivStalledBtn');
   if (btn) {
-    btn.style.display = has ? 'inline-flex' : 'none';
-    if (has) btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">upload_file</span> 올려두고 미제출 ${n}건`;
+    btn.style.display = has ? '' : 'none';
+    if (has) btn.title = `올려두고 제출 안 한 건 ${n}건 — 「올려만 둠」 딱지가 붙은 행입니다. 눌러서 안내 보기`;
   }
 }
 
