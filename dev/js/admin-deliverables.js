@@ -252,7 +252,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
@@ -584,8 +584,8 @@ async function renderDeliverablesList() {
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
     emptyHtml: (_delivCertFrom || _delivCertTo)
-      ? '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span></td></tr>'
-      : '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+      ? '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span></td></tr>'
+      : '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -829,6 +829,31 @@ function certSuccessAt(g) {
   return latest(channels.map(ch => okAt((g.postByChannel || {})[ch])));
 }
 
+// 영수증에 적힌 구매금액 — 영수증 열 바로 오른쪽에 그린다.
+//   ⚠️ 영수증 단계가 있는 것은 **리뷰어형(monitor)뿐**이다. 시딩·방문형은 「해당 없음」으로
+//      두어, 값이 빈 것(안 적었다)과 애초에 낼 것이 없는 것을 구분한다.
+//      (방문형도 현장 사진을 같은 `receipt` 종류로 내지만 구매금액 칸은 안 쓴다.)
+//   ⚠️ 표기는 검수 창·정산 화면과 같은 방식(¥ + 자릿수 구분)을 쓴다.
+//   ⚠️ 리뷰어형 정산은 이 금액을 **캠페인 제품 금액을 상한으로 잘라** 지급한다.
+//      상한을 넘으면 그 사실을 함께 보여준다 — 이 숫자가 그대로 나간다고 읽히면 안 된다.
+function receiptAmountCell(g) {
+  const camp = (g && g.campaign) || {};
+  if (camp.recruit_type !== 'monitor') {
+    return '<span style="font-size:11px;color:var(--muted)">해당 없음</span>';
+  }
+  const raw = g.receipt ? g.receipt.purchase_amount : null;
+  const amt = (raw === null || raw === undefined || raw === '') ? null : Number(raw);
+  if (amt === null || !Number.isFinite(amt)) {
+    return '<span style="color:var(--muted)">—</span>';
+  }
+  const cap = Number(camp.product_price);
+  const over = Number.isFinite(cap) && cap > 0 && amt > cap;
+  const capNote = over
+    ? `<div style="font-size:10px;color:var(--dark-pink)">상한 ¥${cap.toLocaleString()}</div>`
+    : '';
+  return `<div style="font-weight:600">¥${amt.toLocaleString()}</div>${capNote}`;
+}
+
 function renderDelivAppRow(g, opts) {
   const compact = !!(opts && opts.compact);
   const camp = g.campaign || {};
@@ -893,6 +918,7 @@ function renderDelivAppRow(g, opts) {
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
     <td style="white-space:nowrap;font-size:12px">${(function(){ const at = certSuccessAt(g); return at ? esc(formatDate(at)) : '<span style="color:var(--muted)">—</span>'; })()}</td>
     <td class="deliv-col-receipt">${receiptCell}</td>
+    <td class="deliv-col-receipt-amount" style="white-space:nowrap;font-size:12px;text-align:right">${receiptAmountCell(g)}</td>
     <td class="deliv-col-result">${resultCell}</td>
     <td class="deliv-col-submitted">${submittedCell}</td>
     <td class="deliv-col-action"><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
