@@ -1389,6 +1389,16 @@
                   <option value="approved">모두 승인</option>
                 </select>
               </div>
+              <!-- 인증 성공일 기간 — 결과물 탭 전용(검수 상태와 같은 자리에서 함께 보이고 함께 숨는다) -->
+              <div class="admin-filter-group" id="campDelivCertRangeGroup" style="display:none">
+                <label>인증 성공일</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input type="text" id="campDelivCertRange" class="admin-filter-search" readonly placeholder="기간 선택" title="그 기간 안에 인증 성공한 건만 봅니다. 인증 성공 전인 건은 날짜가 없어 빠집니다." style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
+                  <!-- ⚠️ 이 화면에는 「보기 초기화」가 없다. 달력은 readonly 라 한 번 고르면 스스로 비울
+                       수단이 없어, 지우기 단추가 없으면 「0건」 화면에서 못 빠져나온다. -->
+                  <button type="button" id="btnCampDelivCertClear" class="btn btn-ghost btn-xs" onclick="clearCampDelivCertRange()" title="인증 성공일 기간 지우기" style="display:none;height:32px;padding:0 6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">close</span></button>
+                </div>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="position:relative">
@@ -1547,6 +1557,10 @@
               <div class="admin-filter-group">
                 <label>최근 제출일</label>
                 <input type="text" id="delivSubmittedRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
+              </div>
+              <div class="admin-filter-group">
+                <label>인증 성공일</label>
+                <input type="text" id="delivCertRange" class="admin-filter-search" readonly placeholder="기간 선택" title="그 기간 안에 인증 성공한 건만 봅니다. 인증 성공 전인 건은 날짜가 없어 빠집니다." style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>결과물 미제출</label>
