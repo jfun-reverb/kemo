@@ -14021,7 +14021,25 @@ async function handleSignup(e) {
   }
 
   try {
-    const {data, error} = await db.auth.signUp({email, password: pw});
+    // 🔴 폼 값을 계정 정보에 실어 보낸다 — **이게 유일한 저장 경로다.**
+    //    아래에서 이메일 확인 대기면 그 자리에서 return 하므로, `upsertInfluencer` 는
+    //    **운영에서 한 번도 도달하지 못한다**(운영은 확인이 필수). 그래서 값이
+    //    서버에 닿는 길은 여기뿐이고, 받는 쪽은 가입 트리거(마이그레이션 382)다.
+    //    ⚠️ 개인정보를 두 곳에 남기지 않도록, 그 트리거가 회원 행에 옮긴 **직후
+    //       이 자리를 지운다.** 여기서 보내는 것은 「지나가는 값」이다.
+    //    ⚠️ `created_at` 은 보내지 않는다 — 서버가 계정 생성 시각을 쓴다(브라우저
+    //       시계를 믿지 않는다). 그 덕에 소급분(동의 시각 = 가입 시각)과 갈린다.
+    const {data, error} = await db.auth.signUp({
+      email, password: pw,
+      options: { data: {
+        name, name_kanji: name, name_kana: nameKana,
+        birthdate, gender,
+        terms_agreed_at: nowIso,
+        privacy_agreed_at: nowIso,
+        marketing_opt_in: marketingOptIn,
+        marketing_agreed_at: marketingOptIn ? nowIso : null
+      } }
+    });
     // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
     // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
     if (error) { logAppError('handleSignup', error); showSignupFailure(errEl); btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
@@ -14034,13 +14052,15 @@ async function handleSignup(e) {
         $('signupConfirmMsg').style.display='block';
         return;
       }
-      try {
-        await upsertInfluencer({id: data.user.id, ...userData});
-      } catch(dbErr) {
-        // ⚠️ 계정은 만들어졌는데 프로필 행이 안 생긴 상태로 넘어간다(무음).
-        //    가입은 성공한 것처럼 보이므로 기록이 없으면 영영 드러나지 않는다.
-        logAppError('handleSignup.upsertInfluencer', dbErr);
-      }
+      // 🔴 여기서 회원 행을 쓰지 않는다 — **가입 트리거(마이그레이션 382)가 이미
+      //    넣었다.** 예전에는 이 자리에서 `upsertInfluencer` 를 불렀는데, 그것이
+      //    **행 전체를 대체**해 트리거가 넣은 값을 망가뜨린다:
+      //      · `age_consent_at` — 여기서 보내는 값에 없어서 **지워진다**
+      //      · `created_at` — 브라우저 시각으로 **덮어써진다**(서버 시각이 맞다)
+      //    2026-08-26 개발서버 실측에서 실제로 그렇게 됐다. 트리거는 제대로 돌았는데
+      //    그 뒤 이 호출이 결과를 되돌려 놓았다.
+      //    ⚠️ 이 자리는 **확인 메일이 꺼진 환경에서만** 실행된다(운영은 위에서 이미
+      //       return 한다). 그래서 이 결함은 개발서버에서만 드러났다.
       currentUser = data.user;
       currentUserProfile = {id: data.user.id, ...userData};
     }
