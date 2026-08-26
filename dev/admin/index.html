@@ -1526,8 +1526,9 @@
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
                 <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
                 <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
-                <!-- 「올려두고 미제출」 감지 — 0건이면 applyStalledDraftIndicators 가 숨긴다 -->
-                <button id="delivStalledBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid #FFB8D0;background:#FFE4EC;color:#B91C5C;font-weight:700" onclick="openStalledDraftModal()"></button>
+                <!-- ⚠️ 「올려두고 미제출」 경고는 2026-08-26 에 **표의 「인증 상태」 열 제목 옆**으로
+                     옮겼다(그 열의 딱지를 가리키는 경고라 그 옆이 맞다). 여기에 다시 넣지 말 것 —
+                     같은 id 가 둘이 되면 표시 함수가 앞의 것만 찾아 표 쪽이 영영 안 뜬다. -->
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
@@ -1613,7 +1614,9 @@
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
-                <th style="width:132px;white-space:nowrap">인증 상태</th>
+                <!-- 「올려두고 미제출」 경고는 이 열의 딱지를 가리키므로 열 제목 옆에 둔다.
+                     0건이면 applyStalledDraftIndicators 가 통째로 감춘다. -->
+                <th style="width:132px;white-space:nowrap">인증 상태 <button type="button" id="delivStalledBtn" onclick="openStalledDraftModal()" title="" style="display:none;vertical-align:middle;margin-left:2px;padding:0;border:none;background:none;cursor:pointer;line-height:0"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:#B91C5C;vertical-align:middle">report_problem</span></button></th>
                 <th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleDelivSort('cert_at')">▲▼</span></th>
                 <th class="deliv-col-receipt">영수증</th>
                 <th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th>
