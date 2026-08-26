@@ -686,7 +686,7 @@ window.I18N_KO = {
     postSection: '게시물 URL 제출',
     postUrlLabel: '게시물 URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... 등',
-    badUrlShape: '링크(URL)가 올바르지 않은 것 같습니다. 다시 붙여넣어 주세요',
+    badUrlShapeRow: '이 링크는 게시물 주소가 아닌 것 같습니다. 맞다면 그대로 제출하셔도 됩니다',
     postChannelLabel: '채널 선택',
     postChannelHint: 'URL에서 채널을 자동 판별하지 못했습니다',
     // 캠페인에 채널이 설정되지 않은 경우에만 표시 (통상 발생하지 않음)
