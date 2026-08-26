@@ -2199,6 +2199,11 @@ async function _addDraftUrlInner() {
   if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
   const url = norm.url;
   if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
+  // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
+  //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 눈에 띄게 알려 주고 진행은 그대로 둔다.
+  if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
+    toast(t('activity.badUrlShape'), 'warn');
+  }
 
   const camp = _activityCamp || {};
 
