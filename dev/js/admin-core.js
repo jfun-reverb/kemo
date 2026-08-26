@@ -1231,25 +1231,12 @@ function applyStalledDraftIndicators() {
   const n = _stalledDraftCount;
   const has = typeof n === 'number' && n > 0;
 
-  // 사이드바 「결과물 관리」 — 🔴 **아이콘을 건드리지 않는다.**
-  //   그 아이콘은 채널 어긋남 경고가 이미 쓰고 있어, 여기서도 바꾸면 나중에 도는 쪽이
-  //   앞의 것을 덮어쓴다(이 저장소에서 실제로 겪은 유형). 그래서 **별도 표시를 덧붙인다** —
-  //   서로 다른 자리를 쓰므로 둘이 함께 떠 있어도 안 부딪힌다.
-  //   ⚠️ 배지 함수(refreshDelivSidebarBadge)가 항목 innerHTML 을 통째로 다시 쓰므로,
-  //      그 직후에 이 함수가 **반드시 다시 불려야** 한다. 안 그러면 조용히 지워진다.
-  const item = document.getElementById('adminDelivSi');
-  if (item) {
-    const old = item.querySelector('.si-stalled-dot');
-    if (old) old.remove();
-    if (has) {
-      const dot = document.createElement('span');
-      dot.className = 'si-stalled-dot';
-      // ⚠️ 딱지 이름(「올려만 둠」)과 **글자 그대로 같아야** 한다 — 여기만 옛 이름으로 남으면
-      //    안내를 보고 없는 표시를 찾게 된다(딱지 이름을 바꿀 때 이 줄을 함께 고칠 것).
-      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려만 둠」 딱지로 확인할 수 있습니다`;
-      item.appendChild(dot);
-    }
-  }
+  // ⚠️ 사이드바 표시는 **없앴다**(2026-08-26 사용자 결정). 예전에는 「결과물 관리」 항목에
+  //    작은 점을 덧붙였다 — 아이콘은 채널 어긋남 경고가, 숫자 배지는 검수대기가 이미 써서
+  //    세 번째 자리를 쓴 것이었다. 사이드바에 경고가 셋이나 붙어 시끄럽다는 판단.
+  //    ⚠️ 되살릴 일이 생기면 **아이콘을 건드리지 말 것** — 나중에 도는 쪽이 앞의 것을
+  //       덮어쓴다. 그리고 배지 함수가 항목 innerHTML 을 통째로 다시 쓰므로 **그 직후에
+  //       이 함수를 다시 부르는 줄**도 함께 되살려야 한다(안 그러면 조용히 지워진다).
 
   // 페인 제목 옆 버튼 — 0건이면 버튼째 감춘다(늘 떠 있으면 「원래 그런 화면」이 된다).
   const btn = document.getElementById('delivStalledBtn');
