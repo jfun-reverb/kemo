@@ -1511,11 +1511,15 @@ async function submitDrafts(applicationId, kind) {
   //      제출을 미뤄 자격이 없고(반려 이력 없음), 틱톡은 마감 후 반려→재제출로 정당한데,
   //      「提出」 한 번에 둘이 같이 올라가면서 틱톡까지 실패한다.
   //      그래서 **행별로 나눠** UPDATE 한다. 일부만 성공해도 그만큼은 제출된다.
-  if (!db || !applicationId) return {count: 0, failed: 0, error: null};
-  let count = 0, failed = 0, firstErr = null;
+  //   ⚠️ `failedChannels` — 못 나간 것이 **어느 채널인지** 호출부가 이름으로 알려 줄 수 있게
+  //      함께 돌려준다. 예전에는 건수만 있어서 「제출하지 못한 항목이 있습니다」로 끝났고,
+  //      인플루언서는 무엇을 다시 손봐야 하는지 알 수 없었다. 게시물·리뷰 인증샷만 채널이
+  //      있으므로 영수증은 늘 빈 배열이다(호출부가 빈 배열이면 이름을 안 붙인다).
+  if (!db || !applicationId) return {count: 0, failed: 0, failedChannels: [], error: null};
+  let count = 0, failed = 0, firstErr = null, failedChannels = [];
   await retryWithRefresh(async () => {
-    count = 0; failed = 0; firstErr = null;   // 세션 갱신 후 재시도 시 누적 방지
-    let q = db.from('deliverables').select('id')
+    count = 0; failed = 0; firstErr = null; failedChannels = [];   // 세션 갱신 후 재시도 시 누적 방지
+    let q = db.from('deliverables').select('id, post_channel')
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
@@ -1531,6 +1535,7 @@ async function submitDrafts(applicationId, kind) {
         catch(e) { console.error('[submit_deliverable rpc]', e); logAppError('submit_deliverable', e); }
       } catch(e) {
         failed++;
+        if (row.post_channel && failedChannels.indexOf(row.post_channel) === -1) failedChannels.push(row.post_channel);
         if (!firstErr) firstErr = e;
         console.error('[submitDrafts row]', row.id, e);
         // ⚠️ 1건이라도 성공하면 아래에서 firstErr 를 버린다(호출부로 안 던짐) —
@@ -1542,7 +1547,7 @@ async function submitDrafts(applicationId, kind) {
   // 한 건도 못 올렸고 사유가 있으면 호출부로 전파한다 (사양서 §설계 6 「2단계 필수」).
   //   삼키면 화면이 「提出するものがありません(제출할 것이 없습니다)」라는 틀린 안내를 띄운다.
   if (count === 0 && firstErr) throw firstErr;
-  return {count, failed, error: firstErr};
+  return {count, failed, failedChannels, error: firstErr};
 }
 
 // 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)

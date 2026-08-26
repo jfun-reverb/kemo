@@ -8041,11 +8041,15 @@ async function submitDrafts(applicationId, kind) {
   //      제출을 미뤄 자격이 없고(반려 이력 없음), 틱톡은 마감 후 반려→재제출로 정당한데,
   //      「提出」 한 번에 둘이 같이 올라가면서 틱톡까지 실패한다.
   //      그래서 **행별로 나눠** UPDATE 한다. 일부만 성공해도 그만큼은 제출된다.
-  if (!db || !applicationId) return {count: 0, failed: 0, error: null};
-  let count = 0, failed = 0, firstErr = null;
+  //   ⚠️ `failedChannels` — 못 나간 것이 **어느 채널인지** 호출부가 이름으로 알려 줄 수 있게
+  //      함께 돌려준다. 예전에는 건수만 있어서 「제출하지 못한 항목이 있습니다」로 끝났고,
+  //      인플루언서는 무엇을 다시 손봐야 하는지 알 수 없었다. 게시물·리뷰 인증샷만 채널이
+  //      있으므로 영수증은 늘 빈 배열이다(호출부가 빈 배열이면 이름을 안 붙인다).
+  if (!db || !applicationId) return {count: 0, failed: 0, failedChannels: [], error: null};
+  let count = 0, failed = 0, firstErr = null, failedChannels = [];
   await retryWithRefresh(async () => {
-    count = 0; failed = 0; firstErr = null;   // 세션 갱신 후 재시도 시 누적 방지
-    let q = db.from('deliverables').select('id')
+    count = 0; failed = 0; firstErr = null; failedChannels = [];   // 세션 갱신 후 재시도 시 누적 방지
+    let q = db.from('deliverables').select('id, post_channel')
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
@@ -8061,6 +8065,7 @@ async function submitDrafts(applicationId, kind) {
         catch(e) { console.error('[submit_deliverable rpc]', e); logAppError('submit_deliverable', e); }
       } catch(e) {
         failed++;
+        if (row.post_channel && failedChannels.indexOf(row.post_channel) === -1) failedChannels.push(row.post_channel);
         if (!firstErr) firstErr = e;
         console.error('[submitDrafts row]', row.id, e);
         // ⚠️ 1건이라도 성공하면 아래에서 firstErr 를 버린다(호출부로 안 던짐) —
@@ -8072,7 +8077,7 @@ async function submitDrafts(applicationId, kind) {
   // 한 건도 못 올렸고 사유가 있으면 호출부로 전파한다 (사양서 §설계 6 「2단계 필수」).
   //   삼키면 화면이 「提出するものがありません(제출할 것이 없습니다)」라는 틀린 안내를 띄운다.
   if (count === 0 && firstErr) throw firstErr;
-  return {count, failed, error: firstErr};
+  return {count, failed, failedChannels, error: firstErr};
 }
 
 // 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)
@@ -15909,6 +15914,9 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 
 // Stage 3: 활동관리 화면의 결과물 리스트 (영수증·게시물 통합)
 async function loadDeliverablesForActivity() {
+  // 이전 응모건의 건수가 남아 있으면, 아직 아무것도 안 그린 사이에 이탈 확인이 엉뚱하게 뜬다.
+  //   ⚠️ 아래 렌더러들이 0 을 포함해 다시 채워 준다 — 여기서 비우는 것은 그 사이 구간용이다.
+  Object.keys(_activityDraftPending).forEach(k => { _activityDraftPending[k] = 0; });
   const camp = _activityCamp || {};
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
@@ -16325,10 +16333,21 @@ function splitDeliverableGroups(rows, renderRow, key) {
 //   ⚠️ 0건이면 아무것도 안 그린다(정상 흐름의 몇 초도 미제출 상태다 — 상시 노출되면
 //      「원래 그런 화면」으로 학습돼 아무도 안 본다).
 const DRAFT_BAR_IDS = {receipt: 'draftBarReceipt', review_image: 'draftBarReviewImage', post: 'draftBarPost'};
+// 종류별 「아직 안 낸」 건수. 이탈 확인(navigate)이 이 값을 본다.
+//   ⚠️ 세 렌더러가 **반드시** renderDraftPendingBar 를 거치므로 여기 한 곳에서만 갱신한다.
+//      따로 세면 안내 줄이 말하는 수와 이탈 확인이 보는 수가 갈린다.
+const _activityDraftPending = {receipt: 0, review_image: 0, post: 0};
+// 지금 활동관리 화면에 「낼 수 있는데 안 낸 것」이 있는가 (이탈 확인용)
+function activityHasSubmittableDraft() {
+  return Object.keys(_activityDraftPending).some(k => _activityDraftPending[k] > 0);
+}
 function renderDraftPendingBar(kind, count) {
+  const n = Number(count) || 0;
+  // ⚠️ 건수 기록은 **화면 요소를 찾기 전에** 한다 — 안내 줄이 없는 화면이라고 해서
+  //    「안 낸 것이 없다」가 되면, 그 화면에서 나갈 때 이탈 확인이 조용히 안 뜬다.
+  if (kind in _activityDraftPending) _activityDraftPending[kind] = n;
   const el = $(DRAFT_BAR_IDS[kind]);
   if (!el) return;
-  const n = Number(count) || 0;
   if (n <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.innerHTML =
     `<div class="dpb-title">${esc(String(t('activity.draftPendingTitle')).replace('{n}', String(n)))}</div>` +
@@ -16346,10 +16365,17 @@ function renderActivityPostList(delivs) {
     renderDraftPendingBar('post', 0);
     return;
   }
-  let draftCount = 0;
+  // 「낼 수 있는」 임시저장만 센다 — 리뷰 인증샷(renderActivityReviewImageList)과 같은 기준.
+  //   ⚠️ 예전에는 임시저장이 있기만 하면 버튼을 띄웠다(종류 단위). 그러면 A채널은 낼 수 있고
+  //      B채널만 서버가 거부하는 상황에서 버튼이 활성인 채로 눌리고, 부분 실패한 뒤에도
+  //      **무엇이 못 나갔는지 알려주지 않았다**. 리뷰 인증샷은 처음부터 채널 단위였는데
+  //      게시물만 종류 단위라 두 화면이 서로 다르게 동작했다(2026-08-25 작업표 S1).
+  //   ⚠️ `gateAllows` 는 그 종류 행이 0건이면 `true` 다 — 채널이 빈 시딩 캠페인에서는
+  //      종전처럼 버튼이 그대로 뜬다(막지 않는 방향). 조회 실패도 같다.
+  let submittableDraftCount = 0;
   container.innerHTML = splitDeliverableGroups(delivs, d => {
     const isDraft = d.status === 'draft';
-    if (isDraft) draftCount++;
+    if (isDraft && gateAllows('post', d.post_channel)) submittableDraftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
@@ -16376,8 +16402,13 @@ function renderActivityPostList(delivs) {
       ${reasonBox}
     </div>`;
   }, 'post');
-  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
-  renderDraftPendingBar('post', draftCount);
+  // 버튼과 안내 줄이 **같은 수**를 봐야 한다 — 안내 줄이 「N건 남았다」는데 버튼이 그중
+  //   일부만 보내면 그 차이를 아무도 설명해 주지 않는다.
+  if (submitBtn) {
+    submitBtn.style.display = submittableDraftCount ? '' : 'none';
+    submitBtn.disabled = !submittableDraftCount;
+  }
+  renderDraftPendingBar('post', submittableDraftCount);
 }
 
 function activityStatusBadge(status) {
@@ -16695,10 +16726,10 @@ async function submitAllDrafts(kind) {
 }
 
 async function _submitAllDraftsInner(kind) {
-  let count = 0, failed = 0;
+  let count = 0, failed = 0, failedChannels = [];
   try {
     const r = await submitDrafts(_activityAppId, kind);
-    count = r.count; failed = r.failed;
+    count = r.count; failed = r.failed; failedChannels = r.failedChannels || [];
   } catch (e) {
     // 서버가 거부한 경우(제출 마감 등) 정확한 사유를 보여준다. 예전에는 storage 쪽에서 에러를
     // 삼켜 count=0 이 되고 아래 「제출할 것이 없습니다」가 떠서, 왜 안 되는지 알 수 없었다.
@@ -16710,11 +16741,22 @@ async function _submitAllDraftsInner(kind) {
     return;
   }
   if (count > 0) {
-    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다
-    toast(failed > 0
-      ? t('activity.submittedPartial').replace('{n}', count)
-      : t('activity.submittedN').replace('{n}', count),
-      failed > 0 ? 'warn' : 'success');
+    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다.
+    //   ⚠️ 채널을 알 수 있으면 **이름으로** 말해 준다 — 「제출하지 못한 항목이 있습니다」만으로는
+    //      무엇을 다시 손봐야 하는지 알 수 없다. 영수증은 채널이 없어 늘 옛 문구로 떨어진다.
+    let msg;
+    if (failed > 0 && failedChannels.length) {
+      // 구분자는 말에 맞춘다 — 일본어는 「、」, 한국어는 쉼표. 한쪽 기호를 두 언어에 쓰면
+      //   어느 한쪽에서 남의 나라 문장부호가 된다.
+      const sep = (typeof getLang === 'function' && getLang() === 'ko') ? ', ' : '、';
+      const names = failedChannels.map(c => getChannelLabelLocal(c) || c).join(sep);
+      msg = t('activity.submitPartialFailed').replace('{channels}', names);
+    } else if (failed > 0) {
+      msg = t('activity.submittedPartial').replace('{n}', count);
+    } else {
+      msg = t('activity.submittedN').replace('{n}', count);
+    }
+    toast(msg, failed > 0 ? 'warn' : 'success');
     await loadDeliverablesForActivity();
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }
@@ -19778,6 +19820,23 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
       && typeof cleanupTicketPage === 'function') {
     cleanupTicketPage();
+  }
+  // 활동관리에 「올려만 두고 안 낸 것」을 남긴 채 떠나려 하면 한 번 묻는다.
+  //   ⚠️ 이 자리여야 한다 — 아래 pushState 보다 **앞**이라, 취소하면 주소가 안 움직인다.
+  //   ⚠️ 뒤로가기(popstate)도 결국 이 함수를 거치므로 그 경로까지 함께 잡힌다. 다만 그때는
+  //      주소가 **이미** 옮겨져 있어, 취소하면 주소만 어긋난 채 남는다 → 아래에서 되돌린다.
+  //   ⚠️ 판정 기준은 화면에 실제로 떠 있는 안내 줄의 건수(`_activityDraftPending`)와 같다.
+  //      따로 세면 「안내 줄은 없는데 나갈 때만 묻는」 어긋남이 생긴다.
+  if (_prevActivePage && _prevActivePage.id === 'page-activity' && pageName !== 'activity'
+      && typeof activityHasSubmittableDraft === 'function' && activityHasSubmittableDraft()) {
+    if (!confirm(t('activity.leaveWithDraft'))) {
+      // 주소가 이미 옮겨진 경우에만 되돌린다. ⚠️ 화면이 활동관리인 것은 위에서 확인했다 —
+      //   확인 없이 주소를 손대면 「화면은 다른 곳, 주소는 활동관리」가 되는 전례가 있다.
+      try {
+        if (location.hash !== '#activity') history.pushState({page: 'activity'}, '', '#activity');
+      } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
+      return;
+    }
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
