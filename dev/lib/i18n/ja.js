@@ -725,7 +725,7 @@ window.I18N_JA = {
     postSection: '投稿URLの提出',
     postUrlLabel: '投稿URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... など',
-    badUrlShape: 'リンク（URL）が正しくないようです。もう一度貼り直してください',
+    badUrlShapeRow: 'このリンクは投稿のURLではないようです。合っていればそのまま提出して大丈夫です',
     postChannelLabel: 'チャンネルを選択',
     postChannelHint: 'URLからチャンネルを自動判別できませんでした',
     // キャンペーンにチャンネルが設定されていない場合のみ表示（通常は起こりません）

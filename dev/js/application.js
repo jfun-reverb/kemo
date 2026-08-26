@@ -2023,6 +2023,18 @@ function renderActivityPostList(delivs) {
     const proxyBox = d.submitted_by_admin
       ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(d)}</div>`
       : '';
+    // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
+    //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 그래서 문구가 「맞다면 그대로 내도 된다」
+    //   까지 말한다.
+    //   ⚠️ 예전에는 이 경고를 추가 직후 알림(toast)으로 띄웠는데, **바로 뒤에 뜨는 성공 알림이
+    //      같은 자리를 덮어 화면에서 한 번도 안 보였다**(2026-08-26 브라우저 실측 — 게시물이
+    //      아닌 첫 화면 주소를 넣어도 초록 알림만 떴다). 알림은 몇 초 뒤 사라지므로 「제출하기」를
+    //      누르는 시점에는 어차피 없다. 그래서 목록 항목에 **남는 줄**로 옮겼다.
+    //   ⚠️ **임시저장에만** 붙인다 — 이미 낸 것은 본인이 지울 수 없어, 손쓸 수 없는 경고는
+    //      잔소리가 된다. 낼지 말지 정하는 그 순간에만 보이면 된다.
+    const shapeBox = (isDraft && typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(d.post_url))
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;font-size:11px;color:#8A5510;line-height:1.5">${esc(t('activity.badUrlShapeRow'))}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -2032,6 +2044,7 @@ function renderActivityPostList(delivs) {
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
       ${proxyBox}
+      ${shapeBox}
       ${reasonBox}
     </div>`;
   }, 'post');
@@ -2199,11 +2212,9 @@ async function _addDraftUrlInner() {
   if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
   const url = norm.url;
   if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
-  // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
-  //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 눈에 띄게 알려 주고 진행은 그대로 둔다.
-  if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
-    toast(t('activity.badUrlShape'), 'warn');
-  }
+  // 주소 모양 경고는 여기서 알림으로 띄우지 않는다 — 바로 뒤 성공 알림이 같은 자리를 덮어
+  //   화면에서 한 번도 안 보였다(2026-08-26 실측). 목록 항목에 남는 줄로 옮겼다
+  //   (`renderActivityPostList` 의 `shapeBox`). 되살리지 말 것 — 알림은 이 경고를 못 나른다.
 
   const camp = _activityCamp || {};
 

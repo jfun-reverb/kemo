@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787747988';
+  var CURRENT_BUILD = 'v1787755232';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2967,7 +2967,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-26 21:39 · 4a56c2d</span>
+          <span class="admin-build-text">2026-08-26 23:40 · 1ea1efd</span>
         </div>
       </div>
     </aside>
@@ -4329,8 +4329,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
                 <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
                 <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
-                <!-- 「올려두고 미제출」 감지 — 0건이면 applyStalledDraftIndicators 가 숨긴다 -->
-                <button id="delivStalledBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid #FFB8D0;background:#FFE4EC;color:#B91C5C;font-weight:700" onclick="openStalledDraftModal()"></button>
+                <!-- ⚠️ 「올려두고 미제출」 경고는 2026-08-26 에 **표의 「인증 상태」 열 제목 옆**으로
+                     옮겼다(그 열의 딱지를 가리키는 경고라 그 옆이 맞다). 여기에 다시 넣지 말 것 —
+                     같은 id 가 둘이 되면 표시 함수가 앞의 것만 찾아 표 쪽이 영영 안 뜬다. -->
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
@@ -4416,7 +4417,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
-                <th style="width:132px;white-space:nowrap">인증 상태</th>
+                <!-- 「올려두고 미제출」 경고는 이 열의 딱지를 가리키므로 열 제목 옆에 둔다.
+                     0건이면 applyStalledDraftIndicators 가 통째로 감춘다. -->
+                <th style="width:132px;white-space:nowrap">인증 상태 <button type="button" id="delivStalledBtn" onclick="openStalledDraftModal()" title="" style="display:none;vertical-align:middle;margin-left:2px;padding:0;border:none;background:none;cursor:pointer;line-height:0"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:#B91C5C;vertical-align:middle">report_problem</span></button></th>
                 <th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleDelivSort('cert_at')">▲▼</span></th>
                 <th class="deliv-col-receipt">영수증</th>
                 <th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th>
@@ -17581,11 +17584,15 @@ function applyStalledDraftIndicators() {
   //       덮어쓴다. 그리고 배지 함수가 항목 innerHTML 을 통째로 다시 쓰므로 **그 직후에
   //       이 함수를 다시 부르는 줄**도 함께 되살려야 한다(안 그러면 조용히 지워진다).
 
-  // 페인 제목 옆 버튼 — 0건이면 버튼째 감춘다(늘 떠 있으면 「원래 그런 화면」이 된다).
+  // 표 「인증 상태」 열 제목 옆 경고 아이콘(2026-08-26 사용자 지시로 페인 제목 옆에서 옮김).
+  //   그 열의 「올려만 둠」 딱지를 가리키는 경고라, 딱지가 있는 열 옆이 맞는 자리다.
+  //   ⚠️ 0건이면 아이콘째 감춘다 — 늘 떠 있으면 「원래 그런 화면」이 되어 아무도 안 본다.
+  //   ⚠️ 건수는 **말풍선**으로만 말한다. 열 제목 줄은 폭이 좁아(132픽셀) 숫자를 글자로 붙이면
+  //      제목이 밀리거나 줄바꿈된다.
   const btn = document.getElementById('delivStalledBtn');
   if (btn) {
-    btn.style.display = has ? 'inline-flex' : 'none';
-    if (has) btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">upload_file</span> 올려두고 미제출 ${n}건`;
+    btn.style.display = has ? '' : 'none';
+    if (has) btn.title = `올려두고 제출 안 한 건 ${n}건 — 「올려만 둠」 딱지가 붙은 행입니다. 눌러서 안내 보기`;
   }
 }
 
