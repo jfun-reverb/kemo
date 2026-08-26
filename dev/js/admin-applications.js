@@ -28,6 +28,10 @@ async function openCampApplicants(campId, campTitle, from) {
   _campAppStatusTab = '';
   _campDelivCertTab = '';
   const _rf = $('campDelivReviewFilter'); if (_rf) _rf.value = '';
+  _campDelivCertFrom = ''; _campDelivCertTo = '';
+  if (_campDelivCertFp) _campDelivCertFp.clear(false);
+  const _cr = $('campDelivCertRange'); if (_cr) _cr.classList.remove('filter-active');
+  const _cb = $('btnCampDelivCertClear'); if (_cb) _cb.style.display = 'none';
   const _sq = $('campAppSearch'); if (_sq) _sq.value = '';
   applyCampDetailTabVisibility();
   _campApplicantsFrom = (from === 'brand-ops') ? 'brand-ops' : 'campaigns';
@@ -244,6 +248,11 @@ var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables' | 'tickets
 var _campDetailIsEvent = false;      // 지금 보고 있는 캠페인이 오프라인 행사인가
 var _campAppStatusTab = '';          // 신청자 탭 안의 신청 상태 필터('' = 전체)
 var _campDelivCertTab = '';          // 결과물 탭 안의 인증 상태 필터('' = 전체)
+// 인증 성공일 기간 필터 (결과물 탭 전용). 결과물 관리 페인과 같은 규칙 —
+//   브라우저 로컬 날짜(YYYY-MM-DD) 비교, 인증 성공 전인 건은 날짜가 없어 제외.
+var _campDelivCertFrom = '';
+var _campDelivCertTo = '';
+var _campDelivCertFp = null;
 
 // 신청 상태 탭 — 신청 관리 페인과 같은 5종(APP_STATUS_TABS) 재사용. 건수는 검색만 반영한 집계.
 function renderCampAppStatusTabs(countsMap) {
@@ -314,6 +323,9 @@ function applyCampDetailTabVisibility() {
   // 검수 상태 드롭다운은 결과물 탭 전용
   const reviewGroup = $('campDelivReviewFilterGroup');
   if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
+  // 인증 성공일 기간도 결과물 탭 전용 (신청자 탭엔 그 열이 없다)
+  const certRangeGroup = $('campDelivCertRangeGroup');
+  if (certRangeGroup) certRangeGroup.style.display = isDeliv ? '' : 'none';
 }
 
 // (2026-07-23) 헤더 엑셀 버튼(exportCampDetailExcel)은 각 탭의 상태 탭 줄 우측 버튼으로 이동.
@@ -324,6 +336,39 @@ function openCampDetailMoreMenu(e, btn) {
   if (!currentCampApplicantId) return;
   const title = ($('campApplicantsTitle')?.textContent || '').trim();
   toggleCampMoreMenu(e, btn, currentCampApplicantId, title);
+}
+
+// 인증 성공일 range picker mount (1회). 결과물 관리 페인의 setupDelivCertRange 와 같은 형태.
+function setupCampDelivCertRange() {
+  if (typeof flatpickr === 'undefined') return;
+  const el = $('campDelivCertRange');
+  if (!el || _campDelivCertFp) return;
+  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+  _campDelivCertFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    onChange: function(selectedDates) {
+      _campDelivCertFrom = fmt(selectedDates[0]);
+      _campDelivCertTo = fmt(selectedDates[1]);
+      el.classList.toggle('filter-active', !!(_campDelivCertFrom || _campDelivCertTo));
+      const btn = $('btnCampDelivCertClear');
+      if (btn) btn.style.display = (_campDelivCertFrom || _campDelivCertTo) ? '' : 'none';
+      if (selectedDates.length === 0 || selectedDates.length === 2) loadCampApplicants();
+    }
+  });
+}
+
+// 인증 성공일 기간 지우기 — 이 화면에는 「보기 초기화」가 없어 이 단추가 유일한 해제 수단이다.
+//   ⚠️ clear(false) 로 flatpickr 의 change 이벤트를 끈다 — 켜 두면 위 onChange 가 다시 돌아
+//      loadCampApplicants() 가 두 번 불린다(낡은 응답이 뒤늦게 덮을 수 있음).
+function clearCampDelivCertRange() {
+  _campDelivCertFrom = ''; _campDelivCertTo = '';
+  if (_campDelivCertFp) _campDelivCertFp.clear(false);
+  const el = $('campDelivCertRange'); if (el) el.classList.remove('filter-active');
+  const btn = $('btnCampDelivCertClear'); if (btn) btn.style.display = 'none';
+  loadCampApplicants();
 }
 
 // 결과물 탭 본문 — 인증 상태 탭 + 표.
@@ -362,6 +407,17 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   }
   const reviewFilter = $('campDelivReviewFilter')?.value || '';
   if (reviewFilter) list = list.filter(g => campDelivReviewState(g) === reviewFilter);
+  // 인증 성공일 기간 — 인증 상태 탭 건수를 세기 **전에** 적용해, 탭 숫자와 목록이 안 어긋나게 한다
+  setupCampDelivCertRange();
+  if (_campDelivCertFrom || _campDelivCertTo) {
+    list = list.filter(g => {
+      const c = delivLocalDate(certSuccessAt(g));
+      if (!c) return false;  // 아직 인증 성공이 아닌 건은 날짜가 없어 기간 지정 시 제외
+      if (_campDelivCertFrom && c < _campDelivCertFrom) return false;
+      if (_campDelivCertTo && c > _campDelivCertTo) return false;
+      return true;
+    });
+  }
 
   const counts = { success: 0, submitting: 0, none: 0, excluded: 0 };
   list.forEach(g => { const s = computeCertStatus(g); if (counts[s] != null) counts[s]++; });
@@ -373,7 +429,11 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
 
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
-    : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">해당하는 결과물이 없습니다</td></tr>';
+    : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">${
+        (_campDelivCertFrom || _campDelivCertTo)
+          ? '이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span>'
+          : '해당하는 결과물이 없습니다'
+      }</td></tr>`;
   return totalAllGroups;
 }
 

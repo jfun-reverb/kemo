@@ -54,8 +54,16 @@ function resetDelivFiltersAndSort(skipRender) {
   _delivPendingOnly = false;  // 검수대기만(배지 클릭) 해제
   // 최근 제출일 기간 초기화
   _delivSubmittedFrom = ''; _delivSubmittedTo = '';
-  if (_delivSubmittedFp) _delivSubmittedFp.clear();
+  // ⚠️ clear(false) — 이벤트를 켜 두면 각 picker 의 onChange 가 renderDeliverablesList() 를
+  //    한 번씩 더 부른다. 특히 openDelivPendingReview 는 skipRender=true 로 부르는데도
+  //    그 렌더가 _delivPendingOnly 를 세우기 전에 시작해 낡은 결과가 덮을 수 있다.
+  //    위에서 상태·강조를 직접 지우므로 이벤트는 필요 없다.
+  if (_delivSubmittedFp) _delivSubmittedFp.clear(false);
   const dr = $('delivSubmittedRange'); if (dr) dr.classList.remove('filter-active');
+  // 인증 성공일 기간 초기화
+  _delivCertFrom = ''; _delivCertTo = '';
+  if (_delivCertFp) _delivCertFp.clear(false);
+  const cr = $('delivCertRange'); if (cr) cr.classList.remove('filter-active');
   _delivSort = {col: null, dir: null};
   if (!skipRender) renderDeliverablesList();  // 배지 클릭(openDelivPendingReview)은 이중 렌더 방지로 생략
 }
@@ -124,6 +132,12 @@ const DELIV_PAGE_SIZE = 50;
 var _delivSubmittedFrom = '';
 var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
+// 인증 성공일 기간 필터 상태 (같은 규칙 — 브라우저 로컬 = 운영자 KST 기준 YYYY-MM-DD)
+//   ⚠️ 인증 성공일은 **인증 성공한 건에만** 있다(certSuccessAt). 그래서 기간을 고르면
+//      인증성공 외 탭 건수는 자연히 0이 된다 — 숨기지 않고 그대로 보여준다(사실이라서).
+var _delivCertFrom = '';
+var _delivCertTo = '';
+var _delivCertFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
 // 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
@@ -204,6 +218,26 @@ function setupDelivSubmittedRange() {
   });
 }
 
+// 인증 성공일 range picker mount (1회). 최근 제출일과 같은 형태·같은 동작.
+function setupDelivCertRange() {
+  if (typeof flatpickr === 'undefined') return;
+  const el = $('delivCertRange');
+  if (!el || _delivCertFp) return;
+  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+  _delivCertFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    onChange: function(selectedDates) {
+      _delivCertFrom = fmt(selectedDates[0]);
+      _delivCertTo = fmt(selectedDates[1]);
+      el.classList.toggle('filter-active', !!(_delivCertFrom || _delivCertTo));
+      if (selectedDates.length === 0 || selectedDates.length === 2) renderDeliverablesList();
+    }
+  });
+}
+
 // 텍스트 검색창 토글 — 기본 숨김, 돋보기 버튼으로 펼침. 접을 때 검색어가 있으면 비우고 갱신.
 function toggleDelivSearch() {
   const box = $('delivSearchBox');
@@ -221,6 +255,7 @@ async function renderDeliverablesList() {
   tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
+  setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
   let channelLookup = [];
   try { channelLookup = await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
@@ -314,6 +349,12 @@ async function renderDeliverablesList() {
       if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
       if (_delivSubmittedFrom && d < _delivSubmittedFrom) return false;
       if (_delivSubmittedTo && d > _delivSubmittedTo) return false;
+    }
+    if (_delivCertFrom || _delivCertTo) {
+      const c = delivLocalDate(certSuccessAt(g));
+      if (!c) return false;  // 아직 인증 성공이 아닌 건은 날짜가 없어 기간 지정 시 제외
+      if (_delivCertFrom && c < _delivCertFrom) return false;
+      if (_delivCertTo && c > _delivCertTo) return false;
     }
     return true;
   };
@@ -447,6 +488,14 @@ async function renderDeliverablesList() {
     if (_delivSubmittedTo && d > _delivSubmittedTo) return false;
     return true;
   });
+  // 인증 성공일 기간 필터 — passesFilters(건수 집계) 와 **같은 판정**이어야 탭 숫자와 목록이 안 어긋난다
+  if (_delivCertFrom || _delivCertTo) filtered = filtered.filter(g => {
+    const c = delivLocalDate(certSuccessAt(g));
+    if (!c) return false;
+    if (_delivCertFrom && c < _delivCertFrom) return false;
+    if (_delivCertTo && c > _delivCertTo) return false;
+    return true;
+  });
   // 검색 필터 — 인플루언서 전용(단어 단위 AND, 전각/반각 공백 무관). 캠페인은 검색형 드롭다운으로 분리
   if (search) filtered = filtered.filter(g => {
     const inf = g.influencer || {};
@@ -467,6 +516,7 @@ async function renderDeliverablesList() {
   // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·인증탭·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
+    || _delivCertFrom || _delivCertTo
     || _delivPendingOnly
     || !!_delivCertTab
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
@@ -533,7 +583,9 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: (_delivCertFrom || _delivCertTo)
+      ? '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span></td></tr>'
+      : '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
