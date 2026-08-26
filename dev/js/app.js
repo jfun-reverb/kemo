@@ -82,6 +82,23 @@ function navigate(page, pushHistory) {
       && typeof cleanupTicketPage === 'function') {
     cleanupTicketPage();
   }
+  // 활동관리에 「올려만 두고 안 낸 것」을 남긴 채 떠나려 하면 한 번 묻는다.
+  //   ⚠️ 이 자리여야 한다 — 아래 pushState 보다 **앞**이라, 취소하면 주소가 안 움직인다.
+  //   ⚠️ 뒤로가기(popstate)도 결국 이 함수를 거치므로 그 경로까지 함께 잡힌다. 다만 그때는
+  //      주소가 **이미** 옮겨져 있어, 취소하면 주소만 어긋난 채 남는다 → 아래에서 되돌린다.
+  //   ⚠️ 판정 기준은 화면에 실제로 떠 있는 안내 줄의 건수(`_activityDraftPending`)와 같다.
+  //      따로 세면 「안내 줄은 없는데 나갈 때만 묻는」 어긋남이 생긴다.
+  if (_prevActivePage && _prevActivePage.id === 'page-activity' && pageName !== 'activity'
+      && typeof activityHasSubmittableDraft === 'function' && activityHasSubmittableDraft()) {
+    if (!confirm(t('activity.leaveWithDraft'))) {
+      // 주소가 이미 옮겨진 경우에만 되돌린다. ⚠️ 화면이 활동관리인 것은 위에서 확인했다 —
+      //   확인 없이 주소를 손대면 「화면은 다른 곳, 주소는 활동관리」가 되는 전례가 있다.
+      try {
+        if (location.hash !== '#activity') history.pushState({page: 'activity'}, '', '#activity');
+      } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
+      return;
+    }
+  }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
   try {
