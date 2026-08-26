@@ -3091,6 +3091,17 @@ async function duplicateCampaign(campId) {
       title: '[복사] ' + src.title,
       brand: src.brand, brand_ko: src.brand_ko || null,
       brand_ja: src.brand_ja || null, brand_en: src.brand_en || null,
+      // 🔴 **브랜드·신청 연결도 이어받는다**(2026-08-26). 예전에는 이름 넉 자만 복사하고
+      //   연결을 비운 채 저장해서, 채번 트리거(마이그레이션 090)가 「브랜드 미상」 갈래로
+      //   빠져 **옛 형식 `CAMP-YYYY-NNNN`** 을 박았다. 번호는 **삽입 순간 한 번만** 정해지므로
+      //   사람이 1분 뒤 편집 화면에서 브랜드를 넣어도 번호는 그대로 남는다.
+      //   운영 실측(2026-08-26) — 그렇게 생긴 캠페인이 **33건**이고 계속 늘고 있었다.
+      //   ⚠️ **둘 다 이어받아야 원본과 같은 형식**이 된다. `brand_id` 만 넣으면 원본이
+      //      신청에 연결된 캠페인(`B####-A###-C###`)일 때 복제본은 외부 형식(`B####-C###`)이
+      //      되어 **또 다른 번호**가 나온다.
+      //   ⚠️ 원본에 없으면 **없는 채로** 둔다 — 억지로 채우면 엉뚱한 브랜드에 붙는다.
+      brand_id: src.brand_id || null,
+      source_application_id: src.source_application_id || null,
       product: src.product, product_ko: src.product_ko || null,
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
