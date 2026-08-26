@@ -429,7 +429,7 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
 
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
-    : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">${
+    : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px">${
         (_campDelivCertFrom || _campDelivCertTo)
           ? '이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span>'
           : '해당하는 결과물이 없습니다'
