@@ -808,15 +808,22 @@ function certStatusBadge(g) {
   const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
   if (s === 'excluded')   return `<span class="badge badge-gray" style="${st}" title="신청이 승인 후 반려·취소되어 검수가 불필요합니다">검수 불필요</span>`;
   if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
-  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
-  // 「아무것도 안 낸 사람」과 「올려두고 제출 버튼을 안 누른 사람」을 가른다.
-  //   둘 다 「미제출」로 같아 보여서, 운영에서 26건이 4개월간 쌓이는 동안 아무도 몰랐다.
-  //   ⚠️ 인증 상태 자체는 그대로 `none` 이다 — 이 갈래는 **표시만** 바꾼다.
-  //      탭·집계·엑셀·정산 어디에도 새 상태를 만들지 않는다.
-  if (delivHasStalledDraft(g)) {
-    return `<span class="badge badge-pink" style="${st}" title="본인이 올려는 뒀지만 「제출하기」를 누르지 않았습니다 — 운영팀에 전달되지 않은 상태입니다">올려두고 미제출</span>`;
-  }
-  return `<span class="badge badge-gray" style="${st}">미제출</span>`;
+  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>${stalledChip(g, st)}`;
+  return `<span class="badge badge-gray" style="${st}">미제출</span>${stalledChip(g, st)}`;
+}
+
+// 「올려만 두고 제출 안 한 것이 남아 있음」 딱지 — 인증 상태 배지 **옆에 덧붙인다.**
+//   🔴 인증 상태를 갈아치우지 않는 이유: 실제로 가장 흔한 모양이 **「일부는 냈고 하나가 멈춘」**
+//      경우다(개발서버 실측 1건 — 영수증 승인 + 한 채널 검수중 + 다른 채널만 임시저장).
+//      그 사람의 인증 상태는 「인증샷 제출중」이 맞고, 그것을 「올려두고 미제출」로 바꾸면
+//      **틀린 말**이 된다. 그래서 상태는 그대로 두고 **딱지만 얹는다.**
+//   ⚠️ 처음에는 「아무것도 안 낸」 경우에만 라벨을 바꾸게 만들었는데, 그러면 감지 건수(1)와
+//      목록에 보이는 수(0)가 어긋난다 — 정작 실제 데이터가 그 반대 경우였다.
+//      **감지가 세는 것과 화면이 보여주는 것은 같은 기준이어야 한다.**
+//   ⚠️ 인증 상태 판정에는 일절 끼어들지 않는다(탭·집계·엑셀·정산 무영향).
+function stalledChip(g, st) {
+  if (!delivHasStalledDraft(g)) return '';
+  return ` <span class="badge badge-pink" style="${st}" title="본인이 올려는 뒀지만 「제출하기」를 누르지 않은 것이 남아 있습니다 — 그 건은 운영팀에 전달되지 않았습니다">올려만 둠</span>`;
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.

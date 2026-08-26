@@ -1272,7 +1272,10 @@ function openStalledDraftModal() {
         본인 화면에는 남아 있지만 <b>운영팀에는 전달되지 않았습니다</b> — 검수 대상도, 인증 성공 판정 대상도 아닙니다.
       </div>
       <b>어디서 보나</b>
-      <div style="margin:6px 0 14px">결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려두고 미제출</span> 배지로 표시됩니다.</div>
+      <div style="margin:6px 0 14px">
+        결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려만 둠</span> 딱지가 붙습니다.<br>
+        <span style="color:var(--muted);font-size:12px">인증 상태 자체(「미제출」·「인증샷 제출중」)는 그대로입니다 — <b>일부는 내고 하나만 멈춘</b> 경우가 흔해서, 상태를 갈아치우면 틀린 말이 됩니다.</span>
+      </div>
       <b>지금 할 수 있는 것</b>
       <div style="margin:6px 0 14px">
         관리자가 대신 제출해 주는 기능은 <b>아직 없습니다.</b> 본인이 활동관리 화면에서 「제출하기」를 눌러야 합니다.<br>
