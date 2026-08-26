@@ -1516,7 +1516,9 @@ function navigateBackFromActivity() {
   // 새로고침으로 직접 진입한 경우 _activityCampId·_activityFrom 모두 NULL —
   // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
   if (_activityFrom === 'mypage' || !_activityCampId) {
-    navigate('mypage');
+    // ⚠️ `navigate` 가 막으면(미제출 이탈 확인에서 「취소」) **여기서 멈춘다.**
+    //    안 멈추면 아래 줄이 주소만 응모이력으로 바꿔 화면과 어긋난다.
+    if (navigate('mypage') === false) return;
     openMypageSub('applications');
   } else {
     openCampaign(_activityCampId);
@@ -1545,6 +1547,9 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 
 // Stage 3: 활동관리 화면의 결과물 리스트 (영수증·게시물 통합)
 async function loadDeliverablesForActivity() {
+  // 이전 응모건의 건수가 남아 있으면, 아직 아무것도 안 그린 사이에 이탈 확인이 엉뚱하게 뜬다.
+  //   ⚠️ 아래 렌더러들이 0 을 포함해 다시 채워 준다 — 여기서 비우는 것은 그 사이 구간용이다.
+  Object.keys(_activityDraftPending).forEach(k => { _activityDraftPending[k] = 0; });
   const camp = _activityCamp || {};
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
@@ -1961,10 +1966,21 @@ function splitDeliverableGroups(rows, renderRow, key) {
 //   ⚠️ 0건이면 아무것도 안 그린다(정상 흐름의 몇 초도 미제출 상태다 — 상시 노출되면
 //      「원래 그런 화면」으로 학습돼 아무도 안 본다).
 const DRAFT_BAR_IDS = {receipt: 'draftBarReceipt', review_image: 'draftBarReviewImage', post: 'draftBarPost'};
+// 종류별 「아직 안 낸」 건수. 이탈 확인(navigate)이 이 값을 본다.
+//   ⚠️ 세 렌더러가 **반드시** renderDraftPendingBar 를 거치므로 여기 한 곳에서만 갱신한다.
+//      따로 세면 안내 줄이 말하는 수와 이탈 확인이 보는 수가 갈린다.
+const _activityDraftPending = {receipt: 0, review_image: 0, post: 0};
+// 지금 활동관리 화면에 「낼 수 있는데 안 낸 것」이 있는가 (이탈 확인용)
+function activityHasSubmittableDraft() {
+  return Object.keys(_activityDraftPending).some(k => _activityDraftPending[k] > 0);
+}
 function renderDraftPendingBar(kind, count) {
+  const n = Number(count) || 0;
+  // ⚠️ 건수 기록은 **화면 요소를 찾기 전에** 한다 — 안내 줄이 없는 화면이라고 해서
+  //    「안 낸 것이 없다」가 되면, 그 화면에서 나갈 때 이탈 확인이 조용히 안 뜬다.
+  if (kind in _activityDraftPending) _activityDraftPending[kind] = n;
   const el = $(DRAFT_BAR_IDS[kind]);
   if (!el) return;
-  const n = Number(count) || 0;
   if (n <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.innerHTML =
     `<div class="dpb-title">${esc(String(t('activity.draftPendingTitle')).replace('{n}', String(n)))}</div>` +
@@ -1982,10 +1998,17 @@ function renderActivityPostList(delivs) {
     renderDraftPendingBar('post', 0);
     return;
   }
-  let draftCount = 0;
+  // 「낼 수 있는」 임시저장만 센다 — 리뷰 인증샷(renderActivityReviewImageList)과 같은 기준.
+  //   ⚠️ 예전에는 임시저장이 있기만 하면 버튼을 띄웠다(종류 단위). 그러면 A채널은 낼 수 있고
+  //      B채널만 서버가 거부하는 상황에서 버튼이 활성인 채로 눌리고, 부분 실패한 뒤에도
+  //      **무엇이 못 나갔는지 알려주지 않았다**. 리뷰 인증샷은 처음부터 채널 단위였는데
+  //      게시물만 종류 단위라 두 화면이 서로 다르게 동작했다(2026-08-25 작업표 S1).
+  //   ⚠️ `gateAllows` 는 그 종류 행이 0건이면 `true` 다 — 채널이 빈 시딩 캠페인에서는
+  //      종전처럼 버튼이 그대로 뜬다(막지 않는 방향). 조회 실패도 같다.
+  let submittableDraftCount = 0;
   container.innerHTML = splitDeliverableGroups(delivs, d => {
     const isDraft = d.status === 'draft';
-    if (isDraft) draftCount++;
+    if (isDraft && gateAllows('post', d.post_channel)) submittableDraftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
@@ -2012,8 +2035,13 @@ function renderActivityPostList(delivs) {
       ${reasonBox}
     </div>`;
   }, 'post');
-  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
-  renderDraftPendingBar('post', draftCount);
+  // 버튼과 안내 줄이 **같은 수**를 봐야 한다 — 안내 줄이 「N건 남았다」는데 버튼이 그중
+  //   일부만 보내면 그 차이를 아무도 설명해 주지 않는다.
+  if (submitBtn) {
+    submitBtn.style.display = submittableDraftCount ? '' : 'none';
+    submitBtn.disabled = !submittableDraftCount;
+  }
+  renderDraftPendingBar('post', submittableDraftCount);
 }
 
 function activityStatusBadge(status) {
@@ -2171,6 +2199,11 @@ async function _addDraftUrlInner() {
   if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
   const url = norm.url;
   if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
+  // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
+  //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 눈에 띄게 알려 주고 진행은 그대로 둔다.
+  if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
+    toast(t('activity.badUrlShape'), 'warn');
+  }
 
   const camp = _activityCamp || {};
 
@@ -2331,10 +2364,10 @@ async function submitAllDrafts(kind) {
 }
 
 async function _submitAllDraftsInner(kind) {
-  let count = 0, failed = 0;
+  let count = 0, failed = 0, failedChannels = [];
   try {
     const r = await submitDrafts(_activityAppId, kind);
-    count = r.count; failed = r.failed;
+    count = r.count; failed = r.failed; failedChannels = r.failedChannels || [];
   } catch (e) {
     // 서버가 거부한 경우(제출 마감 등) 정확한 사유를 보여준다. 예전에는 storage 쪽에서 에러를
     // 삼켜 count=0 이 되고 아래 「제출할 것이 없습니다」가 떠서, 왜 안 되는지 알 수 없었다.
@@ -2346,11 +2379,22 @@ async function _submitAllDraftsInner(kind) {
     return;
   }
   if (count > 0) {
-    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다
-    toast(failed > 0
-      ? t('activity.submittedPartial').replace('{n}', count)
-      : t('activity.submittedN').replace('{n}', count),
-      failed > 0 ? 'warn' : 'success');
+    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다.
+    //   ⚠️ 채널을 알 수 있으면 **이름으로** 말해 준다 — 「제출하지 못한 항목이 있습니다」만으로는
+    //      무엇을 다시 손봐야 하는지 알 수 없다. 영수증은 채널이 없어 늘 옛 문구로 떨어진다.
+    let msg;
+    if (failed > 0 && failedChannels.length) {
+      // 구분자는 말에 맞춘다 — 일본어는 「、」, 한국어는 쉼표. 한쪽 기호를 두 언어에 쓰면
+      //   어느 한쪽에서 남의 나라 문장부호가 된다.
+      const sep = (typeof getLang === 'function' && getLang() === 'ko') ? ', ' : '、';
+      const names = failedChannels.map(c => getChannelLabelLocal(c) || c).join(sep);
+      msg = t('activity.submitPartialFailed').replace('{channels}', names);
+    } else if (failed > 0) {
+      msg = t('activity.submittedPartial').replace('{n}', count);
+    } else {
+      msg = t('activity.submittedN').replace('{n}', count);
+    }
+    toast(msg, failed > 0 ? 'warn' : 'success');
     await loadDeliverablesForActivity();
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }

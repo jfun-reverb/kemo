@@ -159,6 +159,10 @@ async function init() {
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
+    // 「올려두고 미제출」 — 부팅 시 1회. 같은 이유다. 이 건은 **본인 화면에만 남아 있어**
+    //   운영팀 쪽에서는 아무 신호도 없었고, 그래서 운영 26건이 4개월간 쌓였다.
+    //   0건이면 아무 표시도 안 뜬다. 조회 실패도 마찬가지(0인 척하지 않는다).
+    if (typeof refreshStalledDraftIndicators === 'function') refreshStalledDraftIndicators();
     // 막힌 표 감지 — 부팅 시 1회. **그 화면에 들어가야만 알 수 있으면 늦다**
     //   (2026-08-07 사고가 11일간 안 보였던 이유가 그것이다).
     if (typeof refreshBlockedTableIndicators === 'function') refreshBlockedTableIndicators();

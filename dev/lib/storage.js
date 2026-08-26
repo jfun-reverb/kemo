@@ -997,6 +997,34 @@ async function fetchPendingDeliverableCount() {
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
 }
 
+// 「올려만 두고 제출 안 한」 신청 목록 (작업표 2026-08-25 작업 7)
+//   관리자 목록에서 **「냈다가 멈춘 사람」과 「아예 안 낸 사람」이 구분이 안 되던** 것을 푼다.
+//   둘 다 「미제출」로 똑같이 보여서, 운영에서 26건이 4개월간 쌓이는 동안 아무도 몰랐다.
+//
+//   🔴 **임시저장을 빼는 필터를 푸는 함수가 아니다.** 관리자 목록·인증 판정·정산 후보는
+//      임시저장을 계속 제외해야 한다(풀면 아직 내지도 않은 것이 검수 대상·지급 대상이 된다 —
+//      마이그레이션 318 이 고친 것과 정반대 방향의 사고다). 그래서 **별도 조회로
+//      「있다/없다」만** 얹는다. 판정에는 일절 끼어들지 않는다.
+//
+//   반환: 임시저장이 하나라도 있는 application_id 의 Set. **조회 실패는 `null`** —
+//     호출부는 그때 아무 표시도 하지 않는다(0건인 척하면 「없는 것」으로 읽힌다).
+async function fetchStalledDraftApplications() {
+  if (!db) return null;
+  try {
+    const ids = new Set();
+    // ⚠️ PostgREST 는 한 번에 1000행에서 잘린다 — 페이지로 나눠 전건을 본다.
+    //    임시저장이 많을 일은 드물지만, 잘리면 「있는데 없다고」 보이는 쪽으로 틀린다.
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('deliverables')
+        .select('application_id').eq('status', 'draft').range(from, from + 999);
+      if (error) throw error;
+      (data || []).forEach(r => { if (r.application_id) ids.add(r.application_id); });
+      if (!data || data.length < 1000) break;
+    }
+    return ids;
+  } catch(e) { console.error('[fetchStalledDraftApplications]', e); return null; }
+}
+
 // 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
 async function fetchPendingApplicationCount() {
   if (!db) return 0;
@@ -1511,11 +1539,15 @@ async function submitDrafts(applicationId, kind) {
   //      제출을 미뤄 자격이 없고(반려 이력 없음), 틱톡은 마감 후 반려→재제출로 정당한데,
   //      「提出」 한 번에 둘이 같이 올라가면서 틱톡까지 실패한다.
   //      그래서 **행별로 나눠** UPDATE 한다. 일부만 성공해도 그만큼은 제출된다.
-  if (!db || !applicationId) return {count: 0, failed: 0, error: null};
-  let count = 0, failed = 0, firstErr = null;
+  //   ⚠️ `failedChannels` — 못 나간 것이 **어느 채널인지** 호출부가 이름으로 알려 줄 수 있게
+  //      함께 돌려준다. 예전에는 건수만 있어서 「제출하지 못한 항목이 있습니다」로 끝났고,
+  //      인플루언서는 무엇을 다시 손봐야 하는지 알 수 없었다. 게시물·리뷰 인증샷만 채널이
+  //      있으므로 영수증은 늘 빈 배열이다(호출부가 빈 배열이면 이름을 안 붙인다).
+  if (!db || !applicationId) return {count: 0, failed: 0, failedChannels: [], error: null};
+  let count = 0, failed = 0, firstErr = null, failedChannels = [];
   await retryWithRefresh(async () => {
-    count = 0; failed = 0; firstErr = null;   // 세션 갱신 후 재시도 시 누적 방지
-    let q = db.from('deliverables').select('id')
+    count = 0; failed = 0; firstErr = null; failedChannels = [];   // 세션 갱신 후 재시도 시 누적 방지
+    let q = db.from('deliverables').select('id, post_channel')
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
@@ -1531,6 +1563,7 @@ async function submitDrafts(applicationId, kind) {
         catch(e) { console.error('[submit_deliverable rpc]', e); logAppError('submit_deliverable', e); }
       } catch(e) {
         failed++;
+        if (row.post_channel && failedChannels.indexOf(row.post_channel) === -1) failedChannels.push(row.post_channel);
         if (!firstErr) firstErr = e;
         console.error('[submitDrafts row]', row.id, e);
         // ⚠️ 1건이라도 성공하면 아래에서 firstErr 를 버린다(호출부로 안 던짐) —
@@ -1542,7 +1575,7 @@ async function submitDrafts(applicationId, kind) {
   // 한 건도 못 올렸고 사유가 있으면 호출부로 전파한다 (사양서 §설계 6 「2단계 필수」).
   //   삼키면 화면이 「提出するものがありません(제출할 것이 없습니다)」라는 틀린 안내를 띄운다.
   if (count === 0 && firstErr) throw firstErr;
-  return {count, failed, error: firstErr};
+  return {count, failed, failedChannels, error: firstErr};
 }
 
 // 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)

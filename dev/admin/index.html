@@ -1526,6 +1526,8 @@
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
                 <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
                 <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+                <!-- 「올려두고 미제출」 감지 — 0건이면 applyStalledDraftIndicators 가 숨긴다 -->
+                <button id="delivStalledBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid #FFB8D0;background:#FFE4EC;color:#B91C5C;font-weight:700" onclick="openStalledDraftModal()"></button>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
@@ -4010,6 +4012,23 @@
       <button class="btn btn-ghost btn-xs" onclick="closeChannelDriftModal()" style="padding:4px 10px">✕</button>
     </div>
     <div id="channelDriftModalBody" style="padding:16px 22px 20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+<!-- 「올려두고 미제출」 안내 — 고칠 수단이 아직 없어 「무엇을 할 수 있는지」만 알려 준다 -->
+<div class="modal-overlay" id="stalledDraftModal" style="z-index:626">
+  <div class="modal" style="max-width:620px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#B91C5C;font-size:22px">upload_file</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">올려두고 제출 안 한 건</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">본인 화면에는 남아 있지만 운영팀에는 전달되지 않은 상태입니다</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeStalledDraftModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="stalledDraftModalBody" style="overflow-y:auto;flex:1"></div>
   </div>
 </div>
 

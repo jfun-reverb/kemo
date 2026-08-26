@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787710954';
+  var CURRENT_BUILD = 'v1787737496';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -686,6 +686,11 @@ input.admin-filter{padding-right:8px}
 .admin-si.on .si-icon{color:var(--ink)}
 .admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:.04em;color:var(--on-surface-variant);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
+/* 「올려두고 미제출」 표시 — 메뉴 아이콘은 채널 어긋남 경고가 이미 쓰므로 건드리지 않고,
+   작은 점을 옆에 덧붙인다. 검수대기 배지(숫자)와도 자리가 겹치지 않는다. */
+.si-stalled-dot{width:7px;height:7px;border-radius:50%;background:#B91C5C;flex-shrink:0;margin-left:4px}
+/* 접힌 사이드바에서는 글자가 없어 점이 아이콘에 붙는다 — 오른쪽 위 모서리로 띄운다 */
+.admin-layout.collapsed .si-stalled-dot{position:absolute;top:5px;right:8px;margin-left:0}
 .sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
 .sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:var(--on-surface-variant);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
 .sidebar-toggle:hover{background:var(--surface-dim);color:var(--on-surface)}
@@ -2967,7 +2972,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-26 11:22 · 50acfbb</span>
+          <span class="admin-build-text">2026-08-26 18:44 · 47f4d18</span>
         </div>
       </div>
     </aside>
@@ -4329,6 +4334,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
                 <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
                 <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+                <!-- 「올려두고 미제출」 감지 — 0건이면 applyStalledDraftIndicators 가 숨긴다 -->
+                <button id="delivStalledBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid #FFB8D0;background:#FFE4EC;color:#B91C5C;font-weight:700" onclick="openStalledDraftModal()"></button>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
@@ -6814,6 +6821,23 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   </div>
 </div>
 
+<!-- 「올려두고 미제출」 안내 — 고칠 수단이 아직 없어 「무엇을 할 수 있는지」만 알려 준다 -->
+<div class="modal-overlay" id="stalledDraftModal" style="z-index:626">
+  <div class="modal" style="max-width:620px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#B91C5C;font-size:22px">upload_file</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">올려두고 제출 안 한 건</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">본인 화면에는 남아 있지만 운영팀에는 전달되지 않은 상태입니다</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeStalledDraftModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="stalledDraftModalBody" style="overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="cautionHistoryModal" style="z-index:625">
   <div class="modal" style="max-width:820px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
@@ -8444,6 +8468,24 @@ function normalizeUrlInput(raw) {
     if (!u.hostname) return null;
   } catch (e) { return null; }
   return { url: s, changed: s !== orig };
+}
+
+// 게시물 주소가 「글 하나를 가리키는 모양」인가 (작업표 2026-08-25 작업 10)
+//   🔴 **막는 함수가 아니다.** 경고만 띄우는 데 쓴다 — 정상 주소를 막는 쪽이
+//      뭉개진 주소를 통과시키는 쪽보다 나쁘다(2026-08-26 결정 S2). 채널마다 주소 모양이
+//      계속 바뀌고 새 형식이 생기므로, 여기서 「아니다」라고 단정하면 멀쩡한 제출이 막힌다.
+//   ⚠️ `normalizeUrlInput` 은 **건드리지 않는다** — 그쪽은 인플루언서와 관리자 대리 등록이
+//      함께 쓰는 보정 함수라, 거기에 판정을 얹으면 두 화면의 동작이 같이 바뀐다.
+//   반환: true = 수상함(경고할 만함) / false = 판단 근거 없음(조용히 통과)
+function looksLikeBarePostUrl(url) {
+  try {
+    const u = new URL(String(url || ''));
+    // 경로가 사실상 비어 있으면 「그 채널의 첫 화면」이지 글 하나가 아니다.
+    //   예: https://www.instagram.com/ · https://x.com
+    const path = (u.pathname || '/').replace(/\/+$/, '');
+    if (path === '' || path === '/') return true;
+    return false;
+  } catch (e) { return false; }   // 모양을 못 읽으면 판단하지 않는다
 }
 
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
@@ -10623,6 +10665,34 @@ async function fetchPendingDeliverableCount() {
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
 }
 
+// 「올려만 두고 제출 안 한」 신청 목록 (작업표 2026-08-25 작업 7)
+//   관리자 목록에서 **「냈다가 멈춘 사람」과 「아예 안 낸 사람」이 구분이 안 되던** 것을 푼다.
+//   둘 다 「미제출」로 똑같이 보여서, 운영에서 26건이 4개월간 쌓이는 동안 아무도 몰랐다.
+//
+//   🔴 **임시저장을 빼는 필터를 푸는 함수가 아니다.** 관리자 목록·인증 판정·정산 후보는
+//      임시저장을 계속 제외해야 한다(풀면 아직 내지도 않은 것이 검수 대상·지급 대상이 된다 —
+//      마이그레이션 318 이 고친 것과 정반대 방향의 사고다). 그래서 **별도 조회로
+//      「있다/없다」만** 얹는다. 판정에는 일절 끼어들지 않는다.
+//
+//   반환: 임시저장이 하나라도 있는 application_id 의 Set. **조회 실패는 `null`** —
+//     호출부는 그때 아무 표시도 하지 않는다(0건인 척하면 「없는 것」으로 읽힌다).
+async function fetchStalledDraftApplications() {
+  if (!db) return null;
+  try {
+    const ids = new Set();
+    // ⚠️ PostgREST 는 한 번에 1000행에서 잘린다 — 페이지로 나눠 전건을 본다.
+    //    임시저장이 많을 일은 드물지만, 잘리면 「있는데 없다고」 보이는 쪽으로 틀린다.
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('deliverables')
+        .select('application_id').eq('status', 'draft').range(from, from + 999);
+      if (error) throw error;
+      (data || []).forEach(r => { if (r.application_id) ids.add(r.application_id); });
+      if (!data || data.length < 1000) break;
+    }
+    return ids;
+  } catch(e) { console.error('[fetchStalledDraftApplications]', e); return null; }
+}
+
 // 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
 async function fetchPendingApplicationCount() {
   if (!db) return 0;
@@ -11137,11 +11207,15 @@ async function submitDrafts(applicationId, kind) {
   //      제출을 미뤄 자격이 없고(반려 이력 없음), 틱톡은 마감 후 반려→재제출로 정당한데,
   //      「提出」 한 번에 둘이 같이 올라가면서 틱톡까지 실패한다.
   //      그래서 **행별로 나눠** UPDATE 한다. 일부만 성공해도 그만큼은 제출된다.
-  if (!db || !applicationId) return {count: 0, failed: 0, error: null};
-  let count = 0, failed = 0, firstErr = null;
+  //   ⚠️ `failedChannels` — 못 나간 것이 **어느 채널인지** 호출부가 이름으로 알려 줄 수 있게
+  //      함께 돌려준다. 예전에는 건수만 있어서 「제출하지 못한 항목이 있습니다」로 끝났고,
+  //      인플루언서는 무엇을 다시 손봐야 하는지 알 수 없었다. 게시물·리뷰 인증샷만 채널이
+  //      있으므로 영수증은 늘 빈 배열이다(호출부가 빈 배열이면 이름을 안 붙인다).
+  if (!db || !applicationId) return {count: 0, failed: 0, failedChannels: [], error: null};
+  let count = 0, failed = 0, firstErr = null, failedChannels = [];
   await retryWithRefresh(async () => {
-    count = 0; failed = 0; firstErr = null;   // 세션 갱신 후 재시도 시 누적 방지
-    let q = db.from('deliverables').select('id')
+    count = 0; failed = 0; firstErr = null; failedChannels = [];   // 세션 갱신 후 재시도 시 누적 방지
+    let q = db.from('deliverables').select('id, post_channel')
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
@@ -11157,6 +11231,7 @@ async function submitDrafts(applicationId, kind) {
         catch(e) { console.error('[submit_deliverable rpc]', e); logAppError('submit_deliverable', e); }
       } catch(e) {
         failed++;
+        if (row.post_channel && failedChannels.indexOf(row.post_channel) === -1) failedChannels.push(row.post_channel);
         if (!firstErr) firstErr = e;
         console.error('[submitDrafts row]', row.id, e);
         // ⚠️ 1건이라도 성공하면 아래에서 firstErr 를 버린다(호출부로 안 던짐) —
@@ -11168,7 +11243,7 @@ async function submitDrafts(applicationId, kind) {
   // 한 건도 못 올렸고 사유가 있으면 호출부로 전파한다 (사양서 §설계 6 「2단계 필수」).
   //   삼키면 화면이 「提出するものがありません(제출할 것이 없습니다)」라는 틀린 안내를 띄운다.
   if (count === 0 && firstErr) throw firstErr;
-  return {count, failed, error: firstErr};
+  return {count, failed, failedChannels, error: firstErr};
 }
 
 // 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)
@@ -17049,6 +17124,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
   // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
   'channelDriftModal',
+  // 「올려두고 미제출」 안내 — 같은 이유(안내를 보면서 목록·메시지를 조작해야 한다)
+  'stalledDraftModal',
   // 탈퇴 처리 점검 — 같은 이유(「회원 열기」로 상세를 여는 동안 목록이 보여야 한다)
   'withdrawOpsModal',
   // 신청·결과물
@@ -17479,6 +17556,91 @@ async function refreshChannelDriftIndicators() {
   const rows = await fetchChannelDriftAlerts();
   _channelDriftRows = Array.isArray(rows) ? rows : [];
   applyChannelDriftIndicators();
+}
+
+// ── 「올려두고 미제출」 감지 (작업표 2026-08-25 작업 8) ──────────────────────
+//   본인이 올려는 뒀는데 「제출하기」를 안 눌러 운영팀에 안 닿은 건. 운영에서 26건이
+//   4개월간 쌓이는 동안 아무도 몰랐다 — 관리자 화면에서 「아예 안 낸 사람」과 똑같이
+//   「미제출」로 보였기 때문이다.
+//
+//   ⚠️ `null` = 아직 안 봤거나 조회 실패 → **아무것도 안 그린다.** 0건인 척하지 않는다
+//      (0으로 그리면 「없는 것」이 되어 이 장치가 막으려던 상태가 그대로 재현된다).
+var _stalledDraftCount = null;
+
+async function refreshStalledDraftIndicators() {
+  const ids = (typeof fetchStalledDraftApplications === 'function')
+    ? await fetchStalledDraftApplications() : null;
+  _stalledDraftCount = ids ? ids.size : null;
+  applyStalledDraftIndicators();
+}
+
+// 캐시된 값으로 표시만 다시 입힌다(재조회 없음).
+function applyStalledDraftIndicators() {
+  const n = _stalledDraftCount;
+  const has = typeof n === 'number' && n > 0;
+
+  // 사이드바 「결과물 관리」 — 🔴 **아이콘을 건드리지 않는다.**
+  //   그 아이콘은 채널 어긋남 경고가 이미 쓰고 있어, 여기서도 바꾸면 나중에 도는 쪽이
+  //   앞의 것을 덮어쓴다(이 저장소에서 실제로 겪은 유형). 그래서 **별도 표시를 덧붙인다** —
+  //   서로 다른 자리를 쓰므로 둘이 함께 떠 있어도 안 부딪힌다.
+  //   ⚠️ 배지 함수(refreshDelivSidebarBadge)가 항목 innerHTML 을 통째로 다시 쓰므로,
+  //      그 직후에 이 함수가 **반드시 다시 불려야** 한다. 안 그러면 조용히 지워진다.
+  const item = document.getElementById('adminDelivSi');
+  if (item) {
+    const old = item.querySelector('.si-stalled-dot');
+    if (old) old.remove();
+    if (has) {
+      const dot = document.createElement('span');
+      dot.className = 'si-stalled-dot';
+      // ⚠️ 딱지 이름(「올려만 둠」)과 **글자 그대로 같아야** 한다 — 여기만 옛 이름으로 남으면
+      //    안내를 보고 없는 표시를 찾게 된다(딱지 이름을 바꿀 때 이 줄을 함께 고칠 것).
+      dot.title = `올려두고 제출 안 한 건 ${n}건 — 이 화면 목록에서 「올려만 둠」 딱지로 확인할 수 있습니다`;
+      item.appendChild(dot);
+    }
+  }
+
+  // 페인 제목 옆 버튼 — 0건이면 버튼째 감춘다(늘 떠 있으면 「원래 그런 화면」이 된다).
+  const btn = document.getElementById('delivStalledBtn');
+  if (btn) {
+    btn.style.display = has ? 'inline-flex' : 'none';
+    if (has) btn.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:15px">upload_file</span> 올려두고 미제출 ${n}건`;
+  }
+}
+
+// 안내 모달 — 🔴 **여기서 고칠 수단은 없다.** 관리자 대신 제출 기록(작업 9)은 이번 범위에서
+//   빠졌다(2026-08-26 결정 S3=②). 그래서 「무엇을 할 수 있는지」를 정확히 말해 준다 —
+//   못 하는 일을 할 수 있는 것처럼 적으면 없는 버튼을 찾게 된다.
+function openStalledDraftModal() {
+  const body = document.getElementById('stalledDraftModalBody');
+  const overlay = document.getElementById('stalledDraftModal');
+  if (!body || !overlay) return;
+  const n = _stalledDraftCount;
+  body.innerHTML = `
+    <div style="padding:16px;font-size:13px;line-height:1.7;color:var(--ink)">
+      <div style="padding:12px 14px;background:#FFE4EC;border-left:3px solid #B91C5C;border-radius:8px;margin-bottom:14px">
+        <b>${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
+        본인 화면에는 남아 있지만 <b>운영팀에는 전달되지 않았습니다</b> — 검수 대상도, 인증 성공 판정 대상도 아닙니다.
+      </div>
+      <b>어디서 보나</b>
+      <div style="margin:6px 0 14px">
+        결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려만 둠</span> 딱지가 붙습니다.<br>
+        <span style="color:var(--muted);font-size:12px">인증 상태 자체(「미제출」·「인증샷 제출중」)는 그대로입니다 — <b>일부는 내고 하나만 멈춘</b> 경우가 흔해서, 상태를 갈아치우면 틀린 말이 됩니다.</span>
+      </div>
+      <b>지금 할 수 있는 것</b>
+      <div style="margin:6px 0 14px">
+        관리자가 대신 제출해 주는 기능은 <b>아직 없습니다.</b> 본인이 활동관리 화면에서 「제출하기」를 눌러야 합니다.<br>
+        해당 인플루언서에게 <b>응모건 메시지</b>로 안내해 주세요 — 목록 각 행의 메시지 버튼으로 바로 보낼 수 있습니다.
+      </div>
+      <div style="color:var(--muted);font-size:12px">
+        인플루언서 화면에는 안내 줄과 「미제출」 표시가 이미 들어가 있어, 앞으로 생기는 건은 줄어들 것으로 봅니다.
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function closeStalledDraftModal() {
+  const overlay = document.getElementById('stalledDraftModal');
+  if (overlay) overlay.classList.remove('open');
 }
 
 // 캐시된 결과로 사이드바·페인 버튼을 다시 그린다(재조회 없음).
@@ -28346,6 +28508,11 @@ async function loadDeliverables() {
   if (typeof refreshChannelDriftIndicators === 'function') {
     refreshChannelDriftIndicators();
   }
+  // 「올려두고 미제출」 감지도 같은 자리에서 — 위 목록 렌더가 이미 집합을 받아 왔지만,
+  //   사이드바·버튼 표시는 이 함수가 담당한다(0건이면 아무것도 안 그린다).
+  if (typeof refreshStalledDraftIndicators === 'function') {
+    refreshStalledDraftIndicators();
+  }
 }
 
 // 사이드바 검수대기 배지 클릭 — 결과물 관리 페인을 「검수대기만」 상태로 열어 배지 숫자와 목록을 일치시킴.
@@ -28371,6 +28538,9 @@ async function refreshDelivSidebarBadge() {
     //    ⚠️ 이 항목에 표시를 추가·변경할 때도 같은 함정이 있다.
     el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
     if (typeof applyChannelDriftIndicators === 'function') applyChannelDriftIndicators();
+    // ⚠️ 「올려두고 미제출」 표시도 위 innerHTML 에 지워졌다 — 여기서 함께 다시 입힌다.
+    //    빠뜨리면 배지가 갱신될 때마다 조용히 사라진다(같은 함정이 이미 한 번 있었다).
+    if (typeof applyStalledDraftIndicators === 'function') applyStalledDraftIndicators();
   } catch(e) { /* 무시 */ }
 }
 
@@ -28557,6 +28727,11 @@ async function renderDeliverablesList() {
     const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
     infMissingMap = await fetchInfluencersByIds(userIds);
   }
+
+  // 「올려두고 미제출」 표시용 별도 조회 — 판정에는 안 쓰인다(작업 7).
+  //   ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
+  //      0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
+  _delivStalledDraftApps = await fetchStalledDraftApplications();
 
   // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
   //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
@@ -29040,14 +29215,36 @@ function certStatusLabelKo(g) {
   const s = computeCertStatus(g);
   return s === 'excluded' ? '검수 불필요' : s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
 }
+// 「올려만 두고 제출 안 한」 신청 id 집합. `null` = 아직 안 봤거나 조회 실패 → **아무 표시도 안 한다.**
+//   ⚠️ 빈 Set(`new Set()`)과 `null` 은 다른 뜻이다 — 빈 Set 은 「봤는데 없다」, null 은 「모른다」.
+var _delivStalledDraftApps = null;
+// 그 신청이 「냈다가 멈춘」 것인가 (판정에는 안 쓰인다 — 표시 전용)
+function delivHasStalledDraft(g) {
+  if (!_delivStalledDraftApps || !g) return false;
+  return _delivStalledDraftApps.has(g.application_id);
+}
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
   // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
   const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
   if (s === 'excluded')   return `<span class="badge badge-gray" style="${st}" title="신청이 승인 후 반려·취소되어 검수가 불필요합니다">검수 불필요</span>`;
   if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
-  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
-  return `<span class="badge badge-gray" style="${st}">미제출</span>`;
+  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>${stalledChip(g, st)}`;
+  return `<span class="badge badge-gray" style="${st}">미제출</span>${stalledChip(g, st)}`;
+}
+
+// 「올려만 두고 제출 안 한 것이 남아 있음」 딱지 — 인증 상태 배지 **옆에 덧붙인다.**
+//   🔴 인증 상태를 갈아치우지 않는 이유: 실제로 가장 흔한 모양이 **「일부는 냈고 하나가 멈춘」**
+//      경우다(개발서버 실측 1건 — 영수증 승인 + 한 채널 검수중 + 다른 채널만 임시저장).
+//      그 사람의 인증 상태는 「인증샷 제출중」이 맞고, 그것을 「올려두고 미제출」로 바꾸면
+//      **틀린 말**이 된다. 그래서 상태는 그대로 두고 **딱지만 얹는다.**
+//   ⚠️ 처음에는 「아무것도 안 낸」 경우에만 라벨을 바꾸게 만들었는데, 그러면 감지 건수(1)와
+//      목록에 보이는 수(0)가 어긋난다 — 정작 실제 데이터가 그 반대 경우였다.
+//      **감지가 세는 것과 화면이 보여주는 것은 같은 기준이어야 한다.**
+//   ⚠️ 인증 상태 판정에는 일절 끼어들지 않는다(탭·집계·엑셀·정산 무영향).
+function stalledChip(g, st) {
+  if (!delivHasStalledDraft(g)) return '';
+  return ` <span class="badge badge-pink" style="${st}" title="본인이 올려는 뒀지만 「제출하기」를 누르지 않은 것이 남아 있습니다 — 그 건은 운영팀에 전달되지 않았습니다">올려만 둠</span>`;
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
@@ -30897,6 +31094,11 @@ async function submitAdminProxyDelivProxy() {
       if (!norm) return toast('URL 형식이 올바르지 않습니다', 'error');
       const url = norm.url;
       if (norm.changed) toast('URL을 수정했습니다: ' + url, 'success');
+      // 주소 모양 경고 (작업 10) — 인플루언서 화면과 **같은 판정 함수**를 쓴다.
+      //   🔴 막지 않는다. 한쪽만 넣으면 같은 주소가 화면마다 다르게 취급된다.
+      if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
+        toast('글 하나를 가리키는 주소가 아닌 것 같습니다 — 다시 확인해 주세요', 'warn');
+      }
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
       // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
       // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.
@@ -34120,6 +34322,12 @@ async function loadCampApplicants() {
     emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
   });
 
+  // 「올려두고 미제출」 표시용 집합 — 결과물 관리 화면과 **같은 함수**를 쓴다.
+  //   ⚠️ 여기서 안 채우면 같은 응모가 두 화면에서 다르게 보인다(한쪽만 「올려두고 미제출」).
+  //      조회 실패는 `null` 이 들어가고, 그러면 양쪽 다 그 표시를 안 그린다.
+  if (typeof fetchStalledDraftApplications === 'function') {
+    _delivStalledDraftApps = await fetchStalledDraftApplications();
+  }
   // 결과물 탭 렌더 + 상단 탭 건수 갱신 (같은 데이터로 한 번에 — 추가 조회 없음)
   const delivTotal = renderCampDelivTab(camp, allDelivs, allApps, _users);
 
@@ -49255,6 +49463,10 @@ async function init() {
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
+    // 「올려두고 미제출」 — 부팅 시 1회. 같은 이유다. 이 건은 **본인 화면에만 남아 있어**
+    //   운영팀 쪽에서는 아무 신호도 없었고, 그래서 운영 26건이 4개월간 쌓였다.
+    //   0건이면 아무 표시도 안 뜬다. 조회 실패도 마찬가지(0인 척하지 않는다).
+    if (typeof refreshStalledDraftIndicators === 'function') refreshStalledDraftIndicators();
     // 막힌 표 감지 — 부팅 시 1회. **그 화면에 들어가야만 알 수 있으면 늦다**
     //   (2026-08-07 사고가 11일간 안 보였던 이유가 그것이다).
     if (typeof refreshBlockedTableIndicators === 'function') refreshBlockedTableIndicators();
