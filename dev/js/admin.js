@@ -4685,12 +4685,12 @@ function renderMinFollowersByChannel(formMode, channels) {
   if (입력가능.length === 0) {
     // 🔴 조건을 걸 수 있는 채널이 하나도 없다 — 운영의 「그리고」 5건이 전부 이 경우다
     //    (`qoo10,cosme`). 빈 칸만 두면 담당자가 왜 못 넣는지 모른다.
-    wrap.innerHTML = `<div style="font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px">
-      이 조합에는 <strong>최소 팔로워수를 걸 수 없습니다</strong> — 고르신 채널(${esc((channels || []).map(c => getChannelLabel(c) || c).join('・'))})로는 판단할 팔로워 수가 없습니다.${_noInputChannelNote(값없는채널, channels)}
-    </div>`;
+    wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>`
+      + `<div class="form-hint">이 조합에는 최소 팔로워수를 걸 수 없습니다. ${_noInputChannelNote(값없는채널, channels)}</div>`;
     return;
   }
 
+  // 한 줄에 두 칸씩 놓는다(2026-08-27 사용자). 채널이 넷이면 두 줄이면 끝난다.
   const rows = 입력가능.map(ch => {
     const label = getChannelLabel(ch) || ch;
     // Qoo10 이 함께 있고 이 줄이 Instagram 이면 「같은 수를 본다」를 묶어서 알린다(설계 4-1)
@@ -4702,8 +4702,8 @@ function renderMinFollowersByChannel(formMode, channels) {
     //    값을 입력하고 저장을 안 누른 채 나가도 **경고 없이 조용히 사라진다.**
     //    ⚠️ 같은 파일에 이미 이 실패에 대한 경고가 있었는데(모집 타입·채널이 통째로 빠졌던
     //       리뷰 지적) 이 칸을 만들면서 그대로 반복했다. 새 입력칸을 만들 때마다 확인할 것.
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <div style="width:150px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
+    return `<div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
       <input type="number" class="form-input" style="width:130px" placeholder="제한 없음"
              id="${esc(g)}Mfbc_${esc(ch)}"
              data-mfbc-channel="${esc(ch)}" value="${v > 0 ? esc(String(v)) : ''}"
@@ -4712,16 +4712,16 @@ function renderMinFollowersByChannel(formMode, channels) {
     </div>`;
   }).join('');
 
-  const 안내 = `<div style="font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px;margin-top:4px">
-    채널 조건이 <strong>&amp;(모두 해당)</strong>라 <strong>채널마다 따로</strong> 받습니다. 비워 두면 그 채널은 <strong>검사하지 않습니다</strong>.
-    ${_noInputChannelNote(값없는채널, channels)}
-  </div>`;
+  // 안내는 다른 입력 안내와 같은 모양(`form-hint`)으로 둔다 — 주황 상자는 경고로 읽히는데
+  //   이건 경고가 아니라 사용법이다(2026-08-27 사용자).
+  const 안내 = `<div class="form-hint">채널마다 따로 받습니다. 비워 두면 그 채널은 검사하지 않습니다.${_noInputChannelNote(값없는채널, channels)}</div>`;
 
   // ⚠️ 이 라벨은 화면 제목이면서 **「저장 안 한 변경」 경고가 항목 이름을 찾는 자리**이기도
   //    하다(`resolveCampDirtyFieldLabel` 이 `.form-group` 안 `.form-label` 을 읽는다).
   //    감싸는 요소에 `form-group` 이 없으면 위로 올라가 바깥 「기준 채널」 라벨을 집어
   //    **틀린 이름**을 보고한다. 라벨을 지우거나 클래스를 바꾸면 그 이름이 같이 틀어진다.
-  wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>${rows}${안내}`;
+  wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>`
+    + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">${rows}</div>${안내}`;
 }
 
 // 입력한 채널별 값을 상태에 담는다 — 채널을 바꾸면 칸이 다시 그려지므로 값을 잃지 않게.
@@ -4803,13 +4803,18 @@ function applyFollowerKindUI(formMode) {
   //    칸은 그대로 숨긴 채로 둔다 — 채널이 정해지기 전에는 고를 것도 없다.
   if (channels.length === 0) { note.style.display = 'none'; return; }
 
+  // 🔴 **채널이 하나면 아무 말도 하지 않는다**(2026-08-27 사용자). 채널이 하나뿐이면
+  //    그 채널로 검사하는 것이 당연해서, 설명을 붙이면 없는 선택지를 있는 것처럼 만든다.
+  //    안내가 필요한 것은 **여러 채널 중 어떻게 판정되는지 모를 때**뿐이다.
+  if (kind !== 'or') { note.style.display = 'none'; return; }
+
+  // ⚠️ **순서 주의** — `removeAttribute('style')` 이 인라인 스타일을 통째로 지우므로
+  //    display 지정보다 **먼저** 불러야 한다. 뒤에 부르면 방금 켠 것이 같이 날아가
+  //    안내가 영영 안 보인다.
+  note.className = 'form-hint';      // 다른 입력 안내와 같은 모양 — 주황 상자는 경고로 읽힌다
+  note.removeAttribute('style');
   note.style.display = '';
-  const chLabel = channels.length === 1
-    ? (typeof getChannelLabel === 'function' ? getChannelLabel(channels[0]) : channels[0])
-    : '';
-  note.innerHTML = (kind === 'or')
-    ? '「기준 채널」 칸은 숨겼습니다 — 채널 조건이 <strong>or(하나 이상 해당)</strong>라, 최소 팔로워수는 <strong>모집 채널 중 하나 이상</strong>이 넘으면 통과합니다. 어느 채널을 기준으로 삼을지 고를 필요가 없습니다.'
-    : `「기준 채널」 칸은 숨겼습니다 — 모집 채널이 <strong>${esc(chLabel)}</strong> 하나라 그 채널로 검사합니다.`;
+  note.innerHTML = '모집 채널 중 하나 이상이 넘으면 통과';
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
