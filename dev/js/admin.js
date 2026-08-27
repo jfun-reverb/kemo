@@ -4691,7 +4691,9 @@ function renderMinFollowersByChannel(formMode, channels) {
   }
 
   // 한 줄에 두 칸씩 놓는다(2026-08-27 사용자). 채널이 넷이면 두 줄이면 끝난다.
-  const rows = 입력가능.map(ch => {
+  const rows = 입력가능.map((ch, i) => {
+    // 어느 열인지 여기서 정한다 — CSS 에서 `:nth-child` 로 세지 않는다(인덱스 하드코딩 금지).
+    const 열 = (i % 2 === 0) ? 'mfbc-col-left' : 'mfbc-col-right';
     const label = getChannelLabel(ch) || ch;
     // Qoo10 이 함께 있고 이 줄이 Instagram 이면 「같은 수를 본다」를 묶어서 알린다(설계 4-1)
     const qoo10묶음 = (ch === 'instagram' && (channels || []).includes('qoo10'))
@@ -4702,13 +4704,13 @@ function renderMinFollowersByChannel(formMode, channels) {
     //    값을 입력하고 저장을 안 누른 채 나가도 **경고 없이 조용히 사라진다.**
     //    ⚠️ 같은 파일에 이미 이 실패에 대한 경고가 있었는데(모집 타입·채널이 통째로 빠졌던
     //       리뷰 지적) 이 칸을 만들면서 그대로 반복했다. 새 입력칸을 만들 때마다 확인할 것.
-    return `<div style="display:flex;align-items:center;gap:8px">
+    return `<div class="${열}" style="display:flex;align-items:center;gap:6px">
       <div style="flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
-      <input type="number" class="form-input" style="width:130px" placeholder="제한 없음"
+      <input type="number" class="form-input" style="width:88px;flex-shrink:0" placeholder="제한 없음"
              id="${esc(g)}Mfbc_${esc(ch)}"
              data-mfbc-channel="${esc(ch)}" value="${v > 0 ? esc(String(v)) : ''}"
              oninput="captureMinFollowersByChannel('${formMode}')">
-      <span style="font-size:11px;color:var(--muted)">명 이상</span>
+      <span style="font-size:11px;color:var(--muted);flex-shrink:0">명 이상</span>
     </div>`;
   }).join('');
 
@@ -4721,7 +4723,7 @@ function renderMinFollowersByChannel(formMode, channels) {
   //    감싸는 요소에 `form-group` 이 없으면 위로 올라가 바깥 「기준 채널」 라벨을 집어
   //    **틀린 이름**을 보고한다. 라벨을 지우거나 클래스를 바꾸면 그 이름이 같이 틀어진다.
   wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>`
-    + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">${rows}</div>${안내}`;
+    + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 0" class="mfbc-grid">${rows}</div>${안내}`;
 }
 
 // 입력한 채널별 값을 상태에 담는다 — 채널을 바꾸면 칸이 다시 그려지므로 값을 잃지 않게.
@@ -4780,19 +4782,25 @@ function applyFollowerKindUI(formMode) {
     : 'single';
 
   const byWrap = $(g + 'ByChannelWrap');
+  // ⚠️ 「그리고」에서는 **줄 자체**를 숨긴다. 자식(기준 채널·최소 팔로워수)만 숨기면
+  //    빈 줄이 남아 아래 「채널별 최소 팔로워수」 제목이 왼쪽 「채널」 제목보다
+  //    내려간다(2026-08-27 화면에서 잡음 — 두 제목이 14px 어긋났다).
+  const singleRow = $(g + 'SingleFollowerRow');
   const minWrap = $(g + 'MinFollowers') ? $(g + 'MinFollowers').closest('div') : null;
 
   if (kind === 'and') {
     // 🔴 「그리고」 — 채널마다 값을 따로 받는다(2단계, 사양서 설계 4).
     //    기준 채널 칸도 **여기서 숨긴다** — 이 갈래에서도 그 값은 이제 안 쓰인다.
+    if (singleRow) singleRow.style.display = 'none';
     wrap.style.display = 'none';
-    if (minWrap) minWrap.style.display = 'none';   // 하나짜리 칸은 이 갈래에서 안 쓴다
+    if (minWrap) minWrap.style.display = 'none';
     renderMinFollowersByChannel(formMode, channels);
     if (byWrap) byWrap.style.display = '';
     note.style.display = 'none';
     return;
   }
 
+  if (singleRow) singleRow.style.display = 'flex';   // ⚠️ 원래 flex 라 '' 로 되돌리면 안 된다
   if (byWrap) byWrap.style.display = 'none';
   if (minWrap) minWrap.style.display = '';
   wrap.style.display = 'none';
