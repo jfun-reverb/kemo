@@ -1119,6 +1119,13 @@ async function openEditCampaign(campId) {
   // 채널 매칭 표시 방식 복원 (기본 or)
   const matchVal = camp.channel_match === 'and' ? 'and' : 'or';
   document.querySelectorAll('input[name="editChannelMatch"]').forEach(r => r.checked = (r.value === matchVal));
+  // 채널별 최소 팔로워수 복원 (2단계) — 🔴 **칸을 그리기 전에** 상태에 담아야 한다.
+  //   applyChannelMatchVisibility → applyFollowerKindUI → renderMinFollowersByChannel 순으로
+  //   이어지는데, 그 마지막이 이 상태를 읽는다. 순서가 뒤집히면 **저장된 값이 빈 칸으로 뜨고
+  //   그대로 저장하면 조건이 지워진다.**
+  _minFollowersByChannelState.edit = {};
+  const _mfbc = camp.min_followers_by_channel || {};
+  Object.keys(_mfbc).forEach(k => { const v = Number(_mfbc[k]); if (v > 0) _minFollowersByChannelState.edit[k] = v; });
   applyChannelMatchVisibility('edit');
   // 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시
   applyMinFollowersVisibility('edit', rtVal);
@@ -2849,6 +2856,9 @@ async function saveCampaignEdit() {
       channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
+      // 「그리고」 갈래만 채널별 값을 담는다 — 다른 갈래는 빈 객체로 지운다(2단계).
+      //   ⚠️ 리뷰어형은 팔로워 검사를 아예 안 하므로 여기서도 비운다(min_followers 와 같은 판단).
+      min_followers_by_channel: (recruitTypeEl?.value === 'monitor') ? {} : minFollowersByChannelForSave('edit', editChannel.split(',').filter(Boolean), document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or'),
       primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
       category: gv('editCampCategory'),
       content_types: contentTypes,
@@ -3104,7 +3114,7 @@ async function duplicateCampaign(campId) {
       source_application_id: src.source_application_id || null,
       product: src.product, product_ko: src.product_ko || null,
       product_url: src.product_url,
-      type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
+      type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, min_followers_by_channel: src.min_followers_by_channel || {}, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
@@ -4418,7 +4428,7 @@ async function addCampaign() {
     brand_ja: brandJa || null,
     brand_en: brandEn || null,
     product_ko: productKo || null,
-    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), min_followers_by_channel: (recruitType==='monitor') ? {} : minFollowersByChannelForSave('new', ch.split(',').filter(Boolean), document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or'), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -4592,6 +4602,82 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   applyFollowerKindUI(formMode);
 }
 
+// 「그리고」 갈래의 채널별 최소 팔로워수 입력칸 (2단계, 2026-08-27)
+//   사양서 설계 4 · 4-1
+//
+// 🔴 **입력칸은 팔로워 값을 가진 네 채널에만** — Instagram·X·TikTok·YouTube.
+//    LIPS·@cosme 는 팔로워를 담는 자리가 애초에 없어 **항상 0** 이다. 칸을 만들어
+//    담당자가 1,000 을 넣으면 **아무도 통과할 수 없는 조건**이 되는데 화면은 그걸 안 알려 준다.
+//    Qoo10 은 Instagram 값을 빌려 쓰므로 칸을 따로 만들지 않고 **표시만 묶는다**.
+// ⚠️ **값을 안 채운 채널은 「검사 안 함」**(0 아님) — 자리표시가 「제한 없음」인 이유다.
+const MIN_FOLLOWERS_INPUT_CHANNELS = ['instagram', 'x', 'tiktok', 'youtube'];
+
+function renderMinFollowersByChannel(formMode, channels) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'ByChannelWrap');
+  if (!wrap) return;
+
+  const saved = _minFollowersByChannelState[formMode] || {};
+  const 입력가능 = (channels || []).filter(c => MIN_FOLLOWERS_INPUT_CHANNELS.includes(c));
+  const 값없는채널 = (channels || []).filter(c => !MIN_FOLLOWERS_INPUT_CHANNELS.includes(c));
+
+  if (입력가능.length === 0) {
+    // 🔴 조건을 걸 수 있는 채널이 하나도 없다 — 운영의 「그리고」 5건이 전부 이 경우다
+    //    (`qoo10,cosme`). 빈 칸만 두면 담당자가 왜 못 넣는지 모른다.
+    wrap.innerHTML = `<div style="font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px">
+      이 조합에는 <strong>최소 팔로워수를 걸 수 없습니다</strong> — 고르신 채널(${esc(값없는채널.map(c => getChannelLabel(c) || c).join('・'))})은 팔로워 수를 저장하지 않습니다.
+    </div>`;
+    return;
+  }
+
+  const rows = 입력가능.map(ch => {
+    const label = getChannelLabel(ch) || ch;
+    // Qoo10 이 함께 있고 이 줄이 Instagram 이면 「같은 수를 본다」를 묶어서 알린다(설계 4-1)
+    const qoo10묶음 = (ch === 'instagram' && (channels || []).includes('qoo10'))
+      ? ` <span style="font-size:10px;font-weight:400;color:var(--muted)">· Qoo10 도 이 값을 봅니다</span>` : '';
+    const v = saved[ch];
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:150px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
+      <input type="number" class="form-input" style="width:130px" placeholder="제한 없음"
+             data-mfbc-channel="${esc(ch)}" value="${v > 0 ? esc(String(v)) : ''}"
+             oninput="captureMinFollowersByChannel('${formMode}')">
+      <span style="font-size:11px;color:var(--muted)">명 이상</span>
+    </div>`;
+  }).join('');
+
+  const 안내 = `<div style="font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px;margin-top:4px">
+    채널 조건이 <strong>&amp;(모두 해당)</strong>라 <strong>채널마다 따로</strong> 받습니다. 비워 두면 그 채널은 <strong>검사하지 않습니다</strong>.
+    ${값없는채널.length ? `<br>${esc(값없는채널.map(c => getChannelLabel(c) || c).join('・'))}은(는) 팔로워 수를 저장하지 않아 칸이 없습니다.` : ''}
+  </div>`;
+
+  wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>${rows}${안내}`;
+}
+
+// 입력한 채널별 값을 상태에 담는다 — 채널을 바꾸면 칸이 다시 그려지므로 값을 잃지 않게.
+const _minFollowersByChannelState = { new: {}, edit: {} };
+
+function captureMinFollowersByChannel(formMode) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'ByChannelWrap');
+  if (!wrap) return;
+  const out = {};
+  wrap.querySelectorAll('input[data-mfbc-channel]').forEach(inp => {
+    const n = parseInt(inp.value, 10);
+    if (n > 0) out[inp.dataset.mfbcChannel] = n;   // 0·빈칸은 「검사 안 함」이라 안 담는다
+  });
+  _minFollowersByChannelState[formMode] = out;
+}
+
+// 저장할 값 — 「그리고」 갈래가 아니면 빈 객체(그 갈래만 이 칸을 읽는다)
+function minFollowersByChannelForSave(formMode, channels, channelMatch) {
+  const kind = (typeof campaignFollowerKind === 'function')
+    ? campaignFollowerKind({ channel: (channels || []).join(','), channel_match: channelMatch })
+    : 'single';
+  if (kind !== 'and') return {};
+  captureMinFollowersByChannel(formMode);
+  return _minFollowersByChannelState[formMode] || {};
+}
+
 // 팔로워 판정 갈래에 맞춰 기준 채널 칸을 숨기고 안내를 그린다 (1단계, 2026-08-27)
 //   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 4
 //
@@ -4622,8 +4708,22 @@ function applyFollowerKindUI(formMode) {
     ? campaignFollowerKind({ channel: channels.join(','), channel_match: matchEl ? matchEl.value : 'or' })
     : 'single';
 
-  if (kind === 'and') { wrap.style.display = ''; note.style.display = 'none'; return; }
+  const byWrap = $(g + 'ByChannelWrap');
+  const minWrap = $(g + 'MinFollowers') ? $(g + 'MinFollowers').closest('div') : null;
 
+  if (kind === 'and') {
+    // 🔴 「그리고」 — 채널마다 값을 따로 받는다(2단계, 사양서 설계 4).
+    //    기준 채널 칸도 **여기서 숨긴다** — 이 갈래에서도 그 값은 이제 안 쓰인다.
+    wrap.style.display = 'none';
+    if (minWrap) minWrap.style.display = 'none';   // 하나짜리 칸은 이 갈래에서 안 쓴다
+    renderMinFollowersByChannel(formMode, channels);
+    if (byWrap) byWrap.style.display = '';
+    note.style.display = 'none';
+    return;
+  }
+
+  if (byWrap) byWrap.style.display = 'none';
+  if (minWrap) minWrap.style.display = '';
   wrap.style.display = 'none';
 
   // ⚠️ 채널을 아직 하나도 안 고른 상태에서는 **아무 말도 하지 않는다.**

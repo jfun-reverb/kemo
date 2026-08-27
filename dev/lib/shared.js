@@ -1036,13 +1036,49 @@ function meetsMinFollowers(camp, profile) {
     return { ok: false, kind, channel: best, count: Math.max(bestCount, 0), required };
   }
 
-  // 'single' · 'and' — 기준 채널 하나를 본다.
-  //   ⚠️ 'and' 를 1단계에서 안 바꾸는 것은 **의도**다(사양서 「단계 사이 어긋남」 표).
-  //      채널별 최소 팔로워수는 2단계에서 들어온다. 그때까지 「그리고」는 종전 동작이고,
-  //      **관리자 화면의 기준 채널 칸도 「그리고」에서만 남는다** — 판정과 화면을 같은
-  //      갈래로 잘라야 「쓰이는데 안 보이는 칸」이 안 생긴다.
+  if (kind === 'and') {
+    // 🔴 채널 **각각**이 그 채널의 값을 넘어야 한다 (2단계, 사양서 설계 2).
+    //    값을 안 채운 채널은 **「검사하지 않는다」** — 0 이 아니라 「없음」이다.
+    //    ⚠️ 못 넘은 채널이 여럿이면 **첫 번째**를 근거로 돌려준다. 부르는 쪽이 필요하면
+    //       `failed` 배열로 전부 말할 수 있다(차단 문구는 못 넘은 채널만 말한다 — 설계 6).
+    const byCh = campaignMinFollowersByChannel(c);
+    const failed = [];
+    for (const ch of list) {
+      const need = byCh[ch];
+      if (!(Number(need) > 0)) continue;       // 값 없음 = 검사 안 함
+      const n = followerCountForChannel(profile, ch);
+      if (n < Number(need)) failed.push({ channel: ch, count: n, required: Number(need) });
+    }
+    if (failed.length === 0) return { ok: true, kind, channel: primary, count: 0, required, failed: [] };
+    return { ok: false, kind, channel: failed[0].channel, count: failed[0].count, required: failed[0].required, failed };
+  }
+
+  // 'single' — 기준 채널 하나를 본다.
   const n = followerCountForChannel(profile, primary);
   return { ok: n >= required, kind, channel: primary, count: n, required };
+}
+
+// 「그리고」 갈래의 채널별 최소 팔로워수를 **판정에 쓸 수 있는 모양**으로 돌려준다.
+//   저장 칸(`campaigns.min_followers_by_channel`)을 그대로 쓰지 않는 이유가 **Qoo10** 이다.
+//
+// 🔴 **Qoo10 규칙 — 정의처는 사양서 설계 4-1**(여기 근거를 다시 적지 않는다).
+//    Qoo10 은 Instagram 팔로워 값을 빌려 쓰므로, 입력칸을 따로 만들지 않고
+//    **모집 채널에 Instagram 이 함께 있으면 Instagram 값을 그대로 적용**한다.
+//    없으면 아무 조건도 안 걸린다(입력칸이 없으므로).
+//   ⚠️ 이 함수를 안 거치고 저장 칸을 직접 읽으면, Qoo10 이 늘 「제한 없음」이 되어
+//      **화면은 제한 없다고 하는데 실제로는 막히는** 어긋남이 생긴다.
+function campaignMinFollowersByChannel(camp) {
+  const raw = (camp && camp.min_followers_by_channel) || {};
+  const out = {};
+  Object.keys(raw).forEach(k => {
+    const v = Number(raw[k]);
+    if (v > 0) out[String(k).trim().toLowerCase()] = v;
+  });
+  const list = campaignChannelTokens(camp);
+  if (list.includes('qoo10') && list.includes('instagram') && out.instagram > 0) {
+    out.qoo10 = out.instagram;
+  }
+  return out;
 }
 
 // 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
