@@ -593,7 +593,10 @@
                 </div>
               </div>
               <div class="form-group" id="editCampMinFollowersGroup">
-                <div style="display:flex;gap:8px;align-items:end">
+                <!-- 이 줄(기준 채널 + 최소 팔로워수)은 「그리고」 갈래에서 **통째로** 숨긴다.
+                     자식만 숨기면 빈 줄이 남아 아래 「채널별 최소 팔로워수」 제목이
+                     왼쪽 「채널」 제목보다 내려간다(2026-08-27 화면에서 잡음). -->
+                <div id="editCampSingleFollowerRow" style="display:flex;gap:8px;align-items:end">
                   <!-- 기준 채널 칸은 「그리고」 갈래에서만 보인다. 채널 1개·「또는」에서는
                        그 값이 판정에 안 쓰이므로 숨긴다(applyFollowerKindUI). 칸 자체는
                        지우지 않는다 — 운영 57건에 저장값이 있고 되돌릴 길을 남긴다. -->
@@ -606,7 +609,7 @@
                     <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
-                <div id="editCampByChannelWrap" class="form-group" style="display:none;margin-top:8px;margin-bottom:0"></div>
+                <div id="editCampByChannelWrap" class="form-group" style="display:none;margin-bottom:0"></div>
                 <div id="editCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
@@ -1064,7 +1067,8 @@
                 </div>
               </div>
               <div class="form-group" id="newCampMinFollowersGroup">
-                <div style="display:flex;gap:8px;align-items:end">
+                <!-- 편집 폼과 같은 규칙 -->
+                <div id="newCampSingleFollowerRow" style="display:flex;gap:8px;align-items:end">
                   <!-- 편집 폼과 같은 규칙 — applyFollowerKindUI 참조 -->
                   <div style="flex:1" id="newCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
@@ -1075,7 +1079,7 @@
                     <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
-                <div id="newCampByChannelWrap" class="form-group" style="display:none;margin-top:8px;margin-bottom:0"></div>
+                <div id="newCampByChannelWrap" class="form-group" style="display:none;margin-bottom:0"></div>
                 <div id="newCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>

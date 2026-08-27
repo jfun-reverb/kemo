@@ -4780,19 +4780,25 @@ function applyFollowerKindUI(formMode) {
     : 'single';
 
   const byWrap = $(g + 'ByChannelWrap');
+  // ⚠️ 「그리고」에서는 **줄 자체**를 숨긴다. 자식(기준 채널·최소 팔로워수)만 숨기면
+  //    빈 줄이 남아 아래 「채널별 최소 팔로워수」 제목이 왼쪽 「채널」 제목보다
+  //    내려간다(2026-08-27 화면에서 잡음 — 두 제목이 14px 어긋났다).
+  const singleRow = $(g + 'SingleFollowerRow');
   const minWrap = $(g + 'MinFollowers') ? $(g + 'MinFollowers').closest('div') : null;
 
   if (kind === 'and') {
     // 🔴 「그리고」 — 채널마다 값을 따로 받는다(2단계, 사양서 설계 4).
     //    기준 채널 칸도 **여기서 숨긴다** — 이 갈래에서도 그 값은 이제 안 쓰인다.
+    if (singleRow) singleRow.style.display = 'none';
     wrap.style.display = 'none';
-    if (minWrap) minWrap.style.display = 'none';   // 하나짜리 칸은 이 갈래에서 안 쓴다
+    if (minWrap) minWrap.style.display = 'none';
     renderMinFollowersByChannel(formMode, channels);
     if (byWrap) byWrap.style.display = '';
     note.style.display = 'none';
     return;
   }
 
+  if (singleRow) singleRow.style.display = 'flex';   // ⚠️ 원래 flex 라 '' 로 되돌리면 안 된다
   if (byWrap) byWrap.style.display = 'none';
   if (minWrap) minWrap.style.display = '';
   wrap.style.display = 'none';
