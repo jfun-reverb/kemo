@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787793843';
+  var CURRENT_BUILD = 'v1787794086';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2967,7 +2967,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 10:24 · 7306363</span>
+          <span class="admin-build-text">2026-08-27 10:28 · 23c391f</span>
         </div>
       </div>
     </aside>
@@ -8509,7 +8509,11 @@ function meetsMinFollowers(camp, profile) {
   const primary = String(c.primary_channel || list[0] || 'instagram').trim().toLowerCase();
 
   if (c.recruit_type === 'monitor') return { ok: true, kind, channel: primary, count: 0, required };
-  if (required <= 0)               return { ok: true, kind, channel: primary, count: 0, required };
+  // 🔴 **「그리고」는 이 조기 통과에서 빼야 한다.** 그 갈래는 `min_followers` 를 **안 읽고**
+  //    `min_followers_by_channel` 을 읽으므로, `min_followers` 는 정상적으로 0 이다.
+  //    빼지 않으면 **채널별 조건을 아무리 걸어도 판정이 시작조차 안 하고 전원 통과**한다
+  //    (2026-08-27 개발서버에서 실제로 그랬다 — 코드만 읽어서는 안 보이고 돌려 보고 잡았다).
+  if (kind !== 'and' && required <= 0) return { ok: true, kind, channel: primary, count: 0, required };
 
   if (kind === 'or') {
     // 🔴 모집 채널 중 **하나라도** 넘으면 통과. 넘는 채널이 없으면, 그중 **가장 많은**
