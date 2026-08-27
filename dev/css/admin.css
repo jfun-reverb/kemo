@@ -2382,3 +2382,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   padding:0 3px;
   font-size:11px;
 }
+
+/* 채널별 최소 팔로워수 — 두 열 사이 구분선 (2026-08-27)
+   ⚠️ 가운데 세로선을 격자 자체에 그리면 줄 수가 홀수일 때 마지막 칸 옆이 비어
+      선이 허공에 뜬다. 그래서 **오른쪽 열 칸의 왼쪽 테두리**로 그린다 —
+      칸이 있는 자리에만 선이 생긴다.
+   ⚠️ 어느 칸이 오른쪽인지는 **그리는 코드가 클래스로 정해 준다**(`mfbc-col-right`).
+      `:nth-child` 로 세지 않는다 — 이 저장소는 화면 인덱스 하드코딩을 금지한다. */
+.mfbc-col-left  { padding-right: 16px; }
+.mfbc-col-right { border-left: 1px solid var(--line); padding-left: 16px; }
