@@ -1501,31 +1501,26 @@ function followerBlockMessage(camp, profile, fw) {
 // 🔴 Qoo10 은 설계 4-1 규칙을 따른다 — 그냥 두면 「제한 없음」이라 적히는데 실제로는
 //    막힐 수 있다(Instagram 값을 빌려 쓰므로). `campaignMinFollowersByChannel` 이 그걸 얹어 준다.
 function minFollowersDetailLines(camp) {
-  const kind = (typeof campaignFollowerKind === 'function') ? campaignFollowerKind(camp) : 'single';
-  const list = (typeof campaignChannelTokens === 'function') ? campaignChannelTokens(camp) : [];
+  // 무엇을 보여줄지는 공용 함수가 정한다(`minFollowersDisplay`, shared.js).
+  //   여기서는 **일본어·한국어 문구만** 만든다 — 관리자 미리보기는 자기 라벨표로 같은 재료를
+  //   그린다. 판정을 두 벌로 두면 미리보기와 실제 화면이 갈린다.
+  const d = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+  if (!d) return [];
 
-  if (kind === 'and') {
-    const byCh = campaignMinFollowersByChannel(camp);
-    // 걸 조건이 하나도 없으면 줄을 그리지 않는다(설계 5 — 관리자 화면에만 알린다)
-    if (!Object.keys(byCh).length) return [];
-    return list.map(ch => {
-      const label = esc(getChannelLabelLocal(ch) || ch);
-      const need = byCh[ch];
-      // Qoo10 이 Instagram 값을 빌려 쓴 경우, 왜 같은 수인지 한 줄로 밝힌다
-      const note = (ch === 'qoo10' && need > 0 && list.includes('instagram'))
+  if (d.kind === 'and') {
+    return d.rows.map(r => {
+      const label = esc(getChannelLabelLocal(r.channel) || r.channel);
+      const note = r.borrowed
         ? ` <span style="font-size:10px;color:var(--muted)">${esc(t('detail.minFollowersQoo10Note'))}</span>` : '';
-      return (need > 0)
-        ? `${label} ${need.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}${note}`
+      return (r.required > 0)
+        ? `${label} ${r.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}${note}`
         : `${label} <span style="color:var(--muted)">${esc(t('detail.minFollowersUnlimited'))}</span>`;
     });
   }
-
-  const required = Number(camp.min_followers) || 0;
-  if (required <= 0) return [];
-  if (kind === 'or') {
-    return [esc(t('detail.minFollowersAnyChannel').replace('{n}', required.toLocaleString()))];
+  if (d.kind === 'or') {
+    return [esc(t('detail.minFollowersAnyChannel').replace('{n}', d.required.toLocaleString()))];
   }
-  return [`${required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}`];
+  return [`${d.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}`];
 }
 
 function getChannelLabelLocal(code) {

@@ -1085,6 +1085,43 @@ function campaignMinFollowersByChannel(camp) {
   return out;
 }
 
+// 「최소 팔로워수」를 화면에 그리기 위한 **재료**를 돌려준다 (3단계, 2026-08-27).
+//   🔴 **문구를 만들지 않는다** — 인플루언서 화면과 관리자 미리보기가 **각자 자기 말로** 그린다.
+//      관리자 빌드에는 번역 파일이 없어 `t()` 가 아예 없고(미리보기는 자체 라벨표를 쓴다),
+//      여기서 문구를 만들면 **한쪽에서만 도는 함수**가 된다.
+//   ⚠️ 그렇다고 판정까지 두 벌로 두면 **미리보기와 실제 화면이 갈린다** — 그래서
+//      「무엇을 보여줄지」는 여기서 한 번만 정하고 「어떻게 쓸지」만 나눈다.
+//
+//   반환:
+//     {kind:'single', required:N}
+//     {kind:'or',     required:N}
+//     {kind:'and',    rows:[{channel, required|0, borrowed}]}   borrowed=Instagram 값을 빌려 쓴 칸
+//     null  — 그릴 것이 없다(조건 없음·리뷰어형 등). 부르는 쪽은 행 자체를 안 그린다.
+function minFollowersDisplay(camp) {
+  const c = camp || {};
+  if (c.recruit_type === 'monitor') return null;   // 리뷰어형은 검사를 안 하므로 줄도 없다
+  const kind = campaignFollowerKind(c);
+  const list = campaignChannelTokens(c);
+
+  if (kind === 'and') {
+    const byCh = campaignMinFollowersByChannel(c);
+    if (!Object.keys(byCh).length) return null;    // 걸 조건이 하나도 없다
+    return {
+      kind: 'and',
+      rows: list.map(ch => ({
+        channel: ch,
+        required: byCh[ch] > 0 ? byCh[ch] : 0,
+        // Qoo10 이 Instagram 값을 물려받은 칸인지 — 화면이 「같은 수를 봅니다」를 붙일 근거
+        borrowed: ch === 'qoo10' && byCh[ch] > 0 && list.includes('instagram')
+      }))
+    };
+  }
+
+  const required = Number(c.min_followers) || 0;
+  if (required <= 0) return null;
+  return { kind, required };
+}
+
 // 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
 //   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
 //   - 앞뒤 공백 제거
