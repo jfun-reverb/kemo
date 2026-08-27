@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787797551';
+  var CURRENT_BUILD = 'v1787797918';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2967,7 +2967,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 11:25 · e4a3319</span>
+          <span class="admin-build-text">2026-08-27 11:31 · 1fa85f0</span>
         </div>
       </div>
     </aside>
@@ -3409,7 +3409,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                     <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
-                <div id="editCampByChannelWrap" style="display:none;margin-top:8px"></div>
+                <div id="editCampByChannelWrap" class="form-group" style="display:none;margin-top:8px;margin-bottom:0"></div>
                 <div id="editCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
@@ -3878,7 +3878,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                     <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
-                <div id="newCampByChannelWrap" style="display:none;margin-top:8px"></div>
+                <div id="newCampByChannelWrap" class="form-group" style="display:none;margin-top:8px;margin-bottom:0"></div>
                 <div id="newCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
@@ -48274,6 +48274,10 @@ function renderMinFollowersByChannel(formMode, channels) {
     ${_noInputChannelNote(값없는채널, channels)}
   </div>`;
 
+  // ⚠️ 이 라벨은 화면 제목이면서 **「저장 안 한 변경」 경고가 항목 이름을 찾는 자리**이기도
+  //    하다(`resolveCampDirtyFieldLabel` 이 `.form-group` 안 `.form-label` 을 읽는다).
+  //    감싸는 요소에 `form-group` 이 없으면 위로 올라가 바깥 「기준 채널」 라벨을 집어
+  //    **틀린 이름**을 보고한다. 라벨을 지우거나 클래스를 바꾸면 그 이름이 같이 틀어진다.
   wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>${rows}${안내}`;
 }
 

@@ -4717,6 +4717,10 @@ function renderMinFollowersByChannel(formMode, channels) {
     ${_noInputChannelNote(값없는채널, channels)}
   </div>`;
 
+  // ⚠️ 이 라벨은 화면 제목이면서 **「저장 안 한 변경」 경고가 항목 이름을 찾는 자리**이기도
+  //    하다(`resolveCampDirtyFieldLabel` 이 `.form-group` 안 `.form-label` 을 읽는다).
+  //    감싸는 요소에 `form-group` 이 없으면 위로 올라가 바깥 「기준 채널」 라벨을 집어
+  //    **틀린 이름**을 보고한다. 라벨을 지우거나 클래스를 바꾸면 그 이름이 같이 틀어진다.
   wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>${rows}${안내}`;
 }
 
