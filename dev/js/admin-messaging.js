@@ -1338,6 +1338,15 @@ function onBulkFollowerModeChange() {
   scheduleBulkRecount();
 }
 
+// 조건 스냅샷의 판(version).
+//   🔴 **아래 `collectBulkFilters` 의 열쇠말 목록을 고치면 이 숫자를 올릴 것.**
+//      자동으로 안 된다. 안 올리면 옛 이력의 조건이 **조용히 잘못 재현된다** —
+//      오류가 아니라 「조건이 다른데 같다고 우기는 발송」이 나간다.
+//   ⚠️ 이 표시가 없는 옛 이력은 **판 0** 으로 본다. 판 0 은 막지 않기로 했지만
+//      (2026-08-27 결정), **모르는 판이면 막는다**는 장치는 반드시 살아 있어야 한다 —
+//      그것마저 풀면 판 표시가 아무 일도 안 하게 된다.
+const BULK_FILTER_VERSION = 1;
+
 function collectBulkFilters() {
   const pick = (id) => Array.from(document.querySelectorAll(`#${id} input:checked`)).map(i => i.value);
   const appStatuses = pick('bulkAppStatus');
@@ -1351,6 +1360,7 @@ function collectBulkFilters() {
   const followerChannel = document.getElementById('bulkFollowerChannel')?.value || 'instagram';
   const mf = document.getElementById('bulkMinFollowers').value;
   return {
+    v: BULK_FILTER_VERSION,   // [1단계] 이 스냅샷이 어느 판의 열쇠말로 만들어졌나
     appStatuses, receiptStatuses, postStatuses, channels, prefectures,
     followerMode, followerChannel, minFollowers: mf,
     requireVerified: document.getElementById('bulkInflVerified')?.checked || false,
@@ -1529,6 +1539,264 @@ function renderBroadcastRow(r) {
 }
 
 let _curBroadcastDetail = null;
+// ── 발송 조건을 사람 말로 (2단계) ──────────────────────────
+//   저장은 예전부터 되고 있었는데 **어느 화면도 안 그렸다**(목록은 캠페인 개수만 센다).
+//   「같은 조건으로 다시」를 누르라면서 그 조건이 뭔지 안 보여주면
+//   **무엇을 보내는지 모르고 누른다.** 추가 발송과 무관하게 그 자체로 쓸모가 있다.
+//
+//   ⚠️ 이름표는 **위에서 쓰는 상수를 그대로 쓴다**(`BULK_APP_STATUSES` 등).
+//      두 벌이 되면 고르는 화면과 보여 주는 화면이 다른 말을 한다.
+
+// 🔴 이 문구는 3단계의 버튼 안내(㉮)와 **같은 자리에서 온다.** 두 곳에 따로 쓰지 않는다.
+const BULK_NO_FILTER_NOTE = '직접 고른 발송이라 저장된 조건이 없습니다';
+
+function _bulkLabels(codes, table) {
+  const list = Array.isArray(codes) ? codes : [];
+  return list.map(c => (table.find(x => x.code === c) || {}).label || c);
+}
+
+function broadcastFilterSummaryHtml(b) {
+  const 상자 = (내용) => `<div style="background:var(--bg);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.8;color:var(--ink)">${내용}</div>`;
+  const 안내 = (문구) => 상자(`<span style="color:var(--muted)">${esc(문구)}</span>`);
+
+  // 조건을 모을 수 없는 두 갈래 — 빈 자리로 두면 「고장났나」로 읽힌다.
+  if (b.context_kind !== 'campaign') return 안내(BULK_NO_FILTER_NOTE);
+  const f = b.context_filter;
+  if (!f || typeof f !== 'object') return 안내('저장된 조건이 없습니다');
+
+  const 줄 = [];
+  const 더하기 = (이름, 값) => { if (값) 줄.push(`<div><span style="color:var(--muted)">${esc(이름)}</span> ${값}</div>`); };
+
+  const 캠수 = Array.isArray(f.campaign_ids) ? f.campaign_ids.length : (b.context_campaign_id ? 1 : 0);
+  더하기('캠페인', 캠수 ? `${캠수}개` : '');
+
+  더하기('응모 상태', esc(_bulkLabels(f.appStatuses, BULK_APP_STATUSES).join(' · ')));
+  더하기('영수증 상태', esc(_bulkLabels(f.receiptStatuses, BULK_DELIV_STATUSES).join(' · ')));
+  더하기('결과물 상태', esc(_bulkLabels(f.postStatuses, BULK_DELIV_STATUSES).join(' · ')));
+  if (f.fullApproved) 더하기('승인 범위', '완전 승인만(부분 승인 제외)');
+
+  // ⚠️ **고르는 화면의 네 채널이 전부가 아니다** — 옛 이력에 `qoo10` 같은 코드가 실제로 들어
+  //    있다(개발서버 실측). 못 찾으면 공용 이름표로 받치고, 그것도 없을 때만 코드를 보여준다.
+  //    받침이 없으면 운영자에게 「qoo10」 같은 날코드가 그대로 보인다.
+  const 채널이름 = (c) => {
+    const 표 = BULK_SNS_CHANNELS.find(([code]) => code === c);
+    if (표) return 표[1];
+    if (typeof getChannelLabel === 'function') return getChannelLabel(c, 'ko') || c;
+    return c;
+  };
+  const 채널 = (Array.isArray(f.channels) ? f.channels : []).map(채널이름);
+  더하기('SNS 채널', esc(채널.join(' · ')));
+
+  // 도도부현은 많으면 줄이 길어진다 — 앞 몇 개만 적고 **나머지 개수를 반드시 말한다**
+  //   (「…」로만 끝내면 몇 개인지 모른다).
+  const 지역맵 = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const 지역 = (Array.isArray(f.prefectures) ? f.prefectures : []).map(p => 지역맵[p] || p);
+  if (지역.length) {
+    더하기('지역', 지역.length <= 5
+      ? esc(지역.join(' · '))
+      : `${esc(지역.slice(0, 5).join(' · '))} <span style="color:var(--muted)">외 ${지역.length - 5}곳</span>`);
+  }
+
+  // ⚠️ `minFollowers` 는 빈 문자열로 저장된다(실측) — `Number('')` 이 0 이라 걸러진다.
+  const 하한 = Number(f.minFollowers);
+  if (하한 > 0) {
+    더하기('팔로워', f.followerMode === 'sum'
+      ? `4개 채널 합산 ${하한.toLocaleString()}명 이상`
+      : `${esc(채널이름(f.followerChannel))} ${하한.toLocaleString()}명 이상`);
+  }
+
+  const 제외 = [];
+  if (f.requireVerified) 제외.push('인증 회원만');
+  if (f.excludeViolation) 제외.push('위반 이력 제외');
+  if (f.excludeBlacklist !== false) 제외.push('블랙리스트 제외');
+  더하기('회원 조건', esc(제외.join(' · ')));
+
+  // 아무 조건도 안 건 발송 — 빈 상자로 두지 않는다.
+  if (!줄.length) return 안내('따로 건 조건 없이 그 캠페인 전체에 보냈습니다');
+  return 상자(줄.join(''));
+}
+
+// ── 추가 발송 (3단계) ──────────────────────────────────────
+//   「같은 조건으로, 아직 안 받은 사람에게만」. 사양서 설계 5-2·5-3·5-4.
+
+// 판(version) — 이 판까지만 조건을 그대로 재현할 수 있다.
+//   ⚠️ 판 0(표시가 없는 옛 이력)은 **막지 않는다**(2026-08-27 결정) — 그때 열쇠말이
+//      지금과 같았다는 가정 위에 있다. 🔴 **「모르는 판이면 막는다」는 반드시 살아 있어야 한다**
+//      — 그것마저 풀면 판 표시가 아무 일도 안 하게 된다.
+const BULK_FILTER_VERSION_MAX = BULK_FILTER_VERSION;
+
+// 버튼을 누를 수 있나 — **안 되면 감추지 않고 회색으로 두고 이유를 말한다.**
+//   감추면 「왜 어떤 발송엔 있고 어떤 발송엔 없나」를 아무도 모른다.
+//   🔴 네 조건을 하나로 뭉치지 않는다 — 이유를 말할 수 없게 된다.
+function bulkFollowupState(b) {
+  // ㉮ 조건 발송인가 — 조건이 아예 없으면 보낼 인자를 만들 수 없다(서버까지 못 간다)
+  if (!b || b.context_kind !== 'campaign') return { ok: false, why: BULK_NO_FILTER_NOTE };
+  if (!b.context_filter || typeof b.context_filter !== 'object') {
+    return { ok: false, why: '저장된 조건이 없어 같은 조건으로 다시 보낼 수 없습니다' };
+  }
+  // ㉯ 회수되지 않았나 — 회수된 발송에 이어 보내는 것은 **가린 내용을 새로 퍼뜨리는** 일이다
+  if (b.withdrawn_at) return { ok: false, why: '회수된 발송입니다' };
+
+  // ㉱ 판을 아는 판인가 — 판 0(표시 없음)은 통과, **모르는 판만** 막는다
+  const v = Number(b.context_filter.v) || 0;
+  if (v > BULK_FILTER_VERSION_MAX) {
+    return { ok: false, why: '그때와 조건 저장 방식이 달라져 그대로 재현할 수 없습니다' };
+  }
+
+  // ㉰ 그 사슬의 마지막인가 (회수된 것은 건너뛰고 셈 — 서버 거부 ②와 같은 사실)
+  const c = b.chain || {};
+  if (c.has_live_descendant) {
+    // 🔴 링크는 **따라가면 반드시 누를 수 있을 때만** 준다.
+    //    최고 관리자가 남의 사슬에 이어 보내면 그 관리자는 영영 못 잇는다 —
+    //    그때 링크를 주면 **못 여는 링크**가 된다. 할 수 있는 일을 말한다.
+    return c.last_live_visible
+      ? { ok: false, why: '이미 추가 발송이 있습니다 — 가장 마지막 것에서 이어 보내세요', gotoId: c.last_live_id }
+      : { ok: false, why: '다른 관리자가 이어 보냈습니다 — 그 관리자에게 요청하세요' };
+  }
+  return { ok: true };
+}
+
+function broadcastFollowupRowHtml(b) {
+  const s = bulkFollowupState(b);
+  // ⚠️ **`btn` 단독은 이 저장소에서 아무 모습도 없다**(배경·테두리 0) — 종류를 반드시 붙인다.
+  //    안 붙이면 글씨만 떠 있어 **버튼인 줄 모른다**(개발서버 화면에서 실제로 그랬다).
+  //    본문 안 동작이라 `btn-ghost`(테두리형). 이 창의 주 동작은 아래쪽 「전체 회수」다.
+  const 클래스 = 'btn btn-ghost btn-sm';
+  if (s.ok) {
+    return `<div style="margin-top:4px"><button class="${클래스}" onclick="openBulkFollowup()">아직 안 받은 대상에게 추가 발송</button></div>`;
+  }
+  // 못 눌러도 **감추지 않는다** — 회색 + 이유. 링크는 따라가면 반드시 열리는 경우에만.
+  const 링크 = s.gotoId
+    ? ` <a href="javascript:void(0)" onclick="openBroadcastDetail('${esc(s.gotoId)}')" style="color:var(--pink)">그 발송 열기</a>` : '';
+  return `<div style="margin-top:4px">
+    <button class="${클래스}" disabled style="opacity:.45;cursor:not-allowed">아직 안 받은 대상에게 추가 발송</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(s.why)}${링크}</div>
+  </div>`;
+}
+
+// ── 관리자 전용 제목 고치기 (마이그레이션 393) ──────────────────────────────
+//   ⚠️ 제목이 없을 때도 줄을 그린다 — 안 그리면 **이름을 처음 붙일 자리가 없다**
+//      (제목은 보낼 때 비워 둘 수 있으므로 「없음」이 흔한 정상 상태다).
+//   ⚠️ 권한은 일괄 발송과 같은 조건. 없으면 단추를 아예 안 그린다 —
+//      눌러 보고 나서 권한 오류를 보는 것이 이 저장소가 피하려는 패턴이다.
+function broadcastTitleRowHtml(id, title) {
+  const 고칠수있나 = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  const 이름 = title
+    ? `<span style="font-weight:700;font-size:14px;color:var(--ink)">${esc(title)}</span>
+       <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span>`
+    : `<span style="font-size:13px;color:var(--muted)">관리자 전용 제목 없음</span>`;
+  const 단추 = 고칠수있나
+    ? `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;font-size:11px"
+         onclick="startBroadcastTitleEdit('${esc(id)}')">${title ? '이름 바꾸기' : '이름 붙이기'}</button>`
+    : '';
+  return `<div id="bcastTitleRow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${이름}${단추}</div>`;
+}
+
+function startBroadcastTitleEdit(id) {
+  const 줄 = document.getElementById('bcastTitleRow');
+  if (!줄) return;
+  const 지금 = (_broadcastRows.find(x => x.id === id) || {}).title || '';
+  줄.innerHTML = `
+    <input type="text" id="bcastTitleInput" class="admin-filter" maxlength="100"
+      style="flex:1;min-width:180px" placeholder="예: 5월 결과물 미제출자 리마인드"
+      onkeydown="if(event.key==='Enter'){saveBroadcastTitle('${esc(id)}')}if(event.key==='Escape'){cancelBroadcastTitleEdit('${esc(id)}')}">
+    <button class="btn btn-primary btn-xs" style="padding:3px 10px;font-size:11px"
+      onclick="saveBroadcastTitle('${esc(id)}')">저장</button>
+    <button class="btn btn-ghost btn-xs" style="padding:3px 10px;font-size:11px"
+      onclick="cancelBroadcastTitleEdit('${esc(id)}')">취소</button>`;
+  const 칸 = document.getElementById('bcastTitleInput');
+  // ⚠️ 값은 esc() 로 넣지 않는다 — 입력칸 value 는 HTML 이 아니라 글자 그대로다.
+  //    esc() 를 쓰면 따옴표가 든 제목이 &quot; 로 보인다.
+  칸.value = 지금;
+  칸.focus();
+  칸.select();
+}
+
+function cancelBroadcastTitleEdit(id) {
+  const 줄 = document.getElementById('bcastTitleRow');
+  if (!줄) return;
+  const 지금 = (_broadcastRows.find(x => x.id === id) || {}).title;
+  줄.outerHTML = broadcastTitleRowHtml(id, 지금);
+}
+
+async function saveBroadcastTitle(id) {
+  const 칸 = document.getElementById('bcastTitleInput');
+  if (!칸) return;
+  const 값 = 칸.value;
+  칸.disabled = true;
+  try {
+    const 저장된 = await updateBroadcastTitle(id, 값);
+    // 🔴 목록 캐시를 함께 갱신한다 — 상세 모달이 제목을 **이 캐시에서** 읽으므로,
+    //    안 고치면 창을 다시 열었을 때 옛 이름이 돌아온다.
+    const 행 = _broadcastRows.find(x => x.id === id);
+    if (행) 행.title = 저장된;
+    const 줄 = document.getElementById('bcastTitleRow');
+    if (줄) 줄.outerHTML = broadcastTitleRowHtml(id, 저장된);
+    toast(저장된 ? '제목을 바꿨습니다' : '제목을 지웠습니다');
+    await loadBroadcasts();     // 뒤의 목록도 새 이름으로
+  } catch (e) {
+    console.error('[saveBroadcastTitle]', e);
+    칸.disabled = false;
+    // ⚠️ 오류 **객체**를 넘기면 앞에 「PostgrestError: 」 가 붙는다.
+    //    서버가 한글로 던지는 거부 문구(「제목은 100자까지입니다」)를 그대로 보이게 메시지만 넘긴다.
+    toast(friendlyError(e?.message || e));
+  }
+}
+
+// ── 발송 목록 — 캠페인별로 골라 보기 ────────────────────────────────────────
+//   ⚠️ 묶는 기준은 **캠페인 고유번호**(마이그레이션 391). 제목으로 묶으면 복제 캠페인처럼
+//      제목이 같은 두 캠페인이 한 덩어리가 된다.
+let _bcastRecipCamp = '';   // '' = 전체
+
+// 그 발송에 실제로 들어 있는 캠페인을, 목록에 나온 차례대로 센다.
+function broadcastRecipCampaigns(recips) {
+  const 본것 = {}; const 순서 = [];
+  (recips || []).forEach(r => {
+    const id = r.campaign_id || '';
+    if (!본것[id]) { 본것[id] = { id, 제목: r.campaign_title || '(캠페인 없음)', 수: 0 }; 순서.push(본것[id]); }
+    본것[id].수++;
+  });
+  return 순서;
+}
+
+function broadcastRecipCampSelectHtml(recips) {
+  const 캠 = broadcastRecipCampaigns(recips);
+  // 캠페인이 하나뿐이면 고를 것이 없다 — 안 그린다(0이면 안 그린다 원칙)
+  if (캠.length < 2) return '';
+  const 옵션 = [`<option value="">전체 (${recips.length}명)</option>`]
+    .concat(캠.map(c => `<option value="${esc(c.id)}">${esc(c.제목)} (${c.수}명)</option>`));
+  return `<select class="admin-filter" id="bcastRecipCampSel" style="width:100%"
+    onchange="filterBroadcastRecips(this.value)">${옵션.join('')}</select>`;
+}
+
+function filterBroadcastRecips(campId) {
+  _bcastRecipCamp = campId || '';
+  renderBroadcastRecipList();
+}
+
+function renderBroadcastRecipList() {
+  const 칸 = document.getElementById('bcastRecipList');
+  const 머리 = document.getElementById('bcastRecipHead');
+  if (!칸) return;
+  const 전부 = (_curBroadcastDetail && _curBroadcastDetail.recipients) || [];
+  const 보일것 = _bcastRecipCamp ? 전부.filter(r => (r.campaign_id || '') === _bcastRecipCamp) : 전부;
+  if (머리) {
+    // 걸러 보고 있으면 전체 수도 함께 — 안 그러면 「9명 발송인데 4명뿐」으로 읽힌다
+    const 꼬리 = _bcastRecipCamp
+      ? `· ${보일것.length}명 <span style="font-weight:400;color:var(--muted)">/ 전체 ${전부.length}명</span>`
+      : `· ${전부.length}명`;
+    머리.innerHTML = `발송 목록 <span style="font-weight:400">${꼬리}</span>`;
+  }
+  칸.innerHTML = 보일것.length
+    ? 보일것.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
+        <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
+        <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
+        <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
+      </div>`).join('')
+    : `<div style="padding:10px;font-size:12px;color:var(--muted)">${_bcastRecipCamp ? '이 캠페인으로 받은 사람이 없습니다' : '받은 사람이 없습니다'}</div>`;
+  칸.scrollTop = 0;
+}
+
 async function openBroadcastDetail(id) {
   const body = document.getElementById('broadcastDetailBody');
   body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">불러오는 중…</div>';
@@ -1548,21 +1816,31 @@ async function openBroadcastDetail(id) {
     ? `<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#991B1B">${new Date(b.withdrawn_at).toLocaleString('ja-JP')} 회수됨</div>` : '';
   // 제목(관리자 전용) — get_broadcast_detail 미반환이라 목록 캐시에서 조회
   const cachedTitle = (_broadcastRows.find(x => x.id === id) || {}).title;
-  const titleHtml = cachedTitle
-    ? `<div style="font-weight:700;font-size:14px;color:var(--ink)">${esc(cachedTitle)} <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span></div>` : '';
+  const titleHtml = broadcastTitleRowHtml(id, cachedTitle);
+  // 2단 — 왼쪽 「발송 정보」 / 오른쪽 「발송 목록」.
+  //   ⚠️ 회수 배너와 제목은 칸 밖(위)에 둔다. 한쪽 칸에 넣으면 스크롤에 딸려 사라지는데,
+  //      「회수됨」은 그 발송을 볼 때 늘 보여야 하는 사실이다.
+  _bcastRecipCamp = '';   // 창을 새로 열 때마다 「전체」로 되돌린다
   body.innerHTML = `
     ${withdrawnBanner}
     ${titleHtml}
-    <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
-    <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
-    <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
-    <div class="broadcast-recips">
-      ${recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
-        <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
-        <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
-        <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
-      </div>`).join('')}
+    <div class="bcast-2col">
+      <div class="bcast-col">
+        <div class="bcast-col-head">발송 정보</div>
+        <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
+        <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
+        <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
+        ${broadcastFilterSummaryHtml(b)}
+        ${broadcastFollowupRowHtml(b)}
+      </div>
+      <div class="bcast-col bcast-col-list">
+        <div class="bcast-col-head" id="bcastRecipHead"></div>
+        ${broadcastRecipCampSelectHtml(recips)}
+        <div class="broadcast-recips in-col" id="bcastRecipList"></div>
+      </div>
     </div>`;
+  renderBroadcastRecipList();
   const canWithdraw = !b.withdrawn_at && (b.sender_id === currentAdminInfo?.auth_id || currentAdminInfo?.role === 'super_admin');
   document.getElementById('broadcastWithdrawBtn').style.display = canWithdraw ? '' : 'none';
 }
@@ -1572,6 +1850,109 @@ function gotoBroadcastRecipMessage(appId) {
   if (!appId) return;
   closeBroadcastDetail();
   if (typeof openAdminMessageModal === 'function') openAdminMessageModal(appId, null);
+}
+
+// ── 추가 발송 창 ───────────────────────────────────────────
+let _followup = null;   // { parent, campaignIds, filters, allIds, restIds }
+
+function _followupCampaignIds(b) {
+  const f = b.context_filter || {};
+  if (Array.isArray(f.campaign_ids) && f.campaign_ids.length) return f.campaign_ids.slice();
+  return b.context_campaign_id ? [b.context_campaign_id] : [];
+}
+
+async function openBulkFollowup() {
+  const b = _curBroadcastDetail && _curBroadcastDetail.broadcast;
+  if (!b) return;
+  // 화면이 막아야 할 것을 서버가 막기 전에 한 번 더 — 버튼이 회색인데 눌린 경우 대비
+  const s = bulkFollowupState(b);
+  if (!s.ok) { toast(s.why); return; }
+
+  _followup = { parent: b, campaignIds: _followupCampaignIds(b), filters: b.context_filter, allIds: [], restIds: [] };
+  document.getElementById('bulkFollowupFilter').innerHTML = broadcastFilterSummaryHtml(b);
+  document.getElementById('bulkFollowupBody').value = b.body || '';
+  document.getElementById('bulkFollowupNote').style.display = 'none';
+  document.getElementById('bulkFollowupCount').textContent = '대상을 세는 중…';
+  document.getElementById('bulkFollowupSendBtn').disabled = true;
+  openModal('bulkFollowupModal');
+
+  try {
+    // 두 번 센다 — 「지금 조건에 맞는 N건」과 「아직 안 받은 M건」.
+    //   🔴 M 만 보여주면 왜 그 수인지 모른다. 조건이 같아도 그 사이 응모가 취소되거나
+    //      결과물 상태가 바뀌면 대상이 달라진다 — 그게 정상이고 오히려 원하는 바다.
+    const [전체, 나머지] = await Promise.all([
+      Promise.all(_followup.campaignIds.map(cid => resolveBulkRecipients(cid, _followup.filters))),
+      Promise.all(_followup.campaignIds.map(cid => resolveBulkRecipients(cid, _followup.filters, b.id))),
+    ]);
+    const 합 = (arrs) => Array.from(new Set([].concat(...arrs.map(a => a || []))));
+    _followup.allIds = 합(전체);
+    _followup.restIds = 합(나머지);
+  } catch (e) {
+    console.error('[openBulkFollowup]', e);
+    document.getElementById('bulkFollowupCount').textContent = '대상을 세지 못했습니다. 창을 닫고 다시 시도해 주세요.';
+    return;
+  }
+
+  const N = _followup.allIds.length, M = _followup.restIds.length;
+  // ⚠️ 「명」이 아니라 「건」이다 — 캠페인이 여럿이면 한 사람이 여러 건일 수 있다.
+  document.getElementById('bulkFollowupCount').innerHTML =
+    `지금 조건에 맞는 <b>${N}건</b> 중 <b style="color:var(--pink)">아직 안 받은 ${M}건</b>`;
+
+  const note = document.getElementById('bulkFollowupNote');
+  if (M === 0) {
+    note.style.display = '';
+    note.textContent = '추가로 보낼 대상이 없습니다.';
+    document.getElementById('bulkFollowupSendBtn').disabled = true;   // 0건 발송은 헛일이다
+    return;
+  }
+  if (M > BULK_MAX) {
+    // 🔴 막지 않는다 — 막으면 조건에 맞는데 아무에게도 못 보내는 상태가 된다.
+    //    대신 **나머지가 몇 건인지 숫자로** 말한다(안 말하면 다 보냈다고 믿는다).
+    //    ⚠️ 이어 보낼 자리는 **지금 만들어질 발송**이다. 「이 발송에서 다시」가 아니다 —
+    //       보내는 순간 이 발송은 그 사슬의 마지막이 아니게 되어 버튼이 회색이 된다.
+    note.style.display = '';
+    note.textContent = `한 번에 ${BULK_MAX}건까지 보낼 수 있습니다. 지금 ${BULK_MAX}건에게 보내고, 나머지 ${M - BULK_MAX}건은 「지금 만들어질 발송」에서 이어 보내세요.`;
+  }
+  document.getElementById('bulkFollowupSendBtn').disabled = false;
+}
+
+function closeBulkFollowup() { closeModal('bulkFollowupModal'); _followup = null; }
+
+let _followupSending = false;
+async function confirmBulkFollowup() {
+  if (_followupSending || !_followup) return;
+  const 본문 = document.getElementById('bulkFollowupBody').value.trim();
+  if (!본문) { toast('보낼 내용을 입력해 주세요.'); return; }
+  const 대상 = _followup.restIds.slice(0, BULK_MAX);
+  if (!대상.length) { toast('추가로 보낼 대상이 없습니다.'); return; }
+  const 남은 = _followup.restIds.length - 대상.length;
+
+  _followupSending = true;
+  const btn = document.getElementById('bulkFollowupSendBtn');
+  btn.disabled = true; btn.textContent = '보내는 중…';
+  try {
+    const p = _followup.parent;
+    // 🔴 조건 스냅샷을 **손대지 않고 그대로** 넘긴다 — 그래야 부모의 판을 물려받는다.
+    //    판 0 이력에서 이어 보낸 발송에 「지금 판」을 찍으면 그 사슬에서만 판 표시가 눈이 먼다.
+    const 새발송 = await sendApplicationMessageBulk(
+      대상, 본문, [], 'campaign',
+      (_followup.campaignIds.length === 1 ? _followup.campaignIds[0] : null),
+      p.context_filter, null, p.id);
+    closeBulkFollowup();
+    toast(남은 > 0 ? `${대상.length}건 발송했습니다. 남은 ${남은}건은 새 발송에서 이어 보내세요.` : `${대상.length}건 발송했습니다.`);
+    if (typeof loadBroadcasts === 'function') await loadBroadcasts();
+    // ⚠️ 받은편지함도 함께 갱신한다 — 추가 발송도 알림·응대 기록을 **1차와 똑같이** 만든다.
+    //    안 부르면 사이드바 「메시지」 미응대 배지가 옛 숫자로 남는다(`confirmBulkSend` 와 같은 이유).
+    if (typeof refreshInboxData === 'function') await refreshInboxData();
+    // 남은 것이 있으면 **방금 만들어진 발송**을 열어 준다 — 거기서 이어 보낸다.
+    if (새발송) await openBroadcastDetail(새발송);
+  } catch (e) {
+    console.error('[confirmBulkFollowup]', e);
+    toast(friendlyError ? friendlyError(e) : (e.message || '발송에 실패했습니다.'));
+  } finally {
+    _followupSending = false;
+    btn.disabled = false; btn.textContent = '보내기';
+  }
 }
 
 // ── 일괄 회수 ──

@@ -4069,7 +4069,9 @@ async function fetchApplicationHideHistory(applicationId) {
 // 일괄 발송 (관리자 → N명 BCC). applicationIds 는 이미 cancelled 제외된 배열.
 //   contextKind: 'campaign'|'manual', contextCampaignId/contextFilter 는 감사·재현용 스냅샷.
 //   반환: broadcast_id (uuid).
-async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null) {
+//   `parentBroadcastId` 를 주면 그 발송의 **추가분**으로 사슬에 잇는다(390).
+//   ⚠️ 서버가 거부 셋으로 사슬을 지킨다 — 남의 발송 / 그 사슬의 마지막이 아님 / 부모가 회수됨.
+async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null, parentBroadcastId = null) {
   if (!db) throw new Error('DB 미연결');
   return await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('send_application_message_bulk', {
@@ -4080,6 +4082,7 @@ async function sendApplicationMessageBulk(applicationIds, body, attachments = []
       p_context_campaign_id: contextCampaignId,
       p_context_filter: contextFilter,
       p_title: title || null,   // 관리자 전용 제목 (인플 메시지 본문 미포함)
+      p_parent_broadcast_id: parentBroadcastId || null,
     });
     if (error) throw error;
     return data;
@@ -4108,11 +4111,16 @@ async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
 //   - 팔로워: minFollowers 있을 때 followerMode 로 해석(채널별=followerChannel 기준 / 합산)
 //   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
 //   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
-async function resolveBulkRecipients(campaignId, filters = {}) {
+// 화면 열쇠말 → 서버 인자 변환. **이 함수 하나만 이 변환을 안다.**
+//   🔴 두 벌이 되면 한쪽만 고쳐져 **「1차와 조건이 다른 추가 발송」**이 된다.
+//      화면 토글 하나(`fullApproved`)가 서버 인자 둘로 갈리는 자리가 있어 특히 그렇다.
+//   `excludeBroadcastId` 를 주면 그 발송이 속한 **사슬 전체**가 이미 보낸 응모건을 뺀다(389).
+async function resolveBulkRecipients(campaignId, filters = {}, excludeBroadcastId = null) {
   if (!db || !campaignId) return [];
   const hasFollower = (filters.minFollowers != null && filters.minFollowers !== '');
   const {data, error} = await db.rpc('resolve_bulk_recipients', {
     p_campaign_id: campaignId,
+    p_exclude_broadcast_id: excludeBroadcastId || null,
     p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
     p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
     p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
@@ -4163,6 +4171,18 @@ async function getBroadcastDetail(broadcastId) {
   const {data, error} = await db.rpc('get_broadcast_detail', { p_broadcast_id: broadcastId });
   if (error) throw error;
   return data || null;
+}
+
+// 관리자 전용 제목 고치기 (마이그레이션 393). 저장된 제목을 돌려준다(비웠으면 null).
+//   ⚠️ 오류를 삼키지 않는다 — 화면이 「저장됐다」로 잘못 알리면 안 된다.
+async function updateBroadcastTitle(broadcastId, title) {
+  if (!db || !broadcastId) throw new Error('발송을 지정해 주세요');
+  const {data, error} = await db.rpc('update_broadcast_title', {
+    p_broadcast_id: broadcastId,
+    p_title: title == null ? null : String(title),
+  });
+  if (error) throw error;
+  return data ?? null;
 }
 
 // ══════════════════════════════════════

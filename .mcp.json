@@ -11,6 +11,15 @@
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest", "--extension"]
+    },
+    "playwright-iphone": {
+      "command": "npx",
+      "args": [
+        "-y", "@playwright/mcp@latest",
+        "--browser", "webkit",
+        "--device", "iPhone 15",
+        "--isolated"
+      ]
     }
   }
 }
