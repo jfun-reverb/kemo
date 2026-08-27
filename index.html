@@ -13948,6 +13948,10 @@ function buildCampCards(camps) {
       || (!isScheduled && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(c));
     const isEnded = c.status === 'ended';
     const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
+    // 🔴 종료된 캠페인은 `isClosed` 도 참이다 — 종료면 마감일도 당연히 지났기 때문이다.
+    //    딱지 셋(공개예정·모집마감·종료)은 **같은 자리에 겹쳐 그려지므로** 서로 배타여야 한다.
+    //    아래 그리는 자리에서 모집마감을 `isClosed && !isEnded` 로 좁힌다 — 종료가 나중 단계라
+    //    그쪽이 정확하다. (그 전에는 종료 카드에 「모집 마감」과 「종료」가 겹쳐 글자가 뭉갰다)
     const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
     // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
@@ -13970,7 +13974,7 @@ function buildCampCards(camps) {
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(24,24,27,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
-        ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
+        ${isClosed&&!isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
         ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
         ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:4px">
