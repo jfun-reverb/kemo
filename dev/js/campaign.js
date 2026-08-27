@@ -49,9 +49,20 @@ function visibleCamps(camps) {
 function sortByStatusAndDeadline(camps) {
   const order = {active: 0, scheduled: 1, closed: 2, ended: 3};
   const ts = (c) => new Date(c.recruit_start || c.deadline || c.created_at || 0).getTime();
+  // 🔴 **상태가 「모집중」이어도 정원이 찼으면 「모집마감」과 같은 자리**로 내린다.
+  //    그 전에는 그룹을 상태 하나로만 정해, 화면에는 「모집 종료」 딱지가 붙은 카드가
+  //    맨 위에 왔다(운영 실측 2026-08-27 — 신청 21/정원 2 인 캠페인이 첫 칸).
+  //    ⚠️ **목록에서 빼지 않는다** — 사라지면 「응모한 캠페인이 없어졌다」가 된다.
+  //    ⚠️ 딱지와 **같은 헬퍼·같은 값**(캐시 `applied_count`)을 쓰므로 딱지와 순서는 늘 맞는다.
+  //    ⚠️ 「모집예정」보다 아래인 이유 — 모집예정은 곧 열리고, 정원이 찬 것은 안 열린다.
+  const 그룹 = (c) => {
+    const 기본 = order[c.status] ?? 99;
+    if (기본 === 0 && recruitSlotsFull(c.recruit_type, c.applied_count, c.slots)) return order.closed;
+    return 기본;
+  };
   return camps.slice().sort((a, b) => {
-    const sa = order[a.status] ?? 99;
-    const sb = order[b.status] ?? 99;
+    const sa = 그룹(a);
+    const sb = 그룹(b);
     if (sa !== sb) return sa - sb;
     return ts(b) - ts(a);  // 최신순(내림차순)
   });
@@ -272,7 +283,9 @@ function getCampGrad(cat) {
 
 function buildCampCards(camps) {
   return camps.map(c => {
-    const isFull = c.recruit_type === 'monitor' && (c.applied_count||0) >= c.slots;
+    // 정원 판정은 공용 헬퍼(shared.js) — 정렬도 같은 함수를 쓴다.
+    //   ⚠️ 응모 차단(application.js)은 **실시간 조회**를 쓰므로 그대로 둔다.
+    const isFull = recruitSlotsFull(c.recruit_type, c.applied_count, c.slots);
     const isScheduled = c.status === 'scheduled';
     // 마감 판정은 상태 + 마감일 경과를 함께 본다(사양서 2026-07-29 §설계 5-(1) 단방향 규칙).
     //   목록을 열어 둔 채 자정을 넘기면 캐시의 status 는 active 로 남아 「募集中」으로 보이는데
