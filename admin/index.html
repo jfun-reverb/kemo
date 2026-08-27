@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787817946';
+  var CURRENT_BUILD = 'v1787818414';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 17:05 · 7b4cf7b</span>
+          <span class="admin-build-text">2026-08-27 17:13 · df683e7</span>
         </div>
       </div>
     </aside>
@@ -26535,6 +26535,60 @@ function broadcastFollowupRowHtml(b) {
   </div>`;
 }
 
+// ── 발송 목록 — 캠페인별로 골라 보기 ────────────────────────────────────────
+//   ⚠️ 묶는 기준은 **캠페인 고유번호**(마이그레이션 391). 제목으로 묶으면 복제 캠페인처럼
+//      제목이 같은 두 캠페인이 한 덩어리가 된다.
+let _bcastRecipCamp = '';   // '' = 전체
+
+// 그 발송에 실제로 들어 있는 캠페인을, 목록에 나온 차례대로 센다.
+function broadcastRecipCampaigns(recips) {
+  const 본것 = {}; const 순서 = [];
+  (recips || []).forEach(r => {
+    const id = r.campaign_id || '';
+    if (!본것[id]) { 본것[id] = { id, 제목: r.campaign_title || '(캠페인 없음)', 수: 0 }; 순서.push(본것[id]); }
+    본것[id].수++;
+  });
+  return 순서;
+}
+
+function broadcastRecipCampSelectHtml(recips) {
+  const 캠 = broadcastRecipCampaigns(recips);
+  // 캠페인이 하나뿐이면 고를 것이 없다 — 안 그린다(0이면 안 그린다 원칙)
+  if (캠.length < 2) return '';
+  const 옵션 = [`<option value="">전체 (${recips.length}명)</option>`]
+    .concat(캠.map(c => `<option value="${esc(c.id)}">${esc(c.제목)} (${c.수}명)</option>`));
+  return `<select class="admin-filter" id="bcastRecipCampSel" style="width:100%"
+    onchange="filterBroadcastRecips(this.value)">${옵션.join('')}</select>`;
+}
+
+function filterBroadcastRecips(campId) {
+  _bcastRecipCamp = campId || '';
+  renderBroadcastRecipList();
+}
+
+function renderBroadcastRecipList() {
+  const 칸 = document.getElementById('bcastRecipList');
+  const 머리 = document.getElementById('bcastRecipHead');
+  if (!칸) return;
+  const 전부 = (_curBroadcastDetail && _curBroadcastDetail.recipients) || [];
+  const 보일것 = _bcastRecipCamp ? 전부.filter(r => (r.campaign_id || '') === _bcastRecipCamp) : 전부;
+  if (머리) {
+    // 걸러 보고 있으면 전체 수도 함께 — 안 그러면 「9명 발송인데 4명뿐」으로 읽힌다
+    const 꼬리 = _bcastRecipCamp
+      ? `· ${보일것.length}명 <span style="font-weight:400;color:var(--muted)">/ 전체 ${전부.length}명</span>`
+      : `· ${전부.length}명`;
+    머리.innerHTML = `발송 목록 <span style="font-weight:400">${꼬리}</span>`;
+  }
+  칸.innerHTML = 보일것.length
+    ? 보일것.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
+        <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
+        <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
+        <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
+      </div>`).join('')
+    : `<div style="padding:10px;font-size:12px;color:var(--muted)">${_bcastRecipCamp ? '이 캠페인으로 받은 사람이 없습니다' : '받은 사람이 없습니다'}</div>`;
+  칸.scrollTop = 0;
+}
+
 async function openBroadcastDetail(id) {
   const body = document.getElementById('broadcastDetailBody');
   body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">불러오는 중…</div>';
@@ -26559,13 +26613,7 @@ async function openBroadcastDetail(id) {
   // 2단 — 왼쪽 「발송 정보」 / 오른쪽 「발송 목록」.
   //   ⚠️ 회수 배너와 제목은 칸 밖(위)에 둔다. 한쪽 칸에 넣으면 스크롤에 딸려 사라지는데,
   //      「회수됨」은 그 발송을 볼 때 늘 보여야 하는 사실이다.
-  const 목록 = recips.length
-    ? recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
-        <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
-        <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
-        <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
-      </div>`).join('')
-    : '<div style="padding:10px;font-size:12px;color:var(--muted)">받은 사람이 없습니다</div>';
+  _bcastRecipCamp = '';   // 창을 새로 열 때마다 「전체」로 되돌린다
   body.innerHTML = `
     ${withdrawnBanner}
     ${titleHtml}
@@ -26580,10 +26628,12 @@ async function openBroadcastDetail(id) {
         ${broadcastFollowupRowHtml(b)}
       </div>
       <div class="bcast-col bcast-col-list">
-        <div class="bcast-col-head">발송 목록 <span style="font-weight:400">· ${recips.length}명</span></div>
-        <div class="broadcast-recips in-col">${목록}</div>
+        <div class="bcast-col-head" id="bcastRecipHead"></div>
+        ${broadcastRecipCampSelectHtml(recips)}
+        <div class="broadcast-recips in-col" id="bcastRecipList"></div>
       </div>
     </div>`;
+  renderBroadcastRecipList();
   const canWithdraw = !b.withdrawn_at && (b.sender_id === currentAdminInfo?.auth_id || currentAdminInfo?.role === 'super_admin');
   document.getElementById('broadcastWithdrawBtn').style.display = canWithdraw ? '' : 'none';
 }

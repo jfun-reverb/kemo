@@ -187,6 +187,10 @@ BEGIN
           'influencer_name', COALESCE(i.name, '(이름미상)'),
           -- 캠페인 제목
           'campaign_title',  COALESCE(c.title, '(캠페인 없음)'),
+          -- 캠페인 고유번호 — 화면이 「캠페인별로 골라 보기」에 쓴다.
+          --   ⚠️ 제목으로 묶으면 안 된다. 복제 캠페인은 제목이 같아서
+          --      서로 다른 두 캠페인이 한 덩어리로 합쳐진다.
+          'campaign_id',     a.campaign_id,
           -- 읽음 여부: read_by_influencer_at IS NOT NULL
           'read',            (m.read_by_influencer_at IS NOT NULL),
           -- 답장 여부: broadcast 메시지 이후 인플루언서 메시지 EXISTS
