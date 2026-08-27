@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787819995';
+  var CURRENT_BUILD = 'v1787821610';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 17:39 · b9e4d71</span>
+          <span class="admin-build-text">2026-08-27 18:06 · 6c5f3c0</span>
         </div>
       </div>
     </aside>
@@ -9252,6 +9252,35 @@ function recruitDeadlinePassed(camp) {
   if (!dl) return false;
   return String(dl).slice(0, 10) < jstTodayStr();   // 'YYYY-MM-DD' 는 사전순 = 날짜순
 }
+// 정원이 찼는가 — 리뷰어형(monitor)만 정원 개념이 있다.
+//   기프팅·방문형은 정원 초과 응모를 **허용**하므로 항상 false 다.
+//
+// 🔴 캠페인 객체가 아니라 **값**을 받는다. 객체를 받아 안에서 `applied_count` 를
+//    읽게 만들면 **캐시로만 판정하는 함수**가 되어, 실시간 조회를 쓰는 응모 차단
+//    (`application.js`)이 영영 이 함수를 못 쓴다. 값을 받으면 **부르는 쪽이 무엇을
+//    넘길지 정한다** — 카드·정렬은 캐시(`applied_count`)를, 나중에 응모 쪽을 옮기면
+//    실시간 값을 넘기면 된다.
+//   ⚠️ **지금 응모 차단을 옮기라는 뜻이 아니다.** 그쪽은 돈과 정원이 걸린 자리라
+//      이번 변경에 섞지 않는다(사양서 `2026-08-27-campaign-list-full-slot-order.md` 설계 2).
+//   ⚠️ 「신청 수」는 승인 수가 아니라 **취소되지 않은 신청 수**다.
+//
+// 🔴 **원본 인라인 판정과 한 경우에서 일부러 갈린다.**
+//    옛 코드는 `(c.applied_count||0) >= c.slots` 인데, 자바스크립트는 크기 비교에서
+//    `null` 을 0 으로 바꾼다. 그래서 `slots` 가 비거나 0이면 **신청 수와 무관하게**
+//    항상 참이 됐다(`0 >= null` 도 `21 >= null` 도 참. `campaigns.slots` 는 널 허용이다).
+//    전수 대조 결과 갈리는 경우는 **그 구간뿐**이다(126 경우 중 14, 전부 정원이 비거나 0).
+//    ⚠️ 정원을 안 정한 캠페인을 「찼다」고 보는 것은 뒤집힌 판정이고, 이번 변경으로 그
+//       판정이 **딱지뿐 아니라 순서까지** 좌우하게 되므로 여기서 바로잡는다.
+//    ✅ **운영 실측(2026-08-27) `slots` 가 널이거나 0인 캠페인 0건** — 오늘 화면에 보이는
+//       차이는 없다. 사양서의 「결과는 그대로」를 어기는 것이 아니라, 대상이 0건인 구간의
+//       뒤집힌 판정을 옮겨 심지 않는 것이다.
+function recruitSlotsFull(recruitType, appliedCount, slots) {
+  if (recruitType !== 'monitor') return false;
+  const 정원 = Number(slots);
+  if (!Number.isFinite(정원) || 정원 <= 0) return false;   // 정원 미설정이면 「찼다」고 볼 근거가 없다
+  return (Number(appliedCount) || 0) >= 정원;
+}
+
 // 결과물 제출 마감일이 지났는가 — 같은 기준(2단계 서버 차단과 정합)
 function submissionDeadlinePassed(camp) {
   const se = camp && camp.submission_end;
