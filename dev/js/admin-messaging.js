@@ -1695,21 +1695,33 @@ async function openBroadcastDetail(id) {
   const cachedTitle = (_broadcastRows.find(x => x.id === id) || {}).title;
   const titleHtml = cachedTitle
     ? `<div style="font-weight:700;font-size:14px;color:var(--ink)">${esc(cachedTitle)} <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span></div>` : '';
-  body.innerHTML = `
-    ${withdrawnBanner}
-    ${titleHtml}
-    <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
-    <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
-    <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
-    ${broadcastFilterSummaryHtml(b)}
-    ${broadcastFollowupRowHtml(b)}
-    <div class="broadcast-recips">
-      ${recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
+  // 2단 — 왼쪽 「발송 정보」 / 오른쪽 「발송 목록」.
+  //   ⚠️ 회수 배너와 제목은 칸 밖(위)에 둔다. 한쪽 칸에 넣으면 스크롤에 딸려 사라지는데,
+  //      「회수됨」은 그 발송을 볼 때 늘 보여야 하는 사실이다.
+  const 목록 = recips.length
+    ? recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
         <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
         <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
         <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
-      </div>`).join('')}
+      </div>`).join('')
+    : '<div style="padding:10px;font-size:12px;color:var(--muted)">받은 사람이 없습니다</div>';
+  body.innerHTML = `
+    ${withdrawnBanner}
+    ${titleHtml}
+    <div class="bcast-2col">
+      <div class="bcast-col">
+        <div class="bcast-col-head">발송 정보</div>
+        <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
+        <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
+        <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
+        ${broadcastFilterSummaryHtml(b)}
+        ${broadcastFollowupRowHtml(b)}
+      </div>
+      <div class="bcast-col bcast-col-list">
+        <div class="bcast-col-head">발송 목록 <span style="font-weight:400">· ${recips.length}명</span></div>
+        <div class="broadcast-recips in-col">${목록}</div>
+      </div>
     </div>`;
   const canWithdraw = !b.withdrawn_at && (b.sender_id === currentAdminInfo?.auth_id || currentAdminInfo?.role === 'super_admin');
   document.getElementById('broadcastWithdrawBtn').style.display = canWithdraw ? '' : 'none';

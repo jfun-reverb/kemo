@@ -1868,6 +1868,16 @@ input.admin-filter{padding-right:8px}
 .broadcast-recip-name { font-weight: 600; color: var(--ink); }
 .broadcast-recip-camp { flex: 1; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .broadcast-recip-status { font-size: 11px; color: var(--muted); }
+/* 발송 상세 2단 — 왼쪽 발송 정보 / 오른쪽 발송 목록.
+   ⚠️ 화면 크기 조건문(@media)을 쓰지 않는다 — 이 창은 드래그·크기 조정이 되므로 창 폭과
+      화면 폭이 따로 논다. auto-fit 은 **칸 자신이** 좁아지면 저절로 한 줄로 쌓여 둘 다 맞는다.
+   ⚠️ min-height:0 이 없으면 목록이 칸 밖으로 넘쳐 창 아래로 삐져나온다(flex 기본값 때문). */
+.bcast-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; flex: 1; min-height: 0; }
+.bcast-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+.bcast-col-head { font-size: 12px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+/* 오른쪽 칸은 스크롤을 목록이 직접 갖는다 — 머리글은 고정되고 목록만 움직인다 */
+.bcast-col-list { overflow: hidden; gap: 8px; }
+.broadcast-recips.in-col { max-height: none; flex: 1; min-height: 0; }
 /* mf-wrap 은 기본 display:inline-block 이라 폭이 버튼 내용 기준으로 좁아짐 → 모달 안에서는 전체폭으로 */
 #bulkCampaignMulti, #bulkPrefectureMulti { display: block; width: 100%; }
 /* 캠페인 드롭다운 — 모달 overflow 안에서 absolute 는 캠페인이 많으면 잘리므로, 지역과 동일하게 문서 흐름(static)으로 아래 펼침 */

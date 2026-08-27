@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787807755';
+  var CURRENT_BUILD = 'v1787817946';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2356,6 +2356,16 @@ input.admin-filter{padding-right:8px}
 .broadcast-recip-name { font-weight: 600; color: var(--ink); }
 .broadcast-recip-camp { flex: 1; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .broadcast-recip-status { font-size: 11px; color: var(--muted); }
+/* 발송 상세 2단 — 왼쪽 발송 정보 / 오른쪽 발송 목록.
+   ⚠️ 화면 크기 조건문(@media)을 쓰지 않는다 — 이 창은 드래그·크기 조정이 되므로 창 폭과
+      화면 폭이 따로 논다. auto-fit 은 **칸 자신이** 좁아지면 저절로 한 줄로 쌓여 둘 다 맞는다.
+   ⚠️ min-height:0 이 없으면 목록이 칸 밖으로 넘쳐 창 아래로 삐져나온다(flex 기본값 때문). */
+.bcast-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; flex: 1; min-height: 0; }
+.bcast-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+.bcast-col-head { font-size: 12px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+/* 오른쪽 칸은 스크롤을 목록이 직접 갖는다 — 머리글은 고정되고 목록만 움직인다 */
+.bcast-col-list { overflow: hidden; gap: 8px; }
+.broadcast-recips.in-col { max-height: none; flex: 1; min-height: 0; }
 /* mf-wrap 은 기본 display:inline-block 이라 폭이 버튼 내용 기준으로 좁아짐 → 모달 안에서는 전체폭으로 */
 #bulkCampaignMulti, #bulkPrefectureMulti { display: block; width: 100%; }
 /* 캠페인 드롭다운 — 모달 overflow 안에서 absolute 는 캠페인이 많으면 잘리므로, 지역과 동일하게 문서 흐름(static)으로 아래 펼침 */
@@ -2988,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 14:15 · 219ddc2</span>
+          <span class="admin-build-text">2026-08-27 17:05 · 7b4cf7b</span>
         </div>
       </div>
     </aside>
@@ -7404,12 +7414,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 <!-- 발송 이력 상세 모달 (PR 3) -->
 <div class="modal-overlay" id="broadcastDetailModal" style="z-index:655">
-  <div class="modal" style="max-width:600px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
+  <div class="modal" style="max-width:980px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:14px;font-weight:700;color:var(--ink)">발송 상세</div>
       <button class="btn btn-ghost btn-xs" onclick="closeBroadcastDetail()" style="padding:4px 10px">✕</button>
     </div>
-    <div class="modal-body" id="broadcastDetailBody" style="padding:16px 20px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px"></div>
+    <!-- ⚠️ overflow 는 hidden — 스크롤은 아래 두 칸이 각자 한다. auto 로 두면 바깥이 먼저 늘어나
+         칸별 스크롤이 죽는다. min-height:0 도 필수(flex 자식이 안 줄어들어 목록이 밖으로 넘친다). -->
+    <div class="modal-body" id="broadcastDetailBody" style="padding:16px 20px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px"></div>
     <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeBroadcastDetail()">닫기</button>
       <button class="btn btn-danger" id="broadcastWithdrawBtn" onclick="openBroadcastWithdraw()" style="display:none">전체 회수</button>
@@ -26544,21 +26556,33 @@ async function openBroadcastDetail(id) {
   const cachedTitle = (_broadcastRows.find(x => x.id === id) || {}).title;
   const titleHtml = cachedTitle
     ? `<div style="font-weight:700;font-size:14px;color:var(--ink)">${esc(cachedTitle)} <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span></div>` : '';
-  body.innerHTML = `
-    ${withdrawnBanner}
-    ${titleHtml}
-    <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
-    <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
-    <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
-    ${broadcastFilterSummaryHtml(b)}
-    ${broadcastFollowupRowHtml(b)}
-    <div class="broadcast-recips">
-      ${recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
+  // 2단 — 왼쪽 「발송 정보」 / 오른쪽 「발송 목록」.
+  //   ⚠️ 회수 배너와 제목은 칸 밖(위)에 둔다. 한쪽 칸에 넣으면 스크롤에 딸려 사라지는데,
+  //      「회수됨」은 그 발송을 볼 때 늘 보여야 하는 사실이다.
+  const 목록 = recips.length
+    ? recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
         <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
         <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
         <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
-      </div>`).join('')}
+      </div>`).join('')
+    : '<div style="padding:10px;font-size:12px;color:var(--muted)">받은 사람이 없습니다</div>';
+  body.innerHTML = `
+    ${withdrawnBanner}
+    ${titleHtml}
+    <div class="bcast-2col">
+      <div class="bcast-col">
+        <div class="bcast-col-head">발송 정보</div>
+        <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
+        <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
+        <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
+        ${broadcastFilterSummaryHtml(b)}
+        ${broadcastFollowupRowHtml(b)}
+      </div>
+      <div class="bcast-col bcast-col-list">
+        <div class="bcast-col-head">발송 목록 <span style="font-weight:400">· ${recips.length}명</span></div>
+        <div class="broadcast-recips in-col">${목록}</div>
+      </div>
     </div>`;
   const canWithdraw = !b.withdrawn_at && (b.sender_id === currentAdminInfo?.auth_id || currentAdminInfo?.role === 'super_admin');
   document.getElementById('broadcastWithdrawBtn').style.display = canWithdraw ? '' : 'none';
