@@ -3462,6 +3462,10 @@ function buildPreviewCamp(mode) {
     category: val(g+'Category'),
     slots: parseInt(val(g+'Slots'))||10,
     min_followers: parseInt(val(g+'MinFollowers'))||0,
+    // 채널별 최소 팔로워수 — 없으면 「그리고」 캠페인의 조건이 미리보기에서 통째로 안 보인다
+    //   (그 갈래는 `min_followers` 가 0이고 조건은 이 칸에 있다).
+    min_followers_by_channel: (typeof _minFollowersByChannelState !== 'undefined'
+      ? (_minFollowersByChannelState[mode === 'edit' ? 'edit' : 'new'] || {}) : {}),
     primary_channel: val(g+'PrimaryChannel')||null,
     // 행사 여부 — 이게 없으면 isEventCampaign 이 늘 거짓이라, 미리보기의 행사 분기가
     // 한 번도 안 걸린다. 폼에서 숨긴 칸(채널·콘텐츠·제출마감·당선발표·리워드)이
@@ -3527,6 +3531,12 @@ const CP_I18N = {
     //   (dev/lib/i18n/*.js 의 detail.purchasePeriod) 과 **반드시 같은 말**이어야 한다.
     kRecruitPeriod:'募集期間', kPurchasePeriod:'購入期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
+    // 팔로워 갈래별 표기 — 인플루언서 화면(i18n)과 **같은 말**이어야 한다.
+    //   ⚠️ 번역 파일이 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 여기 따로 둔다.
+    //      인플루언서 쪽 열쇠말: detail.minFollowersAnyChannel · minFollowersUnlimited ·
+    //      minFollowersQoo10Note · minFollowersSuffix. **고칠 때 양쪽을 함께 본다.**
+    vFwAny:'募集チャンネルのいずれかが{n}人以上', vFwUnlimited:'制限なし',
+    vFwQoo10:'（Instagramと同じフォロワー数を見ます）', vFwSuffix:'人以上',
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
     kRecruitPurchasePeriod:'募集・購入期間',
@@ -3555,6 +3565,8 @@ const CP_I18N = {
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
+    vFwAny:'모집 채널 중 하나가 {n}명 이상', vFwUnlimited:'제한 없음',
+    vFwQoo10:'(Instagram과 같은 팔로워 수를 봅니다)', vFwSuffix:'명 이상',
     kRecruitPurchasePeriod:'모집 및 구매 기간',
     kRecruitVisitPeriod:'모집 및 방문 기간',
     kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
@@ -3811,7 +3823,30 @@ function renderCampPreview(mode) {
             // 대신하지만, 미리보기는 그 표를 그리지 않아 **행사 시간이 통째로 안 보였다**.
             // 관리자가 방금 만든 시간대가 미리보기에 없으면 안 만들어진 것처럼 읽힌다.
             if (isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kEventTimes)}</div><div class="cp-info-val">${eventTimesPreviewHtml(L, mode)}</div></div>`);
-            if (camp.min_followers && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
+            // 최소 팔로워수 — 갈래별. 무엇을 보여줄지는 공용 함수가 정하고(`minFollowersDisplay`)
+            //   문구만 위 라벨표로 만든다. 인플루언서 화면과 **같은 재료**를 써야 미리보기가 안 갈린다.
+            //   ⚠️ 예전에는 `camp.min_followers` 하나만 봐서, 「그리고」 캠페인(그 칸이 0이고 조건은
+            //      `min_followers_by_channel` 에 있다)은 **행 자체가 안 그려졌다**(리뷰 지적).
+            if (!isEventPreview) {
+              const fwd = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+              if (fwd) {
+                let fwHtml = '';
+                if (fwd.kind === 'and') {
+                  fwHtml = fwd.rows.map(r => {
+                    const lbl = esc(getChannelLabel(r.channel, lang) || r.channel);
+                    const note = r.borrowed ? ` <span style="font-size:10px;color:var(--muted)">${esc(L.vFwQoo10)}</span>` : '';
+                    return (r.required > 0)
+                      ? `${lbl} ${r.required.toLocaleString()}${esc(L.vFwSuffix)}${note}`
+                      : `${lbl} <span style="color:var(--muted)">${esc(L.vFwUnlimited)}</span>`;
+                  }).join('<br>');
+                } else if (fwd.kind === 'or') {
+                  fwHtml = esc(L.vFwAny.replace('{n}', fwd.required.toLocaleString()));
+                } else {
+                  fwHtml = `${fwd.required.toLocaleString()}${esc(L.vFwSuffix)}`;
+                }
+                rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${fwHtml}</div></div>`);
+              }
+            }
             // 리뷰어(monitor) 캠페인은 当選発表·報酬 행 제외
             if (!isMonitorPreview && !isEventPreview) {
               rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kWinnerAnnounce)}</div><div class="cp-info-val">${esc(camp.winner_announce||L.winnerDefault)}</div></div>`);
@@ -4662,9 +4697,15 @@ function renderMinFollowersByChannel(formMode, channels) {
     const qoo10묶음 = (ch === 'instagram' && (channels || []).includes('qoo10'))
       ? ` <span style="font-size:10px;font-weight:400;color:var(--muted)">· Qoo10 도 이 값을 봅니다</span>` : '';
     const v = saved[ch];
+    // 🔴 **`id` 를 반드시 준다.** 「저장 안 한 변경이 있습니다」 경고(`admin-campaign-dirty.js`)의
+    //    `campDirtyKey` 가 **`id` 도 `name` 도 없는 칸을 무조건 건너뛴다.** 없으면 담당자가
+    //    값을 입력하고 저장을 안 누른 채 나가도 **경고 없이 조용히 사라진다.**
+    //    ⚠️ 같은 파일에 이미 이 실패에 대한 경고가 있었는데(모집 타입·채널이 통째로 빠졌던
+    //       리뷰 지적) 이 칸을 만들면서 그대로 반복했다. 새 입력칸을 만들 때마다 확인할 것.
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <div style="width:150px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
       <input type="number" class="form-input" style="width:130px" placeholder="제한 없음"
+             id="${esc(g)}Mfbc_${esc(ch)}"
              data-mfbc-channel="${esc(ch)}" value="${v > 0 ? esc(String(v)) : ''}"
              oninput="captureMinFollowersByChannel('${formMode}')">
       <span style="font-size:11px;color:var(--muted)">명 이상</span>
