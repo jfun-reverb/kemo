@@ -19,6 +19,13 @@ try { payload = JSON.parse(input); } catch { process.exit(0); }
 const prompt = (payload.prompt || '');
 
 // 트리거 판정
+// 다른 세션이 보낸 메시지는 사용자가 친 말이 아니다 — 그 본문에 「커밋」·「개발 세션」 같은
+//   낱말이 들어 있어도 이 알림을 띄우지 않는다. 띄우면 하루에 열 번 넘게 뜨고,
+//   그러면 **정작 진짜로 걸릴 때 안 읽힌다**(2026-08-27 세 세션 중 둘이 지적).
+//   판정 근거: UserPromptSubmit payload 실측 — 세션 간 메시지는 prompt 가
+//   `<cross-session-message` 로 시작한다.
+if (String(payload.prompt || '').trimStart().startsWith('<cross-session-message')) process.exit(0);
+
 const hasSpecPath = /docs\/specs\/[^\s]+\.md/.test(prompt);
 const hasSpecWord = /(사양서|스펙|spec)/i.test(prompt) && /(개발|구현|만들|추가|작업|착수)/.test(prompt);
 if (!hasSpecPath && !hasSpecWord) process.exit(0);
