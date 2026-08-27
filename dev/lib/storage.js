@@ -4173,6 +4173,18 @@ async function getBroadcastDetail(broadcastId) {
   return data || null;
 }
 
+// 관리자 전용 제목 고치기 (마이그레이션 393). 저장된 제목을 돌려준다(비웠으면 null).
+//   ⚠️ 오류를 삼키지 않는다 — 화면이 「저장됐다」로 잘못 알리면 안 된다.
+async function updateBroadcastTitle(broadcastId, title) {
+  if (!db || !broadcastId) throw new Error('발송을 지정해 주세요');
+  const {data, error} = await db.rpc('update_broadcast_title', {
+    p_broadcast_id: broadcastId,
+    p_title: title == null ? null : String(title),
+  });
+  if (error) throw error;
+  return data ?? null;
+}
+
 // ══════════════════════════════════════
 // FAQ (자동응답) — 마이그레이션 146
 // ══════════════════════════════════════

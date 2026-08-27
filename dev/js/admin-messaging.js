@@ -1674,6 +1674,75 @@ function broadcastFollowupRowHtml(b) {
   </div>`;
 }
 
+// ── 관리자 전용 제목 고치기 (마이그레이션 393) ──────────────────────────────
+//   ⚠️ 제목이 없을 때도 줄을 그린다 — 안 그리면 **이름을 처음 붙일 자리가 없다**
+//      (제목은 보낼 때 비워 둘 수 있으므로 「없음」이 흔한 정상 상태다).
+//   ⚠️ 권한은 일괄 발송과 같은 조건. 없으면 단추를 아예 안 그린다 —
+//      눌러 보고 나서 권한 오류를 보는 것이 이 저장소가 피하려는 패턴이다.
+function broadcastTitleRowHtml(id, title) {
+  const 고칠수있나 = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  const 이름 = title
+    ? `<span style="font-weight:700;font-size:14px;color:var(--ink)">${esc(title)}</span>
+       <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span>`
+    : `<span style="font-size:13px;color:var(--muted)">관리자 전용 제목 없음</span>`;
+  const 단추 = 고칠수있나
+    ? `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;font-size:11px"
+         onclick="startBroadcastTitleEdit('${esc(id)}')">${title ? '이름 바꾸기' : '이름 붙이기'}</button>`
+    : '';
+  return `<div id="bcastTitleRow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${이름}${단추}</div>`;
+}
+
+function startBroadcastTitleEdit(id) {
+  const 줄 = document.getElementById('bcastTitleRow');
+  if (!줄) return;
+  const 지금 = (_broadcastRows.find(x => x.id === id) || {}).title || '';
+  줄.innerHTML = `
+    <input type="text" id="bcastTitleInput" class="admin-filter" maxlength="100"
+      style="flex:1;min-width:180px" placeholder="예: 5월 결과물 미제출자 리마인드"
+      onkeydown="if(event.key==='Enter'){saveBroadcastTitle('${esc(id)}')}if(event.key==='Escape'){cancelBroadcastTitleEdit('${esc(id)}')}">
+    <button class="btn btn-primary btn-xs" style="padding:3px 10px;font-size:11px"
+      onclick="saveBroadcastTitle('${esc(id)}')">저장</button>
+    <button class="btn btn-ghost btn-xs" style="padding:3px 10px;font-size:11px"
+      onclick="cancelBroadcastTitleEdit('${esc(id)}')">취소</button>`;
+  const 칸 = document.getElementById('bcastTitleInput');
+  // ⚠️ 값은 esc() 로 넣지 않는다 — 입력칸 value 는 HTML 이 아니라 글자 그대로다.
+  //    esc() 를 쓰면 따옴표가 든 제목이 &quot; 로 보인다.
+  칸.value = 지금;
+  칸.focus();
+  칸.select();
+}
+
+function cancelBroadcastTitleEdit(id) {
+  const 줄 = document.getElementById('bcastTitleRow');
+  if (!줄) return;
+  const 지금 = (_broadcastRows.find(x => x.id === id) || {}).title;
+  줄.outerHTML = broadcastTitleRowHtml(id, 지금);
+}
+
+async function saveBroadcastTitle(id) {
+  const 칸 = document.getElementById('bcastTitleInput');
+  if (!칸) return;
+  const 값 = 칸.value;
+  칸.disabled = true;
+  try {
+    const 저장된 = await updateBroadcastTitle(id, 값);
+    // 🔴 목록 캐시를 함께 갱신한다 — 상세 모달이 제목을 **이 캐시에서** 읽으므로,
+    //    안 고치면 창을 다시 열었을 때 옛 이름이 돌아온다.
+    const 행 = _broadcastRows.find(x => x.id === id);
+    if (행) 행.title = 저장된;
+    const 줄 = document.getElementById('bcastTitleRow');
+    if (줄) 줄.outerHTML = broadcastTitleRowHtml(id, 저장된);
+    toast(저장된 ? '제목을 바꿨습니다' : '제목을 지웠습니다');
+    await loadBroadcasts();     // 뒤의 목록도 새 이름으로
+  } catch (e) {
+    console.error('[saveBroadcastTitle]', e);
+    칸.disabled = false;
+    // ⚠️ 오류 **객체**를 넘기면 앞에 「PostgrestError: 」 가 붙는다.
+    //    서버가 한글로 던지는 거부 문구(「제목은 100자까지입니다」)를 그대로 보이게 메시지만 넘긴다.
+    toast(friendlyError(e?.message || e));
+  }
+}
+
 // ── 발송 목록 — 캠페인별로 골라 보기 ────────────────────────────────────────
 //   ⚠️ 묶는 기준은 **캠페인 고유번호**(마이그레이션 391). 제목으로 묶으면 복제 캠페인처럼
 //      제목이 같은 두 캠페인이 한 덩어리가 된다.
@@ -1747,8 +1816,7 @@ async function openBroadcastDetail(id) {
     ? `<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#991B1B">${new Date(b.withdrawn_at).toLocaleString('ja-JP')} 회수됨</div>` : '';
   // 제목(관리자 전용) — get_broadcast_detail 미반환이라 목록 캐시에서 조회
   const cachedTitle = (_broadcastRows.find(x => x.id === id) || {}).title;
-  const titleHtml = cachedTitle
-    ? `<div style="font-weight:700;font-size:14px;color:var(--ink)">${esc(cachedTitle)} <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span></div>` : '';
+  const titleHtml = broadcastTitleRowHtml(id, cachedTitle);
   // 2단 — 왼쪽 「발송 정보」 / 오른쪽 「발송 목록」.
   //   ⚠️ 회수 배너와 제목은 칸 밖(위)에 둔다. 한쪽 칸에 넣으면 스크롤에 딸려 사라지는데,
   //      「회수됨」은 그 발송을 볼 때 늘 보여야 하는 사실이다.
