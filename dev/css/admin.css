@@ -2391,3 +2391,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       `:nth-child` 로 세지 않는다 — 이 저장소는 화면 인덱스 하드코딩을 금지한다. */
 .mfbc-col-left  { padding-right: 16px; }
 .mfbc-col-right { border-left: 1px solid var(--line); padding-left: 16px; }
+
+/* 채널별 최소 팔로워수 입력칸 (2026-08-27)
+   ⚠️ 「제한 없음」이 잘려 보이던 원인은 폭이 아니라 **숫자 칸 화살표**다. 글자는 51px 인데
+      화살표가 자리를 먹어 남는 폭이 모자랐다. 화살표를 없애고 안쪽 여백을 줄여 해결한다.
+      (담당자는 값을 손으로 적지 화살표로 올리지 않는다.) */
+.mfbc-input { padding-left: 8px; padding-right: 8px; }
+.mfbc-input::-webkit-outer-spin-button,
+.mfbc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mfbc-input { -moz-appearance: textfield; appearance: textfield; }
