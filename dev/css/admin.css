@@ -2396,7 +2396,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    ⚠️ 「제한 없음」이 잘려 보이던 원인은 폭이 아니라 **숫자 칸 화살표**다. 글자는 51px 인데
       화살표가 자리를 먹어 남는 폭이 모자랐다. 화살표를 없애고 안쪽 여백을 줄여 해결한다.
       (담당자는 값을 손으로 적지 화살표로 올리지 않는다.) */
-.mfbc-input { padding-left: 8px; padding-right: 8px; }
+/*  ⚠️ 선택자를 `#page-admin` 으로 시작해야 한다 — 이 화면의 `.form-input` 규칙이
+       `#page-admin .form-input` 이라 식별자를 포함해, 클래스 하나짜리 규칙은 진다.
+       (2026-08-27 실측 — `.mfbc-input` 만 썼더니 안쪽 여백이 12px 그대로였다.) */
+#page-admin .mfbc-input { padding-left: 8px; padding-right: 8px; }
 .mfbc-input::-webkit-outer-spin-button,
 .mfbc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .mfbc-input { -moz-appearance: textfield; appearance: textfield; }
