@@ -1539,6 +1539,83 @@ function renderBroadcastRow(r) {
 }
 
 let _curBroadcastDetail = null;
+// ── 발송 조건을 사람 말로 (2단계) ──────────────────────────
+//   저장은 예전부터 되고 있었는데 **어느 화면도 안 그렸다**(목록은 캠페인 개수만 센다).
+//   「같은 조건으로 다시」를 누르라면서 그 조건이 뭔지 안 보여주면
+//   **무엇을 보내는지 모르고 누른다.** 추가 발송과 무관하게 그 자체로 쓸모가 있다.
+//
+//   ⚠️ 이름표는 **위에서 쓰는 상수를 그대로 쓴다**(`BULK_APP_STATUSES` 등).
+//      두 벌이 되면 고르는 화면과 보여 주는 화면이 다른 말을 한다.
+
+// 🔴 이 문구는 3단계의 버튼 안내(㉮)와 **같은 자리에서 온다.** 두 곳에 따로 쓰지 않는다.
+const BULK_NO_FILTER_NOTE = '직접 고른 발송이라 저장된 조건이 없습니다';
+
+function _bulkLabels(codes, table) {
+  const list = Array.isArray(codes) ? codes : [];
+  return list.map(c => (table.find(x => x.code === c) || {}).label || c);
+}
+
+function broadcastFilterSummaryHtml(b) {
+  const 상자 = (내용) => `<div style="background:var(--bg);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.8;color:var(--ink)">${내용}</div>`;
+  const 안내 = (문구) => 상자(`<span style="color:var(--muted)">${esc(문구)}</span>`);
+
+  // 조건을 모을 수 없는 두 갈래 — 빈 자리로 두면 「고장났나」로 읽힌다.
+  if (b.context_kind !== 'campaign') return 안내(BULK_NO_FILTER_NOTE);
+  const f = b.context_filter;
+  if (!f || typeof f !== 'object') return 안내('저장된 조건이 없습니다');
+
+  const 줄 = [];
+  const 더하기 = (이름, 값) => { if (값) 줄.push(`<div><span style="color:var(--muted)">${esc(이름)}</span> ${값}</div>`); };
+
+  const 캠수 = Array.isArray(f.campaign_ids) ? f.campaign_ids.length : (b.context_campaign_id ? 1 : 0);
+  더하기('캠페인', 캠수 ? `${캠수}개` : '');
+
+  더하기('응모 상태', esc(_bulkLabels(f.appStatuses, BULK_APP_STATUSES).join(' · ')));
+  더하기('영수증 상태', esc(_bulkLabels(f.receiptStatuses, BULK_DELIV_STATUSES).join(' · ')));
+  더하기('결과물 상태', esc(_bulkLabels(f.postStatuses, BULK_DELIV_STATUSES).join(' · ')));
+  if (f.fullApproved) 더하기('승인 범위', '완전 승인만(부분 승인 제외)');
+
+  // ⚠️ **고르는 화면의 네 채널이 전부가 아니다** — 옛 이력에 `qoo10` 같은 코드가 실제로 들어
+  //    있다(개발서버 실측). 못 찾으면 공용 이름표로 받치고, 그것도 없을 때만 코드를 보여준다.
+  //    받침이 없으면 운영자에게 「qoo10」 같은 날코드가 그대로 보인다.
+  const 채널이름 = (c) => {
+    const 표 = BULK_SNS_CHANNELS.find(([code]) => code === c);
+    if (표) return 표[1];
+    if (typeof getChannelLabel === 'function') return getChannelLabel(c, 'ko') || c;
+    return c;
+  };
+  const 채널 = (Array.isArray(f.channels) ? f.channels : []).map(채널이름);
+  더하기('SNS 채널', esc(채널.join(' · ')));
+
+  // 도도부현은 많으면 줄이 길어진다 — 앞 몇 개만 적고 **나머지 개수를 반드시 말한다**
+  //   (「…」로만 끝내면 몇 개인지 모른다).
+  const 지역맵 = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const 지역 = (Array.isArray(f.prefectures) ? f.prefectures : []).map(p => 지역맵[p] || p);
+  if (지역.length) {
+    더하기('지역', 지역.length <= 5
+      ? esc(지역.join(' · '))
+      : `${esc(지역.slice(0, 5).join(' · '))} <span style="color:var(--muted)">외 ${지역.length - 5}곳</span>`);
+  }
+
+  // ⚠️ `minFollowers` 는 빈 문자열로 저장된다(실측) — `Number('')` 이 0 이라 걸러진다.
+  const 하한 = Number(f.minFollowers);
+  if (하한 > 0) {
+    더하기('팔로워', f.followerMode === 'sum'
+      ? `4개 채널 합산 ${하한.toLocaleString()}명 이상`
+      : `${esc(채널이름(f.followerChannel))} ${하한.toLocaleString()}명 이상`);
+  }
+
+  const 제외 = [];
+  if (f.requireVerified) 제외.push('인증 회원만');
+  if (f.excludeViolation) 제외.push('위반 이력 제외');
+  if (f.excludeBlacklist !== false) 제외.push('블랙리스트 제외');
+  더하기('회원 조건', esc(제외.join(' · ')));
+
+  // 아무 조건도 안 건 발송 — 빈 상자로 두지 않는다.
+  if (!줄.length) return 안내('따로 건 조건 없이 그 캠페인 전체에 보냈습니다');
+  return 상자(줄.join(''));
+}
+
 async function openBroadcastDetail(id) {
   const body = document.getElementById('broadcastDetailBody');
   body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">불러오는 중…</div>';
@@ -1566,6 +1643,8 @@ async function openBroadcastDetail(id) {
     <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
     <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
     <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
+    ${broadcastFilterSummaryHtml(b)}
     <div class="broadcast-recips">
       ${recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
         <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
