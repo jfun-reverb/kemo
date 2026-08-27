@@ -4596,6 +4596,33 @@
 </div>
 
 <!-- 일괄 회수 사유 모달 (PR 3) -->
+<!-- 추가 발송 — 「같은 조건으로, 아직 안 받은 대상에게만」 (사양서 2026-08-27 설계 5-3) -->
+<div class="modal-overlay" id="bulkFollowupModal" style="z-index:660">
+  <div class="modal" style="max-width:520px;border-radius:18px;margin:auto;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">아직 안 받은 대상에게 추가 발송</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBulkFollowup()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <!-- 무엇을 다시 보내는지 모르고 누르지 않게, 조건을 여기서도 보여준다 -->
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">보낼 조건 (1차와 같음)</div>
+        <div id="bulkFollowupFilter"></div>
+      </div>
+      <!-- 두 수를 다 보여준다 — M만 보여주면 왜 그 수인지 모른다 -->
+      <div id="bulkFollowupCount" style="font-size:13px;color:var(--ink)">대상을 세는 중…</div>
+      <div id="bulkFollowupNote" style="display:none;font-size:12px;line-height:1.6;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:8px 10px;color:#9A3412"></div>
+      <label style="font-size:13px;color:var(--muted)">보낼 내용 (1차 내용을 미리 채웠습니다 — 고칠 수 있습니다)
+        <textarea id="bulkFollowupBody" rows="6" style="width:100%;margin-top:6px;font-size:14px"></textarea>
+      </label>
+    </div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeBulkFollowup()">취소</button>
+      <button class="btn btn-primary" id="bulkFollowupSendBtn" onclick="confirmBulkFollowup()" disabled>보내기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="broadcastWithdrawModal" style="z-index:660">
   <div class="modal" style="max-width:440px;border-radius:18px;margin:auto;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">

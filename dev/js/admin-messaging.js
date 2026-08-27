@@ -1616,6 +1616,60 @@ function broadcastFilterSummaryHtml(b) {
   return 상자(줄.join(''));
 }
 
+// ── 추가 발송 (3단계) ──────────────────────────────────────
+//   「같은 조건으로, 아직 안 받은 사람에게만」. 사양서 설계 5-2·5-3·5-4.
+
+// 판(version) — 이 판까지만 조건을 그대로 재현할 수 있다.
+//   ⚠️ 판 0(표시가 없는 옛 이력)은 **막지 않는다**(2026-08-27 결정) — 그때 열쇠말이
+//      지금과 같았다는 가정 위에 있다. 🔴 **「모르는 판이면 막는다」는 반드시 살아 있어야 한다**
+//      — 그것마저 풀면 판 표시가 아무 일도 안 하게 된다.
+const BULK_FILTER_VERSION_MAX = BULK_FILTER_VERSION;
+
+// 버튼을 누를 수 있나 — **안 되면 감추지 않고 회색으로 두고 이유를 말한다.**
+//   감추면 「왜 어떤 발송엔 있고 어떤 발송엔 없나」를 아무도 모른다.
+//   🔴 네 조건을 하나로 뭉치지 않는다 — 이유를 말할 수 없게 된다.
+function bulkFollowupState(b) {
+  // ㉮ 조건 발송인가 — 조건이 아예 없으면 보낼 인자를 만들 수 없다(서버까지 못 간다)
+  if (!b || b.context_kind !== 'campaign') return { ok: false, why: BULK_NO_FILTER_NOTE };
+  if (!b.context_filter || typeof b.context_filter !== 'object') {
+    return { ok: false, why: '저장된 조건이 없어 같은 조건으로 다시 보낼 수 없습니다' };
+  }
+  // ㉯ 회수되지 않았나 — 회수된 발송에 이어 보내는 것은 **가린 내용을 새로 퍼뜨리는** 일이다
+  if (b.withdrawn_at) return { ok: false, why: '회수된 발송입니다' };
+
+  // ㉱ 판을 아는 판인가 — 판 0(표시 없음)은 통과, **모르는 판만** 막는다
+  const v = Number(b.context_filter.v) || 0;
+  if (v > BULK_FILTER_VERSION_MAX) {
+    return { ok: false, why: '그때와 조건 저장 방식이 달라져 그대로 재현할 수 없습니다' };
+  }
+
+  // ㉰ 그 사슬의 마지막인가 (회수된 것은 건너뛰고 셈 — 서버 거부 ②와 같은 사실)
+  const c = b.chain || {};
+  if (c.has_live_descendant) {
+    // 🔴 링크는 **따라가면 반드시 누를 수 있을 때만** 준다.
+    //    최고 관리자가 남의 사슬에 이어 보내면 그 관리자는 영영 못 잇는다 —
+    //    그때 링크를 주면 **못 여는 링크**가 된다. 할 수 있는 일을 말한다.
+    return c.last_live_visible
+      ? { ok: false, why: '이미 추가 발송이 있습니다 — 가장 마지막 것에서 이어 보내세요', gotoId: c.last_live_id }
+      : { ok: false, why: '다른 관리자가 이어 보냈습니다 — 그 관리자에게 요청하세요' };
+  }
+  return { ok: true };
+}
+
+function broadcastFollowupRowHtml(b) {
+  const s = bulkFollowupState(b);
+  if (s.ok) {
+    return `<div style="margin-top:2px"><button class="btn btn-sm" onclick="openBulkFollowup()">아직 안 받은 대상에게 추가 발송</button></div>`;
+  }
+  // 회색 버튼 + 이유. 링크는 따라가면 반드시 열리는 경우에만.
+  const 링크 = s.gotoId
+    ? ` <a href="javascript:void(0)" onclick="openBroadcastDetail('${esc(s.gotoId)}')" style="color:var(--pink)">그 발송 열기</a>` : '';
+  return `<div style="margin-top:2px">
+    <button class="btn btn-sm" disabled style="opacity:.5;cursor:not-allowed">아직 안 받은 대상에게 추가 발송</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(s.why)}${링크}</div>
+  </div>`;
+}
+
 async function openBroadcastDetail(id) {
   const body = document.getElementById('broadcastDetailBody');
   body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">불러오는 중…</div>';
@@ -1645,6 +1699,7 @@ async function openBroadcastDetail(id) {
     <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px">보낸 조건</div>
     ${broadcastFilterSummaryHtml(b)}
+    ${broadcastFollowupRowHtml(b)}
     <div class="broadcast-recips">
       ${recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
         <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
@@ -1661,6 +1716,109 @@ function gotoBroadcastRecipMessage(appId) {
   if (!appId) return;
   closeBroadcastDetail();
   if (typeof openAdminMessageModal === 'function') openAdminMessageModal(appId, null);
+}
+
+// ── 추가 발송 창 ───────────────────────────────────────────
+let _followup = null;   // { parent, campaignIds, filters, allIds, restIds }
+
+function _followupCampaignIds(b) {
+  const f = b.context_filter || {};
+  if (Array.isArray(f.campaign_ids) && f.campaign_ids.length) return f.campaign_ids.slice();
+  return b.context_campaign_id ? [b.context_campaign_id] : [];
+}
+
+async function openBulkFollowup() {
+  const b = _curBroadcastDetail && _curBroadcastDetail.broadcast;
+  if (!b) return;
+  // 화면이 막아야 할 것을 서버가 막기 전에 한 번 더 — 버튼이 회색인데 눌린 경우 대비
+  const s = bulkFollowupState(b);
+  if (!s.ok) { toast(s.why); return; }
+
+  _followup = { parent: b, campaignIds: _followupCampaignIds(b), filters: b.context_filter, allIds: [], restIds: [] };
+  document.getElementById('bulkFollowupFilter').innerHTML = broadcastFilterSummaryHtml(b);
+  document.getElementById('bulkFollowupBody').value = b.body || '';
+  document.getElementById('bulkFollowupNote').style.display = 'none';
+  document.getElementById('bulkFollowupCount').textContent = '대상을 세는 중…';
+  document.getElementById('bulkFollowupSendBtn').disabled = true;
+  openModal('bulkFollowupModal');
+
+  try {
+    // 두 번 센다 — 「지금 조건에 맞는 N건」과 「아직 안 받은 M건」.
+    //   🔴 M 만 보여주면 왜 그 수인지 모른다. 조건이 같아도 그 사이 응모가 취소되거나
+    //      결과물 상태가 바뀌면 대상이 달라진다 — 그게 정상이고 오히려 원하는 바다.
+    const [전체, 나머지] = await Promise.all([
+      Promise.all(_followup.campaignIds.map(cid => resolveBulkRecipients(cid, _followup.filters))),
+      Promise.all(_followup.campaignIds.map(cid => resolveBulkRecipients(cid, _followup.filters, b.id))),
+    ]);
+    const 합 = (arrs) => Array.from(new Set([].concat(...arrs.map(a => a || []))));
+    _followup.allIds = 합(전체);
+    _followup.restIds = 합(나머지);
+  } catch (e) {
+    console.error('[openBulkFollowup]', e);
+    document.getElementById('bulkFollowupCount').textContent = '대상을 세지 못했습니다. 창을 닫고 다시 시도해 주세요.';
+    return;
+  }
+
+  const N = _followup.allIds.length, M = _followup.restIds.length;
+  // ⚠️ 「명」이 아니라 「건」이다 — 캠페인이 여럿이면 한 사람이 여러 건일 수 있다.
+  document.getElementById('bulkFollowupCount').innerHTML =
+    `지금 조건에 맞는 <b>${N}건</b> 중 <b style="color:var(--pink)">아직 안 받은 ${M}건</b>`;
+
+  const note = document.getElementById('bulkFollowupNote');
+  if (M === 0) {
+    note.style.display = '';
+    note.textContent = '추가로 보낼 대상이 없습니다.';
+    document.getElementById('bulkFollowupSendBtn').disabled = true;   // 0건 발송은 헛일이다
+    return;
+  }
+  if (M > BULK_MAX) {
+    // 🔴 막지 않는다 — 막으면 조건에 맞는데 아무에게도 못 보내는 상태가 된다.
+    //    대신 **나머지가 몇 건인지 숫자로** 말한다(안 말하면 다 보냈다고 믿는다).
+    //    ⚠️ 이어 보낼 자리는 **지금 만들어질 발송**이다. 「이 발송에서 다시」가 아니다 —
+    //       보내는 순간 이 발송은 그 사슬의 마지막이 아니게 되어 버튼이 회색이 된다.
+    note.style.display = '';
+    note.textContent = `한 번에 ${BULK_MAX}건까지 보낼 수 있습니다. 지금 ${BULK_MAX}건에게 보내고, 나머지 ${M - BULK_MAX}건은 「지금 만들어질 발송」에서 이어 보내세요.`;
+  }
+  document.getElementById('bulkFollowupSendBtn').disabled = false;
+}
+
+function closeBulkFollowup() { closeModal('bulkFollowupModal'); _followup = null; }
+
+let _followupSending = false;
+async function confirmBulkFollowup() {
+  if (_followupSending || !_followup) return;
+  const 본문 = document.getElementById('bulkFollowupBody').value.trim();
+  if (!본문) { toast('보낼 내용을 입력해 주세요.'); return; }
+  const 대상 = _followup.restIds.slice(0, BULK_MAX);
+  if (!대상.length) { toast('추가로 보낼 대상이 없습니다.'); return; }
+  const 남은 = _followup.restIds.length - 대상.length;
+
+  _followupSending = true;
+  const btn = document.getElementById('bulkFollowupSendBtn');
+  btn.disabled = true; btn.textContent = '보내는 중…';
+  try {
+    const p = _followup.parent;
+    // 🔴 조건 스냅샷을 **손대지 않고 그대로** 넘긴다 — 그래야 부모의 판을 물려받는다.
+    //    판 0 이력에서 이어 보낸 발송에 「지금 판」을 찍으면 그 사슬에서만 판 표시가 눈이 먼다.
+    const 새발송 = await sendApplicationMessageBulk(
+      대상, 본문, [], 'campaign',
+      (_followup.campaignIds.length === 1 ? _followup.campaignIds[0] : null),
+      p.context_filter, null, p.id);
+    closeBulkFollowup();
+    toast(남은 > 0 ? `${대상.length}건 발송했습니다. 남은 ${남은}건은 새 발송에서 이어 보내세요.` : `${대상.length}건 발송했습니다.`);
+    if (typeof loadBroadcasts === 'function') await loadBroadcasts();
+    // ⚠️ 받은편지함도 함께 갱신한다 — 추가 발송도 알림·응대 기록을 **1차와 똑같이** 만든다.
+    //    안 부르면 사이드바 「메시지」 미응대 배지가 옛 숫자로 남는다(`confirmBulkSend` 와 같은 이유).
+    if (typeof refreshInboxData === 'function') await refreshInboxData();
+    // 남은 것이 있으면 **방금 만들어진 발송**을 열어 준다 — 거기서 이어 보낸다.
+    if (새발송) await openBroadcastDetail(새발송);
+  } catch (e) {
+    console.error('[confirmBulkFollowup]', e);
+    toast(friendlyError ? friendlyError(e) : (e.message || '발송에 실패했습니다.'));
+  } finally {
+    _followupSending = false;
+    btn.disabled = false; btn.textContent = '보내기';
+  }
 }
 
 // ── 일괄 회수 ──
