@@ -4625,13 +4625,20 @@ function applyFollowerKindUI(formMode) {
   if (kind === 'and') { wrap.style.display = ''; note.style.display = 'none'; return; }
 
   wrap.style.display = 'none';
+
+  // ⚠️ 채널을 아직 하나도 안 고른 상태에서는 **아무 말도 하지 않는다.**
+  //    채널 수가 0이면 갈래는 'single' 로 나오지만 「모집 채널이 하나」는 사실이 아니다
+  //    (개발서버 화면에서 「모집 채널이 하나(—)」로 뜨는 것을 보고 잡았다).
+  //    칸은 그대로 숨긴 채로 둔다 — 채널이 정해지기 전에는 고를 것도 없다.
+  if (channels.length === 0) { note.style.display = 'none'; return; }
+
   note.style.display = '';
   const chLabel = channels.length === 1
     ? (typeof getChannelLabel === 'function' ? getChannelLabel(channels[0]) : channels[0])
     : '';
   note.innerHTML = (kind === 'or')
     ? '「기준 채널」 칸은 숨겼습니다 — 채널 조건이 <strong>or(하나 이상 해당)</strong>라, 최소 팔로워수는 <strong>모집 채널 중 하나 이상</strong>이 넘으면 통과합니다. 어느 채널을 기준으로 삼을지 고를 필요가 없습니다.'
-    : `「기준 채널」 칸은 숨겼습니다 — 모집 채널이 하나(${esc(chLabel || '—')})라 그 채널로 검사합니다.`;
+    : `「기준 채널」 칸은 숨겼습니다 — 모집 채널이 <strong>${esc(chLabel)}</strong> 하나라 그 채널로 검사합니다.`;
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
