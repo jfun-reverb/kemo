@@ -241,6 +241,9 @@ function switchAdminPane(pane, el, pushHistory) {
     //   데이터베이스 제약(마이그레이션 280)에 걸려 통째로 실패한다. 그 오류 문구로는
     //   원인이 화면 위쪽 체크박스라는 걸 알 수 없다(2026-08-03 리뷰 지적).
     if (typeof resetEventFormFields === 'function') resetEventFormFields('new');
+    // 채널별 최소 팔로워수 상태도 여기서 비운다(2단계) — 안 비우면 직전에 등록한 캠페인의
+    //   조건이 다음 신규 폼에 그대로 남는다. 행사 모드 체크박스와 같은 이유다.
+    if (typeof _minFollowersByChannelState !== 'undefined') _minFollowersByChannelState.new = {};
     initTagInput('tagWrap_newCampHashtags');
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');

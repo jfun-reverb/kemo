@@ -1119,6 +1119,13 @@ async function openEditCampaign(campId) {
   // 채널 매칭 표시 방식 복원 (기본 or)
   const matchVal = camp.channel_match === 'and' ? 'and' : 'or';
   document.querySelectorAll('input[name="editChannelMatch"]').forEach(r => r.checked = (r.value === matchVal));
+  // 채널별 최소 팔로워수 복원 (2단계) — 🔴 **칸을 그리기 전에** 상태에 담아야 한다.
+  //   applyChannelMatchVisibility → applyFollowerKindUI → renderMinFollowersByChannel 순으로
+  //   이어지는데, 그 마지막이 이 상태를 읽는다. 순서가 뒤집히면 **저장된 값이 빈 칸으로 뜨고
+  //   그대로 저장하면 조건이 지워진다.**
+  _minFollowersByChannelState.edit = {};
+  const _mfbc = camp.min_followers_by_channel || {};
+  Object.keys(_mfbc).forEach(k => { const v = Number(_mfbc[k]); if (v > 0) _minFollowersByChannelState.edit[k] = v; });
   applyChannelMatchVisibility('edit');
   // 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시
   applyMinFollowersVisibility('edit', rtVal);
@@ -2849,6 +2856,9 @@ async function saveCampaignEdit() {
       channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
+      // 「그리고」 갈래만 채널별 값을 담는다 — 다른 갈래는 빈 객체로 지운다(2단계).
+      //   ⚠️ 리뷰어형은 팔로워 검사를 아예 안 하므로 여기서도 비운다(min_followers 와 같은 판단).
+      min_followers_by_channel: (recruitTypeEl?.value === 'monitor') ? {} : minFollowersByChannelForSave('edit', editChannel.split(',').filter(Boolean), document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or'),
       primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
       category: gv('editCampCategory'),
       content_types: contentTypes,
@@ -3104,7 +3114,7 @@ async function duplicateCampaign(campId) {
       source_application_id: src.source_application_id || null,
       product: src.product, product_ko: src.product_ko || null,
       product_url: src.product_url,
-      type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
+      type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, min_followers_by_channel: src.min_followers_by_channel || {}, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
@@ -3380,7 +3390,7 @@ async function openDeletedCampDetail(campId) {
     ${row('채널', channelChipsHtml(c.channel, c.channel_match))}
     ${row('삭제 전 상태', esc(stLabel))}
     ${row('모집 인원', c.slots ? `${c.slots}명` : '')}
-    ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
+    ${row('최소 팔로워', deletedCampMinFollowersCell(c))}
     ${row('리워드', esc(c.reward || ''))}
     ${row('리워드 안내', esc(c.reward_note || ''))}
     ${row(delPeriodLabel, periodRangeCell(c.recruit_start, c.deadline))}
@@ -3452,6 +3462,10 @@ function buildPreviewCamp(mode) {
     category: val(g+'Category'),
     slots: parseInt(val(g+'Slots'))||10,
     min_followers: parseInt(val(g+'MinFollowers'))||0,
+    // 채널별 최소 팔로워수 — 없으면 「그리고」 캠페인의 조건이 미리보기에서 통째로 안 보인다
+    //   (그 갈래는 `min_followers` 가 0이고 조건은 이 칸에 있다).
+    min_followers_by_channel: (typeof _minFollowersByChannelState !== 'undefined'
+      ? (_minFollowersByChannelState[mode === 'edit' ? 'edit' : 'new'] || {}) : {}),
     primary_channel: val(g+'PrimaryChannel')||null,
     // 행사 여부 — 이게 없으면 isEventCampaign 이 늘 거짓이라, 미리보기의 행사 분기가
     // 한 번도 안 걸린다. 폼에서 숨긴 칸(채널·콘텐츠·제출마감·당선발표·리워드)이
@@ -3517,6 +3531,12 @@ const CP_I18N = {
     //   (dev/lib/i18n/*.js 의 detail.purchasePeriod) 과 **반드시 같은 말**이어야 한다.
     kRecruitPeriod:'募集期間', kPurchasePeriod:'購入期間', kVisitPeriod:'訪問期間',
     kSubmitDeadline:'提出締切', kSlots:'募集人数', kMinFollowers:'最小フォロワー',
+    // 팔로워 갈래별 표기 — 인플루언서 화면(i18n)과 **같은 말**이어야 한다.
+    //   ⚠️ 번역 파일이 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 여기 따로 둔다.
+    //      인플루언서 쪽 열쇠말: detail.minFollowersAnyChannel · minFollowersUnlimited ·
+    //      minFollowersQoo10Note · minFollowersSuffix. **고칠 때 양쪽을 함께 본다.**
+    vFwAny:'募集チャンネルのいずれかが{n}人以上', vFwUnlimited:'制限なし',
+    vFwQoo10:'（Instagramと同じフォロワー数を見ます）', vFwSuffix:'人以上',
     // 리뷰어형 기간 표기 — 인플루언서 화면(i18n)과 같은 말이어야 한다.
     //   ⚠️ i18n 파일은 관리자 빌드에 없어 t() 를 못 쓴다. 그래서 같은 문구를 여기 따로 둔다.
     kRecruitPurchasePeriod:'募集・購入期間',
@@ -3545,6 +3565,8 @@ const CP_I18N = {
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
     kSubmitDeadline:'제출 마감', kSlots:'모집 인원', kMinFollowers:'최소 팔로워',
+    vFwAny:'모집 채널 중 하나가 {n}명 이상', vFwUnlimited:'제한 없음',
+    vFwQoo10:'(Instagram과 같은 팔로워 수를 봅니다)', vFwSuffix:'명 이상',
     kRecruitPurchasePeriod:'모집 및 구매 기간',
     kRecruitVisitPeriod:'모집 및 방문 기간',
     kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
@@ -3801,7 +3823,30 @@ function renderCampPreview(mode) {
             // 대신하지만, 미리보기는 그 표를 그리지 않아 **행사 시간이 통째로 안 보였다**.
             // 관리자가 방금 만든 시간대가 미리보기에 없으면 안 만들어진 것처럼 읽힌다.
             if (isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kEventTimes)}</div><div class="cp-info-val">${eventTimesPreviewHtml(L, mode)}</div></div>`);
-            if (camp.min_followers && !isEventPreview) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`);
+            // 최소 팔로워수 — 갈래별. 무엇을 보여줄지는 공용 함수가 정하고(`minFollowersDisplay`)
+            //   문구만 위 라벨표로 만든다. 인플루언서 화면과 **같은 재료**를 써야 미리보기가 안 갈린다.
+            //   ⚠️ 예전에는 `camp.min_followers` 하나만 봐서, 「그리고」 캠페인(그 칸이 0이고 조건은
+            //      `min_followers_by_channel` 에 있다)은 **행 자체가 안 그려졌다**(리뷰 지적).
+            if (!isEventPreview) {
+              const fwd = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+              if (fwd) {
+                let fwHtml = '';
+                if (fwd.kind === 'and') {
+                  fwHtml = fwd.rows.map(r => {
+                    const lbl = esc(getChannelLabel(r.channel, lang) || r.channel);
+                    const note = r.borrowed ? ` <span style="font-size:10px;color:var(--muted)">${esc(L.vFwQoo10)}</span>` : '';
+                    return (r.required > 0)
+                      ? `${lbl} ${r.required.toLocaleString()}${esc(L.vFwSuffix)}${note}`
+                      : `${lbl} <span style="color:var(--muted)">${esc(L.vFwUnlimited)}</span>`;
+                  }).join('<br>');
+                } else if (fwd.kind === 'or') {
+                  fwHtml = esc(L.vFwAny.replace('{n}', fwd.required.toLocaleString()));
+                } else {
+                  fwHtml = `${fwd.required.toLocaleString()}${esc(L.vFwSuffix)}`;
+                }
+                rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kMinFollowers)}</div><div class="cp-info-val">${fwHtml}</div></div>`);
+              }
+            }
             // 리뷰어(monitor) 캠페인은 当選発表·報酬 행 제외
             if (!isMonitorPreview && !isEventPreview) {
               rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kWinnerAnnounce)}</div><div class="cp-info-val">${esc(camp.winner_announce||L.winnerDefault)}</div></div>`);
@@ -4418,7 +4463,7 @@ async function addCampaign() {
     brand_ja: brandJa || null,
     brand_en: brandEn || null,
     product_ko: productKo || null,
-    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), min_followers_by_channel: (recruitType==='monitor') ? {} : minFollowersByChannelForSave('new', ch.split(',').filter(Boolean), document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or'), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -4589,6 +4634,199 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   // 판정을 여기에 둔다(호출 순서에 기대지 않는다).
   const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
   wrap.style.display = (recruitType === 'monitor' || isEvent) ? 'none' : '';
+  applyFollowerKindUI(formMode);
+}
+
+// 「그리고」 갈래의 채널별 최소 팔로워수 입력칸 (2단계, 2026-08-27)
+//   사양서 설계 4 · 4-1
+//
+// 🔴 **입력칸은 팔로워 값을 가진 네 채널에만** — Instagram·X·TikTok·YouTube.
+//    LIPS·@cosme 는 팔로워를 담는 자리가 애초에 없어 **항상 0** 이다. 칸을 만들어
+//    담당자가 1,000 을 넣으면 **아무도 통과할 수 없는 조건**이 되는데 화면은 그걸 안 알려 준다.
+//    Qoo10 은 Instagram 값을 빌려 쓰므로 칸을 따로 만들지 않고 **표시만 묶는다**.
+// ⚠️ **값을 안 채운 채널은 「검사 안 함」**(0 아님) — 자리표시가 「제한 없음」인 이유다.
+const MIN_FOLLOWERS_INPUT_CHANNELS = ['instagram', 'x', 'tiktok', 'youtube'];
+
+// 칸이 없는 채널에 대한 한 줄 — 🔴 **이유가 채널마다 다르다.**
+//   Qoo10 은 팔로워 수를 **가진다**(Instagram 것을 빌려 쓴다). 다만 Instagram 이
+//   모집 채널에 함께 없으면 빌려 올 값이 없어 조건을 못 건다. LIPS·@cosme 는
+//   애초에 팔로워를 담는 자리가 없다. **두 이유를 한 문장으로 뭉뚱그리면 담당자가
+//   「Qoo10 은 팔로워가 없구나」로 잘못 배운다.**
+function _noInputChannelNote(값없는채널, channels) {
+  if (!값없는채널.length) return '';
+  const 이름 = c => esc(getChannelLabel(c) || c);
+  const qoo10만빠짐 = 값없는채널.filter(c => c === 'qoo10');
+  const 나머지 = 값없는채널.filter(c => c !== 'qoo10');
+  const 줄 = [];
+  if (qoo10만빠짐.length) {
+    줄.push(`Qoo10 은 <strong>Instagram 과 같은 팔로워 수</strong>를 보는데, 이 캠페인은 Instagram 을 모집하지 않아 조건을 걸 수 없습니다.`);
+  }
+  if (나머지.length) {
+    줄.push(`${나머지.map(이름).join('・')}은(는) 팔로워 수를 저장하지 않아 칸이 없습니다.`);
+  }
+  return '<br>' + 줄.join('<br>');
+}
+
+function renderMinFollowersByChannel(formMode, channels) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'ByChannelWrap');
+  if (!wrap) return;
+
+  const saved = _minFollowersByChannelState[formMode] || {};
+  const 입력가능 = (channels || []).filter(c => MIN_FOLLOWERS_INPUT_CHANNELS.includes(c));
+  // ⚠️ **Qoo10 은 Instagram 이 함께 있으면 「칸 없는 채널」에서 뺀다.** 칸은 없지만
+  //    Instagram 값이 그대로 걸리기 때문이다(설계 4-1). 안 빼면 위에서는
+  //    「Qoo10 도 이 값을 봅니다」라 해 놓고 아래에서 「팔로워 수를 저장하지 않아 칸이
+  //    없습니다」라고 해서 **같은 상자 안 두 문장이 서로를 부정한다**(2026-08-27 화면에서 잡음).
+  const qoo10커버됨 = (channels || []).includes('qoo10') && (channels || []).includes('instagram');
+  const 값없는채널 = (channels || []).filter(c =>
+    !MIN_FOLLOWERS_INPUT_CHANNELS.includes(c) && !(c === 'qoo10' && qoo10커버됨));
+
+  if (입력가능.length === 0) {
+    // 🔴 조건을 걸 수 있는 채널이 하나도 없다 — 운영의 「그리고」 5건이 전부 이 경우다
+    //    (`qoo10,cosme`). 빈 칸만 두면 담당자가 왜 못 넣는지 모른다.
+    wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>`
+      + `<div class="form-hint">이 조합에는 최소 팔로워수를 걸 수 없습니다. ${_noInputChannelNote(값없는채널, channels)}</div>`;
+    return;
+  }
+
+  // 한 줄에 두 칸씩 놓는다(2026-08-27 사용자). 채널이 넷이면 두 줄이면 끝난다.
+  const rows = 입력가능.map((ch, i) => {
+    // 어느 열인지 여기서 정한다 — CSS 에서 `:nth-child` 로 세지 않는다(인덱스 하드코딩 금지).
+    const 열 = (i % 2 === 0) ? 'mfbc-col-left' : 'mfbc-col-right';
+    const label = getChannelLabel(ch) || ch;
+    // Qoo10 이 함께 있고 이 줄이 Instagram 이면 「같은 수를 본다」를 묶어서 알린다(설계 4-1)
+    const qoo10묶음 = (ch === 'instagram' && (channels || []).includes('qoo10'))
+      ? ` <span style="font-size:10px;font-weight:400;color:var(--muted)">· Qoo10 도 이 값을 봅니다</span>` : '';
+    const v = saved[ch];
+    // 🔴 **`id` 를 반드시 준다.** 「저장 안 한 변경이 있습니다」 경고(`admin-campaign-dirty.js`)의
+    //    `campDirtyKey` 가 **`id` 도 `name` 도 없는 칸을 무조건 건너뛴다.** 없으면 담당자가
+    //    값을 입력하고 저장을 안 누른 채 나가도 **경고 없이 조용히 사라진다.**
+    //    ⚠️ 같은 파일에 이미 이 실패에 대한 경고가 있었는데(모집 타입·채널이 통째로 빠졌던
+    //       리뷰 지적) 이 칸을 만들면서 그대로 반복했다. 새 입력칸을 만들 때마다 확인할 것.
+    // ⚠️ 이름칸은 **고정 폭**이다(`flex:1` 아님). 늘어나게 두면 이름이 짧은 채널
+    //    (TikTok 39px)에서 입력칸까지 빈 자리가 길게 벌어진다. 네 이름 중 가장 긴 것이
+    //    60px 이라 68px 이면 다 들어가면서 줄마다 입력칸이 세로로 맞는다.
+    //    ⚠️ Qoo10 묶음 안내가 붙는 줄은 더 길어질 수 있어 `nowrap` 을 주지 않는다.
+    return `<div class="${열}" style="display:flex;align-items:center;gap:6px">
+      <div style="width:68px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
+      <input type="number" class="form-input mfbc-input" style="width:82px;flex-shrink:0" placeholder="제한 없음"
+             id="${esc(g)}Mfbc_${esc(ch)}"
+             data-mfbc-channel="${esc(ch)}" value="${v > 0 ? esc(String(v)) : ''}"
+             oninput="captureMinFollowersByChannel('${formMode}')">
+      <span style="font-size:11px;color:var(--muted);flex-shrink:0">명 이상</span>
+    </div>`;
+  }).join('');
+
+  // 안내는 다른 입력 안내와 같은 모양(`form-hint`)으로 둔다 — 주황 상자는 경고로 읽히는데
+  //   이건 경고가 아니라 사용법이다(2026-08-27 사용자).
+  const 안내 = `<div class="form-hint">채널마다 따로 받습니다. 비워 두면 그 채널은 검사하지 않습니다.${_noInputChannelNote(값없는채널, channels)}</div>`;
+
+  // ⚠️ 이 라벨은 화면 제목이면서 **「저장 안 한 변경」 경고가 항목 이름을 찾는 자리**이기도
+  //    하다(`resolveCampDirtyFieldLabel` 이 `.form-group` 안 `.form-label` 을 읽는다).
+  //    감싸는 요소에 `form-group` 이 없으면 위로 올라가 바깥 「기준 채널」 라벨을 집어
+  //    **틀린 이름**을 보고한다. 라벨을 지우거나 클래스를 바꾸면 그 이름이 같이 틀어진다.
+  wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>`
+    + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 0" class="mfbc-grid">${rows}</div>${안내}`;
+}
+
+// 입력한 채널별 값을 상태에 담는다 — 채널을 바꾸면 칸이 다시 그려지므로 값을 잃지 않게.
+const _minFollowersByChannelState = { new: {}, edit: {} };
+
+function captureMinFollowersByChannel(formMode) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'ByChannelWrap');
+  if (!wrap) return;
+  const out = {};
+  wrap.querySelectorAll('input[data-mfbc-channel]').forEach(inp => {
+    const n = parseInt(inp.value, 10);
+    if (n > 0) out[inp.dataset.mfbcChannel] = n;   // 0·빈칸은 「검사 안 함」이라 안 담는다
+  });
+  _minFollowersByChannelState[formMode] = out;
+}
+
+// 저장할 값 — 「그리고」 갈래가 아니면 빈 객체(그 갈래만 이 칸을 읽는다)
+function minFollowersByChannelForSave(formMode, channels, channelMatch) {
+  const kind = (typeof campaignFollowerKind === 'function')
+    ? campaignFollowerKind({ channel: (channels || []).join(','), channel_match: channelMatch })
+    : 'single';
+  if (kind !== 'and') return {};
+  captureMinFollowersByChannel(formMode);
+  return _minFollowersByChannelState[formMode] || {};
+}
+
+// 팔로워 판정 갈래에 맞춰 기준 채널 칸을 숨기고 안내를 그린다 (1단계, 2026-08-27)
+//   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 4
+//
+// 🔴 **판정(shared.js `meetsMinFollowers`)과 화면을 같은 갈래로 잘라야 한다.** 판정만
+//    바뀌고 칸이 남으면 담당자가 **고르는데 아무 효과 없는 칸**을 계속 고른다. 사양서가
+//    「빠뜨렸다고 읽는 것보다 이쪽이 더 나쁘다」로 못 박은 자리다.
+// 🔴 **왜 사라지는지 한 줄을 반드시 남긴다** — 담당자는 그 칸을 최소 팔로워수와 한 세트로
+//    써 왔다(운영 실측: 최소 팔로워수를 쓰는 48건 **전부** 기준 채널이 채워져 있다).
+//    안 적으면 **빠뜨린 줄 안다.**
+// ⚠️ 칸은 **지우지 않고 숨기기만** 한다 — 저장 로직은 그대로라 기존 값이 보존된다.
+// ⚠️ 「그리고」에서는 **아직 보인다** — 2단계까지는 그 값이 실제로 쓰인다.
+function applyFollowerKindUI(formMode) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'PrimaryChannelWrap');
+  const note = $(g + 'FollowerKindNote');
+  if (!wrap || !note) return;
+
+  // 폼에서 지금 고른 채널·표시 방식으로 가상의 캠페인을 만들어 갈래를 묻는다
+  //   ⚠️ 저장된 값이 아니라 **화면의 현재 선택**을 봐야 한다 — 담당자가 채널을 고치는
+  //      순간 안내도 따라 바뀌어야 한다.
+  // ⚠️ 체크박스 이름은 `newChannel`·`editChannel` 이다(`CAMP_FORM_CFG` 의 `chName`).
+  //    「newCampChannel」 처럼 폼 접두어를 붙여 짐작하면 **한 건도 안 걸려 늘 「채널 1개」로**
+  //    보인다 — 조용히 틀리는 자리라 실제 이름을 확인하고 적었다.
+  const checked = document.querySelectorAll(`input[name="${formMode === 'edit' ? 'editChannel' : 'newChannel'}"]:checked`);
+  const channels = [...checked].map(el => el.value);
+  const matchEl = document.querySelector(`input[name="${formMode === 'edit' ? 'editChannelMatch' : 'newChannelMatch'}"]:checked`);
+  const kind = (typeof campaignFollowerKind === 'function')
+    ? campaignFollowerKind({ channel: channels.join(','), channel_match: matchEl ? matchEl.value : 'or' })
+    : 'single';
+
+  const byWrap = $(g + 'ByChannelWrap');
+  // ⚠️ 「그리고」에서는 **줄 자체**를 숨긴다. 자식(기준 채널·최소 팔로워수)만 숨기면
+  //    빈 줄이 남아 아래 「채널별 최소 팔로워수」 제목이 왼쪽 「채널」 제목보다
+  //    내려간다(2026-08-27 화면에서 잡음 — 두 제목이 14px 어긋났다).
+  const singleRow = $(g + 'SingleFollowerRow');
+  const minWrap = $(g + 'MinFollowers') ? $(g + 'MinFollowers').closest('div') : null;
+
+  if (kind === 'and') {
+    // 🔴 「그리고」 — 채널마다 값을 따로 받는다(2단계, 사양서 설계 4).
+    //    기준 채널 칸도 **여기서 숨긴다** — 이 갈래에서도 그 값은 이제 안 쓰인다.
+    if (singleRow) singleRow.style.display = 'none';
+    wrap.style.display = 'none';
+    if (minWrap) minWrap.style.display = 'none';
+    renderMinFollowersByChannel(formMode, channels);
+    if (byWrap) byWrap.style.display = '';
+    note.style.display = 'none';
+    return;
+  }
+
+  if (singleRow) singleRow.style.display = 'flex';   // ⚠️ 원래 flex 라 '' 로 되돌리면 안 된다
+  if (byWrap) byWrap.style.display = 'none';
+  if (minWrap) minWrap.style.display = '';
+  wrap.style.display = 'none';
+
+  // ⚠️ 채널을 아직 하나도 안 고른 상태에서는 **아무 말도 하지 않는다.**
+  //    채널 수가 0이면 갈래는 'single' 로 나오지만 「모집 채널이 하나」는 사실이 아니다
+  //    (개발서버 화면에서 「모집 채널이 하나(—)」로 뜨는 것을 보고 잡았다).
+  //    칸은 그대로 숨긴 채로 둔다 — 채널이 정해지기 전에는 고를 것도 없다.
+  if (channels.length === 0) { note.style.display = 'none'; return; }
+
+  // 🔴 **채널이 하나면 아무 말도 하지 않는다**(2026-08-27 사용자). 채널이 하나뿐이면
+  //    그 채널로 검사하는 것이 당연해서, 설명을 붙이면 없는 선택지를 있는 것처럼 만든다.
+  //    안내가 필요한 것은 **여러 채널 중 어떻게 판정되는지 모를 때**뿐이다.
+  if (kind !== 'or') { note.style.display = 'none'; return; }
+
+  // ⚠️ **순서 주의** — `removeAttribute('style')` 이 인라인 스타일을 통째로 지우므로
+  //    display 지정보다 **먼저** 불러야 한다. 뒤에 부르면 방금 켠 것이 같이 날아가
+  //    안내가 영영 안 보인다.
+  note.className = 'form-hint';      // 다른 입력 안내와 같은 모양 — 주황 상자는 경고로 읽힌다
+  note.removeAttribute('style');
+  note.style.display = '';
+  note.innerHTML = '모집 채널 중 하나 이상이 넘으면 통과';
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
@@ -4691,6 +4929,10 @@ function applyChannelMatchVisibility(formMode) {
   if (!group) return;
   const count = document.querySelectorAll(`input[name="${cfg.chName}"]:checked`).length;
   group.style.display = count >= 2 ? 'flex' : 'none';
+  // 채널을 고칠 때마다 갈래가 바뀌므로 기준 채널 칸·안내도 여기서 함께 다시 그린다.
+  //   ⚠️ 이 함수는 채널 체크박스 onchange 에 이미 걸려 있다(renderChannelCheckboxes).
+  //      별도 훅을 새로 다는 것보다 여기에 붙이는 편이 빠뜨릴 자리가 적다.
+  applyFollowerKindUI(formMode);
 }
 
 async function renderContentTypeCheckboxes(formMode, preSelectedLabels, recruitType) {
@@ -5920,3 +6162,24 @@ function dismissCampVisibilityHint() {
   try { localStorage.setItem(CAMP_VISIBILITY_HINT_KEY, '1'); } catch (e) { /* 저장 못 해도 닫기는 된다 */ }
   ['new', 'edit'].forEach(p => { const el = $(p + 'CampVisibilityHint'); if (el) el.style.display = 'none'; });
 }
+
+// 삭제된 캠페인 상세의 「최소 팔로워」 칸 (2026-08-27)
+//   ⚠️ `min_followers` 하나만 읽으면 **「그리고」 캠페인이 빈 칸으로 보인다** — 그 갈래는
+//      그 칸이 0이고 조건은 `min_followers_by_channel` 에 있다. 삭제된 캠페인은 되돌릴 수
+//      있으므로(30일 보관) 「조건이 없었다」로 잘못 읽히면 판단이 갈린다.
+//   같은 재료(`minFollowersDisplay`)를 쓰되 이 화면은 **한 줄짜리 표**라 문구만 여기서 만든다.
+function deletedCampMinFollowersCell(c) {
+  const d = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(c) : null;
+  if (!d) return '';
+  if (d.kind === 'and') {
+    return d.rows.map(r => {
+      const lbl = esc(getChannelLabel(r.channel) || r.channel);
+      return (r.required > 0)
+        ? `${lbl} ${r.required.toLocaleString()}명 이상`
+        : `${lbl} <span style="color:var(--muted)">제한 없음</span>`;
+    }).join('<br>');
+  }
+  if (d.kind === 'or') return `모집 채널 중 하나가 ${d.required.toLocaleString()}명 이상`;
+  return `${d.required.toLocaleString()}명 이상`;
+}
+

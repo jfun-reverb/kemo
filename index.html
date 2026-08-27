@@ -3196,6 +3196,171 @@ function postChannelMatchesCampaign(camp, postChannel) {
   return list.includes(String(postChannel).trim().toLowerCase());
 }
 
+// ──────────────────────────────────────
+// 최소 팔로워수 — 채널 묶음에 맞춘 판정 (1단계, 2026-08-27)
+//   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 1
+//   작업표 …-breakdown.md
+//
+// 🔴 **같은 판정이 두 곳에 따로 산다.** 여기(화면)와 홍보 메일 판정 함수(SQL,
+//    `_meets_min_followers` — 베이스 마이그레이션 141)가 **코드를 공유할 수 없다.**
+//    둘이 어긋나면 **홍보 메일은 오는데 응모는 막히거나** 그 반대가 되고,
+//    **어느 쪽도 오류를 내지 않는다.** 이 함수를 고치면 그 SQL 도 같이 고칠 것.
+//
+// ⚠️ 왜 판정을 여기로 뽑았나 — 예전에는 응모 화면 안에만 있었고, 캠페인 채널이
+//    여럿이어도 **기준 채널(primary_channel) 하나**만 봤다. 그래서
+//    「Instagram or X or TikTok」 캠페인에서 **인스타 100명·틱톡 1만명인 사람이 막혔고**,
+//    2026-08-27 00:24 에 담당자가 팝업 3건의 최소 팔로워수를 **1,000 → 0 으로 풀어**
+//    조건 자체를 없앴다(운영 변경 이력에서 확인). 이 함수는 그 재발을 막는다.
+// ──────────────────────────────────────
+
+// 캠페인의 팔로워 판정 갈래. 반환: 'single' | 'or' | 'and'
+//   🔴 **여기가 갈래의 정의처다**(사양서 설계 1). 조건을 바꾸려면 여기만 고친다.
+//   🔴 채널이 하나면 `channel_match` 를 **보지 않는다** — 채널 1개인데 'and' 로 저장된
+//      캠페인이 「그리고」로 빨려 들어가면, 그쪽은 채널별 칸을 읽는데 그 칸이 비어 있어
+//      **팔로워 검사가 통째로 사라진다.**
+function campaignFollowerKind(camp) {
+  const list = campaignChannelTokens(camp);
+  if (list.length <= 1) return 'single';
+  return (String(camp && camp.channel_match || '').trim().toLowerCase() === 'and') ? 'and' : 'or';
+}
+
+// 캠페인 채널 토큰 목록 (소문자·공백 제거·빈값 제외)
+function campaignChannelTokens(camp) {
+  return String(camp && camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+// 인플루언서의 그 채널 팔로워 수.
+//   ⚠️ **Qoo10 은 Instagram 값을 빌려 쓴다**(사양서 설계 4-1) — 예전 응모 판정에 있던
+//      규칙을 그대로 옮겼다. 목록에 없는 채널(LIPS·@cosme)은 **0** 이다(팔로워를 담는
+//      자리가 애초에 없다).
+function followerCountForChannel(profile, channel) {
+  const p = profile || {};
+  switch (String(channel || '').trim().toLowerCase()) {
+    case 'instagram': return p.ig_followers || 0;
+    case 'qoo10':     return p.ig_followers || 0;
+    case 'x':         return p.x_followers || 0;
+    case 'tiktok':    return p.tiktok_followers || 0;
+    case 'youtube':   return p.youtube_followers || 0;
+    default:          return 0;
+  }
+}
+
+// 최소 팔로워수를 충족하는가.
+//   반환: {ok, kind, channel, count, required}
+//     ok=통과 여부 / kind=갈래 / channel·count=차단 시 「어느 채널이 몇 명이라」를 말할 근거
+//   ⚠️ 리뷰어형(monitor)은 **검사하지 않는다**(항상 통과) — 종전 그대로. 영수증으로
+//      검증하는 형식이라 팔로워를 보지 않고, 저장할 때 `min_followers` 가 0 으로 비워진다.
+//   ⚠️ **차단 문구는 이 함수가 만들지 않는다** — 부르는 쪽이 만든다(3단계에서 문구를 고친다).
+function meetsMinFollowers(camp, profile) {
+  const c = camp || {};
+  const kind = campaignFollowerKind(c);
+  const required = Number(c.min_followers) || 0;
+  const list = campaignChannelTokens(c);
+  // 기준 채널: primary_channel 우선, 없으면 첫 채널 (single·and 갈래가 쓴다)
+  const primary = String(c.primary_channel || list[0] || 'instagram').trim().toLowerCase();
+
+  if (c.recruit_type === 'monitor') return { ok: true, kind, channel: primary, count: 0, required };
+  // 🔴 **「그리고」는 이 조기 통과에서 빼야 한다.** 그 갈래는 `min_followers` 를 **안 읽고**
+  //    `min_followers_by_channel` 을 읽으므로, `min_followers` 는 정상적으로 0 이다.
+  //    빼지 않으면 **채널별 조건을 아무리 걸어도 판정이 시작조차 안 하고 전원 통과**한다
+  //    (2026-08-27 개발서버에서 실제로 그랬다 — 코드만 읽어서는 안 보이고 돌려 보고 잡았다).
+  if (kind !== 'and' && required <= 0) return { ok: true, kind, channel: primary, count: 0, required };
+
+  if (kind === 'or') {
+    // 🔴 모집 채널 중 **하나라도** 넘으면 통과. 넘는 채널이 없으면, 그중 **가장 많은**
+    //    채널을 차단 근거로 돌려준다 — 「가장 가까웠던 채널」이 사람에게 가장 쓸모 있다.
+    let best = primary, bestCount = -1;
+    for (const ch of list) {
+      const n = followerCountForChannel(profile, ch);
+      if (n >= required) return { ok: true, kind, channel: ch, count: n, required };
+      if (n > bestCount) { bestCount = n; best = ch; }
+    }
+    return { ok: false, kind, channel: best, count: Math.max(bestCount, 0), required };
+  }
+
+  if (kind === 'and') {
+    // 🔴 채널 **각각**이 그 채널의 값을 넘어야 한다 (2단계, 사양서 설계 2).
+    //    값을 안 채운 채널은 **「검사하지 않는다」** — 0 이 아니라 「없음」이다.
+    //    ⚠️ 못 넘은 채널이 여럿이면 **첫 번째**를 근거로 돌려준다. 부르는 쪽이 필요하면
+    //       `failed` 배열로 전부 말할 수 있다(차단 문구는 못 넘은 채널만 말한다 — 설계 6).
+    const byCh = campaignMinFollowersByChannel(c);
+    const failed = [];
+    for (const ch of list) {
+      const need = byCh[ch];
+      if (!(Number(need) > 0)) continue;       // 값 없음 = 검사 안 함
+      const n = followerCountForChannel(profile, ch);
+      if (n < Number(need)) failed.push({ channel: ch, count: n, required: Number(need) });
+    }
+    if (failed.length === 0) return { ok: true, kind, channel: primary, count: 0, required, failed: [] };
+    return { ok: false, kind, channel: failed[0].channel, count: failed[0].count, required: failed[0].required, failed };
+  }
+
+  // 'single' — 기준 채널 하나를 본다.
+  const n = followerCountForChannel(profile, primary);
+  return { ok: n >= required, kind, channel: primary, count: n, required };
+}
+
+// 「그리고」 갈래의 채널별 최소 팔로워수를 **판정에 쓸 수 있는 모양**으로 돌려준다.
+//   저장 칸(`campaigns.min_followers_by_channel`)을 그대로 쓰지 않는 이유가 **Qoo10** 이다.
+//
+// 🔴 **Qoo10 규칙 — 정의처는 사양서 설계 4-1**(여기 근거를 다시 적지 않는다).
+//    Qoo10 은 Instagram 팔로워 값을 빌려 쓰므로, 입력칸을 따로 만들지 않고
+//    **모집 채널에 Instagram 이 함께 있으면 Instagram 값을 그대로 적용**한다.
+//    없으면 아무 조건도 안 걸린다(입력칸이 없으므로).
+//   ⚠️ 이 함수를 안 거치고 저장 칸을 직접 읽으면, Qoo10 이 늘 「제한 없음」이 되어
+//      **화면은 제한 없다고 하는데 실제로는 막히는** 어긋남이 생긴다.
+function campaignMinFollowersByChannel(camp) {
+  const raw = (camp && camp.min_followers_by_channel) || {};
+  const out = {};
+  Object.keys(raw).forEach(k => {
+    const v = Number(raw[k]);
+    if (v > 0) out[String(k).trim().toLowerCase()] = v;
+  });
+  const list = campaignChannelTokens(camp);
+  if (list.includes('qoo10') && list.includes('instagram') && out.instagram > 0) {
+    out.qoo10 = out.instagram;
+  }
+  return out;
+}
+
+// 「최소 팔로워수」를 화면에 그리기 위한 **재료**를 돌려준다 (3단계, 2026-08-27).
+//   🔴 **문구를 만들지 않는다** — 인플루언서 화면과 관리자 미리보기가 **각자 자기 말로** 그린다.
+//      관리자 빌드에는 번역 파일이 없어 `t()` 가 아예 없고(미리보기는 자체 라벨표를 쓴다),
+//      여기서 문구를 만들면 **한쪽에서만 도는 함수**가 된다.
+//   ⚠️ 그렇다고 판정까지 두 벌로 두면 **미리보기와 실제 화면이 갈린다** — 그래서
+//      「무엇을 보여줄지」는 여기서 한 번만 정하고 「어떻게 쓸지」만 나눈다.
+//
+//   반환:
+//     {kind:'single', required:N}
+//     {kind:'or',     required:N}
+//     {kind:'and',    rows:[{channel, required|0, borrowed}]}   borrowed=Instagram 값을 빌려 쓴 칸
+//     null  — 그릴 것이 없다(조건 없음·리뷰어형 등). 부르는 쪽은 행 자체를 안 그린다.
+function minFollowersDisplay(camp) {
+  const c = camp || {};
+  if (c.recruit_type === 'monitor') return null;   // 리뷰어형은 검사를 안 하므로 줄도 없다
+  const kind = campaignFollowerKind(c);
+  const list = campaignChannelTokens(c);
+
+  if (kind === 'and') {
+    const byCh = campaignMinFollowersByChannel(c);
+    if (!Object.keys(byCh).length) return null;    // 걸 조건이 하나도 없다
+    return {
+      kind: 'and',
+      rows: list.map(ch => ({
+        channel: ch,
+        required: byCh[ch] > 0 ? byCh[ch] : 0,
+        // Qoo10 이 Instagram 값을 물려받은 칸인지 — 화면이 「같은 수를 봅니다」를 붙일 근거
+        borrowed: ch === 'qoo10' && byCh[ch] > 0 && list.includes('instagram')
+      }))
+    };
+  }
+
+  const required = Number(c.min_followers) || 0;
+  if (required <= 0) return null;
+  return { kind, required };
+}
+
 // 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
 //   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
 //   - 앞뒤 공백 제거
@@ -4874,6 +5039,11 @@ window.I18N_JA = {
     recruitSlots: '募集人数',
     minFollowers: '最小フォロワー数',
     minFollowersSuffix: '人以上',
+    minFollowersAnyChannel: '募集チャンネルのいずれかが{n}人以上',
+    minFollowersUnlimited: '制限なし',
+    minFollowersQoo10Note: '（Instagramと同じフォロワー数を見ます）',
+    // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
+    minFollowersCurrent: '{channel} {n}人',
     winnerAnnounce: '当選発表',
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
@@ -4964,6 +5134,9 @@ window.I18N_JA = {
     followerRequirement: 'このキャンペーンの応募条件は',
     followerRequirementSuffix: 'フォロワー {n}人以上 です。',
     yourFollowers: 'あなたの {channel} フォロワー数:',
+    blockedAnyChannel: '募集チャンネルのいずれかが{n}人以上である必要があります。',
+    blockedYours: 'あなたのフォロワー数：',
+    blockedEachChannel: '{channel} {n}人以上が必要です（あなたは{mine}人）。',
     scheduledOverlay: '近日公開',
     scheduledBtn: '近日公開',
     notPublic: 'このキャンペーンは現在公開されていません',
@@ -5210,6 +5383,10 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
+    // 자주 묻는 질문 「팔로워 수 부족」 답변의 첫 줄 ({intro} 자리, messaging.js `_buildFaqCtx`).
+    //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
+    faqFollowerIntroHas: 'このキャンペーンには「最低フォロワー数」の条件があります。',
+    faqFollowerIntroNone: 'このキャンペーンにはフォロワー数の条件はありません。以下は、フォロワー条件があるキャンペーンのご案内です。',
     cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
@@ -5813,6 +5990,11 @@ window.I18N_KO = {
     recruitSlots: '모집 인원',
     minFollowers: '최소 팔로워수',
     minFollowersSuffix: '명 이상',
+    minFollowersAnyChannel: '모집 채널 중 하나가 {n}명 이상',
+    minFollowersUnlimited: '제한 없음',
+    minFollowersQoo10Note: '(Instagram과 같은 팔로워 수를 봅니다)',
+    // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
+    minFollowersCurrent: '{channel} {n}명',
     winnerAnnounce: '당선 발표',
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
@@ -5893,6 +6075,9 @@ window.I18N_KO = {
     followerRequirement: '이 캠페인 응모 조건은',
     followerRequirementSuffix: '팔로워 {n}명 이상입니다.',
     yourFollowers: '당신의 {channel} 팔로워 수:',
+    blockedAnyChannel: '모집 채널 중 하나가 {n}명 이상이어야 합니다.',
+    blockedYours: '당신의 팔로워 수:',
+    blockedEachChannel: '{channel} {n}명 이상이 필요합니다(당신 {mine}명).',
     scheduledOverlay: '공개 예정',
     scheduledBtn: '공개 예정',
     notPublic: '이 캠페인은 현재 공개되지 않았습니다',
@@ -6132,6 +6317,10 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
+    // 자주 묻는 질문 「팔로워 수 부족」 답변의 첫 줄 ({intro} 자리, messaging.js `_buildFaqCtx`).
+    //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
+    faqFollowerIntroHas: '이 캠페인은 최소 팔로워 수 조건이 있습니다.',
+    faqFollowerIntroNone: '이 캠페인은 팔로워 수 조건이 없습니다. 아래는 팔로워 조건이 있는 캠페인의 안내입니다.',
     cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
@@ -14694,8 +14883,12 @@ async function openCampaign(id) {
           }
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
-          if (camp.min_followers && !isEvent) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${camp.min_followers.toLocaleString()}${t('detail.minFollowersSuffix')}</div></div>`);
+          //   갈래별 표시는 `minFollowersDetailLines`(아래) — 판정과 같은 갈래를 쓴다.
+          if (!isEvent && !isMonitor) {
+            const fwLines = minFollowersDetailLines(camp);
+            if (fwLines.length) {
+              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${fwLines.join('<br>')}</div></div>`);
+            }
           }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
           if (!isMonitor && !isEvent) {
@@ -15570,22 +15763,17 @@ function handleFloatApply() {
     $('profileAlertOverlay').style.display = 'flex';
     return;
   }
-  // 최소 팔로워수 체크 — 기준 채널(primary_channel) 단일 검증
-  // 리뷰어(monitor)형은 영수증 검증이라 팔로워 조건 미적용
-  const minF = camp.min_followers || 0;
-  if (minF > 0 && camp.recruit_type !== 'monitor') {
-    const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
-    const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
-    // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
-    // chList 는 camp.channel 을 split(',')+lowercase+trim 한 배열 (위 496줄)
-    const primary = (camp.primary_channel || chList[0] || 'instagram').trim();
-    const primaryName = chNameMap[primary] || primary;
-    const primaryCount = followerMap[primary] || 0;
-    if (primaryCount < minF) {
-      $('alertModalMessage').innerHTML = `${t('detail.followerRequirement')}<br><strong>${primaryName}</strong> ${t('detail.followerRequirementSuffix').replace('{n}',minF.toLocaleString())}<br><br>${t('detail.yourFollowers').replace('{channel}',primaryName)}<br><strong>${primaryCount.toLocaleString()}${t('detail.peopleUnit')}</strong><br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
-      openModal('alertModal');
-      return;
-    }
+  // 최소 팔로워수 체크 — 판정은 `meetsMinFollowers`(shared.js) 한 곳에서 한다.
+  //   사양서 docs/specs/2026-08-27-min-followers-channel-match.md (1단계)
+  //   ⚠️ 예전에는 여기서 **기준 채널 하나**만 봤다. 그래서 「Instagram or X or TikTok」
+  //      캠페인에서 인스타 100명·틱톡 1만명인 사람이 막혔고, 담당자가 조건을 통째로
+  //      풀어 버리는 일이 실제로 있었다(2026-08-27). 이제 「또는」이면 **하나라도** 넘으면 된다.
+  //   ⚠️ 리뷰어형 건너뛰기와 `min_followers <= 0` 통과도 그 함수 안에 있다 — 동작은 종전과 같다.
+  const _fw = meetsMinFollowers(camp, p);
+  if (!_fw.ok) {
+    $('alertModalMessage').innerHTML = followerBlockMessage(camp, p, _fw);
+    openModal('alertModal');
+    return;
   }
   openApplyModal(currentCampaignId);
 }
@@ -15863,6 +16051,82 @@ const CHANNEL_LABELS = {
 //   ① lookup_values 의 현재 언어 라벨 (관리자가 추가한 신규 채널 — 자동 생성 code 'channel-XXXX' 포함)
 //   ② CHANNEL_LABELS 하드코딩 (Instagram·TikTok·YouTube·X·Qoo10·LIPS·@cosme 등 표준 채널)
 //   ③ i18n '기타' 폴백
+// 팔로워 조건에 막혔을 때의 문구 (3단계, 2026-08-27 · 사양서 설계 6)
+//   ⚠️ **막히는 순간의 화면이라 상세 표시보다 더 직접적이다** — 예외를 빠뜨리면 더 크게 드러난다.
+//
+// 🔴 「또는」에서 **모집 채널이 아닌 것은 보여주지 않는다** — 유튜브 10만인 사람에게
+//    `instagram or x` 캠페인에서 「회원님은 YouTube 100,000명입니다」라고 하면
+//    **왜 막혔는지 더 헷갈린다.**
+// 🔴 Qoo10 규칙(설계 4-1)을 여기에도 적용한다 — 안 그러면 「또는」에서
+//    「Instagram 100명 · **Qoo10 100명**」처럼 **같은 수가 두 번** 나온다.
+function followerBlockMessage(camp, profile, fw) {
+  const 경고 = `<br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
+  const 라벨 = ch => esc(getChannelLabelLocal(ch) || ch);
+
+  if (fw.kind === 'or') {
+    const list = campaignChannelTokens(camp);
+    // Qoo10 은 Instagram 과 같은 수라 함께 있으면 한 줄로 묶는다(같은 수를 두 번 안 보여준다)
+    const 보여줄채널 = list.includes('instagram') ? list.filter(c => c !== 'qoo10') : list;
+    const 내수치 = 보여줄채널.map(ch => {
+      const n = followerCountForChannel(profile, ch);
+      const 묶음 = (ch === 'instagram' && list.includes('qoo10')) ? `・Qoo10` : '';
+      return `${라벨(ch)}${묶음} ${n.toLocaleString()}${esc(t('detail.peopleUnit'))}`;
+    }).join(' · ');
+    return `<strong>${esc(t('detail.blockedAnyChannel').replace('{n}', fw.required.toLocaleString()))}</strong>`
+         + `<br><br>${esc(t('detail.blockedYours'))}<br><strong>${내수치}</strong>${경고}`;
+  }
+
+  if (fw.kind === 'and') {
+    // 못 넘은 채널만 말한다 — 넘은 채널까지 늘어놓으면 무엇을 고쳐야 할지 흐려진다
+    const 줄 = (fw.failed || [{channel: fw.channel, count: fw.count, required: fw.required}]).map(f =>
+      esc(t('detail.blockedEachChannel')
+        .replace('{channel}', getChannelLabelLocal(f.channel) || f.channel)
+        .replace('{n}', f.required.toLocaleString())
+        .replace('{mine}', f.count.toLocaleString()))
+    ).join('<br>');
+    return `<strong>${줄}</strong>${경고}`;
+  }
+
+  // 채널 1개 — 종전 문구 그대로
+  const name = getChannelLabelLocal(fw.channel) || fw.channel;
+  return `${t('detail.followerRequirement')}<br><strong>${esc(name)}</strong> `
+       + `${t('detail.followerRequirementSuffix').replace('{n}', fw.required.toLocaleString())}`
+       + `<br><br>${t('detail.yourFollowers').replace('{channel}', esc(name))}`
+       + `<br><strong>${fw.count.toLocaleString()}${t('detail.peopleUnit')}</strong>${경고}`;
+}
+
+// 캠페인 상세의 「최소 팔로워수」 줄 (3단계, 2026-08-27 · 사양서 설계 5)
+//   판정(`meetsMinFollowers`)과 **같은 갈래**를 써야 화면과 실제가 안 갈린다.
+//   반환: 표시할 줄 배열(빈 배열이면 그 행 자체를 안 그린다)
+//
+// 🔴 리뷰어형은 부르는 쪽에서 이미 걸렀다(검사를 안 하므로 줄도 안 그린다 — 설계 5).
+// 🔴 「그리고」에서 **값을 안 채운 채널도 줄을 남기고 「제한 없음」이라 적는다** —
+//    줄을 빼면 「그 채널은 모집 안 하나?」로 읽힌다.
+// 🔴 Qoo10 은 설계 4-1 규칙을 따른다 — 그냥 두면 「제한 없음」이라 적히는데 실제로는
+//    막힐 수 있다(Instagram 값을 빌려 쓰므로). `campaignMinFollowersByChannel` 이 그걸 얹어 준다.
+function minFollowersDetailLines(camp) {
+  // 무엇을 보여줄지는 공용 함수가 정한다(`minFollowersDisplay`, shared.js).
+  //   여기서는 **일본어·한국어 문구만** 만든다 — 관리자 미리보기는 자기 라벨표로 같은 재료를
+  //   그린다. 판정을 두 벌로 두면 미리보기와 실제 화면이 갈린다.
+  const d = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+  if (!d) return [];
+
+  if (d.kind === 'and') {
+    return d.rows.map(r => {
+      const label = esc(getChannelLabelLocal(r.channel) || r.channel);
+      const note = r.borrowed
+        ? ` <span style="font-size:10px;color:var(--muted)">${esc(t('detail.minFollowersQoo10Note'))}</span>` : '';
+      return (r.required > 0)
+        ? `${label} ${r.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}${note}`
+        : `${label} <span style="color:var(--muted)">${esc(t('detail.minFollowersUnlimited'))}</span>`;
+    });
+  }
+  if (d.kind === 'or') {
+    return [esc(t('detail.minFollowersAnyChannel').replace('{n}', d.required.toLocaleString()))];
+  }
+  return [`${d.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}`];
+}
+
 function getChannelLabelLocal(code) {
   if (!code) return '';
   if (typeof getLookupLabel === 'function') {
@@ -19473,26 +19737,71 @@ function formatMMDD(ms) {
 
 // ── FAQ 트리 ──
 
-// 동적 치환 컨텍스트 계산 (§5-1) — {required}=캠페인 min_followers, {current}=본인 대표 SNS 팔로워
+// 동적 치환 컨텍스트 계산 (§5-1) — {required}=이 캠페인의 필요 팔로워, {current}=내 팔로워
+//   ⚠️ 최소 팔로워 조건은 채널 조건에 따라 갈래가 셋이다(채널 하나 / 또는 / 그리고).
+//      예전에는 `camp.min_followers` 숫자 하나와 **본인 대표 SNS** 만 봐서 두 곳이 틀렸다 —
+//      ①「그리고」 캠페인은 그 칸이 0 이라 **필요 수치 줄이 통째로 사라졌고**
+//      ②캠페인에 들어 있지도 않은 채널(대표 SNS)의 팔로워 수를 「현재」로 보여줬다.
+//      이제 무엇을 보여줄지는 공용 함수(`minFollowersDisplay`, shared.js)가 정하고
+//      여기서는 **문구만** 만든다 — 캠페인 상세와 같은 재료를 써야 두 화면이 안 갈린다.
+//   ⚠️ 값은 `renderFaqBody` 가 esc() 하므로 **태그 없는 평문**이어야 한다
+//      (캠페인 상세용 `minFollowersDetailLines` 는 <span> 을 섞어 그대로 못 쓴다).
 function _buildFaqCtx(camp) {
   const ctx = {};
-  const minF = camp?.min_followers || 0;
-  if (minF > 0) ctx.required = minF;
+  const label = ch => (typeof getChannelLabelLocal === 'function' ? getChannelLabelLocal(ch) : '') || ch;
+  // 리뷰어형은 `minFollowersDisplay` 가 null 을 주고, **행사는 여기서 따로 뺀다** —
+  //   그 함수는 행사를 모른다. 실제 응모 게이트(application.js)도 행사면 팔로워 검사
+  //   자체를 안 타므로 화면도 같은 기준으로 맞춘 것이다.
+  const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  const d = (!isEvent && typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+
+  const all = (typeof campaignChannelTokens === 'function') ? campaignChannelTokens(camp) : [];
+  let need = '';
+  let needChannels = [];
+  if (d && d.kind === 'and') {
+    // 값을 안 넣은 채널은 검사하지 않으므로 「필요」에서도 「현재」에서도 뺀다.
+    const rows = (d.rows || []).filter(r => Number(r.required) > 0);
+    need = rows.map(r => `${label(r.channel)} ${Number(r.required).toLocaleString()}${t('detail.minFollowersSuffix')}`).join(' / ');
+    needChannels = rows.map(r => r.channel);
+  } else if (d && d.kind === 'or') {
+    need = t('detail.minFollowersAnyChannel').replace('{n}', Number(d.required).toLocaleString());
+    needChannels = all;
+  } else if (d) {
+    const only = all[0];
+    need = `${only ? label(only) + ' ' : ''}${Number(d.required).toLocaleString()}${t('detail.minFollowersSuffix')}`;
+    needChannels = only ? [only] : [];
+  }
+
+  // 첫 줄({intro})은 조건 유무로 갈린다 — 예전에는 본문에 「조건이 있습니다」가 박혀 있어
+  //   **조건이 없는 캠페인(리뷰어형·행사)에도 그대로 떴다**(바로 아래 두 줄은 값이 없어
+  //   빠지므로, 있다고 해 놓고 아무것도 안 보여 주는 답변이 됐다).
+  //   ⚠️ 이 한 줄의 문구만 본문이 아니라 번역 파일에 있다 — 갈래를 화면이 정하기 때문.
+  ctx.intro = need ? t('messaging.faqFollowerIntroHas') : t('messaging.faqFollowerIntroNone');
+  if (!need) return ctx;
+  ctx.required = need;
+
+  // 「현재」는 **위 「필요」에 나온 채널만** 센다 — 조건이 없는 채널 숫자를 함께 보여주면
+  //   무엇을 고쳐야 하는지 오히려 흐려진다.
   const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
-  // qoo10 은 자체 팔로워 개념이 없어 신청 시 Instagram ID·팔로워를 필수로 받고 그 값으로
-  // 최소 팔로워를 검증한다(application.js 와 동일). 따라서 여기서도 ig_followers 를 폴백으로 쓴다.
-  const followerMap = {
-    instagram: p.ig_followers || 0, x: p.x_followers || 0,
-    tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,
-  };
-  const primary = (p.primary_sns || (camp?.channel || '').split(',')[0] || '').trim();
-  const cur = followerMap[primary];
-  if (cur && cur > 0) ctx.current = cur;
+  const seen = {};
+  const mine = [];
+  needChannels.forEach(ch => {
+    // Qoo10 은 자체 팔로워 개념이 없어 Instagram 값을 빌려 쓴다(판정도 같다).
+    //   같은 숫자를 두 줄로 보여주지 않게 한 번만 센다.
+    const key = (ch === 'qoo10') ? 'instagram' : ch;
+    if (seen[key]) return;
+    seen[key] = true;
+    const n = (typeof followerCountForChannel === 'function') ? followerCountForChannel(p, ch) : 0;
+    mine.push(t('detail.minFollowersCurrent').replace('{channel}', label(ch)).replace('{n}', Number(n || 0).toLocaleString()));
+  });
+  if (mine.length) ctx.current = mine.join(' / ');
   return ctx;
 }
 
 // 본문 동적 치환 (§5-1) — 화이트리스트 토큰만, 값 없으면 그 토큰이 든 줄 통째 생략, 치환값 esc
-const FAQ_TOKEN_WHITELIST = ['required', 'current'];
+//   ⚠️ 여기에 없는 이름은 치환도 안 되고 **줄이 빠지지도 않는다**(본문에 글자 그대로 남는다).
+//      본문에 새 자리를 만들면 이 배열에 반드시 함께 넣을 것.
+const FAQ_TOKEN_WHITELIST = ['intro', 'required', 'current'];
 function renderFaqBody(text, ctx) {
   if (!text) return '';
   ctx = ctx || {};

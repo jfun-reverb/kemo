@@ -490,26 +490,71 @@ function formatMMDD(ms) {
 
 // ── FAQ 트리 ──
 
-// 동적 치환 컨텍스트 계산 (§5-1) — {required}=캠페인 min_followers, {current}=본인 대표 SNS 팔로워
+// 동적 치환 컨텍스트 계산 (§5-1) — {required}=이 캠페인의 필요 팔로워, {current}=내 팔로워
+//   ⚠️ 최소 팔로워 조건은 채널 조건에 따라 갈래가 셋이다(채널 하나 / 또는 / 그리고).
+//      예전에는 `camp.min_followers` 숫자 하나와 **본인 대표 SNS** 만 봐서 두 곳이 틀렸다 —
+//      ①「그리고」 캠페인은 그 칸이 0 이라 **필요 수치 줄이 통째로 사라졌고**
+//      ②캠페인에 들어 있지도 않은 채널(대표 SNS)의 팔로워 수를 「현재」로 보여줬다.
+//      이제 무엇을 보여줄지는 공용 함수(`minFollowersDisplay`, shared.js)가 정하고
+//      여기서는 **문구만** 만든다 — 캠페인 상세와 같은 재료를 써야 두 화면이 안 갈린다.
+//   ⚠️ 값은 `renderFaqBody` 가 esc() 하므로 **태그 없는 평문**이어야 한다
+//      (캠페인 상세용 `minFollowersDetailLines` 는 <span> 을 섞어 그대로 못 쓴다).
 function _buildFaqCtx(camp) {
   const ctx = {};
-  const minF = camp?.min_followers || 0;
-  if (minF > 0) ctx.required = minF;
+  const label = ch => (typeof getChannelLabelLocal === 'function' ? getChannelLabelLocal(ch) : '') || ch;
+  // 리뷰어형은 `minFollowersDisplay` 가 null 을 주고, **행사는 여기서 따로 뺀다** —
+  //   그 함수는 행사를 모른다. 실제 응모 게이트(application.js)도 행사면 팔로워 검사
+  //   자체를 안 타므로 화면도 같은 기준으로 맞춘 것이다.
+  const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  const d = (!isEvent && typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+
+  const all = (typeof campaignChannelTokens === 'function') ? campaignChannelTokens(camp) : [];
+  let need = '';
+  let needChannels = [];
+  if (d && d.kind === 'and') {
+    // 값을 안 넣은 채널은 검사하지 않으므로 「필요」에서도 「현재」에서도 뺀다.
+    const rows = (d.rows || []).filter(r => Number(r.required) > 0);
+    need = rows.map(r => `${label(r.channel)} ${Number(r.required).toLocaleString()}${t('detail.minFollowersSuffix')}`).join(' / ');
+    needChannels = rows.map(r => r.channel);
+  } else if (d && d.kind === 'or') {
+    need = t('detail.minFollowersAnyChannel').replace('{n}', Number(d.required).toLocaleString());
+    needChannels = all;
+  } else if (d) {
+    const only = all[0];
+    need = `${only ? label(only) + ' ' : ''}${Number(d.required).toLocaleString()}${t('detail.minFollowersSuffix')}`;
+    needChannels = only ? [only] : [];
+  }
+
+  // 첫 줄({intro})은 조건 유무로 갈린다 — 예전에는 본문에 「조건이 있습니다」가 박혀 있어
+  //   **조건이 없는 캠페인(리뷰어형·행사)에도 그대로 떴다**(바로 아래 두 줄은 값이 없어
+  //   빠지므로, 있다고 해 놓고 아무것도 안 보여 주는 답변이 됐다).
+  //   ⚠️ 이 한 줄의 문구만 본문이 아니라 번역 파일에 있다 — 갈래를 화면이 정하기 때문.
+  ctx.intro = need ? t('messaging.faqFollowerIntroHas') : t('messaging.faqFollowerIntroNone');
+  if (!need) return ctx;
+  ctx.required = need;
+
+  // 「현재」는 **위 「필요」에 나온 채널만** 센다 — 조건이 없는 채널 숫자를 함께 보여주면
+  //   무엇을 고쳐야 하는지 오히려 흐려진다.
   const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
-  // qoo10 은 자체 팔로워 개념이 없어 신청 시 Instagram ID·팔로워를 필수로 받고 그 값으로
-  // 최소 팔로워를 검증한다(application.js 와 동일). 따라서 여기서도 ig_followers 를 폴백으로 쓴다.
-  const followerMap = {
-    instagram: p.ig_followers || 0, x: p.x_followers || 0,
-    tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,
-  };
-  const primary = (p.primary_sns || (camp?.channel || '').split(',')[0] || '').trim();
-  const cur = followerMap[primary];
-  if (cur && cur > 0) ctx.current = cur;
+  const seen = {};
+  const mine = [];
+  needChannels.forEach(ch => {
+    // Qoo10 은 자체 팔로워 개념이 없어 Instagram 값을 빌려 쓴다(판정도 같다).
+    //   같은 숫자를 두 줄로 보여주지 않게 한 번만 센다.
+    const key = (ch === 'qoo10') ? 'instagram' : ch;
+    if (seen[key]) return;
+    seen[key] = true;
+    const n = (typeof followerCountForChannel === 'function') ? followerCountForChannel(p, ch) : 0;
+    mine.push(t('detail.minFollowersCurrent').replace('{channel}', label(ch)).replace('{n}', Number(n || 0).toLocaleString()));
+  });
+  if (mine.length) ctx.current = mine.join(' / ');
   return ctx;
 }
 
 // 본문 동적 치환 (§5-1) — 화이트리스트 토큰만, 값 없으면 그 토큰이 든 줄 통째 생략, 치환값 esc
-const FAQ_TOKEN_WHITELIST = ['required', 'current'];
+//   ⚠️ 여기에 없는 이름은 치환도 안 되고 **줄이 빠지지도 않는다**(본문에 글자 그대로 남는다).
+//      본문에 새 자리를 만들면 이 배열에 반드시 함께 넣을 것.
+const FAQ_TOKEN_WHITELIST = ['intro', 'required', 'current'];
 function renderFaqBody(text, ctx) {
   if (!text) return '';
   ctx = ctx || {};
