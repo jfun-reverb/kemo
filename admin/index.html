@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787807524';
+  var CURRENT_BUILD = 'v1787807755';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2988,7 +2988,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 14:12 · 1647cd8</span>
+          <span class="admin-build-text">2026-08-27 14:15 · 219ddc2</span>
         </div>
       </div>
     </aside>
@@ -26507,14 +26507,18 @@ function bulkFollowupState(b) {
 
 function broadcastFollowupRowHtml(b) {
   const s = bulkFollowupState(b);
+  // ⚠️ **`btn` 단독은 이 저장소에서 아무 모습도 없다**(배경·테두리 0) — 종류를 반드시 붙인다.
+  //    안 붙이면 글씨만 떠 있어 **버튼인 줄 모른다**(개발서버 화면에서 실제로 그랬다).
+  //    본문 안 동작이라 `btn-ghost`(테두리형). 이 창의 주 동작은 아래쪽 「전체 회수」다.
+  const 클래스 = 'btn btn-ghost btn-sm';
   if (s.ok) {
-    return `<div style="margin-top:2px"><button class="btn btn-sm" onclick="openBulkFollowup()">아직 안 받은 대상에게 추가 발송</button></div>`;
+    return `<div style="margin-top:4px"><button class="${클래스}" onclick="openBulkFollowup()">아직 안 받은 대상에게 추가 발송</button></div>`;
   }
-  // 회색 버튼 + 이유. 링크는 따라가면 반드시 열리는 경우에만.
+  // 못 눌러도 **감추지 않는다** — 회색 + 이유. 링크는 따라가면 반드시 열리는 경우에만.
   const 링크 = s.gotoId
     ? ` <a href="javascript:void(0)" onclick="openBroadcastDetail('${esc(s.gotoId)}')" style="color:var(--pink)">그 발송 열기</a>` : '';
-  return `<div style="margin-top:2px">
-    <button class="btn btn-sm" disabled style="opacity:.5;cursor:not-allowed">아직 안 받은 대상에게 추가 발송</button>
+  return `<div style="margin-top:4px">
+    <button class="${클래스}" disabled style="opacity:.45;cursor:not-allowed">아직 안 받은 대상에게 추가 발송</button>
     <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(s.why)}${링크}</div>
   </div>`;
 }
