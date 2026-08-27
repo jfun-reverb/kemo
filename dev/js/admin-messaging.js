@@ -1338,6 +1338,15 @@ function onBulkFollowerModeChange() {
   scheduleBulkRecount();
 }
 
+// 조건 스냅샷의 판(version).
+//   🔴 **아래 `collectBulkFilters` 의 열쇠말 목록을 고치면 이 숫자를 올릴 것.**
+//      자동으로 안 된다. 안 올리면 옛 이력의 조건이 **조용히 잘못 재현된다** —
+//      오류가 아니라 「조건이 다른데 같다고 우기는 발송」이 나간다.
+//   ⚠️ 이 표시가 없는 옛 이력은 **판 0** 으로 본다. 판 0 은 막지 않기로 했지만
+//      (2026-08-27 결정), **모르는 판이면 막는다**는 장치는 반드시 살아 있어야 한다 —
+//      그것마저 풀면 판 표시가 아무 일도 안 하게 된다.
+const BULK_FILTER_VERSION = 1;
+
 function collectBulkFilters() {
   const pick = (id) => Array.from(document.querySelectorAll(`#${id} input:checked`)).map(i => i.value);
   const appStatuses = pick('bulkAppStatus');
@@ -1351,6 +1360,7 @@ function collectBulkFilters() {
   const followerChannel = document.getElementById('bulkFollowerChannel')?.value || 'instagram';
   const mf = document.getElementById('bulkMinFollowers').value;
   return {
+    v: BULK_FILTER_VERSION,   // [1단계] 이 스냅샷이 어느 판의 열쇠말로 만들어졌나
     appStatuses, receiptStatuses, postStatuses, channels, prefectures,
     followerMode, followerChannel, minFollowers: mf,
     requireVerified: document.getElementById('bulkInflVerified')?.checked || false,
