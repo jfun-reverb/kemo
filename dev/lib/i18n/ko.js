@@ -531,6 +531,8 @@ window.I18N_KO = {
     minFollowersAnyChannel: '모집 채널 중 하나가 {n}명 이상',
     minFollowersUnlimited: '제한 없음',
     minFollowersQoo10Note: '(Instagram과 같은 팔로워 수를 봅니다)',
+    // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
+    minFollowersCurrent: '{channel} {n}명',
     winnerAnnounce: '당선 발표',
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
@@ -853,6 +855,10 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
+    // 자주 묻는 질문 「팔로워 수 부족」 답변의 첫 줄 ({intro} 자리, messaging.js `_buildFaqCtx`).
+    //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
+    faqFollowerIntroHas: '이 캠페인은 최소 팔로워 수 조건이 있습니다.',
+    faqFollowerIntroNone: '이 캠페인은 팔로워 수 조건이 없습니다. 아래는 팔로워 조건이 있는 캠페인의 안내입니다.',
     cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',

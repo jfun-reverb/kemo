@@ -558,6 +558,8 @@ window.I18N_JA = {
     minFollowersAnyChannel: '募集チャンネルのいずれかが{n}人以上',
     minFollowersUnlimited: '制限なし',
     minFollowersQoo10Note: '（Instagramと同じフォロワー数を見ます）',
+    // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
+    minFollowersCurrent: '{channel} {n}人',
     winnerAnnounce: '当選発表',
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
@@ -897,6 +899,10 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
+    // 자주 묻는 질문 「팔로워 수 부족」 답변의 첫 줄 ({intro} 자리, messaging.js `_buildFaqCtx`).
+    //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
+    faqFollowerIntroHas: 'このキャンペーンには「最低フォロワー数」の条件があります。',
+    faqFollowerIntroNone: 'このキャンペーンにはフォロワー数の条件はありません。以下は、フォロワー条件があるキャンペーンのご案内です。',
     cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',

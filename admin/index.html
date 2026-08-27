@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787800354';
+  var CURRENT_BUILD = 'v1787802029';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2988,7 +2988,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 12:12 · ffc88cd</span>
+          <span class="admin-build-text">2026-08-27 12:40 · 10880fc</span>
         </div>
       </div>
     </aside>
@@ -46972,7 +46972,7 @@ async function openDeletedCampDetail(campId) {
     ${row('채널', channelChipsHtml(c.channel, c.channel_match))}
     ${row('삭제 전 상태', esc(stLabel))}
     ${row('모집 인원', c.slots ? `${c.slots}명` : '')}
-    ${row('최소 팔로워', c.min_followers ? Number(c.min_followers).toLocaleString() : '')}
+    ${row('최소 팔로워', deletedCampMinFollowersCell(c))}
     ${row('리워드', esc(c.reward || ''))}
     ${row('리워드 안내', esc(c.reward_note || ''))}
     ${row(delPeriodLabel, periodRangeCell(c.recruit_start, c.deadline))}
@@ -49744,6 +49744,27 @@ function dismissCampVisibilityHint() {
   try { localStorage.setItem(CAMP_VISIBILITY_HINT_KEY, '1'); } catch (e) { /* 저장 못 해도 닫기는 된다 */ }
   ['new', 'edit'].forEach(p => { const el = $(p + 'CampVisibilityHint'); if (el) el.style.display = 'none'; });
 }
+
+// 삭제된 캠페인 상세의 「최소 팔로워」 칸 (2026-08-27)
+//   ⚠️ `min_followers` 하나만 읽으면 **「그리고」 캠페인이 빈 칸으로 보인다** — 그 갈래는
+//      그 칸이 0이고 조건은 `min_followers_by_channel` 에 있다. 삭제된 캠페인은 되돌릴 수
+//      있으므로(30일 보관) 「조건이 없었다」로 잘못 읽히면 판단이 갈린다.
+//   같은 재료(`minFollowersDisplay`)를 쓰되 이 화면은 **한 줄짜리 표**라 문구만 여기서 만든다.
+function deletedCampMinFollowersCell(c) {
+  const d = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(c) : null;
+  if (!d) return '';
+  if (d.kind === 'and') {
+    return d.rows.map(r => {
+      const lbl = esc(getChannelLabel(r.channel) || r.channel);
+      return (r.required > 0)
+        ? `${lbl} ${r.required.toLocaleString()}명 이상`
+        : `${lbl} <span style="color:var(--muted)">제한 없음</span>`;
+    }).join('<br>');
+  }
+  if (d.kind === 'or') return `모집 채널 중 하나가 ${d.required.toLocaleString()}명 이상`;
+  return `${d.required.toLocaleString()}명 이상`;
+}
+
 
 // ══════════════════════════════════════
 // ADMIN APP — 관리자 페이지 초기화
