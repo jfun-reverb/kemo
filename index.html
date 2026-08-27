@@ -3261,7 +3261,11 @@ function meetsMinFollowers(camp, profile) {
   const primary = String(c.primary_channel || list[0] || 'instagram').trim().toLowerCase();
 
   if (c.recruit_type === 'monitor') return { ok: true, kind, channel: primary, count: 0, required };
-  if (required <= 0)               return { ok: true, kind, channel: primary, count: 0, required };
+  // 🔴 **「그리고」는 이 조기 통과에서 빼야 한다.** 그 갈래는 `min_followers` 를 **안 읽고**
+  //    `min_followers_by_channel` 을 읽으므로, `min_followers` 는 정상적으로 0 이다.
+  //    빼지 않으면 **채널별 조건을 아무리 걸어도 판정이 시작조차 안 하고 전원 통과**한다
+  //    (2026-08-27 개발서버에서 실제로 그랬다 — 코드만 읽어서는 안 보이고 돌려 보고 잡았다).
+  if (kind !== 'and' && required <= 0) return { ok: true, kind, channel: primary, count: 0, required };
 
   if (kind === 'or') {
     // 🔴 모집 채널 중 **하나라도** 넘으면 통과. 넘는 채널이 없으면, 그중 **가장 많은**
