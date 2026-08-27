@@ -1155,22 +1155,22 @@ function handleFloatApply() {
     $('profileAlertOverlay').style.display = 'flex';
     return;
   }
-  // 최소 팔로워수 체크 — 기준 채널(primary_channel) 단일 검증
-  // 리뷰어(monitor)형은 영수증 검증이라 팔로워 조건 미적용
-  const minF = camp.min_followers || 0;
-  if (minF > 0 && camp.recruit_type !== 'monitor') {
-    const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
+  // 최소 팔로워수 체크 — 판정은 `meetsMinFollowers`(shared.js) 한 곳에서 한다.
+  //   사양서 docs/specs/2026-08-27-min-followers-channel-match.md (1단계)
+  //   ⚠️ 예전에는 여기서 **기준 채널 하나**만 봤다. 그래서 「Instagram or X or TikTok」
+  //      캠페인에서 인스타 100명·틱톡 1만명인 사람이 막혔고, 담당자가 조건을 통째로
+  //      풀어 버리는 일이 실제로 있었다(2026-08-27). 이제 「또는」이면 **하나라도** 넘으면 된다.
+  //   ⚠️ 리뷰어형 건너뛰기와 `min_followers <= 0` 통과도 그 함수 안에 있다 — 동작은 종전과 같다.
+  const _fw = meetsMinFollowers(camp, p);
+  if (!_fw.ok) {
+    // 🔴 **차단 문구는 이번(1단계)에 안 고친다.** 사양서가 3단계로 미뤘고, 그 사이
+    //    「Instagram 1,000명 필요」처럼 **막힌 이유를 틀리게** 말하는 구간이 생기는 것을
+    //    알고 고른 것이다(사양서 「단계 사이 어긋남」 표). 결함으로 보고하지 말 것.
     const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
-    // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
-    // chList 는 camp.channel 을 split(',')+lowercase+trim 한 배열 (위 496줄)
-    const primary = (camp.primary_channel || chList[0] || 'instagram').trim();
-    const primaryName = chNameMap[primary] || primary;
-    const primaryCount = followerMap[primary] || 0;
-    if (primaryCount < minF) {
-      $('alertModalMessage').innerHTML = `${t('detail.followerRequirement')}<br><strong>${primaryName}</strong> ${t('detail.followerRequirementSuffix').replace('{n}',minF.toLocaleString())}<br><br>${t('detail.yourFollowers').replace('{channel}',primaryName)}<br><strong>${primaryCount.toLocaleString()}${t('detail.peopleUnit')}</strong><br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
-      openModal('alertModal');
-      return;
-    }
+    const chName = chNameMap[_fw.channel] || _fw.channel;
+    $('alertModalMessage').innerHTML = `${t('detail.followerRequirement')}<br><strong>${chName}</strong> ${t('detail.followerRequirementSuffix').replace('{n}',_fw.required.toLocaleString())}<br><br>${t('detail.yourFollowers').replace('{channel}',chName)}<br><strong>${_fw.count.toLocaleString()}${t('detail.peopleUnit')}</strong><br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
+    openModal('alertModal');
+    return;
   }
   openApplyModal(currentCampaignId);
 }

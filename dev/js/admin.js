@@ -4589,6 +4589,49 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   // 판정을 여기에 둔다(호출 순서에 기대지 않는다).
   const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
   wrap.style.display = (recruitType === 'monitor' || isEvent) ? 'none' : '';
+  applyFollowerKindUI(formMode);
+}
+
+// 팔로워 판정 갈래에 맞춰 기준 채널 칸을 숨기고 안내를 그린다 (1단계, 2026-08-27)
+//   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 4
+//
+// 🔴 **판정(shared.js `meetsMinFollowers`)과 화면을 같은 갈래로 잘라야 한다.** 판정만
+//    바뀌고 칸이 남으면 담당자가 **고르는데 아무 효과 없는 칸**을 계속 고른다. 사양서가
+//    「빠뜨렸다고 읽는 것보다 이쪽이 더 나쁘다」로 못 박은 자리다.
+// 🔴 **왜 사라지는지 한 줄을 반드시 남긴다** — 담당자는 그 칸을 최소 팔로워수와 한 세트로
+//    써 왔다(운영 실측: 최소 팔로워수를 쓰는 48건 **전부** 기준 채널이 채워져 있다).
+//    안 적으면 **빠뜨린 줄 안다.**
+// ⚠️ 칸은 **지우지 않고 숨기기만** 한다 — 저장 로직은 그대로라 기존 값이 보존된다.
+// ⚠️ 「그리고」에서는 **아직 보인다** — 2단계까지는 그 값이 실제로 쓰인다.
+function applyFollowerKindUI(formMode) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'PrimaryChannelWrap');
+  const note = $(g + 'FollowerKindNote');
+  if (!wrap || !note) return;
+
+  // 폼에서 지금 고른 채널·표시 방식으로 가상의 캠페인을 만들어 갈래를 묻는다
+  //   ⚠️ 저장된 값이 아니라 **화면의 현재 선택**을 봐야 한다 — 담당자가 채널을 고치는
+  //      순간 안내도 따라 바뀌어야 한다.
+  // ⚠️ 체크박스 이름은 `newChannel`·`editChannel` 이다(`CAMP_FORM_CFG` 의 `chName`).
+  //    「newCampChannel」 처럼 폼 접두어를 붙여 짐작하면 **한 건도 안 걸려 늘 「채널 1개」로**
+  //    보인다 — 조용히 틀리는 자리라 실제 이름을 확인하고 적었다.
+  const checked = document.querySelectorAll(`input[name="${formMode === 'edit' ? 'editChannel' : 'newChannel'}"]:checked`);
+  const channels = [...checked].map(el => el.value);
+  const matchEl = document.querySelector(`input[name="${formMode === 'edit' ? 'editChannelMatch' : 'newChannelMatch'}"]:checked`);
+  const kind = (typeof campaignFollowerKind === 'function')
+    ? campaignFollowerKind({ channel: channels.join(','), channel_match: matchEl ? matchEl.value : 'or' })
+    : 'single';
+
+  if (kind === 'and') { wrap.style.display = ''; note.style.display = 'none'; return; }
+
+  wrap.style.display = 'none';
+  note.style.display = '';
+  const chLabel = channels.length === 1
+    ? (typeof getChannelLabel === 'function' ? getChannelLabel(channels[0]) : channels[0])
+    : '';
+  note.innerHTML = (kind === 'or')
+    ? '「기준 채널」 칸은 숨겼습니다 — 채널 조건이 <strong>or(하나 이상 해당)</strong>라, 최소 팔로워수는 <strong>모집 채널 중 하나 이상</strong>이 넘으면 통과합니다. 어느 채널을 기준으로 삼을지 고를 필요가 없습니다.'
+    : `「기준 채널」 칸은 숨겼습니다 — 모집 채널이 하나(${esc(chLabel || '—')})라 그 채널로 검사합니다.`;
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
@@ -4691,6 +4734,10 @@ function applyChannelMatchVisibility(formMode) {
   if (!group) return;
   const count = document.querySelectorAll(`input[name="${cfg.chName}"]:checked`).length;
   group.style.display = count >= 2 ? 'flex' : 'none';
+  // 채널을 고칠 때마다 갈래가 바뀌므로 기준 채널 칸·안내도 여기서 함께 다시 그린다.
+  //   ⚠️ 이 함수는 채널 체크박스 onchange 에 이미 걸려 있다(renderChannelCheckboxes).
+  //      별도 훅을 새로 다는 것보다 여기에 붙이는 편이 빠뜨릴 자리가 적다.
+  applyFollowerKindUI(formMode);
 }
 
 async function renderContentTypeCheckboxes(formMode, preSelectedLabels, recruitType) {
