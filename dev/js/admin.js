@@ -4704,9 +4704,13 @@ function renderMinFollowersByChannel(formMode, channels) {
     //    값을 입력하고 저장을 안 누른 채 나가도 **경고 없이 조용히 사라진다.**
     //    ⚠️ 같은 파일에 이미 이 실패에 대한 경고가 있었는데(모집 타입·채널이 통째로 빠졌던
     //       리뷰 지적) 이 칸을 만들면서 그대로 반복했다. 새 입력칸을 만들 때마다 확인할 것.
+    // ⚠️ 이름칸은 **고정 폭**이다(`flex:1` 아님). 늘어나게 두면 이름이 짧은 채널
+    //    (TikTok 39px)에서 입력칸까지 빈 자리가 길게 벌어진다. 네 이름 중 가장 긴 것이
+    //    60px 이라 68px 이면 다 들어가면서 줄마다 입력칸이 세로로 맞는다.
+    //    ⚠️ Qoo10 묶음 안내가 붙는 줄은 더 길어질 수 있어 `nowrap` 을 주지 않는다.
     return `<div class="${열}" style="display:flex;align-items:center;gap:6px">
-      <div style="flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
-      <input type="number" class="form-input" style="width:88px;flex-shrink:0" placeholder="제한 없음"
+      <div style="width:68px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--ink)">${esc(label)}${qoo10묶음}</div>
+      <input type="number" class="form-input mfbc-input" style="width:82px;flex-shrink:0" placeholder="제한 없음"
              id="${esc(g)}Mfbc_${esc(ch)}"
              data-mfbc-channel="${esc(ch)}" value="${v > 0 ? esc(String(v)) : ''}"
              oninput="captureMinFollowersByChannel('${formMode}')">
