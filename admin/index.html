@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787794086';
+  var CURRENT_BUILD = 'v1787794279';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2967,7 +2967,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 10:28 · 23c391f</span>
+          <span class="admin-build-text">2026-08-27 10:31 · 466b5ca</span>
         </div>
       </div>
     </aside>
@@ -48132,6 +48132,26 @@ function applyMinFollowersVisibility(formMode, recruitType) {
 // ⚠️ **값을 안 채운 채널은 「검사 안 함」**(0 아님) — 자리표시가 「제한 없음」인 이유다.
 const MIN_FOLLOWERS_INPUT_CHANNELS = ['instagram', 'x', 'tiktok', 'youtube'];
 
+// 칸이 없는 채널에 대한 한 줄 — 🔴 **이유가 채널마다 다르다.**
+//   Qoo10 은 팔로워 수를 **가진다**(Instagram 것을 빌려 쓴다). 다만 Instagram 이
+//   모집 채널에 함께 없으면 빌려 올 값이 없어 조건을 못 건다. LIPS·@cosme 는
+//   애초에 팔로워를 담는 자리가 없다. **두 이유를 한 문장으로 뭉뚱그리면 담당자가
+//   「Qoo10 은 팔로워가 없구나」로 잘못 배운다.**
+function _noInputChannelNote(값없는채널, channels) {
+  if (!값없는채널.length) return '';
+  const 이름 = c => esc(getChannelLabel(c) || c);
+  const qoo10만빠짐 = 값없는채널.filter(c => c === 'qoo10');
+  const 나머지 = 값없는채널.filter(c => c !== 'qoo10');
+  const 줄 = [];
+  if (qoo10만빠짐.length) {
+    줄.push(`Qoo10 은 <strong>Instagram 과 같은 팔로워 수</strong>를 보는데, 이 캠페인은 Instagram 을 모집하지 않아 조건을 걸 수 없습니다.`);
+  }
+  if (나머지.length) {
+    줄.push(`${나머지.map(이름).join('・')}은(는) 팔로워 수를 저장하지 않아 칸이 없습니다.`);
+  }
+  return '<br>' + 줄.join('<br>');
+}
+
 function renderMinFollowersByChannel(formMode, channels) {
   const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
   const wrap = $(g + 'ByChannelWrap');
@@ -48139,13 +48159,19 @@ function renderMinFollowersByChannel(formMode, channels) {
 
   const saved = _minFollowersByChannelState[formMode] || {};
   const 입력가능 = (channels || []).filter(c => MIN_FOLLOWERS_INPUT_CHANNELS.includes(c));
-  const 값없는채널 = (channels || []).filter(c => !MIN_FOLLOWERS_INPUT_CHANNELS.includes(c));
+  // ⚠️ **Qoo10 은 Instagram 이 함께 있으면 「칸 없는 채널」에서 뺀다.** 칸은 없지만
+  //    Instagram 값이 그대로 걸리기 때문이다(설계 4-1). 안 빼면 위에서는
+  //    「Qoo10 도 이 값을 봅니다」라 해 놓고 아래에서 「팔로워 수를 저장하지 않아 칸이
+  //    없습니다」라고 해서 **같은 상자 안 두 문장이 서로를 부정한다**(2026-08-27 화면에서 잡음).
+  const qoo10커버됨 = (channels || []).includes('qoo10') && (channels || []).includes('instagram');
+  const 값없는채널 = (channels || []).filter(c =>
+    !MIN_FOLLOWERS_INPUT_CHANNELS.includes(c) && !(c === 'qoo10' && qoo10커버됨));
 
   if (입력가능.length === 0) {
     // 🔴 조건을 걸 수 있는 채널이 하나도 없다 — 운영의 「그리고」 5건이 전부 이 경우다
     //    (`qoo10,cosme`). 빈 칸만 두면 담당자가 왜 못 넣는지 모른다.
     wrap.innerHTML = `<div style="font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px">
-      이 조합에는 <strong>최소 팔로워수를 걸 수 없습니다</strong> — 고르신 채널(${esc(값없는채널.map(c => getChannelLabel(c) || c).join('・'))})은 팔로워 수를 저장하지 않습니다.
+      이 조합에는 <strong>최소 팔로워수를 걸 수 없습니다</strong> — 고르신 채널(${esc((channels || []).map(c => getChannelLabel(c) || c).join('・'))})로는 판단할 팔로워 수가 없습니다.${_noInputChannelNote(값없는채널, channels)}
     </div>`;
     return;
   }
@@ -48167,7 +48193,7 @@ function renderMinFollowersByChannel(formMode, channels) {
 
   const 안내 = `<div style="font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px;margin-top:4px">
     채널 조건이 <strong>&amp;(모두 해당)</strong>라 <strong>채널마다 따로</strong> 받습니다. 비워 두면 그 채널은 <strong>검사하지 않습니다</strong>.
-    ${값없는채널.length ? `<br>${esc(값없는채널.map(c => getChannelLabel(c) || c).join('・'))}은(는) 팔로워 수를 저장하지 않아 칸이 없습니다.` : ''}
+    ${_noInputChannelNote(값없는채널, channels)}
   </div>`;
 
   wrap.innerHTML = `<label class="form-label" style="margin:0 0 6px">채널별 최소 팔로워수</label>${rows}${안내}`;
