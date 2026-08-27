@@ -1658,14 +1658,18 @@ function bulkFollowupState(b) {
 
 function broadcastFollowupRowHtml(b) {
   const s = bulkFollowupState(b);
+  // ⚠️ **`btn` 단독은 이 저장소에서 아무 모습도 없다**(배경·테두리 0) — 종류를 반드시 붙인다.
+  //    안 붙이면 글씨만 떠 있어 **버튼인 줄 모른다**(개발서버 화면에서 실제로 그랬다).
+  //    본문 안 동작이라 `btn-ghost`(테두리형). 이 창의 주 동작은 아래쪽 「전체 회수」다.
+  const 클래스 = 'btn btn-ghost btn-sm';
   if (s.ok) {
-    return `<div style="margin-top:2px"><button class="btn btn-sm" onclick="openBulkFollowup()">아직 안 받은 대상에게 추가 발송</button></div>`;
+    return `<div style="margin-top:4px"><button class="${클래스}" onclick="openBulkFollowup()">아직 안 받은 대상에게 추가 발송</button></div>`;
   }
-  // 회색 버튼 + 이유. 링크는 따라가면 반드시 열리는 경우에만.
+  // 못 눌러도 **감추지 않는다** — 회색 + 이유. 링크는 따라가면 반드시 열리는 경우에만.
   const 링크 = s.gotoId
     ? ` <a href="javascript:void(0)" onclick="openBroadcastDetail('${esc(s.gotoId)}')" style="color:var(--pink)">그 발송 열기</a>` : '';
-  return `<div style="margin-top:2px">
-    <button class="btn btn-sm" disabled style="opacity:.5;cursor:not-allowed">아직 안 받은 대상에게 추가 발송</button>
+  return `<div style="margin-top:4px">
+    <button class="${클래스}" disabled style="opacity:.45;cursor:not-allowed">아직 안 받은 대상에게 추가 발송</button>
     <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(s.why)}${링크}</div>
   </div>`;
 }
