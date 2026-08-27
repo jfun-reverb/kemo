@@ -588,13 +588,16 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="editCampChannelWrap"></div>
                 <div id="editCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
                   <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
-                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
-                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked onchange="applyFollowerKindUI('edit')" style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" onchange="applyFollowerKindUI('edit')" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
                 </div>
               </div>
               <div class="form-group" id="editCampMinFollowersGroup">
                 <div style="display:flex;gap:8px;align-items:end">
-                  <div style="flex:1">
+                  <!-- 기준 채널 칸은 「그리고」 갈래에서만 보인다. 채널 1개·「또는」에서는
+                       그 값이 판정에 안 쓰이므로 숨긴다(applyFollowerKindUI). 칸 자체는
+                       지우지 않는다 — 운영 57건에 저장값이 있고 되돌릴 길을 남긴다. -->
+                  <div style="flex:1" id="editCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="editCampPrimaryChannel" class="form-input"></select>
                   </div>
@@ -603,6 +606,7 @@
                     <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
+                <div id="editCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -1054,13 +1058,14 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="newCampChannelWrap"></div>
                 <div id="newCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
                   <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
-                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
-                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked onchange="applyFollowerKindUI('new')" style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" onchange="applyFollowerKindUI('new')" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
                 </div>
               </div>
               <div class="form-group" id="newCampMinFollowersGroup">
                 <div style="display:flex;gap:8px;align-items:end">
-                  <div style="flex:1">
+                  <!-- 편집 폼과 같은 규칙 — applyFollowerKindUI 참조 -->
+                  <div style="flex:1" id="newCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="newCampPrimaryChannel" class="form-input"></select>
                   </div>
@@ -1069,6 +1074,7 @@
                     <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
+                <div id="newCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">

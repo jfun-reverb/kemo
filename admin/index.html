@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787754237';
+  var CURRENT_BUILD = 'v1787792042';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2967,7 +2967,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-26 23:23 · aa9454e</span>
+          <span class="admin-build-text">2026-08-27 09:54 · 4f1b7b2</span>
         </div>
       </div>
     </aside>
@@ -3391,13 +3391,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="editCampChannelWrap"></div>
                 <div id="editCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
                   <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
-                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
-                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked onchange="applyFollowerKindUI('edit')" style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" onchange="applyFollowerKindUI('edit')" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
                 </div>
               </div>
               <div class="form-group" id="editCampMinFollowersGroup">
                 <div style="display:flex;gap:8px;align-items:end">
-                  <div style="flex:1">
+                  <!-- 기준 채널 칸은 「그리고」 갈래에서만 보인다. 채널 1개·「또는」에서는
+                       그 값이 판정에 안 쓰이므로 숨긴다(applyFollowerKindUI). 칸 자체는
+                       지우지 않는다 — 운영 57건에 저장값이 있고 되돌릴 길을 남긴다. -->
+                  <div style="flex:1" id="editCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="editCampPrimaryChannel" class="form-input"></select>
                   </div>
@@ -3406,6 +3409,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                     <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
+                <div id="editCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -3857,13 +3861,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="newCampChannelWrap"></div>
                 <div id="newCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
                   <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
-                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
-                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked onchange="applyFollowerKindUI('new')" style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" onchange="applyFollowerKindUI('new')" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
                 </div>
               </div>
               <div class="form-group" id="newCampMinFollowersGroup">
                 <div style="display:flex;gap:8px;align-items:end">
-                  <div style="flex:1">
+                  <!-- 편집 폼과 같은 규칙 — applyFollowerKindUI 참조 -->
+                  <div style="flex:1" id="newCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="newCampPrimaryChannel" class="form-input"></select>
                   </div>
@@ -3872,6 +3877,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                     <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
+                <div id="newCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -8434,6 +8440,94 @@ function postChannelMatchesCampaign(camp, postChannel) {
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   if (list.length === 0) return true; // 채널 미설정 캠페인은 검증 우회(레거시 보호)
   return list.includes(String(postChannel).trim().toLowerCase());
+}
+
+// ──────────────────────────────────────
+// 최소 팔로워수 — 채널 묶음에 맞춘 판정 (1단계, 2026-08-27)
+//   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 1
+//   작업표 …-breakdown.md
+//
+// 🔴 **같은 판정이 두 곳에 따로 산다.** 여기(화면)와 홍보 메일 판정 함수(SQL,
+//    `_meets_min_followers` — 베이스 마이그레이션 141)가 **코드를 공유할 수 없다.**
+//    둘이 어긋나면 **홍보 메일은 오는데 응모는 막히거나** 그 반대가 되고,
+//    **어느 쪽도 오류를 내지 않는다.** 이 함수를 고치면 그 SQL 도 같이 고칠 것.
+//
+// ⚠️ 왜 판정을 여기로 뽑았나 — 예전에는 응모 화면 안에만 있었고, 캠페인 채널이
+//    여럿이어도 **기준 채널(primary_channel) 하나**만 봤다. 그래서
+//    「Instagram or X or TikTok」 캠페인에서 **인스타 100명·틱톡 1만명인 사람이 막혔고**,
+//    2026-08-27 00:24 에 담당자가 팝업 3건의 최소 팔로워수를 **1,000 → 0 으로 풀어**
+//    조건 자체를 없앴다(운영 변경 이력에서 확인). 이 함수는 그 재발을 막는다.
+// ──────────────────────────────────────
+
+// 캠페인의 팔로워 판정 갈래. 반환: 'single' | 'or' | 'and'
+//   🔴 **여기가 갈래의 정의처다**(사양서 설계 1). 조건을 바꾸려면 여기만 고친다.
+//   🔴 채널이 하나면 `channel_match` 를 **보지 않는다** — 채널 1개인데 'and' 로 저장된
+//      캠페인이 「그리고」로 빨려 들어가면, 그쪽은 채널별 칸을 읽는데 그 칸이 비어 있어
+//      **팔로워 검사가 통째로 사라진다.**
+function campaignFollowerKind(camp) {
+  const list = campaignChannelTokens(camp);
+  if (list.length <= 1) return 'single';
+  return (String(camp && camp.channel_match || '').trim().toLowerCase() === 'and') ? 'and' : 'or';
+}
+
+// 캠페인 채널 토큰 목록 (소문자·공백 제거·빈값 제외)
+function campaignChannelTokens(camp) {
+  return String(camp && camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+// 인플루언서의 그 채널 팔로워 수.
+//   ⚠️ **Qoo10 은 Instagram 값을 빌려 쓴다**(사양서 설계 4-1) — 예전 응모 판정에 있던
+//      규칙을 그대로 옮겼다. 목록에 없는 채널(LIPS·@cosme)은 **0** 이다(팔로워를 담는
+//      자리가 애초에 없다).
+function followerCountForChannel(profile, channel) {
+  const p = profile || {};
+  switch (String(channel || '').trim().toLowerCase()) {
+    case 'instagram': return p.ig_followers || 0;
+    case 'qoo10':     return p.ig_followers || 0;
+    case 'x':         return p.x_followers || 0;
+    case 'tiktok':    return p.tiktok_followers || 0;
+    case 'youtube':   return p.youtube_followers || 0;
+    default:          return 0;
+  }
+}
+
+// 최소 팔로워수를 충족하는가.
+//   반환: {ok, kind, channel, count, required}
+//     ok=통과 여부 / kind=갈래 / channel·count=차단 시 「어느 채널이 몇 명이라」를 말할 근거
+//   ⚠️ 리뷰어형(monitor)은 **검사하지 않는다**(항상 통과) — 종전 그대로. 영수증으로
+//      검증하는 형식이라 팔로워를 보지 않고, 저장할 때 `min_followers` 가 0 으로 비워진다.
+//   ⚠️ **차단 문구는 이 함수가 만들지 않는다** — 부르는 쪽이 만든다(3단계에서 문구를 고친다).
+function meetsMinFollowers(camp, profile) {
+  const c = camp || {};
+  const kind = campaignFollowerKind(c);
+  const required = Number(c.min_followers) || 0;
+  const list = campaignChannelTokens(c);
+  // 기준 채널: primary_channel 우선, 없으면 첫 채널 (single·and 갈래가 쓴다)
+  const primary = String(c.primary_channel || list[0] || 'instagram').trim().toLowerCase();
+
+  if (c.recruit_type === 'monitor') return { ok: true, kind, channel: primary, count: 0, required };
+  if (required <= 0)               return { ok: true, kind, channel: primary, count: 0, required };
+
+  if (kind === 'or') {
+    // 🔴 모집 채널 중 **하나라도** 넘으면 통과. 넘는 채널이 없으면, 그중 **가장 많은**
+    //    채널을 차단 근거로 돌려준다 — 「가장 가까웠던 채널」이 사람에게 가장 쓸모 있다.
+    let best = primary, bestCount = -1;
+    for (const ch of list) {
+      const n = followerCountForChannel(profile, ch);
+      if (n >= required) return { ok: true, kind, channel: ch, count: n, required };
+      if (n > bestCount) { bestCount = n; best = ch; }
+    }
+    return { ok: false, kind, channel: best, count: Math.max(bestCount, 0), required };
+  }
+
+  // 'single' · 'and' — 기준 채널 하나를 본다.
+  //   ⚠️ 'and' 를 1단계에서 안 바꾸는 것은 **의도**다(사양서 「단계 사이 어긋남」 표).
+  //      채널별 최소 팔로워수는 2단계에서 들어온다. 그때까지 「그리고」는 종전 동작이고,
+  //      **관리자 화면의 기준 채널 칸도 「그리고」에서만 남는다** — 판정과 화면을 같은
+  //      갈래로 잘라야 「쓰이는데 안 보이는 칸」이 안 생긴다.
+  const n = followerCountForChannel(profile, primary);
+  return { ok: n >= required, kind, channel: primary, count: n, required };
 }
 
 // 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
@@ -47970,6 +48064,49 @@ function applyMinFollowersVisibility(formMode, recruitType) {
   // 판정을 여기에 둔다(호출 순서에 기대지 않는다).
   const isEvent = (typeof isEventModeForm === 'function') && isEventModeForm(formMode);
   wrap.style.display = (recruitType === 'monitor' || isEvent) ? 'none' : '';
+  applyFollowerKindUI(formMode);
+}
+
+// 팔로워 판정 갈래에 맞춰 기준 채널 칸을 숨기고 안내를 그린다 (1단계, 2026-08-27)
+//   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 4
+//
+// 🔴 **판정(shared.js `meetsMinFollowers`)과 화면을 같은 갈래로 잘라야 한다.** 판정만
+//    바뀌고 칸이 남으면 담당자가 **고르는데 아무 효과 없는 칸**을 계속 고른다. 사양서가
+//    「빠뜨렸다고 읽는 것보다 이쪽이 더 나쁘다」로 못 박은 자리다.
+// 🔴 **왜 사라지는지 한 줄을 반드시 남긴다** — 담당자는 그 칸을 최소 팔로워수와 한 세트로
+//    써 왔다(운영 실측: 최소 팔로워수를 쓰는 48건 **전부** 기준 채널이 채워져 있다).
+//    안 적으면 **빠뜨린 줄 안다.**
+// ⚠️ 칸은 **지우지 않고 숨기기만** 한다 — 저장 로직은 그대로라 기존 값이 보존된다.
+// ⚠️ 「그리고」에서는 **아직 보인다** — 2단계까지는 그 값이 실제로 쓰인다.
+function applyFollowerKindUI(formMode) {
+  const g = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const wrap = $(g + 'PrimaryChannelWrap');
+  const note = $(g + 'FollowerKindNote');
+  if (!wrap || !note) return;
+
+  // 폼에서 지금 고른 채널·표시 방식으로 가상의 캠페인을 만들어 갈래를 묻는다
+  //   ⚠️ 저장된 값이 아니라 **화면의 현재 선택**을 봐야 한다 — 담당자가 채널을 고치는
+  //      순간 안내도 따라 바뀌어야 한다.
+  // ⚠️ 체크박스 이름은 `newChannel`·`editChannel` 이다(`CAMP_FORM_CFG` 의 `chName`).
+  //    「newCampChannel」 처럼 폼 접두어를 붙여 짐작하면 **한 건도 안 걸려 늘 「채널 1개」로**
+  //    보인다 — 조용히 틀리는 자리라 실제 이름을 확인하고 적었다.
+  const checked = document.querySelectorAll(`input[name="${formMode === 'edit' ? 'editChannel' : 'newChannel'}"]:checked`);
+  const channels = [...checked].map(el => el.value);
+  const matchEl = document.querySelector(`input[name="${formMode === 'edit' ? 'editChannelMatch' : 'newChannelMatch'}"]:checked`);
+  const kind = (typeof campaignFollowerKind === 'function')
+    ? campaignFollowerKind({ channel: channels.join(','), channel_match: matchEl ? matchEl.value : 'or' })
+    : 'single';
+
+  if (kind === 'and') { wrap.style.display = ''; note.style.display = 'none'; return; }
+
+  wrap.style.display = 'none';
+  note.style.display = '';
+  const chLabel = channels.length === 1
+    ? (typeof getChannelLabel === 'function' ? getChannelLabel(channels[0]) : channels[0])
+    : '';
+  note.innerHTML = (kind === 'or')
+    ? '「기준 채널」 칸은 숨겼습니다 — 채널 조건이 <strong>or(하나 이상 해당)</strong>라, 최소 팔로워수는 <strong>모집 채널 중 하나 이상</strong>이 넘으면 통과합니다. 어느 채널을 기준으로 삼을지 고를 필요가 없습니다.'
+    : `「기준 채널」 칸은 숨겼습니다 — 모집 채널이 하나(${esc(chLabel || '—')})라 그 채널로 검사합니다.`;
 }
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
@@ -48072,6 +48209,10 @@ function applyChannelMatchVisibility(formMode) {
   if (!group) return;
   const count = document.querySelectorAll(`input[name="${cfg.chName}"]:checked`).length;
   group.style.display = count >= 2 ? 'flex' : 'none';
+  // 채널을 고칠 때마다 갈래가 바뀌므로 기준 채널 칸·안내도 여기서 함께 다시 그린다.
+  //   ⚠️ 이 함수는 채널 체크박스 onchange 에 이미 걸려 있다(renderChannelCheckboxes).
+  //      별도 훅을 새로 다는 것보다 여기에 붙이는 편이 빠뜨릴 자리가 적다.
+  applyFollowerKindUI(formMode);
 }
 
 async function renderContentTypeCheckboxes(formMode, preSelectedLabels, recruitType) {
