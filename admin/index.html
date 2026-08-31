@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788161120';
+  var CURRENT_BUILD = 'v1788162084';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-31 16:25 · 12ae391</span>
+          <span class="admin-build-text">2026-08-31 16:41 · 26b7d2b</span>
         </div>
       </div>
     </aside>
@@ -7559,6 +7559,22 @@ var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
 
+// 마지막 캠페인 조회가 **실패**했는가. 빈 목록 안내 문구를 가르는 데만 쓴다 —
+//   「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.
+var _campaignsLoadFailed = false;
+
+// 🔴 예시(가짜) 캠페인을 화면에 내보내도 되는가 — **운영에서는 절대 안 된다.**
+//   그 여섯 건은 `campaign.js` 에 손으로 적어 둔 개발용 표본인데, 브랜드명·마감일·모집인원까지
+//   채워져 있어 **진짜와 구분되지 않는다.** 진짜 목록을 못 받았을 때 코드가 일부러 이걸
+//   대신 내놓게 돼 있어, 운영에서도 회원이 그대로 보게 된다(2026-08-31 확인).
+//   ⚠️ 판정은 데이터베이스를 고를 때 쓰는 그 장치를 그대로 쓴다(`supabase.js` 의 SUPABASE_ENV).
+//      새 기준을 만들면 「어느 서버인가」가 두 벌이 되어 언젠가 갈린다.
+//   ⚠️ 개발서버·로컬은 종전 그대로다 — 데이터베이스 없이 화면을 보는 작업 방식을 안 깬다.
+function demoCampaignsForDisplay() {
+  if (typeof SUPABASE_ENV !== 'undefined' && SUPABASE_ENV === 'production') return [];
+  return DEMO_CAMPAIGNS.slice();
+}
+
 // ══════════════════════════════════════
 // 리치 텍스트 sanitize / render
 // ══════════════════════════════════════
@@ -10071,7 +10087,7 @@ async function restoreRolePermissionsDefaults() {
 }
 
 async function fetchCampaigns() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
     // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
@@ -10080,6 +10096,7 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
+    _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
@@ -10087,12 +10104,14 @@ async function fetchCampaigns() {
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
-    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    // ⚠️ 기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없다.
+    //    🔴 **운영에서는 이제 가짜로 대체하지 않는다**(`demoCampaignsForDisplay`) — 빈 배열이
+    //       돌아가고, 화면이 아래 표시를 보고 「못 불러왔습니다」로 안내한다.
+    _campaignsLoadFailed = true;
     logAppError('fetchCampaigns', e);
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -10135,7 +10154,7 @@ const ADMIN_LIST_COLUMNS = [
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
     // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
@@ -10152,9 +10171,9 @@ async function fetchCampaignsForAdminList() {
       await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 

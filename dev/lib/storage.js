@@ -78,7 +78,7 @@ async function restoreRolePermissionsDefaults() {
 }
 
 async function fetchCampaigns() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
     // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
@@ -87,6 +87,7 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
+    _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
@@ -94,12 +95,14 @@ async function fetchCampaigns() {
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
-    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    // ⚠️ 기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없다.
+    //    🔴 **운영에서는 이제 가짜로 대체하지 않는다**(`demoCampaignsForDisplay`) — 빈 배열이
+    //       돌아가고, 화면이 아래 표시를 보고 「못 불러왔습니다」로 안내한다.
+    _campaignsLoadFailed = true;
     logAppError('fetchCampaigns', e);
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -142,7 +145,7 @@ const ADMIN_LIST_COLUMNS = [
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
     // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
@@ -159,9 +162,9 @@ async function fetchCampaignsForAdminList() {
       await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
