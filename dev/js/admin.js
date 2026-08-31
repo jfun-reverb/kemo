@@ -197,9 +197,12 @@ function buildDeadlineChangeConfirm(kind, ctx) {
   const W = ctx.isEvent
     ? { apply: '예약', who: '방문 예약 화면', act: '예약할' }
     : { apply: '응모', who: '인플루언서 화면', act: '응모할' };
-  const appLine = ctx.appCount > 0
-    ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
-    : '';
+  // ⚠️ `null` 은 조회 실패다 — 숫자 비교만 하면 「0건」처럼 조용히 사라져 경고가 약해진다.
+  const appLine = (ctx.appCount === null || ctx.appCount === undefined)
+    ? `\n· 이미 접수된 ${W.apply} 건수를 확인하지 못했습니다. 접수된 건이 있어도 그대로 유지됩니다.`
+    : ctx.appCount > 0
+      ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
+      : '';
   if (kind === 'reopen') {
     const head = `모집을 다시 열까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}`;
     if (ctx.isDraft) {
@@ -1407,7 +1410,9 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
     if (body) {
       body.innerHTML = `
         <div style="font-size:13px;line-height:1.7;color:var(--ink)">
-          이 캠페인에는 이미 <b style="color:var(--red-d)">${appCount}명</b>의 신청자가 있습니다.<br>
+          ${appCount === null || appCount === undefined
+            ? `<b style="color:var(--red-d)">신청자 수를 확인하지 못했습니다.</b> 신청자가 있을 수 있으니 그대로 두고 진행할지 확인해 주세요.<br>`
+            : `이 캠페인에는 이미 <b style="color:var(--red-d)">${appCount}명</b>의 신청자가 있습니다.<br>`}
           변경 사항은 <b>이후 신규 신청자에게만 적용</b>되며, 기존 신청자가 동의한 시점의 문구는 그대로 효력을 유지합니다.
         </div>
         ${sections.join('')}
@@ -2936,7 +2941,9 @@ async function saveCampaignEdit() {
       change = detectSensitiveChange(updates);
       if (change.anyChanged) {
         _historyAppCount = await countActiveApplications(campId);
-        if (_historyAppCount >= 1) {
+        // 🔴 **모르면 띄운다.** `null` 은 조회 실패이지 「0명」이 아니다 — 숫자로만 비교하면
+        //    (`>= 1`) 실패가 조용히 통과해 **신청자가 있는 캠페인을 경고 없이 바꾸게 된다.**
+        if (_historyAppCount === null || _historyAppCount >= 1) {
           const ok = await showSensitiveChangeConfirm({
             appCount: _historyAppCount,
             cautionChanged: change.cautionChanged,
