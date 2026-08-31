@@ -2250,6 +2250,22 @@ var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
 
+// 마지막 캠페인 조회가 **실패**했는가. 빈 목록 안내 문구를 가르는 데만 쓴다 —
+//   「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.
+var _campaignsLoadFailed = false;
+
+// 🔴 예시(가짜) 캠페인을 화면에 내보내도 되는가 — **운영에서는 절대 안 된다.**
+//   그 여섯 건은 `campaign.js` 에 손으로 적어 둔 개발용 표본인데, 브랜드명·마감일·모집인원까지
+//   채워져 있어 **진짜와 구분되지 않는다.** 진짜 목록을 못 받았을 때 코드가 일부러 이걸
+//   대신 내놓게 돼 있어, 운영에서도 회원이 그대로 보게 된다(2026-08-31 확인).
+//   ⚠️ 판정은 데이터베이스를 고를 때 쓰는 그 장치를 그대로 쓴다(`supabase.js` 의 SUPABASE_ENV).
+//      새 기준을 만들면 「어느 서버인가」가 두 벌이 되어 언젠가 갈린다.
+//   ⚠️ 개발서버·로컬은 종전 그대로다 — 데이터베이스 없이 화면을 보는 작업 방식을 안 깬다.
+function demoCampaignsForDisplay() {
+  if (typeof SUPABASE_ENV !== 'undefined' && SUPABASE_ENV === 'production') return [];
+  return DEMO_CAMPAIGNS.slice();
+}
+
 // ══════════════════════════════════════
 // 리치 텍스트 sanitize / render
 // ══════════════════════════════════════
@@ -5330,6 +5346,8 @@ window.I18N_JA = {
   campaign: {
     emptyState: '現在募集中のキャンペーンはありません',
     emptyStateSub: '近日中に新しいKブランド体験団が登録されます',
+    loadFailed: 'キャンペーンを読み込めませんでした',
+    loadFailedSub: 'しばらくしてから もう一度 ごらんください',
     badgeUrgent: '締切間近',
     badgeRecruiting: '募集中',
     badgeNew: 'NEW',
@@ -6269,6 +6287,8 @@ window.I18N_KO = {
   campaign: {
     emptyState: '현재 모집 중인 캠페인이 없습니다',
     emptyStateSub: '곧 새로운 K브랜드 체험단이 등록됩니다',
+    loadFailed: '캠페인을 불러오지 못했습니다',
+    loadFailedSub: '잠시 후 다시 확인해 주세요',
     badgeUrgent: '마감 임박',
     badgeRecruiting: '모집중',
     badgeNew: 'NEW',
@@ -6535,9 +6555,16 @@ window.I18N_KO = {
 //   추후 영수증·캠페인 이미지 업로드에도 확산 적용 예정(§10).
 //
 //   - HEIC(iPhone 사진) 자동 감지 → JPEG 변환 (heic2any CDN lazy-load)
-//   - Canvas 리사이즈: 긴 변 2048px, JPEG quality 0.85
+//   - Canvas 리사이즈: 긴 변 2048px, JPEG quality 0.85 에서 시작
 //   - EXIF Orientation 자동 보정 (createImageBitmap imageOrientation)
-//   - 압축 후 2MB 초과 시 예외
+//
+//   🔴 **되도록 성공시키는 것이 이 함수의 일이다**(2026-08-31). 회원이 올리는 것은 대개
+//      휴대폰으로 찍은 사진이라, 거부당하면 **크기를 줄일 수단도 고를 다른 사진도 없다.**
+//      그래서 실패하기 전에 세 자리에서 한 번 더 시도한다:
+//        · HEIC 변환 실패 → 원본 그대로 디코드(아이폰은 HEIC 를 스스로 연다)
+//        · 디코드 실패    → `createImageBitmap` 2단 → `<img>` 폴백
+//        · 용량 초과      → 품질을 0.7 → 0.55 → 0.4 로 낮춰 다시 굽는다
+//      그래도 안 되면 그때 예외를 던진다.
 // ════════════════════════════════════════════════════════════════════
 
 const IMG_COMPRESS_DEFAULTS = {
@@ -6570,11 +6597,26 @@ function isHeicFile(file) {
   return /image\/(heic|heif)/.test(type) || /\.(heic|heif)$/.test(name);
 }
 
+// `<img>` 로 디코드한다 — `createImageBitmap` 이 못 여는 형식·브라우저의 마지막 수단.
+//   ⚠️ 주소(objectURL)는 성공·실패 어느 쪽이든 반드시 되돌려준다(누수 방지).
+function _decodeViaImgTag(blob) {
+  return new Promise((resolve, reject) => {
+    let url;
+    try { url = URL.createObjectURL(blob); }
+    catch (e) { reject(new Error('decode_failed')); return; }
+    const im = new Image();
+    im.onload = () => { URL.revokeObjectURL(url); resolve(im); };
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode_failed')); };
+    im.src = url;
+  });
+}
+
 // 메인 압축 함수. file(File/Blob) → 압축된 JPEG File 반환.
 // 실패 코드: 'heic_convert_failed' | 'decode_failed' | 'compress_failed' | 'too_large'
 async function compressImageFile(file, opts = {}) {
   const cfg = Object.assign({}, IMG_COMPRESS_DEFAULTS, opts);
   let workBlob = file;
+  let _heicFallback = false;   // HEIC 변환이 실패해 원본으로 디코드를 시도하는 중인가
 
   // 1) HEIC → JPEG 선변환
   if (isHeicFile(file)) {
@@ -6583,20 +6625,45 @@ async function compressImageFile(file, opts = {}) {
       const converted = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: cfg.quality });
       workBlob = Array.isArray(converted) ? converted[0] : converted;
     } catch (e) {
-      console.error('[compressImageFile] HEIC 변환 실패', e);
-      throw new Error('heic_convert_failed');
+      // 🔴 여기서 곧바로 포기하지 않는다 — **아이폰 사파리는 HEIC 를 스스로 디코드한다.**
+      //    변환 라이브러리는 CDN 에서 받아 오는 것이라 통신 한 번 어긋나면 못 쓰는데,
+      //    그때 원본을 그대로 넘기면 아이폰에서는 대개 그냥 열린다.
+      //    ⚠️ 아래 디코드까지 실패하면 그때 `heic_convert_failed` 로 되돌린다 —
+      //       원인 구분을 잃지 않기 위함이다(그냥 두면 `decode_failed` 로 뭉개진다).
+      console.warn('[compressImageFile] HEIC 변환 실패 — 원본으로 디코드를 시도한다', e);
+      _heicFallback = true;
+      workBlob = file;
     }
   }
 
   // 2) 디코드 (EXIF Orientation 보정 — imageOrientation:'from-image')
+  //   🔴 **세 단계로 버틴다.** 회원이 올리는 것은 대개 휴대폰으로 찍은 사진이라,
+  //      여기서 포기하면 **회원에게 대안이 없다** — 크기를 줄일 수단도, 고를 다른 사진도 없다.
+  //      그래서 같은 사진으로 계속 다시 시도하게 된다(2026-08-31 사용자 지적).
   let bitmap;
   try {
     bitmap = await createImageBitmap(workBlob, { imageOrientation: 'from-image' });
   } catch (e) {
-    // 일부 브라우저는 옵션 미지원 → 폴백
-    try { bitmap = await createImageBitmap(workBlob); }
-    catch (e2) { console.error('[compressImageFile] 디코드 실패', e2); throw new Error('decode_failed'); }
+    try {
+      // 일부 브라우저는 옵션 미지원 → 옵션 없이
+      bitmap = await createImageBitmap(workBlob);
+    } catch (e2) {
+      // ⚠️ 마지막 폴백 — `<img>` 로 디코드한다. `createImageBitmap` 이 못 여는 형식·브라우저가
+      //    실제로 있다(특히 구형 사파리). `drawImage` 는 `<img>` 도 그대로 받는다.
+      //    ⚠️ EXIF 회전은 요즘 브라우저가 `<img>` 에도 알아서 적용한다. 혹 안 되는 기기에서는
+      //       **사진이 돌아가 보일 수 있는데, 아예 못 올리는 것보다 낫다**는 판단이다.
+      try {
+        bitmap = await _decodeViaImgTag(workBlob);
+      } catch (e3) {
+        console.error('[compressImageFile] 디코드 실패 (3단계 모두)', e3);
+        // HEIC 변환이 실패해 원본으로 시도한 경우라면 원래 원인을 돌려준다
+        throw new Error(_heicFallback ? 'heic_convert_failed' : 'decode_failed');
+      }
+    }
   }
+  // `<img>` 는 `width` 가 배치 폭이라 `naturalWidth` 를 먼저 본다
+  const srcW = bitmap.naturalWidth || bitmap.width;
+  const srcH = bitmap.naturalHeight || bitmap.height;
 
   // 3) Canvas 리사이즈
   //   기본은 **긴 변** 기준(영수증·메시지 첨부 — 가로세로 어느 쪽도 너무 크면 안 된다).
@@ -6604,8 +6671,8 @@ async function compressImageFile(file, opts = {}) {
   //      긴 변 기준으로 줄이면 세로 길이 때문에 통째로 축소돼 **글자가 뭉개진다**.
   //      그런 이미지는 가로가 좁아 사실상 줄어들지 않는 것이 맞다.
   const scale = cfg.maxWidth
-    ? Math.min(1, cfg.maxWidth / bitmap.width)
-    : Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+    ? Math.min(1, cfg.maxWidth / srcW)
+    : Math.min(1, cfg.maxEdge / Math.max(srcW, srcH));
   // 3-1) 줄일 필요가 없으면 **원본 그대로** 돌려준다 (`keepIfSmall` 을 준 경우만).
   //   ⚠️ 다시 그리면 JPEG 로 바뀌어 **투명한 PNG 의 배경이 검게** 되고, 줄이지도 않으면서
   //      품질만 깎인다. 캠페인 설명 이미지는 대부분 이 경우다(가로가 화면 폭보다 좁다).
@@ -6617,8 +6684,8 @@ async function compressImageFile(file, opts = {}) {
     return file;
   }
 
-  const w = Math.max(1, Math.round(bitmap.width * scale));
-  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -6627,9 +6694,23 @@ async function compressImageFile(file, opts = {}) {
   if (bitmap.close) bitmap.close();
 
   // 4) JPEG 인코딩
-  const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', cfg.quality));
-  if (!blob) throw new Error('compress_failed');
-  if (blob.size > cfg.maxBytes) throw new Error('too_large');
+  //   🔴 **한도를 넘으면 곧바로 포기하지 않고 품질을 낮춰 다시 굽는다.**
+  //      휴대폰 사진은 회원이 스스로 줄일 수단이 없어, 여기서 거부하면 그 사진은 영영 못 올린다.
+  //      ⚠️ 품질만 낮춘다 — 크기(픽셀)는 그대로 둔다. 영수증 작은 글씨가 읽혀야 하기 때문이다.
+  //      ⚠️ 마지막 단계에서도 넘치면 그때 `too_large` 다(그 문구는 종전 그대로 쓰인다).
+  let blob = null;
+  for (const q of [cfg.quality, 0.7, 0.55, 0.4]) {
+    blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', q));
+    if (!blob) continue;                    // 이 품질에서 실패하면 다음 품질로
+    if (blob.size <= cfg.maxBytes) break;   // 들어왔다
+    blob = null;                            // 아직 크다 — 더 낮춰 본다
+  }
+  if (!blob) {
+    // 마지막 품질에서도 못 만들었으면 무엇이 문제였는지 한 번 더 갈라 본다
+    const last = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.4));
+    if (!last) throw new Error('compress_failed');
+    throw new Error('too_large');
+  }
 
   const baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
   return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
@@ -6851,7 +6932,7 @@ async function restoreRolePermissionsDefaults() {
 }
 
 async function fetchCampaigns() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
     // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
@@ -6860,6 +6941,7 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
+    _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
@@ -6867,12 +6949,14 @@ async function fetchCampaigns() {
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
-    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    // ⚠️ 기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없다.
+    //    🔴 **운영에서는 이제 가짜로 대체하지 않는다**(`demoCampaignsForDisplay`) — 빈 배열이
+    //       돌아가고, 화면이 아래 표시를 보고 「못 불러왔습니다」로 안내한다.
+    _campaignsLoadFailed = true;
     logAppError('fetchCampaigns', e);
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -6915,7 +6999,7 @@ const ADMIN_LIST_COLUMNS = [
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
     // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
@@ -6932,9 +7016,9 @@ async function fetchCampaignsForAdminList() {
       await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -12491,12 +12575,21 @@ async function renderLegalPage() {
     /chrome-extension|moz-extension|safari-extension/i,
     /browser\.runtime/i,               // 아이폰 Safari 확장이 주입한 확장 API 접근 에러 (앱 코드 아님)
     /webkit-masked-url/i,              // Safari 가 확장 스크립트 출처를 가린 URL (스택에만 등장)
-    /__firefox__|window\.__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
+    // ⚠️ `window.` 를 붙여 뒀더니 **접두어 없이 오는 형태**(`Can't find variable: __gCrWeb`)를
+    //    못 잡았다 — 운영 실측으로 확인. 이름만으로 충분히 특이해 접두어를 뺀다.
+    /__firefox__|__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
     /window\.ethereum|window\.solana|selectedAddress|evmAsk/i,  // 브라우저 내장/확장 암호화폐 지갑(Brave·MetaMask 등) 주입 객체 (앱 코드 아님)
     // 2026-07-31 운영 실측으로 들어온 확장 잡음 2종. 주소가 chrome-extension:// 로 안 남고
     //   변수·객체 이름만 남는 형태라 위 규칙에 안 걸렸다.
     /MyApp_RemoveAllHighlights/i,      // 하이라이트 확장이 주입한 전역 함수
     /standardSelectors/i,              // 확장이 주입한 셀렉터 객체
+    // 2026-08-31 운영 오류 로그 전수 조사로 들어온 것들. **전부 실측으로 확인된 문구**이고,
+    //   위 목록이 하나도 못 잡고 있었다(측정해 봄).
+    //   ⚠️ 출처가 확장 프로그램만이 아니다 — **인스타그램·구글 앱의 내장 웹뷰**가 주입한 것도 있다.
+    /\bDarkReader\b/i,                 // 다크 모드 확장
+    /_AutofillCallbackHandler/i,       // 아이폰 자동완성
+    /webkit\.messageHandlers/i,        // 아이폰 내장 웹뷰가 주입하는 다리 객체
+    /Object Not Found Matching Id:/i,  // 알려진 확장 오류(고정 문구)
   ];
 
   // 오류를 사람이 읽을 수 있는 한 줄로.
@@ -12802,7 +12895,25 @@ const _ERR_DICT = {
 
 function friendlyErrorJa(e) {
   // 처리된 에러도 관리자 오류 로그로 수집 (마이그레이션 165) — 수집 실패는 무음
-  if (typeof collectClientError === 'function') { try { collectClientError(e, 'handled'); } catch(_){} }
+  //   🔴 **「예상된 거부」 판정을 여기서도 해야 한다.** 예전에는 `expected` 를 안 넘겨서,
+  //      이 함수를 타고 온 것은 **전부 「예상 못 한 오류」로 기록**됐다. 이 함수가
+  //      화면에 오류를 보여주는 **주 경로**라, 정원 마감·마감 지남·연령 미달·중복 응모 같은
+  //      **정상 거부가 그대로 미해결 배지를 부풀렸다**(2026-08-31 확인).
+  //   ⚠️ 판정 목록은 `shared.js` 의 `APP_ERROR_EXPECTED_PATTERNS` 하나뿐이다 — 여기에
+  //      따로 두지 않는다(두 벌이 되면 한쪽만 늘어난다). shared.js 가 먼저 실려 있다.
+  //   ⚠️ `expected` 는 **거르는 값이 아니라 분류하는 값**이다 — 행은 그대로 쌓이고
+  //      관리자 화면이 진짜 결함과 갈라 보여줄 뿐이다.
+  if (typeof collectClientError === 'function') {
+    try {
+      let _expected = false;
+      try {
+        const _s0 = String(e?.message || e || '');
+        _expected = typeof APP_ERROR_EXPECTED_PATTERNS !== 'undefined'
+          && APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(_s0));
+      } catch(_) { /* 판정 실패는 「예상 못 함」으로 둔다 — 놓치는 쪽이 안전하다 */ }
+      collectClientError(e, 'handled', { expected: _expected });
+    } catch(_){}
+  }
   const lang = (typeof getLang === 'function' ? getLang() : 'ja') === 'ko' ? 'ko' : 'ja';
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
@@ -14076,7 +14187,15 @@ function renderCampaigns(camps) {
   const visible = sortByStatusAndDeadline(visibleCamps(camps));
   const moreBtnWrap = $('campMoreBtnWrap');
   if (!visible.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    // 🔴 **「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.**
+    //    조회가 실패했는데 「현재 모집 중인 캠페인이 없습니다」를 띄우면, 회원은 우리에게
+    //    캠페인이 하나도 없는 줄 알고 떠난다. 예전에는 실패 시 예시 여섯 건을 대신 그려
+    //    이 갈림이 아예 없었다(가짜가 진짜처럼 보였다).
+    const _failed = (typeof _campaignsLoadFailed !== 'undefined') && _campaignsLoadFailed;
+    const _icon = _failed ? 'cloud_off' : 'assignment';
+    const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
+    const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`;
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }
@@ -14779,7 +14898,7 @@ function showSignupFailure(errEl) {
 // ══════════════════════════════════════
 
 async function openCampaign(id) {
-  const camp = allCampaigns.find(c=>c.id===id) || DEMO_CAMPAIGNS.find(c=>c.id===id);
+  const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
 
   // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)
@@ -20914,7 +21033,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
 
-  allCampaigns = DEMO_CAMPAIGNS.slice();
+  // 🔴 부팅 직후 첫 그림 — **운영에서는 비워 둔다.** 예전에는 여기서 예시 여섯 건을
+  //    먼저 그려서, 진짜 목록이 오기 전까지 **모든 접속에서 가짜가 잠깐 보였다.**
+  allCampaigns = demoCampaignsForDisplay();
   if (initPage === 'home') {
     renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
     updateStats(allCampaigns);
