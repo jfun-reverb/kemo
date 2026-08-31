@@ -617,7 +617,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
 
-  allCampaigns = DEMO_CAMPAIGNS.slice();
+  // 🔴 부팅 직후 첫 그림 — **운영에서는 비워 둔다.** 예전에는 여기서 예시 여섯 건을
+  //    먼저 그려서, 진짜 목록이 오기 전까지 **모든 접속에서 가짜가 잠깐 보였다.**
+  allCampaigns = demoCampaignsForDisplay();
   if (initPage === 'home') {
     renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
     updateStats(allCampaigns);

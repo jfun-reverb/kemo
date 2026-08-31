@@ -3,7 +3,7 @@
 // ══════════════════════════════════════
 
 async function openCampaign(id) {
-  const camp = allCampaigns.find(c=>c.id===id) || DEMO_CAMPAIGNS.find(c=>c.id===id);
+  const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
 
   // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)

@@ -2250,6 +2250,22 @@ var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
 
+// 마지막 캠페인 조회가 **실패**했는가. 빈 목록 안내 문구를 가르는 데만 쓴다 —
+//   「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.
+var _campaignsLoadFailed = false;
+
+// 🔴 예시(가짜) 캠페인을 화면에 내보내도 되는가 — **운영에서는 절대 안 된다.**
+//   그 여섯 건은 `campaign.js` 에 손으로 적어 둔 개발용 표본인데, 브랜드명·마감일·모집인원까지
+//   채워져 있어 **진짜와 구분되지 않는다.** 진짜 목록을 못 받았을 때 코드가 일부러 이걸
+//   대신 내놓게 돼 있어, 운영에서도 회원이 그대로 보게 된다(2026-08-31 확인).
+//   ⚠️ 판정은 데이터베이스를 고를 때 쓰는 그 장치를 그대로 쓴다(`supabase.js` 의 SUPABASE_ENV).
+//      새 기준을 만들면 「어느 서버인가」가 두 벌이 되어 언젠가 갈린다.
+//   ⚠️ 개발서버·로컬은 종전 그대로다 — 데이터베이스 없이 화면을 보는 작업 방식을 안 깬다.
+function demoCampaignsForDisplay() {
+  if (typeof SUPABASE_ENV !== 'undefined' && SUPABASE_ENV === 'production') return [];
+  return DEMO_CAMPAIGNS.slice();
+}
+
 // ══════════════════════════════════════
 // 리치 텍스트 sanitize / render
 // ══════════════════════════════════════
@@ -5330,6 +5346,8 @@ window.I18N_JA = {
   campaign: {
     emptyState: '現在募集中のキャンペーンはありません',
     emptyStateSub: '近日中に新しいKブランド体験団が登録されます',
+    loadFailed: 'キャンペーンを読み込めませんでした',
+    loadFailedSub: 'しばらくしてから もう一度 ごらんください',
     badgeUrgent: '締切間近',
     badgeRecruiting: '募集中',
     badgeNew: 'NEW',
@@ -6269,6 +6287,8 @@ window.I18N_KO = {
   campaign: {
     emptyState: '현재 모집 중인 캠페인이 없습니다',
     emptyStateSub: '곧 새로운 K브랜드 체험단이 등록됩니다',
+    loadFailed: '캠페인을 불러오지 못했습니다',
+    loadFailedSub: '잠시 후 다시 확인해 주세요',
     badgeUrgent: '마감 임박',
     badgeRecruiting: '모집중',
     badgeNew: 'NEW',
@@ -6912,7 +6932,7 @@ async function restoreRolePermissionsDefaults() {
 }
 
 async function fetchCampaigns() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
     // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
@@ -6921,6 +6941,7 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
+    _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
@@ -6928,12 +6949,14 @@ async function fetchCampaigns() {
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
-    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    // ⚠️ 기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없다.
+    //    🔴 **운영에서는 이제 가짜로 대체하지 않는다**(`demoCampaignsForDisplay`) — 빈 배열이
+    //       돌아가고, 화면이 아래 표시를 보고 「못 불러왔습니다」로 안내한다.
+    _campaignsLoadFailed = true;
     logAppError('fetchCampaigns', e);
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -6976,7 +6999,7 @@ const ADMIN_LIST_COLUMNS = [
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
     // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
@@ -6993,9 +7016,9 @@ async function fetchCampaignsForAdminList() {
       await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -14164,7 +14187,15 @@ function renderCampaigns(camps) {
   const visible = sortByStatusAndDeadline(visibleCamps(camps));
   const moreBtnWrap = $('campMoreBtnWrap');
   if (!visible.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    // 🔴 **「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.**
+    //    조회가 실패했는데 「현재 모집 중인 캠페인이 없습니다」를 띄우면, 회원은 우리에게
+    //    캠페인이 하나도 없는 줄 알고 떠난다. 예전에는 실패 시 예시 여섯 건을 대신 그려
+    //    이 갈림이 아예 없었다(가짜가 진짜처럼 보였다).
+    const _failed = (typeof _campaignsLoadFailed !== 'undefined') && _campaignsLoadFailed;
+    const _icon = _failed ? 'cloud_off' : 'assignment';
+    const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
+    const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`;
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }
@@ -14867,7 +14898,7 @@ function showSignupFailure(errEl) {
 // ══════════════════════════════════════
 
 async function openCampaign(id) {
-  const camp = allCampaigns.find(c=>c.id===id) || DEMO_CAMPAIGNS.find(c=>c.id===id);
+  const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
 
   // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)
@@ -21002,7 +21033,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
 
-  allCampaigns = DEMO_CAMPAIGNS.slice();
+  // 🔴 부팅 직후 첫 그림 — **운영에서는 비워 둔다.** 예전에는 여기서 예시 여섯 건을
+  //    먼저 그려서, 진짜 목록이 오기 전까지 **모든 접속에서 가짜가 잠깐 보였다.**
+  allCampaigns = demoCampaignsForDisplay();
   if (initPage === 'home') {
     renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
     updateStats(allCampaigns);

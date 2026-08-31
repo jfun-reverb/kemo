@@ -8,6 +8,22 @@ var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
 
+// 마지막 캠페인 조회가 **실패**했는가. 빈 목록 안내 문구를 가르는 데만 쓴다 —
+//   「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.
+var _campaignsLoadFailed = false;
+
+// 🔴 예시(가짜) 캠페인을 화면에 내보내도 되는가 — **운영에서는 절대 안 된다.**
+//   그 여섯 건은 `campaign.js` 에 손으로 적어 둔 개발용 표본인데, 브랜드명·마감일·모집인원까지
+//   채워져 있어 **진짜와 구분되지 않는다.** 진짜 목록을 못 받았을 때 코드가 일부러 이걸
+//   대신 내놓게 돼 있어, 운영에서도 회원이 그대로 보게 된다(2026-08-31 확인).
+//   ⚠️ 판정은 데이터베이스를 고를 때 쓰는 그 장치를 그대로 쓴다(`supabase.js` 의 SUPABASE_ENV).
+//      새 기준을 만들면 「어느 서버인가」가 두 벌이 되어 언젠가 갈린다.
+//   ⚠️ 개발서버·로컬은 종전 그대로다 — 데이터베이스 없이 화면을 보는 작업 방식을 안 깬다.
+function demoCampaignsForDisplay() {
+  if (typeof SUPABASE_ENV !== 'undefined' && SUPABASE_ENV === 'production') return [];
+  return DEMO_CAMPAIGNS.slice();
+}
+
 // ══════════════════════════════════════
 // 리치 텍스트 sanitize / render
 // ══════════════════════════════════════
