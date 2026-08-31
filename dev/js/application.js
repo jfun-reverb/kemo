@@ -34,10 +34,29 @@ async function openCampaign(id) {
   let _myApp = null;
   let hasCancelledHistory = false;
   if (currentUser) {
+    // 🔴 아래 조회를 `await` 하는 사이에 세션이 사라질 수 있다. 그러면 `currentUser` 가
+    //    null 이 되어 **두 번째 조회의 `currentUser.id` 에서 터진다** — 운영 실측
+    //    2026-08-31 18:03 `TypeError: Cannot read properties of null (reading 'id')`.
+    //    잡히지 않은 거부(rejection)라 캠페인 상세가 그리다 만 채로 멈춘다.
+    //    그래서 **가드를 통과한 그 자리에서 한 번만** 꺼내 두고 이후로는 그 값을 쓴다.
+    //    ⚠️ 세션이 죽었으면 조회가 행 단위 보안 정책에 막혀 0건이 되고 「아직 응모 안 함」
+    //       으로 그려진다. 화면이 통째로 멈추는 것보다 낫고, 만료 자체는
+    //       `onAuthStateChange` 가 받아 로그인 화면으로 보낸다.
+    //    ⚠️ **같은 위험이 이 파일에 세 곳 더 있다** — `_submitApplicationInner`(응모 제출) ·
+    //       `_addDraftImageInner`(영수증·현장사진) · `_addDraftReviewImageInner`(리뷰 인증샷).
+    //       뒤의 둘은 **사진을 올리는 동안** 세션이 끊기면 터지는 자리라, 파일은 이미
+    //       저장소에 올라간 채 남는다. 아직 운영에서 터진 적이 없어 이번엔 손대지 않았다.
+    //    🔴 **네 곳이 아니라 세 곳이다.** `_addDraftUrlInner`(게시물 주소)도 가드 뒤에서
+    //       `currentUser.id` 를 다시 읽지만 **그 사이에 `await` 가 없다** — 그 값은
+    //       `insertDraftDeliverable(...)` 의 **인자라서 `await` 가 멈추기 전에 계산**된다.
+    //       자바스크립트는 한 줄기로 돌아 `await` 가 없으면 그 사이에 값이 바뀔 수 없다.
+    //       **`await` 가 사이에 있는지로 가른다** — 「가드 뒤에서 다시 읽는다」만 보고
+    //       세면 고칠 필요 없는 자리를 고치게 된다(2026-09-01 검수에서 실제로 걸렸다).
+    const _uid = currentUser.id;
     // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
     // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
     const {data:_appData} = await (db?.from('applications').select('*')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', _uid)
       .eq('campaign_id', id)
       .neq('status', 'cancelled')
       .maybeSingle() || {data:null});
@@ -46,7 +65,7 @@ async function openCampaign(id) {
     if (!alreadyApplied) {
       // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
       const {data:_cancelled} = await (db?.from('applications').select('id')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', _uid)
         .eq('campaign_id', id)
         .eq('status', 'cancelled')
         .limit(1)
