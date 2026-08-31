@@ -78,7 +78,7 @@ async function restoreRolePermissionsDefaults() {
 }
 
 async function fetchCampaigns() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
     // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
@@ -87,6 +87,7 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
+    _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
@@ -94,12 +95,14 @@ async function fetchCampaigns() {
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
-    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    // ⚠️ 기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없다.
+    //    🔴 **운영에서는 이제 가짜로 대체하지 않는다**(`demoCampaignsForDisplay`) — 빈 배열이
+    //       돌아가고, 화면이 아래 표시를 보고 「못 불러왔습니다」로 안내한다.
+    _campaignsLoadFailed = true;
     logAppError('fetchCampaigns', e);
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -142,7 +145,7 @@ const ADMIN_LIST_COLUMNS = [
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
     // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
@@ -159,9 +162,9 @@ async function fetchCampaignsForAdminList() {
       await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -919,10 +922,18 @@ async function countActiveApplications(campaignId) {
     if (error) throw error;
     return count || 0;
   } catch(e) {
-    // ⚠️ 조회 실패가 0(=「아무도 응모 안 함」)으로 읽혀 **정원이 남은 것처럼 보인다**.
-    //    반환값은 종전 그대로 두고 기록만 남긴다 — 뒤바뀐 판정을 사후에 추적하기 위함.
+    // 🔴 **조회 실패는 `null` 로 돌려준다 — 0(=「아무도 응모 안 함」)과 구분해야 한다.**
+    //    예전에는 0 을 돌려줘서 부르는 쪽이 「응모자 없음」으로 읽었고, 관리자 확인창이
+    //    **조용히 안 떴다**(신청자가 있는 캠페인의 주의사항·참여방법·NG 를 경고 없이 바꾸게 된다).
+    //    ⚠️ 부르는 쪽 4곳의 동작:
+    //      · application.js:63  `if (cnt > 0)` — null 도 false 라 캐시값 유지. **종전과 같다**
+    //      · application.js:975 `realCount >= slots` — null 도 false 라 안 막는다. **종전과 같고**
+    //        실제 삽입은 데이터베이스 트리거(048, 현재 원본 179)가 막는다
+    //      · admin.js 확인창 2곳 — **null 을 「모른다」로 보고 경고를 띄우도록 고쳤다**(이번 변경)
+    //    ⚠️ 새로 부르는 곳을 만들면 **null 을 반드시 따로 다뤄야 한다** — 숫자로만 비교하면
+    //       실패가 조용히 「0명」이 된다. 그게 이 결함의 원래 모습이었다.
     logAppError('countActiveApplications', e);
-    return 0;
+    return null;
   }
 }
 
@@ -2351,6 +2362,12 @@ async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_
       p_next_participation_set_id: next?.participation_set_id || null,
       p_prev_participation_steps: prev?.participation_steps ?? null,
       p_next_participation_steps: next?.participation_steps ?? null,
+      // ⚠️ 조회 실패(null)는 여기서 **0 으로 저장된다** — `app_count_at_change` 가 NOT NULL 이고
+      //    원격 호출 함수도 `COALESCE(p_app_count, 0)` 이라 「모름」을 담을 자리가 없다(마이그레이션 077).
+      //    🔴 대신 **`bypass_warning_ack=true` 이면서 `app_count=0`** 인 조합이 「조회 실패」를 뜻한다 —
+      //       확인창은 신청자가 1명 이상일 때만 떴으므로 그 조합은 예전에는 나올 수 없었다.
+      //       (077 의 컬럼 주석도 그 조합을 「일반적이지 않다」고 적고 있다.)
+      //    이력에 「모름」을 제대로 담으려면 데이터베이스 변경이 필요하다 — 별건.
       p_app_count: Number.isFinite(app_count) ? app_count : 0,
       p_bypass_ack: !!bypass_ack,
       // migration 109: NG 사항 파라미터 (미전달 시 RPC 기본값 NULL)

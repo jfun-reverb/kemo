@@ -199,6 +199,8 @@ window.I18N_KO = {
       btn: '재설정 메일 보내기',
       backLink: '로그인으로 돌아가기',
       successMsg: '입력하신 이메일이 등록되어 있다면 재설정 메일을 보냈습니다. 메일함(스팸함 포함)을 확인해주세요.',
+      tooSoon: '방금 메일을 보냈습니다. 조금 기다리면 다시 보낼 수 있습니다. 메일이 안 왔다면 스팸함도 확인해주세요.',
+      waitingBtn: '잠시 기다려주세요',
     },
     reset: {
       title: '새 비밀번호',
@@ -771,6 +773,8 @@ window.I18N_KO = {
   campaign: {
     emptyState: '현재 모집 중인 캠페인이 없습니다',
     emptyStateSub: '곧 새로운 K브랜드 체험단이 등록됩니다',
+    loadFailed: '캠페인을 불러오지 못했습니다',
+    loadFailedSub: '잠시 후 다시 확인해 주세요',
     badgeUrgent: '마감 임박',
     badgeRecruiting: '모집중',
     badgeNew: 'NEW',
