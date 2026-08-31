@@ -12499,11 +12499,40 @@ async function renderLegalPage() {
     /standardSelectors/i,              // 확장이 주입한 셀렉터 객체
   ];
 
+  // 오류를 사람이 읽을 수 있는 한 줄로.
+  //   🔴 예전에는 `message` 가 없는 객체를 만나면 `String(v)` → **`[object Object]`** 였다.
+  //      그러면 ①무슨 오류였는지 영영 모르고 ②**서로 다른 오류가 지문 하나로 뭉쳐**
+  //      관리자 화면에 한 줄로 합쳐진다. 운영에서 실제로 그렇게 기록된 건이 있다.
+  //   ⚠️ 그렇다고 객체를 통째로 쏟지 않는다 — `_mask` 가 가리는 것은 이메일·전화·우편번호·
+  //      토큰뿐이라, 이름·주소 같은 값이 실리면 그대로 저장된다. **아는 자리만 골라 꺼내고,**
+  //      아무 데도 없으면 **값이 아니라 「키 목록」**만 남긴다.
+  //   ⚠️ 빈 문자열을 돌려주면 collectClientError 가 그 오류를 **통째로 버린다**(`if (!msg) return`).
+  //      그래서 마지막 갈래까지 반드시 무언가를 돌려준다.
   function _toMessage(v) {
     try {
       if (typeof v === 'string') return v;
-      if (v && v.message) return String(v.message);
-      return String(v);
+      if (v == null) return '';
+      if (typeof v !== 'object') return String(v);
+
+      // 1) 오류 문구가 흔히 들어 있는 자리
+      for (const k of ['message', 'error_description', 'msg', 'statusText']) {
+        if (v[k] && typeof v[k] !== 'object') return String(v[k]);
+      }
+      // 2) 한 겹 안쪽 — `{error: {...}}` 형태. **한 겹만** 본다(순환 참조 방지)
+      if (typeof v.error === 'string' && v.error) return v.error;
+      if (v.error && typeof v.error === 'object' && v.error.message) return String(v.error.message);
+
+      // 3) 문구가 없으면 판독에 쓰이는 조각만 모은다.
+      //    `details` 는 값이 실릴 수 있으나 `_mask` 와 서버 2차 마스킹이 `(열)=(값)` 형태를 가린다.
+      const parts = [];
+      for (const k of ['code', 'name', 'status', 'reason', 'hint', 'details']) {
+        if (v[k] != null && typeof v[k] !== 'object') parts.push(k + '=' + String(v[k]));
+      }
+      if (parts.length) return parts.join(' ');
+
+      // 4) 그래도 없으면 **모양만** — `[object Object]` 는 다음 사람에게 아무것도 안 알려준다
+      const keys = Object.keys(v).slice(0, 12);
+      return keys.length ? ('(속성: ' + keys.join(', ') + ')') : String(v);
     } catch (_) { return ''; }
   }
 
