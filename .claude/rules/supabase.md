@@ -1,6 +1,9 @@
 ---
 description: Supabase DB/Storage/Auth 접근 패턴 규칙
-globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
+paths:
+  - "supabase/**"
+  - "dev/lib/storage.js"
+  - "dev/lib/supabase.js"
 ---
 
 # Supabase 규칙

@@ -1,6 +1,10 @@
 ---
 description: 빌드 워크플로우 규칙
-globs: "dev/**"
+paths:
+  - "dev/**"
+  - "build.sh"
+  - "index.html"
+  - "admin/index.html"
 ---
 
 # 빌드 규칙

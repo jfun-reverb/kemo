@@ -1,6 +1,9 @@
 ---
 description: UI 레이아웃 및 일본어 규칙
-globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
+paths:
+  - "dev/**/*.html"
+  - "dev/css/**"
+  - "dev/js/**"
 ---
 
 # UI/레이아웃 규칙

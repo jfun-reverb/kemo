@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1787821610';
+  var CURRENT_BUILD = 'v1788154937';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-27 18:06 · 6c5f3c0</span>
+          <span class="admin-build-text">2026-08-31 14:42 · 473eafa</span>
         </div>
       </div>
     </aside>
@@ -13739,9 +13739,16 @@ const MSG_ATTACH_BUCKET = 'application-message-attachments';
 // get_application_messages RPC 가 호출자 역할(본인 인플 / is_admin)에 따라 마스킹.
 async function fetchApplicationMessages(applicationId) {
   if (!db || !applicationId) return [];
-  const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
-  if (error) throw error;
-  return data || [];
+  // 바로 아래 발송 함수와 같은 재시도 보호. 이쪽만 빠져 있었다(2026-08-31).
+  //   ⚠️ 이것이 막는 것은 「세션은 있는데 접근 토큰만 만료된」 경우다.
+  //      **세션이 통째로 없는 경우는 못 막는다** — `retryWithRefresh` 는
+  //      'row-level security'·'JWT expired' 일 때만 재시도한다. 그쪽은
+  //      `openMessagesPage` 의 로그인 확인이 막는다(messaging.js).
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
+    if (error) throw error;
+    return data || [];
+  });
 }
 
 // 메시지 발송 (인플루언서·관리자 공용, sender_kind 는 서버가 판별).
