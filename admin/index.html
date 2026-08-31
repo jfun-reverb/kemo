@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788158742';
+  var CURRENT_BUILD = 'v1788159210';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-08-31 15:45 · 5ab8869</span>
+          <span class="admin-build-text">2026-08-31 15:53 · 86f67d5</span>
         </div>
       </div>
     </aside>
@@ -10851,10 +10851,18 @@ async function countActiveApplications(campaignId) {
     if (error) throw error;
     return count || 0;
   } catch(e) {
-    // ⚠️ 조회 실패가 0(=「아무도 응모 안 함」)으로 읽혀 **정원이 남은 것처럼 보인다**.
-    //    반환값은 종전 그대로 두고 기록만 남긴다 — 뒤바뀐 판정을 사후에 추적하기 위함.
+    // 🔴 **조회 실패는 `null` 로 돌려준다 — 0(=「아무도 응모 안 함」)과 구분해야 한다.**
+    //    예전에는 0 을 돌려줘서 부르는 쪽이 「응모자 없음」으로 읽었고, 관리자 확인창이
+    //    **조용히 안 떴다**(신청자가 있는 캠페인의 주의사항·참여방법·NG 를 경고 없이 바꾸게 된다).
+    //    ⚠️ 부르는 쪽 4곳의 동작:
+    //      · application.js:63  `if (cnt > 0)` — null 도 false 라 캐시값 유지. **종전과 같다**
+    //      · application.js:975 `realCount >= slots` — null 도 false 라 안 막는다. **종전과 같고**
+    //        실제 삽입은 데이터베이스 트리거(048, 현재 원본 179)가 막는다
+    //      · admin.js 확인창 2곳 — **null 을 「모른다」로 보고 경고를 띄우도록 고쳤다**(이번 변경)
+    //    ⚠️ 새로 부르는 곳을 만들면 **null 을 반드시 따로 다뤄야 한다** — 숫자로만 비교하면
+    //       실패가 조용히 「0명」이 된다. 그게 이 결함의 원래 모습이었다.
     logAppError('countActiveApplications', e);
-    return 0;
+    return null;
   }
 }
 
@@ -12283,6 +12291,12 @@ async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_
       p_next_participation_set_id: next?.participation_set_id || null,
       p_prev_participation_steps: prev?.participation_steps ?? null,
       p_next_participation_steps: next?.participation_steps ?? null,
+      // ⚠️ 조회 실패(null)는 여기서 **0 으로 저장된다** — `app_count_at_change` 가 NOT NULL 이고
+      //    원격 호출 함수도 `COALESCE(p_app_count, 0)` 이라 「모름」을 담을 자리가 없다(마이그레이션 077).
+      //    🔴 대신 **`bypass_warning_ack=true` 이면서 `app_count=0`** 인 조합이 「조회 실패」를 뜻한다 —
+      //       확인창은 신청자가 1명 이상일 때만 떴으므로 그 조합은 예전에는 나올 수 없었다.
+      //       (077 의 컬럼 주석도 그 조합을 「일반적이지 않다」고 적고 있다.)
+      //    이력에 「모름」을 제대로 담으려면 데이터베이스 변경이 필요하다 — 별건.
       p_app_count: Number.isFinite(app_count) ? app_count : 0,
       p_bypass_ack: !!bypass_ack,
       // migration 109: NG 사항 파라미터 (미전달 시 RPC 기본값 NULL)
@@ -44255,9 +44269,12 @@ function buildDeadlineChangeConfirm(kind, ctx) {
   const W = ctx.isEvent
     ? { apply: '예약', who: '방문 예약 화면', act: '예약할' }
     : { apply: '응모', who: '인플루언서 화면', act: '응모할' };
-  const appLine = ctx.appCount > 0
-    ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
-    : '';
+  // ⚠️ `null` 은 조회 실패다 — 숫자 비교만 하면 「0건」처럼 조용히 사라져 경고가 약해진다.
+  const appLine = (ctx.appCount === null || ctx.appCount === undefined)
+    ? `\n· 이미 접수된 ${W.apply} 건수를 확인하지 못했습니다. 접수된 건이 있어도 그대로 유지됩니다.`
+    : ctx.appCount > 0
+      ? `\n· 이미 접수된 ${W.apply} ${ctx.appCount}건은 그대로 유지됩니다.`
+      : '';
   if (kind === 'reopen') {
     const head = `모집을 다시 열까요?\n\n마감일   ${ctx.from}  →  ${ctx.to}`;
     if (ctx.isDraft) {
@@ -45465,7 +45482,9 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
     if (body) {
       body.innerHTML = `
         <div style="font-size:13px;line-height:1.7;color:var(--ink)">
-          이 캠페인에는 이미 <b style="color:var(--red-d)">${appCount}명</b>의 신청자가 있습니다.<br>
+          ${appCount === null || appCount === undefined
+            ? `<b style="color:var(--red-d)">신청자 수를 확인하지 못했습니다.</b> 신청자가 있을 수 있으니 그대로 두고 진행할지 확인해 주세요.<br>`
+            : `이 캠페인에는 이미 <b style="color:var(--red-d)">${appCount}명</b>의 신청자가 있습니다.<br>`}
           변경 사항은 <b>이후 신규 신청자에게만 적용</b>되며, 기존 신청자가 동의한 시점의 문구는 그대로 효력을 유지합니다.
         </div>
         ${sections.join('')}
@@ -46994,7 +47013,9 @@ async function saveCampaignEdit() {
       change = detectSensitiveChange(updates);
       if (change.anyChanged) {
         _historyAppCount = await countActiveApplications(campId);
-        if (_historyAppCount >= 1) {
+        // 🔴 **모르면 띄운다.** `null` 은 조회 실패이지 「0명」이 아니다 — 숫자로만 비교하면
+        //    (`>= 1`) 실패가 조용히 통과해 **신청자가 있는 캠페인을 경고 없이 바꾸게 된다.**
+        if (_historyAppCount === null || _historyAppCount >= 1) {
           const ok = await showSensitiveChangeConfirm({
             appCount: _historyAppCount,
             cautionChanged: change.cautionChanged,
