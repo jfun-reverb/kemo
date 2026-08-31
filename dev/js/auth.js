@@ -247,6 +247,29 @@ async function handleLogout() {
 }
 
 // ── 비밀번호 재설정 ──
+// 재전송 대기 동안 버튼을 잠근다. 시간이 지나면 스스로 풀린다.
+//   ⚠️ 남은 초를 버튼에 **세어 보여주지 않는다** — 문구에 안 쓰는 이유와 같다.
+//   ⚠️ 상한 300초는 **정책이 아니라 방어값**이다. 대기 시간은 인증 설정 화면에 항목이 없어
+//      (2026-08-31 운영 확인 — Rate Limits 는 전부 시간당·5분당 「횟수」다) 근거로 삼을 값이 없다.
+//      관측된 것은 43초·50초 둘뿐이라, 서버가 이상한 값을 줘도 영영 안 잠기게만 막는다.
+let _forgotCooldownTimer = null;
+function startForgotCooldown(seconds) {
+  const btn = $('forgotBtn');
+  if (!btn) return;
+  if (_forgotCooldownTimer) { clearInterval(_forgotCooldownTimer); _forgotCooldownTimer = null; }
+  let left = Math.min(Math.max(Number(seconds) || 60, 1), 300);
+  btn.disabled = true;
+  btn.textContent = t('auth.forgot.waitingBtn');
+  _forgotCooldownTimer = setInterval(() => {
+    left -= 1;
+    if (left > 0) return;
+    clearInterval(_forgotCooldownTimer);
+    _forgotCooldownTimer = null;
+    btn.disabled = false;
+    btn.textContent = t('auth.forgot.btn');
+  }, 1000);
+}
+
 async function handleForgotPassword(e) {
   e.preventDefault();
   const email = $('forgotEmail').value.trim();
@@ -254,6 +277,9 @@ async function handleForgotPassword(e) {
   const successEl = $('forgotSuccess');
   const btn = $('forgotBtn');
 
+  // 지난 호출이 주황 안내(form-notice)로 바꿔 놨을 수 있다 — **매번 기본값으로 되돌린다.**
+  //   경로마다 되돌리면 빠뜨리는 곳이 생긴다(실제로 `!db`·catch 두 갈래를 빠뜨렸다).
+  errEl.className = 'form-error';
   errEl.style.display = 'none';
   successEl.style.display = 'none';
 
@@ -278,6 +304,29 @@ async function handleForgotPassword(e) {
       //   ⚠️ 인플루언서 비밀번호 찾기는 실제로 고장 난 적이 있는 경로다(2026-07-20).
       //      화면 문구는 그대로 두고 원인만 남긴다.
       logAppError('handleForgotPassword', error);
+      // 연타 방지(재전송 대기)는 **실패가 아니라 「아직 이르다」**는 안내다. 일반 문구로 덮으면
+      //   몇 초 기다려야 하는지 몰라 회원이 계속 누른다 — 운영 오류 로그에 그 흔적이 5회 있다.
+      //   위 handleResetPassword 의 「예전과 같은 비밀번호」와 **같은 방식**으로 갈라낸다.
+      //   ⚠️ `error.code` 는 **보조로만** 쓴다 — 오류 로그의 코드 열이 전부 비어 있어(수집기가
+      //      `ERR_` 형식만 뽑는다) 이 오류의 실제 code 값은 확인되지 않았다. 확인된 근거는
+      //      메시지 정규식 쪽이다(운영 실측 문구: `... after 43 seconds.` · `... after 50 seconds.`).
+      //   ⚠️ 계정 열거 방지에 안 걸린다 — 이 대기는 **계정 존재와 무관하게** 걸리므로
+      //      「잠시 후 다시」를 보여줘도 계정 정보가 새지 않는다.
+      const _msg = String(error.message || '');
+      const _wait = _msg.match(/after (\d+) seconds?/i);
+      if (_wait || /security purposes/i.test(_msg)
+          || String(error.code || '') === 'over_email_send_rate_limit') {
+        // ⚠️ 빨강(오류)으로 두면 문구가 「실패가 아니다」라고 말하는데 화면은 실패라고 말한다.
+        //    주황 안내로 바꾼다. **같은 요소를 다른 오류가 재사용하므로 아래에서 반드시 되돌린다.**
+        errEl.className = 'form-notice';
+        errEl.textContent = t('auth.forgot.tooSoon');
+        errEl.style.display = 'block';
+        // ⚠️ 남은 초는 **문구에 안 쓴다** — 정확히 보여주면 회원이 초를 세고 있다가 누른다.
+        //    뽑은 초는 **버튼을 잠그는 시간**으로만 쓴다.
+        startForgotCooldown(_wait ? Number(_wait[1]) : 60);
+        // 🔴 여기서 반드시 return — 함수 끝의 `btn.disabled = false` 가 잠금을 즉시 풀어 버린다.
+        return;
+      }
       errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
