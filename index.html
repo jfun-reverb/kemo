@@ -12811,7 +12811,25 @@ const _ERR_DICT = {
 
 function friendlyErrorJa(e) {
   // 처리된 에러도 관리자 오류 로그로 수집 (마이그레이션 165) — 수집 실패는 무음
-  if (typeof collectClientError === 'function') { try { collectClientError(e, 'handled'); } catch(_){} }
+  //   🔴 **「예상된 거부」 판정을 여기서도 해야 한다.** 예전에는 `expected` 를 안 넘겨서,
+  //      이 함수를 타고 온 것은 **전부 「예상 못 한 오류」로 기록**됐다. 이 함수가
+  //      화면에 오류를 보여주는 **주 경로**라, 정원 마감·마감 지남·연령 미달·중복 응모 같은
+  //      **정상 거부가 그대로 미해결 배지를 부풀렸다**(2026-08-31 확인).
+  //   ⚠️ 판정 목록은 `shared.js` 의 `APP_ERROR_EXPECTED_PATTERNS` 하나뿐이다 — 여기에
+  //      따로 두지 않는다(두 벌이 되면 한쪽만 늘어난다). shared.js 가 먼저 실려 있다.
+  //   ⚠️ `expected` 는 **거르는 값이 아니라 분류하는 값**이다 — 행은 그대로 쌓이고
+  //      관리자 화면이 진짜 결함과 갈라 보여줄 뿐이다.
+  if (typeof collectClientError === 'function') {
+    try {
+      let _expected = false;
+      try {
+        const _s0 = String(e?.message || e || '');
+        _expected = typeof APP_ERROR_EXPECTED_PATTERNS !== 'undefined'
+          && APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(_s0));
+      } catch(_) { /* 판정 실패는 「예상 못 함」으로 둔다 — 놓치는 쪽이 안전하다 */ }
+      collectClientError(e, 'handled', { expected: _expected });
+    } catch(_){}
+  }
   const lang = (typeof getLang === 'function' ? getLang() : 'ja') === 'ko' ? 'ko' : 'ja';
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
