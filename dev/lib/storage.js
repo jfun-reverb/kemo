@@ -3807,9 +3807,16 @@ const MSG_ATTACH_BUCKET = 'application-message-attachments';
 // get_application_messages RPC 가 호출자 역할(본인 인플 / is_admin)에 따라 마스킹.
 async function fetchApplicationMessages(applicationId) {
   if (!db || !applicationId) return [];
-  const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
-  if (error) throw error;
-  return data || [];
+  // 바로 아래 발송 함수와 같은 재시도 보호. 이쪽만 빠져 있었다(2026-08-31).
+  //   ⚠️ 이것이 막는 것은 「세션은 있는데 접근 토큰만 만료된」 경우다.
+  //      **세션이 통째로 없는 경우는 못 막는다** — `retryWithRefresh` 는
+  //      'row-level security'·'JWT expired' 일 때만 재시도한다. 그쪽은
+  //      `openMessagesPage` 의 로그인 확인이 막는다(messaging.js).
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
+    if (error) throw error;
+    return data || [];
+  });
 }
 
 // 메시지 발송 (인플루언서·관리자 공용, sender_kind 는 서버가 판별).

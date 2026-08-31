@@ -69,6 +69,19 @@ async function refreshMessageModal() {
 //   from: 'mypage' — 뒤로가기 시 응모이력으로 복귀. 해시 #messages-{id} 로 새로고침 복원.
 async function openMessagesPage(applicationId, from, pushHistory) {
   if (!applicationId) return;
+  // 세션이 없으면 로그인으로 — 이 화면에는 로그인 확인이 없었다(2026-08-31).
+  //   증상: 아이폰 사파리에서 8/25~28 에 5회. `permission denied for function
+  //   get_application_messages` 가 오류 로그에 쌓였고 회원은 「読み込みに失敗しました」만 봤다.
+  //   ⚠️ 원인은 토큰 만료가 아니라 **세션이 통째로 없는 것**이다(사파리가 저장소를 비운다).
+  //      세션이 없으면 비로그인 권한으로 호출돼 그 함수가 거부한다.
+  //   🔴 그래서 `retryWithRefresh` 로 감싸는 것만으로는 안 고쳐진다 — 그 함수는
+  //      'row-level security'·'JWT expired' 일 때만 재시도하는데 이 메시지는 둘 다 아니고,
+  //      갱신 토큰도 없어 `refreshSession()` 자체가 실패한다. 막는 것은 이 줄이다.
+  //   ⚠️ 반드시 아래 `loadMyApplications()` **앞**에 둔다 — 그것도 로그인이 필요해
+  //      뒤에 두면 튕기기 전에 실패가 한 번 더 난다.
+  //   ⚠️ 부팅 복원(`app.js` 의 `#messages-` 분기)은 세션 복원 뒤에 도므로
+  //      로그인한 회원이 여기서 튕기지 않는다.
+  if (!currentUser) { navigate('login'); return; }
   // 알림·새로고침으로 직접 진입 시 _myApps/allCampaigns 캐시가 비어 제목·취소 판별이
   //   부정확할 수 있어 먼저 보장한다(응모이력 경유 진입이면 이미 로드돼 즉시 통과).
   if ((typeof _myApps === 'undefined' || !_myApps || !_myApps.length) && typeof loadMyApplications === 'function') {
