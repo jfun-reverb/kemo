@@ -22,19 +22,57 @@
     /chrome-extension|moz-extension|safari-extension/i,
     /browser\.runtime/i,               // 아이폰 Safari 확장이 주입한 확장 API 접근 에러 (앱 코드 아님)
     /webkit-masked-url/i,              // Safari 가 확장 스크립트 출처를 가린 URL (스택에만 등장)
-    /__firefox__|window\.__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
+    // ⚠️ `window.` 를 붙여 뒀더니 **접두어 없이 오는 형태**(`Can't find variable: __gCrWeb`)를
+    //    못 잡았다 — 운영 실측으로 확인. 이름만으로 충분히 특이해 접두어를 뺀다.
+    /__firefox__|__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
     /window\.ethereum|window\.solana|selectedAddress|evmAsk/i,  // 브라우저 내장/확장 암호화폐 지갑(Brave·MetaMask 등) 주입 객체 (앱 코드 아님)
     // 2026-07-31 운영 실측으로 들어온 확장 잡음 2종. 주소가 chrome-extension:// 로 안 남고
     //   변수·객체 이름만 남는 형태라 위 규칙에 안 걸렸다.
     /MyApp_RemoveAllHighlights/i,      // 하이라이트 확장이 주입한 전역 함수
     /standardSelectors/i,              // 확장이 주입한 셀렉터 객체
+    // 2026-08-31 운영 오류 로그 전수 조사로 들어온 것들. **전부 실측으로 확인된 문구**이고,
+    //   위 목록이 하나도 못 잡고 있었다(측정해 봄).
+    //   ⚠️ 출처가 확장 프로그램만이 아니다 — **인스타그램·구글 앱의 내장 웹뷰**가 주입한 것도 있다.
+    /\bDarkReader\b/i,                 // 다크 모드 확장
+    /_AutofillCallbackHandler/i,       // 아이폰 자동완성
+    /webkit\.messageHandlers/i,        // 아이폰 내장 웹뷰가 주입하는 다리 객체
+    /Object Not Found Matching Id:/i,  // 알려진 확장 오류(고정 문구)
   ];
 
+  // 오류를 사람이 읽을 수 있는 한 줄로.
+  //   🔴 예전에는 `message` 가 없는 객체를 만나면 `String(v)` → **`[object Object]`** 였다.
+  //      그러면 ①무슨 오류였는지 영영 모르고 ②**서로 다른 오류가 지문 하나로 뭉쳐**
+  //      관리자 화면에 한 줄로 합쳐진다. 운영에서 실제로 그렇게 기록된 건이 있다.
+  //   ⚠️ 그렇다고 객체를 통째로 쏟지 않는다 — `_mask` 가 가리는 것은 이메일·전화·우편번호·
+  //      토큰뿐이라, 이름·주소 같은 값이 실리면 그대로 저장된다. **아는 자리만 골라 꺼내고,**
+  //      아무 데도 없으면 **값이 아니라 「키 목록」**만 남긴다.
+  //   ⚠️ 빈 문자열을 돌려주면 collectClientError 가 그 오류를 **통째로 버린다**(`if (!msg) return`).
+  //      그래서 마지막 갈래까지 반드시 무언가를 돌려준다.
   function _toMessage(v) {
     try {
       if (typeof v === 'string') return v;
-      if (v && v.message) return String(v.message);
-      return String(v);
+      if (v == null) return '';
+      if (typeof v !== 'object') return String(v);
+
+      // 1) 오류 문구가 흔히 들어 있는 자리
+      for (const k of ['message', 'error_description', 'msg', 'statusText']) {
+        if (v[k] && typeof v[k] !== 'object') return String(v[k]);
+      }
+      // 2) 한 겹 안쪽 — `{error: {...}}` 형태. **한 겹만** 본다(순환 참조 방지)
+      if (typeof v.error === 'string' && v.error) return v.error;
+      if (v.error && typeof v.error === 'object' && v.error.message) return String(v.error.message);
+
+      // 3) 문구가 없으면 판독에 쓰이는 조각만 모은다.
+      //    `details` 는 값이 실릴 수 있으나 `_mask` 와 서버 2차 마스킹이 `(열)=(값)` 형태를 가린다.
+      const parts = [];
+      for (const k of ['code', 'name', 'status', 'reason', 'hint', 'details']) {
+        if (v[k] != null && typeof v[k] !== 'object') parts.push(k + '=' + String(v[k]));
+      }
+      if (parts.length) return parts.join(' ');
+
+      // 4) 그래도 없으면 **모양만** — `[object Object]` 는 다음 사람에게 아무것도 안 알려준다
+      const keys = Object.keys(v).slice(0, 12);
+      return keys.length ? ('(속성: ' + keys.join(', ') + ')') : String(v);
     } catch (_) { return ''; }
   }
 

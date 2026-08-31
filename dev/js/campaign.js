@@ -365,7 +365,15 @@ function renderCampaigns(camps) {
   const visible = sortByStatusAndDeadline(visibleCamps(camps));
   const moreBtnWrap = $('campMoreBtnWrap');
   if (!visible.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    // 🔴 **「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.**
+    //    조회가 실패했는데 「현재 모집 중인 캠페인이 없습니다」를 띄우면, 회원은 우리에게
+    //    캠페인이 하나도 없는 줄 알고 떠난다. 예전에는 실패 시 예시 여섯 건을 대신 그려
+    //    이 갈림이 아예 없었다(가짜가 진짜처럼 보였다).
+    const _failed = (typeof _campaignsLoadFailed !== 'undefined') && _campaignsLoadFailed;
+    const _icon = _failed ? 'cloud_off' : 'assignment';
+    const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
+    const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`;
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }

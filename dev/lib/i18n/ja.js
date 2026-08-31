@@ -208,6 +208,8 @@ window.I18N_JA = {
       btn: 'リセットメールを送信',
       backLink: 'ログインに戻る',
       successMsg: 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。',
+      tooSoon: 'さきほど メールを送りました。少し待つと もう一度 送れます。届いていないときは 迷惑メールフォルダも ごらんください。',
+      waitingBtn: 'しばらくお待ちください',
     },
     reset: {
       title: '新しいパスワード',
@@ -812,6 +814,8 @@ window.I18N_JA = {
   campaign: {
     emptyState: '現在募集中のキャンペーンはありません',
     emptyStateSub: '近日中に新しいKブランド体験団が登録されます',
+    loadFailed: 'キャンペーンを読み込めませんでした',
+    loadFailedSub: 'しばらくしてから もう一度 ごらんください',
     badgeUrgent: '締切間近',
     badgeRecruiting: '募集中',
     badgeNew: 'NEW',
