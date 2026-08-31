@@ -22,12 +22,21 @@
     /chrome-extension|moz-extension|safari-extension/i,
     /browser\.runtime/i,               // 아이폰 Safari 확장이 주입한 확장 API 접근 에러 (앱 코드 아님)
     /webkit-masked-url/i,              // Safari 가 확장 스크립트 출처를 가린 URL (스택에만 등장)
-    /__firefox__|window\.__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
+    // ⚠️ `window.` 를 붙여 뒀더니 **접두어 없이 오는 형태**(`Can't find variable: __gCrWeb`)를
+    //    못 잡았다 — 운영 실측으로 확인. 이름만으로 충분히 특이해 접두어를 뺀다.
+    /__firefox__|__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
     /window\.ethereum|window\.solana|selectedAddress|evmAsk/i,  // 브라우저 내장/확장 암호화폐 지갑(Brave·MetaMask 등) 주입 객체 (앱 코드 아님)
     // 2026-07-31 운영 실측으로 들어온 확장 잡음 2종. 주소가 chrome-extension:// 로 안 남고
     //   변수·객체 이름만 남는 형태라 위 규칙에 안 걸렸다.
     /MyApp_RemoveAllHighlights/i,      // 하이라이트 확장이 주입한 전역 함수
     /standardSelectors/i,              // 확장이 주입한 셀렉터 객체
+    // 2026-08-31 운영 오류 로그 전수 조사로 들어온 것들. **전부 실측으로 확인된 문구**이고,
+    //   위 목록이 하나도 못 잡고 있었다(측정해 봄).
+    //   ⚠️ 출처가 확장 프로그램만이 아니다 — **인스타그램·구글 앱의 내장 웹뷰**가 주입한 것도 있다.
+    /\bDarkReader\b/i,                 // 다크 모드 확장
+    /_AutofillCallbackHandler/i,       // 아이폰 자동완성
+    /webkit\.messageHandlers/i,        // 아이폰 내장 웹뷰가 주입하는 다리 객체
+    /Object Not Found Matching Id:/i,  // 알려진 확장 오류(고정 문구)
   ];
 
   // 오류를 사람이 읽을 수 있는 한 줄로.
