@@ -570,7 +570,7 @@ function renderCampOpsSummary(camp, allApps, allDelivs, stats) {
 // 개요 카드 — 썸네일·제품·캠페인번호·타입/채널/판매가 + 기간 3종
 function campOpsOverviewCard(camp) {
   const thumb = camp.img1
-    ? `<img src="${esc(campThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0">`
+    ? `<img src="${esc(storageThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0">`
     : `<div style="width:64px;height:64px;border-radius:8px;background:var(--surface-dim);flex-shrink:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="color:var(--muted)">inventory_2</span></div>`;
   const product = esc(camp.product_ko || camp.product || '—');
   const typeKo = (typeof BRAND_OPS_RECRUIT_TYPE_KO !== 'undefined' && BRAND_OPS_RECRUIT_TYPE_KO[camp.recruit_type]) || camp.recruit_type || '—';
@@ -965,7 +965,7 @@ async function renderAppCampList() {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${campThumbUrl(thumbUrl)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? `<img src="${storageThumbUrl(thumbUrl)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>

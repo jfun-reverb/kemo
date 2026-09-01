@@ -375,7 +375,7 @@ async function softDeleteCampaign(campaignId) {
     //   화면이 「삭제 실패」로 보여 관리자가 다시 누르게 된다(이미 지워진 것을 또 지운다).
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', receiptPaths),
+      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
     ]);
     return { deletedApplications, storageResult: { msgResult, receiptResult } };
   });
@@ -1684,28 +1684,28 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 }
 
 // ── Image Storage ──
-// 캠페인 대표 사진의 **720px 썸네일**을 본체 옆에 한 벌 더 저장한다.
-//   왜: Supabase 의 유료 이미지 변환 기능을 안 쓰기 위해서다. 캠페인 목록을 한 번 여는
-//       것만으로 고유 사진 100장 넘게 변환돼, 포함량(주기당 원본 100장)을 **주기 시작
-//       하자마자** 넘겨 왔다(2026-08-31 실측 1,710장).
-//   🔴 720 인 이유 — 캠페인 상세의 첫 장이 720 을 요청한다(application.js). 목록·관리자
-//      화면은 그보다 작게 쓰지만 **한 벌을 함께 쓰는 쪽**을 골랐다. 크기별로 여러 벌을
-//      만들면 관리할 파일이 늘고, 지울 때 복제 캠페인이 같은 파일을 가리키는 문제가 커진다.
-//   ⚠️ 파일 이름을 **본체와 똑같이** 둔다 — 화면(`campThumbUrl`)이 주소 규칙으로 찾는다.
-//      확장자도 바꾸지 않고 `contentType` 만 실제 형식으로 준다(.png 주소에 JPEG 내용이
-//      담겨도 브라우저는 Content-Type 을 따른다).
-//   ⚠️ `keepIfSmall` — 720 보다 좁은 사진은 다시 그리지 않는다. 다시 그리면 JPEG 가 되어
+// 이미지의 **작은 썸네일**을 본체 옆에 한 벌 더 저장한다(`{폴더}/thumb/{같은 이름}`).
+//   왜: Supabase 의 유료 이미지 변환 기능을 안 쓰기 위해서다. 포함량이 주기당 원본 100장인데
+//       1,710장을 써서 요금이 나갔다(2026-08-31 실측, 결제 주기 첫날에 이미 381장).
+//   🔴 **원본은 손대지 않는다.** 영수증은 관리자가 「영수증에서 읽기」로 **글자를 기계가 읽는데**,
+//      압축본을 읽히면 자리를 잃는다 — 2026-09-01 실측에서 7.2MB 영수증의 주문번호
+//      `1209389647` 이 압축 후 `120938964` 로 한 자리 빠졌다(원본은 정확했다).
+//      그래서 「올릴 때 압축」이 아니라 **「썸네일을 따로」**를 골랐다.
+//   ⚠️ 파일 이름을 **본체와 똑같이** 둔다 — 화면(`storageThumbUrl`)이 주소 규칙으로 찾는다.
+//      확장자도 바꾸지 않고 `contentType` 만 실제 형식으로 준다.
+//   ⚠️ `keepIfSmall` — 목표 폭보다 좁은 사진은 다시 그리지 않는다. 다시 그리면 JPEG 가 되어
 //      **투명한 PNG 의 배경이 검게** 된다(이 저장소에 기록된 함정).
 //   ⚠️ **실패는 삼킨다.** 썸네일이 없으면 화면이 `onerror` 로 본체를 그린다 —
 //      썸네일 실패가 업로드를 막으면 안 된다(`_shrinkRichImage` 와 같은 원칙).
-async function _uploadCampThumb(blob, path, mime) {
+async function _uploadThumbCopy(blob, path, mime, maxWidth, bucket) {
   try {
     if (typeof compressImageFile !== 'function') return;
-    var thumbPath = path.indexOf('campaigns/') === 0 ? 'campaigns/thumb/' + path.slice('campaigns/'.length) : '';
-    if (!thumbPath) return;
-    var src = new File([blob], 'camp-thumb', {type: mime});
-    var small = await compressImageFile(src, {maxWidth: 720, keepIfSmall: true});
-    var {error} = await db.storage.from('campaign-images').upload(thumbPath, small, {
+    var slash = path.indexOf('/');
+    if (slash === -1) return;
+    var thumbPath = path.slice(0, slash) + '/thumb/' + path.slice(slash + 1);
+    var src = new File([blob], 'thumb-src', {type: mime});
+    var small = await compressImageFile(src, {maxWidth: maxWidth, keepIfSmall: true});
+    var {error} = await db.storage.from(bucket || 'campaign-images').upload(thumbPath, small, {
       contentType: small.type || mime,
       upsert: true,              // 다시 올릴 때 막히지 않게 (본체는 upsert:false 그대로)
       cacheControl: '86400'
@@ -1715,6 +1715,21 @@ async function _uploadCampThumb(blob, path, mime) {
     console.warn('[uploadImage] 썸네일 저장 실패 — 본체만 저장한다', e);
   }
 }
+
+// 폴더별 썸네일 가로 폭. **여기 없는 폴더는 썸네일을 안 만든다.**
+//   ⚠️ 이 목록은 화면 쪽 `THUMB_FOLDERS`(ui.js)와 **같은 집합**이어야 한다 —
+//      한쪽에만 있으면 있지도 않은 썸네일 주소를 요청하거나(폴백이 받지만 요청이 두 번),
+//      만들어 놓고 아무도 안 쓰는 파일이 쌓인다.
+//   🔴 720 은 캠페인 상세 첫 장이 요구하는 값이다(application.js).
+//      480 은 영수증·인증샷 — 뜨는 자리가 22~56픽셀이고 **확대는 원본을 연다.**
+//      개인정보라 사본은 **작을수록 낫다**(유출 시 피해가 작다).
+const THUMB_WIDTH_BY_PREFIX = {
+  'campaigns': 720,
+  'receipts': 480,
+  'review-images': 480,
+  'content': 720
+};
+
 
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName, pathPrefix) {
@@ -1734,8 +1749,8 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
-  // 캠페인 대표 사진만 썸네일을 한 벌 더 만든다 (영수증·인증샷은 만들지 않는다 — 위 주석)
-  if (prefix === 'campaigns') await _uploadCampThumb(blob, path, mime);
+  // 폴더별로 썸네일을 한 벌 더 만든다 (표에 없는 폴더는 안 만든다)
+  if (THUMB_WIDTH_BY_PREFIX[prefix]) await _uploadThumbCopy(blob, path, mime, THUMB_WIDTH_BY_PREFIX[prefix]);
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
@@ -1771,6 +1786,10 @@ async function uploadContentImage(file) {
     cacheControl: '86400'
   });
   if (error) throw error;
+
+  // 설명글 이미지도 썸네일을 한 벌 더 만든다 — 캠페인 상세가 화면 폭에 맞춰 그리므로
+  //   원본(최대 1600px)을 통째로 받을 이유가 없다. 실패는 삼킨다(위 함수와 같은 원칙).
+  await _uploadThumbCopy(file, path, file.type, THUMB_WIDTH_BY_PREFIX['content']);
 
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
@@ -4472,6 +4491,29 @@ function _receiptUrlToStoragePath(url) {
   return path || null;
 }
 
+// 지울 경로 목록에 **그 파일의 썸네일 경로를 함께** 넣는다.
+// 🔴 영수증·인증샷은 개인정보다. 원본만 지우고 썸네일을 남기면 **「지웠다」고 적어 놓고
+//    실제로는 남아 있는** 상태가 된다 — 공개 통이라 주소를 아는 사람은 그대로 볼 수 있다.
+// ⚠️ 썸네일이 없는 옛 파일이라도 안전하다 — 저장소의 `remove()` 는 **없는 파일에도 성공으로
+//    답한다**(2026-08-20 실측). 그래서 「있으면 지우고 없으면 넘어간다」가 저절로 된다.
+// ⚠️ 반대로 그 성질 때문에 **응답만으로는 지워졌는지 알 수 없다** — 확인이 필요하면 따로 조회할 것.
+function _withThumbPaths(paths) {
+  if (!Array.isArray(paths) || !paths.length) return paths || [];
+  const out = [];
+  paths.forEach(function (p) {
+    if (!p || typeof p !== 'string') return;
+    out.push(p);
+    const slash = p.indexOf('/');
+    if (slash === -1) return;
+    const folder = p.slice(0, slash);
+    const rest = p.slice(slash + 1);
+    if (rest.startsWith('thumb/')) return;        // 이미 썸네일 경로면 그대로
+    if (!THUMB_WIDTH_BY_PREFIX[folder]) return;   // 썸네일을 안 만드는 폴더
+    out.push(folder + '/thumb/' + rest);
+  });
+  return out;
+}
+
 // Storage 파일 삭제 공통 헬퍼.
 // bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
 // 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
@@ -4519,7 +4561,7 @@ async function purgeAuditDataAll() {
 
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', receiptPaths),
+      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
     ]);
 
     return {
@@ -4556,7 +4598,7 @@ async function purgeAuditDataForCampaign(campaignId) {
 
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', receiptPaths),
+      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
     ]);
 
     return {
@@ -5126,10 +5168,13 @@ async function uploadOutboundImage(file, obId) {
   const {error} = await db.storage.from(OUTBOUND_IMAGE_BUCKET)
     .upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
   if (error) throw error;
+  // 명단 화면은 96픽셀로 그린다 — 썸네일을 한 벌 더 둬서 유료 변환을 안 쓴다.
+  //   ⚠️ 지금 이 통은 비어 있지만(대상 0건), 명단이 늘면 조용히 요금이 나던 자리다.
+  await _uploadThumbCopy(file, path, file.type, 480, OUTBOUND_IMAGE_BUCKET);
   return path;
 }
 
-// 경로 → 공개 URL. 공개 버킷이라 imgThumb() 로 썸네일 변환 가능.
+// 경로 → 공개 URL. 표시는 storageThumbUrl() 로 저장해 둔 썸네일을 가리킨다(ui.js).
 function outboundImagePublicUrl(path) {
   if (!db || !path) return '';
   const {data} = db.storage.from(OUTBOUND_IMAGE_BUCKET).getPublicUrl(path);
@@ -5139,7 +5184,12 @@ function outboundImagePublicUrl(path) {
 // 대표 이미지 삭제(교체·행 삭제 시 정리). best-effort — 실패해도 throw 하지 않는다.
 async function deleteOutboundImage(path) {
   if (!db || !path) return;
-  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove([path]); }
+  // 썸네일도 함께 지운다 — 남기면 지운 사람 사진이 주소만 알면 계속 보인다.
+  //   ⚠️ 없는 파일에도 remove() 는 성공으로 답하므로 옛 파일이라도 안전하다.
+  const slash = path.indexOf('/');
+  const paths = slash === -1 ? [path]
+    : [path, path.slice(0, slash) + '/thumb/' + path.slice(slash + 1)];
+  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove(paths); }
   catch(e) { console.warn('[deleteOutboundImage]', e); }
 }
 

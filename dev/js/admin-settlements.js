@@ -195,7 +195,7 @@ function settlementCampCell(camp) {
     ? getRecruitTypeBadgeKoSm(camp.recruit_type) : '';
   // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(campThumbUrl + data-orig)
   const thumb = camp.img1
-    ? `<img src="${esc(campThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
+    ? `<img src="${esc(storageThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
     : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`;
   const badgeRow = (rtBadge || campNoBadge)
     ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div>`
