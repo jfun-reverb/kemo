@@ -561,6 +561,22 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
     var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '심사중' : s === 'rejected' ? '미승인' : s === 'cancelled' ? '취소' : (s || ''); };
     var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
 
+    // 정렬: 캠페인 번호 → 인플루언서 이름(한자 우선). 여러 캠페인 결과물 엑셀과 **같은 규칙**이다.
+    //   ⚠️ 캠페인 묶음을 먼저 지켜야 한다 — 이름만으로 섞으면 한 캠페인의 신청자가 흩어진다.
+    allCampApps.sort(function(a, b) {
+      var ca = ((a._campMeta || {}).campaign_no || '').toString();
+      var cb = ((b._campMeta || {}).campaign_no || '').toString();
+      if (ca !== cb) return ca.localeCompare(cb, 'ja');
+      var ua = userByEmail[a.user_email] || {};
+      var ub = userByEmail[b.user_email] || {};
+      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
+      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, 'ja');
+    });
+
     allCampApps.forEach(function(a) {
       var u = userByEmail[a.user_email] || {};
       var c = a._campMeta || {};
@@ -944,6 +960,21 @@ async function exportCampaignApplicationsExcel(campId) {
     var users = await fetchInfluencers();
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+
+    // 인플루언서 이름순 정렬 (한자 우선) — 결과물 엑셀 네 갈래가 쓰는 것과 **같은 기준**이다.
+    //   ⚠️ 예전에는 정렬이 아예 없어 조회 순서(신청일 최신순)가 그대로 나갔다. 같은 사람을
+    //      두 엑셀에서 찾을 때 한쪽은 이름순·한쪽은 날짜순이라 대조가 어려웠다(2026-09-01 요청).
+    //   ⚠️ 이름이 비어 있으면 뒤로 보낸다 — 빈 이름이 앞을 다 채우면 목록을 못 읽는다.
+    apps.sort(function(a, b) {
+      var ua = userByEmail[a.user_email] || {};
+      var ub = userByEmail[b.user_email] || {};
+      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
+      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, 'ja');
+    });
 
     // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
     var auditEmails = {};

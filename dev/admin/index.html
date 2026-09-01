@@ -1429,7 +1429,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <thead id="campApplicantsHead"><tr><th>이름 <span class="sort-arrows" data-sort="name" onclick="toggleCampAppSort('name')">▲▼</span></th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일 <span class="sort-arrows" data-sort="created" onclick="toggleCampAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
               <tbody id="campApplicantsBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -1443,7 +1443,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
+              <thead id="campDelivHead"><tr><th>인플루언서 <span class="sort-arrows" data-sort="name" onclick="toggleCampDelivSort('name')">▲▼</span></th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleCampDelivSort('cert_at')">▲▼</span></th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleCampDelivSort('submitted')">▲▼</span></th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
@@ -1625,7 +1625,7 @@
                 <th class="deliv-col-brand">브랜드</th>
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
-                <th>인플루언서</th>
+                <th>인플루언서 <span class="sort-arrows" data-sort="name" onclick="toggleDelivSort('name')">▲▼</span></th>
                 <!-- 「올려두고 미제출」 경고는 이 열의 딱지를 가리키므로 열 제목 옆에 둔다.
                      0건이면 applyStalledDraftIndicators 가 통째로 감춘다. -->
                 <th style="width:132px;white-space:nowrap">인증 상태 <button type="button" id="delivStalledBtn" onclick="openStalledDraftModal()" title="" style="display:none;vertical-align:middle;margin-left:2px;padding:0;border:none;background:none;cursor:pointer;line-height:0"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:#B91C5C;vertical-align:middle">report_problem</span></button></th>
