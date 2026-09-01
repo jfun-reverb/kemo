@@ -540,7 +540,15 @@ async function renderDeliverablesList() {
   if (search) { const _sbox = $('delivSearchBox'); if (_sbox) _sbox.style.display = 'flex'; }
 
   // 정렬: 수동 sort 있으면 그대로, 없으면 검수대기 우선 → 최근 제출일 내림차순
-  if (_delivSort.col === 'submitted') {
+  if (_delivSort.col === 'name') {
+    // 인플루언서 이름 정렬 (한자 우선) — 엑셀 네 갈래·신청 관리와 **같은 기준**이다.
+    //   ⚠️ 이름이 없는 행은 방향과 무관하게 뒤로 보낸다. 인증 성공일 정렬과 같은 규약이다
+    //      — 빈 값이 앞을 다 채우면 정렬을 눌러도 아무것도 못 본다.
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), dir);
+    });
+  } else if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
   } else if (_delivSort.col === 'purchase') {

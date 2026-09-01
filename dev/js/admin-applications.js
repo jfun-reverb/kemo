@@ -173,6 +173,26 @@ async function loadCampApplicants() {
     </td>
   </tr>`;
   };
+  // 열 제목 정렬 — 없으면 기본(신청일 최신순, `fetchApplications` 의 조회 순서)을 그대로 둔다.
+  if (_campAppSort.col) {
+    const _d = _campAppSort.dir === 'desc' ? -1 : 1;
+    if (_campAppSort.col === 'name') {
+      // ⚠️ 비교 안에서 `_users.find` 를 부르면 **비교할 때마다 회원 목록을 처음부터 훑는다**.
+      //    신청자가 많은 캠페인에서 눈에 띄게 느려지므로 지도를 한 번만 만들어 쓴다.
+      const _byEmail = new Map();
+      _users.forEach(u => { if (u.email) _byEmail.set(u.email, u); });
+      const _nameOf = (a) => influencerSortName(_byEmail.get(a.user_email), a.user_name);
+      apps.sort((a, b) => compareInfluencerName(_nameOf(a), _nameOf(b), _d));
+    } else if (_campAppSort.col === 'status') {
+      // 신청 관리(`toggleAppSort`)와 **같은 차례** — 심사중 → 승인 → 미승인 → 취소.
+      const order = {pending: 0, approved: 1, rejected: 2, cancelled: 3};
+      apps.sort((a, b) => (((order[a.status] ?? 9) - (order[b.status] ?? 9))) * _d);
+    } else {
+      apps.sort((a, b) => (new Date(a.created_at) - new Date(b.created_at)) * _d);
+    }
+  }
+  _applySortArrows('campApplicantsHead', _campAppSort);
+
   if (campApplicantsLazy) campApplicantsLazy.destroy();
   campApplicantsLazy = mountLazyList({
     tbody: body,
@@ -379,6 +399,47 @@ function clearCampDelivCertRange() {
 
 // 결과물 탭 본문 — 인증 상태 탭 + 표.
 //   미제출 승인 신청도 빈 행으로 포함해야 「미제출」 집계가 결과물 관리 페인과 같아진다(includeApps).
+// ── 캠페인 진행현황 — 두 탭의 열 제목 정렬 ─────────────────────────
+//   신청 관리·결과물 관리에 있던 정렬을 이 화면에도 둔다(2026-09-01 요청).
+//   ⚠️ **뜻이 있는 열만 넣었다.** 모집기간·구매기간·제출 마감은 **캠페인 단위 값**이라
+//      한 캠페인 안에서는 모든 행이 같은 값이다 — 그대로 옮기면 눌러도 아무 일도
+//      안 일어나는 단추가 셋 생긴다.
+//   ⚠️ **세 단계(오름 → 내림 → 해제)** 로 돈다. 결과물 관리(`toggleDelivSort`)와 같은 방식이고,
+//      신청 관리(`toggleAppSort`, 두 단계)와는 다르다. 이 화면은 **기본 순서 자체가 뜻을 갖기
+//      때문**이다 — 신청자는 신청일 최신순, 결과물은 최근 제출순이라 되돌아갈 수 있어야 한다.
+//   ⚠️ 화살표 갱신은 **각자의 thead 안으로 범위를 좁힌다**. `.sort-arrows` 는 이 화면 밖
+//      여러 표가 함께 쓰는 이름이라, 범위를 안 좁히면 다른 표의 화살표까지 지운다.
+let _campAppSort = {col: null, dir: null};
+let _campDelivSort = {col: null, dir: null};
+
+// 세 단계 토글 — 같은 열을 누르면 오름 → 내림 → 해제
+function _cycleSort(state, col) {
+  if (state.col === col) {
+    if (state.dir === 'asc') state.dir = 'desc';
+    else { state.col = null; state.dir = null; }
+  } else {
+    state.col = col; state.dir = 'asc';
+  }
+}
+
+function _applySortArrows(headId, state) {
+  const head = $(headId);
+  if (!head) return;
+  head.querySelectorAll('.sort-arrows').forEach(el => {
+    const col = el.getAttribute('data-sort');
+    if (state.col === col) {
+      el.textContent = state.dir === 'asc' ? '▲' : '▼';
+      el.style.color = 'var(--dark-pink)';
+    } else {
+      el.textContent = '▲▼';
+      el.style.color = '';
+    }
+  });
+}
+
+function toggleCampAppSort(col) { _cycleSort(_campAppSort, col); loadCampApplicants(); }
+function toggleCampDelivSort(col) { _cycleSort(_campDelivSort, col); loadCampApplicants(); }
+
 function renderCampDelivTab(camp, allDelivs, allApps, users) {
   const tbody = $('campDelivBody');
   if (!tbody) return 0;
@@ -430,8 +491,31 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   renderCampDelivCertTabs(counts);
 
   if (_campDelivCertTab) list = list.filter(g => computeCertStatus(g) === _campDelivCertTab);
-  // 최근 제출 순(미제출은 뒤로)
-  list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
+  // 열 제목 정렬 — 없으면 기본(최근 제출 순, 미제출은 뒤로)
+  if (_campDelivSort.col === 'name') {
+    const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
+    list.sort((a, b) => {
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), _d);
+    });
+  } else if (_campDelivSort.col === 'cert_at') {
+    // ⚠️ 인증 성공 전인 건은 날짜가 없다. **방향과 무관하게 뒤로** — 결과물 관리와 같은 규약이고,
+    //    이 열은 빈 칸이 절반을 넘어 오름차순에서 앞을 다 채우면 아무것도 못 보게 된다.
+    const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
+    list.sort((a, b) => {
+      const av = certSuccessAt(a) || '', bv = certSuccessAt(b) || '';
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv) * _d;
+    });
+  } else if (_campDelivSort.col === 'submitted') {
+    const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
+    list.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * _d);
+  } else {
+    // 최근 제출 순(미제출은 뒤로)
+    list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
+  }
+  _applySortArrows('campDelivHead', _campDelivSort);
 
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
