@@ -1,3 +1,7 @@
+---
+description: Supabase 마이그레이션 파일을 만든다 (인자: 바꿀 내용)
+---
+
 Supabase 마이그레이션 생성:
 
 1. **이해**: 필요한 스키마 변경 — $ARGUMENTS
