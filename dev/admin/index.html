@@ -1523,7 +1523,14 @@
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th style="min-width:240px">캠페인</th><th style="min-width:110px">채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
+                <!-- 🔴 앞 두 열에는 **인라인 폭을 쓰지 않는다.** 이 표는 첫 두 열이 고정(sticky)이고,
+                     그 자리(`left:0`·`left:380px`)와 폭(380px·150px)을 `admin.css` 가 정한다.
+                     여기에 인라인 `min-width` 를 두면 **인라인이 CSS 를 이겨** 열이 좁아지는데
+                     고정 위치는 CSS 값 그대로라, 둘째 열이 제 자리를 지나쳐 옆 열과 겹친다.
+                     ⚠️ 데이터가 실리면 본문 칸이 380px 을 요구해 저절로 맞으므로 **로딩 중에만**
+                        깨진다 — 그래서 오래 안 보이다가 운영 보고로 드러났다(2026-09-01).
+                     ⚠️ 셋째 열부터는 CSS 가 폭을 안 정하므로 인라인 `min-width` 를 **남긴다.** -->
+                <thead id="appTableHead"><tr><th>캠페인</th><th>채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
                 <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
