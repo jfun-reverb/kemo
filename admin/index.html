@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788220988';
+  var CURRENT_BUILD = 'v1788224649';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-01 09:03 · 17ae8fa</span>
+          <span class="admin-build-text">2026-09-01 10:04 · 8a08dbf</span>
         </div>
       </div>
     </aside>
@@ -4263,7 +4263,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <thead id="campApplicantsHead"><tr><th>이름 <span class="sort-arrows" data-sort="name" onclick="toggleCampAppSort('name')">▲▼</span></th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일 <span class="sort-arrows" data-sort="created" onclick="toggleCampAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
               <tbody id="campApplicantsBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -4277,7 +4277,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
+              <thead id="campDelivHead"><tr><th>인플루언서 <span class="sort-arrows" data-sort="name" onclick="toggleCampDelivSort('name')">▲▼</span></th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleCampDelivSort('cert_at')">▲▼</span></th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleCampDelivSort('submitted')">▲▼</span></th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
@@ -4459,7 +4459,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <th class="deliv-col-brand">브랜드</th>
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
-                <th>인플루언서</th>
+                <th>인플루언서 <span class="sort-arrows" data-sort="name" onclick="toggleDelivSort('name')">▲▼</span></th>
                 <!-- 「올려두고 미제출」 경고는 이 열의 딱지를 가리키므로 열 제목 옆에 둔다.
                      0건이면 applyStalledDraftIndicators 가 통째로 감춘다. -->
                 <th style="width:132px;white-space:nowrap">인증 상태 <button type="button" id="delivStalledBtn" onclick="openStalledDraftModal()" title="" style="display:none;vertical-align:middle;margin-left:2px;padding:0;border:none;background:none;cursor:pointer;line-height:0"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:#B91C5C;vertical-align:middle">report_problem</span></button></th>
@@ -29752,7 +29752,21 @@ async function renderDeliverablesList() {
   if (search) { const _sbox = $('delivSearchBox'); if (_sbox) _sbox.style.display = 'flex'; }
 
   // 정렬: 수동 sort 있으면 그대로, 없으면 검수대기 우선 → 최근 제출일 내림차순
-  if (_delivSort.col === 'submitted') {
+  if (_delivSort.col === 'name') {
+    // 인플루언서 이름 정렬 (한자 우선) — 엑셀 네 갈래·신청 관리와 **같은 기준**이다.
+    //   ⚠️ 이름이 없는 행은 방향과 무관하게 뒤로 보낸다. 인증 성공일 정렬과 같은 규약이다
+    //      — 빈 값이 앞을 다 채우면 정렬을 눌러도 아무것도 못 본다.
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      const ua = a.influencer || {}, ub = b.influencer || {};
+      const na = (ua.name_kanji || ua.name || '').toString();
+      const nb = (ub.name_kanji || ub.name || '').toString();
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, 'ja') * dir;
+    });
+  } else if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
   } else if (_delivSort.col === 'purchase') {
@@ -32596,6 +32610,22 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
     var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '심사중' : s === 'rejected' ? '미승인' : s === 'cancelled' ? '취소' : (s || ''); };
     var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
 
+    // 정렬: 캠페인 번호 → 인플루언서 이름(한자 우선). 여러 캠페인 결과물 엑셀과 **같은 규칙**이다.
+    //   ⚠️ 캠페인 묶음을 먼저 지켜야 한다 — 이름만으로 섞으면 한 캠페인의 신청자가 흩어진다.
+    allCampApps.sort(function(a, b) {
+      var ca = ((a._campMeta || {}).campaign_no || '').toString();
+      var cb = ((b._campMeta || {}).campaign_no || '').toString();
+      if (ca !== cb) return ca.localeCompare(cb, 'ja');
+      var ua = userByEmail[a.user_email] || {};
+      var ub = userByEmail[b.user_email] || {};
+      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
+      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, 'ja');
+    });
+
     allCampApps.forEach(function(a) {
       var u = userByEmail[a.user_email] || {};
       var c = a._campMeta || {};
@@ -32979,6 +33009,21 @@ async function exportCampaignApplicationsExcel(campId) {
     var users = await fetchInfluencers();
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+
+    // 인플루언서 이름순 정렬 (한자 우선) — 결과물 엑셀 네 갈래가 쓰는 것과 **같은 기준**이다.
+    //   ⚠️ 예전에는 정렬이 아예 없어 조회 순서(신청일 최신순)가 그대로 나갔다. 같은 사람을
+    //      두 엑셀에서 찾을 때 한쪽은 이름순·한쪽은 날짜순이라 대조가 어려웠다(2026-09-01 요청).
+    //   ⚠️ 이름이 비어 있으면 뒤로 보낸다 — 빈 이름이 앞을 다 채우면 목록을 못 읽는다.
+    apps.sort(function(a, b) {
+      var ua = userByEmail[a.user_email] || {};
+      var ub = userByEmail[b.user_email] || {};
+      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
+      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, 'ja');
+    });
 
     // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
     var auditEmails = {};
@@ -35103,6 +35148,26 @@ async function loadCampApplicants() {
     </td>
   </tr>`;
   };
+  // 열 제목 정렬 — 없으면 기본(신청일 최신순, `fetchApplications` 의 조회 순서)을 그대로 둔다.
+  if (_campAppSort.col) {
+    const _d = _campAppSort.dir === 'desc' ? -1 : 1;
+    if (_campAppSort.col === 'name') {
+      // ⚠️ 비교 안에서 `_users.find` 를 부르면 **비교할 때마다 회원 목록을 처음부터 훑는다**.
+      //    신청자가 많은 캠페인에서 눈에 띄게 느려지므로 지도를 한 번만 만들어 쓴다.
+      const _byEmail = new Map();
+      _users.forEach(u => { if (u.email) _byEmail.set(u.email, u); });
+      const _nameOf = (a) => { const u = _byEmail.get(a.user_email) || {}; return u.name_kanji || u.name || a.user_name; };
+      apps.sort((a, b) => _cmpInfName(_nameOf(a), _nameOf(b), _d));
+    } else if (_campAppSort.col === 'status') {
+      // 신청 관리(`toggleAppSort`)와 **같은 차례** — 심사중 → 승인 → 미승인 → 취소.
+      const order = {pending: 0, approved: 1, rejected: 2, cancelled: 3};
+      apps.sort((a, b) => (((order[a.status] ?? 9) - (order[b.status] ?? 9))) * _d);
+    } else {
+      apps.sort((a, b) => (new Date(a.created_at) - new Date(b.created_at)) * _d);
+    }
+  }
+  _applySortArrows('campApplicantsHead', _campAppSort);
+
   if (campApplicantsLazy) campApplicantsLazy.destroy();
   campApplicantsLazy = mountLazyList({
     tbody: body,
@@ -35309,6 +35374,57 @@ function clearCampDelivCertRange() {
 
 // 결과물 탭 본문 — 인증 상태 탭 + 표.
 //   미제출 승인 신청도 빈 행으로 포함해야 「미제출」 집계가 결과물 관리 페인과 같아진다(includeApps).
+// ── 캠페인 진행현황 — 두 탭의 열 제목 정렬 ─────────────────────────
+//   신청 관리·결과물 관리에 있던 정렬을 이 화면에도 둔다(2026-09-01 요청).
+//   ⚠️ **뜻이 있는 열만 넣었다.** 모집기간·구매기간·제출 마감은 **캠페인 단위 값**이라
+//      한 캠페인 안에서는 모든 행이 같은 값이다 — 그대로 옮기면 눌러도 아무 일도
+//      안 일어나는 단추가 셋 생긴다.
+//   ⚠️ **세 단계(오름 → 내림 → 해제)** 로 돈다. 결과물 관리(`toggleDelivSort`)와 같은 방식이고,
+//      신청 관리(`toggleAppSort`, 두 단계)와는 다르다. 이 화면은 **기본 순서 자체가 뜻을 갖기
+//      때문**이다 — 신청자는 신청일 최신순, 결과물은 최근 제출순이라 되돌아갈 수 있어야 한다.
+//   ⚠️ 화살표 갱신은 **각자의 thead 안으로 범위를 좁힌다**. `.sort-arrows` 는 이 화면 밖
+//      여러 표가 함께 쓰는 이름이라, 범위를 안 좁히면 다른 표의 화살표까지 지운다.
+let _campAppSort = {col: null, dir: null};
+let _campDelivSort = {col: null, dir: null};
+
+// 세 단계 토글 — 같은 열을 누르면 오름 → 내림 → 해제
+function _cycleSort(state, col) {
+  if (state.col === col) {
+    if (state.dir === 'asc') state.dir = 'desc';
+    else { state.col = null; state.dir = null; }
+  } else {
+    state.col = col; state.dir = 'asc';
+  }
+}
+
+function _applySortArrows(headId, state) {
+  const head = $(headId);
+  if (!head) return;
+  head.querySelectorAll('.sort-arrows').forEach(el => {
+    const col = el.getAttribute('data-sort');
+    if (state.col === col) {
+      el.textContent = state.dir === 'asc' ? '▲' : '▼';
+      el.style.color = 'var(--dark-pink)';
+    } else {
+      el.textContent = '▲▼';
+      el.style.color = '';
+    }
+  });
+}
+
+// 인플루언서 이름 비교 (한자 우선) — 엑셀·결과물 관리와 **같은 기준**이다.
+//   ⚠️ 이름이 빈 행은 방향과 무관하게 뒤로. 빈 값이 앞을 다 채우면 정렬이 쓸모없어진다.
+function _cmpInfName(na, nb, dir) {
+  const a = (na || '').toString(), b = (nb || '').toString();
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b, 'ja') * dir;
+}
+
+function toggleCampAppSort(col) { _cycleSort(_campAppSort, col); loadCampApplicants(); }
+function toggleCampDelivSort(col) { _cycleSort(_campDelivSort, col); loadCampApplicants(); }
+
 function renderCampDelivTab(camp, allDelivs, allApps, users) {
   const tbody = $('campDelivBody');
   if (!tbody) return 0;
@@ -35360,8 +35476,32 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   renderCampDelivCertTabs(counts);
 
   if (_campDelivCertTab) list = list.filter(g => computeCertStatus(g) === _campDelivCertTab);
-  // 최근 제출 순(미제출은 뒤로)
-  list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
+  // 열 제목 정렬 — 없으면 기본(최근 제출 순, 미제출은 뒤로)
+  if (_campDelivSort.col === 'name') {
+    const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
+    list.sort((a, b) => {
+      const ua = a.influencer || {}, ub = b.influencer || {};
+      return _cmpInfName(ua.name_kanji || ua.name, ub.name_kanji || ub.name, _d);
+    });
+  } else if (_campDelivSort.col === 'cert_at') {
+    // ⚠️ 인증 성공 전인 건은 날짜가 없다. **방향과 무관하게 뒤로** — 결과물 관리와 같은 규약이고,
+    //    이 열은 빈 칸이 절반을 넘어 오름차순에서 앞을 다 채우면 아무것도 못 보게 된다.
+    const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
+    list.sort((a, b) => {
+      const av = certSuccessAt(a) || '', bv = certSuccessAt(b) || '';
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv) * _d;
+    });
+  } else if (_campDelivSort.col === 'submitted') {
+    const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
+    list.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * _d);
+  } else {
+    // 최근 제출 순(미제출은 뒤로)
+    list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
+  }
+  _applySortArrows('campDelivHead', _campDelivSort);
 
   tbody.innerHTML = list.length
     ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
