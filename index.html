@@ -4443,6 +4443,37 @@ function notifReadKinds(kind) {
 //   진짜 결함과 갈라 볼 수 있게 한다(전부 안 남기면 「거부가 늘었다」는 신호까지 잃는다).
 //   ⚠️ 새 서버 거부 코드를 만들 때 여기에도 추가할 것 — 빠뜨리면 정상 거부가
 //      「예상 못 한 오류」로 쌓여 진짜 결함이 묻힌다.
+// ── 인플루언서 이름 정렬 기준 ───────────────────────────────────────
+// 🔴 **정렬은 가나(후리가나) 순이다.** 일본 명부·전화번호부의 표준(五十音順)이고,
+//    한자 그대로 비교하면 사람이 예측할 수 없는 차례가 나온다 — 실측으로
+//    「佐藤 → 田中 → 不承認 → 鈴木」이 나왔는데 가나 순이면 鈴木(すずき)가 두 번째다.
+// ⚠️ **화면에 보여주는 이름은 그대로 한자다.** 이 함수는 **비교할 때만** 쓴다 —
+//    표시에 쓰면 목록에 가나가 뜬다.
+// ⚠️ 가나가 없으면 한자로 대신 비교한다. 운영 실측(2026-09-01) 회원 1,871명 중
+//    한자 있음 1,100명 · 가나 있음 1,098명으로 **거의 항상 짝으로 있어**, 가나 기준으로
+//    바꿔도 뒤로 밀리는 사람이 늘지 않는다(이름이 아예 없는 771명은 어느 기준이든 뒤).
+// 🔴 **조회에 `name_kana` 가 실려 있어야 한다.** 안 실리면 조용히 한자로 되돌아가
+//    「바꿨는데 차례가 그대로」가 된다. `fetchInfluencers`(`select('*')`)와
+//    `fetchInfluencersByIds` 둘 다 가나를 가져온다(2026-09-01 확인).
+//    ⚠️ 참고로 `fetchInfluencersByIds` 는 **`name_kanji` 를 안 가져온다** — 결과물 화면에서
+//       한자 분기는 원래 닿지 않는 코드였다.
+function influencerSortName(u, fallback) {
+  const o = u || {};
+  const kana = (o.name_kana || '').toString().trim();
+  if (kana) return kana;
+  return (o.name_kanji || o.name || fallback || '').toString().trim();
+}
+
+// 이름 두 개를 비교한다. 빈 이름은 **방향과 무관하게 뒤로** — 빈 값이 앞을 다 채우면
+//   정렬을 눌러도 아무것도 못 본다(인증 성공일 정렬과 같은 규약).
+function compareInfluencerName(na, nb, dir) {
+  const a = (na || '').toString(), b = (nb || '').toString();
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b, 'ja') * (dir || 1);
+}
+
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
