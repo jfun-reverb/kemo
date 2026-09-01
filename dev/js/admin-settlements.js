@@ -165,7 +165,7 @@ function settlementAmountNote(s) {
 
 // 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
 //   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
-// 헬퍼는 전부 기존 공용(imgThumb·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
+// 헬퍼는 전부 기존 공용(campThumbUrl·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
 // 빌드 순서상 셋 다 이 파일보다 먼저 로드된다. 썸네일·모집타입은 fetchSettlements 가
 // campaigns 임베드로 이미 가져오는 img1·recruit_type 사용(추가 조회 없음).
 // 실제로 보낸 금액 칸.
@@ -193,9 +193,9 @@ function settlementCampCell(camp) {
     : '';
   const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function')
     ? getRecruitTypeBadgeKoSm(camp.recruit_type) : '';
-  // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(프로젝트 규칙 imgThumb + data-orig)
+  // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(campThumbUrl + data-orig)
   const thumb = camp.img1
-    ? `<img src="${esc(imgThumb(camp.img1, 96, 70))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
+    ? `<img src="${esc(campThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
     : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`;
   const badgeRow = (rtBadge || campNoBadge)
     ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div>`

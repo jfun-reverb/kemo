@@ -1663,8 +1663,8 @@ function campaignChangeRowHtml(r) {
     if (v === null || v === undefined || v === '') return '<span class="chist-empty">(비어 있음)</span>';
     if (kind === 'image') {
       const url = String(v);
-      return (typeof imgThumb === 'function')
-        ? `<img src="${esc(imgThumb(url, 120, 60))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
+      return (typeof campThumbUrl === 'function')
+        ? `<img src="${esc(campThumbUrl(url))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
         : `<span class="chist-clip">${esc(url)}</span>`;
     }
     const text = campaignFieldValueText(r.field_name, v);

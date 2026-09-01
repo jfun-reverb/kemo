@@ -219,7 +219,7 @@ async function renderMyApplyList() {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
-      ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      ? `<img src="${esc(campThumbUrl(imgs[0]))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     // 카드 클릭 동선:
     //   - cancelled: 사유 확인 모달 (openCancelDetailModal)

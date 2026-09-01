@@ -290,7 +290,10 @@ function campaignPeriodsCell(camp) {
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
-// 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백
+// 🔴 **유료 기능이고, 캠페인 사진에는 더 이상 쓰지 않는다** — 아래 campThumbUrl 로 옮겼다.
+//    호출량이 포함량(주기당 원본 100장)을 매 주기 시작하자마자 넘겨 요금이 나갔다.
+//    ⚠️ 영수증·인증샷·설명글 이미지는 아직 이 함수를 쓴다(별도 판단 대기).
+//    실패 시 onerror에서 원본 URL로 폴백
 function imgThumb(url, width, quality) {
   if (!url || typeof url !== 'string') return url;
   if (!url.includes('/storage/v1/object/public/')) return url;
@@ -300,11 +303,32 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
 }
 
+// 캠페인 대표 사진의 썸네일 주소 — **올릴 때 함께 저장해 둔 720px 사본**을 가리킨다.
+//   `campaigns/xxx.jpg` → `campaigns/thumb/xxx.jpg` 로 **경로 규칙**만 바꾼다.
+//   그래서 데이터베이스에 칸을 만들 필요가 없다(uploadImage 가 같은 파일 이름으로 저장한다).
+// 🔴 이 함수가 유료 변환(imgThumb)을 대신하는 자리다 — 되돌리면 요금이 다시 나간다.
+// ⚠️ 썸네일이 아직 없는 옛 사진은 404 가 나고, **호출부의 data-orig + onerror 가 원본으로
+//    되돌린다.** 그 폴백이 있는 자리에서만 이 함수를 쓸 것.
+// ⚠️ 캠페인 사진이 아닌 주소(영수증·인증샷·설명글)는 **그대로 돌려준다** — 그쪽은 썸네일을
+//    만들지 않는다(개인정보 사본을 늘리지 않기 위함).
+function campThumbUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const MARKER = '/storage/v1/object/public/campaign-images/campaigns/';
+  const i = url.indexOf(MARKER);
+  if (i === -1) return url;
+  const rest = url.slice(i + MARKER.length);
+  if (rest.startsWith('thumb/')) return url;   // 이미 썸네일 주소면 그대로
+  return url.slice(0, i + MARKER.length) + 'thumb/' + rest;
+}
+
 // 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
 // opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+// ⚠️ **opts.thumb 의 숫자는 이제 크기가 아니라 「썸네일을 쓸지」의 표시로만 읽는다** —
+//    저장해 둔 사본이 720px 한 벌뿐이라 호출부마다 크기를 고를 수 없다. 호출부 6곳을
+//    고치지 않으려고 인자를 그대로 받는다. opts.quality 도 같은 이유로 받기만 한다.
 function renderCroppedImg(url, _ignoredCrop, opts) {
   opts = opts || {};
-  const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
+  const thumb = opts.thumb ? campThumbUrl(url) : url;
   const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
   return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }
