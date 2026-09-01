@@ -265,7 +265,7 @@ function _applyContentImagePolicy(wrapper, opts) {
     //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
     //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
     if (showW && typeof imgThumb === 'function') {
-      const thumb = imgThumb(src, showW, 75);
+      const thumb = storageThumbUrl(src);
       if (thumb && thumb !== src) {
         img.setAttribute('data-orig', src);
         img.setAttribute('src', thumb);

@@ -1664,7 +1664,7 @@ function campaignChangeRowHtml(r) {
     if (kind === 'image') {
       const url = String(v);
       return (typeof campThumbUrl === 'function')
-        ? `<img src="${esc(campThumbUrl(url))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
+        ? `<img src="${esc(storageThumbUrl(url))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
         : `<span class="chist-clip">${esc(url)}</span>`;
     }
     const text = campaignFieldValueText(r.field_name, v);
