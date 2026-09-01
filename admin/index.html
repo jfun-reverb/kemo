@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788242075';
+  var CURRENT_BUILD = 'v1788244277';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-01 14:54 · ffef3b0</span>
+          <span class="admin-build-text">2026-09-01 15:31 · e567ea1</span>
         </div>
       </div>
     </aside>
@@ -11744,6 +11744,38 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 }
 
 // ── Image Storage ──
+// 캠페인 대표 사진의 **720px 썸네일**을 본체 옆에 한 벌 더 저장한다.
+//   왜: Supabase 의 유료 이미지 변환 기능을 안 쓰기 위해서다. 캠페인 목록을 한 번 여는
+//       것만으로 고유 사진 100장 넘게 변환돼, 포함량(주기당 원본 100장)을 **주기 시작
+//       하자마자** 넘겨 왔다(2026-08-31 실측 1,710장).
+//   🔴 720 인 이유 — 캠페인 상세의 첫 장이 720 을 요청한다(application.js). 목록·관리자
+//      화면은 그보다 작게 쓰지만 **한 벌을 함께 쓰는 쪽**을 골랐다. 크기별로 여러 벌을
+//      만들면 관리할 파일이 늘고, 지울 때 복제 캠페인이 같은 파일을 가리키는 문제가 커진다.
+//   ⚠️ 파일 이름을 **본체와 똑같이** 둔다 — 화면(`campThumbUrl`)이 주소 규칙으로 찾는다.
+//      확장자도 바꾸지 않고 `contentType` 만 실제 형식으로 준다(.png 주소에 JPEG 내용이
+//      담겨도 브라우저는 Content-Type 을 따른다).
+//   ⚠️ `keepIfSmall` — 720 보다 좁은 사진은 다시 그리지 않는다. 다시 그리면 JPEG 가 되어
+//      **투명한 PNG 의 배경이 검게** 된다(이 저장소에 기록된 함정).
+//   ⚠️ **실패는 삼킨다.** 썸네일이 없으면 화면이 `onerror` 로 본체를 그린다 —
+//      썸네일 실패가 업로드를 막으면 안 된다(`_shrinkRichImage` 와 같은 원칙).
+async function _uploadCampThumb(blob, path, mime) {
+  try {
+    if (typeof compressImageFile !== 'function') return;
+    var thumbPath = path.indexOf('campaigns/') === 0 ? 'campaigns/thumb/' + path.slice('campaigns/'.length) : '';
+    if (!thumbPath) return;
+    var src = new File([blob], 'camp-thumb', {type: mime});
+    var small = await compressImageFile(src, {maxWidth: 720, keepIfSmall: true});
+    var {error} = await db.storage.from('campaign-images').upload(thumbPath, small, {
+      contentType: small.type || mime,
+      upsert: true,              // 다시 올릴 때 막히지 않게 (본체는 upsert:false 그대로)
+      cacheControl: '86400'
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[uploadImage] 썸네일 저장 실패 — 본체만 저장한다', e);
+  }
+}
+
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
@@ -11762,6 +11794,8 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
+  // 캠페인 대표 사진만 썸네일을 한 벌 더 만든다 (영수증·인증샷은 만들지 않는다 — 위 주석)
+  if (prefix === 'campaigns') await _uploadCampThumb(blob, path, mime);
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
@@ -16032,7 +16066,10 @@ function campaignPeriodsCell(camp) {
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
-// 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백
+// 🔴 **유료 기능이고, 캠페인 사진에는 더 이상 쓰지 않는다** — 아래 campThumbUrl 로 옮겼다.
+//    호출량이 포함량(주기당 원본 100장)을 매 주기 시작하자마자 넘겨 요금이 나갔다.
+//    ⚠️ 영수증·인증샷·설명글 이미지는 아직 이 함수를 쓴다(별도 판단 대기).
+//    실패 시 onerror에서 원본 URL로 폴백
 function imgThumb(url, width, quality) {
   if (!url || typeof url !== 'string') return url;
   if (!url.includes('/storage/v1/object/public/')) return url;
@@ -16042,11 +16079,32 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
 }
 
+// 캠페인 대표 사진의 썸네일 주소 — **올릴 때 함께 저장해 둔 720px 사본**을 가리킨다.
+//   `campaigns/xxx.jpg` → `campaigns/thumb/xxx.jpg` 로 **경로 규칙**만 바꾼다.
+//   그래서 데이터베이스에 칸을 만들 필요가 없다(uploadImage 가 같은 파일 이름으로 저장한다).
+// 🔴 이 함수가 유료 변환(imgThumb)을 대신하는 자리다 — 되돌리면 요금이 다시 나간다.
+// ⚠️ 썸네일이 아직 없는 옛 사진은 404 가 나고, **호출부의 data-orig + onerror 가 원본으로
+//    되돌린다.** 그 폴백이 있는 자리에서만 이 함수를 쓸 것.
+// ⚠️ 캠페인 사진이 아닌 주소(영수증·인증샷·설명글)는 **그대로 돌려준다** — 그쪽은 썸네일을
+//    만들지 않는다(개인정보 사본을 늘리지 않기 위함).
+function campThumbUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const MARKER = '/storage/v1/object/public/campaign-images/campaigns/';
+  const i = url.indexOf(MARKER);
+  if (i === -1) return url;
+  const rest = url.slice(i + MARKER.length);
+  if (rest.startsWith('thumb/')) return url;   // 이미 썸네일 주소면 그대로
+  return url.slice(0, i + MARKER.length) + 'thumb/' + rest;
+}
+
 // 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
 // opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+// ⚠️ **opts.thumb 의 숫자는 이제 크기가 아니라 「썸네일을 쓸지」의 표시로만 읽는다** —
+//    저장해 둔 사본이 720px 한 벌뿐이라 호출부마다 크기를 고를 수 없다. 호출부 6곳을
+//    고치지 않으려고 인자를 그대로 받는다. opts.quality 도 같은 이유로 받기만 한다.
 function renderCroppedImg(url, _ignoredCrop, opts) {
   opts = opts || {};
-  const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
+  const thumb = opts.thumb ? campThumbUrl(url) : url;
   const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
   return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }
@@ -24926,7 +24984,7 @@ function brandOpsChannelText(channel, match) {
 // 미니카드 썸네일 (img1 없으면 placeholder)
 function brandOpsCampThumb(c) {
   return c.img1
-    ? '<img src="' + esc(imgThumb(c.img1, 128)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
+    ? '<img src="' + esc(campThumbUrl(c.img1)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
     : '<div style="width:56px;height:56px;border-radius:8px;flex-shrink:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:#bbb">image</span></div>';
 }
 
@@ -34307,7 +34365,7 @@ function renderRecentAppsTable(apps, camps, users) {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${esc(imgThumb(thumbUrl,96,70))}" data-orig="${esc(thumbUrl)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? `<img src="${esc(campThumbUrl(thumbUrl))}" data-orig="${esc(thumbUrl)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
@@ -35563,7 +35621,7 @@ function renderCampOpsSummary(camp, allApps, allDelivs, stats) {
 // 개요 카드 — 썸네일·제품·캠페인번호·타입/채널/판매가 + 기간 3종
 function campOpsOverviewCard(camp) {
   const thumb = camp.img1
-    ? `<img src="${esc(imgThumb(camp.img1,128,70))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0">`
+    ? `<img src="${esc(campThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0">`
     : `<div style="width:64px;height:64px;border-radius:8px;background:var(--surface-dim);flex-shrink:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="color:var(--muted)">inventory_2</span></div>`;
   const product = esc(camp.product_ko || camp.product || '—');
   const typeKo = (typeof BRAND_OPS_RECRUIT_TYPE_KO !== 'undefined' && BRAND_OPS_RECRUIT_TYPE_KO[camp.recruit_type]) || camp.recruit_type || '—';
@@ -35958,7 +36016,7 @@ async function renderAppCampList() {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,96,70)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? `<img src="${campThumbUrl(thumbUrl)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
@@ -38825,7 +38883,7 @@ function settlementAmountNote(s) {
 
 // 캠페인 셀 — 결과물 관리·신청 관리 페인과 같은 형태로 통일(2026-07-23 사용자 요청):
 //   [썸네일 40px] [모집타입 배지][캠페인번호] / [제목] [미리보기 돋보기]
-// 헬퍼는 전부 기존 공용(imgThumb·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
+// 헬퍼는 전부 기존 공용(campThumbUrl·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
 // 빌드 순서상 셋 다 이 파일보다 먼저 로드된다. 썸네일·모집타입은 fetchSettlements 가
 // campaigns 임베드로 이미 가져오는 img1·recruit_type 사용(추가 조회 없음).
 // 실제로 보낸 금액 칸.
@@ -38853,9 +38911,9 @@ function settlementCampCell(camp) {
     : '';
   const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function')
     ? getRecruitTypeBadgeKoSm(camp.recruit_type) : '';
-  // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(프로젝트 규칙 imgThumb + data-orig)
+  // 이미지 없으면 아이콘 폴백, 있으면 썸네일 + 원본 URL 폴백(campThumbUrl + data-orig)
   const thumb = camp.img1
-    ? `<img src="${esc(imgThumb(camp.img1, 96, 70))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
+    ? `<img src="${esc(campThumbUrl(camp.img1))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">`
     : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span></span>`;
   const badgeRow = (rtBadge || campNoBadge)
     ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div>`
@@ -46094,8 +46152,8 @@ function campaignChangeRowHtml(r) {
     if (v === null || v === undefined || v === '') return '<span class="chist-empty">(비어 있음)</span>';
     if (kind === 'image') {
       const url = String(v);
-      return (typeof imgThumb === 'function')
-        ? `<img src="${esc(imgThumb(url, 120, 60))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
+      return (typeof campThumbUrl === 'function')
+        ? `<img src="${esc(campThumbUrl(url))}" data-orig="${esc(url)}" onerror="this.src=this.dataset.orig" class="chist-thumb" alt="">`
         : `<span class="chist-clip">${esc(url)}</span>`;
     }
     const text = campaignFieldValueText(r.field_name, v);
