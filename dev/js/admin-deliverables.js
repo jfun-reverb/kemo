@@ -998,7 +998,7 @@ function renderDelivResultCellMonitor(g) {
     }
     let thumb = '';
     if (d.receipt_url) {
-      const thumbUrl = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 48, 80) : d.receipt_url;
+      const thumbUrl = storageThumbUrl(d.receipt_url);
       thumb = '<img src="' + esc(thumbUrl) + '" data-orig="' + esc(d.receipt_url) + '" loading="lazy" decoding="async" '
         + 'style="width:22px;height:22px;border-radius:3px;object-fit:cover;cursor:pointer;background:#f5f5f5" '
         + 'onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" '
@@ -1034,7 +1034,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   let preview = '';
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     if (d.receipt_url) {
-      const thumb = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 64, 80) : d.receipt_url;
+      const thumb = storageThumbUrl(d.receipt_url);
       preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox('${esc(d.receipt_url)}')">`;
     }
   } else if (d.kind === 'post') {
@@ -1497,7 +1497,7 @@ async function renderDelivCombinedBody(applicationId) {
       const rowsHtml = unassigned.map(function(d){
         const orig = d.receipt_url || '';
         const thumb = orig
-          ? `<img src="${esc(typeof imgThumb === 'function' ? imgThumb(orig, 64, 60) : orig)}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
+          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
         const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
