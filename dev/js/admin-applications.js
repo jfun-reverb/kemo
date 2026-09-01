@@ -181,8 +181,8 @@ async function loadCampApplicants() {
       //    신청자가 많은 캠페인에서 눈에 띄게 느려지므로 지도를 한 번만 만들어 쓴다.
       const _byEmail = new Map();
       _users.forEach(u => { if (u.email) _byEmail.set(u.email, u); });
-      const _nameOf = (a) => { const u = _byEmail.get(a.user_email) || {}; return u.name_kanji || u.name || a.user_name; };
-      apps.sort((a, b) => _cmpInfName(_nameOf(a), _nameOf(b), _d));
+      const _nameOf = (a) => influencerSortName(_byEmail.get(a.user_email), a.user_name);
+      apps.sort((a, b) => compareInfluencerName(_nameOf(a), _nameOf(b), _d));
     } else if (_campAppSort.col === 'status') {
       // 신청 관리(`toggleAppSort`)와 **같은 차례** — 심사중 → 승인 → 미승인 → 취소.
       const order = {pending: 0, approved: 1, rejected: 2, cancelled: 3};
@@ -437,16 +437,6 @@ function _applySortArrows(headId, state) {
   });
 }
 
-// 인플루언서 이름 비교 (한자 우선) — 엑셀·결과물 관리와 **같은 기준**이다.
-//   ⚠️ 이름이 빈 행은 방향과 무관하게 뒤로. 빈 값이 앞을 다 채우면 정렬이 쓸모없어진다.
-function _cmpInfName(na, nb, dir) {
-  const a = (na || '').toString(), b = (nb || '').toString();
-  if (!a && !b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  return a.localeCompare(b, 'ja') * dir;
-}
-
 function toggleCampAppSort(col) { _cycleSort(_campAppSort, col); loadCampApplicants(); }
 function toggleCampDelivSort(col) { _cycleSort(_campDelivSort, col); loadCampApplicants(); }
 
@@ -505,8 +495,7 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   if (_campDelivSort.col === 'name') {
     const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
     list.sort((a, b) => {
-      const ua = a.influencer || {}, ub = b.influencer || {};
-      return _cmpInfName(ua.name_kanji || ua.name, ub.name_kanji || ub.name, _d);
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), _d);
     });
   } else if (_campDelivSort.col === 'cert_at') {
     // ⚠️ 인증 성공 전인 건은 날짜가 없다. **방향과 무관하게 뒤로** — 결과물 관리와 같은 규약이고,

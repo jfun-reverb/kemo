@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788224649';
+  var CURRENT_BUILD = 'v1788225232';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-01 10:04 · 8a08dbf</span>
+          <span class="admin-build-text">2026-09-01 10:13 · d7efce7</span>
         </div>
       </div>
     </aside>
@@ -9752,6 +9752,37 @@ function notifReadKinds(kind) {
 //   진짜 결함과 갈라 볼 수 있게 한다(전부 안 남기면 「거부가 늘었다」는 신호까지 잃는다).
 //   ⚠️ 새 서버 거부 코드를 만들 때 여기에도 추가할 것 — 빠뜨리면 정상 거부가
 //      「예상 못 한 오류」로 쌓여 진짜 결함이 묻힌다.
+// ── 인플루언서 이름 정렬 기준 ───────────────────────────────────────
+// 🔴 **정렬은 가나(후리가나) 순이다.** 일본 명부·전화번호부의 표준(五十音順)이고,
+//    한자 그대로 비교하면 사람이 예측할 수 없는 차례가 나온다 — 실측으로
+//    「佐藤 → 田中 → 不承認 → 鈴木」이 나왔는데 가나 순이면 鈴木(すずき)가 두 번째다.
+// ⚠️ **화면에 보여주는 이름은 그대로 한자다.** 이 함수는 **비교할 때만** 쓴다 —
+//    표시에 쓰면 목록에 가나가 뜬다.
+// ⚠️ 가나가 없으면 한자로 대신 비교한다. 운영 실측(2026-09-01) 회원 1,871명 중
+//    한자 있음 1,100명 · 가나 있음 1,098명으로 **거의 항상 짝으로 있어**, 가나 기준으로
+//    바꿔도 뒤로 밀리는 사람이 늘지 않는다(이름이 아예 없는 771명은 어느 기준이든 뒤).
+// 🔴 **조회에 `name_kana` 가 실려 있어야 한다.** 안 실리면 조용히 한자로 되돌아가
+//    「바꿨는데 차례가 그대로」가 된다. `fetchInfluencers`(`select('*')`)와
+//    `fetchInfluencersByIds` 둘 다 가나를 가져온다(2026-09-01 확인).
+//    ⚠️ 참고로 `fetchInfluencersByIds` 는 **`name_kanji` 를 안 가져온다** — 결과물 화면에서
+//       한자 분기는 원래 닿지 않는 코드였다.
+function influencerSortName(u, fallback) {
+  const o = u || {};
+  const kana = (o.name_kana || '').toString().trim();
+  if (kana) return kana;
+  return (o.name_kanji || o.name || fallback || '').toString().trim();
+}
+
+// 이름 두 개를 비교한다. 빈 이름은 **방향과 무관하게 뒤로** — 빈 값이 앞을 다 채우면
+//   정렬을 눌러도 아무것도 못 본다(인증 성공일 정렬과 같은 규약).
+function compareInfluencerName(na, nb, dir) {
+  const a = (na || '').toString(), b = (nb || '').toString();
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b, 'ja') * (dir || 1);
+}
+
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
@@ -29758,13 +29789,7 @@ async function renderDeliverablesList() {
     //      — 빈 값이 앞을 다 채우면 정렬을 눌러도 아무것도 못 본다.
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => {
-      const ua = a.influencer || {}, ub = b.influencer || {};
-      const na = (ua.name_kanji || ua.name || '').toString();
-      const nb = (ub.name_kanji || ub.name || '').toString();
-      if (!na && !nb) return 0;
-      if (!na) return 1;
-      if (!nb) return -1;
-      return na.localeCompare(nb, 'ja') * dir;
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), dir);
     });
   } else if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
@@ -32618,12 +32643,7 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
       if (ca !== cb) return ca.localeCompare(cb, 'ja');
       var ua = userByEmail[a.user_email] || {};
       var ub = userByEmail[b.user_email] || {};
-      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
-      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
-      if (!na && !nb) return 0;
-      if (!na) return 1;
-      if (!nb) return -1;
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua, a.user_name), influencerSortName(ub, b.user_name), 1);
     });
 
     allCampApps.forEach(function(a) {
@@ -32778,9 +32798,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       if (ca !== cb) return ca.localeCompare(cb, 'ja');
       var ua = usersById[a.user_id] || {};
       var ub = usersById[b.user_id] || {};
-      var na = (ua.name_kanji || ua.name || '').toString();
-      var nb = (ub.name_kanji || ub.name || '').toString();
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
     });
 
     var wb = new ExcelJS.Workbook();
@@ -33017,12 +33035,7 @@ async function exportCampaignApplicationsExcel(campId) {
     apps.sort(function(a, b) {
       var ua = userByEmail[a.user_email] || {};
       var ub = userByEmail[b.user_email] || {};
-      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
-      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
-      if (!na && !nb) return 0;
-      if (!na) return 1;
-      if (!nb) return -1;
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua, a.user_name), influencerSortName(ub, b.user_name), 1);
     });
 
     // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
@@ -33269,9 +33282,7 @@ async function exportCampaignDeliverables(campId) {
     groupList.sort(function(a, b) {
       var ua = userById[a.user_id] || {};
       var ub = userById[b.user_id] || {};
-      var na = (ua.name_kanji || ua.name || '').toString();
-      var nb = (ub.name_kanji || ub.name || '').toString();
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
     });
 
     // 6) 워크북 생성
@@ -33531,7 +33542,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   });
   var groupList = Object.values(groups).sort(function(a, b) {
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
-    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+    return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
   });
 
   // ── 3) 컬럼 계산 — 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N ─────────────
@@ -33752,7 +33763,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     var cb = (b.camp.campaign_no || '').toString();
     if (ca !== cb) return ca.localeCompare(cb, 'ja');
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
-    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+    return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
   });
 
   // 컬럼 계산 — 캠페인 2 + 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N
@@ -35156,8 +35167,8 @@ async function loadCampApplicants() {
       //    신청자가 많은 캠페인에서 눈에 띄게 느려지므로 지도를 한 번만 만들어 쓴다.
       const _byEmail = new Map();
       _users.forEach(u => { if (u.email) _byEmail.set(u.email, u); });
-      const _nameOf = (a) => { const u = _byEmail.get(a.user_email) || {}; return u.name_kanji || u.name || a.user_name; };
-      apps.sort((a, b) => _cmpInfName(_nameOf(a), _nameOf(b), _d));
+      const _nameOf = (a) => influencerSortName(_byEmail.get(a.user_email), a.user_name);
+      apps.sort((a, b) => compareInfluencerName(_nameOf(a), _nameOf(b), _d));
     } else if (_campAppSort.col === 'status') {
       // 신청 관리(`toggleAppSort`)와 **같은 차례** — 심사중 → 승인 → 미승인 → 취소.
       const order = {pending: 0, approved: 1, rejected: 2, cancelled: 3};
@@ -35412,16 +35423,6 @@ function _applySortArrows(headId, state) {
   });
 }
 
-// 인플루언서 이름 비교 (한자 우선) — 엑셀·결과물 관리와 **같은 기준**이다.
-//   ⚠️ 이름이 빈 행은 방향과 무관하게 뒤로. 빈 값이 앞을 다 채우면 정렬이 쓸모없어진다.
-function _cmpInfName(na, nb, dir) {
-  const a = (na || '').toString(), b = (nb || '').toString();
-  if (!a && !b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  return a.localeCompare(b, 'ja') * dir;
-}
-
 function toggleCampAppSort(col) { _cycleSort(_campAppSort, col); loadCampApplicants(); }
 function toggleCampDelivSort(col) { _cycleSort(_campDelivSort, col); loadCampApplicants(); }
 
@@ -35480,8 +35481,7 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
   if (_campDelivSort.col === 'name') {
     const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
     list.sort((a, b) => {
-      const ua = a.influencer || {}, ub = b.influencer || {};
-      return _cmpInfName(ua.name_kanji || ua.name, ub.name_kanji || ub.name, _d);
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), _d);
     });
   } else if (_campDelivSort.col === 'cert_at') {
     // ⚠️ 인증 성공 전인 건은 날짜가 없다. **방향과 무관하게 뒤로** — 결과물 관리와 같은 규약이고,

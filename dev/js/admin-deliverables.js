@@ -546,13 +546,7 @@ async function renderDeliverablesList() {
     //      — 빈 값이 앞을 다 채우면 정렬을 눌러도 아무것도 못 본다.
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => {
-      const ua = a.influencer || {}, ub = b.influencer || {};
-      const na = (ua.name_kanji || ua.name || '').toString();
-      const nb = (ub.name_kanji || ub.name || '').toString();
-      if (!na && !nb) return 0;
-      if (!na) return 1;
-      if (!nb) return -1;
-      return na.localeCompare(nb, 'ja') * dir;
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), dir);
     });
   } else if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
