@@ -90,7 +90,12 @@ const CLIENT_ERROR_KO = [
   // ── 화면 코드·연결 ───────────────────────────────────────────────
   [/Cannot read propert(y|ies) of (null|undefined)/i,
    '화면 코드가 값이 없는 것을 읽으려다 멈췄습니다. 화면이 그리다 만 상태가 됩니다.'],
-  [/is not a function/i,                  '화면 코드가 없는 기능을 부르려다 멈췄습니다.'],
+  // ⚠️ 브라우저마다 문구가 다르다 — 앞이 크롬·엣지, 뒤가 사파리(아이폰)다. 아이폰 앱이
+  //    2026-08-21 부터 운영을 보고 있어 **사파리 문구가 실제로 올라온다**(개발서버 실측).
+  [/is not a function|Can't find variable|is not defined/i,
+   '화면 코드가 없는 기능이나 값을 부르려다 멈췄습니다.'],
+  [/column .* does not exist|does not exist/i,
+   '데이터베이스에 없는 칸이나 항목을 읽으려 했습니다.'],
   [/Failed to fetch|NetworkError|Load failed|ERR_CONNECTION/i,
    '서버에 연결하지 못했습니다. 회원 쪽 통신이 끊겼을 수 있습니다.'],
   [/decode_failed/i,                      '받은 값을 해석하지 못했습니다.'],
@@ -101,6 +106,14 @@ const CLIENT_ERROR_KO = [
 function clientErrorKo(msg) {
   const s = String(msg || '');
   if (!s) return '';
+  // 🔴 **원문이 이미 한국어면 풀이를 붙이지 않는다.** 데이터베이스 트리거·함수가 던지는
+  //    거부 문구는 코드값 뒤에 한국어 설명이 붙어 오는 것이 많아(예:
+  //    `event_status_change_blocked: 오프라인 행사 신청은 …`), 앞의 코드값만 보고 풀이를
+  //    달면 **같은 말이 위아래로 두 번** 나온다(2026-09-01 개발서버 화면에서 발견 —
+  //    문구 목록만 시험해서는 안 보이고 실제 목록을 봐야 드러났다).
+  //    ⚠️ `friendlyError()` 도 같은 규칙을 갖고 있다(한글이 있으면 원문을 그대로 돌려준다).
+  //       두 사전이 이 점만은 같게 움직인다.
+  if (/[가-힣]/.test(s)) return '';
   for (const [re, ko] of CLIENT_ERROR_KO) { if (re.test(s)) return ko; }
   return '';
 }
