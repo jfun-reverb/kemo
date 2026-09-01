@@ -8582,6 +8582,38 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 }
 
 // ── Image Storage ──
+// 캠페인 대표 사진의 **720px 썸네일**을 본체 옆에 한 벌 더 저장한다.
+//   왜: Supabase 의 유료 이미지 변환 기능을 안 쓰기 위해서다. 캠페인 목록을 한 번 여는
+//       것만으로 고유 사진 100장 넘게 변환돼, 포함량(주기당 원본 100장)을 **주기 시작
+//       하자마자** 넘겨 왔다(2026-08-31 실측 1,710장).
+//   🔴 720 인 이유 — 캠페인 상세의 첫 장이 720 을 요청한다(application.js). 목록·관리자
+//      화면은 그보다 작게 쓰지만 **한 벌을 함께 쓰는 쪽**을 골랐다. 크기별로 여러 벌을
+//      만들면 관리할 파일이 늘고, 지울 때 복제 캠페인이 같은 파일을 가리키는 문제가 커진다.
+//   ⚠️ 파일 이름을 **본체와 똑같이** 둔다 — 화면(`campThumbUrl`)이 주소 규칙으로 찾는다.
+//      확장자도 바꾸지 않고 `contentType` 만 실제 형식으로 준다(.png 주소에 JPEG 내용이
+//      담겨도 브라우저는 Content-Type 을 따른다).
+//   ⚠️ `keepIfSmall` — 720 보다 좁은 사진은 다시 그리지 않는다. 다시 그리면 JPEG 가 되어
+//      **투명한 PNG 의 배경이 검게** 된다(이 저장소에 기록된 함정).
+//   ⚠️ **실패는 삼킨다.** 썸네일이 없으면 화면이 `onerror` 로 본체를 그린다 —
+//      썸네일 실패가 업로드를 막으면 안 된다(`_shrinkRichImage` 와 같은 원칙).
+async function _uploadCampThumb(blob, path, mime) {
+  try {
+    if (typeof compressImageFile !== 'function') return;
+    var thumbPath = path.indexOf('campaigns/') === 0 ? 'campaigns/thumb/' + path.slice('campaigns/'.length) : '';
+    if (!thumbPath) return;
+    var src = new File([blob], 'camp-thumb', {type: mime});
+    var small = await compressImageFile(src, {maxWidth: 720, keepIfSmall: true});
+    var {error} = await db.storage.from('campaign-images').upload(thumbPath, small, {
+      contentType: small.type || mime,
+      upsert: true,              // 다시 올릴 때 막히지 않게 (본체는 upsert:false 그대로)
+      cacheControl: '86400'
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[uploadImage] 썸네일 저장 실패 — 본체만 저장한다', e);
+  }
+}
+
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
@@ -8600,6 +8632,8 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
+  // 캠페인 대표 사진만 썸네일을 한 벌 더 만든다 (영수증·인증샷은 만들지 않는다 — 위 주석)
+  if (prefix === 'campaigns') await _uploadCampThumb(blob, path, mime);
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
@@ -13096,7 +13130,10 @@ function campaignPeriodsCell(camp) {
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
-// 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백
+// 🔴 **유료 기능이고, 캠페인 사진에는 더 이상 쓰지 않는다** — 아래 campThumbUrl 로 옮겼다.
+//    호출량이 포함량(주기당 원본 100장)을 매 주기 시작하자마자 넘겨 요금이 나갔다.
+//    ⚠️ 영수증·인증샷·설명글 이미지는 아직 이 함수를 쓴다(별도 판단 대기).
+//    실패 시 onerror에서 원본 URL로 폴백
 function imgThumb(url, width, quality) {
   if (!url || typeof url !== 'string') return url;
   if (!url.includes('/storage/v1/object/public/')) return url;
@@ -13106,11 +13143,32 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
 }
 
+// 캠페인 대표 사진의 썸네일 주소 — **올릴 때 함께 저장해 둔 720px 사본**을 가리킨다.
+//   `campaigns/xxx.jpg` → `campaigns/thumb/xxx.jpg` 로 **경로 규칙**만 바꾼다.
+//   그래서 데이터베이스에 칸을 만들 필요가 없다(uploadImage 가 같은 파일 이름으로 저장한다).
+// 🔴 이 함수가 유료 변환(imgThumb)을 대신하는 자리다 — 되돌리면 요금이 다시 나간다.
+// ⚠️ 썸네일이 아직 없는 옛 사진은 404 가 나고, **호출부의 data-orig + onerror 가 원본으로
+//    되돌린다.** 그 폴백이 있는 자리에서만 이 함수를 쓸 것.
+// ⚠️ 캠페인 사진이 아닌 주소(영수증·인증샷·설명글)는 **그대로 돌려준다** — 그쪽은 썸네일을
+//    만들지 않는다(개인정보 사본을 늘리지 않기 위함).
+function campThumbUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const MARKER = '/storage/v1/object/public/campaign-images/campaigns/';
+  const i = url.indexOf(MARKER);
+  if (i === -1) return url;
+  const rest = url.slice(i + MARKER.length);
+  if (rest.startsWith('thumb/')) return url;   // 이미 썸네일 주소면 그대로
+  return url.slice(0, i + MARKER.length) + 'thumb/' + rest;
+}
+
 // 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
 // opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+// ⚠️ **opts.thumb 의 숫자는 이제 크기가 아니라 「썸네일을 쓸지」의 표시로만 읽는다** —
+//    저장해 둔 사본이 720px 한 벌뿐이라 호출부마다 크기를 고를 수 없다. 호출부 6곳을
+//    고치지 않으려고 인자를 그대로 받는다. opts.quality 도 같은 이유로 받기만 한다.
 function renderCroppedImg(url, _ignoredCrop, opts) {
   opts = opts || {};
-  const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
+  const thumb = opts.thumb ? campThumbUrl(url) : url;
   const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
   return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }
@@ -18460,7 +18518,7 @@ async function renderMyApplyList() {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
-      ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      ? `<img src="${esc(campThumbUrl(imgs[0]))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     // 카드 클릭 동선:
     //   - cancelled: 사유 확인 모달 (openCancelDetailModal)

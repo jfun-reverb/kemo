@@ -1684,6 +1684,38 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 }
 
 // ── Image Storage ──
+// 캠페인 대표 사진의 **720px 썸네일**을 본체 옆에 한 벌 더 저장한다.
+//   왜: Supabase 의 유료 이미지 변환 기능을 안 쓰기 위해서다. 캠페인 목록을 한 번 여는
+//       것만으로 고유 사진 100장 넘게 변환돼, 포함량(주기당 원본 100장)을 **주기 시작
+//       하자마자** 넘겨 왔다(2026-08-31 실측 1,710장).
+//   🔴 720 인 이유 — 캠페인 상세의 첫 장이 720 을 요청한다(application.js). 목록·관리자
+//      화면은 그보다 작게 쓰지만 **한 벌을 함께 쓰는 쪽**을 골랐다. 크기별로 여러 벌을
+//      만들면 관리할 파일이 늘고, 지울 때 복제 캠페인이 같은 파일을 가리키는 문제가 커진다.
+//   ⚠️ 파일 이름을 **본체와 똑같이** 둔다 — 화면(`campThumbUrl`)이 주소 규칙으로 찾는다.
+//      확장자도 바꾸지 않고 `contentType` 만 실제 형식으로 준다(.png 주소에 JPEG 내용이
+//      담겨도 브라우저는 Content-Type 을 따른다).
+//   ⚠️ `keepIfSmall` — 720 보다 좁은 사진은 다시 그리지 않는다. 다시 그리면 JPEG 가 되어
+//      **투명한 PNG 의 배경이 검게** 된다(이 저장소에 기록된 함정).
+//   ⚠️ **실패는 삼킨다.** 썸네일이 없으면 화면이 `onerror` 로 본체를 그린다 —
+//      썸네일 실패가 업로드를 막으면 안 된다(`_shrinkRichImage` 와 같은 원칙).
+async function _uploadCampThumb(blob, path, mime) {
+  try {
+    if (typeof compressImageFile !== 'function') return;
+    var thumbPath = path.indexOf('campaigns/') === 0 ? 'campaigns/thumb/' + path.slice('campaigns/'.length) : '';
+    if (!thumbPath) return;
+    var src = new File([blob], 'camp-thumb', {type: mime});
+    var small = await compressImageFile(src, {maxWidth: 720, keepIfSmall: true});
+    var {error} = await db.storage.from('campaign-images').upload(thumbPath, small, {
+      contentType: small.type || mime,
+      upsert: true,              // 다시 올릴 때 막히지 않게 (본체는 upsert:false 그대로)
+      cacheControl: '86400'
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[uploadImage] 썸네일 저장 실패 — 본체만 저장한다', e);
+  }
+}
+
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
@@ -1702,6 +1734,8 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
+  // 캠페인 대표 사진만 썸네일을 한 벌 더 만든다 (영수증·인증샷은 만들지 않는다 — 위 주석)
+  if (prefix === 'campaigns') await _uploadCampThumb(blob, path, mime);
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;

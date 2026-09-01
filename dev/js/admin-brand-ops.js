@@ -371,7 +371,7 @@ function brandOpsChannelText(channel, match) {
 // 미니카드 썸네일 (img1 없으면 placeholder)
 function brandOpsCampThumb(c) {
   return c.img1
-    ? '<img src="' + esc(imgThumb(c.img1, 128)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
+    ? '<img src="' + esc(campThumbUrl(c.img1)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
     : '<div style="width:56px;height:56px;border-radius:8px;flex-shrink:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:#bbb">image</span></div>';
 }
 
