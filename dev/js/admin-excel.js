@@ -569,12 +569,7 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
       if (ca !== cb) return ca.localeCompare(cb, 'ja');
       var ua = userByEmail[a.user_email] || {};
       var ub = userByEmail[b.user_email] || {};
-      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
-      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
-      if (!na && !nb) return 0;
-      if (!na) return 1;
-      if (!nb) return -1;
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua, a.user_name), influencerSortName(ub, b.user_name), 1);
     });
 
     allCampApps.forEach(function(a) {
@@ -729,9 +724,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       if (ca !== cb) return ca.localeCompare(cb, 'ja');
       var ua = usersById[a.user_id] || {};
       var ub = usersById[b.user_id] || {};
-      var na = (ua.name_kanji || ua.name || '').toString();
-      var nb = (ub.name_kanji || ub.name || '').toString();
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
     });
 
     var wb = new ExcelJS.Workbook();
@@ -968,12 +961,7 @@ async function exportCampaignApplicationsExcel(campId) {
     apps.sort(function(a, b) {
       var ua = userByEmail[a.user_email] || {};
       var ub = userByEmail[b.user_email] || {};
-      var na = (ua.name_kanji || ua.name || a.user_name || '').toString();
-      var nb = (ub.name_kanji || ub.name || b.user_name || '').toString();
-      if (!na && !nb) return 0;
-      if (!na) return 1;
-      if (!nb) return -1;
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua, a.user_name), influencerSortName(ub, b.user_name), 1);
     });
 
     // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
@@ -1220,9 +1208,7 @@ async function exportCampaignDeliverables(campId) {
     groupList.sort(function(a, b) {
       var ua = userById[a.user_id] || {};
       var ub = userById[b.user_id] || {};
-      var na = (ua.name_kanji || ua.name || '').toString();
-      var nb = (ub.name_kanji || ub.name || '').toString();
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
     });
 
     // 6) 워크북 생성
@@ -1482,7 +1468,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   });
   var groupList = Object.values(groups).sort(function(a, b) {
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
-    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+    return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
   });
 
   // ── 3) 컬럼 계산 — 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N ─────────────
@@ -1703,7 +1689,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     var cb = (b.camp.campaign_no || '').toString();
     if (ca !== cb) return ca.localeCompare(cb, 'ja');
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
-    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+    return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
   });
 
   // 컬럼 계산 — 캠페인 2 + 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N
