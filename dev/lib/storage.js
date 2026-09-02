@@ -3389,7 +3389,10 @@ async function cancelApplication(applicationId, opts) {
   } catch(e) {
     // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
     const msg = e?.message || 'unknown';
-    console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
+    console.error('[cancelApplication]', e);
+    // 서버가 던지는 거부 코드는 화면이 전용 문구로 받는 정상 거부다 — 목록을 넘기지 않으면
+    //   같은 거부가 여기서 「예상 못 한 오류」로 한 번 더 쌓인다(2026-09-02 운영 실측).
+    logAppError('cancelApplication', e, CANCEL_APPLICATION_EXPECTED);
     return {ok: false, error: msg};
   }
 }

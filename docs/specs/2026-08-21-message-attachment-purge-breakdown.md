@@ -468,11 +468,30 @@ public.count_overdue_withdrawal_message_attachment_purge()
 
 | 조각 | 파일 | 개발 | 운영 |
 |---|---|---|---|
-| 12-B-1 데이터베이스 본체 | `368_withdrawal_message_attachment_purge.sql` | ✅ 적용 | 미적용 |
-| 12-B-3 예약 등록 | `371_withdrawal_message_attachment_purge_cron.sql` | ✅ 적용 | 미적용 |
-| 12-B-5 경고 집계 확장 | `372_withdrawal_ops_alert_message_attachments.sql` | ✅ 적용 | 미적용 |
+| 12-B-1 데이터베이스 본체 | `368_withdrawal_message_attachment_purge.sql` | ✅ 적용 | ✅ **적용(2026-09-02)** |
+| 12-B-3 예약 등록 | `371_withdrawal_message_attachment_purge_cron.sql` | ✅ 적용 | ✅ **적용(2026-09-02)** |
+| 12-B-5 경고 집계 확장 | `372_withdrawal_ops_alert_message_attachments.sql` | ✅ 적용 | ✅ **적용(2026-09-02)** |
 
-Edge Function `purge-withdrawal-message-attachments` — **개발 배포 완료**(2026-08-21), 운영 미배포.
+Edge Function `purge-withdrawal-message-attachments` — **개발 배포 완료**(2026-08-21), **운영 배포 완료**(2026-09-02, `ACTIVE` 버전 1).
+
+### ★ 운영 적용 (2026-09-02) — 순서와 확인한 것
+
+**순서** — Edge Function 배포 → 368 → 371 → 372. 371 의 선행 조건이 「368 적용 + 함수 배포」 둘이라 그 둘을 먼저 놓았다.
+
+| 확인 항목 | 결과 |
+|---|---|
+| Edge Function 이 목록에 있나 | ✅ `ACTIVE` 버전 1 (`supabase functions list`) |
+| 함수 셋이 실제로 생겼나 | ✅ 목록·표시·건수 셋 다 |
+| `application_messages.attachments_purged_at` | ✅ 1개 |
+| 예약이 켜졌나 | ✅ `withdrawal-message-attachment-purge-daily` · `active=true` · `30 20 * * *`(한국·일본 05:30) |
+| 372 가 경고 함수에 반영됐나 | ✅ `get_withdrawal_ops_alert` 본문에 그 항목 있음 |
+| 이미 파기된 행 | 0 (아직 대상 없음 — 확정된 탈퇴가 없다) |
+
+⚠️ **`count_overdue_withdrawal_message_attachment_purge()` 는 SQL 편집기에서 `42501` 로 거부된다.** 결함이 아니라 **그 함수의 관리자 가드가 사는 증거**다 — 편집기는 로그인 사용자가 없어 `is_admin()` 이 거짓이다. 실제 건수는 관리자 브라우저 콘솔에서 볼 것.
+
+⚠️ **적용 전 「운영에 없다」를 파일 주석이 아니라 데이터베이스로 확인했다** — 이 문서 자신이 「파일 이름으로 판단하지 말 것」이라 경고하고 있어서다. 확인 결과 함수 0개·예약 없음·경고 함수에 항목 없음이었고, 그래서 셋 다 넣었다.
+
+🔴 **아직 안 한 것 — 파기가 실제로 도는 것은 못 봤다.** 대상이 0건이라(확정된 탈퇴가 없다) 예약이 돌아도 아무것도 안 지운다. 개발서버에서는 사진이 사라지는 것까지 봤지만, **운영에서 처음 실제로 도는 날은 아직 오지 않았다.** 첫 확정 탈퇴가 생기고 6개월 뒤가 그날이다.
 
 ⚠️ **369·370 은 이 작업이 아니다** — 같은 날 별건으로 발견한 **함수 실행 권한 구멍**을 닫는 파일이다(내부 전용 함수가 비로그인에게 열려 있었다). 번호가 사이에 끼어 있어 헷갈리기 쉬워 여기 적어 둔다.
 
