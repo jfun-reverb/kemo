@@ -78,6 +78,9 @@ async function loadBrandOps() {
 // 최근 신청 테이블 채우기 (대시보드 loadAdminData 에서 이관)
 async function loadBrandOpsRecentApps() {
   if (typeof renderRecentAppsTable !== 'function') return;
+  // 취소 사유 이름 캐시 — 표에 사유 분류를 그리므로 **그리기 전에** 채운다(사양서 §3-4).
+  //   ⚠️ renderRecentAppsTable 은 동기 함수라 그 안에서는 못 기다린다. 여기가 유일한 자리다.
+  if (typeof ensureCancelReasonsCache === 'function') { try { await ensureCancelReasonsCache(); } catch(e) {} }
   var results = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
   renderRecentAppsTable(results[2], results[0], results[1]);
 }
