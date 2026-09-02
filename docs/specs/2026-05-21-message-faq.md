@@ -2,7 +2,7 @@
 
 > **작성일:** 2026-05-21
 > **작성:** 기획/설계 세션
-> **상태:** 설계 확정, 구현 미착수
+> **상태:** ✅ **운영에 있음** (2026-09-02 기획 세션 확인 — `faq_nodes`·`adminPane-faq`). 배포 시점·마이그레이션 번호는 아래 「구현 결과」가 단일 소스다. ⚠️ 「구현 결과」 PR A 가 아직 「운영 보류」라고 적고 있다.
 > **목적:** 응모건 메시지(인플루언서↔관리자)에 **개인화된 상태 표시 + 선택지 트리형 FAQ**를 붙여, 인플루언서가 자주 묻는 문의를 묻기 전에 셀프 해결하도록 유도하고 관리자 응대 부담을 줄인다.
 > **연관 리서치:** [`docs/research/2026-05-21-message-faq-bot.md`](../research/2026-05-21-message-faq-bot.md) (실측 분석), [`docs/research/2026-05-21-message-translation-research.md`](../research/2026-05-21-message-translation-research.md) (번역 — 이번 범위 제외)
 > **기존 기능:** 응모건 메시지 PR 1·2 (마이그레이션 144·145), `dev/js/messaging.js`, `dev/js/admin-messaging.js`, 사양서 [`docs/specs/2026-05-15-application-messaging.md`](./2026-05-15-application-messaging.md)
