@@ -192,6 +192,11 @@ interface NextStepCampaign {
   recruit_type: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 아래 두 칸은 완료 문구를 고르는 재료다(completionTail 참조).
+  //   ⚠️ `undefined`(조회가 안 가져옴)와 `null`(데이터베이스가 비었다고 답함)을
+  //   반드시 구분한다 — 앞은 "모른다", 뒤는 "없다"이고 문구가 갈린다.
+  reward?: number | null;
+  product_price?: number | null;
 }
 
 // 공통 스타일 헬퍼 — 파란(다음 단계 남음) / 초록(완료) 두 톤만 쓴다(기존 색 그대로 유지).
@@ -205,6 +210,50 @@ function nextStepBox(tone: "blue" | "green", bodyHtml: string): string {
     bodyHtml +
     `</div>`
   );
+}
+
+// 「전부 제출됐다」 뒤에 붙일 마지막 문장 — 세 갈래.
+//
+// 🔴 왜 갈래가 셋인가
+//   제품만 주고 현금은 없는 캠페인(약관 제13조 3항)이 정상적으로 존재하는데, 이 메일은
+//   그 사실을 모르고 **「담당자 최종 확인 후 보수 지급을 진행합니다」**를 보내 왔다.
+//   지급은 영원히 없다 — 정산 후보를 고르는 함수가 그 형식을 **의도적으로 제외**하기
+//   때문이다(마이그레이션 264 → 현재 원본 331 의 `reward IS NULL OR reward <= 0`).
+//   실측(2026-09-02 운영): 무보수 당선 650건 중 **307건**이 이 문장을 실제로 받았다.
+//
+// ⚠️ 무보수와 「리뷰어형인데 제품 금액이 0」을 **한 갈래로 합치면 안 된다.** 둘은 결과가
+//   반대다 — 무보수는 설계대로 영원히 안 주고, 리뷰어형 금액 0은 **관리자가 금액을
+//   채우면 실제로 지급된다**(정산 후보에는 들고 `amount_issue` 로 보류될 뿐이다).
+//   합쳐서 「참여해 주셔서 감사합니다」를 보내면 **줄 것을 안 준다고 말하는** 셈이라,
+//   지금 결함을 정반대 방향의 같은 거짓말로 바꾸는 것이 된다.
+//
+// ⚠️ 무보수 문구에 「보수는 없습니다」라고 쓰지 않는다 — 회원은 응모 전에 이미 캠페인
+//   상세에서 「製品無償提供」을 보고 신청했다. 다 끝난 시점에 없는 것을 다시 말하면
+//   **주지 않는다는 통보**로 읽힌다.
+//
+// ⚠️ 모르면 중립이다. 이 파일의 기존 관례(`missingChannels === null` 갈래)와 같은
+//   방향이고, 「보수 지급」을 기본값으로 두면 지금 결함이 그대로 남는다.
+//   🔴 `undefined`(조회가 그 칸을 안 가져옴)와 `null`(데이터베이스가 "없다"고 답함)을
+//   구분한다 — 앞은 모르는 것이라 중립, 뒤는 정산 함수와 같은 기준으로 "무보수"다.
+function completionTail(camp: NextStepCampaign): string {
+  const PAID    = "担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。";
+  const UNPAID  = "ご参加ありがとうございました。";
+  const NEUTRAL = "次のステップは「活動管理」でご確認ください。";
+
+  const recruitType = camp.recruit_type || null;
+  if (!recruitType) return NEUTRAL;           // 형식을 모르면 어느 갈래인지 못 고른다
+
+  if (recruitType !== "monitor") {
+    // 시딩·방문형 — 현금 리워드가 판정 재료다.
+    if (camp.reward === undefined) return NEUTRAL;   // 조회가 안 가져옴 → 모름
+    if ((camp.reward ?? 0) <= 0) return UNPAID;      // 정산 후보 함수와 같은 기준
+    return PAID;
+  }
+
+  // 리뷰어형 — 지급액 상한이 제품 금액이다.
+  if (camp.product_price === undefined) return NEUTRAL;
+  if ((camp.product_price ?? 0) <= 0) return NEUTRAL; // 금액 미확정 → 감사 문구가 아니라 중립
+  return PAID;
 }
 
 // ⚠️ sb 매개변수를 `ReturnType<typeof createClient>` 로 타이핑하지 않는다 — 오버로드된
@@ -322,7 +371,7 @@ async function buildNextStepBlock(
     if (isProxyPurchase) {
       return nextStepBox(
         "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     // 리뷰어형(monitor) 일반 — 기존 STEP 2 안내(변경 없음).
@@ -378,7 +427,7 @@ async function buildNextStepBlock(
     if (missingChannels.length === 0) {
       return nextStepBox(
         "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     // 아직 남은 채널이 있다 — 요구 채널이 2개 이상일 때만 이름을 병기(단일 채널이면
@@ -427,7 +476,7 @@ async function buildNextStepBlock(
     if (missingChannels.length === 0) {
       return nextStepBox(
         "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     let missingLabel = "他のチャンネル分";
@@ -582,7 +631,7 @@ Deno.serve(async (req: Request) => {
     .select(`
       id, application_id, kind, status, post_url, post_channel,
       submitted_at, reviewed_at, reject_reason,
-      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel)
+      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, reward, product_price)
     `)
     .eq("id", note.ref_id)
     .maybeSingle();

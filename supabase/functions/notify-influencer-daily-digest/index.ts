@@ -940,11 +940,22 @@ Deno.serve(async (req: Request) => {
             //   ここを分けないと当選者に「報酬 -」とだけ届き、いくら戻るのかが伝わらない。
             //   ⚠️ レビュアー型に現金報酬を足して表示してはいけない — 支払われない金額の約束になる。
             const price = Number(c?.product_price ?? 0);
-            const rewardStr = c?.recruit_type === "monitor"
+            //   ⚠️ 現金報酬がない「製品提供のみ」の案件（利用規約第13条3項）を "-" とだけ
+            //   書くと、「無い」のか「未定」なのかが伝わらない。実測(2026-09-02 本番)では
+            //   無報酬の当選が650件あった。ここは「製品提供のみ」と明示する。
+            //   🔴 ただし **キャンペーン情報が取れなかった場合(c が無い)は "-" のまま**にする。
+            //   その場合は「無報酬」ではなく「分からない」であり、断定すると別の嘘になる。
+            //   同じ理由で recruit_type が空の案件も断定しない(精算側の除外条件
+            //   `recruit_type <> 'monitor'` は SQL の三値論理により NULL では真にならない)。
+            const isMonitor = c?.recruit_type === "monitor";
+            const isKnownUnpaid = !!c && !!c.recruit_type && !isMonitor && !(Number(c.reward) > 0);
+            const rewardStr = isMonitor
               ? (price > 0
                   ? `購入金額をペイバック（最大 ¥${price.toLocaleString("en-US")}）`
                   : "購入金額をペイバック")
-              : (c?.reward ? `¥${c.reward.toLocaleString("en-US")}` : "-");
+              : (c?.reward
+                  ? `¥${c.reward.toLocaleString("en-US")}`
+                  : (isKnownUnpaid ? "製品提供のみ" : "-"));
             // 提出期限 표기 — 모집 형식별 분기(2026-08-04 사양서 §설계 단계1-B).
             //   レビュー認証写真(모니터형)/투고물(시딩·방문형)이 각자 요구하는 제출물만 표시.
             //   리뷰어형은 게시물(投稿物) 제출 경로가 없으므로 절대 여기 섞지 않는다.
