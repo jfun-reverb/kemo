@@ -76,9 +76,47 @@ async function sendBrevoEmail(params: {
 }
 
 // 메일 제목·본문 빌드 (고정 문안 + 시행일 치환)
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **전 회원에게 실제 메일을 보낸다.** 막는 것이 없으면 사이트에 박힌
+//    공개 키만으로 누구나 발송을 시킬 수 있다(2026-09-02 전수조사에서 발견 —
+//    같은 저장소의 다른 메일 함수 넷 중 셋은 이미 이 검사가 있었고 여기만 없었다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+//    (같은 형태: notify-brand-application · notify-withdrawal-scheduled · notify-orient-submitted)
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
+// 발송 값이 본문에 그대로 들어가지 않게 한다.
+//   🔴 `effectiveDate` 는 **요청 본문에서 오는 값**이라 그대로 넣으면 임의 HTML 이 실린다.
+//   ⚠️ 글(text) 쪽은 이스케이프하지 않는다 — 순수 문자열이라 태그가 뜻을 갖지 않고,
+//      거기까지 바꾸면 회원이 받는 글에 `&amp;` 같은 것이 그대로 보인다.
+function escapeHtml(v: unknown): string {
+  return String(v ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function buildMail(effectiveDate: string): { subject: string; html: string; text: string } {
   const tpl = loadTemplate("policy-change-notice");
-  const html = render(tpl, { effective_date: effectiveDate });
+  const html = render(tpl, { effective_date: escapeHtml(effectiveDate) });
   const subject = "【REVERB JP】満18歳以上のご利用への変更・規約改定のお知らせ";
   const text = [
     "REVERB JP をご利用いただきありがとうございます。",
@@ -125,6 +163,12 @@ function selfInvokeChained(args: {
 }
 
 Deno.serve(async (req) => {
+  if (rejectPublicKeyCaller(req, "notify-policy-change")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
   const supaUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!supaUrl || !serviceKey) {
