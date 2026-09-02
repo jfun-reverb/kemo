@@ -166,9 +166,14 @@ async function renderMyApplyList() {
     // 메시지 미읽음 배지 — application_message_summary 뷰 (security_invoker, 본인 행만)
     try {
       const threads = await fetchInfluencerUnreadMessageThreads();
-      _myMsgUnreadByApp = {};
-      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
-    } catch(e) { _myMsgUnreadByApp = {}; }
+      // 🔴 `null` 은 **못 물어본 것**이지 「안 읽은 것이 없다」가 아니다 — 그때는 지난번에
+      //    알던 값을 그대로 둔다. 비우면 관리자 답장이 와 있는데 배지가 사라진다.
+      //    ⚠️ 회원에게 오류를 띄우지는 않는다(할 수 있는 일이 없다). 기록은 조회 함수가 한다.
+      if (threads) {
+        _myMsgUnreadByApp = {};
+        threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+      }
+    } catch(e) { /* 던져진 경우도 지난 값을 유지 — 위와 같은 이유 */ }
   }
 
   // 캠페인 상태 필터
@@ -316,9 +321,12 @@ async function refreshMyMsgUnread(opts) {
   if (typeof currentUser === 'undefined' || !currentUser) return;
   try {
     const threads = await fetchInfluencerUnreadMessageThreads();
-    _myMsgUnreadByApp = {};
-    threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
-  } catch(e) { /* 무시 */ }
+    // 위 renderMyApplyList 와 같은 규칙 — `null`(조회 실패)이면 지난 값을 유지한다.
+    if (threads) {
+      _myMsgUnreadByApp = {};
+      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+    }
+  } catch(e) { /* 지난 값 유지 */ }
   // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
   if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
   // 폴링·화면복귀 호출(skipRerender)은 햄버거 배지만 갱신 — 응모이력 재렌더로 인한
