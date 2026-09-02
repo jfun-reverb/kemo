@@ -36,6 +36,7 @@
 
 ### 4단계 — PR 머지 후 정리
 - 사용자가 GitHub에서 PR 직접 검토·머지 (자동 머지는 위험해서 안 함)
+- ⚠️ **검증이 끝난 `dev` 병합 요청은 예외다** — reviewer GO + 빌드 + 충돌 해소가 끝났으면 **Claude 가 머지한다**([`git.md`](git.md) 「개발서버 배포는 위임」, 2026-05-22 사용자 지시). 여기 「사용자가 직접」은 **운영(`main`)과 미검증 병합 요청**에 한정된다.
 - 머지 완료 후 메인 폴더에서:
   ```bash
   cd ~/Documents/projects/reverb-jp
@@ -115,7 +116,8 @@ git 은 **같은 브랜치를 두 폴더에서 동시에 못 연다.** `dev` 를
 (원칙 정의처: 글로벌 `~/.claude/rules/common-multi-session.md` 「공통 충돌 포인트」)
 
 ### Playwright(브라우저 테스트) 단일 자원 — 동시 실행 금지 (2026-06-05)
-- Playwright 는 `.mcp.json` 에서 `--extension` 모드로 설정돼 **사용자의 단일 크롬 1개**에 붙는다(새 브라우저를 띄우는 게 아님). 연결은 한 번에 하나만 잡힌다.
+- Playwright 는 **사용자의 단일 크롬 1개**에 붙는다(새 브라우저를 띄우는 게 아님). 연결은 한 번에 하나만 잡힌다.
+- ⚠️ **근거를 `.mcp.json` 의 기동 인자에서 찾지 말 것**(2026-09-02 정정) — 그 파일에 `playwright`(`--extension`)가 정의돼 있지만, **`reverb-qa-tester` 가 실제로 쓰는 것은 `mcp__plugin_ecc_playwright__*` 로 다른 서버다**(에이전트 정의의 `tools:` 확인). 「단일 자원이니 동시 실행 금지」라는 결론은 유효하나, **그 근거는 「크롬 확장에 붙는다」는 성질이지 특정 설정 파일의 한 줄이 아니다.**
 - 두 세션이 동시에 qa-test(Playwright)를 돌리면 **나중 연결이 기존 연결을 끊어**, 먼저 돌던 테스트가 멈춘다.
 - **규칙: qa-test 는 한 번에 한 세션만.** 개발 세션이 배포 전 자동으로 호출하지 말 것 — reverb-reviewer 가 "qa 권장: light/full/skip" 만 보고하고, **다른 세션이 Playwright 를 안 쓰는 걸 확인 + 사용자 트리거 후 단일 세션에서** 실행한다.
 - 에이전트 정의 `.claude/agents/reverb-qa-tester.md` 「실행 전 필수」 + 호출 의무는 `.claude/rules/git.md`/`interaction.md` 에 반영됨.
