@@ -536,7 +536,7 @@ window.I18N_KO = {
     // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
     minFollowersCurrent: '{channel} {n}명',
     winnerAnnounce: '당선 발표',
-    winnerAnnounceValue: '선정 후 LINE으로 연락',
+    winnerAnnounceValue: '심사 후 응모 상태 변경(당선) 및 메일로 연락',
     postDeadline: '게시 마감일',
     postDeadlineRelative: '수령 후 {days}일 이내',
     // ⚠️ 옛 이름은 「구매 및 영수증 제출 기간」 — 2026-08-11 에 「영수증은 결과물 제출
