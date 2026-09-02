@@ -327,7 +327,7 @@ flowchart LR
 <div class="section" id="sec3">
   <h2><span class="num">3</span>캠페인 상태 라이프사이클</h2>
   <div class="chart-wrap">
-    <div class="chart-desc">캠페인의 5가지 상태(draft→scheduled→active→closed/expired)와 전환 조건, 노출 규칙</div>
+    <div class="chart-desc">캠페인의 6가지 상태(draft→scheduled→active→closed→ended/expired)와 전환 조건, 노출 규칙</div>
     <pre class="mermaid">
 stateDiagram-v2
   [*] --> draft: 캠페인 등록
@@ -341,8 +341,10 @@ stateDiagram-v2
   active --> closed: 관리자 수동 종료
   active --> closed: deadline 경과 (자동)
 
+  closed --> ended: submission_end 경과 (자동, autoEndCampaigns)
   closed --> expired: 운영자 노출 토글 OFF (수동)
   expired --> closed: 운영자 노출 토글 ON (자연 상태 재계산)
+  ended --> expired: 운영자 노출 토글 OFF (수동)
   closed --> draft: 관리자 재등록
 
   note right of draft
@@ -364,6 +366,14 @@ stateDiagram-v2
     모집마감 — 募集締切 오버레이
     목록 노출 유지 (운영자 토글 OFF 전까지)
     인플루언서 화면: 신청 불가, 상세 조회 가능
+    결과물 제출 기간 진행 중
+    submission_end 경과 시 ended 자동 전환
+  end note
+  note right of ended
+    종료 — 終了 오버레이(검은색)
+    목록 노출 유지 (운영자 토글 OFF 전까지)
+    결과물 제출 마감됨
+    자동 전이 없음 (수동 토글로만 expired)
   end note
   note right of expired
     비노출 — 운영자 수동 전환만
@@ -372,7 +382,8 @@ stateDiagram-v2
     </pre>
     <div class="chart-desc" style="margin-top:8px; font-size:13px;">
       <strong>2026-04-27 (migration 072)</strong>: <code>campaigns.recruit_start date NULL</code> 신규 컬럼. <code>autoOpenCampaigns()</code> → <code>autoCloseCampaigns()</code> 순차 실행 — scheduled 캠페인의 <code>recruit_start ≤ now()</code> 이면 active 자동 전환. <code>recruit_start IS NULL</code> 이면 인플루언서 화면에서 "오늘 ~ deadline" 폴백 렌더.<br/>
-      <strong>2026-05-18 (migration 129)</strong>: <code>post_deadline</code> 컬럼 삭제 + <code>autoExpireCampaigns</code> 제거. 캠페인 노출 관리는 운영자 수동 토글 — ON 시 closed 자연 상태 재계산, OFF 시 <code>status=expired</code>. expired 진입은 운영자 토글 OFF 만, 자동 전이 없음.
+      <strong>2026-05-18 (migration 129)</strong>: <code>post_deadline</code> 컬럼 삭제 + <code>autoExpireCampaigns</code> 제거. 캠페인 노출 관리는 운영자 수동 토글 — ON 시 closed 자연 상태 재계산, OFF 시 <code>status=expired</code>. expired 진입은 운영자 토글 OFF 만, 자동 전이 없음.<br/>
+      <strong>2026-05-27 (migration 156)</strong>: <code>ended</code> 상태 분리. <code>submission_end</code> 경과 시 closed → ended 자동 전환 (<code>autoEndCampaigns()</code>). 인플루언서 화면에 終了 오버레이(검은색) 노출. closed 는 募集締切(핑크) 오버레이 유지.
     </div>
   </div>
 </div>
