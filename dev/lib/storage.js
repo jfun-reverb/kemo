@@ -3962,7 +3962,13 @@ async function fetchInfluencerUnreadMessageThreads() {
     .select('application_id, campaign_id, unread_for_influencer, last_message_at')
     .gt('unread_for_influencer', 0)
     .order('last_message_at', { ascending: false });
-  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return []; }
+  // 🔴 **실패는 `null`, 0건은 `[]`** — 부르는 쪽이 갈라 볼 수 있어야 한다.
+  //   예전에는 실패도 `[]` 였고, 부르는 쪽이 그걸 「안 읽은 것이 없다」로 읽어
+  //   **관리자 답장이 와 있는데 배지가 안 뜨는** 상태가 됐다(운영 실측 2026-09-02:
+  //   조회 시간 초과 9회). 회원은 답장이 온 줄 모르고, 관리자 쪽에는 무시한 것처럼 보인다.
+  //   ⚠️ 이 저장소가 세운 원칙 그대로다 — 「조회 실패(null)와 항목 0건([])을 구분한다」
+  //      (마이그레이션 276 의 결과물 게이트).
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return null; }
   return data || [];
 }
 
