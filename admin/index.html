@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788334313';
+  var CURRENT_BUILD = 'v1788340431';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2998,7 +2998,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-02 16:31 · 5785339</span>
+          <span class="admin-build-text">2026-09-02 18:13 · ce363ab</span>
         </div>
       </div>
     </aside>
@@ -3815,7 +3815,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting');applyGiftingDefaultHashtag('new')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-visit">
                     <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this);filterChannelsByRecruitType('new','visit');applyMinFollowersVisibility('new','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
@@ -17049,6 +17049,28 @@ function syncTagValue(wrapId, targetId, prefix) {
   hidden.value = tags.join(',');
 }
 
+// 기프팅(시딩) 캠페인의 필수 해시태그에 `#PR` 을 기본으로 넣는다.
+//   🔴 **일본 뒷광고(스테마) 규제가 요구하는 표시**다 — 제품을 무상 제공하는 기프팅은
+//      「#PR·#広告·#プロモーション 중 하나」가 반드시 붙어야 한다(PROJECT_CONTEXT 3-1).
+//      담당자가 매번 손으로 넣다 빠뜨리면 그 캠페인 결과물 전체가 규제 위반이 된다.
+//   ⚠️ **빈 칸일 때만 넣는다**(2026-09-02 사용자 결정) — 오리엔시트 발행은 이 칸을
+//      **브랜드가 적은 해시태그**로 채우므로(`admin-orient.js`), 무조건 넣으면 그것을 덮거나
+//      순서에 따라 결과가 갈린다. 브랜드 입력이 있으면 그대로 두고 사람이 판단한다.
+//   ⚠️ **지울 수 있다** — 태그 위젯의 칩이라 × 로 지운다. 저장을 막지 않는다.
+//   ⚠️ 리뷰어(monitor)·방문형(visit)에는 안 넣는다. 사용자가 기프팅만 지목했다.
+function applyGiftingDefaultHashtag(prefix) {
+  const wrapId = `tagWrap_${prefix}CampHashtags`;
+  const targetId = `${prefix}CampHashtags`;
+  const hidden = $(targetId);
+  const wrap = $(wrapId);
+  if (!hidden || !wrap) return;
+  // 이미 무언가 들어 있으면 손대지 않는다 — 칩과 hidden 값 **둘 다** 본다.
+  //   hidden 만 보면 위젯이 아직 동기화 전인 순간에 빈 것으로 읽힌다.
+  if ((hidden.value || '').trim()) return;
+  if (wrap.querySelector('.tag-label')) return;
+  addTag(wrapId, targetId, '#', 'PR');
+}
+
 function loadTagsFromValue(wrapId, targetId, prefix, value) {
   const wrap = $(wrapId);
   if (!wrap) return;
@@ -20101,6 +20123,11 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
     const tags = Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags : [];
     if (typeof loadTagsFromValue === 'function') {
       loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', tags.join(','));
+      // 브랜드가 해시태그를 하나도 안 적었으면 `#PR` 을 넣는다(뒷광고 표시 의무).
+      //   🔴 **채운 뒤에 부른다** — 먼저 부르면 위 loadTagsFromValue 가 기존 칩을 지우면서
+      //      `#PR` 도 함께 날아간다(그 함수는 값이 비면 지우기만 하고 끝난다).
+      //   ⚠️ 브랜드 입력이 있으면 이 함수가 스스로 아무것도 안 한다(빈 칸일 때만).
+      if (typeof applyGiftingDefaultHashtag === 'function') applyGiftingDefaultHashtag('new');
     } else {
       osSetVal('newCampHashtags', tags.map(t => String(t).replace(/[#\s]/g, '')).filter(Boolean).map(t => '#' + t).join(','));
     }
