@@ -16,7 +16,8 @@
  *    쓰게 하려면 한 번은 Claude 컨텍스트에 들어가야 하므로 첫 1회만 멈춘다.
  *
  * 안내하는 스킬(상황별):
- *  - 새 화면을 처음 만들 때 → frontend-design
+ *  - 새 화면을 처음 만들 때 → example-skills:frontend-design
+ *    (⚠️ document-skills:frontend-design 은 실재하지 않는 이름 — 2026-09-02 정정)
  *  - 기존 화면을 고치거나 다듬을 때 → ui-ux-pro-max
  *
  * 제외:
@@ -97,8 +98,12 @@ const out = [
   `대상 파일: ${filePath}`,
   '',
   '화면을 추가/수정하기 전에 디자인 스킬을 활용하세요:',
-  '  • 새 화면을 처음 만드는 경우  → Skill("document-skills:frontend-design")',
+  '  • 새 화면을 처음 만드는 경우  → Skill("example-skills:frontend-design")',
   '  • 기존 화면을 고치거나 다듬는 경우 → Skill("ui-ux-pro-max")',
+  '',
+  '🔴 인플루언서 화면은 Apple 디자인 지침이 위 스킬보다 앞섭니다.',
+  '   세부 기준·하드 제약은 .claude/rules/ui.md 「Apple 디자인 지침(HIG) 우선」 절,',
+  '   모호하면 Skill("apple-design"). 관리자 화면은 이 제약 없음.',
   '',
   'REVERB 는 이미 스타일이 잡혀 있으니, 기존 화면 수정은 ui-ux-pro-max 의',
   'review/improve 관점을 우선하고 기존 컨벤션(모바일 480px·Material Icons·',
