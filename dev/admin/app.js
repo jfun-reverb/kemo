@@ -209,6 +209,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (badge) badge.style.display = 'inline-block';
       var badgeSide = document.getElementById('stagingBadgeSide');
       if (badgeSide) badgeSide.style.display = 'inline-block';
+      // 빌드 표시 단서 — 개발서버 도장은 자기 내용보다 늘 옛것이라(.claude/rules/build.md)
+      // 두 서버의 도장을 비교해 앞뒤를 판단하면 반대로 읽힌다. 운영에는 붙이지 않는다.
+      var buildInfo = document.getElementById('adminBuildInfo');
+      if (buildInfo) {
+        buildInfo.title += ' 개발서버 표시는 실제 내용보다 이전 시점일 수 있습니다. 운영 표시와 비교해 앞뒤를 판단하지 마세요.';
+      }
     }
   } catch(e) {}
 

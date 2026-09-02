@@ -2232,12 +2232,36 @@ function compareInfluencerName(na, nb, dir) {
   return a.localeCompare(b, 'ja') * (dir || 1);
 }
 
+// 응모 취소가 서버에서 거부하는 값들 — 전부 화면이 전용 문구로 받아 주는 정상 거부다.
+//   🔴 **전역 패턴(아래)에 넣지 않는다.** `invalid_status` 는 오리엔시트 발행(196·237)·
+//      행사 뽑기(379·380)·결과물 상태(035·327)도 던지는 값이라, 문구로 뭉뚱그리면
+//      **그쪽 결함까지 함께 묻힌다.** 취소 경로에서만 쓴다.
+//   ⚠️ **두 곳이 같은 목록을 쓴다** — `cancelApplication`(storage.js, 데이터베이스 호출을
+//      감싸는 자리)과 `submitCancelApplication`(mypage.js, 화면). 한쪽만 넘기면 같은 거부가
+//      **두 번 기록되고 그중 하나가 「예상 못 한 오류」로 남는다** — 실제로 그랬다
+//      (2026-09-02 운영 실측: `cancelApplication` 이 낸 `invalid_status` 2회가 배지에 있었다).
+//   ⚠️ `application_not_found` 도 넣는다 — 화면이 전용 문구를 준다. 다만 **취소 함수가
+//      통째로 고장 났을 때**는 이 값이 아니라 데이터베이스 오류 문구가 오므로
+//      (2026-05~08 3개월 침묵의 실제 형태) 그 경우는 여기 안 걸리고 그대로 드러난다.
+const CANCEL_APPLICATION_EXPECTED = [
+  'not_owner', 'invalid_status', 'deliverable_already_approved',
+  'reason_required', 'acknowledgement_required', 'application_not_found'
+];
+
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
   // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
   //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
   /Auth session missing/i,
+  // 재설정·확인 링크가 만료됐거나 이미 쓰였을 때(`verifyOtp`) — 화면이 만료 안내와
+  //   「다시 메일 보내기」 버튼으로 받아 주므로 결함이 아니다(`handleRecoveryTokenLink`).
+  //   🔴 **운영 배지의 73%가 이것이었다**(2026-09-02 실측 — 미해결 48회 중 35회, 3행).
+  //      메일을 받고 한참 뒤에 여는 사람이 있는 한 계속 쌓인다.
+  //   ⚠️ **문구를 좁게 잡는 것이 핵심이다** — 같은 호출이 다른 이유로 실패하면
+  //      「비밀번호를 못 바꾸는 상태」인데 그때는 서버가 **다른 문구**를 주므로
+  //      여기 안 걸리고 그대로 「예상 못 한 오류」로 남는다.
+  /Email link is invalid or has expired|otp_expired/i,
   // 새 비밀번호가 예전 것과 같을 때 — 다른 비밀번호를 넣으면 되는 정상 거부.
   //   ⚠️ 안 넣으면 사람이 같은 비밀번호를 넣을 때마다 「미해결」 배지가 오른다. 실제로
   //      운영에서 한 사람이 5번 반복해 그대로 쌓였다(2026-08-11~12). 화면이 이유를
