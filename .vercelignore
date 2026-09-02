@@ -1,0 +1,59 @@
+# 이 사이트는 저장소 루트를 그대로 정적 서빙한다.
+# 즉 여기 적히지 않은 파일은 전부 https://globalreverb.com/<경로> 로 읽힌다.
+#
+# 2026-09-02 실측으로 드러난 것 — 전부 200 이었다:
+#   supabase/migrations/*.sql        접근 정책·함수 본문 전체
+#   supabase/functions/*/index.ts    서버 함수 소스
+#   CLAUDE.md                        248KB, 내부 레퍼런스
+#   .claude/rules/*.md               내부 운영 규칙
+#   docs/specs/*.md                  사양서 176건
+#
+# ⚠️ 이 파일은 「빼는 목록」이다. 새 폴더를 만들면 기본이 「공개」다.
+#    내부 자료를 담는 폴더는 여기 한 줄을 추가해야 한다.
+#
+# 🔴 index.html · admin/ · admin-setpw.html · event-scan.html · robots.txt 는
+#    절대 넣지 말 것 — 넣는 순간 사이트가 통째로 죽는다.
+
+# ── 개발 원본 (배포본은 빌드 산출물인 루트 index.html·admin/index.html 이다)
+dev
+
+# ── 데이터베이스 정의·서버 함수
+supabase
+
+# ── 내부 운영 자료
+.claude
+.agents
+.github
+scripts
+CLAUDE.md
+.mcp.json
+skills-lock.json
+test-results
+
+# ── 루트에 흩어진 작업 메모
+add-campaign.md
+add-campaign2.md
+add-campaign-1.md
+add-campaign-form.md
+campaigns-check.md
+step3.md
+
+# ── 문서는 약관 4종만 남긴다
+# ⚠️ dev/lib/legal.js 가 앱 푸터 약관을 이 네 주소에서 **실행 중에** 가져온다.
+#    막으면 약관 화면이 빈다. 지우지 말 것.
+# ⚠️ 「docs」 가 아니라 「docs/*」 여야 한다 — 부모 폴더를 통째로 빼면
+#    아래 되살리기(!)가 안 먹는다(.gitignore 문법의 제약).
+docs/*
+!docs/TERMS_kr.md
+!docs/TERMS_ja.md
+!docs/PRIVACY_kr.md
+!docs/PRIVACY_ja.md
+
+# ── 내부 직원용 흐름도: 개발서버에서만 열려야 한다
+# 배포 설정은 브랜치별로 못 나누므로, 「운영에서 안 보이게」는
+# main 에서 파일을 지우는 것으로 이미 했다(2026-09-02).
+# 여기서 되살리는 이유는 개발서버에서 계속 열리게 하기 위해서다.
+# 🔴 그래서 이 두 줄은 「main 에 그 파일이 없다」는 전제에 기대고 있다.
+#    누가 main 에 다시 올리면 그 순간 운영에 공개된다.
+!docs/service-flow.html
+!docs/flowchart-i18n.html
