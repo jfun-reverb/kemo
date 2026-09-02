@@ -54,9 +54,46 @@ async function openCampApplicants(campId, campTitle, from) {
 var campApplicantsLazy = null;
 const CAMP_APPLICANTS_PAGE_SIZE = 50;
 
+// 취소된 신청의 상태 칸 아래 줄 — 시점 · 사유 분류 · 보충.
+//   사양서 `docs/specs/2026-08-19-cancel-record-move-out-of-notices.md` §3-4.
+//   공지사항 자동 등록을 없앤 뒤(마이그레이션 394) **취소 내용을 볼 자리가 목록에서 사라져**,
+//   원래 공지가 담던 것(시점·사유·보충)을 진짜 기록이 있는 이 자리에 그린다.
+// ⚠️ **열을 새로 만들지 않는다** — 상태 칸 아래에 이어 붙인다(사양서 §2 ⑦).
+// ⚠️ **보충은 인플루언서가 쓴 자유 입력이다** — esc() 로 반드시 이스케이프한다.
+//    한 줄로 줄이고 `title` 로 전문을 보여준다(마우스를 올리면 뜬다).
+// ⚠️ 사유 분류 이름은 `cancelReasonLabelKo` 가 캐시에서 찾는데, 그 캐시가 비어 있으면
+//    **코드값이 그대로 보인다**(personal_reason 등). 부르는 쪽이 `ensureCancelReasonsCache()`
+//    를 **await 한 뒤** 그릴 것 — 이 함수는 캐시를 채우지 않는다(행마다 부르면 안 되므로).
+// ⚠️ 취소가 아니거나 그릴 것이 하나도 없으면 **빈 문자열**을 돌려준다(빈 줄을 안 만든다).
+function cancelDetailLinesHtml(a) {
+  if (!a || a.status !== 'cancelled') return '';
+  const phase = a.cancel_phase ? cancelPhaseLabelKo(a.cancel_phase) : '';
+  // 🔴 캐시에 그 코드가 없으면 `cancelReasonLabelKo` 는 **코드값을 그대로** 돌려준다.
+  //   그러면 화면에 `personal_reason` 같은 영문이 뜬다 — 그럴 바엔 **안 그리는 편이 낫다.**
+  //   부르는 쪽이 캐시를 안 채웠거나 조회가 실패한 경우를 여기서 막는다.
+  let reason = '';
+  if (a.cancel_reason_code && typeof cancelReasonLabelKo === 'function') {
+    const label = cancelReasonLabelKo(a.cancel_reason_code);
+    if (label && label !== a.cancel_reason_code) reason = label;
+  }
+  // 시점 · 사유 — 둘 중 있는 것만, 둘 다 있으면 가운뎃점으로 잇는다
+  const head = [phase, reason].filter(Boolean).join(' · ');
+  const note = (a.cancel_reason || '').trim();
+  let html = '';
+  if (head) html += `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(head)}</div>`;
+  if (note) {
+    html += `<div title="${esc(note)}" style="font-size:10px;color:var(--muted);margin-top:1px;`
+         +  `max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">「${esc(note)}」</div>`;
+  }
+  return html;
+}
+
 async function loadCampApplicants() {
   const filter = _campAppStatusTab || '';   // 신청 상태 탭(단일, ''=전체) — 구 드롭다운 대체
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
+  // 🔴 취소 사유 이름 캐시 — **목록을 그리기 전에** 채운다(§3-4).
+  //   안 채우고 그리면 사유가 `personal_reason` 같은 코드값 그대로 보인다.
+  await ensureCancelReasonsCache();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
   const _users = await fetchInfluencers();            // 행 렌더 + 감사용 격리 공용 (1회 로드)
@@ -165,7 +202,7 @@ async function loadCampApplicants() {
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-    <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+    <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
@@ -826,6 +863,9 @@ var _appListCache = null;
 function invalidateAppListCache() { _appListCache = null; }
 
 async function renderAppCampList() {
+  // 🔴 취소 사유 이름 캐시 — **목록을 그리기 전에** 채운다(§3-4).
+  //   이 목록은 예전엔 캐시를 아예 안 채웠다(상세 모달만 썼다).
+  await ensureCancelReasonsCache();
   const bodyEl = $('appTableBody');
   const countEl = $('appTotalCount');
   if (!bodyEl) return;
@@ -997,7 +1037,7 @@ async function renderAppCampList() {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
@@ -1015,8 +1055,9 @@ async function renderAppCampList() {
     pageSize: APP_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
-  // cancel_reason 캐시 미리 채움 — 상세 모달에서 카테고리 라벨 즉시 표시
-  ensureCancelReasonsCache();
+  // 캐시는 목록을 그리기 **전에** 채웠다(위) — 여기서는 아무것도 하지 않는다.
+  //   ⚠️ 예전에는 이 자리에서 await 없이 불렀는데, 그때는 상세 모달용이라 늦어도 됐다.
+  //      §3-4 로 **목록에도 사유 분류를 그리게 되면서** 첫 그림에 캐시가 필요해졌다.
 }
 
 // 미승인(rejected)·되돌리기(pending) 전 가드 — 진행 가능하면 true, 차단/사용자 취소면 false.
