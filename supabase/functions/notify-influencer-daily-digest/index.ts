@@ -310,9 +310,39 @@ interface SentRow {
                           // 중복 차단 열쇠에 포함 — 마이그레이션 322 로 DB 쪽 UNIQUE 제약도 5-튜플로 확장
 }
 
+
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  if (rejectPublicKeyCaller(req, "notify-influencer-daily-digest")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
   const supaUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -910,11 +940,22 @@ Deno.serve(async (req: Request) => {
             //   ここを分けないと当選者に「報酬 -」とだけ届き、いくら戻るのかが伝わらない。
             //   ⚠️ レビュアー型に現金報酬を足して表示してはいけない — 支払われない金額の約束になる。
             const price = Number(c?.product_price ?? 0);
-            const rewardStr = c?.recruit_type === "monitor"
+            //   ⚠️ 現金報酬がない「製品提供のみ」の案件（利用規約第13条3項）を "-" とだけ
+            //   書くと、「無い」のか「未定」なのかが伝わらない。実測(2026-09-02 本番)では
+            //   無報酬の当選が650件あった。ここは「製品提供のみ」と明示する。
+            //   🔴 ただし **キャンペーン情報が取れなかった場合(c が無い)は "-" のまま**にする。
+            //   その場合は「無報酬」ではなく「分からない」であり、断定すると別の嘘になる。
+            //   同じ理由で recruit_type が空の案件も断定しない(精算側の除外条件
+            //   `recruit_type <> 'monitor'` は SQL の三値論理により NULL では真にならない)。
+            const isMonitor = c?.recruit_type === "monitor";
+            const isKnownUnpaid = !!c && !!c.recruit_type && !isMonitor && !(Number(c.reward) > 0);
+            const rewardStr = isMonitor
               ? (price > 0
                   ? `購入金額をペイバック（最大 ¥${price.toLocaleString("en-US")}）`
                   : "購入金額をペイバック")
-              : (c?.reward ? `¥${c.reward.toLocaleString("en-US")}` : "-");
+              : (c?.reward
+                  ? `¥${c.reward.toLocaleString("en-US")}`
+                  : (isKnownUnpaid ? "製品提供のみ" : "-"));
             // 提出期限 표기 — 모집 형식별 분기(2026-08-04 사양서 §설계 단계1-B).
             //   レビュー認証写真(모니터형)/투고물(시딩·방문형)이 각자 요구하는 제출물만 표시.
             //   리뷰어형은 게시물(投稿物) 제출 경로가 없으므로 절대 여기 섞지 않는다.

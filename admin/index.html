@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788246064';
+  var CURRENT_BUILD = 'v1788341811';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2996,9 +2996,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <option value="influencer">인플루언서 화면</option>
           </select>
         </div>
-        <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
+        <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-01 16:01 · 30f88bd</span>
+          <span class="admin-build-text">2026-09-02 18:36 · 6711017</span>
         </div>
       </div>
     </aside>
@@ -3502,7 +3502,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
             </div>
-            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
+            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、お申込の状態変更(当選)及びメールにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
             <!-- 행사 시간 — 행사 모드일 때만 보인다. 모집 조건 안에 두는 이유: 방문 날짜·시각·
                  정원은 그 캠페인을 언제 몇 명 받느냐는 조건이라 모집 인원·기간과 한 묶음이다
                  (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지 후 위치 재조정). -->
@@ -3815,7 +3815,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting');applyGiftingDefaultHashtag('new')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-visit">
                     <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this);filterChannelsByRecruitType('new','visit');applyMinFollowersVisibility('new','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
@@ -3974,7 +3974,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="form-group">
               <label class="form-label">당선 발표 안내</label>
-              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、LINEにてご連絡" placeholder="選考後、LINEにてご連絡">
+              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、お申込の状態変更(当選)及びメールにてご連絡" placeholder="選考後、お申込の状態変更(当選)及びメールにてご連絡">
               <div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 기본값 그대로 사용 가능</div>
             </div>
 
@@ -9790,12 +9790,36 @@ function compareInfluencerName(na, nb, dir) {
   return a.localeCompare(b, 'ja') * (dir || 1);
 }
 
+// 응모 취소가 서버에서 거부하는 값들 — 전부 화면이 전용 문구로 받아 주는 정상 거부다.
+//   🔴 **전역 패턴(아래)에 넣지 않는다.** `invalid_status` 는 오리엔시트 발행(196·237)·
+//      행사 뽑기(379·380)·결과물 상태(035·327)도 던지는 값이라, 문구로 뭉뚱그리면
+//      **그쪽 결함까지 함께 묻힌다.** 취소 경로에서만 쓴다.
+//   ⚠️ **두 곳이 같은 목록을 쓴다** — `cancelApplication`(storage.js, 데이터베이스 호출을
+//      감싸는 자리)과 `submitCancelApplication`(mypage.js, 화면). 한쪽만 넘기면 같은 거부가
+//      **두 번 기록되고 그중 하나가 「예상 못 한 오류」로 남는다** — 실제로 그랬다
+//      (2026-09-02 운영 실측: `cancelApplication` 이 낸 `invalid_status` 2회가 배지에 있었다).
+//   ⚠️ `application_not_found` 도 넣는다 — 화면이 전용 문구를 준다. 다만 **취소 함수가
+//      통째로 고장 났을 때**는 이 값이 아니라 데이터베이스 오류 문구가 오므로
+//      (2026-05~08 3개월 침묵의 실제 형태) 그 경우는 여기 안 걸리고 그대로 드러난다.
+const CANCEL_APPLICATION_EXPECTED = [
+  'not_owner', 'invalid_status', 'deliverable_already_approved',
+  'reason_required', 'acknowledgement_required', 'application_not_found'
+];
+
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
   // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
   //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
   /Auth session missing/i,
+  // 재설정·확인 링크가 만료됐거나 이미 쓰였을 때(`verifyOtp`) — 화면이 만료 안내와
+  //   「다시 메일 보내기」 버튼으로 받아 주므로 결함이 아니다(`handleRecoveryTokenLink`).
+  //   🔴 **운영 배지의 73%가 이것이었다**(2026-09-02 실측 — 미해결 48회 중 35회, 3행).
+  //      메일을 받고 한참 뒤에 여는 사람이 있는 한 계속 쌓인다.
+  //   ⚠️ **문구를 좁게 잡는 것이 핵심이다** — 같은 호출이 다른 이유로 실패하면
+  //      「비밀번호를 못 바꾸는 상태」인데 그때는 서버가 **다른 문구**를 주므로
+  //      여기 안 걸리고 그대로 「예상 못 한 오류」로 남는다.
+  /Email link is invalid or has expired|otp_expired/i,
   // 새 비밀번호가 예전 것과 같을 때 — 다른 비밀번호를 넣으면 되는 정상 거부.
   //   ⚠️ 안 넣으면 사람이 같은 비밀번호를 넣을 때마다 「미해결」 배지가 오른다. 실제로
   //      운영에서 한 사람이 5번 반복해 그대로 쌓였다(2026-08-11~12). 화면이 이유를
@@ -13449,7 +13473,10 @@ async function cancelApplication(applicationId, opts) {
   } catch(e) {
     // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
     const msg = e?.message || 'unknown';
-    console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
+    console.error('[cancelApplication]', e);
+    // 서버가 던지는 거부 코드는 화면이 전용 문구로 받는 정상 거부다 — 목록을 넘기지 않으면
+    //   같은 거부가 여기서 「예상 못 한 오류」로 한 번 더 쌓인다(2026-09-02 운영 실측).
+    logAppError('cancelApplication', e, CANCEL_APPLICATION_EXPECTED);
     return {ok: false, error: msg};
   }
 }
@@ -14019,7 +14046,13 @@ async function fetchInfluencerUnreadMessageThreads() {
     .select('application_id, campaign_id, unread_for_influencer, last_message_at')
     .gt('unread_for_influencer', 0)
     .order('last_message_at', { ascending: false });
-  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return []; }
+  // 🔴 **실패는 `null`, 0건은 `[]`** — 부르는 쪽이 갈라 볼 수 있어야 한다.
+  //   예전에는 실패도 `[]` 였고, 부르는 쪽이 그걸 「안 읽은 것이 없다」로 읽어
+  //   **관리자 답장이 와 있는데 배지가 안 뜨는** 상태가 됐다(운영 실측 2026-09-02:
+  //   조회 시간 초과 9회). 회원은 답장이 온 줄 모르고, 관리자 쪽에는 무시한 것처럼 보인다.
+  //   ⚠️ 이 저장소가 세운 원칙 그대로다 — 「조회 실패(null)와 항목 0건([])을 구분한다」
+  //      (마이그레이션 276 의 결과물 게이트).
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return null; }
   return data || [];
 }
 
@@ -17014,6 +17047,28 @@ function syncTagValue(wrapId, targetId, prefix) {
   if (!wrap || !hidden) return;
   const tags = Array.from(wrap.querySelectorAll('.tag-label')).map(el => el.textContent.replace('×', '').trim());
   hidden.value = tags.join(',');
+}
+
+// 기프팅(시딩) 캠페인의 필수 해시태그에 `#PR` 을 기본으로 넣는다.
+//   🔴 **일본 뒷광고(스테마) 규제가 요구하는 표시**다 — 제품을 무상 제공하는 기프팅은
+//      「#PR·#広告·#プロモーション 중 하나」가 반드시 붙어야 한다(PROJECT_CONTEXT 3-1).
+//      담당자가 매번 손으로 넣다 빠뜨리면 그 캠페인 결과물 전체가 규제 위반이 된다.
+//   ⚠️ **빈 칸일 때만 넣는다**(2026-09-02 사용자 결정) — 오리엔시트 발행은 이 칸을
+//      **브랜드가 적은 해시태그**로 채우므로(`admin-orient.js`), 무조건 넣으면 그것을 덮거나
+//      순서에 따라 결과가 갈린다. 브랜드 입력이 있으면 그대로 두고 사람이 판단한다.
+//   ⚠️ **지울 수 있다** — 태그 위젯의 칩이라 × 로 지운다. 저장을 막지 않는다.
+//   ⚠️ 리뷰어(monitor)·방문형(visit)에는 안 넣는다. 사용자가 기프팅만 지목했다.
+function applyGiftingDefaultHashtag(prefix) {
+  const wrapId = `tagWrap_${prefix}CampHashtags`;
+  const targetId = `${prefix}CampHashtags`;
+  const hidden = $(targetId);
+  const wrap = $(wrapId);
+  if (!hidden || !wrap) return;
+  // 이미 무언가 들어 있으면 손대지 않는다 — 칩과 hidden 값 **둘 다** 본다.
+  //   hidden 만 보면 위젯이 아직 동기화 전인 순간에 빈 것으로 읽힌다.
+  if ((hidden.value || '').trim()) return;
+  if (wrap.querySelector('.tag-label')) return;
+  addTag(wrapId, targetId, '#', 'PR');
 }
 
 function loadTagsFromValue(wrapId, targetId, prefix, value) {
@@ -20068,6 +20123,11 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
     const tags = Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags : [];
     if (typeof loadTagsFromValue === 'function') {
       loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', tags.join(','));
+      // 브랜드가 해시태그를 하나도 안 적었으면 `#PR` 을 넣는다(뒷광고 표시 의무).
+      //   🔴 **채운 뒤에 부른다** — 먼저 부르면 위 loadTagsFromValue 가 기존 칩을 지우면서
+      //      `#PR` 도 함께 날아간다(그 함수는 값이 비면 지우기만 하고 끝난다).
+      //   ⚠️ 브랜드 입력이 있으면 이 함수가 스스로 아무것도 안 한다(빈 칸일 때만).
+      if (typeof applyGiftingDefaultHashtag === 'function') applyGiftingDefaultHashtag('new');
     } else {
       osSetVal('newCampHashtags', tags.map(t => String(t).replace(/[#\s]/g, '')).filter(Boolean).map(t => '#' + t).join(','));
     }
@@ -24762,6 +24822,9 @@ async function loadBrandOps() {
 // 최근 신청 테이블 채우기 (대시보드 loadAdminData 에서 이관)
 async function loadBrandOpsRecentApps() {
   if (typeof renderRecentAppsTable !== 'function') return;
+  // 취소 사유 이름 캐시 — 표에 사유 분류를 그리므로 **그리기 전에** 채운다(사양서 §3-4).
+  //   ⚠️ renderRecentAppsTable 은 동기 함수라 그 안에서는 못 기다린다. 여기가 유일한 자리다.
+  if (typeof ensureCancelReasonsCache === 'function') { try { await ensureCancelReasonsCache(); } catch(e) {} }
   var results = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
   renderRecentAppsTable(results[2], results[0], results[1]);
 }
@@ -34452,7 +34515,7 @@ function renderRecentAppsTable(apps, camps, users) {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
@@ -35176,9 +35239,46 @@ async function openCampApplicants(campId, campTitle, from) {
 var campApplicantsLazy = null;
 const CAMP_APPLICANTS_PAGE_SIZE = 50;
 
+// 취소된 신청의 상태 칸 아래 줄 — 시점 · 사유 분류 · 보충.
+//   사양서 `docs/specs/2026-08-19-cancel-record-move-out-of-notices.md` §3-4.
+//   공지사항 자동 등록을 없앤 뒤(마이그레이션 394) **취소 내용을 볼 자리가 목록에서 사라져**,
+//   원래 공지가 담던 것(시점·사유·보충)을 진짜 기록이 있는 이 자리에 그린다.
+// ⚠️ **열을 새로 만들지 않는다** — 상태 칸 아래에 이어 붙인다(사양서 §2 ⑦).
+// ⚠️ **보충은 인플루언서가 쓴 자유 입력이다** — esc() 로 반드시 이스케이프한다.
+//    한 줄로 줄이고 `title` 로 전문을 보여준다(마우스를 올리면 뜬다).
+// ⚠️ 사유 분류 이름은 `cancelReasonLabelKo` 가 캐시에서 찾는데, 그 캐시가 비어 있으면
+//    **코드값이 그대로 보인다**(personal_reason 등). 부르는 쪽이 `ensureCancelReasonsCache()`
+//    를 **await 한 뒤** 그릴 것 — 이 함수는 캐시를 채우지 않는다(행마다 부르면 안 되므로).
+// ⚠️ 취소가 아니거나 그릴 것이 하나도 없으면 **빈 문자열**을 돌려준다(빈 줄을 안 만든다).
+function cancelDetailLinesHtml(a) {
+  if (!a || a.status !== 'cancelled') return '';
+  const phase = a.cancel_phase ? cancelPhaseLabelKo(a.cancel_phase) : '';
+  // 🔴 캐시에 그 코드가 없으면 `cancelReasonLabelKo` 는 **코드값을 그대로** 돌려준다.
+  //   그러면 화면에 `personal_reason` 같은 영문이 뜬다 — 그럴 바엔 **안 그리는 편이 낫다.**
+  //   부르는 쪽이 캐시를 안 채웠거나 조회가 실패한 경우를 여기서 막는다.
+  let reason = '';
+  if (a.cancel_reason_code && typeof cancelReasonLabelKo === 'function') {
+    const label = cancelReasonLabelKo(a.cancel_reason_code);
+    if (label && label !== a.cancel_reason_code) reason = label;
+  }
+  // 시점 · 사유 — 둘 중 있는 것만, 둘 다 있으면 가운뎃점으로 잇는다
+  const head = [phase, reason].filter(Boolean).join(' · ');
+  const note = (a.cancel_reason || '').trim();
+  let html = '';
+  if (head) html += `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(head)}</div>`;
+  if (note) {
+    html += `<div title="${esc(note)}" style="font-size:10px;color:var(--muted);margin-top:1px;`
+         +  `max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">「${esc(note)}」</div>`;
+  }
+  return html;
+}
+
 async function loadCampApplicants() {
   const filter = _campAppStatusTab || '';   // 신청 상태 탭(단일, ''=전체) — 구 드롭다운 대체
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
+  // 🔴 취소 사유 이름 캐시 — **목록을 그리기 전에** 채운다(§3-4).
+  //   안 채우고 그리면 사유가 `personal_reason` 같은 코드값 그대로 보인다.
+  await ensureCancelReasonsCache();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
   const _users = await fetchInfluencers();            // 행 렌더 + 감사용 격리 공용 (1회 로드)
@@ -35287,7 +35387,7 @@ async function loadCampApplicants() {
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-    <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+    <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
@@ -35948,6 +36048,9 @@ var _appListCache = null;
 function invalidateAppListCache() { _appListCache = null; }
 
 async function renderAppCampList() {
+  // 🔴 취소 사유 이름 캐시 — **목록을 그리기 전에** 채운다(§3-4).
+  //   이 목록은 예전엔 캐시를 아예 안 채웠다(상세 모달만 썼다).
+  await ensureCancelReasonsCache();
   const bodyEl = $('appTableBody');
   const countEl = $('appTotalCount');
   if (!bodyEl) return;
@@ -36119,7 +36222,7 @@ async function renderAppCampList() {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
@@ -36137,8 +36240,9 @@ async function renderAppCampList() {
     pageSize: APP_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
-  // cancel_reason 캐시 미리 채움 — 상세 모달에서 카테고리 라벨 즉시 표시
-  ensureCancelReasonsCache();
+  // 캐시는 목록을 그리기 **전에** 채웠다(위) — 여기서는 아무것도 하지 않는다.
+  //   ⚠️ 예전에는 이 자리에서 await 없이 불렀는데, 그때는 상세 모달용이라 늦어도 됐다.
+  //      §3-4 로 **목록에도 사유 분류를 그리게 되면서** 첫 그림에 캐시가 필요해졌다.
 }
 
 // 미승인(rejected)·되돌리기(pending) 전 가드 — 진행 가능하면 true, 차단/사용자 취소면 false.
@@ -45633,7 +45737,7 @@ async function openEditCampaign(campId) {
   syncCampDateMinMax('editCamp');
   // ⚠️ camp 를 넘긴다 — 이 시점 _editCampOriginal 은 아직 직전 캠페인 것이다(대입은 아래).
   validateCampDateRangesInline('editCamp', camp);
-  sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
+  sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、お申込の状態変更(当選)及びメールにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
@@ -47463,7 +47567,7 @@ async function saveCampaignEdit() {
       selection_end: gv('editCampSelectionEnd')||null,
       visit_end: gv('editCampVisitEnd')||null,
       submission_end: gv('editCampSubmissionEnd')||null,
-      winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
+      winner_announce: gv('editCampWinnerAnnounce') || '選考後、お申込の状態変更(当選)及びメールにてご連絡',
       description: gv('editCampDesc'),
       // 태그(쉼표 구분) 뒤에 안내문을 그대로 붙여 보존 — 옛 데이터의 ※ 안내문이 사라지지 않게
       hashtags: [gv('editCampHashtags'), gv('editCampHashtagNote').trim()].filter(Boolean).join(' '),
@@ -48119,7 +48223,7 @@ const CP_I18N = {
     paybackNotice2:'期間が過ぎてからご購入された場合は、対象外となります。',
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
     evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
-    kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、LINEにてご連絡',
+    kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、お申込の状態変更(当選)及びメールにてご連絡',
     secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
     secGuide:'撮影ガイド', secNg:'NG事項', secCaution:'注意事項',
@@ -48144,7 +48248,7 @@ const CP_I18N = {
     paybackNotice2:'기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
     evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
-    kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 LINE으로 연락',
+    kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 응모 상태 변경(당선) 및 메일로 연락',
     secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
     secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
@@ -49063,7 +49167,7 @@ async function addCampaign() {
     selection_end: $('newCampSelectionEnd')?.value||null,
     visit_end: $('newCampVisitEnd')?.value||null,
     submission_end: $('newCampSubmissionEnd')?.value||null,
-    winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
+    winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、お申込の状態変更(当選)及びメールにてご連絡',
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'),
@@ -50962,6 +51066,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (badge) badge.style.display = 'inline-block';
       var badgeSide = document.getElementById('stagingBadgeSide');
       if (badgeSide) badgeSide.style.display = 'inline-block';
+      // 빌드 표시 단서 — 개발서버 도장은 자기 내용보다 늘 옛것이라(.claude/rules/build.md)
+      // 두 서버의 도장을 비교해 앞뒤를 판단하면 반대로 읽힌다. 운영에는 붙이지 않는다.
+      var buildInfo = document.getElementById('adminBuildInfo');
+      if (buildInfo) {
+        buildInfo.title += ' 개발서버 표시는 실제 내용보다 이전 시점일 수 있습니다. 운영 표시와 비교해 앞뒤를 판단하지 마세요.';
+      }
     }
   } catch(e) {}
 

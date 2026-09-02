@@ -166,9 +166,14 @@ async function renderMyApplyList() {
     // 메시지 미읽음 배지 — application_message_summary 뷰 (security_invoker, 본인 행만)
     try {
       const threads = await fetchInfluencerUnreadMessageThreads();
-      _myMsgUnreadByApp = {};
-      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
-    } catch(e) { _myMsgUnreadByApp = {}; }
+      // 🔴 `null` 은 **못 물어본 것**이지 「안 읽은 것이 없다」가 아니다 — 그때는 지난번에
+      //    알던 값을 그대로 둔다. 비우면 관리자 답장이 와 있는데 배지가 사라진다.
+      //    ⚠️ 회원에게 오류를 띄우지는 않는다(할 수 있는 일이 없다). 기록은 조회 함수가 한다.
+      if (threads) {
+        _myMsgUnreadByApp = {};
+        threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+      }
+    } catch(e) { /* 던져진 경우도 지난 값을 유지 — 위와 같은 이유 */ }
   }
 
   // 캠페인 상태 필터
@@ -316,9 +321,12 @@ async function refreshMyMsgUnread(opts) {
   if (typeof currentUser === 'undefined' || !currentUser) return;
   try {
     const threads = await fetchInfluencerUnreadMessageThreads();
-    _myMsgUnreadByApp = {};
-    threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
-  } catch(e) { /* 무시 */ }
+    // 위 renderMyApplyList 와 같은 규칙 — `null`(조회 실패)이면 지난 값을 유지한다.
+    if (threads) {
+      _myMsgUnreadByApp = {};
+      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+    }
+  } catch(e) { /* 지난 값 유지 */ }
   // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
   if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
   // 폴링·화면복귀 호출(skipRerender)은 햄버거 배지만 갱신 — 응모이력 재렌더로 인한
@@ -1287,10 +1295,8 @@ async function submitCancelApplicationFromPage() {
     //    그 오류가 사전에 없어 errorGeneric(「취소하지 못했습니다」)으로 덮였고,
     //    friendlyErrorJa 를 안 거쳐 관리자 오류 로그에도 안 남았다.
     //    문구·동작은 그대로 두고, 사전에 없는 값일 때만 「예상 못 한 오류」로 기록한다.
-    const CANCEL_EXPECTED = [
-      'not_owner', 'invalid_status', 'deliverable_already_approved',
-      'reason_required', 'acknowledgement_required', 'application_not_found'
-    ];
+    // 목록은 shared.js 의 CANCEL_APPLICATION_EXPECTED 하나다 — storage.js 의
+    //   cancelApplication 과 같은 것을 써야 한쪽만 고쳐지는 일이 없다.
     const errKey = {
       'not_owner':                    'appHistory.cancel.errorOwner',
       'invalid_status':               'appHistory.cancel.errorStatus',
@@ -1299,7 +1305,7 @@ async function submitCancelApplicationFromPage() {
       'acknowledgement_required':     'appHistory.cancel.errorAck',
       'application_not_found':        'appHistory.cancel.errorNotFound'
     }[res.error] || 'appHistory.cancel.errorGeneric';
-    logAppError('submitCancelApplication', res.error, CANCEL_EXPECTED);
+    logAppError('submitCancelApplication', res.error, CANCEL_APPLICATION_EXPECTED);
     showErr(t(errKey));
     return;
   }

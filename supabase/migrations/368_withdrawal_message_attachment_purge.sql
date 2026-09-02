@@ -11,6 +11,21 @@
 -- 작업표: docs/specs/2026-08-19-member-withdrawal-breakdown.md 작업 12-B
 -- 분해표: docs/specs/2026-08-21-message-attachment-purge-breakdown.md 조각 12-B-1
 --
+-- 적용 이력 (★ 파일 이름으로 판단하지 말 것 — 데이터베이스에만 남는다):
+--   - 개발: **2026-08-21 적용 완료**
+--   - 운영: **2026-09-02 적용 완료**
+--
+--   운영 적용 후 확인한 것(적용 성공은 확인이 아니다):
+--     - 함수 셋이 실제로 생겼다
+--         list_pending_withdrawal_message_attachment_purge
+--         mark_withdrawal_message_attachments_purged
+--         count_overdue_withdrawal_message_attachment_purge
+--     - application_messages.attachments_purged_at 칸이 생겼다(1개)
+--     - ⚠️ count_overdue_… 를 SQL 편집기에서 부르면 42501 로 거부된다.
+--       이는 결함이 아니라 **그 함수의 관리자 가드가 사는 증거**다 —
+--       편집기는 로그인 사용자가 없어 is_admin() 이 거짓이다.
+--       실제 건수는 관리자 브라우저 콘솔에서 확인할 것.
+--
 -- ============================================================
 -- 이건 마이그레이션 364(영수증·인증샷 파기)와 「같은 모양의 장치를
 -- 하나 더 세운 것」이다 — 364 를 넓힌 것이 아니다 (2026-08-21 사용자 결정 Q2)
