@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788314101';
+  var CURRENT_BUILD = 'v1788325779';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2996,9 +2996,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <option value="influencer">인플루언서 화면</option>
           </select>
         </div>
-        <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
+        <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-02 10:55 · 483adbd</span>
+          <span class="admin-build-text">2026-09-02 14:09 · 353ea0c</span>
         </div>
       </div>
     </aside>
@@ -51006,6 +51006,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (badge) badge.style.display = 'inline-block';
       var badgeSide = document.getElementById('stagingBadgeSide');
       if (badgeSide) badgeSide.style.display = 'inline-block';
+      // 빌드 표시 단서 — 개발서버 도장은 자기 내용보다 늘 옛것이라(.claude/rules/build.md)
+      // 두 서버의 도장을 비교해 앞뒤를 판단하면 반대로 읽힌다. 운영에는 붙이지 않는다.
+      var buildInfo = document.getElementById('adminBuildInfo');
+      if (buildInfo) {
+        buildInfo.title += ' 개발서버 표시는 실제 내용보다 이전 시점일 수 있습니다. 운영 표시와 비교해 앞뒤를 판단하지 마세요.';
+      }
     }
   } catch(e) {}
 
