@@ -563,7 +563,7 @@ window.I18N_JA = {
     // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
     minFollowersCurrent: '{channel} {n}人',
     winnerAnnounce: '当選発表',
-    winnerAnnounceValue: '選考後、LINEにてご連絡',
+    winnerAnnounceValue: '選考後、お申込の状態変更(当選)及びメールにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
     // ⚠️ 옛 이름은 「購入および領収書提出期間」이었다. 2026-08-11 에 「영수증은 결과물
