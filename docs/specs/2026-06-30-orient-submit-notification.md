@@ -192,7 +192,12 @@
 2. `supabase functions deploy notify-orient-submitted --project-ref qysmxtipobomefudyixw`
 3. Dashboard → Database → Webhooks: `orient_sheets`/UPDATE/filter `status='submitted'` → Edge Function `notify-orient-submitted`
 4. Secrets `BREVO_API_KEY`/`PUBLIC_ADMIN_URL` 기존 함수와 공유 여부 확인
-- ⚠️ 실제 발송 테스트·cron·운영 배포는 운영에서만(`feedback_dev_no_mail_test`). 오리엔 기능 운영 보류 중.
+- ⚠️ 실제 발송 테스트·cron·운영 배포는 운영에서만(`feedback_dev_no_mail_test`).
+  - ✅ **오리엔 기능 운영 보류는 그 뒤 해제됐고 이 알림도 운영 배포 완료다**(아래 「구현 결과」).
+    ⚠️ 이 줄은 오래 **「오리엔 기능 운영 보류 중」**이라 적혀 있었다 — 작성 시점에는 맞았지만 그 뒤 뒤집혔고,
+    아래에 「보류 해제」를 덧붙이면서 **여기를 안 지워** 같은 문서가 앞뒤로 다른 말을 했다.
+    `common-doc-tracking.md` 대로 **덧붙이지 않고 앞을 고쳐 쓴다** — 안 그러면 현재 동작을 알려고
+    문서 전체를 시간순으로 읽어야 한다.
 
 ### PR 2 — 브랜드 일일 보고
 
