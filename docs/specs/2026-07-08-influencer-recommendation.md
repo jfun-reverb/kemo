@@ -173,7 +173,7 @@
 - **분포**: 카테고리 color 302·fashion 229·vlog 176·base 82·kidsmom 51·health 46·tech 17·food 13·other 1 / 계열 beauty 384·life 273·fashion 229·food 13·other 18 / 등급 micro 214·middle 541·mega 162.
 - **배포**: 사용자 결정 = 개발서버엔 남기지 않고(검증 후 되돌림) **운영서버에만 등록**. 마이그236 → seed 순서.
 - **이미지 업로드 스모크 검증 성공(2026-07-14, 개발서버):** 마이그229 Storage 정책 `has_permission('outbound.view','write')`가 로그인 관리자 세션에서 업로드 정상 허용 확인 — 폴백(`is_campaign_admin` 교체) 불필요 확정.
-- 운영 미배포.
+- ★**운영 반영 완료.** ⚠️ 이 줄은 오래 「운영 미배포」였으나 사실과 달랐다 — 운영 산출물에 `adminPane-outbound` 1건·`outboundRecoScore` 2건(2026-09-02 `origin/main` 산출물에서 셈, 양성 대조 `switchAdminPane` 60건 통과).
 
 ### 2단계 — 조건 추천 (dev 구현 완료)
 - **구현일:** 2026-07-14 / **관련 PR:** (feature/outbound-recommend-stage2)
@@ -197,4 +197,4 @@
 - 각 결과에 점수 근거 배지(계열·등급·채널·예산) 노출 — 콜드스타트 신뢰 확보(사양서 §의심 1).
 - 파일: `dev/admin/index.html`(탭·폼·결과표), `dev/js/admin-outbound.js`(`outboundTab`·`runOutboundRecommend`·`outboundRecoScore` 등), `dev/css/admin.css`(`.outbound-tab*`·`.reco-badge*`·`.reco-divider`).
 
-**미착수:** 3단계(성과 기록)·4단계(성과 반영 추천)·5단계(브랜드 뷰). 운영 미배포.
+**미착수:** 3단계(성과 기록)·4단계(성과 반영 추천)·5단계(브랜드 뷰). ⚠️ **1·2단계는 운영 반영 완료** — 미착수는 3~5단계뿐이다.

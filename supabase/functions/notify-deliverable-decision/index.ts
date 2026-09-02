@@ -445,9 +445,39 @@ async function buildNextStepBlock(
   return "";
 }
 
+
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  if (rejectPublicKeyCaller(req, "notify-deliverable-decision")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   let payload: WebhookPayload;

@@ -1714,6 +1714,11 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
     const tags = Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags : [];
     if (typeof loadTagsFromValue === 'function') {
       loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', tags.join(','));
+      // 브랜드가 해시태그를 하나도 안 적었으면 `#PR` 을 넣는다(뒷광고 표시 의무).
+      //   🔴 **채운 뒤에 부른다** — 먼저 부르면 위 loadTagsFromValue 가 기존 칩을 지우면서
+      //      `#PR` 도 함께 날아간다(그 함수는 값이 비면 지우기만 하고 끝난다).
+      //   ⚠️ 브랜드 입력이 있으면 이 함수가 스스로 아무것도 안 한다(빈 칸일 때만).
+      if (typeof applyGiftingDefaultHashtag === 'function') applyGiftingDefaultHashtag('new');
     } else {
       osSetVal('newCampHashtags', tags.map(t => String(t).replace(/[#\s]/g, '')).filter(Boolean).map(t => '#' + t).join(','));
     }

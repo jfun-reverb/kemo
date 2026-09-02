@@ -85,6 +85,28 @@ function syncTagValue(wrapId, targetId, prefix) {
   hidden.value = tags.join(',');
 }
 
+// 기프팅(시딩) 캠페인의 필수 해시태그에 `#PR` 을 기본으로 넣는다.
+//   🔴 **일본 뒷광고(스테마) 규제가 요구하는 표시**다 — 제품을 무상 제공하는 기프팅은
+//      「#PR·#広告·#プロモーション 중 하나」가 반드시 붙어야 한다(PROJECT_CONTEXT 3-1).
+//      담당자가 매번 손으로 넣다 빠뜨리면 그 캠페인 결과물 전체가 규제 위반이 된다.
+//   ⚠️ **빈 칸일 때만 넣는다**(2026-09-02 사용자 결정) — 오리엔시트 발행은 이 칸을
+//      **브랜드가 적은 해시태그**로 채우므로(`admin-orient.js`), 무조건 넣으면 그것을 덮거나
+//      순서에 따라 결과가 갈린다. 브랜드 입력이 있으면 그대로 두고 사람이 판단한다.
+//   ⚠️ **지울 수 있다** — 태그 위젯의 칩이라 × 로 지운다. 저장을 막지 않는다.
+//   ⚠️ 리뷰어(monitor)·방문형(visit)에는 안 넣는다. 사용자가 기프팅만 지목했다.
+function applyGiftingDefaultHashtag(prefix) {
+  const wrapId = `tagWrap_${prefix}CampHashtags`;
+  const targetId = `${prefix}CampHashtags`;
+  const hidden = $(targetId);
+  const wrap = $(wrapId);
+  if (!hidden || !wrap) return;
+  // 이미 무언가 들어 있으면 손대지 않는다 — 칩과 hidden 값 **둘 다** 본다.
+  //   hidden 만 보면 위젯이 아직 동기화 전인 순간에 빈 것으로 읽힌다.
+  if ((hidden.value || '').trim()) return;
+  if (wrap.querySelector('.tag-label')) return;
+  addTag(wrapId, targetId, '#', 'PR');
+}
+
 function loadTagsFromValue(wrapId, targetId, prefix, value) {
   const wrap = $(wrapId);
   if (!wrap) return;
