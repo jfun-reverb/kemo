@@ -123,6 +123,7 @@
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="reports" id="adminReportsSi" onclick="navAdminPaneReload('reports')"><span class="si-icon material-icons-round">summarize</span><span class="si-text">리포트 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
@@ -354,6 +355,7 @@
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
+                <button class="btn btn-ghost btn-xs" id="btnCampSelectReport" onclick="openReportCreateModal()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">summarize</span> 리포트 만들기</button>
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
               </div>
             </div>
@@ -1542,6 +1544,10 @@
         </div>
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <!-- 리포트 관리 (2026-09-03) — 내용은 dev/js/admin-reports.js 의 loadReportsPane() 이 그린다.
+             ⚠️ 여기에 admin-reports.js 의 <script> 태그를 넣지 않는다(빌드 목록에만 있다). -->
+        <div id="adminPane-reports" class="admin-pane admin-pane-list"></div>
+
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -2986,6 +2992,8 @@
       이 캠페인은 <strong>30일간 「삭제됨」 탭에 보관</strong>되며 그 안에 복구할 수 있습니다. 30일 후 자동으로 완전 삭제됩니다.<br>
       <strong style="color:#B3261E">단, 응모자·신청 내역은 즉시 삭제되어 복구해도 되돌릴 수 없습니다.</strong>
     </div>
+    <!-- 공유 중인 리포트 안내(작업 26 ③) — 0건·조회 실패면 안 그린다. 삭제를 막지 않는다 -->
+    <div id="deleteCampSharedNote" style="display:none;background:#FFF4E5;border:1px solid #F5C77A;border-radius:10px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:#8A5A00;line-height:1.6"></div>
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">삭제할 캠페인</div>
       <div id="deleteCampName" style="font-size:14px;font-weight:700;color:var(--ink)"></div>
@@ -3177,7 +3185,7 @@
 <div class="modal-overlay" id="imageLightbox" style="z-index:900">
   <div class="modal" style="padding:0;border-radius:16px">
     <div class="modal-header" style="padding:10px 14px;border-radius:16px 16px 0 0">
-      <span class="modal-title" style="font-size:14px">이미지 보기</span>
+      <span class="modal-title" id="imageLightboxTitle" style="font-size:14px">이미지 보기</span>
       <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
     </div>
     <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;border-radius:0 0 16px 16px">
@@ -3189,6 +3197,9 @@
       <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
       <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
     </div>
+    <!-- 여러 장일 때만 보이는 넘기기 — 인플루언서 캠페인 사진 넘기기(application.js)와 같은 모양 -->
+    <button type="button" class="lightbox-nav" id="lightboxPrev" onclick="lightboxStep(-1)" title="이전 사진 (←)" style="left:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+    <button type="button" class="lightbox-nav" id="lightboxNext" onclick="lightboxStep(1)" title="다음 사진 (→)" style="right:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
   </div>
 </div>
 

@@ -78,7 +78,7 @@ ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
 # ⚠️ image-compress.js 는 storage.js 의 uploadMessageAttachment 가 부른다. 이 목록에 없던
 #    동안 관리자 화면에서 메시지에 이미지를 첨부하면 **함수가 없어 반드시 실패**했다
 #    (2026-08-12 발견 — 정의 0개 / 호출 1개). 캠페인 이미지 축소에도 쓴다.
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/report-rows.js" "js/report-parsers.js" "js/admin-reports.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do
@@ -115,7 +115,7 @@ html = re.sub(r'<link\s+rel="stylesheet"\s+href="\.\./css/[^"]+"\s*/?>\n?', '', 
 # ⚠️ 여기 이름을 빠뜨리면 그 <script> 태그가 **산출물에 그대로 남아** 없는 경로를 부른다
 #    (관리자 화면은 /admin/ 아래라 ../lib/ 은 루트를 가리키는데 루트에 lib/ 폴더가 없다).
 #    ADMIN_JS_FILES 에 파일을 추가할 때 이 목록도 **같이** 고칠 것.
-html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app|ocr-receipt|image-compress)\.js"\s*></script>\n?', '', html)
+html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app|ocr-receipt|image-compress|report-parsers|report-rows)\.js"\s*></script>\n?', '', html)
 
 # 사이드바 최하단 빌드 버전 placeholder 치환
 html = html.replace("__BUILD_DATETIME_KST__", build_datetime_kst)
@@ -173,6 +173,28 @@ fi
 if [ -f "event-scan.html" ]; then
   cp event-scan.html ../event-scan.html
   echo "  ✅ 현장 입장 확인 페이지 복사 완료 → ../event-scan.html"
+fi
+
+# ══════════════════════════════════════
+# 6. 브랜드 공유 리포트 화면 → ../report.html (자립형. 로그인 없이 열린다)
+#    - 관리자 앱 안에 두면 세션이 없을 때 인플루언서 앱으로 튕기므로 밖에 둔다(admin-setpw.html 선례)
+#    - 🔴 표 만들기 코드(js/report-rows.js)는 관리자 번들과 **같은 원본**이다. 여기서 인라인해
+#      두 화면이 같은 판정을 쓰게 한다. 파일 안 <!-- @@REPORT_ROWS_JS@@ --> 자리에 들어간다.
+#    - storage.js 를 안 쓰고 자체 조회를 갖는다(event-scan.html 선례) — 공용 함수를 고쳐도 여기는 안 따라온다
+# ══════════════════════════════════════
+if [ -f "report.html" ]; then
+  python3 - "report.html" "js/report-rows.js" "../report.html" << 'PY_REPORT'
+import sys, io
+src, rows, out = sys.argv[1], sys.argv[2], sys.argv[3]
+html = io.open(src, encoding='utf-8').read()
+js = io.open(rows, encoding='utf-8').read()
+marker = '<!-- @@REPORT_ROWS_JS@@ -->'
+if marker not in html:
+    raise SystemExit('report.html 에 ' + marker + ' 자리가 없습니다')
+html = html.replace(marker, '<script>\n' + js + '\n</script>', 1)
+io.open(out, 'w', encoding='utf-8').write(html)
+PY_REPORT
+  echo "  ✅ 공유 리포트 화면 복사(표 코드 인라인) 완료 → ../report.html"
 fi
 
 echo "📦 빌드 완료 ($VERSION)"

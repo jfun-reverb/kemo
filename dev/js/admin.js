@@ -3253,6 +3253,17 @@ function deleteCampaign(campId, campTitle) {
   var modal = $('deleteCampModal');
   document.body.appendChild(modal);
   modal.style.display = 'flex';
+  // 공유 중인 리포트에 담긴 캠페인이면 알린다(작업 26 ③). 삭제는 막지 않는다 — 리포트는
+  //   캠페인 번호·제목을 글자로도 보관해 연결만 끊긴다. 🔴 0건·조회 실패면 아무것도 안 그린다.
+  //   비동기라 창이 먼저 뜨고 뒤에 채워진다 — 그 사이 캠페인이 바뀌었으면(다른 창) 버린다.
+  var note = $('deleteCampSharedNote');
+  note.style.display = 'none'; note.textContent = '';
+  countLiveSharedReportsForCampaign(campId).then(function(n) {
+    if (!n || $('deleteCampId').value !== campId) return;
+    note.innerHTML = '<strong>브랜드가 지금 보고 있는 공유 리포트 ' + n + '건</strong>에 이 캠페인이 들어 있습니다. '
+      + '삭제하면 그 리포트에서 이 캠페인의 회원·결과물이 사라집니다(캠페인 번호·제목은 남습니다).';
+    note.style.display = 'block';
+  });
 }
 
 function checkDeleteConfirm() {
@@ -3474,7 +3485,10 @@ async function openDeletedCampDetail(campId) {
 async function purgeCampaignAction(campId, campTitle) {
   const adminInfo = currentAdminInfo;
   if (!adminInfo || adminInfo.role !== 'super_admin') { toast('완전삭제는 최고관리자만 가능합니다.','error'); return; }
-  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다. 진행할까요?`);
+  // 공유 중인 리포트에 들어 있으면 문장 하나를 덧붙인다(작업 26 ③). 0건·조회 실패면 안 덧붙인다.
+  const _shared = await countLiveSharedReportsForCampaign(campId);
+  const _sharedLine = _shared ? ` 브랜드가 지금 보고 있는 공유 리포트 ${_shared}건에 이 캠페인이 들어 있습니다.` : '';
+  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다.${_sharedLine} 진행할까요?`);
   if (!ok) return;
   try {
     await purgeCampaign(campId);

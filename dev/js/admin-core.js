@@ -228,6 +228,9 @@ function switchAdminPane(pane, el, pushHistory) {
   }
   if (el) el.classList.add('on');
   const loaders = {
+    // 🔴 여기에 등록하지 않으면 사이드바를 눌러도 **오류 없이 빈 화면**이 된다.
+    //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
+    'reports': loadReportsPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
@@ -748,16 +751,64 @@ let currentAdminInfo = null;
 // ──────────────────────────────────────
 let _lbZoom = 1;
 const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
-function openImageLightbox(url) {
+// caption(선택) — 제목 자리에 「주문번호 1208834465 · 영수증 2/3」처럼 무엇의 몇 번째 사진인지 적는다
+//   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
+// 여러 장 넘기기 상태 — openImageGallery 로 열었을 때만 산다. { urls, i, base }
+let _lbGallery = null;
+
+function openImageLightbox(url, caption) {
   if (!url) return;
+  _lbGallery = null;                    // 한 장 열기 — 화살표 숨김
+  _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = url;
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = caption || '이미지 보기';
   _lbZoom = 1;            // 열 때마다 배율 초기화
   applyLightboxZoom();
   openModal('imageLightbox');
 }
+// 여러 장을 한 창에서 넘겨 본다(2026-09-04 리포트 화면 요청). base = 제목 머리말(「주문번호 … · 큐텐 결과물」).
+//   제목은 「{base} 사진 {i}/{n}」. 2장 이상일 때만 화살표가 보이고 ←→ 키로도 넘긴다. 넘길 때 배율은 1배로.
+function openImageGallery(urls, startIndex, base) {
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return;
+  _lbGallery = { urls: list, i: Math.max(0, Math.min(list.length - 1, startIndex || 0)), base: base || '' };
+  _lbShowCurrent();
+  openModal('imageLightbox');
+}
+function _lbShowCurrent() {
+  const g = _lbGallery; if (!g) return;
+  const img = $('imageLightboxImg');
+  if (img) img.src = g.urls[g.i];
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = (g.base ? g.base + ' ' : '') + '사진 ' + (g.i + 1) + '/' + g.urls.length;
+  _lbZoom = 1; applyLightboxZoom();
+  _lbSyncNav();
+}
+function _lbSyncNav() {
+  const many = !!(_lbGallery && _lbGallery.urls.length > 1);
+  const p = $('lightboxPrev'), n = $('lightboxNext');
+  if (p) p.style.display = many ? '' : 'none';
+  if (n) n.style.display = many ? '' : 'none';
+}
+function lightboxStep(delta) {
+  const g = _lbGallery; if (!g || g.urls.length < 2) return;
+  g.i = (g.i + delta + g.urls.length) % g.urls.length;   // 끝에서 처음으로 돈다
+  _lbShowCurrent();
+}
+// ←→ 키 — 확대 창이 열려 있고 여러 장일 때만. 입력칸에 초점이 있으면 건드리지 않는다.
+document.addEventListener('keydown', function(e) {
+  const lb = $('imageLightbox');
+  if (!lb || !lb.classList.contains('open') || !_lbGallery || _lbGallery.urls.length < 2) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); lightboxStep(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); lightboxStep(1); }
+});
 function closeImageLightbox() {
   closeModal('imageLightbox');
+  _lbGallery = null; _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }

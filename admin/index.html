@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788436722';
+  var CURRENT_BUILD = 'v1788458905';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2253,6 +2253,10 @@ input.admin-filter{padding-right:8px}
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+/* 확대 창 사진 넘기기 — 흰 원 + 화살표(캠페인 상세 사진 넘기기와 같은 모양). 2장 이상일 때만 JS 가 보인다. */
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:6;padding:0}
+.lightbox-nav .material-icons-round{font-size:22px;color:#333}
+.lightbox-nav:hover{background:#fff}
 .lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
@@ -2372,6 +2376,12 @@ input.admin-filter{padding-right:8px}
 #bulkCampaignMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
+/* 리포트 「캠페인 추가」 모달 — 일괄발송 모달과 같은 처리. 모달 안에서 떠 있는 드롭다운은
+   모달 본문 아래로 잘리므로 펼친 채(static) 둔다. (2026-09-03 브라우저에서 잘림 확인) */
+#reportAddCampMulti { display: block; }
+#reportAddCampMulti .mf-btn { width: 100%; }
+#reportAddCampMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 260px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
+#reportAddCampMulti .mf-item-sub { font-family: inherit; }
 /* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
 #bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
@@ -2957,6 +2967,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="reports" id="adminReportsSi" onclick="navAdminPaneReload('reports')"><span class="si-icon material-icons-round">summarize</span><span class="si-text">리포트 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
@@ -2998,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 20:58 · 325575c</span>
+          <span class="admin-build-text">2026-09-04 03:08 · a00e38b</span>
         </div>
       </div>
     </aside>
@@ -3188,6 +3199,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
+                <button class="btn btn-ghost btn-xs" id="btnCampSelectReport" onclick="openReportCreateModal()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">summarize</span> 리포트 만들기</button>
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
               </div>
             </div>
@@ -4376,6 +4388,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <!-- 리포트 관리 (2026-09-03) — 내용은 dev/js/admin-reports.js 의 loadReportsPane() 이 그린다.
+             ⚠️ 여기에 admin-reports.js 의 <script> 태그를 넣지 않는다(빌드 목록에만 있다). -->
+        <div id="adminPane-reports" class="admin-pane admin-pane-list"></div>
+
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -5820,6 +5836,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       이 캠페인은 <strong>30일간 「삭제됨」 탭에 보관</strong>되며 그 안에 복구할 수 있습니다. 30일 후 자동으로 완전 삭제됩니다.<br>
       <strong style="color:#B3261E">단, 응모자·신청 내역은 즉시 삭제되어 복구해도 되돌릴 수 없습니다.</strong>
     </div>
+    <!-- 공유 중인 리포트 안내(작업 26 ③) — 0건·조회 실패면 안 그린다. 삭제를 막지 않는다 -->
+    <div id="deleteCampSharedNote" style="display:none;background:#FFF4E5;border:1px solid #F5C77A;border-radius:10px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:#8A5A00;line-height:1.6"></div>
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">삭제할 캠페인</div>
       <div id="deleteCampName" style="font-size:14px;font-weight:700;color:var(--ink)"></div>
@@ -6009,7 +6027,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 <div class="modal-overlay" id="imageLightbox" style="z-index:900">
   <div class="modal" style="padding:0;border-radius:16px">
     <div class="modal-header" style="padding:10px 14px;border-radius:16px 16px 0 0">
-      <span class="modal-title" style="font-size:14px">이미지 보기</span>
+      <span class="modal-title" id="imageLightboxTitle" style="font-size:14px">이미지 보기</span>
       <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
     </div>
     <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;border-radius:0 0 16px 16px">
@@ -6021,6 +6039,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
       <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
     </div>
+    <!-- 여러 장일 때만 보이는 넘기기 — 인플루언서 캠페인 사진 넘기기(application.js)와 같은 모양 -->
+    <button type="button" class="lightbox-nav" id="lightboxPrev" onclick="lightboxStep(-1)" title="이전 사진 (←)" style="left:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+    <button type="button" class="lightbox-nav" id="lightboxNext" onclick="lightboxStep(1)" title="다음 사진 (→)" style="right:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
   </div>
 </div>
 
@@ -8905,6 +8926,9 @@ function faqComputeStatus(status, delivs, camp) {
 // 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
 // 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
 const PANE_REFRESHERS = {
+  'reports': async () => {
+    if (typeof loadReportsPane === 'function') await loadReportsPane();
+  },
   'errors': async () => {
     if (typeof loadClientErrors === 'function') await loadClientErrors();
   },
@@ -9453,8 +9477,8 @@ const OB_CATEGORY_SERIES = {
 };
 
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 21개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
-  //    (2026-07-29 menu.permissions 제거로 22 → 21)
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22)
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -9462,6 +9486,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.campaigns',          label_ko: '캠페인 관리',                  category: '캠페인',      server_enforced: false },
   { key: 'menu.applications',       label_ko: '인플 신청 관리',               category: '캠페인',      server_enforced: false },
   { key: 'menu.deliverables',       label_ko: '결과물 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.reports',           label_ko: '리포트 관리',                   category: '캠페인',      server_enforced: false },
   { key: 'menu.messages',           label_ko: '메시지',                       category: '캠페인',      server_enforced: false },
   { key: 'menu.brand-dashboard',    label_ko: '현황 대시보드',                category: '브랜드',      server_enforced: false },
   { key: 'menu.companies',          label_ko: '회사 관리',                    category: '브랜드',      server_enforced: false },
@@ -9482,7 +9507,13 @@ const ADMIN_PERMISSION_CATALOG = [
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 23개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
+  //       2026-09-03 report.export·report.share 둘을 더해 23. ⚠️ 같은 날 더한
+  //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
+  //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
+  { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
+  { key: 'report.share',            label_ko: '리포트 공유 링크',              category: '리포트',      server_enforced: true },
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
@@ -11768,6 +11799,235 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
     console.warn('[fetchPayoutInfluencerInfo]', e);
     return null;   // ⚠️ {} 로 바꾸지 말 것 — 화면이 「확인 실패」와 「미등록」을 못 가른다
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 캠페인 리포트 (1-A 단계) — 조회 계층
+//   사양서 : docs/specs/2026-09-03-campaign-report-builder.md
+//   작업표 : docs/specs/2026-09-03-campaign-report-builder-breakdown.md 「작업 5」
+//
+// ⚠️ 이 묶음의 규칙 하나 — **조회 실패는 `null`, 0건은 `[]`(또는 `{}`)** 로 구분해서
+//    돌려준다. 합치면 「서버에 못 물어본 것」과 「진짜 없는 것」이 화면에서 같은 빈칸이
+//    되고, 리포트는 브랜드에게 나가는 표라 그 둘이 절대 같지 않다.
+//    (이 저장소가 반복해서 데인 자리 — 마이그레이션 276 에서 세운 원칙)
+// ══════════════════════════════════════════════════════════════
+
+// 리포트를 만든다. 성공하면 리포트 고유번호, 실패하면 null.
+//   ⚠️ 서버가 모르는 캠페인이 섞이면 **조용히 빼지 않고 거부**한다(403).
+//      그래서 여기서도 오류를 삼키지 말고 화면이 사유를 볼 수 있게 다시 던진다.
+async function createCampaignReport(title, campaignIds, includeAudit) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('create_campaign_report', {
+    p_title: title,
+    p_campaign_ids: campaignIds || [],
+    p_include_audit: !!includeAudit
+  });
+  if (error) { console.error('[createCampaignReport]', error); throw error; }
+  return data || null;
+}
+
+// 리포트 목록. 실패 null / 0건 [].
+//   ⚠️ 목록은 행 단위 보안 정책으로 걸러 조회한다 — 권한이 없으면 오류가 아니라 0건이 온다.
+//      그래서 「0건」을 「권한 없음」으로 읽지 말 것(권한은 화면이 따로 본다).
+async function fetchCampaignReports() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('list_campaign_reports');
+    if (error) throw error;
+    // ⚠️ 반환 칸에 o_ 접두어가 붙어 있다(42702 모호한 참조 회피 — 마이그레이션 405).
+    //    화면이 그 접두어를 알 이유가 없으므로 여기서 벗겨서 넘긴다.
+    return (data || []).map(function(r) {
+      return {
+        id: r.o_id, title: r.o_title,
+        created_by: r.o_created_by, created_by_name: r.o_created_by_name,
+        created_at: r.o_created_at, updated_at: r.o_updated_at,
+        include_audit: r.o_include_audit, version: r.o_version,
+        campaign_count: Number(r.o_campaign_count || 0),
+        ext_count: Number(r.o_source_count || 0),   // 410 부터 서버가 센다
+      };
+    });
+  } catch (e) { console.error('[fetchCampaignReports]', e); return null; }
+}
+
+// 리포트 1건 + 담긴 캠페인 목록. 없으면 null 이 정상 반환값이다.
+//   ⚠️ **없는 것과 실패한 것이 여기서는 둘 다 null 이다** — 서버 함수가 없는 리포트에
+//      null 을 돌려주기 때문. 부르는 쪽이 구분해야 하면 오류를 잡아서 따로 알릴 것.
+async function fetchCampaignReport(reportId) {
+  if (!db || !reportId) return null;
+  try {
+    const {data, error} = await db.rpc('get_campaign_report', {p_report_id: reportId});
+    if (error) throw error;
+    return data || null;
+  } catch (e) { console.error('[fetchCampaignReport]', e); return null; }
+}
+
+// 리포트를 지운다. true=지웠음 / false=이미 없음(멱등) / null=실패.
+async function deleteCampaignReport(reportId) {
+  if (!db || !reportId) return null;
+  try {
+    const {data, error} = await db.rpc('delete_campaign_report', {p_report_id: reportId});
+    if (error) throw error;
+    return !!data;
+  } catch (e) { console.error('[deleteCampaignReport]', e); return null; }
+}
+
+// 여러 캠페인의 결과물을 한 번에. 실패 null / 0건 [].
+//
+// 🔴 **`fetchDeliverables()` 를 못 쓴다** — 그쪽은 `campaign_id` 를 **단일 값 `eq`** 로
+//    받아서, 리포트처럼 캠페인이 여럿이면 한 캠페인만 온다(그런데 오류는 안 난다).
+// ⚠️ 임베드 구성은 `fetchDeliverables` 와 **같게** 맞춰 뒀다 — 갈라지면 리포트 표와
+//    결과물 화면이 서로 다른 값을 보여준다.
+// ⚠️ `.neq('status','draft')` 도 같다. 임시저장을 넣으면 「아직 안 낸 것」이 리포트에
+//    실린다(정산이 같은 함정을 겪어 마이그레이션 318 로 고쳤다).
+// ⚠️ id 가 많으면 주소가 길어져 잘리므로 **100개씩 나눠** 부른다.
+async function fetchDeliverablesForReport(campaignIds) {
+  if (!db) return null;
+  const ids = [...new Set((campaignIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    let rows = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100);
+      const part = await fetchAllPaged(() => db.from('deliverables').select(`
+        id, kind, status, version,
+        receipt_url, order_number, purchase_date, purchase_amount, memo,
+        post_url, post_channel, post_submissions,
+        reject_reason, reject_template_code,
+        reviewed_by, reviewed_at, submitted_at, updated_at,
+        application_id, user_id, campaign_id,
+        submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
+        submitted_by_admin_evidence,
+        applications:application_id (status),
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+      `).neq('status', 'draft').in('campaign_id', chunk)
+        .order('submitted_at', {ascending: false}));
+      rows = rows.concat(part || []);
+    }
+    return rows;
+  } catch (e) { console.error('[fetchDeliverablesForReport]', e); return null; }
+}
+
+// 리포트에 쓸 인플루언서 정보. 실패 null / 0건 {}.
+//
+// 🔴 **반드시 가림막 통로(`influencers_admin_view`)로 부른다.** 원본 표 `influencers` 를
+//    직접 부르면 마이그레이션 312 때문에 **오류 없이 조용히 빈 결과**가 온다 —
+//    화면은 그냥 「이름 없음」으로 보이고 오류 기록에도 안 남는다.
+//    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
+//    서버가 알아서 가린다.
+// ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+async function fetchInfluencersForReport(userIds) {
+  if (!db) return null;
+  const ids = [...new Set((userIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const map = {};
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(function(r) { map[r.id] = r; });
+    }
+    return map;
+  } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
+}
+
+// ── 리포트 구성 바꾸기 (마이그레이션 407) ──
+//   셋 다 서버가 거부한 사유를 그대로 던진다 — 화면이 「알 수 없는 오류」로 덮지 않게.
+
+// 캠페인 더하기. 실제로 더해진 개수(이미 담긴 것은 건너뛴다).
+async function addReportCampaigns(reportId, campaignIds) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('add_report_campaigns', {p_report_id: reportId, p_campaign_ids: campaignIds || []});
+  if (error) { console.error('[addReportCampaigns]', error); throw error; }
+  return Number(data || 0);
+}
+
+// 캠페인 한 줄 빼기 — ⚠️ 연결 표의 줄 고유번호(row_id)로 지목한다(원본이 지워진 줄도 뺄 수 있게).
+async function removeReportCampaign(reportId, rowId) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('remove_report_campaign', {p_report_id: reportId, p_row_id: rowId});
+  if (error) { console.error('[removeReportCampaign]', error); throw error; }
+  return !!data;
+}
+
+async function updateReportTitle(reportId, title) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('update_report_title', {p_report_id: reportId, p_title: title});
+  if (error) { console.error('[updateReportTitle]', error); throw error; }
+  return !!data;
+}
+
+// ── 리포트 외부 첨부 (마이그레이션 409·410) ──
+async function addReportSource(reportId, serviceCode, extNo, extName, fileName, rows) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('add_report_source', {
+    p_report_id: reportId, p_service_code: serviceCode, p_ext_no: extNo,
+    p_ext_name: extName, p_file_name: fileName, p_rows: rows || []
+  });
+  if (error) { console.error('[addReportSource]', error); throw error; }
+  return data || null;
+}
+async function removeReportSource(sourceId) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('remove_report_source', {p_source_id: sourceId});
+  if (error) { console.error('[removeReportSource]', error); throw error; }
+  return !!data;
+}
+// 첨부의 참가자 행. 실패 null / 0건 []. 563행이면 1,000 한도 안이지만 습관대로 페이지 반복.
+async function fetchReportExtRows(sourceIds) {
+  if (!db) return null;
+  const ids = [...new Set((sourceIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    return await fetchAllPaged(() => db.from('campaign_report_ext_rows')
+      .select('id, source_id, member_no, account_id, mission_status, order_no, purchase_amount, receipt_url, receipt_at, review_kind, qoo10_urls, qoo10_at, cosme_urls, cosme_at')
+      .in('source_id', ids).order('member_no'));
+  } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
+}
+
+// 이 캠페인을 담고 있는 **살아 있는 공유 리포트** 수 — 캠페인 삭제 확인 창용(작업 26 ③).
+//   살아 있다 = 공유가 켜져 있고 만료일이 없거나 아직 안 지났다(브랜드가 지금 열 수 있는 상태).
+//   ⚠️ 조회 실패는 null, 없으면 0 — 부르는 쪽은 **0 이나 null 이면 아무것도 안 그린다**.
+//   ⚠️ 두 표 모두 「리포트 관리」 열람 권한이 있어야 읽힌다(행 단위 보안 정책). 그 권한이 없는
+//      관리자가 삭제하면 빈 결과(0)가 돌아와 안내가 안 뜬다 — 삭제를 막는 장치가 아니라 안내라 감수한다.
+async function countLiveSharedReportsForCampaign(campaignId) {
+  if (!db || !campaignId) return null;
+  try {
+    const {data: links, error: e1} = await db.from('campaign_report_campaigns').select('report_id').eq('campaign_id', campaignId);
+    if (e1) throw e1;
+    const ids = [...new Set((links || []).map(l => l.report_id).filter(Boolean))];
+    if (!ids.length) return 0;
+    const {data, error} = await db.from('campaign_reports').select('id, share_expires_at')
+      .in('id', ids).eq('share_enabled', true);
+    if (error) throw error;
+    const now = Date.now();
+    return (data || []).filter(r => !r.share_expires_at || new Date(r.share_expires_at).getTime() > now).length;
+  } catch (e) { console.error('[countLiveSharedReportsForCampaign]', e); return null; }
+}
+
+// ── 리포트 공유 (마이그레이션 411~413) — 관리자 쪽 6종. 서버가 거부한 사유를 그대로 던진다.
+async function fetchReportShareStatus(reportId) {
+  if (!db) return null;
+  try { const {data, error} = await db.rpc('get_report_share_status', {p_report_id: reportId}); if (error) throw error; return data || null; }
+  catch (e) { console.error('[fetchReportShareStatus]', e); return null; }
+}
+async function enableReportShare(reportId, password, expiresAt) {
+  const {data, error} = await db.rpc('enable_report_share', {p_report_id: reportId, p_password: password || null, p_expires_at: expiresAt || null});
+  if (error) throw error; return data;
+}
+async function disableReportShare(reportId) {
+  const {data, error} = await db.rpc('disable_report_share', {p_report_id: reportId}); if (error) throw error; return !!data;
+}
+async function resetReportSharePassword(reportId, password) {
+  const {data, error} = await db.rpc('reset_report_share_password', {p_report_id: reportId, p_password: password}); if (error) throw error; return !!data;
+}
+// 🔴 원문을 볼 수 있는 유일한 통로. 부르면 「누가 언제 봤는지」가 서버에 남는다.
+async function revealReportSharePassword(reportId) {
+  const {data, error} = await db.rpc('reveal_report_share_password', {p_report_id: reportId}); if (error) throw error; return data;
+}
+async function updateReportShareSettings(reportId, expiresAt, columns) {
+  const {data, error} = await db.rpc('update_report_share_settings', {p_report_id: reportId, p_expires_at: expiresAt || null, p_columns: columns || null}); if (error) throw error; return !!data;
 }
 
 async function fetchDeliverableEvents(deliverableId) {
@@ -17224,6 +17484,9 @@ function switchAdminPane(pane, el, pushHistory) {
   }
   if (el) el.classList.add('on');
   const loaders = {
+    // 🔴 여기에 등록하지 않으면 사이드바를 눌러도 **오류 없이 빈 화면**이 된다.
+    //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
+    'reports': loadReportsPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
@@ -17744,16 +18007,64 @@ let currentAdminInfo = null;
 // ──────────────────────────────────────
 let _lbZoom = 1;
 const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
-function openImageLightbox(url) {
+// caption(선택) — 제목 자리에 「주문번호 1208834465 · 영수증 2/3」처럼 무엇의 몇 번째 사진인지 적는다
+//   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
+// 여러 장 넘기기 상태 — openImageGallery 로 열었을 때만 산다. { urls, i, base }
+let _lbGallery = null;
+
+function openImageLightbox(url, caption) {
   if (!url) return;
+  _lbGallery = null;                    // 한 장 열기 — 화살표 숨김
+  _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = url;
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = caption || '이미지 보기';
   _lbZoom = 1;            // 열 때마다 배율 초기화
   applyLightboxZoom();
   openModal('imageLightbox');
 }
+// 여러 장을 한 창에서 넘겨 본다(2026-09-04 리포트 화면 요청). base = 제목 머리말(「주문번호 … · 큐텐 결과물」).
+//   제목은 「{base} 사진 {i}/{n}」. 2장 이상일 때만 화살표가 보이고 ←→ 키로도 넘긴다. 넘길 때 배율은 1배로.
+function openImageGallery(urls, startIndex, base) {
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return;
+  _lbGallery = { urls: list, i: Math.max(0, Math.min(list.length - 1, startIndex || 0)), base: base || '' };
+  _lbShowCurrent();
+  openModal('imageLightbox');
+}
+function _lbShowCurrent() {
+  const g = _lbGallery; if (!g) return;
+  const img = $('imageLightboxImg');
+  if (img) img.src = g.urls[g.i];
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = (g.base ? g.base + ' ' : '') + '사진 ' + (g.i + 1) + '/' + g.urls.length;
+  _lbZoom = 1; applyLightboxZoom();
+  _lbSyncNav();
+}
+function _lbSyncNav() {
+  const many = !!(_lbGallery && _lbGallery.urls.length > 1);
+  const p = $('lightboxPrev'), n = $('lightboxNext');
+  if (p) p.style.display = many ? '' : 'none';
+  if (n) n.style.display = many ? '' : 'none';
+}
+function lightboxStep(delta) {
+  const g = _lbGallery; if (!g || g.urls.length < 2) return;
+  g.i = (g.i + delta + g.urls.length) % g.urls.length;   // 끝에서 처음으로 돈다
+  _lbShowCurrent();
+}
+// ←→ 키 — 확대 창이 열려 있고 여러 장일 때만. 입력칸에 초점이 있으면 건드리지 않는다.
+document.addEventListener('keydown', function(e) {
+  const lb = $('imageLightbox');
+  if (!lb || !lb.classList.contains('open') || !_lbGallery || _lbGallery.urls.length < 2) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); lightboxStep(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); lightboxStep(1); }
+});
 function closeImageLightbox() {
   closeModal('imageLightbox');
+  _lbGallery = null; _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }
@@ -32448,80 +32759,9 @@ function _excelAddressOnly(u, fallback) {
 //   - 미제출: (monitor) 영수증·review_image 둘 다 전혀 없음 / (gifting/visit) 게시물 없음
 //   - 인증샷 제출중: 그 외 전부
 
-// monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
-//   campChannels: 캠페인 채널 코드 배열, reviewByCh: { channelCode: deliv }
-function _excelMonitorResultRepr(campChannels, reviewByCh) {
-  reviewByCh = reviewByCh || {};
-  var channels = (campChannels || []).filter(Boolean);
-  if (channels.length === 0) {
-    // 채널 미등록 monitor — review_image 행이 하나라도 있으면 제출중, 없으면 none
-    return Object.keys(reviewByCh).length > 0 ? 'pending' : 'none';
-  }
-  var states = channels.map(function(ch) { return (reviewByCh[ch] && reviewByCh[ch].status) || 'none'; });
-  if (states.indexOf('rejected') !== -1) return 'rejected';
-  if (states.indexOf('pending') !== -1) return 'pending';
-  if (states.indexOf('none') !== -1) return 'none';
-  return 'approved';
-}
-
-// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
-//   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
-//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
-//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
-//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
-  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
-  var _as = (receipt && receipt.applications && receipt.applications.status)
-         || (result && result.applications && result.applications.status) || null;
-  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
-  if (recruitType === 'monitor') {
-    var hasReceipt = !!receipt;
-    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-    if (proxyPurchase) {
-      if (!hasReceipt) return '미제출';
-      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-    }
-    var hasReview = !!result;
-    if (!hasReceipt && !hasReview) return '미제출';
-    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
-    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
-    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
-    return '인증샷 제출중';
-  }
-  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
-  var _chs = (campChannels || []).filter(Boolean);
-  if (_chs.length > 0) {
-    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
-    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
-    if (_repr === 'approved') return '인증성공';
-    if (_repr !== 'none') return '인증샷 제출중';
-    return result ? '인증샷 제출중' : '미제출';
-  }
-  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
-  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
-  if (!result) return '미제출';
-  return '인증샷 제출중';
-}
-
-// monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
-  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
-  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
-  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
-  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
-  var hasReceipt = !!receipt;
-  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-  if (proxyPurchase) {
-    if (!hasReceipt) return '미제출';
-    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-  }
-  var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
-  if (!hasReceipt && !hasReview) return '미제출';
-  var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
-  if (receipt && receipt.status === 'approved' && repr === 'approved') return '인증성공';
-  return '인증샷 제출중';
-}
+// ⚠️ 인증 상태 판정 3함수(_excelMonitorResultRepr · _excelCertStatusKo · _excelCertStatusMonitorKo)는
+//    2026-09-04 에 dev/js/report-rows.js 로 **옮겼다**(복사 아님). 공유 화면(report.html)이 같은 판정을
+//    써야 해서다. 이름·동작은 그대로이고 관리자 번들에는 그 파일이 이어 붙는다.
 
 // ─── 캠페인 다중 선택 + 통합 엑셀 ────────────────────────────────────
 // _selectedCampIds: 사용자가 체크한 캠페인 id 집합. 페인 이동/새로고침 시 초기화.
@@ -32595,6 +32835,12 @@ function updateCampSelectionUI() {
   if (btnDel) {
     btnDel.disabled = (n === 0);
     btnDel.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '결과물 엑셀';
+  }
+  // 리포트 만들기 — 이 줄이 없으면 선택이 0개여도 눌린다(2026-09-03 리포트 기능)
+  var btnRep = document.getElementById('btnCampSelectReport');
+  if (btnRep) {
+    btnRep.disabled = (n === 0);
+    btnRep.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">summarize</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '리포트 만들기';
   }
   if (btnClr) btnClr.style.display = n > 0 ? '' : 'none';
   if (cntEl) {
@@ -44710,6 +44956,1495 @@ function campLeaveCancel() {
   _campLeaveGo = null;
 }
 
+// ══════════════════════════════════════════════════════════════
+// 리포트 표 행 만들기 — 관리자 화면과 브랜드 공유 화면이 **같은 원본**을 쓴다
+//   · 관리자 번들: dev/build.sh 의 ADMIN_JS_FILES 에 이어 붙는다
+//   · 공유 화면  : dev/build.sh 가 report.html 의 <!-- @@REPORT_ROWS_JS@@ --> 자리에 인라인한다
+//   🔴 여기 판정을 고치면 두 화면이 함께 바뀐다 — 그게 이 파일이 따로 있는 이유다.
+//   ⚠️ 이 파일은 esc()·toast() 같은 화면 헬퍼를 쓰지 않는다(공유 화면에는 그것들이 없다).
+//   ⚠️ 인증 상태 판정 3함수는 admin-excel.js 에서 옮겨 온 것이다(2026-09-04). 이름 그대로.
+// ══════════════════════════════════════════════════════════════
+
+// monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
+//   campChannels: 캠페인 채널 코드 배열, reviewByCh: { channelCode: deliv }
+function _excelMonitorResultRepr(campChannels, reviewByCh) {
+  reviewByCh = reviewByCh || {};
+  var channels = (campChannels || []).filter(Boolean);
+  if (channels.length === 0) {
+    // 채널 미등록 monitor — review_image 행이 하나라도 있으면 제출중, 없으면 none
+    return Object.keys(reviewByCh).length > 0 ? 'pending' : 'none';
+  }
+  var states = channels.map(function(ch) { return (reviewByCh[ch] && reviewByCh[ch].status) || 'none'; });
+  if (states.indexOf('rejected') !== -1) return 'rejected';
+  if (states.indexOf('pending') !== -1) return 'pending';
+  if (states.indexOf('none') !== -1) return 'none';
+  return 'approved';
+}
+
+// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
+//   recruitType, receipt(receipt deliv), result(post/review_image deliv)
+//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
+//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
+//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
+//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status)
+         || (result && result.applications && result.applications.status) || null;
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
+  if (recruitType === 'monitor') {
+    var hasReceipt = !!receipt;
+    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+    if (proxyPurchase) {
+      if (!hasReceipt) return '미제출';
+      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+    }
+    var hasReview = !!result;
+    if (!hasReceipt && !hasReview) return '미제출';
+    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
+    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
+    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
+    return '인증샷 제출중';
+  }
+  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
+  var _chs = (campChannels || []).filter(Boolean);
+  if (_chs.length > 0) {
+    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
+    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
+    if (_repr === 'approved') return '인증성공';
+    if (_repr !== 'none') return '인증샷 제출중';
+    return result ? '인증샷 제출중' : '미제출';
+  }
+  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
+  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
+  if (!result) return '미제출';
+  return '인증샷 제출중';
+}
+
+// monitor 다채널 구조용 (receipt + reviewByCh).
+function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
+  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
+  var hasReceipt = !!receipt;
+  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+  if (proxyPurchase) {
+    if (!hasReceipt) return '미제출';
+    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+  }
+  var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
+  if (!hasReceipt && !hasReview) return '미제출';
+  var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
+  if (receipt && receipt.status === 'approved' && repr === 'approved') return '인증성공';
+  return '인증샷 제출중';
+}
+
+// 17칸 머리글 — 사양서 16칸에 「캠페인 번호」를 더했다(2026-09-04 사용자 결정: 「ID」 자리는 캠페인 번호, 계정 ID 는 업로드 날짜 옆)
+const REPORT_COLS = [
+  // w = 열 너비, wrap = 줄바꿈 허용(캠페인명만). 나머지는 nowrap — 날짜·번호·상태가 두 줄로 접히면 표가 읽기 어렵다(2026-09-04 사용자 요청).
+  {key:'no',                  label:'No.',              w:'46px'},
+  {key:'campaign_no',         label:'캠페인 번호',       w:'110px'},
+  {key:'campaign_name',       label:'캠페인명',          w:'260px', wrap:true},
+  {key:'purchase_period',     label:'구매기간',          w:'185px'},
+  {key:'status',              label:'상태',             w:'100px'},
+  {key:'order_no',            label:'주문 번호',         w:'130px'},
+  {key:'purchase_date',       label:'구매일',            w:'96px'},
+  {key:'amount',              label:'구매금액',          w:'100px'},
+  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px'},
+  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px'},
+  {key:'account_id',          label:'계정 ID',           w:'210px'},
+  {key:'name_kanji',          label:'이름 (한자)',        w:'120px'},
+  {key:'name_kana',           label:'이름 (일본어)',      w:'130px'},
+  {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
+  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px'},
+  {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px'},
+  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'130px'},
+];
+
+// ══════════════════════════════════════════════════════════════
+// 표 행 만들기 — 작업 6 (사양서 16칸 + 캠페인 번호 = 17칸, 2026-09-04)
+//   사양서 「표 양식 (구글시트 16칸 그대로)」
+//
+// 한 사람 = 한 줄. 큐텐과 엣코스메가 **한 줄 안에서** 칸을 나눠 가진다.
+// 맨 앞에 「구분」 열이 하나 더 붙어 화면에는 17칸이 보인다(구분 + 16).
+//   구분 값: 'B' = REVERB / 'A-1'·'A-2' = 외부(작업 16에서 채운다)
+// ══════════════════════════════════════════════════════════════
+
+// 13·15번 칸이 쓰는 채널 코드.
+//   ⚠️ 기준 데이터(lookup_values)의 code 를 그대로 쓴다 — 마이그레이션 157 이 심은 값.
+//   🔴 이 값을 바꾸면 기준 데이터·캠페인(`campaigns.channel`)·이미 낸 결과물
+//      (`deliverables.post_channel`) **세 곳을 함께** 옮겨야 한다. 하나만 바꾸면
+//      문자열 비교가 깨져 결과물이 화면·인증·정산 세 곳에서 동시에 사라진다
+//      (2026-07-30 @cosme 사고 — 승인된 인증샷 55건이 두 달간 안 보였다).
+const REPORT_CH_QOO10 = 'qoo10';
+const REPORT_CH_COSME = 'cosme';
+
+// 결과물을 (캠페인 + 응모) 단위로 묶는다.
+//
+// 🔴 **그룹핑·최신 판정을 새로 쓰지 않는다.**
+//    묶는 열쇠는 `campaign_id + application_id`, 최신은 **`submitted_at`** 기준 —
+//    `admin-excel.js` 의 `_buildMonitorGroupSheet()` 와 **글자 그대로 같다**.
+//    수정 시각(`updated_at`)을 먼저 보면 관리자가 영수증을 고친 건이 다른 행으로
+//    뽑혀 **정산과 숫자가 어긋난다**(운영 실측 2026-08-07: 영수증이 여러 행 쌓인
+//    응모 65건 중 36건에서 기준이 갈렸다).
+function _reportGroupDeliverables(delivs) {
+  const groups = new Map();
+  for (const d of (delivs || [])) {
+    const key = d.campaign_id + '|' + (d.application_id || ('user-' + d.user_id));
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key: key, campaign_id: d.campaign_id, application_id: d.application_id,
+        user_id: d.user_id, campaign: d.campaigns || null,
+        receipt: null, result: null, reviewByCh: {}, postByCh: {},
+      });
+    }
+    const g = groups.get(key);
+    if (!g.campaign && d.campaigns) g.campaign = d.campaigns;
+    const subAt = d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image') {
+      // ⚠️ 채널 없는 옛 인증샷은 칸에 넣을 자리가 없어 건너뛴다(엑셀도 같다).
+      if (d.post_channel) {
+        const prev = g.reviewByCh[d.post_channel];
+        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      }
+    } else if (d.kind === 'post') {
+      if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+      if (d.post_channel) {
+        const prevP = g.postByCh[d.post_channel];
+        if (!prevP || subAt > (prevP.submitted_at || '')) g.postByCh[d.post_channel] = d;
+      }
+    }
+  }
+  return [...groups.values()];
+}
+
+// 13·15번 칸 — **있는 것을 넣는다.**
+//   그 채널에 리뷰 화면 사진(`review_image`)이 있으면 그 주소,
+//   없고 게시물 주소(`post`)가 있으면 그것.
+// ⚠️ 둘 다 있으면 **사진을 먼저** 쓴다 — 리뷰어형이 이 리포트의 주 대상이고,
+//    외부(포인테일) 쪽도 전부 사진이라 형태가 맞는다.
+// 🔴 그래서 `_buildMonitorGroupSheet()` 의 판정을 그대로 못 쓴다(그쪽은 `post` 를 안 본다).
+// ⚠️ 무엇인지(`kind`)를 함께 돌려준다 — 한 칸에 사진과 게시물이 섞이므로,
+//    화면이 「사진」·「게시물」을 작게 적지 않으면 브랜드가 읽는 표에서 그게 그대로 사고가 된다.
+function _reportChannelCell(g, channel) {
+  const rv = g.reviewByCh[channel];
+  if (rv && rv.receipt_url) return {url: rv.receipt_url, at: rv.submitted_at || '', kind: 'photo'};
+  const po = g.postByCh[channel];
+  if (po && po.post_url) return {url: po.post_url, at: po.submitted_at || '', kind: 'post'};
+  // 주소는 없는데 행은 있는 경우 — 날짜만이라도 남긴다(빈 줄로 보이면 안 낸 것과 구분이 안 된다)
+  const any = rv || po;
+  return {url: '', at: any ? (any.submitted_at || '') : '', kind: rv ? 'photo' : (po ? 'post' : '')};
+}
+
+// 캠페인의 구매 기간(4번 칸).
+//   ⚠️ 리뷰어형은 `purchase_*`, 방문형은 `visit_*` 를 같은 칸에 넣는다
+//      (`admin-excel.js` 의 매핑과 같다). 시딩형은 그 개념이 없어 빈다.
+//   ⚠️ 날짜는 **저장된 문자열 그대로** 이어 붙인다 — `new Date()` 를 태우면
+//      시간대가 끼어들어 하루가 밀린다.
+function _reportPurchasePeriod(camp) {
+  if (!camp) return '';
+  const rt = camp.recruit_type;
+  let a = '', b = '';
+  if (rt === 'monitor') { a = camp.purchase_start || ''; b = camp.purchase_end || ''; }
+  else if (rt === 'visit') { a = camp.visit_start || ''; b = camp.visit_end || ''; }
+  if (!a && !b) return '';
+  return a + ' ~ ' + b;
+}
+
+// 인증 상태(5번 칸) — 🔴 **엑셀과 같은 함수를 부른다.**
+//   판정을 여기서 새로 쓰면 리포트와 「결과물 엑셀」이 서로 다른 상태를 말하게 된다.
+//   (같은 판정이 이 저장소에 다섯 벌 있고, 그 때문에 이미 사고가 났다)
+function _reportCertStatus(g) {
+  const camp = g.campaign || {};
+  const chs = (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean);
+  if (camp.recruit_type === 'monitor' && chs.length > 0) {
+    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, !!camp.proxy_purchase);
+  }
+  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, !!camp.proxy_purchase, chs, g.postByCh);
+}
+
+// REVERB 결과물 → 표준 행 배열.
+//   delivs    : fetchDeliverablesForReport() 결과
+//   camps     : 리포트에 담긴 캠페인 배열(제목·번호를 여기서 얻는다)
+//   usersById : fetchInfluencersForReport() 결과 (id → 회원)
+//
+// ⚠️ `usersById` 가 `null`(조회 실패)이면 이름·계정 칸을 **빈칸이 아니라 '?'** 로 둔다.
+//    빈칸으로 두면 「이름을 안 적은 사람」과 「못 물어본 것」이 같아 보인다.
+function buildReportRows(delivs, camps, usersById) {
+  const campById = new Map((camps || []).map(function(c){ return [c.id, c]; }));
+  const lookupFailed = (usersById === null || usersById === undefined);
+  const users = usersById || {};
+  const groups = _reportGroupDeliverables(delivs);
+
+  // 정렬 — 캠페인 번호 → 이름. 엑셀(`_buildMonitorGroupSheet`)과 같은 차례.
+  groups.sort(function(a, b) {
+    const ca = ((campById.get(a.campaign_id) || a.campaign || {}).campaign_no || '').toString();
+    const cb = ((campById.get(b.campaign_id) || b.campaign || {}).campaign_no || '').toString();
+    if (ca !== cb) return ca.localeCompare(cb, 'ja');
+    const ua = users[a.user_id] || {}, ub = users[b.user_id] || {};
+    return (ua.name_kana || ua.name || '').localeCompare(ub.name_kana || ub.name || '', 'ja');
+  });
+
+  return groups.map(function(g, i) {
+    // 🔴 **두 곳에서 나눠 가져온다 — 하나로 합치면 한쪽이 빈다.**
+    //   campMeta(리포트에 저장된 스냅샷) = 캠페인 번호·제목. **원본이 지워져도 남는다.**
+    //   campLive(결과물에 딸려 온 실물)   = 모집 형식·구매 기간 등 나머지.
+    //   ⚠️ 예전엔 `campById.get(...) || g.campaign` 로 **스냅샷을 통째로 우선**했는데,
+    //      스냅샷에는 번호·제목뿐이라 **구매기간 칸이 전부 비었다**(2026-09-03 브라우저에서 발견).
+    const campMeta = campById.get(g.campaign_id) || {};
+    const campLive = g.campaign || {};
+    const camp = Object.assign({}, campLive, {
+      campaign_no: campMeta.campaign_no || campLive.campaign_no,
+      title:       campMeta.title       || campLive.title,
+    });
+    const u = users[g.user_id] || null;
+    const r = g.receipt;
+    const q = _reportChannelCell(g, REPORT_CH_QOO10);
+    const c = _reportChannelCell(g, REPORT_CH_COSME);
+    const unknown = lookupFailed ? '?' : '';
+    return {
+      src: 'B',                                            // 구분 — REVERB
+      no: i + 1,                                           // 1
+      campaign_no: camp.campaign_no || '',                 // 2 (2026-09-04)
+      campaign_name: camp.title || '',                     // 3
+      account_id: u ? (u.email || '') : unknown,           // 11 (영수증 업로드 날짜 옆)
+      purchase_period: _reportPurchasePeriod(camp),        // 4
+      status: _reportCertStatus(g),                        // 5
+      order_no: r ? (r.order_number || '') : '',           // 6
+      purchase_date: r ? (r.purchase_date || '') : '',     // 7
+      amount: (r && r.purchase_amount !== null && r.purchase_amount !== undefined)
+                ? r.purchase_amount : '',                  // 8 — ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다
+      receipt_url: r ? (r.receipt_url || '') : '',         // 9
+      receipt_uploaded_at: r ? (r.submitted_at || '') : '',// 10
+      name_kanji: u ? (u.name_kanji || u.name || '') : unknown, // 11
+      name_kana: u ? (u.name_kana || '') : unknown,        // 12
+      ch_qoo10_url: q.url, ch_qoo10_kind: q.kind, ch_qoo10_at: q.at,   // 13·14
+      ch_cosme_url: c.url, ch_cosme_kind: c.kind, ch_cosme_at: c.at,   // 15·16
+      // 화면이 되짚어 볼 때 쓰는 값(표에는 안 그린다)
+      _campaign_id: g.campaign_id, _application_id: g.application_id, _user_id: g.user_id,
+    };
+  });
+}
+
+// 외부(포인테일) 참가자 행 → 표준 행. 작업 16.
+//   ⚠️ 이름 2칸·구매일은 **비운다** — 원본에 없다. 없는 것을 지어내지 않는다.
+//   ⚠️ 캠페인명은 **관리자가 모달에 적은 이름**(사양서 표 3번 칸).
+//   구분: 'A-1' = 텍스트 리뷰 · 'A-2' = 포토 리뷰 · 리뷰 없이 구매만이면 'A'
+function _reportExtToRow(r, src) {
+  const kind = r.review_kind === 'photo' ? 'A-2' : (r.review_kind === 'text' ? 'A-1' : 'A');
+  return {
+    src: kind,
+    no: 0,
+    campaign_no: src ? (src.ext_campaign_no || '') : '',
+    campaign_name: src ? (src.ext_campaign_name || '') : '',
+    account_id: r.account_id || '',
+    purchase_period: '',
+    status: r.mission_status || '',
+    order_no: r.order_no || '',
+    purchase_date: '',
+    amount: (r.purchase_amount === null || r.purchase_amount === undefined) ? '' : r.purchase_amount,
+    receipt_url: r.receipt_url || '',
+    receipt_uploaded_at: r.receipt_at || '',
+    name_kanji: '', name_kana: '',
+    ch_qoo10_url: r.qoo10_urls || '', ch_qoo10_kind: r.qoo10_urls ? 'photo' : '', ch_qoo10_at: r.qoo10_at || '',
+    ch_cosme_url: r.cosme_urls || '', ch_cosme_kind: r.cosme_urls ? 'photo' : '', ch_cosme_at: r.cosme_at || '',
+    _ext: true, _source_id: r.source_id, _member_no: r.member_no,
+  };
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// 리포트 외부 파일 파서 — 작업 14
+//   사양서 : docs/specs/2026-09-03-campaign-report-builder.md 「외부 파일(포인테일) 실측 구조」
+//   서비스가 늘어날 것을 전제로, 파일을 읽어 **같은 모양**으로 돌려주는 층.
+//
+// 산출 계약
+//   REPORT_PARSERS[service](arrayBuffer) → { ok, reason, rows[], summary }
+//   rows[] 한 원소의 칸 이름은 **`campaign_report_ext_rows`(409) 와 글자 그대로 같다** —
+//   하나라도 어긋나면 서버 함수(410)가 그 칸을 조용히 NULL 로 넣는다(오류가 아니다).
+//
+// ⚠️ 이 파일 이름에 `admin` 이 없다 — `dev/build.sh` 의 목록과 정규식 **두 곳**에 넣었다.
+//    (원본 HTML 은 페인 파일을 개별 <script> 로 부르지 않으므로 태그는 없다.)
+// ══════════════════════════════════════════════════════════════
+
+// 셀 값 정규화 — ExcelJS 는 셀 종류에 따라 문자열·숫자·{richText}·{text,hyperlink}·Date 를 준다.
+function _rpCellText(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(v);
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === 'object') {
+    if (Array.isArray(v.richText)) return v.richText.map(function(t){ return t.text || ''; }).join('').trim();
+    if (v.text !== undefined) return _rpCellText(v.text);
+    if (v.result !== undefined) return _rpCellText(v.result);   // 수식 셀
+    if (v.hyperlink) return String(v.hyperlink).trim();
+  }
+  return String(v).trim();
+}
+
+// 「2026-08-12 10:03:42」 → ISO. ⚠️ 포인테일은 한국 서비스라 **한국 시각(+09:00)으로 본다.**
+//   시간대를 안 붙이면 브라우저가 자기 시간대로 읽어 서버·화면이 9시간 어긋난다.
+function _rpToIso(s) {
+  s = _rpCellText(s);
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s;                       // 이미 ISO(Date 셀)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!m) return '';
+  return `${m[1]}-${m[2]}-${m[3]}T${m[4]||'00'}:${m[5]||'00'}:${m[6]||'00'}+09:00`;
+}
+
+// 머리글 행을 **문구로** 찾는다 — 행 번호로 박지 않는다(1행이 비어 있고 머리글이 2행에 있다).
+//   앞 10행 안에서 「회원번호」가 있는 첫 행.
+function _rpFindHeader(ws) {
+  const maxScan = Math.min(10, ws.rowCount);
+  for (let r = 1; r <= maxScan; r++) {
+    const vals = (ws.getRow(r).values || []).map(_rpCellText);
+    const idx = vals.findIndex(function(v){ return v === '회원번호'; });
+    if (idx !== -1) {
+      const cols = {};
+      vals.forEach(function(v, i){ if (v) cols[v] = i; });   // 머리글 → 열 번호(1-based, values[0] 은 비어 있다)
+      return { rowNo: r, cols: cols };
+    }
+  }
+  return null;
+}
+
+// 탭 하나를 {회원번호 → {열이름: 값}} 로 읽는다. 머리글이 없으면 null.
+function _rpReadSheet(ws) {
+  const h = _rpFindHeader(ws);
+  if (!h) return null;
+  const out = new Map();
+  for (let r = h.rowNo + 1; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    const get = function(name) { const c = h.cols[name]; return c ? _rpCellText(row.getCell(c).value) : ''; };
+    const memberNo = get('회원번호');
+    if (!memberNo) continue;                                   // 회원번호 없는 줄은 짝지을 수 없다
+    out.set(memberNo, { get: get });
+  }
+  return out;
+}
+
+// 포인테일(스토어링크) 캠페인 리포트 엑셀
+//   탭: 「구매하기」(필수) · 「텍스트 리뷰」 · 「포토 리뷰」 · 「@cosme 텍스트 리뷰」 · 「@cosme 포토 리뷰」(있으면)
+//   ⚠️ 계정 열이 탭마다 다르다 — 큐텐 탭은 「채널 계정 ID(닉네임)」, @cosme 탭은 「미션 채널 계정 닉네임」.
+//      @cosme 의 닉네임은 **이름 칸에 넣지 않는다**(이름이 아니라 닉네임이고 21명 중 17명만 있다).
+async function parsePointailWorkbook(arrayBuffer) {
+  await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  try { await wb.xlsx.load(arrayBuffer); }
+  catch (e) { return { ok:false, reason:'엑셀 파일로 읽을 수 없습니다 (.xlsx 인지 확인해 주세요)', rows:[], summary:null }; }
+
+  const names = wb.worksheets.map(function(w){ return w.name; });
+  const find = function(name) { return wb.getWorksheet(name) || null; };
+  const wsBuy   = find('구매하기');
+  const wsText  = find('텍스트 리뷰');
+  const wsPhoto = find('포토 리뷰');
+  const wsCText  = find('@cosme 텍스트 리뷰');
+  const wsCPhoto = find('@cosme 포토 리뷰');
+
+  // 🔴 예상한 탭이 하나도 없으면 **분명히 거부**한다 — 조용히 0행을 돌려주면
+  //    「외부 인원 0명」이 진짜 0명인지 파싱 실패인지 아무도 모른다(사양서 ⑦).
+  if (!wsBuy && !wsText && !wsPhoto) {
+    return { ok:false, reason:'이 파일에서 「구매하기」·「텍스트 리뷰」·「포토 리뷰」 탭을 찾지 못했습니다 (있는 탭: ' + names.join(', ') + ')', rows:[], summary:null };
+  }
+
+  const buy   = wsBuy   ? _rpReadSheet(wsBuy)   : new Map();
+  const text  = wsText  ? _rpReadSheet(wsText)  : new Map();
+  const photo = wsPhoto ? _rpReadSheet(wsPhoto) : new Map();
+  const ctext  = wsCText  ? _rpReadSheet(wsCText)  : new Map();
+  const cphoto = wsCPhoto ? _rpReadSheet(wsCPhoto) : new Map();
+  const missing = [['구매하기',wsBuy,buy],['텍스트 리뷰',wsText,text],['포토 리뷰',wsPhoto,photo]]
+    .filter(function(x){ return x[1] && x[2] === null; }).map(function(x){ return x[0]; });
+  if (missing.length) {
+    return { ok:false, reason:'「' + missing.join('」·「') + '」 탭에서 「회원번호」 머리글을 찾지 못했습니다 (양식이 바뀌었을 수 있습니다)', rows:[], summary:null };
+  }
+
+  // 한 사람 = 한 행. 구매 탭을 바탕으로 리뷰 탭을 회원번호로 얹는다.
+  //   ⚠️ 구매 탭에 없는 사람이 리뷰 탭에만 있으면 그 사람도 한 줄로 넣는다(빠뜨리면 리뷰가 사라진다).
+  const members = new Set([...(buy||new Map()).keys(), ...(text||new Map()).keys(), ...(photo||new Map()).keys(),
+                           ...(ctext||new Map()).keys(), ...(cphoto||new Map()).keys()]);
+  const rows = [];
+  let completed = 0;
+  members.forEach(function(no) {
+    const b = buy && buy.get(no);
+    const t = text && text.get(no);
+    const p = photo && photo.get(no);
+    const ct = ctext && ctext.get(no);
+    const cp = cphoto && cphoto.get(no);
+    // 리뷰 종류 — 포토가 있으면 포토(A-2), 아니면 텍스트(A-1). 둘 다 없으면 NULL.
+    const rv = p || t;
+    const kind = p ? 'photo' : (t ? 'text' : '');
+    const cv = cp || ct;
+    const account = (b && b.get('채널 계정 ID(닉네임)')) || (rv && rv.get('채널 계정 ID(닉네임)')) || '';
+    const status = b ? b.get('미션 상태') : '';
+    if (status === '완료') completed++;
+    rows.push({
+      member_no:       no,
+      account_id:      account,
+      mission_status:  status,
+      order_no:        b ? b.get('주문번호') : '',
+      purchase_amount: b ? b.get('구매 가격') : '',
+      receipt_url:     b ? b.get('인증 자료') : '',          // 여러 장이면 줄바꿈 그대로
+      receipt_at:      b ? _rpToIso(b.get('미션 완료일')) : '',
+      review_kind:     kind,
+      qoo10_urls:      rv ? rv.get('증빙자료') : '',          // 리뷰 탭은 「증빙자료」, 구매 탭은 「인증 자료」 — 이름이 다르다
+      qoo10_at:        rv ? _rpToIso(rv.get('미션 완료일')) : '',
+      cosme_urls:      cv ? cv.get('증빙자료') : '',
+      cosme_at:        cv ? _rpToIso(cv.get('미션 완료일')) : '',
+    });
+  });
+
+  return {
+    ok: true, reason: '',
+    rows: rows,
+    summary: {
+      buyers:      buy ? buy.size : 0,
+      reviewText:  text ? text.size : 0,
+      reviewPhoto: photo ? photo.size : 0,
+      cosme:       (ctext ? ctext.size : 0) + (cphoto ? cphoto.size : 0),
+      completed:   completed,
+      people:      rows.length,
+      hasCosme:    !!(wsCText || wsCPhoto),
+      maskedAccounts: rows.filter(function(r){ return /\*\*/.test(r.account_id || ''); }).length,  // 원본부터 가려진 계정
+    }
+  };
+}
+
+const REPORT_PARSERS = { pointail: parsePointailWorkbook };
+const REPORT_SERVICES = [ { code:'pointail', label:'포인테일 (스토어링크)' } ];
+
+// ══════════════════════════════════════════════════════════════
+// 리포트 관리 (캠페인 리포트 만들기) — 1-A 단계 뼈대
+//   사양서 : docs/specs/2026-09-03-campaign-report-builder.md
+//   작업표 : docs/specs/2026-09-03-campaign-report-builder-breakdown.md
+//
+// 이 조각(작업 4)은 **화면이 열리기까지의 등록만** 한다. 목록·표·모달은 뒤 조각.
+//
+// ⚠️ `loadReportsPane` 이름을 바꾸지 말 것 — 두 곳이 **이름으로** 참조한다:
+//     ①`dev/js/admin-core.js` 의 `switchAdminPane` 안 `loaders`
+//     ②`dev/lib/shared.js` 의 `PANE_REFRESHERS['reports']`
+//    ①을 빠뜨리면 사이드바를 눌러도 **오류 없이 빈 화면**이 되고,
+//    ②를 빠뜨리면 저장 뒤 목록이 안 갱신된다(`refreshPane` 이 조용히 끝난다).
+//
+// ⚠️ 이 파일은 빌드에서 `admin-core.js` **뒤**, `admin.js` **앞**에 이어 붙는다
+//    (`dev/build.sh` 의 `ADMIN_JS_FILES`). 빌드는 단순 이어붙이기라 전역이 하나다.
+//
+// ⚠️ `dev/admin/index.html` 에 이 파일의 `<script>` 태그를 넣지 않는다 —
+//    원본 HTML 은 페인 파일을 개별 태그로 부르지 않는다(빌드 목록에만 있다).
+//    넣으면 빌드가 지우는 정규식에 안 걸려 **없는 경로를 부르는 죽은 태그**가 남는다.
+//    (작업표는 「정규식이 자동으로 걸러 준다」고 적었으나 실제로는 안 걸린다 —
+//     2026-09-03 실측: `admin-reports.js`·`admin-deliverables.js` 둘 다 안 걸림)
+// ══════════════════════════════════════════════════════════════
+
+async function loadReportsPane() {
+  const pane = document.getElementById('adminPane-reports');
+  if (!pane) return;
+
+  // 권한 — 서버(행 단위 보안 정책·함수 가드)가 최종 방어선이고 여기는 표시 제어다.
+  //   ⚠️ 화면 판정은 fail-open(못 읽으면 쓰기)이라 이것만으로 막혔다고 보면 안 된다.
+  if (typeof isHidden === 'function' && isHidden('menu.reports')) {
+    pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">이 화면에 접근할 권한이 없습니다.</div>';
+    return;
+  }
+
+  pane.innerHTML = `
+    <div class="admin-card">
+      <div class="admin-card-header">
+        <span class="admin-card-title">리포트 관리</span>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>제목</th>
+            <th style="width:90px;text-align:center">캠페인</th>
+            <th style="width:90px;text-align:center">외부 첨부</th>
+            <th style="width:130px">만든 사람</th>
+            <th style="width:150px">만든 날</th>
+            <th style="width:150px">마지막 고친 날</th>
+          </tr></thead>
+          <tbody id="reportListBody">
+            <tr><td colspan="6" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  renderReportList(await fetchCampaignReports());
+}
+
+// ⚠️ 표 행 만들기(REPORT_COLS · buildReportRows · _reportExtToRow 등)는 2026-09-04 에
+//    dev/js/report-rows.js 로 옮겼다 — 공유 화면(report.html)과 한 원본을 쓰기 위해서다.
+
+// ══════════════════════════════════════════════════════════════
+// 만들기 창 — 작업 7
+//
+// 🔴 **모달 안쪽 상자의 인라인 스타일(`margin:auto;border-radius:16px;width:94vw`)은 빼면 안 된다.**
+//    `.modal-overlay` 기본값은 **인플루언서(모바일) 아래에서 올라오는 시트**라, 이 스타일이
+//    없으면 관리자 화면에서도 **모달이 화면 아래에 붙는다**(2026-09-03 사용자 지적 「모달 위치들이
+//    다 밑에 있어」). 관리자 모달은 전부 이 인라인 스타일로 가운데를 잡는다(오리엔시트 모달 참조).
+// 🔴 **동적 모달은 `document.body` 가 아니라 `#page-admin` 안에 붙인다.** 관리자 입력칸 크기
+//    (`#page-admin .form-input` 13px)가 그 범위 안에서만 먹는다 — body 에 붙이면 인플루언서
+//    기본값 16px 이 적용돼 **모달 글자가 다른 화면보다 크다**(2026-09-03 사용자 지적).
+//    제목도 `<h2>` 가 아니라 `<div class="modal-title">`(16px) — 관리자 표준.
+// 🔴 **모달 상자를 `dev/admin/index.html` 에 넣지 않는다.** 여기서 동적으로 만든다
+//    (오리엔시트 모달 선례). 그래야 뒤 조각들이 그 핫스팟 파일을 다시 안 만진다.
+// ══════════════════════════════════════════════════════════════
+
+function _reportCloseCreateModal() {
+  const m = document.getElementById('reportCreateModal');
+  if (m) m.remove();
+  _reportSrcBlocks = [];
+}
+
+// 제목이 비면 「리포트 만들기」를 못 누르게 한다.
+function _reportSyncCreateBtn() { _reportSrcSyncSubmit(); }   // 제목 + 외부 블록 상태를 함께 본다
+
+async function openReportCreateModal() {
+  const ids = (typeof _selectedCampIds !== 'undefined' && _selectedCampIds) ? [..._selectedCampIds] : [];
+  if (!ids.length) { if (typeof toast === 'function') toast('캠페인을 1개 이상 선택하세요'); return; }
+
+  const camps = (Array.isArray(allCampaigns) ? allCampaigns : []).filter(function(c){ return ids.indexOf(c.id) !== -1; });
+  // 목록에 없는 캠페인이 섞이면(고른 뒤 필터가 바뀐 경우) 이름을 못 적는다 — 개수로만 알린다.
+  const missing = ids.length - camps.length;
+
+  _reportCloseCreateModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportCreateModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <div class="modal-title">리포트 만들기</div>
+        <button class="modal-close" onclick="_reportCloseCreateModal()"><span class="material-icons-round notranslate" translate="no">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">리포트 제목 <span style="color:var(--pink)">*</span></label>
+          <input type="text" class="form-input" id="reportCreateTitle" maxlength="200"
+                 placeholder="예) 2026년 8월 큐텐 리뷰 리포트" oninput="_reportSyncCreateBtn()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">담긴 캠페인 ${ids.length}개</label>
+          <div style="max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.9">
+            ${camps.map(function(c){ return '<div>' + esc(c.campaign_no || '') + ' · ' + esc(c.title || '') + '</div>'; }).join('')}
+            ${missing > 0 ? '<div style="color:var(--muted)">그 밖에 ' + missing + '개 (지금 목록에 없어 이름을 못 보여줍니다)</div>' : ''}
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">외부 서비스 결과물 <span style="font-weight:400;color:var(--muted)">(선택 · 몇 개든 · 안 붙여도 됩니다)</span></label>
+          <div id="reportSrcBlocks"></div>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="addSourceBlock()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseCreateModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportCreateSubmit" onclick="submitReportCreate()" disabled>리포트 만들기</button>
+      </div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  _reportSrcBlocks = [];
+  _reportSrcRender();
+  const t = document.getElementById('reportCreateTitle');
+  if (t) t.focus();
+}
+
+async function submitReportCreate() {
+  const t = document.getElementById('reportCreateTitle');
+  const btn = document.getElementById('btnReportCreateSubmit');
+  const title = t ? t.value.trim() : '';
+  if (!title) return;
+  if (!_reportSrcAllValid()) { toast('외부 블록의 빈 칸을 채우거나 삭제해 주세요'); return; }
+  const ids = (typeof _selectedCampIds !== 'undefined' && _selectedCampIds) ? [..._selectedCampIds] : [];
+  if (!ids.length) { if (typeof toast === 'function') toast('캠페인을 1개 이상 선택하세요'); return; }
+
+  // 감사용 계정 — 기존 확인 창(confirmAuditExport)을 그대로 쓴다.
+  // ⚠️ **만들 때 한 번만 묻고 그 선택을 저장한다.** 저장하지 않으면 공유 화면이
+  //    관리자가 본 것과 **다른 숫자**를 보여준다(사양서 ⑯).
+  let includeAudit = false;
+  try {
+    const delivs = await fetchDeliverablesForReport(ids);
+    const uids = [...new Set((delivs || []).map(function(d){ return d.user_id; }).filter(Boolean))];
+    const users = await fetchInfluencersForReport(uids);
+    // ⚠️ 회원 조회에 실패하면(null) 감사용 수를 셀 수 없다 — 0으로 보지 않고 묻지도 않는다.
+    //    「없다」와 「못 물어봤다」를 같게 두면 감사용이 조용히 섞인다.
+    if (users) {
+      const auditCount = Object.values(users).filter(function(u){ return u && u.is_audit; }).length;
+      const choice = await confirmAuditExport(auditCount);
+      if (choice === 'cancel') return;
+      includeAudit = (choice === 'include');
+    }
+  } catch (e) { console.warn('[submitReportCreate] 감사용 확인 건너뜀', e); }
+
+  if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
+  try {
+    const id = await createCampaignReport(title, ids, includeAudit);
+    // 외부 블록 저장 — 리포트가 생긴 뒤에. 실패해도 리포트는 남는다(다시 붙일 수 있다).
+    const failed = await _reportSrcSaveAll(id);
+    _reportCloseCreateModal();
+    if (typeof toast === 'function') toast(failed.length ? '리포트는 만들었지만 첨부 일부 실패 — ' + failed.join(', ') : '리포트를 만들었습니다');
+    // 목록을 새로고침 없이 갱신 — PANE_REFRESHERS 에 'reports' 가 등록돼 있어야 동작한다.
+    //   ⚠️ 등록이 빠지면 오류가 아니라 console.warn 한 줄만 남고 목록이 그대로다.
+    if (typeof refreshPane === 'function') await refreshPane('reports');
+    return id;
+  } catch (e) {
+    // 🔴 서버가 거부한 사유를 그대로 보여준다. 「알 수 없는 오류」로 덮지 않는다 —
+    //    이 저장소는 오류를 일반 문구로 덮어 3개월간 죽은 기능을 못 본 적이 있다.
+    if (btn) { btn.disabled = false; btn.textContent = '리포트 만들기'; }
+    if (typeof toast === 'function') toast('만들지 못했습니다 — ' + ((e && e.message) || e));
+    console.error('[submitReportCreate]', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 목록 그리기 — 작업 8
+// ══════════════════════════════════════════════════════════════
+
+function renderReportList(list) {
+  const body = document.getElementById('reportListBody');
+  if (!body) return;
+
+  // ⚠️ 조회 실패(null)와 0건([])을 **다르게** 그린다.
+  //    합치면 「아직 안 만든 것」과 「못 물어본 것」이 화면에서 같아진다.
+  if (list === null || list === undefined) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--pink);font-size:13px">목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</td></tr>';
+    return;
+  }
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">아직 만든 리포트가 없습니다.<br><span style="font-size:12px">「캠페인 관리」에서 캠페인을 고른 뒤 「리포트 만들기」를 누르세요.</span></td></tr>';
+    return;
+  }
+  body.innerHTML = list.map(function(r) {
+    // ⚠️ 캠페인 수·외부 첨부 수는 목록 조회에 아직 없다(작업 12에서 외부 표가 생긴다).
+    //    없는 값을 0 으로 그리면 「담긴 캠페인이 없다」로 읽히므로 '-' 로 둔다.
+    const nCamp = (r.campaign_count === null || r.campaign_count === undefined) ? '-' : r.campaign_count;
+    const nExt  = (r.ext_count === null || r.ext_count === undefined) ? '-' : r.ext_count;
+    // ⚠️ 인라인 처리기에 넣는 값은 고유번호(따옴표가 못 들어가는 형태)만 쓴다 —
+    //    제목은 사람이 적은 글이라 따옴표가 들어오면 깨진다.
+    return `<tr style="cursor:pointer" onclick="openReport('${r.id}')">
+      <td><strong>${esc(r.title || '(제목 없음)')}</strong></td>
+      <td style="text-align:center">${nCamp}</td>
+      <td style="text-align:center">${nExt}</td>
+      <td>${esc(r.created_by_name || '-')}</td>
+      <!-- ⚠️ 날짜 표기는 공용 헬퍼 formatDate(ui.js) — 관리자 목록 화면들이 쓰는 것과 같다.
+           admin-brand.js 의 fmtDate 는 그 화면 전용 감싸개라 여기서는 안 쓴다. -->
+      <td>${formatDate(r.created_at)}</td>
+      <td>${formatDate(r.updated_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// 리포트 화면 — 작업 9
+//
+// 🔴 **시각을 한 값으로 합치지 않는다**(사양서 ⑥).
+//    REVERB 결과물은 **열 때마다 방금 조회**한 것이고, 외부(포인테일 등) 결과물은
+//    **붙인 시각의 스냅샷**이다. 합쳐 놓으면 브랜드가 외부 데이터도 방금 것으로 읽는다.
+//    「구성이 바뀐 시각」은 또 다른 **세 번째** 값이라 여기에도 안 섞는다.
+// ══════════════════════════════════════════════════════════════
+
+// 지금 열려 있는 리포트 — 엑셀 내려받기가 다시 조회하지 않도록 담아 둔다.
+let _openReport = null;
+
+// 시각 표기 — 🔴 **공용 헬퍼를 쓴다. 여기서 새로 만들지 않는다**(2026-09-03 사용자 지적).
+//   `formatDateTime`(ui.js) = `2026/09/03 22:11` — 관리자 화면 전체가 쓰는 표기다.
+//   처음엔 여기서 `toLocaleString` 을 직접 불러 **초까지 나오고 다른 화면과도 달랐다.**
+//   ⚠️ 표기를 바꿀 일이 생기면 `ui.js` 의 그 함수를 고친다 — 여기에 사본을 만들면
+//      화면마다 날짜 모양이 갈린다(이 저장소가 같은 판정을 여러 벌 둬서 겪은 문제와 같다).
+
+
+
+// 13·15번 칸을 그린다 — 주소와 함께 **무엇인지**(사진/게시물)를 작게 적는다.
+//   ⚠️ 한 칸에 두 가지가 섞이므로 표시가 없으면 브랜드가 읽는 표에서 사고가 된다.
+// 🔴 **사진과 게시물은 여는 방법이 다르다.**
+//   사진(`review_image`)  = 우리 저장소의 이미지 → **모달**(관리자 이미지 확대 창)로 연다.
+//   게시물(`post`)        = 인스타·큐텐 같은 **바깥 사이트 주소** → 새 탭으로 연다.
+//   ⚠️ 바깥 사이트는 모달(액자) 안에 못 넣는다 — 그 사이트들이 액자 삽입을 막는다
+//      (X-Frame-Options). 억지로 넣으면 **빈 흰 상자**가 뜨고 원인도 안 보인다.
+//   그래서 게시물에는 ↗ 를 붙여 **새 탭으로 나간다는 것을 미리** 알린다.
+// who = 확대 창 제목에 붙일 머리말(「주문번호 … · 큐텐 결과물」). 몇 번째/전체 는 여기서 붙인다.
+function _reportChannelCellHtml(url, kind, who) {
+  if (!url) return '';
+  who = who || '';
+  // 외부(포인테일) 증빙은 여러 장이 줄바꿈으로 온다 — 한 장씩 「사진 1·2·3」으로 각각 연다.
+  const list = String(url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
+  if (list.length > 1) {
+    // 여러 장은 한 창에서 화살표로 넘겨 본다 — 누른 사진부터 시작
+    const js = esc(JSON.stringify(list));
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},"${esc(who)}")'>사진 ${i+1}</a>`; }).join(' · ');
+  }
+  url = list[0] || url;
+  const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
+  const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
+  if (kind === 'photo') {
+    return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(url)}','${esc(who)} 사진 1/1')">열기</a>${tagHtml}`;
+  }
+  return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
+}
+
+function _reportRowHtml(r) {
+  // 확대 창 제목 머리말 — 주문번호가 있으면 그것, 없으면 이름(외부 행은 계정)으로 사람을 지목한다
+  const whoBase = r.order_no ? ('주문번호 ' + r.order_no) : (r.name_kanji || r.account_id || ('No.' + r.no));
+  const cells = REPORT_COLS.map(function(c) {
+    if (c.key === 'receipt_url') {
+      // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
+      if (!r.receipt_url) return '<td></td>';
+      const rl = String(r.receipt_url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
+      const whoR = whoBase + ' · 영수증';
+      const rjs = esc(JSON.stringify(rl));
+      return '<td>' + (rl.length > 1
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
+        : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
+    }
+    if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind, whoBase + ' · 큐텐 결과물')}</td>`;
+    if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind, whoBase + ' · 엣코스메 결과물')}</td>`;
+    if (c.key === 'amount') {
+      // ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다 — 안 하면 「¥0」으로 그려진다.
+      return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
+    }
+    if (c.key === 'receipt_uploaded_at' || c.key === 'ch_qoo10_at' || c.key === 'ch_cosme_at') {
+      return `<td style="font-size:11px;white-space:nowrap">${esc(formatDateTime(r[c.key]))}</td>`;
+    }
+    return `<td${c.wrap ? '' : ' style="white-space:nowrap"'}>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
+  }).join('');
+  // 맨 앞 「구분」 열 — 🔴 **관리자 화면에만** 있다. 공유 화면·엑셀에는 넣지 않는다.
+  return `<tr><td style="text-align:center;font-weight:600">${esc(r.src || '')}</td>${cells}</tr>`;
+}
+
+async function openReport(reportId) {
+  const pane = document.getElementById('adminPane-reports');
+  if (!pane) return;
+  pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
+
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) {
+    pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--pink);font-size:13px">리포트를 찾지 못했습니다.<br><button class="btn btn-ghost btn-xs" style="margin-top:12px" onclick="loadReportsPane()">목록으로</button></div>';
+    return;
+  }
+
+  const camps = (rep.campaigns || []).map(function(c) {
+    return {id: c.campaign_id, campaign_no: c.campaign_no, title: c.campaign_title, _exists: c.campaign_exists};
+  });
+  const liveIds = camps.filter(function(c){ return c.id; }).map(function(c){ return c.id; });
+
+  // 🔴 REVERB 결과물은 **여기서 방금** 조회한다 — 이 시각이 화면의 첫 줄이 된다.
+  const reverbQueriedAt = new Date().toISOString();
+  const delivs = liveIds.length ? await fetchDeliverablesForReport(liveIds) : [];
+  const uids = [...new Set((delivs || []).map(function(d){ return d.user_id; }).filter(Boolean))];
+  const users = await fetchInfluencersForReport(uids);
+
+  // ⚠️ 감사용 계정은 만들 때 정한 대로 뺀다 — 그 선택을 저장해 둔 이유가 이것이다.
+  let rows = buildReportRows(delivs, camps, users);
+  if (!rep.include_audit && users) {
+    rows = rows.filter(function(r){ const u = users[r._user_id]; return !(u && u.is_audit); });
+    rows.forEach(function(r, i){ r.no = i + 1; });   // 뺀 뒤 번호를 다시 매긴다
+  }
+
+  // 외부(포인테일 등) — 첨부 목록과 참가자 행. 「붙인 시각」은 가장 늦게 붙인 것.
+  const sources = rep.sources || [];
+  const extAttachedAt = sources.length ? sources.map(function(s){ return s.attached_at; }).sort().slice(-1)[0] : null;
+  const extRows = sources.length ? await fetchReportExtRows(sources.map(function(s){ return s.id; })) : [];
+  const extFailed = (extRows === null);
+  const srcById = {}; sources.forEach(function(s){ srcById[s.id] = s; });
+  const extStd = (extRows || []).map(function(r) { return _reportExtToRow(r, srcById[r.source_id]); });
+  // 🔴 REVERB 행 뒤에 외부 행을 잇고 번호를 다시 매긴다 — 한 표에서 「구분」 열로만 갈린다.
+  rows = rows.concat(extStd);
+  rows.forEach(function(r, i){ r.no = i + 1; });
+  const maskedN = extStd.filter(function(r){ return /\*\*/.test(r.account_id || ''); }).length;
+  const deletedCount = camps.filter(function(c){ return !c._exists; }).length;
+  const purchaseN = rows.filter(function(r){ return r.receipt_url; }).length;
+  const reviewN   = rows.filter(function(r){ return r.ch_qoo10_url || r.ch_cosme_url; }).length;
+
+  _openReport = {id: reportId, title: rep.title, rows: rows, reverbQueriedAt: reverbQueriedAt};
+
+  pane.innerHTML = `
+    <div class="admin-card">
+      <div class="admin-card-header" style="align-items:flex-start">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-xs" onclick="loadReportsPane()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">arrow_back</span> 목록</button>
+            <span class="admin-card-title">${esc(rep.title || '(제목 없음)')}</span>
+            <button type="button" onclick="openReportRenameModal('${esc(reportId)}')" title="제목 수정" style="border:0;background:none;padding:2px;cursor:pointer;line-height:1;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span></button>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.9">
+            <!-- 머리말 한 줄 — 형식은 2026-09-04 사용자 지정 「생성자 | 생성일 | 업데이트 : Reverb (시각) / 포인테일 (시각)」.
+                 ⚠️ 한 줄이어도 업데이트 시각은 **각각** 적는다(사양서 ⑥ — 하나로 합치면 브랜드가 포인테일 데이터도
+                 방금 것으로 읽는다). Reverb = 열 때마다 새로 조회한 시각, 포인테일 = 파일을 붙인 시각. -->
+            <div style="color:var(--ink)">
+              <span style="color:var(--muted)">생성자</span> ${esc(rep.created_by_name || '-')}
+              <span style="color:var(--line);margin:0 6px">|</span>
+              <span style="color:var(--muted)">생성일</span> ${esc(formatDateTime(rep.created_at))}
+              <span style="color:var(--line);margin:0 6px">|</span>
+              <span style="color:var(--muted)">업데이트</span> Reverb (${esc(formatDateTime(reverbQueriedAt))})${sources.length ? ' / 포인테일 (' + esc(formatDateTime(extAttachedAt)) + ')' : ''}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
+          <button class="btn btn-ghost btn-xs" onclick="openReportComposeModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">tune</span> 구성</button>
+          <button class="btn btn-ghost btn-xs" onclick="openShareSettings('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">share</span> 공유 설정</button>
+          <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
+        </div>
+      </div>
+
+      <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        <a href="javascript:void(0)" onclick="openReportComposeModal('${esc(reportId)}')" style="margin-left:8px;font-size:12px">구성 보기·설정</a>
+        ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
+        ${extFailed ? '<div style="color:var(--pink);font-size:12px">⚠️ 외부 참가자 행을 불러오지 못했습니다 — 표에 외부 행이 빠져 있습니다.</div>' : ''}
+        ${maskedN ? '<div style="color:var(--muted);font-size:12px">포인테일이 이미 가려서 보낸 계정이 ' + maskedN + '건 있습니다(원본부터 ** 로 가려져 있음).</div>' : ''}
+      </div>
+
+      <div class="admin-table-wrap" style="overflow-x:auto">
+        <table class="data-table" style="min-width:2400px">
+          <thead><tr>
+            <th style="width:50px;text-align:center">구분</th>
+            ${REPORT_COLS.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
+          </tr></thead>
+          <tbody>
+            ${rows.length ? rows.map(_reportRowHtml).join('')
+              : `<tr><td colspan="18" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 엑셀 내려받기 — 작업 10 (관리자용 = 전부 보이는 판)
+//
+// 🔴 **「구분」 열은 엑셀에 넣지 않는다**(확정된 결정 12).
+//    관리자용·브랜드용 엑셀은 **값만 다르고 열 구성은 같아야** 어느 파일이 무엇인지
+//    알아본다. 화면에만 있는 열이다.
+// ══════════════════════════════════════════════════════════════
+
+async function exportReportExcel(reportId) {
+  // 화면에서 이미 조회한 것을 그대로 쓴다 — 다시 조회하면 화면과 다른 숫자가 나올 수 있다.
+  let rows, title;
+  if (_openReport && _openReport.id === reportId) {
+    rows = _openReport.rows; title = _openReport.title;
+  } else {
+    if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
+    return;
+  }
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('리포트');
+    ws.columns = REPORT_COLS.map(function(c) {
+      return {header: c.label, key: c.key, width: Math.max(10, Math.round(parseInt(c.w, 10) / 8))};
+    });
+    ws.getRow(1).font = {bold: true};
+    rows.forEach(function(r) {
+      const o = {};
+      REPORT_COLS.forEach(function(c) {
+        // ⚠️ 구매금액은 숫자로 넣는다(엑셀에서 합계를 낼 수 있게). 빈 값은 빈칸.
+        if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
+        else { o[c.key] = (r[c.key] === null || r[c.key] === undefined) ? '' : r[c.key]; }
+      });
+      ws.addRow(o);
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const t = new Date();
+    const ymd = t.getFullYear() + String(t.getMonth()+1).padStart(2,'0') + String(t.getDate()).padStart(2,'0');
+    // ⚠️ 파일 이름에 「_관리자용」을 붙여 브랜드용과 구분한다(사양서). 파일 이름에 못 쓰는 글자는 뺀다.
+    a.download = String(title || '리포트').replace(/[\\/:*?"<>|]/g, '') + '_' + ymd + '_관리자용.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (typeof toast === 'function') toast('엑셀 다운로드 완료 (' + rows.length + '행)');
+  } catch (e) {
+    console.error('[exportReportExcel]', e);
+    if (typeof toast === 'function') toast('엑셀을 만들지 못했습니다 — ' + ((e && e.message) || e));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 삭제 — 서버 함수(`delete_campaign_report`)는 403 에 이미 있었는데
+//        화면 진입점이 없어 개발자 도구로만 지울 수 있었다.
+//
+// ⚠️ 되돌릴 수 없는 동작이라 **확인 창을 거친다.** 다만 캠페인 삭제처럼
+//    제목을 다시 적게 하지는 않는다 — 리포트는 **다시 만들 수 있고**
+//    원본(캠페인·결과물)은 하나도 안 지워진다. 확인 강도는 잃는 것에 맞춘다.
+// ══════════════════════════════════════════════════════════════
+
+function _reportCloseDeleteModal() {
+  const m = document.getElementById('reportDeleteModal');
+  if (m) m.remove();
+}
+
+async function openReportDeleteModal(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { if (typeof toast === 'function') toast('리포트를 찾지 못했습니다'); return; }
+  _reportCloseDeleteModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportDeleteModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:460px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <div class="modal-title">리포트 삭제</div>
+        <button class="modal-close" onclick="_reportCloseDeleteModal()"><span class="material-icons-round notranslate" translate="no">close</span></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;line-height:1.8;margin:0">
+          <strong>${esc(rep.title || '(제목 없음)')}</strong> 리포트를 지웁니다.
+        </p>
+        <p style="font-size:12px;color:var(--muted);line-height:1.8;margin:10px 0 0">
+          담긴 캠페인 ${(rep.campaigns || []).length}개의 <strong>연결만</strong> 사라집니다.
+          캠페인·결과물·인플루언서 데이터는 <strong>하나도 지워지지 않습니다.</strong><br>
+          같은 캠페인으로 리포트를 다시 만들 수 있습니다.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseDeleteModal()">취소</button>
+        <button class="btn btn-danger" id="btnReportDeleteSubmit" onclick="submitReportDelete('${esc(reportId)}')">삭제</button>
+      </div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+}
+
+async function submitReportDelete(reportId) {
+  const btn = document.getElementById('btnReportDeleteSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '지우는 중…'; }
+  const ok = await deleteCampaignReport(reportId);
+  _reportCloseDeleteModal();
+  if (ok === null) {
+    // ⚠️ 실패(null)와 「이미 없음」(false)을 구분해 다르게 알린다.
+    if (typeof toast === 'function') toast('지우지 못했습니다 — 잠시 뒤 다시 시도해 주세요');
+    return;
+  }
+  if (typeof toast === 'function') toast(ok ? '리포트를 지웠습니다' : '이미 지워진 리포트입니다');
+  await loadReportsPane();   // 목록으로 돌아간다(지운 리포트 화면에 머물면 안 된다)
+}
+
+// ══════════════════════════════════════════════════════════════
+// 구성 바꾸기 — 작업 18 (캠페인 추가·빼기 · 제목 수정)
+//   서버 함수는 407, 읽기의 row_id 는 408.
+//   ⚠️ 작업표 순서(외부 첨부 뒤)보다 먼저 만들었다 — 사용자가 먼저 물었다(2026-09-03).
+//      외부 첨부 갈아 끼우기(openReplaceSourceFile)는 그 표가 생길 때 더한다.
+// ══════════════════════════════════════════════════════════════
+
+// ── 제목 수정 ──
+function _reportCloseRenameModal() { const m = document.getElementById('reportRenameModal'); if (m) m.remove(); }
+
+async function openReportRenameModal(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { toast('리포트를 찾지 못했습니다'); return; }
+  _reportCloseRenameModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportRenameModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">제목 수정</div>
+        <button class="modal-close" onclick="_reportCloseRenameModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">리포트 제목 <span style="color:var(--pink)">*</span></label>
+          <input type="text" class="form-input" id="reportRenameInput" maxlength="200" value="${esc(rep.title || '')}"
+                 oninput="document.getElementById('btnReportRenameSubmit').disabled = !this.value.trim()">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseRenameModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportRenameSubmit" onclick="submitReportRename('${esc(reportId)}')">저장</button>
+      </div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  const i = document.getElementById('reportRenameInput'); if (i) { i.focus(); i.select(); }
+}
+
+async function submitReportRename(reportId) {
+  const i = document.getElementById('reportRenameInput');
+  const title = i ? i.value.trim() : '';
+  if (!title) return;
+  try {
+    await updateReportTitle(reportId, title);
+    _reportCloseRenameModal();
+    toast('제목을 바꿨습니다');
+    await openReport(reportId);      // 머리말을 다시 그린다(목록은 돌아갈 때 새로 읽는다)
+  } catch (e) { toast('바꾸지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+
+// ── 캠페인 빼기 ──
+//   ⚠️ 확인 창을 거친다 — 되돌리려면 다시 추가해야 하고, 인원이 줄어드는 변경이다.
+//      다만 원본은 하나도 안 지워지므로 이름 재입력까지는 요구하지 않는다.
+async function removeCampaignFromReport(reportId, rowId) {
+  const rep = await fetchCampaignReport(reportId);
+  const c = rep && (rep.campaigns || []).find(function(x){ return x.row_id === rowId; });
+  if (!c) { toast('이미 빠진 캠페인입니다'); await openReport(reportId); return; }
+  if ((rep.campaigns || []).length <= 1) {
+    toast('마지막 캠페인은 뺄 수 없습니다. 리포트를 지워 주세요');
+    return;
+  }
+  if (!window.confirm('「' + (c.campaign_no || '') + ' ' + (c.campaign_title || '') + '」을(를) 리포트에서 뺍니다.\n그 캠페인의 결과물이 표에서 사라집니다. 계속할까요?')) return;
+  if (!(await _reportSharedGuard(reportId, '캠페인을 빼면'))) return;
+  try {
+    await removeReportCampaign(reportId, rowId);
+    toast('뺐습니다');
+    await openReport(reportId);
+    await _reportComposeRefresh(reportId);
+  } catch (e) { toast('빼지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+
+// ── 캠페인 추가 ──
+//   일괄발송 모달(admin-messaging.js)과 같은 검색형 다중 선택기(syncCampMultiFilter)를 쓴다.
+//   ⚠️ 그 선택기는 「전체 체크 = 빈 배열」이라는 **필터 뜻**을 갖는다 — 여기서는 명시 선택만
+//      받아야 하므로, 전체가 체크된 경우를 「보이는 것 전부」로 바꿔 읽는다(일괄발송과 같은 처리).
+let _reportAddCandidates = [];
+
+function _reportCloseAddModal() { const m = document.getElementById('reportAddCampModal'); if (m) m.remove(); }
+
+async function openAddCampaignsToReport(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { toast('리포트를 찾지 못했습니다'); return; }
+  // 딥링크로 들어와 목록이 안 실려 있을 수 있다 → 폴백 조회(운영현황 진입과 같은 함정)
+  let camps = Array.isArray(allCampaigns) && allCampaigns.length ? allCampaigns : null;
+  if (!camps) { camps = await fetchCampaigns(); }
+  const have = new Set((rep.campaigns || []).map(function(c){ return c.campaign_id; }).filter(Boolean));
+  _reportAddCandidates = (camps || []).filter(function(c){ return !have.has(c.id) && !c.deleted_at; });
+
+  _reportCloseAddModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportAddCampModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">캠페인 추가</div>
+        <button class="modal-close" onclick="_reportCloseAddModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 8px">이미 담긴 캠페인 ${have.size}개는 목록에서 뺐습니다.</p>
+        <div id="reportAddCampMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인을 선택하세요</button><div class="mf-drop" style="min-width:100%"></div></div>
+        <div id="reportAddCampCount" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseAddModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportAddSubmit" onclick="submitAddCampaignsToReport('${esc(reportId)}')" disabled>추가</button>
+      </div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  syncCampMultiFilter('reportAddCampMulti', _reportAddCandidates, _onReportAddCampChange, null);
+  // ⚠️ 선택기는 처음에 「전체 체크」로 시작한다 — 그대로 두면 「전부 추가」로 읽힌다. 전부 풀고 시작.
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('reportAddCampMulti', '캠페인을 선택하세요');
+  _onReportAddCampChange();
+}
+
+function _reportSelectedAddIds() {
+  let ids = getMultiFilterValues('reportAddCampMulti');
+  if (!ids.length) {
+    const wrap = document.getElementById('reportAddCampMulti');
+    const allCb = wrap && wrap.querySelector('input[value="all"]');
+    if (allCb && allCb.checked && !allCb.indeterminate) ids = _reportAddCandidates.map(function(c){ return c.id; });
+  }
+  return ids;
+}
+
+function _onReportAddCampChange() {
+  const ids = _reportSelectedAddIds();
+  const cnt = document.getElementById('reportAddCampCount');
+  const btn = document.getElementById('btnReportAddSubmit');
+  if (cnt) cnt.textContent = ids.length ? ids.length + '개 선택' : '';
+  if (btn) btn.disabled = !ids.length;
+}
+
+async function submitAddCampaignsToReport(reportId) {
+  const ids = _reportSelectedAddIds();
+  if (!ids.length) return;
+  // ⚠️ 더하는 것도 위험하다 — 브랜드가 다른 캠페인 회원 정보를 새로 보게 된다
+  if (!(await _reportSharedGuard(reportId, '캠페인을 더하면'))) return;
+  const btn = document.getElementById('btnReportAddSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '추가하는 중…'; }
+  try {
+    const n = await addReportCampaigns(reportId, ids);
+    _reportCloseAddModal();
+    toast(n + '개를 더했습니다' + (n < ids.length ? ' (이미 담긴 ' + (ids.length - n) + '개는 건너뜀)' : ''));
+    await openReport(reportId);
+    await _reportComposeRefresh(reportId);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '추가'; }
+    toast('더하지 못했습니다 — ' + ((e && e.message) || e));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 외부 서비스 블록 — 작업 15 (만들기 모달 · 기존 리포트 「파일 붙이기」 공용)
+//   파일은 브라우저에서 읽어 **파싱 결과만** 서버에 보낸다. 원본 파일은 저장하지 않는다.
+//   파일 고르기는 인플루언서 증빙 첨부와 같은 「라벨 안에 숨긴 <input type=file>」 패턴.
+// ══════════════════════════════════════════════════════════════
+
+// 블록 상태 — 모달이 열려 있는 동안만 산다. { idx, service, extNo, extName, fileName, parsed, busy, error }
+let _reportSrcBlocks = [];
+let _reportSrcSeq = 0;
+
+function _reportSrcContainer() { return document.getElementById('reportSrcBlocks'); }
+
+function _reportSrcBlockHtml(b) {
+  const opts = REPORT_SERVICES.map(function(s){ return `<option value="${s.code}" ${b.service===s.code?'selected':''}>${esc(s.label)}</option>`; }).join('');
+  let fileLine;
+  if (b.busy) fileLine = '<span style="color:var(--muted)">읽는 중…</span>';
+  else if (b.error) fileLine = `<span style="color:var(--pink)">${esc(b.error)}</span>`;
+  else if (b.parsed) {
+    const s = b.parsed.summary;
+    fileLine = `<span style="color:var(--ink)">✓ ${s.people}명 · 구매 ${s.buyers} / 리뷰 텍스트 ${s.reviewText} · 포토 ${s.reviewPhoto}${s.hasCosme ? ' · @cosme ' + s.cosme : ''} / 완료 ${s.completed}</span>`
+             + (s.maskedAccounts ? `<div style="font-size:11px;color:var(--muted)">포인테일이 이미 가려서 보낸 계정 ${s.maskedAccounts}건</div>` : '');
+  } else fileLine = '<span style="color:var(--muted)">파일을 고르세요 (.xlsx)</span>';
+  const bad = b.touched && (!b.extNo.trim() || !b.extName.trim() || !b.parsed);
+  return `
+    <div id="reportSrcBlock-${b.idx}" style="border:1px solid ${bad ? 'var(--pink)' : 'var(--line)'};border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <select class="form-input" style="flex:0 0 180px" onchange="_reportSrcSet(${b.idx},'service',this.value)">${opts}</select>
+        <button type="button" class="btn btn-ghost btn-xs" style="margin-left:auto;color:var(--pink)" onclick="removeSourceBlock(${b.idx})">삭제</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:8px">
+        <input type="text" class="form-input" placeholder="캠페인 번호 (예: 102905)" value="${esc(b.extNo)}" oninput="_reportSrcSet(${b.idx},'extNo',this.value)">
+        <input type="text" class="form-input" placeholder="캠페인명 (표에 이대로 실립니다)" value="${esc(b.extName)}" oninput="_reportSrcSet(${b.idx},'extName',this.value)">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px">
+        <label style="display:inline-flex;align-items:center;gap:4px;color:var(--pink);cursor:pointer;flex-shrink:0">
+          <input type="file" accept=".xlsx" style="display:none" onchange="_reportSrcFile(${b.idx}, this)">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px">attach_file</span><span>엑셀 파일</span>
+        </label>
+        <span style="flex:1;min-width:0">${b.fileName ? '<span style="color:var(--muted)">' + esc(b.fileName) + ' · </span>' : ''}${fileLine}</span>
+      </div>
+    </div>`;
+}
+
+function _reportSrcRender() {
+  const c = _reportSrcContainer();
+  if (!c) return;
+  c.innerHTML = _reportSrcBlocks.map(_reportSrcBlockHtml).join('')
+    || '<div style="font-size:12px;color:var(--muted);padding:6px 0">붙인 파일이 없습니다. 없어도 만들 수 있습니다.</div>';
+  _reportSrcSyncSubmit();
+}
+
+// 만들기/붙이기 버튼 — 읽는 중이거나 한 칸이라도 비면 못 누른다
+function _reportSrcAllValid() {
+  return _reportSrcBlocks.every(function(b){ return !b.busy && b.extNo.trim() && b.extName.trim() && b.parsed; });
+}
+function _reportSrcSyncSubmit() {
+  const btn = document.getElementById('btnReportCreateSubmit') || document.getElementById('btnReportAttachSubmit');
+  if (!btn) return;
+  const title = document.getElementById('reportCreateTitle');
+  const titleOk = title ? !!title.value.trim() : true;
+  btn.disabled = !(titleOk && _reportSrcAllValid() && (btn.id !== 'btnReportAttachSubmit' || _reportSrcBlocks.length > 0));
+}
+
+function addSourceBlock() {
+  _reportSrcBlocks.push({ idx: ++_reportSrcSeq, service: 'pointail', extNo: '', extName: '', fileName: '', parsed: null, busy: false, error: '', touched: false });
+  _reportSrcRender();
+}
+function removeSourceBlock(idx) {
+  _reportSrcBlocks = _reportSrcBlocks.filter(function(b){ return b.idx !== idx; });
+  _reportSrcRender();
+}
+function _reportSrcSet(idx, key, val) {
+  const b = _reportSrcBlocks.find(function(x){ return x.idx === idx; });
+  if (!b) return;
+  b[key] = val; b.touched = true;
+  // 값만 바뀌면 다시 그리지 않는다(입력 초점을 잃는다) — 버튼 상태·테두리만 갱신
+  const el = document.getElementById('reportSrcBlock-' + idx);
+  if (el) el.style.borderColor = (!b.extNo.trim() || !b.extName.trim() || !b.parsed) ? 'var(--pink)' : 'var(--line)';
+  _reportSrcSyncSubmit();
+}
+
+async function _reportSrcFile(idx, input) {
+  const b = _reportSrcBlocks.find(function(x){ return x.idx === idx; });
+  const f = input && input.files && input.files[0];
+  if (!b || !f) return;
+  b.fileName = f.name; b.busy = true; b.error = ''; b.parsed = null; b.touched = true;
+  _reportSrcRender();
+  try {
+    const buf = await f.arrayBuffer();
+    const parser = REPORT_PARSERS[b.service];
+    const res = parser ? await parser(buf) : { ok:false, reason:'모르는 서비스입니다' };
+    if (!res.ok) { b.error = res.reason || '읽지 못했습니다'; }
+    else {
+      b.parsed = res;
+      // 파일 이름에 번호가 있으면 비어 있는 번호 칸을 채워 준다 — (260903)캠페인 리포트_102905.xlsx
+      if (!b.extNo.trim()) { const m = f.name.match(/_(\d{4,})/); if (m) b.extNo = m[1]; }
+    }
+  } catch (e) { b.error = '읽는 중 오류 — ' + ((e && e.message) || e); }
+  b.busy = false;
+  _reportSrcRender();
+}
+
+// 블록들을 서버에 저장한다(만들기 직후 · 붙이기 모달 공용). 실패한 블록 이름을 돌려준다.
+async function _reportSrcSaveAll(reportId) {
+  const failed = [];
+  for (const b of _reportSrcBlocks) {
+    if (!b.parsed) continue;
+    try { await addReportSource(reportId, b.service, b.extNo.trim(), b.extName.trim(), b.fileName, b.parsed.rows); }
+    catch (e) { failed.push(b.extName || b.extNo); console.error('[reportSrcSave]', e); }
+  }
+  return failed;
+}
+
+// ── 기존 리포트에 「파일 붙이기」 ──
+function _reportCloseAttachModal() { const m = document.getElementById('reportAttachModal'); if (m) m.remove(); _reportSrcBlocks = []; }
+
+async function openAddSourceToReport(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { toast('리포트를 찾지 못했습니다'); return; }
+  _reportCloseAttachModal();
+  _reportSrcBlocks = [];
+  const have = (rep.sources || []);
+  const wrap = document.createElement('div');
+  wrap.id = 'reportAttachModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">외부 결과물 붙이기</div>
+        <button class="modal-close" onclick="_reportCloseAttachModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="overflow-y:auto">
+        ${have.length ? '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">이미 붙은 것: ' + have.map(function(s){ return esc(s.ext_campaign_no + ' ' + s.ext_campaign_name); }).join(' · ') + '<br>같은 번호를 다시 붙이면 <strong>그 파일이 갱신</strong>됩니다.</p>' : ''}
+        <div id="reportSrcBlocks"></div>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="addSourceBlock()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+        <p style="font-size:11px;color:var(--muted);margin:10px 0 0;line-height:1.7">파일은 이 브라우저에서 읽어 <strong>참가자 행만</strong> 저장합니다. 원본 파일은 저장하지 않습니다.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseAttachModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportAttachSubmit" onclick="submitAttachSources('${esc(reportId)}')" disabled>붙이기</button>
+      </div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  addSourceBlock();
+}
+
+async function submitAttachSources(reportId) {
+  if (!_reportSrcAllValid() || !_reportSrcBlocks.length) return;
+  if (!(await _reportSharedGuard(reportId, '파일을 붙이면'))) return;
+  // 같은 번호가 이미 있으면 갱신임을 되묻는다(사양서 ⑩ — 추가가 아니라 갱신)
+  const rep = await fetchCampaignReport(reportId);
+  const dup = _reportSrcBlocks.filter(function(b){ return (rep.sources||[]).some(function(s){ return s.service_code===b.service && s.ext_campaign_no===b.extNo.trim(); }); });
+  if (dup.length && !window.confirm('「' + dup.map(function(b){ return b.extNo; }).join('」·「') + '」은(는) 이미 붙어 있습니다.\n새 파일로 갱신할까요? (이전 행은 전부 교체됩니다)')) return;
+  const btn = document.getElementById('btnReportAttachSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
+  const failed = await _reportSrcSaveAll(reportId);
+  _reportCloseAttachModal();
+  toast(failed.length ? '일부 실패 — ' + failed.join(', ') : '붙였습니다');
+  await openReport(reportId);
+  await _reportComposeRefresh(reportId);
+}
+
+async function removeSourceFromReport(reportId, sourceId, label) {
+  if (!window.confirm('「' + label + '」 첨부를 뗍니다. 그 참가자 행이 표에서 사라집니다. 계속할까요?')) return;
+  if (!(await _reportSharedGuard(reportId, '첨부를 떼면'))) return;
+  try { await removeReportSource(sourceId); toast('뗐습니다'); await openReport(reportId); await _reportComposeRefresh(reportId); }
+  catch (e) { toast('떼지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 구성 모달 — 담긴 캠페인·외부 첨부를 필요할 때만 열어 보고 설정한다 (2026-09-04 사용자 요청)
+//   머리말에 칩을 늘 펼쳐 두면 시끄럽다. 설정성 항목을 버튼 → 모달로 여는 관리자 관행
+//   (메일 수신 설정 「설정」 버튼)과 같다. 추가·빼기·붙이기·떼기는 기존 함수를 그대로 부르고,
+//   그 함수들이 화면을 다시 그린 뒤 이 모달도 열려 있으면 다시 그린다.
+// ══════════════════════════════════════════════════════════════
+
+function _reportCloseComposeModal() { const m = document.getElementById('reportComposeModal'); if (m) m.remove(); }
+
+async function _reportComposeBodyHtml(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) return '<div style="color:var(--pink)">리포트를 찾지 못했습니다.</div>';
+  const chip = function(text, onclick, title, dead) {
+    return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:8px;${dead ? 'opacity:.55;text-decoration:line-through' : ''}" title="${esc(title || '')}">${text}
+      <button type="button" onclick="${onclick}" style="border:0;background:none;padding:0;cursor:pointer;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">close</span></button></span>`;
+  };
+  const camps = (rep.campaigns || []).map(function(c) {
+    return chip(esc(c.campaign_no || '') + ' ' + esc(c.campaign_title || ''),
+      `removeCampaignFromReport('${esc(reportId)}','${esc(c.row_id)}')`,
+      c.campaign_exists ? '' : '원본 캠페인이 지워졌습니다', !c.campaign_exists);
+  }).join('');
+  const srcs = (rep.sources || []).map(function(sv) {
+    return chip(esc(sv.ext_campaign_no) + ' ' + esc(sv.ext_campaign_name) + ' · ' + sv.row_count + '명',
+      `removeSourceFromReport('${esc(reportId)}','${esc(sv.id)}','${esc(sv.ext_campaign_no)}')`,
+      (sv.file_name || '') + ' · ' + formatDateTime(sv.attached_at) + ' · ' + (sv.attached_by_name || ''), false);
+  }).join('');
+  return `
+    <div class="form-group">
+      <label class="form-label">REVERB 캠페인 ${(rep.campaigns || []).length}개</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${camps}
+        <button type="button" class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">× 로 빼면 그 캠페인의 결과물이 표에서 사라집니다. 마지막 한 개는 뺄 수 없습니다.</div>
+    </div>
+    <div class="form-group" style="margin-top:14px">
+      <label class="form-label">외부 첨부 (포인테일) ${(rep.sources || []).length}개</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${srcs || '<span style="font-size:12px;color:var(--muted)">붙인 파일이 없습니다.</span>'}
+        <button type="button" class="btn btn-ghost btn-xs" onclick="openAddSourceToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">attach_file</span> 파일 붙이기</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">같은 번호를 다시 붙이면 그 파일이 갱신됩니다(이전 행 전부 교체).</div>
+    </div>`;
+}
+
+async function openReportComposeModal(reportId) {
+  _reportCloseComposeModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportComposeModal';
+  wrap.className = 'modal-overlay open';
+  wrap.dataset.reportId = reportId;
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">리포트 구성</div>
+        <button class="modal-close" onclick="_reportCloseComposeModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" id="reportComposeBody" style="overflow-y:auto">불러오는 중…</div>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="_reportCloseComposeModal()">닫기</button></div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  await _reportComposeRefresh(reportId);
+}
+
+// 열려 있을 때만 다시 그린다 — 추가·빼기·붙이기·떼기 뒤에 부른다
+async function _reportComposeRefresh(reportId) {
+  const m = document.getElementById('reportComposeModal');
+  if (!m || (reportId && m.dataset.reportId !== reportId)) return;
+  const body = document.getElementById('reportComposeBody');
+  if (body) body.innerHTML = await _reportComposeBodyHtml(m.dataset.reportId);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 공유 설정 창 — 작업 23 (+ 작업 26 ②: 끌 때 경고)
+//   「보기」가 주 동작, 「다시 정하기」는 눈에 덜 띄게(사양서 「다시 정하는 일은 최소로」).
+//   비밀번호 원문은 reveal 함수로만 오고, 부를 때마다 서버에 「누가 언제 봤는지」 남는다.
+// ══════════════════════════════════════════════════════════════
+
+// 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID 는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다).
+//   영수증 주소는 2026-09-04 사용자 결정으로 열었다(마이그레이션 414 + 방침 §3.1).
+const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id'; });
+
+function _reportShareUrl(token) {
+  return location.origin + '/report.html?t=' + token;
+}
+function _reportCloseShareModal() { const m = document.getElementById('reportShareModal'); if (m) m.remove(); }
+
+async function openShareSettings(reportId) {
+  _reportCloseShareModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportShareModal';
+  wrap.className = 'modal-overlay open';
+  wrap.dataset.reportId = reportId;
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">공유 설정</div>
+        <button class="modal-close" onclick="_reportCloseShareModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" id="reportShareBody" style="overflow-y:auto">불러오는 중…</div>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="_reportCloseShareModal()">닫기</button></div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  await _reportShareRefresh(reportId);
+}
+
+async function _reportShareRefresh(reportId) {
+  const body = document.getElementById('reportShareBody');
+  if (!body) return;
+  const st = await fetchReportShareStatus(reportId);
+  if (!st) { body.innerHTML = '<div style="color:var(--pink)">공유 상태를 불러오지 못했습니다.</div>'; return; }
+  const rep = await fetchCampaignReport(reportId);
+  const expired = st.expires_at && new Date(st.expires_at) < new Date();
+  const cols = Array.isArray(st.columns) ? st.columns : null;      // null = 기본(값 없는 열 제외)
+  const evKo = {view:'브랜드 열람', pw_reveal:'비밀번호 보기', link_on:'링크 켬', link_off:'링크 끔', pw_reset:'비밀번호 다시 정함'};
+
+  if (!st.enabled) {
+    body.innerHTML = `
+      <p style="font-size:13px;line-height:1.8;margin:0 0 12px">${st.has_password ? '링크가 <strong>꺼져</strong> 있습니다. 다시 켜면 같은 링크·같은 비밀번호로 열립니다.' : '아직 공유하지 않은 리포트입니다. 비밀번호를 정하고 링크를 켜세요.'}</p>
+      ${st.has_password ? '' : `<div class="form-group"><label class="form-label">비밀번호 <span style="color:var(--pink)">*</span> <span style="font-weight:400;color:var(--muted)">(4자 이상 · 브랜드에게 알려 줄 것)</span></label>
+        <input type="text" class="form-input" id="reportSharePw" maxlength="64" placeholder="예) mera2026" autocomplete="off"></div>`}
+      <div class="form-group"><label class="form-label">만료일 <span style="font-weight:400;color:var(--muted)">(비우면 무기한)</span></label>
+        <input type="date" class="form-input" id="reportShareExp" value="${_reportDateInput(st.expires_at || _reportPlus90())}"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-primary" onclick="submitEnableShare('${esc(reportId)}')">링크 켜기</button></div>
+      <p style="font-size:11px;color:var(--muted);margin:14px 0 0;line-height:1.7">비밀번호는 되돌릴 수 있게 암호화해 저장하고 「보기」로 다시 확인할 수 있습니다. 암호화 열쇠는 따로 백업하지 않습니다(회사 결정) — 열쇠를 잃으면 비밀번호를 새로 정해 브랜드에 다시 알리면 됩니다. 브랜드에게 보낸 메일이 사실상 백업입니다.</p>`;
+    return;
+  }
+
+  const url = _reportShareUrl(st.token);
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span class="badge" style="background:${expired ? 'var(--line)' : '#DCFCE7'};color:${expired ? 'var(--muted)' : '#166534'};font-size:11px;padding:2px 8px;border-radius:8px">${expired ? '만료됨' : '공유 중'}</span>
+      <span style="font-size:12px;color:var(--muted)">열람 ${st.view_count || 0}회${st.last_viewed_at ? ' · 마지막 ' + esc(formatDateTime(st.last_viewed_at)) : ''}</span>
+    </div>
+    <div class="form-group"><label class="form-label">공유 링크</label>
+      <div style="display:flex;gap:6px"><input type="text" class="form-input" readonly value="${esc(url)}" style="flex:1" onclick="this.select()">
+        <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText('${esc(url)}').then(function(){toast('링크를 복사했습니다')})">복사</button></div></div>
+    <div class="form-group"><label class="form-label">비밀번호</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" class="form-input" readonly id="reportSharePwView" value="••••••" style="flex:1;font-family:monospace">
+        <button class="btn btn-ghost btn-xs" onclick="revealSharePw('${esc(reportId)}')">보기</button>
+        <button class="btn btn-primary btn-xs" onclick="copyShareLinkAndPw('${esc(reportId)}')">링크+비밀번호 복사</button>
+      </div>
+      <div style="margin-top:6px"><a href="javascript:void(0)" onclick="openResetSharePw('${esc(reportId)}')" style="font-size:11px;color:var(--muted)">다시 정하기</a></div></div>
+    <div class="form-group"><label class="form-label">만료일 <span style="font-weight:400;color:var(--muted)">(비우면 무기한)</span></label>
+      <div style="display:flex;gap:6px"><input type="date" class="form-input" id="reportShareExp" value="${_reportDateInput(st.expires_at)}" style="flex:1">
+        <button class="btn btn-ghost btn-xs" onclick="submitShareSettings('${esc(reportId)}')">저장</button></div></div>
+    <div class="form-group"><label class="form-label">브랜드에게 보여줄 열</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
+        ${REPORT_SHARE_SELECTABLE.map(function(c){ const on = cols ? cols.indexOf(c.key) !== -1 : true; return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${c.key}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.label)}</label>`; }).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+      <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="submitDisableShare('${esc(reportId)}')">링크 끄기</button>
+    </div>
+    <details style="margin-top:14px;font-size:12px"><summary style="cursor:pointer;color:var(--muted)">기록 (${(st.events || []).length})</summary>
+      <div style="margin-top:6px;line-height:1.8">${(st.events || []).map(function(e){ return esc(formatDateTime(e.at)) + ' · ' + (evKo[e.kind] || e.kind) + (e.actor_name ? ' · ' + esc(e.actor_name) : ''); }).join('<br>') || '없음'}</div></details>`;
+}
+
+function _reportPlus90() { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString(); }
+function _reportDateInput(iso) { if (!iso) return ''; const d = new Date(iso); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function _reportDateToIso(v) { return v ? new Date(v + 'T23:59:59+09:00').toISOString() : null; }   // 그날 끝(한국·일본 시각)까지
+
+async function submitEnableShare(reportId) {
+  const pw = document.getElementById('reportSharePw');
+  const exp = document.getElementById('reportShareExp');
+  if (pw && pw.value.trim().length < 4) { toast('비밀번호는 4자 이상이어야 합니다'); return; }
+  try { await enableReportShare(reportId, pw ? pw.value.trim() : null, _reportDateToIso(exp && exp.value)); toast('링크를 켰습니다'); await _reportShareRefresh(reportId); }
+  catch (e) { toast('켜지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+async function submitDisableShare(reportId) {
+  // 작업 26 ② — 브랜드가 보던 화면이 그 순간 닫힌다
+  if (!window.confirm('링크를 끕니다.\n브랜드가 보던 화면은 다음 새로고침에서 닫히고, 다시 켜기 전까지 열 수 없습니다. 계속할까요?')) return;
+  try { await disableReportShare(reportId); toast('링크를 껐습니다'); await _reportShareRefresh(reportId); }
+  catch (e) { toast('끄지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+async function submitShareSettings(reportId) {
+  const exp = document.getElementById('reportShareExp');
+  const cols = [...document.querySelectorAll('.reportShareCol:checked')].map(function(i){ return i.value; });
+  try { await updateReportShareSettings(reportId, _reportDateToIso(exp && exp.value), cols); toast('저장했습니다'); }
+  catch (e) { toast('저장하지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+async function revealSharePw(reportId) {
+  try { const pw = await revealReportSharePassword(reportId); const i = document.getElementById('reportSharePwView'); if (i) i.value = pw || '(없음)'; }
+  catch (e) { toast('볼 수 없습니다 — ' + ((e && e.message) || e)); }
+}
+async function copyShareLinkAndPw(reportId) {
+  try {
+    const st = await fetchReportShareStatus(reportId);
+    const pw = await revealReportSharePassword(reportId);
+    const text = '리포트 링크: ' + _reportShareUrl(st.token) + '\n비밀번호: ' + pw + (st.expires_at ? '\n열람 기한: ' + formatDate(st.expires_at) : '');
+    await navigator.clipboard.writeText(text);
+    toast('링크와 비밀번호를 복사했습니다 — 그대로 메일·메신저에 붙이세요');
+  } catch (e) { toast('복사하지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+function openResetSharePw(reportId) {
+  // ⚠️ 확인 창에 「브랜드에게 새 비밀번호를 다시 알려야 합니다」 — 안 넣으면 브랜드가 「링크가 고장 났다」고 연락한다
+  const pw = window.prompt('새 비밀번호 (4자 이상)\n\n⚠️ 다시 정하면 브랜드가 쓰던 비밀번호는 그 순간 죽습니다.\n브랜드에게 새 비밀번호를 다시 알려야 합니다.');
+  if (pw === null) return;
+  if (pw.trim().length < 4) { toast('비밀번호는 4자 이상이어야 합니다'); return; }
+  resetReportSharePassword(reportId, pw.trim()).then(function(){ toast('비밀번호를 다시 정했습니다 — 브랜드에게 알려 주세요'); _reportShareRefresh(reportId); })
+    .catch(function(e){ toast('바꾸지 못했습니다 — ' + ((e && e.message) || e)); });
+}
+
+// 작업 26 ① — 공유가 켜진 리포트의 구성을 바꿀 때 경고 (더할 때도, 뺄 때도)
+async function _reportSharedGuard(reportId, what) {
+  const st = await fetchReportShareStatus(reportId);
+  if (!st || !st.enabled) return true;
+  return window.confirm('이 리포트는 공유 중입니다.\n' + what + ' 브랜드가 보는 화면도 바로 바뀝니다. 계속할까요?');
+}
+
 // ════════════════════════════════════════════════════════════════════
 // REVERB ADMIN — dev/js/admin.js
 // ════════════════════════════════════════════════════════════════════
@@ -47965,6 +49700,17 @@ function deleteCampaign(campId, campTitle) {
   var modal = $('deleteCampModal');
   document.body.appendChild(modal);
   modal.style.display = 'flex';
+  // 공유 중인 리포트에 담긴 캠페인이면 알린다(작업 26 ③). 삭제는 막지 않는다 — 리포트는
+  //   캠페인 번호·제목을 글자로도 보관해 연결만 끊긴다. 🔴 0건·조회 실패면 아무것도 안 그린다.
+  //   비동기라 창이 먼저 뜨고 뒤에 채워진다 — 그 사이 캠페인이 바뀌었으면(다른 창) 버린다.
+  var note = $('deleteCampSharedNote');
+  note.style.display = 'none'; note.textContent = '';
+  countLiveSharedReportsForCampaign(campId).then(function(n) {
+    if (!n || $('deleteCampId').value !== campId) return;
+    note.innerHTML = '<strong>브랜드가 지금 보고 있는 공유 리포트 ' + n + '건</strong>에 이 캠페인이 들어 있습니다. '
+      + '삭제하면 그 리포트에서 이 캠페인의 회원·결과물이 사라집니다(캠페인 번호·제목은 남습니다).';
+    note.style.display = 'block';
+  });
 }
 
 function checkDeleteConfirm() {
@@ -48186,7 +49932,10 @@ async function openDeletedCampDetail(campId) {
 async function purgeCampaignAction(campId, campTitle) {
   const adminInfo = currentAdminInfo;
   if (!adminInfo || adminInfo.role !== 'super_admin') { toast('완전삭제는 최고관리자만 가능합니다.','error'); return; }
-  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다. 진행할까요?`);
+  // 공유 중인 리포트에 들어 있으면 문장 하나를 덧붙인다(작업 26 ③). 0건·조회 실패면 안 덧붙인다.
+  const _shared = await countLiveSharedReportsForCampaign(campId);
+  const _sharedLine = _shared ? ` 브랜드가 지금 보고 있는 공유 리포트 ${_shared}건에 이 캠페인이 들어 있습니다.` : '';
+  const ok = await showConfirm(`「${campTitle}」을(를) 완전 삭제합니다. 이 작업은 되돌릴 수 없으며 「삭제됨」 탭에서도 사라집니다.${_sharedLine} 진행할까요?`);
   if (!ok) return;
   try {
     await purgeCampaign(campId);

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>캠페인 리포트 — REVERB JP</title>
+<!--
+  브랜드 공유 리포트 화면 (자립형). 사양서 docs/specs/2026-09-03-campaign-report-builder.md 「공유 링크 잠금」
+  · 로그인 없이 열린다 — 관리자 앱 안에 두면 세션이 없을 때 인플루언서 앱으로 튕긴다(admin-setpw.html 선례)
+  · 주소: /report.html?t={토큰}  (P4 확정)
+  · 🔴 비밀번호는 서버가 확인한다(verify_report_share_password). 통과 전에는 데이터가 한 줄도 안 온다.
+  · 🔴 통과하면 열람 표(ticket)를 sessionStorage 에 둔다 — 탭이 살아 있는 동안만. 비밀번호는 브라우저에 안 남는다.
+  · 🔴 가리기는 서버(get_report_share_data)가 한다 — 계정 ID·영수증 주소는 응답에 키 자체가 없다.
+  · 표 만들기 코드는 관리자와 같은 원본(js/report-rows.js) — 빌드가 아래 자리에 인라인한다.
+  · storage.js 를 안 쓰고 자체 조회를 갖는다(event-scan.html 선례) — 공용 함수를 고쳐도 여기는 안 따라온다.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--ink:#18181B;--muted:#6E6E77;--line:#E4E4E7;--bg:#FAFAFA;--primary:#1A1A1A;--pink:#B3261E;--head:#3F3F46}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Noto Sans KR',-apple-system,sans-serif;font-size:13px;color:var(--ink);background:var(--bg)}
+  /* 전체 폭 + 화면 높이 고정 — 제목·표 머리글은 그 자리에 있고 표 안만 스크롤한다(2026-09-04 사용자 요청).
+     표를 감싼 상자(.tblwrap)가 세로·가로 스크롤을 다 맡아야 th 의 sticky 가 듣는다 — 화면이 스크롤하면 상자째 밀려 올라간다 */
+  html,body{height:100%}
+  .wrap{margin:0;padding:16px 16px 12px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
+  #report{display:flex;flex-direction:column;flex:1;min-height:0}
+  #report[hidden]{display:none}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px}
+  .gate{max-width:420px;margin:80px auto;padding:32px 28px;text-align:center}
+  .gate h1{font-size:18px;margin:0 0 6px}
+  .gate p{color:var(--muted);margin:0 0 18px;line-height:1.7}
+  .input{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;font-family:inherit;cursor:pointer;color:var(--ink)}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .err{color:var(--pink);font-size:12px;margin-top:10px;min-height:16px}
+  .head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .head h1{font-size:18px;margin:0 0 6px}
+  .meta{font-size:12px;color:var(--muted);line-height:1.9}
+  .meta b{color:var(--ink);font-weight:500}
+  /* 좌우 스크롤 막대를 항상 보이게 — 맥은 스크롤 중에만 막대를 그려서 오른쪽에 열이 더 있는지 알 수 없다(2026-09-04 사용자 지적) */
+  .tblwrap{overflow:scroll;flex:1;min-height:0}
+  .tblwrap::-webkit-scrollbar{height:12px;width:12px}
+  .tblwrap::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
+  .tblwrap::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
+  .tblwrap::-webkit-scrollbar-thumb:hover{background:#999}
+  /* 표는 내용 너비대로 — 열이 많으면 좌우 스크롤(2026-09-04 사용자 결정). 줄바꿈으로 접히는 것보다 낫다 */
+  table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed}
+  th{background:var(--head);color:#fff;font-size:12px;font-weight:600;text-align:left;padding:9px 10px;white-space:nowrap;position:sticky;top:0;z-index:1}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  td.nw{white-space:nowrap}
+  td.num{text-align:right;white-space:nowrap}
+  a{color:#2563EB}
+  .tag{display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px}
+  .legend{padding:12px 22px;font-size:11px;color:var(--muted);line-height:1.8;border-top:1px solid var(--line)}
+  .empty{padding:48px;text-align:center;color:var(--muted)}
+  /* 이미지 보기 */
+  .lb{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:50}
+  .lb.open{display:flex}
+  .lb img{max-width:92vw;max-height:84vh;border-radius:8px;background:#222}
+  .lb .cap{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(0,0,0,.5);padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .lb .x{position:absolute;top:12px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1}
+  .lb .nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;font-size:22px;display:none;align-items:center;justify-content:center}
+  .lb .nav.on{display:flex}
+  @media(max-width:600px){.wrap{padding:12px}.head{padding:14px}.gate{margin:40px auto;padding:24px 18px}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="card gate" id="gate">
+    <h1>이 리포트는 비밀번호로 보호되어 있습니다</h1>
+    <p>REVERB JP 담당자에게 받은 비밀번호를 입력해 주세요.</p>
+    <input type="password" class="input" id="pw" placeholder="비밀번호" autocomplete="off">
+    <div class="err" id="gateErr"></div>
+    <button class="btn btn-primary" id="btnGo" onclick="submitPw()" style="width:100%;justify-content:center;margin-top:6px">확인</button>
+  </div>
+  <div class="card" id="report" hidden></div>
+</div>
+<div class="lb" id="lb" onclick="if(event.target===this)closeLb()">
+  <span class="cap" id="lbCap"></span><span class="x" onclick="closeLb()">×</span>
+  <button class="nav" id="lbPrev" style="left:16px" onclick="lbStep(-1)">‹</button>
+  <img id="lbImg" alt="">
+  <button class="nav" id="lbNext" style="right:16px" onclick="lbStep(1)">›</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// 리포트 표 행 만들기 — 관리자 화면과 브랜드 공유 화면이 **같은 원본**을 쓴다
+//   · 관리자 번들: dev/build.sh 의 ADMIN_JS_FILES 에 이어 붙는다
+//   · 공유 화면  : dev/build.sh 가 report.html 의 <!-- @@REPORT_ROWS_JS@@ --> 자리에 인라인한다
+//   🔴 여기 판정을 고치면 두 화면이 함께 바뀐다 — 그게 이 파일이 따로 있는 이유다.
+//   ⚠️ 이 파일은 esc()·toast() 같은 화면 헬퍼를 쓰지 않는다(공유 화면에는 그것들이 없다).
+//   ⚠️ 인증 상태 판정 3함수는 admin-excel.js 에서 옮겨 온 것이다(2026-09-04). 이름 그대로.
+// ══════════════════════════════════════════════════════════════
+
+// monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
+//   campChannels: 캠페인 채널 코드 배열, reviewByCh: { channelCode: deliv }
+function _excelMonitorResultRepr(campChannels, reviewByCh) {
+  reviewByCh = reviewByCh || {};
+  var channels = (campChannels || []).filter(Boolean);
+  if (channels.length === 0) {
+    // 채널 미등록 monitor — review_image 행이 하나라도 있으면 제출중, 없으면 none
+    return Object.keys(reviewByCh).length > 0 ? 'pending' : 'none';
+  }
+  var states = channels.map(function(ch) { return (reviewByCh[ch] && reviewByCh[ch].status) || 'none'; });
+  if (states.indexOf('rejected') !== -1) return 'rejected';
+  if (states.indexOf('pending') !== -1) return 'pending';
+  if (states.indexOf('none') !== -1) return 'none';
+  return 'approved';
+}
+
+// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
+//   recruitType, receipt(receipt deliv), result(post/review_image deliv)
+//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
+//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
+//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
+//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status)
+         || (result && result.applications && result.applications.status) || null;
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
+  if (recruitType === 'monitor') {
+    var hasReceipt = !!receipt;
+    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+    if (proxyPurchase) {
+      if (!hasReceipt) return '미제출';
+      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+    }
+    var hasReview = !!result;
+    if (!hasReceipt && !hasReview) return '미제출';
+    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
+    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
+    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
+    return '인증샷 제출중';
+  }
+  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
+  var _chs = (campChannels || []).filter(Boolean);
+  if (_chs.length > 0) {
+    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
+    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
+    if (_repr === 'approved') return '인증성공';
+    if (_repr !== 'none') return '인증샷 제출중';
+    return result ? '인증샷 제출중' : '미제출';
+  }
+  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
+  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
+  if (!result) return '미제출';
+  return '인증샷 제출중';
+}
+
+// monitor 다채널 구조용 (receipt + reviewByCh).
+function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
+  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
+  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
+  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
+  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
+  var hasReceipt = !!receipt;
+  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+  if (proxyPurchase) {
+    if (!hasReceipt) return '미제출';
+    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+  }
+  var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
+  if (!hasReceipt && !hasReview) return '미제출';
+  var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
+  if (receipt && receipt.status === 'approved' && repr === 'approved') return '인증성공';
+  return '인증샷 제출중';
+}
+
+// 17칸 머리글 — 사양서 16칸에 「캠페인 번호」를 더했다(2026-09-04 사용자 결정: 「ID」 자리는 캠페인 번호, 계정 ID 는 업로드 날짜 옆)
+const REPORT_COLS = [
+  // w = 열 너비, wrap = 줄바꿈 허용(캠페인명만). 나머지는 nowrap — 날짜·번호·상태가 두 줄로 접히면 표가 읽기 어렵다(2026-09-04 사용자 요청).
+  {key:'no',                  label:'No.',              w:'46px'},
+  {key:'campaign_no',         label:'캠페인 번호',       w:'110px'},
+  {key:'campaign_name',       label:'캠페인명',          w:'260px', wrap:true},
+  {key:'purchase_period',     label:'구매기간',          w:'185px'},
+  {key:'status',              label:'상태',             w:'100px'},
+  {key:'order_no',            label:'주문 번호',         w:'130px'},
+  {key:'purchase_date',       label:'구매일',            w:'96px'},
+  {key:'amount',              label:'구매금액',          w:'100px'},
+  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px'},
+  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px'},
+  {key:'account_id',          label:'계정 ID',           w:'210px'},
+  {key:'name_kanji',          label:'이름 (한자)',        w:'120px'},
+  {key:'name_kana',           label:'이름 (일본어)',      w:'130px'},
+  {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
+  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px'},
+  {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px'},
+  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'130px'},
+];
+
+// ══════════════════════════════════════════════════════════════
+// 표 행 만들기 — 작업 6 (사양서 16칸 + 캠페인 번호 = 17칸, 2026-09-04)
+//   사양서 「표 양식 (구글시트 16칸 그대로)」
+//
+// 한 사람 = 한 줄. 큐텐과 엣코스메가 **한 줄 안에서** 칸을 나눠 가진다.
+// 맨 앞에 「구분」 열이 하나 더 붙어 화면에는 17칸이 보인다(구분 + 16).
+//   구분 값: 'B' = REVERB / 'A-1'·'A-2' = 외부(작업 16에서 채운다)
+// ══════════════════════════════════════════════════════════════
+
+// 13·15번 칸이 쓰는 채널 코드.
+//   ⚠️ 기준 데이터(lookup_values)의 code 를 그대로 쓴다 — 마이그레이션 157 이 심은 값.
+//   🔴 이 값을 바꾸면 기준 데이터·캠페인(`campaigns.channel`)·이미 낸 결과물
+//      (`deliverables.post_channel`) **세 곳을 함께** 옮겨야 한다. 하나만 바꾸면
+//      문자열 비교가 깨져 결과물이 화면·인증·정산 세 곳에서 동시에 사라진다
+//      (2026-07-30 @cosme 사고 — 승인된 인증샷 55건이 두 달간 안 보였다).
+const REPORT_CH_QOO10 = 'qoo10';
+const REPORT_CH_COSME = 'cosme';
+
+// 결과물을 (캠페인 + 응모) 단위로 묶는다.
+//
+// 🔴 **그룹핑·최신 판정을 새로 쓰지 않는다.**
+//    묶는 열쇠는 `campaign_id + application_id`, 최신은 **`submitted_at`** 기준 —
+//    `admin-excel.js` 의 `_buildMonitorGroupSheet()` 와 **글자 그대로 같다**.
+//    수정 시각(`updated_at`)을 먼저 보면 관리자가 영수증을 고친 건이 다른 행으로
+//    뽑혀 **정산과 숫자가 어긋난다**(운영 실측 2026-08-07: 영수증이 여러 행 쌓인
+//    응모 65건 중 36건에서 기준이 갈렸다).
+function _reportGroupDeliverables(delivs) {
+  const groups = new Map();
+  for (const d of (delivs || [])) {
+    const key = d.campaign_id + '|' + (d.application_id || ('user-' + d.user_id));
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key: key, campaign_id: d.campaign_id, application_id: d.application_id,
+        user_id: d.user_id, campaign: d.campaigns || null,
+        receipt: null, result: null, reviewByCh: {}, postByCh: {},
+      });
+    }
+    const g = groups.get(key);
+    if (!g.campaign && d.campaigns) g.campaign = d.campaigns;
+    const subAt = d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image') {
+      // ⚠️ 채널 없는 옛 인증샷은 칸에 넣을 자리가 없어 건너뛴다(엑셀도 같다).
+      if (d.post_channel) {
+        const prev = g.reviewByCh[d.post_channel];
+        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+      }
+    } else if (d.kind === 'post') {
+      if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+      if (d.post_channel) {
+        const prevP = g.postByCh[d.post_channel];
+        if (!prevP || subAt > (prevP.submitted_at || '')) g.postByCh[d.post_channel] = d;
+      }
+    }
+  }
+  return [...groups.values()];
+}
+
+// 13·15번 칸 — **있는 것을 넣는다.**
+//   그 채널에 리뷰 화면 사진(`review_image`)이 있으면 그 주소,
+//   없고 게시물 주소(`post`)가 있으면 그것.
+// ⚠️ 둘 다 있으면 **사진을 먼저** 쓴다 — 리뷰어형이 이 리포트의 주 대상이고,
+//    외부(포인테일) 쪽도 전부 사진이라 형태가 맞는다.
+// 🔴 그래서 `_buildMonitorGroupSheet()` 의 판정을 그대로 못 쓴다(그쪽은 `post` 를 안 본다).
+// ⚠️ 무엇인지(`kind`)를 함께 돌려준다 — 한 칸에 사진과 게시물이 섞이므로,
+//    화면이 「사진」·「게시물」을 작게 적지 않으면 브랜드가 읽는 표에서 그게 그대로 사고가 된다.
+function _reportChannelCell(g, channel) {
+  const rv = g.reviewByCh[channel];
+  if (rv && rv.receipt_url) return {url: rv.receipt_url, at: rv.submitted_at || '', kind: 'photo'};
+  const po = g.postByCh[channel];
+  if (po && po.post_url) return {url: po.post_url, at: po.submitted_at || '', kind: 'post'};
+  // 주소는 없는데 행은 있는 경우 — 날짜만이라도 남긴다(빈 줄로 보이면 안 낸 것과 구분이 안 된다)
+  const any = rv || po;
+  return {url: '', at: any ? (any.submitted_at || '') : '', kind: rv ? 'photo' : (po ? 'post' : '')};
+}
+
+// 캠페인의 구매 기간(4번 칸).
+//   ⚠️ 리뷰어형은 `purchase_*`, 방문형은 `visit_*` 를 같은 칸에 넣는다
+//      (`admin-excel.js` 의 매핑과 같다). 시딩형은 그 개념이 없어 빈다.
+//   ⚠️ 날짜는 **저장된 문자열 그대로** 이어 붙인다 — `new Date()` 를 태우면
+//      시간대가 끼어들어 하루가 밀린다.
+function _reportPurchasePeriod(camp) {
+  if (!camp) return '';
+  const rt = camp.recruit_type;
+  let a = '', b = '';
+  if (rt === 'monitor') { a = camp.purchase_start || ''; b = camp.purchase_end || ''; }
+  else if (rt === 'visit') { a = camp.visit_start || ''; b = camp.visit_end || ''; }
+  if (!a && !b) return '';
+  return a + ' ~ ' + b;
+}
+
+// 인증 상태(5번 칸) — 🔴 **엑셀과 같은 함수를 부른다.**
+//   판정을 여기서 새로 쓰면 리포트와 「결과물 엑셀」이 서로 다른 상태를 말하게 된다.
+//   (같은 판정이 이 저장소에 다섯 벌 있고, 그 때문에 이미 사고가 났다)
+function _reportCertStatus(g) {
+  const camp = g.campaign || {};
+  const chs = (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean);
+  if (camp.recruit_type === 'monitor' && chs.length > 0) {
+    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, !!camp.proxy_purchase);
+  }
+  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, !!camp.proxy_purchase, chs, g.postByCh);
+}
+
+// REVERB 결과물 → 표준 행 배열.
+//   delivs    : fetchDeliverablesForReport() 결과
+//   camps     : 리포트에 담긴 캠페인 배열(제목·번호를 여기서 얻는다)
+//   usersById : fetchInfluencersForReport() 결과 (id → 회원)
+//
+// ⚠️ `usersById` 가 `null`(조회 실패)이면 이름·계정 칸을 **빈칸이 아니라 '?'** 로 둔다.
+//    빈칸으로 두면 「이름을 안 적은 사람」과 「못 물어본 것」이 같아 보인다.
+function buildReportRows(delivs, camps, usersById) {
+  const campById = new Map((camps || []).map(function(c){ return [c.id, c]; }));
+  const lookupFailed = (usersById === null || usersById === undefined);
+  const users = usersById || {};
+  const groups = _reportGroupDeliverables(delivs);
+
+  // 정렬 — 캠페인 번호 → 이름. 엑셀(`_buildMonitorGroupSheet`)과 같은 차례.
+  groups.sort(function(a, b) {
+    const ca = ((campById.get(a.campaign_id) || a.campaign || {}).campaign_no || '').toString();
+    const cb = ((campById.get(b.campaign_id) || b.campaign || {}).campaign_no || '').toString();
+    if (ca !== cb) return ca.localeCompare(cb, 'ja');
+    const ua = users[a.user_id] || {}, ub = users[b.user_id] || {};
+    return (ua.name_kana || ua.name || '').localeCompare(ub.name_kana || ub.name || '', 'ja');
+  });
+
+  return groups.map(function(g, i) {
+    // 🔴 **두 곳에서 나눠 가져온다 — 하나로 합치면 한쪽이 빈다.**
+    //   campMeta(리포트에 저장된 스냅샷) = 캠페인 번호·제목. **원본이 지워져도 남는다.**
+    //   campLive(결과물에 딸려 온 실물)   = 모집 형식·구매 기간 등 나머지.
+    //   ⚠️ 예전엔 `campById.get(...) || g.campaign` 로 **스냅샷을 통째로 우선**했는데,
+    //      스냅샷에는 번호·제목뿐이라 **구매기간 칸이 전부 비었다**(2026-09-03 브라우저에서 발견).
+    const campMeta = campById.get(g.campaign_id) || {};
+    const campLive = g.campaign || {};
+    const camp = Object.assign({}, campLive, {
+      campaign_no: campMeta.campaign_no || campLive.campaign_no,
+      title:       campMeta.title       || campLive.title,
+    });
+    const u = users[g.user_id] || null;
+    const r = g.receipt;
+    const q = _reportChannelCell(g, REPORT_CH_QOO10);
+    const c = _reportChannelCell(g, REPORT_CH_COSME);
+    const unknown = lookupFailed ? '?' : '';
+    return {
+      src: 'B',                                            // 구분 — REVERB
+      no: i + 1,                                           // 1
+      campaign_no: camp.campaign_no || '',                 // 2 (2026-09-04)
+      campaign_name: camp.title || '',                     // 3
+      account_id: u ? (u.email || '') : unknown,           // 11 (영수증 업로드 날짜 옆)
+      purchase_period: _reportPurchasePeriod(camp),        // 4
+      status: _reportCertStatus(g),                        // 5
+      order_no: r ? (r.order_number || '') : '',           // 6
+      purchase_date: r ? (r.purchase_date || '') : '',     // 7
+      amount: (r && r.purchase_amount !== null && r.purchase_amount !== undefined)
+                ? r.purchase_amount : '',                  // 8 — ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다
+      receipt_url: r ? (r.receipt_url || '') : '',         // 9
+      receipt_uploaded_at: r ? (r.submitted_at || '') : '',// 10
+      name_kanji: u ? (u.name_kanji || u.name || '') : unknown, // 11
+      name_kana: u ? (u.name_kana || '') : unknown,        // 12
+      ch_qoo10_url: q.url, ch_qoo10_kind: q.kind, ch_qoo10_at: q.at,   // 13·14
+      ch_cosme_url: c.url, ch_cosme_kind: c.kind, ch_cosme_at: c.at,   // 15·16
+      // 화면이 되짚어 볼 때 쓰는 값(표에는 안 그린다)
+      _campaign_id: g.campaign_id, _application_id: g.application_id, _user_id: g.user_id,
+    };
+  });
+}
+
+// 외부(포인테일) 참가자 행 → 표준 행. 작업 16.
+//   ⚠️ 이름 2칸·구매일은 **비운다** — 원본에 없다. 없는 것을 지어내지 않는다.
+//   ⚠️ 캠페인명은 **관리자가 모달에 적은 이름**(사양서 표 3번 칸).
+//   구분: 'A-1' = 텍스트 리뷰 · 'A-2' = 포토 리뷰 · 리뷰 없이 구매만이면 'A'
+function _reportExtToRow(r, src) {
+  const kind = r.review_kind === 'photo' ? 'A-2' : (r.review_kind === 'text' ? 'A-1' : 'A');
+  return {
+    src: kind,
+    no: 0,
+    campaign_no: src ? (src.ext_campaign_no || '') : '',
+    campaign_name: src ? (src.ext_campaign_name || '') : '',
+    account_id: r.account_id || '',
+    purchase_period: '',
+    status: r.mission_status || '',
+    order_no: r.order_no || '',
+    purchase_date: '',
+    amount: (r.purchase_amount === null || r.purchase_amount === undefined) ? '' : r.purchase_amount,
+    receipt_url: r.receipt_url || '',
+    receipt_uploaded_at: r.receipt_at || '',
+    name_kanji: '', name_kana: '',
+    ch_qoo10_url: r.qoo10_urls || '', ch_qoo10_kind: r.qoo10_urls ? 'photo' : '', ch_qoo10_at: r.qoo10_at || '',
+    ch_cosme_url: r.cosme_urls || '', ch_cosme_kind: r.cosme_urls ? 'photo' : '', ch_cosme_at: r.cosme_at || '',
+    _ext: true, _source_id: r.source_id, _member_no: r.member_no,
+  };
+}
+
+
+</script>
+
+<script>
+// ⚠️ supabase.md 「URL/Key 는 SUPABASE_ENVS 에서만」 규칙의 명시적 예외 — 자립형 정적 페이지라
+//    dev/lib/supabase.js 를 못 부른다(admin-setpw.html · event-scan.html 선례와 같은 사유).
+const SUPABASE_ENVS = {
+  production: { url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co', key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP' },
+  staging:    { url: 'https://qysmxtipobomefudyixw.supabase.co', key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv' }
+};
+const SUPABASE_ENV = /^(www\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+// 🔴 persistSession:false — 이 화면은 로그인이 없고, 다른 탭의 관리자 세션을 이 화면이 집어 쓰면 안 된다
+const db = window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key, { auth: { persistSession: false, autoRefreshToken: false } });
+
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+const TICKET_KEY = 'reverb.report.ticket.' + TOKEN;
+
+function esc(s){ if (s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function fmtDT(v){ if(!v) return ''; const d=new Date(v); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function fmtD(v){ if(!v) return ''; const d=new Date(v); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate()); }
+
+// ── 비밀번호 확인 ──
+async function submitPw() {
+  const pw = document.getElementById('pw').value;
+  const err = document.getElementById('gateErr'); err.textContent = '';
+  const btn = document.getElementById('btnGo'); btn.disabled = true;
+  try {
+    const { data, error } = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: pw });
+    if (error) throw error;
+    if (!data || !data.ok) {
+      if (data && data.reason === 'link_expired') return showExpired();
+      err.textContent = (data && data.reason === 'locked') ? '잠시 후 다시 시도해 주세요.' : '비밀번호가 맞지 않습니다.';   // 몇 번 남았는지는 알리지 않는다
+      return;
+    }
+    try { sessionStorage.setItem(TICKET_KEY, data.ticket); } catch (e) {}
+    document.getElementById('pw').value = '';
+    await loadReport(data.ticket);
+  } catch (e) { err.textContent = '확인 중 오류가 났습니다. 잠시 후 다시 시도해 주세요.'; }
+  finally { btn.disabled = false; }
+}
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') submitPw(); });
+
+function showExpired() {
+  document.getElementById('gate').innerHTML = '<h1>링크가 만료되었습니다</h1><p>REVERB JP 담당자에게 새 링크를 요청해 주세요.</p>';
+  document.getElementById('report').hidden = true;
+  document.getElementById('gate').style.display = '';
+}
+
+// ── 데이터 → 표 ──
+let _rows = [], _title = '', _cols = [];
+async function loadReport(ticket) {
+  const { data, error } = await db.rpc('get_report_share_data', { p_token: TOKEN, p_ticket: ticket });
+  if (error || !data) {
+    // 열람 표가 만료·삭제됐거나 링크가 꺼졌다 → 표를 버리고 처음으로. 링크 자체가 죽었는지는 다시 확인해서 가른다.
+    try { sessionStorage.removeItem(TICKET_KEY); } catch (e) {}
+    const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: null });
+    if (probe.data && probe.data.reason === 'link_expired') return showExpired();
+    document.getElementById('gate').style.display = ''; document.getElementById('report').hidden = true;
+    document.getElementById('gateErr').textContent = '다시 비밀번호를 입력해 주세요.';
+    return;
+  }
+  // 서버가 준 것: campaigns(스냅샷) · campaign_rows(실물) · deliverables(가려진) · users(가려진) · sources · ext_rows
+  const camps = (data.campaigns || []).map(c => ({ id: c.campaign_id, campaign_no: c.campaign_no, title: c.campaign_title, _exists: c.campaign_exists }));
+  // 414 부터 서버가 receipt_url 을 모든 종류에 준다(영수증 사진 포함 — 2026-09-04 사용자 결정).
+  //   옛 서버(413)가 남아 있으면 리뷰 사진 주소(review_image_url)만 있으므로 그것으로 대신한다.
+  const delivs = (data.deliverables || []).map(d => Object.assign({}, d, { receipt_url: d.receipt_url != null ? d.receipt_url : (d.kind === 'review_image' ? d.review_image_url : null) }));
+  const users = data.users || {};
+  let rows = buildReportRows(delivs, camps, users);
+  if (!data.include_audit) rows = rows.filter(r => !(users[r._user_id] && users[r._user_id].is_audit));
+  const srcById = {}; (data.sources || []).forEach(s => { srcById[s.id] = s; });
+  const ext = (data.ext_rows || []).map(r => _reportExtToRow(Object.assign({ account_id: '' }, r), srcById[r.source_id]));
+  rows = rows.concat(ext); rows.forEach((r, i) => { r.no = i + 1; });
+  // 계정 ID 는 서버가 안 보낸다 — 열 자체가 비도록 확실히 비운다
+  rows.forEach(r => { r.account_id = ''; });
+  _rows = rows; _title = data.title || '리포트';
+  // 열 — 관리자가 고른 목록. 없으면 「값이 하나도 없는 열은 뺀다」. 계정 ID 는 어떤 설정이어도 뺀다.
+  const banned = { account_id: 1 };
+  const chosen = Array.isArray(data.columns) ? data.columns : null;
+  _cols = REPORT_COLS.filter(c => !banned[c.key]).filter(c => chosen ? chosen.indexOf(c.key) !== -1 : rows.some(r => r[c.key] !== '' && r[c.key] !== null && r[c.key] !== undefined));
+  // 「업데이트」 = 리포트를 마지막으로 손본 시각(서버 updated_at — 캠페인 더하기·파일 붙이기 등 구성 변경).
+  //   2026-09-04 사용자 결정: 조회 시각·포인테일 파일 시각을 따로 적지 않고 이 하나만 보인다.
+  const updatedAt = data.updated_at || null;
+  const buyN = rows.filter(r => r.receipt_uploaded_at).length, revN = rows.filter(r => r.ch_qoo10_url || r.ch_cosme_url).length;
+
+  const el = document.getElementById('report');
+  el.innerHTML = `
+    <div class="head">
+      <div><h1>${esc(_title)}</h1>
+        <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}<span style="margin:0 10px;color:var(--line)">|</span><b>요약</b> 인원 ${rows.length}명 · 구매 ${buyN} · 리뷰 ${revN}</div></div>
+      <div><button class="btn" onclick="downloadExcel()"><span class="material-icons-round" translate="no" style="font-size:16px">download</span> 엑셀 내려받기</button></div>
+    </div>
+    <div class="tblwrap"><table><colgroup>${_cols.map(c => '<col style="width:' + esc(c.w) + '">').join('')}</colgroup><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
+      <tbody>${rows.length ? rows.map(rowHtml).join('') : '<tr><td colspan="' + _cols.length + '" class="empty">아직 제출된 결과물이 없습니다.</td></tr>'}</tbody></table></div>
+    <div class="legend">이름은 일부만 표시됩니다. 계정 정보(이메일)는 개인정보 보호를 위해 제공하지 않습니다.</div>`;
+  document.getElementById('gate').style.display = 'none'; el.hidden = false;
+}
+
+function chanCell(url, kind, who) {
+  if (!url) return '';
+  const list = String(url).split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+  const tag = kind === 'photo' ? '<span class="tag">사진</span>' : (kind === 'post' ? '<span class="tag">게시물</span>' : '');
+  if (kind === 'post') return `<a href="${esc(list[0])}" target="_blank" rel="noopener">열기 ↗</a>${tag}`;
+  const js = esc(JSON.stringify(list));
+  if (list.length > 1) return list.map((u, i) => `<a href="javascript:void(0)" onclick='openLb(${js},${i},"${esc(who)}")'>사진 ${i + 1}</a>`).join(' · ');
+  return `<a href="javascript:void(0)" onclick='openLb(${js},0,"${esc(who)}")'>열기</a>${tag}`;
+}
+function rowHtml(r) {
+  const who = r.order_no ? '주문번호 ' + r.order_no : (r.name_kanji || 'No.' + r.no);
+  return '<tr>' + _cols.map(c => {
+    const v = r[c.key];
+    if (c.key === 'receipt_url') return '<td class="nw">' + chanCell(r.receipt_url, 'photo', who + ' · 영수증') + '</td>';
+    if (c.key === 'ch_qoo10_url') return '<td class="nw">' + chanCell(r.ch_qoo10_url, r.ch_qoo10_kind, who + ' · 큐텐 결과물') + '</td>';
+    if (c.key === 'ch_cosme_url') return '<td class="nw">' + chanCell(r.ch_cosme_url, r.ch_cosme_kind, who + ' · 엣코스메 결과물') + '</td>';
+    if (c.key === 'amount') return '<td class="num">' + (v === '' || v === null || v === undefined ? '' : '¥' + Number(v).toLocaleString('ja-JP')) + '</td>';
+    if (/_at$/.test(c.key)) return '<td class="nw" style="font-size:11px">' + esc(fmtDT(v)) + '</td>';
+    const t = v === null || v === undefined ? '' : String(v);
+    return '<td class="nw"' + (c.wrap ? ' title="' + esc(t) + '"' : '') + '>' + esc(t) + '</td>';
+  }).join('') + '</tr>';
+}
+
+// ── 이미지 보기 (여러 장이면 화살표) ──
+let _lb = null;
+function openLb(urls, i, base) { _lb = { urls, i, base }; showLb(); document.getElementById('lb').classList.add('open'); }
+function showLb() { const g = _lb; document.getElementById('lbImg').src = g.urls[g.i]; document.getElementById('lbCap').textContent = g.base + ' 사진 ' + (g.i + 1) + '/' + g.urls.length; const m = g.urls.length > 1; document.getElementById('lbPrev').classList.toggle('on', m); document.getElementById('lbNext').classList.toggle('on', m); }
+function lbStep(d) { if (!_lb || _lb.urls.length < 2) return; _lb.i = (_lb.i + d + _lb.urls.length) % _lb.urls.length; showLb(); }
+function closeLb() { document.getElementById('lb').classList.remove('open'); document.getElementById('lbImg').src = ''; _lb = null; }
+document.addEventListener('keydown', e => { if (!_lb) return; if (e.key === 'Escape') closeLb(); if (e.key === 'ArrowLeft') lbStep(-1); if (e.key === 'ArrowRight') lbStep(1); });
+
+// ── 엑셀 (가린 판) — 🔴 화면과 같은 열·같은 값. 링크를 꺼도 파일은 살아 있으므로 화면보다 더 보여주면 안 된다.
+let _xl = null;
+function loadExcelJS() { if (window.ExcelJS) return Promise.resolve(); return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'; s.onload = res; s.onerror = () => rej(new Error('ExcelJS 로드 실패')); document.head.appendChild(s); }); }
+async function downloadExcel() {
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('리포트');
+    ws.columns = _cols.map(c => ({ header: c.label, key: c.key, width: Math.max(10, Math.round(parseInt(c.w, 10) / 8)) }));
+    ws.getRow(1).font = { bold: true };
+    _rows.forEach(r => { const o = {}; _cols.forEach(c => { o[c.key] = c.key === 'amount' ? ((r.amount === '' || r.amount == null) ? '' : Number(r.amount)) : (r[c.key] == null ? '' : r[c.key]); }); ws.addRow(o); });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url;
+    const t = new Date(); const ymd = t.getFullYear() + String(t.getMonth() + 1).padStart(2, '0') + String(t.getDate()).padStart(2, '0');
+    a.download = _title.replace(/[\\/:*?"<>|]/g, '') + '_' + ymd + '.xlsx';   // ⚠️ 관리자용과 달리 「_관리자용」이 없다
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  } catch (e) { alert('엑셀을 만들지 못했습니다 — ' + (e && e.message || e)); }
+}
+
+// ── 시작: 토큰 없으면 만료 화면. 열람 표가 남아 있으면 바로 시도(실패하면 비밀번호 화면).
+(async function () {
+  if (!TOKEN) return showExpired();
+  let t = null; try { t = sessionStorage.getItem(TICKET_KEY); } catch (e) {}
+  if (t) await loadReport(t);
+  else { const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: null }); if (probe.data && probe.data.reason === 'link_expired') showExpired(); }
+})();
+</script>
+</body>
+</html>
