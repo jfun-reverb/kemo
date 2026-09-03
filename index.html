@@ -8645,11 +8645,21 @@ async function createCampaignReport(title, campaignIds, includeAudit) {
 async function fetchCampaignReports() {
   if (!db) return null;
   try {
-    const {data, error} = await db.from('campaign_reports')
-      .select('id, title, created_by, created_at, updated_at, include_audit, version, brand_id')
-      .order('created_at', {ascending: false});
+    const {data, error} = await db.rpc('list_campaign_reports');
     if (error) throw error;
-    return data || [];
+    // ⚠️ 반환 칸에 o_ 접두어가 붙어 있다(42702 모호한 참조 회피 — 마이그레이션 405).
+    //    화면이 그 접두어를 알 이유가 없으므로 여기서 벗겨서 넘긴다.
+    return (data || []).map(function(r) {
+      return {
+        id: r.o_id, title: r.o_title,
+        created_by: r.o_created_by, created_by_name: r.o_created_by_name,
+        created_at: r.o_created_at, updated_at: r.o_updated_at,
+        include_audit: r.o_include_audit, version: r.o_version,
+        campaign_count: Number(r.o_campaign_count || 0),
+        // ⚠️ 외부 첨부 수는 **아직 없다** — 그 표가 작업 12에서 생긴다.
+        //    0 으로 채우면 화면이 「첨부 0건」이라 단정하므로 undefined 로 둔다.
+      };
+    });
   } catch (e) { console.error('[fetchCampaignReports]', e); return null; }
 }
 
