@@ -7116,6 +7116,34 @@ async function fetchCampaignApplicationCounts() {
   }
 }
 
+// 관리자 캠페인 목록 전용 결과물 집계 조회 — 서버 집계 함수(get_campaign_deliverable_counts, 401).
+// 반환: { [campaign_id]: { receipt_submitted, receipt_approved, result_submitted, result_approved } }
+//
+// 🔴 **실패는 null, 성공했는데 0건은 {} 로 돌려준다.** 바로 위
+//    fetchCampaignApplicationCounts 는 실패에도 {} 를 주는데, 그러면 화면이
+//    「서버에 못 물어봤다」와 「낸 사람이 아무도 없다」를 구분하지 못해 **0 을 그린다.**
+//    이 저장소가 마이그레이션 276·332 에서 세운 원칙이라 새 함수는 지킨다.
+// ⚠️ 캠페인마다 부르지 않는다 — 목록 전체에 **한 번**만 부르고 맵에서 꺼내 쓴다.
+async function fetchCampaignDeliverableCounts() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_deliverable_counts');
+    if (error) throw error;
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        receipt_submitted: Number(row.receipt_submitted || 0),
+        receipt_approved:  Number(row.receipt_approved  || 0),
+        result_submitted:  Number(row.result_submitted  || 0),
+        result_approved:   Number(row.result_approved   || 0),
+      };
+      return map;
+    }, {});
+  } catch(e) {
+    console.error('fetchCampaignDeliverableCounts:', e);
+    return null;   // 🔴 {} 로 바꾸지 말 것 — 화면이 실패를 「0건」으로 그린다
+  }
+}
+
 // 모집 시작일 도래 캠페인 자동 활성화 (scheduled → active)
 //   recruit_start 가 오늘(JST 자정 기준) 이하이고 status='scheduled' 면 active 로 전환.
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
