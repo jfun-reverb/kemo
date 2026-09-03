@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788440740';
+  var CURRENT_BUILD = 'v1788441522';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2999,7 +2999,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 22:05 · 06e0717</span>
+          <span class="admin-build-text">2026-09-03 22:18 · 00cf732</span>
         </div>
       </div>
     </aside>
@@ -45230,8 +45230,10 @@ function renderReportList(list) {
       <td style="text-align:center">${nCamp}</td>
       <td style="text-align:center">${nExt}</td>
       <td>${esc(r.created_by_name || '-')}</td>
-      <td>${fmtDate(r.created_at)}</td>
-      <td>${fmtDate(r.updated_at)}</td>
+      <!-- ⚠️ 날짜 표기는 공용 헬퍼 formatDate(ui.js) — 관리자 목록 화면들이 쓰는 것과 같다.
+           admin-brand.js 의 fmtDate 는 그 화면 전용 감싸개라 여기서는 안 쓴다. -->
+      <td>${formatDate(r.created_at)}</td>
+      <td>${formatDate(r.updated_at)}</td>
     </tr>`;
   }).join('');
 }
@@ -45248,10 +45250,11 @@ function renderReportList(list) {
 // 지금 열려 있는 리포트 — 엑셀 내려받기가 다시 조회하지 않도록 담아 둔다.
 let _openReport = null;
 
-function _reportFmtTime(v) {
-  if (!v) return '';
-  try { return new Date(v).toLocaleString('ko-KR', {hour12:false}); } catch (e) { return String(v); }
-}
+// 시각 표기 — 🔴 **공용 헬퍼를 쓴다. 여기서 새로 만들지 않는다**(2026-09-03 사용자 지적).
+//   `formatDateTime`(ui.js) = `2026/09/03 22:11` — 관리자 화면 전체가 쓰는 표기다.
+//   처음엔 여기서 `toLocaleString` 을 직접 불러 **초까지 나오고 다른 화면과도 달랐다.**
+//   ⚠️ 표기를 바꿀 일이 생기면 `ui.js` 의 그 함수를 고친다 — 여기에 사본을 만들면
+//      화면마다 날짜 모양이 갈린다(이 저장소가 같은 판정을 여러 벌 둬서 겪은 문제와 같다).
 
 // 16칸 머리글 — 사양서 「표 양식 (구글시트 16칸 그대로)」
 const REPORT_COLS = [
@@ -45275,17 +45278,27 @@ const REPORT_COLS = [
 
 // 13·15번 칸을 그린다 — 주소와 함께 **무엇인지**(사진/게시물)를 작게 적는다.
 //   ⚠️ 한 칸에 두 가지가 섞이므로 표시가 없으면 브랜드가 읽는 표에서 사고가 된다.
+// 🔴 **사진과 게시물은 여는 방법이 다르다.**
+//   사진(`review_image`)  = 우리 저장소의 이미지 → **모달**(관리자 이미지 확대 창)로 연다.
+//   게시물(`post`)        = 인스타·큐텐 같은 **바깥 사이트 주소** → 새 탭으로 연다.
+//   ⚠️ 바깥 사이트는 모달(액자) 안에 못 넣는다 — 그 사이트들이 액자 삽입을 막는다
+//      (X-Frame-Options). 억지로 넣으면 **빈 흰 상자**가 뜨고 원인도 안 보인다.
+//   그래서 게시물에는 ↗ 를 붙여 **새 탭으로 나간다는 것을 미리** 알린다.
 function _reportChannelCellHtml(url, kind) {
   if (!url) return '';
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
   const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
-  return `<a href="${esc(url)}" target="_blank" rel="noopener">열기</a>${tagHtml}`;
+  if (kind === 'photo') {
+    return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(url)}')">열기</a>${tagHtml}`;
+  }
+  return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
 
 function _reportRowHtml(r) {
   const cells = REPORT_COLS.map(function(c) {
     if (c.key === 'receipt_url') {
-      return r.receipt_url ? `<td><a href="${esc(r.receipt_url)}" target="_blank" rel="noopener">열기</a></td>` : '<td></td>';
+      // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
+      return r.receipt_url ? `<td><a href="javascript:void(0)" onclick="openImageLightbox('${esc(r.receipt_url)}')">열기</a></td>` : '<td></td>';
     }
     if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind)}</td>`;
     if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind)}</td>`;
@@ -45294,7 +45307,7 @@ function _reportRowHtml(r) {
       return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
     }
     if (c.key === 'receipt_uploaded_at' || c.key === 'ch_qoo10_at' || c.key === 'ch_cosme_at') {
-      return `<td style="font-size:11px">${esc(_reportFmtTime(r[c.key]))}</td>`;
+      return `<td style="font-size:11px">${esc(formatDateTime(r[c.key]))}</td>`;
     }
     return `<td>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
   }).join('');
@@ -45348,14 +45361,15 @@ async function openReport(reportId) {
             <span class="admin-card-title">${esc(rep.title || '(제목 없음)')}</span>
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.9">
-            <div>만든 사람 ${esc(rep.created_by_name || '-')} · 만든 날 ${esc(_reportFmtTime(rep.created_at))}</div>
+            <div>만든 사람 ${esc(rep.created_by_name || '-')} · 만든 날 ${esc(formatDateTime(rep.created_at))}</div>
             <!-- 🔴 두 시각은 반드시 서로 다른 줄이다. 합치면 브랜드가 외부 데이터도 방금 것으로 읽는다. -->
-            <div><strong>REVERB</strong> — 방금 조회 (${esc(_reportFmtTime(reverbQueriedAt))})</div>
-            <div><strong>외부</strong> — ${extAttachedAt ? esc(_reportFmtTime(extAttachedAt)) + ' 기준' : '붙인 파일 없음'}</div>
+            <div><strong>REVERB</strong> — 방금 조회 (${esc(formatDateTime(reverbQueriedAt))})</div>
+            <div><strong>외부</strong> — ${extAttachedAt ? esc(formatDateTime(extAttachedAt)) + ' 기준' : '붙인 파일 없음'}</div>
           </div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
+          <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
         </div>
       </div>
 
@@ -45432,6 +45446,65 @@ async function exportReportExcel(reportId) {
     console.error('[exportReportExcel]', e);
     if (typeof toast === 'function') toast('엑셀을 만들지 못했습니다 — ' + ((e && e.message) || e));
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 삭제 — 서버 함수(`delete_campaign_report`)는 403 에 이미 있었는데
+//        화면 진입점이 없어 개발자 도구로만 지울 수 있었다.
+//
+// ⚠️ 되돌릴 수 없는 동작이라 **확인 창을 거친다.** 다만 캠페인 삭제처럼
+//    제목을 다시 적게 하지는 않는다 — 리포트는 **다시 만들 수 있고**
+//    원본(캠페인·결과물)은 하나도 안 지워진다. 확인 강도는 잃는 것에 맞춘다.
+// ══════════════════════════════════════════════════════════════
+
+function _reportCloseDeleteModal() {
+  const m = document.getElementById('reportDeleteModal');
+  if (m) m.remove();
+}
+
+async function openReportDeleteModal(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { if (typeof toast === 'function') toast('리포트를 찾지 못했습니다'); return; }
+  _reportCloseDeleteModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportDeleteModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:460px">
+      <div class="modal-header">
+        <h3>리포트 삭제</h3>
+        <button class="modal-close" onclick="_reportCloseDeleteModal()"><span class="material-icons-round notranslate" translate="no">close</span></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;line-height:1.8;margin:0">
+          <strong>${esc(rep.title || '(제목 없음)')}</strong> 리포트를 지웁니다.
+        </p>
+        <p style="font-size:12px;color:var(--muted);line-height:1.8;margin:10px 0 0">
+          담긴 캠페인 ${(rep.campaigns || []).length}개의 <strong>연결만</strong> 사라집니다.
+          캠페인·결과물·인플루언서 데이터는 <strong>하나도 지워지지 않습니다.</strong><br>
+          같은 캠페인으로 리포트를 다시 만들 수 있습니다.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseDeleteModal()">취소</button>
+        <button class="btn btn-danger" id="btnReportDeleteSubmit" onclick="submitReportDelete('${esc(reportId)}')">삭제</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+}
+
+async function submitReportDelete(reportId) {
+  const btn = document.getElementById('btnReportDeleteSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '지우는 중…'; }
+  const ok = await deleteCampaignReport(reportId);
+  _reportCloseDeleteModal();
+  if (ok === null) {
+    // ⚠️ 실패(null)와 「이미 없음」(false)을 구분해 다르게 알린다.
+    if (typeof toast === 'function') toast('지우지 못했습니다 — 잠시 뒤 다시 시도해 주세요');
+    return;
+  }
+  if (typeof toast === 'function') toast(ok ? '리포트를 지웠습니다' : '이미 지워진 리포트입니다');
+  await loadReportsPane();   // 목록으로 돌아간다(지운 리포트 화면에 머물면 안 된다)
 }
 
 // ════════════════════════════════════════════════════════════════════
