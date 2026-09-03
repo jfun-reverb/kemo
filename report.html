@@ -36,7 +36,6 @@
   .head h1{font-size:18px;margin:0 0 6px}
   .meta{font-size:12px;color:var(--muted);line-height:1.9}
   .meta b{color:var(--ink);font-weight:500}
-  .summary{padding:12px 22px;border-bottom:1px solid var(--line);font-size:13px;line-height:2}
   .tblwrap{overflow-x:auto}
   table{border-collapse:collapse;width:100%;min-width:1400px}
   th{background:var(--head);color:#fff;font-size:12px;font-weight:600;text-align:left;padding:9px 10px;white-space:nowrap;position:sticky;top:0}
@@ -465,10 +464,9 @@ async function loadReport(ticket) {
   el.innerHTML = `
     <div class="head">
       <div><h1>${esc(_title)}</h1>
-        <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}</div></div>
+        <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}<span style="margin:0 10px;color:var(--line)">|</span><b>요약</b> 인원 ${rows.length}명 · 구매 ${buyN} · 리뷰 ${revN}</div></div>
       <div><button class="btn" onclick="downloadExcel()"><span class="material-icons-round" translate="no" style="font-size:16px">download</span> 엑셀 내려받기</button></div>
     </div>
-    <div class="summary"><b>요약</b> · 인원 ${rows.length}명 · 구매 ${buyN} · 리뷰 ${revN}</div>
     <div class="tblwrap"><table><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
       <tbody>${rows.length ? rows.map(rowHtml).join('') : '<tr><td colspan="' + _cols.length + '" class="empty">아직 제출된 결과물이 없습니다.</td></tr>'}</tbody></table></div>
     <div class="legend">이름은 일부만 표시됩니다. 계정 정보와 구매 영수증 이미지는 개인정보 보호를 위해 제공하지 않습니다.${ext.length ? ' 포인테일(스토어링크) 참가자 정보는 해당 서비스의 결과 파일을 그대로 옮긴 것입니다.' : ''}</div>`;
