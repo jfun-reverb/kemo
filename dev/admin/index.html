@@ -123,6 +123,7 @@
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="reports" id="adminReportsSi" onclick="navAdminPaneReload('reports')"><span class="si-icon material-icons-round">summarize</span><span class="si-text">리포트 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
@@ -1542,6 +1543,10 @@
         </div>
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <!-- 리포트 관리 (2026-09-03) — 내용은 dev/js/admin-reports.js 의 loadReportsPane() 이 그린다.
+             ⚠️ 여기에 admin-reports.js 의 <script> 태그를 넣지 않는다(빌드 목록에만 있다). -->
+        <div id="adminPane-reports" class="admin-pane admin-pane-list"></div>
+
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
