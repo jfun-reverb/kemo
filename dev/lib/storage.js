@@ -1867,6 +1867,26 @@ async function fetchReportExtRows(sourceIds) {
   } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
 }
 
+// 이 캠페인을 담고 있는 **살아 있는 공유 리포트** 수 — 캠페인 삭제 확인 창용(작업 26 ③).
+//   살아 있다 = 공유가 켜져 있고 만료일이 없거나 아직 안 지났다(브랜드가 지금 열 수 있는 상태).
+//   ⚠️ 조회 실패는 null, 없으면 0 — 부르는 쪽은 **0 이나 null 이면 아무것도 안 그린다**.
+//   ⚠️ 두 표 모두 「리포트 관리」 열람 권한이 있어야 읽힌다(행 단위 보안 정책). 그 권한이 없는
+//      관리자가 삭제하면 빈 결과(0)가 돌아와 안내가 안 뜬다 — 삭제를 막는 장치가 아니라 안내라 감수한다.
+async function countLiveSharedReportsForCampaign(campaignId) {
+  if (!db || !campaignId) return null;
+  try {
+    const {data: links, error: e1} = await db.from('campaign_report_campaigns').select('report_id').eq('campaign_id', campaignId);
+    if (e1) throw e1;
+    const ids = [...new Set((links || []).map(l => l.report_id).filter(Boolean))];
+    if (!ids.length) return 0;
+    const {data, error} = await db.from('campaign_reports').select('id, share_expires_at')
+      .in('id', ids).eq('share_enabled', true);
+    if (error) throw error;
+    const now = Date.now();
+    return (data || []).filter(r => !r.share_expires_at || new Date(r.share_expires_at).getTime() > now).length;
+  } catch (e) { console.error('[countLiveSharedReportsForCampaign]', e); return null; }
+}
+
 // ── 리포트 공유 (마이그레이션 411~413) — 관리자 쪽 6종. 서버가 거부한 사유를 그대로 던진다.
 async function fetchReportShareStatus(reportId) {
   if (!db) return null;
