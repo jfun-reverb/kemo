@@ -500,12 +500,25 @@ async function openReport(reportId) {
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
+          <button class="btn btn-ghost btn-xs" onclick="openReportRenameModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">edit</span> 제목 수정</button>
+          <button class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 캠페인 추가</button>
           <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
         </div>
       </div>
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
         <strong>요약</strong> · 캠페인 ${camps.length}개 · 인원 ${rows.length}명 · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+          ${(rep.campaigns || []).map(function(c) {
+            // ⚠️ 원본이 지워진 줄은 회색으로, 이름은 그대로(스냅샷). 뺄 수는 있다.
+            const dead = !c.campaign_exists;
+            // 칩 모양은 관리자 계정 「메일받기」 셀과 같은 badge badge-gray (admin-accounts.js).
+            return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:8px;${dead ? 'opacity:.55;text-decoration:line-through' : ''}" title="${dead ? '원본 캠페인이 지워졌습니다' : ''}">
+              ${esc(c.campaign_no || '')} ${esc(c.campaign_title || '')}
+              <button type="button" onclick="removeCampaignFromReport('${esc(reportId)}','${esc(c.row_id)}')" title="이 캠페인을 리포트에서 뺍니다" style="border:0;background:none;padding:0;cursor:pointer;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">close</span></button>
+            </span>`;
+          }).join('')}
+        </div>
         ${deletedCount > 0 ? `<div style="color:var(--pink);font-size:12px">⚠️ 담긴 캠페인 중 ${deletedCount}개는 원본이 지워져 이름만 남아 있습니다 — 그 캠페인의 결과물은 표에 없습니다.</div>` : ''}
         ${rep.include_audit ? '<div style="color:var(--muted);font-size:12px">감사용 계정을 포함해 만든 리포트입니다.</div>' : ''}
         ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
@@ -636,4 +649,148 @@ async function submitReportDelete(reportId) {
   }
   if (typeof toast === 'function') toast(ok ? '리포트를 지웠습니다' : '이미 지워진 리포트입니다');
   await loadReportsPane();   // 목록으로 돌아간다(지운 리포트 화면에 머물면 안 된다)
+}
+
+// ══════════════════════════════════════════════════════════════
+// 구성 바꾸기 — 작업 18 (캠페인 추가·빼기 · 제목 수정)
+//   서버 함수는 407, 읽기의 row_id 는 408.
+//   ⚠️ 작업표 순서(외부 첨부 뒤)보다 먼저 만들었다 — 사용자가 먼저 물었다(2026-09-03).
+//      외부 첨부 갈아 끼우기(openReplaceSourceFile)는 그 표가 생길 때 더한다.
+// ══════════════════════════════════════════════════════════════
+
+// ── 제목 수정 ──
+function _reportCloseRenameModal() { const m = document.getElementById('reportRenameModal'); if (m) m.remove(); }
+
+async function openReportRenameModal(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { toast('리포트를 찾지 못했습니다'); return; }
+  _reportCloseRenameModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportRenameModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header"><h3>제목 수정</h3>
+        <button class="modal-close" onclick="_reportCloseRenameModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">리포트 제목 <span style="color:var(--pink)">*</span></label>
+          <input type="text" class="form-input" id="reportRenameInput" maxlength="200" value="${esc(rep.title || '')}"
+                 oninput="document.getElementById('btnReportRenameSubmit').disabled = !this.value.trim()">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseRenameModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportRenameSubmit" onclick="submitReportRename('${esc(reportId)}')">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const i = document.getElementById('reportRenameInput'); if (i) { i.focus(); i.select(); }
+}
+
+async function submitReportRename(reportId) {
+  const i = document.getElementById('reportRenameInput');
+  const title = i ? i.value.trim() : '';
+  if (!title) return;
+  try {
+    await updateReportTitle(reportId, title);
+    _reportCloseRenameModal();
+    toast('제목을 바꿨습니다');
+    await openReport(reportId);      // 머리말을 다시 그린다(목록은 돌아갈 때 새로 읽는다)
+  } catch (e) { toast('바꾸지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+
+// ── 캠페인 빼기 ──
+//   ⚠️ 확인 창을 거친다 — 되돌리려면 다시 추가해야 하고, 인원이 줄어드는 변경이다.
+//      다만 원본은 하나도 안 지워지므로 이름 재입력까지는 요구하지 않는다.
+async function removeCampaignFromReport(reportId, rowId) {
+  const rep = await fetchCampaignReport(reportId);
+  const c = rep && (rep.campaigns || []).find(function(x){ return x.row_id === rowId; });
+  if (!c) { toast('이미 빠진 캠페인입니다'); await openReport(reportId); return; }
+  if ((rep.campaigns || []).length <= 1) {
+    toast('마지막 캠페인은 뺄 수 없습니다. 리포트를 지워 주세요');
+    return;
+  }
+  if (!window.confirm('「' + (c.campaign_no || '') + ' ' + (c.campaign_title || '') + '」을(를) 리포트에서 뺍니다.\n그 캠페인의 결과물이 표에서 사라집니다. 계속할까요?')) return;
+  try {
+    await removeReportCampaign(reportId, rowId);
+    toast('뺐습니다');
+    await openReport(reportId);
+  } catch (e) { toast('빼지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+
+// ── 캠페인 추가 ──
+//   일괄발송 모달(admin-messaging.js)과 같은 검색형 다중 선택기(syncCampMultiFilter)를 쓴다.
+//   ⚠️ 그 선택기는 「전체 체크 = 빈 배열」이라는 **필터 뜻**을 갖는다 — 여기서는 명시 선택만
+//      받아야 하므로, 전체가 체크된 경우를 「보이는 것 전부」로 바꿔 읽는다(일괄발송과 같은 처리).
+let _reportAddCandidates = [];
+
+function _reportCloseAddModal() { const m = document.getElementById('reportAddCampModal'); if (m) m.remove(); }
+
+async function openAddCampaignsToReport(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { toast('리포트를 찾지 못했습니다'); return; }
+  // 딥링크로 들어와 목록이 안 실려 있을 수 있다 → 폴백 조회(운영현황 진입과 같은 함정)
+  let camps = Array.isArray(allCampaigns) && allCampaigns.length ? allCampaigns : null;
+  if (!camps) { camps = await fetchCampaigns(); }
+  const have = new Set((rep.campaigns || []).map(function(c){ return c.campaign_id; }).filter(Boolean));
+  _reportAddCandidates = (camps || []).filter(function(c){ return !have.has(c.id) && !c.deleted_at; });
+
+  _reportCloseAddModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportAddCampModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header"><h3>캠페인 추가</h3>
+        <button class="modal-close" onclick="_reportCloseAddModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 8px">이미 담긴 캠페인 ${have.size}개는 목록에서 뺐습니다.</p>
+        <div id="reportAddCampMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인을 선택하세요</button><div class="mf-drop" style="min-width:100%"></div></div>
+        <div id="reportAddCampCount" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseAddModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportAddSubmit" onclick="submitAddCampaignsToReport('${esc(reportId)}')" disabled>추가</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  syncCampMultiFilter('reportAddCampMulti', _reportAddCandidates, _onReportAddCampChange, null);
+  // ⚠️ 선택기는 처음에 「전체 체크」로 시작한다 — 그대로 두면 「전부 추가」로 읽힌다. 전부 풀고 시작.
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('reportAddCampMulti', '캠페인을 선택하세요');
+  _onReportAddCampChange();
+}
+
+function _reportSelectedAddIds() {
+  let ids = getMultiFilterValues('reportAddCampMulti');
+  if (!ids.length) {
+    const wrap = document.getElementById('reportAddCampMulti');
+    const allCb = wrap && wrap.querySelector('input[value="all"]');
+    if (allCb && allCb.checked && !allCb.indeterminate) ids = _reportAddCandidates.map(function(c){ return c.id; });
+  }
+  return ids;
+}
+
+function _onReportAddCampChange() {
+  const ids = _reportSelectedAddIds();
+  const cnt = document.getElementById('reportAddCampCount');
+  const btn = document.getElementById('btnReportAddSubmit');
+  if (cnt) cnt.textContent = ids.length ? ids.length + '개 선택' : '';
+  if (btn) btn.disabled = !ids.length;
+}
+
+async function submitAddCampaignsToReport(reportId) {
+  const ids = _reportSelectedAddIds();
+  if (!ids.length) return;
+  const btn = document.getElementById('btnReportAddSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '추가하는 중…'; }
+  try {
+    const n = await addReportCampaigns(reportId, ids);
+    _reportCloseAddModal();
+    toast(n + '개를 더했습니다' + (n < ids.length ? ' (이미 담긴 ' + (ids.length - n) + '개는 건너뜀)' : ''));
+    await openReport(reportId);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '추가'; }
+    toast('더하지 못했습니다 — ' + ((e && e.message) || e));
+  }
 }
