@@ -557,11 +557,10 @@ async function openReport(reportId) {
             <button type="button" onclick="openReportRenameModal('${esc(reportId)}')" title="제목 수정" style="border:0;background:none;padding:2px;cursor:pointer;line-height:1;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span></button>
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.9">
-            <div>생성자 ${esc(rep.created_by_name || '-')} · 생성일 ${esc(formatDateTime(rep.created_at))}</div>
-            <!-- 두 시각을 한 줄에 — 형식은 2026-09-04 사용자 지정 「업데이트 : Reverb (시각) / 포인테일 (시각)」.
-                 ⚠️ 한 줄이어도 시각은 **각각** 적는다(사양서 ⑥ — 하나로 합치면 브랜드가 포인테일 데이터도
+            <!-- 머리말 한 줄 — 형식은 2026-09-04 사용자 지정 「생성자 | 생성일 | 업데이트 : Reverb (시각) / 포인테일 (시각)」.
+                 ⚠️ 한 줄이어도 업데이트 시각은 **각각** 적는다(사양서 ⑥ — 하나로 합치면 브랜드가 포인테일 데이터도
                  방금 것으로 읽는다). Reverb = 열 때마다 새로 조회한 시각, 포인테일 = 파일을 붙인 시각. -->
-            <div>업데이트 : Reverb (${esc(formatDateTime(reverbQueriedAt))})${sources.length ? ' / 포인테일 (' + esc(formatDateTime(extAttachedAt)) + ')' : ''}</div>
+            <div>생성자 ${esc(rep.created_by_name || '-')} <span style="color:var(--line);margin:0 6px">|</span> 생성일 ${esc(formatDateTime(rep.created_at))} <span style="color:var(--line);margin:0 6px">|</span> 업데이트 : Reverb (${esc(formatDateTime(reverbQueriedAt))})${sources.length ? ' / 포인테일 (' + esc(formatDateTime(extAttachedAt)) + ')' : ''}</div>
           </div>
         </div>
         <div style="display:flex;gap:6px">
