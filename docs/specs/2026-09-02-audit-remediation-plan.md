@@ -92,6 +92,26 @@ H. 문서·규칙 층         ← 대부분 고문·기획 (H-3·H-6 은 개발)
 
 ⚠️ **키가 없을 때 통과하는 것은 `NULL NOT IN (…)` 이 NULL 인 성질에 기댄다.** `IS DISTINCT FROM` 류로 바꾸면 **선택 입력이 전부 거부**된다.
 
+### 🔴 이 문서를 고칠 때마다 `dev`→`main` 병합이 충돌한다 — 푸는 방향이 정해져 있다
+
+**이 문서와 `docs/research/2026-09-02-audit-measurement-queries.md` 는 `main` 에서 일부러 지워져 있다**(`08e73442`). 아직 **안 고친 보안 지적 목록**이라 운영에 공개되면 안 되기 때문이다. `dev` 에만 둔다.
+
+그래서 이 둘을 `dev` 에서 고친 뒤 `main` 으로 병합하면 **매번 「main 은 지웠는데 dev 는 고쳤다」 충돌**이 난다.
+
+✅ **푸는 방향 = main 의 삭제를 택한다. dev 판을 가져오지 않는다.**
+
+```bash
+git rm --cached docs/research/2026-09-02-audit-measurement-queries.md                 docs/specs/2026-09-02-audit-remediation-plan.md
+rm -f          docs/research/2026-09-02-audit-measurement-queries.md                 docs/specs/2026-09-02-audit-remediation-plan.md
+```
+
+🔴 **반대로 풀기가 훨씬 자연스럽다** — 충돌 화면에서 「최신인 `dev` 판을 살린다」가 보통 맞는 선택이고, 그러면 **지적 목록이 조용히 `main` 으로 돌아간다.** 지금은 `.vercelignore` 가 `docs/*` 를 막아 받아 주지만 **그건 두 번째 겹**이다. 그 파일이 깨지거나 되돌려지는 순간 두 겹이 함께 무너진다.
+
+⚠️ **병합 전에 `git merge-tree --write-tree --name-only origin/main origin/dev` 로 미리 본다** — 충돌 목록과 「`main` 에 없어야 할 파일이 생기는지」가 한 번에 나온다. 2026-09-03 병합에서 실제로 이 확인이 내부 흐름도 2개를 걸러냈다.
+
+⚠️ 병합 뒤 **운영 주소로 실제 확인**한다 — `curl -sL -o /dev/null -w '%{http_code}' https://globalreverb.com/docs/specs/<파일>` 이 **404**, 약관(`docs/TERMS_kr.md`)이 **200** 이어야 한다(양성 대조).
+
+
 ---
 
 ### 🔴 A-5 — 어제 막은 것은 「지금 쓰는 키」뿐이었다 (2026-09-03 발견)
