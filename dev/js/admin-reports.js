@@ -896,8 +896,9 @@ async function _reportComposeRefresh(reportId) {
 //   비밀번호 원문은 reveal 함수로만 오고, 부를 때마다 서버에 「누가 언제 봤는지」 남는다.
 // ══════════════════════════════════════════════════════════════
 
-// 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID·영수증 주소는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다)
-const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id' && c.key !== 'receipt_url'; });
+// 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID 는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다).
+//   영수증 주소는 2026-09-04 사용자 결정으로 열었다(마이그레이션 414 + 방침 §3.1).
+const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id'; });
 
 function _reportShareUrl(token) {
   return location.origin + '/report.html?t=' + token;
@@ -966,7 +967,7 @@ async function _reportShareRefresh(reportId) {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
         ${REPORT_SHARE_SELECTABLE.map(function(c){ const on = cols ? cols.indexOf(c.key) !== -1 : true; return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${c.key}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.label)}</label>`; }).join('')}
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID·영수증 주소는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="submitDisableShare('${esc(reportId)}')">링크 끄기</button>
     </div>

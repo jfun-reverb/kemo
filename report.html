@@ -440,19 +440,20 @@ async function loadReport(ticket) {
   }
   // 서버가 준 것: campaigns(스냅샷) · campaign_rows(실물) · deliverables(가려진) · users(가려진) · sources · ext_rows
   const camps = (data.campaigns || []).map(c => ({ id: c.campaign_id, campaign_no: c.campaign_no, title: c.campaign_title, _exists: c.campaign_exists }));
-  // deliverables 의 receipt_url 은 안 온다. 리뷰 사진 주소(review_image_url)를 receipt_url 자리에 넣어 표 만들기가 그대로 돌게 한다.
-  const delivs = (data.deliverables || []).map(d => Object.assign({}, d, { receipt_url: d.kind === 'review_image' ? d.review_image_url : null }));
+  // 414 부터 서버가 receipt_url 을 모든 종류에 준다(영수증 사진 포함 — 2026-09-04 사용자 결정).
+  //   옛 서버(413)가 남아 있으면 리뷰 사진 주소(review_image_url)만 있으므로 그것으로 대신한다.
+  const delivs = (data.deliverables || []).map(d => Object.assign({}, d, { receipt_url: d.receipt_url != null ? d.receipt_url : (d.kind === 'review_image' ? d.review_image_url : null) }));
   const users = data.users || {};
   let rows = buildReportRows(delivs, camps, users);
   if (!data.include_audit) rows = rows.filter(r => !(users[r._user_id] && users[r._user_id].is_audit));
   const srcById = {}; (data.sources || []).forEach(s => { srcById[s.id] = s; });
   const ext = (data.ext_rows || []).map(r => _reportExtToRow(Object.assign({ account_id: '' }, r), srcById[r.source_id]));
   rows = rows.concat(ext); rows.forEach((r, i) => { r.no = i + 1; });
-  // 영수증 주소는 서버가 안 보냈다 — 영수증 열 자체가 비도록 확실히 비운다(리뷰 사진은 채널 칸에 있다)
-  rows.forEach(r => { if (!r._ext) r.receipt_url = ''; else r.receipt_url = ''; r.account_id = ''; });
+  // 계정 ID 는 서버가 안 보낸다 — 열 자체가 비도록 확실히 비운다
+  rows.forEach(r => { r.account_id = ''; });
   _rows = rows; _title = data.title || '리포트';
-  // 열 — 관리자가 고른 목록. 없으면 「값이 하나도 없는 열은 뺀다」. 계정 ID·영수증 주소는 어떤 설정이어도 뺀다.
-  const banned = { account_id: 1, receipt_url: 1 };
+  // 열 — 관리자가 고른 목록. 없으면 「값이 하나도 없는 열은 뺀다」. 계정 ID 는 어떤 설정이어도 뺀다.
+  const banned = { account_id: 1 };
   const chosen = Array.isArray(data.columns) ? data.columns : null;
   _cols = REPORT_COLS.filter(c => !banned[c.key]).filter(c => chosen ? chosen.indexOf(c.key) !== -1 : rows.some(r => r[c.key] !== '' && r[c.key] !== null && r[c.key] !== undefined));
   // 「업데이트」 = 리포트를 마지막으로 손본 시각(서버 updated_at — 캠페인 더하기·파일 붙이기 등 구성 변경).
@@ -486,6 +487,7 @@ function rowHtml(r) {
   const who = r.order_no ? '주문번호 ' + r.order_no : (r.name_kanji || 'No.' + r.no);
   return '<tr>' + _cols.map(c => {
     const v = r[c.key];
+    if (c.key === 'receipt_url') return '<td class="nw">' + chanCell(r.receipt_url, 'photo', who + ' · 영수증') + '</td>';
     if (c.key === 'ch_qoo10_url') return '<td class="nw">' + chanCell(r.ch_qoo10_url, r.ch_qoo10_kind, who + ' · 큐텐 결과물') + '</td>';
     if (c.key === 'ch_cosme_url') return '<td class="nw">' + chanCell(r.ch_cosme_url, r.ch_cosme_kind, who + ' · 엣코스메 결과물') + '</td>';
     if (c.key === 'amount') return '<td class="num">' + (v === '' || v === null || v === undefined ? '' : '¥' + Number(v).toLocaleString('ja-JP')) + '</td>';

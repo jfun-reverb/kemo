@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788454060';
+  var CURRENT_BUILD = 'v1788455441';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-04 01:47 · 9324ed2</span>
+          <span class="admin-build-text">2026-09-04 02:10 · 93ab9bd</span>
         </div>
       </div>
     </aside>
@@ -46314,8 +46314,9 @@ async function _reportComposeRefresh(reportId) {
 //   비밀번호 원문은 reveal 함수로만 오고, 부를 때마다 서버에 「누가 언제 봤는지」 남는다.
 // ══════════════════════════════════════════════════════════════
 
-// 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID·영수증 주소는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다)
-const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id' && c.key !== 'receipt_url'; });
+// 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID 는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다).
+//   영수증 주소는 2026-09-04 사용자 결정으로 열었다(마이그레이션 414 + 방침 §3.1).
+const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id'; });
 
 function _reportShareUrl(token) {
   return location.origin + '/report.html?t=' + token;
@@ -46384,7 +46385,7 @@ async function _reportShareRefresh(reportId) {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
         ${REPORT_SHARE_SELECTABLE.map(function(c){ const on = cols ? cols.indexOf(c.key) !== -1 : true; return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${c.key}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.label)}</label>`; }).join('')}
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID·영수증 주소는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="submitDisableShare('${esc(reportId)}')">링크 끄기</button>
     </div>
