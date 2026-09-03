@@ -554,17 +554,18 @@ async function openReport(reportId) {
           <div style="display:flex;align-items:center;gap:8px">
             <button class="btn btn-ghost btn-xs" onclick="loadReportsPane()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">arrow_back</span> 목록</button>
             <span class="admin-card-title">${esc(rep.title || '(제목 없음)')}</span>
+            <button type="button" onclick="openReportRenameModal('${esc(reportId)}')" title="제목 수정" style="border:0;background:none;padding:2px;cursor:pointer;line-height:1;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span></button>
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.9">
-            <div>만든 사람 ${esc(rep.created_by_name || '-')} · 만든 날 ${esc(formatDateTime(rep.created_at))}</div>
-            <!-- 🔴 두 시각은 반드시 서로 다른 줄이다. 합치면 브랜드가 외부 데이터도 방금 것으로 읽는다. -->
-            <div><strong>REVERB</strong> — 방금 조회 (${esc(formatDateTime(reverbQueriedAt))})</div>
-            <div><strong>외부</strong> — ${extAttachedAt ? esc(formatDateTime(extAttachedAt)) + ' 기준' : '붙인 파일 없음'}</div>
+            <div>생성자 ${esc(rep.created_by_name || '-')} · 생성일 ${esc(formatDateTime(rep.created_at))}</div>
+            <!-- 🔴 두 시각은 반드시 서로 다른 줄이다. 합치면 브랜드가 외부 데이터도 방금 것으로 읽는다(사양서 ⑥).
+                 문구는 2026-09-04 사용자 피드백(「이건 뭐야?」)으로 뜻이 드러나게 고쳤다. -->
+            <div><strong>REVERB 데이터</strong> — 지금 기준 (${esc(formatDateTime(reverbQueriedAt))}, 열 때마다 최신)</div>
+            <div><strong>포인테일 파일</strong> — ${extAttachedAt ? esc(formatDateTime(extAttachedAt)) + ' 에 붙인 것 기준 (최신으로 하려면 파일을 다시 붙이세요)' : '붙인 파일 없음'}</div>
           </div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
-          <button class="btn btn-ghost btn-xs" onclick="openReportRenameModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">edit</span> 제목 수정</button>
           <button class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 캠페인 추가</button>
           <button class="btn btn-ghost btn-xs" onclick="openAddSourceToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">attach_file</span> 파일 붙이기</button>
           <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
