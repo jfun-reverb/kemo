@@ -1814,6 +1814,32 @@ async function fetchInfluencersForReport(userIds) {
   } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
 }
 
+// ── 리포트 구성 바꾸기 (마이그레이션 407) ──
+//   셋 다 서버가 거부한 사유를 그대로 던진다 — 화면이 「알 수 없는 오류」로 덮지 않게.
+
+// 캠페인 더하기. 실제로 더해진 개수(이미 담긴 것은 건너뛴다).
+async function addReportCampaigns(reportId, campaignIds) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('add_report_campaigns', {p_report_id: reportId, p_campaign_ids: campaignIds || []});
+  if (error) { console.error('[addReportCampaigns]', error); throw error; }
+  return Number(data || 0);
+}
+
+// 캠페인 한 줄 빼기 — ⚠️ 연결 표의 줄 고유번호(row_id)로 지목한다(원본이 지워진 줄도 뺄 수 있게).
+async function removeReportCampaign(reportId, rowId) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('remove_report_campaign', {p_report_id: reportId, p_row_id: rowId});
+  if (error) { console.error('[removeReportCampaign]', error); throw error; }
+  return !!data;
+}
+
+async function updateReportTitle(reportId, title) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('update_report_title', {p_report_id: reportId, p_title: title});
+  if (error) { console.error('[updateReportTitle]', error); throw error; }
+  return !!data;
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
