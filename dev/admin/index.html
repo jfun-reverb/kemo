@@ -3195,6 +3195,9 @@
       <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
       <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
     </div>
+    <!-- 여러 장일 때만 보이는 넘기기 — 인플루언서 캠페인 사진 넘기기(application.js)와 같은 모양 -->
+    <button type="button" class="lightbox-nav" id="lightboxPrev" onclick="lightboxStep(-1)" title="이전 사진 (←)" style="left:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+    <button type="button" class="lightbox-nav" id="lightboxNext" onclick="lightboxStep(1)" title="다음 사진 (→)" style="right:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
   </div>
 </div>
 

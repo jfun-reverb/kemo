@@ -459,7 +459,9 @@ function _reportChannelCellHtml(url, kind, who) {
   // 외부(포인테일) 증빙은 여러 장이 줄바꿈으로 온다 — 한 장씩 「사진 1·2·3」으로 각각 연다.
   const list = String(url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
   if (list.length > 1) {
-    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}','${esc(who)} 사진 ${i+1}/${list.length}')">사진 ${i+1}</a>`; }).join(' · ');
+    // 여러 장은 한 창에서 화살표로 넘겨 본다 — 누른 사진부터 시작
+    const js = esc(JSON.stringify(list));
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},"${esc(who)}")'>사진 ${i+1}</a>`; }).join(' · ');
   }
   url = list[0] || url;
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
@@ -479,8 +481,9 @@ function _reportRowHtml(r) {
       if (!r.receipt_url) return '<td></td>';
       const rl = String(r.receipt_url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
       const whoR = whoBase + ' · 영수증';
+      const rjs = esc(JSON.stringify(rl));
       return '<td>' + (rl.length > 1
-        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}','${esc(whoR)} 사진 ${i+1}/${rl.length}')">사진 ${i+1}</a>`; }).join(' · ')
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
         : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
     }
     if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind, whoBase + ' · 큐텐 결과물')}</td>`;

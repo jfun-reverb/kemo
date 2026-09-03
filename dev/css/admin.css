@@ -1765,6 +1765,10 @@ input.admin-filter{padding-right:8px}
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+/* 확대 창 사진 넘기기 — 흰 원 + 화살표(캠페인 상세 사진 넘기기와 같은 모양). 2장 이상일 때만 JS 가 보인다. */
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:6;padding:0}
+.lightbox-nav .material-icons-round{font-size:22px;color:#333}
+.lightbox-nav:hover{background:#fff}
 .lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 

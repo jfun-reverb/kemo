@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788447547';
+  var CURRENT_BUILD = 'v1788449661';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2253,6 +2253,10 @@ input.admin-filter{padding-right:8px}
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+/* 확대 창 사진 넘기기 — 흰 원 + 화살표(캠페인 상세 사진 넘기기와 같은 모양). 2장 이상일 때만 JS 가 보인다. */
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:6;padding:0}
+.lightbox-nav .material-icons-round{font-size:22px;color:#333}
+.lightbox-nav:hover{background:#fff}
 .lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
@@ -3005,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 23:59 · 326d465</span>
+          <span class="admin-build-text">2026-09-04 00:34 · 7be94b8</span>
         </div>
       </div>
     </aside>
@@ -6033,6 +6037,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
       <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
     </div>
+    <!-- 여러 장일 때만 보이는 넘기기 — 인플루언서 캠페인 사진 넘기기(application.js)와 같은 모양 -->
+    <button type="button" class="lightbox-nav" id="lightboxPrev" onclick="lightboxStep(-1)" title="이전 사진 (←)" style="left:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+    <button type="button" class="lightbox-nav" id="lightboxNext" onclick="lightboxStep(1)" title="다음 사진 (→)" style="right:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
   </div>
 </div>
 
@@ -17956,8 +17963,13 @@ let _lbZoom = 1;
 const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
 // caption(선택) — 제목 자리에 「주문번호 1208834465 · 영수증 2/3」처럼 무엇의 몇 번째 사진인지 적는다
 //   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
+// 여러 장 넘기기 상태 — openImageGallery 로 열었을 때만 산다. { urls, i, base }
+let _lbGallery = null;
+
 function openImageLightbox(url, caption) {
   if (!url) return;
+  _lbGallery = null;                    // 한 장 열기 — 화살표 숨김
+  _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = url;
   const ttl = $('imageLightboxTitle');
@@ -17966,8 +17978,47 @@ function openImageLightbox(url, caption) {
   applyLightboxZoom();
   openModal('imageLightbox');
 }
+// 여러 장을 한 창에서 넘겨 본다(2026-09-04 리포트 화면 요청). base = 제목 머리말(「주문번호 … · 큐텐 결과물」).
+//   제목은 「{base} 사진 {i}/{n}」. 2장 이상일 때만 화살표가 보이고 ←→ 키로도 넘긴다. 넘길 때 배율은 1배로.
+function openImageGallery(urls, startIndex, base) {
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return;
+  _lbGallery = { urls: list, i: Math.max(0, Math.min(list.length - 1, startIndex || 0)), base: base || '' };
+  _lbShowCurrent();
+  openModal('imageLightbox');
+}
+function _lbShowCurrent() {
+  const g = _lbGallery; if (!g) return;
+  const img = $('imageLightboxImg');
+  if (img) img.src = g.urls[g.i];
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = (g.base ? g.base + ' ' : '') + '사진 ' + (g.i + 1) + '/' + g.urls.length;
+  _lbZoom = 1; applyLightboxZoom();
+  _lbSyncNav();
+}
+function _lbSyncNav() {
+  const many = !!(_lbGallery && _lbGallery.urls.length > 1);
+  const p = $('lightboxPrev'), n = $('lightboxNext');
+  if (p) p.style.display = many ? '' : 'none';
+  if (n) n.style.display = many ? '' : 'none';
+}
+function lightboxStep(delta) {
+  const g = _lbGallery; if (!g || g.urls.length < 2) return;
+  g.i = (g.i + delta + g.urls.length) % g.urls.length;   // 끝에서 처음으로 돈다
+  _lbShowCurrent();
+}
+// ←→ 키 — 확대 창이 열려 있고 여러 장일 때만. 입력칸에 초점이 있으면 건드리지 않는다.
+document.addEventListener('keydown', function(e) {
+  const lb = $('imageLightbox');
+  if (!lb || !lb.classList.contains('open') || !_lbGallery || _lbGallery.urls.length < 2) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); lightboxStep(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); lightboxStep(1); }
+});
 function closeImageLightbox() {
   closeModal('imageLightbox');
+  _lbGallery = null; _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }
@@ -45551,7 +45602,9 @@ function _reportChannelCellHtml(url, kind, who) {
   // 외부(포인테일) 증빙은 여러 장이 줄바꿈으로 온다 — 한 장씩 「사진 1·2·3」으로 각각 연다.
   const list = String(url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
   if (list.length > 1) {
-    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}','${esc(who)} 사진 ${i+1}/${list.length}')">사진 ${i+1}</a>`; }).join(' · ');
+    // 여러 장은 한 창에서 화살표로 넘겨 본다 — 누른 사진부터 시작
+    const js = esc(JSON.stringify(list));
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},"${esc(who)}")'>사진 ${i+1}</a>`; }).join(' · ');
   }
   url = list[0] || url;
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
@@ -45571,8 +45624,9 @@ function _reportRowHtml(r) {
       if (!r.receipt_url) return '<td></td>';
       const rl = String(r.receipt_url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
       const whoR = whoBase + ' · 영수증';
+      const rjs = esc(JSON.stringify(rl));
       return '<td>' + (rl.length > 1
-        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}','${esc(whoR)} 사진 ${i+1}/${rl.length}')">사진 ${i+1}</a>`; }).join(' · ')
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
         : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
     }
     if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind, whoBase + ' · 큐텐 결과물')}</td>`;
