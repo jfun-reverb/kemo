@@ -571,34 +571,16 @@ async function openReport(reportId) {
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
-          <button class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 캠페인 추가</button>
-          <button class="btn btn-ghost btn-xs" onclick="openAddSourceToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">attach_file</span> 파일 붙이기</button>
+          <button class="btn btn-ghost btn-xs" onclick="openReportComposeModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">tune</span> 구성</button>
           <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
         </div>
       </div>
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
-        <strong>요약</strong> · 캠페인 ${camps.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 리뷰 ${reviewN}
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-          ${(rep.campaigns || []).map(function(c) {
-            // ⚠️ 원본이 지워진 줄은 회색으로, 이름은 그대로(스냅샷). 뺄 수는 있다.
-            const dead = !c.campaign_exists;
-            // 칩 모양은 관리자 계정 「메일받기」 셀과 같은 badge badge-gray (admin-accounts.js).
-            return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:8px;${dead ? 'opacity:.55;text-decoration:line-through' : ''}" title="${dead ? '원본 캠페인이 지워졌습니다' : ''}">
-              ${esc(c.campaign_no || '')} ${esc(c.campaign_title || '')}
-              <button type="button" onclick="removeCampaignFromReport('${esc(reportId)}','${esc(c.row_id)}')" title="이 캠페인을 리포트에서 뺍니다" style="border:0;background:none;padding:0;cursor:pointer;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">close</span></button>
-            </span>`;
-          }).join('')}
-        </div>
-        ${deletedCount > 0 ? `<div style="color:var(--pink);font-size:12px">⚠️ 담긴 캠페인 중 ${deletedCount}개는 원본이 지워져 이름만 남아 있습니다 — 그 캠페인의 결과물은 표에 없습니다.</div>` : ''}
-        ${rep.include_audit ? '<div style="color:var(--muted);font-size:12px">감사용 계정을 포함해 만든 리포트입니다.</div>' : ''}
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        <a href="javascript:void(0)" onclick="openReportComposeModal('${esc(reportId)}')" style="margin-left:8px;font-size:12px">구성 보기·설정</a>
         ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
         ${extFailed ? '<div style="color:var(--pink);font-size:12px">⚠️ 외부 참가자 행을 불러오지 못했습니다 — 표에 외부 행이 빠져 있습니다.</div>' : ''}
-        ${sources.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><span style="font-size:12px;color:var(--muted)">외부 첨부</span>
-          ${sources.map(function(s){ return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:8px" title="${esc(s.file_name || '')} · ${esc(formatDateTime(s.attached_at))} · ${esc(s.attached_by_name || '')}">
-              ${esc(s.ext_campaign_no)} ${esc(s.ext_campaign_name)} · ${s.row_count}명
-              <button type="button" onclick="removeSourceFromReport('${esc(reportId)}','${esc(s.id)}','${esc(s.ext_campaign_no)}')" title="이 첨부를 뗍니다" style="border:0;background:none;padding:0;cursor:pointer;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">close</span></button>
-            </span>`; }).join('')}</div>` : ''}
         ${maskedN ? '<div style="color:var(--muted);font-size:12px">포인테일이 이미 가려서 보낸 계정이 ' + maskedN + '건 있습니다(원본부터 ** 로 가려져 있음).</div>' : ''}
       </div>
 
@@ -794,6 +776,7 @@ async function removeCampaignFromReport(reportId, rowId) {
     await removeReportCampaign(reportId, rowId);
     toast('뺐습니다');
     await openReport(reportId);
+    await _reportComposeRefresh(reportId);
   } catch (e) { toast('빼지 못했습니다 — ' + ((e && e.message) || e)); }
 }
 
@@ -867,6 +850,7 @@ async function submitAddCampaignsToReport(reportId) {
     _reportCloseAddModal();
     toast(n + '개를 더했습니다' + (n < ids.length ? ' (이미 담긴 ' + (ids.length - n) + '개는 건너뜀)' : ''));
     await openReport(reportId);
+    await _reportComposeRefresh(reportId);
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = '추가'; }
     toast('더하지 못했습니다 — ' + ((e && e.message) || e));
@@ -1029,10 +1013,79 @@ async function submitAttachSources(reportId) {
   _reportCloseAttachModal();
   toast(failed.length ? '일부 실패 — ' + failed.join(', ') : '붙였습니다');
   await openReport(reportId);
+  await _reportComposeRefresh(reportId);
 }
 
 async function removeSourceFromReport(reportId, sourceId, label) {
   if (!window.confirm('「' + label + '」 첨부를 뗍니다. 그 참가자 행이 표에서 사라집니다. 계속할까요?')) return;
-  try { await removeReportSource(sourceId); toast('뗐습니다'); await openReport(reportId); }
+  try { await removeReportSource(sourceId); toast('뗐습니다'); await openReport(reportId); await _reportComposeRefresh(reportId); }
   catch (e) { toast('떼지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 구성 모달 — 담긴 캠페인·외부 첨부를 필요할 때만 열어 보고 설정한다 (2026-09-04 사용자 요청)
+//   머리말에 칩을 늘 펼쳐 두면 시끄럽다. 설정성 항목을 버튼 → 모달로 여는 관리자 관행
+//   (메일 수신 설정 「설정」 버튼)과 같다. 추가·빼기·붙이기·떼기는 기존 함수를 그대로 부르고,
+//   그 함수들이 화면을 다시 그린 뒤 이 모달도 열려 있으면 다시 그린다.
+// ══════════════════════════════════════════════════════════════
+
+function _reportCloseComposeModal() { const m = document.getElementById('reportComposeModal'); if (m) m.remove(); }
+
+async function _reportComposeBodyHtml(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) return '<div style="color:var(--pink)">리포트를 찾지 못했습니다.</div>';
+  const chip = function(text, onclick, title, dead) {
+    return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:8px;${dead ? 'opacity:.55;text-decoration:line-through' : ''}" title="${esc(title || '')}">${text}
+      <button type="button" onclick="${onclick}" style="border:0;background:none;padding:0;cursor:pointer;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">close</span></button></span>`;
+  };
+  const camps = (rep.campaigns || []).map(function(c) {
+    return chip(esc(c.campaign_no || '') + ' ' + esc(c.campaign_title || ''),
+      `removeCampaignFromReport('${esc(reportId)}','${esc(c.row_id)}')`,
+      c.campaign_exists ? '' : '원본 캠페인이 지워졌습니다', !c.campaign_exists);
+  }).join('');
+  const srcs = (rep.sources || []).map(function(sv) {
+    return chip(esc(sv.ext_campaign_no) + ' ' + esc(sv.ext_campaign_name) + ' · ' + sv.row_count + '명',
+      `removeSourceFromReport('${esc(reportId)}','${esc(sv.id)}','${esc(sv.ext_campaign_no)}')`,
+      (sv.file_name || '') + ' · ' + formatDateTime(sv.attached_at) + ' · ' + (sv.attached_by_name || ''), false);
+  }).join('');
+  return `
+    <div class="form-group">
+      <label class="form-label">REVERB 캠페인 ${(rep.campaigns || []).length}개</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${camps}
+        <button type="button" class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">× 로 빼면 그 캠페인의 결과물이 표에서 사라집니다. 마지막 한 개는 뺄 수 없습니다.</div>
+    </div>
+    <div class="form-group" style="margin-top:14px">
+      <label class="form-label">외부 첨부 (포인테일) ${(rep.sources || []).length}개</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${srcs || '<span style="font-size:12px;color:var(--muted)">붙인 파일이 없습니다.</span>'}
+        <button type="button" class="btn btn-ghost btn-xs" onclick="openAddSourceToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">attach_file</span> 파일 붙이기</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">같은 번호를 다시 붙이면 그 파일이 갱신됩니다(이전 행 전부 교체).</div>
+    </div>`;
+}
+
+async function openReportComposeModal(reportId) {
+  _reportCloseComposeModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportComposeModal';
+  wrap.className = 'modal-overlay open';
+  wrap.dataset.reportId = reportId;
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">리포트 구성</div>
+        <button class="modal-close" onclick="_reportCloseComposeModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" id="reportComposeBody" style="overflow-y:auto">불러오는 중…</div>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="_reportCloseComposeModal()">닫기</button></div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  await _reportComposeRefresh(reportId);
+}
+
+// 열려 있을 때만 다시 그린다 — 추가·빼기·붙이기·떼기 뒤에 부른다
+async function _reportComposeRefresh(reportId) {
+  const m = document.getElementById('reportComposeModal');
+  if (!m || (reportId && m.dataset.reportId !== reportId)) return;
+  const body = document.getElementById('reportComposeBody');
+  if (body) body.innerHTML = await _reportComposeBodyHtml(m.dataset.reportId);
 }
