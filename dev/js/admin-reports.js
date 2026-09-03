@@ -226,6 +226,10 @@ function buildReportRows(delivs, camps, usersById) {
 // ══════════════════════════════════════════════════════════════
 // 만들기 창 — 작업 7
 //
+// 🔴 **모달 안쪽 상자의 인라인 스타일(`margin:auto;border-radius:16px;width:94vw`)은 빼면 안 된다.**
+//    `.modal-overlay` 기본값은 **인플루언서(모바일) 아래에서 올라오는 시트**라, 이 스타일이
+//    없으면 관리자 화면에서도 **모달이 화면 아래에 붙는다**(2026-09-03 사용자 지적 「모달 위치들이
+//    다 밑에 있어」). 관리자 모달은 전부 이 인라인 스타일로 가운데를 잡는다(오리엔시트 모달 참조).
 // 🔴 **모달 상자를 `dev/admin/index.html` 에 넣지 않는다.** 여기서 동적으로 만든다
 //    (오리엔시트 모달 선례). 그래야 뒤 조각들이 그 핫스팟 파일을 다시 안 만진다.
 // ══════════════════════════════════════════════════════════════
@@ -255,9 +259,9 @@ async function openReportCreateModal() {
   wrap.id = 'reportCreateModal';
   wrap.className = 'modal-overlay open';
   wrap.innerHTML = `
-    <div class="modal" style="max-width:560px">
+    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header">
-        <h3>리포트 만들기</h3>
+        <h2>리포트 만들기</h2>
         <button class="modal-close" onclick="_reportCloseCreateModal()"><span class="material-icons-round notranslate" translate="no">close</span></button>
       </div>
       <div class="modal-body">
@@ -614,9 +618,9 @@ async function openReportDeleteModal(reportId) {
   wrap.id = 'reportDeleteModal';
   wrap.className = 'modal-overlay open';
   wrap.innerHTML = `
-    <div class="modal" style="max-width:460px">
+    <div class="modal" style="max-width:460px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header">
-        <h3>리포트 삭제</h3>
+        <h2>리포트 삭제</h2>
         <button class="modal-close" onclick="_reportCloseDeleteModal()"><span class="material-icons-round notranslate" translate="no">close</span></button>
       </div>
       <div class="modal-body">
@@ -669,8 +673,8 @@ async function openReportRenameModal(reportId) {
   wrap.id = 'reportRenameModal';
   wrap.className = 'modal-overlay open';
   wrap.innerHTML = `
-    <div class="modal" style="max-width:480px">
-      <div class="modal-header"><h3>제목 수정</h3>
+    <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>제목 수정</h2>
         <button class="modal-close" onclick="_reportCloseRenameModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body">
         <div class="form-group">
@@ -741,8 +745,8 @@ async function openAddCampaignsToReport(reportId) {
   wrap.id = 'reportAddCampModal';
   wrap.className = 'modal-overlay open';
   wrap.innerHTML = `
-    <div class="modal" style="max-width:560px">
-      <div class="modal-header"><h3>캠페인 추가</h3>
+    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>캠페인 추가</h2>
         <button class="modal-close" onclick="_reportCloseAddModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body">
         <p style="font-size:12px;color:var(--muted);margin:0 0 8px">이미 담긴 캠페인 ${have.size}개는 목록에서 뺐습니다.</p>
