@@ -433,7 +433,7 @@ async function loadReport(ticket) {
   if (error || !data) {
     // 열람 표가 만료·삭제됐거나 링크가 꺼졌다 → 표를 버리고 처음으로. 링크 자체가 죽었는지는 다시 확인해서 가른다.
     try { sessionStorage.removeItem(TICKET_KEY); } catch (e) {}
-    const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: '' });
+    const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: null });
     if (probe.data && probe.data.reason === 'link_expired') return showExpired();
     document.getElementById('gate').style.display = ''; document.getElementById('report').style.display = 'none';
     document.getElementById('gateErr').textContent = '다시 비밀번호를 입력해 주세요.';
@@ -528,7 +528,7 @@ async function downloadExcel() {
   if (!TOKEN) return showExpired();
   let t = null; try { t = sessionStorage.getItem(TICKET_KEY); } catch (e) {}
   if (t) await loadReport(t);
-  else { const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: '' }); if (probe.data && probe.data.reason === 'link_expired') showExpired(); }
+  else { const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: null }); if (probe.data && probe.data.reason === 'link_expired') showExpired(); }
 })();
 </script>
 </body>

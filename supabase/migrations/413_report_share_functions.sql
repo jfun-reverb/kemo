@@ -144,6 +144,13 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'reason', 'link_expired');
   END IF;
 
+  -- 🔴 빈 비밀번호(NULL) = 「링크가 살아 있나」 상태 확인. 시도로 세지 않는다.
+  --    화면이 열릴 때마다 이 확인을 하는데, 이것까지 세면 **새로고침 10번에 브랜드가 잠긴다**
+  --    (2026-09-04 개발서버에서 실제로 재현 — 9번째 틀림에서 잠겼다).
+  IF p_password IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'need_password');
+  END IF;
+
   -- 시도 제한: 최근 10분 실패 10회 이상이면 잠금 (🔴 서버가 센다 — 화면은 새로고침에 초기화된다)
   SELECT count(*) INTO v_fails FROM public.campaign_report_pw_attempts
    WHERE report_id = r.id AND NOT succeeded AND attempted_at > now() - interval '10 minutes';
@@ -152,7 +159,7 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'reason', 'locked');
   END IF;
 
-  IF p_password IS NULL OR public._decrypt_report_password(r.share_password_cipher) <> p_password THEN
+  IF public._decrypt_report_password(r.share_password_cipher) <> p_password THEN
     INSERT INTO public.campaign_report_pw_attempts (report_id, succeeded) VALUES (r.id, false);
     RETURN jsonb_build_object('ok', false, 'reason', 'wrong');   -- 몇 번 남았는지는 알리지 않는다
   END IF;
