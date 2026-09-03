@@ -22,7 +22,12 @@
   :root{--ink:#18181B;--muted:#6E6E77;--line:#E4E4E7;--bg:#FAFAFA;--primary:#1A1A1A;--pink:#B3261E;--head:#3F3F46}
   *{box-sizing:border-box}
   body{margin:0;font-family:'Noto Sans KR',-apple-system,sans-serif;font-size:13px;color:var(--ink);background:var(--bg)}
-  .wrap{margin:0;padding:16px 16px 40px}   /* 전체 폭 — 2026-09-04 사용자 요청. 비밀번호 화면(.gate)만 따로 가운데 */
+  /* 전체 폭 + 화면 높이 고정 — 제목·표 머리글은 그 자리에 있고 표 안만 스크롤한다(2026-09-04 사용자 요청).
+     표를 감싼 상자(.tblwrap)가 세로·가로 스크롤을 다 맡아야 th 의 sticky 가 듣는다 — 화면이 스크롤하면 상자째 밀려 올라간다 */
+  html,body{height:100%}
+  .wrap{margin:0;padding:16px 16px 12px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
+  #report{display:flex;flex-direction:column;flex:1;min-height:0}
+  #report[hidden]{display:none}
   .card{background:#fff;border:1px solid var(--line);border-radius:12px}
   .gate{max-width:420px;margin:80px auto;padding:32px 28px;text-align:center}
   .gate h1{font-size:18px;margin:0 0 6px}
@@ -37,14 +42,14 @@
   .meta{font-size:12px;color:var(--muted);line-height:1.9}
   .meta b{color:var(--ink);font-weight:500}
   /* 좌우 스크롤 막대를 항상 보이게 — 맥은 스크롤 중에만 막대를 그려서 오른쪽에 열이 더 있는지 알 수 없다(2026-09-04 사용자 지적) */
-  .tblwrap{overflow-x:scroll}
-  .tblwrap::-webkit-scrollbar{height:12px}
+  .tblwrap{overflow:scroll;flex:1;min-height:0}
+  .tblwrap::-webkit-scrollbar{height:12px;width:12px}
   .tblwrap::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
   .tblwrap::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
   .tblwrap::-webkit-scrollbar-thumb:hover{background:#999}
   /* 표는 내용 너비대로 — 열이 많으면 좌우 스크롤(2026-09-04 사용자 결정). 줄바꿈으로 접히는 것보다 낫다 */
   table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed}
-  th{background:var(--head);color:#fff;font-size:12px;font-weight:600;text-align:left;padding:9px 10px;white-space:nowrap;position:sticky;top:0}
+  th{background:var(--head);color:#fff;font-size:12px;font-weight:600;text-align:left;padding:9px 10px;white-space:nowrap;position:sticky;top:0;z-index:1}
   td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   td.nw{white-space:nowrap}
   td.num{text-align:right;white-space:nowrap}
@@ -60,7 +65,7 @@
   .lb .x{position:absolute;top:12px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1}
   .lb .nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;font-size:22px;display:none;align-items:center;justify-content:center}
   .lb .nav.on{display:flex}
-  .foot{margin-top:14px;font-size:11px;color:var(--muted);text-align:center}
+  .foot{margin-top:8px;font-size:11px;color:var(--muted);text-align:center;flex-shrink:0}
   @media(max-width:600px){.wrap{padding:12px}.head{padding:14px}.gate{margin:40px auto;padding:24px 18px}}
 </style>
 </head>
@@ -73,7 +78,7 @@
     <div class="err" id="gateErr"></div>
     <button class="btn btn-primary" id="btnGo" onclick="submitPw()" style="width:100%;justify-content:center;margin-top:6px">확인</button>
   </div>
-  <div class="card" id="report" style="display:none"></div>
+  <div class="card" id="report" hidden></div>
   <div class="foot">© JFUN · REVERB JP</div>
 </div>
 <div class="lb" id="lb" onclick="if(event.target===this)closeLb()">
@@ -427,7 +432,7 @@ document.getElementById('pw').addEventListener('keydown', e => { if (e.key === '
 
 function showExpired() {
   document.getElementById('gate').innerHTML = '<h1>링크가 만료되었습니다</h1><p>REVERB JP 담당자에게 새 링크를 요청해 주세요.</p>';
-  document.getElementById('report').style.display = 'none';
+  document.getElementById('report').hidden = true;
   document.getElementById('gate').style.display = '';
 }
 
@@ -440,7 +445,7 @@ async function loadReport(ticket) {
     try { sessionStorage.removeItem(TICKET_KEY); } catch (e) {}
     const probe = await db.rpc('verify_report_share_password', { p_token: TOKEN, p_password: null });
     if (probe.data && probe.data.reason === 'link_expired') return showExpired();
-    document.getElementById('gate').style.display = ''; document.getElementById('report').style.display = 'none';
+    document.getElementById('gate').style.display = ''; document.getElementById('report').hidden = true;
     document.getElementById('gateErr').textContent = '다시 비밀번호를 입력해 주세요.';
     return;
   }
@@ -477,7 +482,7 @@ async function loadReport(ticket) {
     <div class="tblwrap"><table><colgroup>${_cols.map(c => '<col style="width:' + esc(c.w) + '">').join('')}</colgroup><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
       <tbody>${rows.length ? rows.map(rowHtml).join('') : '<tr><td colspan="' + _cols.length + '" class="empty">아직 제출된 결과물이 없습니다.</td></tr>'}</tbody></table></div>
     <div class="legend">이름은 일부만 표시됩니다. 계정 정보(이메일)는 개인정보 보호를 위해 제공하지 않습니다.${ext.length ? ' 포인테일(스토어링크) 참가자 정보는 해당 서비스의 결과 파일을 그대로 옮긴 것입니다.' : ''}</div>`;
-  document.getElementById('gate').style.display = 'none'; el.style.display = '';
+  document.getElementById('gate').style.display = 'none'; el.hidden = false;
 }
 
 function chanCell(url, kind, who) {
