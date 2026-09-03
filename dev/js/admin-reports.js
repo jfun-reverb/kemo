@@ -428,23 +428,24 @@ let _openReport = null;
 
 // 17칸 머리글 — 사양서 16칸에 「캠페인 번호」를 더했다(2026-09-04 사용자 결정: 「ID」 자리는 캠페인 번호, 계정 ID 는 업로드 날짜 옆)
 const REPORT_COLS = [
+  // w = 열 너비, wrap = 줄바꿈 허용(캠페인명만). 나머지는 nowrap — 날짜·번호·상태가 두 줄로 접히면 표가 읽기 어렵다(2026-09-04 사용자 요청).
   {key:'no',                  label:'No.',              w:'46px'},
-  {key:'campaign_no',         label:'캠페인 번호',       w:'120px'},   // 2026-09-04: 「ID」(계정) 자리를 캠페인 번호로
-  {key:'campaign_name',       label:'캠페인명',          w:'200px'},
-  {key:'purchase_period',     label:'구매기간',          w:'170px'},
-  {key:'status',              label:'상태',             w:'110px'},
-  {key:'order_no',            label:'주문 번호',         w:'120px'},
-  {key:'purchase_date',       label:'구매일',            w:'100px'},
+  {key:'campaign_no',         label:'캠페인 번호',       w:'110px'},
+  {key:'campaign_name',       label:'캠페인명',          w:'260px', wrap:true},
+  {key:'purchase_period',     label:'구매기간',          w:'185px'},
+  {key:'status',              label:'상태',             w:'100px'},
+  {key:'order_no',            label:'주문 번호',         w:'130px'},
+  {key:'purchase_date',       label:'구매일',            w:'96px'},
   {key:'amount',              label:'구매금액',          w:'100px'},
-  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'150px'},
-  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'150px'},
-  {key:'account_id',          label:'계정 ID',           w:'190px'},   // 2026-09-04: 영수증 업로드 날짜 옆으로
-  {key:'name_kanji',          label:'이름 (한자)',        w:'110px'},
-  {key:'name_kana',           label:'이름 (일본어)',      w:'110px'},
+  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px'},
+  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px'},
+  {key:'account_id',          label:'계정 ID',           w:'210px'},
+  {key:'name_kanji',          label:'이름 (한자)',        w:'120px'},
+  {key:'name_kana',           label:'이름 (일본어)',      w:'130px'},
   {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
-  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'150px'},
+  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px'},
   {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px'},
-  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'150px'},
+  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'130px'},
 ];
 
 // 13·15번 칸을 그린다 — 주소와 함께 **무엇인지**(사진/게시물)를 작게 적는다.
@@ -496,9 +497,9 @@ function _reportRowHtml(r) {
       return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
     }
     if (c.key === 'receipt_uploaded_at' || c.key === 'ch_qoo10_at' || c.key === 'ch_cosme_at') {
-      return `<td style="font-size:11px">${esc(formatDateTime(r[c.key]))}</td>`;
+      return `<td style="font-size:11px;white-space:nowrap">${esc(formatDateTime(r[c.key]))}</td>`;
     }
-    return `<td>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
+    return `<td${c.wrap ? '' : ' style="white-space:nowrap"'}>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
   }).join('');
   // 맨 앞 「구분」 열 — 🔴 **관리자 화면에만** 있다. 공유 화면·엑셀에는 넣지 않는다.
   return `<tr><td style="text-align:center;font-weight:600">${esc(r.src || '')}</td>${cells}</tr>`;
@@ -588,10 +589,10 @@ async function openReport(reportId) {
       </div>
 
       <div class="admin-table-wrap" style="overflow-x:auto">
-        <table class="data-table" style="min-width:2100px">
+        <table class="data-table" style="min-width:2400px">
           <thead><tr>
             <th style="width:50px;text-align:center">구분</th>
-            ${REPORT_COLS.map(function(c){ return `<th style="width:${c.w}">${esc(c.label)}</th>`; }).join('')}
+            ${REPORT_COLS.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
           </tr></thead>
           <tbody>
             ${rows.length ? rows.map(_reportRowHtml).join('')
