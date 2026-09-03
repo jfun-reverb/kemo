@@ -275,6 +275,12 @@ function updateCampSelectionUI() {
     btnDel.disabled = (n === 0);
     btnDel.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '결과물 엑셀';
   }
+  // 리포트 만들기 — 이 줄이 없으면 선택이 0개여도 눌린다(2026-09-03 리포트 기능)
+  var btnRep = document.getElementById('btnCampSelectReport');
+  if (btnRep) {
+    btnRep.disabled = (n === 0);
+    btnRep.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">summarize</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '리포트 만들기';
+  }
   if (btnClr) btnClr.style.display = n > 0 ? '' : 'none';
   if (cntEl) {
     if (n > 0) { cntEl.textContent = '· ' + n + '개 선택'; cntEl.style.display = ''; }

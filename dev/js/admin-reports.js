@@ -33,13 +33,28 @@ async function loadReportsPane() {
   }
 
   pane.innerHTML = `
-    <div class="admin-pane-head">
-      <h2 class="admin-pane-title">리포트 관리</h2>
-    </div>
-    <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">
-      캠페인을 골라 리포트를 만드는 화면입니다.<br>
-      <span style="font-size:12px">아직 준비 중입니다 — 만들기·목록·표는 다음 단계에서 붙습니다.</span>
+    <div class="admin-card">
+      <div class="admin-card-header">
+        <span class="admin-card-title">리포트 관리</span>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>제목</th>
+            <th style="width:90px;text-align:center">캠페인</th>
+            <th style="width:90px;text-align:center">외부 첨부</th>
+            <th style="width:130px">만든 사람</th>
+            <th style="width:150px">만든 날</th>
+            <th style="width:150px">마지막 고친 날</th>
+          </tr></thead>
+          <tbody id="reportListBody">
+            <tr><td colspan="6" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>`;
+
+  renderReportList(await fetchCampaignReports());
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -196,4 +211,146 @@ function buildReportRows(delivs, camps, usersById) {
       _campaign_id: g.campaign_id, _application_id: g.application_id, _user_id: g.user_id,
     };
   });
+}
+
+// ══════════════════════════════════════════════════════════════
+// 만들기 창 — 작업 7
+//
+// 🔴 **모달 상자를 `dev/admin/index.html` 에 넣지 않는다.** 여기서 동적으로 만든다
+//    (오리엔시트 모달 선례). 그래야 뒤 조각들이 그 핫스팟 파일을 다시 안 만진다.
+// ══════════════════════════════════════════════════════════════
+
+function _reportCloseCreateModal() {
+  const m = document.getElementById('reportCreateModal');
+  if (m) m.remove();
+}
+
+// 제목이 비면 「리포트 만들기」를 못 누르게 한다.
+function _reportSyncCreateBtn() {
+  const t = document.getElementById('reportCreateTitle');
+  const b = document.getElementById('btnReportCreateSubmit');
+  if (t && b) b.disabled = !t.value.trim();
+}
+
+async function openReportCreateModal() {
+  const ids = (typeof _selectedCampIds !== 'undefined' && _selectedCampIds) ? [..._selectedCampIds] : [];
+  if (!ids.length) { if (typeof toast === 'function') toast('캠페인을 1개 이상 선택하세요'); return; }
+
+  const camps = (Array.isArray(allCampaigns) ? allCampaigns : []).filter(function(c){ return ids.indexOf(c.id) !== -1; });
+  // 목록에 없는 캠페인이 섞이면(고른 뒤 필터가 바뀐 경우) 이름을 못 적는다 — 개수로만 알린다.
+  const missing = ids.length - camps.length;
+
+  _reportCloseCreateModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportCreateModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <h3>리포트 만들기</h3>
+        <button class="modal-close" onclick="_reportCloseCreateModal()"><span class="material-icons-round notranslate" translate="no">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">리포트 제목 <span style="color:var(--pink)">*</span></label>
+          <input type="text" class="form-input" id="reportCreateTitle" maxlength="200"
+                 placeholder="예) 2026년 8월 큐텐 리뷰 리포트" oninput="_reportSyncCreateBtn()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">담긴 캠페인 ${ids.length}개</label>
+          <div style="max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.9">
+            ${camps.map(function(c){ return '<div>' + esc(c.campaign_no || '') + ' · ' + esc(c.title || '') + '</div>'; }).join('')}
+            ${missing > 0 ? '<div style="color:var(--muted)">그 밖에 ' + missing + '개 (지금 목록에 없어 이름을 못 보여줍니다)</div>' : ''}
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.7">
+          외부 서비스(포인테일 등) 결과물 붙이기는 다음 단계에서 열립니다.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseCreateModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportCreateSubmit" onclick="submitReportCreate()" disabled>리포트 만들기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const t = document.getElementById('reportCreateTitle');
+  if (t) t.focus();
+}
+
+async function submitReportCreate() {
+  const t = document.getElementById('reportCreateTitle');
+  const btn = document.getElementById('btnReportCreateSubmit');
+  const title = t ? t.value.trim() : '';
+  if (!title) return;
+  const ids = (typeof _selectedCampIds !== 'undefined' && _selectedCampIds) ? [..._selectedCampIds] : [];
+  if (!ids.length) { if (typeof toast === 'function') toast('캠페인을 1개 이상 선택하세요'); return; }
+
+  // 감사용 계정 — 기존 확인 창(confirmAuditExport)을 그대로 쓴다.
+  // ⚠️ **만들 때 한 번만 묻고 그 선택을 저장한다.** 저장하지 않으면 공유 화면이
+  //    관리자가 본 것과 **다른 숫자**를 보여준다(사양서 ⑯).
+  let includeAudit = false;
+  try {
+    const delivs = await fetchDeliverablesForReport(ids);
+    const uids = [...new Set((delivs || []).map(function(d){ return d.user_id; }).filter(Boolean))];
+    const users = await fetchInfluencersForReport(uids);
+    // ⚠️ 회원 조회에 실패하면(null) 감사용 수를 셀 수 없다 — 0으로 보지 않고 묻지도 않는다.
+    //    「없다」와 「못 물어봤다」를 같게 두면 감사용이 조용히 섞인다.
+    if (users) {
+      const auditCount = Object.values(users).filter(function(u){ return u && u.is_audit; }).length;
+      const choice = await confirmAuditExport(auditCount);
+      if (choice === 'cancel') return;
+      includeAudit = (choice === 'include');
+    }
+  } catch (e) { console.warn('[submitReportCreate] 감사용 확인 건너뜀', e); }
+
+  if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
+  try {
+    const id = await createCampaignReport(title, ids, includeAudit);
+    _reportCloseCreateModal();
+    if (typeof toast === 'function') toast('리포트를 만들었습니다');
+    // 목록을 새로고침 없이 갱신 — PANE_REFRESHERS 에 'reports' 가 등록돼 있어야 동작한다.
+    //   ⚠️ 등록이 빠지면 오류가 아니라 console.warn 한 줄만 남고 목록이 그대로다.
+    if (typeof refreshPane === 'function') await refreshPane('reports');
+    return id;
+  } catch (e) {
+    // 🔴 서버가 거부한 사유를 그대로 보여준다. 「알 수 없는 오류」로 덮지 않는다 —
+    //    이 저장소는 오류를 일반 문구로 덮어 3개월간 죽은 기능을 못 본 적이 있다.
+    if (btn) { btn.disabled = false; btn.textContent = '리포트 만들기'; }
+    if (typeof toast === 'function') toast('만들지 못했습니다 — ' + ((e && e.message) || e));
+    console.error('[submitReportCreate]', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 목록 그리기 — 작업 8
+// ══════════════════════════════════════════════════════════════
+
+function renderReportList(list) {
+  const body = document.getElementById('reportListBody');
+  if (!body) return;
+
+  // ⚠️ 조회 실패(null)와 0건([])을 **다르게** 그린다.
+  //    합치면 「아직 안 만든 것」과 「못 물어본 것」이 화면에서 같아진다.
+  if (list === null || list === undefined) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--pink);font-size:13px">목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</td></tr>';
+    return;
+  }
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">아직 만든 리포트가 없습니다.<br><span style="font-size:12px">「캠페인 관리」에서 캠페인을 고른 뒤 「리포트 만들기」를 누르세요.</span></td></tr>';
+    return;
+  }
+  body.innerHTML = list.map(function(r) {
+    // ⚠️ 캠페인 수·외부 첨부 수는 목록 조회에 아직 없다(작업 12에서 외부 표가 생긴다).
+    //    없는 값을 0 으로 그리면 「담긴 캠페인이 없다」로 읽히므로 '-' 로 둔다.
+    const nCamp = (r.campaign_count === null || r.campaign_count === undefined) ? '-' : r.campaign_count;
+    const nExt  = (r.ext_count === null || r.ext_count === undefined) ? '-' : r.ext_count;
+    return `<tr>
+      <td><strong>${esc(r.title || '(제목 없음)')}</strong></td>
+      <td style="text-align:center">${nCamp}</td>
+      <td style="text-align:center">${nExt}</td>
+      <td>${esc(r.created_by_name || '-')}</td>
+      <td>${fmtDate(r.created_at)}</td>
+      <td>${fmtDate(r.updated_at)}</td>
+    </tr>`;
+  }).join('');
 }
