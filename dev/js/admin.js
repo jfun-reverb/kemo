@@ -580,23 +580,24 @@ async function loadAdminCampaigns(useCache) {
         const bs = '';
         const pp = c.product_ko || c.product || '';
         const ps = (c.product_ko && c.product && c.product_ko !== c.product) ? c.product : '';
-        return `<td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
+        // 브랜드·제품은 한 줄로(넘치면 … + 마우스를 올리면 전체) — 열이 두 줄로 접히지 않게(2026-09-04 사용자 요청)
+        return `<td style="font-size:12px;color:var(--ink);min-width:150px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(bp)}">
           ${bp?esc(bp):'—'}
-          ${bs?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(bs)}</div>`:''}
+          ${bs?`<div style="font-size:10px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis">${esc(bs)}</div>`:''}
         </td>
-        <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
+        <td style="font-size:12px;color:var(--ink);min-width:180px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(pp)}">
           ${pp?esc(pp):'—'}
-          ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
+          ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis">${esc(ps)}</div>`:''}
         </td>`;
       })()}
       <td style="white-space:nowrap;min-width:90px">${statusBadge(c)}</td>
       <td style="text-align:center;white-space:nowrap;min-width:64px">${visibilityToggle(c.status)}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
+      <td style="white-space:nowrap;min-width:210px">
+        <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+          <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden;flex-shrink:0">
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
           </div>
-          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${cc.total>0?'var(--ink)':'var(--muted)'};border-color:var(--line)" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
+          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;white-space:nowrap;color:${cc.total>0?'var(--ink)':'var(--muted)'};border-color:var(--line)" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
             ${cc.total} / ${c.slots}명
           </button>
           <span style="font-size:10px;font-weight:600;color:${approvedCnt>0?'var(--pink)':'var(--muted)'}">${approvedCnt}승인${pendingCnt>0?` · <span style="color:var(--gold)">${pendingCnt}대기</span>`:''}</span>

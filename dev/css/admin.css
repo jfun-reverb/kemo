@@ -303,7 +303,7 @@ input.admin-filter{padding-right:8px}
    2026-05-15 확장: 모집기간·구매기간·제출마감·조회 컬럼 추가로 표 폭 증가.
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
-#adminPane-campaigns .data-table{min-width:2150px}
+#adminPane-campaigns .data-table{min-width:2400px}  /* 2026-09-04 브랜드·제품·신청 열을 한 줄로 넓히며 2150 → 2400 */
 /* 「삭제됨」 탭(7컬럼)은 활성 목록용 min-width(2150)·1~3열 sticky/폭 강제 대신 콘텐츠 폭 + 캠페인명(첫 열)만 좌측 고정 */
 #adminPane-campaigns .data-table.deleted-mode{min-width:0;width:100%}
 /* 활성 목록의 캠페인(2)·채널(3) 폭·sticky 강제를 삭제됨 컬럼 구성(캠페인/채널/브랜드…)에 맞게 해제 —
