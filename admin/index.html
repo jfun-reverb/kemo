@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788442982';
+  var CURRENT_BUILD = 'v1788443125';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2372,6 +2372,12 @@ input.admin-filter{padding-right:8px}
 #bulkCampaignMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
+/* 리포트 「캠페인 추가」 모달 — 일괄발송 모달과 같은 처리. 모달 안에서 떠 있는 드롭다운은
+   모달 본문 아래로 잘리므로 펼친 채(static) 둔다. (2026-09-03 브라우저에서 잘림 확인) */
+#reportAddCampMulti { display: block; }
+#reportAddCampMulti .mf-btn { width: 100%; }
+#reportAddCampMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 260px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
+#reportAddCampMulti .mf-item-sub { font-family: inherit; }
 /* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
 #bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
@@ -2999,7 +3005,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 22:43 · 83c5d7d</span>
+          <span class="admin-build-text">2026-09-03 22:45 · 89f5fc1</span>
         </div>
       </div>
     </aside>
