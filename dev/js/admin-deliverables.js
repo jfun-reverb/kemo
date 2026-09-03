@@ -333,8 +333,10 @@ async function renderDeliverablesList() {
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
       // 검수 불필요(신청 반려·취소)는 검수 상태 필터 대상이 아님 — 상태 필터 선택 시 제외
       if (isCertExcluded(g)) return false;
-      // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 영수증 단계가 없음
-      if (g.campaign?.recruit_type !== 'monitor') return false;
+      // 이미지 칸은 리뷰어형(영수증)과 방문형(현장 사진)이 함께 쓴다 — 기프팅만 제외.
+      //   ⚠️ 방문형을 빼면 「검수중」으로 걸러도 현장 사진이 안 나와 찾을 방법이 없다.
+      const _rtF = g.campaign?.recruit_type;
+      if (_rtF !== 'monitor' && _rtF !== 'visit') return false;
       const s = g.receipt ? g.receipt.status : 'none';
       if (!receiptStatusVals.includes(s)) return false;
     }
@@ -472,8 +474,9 @@ async function renderDeliverablesList() {
   if (delivCampVals.length > 0) filtered = filtered.filter(g => g.campaign && delivCampVals.includes(g.campaign.id));
   if (receiptStatusVals.length > 0) filtered = filtered.filter(g => {
     if (isCertExcluded(g)) return false;  // 검수 불필요는 검수 상태 필터 대상 아님
-    // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 표시 안 함
-    if (g.campaign?.recruit_type !== 'monitor') return false;
+    // 이미지 칸은 리뷰어형(영수증)과 방문형(현장 사진)이 함께 쓴다 — 기프팅만 제외.
+    const _rtF2 = g.campaign?.recruit_type;
+    if (_rtF2 !== 'monitor' && _rtF2 !== 'visit') return false;
     const s = g.receipt ? g.receipt.status : 'none';
     return receiptStatusVals.includes(s);
   });
@@ -1024,8 +1027,12 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   const small = (slot === 'result' || slot === 'receipt');
   const badgeFs = small ? '10px' : '11px';
   const badgePad = small ? '1px 6px' : '2px 8px';
-  // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
-  if (slot === 'receipt' && rt !== 'monitor') {
+  // 영수증 칸은 리뷰어형(영수증)과 **방문형(현장 사진)** 이 함께 쓴다.
+  //   ⚠️ 인플루언서 화면이 방문형에도 이미지 폼을 띄우므로(application.js `showImage`)
+  //      방문형은 실제로 `receipt` 종류로 현장 사진을 낸다. 여기서 「—」로 그리면
+  //      **낸 것이 관리자 화면에서 통째로 사라진다**(2026-09-03 운영 실측 133건).
+  //   기프팅은 이미지 단계가 없으므로 종전대로 「—」.
+  if (slot === 'receipt' && rt !== 'monitor' && rt !== 'visit') {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
   }
   if (!d) {
@@ -1417,8 +1424,13 @@ async function renderDelivCombinedBody(applicationId) {
     resultEvents = fetched[1];
   }
 
-  // 영수증 패널은 monitor에서만 노출. gifting/visit은 영수증 단계 없음.
-  const showReceipt = rt === 'monitor';
+  // 이미지 패널은 리뷰어형(영수증)과 **방문형(현장 사진)** 에서 노출한다.
+  //   🔴 2026-09-03 이전에는 `rt === 'monitor'` 뿐이라 **방문형 현장 사진이 이 창에
+  //      아예 안 그려졌다.** 회원은 내는데 관리자는 볼 수도 검수할 수도 없었다.
+  //   ⚠️ 여기서 「보이게」만 한다 — 인증 성공 판정(방문형 = 게시물 기준)과 정산은
+  //      건드리지 않았다. 아래 `useReceipt`(완료 표시)도 리뷰어형 그대로 둔다.
+  const showReceipt = rt === 'monitor' || rt === 'visit';
+  const receiptPanelLabel = rt === 'visit' ? '현장 사진' : '영수증';
   const resultLabel = rt === 'monitor' ? '결과물 (리뷰 캡쳐)' : '결과물 (게시 URL)';
   const stepLabel = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 1</span>' : '';
   const stepLabel2 = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 2</span>' : '';
@@ -1575,7 +1587,7 @@ async function renderDelivCombinedBody(applicationId) {
     <div class="${gridClass}">
       ${showReceipt
         ? `<div class="deliv-combined-panel">
-            <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
+            <div class="deliv-combined-panel-header"><span>${receiptPanelLabel} ${stepLabel}</span>${receiptStatusBadge}</div>
             <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents, isExcluded)}</div>
           </div>`
         : ''}
@@ -2000,7 +2012,11 @@ function renderDelivPanelContent(d, events, isExcluded) {
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
     // review_image kind는 해당 없음
-    if (d.kind === 'receipt') {
+    //   ⚠️ **방문형은 제외한다** — 현장 사진은 같은 `receipt` 종류로 오지만
+    //      주문번호·구매일·구매금액이 애초에 없다. 그리면 빨간 「미입력」이 세 줄 뜨는데
+    //      그건 안 낸 것이 아니라 **낼 것이 없는 것**이라 읽는 사람을 속인다.
+    const _infoCamp = d.campaigns || _panelCamp || {};
+    if (d.kind === 'receipt' && _infoCamp.recruit_type !== 'visit') {
       html += renderReceiptInfoBlock(d, isExcluded);
     }
   } else {
