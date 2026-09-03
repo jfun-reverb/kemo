@@ -239,16 +239,23 @@ async function buildAdminEmail(row: BrandApplication, adminUrl: string): Promise
     return ja && ja !== ko ? `${ko} / ${ja}` : ko;
   };
 
+  // 숫자 칸 안전 처리 — 익명 경로로 들어온 값이라 숫자라고 믿지 않는다.
+  // ⚠️ String.prototype.toLocaleString 이 있어 문자열이 그대로 통과한다 — 그래서 먼저 Number 로 걸러낸다.
+  const fmtNum = (v: unknown): string => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n.toLocaleString("ja-JP") : "-";
+  };
+
   const productLines = (row.products || [])
-    .map((p, i) => `${i + 1}. ${fmtProdName(p)} · ¥${(p.price ?? 0).toLocaleString("ja-JP")} × ${p.qty ?? 0}`)
+    .map((p, i) => `${i + 1}. ${fmtProdName(p)} · ¥${fmtNum(p.price)} × ${fmtNum(p.qty)}`)
     .join("\n");
 
   const productsHtml = (row.products || [])
     .map(
       (p) =>
         `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(fmtProdName(p))}</td>` +
-        `<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">¥${(p.price ?? 0).toLocaleString("ja-JP")}</td>` +
-        `<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${p.qty ?? 0}</td></tr>`
+        `<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">¥${escapeHtml(fmtNum(p.price))}</td>` +
+        `<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${escapeHtml(fmtNum(p.qty))}</td></tr>`
     )
     .join("");
 
