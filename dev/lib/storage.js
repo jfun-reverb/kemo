@@ -1724,8 +1724,7 @@ async function fetchCampaignReports() {
         created_at: r.o_created_at, updated_at: r.o_updated_at,
         include_audit: r.o_include_audit, version: r.o_version,
         campaign_count: Number(r.o_campaign_count || 0),
-        // ⚠️ 외부 첨부 수는 **아직 없다** — 그 표가 작업 12에서 생긴다.
-        //    0 으로 채우면 화면이 「첨부 0건」이라 단정하므로 undefined 로 둔다.
+        ext_count: Number(r.o_source_count || 0),   // 410 부터 서버가 센다
       };
     });
   } catch (e) { console.error('[fetchCampaignReports]', e); return null; }
@@ -1838,6 +1837,34 @@ async function updateReportTitle(reportId, title) {
   const {data, error} = await db.rpc('update_report_title', {p_report_id: reportId, p_title: title});
   if (error) { console.error('[updateReportTitle]', error); throw error; }
   return !!data;
+}
+
+// ── 리포트 외부 첨부 (마이그레이션 409·410) ──
+async function addReportSource(reportId, serviceCode, extNo, extName, fileName, rows) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('add_report_source', {
+    p_report_id: reportId, p_service_code: serviceCode, p_ext_no: extNo,
+    p_ext_name: extName, p_file_name: fileName, p_rows: rows || []
+  });
+  if (error) { console.error('[addReportSource]', error); throw error; }
+  return data || null;
+}
+async function removeReportSource(sourceId) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('remove_report_source', {p_source_id: sourceId});
+  if (error) { console.error('[removeReportSource]', error); throw error; }
+  return !!data;
+}
+// 첨부의 참가자 행. 실패 null / 0건 []. 563행이면 1,000 한도 안이지만 습관대로 페이지 반복.
+async function fetchReportExtRows(sourceIds) {
+  if (!db) return null;
+  const ids = [...new Set((sourceIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    return await fetchAllPaged(() => db.from('campaign_report_ext_rows')
+      .select('id, source_id, member_no, account_id, mission_status, order_no, purchase_amount, receipt_url, receipt_at, review_kind, qoo10_urls, qoo10_at, cosme_urls, cosme_at')
+      .in('source_id', ids).order('member_no'));
+  } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
 }
 
 async function fetchDeliverableEvents(deliverableId) {

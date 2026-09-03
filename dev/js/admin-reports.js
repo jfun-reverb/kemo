@@ -223,6 +223,31 @@ function buildReportRows(delivs, camps, usersById) {
   });
 }
 
+// 외부(포인테일) 참가자 행 → 표준 16칸 행. 작업 16.
+//   ⚠️ 이름 2칸·구매일은 **비운다** — 원본에 없다. 없는 것을 지어내지 않는다.
+//   ⚠️ 캠페인명은 **관리자가 모달에 적은 이름**(사양서 표 3번 칸).
+//   구분: 'A-1' = 텍스트 리뷰 · 'A-2' = 포토 리뷰 · 리뷰 없이 구매만이면 'A'
+function _reportExtToRow(r, src) {
+  const kind = r.review_kind === 'photo' ? 'A-2' : (r.review_kind === 'text' ? 'A-1' : 'A');
+  return {
+    src: kind,
+    no: 0,
+    account_id: r.account_id || '',
+    campaign_name: src ? (src.ext_campaign_name || '') : '',
+    purchase_period: '',
+    status: r.mission_status || '',
+    order_no: r.order_no || '',
+    purchase_date: '',
+    amount: (r.purchase_amount === null || r.purchase_amount === undefined) ? '' : r.purchase_amount,
+    receipt_url: r.receipt_url || '',
+    receipt_uploaded_at: r.receipt_at || '',
+    name_kanji: '', name_kana: '',
+    ch_qoo10_url: r.qoo10_urls || '', ch_qoo10_kind: r.qoo10_urls ? 'photo' : '', ch_qoo10_at: r.qoo10_at || '',
+    ch_cosme_url: r.cosme_urls || '', ch_cosme_kind: r.cosme_urls ? 'photo' : '', ch_cosme_at: r.cosme_at || '',
+    _ext: true, _source_id: r.source_id, _member_no: r.member_no,
+  };
+}
+
 // ══════════════════════════════════════════════════════════════
 // 만들기 창 — 작업 7
 //
@@ -237,14 +262,11 @@ function buildReportRows(delivs, camps, usersById) {
 function _reportCloseCreateModal() {
   const m = document.getElementById('reportCreateModal');
   if (m) m.remove();
+  _reportSrcBlocks = [];
 }
 
 // 제목이 비면 「리포트 만들기」를 못 누르게 한다.
-function _reportSyncCreateBtn() {
-  const t = document.getElementById('reportCreateTitle');
-  const b = document.getElementById('btnReportCreateSubmit');
-  if (t && b) b.disabled = !t.value.trim();
-}
+function _reportSyncCreateBtn() { _reportSrcSyncSubmit(); }   // 제목 + 외부 블록 상태를 함께 본다
 
 async function openReportCreateModal() {
   const ids = (typeof _selectedCampIds !== 'undefined' && _selectedCampIds) ? [..._selectedCampIds] : [];
@@ -277,9 +299,11 @@ async function openReportCreateModal() {
             ${missing > 0 ? '<div style="color:var(--muted)">그 밖에 ' + missing + '개 (지금 목록에 없어 이름을 못 보여줍니다)</div>' : ''}
           </div>
         </div>
-        <p style="font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.7">
-          외부 서비스(포인테일 등) 결과물 붙이기는 다음 단계에서 열립니다.
-        </p>
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">외부 서비스 결과물 <span style="font-weight:400;color:var(--muted)">(선택 · 몇 개든 · 안 붙여도 됩니다)</span></label>
+          <div id="reportSrcBlocks"></div>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="addSourceBlock()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="_reportCloseCreateModal()">취소</button>
@@ -287,6 +311,8 @@ async function openReportCreateModal() {
       </div>
     </div>`;
   document.body.appendChild(wrap);
+  _reportSrcBlocks = [];
+  _reportSrcRender();
   const t = document.getElementById('reportCreateTitle');
   if (t) t.focus();
 }
@@ -296,6 +322,7 @@ async function submitReportCreate() {
   const btn = document.getElementById('btnReportCreateSubmit');
   const title = t ? t.value.trim() : '';
   if (!title) return;
+  if (!_reportSrcAllValid()) { toast('외부 블록의 빈 칸을 채우거나 삭제해 주세요'); return; }
   const ids = (typeof _selectedCampIds !== 'undefined' && _selectedCampIds) ? [..._selectedCampIds] : [];
   if (!ids.length) { if (typeof toast === 'function') toast('캠페인을 1개 이상 선택하세요'); return; }
 
@@ -320,8 +347,10 @@ async function submitReportCreate() {
   if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
   try {
     const id = await createCampaignReport(title, ids, includeAudit);
+    // 외부 블록 저장 — 리포트가 생긴 뒤에. 실패해도 리포트는 남는다(다시 붙일 수 있다).
+    const failed = await _reportSrcSaveAll(id);
     _reportCloseCreateModal();
-    if (typeof toast === 'function') toast('리포트를 만들었습니다');
+    if (typeof toast === 'function') toast(failed.length ? '리포트는 만들었지만 첨부 일부 실패 — ' + failed.join(', ') : '리포트를 만들었습니다');
     // 목록을 새로고침 없이 갱신 — PANE_REFRESHERS 에 'reports' 가 등록돼 있어야 동작한다.
     //   ⚠️ 등록이 빠지면 오류가 아니라 console.warn 한 줄만 남고 목록이 그대로다.
     if (typeof refreshPane === 'function') await refreshPane('reports');
@@ -421,6 +450,12 @@ const REPORT_COLS = [
 //   그래서 게시물에는 ↗ 를 붙여 **새 탭으로 나간다는 것을 미리** 알린다.
 function _reportChannelCellHtml(url, kind) {
   if (!url) return '';
+  // 외부(포인테일) 증빙은 여러 장이 줄바꿈으로 온다 — 한 장씩 「사진 1·2·3」으로 각각 연다.
+  const list = String(url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
+  if (list.length > 1) {
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}')">사진 ${i+1}</a>`; }).join(' · ');
+  }
+  url = list[0] || url;
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
   const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
   if (kind === 'photo') {
@@ -433,7 +468,11 @@ function _reportRowHtml(r) {
   const cells = REPORT_COLS.map(function(c) {
     if (c.key === 'receipt_url') {
       // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
-      return r.receipt_url ? `<td><a href="javascript:void(0)" onclick="openImageLightbox('${esc(r.receipt_url)}')">열기</a></td>` : '<td></td>';
+      if (!r.receipt_url) return '<td></td>';
+      const rl = String(r.receipt_url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
+      return '<td>' + (rl.length > 1
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}')">사진 ${i+1}</a>`; }).join(' · ')
+        : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}')">열기</a>`) + '</td>';
     }
     if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind)}</td>`;
     if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind)}</td>`;
@@ -479,8 +518,17 @@ async function openReport(reportId) {
     rows.forEach(function(r, i){ r.no = i + 1; });   // 뺀 뒤 번호를 다시 매긴다
   }
 
-  // 외부(포인테일 등) 붙인 시각 — 아직 그 표가 없어(작업 12) 늘 비어 있다.
-  const extAttachedAt = rep.ext_attached_at || null;
+  // 외부(포인테일 등) — 첨부 목록과 참가자 행. 「붙인 시각」은 가장 늦게 붙인 것.
+  const sources = rep.sources || [];
+  const extAttachedAt = sources.length ? sources.map(function(s){ return s.attached_at; }).sort().slice(-1)[0] : null;
+  const extRows = sources.length ? await fetchReportExtRows(sources.map(function(s){ return s.id; })) : [];
+  const extFailed = (extRows === null);
+  const srcById = {}; sources.forEach(function(s){ srcById[s.id] = s; });
+  const extStd = (extRows || []).map(function(r) { return _reportExtToRow(r, srcById[r.source_id]); });
+  // 🔴 REVERB 행 뒤에 외부 행을 잇고 번호를 다시 매긴다 — 한 표에서 「구분」 열로만 갈린다.
+  rows = rows.concat(extStd);
+  rows.forEach(function(r, i){ r.no = i + 1; });
+  const maskedN = extStd.filter(function(r){ return /\*\*/.test(r.account_id || ''); }).length;
   const deletedCount = camps.filter(function(c){ return !c._exists; }).length;
   const purchaseN = rows.filter(function(r){ return r.receipt_url; }).length;
   const reviewN   = rows.filter(function(r){ return r.ch_qoo10_url || r.ch_cosme_url; }).length;
@@ -506,12 +554,13 @@ async function openReport(reportId) {
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
           <button class="btn btn-ghost btn-xs" onclick="openReportRenameModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">edit</span> 제목 수정</button>
           <button class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 캠페인 추가</button>
+          <button class="btn btn-ghost btn-xs" onclick="openAddSourceToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">attach_file</span> 파일 붙이기</button>
           <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
         </div>
       </div>
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
-        <strong>요약</strong> · 캠페인 ${camps.length}개 · 인원 ${rows.length}명 · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 리뷰 ${reviewN}
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
           ${(rep.campaigns || []).map(function(c) {
             // ⚠️ 원본이 지워진 줄은 회색으로, 이름은 그대로(스냅샷). 뺄 수는 있다.
@@ -526,6 +575,13 @@ async function openReport(reportId) {
         ${deletedCount > 0 ? `<div style="color:var(--pink);font-size:12px">⚠️ 담긴 캠페인 중 ${deletedCount}개는 원본이 지워져 이름만 남아 있습니다 — 그 캠페인의 결과물은 표에 없습니다.</div>` : ''}
         ${rep.include_audit ? '<div style="color:var(--muted);font-size:12px">감사용 계정을 포함해 만든 리포트입니다.</div>' : ''}
         ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
+        ${extFailed ? '<div style="color:var(--pink);font-size:12px">⚠️ 외부 참가자 행을 불러오지 못했습니다 — 표에 외부 행이 빠져 있습니다.</div>' : ''}
+        ${sources.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><span style="font-size:12px;color:var(--muted)">외부 첨부</span>
+          ${sources.map(function(s){ return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:8px" title="${esc(s.file_name || '')} · ${esc(formatDateTime(s.attached_at))} · ${esc(s.attached_by_name || '')}">
+              ${esc(s.ext_campaign_no)} ${esc(s.ext_campaign_name)} · ${s.row_count}명
+              <button type="button" onclick="removeSourceFromReport('${esc(reportId)}','${esc(s.id)}','${esc(s.ext_campaign_no)}')" title="이 첨부를 뗍니다" style="border:0;background:none;padding:0;cursor:pointer;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">close</span></button>
+            </span>`; }).join('')}</div>` : ''}
+        ${maskedN ? '<div style="color:var(--muted);font-size:12px">포인테일이 이미 가려서 보낸 계정이 ' + maskedN + '건 있습니다(원본부터 ** 로 가려져 있음).</div>' : ''}
       </div>
 
       <div class="admin-table-wrap" style="overflow-x:auto">
@@ -797,4 +853,168 @@ async function submitAddCampaignsToReport(reportId) {
     if (btn) { btn.disabled = false; btn.textContent = '추가'; }
     toast('더하지 못했습니다 — ' + ((e && e.message) || e));
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 외부 서비스 블록 — 작업 15 (만들기 모달 · 기존 리포트 「파일 붙이기」 공용)
+//   파일은 브라우저에서 읽어 **파싱 결과만** 서버에 보낸다. 원본 파일은 저장하지 않는다.
+//   파일 고르기는 인플루언서 증빙 첨부와 같은 「라벨 안에 숨긴 <input type=file>」 패턴.
+// ══════════════════════════════════════════════════════════════
+
+// 블록 상태 — 모달이 열려 있는 동안만 산다. { idx, service, extNo, extName, fileName, parsed, busy, error }
+let _reportSrcBlocks = [];
+let _reportSrcSeq = 0;
+
+function _reportSrcContainer() { return document.getElementById('reportSrcBlocks'); }
+
+function _reportSrcBlockHtml(b) {
+  const opts = REPORT_SERVICES.map(function(s){ return `<option value="${s.code}" ${b.service===s.code?'selected':''}>${esc(s.label)}</option>`; }).join('');
+  let fileLine;
+  if (b.busy) fileLine = '<span style="color:var(--muted)">읽는 중…</span>';
+  else if (b.error) fileLine = `<span style="color:var(--pink)">${esc(b.error)}</span>`;
+  else if (b.parsed) {
+    const s = b.parsed.summary;
+    fileLine = `<span style="color:var(--ink)">✓ ${s.people}명 · 구매 ${s.buyers} / 리뷰 텍스트 ${s.reviewText} · 포토 ${s.reviewPhoto}${s.hasCosme ? ' · @cosme ' + s.cosme : ''} / 완료 ${s.completed}</span>`
+             + (s.maskedAccounts ? `<div style="font-size:11px;color:var(--muted)">포인테일이 이미 가려서 보낸 계정 ${s.maskedAccounts}건</div>` : '');
+  } else fileLine = '<span style="color:var(--muted)">파일을 고르세요 (.xlsx)</span>';
+  const bad = b.touched && (!b.extNo.trim() || !b.extName.trim() || !b.parsed);
+  return `
+    <div id="reportSrcBlock-${b.idx}" style="border:1px solid ${bad ? 'var(--pink)' : 'var(--line)'};border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <select class="form-input" style="flex:0 0 180px" onchange="_reportSrcSet(${b.idx},'service',this.value)">${opts}</select>
+        <button type="button" class="btn btn-ghost btn-xs" style="margin-left:auto;color:var(--pink)" onclick="removeSourceBlock(${b.idx})">삭제</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:8px">
+        <input type="text" class="form-input" placeholder="캠페인 번호 (예: 102905)" value="${esc(b.extNo)}" oninput="_reportSrcSet(${b.idx},'extNo',this.value)">
+        <input type="text" class="form-input" placeholder="캠페인명 (표에 이대로 실립니다)" value="${esc(b.extName)}" oninput="_reportSrcSet(${b.idx},'extName',this.value)">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px">
+        <label style="display:inline-flex;align-items:center;gap:4px;color:var(--pink);cursor:pointer;flex-shrink:0">
+          <input type="file" accept=".xlsx" style="display:none" onchange="_reportSrcFile(${b.idx}, this)">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px">attach_file</span><span>엑셀 파일</span>
+        </label>
+        <span style="flex:1;min-width:0">${b.fileName ? '<span style="color:var(--muted)">' + esc(b.fileName) + ' · </span>' : ''}${fileLine}</span>
+      </div>
+    </div>`;
+}
+
+function _reportSrcRender() {
+  const c = _reportSrcContainer();
+  if (!c) return;
+  c.innerHTML = _reportSrcBlocks.map(_reportSrcBlockHtml).join('')
+    || '<div style="font-size:12px;color:var(--muted);padding:6px 0">붙인 파일이 없습니다. 없어도 만들 수 있습니다.</div>';
+  _reportSrcSyncSubmit();
+}
+
+// 만들기/붙이기 버튼 — 읽는 중이거나 한 칸이라도 비면 못 누른다
+function _reportSrcAllValid() {
+  return _reportSrcBlocks.every(function(b){ return !b.busy && b.extNo.trim() && b.extName.trim() && b.parsed; });
+}
+function _reportSrcSyncSubmit() {
+  const btn = document.getElementById('btnReportCreateSubmit') || document.getElementById('btnReportAttachSubmit');
+  if (!btn) return;
+  const title = document.getElementById('reportCreateTitle');
+  const titleOk = title ? !!title.value.trim() : true;
+  btn.disabled = !(titleOk && _reportSrcAllValid() && (btn.id !== 'btnReportAttachSubmit' || _reportSrcBlocks.length > 0));
+}
+
+function addSourceBlock() {
+  _reportSrcBlocks.push({ idx: ++_reportSrcSeq, service: 'pointail', extNo: '', extName: '', fileName: '', parsed: null, busy: false, error: '', touched: false });
+  _reportSrcRender();
+}
+function removeSourceBlock(idx) {
+  _reportSrcBlocks = _reportSrcBlocks.filter(function(b){ return b.idx !== idx; });
+  _reportSrcRender();
+}
+function _reportSrcSet(idx, key, val) {
+  const b = _reportSrcBlocks.find(function(x){ return x.idx === idx; });
+  if (!b) return;
+  b[key] = val; b.touched = true;
+  // 값만 바뀌면 다시 그리지 않는다(입력 초점을 잃는다) — 버튼 상태·테두리만 갱신
+  const el = document.getElementById('reportSrcBlock-' + idx);
+  if (el) el.style.borderColor = (!b.extNo.trim() || !b.extName.trim() || !b.parsed) ? 'var(--pink)' : 'var(--line)';
+  _reportSrcSyncSubmit();
+}
+
+async function _reportSrcFile(idx, input) {
+  const b = _reportSrcBlocks.find(function(x){ return x.idx === idx; });
+  const f = input && input.files && input.files[0];
+  if (!b || !f) return;
+  b.fileName = f.name; b.busy = true; b.error = ''; b.parsed = null; b.touched = true;
+  _reportSrcRender();
+  try {
+    const buf = await f.arrayBuffer();
+    const parser = REPORT_PARSERS[b.service];
+    const res = parser ? await parser(buf) : { ok:false, reason:'모르는 서비스입니다' };
+    if (!res.ok) { b.error = res.reason || '읽지 못했습니다'; }
+    else {
+      b.parsed = res;
+      // 파일 이름에 번호가 있으면 비어 있는 번호 칸을 채워 준다 — (260903)캠페인 리포트_102905.xlsx
+      if (!b.extNo.trim()) { const m = f.name.match(/_(\d{4,})/); if (m) b.extNo = m[1]; }
+    }
+  } catch (e) { b.error = '읽는 중 오류 — ' + ((e && e.message) || e); }
+  b.busy = false;
+  _reportSrcRender();
+}
+
+// 블록들을 서버에 저장한다(만들기 직후 · 붙이기 모달 공용). 실패한 블록 이름을 돌려준다.
+async function _reportSrcSaveAll(reportId) {
+  const failed = [];
+  for (const b of _reportSrcBlocks) {
+    if (!b.parsed) continue;
+    try { await addReportSource(reportId, b.service, b.extNo.trim(), b.extName.trim(), b.fileName, b.parsed.rows); }
+    catch (e) { failed.push(b.extName || b.extNo); console.error('[reportSrcSave]', e); }
+  }
+  return failed;
+}
+
+// ── 기존 리포트에 「파일 붙이기」 ──
+function _reportCloseAttachModal() { const m = document.getElementById('reportAttachModal'); if (m) m.remove(); _reportSrcBlocks = []; }
+
+async function openAddSourceToReport(reportId) {
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) { toast('리포트를 찾지 못했습니다'); return; }
+  _reportCloseAttachModal();
+  _reportSrcBlocks = [];
+  const have = (rep.sources || []);
+  const wrap = document.createElement('div');
+  wrap.id = 'reportAttachModal';
+  wrap.className = 'modal-overlay open';
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>외부 결과물 붙이기</h2>
+        <button class="modal-close" onclick="_reportCloseAttachModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="overflow-y:auto">
+        ${have.length ? '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">이미 붙은 것: ' + have.map(function(s){ return esc(s.ext_campaign_no + ' ' + s.ext_campaign_name); }).join(' · ') + '<br>같은 번호를 다시 붙이면 <strong>그 파일이 갱신</strong>됩니다.</p>' : ''}
+        <div id="reportSrcBlocks"></div>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="addSourceBlock()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+        <p style="font-size:11px;color:var(--muted);margin:10px 0 0;line-height:1.7">파일은 이 브라우저에서 읽어 <strong>참가자 행만</strong> 저장합니다. 원본 파일은 저장하지 않습니다.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseAttachModal()">취소</button>
+        <button class="btn btn-primary" id="btnReportAttachSubmit" onclick="submitAttachSources('${esc(reportId)}')" disabled>붙이기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  addSourceBlock();
+}
+
+async function submitAttachSources(reportId) {
+  if (!_reportSrcAllValid() || !_reportSrcBlocks.length) return;
+  // 같은 번호가 이미 있으면 갱신임을 되묻는다(사양서 ⑩ — 추가가 아니라 갱신)
+  const rep = await fetchCampaignReport(reportId);
+  const dup = _reportSrcBlocks.filter(function(b){ return (rep.sources||[]).some(function(s){ return s.service_code===b.service && s.ext_campaign_no===b.extNo.trim(); }); });
+  if (dup.length && !window.confirm('「' + dup.map(function(b){ return b.extNo; }).join('」·「') + '」은(는) 이미 붙어 있습니다.\n새 파일로 갱신할까요? (이전 행은 전부 교체됩니다)')) return;
+  const btn = document.getElementById('btnReportAttachSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
+  const failed = await _reportSrcSaveAll(reportId);
+  _reportCloseAttachModal();
+  toast(failed.length ? '일부 실패 — ' + failed.join(', ') : '붙였습니다');
+  await openReport(reportId);
+}
+
+async function removeSourceFromReport(reportId, sourceId, label) {
+  if (!window.confirm('「' + label + '」 첨부를 뗍니다. 그 참가자 행이 표에서 사라집니다. 계속할까요?')) return;
+  try { await removeReportSource(sourceId); toast('뗐습니다'); await openReport(reportId); }
+  catch (e) { toast('떼지 못했습니다 — ' + ((e && e.message) || e)); }
 }
