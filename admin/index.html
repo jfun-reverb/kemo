@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788450826';
+  var CURRENT_BUILD = 'v1788451371';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-04 00:53 · 0f189f3</span>
+          <span class="admin-build-text">2026-09-04 01:02 · 9d229ab</span>
         </div>
       </div>
     </aside>
@@ -45201,7 +45201,7 @@ async function loadReportsPane() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 16칸 표 만들기 — 작업 6
+// 표 행 만들기 — 작업 6 (사양서 16칸 + 캠페인 번호 = 17칸, 2026-09-04)
 //   사양서 「표 양식 (구글시트 16칸 그대로)」
 //
 // 한 사람 = 한 줄. 큐텐과 엣코스메가 **한 줄 안에서** 칸을 나눠 가진다.
@@ -45346,8 +45346,9 @@ function buildReportRows(delivs, camps, usersById) {
     return {
       src: 'B',                                            // 구분 — REVERB
       no: i + 1,                                           // 1
-      account_id: u ? (u.email || '') : unknown,           // 2
+      campaign_no: camp.campaign_no || '',                 // 2 (2026-09-04)
       campaign_name: camp.title || '',                     // 3
+      account_id: u ? (u.email || '') : unknown,           // 11 (영수증 업로드 날짜 옆)
       purchase_period: _reportPurchasePeriod(camp),        // 4
       status: _reportCertStatus(g),                        // 5
       order_no: r ? (r.order_number || '') : '',           // 6
@@ -45366,7 +45367,7 @@ function buildReportRows(delivs, camps, usersById) {
   });
 }
 
-// 외부(포인테일) 참가자 행 → 표준 16칸 행. 작업 16.
+// 외부(포인테일) 참가자 행 → 표준 행. 작업 16.
 //   ⚠️ 이름 2칸·구매일은 **비운다** — 원본에 없다. 없는 것을 지어내지 않는다.
 //   ⚠️ 캠페인명은 **관리자가 모달에 적은 이름**(사양서 표 3번 칸).
 //   구분: 'A-1' = 텍스트 리뷰 · 'A-2' = 포토 리뷰 · 리뷰 없이 구매만이면 'A'
@@ -45375,8 +45376,9 @@ function _reportExtToRow(r, src) {
   return {
     src: kind,
     no: 0,
-    account_id: r.account_id || '',
+    campaign_no: src ? (src.ext_campaign_no || '') : '',
     campaign_name: src ? (src.ext_campaign_name || '') : '',
+    account_id: r.account_id || '',
     purchase_period: '',
     status: r.mission_status || '',
     order_no: r.order_no || '',
@@ -45567,10 +45569,10 @@ let _openReport = null;
 //   ⚠️ 표기를 바꿀 일이 생기면 `ui.js` 의 그 함수를 고친다 — 여기에 사본을 만들면
 //      화면마다 날짜 모양이 갈린다(이 저장소가 같은 판정을 여러 벌 둬서 겪은 문제와 같다).
 
-// 16칸 머리글 — 사양서 「표 양식 (구글시트 16칸 그대로)」
+// 17칸 머리글 — 사양서 16칸에 「캠페인 번호」를 더했다(2026-09-04 사용자 결정: 「ID」 자리는 캠페인 번호, 계정 ID 는 업로드 날짜 옆)
 const REPORT_COLS = [
   {key:'no',                  label:'No.',              w:'46px'},
-  {key:'account_id',          label:'ID',               w:'190px'},
+  {key:'campaign_no',         label:'캠페인 번호',       w:'120px'},   // 2026-09-04: 「ID」(계정) 자리를 캠페인 번호로
   {key:'campaign_name',       label:'캠페인명',          w:'200px'},
   {key:'purchase_period',     label:'구매기간',          w:'170px'},
   {key:'status',              label:'상태',             w:'110px'},
@@ -45579,6 +45581,7 @@ const REPORT_COLS = [
   {key:'amount',              label:'구매금액',          w:'100px'},
   {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'150px'},
   {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'150px'},
+  {key:'account_id',          label:'계정 ID',           w:'190px'},   // 2026-09-04: 영수증 업로드 날짜 옆으로
   {key:'name_kanji',          label:'이름 (한자)',        w:'110px'},
   {key:'name_kana',           label:'이름 (일본어)',      w:'110px'},
   {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
@@ -45735,7 +45738,7 @@ async function openReport(reportId) {
           </tr></thead>
           <tbody>
             ${rows.length ? rows.map(_reportRowHtml).join('')
-              : `<tr><td colspan="17" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
+              : `<tr><td colspan="18" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
           </tbody>
         </table>
       </div>
