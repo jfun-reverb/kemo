@@ -1867,6 +1867,30 @@ async function fetchReportExtRows(sourceIds) {
   } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
 }
 
+// ── 리포트 공유 (마이그레이션 411~413) — 관리자 쪽 6종. 서버가 거부한 사유를 그대로 던진다.
+async function fetchReportShareStatus(reportId) {
+  if (!db) return null;
+  try { const {data, error} = await db.rpc('get_report_share_status', {p_report_id: reportId}); if (error) throw error; return data || null; }
+  catch (e) { console.error('[fetchReportShareStatus]', e); return null; }
+}
+async function enableReportShare(reportId, password, expiresAt) {
+  const {data, error} = await db.rpc('enable_report_share', {p_report_id: reportId, p_password: password || null, p_expires_at: expiresAt || null});
+  if (error) throw error; return data;
+}
+async function disableReportShare(reportId) {
+  const {data, error} = await db.rpc('disable_report_share', {p_report_id: reportId}); if (error) throw error; return !!data;
+}
+async function resetReportSharePassword(reportId, password) {
+  const {data, error} = await db.rpc('reset_report_share_password', {p_report_id: reportId, p_password: password}); if (error) throw error; return !!data;
+}
+// 🔴 원문을 볼 수 있는 유일한 통로. 부르면 「누가 언제 봤는지」가 서버에 남는다.
+async function revealReportSharePassword(reportId) {
+  const {data, error} = await db.rpc('reveal_report_share_password', {p_report_id: reportId}); if (error) throw error; return data;
+}
+async function updateReportShareSettings(reportId, expiresAt, columns) {
+  const {data, error} = await db.rpc('update_report_share_settings', {p_report_id: reportId, p_expires_at: expiresAt || null, p_columns: columns || null}); if (error) throw error; return !!data;
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
