@@ -22,7 +22,7 @@
   :root{--ink:#18181B;--muted:#6E6E77;--line:#E4E4E7;--bg:#FAFAFA;--primary:#1A1A1A;--pink:#B3261E;--head:#3F3F46}
   *{box-sizing:border-box}
   body{margin:0;font-family:'Noto Sans KR',-apple-system,sans-serif;font-size:13px;color:var(--ink);background:var(--bg)}
-  .wrap{max-width:1600px;margin:0 auto;padding:24px 20px 40px}
+  .wrap{margin:0;padding:16px 16px 40px}   /* 전체 폭 — 2026-09-04 사용자 요청. 비밀번호 화면(.gate)만 따로 가운데 */
   .card{background:#fff;border:1px solid var(--line);border-radius:12px}
   .gate{max-width:420px;margin:80px auto;padding:32px 28px;text-align:center}
   .gate h1{font-size:18px;margin:0 0 6px}
@@ -36,7 +36,12 @@
   .head h1{font-size:18px;margin:0 0 6px}
   .meta{font-size:12px;color:var(--muted);line-height:1.9}
   .meta b{color:var(--ink);font-weight:500}
-  .tblwrap{overflow-x:auto}
+  /* 좌우 스크롤 막대를 항상 보이게 — 맥은 스크롤 중에만 막대를 그려서 오른쪽에 열이 더 있는지 알 수 없다(2026-09-04 사용자 지적) */
+  .tblwrap{overflow-x:scroll}
+  .tblwrap::-webkit-scrollbar{height:12px}
+  .tblwrap::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
+  .tblwrap::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
+  .tblwrap::-webkit-scrollbar-thumb:hover{background:#999}
   /* 표는 내용 너비대로 — 열이 많으면 좌우 스크롤(2026-09-04 사용자 결정). 줄바꿈으로 접히는 것보다 낫다 */
   table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed}
   th{background:var(--head);color:#fff;font-size:12px;font-weight:600;text-align:left;padding:9px 10px;white-space:nowrap;position:sticky;top:0}
