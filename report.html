@@ -439,7 +439,6 @@ async function loadReport(ticket) {
     document.getElementById('gateErr').textContent = '다시 비밀번호를 입력해 주세요.';
     return;
   }
-  const reverbAt = new Date().toISOString();
   // 서버가 준 것: campaigns(스냅샷) · campaign_rows(실물) · deliverables(가려진) · users(가려진) · sources · ext_rows
   const camps = (data.campaigns || []).map(c => ({ id: c.campaign_id, campaign_no: c.campaign_no, title: c.campaign_title, _exists: c.campaign_exists }));
   // deliverables 의 receipt_url 은 안 온다. 리뷰 사진 주소(review_image_url)를 receipt_url 자리에 넣어 표 만들기가 그대로 돌게 한다.
@@ -457,15 +456,16 @@ async function loadReport(ticket) {
   const banned = { account_id: 1, receipt_url: 1 };
   const chosen = Array.isArray(data.columns) ? data.columns : null;
   _cols = REPORT_COLS.filter(c => !banned[c.key]).filter(c => chosen ? chosen.indexOf(c.key) !== -1 : rows.some(r => r[c.key] !== '' && r[c.key] !== null && r[c.key] !== undefined));
-  const extAt = (data.sources || []).map(s => s.attached_at).sort().slice(-1)[0] || null;
+  // 「업데이트」 = 리포트를 마지막으로 손본 시각(서버 updated_at — 캠페인 더하기·파일 붙이기 등 구성 변경).
+  //   2026-09-04 사용자 결정: 조회 시각·포인테일 파일 시각을 따로 적지 않고 이 하나만 보인다.
+  const updatedAt = data.updated_at || null;
   const buyN = rows.filter(r => r.receipt_uploaded_at).length, revN = rows.filter(r => r.ch_qoo10_url || r.ch_cosme_url).length;
 
   const el = document.getElementById('report');
   el.innerHTML = `
     <div class="head">
       <div><h1>${esc(_title)}</h1>
-        <div class="meta"><b>업데이트</b> Reverb (${esc(fmtDT(reverbAt))})${extAt ? ' / 포인테일 (' + esc(fmtDT(extAt)) + ')' : ''}
-          <span style="margin-left:8px;color:var(--muted)">· 새로고침하면 REVERB 데이터는 최신으로 갱신됩니다. 포인테일 데이터는 파일을 받은 시점 기준입니다.</span></div></div>
+        <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}</div></div>
       <div><button class="btn" onclick="downloadExcel()"><span class="material-icons-round" translate="no" style="font-size:16px">download</span> 엑셀 내려받기</button></div>
     </div>
     <div class="summary"><b>요약</b> · 캠페인 ${camps.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - ext.length} · 외부 ${ext.length}) · 구매 ${buyN} · 리뷰 ${revN}</div>
