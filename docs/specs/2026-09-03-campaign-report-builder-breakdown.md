@@ -33,7 +33,7 @@
 | **S3** | 데이터베이스 변경이 **4묶음**(①②③④) | 🔴 **5묶음이다 — 「권한 시드」가 빠졌다.** 새 열쇠말 3개는 `role_permissions` 에 **3등급 × 3키 = 9행**을 넣어야 한다. `has_permission` 은 캠페인 관리자·매니저에게 **행이 없으면 거부**(fail-closed)인데 화면 판정 `canWrite` 는 **못 읽으면 쓰기로 폴백**(fail-open)이라, 시드 없이 화면만 배포하면 **캠페인 관리자에게 버튼은 보이는데 누르면 거부**된다. 선례 파일(`355_withdrawal_proxy_permission_seed.sql`)이 이 함정을 명시적으로 적어 두고 있다 |
 | **S4** | 공유 화면을 「로그인 없는 읽기 전용 화면」이라고만 함 | 🔴 **그 화면을 담을 파일과 배포 경로가 사양서에 없다.** 관리자 앱은 세션이 없으면 인플루언서 앱으로 튕기고(`dev/admin/app.js`), 인플루언서 앱은 일본어다. 선례는 **자립형 단독 화면**(`admin-setpw.html`·`event-scan.html`) — 이 둘은 `storage.js` 를 안 쓰고 **자체 조회를 갖는다**. `dev/build.sh` 4·5번 블록이 루트로 복사하고, `.vercelignore` 는 「빼는 목록」이라 **루트 파일은 자동 공개**된다(별도 허용 작업 불필요, 다만 배포 후 눈 확인 필요) |
 | **S5** | 「대량 조회 페이지네이션 — `fetchDeliverables()` 재사용」 | **그대로는 못 쓴다.** `fetchDeliverables(filters)` 의 `campaign_id` 는 **단일 값 `eq`**(`dev/lib/storage.js` 1070행)라 캠페인 여러 개를 한 번에 못 받는다. 재사용되는 것은 **`fetchAllPaged` 뼈대와 임베드 구성**까지이고, `.in()` 을 쓰는 **새 조회 함수가 필요**하다. ✅ `.neq('status','draft')`(임시저장 제외)는 이미 있다 |
-| **S6** | 「큐텐 결과물 (URL) = Qoo10 채널 리뷰 주소」 | **어느 종류인지 정해지지 않았다.** 사양서가 재사용하겠다는 `_buildMonitorGroupSheet()`(`dev/js/admin-excel.js` 1664행)은 **`receipt` 와 `review_image` 만** 보고 `post` 는 아예 안 본다. 반면 화면 쪽 `buildDeliverableGroups()`(`dev/js/admin-deliverables.js` 617행)는 `reviewByChannel` 과 `postByChannel` 을 **둘 다** 갖는다. 리뷰어형은 인증샷, 시딩·방문형은 게시물 주소라 **한 리포트에 두 형식이 섞이면 같은 칸이 다른 뜻**이 된다 → **P2 로 확정 필요** |
+| ~~S6~~ | 「큐텐 결과물 (URL) = Qoo10 채널 리뷰 주소」 | ✅ **해결 (2026-09-03 사용자 결정 — P2)** — **있는 것을 넣는다**: `review_image` 가 있으면 그 주소, 없고 `post` 가 있으면 그것. 칸 옆에 「사진」·「게시물」을 작게 표시한다.<br>⚠️ 그래서 **`_buildMonitorGroupSheet()` 의 판정을 그대로 쓸 수 없다** — 그 함수는 `receipt` 와 `review_image` 만 보고 `post` 는 안 본다(`dev/js/admin-excel.js` 1664행). 화면 쪽 `buildDeliverableGroups()`(`dev/js/admin-deliverables.js` 617행)가 `reviewByChannel`·`postByChannel` 을 **둘 다** 가지므로 **그쪽 구성을 따른다**.<br>🔴 **다만 「최신 판정」은 여전히 `_buildMonitorGroupSheet` 와 글자 그대로 같게** — `submitted_at` 기준·임시저장 제외. 이건 P2 결정과 무관하게 지켜야 한다 |
 
 ### 확인 완료 (어긋남 없음)
 
@@ -117,7 +117,7 @@
 | 3 | 권한 시드 9행 | 신규 1 | 열쇠말 3개 | — | ✗ DB | 1-A |
 | 4 | 뼈대 등록 (핫스팟 한 번에) | `shared.js`·`admin/index.html`·`admin-core.js`·`build.sh`·신규 `admin-reports.js` | 페인 이름·화면 요소 id | 3 | ✗ 핫스팟 | 1-A |
 | 5 | 조회 계층 | `dev/lib/storage.js` | 조회 함수 6개 이름 | 2·4 | ✗ 핫스팟 | 1-A |
-| 6 | 16칸 표 그리기 | `admin-reports.js` | 행 만드는 함수 이름 | 5 · **P2** | ∥ | 1-A |
+| 6 | 16칸 표 그리기 | `admin-reports.js` | 행 만드는 함수 이름 | 5 | ∥ | 1-A |
 | 7 | 만들기 모달(외부 없이) + 툴바 버튼 | `admin-reports.js`·`admin/index.html`(버튼 1줄) | 모달 여는 함수·버튼 id | 5 | ∥ | 1-A |
 | 8 | 「리포트 관리」 목록 | `admin-reports.js` | 목록 그리는 함수 | 5 | ∥ | 1-A |
 | 9 | 관리자 리포트 화면 | `admin-reports.js` | 화면 여는 함수·시각 두 값 | 6·8 | ✗ | 1-A |
@@ -245,10 +245,14 @@
   - `buildReportRows(delivs, camps, usersById)` → **표준 행 배열**. 한 행 = `{ src, no, account_id, campaign_name, purchase_period, status, order_no, purchase_date, amount, receipt_url, receipt_uploaded_at, name_kanji, name_kana, ch_qoo10_url, ch_qoo10_at, ch_cosme_url, ch_cosme_at }`
   - `src` 는 「구분」 열 값 — `'B'`(REVERB) / `'A-1'`·`'A-2'`(외부, 작업 16에서 채움)
   - 🔴 **그룹핑·최신 판정을 새로 쓰지 않는다** — `campaign_id + application_id` 로 묶고 최신은 **`submitted_at`** 기준(`_buildMonitorGroupSheet` 1668·1679행과 **글자 그대로 같게**). 수정 시각을 먼저 보면 정산과 어긋난다(운영 실측 65건 중 36건)
-- **선행 의존:** 작업 5 · **P2**
+- **선행 의존:** 작업 5
 - **완료 정의:** 캠페인 1개짜리 리포트를 만들었을 때, 그 캠페인의 결과물 엑셀(기존 「결과물 엑셀」)과 **인원 수·주문번호·구매금액이 한 건도 어긋나지 않는다**.
 - **필요 검문소:** `reverb-reviewer`
-- **주의:** ⚠️ **P2 가 확정되기 전에는 13·15번 칸을 채울 수 없다.** `review_image` 는 인증샷 이미지 주소, `post` 는 게시물 주소로 뜻이 다르다. 모집 형식이 섞인 리포트에서 어느 쪽을 넣을지 정하지 않으면 같은 칸이 캠페인마다 다른 뜻이 된다.
+- **주의 — 13·15번 칸 규칙 (2026-09-03 확정):**
+  - **있는 것을 넣는다** — 그 채널에 `review_image`(리뷰 화면 사진)가 있으면 그 주소, 없고 `post`(게시물 주소)가 있으면 그것.
+  - 칸 옆에 **「사진」·「게시물」을 작게 표시**한다. 같은 칸에 두 가지가 섞이므로, 무엇인지 안 적으면 브랜드가 읽는 표에서 그게 그대로 사고가 된다.
+  - ⚠️ 둘 다 있으면 **`review_image` 를 먼저** 쓴다(리뷰어형이 이 리포트의 주 대상이고, 포인테일 쪽도 전부 사진이라 형태가 맞는다).
+  - 🔴 그래서 `_buildMonitorGroupSheet()` 의 **판정은 그대로 못 쓴다**(`post` 를 안 본다). `buildDeliverableGroups()` 의 `reviewByChannel`·`postByChannel` 구성을 따르되, **최신 판정만은** `submitted_at` 기준·임시저장 제외로 **글자 그대로 같게** 유지한다.
 
 ---
 
