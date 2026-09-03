@@ -8614,6 +8614,128 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// 캠페인 리포트 (1-A 단계) — 조회 계층
+//   사양서 : docs/specs/2026-09-03-campaign-report-builder.md
+//   작업표 : docs/specs/2026-09-03-campaign-report-builder-breakdown.md 「작업 5」
+//
+// ⚠️ 이 묶음의 규칙 하나 — **조회 실패는 `null`, 0건은 `[]`(또는 `{}`)** 로 구분해서
+//    돌려준다. 합치면 「서버에 못 물어본 것」과 「진짜 없는 것」이 화면에서 같은 빈칸이
+//    되고, 리포트는 브랜드에게 나가는 표라 그 둘이 절대 같지 않다.
+//    (이 저장소가 반복해서 데인 자리 — 마이그레이션 276 에서 세운 원칙)
+// ══════════════════════════════════════════════════════════════
+
+// 리포트를 만든다. 성공하면 리포트 고유번호, 실패하면 null.
+//   ⚠️ 서버가 모르는 캠페인이 섞이면 **조용히 빼지 않고 거부**한다(403).
+//      그래서 여기서도 오류를 삼키지 말고 화면이 사유를 볼 수 있게 다시 던진다.
+async function createCampaignReport(title, campaignIds, includeAudit) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('create_campaign_report', {
+    p_title: title,
+    p_campaign_ids: campaignIds || [],
+    p_include_audit: !!includeAudit
+  });
+  if (error) { console.error('[createCampaignReport]', error); throw error; }
+  return data || null;
+}
+
+// 리포트 목록. 실패 null / 0건 [].
+//   ⚠️ 목록은 행 단위 보안 정책으로 걸러 조회한다 — 권한이 없으면 오류가 아니라 0건이 온다.
+//      그래서 「0건」을 「권한 없음」으로 읽지 말 것(권한은 화면이 따로 본다).
+async function fetchCampaignReports() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.from('campaign_reports')
+      .select('id, title, created_by, created_at, updated_at, include_audit, version, brand_id')
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch (e) { console.error('[fetchCampaignReports]', e); return null; }
+}
+
+// 리포트 1건 + 담긴 캠페인 목록. 없으면 null 이 정상 반환값이다.
+//   ⚠️ **없는 것과 실패한 것이 여기서는 둘 다 null 이다** — 서버 함수가 없는 리포트에
+//      null 을 돌려주기 때문. 부르는 쪽이 구분해야 하면 오류를 잡아서 따로 알릴 것.
+async function fetchCampaignReport(reportId) {
+  if (!db || !reportId) return null;
+  try {
+    const {data, error} = await db.rpc('get_campaign_report', {p_report_id: reportId});
+    if (error) throw error;
+    return data || null;
+  } catch (e) { console.error('[fetchCampaignReport]', e); return null; }
+}
+
+// 리포트를 지운다. true=지웠음 / false=이미 없음(멱등) / null=실패.
+async function deleteCampaignReport(reportId) {
+  if (!db || !reportId) return null;
+  try {
+    const {data, error} = await db.rpc('delete_campaign_report', {p_report_id: reportId});
+    if (error) throw error;
+    return !!data;
+  } catch (e) { console.error('[deleteCampaignReport]', e); return null; }
+}
+
+// 여러 캠페인의 결과물을 한 번에. 실패 null / 0건 [].
+//
+// 🔴 **`fetchDeliverables()` 를 못 쓴다** — 그쪽은 `campaign_id` 를 **단일 값 `eq`** 로
+//    받아서, 리포트처럼 캠페인이 여럿이면 한 캠페인만 온다(그런데 오류는 안 난다).
+// ⚠️ 임베드 구성은 `fetchDeliverables` 와 **같게** 맞춰 뒀다 — 갈라지면 리포트 표와
+//    결과물 화면이 서로 다른 값을 보여준다.
+// ⚠️ `.neq('status','draft')` 도 같다. 임시저장을 넣으면 「아직 안 낸 것」이 리포트에
+//    실린다(정산이 같은 함정을 겪어 마이그레이션 318 로 고쳤다).
+// ⚠️ id 가 많으면 주소가 길어져 잘리므로 **100개씩 나눠** 부른다.
+async function fetchDeliverablesForReport(campaignIds) {
+  if (!db) return null;
+  const ids = [...new Set((campaignIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    let rows = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100);
+      const part = await fetchAllPaged(() => db.from('deliverables').select(`
+        id, kind, status, version,
+        receipt_url, order_number, purchase_date, purchase_amount, memo,
+        post_url, post_channel, post_submissions,
+        reject_reason, reject_template_code,
+        reviewed_by, reviewed_at, submitted_at, updated_at,
+        application_id, user_id, campaign_id,
+        submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
+        submitted_by_admin_evidence,
+        applications:application_id (status),
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+      `).neq('status', 'draft').in('campaign_id', chunk)
+        .order('submitted_at', {ascending: false}));
+      rows = rows.concat(part || []);
+    }
+    return rows;
+  } catch (e) { console.error('[fetchDeliverablesForReport]', e); return null; }
+}
+
+// 리포트에 쓸 인플루언서 정보. 실패 null / 0건 {}.
+//
+// 🔴 **반드시 가림막 통로(`influencers_admin_view`)로 부른다.** 원본 표 `influencers` 를
+//    직접 부르면 마이그레이션 312 때문에 **오류 없이 조용히 빈 결과**가 온다 —
+//    화면은 그냥 「이름 없음」으로 보이고 오류 기록에도 안 남는다.
+//    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
+//    서버가 알아서 가린다.
+// ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+async function fetchInfluencersForReport(userIds) {
+  if (!db) return null;
+  const ids = [...new Set((userIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const map = {};
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(function(r) { map[r.id] = r; });
+    }
+    return map;
+  } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
