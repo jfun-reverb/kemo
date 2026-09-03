@@ -57,198 +57,8 @@ async function loadReportsPane() {
   renderReportList(await fetchCampaignReports());
 }
 
-// ══════════════════════════════════════════════════════════════
-// 표 행 만들기 — 작업 6 (사양서 16칸 + 캠페인 번호 = 17칸, 2026-09-04)
-//   사양서 「표 양식 (구글시트 16칸 그대로)」
-//
-// 한 사람 = 한 줄. 큐텐과 엣코스메가 **한 줄 안에서** 칸을 나눠 가진다.
-// 맨 앞에 「구분」 열이 하나 더 붙어 화면에는 17칸이 보인다(구분 + 16).
-//   구분 값: 'B' = REVERB / 'A-1'·'A-2' = 외부(작업 16에서 채운다)
-// ══════════════════════════════════════════════════════════════
-
-// 13·15번 칸이 쓰는 채널 코드.
-//   ⚠️ 기준 데이터(lookup_values)의 code 를 그대로 쓴다 — 마이그레이션 157 이 심은 값.
-//   🔴 이 값을 바꾸면 기준 데이터·캠페인(`campaigns.channel`)·이미 낸 결과물
-//      (`deliverables.post_channel`) **세 곳을 함께** 옮겨야 한다. 하나만 바꾸면
-//      문자열 비교가 깨져 결과물이 화면·인증·정산 세 곳에서 동시에 사라진다
-//      (2026-07-30 @cosme 사고 — 승인된 인증샷 55건이 두 달간 안 보였다).
-const REPORT_CH_QOO10 = 'qoo10';
-const REPORT_CH_COSME = 'cosme';
-
-// 결과물을 (캠페인 + 응모) 단위로 묶는다.
-//
-// 🔴 **그룹핑·최신 판정을 새로 쓰지 않는다.**
-//    묶는 열쇠는 `campaign_id + application_id`, 최신은 **`submitted_at`** 기준 —
-//    `admin-excel.js` 의 `_buildMonitorGroupSheet()` 와 **글자 그대로 같다**.
-//    수정 시각(`updated_at`)을 먼저 보면 관리자가 영수증을 고친 건이 다른 행으로
-//    뽑혀 **정산과 숫자가 어긋난다**(운영 실측 2026-08-07: 영수증이 여러 행 쌓인
-//    응모 65건 중 36건에서 기준이 갈렸다).
-function _reportGroupDeliverables(delivs) {
-  const groups = new Map();
-  for (const d of (delivs || [])) {
-    const key = d.campaign_id + '|' + (d.application_id || ('user-' + d.user_id));
-    if (!groups.has(key)) {
-      groups.set(key, {
-        key: key, campaign_id: d.campaign_id, application_id: d.application_id,
-        user_id: d.user_id, campaign: d.campaigns || null,
-        receipt: null, result: null, reviewByCh: {}, postByCh: {},
-      });
-    }
-    const g = groups.get(key);
-    if (!g.campaign && d.campaigns) g.campaign = d.campaigns;
-    const subAt = d.submitted_at || '';
-    if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
-    } else if (d.kind === 'review_image') {
-      // ⚠️ 채널 없는 옛 인증샷은 칸에 넣을 자리가 없어 건너뛴다(엑셀도 같다).
-      if (d.post_channel) {
-        const prev = g.reviewByCh[d.post_channel];
-        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
-      }
-    } else if (d.kind === 'post') {
-      if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
-      if (d.post_channel) {
-        const prevP = g.postByCh[d.post_channel];
-        if (!prevP || subAt > (prevP.submitted_at || '')) g.postByCh[d.post_channel] = d;
-      }
-    }
-  }
-  return [...groups.values()];
-}
-
-// 13·15번 칸 — **있는 것을 넣는다.**
-//   그 채널에 리뷰 화면 사진(`review_image`)이 있으면 그 주소,
-//   없고 게시물 주소(`post`)가 있으면 그것.
-// ⚠️ 둘 다 있으면 **사진을 먼저** 쓴다 — 리뷰어형이 이 리포트의 주 대상이고,
-//    외부(포인테일) 쪽도 전부 사진이라 형태가 맞는다.
-// 🔴 그래서 `_buildMonitorGroupSheet()` 의 판정을 그대로 못 쓴다(그쪽은 `post` 를 안 본다).
-// ⚠️ 무엇인지(`kind`)를 함께 돌려준다 — 한 칸에 사진과 게시물이 섞이므로,
-//    화면이 「사진」·「게시물」을 작게 적지 않으면 브랜드가 읽는 표에서 그게 그대로 사고가 된다.
-function _reportChannelCell(g, channel) {
-  const rv = g.reviewByCh[channel];
-  if (rv && rv.receipt_url) return {url: rv.receipt_url, at: rv.submitted_at || '', kind: 'photo'};
-  const po = g.postByCh[channel];
-  if (po && po.post_url) return {url: po.post_url, at: po.submitted_at || '', kind: 'post'};
-  // 주소는 없는데 행은 있는 경우 — 날짜만이라도 남긴다(빈 줄로 보이면 안 낸 것과 구분이 안 된다)
-  const any = rv || po;
-  return {url: '', at: any ? (any.submitted_at || '') : '', kind: rv ? 'photo' : (po ? 'post' : '')};
-}
-
-// 캠페인의 구매 기간(4번 칸).
-//   ⚠️ 리뷰어형은 `purchase_*`, 방문형은 `visit_*` 를 같은 칸에 넣는다
-//      (`admin-excel.js` 의 매핑과 같다). 시딩형은 그 개념이 없어 빈다.
-//   ⚠️ 날짜는 **저장된 문자열 그대로** 이어 붙인다 — `new Date()` 를 태우면
-//      시간대가 끼어들어 하루가 밀린다.
-function _reportPurchasePeriod(camp) {
-  if (!camp) return '';
-  const rt = camp.recruit_type;
-  let a = '', b = '';
-  if (rt === 'monitor') { a = camp.purchase_start || ''; b = camp.purchase_end || ''; }
-  else if (rt === 'visit') { a = camp.visit_start || ''; b = camp.visit_end || ''; }
-  if (!a && !b) return '';
-  return a + ' ~ ' + b;
-}
-
-// 인증 상태(5번 칸) — 🔴 **엑셀과 같은 함수를 부른다.**
-//   판정을 여기서 새로 쓰면 리포트와 「결과물 엑셀」이 서로 다른 상태를 말하게 된다.
-//   (같은 판정이 이 저장소에 다섯 벌 있고, 그 때문에 이미 사고가 났다)
-function _reportCertStatus(g) {
-  const camp = g.campaign || {};
-  const chs = (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean);
-  if (camp.recruit_type === 'monitor' && chs.length > 0) {
-    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, !!camp.proxy_purchase);
-  }
-  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, !!camp.proxy_purchase, chs, g.postByCh);
-}
-
-// REVERB 결과물 → 표준 행 배열.
-//   delivs    : fetchDeliverablesForReport() 결과
-//   camps     : 리포트에 담긴 캠페인 배열(제목·번호를 여기서 얻는다)
-//   usersById : fetchInfluencersForReport() 결과 (id → 회원)
-//
-// ⚠️ `usersById` 가 `null`(조회 실패)이면 이름·계정 칸을 **빈칸이 아니라 '?'** 로 둔다.
-//    빈칸으로 두면 「이름을 안 적은 사람」과 「못 물어본 것」이 같아 보인다.
-function buildReportRows(delivs, camps, usersById) {
-  const campById = new Map((camps || []).map(function(c){ return [c.id, c]; }));
-  const lookupFailed = (usersById === null || usersById === undefined);
-  const users = usersById || {};
-  const groups = _reportGroupDeliverables(delivs);
-
-  // 정렬 — 캠페인 번호 → 이름. 엑셀(`_buildMonitorGroupSheet`)과 같은 차례.
-  groups.sort(function(a, b) {
-    const ca = ((campById.get(a.campaign_id) || a.campaign || {}).campaign_no || '').toString();
-    const cb = ((campById.get(b.campaign_id) || b.campaign || {}).campaign_no || '').toString();
-    if (ca !== cb) return ca.localeCompare(cb, 'ja');
-    const ua = users[a.user_id] || {}, ub = users[b.user_id] || {};
-    return (ua.name_kana || ua.name || '').localeCompare(ub.name_kana || ub.name || '', 'ja');
-  });
-
-  return groups.map(function(g, i) {
-    // 🔴 **두 곳에서 나눠 가져온다 — 하나로 합치면 한쪽이 빈다.**
-    //   campMeta(리포트에 저장된 스냅샷) = 캠페인 번호·제목. **원본이 지워져도 남는다.**
-    //   campLive(결과물에 딸려 온 실물)   = 모집 형식·구매 기간 등 나머지.
-    //   ⚠️ 예전엔 `campById.get(...) || g.campaign` 로 **스냅샷을 통째로 우선**했는데,
-    //      스냅샷에는 번호·제목뿐이라 **구매기간 칸이 전부 비었다**(2026-09-03 브라우저에서 발견).
-    const campMeta = campById.get(g.campaign_id) || {};
-    const campLive = g.campaign || {};
-    const camp = Object.assign({}, campLive, {
-      campaign_no: campMeta.campaign_no || campLive.campaign_no,
-      title:       campMeta.title       || campLive.title,
-    });
-    const u = users[g.user_id] || null;
-    const r = g.receipt;
-    const q = _reportChannelCell(g, REPORT_CH_QOO10);
-    const c = _reportChannelCell(g, REPORT_CH_COSME);
-    const unknown = lookupFailed ? '?' : '';
-    return {
-      src: 'B',                                            // 구분 — REVERB
-      no: i + 1,                                           // 1
-      campaign_no: camp.campaign_no || '',                 // 2 (2026-09-04)
-      campaign_name: camp.title || '',                     // 3
-      account_id: u ? (u.email || '') : unknown,           // 11 (영수증 업로드 날짜 옆)
-      purchase_period: _reportPurchasePeriod(camp),        // 4
-      status: _reportCertStatus(g),                        // 5
-      order_no: r ? (r.order_number || '') : '',           // 6
-      purchase_date: r ? (r.purchase_date || '') : '',     // 7
-      amount: (r && r.purchase_amount !== null && r.purchase_amount !== undefined)
-                ? r.purchase_amount : '',                  // 8 — ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다
-      receipt_url: r ? (r.receipt_url || '') : '',         // 9
-      receipt_uploaded_at: r ? (r.submitted_at || '') : '',// 10
-      name_kanji: u ? (u.name_kanji || u.name || '') : unknown, // 11
-      name_kana: u ? (u.name_kana || '') : unknown,        // 12
-      ch_qoo10_url: q.url, ch_qoo10_kind: q.kind, ch_qoo10_at: q.at,   // 13·14
-      ch_cosme_url: c.url, ch_cosme_kind: c.kind, ch_cosme_at: c.at,   // 15·16
-      // 화면이 되짚어 볼 때 쓰는 값(표에는 안 그린다)
-      _campaign_id: g.campaign_id, _application_id: g.application_id, _user_id: g.user_id,
-    };
-  });
-}
-
-// 외부(포인테일) 참가자 행 → 표준 행. 작업 16.
-//   ⚠️ 이름 2칸·구매일은 **비운다** — 원본에 없다. 없는 것을 지어내지 않는다.
-//   ⚠️ 캠페인명은 **관리자가 모달에 적은 이름**(사양서 표 3번 칸).
-//   구분: 'A-1' = 텍스트 리뷰 · 'A-2' = 포토 리뷰 · 리뷰 없이 구매만이면 'A'
-function _reportExtToRow(r, src) {
-  const kind = r.review_kind === 'photo' ? 'A-2' : (r.review_kind === 'text' ? 'A-1' : 'A');
-  return {
-    src: kind,
-    no: 0,
-    campaign_no: src ? (src.ext_campaign_no || '') : '',
-    campaign_name: src ? (src.ext_campaign_name || '') : '',
-    account_id: r.account_id || '',
-    purchase_period: '',
-    status: r.mission_status || '',
-    order_no: r.order_no || '',
-    purchase_date: '',
-    amount: (r.purchase_amount === null || r.purchase_amount === undefined) ? '' : r.purchase_amount,
-    receipt_url: r.receipt_url || '',
-    receipt_uploaded_at: r.receipt_at || '',
-    name_kanji: '', name_kana: '',
-    ch_qoo10_url: r.qoo10_urls || '', ch_qoo10_kind: r.qoo10_urls ? 'photo' : '', ch_qoo10_at: r.qoo10_at || '',
-    ch_cosme_url: r.cosme_urls || '', ch_cosme_kind: r.cosme_urls ? 'photo' : '', ch_cosme_at: r.cosme_at || '',
-    _ext: true, _source_id: r.source_id, _member_no: r.member_no,
-  };
-}
+// ⚠️ 표 행 만들기(REPORT_COLS · buildReportRows · _reportExtToRow 등)는 2026-09-04 에
+//    dev/js/report-rows.js 로 옮겼다 — 공유 화면(report.html)과 한 원본을 쓰기 위해서다.
 
 // ══════════════════════════════════════════════════════════════
 // 만들기 창 — 작업 7
@@ -426,27 +236,7 @@ let _openReport = null;
 //   ⚠️ 표기를 바꿀 일이 생기면 `ui.js` 의 그 함수를 고친다 — 여기에 사본을 만들면
 //      화면마다 날짜 모양이 갈린다(이 저장소가 같은 판정을 여러 벌 둬서 겪은 문제와 같다).
 
-// 17칸 머리글 — 사양서 16칸에 「캠페인 번호」를 더했다(2026-09-04 사용자 결정: 「ID」 자리는 캠페인 번호, 계정 ID 는 업로드 날짜 옆)
-const REPORT_COLS = [
-  // w = 열 너비, wrap = 줄바꿈 허용(캠페인명만). 나머지는 nowrap — 날짜·번호·상태가 두 줄로 접히면 표가 읽기 어렵다(2026-09-04 사용자 요청).
-  {key:'no',                  label:'No.',              w:'46px'},
-  {key:'campaign_no',         label:'캠페인 번호',       w:'110px'},
-  {key:'campaign_name',       label:'캠페인명',          w:'260px', wrap:true},
-  {key:'purchase_period',     label:'구매기간',          w:'185px'},
-  {key:'status',              label:'상태',             w:'100px'},
-  {key:'order_no',            label:'주문 번호',         w:'130px'},
-  {key:'purchase_date',       label:'구매일',            w:'96px'},
-  {key:'amount',              label:'구매금액',          w:'100px'},
-  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px'},
-  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px'},
-  {key:'account_id',          label:'계정 ID',           w:'210px'},
-  {key:'name_kanji',          label:'이름 (한자)',        w:'120px'},
-  {key:'name_kana',           label:'이름 (일본어)',      w:'130px'},
-  {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
-  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px'},
-  {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px'},
-  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'130px'},
-];
+
 
 // 13·15번 칸을 그린다 — 주소와 함께 **무엇인지**(사진/게시물)를 작게 적는다.
 //   ⚠️ 한 칸에 두 가지가 섞이므로 표시가 없으면 브랜드가 읽는 표에서 사고가 된다.
@@ -576,6 +366,7 @@ async function openReport(reportId) {
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
           <button class="btn btn-ghost btn-xs" onclick="openReportComposeModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">tune</span> 구성</button>
+          <button class="btn btn-ghost btn-xs" onclick="openShareSettings('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">share</span> 공유 설정</button>
           <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
         </div>
       </div>
@@ -776,6 +567,7 @@ async function removeCampaignFromReport(reportId, rowId) {
     return;
   }
   if (!window.confirm('「' + (c.campaign_no || '') + ' ' + (c.campaign_title || '') + '」을(를) 리포트에서 뺍니다.\n그 캠페인의 결과물이 표에서 사라집니다. 계속할까요?')) return;
+  if (!(await _reportSharedGuard(reportId, '캠페인을 빼면'))) return;
   try {
     await removeReportCampaign(reportId, rowId);
     toast('뺐습니다');
@@ -847,6 +639,8 @@ function _onReportAddCampChange() {
 async function submitAddCampaignsToReport(reportId) {
   const ids = _reportSelectedAddIds();
   if (!ids.length) return;
+  // ⚠️ 더하는 것도 위험하다 — 브랜드가 다른 캠페인 회원 정보를 새로 보게 된다
+  if (!(await _reportSharedGuard(reportId, '캠페인을 더하면'))) return;
   const btn = document.getElementById('btnReportAddSubmit');
   if (btn) { btn.disabled = true; btn.textContent = '추가하는 중…'; }
   try {
@@ -1007,6 +801,7 @@ async function openAddSourceToReport(reportId) {
 
 async function submitAttachSources(reportId) {
   if (!_reportSrcAllValid() || !_reportSrcBlocks.length) return;
+  if (!(await _reportSharedGuard(reportId, '파일을 붙이면'))) return;
   // 같은 번호가 이미 있으면 갱신임을 되묻는다(사양서 ⑩ — 추가가 아니라 갱신)
   const rep = await fetchCampaignReport(reportId);
   const dup = _reportSrcBlocks.filter(function(b){ return (rep.sources||[]).some(function(s){ return s.service_code===b.service && s.ext_campaign_no===b.extNo.trim(); }); });
@@ -1022,6 +817,7 @@ async function submitAttachSources(reportId) {
 
 async function removeSourceFromReport(reportId, sourceId, label) {
   if (!window.confirm('「' + label + '」 첨부를 뗍니다. 그 참가자 행이 표에서 사라집니다. 계속할까요?')) return;
+  if (!(await _reportSharedGuard(reportId, '첨부를 떼면'))) return;
   try { await removeReportSource(sourceId); toast('뗐습니다'); await openReport(reportId); await _reportComposeRefresh(reportId); }
   catch (e) { toast('떼지 못했습니다 — ' + ((e && e.message) || e)); }
 }
@@ -1092,4 +888,140 @@ async function _reportComposeRefresh(reportId) {
   if (!m || (reportId && m.dataset.reportId !== reportId)) return;
   const body = document.getElementById('reportComposeBody');
   if (body) body.innerHTML = await _reportComposeBodyHtml(m.dataset.reportId);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 공유 설정 창 — 작업 23 (+ 작업 26 ②: 끌 때 경고)
+//   「보기」가 주 동작, 「다시 정하기」는 눈에 덜 띄게(사양서 「다시 정하는 일은 최소로」).
+//   비밀번호 원문은 reveal 함수로만 오고, 부를 때마다 서버에 「누가 언제 봤는지」 남는다.
+// ══════════════════════════════════════════════════════════════
+
+// 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID·영수증 주소는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다)
+const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id' && c.key !== 'receipt_url'; });
+
+function _reportShareUrl(token) {
+  return location.origin + '/report.html?t=' + token;
+}
+function _reportCloseShareModal() { const m = document.getElementById('reportShareModal'); if (m) m.remove(); }
+
+async function openShareSettings(reportId) {
+  _reportCloseShareModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportShareModal';
+  wrap.className = 'modal-overlay open';
+  wrap.dataset.reportId = reportId;
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">공유 설정</div>
+        <button class="modal-close" onclick="_reportCloseShareModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" id="reportShareBody" style="overflow-y:auto">불러오는 중…</div>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="_reportCloseShareModal()">닫기</button></div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+  await _reportShareRefresh(reportId);
+}
+
+async function _reportShareRefresh(reportId) {
+  const body = document.getElementById('reportShareBody');
+  if (!body) return;
+  const st = await fetchReportShareStatus(reportId);
+  if (!st) { body.innerHTML = '<div style="color:var(--pink)">공유 상태를 불러오지 못했습니다.</div>'; return; }
+  const rep = await fetchCampaignReport(reportId);
+  const expired = st.expires_at && new Date(st.expires_at) < new Date();
+  const cols = Array.isArray(st.columns) ? st.columns : null;      // null = 기본(값 없는 열 제외)
+  const evKo = {view:'브랜드 열람', pw_reveal:'비밀번호 보기', link_on:'링크 켬', link_off:'링크 끔', pw_reset:'비밀번호 다시 정함'};
+
+  if (!st.enabled) {
+    body.innerHTML = `
+      <p style="font-size:13px;line-height:1.8;margin:0 0 12px">${st.has_password ? '링크가 <strong>꺼져</strong> 있습니다. 다시 켜면 같은 링크·같은 비밀번호로 열립니다.' : '아직 공유하지 않은 리포트입니다. 비밀번호를 정하고 링크를 켜세요.'}</p>
+      ${st.has_password ? '' : `<div class="form-group"><label class="form-label">비밀번호 <span style="color:var(--pink)">*</span> <span style="font-weight:400;color:var(--muted)">(4자 이상 · 브랜드에게 알려 줄 것)</span></label>
+        <input type="text" class="form-input" id="reportSharePw" maxlength="64" placeholder="예) mera2026" autocomplete="off"></div>`}
+      <div class="form-group"><label class="form-label">만료일 <span style="font-weight:400;color:var(--muted)">(비우면 무기한)</span></label>
+        <input type="date" class="form-input" id="reportShareExp" value="${_reportDateInput(st.expires_at || _reportPlus90())}"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-primary" onclick="submitEnableShare('${esc(reportId)}')">링크 켜기</button></div>
+      <p style="font-size:11px;color:var(--muted);margin:14px 0 0;line-height:1.7">비밀번호는 되돌릴 수 있게 암호화해 저장하고 「보기」로 다시 확인할 수 있습니다. 암호화 열쇠는 따로 백업하지 않습니다(회사 결정) — 열쇠를 잃으면 비밀번호를 새로 정해 브랜드에 다시 알리면 됩니다. 브랜드에게 보낸 메일이 사실상 백업입니다.</p>`;
+    return;
+  }
+
+  const url = _reportShareUrl(st.token);
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span class="badge" style="background:${expired ? 'var(--line)' : '#DCFCE7'};color:${expired ? 'var(--muted)' : '#166534'};font-size:11px;padding:2px 8px;border-radius:8px">${expired ? '만료됨' : '공유 중'}</span>
+      <span style="font-size:12px;color:var(--muted)">열람 ${st.view_count || 0}회${st.last_viewed_at ? ' · 마지막 ' + esc(formatDateTime(st.last_viewed_at)) : ''}</span>
+    </div>
+    <div class="form-group"><label class="form-label">공유 링크</label>
+      <div style="display:flex;gap:6px"><input type="text" class="form-input" readonly value="${esc(url)}" style="flex:1" onclick="this.select()">
+        <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText('${esc(url)}').then(function(){toast('링크를 복사했습니다')})">복사</button></div></div>
+    <div class="form-group"><label class="form-label">비밀번호</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" class="form-input" readonly id="reportSharePwView" value="••••••" style="flex:1;font-family:monospace">
+        <button class="btn btn-ghost btn-xs" onclick="revealSharePw('${esc(reportId)}')">보기</button>
+        <button class="btn btn-primary btn-xs" onclick="copyShareLinkAndPw('${esc(reportId)}')">링크+비밀번호 복사</button>
+      </div>
+      <div style="margin-top:6px"><a href="javascript:void(0)" onclick="openResetSharePw('${esc(reportId)}')" style="font-size:11px;color:var(--muted)">다시 정하기</a></div></div>
+    <div class="form-group"><label class="form-label">만료일 <span style="font-weight:400;color:var(--muted)">(비우면 무기한)</span></label>
+      <div style="display:flex;gap:6px"><input type="date" class="form-input" id="reportShareExp" value="${_reportDateInput(st.expires_at)}" style="flex:1">
+        <button class="btn btn-ghost btn-xs" onclick="submitShareSettings('${esc(reportId)}')">저장</button></div></div>
+    <div class="form-group"><label class="form-label">브랜드에게 보여줄 열</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
+        ${REPORT_SHARE_SELECTABLE.map(function(c){ const on = cols ? cols.indexOf(c.key) !== -1 : true; return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${c.key}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.label)}</label>`; }).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID·영수증 주소는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+      <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="submitDisableShare('${esc(reportId)}')">링크 끄기</button>
+    </div>
+    <details style="margin-top:14px;font-size:12px"><summary style="cursor:pointer;color:var(--muted)">기록 (${(st.events || []).length})</summary>
+      <div style="margin-top:6px;line-height:1.8">${(st.events || []).map(function(e){ return esc(formatDateTime(e.at)) + ' · ' + (evKo[e.kind] || e.kind) + (e.actor_name ? ' · ' + esc(e.actor_name) : ''); }).join('<br>') || '없음'}</div></details>`;
+}
+
+function _reportPlus90() { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString(); }
+function _reportDateInput(iso) { if (!iso) return ''; const d = new Date(iso); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function _reportDateToIso(v) { return v ? new Date(v + 'T23:59:59+09:00').toISOString() : null; }   // 그날 끝(한국·일본 시각)까지
+
+async function submitEnableShare(reportId) {
+  const pw = document.getElementById('reportSharePw');
+  const exp = document.getElementById('reportShareExp');
+  if (pw && pw.value.trim().length < 4) { toast('비밀번호는 4자 이상이어야 합니다'); return; }
+  try { await enableReportShare(reportId, pw ? pw.value.trim() : null, _reportDateToIso(exp && exp.value)); toast('링크를 켰습니다'); await _reportShareRefresh(reportId); }
+  catch (e) { toast('켜지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+async function submitDisableShare(reportId) {
+  // 작업 26 ② — 브랜드가 보던 화면이 그 순간 닫힌다
+  if (!window.confirm('링크를 끕니다.\n브랜드가 보던 화면은 다음 새로고침에서 닫히고, 다시 켜기 전까지 열 수 없습니다. 계속할까요?')) return;
+  try { await disableReportShare(reportId); toast('링크를 껐습니다'); await _reportShareRefresh(reportId); }
+  catch (e) { toast('끄지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+async function submitShareSettings(reportId) {
+  const exp = document.getElementById('reportShareExp');
+  const cols = [...document.querySelectorAll('.reportShareCol:checked')].map(function(i){ return i.value; });
+  try { await updateReportShareSettings(reportId, _reportDateToIso(exp && exp.value), cols); toast('저장했습니다'); }
+  catch (e) { toast('저장하지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+async function revealSharePw(reportId) {
+  try { const pw = await revealReportSharePassword(reportId); const i = document.getElementById('reportSharePwView'); if (i) i.value = pw || '(없음)'; }
+  catch (e) { toast('볼 수 없습니다 — ' + ((e && e.message) || e)); }
+}
+async function copyShareLinkAndPw(reportId) {
+  try {
+    const st = await fetchReportShareStatus(reportId);
+    const pw = await revealReportSharePassword(reportId);
+    const text = '리포트 링크: ' + _reportShareUrl(st.token) + '\n비밀번호: ' + pw + (st.expires_at ? '\n열람 기한: ' + formatDate(st.expires_at) : '');
+    await navigator.clipboard.writeText(text);
+    toast('링크와 비밀번호를 복사했습니다 — 그대로 메일·메신저에 붙이세요');
+  } catch (e) { toast('복사하지 못했습니다 — ' + ((e && e.message) || e)); }
+}
+function openResetSharePw(reportId) {
+  // ⚠️ 확인 창에 「브랜드에게 새 비밀번호를 다시 알려야 합니다」 — 안 넣으면 브랜드가 「링크가 고장 났다」고 연락한다
+  const pw = window.prompt('새 비밀번호 (4자 이상)\n\n⚠️ 다시 정하면 브랜드가 쓰던 비밀번호는 그 순간 죽습니다.\n브랜드에게 새 비밀번호를 다시 알려야 합니다.');
+  if (pw === null) return;
+  if (pw.trim().length < 4) { toast('비밀번호는 4자 이상이어야 합니다'); return; }
+  resetReportSharePassword(reportId, pw.trim()).then(function(){ toast('비밀번호를 다시 정했습니다 — 브랜드에게 알려 주세요'); _reportShareRefresh(reportId); })
+    .catch(function(e){ toast('바꾸지 못했습니다 — ' + ((e && e.message) || e)); });
+}
+
+// 작업 26 ① — 공유가 켜진 리포트의 구성을 바꿀 때 경고 (더할 때도, 뺄 때도)
+async function _reportSharedGuard(reportId, what) {
+  const st = await fetchReportShareStatus(reportId);
+  if (!st || !st.enabled) return true;
+  return window.confirm('이 리포트는 공유 중입니다.\n' + what + ' 브랜드가 보는 화면도 바로 바뀝니다. 계속할까요?');
 }

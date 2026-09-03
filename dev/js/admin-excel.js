@@ -127,80 +127,9 @@ function _excelAddressOnly(u, fallback) {
 //   - 미제출: (monitor) 영수증·review_image 둘 다 전혀 없음 / (gifting/visit) 게시물 없음
 //   - 인증샷 제출중: 그 외 전부
 
-// monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
-//   campChannels: 캠페인 채널 코드 배열, reviewByCh: { channelCode: deliv }
-function _excelMonitorResultRepr(campChannels, reviewByCh) {
-  reviewByCh = reviewByCh || {};
-  var channels = (campChannels || []).filter(Boolean);
-  if (channels.length === 0) {
-    // 채널 미등록 monitor — review_image 행이 하나라도 있으면 제출중, 없으면 none
-    return Object.keys(reviewByCh).length > 0 ? 'pending' : 'none';
-  }
-  var states = channels.map(function(ch) { return (reviewByCh[ch] && reviewByCh[ch].status) || 'none'; });
-  if (states.indexOf('rejected') !== -1) return 'rejected';
-  if (states.indexOf('pending') !== -1) return 'pending';
-  if (states.indexOf('none') !== -1) return 'none';
-  return 'approved';
-}
-
-// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
-//   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
-//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
-//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
-//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
-  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
-  var _as = (receipt && receipt.applications && receipt.applications.status)
-         || (result && result.applications && result.applications.status) || null;
-  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
-  if (recruitType === 'monitor') {
-    var hasReceipt = !!receipt;
-    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-    if (proxyPurchase) {
-      if (!hasReceipt) return '미제출';
-      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-    }
-    var hasReview = !!result;
-    if (!hasReceipt && !hasReview) return '미제출';
-    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
-    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
-    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
-    return '인증샷 제출중';
-  }
-  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
-  var _chs = (campChannels || []).filter(Boolean);
-  if (_chs.length > 0) {
-    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
-    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
-    if (_repr === 'approved') return '인증성공';
-    if (_repr !== 'none') return '인증샷 제출중';
-    return result ? '인증샷 제출중' : '미제출';
-  }
-  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
-  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
-  if (!result) return '미제출';
-  return '인증샷 제출중';
-}
-
-// monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
-  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
-  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
-  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
-  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
-  var hasReceipt = !!receipt;
-  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-  if (proxyPurchase) {
-    if (!hasReceipt) return '미제출';
-    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-  }
-  var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
-  if (!hasReceipt && !hasReview) return '미제출';
-  var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
-  if (receipt && receipt.status === 'approved' && repr === 'approved') return '인증성공';
-  return '인증샷 제출중';
-}
+// ⚠️ 인증 상태 판정 3함수(_excelMonitorResultRepr · _excelCertStatusKo · _excelCertStatusMonitorKo)는
+//    2026-09-04 에 dev/js/report-rows.js 로 **옮겼다**(복사 아님). 공유 화면(report.html)이 같은 판정을
+//    써야 해서다. 이름·동작은 그대로이고 관리자 번들에는 그 파일이 이어 붙는다.
 
 // ─── 캠페인 다중 선택 + 통합 엑셀 ────────────────────────────────────
 // _selectedCampIds: 사용자가 체크한 캠페인 id 집합. 페인 이동/새로고침 시 초기화.
