@@ -1343,6 +1343,9 @@ function faqComputeStatus(status, delivs, camp) {
 // 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
 // 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
 const PANE_REFRESHERS = {
+  'reports': async () => {
+    if (typeof loadReportsPane === 'function') await loadReportsPane();
+  },
   'errors': async () => {
     if (typeof loadClientErrors === 'function') await loadClientErrors();
   },
@@ -1891,8 +1894,8 @@ const OB_CATEGORY_SERIES = {
 };
 
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 21개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
-  //    (2026-07-29 menu.permissions 제거로 22 → 21)
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22)
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -1900,6 +1903,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.campaigns',          label_ko: '캠페인 관리',                  category: '캠페인',      server_enforced: false },
   { key: 'menu.applications',       label_ko: '인플 신청 관리',               category: '캠페인',      server_enforced: false },
   { key: 'menu.deliverables',       label_ko: '결과물 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.reports',           label_ko: '리포트 관리',                   category: '캠페인',      server_enforced: false },
   { key: 'menu.messages',           label_ko: '메시지',                       category: '캠페인',      server_enforced: false },
   { key: 'menu.brand-dashboard',    label_ko: '현황 대시보드',                category: '브랜드',      server_enforced: false },
   { key: 'menu.companies',          label_ko: '회사 관리',                    category: '브랜드',      server_enforced: false },
@@ -1920,7 +1924,13 @@ const ADMIN_PERMISSION_CATALOG = [
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 23개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
+  //       2026-09-03 report.export·report.share 둘을 더해 23. ⚠️ 같은 날 더한
+  //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
+  //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
+  { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
+  { key: 'report.share',            label_ko: '리포트 공유 링크',              category: '리포트',      server_enforced: true },
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
