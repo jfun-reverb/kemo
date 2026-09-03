@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788440333';
+  var CURRENT_BUILD = 'v1788440740';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2999,7 +2999,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 21:58 · 91d34ee</span>
+          <span class="admin-build-text">2026-09-03 22:05 · 06e0717</span>
         </div>
       </div>
     </aside>
@@ -45053,7 +45053,17 @@ function buildReportRows(delivs, camps, usersById) {
   });
 
   return groups.map(function(g, i) {
-    const camp = campById.get(g.campaign_id) || g.campaign || {};
+    // 🔴 **두 곳에서 나눠 가져온다 — 하나로 합치면 한쪽이 빈다.**
+    //   campMeta(리포트에 저장된 스냅샷) = 캠페인 번호·제목. **원본이 지워져도 남는다.**
+    //   campLive(결과물에 딸려 온 실물)   = 모집 형식·구매 기간 등 나머지.
+    //   ⚠️ 예전엔 `campById.get(...) || g.campaign` 로 **스냅샷을 통째로 우선**했는데,
+    //      스냅샷에는 번호·제목뿐이라 **구매기간 칸이 전부 비었다**(2026-09-03 브라우저에서 발견).
+    const campMeta = campById.get(g.campaign_id) || {};
+    const campLive = g.campaign || {};
+    const camp = Object.assign({}, campLive, {
+      campaign_no: campMeta.campaign_no || campLive.campaign_no,
+      title:       campMeta.title       || campLive.title,
+    });
     const u = users[g.user_id] || null;
     const r = g.receipt;
     const q = _reportChannelCell(g, REPORT_CH_QOO10);

@@ -184,7 +184,17 @@ function buildReportRows(delivs, camps, usersById) {
   });
 
   return groups.map(function(g, i) {
-    const camp = campById.get(g.campaign_id) || g.campaign || {};
+    // 🔴 **두 곳에서 나눠 가져온다 — 하나로 합치면 한쪽이 빈다.**
+    //   campMeta(리포트에 저장된 스냅샷) = 캠페인 번호·제목. **원본이 지워져도 남는다.**
+    //   campLive(결과물에 딸려 온 실물)   = 모집 형식·구매 기간 등 나머지.
+    //   ⚠️ 예전엔 `campById.get(...) || g.campaign` 로 **스냅샷을 통째로 우선**했는데,
+    //      스냅샷에는 번호·제목뿐이라 **구매기간 칸이 전부 비었다**(2026-09-03 브라우저에서 발견).
+    const campMeta = campById.get(g.campaign_id) || {};
+    const campLive = g.campaign || {};
+    const camp = Object.assign({}, campLive, {
+      campaign_no: campMeta.campaign_no || campLive.campaign_no,
+      title:       campMeta.title       || campLive.title,
+    });
     const u = users[g.user_id] || null;
     const r = g.receipt;
     const q = _reportChannelCell(g, REPORT_CH_QOO10);
