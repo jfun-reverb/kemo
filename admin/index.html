@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788439148';
+  var CURRENT_BUILD = 'v1788440333';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2999,7 +2999,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 21:39 · 7df5438</span>
+          <span class="admin-build-text">2026-09-03 21:58 · 91d34ee</span>
         </div>
       </div>
     </aside>
@@ -45213,7 +45213,9 @@ function renderReportList(list) {
     //    없는 값을 0 으로 그리면 「담긴 캠페인이 없다」로 읽히므로 '-' 로 둔다.
     const nCamp = (r.campaign_count === null || r.campaign_count === undefined) ? '-' : r.campaign_count;
     const nExt  = (r.ext_count === null || r.ext_count === undefined) ? '-' : r.ext_count;
-    return `<tr>
+    // ⚠️ 인라인 처리기에 넣는 값은 고유번호(따옴표가 못 들어가는 형태)만 쓴다 —
+    //    제목은 사람이 적은 글이라 따옴표가 들어오면 깨진다.
+    return `<tr style="cursor:pointer" onclick="openReport('${r.id}')">
       <td><strong>${esc(r.title || '(제목 없음)')}</strong></td>
       <td style="text-align:center">${nCamp}</td>
       <td style="text-align:center">${nExt}</td>
@@ -45222,6 +45224,204 @@ function renderReportList(list) {
       <td>${fmtDate(r.updated_at)}</td>
     </tr>`;
   }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// 리포트 화면 — 작업 9
+//
+// 🔴 **시각을 한 값으로 합치지 않는다**(사양서 ⑥).
+//    REVERB 결과물은 **열 때마다 방금 조회**한 것이고, 외부(포인테일 등) 결과물은
+//    **붙인 시각의 스냅샷**이다. 합쳐 놓으면 브랜드가 외부 데이터도 방금 것으로 읽는다.
+//    「구성이 바뀐 시각」은 또 다른 **세 번째** 값이라 여기에도 안 섞는다.
+// ══════════════════════════════════════════════════════════════
+
+// 지금 열려 있는 리포트 — 엑셀 내려받기가 다시 조회하지 않도록 담아 둔다.
+let _openReport = null;
+
+function _reportFmtTime(v) {
+  if (!v) return '';
+  try { return new Date(v).toLocaleString('ko-KR', {hour12:false}); } catch (e) { return String(v); }
+}
+
+// 16칸 머리글 — 사양서 「표 양식 (구글시트 16칸 그대로)」
+const REPORT_COLS = [
+  {key:'no',                  label:'No.',              w:'46px'},
+  {key:'account_id',          label:'ID',               w:'190px'},
+  {key:'campaign_name',       label:'캠페인명',          w:'200px'},
+  {key:'purchase_period',     label:'구매기간',          w:'170px'},
+  {key:'status',              label:'상태',             w:'110px'},
+  {key:'order_no',            label:'주문 번호',         w:'120px'},
+  {key:'purchase_date',       label:'구매일',            w:'100px'},
+  {key:'amount',              label:'구매금액',          w:'100px'},
+  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'150px'},
+  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'150px'},
+  {key:'name_kanji',          label:'이름 (한자)',        w:'110px'},
+  {key:'name_kana',           label:'이름 (일본어)',      w:'110px'},
+  {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
+  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'150px'},
+  {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px'},
+  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'150px'},
+];
+
+// 13·15번 칸을 그린다 — 주소와 함께 **무엇인지**(사진/게시물)를 작게 적는다.
+//   ⚠️ 한 칸에 두 가지가 섞이므로 표시가 없으면 브랜드가 읽는 표에서 사고가 된다.
+function _reportChannelCellHtml(url, kind) {
+  if (!url) return '';
+  const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
+  const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
+  return `<a href="${esc(url)}" target="_blank" rel="noopener">열기</a>${tagHtml}`;
+}
+
+function _reportRowHtml(r) {
+  const cells = REPORT_COLS.map(function(c) {
+    if (c.key === 'receipt_url') {
+      return r.receipt_url ? `<td><a href="${esc(r.receipt_url)}" target="_blank" rel="noopener">열기</a></td>` : '<td></td>';
+    }
+    if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind)}</td>`;
+    if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind)}</td>`;
+    if (c.key === 'amount') {
+      // ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다 — 안 하면 「¥0」으로 그려진다.
+      return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
+    }
+    if (c.key === 'receipt_uploaded_at' || c.key === 'ch_qoo10_at' || c.key === 'ch_cosme_at') {
+      return `<td style="font-size:11px">${esc(_reportFmtTime(r[c.key]))}</td>`;
+    }
+    return `<td>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
+  }).join('');
+  // 맨 앞 「구분」 열 — 🔴 **관리자 화면에만** 있다. 공유 화면·엑셀에는 넣지 않는다.
+  return `<tr><td style="text-align:center;font-weight:600">${esc(r.src || '')}</td>${cells}</tr>`;
+}
+
+async function openReport(reportId) {
+  const pane = document.getElementById('adminPane-reports');
+  if (!pane) return;
+  pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
+
+  const rep = await fetchCampaignReport(reportId);
+  if (!rep) {
+    pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--pink);font-size:13px">리포트를 찾지 못했습니다.<br><button class="btn btn-ghost btn-xs" style="margin-top:12px" onclick="loadReportsPane()">목록으로</button></div>';
+    return;
+  }
+
+  const camps = (rep.campaigns || []).map(function(c) {
+    return {id: c.campaign_id, campaign_no: c.campaign_no, title: c.campaign_title, _exists: c.campaign_exists};
+  });
+  const liveIds = camps.filter(function(c){ return c.id; }).map(function(c){ return c.id; });
+
+  // 🔴 REVERB 결과물은 **여기서 방금** 조회한다 — 이 시각이 화면의 첫 줄이 된다.
+  const reverbQueriedAt = new Date().toISOString();
+  const delivs = liveIds.length ? await fetchDeliverablesForReport(liveIds) : [];
+  const uids = [...new Set((delivs || []).map(function(d){ return d.user_id; }).filter(Boolean))];
+  const users = await fetchInfluencersForReport(uids);
+
+  // ⚠️ 감사용 계정은 만들 때 정한 대로 뺀다 — 그 선택을 저장해 둔 이유가 이것이다.
+  let rows = buildReportRows(delivs, camps, users);
+  if (!rep.include_audit && users) {
+    rows = rows.filter(function(r){ const u = users[r._user_id]; return !(u && u.is_audit); });
+    rows.forEach(function(r, i){ r.no = i + 1; });   // 뺀 뒤 번호를 다시 매긴다
+  }
+
+  // 외부(포인테일 등) 붙인 시각 — 아직 그 표가 없어(작업 12) 늘 비어 있다.
+  const extAttachedAt = rep.ext_attached_at || null;
+  const deletedCount = camps.filter(function(c){ return !c._exists; }).length;
+  const purchaseN = rows.filter(function(r){ return r.receipt_url; }).length;
+  const reviewN   = rows.filter(function(r){ return r.ch_qoo10_url || r.ch_cosme_url; }).length;
+
+  _openReport = {id: reportId, title: rep.title, rows: rows, reverbQueriedAt: reverbQueriedAt};
+
+  pane.innerHTML = `
+    <div class="admin-card">
+      <div class="admin-card-header" style="align-items:flex-start">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-xs" onclick="loadReportsPane()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">arrow_back</span> 목록</button>
+            <span class="admin-card-title">${esc(rep.title || '(제목 없음)')}</span>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.9">
+            <div>만든 사람 ${esc(rep.created_by_name || '-')} · 만든 날 ${esc(_reportFmtTime(rep.created_at))}</div>
+            <!-- 🔴 두 시각은 반드시 서로 다른 줄이다. 합치면 브랜드가 외부 데이터도 방금 것으로 읽는다. -->
+            <div><strong>REVERB</strong> — 방금 조회 (${esc(_reportFmtTime(reverbQueriedAt))})</div>
+            <div><strong>외부</strong> — ${extAttachedAt ? esc(_reportFmtTime(extAttachedAt)) + ' 기준' : '붙인 파일 없음'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
+        </div>
+      </div>
+
+      <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · 인원 ${rows.length}명 · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        ${deletedCount > 0 ? `<div style="color:var(--pink);font-size:12px">⚠️ 담긴 캠페인 중 ${deletedCount}개는 원본이 지워져 이름만 남아 있습니다 — 그 캠페인의 결과물은 표에 없습니다.</div>` : ''}
+        ${rep.include_audit ? '<div style="color:var(--muted);font-size:12px">감사용 계정을 포함해 만든 리포트입니다.</div>' : ''}
+        ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
+      </div>
+
+      <div class="admin-table-wrap" style="overflow-x:auto">
+        <table class="data-table" style="min-width:2100px">
+          <thead><tr>
+            <th style="width:50px;text-align:center">구분</th>
+            ${REPORT_COLS.map(function(c){ return `<th style="width:${c.w}">${esc(c.label)}</th>`; }).join('')}
+          </tr></thead>
+          <tbody>
+            ${rows.length ? rows.map(_reportRowHtml).join('')
+              : `<tr><td colspan="17" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 엑셀 내려받기 — 작업 10 (관리자용 = 전부 보이는 판)
+//
+// 🔴 **「구분」 열은 엑셀에 넣지 않는다**(확정된 결정 12).
+//    관리자용·브랜드용 엑셀은 **값만 다르고 열 구성은 같아야** 어느 파일이 무엇인지
+//    알아본다. 화면에만 있는 열이다.
+// ══════════════════════════════════════════════════════════════
+
+async function exportReportExcel(reportId) {
+  // 화면에서 이미 조회한 것을 그대로 쓴다 — 다시 조회하면 화면과 다른 숫자가 나올 수 있다.
+  let rows, title;
+  if (_openReport && _openReport.id === reportId) {
+    rows = _openReport.rows; title = _openReport.title;
+  } else {
+    if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
+    return;
+  }
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('리포트');
+    ws.columns = REPORT_COLS.map(function(c) {
+      return {header: c.label, key: c.key, width: Math.max(10, Math.round(parseInt(c.w, 10) / 8))};
+    });
+    ws.getRow(1).font = {bold: true};
+    rows.forEach(function(r) {
+      const o = {};
+      REPORT_COLS.forEach(function(c) {
+        // ⚠️ 구매금액은 숫자로 넣는다(엑셀에서 합계를 낼 수 있게). 빈 값은 빈칸.
+        if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
+        else { o[c.key] = (r[c.key] === null || r[c.key] === undefined) ? '' : r[c.key]; }
+      });
+      ws.addRow(o);
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const t = new Date();
+    const ymd = t.getFullYear() + String(t.getMonth()+1).padStart(2,'0') + String(t.getDate()).padStart(2,'0');
+    // ⚠️ 파일 이름에 「_관리자용」을 붙여 브랜드용과 구분한다(사양서). 파일 이름에 못 쓰는 글자는 뺀다.
+    a.download = String(title || '리포트').replace(/[\\/:*?"<>|]/g, '') + '_' + ymd + '_관리자용.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (typeof toast === 'function') toast('엑셀 다운로드 완료 (' + rows.length + '행)');
+  } catch (e) {
+    console.error('[exportReportExcel]', e);
+    if (typeof toast === 'function') toast('엑셀을 만들지 못했습니다 — ' + ((e && e.message) || e));
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════
