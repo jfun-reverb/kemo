@@ -65,7 +65,6 @@
   .lb .x{position:absolute;top:12px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1}
   .lb .nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;font-size:22px;display:none;align-items:center;justify-content:center}
   .lb .nav.on{display:flex}
-  .foot{margin-top:8px;font-size:11px;color:var(--muted);text-align:center;flex-shrink:0}
   @media(max-width:600px){.wrap{padding:12px}.head{padding:14px}.gate{margin:40px auto;padding:24px 18px}}
 </style>
 </head>
@@ -79,7 +78,6 @@
     <button class="btn btn-primary" id="btnGo" onclick="submitPw()" style="width:100%;justify-content:center;margin-top:6px">확인</button>
   </div>
   <div class="card" id="report" hidden></div>
-  <div class="foot">© JFUN · REVERB JP</div>
 </div>
 <div class="lb" id="lb" onclick="if(event.target===this)closeLb()">
   <span class="cap" id="lbCap"></span><span class="x" onclick="closeLb()">×</span>
@@ -180,7 +178,7 @@ async function loadReport(ticket) {
     </div>
     <div class="tblwrap"><table><colgroup>${_cols.map(c => '<col style="width:' + esc(c.w) + '">').join('')}</colgroup><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
       <tbody>${rows.length ? rows.map(rowHtml).join('') : '<tr><td colspan="' + _cols.length + '" class="empty">아직 제출된 결과물이 없습니다.</td></tr>'}</tbody></table></div>
-    <div class="legend">이름은 일부만 표시됩니다. 계정 정보(이메일)는 개인정보 보호를 위해 제공하지 않습니다.${ext.length ? ' 포인테일(스토어링크) 참가자 정보는 해당 서비스의 결과 파일을 그대로 옮긴 것입니다.' : ''}</div>`;
+    <div class="legend">이름은 일부만 표시됩니다. 계정 정보(이메일)는 개인정보 보호를 위해 제공하지 않습니다.</div>`;
   document.getElementById('gate').style.display = 'none'; el.hidden = false;
 }
 
