@@ -504,12 +504,42 @@ const PUBLIC_CLIENT_KEYS = [
   "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
 ];
 
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+function isAnonJwt(token: string): boolean {
+  if (!token.startsWith("eyJ")) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "anon";
+  } catch {
+    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
 function rejectPublicKeyCaller(req: Request, tag: string): boolean {
   const raw = (req.headers.get("Authorization") ?? "").trim();
   const token = raw.replace(/^Bearer\s+/i, "").trim();
   if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
   if (PUBLIC_CLIENT_KEYS.includes(token)) {
     console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  if (isAnonJwt(token)) {
+    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
     return true;
   }
   // 토큰 자체는 절대 남기지 않는다.
