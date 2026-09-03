@@ -37,9 +37,10 @@
   .meta{font-size:12px;color:var(--muted);line-height:1.9}
   .meta b{color:var(--ink);font-weight:500}
   .tblwrap{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;min-width:1400px}
+  /* 표는 내용 너비대로 — 열이 많으면 좌우 스크롤(2026-09-04 사용자 결정). 줄바꿈으로 접히는 것보다 낫다 */
+  table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed}
   th{background:var(--head);color:#fff;font-size:12px;font-weight:600;text-align:left;padding:9px 10px;white-space:nowrap;position:sticky;top:0}
-  td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:middle}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   td.nw{white-space:nowrap}
   td.num{text-align:right;white-space:nowrap}
   a{color:#2563EB}
@@ -167,7 +168,7 @@ async function loadReport(ticket) {
         <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}<span style="margin:0 10px;color:var(--line)">|</span><b>요약</b> 인원 ${rows.length}명 · 구매 ${buyN} · 리뷰 ${revN}</div></div>
       <div><button class="btn" onclick="downloadExcel()"><span class="material-icons-round" translate="no" style="font-size:16px">download</span> 엑셀 내려받기</button></div>
     </div>
-    <div class="tblwrap"><table><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
+    <div class="tblwrap"><table><colgroup>${_cols.map(c => '<col style="width:' + esc(c.w) + '">').join('')}</colgroup><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
       <tbody>${rows.length ? rows.map(rowHtml).join('') : '<tr><td colspan="' + _cols.length + '" class="empty">아직 제출된 결과물이 없습니다.</td></tr>'}</tbody></table></div>
     <div class="legend">이름은 일부만 표시됩니다. 계정 정보와 구매 영수증 이미지는 개인정보 보호를 위해 제공하지 않습니다.${ext.length ? ' 포인테일(스토어링크) 참가자 정보는 해당 서비스의 결과 파일을 그대로 옮긴 것입니다.' : ''}</div>`;
   document.getElementById('gate').style.display = 'none'; el.style.display = '';
@@ -191,7 +192,8 @@ function rowHtml(r) {
     if (c.key === 'ch_cosme_url') return '<td class="nw">' + chanCell(r.ch_cosme_url, r.ch_cosme_kind, who + ' · 엣코스메 결과물') + '</td>';
     if (c.key === 'amount') return '<td class="num">' + (v === '' || v === null || v === undefined ? '' : '¥' + Number(v).toLocaleString('ja-JP')) + '</td>';
     if (/_at$/.test(c.key)) return '<td class="nw" style="font-size:11px">' + esc(fmtDT(v)) + '</td>';
-    return '<td' + (c.wrap ? '' : ' class="nw"') + '>' + esc(v === null || v === undefined ? '' : v) + '</td>';
+    const t = v === null || v === undefined ? '' : String(v);
+    return '<td class="nw"' + (c.wrap ? ' title="' + esc(t) + '"' : '') + '>' + esc(t) + '</td>';
   }).join('') + '</tr>';
 }
 
