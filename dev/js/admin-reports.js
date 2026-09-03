@@ -558,10 +558,10 @@ async function openReport(reportId) {
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.9">
             <div>생성자 ${esc(rep.created_by_name || '-')} · 생성일 ${esc(formatDateTime(rep.created_at))}</div>
-            <!-- 🔴 두 시각은 반드시 서로 다른 줄이다. 합치면 브랜드가 외부 데이터도 방금 것으로 읽는다(사양서 ⑥).
-                 문구는 2026-09-04 사용자 피드백(「이건 뭐야?」)으로 뜻이 드러나게 고쳤다. -->
-            <div><strong>REVERB 데이터</strong> — 지금 기준 (${esc(formatDateTime(reverbQueriedAt))}, 열 때마다 최신)</div>
-            <div><strong>포인테일 파일</strong> — ${extAttachedAt ? esc(formatDateTime(extAttachedAt)) + ' 에 붙인 것 기준 (최신으로 하려면 파일을 다시 붙이세요)' : '붙인 파일 없음'}</div>
+            <!-- 두 시각을 한 줄에 — 형식은 2026-09-04 사용자 지정 「업데이트 : Reverb (시각) / 포인테일 (시각)」.
+                 ⚠️ 한 줄이어도 시각은 **각각** 적는다(사양서 ⑥ — 하나로 합치면 브랜드가 포인테일 데이터도
+                 방금 것으로 읽는다). Reverb = 열 때마다 새로 조회한 시각, 포인테일 = 파일을 붙인 시각. -->
+            <div>업데이트 : Reverb (${esc(formatDateTime(reverbQueriedAt))})${sources.length ? ' / 포인테일 (' + esc(formatDateTime(extAttachedAt)) + ')' : ''}</div>
           </div>
         </div>
         <div style="display:flex;gap:6px">
