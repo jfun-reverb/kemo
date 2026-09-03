@@ -78,7 +78,7 @@ ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
 # ⚠️ image-compress.js 는 storage.js 의 uploadMessageAttachment 가 부른다. 이 목록에 없던
 #    동안 관리자 화면에서 메시지에 이미지를 첨부하면 **함수가 없어 반드시 실패**했다
 #    (2026-08-12 발견 — 정의 0개 / 호출 1개). 캠페인 이미지 축소에도 쓴다.
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/admin-reports.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do

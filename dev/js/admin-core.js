@@ -228,6 +228,9 @@ function switchAdminPane(pane, el, pushHistory) {
   }
   if (el) el.classList.add('on');
   const loaders = {
+    // 🔴 여기에 등록하지 않으면 사이드바를 눌러도 **오류 없이 빈 화면**이 된다.
+    //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
+    'reports': loadReportsPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,

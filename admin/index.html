@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788435937';
+  var CURRENT_BUILD = 'v1788437135';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2957,6 +2957,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="reports" id="adminReportsSi" onclick="navAdminPaneReload('reports')"><span class="si-icon material-icons-round">summarize</span><span class="si-text">리포트 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
@@ -2998,7 +2999,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-03 20:45 · bb5f332</span>
+          <span class="admin-build-text">2026-09-03 21:05 · fad051a</span>
         </div>
       </div>
     </aside>
@@ -4376,6 +4377,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <!-- 리포트 관리 (2026-09-03) — 내용은 dev/js/admin-reports.js 의 loadReportsPane() 이 그린다.
+             ⚠️ 여기에 admin-reports.js 의 <script> 태그를 넣지 않는다(빌드 목록에만 있다). -->
+        <div id="adminPane-reports" class="admin-pane admin-pane-list"></div>
+
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -8905,6 +8910,9 @@ function faqComputeStatus(status, delivs, camp) {
 // 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
 // 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
 const PANE_REFRESHERS = {
+  'reports': async () => {
+    if (typeof loadReportsPane === 'function') await loadReportsPane();
+  },
   'errors': async () => {
     if (typeof loadClientErrors === 'function') await loadClientErrors();
   },
@@ -9453,8 +9461,8 @@ const OB_CATEGORY_SERIES = {
 };
 
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 21개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
-  //    (2026-07-29 menu.permissions 제거로 22 → 21)
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22)
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -9462,6 +9470,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.campaigns',          label_ko: '캠페인 관리',                  category: '캠페인',      server_enforced: false },
   { key: 'menu.applications',       label_ko: '인플 신청 관리',               category: '캠페인',      server_enforced: false },
   { key: 'menu.deliverables',       label_ko: '결과물 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.reports',           label_ko: '리포트 관리',                   category: '캠페인',      server_enforced: false },
   { key: 'menu.messages',           label_ko: '메시지',                       category: '캠페인',      server_enforced: false },
   { key: 'menu.brand-dashboard',    label_ko: '현황 대시보드',                category: '브랜드',      server_enforced: false },
   { key: 'menu.companies',          label_ko: '회사 관리',                    category: '브랜드',      server_enforced: false },
@@ -9482,7 +9491,13 @@ const ADMIN_PERMISSION_CATALOG = [
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 23개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
+  //       2026-09-03 report.export·report.share 둘을 더해 23. ⚠️ 같은 날 더한
+  //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
+  //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
+  { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
+  { key: 'report.share',            label_ko: '리포트 공유 링크',              category: '리포트',      server_enforced: true },
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
@@ -17224,6 +17239,9 @@ function switchAdminPane(pane, el, pushHistory) {
   }
   if (el) el.classList.add('on');
   const loaders = {
+    // 🔴 여기에 등록하지 않으면 사이드바를 눌러도 **오류 없이 빈 화면**이 된다.
+    //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
+    'reports': loadReportsPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
@@ -44708,6 +44726,50 @@ function campLeaveDiscardAndGo() {
 function campLeaveCancel() {
   closeModal('campLeaveModal');
   _campLeaveGo = null;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 리포트 관리 (캠페인 리포트 만들기) — 1-A 단계 뼈대
+//   사양서 : docs/specs/2026-09-03-campaign-report-builder.md
+//   작업표 : docs/specs/2026-09-03-campaign-report-builder-breakdown.md
+//
+// 이 조각(작업 4)은 **화면이 열리기까지의 등록만** 한다. 목록·표·모달은 뒤 조각.
+//
+// ⚠️ `loadReportsPane` 이름을 바꾸지 말 것 — 두 곳이 **이름으로** 참조한다:
+//     ①`dev/js/admin-core.js` 의 `switchAdminPane` 안 `loaders`
+//     ②`dev/lib/shared.js` 의 `PANE_REFRESHERS['reports']`
+//    ①을 빠뜨리면 사이드바를 눌러도 **오류 없이 빈 화면**이 되고,
+//    ②를 빠뜨리면 저장 뒤 목록이 안 갱신된다(`refreshPane` 이 조용히 끝난다).
+//
+// ⚠️ 이 파일은 빌드에서 `admin-core.js` **뒤**, `admin.js` **앞**에 이어 붙는다
+//    (`dev/build.sh` 의 `ADMIN_JS_FILES`). 빌드는 단순 이어붙이기라 전역이 하나다.
+//
+// ⚠️ `dev/admin/index.html` 에 이 파일의 `<script>` 태그를 넣지 않는다 —
+//    원본 HTML 은 페인 파일을 개별 태그로 부르지 않는다(빌드 목록에만 있다).
+//    넣으면 빌드가 지우는 정규식에 안 걸려 **없는 경로를 부르는 죽은 태그**가 남는다.
+//    (작업표는 「정규식이 자동으로 걸러 준다」고 적었으나 실제로는 안 걸린다 —
+//     2026-09-03 실측: `admin-reports.js`·`admin-deliverables.js` 둘 다 안 걸림)
+// ══════════════════════════════════════════════════════════════
+
+async function loadReportsPane() {
+  const pane = document.getElementById('adminPane-reports');
+  if (!pane) return;
+
+  // 권한 — 서버(행 단위 보안 정책·함수 가드)가 최종 방어선이고 여기는 표시 제어다.
+  //   ⚠️ 화면 판정은 fail-open(못 읽으면 쓰기)이라 이것만으로 막혔다고 보면 안 된다.
+  if (typeof isHidden === 'function' && isHidden('menu.reports')) {
+    pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">이 화면에 접근할 권한이 없습니다.</div>';
+    return;
+  }
+
+  pane.innerHTML = `
+    <div class="admin-pane-head">
+      <h2 class="admin-pane-title">리포트 관리</h2>
+    </div>
+    <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">
+      캠페인을 골라 리포트를 만드는 화면입니다.<br>
+      <span style="font-size:12px">아직 준비 중입니다 — 만들기·목록·표는 다음 단계에서 붙습니다.</span>
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════════
