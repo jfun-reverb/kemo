@@ -751,10 +751,14 @@ let currentAdminInfo = null;
 // ──────────────────────────────────────
 let _lbZoom = 1;
 const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
-function openImageLightbox(url) {
+// caption(선택) — 제목 자리에 「주문번호 1208834465 · 영수증 2/3」처럼 무엇의 몇 번째 사진인지 적는다
+//   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
+function openImageLightbox(url, caption) {
   if (!url) return;
   const img = $('imageLightboxImg');
   if (img) img.src = url;
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = caption || '이미지 보기';
   _lbZoom = 1;            // 열 때마다 배율 초기화
   applyLightboxZoom();
   openModal('imageLightbox');

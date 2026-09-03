@@ -452,34 +452,39 @@ const REPORT_COLS = [
 //   ⚠️ 바깥 사이트는 모달(액자) 안에 못 넣는다 — 그 사이트들이 액자 삽입을 막는다
 //      (X-Frame-Options). 억지로 넣으면 **빈 흰 상자**가 뜨고 원인도 안 보인다.
 //   그래서 게시물에는 ↗ 를 붙여 **새 탭으로 나간다는 것을 미리** 알린다.
-function _reportChannelCellHtml(url, kind) {
+// who = 확대 창 제목에 붙일 머리말(「주문번호 … · 큐텐 결과물」). 몇 번째/전체 는 여기서 붙인다.
+function _reportChannelCellHtml(url, kind, who) {
   if (!url) return '';
+  who = who || '';
   // 외부(포인테일) 증빙은 여러 장이 줄바꿈으로 온다 — 한 장씩 「사진 1·2·3」으로 각각 연다.
   const list = String(url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
   if (list.length > 1) {
-    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}')">사진 ${i+1}</a>`; }).join(' · ');
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}','${esc(who)} 사진 ${i+1}/${list.length}')">사진 ${i+1}</a>`; }).join(' · ');
   }
   url = list[0] || url;
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
   const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
   if (kind === 'photo') {
-    return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(url)}')">열기</a>${tagHtml}`;
+    return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(url)}','${esc(who)} 사진 1/1')">열기</a>${tagHtml}`;
   }
   return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
 
 function _reportRowHtml(r) {
+  // 확대 창 제목 머리말 — 주문번호가 있으면 그것, 없으면 이름(외부 행은 계정)으로 사람을 지목한다
+  const whoBase = r.order_no ? ('주문번호 ' + r.order_no) : (r.name_kanji || r.account_id || ('No.' + r.no));
   const cells = REPORT_COLS.map(function(c) {
     if (c.key === 'receipt_url') {
       // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
       if (!r.receipt_url) return '<td></td>';
       const rl = String(r.receipt_url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
+      const whoR = whoBase + ' · 영수증';
       return '<td>' + (rl.length > 1
-        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}')">사진 ${i+1}</a>`; }).join(' · ')
-        : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}')">열기</a>`) + '</td>';
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(u)}','${esc(whoR)} 사진 ${i+1}/${rl.length}')">사진 ${i+1}</a>`; }).join(' · ')
+        : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
     }
-    if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind)}</td>`;
-    if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind)}</td>`;
+    if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind, whoBase + ' · 큐텐 결과물')}</td>`;
+    if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind, whoBase + ' · 엣코스메 결과물')}</td>`;
     if (c.key === 'amount') {
       // ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다 — 안 하면 「¥0」으로 그려진다.
       return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
