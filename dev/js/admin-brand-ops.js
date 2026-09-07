@@ -65,7 +65,7 @@ function brandOpsAlertReasonLines(b) {
 // 운영현황은 두 뷰다 — 「일정」(캠페인 간트, 기본) / 「브랜드」(카드). 사양서
 // docs/specs/2026-09-07-brand-ops-schedule-gantt-view.md. 두 뷰의 **공통 재료**를 여기서
 // 한 번에 받고 현재 뷰를 그린다. 결과물 조회는 일정 뷰가 그려질 때 따로(loadScheduleDeliverables).
-var _brandOpsCampaigns = [];     // fetchCampaigns() 전건 — 일정 뷰 + 「최근 신청」이 나눠 쓴다(두 번 부르지 않는다)
+var _brandOpsCampaigns = [];     // fetchCampaigns() 전건 — 일정 뷰가 쓴다
 var _brandOpsApprCounts = null;  // get_campaign_application_counts (감사용 제외됨). 조회 실패면 null
 var _brandOpsLoadToken = 0;      // 새로고침 연타·페인 들락거림 — 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는 것을 막는다
 async function loadBrandOps() {
@@ -96,19 +96,7 @@ async function loadBrandOps() {
   _brandOpsApprCounts = results[3];
   _brandOpsAuditIds = new Set((((results[4] && results[4].data) || [])).map(function(r){ return r.id; }));
   renderBrandOpsCurrentView();
-  // 최근 신청 — 대시보드에서 이관 (renderRecentAppsTable 는 admin.js)
-  loadBrandOpsRecentApps(_brandOpsCampaigns);
-}
-
-// 최근 신청 테이블 채우기 (대시보드 loadAdminData 에서 이관)
-//   campaigns 를 받으면 그대로 쓴다(loadBrandOps 가 이미 받았다 — 같은 화면에서 전건 조회를 두 번 돌리지 않는다).
-async function loadBrandOpsRecentApps(campaigns) {
-  if (typeof renderRecentAppsTable !== 'function') return;
-  // 취소 사유 이름 캐시 — 표에 사유 분류를 그리므로 **그리기 전에** 채운다(사양서 §3-4).
-  //   ⚠️ renderRecentAppsTable 은 동기 함수라 그 안에서는 못 기다린다. 여기가 유일한 자리다.
-  if (typeof ensureCancelReasonsCache === 'function') { try { await ensureCancelReasonsCache(); } catch(e) {} }
-  var results = await Promise.all([campaigns ? Promise.resolve(campaigns) : fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
-  renderRecentAppsTable(results[2], results[0], results[1]);
+  // 「최근 신청」 표는 2026-09-07 사용자 결정으로 뺐다 — 인플 신청 관리 페인에 같은 내용이 있다.
 }
 
 function fillBrandOpsCompanyFilter() {
