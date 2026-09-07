@@ -842,6 +842,7 @@ async function renderInfluencerWithdrawalPanel(u) {
           ${active.uncancelled_count > 0 ? `<div style="color:var(--muted)">접수 때 철회하지 못한 응모 ${active.uncancelled_count}건</div>` : ''}
           ${withdrawLeftoverLines(preOk ? (pre && pre.blockers) : null)}
           ${active.event_tickets_blocked_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">정리 못 한 행사 예약 ${active.event_tickets_blocked_count}건</strong></div>` : ''}
+          ${withdrawMailLine(active)}
         </div>
       </div>`;
     if (canProxy && isAdminMade) {
@@ -868,11 +869,43 @@ async function renderInfluencerWithdrawalPanel(u) {
       ${past.map(r => `<div style="font-size:11px;color:var(--muted);line-height:1.8">
         ${formatDateTime(r.requested_at)} · ${esc(withdrawStatusLabelKo(r.status))} · ${esc(withdrawKindLabelKo(r.requested_by_kind))}
         ${r.admin_cancel_note ? `<br><span style="color:var(--ink)">되돌림 사유</span> · ${esc(r.admin_cancel_note)}` : ''}
+        ${withdrawMailLine(r)}
       </div>`).join('')}
     </div>`;
   }
 
   body.innerHTML = html;
+}
+
+// 예정일 안내 메일 상태 한 줄 (마이그레이션 419, 전수조사 2차 3-3).
+//   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**라, 나갔는지를 카드가 말한다.
+//   ⚠️ 상태별로 뜻이 다르다 — pending_payout(예정일 미정)은 아직 대상이 아니고, cancelled 는
+//      「안내를 받고 마음을 바꾼」 정상 동선이라 발송 사실만 적는다(안 나갔으면 침묵).
+//   ⚠️ 판정을 화면이 키우지 않는다 — 두 칸(발송 시각·시도 횟수)을 그대로 옮기고
+//      **날짜 비교는 하지 않는다**(집계·경고는 서버 419 가 한다).
+function withdrawMailLine(r) {
+  if (!r) return '';
+  const tried = Number(r.scheduled_mail_attempt_count || 0);
+  const triedNote = tried > 0 ? ` (${tried}회 실패 뒤)` : '';
+  const label = '<strong style="font-weight:700">예정일 안내 메일</strong>';
+  if (r.scheduled_mail_sent_at) {
+    const when = formatDateTime(r.scheduled_mail_sent_at);
+    return r.status === 'cancelled'
+      ? `<div style="color:var(--muted)">${label} · 발송 ${when}${triedNote} — 그 뒤 취소됨</div>`
+      : `<div>${label} · 발송 ${when}${triedNote}</div>`;
+  }
+  if (r.status === 'pending_payout') {
+    return `<div style="color:var(--muted)">${label} · 예정일이 정해지면 나갑니다</div>`;
+  }
+  if (r.status === 'scheduled') {
+    return tried > 0
+      ? `<div style="color:#C62828">${label} · 미발송 — ${tried}회 실패, 매일 09:00 다시 시도</div>`
+      : `<div style="color:var(--muted)">${label} · 아직 발송 표시 없음 (매일 09:00 발송)</div>`;
+  }
+  if (r.status === 'done' && r.scheduled_date) {
+    return `<div style="color:#C62828">${label} · 받지 못한 채 확정됨${tried > 0 ? ` (${tried}회 실패)` : ''} — 다시 보내지 않습니다</div>`;
+  }
+  return '';
 }
 
 // 탈퇴 사유 코드 → 한국어 라벨. 목록을 아직 안 받았으면 코드값 그대로 보여준다
