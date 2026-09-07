@@ -585,7 +585,7 @@ function ganttSortArrows(key) {
 function ganttSortValue(key, c, stats) {
   if (key === 'title') return (c.title || '').toLowerCase();
   if (key === 'status') return GANTT_STATUS_RANK[c.status] ?? 9;
-  if (key === 'dur') { var sp = ganttSpanOf(ganttSegmentsFor(c)); return sp ? (sp.end === null ? Infinity : ganttDays(sp.start, sp.end)) : null; }   // 무기한은 가장 긴 것으로
+  if (key === 'dur') { var sp = ganttSpanOf(ganttSegmentsFor(c)); return sp ? ganttRemainDays(sp.end) : null; }   // 남은 일수(지났으면 음수). 무기한은 가장 뒤
   if (key === 'prog') { var pr = ganttParentProgress(c, stats); return pr.den > 0 && pr.num !== null ? pr.num / pr.den : null; }
   return null;
 }
@@ -638,10 +638,16 @@ function ganttSpanOf(segs) {
   });
   return { start: start, end: open ? null : end };
 }
-function ganttDurText(start, end) {
-  if (end === null) return '무기한';
-  var n = ganttDays(start, end);
-  return n === null ? '—' : n + '일';
+// 남은 기간 — 마감까지 D-day 배지(dDayLabel, 다른 화면과 같은 규약: D-Day / D-n / 지났으면 D+n). 마감 없음은 「무기한」
+function ganttRemainHtml(end) {
+  if (end === null) return '<span style="font-size:11px;color:var(--muted)">무기한</span>';
+  if (!end) return '<span style="color:var(--muted)">—</span>';
+  return dDayLabel(end);
+}
+function ganttRemainDays(end) {
+  if (end === null) return Infinity;
+  var n = ganttDayOffset(ganttTodayYmd(), end);
+  return isNaN(n) ? null : n;
 }
 // 진척률 재료 — { num, den, extra } (num null = 값 없음)
 function ganttParentProgress(c, stats) {
@@ -661,11 +667,12 @@ function ganttChildProgress(seg, c, stats) {
 function ganttProgHtml(pr, pending) {
   if (pending) return '<span style="color:var(--faint)">…</span>';
   if (pr.num === null || pr.num === undefined) return '<span style="color:var(--muted)">—</span>';
-  var lab = pr.label ? '<span class="gantt-prog-label">' + esc(pr.label) + '</span> ' : '';
-  if (!(pr.den > 0)) return '<span class="gantt-prog-txt">' + lab + pr.num + '/' + pr.den + '</span>';
+  var tip = (pr.label ? pr.label + ' ' : '') + pr.num + ' / ' + pr.den + (pr.extra ? ' · ' + pr.extra : '');
+  if (!(pr.den > 0)) return '<span class="gantt-prog-frac" title="' + esc(tip) + '">' + pr.num + '/' + pr.den + '</span>';
   var pct = Math.min(100, Math.round(pr.num / pr.den * 100));
-  return '<div class="gantt-prog" title="' + esc(pr.label) + ' ' + pr.num + ' / ' + pr.den + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
-    + '<span class="gantt-prog-txt">' + lab + pr.num + '/' + pr.den + ' · ' + pct + '%' + (pr.extra ? ' <span class="gantt-prog-extra">(' + esc(pr.extra) + ')</span>' : '') + '</span></div>';
+  // 참고 화면처럼 막대 + 퍼센트만 크게. 분수는 작게, 무엇을 센 것인지는 툴팁에(이름표를 앞에 붙이면 숫자가 안 보인다 — 2026-09-07 사용자 지적)
+  return '<div class="gantt-prog" title="' + esc(tip) + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
+    + '<span class="gantt-prog-pct">' + pct + '%</span><span class="gantt-prog-frac">' + pr.num + '/' + pr.den + '</span></div>';
 }
 var GANTT_QUICK_CHIPS = [
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
@@ -825,6 +832,9 @@ function toggleGanttLeft() {
   _ganttLeftCollapsed = !_ganttLeftCollapsed;
   try { localStorage.setItem(GANTT_LEFT_KEY, _ganttLeftCollapsed ? 'collapsed' : 'open'); } catch(e) {}
   applyGanttLeftState();
+  // 왼쪽 열 폭이 바뀌면 오늘 세로선 위치(왼쪽 열 폭 + 날짜 x)도 바뀐다 — 다시 그린다(리뷰 지적)
+  var rowsEl = $('brandOpsScheduleRows');
+  if (rowsEl && _ganttCurrentRange) renderGanttTodayLine(rowsEl, _ganttCurrentRange);
 }
 function applyGanttLeftState() {
   var sc = $('brandOpsGanttScroll'), btn = $('brandOpsLeftToggle');
@@ -972,8 +982,6 @@ function renderGanttTrack(c, range, counts, only) {
   var segs = only ? [Object.assign({}, only, { lane: 'main' })] : ganttSegmentsFor(c);
   var style = ganttTrackStyle(range);
   var html = '';
-  var today = ganttTodayYmd(), tx = ganttX(range, today);
-  if (tx >= 0 && tx < range.width) html += '<div class="gantt-today" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px"></div>';
   if (!segs.length) return '<div class="gantt-track" style="' + style + '">' + html + '<span class="gantt-nodate">날짜 없음</span></div>';
   var visible = segs.filter(function(s){ return _ganttSegOverlaps(s, range); });
   if (!visible.length) {
@@ -1037,7 +1045,7 @@ function renderScheduleRow(c, range, stats) {
     +     '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
     +   '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
-    +   '<div class="gantt-cell c-dur">' + (span ? esc(ganttDurText(span.start, span.end)) : '<span style="color:var(--muted)">—</span>') + '</div>'
+    +   '<div class="gantt-cell c-dur">' + (span ? ganttRemainHtml(span.end) : '<span style="color:var(--muted)">—</span>') + '</div>'
     +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttParentProgress(c, stats), pending) + '</div>'
     + '</div>'
     + renderGanttTrack(c, range, counts)
@@ -1050,7 +1058,7 @@ function renderScheduleRow(c, range, stats) {
       + '<div class="gantt-left">'
       +   '<div class="gantt-cell c-title"><div class="gantt-title-line"><span class="gantt-child-name">' + esc(seg.name) + '</span><span class="gantt-child-date">' + esc(period) + '</span></div></div>'
       +   '<div class="gantt-cell c-status"></div>'
-      +   '<div class="gantt-cell c-dur">' + esc(seg.point ? '1일' : ganttDurText(seg.start, seg.end)) + '</div>'
+      +   '<div class="gantt-cell c-dur">' + ganttRemainHtml(seg.end) + '</div>'
       +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttChildProgress(seg, c, stats), pending) + '</div>'
       + '</div>'
       + renderGanttTrack(c, range, counts, seg)
@@ -1071,8 +1079,8 @@ function renderGanttLegend() {
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
     + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
-    + '<div class="gantt-cell c-dur" title="캠페인 행 = 설정된 기간 전체(가장 이른 시작 ~ 가장 늦은 마감) · 펼친 기간 행 = 그 기간의 일수"><span class="gantt-head-main">일수 ' + ganttSortArrows('dur') + '</span><span class="gantt-head-sub">시작~마감 일수</span></div>'
-    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 펼친 기간 행 = 그 단계의 진행(모집·선정 = 승인/모집인원, 구매·방문 = 영수증(현장 사진) 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)"><span class="gantt-head-main">진척률 ' + ganttSortArrows('prog') + '</span><span class="gantt-head-sub">캠페인 행: 인증 성공/모집인원 · 기간 행: 단계별</span></div>'
+    + '<div class="gantt-cell c-dur" title="캠페인 행 = 가장 늦은 마감까지 · 펼친 기간 행 = 그 기간의 마감까지">남은 기간 ' + ganttSortArrows('dur') + '</div>'
+    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 펼친 기간 행 = 그 단계(모집·선정 = 승인/모집인원, 구매·방문 = 영수증 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)">진척률 ' + ganttSortArrows('prog') + '</div>'
     + '</div>' + renderGanttAxis(range);
 }
 
@@ -1193,6 +1201,17 @@ function fitGanttHeight() {
 }
 window.addEventListener('resize', function(){ if (_brandOpsView === 'schedule') fitGanttHeight(); });
 
+// 오늘 세로선 — 행마다 그리면 행 구분선 자리에서 끊겨 보인다(사용자 지적) → 행 컨테이너 위에 하나만 겹쳐 그린다.
+//   왼쪽 고정 열 뒤로는 안 보이게 z-index 를 왼쪽 열(2)보다 낮춘다. 왼쪽 열 폭은 그려진 첫 행에서 잰다(접기 상태 반영).
+function renderGanttTodayLine(rowsEl, range) {
+  rowsEl.querySelectorAll(':scope > .gantt-today').forEach(function(el){ el.remove(); });   // 다시 그릴 때 옛 선을 지운다
+  var tx = ganttX(range, ganttTodayYmd());
+  if (!(tx >= 0 && tx < range.width)) return;
+  var left = rowsEl.querySelector('.gantt-left');
+  var leftW = left ? left.offsetWidth : 0;
+  rowsEl.insertAdjacentHTML('beforeend', '<div class="gantt-today" style="left:' + (leftW + tx + GANTT_DAY_PX / 2) + 'px"></div>');
+}
+
 // ---- 일정 뷰 본체 ----
 function renderBrandOpsSchedule() {
   var rowsEl = $('brandOpsScheduleRows'), axisEl = $('brandOpsAxis'), note = $('brandOpsScheduleNote');
@@ -1239,5 +1258,6 @@ function renderBrandOpsSchedule() {
     var s = st.pending ? undefined : (st.stats === null ? null : st.stats[c.id]);
     return renderScheduleRow(c, range, s);
   }).join('');
+  renderGanttTodayLine(rowsEl, range);
   if (st.pending) loadScheduleDeliverables();
 }
