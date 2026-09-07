@@ -771,12 +771,18 @@ function renderGanttTrack(c, range) {
     var left = Math.max(0, x0), right = Math.min(range.width, x1);
     var period = s.end === null ? (formatDate(s.start) + ' ~ (마감 없음)') : (formatDate(s.start) + ' ~ ' + formatDate(s.end));
     var tip = s.name + ' ' + period + (s.note ? ' · ' + s.note : '');
-    var laneCls = s.lane === 'sub' ? (' lane-sub' + (subIdx++ ? '2' : '')) : '';
+    var isSub = s.lane === 'sub';
+    var laneCls = isSub ? (' lane-sub' + (subIdx++ ? '2' : '')) : '';
+    var width = Math.max(2, right - left);
     if (s.point) {
       html += '<span class="gantt-point" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px"></span>';
     } else {
+      // 구간 이름을 막대 안에 쓴다 — 농도만으로는 무엇이 무엇인지 안 보인다(2026-09-07 사용자 지적).
+      //   주 막대는 안에(폭이 글자보다 넓을 때만), 보조 막대는 얇아서 막대 오른쪽 끝 옆에 작은 글씨로.
+      var inLabel = (!isSub && width >= 30) ? '<span class="gantt-bar-label">' + esc(s.name) + '</span>' : '';
       html += '<div class="gantt-bar ink-' + s.ink + laneCls + (clipL ? ' clip-l' : '') + (clipR ? ' clip-r' : '') + (s.openEnd ? ' open-end' : '')
-        + '" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px;width:' + Math.max(2, right - left) + 'px"></div>';
+        + '" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px;width:' + width + 'px">' + inLabel + '</div>';
+      if (isSub && !clipR) html += '<span class="gantt-sub-label' + (laneCls.indexOf('sub2') >= 0 ? ' sub2' : '') + '" style="left:' + (right + 3) + 'px">' + esc(s.name) + '</span>';
       if (s.openEnd && s.lane === 'main') html += '<span class="gantt-tag" style="right:4px">마감 없음</span>';
     }
     // D-day 배지 — 마감(deadline)·제출 마감에만, 그 날짜가 범위 안일 때. 막대 색은 안 바꾼다(결정 11).
@@ -814,6 +820,15 @@ function renderScheduleRow(c, range, stats) {
     + '</div>'
     + renderGanttTrack(c, range)
     + '</div>';
+}
+
+// 범례 — 막대 모양이 무엇을 뜻하는지. 시간축 머리 위 한 줄(일정 뷰에서만 보인다).
+function renderGanttLegend() {
+  return '<span class="gantt-legend-item"><i class="gantt-bar ink-strong lg"></i>모집</span>'
+    + '<span class="gantt-legend-item"><i class="gantt-bar ink-weak lg"></i>제출(결과물)</span>'
+    + '<span class="gantt-legend-item"><i class="gantt-bar ink-mid lg lg-sub"></i>구매 · 방문 · 선정(얇은 줄)</span>'
+    + '<span class="gantt-legend-item"><i class="gantt-point lg"></i>날짜 하나(마감만 있는 경우)</span>'
+    + '<span class="gantt-legend-item"><i class="gantt-today lg"></i>오늘</span>';
 }
 
 function renderScheduleHead(range) {
@@ -865,6 +880,8 @@ function renderBrandOpsSchedule() {
   var list = brandOpsScheduleCampaigns();
   if (count) count.textContent = '(' + list.length + ' / 대상 ' + target.length + ')';
   var range = ganttRange();
+  var legend = $('brandOpsGanttLegend');
+  if (legend) legend.innerHTML = renderGanttLegend();
   axisEl.innerHTML = renderScheduleHead(range);
   if (typeof _campaignsLoadFailed !== 'undefined' && _campaignsLoadFailed) {
     rowsEl.innerHTML = '<div class="gantt-empty">캠페인을 불러오지 못했습니다 · 새로고침을 눌러 다시 시도해 주세요</div>';

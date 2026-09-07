@@ -2466,7 +2466,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-bar.ink-mid{background:var(--ink);opacity:.5}
 .gantt-bar.ink-weak{background:var(--ink);opacity:.22}
 .gantt-bar.lane-sub{height:5px;top:26px;border-radius:2px}
-.gantt-bar.lane-sub2{top:34px}
+.gantt-bar.lane-sub2{top:34px;height:5px;border-radius:2px}   /* lane-sub 와 다른 클래스 이름이라 높이를 안 물려받는다 — 따로 적는다(리뷰 지적) */
 .gantt-bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0;border-left:3px dotted var(--surface)}
 .gantt-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right:3px dotted var(--surface)}
 .gantt-bar.open-end{background:repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 9px);opacity:.6}
@@ -2477,3 +2477,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-edge.l{left:0}.gantt-edge.r{right:0}
 .gantt-nodate{position:absolute;left:8px;top:14px;font-size:11px;color:var(--faint)}
 .gantt-empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+/* 막대 이름표·범례 — 농도만으로는 구간을 못 알아본다는 지적(2026-09-07)으로 추가 */
+.gantt-bar-label{position:absolute;left:0;right:0;top:0;line-height:12px;font-size:9px;font-weight:700;color:var(--surface);text-align:center;white-space:nowrap;overflow:hidden;letter-spacing:.02em;pointer-events:none}
+.gantt-bar.ink-weak .gantt-bar-label{color:var(--ink)}   /* 옅은 막대는 흰 글씨가 안 보인다 */
+.gantt-sub-label{position:absolute;top:22px;font-size:9px;line-height:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
+.gantt-sub-label.sub2{top:30px}
+.gantt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11px;color:var(--muted);margin-bottom:6px}
+.gantt-legend-item{display:inline-flex;align-items:center;gap:6px}
+.gantt-legend .gantt-bar.lg{position:static;display:inline-block;width:26px;height:10px}
+.gantt-legend .gantt-bar.lg.lg-sub{height:5px}
+.gantt-legend .gantt-point.lg{position:static;display:inline-block;width:9px;height:9px;transform:rotate(45deg)}
+.gantt-legend .gantt-today.lg{position:static;display:inline-block;height:12px;width:0}
