@@ -307,7 +307,10 @@ async function refreshPastUnregEntryInfo() {
   const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
   if (banner && text) {
     if (issueCount > 0) {
-      text.textContent = `인증은 끝났지만 캠페인에 금액이 없어 정산을 만들 수 없는 건이 ${issueCount}건 있습니다. 캠페인의 제품 가격(리뷰어형) 또는 리워드 금액(기프팅·방문형)을 입력하면 자동으로 등록됩니다.`;
+      // [B-8] 이 목록에 오는 「금액 미확정」은 **리뷰어형(가구매 포함)에 제품 가격이 없는 경우뿐**이다 —
+      //   기프팅·방문형 무보수 캠페인은 후보에서 아예 빠져(마이그레이션 264) 여기 나오지 않는다.
+      //   예전 문구는 일어날 수 없는 「리워드 금액(기프팅·방문형)」 안내를 함께 적고 있었다.
+      text.textContent = `인증은 끝났지만 캠페인에 제품 가격이 없어 정산 금액을 정할 수 없는 리뷰어형 건이 ${issueCount}건 있습니다. 캠페인 편집에서 제품 가격을 입력하면 자동으로 등록됩니다.`;
       banner.style.display = '';
     } else {
       banner.style.display = 'none';
@@ -2333,6 +2336,7 @@ async function openPayoutPersonList(dueStr) {
 function backToPayoutSummary() {
   _payoutDueFilter = null;
   _payoutPersonSearch = '';
+  _payoutSearchTokens = [];   // [B-10] 검색어 낱말도 비운다 — 안 비우면 빈 화면이 「찾는 중…」으로 남는다
   _payoutSelected.clear();
   renderPayoutSummary();
 }
