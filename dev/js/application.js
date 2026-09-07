@@ -890,8 +890,9 @@ function resetCautionUI() {
 function renderCautionItemsHtml(items) {
   if (!Array.isArray(items) || !items.length) return '';
   const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  // [E-2] 화면 전용 — 표시 폭을 줘 `content/` 썸네일을 받는다(원본은 data-orig 로 남아 폴백).
   const sanitize = (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml
+    ? (h => sanitizeCautionHtml(h, { displayWidth: (typeof RICH_DISPLAY_WIDTH !== 'undefined' ? RICH_DISPLAY_WIDTH : 0) }))
     : (h => String(h||'').replace(/<script/gi,'&lt;script'));
   const lis = items.map(it => {
     const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
@@ -917,8 +918,9 @@ function renderCautionItemsHtml(items) {
 function renderNgItemsHtml(items) {
   if (!Array.isArray(items) || !items.length) return '';
   const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  // [E-2] 화면 전용 — 표시 폭을 줘 `content/` 썸네일을 받는다(원본은 data-orig 로 남아 폴백).
   const sanitize = (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml
+    ? (h => sanitizeCautionHtml(h, { displayWidth: (typeof RICH_DISPLAY_WIDTH !== 'undefined' ? RICH_DISPLAY_WIDTH : 0) }))
     : (h => String(h||'').replace(/<script/gi,'&lt;script'));
   const lis = items.map(it => {
     const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
