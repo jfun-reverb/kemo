@@ -4784,19 +4784,42 @@ function _withThumbPaths(paths) {
 // bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
 // 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
 // (일부 경로 삭제 실패가 흔적 제거 전체를 막지 않도록).
+//
+// 🔴 **경로를 100개씩 나눠 보낸다**(2026-09-07, 전수조사 E-1). 예전에는 한 번에 다 보냈는데,
+//    `_withThumbPaths` 가 경로를 정확히 2배로 늘린 뒤로 응모가 많은 캠페인·감사용 전체 청소는
+//    배열이 수백 개가 된다. 이 헬퍼를 부르는 세 자리(캠페인 보관 삭제·감사용 청소 2종)는 전부
+//    **데이터베이스 행을 먼저 지우고 경로만 돌려받는** 구조(325)라, 여기서 거부되면 경로는
+//    이미 사라져 **개인정보 파일이 공개 통에 남은 채 다시 찾을 방법이 없다**. 예약 실행
+//    (`purge-withdrawal-media`)이 100개씩 나누는 것과 같은 크기.
+//    ⚠️ 묶음 하나가 실패해도 나머지는 계속 보낸다 — 실패한 묶음의 경로만 failedPaths 에 모은다.
+//    ⚠️ 순차로 보낸다(한꺼번에 던지면 요청 수 제한에 걸린다).
+//    ⚠️ 개발서버 실측(2026-09-07): 없는 경로 100~10,000개를 한 번에 보내도 전부 성공(최대 340ms) —
+//       **요청 크기 상한은 안 걸렸다.** ⚠️ 없는 경로는 서버가 메타데이터 조회에서 0건으로 끝내
+//       가벼운 길만 타므로, 「있는 파일」이 많을 때의 시간 초과까지 증명한 것은 아니다.
+//       그래도 나누는 이유는 ①실제 파일이 많을 때 한 요청이
+//       길어져 시간 초과로 통째로 실패하는 것 ②한 묶음 실패가 전체를 실패로 만드는 것을 막기 위해서다.
+const STORAGE_DELETE_CHUNK = 100;
 async function _deleteStorageFiles(bucket, paths) {
   if (!db || !Array.isArray(paths) || paths.length === 0) return { ok: true, failedPaths: [] };
-  try {
-    const { error } = await db.storage.from(bucket).remove(paths);
-    if (error) {
-      console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패:`, error);
-      return { ok: false, failedPaths: paths };
+  const failedPaths = [];
+  for (let i = 0; i < paths.length; i += STORAGE_DELETE_CHUNK) {
+    const group = paths.slice(i, i + STORAGE_DELETE_CHUNK);
+    try {
+      const { error } = await db.storage.from(bucket).remove(group);
+      if (error) {
+        console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패 (${i}~${i + group.length - 1}):`, error);
+        failedPaths.push(...group);
+      }
+    } catch (e) {
+      console.warn(`[_deleteStorageFiles] ${bucket} 예외 (${i}~${i + group.length - 1}):`, e);
+      failedPaths.push(...group);
     }
-    return { ok: true, failedPaths: [] };
-  } catch (e) {
-    console.warn(`[_deleteStorageFiles] ${bucket} 예외:`, e);
-    return { ok: false, failedPaths: paths };
   }
+  if (failedPaths.length) {
+    // 🔴 경로는 데이터베이스에서 이미 사라졌다 — 여기 남는 목록이 유일한 단서다. 콘솔에 통째로 남긴다.
+    console.error(`[_deleteStorageFiles] ${bucket} 못 지운 경로 ${failedPaths.length}건 — 저장소에 남아 있다`, failedPaths);
+  }
+  return { ok: failedPaths.length === 0, failedPaths };
 }
 
 // 모든 감사용 계정 흔적 제거.
