@@ -709,7 +709,8 @@ function renderGanttAxis(range) {
   }
   var today = ganttTodayYmd();
   var tx = ganttX(range, today);
-  if (tx >= 0 && tx < range.width) html += '<span class="gt" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px">오늘</span>';
+  // 「오늘」 이름표는 월 이름표 줄에 있다 — 오늘이 그달 1일이면 「9월」과 같은 자리라 글자만 생략한다(세로선은 그대로).
+  if (tx >= 0 && tx < range.width && today.slice(8, 10) !== '01') html += '<span class="gt" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px">오늘</span>';
   range.gridOffset = firstMonday === null ? 0 : firstMonday;
   return '<div class="gantt-axis" style="width:' + range.width + 'px">' + html + '</div>';
 }
@@ -814,7 +815,7 @@ function renderScheduleRow(c, range, stats) {
   var idJs = esc(String(c.id));
   return '<div class="gantt-row">'
     + '<div class="gantt-left">'
-    +   '<div class="gantt-cell c-title"><a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops\');return false">' + esc(title) + '</a><div class="sub ellip">' + esc(c.campaign_no || '') + '</div></div>'
+    +   '<div class="gantt-cell c-title"><a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a><div class="sub ellip">' + esc(c.campaign_no || '') + '</div></div>'
     +   '<div class="gantt-cell c-brand"><span class="ellip" title="' + esc(brandLabelAdmin(c)) + '">' + (esc(brandLabelAdmin(c)) || '<span style="color:var(--muted)">—</span>') + '</span></div>'
     +   '<div class="gantt-cell c-type"><div class="sub" style="margin:0 0 2px">' + esc(typeKo) + '</div>' + channelChipsHtml(c.channel, c.channel_match) + '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
