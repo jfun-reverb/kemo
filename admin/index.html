@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788773108';
+  var CURRENT_BUILD = 'v1788773835';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 18:25 · db37973</span>
+          <span class="admin-build-text">2026-09-07 18:37 · 0398d26</span>
         </div>
       </div>
     </aside>
@@ -9894,6 +9894,8 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
   //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
   /account_withdrawn/,
+  // 확정된 계정의 두 번째 탈퇴 신청 거부(마이그레이션 422) — 같은 세트.
+  /already_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
@@ -16343,7 +16345,8 @@ function friendlyErrorJa(e) {
   if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
   // 탈퇴 절차 중인 계정(마이그레이션 359) — 일반 permission 규칙보다 **먼저** 매칭해야
   //   「권한이 없습니다」로 뭉개지지 않는다.
-  if (/account_withdrawn/.test(s)) return t.accountWithdrawn;
+  //   already_withdrawn(422) — 확정된 계정의 두 번째 탈퇴 신청 거부. 같은 문구로 보여준다.
+  if (/account_withdrawn|already_withdrawn/.test(s)) return t.accountWithdrawn;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
@@ -29327,6 +29330,9 @@ async function renderInfluencerWithdrawalPanel(u) {
 
   const active = (reqs || []).find(r => r.status === 'pending_payout' || r.status === 'scheduled');
   const past   = (reqs || []).filter(r => r !== active);
+  // 확정(done)된 회원에게는 「대신 신청」 버튼을 처음부터 안 그린다 — 눌러도 서버(422)가
+  //   already_withdrawn 으로 막지만, 카드에 「탈퇴 완료」가 보이는데 버튼이 뜨면 헷갈린다(리뷰 지적).
+  const alreadyDone = (reqs || []).some(r => r.status === 'done');
   if (summary) summary.textContent = reqs.length ? `${reqs.length}건` : '';
 
   // ① 아예 대상이 아닌 계정 — 「대신 신청」 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다.
@@ -29353,7 +29359,7 @@ async function renderInfluencerWithdrawalPanel(u) {
   const preOk = !!(pre && pre.ok === true);
   // 대상이 아닌 계정(blockedReason)은 「대신 신청」을 못 열지만, 관리자가 넣어 둔 신청을
   // 되돌리는 것은 열어 둔다(canUndo) — 그게 멈춘 확정을 푸는 길 중 하나다.
-  const canProxy = preOk && canWrite('withdrawal.proxy_request');
+  const canProxy = preOk && !alreadyDone && canWrite('withdrawal.proxy_request');
   const canUndo  = (preOk || !!blockedReason) && canWrite('withdrawal.proxy_request');
   let html = blockedHtml;
 
@@ -29392,7 +29398,7 @@ async function renderInfluencerWithdrawalPanel(u) {
     }
   } else {
     const lines = withdrawBlockerLines(pre && pre.blockers);
-    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
+    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">${alreadyDone ? '이 회원은 탈퇴가 확정됐습니다 — 새 신청은 받지 않습니다.' : '진행 중인 탈퇴 신청이 없습니다.'}</div>`;
     if (canProxy) {
       html += `<button class="btn btn-xs" style="background:#FB8C00;color:#fff;border:none" onclick="openWithdrawProxyModal()">회원 대신 탈퇴 신청</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">회원이 직접 요청한 경우에만 사용하세요.</div>`;
