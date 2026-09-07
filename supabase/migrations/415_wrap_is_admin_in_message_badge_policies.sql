@@ -103,8 +103,9 @@ COMMIT;
 --
 --   적용 전(운영 2026-09-07): Execution Time 469.267 ms · Buffers 16,656 ·
 --     applications 4,557 제거 / application_messages 4,084 제거 / resolutions 1,008 제거
---   적용 후 기대: 각 순차 탐색에 `InitPlan` 이 생기고 Filter 가 `(… OR $N)` 꼴,
---     Rows Removed 는 그대로, 시간은 크게 준다.
+--   적용 후(운영 2026-09-07 실측): Execution Time **7.809 ms** · application_messages 4,084 제거 /
+--     resolutions 1,008 제거(둘 다 적용 전과 같음) · Filter 가 `(… OR (InitPlan N).col1)` 꼴.
+--   개발서버(2026-09-07): 4.919 → 1.750 ms, Rows Removed 응모 60 / 메시지 61 / 대화정리 18 — 적용 전후 동일.
 --
 -- 3) 관리자 쪽이 그대로 보이는가 — 관리자 계정으로 받은편지함(#messages)과
 --    인플 신청 관리 목록을 열어 건수가 적용 전과 같은지 눈으로 확인.
