@@ -40,7 +40,7 @@
 //   # 개발
 //   supabase functions deploy notify-deliverable-decision --project-ref qysmxtipobomefudyixw
 //   # 운영
-//   supabase functions deploy notify-deliverable-decision --project-ref twofagomeizrtkwlhsuv
+//   supabase functions deploy notify-deliverable-decision --project-ref nrwtujmlbktxjgdwlpjj   # ⚠️ 옛 시드니(twofago…)가 아니라 도쿄
 //   # 비밀값
 //   supabase secrets set BREVO_API_KEY=xxx --project-ref <ref>
 //
