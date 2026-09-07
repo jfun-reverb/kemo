@@ -2337,9 +2337,9 @@
               <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
                 <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
                 <div id="brandOpsRangeNav" style="display:flex;align-items:center;gap:4px;padding-bottom:2px">
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 앞으로"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 전으로(과거)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
                   <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 뒤로"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 후로(미래)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
                 </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
@@ -2358,13 +2358,6 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top:16px">
-            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
-            <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">운영 현황을 열면 표시됩니다</td></tr></tbody>
-            </table>
-          </div>
         </div>
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->

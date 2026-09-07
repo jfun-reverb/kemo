@@ -262,7 +262,7 @@ row.cert = countCertSuccess(byCamp[id] - 감사용, camp)     // 검수 화면·
 - **달라진 것 — 진행현황 진입 출처값.** 설계 §3 은 `openCampApplicants(id, title, 'brand-ops')` 였는데 그 값은 **브랜드 상세 페인**으로 돌아가는 값이라 일정 뷰에서 쓰면 「브랜드를 선택하세요」 빈 화면이 됐다(개발서버 실측). `'brand-ops-schedule'` 을 추가해 운영현황 페인으로 돌아온다.
 - **채택한 것(선결 조건 S2·S3):** 회사 필터는 브랜드 집계 행의 `brand_id→company_id` 로 잇는다. **브랜드가 빈 캠페인은 「전체 회사」에서만 보이고** 회사를 고르면 빠진다(「미분류」는 브랜드는 있는데 회사가 없는 것). 일정 뷰 검색은 **캠페인명 · 캠페인 번호 · 브랜드명**.
 - **추가된 것:** 결과물 조회 실패 시 상단에 안내 한 줄(`#brandOpsScheduleNote`). `BRAND_OPS_CAMP_STATUS_COLOR` 에 `ended`(남보라) 추가 — 「종료 포함」에서 쓴다(그 전엔 항목이 없어 기본 회색). 하루 폭 10px(12주 = 850px).
-- **빠진 것:** 없음. 행사 예약 타임은 계획대로 안 그린다.
+- **빠진 것:** **「최근 신청」 표(두 뷰 공통 영역)를 뺐다** — 2026-09-07 사용자 지시. 인플 신청 관리 페인에 같은 내용이 있어 유일한 진입점이 아니다. 그리는 함수(`renderRecentAppsTable`)와 조회(`fetchInfluencers`·`fetchApplications` 전건)도 함께 걷어 운영현황 진입이 가벼워졌다. 행사 예약 타임은 계획대로 안 그린다.
 
 ### 구현 중 기술 결정 사항
 - `hidden` 속성으로 뷰·필터를 켜고 끄는데 `.admin-filter-group{display:flex}`·`.brand-ops-grid{display:grid}` 가 브라우저 기본 `[hidden]` 을 이겨 안 숨겨졌다 → `#adminPane-brand-ops [hidden]{display:none!important}` 로 그 페인 안에서만 되살렸다.

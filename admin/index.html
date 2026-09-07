@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788777248';
+  var CURRENT_BUILD = 'v1788780067';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3063,7 +3063,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 19:34 · bc77187</span>
+          <span class="admin-build-text">2026-09-07 20:21 · 15c7c8a</span>
         </div>
       </div>
     </aside>
@@ -5235,9 +5235,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
                 <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
                 <div id="brandOpsRangeNav" style="display:flex;align-items:center;gap:4px;padding-bottom:2px">
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 앞으로"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 전으로(과거)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
                   <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 뒤로"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 후로(미래)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
                 </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
@@ -5256,13 +5256,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top:16px">
-            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
-            <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">운영 현황을 열면 표시됩니다</td></tr></tbody>
-            </table>
-          </div>
         </div>
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
@@ -25331,7 +25324,7 @@ function brandOpsAlertReasonLines(b) {
 // 운영현황은 두 뷰다 — 「일정」(캠페인 간트, 기본) / 「브랜드」(카드). 사양서
 // docs/specs/2026-09-07-brand-ops-schedule-gantt-view.md. 두 뷰의 **공통 재료**를 여기서
 // 한 번에 받고 현재 뷰를 그린다. 결과물 조회는 일정 뷰가 그려질 때 따로(loadScheduleDeliverables).
-var _brandOpsCampaigns = [];     // fetchCampaigns() 전건 — 일정 뷰 + 「최근 신청」이 나눠 쓴다(두 번 부르지 않는다)
+var _brandOpsCampaigns = [];     // fetchCampaigns() 전건 — 일정 뷰가 쓴다
 var _brandOpsApprCounts = null;  // get_campaign_application_counts (감사용 제외됨). 조회 실패면 null
 var _brandOpsLoadToken = 0;      // 새로고침 연타·페인 들락거림 — 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는 것을 막는다
 async function loadBrandOps() {
@@ -25362,19 +25355,7 @@ async function loadBrandOps() {
   _brandOpsApprCounts = results[3];
   _brandOpsAuditIds = new Set((((results[4] && results[4].data) || [])).map(function(r){ return r.id; }));
   renderBrandOpsCurrentView();
-  // 최근 신청 — 대시보드에서 이관 (renderRecentAppsTable 는 admin.js)
-  loadBrandOpsRecentApps(_brandOpsCampaigns);
-}
-
-// 최근 신청 테이블 채우기 (대시보드 loadAdminData 에서 이관)
-//   campaigns 를 받으면 그대로 쓴다(loadBrandOps 가 이미 받았다 — 같은 화면에서 전건 조회를 두 번 돌리지 않는다).
-async function loadBrandOpsRecentApps(campaigns) {
-  if (typeof renderRecentAppsTable !== 'function') return;
-  // 취소 사유 이름 캐시 — 표에 사유 분류를 그리므로 **그리기 전에** 채운다(사양서 §3-4).
-  //   ⚠️ renderRecentAppsTable 은 동기 함수라 그 안에서는 못 기다린다. 여기가 유일한 자리다.
-  if (typeof ensureCancelReasonsCache === 'function') { try { await ensureCancelReasonsCache(); } catch(e) {} }
-  var results = await Promise.all([campaigns ? Promise.resolve(campaigns) : fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
-  renderRecentAppsTable(results[2], results[0], results[1]);
+  // 「최근 신청」 표는 2026-09-07 사용자 결정으로 뺐다 — 인플 신청 관리 페인에 같은 내용이 있다.
 }
 
 function fillBrandOpsCompanyFilter() {
@@ -35322,7 +35303,7 @@ async function exportEventTicketsExcel(campaignId) {
 // ═════════════════════════════════════════════════════════════════
 //
 // 대시보드 페인 (admin.js 파일 분리).
-//   · 메인 로드 + KPI + 캠페인 분포 + 최근 신청 (loadAdminData/renderCampaignBreakdown/renderRecentAppsTable)
+//   · 메인 로드 + KPI + 캠페인 분포 (loadAdminData/renderCampaignBreakdown)
 //   · 회원가입 추이 차트 + 프로필 완성률 + 배송지 도도부현 도넛 (Chart.js)
 //   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/accentRamp
 //
@@ -35404,48 +35385,7 @@ async function loadAdminData(preloaded) {
   if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
 }
 
-// 최근 신청 렌더 — 대시보드에서 운영 현황 페인으로 이관 (브랜드 운영 재설계 PR 3)
-// 운영 현황 페인(loadBrandOps)에서 apps/camps/users 를 넘겨 호출한다.
-function renderRecentAppsTable(apps, camps, users) {
-  if (!$('recentAppsBody')) return;
-  const recent = apps.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
-  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
-  $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
-    const camp = camps.find(c=>c.id===a.campaign_id)||{};
-    const _dRem = Math.max((camp.slots||0)-countNonAuditApproved(apps, camp.id, _auditIds),0);
-    const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
-    const thumbUrl = imgs[0] || '';
-    const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    const _u = users.find(u=>u.email===a.user_email) || {};
-    return `<tr class="${_u.is_audit?'audit-row':''}">
-      <td>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${esc(storageThumbUrl(thumbUrl))}" data-orig="${esc(thumbUrl)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
-          </div>
-          <div style="min-width:0">
-            <div>${typeLabel}</div>
-            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
-            <div style="font-size:11px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div>
-            ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
-          </div>
-        </div>
-      </td>
-      <td>
-        <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
-      </td>
-      <td>${msgCell(a.message, a)}</td>
-      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
-      <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
-        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
-      </td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
-}
+// renderRecentAppsTable(최근 신청 표)은 2026-09-07 에 제거 — 운영현황 하단 표가 없어졌다(인플 신청 관리와 중복).
 
 function renderCampaignBreakdown(camps) {
   const statusEl = $('campStatusBreakdown');
