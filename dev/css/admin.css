@@ -2451,7 +2451,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-cell{padding:6px 8px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-width:0;background:inherit}
 .gantt-head .gantt-cell{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
 .gantt-cell.c-title{width:220px}.gantt-cell.c-brand{width:110px}.gantt-cell.c-type{width:150px}.gantt-cell.c-status{width:78px}
-.gantt-cell.c-num{width:74px;text-align:center;align-items:center;font-variant-numeric:tabular-nums}.gantt-cell.c-edit{width:56px;align-items:center}
+.gantt-cell.c-num{width:80px;text-align:center;align-items:center;font-variant-numeric:tabular-nums}
 .gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
 .gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
@@ -2497,7 +2497,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-tip{position:fixed;z-index:900;background:var(--ink);color:var(--surface);font-size:11px;line-height:1.55;padding:6px 10px;border-radius:6px;white-space:pre-line;max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
 /* 편의 기능(2026-09-07 조사 반영) — 줌 단위·왼쪽 열 접기·빠른 필터 칩·마우스 날짜 안내선 */
 .gantt-zoom{display:inline-flex;gap:2px}
-.gantt-scroll.left-collapsed .gantt-cell.c-brand,.gantt-scroll.left-collapsed .gantt-cell.c-type,.gantt-scroll.left-collapsed .gantt-cell.c-num,.gantt-scroll.left-collapsed .gantt-cell.c-edit{display:none}
+.gantt-scroll.left-collapsed .gantt-cell.c-brand,.gantt-scroll.left-collapsed .gantt-cell.c-type,.gantt-scroll.left-collapsed .gantt-cell.c-num{display:none}
 .gantt-quick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
 .gantt-chip-label{font-size:11px;color:var(--muted);margin-right:2px}
 .gantt-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:pointer;line-height:1.4}
@@ -2507,3 +2507,4 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-chip:disabled{color:var(--faint);cursor:default;background:var(--surface-container-low)}
 .gantt-guide{position:fixed;z-index:850;background:rgba(98,94,189,.10);border-left:1px dashed var(--accent);pointer-events:none}
 .gantt-guide-date{position:absolute;top:2px;left:4px;font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap;box-shadow:0 0 0 1px var(--line)}
+.gantt-head .gantt-cell{flex-direction:row;align-items:center;gap:2px}   /* 머리글은 글자+정렬 화살표를 한 줄에 */
