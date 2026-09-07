@@ -4654,7 +4654,9 @@
       <button class="btn btn-ghost btn-xs" onclick="closeBroadcastWithdraw()" style="padding:4px 10px">✕</button>
     </div>
     <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-      <div style="font-size:12px;color:var(--muted)">회수하면 받은 사람 모두의 화면에서 이 메시지가 가려집니다.</div>
+      <!-- ⚠️ 문구는 openBroadcastWithdraw() 가 채운다 — 「받은 사람 모두」라고 적으면 거짓이다.
+           회수는 **보고 있는 발송 1건**만 가리고, 이어 보낸 추가 발송(사슬)은 각각 회수해야 한다(전수조사 D-3). -->
+      <div id="broadcastWithdrawNote" style="font-size:12px;color:var(--muted);line-height:1.7">회수하면 이 발송의 수신자 화면에서 이 메시지가 가려집니다.</div>
       <label style="font-size:13px;color:var(--muted)">회수 사유
         <select id="broadcastWithdrawReason" class="admin-select" style="width:100%;margin-top:6px"></select>
       </label>

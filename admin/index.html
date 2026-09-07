@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788747942';
+  var CURRENT_BUILD = 'v1788760884';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 11:25 · 3cc376d</span>
+          <span class="admin-build-text">2026-09-07 15:01 · 5a563ca</span>
         </div>
       </div>
     </aside>
@@ -7496,7 +7496,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <button class="btn btn-ghost btn-xs" onclick="closeBroadcastWithdraw()" style="padding:4px 10px">✕</button>
     </div>
     <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-      <div style="font-size:12px;color:var(--muted)">회수하면 받은 사람 모두의 화면에서 이 메시지가 가려집니다.</div>
+      <!-- ⚠️ 문구는 openBroadcastWithdraw() 가 채운다 — 「받은 사람 모두」라고 적으면 거짓이다.
+           회수는 **보고 있는 발송 1건**만 가리고, 이어 보낸 추가 발송(사슬)은 각각 회수해야 한다(전수조사 D-3). -->
+      <div id="broadcastWithdrawNote" style="font-size:12px;color:var(--muted);line-height:1.7">회수하면 이 발송의 수신자 화면에서 이 메시지가 가려집니다.</div>
       <label style="font-size:13px;color:var(--muted)">회수 사유
         <select id="broadcastWithdrawReason" class="admin-select" style="width:100%;margin-top:6px"></select>
       </label>
@@ -27579,6 +27581,28 @@ async function confirmBulkFollowup() {
 // ── 일괄 회수 ──
 async function openBroadcastWithdraw() {
   if (!_curBroadcastDetail) return;
+  // 🔴 안내문은 사실대로 — 회수(withdraw_broadcast, 167)는 **이 발송 1건**의 수신자만 가린다.
+  //    추가 발송(388~391)으로 사슬이 생긴 뒤에도 함수는 단건 그대로라, 예전 문구
+  //    「받은 사람 모두의 화면에서」는 사슬이 있을 때 거짓이었다(전수조사 D-3).
+  //    되돌릴 수 없는 조치라 무엇이 가려지고 무엇이 남는지를 누르기 전에 말한다.
+  //    ⚠️ 사슬 전체를 한 번에 회수하는 선택지는 일부러 안 뒀다 — 추가 발송은 본문을 따로
+  //       쓸 수 있어 「같은 메시지」라는 보장이 없다(2026-09-07 사용자 결정).
+  const _b = _curBroadcastDetail.broadcast || {};
+  const _c = _b.chain || {};
+  const _cnt = Number(_b.recipient_count) || 0;
+  const _inChain = !!_b.parent_broadcast_id || Number(_c.followup_count) > 0;
+  const _noteEl = document.getElementById('broadcastWithdrawNote');
+  if (_noteEl) {
+    let _html = `회수하면 <b>이 발송의 수신자 ${_cnt}건</b>의 화면에서만 이 메시지가 가려집니다. 되돌릴 수 없습니다.`;
+    if (_inChain) {
+      // ⚠️ 건수를 안 적는다 — followup_count 는 사슬 전체의 추가 발송 수라, 보고 있는 것이 그 유일한
+      //    추가 발송이면 「추가 발송 1건」이 자기 자신을 가리켜 「또 확인할 것이 있나」로 오독된다.
+      _html += `<div style="margin-top:8px;padding:8px 10px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:6px;color:#9A3412;display:flex;gap:6px;align-items:flex-start">`
+        + `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;flex-shrink:0">warning</span>`
+        + `<span>이 발송은 추가 발송으로 이어진 사슬의 일부입니다. 사슬의 다른 발송(원래 발송·다른 추가 발송)의 수신자는 <b>그대로 봅니다</b> — 그 발송을 각각 열어 회수해야 합니다.</span></div>`;
+    }
+    _noteEl.innerHTML = _html;
+  }
   const sel = document.getElementById('broadcastWithdrawReason');
   const reasons = await loadHideReasons();
   sel.innerHTML = reasons.map(r => `<option value="${r.code}">${esc(r.name_ko || r.name_ja || r.code)}</option>`).join('');
