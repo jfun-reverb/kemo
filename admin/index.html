@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788776562';
+  var CURRENT_BUILD = 'v1788777248';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2946,7 +2946,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-axis{height:40px}
 .gantt-axis .gm{position:absolute;top:4px;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;padding-left:4px;border-left:1px solid var(--line)}
 .gantt-axis .gw{position:absolute;top:22px;font-size:10px;color:var(--muted);white-space:nowrap;padding-left:3px;border-left:1px solid var(--surface-dim);height:16px}
-.gantt-axis .gt{position:absolute;top:22px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%)}
+.gantt-axis .gt{position:absolute;top:4px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%);background:var(--surface);padding:0 3px;border-radius:3px;z-index:1}   /* 월 이름표 줄에 둔다 — 주 이름표(9/7)와 같은 줄이면 「오늘7」로 겹친다(개발서버 실측) */
 /* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
 .gantt-track{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-week,70px))}
 .gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
@@ -2959,7 +2959,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right:3px dotted var(--surface)}
 .gantt-bar.open-end{background:repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 9px);opacity:.6}
 .gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:var(--ink);opacity:.85;border-radius:2px}
-.gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--muted);white-space:nowrap;line-height:14px}
+.gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--ink);white-space:nowrap;line-height:14px;background:var(--surface);padding:0 4px;border-radius:3px;z-index:1;box-shadow:0 0 0 1px var(--line)}
 .gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px}
 .gantt-edge{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:10px;color:var(--muted);white-space:nowrap;padding:0 6px;background:var(--surface-container-low);border-radius:4px;margin:8px 4px;height:auto;max-height:26px}
 .gantt-edge.l{left:0}.gantt-edge.r{right:0}
@@ -3063,7 +3063,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 19:22 · 8c768ed</span>
+          <span class="admin-build-text">2026-09-07 19:34 · bc77187</span>
         </div>
       </div>
     </aside>
@@ -25975,7 +25975,8 @@ function renderGanttAxis(range) {
   }
   var today = ganttTodayYmd();
   var tx = ganttX(range, today);
-  if (tx >= 0 && tx < range.width) html += '<span class="gt" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px">오늘</span>';
+  // 「오늘」 이름표는 월 이름표 줄에 있다 — 오늘이 그달 1일이면 「9월」과 같은 자리라 글자만 생략한다(세로선은 그대로).
+  if (tx >= 0 && tx < range.width && today.slice(8, 10) !== '01') html += '<span class="gt" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px">오늘</span>';
   range.gridOffset = firstMonday === null ? 0 : firstMonday;
   return '<div class="gantt-axis" style="width:' + range.width + 'px">' + html + '</div>';
 }
@@ -26080,7 +26081,7 @@ function renderScheduleRow(c, range, stats) {
   var idJs = esc(String(c.id));
   return '<div class="gantt-row">'
     + '<div class="gantt-left">'
-    +   '<div class="gantt-cell c-title"><a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops\');return false">' + esc(title) + '</a><div class="sub ellip">' + esc(c.campaign_no || '') + '</div></div>'
+    +   '<div class="gantt-cell c-title"><a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a><div class="sub ellip">' + esc(c.campaign_no || '') + '</div></div>'
     +   '<div class="gantt-cell c-brand"><span class="ellip" title="' + esc(brandLabelAdmin(c)) + '">' + (esc(brandLabelAdmin(c)) || '<span style="color:var(--muted)">—</span>') + '</span></div>'
     +   '<div class="gantt-cell c-type"><div class="sub" style="margin:0 0 2px">' + esc(typeKo) + '</div>' + channelChipsHtml(c.channel, c.channel_match) + '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
@@ -36121,7 +36122,10 @@ function buildUpcomingRow(item) {
 
 // 캠페인별 신청자 표시
 let currentCampApplicantId = null;
-// 진입 출처 — 'campaigns'(캠페인 관리 목록) / 'brand-ops'(운영현황 브랜드 상세). 뒤로가기 분기용
+// 진입 출처 — 'campaigns'(캠페인 관리 목록) / 'brand-ops'(운영현황 브랜드 상세) /
+//   'brand-ops-schedule'(운영현황 일정 뷰, 2026-09-07). 뒤로가기 분기용.
+//   ⚠️ 일정 뷰에서 'brand-ops' 를 쓰면 안 된다 — 그 값은 브랜드 **상세** 페인으로 돌아가는데
+//      일정 뷰에서는 고른 브랜드가 없어 「브랜드를 선택하세요」 빈 화면이 된다(개발서버 실측).
 var _campApplicantsFrom = 'campaigns';
 // ════════════════════════════════════════════════════════════════════
 // SECTION: CAMP-APPLICANTS — 캠페인별 신청자 페인 (OT + 결과물 셀)
@@ -36140,7 +36144,7 @@ async function openCampApplicants(campId, campTitle, from) {
   const _cb = $('btnCampDelivCertClear'); if (_cb) _cb.style.display = 'none';
   const _sq = $('campAppSearch'); if (_sq) _sq.value = '';
   applyCampDetailTabVisibility();
-  _campApplicantsFrom = (from === 'brand-ops') ? 'brand-ops' : 'campaigns';
+  _campApplicantsFrom = (from === 'brand-ops' || from === 'brand-ops-schedule') ? from : 'campaigns';
   // 제목: 인자로 받으면 즉시 표시, 없으면 loadCampApplicants 가 캠페인 조회 후 보강
   $('campApplicantsTitle').textContent = campTitle || '';
   const backBtn = $('campApplicantsBackBtn');
@@ -36148,6 +36152,9 @@ async function openCampApplicants(campId, campTitle, from) {
     if (_campApplicantsFrom === 'brand-ops') {
       backBtn.textContent = '← 운영 현황';
       backBtn.onclick = () => switchAdminPane('brand-ops-detail');
+    } else if (_campApplicantsFrom === 'brand-ops-schedule') {
+      backBtn.textContent = '← 운영 현황';
+      backBtn.onclick = () => switchAdminPane('brand-ops');
     } else {
       backBtn.textContent = '← 캠페인 목록으로';
       backBtn.onclick = () => switchAdminPane('campaigns', null);

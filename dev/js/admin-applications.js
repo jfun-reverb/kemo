@@ -15,7 +15,10 @@
 
 // 캠페인별 신청자 표시
 let currentCampApplicantId = null;
-// 진입 출처 — 'campaigns'(캠페인 관리 목록) / 'brand-ops'(운영현황 브랜드 상세). 뒤로가기 분기용
+// 진입 출처 — 'campaigns'(캠페인 관리 목록) / 'brand-ops'(운영현황 브랜드 상세) /
+//   'brand-ops-schedule'(운영현황 일정 뷰, 2026-09-07). 뒤로가기 분기용.
+//   ⚠️ 일정 뷰에서 'brand-ops' 를 쓰면 안 된다 — 그 값은 브랜드 **상세** 페인으로 돌아가는데
+//      일정 뷰에서는 고른 브랜드가 없어 「브랜드를 선택하세요」 빈 화면이 된다(개발서버 실측).
 var _campApplicantsFrom = 'campaigns';
 // ════════════════════════════════════════════════════════════════════
 // SECTION: CAMP-APPLICANTS — 캠페인별 신청자 페인 (OT + 결과물 셀)
@@ -34,7 +37,7 @@ async function openCampApplicants(campId, campTitle, from) {
   const _cb = $('btnCampDelivCertClear'); if (_cb) _cb.style.display = 'none';
   const _sq = $('campAppSearch'); if (_sq) _sq.value = '';
   applyCampDetailTabVisibility();
-  _campApplicantsFrom = (from === 'brand-ops') ? 'brand-ops' : 'campaigns';
+  _campApplicantsFrom = (from === 'brand-ops' || from === 'brand-ops-schedule') ? from : 'campaigns';
   // 제목: 인자로 받으면 즉시 표시, 없으면 loadCampApplicants 가 캠페인 조회 후 보강
   $('campApplicantsTitle').textContent = campTitle || '';
   const backBtn = $('campApplicantsBackBtn');
@@ -42,6 +45,9 @@ async function openCampApplicants(campId, campTitle, from) {
     if (_campApplicantsFrom === 'brand-ops') {
       backBtn.textContent = '← 운영 현황';
       backBtn.onclick = () => switchAdminPane('brand-ops-detail');
+    } else if (_campApplicantsFrom === 'brand-ops-schedule') {
+      backBtn.textContent = '← 운영 현황';
+      backBtn.onclick = () => switchAdminPane('brand-ops');
     } else {
       backBtn.textContent = '← 캠페인 목록으로';
       backBtn.onclick = () => switchAdminPane('campaigns', null);

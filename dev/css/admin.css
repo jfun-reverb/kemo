@@ -2458,7 +2458,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-axis{height:40px}
 .gantt-axis .gm{position:absolute;top:4px;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;padding-left:4px;border-left:1px solid var(--line)}
 .gantt-axis .gw{position:absolute;top:22px;font-size:10px;color:var(--muted);white-space:nowrap;padding-left:3px;border-left:1px solid var(--surface-dim);height:16px}
-.gantt-axis .gt{position:absolute;top:22px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%)}
+.gantt-axis .gt{position:absolute;top:4px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%);background:var(--surface);padding:0 3px;border-radius:3px;z-index:1}   /* 월 이름표 줄에 둔다 — 주 이름표(9/7)와 같은 줄이면 「오늘7」로 겹친다(개발서버 실측) */
 /* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
 .gantt-track{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-week,70px))}
 .gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
@@ -2471,7 +2471,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right:3px dotted var(--surface)}
 .gantt-bar.open-end{background:repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 9px);opacity:.6}
 .gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:var(--ink);opacity:.85;border-radius:2px}
-.gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--muted);white-space:nowrap;line-height:14px}
+.gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--ink);white-space:nowrap;line-height:14px;background:var(--surface);padding:0 4px;border-radius:3px;z-index:1;box-shadow:0 0 0 1px var(--line)}
 .gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px}
 .gantt-edge{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:10px;color:var(--muted);white-space:nowrap;padding:0 6px;background:var(--surface-container-low);border-radius:4px;margin:8px 4px;height:auto;max-height:26px}
 .gantt-edge.l{left:0}.gantt-edge.r{right:0}
