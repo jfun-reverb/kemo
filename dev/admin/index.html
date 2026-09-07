@@ -2337,9 +2337,13 @@
               <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
                 <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
                 <div id="brandOpsRangeNav" style="display:flex;align-items:center;gap:4px;padding-bottom:2px">
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 전으로(과거)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-1)" title="과거로 이동"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
                   <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 후로(미래)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(1)" title="미래로 이동"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+                  <div id="brandOpsZoom" class="gantt-zoom" title="시간축 단위"></div>
+                  <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+                  <button type="button" class="btn btn-ghost btn-xs" id="brandOpsLeftToggle" onclick="toggleGanttLeft()"></button>
                 </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
@@ -2352,6 +2356,7 @@
           <!-- 일정 뷰(간트). 왼쪽 열은 sticky 로 고정, 시간축만 가로 스크롤 -->
           <div id="brandOpsScheduleWrap" hidden>
             <div id="brandOpsScheduleNote" style="font-size:11px;color:var(--muted);margin-bottom:6px" hidden></div>
+            <div class="gantt-quick" id="brandOpsQuickChips"></div>
             <div class="gantt-legend" id="brandOpsGanttLegend"></div>
             <div class="gantt-scroll" id="brandOpsGanttScroll">
               <div class="gantt-head" id="brandOpsAxis"></div>
