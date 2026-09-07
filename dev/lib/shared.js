@@ -179,7 +179,9 @@ function sanitizeRich(html, opts) {
 //
 // 관리자 미니 에디터(contenteditable) 의 paste·툴바 결과를 모두 본 함수로 통과시켜
 // 저장 + 렌더 양쪽 모두 동일 정책 적용. 외부 URL 직접 입력은 src 화이트리스트로 차단.
-function sanitizeCautionHtml(html) {
+// opts.displayWidth — **화면에 그릴 때만** 준다(썸네일 치환). 저장 경로(미니 에디터 저장·
+//   `getRichValue` 계열)는 인자 없이 불러 원본 주소가 그대로 저장된다 — `_applyContentImagePolicy` 주석.
+function sanitizeCautionHtml(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
@@ -223,7 +225,7 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  _applyContentImagePolicy(wrapper);
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -264,7 +266,9 @@ function _applyContentImagePolicy(wrapper, opts) {
     //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
     //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
     //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
-    if (showW && typeof imgThumb === 'function') {
+    //   ⚠️ [E-5] 조건은 **실제로 쓰는 함수**(storageThumbUrl)의 존재로 건다 — 예전엔 죽은
+    //      함수 imgThumb 의 존재를 봤는데, 그걸 정리하는 날 이 줄이 조용히 꺼져 썸네일이 사라진다.
+    if (showW && typeof storageThumbUrl === 'function') {
       const thumb = storageThumbUrl(src);
       if (thumb && thumb !== src) {
         img.setAttribute('data-orig', src);
@@ -389,8 +393,11 @@ function miniRichHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
+  // 이 함수는 **화면에 그릴 때만** 쓴다(참여방법 단계 — 인플루언서 상세·관리자 미리보기).
+  //   [E-2] 그래서 표시 폭을 줘 `content/` 썸네일을 받는다 — 올릴 때 사본을 만들어 두고도
+  //   렌더러 4개 중 3개가 원본(최대 5MB)을 받고 있었다(전수조사 2차 7-2).
   return (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml(value)
+    ? sanitizeCautionHtml(value, { displayWidth: RICH_DISPLAY_WIDTH })
     : value.replace(/<script/gi, '&lt;script');
 }
 

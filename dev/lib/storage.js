@@ -1957,9 +1957,8 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 async function _uploadThumbCopy(blob, path, mime, maxWidth, bucket) {
   try {
     if (typeof compressImageFile !== 'function') return;
-    var slash = path.indexOf('/');
-    if (slash === -1) return;
-    var thumbPath = path.slice(0, slash) + '/thumb/' + path.slice(slash + 1);
+    var thumbPath = _thumbPathOf(path);
+    if (!thumbPath) return;
     var src = new File([blob], 'thumb-src', {type: mime});
     var small = await compressImageFile(src, {maxWidth: maxWidth, keepIfSmall: true});
     var {error} = await db.storage.from(bucket || 'campaign-images').upload(thumbPath, small, {
@@ -1986,6 +1985,24 @@ const THUMB_WIDTH_BY_PREFIX = {
   'review-images': 480,
   'content': 720
 };
+// 아웃바운드 명단 사진(outbound-influencer-images) — 첫 칸이 회원 고유번호라 폴더로 못 거른다.
+//   통 전체가 썸네일 대상(ui.js THUMB_ALL_BUCKETS)이고 폭은 명단 화면(96픽셀)용 480.
+//   ⚠️ [E-4] 예전엔 업로드 함수 안에 480 이 그대로 박혀 있어 이 표와 따로 놀았다.
+const THUMB_WIDTH_OUTBOUND = 480;
+
+// 썸네일 경로 규칙 — **여기 한 곳**. 「{첫 칸}/thumb/{나머지}」.
+//   ⚠️ [E-4] 같은 규칙이 _uploadThumbCopy·_withThumbPaths·deleteOutboundImage 에 인라인으로
+//      세 벌 있었다(Edge Function purge-withdrawal-media 의 withThumbs 도 같은 모양 — 그쪽은
+//      공유 모듈이 없어 각자 든다). 규칙을 바꿀 땐 이 함수와 ui.js storageThumbUrl·그 Edge Function 을 함께.
+//   이미 썸네일 경로(둘째 칸이 thumb/)면 null — 호출부가 「이미 썸네일」로 읽는다.
+function _thumbPathOf(path) {
+  if (!path || typeof path !== 'string') return null;
+  var slash = path.indexOf('/');
+  if (slash === -1) return null;
+  var rest = path.slice(slash + 1);
+  if (rest.startsWith('thumb/')) return null;
+  return path.slice(0, slash) + '/thumb/' + rest;
+}
 
 
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
@@ -2207,11 +2224,13 @@ async function countPendingApplications(campaignId) {
 //   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
 //   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
 //   URL → 버킷 상대 경로 변환은 campaign-images 공용 헬퍼를 재사용한다.
+//   [E-3] 썸네일도 함께 지운다 — 다른 파기 경로 넷(보관 삭제·감사용 청소 2·예약 파기)은 하는데
+//   이 다섯 번째 경로만 원본만 지워, 참조가 없어 나중에 찾아 지울 수도 없는 사본이 남았다.
 async function deleteCampImages(urls) {
   if (!db || !Array.isArray(urls) || !urls.length) return {ok: true, failedPaths: []};
   const paths = urls.map(_receiptUrlToStoragePath).filter(Boolean);
   if (!paths.length) return {ok: true, failedPaths: []};
-  return await _deleteStorageFiles('campaign-images', paths);
+  return await _deleteStorageFiles('campaign-images', _withThumbPaths(paths));
 }
 
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
@@ -4770,12 +4789,11 @@ function _withThumbPaths(paths) {
     if (!p || typeof p !== 'string') return;
     out.push(p);
     const slash = p.indexOf('/');
-    if (slash === -1) return;
+    if (slash === -1) return;                      // 폴더 없는 경로 — 썸네일 없음
     const folder = p.slice(0, slash);
-    const rest = p.slice(slash + 1);
-    if (rest.startsWith('thumb/')) return;        // 이미 썸네일 경로면 그대로
     if (!THUMB_WIDTH_BY_PREFIX[folder]) return;   // 썸네일을 안 만드는 폴더
-    out.push(folder + '/thumb/' + rest);
+    const t = _thumbPathOf(p);                    // 이미 썸네일 경로면 null
+    if (t) out.push(t);
   });
   return out;
 }
@@ -5459,7 +5477,7 @@ async function uploadOutboundImage(file, obId) {
   if (error) throw error;
   // 명단 화면은 96픽셀로 그린다 — 썸네일을 한 벌 더 둬서 유료 변환을 안 쓴다.
   //   ⚠️ 지금 이 통은 비어 있지만(대상 0건), 명단이 늘면 조용히 요금이 나던 자리다.
-  await _uploadThumbCopy(file, path, file.type, 480, OUTBOUND_IMAGE_BUCKET);
+  await _uploadThumbCopy(file, path, file.type, THUMB_WIDTH_OUTBOUND, OUTBOUND_IMAGE_BUCKET);
   return path;
 }
 
@@ -5475,9 +5493,8 @@ async function deleteOutboundImage(path) {
   if (!db || !path) return;
   // 썸네일도 함께 지운다 — 남기면 지운 사람 사진이 주소만 알면 계속 보인다.
   //   ⚠️ 없는 파일에도 remove() 는 성공으로 답하므로 옛 파일이라도 안전하다.
-  const slash = path.indexOf('/');
-  const paths = slash === -1 ? [path]
-    : [path, path.slice(0, slash) + '/thumb/' + path.slice(slash + 1)];
+  const thumb = _thumbPathOf(path);
+  const paths = thumb ? [path, thumb] : [path];
   try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove(paths); }
   catch(e) { console.warn('[deleteOutboundImage]', e); }
 }
