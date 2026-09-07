@@ -799,13 +799,19 @@ async function renderInfluencerWithdrawalPanel(u) {
   const past   = (reqs || []).filter(r => r !== active);
   if (summary) summary.textContent = reqs.length ? `${reqs.length}건` : '';
 
-  // ① 아예 대상이 아닌 계정 — 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다
-  if (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked')) {
-    const msg = pre.reason === 'admin_account_excluded'
-      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다.</span>'
+  // ① 아예 대상이 아닌 계정 — 「대신 신청」 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다.
+  //   ⚠️ 여기서 return 하면 안 된다(전수조사 2차 3-4, C-4) — 그 전에는 통째로 돌아가 **진행 중인
+  //      신청·되돌리기 버튼·지난 기록까지** 감췄다. 그런데 「탈퇴 처리 점검」 경고가 지목하는 회원이
+  //      바로 이 부류(관리자 겸직이라 확정이 멈춘 사람)라, 경고를 따라 열면 아무것도 안 보였다.
+  //      안내만 위에 얹고 나머지는 그대로 그린다 — 되돌리기는 이 회원에게 가장 필요한 단추다.
+  const blockedReason = (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked'))
+    ? pre.reason : null;
+  let blockedHtml = '';
+  if (blockedReason) {
+    const msg = blockedReason === 'admin_account_excluded'
+      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다. 이미 접수된 신청이 있으면 아래에 보입니다 — 진행이 멈춰 있으니 되돌리거나 권한을 먼저 해제하세요.</span>'
       : '감사용 계정이라 탈퇴 대상이 아닙니다.';
-    body.innerHTML = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7">${msg}</div>`;
-    return;
+    blockedHtml = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7;margin-bottom:12px">${msg}</div>`;
   }
 
   // ★ 조회에 실패했으면 **버튼을 그리지 않는다.**
@@ -815,10 +821,13 @@ async function renderInfluencerWithdrawalPanel(u) {
   //   ⚠️ 실패는 storage.js 가 mode:'locked_support' 로 폴백해 오므로, ok 여부로만
   //     판정한다(mode 만 보면 「정상인데 걸린 회원」과 구분이 안 된다).
   const preOk = !!(pre && pre.ok === true);
+  // 대상이 아닌 계정(blockedReason)은 「대신 신청」을 못 열지만, 관리자가 넣어 둔 신청을
+  // 되돌리는 것은 열어 둔다(canUndo) — 그게 멈춘 확정을 푸는 길 중 하나다.
   const canProxy = preOk && canWrite('withdrawal.proxy_request');
-  let html = '';
+  const canUndo  = (preOk || !!blockedReason) && canWrite('withdrawal.proxy_request');
+  let html = blockedHtml;
 
-  if (!preOk) {
+  if (!preOk && !blockedReason) {
     html += `<div style="padding:10px 12px;background:#FFF8E1;border-left:3px solid #F9A825;border-radius:4px;font-size:12px;color:var(--ink);line-height:1.7;margin-bottom:12px">
       탈퇴 처리 상태를 불러오지 못했습니다 — <strong>대신 신청 기능을 열지 않았습니다.</strong><br>
       <span style="color:var(--muted)">서버 준비가 끝나지 않았거나 통신이 끊겼을 수 있습니다. 새로고침해도 같으면 개발팀에 알려 주세요.</span>
@@ -845,15 +854,15 @@ async function renderInfluencerWithdrawalPanel(u) {
           ${withdrawMailLine(active)}
         </div>
       </div>`;
-    if (canProxy && isAdminMade) {
+    if (canUndo && isAdminMade) {
       html += `<button class="btn btn-ghost btn-xs" onclick="openWithdrawUndoModal()">되돌리기</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">관리자가 넣은 신청만 되돌릴 수 있습니다. 본인이 신청한 건은 회원이 직접 취소합니다.</div>`;
-    } else if (canProxy) {
+    } else if (canUndo) {
       html += `<div style="font-size:11px;color:var(--muted)">회원이 직접 신청한 건입니다 — 취소도 회원이 앱에서 합니다.</div>`;
     }
   } else {
     const lines = withdrawBlockerLines(pre && pre.blockers);
-    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
+    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
     if (canProxy) {
       html += `<button class="btn btn-xs" style="background:#FB8C00;color:#fff;border:none" onclick="openWithdrawProxyModal()">회원 대신 탈퇴 신청</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">회원이 직접 요청한 경우에만 사용하세요.</div>`;
