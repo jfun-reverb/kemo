@@ -48,6 +48,57 @@ import { TEMPLATES } from "./templates.ts";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
+// ──────────────────────────────────────────────────────────────────
+// [D-7] 1,000행 응답 상한 대응 — 인플루언서 다이제스트([F-4])·홍보 메일과 같은 도우미.
+//   PostgREST 는 한 응답에 최대 1,000행만 돌려주고 잘렸다는 표시가 없다. 이 함수의
+//   하루 창 조회는 「하루니까 안 넘는다」는 전제였는데, 운영 실측(2026-09-02)에서
+//   하루 검수 1,305건인 날이 있었다 — 그날 305건이 관리자 메일에서 조용히 빠졌다.
+//   buildQuery 는 호출마다 새 빌더를 만들어야 하고 안정적인 정렬(id)이 걸려 있어야 한다.
+// ──────────────────────────────────────────────────────────────────
+async function fetchAllPaged<T>(
+  buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+// [D-7] Promise.all 안에서 쓰기 위한 {data,error} 모양 유지 — 아래 「에러 점검」 반복문이
+//   res.error 를 보고 섹션 이름으로 실패를 기록하는 구조를 그대로 살린다.
+async function pagedRes<T>(
+  buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  try {
+    return { data: await fetchAllPaged<T>(buildQuery), error: null };
+  } catch (e) {
+    return { data: null, error: { message: (e as Error).message } };
+  }
+}
+
+// [D-7] id 목록으로 찾는 조회 — 목록이 1,000개를 넘으면 응답도 잘리고 주소도 길어진다.
+//   200개씩 끊어 각 묶음을 다시 페이지로 받는다(하루 1,305건이면 7묶음).
+async function fetchByIdsChunked<T>(
+  ids: string[],
+  buildQuery: (chunk: string[]) => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  chunkSize = 200,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    out.push(...await fetchAllPaged<T>(() => buildQuery(chunk)));
+  }
+  return out;
+}
+
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
 }
@@ -1012,42 +1063,48 @@ Deno.serve(async (req: Request) => {
       deliverableReprocessEventsRes,
       applicationReprocessEventsRes,
     ] = await Promise.all([
+      // [D-7] 다섯 조회 모두 1,000행 상한 대응(pagedRes) — 정렬에 id 를 덧붙여 페이지 경계를 안정시킨다.
       // 섹션 1: 신청 접수 (재응모 새 INSERT 포함)
-      sb.from("applications")
+      pagedRes<ReceivedRow>(() => sb.from("applications")
         .select("id, created_at, campaign_id, user_id")
         .gte("created_at", startIso)
         .lt("created_at", endIso)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })),
       // 섹션 2: 응모 취소 (cancel_phase != recruit)
-      sb.from("applications")
+      pagedRes<CancelledRow>(() => sb.from("applications")
         .select("id, cancelled_at, cancel_phase, cancel_reason_code, cancel_reason, campaign_id, user_id")
         .eq("status", "cancelled")
         .neq("cancel_phase", "recruit")
         .not("cancel_phase", "is", null)
         .gte("cancelled_at", startIso)
         .lt("cancelled_at", endIso)
-        .order("cancelled_at", { ascending: true }),
+        .order("cancelled_at", { ascending: true })
+        .order("id", { ascending: true })),
       // 섹션 3: 결과물 제출 (deliverable_events.action='submit' 만 — 재제출 자동 배제)
-      sb.from("deliverable_events")
+      pagedRes<SubmittedEvent>(() => sb.from("deliverable_events")
         .select("id, deliverable_id, action, created_at")
         .eq("action", "submit")
         .gte("created_at", startIso)
         .lt("created_at", endIso)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })),
       // 섹션 4a: 결과물 재처리 (resubmit / revert)
-      sb.from("deliverable_events")
+      pagedRes<DeliverableReprocessEvent>(() => sb.from("deliverable_events")
         .select("id, deliverable_id, action, created_at")
         .in("action", ["resubmit", "revert"])
         .gte("created_at", startIso)
         .lt("created_at", endIso)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })),
       // 섹션 4b: 신청 되돌리기 (application_events.action='revert_to_pending')
-      sb.from("application_events")
+      pagedRes<ApplicationReprocessEvent>(() => sb.from("application_events")
         .select("id, application_id, action, created_at, changed_by_name")
         .eq("action", "revert_to_pending")
         .gte("created_at", startIso)
         .lt("created_at", endIso)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })),
     ]);
 
     // 에러 점검 — 한 섹션이라도 실패하면 전체 실패 처리
@@ -1120,14 +1177,16 @@ Deno.serve(async (req: Request) => {
     ];
     const deliverableMap = new Map<string, DeliverableInfo>();
     if (deliverableIds.length > 0) {
-      const { data: delivs, error } = await sb
-        .from("deliverables")
-        .select("id, kind, campaign_id, user_id, receipt_url, post_url, order_number, purchase_date, purchase_amount")
-        .in("id", deliverableIds);
-      if (error) {
+      // [D-7] id 목록 조회도 1,000개를 넘는 날이 있다(하루 검수 1,305건) — 200개씩 끊어 받는다.
+      try {
+        const delivs = await fetchByIdsChunked<DeliverableInfo>(deliverableIds, (chunk) => sb
+          .from("deliverables")
+          .select("id, kind, campaign_id, user_id, receipt_url, post_url, order_number, purchase_date, purchase_amount")
+          .in("id", chunk)
+          .order("id", { ascending: true }));
+        delivs.forEach((d: DeliverableInfo) => deliverableMap.set(d.id, d));
+      } catch (error) {
         console.warn("[notify-admin-daily] deliverable lookup failed", error);
-      } else {
-        (delivs || []).forEach((d: DeliverableInfo) => deliverableMap.set(d.id, d));
       }
     }
 
@@ -1137,14 +1196,15 @@ Deno.serve(async (req: Request) => {
     ];
     const reprocessAppMap = new Map<string, ApplicationInfo>();
     if (reprocessAppIds.length > 0) {
-      const { data: apps, error } = await sb
-        .from("applications")
-        .select("id, campaign_id, user_id")
-        .in("id", reprocessAppIds);
-      if (error) {
+      try {
+        const apps = await fetchByIdsChunked<ApplicationInfo>(reprocessAppIds, (chunk) => sb
+          .from("applications")
+          .select("id, campaign_id, user_id")
+          .in("id", chunk)
+          .order("id", { ascending: true }));
+        apps.forEach((a: ApplicationInfo) => reprocessAppMap.set(a.id, a));
+      } catch (error) {
         console.warn("[notify-admin-daily] reprocess application lookup failed", error);
-      } else {
-        (apps || []).forEach((a: ApplicationInfo) => reprocessAppMap.set(a.id, a));
       }
     }
 
@@ -1246,27 +1306,29 @@ Deno.serve(async (req: Request) => {
 
     const campaignMap = new Map<string, CampaignRow>();
     if (campaignIds.size > 0) {
-      const { data: camps, error } = await sb
-        .from("campaigns")
-        .select("id, campaign_no, title, recruit_type, channel")
-        .in("id", [...campaignIds]);
-      if (error) {
+      try {
+        const camps = await fetchByIdsChunked<CampaignRow>([...campaignIds], (chunk) => sb
+          .from("campaigns")
+          .select("id, campaign_no, title, recruit_type, channel")
+          .in("id", chunk)
+          .order("id", { ascending: true }));
+        camps.forEach((c: CampaignRow) => campaignMap.set(c.id, c));
+      } catch (error) {
         console.warn("[notify-admin-daily] campaign lookup failed", error);
-      } else {
-        (camps || []).forEach((c: CampaignRow) => campaignMap.set(c.id, c));
       }
     }
 
     const influencerMap = new Map<string, InfluencerRow>();
     if (userIds.size > 0) {
-      const { data: infls, error } = await sb
-        .from("influencers")
-        .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube, ig_followers, x_followers, tiktok_followers, youtube_followers")
-        .in("id", [...userIds]);
-      if (error) {
+      try {
+        const infls = await fetchByIdsChunked<InfluencerRow>([...userIds], (chunk) => sb
+          .from("influencers")
+          .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube, ig_followers, x_followers, tiktok_followers, youtube_followers")
+          .in("id", chunk)
+          .order("id", { ascending: true }));
+        infls.forEach((i: InfluencerRow) => influencerMap.set(i.id, i));
+      } catch (error) {
         console.warn("[notify-admin-daily] influencer lookup failed", error);
-      } else {
-        (infls || []).forEach((i: InfluencerRow) => influencerMap.set(i.id, i));
       }
     }
 

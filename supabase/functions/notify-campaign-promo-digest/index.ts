@@ -214,7 +214,8 @@ function formatYenLabel(n: number | null | undefined): string {
 function buildRewardText(camp: CampaignRow): string {
   const price = Number(camp.product_price ?? 0);
   const cash  = Number(camp.reward ?? 0);
-  if (price <= 0 && cash <= 0) return "-";
+  // [D-4] レビュアー型は価格・現金が両方 0 でも「-」ではなく「購入金額をペイバック」（アプリと同じ）。
+  if (price <= 0 && cash <= 0 && camp.recruit_type !== "monitor") return "-";
 
   const parts: string[] = [];
   if (price > 0) {
@@ -227,7 +228,9 @@ function buildRewardText(camp: CampaignRow): string {
       parts.push(`${formatYenLabel(price)} 商品提供`);
     }
   } else {
-    parts.push("商品無償提供");
+    // [D-4] レビュアー型は商品価格が未設定でも「無償提供」ではない — アプリのカード・詳細・
+    //   管理者プレビューと同じ「購入金額をペイバック」（上限は言えないので付けない）。
+    parts.push(camp.recruit_type === "monitor" ? "購入金額をペイバック" : "商品無償提供");
   }
   // ⚠️ レビュアー型には現金報酬を足さない — 精算計算が monitor で campaigns.reward を
   //    使わないため（マイグレーション300）、足すと支払われない金額の約束になる。
@@ -1100,14 +1103,20 @@ Deno.serve(async (req: Request) => {
               .filter((c) => c.recruit_type === "monitor").map((c) => c.id);
             const adminApprovedMap = new Map<string, number>();
             if (adminMonitorIds.length > 0) {
-              const { data: apps } = await sb
-                .from("applications")
-                .select("campaign_id")
-                .in("campaign_id", adminMonitorIds)
-                .eq("status", "approved");
-              (apps || []).forEach((row: { campaign_id: string }) => {
-                adminApprovedMap.set(row.campaign_id, (adminApprovedMap.get(row.campaign_id) || 0) + 1);
-              });
+              // [D-7] 승인 응모는 캠페인 여러 개를 합치면 1,000행을 넘는다(운영 리뷰어형 승인 1,065건) — 전건 확보
+              try {
+                const apps = await fetchAllPaged<{ campaign_id: string }>(() => sb
+                  .from("applications")
+                  .select("id, campaign_id")
+                  .in("campaign_id", adminMonitorIds)
+                  .eq("status", "approved")
+                  .order("id", { ascending: true }));
+                apps.forEach((row: { campaign_id: string }) => {
+                  adminApprovedMap.set(row.campaign_id, (adminApprovedMap.get(row.campaign_id) || 0) + 1);
+                });
+              } catch (e) {
+                console.warn("[notify-campaign-promo] admin approved count lookup failed", (e as Error).message);
+              }
             }
 
             const adminMail = renderAdminPromoMailBody({
@@ -1280,17 +1289,20 @@ Deno.serve(async (req: Request) => {
       .map((c) => c.id);
     const approvedMap = new Map<string, number>();
     if (monitorCampIds.length > 0) {
-      const { data: apps, error: appError } = await sb
-        .from("applications")
-        .select("campaign_id")
-        .in("campaign_id", monitorCampIds)
-        .eq("status", "approved");
-      if (appError) {
-        console.warn("[notify-campaign-promo] approved count lookup failed", appError);
-      } else {
-        (apps || []).forEach((row: { campaign_id: string }) => {
+      // [D-7] 승인 응모는 캠페인 여러 개를 합치면 1,000행을 넘는다(운영 리뷰어형 승인 1,065건) — 잘리면
+      //   잔여 슬롯이 실제보다 많게 표시된다. 전건 확보.
+      try {
+        const apps = await fetchAllPaged<{ campaign_id: string }>(() => sb
+          .from("applications")
+          .select("id, campaign_id")
+          .in("campaign_id", monitorCampIds)
+          .eq("status", "approved")
+          .order("id", { ascending: true }));
+        apps.forEach((row: { campaign_id: string }) => {
           approvedMap.set(row.campaign_id, (approvedMap.get(row.campaign_id) || 0) + 1);
         });
+      } catch (e) {
+        console.warn("[notify-campaign-promo] approved count lookup failed", (e as Error).message);
       }
     }
 
