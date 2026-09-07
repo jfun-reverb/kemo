@@ -568,7 +568,7 @@ var _ganttQuick = '';
 // 머리글 클릭 정렬(2026-09-07 사용자 요청) — 캠페인 관리 목록의 ▲▼ 방식. key 가 null 이면 기본(마감 가까운 순, 결정 8)
 //   같은 머리글을 다시 누르면 오름 → 내림 → 기본 순으로 돈다. 브라우저 기억은 안 한다(정렬은 그때그때 보는 것)
 var _ganttSort = { key: null, dir: 'asc' };
-var GANTT_SORT_COLS = { title: '캠페인', brand: '브랜드', status: '상태', appr: '승인/모집', submitted: '제출/승인', cert: '인증' };
+var GANTT_SORT_COLS = { title: '캠페인', status: '상태', dur: '기간', prog: '진척률' };
 var GANTT_STATUS_RANK = { scheduled: 0, active: 1, closed: 2, ended: 3, expired: 4 };
 function toggleGanttSort(key) {
   if (!GANTT_SORT_COLS[key]) return;
@@ -584,14 +584,9 @@ function ganttSortArrows(key) {
 // 정렬값 — 왼쪽 열에 보이는 값과 같은 재료. 숫자 칸이 「—」(값 없음)인 행은 방향과 무관하게 뒤로
 function ganttSortValue(key, c, stats) {
   if (key === 'title') return (c.title || '').toLowerCase();
-  if (key === 'brand') return brandLabelAdmin(c).toLowerCase();
   if (key === 'status') return GANTT_STATUS_RANK[c.status] ?? 9;
-  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
-  var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
-  if (key === 'appr') return appr;
-  if (!stats) return null;
-  if (key === 'submitted') return (appr === null || appr <= 0) ? null : stats.submittedInf;
-  if (key === 'cert') return stats.cert;
+  if (key === 'dur') { var sp = ganttSpanOf(ganttSegmentsFor(c)); return sp ? (sp.end === null ? Infinity : ganttDays(sp.start, sp.end)) : null; }   // 무기한은 가장 긴 것으로
+  if (key === 'prog') { var pr = ganttParentProgress(c, stats); return pr.den > 0 && pr.num !== null ? pr.num / pr.den : null; }
   return null;
 }
 function ganttSortList(list, statsMap) {
@@ -607,6 +602,69 @@ function ganttSortList(list, statsMap) {
     if (va > vb) return dir;
     return 0;
   });
+}
+// 캠페인 펼치기(2026-09-07 사용자 요청 — 참고 화면의 트리형): 펼치면 그 캠페인의 기간(모집·구매/방문·선정·제출)이 자식 행으로
+//   나오고 행마다 기간 일수·진척률이 붙는다. 기본은 모두 접힘, 펼친 캠페인은 브라우저가 기억한다.
+var GANTT_OPEN_KEY = 'reverb.brandOps.ganttOpen';
+var _ganttOpen = {};
+try { (JSON.parse(localStorage.getItem(GANTT_OPEN_KEY) || '[]') || []).forEach(function(id){ _ganttOpen[id] = true; }); } catch(e) {}
+function _saveGanttOpen() { try { localStorage.setItem(GANTT_OPEN_KEY, JSON.stringify(Object.keys(_ganttOpen))); } catch(e) {} }
+function toggleGanttRow(id) {
+  if (_ganttOpen[id]) delete _ganttOpen[id]; else _ganttOpen[id] = true;
+  _saveGanttOpen();
+  renderBrandOpsSchedule();
+}
+function setGanttAllOpen(open) {
+  _ganttOpen = {};
+  if (open) brandOpsScheduleTargetCampaigns().forEach(function(c){ if (ganttSegmentsFor(c).length) _ganttOpen[c.id] = true; });   // 기간이 하나도 없는 캠페인은 펼칠 것이 없다
+  _saveGanttOpen();
+  renderBrandOpsSchedule();
+}
+function renderGanttOpenButton(list) {
+  var btn = $('brandOpsOpenAll');
+  if (!btn) return;
+  var anyOpen = list.some(function(c){ return _ganttOpen[c.id]; });
+  btn.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">' + (anyOpen ? 'unfold_less' : 'unfold_more') + '</span> ' + (anyOpen ? '모두 접기' : '모두 펼치기');
+  btn.onclick = function(){ setGanttAllOpen(!anyOpen); };
+}
+// 기간 일수(양 끝 포함) · 전체 구간 · 진척률
+function ganttDays(start, end) { var n = ganttDayOffset(start, end); return isNaN(n) ? null : n + 1; }
+function ganttSpanOf(segs) {
+  if (!segs.length) return null;
+  var start = null, end = null, open = false;
+  segs.forEach(function(s){
+    if (start === null || s.start < start) start = s.start;
+    if (s.end === null) open = true; else if (end === null || s.end > end) end = s.end;
+  });
+  return { start: start, end: open ? null : end };
+}
+function ganttDurText(start, end) {
+  if (end === null) return '무기한';
+  var n = ganttDays(start, end);
+  return n === null ? '—' : n + '일';
+}
+// 진척률 재료 — { num, den, extra } (num null = 값 없음)
+function ganttParentProgress(c, stats) {
+  return { num: stats ? stats.cert : null, den: Number(c.slots || 0), extra: '' };
+}
+function ganttChildProgress(seg, c, stats) {
+  var slots = Number(c.slots || 0);
+  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
+  var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
+  var n = seg.name;
+  if (n === '모집' || n === '모집 마감' || n === '선정') return { num: appr, den: slots, extra: '' };
+  // 승인 수 조회가 실패(appr === null)했으면 분자도 비운다 — 안 그러면 「5/0」처럼 승인 0명으로 읽힌다(툴팁 건수와 같은 규약, 리뷰 지적)
+  if (n === '구매' || n === '방문') return { num: (appr === null || !stats) ? null : stats.receiptInf, den: appr === null ? 0 : appr, extra: '' };
+  if (n === '제출' || n === '제출 마감') return { num: (appr === null || !stats) ? null : stats.submittedInf, den: appr === null ? 0 : appr, extra: stats ? ('인증 ' + stats.cert) : '' };
+  return { num: null, den: 0, extra: '' };
+}
+function ganttProgHtml(pr, pending) {
+  if (pending) return '<span style="color:var(--faint)">…</span>';
+  if (pr.num === null || pr.num === undefined) return '<span style="color:var(--muted)">—</span>';
+  if (!(pr.den > 0)) return '<span class="gantt-prog-txt">' + pr.num + '/' + pr.den + '</span>';
+  var pct = Math.min(100, Math.round(pr.num / pr.den * 100));
+  return '<div class="gantt-prog" title="' + pr.num + ' / ' + pr.den + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
+    + '<span class="gantt-prog-txt">' + pr.num + '/' + pr.den + ' · ' + pct + '%' + (pr.extra ? ' <span class="gantt-prog-extra">(' + esc(pr.extra) + ')</span>' : '') + '</span></div>';
 }
 var GANTT_QUICK_CHIPS = [
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
@@ -908,8 +966,9 @@ function ganttCountsText(c, stats) {
 }
 
 // 시간축 칸(설계 4 「범위 밖 처리」 + 설계 5 막대). counts = 툴팁에 붙일 건수 문장
-function renderGanttTrack(c, range, counts) {
-  var segs = ganttSegmentsFor(c);
+// only: 자식 행 — 그 구간 하나만(주 막대 높이로) 그린다
+function renderGanttTrack(c, range, counts, only) {
+  var segs = only ? [Object.assign({}, only, { lane: 'main' })] : ganttSegmentsFor(c);
   var style = ganttTrackStyle(range);
   var html = '';
   var today = ganttTodayYmd(), tx = ganttX(range, today);
@@ -947,7 +1006,7 @@ function renderGanttTrack(c, range, counts) {
       if (s.openEnd && s.lane === 'main') html += '<span class="gantt-tag" style="right:4px">마감 없음</span>';
     }
     // D-day 배지 — 마감(deadline)·제출 마감에만, 그 날짜가 범위 안일 때. 막대 색은 안 바꾼다(결정 11).
-    if (s.dday && s.lane === 'main' && !clipR && ganttX(range, s.dday) >= 0 && ganttX(range, s.dday) < range.width) {
+    if (!only && s.dday && s.lane === 'main' && !clipR && ganttX(range, s.dday) >= 0 && ganttX(range, s.dday) < range.width) {   // 자식 행에는 안 붙인다 — 부모 행과 겹쳐 두 번 보인다
       html += '<span class="gantt-dday" style="left:' + Math.min(right + 2, range.width - 44) + 'px">' + dDayLabel(s.dday) + '</span>';
     }
   });
@@ -960,25 +1019,43 @@ function renderScheduleRow(c, range, stats) {
   var title = c.title || '(제목 없음)';
   var typeKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined' && RECRUIT_TYPE_LABEL_KO[c.recruit_type]) || BRAND_OPS_RECRUIT_TYPE_KO[c.recruit_type] || c.recruit_type || '';
   var st = BRAND_OPS_CAMP_STATUS_COLOR[c.status] || { bg: '#F5F5F5', color: '#757575' };
-  var slots = Number(c.slots || 0);
-  var appr = (_brandOpsApprCounts && _brandOpsApprCounts[c.id]) ? _brandOpsApprCounts[c.id].approved : (_brandOpsApprCounts ? 0 : null);
-  // stats: undefined = 아직 조회 중 / null = 조회 실패 / {submittedInf, cert}
-  var submitted = (stats && appr !== null && appr > 0) ? stats.submittedInf : null;
-  var cert = stats ? stats.cert : null;
   var pending = stats === undefined;
   var idJs = esc(String(c.id));
-  return '<div class="gantt-row">'
+  var segs = ganttSegmentsFor(c);
+  var span = ganttSpanOf(segs);
+  var open = !!_ganttOpen[c.id];
+  var counts = ganttCountsText(c, stats);
+  var subLine = [brandLabelAdmin(c), typeKo, brandOpsChannelText(c.channel, c.channel_match)].filter(Boolean).join(' · ');
+  var html = '<div class="gantt-row parent' + (open ? ' open' : '') + '">'
     + '<div class="gantt-left">'
-    +   '<div class="gantt-cell c-title"><a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a><div class="sub ellip">' + esc(c.campaign_no || '') + '</div></div>'
-    +   '<div class="gantt-cell c-brand"><span class="ellip" title="' + esc(brandLabelAdmin(c)) + '">' + (esc(brandLabelAdmin(c)) || '<span style="color:var(--muted)">—</span>') + '</span></div>'
-    +   '<div class="gantt-cell c-type"><div class="sub" style="margin:0 0 2px">' + esc(typeKo) + '</div>' + channelChipsHtml(c.channel, c.channel_match) + '</div>'
+    +   '<div class="gantt-cell c-title">'
+    +     '<div class="gantt-title-line">'
+    +       '<button type="button" class="gantt-chev" onclick="toggleGanttRow(\'' + idJs + '\')" title="' + (open ? '기간 접기' : '기간 펼치기') + '" aria-expanded="' + open + '"' + (segs.length ? '' : ' disabled') + '><span class="material-icons-round notranslate" translate="no">' + (open ? 'expand_more' : 'chevron_right') + '</span></button>'
+    +       '<a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a>'
+    +     '</div>'
+    +     '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
+    +   '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
-    +   '<div class="gantt-cell c-num">' + (appr === null ? _ganttNum(null) : (appr + '/' + slots)) + '</div>'
-    +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (submitted === null ? _ganttNum(null) : (submitted + '/' + appr))) + '</div>'
-    +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (cert === null ? _ganttNum(null) : (cert + '/' + slots))) + '</div>'
+    +   '<div class="gantt-cell c-dur">' + (span ? esc(ganttDurText(span.start, span.end)) : '<span style="color:var(--muted)">—</span>') + '</div>'
+    +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttParentProgress(c, stats), pending) + '</div>'
     + '</div>'
-    + renderGanttTrack(c, range, ganttCountsText(c, stats))
+    + renderGanttTrack(c, range, counts)
     + '</div>';
+  if (!open) return html;
+  // 자식 행 — 캠페인에 설정된 기간마다 한 줄. 이름·날짜·일수·진척률 + 그 구간 막대 하나
+  segs.forEach(function(seg){
+    var period = seg.end === null ? (formatDate(seg.start) + ' ~ 마감 없음') : (formatDate(seg.start) + ' ~ ' + formatDate(seg.end));
+    html += '<div class="gantt-row child">'
+      + '<div class="gantt-left">'
+      +   '<div class="gantt-cell c-title"><div class="gantt-title-line"><span class="gantt-child-name">' + esc(seg.name) + '</span><span class="gantt-child-date">' + esc(period) + '</span></div></div>'
+      +   '<div class="gantt-cell c-status"></div>'
+      +   '<div class="gantt-cell c-dur">' + esc(seg.point ? '1일' : ganttDurText(seg.start, seg.end)) + '</div>'
+      +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttChildProgress(seg, c, stats), pending) + '</div>'
+      + '</div>'
+      + renderGanttTrack(c, range, counts, seg)
+      + '</div>';
+  });
+  return html;
 }
 
 // 범례 — 막대 모양이 무엇을 뜻하는지. 시간축 머리 위 한 줄(일정 뷰에서만 보인다).
@@ -992,8 +1069,9 @@ function renderGanttLegend() {
 
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
-    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-brand">브랜드 ' + ganttSortArrows('brand') + '</div><div class="gantt-cell c-type">형식 · 채널</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
-    + '<div class="gantt-cell c-num" title="승인된 인플루언서 / 모집인원">승인/모집 ' + ganttSortArrows('appr') + '</div><div class="gantt-cell c-num" title="결과물을 1건 이상 낸 인플루언서 / 승인">제출/승인 ' + ganttSortArrows('submitted') + '</div><div class="gantt-cell c-num" title="인증 성공 인플루언서 / 모집인원">인증 ' + ganttSortArrows('cert') + '</div>'
+    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
+    + '<div class="gantt-cell c-dur" title="설정된 기간 전체(가장 이른 시작 ~ 가장 늦은 마감) 일수">기간 ' + ganttSortArrows('dur') + '</div>'
+    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 기간 행 = 그 단계의 진행(모집·선정 = 승인/모집, 구매·방문 = 영수증 낸 인플/승인, 제출 = 결과물 낸 인플/승인)">진척률 ' + ganttSortArrows('prog') + '</div>'
     + '</div>' + renderGanttAxis(range);
 }
 
@@ -1021,11 +1099,13 @@ function _scheduleStatsFor(list) {
   var stats = {};
   list.forEach(function(c){
     var ds = byCamp[c.id] || [];
-    var infs = {}; ds.forEach(function(d){ if (d.user_id) infs[d.user_id] = 1; });
+    var infs = {}, rcpt = {};
+    ds.forEach(function(d){ if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; } });
     // countCertSuccess 는 검수 화면·미니카드와 같은 판정(buildDeliverableGroups → computeCertStatus).
     //   camp 는 fetchCampaigns() 가 준 실제 행이다(가구매·채널 판정 포함). 결과물 행에 임베드된
     //   campaigns 가 있으면 그쪽이 우선 쓰이는데, 판정에 필요한 값이 전부 있어 결과가 같다.
-    stats[c.id] = { submittedInf: Object.keys(infs).length, cert: (typeof countCertSuccess === 'function') ? countCertSuccess(ds, c) : null };
+    // receiptInf = 영수증(방문형은 현장 사진, 같은 kind='receipt')을 낸 인플 — 구매·방문 기간 행의 진척률
+    stats[c.id] = { submittedInf: Object.keys(infs).length, receiptInf: Object.keys(rcpt).length, cert: (typeof countCertSuccess === 'function') ? countCertSuccess(ds, c) : null };
   });
   return { pending: false, stats: stats };
 }
@@ -1131,6 +1211,7 @@ function renderBrandOpsSchedule() {
   ensureGanttTipHandlers();
   ensureGanttGuideHandlers();
   renderGanttZoomButtons();
+  renderGanttOpenButton(list);
   applyGanttLeftState();
   var range = ganttRange();
   var legend = $('brandOpsGanttLegend');
