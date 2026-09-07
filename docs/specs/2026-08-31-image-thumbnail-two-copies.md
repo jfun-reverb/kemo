@@ -334,6 +334,8 @@ Supabase 의 **Storage Image Transformations**(사진을 원하는 크기로 줄
 
 ## 미결 — 설계 2(영수증 변환 제거) 방향
 
+> ✅ **2026-09-01 에 ①로 결정·구현됐다**(커밋 `6a0282a3`, 아래 「구현 결과 — 2단계」). 「압축」 설계는 **글자인식(OCR) 실측에서 탈락** — 7.2MB 영수증의 주문번호 한 자리가 사라졌다. 이 절은 결정 당시의 선택지 기록으로만 남긴다.
+
 2차 실측으로 「변환만 빼도 된다」가 한 번 무너졌으나, **「압축」 설계가 들어가면 조건이 달라진다:**
 
 | | 지금 | 압축 적용 후(앞으로 올라오는 것) |
@@ -391,10 +393,10 @@ Supabase 의 **Storage Image Transformations**(사진을 원하는 크기로 줄
 ### 무엇이 들어갔나
 | 자리 | 무엇 |
 |---|---|
-| `dev/lib/storage.js` | `_uploadCampThumb` 신설 + `uploadImage` 가 `prefix==='campaigns'` 일 때 호출 |
-| `dev/js/ui.js` | `campThumbUrl(url)` 신설 · `renderCroppedImg` 이 그것을 쓰도록 전환 |
+| `dev/lib/storage.js` | `_uploadCampThumb` 신설 + `uploadImage` 가 `prefix==='campaigns'` 일 때 호출 — ⚠️ **2단계에서 `_uploadThumbCopy`(통·폭 인자)로 일반화**됐다 |
+| `dev/js/ui.js` | `campThumbUrl(url)` 신설 · `renderCroppedImg` 이 그것을 쓰도록 전환 — ⚠️ **2단계에서 `storageThumbUrl` 로 이름을 바꿨고 `campThumbUrl` 은 별칭**으로만 남았다 |
 | 화면 7곳 | `mypage.js`·`admin-applications.js`(2)·`admin-brand-ops.js`·`admin-dashboard.js`·`admin-settlements.js`·`admin.js` |
-| `scripts/backfill-campaign-thumbs.js` | 기존 사진 일괄 생성(관리자 콘솔, 재실행 안전) |
+| `scripts/backfill-campaign-thumbs.js` | 기존 사진 일괄 생성(관리자 콘솔, 재실행 안전) — ⚠️ **2단계에서 `scripts/backfill-storage-thumbs.js` 로 바뀌었다**(이전 파일은 삭제됨. 이 표의 옛 이름으로 찾으면 없다) |
 | `CLAUDE.md` | 유료 변환을 쓰라고 적고 있던 두 줄 교체 |
 
 ### 초안 대비 변경 사항
@@ -449,5 +451,44 @@ Supabase 의 **Storage Image Transformations**(사진을 원하는 크기로 줄
 
 ⚠️ 검증 중 관리자 탭이 **배포 전 화면**이라 「효과 없음」으로 잘못 볼 뻔했다. `campThumbUrl` 존재 여부로 갈랐다.
 
-### 🔴 남은 것 — 요금은 아직 0이 아니다
-캠페인 사진은 주기 사용량 1,710장 중 **약 6%**다. 나머지는 **영수증·리뷰 인증샷 2,507장**이고, 그것이 위 「미결」이다. **그래서 `imgThumb` 함수와 그 호출부 6곳(영수증 5·아웃바운드 1)·설명글 이미지 1곳은 그대로 뒀다.**
+### ~~🔴 남은 것 — 요금은 아직 0이 아니다~~ → ✅ 2단계에서 해소(2026-09-01)
+(1단계 시점 기록) 캠페인 사진은 주기 사용량 1,710장 중 **약 6%**다. 나머지는 **영수증·리뷰 인증샷 2,507장**이고, 그것이 위 「미결」이다. 그래서 1단계는 `imgThumb` 함수와 그 호출부 6곳(영수증 5·아웃바운드 1)·설명글 이미지 1곳을 그대로 뒀다 — **아래 2단계가 전부 옮겼다.**
+
+## 구현 결과 — 2단계 (영수증·인증샷·설명 이미지·아웃바운드, 2026-09-01)
+
+**구현일:** 2026-09-01 · **개발 세션** · 데이터베이스 변경 없음 · 커밋 `6a0282a3`
+**범위:** 「미결」의 선택지 **①(영수증도 썸네일 저장)**. 「압축」 설계는 **탈락**.
+
+### 왜 「압축」이 탈락했나 — 글자인식 실측
+사람이 확인해 둔 영수증 5장을 압축(2048px)해 다시 읽혔다:
+
+| 원본 | 압축 | 결과 |
+|---|---|---|
+| 7,205KB | 491KB | 🔴 주문번호 `1209389647` → `120938964` (**한 자리 소실**, 원본은 정확) |
+| 5,094KB | 765KB | 둘 다 틀림(원본도 — 압축 탓 아님) |
+| 611·566·542KB | 133·127·125KB | 셋 다 원본과 같음 |
+
+손상은 **원본이 아주 크고 축소가 급할 때**에 몰려 있다 — 압축이 겨냥한 바로 그 파일들이다. 주문번호 끝자리가 빠진 값은 **그럴듯한 주문번호처럼 보여** 가장 나쁜 실패 모양이다. → 원본은 손대지 않고 **옆에 작은 사본을 하나 더 두는** 캠페인 방식을 그대로 쓴다.
+
+### 무엇이 들어갔나
+| 자리 | 무엇 |
+|---|---|
+| `dev/lib/storage.js` | `_uploadThumbCopy(blob, path, mime, maxWidth, bucket)` — 폴더별 폭 표 `THUMB_WIDTH_BY_PREFIX`(campaigns·content 720 / receipts·review-images 480) · 아웃바운드는 별도 통 전체 |
+| `dev/js/ui.js` | `storageThumbUrl(url)` — 통·폴더 판정(`THUMB_FOLDERS`·`THUMB_ALL_BUCKETS`), `campThumbUrl` 은 별칭 |
+| 화면 | 영수증 5곳·아웃바운드 1곳·설명글 이미지 1곳이 `imgThumb` 대신 저장해 둔 사본을 가리킨다 → **`imgThumb` 호출부 0** (함수는 되돌릴 여지로 남김) |
+| 파기 | 개인정보 사본이라 지우는 자리 넷이 썸네일도 함께 — 화면 3곳(`_withThumbPaths`) + Edge Function `purge-withdrawal-media`(`withThumbs`) |
+| `scripts/backfill-storage-thumbs.js` | 기존 파일 소급(1단계 도구를 대체) — 개발·운영 각각 실행 |
+
+### 초안 대비 변경 사항
+- 빠진 것: 「압축」 설계(위 실측) · 설계 2 「변환 요청만 뺀다」(사본 방식으로 흡수)
+- 달라진 것: 영수증 사본 폭 480(캠페인 720과 다름 — 표시 자리가 22~56픽셀이고 확대는 원본을 연다, 개인정보 사본은 작을수록 낫다)
+- 추가된 것: 아웃바운드·설명글 이미지(사양서 범위 밖이었던 것)까지 함께
+
+### 그 뒤 손댄 것(전수조사 2차, 2026-09-07)
+- E-2: 설명 이미지 사본을 렌더러 4개 중 3개가 안 쓰고 있던 것을 고침(`sanitizeCautionHtml(html, opts)`)
+- E-3: 고아 이미지 정리(`deleteCampImages`)도 썸네일을 함께 지움(다섯 번째 파기 경로)
+- E-4: 경로 규칙을 `_thumbPathOf` 한 곳으로, 아웃바운드 폭 상수화
+- E-5: 표시 조건을 죽은 `imgThumb` 존재 여부가 아니라 `storageThumbUrl` 존재로
+
+### 남은 것
+- 7-7(낮음): 목표 폭보다 좁은데 2MB 를 넘는 이미지는 `keepIfSmall` 때문에 썸네일이 안 만들어지고 소급 실패 수가 0 이 될 수 없다 — 「사본 없음 = 원본 폴백」이라 화면은 정상. 다듬을지는 미정
