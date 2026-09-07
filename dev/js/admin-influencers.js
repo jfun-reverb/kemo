@@ -797,6 +797,9 @@ async function renderInfluencerWithdrawalPanel(u) {
 
   const active = (reqs || []).find(r => r.status === 'pending_payout' || r.status === 'scheduled');
   const past   = (reqs || []).filter(r => r !== active);
+  // 확정(done)된 회원에게는 「대신 신청」 버튼을 처음부터 안 그린다 — 눌러도 서버(422)가
+  //   already_withdrawn 으로 막지만, 카드에 「탈퇴 완료」가 보이는데 버튼이 뜨면 헷갈린다(리뷰 지적).
+  const alreadyDone = (reqs || []).some(r => r.status === 'done');
   if (summary) summary.textContent = reqs.length ? `${reqs.length}건` : '';
 
   // ① 아예 대상이 아닌 계정 — 「대신 신청」 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다.
@@ -823,7 +826,7 @@ async function renderInfluencerWithdrawalPanel(u) {
   const preOk = !!(pre && pre.ok === true);
   // 대상이 아닌 계정(blockedReason)은 「대신 신청」을 못 열지만, 관리자가 넣어 둔 신청을
   // 되돌리는 것은 열어 둔다(canUndo) — 그게 멈춘 확정을 푸는 길 중 하나다.
-  const canProxy = preOk && canWrite('withdrawal.proxy_request');
+  const canProxy = preOk && !alreadyDone && canWrite('withdrawal.proxy_request');
   const canUndo  = (preOk || !!blockedReason) && canWrite('withdrawal.proxy_request');
   let html = blockedHtml;
 
@@ -862,7 +865,7 @@ async function renderInfluencerWithdrawalPanel(u) {
     }
   } else {
     const lines = withdrawBlockerLines(pre && pre.blockers);
-    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
+    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">${alreadyDone ? '이 회원은 탈퇴가 확정됐습니다 — 새 신청은 받지 않습니다.' : '진행 중인 탈퇴 신청이 없습니다.'}</div>`;
     if (canProxy) {
       html += `<button class="btn btn-xs" style="background:#FB8C00;color:#fff;border:none" onclick="openWithdrawProxyModal()">회원 대신 탈퇴 신청</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">회원이 직접 요청한 경우에만 사용하세요.</div>`;
