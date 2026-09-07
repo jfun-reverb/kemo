@@ -1258,7 +1258,10 @@ async function markAllNotificationsRead() {
 async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
-    const {data, error} = await db?.from('deliverables')
+    // [B-7] 1,000행 대응 — 같은 파일의 fetchDeliverables 는 하는데 이 함수만 안 했다. 캠페인 하나의
+    //   결과물이 운영 최대 74건이라 지금은 안 잘리지만, 잘리면 오류 없이 인증 상태가 틀린다.
+    //   정렬에 id 를 덧붙여 페이지 경계를 안정시킨다.
+    const data = await fetchAllPaged(() => db.from('deliverables')
       // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
       //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
       .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
@@ -1266,8 +1269,8 @@ async function fetchDeliverablesByCampaign(campaignId) {
       // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
       //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
       .neq('status', 'draft')
-      .order('submitted_at', {ascending: false});
-    if (error) throw error;
+      .order('submitted_at', {ascending: false})
+      .order('id', {ascending: true}));
     return data || [];
   } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
 }
@@ -1957,9 +1960,8 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 async function _uploadThumbCopy(blob, path, mime, maxWidth, bucket) {
   try {
     if (typeof compressImageFile !== 'function') return;
-    var slash = path.indexOf('/');
-    if (slash === -1) return;
-    var thumbPath = path.slice(0, slash) + '/thumb/' + path.slice(slash + 1);
+    var thumbPath = _thumbPathOf(path);
+    if (!thumbPath) return;
     var src = new File([blob], 'thumb-src', {type: mime});
     var small = await compressImageFile(src, {maxWidth: maxWidth, keepIfSmall: true});
     var {error} = await db.storage.from(bucket || 'campaign-images').upload(thumbPath, small, {
@@ -1986,6 +1988,24 @@ const THUMB_WIDTH_BY_PREFIX = {
   'review-images': 480,
   'content': 720
 };
+// 아웃바운드 명단 사진(outbound-influencer-images) — 첫 칸이 회원 고유번호라 폴더로 못 거른다.
+//   통 전체가 썸네일 대상(ui.js THUMB_ALL_BUCKETS)이고 폭은 명단 화면(96픽셀)용 480.
+//   ⚠️ [E-4] 예전엔 업로드 함수 안에 480 이 그대로 박혀 있어 이 표와 따로 놀았다.
+const THUMB_WIDTH_OUTBOUND = 480;
+
+// 썸네일 경로 규칙 — **여기 한 곳**. 「{첫 칸}/thumb/{나머지}」.
+//   ⚠️ [E-4] 같은 규칙이 _uploadThumbCopy·_withThumbPaths·deleteOutboundImage 에 인라인으로
+//      세 벌 있었다(Edge Function purge-withdrawal-media 의 withThumbs 도 같은 모양 — 그쪽은
+//      공유 모듈이 없어 각자 든다). 규칙을 바꿀 땐 이 함수와 ui.js storageThumbUrl·그 Edge Function 을 함께.
+//   이미 썸네일 경로(둘째 칸이 thumb/)면 null — 호출부가 「이미 썸네일」로 읽는다.
+function _thumbPathOf(path) {
+  if (!path || typeof path !== 'string') return null;
+  var slash = path.indexOf('/');
+  if (slash === -1) return null;
+  var rest = path.slice(slash + 1);
+  if (rest.startsWith('thumb/')) return null;
+  return path.slice(0, slash) + '/thumb/' + rest;
+}
 
 
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
@@ -2207,11 +2227,13 @@ async function countPendingApplications(campaignId) {
 //   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
 //   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
 //   URL → 버킷 상대 경로 변환은 campaign-images 공용 헬퍼를 재사용한다.
+//   [E-3] 썸네일도 함께 지운다 — 다른 파기 경로 넷(보관 삭제·감사용 청소 2·예약 파기)은 하는데
+//   이 다섯 번째 경로만 원본만 지워, 참조가 없어 나중에 찾아 지울 수도 없는 사본이 남았다.
 async function deleteCampImages(urls) {
   if (!db || !Array.isArray(urls) || !urls.length) return {ok: true, failedPaths: []};
   const paths = urls.map(_receiptUrlToStoragePath).filter(Boolean);
   if (!paths.length) return {ok: true, failedPaths: []};
-  return await _deleteStorageFiles('campaign-images', paths);
+  return await _deleteStorageFiles('campaign-images', _withThumbPaths(paths));
 }
 
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
@@ -3990,48 +4012,9 @@ async function fetchWithdrawalOpsAlert() {
   }
 }
 
-// ── 밀린 파기 건수 (마이그레이션 364, 작업 14 경고용) ──
-//
-// 🔴 **실패를 0 으로 돌려주지 않는다 — `null` 이다.**
-//   이 저장소가 여러 번 세운 원칙(마이그레이션 276): 「조회 실패」와 「0건」은
-//   다른 사실이다. 0 으로 뭉개면 화면이 「밀린 것 없음」으로 그리는데, 실제로는
-//   **못 물어본 것**일 수 있다. 그 둘을 섞으면 파기가 멈춰 있어도 화면은
-//   조용하다 — 이 경고가 막으려던 바로 그 상황이다.
-//   → 화면은 `null` 이면 **아무것도 안 그린다**(0 과 같은 모습이지만 이유가
-//     다르다. 「0건이라 안 그림」과 「몰라서 안 그림」을 콘솔로 구분할 수 있게
-//     로그는 남긴다).
-//
-// ⚠️ 서버 함수는 관리자가 아니면 **0 이 아니라 42501 오류**를 낸다(364).
-//   그 경우도 여기서는 `null` 이 된다 — 권한 없는 등급에게 경고를 안 그리는
-//   것이 맞고, 그게 「0건」으로 보이면 안 된다.
-//
-// ⚠️ **이 값은 「항상 0 이 정상」이 아니다.** 관리자를 겸한 회원은 파기 대상
-//   목록에서는 빠지지만(352 가 그 회원의 확정을 거부한다) 이 건수에는 계속
-//   잡힌다 — 의도된 설계다(눈에 보이게). 그래서 0 이 아닌 상태가 계속되면
-//   「배치가 멈췄다」가 아니라 「사람이 처리해야 할 회원이 있다」일 수 있다.
-async function fetchOverdueWithdrawalPurgeCounts() {
-  if (!db) return null;
-  try {
-    const [media, email] = await Promise.all([
-      db.rpc('count_overdue_withdrawal_media_purge'),
-      db.rpc('count_overdue_withdrawal_email_blocks'),
-    ]);
-    // 둘 중 하나라도 실패하면 전체를 모르는 것으로 본다 — 반쪽 숫자로
-    // 「이만큼 밀렸다」고 그리면 나머지 절반이 조용히 사라진다.
-    if (media.error || email.error) {
-      console.warn('[fetchOverdueWithdrawalPurgeCounts] 조회 실패',
-        media.error || email.error);
-      return null;
-    }
-    return {
-      media: Number(media.data) || 0,   // 영수증·인증샷
-      email: Number(email.data) || 0,   // 재가입 차단 해시
-    };
-  } catch(e) {
-    console.warn('[fetchOverdueWithdrawalPurgeCounts]', e);
-    return null;
-  }
-}
+// [C-8] fetchOverdueWithdrawalPurgeCounts 는 2026-09-07 에 지웠다 — 호출부 0곳이었고 메시지 첨부 몫(368)을
+//   안 세어 두 파기 중 하나만 보는 값이었다. 밀린 파기 집계는 get_withdrawal_ops_alert(366→419)가
+//   세 종류를 다 세고 fetchWithdrawalOpsAlert 가 그것을 부른다.
 
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
 // allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
@@ -4770,12 +4753,11 @@ function _withThumbPaths(paths) {
     if (!p || typeof p !== 'string') return;
     out.push(p);
     const slash = p.indexOf('/');
-    if (slash === -1) return;
+    if (slash === -1) return;                      // 폴더 없는 경로 — 썸네일 없음
     const folder = p.slice(0, slash);
-    const rest = p.slice(slash + 1);
-    if (rest.startsWith('thumb/')) return;        // 이미 썸네일 경로면 그대로
     if (!THUMB_WIDTH_BY_PREFIX[folder]) return;   // 썸네일을 안 만드는 폴더
-    out.push(folder + '/thumb/' + rest);
+    const t = _thumbPathOf(p);                    // 이미 썸네일 경로면 null
+    if (t) out.push(t);
   });
   return out;
 }
@@ -5459,7 +5441,7 @@ async function uploadOutboundImage(file, obId) {
   if (error) throw error;
   // 명단 화면은 96픽셀로 그린다 — 썸네일을 한 벌 더 둬서 유료 변환을 안 쓴다.
   //   ⚠️ 지금 이 통은 비어 있지만(대상 0건), 명단이 늘면 조용히 요금이 나던 자리다.
-  await _uploadThumbCopy(file, path, file.type, 480, OUTBOUND_IMAGE_BUCKET);
+  await _uploadThumbCopy(file, path, file.type, THUMB_WIDTH_OUTBOUND, OUTBOUND_IMAGE_BUCKET);
   return path;
 }
 
@@ -5475,9 +5457,8 @@ async function deleteOutboundImage(path) {
   if (!db || !path) return;
   // 썸네일도 함께 지운다 — 남기면 지운 사람 사진이 주소만 알면 계속 보인다.
   //   ⚠️ 없는 파일에도 remove() 는 성공으로 답하므로 옛 파일이라도 안전하다.
-  const slash = path.indexOf('/');
-  const paths = slash === -1 ? [path]
-    : [path, path.slice(0, slash) + '/thumb/' + path.slice(slash + 1)];
+  const thumb = _thumbPathOf(path);
+  const paths = thumb ? [path, thumb] : [path];
   try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove(paths); }
   catch(e) { console.warn('[deleteOutboundImage]', e); }
 }
@@ -5492,7 +5473,7 @@ async function deleteOutboundImage(path) {
 // ⚠️ campaign_no·amount_source·amount_issue 3종은 마이그레이션 262에서 추가. amount_issue 가
 //   있는 행(금액 NULL·0 이하)은 서버가 등록에서 조용히 건너뛰므로 화면이 미리 선택을 잠근다.
 async function fetchPastUnregisteredSettlements() {
-  if (!db) return [];
+  if (!db) return null;   // [B-9] 「실패 = null」 계약 — 아래 주석. 저장소가 없으면 모르는 것이지 0건이 아니다.
   try {
     const {data, error} = await db.rpc('get_past_unregistered_settlements');
     if (error) throw error;

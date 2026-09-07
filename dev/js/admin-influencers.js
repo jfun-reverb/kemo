@@ -797,15 +797,24 @@ async function renderInfluencerWithdrawalPanel(u) {
 
   const active = (reqs || []).find(r => r.status === 'pending_payout' || r.status === 'scheduled');
   const past   = (reqs || []).filter(r => r !== active);
+  // 확정(done)된 회원에게는 「대신 신청」 버튼을 처음부터 안 그린다 — 눌러도 서버(422)가
+  //   already_withdrawn 으로 막지만, 카드에 「탈퇴 완료」가 보이는데 버튼이 뜨면 헷갈린다(리뷰 지적).
+  const alreadyDone = (reqs || []).some(r => r.status === 'done');
   if (summary) summary.textContent = reqs.length ? `${reqs.length}건` : '';
 
-  // ① 아예 대상이 아닌 계정 — 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다
-  if (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked')) {
-    const msg = pre.reason === 'admin_account_excluded'
-      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다.</span>'
+  // ① 아예 대상이 아닌 계정 — 「대신 신청」 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다.
+  //   ⚠️ 여기서 return 하면 안 된다(전수조사 2차 3-4, C-4) — 그 전에는 통째로 돌아가 **진행 중인
+  //      신청·되돌리기 버튼·지난 기록까지** 감췄다. 그런데 「탈퇴 처리 점검」 경고가 지목하는 회원이
+  //      바로 이 부류(관리자 겸직이라 확정이 멈춘 사람)라, 경고를 따라 열면 아무것도 안 보였다.
+  //      안내만 위에 얹고 나머지는 그대로 그린다 — 되돌리기는 이 회원에게 가장 필요한 단추다.
+  const blockedReason = (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked'))
+    ? pre.reason : null;
+  let blockedHtml = '';
+  if (blockedReason) {
+    const msg = blockedReason === 'admin_account_excluded'
+      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다. 이미 접수된 신청이 있으면 아래에 보입니다 — 진행이 멈춰 있으니 되돌리거나 권한을 먼저 해제하세요.</span>'
       : '감사용 계정이라 탈퇴 대상이 아닙니다.';
-    body.innerHTML = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7">${msg}</div>`;
-    return;
+    blockedHtml = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7;margin-bottom:12px">${msg}</div>`;
   }
 
   // ★ 조회에 실패했으면 **버튼을 그리지 않는다.**
@@ -815,10 +824,13 @@ async function renderInfluencerWithdrawalPanel(u) {
   //   ⚠️ 실패는 storage.js 가 mode:'locked_support' 로 폴백해 오므로, ok 여부로만
   //     판정한다(mode 만 보면 「정상인데 걸린 회원」과 구분이 안 된다).
   const preOk = !!(pre && pre.ok === true);
-  const canProxy = preOk && canWrite('withdrawal.proxy_request');
-  let html = '';
+  // 대상이 아닌 계정(blockedReason)은 「대신 신청」을 못 열지만, 관리자가 넣어 둔 신청을
+  // 되돌리는 것은 열어 둔다(canUndo) — 그게 멈춘 확정을 푸는 길 중 하나다.
+  const canProxy = preOk && !alreadyDone && canWrite('withdrawal.proxy_request');
+  const canUndo  = (preOk || !!blockedReason) && canWrite('withdrawal.proxy_request');
+  let html = blockedHtml;
 
-  if (!preOk) {
+  if (!preOk && !blockedReason) {
     html += `<div style="padding:10px 12px;background:#FFF8E1;border-left:3px solid #F9A825;border-radius:4px;font-size:12px;color:var(--ink);line-height:1.7;margin-bottom:12px">
       탈퇴 처리 상태를 불러오지 못했습니다 — <strong>대신 신청 기능을 열지 않았습니다.</strong><br>
       <span style="color:var(--muted)">서버 준비가 끝나지 않았거나 통신이 끊겼을 수 있습니다. 새로고침해도 같으면 개발팀에 알려 주세요.</span>
@@ -842,17 +854,18 @@ async function renderInfluencerWithdrawalPanel(u) {
           ${active.uncancelled_count > 0 ? `<div style="color:var(--muted)">접수 때 철회하지 못한 응모 ${active.uncancelled_count}건</div>` : ''}
           ${withdrawLeftoverLines(preOk ? (pre && pre.blockers) : null)}
           ${active.event_tickets_blocked_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">정리 못 한 행사 예약 ${active.event_tickets_blocked_count}건</strong></div>` : ''}
+          ${withdrawMailLine(active)}
         </div>
       </div>`;
-    if (canProxy && isAdminMade) {
+    if (canUndo && isAdminMade) {
       html += `<button class="btn btn-ghost btn-xs" onclick="openWithdrawUndoModal()">되돌리기</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">관리자가 넣은 신청만 되돌릴 수 있습니다. 본인이 신청한 건은 회원이 직접 취소합니다.</div>`;
-    } else if (canProxy) {
+    } else if (canUndo) {
       html += `<div style="font-size:11px;color:var(--muted)">회원이 직접 신청한 건입니다 — 취소도 회원이 앱에서 합니다.</div>`;
     }
   } else {
     const lines = withdrawBlockerLines(pre && pre.blockers);
-    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
+    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">${alreadyDone ? '이 회원은 탈퇴가 확정됐습니다 — 새 신청은 받지 않습니다.' : '진행 중인 탈퇴 신청이 없습니다.'}</div>`;
     if (canProxy) {
       html += `<button class="btn btn-xs" style="background:#FB8C00;color:#fff;border:none" onclick="openWithdrawProxyModal()">회원 대신 탈퇴 신청</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">회원이 직접 요청한 경우에만 사용하세요.</div>`;
@@ -868,11 +881,43 @@ async function renderInfluencerWithdrawalPanel(u) {
       ${past.map(r => `<div style="font-size:11px;color:var(--muted);line-height:1.8">
         ${formatDateTime(r.requested_at)} · ${esc(withdrawStatusLabelKo(r.status))} · ${esc(withdrawKindLabelKo(r.requested_by_kind))}
         ${r.admin_cancel_note ? `<br><span style="color:var(--ink)">되돌림 사유</span> · ${esc(r.admin_cancel_note)}` : ''}
+        ${withdrawMailLine(r)}
       </div>`).join('')}
     </div>`;
   }
 
   body.innerHTML = html;
+}
+
+// 예정일 안내 메일 상태 한 줄 (마이그레이션 419, 전수조사 2차 3-3).
+//   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**라, 나갔는지를 카드가 말한다.
+//   ⚠️ 상태별로 뜻이 다르다 — pending_payout(예정일 미정)은 아직 대상이 아니고, cancelled 는
+//      「안내를 받고 마음을 바꾼」 정상 동선이라 발송 사실만 적는다(안 나갔으면 침묵).
+//   ⚠️ 판정을 화면이 키우지 않는다 — 두 칸(발송 시각·시도 횟수)을 그대로 옮기고
+//      **날짜 비교는 하지 않는다**(집계·경고는 서버 419 가 한다).
+function withdrawMailLine(r) {
+  if (!r) return '';
+  const tried = Number(r.scheduled_mail_attempt_count || 0);
+  const triedNote = tried > 0 ? ` (${tried}회 실패 뒤)` : '';
+  const label = '<strong style="font-weight:700">예정일 안내 메일</strong>';
+  if (r.scheduled_mail_sent_at) {
+    const when = formatDateTime(r.scheduled_mail_sent_at);
+    return r.status === 'cancelled'
+      ? `<div style="color:var(--muted)">${label} · 발송 ${when}${triedNote} — 그 뒤 취소됨</div>`
+      : `<div>${label} · 발송 ${when}${triedNote}</div>`;
+  }
+  if (r.status === 'pending_payout') {
+    return `<div style="color:var(--muted)">${label} · 예정일이 정해지면 나갑니다</div>`;
+  }
+  if (r.status === 'scheduled') {
+    return tried > 0
+      ? `<div style="color:#C62828">${label} · 미발송 — ${tried}회 실패, 매일 09:00 다시 시도</div>`
+      : `<div style="color:var(--muted)">${label} · 아직 발송 표시 없음 (매일 09:00 발송)</div>`;
+  }
+  if (r.status === 'done' && r.scheduled_date) {
+    return `<div style="color:#C62828">${label} · 받지 못한 채 확정됨${tried > 0 ? ` (${tried}회 실패)` : ''} — 다시 보내지 않습니다</div>`;
+  }
+  return '';
 }
 
 // 탈퇴 사유 코드 → 한국어 라벨. 목록을 아직 안 받았으면 코드값 그대로 보여준다

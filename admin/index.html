@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788767193';
+  var CURRENT_BUILD = 'v1788774675';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 16:46 · 606f526</span>
+          <span class="admin-build-text">2026-09-07 18:51 · de84952</span>
         </div>
       </div>
     </aside>
@@ -7764,7 +7764,9 @@ function sanitizeRich(html, opts) {
 //
 // 관리자 미니 에디터(contenteditable) 의 paste·툴바 결과를 모두 본 함수로 통과시켜
 // 저장 + 렌더 양쪽 모두 동일 정책 적용. 외부 URL 직접 입력은 src 화이트리스트로 차단.
-function sanitizeCautionHtml(html) {
+// opts.displayWidth — **화면에 그릴 때만** 준다(썸네일 치환). 저장 경로(미니 에디터 저장·
+//   `getRichValue` 계열)는 인자 없이 불러 원본 주소가 그대로 저장된다 — `_applyContentImagePolicy` 주석.
+function sanitizeCautionHtml(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
@@ -7808,7 +7810,7 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  _applyContentImagePolicy(wrapper);
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -7849,7 +7851,9 @@ function _applyContentImagePolicy(wrapper, opts) {
     //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
     //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
     //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
-    if (showW && typeof imgThumb === 'function') {
+    //   ⚠️ [E-5] 조건은 **실제로 쓰는 함수**(storageThumbUrl)의 존재로 건다 — 예전엔 죽은
+    //      함수 imgThumb 의 존재를 봤는데, 그걸 정리하는 날 이 줄이 조용히 꺼져 썸네일이 사라진다.
+    if (showW && typeof storageThumbUrl === 'function') {
       const thumb = storageThumbUrl(src);
       if (thumb && thumb !== src) {
         img.setAttribute('data-orig', src);
@@ -7974,8 +7978,11 @@ function miniRichHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
+  // 이 함수는 **화면에 그릴 때만** 쓴다(참여방법 단계 — 인플루언서 상세·관리자 미리보기).
+  //   [E-2] 그래서 표시 폭을 줘 `content/` 썸네일을 받는다 — 올릴 때 사본을 만들어 두고도
+  //   렌더러 4개 중 3개가 원본(최대 5MB)을 받고 있었다(전수조사 2차 7-2).
   return (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml(value)
+    ? sanitizeCautionHtml(value, { displayWidth: RICH_DISPLAY_WIDTH })
     : value.replace(/<script/gi, '&lt;script');
 }
 
@@ -9887,6 +9894,8 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
   //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
   /account_withdrawn/,
+  // 확정된 계정의 두 번째 탈퇴 신청 거부(마이그레이션 422) — 같은 세트.
+  /already_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
@@ -11385,7 +11394,10 @@ async function markAllNotificationsRead() {
 async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
-    const {data, error} = await db?.from('deliverables')
+    // [B-7] 1,000행 대응 — 같은 파일의 fetchDeliverables 는 하는데 이 함수만 안 했다. 캠페인 하나의
+    //   결과물이 운영 최대 74건이라 지금은 안 잘리지만, 잘리면 오류 없이 인증 상태가 틀린다.
+    //   정렬에 id 를 덧붙여 페이지 경계를 안정시킨다.
+    const data = await fetchAllPaged(() => db.from('deliverables')
       // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
       //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
       .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
@@ -11393,8 +11405,8 @@ async function fetchDeliverablesByCampaign(campaignId) {
       // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
       //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
       .neq('status', 'draft')
-      .order('submitted_at', {ascending: false});
-    if (error) throw error;
+      .order('submitted_at', {ascending: false})
+      .order('id', {ascending: true}));
     return data || [];
   } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
 }
@@ -12084,9 +12096,8 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 async function _uploadThumbCopy(blob, path, mime, maxWidth, bucket) {
   try {
     if (typeof compressImageFile !== 'function') return;
-    var slash = path.indexOf('/');
-    if (slash === -1) return;
-    var thumbPath = path.slice(0, slash) + '/thumb/' + path.slice(slash + 1);
+    var thumbPath = _thumbPathOf(path);
+    if (!thumbPath) return;
     var src = new File([blob], 'thumb-src', {type: mime});
     var small = await compressImageFile(src, {maxWidth: maxWidth, keepIfSmall: true});
     var {error} = await db.storage.from(bucket || 'campaign-images').upload(thumbPath, small, {
@@ -12113,6 +12124,24 @@ const THUMB_WIDTH_BY_PREFIX = {
   'review-images': 480,
   'content': 720
 };
+// 아웃바운드 명단 사진(outbound-influencer-images) — 첫 칸이 회원 고유번호라 폴더로 못 거른다.
+//   통 전체가 썸네일 대상(ui.js THUMB_ALL_BUCKETS)이고 폭은 명단 화면(96픽셀)용 480.
+//   ⚠️ [E-4] 예전엔 업로드 함수 안에 480 이 그대로 박혀 있어 이 표와 따로 놀았다.
+const THUMB_WIDTH_OUTBOUND = 480;
+
+// 썸네일 경로 규칙 — **여기 한 곳**. 「{첫 칸}/thumb/{나머지}」.
+//   ⚠️ [E-4] 같은 규칙이 _uploadThumbCopy·_withThumbPaths·deleteOutboundImage 에 인라인으로
+//      세 벌 있었다(Edge Function purge-withdrawal-media 의 withThumbs 도 같은 모양 — 그쪽은
+//      공유 모듈이 없어 각자 든다). 규칙을 바꿀 땐 이 함수와 ui.js storageThumbUrl·그 Edge Function 을 함께.
+//   이미 썸네일 경로(둘째 칸이 thumb/)면 null — 호출부가 「이미 썸네일」로 읽는다.
+function _thumbPathOf(path) {
+  if (!path || typeof path !== 'string') return null;
+  var slash = path.indexOf('/');
+  if (slash === -1) return null;
+  var rest = path.slice(slash + 1);
+  if (rest.startsWith('thumb/')) return null;
+  return path.slice(0, slash) + '/thumb/' + rest;
+}
 
 
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
@@ -12334,11 +12363,13 @@ async function countPendingApplications(campaignId) {
 //   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
 //   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
 //   URL → 버킷 상대 경로 변환은 campaign-images 공용 헬퍼를 재사용한다.
+//   [E-3] 썸네일도 함께 지운다 — 다른 파기 경로 넷(보관 삭제·감사용 청소 2·예약 파기)은 하는데
+//   이 다섯 번째 경로만 원본만 지워, 참조가 없어 나중에 찾아 지울 수도 없는 사본이 남았다.
 async function deleteCampImages(urls) {
   if (!db || !Array.isArray(urls) || !urls.length) return {ok: true, failedPaths: []};
   const paths = urls.map(_receiptUrlToStoragePath).filter(Boolean);
   if (!paths.length) return {ok: true, failedPaths: []};
-  return await _deleteStorageFiles('campaign-images', paths);
+  return await _deleteStorageFiles('campaign-images', _withThumbPaths(paths));
 }
 
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
@@ -14117,48 +14148,9 @@ async function fetchWithdrawalOpsAlert() {
   }
 }
 
-// ── 밀린 파기 건수 (마이그레이션 364, 작업 14 경고용) ──
-//
-// 🔴 **실패를 0 으로 돌려주지 않는다 — `null` 이다.**
-//   이 저장소가 여러 번 세운 원칙(마이그레이션 276): 「조회 실패」와 「0건」은
-//   다른 사실이다. 0 으로 뭉개면 화면이 「밀린 것 없음」으로 그리는데, 실제로는
-//   **못 물어본 것**일 수 있다. 그 둘을 섞으면 파기가 멈춰 있어도 화면은
-//   조용하다 — 이 경고가 막으려던 바로 그 상황이다.
-//   → 화면은 `null` 이면 **아무것도 안 그린다**(0 과 같은 모습이지만 이유가
-//     다르다. 「0건이라 안 그림」과 「몰라서 안 그림」을 콘솔로 구분할 수 있게
-//     로그는 남긴다).
-//
-// ⚠️ 서버 함수는 관리자가 아니면 **0 이 아니라 42501 오류**를 낸다(364).
-//   그 경우도 여기서는 `null` 이 된다 — 권한 없는 등급에게 경고를 안 그리는
-//   것이 맞고, 그게 「0건」으로 보이면 안 된다.
-//
-// ⚠️ **이 값은 「항상 0 이 정상」이 아니다.** 관리자를 겸한 회원은 파기 대상
-//   목록에서는 빠지지만(352 가 그 회원의 확정을 거부한다) 이 건수에는 계속
-//   잡힌다 — 의도된 설계다(눈에 보이게). 그래서 0 이 아닌 상태가 계속되면
-//   「배치가 멈췄다」가 아니라 「사람이 처리해야 할 회원이 있다」일 수 있다.
-async function fetchOverdueWithdrawalPurgeCounts() {
-  if (!db) return null;
-  try {
-    const [media, email] = await Promise.all([
-      db.rpc('count_overdue_withdrawal_media_purge'),
-      db.rpc('count_overdue_withdrawal_email_blocks'),
-    ]);
-    // 둘 중 하나라도 실패하면 전체를 모르는 것으로 본다 — 반쪽 숫자로
-    // 「이만큼 밀렸다」고 그리면 나머지 절반이 조용히 사라진다.
-    if (media.error || email.error) {
-      console.warn('[fetchOverdueWithdrawalPurgeCounts] 조회 실패',
-        media.error || email.error);
-      return null;
-    }
-    return {
-      media: Number(media.data) || 0,   // 영수증·인증샷
-      email: Number(email.data) || 0,   // 재가입 차단 해시
-    };
-  } catch(e) {
-    console.warn('[fetchOverdueWithdrawalPurgeCounts]', e);
-    return null;
-  }
-}
+// [C-8] fetchOverdueWithdrawalPurgeCounts 는 2026-09-07 에 지웠다 — 호출부 0곳이었고 메시지 첨부 몫(368)을
+//   안 세어 두 파기 중 하나만 보는 값이었다. 밀린 파기 집계는 get_withdrawal_ops_alert(366→419)가
+//   세 종류를 다 세고 fetchWithdrawalOpsAlert 가 그것을 부른다.
 
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
 // allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
@@ -14897,12 +14889,11 @@ function _withThumbPaths(paths) {
     if (!p || typeof p !== 'string') return;
     out.push(p);
     const slash = p.indexOf('/');
-    if (slash === -1) return;
+    if (slash === -1) return;                      // 폴더 없는 경로 — 썸네일 없음
     const folder = p.slice(0, slash);
-    const rest = p.slice(slash + 1);
-    if (rest.startsWith('thumb/')) return;        // 이미 썸네일 경로면 그대로
     if (!THUMB_WIDTH_BY_PREFIX[folder]) return;   // 썸네일을 안 만드는 폴더
-    out.push(folder + '/thumb/' + rest);
+    const t = _thumbPathOf(p);                    // 이미 썸네일 경로면 null
+    if (t) out.push(t);
   });
   return out;
 }
@@ -15586,7 +15577,7 @@ async function uploadOutboundImage(file, obId) {
   if (error) throw error;
   // 명단 화면은 96픽셀로 그린다 — 썸네일을 한 벌 더 둬서 유료 변환을 안 쓴다.
   //   ⚠️ 지금 이 통은 비어 있지만(대상 0건), 명단이 늘면 조용히 요금이 나던 자리다.
-  await _uploadThumbCopy(file, path, file.type, 480, OUTBOUND_IMAGE_BUCKET);
+  await _uploadThumbCopy(file, path, file.type, THUMB_WIDTH_OUTBOUND, OUTBOUND_IMAGE_BUCKET);
   return path;
 }
 
@@ -15602,9 +15593,8 @@ async function deleteOutboundImage(path) {
   if (!db || !path) return;
   // 썸네일도 함께 지운다 — 남기면 지운 사람 사진이 주소만 알면 계속 보인다.
   //   ⚠️ 없는 파일에도 remove() 는 성공으로 답하므로 옛 파일이라도 안전하다.
-  const slash = path.indexOf('/');
-  const paths = slash === -1 ? [path]
-    : [path, path.slice(0, slash) + '/thumb/' + path.slice(slash + 1)];
+  const thumb = _thumbPathOf(path);
+  const paths = thumb ? [path, thumb] : [path];
   try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove(paths); }
   catch(e) { console.warn('[deleteOutboundImage]', e); }
 }
@@ -15619,7 +15609,7 @@ async function deleteOutboundImage(path) {
 // ⚠️ campaign_no·amount_source·amount_issue 3종은 마이그레이션 262에서 추가. amount_issue 가
 //   있는 행(금액 NULL·0 이하)은 서버가 등록에서 조용히 건너뛰므로 화면이 미리 선택을 잠근다.
 async function fetchPastUnregisteredSettlements() {
-  if (!db) return [];
+  if (!db) return null;   // [B-9] 「실패 = null」 계약 — 아래 주석. 저장소가 없으면 모르는 것이지 0건이 아니다.
   try {
     const {data, error} = await db.rpc('get_past_unregistered_settlements');
     if (error) throw error;
@@ -16355,7 +16345,8 @@ function friendlyErrorJa(e) {
   if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
   // 탈퇴 절차 중인 계정(마이그레이션 359) — 일반 permission 규칙보다 **먼저** 매칭해야
   //   「권한이 없습니다」로 뭉개지지 않는다.
-  if (/account_withdrawn/.test(s)) return t.accountWithdrawn;
+  //   already_withdrawn(422) — 확정된 계정의 두 번째 탈퇴 신청 거부. 같은 문구로 보여준다.
+  if (/account_withdrawn|already_withdrawn/.test(s)) return t.accountWithdrawn;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
@@ -18395,7 +18386,10 @@ function _withdrawalOpsTotal(a) {
        // ⚠️ 서버(372)가 이 열쇠말을 안 주는 환경에서는 0 이 된다 — 배포 순서가
        //    뒤바뀌어도 나머지 경고는 그대로 뜬다(그 줄만 안 그려진다).
        + Number(a.message_attachment_overdue || 0)
-       + Number(a.stuck_confirm || 0);
+       + Number(a.stuck_confirm || 0)
+       // 419 — 예정일 안내 메일 실패(재시도 중 / 확정돼 영영 못 보냄). 열쇠말이 없으면 0.
+       + Number(a.mail_retrying || 0)
+       + Number(a.mail_lost || 0);
 }
 
 function applyWithdrawalOpsIndicators() {
@@ -18528,6 +18522,33 @@ function withdrawalOpsModalHtml(a) {
     }
     rows.push(_withdrawOpsRow('image_not_supported', '#B8741A',
       `파기 기한이 지난 응모건 메시지 사진 ${n(a.message_attachment_overdue)}건`, sub));
+  }
+
+  // ⑤ 예정일 안내 메일이 아직 안 나간 탈퇴 (마이그레이션 419, 전수조사 2차 3-3)
+  //   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**다. 서버가 세는 것은
+  //   「한 번 이상 실패」 또는 「예정 상태가 된 날의 09:00 이 지났는데 미발송」 — 뒤쪽이
+  //   예약 실행 자체가 멈춘 경우를 잡는다(시도 횟수는 그때 0 그대로다).
+  //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
+  if (n(a.mail_retrying) > 0) {
+    rows.push(_withdrawOpsRow('mail', '#B8741A',
+      `예정일 안내 메일이 아직 안 나간 탈퇴 ${n(a.mail_retrying)}건`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         예정 상태가 된 뒤 <b>매일 09:00</b> 에 보내는데 아직 발송 표시가 없습니다. 회원 상세의 「탈퇴 신청」 카드에서 시도 횟수를 볼 수 있습니다.
+         <br>→ <b>시도 횟수가 0인데 하루 넘게 그대로</b>면 예약 실행 자체가 멈춘 것 — <b>개발 담당자에게 알려 주세요.</b>
+         <br>→ 시도 횟수가 쌓이면 그 회원의 <b>이메일 주소</b>와 Brevo 우측 상단 <b>「Usage and plan」</b>(구독 만료·큐 정지)을 확인하세요.
+       </div>`));
+  }
+
+  // ⑥ 안내 메일을 못 받은 채 확정된 탈퇴 — 다시 보낼 방법이 없다(확정 뒤라 문구도 맞지 않는다).
+  //   서버가 최근 30일 확정분만 센다 — 누구도 0 으로 되돌릴 수 없는 값이라 기간을 안 자르면
+  //   경고가 영구히 켜진다. 회원 목록은 안 준다(확정되면 개인정보가 파기돼 빈 행이다).
+  if (n(a.mail_lost) > 0) {
+    rows.push(_withdrawOpsRow('mail_lock', '#B8741A',
+      `예정일 안내 메일을 받지 못한 채 확정된 탈퇴 ${n(a.mail_lost)}건 (최근 30일)`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         확정되면 메일 대상에서 빠져 <b>다시 보내지 않습니다</b>. 이 회원들은 「언제 확정되는지」 안내를 한 번도 못 받았습니다.
+         <br>→ 문의가 오면 그 점을 감안해 응대하세요. 반복되면 개발 담당자에게 알려 주세요. 30일이 지나면 이 줄은 저절로 사라집니다.
+       </div>`));
   }
 
   if (!rows.length) {
@@ -29309,15 +29330,24 @@ async function renderInfluencerWithdrawalPanel(u) {
 
   const active = (reqs || []).find(r => r.status === 'pending_payout' || r.status === 'scheduled');
   const past   = (reqs || []).filter(r => r !== active);
+  // 확정(done)된 회원에게는 「대신 신청」 버튼을 처음부터 안 그린다 — 눌러도 서버(422)가
+  //   already_withdrawn 으로 막지만, 카드에 「탈퇴 완료」가 보이는데 버튼이 뜨면 헷갈린다(리뷰 지적).
+  const alreadyDone = (reqs || []).some(r => r.status === 'done');
   if (summary) summary.textContent = reqs.length ? `${reqs.length}건` : '';
 
-  // ① 아예 대상이 아닌 계정 — 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다
-  if (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked')) {
-    const msg = pre.reason === 'admin_account_excluded'
-      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다.</span>'
+  // ① 아예 대상이 아닌 계정 — 「대신 신청」 버튼을 그렸다가 눌러서 거부당하는 일이 없게 미리 막는다.
+  //   ⚠️ 여기서 return 하면 안 된다(전수조사 2차 3-4, C-4) — 그 전에는 통째로 돌아가 **진행 중인
+  //      신청·되돌리기 버튼·지난 기록까지** 감췄다. 그런데 「탈퇴 처리 점검」 경고가 지목하는 회원이
+  //      바로 이 부류(관리자 겸직이라 확정이 멈춘 사람)라, 경고를 따라 열면 아무것도 안 보였다.
+  //      안내만 위에 얹고 나머지는 그대로 그린다 — 되돌리기는 이 회원에게 가장 필요한 단추다.
+  const blockedReason = (pre && pre.ok === false && (pre.reason === 'admin_account_excluded' || pre.reason === 'audit_account_blocked'))
+    ? pre.reason : null;
+  let blockedHtml = '';
+  if (blockedReason) {
+    const msg = blockedReason === 'admin_account_excluded'
+      ? '이 회원은 <strong>관리자 계정을 겸하고 있어</strong> 탈퇴 처리를 할 수 없습니다.<br><span style="color:var(--muted)">로그인 계정을 관리자와 같이 쓰기 때문에, 그대로 처리하면 이 사람의 관리자 로그인이 끊깁니다. 관리자 권한을 먼저 해제해야 합니다. 이미 접수된 신청이 있으면 아래에 보입니다 — 진행이 멈춰 있으니 되돌리거나 권한을 먼저 해제하세요.</span>'
       : '감사용 계정이라 탈퇴 대상이 아닙니다.';
-    body.innerHTML = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7">${msg}</div>`;
-    return;
+    blockedHtml = `<div style="padding:10px 12px;background:#FFF5F5;border-left:3px solid #C62828;border-radius:4px;font-size:13px;line-height:1.7;margin-bottom:12px">${msg}</div>`;
   }
 
   // ★ 조회에 실패했으면 **버튼을 그리지 않는다.**
@@ -29327,10 +29357,13 @@ async function renderInfluencerWithdrawalPanel(u) {
   //   ⚠️ 실패는 storage.js 가 mode:'locked_support' 로 폴백해 오므로, ok 여부로만
   //     판정한다(mode 만 보면 「정상인데 걸린 회원」과 구분이 안 된다).
   const preOk = !!(pre && pre.ok === true);
-  const canProxy = preOk && canWrite('withdrawal.proxy_request');
-  let html = '';
+  // 대상이 아닌 계정(blockedReason)은 「대신 신청」을 못 열지만, 관리자가 넣어 둔 신청을
+  // 되돌리는 것은 열어 둔다(canUndo) — 그게 멈춘 확정을 푸는 길 중 하나다.
+  const canProxy = preOk && !alreadyDone && canWrite('withdrawal.proxy_request');
+  const canUndo  = (preOk || !!blockedReason) && canWrite('withdrawal.proxy_request');
+  let html = blockedHtml;
 
-  if (!preOk) {
+  if (!preOk && !blockedReason) {
     html += `<div style="padding:10px 12px;background:#FFF8E1;border-left:3px solid #F9A825;border-radius:4px;font-size:12px;color:var(--ink);line-height:1.7;margin-bottom:12px">
       탈퇴 처리 상태를 불러오지 못했습니다 — <strong>대신 신청 기능을 열지 않았습니다.</strong><br>
       <span style="color:var(--muted)">서버 준비가 끝나지 않았거나 통신이 끊겼을 수 있습니다. 새로고침해도 같으면 개발팀에 알려 주세요.</span>
@@ -29354,17 +29387,18 @@ async function renderInfluencerWithdrawalPanel(u) {
           ${active.uncancelled_count > 0 ? `<div style="color:var(--muted)">접수 때 철회하지 못한 응모 ${active.uncancelled_count}건</div>` : ''}
           ${withdrawLeftoverLines(preOk ? (pre && pre.blockers) : null)}
           ${active.event_tickets_blocked_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">정리 못 한 행사 예약 ${active.event_tickets_blocked_count}건</strong></div>` : ''}
+          ${withdrawMailLine(active)}
         </div>
       </div>`;
-    if (canProxy && isAdminMade) {
+    if (canUndo && isAdminMade) {
       html += `<button class="btn btn-ghost btn-xs" onclick="openWithdrawUndoModal()">되돌리기</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">관리자가 넣은 신청만 되돌릴 수 있습니다. 본인이 신청한 건은 회원이 직접 취소합니다.</div>`;
-    } else if (canProxy) {
+    } else if (canUndo) {
       html += `<div style="font-size:11px;color:var(--muted)">회원이 직접 신청한 건입니다 — 취소도 회원이 앱에서 합니다.</div>`;
     }
   } else {
     const lines = withdrawBlockerLines(pre && pre.blockers);
-    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">진행 중인 탈퇴 신청이 없습니다.</div>`;
+    if (!blockedReason) html += `<div style="font-size:13px;color:var(--muted);margin-bottom:${canProxy ? '12px' : '0'}">${alreadyDone ? '이 회원은 탈퇴가 확정됐습니다 — 새 신청은 받지 않습니다.' : '진행 중인 탈퇴 신청이 없습니다.'}</div>`;
     if (canProxy) {
       html += `<button class="btn btn-xs" style="background:#FB8C00;color:#fff;border:none" onclick="openWithdrawProxyModal()">회원 대신 탈퇴 신청</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">회원이 직접 요청한 경우에만 사용하세요.</div>`;
@@ -29380,11 +29414,43 @@ async function renderInfluencerWithdrawalPanel(u) {
       ${past.map(r => `<div style="font-size:11px;color:var(--muted);line-height:1.8">
         ${formatDateTime(r.requested_at)} · ${esc(withdrawStatusLabelKo(r.status))} · ${esc(withdrawKindLabelKo(r.requested_by_kind))}
         ${r.admin_cancel_note ? `<br><span style="color:var(--ink)">되돌림 사유</span> · ${esc(r.admin_cancel_note)}` : ''}
+        ${withdrawMailLine(r)}
       </div>`).join('')}
     </div>`;
   }
 
   body.innerHTML = html;
+}
+
+// 예정일 안내 메일 상태 한 줄 (마이그레이션 419, 전수조사 2차 3-3).
+//   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**라, 나갔는지를 카드가 말한다.
+//   ⚠️ 상태별로 뜻이 다르다 — pending_payout(예정일 미정)은 아직 대상이 아니고, cancelled 는
+//      「안내를 받고 마음을 바꾼」 정상 동선이라 발송 사실만 적는다(안 나갔으면 침묵).
+//   ⚠️ 판정을 화면이 키우지 않는다 — 두 칸(발송 시각·시도 횟수)을 그대로 옮기고
+//      **날짜 비교는 하지 않는다**(집계·경고는 서버 419 가 한다).
+function withdrawMailLine(r) {
+  if (!r) return '';
+  const tried = Number(r.scheduled_mail_attempt_count || 0);
+  const triedNote = tried > 0 ? ` (${tried}회 실패 뒤)` : '';
+  const label = '<strong style="font-weight:700">예정일 안내 메일</strong>';
+  if (r.scheduled_mail_sent_at) {
+    const when = formatDateTime(r.scheduled_mail_sent_at);
+    return r.status === 'cancelled'
+      ? `<div style="color:var(--muted)">${label} · 발송 ${when}${triedNote} — 그 뒤 취소됨</div>`
+      : `<div>${label} · 발송 ${when}${triedNote}</div>`;
+  }
+  if (r.status === 'pending_payout') {
+    return `<div style="color:var(--muted)">${label} · 예정일이 정해지면 나갑니다</div>`;
+  }
+  if (r.status === 'scheduled') {
+    return tried > 0
+      ? `<div style="color:#C62828">${label} · 미발송 — ${tried}회 실패, 매일 09:00 다시 시도</div>`
+      : `<div style="color:var(--muted)">${label} · 아직 발송 표시 없음 (매일 09:00 발송)</div>`;
+  }
+  if (r.status === 'done' && r.scheduled_date) {
+    return `<div style="color:#C62828">${label} · 받지 못한 채 확정됨${tried > 0 ? ` (${tried}회 실패)` : ''} — 다시 보내지 않습니다</div>`;
+  }
+  return '';
 }
 
 // 탈퇴 사유 코드 → 한국어 라벨. 목록을 아직 안 받았으면 코드값 그대로 보여준다
@@ -39555,7 +39621,10 @@ async function refreshPastUnregEntryInfo() {
   const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
   if (banner && text) {
     if (issueCount > 0) {
-      text.textContent = `인증은 끝났지만 캠페인에 금액이 없어 정산을 만들 수 없는 건이 ${issueCount}건 있습니다. 캠페인의 제품 가격(리뷰어형) 또는 리워드 금액(기프팅·방문형)을 입력하면 자동으로 등록됩니다.`;
+      // [B-8] 이 목록에 오는 「금액 미확정」은 **리뷰어형(가구매 포함)에 제품 가격이 없는 경우뿐**이다 —
+      //   기프팅·방문형 무보수 캠페인은 후보에서 아예 빠져(마이그레이션 264) 여기 나오지 않는다.
+      //   예전 문구는 일어날 수 없는 「리워드 금액(기프팅·방문형)」 안내를 함께 적고 있었다.
+      text.textContent = `인증은 끝났지만 캠페인에 제품 가격이 없어 정산 금액을 정할 수 없는 리뷰어형 건이 ${issueCount}건 있습니다. 캠페인 편집에서 제품 가격을 입력하면 자동으로 등록됩니다.`;
       banner.style.display = '';
     } else {
       banner.style.display = 'none';
@@ -41581,6 +41650,7 @@ async function openPayoutPersonList(dueStr) {
 function backToPayoutSummary() {
   _payoutDueFilter = null;
   _payoutPersonSearch = '';
+  _payoutSearchTokens = [];   // [B-10] 검색어 낱말도 비운다 — 안 비우면 빈 화면이 「찾는 중…」으로 남는다
   _payoutSelected.clear();
   renderPayoutSummary();
 }
@@ -50277,7 +50347,7 @@ const CP_I18N = {
   ja: {
     preview:'プレビュー', noImage:'画像なし', apply:'応募', productPage:'商品ページ',
     rtLabel:{monitor:'レビュアー', gifting:'ギフティング', visit:'訪問型'},
-    paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）',
+    paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）', paybackNoCap:'購入金額をペイバック',
     freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
     // ⚠️ kPurchasePeriod 옛 이름 「購入および領収書提出期間」 — 2026-08-11 에 영수증 마감이
@@ -50314,7 +50384,7 @@ const CP_I18N = {
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
     rtLabel:{monitor:'리뷰어', gifting:'기프팅', visit:'방문형'},
-    paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})',
+    paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})', paybackNoCap:'구매 금액 페이백',
     freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
@@ -50473,11 +50543,14 @@ function renderCampPreview(mode) {
   // ⚠️ 리뷰어형에는 현금 리워드를 덧붙이지 않는다 — 정산 계산이 리뷰어형에서
   //    campaigns.reward 를 쓰지 않으므로(마이그레이션 300), 붙이면 지급되지 않는 금액을
   //    약속하는 미리보기가 된다. 인플루언서 상세(application.js)와 같은 판단.
-  const rewardText = (camp.product_price>0 || camp.reward>0)
-    ? (isPaybackPreview
-        ? paybackFullText
-        : `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`)
-    : '';
+  //    [D-4] 제품 가격이 **없는** 리뷰어형도 같은 갈래다 — 예전엔 아래 시딩 갈래로 떨어져
+  //    「商品無償提供 + ¥N 報酬」(지급되지 않는 현금액)가 붙었다. 인플루언서 앱·홍보 메일과
+  //    같은 「購入金額をペイバック」(상한 없음)로.
+  const rewardText = isMonitorPreview
+    ? (isPaybackPreview ? paybackFullText : L.paybackNoCap)
+    : ((camp.product_price>0 || camp.reward>0)
+        ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
+        : '');
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
   const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
@@ -50655,11 +50728,11 @@ function renderCampPreview(mode) {
         })() : ''}
       </div>
       <div class="cp-cta">
-        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?(isPaybackPreview
-          // 하단 고정 바 — 인플루언서 앱과 같은 축약형(폭이 좁다)
-          ? esc(L.paybackShort.replace('{price}', camp.product_price.toLocaleString()))
-          : `¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`
-        ):''}</small></div>
+        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${isMonitorPreview
+          // 하단 고정 바 — 인플루언서 앱과 같은 축약형(폭이 좁다). 가격 없는 리뷰어형은 상한 없이(D-4)
+          ? esc(camp.product_price>0 ? L.paybackShort.replace('{price}', camp.product_price.toLocaleString()) : L.paybackNoCap)
+          : (camp.product_price>0 ? `¥${camp.product_price.toLocaleString()} ${rewardLabelJa}` : '')
+        }</small></div>
         <div class="cp-cta-btn">${esc(L.apply)}</div>
       </div>
     </div>`;

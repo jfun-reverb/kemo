@@ -611,6 +611,7 @@ window.I18N_JA = {
     // なったため、金額を約束する言い方をやめた。全体形＝詳細ページ・管理者プレビュー・
     // お知らせメール / 短縮形＝下部固定バー・一覧カード。{price} は商品価格
     rewardPaybackFull: '購入金額をペイバック（最大 ¥{price}）',
+    rewardPaybackNoCap: '購入金額をペイバック',   // 商品価格が未設定のレビュアー型（上限を言えない）
     rewardPaybackShort: 'ペイバック（最大 ¥{price}）',
     rewardCash: '+ 現金報酬 ¥{amount}',
     rewardFree: '製品全額無償提供',

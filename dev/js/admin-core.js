@@ -1100,7 +1100,10 @@ function _withdrawalOpsTotal(a) {
        // ⚠️ 서버(372)가 이 열쇠말을 안 주는 환경에서는 0 이 된다 — 배포 순서가
        //    뒤바뀌어도 나머지 경고는 그대로 뜬다(그 줄만 안 그려진다).
        + Number(a.message_attachment_overdue || 0)
-       + Number(a.stuck_confirm || 0);
+       + Number(a.stuck_confirm || 0)
+       // 419 — 예정일 안내 메일 실패(재시도 중 / 확정돼 영영 못 보냄). 열쇠말이 없으면 0.
+       + Number(a.mail_retrying || 0)
+       + Number(a.mail_lost || 0);
 }
 
 function applyWithdrawalOpsIndicators() {
@@ -1233,6 +1236,33 @@ function withdrawalOpsModalHtml(a) {
     }
     rows.push(_withdrawOpsRow('image_not_supported', '#B8741A',
       `파기 기한이 지난 응모건 메시지 사진 ${n(a.message_attachment_overdue)}건`, sub));
+  }
+
+  // ⑤ 예정일 안내 메일이 아직 안 나간 탈퇴 (마이그레이션 419, 전수조사 2차 3-3)
+  //   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**다. 서버가 세는 것은
+  //   「한 번 이상 실패」 또는 「예정 상태가 된 날의 09:00 이 지났는데 미발송」 — 뒤쪽이
+  //   예약 실행 자체가 멈춘 경우를 잡는다(시도 횟수는 그때 0 그대로다).
+  //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
+  if (n(a.mail_retrying) > 0) {
+    rows.push(_withdrawOpsRow('mail', '#B8741A',
+      `예정일 안내 메일이 아직 안 나간 탈퇴 ${n(a.mail_retrying)}건`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         예정 상태가 된 뒤 <b>매일 09:00</b> 에 보내는데 아직 발송 표시가 없습니다. 회원 상세의 「탈퇴 신청」 카드에서 시도 횟수를 볼 수 있습니다.
+         <br>→ <b>시도 횟수가 0인데 하루 넘게 그대로</b>면 예약 실행 자체가 멈춘 것 — <b>개발 담당자에게 알려 주세요.</b>
+         <br>→ 시도 횟수가 쌓이면 그 회원의 <b>이메일 주소</b>와 Brevo 우측 상단 <b>「Usage and plan」</b>(구독 만료·큐 정지)을 확인하세요.
+       </div>`));
+  }
+
+  // ⑥ 안내 메일을 못 받은 채 확정된 탈퇴 — 다시 보낼 방법이 없다(확정 뒤라 문구도 맞지 않는다).
+  //   서버가 최근 30일 확정분만 센다 — 누구도 0 으로 되돌릴 수 없는 값이라 기간을 안 자르면
+  //   경고가 영구히 켜진다. 회원 목록은 안 준다(확정되면 개인정보가 파기돼 빈 행이다).
+  if (n(a.mail_lost) > 0) {
+    rows.push(_withdrawOpsRow('mail_lock', '#B8741A',
+      `예정일 안내 메일을 받지 못한 채 확정된 탈퇴 ${n(a.mail_lost)}건 (최근 30일)`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         확정되면 메일 대상에서 빠져 <b>다시 보내지 않습니다</b>. 이 회원들은 「언제 확정되는지」 안내를 한 번도 못 받았습니다.
+         <br>→ 문의가 오면 그 점을 감안해 응대하세요. 반복되면 개발 담당자에게 알려 주세요. 30일이 지나면 이 줄은 저절로 사라집니다.
+       </div>`));
   }
 
   if (!rows.length) {
