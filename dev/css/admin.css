@@ -2473,7 +2473,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-bar.open-end{background:repeating-linear-gradient(90deg,#8E8E95 0 6px,transparent 6px 9px)}
 .gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:#3F3F46;border-radius:2px}
 .gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--ink);white-space:nowrap;line-height:14px;background:var(--surface);padding:0 4px;border-radius:3px;z-index:1;box-shadow:0 0 0 1px var(--line)}
-.gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px}
+.gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px;z-index:1}   /* 모집 막대 끝의 D-day 는 바로 이어지는 제출 막대(뒤에 그려짐)에 가려진다 — 위로 올린다 */
 .gantt-edge{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:10px;color:var(--muted);white-space:nowrap;padding:0 6px;background:var(--surface-container-low);border-radius:4px;margin:8px 4px;height:auto;max-height:26px}
 .gantt-edge.l{left:0}.gantt-edge.r{right:0}
 .gantt-nodate{position:absolute;left:8px;top:14px;font-size:11px;color:var(--faint)}
