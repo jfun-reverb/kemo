@@ -1139,6 +1139,10 @@ async function _settlementRefreshKeepingView(from) {
   if (from !== 'payout') return;          // 목록 경로는 목록만 다시 그리면 된다
   await openPayoutPrepView();             // _payoutRows 재계산 + 요약 재렌더
   if (due) await openPayoutPersonList(due);
+  // ⚠️ 지급 준비에서 **미등록 건을 송금완료로 기록**하면 미등록 건수가 실제로 준다(전수조사 F-2).
+  //    위 미등록 경로만 갱신하던 때는 주 동선(지급 준비)에서 처리해도 「미등록」 탭 건수와
+  //    사이드바 경고가 옛 숫자로 남았다. await 안 함 — 화면을 막지 않는다.
+  refreshPastUnregEntryInfo();
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1753,6 +1757,22 @@ const PAYOUT_EXCLUDED_STATUS = new Set(['on_hold', 'cancelled']);
 // 'YYYY-MM-DD' → 'YYYY-MM'
 function _payoutMonthOf(dueStr) { return dueStr ? String(dueStr).slice(0, 7) : null; }
 
+// 금액 칸 — 🔴 금액을 정할 수 없는 건(amount_issue)은 「¥0」이 아니라 **「금액 미확정」**으로 그린다
+//   (전수조사 F-3). `settlementEffectiveAmount` 가 그 행에 0 을 주므로 그냥 그리면 「¥0」이 되고,
+//   합계에서는 조용히 빠져 지급대장 대조 금액이 낮게 나온다. 같은 행이 미등록 탭에서는 빨간
+//   배지로 정상 표시되던 것과 맞춘다.
+function _payoutAmountCell(r) {
+  if (r && r.amountUnknown) {
+    return '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="금액을 정할 수 없어 합계에서 뺐습니다 — 미등록 탭에서 사유를 확인하세요">금액 미확정</span>';
+  }
+  return esc(_payoutYen(r.amount));
+}
+// 합계 옆에 붙이는 「미확정 N건 제외」 — 0이면 아무것도 안 붙인다(늘 떠 있으면 아무도 안 본다).
+function _payoutUnknownNote(list) {
+  const n = (list || []).filter(function (r) { return r.amountUnknown; }).length;
+  return n ? ` <span style="color:#C33;font-size:11px" title="금액을 정할 수 없는 건은 합계에 안 들어갑니다">· 미확정 ${n}건 제외</span>` : '';
+}
+
 // 미등록 + 정산 행을 한 목록으로. 지급 예정일은 payoutDueDate 하나로만 계산한다.
 //   ⚠️ 카드·목록·엑셀이 각자 계산하면 어긋난다(사양서 §4-1).
 function buildPayoutRows(unregRows, settlementRows) {
@@ -2110,7 +2130,7 @@ function payoutDueItemsHtml(list, sent) {
       <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
       <!-- 아직 안 보낸 줄이라 송금일은 비어 있다 — 열을 비워 두어야 아래 보낸 줄과 자리가 맞는다 -->
       <div style="width:96px;text-align:right;color:var(--muted);opacity:.5">—</div>
-      <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
+      <div style="width:88px;text-align:right">${_payoutAmountCell(r)}</div>
       <div style="width:52px;text-align:right">${r.applicationId
         ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px"
              onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
@@ -2178,7 +2198,7 @@ function payoutPersonCardHtml(entry) {
       ${p.kana ? `<div style="font-size:11px;color:var(--muted)">${esc(p.kana)}</div>` : ''}
       ${payoutPaypalHtml(p)}
       <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-        <span style="font-size:12px">${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b></span>
+        <span style="font-size:12px">${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b>${_payoutUnknownNote(allUnsent)}</span>
         ${single
           ? `<button class="btn btn-ghost btn-xs" style="padding:2px 10px"
                onclick="openPayoutSendModal('${esc(p.id + '|' + dues[0])}')" title="이 사람의 이 회차를 송금완료로 기록">보냄</button>`
@@ -2427,7 +2447,7 @@ function payoutCampaignCardHtml(entry) {
       <div style="width:96px;text-align:right;color:var(--muted)">${esc(r.due || '(예정일 없음)')}</div>
       <div style="width:96px;text-align:right;color:var(--muted)">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
       <div style="width:96px;text-align:right;color:var(--muted)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
-      <div style="width:88px;text-align:right;font-weight:700">${esc(_payoutYen(r.amount))}</div>
+      <div style="width:88px;text-align:right;font-weight:700">${_payoutAmountCell(r)}</div>
       <div style="width:52px;text-align:right">${sent
         ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px">기록됨</span>'
         : '<span style="font-size:10px;color:#C33;font-weight:700">미지급</span>'}</div>
@@ -2572,7 +2592,7 @@ function renderPayoutPersonBody() {
     info.innerHTML = progressHtml
       + (_payoutSelected.size ? `
       <div style="border-top:1px solid var(--line);padding:8px 0;font-size:13px;display:flex;align-items:center;gap:10px">
-        <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
+        <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b>${_payoutUnknownNote(selectedRows)}</span>
         <button class="btn btn-primary btn-xs" style="margin-left:auto;padding:3px 12px"
                 onclick="openPayoutSendSelectedModal()" title="고른 묶음을 한 번에 송금완료로 기록합니다">선택한 건 보냄</button>
         <button class="btn btn-ghost btn-xs" style="padding:2px 10px"
