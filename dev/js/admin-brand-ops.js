@@ -645,26 +645,27 @@ function ganttDurText(start, end) {
 }
 // 진척률 재료 — { num, den, extra } (num null = 값 없음)
 function ganttParentProgress(c, stats) {
-  return { num: stats ? stats.cert : null, den: Number(c.slots || 0), extra: '' };
+  return { label: '인증 성공', num: stats ? stats.cert : null, den: Number(c.slots || 0), extra: '' };
 }
 function ganttChildProgress(seg, c, stats) {
   var slots = Number(c.slots || 0);
   var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
   var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
   var n = seg.name;
-  if (n === '모집' || n === '모집 마감' || n === '선정') return { num: appr, den: slots, extra: '' };
+  if (n === '모집' || n === '모집 마감' || n === '선정') return { label: '승인', num: appr, den: slots, extra: '' };
   // 승인 수 조회가 실패(appr === null)했으면 분자도 비운다 — 안 그러면 「5/0」처럼 승인 0명으로 읽힌다(툴팁 건수와 같은 규약, 리뷰 지적)
-  if (n === '구매' || n === '방문') return { num: (appr === null || !stats) ? null : stats.receiptInf, den: appr === null ? 0 : appr, extra: '' };
-  if (n === '제출' || n === '제출 마감') return { num: (appr === null || !stats) ? null : stats.submittedInf, den: appr === null ? 0 : appr, extra: stats ? ('인증 ' + stats.cert) : '' };
-  return { num: null, den: 0, extra: '' };
+  if (n === '구매' || n === '방문') return { label: n === '구매' ? '영수증' : '현장 사진', num: (appr === null || !stats) ? null : stats.receiptInf, den: appr === null ? 0 : appr, extra: '' };
+  if (n === '제출' || n === '제출 마감') return { label: '결과물 제출', num: (appr === null || !stats) ? null : stats.submittedInf, den: appr === null ? 0 : appr, extra: stats ? ('인증 ' + stats.cert) : '' };
+  return { label: '', num: null, den: 0, extra: '' };
 }
 function ganttProgHtml(pr, pending) {
   if (pending) return '<span style="color:var(--faint)">…</span>';
   if (pr.num === null || pr.num === undefined) return '<span style="color:var(--muted)">—</span>';
-  if (!(pr.den > 0)) return '<span class="gantt-prog-txt">' + pr.num + '/' + pr.den + '</span>';
+  var lab = pr.label ? '<span class="gantt-prog-label">' + esc(pr.label) + '</span> ' : '';
+  if (!(pr.den > 0)) return '<span class="gantt-prog-txt">' + lab + pr.num + '/' + pr.den + '</span>';
   var pct = Math.min(100, Math.round(pr.num / pr.den * 100));
-  return '<div class="gantt-prog" title="' + pr.num + ' / ' + pr.den + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
-    + '<span class="gantt-prog-txt">' + pr.num + '/' + pr.den + ' · ' + pct + '%' + (pr.extra ? ' <span class="gantt-prog-extra">(' + esc(pr.extra) + ')</span>' : '') + '</span></div>';
+  return '<div class="gantt-prog" title="' + esc(pr.label) + ' ' + pr.num + ' / ' + pr.den + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
+    + '<span class="gantt-prog-txt">' + lab + pr.num + '/' + pr.den + ' · ' + pct + '%' + (pr.extra ? ' <span class="gantt-prog-extra">(' + esc(pr.extra) + ')</span>' : '') + '</span></div>';
 }
 var GANTT_QUICK_CHIPS = [
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
@@ -1070,8 +1071,8 @@ function renderGanttLegend() {
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
     + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
-    + '<div class="gantt-cell c-dur" title="설정된 기간 전체(가장 이른 시작 ~ 가장 늦은 마감) 일수">기간 ' + ganttSortArrows('dur') + '</div>'
-    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 기간 행 = 그 단계의 진행(모집·선정 = 승인/모집, 구매·방문 = 영수증 낸 인플/승인, 제출 = 결과물 낸 인플/승인)">진척률 ' + ganttSortArrows('prog') + '</div>'
+    + '<div class="gantt-cell c-dur" title="캠페인 행 = 설정된 기간 전체(가장 이른 시작 ~ 가장 늦은 마감) · 펼친 기간 행 = 그 기간의 일수"><span class="gantt-head-main">일수 ' + ganttSortArrows('dur') + '</span><span class="gantt-head-sub">시작~마감 일수</span></div>'
+    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 펼친 기간 행 = 그 단계의 진행(모집·선정 = 승인/모집인원, 구매·방문 = 영수증(현장 사진) 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)"><span class="gantt-head-main">진척률 ' + ganttSortArrows('prog') + '</span><span class="gantt-head-sub">캠페인 행: 인증 성공/모집인원 · 기간 행: 단계별</span></div>'
     + '</div>' + renderGanttAxis(range);
 }
 
