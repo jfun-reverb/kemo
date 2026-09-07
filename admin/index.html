@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788746403';
+  var CURRENT_BUILD = 'v1788747942';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 11:00 · 6cc84ab</span>
+          <span class="admin-build-text">2026-09-07 11:25 · 3cc376d</span>
         </div>
       </div>
     </aside>
@@ -15932,8 +15932,16 @@ async function fetchEventTicketsByCampaign(campaignId) {
 
 // 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
 // 필요 없는 곳까지 흘러가므로 건수만 받는다.
+// 🔴 **실패는 `null`, 진짜 0건은 `0`**(2026-09-07, 전수조사 F-1). 예전에는 실패도 0 을 돌려줬는데,
+//    이 값을 보는 안전 게이트 넷(접수 방식 잠금·「비공개」 끄기·행사 모드 끄기·방식 변경 저장)이
+//    전부 「0 = 예약 없음 = 바꿔도 된다」로 읽어 **조회가 죽는 순간 넷이 동시에 열렸다** —
+//    선정형으로 받은 예약이 있는 캠페인이 경고 없이 선착순형으로 저장되고, 되돌릴 화면 경로가 없다.
+//    호출부의 try/catch 는 여기서 오류를 삼켰으므로 **도달하지 않았다.**
+//    부르는 쪽은 `null` 이면 **막는 쪽**으로 기운다. 캠페인 id 가 없으면(신규 폼) 예약이 있을 수
+//    없으니 0 이 맞다.
 async function countActiveEventTickets(campaignId) {
-  if (!db || !campaignId) return 0;
+  if (!campaignId) return 0;
+  if (!db) return null;
   try {
     const {count, error} = await db.from('event_tickets')
       .select('id', {count: 'exact', head: true})
@@ -15941,7 +15949,7 @@ async function countActiveEventTickets(campaignId) {
       .neq('status', 'cancelled');
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
+  } catch(e) { console.warn('[countActiveEventTickets]', e); return null; }   // 🔴 0 으로 바꾸지 말 것
 }
 
 // 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.
@@ -42955,11 +42963,22 @@ async function refreshSelectionModeLock(campId) {
 
   let n = 0;
   try { n = await countActiveEventTickets(campId); }
-  catch (e) { console.warn('[refreshSelectionModeLock]', e); return; }
+  catch (e) { console.warn('[refreshSelectionModeLock]', e); n = null; }
 
   // ⚠️ 그 사이 다른 캠페인으로 넘어갔으면 이 답은 버린다. 늦게 도착한 답이 지금 화면을
   //    덮으면 **다른 캠페인의 예약 건수로 이 캠페인이 잠긴다**.
   if (($('editCampId')?.value || '') !== campId) return;
+  // 🔴 `null` = 못 물어봤다(F-1). 0 으로 읽으면 잠금이 풀려 예약 있는 캠페인의 방식이 바뀐다.
+  //    확인될 때까지 **잠근다** — 저장 직전 게이트(admin.js)도 같은 값으로 한 번 더 막는다.
+  if (n === null) {
+    _selectionModeLocked.edit = true;
+    _setSelectionModeDisabled('edit', true);
+    if (note) {
+      note.style.display = '';
+      note.innerHTML = `예약 건수를 확인하지 못해 접수 방식을 잠갔습니다. 잠시 뒤 캠페인을 다시 열어 주세요.`;
+    }
+    return;
+  }
   if (n <= 0) return;
 
   _selectionModeLocked.edit = true;
@@ -43028,7 +43047,20 @@ async function onInviteOnlyToggle(prefix) {
     try {
       tk = (campId && typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
-    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = 0; }
+    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = null; }
+    // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 모르면 끄지 못하게 한다 — 끄는 순간 방식이
+    //    선착순형으로 되돌아가 이미 받은 예약의 뜻이 바뀌는데, 되돌릴 길이 화면에 없다.
+    if (tk === null) {
+      el.checked = true;
+      applyInviteOnlyRow(prefix);
+      applySelectionModeVisibility(prefix);
+      const _el = $('alertModalMessage');
+      if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">
+        예약 건수를 확인하지 못해 「비공개」를 끌 수 없습니다.<br>잠시 뒤 다시 시도해 주세요.
+      </div>`;
+      if (typeof openModal === 'function') openModal('alertModal');
+      return;
+    }
     if (tk > 0) {
       el.checked = true;                     // 되돌린다 — 켠 상태가 사실이다
       applyInviteOnlyRow(prefix);
@@ -49276,6 +49308,13 @@ async function saveCampaignEdit() {
     if (_editCampOriginal?.event_mode && !_isEventEdit) {
       const _tk = (typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
+      // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 0 으로 읽으면 이 게이트가 열린다 — 막는다.
+      if (_tk === null) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">예약 건수를 확인하지 못해 「오프라인 행사 캠페인」을 끌 수 없습니다.<br>잠시 뒤 다시 저장해 주세요.</div>`;
+        openModal('alertModal');
+        return;
+      }
       if (_tk > 0) {
         const _el = $('alertModalMessage');
         // ⚠️ 이 모달은 가운데 정렬이다(다른 알림과 공용). 목록을 그대로 넣으면 글머리
@@ -49308,6 +49347,13 @@ async function saveCampaignEdit() {
     if (_selModeSaved !== _selModeEdit) {
       const _tk2 = (typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
+      // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 방식 변경은 되돌릴 수 없으니 모르면 막는다.
+      if (_tk2 === null) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">예약 건수를 확인하지 못해 접수 방식을 바꿀 수 없습니다.<br>잠시 뒤 다시 저장해 주세요.</div>`;
+        openModal('alertModal');
+        return;
+      }
       if (_tk2 > 0) {
         const _el = $('alertModalMessage');
         const _nm = m => (m === 'selection' ? '선정형' : '선착순형');
