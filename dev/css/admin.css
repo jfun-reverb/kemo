@@ -2423,3 +2423,57 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .mfbc-input::-webkit-outer-spin-button,
 .mfbc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .mfbc-input { -moz-appearance: textfield; appearance: textfield; }
+
+/* ===== 운영현황 「일정」 뷰(간트) — 2026-09-07 =====
+   왼쪽 열은 position:sticky 로 고정하고 시간축만 가로로 흐른다. 한 스크롤 상자 안에서
+   행이 나뉘어 있어 왼쪽 열과 막대가 어긋나지 않는다.
+   ⚠️ 가로 스크롤바를 **항상** 보이게 한다 — 이 파일의 다른 스크롤바 규칙(.admin-side-scroll 은
+      마우스를 올릴 때만, .status-tab-bar 는 완전 숨김)과 방향이 반대인데, 일부러 그렇다.
+      시간축은 12주 폭이라 옆으로 더 있다는 것을 스크롤바가 말해 줘야 한다(리포트 화면
+      dev/report.html 의 .tblwrap 선례 — 「없으면 옆에 더 있는지 모른다」는 사용자 지적, 2026-09-04).
+      「일관성이 없다」며 되돌리지 말 것. */
+/* hidden 속성으로 뷰·필터 요소를 켜고 끈다 — .admin-filter-group·.brand-ops-grid 의 display 규칙이
+   브라우저 기본 [hidden] 을 이겨 안 숨겨지므로 이 페인 안에서만 !important 로 되살린다 */
+#adminPane-brand-ops [hidden]{display:none!important}
+.gantt-scroll{overflow-x:scroll;overflow-y:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative}
+.gantt-scroll::-webkit-scrollbar{height:12px}
+.gantt-scroll::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
+.gantt-scroll::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
+.gantt-scroll::-webkit-scrollbar-thumb:hover{background:#999}
+.gantt-head,.gantt-row{display:flex;align-items:stretch;min-width:max-content}
+.gantt-head{position:sticky;top:0;z-index:3;background:var(--surface-container-low);border-bottom:1px solid var(--line)}
+.gantt-row{border-bottom:1px solid var(--surface-dim);min-height:44px}
+.gantt-row:hover .gantt-cell,.gantt-row:hover .gantt-track{background:var(--surface-container-low)}
+.gantt-left{position:sticky;left:0;z-index:2;display:flex;background:inherit;flex-shrink:0;border-right:1px solid var(--line);box-shadow:2px 0 0 rgba(0,0,0,.03)}
+.gantt-head .gantt-left{background:var(--surface-container-low)}
+.gantt-row .gantt-left{background:var(--surface)}
+.gantt-cell{padding:6px 8px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-width:0;background:inherit}
+.gantt-head .gantt-cell{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
+.gantt-cell.c-title{width:220px}.gantt-cell.c-brand{width:110px}.gantt-cell.c-type{width:150px}.gantt-cell.c-status{width:78px}
+.gantt-cell.c-num{width:74px;text-align:center;align-items:center;font-variant-numeric:tabular-nums}.gantt-cell.c-edit{width:56px;align-items:center}
+.gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
+.gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
+.gantt-axis,.gantt-track{position:relative;flex-shrink:0;background:var(--surface)}
+.gantt-axis{height:40px}
+.gantt-axis .gm{position:absolute;top:4px;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;padding-left:4px;border-left:1px solid var(--line)}
+.gantt-axis .gw{position:absolute;top:22px;font-size:10px;color:var(--muted);white-space:nowrap;padding-left:3px;border-left:1px solid var(--surface-dim);height:16px}
+.gantt-axis .gt{position:absolute;top:22px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%)}
+/* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
+.gantt-track{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-week,70px))}
+.gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
+.gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:var(--ink);opacity:.85;box-sizing:border-box}
+.gantt-bar.ink-mid{background:var(--ink);opacity:.5}
+.gantt-bar.ink-weak{background:var(--ink);opacity:.22}
+.gantt-bar.lane-sub{height:5px;top:26px;border-radius:2px}
+.gantt-bar.lane-sub2{top:34px}
+.gantt-bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0;border-left:3px dotted var(--surface)}
+.gantt-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right:3px dotted var(--surface)}
+.gantt-bar.open-end{background:repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 9px);opacity:.6}
+.gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:var(--ink);opacity:.85;border-radius:2px}
+.gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--muted);white-space:nowrap;line-height:14px}
+.gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px}
+.gantt-edge{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:10px;color:var(--muted);white-space:nowrap;padding:0 6px;background:var(--surface-container-low);border-radius:4px;margin:8px 4px;height:auto;max-height:26px}
+.gantt-edge.l{left:0}.gantt-edge.r{right:0}
+.gantt-nodate{position:absolute;left:8px;top:14px;font-size:11px;color:var(--faint)}
+.gantt-empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
