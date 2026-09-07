@@ -62,26 +62,52 @@ function brandOpsAlertReasonLines(b) {
   return lines;
 }
 
+// 운영현황은 두 뷰다 — 「일정」(캠페인 간트, 기본) / 「브랜드」(카드). 사양서
+// docs/specs/2026-09-07-brand-ops-schedule-gantt-view.md. 두 뷰의 **공통 재료**를 여기서
+// 한 번에 받고 현재 뷰를 그린다. 결과물 조회는 일정 뷰가 그려질 때 따로(loadScheduleDeliverables).
+var _brandOpsCampaigns = [];     // fetchCampaigns() 전건 — 일정 뷰 + 「최근 신청」이 나눠 쓴다(두 번 부르지 않는다)
+var _brandOpsApprCounts = null;  // get_campaign_application_counts (감사용 제외됨). 조회 실패면 null
+var _brandOpsLoadToken = 0;      // 새로고침 연타·페인 들락거림 — 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는 것을 막는다
 async function loadBrandOps() {
+  var token = ++_brandOpsLoadToken;
   var grid = $('brandOpsGrid');
-  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
-  // 회사 드롭다운(전체/회사별/미분류) — 최초 1회 또는 매 로드 시 갱신
-  _brandOpsCompanies = await fetchCompanies({ status: 'all' });
+  var spin = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
+  if (grid) grid.innerHTML = spin;
+  var rowsEl = $('brandOpsScheduleRows');
+  if (rowsEl) rowsEl.innerHTML = '<div class="gantt-empty">' + spin + '</div>';
+  applyBrandOpsView();
+  // 🔴 다시 들어올 때마다 결과물 캐시를 비운다 — 안 비우면 막대는 새 값인데 제출·인증 숫자만 옛 값으로 남는다.
+  _brandOpsDelivCache = {};
+  var results = await Promise.all([
+    fetchCompanies({ status: 'all' }),            // 회사 드롭다운(전체/회사별/미분류)
+    getBrandOpsOverview(null),                    // 브랜드 집계 — 회사/미분류 필터는 화면에서
+    fetchCampaigns(),                             // 🔴 fetchCampaignsForAdminList 금지 — proxy_purchase·first_active_at·brand_id 가 없어 조용히 틀린다
+    fetchCampaignApplicationCountsOrNull(),       // 승인 수(감사용 제외). 실패면 null → 「—」
+    // 감사용 계정 id — 제출·인증 두 값에서 화면이 뺀다(승인 수는 서버가 이미 뺐다).
+    //   ⚠️ 브랜드 상세(loadBrandOpsDetail)도 같은 조회로 같은 전역을 채운다 — 같은 집합이라 어느 쪽이 먼저 돌아도 같다.
+    //   ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212).
+    db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
+  ]);
+  if (token !== _brandOpsLoadToken) return;   // 그 사이 다시 들어왔다 — 이 회차 결과는 버린다
+  _brandOpsCompanies = results[0];
   fillBrandOpsCompanyFilter();
-  // 전체 브랜드 집계를 받아 클라이언트에서 회사/미분류 필터링
-  _brandOpsCache = await getBrandOpsOverview(null);
-  renderBrandOpsCards();
+  _brandOpsCache = results[1];
+  _brandOpsCampaigns = results[2] || [];
+  _brandOpsApprCounts = results[3];
+  _brandOpsAuditIds = new Set((((results[4] && results[4].data) || [])).map(function(r){ return r.id; }));
+  renderBrandOpsCurrentView();
   // 최근 신청 — 대시보드에서 이관 (renderRecentAppsTable 는 admin.js)
-  loadBrandOpsRecentApps();
+  loadBrandOpsRecentApps(_brandOpsCampaigns);
 }
 
 // 최근 신청 테이블 채우기 (대시보드 loadAdminData 에서 이관)
-async function loadBrandOpsRecentApps() {
+//   campaigns 를 받으면 그대로 쓴다(loadBrandOps 가 이미 받았다 — 같은 화면에서 전건 조회를 두 번 돌리지 않는다).
+async function loadBrandOpsRecentApps(campaigns) {
   if (typeof renderRecentAppsTable !== 'function') return;
   // 취소 사유 이름 캐시 — 표에 사유 분류를 그리므로 **그리기 전에** 채운다(사양서 §3-4).
   //   ⚠️ renderRecentAppsTable 은 동기 함수라 그 안에서는 못 기다린다. 여기가 유일한 자리다.
   if (typeof ensureCancelReasonsCache === 'function') { try { await ensureCancelReasonsCache(); } catch(e) {} }
-  var results = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+  var results = await Promise.all([campaigns ? Promise.resolve(campaigns) : fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
   renderRecentAppsTable(results[2], results[0], results[1]);
 }
 
@@ -351,6 +377,7 @@ var BRAND_OPS_CAMP_STATUS_COLOR = {
   scheduled: { bg: '#E3F2FD', color: '#1565C0' },
   closed:    { bg: '#F5F5F5', color: '#757575' },
   draft:     { bg: '#FFF8E1', color: '#F9A825' },
+  ended:     { bg: '#EDE7F6', color: '#5E35B1' },   // 캠페인 목록의 badge-done(남보라)과 같은 뜻 — 일정 뷰 「종료 포함」에서 쓴다
   expired:   { bg: '#FAFAFA', color: '#9E9E9E' }
 };
 // 캠페인 모집 타입 한글 (admin.js 의 RECRUIT_TYPE_LABEL_KO 폴백)
@@ -516,4 +543,358 @@ async function confirmUnlinkCampaign(campaignId) {
   if (res.data && res.data.unchanged) toast('이미 직접 등록 상태입니다');
   else toast('연결 해제 · 번호 ' + (res.data ? res.data.new_no : '재발급'));
   await loadBrandOpsDetail();
+}
+
+// ============================================================================
+// 「일정」 뷰 — 캠페인 간트차트 (2026-09-07)
+//   사양서 docs/specs/2026-09-07-brand-ops-schedule-gantt-view.md · 작업표 …-breakdown.md
+//   데이터베이스 변경 0. 캠페인 1건 = 1행. 보기 전용(캠페인명 → 진행현황, 「편집」 → 기존 편집 폼).
+// ============================================================================
+var BRAND_OPS_VIEW_KEY = 'reverb.brandOps.view';
+var _brandOpsView = 'schedule';          // 'schedule' | 'cards'
+var _brandOpsIncludeEnded = false;       // 「종료 포함」 — ended·expired 를 대상에 더한다
+var _brandOpsDelivCache = {};            // 대상 집합 열쇠('base'|'all') → 결과물 배열 | null(실패). undefined = 아직 안 받음
+var _brandOpsDelivToken = 0;
+var GANTT_BASE_STATUSES = ['scheduled', 'active', 'closed'];   // 결정 4 — draft·삭제된 캠페인은 어느 쪽에도 없다
+var GANTT_ENDED_STATUSES = ['ended', 'expired'];
+var GANTT_DAY_PX = 10;                   // 하루 폭. 85일 = 850px (S1)
+var GANTT_RANGE = { before: 14, after: 70 };   // 기준일 -14일 ~ +70일(12주)
+var _ganttBaseYmd = null;                // null 이면 오늘
+
+try { var _v = localStorage.getItem(BRAND_OPS_VIEW_KEY); if (_v === 'cards' || _v === 'schedule') _brandOpsView = _v; } catch(e) {}
+
+// ---- 뷰 전환(정산 페인처럼 켜는 함수가 나머지를 끄는 짝) ----
+function showBrandOpsSchedule() { _brandOpsView = 'schedule'; _saveBrandOpsView(); applyBrandOpsView(); renderBrandOpsCurrentView(); }
+function showBrandOpsCards()    { _brandOpsView = 'cards';    _saveBrandOpsView(); applyBrandOpsView(); renderBrandOpsCurrentView(); }
+function _saveBrandOpsView() { try { localStorage.setItem(BRAND_OPS_VIEW_KEY, _brandOpsView); } catch(e) {} }
+
+// 현재 뷰에 맞춰 컨테이너·필터 요소를 켜고 끈다 — 렌더와 분리(스피너를 띄운 채로도 부른다).
+function applyBrandOpsView() {
+  var sched = _brandOpsView === 'schedule';
+  var grid = $('brandOpsGrid'), wrap = $('brandOpsScheduleWrap');
+  if (grid) grid.hidden = sched;
+  if (wrap) wrap.hidden = !sched;
+  var sortG = $('brandOpsSortGroup'), tools = $('brandOpsScheduleTools');
+  if (sortG) sortG.hidden = sched;          // 정렬 드롭다운은 브랜드 뷰 전용(결정 8)
+  if (tools) tools.hidden = !sched;         // 「종료 포함」·‹ 오늘 › 는 일정 뷰 전용(결정 9)
+  var search = $('brandOpsSearch');
+  if (search) search.placeholder = sched ? '캠페인명 · 캠페인 번호 · 브랜드명' : '브랜드명 · 회사명 · 브랜드번호';
+  var sub = $('brandOpsSubtitle');
+  if (sub) sub.textContent = sched ? '캠페인을 시간축 위에 놓고 일정과 진행 숫자를 한눈에. 캠페인명을 누르면 진행현황으로 갑니다' : '브랜드별 진행 상황을 한눈에. 경고 단계가 높은 브랜드부터 표시됩니다';
+  renderBrandOpsViewTabs();
+}
+
+function renderBrandOpsViewTabs() {
+  var bar = $('brandOpsViewTabBar');
+  if (!bar) return;
+  var tabs = [
+    { code: 'schedule', label: '일정', n: brandOpsScheduleTargetCampaigns().length, fn: 'showBrandOpsSchedule' },
+    { code: 'cards',    label: '브랜드', n: (_brandOpsCache || []).length, fn: 'showBrandOpsCards' },
+  ];
+  bar.innerHTML = tabs.map(function(t){
+    var cls = 'status-tab-btn' + (t.code === _brandOpsView ? ' on' : '');
+    return '<button type="button" class="' + cls + '" data-tab="' + t.code + '" onclick="' + t.fn + '()">' + t.label + '<span class="tab-count">(' + t.n + ')</span></button>';
+  }).join('');
+}
+
+// 필터 4개의 인라인 핸들러가 부르는 단일 진입점 — 현재 뷰로 갈라 그린다.
+function renderBrandOpsCurrentView() {
+  if (_brandOpsView === 'schedule') renderBrandOpsSchedule();
+  else renderBrandOpsCards();
+  renderBrandOpsViewTabs();
+}
+
+function setBrandOpsIncludeEnded(on) {
+  _brandOpsIncludeEnded = !!on;
+  renderBrandOpsCurrentView();
+}
+
+// ---- 대상 집합·필터·정렬 ----
+// 대상 집합(결정 4) — 회사·검색 필터 **전**. 결과물 조회는 이 집합 단위로 묶어 받는다.
+function brandOpsScheduleTargetCampaigns() {
+  var statuses = _brandOpsIncludeEnded ? GANTT_BASE_STATUSES.concat(GANTT_ENDED_STATUSES) : GANTT_BASE_STATUSES;
+  return (_brandOpsCampaigns || []).filter(function(c){ return statuses.indexOf(c.status) >= 0; });
+}
+
+// 회사 필터 + 검색 + 정렬(결정 8·9, 선결 조건 S2·S3 채택안).
+//   회사: 캠페인 표에는 회사 값이 없어 브랜드 집계 행(_brandOpsCache)의 brand_id→company_id 로 잇는다.
+//         브랜드가 빈 캠페인은 「전체」에서만 보이고, 회사를 고르면 빠진다. 「미분류」는 브랜드는 있는데 회사가 없는 것.
+//   검색: 캠페인명 · 캠페인 번호 · 브랜드명(브랜드 뷰의 브랜드명·회사명·브랜드번호와 다르다 — 행이 캠페인이라).
+//   정렬: 모집 마감일 가까운 순(마감 없음은 뒤). 「종료 포함」이면 종료 건은 제출 마감 최근 순으로 뒤에.
+function brandOpsScheduleCampaigns() {
+  var companyF = $('brandOpsCompanyFilter')?.value || '';
+  var q = (($('brandOpsSearch')?.value) || '').trim().toLowerCase();
+  var brandCompany = {};
+  (_brandOpsCache || []).forEach(function(b){ if (b.brand_id) brandCompany[b.brand_id] = b.company_id || null; });
+  var list = brandOpsScheduleTargetCampaigns().filter(function(c){
+    if (companyF === '__unassigned__') { if (!c.brand_id || brandCompany[c.brand_id]) return false; }
+    else if (companyF) { if (!c.brand_id || brandCompany[c.brand_id] !== companyF) return false; }
+    if (q) {
+      var hay = ((c.title || '') + ' ' + (c.campaign_no || '') + ' ' + brandLabelAdmin(c)).toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  var isEnded = function(c){ return GANTT_ENDED_STATUSES.indexOf(c.status) >= 0; };
+  return list.slice().sort(function(a, b){
+    var ea = isEnded(a), eb = isEnded(b);
+    if (ea !== eb) return ea ? 1 : -1;                       // 진행 중 먼저, 종료 건은 뒤
+    if (ea) {                                                // 종료끼리: 제출 마감 최근 순(문자열 비교 — 시간대 개입 없음)
+      var sa = a.submission_end || '', sb = b.submission_end || '';
+      if (sa !== sb) return sa < sb ? 1 : -1;
+      return (a.title || '').localeCompare(b.title || '');
+    }
+    var da = a.deadline || '', dbb = b.deadline || '';       // 진행 중: 마감 가까운 순, 마감 없음은 뒤
+    if (!da && dbb) return 1;
+    if (da && !dbb) return -1;
+    if (da !== dbb) return da < dbb ? -1 : 1;
+    return (a.title || '').localeCompare(b.title || '');
+  });
+}
+
+// ---- 날짜 ↔ 위치 ----
+// 🔴 날짜→일수 변환은 이 함수 하나. 두 `연-월-일` 문자열을 정수로 잘라 Date.UTC 차이로 센다.
+//    `new Date('2026-09-07')` 파싱은 브라우저마다 협정 세계시/로컬 해석이 갈려 쓰지 않는다.
+function _ganttUtc(ymd) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+  if (!m) return NaN;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+}
+function ganttDayOffset(baseYmd, ymd) {
+  var a = _ganttUtc(baseYmd), b = _ganttUtc(ymd);
+  if (isNaN(a) || isNaN(b)) return NaN;
+  return Math.round((b - a) / 86400000);
+}
+function ganttAddDays(ymd, n) {
+  var t = _ganttUtc(ymd);
+  if (isNaN(t)) return '';
+  return new Date(t + n * 86400000).toISOString().slice(0, 10);
+}
+// 「오늘」 = 기기 로컬 연·월·일(캠페인 날짜 칸이 시간대 없는 문자열이라 같은 방식). 한국·일본은 같은 날.
+function ganttTodayYmd() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+// 시각 값(first_active_at)은 **일본 표준시**로 잘라 날짜로 — 캠페인 날짜 칸이 일본 기준으로 입력되기 때문.
+function ganttYmdFromTimestamp(ts) {
+  if (!ts) return '';
+  var t = new Date(ts).getTime();
+  if (isNaN(t)) return '';
+  return new Date(t + 9 * 3600000).toISOString().slice(0, 10);
+}
+function _ganttWeekday(ymd) { var t = _ganttUtc(ymd); return isNaN(t) ? NaN : new Date(t).getUTCDay(); }   // 0=일 … 1=월
+function ganttRange() {
+  var base = _ganttBaseYmd || ganttTodayYmd();
+  var start = ganttAddDays(base, -GANTT_RANGE.before), end = ganttAddDays(base, GANTT_RANGE.after);
+  return { base: base, start: start, end: end, days: GANTT_RANGE.before + GANTT_RANGE.after + 1, width: (GANTT_RANGE.before + GANTT_RANGE.after + 1) * GANTT_DAY_PX };
+}
+function ganttX(range, ymd) { return ganttDayOffset(range.start, ymd) * GANTT_DAY_PX; }
+function ganttShift(weeks) { var r = ganttRange(); _ganttBaseYmd = ganttAddDays(r.base, weeks * 7); renderBrandOpsSchedule(); }
+function ganttToday() { _ganttBaseYmd = null; renderBrandOpsSchedule(); }
+
+// ---- 시간축 머리 ----
+function renderGanttAxis(range) {
+  var html = '';
+  var firstMonday = null;
+  for (var i = 0; i < range.days; i++) {
+    var d = ganttAddDays(range.start, i);
+    var x = i * GANTT_DAY_PX;
+    if (i === 0 || d.slice(8, 10) === '01') {
+      html += '<span class="gm" style="left:' + x + 'px">' + (+d.slice(5, 7)) + '월</span>';
+    }
+    if (_ganttWeekday(d) === 1) {
+      if (firstMonday === null) firstMonday = x;
+      html += '<span class="gw" style="left:' + x + 'px">' + (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)) + '</span>';
+    }
+  }
+  var today = ganttTodayYmd();
+  var tx = ganttX(range, today);
+  if (tx >= 0 && tx < range.width) html += '<span class="gt" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px">오늘</span>';
+  range.gridOffset = firstMonday === null ? 0 : firstMonday;
+  return '<div class="gantt-axis" style="width:' + range.width + 'px">' + html + '</div>';
+}
+
+// ---- 그릴 것 목록(설계 5) ----
+// 요소 = { name, start, end(null=끝일 없음), lane('main'|'sub'), ink, point, note, dday }
+//   갈래는 campaignPeriodRowKind 의 이름으로 지목한다(부정 조건 금지).
+function ganttSegmentsFor(c) {
+  var segs = [];
+  var kind = (typeof campaignPeriodRowKind === 'function') ? campaignPeriodRowKind(c) : 'none';
+  // 예외 ㄱ — 모집 시작이 비면 first_active_at(처음 모집중이 된 시각) 으로. 인플루언서 화면의 「오늘」 폴백은 쓰지 않는다(일정표가 움직인다).
+  var rs = c.recruit_start || ganttYmdFromTimestamp(c.first_active_at);
+  var dl = c.deadline || '';
+  if (rs && dl)       segs.push({ name: '모집', start: rs, end: dl, lane: 'main', ink: 'strong', dday: dl });
+  else if (!rs && dl) segs.push({ name: '모집 마감', start: dl, end: dl, lane: 'main', ink: 'strong', point: true, note: '모집 시작일 없음', dday: dl });
+  else if (rs && !dl) segs.push({ name: '모집', start: rs, end: null, lane: 'main', ink: 'strong', openEnd: true });   // 예외 ㄴ — 무기한 모집
+  // 제출 — 시작점은 언제나 deadline 다음 날. ①이 마커여도 단독으로 그린다. deadline 이 없으면 시작점이 없어 마커.
+  if (c.submission_end) {
+    if (dl) segs.push({ name: '제출', start: ganttAddDays(dl, 1), end: c.submission_end, lane: 'main', ink: 'weak', dday: c.submission_end });
+    else    segs.push({ name: '제출 마감', start: c.submission_end, end: c.submission_end, lane: 'main', ink: 'weak', point: true, dday: c.submission_end });
+  }
+  // 보조 — 구매(split 만)·방문(visit 만). merged·visitMerged 는 모집과 같아 안 그린다.
+  if (kind === 'split' && c.purchase_start && c.purchase_end) segs.push({ name: '구매', start: c.purchase_start, end: c.purchase_end, lane: 'sub', ink: 'mid' });
+  if (kind === 'visit' && c.visit_start && c.visit_end)       segs.push({ name: '방문', start: c.visit_start, end: c.visit_end, lane: 'sub', ink: 'mid' });
+  // 선정 — 🔴 갈래로 가를 수 없다(방문형 선정형 행사는 갈래가 visit). 아래 조건은 다른 네 곳과 **글자 그대로** 같아야
+  //   한다 — 목록과 근거는 인플루언서 상세(application.js)의 같은 자리 주석(이 자리가 다섯째).
+  var isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(c);
+  var isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(c);
+  if ((c.recruit_type === 'gifting' || (c.recruit_type === 'visit' && (!isEvent || isSelEvent)))
+      && (c.selection_start || c.selection_end)) {
+    segs.push({ name: '선정', start: c.selection_start || c.selection_end, end: c.selection_end || c.selection_start, lane: 'sub', ink: 'mid' });
+  }
+  // 끝이 시작보다 앞이면(입력 오류) 점으로 — 음수 폭 막대를 만들지 않는다
+  segs.forEach(function(s){ if (s.end !== null && s.end < s.start) { s.end = s.start; s.point = true; } });
+  return segs;
+}
+
+function _ganttSegOverlaps(s, range) {
+  if (s.start > range.end) return false;
+  if (s.end === null) return true;          // 끝일 없음 — 시작이 범위 안이거나 그 앞이면 겹친다
+  return s.end >= range.start;
+}
+function _ganttSegLabel(s, side) {
+  // 마커 문구 = 구간 이름 + 「시작/마감」 + 날짜. 점 요소는 이름에 이미 성격이 있다.
+  if (s.point) return s.name + ' ' + formatDate(s.start);
+  return side === 'l' ? (s.name + ' 마감 ' + formatDate(s.end)) : (s.name + ' 시작 ' + formatDate(s.start));
+}
+
+// 시간축 칸(설계 4 「범위 밖 처리」 + 설계 5 막대)
+function renderGanttTrack(c, range) {
+  var segs = ganttSegmentsFor(c);
+  var style = 'width:' + range.width + 'px;--gantt-week:' + (7 * GANTT_DAY_PX) + 'px;background-position-x:' + (range.gridOffset || 0) + 'px';
+  var html = '';
+  var today = ganttTodayYmd(), tx = ganttX(range, today);
+  if (tx >= 0 && tx < range.width) html += '<div class="gantt-today" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px"></div>';
+  if (!segs.length) return '<div class="gantt-track" style="' + style + '">' + html + '<span class="gantt-nodate">날짜 없음</span></div>';
+  var visible = segs.filter(function(s){ return _ganttSegOverlaps(s, range); });
+  if (!visible.length) {
+    var before = segs.filter(function(s){ return s.end !== null && s.end < range.start; }).sort(function(a, b){ return a.end < b.end ? 1 : -1; })[0];
+    var after  = segs.filter(function(s){ return s.start > range.end; }).sort(function(a, b){ return a.start < b.start ? -1 : 1; })[0];
+    if (before) html += '<span class="gantt-edge l">◀ ' + esc(_ganttSegLabel(before, 'l')) + '</span>';
+    if (after)  html += '<span class="gantt-edge r">' + esc(_ganttSegLabel(after, 'r')) + ' ▶</span>';
+    return '<div class="gantt-track" style="' + style + '">' + html + '</div>';
+  }
+  var subIdx = 0;
+  visible.forEach(function(s){
+    var x0 = ganttX(range, s.start);
+    var x1 = s.end === null ? range.width : ganttX(range, s.end) + GANTT_DAY_PX;
+    var clipL = x0 < 0, clipR = x1 > range.width;
+    var left = Math.max(0, x0), right = Math.min(range.width, x1);
+    var period = s.end === null ? (formatDate(s.start) + ' ~ (마감 없음)') : (formatDate(s.start) + ' ~ ' + formatDate(s.end));
+    var tip = s.name + ' ' + period + (s.note ? ' · ' + s.note : '');
+    var laneCls = s.lane === 'sub' ? (' lane-sub' + (subIdx++ ? '2' : '')) : '';
+    if (s.point) {
+      html += '<span class="gantt-point" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px"></span>';
+    } else {
+      html += '<div class="gantt-bar ink-' + s.ink + laneCls + (clipL ? ' clip-l' : '') + (clipR ? ' clip-r' : '') + (s.openEnd ? ' open-end' : '')
+        + '" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px;width:' + Math.max(2, right - left) + 'px"></div>';
+      if (s.openEnd && s.lane === 'main') html += '<span class="gantt-tag" style="right:4px">마감 없음</span>';
+    }
+    // D-day 배지 — 마감(deadline)·제출 마감에만, 그 날짜가 범위 안일 때. 막대 색은 안 바꾼다(결정 11).
+    if (s.dday && s.lane === 'main' && !clipR && ganttX(range, s.dday) >= 0 && ganttX(range, s.dday) < range.width) {
+      html += '<span class="gantt-dday" style="left:' + Math.min(right + 2, range.width - 44) + 'px">' + dDayLabel(s.dday) + '</span>';
+    }
+  });
+  return '<div class="gantt-track" style="' + style + '">' + html + '</div>';
+}
+
+// ---- 왼쪽 열 + 숫자 3종 ----
+function _ganttNum(n) { return (n === null || n === undefined) ? '<span style="color:var(--muted)">—</span>' : String(n); }
+function renderScheduleRow(c, range, stats) {
+  var title = c.title || '(제목 없음)';
+  var typeKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined' && RECRUIT_TYPE_LABEL_KO[c.recruit_type]) || BRAND_OPS_RECRUIT_TYPE_KO[c.recruit_type] || c.recruit_type || '';
+  var st = BRAND_OPS_CAMP_STATUS_COLOR[c.status] || { bg: '#F5F5F5', color: '#757575' };
+  var slots = Number(c.slots || 0);
+  var appr = (_brandOpsApprCounts && _brandOpsApprCounts[c.id]) ? _brandOpsApprCounts[c.id].approved : (_brandOpsApprCounts ? 0 : null);
+  // stats: undefined = 아직 조회 중 / null = 조회 실패 / {submittedInf, cert}
+  var submitted = (stats && appr !== null && appr > 0) ? stats.submittedInf : null;
+  var cert = stats ? stats.cert : null;
+  var pending = stats === undefined;
+  var canEdit = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  var idJs = esc(String(c.id));
+  return '<div class="gantt-row">'
+    + '<div class="gantt-left">'
+    +   '<div class="gantt-cell c-title"><a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops\');return false">' + esc(title) + '</a><div class="sub ellip">' + esc(c.campaign_no || '') + '</div></div>'
+    +   '<div class="gantt-cell c-brand"><span class="ellip" title="' + esc(brandLabelAdmin(c)) + '">' + (esc(brandLabelAdmin(c)) || '<span style="color:var(--muted)">—</span>') + '</span></div>'
+    +   '<div class="gantt-cell c-type"><div class="sub" style="margin:0 0 2px">' + esc(typeKo) + '</div>' + channelChipsHtml(c.channel, c.channel_match) + '</div>'
+    +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
+    +   '<div class="gantt-cell c-num">' + (appr === null ? _ganttNum(null) : (appr + '/' + slots)) + '</div>'
+    +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (submitted === null ? _ganttNum(null) : (submitted + '/' + appr))) + '</div>'
+    +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (cert === null ? _ganttNum(null) : (cert + '/' + slots))) + '</div>'
+    +   '<div class="gantt-cell c-edit">' + (canEdit ? '<button type="button" class="btn btn-ghost btn-xs" onclick="openEditCampaign(\'' + idJs + '\')">편집</button>' : '') + '</div>'
+    + '</div>'
+    + renderGanttTrack(c, range)
+    + '</div>';
+}
+
+function renderScheduleHead(range) {
+  return '<div class="gantt-left">'
+    + '<div class="gantt-cell c-title">캠페인</div><div class="gantt-cell c-brand">브랜드</div><div class="gantt-cell c-type">형식 · 채널</div><div class="gantt-cell c-status">상태</div>'
+    + '<div class="gantt-cell c-num" title="승인된 인플루언서 / 모집인원">승인/모집</div><div class="gantt-cell c-num" title="결과물을 1건 이상 낸 인플루언서 / 승인">제출/승인</div><div class="gantt-cell c-num" title="인증 성공 인플루언서 / 모집인원">인증</div><div class="gantt-cell c-edit"></div>'
+    + '</div>' + renderGanttAxis(range);
+}
+
+// ---- 결과물 묶음 조회(설계 6) → 캠페인별 { submittedInf, cert } ----
+function _brandOpsDelivKey() { return _brandOpsIncludeEnded ? 'all' : 'base'; }
+async function loadScheduleDeliverables() {
+  var key = _brandOpsDelivKey();
+  if (_brandOpsDelivCache[key] !== undefined) return;
+  var token = ++_brandOpsDelivToken;
+  var ids = brandOpsScheduleTargetCampaigns().map(function(c){ return c.id; });
+  var rows = await fetchDeliverablesByCampaignIds(ids);   // 실패 null / 0건 []
+  if (token !== _brandOpsDelivToken) return;               // 그 사이 다시 들어왔거나 집합이 바뀜 — 폐기
+  _brandOpsDelivCache[key] = rows;
+  if (_brandOpsView === 'schedule') renderBrandOpsSchedule();
+}
+function _scheduleStatsFor(list) {
+  var rows = _brandOpsDelivCache[_brandOpsDelivKey()];
+  if (rows === undefined) return { pending: true, stats: {} };
+  if (rows === null) return { pending: false, stats: null };
+  var byCamp = {};
+  rows.forEach(function(d){
+    if (_brandOpsAuditIds.has(d.user_id)) return;     // 감사용 계정 격리 — 승인 수(서버 제외)와 정합
+    (byCamp[d.campaign_id] = byCamp[d.campaign_id] || []).push(d);
+  });
+  var stats = {};
+  list.forEach(function(c){
+    var ds = byCamp[c.id] || [];
+    var infs = {}; ds.forEach(function(d){ if (d.user_id) infs[d.user_id] = 1; });
+    // countCertSuccess 는 검수 화면·미니카드와 같은 판정(buildDeliverableGroups → computeCertStatus).
+    //   camp 는 fetchCampaigns() 가 준 실제 행이다(가구매·채널 판정 포함). 결과물 행에 임베드된
+    //   campaigns 가 있으면 그쪽이 우선 쓰이는데, 판정에 필요한 값이 전부 있어 결과가 같다.
+    stats[c.id] = { submittedInf: Object.keys(infs).length, cert: (typeof countCertSuccess === 'function') ? countCertSuccess(ds, c) : null };
+  });
+  return { pending: false, stats: stats };
+}
+
+// ---- 일정 뷰 본체 ----
+function renderBrandOpsSchedule() {
+  var rowsEl = $('brandOpsScheduleRows'), axisEl = $('brandOpsAxis'), note = $('brandOpsScheduleNote');
+  if (!rowsEl || !axisEl) return;
+  var count = $('brandOpsTotalCount');
+  var target = brandOpsScheduleTargetCampaigns();
+  var list = brandOpsScheduleCampaigns();
+  if (count) count.textContent = '(' + list.length + ' / 대상 ' + target.length + ')';
+  var range = ganttRange();
+  axisEl.innerHTML = renderScheduleHead(range);
+  if (typeof _campaignsLoadFailed !== 'undefined' && _campaignsLoadFailed) {
+    rowsEl.innerHTML = '<div class="gantt-empty">캠페인을 불러오지 못했습니다 · 새로고침을 눌러 다시 시도해 주세요</div>';
+    if (note) note.hidden = true;
+    return;
+  }
+  if (!list.length) {
+    rowsEl.innerHTML = '<div class="gantt-empty">조건에 맞는 캠페인이 없습니다' + (_brandOpsIncludeEnded ? '' : '<div style="font-size:11px;margin-top:6px">종료된 캠페인은 「종료 포함」을 켜면 보입니다</div>') + '</div>';
+    if (note) note.hidden = true;
+    return;
+  }
+  var st = _scheduleStatsFor(list);
+  if (note) {
+    if (st.stats === null) { note.textContent = '결과물을 불러오지 못해 제출·인증 칸을 비웠습니다. 새로고침을 눌러 다시 시도해 주세요'; note.hidden = false; }
+    else note.hidden = true;
+  }
+  rowsEl.innerHTML = list.map(function(c){
+    var s = st.pending ? undefined : (st.stats === null ? null : st.stats[c.id]);
+    return renderScheduleRow(c, range, s);
+  }).join('');
+  if (st.pending) loadScheduleDeliverables();
 }
