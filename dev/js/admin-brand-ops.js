@@ -747,8 +747,32 @@ function _ganttSegLabel(s, side) {
   return side === 'l' ? (s.name + ' 마감 ' + formatDate(s.end)) : (s.name + ' 시작 ' + formatDate(s.start));
 }
 
-// 시간축 칸(설계 4 「범위 밖 처리」 + 설계 5 막대)
-function renderGanttTrack(c, range) {
+// 막대 툴팁에 붙는 건수 한 줄 — 「신청 5명 · 승인 2/20 · 심사중 1 · 제출 1/2 · 인증 성공 0/20」.
+//   왼쪽 열과 같은 값(같은 재료 — 승인 수 서버 집계, 제출·인증은 결과물 캐시). 2026-09-07 사용자 요청.
+//   stats: undefined = 결과물 집계 중 / null = 조회 실패 / {submittedInf, cert}
+function ganttCountsText(c, stats) {
+  var slots = Number(c.slots || 0);
+  var parts = [];
+  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
+  if (_brandOpsApprCounts === null) parts.push('승인 수 조회 실패');
+  else {
+    var total = ac ? ac.total : 0, appr = ac ? ac.approved : 0, pend = ac ? ac.pending : 0;
+    parts.push('신청 ' + total + '명', '승인 ' + appr + '/' + slots);
+    if (pend > 0) parts.push('심사중 ' + pend);
+  }
+  if (stats === undefined) parts.push('결과물 집계 중');
+  else if (stats === null) parts.push('결과물 조회 실패');
+  else {
+    // 「제출」은 왼쪽 열과 같은 조건(승인 수를 알고 1 이상일 때)에서만 — 열은 「—」인데 툴팁만 숫자가 뜨면 안 된다(리뷰 지적)
+    var apprN = ac ? ac.approved : 0;
+    if (_brandOpsApprCounts !== null && apprN > 0) parts.push('제출 ' + stats.submittedInf + '/' + apprN);
+    parts.push('인증 성공 ' + stats.cert + '/' + slots);
+  }
+  return parts.join(' · ');
+}
+
+// 시간축 칸(설계 4 「범위 밖 처리」 + 설계 5 막대). counts = 툴팁에 붙일 건수 문장
+function renderGanttTrack(c, range, counts) {
   var segs = ganttSegmentsFor(c);
   var style = 'width:' + range.width + 'px;--gantt-week:' + (7 * GANTT_DAY_PX) + 'px;background-position-x:' + (range.gridOffset || 0) + 'px';
   var html = '';
@@ -759,8 +783,9 @@ function renderGanttTrack(c, range) {
   if (!visible.length) {
     var before = segs.filter(function(s){ return s.end !== null && s.end < range.start; }).sort(function(a, b){ return a.end < b.end ? 1 : -1; })[0];
     var after  = segs.filter(function(s){ return s.start > range.end; }).sort(function(a, b){ return a.start < b.start ? -1 : 1; })[0];
-    if (before) html += '<span class="gantt-edge l">◀ ' + esc(_ganttSegLabel(before, 'l')) + '</span>';
-    if (after)  html += '<span class="gantt-edge r">' + esc(_ganttSegLabel(after, 'r')) + ' ▶</span>';
+    var edgeTip = counts ? ' title="' + esc(counts) + '"' : '';
+    if (before) html += '<span class="gantt-edge l"' + edgeTip + '>◀ ' + esc(_ganttSegLabel(before, 'l')) + '</span>';
+    if (after)  html += '<span class="gantt-edge r"' + edgeTip + '>' + esc(_ganttSegLabel(after, 'r')) + ' ▶</span>';
     return '<div class="gantt-track" style="' + style + '">' + html + '</div>';
   }
   var subIdx = 0;
@@ -770,7 +795,7 @@ function renderGanttTrack(c, range) {
     var clipL = x0 < 0, clipR = x1 > range.width;
     var left = Math.max(0, x0), right = Math.min(range.width, x1);
     var period = s.end === null ? (formatDate(s.start) + ' ~ (마감 없음)') : (formatDate(s.start) + ' ~ ' + formatDate(s.end));
-    var tip = s.name + ' ' + period + (s.note ? ' · ' + s.note : '');
+    var tip = s.name + ' ' + period + (s.note ? ' · ' + s.note : '') + (counts ? '\n' + counts : '');
     var isSub = s.lane === 'sub';
     var laneCls = isSub ? (' lane-sub' + (subIdx++ ? '2' : '')) : '';
     var width = Math.max(2, right - left);
@@ -818,7 +843,7 @@ function renderScheduleRow(c, range, stats) {
     +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (cert === null ? _ganttNum(null) : (cert + '/' + slots))) + '</div>'
     +   '<div class="gantt-cell c-edit">' + (canEdit ? '<button type="button" class="btn btn-ghost btn-xs" onclick="openEditCampaign(\'' + idJs + '\')">편집</button>' : '') + '</div>'
     + '</div>'
-    + renderGanttTrack(c, range)
+    + renderGanttTrack(c, range, ganttCountsText(c, stats))
     + '</div>';
 }
 
