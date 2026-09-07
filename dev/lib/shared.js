@@ -2344,8 +2344,14 @@ function logAppError(context, err, expectedCodes) {
 //    그냥 더하면 그 건이 통째로 사라진다.
 // ⚠️ 정산 행이 아직 없는 「미등록」 목록에는 이 칸 자체가 없다 — 그때도 계산 금액을
 //    돌려주므로 같은 함수를 그대로 쓸 수 있다.
+// ⚠️ **정산대기(pending) 행은 실제 송금액을 무시한다**(2026-09-07, 전수조사 B-1). 정산대기는
+//    「아직 안 보낸」 상태라 그 칸에 값이 있으면 옛 송금(보류→해제로 돌아온 행)의 잔재다.
+//    서버(마이그레이션 416)가 보류 해제 때 그 칸을 비우므로 정상이면 여기 안 걸린다 — 이 줄은
+//    이미 어긋난 행이 있어도 지급 준비 합계가 옛 금액으로 잡히지 않게 하는 안전판이다.
+//    ⚠️ 상태가 없는 「미등록」 행(정산 행 자체가 없다)은 이 조건에 안 걸리고 계산 금액으로 간다.
 function settlementEffectiveAmount(s) {
   if (!s) return 0;
+  if (s.status === 'pending') return Number(s.amount_jpy) || 0;
   const actual = s.paid_amount_jpy;
   return Number((actual === null || actual === undefined) ? s.amount_jpy : actual) || 0;
 }
