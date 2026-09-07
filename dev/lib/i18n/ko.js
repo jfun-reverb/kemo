@@ -574,6 +574,7 @@ window.I18N_KO = {
     // 리뷰어형 페이백 — 294 로 「영수증 실결제액(제품 가격 상한)」이 되어 금액을
     // 약속하는 표현을 버렸다. 전체형=상세·관리자 미리보기·홍보 메일 / 축약형=하단 바·카드
     rewardPaybackFull: '구매 금액 페이백 (최대 ¥{price})',
+    rewardPaybackNoCap: '구매 금액 페이백',   // 제품 가격이 없는 리뷰어형(상한을 말할 수 없음)
     rewardPaybackShort: '페이백 (최대 ¥{price})',
     rewardCash: '+ 현금 리워드 ¥{amount}',
     rewardFree: '제품 전액 무상 제공',

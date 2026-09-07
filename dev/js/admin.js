@@ -3614,7 +3614,7 @@ const CP_I18N = {
   ja: {
     preview:'プレビュー', noImage:'画像なし', apply:'応募', productPage:'商品ページ',
     rtLabel:{monitor:'レビュアー', gifting:'ギフティング', visit:'訪問型'},
-    paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）',
+    paybackFull:'購入金額をペイバック（最大 ¥{price}）', paybackShort:'ペイバック（最大 ¥{price}）', paybackNoCap:'購入金額をペイバック',
     freeProvide:'円相当の製品を無償提供', freeProduct:'商品無償提供', rewardSuffix:'報酬',
     kProduct:'製品名', kRecruitType:'募集タイプ', kChannel:'チャンネル', kContentType:'コンテンツ種類',
     // ⚠️ kPurchasePeriod 옛 이름 「購入および領収書提出期間」 — 2026-08-11 에 영수증 마감이
@@ -3651,7 +3651,7 @@ const CP_I18N = {
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
     rtLabel:{monitor:'리뷰어', gifting:'기프팅', visit:'방문형'},
-    paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})',
+    paybackFull:'구매 금액 페이백 (최대 ¥{price})', paybackShort:'페이백 (최대 ¥{price})', paybackNoCap:'구매 금액 페이백',
     freeProvide:'엔 상당 제품 무상 제공', freeProduct:'상품 무상 제공', rewardSuffix:'보수',
     kProduct:'제품명', kRecruitType:'모집 타입', kChannel:'채널', kContentType:'콘텐츠 종류',
     kRecruitPeriod:'모집 기간', kPurchasePeriod:'구매 기간', kVisitPeriod:'방문 기간',
@@ -3810,11 +3810,14 @@ function renderCampPreview(mode) {
   // ⚠️ 리뷰어형에는 현금 리워드를 덧붙이지 않는다 — 정산 계산이 리뷰어형에서
   //    campaigns.reward 를 쓰지 않으므로(마이그레이션 300), 붙이면 지급되지 않는 금액을
   //    약속하는 미리보기가 된다. 인플루언서 상세(application.js)와 같은 판단.
-  const rewardText = (camp.product_price>0 || camp.reward>0)
-    ? (isPaybackPreview
-        ? paybackFullText
-        : `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`)
-    : '';
+  //    [D-4] 제품 가격이 **없는** 리뷰어형도 같은 갈래다 — 예전엔 아래 시딩 갈래로 떨어져
+  //    「商品無償提供 + ¥N 報酬」(지급되지 않는 현금액)가 붙었다. 인플루언서 앱·홍보 메일과
+  //    같은 「購入金額をペイバック」(상한 없음)로.
+  const rewardText = isMonitorPreview
+    ? (isPaybackPreview ? paybackFullText : L.paybackNoCap)
+    : ((camp.product_price>0 || camp.reward>0)
+        ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:L.freeProduct}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} ${L.rewardSuffix}`:''}`
+        : '');
 
   // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
   const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
@@ -3992,11 +3995,11 @@ function renderCampPreview(mode) {
         })() : ''}
       </div>
       <div class="cp-cta">
-        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?(isPaybackPreview
-          // 하단 고정 바 — 인플루언서 앱과 같은 축약형(폭이 좁다)
-          ? esc(L.paybackShort.replace('{price}', camp.product_price.toLocaleString()))
-          : `¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`
-        ):''}</small></div>
+        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${isMonitorPreview
+          // 하단 고정 바 — 인플루언서 앱과 같은 축약형(폭이 좁다). 가격 없는 리뷰어형은 상한 없이(D-4)
+          ? esc(camp.product_price>0 ? L.paybackShort.replace('{price}', camp.product_price.toLocaleString()) : L.paybackNoCap)
+          : (camp.product_price>0 ? `¥${camp.product_price.toLocaleString()} ${rewardLabelJa}` : '')
+        }</small></div>
         <div class="cp-cta-btn">${esc(L.apply)}</div>
       </div>
     </div>`;
