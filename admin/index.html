@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788781537';
+  var CURRENT_BUILD = 'v1788781821';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2950,15 +2950,16 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
 .gantt-track{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-week,70px))}
 .gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
-.gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:var(--ink);opacity:.85;box-sizing:border-box}
-.gantt-bar.ink-mid{background:var(--ink);opacity:.5}
-.gantt-bar.ink-weak{background:var(--ink);opacity:.22}
+/* 농도 3단은 opacity 가 아니라 배경색으로 — opacity 는 막대 안 이름표까지 같이 흐려져 옅은 막대의 글자가 안 보인다(개발서버 실측) */
+.gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:#3F3F46;box-sizing:border-box}
+.gantt-bar.ink-mid{background:#8E8E95}
+.gantt-bar.ink-weak{background:#D9D9DE}
 .gantt-bar.lane-sub{height:5px;top:26px;border-radius:2px}
 .gantt-bar.lane-sub2{top:34px;height:5px;border-radius:2px}   /* lane-sub 와 다른 클래스 이름이라 높이를 안 물려받는다 — 따로 적는다(리뷰 지적) */
 .gantt-bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0;border-left:3px dotted var(--surface)}
 .gantt-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right:3px dotted var(--surface)}
-.gantt-bar.open-end{background:repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 9px);opacity:.6}
-.gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:var(--ink);opacity:.85;border-radius:2px}
+.gantt-bar.open-end{background:repeating-linear-gradient(90deg,#8E8E95 0 6px,transparent 6px 9px)}
+.gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:#3F3F46;border-radius:2px}
 .gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--ink);white-space:nowrap;line-height:14px;background:var(--surface);padding:0 4px;border-radius:3px;z-index:1;box-shadow:0 0 0 1px var(--line)}
 .gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px}
 .gantt-edge{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:10px;color:var(--muted);white-space:nowrap;padding:0 6px;background:var(--surface-container-low);border-radius:4px;margin:8px 4px;height:auto;max-height:26px}
@@ -2968,6 +2969,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 막대 이름표·범례 — 농도만으로는 구간을 못 알아본다는 지적(2026-09-07)으로 추가 */
 .gantt-bar-label{position:absolute;left:0;right:0;top:0;line-height:12px;font-size:9px;font-weight:700;color:var(--surface);text-align:center;white-space:nowrap;overflow:hidden;letter-spacing:.02em;pointer-events:none}
 .gantt-bar.ink-weak .gantt-bar-label{color:var(--ink)}   /* 옅은 막대는 흰 글씨가 안 보인다 */
+.gantt-bar.open-end .gantt-bar-label{left:50%;right:auto;transform:translateX(-50%);color:var(--ink);background:var(--surface);padding:0 4px;border-radius:3px}   /* 점선 막대는 흰 배경이 비쳐 흰 글씨가 사라진다 — 흰 바탕 알약으로(리뷰 지적) */
 .gantt-sub-label{position:absolute;top:22px;font-size:9px;line-height:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
 .gantt-sub-label.sub2{top:30px}
 .gantt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11px;color:var(--muted);margin-bottom:6px}
@@ -3074,7 +3076,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 20:45 · e230cea</span>
+          <span class="admin-build-text">2026-09-07 20:50 · df27755</span>
         </div>
       </div>
     </aside>
