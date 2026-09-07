@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788779473';
+  var CURRENT_BUILD = 'v1788780067';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3063,7 +3063,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 20:11 · 034f9dc</span>
+          <span class="admin-build-text">2026-09-07 20:21 · 15c7c8a</span>
         </div>
       </div>
     </aside>
@@ -5235,9 +5235,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
                 <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
                 <div id="brandOpsRangeNav" style="display:flex;align-items:center;gap:4px;padding-bottom:2px">
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 앞으로"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 전으로(과거)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
                   <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 뒤로"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 후로(미래)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
                 </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
