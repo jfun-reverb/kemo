@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788763797';
+  var CURRENT_BUILD = 'v1788767658';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 15:49 · 905b9aa</span>
+          <span class="admin-build-text">2026-09-07 16:54 · 606f526</span>
         </div>
       </div>
     </aside>
@@ -18395,7 +18395,10 @@ function _withdrawalOpsTotal(a) {
        // ⚠️ 서버(372)가 이 열쇠말을 안 주는 환경에서는 0 이 된다 — 배포 순서가
        //    뒤바뀌어도 나머지 경고는 그대로 뜬다(그 줄만 안 그려진다).
        + Number(a.message_attachment_overdue || 0)
-       + Number(a.stuck_confirm || 0);
+       + Number(a.stuck_confirm || 0)
+       // 419 — 예정일 안내 메일 실패(재시도 중 / 확정돼 영영 못 보냄). 열쇠말이 없으면 0.
+       + Number(a.mail_retrying || 0)
+       + Number(a.mail_lost || 0);
 }
 
 function applyWithdrawalOpsIndicators() {
@@ -18528,6 +18531,33 @@ function withdrawalOpsModalHtml(a) {
     }
     rows.push(_withdrawOpsRow('image_not_supported', '#B8741A',
       `파기 기한이 지난 응모건 메시지 사진 ${n(a.message_attachment_overdue)}건`, sub));
+  }
+
+  // ⑤ 예정일 안내 메일이 아직 안 나간 탈퇴 (마이그레이션 419, 전수조사 2차 3-3)
+  //   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**다. 서버가 세는 것은
+  //   「한 번 이상 실패」 또는 「예정 상태가 된 날의 09:00 이 지났는데 미발송」 — 뒤쪽이
+  //   예약 실행 자체가 멈춘 경우를 잡는다(시도 횟수는 그때 0 그대로다).
+  //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
+  if (n(a.mail_retrying) > 0) {
+    rows.push(_withdrawOpsRow('mail', '#B8741A',
+      `예정일 안내 메일이 아직 안 나간 탈퇴 ${n(a.mail_retrying)}건`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         예정 상태가 된 뒤 <b>매일 09:00</b> 에 보내는데 아직 발송 표시가 없습니다. 회원 상세의 「탈퇴 신청」 카드에서 시도 횟수를 볼 수 있습니다.
+         <br>→ <b>시도 횟수가 0인데 하루 넘게 그대로</b>면 예약 실행 자체가 멈춘 것 — <b>개발 담당자에게 알려 주세요.</b>
+         <br>→ 시도 횟수가 쌓이면 그 회원의 <b>이메일 주소</b>와 Brevo 우측 상단 <b>「Usage and plan」</b>(구독 만료·큐 정지)을 확인하세요.
+       </div>`));
+  }
+
+  // ⑥ 안내 메일을 못 받은 채 확정된 탈퇴 — 다시 보낼 방법이 없다(확정 뒤라 문구도 맞지 않는다).
+  //   서버가 최근 30일 확정분만 센다 — 누구도 0 으로 되돌릴 수 없는 값이라 기간을 안 자르면
+  //   경고가 영구히 켜진다. 회원 목록은 안 준다(확정되면 개인정보가 파기돼 빈 행이다).
+  if (n(a.mail_lost) > 0) {
+    rows.push(_withdrawOpsRow('mail_lock', '#B8741A',
+      `예정일 안내 메일을 받지 못한 채 확정된 탈퇴 ${n(a.mail_lost)}건 (최근 30일)`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         확정되면 메일 대상에서 빠져 <b>다시 보내지 않습니다</b>. 이 회원들은 「언제 확정되는지」 안내를 한 번도 못 받았습니다.
+         <br>→ 문의가 오면 그 점을 감안해 응대하세요. 반복되면 개발 담당자에게 알려 주세요. 30일이 지나면 이 줄은 저절로 사라집니다.
+       </div>`));
   }
 
   if (!rows.length) {
@@ -29354,6 +29384,7 @@ async function renderInfluencerWithdrawalPanel(u) {
           ${active.uncancelled_count > 0 ? `<div style="color:var(--muted)">접수 때 철회하지 못한 응모 ${active.uncancelled_count}건</div>` : ''}
           ${withdrawLeftoverLines(preOk ? (pre && pre.blockers) : null)}
           ${active.event_tickets_blocked_count > 0 ? `<div style="color:#C62828"><strong style="font-weight:700">정리 못 한 행사 예약 ${active.event_tickets_blocked_count}건</strong></div>` : ''}
+          ${withdrawMailLine(active)}
         </div>
       </div>`;
     if (canProxy && isAdminMade) {
@@ -29380,11 +29411,43 @@ async function renderInfluencerWithdrawalPanel(u) {
       ${past.map(r => `<div style="font-size:11px;color:var(--muted);line-height:1.8">
         ${formatDateTime(r.requested_at)} · ${esc(withdrawStatusLabelKo(r.status))} · ${esc(withdrawKindLabelKo(r.requested_by_kind))}
         ${r.admin_cancel_note ? `<br><span style="color:var(--ink)">되돌림 사유</span> · ${esc(r.admin_cancel_note)}` : ''}
+        ${withdrawMailLine(r)}
       </div>`).join('')}
     </div>`;
   }
 
   body.innerHTML = html;
+}
+
+// 예정일 안내 메일 상태 한 줄 (마이그레이션 419, 전수조사 2차 3-3).
+//   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**라, 나갔는지를 카드가 말한다.
+//   ⚠️ 상태별로 뜻이 다르다 — pending_payout(예정일 미정)은 아직 대상이 아니고, cancelled 는
+//      「안내를 받고 마음을 바꾼」 정상 동선이라 발송 사실만 적는다(안 나갔으면 침묵).
+//   ⚠️ 판정을 화면이 키우지 않는다 — 두 칸(발송 시각·시도 횟수)을 그대로 옮기고
+//      **날짜 비교는 하지 않는다**(집계·경고는 서버 419 가 한다).
+function withdrawMailLine(r) {
+  if (!r) return '';
+  const tried = Number(r.scheduled_mail_attempt_count || 0);
+  const triedNote = tried > 0 ? ` (${tried}회 실패 뒤)` : '';
+  const label = '<strong style="font-weight:700">예정일 안내 메일</strong>';
+  if (r.scheduled_mail_sent_at) {
+    const when = formatDateTime(r.scheduled_mail_sent_at);
+    return r.status === 'cancelled'
+      ? `<div style="color:var(--muted)">${label} · 발송 ${when}${triedNote} — 그 뒤 취소됨</div>`
+      : `<div>${label} · 발송 ${when}${triedNote}</div>`;
+  }
+  if (r.status === 'pending_payout') {
+    return `<div style="color:var(--muted)">${label} · 예정일이 정해지면 나갑니다</div>`;
+  }
+  if (r.status === 'scheduled') {
+    return tried > 0
+      ? `<div style="color:#C62828">${label} · 미발송 — ${tried}회 실패, 매일 09:00 다시 시도</div>`
+      : `<div style="color:var(--muted)">${label} · 아직 발송 표시 없음 (매일 09:00 발송)</div>`;
+  }
+  if (r.status === 'done' && r.scheduled_date) {
+    return `<div style="color:#C62828">${label} · 받지 못한 채 확정됨${tried > 0 ? ` (${tried}회 실패)` : ''} — 다시 보내지 않습니다</div>`;
+  }
+  return '';
 }
 
 // 탈퇴 사유 코드 → 한국어 라벨. 목록을 아직 안 받았으면 코드값 그대로 보여준다
