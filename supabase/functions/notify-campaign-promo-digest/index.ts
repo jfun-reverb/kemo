@@ -1151,23 +1151,23 @@ Deno.serve(async (req: Request) => {
     // ── 2. 발송 대상자 조회 (RPC) ──
     //    RPC 가 이미 발송 완료 인플 자동 제외 → chained 재호출 시 잔여 인플만 반환
     //
-    // [리뷰 반영 4] ⚠️ 이 조회는 하루 제한 없이 계속 불어날 수 있는 값(대상자
-    // 전체)을 돌려주는데도 일부러 페이지 나눔(fetchAllPaged)을 안 넣었다.
-    // 안전한 이유는 이 함수의 성질 둘이 겹쳐야만 성립한다 — ①마이그레이션
-    // 321 이 최종 SELECT 에 건 `ORDER BY t.influencer_id`(안정 정렬)로,
-    // PostgREST 1,000행 상한에 걸려 잘려도 항상 "정렬된 앞쪽" 이 온다 ②이
-    // 파일이 어차피 매 라운드 `targets.slice(0, BATCH_SIZE)`(200명)만 쓰고,
-    // 그 200명은 이미 이전 라운드들이 처리 완료로 기록한 사람을 스스로
-    // 제외한 명단이라 "앞쪽 200명"이 항상 맞는 다음 배치다. 즉 잘려도 빠지는
-    // 사람은 없고, 다만 targets.length(=잔여 인원 추정치)가 부정확해질 수
-    // 있을 뿐 — 그 값은 정체 감지·로그에만 쓰인다. **둘 중 하나라도 깨지면
-    // (정렬을 지우거나, 이 파일이 slice 없이 전체를 쓰게 바뀌면) 이 판단은
-    // 더 이상 성립하지 않는다** — 그때는 fetchAllPaged 로 감싸거나, RPC 쪽에
-    // LIMIT/OFFSET 파라미터를 추가하는 쪽으로 다시 검토할 것.
-    const { data: targetsData, error: rpcError } = await sb.rpc("get_promo_digest_targets", {
-      p_digest_date: digestDate,
-    });
-    if (rpcError) {
+    // 🔴 [전수조사 D-2, 2026-09-07] **페이지 나눔으로 전부 받는다.**
+    //    예전엔 「잘려도 앞쪽 200명은 맞는 다음 배치라 빠지는 사람은 없고, targets.length 는
+    //    정체 감지·로그에만 쓰인다」며 일부러 안 감쌌다. 그 「에만」이 문제였다 — 잔여 인원이
+    //    1,000명을 넘는 날은 두 라운드 연속 targets.length 가 1,000 으로 잘려
+    //    `1000 >= 1000` 이 성립, 정체 감지가 **아무 문제 없는 발송을 2라운드에서 끊었다**.
+    //    그리고 run 은 「정체 감지로 중단」이라 기록돼 운영자가 엉뚱한 곳을 보게 된다.
+    //    운영 모수는 아직 151명(사거리 밖)이지만 늘어나는 순간 터지는 잠복이다.
+    //    ⚠️ `.rpc()` 결과에도 `.order()`·`.range()` 가 먹는다(집합을 돌려주는 함수). 정렬 키는
+    //       마이그레이션 321·387 의 최종 SELECT 와 같은 `influencer_id` 로 두어 페이지가 안 겹친다.
+    let targets: PromoTarget[] = [];
+    try {
+      targets = await fetchAllPaged<PromoTarget>(() =>
+        (sb.rpc("get_promo_digest_targets", { p_digest_date: digestDate }) as any)
+          .order("influencer_id", { ascending: true })
+      );
+    } catch (e) {
+      const rpcError = e as Error;
       console.error("[notify-campaign-promo] RPC error", rpcError);
       if (isFirstBatch) {
         await finalizeRun({
@@ -1182,7 +1182,6 @@ Deno.serve(async (req: Request) => {
         status: 500, headers: { "content-type": "application/json" },
       });
     }
-    const targets: PromoTarget[] = (targetsData || []) as PromoTarget[];
     console.log("[notify-campaign-promo] targets", { count: targets.length, chainCount });
 
     // ── 2.5 정체 감지 (이어달리기 2회차부터, 무한 반복 1차 방어) ──
