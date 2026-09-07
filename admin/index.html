@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788788018';
+  var CURRENT_BUILD = 'v1788788750';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2938,7 +2938,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row .gantt-left{background:var(--surface)}
 .gantt-cell{padding:6px 8px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-width:0;background:inherit}
 .gantt-head .gantt-cell{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
-.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:78px}.gantt-cell.c-dur{width:72px;text-align:center;align-items:center;font-variant-numeric:tabular-nums}.gantt-cell.c-prog{width:210px}
+.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:78px}.gantt-cell.c-dur{width:80px;text-align:center;align-items:center}.gantt-cell.c-prog{width:170px}
 .gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
 .gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
@@ -2951,6 +2951,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 주 눈금(첫 겹) + 주말 음영(둘째 겹, 토·일 = 월요일 기준 5~7일째). 두 겹 다 --gantt-off(첫 월요일 x)만큼 밀어 맞춘다.
    월 단위에서는 --gantt-grid 가 4주(28일)로 넓어져 선이 성기게 그어진다 */
 .gantt-track,.gantt-axis{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-grid,70px)),repeating-linear-gradient(to right,transparent 0,transparent calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 7));background-position-x:var(--gantt-off,0px);background-repeat:repeat-x}
+#brandOpsScheduleRows{position:relative}   /* 오늘 세로선을 행 전체에 하나로 겹치기 위한 기준 */
 .gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
 /* 농도 3단은 opacity 가 아니라 배경색으로 — opacity 는 막대 안 이름표까지 같이 흐려져 옅은 막대의 글자가 안 보인다(개발서버 실측) */
 .gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:#3F3F46;box-sizing:border-box}
@@ -2994,10 +2995,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-chip:disabled{color:var(--faint);cursor:default;background:var(--surface-container-low)}
 .gantt-guide{position:fixed;z-index:850;background:rgba(98,94,189,.10);border-left:1px dashed var(--accent);pointer-events:none}
 .gantt-guide-date{position:absolute;top:2px;left:4px;font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap;box-shadow:0 0 0 1px var(--line)}
-.gantt-head .gantt-cell{flex-direction:row;align-items:center;gap:2px;flex-wrap:wrap}   /* 머리글은 글자+정렬 화살표를 한 줄에 */
-.gantt-head-main{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
-.gantt-head-sub{display:block;width:100%;font-size:9px;font-weight:400;color:var(--muted);white-space:normal;line-height:1.3}
-.gantt-prog-label{color:var(--muted);font-weight:600}
+.gantt-head .gantt-cell{flex-direction:row;align-items:center;gap:2px}   /* 머리글은 글자+정렬 화살표를 한 줄에 */
+.gantt-cell.c-dur > span{margin:0!important;font-size:11px!important;padding:2px 7px!important}   /* dDayLabel 은 인라인 스타일이라 !important 로만 키울 수 있다(공용 함수는 안 건드린다) */
 /* 캠페인 펼치기(트리형) — 부모 행 + 기간 자식 행, 진척률 막대 */
 .gantt-title-line{display:flex;align-items:center;gap:4px;min-width:0}
 .gantt-chev{flex-shrink:0;width:20px;height:20px;border:none;background:none;padding:0;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:4px}
@@ -3011,11 +3010,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-child-name{font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0}
 .gantt-child-date{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-row.parent.open{border-bottom-color:transparent}
-.gantt-prog{display:flex;flex-direction:column;gap:2px;min-width:0}
-.gantt-prog-bar{height:6px;border-radius:3px;background:var(--surface-dim);overflow:hidden}
+.gantt-prog{display:flex;align-items:center;gap:8px;min-width:0}
+.gantt-prog-bar{flex:1;height:6px;border-radius:3px;background:var(--surface-dim);overflow:hidden}
+.gantt-prog-pct{font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.gantt-prog-frac{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:34px}
 .gantt-prog-fill{height:100%;background:var(--accent);border-radius:3px}
-.gantt-prog-txt{font-size:10px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
-.gantt-prog-extra{color:var(--muted);font-weight:400}
 .gantt-row.child .gantt-prog-fill{background:#8E8E95}
 
 </style>
@@ -3115,7 +3114,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 22:33 · a8f3bbc</span>
+          <span class="admin-build-text">2026-09-07 22:45 · 5e595d8</span>
         </div>
       </div>
     </aside>
@@ -25903,7 +25902,7 @@ function ganttSortArrows(key) {
 function ganttSortValue(key, c, stats) {
   if (key === 'title') return (c.title || '').toLowerCase();
   if (key === 'status') return GANTT_STATUS_RANK[c.status] ?? 9;
-  if (key === 'dur') { var sp = ganttSpanOf(ganttSegmentsFor(c)); return sp ? (sp.end === null ? Infinity : ganttDays(sp.start, sp.end)) : null; }   // 무기한은 가장 긴 것으로
+  if (key === 'dur') { var sp = ganttSpanOf(ganttSegmentsFor(c)); return sp ? ganttRemainDays(sp.end) : null; }   // 남은 일수(지났으면 음수). 무기한은 가장 뒤
   if (key === 'prog') { var pr = ganttParentProgress(c, stats); return pr.den > 0 && pr.num !== null ? pr.num / pr.den : null; }
   return null;
 }
@@ -25956,10 +25955,16 @@ function ganttSpanOf(segs) {
   });
   return { start: start, end: open ? null : end };
 }
-function ganttDurText(start, end) {
-  if (end === null) return '무기한';
-  var n = ganttDays(start, end);
-  return n === null ? '—' : n + '일';
+// 남은 기간 — 마감까지 D-day 배지(dDayLabel, 다른 화면과 같은 규약: D-Day / D-n / 지났으면 D+n). 마감 없음은 「무기한」
+function ganttRemainHtml(end) {
+  if (end === null) return '<span style="font-size:11px;color:var(--muted)">무기한</span>';
+  if (!end) return '<span style="color:var(--muted)">—</span>';
+  return dDayLabel(end);
+}
+function ganttRemainDays(end) {
+  if (end === null) return Infinity;
+  var n = ganttDayOffset(ganttTodayYmd(), end);
+  return isNaN(n) ? null : n;
 }
 // 진척률 재료 — { num, den, extra } (num null = 값 없음)
 function ganttParentProgress(c, stats) {
@@ -25979,11 +25984,12 @@ function ganttChildProgress(seg, c, stats) {
 function ganttProgHtml(pr, pending) {
   if (pending) return '<span style="color:var(--faint)">…</span>';
   if (pr.num === null || pr.num === undefined) return '<span style="color:var(--muted)">—</span>';
-  var lab = pr.label ? '<span class="gantt-prog-label">' + esc(pr.label) + '</span> ' : '';
-  if (!(pr.den > 0)) return '<span class="gantt-prog-txt">' + lab + pr.num + '/' + pr.den + '</span>';
+  var tip = (pr.label ? pr.label + ' ' : '') + pr.num + ' / ' + pr.den + (pr.extra ? ' · ' + pr.extra : '');
+  if (!(pr.den > 0)) return '<span class="gantt-prog-frac" title="' + esc(tip) + '">' + pr.num + '/' + pr.den + '</span>';
   var pct = Math.min(100, Math.round(pr.num / pr.den * 100));
-  return '<div class="gantt-prog" title="' + esc(pr.label) + ' ' + pr.num + ' / ' + pr.den + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
-    + '<span class="gantt-prog-txt">' + lab + pr.num + '/' + pr.den + ' · ' + pct + '%' + (pr.extra ? ' <span class="gantt-prog-extra">(' + esc(pr.extra) + ')</span>' : '') + '</span></div>';
+  // 참고 화면처럼 막대 + 퍼센트만 크게. 분수는 작게, 무엇을 센 것인지는 툴팁에(이름표를 앞에 붙이면 숫자가 안 보인다 — 2026-09-07 사용자 지적)
+  return '<div class="gantt-prog" title="' + esc(tip) + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
+    + '<span class="gantt-prog-pct">' + pct + '%</span><span class="gantt-prog-frac">' + pr.num + '/' + pr.den + '</span></div>';
 }
 var GANTT_QUICK_CHIPS = [
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
@@ -26143,6 +26149,9 @@ function toggleGanttLeft() {
   _ganttLeftCollapsed = !_ganttLeftCollapsed;
   try { localStorage.setItem(GANTT_LEFT_KEY, _ganttLeftCollapsed ? 'collapsed' : 'open'); } catch(e) {}
   applyGanttLeftState();
+  // 왼쪽 열 폭이 바뀌면 오늘 세로선 위치(왼쪽 열 폭 + 날짜 x)도 바뀐다 — 다시 그린다(리뷰 지적)
+  var rowsEl = $('brandOpsScheduleRows');
+  if (rowsEl && _ganttCurrentRange) renderGanttTodayLine(rowsEl, _ganttCurrentRange);
 }
 function applyGanttLeftState() {
   var sc = $('brandOpsGanttScroll'), btn = $('brandOpsLeftToggle');
@@ -26290,8 +26299,6 @@ function renderGanttTrack(c, range, counts, only) {
   var segs = only ? [Object.assign({}, only, { lane: 'main' })] : ganttSegmentsFor(c);
   var style = ganttTrackStyle(range);
   var html = '';
-  var today = ganttTodayYmd(), tx = ganttX(range, today);
-  if (tx >= 0 && tx < range.width) html += '<div class="gantt-today" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px"></div>';
   if (!segs.length) return '<div class="gantt-track" style="' + style + '">' + html + '<span class="gantt-nodate">날짜 없음</span></div>';
   var visible = segs.filter(function(s){ return _ganttSegOverlaps(s, range); });
   if (!visible.length) {
@@ -26355,7 +26362,7 @@ function renderScheduleRow(c, range, stats) {
     +     '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
     +   '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
-    +   '<div class="gantt-cell c-dur">' + (span ? esc(ganttDurText(span.start, span.end)) : '<span style="color:var(--muted)">—</span>') + '</div>'
+    +   '<div class="gantt-cell c-dur">' + (span ? ganttRemainHtml(span.end) : '<span style="color:var(--muted)">—</span>') + '</div>'
     +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttParentProgress(c, stats), pending) + '</div>'
     + '</div>'
     + renderGanttTrack(c, range, counts)
@@ -26368,7 +26375,7 @@ function renderScheduleRow(c, range, stats) {
       + '<div class="gantt-left">'
       +   '<div class="gantt-cell c-title"><div class="gantt-title-line"><span class="gantt-child-name">' + esc(seg.name) + '</span><span class="gantt-child-date">' + esc(period) + '</span></div></div>'
       +   '<div class="gantt-cell c-status"></div>'
-      +   '<div class="gantt-cell c-dur">' + esc(seg.point ? '1일' : ganttDurText(seg.start, seg.end)) + '</div>'
+      +   '<div class="gantt-cell c-dur">' + ganttRemainHtml(seg.end) + '</div>'
       +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttChildProgress(seg, c, stats), pending) + '</div>'
       + '</div>'
       + renderGanttTrack(c, range, counts, seg)
@@ -26389,8 +26396,8 @@ function renderGanttLegend() {
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
     + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
-    + '<div class="gantt-cell c-dur" title="캠페인 행 = 설정된 기간 전체(가장 이른 시작 ~ 가장 늦은 마감) · 펼친 기간 행 = 그 기간의 일수"><span class="gantt-head-main">일수 ' + ganttSortArrows('dur') + '</span><span class="gantt-head-sub">시작~마감 일수</span></div>'
-    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 펼친 기간 행 = 그 단계의 진행(모집·선정 = 승인/모집인원, 구매·방문 = 영수증(현장 사진) 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)"><span class="gantt-head-main">진척률 ' + ganttSortArrows('prog') + '</span><span class="gantt-head-sub">캠페인 행: 인증 성공/모집인원 · 기간 행: 단계별</span></div>'
+    + '<div class="gantt-cell c-dur" title="캠페인 행 = 가장 늦은 마감까지 · 펼친 기간 행 = 그 기간의 마감까지">남은 기간 ' + ganttSortArrows('dur') + '</div>'
+    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 펼친 기간 행 = 그 단계(모집·선정 = 승인/모집인원, 구매·방문 = 영수증 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)">진척률 ' + ganttSortArrows('prog') + '</div>'
     + '</div>' + renderGanttAxis(range);
 }
 
@@ -26511,6 +26518,17 @@ function fitGanttHeight() {
 }
 window.addEventListener('resize', function(){ if (_brandOpsView === 'schedule') fitGanttHeight(); });
 
+// 오늘 세로선 — 행마다 그리면 행 구분선 자리에서 끊겨 보인다(사용자 지적) → 행 컨테이너 위에 하나만 겹쳐 그린다.
+//   왼쪽 고정 열 뒤로는 안 보이게 z-index 를 왼쪽 열(2)보다 낮춘다. 왼쪽 열 폭은 그려진 첫 행에서 잰다(접기 상태 반영).
+function renderGanttTodayLine(rowsEl, range) {
+  rowsEl.querySelectorAll(':scope > .gantt-today').forEach(function(el){ el.remove(); });   // 다시 그릴 때 옛 선을 지운다
+  var tx = ganttX(range, ganttTodayYmd());
+  if (!(tx >= 0 && tx < range.width)) return;
+  var left = rowsEl.querySelector('.gantt-left');
+  var leftW = left ? left.offsetWidth : 0;
+  rowsEl.insertAdjacentHTML('beforeend', '<div class="gantt-today" style="left:' + (leftW + tx + GANTT_DAY_PX / 2) + 'px"></div>');
+}
+
 // ---- 일정 뷰 본체 ----
 function renderBrandOpsSchedule() {
   var rowsEl = $('brandOpsScheduleRows'), axisEl = $('brandOpsAxis'), note = $('brandOpsScheduleNote');
@@ -26557,6 +26575,7 @@ function renderBrandOpsSchedule() {
     var s = st.pending ? undefined : (st.stats === null ? null : st.stats[c.id]);
     return renderScheduleRow(c, range, s);
   }).join('');
+  renderGanttTodayLine(rowsEl, range);
   if (st.pending) loadScheduleDeliverables();
 }
 
