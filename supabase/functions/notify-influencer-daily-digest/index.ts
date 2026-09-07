@@ -559,28 +559,41 @@ Deno.serve(async (req: Request) => {
   // admin_daily_digest_runs.error_message 에도 남는다.
   try {
     // 2. 어제 윈도우 applications 조회 (status 무관 — 4섹션 중 reviewed_at 분기)
-    const { data: appsCreated, error: e1 } = await sb
-      .from("applications")
-      .select("id, user_id, campaign_id, status, created_at, reviewed_at")
-      .gte("created_at", windowStartUtc.toISOString())
-      .lt("created_at", windowEndUtc.toISOString());
-    if (e1) {
-      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_created: ${e1.message}` });
-      return new Response(JSON.stringify({ error: e1.message, stage: "apps_created" }), {
+    //    [D-7] 하루 창이지만 1,000행 상한 대응 — 운영 실측(2026-09-02)에서 하루 검수
+    //    1,305건인 날이 있었다. 잘리면 그날 승인·반려된 사람 300명이 안내를 못 받는데
+    //    오류는 없다. 같은 파일의 [F-4] 자리(아래 승인 전체 조회)와 같은 도우미로.
+    let appsCreated: AppRow[];
+    try {
+      appsCreated = await fetchAllPaged<AppRow>(() =>
+        sb.from("applications")
+          .select("id, user_id, campaign_id, status, created_at, reviewed_at")
+          .gte("created_at", windowStartUtc.toISOString())
+          .lt("created_at", windowEndUtc.toISOString())
+          .order("id", { ascending: true }),
+      );
+    } catch (e1) {
+      const msg = (e1 as Error).message;
+      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_created: ${msg}` });
+      return new Response(JSON.stringify({ error: msg, stage: "apps_created" }), {
         status: 500, headers: { "content-type": "application/json" },
       });
     }
 
-    // 3. 어제 리뷰된 (승인·반려) applications 조회
-    const { data: appsReviewed, error: e2 } = await sb
-      .from("applications")
-      .select("id, user_id, campaign_id, status, created_at, reviewed_at")
-      .in("status", ["approved", "rejected"])
-      .gte("reviewed_at", windowStartUtc.toISOString())
-      .lt("reviewed_at", windowEndUtc.toISOString());
-    if (e2) {
-      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_reviewed: ${e2.message}` });
-      return new Response(JSON.stringify({ error: e2.message, stage: "apps_reviewed" }), {
+    // 3. 어제 리뷰된 (승인·반려) applications 조회 — [D-7] 위와 같은 이유로 전건 확보
+    let appsReviewed: AppRow[];
+    try {
+      appsReviewed = await fetchAllPaged<AppRow>(() =>
+        sb.from("applications")
+          .select("id, user_id, campaign_id, status, created_at, reviewed_at")
+          .in("status", ["approved", "rejected"])
+          .gte("reviewed_at", windowStartUtc.toISOString())
+          .lt("reviewed_at", windowEndUtc.toISOString())
+          .order("id", { ascending: true }),
+      );
+    } catch (e2) {
+      const msg = (e2 as Error).message;
+      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_reviewed: ${msg}` });
+      return new Response(JSON.stringify({ error: msg, stage: "apps_reviewed" }), {
         status: 500, headers: { "content-type": "application/json" },
       });
     }

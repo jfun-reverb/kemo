@@ -152,12 +152,14 @@ async function openCampaign(id) {
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
           <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
-          ${camp.product_price>0?(camp.recruit_type === 'monitor'
+          ${(camp.product_price>0 || camp.recruit_type === 'monitor')?(camp.recruit_type === 'monitor'
             // 리뷰어형 — 받는 금액이 응모 시점에 확정되지 않으므로(영수증 실결제액 기준,
             // 300) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
             // 작은 보조 줄로 내린다. 시딩·방문형은 제품 가치가 확정이라 기존 그대로.
+            // ⚠️ 제품 가격이 없는 리뷰어형(D-4)도 「購入金額をペイバック」로 — 카드·홍보 메일·
+            //    관리자 미리보기와 **같은 말**. 비워 두면 「무상 제공」으로 읽히거나 세 곳이 갈린다.
             ? `<div style="display:inline-block;background:var(--light-pink);border-radius:8px;padding:7px 12px;margin-bottom:4px">
-                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()))}</div>
+                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(camp.product_price>0 ? t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()) : t('detail.rewardPaybackNoCap'))}</div>
                </div>`
             : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
           ):''}
@@ -454,11 +456,14 @@ async function openCampaign(id) {
       floatReward.textContent = String(camp.event_place || '').trim() || t('event.placeTbdShort');
     } else {
       // 하단 고정 바는 폭이 좁아(480px) 전체형을 넣으면 잘린다 — 리뷰어형은 축약형.
-      floatReward.textContent = camp.product_price>0
-        ? (isMonitor
+      // ⚠️ 리뷰어형은 제품 가격이 없어도 「무상 제공」이 아니다(D-4) — 상한 없이 페이백만 말한다.
+      floatReward.textContent = isMonitor
+        ? (camp.product_price>0
             ? t('detail.rewardPaybackShort').replace('{price}', camp.product_price.toLocaleString())
-            : `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`)
-        : t('detail.rewardFree');
+            : t('detail.rewardPaybackNoCap'))
+        : (camp.product_price>0
+            ? `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`
+            : t('detail.rewardFree'));
     }
   }
   if (floatProductPageBtn) {
