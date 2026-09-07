@@ -12745,8 +12745,16 @@ async function fetchEventTicketsByCampaign(campaignId) {
 
 // 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
 // 필요 없는 곳까지 흘러가므로 건수만 받는다.
+// 🔴 **실패는 `null`, 진짜 0건은 `0`**(2026-09-07, 전수조사 F-1). 예전에는 실패도 0 을 돌려줬는데,
+//    이 값을 보는 안전 게이트 넷(접수 방식 잠금·「비공개」 끄기·행사 모드 끄기·방식 변경 저장)이
+//    전부 「0 = 예약 없음 = 바꿔도 된다」로 읽어 **조회가 죽는 순간 넷이 동시에 열렸다** —
+//    선정형으로 받은 예약이 있는 캠페인이 경고 없이 선착순형으로 저장되고, 되돌릴 화면 경로가 없다.
+//    호출부의 try/catch 는 여기서 오류를 삼켰으므로 **도달하지 않았다.**
+//    부르는 쪽은 `null` 이면 **막는 쪽**으로 기운다. 캠페인 id 가 없으면(신규 폼) 예약이 있을 수
+//    없으니 0 이 맞다.
 async function countActiveEventTickets(campaignId) {
-  if (!db || !campaignId) return 0;
+  if (!campaignId) return 0;
+  if (!db) return null;
   try {
     const {count, error} = await db.from('event_tickets')
       .select('id', {count: 'exact', head: true})
@@ -12754,7 +12762,7 @@ async function countActiveEventTickets(campaignId) {
       .neq('status', 'cancelled');
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
+  } catch(e) { console.warn('[countActiveEventTickets]', e); return null; }   // 🔴 0 으로 바꾸지 말 것
 }
 
 // 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.

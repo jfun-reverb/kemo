@@ -252,11 +252,22 @@ async function refreshSelectionModeLock(campId) {
 
   let n = 0;
   try { n = await countActiveEventTickets(campId); }
-  catch (e) { console.warn('[refreshSelectionModeLock]', e); return; }
+  catch (e) { console.warn('[refreshSelectionModeLock]', e); n = null; }
 
   // ⚠️ 그 사이 다른 캠페인으로 넘어갔으면 이 답은 버린다. 늦게 도착한 답이 지금 화면을
   //    덮으면 **다른 캠페인의 예약 건수로 이 캠페인이 잠긴다**.
   if (($('editCampId')?.value || '') !== campId) return;
+  // 🔴 `null` = 못 물어봤다(F-1). 0 으로 읽으면 잠금이 풀려 예약 있는 캠페인의 방식이 바뀐다.
+  //    확인될 때까지 **잠근다** — 저장 직전 게이트(admin.js)도 같은 값으로 한 번 더 막는다.
+  if (n === null) {
+    _selectionModeLocked.edit = true;
+    _setSelectionModeDisabled('edit', true);
+    if (note) {
+      note.style.display = '';
+      note.innerHTML = `예약 건수를 확인하지 못해 접수 방식을 잠갔습니다. 잠시 뒤 캠페인을 다시 열어 주세요.`;
+    }
+    return;
+  }
   if (n <= 0) return;
 
   _selectionModeLocked.edit = true;
@@ -325,7 +336,20 @@ async function onInviteOnlyToggle(prefix) {
     try {
       tk = (campId && typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
-    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = 0; }
+    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = null; }
+    // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 모르면 끄지 못하게 한다 — 끄는 순간 방식이
+    //    선착순형으로 되돌아가 이미 받은 예약의 뜻이 바뀌는데, 되돌릴 길이 화면에 없다.
+    if (tk === null) {
+      el.checked = true;
+      applyInviteOnlyRow(prefix);
+      applySelectionModeVisibility(prefix);
+      const _el = $('alertModalMessage');
+      if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">
+        예약 건수를 확인하지 못해 「비공개」를 끌 수 없습니다.<br>잠시 뒤 다시 시도해 주세요.
+      </div>`;
+      if (typeof openModal === 'function') openModal('alertModal');
+      return;
+    }
     if (tk > 0) {
       el.checked = true;                     // 되돌린다 — 켠 상태가 사실이다
       applyInviteOnlyRow(prefix);

@@ -2743,6 +2743,13 @@ async function saveCampaignEdit() {
     if (_editCampOriginal?.event_mode && !_isEventEdit) {
       const _tk = (typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
+      // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 0 으로 읽으면 이 게이트가 열린다 — 막는다.
+      if (_tk === null) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">예약 건수를 확인하지 못해 「오프라인 행사 캠페인」을 끌 수 없습니다.<br>잠시 뒤 다시 저장해 주세요.</div>`;
+        openModal('alertModal');
+        return;
+      }
       if (_tk > 0) {
         const _el = $('alertModalMessage');
         // ⚠️ 이 모달은 가운데 정렬이다(다른 알림과 공용). 목록을 그대로 넣으면 글머리
@@ -2775,6 +2782,13 @@ async function saveCampaignEdit() {
     if (_selModeSaved !== _selModeEdit) {
       const _tk2 = (typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
+      // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 방식 변경은 되돌릴 수 없으니 모르면 막는다.
+      if (_tk2 === null) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">예약 건수를 확인하지 못해 접수 방식을 바꿀 수 없습니다.<br>잠시 뒤 다시 저장해 주세요.</div>`;
+        openModal('alertModal');
+        return;
+      }
       if (_tk2 > 0) {
         const _el = $('alertModalMessage');
         const _nm = m => (m === 'selection' ? '선정형' : '선착순형');
