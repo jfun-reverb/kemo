@@ -783,7 +783,7 @@ function renderGanttTrack(c, range, counts) {
   if (!visible.length) {
     var before = segs.filter(function(s){ return s.end !== null && s.end < range.start; }).sort(function(a, b){ return a.end < b.end ? 1 : -1; })[0];
     var after  = segs.filter(function(s){ return s.start > range.end; }).sort(function(a, b){ return a.start < b.start ? -1 : 1; })[0];
-    var edgeTip = counts ? ' title="' + esc(counts) + '"' : '';
+    var edgeTip = counts ? ' data-tip="' + esc(counts) + '"' : '';
     if (before) html += '<span class="gantt-edge l"' + edgeTip + '>◀ ' + esc(_ganttSegLabel(before, 'l')) + '</span>';
     if (after)  html += '<span class="gantt-edge r"' + edgeTip + '>' + esc(_ganttSegLabel(after, 'r')) + ' ▶</span>';
     return '<div class="gantt-track" style="' + style + '">' + html + '</div>';
@@ -800,13 +800,13 @@ function renderGanttTrack(c, range, counts) {
     var laneCls = isSub ? (' lane-sub' + (subIdx++ ? '2' : '')) : '';
     var width = Math.max(2, right - left);
     if (s.point) {
-      html += '<span class="gantt-point" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px"></span>';
+      html += '<span class="gantt-point" role="img" aria-label="' + esc(tip) + '" data-tip="' + esc(tip) + '" style="left:' + left + 'px"></span>';
     } else {
       // 구간 이름을 막대 안에 쓴다 — 농도만으로는 무엇이 무엇인지 안 보인다(2026-09-07 사용자 지적).
       //   주 막대는 안에(폭이 글자보다 넓을 때만), 보조 막대는 얇아서 막대 오른쪽 끝 옆에 작은 글씨로.
       var inLabel = (!isSub && width >= 30) ? '<span class="gantt-bar-label">' + esc(s.name) + '</span>' : '';
       html += '<div class="gantt-bar ink-' + s.ink + laneCls + (clipL ? ' clip-l' : '') + (clipR ? ' clip-r' : '') + (s.openEnd ? ' open-end' : '')
-        + '" role="img" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="left:' + left + 'px;width:' + width + 'px">' + inLabel + '</div>';
+        + '" role="img" aria-label="' + esc(tip) + '" data-tip="' + esc(tip) + '" style="left:' + left + 'px;width:' + width + 'px">' + inLabel + '</div>';
       if (isSub && !clipR) html += '<span class="gantt-sub-label' + (laneCls.indexOf('sub2') >= 0 ? ' sub2' : '') + '" style="left:' + (right + 3) + 'px">' + esc(s.name) + '</span>';
       if (s.openEnd && s.lane === 'main') html += '<span class="gantt-tag" style="right:4px">마감 없음</span>';
     }
@@ -896,6 +896,46 @@ function _scheduleStatsFor(list) {
   return { pending: false, stats: stats };
 }
 
+// ---- 즉시 툴팁 ----
+// 브라우저 기본 title 은 1초쯤 지나야 뜬다(바꿀 수 없다) → 마우스를 올리는 즉시 보이는 자체 툴팁(2026-09-07 사용자 요청).
+//   막대·점·가장자리 마커에 data-tip 을 두고, 행 컨테이너 하나에 위임해 듣는다(행이 다시 그려져도 처리기는 그대로).
+var _ganttTipBound = false;
+function ensureGanttTipHandlers() {
+  if (_ganttTipBound) return;
+  var rows = $('brandOpsScheduleRows');
+  if (!rows) return;
+  _ganttTipBound = true;
+  var tipEl = document.createElement('div');
+  tipEl.className = 'gantt-tip';
+  tipEl.hidden = true;
+  document.body.appendChild(tipEl);
+  var place = function(e) {
+    var pad = 14, w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;    // 오른쪽 끝에서는 왼쪽으로
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;   // 아래 끝에서는 위로
+    tipEl.style.left = Math.max(4, x) + 'px';
+    tipEl.style.top = Math.max(4, y) + 'px';
+  };
+  rows.addEventListener('mouseover', function(e) {
+    var t = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (!t || !rows.contains(t)) return;
+    tipEl.textContent = t.getAttribute('data-tip') || '';
+    tipEl.hidden = false;
+    place(e);
+  });
+  rows.addEventListener('mousemove', function(e) { if (!tipEl.hidden) place(e); });
+  rows.addEventListener('mouseout', function(e) {
+    var t = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (!t) return;
+    var to = e.relatedTarget;
+    if (to && t.contains(to)) return;                              // 같은 요소 안에서 움직인 것
+    tipEl.hidden = true;
+  });
+  // 세로 스크롤·페인 전환으로 요소가 사라지면 남지 않게
+  document.addEventListener('scroll', function(){ tipEl.hidden = true; }, true);
+}
+
 // ---- 일정 뷰 본체 ----
 function renderBrandOpsSchedule() {
   var rowsEl = $('brandOpsScheduleRows'), axisEl = $('brandOpsAxis'), note = $('brandOpsScheduleNote');
@@ -904,6 +944,7 @@ function renderBrandOpsSchedule() {
   var target = brandOpsScheduleTargetCampaigns();
   var list = brandOpsScheduleCampaigns();
   if (count) count.textContent = '(' + list.length + ' / 대상 ' + target.length + ')';
+  ensureGanttTipHandlers();
   var range = ganttRange();
   var legend = $('brandOpsGanttLegend');
   if (legend) legend.innerHTML = renderGanttLegend();

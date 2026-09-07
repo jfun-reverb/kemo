@@ -2490,3 +2490,5 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-legend .gantt-bar.lg.lg-sub{height:5px}
 .gantt-legend .gantt-point.lg{position:static;display:inline-block;width:9px;height:9px;transform:rotate(45deg)}
 .gantt-legend .gantt-today.lg{position:static;display:inline-block;height:12px;width:0}
+/* 즉시 툴팁 — 기본 title 의 1초 지연 대신. body 끝에 하나만 두고 위임으로 채운다 */
+.gantt-tip{position:fixed;z-index:900;background:var(--ink);color:var(--surface);font-size:11px;line-height:1.55;padding:6px 10px;border-radius:6px;white-space:pre-line;max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
