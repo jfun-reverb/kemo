@@ -1044,7 +1044,10 @@ async function confirmSettlementBulkPay() {
   const failed = [];
 
   // ① 정산 행이 이미 있는 건 — 상태만 송금완료로
-  if (ctx.settlementIds.length) {
+  //   🔴 「정산대기 추가」 모드에서는 **돌면 안 된다**(전수조사 B-4). 예전엔 모드 검사가 이 블록
+  //      뒤에 있어, 그 모드로 들어왔는데 정산 행이 섞여 있으면 **되돌릴 수 없는 송금완료**가
+  //      먼저 찍혔다. 지금 진입점은 미등록 건만 넘겨 잠복이었지만, 순서를 여기서 막는다.
+  if (ctx.mode !== 'pending' && ctx.settlementIds.length) {
     try {
       const r = await markSettlementsPaidBulk(ctx.settlementIds, paidAt, memo);
       done += r.paid;
@@ -1061,13 +1064,16 @@ async function confirmSettlementBulkPay() {
     try {
       const r = await registerPastSettlements(ctx.applicationIds, 'pending', memo);
       done += r.registered;
+      // ⚠️ 서버(339)는 후보에 없는 응모를 어느 건수에도 안 넣는다 — 고른 수와 대조해 알린다(B-5).
+      const _gone = _payoutUnaccounted(ctx.applicationIds, r);
+      if (_gone) skipped.push(`후보 아님(인증 성공 전·이미 등록·조건 변경 등) ${_gone}건`);
     } catch (e) { failed.push('정산대기 추가: ' + friendlyError(e.message || e)); }
     if (failed.length && !done) {
       toast('처리 실패 — ' + failed.join(' / '), 'error');
       if (btn) btn.disabled = false;
       return;
     }
-    toast(`${done}건을 정산대기로 추가했습니다`);
+    toast(`${done}건을 정산대기로 추가했습니다` + (skipped.length ? ' — 건너뜀: ' + skipped.join(' · ') : ''));
     closeModal('settlementBulkPayModal');
     _bulkPayCtx = null;
     await _settlementRefreshKeepingView(ctx.from);
@@ -1082,6 +1088,9 @@ async function confirmSettlementBulkPay() {
       const r = await registerPastSettlements(ctx.applicationIds, 'paid', memo, paidAt);
       done += r.registered;
       if (r.skippedNoPaypal) skipped.push(`PayPal 미등록 ${r.skippedNoPaypal}건(미등록분)`);
+      // ⚠️ 서버(339)는 후보에 없는 응모를 어느 건수에도 안 넣는다 — 고른 수와 대조해 알린다(B-5).
+      const _gone = _payoutUnaccounted(ctx.applicationIds, r);
+      if (_gone) skipped.push(`후보 아님(인증 성공 전·이미 등록·조건 변경 등) ${_gone}건`);
     } catch (e) { failed.push('미등록 건: ' + friendlyError(e.message || e)); }
   }
 
@@ -1130,6 +1139,10 @@ async function _settlementRefreshKeepingView(from) {
   if (from !== 'payout') return;          // 목록 경로는 목록만 다시 그리면 된다
   await openPayoutPrepView();             // _payoutRows 재계산 + 요약 재렌더
   if (due) await openPayoutPersonList(due);
+  // ⚠️ 지급 준비에서 **미등록 건을 송금완료로 기록**하면 미등록 건수가 실제로 준다(전수조사 F-2).
+  //    위 미등록 경로만 갱신하던 때는 주 동선(지급 준비)에서 처리해도 「미등록」 탭 건수와
+  //    사이드바 경고가 옛 숫자로 남았다. await 안 함 — 화면을 막지 않는다.
+  refreshPastUnregEntryInfo();
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1744,6 +1757,22 @@ const PAYOUT_EXCLUDED_STATUS = new Set(['on_hold', 'cancelled']);
 // 'YYYY-MM-DD' → 'YYYY-MM'
 function _payoutMonthOf(dueStr) { return dueStr ? String(dueStr).slice(0, 7) : null; }
 
+// 금액 칸 — 🔴 금액을 정할 수 없는 건(amount_issue)은 「¥0」이 아니라 **「금액 미확정」**으로 그린다
+//   (전수조사 F-3). `settlementEffectiveAmount` 가 그 행에 0 을 주므로 그냥 그리면 「¥0」이 되고,
+//   합계에서는 조용히 빠져 지급대장 대조 금액이 낮게 나온다. 같은 행이 미등록 탭에서는 빨간
+//   배지로 정상 표시되던 것과 맞춘다.
+function _payoutAmountCell(r) {
+  if (r && r.amountUnknown) {
+    return '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="금액을 정할 수 없어 합계에서 뺐습니다 — 미등록 탭에서 사유를 확인하세요">금액 미확정</span>';
+  }
+  return esc(_payoutYen(r.amount));
+}
+// 합계 옆에 붙이는 「미확정 N건 제외」 — 0이면 아무것도 안 붙인다(늘 떠 있으면 아무도 안 본다).
+function _payoutUnknownNote(list) {
+  const n = (list || []).filter(function (r) { return r.amountUnknown; }).length;
+  return n ? ` <span style="color:#C33;font-size:11px" title="금액을 정할 수 없는 건은 합계에 안 들어갑니다">· 미확정 ${n}건 제외</span>` : '';
+}
+
 // 미등록 + 정산 행을 한 목록으로. 지급 예정일은 payoutDueDate 하나로만 계산한다.
 //   ⚠️ 카드·목록·엑셀이 각자 계산하면 어긋난다(사양서 §4-1).
 function buildPayoutRows(unregRows, settlementRows) {
@@ -2101,7 +2130,7 @@ function payoutDueItemsHtml(list, sent) {
       <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
       <!-- 아직 안 보낸 줄이라 송금일은 비어 있다 — 열을 비워 두어야 아래 보낸 줄과 자리가 맞는다 -->
       <div style="width:96px;text-align:right;color:var(--muted);opacity:.5">—</div>
-      <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
+      <div style="width:88px;text-align:right">${_payoutAmountCell(r)}</div>
       <div style="width:52px;text-align:right">${r.applicationId
         ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px"
              onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
@@ -2169,7 +2198,7 @@ function payoutPersonCardHtml(entry) {
       ${p.kana ? `<div style="font-size:11px;color:var(--muted)">${esc(p.kana)}</div>` : ''}
       ${payoutPaypalHtml(p)}
       <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-        <span style="font-size:12px">${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b></span>
+        <span style="font-size:12px">${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b>${_payoutUnknownNote(allUnsent)}</span>
         ${single
           ? `<button class="btn btn-ghost btn-xs" style="padding:2px 10px"
                onclick="openPayoutSendModal('${esc(p.id + '|' + dues[0])}')" title="이 사람의 이 회차를 송금완료로 기록">보냄</button>`
@@ -2322,9 +2351,31 @@ function payoutSearchHit(fields, tokens) {
   return tokens.every(function (t) { return hay.includes(t); });
 }
 
+// 일괄 등록(register_past_settlements, 339)이 **어느 건수에도 안 넣은** 응모 수.
+//   서버는 후보(인증 성공 + 정산 행 없음)에 있는 것만 세므로, 고른 응모 중 후보 밖은 조용히 빠진다.
+//   ⚠️ 같은 응모를 두 번 고른 경우를 대비해 고유 개수로 센다.
+function _payoutUnaccounted(applicationIds, r) {
+  const asked = new Set((applicationIds || []).filter(Boolean)).size;
+  const seen = (Number(r && r.registered) || 0) + (Number(r && r.skippedNoPaypal) || 0);
+  return Math.max(asked - seen, 0);
+}
+
 function onPayoutPersonSearch(v) {
   _payoutPersonSearch = (v || '').trim().toLowerCase();
   _payoutSearchTokens = (v || '').trim().split(/[\s\u3000]+/).filter(Boolean).map(_payoutNorm);
+  // ⚠️ 검색으로 **화면에서 사라진 선택은 버린다**(전수조사 B-2) — 정산 목록(527행 근처)·미등록
+  //    화면이 이미 그렇게 한다. 안 보이는 사람의 묶음이 「선택한 건 보냄」에 그대로 실려
+  //    확인창에는 걸러진 요약만 뜨고 실제 처리는 전체에서 고르던 어긋남을 막는다.
+  if (_payoutSearchTokens.length && _payoutSelected.size) {
+    const byPerson = groupSettlementsByPerson(_payoutRows || []);
+    const visible = new Set();
+    Object.keys(byPerson).forEach(function (k) {
+      const e = byPerson[k];
+      if (!payoutSearchHit([e.person.name, e.person.kana, e.person.paypal], _payoutSearchTokens)) return;
+      Object.keys(e.dues).forEach(function (d) { visible.add(e.person.id + '|' + d); });
+    });
+    _payoutSelected.forEach(function (key) { if (!visible.has(key)) _payoutSelected.delete(key); });
+  }
   renderPayoutPersonBody();   // ⚠️ 껍데기를 다시 그리면 검색창 포커스가 날아간다
 }
 
@@ -2396,7 +2447,7 @@ function payoutCampaignCardHtml(entry) {
       <div style="width:96px;text-align:right;color:var(--muted)">${esc(r.due || '(예정일 없음)')}</div>
       <div style="width:96px;text-align:right;color:var(--muted)">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
       <div style="width:96px;text-align:right;color:var(--muted)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
-      <div style="width:88px;text-align:right;font-weight:700">${esc(_payoutYen(r.amount))}</div>
+      <div style="width:88px;text-align:right;font-weight:700">${_payoutAmountCell(r)}</div>
       <div style="width:52px;text-align:right">${sent
         ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px">기록됨</span>'
         : '<span style="font-size:10px;color:#C33;font-weight:700">미지급</span>'}</div>
@@ -2541,7 +2592,7 @@ function renderPayoutPersonBody() {
     info.innerHTML = progressHtml
       + (_payoutSelected.size ? `
       <div style="border-top:1px solid var(--line);padding:8px 0;font-size:13px;display:flex;align-items:center;gap:10px">
-        <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b></span>
+        <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b>${_payoutUnknownNote(selectedRows)}</span>
         <button class="btn btn-primary btn-xs" style="margin-left:auto;padding:3px 12px"
                 onclick="openPayoutSendSelectedModal()" title="고른 묶음을 한 번에 송금완료로 기록합니다">선택한 건 보냄</button>
         <button class="btn btn-ghost btn-xs" style="padding:2px 10px"
