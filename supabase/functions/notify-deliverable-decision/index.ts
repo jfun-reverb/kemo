@@ -24,17 +24,23 @@
 //   원본은 docs/email-templates/ 에 있고, scripts/sync-email-templates.sh 가
 //   _templates/ 로 복사한다. Edge Function 배포 직전 반드시 sync 실행.
 //
-// 멱등성:
-//   1. 발송 직전 notifications.mail_sent_at 가 여전히 NULL 인지 재확인 (행 잠금).
-//   2. Brevo 200 응답 후에만 mail_sent_at = now() 로 마킹.
-//   3. 실패 시 NULL 유지 → 운영자가 수동 SQL 로 재발송 가능.
+// 멱등성 (2026-09-07 전수조사 D-19 로 순서를 뒤집었다):
+//   1. 🔴 **발송 전에 먼저 선점한다** — `UPDATE … SET mail_sent_at = now() WHERE id = … AND
+//      mail_sent_at IS NULL` 이 0행이면 다른 실행이 이미 잡은 것 → 즉시 종료.
+//      예전엔 「확인 → 발송 → 기록」이라 확인과 기록 사이(Brevo 왕복 수 초)에 웹훅 재시도가
+//      겹치면 **같은 메일이 두 번** 나갔다. 다이제스트 3종이 쓰는 「작업 전 소유권 확보」와
+//      같은 방식이다.
+//   2. 발송에 실패하면 선점을 **되돌린다**(mail_sent_at = NULL) → 웹훅 재시도가 다시 잡는다.
+//      되돌리기까지 실패하면 그 알림은 「보낸 것」으로 남으므로 로그에 크게 남긴다 —
+//      운영자가 수동 SQL 로 NULL 을 넣어 재발송.
+//   3. 인플루언서 없음·이메일 없음 같은 「보낼 수 없는」 경우는 선점을 그대로 둔다(재시도 무의미).
 //
 // 배포 명령:
 //   bash scripts/sync-email-templates.sh
 //   # 개발
 //   supabase functions deploy notify-deliverable-decision --project-ref qysmxtipobomefudyixw
 //   # 운영
-//   supabase functions deploy notify-deliverable-decision --project-ref twofagomeizrtkwlhsuv
+//   supabase functions deploy notify-deliverable-decision --project-ref nrwtujmlbktxjgdwlpjj   # ⚠️ 옛 시드니(twofago…)가 아니라 도쿄
 //   # 비밀값
 //   supabase secrets set BREVO_API_KEY=xxx --project-ref <ref>
 //
@@ -632,26 +638,47 @@ Deno.serve(async (req: Request) => {
 
   const sb = createClient(supaUrl, serviceKey, { auth: { persistSession: false } });
 
-  // 멱등성 2차: 발송 직전 DB 재확인 (Webhook 재실행 등 race 방지)
-  const { data: noteCheck, error: noteCheckErr } = await sb
+  // 멱등성 2차 — 🔴 **선점 먼저**(D-19). 조건부 UPDATE 가 0행이면 다른 실행이 이미 잡은 것.
+  //   예전의 「SELECT 로 확인 → 발송 → UPDATE」는 확인과 기록 사이가 열려 있어 웹훅 재시도가
+  //   겹치면 두 번 보냈다. 이제 이 UPDATE 를 통과한 실행만 발송한다.
+  const claimedAt = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await sb
     .from("notifications")
-    .select("id, mail_sent_at")
+    .update({ mail_sent_at: claimedAt })
     .eq("id", note.id)
-    .maybeSingle();
-  if (noteCheckErr) {
-    console.error("[notify-deliverable-decision] note re-check failed", noteCheckErr);
-    return new Response(JSON.stringify({ error: noteCheckErr.message }), {
+    .is("mail_sent_at", null)
+    .select("id");
+  if (claimErr) {
+    console.error("[notify-deliverable-decision] claim failed", claimErr);
+    return new Response(JSON.stringify({ error: claimErr.message }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
   }
-  if (noteCheck?.mail_sent_at) {
-    console.log("[notify-deliverable-decision] already sent (db re-check), skipped");
-    return new Response(JSON.stringify({ skipped: true, reason: "already_sent_db" }), {
+  if (!claimed || claimed.length === 0) {
+    console.log("[notify-deliverable-decision] already claimed by another run, skipped");
+    return new Response(JSON.stringify({ skipped: true, reason: "already_claimed" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
   }
+  // 발송에 못 이르렀을 때 선점을 되돌린다 — 웹훅 재시도가 다시 잡을 수 있게.
+  //   ⚠️ 되돌리기까지 실패하면 그 알림은 「보낸 것」으로 남는다 → 로그에 크게 남기고 끝낸다.
+  //   🔴 비교값은 **선점 때 쓴 `claimedAt` 문자열을 그대로** 쓴다 — 데이터베이스에서 다시 읽어
+  //      비교하면 정밀도·표기가 달라 0행이 될 수 있다(재조회 금지). 자기 선점만 되돌리므로
+  //      그 사이 다른 실행이 새로 잡은 선점은 안 건드린다.
+  const unclaim = async (why: string) => {
+    const { error: unErr } = await sb
+      .from("notifications")
+      .update({ mail_sent_at: null })
+      .eq("id", note.id)
+      .eq("mail_sent_at", claimedAt);
+    if (unErr) {
+      console.error("[notify-deliverable-decision] 🔴 UNCLAIM FAILED — notification stays marked as sent; reset mail_sent_at manually", { id: note.id, why, unErr });
+    } else {
+      console.warn("[notify-deliverable-decision] claim released", { id: note.id, why });
+    }
+  };
 
   // 결과물 + 캠페인 + 인플루언서 정보 조회
   // application_id·campaigns.recruit_type/proxy_purchase/channel 은 buildNextStepBlock 이
@@ -667,6 +694,7 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
   if (delivErr || !deliv) {
     console.error("[notify-deliverable-decision] deliverable fetch failed", delivErr);
+    await unclaim("deliverable fetch failed");
     return new Response(JSON.stringify({ error: "deliverable not found" }), {
       status: 500,
       headers: { "content-type": "application/json" },
@@ -679,15 +707,22 @@ Deno.serve(async (req: Request) => {
     .eq("id", note.user_id)
     .maybeSingle();
   // 인플루언서 행 누락(legacy id 어긋남·탈퇴) 또는 이메일 없음 → graceful skip
-  // 알림은 "처리됨"으로 마킹해 같은 알림에 대한 Webhook 재시도 차단
+  //   ⚠️ 조회 자체가 실패한 것(fetch_error)은 선점을 되돌려 재시도가 다시 잡게 하고,
+  //      행이 없거나 이메일이 없는 것은 재시도해도 같으므로 선점을 그대로 둔다(= 처리됨).
   if (infErr || !inf?.email) {
     console.warn("[notify-deliverable-decision] influencer not found or no email — graceful skip", {
       record_id: note.id,
       user_id: note.user_id,
       reason: infErr ? "fetch_error" : (!inf ? "no_row" : "no_email"),
     });
-    await sb.from("notifications").update({ mail_sent_at: new Date().toISOString() })
-      .eq("id", note.id).is("mail_sent_at", null);
+    if (infErr) {
+      // 조회 실패는 500 — 웹훅 재시도가 비2xx 에만 걸릴 수 있어, 되돌린 선점을 다시 잡을 기회를 준다.
+      await unclaim("influencer fetch failed");
+      return new Response(JSON.stringify({ error: "influencer fetch failed" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ skipped: "influencer not found or email missing" }), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -795,24 +830,15 @@ Deno.serve(async (req: Request) => {
     });
   } catch (e) {
     console.error("[notify-deliverable-decision] brevo send failed", (e as Error).message);
+    await unclaim("brevo send failed");
     return new Response(JSON.stringify({ error: (e as Error).message, sent: false }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
   }
 
-  // 발송 성공 → mail_sent_at 마킹
-  const { error: markErr } = await sb
-    .from("notifications")
-    .update({ mail_sent_at: new Date().toISOString() })
-    .eq("id", note.id)
-    .is("mail_sent_at", null);
-  if (markErr) {
-    console.error("[notify-deliverable-decision] mark mail_sent_at failed", markErr);
-    // 메일은 이미 나갔으므로 200 으로 응답하되 경고 로그만
-  }
-
-  console.log("[notify-deliverable-decision] done", { id: note.id, kind: deliv.kind, decision });
+  // 발송 성공 — mail_sent_at 은 위에서 선점할 때 이미 찍혔다(D-19). 여기서 다시 쓰지 않는다.
+  console.log("[notify-deliverable-decision] done", { id: note.id, kind: deliv.kind, decision, claimedAt });
   return new Response(JSON.stringify({ sent: true, kind: deliv.kind, decision }), {
     status: 200,
     headers: { "content-type": "application/json" },

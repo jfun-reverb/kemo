@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788459778';
+  var CURRENT_BUILD = 'v1788762393';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3009,7 +3009,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-04 03:22 · 1aa0e1c</span>
+          <span class="admin-build-text">2026-09-07 15:26 · 15c7718</span>
         </div>
       </div>
     </aside>
@@ -7496,7 +7496,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <button class="btn btn-ghost btn-xs" onclick="closeBroadcastWithdraw()" style="padding:4px 10px">✕</button>
     </div>
     <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-      <div style="font-size:12px;color:var(--muted)">회수하면 받은 사람 모두의 화면에서 이 메시지가 가려집니다.</div>
+      <!-- ⚠️ 문구는 openBroadcastWithdraw() 가 채운다 — 「받은 사람 모두」라고 적으면 거짓이다.
+           회수는 **보고 있는 발송 1건**만 가리고, 이어 보낸 추가 발송(사슬)은 각각 회수해야 한다(전수조사 D-3). -->
+      <div id="broadcastWithdrawNote" style="font-size:12px;color:var(--muted);line-height:1.7">회수하면 이 발송의 수신자 화면에서 이 메시지가 가려집니다.</div>
       <label style="font-size:13px;color:var(--muted)">회수 사유
         <select id="broadcastWithdrawReason" class="admin-select" style="width:100%;margin-top:6px"></select>
       </label>
@@ -9927,8 +9929,14 @@ function logAppError(context, err, expectedCodes) {
 //    그냥 더하면 그 건이 통째로 사라진다.
 // ⚠️ 정산 행이 아직 없는 「미등록」 목록에는 이 칸 자체가 없다 — 그때도 계산 금액을
 //    돌려주므로 같은 함수를 그대로 쓸 수 있다.
+// ⚠️ **정산대기(pending) 행은 실제 송금액을 무시한다**(2026-09-07, 전수조사 B-1). 정산대기는
+//    「아직 안 보낸」 상태라 그 칸에 값이 있으면 옛 송금(보류→해제로 돌아온 행)의 잔재다.
+//    서버(마이그레이션 416)가 보류 해제 때 그 칸을 비우므로 정상이면 여기 안 걸린다 — 이 줄은
+//    이미 어긋난 행이 있어도 지급 준비 합계가 옛 금액으로 잡히지 않게 하는 안전판이다.
+//    ⚠️ 상태가 없는 「미등록」 행(정산 행 자체가 없다)은 이 조건에 안 걸리고 계산 금액으로 간다.
 function settlementEffectiveAmount(s) {
   if (!s) return 0;
+  if (s.status === 'pending') return Number(s.amount_jpy) || 0;
   const actual = s.paid_amount_jpy;
   return Number((actual === null || actual === undefined) ? s.amount_jpy : actual) || 0;
 }
@@ -15926,8 +15934,16 @@ async function fetchEventTicketsByCampaign(campaignId) {
 
 // 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
 // 필요 없는 곳까지 흘러가므로 건수만 받는다.
+// 🔴 **실패는 `null`, 진짜 0건은 `0`**(2026-09-07, 전수조사 F-1). 예전에는 실패도 0 을 돌려줬는데,
+//    이 값을 보는 안전 게이트 넷(접수 방식 잠금·「비공개」 끄기·행사 모드 끄기·방식 변경 저장)이
+//    전부 「0 = 예약 없음 = 바꿔도 된다」로 읽어 **조회가 죽는 순간 넷이 동시에 열렸다** —
+//    선정형으로 받은 예약이 있는 캠페인이 경고 없이 선착순형으로 저장되고, 되돌릴 화면 경로가 없다.
+//    호출부의 try/catch 는 여기서 오류를 삼켰으므로 **도달하지 않았다.**
+//    부르는 쪽은 `null` 이면 **막는 쪽**으로 기운다. 캠페인 id 가 없으면(신규 폼) 예약이 있을 수
+//    없으니 0 이 맞다.
 async function countActiveEventTickets(campaignId) {
-  if (!db || !campaignId) return 0;
+  if (!campaignId) return 0;
+  if (!db) return null;
   try {
     const {count, error} = await db.from('event_tickets')
       .select('id', {count: 'exact', head: true})
@@ -15935,7 +15951,7 @@ async function countActiveEventTickets(campaignId) {
       .neq('status', 'cancelled');
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
+  } catch(e) { console.warn('[countActiveEventTickets]', e); return null; }   // 🔴 0 으로 바꾸지 말 것
 }
 
 // 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.
@@ -27565,6 +27581,28 @@ async function confirmBulkFollowup() {
 // ── 일괄 회수 ──
 async function openBroadcastWithdraw() {
   if (!_curBroadcastDetail) return;
+  // 🔴 안내문은 사실대로 — 회수(withdraw_broadcast, 167)는 **이 발송 1건**의 수신자만 가린다.
+  //    추가 발송(388~391)으로 사슬이 생긴 뒤에도 함수는 단건 그대로라, 예전 문구
+  //    「받은 사람 모두의 화면에서」는 사슬이 있을 때 거짓이었다(전수조사 D-3).
+  //    되돌릴 수 없는 조치라 무엇이 가려지고 무엇이 남는지를 누르기 전에 말한다.
+  //    ⚠️ 사슬 전체를 한 번에 회수하는 선택지는 일부러 안 뒀다 — 추가 발송은 본문을 따로
+  //       쓸 수 있어 「같은 메시지」라는 보장이 없다(2026-09-07 사용자 결정).
+  const _b = _curBroadcastDetail.broadcast || {};
+  const _c = _b.chain || {};
+  const _cnt = Number(_b.recipient_count) || 0;
+  const _inChain = !!_b.parent_broadcast_id || Number(_c.followup_count) > 0;
+  const _noteEl = document.getElementById('broadcastWithdrawNote');
+  if (_noteEl) {
+    let _html = `회수하면 <b>이 발송의 수신자 ${_cnt}건</b>의 화면에서만 이 메시지가 가려집니다. 되돌릴 수 없습니다.`;
+    if (_inChain) {
+      // ⚠️ 건수를 안 적는다 — followup_count 는 사슬 전체의 추가 발송 수라, 보고 있는 것이 그 유일한
+      //    추가 발송이면 「추가 발송 1건」이 자기 자신을 가리켜 「또 확인할 것이 있나」로 오독된다.
+      _html += `<div style="margin-top:8px;padding:8px 10px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:6px;color:#9A3412;display:flex;gap:6px;align-items:flex-start">`
+        + `<span class="material-icons-round notranslate" translate="no" style="font-size:16px;flex-shrink:0">warning</span>`
+        + `<span>이 발송은 추가 발송으로 이어진 사슬의 일부입니다. 사슬의 다른 발송(원래 발송·다른 추가 발송)의 수신자는 <b>그대로 봅니다</b> — 그 발송을 각각 열어 회수해야 합니다.</span></div>`;
+    }
+    _noteEl.innerHTML = _html;
+  }
   const sel = document.getElementById('broadcastWithdrawReason');
   const reasons = await loadHideReasons();
   sel.innerHTML = reasons.map(r => `<option value="${r.code}">${esc(r.name_ko || r.name_ja || r.code)}</option>`).join('');
@@ -42949,11 +42987,22 @@ async function refreshSelectionModeLock(campId) {
 
   let n = 0;
   try { n = await countActiveEventTickets(campId); }
-  catch (e) { console.warn('[refreshSelectionModeLock]', e); return; }
+  catch (e) { console.warn('[refreshSelectionModeLock]', e); n = null; }
 
   // ⚠️ 그 사이 다른 캠페인으로 넘어갔으면 이 답은 버린다. 늦게 도착한 답이 지금 화면을
   //    덮으면 **다른 캠페인의 예약 건수로 이 캠페인이 잠긴다**.
   if (($('editCampId')?.value || '') !== campId) return;
+  // 🔴 `null` = 못 물어봤다(F-1). 0 으로 읽으면 잠금이 풀려 예약 있는 캠페인의 방식이 바뀐다.
+  //    확인될 때까지 **잠근다** — 저장 직전 게이트(admin.js)도 같은 값으로 한 번 더 막는다.
+  if (n === null) {
+    _selectionModeLocked.edit = true;
+    _setSelectionModeDisabled('edit', true);
+    if (note) {
+      note.style.display = '';
+      note.innerHTML = `예약 건수를 확인하지 못해 접수 방식을 잠갔습니다. 잠시 뒤 캠페인을 다시 열어 주세요.`;
+    }
+    return;
+  }
   if (n <= 0) return;
 
   _selectionModeLocked.edit = true;
@@ -43022,7 +43071,20 @@ async function onInviteOnlyToggle(prefix) {
     try {
       tk = (campId && typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
-    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = 0; }
+    } catch (e) { console.warn('[onInviteOnlyToggle]', e); tk = null; }
+    // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 모르면 끄지 못하게 한다 — 끄는 순간 방식이
+    //    선착순형으로 되돌아가 이미 받은 예약의 뜻이 바뀌는데, 되돌릴 길이 화면에 없다.
+    if (tk === null) {
+      el.checked = true;
+      applyInviteOnlyRow(prefix);
+      applySelectionModeVisibility(prefix);
+      const _el = $('alertModalMessage');
+      if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">
+        예약 건수를 확인하지 못해 「비공개」를 끌 수 없습니다.<br>잠시 뒤 다시 시도해 주세요.
+      </div>`;
+      if (typeof openModal === 'function') openModal('alertModal');
+      return;
+    }
     if (tk > 0) {
       el.checked = true;                     // 되돌린다 — 켠 상태가 사실이다
       applyInviteOnlyRow(prefix);
@@ -49270,6 +49332,13 @@ async function saveCampaignEdit() {
     if (_editCampOriginal?.event_mode && !_isEventEdit) {
       const _tk = (typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
+      // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 0 으로 읽으면 이 게이트가 열린다 — 막는다.
+      if (_tk === null) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">예약 건수를 확인하지 못해 「오프라인 행사 캠페인」을 끌 수 없습니다.<br>잠시 뒤 다시 저장해 주세요.</div>`;
+        openModal('alertModal');
+        return;
+      }
       if (_tk > 0) {
         const _el = $('alertModalMessage');
         // ⚠️ 이 모달은 가운데 정렬이다(다른 알림과 공용). 목록을 그대로 넣으면 글머리
@@ -49302,6 +49371,13 @@ async function saveCampaignEdit() {
     if (_selModeSaved !== _selModeEdit) {
       const _tk2 = (typeof countActiveEventTickets === 'function')
         ? await countActiveEventTickets(campId) : 0;
+      // 🔴 `null` = 예약 건수를 못 물어봤다(F-1). 방식 변경은 되돌릴 수 없으니 모르면 막는다.
+      if (_tk2 === null) {
+        const _el = $('alertModalMessage');
+        if (_el) _el.innerHTML = `<div style="font-size:13px;line-height:1.75">예약 건수를 확인하지 못해 접수 방식을 바꿀 수 없습니다.<br>잠시 뒤 다시 저장해 주세요.</div>`;
+        openModal('alertModal');
+        return;
+      }
       if (_tk2 > 0) {
         const _el = $('alertModalMessage');
         const _nm = m => (m === 'selection' ? '선정형' : '선착순형');
