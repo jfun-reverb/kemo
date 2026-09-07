@@ -565,6 +565,49 @@ var _ganttLeftCollapsed = false;
 try { _ganttLeftCollapsed = localStorage.getItem(GANTT_LEFT_KEY) === 'collapsed'; } catch(e) {}
 // 빠른 필터 칩 — '' | 'deadline7'(마감 7일 이내) | 'submitShort'(제출 미달) | 'certShort'(인증 미달)
 var _ganttQuick = '';
+// 머리글 클릭 정렬(2026-09-07 사용자 요청) — 캠페인 관리 목록의 ▲▼ 방식. key 가 null 이면 기본(마감 가까운 순, 결정 8)
+//   같은 머리글을 다시 누르면 오름 → 내림 → 기본 순으로 돈다. 브라우저 기억은 안 한다(정렬은 그때그때 보는 것)
+var _ganttSort = { key: null, dir: 'asc' };
+var GANTT_SORT_COLS = { title: '캠페인', brand: '브랜드', status: '상태', appr: '승인/모집', submitted: '제출/승인', cert: '인증' };
+var GANTT_STATUS_RANK = { scheduled: 0, active: 1, closed: 2, ended: 3, expired: 4 };
+function toggleGanttSort(key) {
+  if (!GANTT_SORT_COLS[key]) return;
+  if (_ganttSort.key !== key) _ganttSort = { key: key, dir: 'asc' };
+  else if (_ganttSort.dir === 'asc') _ganttSort.dir = 'desc';
+  else _ganttSort = { key: null, dir: 'asc' };
+  renderBrandOpsSchedule();
+}
+function ganttSortArrows(key) {
+  var on = _ganttSort.key === key;
+  return '<span class="sort-arrows' + (on ? ' ' + _ganttSort.dir : '') + '" onclick="toggleGanttSort(\'' + key + '\')" title="' + esc(GANTT_SORT_COLS[key]) + ' 기준 정렬">' + (on ? (_ganttSort.dir === 'asc' ? '▲' : '▼') : '▲▼') + '</span>';
+}
+// 정렬값 — 왼쪽 열에 보이는 값과 같은 재료. 숫자 칸이 「—」(값 없음)인 행은 방향과 무관하게 뒤로
+function ganttSortValue(key, c, stats) {
+  if (key === 'title') return (c.title || '').toLowerCase();
+  if (key === 'brand') return brandLabelAdmin(c).toLowerCase();
+  if (key === 'status') return GANTT_STATUS_RANK[c.status] ?? 9;
+  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
+  var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
+  if (key === 'appr') return appr;
+  if (!stats) return null;
+  if (key === 'submitted') return (appr === null || appr <= 0) ? null : stats.submittedInf;
+  if (key === 'cert') return stats.cert;
+  return null;
+}
+function ganttSortList(list, statsMap) {
+  var key = _ganttSort.key, dir = _ganttSort.dir === 'desc' ? -1 : 1;
+  if (!key) return list;
+  return list.slice().sort(function(a, b){
+    var va = ganttSortValue(key, a, statsMap ? statsMap[a.id] : null), vb = ganttSortValue(key, b, statsMap ? statsMap[b.id] : null);
+    var na = va === null || va === undefined, nb = vb === null || vb === undefined;
+    if (na && nb) return 0;
+    if (na) return 1;                 // 값 없는 행은 뒤로(방향 무관 — 인증 성공일 열과 같은 규약)
+    if (nb) return -1;
+    if (va < vb) return -dir;
+    if (va > vb) return dir;
+    return 0;
+  });
+}
 var GANTT_QUICK_CHIPS = [
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
   { code: 'submitShort', label: '제출 미달',     needStats: true },
@@ -923,7 +966,6 @@ function renderScheduleRow(c, range, stats) {
   var submitted = (stats && appr !== null && appr > 0) ? stats.submittedInf : null;
   var cert = stats ? stats.cert : null;
   var pending = stats === undefined;
-  var canEdit = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
   var idJs = esc(String(c.id));
   return '<div class="gantt-row">'
     + '<div class="gantt-left">'
@@ -934,7 +976,6 @@ function renderScheduleRow(c, range, stats) {
     +   '<div class="gantt-cell c-num">' + (appr === null ? _ganttNum(null) : (appr + '/' + slots)) + '</div>'
     +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (submitted === null ? _ganttNum(null) : (submitted + '/' + appr))) + '</div>'
     +   '<div class="gantt-cell c-num">' + (pending ? '<span style="color:var(--faint)">…</span>' : (cert === null ? _ganttNum(null) : (cert + '/' + slots))) + '</div>'
-    +   '<div class="gantt-cell c-edit">' + (canEdit ? '<button type="button" class="btn btn-ghost btn-xs" onclick="openEditCampaign(\'' + idJs + '\')">편집</button>' : '') + '</div>'
     + '</div>'
     + renderGanttTrack(c, range, ganttCountsText(c, stats))
     + '</div>';
@@ -951,8 +992,8 @@ function renderGanttLegend() {
 
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
-    + '<div class="gantt-cell c-title">캠페인</div><div class="gantt-cell c-brand">브랜드</div><div class="gantt-cell c-type">형식 · 채널</div><div class="gantt-cell c-status">상태</div>'
-    + '<div class="gantt-cell c-num" title="승인된 인플루언서 / 모집인원">승인/모집</div><div class="gantt-cell c-num" title="결과물을 1건 이상 낸 인플루언서 / 승인">제출/승인</div><div class="gantt-cell c-num" title="인증 성공 인플루언서 / 모집인원">인증</div><div class="gantt-cell c-edit"></div>'
+    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-brand">브랜드 ' + ganttSortArrows('brand') + '</div><div class="gantt-cell c-type">형식 · 채널</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
+    + '<div class="gantt-cell c-num" title="승인된 인플루언서 / 모집인원">승인/모집 ' + ganttSortArrows('appr') + '</div><div class="gantt-cell c-num" title="결과물을 1건 이상 낸 인플루언서 / 승인">제출/승인 ' + ganttSortArrows('submitted') + '</div><div class="gantt-cell c-num" title="인증 성공 인플루언서 / 모집인원">인증 ' + ganttSortArrows('cert') + '</div>'
     + '</div>' + renderGanttAxis(range);
 }
 
@@ -1085,6 +1126,7 @@ function renderBrandOpsSchedule() {
   if (_ganttQuick && ganttQuickNeedsStats(_ganttQuick) && !quickStats) _ganttQuick = '';
   renderGanttQuickChips(preList, stPre);
   var list = _ganttQuick ? preList.filter(function(c){ return ganttQuickMatch(_ganttQuick, c, quickStats[c.id]); }) : preList;
+  list = ganttSortList(list, quickStats);   // 머리글 정렬(없으면 기본 마감 순 그대로)
   if (count) count.textContent = '(' + list.length + ' / 대상 ' + target.length + ')';
   ensureGanttTipHandlers();
   ensureGanttGuideHandlers();
