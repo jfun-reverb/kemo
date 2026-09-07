@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788782805';
+  var CURRENT_BUILD = 'v1788784216';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2923,8 +2923,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* hidden 속성으로 뷰·필터 요소를 켜고 끈다 — .admin-filter-group·.brand-ops-grid 의 display 규칙이
    브라우저 기본 [hidden] 을 이겨 안 숨겨지므로 이 페인 안에서만 !important 로 되살린다 */
 #adminPane-brand-ops [hidden]{display:none!important}
-.gantt-scroll{overflow-x:scroll;overflow-y:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative}
-.gantt-scroll::-webkit-scrollbar{height:12px}
+/* 세로 스크롤도 이 상자가 맡는다(max-height 는 fitGanttHeight 가 화면에 맞춰 준다) — 그래야 .gantt-head 의 sticky 가 세로에도 듣는다 */
+.gantt-scroll{overflow-x:scroll;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative}
+.gantt-scroll::-webkit-scrollbar{height:12px;width:12px}
 .gantt-scroll::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
 .gantt-scroll::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
 .gantt-scroll::-webkit-scrollbar-thumb:hover{background:#999}
@@ -2942,13 +2943,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
 .gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
-.gantt-axis,.gantt-track{position:relative;flex-shrink:0;background:var(--surface)}
+.gantt-axis,.gantt-track{position:relative;flex-shrink:0;background-color:var(--surface)}
 .gantt-axis{height:40px}
 .gantt-axis .gm{position:absolute;top:4px;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;padding-left:4px;border-left:1px solid var(--line)}
 .gantt-axis .gw{position:absolute;top:22px;font-size:10px;color:var(--muted);white-space:nowrap;padding-left:3px;border-left:1px solid var(--surface-dim);height:16px}
 .gantt-axis .gt{position:absolute;top:4px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%);background:var(--surface);padding:0 3px;border-radius:3px;z-index:1}   /* 월 이름표 줄에 둔다 — 주 이름표(9/7)와 같은 줄이면 「오늘7」로 겹친다(개발서버 실측) */
 /* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
-.gantt-track{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-week,70px))}
+/* 주 눈금(첫 겹) + 주말 음영(둘째 겹, 토·일 = 월요일 기준 5~7일째). 두 겹 다 --gantt-off(첫 월요일 x)만큼 밀어 맞춘다.
+   월 단위에서는 --gantt-grid 가 4주(28일)로 넓어져 선이 성기게 그어진다 */
+.gantt-track,.gantt-axis{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-grid,70px)),repeating-linear-gradient(to right,transparent 0,transparent calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 7));background-position-x:var(--gantt-off,0px);background-repeat:repeat-x}
 .gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
 /* 농도 3단은 opacity 가 아니라 배경색으로 — opacity 는 막대 안 이름표까지 같이 흐려져 옅은 막대의 글자가 안 보인다(개발서버 실측) */
 .gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:#3F3F46;box-sizing:border-box}
@@ -2980,6 +2983,18 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-legend .gantt-today.lg{position:static;display:inline-block;height:12px;width:0}
 /* 즉시 툴팁 — 기본 title 의 1초 지연 대신. body 끝에 하나만 두고 위임으로 채운다 */
 .gantt-tip{position:fixed;z-index:900;background:var(--ink);color:var(--surface);font-size:11px;line-height:1.55;padding:6px 10px;border-radius:6px;white-space:pre-line;max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
+/* 편의 기능(2026-09-07 조사 반영) — 줌 단위·왼쪽 열 접기·빠른 필터 칩·마우스 날짜 안내선 */
+.gantt-zoom{display:inline-flex;gap:2px}
+.gantt-scroll.left-collapsed .gantt-cell.c-brand,.gantt-scroll.left-collapsed .gantt-cell.c-type,.gantt-scroll.left-collapsed .gantt-cell.c-num,.gantt-scroll.left-collapsed .gantt-cell.c-edit{display:none}
+.gantt-quick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
+.gantt-chip-label{font-size:11px;color:var(--muted);margin-right:2px}
+.gantt-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:pointer;line-height:1.4}
+.gantt-chip:hover{background:var(--surface-dim)}
+.gantt-chip.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.gantt-chip.on .tab-count{color:var(--surface);opacity:.8}
+.gantt-chip:disabled{color:var(--faint);cursor:default;background:var(--surface-container-low)}
+.gantt-guide{position:fixed;z-index:850;background:rgba(98,94,189,.10);border-left:1px dashed var(--accent);pointer-events:none}
+.gantt-guide-date{position:absolute;top:2px;left:4px;font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap;box-shadow:0 0 0 1px var(--line)}
 
 </style>
 </head>
@@ -3078,7 +3093,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-07 21:06 · d59c2e3</span>
+          <span class="admin-build-text">2026-09-07 21:30 · f3a21e2</span>
         </div>
       </div>
     </aside>
@@ -5250,9 +5265,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
                 <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
                 <div id="brandOpsRangeNav" style="display:flex;align-items:center;gap:4px;padding-bottom:2px">
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-4)" title="4주 전으로(과거)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-1)" title="과거로 이동"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_left</span></button>
                   <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(4)" title="4주 후로(미래)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(1)" title="미래로 이동"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">chevron_right</span></button>
+                  <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+                  <div id="brandOpsZoom" class="gantt-zoom" title="시간축 단위"></div>
+                  <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+                  <button type="button" class="btn btn-ghost btn-xs" id="brandOpsLeftToggle" onclick="toggleGanttLeft()"></button>
                 </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
@@ -5265,6 +5284,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <!-- 일정 뷰(간트). 왼쪽 열은 sticky 로 고정, 시간축만 가로 스크롤 -->
           <div id="brandOpsScheduleWrap" hidden>
             <div id="brandOpsScheduleNote" style="font-size:11px;color:var(--muted);margin-bottom:6px" hidden></div>
+            <div class="gantt-quick" id="brandOpsQuickChips"></div>
             <div class="gantt-legend" id="brandOpsGanttLegend"></div>
             <div class="gantt-scroll" id="brandOpsGanttScroll">
               <div class="gantt-head" id="brandOpsAxis"></div>
@@ -25820,9 +25840,32 @@ var _brandOpsDelivCache = {};            // 대상 집합 열쇠('base'|'all') �
 var _brandOpsDelivToken = 0;
 var GANTT_BASE_STATUSES = ['scheduled', 'active', 'closed'];   // 결정 4 — draft·삭제된 캠페인은 어느 쪽에도 없다
 var GANTT_ENDED_STATUSES = ['ended', 'expired'];
-var GANTT_DAY_PX = 10;                   // 하루 폭. 85일 = 850px (S1)
-var GANTT_RANGE = { before: 14, after: 70 };   // 기준일 -14일 ~ +70일(12주)
+// 줌 단위(2026-09-07 편의 기능) — 하루 폭과 표시 범위를 함께 정한다. 세 단위 모두 약 840~850px.
+//   ⚠️ GANTT_DAY_PX·GANTT_RANGE 는 setGanttZoom 이 갱신하는 값이다 — 상수처럼 읽되 직접 대입하지 말 것.
+var GANTT_ZOOMS = {
+  day:   { px: 10,  before: 14, after: 70,  shiftWeeks: 4,  label: '일' },   // 12주
+  week:  { px: 5,   before: 28, after: 140, shiftWeeks: 8,  label: '주' },   // 24주
+  month: { px: 2.5, before: 56, after: 280, shiftWeeks: 16, label: '월' },   // 48주
+};
+var GANTT_ZOOM_KEY = 'reverb.brandOps.ganttZoom';
+var _ganttZoom = 'day';
+try { var _z = localStorage.getItem(GANTT_ZOOM_KEY); if (GANTT_ZOOMS[_z]) _ganttZoom = _z; } catch(e) {}
+var GANTT_DAY_PX = GANTT_ZOOMS[_ganttZoom].px;
+var GANTT_RANGE = { before: GANTT_ZOOMS[_ganttZoom].before, after: GANTT_ZOOMS[_ganttZoom].after };
 var _ganttBaseYmd = null;                // null 이면 오늘
+var _ganttCurrentRange = null;           // 마지막으로 그린 범위 — 마우스 날짜 안내선이 읽는다
+// 왼쪽 열 접기(노트북에서 시간축이 좁을 때) — 캠페인명·상태만 남긴다. 브라우저 단위 기억
+var GANTT_LEFT_KEY = 'reverb.brandOps.ganttLeft';
+var _ganttLeftCollapsed = false;
+try { _ganttLeftCollapsed = localStorage.getItem(GANTT_LEFT_KEY) === 'collapsed'; } catch(e) {}
+// 빠른 필터 칩 — '' | 'deadline7'(마감 7일 이내) | 'submitShort'(제출 미달) | 'certShort'(인증 미달)
+var _ganttQuick = '';
+var GANTT_QUICK_CHIPS = [
+  { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
+  { code: 'submitShort', label: '제출 미달',     needStats: true },
+  { code: 'certShort',   label: '인증 미달',     needStats: true },
+];
+function ganttQuickNeedsStats(code) { var d = GANTT_QUICK_CHIPS.find(function(x){ return x.code === code; }); return !!(d && d.needStats); }
 
 try { var _v = localStorage.getItem(BRAND_OPS_VIEW_KEY); if (_v === 'cards' || _v === 'schedule') _brandOpsView = _v; } catch(e) {}
 
@@ -25884,6 +25927,7 @@ function brandOpsScheduleTargetCampaigns() {
 //         브랜드가 빈 캠페인은 「전체」에서만 보이고, 회사를 고르면 빠진다. 「미분류」는 브랜드는 있는데 회사가 없는 것.
 //   검색: 캠페인명 · 캠페인 번호 · 브랜드명(브랜드 뷰의 브랜드명·회사명·브랜드번호와 다르다 — 행이 캠페인이라).
 //   정렬: 모집 마감일 가까운 순(마감 없음은 뒤). 「종료 포함」이면 종료 건은 제출 마감 최근 순으로 뒤에.
+// 빠른 필터 칩은 여기서 걸지 않는다 — 칩의 건수를 이 결과로 세야 하므로 본체(renderBrandOpsSchedule)가 그 뒤에 건다
 function brandOpsScheduleCampaigns() {
   var companyF = $('brandOpsCompanyFilter')?.value || '';
   var q = (($('brandOpsSearch')?.value) || '').trim().toLowerCase();
@@ -25952,13 +25996,80 @@ function ganttRange() {
   return { base: base, start: start, end: end, days: GANTT_RANGE.before + GANTT_RANGE.after + 1, width: (GANTT_RANGE.before + GANTT_RANGE.after + 1) * GANTT_DAY_PX };
 }
 function ganttX(range, ymd) { return ganttDayOffset(range.start, ymd) * GANTT_DAY_PX; }
-function ganttShift(weeks) { var r = ganttRange(); _ganttBaseYmd = ganttAddDays(r.base, weeks * 7); renderBrandOpsSchedule(); }
+function ganttShift(dir) { var r = ganttRange(); _ganttBaseYmd = ganttAddDays(r.base, dir * GANTT_ZOOMS[_ganttZoom].shiftWeeks * 7); renderBrandOpsSchedule(); }
 function ganttToday() { _ganttBaseYmd = null; renderBrandOpsSchedule(); }
+function setGanttZoom(zoom) {
+  if (!GANTT_ZOOMS[zoom]) return;
+  _ganttZoom = zoom;
+  GANTT_DAY_PX = GANTT_ZOOMS[zoom].px;
+  GANTT_RANGE = { before: GANTT_ZOOMS[zoom].before, after: GANTT_ZOOMS[zoom].after };
+  try { localStorage.setItem(GANTT_ZOOM_KEY, zoom); } catch(e) {}
+  renderBrandOpsSchedule();
+}
+function renderGanttZoomButtons() {
+  var box = $('brandOpsZoom');
+  if (!box) return;
+  box.innerHTML = Object.keys(GANTT_ZOOMS).map(function(k){
+    var on = k === _ganttZoom;
+    return '<button type="button" class="btn btn-xs ' + (on ? 'btn-primary' : 'btn-ghost') + '" onclick="setGanttZoom(\'' + k + '\')" title="' + esc(GANTT_ZOOMS[k].label) + ' 단위로 보기" aria-pressed="' + on + '">' + esc(GANTT_ZOOMS[k].label) + '</button>';
+  }).join('');
+}
+function toggleGanttLeft() {
+  _ganttLeftCollapsed = !_ganttLeftCollapsed;
+  try { localStorage.setItem(GANTT_LEFT_KEY, _ganttLeftCollapsed ? 'collapsed' : 'open'); } catch(e) {}
+  applyGanttLeftState();
+}
+function applyGanttLeftState() {
+  var sc = $('brandOpsGanttScroll'), btn = $('brandOpsLeftToggle');
+  if (sc) sc.classList.toggle('left-collapsed', _ganttLeftCollapsed);
+  if (btn) {
+    btn.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">' + (_ganttLeftCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left') + '</span>';
+    btn.title = _ganttLeftCollapsed ? '왼쪽 열 펼치기' : '왼쪽 열 접기(캠페인명·상태만 남김)';
+  }
+}
+function setGanttQuick(code) {
+  _ganttQuick = (_ganttQuick === code) ? '' : (code || '');
+  renderBrandOpsSchedule();
+}
+// 빠른 필터 판정 — 왼쪽 열·툴팁과 같은 재료. stats 가 없으면(집계 중·실패) 제출·인증 칩은 판정 불가
+function ganttQuickMatch(code, c, stats) {
+  if (!code) return true;
+  if (code === 'deadline7') {
+    if (GANTT_ENDED_STATUSES.indexOf(c.status) >= 0 || !c.deadline) return false;
+    var t = ganttTodayYmd();
+    return c.deadline >= t && c.deadline <= ganttAddDays(t, 7);
+  }
+  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
+  var appr = ac ? ac.approved : 0;
+  if (!stats || appr <= 0) return false;
+  if (code === 'submitShort') return stats.submittedInf < appr;
+  if (code === 'certShort') return stats.cert < appr;
+  return true;
+}
+function renderGanttQuickChips(list, st) {
+  var box = $('brandOpsQuickChips');
+  if (!box) return;
+  var defs = GANTT_QUICK_CHIPS;
+  var statsReady = st && !st.pending && st.stats !== null;
+  box.innerHTML = '<span class="gantt-chip-label">빠른 필터</span>' + defs.map(function(d){
+    var disabled = d.needStats && !statsReady;
+    var n = disabled ? null : list.filter(function(c){ return ganttQuickMatch(d.code, c, statsReady ? st.stats[c.id] : null); }).length;
+    var on = _ganttQuick === d.code;
+    return '<button type="button" class="gantt-chip' + (on ? ' on' : '') + '" ' + (disabled ? 'disabled title="결과물 집계가 끝나면 쓸 수 있습니다"' : '') + ' onclick="setGanttQuick(\'' + d.code + '\')" aria-pressed="' + on + '">'
+      + esc(d.label) + '<span class="tab-count">(' + (n === null ? '…' : n) + ')</span></button>';
+  }).join('');
+}
 
 // ---- 시간축 머리 ----
+// 격자 주기(일) — 주 폭이 35px 미만(월 단위)이면 4주마다 선을 긋고 주 이름표는 생략한다(빽빽해서 못 읽는다)
+function ganttGridDays() { return (7 * GANTT_DAY_PX >= 35) ? 7 : 28; }
+function ganttTrackStyle(range) {
+  return 'width:' + range.width + 'px;--gantt-day:' + GANTT_DAY_PX + 'px;--gantt-grid:' + (ganttGridDays() * GANTT_DAY_PX) + 'px;--gantt-off:' + (range.gridOffset || 0) + 'px';
+}
 function renderGanttAxis(range) {
   var html = '';
-  var firstMonday = null;
+  var firstMonday = null, weekN = 0;
+  var showWeeks = ganttGridDays() === 7;
   for (var i = 0; i < range.days; i++) {
     var d = ganttAddDays(range.start, i);
     var x = i * GANTT_DAY_PX;
@@ -25967,7 +26078,9 @@ function renderGanttAxis(range) {
     }
     if (_ganttWeekday(d) === 1) {
       if (firstMonday === null) firstMonday = x;
-      html += '<span class="gw" style="left:' + x + 'px">' + (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)) + '</span>';
+      // 월 단위에서는 4주마다 하나만(격자와 같은 자리)
+      if (showWeeks || weekN % 4 === 0) html += '<span class="gw" style="left:' + x + 'px">' + (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)) + '</span>';
+      weekN++;
     }
   }
   var today = ganttTodayYmd();
@@ -25975,7 +26088,7 @@ function renderGanttAxis(range) {
   // 「오늘」 이름표는 월 이름표 줄에 있다 — 오늘이 그달 1일이면 「9월」과 같은 자리라 글자만 생략한다(세로선은 그대로).
   if (tx >= 0 && tx < range.width && today.slice(8, 10) !== '01') html += '<span class="gt" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px">오늘</span>';
   range.gridOffset = firstMonday === null ? 0 : firstMonday;
-  return '<div class="gantt-axis" style="width:' + range.width + 'px">' + html + '</div>';
+  return '<div class="gantt-axis" id="brandOpsGanttAxisTrack" style="' + ganttTrackStyle(range) + '">' + html + '</div>';
 }
 
 // ---- 그릴 것 목록(설계 5) ----
@@ -26049,7 +26162,7 @@ function ganttCountsText(c, stats) {
 // 시간축 칸(설계 4 「범위 밖 처리」 + 설계 5 막대). counts = 툴팁에 붙일 건수 문장
 function renderGanttTrack(c, range, counts) {
   var segs = ganttSegmentsFor(c);
-  var style = 'width:' + range.width + 'px;--gantt-week:' + (7 * GANTT_DAY_PX) + 'px;background-position-x:' + (range.gridOffset || 0) + 'px';
+  var style = ganttTrackStyle(range);
   var html = '';
   var today = ganttTodayYmd(), tx = ganttX(range, today);
   if (tx >= 0 && tx < range.width) html += '<div class="gantt-today" style="left:' + (tx + GANTT_DAY_PX / 2) + 'px"></div>';
@@ -26211,30 +26324,84 @@ function ensureGanttTipHandlers() {
   document.addEventListener('scroll', function(){ tipEl.hidden = true; }, true);
 }
 
+// 마우스를 따라오는 날짜 안내선 — 막대가 없는 빈칸에서도 「이 자리가 며칠인가」를 바로 안다(Linear 방식). 툴팁과 별개로 1회 바인딩
+var _ganttGuideBound = false;
+function ensureGanttGuideHandlers() {
+  if (_ganttGuideBound) return;
+  var sc = $('brandOpsGanttScroll');
+  if (!sc) return;
+  _ganttGuideBound = true;
+  var guide = document.createElement('div');
+  guide.className = 'gantt-guide';
+  guide.hidden = true;
+  guide.innerHTML = '<span class="gantt-guide-date"></span>';
+  document.body.appendChild(guide);
+  var WD = ['일', '월', '화', '수', '목', '금', '토'];
+  var moveGuide = function(e) {
+    var range = _ganttCurrentRange, axis = $('brandOpsGanttAxisTrack');
+    if (!range || !axis || !sc) { guide.hidden = true; return; }
+    var ar = axis.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    var idx = Math.floor((e.clientX - ar.left) / GANTT_DAY_PX);
+    if (idx < 0 || idx >= range.days || e.clientX > sr.right - 12) { guide.hidden = true; return; }   // 왼쪽 열·스크롤바 위에서는 숨김
+    var d = ganttAddDays(range.start, idx);
+    guide.style.left = (ar.left + idx * GANTT_DAY_PX) + 'px';
+    guide.style.width = GANTT_DAY_PX + 'px';
+    guide.style.top = sr.top + 'px';
+    guide.style.height = Math.min(sr.height, window.innerHeight - sr.top) + 'px';
+    guide.firstChild.textContent = (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)) + '(' + WD[_ganttWeekday(d)] + ')';
+    guide.hidden = false;
+  };
+  sc.addEventListener('mousemove', moveGuide);
+  sc.addEventListener('mouseleave', function(){ guide.hidden = true; });
+  document.addEventListener('scroll', function(){ guide.hidden = true; }, true);
+}
+
+// 간트 상자 높이를 화면에 맞춘다 — 시간축 머리글이 세로 스크롤 때도 붙어 있으려면 세로 스크롤을 이 상자가 맡아야 한다.
+//   (그 전에는 바깥 페인이 스크롤해 10행쯤 내려가면 월·주 눈금이 사라졌다 — 2026-09-07 조사 지적)
+function fitGanttHeight() {
+  var sc = $('brandOpsGanttScroll');
+  if (!sc || sc.offsetParent === null) return;
+  var top = sc.getBoundingClientRect().top;
+  sc.style.maxHeight = Math.max(240, window.innerHeight - top - 28) + 'px';
+}
+window.addEventListener('resize', function(){ if (_brandOpsView === 'schedule') fitGanttHeight(); });
+
 // ---- 일정 뷰 본체 ----
 function renderBrandOpsSchedule() {
   var rowsEl = $('brandOpsScheduleRows'), axisEl = $('brandOpsAxis'), note = $('brandOpsScheduleNote');
   if (!rowsEl || !axisEl) return;
   var count = $('brandOpsTotalCount');
   var target = brandOpsScheduleTargetCampaigns();
-  var list = brandOpsScheduleCampaigns();
+  // 빠른 필터는 결과물 통계가 있어야 판정된다 — 통계를 먼저 만들고(대상 집합 전체) 그다음 필터를 건다
+  var preList = brandOpsScheduleCampaigns();
+  var stPre = _scheduleStatsFor(target);
+  var quickStats = (!stPre.pending && stPre.stats !== null) ? stPre.stats : null;
+  // 통계가 없어졌으면(새로고침·종료 포함 전환) 통계에 기대는 칩만 내린다 — 「마감 7일 이내」는 그대로(리뷰 지적)
+  if (_ganttQuick && ganttQuickNeedsStats(_ganttQuick) && !quickStats) _ganttQuick = '';
+  renderGanttQuickChips(preList, stPre);
+  var list = _ganttQuick ? preList.filter(function(c){ return ganttQuickMatch(_ganttQuick, c, quickStats[c.id]); }) : preList;
   if (count) count.textContent = '(' + list.length + ' / 대상 ' + target.length + ')';
   ensureGanttTipHandlers();
+  ensureGanttGuideHandlers();
+  renderGanttZoomButtons();
+  applyGanttLeftState();
   var range = ganttRange();
   var legend = $('brandOpsGanttLegend');
   if (legend) legend.innerHTML = renderGanttLegend();
   axisEl.innerHTML = renderScheduleHead(range);
+  _ganttCurrentRange = range;
+  fitGanttHeight();
   if (typeof _campaignsLoadFailed !== 'undefined' && _campaignsLoadFailed) {
     rowsEl.innerHTML = '<div class="gantt-empty">캠페인을 불러오지 못했습니다 · 새로고침을 눌러 다시 시도해 주세요</div>';
     if (note) note.hidden = true;
     return;
   }
   if (!list.length) {
-    rowsEl.innerHTML = '<div class="gantt-empty">조건에 맞는 캠페인이 없습니다' + (_brandOpsIncludeEnded ? '' : '<div style="font-size:11px;margin-top:6px">종료된 캠페인은 「종료 포함」을 켜면 보입니다</div>') + '</div>';
+    rowsEl.innerHTML = '<div class="gantt-empty">조건에 맞는 캠페인이 없습니다' + (_ganttQuick ? '<div style="font-size:11px;margin-top:6px">빠른 필터를 다시 눌러 끄면 전체가 보입니다</div>' : (_brandOpsIncludeEnded ? '' : '<div style="font-size:11px;margin-top:6px">종료된 캠페인은 「종료 포함」을 켜면 보입니다</div>')) + '</div>';
     if (note) note.hidden = true;
     return;
   }
-  var st = _scheduleStatsFor(list);
+  var st = stPre;
   if (note) {
     if (st.stats === null) { note.textContent = '결과물을 불러오지 못해 제출·인증 칸을 비웠습니다. 새로고침을 눌러 다시 시도해 주세요'; note.hidden = false; }
     else note.hidden = true;

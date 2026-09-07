@@ -2435,8 +2435,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* hidden 속성으로 뷰·필터 요소를 켜고 끈다 — .admin-filter-group·.brand-ops-grid 의 display 규칙이
    브라우저 기본 [hidden] 을 이겨 안 숨겨지므로 이 페인 안에서만 !important 로 되살린다 */
 #adminPane-brand-ops [hidden]{display:none!important}
-.gantt-scroll{overflow-x:scroll;overflow-y:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative}
-.gantt-scroll::-webkit-scrollbar{height:12px}
+/* 세로 스크롤도 이 상자가 맡는다(max-height 는 fitGanttHeight 가 화면에 맞춰 준다) — 그래야 .gantt-head 의 sticky 가 세로에도 듣는다 */
+.gantt-scroll{overflow-x:scroll;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative}
+.gantt-scroll::-webkit-scrollbar{height:12px;width:12px}
 .gantt-scroll::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
 .gantt-scroll::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
 .gantt-scroll::-webkit-scrollbar-thumb:hover{background:#999}
@@ -2454,13 +2455,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
 .gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
-.gantt-axis,.gantt-track{position:relative;flex-shrink:0;background:var(--surface)}
+.gantt-axis,.gantt-track{position:relative;flex-shrink:0;background-color:var(--surface)}
 .gantt-axis{height:40px}
 .gantt-axis .gm{position:absolute;top:4px;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;padding-left:4px;border-left:1px solid var(--line)}
 .gantt-axis .gw{position:absolute;top:22px;font-size:10px;color:var(--muted);white-space:nowrap;padding-left:3px;border-left:1px solid var(--surface-dim);height:16px}
 .gantt-axis .gt{position:absolute;top:4px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%);background:var(--surface);padding:0 3px;border-radius:3px;z-index:1}   /* 월 이름표 줄에 둔다 — 주 이름표(9/7)와 같은 줄이면 「오늘7」로 겹친다(개발서버 실측) */
 /* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
-.gantt-track{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-week,70px))}
+/* 주 눈금(첫 겹) + 주말 음영(둘째 겹, 토·일 = 월요일 기준 5~7일째). 두 겹 다 --gantt-off(첫 월요일 x)만큼 밀어 맞춘다.
+   월 단위에서는 --gantt-grid 가 4주(28일)로 넓어져 선이 성기게 그어진다 */
+.gantt-track,.gantt-axis{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-grid,70px)),repeating-linear-gradient(to right,transparent 0,transparent calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 7));background-position-x:var(--gantt-off,0px);background-repeat:repeat-x}
 .gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
 /* 농도 3단은 opacity 가 아니라 배경색으로 — opacity 는 막대 안 이름표까지 같이 흐려져 옅은 막대의 글자가 안 보인다(개발서버 실측) */
 .gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:#3F3F46;box-sizing:border-box}
@@ -2492,3 +2495,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-legend .gantt-today.lg{position:static;display:inline-block;height:12px;width:0}
 /* 즉시 툴팁 — 기본 title 의 1초 지연 대신. body 끝에 하나만 두고 위임으로 채운다 */
 .gantt-tip{position:fixed;z-index:900;background:var(--ink);color:var(--surface);font-size:11px;line-height:1.55;padding:6px 10px;border-radius:6px;white-space:pre-line;max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
+/* 편의 기능(2026-09-07 조사 반영) — 줌 단위·왼쪽 열 접기·빠른 필터 칩·마우스 날짜 안내선 */
+.gantt-zoom{display:inline-flex;gap:2px}
+.gantt-scroll.left-collapsed .gantt-cell.c-brand,.gantt-scroll.left-collapsed .gantt-cell.c-type,.gantt-scroll.left-collapsed .gantt-cell.c-num,.gantt-scroll.left-collapsed .gantt-cell.c-edit{display:none}
+.gantt-quick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
+.gantt-chip-label{font-size:11px;color:var(--muted);margin-right:2px}
+.gantt-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:pointer;line-height:1.4}
+.gantt-chip:hover{background:var(--surface-dim)}
+.gantt-chip.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.gantt-chip.on .tab-count{color:var(--surface);opacity:.8}
+.gantt-chip:disabled{color:var(--faint);cursor:default;background:var(--surface-container-low)}
+.gantt-guide{position:fixed;z-index:850;background:rgba(98,94,189,.10);border-left:1px dashed var(--accent);pointer-events:none}
+.gantt-guide-date{position:absolute;top:2px;left:4px;font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap;box-shadow:0 0 0 1px var(--line)}
