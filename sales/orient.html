@@ -1246,6 +1246,9 @@ function cardHtmlNew(id, card) {
   const campAttr = card.campaign_id ? ` data-campaign-id="${escAttr(card.campaign_id)}"` : '';
   const linkedAttr = card.linked_existing ? ' data-linked-existing="1"' : '';
   const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
+  // 큐텐에서 불러온 값 4종(작업 23) — 카드 요소에 담아 두었다가 collectCardNew 가 sale 에 실어 보낸다. 값이 있을 때만 키를 만든다.
+  const lookupAttrs = ['goods_code', 'store_name', 'image_url', 'price_list']
+    .map(k => sale[k] != null && sale[k] !== '' ? ` data-sale-${k.replace('_', '-')}="${escAttr(String(sale[k]))}"` : '').join('');
 
   const reviewerBlock = (ft === 'reviewer') ? `
         <div class="field only-reviewer"><label>리뷰 가이드</label>
@@ -1278,7 +1281,7 @@ function cardHtmlNew(id, card) {
   // 시딩 예상 일정 안내 — 시작일을 넣으면 그 아래 계산값(저장하지 않는다 — 저장하면 「희망일」이 되살아난다)
   const scheduleHint = (ft === 'seeding') ? `<div class="cg-schedule-hint" data-schedule-hint></div>` : '';
 
-  return `<div class="ocard open" id="${id}" data-card-id="${id}" data-ctype="${escAttr(ft)}"${uidAttr}${campAttr}${linkedAttr}>
+  return `<div class="ocard open" id="${id}" data-card-id="${id}" data-ctype="${escAttr(ft)}"${uidAttr}${campAttr}${linkedAttr}${lookupAttrs}>
     <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
       <div class="ocard-head-main">
         <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>${chChip}
@@ -1296,7 +1299,8 @@ function cardHtmlNew(id, card) {
             <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
           <div class="field"><label>판매 URL<span class="req">*</span></label>
             <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
-            <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
+            <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div>
+            <div class="field-hint f-lookup-hint" style="display:none"></div></div>
           <div class="field"><label>상시가<span class="req">*</span></label>
             <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
         </div>
@@ -1413,6 +1417,71 @@ function onSaleUrlBlur(input) {
   const v = (input.value || '').trim();
   if (v) input.value = normalizeUrl(v);
   toggleSaleUrlWarn(input);
+  if (isNewLayout()) qoo10LookupFor(input);   // 3단계 — 큐텐 주소면 상품 정보를 불러와 빈 칸만 채운다
+}
+
+// ══════════════════════════════════════
+// 3단계 — 큐텐 판매 URL 자동 채움 (사양서 §4-7, 작업 23)
+//   서버 함수 qoo10-product-lookup 이 대신 읽는다(브라우저에서 큐텐으로 직접 못 간다 — 교차 출처).
+//   🔴 사람이 고친 값을 덮지 않는다 — 빈 칸만 채우고, 값이 있으면 「불러온 값으로 바꾸기」 링크만.
+//   🔴 「자동 입력」을 약속하는 문구를 쓰지 않는다 — 실패하면 조용히 「직접 입력해 주세요」.
+//   함수가 없거나(미배포) 꺼져 있어도 폼은 완전히 동작한다(실패 = 안내 한 줄).
+// ══════════════════════════════════════
+const QOO10_LOOKUP_TIMEOUT_MS = 10000;
+let _lastLookupUrl = '';
+let _lastLookupResult = null;
+function lookupHintOf(input) { return input.parentElement.querySelector('.f-lookup-hint'); }
+function setLookupHint(input, html, color) {
+  const h = lookupHintOf(input); if (!h) return;
+  h.innerHTML = html || ''; h.style.display = html ? '' : 'none'; h.style.color = color || '';
+}
+function isQoo10Url(v) { try { return /(^|\.)qoo10\.jp$/i.test(new URL(v).hostname); } catch (e) { return false; } }
+async function qoo10LookupFor(input) {
+  const url = (input.value || '').trim();
+  if (!url || !isQoo10Url(url)) { setLookupHint(input, ''); return; }
+  if (url === _lastLookupUrl && _lastLookupResult) { applyQoo10Result(input, _lastLookupResult, false); return; }
+  if (!sb || !token) return;
+  setLookupHint(input, '큐텐에서 상품 정보를 불러오는 중…', '');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), QOO10_LOOKUP_TIMEOUT_MS);
+  let res = null;
+  try {
+    const env = SUPABASE_ENVS[SUPABASE_ENV];
+    const r = await fetch(env.url + '/functions/v1/qoo10-product-lookup', {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'content-type': 'application/json', 'apikey': env.key, 'Authorization': 'Bearer ' + env.key },
+      body: JSON.stringify({ token, url }),
+    });
+    res = await r.json();
+  } catch (e) {
+    res = null;   // 함수 없음·시간 초과·통신 실패 — 전부 같은 안내
+  } finally { clearTimeout(timer); }
+  if ((input.value || '').trim() !== url) return;   // 기다리는 사이 주소가 바뀌었으면 버린다
+  if (!res || res.ok !== true) { setLookupHint(input, '자동으로 못 불러왔어요. 직접 입력해 주세요.', ''); return; }
+  _lastLookupUrl = url; _lastLookupResult = res;
+  applyQoo10Result(input, res, false);
+}
+// force=false: 빈 칸만 채움 / force=true: 「불러온 값으로 바꾸기」 — 사람이 눌렀을 때만 덮는다
+function applyQoo10Result(input, res, force) {
+  const card = input.closest('.ocard'); if (!card) return;
+  const nameEl = card.querySelector('.f-product-name');
+  const priceEl = card.querySelector('.f-price-regular');
+  const priceText = res.price_sale_jpy != null ? String(res.price_sale_jpy) : '';
+  let filled = 0, kept = 0;
+  if (nameEl && res.product_name) { if (force || !nameEl.value.trim()) { nameEl.value = res.product_name; filled++; } else kept++; }
+  if (priceEl && priceText) { if (force || !priceEl.value.trim()) { priceEl.value = priceText; filled++; } else kept++; }
+  // 상품번호·스토어명·이미지·정가는 화면에 작게만 보이고 저장은 sale.* 로(collectCardNew)
+  if (res.goods_code) card.dataset.saleGoodsCode = String(res.goods_code);
+  if (res.store_name) card.dataset.saleStoreName = String(res.store_name);
+  if (res.image_url) card.dataset.saleImageUrl = String(res.image_url);
+  if (res.price_list_jpy != null) card.dataset.salePriceList = String(res.price_list_jpy);
+  const meta = [res.store_name ? '스토어 ' + escAttr(res.store_name) : '', res.goods_code ? '상품번호 ' + escAttr(String(res.goods_code)) : '',
+                res.price_list_jpy != null ? '정가 ¥' + Number(res.price_list_jpy).toLocaleString('ja-JP') : ''].filter(Boolean).join(' · ');
+  const swap = (!force && kept > 0)
+    ? ` <a href="#" onclick="applyQoo10Result(this.closest('.field').querySelector('.f-sale-url'), _lastLookupResult, true); return false;" style="color:var(--brand);font-weight:700">불러온 값으로 바꾸기</a>`
+    : '';
+  setLookupHint(input, `큐텐에서 불러왔어요 · 확인해 주세요${meta ? ' — ' + meta : ''}${swap}`, '#1D4ED8');
+  if (filled > 0) { updateCardSummary(card.id); onInput(); }
 }
 // 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
 function toggleSaleUrlWarn(input) {
@@ -1772,6 +1841,11 @@ function collectCardNew(el) {
     sale: { market: 'Qoo10', url: normalizeUrl(val('.f-sale-url')), price_regular: val('.f-price-regular') },
     images,
   };
+  // 큐텐에서 불러온 값(작업 23) — 있을 때만 키를 만든다(빈 문자열로도 만들지 않는다)
+  [['goods_code', 'saleGoodsCode'], ['store_name', 'saleStoreName'], ['image_url', 'saleImageUrl'], ['price_list', 'salePriceList']].forEach(([k, ds]) => {
+    const v = el.dataset[ds];
+    if (v) out.sale[k] = (k === 'price_list') ? Number(v) : v;
+  });
   if (ft === 'reviewer') {
     out.review_guide = richValue(q('.f-review-guide'));
   }
