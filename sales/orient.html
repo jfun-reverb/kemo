@@ -214,6 +214,10 @@ input[type="date"], input[type="number"] { -webkit-appearance: none; appearance:
 input[type="date"] { min-height: 44px; }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* 새 구조 카드: 판매처(좁게) + 판매 URL 한 줄 — 모바일에서도 한 줄 유지(판매처는 읽기 전용 「Qoo10」이라 좁아도 된다) */
+.row-sale { display: grid; grid-template-columns: 96px 1fr; gap: 12px; }
+.row-sale > .field { margin-bottom: 0; }
+@media (max-width: 520px) { .row-sale { grid-template-columns: 84px 1fr; gap: 8px; } }
 /* 모바일 1열 전환 시 칸 간격을 일반 .field 간격(14px)과 통일 */
 @media (max-width: 520px) {
   .row2 { grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
@@ -871,7 +875,7 @@ function applyLayoutMode() {
   const ftLabel = FORM_TYPE_LABEL[ft] || ft || '';
   const chLabel = (ft === 'seeding' && ch) ? ` · ${CHANNEL_LABEL[ch] || ch}` : '';
   $('introText').textContent = `이 링크는 「${ftLabel}${chLabel}」 모집 하나를 위한 것입니다. 제품 정보와 가이드를 한국어로 적어 주세요. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.`;
-  $('brandSectionDesc').textContent = '담당자 연락처를 적어 주세요.';
+  $('brandSectionDesc').textContent = '브랜드명은 발급 때 정해졌습니다. 담당자명·연락처·이메일을 적어 주세요.';
 }
 
 // 카테고리 드롭다운 옵션을 기준 데이터(lookup_values kind=category)에서 채움.
@@ -1273,12 +1277,12 @@ function cardHtmlNew(id, card) {
             <div><span class="ch-badge">${escAttr(CHANNEL_LABEL[ch] || ch || '채널 미지정')}</span></div>
             <div class="field-hint">발급 때 정해진 채널입니다. 다른 채널도 진행하려면 담당자에게 링크를 따로 받아 주세요.</div></div>
           <div class="field"><label>소구 키워드 · 어필 포인트</label>
-            <textarea class="f-appeal" placeholder="각 채널에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
+            <textarea class="f-appeal" placeholder="이 채널에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
             <div class="char-count" data-count-for="f-appeal"><span class="cc-cur">0</span> / ${LIMIT_SEEDING_APPEAL}</div></div>
           <div class="field"><label>촬영 가이드</label>
             <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea>
             ${longTextCounter('f-shooting')}</div>
-          <div class="field"><label>필수 해시태그 (최대 5개)</label>
+          <div class="field"><label>게시물에 꼭 넣을 해시태그 (최대 5개)</label>
             <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
           <div class="field"><label>게시물에 태그할 계정</label>
             <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()">
@@ -1307,23 +1311,28 @@ function cardHtmlNew(id, card) {
     </div>
     <div class="ocard-body">
       <div class="card-gated">
+        <div class="only-rp">
+          <div class="row-sale">
+            <div class="field"><label>판매처</label>
+              <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
+            <div class="field"><label>판매 URL<span class="req">*</span></label>
+              <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
+              <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div>
+              <div class="field-hint f-lookup-hint" style="display:none"></div></div>
+          </div>
+        </div>
         <div class="field"><label>제품명<span class="req">*</span></label>
           <input type="text" class="f-product-name" placeholder="제품명" value="${escAttr(p.name)}" oninput="onCardInput('${id}')"></div>
 
         <div class="only-rp">
-          <div class="field"><label>판매처</label>
-            <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
-          <div class="field"><label>판매 URL<span class="req">*</span></label>
-            <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
-            <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div>
-            <div class="field-hint f-lookup-hint" style="display:none"></div></div>
           <div class="field"><label>상시가<span class="req">*</span></label>
-            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
+            <input type="text" class="f-price-regular" placeholder="예: 5300" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
         </div>
 
         <div class="row2">
           <div class="field"><label>모집 인원</label>
-            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()"></div>
+            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()">
+            <div class="field-hint">비우면 견적서가 만들어지지 않아요.</div></div>
           <div class="field"><label>희망 모집 시작일</label>
             <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
         </div>
@@ -2211,13 +2220,13 @@ function renderPreviewCardNew(c, idx) {
     const sd = c.seeding || {};
     rows += pvRow('소구 키워드', sd.appeal);
     rows += pvRow('촬영 가이드', sd.shooting_guide);
-    rows += pvRow('해시태그', (sd.hashtags || []).join(' '));
-    rows += pvRow('계정 태그', sd.account_tags);
+    rows += pvRow('게시물에 꼭 넣을 해시태그', (sd.hashtags || []).join(' '));
+    rows += pvRow('게시물에 태그할 계정', sd.account_tags);
     rows += pvRow('배송 안내', sd.shipping_note);
-    if (c.ng) rows += pvRowHtml('NG', c.ng);
-    if (c.cautions) rows += pvRowHtml('추가 안내', c.cautions);
+    if (c.ng) rows += pvRowHtml('금지 표현 (NG)', c.ng);
+    if (c.cautions) rows += pvRowHtml('추가 안내 · 필독 사항', c.cautions);
   }
-  if (c.images.length) rows += pvRow('이미지', c.images.map(x => x.value).join('\n'));
+  if (c.images.length) rows += pvRow('예시 이미지·자료', c.images.map(x => x.value).join('\n'));
   const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
   return `<div class="pv-card">
     <div class="pv-card-head">
@@ -2400,7 +2409,7 @@ function enterDoneScreen() {
   if (q) {
     area.innerHTML = `<div class="done-actions" style="margin-top:14px">
         <button type="button" class="btn-quote" onclick="enterQuoteScreen(true)"><span class="material-icons-outlined notranslate" translate="no">picture_as_pdf</span>견적서 · PDF 저장</button>
-        <div class="done-hint">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · 판 ${escAttr(String(q.revision || 1))}<br>휴대폰은 「공유 → PDF」로 저장할 수 있어요.</div>
+        <div class="done-hint">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · ${escAttr(String(q.revision || 1))}차 견적<br>휴대폰은 「공유 → PDF」로 저장할 수 있어요.</div>
       </div>`;
   } else if (err) {
     area.innerHTML = `<div class="done-warn">${escAttr(QUOTE_ERROR_TEXT[err] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')}<br><span style="font-size:12px">「내용 수정하기」로 고쳐서 다시 제출하면 견적서가 만들어져요.</span></div>`;
@@ -2456,7 +2465,7 @@ function renderQuoteDoc(q, data) {
         <div>${escAttr(QUOTE_ISSUER.addr)}</div>
         <div>${escAttr(QUOTE_ISSUER.contact)}</div></div>
       <div class="col"><h3>견적 정보</h3>
-        <div>견적 번호 <strong>${escAttr(q.quote_no || '')}</strong> · 판 ${escAttr(String(q.revision || 1))}</div>
+        <div>견적 번호 <strong>${escAttr(q.quote_no || '')}</strong> · ${escAttr(String(q.revision || 1))}차 견적</div>
         <div>작성일 ${escAttr(ymdOf(q.issued_at))}</div>
         <div>유효기간 ${escAttr(ymdOf(q.valid_until))}까지</div></div>
     </div>
