@@ -418,7 +418,7 @@
 |---|---|---|
 | 마이그레이션 **428**(`orient_lookup_hits` 표 + `orient_lookup_gate()`) | ✅ 적용·검증(`alive={t,t,t,t,t,f} expired=f garbage=f`) | 미적용 |
 | Edge Function `qoo10-product-lookup`(관문 3종) | ✅ 배포·curl 검증(OPTIONS 200 / 죽은·만료·없는 토큰·비큐텐 주소 `{ok:false}` / 살아 있는 토큰 성공 / **6번째 호출 거부**) | 미배포 |
-| 작성 폼 `sales/orient.html` 자동 채움 | 병합 요청 뒤 sales-dev 에서 눈 확인 | 미배포 |
+| 작성 폼 `sales/orient.html` 자동 채움 | ✅ 병합 #1428·#1429 → sales-dev 눈 확인(빈 칸 채움 · 기존 값 보존+「불러온 값으로 바꾸기」 · 비큐텐 주소면 조회 안 함 · 저장 데이터에 4종 키) | 미배포 |
 
 운영 적용 순서: 428 → 함수 배포(`supabase functions deploy qoo10-product-lookup --project-ref nrwtujmlbktxjgdwlpjj`) → sales 폼. 함수가 없어도 폼은 「자동으로 못 불러왔어요」로 동작한다.
 
@@ -431,4 +431,5 @@
 - **빠진 것**: 대표 이미지는 저장(`sale.image_url`)만 하고 폼 화면에 그리지 않는다(예시 이미지 칸과 헷갈린다). 관리자 상세에도 아직 안 그린다 — 후속.
 - 🔴 **사람이 고친 값은 덮지 않는다** — `applyQoo10Result(…, force=false)` 는 빈 칸만, `force=true` 는 「불러온 값으로 바꾸기」 링크를 사람이 눌렀을 때만.
 - 저장 형태: `sale.goods_code`(문자열)·`sale.store_name`·`sale.image_url`·`sale.price_list`(숫자) — **값이 있을 때만 키가 생긴다**(빈 문자열 키를 만들지 않는다 — 1단계의 `uid`·`campaign_id` 와 같은 원칙).
+- 🔴 **눈 검증에서 잡은 결함 1건(#1429)**: 주소를 큐텐 → 다른 곳으로 바꿔도 이전 상품의 4종이 카드에 남아 「아마존 주소 + 큐텐 상품번호」로 저장됐다. 큐텐 주소가 아니거나 조회 실패면 4종을 지우고(`clearQoo10Meta`), 성공 시에도 먼저 비운 뒤 넣는다. **주소가 바뀌면 그 주소로 얻은 값만 남아야 한다** — 정적 리뷰 두 번을 통과한 뒤 저장 데이터를 조회해서야 드러났다.
 
