@@ -759,8 +759,20 @@ let categoryOptionsHtml = '<option value="">카테고리 선택</option>';
 //   🔴 이 판별을 빠뜨리면 조용한 데이터 유실 — 운영에 카드 여러 개인 옛 시트가 살아 있다.
 //   옛 구조(issued 없음)는 형식 탭·카드 여러 개·「제품 추가」 화면을 그대로 그린다(아래 기존 함수).
 let loadedData = null;                     // boot() 가 불러온 data 원본 — 새/옛 판별과 issued 값 참조용
-const LIMIT_REVIEW_GUIDE = 1000;           // 리뷰 가이드 글자 수(서식 뺀 본문) — 서버 submit_orient_sheet 도 같은 값으로 재검증(425)
-const LIMIT_SEEDING_APPEAL = 1000;         // 소구 키워드 글자 수 — 위와 같다
+const LIMIT_LONG_TEXT = 1000;              // 긴 글 칸 공통 글자 수(서식 뺀 본문) — 서버 submit_orient_sheet 도 같은 값으로 재검증(425·429)
+const LIMIT_REVIEW_GUIDE = LIMIT_LONG_TEXT;  // 리뷰 가이드
+const LIMIT_SEEDING_APPEAL = LIMIT_LONG_TEXT; // 소구 키워드
+// 한도가 걸리는 긴 글 칸 여섯 — 클래스 → 이름표·서버 field 키. 🔴 칸을 더하면 여기 + cardHtmlNew 의 char-count + 서버(429 계열) 셋을 함께
+const LONG_TEXT_FIELDS = {
+  'f-review-guide': { label: '리뷰 가이드', field: 'review_guide' },
+  'f-appeal':       { label: '소구 키워드', field: 'appeal' },
+  'f-shooting':     { label: '촬영 가이드', field: 'shooting_guide' },
+  'f-shipping':     { label: '배송 안내', field: 'shipping_note' },
+  'f-ng':           { label: '금지 표현', field: 'ng' },
+  'f-cautions':     { label: '추가 안내', field: 'cautions' },
+};
+const LONG_TEXT_CLASSES = Object.keys(LONG_TEXT_FIELDS);
+function longTextCounter(cls) { return `<div class="char-count" data-count-for="${cls}"><span class="cc-cur">0</span> / ${LIMIT_LONG_TEXT}</div>`; }
 function isNewLayout() { return !!(loadedData && loadedData.issued && typeof loadedData.issued === 'object'); }
 function issuedFormType() { return isNewLayout() ? (loadedData.issued.form_type || '') : ''; }
 function issuedChannel() { return isNewLayout() ? (loadedData.issued.channel || '') : ''; }
@@ -1264,19 +1276,23 @@ function cardHtmlNew(id, card) {
             <textarea class="f-appeal" placeholder="각 채널에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
             <div class="char-count" data-count-for="f-appeal"><span class="cc-cur">0</span> / ${LIMIT_SEEDING_APPEAL}</div></div>
           <div class="field"><label>촬영 가이드</label>
-            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea></div>
+            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea>
+            ${longTextCounter('f-shooting')}</div>
           <div class="field"><label>필수 해시태그 (최대 5개)</label>
             <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
           <div class="field"><label>게시물에 태그할 계정</label>
             <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()">
             <div class="field-hint">인플루언서가 게시물에 멘션(@)할 계정입니다. 브랜드 공식 SNS 계정을 포함해 적어 주세요.</div></div>
           <div class="field"><label>배송 안내</label>
-            <textarea class="f-shipping" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()">${escAttr(sd.shipping_note)}</textarea></div>
+            <textarea class="f-shipping" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()">${escAttr(sd.shipping_note)}</textarea>
+            ${longTextCounter('f-shipping')}</div>
         </div>
         <div class="field"><label>금지 표현 (NG)</label>
-          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}</div>
+          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}
+          ${longTextCounter('f-ng')}</div>
         <div class="field"><label>추가 안내 · 필독 사항</label>
-          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}</div>` : '';
+          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}
+          ${longTextCounter('f-cautions')}</div>` : '';
 
   // 시딩 예상 일정 안내 — 시작일을 넣으면 그 아래 계산값(저장하지 않는다 — 저장하면 「희망일」이 되살아난다)
   const scheduleHint = (ft === 'seeding') ? `<div class="cg-schedule-hint" data-schedule-hint></div>` : '';
@@ -1878,15 +1894,14 @@ function collectCardNew(el) {
   return out;
 }
 
-// ── 글자 수 제한(새 구조) — 리뷰 가이드·소구 키워드 1,000자. 넘는 입력은 그 자리에서 잘라 「{현재} / 1000」 로 보여준다.
+// ── 글자 수 제한(새 구조) — 긴 글 칸 여섯(LONG_TEXT_FIELDS) 전부 1,000자. 넘는 입력은 그 자리에서 잘라 「{현재} / 1000」 로 보여준다.
 //   세는 기준은 서식(태그)을 뺀 본문(textContent) — 서버(_orient_text_length, 425)와 같은 셈법.
-//   ⚠️ 임시저장은 서버 검사가 없어 잘린 값만 저장되고, 제출은 서버가 다시 센다(guide_too_long·appeal_too_long).
-function charLimitOf(node) {
-  if (!node) return 0;
-  if (node.classList.contains('f-review-guide')) return LIMIT_REVIEW_GUIDE;
-  if (node.classList.contains('f-appeal')) return LIMIT_SEEDING_APPEAL;
-  return 0;
+//   ⚠️ 임시저장은 서버 검사가 없어 잘린 값만 저장되고, 제출은 서버가 다시 센다(guide_too_long·appeal_too_long·text_too_long).
+function longTextClassOf(node) {
+  if (!node || !node.classList) return '';
+  return LONG_TEXT_CLASSES.find(c => node.classList.contains(c)) || '';
 }
+function charLimitOf(node) { return longTextClassOf(node) ? LIMIT_LONG_TEXT : 0; }
 // contenteditable 의 본문을 뒤에서부터 잘라 limit 글자로 맞춘다(서식 노드는 남긴다)
 function trimContentEditable(node, limit) {
   let excess = node.textContent.length - limit;
@@ -1918,7 +1933,7 @@ function enforceCharLimit(node) {
   }
   const cur = node.isContentEditable ? node.textContent.length : node.value.length;
   const card = node.closest('.ocard');
-  const cls = node.classList.contains('f-review-guide') ? 'f-review-guide' : 'f-appeal';
+  const cls = longTextClassOf(node);
   const counter = card && card.querySelector(`.char-count[data-count-for="${cls}"]`);
   if (counter) {
     counter.querySelector('.cc-cur').textContent = String(cur);
@@ -1927,7 +1942,7 @@ function enforceCharLimit(node) {
   if (trimmed) showToast(`${limit.toLocaleString('ko-KR')}자까지 적을 수 있어요.`);
 }
 function refreshCharCounts(cardEl) {
-  cardEl.querySelectorAll('.f-review-guide, .f-appeal').forEach(enforceCharLimit);
+  cardEl.querySelectorAll(LONG_TEXT_CLASSES.map(c => '.' + c).join(', ')).forEach(enforceCharLimit);
 }
 
 // ── 시딩 예상 일정 안내(새 구조) — 모집 시작일 아래. 저장하지 않는다.
@@ -2329,6 +2344,10 @@ async function submitSheet() {
     if (res && res.reason === 'cards_limit') { closePreview(); showToast('이 링크에는 제품 하나만 제출할 수 있어요. 화면을 새로고침해 주세요.'); return; }
     if (res && res.reason === 'guide_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_REVIEW_GUIDE.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
     if (res && res.reason === 'appeal_too_long') { closePreview(); showToast(`소구 키워드가 ${LIMIT_SEEDING_APPEAL.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
+    if (res && res.reason === 'text_too_long') {   // [429] 촬영 가이드·배송 안내·금지 표현·추가 안내 — field 로 어느 칸인지
+      const hit = Object.values(LONG_TEXT_FIELDS).find(f => f.field === res.field);
+      closePreview(); showToast(`${hit ? hit.label : '내용'}이(가) ${LIMIT_LONG_TEXT.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return;
+    }
     if (res && (res.reason === 'expired' || res.reason === 'consumed')) {
       showToast('제출할 수 없는 상태입니다.'); showErrorScreen(res.reason); return;
     }
