@@ -434,14 +434,15 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
 .done-flow .step { padding: 4px 10px; border-radius: 999px; background: #F3F3F5; font-weight: 600; }
 .done-flow .step.now { background: var(--brand-soft, #fdeef4); color: var(--brand-dark, #9d3f6c); }
 .done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
-.btn-quote { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border: none; border-radius: 12px;
-  background: var(--brand, #C878A3); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
-.btn-quote .material-icons-outlined { font-size: 22px; }
 .btn-secondary { display: block; width: 100%; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
 .done-hint { font-size: 12px; color: var(--ink-mute); text-align: center; line-height: 1.6; }
 .done-warn { background: #FFF6E5; border: 1px solid #F4D7A8; color: #8A5A00; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.6; margin-top: 12px; }
 /* 견적서 — 화면에서도 종이 느낌으로, 인쇄 때는 이 화면만 남긴다 */
-.quote-doc { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 28px 26px; margin: 14px 0 24px; font-size: 13px; color: #161618; }
+.quote-doc { position: relative; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 28px 26px; margin: 14px 0 24px; font-size: 13px; color: #161618; }
+/* 견적서 우측 상단 작은 인쇄 단추(2026-09-08 사용자 지시 — 큰 단추 대신 이것만). 인쇄에는 안 나온다 */
+.quote-print-btn { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--ink-soft); font-size: 12px; font-weight: 700; cursor: pointer; }
+.quote-print-btn .material-icons-outlined { font-size: 16px; }
+.quote-print-btn:hover { background: #F7F7F9; }
 .quote-doc h1 { font-size: 24px; font-weight: 900; letter-spacing: 0.3em; text-align: center; margin: 0 0 18px; }
 .quote-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .quote-meta .col { min-width: 220px; flex: 1; }
@@ -460,7 +461,7 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
 @media print {
   body.print-quote > *:not(#screenQuote) { display: none !important; }
   body.print-quote #screenQuote { display: block !important; padding: 0; }
-  body.print-quote .quote-bar, body.print-quote .done-hint { display: none !important; }
+  body.print-quote .quote-bar, body.print-quote .done-hint, body.print-quote #quoteIntro, body.print-quote #quoteWarn, .quote-print-btn { display: none !important; }
   body.print-quote .quote-doc { border: none; border-radius: 0; margin: 0; padding: 0; }
   /* 완료 화면(견적서를 안에 펼쳐 보여준다)에서 인쇄 — 완료 카드의 다른 요소·단추·안내는 전부 빼고 견적서만 */
   body.print-done > *:not(#screenDone) { display: none !important; }
@@ -666,12 +667,15 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
 
 <!-- 견적서 (인쇄용 — 이 화면만 인쇄된다) -->
 <div id="screenQuote" class="wrap hidden">
-  <div class="quote-bar">
-    <button type="button" class="btn-secondary" id="btnQuoteBack" onclick="leaveQuoteScreen()">돌아가기</button>
-    <button type="button" class="btn-quote" onclick="printQuote()"><span class="material-icons-outlined notranslate" translate="no">print</span>인쇄 · PDF 저장</button>
+  <div class="intro" id="quoteIntro">
+    <h1 id="quoteIntroTitle">견적서 확인</h1>
+    <p id="quoteIntroText">입력한 내용으로 계산한 예상 견적입니다. 맞으면 아래 「제출하기」를 눌러 주세요. 고칠 것이 있으면 「작성 내용으로」로 돌아가세요.</p>
   </div>
-  <div class="done-hint">휴대폰은 인쇄 화면에서 「공유 → PDF」로 저장할 수 있어요.</div>
-  <div id="quoteDoc" class="quote-doc"></div>
+  <div id="quoteWarn" class="done-warn hidden"></div>
+  <div id="quoteDoc" class="quote-doc hidden"></div>
+  <div class="quote-bar hidden" id="quoteBar">
+    <button type="button" class="btn-secondary" id="btnQuoteBack" onclick="leaveQuoteScreen()">돌아가기</button>
+  </div>
 </div>
 
 <!-- 하단 고정 바 -->
@@ -683,6 +687,9 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
     <button type="button" id="btnReview" class="btn-submit" onclick="openPreview()">제출</button>
     <!-- 미리보기 화면 -->
     <button type="button" id="btnBackToEdit" class="btn-nav hidden" onclick="closePreview()">수정으로 돌아가기</button>
+    <button type="button" id="btnQuoteView" class="btn-submit hidden" onclick="openQuotePreview()">견적 보기</button>
+    <!-- 견적서 확인 화면(새 구조) -->
+    <button type="button" id="btnQuoteToPreview" class="btn-nav hidden" onclick="backToPreviewFromQuote()">작성 내용으로</button>
     <button type="button" id="btnSubmit" class="btn-submit hidden" onclick="submitSheet()">이대로 제출</button>
   </div>
 </div>
@@ -931,9 +938,7 @@ function enterFormScreen() {
   document.body.classList.remove('print-quote', 'print-done');
   $('screenForm').classList.remove('hidden');
   $('footbar').classList.remove('hidden');
-  $('btnReview').classList.remove('hidden');
-  $('btnBackToEdit').classList.add('hidden');
-  $('btnSubmit').classList.add('hidden');
+  setFootNav(['btnReview']);
 
   const pill = $('statusPill');
   pill.classList.remove('hidden');
@@ -2191,20 +2196,87 @@ function openPreview() {
   const data = collectData();
   $('previewBody').innerHTML = renderPreview(data);
   $('screenForm').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
   $('screenPreview').classList.remove('hidden');
-  $('btnReview').classList.add('hidden');
-  $('btnBackToEdit').classList.remove('hidden');
-  $('btnSubmit').classList.remove('hidden');
+  setFootNav(isNewLayout() ? ['btnBackToEdit', 'btnQuoteView'] : ['btnBackToEdit', 'btnSubmit']);
+  $('btnSubmit').textContent = isNewLayout() ? '제출하기' : '이대로 제출';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// 하단 고정바의 단추 5개 중 보일 것만 켠다(화면마다 조합이 달라 한 자리에서)
+const FOOT_NAV_IDS = ['btnReview', 'btnBackToEdit', 'btnQuoteView', 'btnQuoteToPreview', 'btnSubmit'];
+function setFootNav(showIds) {
+  FOOT_NAV_IDS.forEach(id => $(id).classList.toggle('hidden', !showIds.includes(id)));
 }
 
 function closePreview() {
   $('screenPreview').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote');
   $('screenForm').classList.remove('hidden');
-  $('btnReview').classList.remove('hidden');
-  $('btnBackToEdit').classList.add('hidden');
-  $('btnSubmit').classList.add('hidden');
+  setFootNav(['btnReview']);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// 견적서 확인 화면 → 작성 내용 확인 화면으로
+function backToPreviewFromQuote() {
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote');
+  $('screenPreview').classList.remove('hidden');
+  setFootNav(['btnBackToEdit', 'btnQuoteView']);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── 제출 전 견적 보기(새 구조) — 서버가 지금 화면 값으로 계산만 해 준다(저장 없음, preview_orient_quote 430).
+//   제출 때와 같은 함수(_orient_compute_quote)로 계산하므로 여기서 본 금액이 제출 뒤 견적서와 같다.
+let previewQuote = null;          // 견적서 확인 화면에 그린 견적(제출 전) — 인쇄 파일명에도 쓴다
+let previewQuoteData = null;
+async function openQuotePreview() {
+  if (!sb || !token) return;
+  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 진행할 수 있어요.'); return; }
+  const invalid = findInvalidField();
+  if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
+  const data = collectData();
+  const btn = $('btnQuoteView');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '견적 계산 중…';
+  try {
+    const { data: res, error } = await sb.rpc('preview_orient_quote', { p_token: token, p_data: data });
+    if (error) throw error;
+    if (!res || res.success !== true) {
+      if (res && (res.reason === 'expired' || res.reason === 'consumed')) { showErrorScreen(res.reason); return; }
+      showToast('견적을 계산하지 못했어요. 잠시 후 다시 시도해 주세요.'); return;
+    }
+    previewQuote = res.quote || null;
+    previewQuoteData = Object.assign({}, data, { issued: loadedData && loadedData.issued });
+    showQuoteScreen({ quote: previewQuote, error: res.quote_error || null, data: previewQuoteData, mode: 'preview' });
+  } catch (e) {
+    console.error('[orient quote preview]', e);
+    showToast('견적을 계산하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  } finally { btn.disabled = false; btn.textContent = orig; }
+}
+// 견적서 화면 공용 — mode 'preview'(제출 전, 하단바 「작성 내용으로 · 제출하기」) / 'view'(관리자 ?view=quote, 「돌아가기」 막대)
+function showQuoteScreen(opts) {
+  const { quote, error, data, mode } = opts;
+  $('screenForm').classList.add('hidden');
+  $('screenPreview').classList.add('hidden');
+  $('screenDone').classList.add('hidden');
+  const isPreview = mode === 'preview';
+  $('quoteIntro').classList.toggle('hidden', !isPreview);
+  $('quoteBar').classList.toggle('hidden', isPreview);
+  if (quote) {
+    $('quoteDoc').innerHTML = renderQuoteDoc(quote, data);
+    $('quoteDoc').classList.remove('hidden');
+    $('quoteWarn').classList.add('hidden');
+    document.body.classList.add('print-quote');
+  } else {
+    $('quoteDoc').classList.add('hidden');
+    $('quoteWarn').textContent = (QUOTE_ERROR_TEXT[error] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')
+      + (isPreview ? ' 그대로 제출할 수도 있고, 「작성 내용으로」에서 고친 뒤 다시 볼 수도 있어요.' : '');
+    $('quoteWarn').classList.remove('hidden');
+    document.body.classList.remove('print-quote');
+  }
+  $('screenQuote').classList.remove('hidden');
+  if (isPreview) { $('footbar').classList.remove('hidden'); setFootNav(['btnQuoteToPreview', 'btnSubmit']); }
+  else { $('footbar').classList.add('hidden'); }
+  window.scrollTo({ top: 0 });
 }
 
 function pvRow(k, v) {
@@ -2352,6 +2424,7 @@ async function submitSheet() {
         loadedData = Object.assign({}, data, keep);
         if (res.quote) { loadedData.quote = res.quote; delete loadedData.quote_error; }
         else { delete loadedData.quote; loadedData.quote_error = res.quote_error || 'price_unreadable'; }
+        previewQuote = null; previewQuoteData = null;   // 이제부터는 저장된 판이 원본
         if (loadedData.quote_error && loadedData.quote === undefined) { /* 세트 규칙: 둘 중 하나만 */ }
         enterDoneScreen();
         return;
@@ -2425,10 +2498,7 @@ function enterDoneScreen() {
     // 견적서를 이 화면 안에 미리보기로 펼친다(2026-09-08 사용자 지시 — 단추를 눌러야 인쇄 창이 뜨고, 자동으로 넘어가지 않는다)
     area.innerHTML = `<div class="done-hint" style="margin-top:14px">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · ${escAttr(String(q.revision || 1))}차 견적</div>
       <div class="quote-doc">${renderQuoteDoc(q, loadedData)}</div>
-      <div class="done-actions" style="margin-top:0">
-        <button type="button" class="btn-quote" onclick="printQuote()"><span class="material-icons-outlined notranslate" translate="no">print</span>인쇄 · PDF 저장</button>
-        <div class="done-hint">인쇄 창에서 「PDF로 저장」을 고르면 파일로 받을 수 있어요. 휴대폰은 「공유 → PDF」.</div>
-      </div>`;
+      <div class="done-hint" style="margin-top:-12px;margin-bottom:8px">견적서 오른쪽 위 「인쇄 · PDF」 → 인쇄 창에서 「PDF로 저장」. 휴대폰은 「공유 → PDF」.</div>`;
     document.body.classList.add('print-done');   // 인쇄 때 견적서만 남기는 규칙(CSS @media print)
   } else if (err) {
     area.innerHTML = `<div class="done-warn">${escAttr(QUOTE_ERROR_TEXT[err] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')}<br><span style="font-size:12px">「내용 수정하기」로 고쳐서 다시 제출하면 견적서가 만들어져요.</span></div>`;
@@ -2445,14 +2515,39 @@ function enterQuoteScreen(autoPrint) {
   const q = loadedData && loadedData.quote;
   if (!q) { showToast('견적서가 아직 없어요.'); return; }
   hideAllScreens();
-  $('quoteDoc').innerHTML = renderQuoteDoc(q, loadedData);
-  $('screenQuote').classList.remove('hidden');
-  document.body.classList.add('print-quote');
-  window.scrollTo({ top: 0 });
+  previewQuote = null;
+  showQuoteScreen({ quote: q, error: null, data: loadedData, mode: 'view' });
   if (autoPrint) setTimeout(printQuote, 250);
 }
 function leaveQuoteScreen() { enterDoneScreen(); }
-function printQuote() { try { window.print(); } catch (e) { showToast('인쇄 창을 열지 못했어요. 브라우저 메뉴의 「인쇄」를 눌러 주세요.'); } }
+
+// 인쇄 파일명 — 브라우저 「PDF로 저장」의 기본 파일명은 그 순간의 페이지 제목이다.
+//   「REVERB_리뷰어(또는 시딩)_제품명_YYMMDD」(2026-09-08 사용자 요청). 인쇄 창이 닫히면 제목을 되돌린다.
+function quoteFileName(q, data) {
+  const ft = (q && q.form_type) || issuedFormType();
+  const ftLabel = FORM_TYPE_LABEL[ft] || 'REVERB';
+  const card = (data && Array.isArray(data.cards) && data.cards[0]) || {};
+  const product = ((card.product && card.product.name) || '제품').replace(/[\\/:*?"<>|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || '제품';
+  const m = /^(\d{2})(\d{2})-(\d{2})-(\d{2})/.exec(String((q && q.issued_at) || '')) ;
+  const d = new Date();
+  const ymd = m ? `${m[2]}${m[3]}${m[4]}` : `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return `REVERB_${ftLabel}_${product}_${ymd}`;
+}
+function printQuote() {
+  const q = previewQuote || (loadedData && loadedData.quote);
+  const data = previewQuote ? previewQuoteData : loadedData;
+  const origTitle = document.title;
+  const restore = () => { document.title = origTitle; };
+  window.addEventListener('afterprint', restore, { once: true });
+  try {
+    if (q) document.title = quoteFileName(q, data);
+    window.print();   // 크롬·사파리는 인쇄 창이 닫힐 때까지 여기서 멈춘다
+  } catch (e) {
+    showToast('인쇄 창을 열지 못했어요. 브라우저 메뉴의 「인쇄」를 눌러 주세요.');
+  } finally {
+    setTimeout(restore, 1500);   // afterprint 가 안 오는 브라우저 대비 — 늦게라도 되돌린다
+  }
+}
 
 function renderQuoteDoc(q, data) {
   const b = (data && data.brand) || {};
@@ -2474,6 +2569,7 @@ function renderQuoteDoc(q, data) {
     ? `<div>엔화 참고 — 상시가 ${escAttr(jpy(q.price_regular_jpy))} × 환율 ${escAttr(String(q.basis && q.basis.exchange_rate_krw_per_jpy))}원/엔</div>` : '';
   const vatPct = Math.round(Number(q.basis && q.basis.vat_rate || 0) * 100);
   return `
+    <button type="button" class="quote-print-btn" onclick="printQuote()" title="인쇄 · PDF 저장"><span class="material-icons-outlined notranslate" translate="no">print</span>인쇄 · PDF</button>
     <h1>견 적 서</h1>
     <div class="quote-meta">
       <div class="col"><h3>수신</h3>
