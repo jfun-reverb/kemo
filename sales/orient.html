@@ -1436,9 +1436,14 @@ function setLookupHint(input, html, color) {
   h.innerHTML = html || ''; h.style.display = html ? '' : 'none'; h.style.color = color || '';
 }
 function isQoo10Url(v) { try { return /(^|\.)qoo10\.jp$/i.test(new URL(v).hostname); } catch (e) { return false; } }
+// 불러온 값 4종을 카드에서 지운다 — 주소가 바뀌었는데 옛 상품번호·스토어명이 따라가면 안 된다(실측: 아마존 주소에 큐텐 상품번호가 저장됐다)
+function clearQoo10Meta(input) {
+  const card = input.closest('.ocard'); if (!card) return;
+  ['saleGoodsCode', 'saleStoreName', 'saleImageUrl', 'salePriceList'].forEach(k => { delete card.dataset[k]; });
+}
 async function qoo10LookupFor(input) {
   const url = (input.value || '').trim();
-  if (!url || !isQoo10Url(url)) { setLookupHint(input, ''); return; }
+  if (!url || !isQoo10Url(url)) { setLookupHint(input, ''); clearQoo10Meta(input); onInput(); return; }
   if (url === _lastLookupUrl && _lastLookupResult) { applyQoo10Result(input, _lastLookupResult, false); return; }
   if (!sb || !token) return;
   setLookupHint(input, '큐텐에서 상품 정보를 불러오는 중…', '');
@@ -1457,7 +1462,7 @@ async function qoo10LookupFor(input) {
     res = null;   // 함수 없음·시간 초과·통신 실패 — 전부 같은 안내
   } finally { clearTimeout(timer); }
   if ((input.value || '').trim() !== url) return;   // 기다리는 사이 주소가 바뀌었으면 버린다
-  if (!res || res.ok !== true) { setLookupHint(input, '자동으로 못 불러왔어요. 직접 입력해 주세요.', ''); return; }
+  if (!res || res.ok !== true) { setLookupHint(input, '자동으로 못 불러왔어요. 직접 입력해 주세요.', ''); clearQoo10Meta(input); onInput(); return; }
   _lastLookupUrl = url; _lastLookupResult = res;
   applyQoo10Result(input, res, false);
 }
@@ -1470,7 +1475,8 @@ function applyQoo10Result(input, res, force) {
   let filled = 0, kept = 0;
   if (nameEl && res.product_name) { if (force || !nameEl.value.trim()) { nameEl.value = res.product_name; filled++; } else kept++; }
   if (priceEl && priceText) { if (force || !priceEl.value.trim()) { priceEl.value = priceText; filled++; } else kept++; }
-  // 상품번호·스토어명·이미지·정가는 화면에 작게만 보이고 저장은 sale.* 로(collectCardNew)
+  // 상품번호·스토어명·이미지·정가는 화면에 작게만 보이고 저장은 sale.* 로(collectCardNew). 이전 상품 것이 남지 않게 먼저 비운다
+  clearQoo10Meta(input);
   if (res.goods_code) card.dataset.saleGoodsCode = String(res.goods_code);
   if (res.store_name) card.dataset.saleStoreName = String(res.store_name);
   if (res.image_url) card.dataset.saleImageUrl = String(res.image_url);
@@ -1481,7 +1487,8 @@ function applyQoo10Result(input, res, force) {
     ? ` <a href="#" onclick="applyQoo10Result(this.closest('.field').querySelector('.f-sale-url'), _lastLookupResult, true); return false;" style="color:var(--brand);font-weight:700">불러온 값으로 바꾸기</a>`
     : '';
   setLookupHint(input, `큐텐에서 불러왔어요 · 확인해 주세요${meta ? ' — ' + meta : ''}${swap}`, '#1D4ED8');
-  if (filled > 0) { updateCardSummary(card.id); onInput(); }
+  if (filled > 0) updateCardSummary(card.id);
+  onInput();   // 칸을 안 채웠어도 불러온 값 4종은 바뀌었으므로 저장한다
 }
 // 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
 function toggleSaleUrlWarn(input) {
