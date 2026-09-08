@@ -235,4 +235,42 @@ for 수신자 in 대상:
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+**구현일:** 2026-09-08 · **브랜치:** `feature/다이제스트-발송기록` · **마이그레이션:** **423** `423_digest_email_sent_per_recipient.sql`
+
+### 배포 상태 (이 표가 단일 소스 — 다른 자리에 사본을 두지 않는다)
+
+| 무엇 | 개발 | 운영 |
+|---|---|---|
+| 마이그레이션 423 | ✅ 2026-09-08 적용(예약 번호 14) | 미적용 |
+| `notify-influencer-daily-digest` | ✅ 2026-09-08 판 13 | 미배포 |
+| `notify-admin-daily-digest` | ✅ 2026-09-08 판 15 | 미배포 |
+| `notify-brand-daily-digest` | ✅ 2026-09-08 판 6 | 미배포 |
+
+🔴 순서는 항상 **마이그레이션 → 함수 3개**(단계 절).
+
+### 초안 대비 변경 사항
+- **추가된 것**
+  - 「복사 목록」이 여덟이 아니라 **아홉**이다 — ⑨ `digestRunStatus`(실행 상태 3갈래 판정) + `digestRunSummary`(실행 표 `error_message` 요약문)를 같은 블록에 넣었다. 설계 4 의 3갈래 조건이 세 함수에 세 벌로 흩어지는 것보다 한 블록에 두고 diff 0 을 확인하는 쪽이 낫다고 판단. 같은 블록에 `lastDigestRecordError`(기록 실패 원문을 실행 표에 옮기기 위한 변수)도 있다.
+  - `claimRecipient` 의 넘겨받기 조건에 `skip_reason IS NULL` 을 **덧붙였다**(사양서는 `send_failed` 또는 오래된 `in_flight` 둘). 이 함수군의 쓰기로는 `failed`+NULL 행이 생기지 않지만, 생기면 영영 못 넘겨받으므로 방침 통지 함수와 같게 걸었다. `sent` 행은 `status='failed'` 조건에서 이미 빠져 영향 없다.
+  - 실행 표 CHECK 갈아끼우기는 제약 이름을 가정하지 않고 `pg_constraint` 에서 `status` 칸 CHECK 를 찾아 DROP 후 `<표>_status_check` 로 재생성(DO 블록).
+- **빠진 것** — 없음.
+- **달라진 것**
+  - 실행 자물쇠의 재진입 조건은 코드를 바꾸지 않았다 — 기존 조건이 「`sent`/`skipped_no_data` 면 스킵, 그 외는 대기 시간 확인」이라 `partial` 이 **저절로** 재진입 대상이 된다. 주석만 갱신.
+  - 관리자·브랜드의 `failed`(전원 실패) 갈래 응답은 종전대로 500. `partial`·`sent` 는 200 에 상태·건수 5종(`succeeded`·`already_sent`·`failed`·`in_progress`·`record_lost_after_send`)을 싣는다. 인플루언서는 종전대로 항상 200(전원 실패도 200, 본문 `status:"failed"`).
+  - `record_error` 로 멈춘 실행의 `recipients_count`/`total_emails` 는 0 이 아니라 **멈추기 전까지 보낸 수**를 적는다(그 사람들은 수신자 표에 `sent` 로 있다).
+
+### 구현 중 기술 결정 사항
+- **결정 8(방침 문서) 판정 — 개정 불필요.** 새 표는 회원 쪽에 **회원 id 와 발송 결과만** 남기고(이메일·이름 없음) 회원 행이 지워지면 함께 지워진다(`ON DELETE CASCADE`). 탈퇴 확정으로 회원 행의 개인정보가 비워지면 이 표에는 식별 가능한 값이 남지 않는다. 관리자·브랜드 쪽 이메일은 회원 개인정보가 아니다. 수집 항목·위탁·국외 이전 어느 것도 늘지 않고 **처리 기록**이 하나 생긴 것이라, 선례(`campaign_promo_digest_sent`·`policy_notice_sent` — 둘 다 방침에 개별 항목 없음)와 같이 §4·§5 에 줄을 더하지 않는다. 방침 §6.1 「접속 로그 3개월」과도 성격이 다르다(개인정보 처리 시스템 접속 기록이 아니다).
+- Deno 타입 검사: 인플루언서 함수 0건. 관리자·브랜드는 **기존** 결함 3건(`resolveAdminEmails` 의 `ReturnType<typeof createClient>` 불일치)이 `origin/dev` 판에도 같은 수로 있음을 확인 — 이 변경이 더한 오류 0. `supabase functions deploy` 는 번들만 하므로 배포는 막히지 않는다.
+- 「복사 목록」 블록 세 벌의 md5 가 같음을 확인(6,402자). 검증 5 충족.
+
+### 검증 기록 (개발 데이터베이스, 2026-09-08 — SQL 편집기에서 직접 실행)
+- **검증 1** 표·제약·정책·예약: `digest_email_sent` 제약 5종(기본키·유일 3칸·종류 CHECK 4값·상태 CHECK 3값·외래 키 CASCADE) 확인. 실행 표 3종 CHECK 모두 `partial` 포함. 정책 `digest_email_sent_select_admin`(SELECT) 1개만. 정리 함수 실행 권한 `{postgres, service_role}` 만(맨 앞 `=X/` 없음 — PUBLIC 회수 확인). 갱신 트리거 1개. `cron.job` 에 `digest-email-sent-retention-daily` / `45 18 * * *` / active — 예약 12개 중 하나.
+- **검증 2** 선점 조건 재현(되돌리기 블록): `in_flight@11분 전`·`send_failed` 두 행만 넘겨받고 `in_flight@9분 전`·`sent` 는 안 걸림 — 기대와 같음.
+- **검증 4** 정리 함수: 91일·89일 시험 행 2개 → 반환 1, 89일 행만 남음 — 기대와 같음. 시험 행은 예외로 되돌려 표는 0행.
+- **검증 5** 「복사 목록」 세 벌 md5 동일(6,402자). 리뷰어도 diff 0 확인.
+- **검증 3(Brevo 키 무효화 호출)은 하지 않았다** — 사양서가 「착수 전 사용자 확인」을 조건으로 둔 항목이고, 개발서버 회원 이메일로 발송이 나갈 위험이 0 이 아니라 사용자 판단으로 남긴다. 하려면 개발 프로젝트 secrets 의 Brevo 키를 잘못된 값으로 바꾼 뒤 세 함수를 호출하고 되돌린다.
+- **검증 6~8(운영)** 은 운영 적용 뒤 다음 09:00 예약이 돈 다음에 본다.
+
