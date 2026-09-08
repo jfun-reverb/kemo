@@ -1050,8 +1050,8 @@ function osQuoteLinkable(s) {
 function osQuoteHistoryHtml(hist) {
   const list = Array.isArray(hist) ? hist.slice().reverse() : [];
   if (!list.length) return '';
-  const items = list.map(h => `<li style="font-size:12px;color:var(--muted);padding:2px 0">판 ${esc(String(h.revision || '?'))} · ${esc(h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h.total_krw))}</li>`).join('');
-  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 판 ${list.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
+  const items = list.map(h => `<li style="font-size:12px;color:var(--muted);padding:2px 0">${esc(String(h.revision || '?'))}차 견적 · ${esc(h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h.total_krw))}</li>`).join('');
+  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 견적 ${list.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
 }
 function osQuoteCard(s, readonly) {
   const d = (s && s.data) || {};
@@ -1070,7 +1070,7 @@ function osQuoteCard(s, readonly) {
     `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrw(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrw(l.amount_krw))}</td></tr>`).join('');
   return `<div class="os-card">
     <div class="os-card-title" style="display:flex;align-items:center;gap:8px">예상 견적
-      <span style="font-size:11px;font-weight:600;color:var(--muted)">${esc(q.quote_no || '')} · 판 ${esc(String(q.revision || 1))} · ${esc(q.issued_at ? formatDateTime(q.issued_at) : '')}</span>
+      <span style="font-size:11px;font-weight:600;color:var(--muted)">${esc(q.quote_no || '')} · ${esc(String(q.revision || 1))}차 견적 · ${esc(q.issued_at ? formatDateTime(q.issued_at) : '')}</span>
       <span style="flex:1"></span>${openBtn}</div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
     <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
