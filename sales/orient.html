@@ -412,6 +412,16 @@ input[type="date"] { min-height: 44px; }
 .ocard .only-mega { display: none; }
 .ocard[data-cgrade="middle_mega"] .only-mega { display: block; }
 
+/* ============ 새 구조(2026-09-08 단순화, data.issued) ============ */
+/* 옛 구조 전용 요소는 body.layout-new 에서 감춘다 — 함수째 지우지 않는다(옛 시트가 쓴다) */
+body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptyState { display: none !important; }
+.ocard-chip.ch { background: #EEF2FF; color: #3730A3; border-color: #C7D2FE; }
+.char-count { font-size: 11.5px; color: var(--ink-mute); text-align: right; margin-top: 4px; }
+.char-count.full { color: #C41E3A; font-weight: 700; }
+.cg-schedule-hint { font-size: 12px; color: var(--ink-mute); background: #F7F7F9; border-radius: 8px; padding: 8px 10px; margin: -6px 0 14px; line-height: 1.6; }
+.cg-schedule-hint:empty { display: none; }
+.ch-badge { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3; font-size: 13px; font-weight: 700; }
+
 /* ============ FOOTER BAR ============ */
 .footbar {
   position: fixed; left: 0; right: 0; bottom: 0;
@@ -511,7 +521,7 @@ input[type="date"] { min-height: 44px; }
 
   <div class="intro">
     <h1>캠페인 오리엔시트</h1>
-    <p>모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(가구매·리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
+    <p id="introText">모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(가구매·리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
   </div>
 
   <div id="resubmitNote" class="resubmit-note hidden">
@@ -528,7 +538,7 @@ input[type="date"] { min-height: 44px; }
   <!-- 공통 정보(브랜드) — 1회 -->
   <div class="section">
     <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">storefront</span>브랜드 정보</div>
-    <div class="section-desc">아래 모집 건 전체에 공통으로 쓰이는 브랜드 정보입니다.</div>
+    <div class="section-desc" id="brandSectionDesc">아래 모집 건 전체에 공통으로 쓰이는 브랜드 정보입니다.</div>
     <div class="field">
       <label>브랜드명</label>
       <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
@@ -548,11 +558,11 @@ input[type="date"] { min-height: 44px; }
       <input type="email" id="f_brand_email" placeholder="contact@yourbrand.com" oninput="onEmailInput(this)" onblur="onEmailInput(this)">
       <div class="field-hint f-email-warn" style="display:none;color:#C41E3A">이메일 형식이 올바르지 않습니다.</div>
     </div>
-    <div class="field">
+    <div class="field old-only">
       <label>브랜드 소개 · 어필 포인트</label>
       <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
     </div>
-    <div class="field">
+    <div class="field old-only">
       <label>브랜드 SNS 공식 계정</label>
       <input type="text" id="f_brand_accounts" placeholder="@yourbrand_jp" oninput="onInput()">
       <div class="field-hint">인플루언서가 게시물에 멘션(@)하거나 참고할 브랜드 공식 SNS·스토어 계정입니다.</div>
@@ -570,8 +580,8 @@ input[type="date"] { min-height: 44px; }
     <span class="material-icons-outlined notranslate" translate="no">add</span>제품(카드) 추가
   </button>
 
-  <!-- 레버브 측 요청(선택) — 폼 전체 마지막 -->
-  <div class="section" style="margin-top:28px">
+  <!-- 레버브 측 요청(선택) — 폼 전체 마지막. 새 구조에서는 없다(사양서 §8-① 사용자 확정) -->
+  <div class="section old-only" style="margin-top:28px">
     <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">support_agent</span>레버브 측에 전달할 요청·요구사항 (선택)</div>
     <div class="section-desc">레버브 운영팀에 요청하고 싶은 사항이 있으면 자유롭게 적어 주세요.</div>
     <div class="field">
@@ -680,6 +690,17 @@ let initialValues = null;          // 연결 신청 참고값 (첫 카드 prefil
 let usedInitial = false;           // initial_values를 첫 카드에 1회만 사용
 let categoryOptionsHtml = '<option value="">카테고리 선택</option>';
 
+// ── 새 구조(2026-09-08 단순화 재설계) ──
+//   관리자가 발급 때 형식(리뷰어/시딩)·시딩 채널을 정한 시트는 data.issued 를 갖는다.
+//   🔴 이 판별을 빠뜨리면 조용한 데이터 유실 — 운영에 카드 여러 개인 옛 시트가 살아 있다.
+//   옛 구조(issued 없음)는 형식 탭·카드 여러 개·「제품 추가」 화면을 그대로 그린다(아래 기존 함수).
+let loadedData = null;                     // boot() 가 불러온 data 원본 — 새/옛 판별과 issued 값 참조용
+const LIMIT_REVIEW_GUIDE = 1000;           // 리뷰 가이드 글자 수(서식 뺀 본문) — 서버 submit_orient_sheet 도 같은 값으로 재검증(425)
+const LIMIT_SEEDING_APPEAL = 1000;         // 소구 키워드 글자 수 — 위와 같다
+function isNewLayout() { return !!(loadedData && loadedData.issued && typeof loadedData.issued === 'object'); }
+function issuedFormType() { return isNewLayout() ? (loadedData.issued.form_type || '') : ''; }
+function issuedChannel() { return isNewLayout() ? (loadedData.issued.channel || '') : ''; }
+
 // ══════════════════════════════════════
 // 유틸
 // ══════════════════════════════════════
@@ -750,12 +771,27 @@ async function boot() {
 
     // data 복원 (없으면 빈 스키마). 카드 배열 구조.
     const data = (res.data && typeof res.data === 'object') ? res.data : {};
+    loadedData = data;
+    applyLayoutMode();
     fillForm(data);
     enterFormScreen();
   } catch (e) {
     console.error('[orient boot]', e);
     showErrorScreen('connect');
   }
+}
+
+// 새/옛 구조에 따라 화면 골격을 바꾼다 — 옛 구조 전용 요소는 CSS(.old-only)로 감추고 안내 문구만 바꾼다
+function applyLayoutMode() {
+  const isNew = isNewLayout();
+  document.body.classList.toggle('layout-new', isNew);
+  if (!isNew) return;
+  const ft = issuedFormType();
+  const ch = issuedChannel();
+  const ftLabel = FORM_TYPE_LABEL[ft] || ft || '';
+  const chLabel = (ft === 'seeding' && ch) ? ` · ${CHANNEL_LABEL[ch] || ch}` : '';
+  $('introText').textContent = `이 링크는 「${ftLabel}${chLabel}」 모집 하나를 위한 것입니다. 제품 정보와 가이드를 한국어로 적어 주세요. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.`;
+  $('brandSectionDesc').textContent = '담당자 연락처를 적어 주세요.';
 }
 
 // 카테고리 드롭다운 옵션을 기준 데이터(lookup_values kind=category)에서 채움.
@@ -829,7 +865,12 @@ function fillForm(data) {
 
   $('cardList').innerHTML = '';
   cardSeq = 0;
-  const cards = Array.isArray(data.cards) ? data.cards : [];
+  let cards = Array.isArray(data.cards) ? data.cards : [];
+  if (isNewLayout()) {
+    // 새 구조는 카드 1개 고정 — 발급 함수가 미리 만들어 두지만, 비어 있으면 형식만 든 카드를 하나 그린다.
+    //   여러 개가 와 있으면(옛 캐시 폼이 늘린 경우) 첫 카드만 그린다 — 제출은 서버가 cards_limit 로 막는다.
+    cards = cards.length ? [cards[0]] : [{ form_type: issuedFormType() }];
+  }
   cards.forEach((c, i) => addCard(c, { open: i === 0 }));
   refreshEmptyState();
 }
@@ -1001,6 +1042,7 @@ function imageRowHtml(value, type, name) {
 
 // 카드 HTML 골격 (형식별 분기는 CSS data-ctype 으로 표시/숨김)
 function cardHtml(id, card) {
+  if (isNewLayout()) return cardHtmlNew(id, card);   // 새 구조 — 아래 옛 구조 마크업은 손대지 않는다
   const p = card.product || {};
   const r = card.recruit || {};
   const sale = card.sale || {};
@@ -1111,6 +1153,98 @@ function cardHtml(id, card) {
   </div>`;
 }
 
+// ── 새 구조 카드(2026-09-08) — 형식은 발급 때 정해져 있어 탭이 없고, 삭제 단추도 없다(카드 1개 고정).
+//   빠진 항목(사양서 §4-2): 카테고리 · 희망 모집 마감 · 희망 업로드 시작/마감 · 등급·필수 내용·증정품 ·
+//   리뷰어의 금지 표현·추가 안내. 시딩의 배송 안내·NG·추가 안내는 당분간 유지(잠정 ⓐ).
+//   🔴 뺀 키는 collectCardNew 가 새로 쓰지 않는다(빈 문자열로도) — 관리자 상세가 그 줄을 그린다.
+function cardHtmlNew(id, card) {
+  const ft = issuedFormType();
+  const ch = issuedChannel();
+  const p = card.product || {};
+  const r = card.recruit || {};
+  const sale = card.sale || {};
+  const sd = card.seeding || {};
+
+  const imgArr = Array.isArray(card.images) && card.images.length ? card.images : [{ value: '' }];
+  const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type, x.name)).join('');
+
+  const uidAttr = card.uid ? ` data-uid="${escAttr(card.uid)}"` : '';
+  const campAttr = card.campaign_id ? ` data-campaign-id="${escAttr(card.campaign_id)}"` : '';
+  const linkedAttr = card.linked_existing ? ' data-linked-existing="1"' : '';
+  const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
+
+  const reviewerBlock = (ft === 'reviewer') ? `
+        <div class="field only-reviewer"><label>리뷰 가이드</label>
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '리뷰에 꼭 담아야 할 내용, 별점·사진 등 작성 방식을 적어 주세요.')}
+          <div class="char-count" data-count-for="f-review-guide"><span class="cc-cur">0</span> / ${LIMIT_REVIEW_GUIDE}</div></div>` : '';
+
+  const seedingBlock = (ft === 'seeding') ? `
+        <div class="only-seeding">
+          <div class="field"><label>게시 채널</label>
+            <div><span class="ch-badge">${escAttr(CHANNEL_LABEL[ch] || ch || '채널 미지정')}</span></div>
+            <div class="field-hint">발급 때 정해진 채널입니다. 다른 채널도 진행하려면 담당자에게 링크를 따로 받아 주세요.</div></div>
+          <div class="field"><label>소구 키워드 · 어필 포인트</label>
+            <textarea class="f-appeal" placeholder="각 채널에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
+            <div class="char-count" data-count-for="f-appeal"><span class="cc-cur">0</span> / ${LIMIT_SEEDING_APPEAL}</div></div>
+          <div class="field"><label>촬영 가이드</label>
+            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea></div>
+          <div class="field"><label>필수 해시태그 (최대 5개)</label>
+            <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
+          <div class="field"><label>게시물에 태그할 계정</label>
+            <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()">
+            <div class="field-hint">인플루언서가 게시물에 멘션(@)할 계정입니다. 브랜드 공식 SNS 계정을 포함해 적어 주세요.</div></div>
+          <div class="field"><label>배송 안내</label>
+            <textarea class="f-shipping" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()">${escAttr(sd.shipping_note)}</textarea></div>
+        </div>
+        <div class="field"><label>금지 표현 (NG)</label>
+          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}</div>
+        <div class="field"><label>추가 안내 · 필독 사항</label>
+          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}</div>` : '';
+
+  // 시딩 예상 일정 안내 — 시작일을 넣으면 그 아래 계산값(저장하지 않는다 — 저장하면 「희망일」이 되살아난다)
+  const scheduleHint = (ft === 'seeding') ? `<div class="cg-schedule-hint" data-schedule-hint></div>` : '';
+
+  return `<div class="ocard open" id="${id}" data-card-id="${id}" data-ctype="${escAttr(ft)}"${uidAttr}${campAttr}${linkedAttr}>
+    <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
+      <div class="ocard-head-main">
+        <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>${chChip}
+        <span class="ocard-title empty">제품 미입력</span>
+      </div>
+      <span class="ocard-chevron material-icons-outlined notranslate" translate="no">expand_more</span>
+    </div>
+    <div class="ocard-body">
+      <div class="card-gated">
+        <div class="field"><label>제품명<span class="req">*</span></label>
+          <input type="text" class="f-product-name" placeholder="제품명" value="${escAttr(p.name)}" oninput="onCardInput('${id}')"></div>
+
+        <div class="only-rp">
+          <div class="field"><label>판매처</label>
+            <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
+          <div class="field"><label>판매 URL<span class="req">*</span></label>
+            <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
+            <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
+          <div class="field"><label>상시가<span class="req">*</span></label>
+            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
+        </div>
+
+        <div class="row2">
+          <div class="field"><label>모집 인원</label>
+            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()"></div>
+          <div class="field"><label>희망 모집 시작일</label>
+            <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
+        </div>
+        ${scheduleHint}
+        ${reviewerBlock}
+        ${seedingBlock}
+        <div class="field"><label>예시 이미지·자료</label>
+          <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지·자료가 있으면 「파일 업로드」로 올리거나 「URL 공유」로 링크를 넣어 주세요. (이미지·PDF·문서, 최대 5개)</div>
+          <div class="img-list">${imgRows}</div>
+          <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // 카드 추가. opts.open=펼침, opts.prefill=연결 신청 참고값을 첫 카드에 1회 주입
 function addCard(card, opts) {
   card = card || {};
@@ -1119,10 +1253,13 @@ function addCard(card, opts) {
   $('cardList').insertAdjacentHTML('beforeend', cardHtml(id, card));
   const el = $(id);
 
-  // 형식 미리 지정된 경우(기존 data 복원) 표시 분기 적용
-  if (card.form_type) applyCardType(el, card.form_type);
-  if ((card.seeding && card.seeding.grade) || card.form_type === 'seeding') {
-    el.setAttribute('data-cgrade', (card.seeding && card.seeding.grade) || 'nano');
+  // 형식 미리 지정된 경우(기존 data 복원) 표시 분기 적용 — 옛 구조만. 새 구조는 마크업이 data-ctype 을 이미 갖고
+  //   등급(data-cgrade) 개념이 없다(리뷰 지적 — 안 자르면 새 카드에 옛 등급 속성이 조용히 붙는다).
+  if (!isNewLayout()) {
+    if (card.form_type) applyCardType(el, card.form_type);
+    if ((card.seeding && card.seeding.grade) || card.form_type === 'seeding') {
+      el.setAttribute('data-cgrade', (card.seeding && card.seeding.grade) || 'nano');
+    }
   }
 
   // 빈 새 카드 + 첫 카드 + 연결 신청값 있으면 모집 정보 미리 채움
@@ -1134,6 +1271,7 @@ function addCard(card, opts) {
 
   if (opts.open) openCard(id);
   updateCardSummary(id);
+  if (isNewLayout()) { refreshCharCounts(el); updateScheduleHint(el); }
   refreshEmptyState();
   if (opts.prefill) onInput();   // 사용자가 직접 추가한 카드는 즉시 저장(구조 보존)
   onSpyScroll();
@@ -1259,8 +1397,10 @@ function updateCardSummary(id) {
   if (!el) return;
   const ft = el.getAttribute('data-ctype');
   const chip = el.querySelector('.ocard-chip');
-  chip.className = 'ocard-chip' + (ft ? ' ' + ft : '');
-  chip.textContent = ft ? FORM_TYPE_LABEL[ft] : '형식';
+  if (!isNewLayout()) {   // 새 구조는 형식 칩이 마크업에 고정돼 있다(채널 칩과 나란히)
+    chip.className = 'ocard-chip' + (ft ? ' ' + ft : '');
+    chip.textContent = ft ? FORM_TYPE_LABEL[ft] : '형식';
+  }
   const titleEl = el.querySelector('.ocard-title');
   const name = (el.querySelector('.f-product-name').value || '').trim();
   titleEl.textContent = name || '제품 미입력';
@@ -1473,6 +1613,7 @@ function clearImageUpload(btn) {
 //   형식 전용 입력도 DOM엔 존재하나 숨겨져 비어 있으면 빈 문자열로 자연 제외
 // ══════════════════════════════════════
 function collectCard(el) {
+  if (isNewLayout()) return collectCardNew(el);   // 새 구조 — 아래 옛 구조 수집은 손대지 않는다
   const ft = el.getAttribute('data-ctype') || '';
   const grade = el.getAttribute('data-cgrade') || 'nano';
 
@@ -1536,6 +1677,133 @@ function collectCard(el) {
   return out;
 }
 
+// 새 구조 카드 수집 — 화면에 있는 칸만 읽고, 뺀 키(카테고리·마감·업로드·등급·리뷰어의 NG/추가 안내)는 만들지 않는다.
+//   form_type 은 발급값으로 고정(서버 425 가 저장 때 issued 값으로 한 번 더 덮어쓴다). 시딩 채널도 같다.
+function collectCardNew(el) {
+  const ft = issuedFormType();
+  const q = sel => el.querySelector(sel);
+  const val = sel => { const n = q(sel); return n ? n.value.trim() : ''; };
+
+  const images = Array.from(el.querySelectorAll('[data-img]')).map(row => {
+    const type = row.dataset.imgType === 'upload' ? 'upload' : 'url';
+    const obj = { type, value: normalizeUrl(row.querySelector('.img-value').value) };
+    if (type === 'upload' && row.dataset.imgName) obj.name = row.dataset.imgName;
+    return obj;
+  }).filter(x => x.value);
+
+  const out = {
+    form_type: ft,
+    product: { name: val('.f-product-name'), slots: val('.f-slots') },
+    recruit: { recruit_start: val('.f-recruit-start') },
+    sale: { market: 'Qoo10', url: normalizeUrl(val('.f-sale-url')), price_regular: val('.f-price-regular') },
+    images,
+  };
+  if (ft === 'reviewer') {
+    out.review_guide = richValue(q('.f-review-guide'));
+  }
+  if (ft === 'seeding') {
+    const hashtags = val('.f-hashtags').split(/[\s,]+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
+    out.seeding = {
+      channels: issuedChannel() ? [issuedChannel()] : [],
+      appeal: val('.f-appeal'),
+      hashtags,
+      account_tags: val('.f-account-tags'),
+      shooting_guide: val('.f-shooting'),
+      shipping_note: val('.f-shipping'),
+    };
+    out.ng = richValue(q('.f-ng'));
+    out.cautions = richValue(q('.f-cautions'));
+  }
+  // 되돌려 보내는 값 3종 — 옛 구조와 같은 규칙(값이 있을 때만 키를 만든다)
+  const uid = el.getAttribute('data-uid');
+  if (uid) out.uid = uid;
+  const campaignId = el.getAttribute('data-campaign-id');
+  if (campaignId) out.campaign_id = campaignId;
+  if (el.getAttribute('data-linked-existing')) out.linked_existing = true;
+  return out;
+}
+
+// ── 글자 수 제한(새 구조) — 리뷰 가이드·소구 키워드 1,000자. 넘는 입력은 그 자리에서 잘라 「{현재} / 1000」 로 보여준다.
+//   세는 기준은 서식(태그)을 뺀 본문(textContent) — 서버(_orient_text_length, 425)와 같은 셈법.
+//   ⚠️ 임시저장은 서버 검사가 없어 잘린 값만 저장되고, 제출은 서버가 다시 센다(guide_too_long·appeal_too_long).
+function charLimitOf(node) {
+  if (!node) return 0;
+  if (node.classList.contains('f-review-guide')) return LIMIT_REVIEW_GUIDE;
+  if (node.classList.contains('f-appeal')) return LIMIT_SEEDING_APPEAL;
+  return 0;
+}
+// contenteditable 의 본문을 뒤에서부터 잘라 limit 글자로 맞춘다(서식 노드는 남긴다)
+function trimContentEditable(node, limit) {
+  let excess = node.textContent.length - limit;
+  if (excess <= 0) return false;
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  for (let i = texts.length - 1; i >= 0 && excess > 0; i--) {
+    const t = texts[i];
+    const cut = Math.min(excess, t.data.length);
+    t.data = t.data.slice(0, t.data.length - cut);
+    excess -= cut;
+  }
+  // 커서를 끝으로
+  try {
+    const sel = window.getSelection(); const range = document.createRange();
+    range.selectNodeContents(node); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
+  } catch (e) {}
+  return true;
+}
+function enforceCharLimit(node) {
+  const limit = charLimitOf(node);
+  if (!limit) return;
+  let trimmed = false;
+  if (node.isContentEditable) {
+    trimmed = trimContentEditable(node, limit);
+  } else if (node.value.length > limit) {
+    node.value = node.value.slice(0, limit); trimmed = true;
+  }
+  const cur = node.isContentEditable ? node.textContent.length : node.value.length;
+  const card = node.closest('.ocard');
+  const cls = node.classList.contains('f-review-guide') ? 'f-review-guide' : 'f-appeal';
+  const counter = card && card.querySelector(`.char-count[data-count-for="${cls}"]`);
+  if (counter) {
+    counter.querySelector('.cc-cur').textContent = String(cur);
+    counter.classList.toggle('full', cur >= limit);
+  }
+  if (trimmed) showToast(`${limit.toLocaleString('ko-KR')}자까지 적을 수 있어요.`);
+}
+function refreshCharCounts(cardEl) {
+  cardEl.querySelectorAll('.f-review-guide, .f-appeal').forEach(enforceCharLimit);
+}
+
+// ── 시딩 예상 일정 안내(새 구조) — 모집 시작일 아래. 저장하지 않는다.
+//   날짜는 문자열 자르기로만 계산한다(new Date('YYYY-MM-DD') 금지 — 시간대가 끼어든다).
+function addDaysYmd(ymd, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+  if (!m) return '';
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + days * 86400000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+function fmtMd(ymd) { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(ymd || ''); return m ? `${+m[1]}/${+m[2]}` : ymd; }
+function updateScheduleHint(cardEl) {
+  const box = cardEl && cardEl.querySelector('[data-schedule-hint]');
+  if (!box) return;   // 리뷰어 카드에는 없다
+  const start = (cardEl.querySelector('.f-recruit-start') || {}).value || '';
+  if (!start) { box.textContent = ''; return; }
+  box.textContent = `예상 일정 — 모집 마감 ${fmtMd(addDaysYmd(start, 10))}~${fmtMd(addDaysYmd(start, 14))} · 배송 5~7일 · 최종 업로드 ${fmtMd(addDaysYmd(start, 25))}~${fmtMd(addDaysYmd(start, 35))} (실제 일정은 담당자가 발행 때 확정합니다)`;
+}
+// 새 구조 입력 위임 — 글자 수 제한·일정 안내를 한 자리에서(붙여넣기·직접 입력 모두 input 이벤트로 온다)
+document.addEventListener('input', (ev) => {
+  if (!isNewLayout()) return;
+  const t = ev.target;
+  if (!t || !t.closest) return;
+  if (charLimitOf(t)) enforceCharLimit(t);
+});
+document.addEventListener('change', (ev) => {
+  if (!isNewLayout()) return;
+  const t = ev.target;
+  if (t && t.classList && t.classList.contains('f-recruit-start')) updateScheduleHint(t.closest('.ocard'));
+});
+
 // 카드 고유 번호(uid) 되받기 — 마이그레이션 329
 //   ⚠️ 폼은 uid 를 **만들지 않는다**(만드는 곳은 서버 저장 함수 한 곳뿐 — 마이그레이션 293).
 //   그래서 서버가 붙인 번호를 **돌려받아 담아 두지 않으면 폼은 자기 카드의 번호를 영영 모른다.**
@@ -1561,6 +1829,18 @@ function applyCardUids(cardEls, uids) {
 function collectData() {
   lastCollectedCardEls = Array.from(document.querySelectorAll('.ocard'));
   const cards = lastCollectedCardEls.map(collectCard);
+  if (isNewLayout()) {
+    // 새 구조 — 브랜드 소개·공식 계정·레버브 요청 키를 만들지 않는다. issued 등 서버 키는 안 보내도 서버가 지킨다(425).
+    return {
+      brand: {
+        name: $('f_brand_name').value.trim(),
+        contact_name: $('f_brand_contact_name').value.trim(),
+        email: $('f_brand_email').value.trim(),
+        phone: $('f_brand_phone').value.trim(),
+      },
+      cards,
+    };
+  }
   return {
     brand: {
       name: $('f_brand_name').value.trim(),
@@ -1649,6 +1929,19 @@ function enterConflict() {
 // (card = 해당 .ocard 요소(접혀 있으면 펼침), target = 강조·스크롤할 입력 요소)
 function findInvalidField() {
   const cardEls = Array.from(document.querySelectorAll('#cardList > .ocard'));
+  if (isNewLayout()) {
+    // 새 구조 — 형식은 고정이라 묻지 않는다. 없어진 칸(카테고리·마감 등)은 요구하지 않는다.
+    const el = cardEls[0];
+    if (!el) return { message: '화면을 새로고침해 주세요.', card: null, target: null };
+    const c = collectCard(el);
+    if (!c.product.name) return { message: '제품명을 입력해 주세요.', card: el, target: el.querySelector('.f-product-name') };
+    if (!c.sale.url) return { message: '판매 URL을 입력해 주세요.', card: el, target: el.querySelector('.f-sale-url') };
+    if (!c.sale.price_regular) return { message: '상시가를 입력해 주세요.', card: el, target: el.querySelector('.f-price-regular') };
+    const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
+    if (pendingUrl && pendingUrl.value.trim())
+      return { message: '공유 링크를 「확인」 버튼으로 확정해 주세요.', card: el, target: pendingUrl };
+    return null;
+  }
   if (!cardEls.length) {
     return { message: '제품(카드)을 1개 이상 추가해 주세요.', card: null, target: $('btnAddCard') };
   }
@@ -1731,7 +2024,40 @@ function pvRowHtml(k, html) {
   return `<div class="pv-row"><span class="pv-k">${escAttr(k)}</span>${val}</div>`;
 }
 
+// 새 구조 미리보기 — 화면에 있는 항목만(없는 항목은 「—」로도 안 그린다)
+function renderPreviewCardNew(c, idx) {
+  const ft = c.form_type;
+  const ch = issuedChannel();
+  let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
+  if (ft === 'seeding') rows += pvRow('게시 채널', CHANNEL_LABEL[ch] || ch);
+  rows += pvRow('제품명', c.product.name);
+  rows += pvRow('판매처', c.sale.market || 'Qoo10');
+  rows += pvRow('판매 URL', c.sale.url);
+  rows += pvRow('상시가', c.sale.price_regular);
+  rows += pvRow('모집 인원', c.product.slots);
+  rows += pvRow('희망 모집 시작일', c.recruit.recruit_start);
+  if (ft === 'reviewer') rows += pvRowHtml('리뷰 가이드', c.review_guide);
+  if (ft === 'seeding') {
+    const sd = c.seeding || {};
+    rows += pvRow('소구 키워드', sd.appeal);
+    rows += pvRow('촬영 가이드', sd.shooting_guide);
+    rows += pvRow('해시태그', (sd.hashtags || []).join(' '));
+    rows += pvRow('계정 태그', sd.account_tags);
+    rows += pvRow('배송 안내', sd.shipping_note);
+    if (c.ng) rows += pvRowHtml('NG', c.ng);
+    if (c.cautions) rows += pvRowHtml('추가 안내', c.cautions);
+  }
+  if (c.images.length) rows += pvRow('이미지', c.images.map(x => x.value).join('\n'));
+  const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
+  return `<div class="pv-card">
+    <div class="pv-card-head">
+      <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>${chChip}
+      <span class="pv-name">${escAttr(c.product.name || `제품 ${idx + 1}`)}</span>
+    </div>${rows}</div>`;
+}
+
 function renderPreviewCard(c, idx) {
+  if (isNewLayout()) return renderPreviewCardNew(c, idx);
   const ft = c.form_type;
   let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
   rows += pvRow('제품명', c.product.name);
@@ -1774,9 +2100,10 @@ function renderPreviewCard(c, idx) {
 
 function renderPreview(data) {
   const b = data.brand;
+  const brandExtra = isNewLayout() ? '' : pvRow('소개', b.intro) + pvRow('공식 계정', b.official_accounts);
   const brandCard = `<div class="pv-card">
     <div class="pv-card-head"><span class="pv-name">브랜드 정보</span></div>
-    ${pvRow('브랜드명', b.name)}${pvRow('담당자명', b.contact_name)}${pvRow('이메일', b.email)}${pvRow('연락처', b.phone)}${pvRow('소개', b.intro)}${pvRow('공식 계정', b.official_accounts)}
+    ${pvRow('브랜드명', b.name)}${pvRow('담당자명', b.contact_name)}${pvRow('이메일', b.email)}${pvRow('연락처', b.phone)}${brandExtra}
   </div>`;
   const reqCard = data.reverb_request
     ? `<div class="pv-card"><div class="pv-card-head"><span class="pv-name">레버브 측 요청</span></div>${pvRow('요청·요구사항', data.reverb_request)}</div>`
@@ -1832,6 +2159,10 @@ async function submitSheet() {
     if (res && res.reason === 'conflict') { enterConflict(); closePreview(); return; }
     if (res && res.reason === 'data_required') { showToast('내용을 입력해 주세요.'); return; }
     if (res && res.reason === 'data_too_large') { showToast('내용이 너무 깁니다. 줄여 주세요.'); return; }
+    // [425] 새 구조 시트의 서버 재검증 — 폼이 자르고 있어 보통 안 뜨지만, 옛 캐시 폼·직접 호출을 서버가 막는다
+    if (res && res.reason === 'cards_limit') { closePreview(); showToast('이 링크에는 제품 하나만 제출할 수 있어요. 화면을 새로고침해 주세요.'); return; }
+    if (res && res.reason === 'guide_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_REVIEW_GUIDE.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
+    if (res && res.reason === 'appeal_too_long') { closePreview(); showToast(`소구 키워드가 ${LIMIT_SEEDING_APPEAL.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
     if (res && (res.reason === 'expired' || res.reason === 'consumed')) {
       showToast('제출할 수 없는 상태입니다.'); showErrorScreen(res.reason); return;
     }

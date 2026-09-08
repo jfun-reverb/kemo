@@ -11917,6 +11917,7 @@ async function getOrientSheet(token) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
 // 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
 async function saveOrientDraft(token, data, version) {
@@ -11945,6 +11946,7 @@ async function saveOrientDraft(token, data, version) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
 // 발행 전까지 재제출 가능(사양서 결정⑨).
 // 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
@@ -11978,17 +11980,23 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
-// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190 → 205 → 424) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
-// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
-// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
-// 반환: {success, id, token, token_expires_at} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId) {
+// [424] 4인자(brand_id, application_id, form_type, channel) — 관리자가 발급 때 형식(리뷰어/시딩)과
+//   시딩 채널(5종 중 하나)을 정한다. data 초기값은 두 갈래:
+//   · formType 있음 → {issued:{form_type,channel,issued_at}, brand:{name,contact_name,email,phone}, cards:[카드 1개]}
+//   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
+// 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
+//   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel
+async function createOrientSheet(brandId, applicationId, formType, channel) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
     const { data, error } = await db.rpc('create_orient_sheet', {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
+      p_form_type: formType || null,
+      p_channel: channel || null,
     });
     if (error) throw error;
     return data;
