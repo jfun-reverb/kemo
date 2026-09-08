@@ -685,7 +685,7 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
   <div id="saveState" class="save-state"><span class="material-icons-outlined notranslate" translate="no">cloud_done</span><span id="saveStateText">자동 저장</span></div>
   <div class="foot-nav">
     <!-- 작성 화면 -->
-    <button type="button" id="btnReview" class="btn-submit" onclick="openPreview()">제출</button>
+    <button type="button" id="btnReview" class="btn-submit" onclick="openPreview()">작성 완료</button>   <!-- 제출이 아니다 — 작성 내용 확인 화면 다음(새 구조=견적서 확인 「제출하기」 / 옛 구조=「이대로 제출」)에서만 제출된다(2026-09-08) -->
     <!-- 미리보기 화면 -->
     <button type="button" id="btnBackToEdit" class="btn-nav hidden" onclick="closePreview()">수정으로 돌아가기</button>
     <button type="button" id="btnQuoteView" class="btn-submit hidden" onclick="openQuotePreview()">견적 보기</button>
@@ -1677,7 +1677,7 @@ function setUploadStatus(row, kind, text) {
   el.textContent = text || '';
 }
 function updateUploadBusy() {
-  const btn = $('btnReview');         // 업로드 중이면 제출(미리보기) 버튼 비활성
+  const btn = $('btnReview');         // 업로드 중이면 「작성 완료」(확인 화면 진입) 버튼 비활성
   if (btn) btn.disabled = uploadingCount > 0;
 }
 
@@ -2189,7 +2189,7 @@ function focusInvalid(v) {
 
 function openPreview() {
   if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
-  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 제출할 수 있어요.'); return; }
+  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 진행할 수 있어요.'); return; }
   flushAutosave();
   const invalid = findInvalidField();
   if (invalid) { showToast(invalid.message); focusInvalid(invalid); return; }
