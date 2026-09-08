@@ -12003,6 +12003,29 @@ async function createOrientSheet(brandId, applicationId, formType, channel) {
   });
 }
 
+// ── 견적 기준값 (마이그레이션 426, 오리엔시트 단순화 2단계) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — 합치면 화면이 「환율 0」으로 그린다.
+async function fetchQuoteSettings() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_settings');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteSettings]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, key, prev_amount, amount} | {success:false, reason}
+async function updateQuoteSetting(key, amount) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_setting', { p_key: key, p_amount: amount });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
 // 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
 // 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }

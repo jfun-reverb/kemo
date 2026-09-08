@@ -422,6 +422,45 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
 .cg-schedule-hint:empty { display: none; }
 .ch-badge { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3; font-size: 13px; font-weight: 700; }
 
+/* ============ 제출 완료 화면 · 견적서 (2단계, 사양서 §4-6) ============ */
+.done-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 22px 20px; margin-top: 14px; }
+.done-card h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.done-card p { font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+.done-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 4px; font-size: 12.5px; color: var(--ink-mute); }
+.done-flow .step { padding: 4px 10px; border-radius: 999px; background: #F3F3F5; font-weight: 600; }
+.done-flow .step.now { background: var(--brand-soft, #fdeef4); color: var(--brand-dark, #9d3f6c); }
+.done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.btn-quote { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border: none; border-radius: 12px;
+  background: var(--brand, #C878A3); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+.btn-quote .material-icons-outlined { font-size: 22px; }
+.btn-secondary { display: block; width: 100%; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.done-hint { font-size: 12px; color: var(--ink-mute); text-align: center; line-height: 1.6; }
+.done-warn { background: #FFF6E5; border: 1px solid #F4D7A8; color: #8A5A00; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.6; margin-top: 12px; }
+/* 견적서 — 화면에서도 종이 느낌으로, 인쇄 때는 이 화면만 남긴다 */
+.quote-doc { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 28px 26px; margin: 14px 0 24px; font-size: 13px; color: #161618; }
+.quote-doc h1 { font-size: 24px; font-weight: 900; letter-spacing: 0.3em; text-align: center; margin: 0 0 18px; }
+.quote-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.quote-meta .col { min-width: 220px; flex: 1; }
+.quote-meta .col h3 { font-size: 11px; color: var(--ink-mute); font-weight: 700; margin: 0 0 4px; letter-spacing: .04em; }
+.quote-meta .col div { line-height: 1.6; }
+.quote-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.quote-table th, .quote-table td { border-top: 1px solid #E5E5EA; padding: 8px 6px; text-align: left; vertical-align: top; }
+.quote-table th { font-size: 11px; color: var(--ink-mute); font-weight: 700; border-top: 2px solid #161618; }
+.quote-table td.num, .quote-table th.num { text-align: right; white-space: nowrap; }
+.quote-total { border-top: 2px solid #161618; margin-top: 4px; }
+.quote-total div { display: flex; justify-content: space-between; padding: 6px 6px; }
+.quote-total .grand { font-size: 16px; font-weight: 900; border-top: 1px solid #E5E5EA; margin-top: 4px; padding-top: 10px; }
+.quote-note { font-size: 12px; color: var(--ink-soft); line-height: 1.7; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #E5E5EA; }
+.quote-bar { display: flex; gap: 8px; margin-top: 10px; }
+.quote-bar button { flex: 1; }
+@media print {
+  body.print-quote > *:not(#screenQuote) { display: none !important; }
+  body.print-quote #screenQuote { display: block !important; padding: 0; }
+  body.print-quote .quote-bar, body.print-quote .done-hint { display: none !important; }
+  body.print-quote .quote-doc { border: none; border-radius: 0; margin: 0; padding: 0; }
+  @page { margin: 16mm; }
+}
+
 /* ============ FOOTER BAR ============ */
 .footbar {
   position: fixed; left: 0; right: 0; bottom: 0;
@@ -599,6 +638,31 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
   <div id="previewBody"></div>
 </div>
 
+<!-- 제출 완료 화면 (2단계 · 새 구조 시트만) -->
+<div id="screenDone" class="wrap hidden">
+  <div class="done-card">
+    <h2 id="doneTitle">제출되었습니다</h2>
+    <p>제출된 내용은 담당자가 확인합니다. 발행 전까지는 「내용 수정하기」로 고쳐서 다시 제출할 수 있어요.</p>
+    <div class="done-flow">
+      <span class="step now">제출</span><span>›</span><span class="step">담당자 확인</span><span>›</span><span class="step">견적 확정</span><span>›</span><span class="step">캠페인 발행</span><span>›</span><span class="step">모집</span>
+    </div>
+    <div id="doneQuoteArea"></div>
+    <div class="done-actions">
+      <button type="button" class="btn-secondary" onclick="enterFormScreen()">내용 수정하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 견적서 (인쇄용 — 이 화면만 인쇄된다) -->
+<div id="screenQuote" class="wrap hidden">
+  <div class="quote-bar">
+    <button type="button" class="btn-secondary" id="btnQuoteBack" onclick="leaveQuoteScreen()">돌아가기</button>
+    <button type="button" class="btn-quote" onclick="printQuote()"><span class="material-icons-outlined notranslate" translate="no">print</span>인쇄 · PDF 저장</button>
+  </div>
+  <div class="done-hint">휴대폰은 인쇄 화면에서 「공유 → PDF」로 저장할 수 있어요.</div>
+  <div id="quoteDoc" class="quote-doc"></div>
+</div>
+
 <!-- 하단 고정 바 -->
 <div id="footbar" class="footbar hidden">
   <span id="statusPill" class="status-pill draft hidden">작성 중</span>
@@ -774,6 +838,10 @@ async function boot() {
     loadedData = data;
     applyLayoutMode();
     fillForm(data);
+    // 2단계 — 새 구조 시트: ?view=quote 는 견적서 화면, 제출된 시트 재진입은 완료 화면 먼저(작성 화면은 「내용 수정하기」로만).
+    //   옛 시트(issued 없음)는 견적이 없으므로 종전대로 작성 화면.
+    if (isNewLayout() && params.get('view') === 'quote' && data.quote) { enterQuoteScreen(false); return; }
+    if (isNewLayout() && currentStatus === 'submitted' && (data.quote || data.quote_error)) { enterDoneScreen(); return; }
     enterFormScreen();
   } catch (e) {
     console.error('[orient boot]', e);
@@ -814,6 +882,9 @@ function showErrorScreen(reason) {
   $('screenLoading').classList.add('hidden');
   $('screenForm').classList.add('hidden');
   $('screenPreview').classList.add('hidden');
+  $('screenDone').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote');
   $('footbar').classList.add('hidden');
   const map = {
     invalid_token: { ico: 'link_off',  title: '링크를 확인할 수 없습니다', body: '링크가 올바르지 않습니다. 담당자에게 다시 받아 주세요.' },
@@ -832,6 +903,9 @@ function enterFormScreen() {
   $('screenLoading').classList.add('hidden');
   $('screenError').classList.add('hidden');
   $('screenPreview').classList.add('hidden');
+  $('screenDone').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote');
   $('screenForm').classList.remove('hidden');
   $('footbar').classList.remove('hidden');
   $('btnReview').classList.remove('hidden');
@@ -2151,6 +2225,17 @@ async function submitSheet() {
       dirty = false;
       try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
       closePreview();
+      if (isNewLayout()) {
+        // 2단계 — 서버가 돌려준 견적 세트를 화면 원본(loadedData)에도 실어 완료 화면·견적서가 같은 값을 본다.
+        //   제출한 data 로 loadedData 를 갈아 끼우되 서버 키(issued 등)는 그대로 둔다(서버가 지킨 값).
+        const keep = { issued: loadedData.issued, quote_history: loadedData.quote_history };
+        loadedData = Object.assign({}, data, keep);
+        if (res.quote) { loadedData.quote = res.quote; delete loadedData.quote_error; }
+        else { delete loadedData.quote; loadedData.quote_error = res.quote_error || 'price_unreadable'; }
+        if (loadedData.quote_error && loadedData.quote === undefined) { /* 세트 규칙: 둘 중 하나만 */ }
+        enterDoneScreen();
+        return;
+      }
       enterFormScreen();
       setSaveState('saved', '제출 완료');
       showToast('제출되었습니다. 발행 전까지 수정할 수 있어요.');
@@ -2180,6 +2265,122 @@ async function submitSheet() {
 window.addEventListener('beforeunload', (e) => {
   if (dirty && !conflicted) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ══════════════════════════════════════
+// 2단계 — 제출 완료 화면 · 견적서 (사양서 §4-6, 작업 17·18)
+//   판별은 loadedData.quote / loadedData.quote_error 한 세트(서버가 제출마다 다시 쓴다 — 둘이 동시에 있는 상태는 없다).
+//   🔴 견적서를 그리는 코드는 여기 한 벌뿐 — 관리자 화면은 ?view=quote 로 이 화면을 새창에 연다.
+// ══════════════════════════════════════
+const QUOTE_ISSUER = {
+  name: '주식회사 제이펀 (株式会社ジェイファン)',
+  rep: '대표 주현호',
+  addr: '서울시 금천구 가산디지털1로 128 STX V-Tower 1201호',
+  contact: '공식 LINE @reverb.jp',
+};
+const QUOTE_ERROR_TEXT = {
+  price_unreadable: '상시가를 숫자로 적으면 견적서를 받을 수 있어요. (예: 5300)',
+  slots_missing: '모집 인원을 숫자로 적으면 견적서를 받을 수 있어요.',
+  calc_error: '견적을 계산하지 못했어요. 담당자가 확인한 뒤 견적을 안내해 드릴게요.',
+};
+function krw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+function jpy(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+function ymdOf(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[1]}.${m[2]}.${m[3]}` : ''; }
+
+function hideAllScreens() {
+  ['screenLoading', 'screenError', 'screenForm', 'screenPreview', 'screenDone', 'screenQuote'].forEach(id => $(id).classList.add('hidden'));
+  $('footbar').classList.add('hidden');
+  document.body.classList.remove('print-quote');
+  clearTimeout(saveTimer);   // 자동저장은 작성 화면에서만
+}
+function enterDoneScreen() {
+  hideAllScreens();
+  const q = loadedData && loadedData.quote;
+  const err = loadedData && loadedData.quote_error;
+  const area = $('doneQuoteArea');
+  if (q) {
+    area.innerHTML = `<div class="done-actions" style="margin-top:14px">
+        <button type="button" class="btn-quote" onclick="enterQuoteScreen(true)"><span class="material-icons-outlined notranslate" translate="no">picture_as_pdf</span>견적서 · PDF 저장</button>
+        <div class="done-hint">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · 판 ${escAttr(String(q.revision || 1))}<br>휴대폰은 「공유 → PDF」로 저장할 수 있어요.</div>
+      </div>`;
+  } else if (err) {
+    area.innerHTML = `<div class="done-warn">${escAttr(QUOTE_ERROR_TEXT[err] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')}<br><span style="font-size:12px">「내용 수정하기」로 고쳐서 다시 제출하면 견적서가 만들어져요.</span></div>`;
+  } else {
+    area.innerHTML = '';
+  }
+  $('screenDone').classList.remove('hidden');
+  window.scrollTo({ top: 0 });
+  onSpyScroll();
+}
+// autoPrint: 완료 화면의 단추로 들어오면 바로 인쇄 대화상자, 관리자가 ?view=quote 로 열면 화면만
+function enterQuoteScreen(autoPrint) {
+  const q = loadedData && loadedData.quote;
+  if (!q) { showToast('견적서가 아직 없어요.'); return; }
+  hideAllScreens();
+  $('quoteDoc').innerHTML = renderQuoteDoc(q, loadedData);
+  $('screenQuote').classList.remove('hidden');
+  document.body.classList.add('print-quote');
+  window.scrollTo({ top: 0 });
+  if (autoPrint) setTimeout(printQuote, 250);
+}
+function leaveQuoteScreen() { enterDoneScreen(); }
+function printQuote() { try { window.print(); } catch (e) { showToast('인쇄 창을 열지 못했어요. 브라우저 메뉴의 「인쇄」를 눌러 주세요.'); } }
+
+function renderQuoteDoc(q, data) {
+  const b = (data && data.brand) || {};
+  const c = (data && Array.isArray(data.cards) && data.cards[0]) || {};
+  const ft = q.form_type || issuedFormType();
+  const ftLabel = FORM_TYPE_LABEL[ft] || ft;
+  const chLabel = (ft === 'seeding' && q.channel) ? (CHANNEL_LABEL[q.channel] || q.channel) : '';
+  const lines = Array.isArray(q.lines) ? q.lines : [];
+  const rows = lines.map(l => `<tr>
+      <td>${escAttr(l.label || '')}</td>
+      <td class="num">${escAttr(String(l.qty ?? ''))}</td>
+      <td class="num">${escAttr(krw(l.unit_krw))}</td>
+      <td class="num">${escAttr(krw(l.amount_krw))}</td>
+    </tr>`).join('');
+  const fixed = (ft === 'seeding')
+    ? '본 견적은 브랜드가 입력한 모집 인원 기준 예상 금액이며, 최종 금액은 담당자 확인 후 확정됩니다.'
+    : '본 견적은 브랜드가 입력한 상시가·인원 기준 예상 금액이며, 최종 금액은 담당자 확인 후 확정됩니다.';
+  const jpyRef = (ft === 'reviewer' && q.price_regular_jpy != null)
+    ? `<div>엔화 참고 — 상시가 ${escAttr(jpy(q.price_regular_jpy))} × 환율 ${escAttr(String(q.basis && q.basis.exchange_rate_krw_per_jpy))}원/엔</div>` : '';
+  const vatPct = Math.round(Number(q.basis && q.basis.vat_rate || 0) * 100);
+  return `
+    <h1>견 적 서</h1>
+    <div class="quote-meta">
+      <div class="col"><h3>수신</h3>
+        <div><strong>${escAttr(b.name || '')}</strong> 귀중</div>
+        <div>${escAttr([b.contact_name, b.email].filter(Boolean).join(' · '))}</div></div>
+      <div class="col"><h3>발행</h3>
+        <div><strong>${escAttr(QUOTE_ISSUER.name)}</strong></div>
+        <div>${escAttr(QUOTE_ISSUER.rep)}</div>
+        <div>${escAttr(QUOTE_ISSUER.addr)}</div>
+        <div>${escAttr(QUOTE_ISSUER.contact)}</div></div>
+      <div class="col"><h3>견적 정보</h3>
+        <div>견적 번호 <strong>${escAttr(q.quote_no || '')}</strong> · 판 ${escAttr(String(q.revision || 1))}</div>
+        <div>작성일 ${escAttr(ymdOf(q.issued_at))}</div>
+        <div>유효기간 ${escAttr(ymdOf(q.valid_until))}까지</div></div>
+    </div>
+    <table class="quote-table">
+      <tr><th style="width:96px">제품</th><td colspan="3">${escAttr((c.product && c.product.name) || '')}</td></tr>
+      <tr><th>판매 URL</th><td colspan="3" style="word-break:break-all">${escAttr((c.sale && c.sale.url) || '')}</td></tr>
+      <tr><th>모집 형식</th><td colspan="3">${escAttr(ftLabel)}${chLabel ? ' · ' + escAttr(chLabel) : ''}</td></tr>
+      <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}명</td></tr>
+    </table>
+    <table class="quote-table">
+      <thead><tr><th>항목</th><th class="num">수량</th><th class="num">단가</th><th class="num">금액</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="quote-total">
+      <div><span>공급가액</span><span>${escAttr(krw(q.subtotal_krw))}</span></div>
+      <div><span>부가세 (${vatPct}%)</span><span>${escAttr(krw(q.vat_krw))}</span></div>
+      <div class="grand"><span>합계</span><span>${escAttr(krw(q.total_krw))}</span></div>
+    </div>
+    <div class="quote-note">
+      ${jpyRef}
+      <div>${escAttr(fixed)}</div>
+      <div>${escAttr(q.note || '')}</div>
+    </div>`;
+}
 
 // ══════════════════════════════════════
 // 스크롤 스파이 — 헤더에 현재 작성 영역 제목 표시

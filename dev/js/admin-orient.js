@@ -981,6 +981,8 @@ function osDetailHtml(s, catMap, readonly) {
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
     + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
+  // [2단계] 예상 견적 카드 — data.quote / quote_error 세트(마이그레이션 427)로 판별. 옛 시트는 둘 다 없어 안 그린다.
+  const quoteCard = osQuoteCard(s, readonly);
   // 브랜드가 레버브 운영팀에 전한 요청 — 값 있을 때만 카드로 1회 표시(발행 자동채움 대상 아님)
   const reqCard = d.reverb_request
     ? `<div class="os-card"><div class="os-card-title">레버브 측 요청</div><div class="os-fields">${osField('요청·요구사항', d.reverb_request, true)}</div></div>`
@@ -990,9 +992,9 @@ function osDetailHtml(s, catMap, readonly) {
     const msg = (s.status === 'draft')
       ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
       : '작성된 모집 건이 없습니다.';
-    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard;
+    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard + quoteCard;
   } else {
-    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard;
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard + quoteCard;
   }
   // 새창 출력(readonly)은 한 덩어리 그대로 — 메모를 아예 그리지 않으므로 나눌 것이 없다.
   //   그 출력물은 인쇄·브랜드 화면 공유 대상이라 내부 대화가 들어가면 안 된다.
@@ -1033,6 +1035,48 @@ function osBrandCard(brand, headerName) {
   return `<div class="os-card">
     <div class="os-card-title">브랜드 정보</div>
     <div class="os-fields">${body}</div></div>`;
+}
+
+// ── [2단계] 예상 견적 카드 (사양서 §4-3·§4-6, 작업 19) ──
+//   🔴 견적서 사본을 여기서 그리지 않는다 — 「견적서 열기」는 sales 도메인의 인쇄용 화면(?view=quote)을 새창에 연다.
+//   토큰이 만료·발행(consumed)됐으면 그 화면이 막히므로 단추를 안 그리고 숫자 요약만 남긴다.
+function osKrw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+function osQuoteLinkable(s) {
+  if (!s || !s.token) return false;
+  if (s.status === 'consumed' || s.status === 'expired') return false;
+  if (s.token_expires_at && new Date(s.token_expires_at).getTime() < Date.now()) return false;
+  return true;
+}
+function osQuoteHistoryHtml(hist) {
+  const list = Array.isArray(hist) ? hist.slice().reverse() : [];
+  if (!list.length) return '';
+  const items = list.map(h => `<li style="font-size:12px;color:var(--muted);padding:2px 0">판 ${esc(String(h.revision || '?'))} · ${esc(h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h.total_krw))}</li>`).join('');
+  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 판 ${list.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
+}
+function osQuoteCard(s, readonly) {
+  const d = (s && s.data) || {};
+  const q = d.quote;
+  const err = d.quote_error;
+  if (!q && !err) return '';
+  const openBtn = (!readonly && osQuoteLinkable(s))
+    ? `<a class="btn btn-ghost btn-xs" href="${esc(osBuildLink(s.token) + '&view=quote')}" target="_blank" rel="noopener">견적서 열기</a>`
+    : '';
+  if (err) {
+    const why = ({ slots_missing: '모집 인원을 숫자로 못 읽어 견적이 없습니다', calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)' })[err] || '상시가를 숫자로 못 읽어 견적이 없습니다';
+    return `<div class="os-card"><div class="os-card-title">예상 견적</div>
+      <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history)}</div>`;
+  }
+  const lines = (Array.isArray(q.lines) ? q.lines : []).map(l =>
+    `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrw(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrw(l.amount_krw))}</td></tr>`).join('');
+  return `<div class="os-card">
+    <div class="os-card-title" style="display:flex;align-items:center;gap:8px">예상 견적
+      <span style="font-size:11px;font-weight:600;color:var(--muted)">${esc(q.quote_no || '')} · 판 ${esc(String(q.revision || 1))} · ${esc(q.issued_at ? formatDateTime(q.issued_at) : '')}</span>
+      <span style="flex:1"></span>${openBtn}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+      <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}</div>
+    ${osQuoteHistoryHtml(d.quote_history)}</div>`;
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
