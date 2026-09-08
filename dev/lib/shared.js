@@ -2333,9 +2333,13 @@ function logAppError(context, err, expectedCodes) {
   try {
     const s = String((err && err.message) || err || '');
     if (!s) return;
-    let expected = APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(s));
+    // 판정 문자열에는 거부 **코드값**(`err.code`)도 얹는다 — storage.js 가 일본어 문구 + `code`
+    //   (예 `post_already_approved`)로 던지는 거부는 문구만 보면 패턴에 안 걸려 「예상 못 한
+    //   오류」로 남았다(2026-09-08 운영 실측 4회). `friendlyErrorJa`(ui.js)도 같은 방식 — 한 벌.
+    const judged = [err && err.code, s].filter(Boolean).join(' ');
+    let expected = APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(judged));
     if (!expected && expectedCodes && expectedCodes.length) {
-      expected = expectedCodes.some(c => c && (s === c || s.indexOf(c) >= 0));
+      expected = expectedCodes.some(c => c && (judged === c || judged.indexOf(c) >= 0));
     }
     collectClientError(err, 'handled', { context: context, expected: expected });
   } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }

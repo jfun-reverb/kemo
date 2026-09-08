@@ -145,7 +145,8 @@ function friendlyErrorJa(e) {
     try {
       let _expected = false;
       try {
-        const _s0 = String(e?.message || e || '');
+        // 코드값(`e.code`)도 함께 본다 — `logAppError`(shared.js)와 같은 방식(한 벌)
+        const _s0 = [e?.code, e?.message || e].filter(Boolean).map(String).join(' ');
         _expected = typeof APP_ERROR_EXPECTED_PATTERNS !== 'undefined'
           && APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(_s0));
       } catch(_) { /* 판정 실패는 「예상 못 함」으로 둔다 — 놓치는 쪽이 안전하다 */ }
