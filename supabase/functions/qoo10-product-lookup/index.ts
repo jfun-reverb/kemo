@@ -1,12 +1,20 @@
 // qoo10-product-lookup — 큐텐 상품 페이지 읽기 (오리엔시트 단순화 3단계)
 //
-// ⚠️ 2026-09-08 현재 이 파일은 **작업 21(읽기 검증) 용 최소판**이다 — 개발 프로젝트에서만 잠깐 배포해
-//    Supabase 에서 나가는 fetch 가 큐텐의 요청 모양 판별(HTTP/2 + 크롬 머리말)을 통과하는지 확인하는 용도.
-//    작업 22 에서 관문 3종(살아 있는 작성 토큰 · qoo10.jp 호스트 · 토큰당 분당 5회)과 교차 출처 허용 헤더를
-//    붙이기 전까지 운영에 배포하지 않는다. 검증이 끝나면 개발에서도 지운다(작업 21 롤백).
+// 작성 폼(dev/sales/orient.html — sales 도메인 브라우저)이 **직접 부르는** 함수다 → 교차 출처 허용 헤더 + OPTIONS 필수
+//   (notify-orient-sheet 전례 — 헤더 없으면 한 번도 성공하지 못한다).
 //
-// 입력  {url}                      → 출력 {ok:true, goods_code, product_name, store_name, price_sale_jpy, price_list_jpy, image_url}
-// 실패  전부 {ok:false} (이유는 로그만 — 브랜드 폼에는 「자동으로 못 불러왔어요」 한 줄만 간다)
+// 관문 3종 — 🔴 셋이 한 세트다. 하나라도 빼면 공개 키만으로 누구나 Supabase 를 시켜 큐텐을 읽게 된다.
+//   ① 살아 있는 작성 토큰만 — 200 의 orient_token_can_upload 판정(만료·소비·미매칭 false)
+//   ② qoo10.jp 계열 호스트 + 상품 번호(/g/{n} · /item/{이름}/{n} · goodscode={n})가 뽑힐 때만
+//   ③ 토큰당 분당 5회
+//   ①③ 은 데이터베이스 함수 public.orient_lookup_gate(token)(428) 이 한 번에 판정한다(서비스 키로 호출, service_role 전용).
+//   🔴 ③ 을 함수 인스턴스 메모리(Map)로 만들면 안 된다 — 요청마다 인스턴스가 갈려 개발서버 실측(2026-09-08)에서
+//      6회 연속 호출이 전부 통과했다. 계수는 반드시 데이터베이스에서.
+//
+// 입력  {token, url}               → 출력 {ok:true, goods_code, product_name, store_name, price_sale_jpy, price_list_jpy, price_event_jpy, image_url, brand_name}
+// 실패  전부 {ok:false} (이유는 로그만 — 브랜드 폼에는 「자동으로 못 불러왔어요」 한 줄만 간다. 실패 사유를 응답에 담지 않는다)
+//
+// 2026-09-08 작업 21 읽기 검증 통과(상품 3개, 개발 Edge Function). 큐텐 이용약관 위험은 사용자가 감수하기로 결정(선-2, 2026-09-08).
 //
 // 가격이 세 겹이다 — 参考価格(정가) · 販売価格(판매가, DOM `#dl_sell_price [data-price]`) · メガ割時(행사가, JSON-LD offers.price).
 // 🔴 offers.price 는 행사가라 상시가로 쓰면 틀린다 — 판매가(DOM)를 price_sale_jpy 로, 정가를 price_list_jpy 로 돌려준다(확정 ⓚ).
@@ -74,13 +82,30 @@ function parseProduct(html: string) {
   };
 }
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// ①③ 살아 있는 토큰 + 분당 5회 — 데이터베이스 관문(428). 토큰 형식이 아니면 왕복 없이 거부
+async function passGate(token: string): Promise<boolean> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) return false;
+  const url = Deno.env.get("SUPABASE_URL"); const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return false;
+  const sb = createClient(url, key, { auth: { persistSession: false } });
+  const { data, error } = await sb.rpc("orient_lookup_gate", { p_token: token });
+  if (error) { console.error("[qoo10-lookup] gate failed", error.message); return false; }
+  return data === true;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: false }, 405);
-  let url = "";
-  try { ({ url } = await req.json()); } catch { return json({ ok: false }); }
+  let url = "", token = "";
+  try { ({ url, token } = await req.json()); } catch { return json({ ok: false }); }
+  token = String(token || "").trim();
+  if (!token) return json({ ok: false });
+  // ② 호스트·상품 번호를 먼저 본다(데이터베이스 왕복 없이 거를 수 있는 것부터)
   const code = goodsCodeOf(String(url || ""));
   if (!code) { console.log("[qoo10-lookup] not a qoo10 goods url"); return json({ ok: false }); }
+  if (!(await passGate(token))) { console.log("[qoo10-lookup] gate rejected (dead token or rate limited)"); return json({ ok: false }); }
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
@@ -88,9 +113,9 @@ Deno.serve(async (req: Request) => {
     clearTimeout(timer);
     const html = await r.text();
     console.log("[qoo10-lookup]", code, "status", r.status, "len", html.length);
-    if (r.status !== 200 || html.length < 3000) return json({ ok: false, _probe: { status: r.status, len: html.length } });
+    if (r.status !== 200 || html.length < 3000) return json({ ok: false });   // 1,209바이트짜리 차단 안내 페이지 포함
     const p = parseProduct(html);
-    if (!p.product_name && !p.goods_code) return json({ ok: false, _probe: { status: r.status, len: html.length, no_ld: true } });
+    if (!p.product_name && !p.goods_code) return json({ ok: false });
     return json({ ok: true, ...p, goods_code: p.goods_code || code });
   } catch (e) {
     console.error("[qoo10-lookup] fetch failed", String(e));
