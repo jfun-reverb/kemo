@@ -462,6 +462,13 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
   body.print-quote #screenQuote { display: block !important; padding: 0; }
   body.print-quote .quote-bar, body.print-quote .done-hint { display: none !important; }
   body.print-quote .quote-doc { border: none; border-radius: 0; margin: 0; padding: 0; }
+  /* 완료 화면(견적서를 안에 펼쳐 보여준다)에서 인쇄 — 완료 카드의 다른 요소·단추·안내는 전부 빼고 견적서만 */
+  body.print-done > *:not(#screenDone) { display: none !important; }
+  body.print-done #screenDone { display: block !important; padding: 0; }
+  body.print-done .done-card { border: none; border-radius: 0; padding: 0; margin: 0; }
+  body.print-done .done-card > *:not(#doneQuoteArea) { display: none !important; }
+  body.print-done #doneQuoteArea > *:not(.quote-doc) { display: none !important; }
+  body.print-done .quote-doc { border: none; border-radius: 0; margin: 0; padding: 0; }
   @page { margin: 16mm; }
 }
 
@@ -900,7 +907,7 @@ function showErrorScreen(reason) {
   $('screenPreview').classList.add('hidden');
   $('screenDone').classList.add('hidden');
   $('screenQuote').classList.add('hidden');
-  document.body.classList.remove('print-quote');
+  document.body.classList.remove('print-quote', 'print-done');
   $('footbar').classList.add('hidden');
   const map = {
     invalid_token: { ico: 'link_off',  title: '링크를 확인할 수 없습니다', body: '링크가 올바르지 않습니다. 담당자에게 다시 받아 주세요.' },
@@ -921,7 +928,7 @@ function enterFormScreen() {
   $('screenPreview').classList.add('hidden');
   $('screenDone').classList.add('hidden');
   $('screenQuote').classList.add('hidden');
-  document.body.classList.remove('print-quote');
+  document.body.classList.remove('print-quote', 'print-done');
   $('screenForm').classList.remove('hidden');
   $('footbar').classList.remove('hidden');
   $('btnReview').classList.remove('hidden');
@@ -2406,7 +2413,7 @@ function ymdOf(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''
 function hideAllScreens() {
   ['screenLoading', 'screenError', 'screenForm', 'screenPreview', 'screenDone', 'screenQuote'].forEach(id => $(id).classList.add('hidden'));
   $('footbar').classList.add('hidden');
-  document.body.classList.remove('print-quote');
+  document.body.classList.remove('print-quote', 'print-done');
   clearTimeout(saveTimer);   // 자동저장은 작성 화면에서만
 }
 function enterDoneScreen() {
@@ -2415,10 +2422,14 @@ function enterDoneScreen() {
   const err = loadedData && loadedData.quote_error;
   const area = $('doneQuoteArea');
   if (q) {
-    area.innerHTML = `<div class="done-actions" style="margin-top:14px">
-        <button type="button" class="btn-quote" onclick="enterQuoteScreen(true)"><span class="material-icons-outlined notranslate" translate="no">picture_as_pdf</span>견적서 · PDF 저장</button>
-        <div class="done-hint">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · ${escAttr(String(q.revision || 1))}차 견적<br>휴대폰은 「공유 → PDF」로 저장할 수 있어요.</div>
+    // 견적서를 이 화면 안에 미리보기로 펼친다(2026-09-08 사용자 지시 — 단추를 눌러야 인쇄 창이 뜨고, 자동으로 넘어가지 않는다)
+    area.innerHTML = `<div class="done-hint" style="margin-top:14px">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · ${escAttr(String(q.revision || 1))}차 견적</div>
+      <div class="quote-doc">${renderQuoteDoc(q, loadedData)}</div>
+      <div class="done-actions" style="margin-top:0">
+        <button type="button" class="btn-quote" onclick="printQuote()"><span class="material-icons-outlined notranslate" translate="no">print</span>인쇄 · PDF 저장</button>
+        <div class="done-hint">인쇄 창에서 「PDF로 저장」을 고르면 파일로 받을 수 있어요. 휴대폰은 「공유 → PDF」.</div>
       </div>`;
+    document.body.classList.add('print-done');   // 인쇄 때 견적서만 남기는 규칙(CSS @media print)
   } else if (err) {
     area.innerHTML = `<div class="done-warn">${escAttr(QUOTE_ERROR_TEXT[err] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')}<br><span style="font-size:12px">「내용 수정하기」로 고쳐서 다시 제출하면 견적서가 만들어져요.</span></div>`;
   } else {
@@ -2428,7 +2439,8 @@ function enterDoneScreen() {
   window.scrollTo({ top: 0 });
   onSpyScroll();
 }
-// autoPrint: 완료 화면의 단추로 들어오면 바로 인쇄 대화상자, 관리자가 ?view=quote 로 열면 화면만
+// 견적서 단독 화면 — 관리자가 ?view=quote 로 새 탭에 열 때만. 브랜드 완료 화면은 견적서를 안에 펼쳐 보여준다(enterDoneScreen).
+//   autoPrint 는 2026-09-08 부터 아무도 true 로 부르지 않는다(자동 인쇄 금지 — 사용자 지시). 인자는 호환용으로만 남긴다.
 function enterQuoteScreen(autoPrint) {
   const q = loadedData && loadedData.quote;
   if (!q) { showToast('견적서가 아직 없어요.'); return; }
