@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788936090';
+  var CURRENT_BUILD = 'v1788936225';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3136,7 +3136,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-09 15:41 · a22e371</span>
+          <span class="admin-build-text">2026-09-09 15:43 · 8914c77</span>
         </div>
       </div>
     </aside>
@@ -26881,8 +26881,12 @@ function ensureGanttGuideHandlers() {
     var range = _ganttCurrentRange, axis = $('brandOpsGanttAxisTrack');
     if (!range || !axis || !sc) { guide.hidden = true; return; }
     var ar = axis.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    // 왼쪽 고정 열은 sticky 라 가로 스크롤하면 시간축이 그 **뒤로** 들어간다 — 시간축 좌표(idx)만 보면 왼쪽 열 위에서도 날짜가 잡힌다
+    //   (운영 실측 2026-09-09: 캠페인 이름 위에 「6/24(수)」). 고정 열의 오른쪽 가장자리 왼쪽이면 숨긴다.
+    var leftCol = sc.querySelector('.gantt-head .gantt-left');
+    var leftEdge = leftCol ? leftCol.getBoundingClientRect().right : ar.left;
     var idx = Math.floor((e.clientX - ar.left) / GANTT_DAY_PX);
-    if (idx < 0 || idx >= range.days || e.clientX > sr.right - 12) { guide.hidden = true; return; }   // 왼쪽 열·스크롤바 위에서는 숨김
+    if (idx < 0 || idx >= range.days || e.clientX < leftEdge || e.clientX > sr.right - 12) { guide.hidden = true; return; }   // 왼쪽 열·스크롤바 위에서는 숨김
     var d = ganttAddDays(range.start, idx);
     guide.style.left = (ar.left + idx * GANTT_DAY_PX) + 'px';
     guide.style.width = GANTT_DAY_PX + 'px';
