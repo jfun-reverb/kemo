@@ -310,9 +310,9 @@ function updateCampTableHead() {
       <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th>기간</th>
-      <th>선정기간</th>
-      <th>결과물 제출 마감</th>
+      <th>기간 <span class="sort-arrows" data-sort="period" onclick="toggleCampSort('period')" title="모집 시작일 기준">${adminCampSortKey==='period'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>선정기간 <span class="sort-arrows" data-sort="selection" onclick="toggleCampSort('selection')" title="선정 시작일 기준">${adminCampSortKey==='selection'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>결과물 제출 마감 <span class="sort-arrows" data-sort="submission" onclick="toggleCampSort('submission')">${adminCampSortKey==='submission'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th style="width:110px" title="승인/제출 건수. 앞이 승인, 뒤가 제출">결과물 현황</th>
       <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -498,15 +498,34 @@ async function loadAdminCampaigns(useCache) {
   } else if (adminCampSortKey) {
     const dir = adminCampSortDir === 'asc' ? 1 : -1;
     const statusOrder = {draft:0,scheduled:1,active:2,closed:3,ended:4,expired:5};
+    // 날짜 열 3종(2026-09-09 추가)은 「연-월-일」 문자열을 그대로 비교한다(new Date() 금지 — 시간대가 끼어든다).
+    //   기간 = 모집 시작일(없으면 모집 마감일) / 선정기간 = 선정 시작일 / 결과물 제출 마감 = 제출 마감일.
+    //   ⚠️ 빈 값은 **방향과 무관하게 뒤로** — 인증 성공일 열과 같은 규약. 선정기간은 시딩형·행사에만 있어
+    //      절반 넘게 비므로, 오름차순에 빈 칸이 앞을 다 채우면 아무것도 못 본다.
+    const ymd = v => (v ? String(v).slice(0, 10) : '');
     const getVal = {
       status: c => statusOrder[c.status]??99,
       created: c => new Date(c.created_at).getTime(),
       updated: c => new Date(c.updated_at||c.created_at).getTime(),
       views: c => c.view_count||0,
-      apps: c => appCount(c.id)
+      apps: c => appCount(c.id),
+      period: c => ymd(c.recruit_start) || ymd(c.deadline),
+      selection: c => ymd(c.selection_start),
+      submission: c => ymd(c.submission_end)
     };
+    const emptyLast = new Set(['period', 'selection', 'submission']);
     const fn = getVal[adminCampSortKey];
-    if (fn) camps.sort((a,b) => (fn(a)-fn(b))*dir);
+    if (fn && emptyLast.has(adminCampSortKey)) {
+      camps.sort((a,b) => {
+        const va = fn(a), vb = fn(b);
+        if (!va && !vb) return 0;
+        if (!va) return 1;           // 빈 값은 항상 뒤
+        if (!vb) return -1;
+        return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
+      });
+    } else if (fn) {
+      camps.sort((a,b) => (fn(a)-fn(b))*dir);
+    }
   } else {
     camps.sort((a,b) => new Date(b.created_at)-new Date(a.created_at));
   }

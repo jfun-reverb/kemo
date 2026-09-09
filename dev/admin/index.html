@@ -376,9 +376,9 @@
   <!-- 모집·구매·방문 기간을 한 칸에 모으고 줄마다 이름표를 단다(2026-08-11).
        선정 기간은 시딩형 전용이라 자기 열을 따로 갖는다.
        ⚠️ 이 머리글은 updateCampTableHead() 에도 같은 내용이 있다 — 함께 고칠 것. -->
-  <th>기간</th>
-  <th>선정기간</th>
-  <th>결과물 제출 마감</th>
+  <th>기간 <span class="sort-arrows" data-sort="period" onclick="toggleCampSort('period')" title="모집 시작일 기준">▲▼</span></th>
+  <th>선정기간 <span class="sort-arrows" data-sort="selection" onclick="toggleCampSort('selection')" title="선정 시작일 기준">▲▼</span></th>
+  <th>결과물 제출 마감 <span class="sort-arrows" data-sort="submission" onclick="toggleCampSort('submission')">▲▼</span></th>
   <!-- ⚠️ 이 머리글은 updateCampTableHead() 에도 같은 내용이 있다 — 함께 고칠 것.
        칸을 늘리면 아래 스피너 colspan(16)과 admin.js 의 빈 상태 colspan 도 함께. -->
   <th style="width:110px" title="승인/제출 건수. 앞이 승인, 뒤가 제출">결과물 현황</th>
