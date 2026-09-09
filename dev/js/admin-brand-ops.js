@@ -1362,8 +1362,12 @@ function ensureGanttGuideHandlers() {
     var range = _ganttCurrentRange, axis = $('brandOpsGanttAxisTrack');
     if (!range || !axis || !sc) { guide.hidden = true; return; }
     var ar = axis.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    // 왼쪽 고정 열은 sticky 라 가로 스크롤하면 시간축이 그 **뒤로** 들어간다 — 시간축 좌표(idx)만 보면 왼쪽 열 위에서도 날짜가 잡힌다
+    //   (운영 실측 2026-09-09: 캠페인 이름 위에 「6/24(수)」). 고정 열의 오른쪽 가장자리 왼쪽이면 숨긴다.
+    var leftCol = sc.querySelector('.gantt-head .gantt-left');
+    var leftEdge = leftCol ? leftCol.getBoundingClientRect().right : ar.left;
     var idx = Math.floor((e.clientX - ar.left) / GANTT_DAY_PX);
-    if (idx < 0 || idx >= range.days || e.clientX > sr.right - 12) { guide.hidden = true; return; }   // 왼쪽 열·스크롤바 위에서는 숨김
+    if (idx < 0 || idx >= range.days || e.clientX < leftEdge || e.clientX > sr.right - 12) { guide.hidden = true; return; }   // 왼쪽 열·스크롤바 위에서는 숨김
     var d = ganttAddDays(range.start, idx);
     guide.style.left = (ar.left + idx * GANTT_DAY_PX) + 'px';
     guide.style.width = GANTT_DAY_PX + 'px';
