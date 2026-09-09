@@ -4655,7 +4655,7 @@ async function addCampaign() {
   campImgData.length = 0;
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
-  ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampSourceAppId',
+  ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampBrandInput','newCampSourceAppId',
    'newCampProduct','newCampProductUrl',
    'newCampSlots','newCampRecruitStart','newCampDeadline',
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
@@ -5799,21 +5799,124 @@ var _campAppsCache = {};  // brandId → applications[]
 //   admin-brand.js(브랜드 마스터) 와 분리되어 캠페인 폼에서만 사용
 // ════════════════════════════════════════════════════════════════════
 
+// 브랜드 칸은 검색형 드롭다운(combobox)이다 — 오리엔시트 발급 모달·결과물 대리 등록과 같은
+//   `.admin-proxy-combobox` 패턴(2026-09-09 사용자 지시 「다른 것과 같이 검색 가능한 드롭다운으로」).
+//   hidden `#{prefix}CampBrandId` 가 선택 brand_id 를 보관하므로 읽는 쪽(onCampBrandChange·
+//   addCampaign·saveCampaignEdit·되돌림 감지·오리엔 자동 채움 osSetVal)은 옛 <select> 때와 같다.
+//   ⚠️ 이 함수 이름은 호출처 4곳(편집 진입·신규 진입·신규 브랜드 등록 뒤·오리엔 발행 자동 채움)이
+//   그대로 부르므로 바꾸지 않는다 — 하는 일만 「옵션 채우기」에서 「후보 캐시 + 현재 선택 표기」로 바뀌었다.
 async function loadCampBrandSelect(prefix, currentBrandId) {
-  var sel = $(prefix + 'CampBrandId');
-  if (!sel) return;
+  var hidden = $(prefix + 'CampBrandId');
+  var input = $(prefix + 'CampBrandInput');
+  if (!hidden || !input) return;
   if (!_campBrandsCache) {
     _campBrandsCache = await fetchBrands({status: 'active'}) || [];
   }
-  var current = currentBrandId || sel.value || '';
-  var html = '<option value="">-- 브랜드 선택 --</option>';
-  for (var i = 0; i < _campBrandsCache.length; i++) {
-    var b = _campBrandsCache[i];
-    var label = esc(b.name) + (b.brand_no ? ' [' + esc(b.brand_no) + ']' : '');
-    html += '<option value="' + esc(b.id) + '"' + (current === b.id ? ' selected' : '') + '>' + label + '</option>';
+  var current = currentBrandId || hidden.value || '';
+  hidden.value = current;
+  var picked = current ? _campBrandsCache.find(function(b){ return b.id === current; }) : null;
+  // 보관(archived) 브랜드에 연결된 캠페인 — 후보 목록(활성만)에는 없지만 hidden 값은 그대로라 저장은 안전하다.
+  //   이름 칸이 비어 보이면 「브랜드가 빠졌다」로 읽히므로(리뷰 지적) 그 브랜드만 따로 찾아 「(보관)」을 붙여 보여준다.
+  if (current && !picked && typeof fetchBrandById === 'function') {
+    var archived = await fetchBrandById(current);
+    input.value = archived ? campBrandLabel(archived) + ' (보관)' : '';
+  } else {
+    input.value = picked ? campBrandLabel(picked) : '';
   }
-  sel.innerHTML = html;
+  var list = $(prefix + 'CampBrandList');
+  if (list) list.classList.remove('open');
 }
+
+// 표시 이름 — 옛 <select> 옵션과 같은 「이름 [번호]」
+function campBrandLabel(b) {
+  return (b.name || b.name_ja || b.name_en || '-') + (b.brand_no ? ' [' + b.brand_no + ']' : '');
+}
+
+function campBrandShowList(prefix) {
+  var input = $(prefix + 'CampBrandInput');
+  if (!input || input.disabled) return;
+  var list = $(prefix + 'CampBrandList');
+  if (!list) return;
+  list.classList.add('open');
+  _campBrandRenderList(prefix, input.value);
+}
+
+// 글자를 치는 중 = 선택 확정 전. hidden 을 비우고 힌트·신청 연결도 「브랜드 없음」 상태로 되돌린다.
+function campBrandInput(prefix) {
+  var hidden = $(prefix + 'CampBrandId');
+  var input = $(prefix + 'CampBrandInput');
+  if (!hidden || !input) return;
+  if (hidden.value) { hidden.value = ''; onCampBrandChange(prefix); }
+  var list = $(prefix + 'CampBrandList');
+  if (list) list.classList.add('open');
+  _campBrandRenderList(prefix, input.value);
+}
+
+function _campBrandRenderList(prefix, query) {
+  var list = $(prefix + 'CampBrandList');
+  if (!list) return;
+  var q = (query || '').trim().toLowerCase();
+  // 후보가 아직 안 실렸으면(진입 직후 조회 중) 안내만
+  if (!_campBrandsCache) { list.innerHTML = '<div class="empty">브랜드 목록을 불러오는 중…</div>'; return; }
+  var matched = _campBrandsCache.filter(function(b) {
+    return (typeof matchSearchTokens === 'function')
+      ? matchSearchTokens(q, [b.name, b.name_ja, b.name_en, b.brand_no])
+      : (!q || (b.name || '').toLowerCase().indexOf(q) >= 0);
+  });
+  if (!matched.length) {
+    // 0건이면 바로 신규 등록으로 — 옆의 「신규」 단추와 같은 경로(openNewBrandModal → 등록 뒤 자동 선택)
+    list.innerHTML = '<div class="empty">일치하는 브랜드가 없습니다'
+      + '<div style="margin-top:8px">'
+      + '<button type="button" class="btn btn-ghost btn-sm" onmousedown="event.preventDefault();campBrandOpenNew(\'' + prefix + '\')"'
+      + ' style="display:inline-flex;align-items:center;gap:4px">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span>신규 브랜드 추가</button>'
+      + '</div></div>';
+    return;
+  }
+  list.innerHTML = matched.slice(0, 100).map(function(b) {
+    var sub = [(b.name_ja && b.name_ja !== b.name) ? b.name_ja : '', b.company_name || ''].filter(Boolean).join(' · ');
+    return '<div class="item" onmousedown="campBrandSelect(\'' + prefix + '\',\'' + esc(b.id) + '\')">'
+      + '<div>' + esc(campBrandLabel(b)) + '</div>'
+      + (sub ? '<div class="item-meta">' + esc(sub) + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
+
+// 항목 선택 — hidden 에 id, 입력칸에 이름, 리스트 닫기, 그다음 옛 <select> 의 onchange 와 같은 후속(onCampBrandChange)
+function campBrandSelect(prefix, id) {
+  var hidden = $(prefix + 'CampBrandId');
+  var input = $(prefix + 'CampBrandInput');
+  var list = $(prefix + 'CampBrandList');
+  var b = (_campBrandsCache || []).find(function(x){ return String(x.id) === String(id); });
+  if (hidden) hidden.value = id || '';
+  if (input) input.value = b ? campBrandLabel(b) : '';
+  if (list) list.classList.remove('open');
+  onCampBrandChange(prefix);
+}
+
+// 검색 결과 0건에서 「신규 브랜드 추가」 — 입력한 검색어를 브랜드명 초안으로. 등록 뒤 submitNewBrand 가
+//   loadCampBrandSelect(prefix, 새 id) + onCampBrandChange 로 되돌려 자동 선택된다.
+async function campBrandOpenNew(prefix) {
+  var input = $(prefix + 'CampBrandInput');
+  var q = (input && input.value || '').trim();
+  var list = $(prefix + 'CampBrandList');
+  if (list) list.classList.remove('open');
+  if (typeof openNewBrandModal !== 'function') return;
+  await openNewBrandModal(prefix);
+  var nameEl = $('brandFormName');
+  if (nameEl && q) nameEl.value = q;
+}
+
+// 바깥 클릭 시 리스트 닫기 — 두 폼(edit·new) 공용
+document.addEventListener('click', function(e) {
+  ['edit', 'new'].forEach(function(prefix) {
+    var combo = $(prefix + 'CampBrandCombobox');
+    if (combo && !combo.contains(e.target)) {
+      var list = $(prefix + 'CampBrandList');
+      if (list) list.classList.remove('open');
+    }
+  });
+});
 
 // 서베이 신청 연결 표시 — 공개 제출 중단으로 신규 선택 UI(커스텀 트리거·패널)는 항상 숨기고,
 // 기존에 연결된 신청이 있을 때만 읽기전용 라벨을 노출한다. hidden native select 는 그대로 유지

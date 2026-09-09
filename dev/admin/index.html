@@ -486,9 +486,13 @@
               <div class="form-group">
                 <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:6px;align-items:stretch">
-                  <select id="editCampBrandId" class="form-input" style="flex:1" onchange="onCampBrandChange('edit')">
-                    <option value="">-- 브랜드 선택 --</option>
-                  </select>
+                  <!-- 검색형 드롭다운(오리엔시트 발급 모달·대리 등록과 같은 .admin-proxy-combobox). hidden #editCampBrandId 가 선택 brand_id 를 보관해
+                       읽는 쪽(onCampBrandChange·저장·되돌림 감지)은 그대로다(2026-09-09 사용자 지시) -->
+                  <div class="admin-proxy-combobox" id="editCampBrandCombobox" style="flex:1">
+                    <input type="text" id="editCampBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명·번호 검색 후 선택 (전체 보려면 비워두고 클릭)" autocomplete="off" data-lpignore="true" onfocus="campBrandShowList('edit')" onclick="campBrandShowList('edit')" oninput="campBrandInput('edit')">
+                    <input type="hidden" id="editCampBrandId">
+                    <div class="admin-proxy-combobox-list" id="editCampBrandList"></div>
+                  </div>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="openNewBrandModal('edit')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
                     <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
                   </button>
@@ -957,9 +961,13 @@
               <div class="form-group">
                 <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:6px;align-items:stretch">
-                  <select id="newCampBrandId" class="form-input" style="flex:1" onchange="onCampBrandChange('new')">
-                    <option value="">-- 브랜드 선택 --</option>
-                  </select>
+                  <!-- 검색형 드롭다운(오리엔시트 발급 모달·대리 등록과 같은 .admin-proxy-combobox). hidden #newCampBrandId 가 선택 brand_id 를 보관해
+                       읽는 쪽(onCampBrandChange·저장·되돌림 감지)은 그대로다(2026-09-09 사용자 지시) -->
+                  <div class="admin-proxy-combobox" id="newCampBrandCombobox" style="flex:1">
+                    <input type="text" id="newCampBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명·번호 검색 후 선택 (전체 보려면 비워두고 클릭)" autocomplete="off" data-lpignore="true" onfocus="campBrandShowList('new')" onclick="campBrandShowList('new')" oninput="campBrandInput('new')">
+                    <input type="hidden" id="newCampBrandId">
+                    <div class="admin-proxy-combobox-list" id="newCampBrandList"></div>
+                  </div>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="openNewBrandModal('new')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
                     <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
                   </button>
