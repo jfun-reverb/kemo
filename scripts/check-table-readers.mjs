@@ -25,7 +25,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 
-const REPO = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// ⚠️ decodeURIComponent 필수 — 작업 폴더 이름에 한글이 있으면 pathname 이 %EC… 로 인코딩돼 build.sh 를 못 찾는다(2026-09-09 실측)
+const REPO = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '');
 const DEV_DIR = join(REPO, 'dev');
 const BUILD_SH = join(DEV_DIR, 'build.sh');
 
