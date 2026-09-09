@@ -2306,20 +2306,24 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">운영 현황</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드별 진행 상황을 한눈에. 경고 단계가 높은 브랜드부터 표시됩니다</div>
+                <div id="brandOpsSubtitle" style="font-size:11px;color:var(--muted);margin-top:2px">캠페인을 시간축 위에 놓고 일정과 진행 숫자를 한눈에</div>
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span> 새로고침
-              </button>
+              <div style="display:flex;align-items:center;gap:8px">
+                <!-- 일정 | 브랜드 뷰 전환 — 상단 탭에서 드롭다운으로(2026-09-09 사용자 지시). 항목·건수는 JS(renderBrandOpsViewTabs)가 채운다. 기본 「일정」 -->
+                <select id="brandOpsViewSelect" class="admin-filter" title="보기 전환" onchange="this.value === 'cards' ? showBrandOpsCards() : showBrandOpsSchedule()"></select>
+                <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span> 새로고침
+                </button>
+              </div>
             </div>
             <div class="admin-filter-bar">
               <div class="admin-filter-group">
                 <label>회사</label>
-                <select id="brandOpsCompanyFilter" class="admin-filter" onchange="renderBrandOpsCards()"><option value="">전체 회사</option></select>
+                <select id="brandOpsCompanyFilter" class="admin-filter" onchange="renderBrandOpsCurrentView()"><option value="">전체 회사</option></select>
               </div>
-              <div class="admin-filter-group">
+              <div class="admin-filter-group" id="brandOpsSortGroup">
                 <label>정렬</label>
-                <select id="brandOpsSortFilter" class="admin-filter" onchange="renderBrandOpsCards()">
+                <select id="brandOpsSortFilter" class="admin-filter" onchange="renderBrandOpsCurrentView()">
                   <option value="alert">경고 우선</option>
                   <option value="campaigns">진행 캠페인 많은 순</option>
                   <option value="activity">최근 활동 순</option>
@@ -2329,8 +2333,12 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="brandOpsSearch" name="brandops-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드명 · 회사명 · 브랜드번호" oninput="renderBrandOpsCards()">
+                  <input type="search" id="brandOpsSearch" name="brandops-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드명 · 회사명 · 브랜드번호" oninput="renderBrandOpsCurrentView()">
                 </div>
+              </div>
+              <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
+                <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
+                <!-- ‹ 오늘 › · 일/주/월 · 모두 접기 는 2026-09-09 에 간트 차트 우측 상단(범례 줄)으로 옮겼다 — 아래 #brandOpsRangeNav -->
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -2339,14 +2347,30 @@
             </div>
           </div>
           <div id="brandOpsGrid" class="brand-ops-grid"></div>
-
-          <div class="admin-card" style="margin-top:16px">
-            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
-            <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">운영 현황을 열면 표시됩니다</td></tr></tbody>
-            </table>
+          <!-- 일정 뷰(간트). 왼쪽 열은 sticky 로 고정, 시간축만 가로 스크롤 -->
+          <div id="brandOpsScheduleWrap" hidden>
+            <div id="brandOpsScheduleNote" style="font-size:11px;color:var(--muted);margin-bottom:6px" hidden></div>
+            <div class="gantt-quick" id="brandOpsQuickChips"></div>
+            <!-- 범례(왼쪽) + 시간축 조작(오른쪽) 한 줄. 조작 단추는 필터 줄에 있다가 차트 바로 위로 옮겼다(2026-09-09 사용자 지시 — 차트와 붙어 있어야 무엇을 움직이는지 보인다) -->
+            <div class="gantt-topbar">
+              <div class="gantt-legend" id="brandOpsGanttLegend"></div>
+              <div id="brandOpsRangeNav" class="gantt-nav">
+                <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-1)" title="과거로 이동"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(1)" title="미래로 이동"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
+                <span class="gantt-nav-sep"></span>
+                <div id="brandOpsZoom" class="gantt-zoom" title="시간축 단위"></div>
+                <span class="gantt-nav-sep"></span>
+                <!-- 왼쪽 열 접기(#brandOpsLeftToggle)는 시간축 머리글의 왼쪽/오른쪽 구분선 위에 그린다(renderScheduleHead, 2026-09-09 사용자 지시) -->
+                <button type="button" class="btn btn-ghost btn-xs" id="brandOpsOpenAll"></button>
+              </div>
+            </div>
+            <div class="gantt-scroll" id="brandOpsGanttScroll">
+              <div class="gantt-head" id="brandOpsAxis"></div>
+              <div id="brandOpsScheduleRows"></div>
+            </div>
           </div>
+
         </div>
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->

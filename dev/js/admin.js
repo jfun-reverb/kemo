@@ -3915,7 +3915,7 @@ function renderCampPreview(mode) {
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpPeriodLabel)}</div><div class="cp-info-val">${cpPeriodValue}</div></div>`);
             // 선정 기간 — 시딩형과 **방문형**(행사는 선정형만. 2026-08-24 결정 + 선정형 설계 7).
             //   모집 기간 바로 아래(모집 → 선정 → 방문 → 제출 마감 순).
-            //   ⚠️ 선착순형 행사는 값이 있어도 안 그린다 — 근거와 **같은 조건을 쓰는 네 곳의
+            //   ⚠️ 선착순형 행사는 값이 있어도 안 그린다 — 근거와 **같은 조건을 쓰는 다섯 곳의
             //      목록**은 인플루언서 상세(application.js)의 같은 자리 주석에 있다. 한 곳만
             //      고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다.
             if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEventPreview || isSelEventPreview)))

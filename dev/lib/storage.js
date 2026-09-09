@@ -174,6 +174,20 @@ async function fetchCampaignsForAdminList() {
 //   approved = 승인 수, pending = 대기 수
 // 신청 전건(약 3,000건)을 클라이언트로 전송하던 방식에서 서버 집계 1회 호출로 전환.
 // DEMO_MODE 또는 호출 실패 시 빈 맵({}) 반환 — 카운트 0으로 폴백.
+// 위 함수는 실패에도 {} 를 준다. 운영현황 일정 뷰는 실패를 「—」로 그려야 하므로
+// 실패에 null 을 주는 감싸개를 따로 둔다(반환 규약 변경은 기존 호출부 전체에 번진다).
+async function fetchCampaignApplicationCountsOrNull() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_application_counts');
+    if (error) throw error;
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = { total: Number(row.total || 0), approved: Number(row.approved || 0), pending: Number(row.pending || 0) };
+      return map;
+    }, {});
+  } catch(e) { console.error('fetchCampaignApplicationCountsOrNull:', e); return null; }
+}
+
 async function fetchCampaignApplicationCounts() {
   if (!db) return {};
   try {
@@ -1077,9 +1091,11 @@ async function fetchPendingApplicationCount() {
 }
 
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
-async function fetchDeliverables(filters) {
-  if (!db) return [];
-  try {
+// 결과물 조회 본체 — 실패하면 **던진다**. 아래 두 감싸개가 실패를 각자 다르게 돌려준다.
+//   fetchDeliverables            → 실패에도 [] (기존 호출부 전부가 이 규약을 전제한다 — 바꾸지 말 것)
+//   fetchDeliverablesByCampaignIds → 실패에 null, 0건에 []  (운영현황 일정 뷰, 2026-09-07)
+// opts.skipInfluencers — 인플루언서 이름이 필요 없는 집계용이면 회원 조회를 건너뛴다.
+async function _queryDeliverables(filters, opts) {
     const data = await fetchAllPaged(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
@@ -1096,16 +1112,47 @@ async function fetchDeliverables(filters) {
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
       if (filters?.campaign_id && filters.campaign_id !== 'all') q = q.eq('campaign_id', filters.campaign_id);
+      // 캠페인 id 배열(운영현황 일정 뷰) — 200개 단위로 잘라 부르는 것은 호출 쪽 몫.
+      if (Array.isArray(filters?.campaignIds)) q = q.in('campaign_id', filters.campaignIds);
       // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
       if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
       else q = q.order('updated_at', {ascending: false});
       return q;
     });
+    if (opts?.skipInfluencers) return data;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
     const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
     const infMap = await fetchInfluencersByIds(userIds);
     return data.map(d => ({...d, influencers: infMap[d.user_id] || null}));
+}
+
+async function fetchDeliverables(filters) {
+  if (!db) return [];
+  try {
+    return await _queryDeliverables(filters);
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+// 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
+//   🔴 실패는 null, 0건은 []. 위 fetchDeliverables 와 규약이 다르다 — 그 화면은
+//      「서버에 못 물어봤다」와 「낸 사람이 없다」를 구분해 그려야 한다(마이그레이션 276 원칙).
+//   ⚠️ id 는 200개 단위로 잘라 **차례로** 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다).
+//      조각 하나라도 실패하면 **통째로 null** — 성공한 조각만 합치면 0건과 구분되지 않는
+//      낮은 숫자가 그려진다.
+const DELIV_CAMPAIGN_ID_CHUNK = 200;
+async function fetchDeliverablesByCampaignIds(campaignIds, opts) {
+  if (!db) return null;
+  const ids = (campaignIds || []).filter(Boolean);
+  if (!ids.length) return [];
+  const chunk = (opts && opts.chunkSize) || DELIV_CAMPAIGN_ID_CHUNK;
+  try {
+    const out = [];
+    for (let i = 0; i < ids.length; i += chunk) {
+      const part = await _queryDeliverables({ campaignIds: ids.slice(i, i + chunk) }, { skipInfluencers: true });
+      out.push(...part);
+    }
+    return out;
+  } catch(e) { console.error('[fetchDeliverablesByCampaignIds]', e); return null; }
 }
 
 async function fetchDeliverableById(id) {
