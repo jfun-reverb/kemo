@@ -723,7 +723,9 @@ function ganttProgHtml(pr, pending) {
 //   ⚠️ 판정 사본이다 — 임계값은 148 과 같게 두되(모집률 30/50%, 마감 7일, D-1/D-3) **취소 5건 조건은 뺐다**(캠페인별 취소 건수를
 //   이 화면이 받지 않는다). 브랜드 모집률은 캠페인 합산이라 브랜드 카드와 단계가 다를 수 있다 — 툴팁에 「캠페인 단위」라고 적는다.
 //   모집 경고는 모집중(active)만 — 모집 전(scheduled)은 모집률이 뜻이 없다. 결과물 경고는 모집마감(closed)만 — 제출 창은 마감 다음 날 열린다.
-//   결과물 경고(사용자 결정 2026-09-09): 제출 마감 7일 이내인데 결과물 승인률(인증 성공 인플/승인 인플) < 50% → 대응 필요, 마감 하루 전·오늘이면 긴급.
+//   결과물 경고(사용자 결정 2026-09-09, 같은 날 두 번째 결정으로 넓힘): ①제출 마감 3일 이내인데 인증 못 한 사람이 1명이라도 있으면
+//   「미인증 N명 · 제출 마감 …」(하루 전·오늘 긴급, 2~3일 대응 필요) ②제출 마감 7일 이내인데 결과물 승인률 < 50% 면 「결과물 저조」(주의).
+//   운영 실측에서 승인률 55~75% 인 D-Day 캠페인이 조용했다 — 마감 직전엔 「몇 명이 못 냈나」가 「비율이 낮나」보다 급하다.
 //   stats 가 없으면(집계 중·실패) 결과물 경고는 판정하지 않는다 — 없는 것을 「정상」으로 그리지 않고 그냥 비운다.
 //   정상이면 null — 아무것도 안 그린다(0건 원칙).
 function ganttCampaignAlert(c, stats) {
@@ -744,10 +746,15 @@ function ganttCampaignAlert(c, stats) {
     else if (pct !== null && pct < 50 && (left === null || left >= 7)) { lines.push('모집 저조'); bump('caution'); }
   } else if (c.status === 'closed' && stats && appr !== null && appr > 0) {
     var leftS = daysTo(c.submission_end);
-    var certPct = Math.round((stats.cert || 0) / appr * 100);
-    if (leftS !== null && leftS <= 7 && certPct < 50) {
-      lines.push('결과물 저조 · 제출 마감 ' + (leftS === 0 ? '오늘' : leftS === 1 ? '하루 전' : leftS + '일 남음'));
+    var cert = Math.min(appr, stats.cert || 0), uncert = appr - cert;
+    var certPct = Math.round(cert / appr * 100);
+    var leftTxt = leftS === 0 ? '오늘' : leftS === 1 ? '하루 전' : leftS + '일 남음';
+    if (leftS !== null && leftS <= 3 && uncert > 0) {
+      lines.push('미인증 ' + uncert + '명 · 제출 마감 ' + leftTxt);
       bump(leftS <= 1 ? 'danger' : 'warning');
+    } else if (leftS !== null && leftS <= 7 && certPct < 50) {
+      lines.push('결과물 저조 · 제출 마감 ' + leftTxt);
+      bump('caution');
     }
   }
   if (!level) return null;
@@ -1262,7 +1269,7 @@ function renderGanttLegend() {
 
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
-    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status" title="막대 옆 경고 꼬리표 = 캠페인 단위. 모집중: 마감 하루 전·3일 이내, 모집률 30% 미만+마감 7일 이내, 모집률 50% 미만 / 모집마감: 제출 마감 7일 이내+결과물 승인률 50% 미만. 브랜드 카드 경고와 단계가 다를 수 있다">상태 ' + ganttSortArrows('status') + '</div>'
+    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status" title="막대 옆 경고 꼬리표 = 캠페인 단위. 모집중: 마감 하루 전·3일 이내, 모집률 30% 미만+마감 7일 이내, 모집률 50% 미만 / 모집마감: 제출 마감 3일 이내+인증 못 한 사람 있음(미인증 N명), 제출 마감 7일 이내+결과물 승인률 50% 미만. 브랜드 카드 경고와 단계가 다를 수 있다">상태 ' + ganttSortArrows('status') + '</div>'
     + '<div class="gantt-cell c-dur" title="캠페인 행 = 가장 늦은 마감까지 · 펼친 기간 행 = 그 기간의 마감까지">남은 기간 ' + ganttSortArrows('dur') + '</div>'
     + '<div class="gantt-cell c-rate" title="승인 인플루언서 / 모집인원. 기프팅·방문형은 초과 응모를 받아 100%를 넘을 수 있다">모집률 ' + ganttSortArrows('recruit') + '</div>'
     + '<div class="gantt-cell c-rate" title="캠페인 행 = 인증 성공 인플루언서 / 승인 인플루언서 · 펼친 기간 행 = 그 단계(구매·방문 = 영수증(현장 사진) 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)">결과물 승인률 ' + ganttSortArrows('cert') + '</div>'
