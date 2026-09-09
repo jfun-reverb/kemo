@@ -2452,7 +2452,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row .gantt-left{background:var(--surface)}
 .gantt-cell{padding:6px 8px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-width:0;background:inherit}
 .gantt-head .gantt-cell{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--th-fg);white-space:nowrap;padding:4px 12px}
-.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:118px;align-items:flex-start}.gantt-cell.c-dur{width:80px;text-align:center;align-items:center}.gantt-cell.c-rate{width:135px}   /* 비율 열 둘(모집률·결과물 승인률, 2026-09-09) — 옛 진척률 한 열(170px)보다 합계 100px 넓다 */
+.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:78px}.gantt-cell.c-dur{width:80px;text-align:center;align-items:center}.gantt-cell.c-rate{width:135px}   /* 비율 열 둘(모집률·결과물 승인률, 2026-09-09) — 옛 진척률 한 열(170px)보다 합계 100px 넓다 */
 .gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
 .gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
@@ -2490,8 +2490,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-bar.open-end .gantt-bar-label{left:50%;right:auto;transform:translateX(-50%);color:var(--ink);background:var(--surface);padding:0 4px;border-radius:3px}   /* 점선 막대는 흰 배경이 비쳐 흰 글씨가 사라진다 — 흰 바탕 알약으로(리뷰 지적) */
 .gantt-sub-label{position:absolute;top:22px;font-size:9px;line-height:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
 .gantt-sub-label.sub2{top:30px}
-.gantt-alert-line{display:flex;align-items:flex-start;gap:2px;margin-top:3px;font-size:10px;font-weight:600;line-height:1.3;white-space:normal;word-break:keep-all}   /* keep-all — 「(마감 여유)」가 글자 중간에서 접히지 않게 */   /* 상태 배지 아래 캠페인 경고 사유(2026-09-09). 정상이면 안 그린다 */
-.gantt-alert-line .material-icons-round{font-size:12px;flex-shrink:0;margin-top:1px}
+/* 캠페인 경고 꼬리표 — 부모 행 막대 오른쪽 옆(2026-09-09, 처음엔 상태 배지 아래였다). 흰 알약이라 격자·주말 음영 위에서도 읽힌다. 정상이면 안 그린다 */
+.gantt-alert-tag{position:absolute;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font-size:10px;font-weight:600;line-height:14px;padding:0 5px 0 3px;border-radius:3px;background:var(--surface);box-shadow:0 0 0 1px currentColor;z-index:1;pointer-events:auto}
+.gantt-alert-tag .material-icons-round{font-size:12px}
 .gantt-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}   /* 범례 왼쪽 · 시간축 조작 오른쪽 */
 .gantt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11px;color:var(--muted)}
 .gantt-nav{display:inline-flex;align-items:center;gap:3px;margin-left:auto}
