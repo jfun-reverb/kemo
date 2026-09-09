@@ -2452,7 +2452,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row .gantt-left{background:var(--surface)}
 .gantt-cell{padding:6px 8px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-width:0;background:inherit}
 .gantt-head .gantt-cell{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--th-fg);white-space:nowrap;padding:4px 12px}
-.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:78px}.gantt-cell.c-dur{width:80px;text-align:center;align-items:center}.gantt-cell.c-prog{width:170px}
+.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:118px;align-items:flex-start}.gantt-cell.c-dur{width:80px;text-align:center;align-items:center}.gantt-cell.c-rate{width:135px}   /* 비율 열 둘(모집률·결과물 승인률, 2026-09-09) — 옛 진척률 한 열(170px)보다 합계 100px 넓다 */
 .gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
 .gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
@@ -2467,7 +2467,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    월 단위에서는 --gantt-grid 가 4주(28일)로 넓어져 선이 성기게 그어진다 */
 .gantt-track,.gantt-axis{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-grid,70px)),repeating-linear-gradient(to right,transparent 0,transparent calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 7));background-position-x:var(--gantt-off,0px);background-repeat:repeat-x}
 #brandOpsScheduleRows{position:relative}   /* 오늘 세로선을 행 전체에 하나로 겹치기 위한 기준 */
-.gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1;pointer-events:none}
+.gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #A78BFA;z-index:1;pointer-events:none}   /* 오늘 선 — 밝은 보라 점선(2026-09-09 사용자 지시. 진한 실선은 막대와 겹쳐 무거웠다). 범례(.lg)도 같은 규칙을 물려받는다 */
 /* 농도 3단은 opacity 가 아니라 배경색으로 — opacity 는 막대 안 이름표까지 같이 흐려져 옅은 막대의 글자가 안 보인다(개발서버 실측) */
 .gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:#3F3F46;box-sizing:border-box}
 .gantt-bar.ink-mid{background:#8E8E95}
@@ -2490,7 +2490,19 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-bar.open-end .gantt-bar-label{left:50%;right:auto;transform:translateX(-50%);color:var(--ink);background:var(--surface);padding:0 4px;border-radius:3px}   /* 점선 막대는 흰 배경이 비쳐 흰 글씨가 사라진다 — 흰 바탕 알약으로(리뷰 지적) */
 .gantt-sub-label{position:absolute;top:22px;font-size:9px;line-height:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
 .gantt-sub-label.sub2{top:30px}
-.gantt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11px;color:var(--muted);margin-bottom:6px}
+.gantt-alert-line{display:flex;align-items:flex-start;gap:2px;margin-top:3px;font-size:10px;font-weight:600;line-height:1.3;white-space:normal;word-break:keep-all}   /* keep-all — 「(마감 여유)」가 글자 중간에서 접히지 않게 */   /* 상태 배지 아래 캠페인 경고 사유(2026-09-09). 정상이면 안 그린다 */
+.gantt-alert-line .material-icons-round{font-size:12px;flex-shrink:0;margin-top:1px}
+.gantt-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}   /* 범례 왼쪽 · 시간축 조작 오른쪽 */
+.gantt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11px;color:var(--muted)}
+.gantt-nav{display:inline-flex;align-items:center;gap:3px;margin-left:auto}
+.gantt-nav .btn{padding:0 8px;font-size:11px;line-height:16px;gap:2px;height:24px;box-sizing:border-box;border-radius:6px}   /* 필터 줄의 btn-xs(6px 12px·12px) 보다 한 단계 작게(2026-09-09 사용자 지시). 높이는 고정 — 아이콘만 든 단추(14px 아이콘)가 글자 단추(16px 줄높이)보다 2px 낮아지던 것을 맞춘다 */
+.gantt-nav .material-icons-round{font-size:14px}
+.gantt-nav-sep{width:1px;height:14px;background:var(--line);margin:0 3px}
+/* 왼쪽 열 접기 — 머리글 왼쪽 고정 열의 오른쪽 가장자리에 반쯤 걸친 둥근 단추. 고정 열 안에 있어 스크롤해도 따라간다. z-index 는 고정 열(2)보다 위 */
+.gantt-left-toggle{position:absolute;right:-9px;top:calc(50% - 1px);transform:translateY(-50%);width:18px;height:18px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#3F3F46;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.12)}   /* 색은 직접 적는다 — 머리글(.gantt-head) 안에서는 --ink·--surface 가 어두운 머리글용 값으로 뒤집혀 흰 원에 흰 화살표가 됐다(실측) */
+.gantt-left-toggle:hover{background:var(--surface-dim)}
+.gantt-left-toggle .material-icons-round{font-size:12px;line-height:1}   /* 18px 원 안 12px 화살표. 글자(11px 머리글)와 나란히 보이게 원을 1px 올렸다(2026-09-09 사용자 지적 — 22px·15px 은 커 보이고 아래로 처져 보였다) */
+.gantt-head .gantt-left{overflow:visible}
 .gantt-legend-item{display:inline-flex;align-items:center;gap:6px}
 .gantt-legend .gantt-bar.lg{position:static;display:inline-block;width:26px;height:10px}
 .gantt-legend .gantt-bar.lg.lg-sub{height:5px}
@@ -2500,7 +2512,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-tip{position:fixed;z-index:900;background:var(--ink);color:var(--surface);font-size:11px;line-height:1.55;padding:6px 10px;border-radius:6px;white-space:pre-line;max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
 /* 편의 기능(2026-09-07 조사 반영) — 줌 단위·왼쪽 열 접기·빠른 필터 칩·마우스 날짜 안내선 */
 .gantt-zoom{display:inline-flex;gap:2px}
-.gantt-scroll.left-collapsed .gantt-cell.c-dur,.gantt-scroll.left-collapsed .gantt-cell.c-prog{display:none}
+.gantt-scroll.left-collapsed .gantt-cell.c-dur,.gantt-scroll.left-collapsed .gantt-cell.c-rate{display:none}
 .gantt-quick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
 .gantt-chip-label{font-size:11px;color:var(--muted);margin-right:2px}
 .gantt-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:pointer;line-height:1.4}
@@ -2511,7 +2523,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-guide{position:fixed;z-index:850;background:rgba(98,94,189,.10);border-left:1px dashed var(--accent);pointer-events:none}
 .gantt-guide-date{position:absolute;top:2px;left:4px;font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap;box-shadow:0 0 0 1px var(--line)}
 .gantt-head .gantt-cell{flex-direction:row;align-items:center;gap:2px}   /* 머리글은 글자+정렬 화살표를 한 줄에 */
-.gantt-cell.c-dur > span{margin:0!important;font-size:11px!important;padding:2px 7px!important}   /* dDayLabel 은 인라인 스타일이라 !important 로만 키울 수 있다(공용 함수는 안 건드린다) */
+.gantt-row .gantt-cell.c-dur > span{margin:0!important;font-size:11px!important;padding:2px 7px!important}   /* .gantt-row 로 한정 — 머리글의 정렬 화살표(span)까지 키워 「남은 기간」 화살표만 컸다(2026-09-09 사용자 지적) */   /* dDayLabel 은 인라인 스타일이라 !important 로만 키울 수 있다(공용 함수는 안 건드린다) */
 /* 캠페인 펼치기(트리형) — 부모 행 + 기간 자식 행, 진척률 막대 */
 .gantt-title-line{display:flex;align-items:center;gap:4px;min-width:0}
 .gantt-chev{flex-shrink:0;width:20px;height:20px;border:none;background:none;padding:0;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:4px}
@@ -2526,6 +2538,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-child-name{font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0}
 .gantt-child-date{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-row.parent.open{border-bottom-color:transparent}
+/* 부모(캠페인) 행의 막대·점·D-day 는 행 높이의 상하 중앙에(2026-09-09 사용자 지시). 행이 44px 인데 막대 top 이 9px 로 고정돼 위로 붙어 보였다.
+   자식 행(30px)은 top:9px 이 이미 중앙이라 그대로 둔다. 보조 막대(lane-sub)는 부모 행에 안 그려진다(합친 막대 하나뿐). */
+.gantt-row.parent .gantt-bar{top:calc(50% - 6px)}
+.gantt-row.parent .gantt-point{top:calc(50% - 6px)}
+.gantt-row.parent .gantt-dday,.gantt-row.parent .gantt-tag{top:calc(50% - 7px)}
 .gantt-prog{display:flex;align-items:center;gap:8px;min-width:0}
 .gantt-prog-bar{flex:1;height:6px;border-radius:3px;background:var(--surface-dim);overflow:hidden}
 .gantt-prog-pct{font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}

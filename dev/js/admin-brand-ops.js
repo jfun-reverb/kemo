@@ -558,6 +558,14 @@ try { var _z = localStorage.getItem(GANTT_ZOOM_KEY); if (GANTT_ZOOMS[_z]) _gantt
 var GANTT_DAY_PX = GANTT_ZOOMS[_ganttZoom].px;
 var GANTT_RANGE = { before: GANTT_ZOOMS[_ganttZoom].before, after: GANTT_ZOOMS[_ganttZoom].after };
 var _ganttBaseYmd = null;                // null 이면 오늘
+// 가로 스크롤(2026-09-09 사용자 지시 「스크롤도 같이 되게」) — 그리는 범위를 보이는 창(GANTT_RANGE)보다 양쪽으로 넉넉히 넓혀 두고
+//   (`_ganttExt`, 일 단위), 처음엔 「기준일 - before」가 왼쪽 끝에 오도록 스크롤해 둔다. 스크롤이 끝에 닿으면 그쪽을 한 이동폭(shiftWeeks)만큼
+//   더 그리고 스크롤 위치를 보정해 화면이 안 튄다. ‹ › 는 이제 범위를 옮기는 게 아니라 **그 이동폭만큼 스크롤**한다.
+//   ⚠️ 상한(GANTT_EXT_CAP_DAYS)이 없으면 끝까지 밀 때마다 DOM 이 계속 넓어진다.
+var _ganttExt = null;                    // { before, after } — 그린 범위(일). null 이면 줌 기본값으로 초기화
+var _ganttScrollTo = null;               // 다음 렌더 뒤 맞출 scrollLeft(오늘·줌 전환 때 기본 위치). null 이면 직전 위치 유지
+var _ganttExtending = false;             // 가장자리 확장 재진입 막기
+var GANTT_EXT_CAP_DAYS = 730;            // 한쪽 최대 2년
 var _ganttCurrentRange = null;           // 마지막으로 그린 범위 — 마우스 날짜 안내선이 읽는다
 // 왼쪽 열 접기(노트북에서 시간축이 좁을 때) — 캠페인명·상태만 남긴다. 브라우저 단위 기억
 var GANTT_LEFT_KEY = 'reverb.brandOps.ganttLeft';
@@ -568,7 +576,7 @@ var _ganttQuick = '';
 // 머리글 클릭 정렬(2026-09-07 사용자 요청) — 캠페인 관리 목록의 ▲▼ 방식. key 가 null 이면 기본(마감 가까운 순, 결정 8)
 //   같은 머리글을 다시 누르면 오름 → 내림 → 기본 순으로 돈다. 브라우저 기억은 안 한다(정렬은 그때그때 보는 것)
 var _ganttSort = { key: null, dir: 'asc' };
-var GANTT_SORT_COLS = { title: '캠페인', status: '상태', dur: '기간', prog: '진척률' };
+var GANTT_SORT_COLS = { title: '캠페인', status: '상태', dur: '남은 기간', recruit: '모집률', cert: '결과물 승인률' };
 var GANTT_STATUS_RANK = { scheduled: 0, active: 1, closed: 2, ended: 3, expired: 4 };
 function toggleGanttSort(key) {
   if (!GANTT_SORT_COLS[key]) return;
@@ -586,7 +594,7 @@ function ganttSortValue(key, c, stats) {
   if (key === 'title') return (c.title || '').toLowerCase();
   if (key === 'status') return GANTT_STATUS_RANK[c.status] ?? 9;
   if (key === 'dur') { var sp = ganttSpanOf(ganttSegmentsFor(c)); return sp ? ganttRemainDays(sp.end) : null; }   // 남은 일수(지났으면 음수). 무기한은 가장 뒤
-  if (key === 'prog') { var pr = ganttParentProgress(c, stats); return pr.den > 0 && pr.num !== null ? pr.num / pr.den : null; }
+  if (key === 'recruit' || key === 'cert') { var pr = key === 'recruit' ? ganttRecruitRate(c) : ganttCertRate(c, stats); return pr.den > 0 && pr.num !== null ? pr.num / pr.den : null; }
   return null;
 }
 function ganttSortList(list, statsMap) {
@@ -624,7 +632,7 @@ function renderGanttOpenButton(list) {
   var btn = $('brandOpsOpenAll');
   if (!btn) return;
   var anyOpen = list.some(function(c){ return _ganttOpen[c.id]; });
-  btn.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">' + (anyOpen ? 'unfold_less' : 'unfold_more') + '</span> ' + (anyOpen ? '모두 접기' : '모두 펼치기');
+  btn.innerHTML = '<span class="material-icons-round notranslate" translate="no">' + (anyOpen ? 'unfold_less' : 'unfold_more') + '</span> ' + (anyOpen ? '모두 접기' : '모두 펼치기');   // 아이콘 크기는 .gantt-nav 가 정한다
   btn.onclick = function(){ setGanttAllOpen(!anyOpen); };
 }
 // 기간 일수(양 끝 포함) · 전체 구간 · 진척률
@@ -638,6 +646,28 @@ function ganttSpanOf(segs) {
   });
   return { start: start, end: open ? null : end };
 }
+// 캠페인 행(부모)에 그리는 막대 하나 — 설정된 기간 전부를 아우르는 구간(가장 이른 시작 ~ 가장 늦은 마감).
+//   모집·제출·선정이 따로 보이는 것은 **펼친 자식 행의 몫**이다(2026-09-09 사용자 지시 — 접혀 있을 때 나눠 보이지 않게).
+//   막대 안에 이름은 안 쓴다(같은 지시 — 왼쪽 열에 캠페인명이 이미 있다. `name` 이 빈 문자열이면 막대 글자·마커 문구에서 빠진다).
+//   D-day 배지도 여기엔 안 붙인다 — 펼친 자식 행(모집·제출)에 각각 붙는다(같은 지시). 남은 기간 열이 이미 마감 D-day 를 보여준다.
+//   툴팁에 포함된 기간 이름을 적어 무엇이 합쳐졌는지 알린다.
+// 자식 행·툴팁의 구간 순서 — 실제 흐름대로 모집 → 구매·방문 → 선정 → 제출(2026-09-09 사용자 지시 「제출이 맨 밑으로」).
+//   ganttSegmentsFor 는 그리기 편의상 모집·제출을 먼저 넣으므로 보여줄 때 여기서 다시 세운다. 원본 배열은 건드리지 않는다.
+var GANTT_SEG_ORDER = { '모집': 1, '모집 마감': 1, '구매': 2, '방문': 2, '선정': 3, '제출': 4, '제출 마감': 4 };
+function ganttSegsInFlowOrder(segs) {
+  return segs.slice().sort(function(a, b){ return (GANTT_SEG_ORDER[a.name] || 9) - (GANTT_SEG_ORDER[b.name] || 9); });
+}
+function ganttMergedSegment(segs) {
+  var span = ganttSpanOf(segs);
+  if (!span) return null;
+  var names = ganttSegsInFlowOrder(segs).map(function(s){ return s.name; }).join(' · ');
+  return {
+    name: '', start: span.start, end: span.end, lane: 'main', ink: 'strong',
+    note: '포함: ' + names,
+    openEnd: span.end === null,
+    point: span.end !== null && span.end === span.start
+  };
+}
 // 남은 기간 — 마감까지 D-day 배지(dDayLabel, 다른 화면과 같은 규약: D-Day / D-n / 지났으면 D+n). 마감 없음은 「무기한」
 function ganttRemainHtml(end) {
   if (end === null) return '<span style="font-size:11px;color:var(--muted)">무기한</span>';
@@ -649,24 +679,38 @@ function ganttRemainDays(end) {
   var n = ganttDayOffset(ganttTodayYmd(), end);
   return isNaN(n) ? null : n;
 }
-// 진척률 재료 — { num, den, extra } (num null = 값 없음)
-function ganttParentProgress(c, stats) {
-  return { label: '인증 성공', num: stats ? stats.cert : null, den: Number(c.slots || 0), extra: '' };
-}
-function ganttChildProgress(seg, c, stats) {
-  var slots = Number(c.slots || 0);
+// 비율 재료 — { num, den, extra } (num null = 값 없음). 2026-09-09 에 「진척률」 한 열을 두 열로 나눴다(사용자 결정):
+//   모집률 = 승인 인플 / 모집인원 · 결과물 승인률 = 인증 성공 인플 / 승인 인플(사람 단위 — 캠페인 진행현황 진행바와 같은 정의.
+//   결과물 건수 단위가 아니다 — 리뷰어형은 한 사람이 영수증+인증샷 여러 건을 내므로 건수로 세면 숫자가 크게 다르다).
+function _ganttApproved(c) {
   var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
-  var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
-  var n = seg.name;
-  if (n === '모집' || n === '모집 마감' || n === '선정') return { label: '승인', num: appr, den: slots, extra: '' };
+  return _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);   // null = 승인 수 조회 실패
+}
+function ganttRecruitRate(c) {
+  return { label: '승인', num: _ganttApproved(c), den: Number(c.slots || 0), extra: '' };
+}
+function ganttCertRate(c, stats) {
+  var appr = _ganttApproved(c);
   // 승인 수 조회가 실패(appr === null)했으면 분자도 비운다 — 안 그러면 「5/0」처럼 승인 0명으로 읽힌다(툴팁 건수와 같은 규약, 리뷰 지적)
+  return { label: '인증 성공', num: (appr === null || !stats) ? null : stats.cert, den: appr === null ? 0 : appr, extra: '' };
+}
+// 펼친 기간 행 — 두 열 중 그 단계에 맞는 쪽만 채운다(모집·선정 → 모집률 칸 / 구매·방문·제출 → 결과물 칸에 그 단계 진척). 나머지 칸은 빈칸.
+var GANTT_EMPTY_RATE = { label: '', num: undefined, den: 0, extra: '' };
+function ganttChildRecruitRate(seg, c) {
+  var n = seg.name;
+  return (n === '모집' || n === '모집 마감' || n === '선정') ? ganttRecruitRate(c) : GANTT_EMPTY_RATE;
+}
+function ganttChildCertRate(seg, c, stats) {
+  var appr = _ganttApproved(c);
+  var n = seg.name;
   if (n === '구매' || n === '방문') return { label: n === '구매' ? '영수증' : '현장 사진', num: (appr === null || !stats) ? null : stats.receiptInf, den: appr === null ? 0 : appr, extra: '' };
   if (n === '제출' || n === '제출 마감') return { label: '결과물 제출', num: (appr === null || !stats) ? null : stats.submittedInf, den: appr === null ? 0 : appr, extra: stats ? ('인증 ' + stats.cert) : '' };
-  return { label: '', num: null, den: 0, extra: '' };
+  return GANTT_EMPTY_RATE;
 }
 function ganttProgHtml(pr, pending) {
+  if (pr.num === undefined) return '';                                     // 그 단계에 해당 없는 칸(자식 행) — 「—」도 안 그린다
   if (pending) return '<span style="color:var(--faint)">…</span>';
-  if (pr.num === null || pr.num === undefined) return '<span style="color:var(--muted)">—</span>';
+  if (pr.num === null) return '<span style="color:var(--muted)">—</span>';
   var tip = (pr.label ? pr.label + ' ' : '') + pr.num + ' / ' + pr.den + (pr.extra ? ' · ' + pr.extra : '');
   if (!(pr.den > 0)) return '<span class="gantt-prog-frac" title="' + esc(tip) + '">' + pr.num + '/' + pr.den + '</span>';
   var pct = Math.min(100, Math.round(pr.num / pr.den * 100));
@@ -674,7 +718,52 @@ function ganttProgHtml(pr, pending) {
   return '<div class="gantt-prog" title="' + esc(tip) + '"><div class="gantt-prog-bar"><div class="gantt-prog-fill" style="width:' + pct + '%"></div></div>'
     + '<span class="gantt-prog-pct">' + pct + '%</span><span class="gantt-prog-frac">' + pr.num + '/' + pr.den + '</span></div>';
 }
+// ---- 캠페인 단위 경고(2026-09-09 사용자 지시 「캠페인 경고 표시를 간트차트에도」) ----
+//   브랜드 카드의 경고(get_brand_ops_overview, 148)는 **브랜드 단위**라 캠페인 행에 그대로 못 쓴다 → 화면에서 캠페인마다 다시 판정한다.
+//   ⚠️ 판정 사본이다 — 임계값은 148 과 같게 두되(모집률 30/50%, 마감 7일, D-1/D-3) **취소 5건 조건은 뺐다**(캠페인별 취소 건수를
+//   이 화면이 받지 않는다). 브랜드 모집률은 캠페인 합산이라 브랜드 카드와 단계가 다를 수 있다 — 툴팁에 「캠페인 단위」라고 적는다.
+//   모집 경고는 모집중(active)만 — 모집 전(scheduled)은 모집률이 뜻이 없다. 결과물 경고는 모집마감(closed)만 — 제출 창은 마감 다음 날 열린다.
+//   결과물 경고(사용자 결정 2026-09-09): 제출 마감 7일 이내인데 결과물 승인률(인증 성공 인플/승인 인플) < 50% → 대응 필요, 마감 하루 전·오늘이면 긴급.
+//   stats 가 없으면(집계 중·실패) 결과물 경고는 판정하지 않는다 — 없는 것을 「정상」으로 그리지 않고 그냥 비운다.
+//   정상이면 null — 아무것도 안 그린다(0건 원칙).
+function ganttCampaignAlert(c, stats) {
+  var today = ganttTodayYmd();
+  var daysTo = function(ymd) { if (!ymd) return null; var n = ganttDayOffset(today, ymd); return (isNaN(n) || n < 0) ? null : n; };   // 남은 일(오늘 0). 지난 날짜는 null
+  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
+  var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
+  var lines = [], level = null;
+  var bump = function(lv) { var r = BRAND_OPS_ALERT_RANK; if (level === null || r[lv] < r[level]) level = lv; };
+  if (c.status === 'active') {
+    var slots = Number(c.slots || 0);
+    var pct = (appr !== null && slots > 0) ? Math.round(appr / slots * 100) : null;
+    var left = daysTo(c.deadline);
+    if (left !== null && left <= 1)      { lines.push(left === 0 ? '마감 오늘' : '마감 하루 전'); bump('danger'); }
+    else if (left !== null && left <= 3) { lines.push('마감 ' + left + '일 남음'); bump('warning'); }
+    // 모집률 숫자는 안 적는다 — 오른쪽 「모집률」 열에 있다(2026-09-09 사용자 지시). 임계값(30/50%)만 문구로 갈린다
+    if (pct !== null && pct < 30 && left !== null && left < 7) { lines.push('모집 저조' + (left > 1 ? ' · 마감 ' + left + '일 남음' : '')); bump('danger'); }
+    else if (pct !== null && pct < 50 && (left === null || left >= 7)) { lines.push('모집 저조'); bump('caution'); }
+  } else if (c.status === 'closed' && stats && appr !== null && appr > 0) {
+    var leftS = daysTo(c.submission_end);
+    var certPct = Math.round((stats.cert || 0) / appr * 100);
+    if (leftS !== null && leftS <= 7 && certPct < 50) {
+      lines.push('결과물 저조 · 제출 마감 ' + (leftS === 0 ? '오늘' : leftS === 1 ? '하루 전' : leftS + '일 남음'));
+      bump(leftS <= 1 ? 'danger' : 'warning');
+    }
+  }
+  if (!level) return null;
+  return { level: level, lines: lines };
+}
+function ganttAlertHtml(c, stats) {
+  var a = ganttCampaignAlert(c, stats);
+  if (!a) return '';
+  var st = BRAND_OPS_ALERT[a.level];
+  var tip = '캠페인 단위 경고(' + st.label + ') · ' + a.lines.join(' / ') + '\n브랜드 카드의 경고는 브랜드 합산 기준이라 단계가 다를 수 있습니다';
+  return '<div class="gantt-alert-line" style="color:' + st.color + '" title="' + esc(tip) + '">'
+    + '<span class="material-icons-round notranslate" translate="no">warning</span>' + esc(a.lines.join(' · ')) + '</div>';
+}
+
 var GANTT_QUICK_CHIPS = [
+  { code: 'alert',       label: '경고 있음',     needStats: false },
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
   { code: 'submitShort', label: '제출 미달',     needStats: true },
   { code: 'certShort',   label: '인증 미달',     needStats: true },
@@ -704,17 +793,19 @@ function applyBrandOpsView() {
   renderBrandOpsViewTabs();
 }
 
+// 보기 전환 드롭다운(#brandOpsViewSelect, 제목 줄 오른쪽 「새로고침」 옆) — 2026-09-09 에 상단 탭에서 바꿨다. 이름은 호출처 3곳이 그대로 부르므로 유지.
 function renderBrandOpsViewTabs() {
-  var bar = $('brandOpsViewTabBar');
-  if (!bar) return;
+  var sel = $('brandOpsViewSelect');
+  if (!sel) return;
+  // 항목 표기는 「보기: 간트」·「보기: 브랜드」(사용자 지시 형식). 건수는 안 붙인다 — 일정 뷰는 오른쪽 「(N / 대상 N)」 이 이미 센다
   var tabs = [
-    { code: 'schedule', label: '일정', n: brandOpsScheduleTargetCampaigns().length, fn: 'showBrandOpsSchedule' },
-    { code: 'cards',    label: '브랜드', n: (_brandOpsCache || []).length, fn: 'showBrandOpsCards' },
+    { code: 'schedule', label: '간트' },
+    { code: 'cards',    label: '브랜드' },
   ];
-  bar.innerHTML = tabs.map(function(t){
-    var cls = 'status-tab-btn' + (t.code === _brandOpsView ? ' on' : '');
-    return '<button type="button" class="' + cls + '" data-tab="' + t.code + '" onclick="' + t.fn + '()">' + t.label + '<span class="tab-count">(' + t.n + ')</span></button>';
+  sel.innerHTML = tabs.map(function(t){
+    return '<option value="' + t.code + '"' + (t.code === _brandOpsView ? ' selected' : '') + '>보기: ' + t.label + '</option>';
   }).join('');
+  sel.value = _brandOpsView;
 }
 
 // 필터 4개의 인라인 핸들러가 부르는 단일 진입점 — 현재 뷰로 갈라 그린다.
@@ -804,20 +895,85 @@ function ganttYmdFromTimestamp(ts) {
   return new Date(t + 9 * 3600000).toISOString().slice(0, 10);
 }
 function _ganttWeekday(ymd) { var t = _ganttUtc(ymd); return isNaN(t) ? NaN : new Date(t).getUTCDay(); }   // 0=일 … 1=월
+function ganttShiftDays() { return GANTT_ZOOMS[_ganttZoom].shiftWeeks * 7; }
+// 그린 범위 기본값 — 보이는 창 양쪽에 이동폭 두 번씩 여유(일 12주 창이면 8주 + 12주 + 8주 = 약 2,000px)
+function ganttResetExt() {
+  var pad = ganttShiftDays() * 2;
+  _ganttExt = { before: GANTT_RANGE.before + pad, after: GANTT_RANGE.after + pad };
+}
+// 「기준일 - before」가 왼쪽 끝에 오는 scrollLeft(왼쪽 고정 열은 sticky 라 스크롤 폭에 포함되지만 화면에서는 늘 앞에 붙어 있다)
+function ganttDefaultScrollLeft() { return (_ganttExt.before - GANTT_RANGE.before) * GANTT_DAY_PX; }
 function ganttRange() {
+  if (!_ganttExt) ganttResetExt();
   var base = _ganttBaseYmd || ganttTodayYmd();
-  var start = ganttAddDays(base, -GANTT_RANGE.before), end = ganttAddDays(base, GANTT_RANGE.after);
-  return { base: base, start: start, end: end, days: GANTT_RANGE.before + GANTT_RANGE.after + 1, width: (GANTT_RANGE.before + GANTT_RANGE.after + 1) * GANTT_DAY_PX };
+  var start = ganttAddDays(base, -_ganttExt.before), end = ganttAddDays(base, _ganttExt.after);
+  var days = _ganttExt.before + _ganttExt.after + 1;
+  return { base: base, start: start, end: end, days: days, width: days * GANTT_DAY_PX };
 }
 function ganttX(range, ymd) { return ganttDayOffset(range.start, ymd) * GANTT_DAY_PX; }
-function ganttShift(dir) { var r = ganttRange(); _ganttBaseYmd = ganttAddDays(r.base, dir * GANTT_ZOOMS[_ganttZoom].shiftWeeks * 7); renderBrandOpsSchedule(); }
-function ganttToday() { _ganttBaseYmd = null; renderBrandOpsSchedule(); }
+// ‹ › — 이동폭만큼 스크롤. 그린 범위를 넘어가면 먼저 그쪽을 넓힌다(넓히면서 scrollLeft 를 보정하므로 화면이 안 튄다)
+function ganttShift(dir) {
+  var sc = $('brandOpsGanttScroll');
+  if (!sc) return;
+  var px = ganttShiftDays() * GANTT_DAY_PX;
+  if (dir < 0 && sc.scrollLeft - px < 0) ganttExtend('before');
+  if (dir > 0 && sc.scrollLeft + sc.clientWidth + px > sc.scrollWidth) ganttExtend('after');
+  ganttAnimateScroll(sc, sc.scrollLeft + dir * px);
+}
+// 부드러운 가로 이동 — `scrollBy({behavior:'smooth'})` 는 브라우저·설정에 따라 아예 안 움직이는 경우가 있어(2026-09-09 크롬 실측: 값이 그대로)
+//   requestAnimationFrame 으로 직접 240ms 굴린다. 새 호출이 오면 앞 것을 끊는다.
+//   ⚠️ 움직이는 도중 왼쪽이 넓어지면(ganttExtend 'before') 같은 날짜의 scrollLeft 가 커진다 — ganttExtend 가 from·to 를 그만큼 밀어 준다.
+var _ganttAnim = null;   // { raf, from, to }
+function ganttAnimateScroll(sc, to) {
+  if (_ganttAnim) cancelAnimationFrame(_ganttAnim.raf);
+  if (document.hidden) { sc.scrollLeft = to; _ganttAnim = null; return; }   // 숨은 탭에선 프레임이 안 돌아 영영 안 움직인다(실측) — 바로 옮긴다
+  var anim = { raf: 0, from: sc.scrollLeft, to: to };
+  var t0 = performance.now(), dur = 240;
+  var step = function(now) {
+    var k = Math.min(1, (now - t0) / dur);
+    var e = 1 - Math.pow(1 - k, 3);   // ease-out
+    sc.scrollLeft = anim.from + (anim.to - anim.from) * e;
+    if (k < 1) anim.raf = requestAnimationFrame(step); else _ganttAnim = null;
+  };
+  anim.raf = requestAnimationFrame(step);
+  _ganttAnim = anim;
+}
+function ganttToday() { _ganttBaseYmd = null; ganttResetExt(); _ganttScrollTo = 'default'; renderBrandOpsSchedule(); }
+// 가장자리 확장 — 한쪽을 이동폭만큼 더 그린다. 왼쪽을 넓히면 같은 날짜가 오른쪽으로 밀리므로 scrollLeft 를 그만큼 더한다
+function ganttExtend(side) {
+  if (!_ganttExt || _ganttExt[side] >= GANTT_EXT_CAP_DAYS) return false;
+  var sc = $('brandOpsGanttScroll');
+  var step = Math.min(ganttShiftDays(), GANTT_EXT_CAP_DAYS - _ganttExt[side]);
+  _ganttExt[side] += step;
+  _ganttExtending = true;
+  var shiftPx = side === 'before' ? step * GANTT_DAY_PX : 0;
+  _ganttScrollTo = (sc ? sc.scrollLeft : 0) + shiftPx;
+  if (_ganttAnim && shiftPx) { _ganttAnim.from += shiftPx; _ganttAnim.to += shiftPx; }   // 진행 중인 ‹ › 애니메이션도 같은 날짜를 가리키게
+  renderBrandOpsSchedule();
+  requestAnimationFrame(function(){ _ganttExtending = false; });
+  return true;
+}
+// 스크롤이 끝에 닿으면 그쪽을 넓힌다(1회 바인딩). 세로 스크롤 이벤트도 같이 오지만 가로 위치만 본다
+var _ganttScrollBound = false;
+function ensureGanttScrollExtend() {
+  if (_ganttScrollBound) return;
+  var sc = $('brandOpsGanttScroll');
+  if (!sc) return;
+  _ganttScrollBound = true;
+  sc.addEventListener('scroll', function(){
+    if (_ganttExtending || !_ganttExt) return;
+    var edge = 7 * GANTT_DAY_PX;   // 일주일 안쪽까지 오면 미리 넓힌다
+    if (sc.scrollLeft <= edge) ganttExtend('before');
+    else if (sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - edge) ganttExtend('after');
+  }, { passive: true });
+}
 function setGanttZoom(zoom) {
   if (!GANTT_ZOOMS[zoom]) return;
   _ganttZoom = zoom;
   GANTT_DAY_PX = GANTT_ZOOMS[zoom].px;
   GANTT_RANGE = { before: GANTT_ZOOMS[zoom].before, after: GANTT_ZOOMS[zoom].after };
   try { localStorage.setItem(GANTT_ZOOM_KEY, zoom); } catch(e) {}
+  ganttResetExt(); _ganttScrollTo = 'default';   // 하루 폭이 바뀌면 옛 scrollLeft 는 뜻이 없다 — 기본 위치로
   renderBrandOpsSchedule();
 }
 function renderGanttZoomButtons() {
@@ -840,9 +996,18 @@ function applyGanttLeftState() {
   var sc = $('brandOpsGanttScroll'), btn = $('brandOpsLeftToggle');
   if (sc) sc.classList.toggle('left-collapsed', _ganttLeftCollapsed);
   if (btn) {
-    btn.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">' + (_ganttLeftCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left') + '</span>';
-    btn.title = _ganttLeftCollapsed ? '왼쪽 열 펼치기' : '왼쪽 열 접기(캠페인명·상태만 남김)';
+    btn.innerHTML = ganttLeftToggleIcon();
+    btn.title = ganttLeftToggleTitle();
   }
+}
+// 왼쪽 열 접기 단추 — 시간축 머리글의 왼쪽 고정 열 오른쪽 가장자리(구분선 위)에 붙는다(2026-09-09 사용자 지시).
+//   머리글은 다시 그릴 때마다 새로 만들어지므로 그릴 때 현재 상태로 그리고, 누르면 applyGanttLeftState 가 같은 id 로 아이콘만 바꾼다.
+function ganttLeftToggleIcon() {
+  return '<span class="material-icons-round notranslate" translate="no">' + (_ganttLeftCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left') + '</span>';
+}
+function ganttLeftToggleTitle() { return _ganttLeftCollapsed ? '왼쪽 열 펼치기' : '왼쪽 열 접기(캠페인명·상태만 남김)'; }
+function ganttLeftToggleHtml() {
+  return '<button type="button" class="gantt-left-toggle" id="brandOpsLeftToggle" onclick="toggleGanttLeft()" title="' + esc(ganttLeftToggleTitle()) + '">' + ganttLeftToggleIcon() + '</button>';
 }
 function setGanttQuick(code) {
   _ganttQuick = (_ganttQuick === code) ? '' : (code || '');
@@ -851,6 +1016,7 @@ function setGanttQuick(code) {
 // 빠른 필터 판정 — 왼쪽 열·툴팁과 같은 재료. stats 가 없으면(집계 중·실패) 제출·인증 칩은 판정 불가
 function ganttQuickMatch(code, c, stats) {
   if (!code) return true;
+  if (code === 'alert') return !!ganttCampaignAlert(c, stats);
   if (code === 'deadline7') {
     if (GANTT_ENDED_STATUSES.indexOf(c.status) >= 0 || !c.deadline) return false;
     var t = ganttTodayYmd();
@@ -948,8 +1114,9 @@ function _ganttSegOverlaps(s, range) {
 }
 function _ganttSegLabel(s, side) {
   // 마커 문구 = 구간 이름 + 「시작/마감」 + 날짜. 점 요소는 이름에 이미 성격이 있다.
-  if (s.point) return s.name + ' ' + formatDate(s.start);
-  return side === 'l' ? (s.name + ' 마감 ' + formatDate(s.end)) : (s.name + ' 시작 ' + formatDate(s.start));
+  // 이름이 빈 구간(부모 행의 합친 막대)은 이름 자리를 비운다 — 「 마감 …」처럼 앞이 비지 않게 trim.
+  if (s.point) return (s.name + ' ' + formatDate(s.start)).trim();
+  return (side === 'l' ? (s.name + ' 마감 ' + formatDate(s.end)) : (s.name + ' 시작 ' + formatDate(s.start))).trim();
 }
 
 // 막대 툴팁에 붙는 건수 한 줄 — 「신청 5명 · 승인 2/20 · 심사중 1 · 제출 1/2 · 인증 성공 0/20」.
@@ -979,7 +1146,7 @@ function ganttCountsText(c, stats) {
 // 시간축 칸(설계 4 「범위 밖 처리」 + 설계 5 막대). counts = 툴팁에 붙일 건수 문장
 // only: 자식 행 — 그 구간 하나만(주 막대 높이로) 그린다
 function renderGanttTrack(c, range, counts, only) {
-  var segs = only ? [Object.assign({}, only, { lane: 'main' })] : ganttSegmentsFor(c);
+  var segs = (only === undefined) ? ganttSegmentsFor(c) : (only ? [Object.assign({}, only, { lane: 'main' })] : []);
   var style = ganttTrackStyle(range);
   var html = '';
   if (!segs.length) return '<div class="gantt-track" style="' + style + '">' + html + '<span class="gantt-nodate">날짜 없음</span></div>';
@@ -999,7 +1166,7 @@ function renderGanttTrack(c, range, counts, only) {
     var clipL = x0 < 0, clipR = x1 > range.width;
     var left = Math.max(0, x0), right = Math.min(range.width, x1);
     var period = s.end === null ? (formatDate(s.start) + ' ~ (마감 없음)') : (formatDate(s.start) + ' ~ ' + formatDate(s.end));
-    var tip = s.name + ' ' + period + (s.note ? ' · ' + s.note : '') + (counts ? '\n' + counts : '');
+    var tip = (s.name ? s.name + ' ' : '') + period + (s.note ? ' · ' + s.note : '') + (counts ? '\n' + counts : '');
     var isSub = s.lane === 'sub';
     var laneCls = isSub ? (' lane-sub' + (subIdx++ ? '2' : '')) : '';
     var width = Math.max(2, right - left);
@@ -1008,14 +1175,14 @@ function renderGanttTrack(c, range, counts, only) {
     } else {
       // 구간 이름을 막대 안에 쓴다 — 농도만으로는 무엇이 무엇인지 안 보인다(2026-09-07 사용자 지적).
       //   주 막대는 안에(폭이 글자보다 넓을 때만), 보조 막대는 얇아서 막대 오른쪽 끝 옆에 작은 글씨로.
-      var inLabel = (!isSub && width >= 30) ? '<span class="gantt-bar-label">' + esc(s.name) + '</span>' : '';
+      var inLabel = (!isSub && s.name && width >= 30) ? '<span class="gantt-bar-label">' + esc(s.name) + '</span>' : '';
       html += '<div class="gantt-bar ink-' + s.ink + laneCls + (clipL ? ' clip-l' : '') + (clipR ? ' clip-r' : '') + (s.openEnd ? ' open-end' : '')
         + '" role="img" aria-label="' + esc(tip) + '" data-tip="' + esc(tip) + '" style="left:' + left + 'px;width:' + width + 'px">' + inLabel + '</div>';
       if (isSub && !clipR) html += '<span class="gantt-sub-label' + (laneCls.indexOf('sub2') >= 0 ? ' sub2' : '') + '" style="left:' + (right + 3) + 'px">' + esc(s.name) + '</span>';
       if (s.openEnd && s.lane === 'main') html += '<span class="gantt-tag" style="right:4px">마감 없음</span>';
     }
     // D-day 배지 — 마감(deadline)·제출 마감에만, 그 날짜가 범위 안일 때. 막대 색은 안 바꾼다(결정 11).
-    if (!only && s.dday && s.lane === 'main' && !clipR && ganttX(range, s.dday) >= 0 && ganttX(range, s.dday) < range.width) {   // 자식 행에는 안 붙인다 — 부모 행과 겹쳐 두 번 보인다
+    if ((!only || s.showDday) && s.dday && s.lane === 'main' && !clipR && ganttX(range, s.dday) >= 0 && ganttX(range, s.dday) < range.width) {   // 부모 행의 합친 막대에는 안 붙인다(dday 없음) — 펼친 자식 행에만(2026-09-09)
       html += '<span class="gantt-dday" style="left:' + Math.min(right + 2, range.width - 44) + 'px">' + dDayLabel(s.dday) + '</span>';
     }
   });
@@ -1044,24 +1211,26 @@ function renderScheduleRow(c, range, stats) {
     +     '</div>'
     +     '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
     +   '</div>'
-    +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
+    +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span>' + ganttAlertHtml(c, stats) + '</div>'
     +   '<div class="gantt-cell c-dur">' + (span ? ganttRemainHtml(span.end) : '<span style="color:var(--muted)">—</span>') + '</div>'
-    +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttParentProgress(c, stats), pending) + '</div>'
+    +   '<div class="gantt-cell c-rate">' + ganttProgHtml(ganttRecruitRate(c), false) + '</div>'
+    +   '<div class="gantt-cell c-rate">' + ganttProgHtml(ganttCertRate(c, stats), pending) + '</div>'
     + '</div>'
-    + renderGanttTrack(c, range, counts)
+    + renderGanttTrack(c, range, counts, ganttMergedSegment(segs))   // 부모 = 전체 일정 막대 하나(기간이 없으면 null → 「날짜 없음」)
     + '</div>';
   if (!open) return html;
-  // 자식 행 — 캠페인에 설정된 기간마다 한 줄. 이름·날짜·일수·진척률 + 그 구간 막대 하나
-  segs.forEach(function(seg){
+  // 자식 행 — 캠페인에 설정된 기간마다 한 줄(흐름 순서: 모집 → 구매·방문 → 선정 → 제출). 이름·날짜·일수·진척률 + 그 구간 막대 하나
+  ganttSegsInFlowOrder(segs).forEach(function(seg){
     var period = seg.end === null ? (formatDate(seg.start) + ' ~ 마감 없음') : (formatDate(seg.start) + ' ~ ' + formatDate(seg.end));
     html += '<div class="gantt-row child">'
       + '<div class="gantt-left">'
       +   '<div class="gantt-cell c-title"><div class="gantt-title-line"><span class="gantt-child-name">' + esc(seg.name) + '</span><span class="gantt-child-date">' + esc(period) + '</span></div></div>'
       +   '<div class="gantt-cell c-status"></div>'
       +   '<div class="gantt-cell c-dur">' + ganttRemainHtml(seg.end) + '</div>'
-      +   '<div class="gantt-cell c-prog">' + ganttProgHtml(ganttChildProgress(seg, c, stats), pending) + '</div>'
+      +   '<div class="gantt-cell c-rate">' + ganttProgHtml(ganttChildRecruitRate(seg, c), false) + '</div>'
+      +   '<div class="gantt-cell c-rate">' + ganttProgHtml(ganttChildCertRate(seg, c, stats), pending) + '</div>'
       + '</div>'
-      + renderGanttTrack(c, range, counts, seg)
+      + renderGanttTrack(c, range, counts, Object.assign({}, seg, { showDday: true }))   // D-day 배지는 자식 행에(모집·제출만 dday 를 가진다)
       + '</div>';
   });
   return html;
@@ -1078,9 +1247,11 @@ function renderGanttLegend() {
 
 function renderScheduleHead(range) {
   return '<div class="gantt-left">'
-    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status">상태 ' + ganttSortArrows('status') + '</div>'
+    + '<div class="gantt-cell c-title">캠페인 ' + ganttSortArrows('title') + '</div><div class="gantt-cell c-status" title="상태 아래 경고 줄 = 캠페인 단위. 모집중: 마감 하루 전·3일 이내, 모집률 30% 미만+마감 7일 이내, 모집률 50% 미만 / 모집마감: 제출 마감 7일 이내+결과물 승인률 50% 미만. 브랜드 카드 경고와 단계가 다를 수 있다">상태 ' + ganttSortArrows('status') + '</div>'
     + '<div class="gantt-cell c-dur" title="캠페인 행 = 가장 늦은 마감까지 · 펼친 기간 행 = 그 기간의 마감까지">남은 기간 ' + ganttSortArrows('dur') + '</div>'
-    + '<div class="gantt-cell c-prog" title="캠페인 행 = 인증 성공 / 모집인원 · 펼친 기간 행 = 그 단계(모집·선정 = 승인/모집인원, 구매·방문 = 영수증 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)">진척률 ' + ganttSortArrows('prog') + '</div>'
+    + '<div class="gantt-cell c-rate" title="승인 인플루언서 / 모집인원. 기프팅·방문형은 초과 응모를 받아 100%를 넘을 수 있다">모집률 ' + ganttSortArrows('recruit') + '</div>'
+    + '<div class="gantt-cell c-rate" title="캠페인 행 = 인증 성공 인플루언서 / 승인 인플루언서 · 펼친 기간 행 = 그 단계(구매·방문 = 영수증(현장 사진) 낸 인플루언서/승인, 제출 = 결과물 낸 인플루언서/승인)">결과물 승인률 ' + ganttSortArrows('cert') + '</div>'
+    + ganttLeftToggleHtml()
     + '</div>' + renderGanttAxis(range);
 }
 
@@ -1191,6 +1362,19 @@ function ensureGanttGuideHandlers() {
   document.addEventListener('scroll', function(){ guide.hidden = true; }, true);
 }
 
+// 렌더 뒤 가로 스크롤 위치 — 'default'(오늘·줌 전환·첫 그리기)면 기본 위치, 숫자면 그 값(가장자리 확장 보정), null 이면 그대로 둔다.
+//   첫 그리기는 scrollLeft 가 0 이라 가장자리 확장이 바로 걸리므로 반드시 기본 위치로 옮긴다. 시간축 머리글(axis)만 그려져도 폭이 확정된다.
+var _ganttFirstRender = true;
+function ganttApplyScrollLeft() {
+  var sc = $('brandOpsGanttScroll');
+  if (!sc) return;
+  var to = _ganttScrollTo;
+  if (_ganttFirstRender) { to = 'default'; _ganttFirstRender = false; }
+  _ganttScrollTo = null;
+  if (to === null) return;
+  sc.scrollLeft = (to === 'default') ? ganttDefaultScrollLeft() : to;
+}
+
 // 간트 상자 높이를 화면에 맞춘다 — 시간축 머리글이 세로 스크롤 때도 붙어 있으려면 세로 스크롤을 이 상자가 맡아야 한다.
 //   (그 전에는 바깥 페인이 스크롤해 10행쯤 내려가면 월·주 눈금이 사라졌다 — 2026-09-07 조사 지적)
 function fitGanttHeight() {
@@ -1225,11 +1409,12 @@ function renderBrandOpsSchedule() {
   // 통계가 없어졌으면(새로고침·종료 포함 전환) 통계에 기대는 칩만 내린다 — 「마감 7일 이내」는 그대로(리뷰 지적)
   if (_ganttQuick && ganttQuickNeedsStats(_ganttQuick) && !quickStats) _ganttQuick = '';
   renderGanttQuickChips(preList, stPre);
-  var list = _ganttQuick ? preList.filter(function(c){ return ganttQuickMatch(_ganttQuick, c, quickStats[c.id]); }) : preList;
+  var list = _ganttQuick ? preList.filter(function(c){ return ganttQuickMatch(_ganttQuick, c, quickStats ? quickStats[c.id] : null); }) : preList;   // quickStats 는 집계 전·실패면 null — 통계 없이도 되는 칩(경고 있음·마감 7일)이 켜진 채 새로고침하면 여기서 죽었다(리뷰 지적)
   list = ganttSortList(list, quickStats);   // 머리글 정렬(없으면 기본 마감 순 그대로)
   if (count) count.textContent = '(' + list.length + ' / 대상 ' + target.length + ')';
   ensureGanttTipHandlers();
   ensureGanttGuideHandlers();
+  ensureGanttScrollExtend();
   renderGanttZoomButtons();
   renderGanttOpenButton(list);
   applyGanttLeftState();
@@ -1239,6 +1424,7 @@ function renderBrandOpsSchedule() {
   axisEl.innerHTML = renderScheduleHead(range);
   _ganttCurrentRange = range;
   fitGanttHeight();
+  ganttApplyScrollLeft();
   if (typeof _campaignsLoadFailed !== 'undefined' && _campaignsLoadFailed) {
     rowsEl.innerHTML = '<div class="gantt-empty">캠페인을 불러오지 못했습니다 · 새로고침을 눌러 다시 시도해 주세요</div>';
     if (note) note.hidden = true;
