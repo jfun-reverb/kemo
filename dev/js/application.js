@@ -268,12 +268,13 @@ async function openCampaign(id) {
           //      ⚠️ 그래서 조건은 「행사」가 아니라 **「선정형」으로** 넓힌다 — 선착순형 비공개
           //      행사에는 여전히 뜨면 안 된다(뽑는 기간이 없다). 갈래를 이름으로 지목하는
           //      isSelectionEvent 를 쓰고 `!== 'first_come'` 같은 부정 조건을 쓰지 않는다.
-          //   ★ 이 조건은 **네 곳에 있다 — ①인플루언서 캠페인 상세(application.js)
+          //   ★ 이 조건은 **다섯 곳에 있다 — ①인플루언서 캠페인 상세(application.js)
           //      ②관리자 미리보기(admin.js kSelectionPeriod) ③진행현황 개요 카드
-          //      (admin-applications.js selRange) ④관리자 엑셀(admin-excel.js pickSelection).
+          //      (admin-applications.js selRange) ④관리자 엑셀(admin-excel.js pickSelection)
+          //      ⑤운영현황 일정 뷰의 선정 보조 막대(admin-brand-ops.js ganttSegmentsFor).
           //      ⚠️ **관리자 캠페인 목록의 「선정기간」 열은 이 넷이 아니다** — 그 열은 모집
           //      형식을 아예 안 보고 값만 있으면 그린다(운영 도구라 일부러 그렇다).
-          //      한 곳만 고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다. 나머지 셋의
+          //      한 곳만 고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다. 나머지 넷의
           //      주석은 이 자리를 가리키므로, **조건을 바꾸면 여기부터 고친다.**
           if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
               && (camp.selection_start || camp.selection_end)) {

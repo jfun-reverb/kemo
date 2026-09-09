@@ -3,7 +3,7 @@
 // ═════════════════════════════════════════════════════════════════
 //
 // 대시보드 페인 (admin.js 파일 분리).
-//   · 메인 로드 + KPI + 캠페인 분포 + 최근 신청 (loadAdminData/renderCampaignBreakdown/renderRecentAppsTable)
+//   · 메인 로드 + KPI + 캠페인 분포 (loadAdminData/renderCampaignBreakdown)
 //   · 회원가입 추이 차트 + 프로필 완성률 + 배송지 도도부현 도넛 (Chart.js)
 //   · 상태/상수: _allUsers/_signupChart/_addressDistChart/PREFECTURE_KO/accentRamp
 //
@@ -85,48 +85,7 @@ async function loadAdminData(preloaded) {
   if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
 }
 
-// 최근 신청 렌더 — 대시보드에서 운영 현황 페인으로 이관 (브랜드 운영 재설계 PR 3)
-// 운영 현황 페인(loadBrandOps)에서 apps/camps/users 를 넘겨 호출한다.
-function renderRecentAppsTable(apps, camps, users) {
-  if (!$('recentAppsBody')) return;
-  const recent = apps.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
-  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
-  $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
-    const camp = camps.find(c=>c.id===a.campaign_id)||{};
-    const _dRem = Math.max((camp.slots||0)-countNonAuditApproved(apps, camp.id, _auditIds),0);
-    const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
-    const thumbUrl = imgs[0] || '';
-    const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    const _u = users.find(u=>u.email===a.user_email) || {};
-    return `<tr class="${_u.is_audit?'audit-row':''}">
-      <td>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${esc(storageThumbUrl(thumbUrl))}" data-orig="${esc(thumbUrl)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
-          </div>
-          <div style="min-width:0">
-            <div>${typeLabel}</div>
-            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
-            <div style="font-size:11px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div>
-            ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
-          </div>
-        </div>
-      </td>
-      <td>
-        <div class="link-cell" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
-      </td>
-      <td>${msgCell(a.message, a)}</td>
-      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
-      <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
-        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
-      </td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
-}
+// renderRecentAppsTable(최근 신청 표)은 2026-09-07 에 제거 — 운영현황 하단 표가 없어졌다(인플 신청 관리와 중복).
 
 function renderCampaignBreakdown(camps) {
   const statusEl = $('campStatusBreakdown');
