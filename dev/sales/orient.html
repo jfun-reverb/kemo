@@ -534,6 +534,17 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
 .pv-row .pv-v { flex: 1; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
 .pv-row .pv-v.muted { color: var(--ink-mute); }
 
+/* 안내 모달(상시가 확인) — 이 폼의 첫 모달. 바탕 어둡게 + 가운데 상자 */
+.notice-overlay { position: fixed; inset: 0; background: rgba(22, 22, 24, 0.45); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.notice-overlay.hidden { display: none; }
+.notice-box { background: var(--card); border-radius: 14px; padding: 22px 22px 18px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+.notice-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+.notice-title .material-icons-outlined { font-size: 20px; color: var(--brand); }
+.notice-body { font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
+.notice-body strong { color: var(--ink); }
+.notice-sub { display: inline-block; margin-top: 6px; color: var(--warn); font-weight: 700; }
+.notice-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+.notice-actions .btn-submit { min-width: 96px; }
 /* 작은 인라인 토스트 */
 .toast {
   position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
@@ -705,6 +716,17 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
 
 <div id="toast" class="toast"></div>
 
+<!-- 상시가 안내 모달(2026-09-10 사용자 지시) — 큐텐 자동 채움이 끝나면 한 번 띄운다. 「확인」·바탕 클릭으로 닫힘 -->
+<div id="priceNotice" class="notice-overlay hidden" onclick="if(event.target===this) closePriceNotice()" role="dialog" aria-modal="true" aria-labelledby="priceNoticeTitle">
+  <div class="notice-box">
+    <div class="notice-title" id="priceNoticeTitle"><span class="material-icons-outlined notranslate" translate="no">info</span>상시가 확인</div>
+    <div class="notice-body">큐텐에서 상품 정보를 불러왔어요. 상시가 칸의 금액이<br>
+      <strong>캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격</strong>인지 확인하고, 다르면 고쳐 주세요.<br>
+      <span class="notice-sub">※ 메가와리 쿠폰 적용 불가</span></div>
+    <div class="notice-actions"><button type="button" class="btn-submit" onclick="closePriceNotice()">확인</button></div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════
 // Supabase 환경별 자동 분기 (reviewer.html과 동일 로직)
@@ -809,6 +831,10 @@ function issuedChannel() { return isNewLayout() ? (loadedData.issued.channel || 
 // ══════════════════════════════════════
 function $(id) { return document.getElementById(id); }
 
+// 상시가 안내 모달 — 큐텐 자동 채움이 실제로 돈 뒤 한 번(applyQoo10Result 의 notify). ESC·바탕 클릭·「확인」으로 닫힘
+function showPriceNotice() { const m = $('priceNotice'); if (!m) return; m.classList.remove('hidden'); const b = m.querySelector('button'); if (b) b.focus(); }
+function closePriceNotice() { const m = $('priceNotice'); if (m) m.classList.add('hidden'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePriceNotice(); });
 function showToast(msg) {
   const t = $('toast');
   t.textContent = msg;
@@ -1207,7 +1233,8 @@ function cardHtml(id, card) {
             <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
             <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
           <div class="field"><label>상시가<span class="req">*</span></label>
-            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
+            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()">
+            <div class="field-hint">캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격으로 작성해주세요.<br>※ 메가와리 쿠폰 적용 불가</div></div>
         </div>
 
         <div class="row2">
@@ -1355,7 +1382,8 @@ function cardHtmlNew(id, card) {
         <div class="only-rp">
           <div class="row2 row-price">
             <div class="field"><label>상시가<span class="req">*</span></label>
-              <input type="text" class="f-price-regular" placeholder="예: 5300" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
+              <input type="text" class="f-price-regular" placeholder="예: 5300" value="${escAttr(sale.price_regular)}" oninput="onInput()">
+              <div class="field-hint">캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격으로 작성해주세요.<br>※ 메가와리 쿠폰 적용 불가</div></div>
             <!-- 배송비(선택, 2026-09-10 사용자 지시) — 리뷰어만(.only-reviewer). 비우면 0. 견적서 페이백은 (상시가 + 배송비) × 환율(서버 431).
                  시딩은 이 칸이 없고 .row-price 가 한 칸이 된다(아래 CSS) — 리뷰 지적: 시딩에 보이면 입력해도 아무 데도 안 쓰인다 -->
             <div class="field only-reviewer"><label>배송비 <span class="opt">(선택)</span></label>
@@ -1524,10 +1552,10 @@ async function qoo10LookupFor(input) {
   if ((input.value || '').trim() !== url) return;   // 기다리는 사이 주소가 바뀌었으면 버린다
   if (!res || res.ok !== true) { setLookupHint(input, '자동으로 못 불러왔어요. 직접 입력해 주세요.', ''); clearQoo10Meta(input); onInput(); return; }
   _lastLookupUrl = url; _lastLookupResult = res;
-  applyQoo10Result(input, res, false);
+  applyQoo10Result(input, res, false, true);   // 새로 불러온 때만 상시가 안내 모달
 }
-// force=false: 빈 칸만 채움 / force=true: 「불러온 값으로 바꾸기」 — 사람이 눌렀을 때만 덮는다
-function applyQoo10Result(input, res, force) {
+// force=false: 빈 칸만 채움 / force=true: 「불러온 값으로 바꾸기」 — 사람이 눌렀을 때만 덮는다. notify=true 면 끝에 상시가 안내 모달
+function applyQoo10Result(input, res, force, notify) {
   const card = input.closest('.ocard'); if (!card) return;
   const nameEl = card.querySelector('.f-product-name');
   const priceEl = card.querySelector('.f-price-regular');
@@ -1549,6 +1577,7 @@ function applyQoo10Result(input, res, force) {
   setLookupHint(input, `큐텐에서 불러왔어요 · 확인해 주세요${meta ? ' — ' + meta : ''}${swap}`, '#1D4ED8');
   if (filled > 0) updateCardSummary(card.id);
   onInput();   // 칸을 안 채웠어도 불러온 값 4종은 바뀌었으므로 저장한다
+  if (notify && priceEl) showPriceNotice();   // 사용자 지시(2026-09-10): 자동 채움이 실행되면 상시가 안내를 모달로
 }
 // 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
 function toggleSaleUrlWarn(input) {
