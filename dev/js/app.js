@@ -3,15 +3,23 @@
 // ══════════════════════════════════════
 
 // 비밀번호 재설정 URL 감지 — 스크립트 로드 즉시 (Supabase SDK가 URL 소비하기 전에)
+//   🔴 주소의 `?code=` 는 재설정 신호가 **아니다**(2026-09-10) — 가입 확인 링크가 같은 모양으로 착지한다.
+//      예전에 `?code=` 를 여기 넣었던 이유(재설정 메일이 PKCE 형식이던 때)는 2026-07-20 새 형식
+//      `#reset-pw?token_hash=` 로 사라졌다. 되살리면 새 회원이 확인 링크에서 재설정 화면에 갇힌다
+//      (사양서 docs/specs/2026-09-10-signup-confirm-link-routing-fix.md).
+// 가입 확인 착지(`?code=`)는 **여기서** 봐 둔다 — supabase-js 는 교환에 성공하면 초기화 도중 스스로
+// 주소에서 `?code=` 를 지우므로, init() 시점에 주소를 보면 성공한 착지는 이미 흔적이 없다
+// (2026-09-10 Supabase 전문 검토 — jsdom 재현). 이 스크립트는 그 정리보다 먼저 돈다.
+let _signupConfirmCodeSeen = false;
 (function detectRecoveryUrlEarly() {
   try {
-    const hasCode = new URLSearchParams(location.search).has('code');
+    _signupConfirmCodeSeen = new URLSearchParams(location.search).has('code');
     const hasRecoveryHash = location.hash.includes('type=recovery') || location.hash.includes('access_token=');
     // 새 형식 링크 #reset-pw?token_hash=... (2026-07-20) — 기존 조건은 그대로 두고 조건만 추가.
     // 검증 성공 시 진짜 로그인 상태가 되므로, 비밀번호를 안 바꾸고 이탈해도 로그인된 채로 남지 않도록
     // 기존 「재설정 중에는 로그인 취급 안 함」 장치를 그대로 타게 한다.
     const hasNewRecoveryLink = location.hash.startsWith('#reset-pw?');
-    if (hasCode || hasRecoveryHash || hasNewRecoveryLink) {
+    if (hasRecoveryHash || hasNewRecoveryLink) {
       sessionStorage.setItem('reverb.recovery', '1');
     }
   } catch(e) {}
@@ -404,6 +412,26 @@ async function init() {
   let inRecoveryInit = false;
   try { inRecoveryInit = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
+
+  // 가입 확인 링크 착지(`?code=`) — 사양서 2026-09-10-signup-confirm-link-routing-fix.
+  //   supabase-js 는 클라이언트를 만들 때 주소의 code 를 읽어, 이 브라우저 저장소에 가입 때의
+  //   검증값이 있으면 세션으로 바꾼다(없으면 아무 일도 안 한다). 위 getSession() 은 그 초기화가
+  //   끝난 값이라 **세션 유무로 가르면 된다**: 있으면 아래 기존 세션 복원이 로그인 처리하고 초기
+  //   라우팅이 홈으로 보낸다(여기서는 토스트만) / 없으면 로그인 화면 + 「인증 완료, 로그인하세요」.
+  //   🔴 재설정 중(inRecoveryInit)이면 건너뛴다 — 두 신호가 함께 오는 주소는 없지만, 있다면 재설정이 이긴다.
+  //   ⚠️ 판정 재료는 스크립트 로드 때 봐 둔 `_signupConfirmCodeSeen`(맨 위) — 교환에 성공하면 라이브러리가
+  //      `?code=` 를 이미 지웠으므로 지금 주소를 보면 성공한 착지를 놓친다. 실패·미시도면 아직 남아 있어
+  //      여기서 지운다(해시는 그대로) — 남기면 새로고침마다 같은 판정을 반복한다.
+  let confirmLandingToast = false, confirmLandingNotice = false;
+  try {
+    if (!inRecoveryInit && _signupConfirmCodeSeen) {
+      if (new URLSearchParams(location.search).has('code')) {
+        history.replaceState(history.state, '', location.pathname + location.hash);
+      }
+      if (session) confirmLandingToast = true; else confirmLandingNotice = true;
+    }
+  } catch(e) {}
+
   if (session && !inRecoveryInit) {
     currentUser = session.user;
     // 관리자 테이블에서 확인
@@ -412,11 +440,14 @@ async function init() {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
-      const {data:profile} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
-      currentUserProfile = profile;
+      // 조회 실패(null+error)와 0건을 가른다 — 실패는 기록만(handleLogin 과 같은 원칙, 여기엔 삽입이 원래 없다)
+      const {data:profile, error:profileErr} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+      if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
+      currentUserProfile = profile || null;
     }
   }
   updateGnb();
+  if (confirmLandingToast) toast(t('auth.confirm.done'), 'success');
 
   // 탈퇴가 확정된 계정이면 로그아웃 (마이그레이션 358·359 — 작업 8)
   //   ⚠️ 반드시 관리자 판별(currentUser._isAdmin)이 끝난 뒤에 부른다 — 앞에 두면
@@ -431,7 +462,7 @@ async function init() {
 
   // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
   // - implicit flow: #access_token=...&type=recovery
-  // - PKCE flow: ?code=... (with recovery intent)
+  //   (주소의 `?code=` 는 재설정 신호가 아니다 — 맨 위 detectRecoveryUrlEarly 주석 참조)
   const hashStr = location.hash.replace('#','');
   const hashParams = new URLSearchParams(hashStr.includes('&') ? hashStr : '');
   const queryParams = new URLSearchParams(location.search);
@@ -512,8 +543,10 @@ async function init() {
       const errDesc = hashParams.get('error_description') || new URLSearchParams(location.search).get('error_description') || '';
       const isExpired = errDesc.includes('expired') || errDesc.includes('invalid');
       if (isExpired) {
-        navigate('forgot');
-        setTimeout(() => toast('リンクの有効期限が切れました。もう一度お試しください。','error'), 300);
+        // 가입 확인 링크 재클릭·만료가 이 모양으로 온다 — 비밀번호 찾기는 틀린 안내라 로그인 화면으로.
+        //   로그인을 시도하면 미확인이면 「未認証」 안내가 뜬다(확인 메일 재발송 화면은 백로그).
+        navigate('login');
+        setTimeout(() => toast(t('auth.confirm.linkExpired'),'error'), 300);
       } else {
         navigate('home');
       }
@@ -534,8 +567,8 @@ async function init() {
   // recovery 진행 중이면 초기 라우팅 스킵 (Supabase SDK가 PASSWORD_RECOVERY 이벤트로 reset-pw 이동시킴)
   let isRecoveryInProgress = false;
   try { isRecoveryInProgress = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
-  const urlHasRecoveryCode = new URLSearchParams(location.search).has('code') ||
-                             location.hash.includes('type=recovery') ||
+  // ⚠️ 주소의 `?code=` 는 여기서도 보지 않는다(가입 확인 착지 — 위 세션 복원 자리에서 따로 가른다)
+  const urlHasRecoveryCode = location.hash.includes('type=recovery') ||
                              location.hash.includes('access_token=');
 
   if (hash && hash.startsWith('reset-pw?')) {
@@ -547,6 +580,11 @@ async function init() {
     handleRecoveryTokenLink(tokenHash);
   } else if (isRecoveryInProgress || urlHasRecoveryCode) {
     // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
+  } else if (confirmLandingNotice) {
+    // 가입 확인 착지인데 세션이 없다(다른 브라우저에서 링크를 연 정상 사례) — 로그인 화면 + 사라지지 않는 안내
+    navigate('login', false);
+    const noticeEl = $('loginNotice');
+    if (noticeEl) { noticeEl.textContent = t('auth.confirm.doneLogin'); noticeEl.style.display = 'block'; }
   } else if (hash && hash.startsWith('detail-')) {
     // 초대 링크로 처음 들어온 경우 — 번호를 먼저 기억해 두고 상세를 연다.
     //   기억해 두지 않으면 상세 게이트가 번호를 다시 묻고, 예약 함수에도 못 넘긴다.
