@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1788937026';
+  var CURRENT_BUILD = 'v1789013217';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3136,7 +3136,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-09 15:57 · 2043e67</span>
+          <span class="admin-build-text">2026-09-10 13:06 · e602067</span>
         </div>
       </div>
     </aside>
@@ -20131,7 +20131,7 @@ function osQuoteCard(s, readonly) {
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
     <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
       <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
     ${osQuoteHistoryHtml(d.quote_history)}</div>`;
 }
 
@@ -20153,6 +20153,7 @@ function osCardDetail(c, idx, catMap, readonly) {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
       + osField('상시가', sale.price_regular);
   }
+  if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
   if (ft === 'reviewer') {
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
   }

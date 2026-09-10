@@ -1075,7 +1075,7 @@ function osQuoteCard(s, readonly) {
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
     <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
       <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
     ${osQuoteHistoryHtml(d.quote_history)}</div>`;
 }
 
@@ -1097,6 +1097,7 @@ function osCardDetail(c, idx, catMap, readonly) {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
       + osField('상시가', sale.price_regular);
   }
+  if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
   if (ft === 'reviewer') {
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
   }
