@@ -832,8 +832,15 @@ function issuedChannel() { return isNewLayout() ? (loadedData.issued.channel || 
 function $(id) { return document.getElementById(id); }
 
 // 상시가 안내 모달 — 큐텐 자동 채움이 실제로 돈 뒤 한 번(applyQoo10Result 의 notify). ESC·바탕 클릭·「확인」으로 닫힘
-function showPriceNotice() { const m = $('priceNotice'); if (!m) return; m.classList.remove('hidden'); const b = m.querySelector('button'); if (b) b.focus(); }
-function closePriceNotice() { const m = $('priceNotice'); if (m) m.classList.add('hidden'); }
+//   닫히면 그 카드의 상시가 칸으로 초점을 옮긴다(2026-09-10 사용자 지시 — 확인 뒤 바로 고칠 수 있게). 어느 카드인지는 열 때 기억한다
+let _priceNoticeTarget = null;
+function showPriceNotice(priceEl) { const m = $('priceNotice'); if (!m) return; _priceNoticeTarget = priceEl || null; m.classList.remove('hidden'); const b = m.querySelector('button'); if (b) b.focus(); }
+function closePriceNotice() {
+  const m = $('priceNotice'); if (!m || m.classList.contains('hidden')) return;
+  m.classList.add('hidden');
+  const t = _priceNoticeTarget; _priceNoticeTarget = null;
+  if (t && t.isConnected) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.focus(); t.select && t.select(); }
+}
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePriceNotice(); });
 function showToast(msg) {
   const t = $('toast');
@@ -1577,7 +1584,7 @@ function applyQoo10Result(input, res, force, notify) {
   setLookupHint(input, `큐텐에서 불러왔어요 · 확인해 주세요${meta ? ' — ' + meta : ''}${swap}`, '#1D4ED8');
   if (filled > 0) updateCardSummary(card.id);
   onInput();   // 칸을 안 채웠어도 불러온 값 4종은 바뀌었으므로 저장한다
-  if (notify && priceEl) showPriceNotice();   // 사용자 지시(2026-09-10): 자동 채움이 실행되면 상시가 안내를 모달로
+  if (notify && priceEl) showPriceNotice(priceEl);   // 사용자 지시(2026-09-10): 자동 채움이 실행되면 상시가 안내를 모달로 → 닫으면 상시가로 초점
 }
 // 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
 function toggleSaleUrlWarn(input) {
