@@ -247,12 +247,12 @@ input[type="date"] { min-height: 44px; }
 .rep-remove .material-icons-outlined { font-size: 16px; }
 .rep-remove:hover { color: var(--brand); }
 .rep-item .field:last-child { margin-bottom: 0; }
-/* 제품 이미지 예시 상자(2026-09-10) — 왼쪽 예시 그림 + 오른쪽 안내. 그림은 흰 배경 위 얇은 테두리 */
-.img-sample { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; padding: 10px 12px;
-  background: var(--paper); border: 1px dashed var(--border-strong); border-radius: 9px; }
-.img-sample img { width: 88px; height: 88px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 8px; flex-shrink: 0; }
-.img-sample-text { font-size: 12px; color: var(--ink-soft); line-height: 1.55; }
-.img-sample-text strong { display: block; color: var(--ink); font-size: 12.5px; margin-bottom: 2px; }
+/* 파일 첨부 행 — 왼쪽 선택/입력 + 오른쪽 제품 이미지 예시(2026-09-10 사용자 지시). 좁은 화면에서는 예시가 아래로 */
+.img-row-body { display: flex; align-items: flex-start; gap: 14px; }
+.img-row-main { flex: 1; min-width: 0; }
+.img-sample-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--ink-mute); }
+.img-sample-side img { width: 72px; height: 72px; object-fit: contain; background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; }
+@media (max-width: 480px) { .img-row-body { flex-direction: column; } .img-sample-side { flex-direction: row; } }
 /* 예시 이미지·파일 업로드 행 */
 .img-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .img-upload-btn {
@@ -1124,7 +1124,8 @@ function imageRowHtml(value, type, name) {
   return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}"${isUpload && name ? ` data-img-name="${escAttr(name)}"` : ''}>
     <div class="rep-head"><span class="rep-num">파일 첨부 또는 공유 링크</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
-    <div class="field">
+    <div class="field img-row-body">
+     <div class="img-row-main">
       <input type="hidden" class="img-value" value="${escAttr(value)}">
       <!-- ③ 칩(파일 업로드 결과 또는 URL 확인 결과) -->
       <div class="img-file-chip${hasValue ? '' : ' hidden'}">
@@ -1145,7 +1146,13 @@ function imageRowHtml(value, type, name) {
         <button type="button" class="img-url-confirm" onclick="confirmUrlEntry(this)">확인</button>
         <button type="button" class="img-url-cancel" onclick="cancelUrlEntry(this)">취소</button>
       </div>
-      <div class="field-hint img-choose-hint${hasValue ? ' hidden' : ''}" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)는 「파일 업로드」, 외부 링크는 「URL 공유」를 눌러 주세요.</div>
+      <div class="field-hint img-choose-hint${hasValue ? ' hidden' : ''}" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)는 「파일 업로드」, 외부 링크는 「URL 공유」를 눌러 주세요.<br>600×600px 이상의 누끼(배경 제거) 이미지 또는 텍스트·배경이 없는 제품 사진으로 올려 주세요.</div>
+     </div>
+     <!-- 제품 이미지 예시(2026-09-10 사용자 지시) — 행 오른쪽. 그림은 sales/images(빌드가 복사) -->
+     <div class="img-sample-side" title="제품 이미지 예시 — 배경 없는 누끼 이미지">
+       <img src="images/orient-product-sample.png" alt="제품 이미지 예시 — 배경 없는 누끼 이미지" width="72" height="72" loading="lazy">
+       <span>예시</span>
+     </div>
     </div>
   </div>`;
 }
@@ -1256,13 +1263,7 @@ function cardHtml(id, card) {
         <div class="field"><label>추가 안내 · 필독 사항</label>
           ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}</div>
         <div class="field"><label>예시 이미지·자료</label>
-          <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지·자료가 있으면 「파일 업로드」로 올리거나 「URL 공유」로 링크를 넣어 주세요. (이미지·PDF·문서, 최대 5개)</div>
-          <!-- 제품 이미지 예시(2026-09-10 사용자 지시) — 캠페인 화면에 그대로 쓰는 사진이라 누끼·무배경을 부탁한다. 그림은 sales/images(빌드가 복사) -->
-          <div class="img-sample">
-            <img src="images/orient-product-sample.png" alt="제품 이미지 예시 — 배경 없는 누끼 이미지" width="88" height="88" loading="lazy">
-            <div class="img-sample-text"><strong>제품 이미지는 이렇게 부탁드립니다</strong>
-              600×600px 이상의 누끼(배경 제거) 이미지 또는 텍스트·배경이 없는 제품 사진으로 올려 주세요.</div>
-          </div>
+          <div class="field-hint" style="margin-top:0;margin-bottom:8px">「파일 업로드」로 캠페인 대표이미지로 활용될 파일을 추가해주세요. 참고 이미지가 여러개인 경우 「URL 공유」로 공유 부탁드립니다. (최대 5개)</div>
           <div class="img-list">${imgRows}</div>
           <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
       </div>
@@ -1374,13 +1375,7 @@ function cardHtmlNew(id, card) {
         ${reviewerBlock}
         ${seedingBlock}
         <div class="field"><label>예시 이미지·자료</label>
-          <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지·자료가 있으면 「파일 업로드」로 올리거나 「URL 공유」로 링크를 넣어 주세요. (이미지·PDF·문서, 최대 5개)</div>
-          <!-- 제품 이미지 예시(2026-09-10 사용자 지시) — 캠페인 화면에 그대로 쓰는 사진이라 누끼·무배경을 부탁한다. 그림은 sales/images(빌드가 복사) -->
-          <div class="img-sample">
-            <img src="images/orient-product-sample.png" alt="제품 이미지 예시 — 배경 없는 누끼 이미지" width="88" height="88" loading="lazy">
-            <div class="img-sample-text"><strong>제품 이미지는 이렇게 부탁드립니다</strong>
-              600×600px 이상의 누끼(배경 제거) 이미지 또는 텍스트·배경이 없는 제품 사진으로 올려 주세요.</div>
-          </div>
+          <div class="field-hint" style="margin-top:0;margin-bottom:8px">「파일 업로드」로 캠페인 대표이미지로 활용될 파일을 추가해주세요. 참고 이미지가 여러개인 경우 「URL 공유」로 공유 부탁드립니다. (최대 5개)</div>
           <div class="img-list">${imgRows}</div>
           <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
       </div>
