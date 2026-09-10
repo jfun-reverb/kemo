@@ -1233,7 +1233,7 @@ function cardHtml(id, card) {
 
         <!-- 리뷰 가이드 (리뷰어) -->
         <div class="field only-reviewer"><label>리뷰 가이드</label>
-          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 인플루언서는 실제 사용 경험을 바탕으로 리뷰를 씁니다. 대신 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 적어 주세요.')}</div>
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 작성해 주세요.')}</div>
 
         <!-- 시딩 상세 -->
         <div class="only-seeding">
@@ -1296,7 +1296,7 @@ function cardHtmlNew(id, card) {
 
   const reviewerBlock = (ft === 'reviewer') ? `
         <div class="field only-reviewer"><label>리뷰 가이드</label>
-          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 인플루언서는 실제 사용 경험을 바탕으로 리뷰를 씁니다. 대신 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 적어 주세요.')}
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 작성해 주세요.')}
           <div class="char-count" data-count-for="f-review-guide"><span class="cc-cur">0</span> / ${LIMIT_REVIEW_GUIDE}</div></div>` : '';
 
   const seedingBlock = (ft === 'seeding') ? `
