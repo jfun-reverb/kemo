@@ -187,6 +187,8 @@ async function handleLogin(e) {
   const errEl = $('loginError');
   const btn = $('loginBtn');
   errEl.style.display='none'; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
+  // 가입 확인 착지가 남긴 초록 안내(#loginNotice)는 로그인을 시도하는 순간 걷는다
+  const noticeEl = $('loginNotice'); if (noticeEl) noticeEl.style.display='none';
 
   if (!db) {
     errEl.textContent=t('authError.serverError'); errEl.style.display='block';
@@ -215,10 +217,15 @@ async function handleLogin(e) {
       toast(t('auth.toast.adminLogin'),'success'); updateGnb();
       window.location.href = '/admin/';
     } else {
-      const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
-      currentUserProfile = profile;
+      const {data:profile, error:profileErr} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
+      currentUserProfile = profile || null;
+      // 🔴 조회 실패와 0건을 가른다 — 2026-09-10 운영에서 로그인 직후 조회가 비로그인으로 나가
+      //    401 이 「0건」으로 읽혀 삽입까지 갔다(조사 문서 2026-09-10-signup-confirm-link-misrouted-to-reset).
+      //    실패면 삽입하지 않고 기록만 남긴 채 진행한다(정상 거부 아님 — 오류 로그 배지에 뜬다, 의도).
+      if (profileErr) {
+        logAppError('handleLogin.profileFetch', profileErr);
+      } else if (!profile) {
       // 프로필이 없으면 기본 프로필 생성 (회원가입 시 RLS로 실패한 경우)
-      if (!profile) {
         try {
           await upsertInfluencer({id: data.user.id, email, created_at: new Date().toISOString()});
           currentUserProfile = {id: data.user.id, email};

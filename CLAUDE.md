@@ -11,6 +11,7 @@
 - Backend: Supabase (Auth + Database + Storage) + localStorage 폴백
 - Deployment: Vercel Pro (Team 플랜)
 - Package Manager: 없음 (CDN 기반)
+  - 🔴 **supabase-js 는 CDN 에서 `@2.116.0/dist/umd/supabase.js` 로 버전을 고정**(2026-09-10, 8개 HTML — 인플·관리자·`admin-setpw`·`event-scan`·`report`·sales 3종). 그 전엔 `@2` 라 배포 없이 라이브러리가 바뀌었다. 올릴 때는 **여덟 줄을 같은 문자열로** 함께 올린다
 
 ## Key URLs
 - 운영 (인플루언서): https://globalreverb.com
@@ -98,6 +99,7 @@
 - **비밀번호 재설정**: 이메일 입력 → Supabase 재설정 메일 발송 → 앱 내 새 비밀번호 설정 (`#page-forgot`, `#page-reset-pw`)
 - **GNB**: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 우측 햄버거 메뉴 (계정 카드[우측 알림 벨] + 홈/캠페인/마이페이지 아코디언/로그아웃/회원탈퇴), 관리자는 Admin 버튼
 - **회원가입 이메일 확인**: 운영서버 한정 Supabase Confirm sign-up 활성, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단. 개발서버는 Confirm email OFF. auth.js 는 `data.session` 유무로 자동 분기
+  - 🔴 **확인 링크는 `?code=` 로 착지하고, 그것은 재설정 신호가 아니다**(2026-09-10). 예전엔 `detectRecoveryUrlEarly` 가 `?code=` 를 「재설정 중」으로 읽어 새 회원이 확인 링크에서 **「새 비밀번호 설정」 화면**에 떨어졌고, 가입한 브라우저가 아니면(저장소에 검증값 없음 — supabase-js 는 교환을 시도조차 안 한다) 세션도 없어 「Auth session missing」이 됐다(운영 8/11~9/10 65회). 이제 착지는 **세션 있으면 홈 + 「メール認証が完了しました」 토스트 / 없으면 로그인 화면 + `#loginNotice` 초록 안내**. ⚠️ `?code=` 유무는 **스크립트 로드 때** `_signupConfirmCodeSeen` 에 봐 둔다 — supabase-js 가 교환에 성공하면 초기화 중 스스로 주소에서 지우므로 `init()` 에서 주소를 보면 성공한 착지를 놓친다. ⚠️ `?error=…expired` 착지는 비밀번호 찾기가 아니라 **로그인 화면**(`auth.confirm.linkExpired`). ⚠️ 재설정 신호로 남은 것은 `#reset-pw?`·`PASSWORD_RECOVERY` 이벤트·옛 implicit 해시(`type=recovery`·`access_token=`)뿐 — `?code=` 조건을 되살리지 말 것. `handleLogin` 의 「프로필 없으면 만든다」 구제는 **조회 실패(error)와 0건을 가른다**(실패면 `handleLogin.profileFetch` 기록만). 사양서 `docs/specs/2026-09-10-signup-confirm-link-routing-fix.md`
 - **캠페인 목록**: 채널필터(동적 생성), 모집유형 필터(리뷰어/기프팅/방문형). 노출 대상은 active + scheduled + closed(노출 ON)
 - **캠페인 카드 배지**: 좌상단 `募集中`(active), 우상단 `NEW`(7일 이내), 제목 위 `締切間近`(deadline<5일 또는 잔여 slots≤30%), 콘텐츠 종류 아래 모집타입 pill + `{applied}/{slots}名` 슬롯 카운트, 이미지 좌하단 첫 채널+`+N`
 - **캠페인 상세**: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법, 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切). 채널 pill 사이에 `or` 또는 `&` 구분자 (`channel_match`)
