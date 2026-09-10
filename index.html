@@ -21539,10 +21539,9 @@ async function init() {
           // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
           if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
           if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
-          // 초대 링크로 들어와 가입한 뒤 **확인 메일 링크로 돌아온** 경우의 복귀.
-          //   운영서버는 가입 시 이메일 확인이 필수라 handleSignup 이 세션 없이 먼저 끝난다
-          //   → 그 경로는 auth.js 의 복귀 코드에 닿지 못한다. 확인 링크로 세션이 생기는
-          //   이 자리가 신규 가입자의 실제 복귀 지점이다(2026-08-03 리뷰 지적).
+          // 초대 링크 복귀 — ⚠️ 부팅 경로(확인 메일 링크 착지)에서는 **여기에 닿지 않는다**: init() 의 세션 복원이
+          //   currentUser 를 먼저 세운다. 그 경로의 복귀는 init() 초기 라우팅의 confirmLandingToast 갈래가 맡는다
+          //   (2026-09-10). 이 호출은 아직 currentUser 가 없는 경우(다른 탭 로그인 등)만 받는다.
           if (typeof consumeInviteReturn === 'function') { try { consumeInviteReturn(); } catch(_){} }
         }
       }
@@ -21613,6 +21612,13 @@ async function init() {
     navigate('login', false);
     const noticeEl = $('loginNotice');
     if (noticeEl) { noticeEl.textContent = t('auth.confirm.doneLogin'); noticeEl.style.display = 'block'; }
+  } else if (confirmLandingToast && typeof consumeInviteReturn === 'function' && consumeInviteReturn()) {
+    // 초대 링크로 들어와 가입한 회원의 확인 착지(세션 있음) — 기억해 둔 캠페인 상세로 되돌리고 홈 라우팅을 건너뛴다.
+    //   🔴 부팅 경로의 복귀 지점은 **여기**다. 아래 SIGNED_IN 핸들러의 호출은 `if (!currentUser)` 안에 있어
+    //      세션 복원이 currentUser 를 먼저 세우는 이 경로에서는 닿지 않는다(2026-09-10 기획 판정 — 8/3 리뷰의
+    //      「확인 링크로 세션이 생기는 그 자리가 복귀 지점」은 틀렸다). 캠페인 목록이 실린 뒤(위 await)라 상세를
+    //      열 수 있고, consumeInviteReturn 은 한 번 쓰면 지우므로 두 자리가 겹쳐도 두 번 열리지 않는다.
+    //   ⚠️ 세션 없음 갈래(다른 브라우저)는 저장소가 달라 돌아갈 곳이 없다 — 로그인 성공 자리(auth.js)가 받는다.
   } else if (hash && hash.startsWith('detail-')) {
     // 초대 링크로 처음 들어온 경우 — 번호를 먼저 기억해 두고 상세를 연다.
     //   기억해 두지 않으면 상세 게이트가 번호를 다시 묻고, 예약 함수에도 못 넘긴다.
