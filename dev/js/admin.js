@@ -3665,7 +3665,7 @@ const CP_I18N = {
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、お申込の状態変更(当選)及びメールにてご連絡',
     secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
-    secGuide:'撮影ガイド', secNg:'NG事項', secCaution:'注意事項',
+    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식별)
   },
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
@@ -3690,7 +3690,7 @@ const CP_I18N = {
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 응모 상태 변경(당선) 및 메일로 연락',
     secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
-    secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
+    secNg:'NG 사항', secCaution:'주의사항',
   }
 };
 
@@ -3993,7 +3993,7 @@ function renderCampPreview(mode) {
           })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp.recruit_type, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${(() => {
           // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
           const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
@@ -5130,6 +5130,9 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
 //   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
 function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  // 「촬영 가이드」 라벨 — 리뷰어형이면 「리뷰 가이드」(2026-09-10 사용자 지시). 형식이 바뀌는 모든 경로가 이 함수를 지난다
+  const guideLabel = $(prefix + 'GuideLabel');
+  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(recruitType, 'ko');
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
   // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는

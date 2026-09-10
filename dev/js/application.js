@@ -384,7 +384,7 @@ async function openCampaign(id) {
 
       ${camp.guide ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.shootingGuide')}</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp.recruit_type, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
