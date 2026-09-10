@@ -247,10 +247,10 @@ input[type="date"] { min-height: 44px; }
 .rep-remove .material-icons-outlined { font-size: 16px; }
 .rep-remove:hover { color: var(--brand); }
 .rep-item .field:last-child { margin-bottom: 0; }
-/* 파일 첨부 행 — 왼쪽 선택/입력 + 오른쪽 제품 이미지 예시(2026-09-10 사용자 지시). 좁은 화면에서는 예시가 아래로 */
+/* 파일 첨부 행 — 왼쪽 제품 이미지 예시 + 오른쪽 선택/입력(2026-09-10 사용자 지시, 처음엔 오른쪽이었다). 좁은 화면에서는 예시가 위로 */
 .img-row-body { display: flex; align-items: flex-start; gap: 14px; }
 .img-row-main { flex: 1; min-width: 0; }
-.img-sample-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--ink-mute); }
+.img-sample-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--ink-mute); white-space: nowrap; }
 .img-sample-side img { width: 72px; height: 72px; object-fit: contain; background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; }
 @media (max-width: 480px) { .img-row-body { flex-direction: column; } .img-sample-side { flex-direction: row; } }
 /* 예시 이미지·파일 업로드 행 */
@@ -1125,6 +1125,11 @@ function imageRowHtml(value, type, name) {
     <div class="rep-head"><span class="rep-num">파일 첨부 또는 공유 링크</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
     <div class="field img-row-body">
+     <!-- 제품 이미지 예시(2026-09-10 사용자 지시) — 행 왼쪽. 그림은 sales/images(빌드가 복사) -->
+     <div class="img-sample-side" title="제품 이미지 예시 — 배경 없는 누끼 이미지">
+       <img src="images/orient-product-sample.png" alt="제품 이미지 예시 — 배경 없는 누끼 이미지" width="72" height="72" loading="lazy">
+       <span>예시 이미지 참고</span>
+     </div>
      <div class="img-row-main">
       <input type="hidden" class="img-value" value="${escAttr(value)}">
       <!-- ③ 칩(파일 업로드 결과 또는 URL 확인 결과) -->
@@ -1147,11 +1152,6 @@ function imageRowHtml(value, type, name) {
         <button type="button" class="img-url-cancel" onclick="cancelUrlEntry(this)">취소</button>
       </div>
       <div class="field-hint img-choose-hint${hasValue ? ' hidden' : ''}" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)는 「파일 업로드」, 외부 링크는 「URL 공유」를 눌러 주세요.<br>600×600px 이상의 누끼(배경 제거) 이미지 또는 텍스트·배경이 없는 제품 사진으로 올려 주세요.</div>
-     </div>
-     <!-- 제품 이미지 예시(2026-09-10 사용자 지시) — 행 오른쪽. 그림은 sales/images(빌드가 복사) -->
-     <div class="img-sample-side" title="제품 이미지 예시 — 배경 없는 누끼 이미지">
-       <img src="images/orient-product-sample.png" alt="제품 이미지 예시 — 배경 없는 누끼 이미지" width="72" height="72" loading="lazy">
-       <span>예시</span>
      </div>
     </div>
   </div>`;
