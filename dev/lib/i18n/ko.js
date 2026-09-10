@@ -597,7 +597,6 @@ window.I18N_KO = {
     brandAppeal: '브랜드 어필 포인트',
     requiredHashtag: '필수 해시태그',
     requiredMention: '필수 멘션',
-    shootingGuide: '촬영 가이드',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
     productPageShort: '상품 페이지',

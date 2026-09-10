@@ -407,6 +407,15 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
+// 「촬영 가이드」 칸의 이름표 — 리뷰어형(monitor)은 「리뷰 가이드」(2026-09-10 사용자 지시).
+//   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
+//   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
+function campaignGuideSectionLabel(recruitType, lang) {
+  const isReview = recruitType === 'monitor';
+  if (lang === 'ja') return isReview ? 'レビューガイド' : '撮影ガイド';
+  return isReview ? '리뷰 가이드' : '촬영 가이드';
+}
+
 const CAMPAIGN_FIELD_LABELS = {
   title: '캠페인명', brand_id: '연결 브랜드', brand: '브랜드명', brand_ko: '브랜드명(한국어)',
   brand_ja: '브랜드명(일본어)', brand_en: '브랜드명(영문)', product: '제품명',
@@ -417,7 +426,7 @@ const CAMPAIGN_FIELD_LABELS = {
   recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
   purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
   submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
-  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영 가이드',
+  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',   // 화면 이름표는 형식별(campaignGuideSectionLabel) — 이력 표는 형식을 모르니 둘을 함께 적는다
   hashtags: '필수 해시태그', mentions: '필수 멘션',
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
