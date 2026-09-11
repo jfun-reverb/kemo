@@ -84,7 +84,7 @@
   <dl>
     <dt>트리거</dt><dd>관리자 발급(create_orient_sheet) 직후 admin-orient.js 가 notify-orient-sheet 를 invoke</dd>
     <dt>수신자</dt><dd>서베이 연결 건: brand_applications.applicant_email(없으면 email) / 비-서베이 건: brands 대표 담당자(contacts is_primary → primary_email)</dd>
-    <dt>원본</dt><dd><a href="orient-sheet-invite.html">orient-sheet-invite.html</a></dd>
+    <dt>원본</dt><dd><a href="source.html?f=orient-sheet-invite.html">orient-sheet-invite.html</a></dd>
     <dt>Subject</dt><dd><code>[REVERB JP] 캠페인 오리엔시트 작성 요청 — {brand_name}</code></dd>
     <dt>주요 placeholder</dt><dd><code>{{brand_name}}</code> <code>{{link}}</code> <code>{{deadline}}</code></dd>
     <dt>발송 후 동작</dt><dd>발송 성공 + 연결 신청 있으면 신청 단계를 orient_sheet_sent 로 자동 전진(역행 방지·연결 건만, 함수 advance_to_orient_sheet_sent)</dd>

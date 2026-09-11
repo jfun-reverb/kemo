@@ -283,7 +283,7 @@
     <dt>트리거</dt><dd>pg_cron 매일 한국·일본 시각 오전 9시 (withdrawal-scheduled-mail-daily) → Edge Function notify-withdrawal-scheduled</dd>
     <dt>대상</dt><dd>탈퇴 신청이 「예정(scheduled)」이 되었고 아직 이 메일을 안 받은 회원 (scheduled_mail_sent_at IS NULL)</dd>
     <dt>수신자</dt><dd>그 회원 본인 (influencers.email)</dd>
-    <dt>원본</dt><dd><a href="withdrawal-scheduled.html">withdrawal-scheduled.html</a></dd>
+    <dt>원본</dt><dd><a href="source.html?f=withdrawal-scheduled.html">withdrawal-scheduled.html</a></dd>
     <dt>Subject</dt><dd><code>【REVERB】退会予定日のお知らせ（{예정일}）</code></dd>
     <dt>주요 placeholder</dt><dd><code>{{influencer_name}}</code> <code>{{scheduled_date_jp}}</code> <code>{{mypage_url}}</code> <code>{{proxy_notice}}</code> <code>{{help_line_url}}</code> <code>{{site_url}}</code></dd>
     <dt>proxy_notice</dt><dd>관리자가 <b>대신 접수</b>(admin_proxy)한 건일 때만 들어가는 문단. 본인 신청이면 빈 문자열. ⚠️ 이 값만 이스케이프하지 않는 고정 HTML 조각이다(사용자 입력이 아니다). ⚠️ 강제 탈퇴(admin_forced)에는 쓰지 않는다 — 「요청에 따라」가 사실이 아니다</dd>
