@@ -386,11 +386,15 @@ function brandOpsChannelText(channel, match) {
   }).filter(Boolean).join(sep);
 }
 
-// 미니카드 썸네일 (img1 없으면 placeholder)
-function brandOpsCampThumb(c) {
+// 캠페인 썸네일 (img1 없으면 placeholder). 브랜드 뷰 미니카드(56px)와 일정 뷰 캠페인 행(32px)이 같은 함수를 쓴다
+function brandOpsCampThumb(c, size) {
+  var px = size || 56;
+  var radius = px >= 48 ? 8 : 6;
+  var icon = px >= 48 ? 22 : 16;
+  var box = 'width:' + px + 'px;height:' + px + 'px;border-radius:' + radius + 'px;flex-shrink:0;background:#f0f0f0';
   return c.img1
-    ? '<img src="' + esc(storageThumbUrl(c.img1)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
-    : '<div style="width:56px;height:56px;border-radius:8px;flex-shrink:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:#bbb">image</span></div>';
+    ? '<img src="' + esc(storageThumbUrl(c.img1)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="' + box + ';object-fit:cover">'
+    : '<div style="' + box + ';display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:' + icon + 'px;color:#bbb">image</span></div>';
 }
 
 // 미니카드 상단: 모집 타입 + 채널
@@ -1227,11 +1231,16 @@ function renderScheduleRow(c, range, stats) {
   var html = '<div class="gantt-row parent' + (open ? ' open' : '') + '">'
     + '<div class="gantt-left">'
     +   '<div class="gantt-cell c-title">'
-    +     '<div class="gantt-title-line">'
+    +     '<div class="gantt-title-row">'   // 접기 단추 · 썸네일 · (이름 + 부제) 가로 배치. 자식 행 들여쓰기(.gantt-row.child .c-title)가 이 폭에 맞춰져 있다
     +       '<button type="button" class="gantt-chev" onclick="toggleGanttRow(\'' + idJs + '\')" title="' + (open ? '기간 접기' : '기간 펼치기') + '" aria-expanded="' + open + '"' + (segs.length ? '' : ' disabled') + '><span class="material-icons-round notranslate" translate="no">' + (open ? 'expand_more' : 'chevron_right') + '</span></button>'
-    +       '<a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a>'
+    +       brandOpsCampThumb(c, 32)
+    +       '<div class="gantt-title-text">'
+    +         '<div class="gantt-title-line">'
+    +           '<a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a>'
+    +         '</div>'
+    +         '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
+    +       '</div>'
     +     '</div>'
-    +     '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
     +   '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
     +   '<div class="gantt-cell c-dur">' + (span ? ganttRemainHtml(span.end) : '<span style="color:var(--muted)">—</span>') + '</div>'

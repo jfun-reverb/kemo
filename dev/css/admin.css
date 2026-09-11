@@ -2527,6 +2527,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row .gantt-cell.c-dur > span{margin:0!important;font-size:11px!important;padding:2px 7px!important}   /* .gantt-row 로 한정 — 머리글의 정렬 화살표(span)까지 키워 「남은 기간」 화살표만 컸다(2026-09-09 사용자 지적) */   /* dDayLabel 은 인라인 스타일이라 !important 로만 키울 수 있다(공용 함수는 안 건드린다) */
 /* 캠페인 펼치기(트리형) — 부모 행 + 기간 자식 행, 진척률 막대 */
 .gantt-title-line{display:flex;align-items:center;gap:4px;min-width:0}
+.gantt-title-row{display:flex;align-items:center;gap:6px;min-width:0}   /* 부모 행: 접기 단추 20 · 썸네일 32 · 글 — 자식 행 들여쓰기 72px 와 한 세트(8+20+6+32+6) */
+.gantt-title-text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .gantt-chev{flex-shrink:0;width:20px;height:20px;border:none;background:none;padding:0;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:4px}
 .gantt-chev:hover{background:var(--surface-dim);color:var(--ink)}
 .gantt-chev:disabled{opacity:.25;cursor:default}
@@ -2535,7 +2537,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row.child .gantt-left{background:var(--surface-container-low)}
 .gantt-row.child .gantt-track{background-color:var(--surface-container-low)}   /* 달력 칸도 표 칸과 같은 회색 — .gantt-track 이 흰 배경을 직접 가져 여기서 덮어야 한다 */
 .gantt-row.child .gantt-cell{padding-top:3px;padding-bottom:3px}
-.gantt-row.child .c-title{padding-left:30px}
+.gantt-row.child .c-title{padding-left:72px}   /* 부모 행의 접기 단추+썸네일 폭만큼 — 썸네일 크기를 바꾸면 여기도 */
 .gantt-child-name{font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0}
 .gantt-child-date{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-row.parent.open{border-bottom-color:transparent}
