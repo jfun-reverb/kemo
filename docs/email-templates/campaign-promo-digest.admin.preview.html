@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>REVERB JP · 캠페인 홍보 메일 관리자용 미리보기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope','Pretendard Variable',Pretendard,'Noto Sans JP',sans-serif; background:#EEECE6; color:#161618; padding:40px 20px 80px; min-height:100vh; }
+  .head { max-width:640px; margin:0 auto 28px; }
+  .back-link { display:inline-block; font-size:12px; color:#666; text-decoration:none; margin-bottom:14px; letter-spacing:0.04em; }
+  .back-link:hover { color:#161618; }
+  h1 { font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:6px; }
+  .sub { font-size:13px; color:#666; }
+  .mail-card { max-width:640px; margin:0 auto; background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); overflow:hidden; }
+  .mail-head { background:#F7F4EE; border-bottom:1px solid #EAEAE4; padding:18px 22px; }
+  .mail-from { font-size:11px; color:#888; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; font-weight:700; }
+  .mail-meta { font-size:12px; color:#555; line-height:1.7; }
+  .mail-meta b { color:#161618; font-weight:600; }
+  .mail-subject { font-size:16px; font-weight:700; color:#161618; margin-top:8px; letter-spacing:-0.01em; }
+  .mail-body { padding:32px 28px; background:#fff; }
+  details.meta { max-width:640px; margin:18px auto 0; background:#fff; border-radius:10px; padding:14px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); font-size:12px; color:#444; }
+  details.meta summary { cursor:pointer; font-weight:700; color:#161618; }
+  details.meta dl { margin-top:10px; display:grid; grid-template-columns:140px 1fr; gap:6px 12px; }
+  details.meta dt { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; }
+  details.meta code { font-family:monospace; background:#F7F4EE; padding:1px 6px; border-radius:4px; font-size:11px; }
+  .sample-note { max-width:640px; margin:0 auto 12px; padding:10px 14px; background:#FFF6E5; border:1px solid #F0D6A0; border-radius:8px; font-size:11px; color:#8A6A2A; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <a href="index.html" class="back-link">← 메일 목록</a>
+  <h1>캠페인 홍보 메일 — 관리자용</h1>
+  <p class="sub">회원용 홍보 메일이 나가는 첫 묶음에서 함께 발송 — 머리말·푸터는 한국어, 캠페인 카드는 회원이 받은 일본어 그대로</p>
+</div>
+
+<p class="sample-note">📌 본문은 샘플 데이터로 placeholder 치환된 결과입니다. 템플릿 수정 시 본 미리보기도 같이 갱신해주세요. 카드 두 섹션은 회원용 미리보기와 같은 샘플(신규 3건 + 마감 임박 2건)입니다. 회원용에만 있는 이름 인사말·하단 「すべてのキャンペーンを見る」 버튼·수신거부 줄·일본어 4줄 푸터는 관리자용에 없습니다. 「他 N件」 안내는 관리자용도 같은 섹션 조립을 쓰므로 한 섹션이 5건을 넘으면 똑같이 붙습니다(이 샘플은 5건 이하라 안 보임).</p>
+
+<div class="mail-card">
+  <div class="mail-head">
+    <div class="mail-from">Preview · Campaign Promo Digest (Admin Copy)</div>
+    <div class="mail-meta">
+      <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+      <div><b>To:</b> admin@example.com (메일 받기 설정을 켠 관리자 1명당 1통)</div>
+    </div>
+    <div class="mail-subject">[REVERB JP 관리자] 오늘의 홍보 캠페인 신규3건 / 마감임박2건</div>
+  </div>
+  <div class="mail-body">
+<div style="font-family:'Noto Sans KR','Hiragino Sans',Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
+  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:20px">오늘의 캠페인 홍보 메일</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">인플루언서에게 발송된 오늘의 홍보 대상 캠페인입니다 (운영 참고용)</p>
+
+  <p style="margin:0 0 14px;font-size:14px;line-height:1.6">
+    오늘 홍보 대상 캠페인: <strong>신규 3건</strong> · <strong>마감임박 2건</strong><br>
+    아래 카드는 인플루언서가 받은 메일과 동일한 일본어 본문입니다.
+  </p>
+
+      <!-- ───────────── 섹션 1: 新着キャンペーン ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#FFF5F8;border-left:4px solid #C8789C;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 新着キャンペーン</span>
+        <span style="font-size:12px;color:#C8789C;font-weight:700">3件</span>
+      </div>
+      <div style="padding:14px;background:#fff">
+
+        <!-- 카드 1: 리뷰어 (monitor) — 잔여 슬롯 표시 -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+          <tr>
+            <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+              <img src="https://placehold.co/200x200/FFE4E9/C8789C?text=Sample+Beauty+Serum" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+            </td>
+            <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+                <span style="background:#FFE4E9;color:#C8789C;padding:2px 8px;border-radius:4px;font-weight:700">レビュアー</span>
+                <span style="margin-left:6px">バイオオン</span>
+              </div>
+              <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">バイオオン8X 毛穴保湿美容液 30ml</h3>
+              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+                <tr><td style="color:#888;width:70px;padding:2px 0">報酬</td><td style="padding:2px 0">商品提供 + 5,000円</td></tr>
+                <tr><td style="color:#888;padding:2px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:2px 0">あと7日</td></tr>
+                <tr><td style="color:#888;padding:2px 0">残り枠</td><td style="padding:2px 0">3/10名</td></tr>
+              </table>
+              <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+            </td>
+          </tr>
+        </table>
+
+        <!-- 카드 2: 기프팅 — 잔여 슬롯 없음 -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+          <tr>
+            <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+              <img src="https://placehold.co/200x200/E4F0FF/1F5DBF?text=Korean+Snack+Box" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+            </td>
+            <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+                <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700">ギフティング</span>
+                <span style="margin-left:6px">韓国スナック</span>
+              </div>
+              <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">韓国スナック詰め合わせボックス 春の新作</h3>
+              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+                <tr><td style="color:#888;width:70px;padding:2px 0">報酬</td><td style="padding:2px 0">商品提供のみ</td></tr>
+                <tr><td style="color:#888;padding:2px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:2px 0">あと5日</td></tr>
+              </table>
+              <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+            </td>
+          </tr>
+        </table>
+
+        <!-- 카드 3: 방문형 -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+          <tr>
+            <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+              <img src="https://placehold.co/200x200/E0F1E4/1F7A3D?text=Cafe+Visit+Sample" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+            </td>
+            <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+                <span style="background:#E0F1E4;color:#1F7A3D;padding:2px 8px;border-radius:4px;font-weight:700">訪問型</span>
+                <span style="margin-left:6px">カフェソウル</span>
+              </div>
+              <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">韓国カフェソウル新宿店 新メニュー体験</h3>
+              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+                <tr><td style="color:#888;width:70px;padding:2px 0">報酬</td><td style="padding:2px 0">食事代 + 3,000円</td></tr>
+                <tr><td style="color:#888;padding:2px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:2px 0">あと10日</td></tr>
+              </table>
+              <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+            </td>
+          </tr>
+        </table>
+
+      </div>
+    </div>
+  <!-- ───────────── 섹션 2: 締切間近キャンペーン ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#FFF5F8;border-left:4px solid #E8344E;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 締切間近キャンペーン</span>
+        <span style="font-size:12px;color:#E8344E;font-weight:700">2件</span>
+      </div>
+      <div style="padding:14px;background:#fff">
+
+        <!-- 카드 1: D-1 + 리뷰어 -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+          <tr>
+            <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+              <img src="https://placehold.co/200x200/FFE4E9/E8344E?text=K-Beauty+Lipstick" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+            </td>
+            <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+                <span style="background:#FFE4E9;color:#C8789C;padding:2px 8px;border-radius:4px;font-weight:700">レビュアー</span>
+                <span style="margin-left:6px">K-ビューティー</span>
+                <span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近 D-1</span>
+              </div>
+              <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">K-ビューティー リップスティック新色5本セット</h3>
+              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+                <tr><td style="color:#888;width:70px;padding:2px 0">報酬</td><td style="padding:2px 0">商品提供 + 4,500円</td></tr>
+                <tr><td style="color:#888;padding:2px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:2px 0">明日まで</td></tr>
+                <tr><td style="color:#888;padding:2px 0">残り枠</td><td style="padding:2px 0">2/8名</td></tr>
+              </table>
+              <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+            </td>
+          </tr>
+        </table>
+
+        <!-- 카드 2: D-1 + 기프팅 -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+          <tr>
+            <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+              <img src="https://placehold.co/200x200/E4F0FF/1F5DBF?text=Wellness+Tea+Set" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+            </td>
+            <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+                <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700">ギフティング</span>
+                <span style="margin-left:6px">ハーブティー</span>
+                <span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近 D-1</span>
+              </div>
+              <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">ウェルネスハーブティー アソートセット 韓方茶</h3>
+              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+                <tr><td style="color:#888;width:70px;padding:2px 0">報酬</td><td style="padding:2px 0">商品提供のみ</td></tr>
+                <tr><td style="color:#888;padding:2px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:2px 0">明日まで</td></tr>
+              </table>
+              <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+            </td>
+          </tr>
+        </table>
+
+      </div>
+    </div>
+
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    이 메일은 관리자 「메일 받기 설정」 에서 '캠페인 홍보 메일' 을 켜두셔서 받고 있습니다.<br>
+    수신을 끄려면 관리자 페이지 → 관리자 계정 → 「메일받기」 설정에서 변경하세요.<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン
+  </p>
+</div>
+  </div>
+</div>
+
+<details class="meta">
+  <summary>발송 메타 / Placeholder 매핑</summary>
+  <dl>
+    <dt>트리거</dt><dd>notify-campaign-promo-digest 의 첫 배치에서 회원용과 함께 호출 (별도 예약 없음)</dd>
+    <dt>수신자</dt><dd>「캠페인 홍보 메일」(<code>campaign_promo</code>) 수신을 켠 관리자 — 1명당 1통</dd>
+    <dt>왜 따로 있나</dt><dd>회원에게 무엇이 나갔는지 운영팀이 같은 날 확인할 수 있게</dd>
+    <dt>원본</dt><dd><a href="source.html?f=campaign-promo-digest.admin.html">campaign-promo-digest.admin.html</a> + <code>.row-campaign</code> 조각(회원용과 공유)</dd>
+    <dt>머리말 수 ≠ 섹션 수</dt><dd>머리말 「신규 N건」은 풀 전체, 섹션 머리의 「N件」은 표시 카드 수(최대 5)라 6건부터 갈린다 — 실제 메일에서 「신규 7건 … ▶ 5件 … 他 2件」이 정상</dd>
+    <dt>카드 링크</dt><dd>관리자 판은 클릭 추적 토큰이 빈 문자열 — 주소가 <code>#detail-{id}?promo_token=</code> 로 끝난다(정상)</dd>
+    <dt>주요 placeholder</dt><dd><code>{{new_count}}</code> <code>{{d1_count}}</code> <code>{{new_section_html}}</code> <code>{{deadline_section_html}}</code></dd>
+  </dl>
+</details>
+
+</body>
+</html>
