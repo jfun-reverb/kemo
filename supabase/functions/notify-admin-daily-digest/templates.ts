@@ -26,12 +26,13 @@ export const TEMPLATES: Record<string, string> = {
 
   Top-level Placeholders:
     {{digest_date}}              대상일 (YYYY-MM-DD, 한국시간 전일 기준)
-    {{total_count}}              4섹션 합산 총 건수
+    {{total_count}}              5섹션 합산 총 건수
     {{summary_chip_html}}        섹션별 건수 칩 HTML (0건 섹션 생략)
     {{section_received_html}}    섹션 1 본문 (0건이면 빈 문자열)
     {{section_cancelled_html}}   섹션 2 본문 (0건이면 빈 문자열)
     {{section_submitted_html}}   섹션 3 본문 (0건이면 빈 문자열)
     {{section_reprocessed_html}} 섹션 4 본문 (0건이면 빈 문자열)
+    {{section_action_html}}      섹션 5 본문 — 조치가 필요한 캠페인 (0건이면 빈 문자열)
     {{admin_pane_url}}           관리자 페이지 딥링크
 
   관련 사양:
@@ -59,6 +60,7 @@ export const TEMPLATES: Record<string, string> = {
   {{section_cancelled_html}}
   {{section_submitted_html}}
   {{section_reprocessed_html}}
+  {{section_action_html}}
 
   <a href="{{admin_pane_url}}" style="display:inline-block;background:#5B6BBF;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-top:8px">관리자 페이지에서 보기</a>
 
@@ -68,7 +70,7 @@ export const TEMPLATES: Record<string, string> = {
   </p>
 </div>`,
   "admin-daily-digest.section": `<!--
-  Section wrapper partial: 관리자 일일 통합 다이제스트 4섹션 공통 wrapper
+  Section wrapper partial: 관리자 일일 통합 다이제스트 5섹션 공통 wrapper
   Edge Function notify-admin-daily-digest 가 각 섹션마다 1회 render.
   0건 섹션은 메인 placeholder 에 빈 문자열로 치환되어 본 wrapper 미사용.
 
@@ -235,6 +237,49 @@ export const TEMPLATES: Record<string, string> = {
     <tbody>
       {{reprocess_rows_html}}
     </tbody>
+  </table>
+</div>`,
+  "admin-daily-digest.row-action": `<!--
+  Row partial: 섹션 5 (조치가 필요한 캠페인) — 캠페인 1건 = 카드 1장
+  Edge Function 이 서버 함수 get_campaign_action_alerts() 결과를 캠페인마다 1회 render.
+
+  🔴 판정은 서버 함수 한 곳이다. 이 견본도, 메일 함수도, 운영현황 일정 뷰도 그 결과만 읽는다.
+     사유 문구는 서버가 준 **코드**를 화면·메일이 각자 한국어로 조립하되 **글자 그대로 같아야** 한다.
+     사양서 docs/specs/2026-09-11-admin-digest-deadline-section.md §3-3
+
+  Row Placeholders:
+    {{campaign_no}}       캠페인 번호 (【...】)
+    {{campaign_title}}    캠페인 제목
+    {{brand_name}}        브랜드명
+    {{recruit_type_ko}}   모집 형식 (리뷰어 / 기프팅 / 방문형)
+    {{level_color}}       등급 색 (왼쪽 띠) — 🔴 **화면 상수 \`BRAND_OPS_ALERT\`(dev/js/admin-brand-ops.js 19~24행)와 같은 값을 쓴다**
+                          danger #DC2626(화면은 var(--red)) / warning #f97316 / caution #f59e0b
+                          ⚠️ 다른 값을 적으면 같은 등급이 화면과 메일에서 다른 색으로 보인다
+    {{deadline_line}}     무엇이 임박했나 — 「모집 마감 하루 전(2026/09/12)」 등
+    {{status_line}}       지금 상태 — 「승인 3명 / 모집 10명(30%)」 또는 「인증 성공 2명 / 승인 5명(40%) · 미인증 3명」
+    {{reason_text}}       사유 문구 (코드 → 한국어, 화면과 같은 표)
+
+  ⚠️ 등급 **이름**은 적지 않는다 — 정렬과 위 색에만 쓴다.
+     사양서가 쓰는 「위험·경고·주의」는 코드값을 가리키는 말이고, 화면에 실제로 보이는 라벨은
+     「긴급」·「대응 필요」·「주의」다. 적으면 화면과 다른 말이 된다(사양서 §3-1 ②).
+  ⚠️ 비율(N%)이 들어가는 자리는 {{status_line}} 뿐이다 — 사유 문구에는 안 넣는다.
+     일정 뷰는 오른쪽에 「모집률」·「결과물 승인률」 열이 있어 문구에서 뺐고, 메일엔 그 열이 없어 카드 안에 적는다.
+-->
+<div style="border:1px solid #E2E7F2;border-left:4px solid {{level_color}};border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+  <div style="font-size:12px;color:#888;margin-bottom:4px">
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{brand_name}} · {{recruit_type_ko}}
+  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:12px;color:{{level_color}};font-weight:700;margin-bottom:4px">{{reason_text}}</div>
+  <table style="border-collapse:collapse;width:100%;font-size:12px">
+    <tr>
+      <td style="padding:3px 0;color:#888;width:96px;vertical-align:top">마감</td>
+      <td style="padding:3px 0">{{deadline_line}}</td>
+    </tr>
+    <tr>
+      <td style="padding:3px 0;color:#888;vertical-align:top">지금 상태</td>
+      <td style="padding:3px 0">{{status_line}}</td>
+    </tr>
   </table>
 </div>`,
 };
