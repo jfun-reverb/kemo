@@ -1,21 +1,72 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>미리보기 — 인플루언서 일일 다이제스트 (JA)</title>
+<title>REVERB JP · 인플루언서 일일 다이제스트 미리보기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  body{font-family:'Hiragino Sans','Yu Gothic',Arial,sans-serif;background:#f5f5f5;padding:40px 20px;color:#222}
-  .preview-wrap{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:32px}
-  .preview-note{font-size:11px;color:#888;border-left:3px solid #C8789C;padding:8px 12px;margin-bottom:24px;background:#FFF5F8}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope','Pretendard Variable',Pretendard,'Noto Sans JP',sans-serif; background:#EEECE6; color:#161618; padding:40px 20px 80px; min-height:100vh; }
+  .head { max-width:640px; margin:0 auto 28px; }
+  .back-link { display:inline-block; font-size:12px; color:#666; text-decoration:none; margin-bottom:14px; letter-spacing:0.04em; }
+  .back-link:hover { color:#161618; }
+  h1 { font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:6px; }
+  .sub { font-size:13px; color:#666; }
+  .mail-card { max-width:640px; margin:0 auto; background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); overflow:hidden; }
+  .mail-head { background:#F7F4EE; border-bottom:1px solid #EAEAE4; padding:18px 22px; }
+  .mail-from { font-size:11px; color:#888; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; font-weight:700; }
+  .mail-meta { font-size:12px; color:#555; line-height:1.7; }
+  .mail-meta b { color:#161618; font-weight:600; }
+  .mail-subject { font-size:16px; font-weight:700; color:#161618; margin-top:8px; letter-spacing:-0.01em; }
+  .mail-body { padding:32px 28px; background:#fff; }
+  details.meta { max-width:640px; margin:18px auto 0; background:#fff; border-radius:10px; padding:14px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); font-size:12px; color:#444; }
+  details.meta summary { cursor:pointer; font-weight:700; color:#161618; }
+  details.meta dl { margin-top:10px; display:grid; grid-template-columns:140px 1fr; gap:6px 12px; }
+  details.meta dt { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; }
+  details.meta code { font-family:monospace; background:#F7F4EE; padding:1px 6px; border-radius:4px; font-size:11px; }
+  .sample-note { max-width:640px; margin:0 auto 12px; padding:10px 14px; background:#FFF6E5; border:1px solid #F0D6A0; border-radius:8px; font-size:11px; color:#8A6A2A; }
+  .lang-toggle { max-width:640px; margin:0 auto 12px; display:flex; gap:6px; background:#fff; padding:6px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .lang-toggle button { flex:1; font-family:inherit; font-size:12px; font-weight:600; letter-spacing:0.02em; padding:8px 10px; border:0; border-radius:6px; background:transparent; color:#666; cursor:pointer; transition:background 0.15s, color 0.15s; }
+  .lang-toggle button:hover { background:#F7F4EE; color:#161618; }
+  .lang-toggle button.active { background:#161618; color:#fff; }
+  .lang-toggle button.active:hover { background:#000; color:#fff; }
+  .lang-note { max-width:640px; margin:0 auto 14px; font-size:11px; color:#888; text-align:right; line-height:1.5; }
+  .ja-original { display:inline-block; color:#999; font-size:11px; margin-left:6px; font-style:italic; }
 </style>
 </head>
 <body>
-<div class="preview-wrap">
-  <div class="preview-note">
-    이 페이지는 메일 본문 미리보기입니다. 실제 메일은 Brevo SMTP 로 발송되며,
-    Edge Function <code>notify-influencer-daily-digest</code> 가 placeholder 치환을 담당합니다.
-  </div>
 
+<div class="head">
+  <a href="index.html" class="back-link">← 메일 목록</a>
+  <h1>인플루언서 일일 다이제스트</h1>
+  <p class="sub">pg_cron 매일 한국·일본 시각 09:00 — 어제 신청·승인·반려 + 오늘 D-5/D-1 마감 4섹션을 회원 1명당 1통</p>
+</div>
+
+<div class="lang-toggle" role="tablist" aria-label="미리보기 언어 선택">
+  <button type="button" data-lang="ja" class="active" role="tab" aria-selected="true">일본어 (실제 발송)</button>
+  <button type="button" data-lang="ko" role="tab" aria-selected="false">한국어 (검수용)</button>
+</div>
+<p class="lang-note">※ 한국어 미리보기는 검수용 번역입니다. 실제 메일은 일본어로만 발송됩니다.</p>
+
+<p class="sample-note">📌 본문은 샘플 데이터로 placeholder 치환된 결과입니다. 실제 메일은 Edge Function <code>notify-influencer-daily-digest</code> 가 원본 <code>influencer-daily-digest.html</code> + row partial 4종으로 조립합니다. 한국어 탭의 회색 괄호는 일본어 원문 대조용입니다.</p>
+
+<div class="mail-card">
+  <div class="mail-head">
+    <div class="mail-from">Preview · Influencer Daily Digest</div>
+    <div class="mail-meta">
+      <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+      <div><b>To:</b> sakura.test@reverb.jp (어제 사건이나 오늘 마감이 있는 회원 본인)</div>
+    </div>
+    <div class="mail-subject"
+         data-subject-ja="【REVERB】本日の応募状況のお知らせ (2026年5月19日)"
+         data-subject-ko="【REVERB】오늘의 응모 현황 안내 (2026년 5월 19일)">【REVERB】本日の応募状況のお知らせ (2026年5月19日)</div>
+  </div>
+  <div class="mail-body">
+
+<div class="lang-ja">
   <div style="font-family:'Hiragino Sans','Yu Gothic',Arial,sans-serif;color:#222;max-width:640px">
     <h2 style="color:#C8789C;margin:0 0 6px">本日の応募状況のお知らせ</h2>
     <p style="margin:0 0 18px;color:#666;font-size:13px">2026年5月19日 · 4件のお知らせ</p>
@@ -85,5 +136,119 @@
     </p>
   </div>
 </div>
+
+<!--
+  ⚠️ 한국어 본문은 influencer-daily-digest.ko.preview.html 의 안쪽 div 를 그대로 옮긴 사본입니다(두 벌).
+     한국어 문안을 고치면 그 파일과 이 파일을 함께 고쳐야 합니다 — 자동으로 안 따라옵니다.
+-->
+<div class="lang-ko" style="display:none">
+  <div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:640px">
+    <h2 style="color:#C8789C;margin:0 0 6px">오늘의 응모 현황 안내 <span class="ja-original">(本日の応募状況のお知らせ)</span></h2>
+    <p style="margin:0 0 18px;color:#666;font-size:13px">2026년 5월 19일 · 4건의 알림</p>
+
+    <!-- 섹션 1: 어제 신청 -->
+    <h3 style="font-size:14px;color:#333;border-left:4px solid #C8789C;padding-left:10px;margin:24px 0 12px">신규 응모 접수 (1건) <span class="ja-original">(新規応募の受付)</span></h3>
+    <div style="border:1px solid #F0E1E4;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#FFFAFC">
+      <div style="font-size:11px;color:#888;margin-bottom:3px">
+        <span style="font-family:monospace">【CAMP-2026-0042】</span> · 리뷰어
+      </div>
+      <div style="font-size:13px;font-weight:700;line-height:1.4;margin-bottom:4px">바이오움 8X 모공 보습 미용액</div>
+      <div style="font-size:11px;color:#888">응모 일시 2026년 5월 18일 21:34</div>
+    </div>
+
+    <!-- 섹션 2: 어제 승인 -->
+    <h3 style="font-size:14px;color:#333;border-left:4px solid #16A34A;padding-left:10px;margin:24px 0 12px">응모가 승인되었습니다 (1건) <span class="ja-original">(応募が承認されました)</span></h3>
+    <div style="border:1.5px solid #C8EFC8;border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#F4FBF4">
+      <div style="font-size:11px;color:#16A34A;font-weight:700;margin-bottom:4px">승인되었습니다 <span class="ja-original">(承認されました)</span></div>
+      <div style="font-size:11px;color:#888;margin-bottom:3px">
+        <span style="font-family:monospace">【CAMP-2026-0038】</span> · 기프팅
+      </div>
+      <div style="font-size:13px;font-weight:700;line-height:1.4;margin-bottom:6px">엔모드프로 페이스라인 케어</div>
+      <table style="border-collapse:collapse;width:100%;font-size:12px">
+        <tr><td style="padding:3px 0;color:#888;width:96px">승인 일시 <span class="ja-original">(承認日時)</span></td><td style="padding:3px 0">2026년 5월 18일 14:22</td></tr>
+        <tr><td style="padding:3px 0;color:#888">보상 <span class="ja-original">(報酬)</span></td><td style="padding:3px 0;font-weight:700">¥1,500</td></tr>
+        <tr><td style="padding:3px 0;color:#888;vertical-align:top">제출 마감 <span class="ja-original">(提出期限)</span></td><td style="padding:3px 0">결과물 6월 5일까지 <span class="ja-original">(投稿物 6月5日 まで)</span></td></tr>
+      </table>
+    </div>
+    <p style="margin:8px 0 0"><a href="#" style="color:#C8789C;font-size:12px">활동관리에서 제출 시작 → <span class="ja-original">(活動管理で提出を始める)</span></a></p>
+
+    <!-- 섹션 3: 어제 반려 -->
+    <h3 style="font-size:14px;color:#333;border-left:4px solid #999;padding-left:10px;margin:24px 0 12px">응모 결과 안내 (1건) <span class="ja-original">(応募結果のお知らせ)</span></h3>
+    <div style="border:1px solid #E0E0E0;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#FAFAFA">
+      <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:4px">이번에는 선정에 이르지 못했습니다 <span class="ja-original">(今回は選考に至りませんでした)</span></div>
+      <div style="font-size:11px;color:#888;margin-bottom:3px">
+        <span style="font-family:monospace">【CAMP-2026-0036】</span>
+      </div>
+      <div style="font-size:13px;font-weight:700;line-height:1.4;margin-bottom:4px">라비엘 애프터셰이브</div>
+      <div style="font-size:11px;color:#888">심사 일시 2026년 5월 18일 16:01</div>
+    </div>
+    <p style="margin:8px 0 0"><a href="#" style="color:#C8789C;font-size:12px">다른 캠페인 보기 → <span class="ja-original">(他のキャンペーンを見る)</span></a></p>
+
+    <!-- 섹션 4: 마감 임박 -->
+    <h3 style="font-size:14px;color:#333;border-left:4px solid #A06A14;padding-left:10px;margin:24px 0 12px">제출 마감이 다가오고 있습니다 (1건) <span class="ja-original">(提出期限が近づいています)</span></h3>
+    <div style="border:1.5px solid #FFE0A8;border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#FFFAF0">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="background:#FFE4E9;color:#E8344E;padding:3px 10px;border-radius:4px;font-weight:700;font-size:11px">D-1</span>
+        <span style="font-size:11px;color:#A06A14;font-weight:700">영수증 <span class="ja-original">(レシート)</span></span>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:3px">
+        <span style="font-family:monospace">【CAMP-2026-0030】</span>
+      </div>
+      <div style="font-size:13px;font-weight:700;line-height:1.4;margin-bottom:6px">민감한 제품 80ml</div>
+      <div style="font-size:12px;color:#333;margin-bottom:8px">제출 마감 <strong>5월 20일 (D-1)</strong></div>
+      <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">제출하러 가기 <span class="ja-original" style="color:#fff;opacity:.8">(提出に進む)</span></a>
+    </div>
+
+    <div style="margin-top:28px;padding-top:18px;border-top:1px solid #F0E1E4">
+      <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-right:8px">응모 이력 확인 <span class="ja-original" style="color:#fff;opacity:.8">(応募履歴を確認)</span></a>
+      <a href="#" style="display:inline-block;background:#fff;border:1.5px solid #C8789C;color:#C8789C;padding:9px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">캠페인 목록 <span class="ja-original">(キャンペーン一覧)</span></a>
+    </div>
+
+    <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+      REVERB JP 멤버십에 연계되어 자동 발송됩니다.<br>
+      문의는 LINE <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#999;text-decoration:underline">@reverb.jp</a> 으로 보내주세요.<br>
+      <br>
+      © JFUN Corp. · 株式会社ジェイファン<br>
+      <a href="https://globalreverb.com" style="color:#999;text-decoration:underline">https://globalreverb.com</a>
+    </p>
+  </div>
+</div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  const buttons = document.querySelectorAll('.lang-toggle button');
+  const subject = document.querySelector('.mail-subject');
+  const ja = document.querySelector('.lang-ja');
+  const ko = document.querySelector('.lang-ko');
+  function setLang(lang) {
+    buttons.forEach(b => {
+      const active = b.dataset.lang === lang;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    ja.style.display = lang === 'ja' ? '' : 'none';
+    ko.style.display = lang === 'ko' ? '' : 'none';
+    const s = subject && subject.dataset['subject' + (lang === 'ko' ? 'Ko' : 'Ja')];
+    if (s) subject.textContent = s;
+  }
+  buttons.forEach(btn => btn.addEventListener('click', () => setLang(btn.dataset.lang)));
+  // 카탈로그 「한국어 검수」 버튼은 ?lang=ko 로 들어온다 — 한국어 탭으로 열어 준다
+  if (new URLSearchParams(location.search).get('lang') === 'ko') setLang('ko');
+})();
+</script>
+
+<details class="meta">
+  <summary>발송 메타 / Placeholder 매핑</summary>
+  <dl>
+    <dt>트리거</dt><dd>pg_cron 매일 한국·일본 시각 09:00 → Edge Function notify-influencer-daily-digest</dd>
+    <dt>대상</dt><dd>어제 신청·승인·반려가 있거나 오늘이 영수증/결과물 D-5·D-1 인 회원 (marketing_opt_in 무관 — 업무 알림)</dd>
+    <dt>재발송 차단</dt><dd><code>deadline_reminder_email_sent</code> (회원·캠페인·종류·D-N 유일) + 수신자 단위 기록 <code>digest_email_sent</code></dd>
+    <dt>원본</dt><dd><a href="influencer-daily-digest.html">influencer-daily-digest.html</a> + <code>.row-received / .row-approved / .row-rejected / .row-deadline</code></dd>
+  </dl>
+</details>
+
 </body>
 </html>
