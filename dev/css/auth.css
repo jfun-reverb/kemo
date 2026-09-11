@@ -31,3 +31,11 @@
 /* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
 .birthdate-selects{display:flex;gap:6px}
 .birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}
+
+/* 넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2.
+   ⚠️ 파일 끝이라 위의 .auth-card{max-width:100%} 보다 뒤에 온다 — 자리를 옮기지 말 것.
+   ⚠️ #page-signup 의 인라인 max-width:560px 는 그대로 둔다(값이 같아 겹쳐도 무해하고,
+      지우면 600 미만에서 지금과 달라진다). */
+@media(min-width:600px){
+  .auth-card{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+}

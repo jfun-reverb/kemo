@@ -246,8 +246,8 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
-<div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
-  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
+<div id="loginPromptOverlay" class="login-prompt-overlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;justify-content:center">
+  <div class="login-prompt-sheet" style="background:#fff;width:100%;padding:24px 20px 36px">
     <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">
