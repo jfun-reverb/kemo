@@ -9,12 +9,19 @@
 // 6종을 그대로 사용 + 4섹션 더미 데이터 → Brevo SMTP 발송.
 //
 // 사용법:
+//   ① 실제 발송
 //   BREVO_API_KEY='xkeysib-...' \
 //     deno run --allow-read --allow-env --allow-net \
 //     scripts/send-test-admin-digest.ts
 //
+//   ② 발송 없이 본문만 파일로 (키 없이도 된다)
+//   DRY_RUN=1 deno run --allow-read --allow-env --allow-write \
+//     scripts/send-test-admin-digest.ts
+//
 // 환경변수:
-//   BREVO_API_KEY     (필수) Brevo Transactional API 키
+//   BREVO_API_KEY     (①에서 필수) Brevo Transactional API 키
+//   DRY_RUN           (옵션) 비어 있지 않고 "0" 이 아니면 발송 없이 본문만 파일로
+//   DRY_RUN_OUT       (옵션) DRY_RUN 출력 경로. 기본 /tmp/reverb-admin-digest-preview.html
 //   TEST_RECIPIENT    (옵션) 기본 younggeun.kim@jfun.co.kr
 //   PUBLIC_ADMIN_URL  (옵션) 기본 https://globalreverb.com/admin/
 //
@@ -349,25 +356,34 @@ async function renderReprocessedSection(): Promise<string> {
 // ──────────────────────────────────────────────────────────────────
 // Main
 // ──────────────────────────────────────────────────────────────────
+// 🔴 DRY_RUN 판정은 키 검사보다 **먼저** 한다 — 키가 없으면 아래 검사가 렌더 전에 종료시켜
+//    「키 없이 모양만 보기」가 아예 안 된다. 개발서버 실제 발송은 저장소 규칙상 막혀 있어
+//    (`.claude/rules/supabase.md` 「개발서버 메일 발송 테스트 금지」) 이 경로가 유일한 확인 수단이다.
+const dryRunRaw = env("DRY_RUN").trim();
+const dryRun = dryRunRaw !== "" && dryRunRaw !== "0";
+
 const apiKey = env("BREVO_API_KEY").trim();
-if (!apiKey) {
-  console.error("❌ BREVO_API_KEY 환경변수가 없습니다.");
-  console.error("실행 예: BREVO_API_KEY='xkeysib-...' deno run --allow-read --allow-env --allow-net scripts/send-test-admin-digest.ts");
-  Deno.exit(1);
-}
-// ASCII 검증 — 비-ASCII (예: 한국어 placeholder) 가 들어가면 fetch headers 가 ByteString 변환 실패
-if (!/^[\x20-\x7E]+$/.test(apiKey)) {
-  console.error("❌ BREVO_API_KEY 에 비-ASCII 문자가 포함됨. (placeholder 가 실제 키로 교체되지 않았을 가능성)");
-  console.error(`   현재 값 prefix: ${apiKey.slice(0, 10)}... (길이 ${apiKey.length})`);
-  console.error("   Brevo 키는 'xkeysib-' 로 시작하는 ASCII 문자열입니다.");
-  Deno.exit(1);
-}
-if (!apiKey.startsWith("xkeysib-")) {
-  console.warn(`⚠ BREVO_API_KEY prefix 가 'xkeysib-' 가 아닙니다 (${apiKey.slice(0, 10)}...). 그래도 시도합니다.`);
+if (!dryRun) {
+  if (!apiKey) {
+    console.error("❌ BREVO_API_KEY 환경변수가 없습니다.");
+    console.error("실행 예: BREVO_API_KEY='xkeysib-...' deno run --allow-read --allow-env --allow-net scripts/send-test-admin-digest.ts");
+    console.error("발송 없이 본문만 보려면: DRY_RUN=1 deno run --allow-read --allow-env --allow-write scripts/send-test-admin-digest.ts");
+    Deno.exit(1);
+  }
+  // ASCII 검증 — 비-ASCII (예: 한국어 placeholder) 가 들어가면 fetch headers 가 ByteString 변환 실패
+  if (!/^[\x20-\x7E]+$/.test(apiKey)) {
+    console.error("❌ BREVO_API_KEY 에 비-ASCII 문자가 포함됨. (placeholder 가 실제 키로 교체되지 않았을 가능성)");
+    console.error(`   현재 값 prefix: ${apiKey.slice(0, 10)}... (길이 ${apiKey.length})`);
+    console.error("   Brevo 키는 'xkeysib-' 로 시작하는 ASCII 문자열입니다.");
+    Deno.exit(1);
+  }
+  if (!apiKey.startsWith("xkeysib-")) {
+    console.warn(`⚠ BREVO_API_KEY prefix 가 'xkeysib-' 가 아닙니다 (${apiKey.slice(0, 10)}...). 그래도 시도합니다.`);
+  }
 }
 const recipient = env("TEST_RECIPIENT", "younggeun.kim@jfun.co.kr");
 
-console.log(`📧 테스트 발송 준비 — 수신: ${recipient}`);
+console.log(dryRun ? "📄 본문만 뽑기(DRY_RUN) — 발송하지 않습니다" : `📧 테스트 발송 준비 — 수신: ${recipient}`);
 
 // 4섹션 렌더
 const [sectionReceivedHtml, sectionCancelledHtml, sectionSubmittedHtml, sectionReprocessedHtml] =
@@ -431,6 +447,22 @@ const textLines = [
   `관리자 페이지: ${adminPaneUrl}`,
 ];
 const text = textLines.join("\n");
+
+// ── DRY_RUN — 발송하지 않고 본문만 파일로 ──────────────────────────
+// ⚠️ 출력 파일은 저장소 밖(기본 /tmp)에 쓴다 — 커밋에 섞이지 않게.
+if (dryRun) {
+  const outPath = env("DRY_RUN_OUT", "/tmp/reverb-admin-digest-preview.html");
+  // 🔴 문자 인코딩 선언을 씌운다 — 메일 본문은 `<div>` 로 시작하는 **조각**이라 `<meta charset>` 이 없다.
+  //    실제 발송에서는 Brevo 가 보내는 헤더가 그 역할을 하지만, 파일로 열면 브라우저가 추측해
+  //    **한국어가 통째로 깨진다**(2026-09-11 실측). 이 껍데기는 미리보기 전용이고 발송 본문에는 안 들어간다.
+  const previewDoc = `<!DOCTYPE html>\n<meta charset="utf-8">\n<title>${escapeHtml(subject)}</title>\n${html}`;
+  await Deno.writeTextFile(outPath, previewDoc);
+  console.log(`📄 제목: ${subject}`);
+  console.log(`📄 HTML 크기: ${html.length} bytes`);
+  console.log(`📄 저장했습니다 — ${outPath}`);
+  console.log("📄 브라우저로 열어 카드·정렬·숫자·링크를 눈으로 확인하세요. (발송하지 않았습니다)");
+  Deno.exit(0);
+}
 
 console.log(`📧 발송 중 — subject: ${subject}`);
 console.log(`📧 HTML 크기: ${html.length} bytes`);

@@ -20,12 +20,13 @@
 
   Top-level Placeholders:
     {{digest_date}}              대상일 (YYYY-MM-DD, 한국시간 전일 기준)
-    {{total_count}}              4섹션 합산 총 건수
+    {{total_count}}              5섹션 합산 총 건수
     {{summary_chip_html}}        섹션별 건수 칩 HTML (0건 섹션 생략)
     {{section_received_html}}    섹션 1 본문 (0건이면 빈 문자열)
     {{section_cancelled_html}}   섹션 2 본문 (0건이면 빈 문자열)
     {{section_submitted_html}}   섹션 3 본문 (0건이면 빈 문자열)
     {{section_reprocessed_html}} 섹션 4 본문 (0건이면 빈 문자열)
+    {{section_action_html}}      섹션 5 본문 — 조치가 필요한 캠페인 (0건이면 빈 문자열)
     {{admin_pane_url}}           관리자 페이지 딥링크
 
   관련 사양:
@@ -53,6 +54,7 @@
   {{section_cancelled_html}}
   {{section_submitted_html}}
   {{section_reprocessed_html}}
+  {{section_action_html}}
 
   <a href="{{admin_pane_url}}" style="display:inline-block;background:#5B6BBF;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-top:8px">관리자 페이지에서 보기</a>
 
