@@ -216,7 +216,12 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── MODAL (Material Bottom Sheet) ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:flex-end;justify-content:center;padding:0}
 .modal-overlay.open{display:flex}
-.modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:var(--shell-max);max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
+.modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
+/* 🔴 .modal·.modal-overlay 는 관리자 화면도 쓴다(마크업 54·56곳 + 관리자 자바스크립트가 만드는 것)
+   — components.css 가 관리자 빌드에도 이어붙여지기 때문이다(dev/build.sh ADMIN_CSS_FILES).
+   관리자는 폭이 늘 900 이상이라 넓은 화면 규칙이 상시 걸린다. 그래서 위 기본값은 480 리터럴로
+   두고(관리자 지금 그대로), 기둥 안쪽에서만 변수를 쓴다. .form-row 와 같은 처리. */
+#appShell .modal{max-width:var(--shell-max)}
 .modal-header{padding:24px 24px 0;display:flex;align-items:flex-start;justify-content:space-between}
 .modal-title{font-size:20px;font-weight:700}
 .modal-close{width:30px;height:30px;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
@@ -493,9 +498,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         .notif-modal-body(top:15%)는 손대지 않는다.
      ⚠️ 선택자를 묶지 않고 하나씩 적는다 — 자리 수를 세어 빠뜨린 곳을 찾는 검사가
         작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
-  .modal-overlay{align-items:center}
+  #appShell .modal-overlay{align-items:center}
   .login-prompt-overlay{align-items:center}
-  .modal{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  #appShell .modal{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   #legalModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   #policyNoticeModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   .login-prompt-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
@@ -507,6 +512,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   #appShell .rich-content{max-width:var(--reading-max)}
   .legal-body{max-width:var(--reading-max)}
   .legal-page-body{max-width:var(--reading-max)}
+  /* 비밀번호 규칙 안내 — 회원가입·재설정 화면에서는 카드(560)가 이미 잡지만
+     마이페이지 비밀번호 변경 화면에서는 .form-row 밖이라 안 잡힌다(배포 뒤 실측 672px). */
+  .pw-policy{max-width:var(--reading-max)}
 }
 
 /* ══════════════════════════════════
@@ -1009,6 +1017,12 @@ html.preview-mode #page-detail .detail-back{display:none}
 @media(min-width:600px){
   .msg-faq-answer-body{max-width:var(--reading-max)}
   .ticket-msg{max-width:var(--reading-max)}
+  /* 아래 둘은 배포 뒤 실측(작업표 조각 7 ④-b)으로 드러난 자리다.
+     .email-tx-desc = 업무 알림 안내 박스(611px) ·
+     #withdrawViewBody = 탈퇴 화면 본문(675px — 안쪽 글이 클래스 없는 div 라
+     가장 가까운 고정 id 로 묶는다. 버튼도 함께 560 이 되는 것이 낫다). */
+  .email-tx-desc{max-width:var(--reading-max)}
+  #withdrawViewBody{max-width:var(--reading-max)}
 }
 
 </style>
@@ -1833,7 +1847,7 @@ html.preview-mode #page-detail .detail-back{display:none}
             <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
             <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
@@ -1952,7 +1966,7 @@ html.preview-mode #page-detail .detail-back{display:none}
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">
@@ -2166,7 +2180,7 @@ html.preview-mode #page-detail .detail-back{display:none}
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
       </div>
