@@ -18,7 +18,7 @@
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -69,9 +69,11 @@ async function renderLookupsTable() {
   const title = $('lookupTableTitle');
   if (!tbody) return;
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
+  { const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = ''; }   // 기본은 보임 — 견적 기준값 탭만 자기 함수 안에서 감춘다(조기 반환보다 앞에 둬야 참여방법·주의사항·NG 탭으로 돌아갈 때도 되살아난다)
   if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
   if (_currentLookupKind === 'ng_set') { await renderNgSetTable(); return; }
+  if (_currentLookupKind === 'quote_settings') { await renderQuoteSettingsTable(); return; }
   const isChannel = _currentLookupKind === 'channel';
   const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
@@ -137,6 +139,88 @@ async function renderLookupsTable() {
   }).join('');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 견적 기준값 탭 (마이그레이션 426 · 오리엔시트 단순화 2단계 사양서 §4-5)
+//   같은 표(#lookupsTableBody)에 그린다 — 카드를 더 넣지 않는다(작업표 stale ⑥).
+//   수정은 캠페인 관리자 이상(서버 가드 is_campaign_admin — 화면은 단추만 감춘다).
+//   🔴 fetchQuoteSettings 는 실패 null / 0건 [] — 합치면 「환율 0」 화면이 된다.
+// ════════════════════════════════════════════════════════════════════
+const QUOTE_UNIT_LABEL = { krw: '원', jpy: '엔', rate: '비율' };
+function quoteAmountText(r) {
+  const n = Number(r.amount);
+  if (r.unit === 'rate') return (n * 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + ' %';
+  if (r.unit === 'jpy') return '¥' + n.toLocaleString('ja-JP');
+  return n.toLocaleString('ko-KR') + ' 원';
+}
+async function renderQuoteSettingsTable() {
+  const tbody = $('lookupsTableBody');
+  const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = 'none';   // 기준값은 순서가 고정
+  const thead = $('lookupTableHead');
+  const title = $('lookupTableTitle');
+  if (title) title.textContent = '견적 기준값';
+  const canEdit = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th style="width:40px"></th>
+      <th>항목</th>
+      <th style="width:180px">값</th>
+      <th style="width:80px">단위</th>
+      <th style="width:160px">마지막 수정</th>
+      <th style="width:120px"></th>
+    </tr>`;
+  }
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  const rows = await fetchQuoteSettings();
+  if (rows === null) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:24px">견적 기준값을 불러오지 못했습니다. 새로고침해 주세요.</td></tr>';
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">등록된 기준값이 없습니다 (마이그레이션 426 적용 필요)</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `<tr data-qkey="${esc(r.key)}">
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong style="font-size:13px">${esc(r.label_ko)}</strong><div style="font-size:10px;color:var(--muted)">${esc(r.key)}</div></td>
+      <td class="q-amount" style="font-size:13px;font-weight:600">${esc(quoteAmountText(r))}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(QUOTE_UNIT_LABEL[r.unit] || r.unit)}</td>
+      <td style="font-size:12px;color:var(--muted)">${r.updated_at ? esc(formatDateTime(r.updated_at)) : '-'}</td>
+      <td style="white-space:nowrap">${canEdit ? `<button class="btn btn-ghost btn-xs" onclick="editQuoteSetting('${esc(r.key)}', '${esc(String(r.amount))}', '${esc(r.unit)}')">수정</button>` : ''}</td>
+    </tr>`).join('');
+}
+// 인라인 수정 — 그 행의 값 칸을 입력칸으로 바꾼다. 비율은 % 로 받아 0~1 로 저장.
+function editQuoteSetting(key, current, unit) {
+  const tr = document.querySelector(`#lookupsTableBody tr[data-qkey="${CSS.escape(key)}"]`);
+  if (!tr) return;
+  const cell = tr.querySelector('.q-amount');
+  const isRate = unit === 'rate';
+  const initial = isRate ? String(Number(current) * 100) : String(Number(current));
+  cell.innerHTML = `<div style="display:flex;gap:4px;align-items:center">
+      <input type="number" class="form-input" step="${isRate ? '0.01' : '1'}" min="0" ${isRate ? 'max="100"' : ''} value="${esc(initial)}" style="width:110px;padding:4px 8px;font-size:13px" onkeydown="if(event.key==='Enter'){saveQuoteSetting('${esc(key)}',this,'${esc(unit)}')}else if(event.key==='Escape'){renderQuoteSettingsTable()}">
+      <span style="font-size:11px;color:var(--muted)">${isRate ? '%' : (QUOTE_UNIT_LABEL[unit] || '')}</span>
+      <button class="btn btn-primary btn-xs" onclick="saveQuoteSetting('${esc(key)}', this.parentNode.querySelector('input'), '${esc(unit)}')">저장</button>
+      <button class="btn btn-ghost btn-xs" onclick="renderQuoteSettingsTable()">취소</button>
+    </div>`;
+  const input = cell.querySelector('input'); if (input) { input.focus(); input.select(); }
+}
+async function saveQuoteSetting(key, input, unit) {
+  const raw = Number(input && input.value);
+  if (!Number.isFinite(raw) || raw < 0) { toast('0 이상의 숫자를 입력해 주세요.'); return; }
+  const amount = unit === 'rate' ? raw / 100 : raw;
+  if (unit === 'rate' && amount > 1) { toast('비율은 100% 를 넘을 수 없습니다.'); return; }
+  try {
+    const res = await updateQuoteSetting(key, amount);
+    if (!res || res.success !== true) {
+      const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
+      toast('저장 실패: ' + why); return;
+    }
+    toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');
+    await refreshPane('lookups');
+  } catch (e) {
+    toast(typeof friendlyError === 'function' ? friendlyError(e) : '저장에 실패했습니다.');
+  }
+}
+
 const RECRUIT_TYPE_LABEL_KO = {monitor:'리뷰어', gifting:'기프팅', visit:'방문형'};
 let _lookupReorderMode = false;
 // ════════════════════════════════════════════════════════════════════
@@ -168,6 +252,7 @@ function applyLookupModalKindUI(kind, recruitTypes) {
 }
 
 function openLookupAddModal() {
+  if (_currentLookupKind === 'quote_settings') { toast('견적 기준값은 항목을 추가하지 않습니다. 값만 수정할 수 있어요.'); return; }
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   if (_currentLookupKind === 'caution') { openCsetAddModal(); return; }

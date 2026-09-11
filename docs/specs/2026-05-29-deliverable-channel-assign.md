@@ -2,7 +2,7 @@
 
 **작성일:** 2026-05-29
 **작성 주체:** reverb-planner (기획 세션) + 개발 세션 보정
-**상태:** 기획 완료 (개발 미착수)
+**상태:** ✅ **운영에 있음** (2026-09-02 기획 세션 확인 — `assign_review_image_channel` + 마이그레이션 162). 배포 시점·마이그레이션 번호는 아래 「구현 결과」가 단일 소스다.
 **관련 사양서:** `docs/specs/2026-05-28-multichannel-deliverable-split.md`(채널별 분리), `docs/specs/2026-05-28-admin-proxy-deliverable.md`(대리 등록 RPC 패턴)
 **관련 패치:** `supabase/patches/2026-05-29-backfill-review-image-post-channel.sql`(단일채널 367건 백필 — 운영 적용 완료)
 

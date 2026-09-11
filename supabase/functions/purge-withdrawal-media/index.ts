@@ -233,8 +233,24 @@ Deno.serve(async (req: Request) => {
   let deletedFiles = 0;
   let failedChunks = 0;
 
+  // 원본 옆에 저장된 **썸네일도 함께** 지운다 (`{폴더}/thumb/{같은 이름}`).
+  // 🔴 원본만 지우면 「지웠다」고 적어 놓고 **썸네일이 남는다** — 영수증은 개인정보이고
+  //    이 통은 공개라 주소를 아는 사람은 그대로 볼 수 있다.
+  // ⚠️ 썸네일이 없는 옛 파일이라도 안전하다 — `remove()` 는 **없는 파일에도 성공으로 답한다**
+  //    (이 파일 위쪽 주석의 그 성질). 그래서 「있으면 지우고 없으면 넘어간다」가 저절로 된다.
+  // ⚠️ 그 성질 때문에 `deletedFiles` 는 **지운 파일 수가 아니라 넘긴 경로 수**다.
+  //    파기 표시(`deletedIds`)는 **원본 경로 기준 그대로** 둔다 — 썸네일 유무로 갈리면 안 된다.
+  const withThumbs = (p: string): string[] => {
+    const slash = p.indexOf("/");
+    if (slash === -1) return [p];
+    const folder = p.slice(0, slash);
+    const rest = p.slice(slash + 1);
+    if (rest.startsWith("thumb/")) return [p];
+    return [p, `${folder}/thumb/${rest}`];
+  };
+
   for (const group of chunk([...pathToIds.keys()], DELETE_CHUNK)) {
-    const { error: rmErr } = await sb.storage.from(BUCKET).remove(group);
+    const { error: rmErr } = await sb.storage.from(BUCKET).remove(group.flatMap(withThumbs));
     if (rmErr) {
       // 이 묶음은 표시하지 않는다 — 다음 실행이 같은 행을 다시 집는다.
       failedChunks += 1;

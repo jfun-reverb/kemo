@@ -49,9 +49,20 @@ function visibleCamps(camps) {
 function sortByStatusAndDeadline(camps) {
   const order = {active: 0, scheduled: 1, closed: 2, ended: 3};
   const ts = (c) => new Date(c.recruit_start || c.deadline || c.created_at || 0).getTime();
+  // 🔴 **상태가 「모집중」이어도 정원이 찼으면 「모집마감」과 같은 자리**로 내린다.
+  //    그 전에는 그룹을 상태 하나로만 정해, 화면에는 「모집 종료」 딱지가 붙은 카드가
+  //    맨 위에 왔다(운영 실측 2026-08-27 — 신청 21/정원 2 인 캠페인이 첫 칸).
+  //    ⚠️ **목록에서 빼지 않는다** — 사라지면 「응모한 캠페인이 없어졌다」가 된다.
+  //    ⚠️ 딱지와 **같은 헬퍼·같은 값**(캐시 `applied_count`)을 쓰므로 딱지와 순서는 늘 맞는다.
+  //    ⚠️ 「모집예정」보다 아래인 이유 — 모집예정은 곧 열리고, 정원이 찬 것은 안 열린다.
+  const 그룹 = (c) => {
+    const 기본 = order[c.status] ?? 99;
+    if (기본 === 0 && recruitSlotsFull(c.recruit_type, c.applied_count, c.slots)) return order.closed;
+    return 기본;
+  };
   return camps.slice().sort((a, b) => {
-    const sa = order[a.status] ?? 99;
-    const sb = order[b.status] ?? 99;
+    const sa = 그룹(a);
+    const sb = 그룹(b);
     if (sa !== sb) return sa - sb;
     return ts(b) - ts(a);  // 최신순(내림차순)
   });
@@ -302,7 +313,9 @@ function getCampGrad(cat) {
 
 function buildCampCards(camps) {
   return camps.map(c => {
-    const isFull = c.recruit_type === 'monitor' && (c.applied_count||0) >= c.slots;
+    // 정원 판정은 공용 헬퍼(shared.js) — 정렬도 같은 함수를 쓴다.
+    //   ⚠️ 응모 차단(application.js)은 **실시간 조회**를 쓰므로 그대로 둔다.
+    const isFull = recruitSlotsFull(c.recruit_type, c.applied_count, c.slots);
     const isScheduled = c.status === 'scheduled';
     // 마감 판정은 상태 + 마감일 경과를 함께 본다(사양서 2026-07-29 §설계 5-(1) 단방향 규칙).
     //   목록을 열어 둔 채 자정을 넘기면 캐시의 status 는 active 로 남아 「募集中」으로 보이는데
@@ -314,6 +327,10 @@ function buildCampCards(camps) {
     const isClosed = !isEnded && (c.status === 'closed'
       || (!isScheduled && typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(c)));
     const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
+    // 🔴 종료된 캠페인은 `isClosed` 도 참이다 — 종료면 마감일도 당연히 지났기 때문이다.
+    //    딱지 셋(공개예정·모집마감·종료)은 **같은 자리에 겹쳐 그려지므로** 서로 배타여야 한다.
+    //    아래 그리는 자리에서 모집마감을 `isClosed && !isEnded` 로 좁힌다 — 종료가 나중 단계라
+    //    그쪽이 정확하다. (그 전에는 종료 카드에 「모집 마감」과 「종료」가 겹쳐 글자가 뭉갰다)
     const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
     // 리뷰어형(monitor)은 제품을 무상으로 주는 게 아니라 **본인이 사고 그 금액을 돌려받는다**.
@@ -336,7 +353,7 @@ function buildCampCards(camps) {
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(24,24,27,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
-        ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
+        ${isClosed&&!isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
         ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
         ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:4px">
@@ -381,7 +398,18 @@ function renderCampaigns(camps) {
   const visible = sortByStatusAndDeadline(visibleCamps(camps));
   const moreBtnWrap = $('campMoreBtnWrap');
   if (!visible.length) {
-    grid.innerHTML = campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
+    // 🔴 **「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.**
+    //    조회가 실패했는데 「현재 모집 중인 캠페인이 없습니다」를 띄우면, 회원은 우리에게
+    //    캠페인이 하나도 없는 줄 알고 떠난다. 예전에는 실패 시 예시 여섯 건을 대신 그려
+    //    이 갈림이 아예 없었다(가짜가 진짜처럼 보였다).
+    const _failed = (typeof _campaignsLoadFailed !== 'undefined') && _campaignsLoadFailed;
+    const _icon = _failed ? 'cloud_off' : 'assignment';
+    const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
+    const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
+    // iOS 브랜치: 조회는 됐는데 필터로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
+    grid.innerHTML = _failed
+      ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`
+      : campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }

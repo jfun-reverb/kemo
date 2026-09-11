@@ -76,9 +76,162 @@ async function sendBrevoEmail(params: {
 }
 
 // 메일 제목·본문 빌드 (고정 문안 + 시행일 치환)
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **전 회원에게 실제 메일을 보낸다.** 막는 것이 없으면 사이트에 박힌
+//    공개 키만으로 누구나 발송을 시킬 수 있다(2026-09-02 전수조사에서 발견 —
+//    같은 저장소의 다른 메일 함수 넷 중 셋은 이미 이 검사가 있었고 여기만 없었다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+//    (같은 형태: notify-brand-application · notify-withdrawal-scheduled · notify-orient-submitted)
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+function isAnonJwt(token: string): boolean {
+  if (!token.startsWith("eyJ")) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "anon";
+  } catch {
+    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
+// ── [D-9] 재시도 규칙 ──────────────────────────────────────────────
+//   예전에는 실행 행(policy_notice_runs, notice_key 유일)이 있으면 무조건 「이미 처리됨」으로 끝내,
+//   한 번 죽은 실행(status='failed', error 'in-flight')이 영원히 재시도를 막았다. 회원별 행도
+//   `sent` 로 먼저 선점하고 보내서, 보내기 전에 죽으면 그 회원은 「보냄」으로 남았다(4-10).
+//
+//   🔴 재시도 선점은 **조건과 바뀌는 값이 같은 칸**이어야 한다(리뷰 지적) — 조건은 그대로 두고
+//      다른 칸만 바꾸면 여러 실행이 동시에 「내가 잡았다」고 믿는다.
+//   실행 단위: 조건 = 「끝났거나(finished_at 있음) 시작한 지 오래됨(started_at < 기준)」, 바꾸는 값 =
+//     started_at(now)·finished_at(null) — 잡는 순간 조건이 거짓이 되어 두 번째 실행은 통과 못 한다.
+//   회원 단위: skip_reason 한 칸에 「in_flight@<시각>」을 넣어 조건(오래된 in_flight 또는 send_failed)과
+//     바뀌는 값이 같은 칸이다. 아직 진행 중(최근 in_flight)인 행은 넘겨받지 않는다.
+const RUN_STALE_MINUTES = 30;     // 배치 하나의 실행 시간 상한(수 분)보다 넉넉히
+const CLAIM_STALE_MINUTES = 20;   // 회원 한 명 발송(Brevo 왕복 수 초)보다 넉넉히
+function inFlightMarker(): string { return `in_flight@${new Date().toISOString()}`; }
+function staleInFlightCutoff(): string { return `in_flight@${new Date(Date.now() - CLAIM_STALE_MINUTES * 60_000).toISOString()}`; }
+
+async function takeOverFailedRun(
+  // deno-lint-ignore no-explicit-any
+  sb: any,   // ReturnType<typeof createClient> 은 실제 인스턴스 타입과 어긋난다(이 파일들의 기존 결함) — 인플루언서 다이제스트 fetchAllPaged 주석 참고
+
+  noticeKey: string,
+): Promise<{ ok: boolean; status?: string }> {
+  const { data: existing } = await sb.from("policy_notice_runs")
+    .select("status, finished_at, started_at").eq("notice_key", noticeKey).maybeSingle();
+  const row = existing as { status?: string; finished_at?: string | null; started_at?: string } | null;
+  const st = row?.status;
+  if (st !== "failed" && st !== "partial") return { ok: false, status: st };
+  const staleBefore = new Date(Date.now() - RUN_STALE_MINUTES * 60_000).toISOString();
+  // 조건부 UPDATE — 끝난 실행(finished_at 있음) 또는 시작한 지 오래된 실행만. 잡으면 started_at 을
+  // 지금으로, finished_at 을 비워 두 번째 재시도가 같은 조건을 통과하지 못하게 한다.
+  const { data: taken, error } = await sb.from("policy_notice_runs")
+    .update({ started_at: new Date().toISOString(), finished_at: null, error_message: "in-flight (retry)" })
+    .eq("notice_key", noticeKey)
+    .in("status", ["failed", "partial"])
+    .or(`finished_at.not.is.null,started_at.lt.${staleBefore}`)
+    .select("id");
+  // 오류를 삼키면 「아무도 못 잡음」으로 읽혀 재시도가 조용히 멈춘다(리뷰 지적) — 남긴다.
+  if (error) console.error("[notify-policy-change] run takeover query failed", noticeKey, error.message);
+  return { ok: !!taken && taken.length > 0, status: st };
+}
+
+// 회원별 선점 — 새 행이면 INSERT, 이미 있으면 「오래된 in_flight 또는 send_failed」만 넘겨받는다.
+async function claimMember(
+  // deno-lint-ignore no-explicit-any
+  sb: any,   // ReturnType<typeof createClient> 은 실제 인스턴스 타입과 어긋난다(이 파일들의 기존 결함) — 인플루언서 다이제스트 fetchAllPaged 주석 참고
+
+  influencerId: string,
+  noticeKey: string,
+): Promise<"claimed" | "already_done" | "error"> {
+  const marker = inFlightMarker();
+  const { error: claimErr } = await sb.from("policy_notice_sent").insert({
+    influencer_id: influencerId, notice_key: noticeKey, status: "failed", skip_reason: marker,
+  });
+  if (!claimErr) return "claimed";
+  if ((claimErr as { code?: string }).code !== "23505") {
+    console.error("[notify-policy-change] claim failed", influencerId, claimErr.message);
+    return "error";
+  }
+  const { data: taken, error: takeErr } = await sb.from("policy_notice_sent")
+    .update({ skip_reason: marker })
+    .eq("influencer_id", influencerId).eq("notice_key", noticeKey)
+    .eq("status", "failed")
+    .or(`skip_reason.eq.send_failed,skip_reason.is.null,skip_reason.lt."${staleInFlightCutoff()}"`)
+    .select("id");
+  if (takeErr) { console.error("[notify-policy-change] member takeover query failed", influencerId, takeErr.message); return "error"; }
+  return taken && taken.length > 0 ? "claimed" : "already_done";
+}
+
+// 최종 집계 — 배치마다 더한 값은 재시도를 거치면 「시도 총합」이 되어 사람 수와 어긋난다(리뷰 지적).
+//   마지막 배치에서 회원별 행을 다시 세어 확정한다.
+async function recountMembers(
+  // deno-lint-ignore no-explicit-any
+  sb: any,   // ReturnType<typeof createClient> 은 실제 인스턴스 타입과 어긋난다(이 파일들의 기존 결함) — 인플루언서 다이제스트 fetchAllPaged 주석 참고
+
+  noticeKey: string,
+): Promise<{ sent: number; skipped: number; failed: number }> {
+  const countOf = async (status: string): Promise<number> => {
+    const { count } = await sb.from("policy_notice_sent")
+      .select("id", { count: "exact", head: true })
+      .eq("notice_key", noticeKey).eq("status", status);
+    return count ?? 0;
+  };
+  return { sent: await countOf("sent"), skipped: await countOf("skipped"), failed: await countOf("failed") };
+}
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  if (isAnonJwt(token)) {
+    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
+// 발송 값이 본문에 그대로 들어가지 않게 한다.
+//   🔴 `effectiveDate` 는 **요청 본문에서 오는 값**이라 그대로 넣으면 임의 HTML 이 실린다.
+//   ⚠️ 글(text) 쪽은 이스케이프하지 않는다 — 순수 문자열이라 태그가 뜻을 갖지 않고,
+//      거기까지 바꾸면 회원이 받는 글에 `&amp;` 같은 것이 그대로 보인다.
+function escapeHtml(v: unknown): string {
+  return String(v ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function buildMail(effectiveDate: string): { subject: string; html: string; text: string } {
   const tpl = loadTemplate("policy-change-notice");
-  const html = render(tpl, { effective_date: effectiveDate });
+  const html = render(tpl, { effective_date: escapeHtml(effectiveDate) });
   const subject = "【REVERB JP】満18歳以上のご利用への変更・規約改定のお知らせ";
   const text = [
     "REVERB JP をご利用いただきありがとうございます。",
@@ -125,6 +278,12 @@ function selfInvokeChained(args: {
 }
 
 Deno.serve(async (req) => {
+  if (rejectPublicKeyCaller(req, "notify-policy-change")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
   const supaUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!supaUrl || !serviceKey) {
@@ -181,15 +340,21 @@ Deno.serve(async (req) => {
       triggered_by: null,
     });
     if (error) {
-      if ((error as { code?: string }).code === "23505") {
-        console.log("[notify-policy-change] already processed", noticeKey);
-        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_processed", noticeKey }), {
+      if ((error as { code?: string }).code !== "23505") {
+        return new Response(JSON.stringify({ error: "mutex insert failed", detail: error.message }), {
+          status: 500, headers: { "content-type": "application/json" },
+        });
+      }
+      // [D-9] 같은 열쇠의 실행 행이 이미 있다 — 끝난 실행이면 종전대로 종료, 죽었거나
+      //   실패로 끝난 실행이면 넘겨받아 다시 돈다(아래 헬퍼가 조건부 UPDATE 로 딱 한 실행만 통과시킨다).
+      const retry = await takeOverFailedRun(sb, noticeKey);
+      if (!retry.ok) {
+        console.log("[notify-policy-change] already processed / in progress", noticeKey, retry.status);
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_processed", noticeKey, status: retry.status }), {
           status: 200, headers: { "content-type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "mutex insert failed", detail: error.message }), {
-        status: 500, headers: { "content-type": "application/json" },
-      });
+      console.warn("[notify-policy-change] retrying a failed/partial run", noticeKey, retry.status);
     }
   }
 
@@ -261,26 +426,27 @@ Deno.serve(async (req) => {
         skipped++;
         continue;
       }
-      // 멱등 선점: status='sent' INSERT 성공해야 발송 (충돌이면 already_sent)
-      const { error: claimErr } = await sb.from("policy_notice_sent").insert({
-        influencer_id: id, notice_key: noticeKey, status: "sent",
-      });
-      if (claimErr) {
-        if ((claimErr as { code?: string }).code === "23505") { skipped++; continue; } // already_sent
-        console.error("[notify-policy-change] claim failed", id, claimErr.message);
-        failed++;
-        continue;
-      }
+      // [D-9] 멱등 선점 — 선점 상태는 sent 가 아니라 failed + 「in_flight@시각」이고, 발송에
+      //   **성공한 뒤에만** sent 로 바꾼다(위 헬퍼 주석). 선점 자체는 유지한다 — 선점 없이 보내면
+      //   두 실행이 겹칠 때 두 통이 나간다(D-19 의 「선점 먼저」와 같은 원칙, 상태만 다르다).
+      const claim = await claimMember(sb, id, noticeKey);
+      if (claim === "error") { failed++; continue; }
+      if (claim === "already_done") { skipped++; continue; } // sent·skipped·다른 실행이 보내는 중
       try {
         await sendBrevoEmail({
           to: [{ email, name: undefined }],
           subject: mail.subject, htmlContent: mail.html, textContent: mail.text,
         });
+        // 성공한 뒤에만 sent — 여기서 죽으면 행은 failed/in_flight 로 남아 다음 실행이 다시 보낸다
+        // (그 경우 한 통이 더 갈 수 있다 — 「영원히 안 가는 것」보다 낫다는 판단).
+        await sb.from("policy_notice_sent")
+          .update({ status: "sent", skip_reason: null })
+          .eq("influencer_id", id).eq("notice_key", noticeKey);
         sent++;
       } catch (e) {
-        // 발송 실패 → 선점한 sent 행을 failed 로 정정
+        // 발송 실패 → failed 유지, 사유만 남긴다(다음 실행이 다시 집는다)
         await sb.from("policy_notice_sent")
-          .update({ status: "failed" })
+          .update({ status: "failed", skip_reason: "send_failed" })
           .eq("influencer_id", id).eq("notice_key", noticeKey);
         failed++;
         console.error("[notify-policy-change] send failed", email, (e as Error).message);
@@ -304,16 +470,13 @@ Deno.serve(async (req) => {
       });
       selfInvokeChained({ supaUrl, serviceKey, noticeKey, effectiveDate, nextOffset: batchOffset + BATCH_SIZE });
     } else {
-      const { data: cur } = await sb.from("policy_notice_runs")
-        .select("sent_count, skipped_count, failed_count").eq("notice_key", noticeKey).maybeSingle();
-      const c = (cur || {}) as { sent_count?: number; skipped_count?: number; failed_count?: number };
-      const totalSent = (c.sent_count || 0) + sent;
-      const totalSkipped = (c.skipped_count || 0) + skipped;
-      const totalFailed = (c.failed_count || 0) + failed;
+      // [D-9] 마지막 배치는 더하지 않고 **다시 센다** — 재시도를 거친 실행은 배치별 합이 「시도 총합」이라
+      //   같은 사람이 여러 번 skipped 로 잡힌다. 회원별 행이 원본이다.
+      const totals = await recountMembers(sb, noticeKey);
       await finalizeRun({
-        status: totalFailed > 0 ? "partial" : "sent",
+        status: totals.failed > 0 ? "partial" : "sent",
         targetCount: isFirstBatch ? total : undefined,
-        sentCount: totalSent, skippedCount: totalSkipped, failedCount: totalFailed,
+        sentCount: totals.sent, skippedCount: totals.skipped, failedCount: totals.failed,
         finishedAt: new Date().toISOString(),
       });
     }

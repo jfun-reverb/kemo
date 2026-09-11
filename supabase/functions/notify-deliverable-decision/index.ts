@@ -24,17 +24,23 @@
 //   원본은 docs/email-templates/ 에 있고, scripts/sync-email-templates.sh 가
 //   _templates/ 로 복사한다. Edge Function 배포 직전 반드시 sync 실행.
 //
-// 멱등성:
-//   1. 발송 직전 notifications.mail_sent_at 가 여전히 NULL 인지 재확인 (행 잠금).
-//   2. Brevo 200 응답 후에만 mail_sent_at = now() 로 마킹.
-//   3. 실패 시 NULL 유지 → 운영자가 수동 SQL 로 재발송 가능.
+// 멱등성 (2026-09-07 전수조사 D-19 로 순서를 뒤집었다):
+//   1. 🔴 **발송 전에 먼저 선점한다** — `UPDATE … SET mail_sent_at = now() WHERE id = … AND
+//      mail_sent_at IS NULL` 이 0행이면 다른 실행이 이미 잡은 것 → 즉시 종료.
+//      예전엔 「확인 → 발송 → 기록」이라 확인과 기록 사이(Brevo 왕복 수 초)에 웹훅 재시도가
+//      겹치면 **같은 메일이 두 번** 나갔다. 다이제스트 3종이 쓰는 「작업 전 소유권 확보」와
+//      같은 방식이다.
+//   2. 발송에 실패하면 선점을 **되돌린다**(mail_sent_at = NULL) → 웹훅 재시도가 다시 잡는다.
+//      되돌리기까지 실패하면 그 알림은 「보낸 것」으로 남으므로 로그에 크게 남긴다 —
+//      운영자가 수동 SQL 로 NULL 을 넣어 재발송.
+//   3. 인플루언서 없음·이메일 없음 같은 「보낼 수 없는」 경우는 선점을 그대로 둔다(재시도 무의미).
 //
 // 배포 명령:
 //   bash scripts/sync-email-templates.sh
 //   # 개발
 //   supabase functions deploy notify-deliverable-decision --project-ref qysmxtipobomefudyixw
 //   # 운영
-//   supabase functions deploy notify-deliverable-decision --project-ref twofagomeizrtkwlhsuv
+//   supabase functions deploy notify-deliverable-decision --project-ref nrwtujmlbktxjgdwlpjj   # ⚠️ 옛 시드니(twofago…)가 아니라 도쿄
 //   # 비밀값
 //   supabase secrets set BREVO_API_KEY=xxx --project-ref <ref>
 //
@@ -192,6 +198,11 @@ interface NextStepCampaign {
   recruit_type: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 아래 두 칸은 완료 문구를 고르는 재료다(completionTail 참조).
+  //   ⚠️ `undefined`(조회가 안 가져옴)와 `null`(데이터베이스가 비었다고 답함)을
+  //   반드시 구분한다 — 앞은 "모른다", 뒤는 "없다"이고 문구가 갈린다.
+  reward?: number | null;
+  product_price?: number | null;
 }
 
 // 공통 스타일 헬퍼 — 파란(다음 단계 남음) / 초록(완료) 두 톤만 쓴다(기존 색 그대로 유지).
@@ -205,6 +216,50 @@ function nextStepBox(tone: "blue" | "green", bodyHtml: string): string {
     bodyHtml +
     `</div>`
   );
+}
+
+// 「전부 제출됐다」 뒤에 붙일 마지막 문장 — 세 갈래.
+//
+// 🔴 왜 갈래가 셋인가
+//   제품만 주고 현금은 없는 캠페인(약관 제13조 3항)이 정상적으로 존재하는데, 이 메일은
+//   그 사실을 모르고 **「담당자 최종 확인 후 보수 지급을 진행합니다」**를 보내 왔다.
+//   지급은 영원히 없다 — 정산 후보를 고르는 함수가 그 형식을 **의도적으로 제외**하기
+//   때문이다(마이그레이션 264 → 현재 원본 331 의 `reward IS NULL OR reward <= 0`).
+//   실측(2026-09-02 운영): 무보수 당선 650건 중 **307건**이 이 문장을 실제로 받았다.
+//
+// ⚠️ 무보수와 「리뷰어형인데 제품 금액이 0」을 **한 갈래로 합치면 안 된다.** 둘은 결과가
+//   반대다 — 무보수는 설계대로 영원히 안 주고, 리뷰어형 금액 0은 **관리자가 금액을
+//   채우면 실제로 지급된다**(정산 후보에는 들고 `amount_issue` 로 보류될 뿐이다).
+//   합쳐서 「참여해 주셔서 감사합니다」를 보내면 **줄 것을 안 준다고 말하는** 셈이라,
+//   지금 결함을 정반대 방향의 같은 거짓말로 바꾸는 것이 된다.
+//
+// ⚠️ 무보수 문구에 「보수는 없습니다」라고 쓰지 않는다 — 회원은 응모 전에 이미 캠페인
+//   상세에서 「製品無償提供」을 보고 신청했다. 다 끝난 시점에 없는 것을 다시 말하면
+//   **주지 않는다는 통보**로 읽힌다.
+//
+// ⚠️ 모르면 중립이다. 이 파일의 기존 관례(`missingChannels === null` 갈래)와 같은
+//   방향이고, 「보수 지급」을 기본값으로 두면 지금 결함이 그대로 남는다.
+//   🔴 `undefined`(조회가 그 칸을 안 가져옴)와 `null`(데이터베이스가 "없다"고 답함)을
+//   구분한다 — 앞은 모르는 것이라 중립, 뒤는 정산 함수와 같은 기준으로 "무보수"다.
+function completionTail(camp: NextStepCampaign): string {
+  const PAID    = "担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。";
+  const UNPAID  = "ご参加ありがとうございました。";
+  const NEUTRAL = "次のステップは「活動管理」でご確認ください。";
+
+  const recruitType = camp.recruit_type || null;
+  if (!recruitType) return NEUTRAL;           // 형식을 모르면 어느 갈래인지 못 고른다
+
+  if (recruitType !== "monitor") {
+    // 시딩·방문형 — 현금 리워드가 판정 재료다.
+    if (camp.reward === undefined) return NEUTRAL;   // 조회가 안 가져옴 → 모름
+    if ((camp.reward ?? 0) <= 0) return UNPAID;      // 정산 후보 함수와 같은 기준
+    return PAID;
+  }
+
+  // 리뷰어형 — 지급액 상한이 제품 금액이다.
+  if (camp.product_price === undefined) return NEUTRAL;
+  if ((camp.product_price ?? 0) <= 0) return NEUTRAL; // 금액 미확정 → 감사 문구가 아니라 중립
+  return PAID;
 }
 
 // ⚠️ sb 매개변수를 `ReturnType<typeof createClient>` 로 타이핑하지 않는다 — 오버로드된
@@ -322,7 +377,7 @@ async function buildNextStepBlock(
     if (isProxyPurchase) {
       return nextStepBox(
         "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     // 리뷰어형(monitor) 일반 — 기존 STEP 2 안내(변경 없음).
@@ -378,7 +433,7 @@ async function buildNextStepBlock(
     if (missingChannels.length === 0) {
       return nextStepBox(
         "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     // 아직 남은 채널이 있다 — 요구 채널이 2개 이상일 때만 이름을 병기(단일 채널이면
@@ -427,7 +482,7 @@ async function buildNextStepBlock(
     if (missingChannels.length === 0) {
       return nextStepBox(
         "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>担当者の最終確認のうえ、報酬のお支払いを進めます。今しばらくお待ちください。</div>`,
+        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>投稿URLの審査が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     let missingLabel = "他のチャンネル分";
@@ -445,9 +500,69 @@ async function buildNextStepBlock(
   return "";
 }
 
+
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+function isAnonJwt(token: string): boolean {
+  if (!token.startsWith("eyJ")) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "anon";
+  } catch {
+    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  if (isAnonJwt(token)) {
+    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  if (rejectPublicKeyCaller(req, "notify-deliverable-decision")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   let payload: WebhookPayload;
@@ -523,26 +638,47 @@ Deno.serve(async (req: Request) => {
 
   const sb = createClient(supaUrl, serviceKey, { auth: { persistSession: false } });
 
-  // 멱등성 2차: 발송 직전 DB 재확인 (Webhook 재실행 등 race 방지)
-  const { data: noteCheck, error: noteCheckErr } = await sb
+  // 멱등성 2차 — 🔴 **선점 먼저**(D-19). 조건부 UPDATE 가 0행이면 다른 실행이 이미 잡은 것.
+  //   예전의 「SELECT 로 확인 → 발송 → UPDATE」는 확인과 기록 사이가 열려 있어 웹훅 재시도가
+  //   겹치면 두 번 보냈다. 이제 이 UPDATE 를 통과한 실행만 발송한다.
+  const claimedAt = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await sb
     .from("notifications")
-    .select("id, mail_sent_at")
+    .update({ mail_sent_at: claimedAt })
     .eq("id", note.id)
-    .maybeSingle();
-  if (noteCheckErr) {
-    console.error("[notify-deliverable-decision] note re-check failed", noteCheckErr);
-    return new Response(JSON.stringify({ error: noteCheckErr.message }), {
+    .is("mail_sent_at", null)
+    .select("id");
+  if (claimErr) {
+    console.error("[notify-deliverable-decision] claim failed", claimErr);
+    return new Response(JSON.stringify({ error: claimErr.message }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
   }
-  if (noteCheck?.mail_sent_at) {
-    console.log("[notify-deliverable-decision] already sent (db re-check), skipped");
-    return new Response(JSON.stringify({ skipped: true, reason: "already_sent_db" }), {
+  if (!claimed || claimed.length === 0) {
+    console.log("[notify-deliverable-decision] already claimed by another run, skipped");
+    return new Response(JSON.stringify({ skipped: true, reason: "already_claimed" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
   }
+  // 발송에 못 이르렀을 때 선점을 되돌린다 — 웹훅 재시도가 다시 잡을 수 있게.
+  //   ⚠️ 되돌리기까지 실패하면 그 알림은 「보낸 것」으로 남는다 → 로그에 크게 남기고 끝낸다.
+  //   🔴 비교값은 **선점 때 쓴 `claimedAt` 문자열을 그대로** 쓴다 — 데이터베이스에서 다시 읽어
+  //      비교하면 정밀도·표기가 달라 0행이 될 수 있다(재조회 금지). 자기 선점만 되돌리므로
+  //      그 사이 다른 실행이 새로 잡은 선점은 안 건드린다.
+  const unclaim = async (why: string) => {
+    const { error: unErr } = await sb
+      .from("notifications")
+      .update({ mail_sent_at: null })
+      .eq("id", note.id)
+      .eq("mail_sent_at", claimedAt);
+    if (unErr) {
+      console.error("[notify-deliverable-decision] 🔴 UNCLAIM FAILED — notification stays marked as sent; reset mail_sent_at manually", { id: note.id, why, unErr });
+    } else {
+      console.warn("[notify-deliverable-decision] claim released", { id: note.id, why });
+    }
+  };
 
   // 결과물 + 캠페인 + 인플루언서 정보 조회
   // application_id·campaigns.recruit_type/proxy_purchase/channel 은 buildNextStepBlock 이
@@ -552,12 +688,13 @@ Deno.serve(async (req: Request) => {
     .select(`
       id, application_id, kind, status, post_url, post_channel,
       submitted_at, reviewed_at, reject_reason,
-      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel)
+      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, reward, product_price)
     `)
     .eq("id", note.ref_id)
     .maybeSingle();
   if (delivErr || !deliv) {
     console.error("[notify-deliverable-decision] deliverable fetch failed", delivErr);
+    await unclaim("deliverable fetch failed");
     return new Response(JSON.stringify({ error: "deliverable not found" }), {
       status: 500,
       headers: { "content-type": "application/json" },
@@ -570,15 +707,22 @@ Deno.serve(async (req: Request) => {
     .eq("id", note.user_id)
     .maybeSingle();
   // 인플루언서 행 누락(legacy id 어긋남·탈퇴) 또는 이메일 없음 → graceful skip
-  // 알림은 "처리됨"으로 마킹해 같은 알림에 대한 Webhook 재시도 차단
+  //   ⚠️ 조회 자체가 실패한 것(fetch_error)은 선점을 되돌려 재시도가 다시 잡게 하고,
+  //      행이 없거나 이메일이 없는 것은 재시도해도 같으므로 선점을 그대로 둔다(= 처리됨).
   if (infErr || !inf?.email) {
     console.warn("[notify-deliverable-decision] influencer not found or no email — graceful skip", {
       record_id: note.id,
       user_id: note.user_id,
       reason: infErr ? "fetch_error" : (!inf ? "no_row" : "no_email"),
     });
-    await sb.from("notifications").update({ mail_sent_at: new Date().toISOString() })
-      .eq("id", note.id).is("mail_sent_at", null);
+    if (infErr) {
+      // 조회 실패는 500 — 웹훅 재시도가 비2xx 에만 걸릴 수 있어, 되돌린 선점을 다시 잡을 기회를 준다.
+      await unclaim("influencer fetch failed");
+      return new Response(JSON.stringify({ error: "influencer fetch failed" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ skipped: "influencer not found or email missing" }), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -686,24 +830,15 @@ Deno.serve(async (req: Request) => {
     });
   } catch (e) {
     console.error("[notify-deliverable-decision] brevo send failed", (e as Error).message);
+    await unclaim("brevo send failed");
     return new Response(JSON.stringify({ error: (e as Error).message, sent: false }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
   }
 
-  // 발송 성공 → mail_sent_at 마킹
-  const { error: markErr } = await sb
-    .from("notifications")
-    .update({ mail_sent_at: new Date().toISOString() })
-    .eq("id", note.id)
-    .is("mail_sent_at", null);
-  if (markErr) {
-    console.error("[notify-deliverable-decision] mark mail_sent_at failed", markErr);
-    // 메일은 이미 나갔으므로 200 으로 응답하되 경고 로그만
-  }
-
-  console.log("[notify-deliverable-decision] done", { id: note.id, kind: deliv.kind, decision });
+  // 발송 성공 — mail_sent_at 은 위에서 선점할 때 이미 찍혔다(D-19). 여기서 다시 쓰지 않는다.
+  console.log("[notify-deliverable-decision] done", { id: note.id, kind: deliv.kind, decision, claimedAt });
   return new Response(JSON.stringify({ sent: true, kind: deliv.kind, decision }), {
     status: 200,
     headers: { "content-type": "application/json" },

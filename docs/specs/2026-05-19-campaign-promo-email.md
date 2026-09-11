@@ -1,7 +1,7 @@
 # 신규 캠페인 홍보 메일 — 일일 다이제스트
 
 **작성일:** 2026-05-19
-**상태:** 사양 확정 (개발 세션에 인계 대기)
+**상태:** ✅ **운영에 있음** (2026-09-02 기획 세션 확인 — Edge Function `notify-campaign-promo-digest`(`origin/main`)). 배포 시점·마이그레이션 번호는 아래 「구현 결과」가 단일 소스다. ⚠️ 확인한 것은 **`origin/main` 에 함수 파일이 있다**는 것까지다 — 메일 함수는 git 머지와 실제 배포가 별개라, 배포 시각은 `supabase functions list --project-ref <운영>` 로만 확인된다.
 **관련:** 신규 기능 (Edge Function + DB 마이그레이션 + 인플 페이지 + 마이페이지)
 **참조:** `docs/specs/2026-05-18-mail-pipeline-consolidation.md` (메일 인프라 패턴), `docs/specs/2026-05-18-application-email-pipeline.md` (인플루언서 다이제스트 패턴)
 

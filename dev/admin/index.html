@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=1280"><!-- 관리자는 PC 레이아웃 고정. 모바일에서는 1280px 을 화면에 맞춰 축소해 보여 주고 핀치로 확대한다(기기 폭이면 고정 상자에 잘려 오른쪽이 안 보였다, 2026-09-11) -->
 <title>REVERB Admin</title>
 <link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%232D1F2B'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>A</text></svg>">
 <script>
@@ -39,7 +39,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <script>window._supabaseLoaded = false;</script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <!-- ⚠️ 아래 라이브러리는 **defer** 로 미룬다. 안 미루면 각각 내려받아 실행할 때까지
@@ -123,6 +123,7 @@
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="reports" id="adminReportsSi" onclick="navAdminPaneReload('reports')"><span class="si-icon material-icons-round">summarize</span><span class="si-text">리포트 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openMessagesUnresolved()" title="미응대만 보기">0</span></div>
         <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
@@ -162,7 +163,7 @@
             <option value="influencer">인플루언서 화면</option>
           </select>
         </div>
-        <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
+        <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
           <span class="admin-build-text">__BUILD_DATETIME_KST__ · __GIT_SHA_SHORT__</span>
         </div>
@@ -354,6 +355,7 @@
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
+                <button class="btn btn-ghost btn-xs" id="btnCampSelectReport" onclick="openReportCreateModal()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">summarize</span> 리포트 만들기</button>
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
               </div>
             </div>
@@ -374,17 +376,21 @@
   <!-- 모집·구매·방문 기간을 한 칸에 모으고 줄마다 이름표를 단다(2026-08-11).
        선정 기간은 시딩형 전용이라 자기 열을 따로 갖는다.
        ⚠️ 이 머리글은 updateCampTableHead() 에도 같은 내용이 있다 — 함께 고칠 것. -->
-  <th>기간</th>
-  <th>선정기간</th>
-  <th>결과물 제출 마감</th>
+  <th>기간 <span class="sort-arrows" data-sort="period" onclick="toggleCampSort('period')" title="모집 시작일 기준">▲▼</span></th>
+  <th>선정기간 <span class="sort-arrows" data-sort="selection" onclick="toggleCampSort('selection')" title="선정 시작일 기준">▲▼</span></th>
+  <th>결과물 제출 마감 <span class="sort-arrows" data-sort="submission" onclick="toggleCampSort('submission')">▲▼</span></th>
+  <!-- ⚠️ 이 머리글은 updateCampTableHead() 에도 같은 내용이 있다 — 함께 고칠 것.
+       칸을 늘리면 아래 스피너 colspan(16)과 admin.js 의 빈 상태 colspan 도 함께. -->
+  <th style="width:110px" title="승인/제출 건수. 앞이 승인, 뒤가 제출">결과물 현황</th>
   <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">▲▼</span></th>
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <!-- colspan 은 위 머리글 칸 수(15)와 같아야 한다 — 그 전에는 「노출」 칸이
-                   빠진 채 세어 어긋나 있었다(2026-08-11 정정) -->
-              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <!-- colspan 은 위 머리글 칸 수(16)와 같아야 한다 — 그 전에는 「노출」 칸이
+                   빠진 채 세어 어긋나 있었다(2026-08-11 정정).
+                   2026-09-03 「결과물 현황」 열이 늘어 15 → 16. -->
+              <tbody id="adminCampsBody"><tr><td colspan="16" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -450,6 +456,27 @@
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="editCampInviteWarn" style="display:none">번호를 바꾸면 이전 링크는 즉시 쓸 수 없게 됩니다. 이미 보낸 링크가 있으면 다시 보내야 합니다.</div>
+                <!-- 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 · 사양서 2026-08-24 §설계 0
+                     ⚠️ 행사 모드 **그리고** 비공개일 때만 보인다(조건이 둘). 비공개만 보고 켜면
+                        행사가 아닌 캠페인에서도 뜬다. 표시 판정은 applySelectionModeVisibility
+                        (admin-event.js) 한 곳에서만 한다 — 호출자 쪽에서 숨기면 뒤늦게 끝난
+                        비동기 렌더가 되살린다(2026-08-03 실측 사고). -->
+                <div id="editCampSelectionModeRow" class="event-selection-row" style="display:none">
+                  <div class="event-selection-title">신청 접수 방식</div>
+                  <div class="event-selection-choices">
+                    <label class="event-selection-choice">
+                      <input type="radio" name="editCampSelectionMode" value="first_come" onchange="onSelectionModeChange('edit')" checked>
+                      <span>선착순형</span>
+                    </label>
+                    <label class="event-selection-choice">
+                      <input type="radio" name="editCampSelectionMode" value="selection" onchange="onSelectionModeChange('edit')">
+                      <span>선정형</span>
+                    </label>
+                  </div>
+                  <div class="form-hint"><b>선착순형</b> — 정원이 남아 있으면 그 자리에서 당선됩니다(지금과 같습니다).</div>
+                  <div class="form-hint"><b>선정형</b> — 정원과 상관없이 신청만 받고, 관리자가 직접 뽑습니다. <b>예약이 한 건이라도 들어오면 바꿀 수 없습니다.</b></div>
+                  <div class="form-hint" id="editCampSelectionModeLockNote" style="display:none"></div>
+                </div>
               </div>
             </div>
 
@@ -459,9 +486,13 @@
               <div class="form-group">
                 <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:6px;align-items:stretch">
-                  <select id="editCampBrandId" class="form-input" style="flex:1" onchange="onCampBrandChange('edit')">
-                    <option value="">-- 브랜드 선택 --</option>
-                  </select>
+                  <!-- 검색형 드롭다운(오리엔시트 발급 모달·대리 등록과 같은 .admin-proxy-combobox). hidden #editCampBrandId 가 선택 brand_id 를 보관해
+                       읽는 쪽(onCampBrandChange·저장·되돌림 감지)은 그대로다(2026-09-09 사용자 지시) -->
+                  <div class="admin-proxy-combobox" id="editCampBrandCombobox" style="flex:1">
+                    <input type="text" id="editCampBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명·번호 검색 후 선택 (전체 보려면 비워두고 클릭)" autocomplete="off" data-lpignore="true" onfocus="campBrandShowList('edit')" onclick="campBrandShowList('edit')" oninput="campBrandInput('edit')">
+                    <input type="hidden" id="editCampBrandId">
+                    <div class="admin-proxy-combobox-list" id="editCampBrandList"></div>
+                  </div>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="openNewBrandModal('edit')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
                     <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
                   </button>
@@ -567,13 +598,19 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="editCampChannelWrap"></div>
                 <div id="editCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
                   <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
-                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
-                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked onchange="applyFollowerKindUI('edit')" style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" onchange="applyFollowerKindUI('edit')" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
                 </div>
               </div>
               <div class="form-group" id="editCampMinFollowersGroup">
-                <div style="display:flex;gap:8px;align-items:end">
-                  <div style="flex:1">
+                <!-- 이 줄(기준 채널 + 최소 팔로워수)은 「그리고」 갈래에서 **통째로** 숨긴다.
+                     자식만 숨기면 빈 줄이 남아 아래 「채널별 최소 팔로워수」 제목이
+                     왼쪽 「채널」 제목보다 내려간다(2026-08-27 화면에서 잡음). -->
+                <div id="editCampSingleFollowerRow" style="display:flex;gap:8px;align-items:end">
+                  <!-- 기준 채널 칸은 「그리고」 갈래에서만 보인다. 채널 1개·「또는」에서는
+                       그 값이 판정에 안 쓰이므로 숨긴다(applyFollowerKindUI). 칸 자체는
+                       지우지 않는다 — 운영 57건에 저장값이 있고 되돌릴 길을 남긴다. -->
+                  <div style="flex:1" id="editCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="editCampPrimaryChannel" class="form-input"></select>
                   </div>
@@ -582,6 +619,8 @@
                     <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
+                <div id="editCampByChannelWrap" class="form-group" style="display:none;margin-bottom:0"></div>
+                <div id="editCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -591,7 +630,12 @@
               </div>
             </div>
 
-            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <!-- 기간 입력 — 시간 흐름 순: [모집] [구매(리뷰어형)] [선정] [방문(방문형)] [결과물 제출 마감일]
+                 ⚠️ 구매와 방문은 모집 형식이 달라 **동시에 보이지 않는다**. 그래서 실제로 보이는 순서는
+                    리뷰어형=모집·구매 / 시딩형=모집·선정 / 방문형=모집·선정·방문 이다.
+                 ⚠️ 선정을 방문 **앞**에 두는 이유 — 인플루언서 상세·미리보기·진행현황이 모두
+                    모집 → 선정 → 방문 순으로 그린다. 폼만 순서가 다르면 담당자가 헷갈린다
+                    (2026-08-24 사용자 지시). 순서를 바꿀 때는 신규·편집 **두 폼을 함께** 고칠 것. -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label" id="editCampRecruitRangeLabelWrap"><span id="editCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -611,14 +655,6 @@
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="editCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group" id="editCampVisitRow" style="display:none">
-                <label class="form-label">방문 기간</label>
-                <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
-                <input type="hidden" id="editCampVisitStart">
-                <input type="hidden" id="editCampVisitEnd">
-                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
-                <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
               <div class="form-group" id="editCampSelectionRow" style="display:none">
                 <label class="form-label">선정 기간</label>
                 <input type="text" id="editCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="selection" readonly>
@@ -627,6 +663,14 @@
                 <div class="form-hint">응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면·캠페인 목록·진행현황에 안 나옵니다</div>
                 <div id="editCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
+              <div class="form-group" id="editCampVisitRow" style="display:none">
+                <label class="form-label">방문 기간</label>
+                <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
+                <input type="hidden" id="editCampVisitStart">
+                <input type="hidden" id="editCampVisitEnd">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+                <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
               <div class="form-group">
                 <label class="form-label" id="editCampSubmissionEndLabel">결과물 제출 마감일</label>
                 <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
@@ -634,7 +678,7 @@
                 <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
             </div>
-            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
+            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、お申込の状態変更(当選)及びメールにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
             <!-- 행사 시간 — 행사 모드일 때만 보인다. 모집 조건 안에 두는 이유: 방문 날짜·시각·
                  정원은 그 캠페인을 언제 몇 명 받느냐는 조건이라 모집 인원·기간과 한 묶음이다
                  (사용자 요청 2026-08-03 — 더보기 메뉴 진입 폐지 후 위치 재조정). -->
@@ -752,7 +796,7 @@
               </div>
             </div>
             <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="editCampAppeal"></div></div>
-            <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampGuideLabel">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div><!-- 라벨은 모집 형식에 따라 바뀐다(리뷰어형=리뷰 가이드, applyDeadlineFieldsVisibility) -->
             <!-- 참여방법: 요약 카드 + 편집 모달로 분리 (긴 인라인 편집 UI 는 모달 안으로 이동) -->
             <div class="bundle-summary-card" id="editCampPsetSummary" data-kind="pset" data-form-mode="edit">
               <div class="bundle-summary-label">참여방법</div>
@@ -885,6 +929,26 @@
                 </div>
                 <div class="form-hint">캠페인 목록에 뜨지 않고, 초대 번호가 확인된 사람만 내용을 볼 수 있습니다.</div>
                 <div class="form-hint" id="newCampInviteSaveHint" style="display:none">초대 링크는 캠페인을 저장한 뒤 편집 화면에서 복사할 수 있습니다.</div>
+                <!-- 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 · 사양서 2026-08-24 §설계 0
+                     ⚠️ 행사 모드 **그리고** 비공개일 때만 보인다(조건이 둘). 비공개만 보고 켜면
+                        행사가 아닌 캠페인에서도 뜬다. 표시 판정은 applySelectionModeVisibility
+                        (admin-event.js) 한 곳에서만 한다 — 호출자 쪽에서 숨기면 뒤늦게 끝난
+                        비동기 렌더가 되살린다(2026-08-03 실측 사고). -->
+                <div id="newCampSelectionModeRow" class="event-selection-row" style="display:none">
+                  <div class="event-selection-title">신청 접수 방식</div>
+                  <div class="event-selection-choices">
+                    <label class="event-selection-choice">
+                      <input type="radio" name="newCampSelectionMode" value="first_come" onchange="onSelectionModeChange('new')" checked>
+                      <span>선착순형</span>
+                    </label>
+                    <label class="event-selection-choice">
+                      <input type="radio" name="newCampSelectionMode" value="selection" onchange="onSelectionModeChange('new')">
+                      <span>선정형</span>
+                    </label>
+                  </div>
+                  <div class="form-hint"><b>선착순형</b> — 정원이 남아 있으면 그 자리에서 당선됩니다(지금과 같습니다).</div>
+                  <div class="form-hint"><b>선정형</b> — 정원과 상관없이 신청만 받고, 관리자가 직접 뽑습니다. <b>예약이 한 건이라도 들어오면 바꿀 수 없습니다.</b></div>
+                </div>
               </div>
             </div>
 
@@ -897,9 +961,13 @@
               <div class="form-group">
                 <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:6px;align-items:stretch">
-                  <select id="newCampBrandId" class="form-input" style="flex:1" onchange="onCampBrandChange('new')">
-                    <option value="">-- 브랜드 선택 --</option>
-                  </select>
+                  <!-- 검색형 드롭다운(오리엔시트 발급 모달·대리 등록과 같은 .admin-proxy-combobox). hidden #newCampBrandId 가 선택 brand_id 를 보관해
+                       읽는 쪽(onCampBrandChange·저장·되돌림 감지)은 그대로다(2026-09-09 사용자 지시) -->
+                  <div class="admin-proxy-combobox" id="newCampBrandCombobox" style="flex:1">
+                    <input type="text" id="newCampBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명·번호 검색 후 선택 (전체 보려면 비워두고 클릭)" autocomplete="off" data-lpignore="true" onfocus="campBrandShowList('new')" onclick="campBrandShowList('new')" oninput="campBrandInput('new')">
+                    <input type="hidden" id="newCampBrandId">
+                    <div class="admin-proxy-combobox-list" id="newCampBrandList"></div>
+                  </div>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="openNewBrandModal('new')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
                     <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
                   </button>
@@ -927,7 +995,7 @@
                     <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting');applyGiftingDefaultHashtag('new')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-visit">
                     <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this);filterChannelsByRecruitType('new','visit');applyMinFollowersVisibility('new','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
@@ -1008,13 +1076,15 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="newCampChannelWrap"></div>
                 <div id="newCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
                   <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
-                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
-                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked onchange="applyFollowerKindUI('new')" style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" onchange="applyFollowerKindUI('new')" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
                 </div>
               </div>
               <div class="form-group" id="newCampMinFollowersGroup">
-                <div style="display:flex;gap:8px;align-items:end">
-                  <div style="flex:1">
+                <!-- 편집 폼과 같은 규칙 -->
+                <div id="newCampSingleFollowerRow" style="display:flex;gap:8px;align-items:end">
+                  <!-- 편집 폼과 같은 규칙 — applyFollowerKindUI 참조 -->
+                  <div style="flex:1" id="newCampPrimaryChannelWrap">
                     <label class="form-label" style="margin:0 0 4px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="newCampPrimaryChannel" class="form-input"></select>
                   </div>
@@ -1023,6 +1093,8 @@
                     <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
                   </div>
                 </div>
+                <div id="newCampByChannelWrap" class="form-group" style="display:none;margin-bottom:0"></div>
+                <div id="newCampFollowerKindNote" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:#8A5510;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;padding:7px 10px"></div>
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -1032,7 +1104,12 @@
               </div>
             </div>
 
-            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <!-- 기간 입력 — 시간 흐름 순: [모집] [구매(리뷰어형)] [선정] [방문(방문형)] [결과물 제출 마감일]
+                 ⚠️ 구매와 방문은 모집 형식이 달라 **동시에 보이지 않는다**. 그래서 실제로 보이는 순서는
+                    리뷰어형=모집·구매 / 시딩형=모집·선정 / 방문형=모집·선정·방문 이다.
+                 ⚠️ 선정을 방문 **앞**에 두는 이유 — 인플루언서 상세·미리보기·진행현황이 모두
+                    모집 → 선정 → 방문 순으로 그린다. 폼만 순서가 다르면 담당자가 헷갈린다
+                    (2026-08-24 사용자 지시). 순서를 바꿀 때는 신규·편집 **두 폼을 함께** 고칠 것. -->
             <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label" id="newCampRecruitRangeLabelWrap"><span id="newCampRecruitRangeLabel">모집 기간</span> <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -1052,14 +1129,6 @@
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="newCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group" id="newCampVisitRow" style="display:none">
-                <label class="form-label">방문 기간</label>
-                <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
-                <input type="hidden" id="newCampVisitStart">
-                <input type="hidden" id="newCampVisitEnd">
-                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
-                <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
               <div class="form-group" id="newCampSelectionRow" style="display:none">
                 <label class="form-label">선정 기간</label>
                 <input type="text" id="newCampSelectionRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="selection" readonly>
@@ -1067,6 +1136,14 @@
                 <input type="hidden" id="newCampSelectionEnd">
                 <div class="form-hint">응모자 중 참여자를 고르는 기간. 비우면 인플루언서 화면·캠페인 목록·진행현황에 안 나옵니다</div>
                 <div id="newCampSelectionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
+              <div class="form-group" id="newCampVisitRow" style="display:none">
+                <label class="form-label">방문 기간</label>
+                <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
+                <input type="hidden" id="newCampVisitStart">
+                <input type="hidden" id="newCampVisitEnd">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+                <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group">
                 <label class="form-label" id="newCampSubmissionEndLabel">결과물 제출 마감일</label>
@@ -1077,7 +1154,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">당선 발표 안내</label>
-              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、LINEにてご連絡" placeholder="選考後、LINEにてご連絡">
+              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、お申込の状態変更(当選)及びメールにてご連絡" placeholder="選考後、お申込の状態変更(当選)及びメールにてご連絡">
               <div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 기본값 그대로 사용 가능</div>
             </div>
 
@@ -1097,7 +1174,7 @@
               </div>
             </div>
             <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="newCampAppeal"></div></div>
-            <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampGuideLabel">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div><!-- 라벨은 모집 형식에 따라 바뀐다(리뷰어형=리뷰 가이드, applyDeadlineFieldsVisibility) -->
             <!-- 참여방법: 요약 카드 + 편집 모달로 분리 -->
             <div class="bundle-summary-card" id="newCampPsetSummary" data-kind="pset" data-form-mode="new">
               <div class="bundle-summary-label">참여방법</div>
@@ -1338,6 +1415,16 @@
                   <option value="approved">모두 승인</option>
                 </select>
               </div>
+              <!-- 인증 성공일 기간 — 결과물 탭 전용(검수 상태와 같은 자리에서 함께 보이고 함께 숨는다) -->
+              <div class="admin-filter-group" id="campDelivCertRangeGroup" style="display:none">
+                <label>인증 성공일</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input type="text" id="campDelivCertRange" class="admin-filter-search" readonly placeholder="기간 선택" title="그 기간 안에 인증 성공한 건만 봅니다. 인증 성공 전인 건은 날짜가 없어 빠집니다." style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
+                  <!-- ⚠️ 이 화면에는 「보기 초기화」가 없다. 달력은 readonly 라 한 번 고르면 스스로 비울
+                       수단이 없어, 지우기 단추가 없으면 「0건」 화면에서 못 빠져나온다. -->
+                  <button type="button" id="btnCampDelivCertClear" class="btn btn-ghost btn-xs" onclick="clearCampDelivCertRange()" title="인증 성공일 기간 지우기" style="display:none;height:32px;padding:0 6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">close</span></button>
+                </div>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="position:relative">
@@ -1356,7 +1443,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <thead id="campApplicantsHead"><tr><th>이름 <span class="sort-arrows" data-sort="name" onclick="toggleCampAppSort('name')">▲▼</span></th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>신청 사유</th><th>신청일 <span class="sort-arrows" data-sort="created" onclick="toggleCampAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
               <tbody id="campApplicantsBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -1370,7 +1457,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>인플루언서</th><th style="width:132px;white-space:nowrap">인증 상태</th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출</th><th class="deliv-col-action">처리</th></tr></thead>
+              <thead id="campDelivHead"><tr><th>인플루언서 <span class="sort-arrows" data-sort="name" onclick="toggleCampDelivSort('name')">▲▼</span></th><th style="width:132px;white-space:nowrap">인증 상태</th><th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleCampDelivSort('cert_at')">▲▼</span></th><th class="deliv-col-receipt">영수증</th><th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th><th class="deliv-col-result">결과물</th><th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleCampDelivSort('submitted')">▲▼</span></th><th class="deliv-col-action">처리</th></tr></thead>
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
@@ -1387,9 +1474,23 @@
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openEventScanPage(currentCampApplicantId)" title="행사 당일 부스에서 예약번호를 확인하는 화면을 엽니다"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">qr_code_scanner</span> 현장 확인 열기</button>
               <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="exportEventTicketsExcel(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> 명단 엑셀</button>
             </div>
+            <!-- 선정형(직접 뽑기) 전용 줄 — 정원 현황 + 뽑기·탈락 버튼.
+                 ⚠️ 선착순형·일반 공개 캠페인에서는 **아예 안 보인다**(작업표 S-7 검증 17).
+                    보이는 조건은 admin-event.js 의 eventPaneIsSelection() 한 곳에서만 판정한다. -->
+            <div id="eventTicketSelectionBar" style="display:none;flex-direction:column;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--surface-container-low)">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span id="eventTicketCapacityInfo" style="font-size:13px;color:var(--ink)"></span>
+                <div style="flex:1;min-width:8px"></div>
+                <button type="button" class="btn btn-green btn-sm" id="eventTicketPickBtn" onclick="pickSelectedEventTickets()">뽑기</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="eventTicketRejectBtn" style="color:var(--red);border-color:var(--red)" onclick="rejectSelectedEventTickets()">탈락</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="eventTicketClearSelBtn" onclick="clearEventTicketSelection()">선택 해제</button>
+              </div>
+              <div id="eventTicketSlotBreakdown" style="display:none;font-size:12px;line-height:1.7"></div>
+              <div id="eventTicketSelectionNotice" style="display:none;font-size:12px;line-height:1.7;color:var(--red)"></div>
+            </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
+              <thead><tr><th id="eventTicketSelectAllCell" style="display:none;width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventTicketSelectAll" onchange="toggleEventTicketSelectAll(this.checked)" title="지금 보이는 심사중 방문객 전체 선택"></th><th>날짜</th><th>시각</th><th>이름</th><th>예약번호</th><th>상태</th><th>입장 시각</th><th>처리자</th><th style="width:110px">처리</th></tr></thead>
               <tbody id="eventTicketsBody"></tbody>
             </table>
             </div>
@@ -1436,7 +1537,14 @@
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th style="min-width:240px">캠페인</th><th style="min-width:110px">채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
+                <!-- 🔴 앞 두 열에는 **인라인 폭을 쓰지 않는다.** 이 표는 첫 두 열이 고정(sticky)이고,
+                     그 자리(`left:0`·`left:380px`)와 폭(380px·150px)을 `admin.css` 가 정한다.
+                     여기에 인라인 `min-width` 를 두면 **인라인이 CSS 를 이겨** 열이 좁아지는데
+                     고정 위치는 CSS 값 그대로라, 둘째 열이 제 자리를 지나쳐 옆 열과 겹친다.
+                     ⚠️ 데이터가 실리면 본문 칸이 380px 을 요구해 저절로 맞으므로 **로딩 중에만**
+                        깨진다 — 그래서 오래 안 보이다가 운영 보고로 드러났다(2026-09-01).
+                     ⚠️ 셋째 열부터는 CSS 가 폭을 안 정하므로 인라인 `min-width` 를 **남긴다.** -->
+                <thead id="appTableHead"><tr><th>캠페인</th><th>채널</th><th style="min-width:120px">브랜드</th><th style="min-width:240px">제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th style="min-width:180px">인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th style="min-width:310px">신청 사유</th><th style="min-width:110px">신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:90px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th style="min-width:120px">처리</th></tr></thead>
                 <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
@@ -1444,6 +1552,10 @@
         </div>
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <!-- 리포트 관리 (2026-09-03) — 내용은 dev/js/admin-reports.js 의 loadReportsPane() 이 그린다.
+             ⚠️ 여기에 admin-reports.js 의 <script> 태그를 넣지 않는다(빌드 목록에만 있다). -->
+        <div id="adminPane-reports" class="admin-pane admin-pane-list"></div>
+
         <div id="adminPane-deliverables" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1451,6 +1563,9 @@
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
                 <!-- 채널 어긋남 경고 — 0건이면 applyChannelDriftIndicators 가 버튼째 숨긴다 -->
                 <button id="delivDriftBtn" class="btn btn-sm" style="display:none;align-items:center;gap:4px;border:1px solid;font-weight:700" onclick="openChannelDriftModal()"></button>
+                <!-- ⚠️ 「올려두고 미제출」 경고는 2026-08-26 에 **표의 「인증 상태」 열 제목 옆**으로
+                     옮겼다(그 열의 딱지를 가리키는 경고라 그 옆이 맞다). 여기에 다시 넣지 말 것 —
+                     같은 id 가 둘이 되면 표시 함수가 앞의 것만 찾아 표 쪽이 영영 안 뜬다. -->
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
@@ -1482,6 +1597,10 @@
               <div class="admin-filter-group">
                 <label>최근 제출일</label>
                 <input type="text" id="delivSubmittedRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
+              </div>
+              <div class="admin-filter-group">
+                <label>인증 성공일</label>
+                <input type="text" id="delivCertRange" class="admin-filter-search" readonly placeholder="기간 선택" title="그 기간 안에 인증 성공한 건만 봅니다. 인증 성공 전인 건은 날짜가 없어 빠집니다." style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>결과물 미제출</label>
@@ -1531,14 +1650,18 @@
                 <th class="deliv-col-brand">브랜드</th>
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
-                <th>인플루언서</th>
-                <th style="width:132px;white-space:nowrap">인증 상태</th>
+                <th>인플루언서 <span class="sort-arrows" data-sort="name" onclick="toggleDelivSort('name')">▲▼</span></th>
+                <!-- 「올려두고 미제출」 경고는 이 열의 딱지를 가리키므로 열 제목 옆에 둔다.
+                     0건이면 applyStalledDraftIndicators 가 통째로 감춘다. -->
+                <th style="width:132px;white-space:nowrap">인증 상태 <button type="button" id="delivStalledBtn" onclick="openStalledDraftModal()" title="" style="display:none;vertical-align:middle;margin-left:2px;padding:0;border:none;background:none;cursor:pointer;line-height:0"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:#B91C5C;vertical-align:middle">report_problem</span></button></th>
+                <th style="width:126px;white-space:nowrap">인증 성공일 <span class="sort-arrows" data-sort="cert_at" onclick="toggleDelivSort('cert_at')">▲▼</span></th>
                 <th class="deliv-col-receipt">영수증</th>
+                <th class="deliv-col-receipt-amount" style="width:110px;white-space:nowrap;text-align:right">구매금액</th>
                 <th class="deliv-col-result">결과물</th>
                 <th class="deliv-col-submitted">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th class="deliv-col-action">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2191,20 +2314,24 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">운영 현황</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드별 진행 상황을 한눈에. 경고 단계가 높은 브랜드부터 표시됩니다</div>
+                <div id="brandOpsSubtitle" style="font-size:11px;color:var(--muted);margin-top:2px">캠페인을 시간축 위에 놓고 일정과 진행 숫자를 한눈에</div>
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span> 새로고침
-              </button>
+              <div style="display:flex;align-items:center;gap:8px">
+                <!-- 일정 | 브랜드 뷰 전환 — 상단 탭에서 드롭다운으로(2026-09-09 사용자 지시). 항목·건수는 JS(renderBrandOpsViewTabs)가 채운다. 기본 「일정」 -->
+                <select id="brandOpsViewSelect" class="admin-filter" title="보기 전환" onchange="this.value === 'cards' ? showBrandOpsCards() : showBrandOpsSchedule()"></select>
+                <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span> 새로고침
+                </button>
+              </div>
             </div>
             <div class="admin-filter-bar">
               <div class="admin-filter-group">
                 <label>회사</label>
-                <select id="brandOpsCompanyFilter" class="admin-filter" onchange="renderBrandOpsCards()"><option value="">전체 회사</option></select>
+                <select id="brandOpsCompanyFilter" class="admin-filter" onchange="renderBrandOpsCurrentView()"><option value="">전체 회사</option></select>
               </div>
-              <div class="admin-filter-group">
+              <div class="admin-filter-group" id="brandOpsSortGroup">
                 <label>정렬</label>
-                <select id="brandOpsSortFilter" class="admin-filter" onchange="renderBrandOpsCards()">
+                <select id="brandOpsSortFilter" class="admin-filter" onchange="renderBrandOpsCurrentView()">
                   <option value="alert">경고 우선</option>
                   <option value="campaigns">진행 캠페인 많은 순</option>
                   <option value="activity">최근 활동 순</option>
@@ -2214,8 +2341,12 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="brandOpsSearch" name="brandops-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드명 · 회사명 · 브랜드번호" oninput="renderBrandOpsCards()">
+                  <input type="search" id="brandOpsSearch" name="brandops-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드명 · 회사명 · 브랜드번호" oninput="renderBrandOpsCurrentView()">
                 </div>
+              </div>
+              <div class="admin-filter-group" id="brandOpsScheduleTools" style="flex-direction:row;align-items:flex-end;gap:10px">
+                <label style="display:flex;align-items:center;gap:5px;padding-bottom:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" id="brandOpsIncludeEnded" onchange="setBrandOpsIncludeEnded(this.checked)"> 종료 포함</label>
+                <!-- ‹ 오늘 › · 일/주/월 · 모두 접기 는 2026-09-09 에 간트 차트 우측 상단(범례 줄)으로 옮겼다 — 아래 #brandOpsRangeNav -->
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -2224,14 +2355,30 @@
             </div>
           </div>
           <div id="brandOpsGrid" class="brand-ops-grid"></div>
-
-          <div class="admin-card" style="margin-top:16px">
-            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
-            <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">운영 현황을 열면 표시됩니다</td></tr></tbody>
-            </table>
+          <!-- 일정 뷰(간트). 왼쪽 열은 sticky 로 고정, 시간축만 가로 스크롤 -->
+          <div id="brandOpsScheduleWrap" hidden>
+            <div id="brandOpsScheduleNote" style="font-size:11px;color:var(--muted);margin-bottom:6px" hidden></div>
+            <div class="gantt-quick" id="brandOpsQuickChips"></div>
+            <!-- 범례(왼쪽) + 시간축 조작(오른쪽) 한 줄. 조작 단추는 필터 줄에 있다가 차트 바로 위로 옮겼다(2026-09-09 사용자 지시 — 차트와 붙어 있어야 무엇을 움직이는지 보인다) -->
+            <div class="gantt-topbar">
+              <div class="gantt-legend" id="brandOpsGanttLegend"></div>
+              <div id="brandOpsRangeNav" class="gantt-nav">
+                <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(-1)" title="과거로 이동"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="ganttToday()">오늘</button>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="ganttShift(1)" title="미래로 이동"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
+                <span class="gantt-nav-sep"></span>
+                <div id="brandOpsZoom" class="gantt-zoom" title="시간축 단위"></div>
+                <span class="gantt-nav-sep"></span>
+                <!-- 왼쪽 열 접기(#brandOpsLeftToggle)는 시간축 머리글의 왼쪽/오른쪽 구분선 위에 그린다(renderScheduleHead, 2026-09-09 사용자 지시) -->
+                <button type="button" class="btn btn-ghost btn-xs" id="brandOpsOpenAll"></button>
+              </div>
+            </div>
+            <div class="gantt-scroll" id="brandOpsGanttScroll">
+              <div class="gantt-head" id="brandOpsAxis"></div>
+              <div id="brandOpsScheduleRows"></div>
+            </div>
           </div>
+
         </div>
 
         <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
@@ -2585,6 +2732,8 @@
               <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
               <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
               <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
+              <!-- 견적 기준값(426) — 카드를 더 넣지 않고 여덟 번째 종류 탭으로(목록형 레이아웃은 admin-card 하나만 — 작업표 stale ⑥) -->
+              <button class="lookup-tab" data-kind="quote_settings" onclick="switchLookupTab('quote_settings',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">견적 기준값</button>
             </div>
           </div>
 
@@ -2877,6 +3026,8 @@
       이 캠페인은 <strong>30일간 「삭제됨」 탭에 보관</strong>되며 그 안에 복구할 수 있습니다. 30일 후 자동으로 완전 삭제됩니다.<br>
       <strong style="color:#B3261E">단, 응모자·신청 내역은 즉시 삭제되어 복구해도 되돌릴 수 없습니다.</strong>
     </div>
+    <!-- 공유 중인 리포트 안내(작업 26 ③) — 0건·조회 실패면 안 그린다. 삭제를 막지 않는다 -->
+    <div id="deleteCampSharedNote" style="display:none;background:#FFF4E5;border:1px solid #F5C77A;border-radius:10px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:#8A5A00;line-height:1.6"></div>
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">삭제할 캠페인</div>
       <div id="deleteCampName" style="font-size:14px;font-weight:700;color:var(--ink)"></div>
@@ -3068,7 +3219,7 @@
 <div class="modal-overlay" id="imageLightbox" style="z-index:900">
   <div class="modal" style="padding:0;border-radius:16px">
     <div class="modal-header" style="padding:10px 14px;border-radius:16px 16px 0 0">
-      <span class="modal-title" style="font-size:14px">이미지 보기</span>
+      <span class="modal-title" id="imageLightboxTitle" style="font-size:14px">이미지 보기</span>
       <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
     </div>
     <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;border-radius:0 0 16px 16px">
@@ -3080,6 +3231,9 @@
       <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
       <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
     </div>
+    <!-- 여러 장일 때만 보이는 넘기기 — 인플루언서 캠페인 사진 넘기기(application.js)와 같은 모양 -->
+    <button type="button" class="lightbox-nav" id="lightboxPrev" onclick="lightboxStep(-1)" title="이전 사진 (←)" style="left:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_left</span></button>
+    <button type="button" class="lightbox-nav" id="lightboxNext" onclick="lightboxStep(1)" title="다음 사진 (→)" style="right:12px;display:none"><span class="material-icons-round notranslate" translate="no">chevron_right</span></button>
   </div>
 </div>
 
@@ -3932,6 +4086,23 @@
   </div>
 </div>
 
+<!-- 「올려두고 미제출」 안내 — 고칠 수단이 아직 없어 「무엇을 할 수 있는지」만 알려 준다 -->
+<div class="modal-overlay" id="stalledDraftModal" style="z-index:626">
+  <div class="modal" style="max-width:620px;border-radius:20px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:#B91C5C;font-size:22px">upload_file</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">올려두고 제출 안 한 건</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">본인 화면에는 남아 있지만 운영팀에는 전달되지 않은 상태입니다</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeStalledDraftModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="stalledDraftModalBody" style="overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="cautionHistoryModal" style="z-index:625">
   <div class="modal" style="max-width:820px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
@@ -4467,12 +4638,14 @@
 
 <!-- 발송 이력 상세 모달 (PR 3) -->
 <div class="modal-overlay" id="broadcastDetailModal" style="z-index:655">
-  <div class="modal" style="max-width:600px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
+  <div class="modal" style="max-width:980px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:14px;font-weight:700;color:var(--ink)">발송 상세</div>
       <button class="btn btn-ghost btn-xs" onclick="closeBroadcastDetail()" style="padding:4px 10px">✕</button>
     </div>
-    <div class="modal-body" id="broadcastDetailBody" style="padding:16px 20px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px"></div>
+    <!-- ⚠️ overflow 는 hidden — 스크롤은 아래 두 칸이 각자 한다. auto 로 두면 바깥이 먼저 늘어나
+         칸별 스크롤이 죽는다. min-height:0 도 필수(flex 자식이 안 줄어들어 목록이 밖으로 넘친다). -->
+    <div class="modal-body" id="broadcastDetailBody" style="padding:16px 20px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px"></div>
     <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeBroadcastDetail()">닫기</button>
       <button class="btn btn-danger" id="broadcastWithdrawBtn" onclick="openBroadcastWithdraw()" style="display:none">전체 회수</button>
@@ -4481,6 +4654,33 @@
 </div>
 
 <!-- 일괄 회수 사유 모달 (PR 3) -->
+<!-- 추가 발송 — 「같은 조건으로, 아직 안 받은 대상에게만」 (사양서 2026-08-27 설계 5-3) -->
+<div class="modal-overlay" id="bulkFollowupModal" style="z-index:660">
+  <div class="modal" style="max-width:520px;border-radius:18px;margin:auto;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">아직 안 받은 대상에게 추가 발송</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBulkFollowup()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <!-- 무엇을 다시 보내는지 모르고 누르지 않게, 조건을 여기서도 보여준다 -->
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">보낼 조건 (1차와 같음)</div>
+        <div id="bulkFollowupFilter"></div>
+      </div>
+      <!-- 두 수를 다 보여준다 — M만 보여주면 왜 그 수인지 모른다 -->
+      <div id="bulkFollowupCount" style="font-size:13px;color:var(--ink)">대상을 세는 중…</div>
+      <div id="bulkFollowupNote" style="display:none;font-size:12px;line-height:1.6;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:8px 10px;color:#9A3412"></div>
+      <label style="font-size:13px;color:var(--muted)">보낼 내용 (1차 내용을 미리 채웠습니다 — 고칠 수 있습니다)
+        <textarea id="bulkFollowupBody" rows="6" style="width:100%;margin-top:6px;font-size:14px"></textarea>
+      </label>
+    </div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeBulkFollowup()">취소</button>
+      <button class="btn btn-primary" id="bulkFollowupSendBtn" onclick="confirmBulkFollowup()" disabled>보내기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="broadcastWithdrawModal" style="z-index:660">
   <div class="modal" style="max-width:440px;border-radius:18px;margin:auto;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
@@ -4488,7 +4688,9 @@
       <button class="btn btn-ghost btn-xs" onclick="closeBroadcastWithdraw()" style="padding:4px 10px">✕</button>
     </div>
     <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-      <div style="font-size:12px;color:var(--muted)">회수하면 받은 사람 모두의 화면에서 이 메시지가 가려집니다.</div>
+      <!-- ⚠️ 문구는 openBroadcastWithdraw() 가 채운다 — 「받은 사람 모두」라고 적으면 거짓이다.
+           회수는 **보고 있는 발송 1건**만 가리고, 이어 보낸 추가 발송(사슬)은 각각 회수해야 한다(전수조사 D-3). -->
+      <div id="broadcastWithdrawNote" style="font-size:12px;color:var(--muted);line-height:1.7">회수하면 이 발송의 수신자 화면에서 이 메시지가 가려집니다.</div>
       <label style="font-size:13px;color:var(--muted)">회수 사유
         <select id="broadcastWithdrawReason" class="admin-select" style="width:100%;margin-top:6px"></select>
       </label>

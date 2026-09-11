@@ -35,6 +35,58 @@
 //          body := '{}'::jsonb); $$ );
 //
 // 사양서: docs/specs/2026-05-18-application-email-pipeline.md
+//
+// ──────────────────────────────────────────────────────────────────
+// 【발송 없이 확인하는 법】 — 행사 당선 제외(2026-08-24 결정 3, 조각 S-14)
+// ──────────────────────────────────────────────────────────────────
+// 🔴 개발서버에서 이 함수를 실제로 호출해 발송 시험을 하지 않는다
+//    (.claude/rules/supabase.md 「메일 발송 테스트 환경 정책」).
+//    ⚠️ 손으로 불러도 소용없다 — 같은 날 재실행은 자물쇠(digest_date UNIQUE)가
+//       막아 그냥 건너뛴다. **같은 조건을 데이터로 재현**하는 편이 발송 0통으로
+//       대상을 산출한다(2026-08-07 마감 안내 검증에서 쓴 방법).
+//
+// 아래를 SQL 편집기에서 그대로 돌리면 「내일 아침 이 메일의 당선·낙첨 두
+// 섹션에 무엇이 담길지」가 나온다. 조회뿐이라 아무것도 바꾸지 않는다.
+// (수신자 확정에는 메일 주소·탈퇴 여부 등 뒤쪽 조건이 더 붙는다 — 이 조회는
+//  S-14 가 가른 **섹션 분류**만 본다. 세 검증에 필요한 것이 그것이다.)
+//
+//   WITH win AS (   -- 이 함수의 어제 일본시각 창(computeWindow)을 그대로 재현
+//     SELECT  ts                        AS s,
+//             ts + interval '24 hours'  AS e
+//     FROM (
+//       SELECT ((((now() AT TIME ZONE 'Asia/Tokyo')::date - 1)::text)
+//               || 'T00:00:00+09:00')::timestamptz AS ts
+//     ) t
+//   )
+//   SELECT c.event_mode,
+//          a.status,
+//          CASE
+//            WHEN a.status = 'approved' AND c.event_mode THEN '제외됨(행사 당선 — 14-E)'
+//            WHEN a.status = 'approved'                  THEN '당선 메일 나감(14-F)'
+//            WHEN a.status = 'rejected' AND c.event_mode THEN '낙첨 메일 나감(14-D)'
+//            ELSE                                             '낙첨 메일 나감(기존)'
+//          END                                          AS "판정",
+//          count(*)                                     AS "건수"
+//   FROM applications a
+//   JOIN campaigns c ON c.id = a.campaign_id
+//   CROSS JOIN win
+//   WHERE a.status IN ('approved','rejected')
+//     AND a.reviewed_at >= win.s
+//     AND a.reviewed_at <  win.e
+//   GROUP BY 1, 2, 3
+//   ORDER BY 1, 2;
+//
+// 읽는 법 — 세 줄이 완료 정의 그대로다:
+//   14-E  event_mode=true  + approved → 「제외됨」  (0통이어야 맞다)
+//   14-D  event_mode=true  + rejected → 「나감」    (계속 가야 맞다)
+//   14-F  event_mode=false + approved → 「나감」    ← 가장 중요. 이 줄이
+//         비면 일반 캠페인 당선 안내가 통째로 멈춘 것이다
+//
+// ⚠️ 지금은 행사 줄이 아예 안 나오는 게 정상이다 — 행사 예약 경로가
+//    reviewed_at 을 채우지 않기 때문(그래서 8월 행사에서도 이 메일은 안 나갔다).
+//    조각 S-4 의 떨어뜨리기가 그 칸을 채우는 순간 열리는 문이라, 이 변경은
+//    **S-4 와 반드시 함께 나가야 한다.** S-4 적용 뒤 위 조회를 다시 돌려
+//    행사 줄이 「제외됨 / 나감」으로 갈리는지 눈으로 확인할 것.
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -239,6 +291,9 @@ interface CampRow {
   submission_end: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 행사(오프라인 팝업 방문 예약) 캠페인인가 — 당선 섹션 제외 판정용(2026-08-24 결정 3).
+  // ⚠️ 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **아무것도 안 걸러진다**(오류 없이 조용히).
+  event_mode: boolean | null;
 }
 interface DelivRow {
   application_id: string;
@@ -255,9 +310,181 @@ interface SentRow {
                           // 중복 차단 열쇠에 포함 — 마이그레이션 322 로 DB 쪽 UNIQUE 제약도 5-튜플로 확장
 }
 
+
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+function isAnonJwt(token: string): boolean {
+  if (!token.startsWith("eyJ")) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "anon";
+  } catch {
+    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  if (isAnonJwt(token)) {
+    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// [423 · D-8] 수신자 단위 발송 기록 — 「복사 목록」
+//   ⚠️ notify-influencer-daily-digest / notify-admin-daily-digest / notify-brand-daily-digest
+//   세 함수에 **같은 이름·같은 본문**으로 들어 있다(Edge Function 은 공유 모듈이 없다).
+//   본문이 갈리면 그 자체가 사고 — 고칠 때 세 벌을 함께 고치고 diff 가 0 인지 볼 것
+//   (사양서 docs/specs/2026-09-07-digest-per-recipient-send-record.md 검증 5).
+//   원형: ②·③은 notify-policy-change 의 것을 그대로(①의 값만 이 함수군에 맞게 10분),
+//   ⑤는 그쪽 claimMember 를 본떠 새로 썼다(열쇠 3열·반환 4종).
+//
+//   순서(D-9 와 같다): 선점(failed + in_flight@시각) → 발송 → 성공 뒤에만 sent.
+//   🔴 선점 「조건」과 「바꾸는 값」이 skip_reason 한 칸 — 다른 칸이면 두 실행이 같은
+//   사람을 동시에 잡는다(D-9 첫 판 사고).
+// ══════════════════════════════════════════════════════════════════
+type DigestKind = "influencer_daily" | "admin_daily" | "brand_daily";
+type ClaimResult = "claimed" | "already_sent" | "in_progress" | "record_error";
+// deno-lint-ignore no-explicit-any
+type SbAny = any; // ReturnType<typeof createClient> 은 실제 인스턴스 타입과 어긋난다(이 파일들의 기존 결함)
+
+// ① 수신자 한 명의 「죽은 선점」 판별 시간(분). 🔴 실행 자물쇠(RETRY_COOLDOWN_MS = 10분)보다 길면
+//    실행 자물쇠는 풀렸는데 수신자 행은 in_progress 로 남아 재호출이 헛돈다 — 같은 10분으로 둔다.
+//    (한 사람 발송은 Brevo 왕복 수 초라 10분이면 넉넉하다.)
+const CLAIM_STALE_MINUTES = 10;
+// ② 선점 표시 — ISO 8601(UTC, 자릿수 고정)이어야 ③과의 문자열 비교가 성립한다.
+function inFlightMarker(): string { return `in_flight@${new Date().toISOString()}`; }
+// ③ 이 값보다 작은(=오래된) in_flight 는 죽은 선점으로 본다.
+function staleInFlightCutoff(): string { return `in_flight@${new Date(Date.now() - CLAIM_STALE_MINUTES * 60_000).toISOString()}`; }
+// ④ 수신자 열쇠 정규화 — 이메일은 대소문자·앞뒤 공백을 **이 한 곳**에서 맞춘다
+//    (안 하면 같은 관리자가 두 행 = 두 통). 회원 id(소문자 uuid 문자열)는 결과가 원래 값과 같다.
+function normalizeRecipientKey(raw: string): string { return raw.trim().toLowerCase(); }
+// 기록 실패 원문 — claimRecipient 가 record_error 를 돌려줄 때 실행 표 error_message 에 옮겨 적기 위해 남긴다.
+let lastDigestRecordError = "";
+// ⑤ 선점 — 새 행이면 INSERT 로 claimed. 이미 있으면 「send_failed 또는 오래된 in_flight」만 넘겨받는다.
+//    0행이면 그 행을 읽어 sent/skipped 면 already_sent(더 볼 것 없음), 아니면 in_progress(다른 실행이 10분 안에 잡음).
+//    ⚠️ skip_reason IS NULL 인 failed 행은 이 함수군의 쓰기로는 생기지 않지만, 생기면 영영 못 넘겨받으므로 함께 건다(방침 통지와 같다).
+async function claimRecipient(sb: SbAny, kind: DigestKind, date: string, key: string, influencerId?: string): Promise<ClaimResult> {
+  const marker = inFlightMarker();
+  const { error: insErr } = await sb.from("digest_email_sent").insert({
+    digest_kind: kind, digest_date: date, recipient_key: key,
+    influencer_id: influencerId ?? null, status: "failed", skip_reason: marker,
+  });
+  if (!insErr) return "claimed";
+  if ((insErr as { code?: string }).code !== "23505") {
+    lastDigestRecordError = insErr.message || "insert failed";
+    console.error("[digest-sent] claim insert failed", kind, key, lastDigestRecordError);
+    return "record_error";
+  }
+  const { data: taken, error: takeErr } = await sb.from("digest_email_sent")
+    .update({ skip_reason: marker })
+    .eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key)
+    .eq("status", "failed")
+    .or(`skip_reason.eq.send_failed,skip_reason.is.null,skip_reason.lt."${staleInFlightCutoff()}"`)
+    .select("id");
+  if (takeErr) {
+    lastDigestRecordError = takeErr.message || "takeover failed";
+    console.error("[digest-sent] claim takeover failed", kind, key, lastDigestRecordError);
+    return "record_error";
+  }
+  if (taken && taken.length > 0) return "claimed";
+  const { data: row, error: rowErr } = await sb.from("digest_email_sent")
+    .select("status").eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key).maybeSingle();
+  if (rowErr || !row) {
+    lastDigestRecordError = rowErr?.message || "row lookup failed";
+    console.error("[digest-sent] claim row lookup failed", kind, key, lastDigestRecordError);
+    return "record_error";
+  }
+  return (row.status === "sent" || row.status === "skipped") ? "already_sent" : "in_progress";
+}
+// ⑥ 발송 성공 뒤에만 — sent + skip_reason NULL(넘겨받기 조건에 영영 안 걸린다). 실패하면 false.
+async function markSent(sb: SbAny, kind: DigestKind, date: string, key: string): Promise<boolean> {
+  const { error } = await sb.from("digest_email_sent")
+    .update({ status: "sent", skip_reason: null, error_message: null })
+    .eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key);
+  if (error) console.error("[digest-sent] markSent failed", kind, key, error.message);
+  return !error;
+}
+// ⑦ 발송 실패 — failed + send_failed(다음 재진입 대상), 오류 원문 앞 300자.
+async function markFailed(sb: SbAny, kind: DigestKind, date: string, key: string, msg: string): Promise<void> {
+  const { error } = await sb.from("digest_email_sent")
+    .update({ status: "failed", skip_reason: "send_failed", error_message: (msg || "").slice(0, 300) })
+    .eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key);
+  if (error) console.error("[digest-sent] markFailed failed", kind, key, error.message);
+}
+// ⑧ 보낼 수 없어 건너뜀(no_email) — 선점을 거치지 않고 바로 skipped. 이미 행이 있으면 그대로 둔다(ON CONFLICT DO NOTHING).
+//    재시도해도 다시 안 본다 — 이메일이 나중에 생겨도 그 날짜 몫은 지난 것이다.
+async function markSkipped(sb: SbAny, kind: DigestKind, date: string, key: string, reason: string, influencerId?: string): Promise<void> {
+  const { error } = await sb.from("digest_email_sent")
+    .upsert(
+      { digest_kind: kind, digest_date: date, recipient_key: key, influencer_id: influencerId ?? null, status: "skipped", skip_reason: reason },
+      { onConflict: "digest_kind,digest_date,recipient_key", ignoreDuplicates: true },
+    );
+  if (error) console.error("[digest-sent] markSkipped failed", kind, key, error.message);
+}
+// ⑨ 실행 표 상태 3갈래(사양서 설계 4).
+//    sent    = 실패·진행 중·발송 뒤 기록 실패가 하나도 없다(전원 already_sent 포함)
+//    failed  = 이번 실행에서 성공도 기수신도 없이 실패만 있다(전원 실패)
+//    partial = 그 밖 — 하나라도 남았으면 당일 재호출의 재진입 대상
+type DigestCounts = { sent: number; alreadySent: number; failed: number; inProgress: number; recordLostAfterSend: number };
+function digestRunStatus(c: DigestCounts): "sent" | "failed" | "partial" {
+  if (c.failed === 0 && c.inProgress === 0 && c.recordLostAfterSend === 0) return "sent";
+  if (c.sent === 0 && c.alreadySent === 0 && c.failed > 0 && c.inProgress === 0) return "failed";
+  return "partial";
+}
+function digestRunSummary(c: DigestCounts, firstErr: string): string {
+  const base = `${c.sent} sent, ${c.alreadySent} already_sent, ${c.failed} failed, ${c.inProgress} in_progress, ${c.recordLostAfterSend} record_lost_after_send`;
+  return firstErr ? `${base}. first error: ${firstErr}`.slice(0, 500) : base;
+}
+// ══════════════════════════════════════════════════════════════════
+
+// 이 함수의 다이제스트 종류 — digest_email_sent.digest_kind
+const DIGEST_KIND: DigestKind = "influencer_daily";
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  if (rejectPublicKeyCaller(req, "notify-influencer-daily-digest")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
   const supaUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -345,7 +572,7 @@ Deno.serve(async (req: Request) => {
             { status: 200, headers: { "content-type": "application/json" } },
           );
         }
-        // status === 'failed' — 크래시로 멈췄거나 진짜 실패. 최소 대기 시간 확인.
+        // status === 'failed' 또는 'partial'(423) — 크래시로 멈췄거나 진짜 실패, 또는 일부 실패가 남았다. 최소 대기 시간 확인.
         const runAtMs = new Date(existing.run_at as string).getTime();
         const elapsedMs = Date.now() - runAtMs;
         if (elapsedMs < RETRY_COOLDOWN_MS) {
@@ -406,7 +633,7 @@ Deno.serve(async (req: Request) => {
   // (그 사이 다른 실행이 run_at 을 바꿔써서 내가 더 이상 주인이 아니면)
   // 덮어쓰지 않고 console.error 로만 남긴다.
   const finalizeRun = async (payload: {
-    status: "sent" | "skipped_no_data" | "failed";
+    status: "sent" | "skipped_no_data" | "failed" | "partial";  // partial: 423
     total_influencers: number;
     total_emails: number;
     error_message?: string | null;
@@ -444,28 +671,41 @@ Deno.serve(async (req: Request) => {
   // admin_daily_digest_runs.error_message 에도 남는다.
   try {
     // 2. 어제 윈도우 applications 조회 (status 무관 — 4섹션 중 reviewed_at 분기)
-    const { data: appsCreated, error: e1 } = await sb
-      .from("applications")
-      .select("id, user_id, campaign_id, status, created_at, reviewed_at")
-      .gte("created_at", windowStartUtc.toISOString())
-      .lt("created_at", windowEndUtc.toISOString());
-    if (e1) {
-      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_created: ${e1.message}` });
-      return new Response(JSON.stringify({ error: e1.message, stage: "apps_created" }), {
+    //    [D-7] 하루 창이지만 1,000행 상한 대응 — 운영 실측(2026-09-02)에서 하루 검수
+    //    1,305건인 날이 있었다. 잘리면 그날 승인·반려된 사람 300명이 안내를 못 받는데
+    //    오류는 없다. 같은 파일의 [F-4] 자리(아래 승인 전체 조회)와 같은 도우미로.
+    let appsCreated: AppRow[];
+    try {
+      appsCreated = await fetchAllPaged<AppRow>(() =>
+        sb.from("applications")
+          .select("id, user_id, campaign_id, status, created_at, reviewed_at")
+          .gte("created_at", windowStartUtc.toISOString())
+          .lt("created_at", windowEndUtc.toISOString())
+          .order("id", { ascending: true }),
+      );
+    } catch (e1) {
+      const msg = (e1 as Error).message;
+      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_created: ${msg}` });
+      return new Response(JSON.stringify({ error: msg, stage: "apps_created" }), {
         status: 500, headers: { "content-type": "application/json" },
       });
     }
 
-    // 3. 어제 리뷰된 (승인·반려) applications 조회
-    const { data: appsReviewed, error: e2 } = await sb
-      .from("applications")
-      .select("id, user_id, campaign_id, status, created_at, reviewed_at")
-      .in("status", ["approved", "rejected"])
-      .gte("reviewed_at", windowStartUtc.toISOString())
-      .lt("reviewed_at", windowEndUtc.toISOString());
-    if (e2) {
-      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_reviewed: ${e2.message}` });
-      return new Response(JSON.stringify({ error: e2.message, stage: "apps_reviewed" }), {
+    // 3. 어제 리뷰된 (승인·반려) applications 조회 — [D-7] 위와 같은 이유로 전건 확보
+    let appsReviewed: AppRow[];
+    try {
+      appsReviewed = await fetchAllPaged<AppRow>(() =>
+        sb.from("applications")
+          .select("id, user_id, campaign_id, status, created_at, reviewed_at")
+          .in("status", ["approved", "rejected"])
+          .gte("reviewed_at", windowStartUtc.toISOString())
+          .lt("reviewed_at", windowEndUtc.toISOString())
+          .order("id", { ascending: true }),
+      );
+    } catch (e2) {
+      const msg = (e2 as Error).message;
+      await finalizeRun({ status: "failed", total_influencers: 0, total_emails: 0, error_message: `apps_reviewed: ${msg}` });
+      return new Response(JSON.stringify({ error: msg, stage: "apps_reviewed" }), {
         status: 500, headers: { "content-type": "application/json" },
       });
     }
@@ -514,7 +754,9 @@ Deno.serve(async (req: Request) => {
           sb.from("campaigns")
             // product_price — レビュアー型の報酬欄「購入金額をペイバック（最大 ¥N）」の上限表示に使う。
             // 抜けると上限が消えたまま案内が届く（2026-08-05）。
-            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel")
+            // event_mode — 행사 캠페인은 당선 섹션에서 뺀다(2026-08-24 결정 3, 아래 8번 분류 참조).
+            //   빠뜨리면 제외 조건이 늘 거짓이 되어 방문객에게 「報酬 -」「提出期限」이 그대로 나간다.
+            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, event_mode")
             .in("id", allCampIds)
             .order("id", { ascending: true })
         );
@@ -615,8 +857,30 @@ Deno.serve(async (req: Request) => {
 
     (appsCreated || []).forEach((a: AppRow) => acc(a.user_id).received.push(a));
     (appsReviewed || []).forEach((a: AppRow) => {
-      if (a.status === "approved") acc(a.user_id).approved.push(a);
-      else if (a.status === "rejected") acc(a.user_id).rejected.push(a);
+      if (a.status === "approved") {
+        // 【행사 당선은 이 메일에서 뺀다】 — 2026-08-24 결정 3 (조각 S-14)
+        //   당선 섹션은 「報酬」(보수)와 「提出期限」(결과물 제출 마감)을 그리는데,
+        //   행사(오프라인 팝업 방문 예약) 방문객은 **보수도 결과물도 없다.**
+        //   마이그레이션 283 이 앱 알림(application_approved)을 행사에서 막을 때 든
+        //   사유 ①(「승인 알림 문구가 결과물 제출을 요구해 방문객에게 부적합」)이
+        //   **메일에는 그대로 남아 있었다** — 여기서 같은 기준으로 맞춘다.
+        //
+        // ⚠️ 기준은 `event_mode`(행사 전체)다. 선정형만이 아니다 — 선착순형 행사
+        //    당선자도 보수·결과물이 없고, 283 과 기준이 갈리면 앱 알림과 메일이
+        //    서로 다른 말을 하게 된다.
+        // ⚠️ **낙첨 섹션(rejected)은 일부러 그대로 둔다.** 캠페인 번호·제목·심사 시각과
+        //    「他のキャンペーンを見る」(다른 캠페인 보기)뿐이라 방문객에게도 맞고,
+        //    행사 낙선자에게 가는 통지 중 하나다(결정 1).
+        // ⚠️ 여기서 빼는 이유(렌더 단계가 아니라) — 제목·본문 요약이 `sec.approved.length`
+        //    로 건수를 세므로, 그리는 자리에서만 빼면 「承認 1件」이라 적힌 메일에 그
+        //    섹션이 없는 상태가 된다.
+        // ⚠️ 캠페인 조회가 실패하면(campMap 미적재, 위 5번은 warn 만 하고 계속 간다)
+        //    camp 가 undefined 라 이 조건이 거짓이 되어 **종전대로 발송**한다.
+        //    조회를 못 했다는 이유로 일반 캠페인 당선 안내를 삼키지 않는다.
+        const camp = campMap.get(a.campaign_id);
+        if (camp?.event_mode === true) return;
+        acc(a.user_id).approved.push(a);
+      } else if (a.status === "rejected") acc(a.user_id).rejected.push(a);
     });
 
     // 마감 임박 — appsApproved 전체에서 D-5/D-1 + 미제출 + 이력 없는 것만 추출
@@ -659,7 +923,18 @@ Deno.serve(async (req: Request) => {
 
       // 결과물(게시물) — 시딩(gifting)·방문형(visit) 전용. 리뷰어형(monitor)은 게시물 제출 경로가 없다.
       // (submission_end 만 사용 — post_deadline 은 마이그레이션 129 에서 제거됨)
+      //
+      // 🔴 행사(event_mode)는 제외한다 — 행사도 recruit_type='visit' 이라 이 조건에 걸린다.
+      //   방문객은 게시물을 내지 않으므로 「投稿物 … まで」(게시물 … 까지)는 **하지도 않을 일을
+      //   독촉하는** 안내가 된다. 당선 섹션의 제외(2026-08-24 결정 3)와 같은 판단이고 기준도
+      //   같다(선착순형 행사도 마찬가지라 event_mode 로 가른다).
+      //   ⚠️ 이 자리는 당선 섹션과 **다른 경로**다 — 저 위 필터는 「어제 심사된」 목록(appsReviewed)을
+      //      보고, 여기는 **누적 승인 전체**(appsApproved)를 본다. 그래서 저기만 고치면 여기는 안 걸린다.
+      //   ⚠️ 지금 행사 캠페인은 submission_end 가 비어 있어 잠자고 있을 뿐, **막는 것은 없었다.**
+      //      이 저장소는 정확히 같은 유형(모집 형식을 안 가린 마감 독촉)으로 운영에서 1,022건을
+      //      오발송한 적이 있다 — docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md
       if (
+        !camp.event_mode &&
         (camp.recruit_type === "gifting" || camp.recruit_type === "visit") &&
         camp.submission_end
       ) {
@@ -757,23 +1032,11 @@ Deno.serve(async (req: Request) => {
 
     // 10. 인플루언서별 렌더링·발송
     //
-    // [리뷰 반영 3] ⚠️ 잔여 위험 — "누구에게 다이제스트를 보냈는지" 개별
-    // 기록이 없다. sendBrevoEmail 은 인플루언서 uid 마다 바로바로 나가지만,
-    // 그 결과를 적는 표(deadline_reminder_email_sent)는 이 루프가 "다 끝난
-    // 뒤" 11번에서 한꺼번에 벌크 INSERT 된다 — 게다가 그 표는 섹션4(마감
-    // 임박)에 해당하는 사람만 기록하고, 섹션1~3(신규응모·승인·반려)만 있는
-    // 사람은 애초에 어디에도 기록되지 않는다. 그래서 이 루프 도중 함수가
-    // 죽으면, 이미 메일을 받은 사람 중 상당수(특히 섹션1~3만 해당하는
-    // 사람 전원)는 재시도 때도 "안 받은 사람"으로 다시 뽑혀 다이제스트를
-    // 통째로 다시 받는다. F-5(쿨다운·소유권 검증)는 "이 함수를 두 프로세스가
-    // 동시에 돌리는 것"만 막을 뿐, 이 부분 발송 뒤 재시도 중복까지는 못
-    // 막는다 — 즉 이 잔여 위험은 관리자·브랜드·홍보메일 관리자요약과
-    // 같은 종류이지만, 이 함수까지 합치면 세 곳이 아니라 네 곳이다
-    // (관리자 다이제스트·브랜드 다이제스트·홍보 메일의 관리자 요약 + 이 함수).
-    // 운영자가 이 함수를 수동으로 다시 부르기 전에는 Brevo 발송 이력으로
-    // 직전 실행이 몇 명(어느 uid)까지 보냈는지 먼저 확인할 것 — 「F-5로
-    // 재시도가 안전해졌다」는 자물쇠 자체의 동시 실행 얘기지, 이 루프의
-    // 부분 발송 뒤 재시도 중복까지 막아주는 게 아니다.
+    // [423 · D-8] 수신자 단위 기록 — 회원마다 선점(failed+in_flight) → 발송 → 성공 뒤에만 sent.
+    //   재호출이면 sent 행은 already_sent 로 건너뛰어 **실패분만** 나간다. 옛 「누구에게 보냈는지
+    //   기록이 없어 재시도가 전원에게 다시 보낸다」 잔여 위험(리뷰 반영 3)은 이것으로 닫혔다.
+    //   마감 임박 표(deadline_reminder_email_sent)도 벌크 INSERT 를 폐지하고 **그 사람 발송 직후**
+    //   그 사람 몫만 넣는다 — 도중에 죽어도 받은 사람의 D-N 행이 빠지지 않는다.
     const mainTpl = loadTemplate("influencer-daily-digest");
     const rowReceivedTpl = loadTemplate("influencer-daily-digest.row-received");
     const rowApprovedTpl = loadTemplate("influencer-daily-digest.row-approved");
@@ -782,16 +1045,24 @@ Deno.serve(async (req: Request) => {
     const publicAppUrl = env("PUBLIC_APP_URL", "https://globalreverb.com").replace(/\/$/, "");
     const todayJp = formatJpDateFull(new Date(`${todayDate}T00:00:00+09:00`));
 
-    let sentCount = 0;
-    const sentInserts: { influencer_id: string; campaign_id: string; kind: string; d_minus: number; deadline_date: string }[] = [];
+    let sentCount = 0, failedCount = 0, inProgress = 0, alreadySent = 0, recordLostAfterSend = 0;
+    let firstErr = "";
+    let recordError = false;
+    let reminderInserts = 0;
     const sentDuringRun = new Set<string>(); // 같은 인플 같은 (kind,d_minus) 중복 INSERT 차단
 
     for (const [uid, sec] of perInfluencer.entries()) {
       const email = emailMap.get(uid);
+      const key = normalizeRecipientKey(uid);
       if (!email) {
         console.warn("[notify-infl-digest] no email for", uid);
+        await markSkipped(sb, DIGEST_KIND, digestDate, key, "no_email", uid);
         continue;
       }
+      const claim = await claimRecipient(sb, DIGEST_KIND, digestDate, key, uid);
+      if (claim === "record_error") { recordError = true; break; } // 기록 못 하면 보내지 않는다(설계 7)
+      if (claim === "already_sent") { alreadySent++; continue; }
+      if (claim === "in_progress") { inProgress++; continue; }
       try {
         // 섹션 1 (received)
         let section1 = "";
@@ -820,11 +1091,22 @@ Deno.serve(async (req: Request) => {
             //   ここを分けないと当選者に「報酬 -」とだけ届き、いくら戻るのかが伝わらない。
             //   ⚠️ レビュアー型に現金報酬を足して表示してはいけない — 支払われない金額の約束になる。
             const price = Number(c?.product_price ?? 0);
-            const rewardStr = c?.recruit_type === "monitor"
+            //   ⚠️ 現金報酬がない「製品提供のみ」の案件（利用規約第13条3項）を "-" とだけ
+            //   書くと、「無い」のか「未定」なのかが伝わらない。実測(2026-09-02 本番)では
+            //   無報酬の当選が650件あった。ここは「製品提供のみ」と明示する。
+            //   🔴 ただし **キャンペーン情報が取れなかった場合(c が無い)は "-" のまま**にする。
+            //   その場合は「無報酬」ではなく「分からない」であり、断定すると別の嘘になる。
+            //   同じ理由で recruit_type が空の案件も断定しない(精算側の除外条件
+            //   `recruit_type <> 'monitor'` は SQL の三値論理により NULL では真にならない)。
+            const isMonitor = c?.recruit_type === "monitor";
+            const isKnownUnpaid = !!c && !!c.recruit_type && !isMonitor && !(Number(c.reward) > 0);
+            const rewardStr = isMonitor
               ? (price > 0
                   ? `購入金額をペイバック（最大 ¥${price.toLocaleString("en-US")}）`
                   : "購入金額をペイバック")
-              : (c?.reward ? `¥${c.reward.toLocaleString("en-US")}` : "-");
+              : (c?.reward
+                  ? `¥${c.reward.toLocaleString("en-US")}`
+                  : (isKnownUnpaid ? "製品提供のみ" : "-"));
             // 提出期限 표기 — 모집 형식별 분기(2026-08-04 사양서 §설계 단계1-B).
             //   レビュー認証写真(모니터형)/투고물(시딩·방문형)이 각자 요구하는 제출물만 표시.
             //   리뷰어형은 게시물(投稿物) 제출 경로가 없으므로 절대 여기 섞지 않는다.
@@ -937,56 +1219,91 @@ Deno.serve(async (req: Request) => {
           htmlContent: html,
           textContent: text,
         });
-        sentCount++;
-
-        // 마감 임박 발송 이력 누적 (벌크 INSERT 용)
-        sec.deadline.forEach((d) => {
-          // 마감일까지 포함한다 — 저장할 행의 열쇠(마이그레이션 322 의 5개 조합)와 같은 모양이어야
-          //   이 안에서 거른 것과 데이터베이스가 거부하는 것이 어긋나지 않는다.
-          //   지금은 캠페인 정보를 실행당 한 번만 읽어 한 실행 안에서 마감일이 바뀔 수 없지만,
-          //   그 전제가 깨지면 조용히 갈린다.
-          const dedupKey = `${uid}|${d.app.campaign_id}|${d.kind}|${d.dMinus}|${d.deadlineDate}`;
-          if (sentDuringRun.has(dedupKey)) return;
-          sentDuringRun.add(dedupKey);
-          sentInserts.push({
-            influencer_id: uid,
-            campaign_id: d.app.campaign_id,
-            kind: d.kind,
-            d_minus: d.dMinus,
-            deadline_date: d.deadlineDate,
-          });
-        });
       } catch (e) {
-        console.error("[notify-infl-digest] per-influencer failed", uid, (e as Error).message);
-        // 한 명 실패 가 다음 명 발송 차단 안 함
+        const msg = (e as Error).message || "brevo send error";
+        console.error("[notify-infl-digest] per-influencer failed", uid, msg);
+        await markFailed(sb, DIGEST_KIND, digestDate, key, msg);
+        failedCount++;
+        if (!firstErr) firstErr = msg;
+        continue; // 한 명 실패가 다음 사람 발송을 막지 않는다
       }
-    }
 
-    // 11. 마감 임박 이력 벌크 INSERT (다음 D-N 재발송 차단)
-    if (sentInserts.length > 0) {
-      const { error: insErr } = await sb.from("deadline_reminder_email_sent").insert(sentInserts);
-      if (insErr) {
-        // 23505 동시성 충돌은 무시 (다른 cron 가 같은 시점에 들어왔을 때)
-        if ((insErr as { code?: string }).code !== "23505") {
-          console.error("[notify-infl-digest] reminder log insert failed", insErr);
+      // ── 여기부터는 메일이 이미 나간 상태 — 되돌릴 것이 없다 ──
+      sentCount++;
+      let recorded = await markSent(sb, DIGEST_KIND, digestDate, key);
+      if (!recorded) recorded = await markSent(sb, DIGEST_KIND, digestDate, key); // 한 번 더
+      if (!recorded) {
+        // 행이 in_flight 로 남아 10분 뒤 재호출이 이 사람에게 한 통 더 보낼 수 있다(설계 7) — 실행을 partial 로 남겨 알린다
+        recordLostAfterSend++;
+        console.error("[notify-infl-digest] sent but could not record — may be re-sent on retry", uid);
+      }
+
+      // 마감 임박 이력 — 그 사람 발송 직후 그 사람 몫만 INSERT(423: 벌크 INSERT 폐지).
+      //   마감일까지 포함한다 — 저장할 행의 열쇠(마이그레이션 322 의 5개 조합)와 같은 모양이어야
+      //   이 안에서 거른 것과 데이터베이스가 거부하는 것이 어긋나지 않는다.
+      const reminderRows: { influencer_id: string; campaign_id: string; kind: string; d_minus: number; deadline_date: string }[] = [];
+      sec.deadline.forEach((d) => {
+        const dedupKey = `${uid}|${d.app.campaign_id}|${d.kind}|${d.dMinus}|${d.deadlineDate}`;
+        if (sentDuringRun.has(dedupKey)) return;
+        sentDuringRun.add(dedupKey);
+        reminderRows.push({
+          influencer_id: uid,
+          campaign_id: d.app.campaign_id,
+          kind: d.kind,
+          d_minus: d.dMinus,
+          deadline_date: d.deadlineDate,
+        });
+      });
+      if (reminderRows.length > 0) {
+        const { error: insErr } = await sb.from("deadline_reminder_email_sent").insert(reminderRows);
+        if (insErr) {
+          // 23505(동시 실행 충돌)는 종전대로 무시. 그 밖의 오류는 로그만 — 발송 성공은 되돌리지 않는다(메일은 이미 나갔다).
+          if ((insErr as { code?: string }).code !== "23505") {
+            console.error("[notify-infl-digest] reminder log insert failed", uid, insErr);
+          }
+        } else {
+          reminderInserts += reminderRows.length;
         }
       }
     }
 
-    // 12. 성공 로그
+    // 11. 수신자 표에 기록할 수 없었다 — 기록 없는 발송이 이 결함의 원인이라 그 자리에서 멈췄다(설계 7).
+    //     표가 없으면 다음 사람도 다 실패하므로 계속 돌 이유가 없다. 배포 순서(데이터베이스 먼저)가 틀렸을 때 이 갈래로 온다.
+    if (recordError) {
+      await finalizeRun({
+        status: "failed",
+        total_influencers: perInfluencer.size,
+        total_emails: sentCount,
+        error_message: `기록 실패: ${lastDigestRecordError}`.slice(0, 500),
+      });
+      return new Response(
+        JSON.stringify({ error: "recipient record failed", stage: "claim", digestDate, sent_before_stop: sentCount }),
+        { status: 500, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    // 12. 실행 상태 3갈래(423) — sent / failed(전원 실패) / partial(하나라도 남음 → 당일 재호출 재진입 대상)
+    const counts = { sent: sentCount, alreadySent, failed: failedCount, inProgress, recordLostAfterSend };
+    const runStatus = digestRunStatus(counts);
     await finalizeRun({
-      status: "sent",
+      status: runStatus,
       total_influencers: perInfluencer.size,
       total_emails: sentCount,
+      error_message: runStatus === "sent" ? null : digestRunSummary(counts, firstErr),
     });
 
     return new Response(
       JSON.stringify({
-        ok: true,
+        ok: runStatus !== "failed",
         digestDate,
+        status: runStatus,
         total_influencers: perInfluencer.size,
         total_emails: sentCount,
-        reminder_inserts: sentInserts.length,
+        already_sent: alreadySent,
+        failed: failedCount,
+        in_progress: inProgress,
+        record_lost_after_send: recordLostAfterSend,
+        reminder_inserts: reminderInserts,
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );

@@ -214,7 +214,8 @@ function formatYenLabel(n: number | null | undefined): string {
 function buildRewardText(camp: CampaignRow): string {
   const price = Number(camp.product_price ?? 0);
   const cash  = Number(camp.reward ?? 0);
-  if (price <= 0 && cash <= 0) return "-";
+  // [D-4] レビュアー型は価格・現金が両方 0 でも「-」ではなく「購入金額をペイバック」（アプリと同じ）。
+  if (price <= 0 && cash <= 0 && camp.recruit_type !== "monitor") return "-";
 
   const parts: string[] = [];
   if (price > 0) {
@@ -227,7 +228,9 @@ function buildRewardText(camp: CampaignRow): string {
       parts.push(`${formatYenLabel(price)} 商品提供`);
     }
   } else {
-    parts.push("商品無償提供");
+    // [D-4] レビュアー型は商品価格が未設定でも「無償提供」ではない — アプリのカード・詳細・
+    //   管理者プレビューと同じ「購入金額をペイバック」（上限は言えないので付けない）。
+    parts.push(camp.recruit_type === "monitor" ? "購入金額をペイバック" : "商品無償提供");
   }
   // ⚠️ レビュアー型には現金報酬を足さない — 精算計算が monitor で campaigns.reward を
   //    使わないため（マイグレーション300）、足すと支払われない金額の約束になる。
@@ -660,8 +663,68 @@ function selfInvokeChained(args: {
 // ──────────────────────────────────────────────────────────────────
 // Main handler
 // ──────────────────────────────────────────────────────────────────
+
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+function isAnonJwt(token: string): boolean {
+  if (!token.startsWith("eyJ")) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "anon";
+  } catch {
+    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  if (isAnonJwt(token)) {
+    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  if (rejectPublicKeyCaller(req, "notify-campaign-promo-digest")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const supaUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -1040,14 +1103,20 @@ Deno.serve(async (req: Request) => {
               .filter((c) => c.recruit_type === "monitor").map((c) => c.id);
             const adminApprovedMap = new Map<string, number>();
             if (adminMonitorIds.length > 0) {
-              const { data: apps } = await sb
-                .from("applications")
-                .select("campaign_id")
-                .in("campaign_id", adminMonitorIds)
-                .eq("status", "approved");
-              (apps || []).forEach((row: { campaign_id: string }) => {
-                adminApprovedMap.set(row.campaign_id, (adminApprovedMap.get(row.campaign_id) || 0) + 1);
-              });
+              // [D-7] 승인 응모는 캠페인 여러 개를 합치면 1,000행을 넘는다(운영 리뷰어형 승인 1,065건) — 전건 확보
+              try {
+                const apps = await fetchAllPaged<{ campaign_id: string }>(() => sb
+                  .from("applications")
+                  .select("id, campaign_id")
+                  .in("campaign_id", adminMonitorIds)
+                  .eq("status", "approved")
+                  .order("id", { ascending: true }));
+                apps.forEach((row: { campaign_id: string }) => {
+                  adminApprovedMap.set(row.campaign_id, (adminApprovedMap.get(row.campaign_id) || 0) + 1);
+                });
+              } catch (e) {
+                console.warn("[notify-campaign-promo] admin approved count lookup failed", (e as Error).message);
+              }
             }
 
             const adminMail = renderAdminPromoMailBody({
@@ -1091,23 +1160,23 @@ Deno.serve(async (req: Request) => {
     // ── 2. 발송 대상자 조회 (RPC) ──
     //    RPC 가 이미 발송 완료 인플 자동 제외 → chained 재호출 시 잔여 인플만 반환
     //
-    // [리뷰 반영 4] ⚠️ 이 조회는 하루 제한 없이 계속 불어날 수 있는 값(대상자
-    // 전체)을 돌려주는데도 일부러 페이지 나눔(fetchAllPaged)을 안 넣었다.
-    // 안전한 이유는 이 함수의 성질 둘이 겹쳐야만 성립한다 — ①마이그레이션
-    // 321 이 최종 SELECT 에 건 `ORDER BY t.influencer_id`(안정 정렬)로,
-    // PostgREST 1,000행 상한에 걸려 잘려도 항상 "정렬된 앞쪽" 이 온다 ②이
-    // 파일이 어차피 매 라운드 `targets.slice(0, BATCH_SIZE)`(200명)만 쓰고,
-    // 그 200명은 이미 이전 라운드들이 처리 완료로 기록한 사람을 스스로
-    // 제외한 명단이라 "앞쪽 200명"이 항상 맞는 다음 배치다. 즉 잘려도 빠지는
-    // 사람은 없고, 다만 targets.length(=잔여 인원 추정치)가 부정확해질 수
-    // 있을 뿐 — 그 값은 정체 감지·로그에만 쓰인다. **둘 중 하나라도 깨지면
-    // (정렬을 지우거나, 이 파일이 slice 없이 전체를 쓰게 바뀌면) 이 판단은
-    // 더 이상 성립하지 않는다** — 그때는 fetchAllPaged 로 감싸거나, RPC 쪽에
-    // LIMIT/OFFSET 파라미터를 추가하는 쪽으로 다시 검토할 것.
-    const { data: targetsData, error: rpcError } = await sb.rpc("get_promo_digest_targets", {
-      p_digest_date: digestDate,
-    });
-    if (rpcError) {
+    // 🔴 [전수조사 D-2, 2026-09-07] **페이지 나눔으로 전부 받는다.**
+    //    예전엔 「잘려도 앞쪽 200명은 맞는 다음 배치라 빠지는 사람은 없고, targets.length 는
+    //    정체 감지·로그에만 쓰인다」며 일부러 안 감쌌다. 그 「에만」이 문제였다 — 잔여 인원이
+    //    1,000명을 넘는 날은 두 라운드 연속 targets.length 가 1,000 으로 잘려
+    //    `1000 >= 1000` 이 성립, 정체 감지가 **아무 문제 없는 발송을 2라운드에서 끊었다**.
+    //    그리고 run 은 「정체 감지로 중단」이라 기록돼 운영자가 엉뚱한 곳을 보게 된다.
+    //    운영 모수는 아직 151명(사거리 밖)이지만 늘어나는 순간 터지는 잠복이다.
+    //    ⚠️ `.rpc()` 결과에도 `.order()`·`.range()` 가 먹는다(집합을 돌려주는 함수). 정렬 키는
+    //       마이그레이션 321·387 의 최종 SELECT 와 같은 `influencer_id` 로 두어 페이지가 안 겹친다.
+    let targets: PromoTarget[] = [];
+    try {
+      targets = await fetchAllPaged<PromoTarget>(() =>
+        (sb.rpc("get_promo_digest_targets", { p_digest_date: digestDate }) as any)
+          .order("influencer_id", { ascending: true })
+      );
+    } catch (e) {
+      const rpcError = e as Error;
       console.error("[notify-campaign-promo] RPC error", rpcError);
       if (isFirstBatch) {
         await finalizeRun({
@@ -1122,7 +1191,6 @@ Deno.serve(async (req: Request) => {
         status: 500, headers: { "content-type": "application/json" },
       });
     }
-    const targets: PromoTarget[] = (targetsData || []) as PromoTarget[];
     console.log("[notify-campaign-promo] targets", { count: targets.length, chainCount });
 
     // ── 2.5 정체 감지 (이어달리기 2회차부터, 무한 반복 1차 방어) ──
@@ -1221,17 +1289,20 @@ Deno.serve(async (req: Request) => {
       .map((c) => c.id);
     const approvedMap = new Map<string, number>();
     if (monitorCampIds.length > 0) {
-      const { data: apps, error: appError } = await sb
-        .from("applications")
-        .select("campaign_id")
-        .in("campaign_id", monitorCampIds)
-        .eq("status", "approved");
-      if (appError) {
-        console.warn("[notify-campaign-promo] approved count lookup failed", appError);
-      } else {
-        (apps || []).forEach((row: { campaign_id: string }) => {
+      // [D-7] 승인 응모는 캠페인 여러 개를 합치면 1,000행을 넘는다(운영 리뷰어형 승인 1,065건) — 잘리면
+      //   잔여 슬롯이 실제보다 많게 표시된다. 전건 확보.
+      try {
+        const apps = await fetchAllPaged<{ campaign_id: string }>(() => sb
+          .from("applications")
+          .select("id, campaign_id")
+          .in("campaign_id", monitorCampIds)
+          .eq("status", "approved")
+          .order("id", { ascending: true }));
+        apps.forEach((row: { campaign_id: string }) => {
           approvedMap.set(row.campaign_id, (approvedMap.get(row.campaign_id) || 0) + 1);
         });
+      } catch (e) {
+        console.warn("[notify-campaign-promo] approved count lookup failed", (e as Error).message);
       }
     }
 

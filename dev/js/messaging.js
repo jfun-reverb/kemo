@@ -69,6 +69,19 @@ async function refreshMessageModal() {
 //   from: 'mypage' — 뒤로가기 시 응모이력으로 복귀. 해시 #messages-{id} 로 새로고침 복원.
 async function openMessagesPage(applicationId, from, pushHistory) {
   if (!applicationId) return;
+  // 세션이 없으면 로그인으로 — 이 화면에는 로그인 확인이 없었다(2026-08-31).
+  //   증상: 아이폰 사파리에서 8/25~28 에 5회. `permission denied for function
+  //   get_application_messages` 가 오류 로그에 쌓였고 회원은 「読み込みに失敗しました」만 봤다.
+  //   ⚠️ 원인은 토큰 만료가 아니라 **세션이 통째로 없는 것**이다(사파리가 저장소를 비운다).
+  //      세션이 없으면 비로그인 권한으로 호출돼 그 함수가 거부한다.
+  //   🔴 그래서 `retryWithRefresh` 로 감싸는 것만으로는 안 고쳐진다 — 그 함수는
+  //      'row-level security'·'JWT expired' 일 때만 재시도하는데 이 메시지는 둘 다 아니고,
+  //      갱신 토큰도 없어 `refreshSession()` 자체가 실패한다. 막는 것은 이 줄이다.
+  //   ⚠️ 반드시 아래 `loadMyApplications()` **앞**에 둔다 — 그것도 로그인이 필요해
+  //      뒤에 두면 튕기기 전에 실패가 한 번 더 난다.
+  //   ⚠️ 부팅 복원(`app.js` 의 `#messages-` 분기)은 세션 복원 뒤에 도므로
+  //      로그인한 회원이 여기서 튕기지 않는다.
+  if (!currentUser) { navigate('login'); return; }
   // 알림·새로고침으로 직접 진입 시 _myApps/allCampaigns 캐시가 비어 제목·취소 판별이
   //   부정확할 수 있어 먼저 보장한다(응모이력 경유 진입이면 이미 로드돼 즉시 통과).
   if ((typeof _myApps === 'undefined' || !_myApps || !_myApps.length) && typeof loadMyApplications === 'function') {
@@ -235,8 +248,15 @@ function renderMessageThread(messages) {
     // 첨부 썸네일 (signed URL 비동기 로드)
     let attachHtml = '';
     const atts = Array.isArray(msg.attachments) ? msg.attachments : [];
-    if (atts.length) {
-      attachHtml = `<div class="msg-attachments">${atts.map((a, i) => {
+    // 파기된 첨부(작업 12-B)는 **그리지 않는다.**
+    //   ⚠️ 관리자 화면과 달리 「파기됨」 상자를 두지 않는 이유 — 탈퇴가 확정된 회원은
+    //      로그인 자체가 막히므로(작업 8) 이 화면에 도달할 수 없다. **도달할 수 없는
+    //      자리에 새 일본어 문구와 번역 열쇠말을 만들면 검증할 수 없는 문구가 는다.**
+    //   ⚠️ 그래도 걸러는 낸다 — 안 걸러면 어떤 이유로든 주소가 빈 첨부가 들어왔을 때
+    //      「이미지를 불러오지 못했습니다」가 그대로 뜬다.
+    const visibleAtts = atts.filter(a => !msgAttachmentPurged(a));
+    if (visibleAtts.length) {
+      attachHtml = `<div class="msg-attachments">${visibleAtts.map((a, i) => {
         const elId = `msgatt-${msg.id}-${i}`;
         loadMsgAttachThumb(elId, a.path);
         return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
@@ -489,26 +509,71 @@ function formatMMDD(ms) {
 
 // ── FAQ 트리 ──
 
-// 동적 치환 컨텍스트 계산 (§5-1) — {required}=캠페인 min_followers, {current}=본인 대표 SNS 팔로워
+// 동적 치환 컨텍스트 계산 (§5-1) — {required}=이 캠페인의 필요 팔로워, {current}=내 팔로워
+//   ⚠️ 최소 팔로워 조건은 채널 조건에 따라 갈래가 셋이다(채널 하나 / 또는 / 그리고).
+//      예전에는 `camp.min_followers` 숫자 하나와 **본인 대표 SNS** 만 봐서 두 곳이 틀렸다 —
+//      ①「그리고」 캠페인은 그 칸이 0 이라 **필요 수치 줄이 통째로 사라졌고**
+//      ②캠페인에 들어 있지도 않은 채널(대표 SNS)의 팔로워 수를 「현재」로 보여줬다.
+//      이제 무엇을 보여줄지는 공용 함수(`minFollowersDisplay`, shared.js)가 정하고
+//      여기서는 **문구만** 만든다 — 캠페인 상세와 같은 재료를 써야 두 화면이 안 갈린다.
+//   ⚠️ 값은 `renderFaqBody` 가 esc() 하므로 **태그 없는 평문**이어야 한다
+//      (캠페인 상세용 `minFollowersDetailLines` 는 <span> 을 섞어 그대로 못 쓴다).
 function _buildFaqCtx(camp) {
   const ctx = {};
-  const minF = camp?.min_followers || 0;
-  if (minF > 0) ctx.required = minF;
+  const label = ch => (typeof getChannelLabelLocal === 'function' ? getChannelLabelLocal(ch) : '') || ch;
+  // 리뷰어형은 `minFollowersDisplay` 가 null 을 주고, **행사는 여기서 따로 뺀다** —
+  //   그 함수는 행사를 모른다. 실제 응모 게이트(application.js)도 행사면 팔로워 검사
+  //   자체를 안 타므로 화면도 같은 기준으로 맞춘 것이다.
+  const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  const d = (!isEvent && typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+
+  const all = (typeof campaignChannelTokens === 'function') ? campaignChannelTokens(camp) : [];
+  let need = '';
+  let needChannels = [];
+  if (d && d.kind === 'and') {
+    // 값을 안 넣은 채널은 검사하지 않으므로 「필요」에서도 「현재」에서도 뺀다.
+    const rows = (d.rows || []).filter(r => Number(r.required) > 0);
+    need = rows.map(r => `${label(r.channel)} ${Number(r.required).toLocaleString()}${t('detail.minFollowersSuffix')}`).join(' / ');
+    needChannels = rows.map(r => r.channel);
+  } else if (d && d.kind === 'or') {
+    need = t('detail.minFollowersAnyChannel').replace('{n}', Number(d.required).toLocaleString());
+    needChannels = all;
+  } else if (d) {
+    const only = all[0];
+    need = `${only ? label(only) + ' ' : ''}${Number(d.required).toLocaleString()}${t('detail.minFollowersSuffix')}`;
+    needChannels = only ? [only] : [];
+  }
+
+  // 첫 줄({intro})은 조건 유무로 갈린다 — 예전에는 본문에 「조건이 있습니다」가 박혀 있어
+  //   **조건이 없는 캠페인(리뷰어형·행사)에도 그대로 떴다**(바로 아래 두 줄은 값이 없어
+  //   빠지므로, 있다고 해 놓고 아무것도 안 보여 주는 답변이 됐다).
+  //   ⚠️ 이 한 줄의 문구만 본문이 아니라 번역 파일에 있다 — 갈래를 화면이 정하기 때문.
+  ctx.intro = need ? t('messaging.faqFollowerIntroHas') : t('messaging.faqFollowerIntroNone');
+  if (!need) return ctx;
+  ctx.required = need;
+
+  // 「현재」는 **위 「필요」에 나온 채널만** 센다 — 조건이 없는 채널 숫자를 함께 보여주면
+  //   무엇을 고쳐야 하는지 오히려 흐려진다.
   const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
-  // qoo10 은 자체 팔로워 개념이 없어 신청 시 Instagram ID·팔로워를 필수로 받고 그 값으로
-  // 최소 팔로워를 검증한다(application.js 와 동일). 따라서 여기서도 ig_followers 를 폴백으로 쓴다.
-  const followerMap = {
-    instagram: p.ig_followers || 0, x: p.x_followers || 0,
-    tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,
-  };
-  const primary = (p.primary_sns || (camp?.channel || '').split(',')[0] || '').trim();
-  const cur = followerMap[primary];
-  if (cur && cur > 0) ctx.current = cur;
+  const seen = {};
+  const mine = [];
+  needChannels.forEach(ch => {
+    // Qoo10 은 자체 팔로워 개념이 없어 Instagram 값을 빌려 쓴다(판정도 같다).
+    //   같은 숫자를 두 줄로 보여주지 않게 한 번만 센다.
+    const key = (ch === 'qoo10') ? 'instagram' : ch;
+    if (seen[key]) return;
+    seen[key] = true;
+    const n = (typeof followerCountForChannel === 'function') ? followerCountForChannel(p, ch) : 0;
+    mine.push(t('detail.minFollowersCurrent').replace('{channel}', label(ch)).replace('{n}', Number(n || 0).toLocaleString()));
+  });
+  if (mine.length) ctx.current = mine.join(' / ');
   return ctx;
 }
 
 // 본문 동적 치환 (§5-1) — 화이트리스트 토큰만, 값 없으면 그 토큰이 든 줄 통째 생략, 치환값 esc
-const FAQ_TOKEN_WHITELIST = ['required', 'current'];
+//   ⚠️ 여기에 없는 이름은 치환도 안 되고 **줄이 빠지지도 않는다**(본문에 글자 그대로 남는다).
+//      본문에 새 자리를 만들면 이 배열에 반드시 함께 넣을 것.
+const FAQ_TOKEN_WHITELIST = ['intro', 'required', 'current'];
 function renderFaqBody(text, ctx) {
   if (!text) return '';
   ctx = ctx || {};

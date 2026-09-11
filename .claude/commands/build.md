@@ -1,3 +1,7 @@
+---
+description: dev/ 를 빌드해 루트 index.html·admin/index.html 을 만든다
+---
+
 프로젝트 빌드:
 
 1. `cd dev && bash build.sh` 실행

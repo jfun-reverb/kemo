@@ -121,7 +121,25 @@ async function handleSignup(e) {
   }
 
   try {
-    const {data, error} = await db.auth.signUp({email, password: pw});
+    // 🔴 폼 값을 계정 정보에 실어 보낸다 — **이게 유일한 저장 경로다.**
+    //    아래에서 이메일 확인 대기면 그 자리에서 return 하므로, `upsertInfluencer` 는
+    //    **운영에서 한 번도 도달하지 못한다**(운영은 확인이 필수). 그래서 값이
+    //    서버에 닿는 길은 여기뿐이고, 받는 쪽은 가입 트리거(마이그레이션 382)다.
+    //    ⚠️ 개인정보를 두 곳에 남기지 않도록, 그 트리거가 회원 행에 옮긴 **직후
+    //       이 자리를 지운다.** 여기서 보내는 것은 「지나가는 값」이다.
+    //    ⚠️ `created_at` 은 보내지 않는다 — 서버가 계정 생성 시각을 쓴다(브라우저
+    //       시계를 믿지 않는다). 그 덕에 소급분(동의 시각 = 가입 시각)과 갈린다.
+    const {data, error} = await db.auth.signUp({
+      email, password: pw,
+      options: { data: {
+        name, name_kanji: name, name_kana: nameKana,
+        birthdate, gender,
+        terms_agreed_at: nowIso,
+        privacy_agreed_at: nowIso,
+        marketing_opt_in: marketingOptIn,
+        marketing_agreed_at: marketingOptIn ? nowIso : null
+      } }
+    });
     // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
     // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
     if (error) { logAppError('handleSignup', error); showSignupFailure(errEl); btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
@@ -134,13 +152,18 @@ async function handleSignup(e) {
         $('signupConfirmMsg').style.display='block';
         return;
       }
-      try {
-        await upsertInfluencer({id: data.user.id, ...userData});
-      } catch(dbErr) {
-        // ⚠️ 계정은 만들어졌는데 프로필 행이 안 생긴 상태로 넘어간다(무음).
-        //    가입은 성공한 것처럼 보이므로 기록이 없으면 영영 드러나지 않는다.
-        logAppError('handleSignup.upsertInfluencer', dbErr);
-      }
+      // 🔴 여기서 회원 행을 쓰지 않는다 — **가입 트리거(마이그레이션 382)가 이미
+      //    넣었다.** 예전에는 이 자리에서 `upsertInfluencer` 를 불렀는데, 그것이
+      //    **행 전체를 대체**해 트리거가 넣은 값을 망가뜨린다:
+      //      · `created_at` — 브라우저 시각으로 **덮어써진다.** 2026-08-26 개발서버
+      //        실측에서 확인함(계정 시각과 다른 값이 들어갔다). 서버 시각이 맞다.
+      //      · `age_consent_at` — 여기서 보내는 값에 **없어서 안 채워진다.**
+      //        ⚠️ 「지워진다」가 아니다 — 이 호출은 보낸 칸만 쓴다. 다만 결과는
+      //        같다(그 칸이 빈 채로 남는다). 실측에서 NULL 이었다.
+      //    ⚠️ 위 둘은 **옛 코드 상태**에서 잰 값이다. 트리거와 이 호출이 함께 도는
+      //       흐름은 실행해 본 적이 없다 — 트리거를 넣은 뒤 이 호출을 지웠기 때문이다.
+      //    ⚠️ 이 자리는 **확인 메일이 꺼진 환경에서만** 실행된다(운영은 위에서 이미
+      //       return 한다). 그래서 이 결함은 개발서버에서만 드러났다.
       currentUser = data.user;
       currentUserProfile = {id: data.user.id, ...userData};
     }
@@ -167,6 +190,8 @@ async function handleLogin(e) {
   const errEl = $('loginError');
   const btn = $('loginBtn');
   errEl.style.display='none'; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
+  // 가입 확인 착지가 남긴 초록 안내(#loginNotice)는 로그인을 시도하는 순간 걷는다
+  const noticeEl = $('loginNotice'); if (noticeEl) noticeEl.style.display='none';
 
   if (!db) {
     errEl.textContent=t('authError.serverError'); errEl.style.display='block';
@@ -203,10 +228,15 @@ async function handleLogin(e) {
         window.location.href = '/admin/';
       }
     } else {
-      const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
-      currentUserProfile = profile;
+      const {data:profile, error:profileErr} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
+      currentUserProfile = profile || null;
+      // 🔴 조회 실패와 0건을 가른다 — 2026-09-10 운영에서 로그인 직후 조회가 비로그인으로 나가
+      //    401 이 「0건」으로 읽혀 삽입까지 갔다(조사 문서 2026-09-10-signup-confirm-link-misrouted-to-reset).
+      //    실패면 삽입하지 않고 기록만 남긴 채 진행한다(정상 거부 아님 — 오류 로그 배지에 뜬다, 의도).
+      if (profileErr) {
+        logAppError('handleLogin.profileFetch', profileErr);
+      } else if (!profile) {
       // 프로필이 없으면 기본 프로필 생성 (회원가입 시 RLS로 실패한 경우)
-      if (!profile) {
         try {
           await upsertInfluencer({id: data.user.id, email, created_at: new Date().toISOString()});
           currentUserProfile = {id: data.user.id, email};
@@ -241,6 +271,29 @@ async function handleLogout() {
 }
 
 // ── 비밀번호 재설정 ──
+// 재전송 대기 동안 버튼을 잠근다. 시간이 지나면 스스로 풀린다.
+//   ⚠️ 남은 초를 버튼에 **세어 보여주지 않는다** — 문구에 안 쓰는 이유와 같다.
+//   ⚠️ 상한 300초는 **정책이 아니라 방어값**이다. 대기 시간은 인증 설정 화면에 항목이 없어
+//      (2026-08-31 운영 확인 — Rate Limits 는 전부 시간당·5분당 「횟수」다) 근거로 삼을 값이 없다.
+//      관측된 것은 43초·50초 둘뿐이라, 서버가 이상한 값을 줘도 영영 안 잠기게만 막는다.
+let _forgotCooldownTimer = null;
+function startForgotCooldown(seconds) {
+  const btn = $('forgotBtn');
+  if (!btn) return;
+  if (_forgotCooldownTimer) { clearInterval(_forgotCooldownTimer); _forgotCooldownTimer = null; }
+  let left = Math.min(Math.max(Number(seconds) || 60, 1), 300);
+  btn.disabled = true;
+  btn.textContent = t('auth.forgot.waitingBtn');
+  _forgotCooldownTimer = setInterval(() => {
+    left -= 1;
+    if (left > 0) return;
+    clearInterval(_forgotCooldownTimer);
+    _forgotCooldownTimer = null;
+    btn.disabled = false;
+    btn.textContent = t('auth.forgot.btn');
+  }, 1000);
+}
+
 async function handleForgotPassword(e) {
   e.preventDefault();
   const email = $('forgotEmail').value.trim();
@@ -248,6 +301,9 @@ async function handleForgotPassword(e) {
   const successEl = $('forgotSuccess');
   const btn = $('forgotBtn');
 
+  // 지난 호출이 주황 안내(form-notice)로 바꿔 놨을 수 있다 — **매번 기본값으로 되돌린다.**
+  //   경로마다 되돌리면 빠뜨리는 곳이 생긴다(실제로 `!db`·catch 두 갈래를 빠뜨렸다).
+  errEl.className = 'form-error';
   errEl.style.display = 'none';
   successEl.style.display = 'none';
 
@@ -272,6 +328,29 @@ async function handleForgotPassword(e) {
       //   ⚠️ 인플루언서 비밀번호 찾기는 실제로 고장 난 적이 있는 경로다(2026-07-20).
       //      화면 문구는 그대로 두고 원인만 남긴다.
       logAppError('handleForgotPassword', error);
+      // 연타 방지(재전송 대기)는 **실패가 아니라 「아직 이르다」**는 안내다. 일반 문구로 덮으면
+      //   몇 초 기다려야 하는지 몰라 회원이 계속 누른다 — 운영 오류 로그에 그 흔적이 5회 있다.
+      //   위 handleResetPassword 의 「예전과 같은 비밀번호」와 **같은 방식**으로 갈라낸다.
+      //   ⚠️ `error.code` 는 **보조로만** 쓴다 — 오류 로그의 코드 열이 전부 비어 있어(수집기가
+      //      `ERR_` 형식만 뽑는다) 이 오류의 실제 code 값은 확인되지 않았다. 확인된 근거는
+      //      메시지 정규식 쪽이다(운영 실측 문구: `... after 43 seconds.` · `... after 50 seconds.`).
+      //   ⚠️ 계정 열거 방지에 안 걸린다 — 이 대기는 **계정 존재와 무관하게** 걸리므로
+      //      「잠시 후 다시」를 보여줘도 계정 정보가 새지 않는다.
+      const _msg = String(error.message || '');
+      const _wait = _msg.match(/after (\d+) seconds?/i);
+      if (_wait || /security purposes/i.test(_msg)
+          || String(error.code || '') === 'over_email_send_rate_limit') {
+        // ⚠️ 빨강(오류)으로 두면 문구가 「실패가 아니다」라고 말하는데 화면은 실패라고 말한다.
+        //    주황 안내로 바꾼다. **같은 요소를 다른 오류가 재사용하므로 아래에서 반드시 되돌린다.**
+        errEl.className = 'form-notice';
+        errEl.textContent = t('auth.forgot.tooSoon');
+        errEl.style.display = 'block';
+        // ⚠️ 남은 초는 **문구에 안 쓴다** — 정확히 보여주면 회원이 초를 세고 있다가 누른다.
+        //    뽑은 초는 **버튼을 잠그는 시간**으로만 쓴다.
+        startForgotCooldown(_wait ? Number(_wait[1]) : 60);
+        // 🔴 여기서 반드시 return — 함수 끝의 `btn.disabled = false` 가 잠금을 즉시 풀어 버린다.
+        return;
+      }
       errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {

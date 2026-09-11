@@ -159,6 +159,10 @@ async function init() {
     // 채널 코드 어긋남 — **부팅 시 1회.** 해당 화면에 들어가야만 알 수 있으면 늦다
     //   (이번 사고가 「두 달간 아무도 몰랐다」였다). 0건이면 아무 표시도 안 뜬다.
     if (typeof refreshChannelDriftIndicators === 'function') refreshChannelDriftIndicators();
+    // ⚠️ 「올려두고 미제출」은 **부팅 시 안 부른다**(2026-08-26). 이 호출은 사이드바 표시를
+    //   위한 것이었는데 그 표시를 없앴다 — 남은 곳(페인 제목 옆 버튼)은 결과물 관리 화면을
+    //   열 때 `loadDeliverables()` 가 부르므로, 여기 두면 **아무도 안 보는 조회**가 매 부팅마다 돈다.
+    //   사이드바 표시를 되살리면 이 줄도 함께 되살릴 것(그때는 「들어가야만 알 수 있으면 늦다」가 다시 성립).
     // 막힌 표 감지 — 부팅 시 1회. **그 화면에 들어가야만 알 수 있으면 늦다**
     //   (2026-08-07 사고가 11일간 안 보였던 이유가 그것이다).
     if (typeof refreshBlockedTableIndicators === 'function') refreshBlockedTableIndicators();
@@ -205,6 +209,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (badge) badge.style.display = 'inline-block';
       var badgeSide = document.getElementById('stagingBadgeSide');
       if (badgeSide) badgeSide.style.display = 'inline-block';
+      // 빌드 표시 단서 — 개발서버 도장은 자기 내용보다 늘 옛것이라(.claude/rules/build.md)
+      // 두 서버의 도장을 비교해 앞뒤를 판단하면 반대로 읽힌다. 운영에는 붙이지 않는다.
+      var buildInfo = document.getElementById('adminBuildInfo');
+      if (buildInfo) {
+        buildInfo.title += ' 개발서버 표시는 실제 내용보다 이전 시점일 수 있습니다. 운영 표시와 비교해 앞뒤를 판단하지 마세요.';
+      }
     }
   } catch(e) {}
 

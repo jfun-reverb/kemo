@@ -54,8 +54,16 @@ function resetDelivFiltersAndSort(skipRender) {
   _delivPendingOnly = false;  // 검수대기만(배지 클릭) 해제
   // 최근 제출일 기간 초기화
   _delivSubmittedFrom = ''; _delivSubmittedTo = '';
-  if (_delivSubmittedFp) _delivSubmittedFp.clear();
+  // ⚠️ clear(false) — 이벤트를 켜 두면 각 picker 의 onChange 가 renderDeliverablesList() 를
+  //    한 번씩 더 부른다. 특히 openDelivPendingReview 는 skipRender=true 로 부르는데도
+  //    그 렌더가 _delivPendingOnly 를 세우기 전에 시작해 낡은 결과가 덮을 수 있다.
+  //    위에서 상태·강조를 직접 지우므로 이벤트는 필요 없다.
+  if (_delivSubmittedFp) _delivSubmittedFp.clear(false);
   const dr = $('delivSubmittedRange'); if (dr) dr.classList.remove('filter-active');
+  // 인증 성공일 기간 초기화
+  _delivCertFrom = ''; _delivCertTo = '';
+  if (_delivCertFp) _delivCertFp.clear(false);
+  const cr = $('delivCertRange'); if (cr) cr.classList.remove('filter-active');
   _delivSort = {col: null, dir: null};
   if (!skipRender) renderDeliverablesList();  // 배지 클릭(openDelivPendingReview)은 이중 렌더 방지로 생략
 }
@@ -78,6 +86,11 @@ async function loadDeliverables() {
   // 채널 어긋남 경고 버튼 갱신 — 0건이면 버튼째 숨긴다. 실패해도 목록은 이미 떠 있다.
   if (typeof refreshChannelDriftIndicators === 'function') {
     refreshChannelDriftIndicators();
+  }
+  // 「올려두고 미제출」 감지도 같은 자리에서 — 위 목록 렌더가 이미 집합을 받아 왔지만,
+  //   사이드바·버튼 표시는 이 함수가 담당한다(0건이면 아무것도 안 그린다).
+  if (typeof refreshStalledDraftIndicators === 'function') {
+    refreshStalledDraftIndicators();
   }
 }
 
@@ -104,6 +117,9 @@ async function refreshDelivSidebarBadge() {
     //    ⚠️ 이 항목에 표시를 추가·변경할 때도 같은 함정이 있다.
     el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${badge}`;
     if (typeof applyChannelDriftIndicators === 'function') applyChannelDriftIndicators();
+    // ⚠️ 「올려두고 미제출」 사이드바 표시를 없애면서(2026-08-26) 여기서 다시 입힐 것도
+    //    없어졌다. 그 표시를 되살리면 **이 자리에 재입힘 줄도 함께** 되살려야 한다 —
+    //    위 innerHTML 이 항목을 통째로 다시 쓰기 때문이다.
   } catch(e) { /* 무시 */ }
 }
 
@@ -124,6 +140,12 @@ const DELIV_PAGE_SIZE = 50;
 var _delivSubmittedFrom = '';
 var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
+// 인증 성공일 기간 필터 상태 (같은 규칙 — 브라우저 로컬 = 운영자 KST 기준 YYYY-MM-DD)
+//   ⚠️ 인증 성공일은 **인증 성공한 건에만** 있다(certSuccessAt). 그래서 기간을 고르면
+//      인증성공 외 탭 건수는 자연히 0이 된다 — 숨기지 않고 그대로 보여준다(사실이라서).
+var _delivCertFrom = '';
+var _delivCertTo = '';
+var _delivCertFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
 // 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
@@ -204,6 +226,26 @@ function setupDelivSubmittedRange() {
   });
 }
 
+// 인증 성공일 range picker mount (1회). 최근 제출일과 같은 형태·같은 동작.
+function setupDelivCertRange() {
+  if (typeof flatpickr === 'undefined') return;
+  const el = $('delivCertRange');
+  if (!el || _delivCertFp) return;
+  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+  _delivCertFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    onChange: function(selectedDates) {
+      _delivCertFrom = fmt(selectedDates[0]);
+      _delivCertTo = fmt(selectedDates[1]);
+      el.classList.toggle('filter-active', !!(_delivCertFrom || _delivCertTo));
+      if (selectedDates.length === 0 || selectedDates.length === 2) renderDeliverablesList();
+    }
+  });
+}
+
 // 텍스트 검색창 토글 — 기본 숨김, 돋보기 버튼으로 펼침. 접을 때 검색어가 있으면 비우고 갱신.
 function toggleDelivSearch() {
   const box = $('delivSearchBox');
@@ -218,9 +260,10 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
+  setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
   let channelLookup = [];
   try { channelLookup = await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
@@ -264,6 +307,11 @@ async function renderDeliverablesList() {
     infMissingMap = await fetchInfluencersByIds(userIds);
   }
 
+  // 「올려두고 미제출」 표시용 별도 조회 — 판정에는 안 쓰인다(작업 7).
+  //   ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
+  //      0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
+  _delivStalledDraftApps = await fetchStalledDraftApplications();
+
   // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
   //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
   //   includeMissing 이면 미제출 승인 신청도 빈 그룹으로 포함.
@@ -285,8 +333,10 @@ async function renderDeliverablesList() {
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
       // 검수 불필요(신청 반려·취소)는 검수 상태 필터 대상이 아님 — 상태 필터 선택 시 제외
       if (isCertExcluded(g)) return false;
-      // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 영수증 단계가 없음
-      if (g.campaign?.recruit_type !== 'monitor') return false;
+      // 이미지 칸은 리뷰어형(영수증)과 방문형(현장 사진)이 함께 쓴다 — 기프팅만 제외.
+      //   ⚠️ 방문형을 빼면 「검수중」으로 걸러도 현장 사진이 안 나와 찾을 방법이 없다.
+      const _rtF = g.campaign?.recruit_type;
+      if (_rtF !== 'monitor' && _rtF !== 'visit') return false;
       const s = g.receipt ? g.receipt.status : 'none';
       if (!receiptStatusVals.includes(s)) return false;
     }
@@ -314,6 +364,12 @@ async function renderDeliverablesList() {
       if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
       if (_delivSubmittedFrom && d < _delivSubmittedFrom) return false;
       if (_delivSubmittedTo && d > _delivSubmittedTo) return false;
+    }
+    if (_delivCertFrom || _delivCertTo) {
+      const c = delivLocalDate(certSuccessAt(g));
+      if (!c) return false;  // 아직 인증 성공이 아닌 건은 날짜가 없어 기간 지정 시 제외
+      if (_delivCertFrom && c < _delivCertFrom) return false;
+      if (_delivCertTo && c > _delivCertTo) return false;
     }
     return true;
   };
@@ -418,8 +474,9 @@ async function renderDeliverablesList() {
   if (delivCampVals.length > 0) filtered = filtered.filter(g => g.campaign && delivCampVals.includes(g.campaign.id));
   if (receiptStatusVals.length > 0) filtered = filtered.filter(g => {
     if (isCertExcluded(g)) return false;  // 검수 불필요는 검수 상태 필터 대상 아님
-    // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 표시 안 함
-    if (g.campaign?.recruit_type !== 'monitor') return false;
+    // 이미지 칸은 리뷰어형(영수증)과 방문형(현장 사진)이 함께 쓴다 — 기프팅만 제외.
+    const _rtF2 = g.campaign?.recruit_type;
+    if (_rtF2 !== 'monitor' && _rtF2 !== 'visit') return false;
     const s = g.receipt ? g.receipt.status : 'none';
     return receiptStatusVals.includes(s);
   });
@@ -447,6 +504,14 @@ async function renderDeliverablesList() {
     if (_delivSubmittedTo && d > _delivSubmittedTo) return false;
     return true;
   });
+  // 인증 성공일 기간 필터 — passesFilters(건수 집계) 와 **같은 판정**이어야 탭 숫자와 목록이 안 어긋난다
+  if (_delivCertFrom || _delivCertTo) filtered = filtered.filter(g => {
+    const c = delivLocalDate(certSuccessAt(g));
+    if (!c) return false;
+    if (_delivCertFrom && c < _delivCertFrom) return false;
+    if (_delivCertTo && c > _delivCertTo) return false;
+    return true;
+  });
   // 검색 필터 — 인플루언서 전용(단어 단위 AND, 전각/반각 공백 무관). 캠페인은 검색형 드롭다운으로 분리
   if (search) filtered = filtered.filter(g => {
     const inf = g.influencer || {};
@@ -467,6 +532,7 @@ async function renderDeliverablesList() {
   // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·인증탭·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
   const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
+    || _delivCertFrom || _delivCertTo
     || _delivPendingOnly
     || !!_delivCertTab
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
@@ -477,7 +543,15 @@ async function renderDeliverablesList() {
   if (search) { const _sbox = $('delivSearchBox'); if (_sbox) _sbox.style.display = 'flex'; }
 
   // 정렬: 수동 sort 있으면 그대로, 없으면 검수대기 우선 → 최근 제출일 내림차순
-  if (_delivSort.col === 'submitted') {
+  if (_delivSort.col === 'name') {
+    // 인플루언서 이름 정렬 (한자 우선) — 엑셀 네 갈래·신청 관리와 **같은 기준**이다.
+    //   ⚠️ 이름이 없는 행은 방향과 무관하게 뒤로 보낸다. 인증 성공일 정렬과 같은 규약이다
+    //      — 빈 값이 앞을 다 채우면 정렬을 눌러도 아무것도 못 본다.
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), dir);
+    });
+  } else if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
   } else if (_delivSort.col === 'purchase') {
@@ -487,6 +561,19 @@ async function renderDeliverablesList() {
       const aStart = (a.campaign?.purchase_start || a.campaign?.visit_start || '');
       const bStart = (b.campaign?.purchase_start || b.campaign?.visit_start || '');
       return aStart.localeCompare(bStart) * dir;
+    });
+  } else if (_delivSort.col === 'cert_at') {
+    // 인증 성공일 정렬. ⚠️ 값이 빈 행(아직 인증 성공이 아닌 건)은 **방향과 무관하게 항상 뒤로**
+    //   보낸다 — 이 열은 빈 칸이 절반 넘어서, 오름차순에서 빈 칸이 앞을 다 채우면
+    //   정렬을 눌러도 아무것도 못 보게 된다.
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      const av = certSuccessAt(a) || '';
+      const bv = certSuccessAt(b) || '';
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.localeCompare(bv) * dir;
     });
   } else if (_delivSort.col === 'submission_end') {
     // 결과물 제출 마감일 기준 정렬
@@ -520,7 +607,9 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: (_delivCertFrom || _delivCertTo)
+      ? '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span></td></tr>'
+      : '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -716,14 +805,36 @@ function certStatusLabelKo(g) {
   const s = computeCertStatus(g);
   return s === 'excluded' ? '검수 불필요' : s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
 }
+// 「올려만 두고 제출 안 한」 신청 id 집합. `null` = 아직 안 봤거나 조회 실패 → **아무 표시도 안 한다.**
+//   ⚠️ 빈 Set(`new Set()`)과 `null` 은 다른 뜻이다 — 빈 Set 은 「봤는데 없다」, null 은 「모른다」.
+var _delivStalledDraftApps = null;
+// 그 신청이 「냈다가 멈춘」 것인가 (판정에는 안 쓰인다 — 표시 전용)
+function delivHasStalledDraft(g) {
+  if (!_delivStalledDraftApps || !g) return false;
+  return _delivStalledDraftApps.has(g.application_id);
+}
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
   // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
   const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
   if (s === 'excluded')   return `<span class="badge badge-gray" style="${st}" title="신청이 승인 후 반려·취소되어 검수가 불필요합니다">검수 불필요</span>`;
   if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
-  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
-  return `<span class="badge badge-gray" style="${st}">미제출</span>`;
+  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>${stalledChip(g, st)}`;
+  return `<span class="badge badge-gray" style="${st}">미제출</span>${stalledChip(g, st)}`;
+}
+
+// 「올려만 두고 제출 안 한 것이 남아 있음」 딱지 — 인증 상태 배지 **옆에 덧붙인다.**
+//   🔴 인증 상태를 갈아치우지 않는 이유: 실제로 가장 흔한 모양이 **「일부는 냈고 하나가 멈춘」**
+//      경우다(개발서버 실측 1건 — 영수증 승인 + 한 채널 검수중 + 다른 채널만 임시저장).
+//      그 사람의 인증 상태는 「인증샷 제출중」이 맞고, 그것을 「올려두고 미제출」로 바꾸면
+//      **틀린 말**이 된다. 그래서 상태는 그대로 두고 **딱지만 얹는다.**
+//   ⚠️ 처음에는 「아무것도 안 낸」 경우에만 라벨을 바꾸게 만들었는데, 그러면 감지 건수(1)와
+//      목록에 보이는 수(0)가 어긋난다 — 정작 실제 데이터가 그 반대 경우였다.
+//      **감지가 세는 것과 화면이 보여주는 것은 같은 기준이어야 한다.**
+//   ⚠️ 인증 상태 판정에는 일절 끼어들지 않는다(탭·집계·엑셀·정산 무영향).
+function stalledChip(g, st) {
+  if (!delivHasStalledDraft(g)) return '';
+  return ` <span class="badge badge-pink" style="${st}" title="본인이 올려는 뒀지만 「제출하기」를 누르지 않은 것이 남아 있습니다 — 그 건은 운영팀에 전달되지 않았습니다">올려만 둠</span>`;
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
@@ -731,6 +842,64 @@ function certStatusBadge(g) {
 // opts.compact: 단일 캠페인 화면(캠페인 진행현황 「결과물 목록」 탭)에서 호출.
 //   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
 //   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
+// 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
+//   판정에 쓰인 결과물들의 승인 시각 중 **가장 늦은 것** = 마지막 한 건이 승인된 순간.
+//   서버 쪽 원본은 마이그레이션 331 의 `_settlement_cert_candidates()` — 형식별 분기가 같다:
+//     가구매      : 영수증 승인 시각
+//     리뷰어형    : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
+//     시딩·방문형 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//   ⚠️ 채널 목록은 `_finalizePostReprs` 와 **같은 곳**에서 얻는다(캠페인 channel 문자열).
+//      여기만 다른 데서 얻으면 「인증성공인데 날짜가 빈」 행이 생긴다.
+//   ⚠️ 인증 성공이 아닌 건은 빈 값이다 — 진행 중인 건에 날짜를 붙이면 끝난 것처럼 보인다.
+//   ⚠️ 옛 결과물에 승인 시각이 비어 있으면 **빈 값으로 둔다.** 등록일 같은 다른 날짜로
+//      대신 채우지 않는다 — 정산이 그 실수를 했고 마이그레이션 324 가 정정했다.
+//   ⚠️ 정산 화면과 **값은 같아도 대상은 다르다** — 정산 행이 없는 건(무보수 시딩·방문형은
+//      후보에서 제외, 마이그레이션 264)은 여기엔 날짜가 뜨지만 정산 목록엔 아예 없다.
+function certSuccessAt(g) {
+  if (!g || computeCertStatus(g) !== 'success') return null;
+  const camp = g.campaign || {};
+  const rt = camp.recruit_type;
+  const okAt = (d) => (d && d.status === 'approved' && d.reviewed_at) ? d.reviewed_at : null;
+  // 하나라도 시각이 없으면 전체를 빈 값으로 — 「가장 늦은 것」을 알 수 없기 때문
+  const latest = (arr) => {
+    let m = null;
+    for (const v of arr) { if (!v) return null; if (!m || v > m) m = v; }
+    return m;
+  };
+  const channels = String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  if (rt === 'monitor') {
+    const r = okAt(g.receipt);
+    if (camp.proxy_purchase) return r;
+    return latest([r].concat(channels.map(ch => okAt((g.reviewByChannel || {})[ch]))));
+  }
+  return latest(channels.map(ch => okAt((g.postByChannel || {})[ch])));
+}
+
+// 영수증에 적힌 구매금액 — 영수증 열 바로 오른쪽에 그린다.
+//   ⚠️ 영수증 단계가 있는 것은 **리뷰어형(monitor)뿐**이다. 시딩·방문형은 「해당 없음」으로
+//      두어, 값이 빈 것(안 적었다)과 애초에 낼 것이 없는 것을 구분한다.
+//      (방문형도 현장 사진을 같은 `receipt` 종류로 내지만 구매금액 칸은 안 쓴다.)
+//   ⚠️ 표기는 검수 창·정산 화면과 같은 방식(¥ + 자릿수 구분)을 쓴다.
+//   ⚠️ 리뷰어형 정산은 이 금액을 **캠페인 제품 금액을 상한으로 잘라** 지급한다.
+//      상한을 넘으면 그 사실을 함께 보여준다 — 이 숫자가 그대로 나간다고 읽히면 안 된다.
+function receiptAmountCell(g) {
+  const camp = (g && g.campaign) || {};
+  if (camp.recruit_type !== 'monitor') {
+    return '<span style="font-size:11px;color:var(--muted)">해당 없음</span>';
+  }
+  const raw = g.receipt ? g.receipt.purchase_amount : null;
+  const amt = (raw === null || raw === undefined || raw === '') ? null : Number(raw);
+  if (amt === null || !Number.isFinite(amt)) {
+    return '<span style="color:var(--muted)">—</span>';
+  }
+  const cap = Number(camp.product_price);
+  const over = Number.isFinite(cap) && cap > 0 && amt > cap;
+  const capNote = over
+    ? `<div style="font-size:10px;color:var(--dark-pink)">상한 ¥${cap.toLocaleString()}</div>`
+    : '';
+  return `<div style="font-weight:600">¥${amt.toLocaleString()}</div>${capNote}`;
+}
+
 function renderDelivAppRow(g, opts) {
   const compact = !!(opts && opts.compact);
   const camp = g.campaign || {};
@@ -793,7 +962,9 @@ function renderDelivAppRow(g, opts) {
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">${campCols}
     <td><div class="applicant-name-cell"><div class="applicant-name-info"><div class="link-cell" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</div>${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td style="white-space:nowrap">${certStatusBadge(g)}</td>
+    <td style="white-space:nowrap;font-size:12px">${(function(){ const at = certSuccessAt(g); return at ? esc(formatDate(at)) : '<span style="color:var(--muted)">—</span>'; })()}</td>
     <td class="deliv-col-receipt">${receiptCell}</td>
+    <td class="deliv-col-receipt-amount" style="white-space:nowrap;font-size:12px;text-align:right">${receiptAmountCell(g)}</td>
     <td class="deliv-col-result">${resultCell}</td>
     <td class="deliv-col-submitted">${submittedCell}</td>
     <td class="deliv-col-action"><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
@@ -830,7 +1001,7 @@ function renderDelivResultCellMonitor(g) {
     }
     let thumb = '';
     if (d.receipt_url) {
-      const thumbUrl = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 48, 80) : d.receipt_url;
+      const thumbUrl = storageThumbUrl(d.receipt_url);
       thumb = '<img src="' + esc(thumbUrl) + '" data-orig="' + esc(d.receipt_url) + '" loading="lazy" decoding="async" '
         + 'style="width:22px;height:22px;border-radius:3px;object-fit:cover;cursor:pointer;background:#f5f5f5" '
         + 'onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" '
@@ -856,8 +1027,12 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   const small = (slot === 'result' || slot === 'receipt');
   const badgeFs = small ? '10px' : '11px';
   const badgePad = small ? '1px 6px' : '2px 8px';
-  // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
-  if (slot === 'receipt' && rt !== 'monitor') {
+  // 영수증 칸은 리뷰어형(영수증)과 **방문형(현장 사진)** 이 함께 쓴다.
+  //   ⚠️ 인플루언서 화면이 방문형에도 이미지 폼을 띄우므로(application.js `showImage`)
+  //      방문형은 실제로 `receipt` 종류로 현장 사진을 낸다. 여기서 「—」로 그리면
+  //      **낸 것이 관리자 화면에서 통째로 사라진다**(2026-09-03 운영 실측 133건).
+  //   기프팅은 이미지 단계가 없으므로 종전대로 「—」.
+  if (slot === 'receipt' && rt !== 'monitor' && rt !== 'visit') {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
   }
   if (!d) {
@@ -866,7 +1041,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   let preview = '';
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     if (d.receipt_url) {
-      const thumb = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 64, 80) : d.receipt_url;
+      const thumb = storageThumbUrl(d.receipt_url);
       preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox('${esc(d.receipt_url)}')">`;
     }
   } else if (d.kind === 'post') {
@@ -1249,8 +1424,13 @@ async function renderDelivCombinedBody(applicationId) {
     resultEvents = fetched[1];
   }
 
-  // 영수증 패널은 monitor에서만 노출. gifting/visit은 영수증 단계 없음.
-  const showReceipt = rt === 'monitor';
+  // 이미지 패널은 리뷰어형(영수증)과 **방문형(현장 사진)** 에서 노출한다.
+  //   🔴 2026-09-03 이전에는 `rt === 'monitor'` 뿐이라 **방문형 현장 사진이 이 창에
+  //      아예 안 그려졌다.** 회원은 내는데 관리자는 볼 수도 검수할 수도 없었다.
+  //   ⚠️ 여기서 「보이게」만 한다 — 인증 성공 판정(방문형 = 게시물 기준)과 정산은
+  //      건드리지 않았다. 아래 `useReceipt`(완료 표시)도 리뷰어형 그대로 둔다.
+  const showReceipt = rt === 'monitor' || rt === 'visit';
+  const receiptPanelLabel = rt === 'visit' ? '현장 사진' : '영수증';
   const resultLabel = rt === 'monitor' ? '결과물 (리뷰 캡쳐)' : '결과물 (게시 URL)';
   const stepLabel = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 1</span>' : '';
   const stepLabel2 = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 2</span>' : '';
@@ -1329,7 +1509,7 @@ async function renderDelivCombinedBody(applicationId) {
       const rowsHtml = unassigned.map(function(d){
         const orig = d.receipt_url || '';
         const thumb = orig
-          ? `<img src="${esc(typeof imgThumb === 'function' ? imgThumb(orig, 64, 60) : orig)}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
+          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
         const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
@@ -1407,7 +1587,7 @@ async function renderDelivCombinedBody(applicationId) {
     <div class="${gridClass}">
       ${showReceipt
         ? `<div class="deliv-combined-panel">
-            <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
+            <div class="deliv-combined-panel-header"><span>${receiptPanelLabel} ${stepLabel}</span>${receiptStatusBadge}</div>
             <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents, isExcluded)}</div>
           </div>`
         : ''}
@@ -1832,7 +2012,11 @@ function renderDelivPanelContent(d, events, isExcluded) {
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
     // review_image kind는 해당 없음
-    if (d.kind === 'receipt') {
+    //   ⚠️ **방문형은 제외한다** — 현장 사진은 같은 `receipt` 종류로 오지만
+    //      주문번호·구매일·구매금액이 애초에 없다. 그리면 빨간 「미입력」이 세 줄 뜨는데
+    //      그건 안 낸 것이 아니라 **낼 것이 없는 것**이라 읽는 사람을 속인다.
+    const _infoCamp = d.campaigns || _panelCamp || {};
+    if (d.kind === 'receipt' && _infoCamp.recruit_type !== 'visit') {
       html += renderReceiptInfoBlock(d, isExcluded);
     }
   } else {
@@ -2513,6 +2697,11 @@ async function submitAdminProxyDelivProxy() {
       if (!norm) return toast('URL 형식이 올바르지 않습니다', 'error');
       const url = norm.url;
       if (norm.changed) toast('URL을 수정했습니다: ' + url, 'success');
+      // 주소 모양 경고 (작업 10) — 인플루언서 화면과 **같은 판정 함수**를 쓴다.
+      //   🔴 막지 않는다. 한쪽만 넣으면 같은 주소가 화면마다 다르게 취급된다.
+      if (typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(url)) {
+        toast('글 하나를 가리키는 주소가 아닌 것 같습니다 — 다시 확인해 주세요', 'warn');
+      }
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
       // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
       // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.

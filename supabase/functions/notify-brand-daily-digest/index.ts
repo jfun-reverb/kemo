@@ -303,8 +303,180 @@ function renderResubmitSection(args: {
 // ══════════════════════════════════════════════════════════════════
 // Main handler
 // ══════════════════════════════════════════════════════════════════
+
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+function isAnonJwt(token: string): boolean {
+  if (!token.startsWith("eyJ")) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "anon";
+  } catch {
+    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  if (isAnonJwt(token)) {
+    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  return false;
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// [423 · D-8] 수신자 단위 발송 기록 — 「복사 목록」
+//   ⚠️ notify-influencer-daily-digest / notify-admin-daily-digest / notify-brand-daily-digest
+//   세 함수에 **같은 이름·같은 본문**으로 들어 있다(Edge Function 은 공유 모듈이 없다).
+//   본문이 갈리면 그 자체가 사고 — 고칠 때 세 벌을 함께 고치고 diff 가 0 인지 볼 것
+//   (사양서 docs/specs/2026-09-07-digest-per-recipient-send-record.md 검증 5).
+//   원형: ②·③은 notify-policy-change 의 것을 그대로(①의 값만 이 함수군에 맞게 10분),
+//   ⑤는 그쪽 claimMember 를 본떠 새로 썼다(열쇠 3열·반환 4종).
+//
+//   순서(D-9 와 같다): 선점(failed + in_flight@시각) → 발송 → 성공 뒤에만 sent.
+//   🔴 선점 「조건」과 「바꾸는 값」이 skip_reason 한 칸 — 다른 칸이면 두 실행이 같은
+//   사람을 동시에 잡는다(D-9 첫 판 사고).
+// ══════════════════════════════════════════════════════════════════
+type DigestKind = "influencer_daily" | "admin_daily" | "brand_daily";
+type ClaimResult = "claimed" | "already_sent" | "in_progress" | "record_error";
+// deno-lint-ignore no-explicit-any
+type SbAny = any; // ReturnType<typeof createClient> 은 실제 인스턴스 타입과 어긋난다(이 파일들의 기존 결함)
+
+// ① 수신자 한 명의 「죽은 선점」 판별 시간(분). 🔴 실행 자물쇠(RETRY_COOLDOWN_MS = 10분)보다 길면
+//    실행 자물쇠는 풀렸는데 수신자 행은 in_progress 로 남아 재호출이 헛돈다 — 같은 10분으로 둔다.
+//    (한 사람 발송은 Brevo 왕복 수 초라 10분이면 넉넉하다.)
+const CLAIM_STALE_MINUTES = 10;
+// ② 선점 표시 — ISO 8601(UTC, 자릿수 고정)이어야 ③과의 문자열 비교가 성립한다.
+function inFlightMarker(): string { return `in_flight@${new Date().toISOString()}`; }
+// ③ 이 값보다 작은(=오래된) in_flight 는 죽은 선점으로 본다.
+function staleInFlightCutoff(): string { return `in_flight@${new Date(Date.now() - CLAIM_STALE_MINUTES * 60_000).toISOString()}`; }
+// ④ 수신자 열쇠 정규화 — 이메일은 대소문자·앞뒤 공백을 **이 한 곳**에서 맞춘다
+//    (안 하면 같은 관리자가 두 행 = 두 통). 회원 id(소문자 uuid 문자열)는 결과가 원래 값과 같다.
+function normalizeRecipientKey(raw: string): string { return raw.trim().toLowerCase(); }
+// 기록 실패 원문 — claimRecipient 가 record_error 를 돌려줄 때 실행 표 error_message 에 옮겨 적기 위해 남긴다.
+let lastDigestRecordError = "";
+// ⑤ 선점 — 새 행이면 INSERT 로 claimed. 이미 있으면 「send_failed 또는 오래된 in_flight」만 넘겨받는다.
+//    0행이면 그 행을 읽어 sent/skipped 면 already_sent(더 볼 것 없음), 아니면 in_progress(다른 실행이 10분 안에 잡음).
+//    ⚠️ skip_reason IS NULL 인 failed 행은 이 함수군의 쓰기로는 생기지 않지만, 생기면 영영 못 넘겨받으므로 함께 건다(방침 통지와 같다).
+async function claimRecipient(sb: SbAny, kind: DigestKind, date: string, key: string, influencerId?: string): Promise<ClaimResult> {
+  const marker = inFlightMarker();
+  const { error: insErr } = await sb.from("digest_email_sent").insert({
+    digest_kind: kind, digest_date: date, recipient_key: key,
+    influencer_id: influencerId ?? null, status: "failed", skip_reason: marker,
+  });
+  if (!insErr) return "claimed";
+  if ((insErr as { code?: string }).code !== "23505") {
+    lastDigestRecordError = insErr.message || "insert failed";
+    console.error("[digest-sent] claim insert failed", kind, key, lastDigestRecordError);
+    return "record_error";
+  }
+  const { data: taken, error: takeErr } = await sb.from("digest_email_sent")
+    .update({ skip_reason: marker })
+    .eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key)
+    .eq("status", "failed")
+    .or(`skip_reason.eq.send_failed,skip_reason.is.null,skip_reason.lt."${staleInFlightCutoff()}"`)
+    .select("id");
+  if (takeErr) {
+    lastDigestRecordError = takeErr.message || "takeover failed";
+    console.error("[digest-sent] claim takeover failed", kind, key, lastDigestRecordError);
+    return "record_error";
+  }
+  if (taken && taken.length > 0) return "claimed";
+  const { data: row, error: rowErr } = await sb.from("digest_email_sent")
+    .select("status").eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key).maybeSingle();
+  if (rowErr || !row) {
+    lastDigestRecordError = rowErr?.message || "row lookup failed";
+    console.error("[digest-sent] claim row lookup failed", kind, key, lastDigestRecordError);
+    return "record_error";
+  }
+  return (row.status === "sent" || row.status === "skipped") ? "already_sent" : "in_progress";
+}
+// ⑥ 발송 성공 뒤에만 — sent + skip_reason NULL(넘겨받기 조건에 영영 안 걸린다). 실패하면 false.
+async function markSent(sb: SbAny, kind: DigestKind, date: string, key: string): Promise<boolean> {
+  const { error } = await sb.from("digest_email_sent")
+    .update({ status: "sent", skip_reason: null, error_message: null })
+    .eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key);
+  if (error) console.error("[digest-sent] markSent failed", kind, key, error.message);
+  return !error;
+}
+// ⑦ 발송 실패 — failed + send_failed(다음 재진입 대상), 오류 원문 앞 300자.
+async function markFailed(sb: SbAny, kind: DigestKind, date: string, key: string, msg: string): Promise<void> {
+  const { error } = await sb.from("digest_email_sent")
+    .update({ status: "failed", skip_reason: "send_failed", error_message: (msg || "").slice(0, 300) })
+    .eq("digest_kind", kind).eq("digest_date", date).eq("recipient_key", key);
+  if (error) console.error("[digest-sent] markFailed failed", kind, key, error.message);
+}
+// ⑧ 보낼 수 없어 건너뜀(no_email) — 선점을 거치지 않고 바로 skipped. 이미 행이 있으면 그대로 둔다(ON CONFLICT DO NOTHING).
+//    재시도해도 다시 안 본다 — 이메일이 나중에 생겨도 그 날짜 몫은 지난 것이다.
+async function markSkipped(sb: SbAny, kind: DigestKind, date: string, key: string, reason: string, influencerId?: string): Promise<void> {
+  const { error } = await sb.from("digest_email_sent")
+    .upsert(
+      { digest_kind: kind, digest_date: date, recipient_key: key, influencer_id: influencerId ?? null, status: "skipped", skip_reason: reason },
+      { onConflict: "digest_kind,digest_date,recipient_key", ignoreDuplicates: true },
+    );
+  if (error) console.error("[digest-sent] markSkipped failed", kind, key, error.message);
+}
+// ⑨ 실행 표 상태 3갈래(사양서 설계 4).
+//    sent    = 실패·진행 중·발송 뒤 기록 실패가 하나도 없다(전원 already_sent 포함)
+//    failed  = 이번 실행에서 성공도 기수신도 없이 실패만 있다(전원 실패)
+//    partial = 그 밖 — 하나라도 남았으면 당일 재호출의 재진입 대상
+type DigestCounts = { sent: number; alreadySent: number; failed: number; inProgress: number; recordLostAfterSend: number };
+function digestRunStatus(c: DigestCounts): "sent" | "failed" | "partial" {
+  if (c.failed === 0 && c.inProgress === 0 && c.recordLostAfterSend === 0) return "sent";
+  if (c.sent === 0 && c.alreadySent === 0 && c.failed > 0 && c.inProgress === 0) return "failed";
+  return "partial";
+}
+function digestRunSummary(c: DigestCounts, firstErr: string): string {
+  const base = `${c.sent} sent, ${c.alreadySent} already_sent, ${c.failed} failed, ${c.inProgress} in_progress, ${c.recordLostAfterSend} record_lost_after_send`;
+  return firstErr ? `${base}. first error: ${firstErr}`.slice(0, 500) : base;
+}
+// ══════════════════════════════════════════════════════════════════
+
+// 이 함수의 다이제스트 종류 — digest_email_sent.digest_kind
+const DIGEST_KIND: DigestKind = "brand_daily";
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  if (rejectPublicKeyCaller(req, "notify-brand-daily-digest")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const supaUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -383,6 +555,7 @@ Deno.serve(async (req: Request) => {
             { status: 200, headers: { "content-type": "application/json" } },
           );
         }
+        // status === 'failed' 또는 'partial'(423) — 크래시로 멈췄거나 진짜 실패, 또는 일부 실패가 남았다. 최소 대기 시간 확인.
         const runAtMs = new Date(existing.run_at as string).getTime();
         const elapsedMs = Date.now() - runAtMs;
         if (elapsedMs < RETRY_COOLDOWN_MS) {
@@ -441,7 +614,7 @@ Deno.serve(async (req: Request) => {
   // (그 사이 다른 실행이 run_at 을 바꿔써서 내가 더 이상 주인이 아니면)
   // 덮어쓰지 않고 console.error 로만 남긴다.
   const finalizeRun = async (payload: {
-    status: "sent" | "skipped_no_data" | "failed";
+    status: "sent" | "skipped_no_data" | "failed" | "partial";  // partial: 423
     sections_summary: Record<string, number>;
     recipients_count: number;
     error_message?: string | null;
@@ -622,16 +795,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── 8. 발송 — 1인 1통 분리 (To 헤더 노출 차단) ──
+    // ── 8. 발송 ── 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
     //
-    // [리뷰 반영 3] ⚠️ 잔여 위험 — "누구에게 보냈는지" 개별 기록이 없다
-    // (recipients_count 집계만 남음). 이 실행이 일부 관리자에게 보낸 뒤
-    // 죽으면, 나중 재시도(쿨다운 10분 경과 후)는 이미 받은 사람을 몰라
-    // adminEmails 전원에게 처음부터 다시 보낸다. 수동 재시도 전에 Brevo
-    // 발송 이력으로 직전 실행이 몇 명까지 갔는지 먼저 확인할 것.
-    let successCount = 0;
-    const failures: { email: string; error: string }[] = [];
+    // [423 · D-8] 수신자 단위 기록 — 수신자마다 선점(failed+in_flight) → 발송 → 성공 뒤에만 sent.
+    //   재호출이면 sent 행은 already_sent 로 건너뛰어 **실패분만** 나간다. 옛 「누구에게 보냈는지
+    //   기록이 없어 재시도가 전원에게 다시 보낸다」 잔여 위험(리뷰 반영 3)은 이것으로 닫혔다.
+    //   수신자 열쇠는 소문자 정규화 이메일(normalizeRecipientKey) — 발송 주소는 원문 그대로 쓴다.
+    let successCount = 0, failedCount = 0, inProgress = 0, alreadySent = 0, recordLostAfterSend = 0;
+    let firstErr = "";
+    let recordError = false;
     for (const email of adminEmails) {
+      const key = normalizeRecipientKey(email);
+      const claim = await claimRecipient(sb, DIGEST_KIND, digestDate, key);
+      if (claim === "record_error") { recordError = true; break; } // 기록 못 하면 보내지 않는다(설계 7)
+      if (claim === "already_sent") { alreadySent++; continue; }
+      if (claim === "in_progress") { inProgress++; continue; }
       try {
         await sendBrevoEmail({
           to: [{ email }],
@@ -639,56 +817,84 @@ Deno.serve(async (req: Request) => {
           htmlContent: html,
           textContent: text,
         });
-        successCount++;
       } catch (e) {
         const msg = (e as Error).message || "brevo send error";
-        console.error("[notify-brand-daily] send failed", email, msg);
-        failures.push({ email, error: msg });
+        console.error("[notify-brand-daily] send failed", key, msg);
+        await markFailed(sb, DIGEST_KIND, digestDate, key, msg);
+        failedCount++;
+        if (!firstErr) firstErr = msg;
+        continue;
+      }
+      // ── 여기부터는 메일이 이미 나간 상태 — 되돌릴 것이 없다 ──
+      successCount++;
+      let recorded = await markSent(sb, DIGEST_KIND, digestDate, key);
+      if (!recorded) recorded = await markSent(sb, DIGEST_KIND, digestDate, key); // 한 번 더
+      if (!recorded) {
+        // 행이 in_flight 로 남아 10분 뒤 재호출이 이 사람에게 한 통 더 보낼 수 있다(설계 7) — 실행을 partial 로 남겨 알린다
+        recordLostAfterSend++;
+        console.error("[notify-brand-daily] sent but could not record — may be re-sent on retry", key);
       }
     }
 
-    if (successCount === 0) {
-      const firstErr = failures[0]?.error || "unknown";
+    // 수신자 표에 기록할 수 없었다 — 기록 없는 발송이 이 결함의 원인이라 그 자리에서 멈췄다(설계 7).
+    //   표가 없으면 다음 사람도 다 실패하므로 계속 돌 이유가 없다. 배포 순서(데이터베이스 먼저)가 틀렸을 때 이 갈래로 온다.
+    if (recordError) {
+      await finalizeRun({
+        status: "failed",
+        sections_summary: sectionsSummary,
+        recipients_count: successCount,
+        error_message: `기록 실패: ${lastDigestRecordError}`.slice(0, 500),
+      });
+      return new Response(
+        JSON.stringify({ error: "recipient record failed", stage: "claim", digestDate, sent_before_stop: successCount }),
+        { status: 500, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    // 실행 상태 3갈래(423) — sent / failed(전원 실패) / partial(하나라도 남음 → 당일 재호출 재진입 대상)
+    const counts = { sent: successCount, alreadySent, failed: failedCount, inProgress, recordLostAfterSend };
+    const runStatus = digestRunStatus(counts);
+    const summary = runStatus === "sent" ? null : digestRunSummary(counts, firstErr);
+
+    if (runStatus === "failed") {
+      // 전원 실패 — 종전과 같이 500 (재진입 대상)
       await finalizeRun({
         status: "failed",
         sections_summary: sectionsSummary,
         recipients_count: 0,
-        error_message: `all ${adminEmails.length} sends failed: ${firstErr}`,
+        error_message: `all ${adminEmails.length} sends failed. ${summary}`.slice(0, 500),
       });
       return new Response(JSON.stringify({
         error: "all sends failed", stage: "send",
-        attempted: adminEmails.length, failed: failures.length,
+        attempted: adminEmails.length, failed: failedCount,
       }), { status: 500, headers: { "content-type": "application/json" } });
     }
 
-    // ── 9. 성공 UPDATE ──
-    const errMsg = failures.length > 0
-      ? `${successCount}/${adminEmails.length} sent. failed: ${failures.map((f) => `${f.email}(${f.error})`).join("; ")}`
-      : null;
     await finalizeRun({
-      status: "sent",
+      status: runStatus,
       sections_summary: sectionsSummary,
       recipients_count: successCount,
-      error_message: errMsg,
+      error_message: summary,
     });
 
     console.log("[notify-brand-daily] done", {
-      digestDate,
-      totalCount,
-      attempted: adminEmails.length,
-      succeeded: successCount,
-      failed: failures.length,
+      digestDate, totalCount, status: runStatus,
+      attempted: adminEmails.length, succeeded: successCount, alreadySent, failed: failedCount, inProgress, recordLostAfterSend,
     });
 
     return new Response(
       JSON.stringify({
         ok: true,
         digestDate,
+        status: runStatus,
         totalCount,
         sectionsSummary,
         attempted: adminEmails.length,
         succeeded: successCount,
-        failed: failures.length,
+        already_sent: alreadySent,
+        failed: failedCount,
+        in_progress: inProgress,
+        record_lost_after_send: recordLostAfterSend,
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );

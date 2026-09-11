@@ -2,8 +2,11 @@
 // admin-orient.js — 브랜드 셀프 오리엔시트 관리자 발급·조회
 // 신규 페인 #adminPane-orient-sheets: 목록 · 발급 모달 · 상세 모달 · 링크 복사
 // 사양서 docs/specs/2026-06-18-brand-self-orient-sheet.md §7·§15
-// 발급 함수 create_orient_sheet (마이그레이션 195, 2인자, is_admin 가드)
-// §15 재설계: 1 링크 = 공통 브랜드 + 카드 N개(카드마다 form_type). data = cards 배열(§15-A)
+// 발급 함수 create_orient_sheet (마이그레이션 195 → 205 → 424, 4인자, is_admin 가드)
+// 2026-09-08 단순화 재설계(사양서 docs/specs/2026-09-08-orient-sheet-simplify-and-quote.md):
+//   새 시트 = 링크 1개 = 형식 1개(리뷰어/시딩) + 제품 1개 — 관리자가 발급 때 형식·시딩 채널을 정한다.
+//   data.issued 유무로 새/옛 구조를 가른다. 옛 시트(카드 N개, 카드마다 form_type)는 그대로 읽힌다 —
+//   cards 배열은 유지(uid·메모·발행 표시·연결/해제·삭제가 전부 cards[i] 를 본다).
 // ============================================================
 
 let _orientSheets = [];
@@ -51,6 +54,10 @@ let _orientActiveStatusTab = null;
 //    코드 정정(atcosme→cosme, osPrefillChannels)의 영향을 받지 않는다. 도달하지 않을 뿐
 //    「안 쓰이는 표」는 아니므로, sd.channels 의 값 범위를 넓힐 땐 여기도 함께 봐야 한다.
 const OS_CH_LABEL = { instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
+// 발급 모달의 시딩 채널 드롭다운 재료 — 🔴 위 OS_CH_LABEL(9종)을 쓰지 않는다. 그 표에는 서버가 거부하는
+//   값(instagram·qoo10·lips·atcosme)이 섞여 있어 「고를 수는 있는데 발급이 막히는」 화면이 된다.
+//   ⚠️ 같은 5종이 세 곳에 산다 — ①dev/sales/orient.html SEEDING_CHANNELS ②여기 ③마이그레이션 424 서버 검증.
+const OS_SEEDING_CHANNELS = ['instagram_feed', 'instagram_reels', 'x', 'tiktok', 'youtube'];
 
 // 운영/개발 sales 도메인 분기 (orient.html SUPABASE_ENV 규칙과 동일)
 function osSalesBase() {
@@ -109,6 +116,15 @@ function osSeedingAppeal(sd) {
   return guides.map(g => ((g && g.guide) || '').trim()).filter(Boolean).join('\n');
 }
 
+// 새 구조(2026-09-08 단순화) 판별 — data.issued 가 있으면 관리자가 형식·채널을 정해 발급한 시트
+function osSheetIsNew(s) { return !!(s && s.data && s.data.issued && typeof s.data.issued === 'object'); }
+// 새 구조 시트의 발급 채널 — issued.channel 이 원본(시딩만). cards[0].seeding.channels[0] 은 서버가 맞춰 두는 사본
+function osIssuedChannel(s) { return osSheetIsNew(s) ? (s.data.issued.channel || '') : ''; }
+function osChannelChip(ch) {
+  if (!ch) return '';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#3730A3;background:#EEF2FF">${esc(osChLabel(ch))}</span>`;
+}
+
 // 형식 칩 (상세 모달 카드 헤더)
 function osTypeChip(ft) {
   if (!ft) return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#8A8A90;background:#F0F0F0">형식 미선택</span>';
@@ -116,8 +132,15 @@ function osTypeChip(ft) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${c.color};background:${c.bg}">${OS_TYPE_LABEL[ft] || esc(ft)}</span>`;
 }
 
-// 목록 「형식」 컬럼 — form_type 컬럼은 NULL(카드별 형식)이라 data.cards 를 형식별로 집계
+// 목록 「모집 형식」 컬럼 — 옛 시트는 form_type 컬럼이 NULL(카드별 형식)이라 data.cards 를 형식별로 집계.
+//   새 시트(issued)는 형식 하나 + 시딩이면 채널 이름을 덧붙인다(「시딩 · 인스타그램-피드」).
 function osCardsSummary(data) {
+  if (data && data.issued && typeof data.issued === 'object') {
+    const ft = data.issued.form_type || '';
+    const label = OS_TYPE_LABEL[ft] || ft || '형식 미상';
+    const ch = (ft === 'seeding' && data.issued.channel) ? ' · ' + osChLabel(data.issued.channel) : '';
+    return esc(label + ch);
+  }
   const cards = (data && Array.isArray(data.cards)) ? data.cards : [];
   if (!cards.length) return '<span style="color:var(--muted)">미작성</span>';
   const cnt = {};
@@ -334,11 +357,17 @@ async function osReopenSendMail(id) {
 //   {} (무인자)          — #orient-sheets "신규 발급": 브랜드·신청 자유 선택
 //   {brandId, appId}     — 서베이 목록 더보기: 신청 연결 고정
 //   {brandId, lockBrand} — 브랜드 관리: 브랜드 고정·신청 없음
-// 형식·제품은 발급 시 정하지 않음 — 브랜드가 작성 폼에서 카드마다 직접 고름(§15-11).
+// [424] 형식(리뷰어/시딩)은 발급 때 관리자가 정한다. 시딩이면 채널 1개까지. 제품은 브랜드가 폼에서 적는다.
+//   열릴 때마다 형식·채널을 비운다 — 동적 생성 모달이라 초기 문자열과 여기 두 곳이 초기화 자리다.
 async function osOpenCreate(opts) {
   opts = opts || {};
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
+  document.querySelectorAll('input[name="osCreateFormType"]').forEach(r => { r.checked = false; });
+  const chSel = document.getElementById('osCreateChannel');
+  chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
+  chSel.value = '';
+  osOnFormTypeChange();
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
   document.getElementById('osCreateSubmitBtn').style.display = '';
@@ -371,13 +400,20 @@ async function osOpenCreate(opts) {
 
 // 진입점 ② — 브랜드 서베이(신청) 목록 더보기 「오리엔시트 링크생성」.
 // admin-brand.js 의 _brandApps 캐시에서 신청을 찾아 브랜드·신청을 주입하며 발급 모달을 연다.
-// (형식·제품은 발급 시 미지정 — 브랜드가 작성 폼에서 카드마다 선택)
+// (형식은 이 모달에서 관리자가 고른다 — 신청의 form_type 을 미리 채우지는 않는다: 신청과 다른 형식으로 발급하는 경우가 있다)
 function osIssueFromApplication(appId) {
   const apps = (typeof _brandApps !== 'undefined' && Array.isArray(_brandApps)) ? _brandApps : [];
   const a = apps.find(x => x.id === appId);
   if (!a) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
   if (!a.brand_id) { toast('이 신청은 브랜드가 연결돼 있지 않아 오리엔시트를 발급할 수 없습니다.'); return; }
   osOpenCreate({ appId: appId, brandId: a.brand_id });
+}
+
+// 형식 라디오 → 시딩일 때만 채널 줄을 보인다
+function osOnFormTypeChange() {
+  const ft = (document.querySelector('input[name="osCreateFormType"]:checked') || {}).value || '';
+  const row = document.getElementById('osCreateChannelRow');
+  if (row) row.style.display = (ft === 'seeding') ? '' : 'none';
 }
 
 async function osOnBrandChange() {
@@ -485,10 +521,14 @@ async function osSubmitCreate() {
   const brandId = document.getElementById('osCreateBrand').value;
   if (!brandId) { toast('브랜드를 선택해 주세요.'); return; }
   const appId = document.getElementById('osCreateApp').value || null;
+  const formType = (document.querySelector('input[name="osCreateFormType"]:checked') || {}).value || '';
+  if (!formType) { toast('모집 형식을 선택해 주세요.'); return; }
+  const channel = (formType === 'seeding') ? (document.getElementById('osCreateChannel').value || '') : '';
+  if (formType === 'seeding' && !channel) { toast('게시 채널을 선택해 주세요.'); return; }
   const btn = document.getElementById('osCreateSubmitBtn');
   btn.disabled = true;
   try {
-    const res = await createOrientSheet(brandId, appId);
+    const res = await createOrientSheet(brandId, appId, formType, channel || null);
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
@@ -517,6 +557,9 @@ function osReasonText(r) {
     brand_seq_missing: '브랜드 식별번호가 없습니다 (관리자에게 문의)',
     application_not_found: '신청을 찾을 수 없습니다',
     brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
+    invalid_form_type: '모집 형식은 리뷰어·시딩 중 하나여야 합니다',
+    channel_required: '시딩은 게시 채널을 골라야 합니다',
+    invalid_channel: '고를 수 없는 채널입니다',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -938,6 +981,8 @@ function osDetailHtml(s, catMap, readonly) {
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
     + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
+  // [2단계] 예상 견적 카드 — data.quote / quote_error 세트(마이그레이션 427)로 판별. 옛 시트는 둘 다 없어 안 그린다.
+  const quoteCard = osQuoteCard(s, readonly);
   // 브랜드가 레버브 운영팀에 전한 요청 — 값 있을 때만 카드로 1회 표시(발행 자동채움 대상 아님)
   const reqCard = d.reverb_request
     ? `<div class="os-card"><div class="os-card-title">레버브 측 요청</div><div class="os-fields">${osField('요청·요구사항', d.reverb_request, true)}</div></div>`
@@ -947,9 +992,9 @@ function osDetailHtml(s, catMap, readonly) {
     const msg = (s.status === 'draft')
       ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
       : '작성된 모집 건이 없습니다.';
-    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard;
+    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard + quoteCard;
   } else {
-    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard;
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard + quoteCard;
   }
   // 새창 출력(readonly)은 한 덩어리 그대로 — 메모를 아예 그리지 않으므로 나눌 것이 없다.
   //   그 출력물은 인쇄·브랜드 화면 공유 대상이라 내부 대화가 들어가면 안 된다.
@@ -964,14 +1009,16 @@ function osDetailHtml(s, catMap, readonly) {
 function osFieldRow(label, valHtml, wide) {
   return `<div class="os-field${wide ? ' os-field-wide' : ''}"><div class="os-field-label">${label}</div><div class="os-field-val">${valHtml}</div></div>`;
 }
+// 값이 있을 때만 줄을 그린다(2026-09-08 단순화 — 새 시트는 없는 항목이 조용히 빠지고, 옛 시트는 옛 값이 그대로 보인다).
+//   ⚠️ 카드가 통째로 비면 osCardDetail 이 「아직 작성 전입니다」 한 줄을 대신 그린다.
 function osField(label, val, wide) {
-  const v = (val == null || val === '') ? '<span class="os-empty">미입력</span>' : esc(String(val));
-  return osFieldRow(label, v, wide);
+  if (val == null || String(val).trim() === '') return '';
+  return osFieldRow(label, esc(String(val)), wide);
 }
 // 값이 이미 안전한 HTML(링크 등 — 호출부가 esc·화이트리스트 보장)일 때. esc 미적용.
 function osFieldHtml(label, htmlVal, wide) {
-  const v = htmlVal ? htmlVal : '<span class="os-empty">미입력</span>';
-  return osFieldRow(label, v, wide);
+  if (!htmlVal || !String(htmlVal).trim()) return '';
+  return osFieldRow(label, htmlVal, wide);
 }
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 
@@ -984,9 +1031,52 @@ function osBrandCard(brand, headerName) {
     ? osField('담당자명', b.contact_name) + osField('이메일', b.email) + osField('연락처', b.phone)
     : '';
   const inner = nameField + contactFields + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
+  const body = inner || '<div style="color:var(--muted);font-size:12px">아직 작성 전입니다.</div>';
   return `<div class="os-card">
     <div class="os-card-title">브랜드 정보</div>
-    <div class="os-fields">${inner}</div></div>`;
+    <div class="os-fields">${body}</div></div>`;
+}
+
+// ── [2단계] 예상 견적 카드 (사양서 §4-3·§4-6, 작업 19) ──
+//   🔴 견적서 사본을 여기서 그리지 않는다 — 「견적서 열기」는 sales 도메인의 인쇄용 화면(?view=quote)을 새창에 연다.
+//   토큰이 만료·발행(consumed)됐으면 그 화면이 막히므로 단추를 안 그리고 숫자 요약만 남긴다.
+function osKrw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+function osQuoteLinkable(s) {
+  if (!s || !s.token) return false;
+  if (s.status === 'consumed' || s.status === 'expired') return false;
+  if (s.token_expires_at && new Date(s.token_expires_at).getTime() < Date.now()) return false;
+  return true;
+}
+function osQuoteHistoryHtml(hist) {
+  const list = Array.isArray(hist) ? hist.slice().reverse() : [];
+  if (!list.length) return '';
+  const items = list.map(h => `<li style="font-size:12px;color:var(--muted);padding:2px 0">${esc(String(h.revision || '?'))}차 견적 · ${esc(h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h.total_krw))}</li>`).join('');
+  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 견적 ${list.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
+}
+function osQuoteCard(s, readonly) {
+  const d = (s && s.data) || {};
+  const q = d.quote;
+  const err = d.quote_error;
+  if (!q && !err) return '';
+  const openBtn = (!readonly && osQuoteLinkable(s))
+    ? `<a class="btn btn-ghost btn-xs" href="${esc(osBuildLink(s.token) + '&view=quote')}" target="_blank" rel="noopener">견적서 열기</a>`
+    : '';
+  if (err) {
+    const why = ({ slots_missing: '모집 인원을 숫자로 못 읽어 견적이 없습니다', calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)' })[err] || '상시가를 숫자로 못 읽어 견적이 없습니다';
+    return `<div class="os-card"><div class="os-card-title">예상 견적</div>
+      <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history)}</div>`;
+  }
+  const lines = (Array.isArray(q.lines) ? q.lines : []).map(l =>
+    `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrw(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrw(l.amount_krw))}</td></tr>`).join('');
+  return `<div class="os-card">
+    <div class="os-card-title" style="display:flex;align-items:center;gap:8px">예상 견적
+      <span style="font-size:11px;font-weight:600;color:var(--muted)">${esc(q.quote_no || '')} · ${esc(String(q.revision || 1))}차 견적 · ${esc(q.issued_at ? formatDateTime(q.issued_at) : '')}</span>
+      <span style="flex:1"></span>${openBtn}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+      <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
+    ${osQuoteHistoryHtml(d.quote_history)}</div>`;
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
@@ -998,21 +1088,26 @@ function osCardDetail(c, idx, catMap, readonly) {
   const sd = c.seeding || {};
   const catLabel = (catMap && catMap[p.category]) || p.category;
 
+  // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
   let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
-    + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end))
+    + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
       + osField('상시가', sale.price_regular);
   }
+  if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
   if (ft === 'reviewer') {
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
   }
   if (ft === 'seeding') {
     inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
-    const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
-    inner += osField('게시 채널', chNames.join(', '));
+    // 새 구조 시트는 채널이 카드 머리의 칩에 있어 본문에는 안 그린다(이중 표시 방지). 옛 시트는 본문 줄 그대로.
+    if (!osSheetIsNew(_osDetailSheet)) {
+      const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
+      inner += osField('게시 채널', chNames.join(', '));
+    }
     inner += osField('소구 키워드', osSeedingAppeal(sd), true);
     inner += osField('촬영 가이드', sd.shooting_guide, true)
       + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
@@ -1024,11 +1119,15 @@ function osCardDetail(c, idx, catMap, readonly) {
   }
   inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng), true) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions), true) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
+  // 값이 있는 줄이 하나도 없으면(새 시트 발급 직후) 빈 상자 대신 한 줄 안내
+  if (!inner.trim()) inner = '<div style="color:var(--muted);font-size:12px">아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.</div>';
 
+  // 새 구조 시트의 시딩 카드에는 발급 채널 칩 — 원본은 issued.channel(사본 seeding.channels 가 아니라)
+  const chChip = (ft === 'seeding') ? osChannelChip(osIssuedChannel(_osDetailSheet)) : '';
   // ⚠️ 제목은 osCardTitle 로만 만든다 — 오른쪽 메모 묶음 머리줄도 같은 함수를 쓴다.
   //    여기서 따로 계산하면 왼쪽 카드 제목과 오른쪽 메모 이름이 어긋난다.
   const head = `<div class="os-card-head">
-    ${osTypeChip(ft)}<span class="os-name">${esc(osCardTitle(c, idx))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
+    ${osTypeChip(ft)}${chChip}<span class="os-name">${esc(osCardTitle(c, idx))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
   // 메모는 이 카드 안이 아니라 **오른쪽 칸**에 모아 그린다(osMemoPanelHtml).
   //   시트 내용을 읽으면서 동시에 메모를 쓸 수 있어야 해서 좌우로 나눴다.
   return `<div class="os-card">${head}<div class="os-fields">${inner}</div></div>`;
@@ -1411,7 +1510,7 @@ async function osChooseNewPublish() {
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
   try {
-    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, _osPublishCardIdx);
+    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, _osPublishCardIdx, s.data);
   } catch (e) {
     console.error('[osChooseNewPublish]', e);
     toast('자동 채움 중 오류가 발생했습니다. 폼을 직접 확인해 주세요.');
@@ -1635,8 +1734,12 @@ function osStripHtml(html) {
 }
 
 // 카드 한국어 콘텐츠를 가이드 초안으로 합침 (관리자가 일본어로 번역)
-function osBuildGuideDraft(card) {
+//   isNew: 새 구조(issued) 시트 — 리뷰어면 [NG]·[추가 안내] 블록을 생략(관리자가 NG·주의사항 번들로).
+//   🔴 시딩은 새 구조에서도 그 두 블록을 그대로 둔다(배송·NG·추가 안내를 당분간 유지 — 사양서 잠정 ⓐ).
+//      두 줄을 형식 구분 없이 지우면 시딩 값까지 사라진다(작업표 stale ⑨).
+function osBuildGuideDraft(card, isNew) {
   const blocks = [];
+  const skipCommonBlocks = !!isNew && card.form_type === 'reviewer';
   if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + osStripHtml(card.review_guide));
   if (card.form_type === 'seeding') {
     const sd = card.seeding || {};
@@ -1650,13 +1753,28 @@ function osBuildGuideDraft(card) {
     if (sd.shipping_note) blocks.push('[배송 안내] ' + sd.shipping_note);
     if (sd.account_tags) blocks.push('[태그 계정] ' + sd.account_tags);
   }
-  if (card.cautions) blocks.push('[추가 안내]\n' + osStripHtml(card.cautions));
-  if (card.ng) blocks.push('[NG]\n' + osStripHtml(card.ng));
+  if (!skipCommonBlocks && card.cautions) blocks.push('[추가 안내]\n' + osStripHtml(card.cautions));
+  if (!skipCommonBlocks && card.ng) blocks.push('[NG]\n' + osStripHtml(card.ng));
   return blocks.map(osPlainToRich).join('<br><br>');
 }
 
+// 새 구조 시트의 제안 모집 마감 = 희망 모집 시작일 + 14일(시딩 예상 일정 안내의 상한과 같다).
+//   ⚠️ 날짜는 문자열 자르기로만 계산한다(new Date('YYYY-MM-DD') 는 시간대가 끼어든다 — CLAUDE.md 규칙).
+function osAddDays(ymd, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+  if (!m) return '';
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]) + days * 86400000;
+  const d = new Date(t);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+
 // 캠페인 등록 폼에 카드 내용 자동 채움. 한국어는 _ko 칸·가이드 초안에, 일본어 표시칸(제목·제품명)은 비워 관리자 보완.
-async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, cardIdx) {
+// [2026-09-08] 새 구조(issued) 시트와 옛 시트의 매핑을 **나란히** 둔다 — 옛 값을 읽는 줄을 지우면
+//   발행된 옛 시트의 재발행·연결이 깨진다. 새 구조에서 사라진 값: 카테고리(비움) · 희망 모집 마감(시작+14일 제안) ·
+//   희망 업로드 기간(구매 기간·제출 마감 비움 → 기존 자동 제안) · 브랜드 소개(캠페인 설명 비움) ·
+//   리뷰어의 NG·추가 안내(가이드 초안에서 생략). isNew 는 _osDetailSheet 가 아니라 호출부가 준 orientData 로 판단한다.
+async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, cardIdx, orientData) {
+  const isNew = !!(orientData && orientData.issued && typeof orientData.issued === 'object');
   if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
   // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
@@ -1689,7 +1807,7 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
 
   // 채널·카테고리 렌더
   if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, osPrefillChannels(card));
-  if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', (card.product && card.product.category) || '');
+  if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', isNew ? '' : ((card.product && card.product.category) || ''));
 
   // 텍스트 (한국어→_ko, 일본어 표시칸은 비움 → 일본어 게이트가 보완 유도)
   const p = card.product || {};
@@ -1714,6 +1832,11 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
     const tags = Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags : [];
     if (typeof loadTagsFromValue === 'function') {
       loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', tags.join(','));
+      // 브랜드가 해시태그를 하나도 안 적었으면 `#PR` 을 넣는다(뒷광고 표시 의무).
+      //   🔴 **채운 뒤에 부른다** — 먼저 부르면 위 loadTagsFromValue 가 기존 칩을 지우면서
+      //      `#PR` 도 함께 날아간다(그 함수는 값이 비면 지우기만 하고 끝난다).
+      //   ⚠️ 브랜드 입력이 있으면 이 함수가 스스로 아무것도 안 한다(빈 칸일 때만).
+      if (typeof applyGiftingDefaultHashtag === 'function') applyGiftingDefaultHashtag('new');
     } else {
       osSetVal('newCampHashtags', tags.map(t => String(t).replace(/[#\s]/g, '')).filter(Boolean).map(t => '#' + t).join(','));
     }
@@ -1721,16 +1844,19 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
 
   // 날짜 (희망 모집·업로드 기간) — flatpickr range + deadline + 결과물 제출 마감일
   const r = card.recruit || {};
-  const uploadEnd = r.upload_end || null;
+  // 새 구조: 희망 마감·업로드 기간이 없다 → 마감은 시작+14일 제안, 업로드 기간은 비워 기존 자동 제안에 맡긴다
+  const recruitEnd = isNew ? (osAddDays(r.recruit_start, 14) || null) : (r.recruit_end || null);
+  const uploadStart = isNew ? null : (r.upload_start || null);
+  const uploadEnd = isNew ? null : (r.upload_end || null);
   // 업로드 기간 → 가구매·리뷰어(monitor)는 구매 기간에, 시딩(gifting)은 구매 행이 없어 결과물 마감일에만 반영
   // ⚠️ 이 monitor 분기는 applyDeadlineFieldsVisibility 의 구매 필드 노출 조건(monitor 만 유지)과 맞물려 있음.
   //    오리엔 카드에 visit(방문형) 형식이 추가되면 이 가정이 깨지므로 그때 매핑 재검토 필요.
-  const purchasePair = (recruitType === 'monitor') ? [r.upload_start || null, uploadEnd] : [null, null];
+  const purchasePair = (recruitType === 'monitor') ? [uploadStart, uploadEnd] : [null, null];
   if (typeof applyCampRangeValues === 'function') {
-    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, r.recruit_end || null], purchase: purchasePair, visit: [null, null] });
+    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, recruitEnd], purchase: purchasePair, visit: [null, null] });
   }
   osSetVal('newCampRecruitStart', r.recruit_start || '');
-  osSetVal('newCampDeadline', r.recruit_end || '');
+  osSetVal('newCampDeadline', recruitEnd || '');
   // 결과물 제출 마감일 = 업로드 마감일 그대로 (3형식 공통)
   osSetVal('newCampSubmissionEnd', uploadEnd || '');
   // 단일 picker(결과물 제출 마감일) + 구매 range picker 경계·표시 동기화
@@ -1738,10 +1864,10 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
 
   // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
   if (typeof setRichValue === 'function') {
-    setRichValue('newCampGuide', osBuildGuideDraft(card));
+    setRichValue('newCampGuide', osBuildGuideDraft(card, isNew));
     // 통합 소구 키워드 — 신규 seeding.appeal / 옛 seeding.guides 양쪽 하위호환(모듈 헬퍼 재사용)
     setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal(card.seeding)));
-    setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
+    setRichValue('newCampDesc', isNew ? '' : osPlainToRich(brand.intro || ''));
   }
 
   toast('오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
@@ -1783,8 +1909,16 @@ function ensureOrientModals() {
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input" disabled><option value="">연결 안 함</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.</div></div>
+          <div class="form-group"><label class="form-label">모집 형식 <span style="color:var(--pink,#1A1A1A)">*</span></label>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;padding:4px 0">
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="radio" name="osCreateFormType" value="reviewer" onchange="osOnFormTypeChange()"> 리뷰어</label>
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="radio" name="osCreateFormType" value="seeding" onchange="osOnFormTypeChange()"> 시딩</label>
+            </div></div>
+          <div class="form-group" id="osCreateChannelRow" style="display:none"><label class="form-label">게시 채널 <span style="color:var(--pink,#1A1A1A)">*</span></label>
+            <select id="osCreateChannel" class="form-input"><option value="">선택</option></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">채널이 여럿이면 링크를 따로 발급하세요.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
-            모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
+            링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>
         </div>
         <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:6px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>

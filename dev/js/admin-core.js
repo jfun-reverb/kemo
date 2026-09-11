@@ -85,6 +85,28 @@ function syncTagValue(wrapId, targetId, prefix) {
   hidden.value = tags.join(',');
 }
 
+// 기프팅(시딩) 캠페인의 필수 해시태그에 `#PR` 을 기본으로 넣는다.
+//   🔴 **일본 뒷광고(스테마) 규제가 요구하는 표시**다 — 제품을 무상 제공하는 기프팅은
+//      「#PR·#広告·#プロモーション 중 하나」가 반드시 붙어야 한다(PROJECT_CONTEXT 3-1).
+//      담당자가 매번 손으로 넣다 빠뜨리면 그 캠페인 결과물 전체가 규제 위반이 된다.
+//   ⚠️ **빈 칸일 때만 넣는다**(2026-09-02 사용자 결정) — 오리엔시트 발행은 이 칸을
+//      **브랜드가 적은 해시태그**로 채우므로(`admin-orient.js`), 무조건 넣으면 그것을 덮거나
+//      순서에 따라 결과가 갈린다. 브랜드 입력이 있으면 그대로 두고 사람이 판단한다.
+//   ⚠️ **지울 수 있다** — 태그 위젯의 칩이라 × 로 지운다. 저장을 막지 않는다.
+//   ⚠️ 리뷰어(monitor)·방문형(visit)에는 안 넣는다. 사용자가 기프팅만 지목했다.
+function applyGiftingDefaultHashtag(prefix) {
+  const wrapId = `tagWrap_${prefix}CampHashtags`;
+  const targetId = `${prefix}CampHashtags`;
+  const hidden = $(targetId);
+  const wrap = $(wrapId);
+  if (!hidden || !wrap) return;
+  // 이미 무언가 들어 있으면 손대지 않는다 — 칩과 hidden 값 **둘 다** 본다.
+  //   hidden 만 보면 위젯이 아직 동기화 전인 순간에 빈 것으로 읽힌다.
+  if ((hidden.value || '').trim()) return;
+  if (wrap.querySelector('.tag-label')) return;
+  addTag(wrapId, targetId, '#', 'PR');
+}
+
 function loadTagsFromValue(wrapId, targetId, prefix, value) {
   const wrap = $(wrapId);
   if (!wrap) return;
@@ -206,6 +228,9 @@ function switchAdminPane(pane, el, pushHistory) {
   }
   if (el) el.classList.add('on');
   const loaders = {
+    // 🔴 여기에 등록하지 않으면 사이드바를 눌러도 **오류 없이 빈 화면**이 된다.
+    //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
+    'reports': loadReportsPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
@@ -241,6 +266,9 @@ function switchAdminPane(pane, el, pushHistory) {
     //   데이터베이스 제약(마이그레이션 280)에 걸려 통째로 실패한다. 그 오류 문구로는
     //   원인이 화면 위쪽 체크박스라는 걸 알 수 없다(2026-08-03 리뷰 지적).
     if (typeof resetEventFormFields === 'function') resetEventFormFields('new');
+    // 채널별 최소 팔로워수 상태도 여기서 비운다(2단계) — 안 비우면 직전에 등록한 캠페인의
+    //   조건이 다음 신규 폼에 그대로 남는다. 행사 모드 체크박스와 같은 이유다.
+    if (typeof _minFollowersByChannelState !== 'undefined') _minFollowersByChannelState.new = {};
     initTagInput('tagWrap_newCampHashtags');
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
@@ -723,16 +751,64 @@ let currentAdminInfo = null;
 // ──────────────────────────────────────
 let _lbZoom = 1;
 const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
-function openImageLightbox(url) {
+// caption(선택) — 제목 자리에 「주문번호 1208834465 · 영수증 2/3」처럼 무엇의 몇 번째 사진인지 적는다
+//   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
+// 여러 장 넘기기 상태 — openImageGallery 로 열었을 때만 산다. { urls, i, base }
+let _lbGallery = null;
+
+function openImageLightbox(url, caption) {
   if (!url) return;
+  _lbGallery = null;                    // 한 장 열기 — 화살표 숨김
+  _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = url;
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = caption || '이미지 보기';
   _lbZoom = 1;            // 열 때마다 배율 초기화
   applyLightboxZoom();
   openModal('imageLightbox');
 }
+// 여러 장을 한 창에서 넘겨 본다(2026-09-04 리포트 화면 요청). base = 제목 머리말(「주문번호 … · 큐텐 결과물」).
+//   제목은 「{base} 사진 {i}/{n}」. 2장 이상일 때만 화살표가 보이고 ←→ 키로도 넘긴다. 넘길 때 배율은 1배로.
+function openImageGallery(urls, startIndex, base) {
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return;
+  _lbGallery = { urls: list, i: Math.max(0, Math.min(list.length - 1, startIndex || 0)), base: base || '' };
+  _lbShowCurrent();
+  openModal('imageLightbox');
+}
+function _lbShowCurrent() {
+  const g = _lbGallery; if (!g) return;
+  const img = $('imageLightboxImg');
+  if (img) img.src = g.urls[g.i];
+  const ttl = $('imageLightboxTitle');
+  if (ttl) ttl.textContent = (g.base ? g.base + ' ' : '') + '사진 ' + (g.i + 1) + '/' + g.urls.length;
+  _lbZoom = 1; applyLightboxZoom();
+  _lbSyncNav();
+}
+function _lbSyncNav() {
+  const many = !!(_lbGallery && _lbGallery.urls.length > 1);
+  const p = $('lightboxPrev'), n = $('lightboxNext');
+  if (p) p.style.display = many ? '' : 'none';
+  if (n) n.style.display = many ? '' : 'none';
+}
+function lightboxStep(delta) {
+  const g = _lbGallery; if (!g || g.urls.length < 2) return;
+  g.i = (g.i + delta + g.urls.length) % g.urls.length;   // 끝에서 처음으로 돈다
+  _lbShowCurrent();
+}
+// ←→ 키 — 확대 창이 열려 있고 여러 장일 때만. 입력칸에 초점이 있으면 건드리지 않는다.
+document.addEventListener('keydown', function(e) {
+  const lb = $('imageLightbox');
+  if (!lb || !lb.classList.contains('open') || !_lbGallery || _lbGallery.urls.length < 2) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); lightboxStep(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); lightboxStep(1); }
+});
 function closeImageLightbox() {
   closeModal('imageLightbox');
+  _lbGallery = null; _lbSyncNav();
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }
@@ -776,6 +852,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
   // 채널 어긋남 경고 — 조치 방법을 보면서 다른 화면을 조작해야 하므로 드래그·크기 조정 필수
   'channelDriftModal',
+  // 「올려두고 미제출」 안내 — 같은 이유(안내를 보면서 목록·메시지를 조작해야 한다)
+  'stalledDraftModal',
   // 탈퇴 처리 점검 — 같은 이유(「회원 열기」로 상세를 여는 동안 목록이 보여야 한다)
   'withdrawOpsModal',
   // 신청·결과물
@@ -1019,7 +1097,13 @@ function _withdrawalOpsTotal(a) {
   if (!a) return 0;
   return Number(a.media_overdue || 0)
        + Number(a.email_block_overdue || 0)
-       + Number(a.stuck_confirm || 0);
+       // ⚠️ 서버(372)가 이 열쇠말을 안 주는 환경에서는 0 이 된다 — 배포 순서가
+       //    뒤바뀌어도 나머지 경고는 그대로 뜬다(그 줄만 안 그려진다).
+       + Number(a.message_attachment_overdue || 0)
+       + Number(a.stuck_confirm || 0)
+       // 419 — 예정일 안내 메일 실패(재시도 중 / 확정돼 영영 못 보냄). 열쇠말이 없으면 0.
+       + Number(a.mail_retrying || 0)
+       + Number(a.mail_lost || 0);
 }
 
 function applyWithdrawalOpsIndicators() {
@@ -1138,6 +1222,49 @@ function withdrawalOpsModalHtml(a) {
        </div>`));
   }
 
+  // ④ 밀린 메시지 사진 파기 (마이그레이션 368·372, 작업 12-B-5)
+  //   ⚠️ ②(영수증·인증샷)와 **다른 장치다.** 통도 다르고(비공개) 예약 실행도
+  //      따로 돈다 — 하나가 멈춰도 다른 하나는 정상일 수 있어 줄을 나눈다.
+  if (n(a.message_attachment_overdue) > 0) {
+    const locked = n(a.message_attachment_overdue_admin_locked);
+    let sub = `<div style="margin-top:6px;color:var(--muted)">보관 기한이 지났는데 아직 지워지지 않았습니다.</div>`;
+    if (locked > 0) {
+      sub += `<div style="margin-top:6px;padding-left:10px;border-left:2px solid #FBBF24">
+        그중 <b>${locked}건</b>은 <b>관리자 계정을 겸한 회원</b>이라 자동으로 지워지지 않습니다.
+        <br>→ <b>관리자 권한을 먼저 해제</b>하면 다음 새벽에 정리됩니다.
+      </div>`;
+    }
+    rows.push(_withdrawOpsRow('image_not_supported', '#B8741A',
+      `파기 기한이 지난 응모건 메시지 사진 ${n(a.message_attachment_overdue)}건`, sub));
+  }
+
+  // ⑤ 예정일 안내 메일이 아직 안 나간 탈퇴 (마이그레이션 419, 전수조사 2차 3-3)
+  //   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**다. 서버가 세는 것은
+  //   「한 번 이상 실패」 또는 「예정 상태가 된 날의 09:00 이 지났는데 미발송」 — 뒤쪽이
+  //   예약 실행 자체가 멈춘 경우를 잡는다(시도 횟수는 그때 0 그대로다).
+  //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
+  if (n(a.mail_retrying) > 0) {
+    rows.push(_withdrawOpsRow('mail', '#B8741A',
+      `예정일 안내 메일이 아직 안 나간 탈퇴 ${n(a.mail_retrying)}건`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         예정 상태가 된 뒤 <b>매일 09:00</b> 에 보내는데 아직 발송 표시가 없습니다. 회원 상세의 「탈퇴 신청」 카드에서 시도 횟수를 볼 수 있습니다.
+         <br>→ <b>시도 횟수가 0인데 하루 넘게 그대로</b>면 예약 실행 자체가 멈춘 것 — <b>개발 담당자에게 알려 주세요.</b>
+         <br>→ 시도 횟수가 쌓이면 그 회원의 <b>이메일 주소</b>와 Brevo 우측 상단 <b>「Usage and plan」</b>(구독 만료·큐 정지)을 확인하세요.
+       </div>`));
+  }
+
+  // ⑥ 안내 메일을 못 받은 채 확정된 탈퇴 — 다시 보낼 방법이 없다(확정 뒤라 문구도 맞지 않는다).
+  //   서버가 최근 30일 확정분만 센다 — 누구도 0 으로 되돌릴 수 없는 값이라 기간을 안 자르면
+  //   경고가 영구히 켜진다. 회원 목록은 안 준다(확정되면 개인정보가 파기돼 빈 행이다).
+  if (n(a.mail_lost) > 0) {
+    rows.push(_withdrawOpsRow('mail_lock', '#B8741A',
+      `예정일 안내 메일을 받지 못한 채 확정된 탈퇴 ${n(a.mail_lost)}건 (최근 30일)`,
+      `<div style="margin-top:6px;color:var(--muted)">
+         확정되면 메일 대상에서 빠져 <b>다시 보내지 않습니다</b>. 이 회원들은 「언제 확정되는지」 안내를 한 번도 못 받았습니다.
+         <br>→ 문의가 오면 그 점을 감안해 응대하세요. 반복되면 개발 담당자에게 알려 주세요. 30일이 지나면 이 줄은 저절로 사라집니다.
+       </div>`));
+  }
+
   if (!rows.length) {
     return `<div style="padding:16px;font-size:13px;color:var(--muted)">점검할 항목이 없습니다.</div>`;
   }
@@ -1187,6 +1314,82 @@ async function refreshChannelDriftIndicators() {
   const rows = await fetchChannelDriftAlerts();
   _channelDriftRows = Array.isArray(rows) ? rows : [];
   applyChannelDriftIndicators();
+}
+
+// ── 「올려두고 미제출」 감지 (작업표 2026-08-25 작업 8) ──────────────────────
+//   본인이 올려는 뒀는데 「제출하기」를 안 눌러 운영팀에 안 닿은 건. 운영에서 26건이
+//   4개월간 쌓이는 동안 아무도 몰랐다 — 관리자 화면에서 「아예 안 낸 사람」과 똑같이
+//   「미제출」로 보였기 때문이다.
+//
+//   ⚠️ `null` = 아직 안 봤거나 조회 실패 → **아무것도 안 그린다.** 0건인 척하지 않는다
+//      (0으로 그리면 「없는 것」이 되어 이 장치가 막으려던 상태가 그대로 재현된다).
+var _stalledDraftCount = null;
+
+async function refreshStalledDraftIndicators() {
+  const ids = (typeof fetchStalledDraftApplications === 'function')
+    ? await fetchStalledDraftApplications() : null;
+  _stalledDraftCount = ids ? ids.size : null;
+  applyStalledDraftIndicators();
+}
+
+// 캐시된 값으로 표시만 다시 입힌다(재조회 없음).
+function applyStalledDraftIndicators() {
+  const n = _stalledDraftCount;
+  const has = typeof n === 'number' && n > 0;
+
+  // ⚠️ 사이드바 표시는 **없앴다**(2026-08-26 사용자 결정). 예전에는 「결과물 관리」 항목에
+  //    작은 점을 덧붙였다 — 아이콘은 채널 어긋남 경고가, 숫자 배지는 검수대기가 이미 써서
+  //    세 번째 자리를 쓴 것이었다. 사이드바에 경고가 셋이나 붙어 시끄럽다는 판단.
+  //    ⚠️ 되살릴 일이 생기면 **아이콘을 건드리지 말 것** — 나중에 도는 쪽이 앞의 것을
+  //       덮어쓴다. 그리고 배지 함수가 항목 innerHTML 을 통째로 다시 쓰므로 **그 직후에
+  //       이 함수를 다시 부르는 줄**도 함께 되살려야 한다(안 그러면 조용히 지워진다).
+
+  // 표 「인증 상태」 열 제목 옆 경고 아이콘(2026-08-26 사용자 지시로 페인 제목 옆에서 옮김).
+  //   그 열의 「올려만 둠」 딱지를 가리키는 경고라, 딱지가 있는 열 옆이 맞는 자리다.
+  //   ⚠️ 0건이면 아이콘째 감춘다 — 늘 떠 있으면 「원래 그런 화면」이 되어 아무도 안 본다.
+  //   ⚠️ 건수는 **말풍선**으로만 말한다. 열 제목 줄은 폭이 좁아(132픽셀) 숫자를 글자로 붙이면
+  //      제목이 밀리거나 줄바꿈된다.
+  const btn = document.getElementById('delivStalledBtn');
+  if (btn) {
+    btn.style.display = has ? '' : 'none';
+    if (has) btn.title = `올려두고 제출 안 한 건 ${n}건 — 「올려만 둠」 딱지가 붙은 행입니다. 눌러서 안내 보기`;
+  }
+}
+
+// 안내 모달 — 🔴 **여기서 고칠 수단은 없다.** 관리자 대신 제출 기록(작업 9)은 이번 범위에서
+//   빠졌다(2026-08-26 결정 S3=②). 그래서 「무엇을 할 수 있는지」를 정확히 말해 준다 —
+//   못 하는 일을 할 수 있는 것처럼 적으면 없는 버튼을 찾게 된다.
+function openStalledDraftModal() {
+  const body = document.getElementById('stalledDraftModalBody');
+  const overlay = document.getElementById('stalledDraftModal');
+  if (!body || !overlay) return;
+  const n = _stalledDraftCount;
+  body.innerHTML = `
+    <div style="padding:16px;font-size:13px;line-height:1.7;color:var(--ink)">
+      <div style="padding:12px 14px;background:#FFE4EC;border-left:3px solid #B91C5C;border-radius:8px;margin-bottom:14px">
+        <b>${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
+        본인 화면에는 남아 있지만 <b>운영팀에는 전달되지 않았습니다</b> — 검수 대상도, 인증 성공 판정 대상도 아닙니다.
+      </div>
+      <b>어디서 보나</b>
+      <div style="margin:6px 0 14px">
+        결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려만 둠</span> 딱지가 붙습니다.<br>
+        <span style="color:var(--muted);font-size:12px">인증 상태 자체(「미제출」·「인증샷 제출중」)는 그대로입니다 — <b>일부는 내고 하나만 멈춘</b> 경우가 흔해서, 상태를 갈아치우면 틀린 말이 됩니다.</span>
+      </div>
+      <b>지금 할 수 있는 것</b>
+      <div style="margin:6px 0 14px">
+        관리자가 대신 제출해 주는 기능은 <b>아직 없습니다.</b> 본인이 활동관리 화면에서 「제출하기」를 눌러야 합니다.<br>
+        해당 인플루언서에게 <b>응모건 메시지</b>로 안내해 주세요 — 목록 각 행의 메시지 버튼으로 바로 보낼 수 있습니다.
+      </div>
+      <div style="color:var(--muted);font-size:12px">
+        인플루언서 화면에는 안내 줄과 「미제출」 표시가 이미 들어가 있어, 앞으로 생기는 건은 줄어들 것으로 봅니다.
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function closeStalledDraftModal() {
+  const overlay = document.getElementById('stalledDraftModal');
+  if (overlay) overlay.classList.remove('open');
 }
 
 // 캐시된 결과로 사이드바·페인 버튼을 다시 그린다(재조회 없음).

@@ -5,9 +5,14 @@
 # docs/email-templates/ → supabase/functions/<fn>/_templates/
 # 메일 HTML 원본을 각 Edge Function 디렉토리로 복사.
 #
-# 동기화 대상:
-#   notify-brand-application:    광고주 신청 메일 3종 (brand-*)
-#   notify-deliverable-decision: 결과물 검수 메일 6종 (deliverable-*)
+# 동기화 대상: 아래 SYNC_GROUPS 배열이 단일 소스 (2026-08 기준 12개 함수).
+#   ⚠️ 여기에 목록을 베껴 적지 않는다 — 함수가 늘 때마다 반드시 갈린다.
+#      실제로 이 주석은 오랫동안 12개 중 2개만 적고 있었다.
+#   확인: grep -oE '^  "[a-z-]+' scripts/sync-email-templates.sh
+#
+# ⚠️ 새 메일 함수를 만들면 SYNC_GROUPS 에 한 줄 추가할 것.
+#    빠뜨리면 docs/ 의 HTML 을 고쳐도 그 함수의 복사본은 그대로라,
+#    **메일 내용이 안 바뀌는데 아무 오류도 안 난다.**
 #
 # 이유: Supabase Edge Function 배포는 함수 디렉토리만 번들에 포함.
 #       docs/ 외부 파일은 Deno.readTextFile() 으로 읽을 수 없으므로

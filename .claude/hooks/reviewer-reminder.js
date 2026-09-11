@@ -15,6 +15,13 @@ const input = require('fs').readFileSync(0, 'utf8');
 let payload;
 try { payload = JSON.parse(input); } catch { process.exit(0); }
 
+// 다른 세션이 보낸 메시지는 사용자가 친 말이 아니다 — 그 본문에 「커밋」·「개발 세션」 같은
+//   낱말이 들어 있어도 이 알림을 띄우지 않는다. 띄우면 하루에 열 번 넘게 뜨고,
+//   그러면 **정작 진짜로 걸릴 때 안 읽힌다**(2026-08-27 세 세션 중 둘이 지적).
+//   판정 근거: UserPromptSubmit payload 실측 — 세션 간 메시지는 prompt 가
+//   `<cross-session-message` 로 시작한다.
+if (String(payload.prompt || '').trimStart().startsWith('<cross-session-message')) process.exit(0);
+
 const prompt = (payload.prompt || '').toLowerCase();
 
 // 트리거 키워드 (한/영)

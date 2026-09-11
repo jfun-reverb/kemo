@@ -3,7 +3,7 @@
 // ══════════════════════════════════════
 
 async function openCampaign(id) {
-  const camp = allCampaigns.find(c=>c.id===id) || DEMO_CAMPAIGNS.find(c=>c.id===id);
+  const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
 
   // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)
@@ -47,10 +47,29 @@ async function openCampaign(id) {
   let _myApp = null;
   let hasCancelledHistory = false;
   if (currentUser) {
+    // 🔴 아래 조회를 `await` 하는 사이에 세션이 사라질 수 있다. 그러면 `currentUser` 가
+    //    null 이 되어 **두 번째 조회의 `currentUser.id` 에서 터진다** — 운영 실측
+    //    2026-08-31 18:03 `TypeError: Cannot read properties of null (reading 'id')`.
+    //    잡히지 않은 거부(rejection)라 캠페인 상세가 그리다 만 채로 멈춘다.
+    //    그래서 **가드를 통과한 그 자리에서 한 번만** 꺼내 두고 이후로는 그 값을 쓴다.
+    //    ⚠️ 세션이 죽었으면 조회가 행 단위 보안 정책에 막혀 0건이 되고 「아직 응모 안 함」
+    //       으로 그려진다. 화면이 통째로 멈추는 것보다 낫고, 만료 자체는
+    //       `onAuthStateChange` 가 받아 로그인 화면으로 보낸다.
+    //    ⚠️ **같은 위험이 이 파일에 세 곳 더 있다** — `_submitApplicationInner`(응모 제출) ·
+    //       `_addDraftImageInner`(영수증·현장사진) · `_addDraftReviewImageInner`(리뷰 인증샷).
+    //       뒤의 둘은 **사진을 올리는 동안** 세션이 끊기면 터지는 자리라, 파일은 이미
+    //       저장소에 올라간 채 남는다. 아직 운영에서 터진 적이 없어 이번엔 손대지 않았다.
+    //    🔴 **네 곳이 아니라 세 곳이다.** `_addDraftUrlInner`(게시물 주소)도 가드 뒤에서
+    //       `currentUser.id` 를 다시 읽지만 **그 사이에 `await` 가 없다** — 그 값은
+    //       `insertDraftDeliverable(...)` 의 **인자라서 `await` 가 멈추기 전에 계산**된다.
+    //       자바스크립트는 한 줄기로 돌아 `await` 가 없으면 그 사이에 값이 바뀔 수 없다.
+    //       **`await` 가 사이에 있는지로 가른다** — 「가드 뒤에서 다시 읽는다」만 보고
+    //       세면 고칠 필요 없는 자리를 고치게 된다(2026-09-01 검수에서 실제로 걸렸다).
+    const _uid = currentUser.id;
     // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
     // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
     const {data:_appData} = await (db?.from('applications').select('*')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', _uid)
       .eq('campaign_id', id)
       .neq('status', 'cancelled')
       .maybeSingle() || {data:null});
@@ -59,7 +78,7 @@ async function openCampaign(id) {
     if (!alreadyApplied) {
       // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
       const {data:_cancelled} = await (db?.from('applications').select('id')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', _uid)
         .eq('campaign_id', id)
         .eq('status', 'cancelled')
         .limit(1)
@@ -146,12 +165,14 @@ async function openCampaign(id) {
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
           <div id="detailCampTitle" style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
-          ${camp.product_price>0?(camp.recruit_type === 'monitor'
+          ${(camp.product_price>0 || camp.recruit_type === 'monitor')?(camp.recruit_type === 'monitor'
             // 리뷰어형 — 받는 금액이 응모 시점에 확정되지 않으므로(영수증 실결제액 기준,
             // 300) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
             // 작은 보조 줄로 내린다. 시딩·방문형은 제품 가치가 확정이라 기존 그대로.
+            // ⚠️ 제품 가격이 없는 리뷰어형(D-4)도 「購入金額をペイバック」로 — 카드·홍보 메일·
+            //    관리자 미리보기와 **같은 말**. 비워 두면 「무상 제공」으로 읽히거나 세 곳이 갈린다.
             ? `<div style="display:inline-block;background:var(--light-pink);border-radius:8px;padding:7px 12px;margin-bottom:4px">
-                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()))}</div>
+                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(camp.product_price>0 ? t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()) : t('detail.rewardPaybackNoCap'))}</div>
                </div>`
             : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
           ):''}
@@ -193,6 +214,8 @@ async function openCampaign(id) {
           // 숨겼지만, 예전에 저장된 값이나 행사로 바꾸기 전 값이 남아 있을 수 있어
           // **그리는 쪽에서도 막는다** — 저장된 값과 무관하게 행사면 안 그린다.
           const isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+          // 선정형 행사인가 — 아래 「선정 기간」 줄을 가르는 판정(2026-08-24 선정형 사양서 설계 7).
+          const isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
           // 라벨 칸 폭 — 낼 것을 다 적은 제출 마감 이름(「レシート・投稿スクショの提出締切」)이
           //   90픽셀에서 **네 줄**로 접혀 110픽셀로 넓혔다(2026-08-06 브라우저 실측).
           //   ⚠️ 전 행 공통 값이라 바꾸면 모든 줄에 영향을 준다 — 나머지 라벨은 전부 한 줄이라
@@ -245,11 +268,29 @@ async function openCampaign(id) {
           const periodLabelKey = periodMerged ? 'detail.recruitPurchasePeriod'
                                : periodVisitMerged ? 'detail.recruitVisitPeriod' : 'detail.recruitPeriod';
           rows.push(`<div class="dinfo-row" style="${ROW}"><div class="dinfo-key" style="${KEY}">${t(periodLabelKey)}</div><div class="dinfo-val" style="${VAL}">${periodValue}</div></div>`);
-          // 선정 기간 — 시딩형만(2026-08-07 결정). 모집 기간 바로 아래에 둔다
-          //   (인플루언서가 겪는 순서: 모집 → 선정 → 결과물 제출 마감).
-          //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다 — 지금까지 등록된 캠페인은 전부 비어 있다.
+          // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정). 모집 기간 바로
+          //   아래에 둔다(인플루언서가 겪는 순서: 모집 → 선정 → 방문 → 결과물 제출 마감).
+          //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다.
           //   ⚠️ 기존 「당선 발표」 줄은 그대로 둔다(날짜 vs 알리는 방법 — 서로 다른 정보).
-          if (camp.recruit_type === 'gifting' && (camp.selection_start || camp.selection_end)) {
+          //   ⚠️ **선착순형 행사는 값이 있어도 안 그린다.** 관리자 폼이 행사일 때 입력칸을
+          //      숨기긴 하나 값을 지우지는 않으므로(일부러 그렇다), 「행사를 켜기 전에 넣어 둔
+          //      값」이 남아 있을 수 있다. 여기서 행사를 안 보면 그 줄이 방문객 화면에 떠 버린다.
+          //   ★ **선정형 행사(isSelectionEvent)는 그린다** — 2026-08-24 선정형 사양서 설계 7.
+          //      선행 결정이 행사를 통째로 뺀 근거는 「예약이 곧 당선(선착순)이라 뽑는 기간이
+          //      성립하지 않는다」였는데, 선정형은 관리자가 실제로 뽑으므로 그 전제가 뒤집힌다.
+          //      ⚠️ 그래서 조건은 「행사」가 아니라 **「선정형」으로** 넓힌다 — 선착순형 비공개
+          //      행사에는 여전히 뜨면 안 된다(뽑는 기간이 없다). 갈래를 이름으로 지목하는
+          //      isSelectionEvent 를 쓰고 `!== 'first_come'` 같은 부정 조건을 쓰지 않는다.
+          //   ★ 이 조건은 **다섯 곳에 있다 — ①인플루언서 캠페인 상세(application.js)
+          //      ②관리자 미리보기(admin.js kSelectionPeriod) ③진행현황 개요 카드
+          //      (admin-applications.js selRange) ④관리자 엑셀(admin-excel.js pickSelection)
+          //      ⑤운영현황 일정 뷰의 선정 보조 막대(admin-brand-ops.js ganttSegmentsFor).
+          //      ⚠️ **관리자 캠페인 목록의 「선정기간」 열은 이 넷이 아니다** — 그 열은 모집
+          //      형식을 아예 안 보고 값만 있으면 그린다(운영 도구라 일부러 그렇다).
+          //      한 곳만 고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다. 나머지 넷의
+          //      주석은 이 자리를 가리키므로, **조건을 바꾸면 여기부터 고친다.**
+          if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
+              && (camp.selection_start || camp.selection_end)) {
             rows.push(`<div class="dinfo-row" style="${ROW}"><div class="dinfo-key" style="${KEY}">${t('detail.selectionPeriod')}</div><div class="dinfo-val" style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
           }
           // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다. split 은 위 「모집 및 구매 기간」
@@ -273,8 +314,12 @@ async function openCampaign(id) {
           }
           rows.push(`<div class="dinfo-row" style="${ROW}"><div class="dinfo-key" style="${KEY}">${t('detail.recruitSlots')}</div><div class="dinfo-val" style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
-          if (camp.min_followers && !isEvent) {
-            rows.push(`<div class="dinfo-row" style="${ROW}"><div class="dinfo-key" style="${KEY}">${t('detail.minFollowers')}</div><div class="dinfo-val" style="${VAL}">${camp.min_followers.toLocaleString()}${t('detail.minFollowersSuffix')}</div></div>`);
+          //   갈래별 표시는 `minFollowersDetailLines`(아래) — 판정과 같은 갈래를 쓴다.
+          if (!isEvent && !isMonitor) {
+            const fwLines = minFollowersDetailLines(camp);
+            if (fwLines.length) {
+              rows.push(`<div class="dinfo-row" style="${ROW}"><div class="dinfo-key" style="${KEY}">${t('detail.minFollowers')}</div><div class="dinfo-val" style="${VAL}">${fwLines.join('<br>')}</div></div>`);
+            }
           }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
           if (!isMonitor && !isEvent) {
@@ -352,7 +397,7 @@ async function openCampaign(id) {
 
       ${camp.guide ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.shootingGuide')}</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp.recruit_type, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
@@ -425,11 +470,14 @@ async function openCampaign(id) {
       floatReward.textContent = String(camp.event_place || '').trim() || t('event.placeTbdShort');
     } else {
       // 하단 고정 바는 폭이 좁아(480px) 전체형을 넣으면 잘린다 — 리뷰어형은 축약형.
-      floatReward.textContent = camp.product_price>0
-        ? (isMonitor
+      // ⚠️ 리뷰어형은 제품 가격이 없어도 「무상 제공」이 아니다(D-4) — 상한 없이 페이백만 말한다.
+      floatReward.textContent = isMonitor
+        ? (camp.product_price>0
             ? t('detail.rewardPaybackShort').replace('{price}', camp.product_price.toLocaleString())
-            : `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`)
-        : t('detail.rewardFree');
+            : t('detail.rewardPaybackNoCap'))
+        : (camp.product_price>0
+            ? `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`
+            : t('detail.rewardFree'));
     }
   }
   if (floatProductPageBtn) {
@@ -450,7 +498,19 @@ async function openCampaign(id) {
       //   그런데 여기서 「応募済み」 + 비활성 버튼으로 그리면 두 가지가 잘못된다 —
       //   ① 확정된 것처럼 읽힌다 ② 자기 대기 순번을 보거나 취소하러 갈 길이 이 화면에서 끊긴다
       //   (응모 이력 카드에는 티켓 버튼이 있지만 상세에서 바로 못 간다 — 2026-08-06 확인).
-      floatApplyBtn.textContent = t('event.waitlistBtn');
+      // 선정형이면 「캔슬 대기」가 아니라 「심사중」이다 — 뽑히기를 기다리는 것이라
+      //   순번을 보러 간다고 적으면 없는 순번을 찾게 된다(의심 ⑤).
+      //   ⚠️ 선정형에서 **떨어진 사람도 여기까지 온다.** 응모가 'rejected' 라 위
+      //      `_myApp` 조회(취소만 제외)에 걸려 alreadyApplied 가 참이 되고, 응모이력
+      //      카드를 누르면 이 상세로 들어온다. 그때 「심사중」이라고 적으면 **이미 끝난
+      //      일을 계속 기다리게 된다** — 낙선 알림을 안 보내기로 해(확정 1) 화면 표시가
+      //      유일한 통지이므로 더 나쁘다. 누르면 티켓 화면에서 이유를 볼 수 있게 열어 둔다.
+      //   ⚠️ 선착순형은 이 분기에 손대지 않는다 — 캠페인 종료 자동 낙첨(마이그레이션 176)에도
+      //      같은 어긋남이 있지만 이번 변경 이전부터 있던 별개 문제라 여기서 바꾸지 않는다.
+      const _selEvt = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+      floatApplyBtn.textContent = (_selEvt && _myApp?.status === 'rejected')
+        ? t('event.selectionRejectedBtn')
+        : (_selEvt ? t('event.selectionPendingBtn') : t('event.waitlistBtn'));
       floatApplyBtn.disabled = false;
       floatApplyBtn.className = 'btn btn-ghost btn-sm';
       floatApplyBtn.onclick = () => {
@@ -524,6 +584,10 @@ let _selectedEventSlotId = null;   // 이번 상세 화면에서 고른 타임
 let _eventSlotsForDetail = [];     // 이 캠페인의 타임 목록
 let _eventSlotCountsForDetail = {};// 타임별 정원·확정 수
 let _eventSlotActiveDate = '';     // 지금 보고 있는 날짜 탭
+// 지금 보고 있는 행사가 선정형인가 — 타임 선택표를 그리는 함수들이 camp 를 못 받아 여기 둔다.
+//   ⚠️ 선정형은 **정원을 안 세고 받는다**(마이그레이션 378). 그래서 「잔여 N명」·「만석」을
+//      그리면 안 된다 — 「잔여 0명」인 타임에도 접수가 되어 안내가 거짓이 된다(의심 ②).
+let _eventSelectionForDetail = false;
 
 async function loadEventSlotPicker(camp) {
   // 다른 캠페인을 열었을 수 있으니 매번 초기화한다.
@@ -531,6 +595,9 @@ async function loadEventSlotPicker(camp) {
   _eventSlotsForDetail = [];
   _eventSlotCountsForDetail = {};
   _eventSlotActiveDate = '';
+  // ⚠️ 여기서 반드시 다시 정한다. 안 되돌리면 선정형 행사를 한 번 열고 나서 여는
+  //    선착순형 행사에 「접수 중」이 남아 잔여·만석이 통째로 사라진다.
+  _eventSelectionForDetail = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
 
   const listEl = $('eventSlotList');
   if (!listEl) return;
@@ -631,12 +698,17 @@ function renderEventSlotList() {
   el.innerHTML = rows.map(s => {
     const c = _eventSlotCountsForDetail[s.id] || {remaining: Number(s.capacity || 0), waitlist: 0};
     const remaining = Number(c.remaining || 0);
-    const full = remaining <= 0;
+    // 선정형은 정원과 상관없이 신청을 받으므로 「만석」이라는 상태 자체가 없다.
+    //   full 을 늘 false 로 두면 회색 처리·대기 안내·토스트가 한꺼번에 안 뜬다.
+    const full = !_eventSelectionForDetail && remaining <= 0;
     const picked = _selectedEventSlotId === s.id;
     const st = String(s.start_time || '').slice(0, 5);
     const en = s.end_time ? String(s.end_time).slice(0, 5) : '';
     const timeLabel = en ? `${st}〜${en}` : st;
-    const rightLabel = full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining);
+    // 선정형은 잔여를 쓰지 않는다(위 _eventSelectionForDetail 주석) — 접수 중임만 알린다.
+    const rightLabel = _eventSelectionForDetail
+      ? t('event.slotOpenLabel')
+      : (full ? t('event.slotFullWaitlist') : t('event.slotRemaining').replace('{n}', remaining));
     // ⚠️ 대기 안내는 **고른 줄 바로 아래**에 붙인다. 목록 맨 아래에 두면 이른 시간을
     //    고른 사람은 한참 스크롤해야 볼 수 있어 사실상 못 본다(2026-08-03 지적).
     const note = (picked && full)
@@ -654,7 +726,10 @@ function renderEventSlotList() {
 }
 
 // 고른 타임이 만석인가 — 신청 모달·안내가 같은 판정을 쓰게 한 곳에 둔다.
+//   ⚠️ 선정형에는 만석이 없다. 여기서 한 번만 막으면 신청 모달 상단의 대기 안내와
+//      타임을 고를 때 뜨는 토스트가 **둘 다** 안 뜬다(§1-2 자리 2).
 function isSelectedEventSlotFull() {
+  if (_eventSelectionForDetail) return false;
   const s = _eventSlotsForDetail.find(x => x.id === _selectedEventSlotId);
   if (!s) return false;
   const c = _eventSlotCountsForDetail[s.id] || {};
@@ -747,7 +822,13 @@ async function submitEventReservation(camp) {
   }
 
   closeModal('applyModal');
-  toast(res.status === 'waitlist' ? t('event.waitlistDone') : t('event.applyDone'), 'success');
+  // 선정형에서 `waitlist` 는 「캔슬 대기」가 아니라 「심사중」이다 — 「자리가 나면 알려
+  //   드립니다」로 안내하면 방문객이 **엉뚱한 것을 기다린다**(의심 ①).
+  //   ⚠️ 판정은 camp 로 한다(선택표용 플래그가 아니라) — 이 함수는 camp 를 받는다.
+  const _selEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(camp);
+  toast(t(res.status === 'waitlist'
+            ? (_selEvent ? 'event.selectionDone' : 'event.waitlistDone')
+            : 'event.applyDone'), 'success');
 
   _selectedEventSlotId = null;
 
@@ -833,8 +914,9 @@ function resetCautionUI() {
 function renderCautionItemsHtml(items) {
   if (!Array.isArray(items) || !items.length) return '';
   const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  // [E-2] 화면 전용 — 표시 폭을 줘 `content/` 썸네일을 받는다(원본은 data-orig 로 남아 폴백).
   const sanitize = (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml
+    ? (h => sanitizeCautionHtml(h, { displayWidth: (typeof RICH_DISPLAY_WIDTH !== 'undefined' ? RICH_DISPLAY_WIDTH : 0) }))
     : (h => String(h||'').replace(/<script/gi,'&lt;script'));
   const lis = items.map(it => {
     const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
@@ -860,8 +942,9 @@ function renderCautionItemsHtml(items) {
 function renderNgItemsHtml(items) {
   if (!Array.isArray(items) || !items.length) return '';
   const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  // [E-2] 화면 전용 — 표시 폭을 줘 `content/` 썸네일을 받는다(원본은 data-orig 로 남아 폴백).
   const sanitize = (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml
+    ? (h => sanitizeCautionHtml(h, { displayWidth: (typeof RICH_DISPLAY_WIDTH !== 'undefined' ? RICH_DISPLAY_WIDTH : 0) }))
     : (h => String(h||'').replace(/<script/gi,'&lt;script'));
   const lis = items.map(it => {
     const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
@@ -1126,22 +1209,17 @@ function handleFloatApply() {
     $('profileAlertOverlay').style.display = 'flex';
     return;
   }
-  // 최소 팔로워수 체크 — 기준 채널(primary_channel) 단일 검증
-  // 리뷰어(monitor)형은 영수증 검증이라 팔로워 조건 미적용
-  const minF = camp.min_followers || 0;
-  if (minF > 0 && camp.recruit_type !== 'monitor') {
-    const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
-    const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
-    // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
-    // chList 는 camp.channel 을 split(',')+lowercase+trim 한 배열 (위 496줄)
-    const primary = (camp.primary_channel || chList[0] || 'instagram').trim();
-    const primaryName = chNameMap[primary] || primary;
-    const primaryCount = followerMap[primary] || 0;
-    if (primaryCount < minF) {
-      $('alertModalMessage').innerHTML = `${t('detail.followerRequirement')}<br><strong>${primaryName}</strong> ${t('detail.followerRequirementSuffix').replace('{n}',minF.toLocaleString())}<br><br>${t('detail.yourFollowers').replace('{channel}',primaryName)}<br><strong>${primaryCount.toLocaleString()}${t('detail.peopleUnit')}</strong><br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
-      openModal('alertModal');
-      return;
-    }
+  // 최소 팔로워수 체크 — 판정은 `meetsMinFollowers`(shared.js) 한 곳에서 한다.
+  //   사양서 docs/specs/2026-08-27-min-followers-channel-match.md (1단계)
+  //   ⚠️ 예전에는 여기서 **기준 채널 하나**만 봤다. 그래서 「Instagram or X or TikTok」
+  //      캠페인에서 인스타 100명·틱톡 1만명인 사람이 막혔고, 담당자가 조건을 통째로
+  //      풀어 버리는 일이 실제로 있었다(2026-08-27). 이제 「또는」이면 **하나라도** 넘으면 된다.
+  //   ⚠️ 리뷰어형 건너뛰기와 `min_followers <= 0` 통과도 그 함수 안에 있다 — 동작은 종전과 같다.
+  const _fw = meetsMinFollowers(camp, p);
+  if (!_fw.ok) {
+    $('alertModalMessage').innerHTML = followerBlockMessage(camp, p, _fw);
+    openModal('alertModal');
+    return;
   }
   openApplyModal(currentCampaignId);
 }
@@ -1424,6 +1502,82 @@ const CHANNEL_LABELS = {
 //   ① lookup_values 의 현재 언어 라벨 (관리자가 추가한 신규 채널 — 자동 생성 code 'channel-XXXX' 포함)
 //   ② CHANNEL_LABELS 하드코딩 (Instagram·TikTok·YouTube·X·Qoo10·LIPS·@cosme 등 표준 채널)
 //   ③ i18n '기타' 폴백
+// 팔로워 조건에 막혔을 때의 문구 (3단계, 2026-08-27 · 사양서 설계 6)
+//   ⚠️ **막히는 순간의 화면이라 상세 표시보다 더 직접적이다** — 예외를 빠뜨리면 더 크게 드러난다.
+//
+// 🔴 「또는」에서 **모집 채널이 아닌 것은 보여주지 않는다** — 유튜브 10만인 사람에게
+//    `instagram or x` 캠페인에서 「회원님은 YouTube 100,000명입니다」라고 하면
+//    **왜 막혔는지 더 헷갈린다.**
+// 🔴 Qoo10 규칙(설계 4-1)을 여기에도 적용한다 — 안 그러면 「또는」에서
+//    「Instagram 100명 · **Qoo10 100명**」처럼 **같은 수가 두 번** 나온다.
+function followerBlockMessage(camp, profile, fw) {
+  const 경고 = `<br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
+  const 라벨 = ch => esc(getChannelLabelLocal(ch) || ch);
+
+  if (fw.kind === 'or') {
+    const list = campaignChannelTokens(camp);
+    // Qoo10 은 Instagram 과 같은 수라 함께 있으면 한 줄로 묶는다(같은 수를 두 번 안 보여준다)
+    const 보여줄채널 = list.includes('instagram') ? list.filter(c => c !== 'qoo10') : list;
+    const 내수치 = 보여줄채널.map(ch => {
+      const n = followerCountForChannel(profile, ch);
+      const 묶음 = (ch === 'instagram' && list.includes('qoo10')) ? `・Qoo10` : '';
+      return `${라벨(ch)}${묶음} ${n.toLocaleString()}${esc(t('detail.peopleUnit'))}`;
+    }).join(' · ');
+    return `<strong>${esc(t('detail.blockedAnyChannel').replace('{n}', fw.required.toLocaleString()))}</strong>`
+         + `<br><br>${esc(t('detail.blockedYours'))}<br><strong>${내수치}</strong>${경고}`;
+  }
+
+  if (fw.kind === 'and') {
+    // 못 넘은 채널만 말한다 — 넘은 채널까지 늘어놓으면 무엇을 고쳐야 할지 흐려진다
+    const 줄 = (fw.failed || [{channel: fw.channel, count: fw.count, required: fw.required}]).map(f =>
+      esc(t('detail.blockedEachChannel')
+        .replace('{channel}', getChannelLabelLocal(f.channel) || f.channel)
+        .replace('{n}', f.required.toLocaleString())
+        .replace('{mine}', f.count.toLocaleString()))
+    ).join('<br>');
+    return `<strong>${줄}</strong>${경고}`;
+  }
+
+  // 채널 1개 — 종전 문구 그대로
+  const name = getChannelLabelLocal(fw.channel) || fw.channel;
+  return `${t('detail.followerRequirement')}<br><strong>${esc(name)}</strong> `
+       + `${t('detail.followerRequirementSuffix').replace('{n}', fw.required.toLocaleString())}`
+       + `<br><br>${t('detail.yourFollowers').replace('{channel}', esc(name))}`
+       + `<br><strong>${fw.count.toLocaleString()}${t('detail.peopleUnit')}</strong>${경고}`;
+}
+
+// 캠페인 상세의 「최소 팔로워수」 줄 (3단계, 2026-08-27 · 사양서 설계 5)
+//   판정(`meetsMinFollowers`)과 **같은 갈래**를 써야 화면과 실제가 안 갈린다.
+//   반환: 표시할 줄 배열(빈 배열이면 그 행 자체를 안 그린다)
+//
+// 🔴 리뷰어형은 부르는 쪽에서 이미 걸렀다(검사를 안 하므로 줄도 안 그린다 — 설계 5).
+// 🔴 「그리고」에서 **값을 안 채운 채널도 줄을 남기고 「제한 없음」이라 적는다** —
+//    줄을 빼면 「그 채널은 모집 안 하나?」로 읽힌다.
+// 🔴 Qoo10 은 설계 4-1 규칙을 따른다 — 그냥 두면 「제한 없음」이라 적히는데 실제로는
+//    막힐 수 있다(Instagram 값을 빌려 쓰므로). `campaignMinFollowersByChannel` 이 그걸 얹어 준다.
+function minFollowersDetailLines(camp) {
+  // 무엇을 보여줄지는 공용 함수가 정한다(`minFollowersDisplay`, shared.js).
+  //   여기서는 **일본어·한국어 문구만** 만든다 — 관리자 미리보기는 자기 라벨표로 같은 재료를
+  //   그린다. 판정을 두 벌로 두면 미리보기와 실제 화면이 갈린다.
+  const d = (typeof minFollowersDisplay === 'function') ? minFollowersDisplay(camp) : null;
+  if (!d) return [];
+
+  if (d.kind === 'and') {
+    return d.rows.map(r => {
+      const label = esc(getChannelLabelLocal(r.channel) || r.channel);
+      const note = r.borrowed
+        ? ` <span style="font-size:10px;color:var(--muted)">${esc(t('detail.minFollowersQoo10Note'))}</span>` : '';
+      return (r.required > 0)
+        ? `${label} ${r.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}${note}`
+        : `${label} <span style="color:var(--muted)">${esc(t('detail.minFollowersUnlimited'))}</span>`;
+    });
+  }
+  if (d.kind === 'or') {
+    return [esc(t('detail.minFollowersAnyChannel').replace('{n}', d.required.toLocaleString()))];
+  }
+  return [`${d.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}`];
+}
+
 function getChannelLabelLocal(code) {
   if (!code) return '';
   if (typeof getLookupLabel === 'function') {
@@ -1493,7 +1647,10 @@ function navigateBackFromActivity() {
   // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
   const _fallback = function () {
     if (_activityFrom === 'mypage' || !_activityCampId) {
-      navigate('mypage', false);
+      // ⚠️ `navigate` 가 막으면(미제출 이탈 확인에서 「취소」) **여기서 멈춘다.**
+      //    안 멈추면 아래 줄이 주소만 응모이력으로 바꿔 화면과 어긋난다.
+      //    (iOS: goBackFrom 이 history.back 을 못 쓸 때의 폴백이라 pushHistory=false 유지)
+      if (navigate('mypage', false) === false) return;
       openMypageSub('applications');
     } else {
       openCampaign(_activityCampId);
@@ -1525,6 +1682,9 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 
 // Stage 3: 활동관리 화면의 결과물 리스트 (영수증·게시물 통합)
 async function loadDeliverablesForActivity() {
+  // 이전 응모건의 건수가 남아 있으면, 아직 아무것도 안 그린 사이에 이탈 확인이 엉뚱하게 뜬다.
+  //   ⚠️ 아래 렌더러들이 0 을 포함해 다시 채워 준다 — 여기서 비우는 것은 그 사이 구간용이다.
+  Object.keys(_activityDraftPending).forEach(k => { _activityDraftPending[k] = 0; });
   const camp = _activityCamp || {};
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
@@ -1734,12 +1894,13 @@ function renderActivityReceiptList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('receipt', 0);
     return;
   }
-  let hasDraft = false;
-  container.innerHTML = delivs.map(r => {
+  let draftCount = 0;
+  container.innerHTML = splitDeliverableGroups(delivs, r => {
     const isDraft = r.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft) draftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(r.status);
@@ -1758,7 +1919,7 @@ function renderActivityReceiptList(delivs) {
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
         </div>
         <div style="flex:1;min-width:0">
           ${stBadge}
@@ -1770,8 +1931,9 @@ function renderActivityReceiptList(delivs) {
       ${proxyBox}
       ${reasonBox}
     </div>`;
-  }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  }, 'receipt');
+  if (submitBtn) submitBtn.style.display = draftCount ? '' : 'none';
+  renderDraftPendingBar('receipt', draftCount);
 }
 
 // monitor 2단계 — 캠페인 채널 수만큼 「채널별 리뷰 이미지 카드」를 N개 동적 렌더.
@@ -1796,6 +1958,7 @@ function renderActivityReviewImageList(delivs, channels) {
   //   단순히 임시저장 유무(hasDraft)로 버튼을 띄우면, 마감이 지나 서버가 거부할 채널의
   //   임시저장만 남았을 때도 버튼이 눌리는 상태로 노출된다(2026-07-31 브라우저 검증에서 발견).
   let hasSubmittableDraft = false;
+  let submittableDraftCount = 0;   // 안내 줄 건수 — 버튼이 실제로 보낼 것과 같은 수여야 한다
   container.innerHTML = (channels || []).map(function(ch) {
     const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
@@ -1806,7 +1969,7 @@ function renderActivityReviewImageList(delivs, channels) {
 
     if (row) {
       const isDraft = row.status === 'draft';
-      if (isDraft && !formDisabled) hasSubmittableDraft = true;
+      if (isDraft && !formDisabled) { hasSubmittableDraft = true; submittableDraftCount++; }
       const stBadge = isDraft
         ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
@@ -1821,7 +1984,7 @@ function renderActivityReviewImageList(delivs, channels) {
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(row)}</div>`
         : '';
       const thumb = row.receipt_url
-        ? `<img src="${esc(imgThumb(row.receipt_url,112,80))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
+        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
         : '';
       cardBody += `
         <div style="display:flex;align-items:center;gap:12px">
@@ -1864,8 +2027,100 @@ function renderActivityReviewImageList(delivs, channels) {
     submitBtn.style.display = hasSubmittableDraft ? '' : 'none';
     submitBtn.disabled = !hasSubmittableDraft;
   }
+  renderDraftPendingBar('review_image', submittableDraftCount);
   // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
   if (typeof applyI18n === 'function') applyI18n(container);
+}
+
+
+// 결과물 목록을 「지난 제출」과 「제출할 항목」 두 무리로 나눈다.
+//   ⚠️ 왜 나누나 — 제출 버튼이 목록 **아래**에 있어서, 섞여 있으면 위의 모든 행을
+//   보내는 것처럼 보인다(2026-08-25 사용자 지적: 「비승인 3건까지 같이 제출되는
+//   것처럼 읽힌다」). 실제로 보내는 것은 임시저장뿐이다.
+//   ⚠️ 임시저장을 **아래쪽**에 둔다 — 버튼·안내 줄이 바로 뒤에 붙어야 「이것을 보낸다」가
+//   눈으로 이어진다.
+//   ⚠️ 한쪽 무리가 비면 제목을 안 붙인다 — 나눌 것이 없는데 제목만 있으면 군더더기다.
+//   ⚠️ 「지난 제출」은 **최근 1건만** 펼쳐 두고 나머지는 접는다 — 재제출을 거듭하면
+//   반려 이력이 쌓여, 정작 지금 해야 할 일(아래 「제출할 항목」)이 화면 밖으로 밀린다.
+//   ⚠️ 목록은 **제출 시각 내림차순**으로 들어온다(application.js 의 정렬). 그래서 첫
+//   번째가 최근이다 — 순서가 바뀌면 옛것이 대표로 뜨므로 그 정렬을 함께 볼 것.
+//   ⚠️ 펼친 상태는 다시 그려도 유지한다(_activityPastOpen) — 펼쳐 놓고 한 건 추가했다고
+//   접혀 버리면 방금 본 것을 다시 찾아야 한다.
+const _activityPastOpen = new Set();
+// ⚠️ 펼침 상태는 **응모건마다** 따로 기억한다. 종류(receipt·post)로만 키를 잡으면
+//   A 응모건에서 펼친 것이 B 응모건까지 펼쳐진 채로 넘어가, 그 화면도 늘어진 채
+//   시작한다 — 이 기능을 만든 이유(쌓인 이력에 할 일이 묻힌다)가 그대로 재발한다.
+function _activityPastKey(kind) { return String(_activityAppId || '') + ':' + kind; }
+function toggleActivityPastMore(kind) {
+  const k = _activityPastKey(kind);
+  if (_activityPastOpen.has(k)) _activityPastOpen.delete(k);
+  else _activityPastOpen.add(k);
+  // ⚠️ 서버를 다시 부르지 않는다 — 직전 조회 결과를 그대로 다시 그린다.
+  //   loadDeliverablesForActivity() 를 부르면 조회가 **매번 2회**(목록 + 제출 가부)
+  //   돌고 화면이 깜빡인다. 펼치기는 이미 받아 둔 것을 보여주는 일일 뿐이다.
+  //   ⚠️ 거르는 기준은 그 로더가 쓰는 것과 **같아야** 한다 — 종류로만 거른다.
+  const rows = (_activityLastDelivs || []).filter(d => d.kind === kind);
+  if (kind === 'receipt') renderActivityReceiptList(rows);
+  else if (kind === 'post') renderActivityPostList(rows);
+}
+function splitDeliverableGroups(rows, renderRow, key) {
+  const past = [], todo = [];
+  (rows || []).forEach(function(r) { (r.status === 'draft' ? todo : past).push(r); });
+  const head = k => `<div class="deliv-group-head">${esc(t('activity.' + k))}</div>`;
+  const both = past.length && todo.length;
+  let html = '';
+  if (past.length) {
+    const open = _activityPastOpen.has(_activityPastKey(key));
+    const hidden = past.length - 1;
+    // ⚠️ 제목 줄은 「나눌 것이 있을 때」뿐 아니라 「접을 것이 있을 때」도 그린다 —
+    //   펼치기 버튼이 그 줄에 얹히므로, 제목을 안 그리면 버튼도 함께 사라진다.
+    if (both || hidden > 0) {
+      const label = open
+        ? t('activity.pastLess')
+        : String(t('activity.pastMore')).replace('{n}', String(hidden));
+      const toggle = hidden > 0
+        ? `<button type="button" class="deliv-past-toggle" onclick="toggleActivityPastMore('${esc(key)}')">${esc(label)}</button>`
+        : '';
+      html += `<div class="deliv-group-head deliv-group-head-row"><span>${esc(t('activity.groupPast'))}</span>${toggle}</div>`;
+    }
+    html += renderRow(past[0]);
+    if (open && hidden > 0) html += past.slice(1).map(renderRow).join('');
+  }
+  if (todo.length) html += (both ? head('groupToSubmit') : '') + todo.map(renderRow).join('');
+  return html;
+}
+
+// ── 「아직 제출 안 함」 안내 줄 (세 화면 공용) ────────────────────────────
+//   2026-08-25: 운영에서 결과물 26건이 임시저장으로 멈춰 있었다(게시물 23·인증샷 2·
+//   영수증 1 — 세 종류 전부, 4개월간 누적). 「リストに追加」만 누르고 끝난 줄 아는
+//   사람이 이어졌다. 같은 일이 2026-04-27 에도 있었고(마이그레이션 073 머리말),
+//   그때는 화면을 안 고쳤다.
+//   ⚠️ 세 화면이 반드시 이 함수 하나를 쓴다 — 따로 쓰면 화면마다 다른 말이 된다.
+//   ⚠️ 안내 줄은 **제출 버튼과 항상 같이** 뜨고 같이 사라진다. 버튼 없이 안내만
+//      남으면 「하라는데 할 수가 없는」 막다른 길이 된다.
+//   ⚠️ 0건이면 아무것도 안 그린다(정상 흐름의 몇 초도 미제출 상태다 — 상시 노출되면
+//      「원래 그런 화면」으로 학습돼 아무도 안 본다).
+const DRAFT_BAR_IDS = {receipt: 'draftBarReceipt', review_image: 'draftBarReviewImage', post: 'draftBarPost'};
+// 종류별 「아직 안 낸」 건수. 이탈 확인(navigate)이 이 값을 본다.
+//   ⚠️ 세 렌더러가 **반드시** renderDraftPendingBar 를 거치므로 여기 한 곳에서만 갱신한다.
+//      따로 세면 안내 줄이 말하는 수와 이탈 확인이 보는 수가 갈린다.
+const _activityDraftPending = {receipt: 0, review_image: 0, post: 0};
+// 지금 활동관리 화면에 「낼 수 있는데 안 낸 것」이 있는가 (이탈 확인용)
+function activityHasSubmittableDraft() {
+  return Object.keys(_activityDraftPending).some(k => _activityDraftPending[k] > 0);
+}
+function renderDraftPendingBar(kind, count) {
+  const n = Number(count) || 0;
+  // ⚠️ 건수 기록은 **화면 요소를 찾기 전에** 한다 — 안내 줄이 없는 화면이라고 해서
+  //    「안 낸 것이 없다」가 되면, 그 화면에서 나갈 때 이탈 확인이 조용히 안 뜬다.
+  if (kind in _activityDraftPending) _activityDraftPending[kind] = n;
+  const el = $(DRAFT_BAR_IDS[kind]);
+  if (!el) return;
+  if (n <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML =
+    `<div class="dpb-title">${esc(String(t('activity.draftPendingTitle')).replace('{n}', String(n)))}</div>` +
+    `<div class="dpb-step">${esc(t('activity.draftPendingStep'))}</div>`;
+  el.style.display = '';
 }
 
 function renderActivityPostList(delivs) {
@@ -1875,12 +2130,20 @@ function renderActivityPostList(delivs) {
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
+    renderDraftPendingBar('post', 0);
     return;
   }
-  let hasDraft = false;
-  container.innerHTML = delivs.map(d => {
+  // 「낼 수 있는」 임시저장만 센다 — 리뷰 인증샷(renderActivityReviewImageList)과 같은 기준.
+  //   ⚠️ 예전에는 임시저장이 있기만 하면 버튼을 띄웠다(종류 단위). 그러면 A채널은 낼 수 있고
+  //      B채널만 서버가 거부하는 상황에서 버튼이 활성인 채로 눌리고, 부분 실패한 뒤에도
+  //      **무엇이 못 나갔는지 알려주지 않았다**. 리뷰 인증샷은 처음부터 채널 단위였는데
+  //      게시물만 종류 단위라 두 화면이 서로 다르게 동작했다(2026-08-25 작업표 S1).
+  //   ⚠️ `gateAllows` 는 그 종류 행이 0건이면 `true` 다 — 채널이 빈 시딩 캠페인에서는
+  //      종전처럼 버튼이 그대로 뜬다(막지 않는 방향). 조회 실패도 같다.
+  let submittableDraftCount = 0;
+  container.innerHTML = splitDeliverableGroups(delivs, d => {
     const isDraft = d.status === 'draft';
-    if (isDraft) hasDraft = true;
+    if (isDraft && gateAllows('post', d.post_channel)) submittableDraftCount++;
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
@@ -1895,6 +2158,18 @@ function renderActivityPostList(delivs) {
     const proxyBox = d.submitted_by_admin
       ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(d)}</div>`
       : '';
+    // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
+    //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 그래서 문구가 「맞다면 그대로 내도 된다」
+    //   까지 말한다.
+    //   ⚠️ 예전에는 이 경고를 추가 직후 알림(toast)으로 띄웠는데, **바로 뒤에 뜨는 성공 알림이
+    //      같은 자리를 덮어 화면에서 한 번도 안 보였다**(2026-08-26 브라우저 실측 — 게시물이
+    //      아닌 첫 화면 주소를 넣어도 초록 알림만 떴다). 알림은 몇 초 뒤 사라지므로 「제출하기」를
+    //      누르는 시점에는 어차피 없다. 그래서 목록 항목에 **남는 줄**로 옮겼다.
+    //   ⚠️ **임시저장에만** 붙인다 — 이미 낸 것은 본인이 지울 수 없어, 손쓸 수 없는 경고는
+    //      잔소리가 된다. 낼지 말지 정하는 그 순간에만 보이면 된다.
+    const shapeBox = (isDraft && typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(d.post_url))
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;font-size:11px;color:#8A5510;line-height:1.5">${esc(t('activity.badUrlShapeRow'))}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -1904,10 +2179,17 @@ function renderActivityPostList(delivs) {
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
       ${proxyBox}
+      ${shapeBox}
       ${reasonBox}
     </div>`;
-  }).join('');
-  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  }, 'post');
+  // 버튼과 안내 줄이 **같은 수**를 봐야 한다 — 안내 줄이 「N건 남았다」는데 버튼이 그중
+  //   일부만 보내면 그 차이를 아무도 설명해 주지 않는다.
+  if (submitBtn) {
+    submitBtn.style.display = submittableDraftCount ? '' : 'none';
+    submitBtn.disabled = !submittableDraftCount;
+  }
+  renderDraftPendingBar('post', submittableDraftCount);
 }
 
 function activityStatusBadge(status) {
@@ -2065,6 +2347,9 @@ async function _addDraftUrlInner() {
   if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
   const url = norm.url;
   if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
+  // 주소 모양 경고는 여기서 알림으로 띄우지 않는다 — 바로 뒤 성공 알림이 같은 자리를 덮어
+  //   화면에서 한 번도 안 보였다(2026-08-26 실측). 목록 항목에 남는 줄로 옮겼다
+  //   (`renderActivityPostList` 의 `shapeBox`). 되살리지 말 것 — 알림은 이 경고를 못 나른다.
 
   const camp = _activityCamp || {};
 
@@ -2101,7 +2386,7 @@ async function _addDraftUrlInner() {
     $('postUrlInput').value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2167,7 +2452,7 @@ async function _addDraftImageInner() {
       const rd = $('receiptDate'); if (rd) rd.value = '';
       const ra = $('receiptAmount'); if (ra) ra.value = '';
     }
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2202,7 +2487,7 @@ async function _addDraftReviewImageInner(channel) {
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
     _reviewImgDataByChannel[channel] = null;
-    toast(t('activity.draftAdded'), 'success');
+    toast(t('activity.draftAddedNeedSubmit'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
@@ -2225,10 +2510,10 @@ async function submitAllDrafts(kind) {
 }
 
 async function _submitAllDraftsInner(kind) {
-  let count = 0, failed = 0;
+  let count = 0, failed = 0, failedChannels = [];
   try {
     const r = await submitDrafts(_activityAppId, kind);
-    count = r.count; failed = r.failed;
+    count = r.count; failed = r.failed; failedChannels = r.failedChannels || [];
   } catch (e) {
     // 서버가 거부한 경우(제출 마감 등) 정확한 사유를 보여준다. 예전에는 storage 쪽에서 에러를
     // 삼켜 count=0 이 되고 아래 「제출할 것이 없습니다」가 떠서, 왜 안 되는지 알 수 없었다.
@@ -2240,11 +2525,22 @@ async function _submitAllDraftsInner(kind) {
     return;
   }
   if (count > 0) {
-    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다
-    toast(failed > 0
-      ? t('activity.submittedPartial').replace('{n}', count)
-      : t('activity.submittedN').replace('{n}', count),
-      failed > 0 ? 'warn' : 'success');
+    // 일부만 올라간 경우(채널마다 자격이 다를 때) 그 사실을 알려야 「전부 됐다」고 오해하지 않는다.
+    //   ⚠️ 채널을 알 수 있으면 **이름으로** 말해 준다 — 「제출하지 못한 항목이 있습니다」만으로는
+    //      무엇을 다시 손봐야 하는지 알 수 없다. 영수증은 채널이 없어 늘 옛 문구로 떨어진다.
+    let msg;
+    if (failed > 0 && failedChannels.length) {
+      // 구분자는 말에 맞춘다 — 일본어는 「、」, 한국어는 쉼표. 한쪽 기호를 두 언어에 쓰면
+      //   어느 한쪽에서 남의 나라 문장부호가 된다.
+      const sep = (typeof getLang === 'function' && getLang() === 'ko') ? ', ' : '、';
+      const names = failedChannels.map(c => getChannelLabelLocal(c) || c).join(sep);
+      msg = t('activity.submitPartialFailed').replace('{channels}', names);
+    } else if (failed > 0) {
+      msg = t('activity.submittedPartial').replace('{n}', count);
+    } else {
+      msg = t('activity.submittedN').replace('{n}', count);
+    }
+    toast(msg, failed > 0 ? 'warn' : 'success');
     await loadDeliverablesForActivity();
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }

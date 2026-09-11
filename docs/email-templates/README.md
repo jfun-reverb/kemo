@@ -31,6 +31,7 @@ docs/email-templates/
 |---|---|
 | `{name}.html` | 발송용 템플릿. `{{placeholder}}` 포함. **source of truth** |
 | `{name}.preview.html` | 메일 클라이언트 frame + 샘플 데이터로 렌더된 미리보기 |
+| `{name}.ko.preview.html` | **한국어 검수판.** 일본어로 발송되는 메일의 내용을 한국어로 확인하기 위한 사본 — **발송에는 안 쓰인다**(동기화 스크립트도 복사하지 않음).<br>⚠️ 일본어 원본을 고치면 **이 파일은 자동으로 안 따라온다.** 같이 고칠 것.<br>⚠️ 본문 일부가 Edge Function 코드에서 만들어지는 메일(`{{next_step_block}}` 등)은, 그 부분도 **상황별로 펼쳐** 한국어로 넣는다 — 안 그러면 검수자가 그 안의 일본어를 못 본다.<br>일본어로 나가는 메일 **12종에 모두 있다**(2026-08 기준). |
 
 ## 메일 카테고리
 
@@ -104,7 +105,10 @@ Supabase Edge Function은 함수 디렉토리(`supabase/functions/{name}/`)만 �
 추가 시 작업 순서:
 1. `docs/email-templates/{name}.html` 작성 (placeholder 포함)
 2. `docs/email-templates/{name}.preview.html` 작성 (샘플 데이터)
-3. `index.html`에 카드 등록 (disabled → enabled로)
+3. **일본어로 나가는 메일이면** `docs/email-templates/{name}.ko.preview.html` 도 작성 (한국어 검수판)
+4. `index.html`에 카드 등록 (disabled → enabled로) — 검수판이 있으면 「한국어 검수」 버튼도 함께
+5. 발송하는 함수가 이 폴더를 못 읽으므로 `scripts/sync-email-templates.sh` 의 `SYNC_GROUPS` 에 한 줄 추가
+   ⚠️ 빠뜨리면 원본을 고쳐도 그 함수의 복사본은 그대로다 — **메일 내용이 안 바뀌는데 아무 오류도 안 난다.**
 4. Edge Function 추가 또는 기존 Edge Function 확장
 5. sync 스크립트 갱신
 6. README.md "메일 카테고리" 표 갱신

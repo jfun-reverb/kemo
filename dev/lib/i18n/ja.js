@@ -13,6 +13,9 @@ window.I18N_JA = {
     slotFull: '満席',
     slotFullWaitlist: '満席（キャンセル待ち）',
     slotWaitlistNote: '満席のため、キャンセル待ちでの申し込みになります。',
+    // ── 選定制イベント（申し込みを受けて、あとで運営がえらぶ） ──
+    //   ⚠️ 上の「あと{n}名」「満席」は先着制でつかう。消さないこと。
+    slotOpenLabel: '受付中',
     slotClosed: '受付をしめきりました',
     slotNone: '日時がまだ登録されていません。しばらくしてからもう一度ごらんください。',
     slotLoading: '日時を読み込んでいます…',
@@ -21,6 +24,7 @@ window.I18N_JA = {
     selected: 'えらんだ日時',
     applyDone: '予約が確定しました。入場チケットをご確認ください。',
     waitlistDone: 'キャンセル待ちに登録しました。あきが出たらお知らせします。',
+    selectionDone: 'お申し込みを受けつけました。結果は、選定期間がおわったあとにおしらせします。',
     // 予約できなかった理由 — 一つずつ、次にすることまで書く
     failInviteRequired: 'このイベントは招待された方のみお申し込みいただけます。',
     failInviteMismatch: '招待番号がちがうようです。お送りしたリンクをもう一度ひらいてください。',
@@ -35,6 +39,8 @@ window.I18N_JA = {
     ticketTitle: '入場チケット',
     ticketMenu: '入場チケット',
     waitlistBtn: 'キャンセル待ち — 順番をみる',
+    selectionPendingBtn: '審査中 — 申請内容をみる',
+    selectionRejectedBtn: '落選 — 結果をみる',
     cancelViaTicket: 'タップすると「入場チケット」の画面に移動します。そこでキャンセルできます。',
     ticketCodeLabel: '予約番号',
     ticketNameLabel: 'お名前',
@@ -44,6 +50,12 @@ window.I18N_JA = {
     ticketWaitlistTitle: 'キャンセル待ち {n}番',
     ticketWaitlistHint: 'あきが出たら、この画面と通知でおしらせします。まだ入場はできません。',
     ticketCancelledTitle: 'この予約はキャンセルされました',
+    // 選定制で「えらばれなかった」場合。⚠️ キャンセルとは別のことばにする —
+    //   同じ「キャンセルされました」だと、ご自身でキャンセルしたと思われてしまう。
+    ticketSelectionPendingTitle: '審査中',
+    ticketSelectionPendingHint: 'えらばれた方には、この画面と通知でおしらせします。まだ入場はできません。',
+    ticketNotSelectedTitle: '選ばれませんでした',
+    ticketNotSelectedHint: 'こんかいはご縁がありませんでした。またのお申し込みをおまちしています。',
     ticketEnteredAt: '入場ずみ（{time}）',
     ticketEnteredTitle: '入場が確認されました',
     ticketEnteredHint: 'ごゆっくりおたのしみください。',
@@ -62,6 +74,7 @@ window.I18N_JA = {
     placeTbdShort: '会場は後日おしらせ',
     ticketAlreadyCancelled: 'この予約はすでにキャンセルされています。',
     ticketTabCancelled: 'キャンセル',
+    ticketTabRejected: '落選',
     // ── 招待制キャンペーンの入口 ──
     inviteGateTitle: '招待された方だけがごらんになれます',
     inviteGateHint: 'お送りしたリンクをひらくと、そのままごらんになれます。\n番号をおもちの方は、下に入力してください。',
@@ -166,6 +179,14 @@ window.I18N_JA = {
     //   ⚠️ 이유와 갈 곳을 함께 적는다 — 이유 없이 튕기면 「해킹당했나」로 읽힌다.
     //   ⚠️ 앱 안 문의 창구가 생기면(작업 2) LINE 안내를 그것으로 바꾼다.
     withdrawnLogout: '退会手続きが完了したため、ログアウトしました。ご不明な点は運営までLINEでご連絡ください。',
+    // 가입 확인 링크(?code=) 착지 안내(사양서 2026-09-10-signup-confirm-link-routing-fix).
+    //   done = 세션이 생겨 홈으로 갈 때 토스트 / doneLogin = 세션 없이 로그인 화면에 남기는 초록 안내
+    //   linkExpired = 이미 쓴·만료된 링크로 착지했을 때(로그인 화면으로 보낸다 — 비밀번호 찾기가 아니다)
+    confirm: {
+      done: 'メール認証が完了しました',
+      doneLogin: 'メール認証が完了しました。ログインしてください',
+      linkExpired: 'リンクの有効期限が切れました。ログインをお試しください',
+    },
     toast: {
       welcome: 'REVERBへようこそ！',
       welcomeBack: 'おかえりなさい',
@@ -195,6 +216,8 @@ window.I18N_JA = {
       btn: 'リセットメールを送信',
       backLink: 'ログインに戻る',
       successMsg: 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。',
+      tooSoon: 'さきほど メールを送りました。少し待つと もう一度 送れます。届いていないときは 迷惑メールフォルダも ごらんください。',
+      waitingBtn: 'しばらくお待ちください',
     },
     reset: {
       title: '新しいパスワード',
@@ -542,8 +565,13 @@ window.I18N_JA = {
     recruitSlots: '募集人数',
     minFollowers: '最小フォロワー数',
     minFollowersSuffix: '人以上',
+    minFollowersAnyChannel: '募集チャンネルのいずれかが{n}人以上',
+    minFollowersUnlimited: '制限なし',
+    minFollowersQoo10Note: '（Instagramと同じフォロワー数を見ます）',
+    // 자주 묻는 질문 자동응답의 「현재 팔로워」 한 칸 (messaging.js `_buildFaqCtx`)
+    minFollowersCurrent: '{channel} {n}人',
     winnerAnnounce: '当選発表',
-    winnerAnnounceValue: '選考後、LINEにてご連絡',
+    winnerAnnounceValue: '選考後、お申込の状態変更(当選)及びメールにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
     // ⚠️ 옛 이름은 「購入および領収書提出期間」이었다. 2026-08-11 에 「영수증은 결과물
@@ -591,6 +619,7 @@ window.I18N_JA = {
     // なったため、金額を約束する言い方をやめた。全体形＝詳細ページ・管理者プレビュー・
     // お知らせメール / 短縮形＝下部固定バー・一覧カード。{price} は商品価格
     rewardPaybackFull: '購入金額をペイバック（最大 ¥{price}）',
+    rewardPaybackNoCap: '購入金額をペイバック',   // 商品価格が未設定のレビュアー型（上限を言えない）
     rewardPaybackShort: 'ペイバック（最大 ¥{price}）',
     rewardCash: '+ 現金報酬 ¥{amount}',
     rewardFree: '製品全額無償提供',
@@ -607,7 +636,6 @@ window.I18N_JA = {
     brandAppeal: 'ブランドアピールポイント',
     requiredHashtag: '必須ハッシュタグ',
     requiredMention: '必須メンション',
-    shootingGuide: '撮影ガイド',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
     productPageShort: '商品ページ',
@@ -632,6 +660,9 @@ window.I18N_JA = {
     followerRequirement: 'このキャンペーンの応募条件は',
     followerRequirementSuffix: 'フォロワー {n}人以上 です。',
     yourFollowers: 'あなたの {channel} フォロワー数:',
+    blockedAnyChannel: '募集チャンネルのいずれかが{n}人以上である必要があります。',
+    blockedYours: 'あなたのフォロワー数：',
+    blockedEachChannel: '{channel} {n}人以上が必要です（あなたは{mine}人）。',
     scheduledOverlay: '近日公開',
     scheduledBtn: '近日公開',
     notPublic: 'このキャンペーンは現在公開されていません',
@@ -692,16 +723,27 @@ window.I18N_JA = {
     imageLabel: '画像',
     imageBtn: '画像を選択',
     addDraftBtn: 'リストに追加',
-    submitToAdminBtn: '管理者へ提出',
+    submitToAdminBtn: '提出する',
     draftBadge: '未提出',
     draftAdded: 'リストに追加しました',
+    // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
+    draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
+    groupPast: 'これまでの提出',
+    pastMore: '以前の提出をあと{n}件見る',
+    pastLess: '閉じる',
+    groupToSubmit: '提出する項目',
+    draftPendingTitle: 'まだ提出していないものが{n}件あります',
+    draftPendingStep: '1. 下の「提出する」ボタンを押してください\n2. 押すまで運営には届きません',
+    leaveWithDraft: 'まだ提出していないものがあります。このまま画面を離れますか？',
     draftDeleted: '削除しました',
     submittedN: '{n}件を提出しました',
     submittedPartial: '{n}件を提出しました。提出できなかったものがあります',
+    submitPartialFailed: '「{channels}」は提出できませんでした',
     nothingToSubmit: '提出する項目がありません',
     postSection: '投稿URLの提出',
     postUrlLabel: '投稿URL',
     postUrlPlaceholder: 'https://www.instagram.com/p/... など',
+    badUrlShapeRow: 'このリンクは投稿のURLではないようです。合っていればそのまま提出して大丈夫です',
     postChannelLabel: 'チャンネルを選択',
     postChannelHint: 'URLからチャンネルを自動判別できませんでした',
     // キャンペーンにチャンネルが設定されていない場合のみ表示（通常は起こりません）
@@ -763,6 +805,7 @@ window.I18N_JA = {
 
   // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
+    draft: '未提出',
     pending: '検査中',
     approved: '承認',
     rejected: '非承認',
@@ -770,7 +813,7 @@ window.I18N_JA = {
 
   // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
   delivKind: {
-    receipt: 'レシート提出',
+    receipt: 'レシート',
     reviewImage: 'レビュースクショ',
     post: '投稿URL',
   },
@@ -781,6 +824,8 @@ window.I18N_JA = {
     emptyStateSub: '近日中に新しいKブランド体験団が登録されます',
     emptyFiltered: '条件に合うキャンペーンはありません',
     emptyFilteredSub: '別の条件で探してみてください',
+    loadFailed: 'キャンペーンを読み込めませんでした',
+    loadFailedSub: 'しばらくしてから もう一度 ごらんください',
     badgeUrgent: '締切間近',
     badgeRecruiting: '募集中',
     badgeNew: 'NEW',
@@ -870,6 +915,10 @@ window.I18N_JA = {
     openBtn: 'メッセージ',
     unreadHint: '{n}件の未読',
     titleFor: '{name}に関するお問い合わせ',
+    // 자주 묻는 질문 「팔로워 수 부족」 답변의 첫 줄 ({intro} 자리, messaging.js `_buildFaqCtx`).
+    //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
+    faqFollowerIntroHas: 'このキャンペーンには「最低フォロワー数」の条件があります。',
+    faqFollowerIntroNone: 'このキャンペーンにはフォロワー数の条件はありません。以下は、フォロワー条件があるキャンペーンのご案内です。',
     cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
@@ -908,6 +957,7 @@ window.I18N_JA = {
       visit: 'ご訪問後、投稿をご提出ください。',
       post_deadline: '成果物の提出期限：{date}',
       post_overdue: '提出期限を過ぎています。',
+      draft_pending: 'アップロードしたものが、まだ提出されていません。',
       reviewing: 'ご提出いただいた成果物を確認中です。',
       partial_reject: '一部の成果物が差し戻されました。差し戻し分をご確認の上、再提出ください。',
       all_reject: '成果物が差し戻されました。理由をご確認の上、再提出ください。',

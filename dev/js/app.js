@@ -3,15 +3,23 @@
 // ══════════════════════════════════════
 
 // 비밀번호 재설정 URL 감지 — 스크립트 로드 즉시 (Supabase SDK가 URL 소비하기 전에)
+//   🔴 주소의 `?code=` 는 재설정 신호가 **아니다**(2026-09-10) — 가입 확인 링크가 같은 모양으로 착지한다.
+//      예전에 `?code=` 를 여기 넣었던 이유(재설정 메일이 PKCE 형식이던 때)는 2026-07-20 새 형식
+//      `#reset-pw?token_hash=` 로 사라졌다. 되살리면 새 회원이 확인 링크에서 재설정 화면에 갇힌다
+//      (사양서 docs/specs/2026-09-10-signup-confirm-link-routing-fix.md).
+// 가입 확인 착지(`?code=`)는 **여기서** 봐 둔다 — supabase-js 는 교환에 성공하면 초기화 도중 스스로
+// 주소에서 `?code=` 를 지우므로, init() 시점에 주소를 보면 성공한 착지는 이미 흔적이 없다
+// (2026-09-10 Supabase 전문 검토 — jsdom 재현). 이 스크립트는 그 정리보다 먼저 돈다.
+let _signupConfirmCodeSeen = false;
 (function detectRecoveryUrlEarly() {
   try {
-    const hasCode = new URLSearchParams(location.search).has('code');
+    _signupConfirmCodeSeen = new URLSearchParams(location.search).has('code');
     const hasRecoveryHash = location.hash.includes('type=recovery') || location.hash.includes('access_token=');
     // 새 형식 링크 #reset-pw?token_hash=... (2026-07-20) — 기존 조건은 그대로 두고 조건만 추가.
     // 검증 성공 시 진짜 로그인 상태가 되므로, 비밀번호를 안 바꾸고 이탈해도 로그인된 채로 남지 않도록
     // 기존 「재설정 중에는 로그인 취급 안 함」 장치를 그대로 타게 한다.
     const hasNewRecoveryLink = location.hash.startsWith('#reset-pw?');
-    if (hasCode || hasRecoveryHash || hasNewRecoveryLink) {
+    if (hasRecoveryHash || hasNewRecoveryLink) {
       sessionStorage.setItem('reverb.recovery', '1');
     }
   } catch(e) {}
@@ -69,6 +77,18 @@ function navigateBackFromDetail() {
   goBackFrom('detail', _fallback);
 }
 
+// 활동관리에 붙잡아 둔 채 주소만 딴 데로 간 것을 되돌린다(이탈 확인에서 「취소」를 누른 경우).
+//   ⚠️ **화면이 실제로 활동관리일 때만** 손댄다 — 확인 없이 주소를 바꾸면 그 반대 어긋남
+//      (화면은 다른 곳, 주소는 활동관리)이 생긴다. 그런 전례가 이 저장소에 있다.
+function restoreActivityHash() {
+  try {
+    const cur = document.querySelector('#appShell .page.active');
+    if (!cur || cur.id !== 'page-activity') return;
+    if (location.hash === '#activity') return;
+    history.replaceState({page: 'activity'}, '', '#activity');
+  } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
+}
+
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
@@ -124,6 +144,27 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
       && typeof cleanupTicketPage === 'function') {
     cleanupTicketPage();
+  }
+  // 활동관리에 「올려만 두고 안 낸 것」을 남긴 채 떠나려 하면 한 번 묻는다.
+  //   ⚠️ 이 자리여야 한다 — 아래 pushState 보다 **앞**이라, 취소하면 주소가 안 움직인다.
+  //   ⚠️ 뒤로가기(popstate)도 결국 이 함수를 거치므로 그 경로까지 함께 잡힌다. 다만 그때는
+  //      주소가 **이미** 옮겨져 있어, 취소하면 주소만 어긋난 채 남는다 → 아래에서 되돌린다.
+  //   ⚠️ 판정 기준은 화면에 실제로 떠 있는 안내 줄의 건수(`_activityDraftPending`)와 같다.
+  //      따로 세면 「안내 줄은 없는데 나갈 때만 묻는」 어긋남이 생긴다.
+  if (_prevActivePage && _prevActivePage.id === 'page-activity' && pageName !== 'activity'
+      && typeof activityHasSubmittableDraft === 'function' && activityHasSubmittableDraft()) {
+    if (!confirm(t('activity.leaveWithDraft'))) {
+      restoreActivityHash();
+      // 🔴 **여기서 return 하는 것만으로는 부족하다.** 부르는 쪽은 자기 다음 줄을 계속 실행한다 —
+      //    예: navigateBackFromActivity() 는 `navigate('mypage')` 다음에 `openMypageSub('applications')`
+      //    를 부르고, 그 함수가 주소를 바꿔 **화면은 활동관리인데 주소는 응모이력**이 된다
+      //    (2026-08-26 브라우저 검증에서 실제로 재현). `navigate` 뒤에 무언가를 더 하는 자리가
+      //    스무 곳 가까워 **전부 고치는 방식은 반드시 하나를 빠뜨린다.**
+      //    → ①`false` 를 돌려줘 확인하는 쪽은 즉시 멈추게 하고
+      //      ②그래도 주소를 바꾸는 쪽이 있으면 **다음 차례에 되돌린다**(아래 backstop).
+      setTimeout(restoreActivityHash, 0);
+      return false;
+    }
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -317,7 +358,9 @@ window.addEventListener('popstate', function(e) {
   // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
   // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.
   if (page === 'mypage' || page.startsWith('mypage-')) {
-    navigate('mypage', false);
+    // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
+    //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
+    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
@@ -652,6 +695,26 @@ async function init() {
   let inRecoveryInit = false;
   try { inRecoveryInit = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
+
+  // 가입 확인 링크 착지(`?code=`) — 사양서 2026-09-10-signup-confirm-link-routing-fix.
+  //   supabase-js 는 클라이언트를 만들 때 주소의 code 를 읽어, 이 브라우저 저장소에 가입 때의
+  //   검증값이 있으면 세션으로 바꾼다(없으면 아무 일도 안 한다). 위 getSession() 은 그 초기화가
+  //   끝난 값이라 **세션 유무로 가르면 된다**: 있으면 아래 기존 세션 복원이 로그인 처리하고 초기
+  //   라우팅이 홈으로 보낸다(여기서는 토스트만) / 없으면 로그인 화면 + 「인증 완료, 로그인하세요」.
+  //   🔴 재설정 중(inRecoveryInit)이면 건너뛴다 — 두 신호가 함께 오는 주소는 없지만, 있다면 재설정이 이긴다.
+  //   ⚠️ 판정 재료는 스크립트 로드 때 봐 둔 `_signupConfirmCodeSeen`(맨 위) — 교환에 성공하면 라이브러리가
+  //      `?code=` 를 이미 지웠으므로 지금 주소를 보면 성공한 착지를 놓친다. 실패·미시도면 아직 남아 있어
+  //      여기서 지운다(해시는 그대로) — 남기면 새로고침마다 같은 판정을 반복한다.
+  let confirmLandingToast = false, confirmLandingNotice = false;
+  try {
+    if (!inRecoveryInit && _signupConfirmCodeSeen) {
+      if (new URLSearchParams(location.search).has('code')) {
+        history.replaceState(history.state, '', location.pathname + location.hash);
+      }
+      if (session) confirmLandingToast = true; else confirmLandingNotice = true;
+    }
+  } catch(e) {}
+
   if (session && !inRecoveryInit) {
     currentUser = session.user;
     // 관리자 테이블에서 확인
@@ -660,11 +723,14 @@ async function init() {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
-      const {data:profile} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
-      currentUserProfile = profile;
+      // 조회 실패(null+error)와 0건을 가른다 — 실패는 기록만(handleLogin 과 같은 원칙, 여기엔 삽입이 원래 없다)
+      const {data:profile, error:profileErr} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+      if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
+      currentUserProfile = profile || null;
     }
   }
   updateGnb();
+  if (confirmLandingToast) toast(t('auth.confirm.done'), 'success');
 
   // 탈퇴가 확정된 계정이면 로그아웃 (마이그레이션 358·359 — 작업 8)
   //   ⚠️ 반드시 관리자 판별(currentUser._isAdmin)이 끝난 뒤에 부른다 — 앞에 두면
@@ -679,7 +745,7 @@ async function init() {
 
   // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
   // - implicit flow: #access_token=...&type=recovery
-  // - PKCE flow: ?code=... (with recovery intent)
+  //   (주소의 `?code=` 는 재설정 신호가 아니다 — 맨 위 detectRecoveryUrlEarly 주석 참조)
   const hashStr = location.hash.replace('#','');
   const hashParams = new URLSearchParams(hashStr.includes('&') ? hashStr : '');
   const queryParams = new URLSearchParams(location.search);
@@ -728,10 +794,9 @@ async function init() {
           // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
           if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
           if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
-          // 초대 링크로 들어와 가입한 뒤 **확인 메일 링크로 돌아온** 경우의 복귀.
-          //   운영서버는 가입 시 이메일 확인이 필수라 handleSignup 이 세션 없이 먼저 끝난다
-          //   → 그 경로는 auth.js 의 복귀 코드에 닿지 못한다. 확인 링크로 세션이 생기는
-          //   이 자리가 신규 가입자의 실제 복귀 지점이다(2026-08-03 리뷰 지적).
+          // 초대 링크 복귀 — ⚠️ 부팅 경로(확인 메일 링크 착지)에서는 **여기에 닿지 않는다**: init() 의 세션 복원이
+          //   currentUser 를 먼저 세운다. 그 경로의 복귀는 init() 초기 라우팅의 confirmLandingToast 갈래가 맡는다
+          //   (2026-09-10). 이 호출은 아직 currentUser 가 없는 경우(다른 탭 로그인 등)만 받는다.
           if (typeof consumeInviteReturn === 'function') { try { consumeInviteReturn(); } catch(_){} }
         }
       }
@@ -760,8 +825,10 @@ async function init() {
       const errDesc = hashParams.get('error_description') || new URLSearchParams(location.search).get('error_description') || '';
       const isExpired = errDesc.includes('expired') || errDesc.includes('invalid');
       if (isExpired) {
-        navigate('forgot');
-        setTimeout(() => toast('リンクの有効期限が切れました。もう一度お試しください。','error'), 300);
+        // 가입 확인 링크 재클릭·만료가 이 모양으로 온다 — 비밀번호 찾기는 틀린 안내라 로그인 화면으로.
+        //   로그인을 시도하면 미확인이면 「未認証」 안내가 뜬다(확인 메일 재발송 화면은 백로그).
+        navigate('login');
+        setTimeout(() => toast(t('auth.confirm.linkExpired'),'error'), 300);
       } else {
         navigate('home');
       }
@@ -782,8 +849,8 @@ async function init() {
   // recovery 진행 중이면 초기 라우팅 스킵 (Supabase SDK가 PASSWORD_RECOVERY 이벤트로 reset-pw 이동시킴)
   let isRecoveryInProgress = false;
   try { isRecoveryInProgress = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
-  const urlHasRecoveryCode = new URLSearchParams(location.search).has('code') ||
-                             location.hash.includes('type=recovery') ||
+  // ⚠️ 주소의 `?code=` 는 여기서도 보지 않는다(가입 확인 착지 — 위 세션 복원 자리에서 따로 가른다)
+  const urlHasRecoveryCode = location.hash.includes('type=recovery') ||
                              location.hash.includes('access_token=');
 
   if (hash && hash.startsWith('reset-pw?')) {
@@ -795,6 +862,18 @@ async function init() {
     handleRecoveryTokenLink(tokenHash);
   } else if (isRecoveryInProgress || urlHasRecoveryCode) {
     // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
+  } else if (confirmLandingNotice) {
+    // 가입 확인 착지인데 세션이 없다(다른 브라우저에서 링크를 연 정상 사례) — 로그인 화면 + 사라지지 않는 안내
+    navigate('login', false);
+    const noticeEl = $('loginNotice');
+    if (noticeEl) { noticeEl.textContent = t('auth.confirm.doneLogin'); noticeEl.style.display = 'block'; }
+  } else if (confirmLandingToast && typeof consumeInviteReturn === 'function' && consumeInviteReturn()) {
+    // 초대 링크로 들어와 가입한 회원의 확인 착지(세션 있음) — 기억해 둔 캠페인 상세로 되돌리고 홈 라우팅을 건너뛴다.
+    //   🔴 부팅 경로의 복귀 지점은 **여기**다. 아래 SIGNED_IN 핸들러의 호출은 `if (!currentUser)` 안에 있어
+    //      세션 복원이 currentUser 를 먼저 세우는 이 경로에서는 닿지 않는다(2026-09-10 기획 판정 — 8/3 리뷰의
+    //      「확인 링크로 세션이 생기는 그 자리가 복귀 지점」은 틀렸다). 캠페인 목록이 실린 뒤(위 await)라 상세를
+    //      열 수 있고, consumeInviteReturn 은 한 번 쓰면 지우므로 두 자리가 겹쳐도 두 번 열리지 않는다.
+    //   ⚠️ 세션 없음 갈래(다른 브라우저)는 저장소가 달라 돌아갈 곳이 없다 — 로그인 성공 자리(auth.js)가 받는다.
   } else if (hash && hash.startsWith('detail-')) {
     // 초대 링크로 처음 들어온 경우 — 번호를 먼저 기억해 두고 상세를 연다.
     //   기억해 두지 않으면 상세 게이트가 번호를 다시 묻고, 예약 함수에도 못 넘긴다.
@@ -881,7 +960,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
 
-  allCampaigns = DEMO_CAMPAIGNS.slice();
+  // 🔴 부팅 직후 첫 그림 — **운영에서는 비워 둔다.** 예전에는 여기서 예시 여섯 건을
+  //    먼저 그려서, 진짜 목록이 오기 전까지 **모든 접속에서 가짜가 잠깐 보였다.**
+  allCampaigns = demoCampaignsForDisplay();
   if (initPage === 'home') {
     renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
     updateStats(allCampaigns);

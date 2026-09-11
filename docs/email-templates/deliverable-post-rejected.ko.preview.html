@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--
+  deliverable-post-rejected 한국어 검수판 (미리보기 전용).
+  실제 발송에는 deliverable-post-rejected.html(일본어 원본)만 쓰입니다.
+  ⚠️ 원본을 고치면 이 파일도 함께 고쳐야 합니다 — 자동으로 안 따라옵니다.
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>deliverable-post-rejected · 한국어 검수판</title>
+</head>
+<body style="margin:0;padding:24px;background:#F5F5F7;font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
+<div style="max-width:600px;margin:0 0 14px;padding:10px 14px;background:#FFF7E6;border:1px solid #FFD591;border-radius:8px;font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;font-size:12px;color:#874D00;line-height:1.6"><b>한국어 검수판 — 실제로는 발송되지 않습니다.</b> 회원에게 가는 것은 일본어 원본이며, 이 페이지는 그 내용을 한국어로 확인하기 위한 사본입니다. 코드에서 만들어지는 부분도 한국어로 펼쳐 두었습니다.</div>
+<div style="font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Manrope',Arial,sans-serif;color:#222;max-width:600px">
+
+  <!-- 헤더 -->
+  <div style="background:#161618;border-radius:12px 12px 0 0;padding:28px 32px 24px">
+    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">REVERB JP</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.3">게시물 주소가 반려되었습니다</div>
+  </div>
+
+  <!-- 본문 -->
+  <div style="background:#fff;border:1px solid #EAEAE4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px 24px">
+
+    <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.7">{{influencer_name}} 님<br>
+    제출하신 SNS 게시물 주소를 확인한 결과, 아래 사유로 반려되었습니다.<br>
+    게시물 내용을 수정한 뒤 다시 제출해 주세요.</p>
+
+    <!-- 캠페인 정보 박스 -->
+    <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:10px;padding:16px 18px;margin-bottom:22px;font-size:13px">
+      <div style="color:#888;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:3px">캠페인</div>
+      <div style="font-weight:700;font-size:15px;color:#161618;margin-bottom:10px">{{campaign_title}}</div>
+      <table style="border-collapse:collapse;width:100%">
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;width:90px">브랜드</td>
+          <td style="padding:3px 0;font-size:13px">{{campaign_brand}}</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">제출일</td>
+          <td style="padding:3px 0;font-size:13px">{{submitted_at}}</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">반려일</td>
+          <td style="padding:3px 0;font-size:13px">{{reviewed_at}}</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;vertical-align:top">게시물 주소</td>
+          <td style="padding:3px 0;font-size:12px;word-break:break-all"><a href="{{post_url}}" style="color:#E8344E;text-decoration:none">{{post_url}}</a></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 검수 결과 배지 -->
+    <div style="display:inline-block;background:#FBE2E7;border:1px solid #F4B8C4;border-radius:99px;padding:6px 16px;font-size:12px;font-weight:700;color:#A02038;letter-spacing:0.06em;margin-bottom:22px">
+      반려
+    </div>
+
+    <!-- 반려 사유 박스 (Edge Function이 reject_reason_block으로 치환) -->
+    <div style="background:#FFF5F7;border-left:4px solid #E8344E;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:22px"><div style="font-size:11px;font-weight:700;color:#A02038;letter-spacing:0.06em;margin-bottom:6px">반려 사유</div><div style="font-size:13px;color:#222;line-height:1.7">(운영자가 입력한 반려 사유가 여기에 그대로 들어갑니다)</div></div>
+
+    <!-- 활동관리 버튼 -->
+    <div style="text-align:center;margin:26px 0 20px">
+      <a href="{{activity_link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 36px;border-radius:8px;letter-spacing:0.02em">활동관리에서 다시 제출하기</a>
+    </div>
+
+  </div>
+
+  <!-- 푸터 (통일) -->
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    REVERB JP 회원 정보에 따라 자동으로 발송된 메일입니다.<br>
+    문의는 LINE <a href="{{help_line_url}}" style="color:#999;text-decoration:underline">@reverb.jp</a> 으로 부탁드립니다.<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="{{site_url}}" style="color:#999;text-decoration:underline">{{site_url}}</a>
+  </p>
+
+</div>
+</body>
+</html>

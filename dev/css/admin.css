@@ -303,7 +303,7 @@ input.admin-filter{padding-right:8px}
    2026-05-15 확장: 모집기간·구매기간·제출마감·조회 컬럼 추가로 표 폭 증가.
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
-#adminPane-campaigns .data-table{min-width:2150px}
+#adminPane-campaigns .data-table{min-width:2400px}  /* 2026-09-04 브랜드·제품·신청 열을 한 줄로 넓히며 2150 → 2400 */
 /* 「삭제됨」 탭(7컬럼)은 활성 목록용 min-width(2150)·1~3열 sticky/폭 강제 대신 콘텐츠 폭 + 캠페인명(첫 열)만 좌측 고정 */
 #adminPane-campaigns .data-table.deleted-mode{min-width:0;width:100%}
 /* 활성 목록의 캠페인(2)·채널(3) 폭·sticky 강제를 삭제됨 컬럼 구성(캠페인/채널/브랜드…)에 맞게 해제 —
@@ -1537,6 +1537,13 @@ input.admin-filter{padding-right:8px}
 .msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .msg-attach-thumb{width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--surface-container);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
 .msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
+/* 파기된 첨부(작업 12-B) — 누를 수 없다는 것이 보여야 한다.
+   ⚠️ 손 모양 커서를 그대로 두면 눌러 보게 되고, 아무 일도 안 일어나면
+      「고장」으로 읽힌다. 그래서 커서를 기본으로 되돌리고 점선 테두리로 구분한다. */
+.msg-attach-thumb.purged{width:auto;min-width:64px;height:64px;padding:6px 10px;
+  cursor:default;flex-direction:column;gap:2px;background:transparent;
+  border:1px dashed var(--outline);color:var(--muted);font-size:10px;line-height:1.4;text-align:center}
+.msg-attach-thumb.purged .material-icons-round{font-size:20px}
 .adm-msg-status{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px}
 .adm-msg-status.hidden{background:var(--red-l);color:var(--red)}
 .adm-msg-status.withdrawn{background:var(--surface-dim);color:var(--muted)}
@@ -1758,6 +1765,10 @@ input.admin-filter{padding-right:8px}
 /* 모달 중앙 하단 확대/축소 컨트롤 */
 .lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
 .lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+/* 확대 창 사진 넘기기 — 흰 원 + 화살표(캠페인 상세 사진 넘기기와 같은 모양). 2장 이상일 때만 JS 가 보인다. */
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:6;padding:0}
+.lightbox-nav .material-icons-round{font-size:22px;color:#333}
+.lightbox-nav:hover{background:#fff}
 .lightbox-zoom-ctrl .material-icons-round:hover{color:#fff}
 .lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
@@ -1861,12 +1872,28 @@ input.admin-filter{padding-right:8px}
 .broadcast-recip-name { font-weight: 600; color: var(--ink); }
 .broadcast-recip-camp { flex: 1; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .broadcast-recip-status { font-size: 11px; color: var(--muted); }
+/* 발송 상세 2단 — 왼쪽 발송 정보 / 오른쪽 발송 목록.
+   ⚠️ 화면 크기 조건문(@media)을 쓰지 않는다 — 이 창은 드래그·크기 조정이 되므로 창 폭과
+      화면 폭이 따로 논다. auto-fit 은 **칸 자신이** 좁아지면 저절로 한 줄로 쌓여 둘 다 맞는다.
+   ⚠️ min-height:0 이 없으면 목록이 칸 밖으로 넘쳐 창 아래로 삐져나온다(flex 기본값 때문). */
+.bcast-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; flex: 1; min-height: 0; }
+.bcast-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+.bcast-col-head { font-size: 12px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+/* 오른쪽 칸은 스크롤을 목록이 직접 갖는다 — 머리글은 고정되고 목록만 움직인다 */
+.bcast-col-list { overflow: hidden; gap: 8px; }
+.broadcast-recips.in-col { max-height: none; flex: 1; min-height: 0; }
 /* mf-wrap 은 기본 display:inline-block 이라 폭이 버튼 내용 기준으로 좁아짐 → 모달 안에서는 전체폭으로 */
 #bulkCampaignMulti, #bulkPrefectureMulti { display: block; width: 100%; }
 /* 캠페인 드롭다운 — 모달 overflow 안에서 absolute 는 캠페인이 많으면 잘리므로, 지역과 동일하게 문서 흐름(static)으로 아래 펼침 */
 #bulkCampaignMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
+/* 리포트 「캠페인 추가」 모달 — 일괄발송 모달과 같은 처리. 모달 안에서 떠 있는 드롭다운은
+   모달 본문 아래로 잘리므로 펼친 채(static) 둔다. (2026-09-03 브라우저에서 잘림 확인) */
+#reportAddCampMulti { display: block; }
+#reportAddCampMulti .mf-btn { width: 100%; }
+#reportAddCampMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 260px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
+#reportAddCampMulti .mf-item-sub { font-family: inherit; }
 /* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
 #bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
@@ -2238,6 +2265,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 행사 묶음 — 고르는 칸과 「새 묶음」 버튼을 한 줄에. 좁아지면 버튼이 아래로 내려간다. */
 .event-group-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
+/* ── 신청 접수 방식(선착순형 / 선정형) — 마이그레이션 376 ──
+   행사 모드 + 비공개일 때만 나타나는 줄. 초대 번호 묶음 바로 아래에 붙어
+   「비공개로 받은 신청을 어떻게 처리하나」가 한자리에서 읽히게 한다.
+   ⚠️ 잠김 표시는 .choice-locked 를 그대로 쓴다(행사 모드의 모집 형식 잠금과 같은 모양). */
+.event-selection-row{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.event-selection-title{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.event-selection-choices{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.event-selection-choice{display:inline-flex;align-items:center;gap:6px;font-size:13px;
+  font-weight:600;color:var(--ink);cursor:pointer}
+.event-selection-choice input[type=radio]{accent-color:var(--pink);width:14px;height:14px;cursor:pointer}
+
 /* ── 행사 모드에서 잠기는 칸의 시각 표시 ──
    라디오는 input 이 display:none 이고 라벨이 모양을 담당한다. 그래서 input 에
    disabled 를 걸어도 **라벨은 그대로 멀쩡해 보인다** — 「입력해야 할 것」과
@@ -2364,3 +2402,154 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   padding:0 3px;
   font-size:11px;
 }
+
+/* 채널별 최소 팔로워수 — 두 열 사이 구분선 (2026-08-27)
+   ⚠️ 가운데 세로선을 격자 자체에 그리면 줄 수가 홀수일 때 마지막 칸 옆이 비어
+      선이 허공에 뜬다. 그래서 **오른쪽 열 칸의 왼쪽 테두리**로 그린다 —
+      칸이 있는 자리에만 선이 생긴다.
+   ⚠️ 어느 칸이 오른쪽인지는 **그리는 코드가 클래스로 정해 준다**(`mfbc-col-right`).
+      `:nth-child` 로 세지 않는다 — 이 저장소는 화면 인덱스 하드코딩을 금지한다. */
+.mfbc-col-left  { padding-right: 16px; }
+.mfbc-col-right { border-left: 1px solid var(--line); padding-left: 16px; }
+
+/* 채널별 최소 팔로워수 입력칸 (2026-08-27)
+   ⚠️ 「제한 없음」이 잘려 보이던 원인은 폭이 아니라 **숫자 칸 화살표**다. 글자는 51px 인데
+      화살표가 자리를 먹어 남는 폭이 모자랐다. 화살표를 없애고 안쪽 여백을 줄여 해결한다.
+      (담당자는 값을 손으로 적지 화살표로 올리지 않는다.) */
+/*  ⚠️ 선택자를 `#page-admin` 으로 시작해야 한다 — 이 화면의 `.form-input` 규칙이
+       `#page-admin .form-input` 이라 식별자를 포함해, 클래스 하나짜리 규칙은 진다.
+       (2026-08-27 실측 — `.mfbc-input` 만 썼더니 안쪽 여백이 12px 그대로였다.) */
+#page-admin .mfbc-input { padding-left: 8px; padding-right: 8px; }
+.mfbc-input::-webkit-outer-spin-button,
+.mfbc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mfbc-input { -moz-appearance: textfield; appearance: textfield; }
+
+/* ===== 운영현황 「일정」 뷰(간트) — 2026-09-07 =====
+   왼쪽 열은 position:sticky 로 고정하고 시간축만 가로로 흐른다. 한 스크롤 상자 안에서
+   행이 나뉘어 있어 왼쪽 열과 막대가 어긋나지 않는다.
+   ⚠️ 가로 스크롤바를 **항상** 보이게 한다 — 이 파일의 다른 스크롤바 규칙(.admin-side-scroll 은
+      마우스를 올릴 때만, .status-tab-bar 는 완전 숨김)과 방향이 반대인데, 일부러 그렇다.
+      시간축은 12주 폭이라 옆으로 더 있다는 것을 스크롤바가 말해 줘야 한다(리포트 화면
+      dev/report.html 의 .tblwrap 선례 — 「없으면 옆에 더 있는지 모른다」는 사용자 지적, 2026-09-04).
+      「일관성이 없다」며 되돌리지 말 것. */
+/* hidden 속성으로 뷰·필터 요소를 켜고 끈다 — .admin-filter-group·.brand-ops-grid 의 display 규칙이
+   브라우저 기본 [hidden] 을 이겨 안 숨겨지므로 이 페인 안에서만 !important 로 되살린다 */
+#adminPane-brand-ops [hidden]{display:none!important}
+/* 세로 스크롤도 이 상자가 맡는다(max-height 는 fitGanttHeight 가 화면에 맞춰 준다) — 그래야 .gantt-head 의 sticky 가 세로에도 듣는다 */
+.gantt-scroll{overflow-x:scroll;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative}
+.gantt-scroll::-webkit-scrollbar{height:12px;width:12px}
+.gantt-scroll::-webkit-scrollbar-track{background:#f1f1f1;border-radius:6px}
+.gantt-scroll::-webkit-scrollbar-thumb{background:#b8b8b8;border-radius:6px;border:2px solid #f1f1f1}
+.gantt-scroll::-webkit-scrollbar-thumb:hover{background:#999}
+.gantt-head,.gantt-row{display:flex;align-items:stretch;min-width:max-content}
+/* 머리글은 다른 표(.data-table th)와 같은 진회색 바탕·흰 글씨 — 정렬 화살표(.sort-arrows)도 그 표와 같은 색으로 보이게
+   같은 변수 재정의(.data-table thead th 와 동일 세트)를 쓴다. 시간축 머리도 같은 바탕이라 눈금 글자·주말 띠는 흰색 계열로 */
+.gantt-head{position:sticky;top:0;z-index:3;background:var(--th-bg);border-bottom:1px solid var(--outline);--muted:rgba(255,255,255,.82);--faint:rgba(255,255,255,.65);--accent:#FFFFFF;--accent-ink:#FFFFFF;--pink:#FFFFFF;--ink:#FFFFFF;--line:rgba(255,255,255,.22);--surface-dim:rgba(255,255,255,.16)}
+.gantt-row{border-bottom:1px solid var(--surface-dim);min-height:44px}
+.gantt-row:hover .gantt-cell,.gantt-row:hover .gantt-track{background:var(--surface-container-low)}
+.gantt-left{position:sticky;left:0;z-index:2;display:flex;background:inherit;flex-shrink:0;border-right:1px solid var(--line);box-shadow:2px 0 0 rgba(0,0,0,.03)}
+.gantt-head .gantt-left{background:var(--th-bg);border-right-color:rgba(255,255,255,.22);box-shadow:none}
+.gantt-row .gantt-left{background:var(--surface)}
+.gantt-cell{padding:6px 8px;font-size:12px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-width:0;background:inherit}
+.gantt-left .gantt-cell + .gantt-cell{border-left:1px solid var(--surface-dim)}   /* 왼쪽 표 열 구분 세로선(2026-09-11 사용자 요청). 머리글은 --surface-dim 이 흰색 계열로 재정의돼 어두운 바탕에 옅게 뜬다. 맨 오른쪽 선은 .gantt-left 의 border-right 가 맡는다 */
+.gantt-head .gantt-cell{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--th-fg);white-space:nowrap;padding:4px 12px}
+.gantt-cell.c-title{width:300px}.gantt-cell.c-status{width:78px}.gantt-cell.c-dur{width:80px;text-align:center;align-items:center}.gantt-cell.c-rate{width:135px}   /* 비율 열 둘(모집률·결과물 승인률, 2026-09-09) — 옛 진척률 한 열(170px)보다 합계 100px 넓다 */
+.gantt-cell .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-cell a.camp-link{color:var(--ink);font-weight:600;text-decoration:none}.gantt-cell a.camp-link:hover{text-decoration:underline}
+.gantt-cell .sub{font-size:10px;color:var(--muted);margin-top:1px}
+.gantt-axis,.gantt-track{position:relative;flex-shrink:0;background-color:var(--surface)}
+.gantt-head .gantt-axis{min-height:40px;background-color:var(--th-bg);background-image:repeating-linear-gradient(to right,rgba(255,255,255,.16) 0,rgba(255,255,255,.16) 1px,transparent 1px,transparent var(--gantt-grid,70px)),repeating-linear-gradient(to right,transparent 0,transparent calc(var(--gantt-day,10px) * 5),rgba(255,255,255,.07) calc(var(--gantt-day,10px) * 5),rgba(255,255,255,.07) calc(var(--gantt-day,10px) * 7))}   /* 머리글 왼쪽이 두 줄이 돼 40px 을 넘으면 함께 늘어난다(고정 높이면 축이 위로 뜬다 — 리뷰 지적) */
+.gantt-axis .gm{position:absolute;top:4px;font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;padding-left:4px;border-left:1px solid var(--line)}
+.gantt-axis .gw{position:absolute;top:22px;font-size:10px;color:var(--muted);white-space:nowrap;padding-left:3px;border-left:1px solid var(--surface-dim);height:16px}
+.gantt-axis .gt{position:absolute;top:4px;font-size:10px;font-weight:700;color:var(--accent-ink);white-space:nowrap;transform:translateX(-50%);background:var(--surface);padding:0 3px;border-radius:3px;z-index:1}   /* 월 이름표 줄에 둔다 — 주 이름표(9/7)와 같은 줄이면 「오늘7」로 겹친다(개발서버 실측) */
+.gantt-head .gantt-axis .gt{background:var(--th-bg)}
+/* 주 눈금 — 월요일 위치에 맞춘 반복 그라데이션(행마다 눈금 div 를 만들지 않는다) */
+/* 주 눈금(첫 겹) + 주말 음영(둘째 겹, 토·일 = 월요일 기준 5~7일째). 두 겹 다 --gantt-off(첫 월요일 x)만큼 밀어 맞춘다.
+   월 단위에서는 --gantt-grid 가 4주(28일)로 넓어져 선이 성기게 그어진다 */
+.gantt-track,.gantt-axis{background-image:repeating-linear-gradient(to right,var(--surface-dim) 0,var(--surface-dim) 1px,transparent 1px,transparent var(--gantt-grid,70px)),repeating-linear-gradient(to right,transparent 0,transparent calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 5),rgba(0,0,0,.035) calc(var(--gantt-day,10px) * 7));background-position-x:var(--gantt-off,0px);background-repeat:repeat-x}
+#brandOpsScheduleRows{position:relative}   /* 오늘 세로선을 행 전체에 하나로 겹치기 위한 기준 */
+.gantt-today{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #A78BFA;z-index:1;pointer-events:none}   /* 오늘 선 — 밝은 보라 점선(2026-09-09 사용자 지시. 진한 실선은 막대와 겹쳐 무거웠다). 범례(.lg)도 같은 규칙을 물려받는다 */
+/* 농도 3단은 opacity 가 아니라 배경색으로 — opacity 는 막대 안 이름표까지 같이 흐려져 옅은 막대의 글자가 안 보인다(개발서버 실측) */
+.gantt-bar{position:absolute;height:12px;top:9px;border-radius:3px;background:#3F3F46;box-sizing:border-box}
+.gantt-bar.ink-mid{background:#8E8E95}
+.gantt-bar.ink-weak{background:#D9D9DE}
+.gantt-bar.lane-sub{height:5px;top:26px;border-radius:2px}
+.gantt-bar.lane-sub2{top:34px;height:5px;border-radius:2px}   /* lane-sub 와 다른 클래스 이름이라 높이를 안 물려받는다 — 따로 적는다(리뷰 지적) */
+.gantt-bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0;border-left:3px dotted var(--surface)}
+.gantt-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right:3px dotted var(--surface)}
+.gantt-bar.open-end{background:repeating-linear-gradient(90deg,#8E8E95 0 6px,transparent 6px 9px)}
+.gantt-point{position:absolute;top:8px;width:12px;height:12px;transform:translateX(-1px) rotate(45deg);background:#3F3F46;border-radius:2px}
+.gantt-tag{position:absolute;top:8px;font-size:10px;color:var(--ink);white-space:nowrap;line-height:14px;background:var(--surface);padding:0 4px;border-radius:3px;z-index:1;box-shadow:0 0 0 1px var(--line)}
+.gantt-dday{position:absolute;top:8px;white-space:nowrap;line-height:14px;z-index:1}   /* 모집 막대 끝의 D-day 는 바로 이어지는 제출 막대(뒤에 그려짐)에 가려진다 — 위로 올린다 */
+.gantt-edge{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:10px;color:var(--muted);white-space:nowrap;padding:0 6px;background:var(--surface-container-low);border-radius:4px;margin:8px 4px;height:auto;max-height:26px}
+.gantt-edge.l{left:0}.gantt-edge.r{right:0}
+.gantt-nodate{position:absolute;left:8px;top:14px;font-size:11px;color:var(--faint)}
+.gantt-empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+/* 막대 이름표·범례 — 농도만으로는 구간을 못 알아본다는 지적(2026-09-07)으로 추가 */
+.gantt-bar-label{position:absolute;left:0;right:0;top:0;line-height:12px;font-size:9px;font-weight:700;color:var(--surface);text-align:center;white-space:nowrap;overflow:hidden;letter-spacing:.02em;pointer-events:none}
+.gantt-bar.ink-weak .gantt-bar-label{color:var(--ink)}   /* 옅은 막대는 흰 글씨가 안 보인다 */
+.gantt-bar.open-end .gantt-bar-label{left:50%;right:auto;transform:translateX(-50%);color:var(--ink);background:var(--surface);padding:0 4px;border-radius:3px}   /* 점선 막대는 흰 배경이 비쳐 흰 글씨가 사라진다 — 흰 바탕 알약으로(리뷰 지적) */
+.gantt-sub-label{position:absolute;top:22px;font-size:9px;line-height:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
+.gantt-sub-label.sub2{top:30px}
+/* 캠페인 경고 꼬리표 — 부모 행 막대 오른쪽 옆(2026-09-09, 처음엔 상태 배지 아래였다). 흰 알약이라 격자·주말 음영 위에서도 읽힌다. 정상이면 안 그린다 */
+.gantt-alert-tag{position:absolute;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font-size:10px;font-weight:600;line-height:14px;padding:0 5px 0 3px;border-radius:3px;background:var(--surface);box-shadow:0 0 0 1px currentColor;z-index:1;pointer-events:auto}
+.gantt-alert-tag .material-icons-round{font-size:12px}
+.gantt-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}   /* 범례 왼쪽 · 시간축 조작 오른쪽 */
+.gantt-legend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11px;color:var(--muted)}
+.gantt-nav{display:inline-flex;align-items:center;gap:3px;margin-left:auto}
+.gantt-nav .btn{padding:0 8px;font-size:11px;line-height:16px;gap:2px;height:24px;box-sizing:border-box;border-radius:6px}   /* 필터 줄의 btn-xs(6px 12px·12px) 보다 한 단계 작게(2026-09-09 사용자 지시). 높이는 고정 — 아이콘만 든 단추(14px 아이콘)가 글자 단추(16px 줄높이)보다 2px 낮아지던 것을 맞춘다 */
+.gantt-nav .material-icons-round{font-size:14px}
+.gantt-nav-sep{width:1px;height:14px;background:var(--line);margin:0 3px}
+/* 왼쪽 열 접기 — 머리글 왼쪽 고정 열의 오른쪽 가장자리에 반쯤 걸친 둥근 단추. 고정 열 안에 있어 스크롤해도 따라간다. z-index 는 고정 열(2)보다 위 */
+.gantt-left-toggle{position:absolute;right:-9px;top:calc(50% - 1px);transform:translateY(-50%);width:18px;height:18px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#3F3F46;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.12)}   /* 색은 직접 적는다 — 머리글(.gantt-head) 안에서는 --ink·--surface 가 어두운 머리글용 값으로 뒤집혀 흰 원에 흰 화살표가 됐다(실측) */
+.gantt-left-toggle:hover{background:var(--surface-dim)}
+.gantt-left-toggle .material-icons-round{font-size:12px;line-height:1}   /* 18px 원 안 12px 화살표. 글자(11px 머리글)와 나란히 보이게 원을 1px 올렸다(2026-09-09 사용자 지적 — 22px·15px 은 커 보이고 아래로 처져 보였다) */
+.gantt-head .gantt-left{overflow:visible}
+.gantt-legend-item{display:inline-flex;align-items:center;gap:6px}
+.gantt-legend .gantt-bar.lg{position:static;display:inline-block;width:26px;height:10px}
+.gantt-legend .gantt-bar.lg.lg-sub{height:5px}
+.gantt-legend .gantt-point.lg{position:static;display:inline-block;width:9px;height:9px;transform:rotate(45deg)}
+.gantt-legend .gantt-today.lg{position:static;display:inline-block;height:12px;width:0}
+/* 즉시 툴팁 — 기본 title 의 1초 지연 대신. body 끝에 하나만 두고 위임으로 채운다 */
+.gantt-tip{position:fixed;z-index:900;background:var(--ink);color:var(--surface);font-size:11px;line-height:1.55;padding:6px 10px;border-radius:6px;white-space:pre-line;max-width:340px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
+/* 편의 기능(2026-09-07 조사 반영) — 줌 단위·왼쪽 열 접기·빠른 필터 칩·마우스 날짜 안내선 */
+.gantt-zoom{display:inline-flex;gap:2px}
+.gantt-scroll.left-collapsed .gantt-cell.c-dur,.gantt-scroll.left-collapsed .gantt-cell.c-rate{display:none}
+.gantt-quick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
+.gantt-chip-label{font-size:11px;color:var(--muted);margin-right:2px}
+.gantt-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:pointer;line-height:1.4}
+.gantt-chip:hover{background:var(--surface-dim)}
+.gantt-chip.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.gantt-chip.on .tab-count{color:var(--surface);opacity:.8}
+.gantt-chip:disabled{color:var(--faint);cursor:default;background:var(--surface-container-low)}
+.gantt-guide{position:fixed;z-index:850;background:rgba(98,94,189,.10);border-left:1px dashed var(--accent);pointer-events:none}
+.gantt-guide-date{position:absolute;top:2px;left:4px;font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap;box-shadow:0 0 0 1px var(--line)}
+.gantt-head .gantt-cell{flex-direction:row;align-items:center;gap:2px}   /* 머리글은 글자+정렬 화살표를 한 줄에 */
+.gantt-row .gantt-cell.c-dur > span{margin:0!important;font-size:11px!important;padding:2px 7px!important}   /* .gantt-row 로 한정 — 머리글의 정렬 화살표(span)까지 키워 「남은 기간」 화살표만 컸다(2026-09-09 사용자 지적) */   /* dDayLabel 은 인라인 스타일이라 !important 로만 키울 수 있다(공용 함수는 안 건드린다) */
+/* 캠페인 펼치기(트리형) — 부모 행 + 기간 자식 행, 진척률 막대 */
+.gantt-title-line{display:flex;align-items:center;gap:4px;min-width:0}
+.gantt-title-row{display:flex;align-items:center;gap:6px;min-width:0}   /* 부모 행: 접기 단추 20 · 썸네일 32 · 글 — 자식 행 들여쓰기 72px 와 한 세트(8+20+6+32+6) */
+.gantt-title-text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.gantt-chev{flex-shrink:0;width:20px;height:20px;border:none;background:none;padding:0;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:4px}
+.gantt-chev:hover{background:var(--surface-dim);color:var(--ink)}
+.gantt-chev:disabled{opacity:.25;cursor:default}
+.gantt-chev .material-icons-round{font-size:18px}
+.gantt-row.child{min-height:30px;background:var(--surface-container-low)}
+.gantt-row.child .gantt-left{background:var(--surface-container-low)}
+.gantt-row.child .gantt-track{background-color:var(--surface-container-low)}   /* 달력 칸도 표 칸과 같은 회색 — .gantt-track 이 흰 배경을 직접 가져 여기서 덮어야 한다 */
+.gantt-row.child .gantt-cell{padding-top:3px;padding-bottom:3px}
+.gantt-row.child .c-title{padding-left:72px}   /* 부모 행의 접기 단추+썸네일 폭만큼 — 썸네일 크기를 바꾸면 여기도 */
+.gantt-child-name{font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0}
+.gantt-child-date{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-row.parent.open{border-bottom-color:transparent}
+/* 부모(캠페인) 행의 막대·점·D-day 는 행 높이의 상하 중앙에(2026-09-09 사용자 지시). 행이 44px 인데 막대 top 이 9px 로 고정돼 위로 붙어 보였다.
+   자식 행(30px)은 top:9px 이 이미 중앙이라 그대로 둔다. 보조 막대(lane-sub)는 부모 행에 안 그려진다(합친 막대 하나뿐). */
+.gantt-row.parent .gantt-bar{top:calc(50% - 6px)}
+.gantt-row.parent .gantt-point{top:calc(50% - 6px)}
+.gantt-row.parent .gantt-dday,.gantt-row.parent .gantt-tag{top:calc(50% - 7px)}
+.gantt-prog{display:flex;align-items:center;gap:8px;min-width:0}
+.gantt-prog-bar{flex:1;height:6px;border-radius:3px;background:var(--surface-dim);overflow:hidden}
+.gantt-prog-pct{font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.gantt-prog-frac{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:34px}
+.gantt-prog-fill{height:100%;background:var(--accent);border-radius:3px}
+.gantt-row.child .gantt-prog-fill{background:#8E8E95}

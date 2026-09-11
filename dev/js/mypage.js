@@ -166,9 +166,14 @@ async function renderMyApplyList() {
     // 메시지 미읽음 배지 — application_message_summary 뷰 (security_invoker, 본인 행만)
     try {
       const threads = await fetchInfluencerUnreadMessageThreads();
-      _myMsgUnreadByApp = {};
-      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
-    } catch(e) { _myMsgUnreadByApp = {}; }
+      // 🔴 `null` 은 **못 물어본 것**이지 「안 읽은 것이 없다」가 아니다 — 그때는 지난번에
+      //    알던 값을 그대로 둔다. 비우면 관리자 답장이 와 있는데 배지가 사라진다.
+      //    ⚠️ 회원에게 오류를 띄우지는 않는다(할 수 있는 일이 없다). 기록은 조회 함수가 한다.
+      if (threads) {
+        _myMsgUnreadByApp = {};
+        threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+      }
+    } catch(e) { /* 던져진 경우도 지난 값을 유지 — 위와 같은 이유 */ }
   }
 
   // 캠페인 상태 필터
@@ -219,7 +224,7 @@ async function renderMyApplyList() {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
-      ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      ? `<img src="${esc(storageThumbUrl(imgs[0]))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     // 카드 클릭 동선:
     //   - cancelled: 사유 확인 모달 (openCancelDetailModal)
@@ -269,13 +274,23 @@ async function renderMyApplyList() {
       for (const kind of order) {
         const d = byKind[kind];
         if (!d) continue;
-        if (d.status === 'draft') continue;  // 임시저장(미제출)은 응모이력 배지에 표시 안 함
+        // 🔴 되돌리지 말 것 — 예전에는 여기서 임시저장(미제출)을 걸러 냈다.
+        //   그러면 「올려는 뒀지만 제출은 안 한」 사람이 응모이력에서 아무 신호도 못 받고,
+        //   활동관리에 다시 들어가야만 회색 배지 하나를 볼 수 있었다. 그 사람은 낸 줄 알고
+        //   마감을 놓친다 — 운영에서 26건이 그렇게 4개월간 쌓였고(게시물 23·인증샷 2·
+        //   영수증 1), 같은 일이 2026-04-27 에도 있었다(마이그레이션 073 머리말).
+        //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
-        let bg = '#FFF4E4', color = '#B8741A';
-        if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
+        let bg = '#FFF4E4', color = '#B8741A', extra = '';
+        // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
+        // ⚠️ 검수중(#FFF4E4/#B8741A)과 나란히 놓이는 자리다. 옅은 주황끼리는
+        //   구분이 안 돼(2026-08-25 브라우저 확인) 테두리를 넣고 색을 진하게 한다.
+        //   반려(빨강)와도 갈려야 한다 — 잘못한 게 아니라 아직 안 낸 것이다.
+        if (d.status === 'draft') { bg = '#FFE0B2'; color = '#8A3B00'; extra = 'border:1px solid #E8912D;'; }
+        else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
-        items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+        items.push(`<span style="display:inline-block;${extra}background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       delivItemsHtml = items.join('');
     }
@@ -312,9 +327,12 @@ async function refreshMyMsgUnread(opts) {
   if (typeof currentUser === 'undefined' || !currentUser) return;
   try {
     const threads = await fetchInfluencerUnreadMessageThreads();
-    _myMsgUnreadByApp = {};
-    threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
-  } catch(e) { /* 무시 */ }
+    // 위 renderMyApplyList 와 같은 규칙 — `null`(조회 실패)이면 지난 값을 유지한다.
+    if (threads) {
+      _myMsgUnreadByApp = {};
+      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+    }
+  } catch(e) { /* 지난 값 유지 */ }
   // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
   if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
   // 폴링·화면복귀 호출(skipRerender)은 햄버거 배지만 갱신 — 응모이력 재렌더로 인한
@@ -1410,10 +1428,8 @@ async function submitCancelApplicationFromPage() {
     //    그 오류가 사전에 없어 errorGeneric(「취소하지 못했습니다」)으로 덮였고,
     //    friendlyErrorJa 를 안 거쳐 관리자 오류 로그에도 안 남았다.
     //    문구·동작은 그대로 두고, 사전에 없는 값일 때만 「예상 못 한 오류」로 기록한다.
-    const CANCEL_EXPECTED = [
-      'not_owner', 'invalid_status', 'deliverable_already_approved',
-      'reason_required', 'acknowledgement_required', 'application_not_found'
-    ];
+    // 목록은 shared.js 의 CANCEL_APPLICATION_EXPECTED 하나다 — storage.js 의
+    //   cancelApplication 과 같은 것을 써야 한쪽만 고쳐지는 일이 없다.
     const errKey = {
       'not_owner':                    'appHistory.cancel.errorOwner',
       'invalid_status':               'appHistory.cancel.errorStatus',
@@ -1422,7 +1438,7 @@ async function submitCancelApplicationFromPage() {
       'acknowledgement_required':     'appHistory.cancel.errorAck',
       'application_not_found':        'appHistory.cancel.errorNotFound'
     }[res.error] || 'appHistory.cancel.errorGeneric';
-    logAppError('submitCancelApplication', res.error, CANCEL_EXPECTED);
+    logAppError('submitCancelApplication', res.error, CANCEL_APPLICATION_EXPECTED);
     showErr(t(errKey));
     return;
   }

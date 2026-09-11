@@ -45,6 +45,45 @@ if (/\b(revert|hotfix|rollback)\b/i.test(cmd)) process.exit(0);
 
 const cwd = payload.cwd || process.cwd();
 
+// --- 내용이 없는 병합 커밋은 건너뛴다 (2026-08-25) ---
+// dev → main 병합처럼 「구성 커밋은 이미 다 검토받았고 병합 자체엔 새 내용이
+// 0줄」인 경우, 스테이징에는 상대 브랜치 내용이 통째로 올라와 가드가 걸린다.
+// 실제로 2026-08-25 에 정당한 운영 배포 병합이 막혀 사람이 [guard-skip:] 으로
+// 넘겼다 — 그 우회가 습관이 되면 이 가드가 죽으므로 자동 판정으로 바꾼다.
+// ⚠️ 충돌을 해소하며 코드를 고친 병합은 결과 트리가 어느 부모와도 달라져
+//    그대로 걸린다. 「검토 없이 새 코드가 들어오는」 경우는 놓치지 않는다.
+// ⚠️ 리뷰에서 실측으로 확인한 두 가지(막지는 않는다):
+//  - 소스 브랜치의 그 커밋이 애초에 [guard-skip:] 으로 개별 검토를 건너뛴
+//    것이었다면 이 분기가 그 미검토 상태를 그대로 통과시킨다. 기존 탈출구의
+//    신뢰 사슬 문제이지 이 분기가 새로 만든 구멍은 아니다.
+//  - 부모가 셋 이상인 병합에서 MERGE_HEAD 가 여러 줄이면 rev-parse 는 첫 줄만
+//    돌려준다. git 이 그런 상태를 남기지 않아 실제로는 도달 불가.
+let mergeHead = '';
+try {
+  mergeHead = execSync('git rev-parse -q --verify MERGE_HEAD', {
+    encoding: 'utf8', cwd, stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+} catch {
+  mergeHead = '';
+}
+if (mergeHead) {
+  const sameAs = (ref) => {
+    try {
+      execSync(`git diff --cached --quiet ${ref}`, { cwd, stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;   // 차이가 있으면 exit 1 → 여기로 온다
+    }
+  };
+  if (sameAs('HEAD') || sameAs(mergeHead)) {
+    process.stderr.write(
+      '\n✅ [commit-guard] 내용이 없는 병합 커밋입니다 — 검사를 건너뜁니다.\n' +
+      '   (병합 결과가 한쪽 부모와 글자 단위로 같습니다. 구성 커밋은 각자 검토를 거쳤습니다.)\n\n'
+    );
+    process.exit(0);
+  }
+}
+
 // staged stat 수집
 let stat = '';
 let diff = '';

@@ -177,3 +177,42 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 날짜가 하나뿐일 때 — 고를 것은 없지만 며칠인지는 반드시 보여야 한다 */
 .event-date-single{display:inline-block;padding:8px 14px;border-radius:20px;
   background:var(--light-pink);color:var(--pink);font-size:14px;font-weight:800;margin-bottom:12px}
+
+/* 아직 제출하지 않은 것이 있을 때 제출 버튼 바로 위에 뜨는 안내 줄.
+   ⚠️ 빨강(경고)이 아니라 주황(행동 유도)이다 — 「추가」와 「제출」 사이는
+   정상 흐름에서도 반드시 미제출 상태라, 빨강으로 두면 매번 떠서
+   「원래 빨간 화면」으로 학습된다. 임시저장 0건이면 아예 안 그린다. */
+.draft-pending-bar{
+  background:#FFF4E4; border:1px solid #F0C48A; border-left:4px solid #E8912D;
+  border-radius:6px; padding:10px 12px; margin-bottom:10px;
+}
+.draft-pending-bar .dpb-title{
+  font-size:13px; font-weight:700; color:#B8741A; line-height:1.5;
+}
+.draft-pending-bar .dpb-step{
+  font-size:12px; color:#8A5A14; line-height:1.7; margin-top:4px;
+  /* 번호 단계는 줄을 나눠야 「단계」로 읽힌다 — 한 줄로 이어지면 좁은 화면에서
+     그냥 긴 문장이 된다(2026-08-25 브라우저 확인). 문구의 \n 을 살린다. */
+  white-space:pre-line;
+}
+
+/* 결과물 목록의 무리 제목 — 「지난 제출」 / 「제출할 항목」.
+   제출 버튼이 목록 아래에 있어, 나누지 않으면 위의 모든 행을 보내는 것처럼 보인다. */
+.deliv-group-head{
+  font-size:11px; font-weight:700; color:var(--muted);
+  margin:14px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--surface-dim);
+}
+.deliv-group-head:first-child{ margin-top:0; }
+
+/* 「지난 제출」의 이전 건 펼치기·접기 */
+/* 제목 줄 안에서 좌(제목)·우(펼치기) 로 갈린다 */
+.deliv-group-head-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.deliv-past-toggle{
+  flex-shrink:0; padding:3px 9px;
+  background:none; border:1px solid var(--surface-dim); border-radius:999px;
+  font-size:11px; font-weight:600; color:var(--muted); cursor:pointer;
+  line-height:1.5;
+}
+.deliv-past-toggle:hover{ color:var(--ink); border-color:var(--muted); }

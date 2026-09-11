@@ -1,3 +1,7 @@
+---
+description: Supabase 데이터베이스 상태를 확인한다 (표·행 수·연결)
+---
+
 Supabase 데이터베이스 상태 확인:
 
 1. **연결 확인**: Supabase REST API로 각 테이블 쿼리

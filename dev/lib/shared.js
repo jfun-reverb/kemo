@@ -8,6 +8,22 @@ var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
 
+// 마지막 캠페인 조회가 **실패**했는가. 빈 목록 안내 문구를 가르는 데만 쓴다 —
+//   「캠페인이 없다」와 「못 불러왔다」는 회원에게 완전히 다른 말이다.
+var _campaignsLoadFailed = false;
+
+// 🔴 예시(가짜) 캠페인을 화면에 내보내도 되는가 — **운영에서는 절대 안 된다.**
+//   그 여섯 건은 `campaign.js` 에 손으로 적어 둔 개발용 표본인데, 브랜드명·마감일·모집인원까지
+//   채워져 있어 **진짜와 구분되지 않는다.** 진짜 목록을 못 받았을 때 코드가 일부러 이걸
+//   대신 내놓게 돼 있어, 운영에서도 회원이 그대로 보게 된다(2026-08-31 확인).
+//   ⚠️ 판정은 데이터베이스를 고를 때 쓰는 그 장치를 그대로 쓴다(`supabase.js` 의 SUPABASE_ENV).
+//      새 기준을 만들면 「어느 서버인가」가 두 벌이 되어 언젠가 갈린다.
+//   ⚠️ 개발서버·로컬은 종전 그대로다 — 데이터베이스 없이 화면을 보는 작업 방식을 안 깬다.
+function demoCampaignsForDisplay() {
+  if (typeof SUPABASE_ENV !== 'undefined' && SUPABASE_ENV === 'production') return [];
+  return DEMO_CAMPAIGNS.slice();
+}
+
 // ══════════════════════════════════════
 // 리치 텍스트 sanitize / render
 // ══════════════════════════════════════
@@ -163,7 +179,9 @@ function sanitizeRich(html, opts) {
 //
 // 관리자 미니 에디터(contenteditable) 의 paste·툴바 결과를 모두 본 함수로 통과시켜
 // 저장 + 렌더 양쪽 모두 동일 정책 적용. 외부 URL 직접 입력은 src 화이트리스트로 차단.
-function sanitizeCautionHtml(html) {
+// opts.displayWidth — **화면에 그릴 때만** 준다(썸네일 치환). 저장 경로(미니 에디터 저장·
+//   `getRichValue` 계열)는 인자 없이 불러 원본 주소가 그대로 저장된다 — `_applyContentImagePolicy` 주석.
+function sanitizeCautionHtml(html, opts) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
@@ -207,7 +225,7 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
-  _applyContentImagePolicy(wrapper);
+  _applyContentImagePolicy(wrapper, opts);
   return wrapper.innerHTML;
 }
 
@@ -248,8 +266,10 @@ function _applyContentImagePolicy(wrapper, opts) {
     //   전역 처리기가 원본으로 되돌린다(`_attachRichImageFallback`).
     //   ⚠️ **저장 경로에서는 절대 돌지 않는다** — `displayWidth` 를 주는 곳은 `richHtml`
     //      (화면에 그릴 때)뿐이다. 줄인 주소가 저장되면 원본을 되찾을 수 없다.
-    if (showW && typeof imgThumb === 'function') {
-      const thumb = imgThumb(src, showW, 75);
+    //   ⚠️ [E-5] 조건은 **실제로 쓰는 함수**(storageThumbUrl)의 존재로 건다 — 예전엔 죽은
+    //      함수 imgThumb 의 존재를 봤는데, 그걸 정리하는 날 이 줄이 조용히 꺼져 썸네일이 사라진다.
+    if (showW && typeof storageThumbUrl === 'function') {
+      const thumb = storageThumbUrl(src);
       if (thumb && thumb !== src) {
         img.setAttribute('data-orig', src);
         img.setAttribute('src', thumb);
@@ -373,8 +393,11 @@ function miniRichHtml(raw) {
       .replace(/>/g,'&gt;')
       .replace(/\n/g,'<br>');
   }
+  // 이 함수는 **화면에 그릴 때만** 쓴다(참여방법 단계 — 인플루언서 상세·관리자 미리보기).
+  //   [E-2] 그래서 표시 폭을 줘 `content/` 썸네일을 받는다 — 올릴 때 사본을 만들어 두고도
+  //   렌더러 4개 중 3개가 원본(최대 5MB)을 받고 있었다(전수조사 2차 7-2).
   return (typeof sanitizeCautionHtml === 'function')
-    ? sanitizeCautionHtml(value)
+    ? sanitizeCautionHtml(value, { displayWidth: RICH_DISPLAY_WIDTH })
     : value.replace(/<script/gi, '&lt;script');
 }
 
@@ -384,6 +407,15 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
+// 「촬영 가이드」 칸의 이름표 — 리뷰어형(monitor)은 「리뷰 가이드」(2026-09-10 사용자 지시).
+//   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
+//   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
+function campaignGuideSectionLabel(recruitType, lang) {
+  const isReview = recruitType === 'monitor';
+  if (lang === 'ja') return isReview ? 'レビューガイド' : '撮影ガイド';
+  return isReview ? '리뷰 가이드' : '촬영 가이드';
+}
+
 const CAMPAIGN_FIELD_LABELS = {
   title: '캠페인명', brand_id: '연결 브랜드', brand: '브랜드명', brand_ko: '브랜드명(한국어)',
   brand_ja: '브랜드명(일본어)', brand_en: '브랜드명(영문)', product: '제품명',
@@ -394,7 +426,7 @@ const CAMPAIGN_FIELD_LABELS = {
   recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
   purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
   submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
-  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영 가이드',
+  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',   // 화면 이름표는 형식별(campaignGuideSectionLabel) — 이력 표는 형식을 모르니 둘을 함께 적는다
   hashtags: '필수 해시태그', mentions: '필수 멘션',
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
@@ -957,6 +989,171 @@ function postChannelMatchesCampaign(camp, postChannel) {
   return list.includes(String(postChannel).trim().toLowerCase());
 }
 
+// ──────────────────────────────────────
+// 최소 팔로워수 — 채널 묶음에 맞춘 판정 (1단계, 2026-08-27)
+//   사양서 docs/specs/2026-08-27-min-followers-channel-match.md 설계 1
+//   작업표 …-breakdown.md
+//
+// 🔴 **같은 판정이 두 곳에 따로 산다.** 여기(화면)와 홍보 메일 판정 함수(SQL,
+//    `_meets_min_followers` — 베이스 마이그레이션 141)가 **코드를 공유할 수 없다.**
+//    둘이 어긋나면 **홍보 메일은 오는데 응모는 막히거나** 그 반대가 되고,
+//    **어느 쪽도 오류를 내지 않는다.** 이 함수를 고치면 그 SQL 도 같이 고칠 것.
+//
+// ⚠️ 왜 판정을 여기로 뽑았나 — 예전에는 응모 화면 안에만 있었고, 캠페인 채널이
+//    여럿이어도 **기준 채널(primary_channel) 하나**만 봤다. 그래서
+//    「Instagram or X or TikTok」 캠페인에서 **인스타 100명·틱톡 1만명인 사람이 막혔고**,
+//    2026-08-27 00:24 에 담당자가 팝업 3건의 최소 팔로워수를 **1,000 → 0 으로 풀어**
+//    조건 자체를 없앴다(운영 변경 이력에서 확인). 이 함수는 그 재발을 막는다.
+// ──────────────────────────────────────
+
+// 캠페인의 팔로워 판정 갈래. 반환: 'single' | 'or' | 'and'
+//   🔴 **여기가 갈래의 정의처다**(사양서 설계 1). 조건을 바꾸려면 여기만 고친다.
+//   🔴 채널이 하나면 `channel_match` 를 **보지 않는다** — 채널 1개인데 'and' 로 저장된
+//      캠페인이 「그리고」로 빨려 들어가면, 그쪽은 채널별 칸을 읽는데 그 칸이 비어 있어
+//      **팔로워 검사가 통째로 사라진다.**
+function campaignFollowerKind(camp) {
+  const list = campaignChannelTokens(camp);
+  if (list.length <= 1) return 'single';
+  return (String(camp && camp.channel_match || '').trim().toLowerCase() === 'and') ? 'and' : 'or';
+}
+
+// 캠페인 채널 토큰 목록 (소문자·공백 제거·빈값 제외)
+function campaignChannelTokens(camp) {
+  return String(camp && camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+// 인플루언서의 그 채널 팔로워 수.
+//   ⚠️ **Qoo10 은 Instagram 값을 빌려 쓴다**(사양서 설계 4-1) — 예전 응모 판정에 있던
+//      규칙을 그대로 옮겼다. 목록에 없는 채널(LIPS·@cosme)은 **0** 이다(팔로워를 담는
+//      자리가 애초에 없다).
+function followerCountForChannel(profile, channel) {
+  const p = profile || {};
+  switch (String(channel || '').trim().toLowerCase()) {
+    case 'instagram': return p.ig_followers || 0;
+    case 'qoo10':     return p.ig_followers || 0;
+    case 'x':         return p.x_followers || 0;
+    case 'tiktok':    return p.tiktok_followers || 0;
+    case 'youtube':   return p.youtube_followers || 0;
+    default:          return 0;
+  }
+}
+
+// 최소 팔로워수를 충족하는가.
+//   반환: {ok, kind, channel, count, required}
+//     ok=통과 여부 / kind=갈래 / channel·count=차단 시 「어느 채널이 몇 명이라」를 말할 근거
+//   ⚠️ 리뷰어형(monitor)은 **검사하지 않는다**(항상 통과) — 종전 그대로. 영수증으로
+//      검증하는 형식이라 팔로워를 보지 않고, 저장할 때 `min_followers` 가 0 으로 비워진다.
+//   ⚠️ **차단 문구는 이 함수가 만들지 않는다** — 부르는 쪽이 만든다(3단계에서 문구를 고친다).
+function meetsMinFollowers(camp, profile) {
+  const c = camp || {};
+  const kind = campaignFollowerKind(c);
+  const required = Number(c.min_followers) || 0;
+  const list = campaignChannelTokens(c);
+  // 기준 채널: primary_channel 우선, 없으면 첫 채널 (single·and 갈래가 쓴다)
+  const primary = String(c.primary_channel || list[0] || 'instagram').trim().toLowerCase();
+
+  if (c.recruit_type === 'monitor') return { ok: true, kind, channel: primary, count: 0, required };
+  // 🔴 **「그리고」는 이 조기 통과에서 빼야 한다.** 그 갈래는 `min_followers` 를 **안 읽고**
+  //    `min_followers_by_channel` 을 읽으므로, `min_followers` 는 정상적으로 0 이다.
+  //    빼지 않으면 **채널별 조건을 아무리 걸어도 판정이 시작조차 안 하고 전원 통과**한다
+  //    (2026-08-27 개발서버에서 실제로 그랬다 — 코드만 읽어서는 안 보이고 돌려 보고 잡았다).
+  if (kind !== 'and' && required <= 0) return { ok: true, kind, channel: primary, count: 0, required };
+
+  if (kind === 'or') {
+    // 🔴 모집 채널 중 **하나라도** 넘으면 통과. 넘는 채널이 없으면, 그중 **가장 많은**
+    //    채널을 차단 근거로 돌려준다 — 「가장 가까웠던 채널」이 사람에게 가장 쓸모 있다.
+    let best = primary, bestCount = -1;
+    for (const ch of list) {
+      const n = followerCountForChannel(profile, ch);
+      if (n >= required) return { ok: true, kind, channel: ch, count: n, required };
+      if (n > bestCount) { bestCount = n; best = ch; }
+    }
+    return { ok: false, kind, channel: best, count: Math.max(bestCount, 0), required };
+  }
+
+  if (kind === 'and') {
+    // 🔴 채널 **각각**이 그 채널의 값을 넘어야 한다 (2단계, 사양서 설계 2).
+    //    값을 안 채운 채널은 **「검사하지 않는다」** — 0 이 아니라 「없음」이다.
+    //    ⚠️ 못 넘은 채널이 여럿이면 **첫 번째**를 근거로 돌려준다. 부르는 쪽이 필요하면
+    //       `failed` 배열로 전부 말할 수 있다(차단 문구는 못 넘은 채널만 말한다 — 설계 6).
+    const byCh = campaignMinFollowersByChannel(c);
+    const failed = [];
+    for (const ch of list) {
+      const need = byCh[ch];
+      if (!(Number(need) > 0)) continue;       // 값 없음 = 검사 안 함
+      const n = followerCountForChannel(profile, ch);
+      if (n < Number(need)) failed.push({ channel: ch, count: n, required: Number(need) });
+    }
+    if (failed.length === 0) return { ok: true, kind, channel: primary, count: 0, required, failed: [] };
+    return { ok: false, kind, channel: failed[0].channel, count: failed[0].count, required: failed[0].required, failed };
+  }
+
+  // 'single' — 기준 채널 하나를 본다.
+  const n = followerCountForChannel(profile, primary);
+  return { ok: n >= required, kind, channel: primary, count: n, required };
+}
+
+// 「그리고」 갈래의 채널별 최소 팔로워수를 **판정에 쓸 수 있는 모양**으로 돌려준다.
+//   저장 칸(`campaigns.min_followers_by_channel`)을 그대로 쓰지 않는 이유가 **Qoo10** 이다.
+//
+// 🔴 **Qoo10 규칙 — 정의처는 사양서 설계 4-1**(여기 근거를 다시 적지 않는다).
+//    Qoo10 은 Instagram 팔로워 값을 빌려 쓰므로, 입력칸을 따로 만들지 않고
+//    **모집 채널에 Instagram 이 함께 있으면 Instagram 값을 그대로 적용**한다.
+//    없으면 아무 조건도 안 걸린다(입력칸이 없으므로).
+//   ⚠️ 이 함수를 안 거치고 저장 칸을 직접 읽으면, Qoo10 이 늘 「제한 없음」이 되어
+//      **화면은 제한 없다고 하는데 실제로는 막히는** 어긋남이 생긴다.
+function campaignMinFollowersByChannel(camp) {
+  const raw = (camp && camp.min_followers_by_channel) || {};
+  const out = {};
+  Object.keys(raw).forEach(k => {
+    const v = Number(raw[k]);
+    if (v > 0) out[String(k).trim().toLowerCase()] = v;
+  });
+  const list = campaignChannelTokens(camp);
+  if (list.includes('qoo10') && list.includes('instagram') && out.instagram > 0) {
+    out.qoo10 = out.instagram;
+  }
+  return out;
+}
+
+// 「최소 팔로워수」를 화면에 그리기 위한 **재료**를 돌려준다 (3단계, 2026-08-27).
+//   🔴 **문구를 만들지 않는다** — 인플루언서 화면과 관리자 미리보기가 **각자 자기 말로** 그린다.
+//      관리자 빌드에는 번역 파일이 없어 `t()` 가 아예 없고(미리보기는 자체 라벨표를 쓴다),
+//      여기서 문구를 만들면 **한쪽에서만 도는 함수**가 된다.
+//   ⚠️ 그렇다고 판정까지 두 벌로 두면 **미리보기와 실제 화면이 갈린다** — 그래서
+//      「무엇을 보여줄지」는 여기서 한 번만 정하고 「어떻게 쓸지」만 나눈다.
+//
+//   반환:
+//     {kind:'single', required:N}
+//     {kind:'or',     required:N}
+//     {kind:'and',    rows:[{channel, required|0, borrowed}]}   borrowed=Instagram 값을 빌려 쓴 칸
+//     null  — 그릴 것이 없다(조건 없음·리뷰어형 등). 부르는 쪽은 행 자체를 안 그린다.
+function minFollowersDisplay(camp) {
+  const c = camp || {};
+  if (c.recruit_type === 'monitor') return null;   // 리뷰어형은 검사를 안 하므로 줄도 없다
+  const kind = campaignFollowerKind(c);
+  const list = campaignChannelTokens(c);
+
+  if (kind === 'and') {
+    const byCh = campaignMinFollowersByChannel(c);
+    if (!Object.keys(byCh).length) return null;    // 걸 조건이 하나도 없다
+    return {
+      kind: 'and',
+      rows: list.map(ch => ({
+        channel: ch,
+        required: byCh[ch] > 0 ? byCh[ch] : 0,
+        // Qoo10 이 Instagram 값을 물려받은 칸인지 — 화면이 「같은 수를 봅니다」를 붙일 근거
+        borrowed: ch === 'qoo10' && byCh[ch] > 0 && list.includes('instagram')
+      }))
+    };
+  }
+
+  const required = Number(c.min_followers) || 0;
+  if (required <= 0) return null;
+  return { kind, required };
+}
+
 // 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
 //   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
 //   - 앞뒤 공백 제거
@@ -987,6 +1184,24 @@ function normalizeUrlInput(raw) {
     if (!u.hostname) return null;
   } catch (e) { return null; }
   return { url: s, changed: s !== orig };
+}
+
+// 게시물 주소가 「글 하나를 가리키는 모양」인가 (작업표 2026-08-25 작업 10)
+//   🔴 **막는 함수가 아니다.** 경고만 띄우는 데 쓴다 — 정상 주소를 막는 쪽이
+//      뭉개진 주소를 통과시키는 쪽보다 나쁘다(2026-08-26 결정 S2). 채널마다 주소 모양이
+//      계속 바뀌고 새 형식이 생기므로, 여기서 「아니다」라고 단정하면 멀쩡한 제출이 막힌다.
+//   ⚠️ `normalizeUrlInput` 은 **건드리지 않는다** — 그쪽은 인플루언서와 관리자 대리 등록이
+//      함께 쓰는 보정 함수라, 거기에 판정을 얹으면 두 화면의 동작이 같이 바뀐다.
+//   반환: true = 수상함(경고할 만함) / false = 판단 근거 없음(조용히 통과)
+function looksLikeBarePostUrl(url) {
+  try {
+    const u = new URL(String(url || ''));
+    // 경로가 사실상 비어 있으면 「그 채널의 첫 화면」이지 글 하나가 아니다.
+    //   예: https://www.instagram.com/ · https://x.com
+    const path = (u.pathname || '/').replace(/\/+$/, '');
+    if (path === '' || path === '/') return true;
+    return false;
+  } catch (e) { return false; }   // 모양을 못 읽으면 판단하지 않는다
 }
 
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
@@ -1107,20 +1322,31 @@ function faqComputeStatus(status, delivs, camp) {
       return { key: 'reviewing', stage: 'approved_post' };
     }
     // ② 결과물이 없으면 캠페인 일정으로
-    const phase = faqComputeCancelPhase(camp);
-    const isVisit = camp?.recruit_type === 'visit';
-    if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
-    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
-    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post') {
-      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
-      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
-      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
-      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
-      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
-      return { key: 'post_deadline', stage: 'approved_post' };
-    }
-    return { key: 'approved_fallback', stage: null };
+    const sched = (function() {
+      const phase = faqComputeCancelPhase(camp);
+      const isVisit = camp?.recruit_type === 'visit';
+      if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+      if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+      if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+      if (phase === 'post') {
+        // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+        // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+        // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+        const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+        if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+        return { key: 'post_deadline', stage: 'approved_post' };
+      }
+      return { key: 'approved_fallback', stage: null };
+    })();
+    // ③ 낸 것은 없는데 「올려만 둔」 것이 있으면, 일정 안내로 흘려보내지 않는다.
+    //   위 필터가 임시저장을 빼는 것은 「검수 중이라고 말하지 않기 위해서」였고 그건 맞다.
+    //   그런데 거기서 끝나서, 그 사람에게는 일정 문구만 떴다 — 무엇이 잘못됐는지 알 길이
+    //   없었다(운영 26건이 4개월간 그 상태로 쌓였다). 이제 한 줄 더 말해 준다.
+    //   ⚠️ stage 는 일정 기준 값을 **그대로** 쓴다 — 자주 묻는 질문 트리 노드가 stage 로
+    //   걸리므로 바꾸면 그 사람에게 보이는 질문 목록이 통째로 달라진다.
+    const hasDraft = (Array.isArray(delivs) ? delivs : []).some(d => d && d.status === 'draft');
+    if (hasDraft) return { key: 'draft_pending', stage: sched.stage };
+    return sched;
   }
   return { key: 'fallback', stage: null };
 }
@@ -1133,6 +1359,9 @@ function faqComputeStatus(status, delivs, camp) {
 // 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
 // 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
 const PANE_REFRESHERS = {
+  'reports': async () => {
+    if (typeof loadReportsPane === 'function') await loadReportsPane();
+  },
   'errors': async () => {
     if (typeof loadClientErrors === 'function') await loadClientErrors();
   },
@@ -1507,6 +1736,35 @@ function recruitDeadlinePassed(camp) {
   if (!dl) return false;
   return String(dl).slice(0, 10) < jstTodayStr();   // 'YYYY-MM-DD' 는 사전순 = 날짜순
 }
+// 정원이 찼는가 — 리뷰어형(monitor)만 정원 개념이 있다.
+//   기프팅·방문형은 정원 초과 응모를 **허용**하므로 항상 false 다.
+//
+// 🔴 캠페인 객체가 아니라 **값**을 받는다. 객체를 받아 안에서 `applied_count` 를
+//    읽게 만들면 **캐시로만 판정하는 함수**가 되어, 실시간 조회를 쓰는 응모 차단
+//    (`application.js`)이 영영 이 함수를 못 쓴다. 값을 받으면 **부르는 쪽이 무엇을
+//    넘길지 정한다** — 카드·정렬은 캐시(`applied_count`)를, 나중에 응모 쪽을 옮기면
+//    실시간 값을 넘기면 된다.
+//   ⚠️ **지금 응모 차단을 옮기라는 뜻이 아니다.** 그쪽은 돈과 정원이 걸린 자리라
+//      이번 변경에 섞지 않는다(사양서 `2026-08-27-campaign-list-full-slot-order.md` 설계 2).
+//   ⚠️ 「신청 수」는 승인 수가 아니라 **취소되지 않은 신청 수**다.
+//
+// 🔴 **원본 인라인 판정과 한 경우에서 일부러 갈린다.**
+//    옛 코드는 `(c.applied_count||0) >= c.slots` 인데, 자바스크립트는 크기 비교에서
+//    `null` 을 0 으로 바꾼다. 그래서 `slots` 가 비거나 0이면 **신청 수와 무관하게**
+//    항상 참이 됐다(`0 >= null` 도 `21 >= null` 도 참. `campaigns.slots` 는 널 허용이다).
+//    전수 대조 결과 갈리는 경우는 **그 구간뿐**이다(126 경우 중 14, 전부 정원이 비거나 0).
+//    ⚠️ 정원을 안 정한 캠페인을 「찼다」고 보는 것은 뒤집힌 판정이고, 이번 변경으로 그
+//       판정이 **딱지뿐 아니라 순서까지** 좌우하게 되므로 여기서 바로잡는다.
+//    ✅ **운영 실측(2026-08-27) `slots` 가 널이거나 0인 캠페인 0건** — 오늘 화면에 보이는
+//       차이는 없다. 사양서의 「결과는 그대로」를 어기는 것이 아니라, 대상이 0건인 구간의
+//       뒤집힌 판정을 옮겨 심지 않는 것이다.
+function recruitSlotsFull(recruitType, appliedCount, slots) {
+  if (recruitType !== 'monitor') return false;
+  const 정원 = Number(slots);
+  if (!Number.isFinite(정원) || 정원 <= 0) return false;   // 정원 미설정이면 「찼다」고 볼 근거가 없다
+  return (Number(appliedCount) || 0) >= 정원;
+}
+
 // 결과물 제출 마감일이 지났는가 — 같은 기준(2단계 서버 차단과 정합)
 function submissionDeadlinePassed(camp) {
   const se = camp && camp.submission_end;
@@ -1526,6 +1784,17 @@ function submissionDeadlinePassed(camp) {
 //      그대로이고, 형식에 새 값을 만들지 않는 것이 이 기능의 설계 전제다(사양서 §3).
 function isEventCampaign(camp) {
   return !!(camp && camp.event_mode === true);
+}
+
+// 선정형 행사인가 — 행사 모드 + 방식 칸이 'selection'(마이그레이션 376).
+//   ⚠️ 이 판정을 여러 곳에서 각자 만들지 않는다. isEventCampaign 바로 아래 두는 이유도
+//      같다 — 판정이 두 벌이 되면 「어떤 화면에서는 선정형인데 다른 화면에서는
+//      아닌」 어긋남이 생긴다(작업표 §4-2 경고).
+//   ⚠️ 호출부는 갈래를 이름으로 지목한다. `event_selection_mode !== 'first_come'` 같은
+//      부정 조건을 쓰지 않는다 — 갈래가 늘 때 조용히 잘못된 쪽으로 빨려 들어간다
+//      (이 저장소가 캠페인 기간 판정에서 겪은 일).
+function isSelectionEvent(camp) {
+  return !!(camp && camp.event_mode === true && camp.event_selection_mode === 'selection');
 }
 
 // 비공개(초대 전용) 캠페인인가 — 목록 제외·상세 게이트 판정용.
@@ -1641,8 +1910,8 @@ const OB_CATEGORY_SERIES = {
 };
 
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 21개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
-  //    (2026-07-29 menu.permissions 제거로 22 → 21)
+  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22)
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -1650,6 +1919,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.campaigns',          label_ko: '캠페인 관리',                  category: '캠페인',      server_enforced: false },
   { key: 'menu.applications',       label_ko: '인플 신청 관리',               category: '캠페인',      server_enforced: false },
   { key: 'menu.deliverables',       label_ko: '결과물 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.reports',           label_ko: '리포트 관리',                   category: '캠페인',      server_enforced: false },
   { key: 'menu.messages',           label_ko: '메시지',                       category: '캠페인',      server_enforced: false },
   { key: 'menu.brand-dashboard',    label_ko: '현황 대시보드',                category: '브랜드',      server_enforced: false },
   { key: 'menu.companies',          label_ko: '회사 관리',                    category: '브랜드',      server_enforced: false },
@@ -1670,7 +1940,13 @@ const ADMIN_PERMISSION_CATALOG = [
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 20개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 23개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
+  //       2026-09-03 report.export·report.share 둘을 더해 23. ⚠️ 같은 날 더한
+  //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
+  //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
+  { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
+  { key: 'report.share',            label_ko: '리포트 공유 링크',              category: '리포트',      server_enforced: true },
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
   { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
   { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
@@ -1951,17 +2227,85 @@ function notifReadKinds(kind) {
 //   진짜 결함과 갈라 볼 수 있게 한다(전부 안 남기면 「거부가 늘었다」는 신호까지 잃는다).
 //   ⚠️ 새 서버 거부 코드를 만들 때 여기에도 추가할 것 — 빠뜨리면 정상 거부가
 //      「예상 못 한 오류」로 쌓여 진짜 결함이 묻힌다.
+// ── 인플루언서 이름 정렬 기준 ───────────────────────────────────────
+// 🔴 **정렬은 가나(후리가나) 순이다.** 일본 명부·전화번호부의 표준(五十音順)이고,
+//    한자 그대로 비교하면 사람이 예측할 수 없는 차례가 나온다 — 실측으로
+//    「佐藤 → 田中 → 不承認 → 鈴木」이 나왔는데 가나 순이면 鈴木(すずき)가 두 번째다.
+// ⚠️ **화면에 보여주는 이름은 그대로 한자다.** 이 함수는 **비교할 때만** 쓴다 —
+//    표시에 쓰면 목록에 가나가 뜬다.
+// ⚠️ 가나가 없으면 한자로 대신 비교한다. 운영 실측(2026-09-01) 회원 1,871명 중
+//    한자 있음 1,100명 · 가나 있음 1,098명으로 **거의 항상 짝으로 있어**, 가나 기준으로
+//    바꿔도 뒤로 밀리는 사람이 늘지 않는다(이름이 아예 없는 771명은 어느 기준이든 뒤).
+// 🔴 **조회에 `name_kana` 가 실려 있어야 한다.** 안 실리면 조용히 한자로 되돌아가
+//    「바꿨는데 차례가 그대로」가 된다. `fetchInfluencers`(`select('*')`)와
+//    `fetchInfluencersByIds` 둘 다 가나를 가져온다(2026-09-01 확인).
+//    ⚠️ 참고로 `fetchInfluencersByIds` 는 **`name_kanji` 를 안 가져온다** — 결과물 화면에서
+//       한자 분기는 원래 닿지 않는 코드였다.
+function influencerSortName(u, fallback) {
+  const o = u || {};
+  const kana = (o.name_kana || '').toString().trim();
+  if (kana) return kana;
+  return (o.name_kanji || o.name || fallback || '').toString().trim();
+}
+
+// 이름 두 개를 비교한다. 빈 이름은 **방향과 무관하게 뒤로** — 빈 값이 앞을 다 채우면
+//   정렬을 눌러도 아무것도 못 본다(인증 성공일 정렬과 같은 규약).
+function compareInfluencerName(na, nb, dir) {
+  const a = (na || '').toString(), b = (nb || '').toString();
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b, 'ja') * (dir || 1);
+}
+
+// 응모 취소가 서버에서 거부하는 값들 — 전부 화면이 전용 문구로 받아 주는 정상 거부다.
+//   🔴 **전역 패턴(아래)에 넣지 않는다.** `invalid_status` 는 오리엔시트 발행(196·237)·
+//      행사 뽑기(379·380)·결과물 상태(035·327)도 던지는 값이라, 문구로 뭉뚱그리면
+//      **그쪽 결함까지 함께 묻힌다.** 취소 경로에서만 쓴다.
+//   ⚠️ **두 곳이 같은 목록을 쓴다** — `cancelApplication`(storage.js, 데이터베이스 호출을
+//      감싸는 자리)과 `submitCancelApplication`(mypage.js, 화면). 한쪽만 넘기면 같은 거부가
+//      **두 번 기록되고 그중 하나가 「예상 못 한 오류」로 남는다** — 실제로 그랬다
+//      (2026-09-02 운영 실측: `cancelApplication` 이 낸 `invalid_status` 2회가 배지에 있었다).
+//   ⚠️ `application_not_found` 도 넣는다 — 화면이 전용 문구를 준다. 다만 **취소 함수가
+//      통째로 고장 났을 때**는 이 값이 아니라 데이터베이스 오류 문구가 오므로
+//      (2026-05~08 3개월 침묵의 실제 형태) 그 경우는 여기 안 걸리고 그대로 드러난다.
+const CANCEL_APPLICATION_EXPECTED = [
+  'not_owner', 'invalid_status', 'deliverable_already_approved',
+  'reason_required', 'acknowledgement_required', 'application_not_found'
+];
+
 const APP_ERROR_EXPECTED_PATTERNS = [
   // 세션 만료 — 다시 로그인하면 되는 정상 상황
   /JWT expired|token is expired|invalid claim|refresh_token_not_found/i,
   // 비밀번호 재설정 링크가 만료됐거나 이미 쓰였을 때 — 화면이 「메일 다시 보내기」 안내로
   //   받아 주므로 결함이 아니다. 안 넣으면 사람이 오래된 링크를 열 때마다 배지가 오른다.
   /Auth session missing/i,
+  // 재설정·확인 링크가 만료됐거나 이미 쓰였을 때(`verifyOtp`) — 화면이 만료 안내와
+  //   「다시 메일 보내기」 버튼으로 받아 주므로 결함이 아니다(`handleRecoveryTokenLink`).
+  //   🔴 **운영 배지의 73%가 이것이었다**(2026-09-02 실측 — 미해결 48회 중 35회, 3행).
+  //      메일을 받고 한참 뒤에 여는 사람이 있는 한 계속 쌓인다.
+  //   ⚠️ **문구를 좁게 잡는 것이 핵심이다** — 같은 호출이 다른 이유로 실패하면
+  //      「비밀번호를 못 바꾸는 상태」인데 그때는 서버가 **다른 문구**를 주므로
+  //      여기 안 걸리고 그대로 「예상 못 한 오류」로 남는다.
+  /Email link is invalid or has expired|otp_expired/i,
   // 새 비밀번호가 예전 것과 같을 때 — 다른 비밀번호를 넣으면 되는 정상 거부.
   //   ⚠️ 안 넣으면 사람이 같은 비밀번호를 넣을 때마다 「미해결」 배지가 오른다. 실제로
   //      운영에서 한 사람이 5번 반복해 그대로 쌓였다(2026-08-11~12). 화면이 이유를
   //      알려주도록 고친 것과 **한 세트**다 — 안내만 고치고 이 줄을 빠뜨리면 배지는 그대로다.
   /different from the old password|same_password/i,
+  // 재전송 연타 방지(같은 주소로 곧바로 다시 요청) — 실패가 아니라 「아직 이르다」다.
+  //   화면이 주황 안내 + 버튼 잠금으로 받아 준다(`handleForgotPassword`). 둘은 한 세트다.
+  //   🔴 **그 안내를 넣고도 기록은 계속 쌓였다** — 안내 분기가 `logAppError` 보다 뒤에
+  //      있어서다(운영 실측 2026-08-31, 고친 뒤에도 6회). 판정을 여기 두면 부르는 자리의
+  //      순서와 무관하게 걸린다.
+  //   ⚠️ **프로젝트 전체 메일 한도 소진(`email rate limit exceeded`)은 일부러 뺐다.**
+  //      그건 정상 거부가 아니라 운영 사고다(운영 한도 100통/시간) — 같이 묶으면
+  //      가입·초대 메일이 통째로 안 나가는 상황이 조용히 묻힌다.
+  //   ⚠️ 뒤쪽 코드값(`over_email_send_rate_limit`)은 **덤이다.** 이 판정이 보는 것은
+  //      `err.message` 뿐인데(위 `logAppError`) 운영 오류 로그의 코드 열이 전부 비어 있어,
+  //      실제로 걸리는 것이 확인된 쪽은 **앞의 메시지 문구**다. 코드값이 메시지에 그대로
+  //      섞여 오는 경우를 대비해 남겨 둔 것이지 「코드로도 잡힌다」는 뜻이 아니다.
+  /only request this after \d+ seconds|over_email_send_rate_limit/i,
   // 로그인·가입 거부 — 비밀번호 오입력·기가입·메일 미확인은 결함이 아니다.
   //   ⚠️ 메일 미확인은 서버가 주는 문구가 자리마다 다르다 — 코드값 `email_not_confirmed`
   //      와 사람이 읽는 `Email not confirmed`(공백) 둘 다 잡아야 한다. 하나만 넣으면
@@ -1974,6 +2318,8 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   //   ⚠️ 안 넣으면 차단될 때마다 「예상 못 한 오류」로 쌓여 관리자 오류 로그의 미해결
   //      배지가 부푼다. 오류 문구 등록(ui.js)과 **한 세트**다.
   /account_withdrawn/,
+  // 확정된 계정의 두 번째 탈퇴 신청 거부(마이그레이션 422) — 같은 세트.
+  /already_withdrawn/,
   // 행사 응모는 이 화면에서 상태를 못 바꾼다(마이그레이션 289) — 서버의 의도적 거부.
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
@@ -1996,9 +2342,13 @@ function logAppError(context, err, expectedCodes) {
   try {
     const s = String((err && err.message) || err || '');
     if (!s) return;
-    let expected = APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(s));
+    // 판정 문자열에는 거부 **코드값**(`err.code`)도 얹는다 — storage.js 가 일본어 문구 + `code`
+    //   (예 `post_already_approved`)로 던지는 거부는 문구만 보면 패턴에 안 걸려 「예상 못 한
+    //   오류」로 남았다(2026-09-08 운영 실측 4회). `friendlyErrorJa`(ui.js)도 같은 방식 — 한 벌.
+    const judged = [err && err.code, s].filter(Boolean).join(' ');
+    let expected = APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(judged));
     if (!expected && expectedCodes && expectedCodes.length) {
-      expected = expectedCodes.some(c => c && (s === c || s.indexOf(c) >= 0));
+      expected = expectedCodes.some(c => c && (judged === c || judged.indexOf(c) >= 0));
     }
     collectClientError(err, 'handled', { context: context, expected: expected });
   } catch (_) { /* 기록 실패가 앱을 막지 않는다 */ }
@@ -2016,8 +2366,30 @@ function logAppError(context, err, expectedCodes) {
 //    그냥 더하면 그 건이 통째로 사라진다.
 // ⚠️ 정산 행이 아직 없는 「미등록」 목록에는 이 칸 자체가 없다 — 그때도 계산 금액을
 //    돌려주므로 같은 함수를 그대로 쓸 수 있다.
+// ⚠️ **정산대기(pending) 행은 실제 송금액을 무시한다**(2026-09-07, 전수조사 B-1). 정산대기는
+//    「아직 안 보낸」 상태라 그 칸에 값이 있으면 옛 송금(보류→해제로 돌아온 행)의 잔재다.
+//    서버(마이그레이션 416)가 보류 해제 때 그 칸을 비우므로 정상이면 여기 안 걸린다 — 이 줄은
+//    이미 어긋난 행이 있어도 지급 준비 합계가 옛 금액으로 잡히지 않게 하는 안전판이다.
+//    ⚠️ 상태가 없는 「미등록」 행(정산 행 자체가 없다)은 이 조건에 안 걸리고 계산 금액으로 간다.
 function settlementEffectiveAmount(s) {
   if (!s) return 0;
+  if (s.status === 'pending') return Number(s.amount_jpy) || 0;
   const actual = s.paid_amount_jpy;
   return Number((actual === null || actual === undefined) ? s.amount_jpy : actual) || 0;
+}
+
+// ── 응모건 메시지: 파기된 첨부인가 ────────────────────────────────────
+// 회원이 탈퇴하고 6개월이 지나면 그 회원이 메시지에 보낸 사진을 지운다(작업 12-B).
+// 파일을 지운 뒤 첨부 원소를 **주소 없는 표시**로 바꾸는데, 그때 이 함수가 참이 된다.
+//
+// ⚠️ **`purged` 하나만 보지 않고 주소 없음도 함께 본다.** 파기 표시가 붙기 전이라도
+//    어떤 이유로든 주소가 빈 첨부가 들어오면 화면이 「이미지를 불러오지 못했습니다」를
+//    띄우는데, 그건 통신 장애일 때와 **글자 하나 다르지 않다.**
+//
+// 🔴 **이 판정을 화면마다 따로 쓰지 않는다.** 관리자 화면과 인플루언서 화면이 각각
+//    조건을 적으면, 한쪽만 고쳐 두 화면이 다른 말을 하는 결함이 된다 — 이 저장소에서
+//    가장 자주 반복된 유형이다.
+function msgAttachmentPurged(a) {
+  if (!a) return true;
+  return a.purged === true || !a.path;
 }

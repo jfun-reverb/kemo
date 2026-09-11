@@ -12,7 +12,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <style>
 :root {
@@ -179,6 +179,7 @@ body {
   color: var(--ink-soft); margin-bottom: 6px;
 }
 .field label .req { color: var(--brand); margin-left: 3px; }
+.field label .opt { color: var(--ink-mute); font-weight: 400; font-size: 11px; margin-left: 2px; }   /* 「(선택)」 표시 — 배송비 칸(2026-09-10) */
 .field-hint { font-size: 11.5px; color: var(--ink-mute); margin-top: 5px; }
 
 input[type="text"], input[type="url"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], textarea, select {
@@ -214,6 +215,10 @@ input[type="date"], input[type="number"] { -webkit-appearance: none; appearance:
 input[type="date"] { min-height: 44px; }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* 새 구조 카드: 판매처(좁게) + 판매 URL 한 줄 — 모바일에서도 한 줄 유지(판매처는 읽기 전용 「Qoo10」이라 좁아도 된다) */
+.row-sale { display: grid; grid-template-columns: 96px 1fr; gap: 12px; }
+.row-sale > .field { margin-bottom: 0; }
+@media (max-width: 520px) { .row-sale { grid-template-columns: 84px 1fr; gap: 8px; } }
 /* 모바일 1열 전환 시 칸 간격을 일반 .field 간격(14px)과 통일 */
 @media (max-width: 520px) {
   .row2 { grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
@@ -242,6 +247,12 @@ input[type="date"] { min-height: 44px; }
 .rep-remove .material-icons-outlined { font-size: 16px; }
 .rep-remove:hover { color: var(--brand); }
 .rep-item .field:last-child { margin-bottom: 0; }
+/* 파일 첨부 행 — 왼쪽 제품 이미지 예시 + 오른쪽 선택/입력(2026-09-10 사용자 지시, 처음엔 오른쪽이었다). 좁은 화면에서는 예시가 위로 */
+.img-row-body { display: flex; align-items: flex-start; gap: 14px; }
+.img-row-main { flex: 1; min-width: 0; }
+.img-sample-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--ink-mute); white-space: nowrap; }
+.img-sample-side img { width: 72px; height: 72px; object-fit: contain; background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; }
+@media (max-width: 480px) { .img-row-body { flex-direction: column; } .img-sample-side { flex-direction: row; } }
 /* 예시 이미지·파일 업로드 행 */
 .img-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .img-upload-btn {
@@ -402,6 +413,7 @@ input[type="date"] { min-height: 44px; }
 .ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
 .ocard[data-ctype="seeding"] .only-rp,
 .ocard[data-ctype="seeding"] .only-seeding { display: block; }
+.ocard:not([data-ctype="reviewer"]) .row-price { grid-template-columns: 1fr; }   /* 배송비 칸이 없는 형식은 상시가 한 칸이 가로를 다 쓴다 */
 /* 래퍼 블록(판매처·가격 / 시딩 상세)은 마지막 내부 필드가 .field:last-child(margin 0)라
    다음 필드와 간격이 붙는다. 다른 필드 간격(14px)과 맞추도록 래퍼에 아래 여백 부여 */
 .ocard[data-ctype="proxy_purchase"] .only-rp,
@@ -411,6 +423,63 @@ input[type="date"] { min-height: 44px; }
 /* 시딩 등급별: 촬영가이드·필수내용·증정품은 미들·메가만 */
 .ocard .only-mega { display: none; }
 .ocard[data-cgrade="middle_mega"] .only-mega { display: block; }
+
+/* ============ 새 구조(2026-09-08 단순화, data.issued) ============ */
+/* 옛 구조 전용 요소는 body.layout-new 에서 감춘다 — 함수째 지우지 않는다(옛 시트가 쓴다) */
+body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptyState { display: none !important; }
+.ocard-chip.ch { background: #EEF2FF; color: #3730A3; border-color: #C7D2FE; }
+.char-count { font-size: 11.5px; color: var(--ink-mute); text-align: right; margin-top: 4px; }
+.char-count.full { color: #C41E3A; font-weight: 700; }
+.cg-schedule-hint { font-size: 12px; color: var(--ink-mute); background: #F7F7F9; border-radius: 8px; padding: 8px 10px; margin: -6px 0 14px; line-height: 1.6; }
+.cg-schedule-hint:empty { display: none; }
+.ch-badge { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3; font-size: 13px; font-weight: 700; }
+
+/* ============ 제출 완료 화면 · 견적서 (2단계, 사양서 §4-6) ============ */
+.done-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 22px 20px; margin-top: 14px; }
+.done-card h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.done-card p { font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+.done-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 4px; font-size: 12.5px; color: var(--ink-mute); }
+.done-flow .step { padding: 4px 10px; border-radius: 999px; background: #F3F3F5; font-weight: 600; }
+.done-flow .step.now { background: var(--brand-soft, #fdeef4); color: var(--brand-dark, #9d3f6c); }
+.done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.btn-secondary { display: block; width: 100%; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.done-hint { font-size: 12px; color: var(--ink-mute); text-align: center; line-height: 1.6; }
+.done-warn { background: #FFF6E5; border: 1px solid #F4D7A8; color: #8A5A00; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.6; margin-top: 12px; }
+/* 견적서 — 화면에서도 종이 느낌으로, 인쇄 때는 이 화면만 남긴다 */
+.quote-doc { position: relative; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 28px 26px; margin: 14px 0 24px; font-size: 13px; color: #161618; }
+/* 견적서 우측 상단 작은 인쇄 단추(2026-09-08 사용자 지시 — 큰 단추 대신 이것만). 인쇄에는 안 나온다 */
+.quote-print-btn { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--ink-soft); font-size: 12px; font-weight: 700; cursor: pointer; }
+.quote-print-btn .material-icons-outlined { font-size: 16px; }
+.quote-print-btn:hover { background: #F7F7F9; }
+.quote-doc h1 { font-size: 24px; font-weight: 900; letter-spacing: 0.3em; text-align: center; margin: 0 0 18px; }
+.quote-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.quote-meta .col { min-width: 220px; flex: 1; }
+.quote-meta .col h3 { font-size: 11px; color: var(--ink-mute); font-weight: 700; margin: 0 0 4px; letter-spacing: .04em; }
+.quote-meta .col div { line-height: 1.6; }
+.quote-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.quote-table th, .quote-table td { border-top: 1px solid #E5E5EA; padding: 8px 6px; text-align: left; vertical-align: top; }
+.quote-table th { font-size: 11px; color: var(--ink-mute); font-weight: 700; border-top: 2px solid #161618; }
+.quote-table td.num, .quote-table th.num { text-align: right; white-space: nowrap; }
+.quote-total { border-top: 2px solid #161618; margin-top: 4px; }
+.quote-total div { display: flex; justify-content: space-between; padding: 6px 6px; }
+.quote-total .grand { font-size: 16px; font-weight: 900; border-top: 1px solid #E5E5EA; margin-top: 4px; padding-top: 10px; }
+.quote-note { font-size: 12px; color: var(--ink-soft); line-height: 1.7; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #E5E5EA; }
+.quote-bar { display: flex; gap: 8px; margin-top: 10px; }
+.quote-bar button { flex: 1; }
+@media print {
+  body.print-quote > *:not(#screenQuote) { display: none !important; }
+  body.print-quote #screenQuote { display: block !important; padding: 0; }
+  body.print-quote .quote-bar, body.print-quote .done-hint, body.print-quote #quoteIntro, body.print-quote #quoteWarn, .quote-print-btn { display: none !important; }
+  body.print-quote .quote-doc { border: none; border-radius: 0; margin: 0; padding: 0; }
+  /* 완료 화면(견적서를 안에 펼쳐 보여준다)에서 인쇄 — 완료 카드의 다른 요소·단추·안내는 전부 빼고 견적서만 */
+  body.print-done > *:not(#screenDone) { display: none !important; }
+  body.print-done #screenDone { display: block !important; padding: 0; }
+  body.print-done .done-card { border: none; border-radius: 0; padding: 0; margin: 0; }
+  body.print-done .done-card > *:not(#doneQuoteArea) { display: none !important; }
+  body.print-done #doneQuoteArea > *:not(.quote-doc) { display: none !important; }
+  body.print-done .quote-doc { border: none; border-radius: 0; margin: 0; padding: 0; }
+  @page { margin: 16mm; }
+}
 
 /* ============ FOOTER BAR ============ */
 .footbar {
@@ -465,6 +534,17 @@ input[type="date"] { min-height: 44px; }
 .pv-row .pv-v { flex: 1; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
 .pv-row .pv-v.muted { color: var(--ink-mute); }
 
+/* 안내 모달(상시가 확인) — 이 폼의 첫 모달. 바탕 어둡게 + 가운데 상자 */
+.notice-overlay { position: fixed; inset: 0; background: rgba(22, 22, 24, 0.45); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.notice-overlay.hidden { display: none; }
+.notice-box { background: var(--card); border-radius: 14px; padding: 22px 22px 18px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+.notice-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+.notice-title .material-icons-outlined { font-size: 20px; color: var(--brand); }
+.notice-body { font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
+.notice-body strong { color: var(--ink); }
+.notice-sub { display: inline-block; margin-top: 6px; color: var(--warn); font-weight: 700; }
+.notice-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+.notice-actions .btn-submit { min-width: 96px; }
 /* 작은 인라인 토스트 */
 .toast {
   position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
@@ -482,7 +562,8 @@ input[type="date"] { min-height: 44px; }
 <div class="header" id="siteHeader">
   <div class="header-top">
     <div id="headerBrand">
-      <a class="brand-logo" href="/">REVERB</a>
+      <!-- 링크가 아니다 — sales 루트(/)는 옛 브랜드 서베이 안내 페이지라 토큰 링크로 들어온 브랜드가 갈 곳이 없다(2026-09-08 사용자 지적) -->
+      <span class="brand-logo">REVERB</span>
       <div class="head-sub">캠페인 오리엔시트 작성</div>
     </div>
     <!-- 스크롤 시 현재 작성 영역 제목 표시(로고 자리 대체) -->
@@ -511,7 +592,7 @@ input[type="date"] { min-height: 44px; }
 
   <div class="intro">
     <h1>캠페인 오리엔시트</h1>
-    <p>모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(가구매·리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
+    <p id="introText">모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(가구매·리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
   </div>
 
   <div id="resubmitNote" class="resubmit-note hidden">
@@ -528,7 +609,7 @@ input[type="date"] { min-height: 44px; }
   <!-- 공통 정보(브랜드) — 1회 -->
   <div class="section">
     <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">storefront</span>브랜드 정보</div>
-    <div class="section-desc">아래 모집 건 전체에 공통으로 쓰이는 브랜드 정보입니다.</div>
+    <div class="section-desc" id="brandSectionDesc">아래 모집 건 전체에 공통으로 쓰이는 브랜드 정보입니다.</div>
     <div class="field">
       <label>브랜드명</label>
       <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
@@ -548,11 +629,11 @@ input[type="date"] { min-height: 44px; }
       <input type="email" id="f_brand_email" placeholder="contact@yourbrand.com" oninput="onEmailInput(this)" onblur="onEmailInput(this)">
       <div class="field-hint f-email-warn" style="display:none;color:#C41E3A">이메일 형식이 올바르지 않습니다.</div>
     </div>
-    <div class="field">
+    <div class="field old-only">
       <label>브랜드 소개 · 어필 포인트</label>
       <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
     </div>
-    <div class="field">
+    <div class="field old-only">
       <label>브랜드 SNS 공식 계정</label>
       <input type="text" id="f_brand_accounts" placeholder="@yourbrand_jp" oninput="onInput()">
       <div class="field-hint">인플루언서가 게시물에 멘션(@)하거나 참고할 브랜드 공식 SNS·스토어 계정입니다.</div>
@@ -570,8 +651,8 @@ input[type="date"] { min-height: 44px; }
     <span class="material-icons-outlined notranslate" translate="no">add</span>제품(카드) 추가
   </button>
 
-  <!-- 레버브 측 요청(선택) — 폼 전체 마지막 -->
-  <div class="section" style="margin-top:28px">
+  <!-- 레버브 측 요청(선택) — 폼 전체 마지막. 새 구조에서는 없다(사양서 §8-① 사용자 확정) -->
+  <div class="section old-only" style="margin-top:28px">
     <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">support_agent</span>레버브 측에 전달할 요청·요구사항 (선택)</div>
     <div class="section-desc">레버브 운영팀에 요청하고 싶은 사항이 있으면 자유롭게 적어 주세요.</div>
     <div class="field">
@@ -589,20 +670,62 @@ input[type="date"] { min-height: 44px; }
   <div id="previewBody"></div>
 </div>
 
+<!-- 제출 완료 화면 (2단계 · 새 구조 시트만) -->
+<div id="screenDone" class="wrap hidden">
+  <div class="done-card">
+    <h2 id="doneTitle">제출되었습니다</h2>
+    <p>제출된 내용은 담당자가 확인합니다. 발행 전까지는 「내용 수정하기」로 고쳐서 다시 제출할 수 있어요.</p>
+    <div class="done-flow">
+      <span class="step now">제출</span><span>›</span><span class="step">담당자 확인</span><span>›</span><span class="step">견적 확정</span><span>›</span><span class="step">캠페인 발행</span><span>›</span><span class="step">모집</span>
+    </div>
+    <div id="doneQuoteArea"></div>
+    <div class="done-actions">
+      <button type="button" class="btn-secondary" onclick="enterFormScreen()">내용 수정하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 견적서 (인쇄용 — 이 화면만 인쇄된다) -->
+<div id="screenQuote" class="wrap hidden">
+  <div class="intro" id="quoteIntro">
+    <h1 id="quoteIntroTitle">견적서 확인</h1>
+    <p id="quoteIntroText">입력한 내용으로 계산한 예상 견적입니다. 맞으면 아래 「제출하기」를 눌러 주세요. 고칠 것이 있으면 「작성 내용으로」로 돌아가세요.</p>
+  </div>
+  <div id="quoteWarn" class="done-warn hidden"></div>
+  <div id="quoteDoc" class="quote-doc hidden"></div>
+  <div class="quote-bar hidden" id="quoteBar">
+    <button type="button" class="btn-secondary" id="btnQuoteBack" onclick="leaveQuoteScreen()">돌아가기</button>
+  </div>
+</div>
+
 <!-- 하단 고정 바 -->
 <div id="footbar" class="footbar hidden">
   <span id="statusPill" class="status-pill draft hidden">작성 중</span>
   <div id="saveState" class="save-state"><span class="material-icons-outlined notranslate" translate="no">cloud_done</span><span id="saveStateText">자동 저장</span></div>
   <div class="foot-nav">
     <!-- 작성 화면 -->
-    <button type="button" id="btnReview" class="btn-submit" onclick="openPreview()">제출</button>
+    <button type="button" id="btnReview" class="btn-submit" onclick="openPreview()">작성 완료</button>   <!-- 제출이 아니다 — 작성 내용 확인 화면 다음(새 구조=견적서 확인 「제출하기」 / 옛 구조=「이대로 제출」)에서만 제출된다(2026-09-08) -->
     <!-- 미리보기 화면 -->
     <button type="button" id="btnBackToEdit" class="btn-nav hidden" onclick="closePreview()">수정으로 돌아가기</button>
+    <button type="button" id="btnQuoteView" class="btn-submit hidden" onclick="openQuotePreview()">견적 보기</button>
+    <!-- 견적서 확인 화면(새 구조) -->
+    <button type="button" id="btnQuoteToPreview" class="btn-nav hidden" onclick="backToPreviewFromQuote()">작성 내용으로</button>
     <button type="button" id="btnSubmit" class="btn-submit hidden" onclick="submitSheet()">이대로 제출</button>
   </div>
 </div>
 
 <div id="toast" class="toast"></div>
+
+<!-- 상시가 안내 모달(2026-09-10 사용자 지시) — 큐텐 자동 채움이 끝나면 한 번 띄운다. 「확인」·바탕 클릭으로 닫힘 -->
+<div id="priceNotice" class="notice-overlay hidden" onclick="if(event.target===this) closePriceNotice()" role="dialog" aria-modal="true" aria-labelledby="priceNoticeTitle">
+  <div class="notice-box">
+    <div class="notice-title" id="priceNoticeTitle"><span class="material-icons-outlined notranslate" translate="no">info</span>상시가 확인</div>
+    <div class="notice-body">큐텐에서 상품 정보를 불러왔어요. 상시가 칸의 금액이<br>
+      <strong>캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격</strong>인지 확인하고, 다르면 고쳐 주세요.<br>
+      <span class="notice-sub">※ 메가와리 쿠폰 적용 불가</span></div>
+    <div class="notice-actions"><button type="button" class="btn-submit" onclick="closePriceNotice()">확인</button></div>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════
@@ -680,11 +803,45 @@ let initialValues = null;          // 연결 신청 참고값 (첫 카드 prefil
 let usedInitial = false;           // initial_values를 첫 카드에 1회만 사용
 let categoryOptionsHtml = '<option value="">카테고리 선택</option>';
 
+// ── 새 구조(2026-09-08 단순화 재설계) ──
+//   관리자가 발급 때 형식(리뷰어/시딩)·시딩 채널을 정한 시트는 data.issued 를 갖는다.
+//   🔴 이 판별을 빠뜨리면 조용한 데이터 유실 — 운영에 카드 여러 개인 옛 시트가 살아 있다.
+//   옛 구조(issued 없음)는 형식 탭·카드 여러 개·「제품 추가」 화면을 그대로 그린다(아래 기존 함수).
+let loadedData = null;                     // boot() 가 불러온 data 원본 — 새/옛 판별과 issued 값 참조용
+const LIMIT_LONG_TEXT = 1000;              // 긴 글 칸 공통 글자 수(서식 뺀 본문) — 서버 submit_orient_sheet 도 같은 값으로 재검증(425·429)
+const LIMIT_REVIEW_GUIDE = LIMIT_LONG_TEXT;  // 리뷰 가이드
+const LIMIT_SEEDING_APPEAL = LIMIT_LONG_TEXT; // 소구 키워드
+// 한도가 걸리는 긴 글 칸 여섯 — 클래스 → 이름표·서버 field 키. 🔴 칸을 더하면 여기 + cardHtmlNew 의 char-count + 서버(429 계열) 셋을 함께
+const LONG_TEXT_FIELDS = {
+  'f-review-guide': { label: '리뷰 가이드', field: 'review_guide' },
+  'f-appeal':       { label: '소구 키워드', field: 'appeal' },
+  'f-shooting':     { label: '촬영 가이드', field: 'shooting_guide' },
+  'f-shipping':     { label: '배송 안내', field: 'shipping_note' },
+  'f-ng':           { label: '금지 표현', field: 'ng' },
+  'f-cautions':     { label: '추가 안내', field: 'cautions' },
+};
+const LONG_TEXT_CLASSES = Object.keys(LONG_TEXT_FIELDS);
+function longTextCounter(cls) { return `<div class="char-count" data-count-for="${cls}"><span class="cc-cur">0</span> / ${LIMIT_LONG_TEXT}</div>`; }
+function isNewLayout() { return !!(loadedData && loadedData.issued && typeof loadedData.issued === 'object'); }
+function issuedFormType() { return isNewLayout() ? (loadedData.issued.form_type || '') : ''; }
+function issuedChannel() { return isNewLayout() ? (loadedData.issued.channel || '') : ''; }
+
 // ══════════════════════════════════════
 // 유틸
 // ══════════════════════════════════════
 function $(id) { return document.getElementById(id); }
 
+// 상시가 안내 모달 — 큐텐 자동 채움이 실제로 돈 뒤 한 번(applyQoo10Result 의 notify). ESC·바탕 클릭·「확인」으로 닫힘
+//   닫히면 그 카드의 상시가 칸으로 초점을 옮긴다(2026-09-10 사용자 지시 — 확인 뒤 바로 고칠 수 있게). 어느 카드인지는 열 때 기억한다
+let _priceNoticeTarget = null;
+function showPriceNotice(priceEl) { const m = $('priceNotice'); if (!m) return; _priceNoticeTarget = priceEl || null; m.classList.remove('hidden'); const b = m.querySelector('button'); if (b) b.focus(); }
+function closePriceNotice() {
+  const m = $('priceNotice'); if (!m || m.classList.contains('hidden')) return;
+  m.classList.add('hidden');
+  const t = _priceNoticeTarget; _priceNoticeTarget = null;
+  if (t && t.isConnected) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.focus(); t.select && t.select(); }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePriceNotice(); });
 function showToast(msg) {
   const t = $('toast');
   t.textContent = msg;
@@ -750,12 +907,31 @@ async function boot() {
 
     // data 복원 (없으면 빈 스키마). 카드 배열 구조.
     const data = (res.data && typeof res.data === 'object') ? res.data : {};
+    loadedData = data;
+    applyLayoutMode();
     fillForm(data);
+    // 2단계 — 새 구조 시트: ?view=quote 는 견적서 화면, 제출된 시트 재진입은 완료 화면 먼저(작성 화면은 「내용 수정하기」로만).
+    //   옛 시트(issued 없음)는 견적이 없으므로 종전대로 작성 화면.
+    if (isNewLayout() && params.get('view') === 'quote' && data.quote) { enterQuoteScreen(false); return; }
+    if (isNewLayout() && currentStatus === 'submitted' && (data.quote || data.quote_error)) { enterDoneScreen(); return; }
     enterFormScreen();
   } catch (e) {
     console.error('[orient boot]', e);
     showErrorScreen('connect');
   }
+}
+
+// 새/옛 구조에 따라 화면 골격을 바꾼다 — 옛 구조 전용 요소는 CSS(.old-only)로 감추고 안내 문구만 바꾼다
+function applyLayoutMode() {
+  const isNew = isNewLayout();
+  document.body.classList.toggle('layout-new', isNew);
+  if (!isNew) return;
+  const ft = issuedFormType();
+  const ch = issuedChannel();
+  const ftLabel = FORM_TYPE_LABEL[ft] || ft || '';
+  const chLabel = (ft === 'seeding' && ch) ? ` · ${CHANNEL_LABEL[ch] || ch}` : '';
+  $('introText').textContent = `이 링크는 「${ftLabel}${chLabel}」 모집 하나를 위한 것입니다. 제품 정보와 가이드를 한국어로 적어 주세요. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.`;
+  $('brandSectionDesc').textContent = '브랜드명은 발급 때 정해졌습니다. 담당자명·연락처·이메일을 적어 주세요.';
 }
 
 // 카테고리 드롭다운 옵션을 기준 데이터(lookup_values kind=category)에서 채움.
@@ -778,6 +954,9 @@ function showErrorScreen(reason) {
   $('screenLoading').classList.add('hidden');
   $('screenForm').classList.add('hidden');
   $('screenPreview').classList.add('hidden');
+  $('screenDone').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote', 'print-done');
   $('footbar').classList.add('hidden');
   const map = {
     invalid_token: { ico: 'link_off',  title: '링크를 확인할 수 없습니다', body: '링크가 올바르지 않습니다. 담당자에게 다시 받아 주세요.' },
@@ -796,11 +975,12 @@ function enterFormScreen() {
   $('screenLoading').classList.add('hidden');
   $('screenError').classList.add('hidden');
   $('screenPreview').classList.add('hidden');
+  $('screenDone').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote', 'print-done');
   $('screenForm').classList.remove('hidden');
   $('footbar').classList.remove('hidden');
-  $('btnReview').classList.remove('hidden');
-  $('btnBackToEdit').classList.add('hidden');
-  $('btnSubmit').classList.add('hidden');
+  setFootNav(['btnReview']);
 
   const pill = $('statusPill');
   pill.classList.remove('hidden');
@@ -829,7 +1009,12 @@ function fillForm(data) {
 
   $('cardList').innerHTML = '';
   cardSeq = 0;
-  const cards = Array.isArray(data.cards) ? data.cards : [];
+  let cards = Array.isArray(data.cards) ? data.cards : [];
+  if (isNewLayout()) {
+    // 새 구조는 카드 1개 고정 — 발급 함수가 미리 만들어 두지만, 비어 있으면 형식만 든 카드를 하나 그린다.
+    //   여러 개가 와 있으면(옛 캐시 폼이 늘린 경우) 첫 카드만 그린다 — 제출은 서버가 cards_limit 로 막는다.
+    cards = cards.length ? [cards[0]] : [{ form_type: issuedFormType() }];
+  }
   cards.forEach((c, i) => addCard(c, { open: i === 0 }));
   refreshEmptyState();
 }
@@ -972,7 +1157,13 @@ function imageRowHtml(value, type, name) {
   return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}"${isUpload && name ? ` data-img-name="${escAttr(name)}"` : ''}>
     <div class="rep-head"><span class="rep-num">파일 첨부 또는 공유 링크</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
-    <div class="field">
+    <div class="field img-row-body">
+     <!-- 제품 이미지 예시(2026-09-10 사용자 지시) — 행 왼쪽. 그림은 sales/images(빌드가 복사) -->
+     <div class="img-sample-side" title="제품 이미지 예시 — 배경 없는 누끼 이미지">
+       <img src="images/orient-product-sample.png" alt="제품 이미지 예시 — 배경 없는 누끼 이미지" width="72" height="72" loading="lazy">
+       <span>예시 이미지 참고</span>
+     </div>
+     <div class="img-row-main">
       <input type="hidden" class="img-value" value="${escAttr(value)}">
       <!-- ③ 칩(파일 업로드 결과 또는 URL 확인 결과) -->
       <div class="img-file-chip${hasValue ? '' : ' hidden'}">
@@ -993,7 +1184,8 @@ function imageRowHtml(value, type, name) {
         <button type="button" class="img-url-confirm" onclick="confirmUrlEntry(this)">확인</button>
         <button type="button" class="img-url-cancel" onclick="cancelUrlEntry(this)">취소</button>
       </div>
-      <div class="field-hint img-choose-hint${hasValue ? ' hidden' : ''}" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)는 「파일 업로드」, 외부 링크는 「URL 공유」를 눌러 주세요.</div>
+      <div class="field-hint img-choose-hint${hasValue ? ' hidden' : ''}" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)는 「파일 업로드」, 외부 링크는 「URL 공유」를 눌러 주세요.<br>600×600px 이상의 누끼(배경 제거) 이미지 또는 텍스트·배경이 없는 제품 사진으로 올려 주세요.</div>
+     </div>
     </div>
   </div>`;
 }
@@ -1001,6 +1193,7 @@ function imageRowHtml(value, type, name) {
 
 // 카드 HTML 골격 (형식별 분기는 CSS data-ctype 으로 표시/숨김)
 function cardHtml(id, card) {
+  if (isNewLayout()) return cardHtmlNew(id, card);   // 새 구조 — 아래 옛 구조 마크업은 손대지 않는다
   const p = card.product || {};
   const r = card.recruit || {};
   const sale = card.sale || {};
@@ -1047,7 +1240,8 @@ function cardHtml(id, card) {
             <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
             <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
           <div class="field"><label>상시가<span class="req">*</span></label>
-            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
+            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()">
+            <div class="field-hint">캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격으로 작성해주세요.<br>※ 메가와리 쿠폰 적용 불가</div></div>
         </div>
 
         <div class="row2">
@@ -1073,7 +1267,7 @@ function cardHtml(id, card) {
 
         <!-- 리뷰 가이드 (리뷰어) -->
         <div class="field only-reviewer"><label>리뷰 가이드</label>
-          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '리뷰에 꼭 담아야 할 내용, 별점·사진 등 작성 방식을 적어 주세요.')}</div>
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 작성해 주세요.')}</div>
 
         <!-- 시딩 상세 -->
         <div class="only-seeding">
@@ -1103,7 +1297,120 @@ function cardHtml(id, card) {
         <div class="field"><label>추가 안내 · 필독 사항</label>
           ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}</div>
         <div class="field"><label>예시 이미지·자료</label>
-          <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지·자료가 있으면 「파일 업로드」로 올리거나 「URL 공유」로 링크를 넣어 주세요. (이미지·PDF·문서, 최대 5개)</div>
+          <div class="field-hint" style="margin-top:0;margin-bottom:8px">「파일 업로드」로 캠페인 대표이미지로 활용될 파일을 추가해주세요. 참고 이미지가 여러개인 경우 「URL 공유」로 공유 부탁드립니다. (최대 5개)</div>
+          <div class="img-list">${imgRows}</div>
+          <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── 새 구조 카드(2026-09-08) — 형식은 발급 때 정해져 있어 탭이 없고, 삭제 단추도 없다(카드 1개 고정).
+//   빠진 항목(사양서 §4-2): 카테고리 · 희망 모집 마감 · 희망 업로드 시작/마감 · 등급·필수 내용·증정품 ·
+//   리뷰어의 금지 표현·추가 안내. 시딩의 배송 안내·NG·추가 안내는 당분간 유지(잠정 ⓐ).
+//   🔴 뺀 키는 collectCardNew 가 새로 쓰지 않는다(빈 문자열로도) — 관리자 상세가 그 줄을 그린다.
+function cardHtmlNew(id, card) {
+  const ft = issuedFormType();
+  const ch = issuedChannel();
+  const p = card.product || {};
+  const r = card.recruit || {};
+  const sale = card.sale || {};
+  const sd = card.seeding || {};
+
+  const imgArr = Array.isArray(card.images) && card.images.length ? card.images : [{ value: '' }];
+  const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type, x.name)).join('');
+
+  const uidAttr = card.uid ? ` data-uid="${escAttr(card.uid)}"` : '';
+  const campAttr = card.campaign_id ? ` data-campaign-id="${escAttr(card.campaign_id)}"` : '';
+  const linkedAttr = card.linked_existing ? ' data-linked-existing="1"' : '';
+  const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
+  // 큐텐에서 불러온 값 4종(작업 23) — 카드 요소에 담아 두었다가 collectCardNew 가 sale 에 실어 보낸다. 값이 있을 때만 키를 만든다.
+  const lookupAttrs = ['goods_code', 'store_name', 'image_url', 'price_list']
+    .map(k => sale[k] != null && sale[k] !== '' ? ` data-sale-${k.replace('_', '-')}="${escAttr(String(sale[k]))}"` : '').join('');
+
+  const reviewerBlock = (ft === 'reviewer') ? `
+        <div class="field only-reviewer"><label>리뷰 가이드</label>
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 작성해 주세요.')}
+          <div class="char-count" data-count-for="f-review-guide"><span class="cc-cur">0</span> / ${LIMIT_REVIEW_GUIDE}</div></div>` : '';
+
+  const seedingBlock = (ft === 'seeding') ? `
+        <div class="only-seeding">
+          <div class="field"><label>게시 채널</label>
+            <div><span class="ch-badge">${escAttr(CHANNEL_LABEL[ch] || ch || '채널 미지정')}</span></div>
+            <div class="field-hint">발급 때 정해진 채널입니다. 다른 채널도 진행하려면 담당자에게 링크를 따로 받아 주세요.</div></div>
+          <div class="field"><label>소구 키워드 · 어필 포인트</label>
+            <textarea class="f-appeal" placeholder="이 채널에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
+            <div class="char-count" data-count-for="f-appeal"><span class="cc-cur">0</span> / ${LIMIT_SEEDING_APPEAL}</div></div>
+          <div class="field"><label>촬영 가이드</label>
+            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea>
+            ${longTextCounter('f-shooting')}</div>
+          <div class="field"><label>게시물에 꼭 넣을 해시태그 (최대 5개)</label>
+            <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
+          <div class="field"><label>게시물에 태그할 계정</label>
+            <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()">
+            <div class="field-hint">인플루언서가 게시물에 멘션(@)할 계정입니다. 브랜드 공식 SNS 계정을 포함해 적어 주세요.</div></div>
+          <div class="field"><label>배송 안내</label>
+            <textarea class="f-shipping" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()">${escAttr(sd.shipping_note)}</textarea>
+            ${longTextCounter('f-shipping')}</div>
+        </div>
+        <div class="field"><label>금지 표현 (NG)</label>
+          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}
+          ${longTextCounter('f-ng')}</div>
+        <div class="field"><label>추가 안내 · 필독 사항</label>
+          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}
+          ${longTextCounter('f-cautions')}</div>` : '';
+
+  // 시딩 예상 일정 안내 — 시작일을 넣으면 그 아래 계산값(저장하지 않는다 — 저장하면 「희망일」이 되살아난다)
+  const scheduleHint = (ft === 'seeding') ? `<div class="cg-schedule-hint" data-schedule-hint></div>` : '';
+
+  return `<div class="ocard open" id="${id}" data-card-id="${id}" data-ctype="${escAttr(ft)}"${uidAttr}${campAttr}${linkedAttr}${lookupAttrs}>
+    <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
+      <div class="ocard-head-main">
+        <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>${chChip}
+        <span class="ocard-title empty">제품 미입력</span>
+      </div>
+      <span class="ocard-chevron material-icons-outlined notranslate" translate="no">expand_more</span>
+    </div>
+    <div class="ocard-body">
+      <div class="card-gated">
+        <div class="only-rp">
+          <div class="row-sale">
+            <div class="field"><label>판매처</label>
+              <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
+            <div class="field"><label>판매 URL<span class="req">*</span></label>
+              <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
+              <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div>
+              <div class="field-hint f-lookup-hint" style="display:none"></div></div>
+          </div>
+        </div>
+        <div class="field"><label>제품명<span class="req">*</span></label>
+          <input type="text" class="f-product-name" placeholder="제품명" value="${escAttr(p.name)}" oninput="onCardInput('${id}')"></div>
+
+        <div class="only-rp">
+          <div class="row2 row-price">
+            <div class="field"><label>상시가<span class="req">*</span></label>
+              <input type="text" class="f-price-regular" placeholder="예: 5300" value="${escAttr(sale.price_regular)}" oninput="onInput()">
+              <div class="field-hint">캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격으로 작성해주세요.<br>※ 메가와리 쿠폰 적용 불가</div></div>
+            <!-- 배송비(선택, 2026-09-10 사용자 지시) — 리뷰어만(.only-reviewer). 비우면 0. 견적서 페이백은 (상시가 + 배송비) × 환율(서버 431).
+                 시딩은 이 칸이 없고 .row-price 가 한 칸이 된다(아래 CSS) — 리뷰 지적: 시딩에 보이면 입력해도 아무 데도 안 쓰인다 -->
+            <div class="field only-reviewer"><label>배송비 <span class="opt">(선택)</span></label>
+              <input type="text" class="f-shipping-fee" placeholder="예: 500 (없으면 비워 두세요)" value="${escAttr(sale.shipping_fee)}" oninput="onInput()">
+              <div class="field-hint">배송비용이 별도로 부과되는 경우 필수로 작성 부탁드립니다.</div></div>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field"><label>모집 인원</label>
+            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()">
+            <div class="field-hint">비우면 견적서가 만들어지지 않아요.</div></div>
+          <div class="field"><label>희망 모집 시작일</label>
+            <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
+        </div>
+        ${scheduleHint}
+        ${reviewerBlock}
+        ${seedingBlock}
+        <div class="field"><label>예시 이미지·자료</label>
+          <div class="field-hint" style="margin-top:0;margin-bottom:8px">「파일 업로드」로 캠페인 대표이미지로 활용될 파일을 추가해주세요. 참고 이미지가 여러개인 경우 「URL 공유」로 공유 부탁드립니다. (최대 5개)</div>
           <div class="img-list">${imgRows}</div>
           <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
       </div>
@@ -1119,10 +1426,13 @@ function addCard(card, opts) {
   $('cardList').insertAdjacentHTML('beforeend', cardHtml(id, card));
   const el = $(id);
 
-  // 형식 미리 지정된 경우(기존 data 복원) 표시 분기 적용
-  if (card.form_type) applyCardType(el, card.form_type);
-  if ((card.seeding && card.seeding.grade) || card.form_type === 'seeding') {
-    el.setAttribute('data-cgrade', (card.seeding && card.seeding.grade) || 'nano');
+  // 형식 미리 지정된 경우(기존 data 복원) 표시 분기 적용 — 옛 구조만. 새 구조는 마크업이 data-ctype 을 이미 갖고
+  //   등급(data-cgrade) 개념이 없다(리뷰 지적 — 안 자르면 새 카드에 옛 등급 속성이 조용히 붙는다).
+  if (!isNewLayout()) {
+    if (card.form_type) applyCardType(el, card.form_type);
+    if ((card.seeding && card.seeding.grade) || card.form_type === 'seeding') {
+      el.setAttribute('data-cgrade', (card.seeding && card.seeding.grade) || 'nano');
+    }
   }
 
   // 빈 새 카드 + 첫 카드 + 연결 신청값 있으면 모집 정보 미리 채움
@@ -1134,6 +1444,7 @@ function addCard(card, opts) {
 
   if (opts.open) openCard(id);
   updateCardSummary(id);
+  if (isNewLayout()) { refreshCharCounts(el); updateScheduleHint(el); }
   refreshEmptyState();
   if (opts.prefill) onInput();   // 사용자가 직접 추가한 카드는 즉시 저장(구조 보존)
   onSpyScroll();
@@ -1201,6 +1512,79 @@ function onSaleUrlBlur(input) {
   const v = (input.value || '').trim();
   if (v) input.value = normalizeUrl(v);
   toggleSaleUrlWarn(input);
+  if (isNewLayout()) qoo10LookupFor(input);   // 3단계 — 큐텐 주소면 상품 정보를 불러와 빈 칸만 채운다
+}
+
+// ══════════════════════════════════════
+// 3단계 — 큐텐 판매 URL 자동 채움 (사양서 §4-7, 작업 23)
+//   서버 함수 qoo10-product-lookup 이 대신 읽는다(브라우저에서 큐텐으로 직접 못 간다 — 교차 출처).
+//   🔴 사람이 고친 값을 덮지 않는다 — 빈 칸만 채우고, 값이 있으면 「불러온 값으로 바꾸기」 링크만.
+//   🔴 「자동 입력」을 약속하는 문구를 쓰지 않는다 — 실패하면 조용히 「직접 입력해 주세요」.
+//   함수가 없거나(미배포) 꺼져 있어도 폼은 완전히 동작한다(실패 = 안내 한 줄).
+// ══════════════════════════════════════
+const QOO10_LOOKUP_TIMEOUT_MS = 10000;
+let _lastLookupUrl = '';
+let _lastLookupResult = null;
+function lookupHintOf(input) { return input.parentElement.querySelector('.f-lookup-hint'); }
+function setLookupHint(input, html, color) {
+  const h = lookupHintOf(input); if (!h) return;
+  h.innerHTML = html || ''; h.style.display = html ? '' : 'none'; h.style.color = color || '';
+}
+function isQoo10Url(v) { try { return /(^|\.)qoo10\.jp$/i.test(new URL(v).hostname); } catch (e) { return false; } }
+// 불러온 값 4종을 카드에서 지운다 — 주소가 바뀌었는데 옛 상품번호·스토어명이 따라가면 안 된다(실측: 아마존 주소에 큐텐 상품번호가 저장됐다)
+function clearQoo10Meta(input) {
+  const card = input.closest('.ocard'); if (!card) return;
+  ['saleGoodsCode', 'saleStoreName', 'saleImageUrl', 'salePriceList'].forEach(k => { delete card.dataset[k]; });
+}
+async function qoo10LookupFor(input) {
+  const url = (input.value || '').trim();
+  if (!url || !isQoo10Url(url)) { setLookupHint(input, ''); clearQoo10Meta(input); onInput(); return; }
+  if (url === _lastLookupUrl && _lastLookupResult) { applyQoo10Result(input, _lastLookupResult, false); return; }
+  if (!sb || !token) return;
+  setLookupHint(input, '큐텐에서 상품 정보를 불러오는 중…', '');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), QOO10_LOOKUP_TIMEOUT_MS);
+  let res = null;
+  try {
+    const env = SUPABASE_ENVS[SUPABASE_ENV];
+    const r = await fetch(env.url + '/functions/v1/qoo10-product-lookup', {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'content-type': 'application/json', 'apikey': env.key, 'Authorization': 'Bearer ' + env.key },
+      body: JSON.stringify({ token, url }),
+    });
+    res = await r.json();
+  } catch (e) {
+    res = null;   // 함수 없음·시간 초과·통신 실패 — 전부 같은 안내
+  } finally { clearTimeout(timer); }
+  if ((input.value || '').trim() !== url) return;   // 기다리는 사이 주소가 바뀌었으면 버린다
+  if (!res || res.ok !== true) { setLookupHint(input, '자동으로 못 불러왔어요. 직접 입력해 주세요.', ''); clearQoo10Meta(input); onInput(); return; }
+  _lastLookupUrl = url; _lastLookupResult = res;
+  applyQoo10Result(input, res, false, true);   // 새로 불러온 때만 상시가 안내 모달
+}
+// force=false: 빈 칸만 채움 / force=true: 「불러온 값으로 바꾸기」 — 사람이 눌렀을 때만 덮는다. notify=true 면 끝에 상시가 안내 모달
+function applyQoo10Result(input, res, force, notify) {
+  const card = input.closest('.ocard'); if (!card) return;
+  const nameEl = card.querySelector('.f-product-name');
+  const priceEl = card.querySelector('.f-price-regular');
+  const priceText = res.price_sale_jpy != null ? String(res.price_sale_jpy) : '';
+  let filled = 0, kept = 0;
+  if (nameEl && res.product_name) { if (force || !nameEl.value.trim()) { nameEl.value = res.product_name; filled++; } else kept++; }
+  if (priceEl && priceText) { if (force || !priceEl.value.trim()) { priceEl.value = priceText; filled++; } else kept++; }
+  // 상품번호·스토어명·이미지·정가는 화면에 작게만 보이고 저장은 sale.* 로(collectCardNew). 이전 상품 것이 남지 않게 먼저 비운다
+  clearQoo10Meta(input);
+  if (res.goods_code) card.dataset.saleGoodsCode = String(res.goods_code);
+  if (res.store_name) card.dataset.saleStoreName = String(res.store_name);
+  if (res.image_url) card.dataset.saleImageUrl = String(res.image_url);
+  if (res.price_list_jpy != null) card.dataset.salePriceList = String(res.price_list_jpy);
+  const meta = [res.store_name ? '스토어 ' + escAttr(res.store_name) : '', res.goods_code ? '상품번호 ' + escAttr(String(res.goods_code)) : '',
+                res.price_list_jpy != null ? '정가 ¥' + Number(res.price_list_jpy).toLocaleString('ja-JP') : ''].filter(Boolean).join(' · ');
+  const swap = (!force && kept > 0)
+    ? ` <a href="#" onclick="applyQoo10Result(this.closest('.field').querySelector('.f-sale-url'), _lastLookupResult, true); return false;" style="color:var(--brand);font-weight:700">불러온 값으로 바꾸기</a>`
+    : '';
+  setLookupHint(input, `큐텐에서 불러왔어요 · 확인해 주세요${meta ? ' — ' + meta : ''}${swap}`, '#1D4ED8');
+  if (filled > 0) updateCardSummary(card.id);
+  onInput();   // 칸을 안 채웠어도 불러온 값 4종은 바뀌었으므로 저장한다
+  if (notify && priceEl) showPriceNotice(priceEl);   // 사용자 지시(2026-09-10): 자동 채움이 실행되면 상시가 안내를 모달로 → 닫으면 상시가로 초점
 }
 // 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
 function toggleSaleUrlWarn(input) {
@@ -1259,8 +1643,10 @@ function updateCardSummary(id) {
   if (!el) return;
   const ft = el.getAttribute('data-ctype');
   const chip = el.querySelector('.ocard-chip');
-  chip.className = 'ocard-chip' + (ft ? ' ' + ft : '');
-  chip.textContent = ft ? FORM_TYPE_LABEL[ft] : '형식';
+  if (!isNewLayout()) {   // 새 구조는 형식 칩이 마크업에 고정돼 있다(채널 칩과 나란히)
+    chip.className = 'ocard-chip' + (ft ? ' ' + ft : '');
+    chip.textContent = ft ? FORM_TYPE_LABEL[ft] : '형식';
+  }
   const titleEl = el.querySelector('.ocard-title');
   const name = (el.querySelector('.f-product-name').value || '').trim();
   titleEl.textContent = name || '제품 미입력';
@@ -1349,7 +1735,7 @@ function setUploadStatus(row, kind, text) {
   el.textContent = text || '';
 }
 function updateUploadBusy() {
-  const btn = $('btnReview');         // 업로드 중이면 제출(미리보기) 버튼 비활성
+  const btn = $('btnReview');         // 업로드 중이면 「작성 완료」(확인 화면 진입) 버튼 비활성
   if (btn) btn.disabled = uploadingCount > 0;
 }
 
@@ -1473,6 +1859,7 @@ function clearImageUpload(btn) {
 //   형식 전용 입력도 DOM엔 존재하나 숨겨져 비어 있으면 빈 문자열로 자연 제외
 // ══════════════════════════════════════
 function collectCard(el) {
+  if (isNewLayout()) return collectCardNew(el);   // 새 구조 — 아래 옛 구조 수집은 손대지 않는다
   const ft = el.getAttribute('data-ctype') || '';
   const grade = el.getAttribute('data-cgrade') || 'nano';
 
@@ -1536,6 +1923,147 @@ function collectCard(el) {
   return out;
 }
 
+// 새 구조 카드 수집 — 화면에 있는 칸만 읽고, 뺀 키(카테고리·마감·업로드·등급·리뷰어의 NG/추가 안내)는 만들지 않는다.
+//   form_type 은 발급값으로 고정(서버 425 가 저장 때 issued 값으로 한 번 더 덮어쓴다). 시딩 채널도 같다.
+function collectCardNew(el) {
+  const ft = issuedFormType();
+  const q = sel => el.querySelector(sel);
+  const val = sel => { const n = q(sel); return n ? n.value.trim() : ''; };
+
+  const images = Array.from(el.querySelectorAll('[data-img]')).map(row => {
+    const type = row.dataset.imgType === 'upload' ? 'upload' : 'url';
+    const obj = { type, value: normalizeUrl(row.querySelector('.img-value').value) };
+    if (type === 'upload' && row.dataset.imgName) obj.name = row.dataset.imgName;
+    return obj;
+  }).filter(x => x.value);
+
+  const out = {
+    form_type: ft,
+    product: { name: val('.f-product-name'), slots: val('.f-slots') },
+    recruit: { recruit_start: val('.f-recruit-start') },
+    sale: { market: 'Qoo10', url: normalizeUrl(val('.f-sale-url')), price_regular: val('.f-price-regular') },
+    images,
+  };
+  const shipping = val('.f-shipping-fee');
+  if (shipping) out.sale.shipping_fee = shipping;   // 배송비(선택) — 비우면 키를 안 만든다 = 서버가 0 으로 계산
+  // 큐텐에서 불러온 값(작업 23) — 있을 때만 키를 만든다(빈 문자열로도 만들지 않는다)
+  [['goods_code', 'saleGoodsCode'], ['store_name', 'saleStoreName'], ['image_url', 'saleImageUrl'], ['price_list', 'salePriceList']].forEach(([k, ds]) => {
+    const v = el.dataset[ds];
+    if (v) out.sale[k] = (k === 'price_list') ? Number(v) : v;
+  });
+  if (ft === 'reviewer') {
+    out.review_guide = richValue(q('.f-review-guide'));
+  }
+  if (ft === 'seeding') {
+    const hashtags = val('.f-hashtags').split(/[\s,]+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
+    out.seeding = {
+      channels: issuedChannel() ? [issuedChannel()] : [],
+      appeal: val('.f-appeal'),
+      hashtags,
+      account_tags: val('.f-account-tags'),
+      shooting_guide: val('.f-shooting'),
+      shipping_note: val('.f-shipping'),
+    };
+    out.ng = richValue(q('.f-ng'));
+    out.cautions = richValue(q('.f-cautions'));
+  }
+  // 되돌려 보내는 값 3종 — 옛 구조와 같은 규칙(값이 있을 때만 키를 만든다)
+  const uid = el.getAttribute('data-uid');
+  if (uid) out.uid = uid;
+  const campaignId = el.getAttribute('data-campaign-id');
+  if (campaignId) out.campaign_id = campaignId;
+  if (el.getAttribute('data-linked-existing')) out.linked_existing = true;
+  return out;
+}
+
+// ── 글자 수 제한(새 구조) — 긴 글 칸 여섯(LONG_TEXT_FIELDS) 전부 1,000자. 넘는 입력은 그 자리에서 잘라 「{현재} / 1000」 로 보여준다.
+//   세는 기준은 서식(태그)을 뺀 본문(textContent) — 서버(_orient_text_length, 425)와 같은 셈법.
+//   ⚠️ 임시저장은 서버 검사가 없어 잘린 값만 저장되고, 제출은 서버가 다시 센다(guide_too_long·appeal_too_long·text_too_long).
+function longTextClassOf(node) {
+  if (!node || !node.classList) return '';
+  return LONG_TEXT_CLASSES.find(c => node.classList.contains(c)) || '';
+}
+function charLimitOf(node) { return longTextClassOf(node) ? LIMIT_LONG_TEXT : 0; }
+// contenteditable 의 본문을 뒤에서부터 잘라 limit 글자로 맞춘다(서식 노드는 남긴다)
+function trimContentEditable(node, limit) {
+  let excess = node.textContent.length - limit;
+  if (excess <= 0) return false;
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  for (let i = texts.length - 1; i >= 0 && excess > 0; i--) {
+    const t = texts[i];
+    const cut = Math.min(excess, t.data.length);
+    t.data = t.data.slice(0, t.data.length - cut);
+    excess -= cut;
+  }
+  // 커서를 끝으로
+  try {
+    const sel = window.getSelection(); const range = document.createRange();
+    range.selectNodeContents(node); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
+  } catch (e) {}
+  return true;
+}
+function enforceCharLimit(node) {
+  const limit = charLimitOf(node);
+  if (!limit) return;
+  let trimmed = false;
+  if (node.isContentEditable) {
+    trimmed = trimContentEditable(node, limit);
+  } else if (node.value.length > limit) {
+    node.value = node.value.slice(0, limit); trimmed = true;
+  }
+  const cur = node.isContentEditable ? node.textContent.length : node.value.length;
+  const card = node.closest('.ocard');
+  const cls = longTextClassOf(node);
+  const counter = card && card.querySelector(`.char-count[data-count-for="${cls}"]`);
+  if (counter) {
+    counter.querySelector('.cc-cur').textContent = String(cur);
+    counter.classList.toggle('full', cur >= limit);
+  }
+  if (trimmed) showToast(`${limit.toLocaleString('ko-KR')}자까지 적을 수 있어요.`);
+}
+function refreshCharCounts(cardEl) {
+  cardEl.querySelectorAll(LONG_TEXT_CLASSES.map(c => '.' + c).join(', ')).forEach(enforceCharLimit);
+}
+
+// ── 시딩 예상 일정 안내(새 구조) — 모집 시작일 아래. 저장하지 않는다.
+//   날짜는 문자열 자르기로만 계산한다(new Date('YYYY-MM-DD') 금지 — 시간대가 끼어든다).
+function addDaysYmd(ymd, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+  if (!m) return '';
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + days * 86400000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+function fmtMd(ymd) { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(ymd || ''); return m ? `${+m[1]}/${+m[2]}` : ymd; }
+function updateScheduleHint(cardEl) {
+  const box = cardEl && cardEl.querySelector('[data-schedule-hint]');
+  if (!box) return;   // 리뷰어 카드에는 없다
+  const start = (cardEl.querySelector('.f-recruit-start') || {}).value || '';
+  if (!start) { box.textContent = ''; return; }
+  box.textContent = `예상 일정 — 모집 마감 ${fmtMd(addDaysYmd(start, 10))}~${fmtMd(addDaysYmd(start, 14))} · 배송 5~7일 · 최종 업로드 ${fmtMd(addDaysYmd(start, 25))}~${fmtMd(addDaysYmd(start, 35))} (실제 일정은 담당자가 발행 때 확정합니다)`;
+}
+// 숫자 칸(모집 인원 등 type=number): 포커스 중 마우스 휠로 값이 바뀌는 브라우저 기본 동작 차단(오입력 방지).
+//   인플루언서·관리자 화면은 shared.js 가, 광고주 신청 폼(reviewer·seeding.html)은 각자 같은 코드로 막는데
+//   이 파일만 빠져 있었다(2026-09-08 사용자 지적). 정적 배포라 shared.js 를 못 실어 같은 방식을 인라인으로 둔다.
+document.addEventListener('wheel', function () {
+  const el = document.activeElement;
+  if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
+}, { passive: true });
+
+// 새 구조 입력 위임 — 글자 수 제한·일정 안내를 한 자리에서(붙여넣기·직접 입력 모두 input 이벤트로 온다)
+document.addEventListener('input', (ev) => {
+  if (!isNewLayout()) return;
+  const t = ev.target;
+  if (!t || !t.closest) return;
+  if (charLimitOf(t)) enforceCharLimit(t);
+});
+document.addEventListener('change', (ev) => {
+  if (!isNewLayout()) return;
+  const t = ev.target;
+  if (t && t.classList && t.classList.contains('f-recruit-start')) updateScheduleHint(t.closest('.ocard'));
+});
+
 // 카드 고유 번호(uid) 되받기 — 마이그레이션 329
 //   ⚠️ 폼은 uid 를 **만들지 않는다**(만드는 곳은 서버 저장 함수 한 곳뿐 — 마이그레이션 293).
 //   그래서 서버가 붙인 번호를 **돌려받아 담아 두지 않으면 폼은 자기 카드의 번호를 영영 모른다.**
@@ -1561,6 +2089,18 @@ function applyCardUids(cardEls, uids) {
 function collectData() {
   lastCollectedCardEls = Array.from(document.querySelectorAll('.ocard'));
   const cards = lastCollectedCardEls.map(collectCard);
+  if (isNewLayout()) {
+    // 새 구조 — 브랜드 소개·공식 계정·레버브 요청 키를 만들지 않는다. issued 등 서버 키는 안 보내도 서버가 지킨다(425).
+    return {
+      brand: {
+        name: $('f_brand_name').value.trim(),
+        contact_name: $('f_brand_contact_name').value.trim(),
+        email: $('f_brand_email').value.trim(),
+        phone: $('f_brand_phone').value.trim(),
+      },
+      cards,
+    };
+  }
   return {
     brand: {
       name: $('f_brand_name').value.trim(),
@@ -1649,6 +2189,19 @@ function enterConflict() {
 // (card = 해당 .ocard 요소(접혀 있으면 펼침), target = 강조·스크롤할 입력 요소)
 function findInvalidField() {
   const cardEls = Array.from(document.querySelectorAll('#cardList > .ocard'));
+  if (isNewLayout()) {
+    // 새 구조 — 형식은 고정이라 묻지 않는다. 없어진 칸(카테고리·마감 등)은 요구하지 않는다.
+    const el = cardEls[0];
+    if (!el) return { message: '화면을 새로고침해 주세요.', card: null, target: null };
+    const c = collectCard(el);
+    if (!c.product.name) return { message: '제품명을 입력해 주세요.', card: el, target: el.querySelector('.f-product-name') };
+    if (!c.sale.url) return { message: '판매 URL을 입력해 주세요.', card: el, target: el.querySelector('.f-sale-url') };
+    if (!c.sale.price_regular) return { message: '상시가를 입력해 주세요.', card: el, target: el.querySelector('.f-price-regular') };
+    const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
+    if (pendingUrl && pendingUrl.value.trim())
+      return { message: '공유 링크를 「확인」 버튼으로 확정해 주세요.', card: el, target: pendingUrl };
+    return null;
+  }
   if (!cardEls.length) {
     return { message: '제품(카드)을 1개 이상 추가해 주세요.', card: null, target: $('btnAddCard') };
   }
@@ -1696,7 +2249,7 @@ function focusInvalid(v) {
 
 function openPreview() {
   if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
-  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 제출할 수 있어요.'); return; }
+  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 진행할 수 있어요.'); return; }
   flushAutosave();
   const invalid = findInvalidField();
   if (invalid) { showToast(invalid.message); focusInvalid(invalid); return; }
@@ -1704,20 +2257,87 @@ function openPreview() {
   const data = collectData();
   $('previewBody').innerHTML = renderPreview(data);
   $('screenForm').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
   $('screenPreview').classList.remove('hidden');
-  $('btnReview').classList.add('hidden');
-  $('btnBackToEdit').classList.remove('hidden');
-  $('btnSubmit').classList.remove('hidden');
+  setFootNav(isNewLayout() ? ['btnBackToEdit', 'btnQuoteView'] : ['btnBackToEdit', 'btnSubmit']);
+  $('btnSubmit').textContent = isNewLayout() ? '제출하기' : '이대로 제출';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// 하단 고정바의 단추 5개 중 보일 것만 켠다(화면마다 조합이 달라 한 자리에서)
+const FOOT_NAV_IDS = ['btnReview', 'btnBackToEdit', 'btnQuoteView', 'btnQuoteToPreview', 'btnSubmit'];
+function setFootNav(showIds) {
+  FOOT_NAV_IDS.forEach(id => $(id).classList.toggle('hidden', !showIds.includes(id)));
 }
 
 function closePreview() {
   $('screenPreview').classList.add('hidden');
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote');
   $('screenForm').classList.remove('hidden');
-  $('btnReview').classList.remove('hidden');
-  $('btnBackToEdit').classList.add('hidden');
-  $('btnSubmit').classList.add('hidden');
+  setFootNav(['btnReview']);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// 견적서 확인 화면 → 작성 내용 확인 화면으로
+function backToPreviewFromQuote() {
+  $('screenQuote').classList.add('hidden');
+  document.body.classList.remove('print-quote');
+  $('screenPreview').classList.remove('hidden');
+  setFootNav(['btnBackToEdit', 'btnQuoteView']);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── 제출 전 견적 보기(새 구조) — 서버가 지금 화면 값으로 계산만 해 준다(저장 없음, preview_orient_quote 430).
+//   제출 때와 같은 함수(_orient_compute_quote)로 계산하므로 여기서 본 금액이 제출 뒤 견적서와 같다.
+let previewQuote = null;          // 견적서 확인 화면에 그린 견적(제출 전) — 인쇄 파일명에도 쓴다
+let previewQuoteData = null;
+async function openQuotePreview() {
+  if (!sb || !token) return;
+  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 진행할 수 있어요.'); return; }
+  const invalid = findInvalidField();
+  if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
+  const data = collectData();
+  const btn = $('btnQuoteView');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '견적 계산 중…';
+  try {
+    const { data: res, error } = await sb.rpc('preview_orient_quote', { p_token: token, p_data: data });
+    if (error) throw error;
+    if (!res || res.success !== true) {
+      if (res && (res.reason === 'expired' || res.reason === 'consumed')) { showErrorScreen(res.reason); return; }
+      showToast('견적을 계산하지 못했어요. 잠시 후 다시 시도해 주세요.'); return;
+    }
+    previewQuote = res.quote || null;
+    previewQuoteData = Object.assign({}, data, { issued: loadedData && loadedData.issued });
+    showQuoteScreen({ quote: previewQuote, error: res.quote_error || null, data: previewQuoteData, mode: 'preview' });
+  } catch (e) {
+    console.error('[orient quote preview]', e);
+    showToast('견적을 계산하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  } finally { btn.disabled = false; btn.textContent = orig; }
+}
+// 견적서 화면 공용 — mode 'preview'(제출 전, 하단바 「작성 내용으로 · 제출하기」) / 'view'(관리자 ?view=quote, 「돌아가기」 막대)
+function showQuoteScreen(opts) {
+  const { quote, error, data, mode } = opts;
+  $('screenForm').classList.add('hidden');
+  $('screenPreview').classList.add('hidden');
+  $('screenDone').classList.add('hidden');
+  const isPreview = mode === 'preview';
+  $('quoteIntro').classList.toggle('hidden', !isPreview);
+  $('quoteBar').classList.toggle('hidden', isPreview);
+  if (quote) {
+    $('quoteDoc').innerHTML = renderQuoteDoc(quote, data);
+    $('quoteDoc').classList.remove('hidden');
+    $('quoteWarn').classList.add('hidden');
+    document.body.classList.add('print-quote');
+  } else {
+    $('quoteDoc').classList.add('hidden');
+    $('quoteWarn').textContent = (QUOTE_ERROR_TEXT[error] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')
+      + (isPreview ? ' 그대로 제출할 수도 있고, 「작성 내용으로」에서 고친 뒤 다시 볼 수도 있어요.' : '');
+    $('quoteWarn').classList.remove('hidden');
+    document.body.classList.remove('print-quote');
+  }
+  $('screenQuote').classList.remove('hidden');
+  if (isPreview) { $('footbar').classList.remove('hidden'); setFootNav(['btnQuoteToPreview', 'btnSubmit']); }
+  else { $('footbar').classList.add('hidden'); }
+  window.scrollTo({ top: 0 });
 }
 
 function pvRow(k, v) {
@@ -1731,7 +2351,41 @@ function pvRowHtml(k, html) {
   return `<div class="pv-row"><span class="pv-k">${escAttr(k)}</span>${val}</div>`;
 }
 
+// 새 구조 미리보기 — 화면에 있는 항목만(없는 항목은 「—」로도 안 그린다)
+function renderPreviewCardNew(c, idx) {
+  const ft = c.form_type;
+  const ch = issuedChannel();
+  let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
+  if (ft === 'seeding') rows += pvRow('게시 채널', CHANNEL_LABEL[ch] || ch);
+  rows += pvRow('제품명', c.product.name);
+  rows += pvRow('판매처', c.sale.market || 'Qoo10');
+  rows += pvRow('판매 URL', c.sale.url);
+  rows += pvRow('상시가', c.sale.price_regular);
+  if (ft === 'reviewer') rows += pvRow('배송비', c.sale.shipping_fee || '0 (별도 배송비 없음)');
+  rows += pvRow('모집 인원', c.product.slots);
+  rows += pvRow('희망 모집 시작일', c.recruit.recruit_start);
+  if (ft === 'reviewer') rows += pvRowHtml('리뷰 가이드', c.review_guide);
+  if (ft === 'seeding') {
+    const sd = c.seeding || {};
+    rows += pvRow('소구 키워드', sd.appeal);
+    rows += pvRow('촬영 가이드', sd.shooting_guide);
+    rows += pvRow('게시물에 꼭 넣을 해시태그', (sd.hashtags || []).join(' '));
+    rows += pvRow('게시물에 태그할 계정', sd.account_tags);
+    rows += pvRow('배송 안내', sd.shipping_note);
+    if (c.ng) rows += pvRowHtml('금지 표현 (NG)', c.ng);
+    if (c.cautions) rows += pvRowHtml('추가 안내 · 필독 사항', c.cautions);
+  }
+  if (c.images.length) rows += pvRow('예시 이미지·자료', c.images.map(x => x.value).join('\n'));
+  const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
+  return `<div class="pv-card">
+    <div class="pv-card-head">
+      <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>${chChip}
+      <span class="pv-name">${escAttr(c.product.name || `제품 ${idx + 1}`)}</span>
+    </div>${rows}</div>`;
+}
+
 function renderPreviewCard(c, idx) {
+  if (isNewLayout()) return renderPreviewCardNew(c, idx);
   const ft = c.form_type;
   let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
   rows += pvRow('제품명', c.product.name);
@@ -1774,9 +2428,10 @@ function renderPreviewCard(c, idx) {
 
 function renderPreview(data) {
   const b = data.brand;
+  const brandExtra = isNewLayout() ? '' : pvRow('소개', b.intro) + pvRow('공식 계정', b.official_accounts);
   const brandCard = `<div class="pv-card">
     <div class="pv-card-head"><span class="pv-name">브랜드 정보</span></div>
-    ${pvRow('브랜드명', b.name)}${pvRow('담당자명', b.contact_name)}${pvRow('이메일', b.email)}${pvRow('연락처', b.phone)}${pvRow('소개', b.intro)}${pvRow('공식 계정', b.official_accounts)}
+    ${pvRow('브랜드명', b.name)}${pvRow('담당자명', b.contact_name)}${pvRow('이메일', b.email)}${pvRow('연락처', b.phone)}${brandExtra}
   </div>`;
   const reqCard = data.reverb_request
     ? `<div class="pv-card"><div class="pv-card-head"><span class="pv-name">레버브 측 요청</span></div>${pvRow('요청·요구사항', data.reverb_request)}</div>`
@@ -1824,6 +2479,18 @@ async function submitSheet() {
       dirty = false;
       try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
       closePreview();
+      if (isNewLayout()) {
+        // 2단계 — 서버가 돌려준 견적 세트를 화면 원본(loadedData)에도 실어 완료 화면·견적서가 같은 값을 본다.
+        //   제출한 data 로 loadedData 를 갈아 끼우되 서버 키(issued 등)는 그대로 둔다(서버가 지킨 값).
+        const keep = { issued: loadedData.issued, quote_history: loadedData.quote_history };
+        loadedData = Object.assign({}, data, keep);
+        if (res.quote) { loadedData.quote = res.quote; delete loadedData.quote_error; }
+        else { delete loadedData.quote; loadedData.quote_error = res.quote_error || 'price_unreadable'; }
+        previewQuote = null; previewQuoteData = null;   // 이제부터는 저장된 판이 원본
+        if (loadedData.quote_error && loadedData.quote === undefined) { /* 세트 규칙: 둘 중 하나만 */ }
+        enterDoneScreen();
+        return;
+      }
       enterFormScreen();
       setSaveState('saved', '제출 완료');
       showToast('제출되었습니다. 발행 전까지 수정할 수 있어요.');
@@ -1832,6 +2499,14 @@ async function submitSheet() {
     if (res && res.reason === 'conflict') { enterConflict(); closePreview(); return; }
     if (res && res.reason === 'data_required') { showToast('내용을 입력해 주세요.'); return; }
     if (res && res.reason === 'data_too_large') { showToast('내용이 너무 깁니다. 줄여 주세요.'); return; }
+    // [425] 새 구조 시트의 서버 재검증 — 폼이 자르고 있어 보통 안 뜨지만, 옛 캐시 폼·직접 호출을 서버가 막는다
+    if (res && res.reason === 'cards_limit') { closePreview(); showToast('이 링크에는 제품 하나만 제출할 수 있어요. 화면을 새로고침해 주세요.'); return; }
+    if (res && res.reason === 'guide_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_REVIEW_GUIDE.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
+    if (res && res.reason === 'appeal_too_long') { closePreview(); showToast(`소구 키워드가 ${LIMIT_SEEDING_APPEAL.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
+    if (res && res.reason === 'text_too_long') {   // [429] 촬영 가이드·배송 안내·금지 표현·추가 안내 — field 로 어느 칸인지
+      const hit = Object.values(LONG_TEXT_FIELDS).find(f => f.field === res.field);
+      closePreview(); showToast(`${hit ? hit.label : '내용'}이(가) ${LIMIT_LONG_TEXT.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return;
+    }
     if (res && (res.reason === 'expired' || res.reason === 'consumed')) {
       showToast('제출할 수 없는 상태입니다.'); showErrorScreen(res.reason); return;
     }
@@ -1849,6 +2524,152 @@ async function submitSheet() {
 window.addEventListener('beforeunload', (e) => {
   if (dirty && !conflicted) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ══════════════════════════════════════
+// 2단계 — 제출 완료 화면 · 견적서 (사양서 §4-6, 작업 17·18)
+//   판별은 loadedData.quote / loadedData.quote_error 한 세트(서버가 제출마다 다시 쓴다 — 둘이 동시에 있는 상태는 없다).
+//   🔴 견적서를 그리는 코드는 여기 한 벌뿐 — 관리자 화면은 ?view=quote 로 이 화면을 새창에 연다.
+// ══════════════════════════════════════
+const QUOTE_ISSUER = {
+  name: '주식회사 제이펀 (株式会社ジェイファン)',
+  rep: '대표 주현호',
+  addr: '서울시 금천구 가산디지털1로 128 STX V-Tower 1201호',
+  contact: '공식 LINE @reverb.jp',
+};
+const QUOTE_ERROR_TEXT = {
+  price_unreadable: '상시가를 숫자로 적으면 견적서를 받을 수 있어요. (예: 5300)',
+  slots_missing: '모집 인원을 숫자로 적으면 견적서를 받을 수 있어요.',
+  calc_error: '견적을 계산하지 못했어요. 담당자가 확인한 뒤 견적을 안내해 드릴게요.',
+};
+function krw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+function jpy(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+function ymdOf(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[1]}.${m[2]}.${m[3]}` : ''; }
+
+function hideAllScreens() {
+  ['screenLoading', 'screenError', 'screenForm', 'screenPreview', 'screenDone', 'screenQuote'].forEach(id => $(id).classList.add('hidden'));
+  $('footbar').classList.add('hidden');
+  document.body.classList.remove('print-quote', 'print-done');
+  clearTimeout(saveTimer);   // 자동저장은 작성 화면에서만
+}
+function enterDoneScreen() {
+  hideAllScreens();
+  const q = loadedData && loadedData.quote;
+  const err = loadedData && loadedData.quote_error;
+  const area = $('doneQuoteArea');
+  if (q) {
+    // 견적서를 이 화면 안에 미리보기로 펼친다(2026-09-08 사용자 지시 — 단추를 눌러야 인쇄 창이 뜨고, 자동으로 넘어가지 않는다)
+    area.innerHTML = `<div class="done-hint" style="margin-top:14px">브랜드가 입력한 값 기준 예상 금액 · 합계 ${escAttr(krw(q.total_krw))} (부가세 포함) · ${escAttr(String(q.revision || 1))}차 견적</div>
+      <div class="quote-doc">${renderQuoteDoc(q, loadedData)}</div>
+      <div class="done-hint" style="margin-top:-12px;margin-bottom:8px">견적서 오른쪽 위 「인쇄 · PDF」 → 인쇄 창에서 「PDF로 저장」. 휴대폰은 「공유 → PDF」.</div>`;
+    document.body.classList.add('print-done');   // 인쇄 때 견적서만 남기는 규칙(CSS @media print)
+  } else if (err) {
+    area.innerHTML = `<div class="done-warn">${escAttr(QUOTE_ERROR_TEXT[err] || '견적서를 만들지 못했어요. 내용을 확인해 주세요.')}<br><span style="font-size:12px">「내용 수정하기」로 고쳐서 다시 제출하면 견적서가 만들어져요.</span></div>`;
+  } else {
+    area.innerHTML = '';
+  }
+  $('screenDone').classList.remove('hidden');
+  window.scrollTo({ top: 0 });
+  onSpyScroll();
+}
+// 견적서 단독 화면 — 관리자가 ?view=quote 로 새 탭에 열 때만. 브랜드 완료 화면은 견적서를 안에 펼쳐 보여준다(enterDoneScreen).
+//   autoPrint 는 2026-09-08 부터 아무도 true 로 부르지 않는다(자동 인쇄 금지 — 사용자 지시). 인자는 호환용으로만 남긴다.
+function enterQuoteScreen(autoPrint) {
+  const q = loadedData && loadedData.quote;
+  if (!q) { showToast('견적서가 아직 없어요.'); return; }
+  hideAllScreens();
+  previewQuote = null;
+  showQuoteScreen({ quote: q, error: null, data: loadedData, mode: 'view' });
+  if (autoPrint) setTimeout(printQuote, 250);
+}
+function leaveQuoteScreen() { enterDoneScreen(); }
+
+// 인쇄 파일명 — 브라우저 「PDF로 저장」의 기본 파일명은 그 순간의 페이지 제목이다.
+//   「REVERB_리뷰어(또는 시딩)_제품명_YYMMDD」(2026-09-08 사용자 요청). 인쇄 창이 닫히면 제목을 되돌린다.
+function quoteFileName(q, data) {
+  const ft = (q && q.form_type) || issuedFormType();
+  const ftLabel = FORM_TYPE_LABEL[ft] || 'REVERB';
+  const card = (data && Array.isArray(data.cards) && data.cards[0]) || {};
+  const product = ((card.product && card.product.name) || '제품').replace(/[\\/:*?"<>|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || '제품';
+  const m = /^(\d{2})(\d{2})-(\d{2})-(\d{2})/.exec(String((q && q.issued_at) || '')) ;
+  const d = new Date();
+  const ymd = m ? `${m[2]}${m[3]}${m[4]}` : `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return `REVERB_${ftLabel}_${product}_${ymd}`;
+}
+function printQuote() {
+  const q = previewQuote || (loadedData && loadedData.quote);
+  const data = previewQuote ? previewQuoteData : loadedData;
+  const origTitle = document.title;
+  const restore = () => { document.title = origTitle; };
+  window.addEventListener('afterprint', restore, { once: true });
+  try {
+    if (q) document.title = quoteFileName(q, data);
+    window.print();   // 크롬·사파리는 인쇄 창이 닫힐 때까지 여기서 멈춘다
+  } catch (e) {
+    showToast('인쇄 창을 열지 못했어요. 브라우저 메뉴의 「인쇄」를 눌러 주세요.');
+  } finally {
+    setTimeout(restore, 1500);   // afterprint 가 안 오는 브라우저 대비 — 늦게라도 되돌린다
+  }
+}
+
+function renderQuoteDoc(q, data) {
+  const b = (data && data.brand) || {};
+  const c = (data && Array.isArray(data.cards) && data.cards[0]) || {};
+  const ft = q.form_type || issuedFormType();
+  const ftLabel = FORM_TYPE_LABEL[ft] || ft;
+  const chLabel = (ft === 'seeding' && q.channel) ? (CHANNEL_LABEL[q.channel] || q.channel) : '';
+  const lines = Array.isArray(q.lines) ? q.lines : [];
+  const rows = lines.map(l => `<tr>
+      <td>${escAttr(l.label || '')}</td>
+      <td class="num">${escAttr(String(l.qty ?? ''))}</td>
+      <td class="num">${escAttr(krw(l.unit_krw))}</td>
+      <td class="num">${escAttr(krw(l.amount_krw))}</td>
+    </tr>`).join('');
+  const fixed = (ft === 'seeding')
+    ? '본 견적은 브랜드가 입력한 모집 인원 기준 예상 금액이며, 최종 금액은 담당자 확인 후 확정됩니다.'
+    : '본 견적은 브랜드가 입력한 상시가·인원 기준 예상 금액이며, 최종 금액은 담당자 확인 후 확정됩니다.';
+  const shipJpy = Number(q.shipping_fee_jpy || 0);
+  // 배송비가 있으면 괄호로 묶는다 — 「상시가 + 배송비 × 환율」은 배송비만 곱하는 것처럼 읽힌다(리뷰 지적)
+  const jpyRef = (ft === 'reviewer' && q.price_regular_jpy != null)
+    ? `<div>엔화 참고 — ${shipJpy > 0 ? '(' : ''}상시가 ${escAttr(jpy(q.price_regular_jpy))}${shipJpy > 0 ? ' + 배송비 ' + escAttr(jpy(shipJpy)) + ')' : ''} × 환율 ${escAttr(String(q.basis && q.basis.exchange_rate_krw_per_jpy))}원/엔</div>` : '';
+  const vatPct = Math.round(Number(q.basis && q.basis.vat_rate || 0) * 100);
+  return `
+    <button type="button" class="quote-print-btn" onclick="printQuote()" title="인쇄 · PDF 저장"><span class="material-icons-outlined notranslate" translate="no">print</span>인쇄 · PDF</button>
+    <h1>견 적 서</h1>
+    <div class="quote-meta">
+      <div class="col"><h3>수신</h3>
+        <div><strong>${escAttr(b.name || '')}</strong> 귀중</div>
+        <div>${escAttr([b.contact_name, b.email].filter(Boolean).join(' · '))}</div></div>
+      <div class="col"><h3>발행</h3>
+        <div><strong>${escAttr(QUOTE_ISSUER.name)}</strong></div>
+        <div>${escAttr(QUOTE_ISSUER.rep)}</div>
+        <div>${escAttr(QUOTE_ISSUER.addr)}</div>
+        <div>${escAttr(QUOTE_ISSUER.contact)}</div></div>
+      <div class="col"><h3>견적 정보</h3>
+        <div>견적 번호 <strong>${escAttr(q.quote_no || '')}</strong> · ${escAttr(String(q.revision || 1))}차 견적</div>
+        <div>작성일 ${escAttr(ymdOf(q.issued_at))}</div>
+        <div>유효기간 ${escAttr(ymdOf(q.valid_until))}까지</div></div>
+    </div>
+    <table class="quote-table">
+      <tr><th style="width:96px">제품</th><td colspan="3">${escAttr((c.product && c.product.name) || '')}</td></tr>
+      <tr><th>판매 URL</th><td colspan="3" style="word-break:break-all">${escAttr((c.sale && c.sale.url) || '')}</td></tr>
+      <tr><th>모집 형식</th><td colspan="3">${escAttr(ftLabel)}${chLabel ? ' · ' + escAttr(chLabel) : ''}</td></tr>
+      <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}명</td></tr>
+    </table>
+    <table class="quote-table">
+      <thead><tr><th>항목</th><th class="num">수량</th><th class="num">단가</th><th class="num">금액</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="quote-total">
+      <div><span>공급가액</span><span>${escAttr(krw(q.subtotal_krw))}</span></div>
+      <div><span>부가세 (${vatPct}%)</span><span>${escAttr(krw(q.vat_krw))}</span></div>
+      <div class="grand"><span>합계</span><span>${escAttr(krw(q.total_krw))}</span></div>
+    </div>
+    <div class="quote-note">
+      ${jpyRef}
+      <div>${escAttr(fixed)}</div>
+      <div>${escAttr(q.note || '')}</div>
+    </div>`;
+}
 
 // ══════════════════════════════════════
 // 스크롤 스파이 — 헤더에 현재 작성 영역 제목 표시

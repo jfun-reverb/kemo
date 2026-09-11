@@ -127,80 +127,9 @@ function _excelAddressOnly(u, fallback) {
 //   - 미제출: (monitor) 영수증·review_image 둘 다 전혀 없음 / (gifting/visit) 게시물 없음
 //   - 인증샷 제출중: 그 외 전부
 
-// monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
-//   campChannels: 캠페인 채널 코드 배열, reviewByCh: { channelCode: deliv }
-function _excelMonitorResultRepr(campChannels, reviewByCh) {
-  reviewByCh = reviewByCh || {};
-  var channels = (campChannels || []).filter(Boolean);
-  if (channels.length === 0) {
-    // 채널 미등록 monitor — review_image 행이 하나라도 있으면 제출중, 없으면 none
-    return Object.keys(reviewByCh).length > 0 ? 'pending' : 'none';
-  }
-  var states = channels.map(function(ch) { return (reviewByCh[ch] && reviewByCh[ch].status) || 'none'; });
-  if (states.indexOf('rejected') !== -1) return 'rejected';
-  if (states.indexOf('pending') !== -1) return 'pending';
-  if (states.indexOf('none') !== -1) return 'none';
-  return 'approved';
-}
-
-// gifting/visit 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
-//   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-//   campChannels·postByCh 는 시딩·방문형 채널 완성 판정용(선택 — 없으면 옛 방식으로 떨어진다).
-//   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
-//   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
-//   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
-  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
-  var _as = (receipt && receipt.applications && receipt.applications.status)
-         || (result && result.applications && result.applications.status) || null;
-  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
-  if (recruitType === 'monitor') {
-    var hasReceipt = !!receipt;
-    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-    if (proxyPurchase) {
-      if (!hasReceipt) return '미제출';
-      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-    }
-    var hasReview = !!result;
-    if (!hasReceipt && !hasReview) return '미제출';
-    // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
-    // 화면 computeCertStatus 는 채널 없는 리뷰어를 result_status_repr='legacy_no_channel' 로 둬 절대 인증성공이
-    // 아니다. 엑셀도 정합시켜 인증성공 대신 최대 '인증샷 제출중' 으로 표기(과대표기 방지).
-    return '인증샷 제출중';
-  }
-  // gifting / visit — 요구한 채널 전부 승인이어야 인증성공
-  var _chs = (campChannels || []).filter(Boolean);
-  if (_chs.length > 0) {
-    // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
-    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
-    if (_repr === 'approved') return '인증성공';
-    if (_repr !== 'none') return '인증샷 제출중';
-    return result ? '인증샷 제출중' : '미제출';
-  }
-  // 채널 정보가 없는 호출(옛 경로) — 최소한 인증성공으로 과대표기하지 않는다.
-  //   채널이 빈 캠페인은 서버 판정에서도 인증성공이 되지 않는다(마이그레이션 331).
-  if (!result) return '미제출';
-  return '인증샷 제출중';
-}
-
-// monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
-  // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
-  var _as = (receipt && receipt.applications && receipt.applications.status) || null;
-  if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
-  if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
-  var hasReceipt = !!receipt;
-  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-  if (proxyPurchase) {
-    if (!hasReceipt) return '미제출';
-    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-  }
-  var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
-  if (!hasReceipt && !hasReview) return '미제출';
-  var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
-  if (receipt && receipt.status === 'approved' && repr === 'approved') return '인증성공';
-  return '인증샷 제출중';
-}
+// ⚠️ 인증 상태 판정 3함수(_excelMonitorResultRepr · _excelCertStatusKo · _excelCertStatusMonitorKo)는
+//    2026-09-04 에 dev/js/report-rows.js 로 **옮겼다**(복사 아님). 공유 화면(report.html)이 같은 판정을
+//    써야 해서다. 이름·동작은 그대로이고 관리자 번들에는 그 파일이 이어 붙는다.
 
 // ─── 캠페인 다중 선택 + 통합 엑셀 ────────────────────────────────────
 // _selectedCampIds: 사용자가 체크한 캠페인 id 집합. 페인 이동/새로고침 시 초기화.
@@ -275,6 +204,12 @@ function updateCampSelectionUI() {
     btnDel.disabled = (n === 0);
     btnDel.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '결과물 엑셀';
   }
+  // 리포트 만들기 — 이 줄이 없으면 선택이 0개여도 눌린다(2026-09-03 리포트 기능)
+  var btnRep = document.getElementById('btnCampSelectReport');
+  if (btnRep) {
+    btnRep.disabled = (n === 0);
+    btnRep.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">summarize</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '리포트 만들기';
+  }
   if (btnClr) btnClr.style.display = n > 0 ? '' : 'none';
   if (cntEl) {
     if (n > 0) { cntEl.textContent = '· ' + n + '개 선택'; cntEl.style.display = ''; }
@@ -315,7 +250,8 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     //      이름만 실제 내용에 맞게 고쳤다(이 두 열은 방문형이면 방문 기간이 들어간다).
     { header: '구매·방문 시작',  key: 'pstart',   width: 14 },
     { header: '구매·방문 마감',  key: 'pend',     width: 14 },
-    // 선정 기간(마이그레이션 307) — **시딩형 전용**이라 다른 형식은 빈칸이다.
+    // 선정 기간(마이그레이션 307) — 시딩형과 **행사가 아닌 방문형**이 쓴다(2026-08-24 확장).
+    //   그 밖의 형식은 빈칸이다. 어느 형식에 나오는지의 판정은 아래 pickSelection 한 곳이다.
     //   ⚠️ 위 구매·방문 열에 끼워 넣지 않는다. 그 열은 「그 형식이 제품을 사거나 방문하는
     //      기간」이고 선정은 「응모자 중 참여자를 고르는 기간」이라 뜻이 다르다 — 한 칸에
     //      섞으면 걸러 보거나 정렬할 때 서로 다른 것이 한 줄로 딸려 온다.
@@ -344,10 +280,21 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     if (c.recruit_type === 'visit')   return c.visit_end || '';
     return '';
   };
-  // 선정 기간은 시딩형만 쓴다. 다른 형식에 값이 남아 있더라도 내보내지 않는다 —
-  //   화면(캠페인 목록·진행현황 카드)도 시딩형에만 그리므로 엑셀만 다르면 어긋난다.
+  // 선정 기간은 시딩형과 **방문형**이 쓴다(행사는 선정형만 — 2026-08-24 결정 + 설계 7).
+  //   그 밖의 형식에 값이
+  //   남아 있더라도 내보내지 않는다 — 화면이 그리는 조건과 **글자 그대로 같게** 둔다.
+  //   엑셀만 다르면 「화면에는 뜨는데 엑셀 칸만 비는」 어긋남이 된다.
+  //   ⚠️ 이 조건을 쓰는 자리는 이 함수를 포함해 **다섯 곳**이다. 목록과 근거는 인플루언서
+  //      상세(application.js)의 같은 자리 주석에 있다.
+  //   ⚠️ 옛 주석은 따라가는 화면을 「캠페인 목록·진행현황 카드」라고 적었는데 **틀렸다** —
+  //      캠페인 목록 열은 모집 형식을 아예 안 본다(그 열이 먼저 생겼고 주석이 하루 뒤에
+  //      쓰였다). 주석이 「나는 X 를 따라간다」고 선언해도 그 X 를 직접 확인할 것.
+  //   ⚠️ 행사는 **선정형만** 내보낸다 — 선착순형 비공개 행사에는 뽑는 기간이 없다.
   var pickSelection = function(c, key) {
-    return (c.recruit_type === 'gifting') ? (c[key] || '') : '';
+    var isEvt = (typeof isEventCampaign === 'function') && isEventCampaign(c);
+    var isSel = (typeof isSelectionEvent === 'function') && isSelectionEvent(c);
+    var wants = (c.recruit_type === 'gifting') || (c.recruit_type === 'visit' && (!isEvt || isSel));
+    return wants ? (c[key] || '') : '';
   };
   campaigns.forEach(function(c) {
     var campApps = (appsByCampId && appsByCampId[c.id]) || [];
@@ -549,6 +496,17 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
     var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '심사중' : s === 'rejected' ? '미승인' : s === 'cancelled' ? '취소' : (s || ''); };
     var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
 
+    // 정렬: 캠페인 번호 → 인플루언서 이름(한자 우선). 여러 캠페인 결과물 엑셀과 **같은 규칙**이다.
+    //   ⚠️ 캠페인 묶음을 먼저 지켜야 한다 — 이름만으로 섞으면 한 캠페인의 신청자가 흩어진다.
+    allCampApps.sort(function(a, b) {
+      var ca = ((a._campMeta || {}).campaign_no || '').toString();
+      var cb = ((b._campMeta || {}).campaign_no || '').toString();
+      if (ca !== cb) return ca.localeCompare(cb, 'ja');
+      var ua = userByEmail[a.user_email] || {};
+      var ub = userByEmail[b.user_email] || {};
+      return compareInfluencerName(influencerSortName(ua, a.user_name), influencerSortName(ub, b.user_name), 1);
+    });
+
     allCampApps.forEach(function(a) {
       var u = userByEmail[a.user_email] || {};
       var c = a._campMeta || {};
@@ -701,9 +659,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       if (ca !== cb) return ca.localeCompare(cb, 'ja');
       var ua = usersById[a.user_id] || {};
       var ub = usersById[b.user_id] || {};
-      var na = (ua.name_kanji || ua.name || '').toString();
-      var nb = (ub.name_kanji || ub.name || '').toString();
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
     });
 
     var wb = new ExcelJS.Workbook();
@@ -932,6 +888,16 @@ async function exportCampaignApplicationsExcel(campId) {
     var users = await fetchInfluencers();
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+
+    // 인플루언서 이름순 정렬 (한자 우선) — 결과물 엑셀 네 갈래가 쓰는 것과 **같은 기준**이다.
+    //   ⚠️ 예전에는 정렬이 아예 없어 조회 순서(신청일 최신순)가 그대로 나갔다. 같은 사람을
+    //      두 엑셀에서 찾을 때 한쪽은 이름순·한쪽은 날짜순이라 대조가 어려웠다(2026-09-01 요청).
+    //   ⚠️ 이름이 비어 있으면 뒤로 보낸다 — 빈 이름이 앞을 다 채우면 목록을 못 읽는다.
+    apps.sort(function(a, b) {
+      var ua = userByEmail[a.user_email] || {};
+      var ub = userByEmail[b.user_email] || {};
+      return compareInfluencerName(influencerSortName(ua, a.user_name), influencerSortName(ub, b.user_name), 1);
+    });
 
     // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
     var auditEmails = {};
@@ -1177,9 +1143,7 @@ async function exportCampaignDeliverables(campId) {
     groupList.sort(function(a, b) {
       var ua = userById[a.user_id] || {};
       var ub = userById[b.user_id] || {};
-      var na = (ua.name_kanji || ua.name || '').toString();
-      var nb = (ub.name_kanji || ub.name || '').toString();
-      return na.localeCompare(nb, 'ja');
+      return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
     });
 
     // 6) 워크북 생성
@@ -1439,7 +1403,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   });
   var groupList = Object.values(groups).sort(function(a, b) {
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
-    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+    return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
   });
 
   // ── 3) 컬럼 계산 — 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N ─────────────
@@ -1660,7 +1624,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     var cb = (b.camp.campaign_no || '').toString();
     if (ca !== cb) return ca.localeCompare(cb, 'ja');
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
-    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+    return compareInfluencerName(influencerSortName(ua), influencerSortName(ub), 1);
   });
 
   // 컬럼 계산 — 캠페인 2 + 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N
@@ -1973,6 +1937,17 @@ async function exportEventTicketsExcel(campaignId) {
     await loadExcelJS();
     var wb = new ExcelJS.Workbook();
 
+    // 선정형 행사인가 — 이 파일에서 선정형 분기의 유일한 기준.
+    //   ⚠️ 「행사 모드」만 보면 안 된다. 선착순형 행사도 event_mode 는 참이라, 행사 전체가
+    //      「대기」를 잃고 「심사중」이 된다 — 선착순형에서 순번은 뜻이 살아 있는 값이다.
+    //   ⚠️ 캠페인을 못 찾으면 isSelectionEvent 가 거짓 → **종전 그대로** 나간다(안전측).
+    //      이 버튼은 예약 현황 페인에만 있어 _eventPaneCampObj 가 늘 채워져 있다.
+    var _evtCamp = (typeof _eventPaneCampObj !== 'undefined' && _eventPaneCampObj
+                    && _eventPaneCampObj.id === campId)
+      ? _eventPaneCampObj
+      : (Array.isArray(allCampaigns) ? allCampaigns : []).find(function (c) { return c.id === campId; });
+    var isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(_evtCamp);
+
     // ── 시트 1: 타임별 집계 ──────────────────────────────────
     var ws1 = wb.addWorksheet('타임별 집계');
     ws1.columns = [
@@ -1983,7 +1958,9 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '확정',   key: 'conf',  width: 8 },
       { header: '입장',   key: 'ent',   width: 8 },
       { header: '미입장', key: 'no',    width: 9 },
-      { header: '대기',   key: 'wait',  width: 8 },
+      // 선정형에서 waitlist 는 「캔슬 대기」가 아니라 **「심사중」**이다(설계 1 — 같은 값을
+      //   다른 뜻으로 재사용). 화면 표·탭과 같은 말을 쓴다(eventTicketStatusLabel 참고).
+      { header: isSelEvent ? '심사중' : '대기', key: 'wait', width: 8 },
       { header: '취소',   key: 'canc',  width: 8 },
     ];
     slots.forEach(function (s) {
@@ -2013,6 +1990,8 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '이름(가나)', key: 'kana',  width: 18 },
       { header: '예약번호', key: 'code',  width: 12 },
       { header: '상태',     key: 'st',    width: 12 },
+      // 선정형은 순번을 아예 안 넣는다(마이그레이션 378). 열은 자리를 지키되 **값을 비운다** —
+      //   「3번」처럼 보이면 뽑히는 순서가 정해져 있다는 오해를 준다.
       { header: '대기순번', key: 'wp',    width: 9 },
       { header: '입장 시각', key: 'ent',  width: 20 },
       { header: '처리자',   key: 'by',    width: 12 },
@@ -2040,8 +2019,9 @@ async function exportEventTicketsExcel(campaignId) {
         kanji: inf.name_kanji || '',
         kana:  inf.name_kana || '',
         code:  t.ticket_code || '',
-        st:    (typeof eventTicketStatusLabel === 'function') ? eventTicketStatusLabel(view) : view,
-        wp:    t.waitlist_position || '',
+        st:    (typeof eventTicketStatusLabel === 'function') ? eventTicketStatusLabel(view, isSelEvent) : view,
+        // 선정형은 순번이 없다 — 값이 남아 있더라도 내보내지 않는다(위 열 주석 참조).
+        wp:    isSelEvent ? '' : (t.waitlist_position || ''),
         ent:   t.entered_at ? new Date(t.entered_at).toLocaleString('ko-KR') : '',
         by:    t.entered_by_name || '',
         scan:  Number(t.scan_count || 0),

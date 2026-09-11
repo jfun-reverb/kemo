@@ -133,7 +133,26 @@ const _ERR_DICT = {
 
 function friendlyErrorJa(e) {
   // 처리된 에러도 관리자 오류 로그로 수집 (마이그레이션 165) — 수집 실패는 무음
-  if (typeof collectClientError === 'function') { try { collectClientError(e, 'handled'); } catch(_){} }
+  //   🔴 **「예상된 거부」 판정을 여기서도 해야 한다.** 예전에는 `expected` 를 안 넘겨서,
+  //      이 함수를 타고 온 것은 **전부 「예상 못 한 오류」로 기록**됐다. 이 함수가
+  //      화면에 오류를 보여주는 **주 경로**라, 정원 마감·마감 지남·연령 미달·중복 응모 같은
+  //      **정상 거부가 그대로 미해결 배지를 부풀렸다**(2026-08-31 확인).
+  //   ⚠️ 판정 목록은 `shared.js` 의 `APP_ERROR_EXPECTED_PATTERNS` 하나뿐이다 — 여기에
+  //      따로 두지 않는다(두 벌이 되면 한쪽만 늘어난다). shared.js 가 먼저 실려 있다.
+  //   ⚠️ `expected` 는 **거르는 값이 아니라 분류하는 값**이다 — 행은 그대로 쌓이고
+  //      관리자 화면이 진짜 결함과 갈라 보여줄 뿐이다.
+  if (typeof collectClientError === 'function') {
+    try {
+      let _expected = false;
+      try {
+        // 코드값(`e.code`)도 함께 본다 — `logAppError`(shared.js)와 같은 방식(한 벌)
+        const _s0 = [e?.code, e?.message || e].filter(Boolean).map(String).join(' ');
+        _expected = typeof APP_ERROR_EXPECTED_PATTERNS !== 'undefined'
+          && APP_ERROR_EXPECTED_PATTERNS.some(re => re.test(_s0));
+      } catch(_) { /* 판정 실패는 「예상 못 함」으로 둔다 — 놓치는 쪽이 안전하다 */ }
+      collectClientError(e, 'handled', { expected: _expected });
+    } catch(_){}
+  }
   const lang = (typeof getLang === 'function' ? getLang() : 'ja') === 'ko' ? 'ko' : 'ja';
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
@@ -147,7 +166,8 @@ function friendlyErrorJa(e) {
   if (/campaign_deleted|recruit_not_open/.test(s)) return t.recruitNotOpen;
   // 탈퇴 절차 중인 계정(마이그레이션 359) — 일반 permission 규칙보다 **먼저** 매칭해야
   //   「권한이 없습니다」로 뭉개지지 않는다.
-  if (/account_withdrawn/.test(s)) return t.accountWithdrawn;
+  //   already_withdrawn(422) — 확정된 계정의 두 번째 탈퇴 신청 거부. 같은 문구로 보여준다.
+  if (/account_withdrawn|already_withdrawn/.test(s)) return t.accountWithdrawn;
   // 정산이 끝난 응모의 영수증 재제출 차단(마이그레이션 301) — 서버가 코드 접두어를 붙여
   // 거부한다. 등록하지 않으면 인플루언서 화면(일본어)에 한국어 원문이 그대로 노출된다.
   if (/settlement_locked_receipt/.test(s)) return t.settlementLockedReceipt;
@@ -272,7 +292,11 @@ function campaignPeriodsCell(camp) {
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
-// 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백
+// 🔴 **유료 기능이고, 이제 아무도 부르지 않는다** — 전부 아래 storageThumbUrl 로 옮겼다.
+//    호출량이 포함량(주기당 원본 100장)을 매 주기 시작하자마자 넘겨 요금이 나갔다
+//    (2026-08-31 실측 1,710장, 결제 주기 첫날에 이미 381장).
+// ⚠️ **되살리지 말 것.** 새 화면에서 이 함수를 부르면 그 자리만큼 요금이 다시 난다.
+// ⚠️ 죽은 코드인 줄 알고 지우지 말 것 — 되돌릴 여지로 일부러 남겨 뒀다(사양서 결정).
 function imgThumb(url, width, quality) {
   if (!url || typeof url !== 'string') return url;
   if (!url.includes('/storage/v1/object/public/')) return url;
@@ -282,11 +306,52 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
 }
 
+// 저장소 이미지의 썸네일 주소 — **올릴 때 함께 저장해 둔 작은 사본**을 가리킨다.
+//   `{폴더}/xxx.jpg` → `{폴더}/thumb/xxx.jpg` 로 **경로 규칙**만 바꾼다.
+//   그래서 데이터베이스에 칸을 만들 필요가 없다(uploadImage 가 같은 파일 이름으로 저장한다).
+// 🔴 이 함수가 유료 변환(imgThumb)을 대신하는 자리다 — 되돌리면 요금이 다시 나간다.
+// ⚠️ 썸네일이 아직 없는 옛 사진은 400/404 가 나고, **호출부의 data-orig + onerror 가 원본으로
+//    되돌린다.** 그 폴백이 있는 자리에서만 이 함수를 쓸 것.
+// ⚠️ **아는 폴더만 바꾼다** — 모르는 경로는 그대로 돌려준다. 그래야 썸네일을 안 만드는
+//    자리(아웃바운드 명단 등)에 잘못 붙어 영영 안 뜨는 주소가 되지 않는다.
+// ⚠️ 통마다 판정이 다르다:
+//   `campaign-images` 는 첫 칸이 **용도 폴더**(campaigns·receipts…)라 목록으로 거른다.
+//   `outbound-influencer-images` 는 첫 칸이 **회원 고유번호**라 거를 목록을 만들 수 없다 —
+//   그 통은 대표 이미지 전용이므로 **통 전체**를 대상으로 본다.
+const THUMB_FOLDERS = ['campaigns', 'receipts', 'review-images', 'content'];
+const THUMB_ALL_BUCKETS = ['outbound-influencer-images'];
+function storageThumbUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const MARKER = '/storage/v1/object/public/';
+  const i = url.indexOf(MARKER);
+  if (i === -1) return url;
+  const after = url.slice(i + MARKER.length);
+  const b = after.indexOf('/');
+  if (b === -1) return url;
+  const bucket = after.slice(0, b);
+  const rest = after.slice(b + 1);
+  const slash = rest.indexOf('/');
+  if (slash === -1) return url;
+  const folder = rest.slice(0, slash);
+  const ok = bucket === 'campaign-images'
+    ? THUMB_FOLDERS.indexOf(folder) !== -1
+    : THUMB_ALL_BUCKETS.indexOf(bucket) !== -1;
+  if (!ok) return url;
+  if (rest.slice(slash + 1).startsWith('thumb/')) return url;   // 이미 썸네일 주소면 그대로
+  return url.slice(0, i + MARKER.length) + bucket + '/' + folder + '/thumb/' + rest.slice(slash + 1);
+}
+// 옛 이름 — 캠페인 전용이던 시절의 호출부가 남아 있을 때를 위한 별칭.
+//   ⚠️ 새 코드는 storageThumbUrl 을 쓸 것.
+const campThumbUrl = storageThumbUrl;
+
 // 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
 // opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+// ⚠️ **opts.thumb 의 숫자는 이제 크기가 아니라 「썸네일을 쓸지」의 표시로만 읽는다** —
+//    저장해 둔 사본이 720px 한 벌뿐이라 호출부마다 크기를 고를 수 없다. 호출부 6곳을
+//    고치지 않으려고 인자를 그대로 받는다. opts.quality 도 같은 이유로 받기만 한다.
 function renderCroppedImg(url, _ignoredCrop, opts) {
   opts = opts || {};
-  const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
+  const thumb = opts.thumb ? storageThumbUrl(url) : url;
   const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
   return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }

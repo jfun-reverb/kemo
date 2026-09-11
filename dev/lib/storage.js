@@ -78,7 +78,7 @@ async function restoreRolePermissionsDefaults() {
 }
 
 async function fetchCampaigns() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 조회에서 항상 제외.
     // fetchCampaigns() 는 인플루언서 앱(캠페인 목록·상세·마이페이지)과 관리자 여러
@@ -87,6 +87,7 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
     );
+    _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
@@ -94,12 +95,14 @@ async function fetchCampaigns() {
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    // ⚠️ 조회 실패가 **데모용 가짜 캠페인 목록**으로 대체된다(동작은 종전 유지).
-    //    기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없었다.
+    // ⚠️ 기록이 없으면 「캠페인이 이상하게 보인다」는 문의가 와도 원인을 찾을 길이 없다.
+    //    🔴 **운영에서는 이제 가짜로 대체하지 않는다**(`demoCampaignsForDisplay`) — 빈 배열이
+    //       돌아가고, 화면이 아래 표시를 보고 「못 불러왔습니다」로 안내한다.
+    _campaignsLoadFailed = true;
     logAppError('fetchCampaigns', e);
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -128,6 +131,13 @@ const ADMIN_LIST_COLUMNS = [
   // 목록에서 행사 캠페인을 구분하고(타임 관리·예약 현황 진입), 비공개 캠페인에
   // 자물쇠 표시를 하려면 목록 조회 단계에서 두 값이 필요하다.
   'event_mode', 'is_invite_only',
+  // 접수 방식(마이그레이션 376) — 선착순형/선정형. 진행현황의 예약 표가 이 값으로
+  //   뽑기·탈락 버튼을 그릴지, 대기 순번을 감출지, 「대기」를 「심사중」이라 부를지를 정한다.
+  //   ⚠️ 그 화면은 캠페인을 **allCampaigns 에서 찾아 쓰는데**, 캠페인 목록을 먼저 거쳐 온
+  //      경우 그 캐시가 이 함수의 결과다. 여기서 빠지면 값이 undefined 가 되어
+  //      isSelectionEvent() 가 늘 거짓 → **버튼이 영영 안 뜨고 오류도 안 난다**
+  //      (event_mode·is_invite_only 를 바로 위에 넣은 것과 똑같은 이유).
+  'event_selection_mode',
   // 행사 묶음(마이그레이션 291) — 「현장 확인 열기」 버튼이 **기다리지 않고** 판단해야 한다.
   //   버튼이 눌린 뒤 조회를 하면 그 비동기 때문에 사용자 제스처가 끊겨 브라우저가
   //   새 탭을 차단한다(실측). 목록 조회 때 함께 받아 두면 동기로 열 수 있다.
@@ -135,7 +145,7 @@ const ADMIN_LIST_COLUMNS = [
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
-  if (!db) return DEMO_CAMPAIGNS.slice();
+  if (!db) return demoCampaignsForDisplay();
   try {
     // 마이그레이션 254 — 보관 삭제(soft delete)된 캠페인은 일반 관리자 목록·대시보드·
     // 운영현황 집계에서 제외(사양서 §설계 「일반 목록·집계 제외」). 「삭제됨」 탭
@@ -152,9 +162,9 @@ async function fetchCampaignsForAdminList() {
       await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   } catch(e) {
-    return DEMO_CAMPAIGNS.slice();
+    return demoCampaignsForDisplay();
   }
 }
 
@@ -164,6 +174,20 @@ async function fetchCampaignsForAdminList() {
 //   approved = 승인 수, pending = 대기 수
 // 신청 전건(약 3,000건)을 클라이언트로 전송하던 방식에서 서버 집계 1회 호출로 전환.
 // DEMO_MODE 또는 호출 실패 시 빈 맵({}) 반환 — 카운트 0으로 폴백.
+// 위 함수는 실패에도 {} 를 준다. 운영현황 일정 뷰는 실패를 「—」로 그려야 하므로
+// 실패에 null 을 주는 감싸개를 따로 둔다(반환 규약 변경은 기존 호출부 전체에 번진다).
+async function fetchCampaignApplicationCountsOrNull() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_application_counts');
+    if (error) throw error;
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = { total: Number(row.total || 0), approved: Number(row.approved || 0), pending: Number(row.pending || 0) };
+      return map;
+    }, {});
+  } catch(e) { console.error('fetchCampaignApplicationCountsOrNull:', e); return null; }
+}
+
 async function fetchCampaignApplicationCounts() {
   if (!db) return {};
   try {
@@ -181,6 +205,34 @@ async function fetchCampaignApplicationCounts() {
   } catch(e) {
     console.error('fetchCampaignApplicationCounts:', e);
     return {};
+  }
+}
+
+// 관리자 캠페인 목록 전용 결과물 집계 조회 — 서버 집계 함수(get_campaign_deliverable_counts, 401).
+// 반환: { [campaign_id]: { receipt_submitted, receipt_approved, result_submitted, result_approved } }
+//
+// 🔴 **실패는 null, 성공했는데 0건은 {} 로 돌려준다.** 바로 위
+//    fetchCampaignApplicationCounts 는 실패에도 {} 를 주는데, 그러면 화면이
+//    「서버에 못 물어봤다」와 「낸 사람이 아무도 없다」를 구분하지 못해 **0 을 그린다.**
+//    이 저장소가 마이그레이션 276·332 에서 세운 원칙이라 새 함수는 지킨다.
+// ⚠️ 캠페인마다 부르지 않는다 — 목록 전체에 **한 번**만 부르고 맵에서 꺼내 쓴다.
+async function fetchCampaignDeliverableCounts() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_deliverable_counts');
+    if (error) throw error;
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        receipt_submitted: Number(row.receipt_submitted || 0),
+        receipt_approved:  Number(row.receipt_approved  || 0),
+        result_submitted:  Number(row.result_submitted  || 0),
+        result_approved:   Number(row.result_approved   || 0),
+      };
+      return map;
+    }, {});
+  } catch(e) {
+    console.error('fetchCampaignDeliverableCounts:', e);
+    return null;   // 🔴 {} 로 바꾸지 말 것 — 화면이 실패를 「0건」으로 그린다
   }
 }
 
@@ -365,7 +417,7 @@ async function softDeleteCampaign(campaignId) {
     //   화면이 「삭제 실패」로 보여 관리자가 다시 누르게 된다(이미 지워진 것을 또 지운다).
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', receiptPaths),
+      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
     ]);
     return { deletedApplications, storageResult: { msgResult, receiptResult } };
   });
@@ -912,10 +964,18 @@ async function countActiveApplications(campaignId) {
     if (error) throw error;
     return count || 0;
   } catch(e) {
-    // ⚠️ 조회 실패가 0(=「아무도 응모 안 함」)으로 읽혀 **정원이 남은 것처럼 보인다**.
-    //    반환값은 종전 그대로 두고 기록만 남긴다 — 뒤바뀐 판정을 사후에 추적하기 위함.
+    // 🔴 **조회 실패는 `null` 로 돌려준다 — 0(=「아무도 응모 안 함」)과 구분해야 한다.**
+    //    예전에는 0 을 돌려줘서 부르는 쪽이 「응모자 없음」으로 읽었고, 관리자 확인창이
+    //    **조용히 안 떴다**(신청자가 있는 캠페인의 주의사항·참여방법·NG 를 경고 없이 바꾸게 된다).
+    //    ⚠️ 부르는 쪽 4곳의 동작:
+    //      · application.js:63  `if (cnt > 0)` — null 도 false 라 캐시값 유지. **종전과 같다**
+    //      · application.js:975 `realCount >= slots` — null 도 false 라 안 막는다. **종전과 같고**
+    //        실제 삽입은 데이터베이스 트리거(048, 현재 원본 179)가 막는다
+    //      · admin.js 확인창 2곳 — **null 을 「모른다」로 보고 경고를 띄우도록 고쳤다**(이번 변경)
+    //    ⚠️ 새로 부르는 곳을 만들면 **null 을 반드시 따로 다뤄야 한다** — 숫자로만 비교하면
+    //       실패가 조용히 「0명」이 된다. 그게 이 결함의 원래 모습이었다.
     logAppError('countActiveApplications', e);
-    return 0;
+    return null;
   }
 }
 
@@ -990,6 +1050,34 @@ async function fetchPendingDeliverableCount() {
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
 }
 
+// 「올려만 두고 제출 안 한」 신청 목록 (작업표 2026-08-25 작업 7)
+//   관리자 목록에서 **「냈다가 멈춘 사람」과 「아예 안 낸 사람」이 구분이 안 되던** 것을 푼다.
+//   둘 다 「미제출」로 똑같이 보여서, 운영에서 26건이 4개월간 쌓이는 동안 아무도 몰랐다.
+//
+//   🔴 **임시저장을 빼는 필터를 푸는 함수가 아니다.** 관리자 목록·인증 판정·정산 후보는
+//      임시저장을 계속 제외해야 한다(풀면 아직 내지도 않은 것이 검수 대상·지급 대상이 된다 —
+//      마이그레이션 318 이 고친 것과 정반대 방향의 사고다). 그래서 **별도 조회로
+//      「있다/없다」만** 얹는다. 판정에는 일절 끼어들지 않는다.
+//
+//   반환: 임시저장이 하나라도 있는 application_id 의 Set. **조회 실패는 `null`** —
+//     호출부는 그때 아무 표시도 하지 않는다(0건인 척하면 「없는 것」으로 읽힌다).
+async function fetchStalledDraftApplications() {
+  if (!db) return null;
+  try {
+    const ids = new Set();
+    // ⚠️ PostgREST 는 한 번에 1000행에서 잘린다 — 페이지로 나눠 전건을 본다.
+    //    임시저장이 많을 일은 드물지만, 잘리면 「있는데 없다고」 보이는 쪽으로 틀린다.
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('deliverables')
+        .select('application_id').eq('status', 'draft').range(from, from + 999);
+      if (error) throw error;
+      (data || []).forEach(r => { if (r.application_id) ids.add(r.application_id); });
+      if (!data || data.length < 1000) break;
+    }
+    return ids;
+  } catch(e) { console.error('[fetchStalledDraftApplications]', e); return null; }
+}
+
 // 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
 async function fetchPendingApplicationCount() {
   if (!db) return 0;
@@ -1003,9 +1091,11 @@ async function fetchPendingApplicationCount() {
 }
 
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
-async function fetchDeliverables(filters) {
-  if (!db) return [];
-  try {
+// 결과물 조회 본체 — 실패하면 **던진다**. 아래 두 감싸개가 실패를 각자 다르게 돌려준다.
+//   fetchDeliverables            → 실패에도 [] (기존 호출부 전부가 이 규약을 전제한다 — 바꾸지 말 것)
+//   fetchDeliverablesByCampaignIds → 실패에 null, 0건에 []  (운영현황 일정 뷰, 2026-09-07)
+// opts.skipInfluencers — 인플루언서 이름이 필요 없는 집계용이면 회원 조회를 건너뛴다.
+async function _queryDeliverables(filters, opts) {
     const data = await fetchAllPaged(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
@@ -1022,16 +1112,47 @@ async function fetchDeliverables(filters) {
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
       if (filters?.campaign_id && filters.campaign_id !== 'all') q = q.eq('campaign_id', filters.campaign_id);
+      // 캠페인 id 배열(운영현황 일정 뷰) — 200개 단위로 잘라 부르는 것은 호출 쪽 몫.
+      if (Array.isArray(filters?.campaignIds)) q = q.in('campaign_id', filters.campaignIds);
       // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
       if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
       else q = q.order('updated_at', {ascending: false});
       return q;
     });
+    if (opts?.skipInfluencers) return data;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
     const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
     const infMap = await fetchInfluencersByIds(userIds);
     return data.map(d => ({...d, influencers: infMap[d.user_id] || null}));
+}
+
+async function fetchDeliverables(filters) {
+  if (!db) return [];
+  try {
+    return await _queryDeliverables(filters);
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+// 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
+//   🔴 실패는 null, 0건은 []. 위 fetchDeliverables 와 규약이 다르다 — 그 화면은
+//      「서버에 못 물어봤다」와 「낸 사람이 없다」를 구분해 그려야 한다(마이그레이션 276 원칙).
+//   ⚠️ id 는 200개 단위로 잘라 **차례로** 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다).
+//      조각 하나라도 실패하면 **통째로 null** — 성공한 조각만 합치면 0건과 구분되지 않는
+//      낮은 숫자가 그려진다.
+const DELIV_CAMPAIGN_ID_CHUNK = 200;
+async function fetchDeliverablesByCampaignIds(campaignIds, opts) {
+  if (!db) return null;
+  const ids = (campaignIds || []).filter(Boolean);
+  if (!ids.length) return [];
+  const chunk = (opts && opts.chunkSize) || DELIV_CAMPAIGN_ID_CHUNK;
+  try {
+    const out = [];
+    for (let i = 0; i < ids.length; i += chunk) {
+      const part = await _queryDeliverables({ campaignIds: ids.slice(i, i + chunk) }, { skipInfluencers: true });
+      out.push(...part);
+    }
+    return out;
+  } catch(e) { console.error('[fetchDeliverablesByCampaignIds]', e); return null; }
 }
 
 async function fetchDeliverableById(id) {
@@ -1184,7 +1305,10 @@ async function markAllNotificationsRead() {
 async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
-    const {data, error} = await db?.from('deliverables')
+    // [B-7] 1,000행 대응 — 같은 파일의 fetchDeliverables 는 하는데 이 함수만 안 했다. 캠페인 하나의
+    //   결과물이 운영 최대 74건이라 지금은 안 잘리지만, 잘리면 오류 없이 인증 상태가 틀린다.
+    //   정렬에 id 를 덧붙여 페이지 경계를 안정시킨다.
+    const data = await fetchAllPaged(() => db.from('deliverables')
       // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
       //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
       .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
@@ -1192,8 +1316,8 @@ async function fetchDeliverablesByCampaign(campaignId) {
       // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
       //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
       .neq('status', 'draft')
-      .order('submitted_at', {ascending: false});
-    if (error) throw error;
+      .order('submitted_at', {ascending: false})
+      .order('id', {ascending: true}));
     return data || [];
   } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
 }
@@ -1504,11 +1628,15 @@ async function submitDrafts(applicationId, kind) {
   //      제출을 미뤄 자격이 없고(반려 이력 없음), 틱톡은 마감 후 반려→재제출로 정당한데,
   //      「提出」 한 번에 둘이 같이 올라가면서 틱톡까지 실패한다.
   //      그래서 **행별로 나눠** UPDATE 한다. 일부만 성공해도 그만큼은 제출된다.
-  if (!db || !applicationId) return {count: 0, failed: 0, error: null};
-  let count = 0, failed = 0, firstErr = null;
+  //   ⚠️ `failedChannels` — 못 나간 것이 **어느 채널인지** 호출부가 이름으로 알려 줄 수 있게
+  //      함께 돌려준다. 예전에는 건수만 있어서 「제출하지 못한 항목이 있습니다」로 끝났고,
+  //      인플루언서는 무엇을 다시 손봐야 하는지 알 수 없었다. 게시물·리뷰 인증샷만 채널이
+  //      있으므로 영수증은 늘 빈 배열이다(호출부가 빈 배열이면 이름을 안 붙인다).
+  if (!db || !applicationId) return {count: 0, failed: 0, failedChannels: [], error: null};
+  let count = 0, failed = 0, firstErr = null, failedChannels = [];
   await retryWithRefresh(async () => {
-    count = 0; failed = 0; firstErr = null;   // 세션 갱신 후 재시도 시 누적 방지
-    let q = db.from('deliverables').select('id')
+    count = 0; failed = 0; firstErr = null; failedChannels = [];   // 세션 갱신 후 재시도 시 누적 방지
+    let q = db.from('deliverables').select('id, post_channel')
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
@@ -1524,6 +1652,7 @@ async function submitDrafts(applicationId, kind) {
         catch(e) { console.error('[submit_deliverable rpc]', e); logAppError('submit_deliverable', e); }
       } catch(e) {
         failed++;
+        if (row.post_channel && failedChannels.indexOf(row.post_channel) === -1) failedChannels.push(row.post_channel);
         if (!firstErr) firstErr = e;
         console.error('[submitDrafts row]', row.id, e);
         // ⚠️ 1건이라도 성공하면 아래에서 firstErr 를 버린다(호출부로 안 던짐) —
@@ -1535,7 +1664,7 @@ async function submitDrafts(applicationId, kind) {
   // 한 건도 못 올렸고 사유가 있으면 호출부로 전파한다 (사양서 §설계 6 「2단계 필수」).
   //   삼키면 화면이 「提出するものがありません(제출할 것이 없습니다)」라는 틀린 안내를 띄운다.
   if (count === 0 && firstErr) throw firstErr;
-  return {count, failed, error: firstErr};
+  return {count, failed, failedChannels, error: firstErr};
 }
 
 // 결과물 제출 가부 배치 조회 (마이그레이션 276) — 사양서 2026-07-29 §설계 3-(1)
@@ -1603,6 +1732,235 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// 캠페인 리포트 (1-A 단계) — 조회 계층
+//   사양서 : docs/specs/2026-09-03-campaign-report-builder.md
+//   작업표 : docs/specs/2026-09-03-campaign-report-builder-breakdown.md 「작업 5」
+//
+// ⚠️ 이 묶음의 규칙 하나 — **조회 실패는 `null`, 0건은 `[]`(또는 `{}`)** 로 구분해서
+//    돌려준다. 합치면 「서버에 못 물어본 것」과 「진짜 없는 것」이 화면에서 같은 빈칸이
+//    되고, 리포트는 브랜드에게 나가는 표라 그 둘이 절대 같지 않다.
+//    (이 저장소가 반복해서 데인 자리 — 마이그레이션 276 에서 세운 원칙)
+// ══════════════════════════════════════════════════════════════
+
+// 리포트를 만든다. 성공하면 리포트 고유번호, 실패하면 null.
+//   ⚠️ 서버가 모르는 캠페인이 섞이면 **조용히 빼지 않고 거부**한다(403).
+//      그래서 여기서도 오류를 삼키지 말고 화면이 사유를 볼 수 있게 다시 던진다.
+async function createCampaignReport(title, campaignIds, includeAudit) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('create_campaign_report', {
+    p_title: title,
+    p_campaign_ids: campaignIds || [],
+    p_include_audit: !!includeAudit
+  });
+  if (error) { console.error('[createCampaignReport]', error); throw error; }
+  return data || null;
+}
+
+// 리포트 목록. 실패 null / 0건 [].
+//   ⚠️ 목록은 행 단위 보안 정책으로 걸러 조회한다 — 권한이 없으면 오류가 아니라 0건이 온다.
+//      그래서 「0건」을 「권한 없음」으로 읽지 말 것(권한은 화면이 따로 본다).
+async function fetchCampaignReports() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('list_campaign_reports');
+    if (error) throw error;
+    // ⚠️ 반환 칸에 o_ 접두어가 붙어 있다(42702 모호한 참조 회피 — 마이그레이션 405).
+    //    화면이 그 접두어를 알 이유가 없으므로 여기서 벗겨서 넘긴다.
+    return (data || []).map(function(r) {
+      return {
+        id: r.o_id, title: r.o_title,
+        created_by: r.o_created_by, created_by_name: r.o_created_by_name,
+        created_at: r.o_created_at, updated_at: r.o_updated_at,
+        include_audit: r.o_include_audit, version: r.o_version,
+        campaign_count: Number(r.o_campaign_count || 0),
+        ext_count: Number(r.o_source_count || 0),   // 410 부터 서버가 센다
+      };
+    });
+  } catch (e) { console.error('[fetchCampaignReports]', e); return null; }
+}
+
+// 리포트 1건 + 담긴 캠페인 목록. 없으면 null 이 정상 반환값이다.
+//   ⚠️ **없는 것과 실패한 것이 여기서는 둘 다 null 이다** — 서버 함수가 없는 리포트에
+//      null 을 돌려주기 때문. 부르는 쪽이 구분해야 하면 오류를 잡아서 따로 알릴 것.
+async function fetchCampaignReport(reportId) {
+  if (!db || !reportId) return null;
+  try {
+    const {data, error} = await db.rpc('get_campaign_report', {p_report_id: reportId});
+    if (error) throw error;
+    return data || null;
+  } catch (e) { console.error('[fetchCampaignReport]', e); return null; }
+}
+
+// 리포트를 지운다. true=지웠음 / false=이미 없음(멱등) / null=실패.
+async function deleteCampaignReport(reportId) {
+  if (!db || !reportId) return null;
+  try {
+    const {data, error} = await db.rpc('delete_campaign_report', {p_report_id: reportId});
+    if (error) throw error;
+    return !!data;
+  } catch (e) { console.error('[deleteCampaignReport]', e); return null; }
+}
+
+// 여러 캠페인의 결과물을 한 번에. 실패 null / 0건 [].
+//
+// 🔴 **`fetchDeliverables()` 를 못 쓴다** — 그쪽은 `campaign_id` 를 **단일 값 `eq`** 로
+//    받아서, 리포트처럼 캠페인이 여럿이면 한 캠페인만 온다(그런데 오류는 안 난다).
+// ⚠️ 임베드 구성은 `fetchDeliverables` 와 **같게** 맞춰 뒀다 — 갈라지면 리포트 표와
+//    결과물 화면이 서로 다른 값을 보여준다.
+// ⚠️ `.neq('status','draft')` 도 같다. 임시저장을 넣으면 「아직 안 낸 것」이 리포트에
+//    실린다(정산이 같은 함정을 겪어 마이그레이션 318 로 고쳤다).
+// ⚠️ id 가 많으면 주소가 길어져 잘리므로 **100개씩 나눠** 부른다.
+async function fetchDeliverablesForReport(campaignIds) {
+  if (!db) return null;
+  const ids = [...new Set((campaignIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    let rows = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100);
+      const part = await fetchAllPaged(() => db.from('deliverables').select(`
+        id, kind, status, version,
+        receipt_url, order_number, purchase_date, purchase_amount, memo,
+        post_url, post_channel, post_submissions,
+        reject_reason, reject_template_code,
+        reviewed_by, reviewed_at, submitted_at, updated_at,
+        application_id, user_id, campaign_id,
+        submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
+        submitted_by_admin_evidence,
+        applications:application_id (status),
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+      `).neq('status', 'draft').in('campaign_id', chunk)
+        .order('submitted_at', {ascending: false}));
+      rows = rows.concat(part || []);
+    }
+    return rows;
+  } catch (e) { console.error('[fetchDeliverablesForReport]', e); return null; }
+}
+
+// 리포트에 쓸 인플루언서 정보. 실패 null / 0건 {}.
+//
+// 🔴 **반드시 가림막 통로(`influencers_admin_view`)로 부른다.** 원본 표 `influencers` 를
+//    직접 부르면 마이그레이션 312 때문에 **오류 없이 조용히 빈 결과**가 온다 —
+//    화면은 그냥 「이름 없음」으로 보이고 오류 기록에도 안 남는다.
+//    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
+//    서버가 알아서 가린다.
+// ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+async function fetchInfluencersForReport(userIds) {
+  if (!db) return null;
+  const ids = [...new Set((userIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const map = {};
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(function(r) { map[r.id] = r; });
+    }
+    return map;
+  } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
+}
+
+// ── 리포트 구성 바꾸기 (마이그레이션 407) ──
+//   셋 다 서버가 거부한 사유를 그대로 던진다 — 화면이 「알 수 없는 오류」로 덮지 않게.
+
+// 캠페인 더하기. 실제로 더해진 개수(이미 담긴 것은 건너뛴다).
+async function addReportCampaigns(reportId, campaignIds) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('add_report_campaigns', {p_report_id: reportId, p_campaign_ids: campaignIds || []});
+  if (error) { console.error('[addReportCampaigns]', error); throw error; }
+  return Number(data || 0);
+}
+
+// 캠페인 한 줄 빼기 — ⚠️ 연결 표의 줄 고유번호(row_id)로 지목한다(원본이 지워진 줄도 뺄 수 있게).
+async function removeReportCampaign(reportId, rowId) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('remove_report_campaign', {p_report_id: reportId, p_row_id: rowId});
+  if (error) { console.error('[removeReportCampaign]', error); throw error; }
+  return !!data;
+}
+
+async function updateReportTitle(reportId, title) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('update_report_title', {p_report_id: reportId, p_title: title});
+  if (error) { console.error('[updateReportTitle]', error); throw error; }
+  return !!data;
+}
+
+// ── 리포트 외부 첨부 (마이그레이션 409·410) ──
+async function addReportSource(reportId, serviceCode, extNo, extName, fileName, rows) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('add_report_source', {
+    p_report_id: reportId, p_service_code: serviceCode, p_ext_no: extNo,
+    p_ext_name: extName, p_file_name: fileName, p_rows: rows || []
+  });
+  if (error) { console.error('[addReportSource]', error); throw error; }
+  return data || null;
+}
+async function removeReportSource(sourceId) {
+  if (!db) return null;
+  const {data, error} = await db.rpc('remove_report_source', {p_source_id: sourceId});
+  if (error) { console.error('[removeReportSource]', error); throw error; }
+  return !!data;
+}
+// 첨부의 참가자 행. 실패 null / 0건 []. 563행이면 1,000 한도 안이지만 습관대로 페이지 반복.
+async function fetchReportExtRows(sourceIds) {
+  if (!db) return null;
+  const ids = [...new Set((sourceIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  try {
+    return await fetchAllPaged(() => db.from('campaign_report_ext_rows')
+      .select('id, source_id, member_no, account_id, mission_status, order_no, purchase_amount, receipt_url, receipt_at, review_kind, qoo10_urls, qoo10_at, cosme_urls, cosme_at')
+      .in('source_id', ids).order('member_no'));
+  } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
+}
+
+// 이 캠페인을 담고 있는 **살아 있는 공유 리포트** 수 — 캠페인 삭제 확인 창용(작업 26 ③).
+//   살아 있다 = 공유가 켜져 있고 만료일이 없거나 아직 안 지났다(브랜드가 지금 열 수 있는 상태).
+//   ⚠️ 조회 실패는 null, 없으면 0 — 부르는 쪽은 **0 이나 null 이면 아무것도 안 그린다**.
+//   ⚠️ 두 표 모두 「리포트 관리」 열람 권한이 있어야 읽힌다(행 단위 보안 정책). 그 권한이 없는
+//      관리자가 삭제하면 빈 결과(0)가 돌아와 안내가 안 뜬다 — 삭제를 막는 장치가 아니라 안내라 감수한다.
+async function countLiveSharedReportsForCampaign(campaignId) {
+  if (!db || !campaignId) return null;
+  try {
+    const {data: links, error: e1} = await db.from('campaign_report_campaigns').select('report_id').eq('campaign_id', campaignId);
+    if (e1) throw e1;
+    const ids = [...new Set((links || []).map(l => l.report_id).filter(Boolean))];
+    if (!ids.length) return 0;
+    const {data, error} = await db.from('campaign_reports').select('id, share_expires_at')
+      .in('id', ids).eq('share_enabled', true);
+    if (error) throw error;
+    const now = Date.now();
+    return (data || []).filter(r => !r.share_expires_at || new Date(r.share_expires_at).getTime() > now).length;
+  } catch (e) { console.error('[countLiveSharedReportsForCampaign]', e); return null; }
+}
+
+// ── 리포트 공유 (마이그레이션 411~413) — 관리자 쪽 6종. 서버가 거부한 사유를 그대로 던진다.
+async function fetchReportShareStatus(reportId) {
+  if (!db) return null;
+  try { const {data, error} = await db.rpc('get_report_share_status', {p_report_id: reportId}); if (error) throw error; return data || null; }
+  catch (e) { console.error('[fetchReportShareStatus]', e); return null; }
+}
+async function enableReportShare(reportId, password, expiresAt) {
+  const {data, error} = await db.rpc('enable_report_share', {p_report_id: reportId, p_password: password || null, p_expires_at: expiresAt || null});
+  if (error) throw error; return data;
+}
+async function disableReportShare(reportId) {
+  const {data, error} = await db.rpc('disable_report_share', {p_report_id: reportId}); if (error) throw error; return !!data;
+}
+async function resetReportSharePassword(reportId, password) {
+  const {data, error} = await db.rpc('reset_report_share_password', {p_report_id: reportId, p_password: password}); if (error) throw error; return !!data;
+}
+// 🔴 원문을 볼 수 있는 유일한 통로. 부르면 「누가 언제 봤는지」가 서버에 남는다.
+async function revealReportSharePassword(reportId) {
+  const {data, error} = await db.rpc('reveal_report_share_password', {p_report_id: reportId}); if (error) throw error; return data;
+}
+async function updateReportShareSettings(reportId, expiresAt, columns) {
+  const {data, error} = await db.rpc('update_report_share_settings', {p_report_id: reportId, p_expires_at: expiresAt || null, p_columns: columns || null}); if (error) throw error; return !!data;
+}
+
 async function fetchDeliverableEvents(deliverableId) {
   if (!db) return [];
   try {
@@ -1633,6 +1991,70 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 }
 
 // ── Image Storage ──
+// 이미지의 **작은 썸네일**을 본체 옆에 한 벌 더 저장한다(`{폴더}/thumb/{같은 이름}`).
+//   왜: Supabase 의 유료 이미지 변환 기능을 안 쓰기 위해서다. 포함량이 주기당 원본 100장인데
+//       1,710장을 써서 요금이 나갔다(2026-08-31 실측, 결제 주기 첫날에 이미 381장).
+//   🔴 **원본은 손대지 않는다.** 영수증은 관리자가 「영수증에서 읽기」로 **글자를 기계가 읽는데**,
+//      압축본을 읽히면 자리를 잃는다 — 2026-09-01 실측에서 7.2MB 영수증의 주문번호
+//      `1209389647` 이 압축 후 `120938964` 로 한 자리 빠졌다(원본은 정확했다).
+//      그래서 「올릴 때 압축」이 아니라 **「썸네일을 따로」**를 골랐다.
+//   ⚠️ 파일 이름을 **본체와 똑같이** 둔다 — 화면(`storageThumbUrl`)이 주소 규칙으로 찾는다.
+//      확장자도 바꾸지 않고 `contentType` 만 실제 형식으로 준다.
+//   ⚠️ `keepIfSmall` — 목표 폭보다 좁은 사진은 다시 그리지 않는다. 다시 그리면 JPEG 가 되어
+//      **투명한 PNG 의 배경이 검게** 된다(이 저장소에 기록된 함정).
+//   ⚠️ **실패는 삼킨다.** 썸네일이 없으면 화면이 `onerror` 로 본체를 그린다 —
+//      썸네일 실패가 업로드를 막으면 안 된다(`_shrinkRichImage` 와 같은 원칙).
+async function _uploadThumbCopy(blob, path, mime, maxWidth, bucket) {
+  try {
+    if (typeof compressImageFile !== 'function') return;
+    var thumbPath = _thumbPathOf(path);
+    if (!thumbPath) return;
+    var src = new File([blob], 'thumb-src', {type: mime});
+    var small = await compressImageFile(src, {maxWidth: maxWidth, keepIfSmall: true});
+    var {error} = await db.storage.from(bucket || 'campaign-images').upload(thumbPath, small, {
+      contentType: small.type || mime,
+      upsert: true,              // 다시 올릴 때 막히지 않게 (본체는 upsert:false 그대로)
+      cacheControl: '86400'
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[uploadImage] 썸네일 저장 실패 — 본체만 저장한다', e);
+  }
+}
+
+// 폴더별 썸네일 가로 폭. **여기 없는 폴더는 썸네일을 안 만든다.**
+//   ⚠️ 이 목록은 화면 쪽 `THUMB_FOLDERS`(ui.js)와 **같은 집합**이어야 한다 —
+//      한쪽에만 있으면 있지도 않은 썸네일 주소를 요청하거나(폴백이 받지만 요청이 두 번),
+//      만들어 놓고 아무도 안 쓰는 파일이 쌓인다.
+//   🔴 720 은 캠페인 상세 첫 장이 요구하는 값이다(application.js).
+//      480 은 영수증·인증샷 — 뜨는 자리가 22~56픽셀이고 **확대는 원본을 연다.**
+//      개인정보라 사본은 **작을수록 낫다**(유출 시 피해가 작다).
+const THUMB_WIDTH_BY_PREFIX = {
+  'campaigns': 720,
+  'receipts': 480,
+  'review-images': 480,
+  'content': 720
+};
+// 아웃바운드 명단 사진(outbound-influencer-images) — 첫 칸이 회원 고유번호라 폴더로 못 거른다.
+//   통 전체가 썸네일 대상(ui.js THUMB_ALL_BUCKETS)이고 폭은 명단 화면(96픽셀)용 480.
+//   ⚠️ [E-4] 예전엔 업로드 함수 안에 480 이 그대로 박혀 있어 이 표와 따로 놀았다.
+const THUMB_WIDTH_OUTBOUND = 480;
+
+// 썸네일 경로 규칙 — **여기 한 곳**. 「{첫 칸}/thumb/{나머지}」.
+//   ⚠️ [E-4] 같은 규칙이 _uploadThumbCopy·_withThumbPaths·deleteOutboundImage 에 인라인으로
+//      세 벌 있었다(Edge Function purge-withdrawal-media 의 withThumbs 도 같은 모양 — 그쪽은
+//      공유 모듈이 없어 각자 든다). 규칙을 바꿀 땐 이 함수와 ui.js storageThumbUrl·그 Edge Function 을 함께.
+//   이미 썸네일 경로(둘째 칸이 thumb/)면 null — 호출부가 「이미 썸네일」로 읽는다.
+function _thumbPathOf(path) {
+  if (!path || typeof path !== 'string') return null;
+  var slash = path.indexOf('/');
+  if (slash === -1) return null;
+  var rest = path.slice(slash + 1);
+  if (rest.startsWith('thumb/')) return null;
+  return path.slice(0, slash) + '/thumb/' + rest;
+}
+
+
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
@@ -1651,6 +2073,8 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
+  // 폴더별로 썸네일을 한 벌 더 만든다 (표에 없는 폴더는 안 만든다)
+  if (THUMB_WIDTH_BY_PREFIX[prefix]) await _uploadThumbCopy(blob, path, mime, THUMB_WIDTH_BY_PREFIX[prefix]);
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
@@ -1686,6 +2110,10 @@ async function uploadContentImage(file) {
     cacheControl: '86400'
   });
   if (error) throw error;
+
+  // 설명글 이미지도 썸네일을 한 벌 더 만든다 — 캠페인 상세가 화면 폭에 맞춰 그리므로
+  //   원본(최대 1600px)을 통째로 받을 이유가 없다. 실패는 삼킨다(위 함수와 같은 원칙).
+  await _uploadThumbCopy(file, path, file.type, THUMB_WIDTH_BY_PREFIX['content']);
 
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
@@ -1846,11 +2274,13 @@ async function countPendingApplications(campaignId) {
 //   저장이 충돌로 취소됐을 때 방금 올라간 파일을 되돌리는 용도라, 실패해도
 //   사용자 흐름을 막지 않는다(참조 없는 파일이 남을 뿐 데이터 손상은 아니다).
 //   URL → 버킷 상대 경로 변환은 campaign-images 공용 헬퍼를 재사용한다.
+//   [E-3] 썸네일도 함께 지운다 — 다른 파기 경로 넷(보관 삭제·감사용 청소 2·예약 파기)은 하는데
+//   이 다섯 번째 경로만 원본만 지워, 참조가 없어 나중에 찾아 지울 수도 없는 사본이 남았다.
 async function deleteCampImages(urls) {
   if (!db || !Array.isArray(urls) || !urls.length) return {ok: true, failedPaths: []};
   const paths = urls.map(_receiptUrlToStoragePath).filter(Boolean);
   if (!paths.length) return {ok: true, failedPaths: []};
-  return await _deleteStorageFiles('campaign-images', paths);
+  return await _deleteStorageFiles('campaign-images', _withThumbPaths(paths));
 }
 
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
@@ -2311,6 +2741,12 @@ async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_
       p_next_participation_set_id: next?.participation_set_id || null,
       p_prev_participation_steps: prev?.participation_steps ?? null,
       p_next_participation_steps: next?.participation_steps ?? null,
+      // ⚠️ 조회 실패(null)는 여기서 **0 으로 저장된다** — `app_count_at_change` 가 NOT NULL 이고
+      //    원격 호출 함수도 `COALESCE(p_app_count, 0)` 이라 「모름」을 담을 자리가 없다(마이그레이션 077).
+      //    🔴 대신 **`bypass_warning_ack=true` 이면서 `app_count=0`** 인 조합이 「조회 실패」를 뜻한다 —
+      //       확인창은 신청자가 1명 이상일 때만 떴으므로 그 조합은 예전에는 나올 수 없었다.
+      //       (077 의 컬럼 주석도 그 조합을 「일반적이지 않다」고 적고 있다.)
+      //    이력에 「모름」을 제대로 담으려면 데이터베이스 변경이 필요하다 — 별건.
       p_app_count: Number.isFinite(app_count) ? app_count : 0,
       p_bypass_ack: !!bypass_ack,
       // migration 109: NG 사항 파라미터 (미전달 시 RPC 기본값 NULL)
@@ -3279,7 +3715,10 @@ async function cancelApplication(applicationId, opts) {
   } catch(e) {
     // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
     const msg = e?.message || 'unknown';
-    console.error('[cancelApplication]', e); logAppError('cancelApplication', e);
+    console.error('[cancelApplication]', e);
+    // 서버가 던지는 거부 코드는 화면이 전용 문구로 받는 정상 거부다 — 목록을 넘기지 않으면
+    //   같은 거부가 여기서 「예상 못 한 오류」로 한 번 더 쌓인다(2026-09-02 운영 실측).
+    logAppError('cancelApplication', e, CANCEL_APPLICATION_EXPECTED);
     return {ok: false, error: msg};
   }
 }
@@ -3620,48 +4059,9 @@ async function fetchWithdrawalOpsAlert() {
   }
 }
 
-// ── 밀린 파기 건수 (마이그레이션 364, 작업 14 경고용) ──
-//
-// 🔴 **실패를 0 으로 돌려주지 않는다 — `null` 이다.**
-//   이 저장소가 여러 번 세운 원칙(마이그레이션 276): 「조회 실패」와 「0건」은
-//   다른 사실이다. 0 으로 뭉개면 화면이 「밀린 것 없음」으로 그리는데, 실제로는
-//   **못 물어본 것**일 수 있다. 그 둘을 섞으면 파기가 멈춰 있어도 화면은
-//   조용하다 — 이 경고가 막으려던 바로 그 상황이다.
-//   → 화면은 `null` 이면 **아무것도 안 그린다**(0 과 같은 모습이지만 이유가
-//     다르다. 「0건이라 안 그림」과 「몰라서 안 그림」을 콘솔로 구분할 수 있게
-//     로그는 남긴다).
-//
-// ⚠️ 서버 함수는 관리자가 아니면 **0 이 아니라 42501 오류**를 낸다(364).
-//   그 경우도 여기서는 `null` 이 된다 — 권한 없는 등급에게 경고를 안 그리는
-//   것이 맞고, 그게 「0건」으로 보이면 안 된다.
-//
-// ⚠️ **이 값은 「항상 0 이 정상」이 아니다.** 관리자를 겸한 회원은 파기 대상
-//   목록에서는 빠지지만(352 가 그 회원의 확정을 거부한다) 이 건수에는 계속
-//   잡힌다 — 의도된 설계다(눈에 보이게). 그래서 0 이 아닌 상태가 계속되면
-//   「배치가 멈췄다」가 아니라 「사람이 처리해야 할 회원이 있다」일 수 있다.
-async function fetchOverdueWithdrawalPurgeCounts() {
-  if (!db) return null;
-  try {
-    const [media, email] = await Promise.all([
-      db.rpc('count_overdue_withdrawal_media_purge'),
-      db.rpc('count_overdue_withdrawal_email_blocks'),
-    ]);
-    // 둘 중 하나라도 실패하면 전체를 모르는 것으로 본다 — 반쪽 숫자로
-    // 「이만큼 밀렸다」고 그리면 나머지 절반이 조용히 사라진다.
-    if (media.error || email.error) {
-      console.warn('[fetchOverdueWithdrawalPurgeCounts] 조회 실패',
-        media.error || email.error);
-      return null;
-    }
-    return {
-      media: Number(media.data) || 0,   // 영수증·인증샷
-      email: Number(email.data) || 0,   // 재가입 차단 해시
-    };
-  } catch(e) {
-    console.warn('[fetchOverdueWithdrawalPurgeCounts]', e);
-    return null;
-  }
-}
+// [C-8] fetchOverdueWithdrawalPurgeCounts 는 2026-09-07 에 지웠다 — 호출부 0곳이었고 메시지 첨부 몫(368)을
+//   안 세어 두 파기 중 하나만 보는 값이었다. 밀린 파기 집계는 get_withdrawal_ops_alert(366→419)가
+//   세 종류를 다 세고 fetchWithdrawalOpsAlert 가 그것을 부른다.
 
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
 // allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
@@ -3767,9 +4167,16 @@ const MSG_ATTACH_BUCKET = 'application-message-attachments';
 // get_application_messages RPC 가 호출자 역할(본인 인플 / is_admin)에 따라 마스킹.
 async function fetchApplicationMessages(applicationId) {
   if (!db || !applicationId) return [];
-  const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
-  if (error) throw error;
-  return data || [];
+  // 바로 아래 발송 함수와 같은 재시도 보호. 이쪽만 빠져 있었다(2026-08-31).
+  //   ⚠️ 이것이 막는 것은 「세션은 있는데 접근 토큰만 만료된」 경우다.
+  //      **세션이 통째로 없는 경우는 못 막는다** — `retryWithRefresh` 는
+  //      'row-level security'·'JWT expired' 일 때만 재시도한다. 그쪽은
+  //      `openMessagesPage` 의 로그인 확인이 막는다(messaging.js).
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
+    if (error) throw error;
+    return data || [];
+  });
 }
 
 // 메시지 발송 (인플루언서·관리자 공용, sender_kind 는 서버가 판별).
@@ -3842,7 +4249,13 @@ async function fetchInfluencerUnreadMessageThreads() {
     .select('application_id, campaign_id, unread_for_influencer, last_message_at')
     .gt('unread_for_influencer', 0)
     .order('last_message_at', { ascending: false });
-  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return []; }
+  // 🔴 **실패는 `null`, 0건은 `[]`** — 부르는 쪽이 갈라 볼 수 있어야 한다.
+  //   예전에는 실패도 `[]` 였고, 부르는 쪽이 그걸 「안 읽은 것이 없다」로 읽어
+  //   **관리자 답장이 와 있는데 배지가 안 뜨는** 상태가 됐다(운영 실측 2026-09-02:
+  //   조회 시간 초과 9회). 회원은 답장이 온 줄 모르고, 관리자 쪽에는 무시한 것처럼 보인다.
+  //   ⚠️ 이 저장소가 세운 원칙 그대로다 — 「조회 실패(null)와 항목 0건([])을 구분한다」
+  //      (마이그레이션 276 의 결과물 게이트).
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); logAppError('fetchInfluencerUnreadMessageThreads', error); return null; }
   return data || [];
 }
 
@@ -4029,7 +4442,9 @@ async function fetchApplicationHideHistory(applicationId) {
 // 일괄 발송 (관리자 → N명 BCC). applicationIds 는 이미 cancelled 제외된 배열.
 //   contextKind: 'campaign'|'manual', contextCampaignId/contextFilter 는 감사·재현용 스냅샷.
 //   반환: broadcast_id (uuid).
-async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null) {
+//   `parentBroadcastId` 를 주면 그 발송의 **추가분**으로 사슬에 잇는다(390).
+//   ⚠️ 서버가 거부 셋으로 사슬을 지킨다 — 남의 발송 / 그 사슬의 마지막이 아님 / 부모가 회수됨.
+async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null, parentBroadcastId = null) {
   if (!db) throw new Error('DB 미연결');
   return await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('send_application_message_bulk', {
@@ -4040,6 +4455,7 @@ async function sendApplicationMessageBulk(applicationIds, body, attachments = []
       p_context_campaign_id: contextCampaignId,
       p_context_filter: contextFilter,
       p_title: title || null,   // 관리자 전용 제목 (인플 메시지 본문 미포함)
+      p_parent_broadcast_id: parentBroadcastId || null,
     });
     if (error) throw error;
     return data;
@@ -4068,11 +4484,16 @@ async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
 //   - 팔로워: minFollowers 있을 때 followerMode 로 해석(채널별=followerChannel 기준 / 합산)
 //   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
 //   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
-async function resolveBulkRecipients(campaignId, filters = {}) {
+// 화면 열쇠말 → 서버 인자 변환. **이 함수 하나만 이 변환을 안다.**
+//   🔴 두 벌이 되면 한쪽만 고쳐져 **「1차와 조건이 다른 추가 발송」**이 된다.
+//      화면 토글 하나(`fullApproved`)가 서버 인자 둘로 갈리는 자리가 있어 특히 그렇다.
+//   `excludeBroadcastId` 를 주면 그 발송이 속한 **사슬 전체**가 이미 보낸 응모건을 뺀다(389).
+async function resolveBulkRecipients(campaignId, filters = {}, excludeBroadcastId = null) {
   if (!db || !campaignId) return [];
   const hasFollower = (filters.minFollowers != null && filters.minFollowers !== '');
   const {data, error} = await db.rpc('resolve_bulk_recipients', {
     p_campaign_id: campaignId,
+    p_exclude_broadcast_id: excludeBroadcastId || null,
     p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
     p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
     p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
@@ -4123,6 +4544,18 @@ async function getBroadcastDetail(broadcastId) {
   const {data, error} = await db.rpc('get_broadcast_detail', { p_broadcast_id: broadcastId });
   if (error) throw error;
   return data || null;
+}
+
+// 관리자 전용 제목 고치기 (마이그레이션 393). 저장된 제목을 돌려준다(비웠으면 null).
+//   ⚠️ 오류를 삼키지 않는다 — 화면이 「저장됐다」로 잘못 알리면 안 된다.
+async function updateBroadcastTitle(broadcastId, title) {
+  if (!db || !broadcastId) throw new Error('발송을 지정해 주세요');
+  const {data, error} = await db.rpc('update_broadcast_title', {
+    p_broadcast_id: broadcastId,
+    p_title: title == null ? null : String(title),
+  });
+  if (error) throw error;
+  return data ?? null;
 }
 
 // ══════════════════════════════════════
@@ -4354,23 +4787,68 @@ function _receiptUrlToStoragePath(url) {
   return path || null;
 }
 
+// 지울 경로 목록에 **그 파일의 썸네일 경로를 함께** 넣는다.
+// 🔴 영수증·인증샷은 개인정보다. 원본만 지우고 썸네일을 남기면 **「지웠다」고 적어 놓고
+//    실제로는 남아 있는** 상태가 된다 — 공개 통이라 주소를 아는 사람은 그대로 볼 수 있다.
+// ⚠️ 썸네일이 없는 옛 파일이라도 안전하다 — 저장소의 `remove()` 는 **없는 파일에도 성공으로
+//    답한다**(2026-08-20 실측). 그래서 「있으면 지우고 없으면 넘어간다」가 저절로 된다.
+// ⚠️ 반대로 그 성질 때문에 **응답만으로는 지워졌는지 알 수 없다** — 확인이 필요하면 따로 조회할 것.
+function _withThumbPaths(paths) {
+  if (!Array.isArray(paths) || !paths.length) return paths || [];
+  const out = [];
+  paths.forEach(function (p) {
+    if (!p || typeof p !== 'string') return;
+    out.push(p);
+    const slash = p.indexOf('/');
+    if (slash === -1) return;                      // 폴더 없는 경로 — 썸네일 없음
+    const folder = p.slice(0, slash);
+    if (!THUMB_WIDTH_BY_PREFIX[folder]) return;   // 썸네일을 안 만드는 폴더
+    const t = _thumbPathOf(p);                    // 이미 썸네일 경로면 null
+    if (t) out.push(t);
+  });
+  return out;
+}
+
 // Storage 파일 삭제 공통 헬퍼.
 // bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
 // 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
 // (일부 경로 삭제 실패가 흔적 제거 전체를 막지 않도록).
+//
+// 🔴 **경로를 100개씩 나눠 보낸다**(2026-09-07, 전수조사 E-1). 예전에는 한 번에 다 보냈는데,
+//    `_withThumbPaths` 가 경로를 정확히 2배로 늘린 뒤로 응모가 많은 캠페인·감사용 전체 청소는
+//    배열이 수백 개가 된다. 이 헬퍼를 부르는 세 자리(캠페인 보관 삭제·감사용 청소 2종)는 전부
+//    **데이터베이스 행을 먼저 지우고 경로만 돌려받는** 구조(325)라, 여기서 거부되면 경로는
+//    이미 사라져 **개인정보 파일이 공개 통에 남은 채 다시 찾을 방법이 없다**. 예약 실행
+//    (`purge-withdrawal-media`)이 100개씩 나누는 것과 같은 크기.
+//    ⚠️ 묶음 하나가 실패해도 나머지는 계속 보낸다 — 실패한 묶음의 경로만 failedPaths 에 모은다.
+//    ⚠️ 순차로 보낸다(한꺼번에 던지면 요청 수 제한에 걸린다).
+//    ⚠️ 개발서버 실측(2026-09-07): 없는 경로 100~10,000개를 한 번에 보내도 전부 성공(최대 340ms) —
+//       **요청 크기 상한은 안 걸렸다.** ⚠️ 없는 경로는 서버가 메타데이터 조회에서 0건으로 끝내
+//       가벼운 길만 타므로, 「있는 파일」이 많을 때의 시간 초과까지 증명한 것은 아니다.
+//       그래도 나누는 이유는 ①실제 파일이 많을 때 한 요청이
+//       길어져 시간 초과로 통째로 실패하는 것 ②한 묶음 실패가 전체를 실패로 만드는 것을 막기 위해서다.
+const STORAGE_DELETE_CHUNK = 100;
 async function _deleteStorageFiles(bucket, paths) {
   if (!db || !Array.isArray(paths) || paths.length === 0) return { ok: true, failedPaths: [] };
-  try {
-    const { error } = await db.storage.from(bucket).remove(paths);
-    if (error) {
-      console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패:`, error);
-      return { ok: false, failedPaths: paths };
+  const failedPaths = [];
+  for (let i = 0; i < paths.length; i += STORAGE_DELETE_CHUNK) {
+    const group = paths.slice(i, i + STORAGE_DELETE_CHUNK);
+    try {
+      const { error } = await db.storage.from(bucket).remove(group);
+      if (error) {
+        console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패 (${i}~${i + group.length - 1}):`, error);
+        failedPaths.push(...group);
+      }
+    } catch (e) {
+      console.warn(`[_deleteStorageFiles] ${bucket} 예외 (${i}~${i + group.length - 1}):`, e);
+      failedPaths.push(...group);
     }
-    return { ok: true, failedPaths: [] };
-  } catch (e) {
-    console.warn(`[_deleteStorageFiles] ${bucket} 예외:`, e);
-    return { ok: false, failedPaths: paths };
   }
+  if (failedPaths.length) {
+    // 🔴 경로는 데이터베이스에서 이미 사라졌다 — 여기 남는 목록이 유일한 단서다. 콘솔에 통째로 남긴다.
+    console.error(`[_deleteStorageFiles] ${bucket} 못 지운 경로 ${failedPaths.length}건 — 저장소에 남아 있다`, failedPaths);
+  }
+  return { ok: failedPaths.length === 0, failedPaths };
 }
 
 // 모든 감사용 계정 흔적 제거.
@@ -4401,7 +4879,7 @@ async function purgeAuditDataAll() {
 
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', receiptPaths),
+      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
     ]);
 
     return {
@@ -4438,7 +4916,7 @@ async function purgeAuditDataForCampaign(campaignId) {
 
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', receiptPaths),
+      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
     ]);
 
     return {
@@ -4490,6 +4968,7 @@ async function getOrientSheet(token) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
 // 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
 async function saveOrientDraft(token, data, version) {
@@ -4518,6 +4997,7 @@ async function saveOrientDraft(token, data, version) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
 // 발행 전까지 재제출 가능(사양서 결정⑨).
 // 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
@@ -4551,18 +5031,47 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
-// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190 → 205 → 424) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
-// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
-// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
-// 반환: {success, id, token, token_expires_at} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId) {
+// [424] 4인자(brand_id, application_id, form_type, channel) — 관리자가 발급 때 형식(리뷰어/시딩)과
+//   시딩 채널(5종 중 하나)을 정한다. data 초기값은 두 갈래:
+//   · formType 있음 → {issued:{form_type,channel,issued_at}, brand:{name,contact_name,email,phone}, cards:[카드 1개]}
+//   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
+// 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
+//   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel
+async function createOrientSheet(brandId, applicationId, formType, channel) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
     const { data, error } = await db.rpc('create_orient_sheet', {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
+      p_form_type: formType || null,
+      p_channel: channel || null,
     });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 기준값 (마이그레이션 426, 오리엔시트 단순화 2단계) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — 합치면 화면이 「환율 0」으로 그린다.
+async function fetchQuoteSettings() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_settings');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteSettings]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, key, prev_amount, amount} | {success:false, reason}
+async function updateQuoteSetting(key, amount) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_setting', { p_key: key, p_amount: amount });
     if (error) throw error;
     return data;
   });
@@ -5059,10 +5568,13 @@ async function uploadOutboundImage(file, obId) {
   const {error} = await db.storage.from(OUTBOUND_IMAGE_BUCKET)
     .upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
   if (error) throw error;
+  // 명단 화면은 96픽셀로 그린다 — 썸네일을 한 벌 더 둬서 유료 변환을 안 쓴다.
+  //   ⚠️ 지금 이 통은 비어 있지만(대상 0건), 명단이 늘면 조용히 요금이 나던 자리다.
+  await _uploadThumbCopy(file, path, file.type, THUMB_WIDTH_OUTBOUND, OUTBOUND_IMAGE_BUCKET);
   return path;
 }
 
-// 경로 → 공개 URL. 공개 버킷이라 imgThumb() 로 썸네일 변환 가능.
+// 경로 → 공개 URL. 표시는 storageThumbUrl() 로 저장해 둔 썸네일을 가리킨다(ui.js).
 function outboundImagePublicUrl(path) {
   if (!db || !path) return '';
   const {data} = db.storage.from(OUTBOUND_IMAGE_BUCKET).getPublicUrl(path);
@@ -5072,7 +5584,11 @@ function outboundImagePublicUrl(path) {
 // 대표 이미지 삭제(교체·행 삭제 시 정리). best-effort — 실패해도 throw 하지 않는다.
 async function deleteOutboundImage(path) {
   if (!db || !path) return;
-  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove([path]); }
+  // 썸네일도 함께 지운다 — 남기면 지운 사람 사진이 주소만 알면 계속 보인다.
+  //   ⚠️ 없는 파일에도 remove() 는 성공으로 답하므로 옛 파일이라도 안전하다.
+  const thumb = _thumbPathOf(path);
+  const paths = thumb ? [path, thumb] : [path];
+  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove(paths); }
   catch(e) { console.warn('[deleteOutboundImage]', e); }
 }
 
@@ -5086,7 +5602,7 @@ async function deleteOutboundImage(path) {
 // ⚠️ campaign_no·amount_source·amount_issue 3종은 마이그레이션 262에서 추가. amount_issue 가
 //   있는 행(금액 NULL·0 이하)은 서버가 등록에서 조용히 건너뛰므로 화면이 미리 선택을 잠근다.
 async function fetchPastUnregisteredSettlements() {
-  if (!db) return [];
+  if (!db) return null;   // [B-9] 「실패 = null」 계약 — 아래 주석. 저장소가 없으면 모르는 것이지 0건이 아니다.
   try {
     const {data, error} = await db.rpc('get_past_unregistered_settlements');
     if (error) throw error;
@@ -5320,6 +5836,37 @@ async function promoteEventWaitlist(slotId) {
   return res || {ok: false, reason: 'not_found'};
 }
 
+// 선정형 행사 — 지목한 심사중(waitlist) 티켓들을 한 번에 당선 확정(관리자 전용,
+// 마이그레이션 379). 타임별 정원을 넘기면 부분 통과 없이 전부 거부하고 어느 타임에서
+// 몇 명이 넘쳤는지(slots) · 이미 처리된 티켓이 있으면 누구인지(tickets) 를 함께 돌려준다
+// — 실패 사유를 삼키거나 뭉뚱그리지 말 것(관리자가 그 정보로 다시 골라 눌러야 한다).
+// 실패는 예외가 아니라 {ok:false, reason} 으로 온다.
+async function pickEventTickets(ticketIds) {
+  if (!db) return {ok: false, reason: 'demo_mode'};
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('pick_event_tickets', {p_ticket_ids: ticketIds});
+    if (error) throw error;
+    return data || {ok: false, reason: 'not_found'};
+  });
+}
+
+// 선정형 행사 — 지목한 심사중(waitlist) 티켓들을 한 번에 탈락 처리(관리자 전용,
+// 마이그레이션 379). 예약(event_tickets)은 cancelled, 신청(applications)은 **cancelled
+// 가 아니라 rejected** 로 갈라 저장한다(확정 1 — 다음날 아침 낙첨 메일을 타게 하기
+// 위함). 새 앱 알림은 없다 — 일반 모집 낙첨과 동일. 실패는 예외가 아니라
+// {ok:false, reason} 으로 온다.
+async function rejectEventTickets(ticketIds, reasonNote) {
+  if (!db) return {ok: false, reason: 'demo_mode'};
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('reject_event_tickets', {
+      p_ticket_ids: ticketIds,
+      p_reason_note: reasonNote || null
+    });
+    if (error) throw error;
+    return data || {ok: false, reason: 'not_found'};
+  });
+}
+
 // 현장 입장 확인(관리자 전용). 이미 입장한 티켓도 ok:true 로 오되
 // already_entered=true + entered_at(첫 입장 시각)이 함께 온다.
 // ⚠️ 예약 날짜가 오늘이 아니면 {ok:false, reason:'other_day'} 가 오고 **아직 기록되지 않았다**.
@@ -5347,11 +5894,19 @@ async function checkInTicket(ticketCode, confirmOtherDay, scopeCampaignIds) {
 
 // 본인 티켓 전체(취소분 포함 — 티켓 화면이 취소 상태도 보여준다).
 // 행 단위 보안 정책이 본인 행만 내려주므로 별도 조건이 필요 없다.
+// ⚠️ `applications:application_id (status)` 를 끼워 붙였다(S-5, 선정형 낙선 구분용) —
+//    바로 아래 fetchEventTicketsByCampaign 의 경고 주석과 같은 함정이다. 끼워 붙인
+//    표의 접근 정책에 막히면 예약 행은 다 오는데 끼운 쪽만 전부 null 이 되고,
+//    오류가 0건이라 아무도 모른다(마이그레이션 312, 2026-08-07~18 사고).
+//    ⚠️ 별명 `applications:` 을 그대로 둔다 — 바꾸면 오류도 안 나고 조회도 성공하는데
+//    값만 계속 빈다. status 하나만 받는다 — 새 사유 코드는 만들지 않기로 확정됐다
+//    (작업표 §12 확정 1, event_tickets.status='cancelled' + applications.status='rejected'
+//    조합으로 「선정 안 됨」을 가른다).
 async function fetchMyEventTickets() {
   if (!db) return [];
   try {
     const {data, error} = await db.from('event_tickets')
-      .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label)')
+      .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), applications:application_id (status)')
       .order('created_at', {ascending: false});
     if (error) throw error;
     return data || [];
@@ -5385,8 +5940,16 @@ async function fetchEventTicketsByCampaign(campaignId) {
 
 // 살아 있는 예약이 몇 건인지만 센다(취소 제외). 명단 전체를 받아오면 개인정보가
 // 필요 없는 곳까지 흘러가므로 건수만 받는다.
+// 🔴 **실패는 `null`, 진짜 0건은 `0`**(2026-09-07, 전수조사 F-1). 예전에는 실패도 0 을 돌려줬는데,
+//    이 값을 보는 안전 게이트 넷(접수 방식 잠금·「비공개」 끄기·행사 모드 끄기·방식 변경 저장)이
+//    전부 「0 = 예약 없음 = 바꿔도 된다」로 읽어 **조회가 죽는 순간 넷이 동시에 열렸다** —
+//    선정형으로 받은 예약이 있는 캠페인이 경고 없이 선착순형으로 저장되고, 되돌릴 화면 경로가 없다.
+//    호출부의 try/catch 는 여기서 오류를 삼켰으므로 **도달하지 않았다.**
+//    부르는 쪽은 `null` 이면 **막는 쪽**으로 기운다. 캠페인 id 가 없으면(신규 폼) 예약이 있을 수
+//    없으니 0 이 맞다.
 async function countActiveEventTickets(campaignId) {
-  if (!db || !campaignId) return 0;
+  if (!campaignId) return 0;
+  if (!db) return null;
   try {
     const {count, error} = await db.from('event_tickets')
       .select('id', {count: 'exact', head: true})
@@ -5394,7 +5957,7 @@ async function countActiveEventTickets(campaignId) {
       .neq('status', 'cancelled');
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.warn('[countActiveEventTickets]', e); return 0; }
+  } catch(e) { console.warn('[countActiveEventTickets]', e); return null; }   // 🔴 0 으로 바꾸지 말 것
 }
 
 // 관리자 예약 취소(마이그레이션 288). 본인 취소와 달리 시작 2시간 전 제한이 없다.
