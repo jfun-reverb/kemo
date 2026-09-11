@@ -72,6 +72,13 @@ window._supabaseLoaded = false;
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
   --tab-h:0px; /* deprecated: 바텀탭 제거됨. 과거 계산식 호환용 */
+
+  /* 넓은 화면 대응 — 값은 여기 한 곳에만 둔다(사양서 2026-09-11-wide-screen-layout §3-0).
+     --shell-max : 기둥(#appShell)·컨테이너·시트의 상한. 기본은 지금 값 480,
+                   폭 600 이상에서만 720 으로 올린다(아래 미디어 블록).
+     --reading-max: 글·폼의 읽기 폭. 폭 600 이상에서만 쓰인다. */
+  --shell-max:480px;
+  --reading-max:560px;
 }
 
 /* Material Design 타이포그래피 */
@@ -87,13 +94,22 @@ img{display:block;max-width:100%}
 .material-icons-round{font-size:24px;vertical-align:middle;translate:no}
 
 /* Mobile app shell */
-#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
+#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--shell-max);background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
 
 /* ── LAYOUT ── */
 .page{display:none}.page.active{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.container{max-width:480px;width:100%;margin:0 auto;padding:0 16px}
-.container-sm{max-width:480px;margin:0 auto;padding:0 16px}
-.container-md{max-width:480px;margin:0 auto;padding:0 16px}
+.container{max-width:var(--shell-max);width:100%;margin:0 auto;padding:0 16px}
+.container-sm{max-width:var(--shell-max);margin:0 auto;padding:0 16px}
+.container-md{max-width:var(--shell-max);margin:0 auto;padding:0 16px}
+
+/* 폭 600 이상(아이패드·아이폰 폴드 속 화면·폰 가로)에서만 기둥을 넓힌다.
+   600 미만은 한 픽셀도 안 바뀐다 — 위 :root 기본값이 지금과 같은 480 이다.
+   ⚠️ 좌우 안전영역은 기둥이 화면을 다 채우는 구간에서만 필요해 같은 블록에 둔다.
+      기둥이 overflow:hidden 이라 안쪽 요소는 자동으로 그 안에 앉는다. */
+@media(min-width:600px){
+  :root{--shell-max:720px}
+  #appShell{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+}
 
 /* ══════════════════════════════════
    COMPONENTS — 상단바, 버튼, 카드, 배지, 폼 (Material Design 3)
@@ -200,7 +216,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── MODAL (Material Bottom Sheet) ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:flex-end;justify-content:center;padding:0}
 .modal-overlay.open{display:flex}
-.modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
+.modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:var(--shell-max);max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
 .modal-header{padding:24px 24px 0;display:flex;align-items:flex-start;justify-content:space-between}
 .modal-title{font-size:20px;font-weight:700}
 .modal-close{width:30px;height:30px;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
@@ -307,7 +323,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .notif-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 
 /* ── FLOATING APPLY BAR ── */
-#detailFloatBar{display:none;position:fixed;bottom:var(--tab-h);left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--outline);padding:12px 16px;z-index:149;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+#detailFloatBar{display:none;position:fixed;bottom:var(--tab-h);left:50%;transform:translateX(-50%);width:100%;max-width:var(--shell-max);background:var(--surface);border-top:1px solid var(--outline);padding:12px 16px;z-index:149;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
 
 /* ── ANIMATIONS (Material Motion) ── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -331,7 +347,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── LEGAL MODAL ── */
 #legalModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;align-items:flex-end;justify-content:center}
 #legalModal.on{display:flex}
-#legalModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#legalModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
 #legalModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 #legalModal .legal-title{font-size:15px;font-weight:700}
 #legalModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
@@ -342,11 +358,15 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 #legalModal .legal-body dt{font-weight:600;color:var(--muted);margin-top:6px;font-size:12px}
 #legalModal .legal-body dd{margin:0 0 4px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* 로그인 안내 창 — 폭·모서리를 index.html 인라인에서 옮겨 왔다.
+   ⚠️ 인라인으로 두면 인라인이 아래 ≥600 규칙을 이겨 넓은 화면에서 안 바뀐다. */
+.login-prompt-overlay{align-items:flex-end}
+.login-prompt-sheet{max-width:var(--shell-max);border-radius:20px 20px 0 0}
 
 /* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
 #policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
 #policyNoticeModal.on{display:flex}
-#policyNoticeModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
 #policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 #policyNoticeModal .legal-title{font-size:15px;font-weight:700}
 #policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
@@ -356,7 +376,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
 .policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
 /* 홈 상단 배너 — GNB(.gnb height:56px) 바로 아래에 fixed 오버레이로 떠서 hero 위에 겹침(콘텐츠 안 밀림).
-   #appShell 이 transform 보유 → 자손 position:fixed 는 appShell(480px) 기준. 홈 외 페이지는 app.js navigate 에서 숨김. */
+   #appShell 이 transform 보유 → 자손 position:fixed 는 appShell(기둥 폭) 기준. 홈 외 페이지는 app.js navigate 에서 숨김. */
 #policyNoticeBannerWrap{position:fixed;top:56px;left:0;right:0;z-index:90;padding:10px 14px;pointer-events:none}
 #policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:auto}
 #policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
@@ -460,6 +480,34 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   animation:ptr-spin 0.8s linear infinite;
 }
 @keyframes ptr-spin{ to{ transform:rotate(360deg); } }
+
+/* ══════════════════════════════════════════════════════════════════
+   넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2
+   600 미만은 한 픽셀도 안 바뀐다. 여기 있는 것이 전부 그 조건 안이다.
+   ══════════════════════════════════════════════════════════════════ */
+@keyframes sheetFadeIn{from{opacity:0}to{opacity:1}}
+@media(min-width:600px){
+  /* 시트 — 아래 붙는 모양에서 가운데 카드로. 등장도 올라오기 대신 페이드.
+     ⚠️ 이미 가운데형인 대화창 7종(#alertModal·#cautionCompareModal·#applyActionModal·
+        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay·#cropModal)과
+        .notif-modal-body(top:15%)는 손대지 않는다.
+     ⚠️ 선택자를 묶지 않고 하나씩 적는다 — 자리 수를 세어 빠뜨린 곳을 찾는 검사가
+        작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
+  .modal-overlay{align-items:center}
+  .login-prompt-overlay{align-items:center}
+  .modal{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  #legalModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  #policyNoticeModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  .login-prompt-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+
+  /* 폼 — 가운데. 🔴 .form-row 는 관리자 문서도 쓰는 공용 클래스라 #appShell 로 좁힌다. */
+  #appShell .form-row{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+
+  /* 글 — 왼쪽 정렬 그대로 두고 폭만 묶는다(가운데로 옮기지 않는다). */
+  #appShell .rich-content{max-width:var(--reading-max)}
+  .legal-body{max-width:var(--reading-max)}
+  .legal-page-body{max-width:var(--reading-max)}
+}
 
 /* ══════════════════════════════════
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
@@ -680,6 +728,34 @@ html.preview-mode #page-detail .detail-back{display:none}
 }
 .deliv-past-toggle:hover{ color:var(--ink); border-color:var(--muted); }
 
+/* ══════════════════════════════════════════════════════════════════
+   넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2
+   600 미만은 한 픽셀도 안 바뀐다.
+   ⚠️ 이 블록은 파일 끝이라 위의 기본 규칙(.hero-sub 의 max-width:100% 등)보다
+      뒤에 오고, 그래서 이긴다. 자리를 위로 옮기지 말 것.
+   ⚠️ 선택자를 묶지 않고 하나씩 적는다(자리 수 검사가 완료 조건).
+   ══════════════════════════════════════════════════════════════════ */
+@media(min-width:600px){
+  /* 카드 — 한 장 크기를 폰과 비슷하게 유지하려고 열을 늘린다.
+     🔴 auto-fill 금지 — 375 폰이 1열이 된다(사양서 §2-1 ⑨). */
+  .camp-grid{grid-template-columns:repeat(3,1fr)}
+
+  /* 상세 대표 사진 — 넓은 폭에서 정사각이 화면을 다 먹지 않게. 가운데. */
+  #campSlider{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+
+  /* 글 — 왼쪽 정렬 그대로 두고 폭만 묶는다. */
+  .hero-sub{max-width:var(--reading-max)}
+  .guide-val{max-width:var(--reading-max)}
+  .caution-box{max-width:var(--reading-max)}
+  .invite-gate-hint{max-width:var(--reading-max)}
+  .dpb-step{max-width:var(--reading-max)}
+}
+/* 가로로 누운 넓은 화면(폴드 속 가로 951×669 등) — 높이가 짧아 정사각 사진이
+   첫 화면을 통째로 먹는다. 정사각이라 max-width 로 높이도 함께 잡힌다. */
+@media(min-width:600px) and (orientation:landscape){
+  #campSlider{max-width:min(var(--reading-max),70vh)}
+}
+
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
@@ -713,6 +789,14 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
 .birthdate-selects{display:flex;gap:6px}
 .birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}
+
+/* 넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2.
+   ⚠️ 파일 끝이라 위의 .auth-card{max-width:100%} 보다 뒤에 온다 — 자리를 옮기지 말 것.
+   ⚠️ #page-signup 의 인라인 max-width:560px 는 그대로 둔다(값이 같아 겹쳐도 무해하고,
+      지우면 600 미만에서 지금과 달라진다). */
+@media(min-width:600px){
+  .auth-card{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+}
 
 /* ══════════════════════════════════
    MY PAGE — マイページ (リスト → 詳細)
@@ -920,6 +1004,13 @@ html.preview-mode #page-detail .detail-back{display:none}
   .ticket-check circle,.ticket-check path{animation:none;stroke-dashoffset:0}
 }
 
+/* 넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2.
+   글은 왼쪽 정렬 그대로 두고 폭만 묶는다. */
+@media(min-width:600px){
+  .msg-faq-answer-body{max-width:var(--reading-max)}
+  .ticket-msg{max-width:var(--reading-max)}
+}
+
 </style>
 </head>
 <body>
@@ -1121,8 +1212,8 @@ html.preview-mode #page-detail .detail-back{display:none}
 </div>
 
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
-<div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
-  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
+<div id="loginPromptOverlay" class="login-prompt-overlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;justify-content:center">
+  <div class="login-prompt-sheet" style="background:#fff;width:100%;padding:24px 20px 36px">
     <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">

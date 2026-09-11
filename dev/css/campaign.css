@@ -216,3 +216,31 @@ html.preview-mode #page-detail .detail-back{display:none}
   line-height:1.5;
 }
 .deliv-past-toggle:hover{ color:var(--ink); border-color:var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════
+   넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2
+   600 미만은 한 픽셀도 안 바뀐다.
+   ⚠️ 이 블록은 파일 끝이라 위의 기본 규칙(.hero-sub 의 max-width:100% 등)보다
+      뒤에 오고, 그래서 이긴다. 자리를 위로 옮기지 말 것.
+   ⚠️ 선택자를 묶지 않고 하나씩 적는다(자리 수 검사가 완료 조건).
+   ══════════════════════════════════════════════════════════════════ */
+@media(min-width:600px){
+  /* 카드 — 한 장 크기를 폰과 비슷하게 유지하려고 열을 늘린다.
+     🔴 auto-fill 금지 — 375 폰이 1열이 된다(사양서 §2-1 ⑨). */
+  .camp-grid{grid-template-columns:repeat(3,1fr)}
+
+  /* 상세 대표 사진 — 넓은 폭에서 정사각이 화면을 다 먹지 않게. 가운데. */
+  #campSlider{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+
+  /* 글 — 왼쪽 정렬 그대로 두고 폭만 묶는다. */
+  .hero-sub{max-width:var(--reading-max)}
+  .guide-val{max-width:var(--reading-max)}
+  .caution-box{max-width:var(--reading-max)}
+  .invite-gate-hint{max-width:var(--reading-max)}
+  .dpb-step{max-width:var(--reading-max)}
+}
+/* 가로로 누운 넓은 화면(폴드 속 가로 951×669 등) — 높이가 짧아 정사각 사진이
+   첫 화면을 통째로 먹는다. 정사각이라 max-width 로 높이도 함께 잡힌다. */
+@media(min-width:600px) and (orientation:landscape){
+  #campSlider{max-width:min(var(--reading-max),70vh)}
+}

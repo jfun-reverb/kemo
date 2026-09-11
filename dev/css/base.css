@@ -28,6 +28,13 @@
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
   --tab-h:0px; /* deprecated: 바텀탭 제거됨. 과거 계산식 호환용 */
+
+  /* 넓은 화면 대응 — 값은 여기 한 곳에만 둔다(사양서 2026-09-11-wide-screen-layout §3-0).
+     --shell-max : 기둥(#appShell)·컨테이너·시트의 상한. 기본은 지금 값 480,
+                   폭 600 이상에서만 720 으로 올린다(아래 미디어 블록).
+     --reading-max: 글·폼의 읽기 폭. 폭 600 이상에서만 쓰인다. */
+  --shell-max:480px;
+  --reading-max:560px;
 }
 
 /* Material Design 타이포그래피 */
@@ -43,10 +50,19 @@ img{display:block;max-width:100%}
 .material-icons-round{font-size:24px;vertical-align:middle;translate:no}
 
 /* Mobile app shell */
-#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
+#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--shell-max);background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
 
 /* ── LAYOUT ── */
 .page{display:none}.page.active{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.container{max-width:480px;width:100%;margin:0 auto;padding:0 16px}
-.container-sm{max-width:480px;margin:0 auto;padding:0 16px}
-.container-md{max-width:480px;margin:0 auto;padding:0 16px}
+.container{max-width:var(--shell-max);width:100%;margin:0 auto;padding:0 16px}
+.container-sm{max-width:var(--shell-max);margin:0 auto;padding:0 16px}
+.container-md{max-width:var(--shell-max);margin:0 auto;padding:0 16px}
+
+/* 폭 600 이상(아이패드·아이폰 폴드 속 화면·폰 가로)에서만 기둥을 넓힌다.
+   600 미만은 한 픽셀도 안 바뀐다 — 위 :root 기본값이 지금과 같은 480 이다.
+   ⚠️ 좌우 안전영역은 기둥이 화면을 다 채우는 구간에서만 필요해 같은 블록에 둔다.
+      기둥이 overflow:hidden 이라 안쪽 요소는 자동으로 그 안에 앉는다. */
+@media(min-width:600px){
+  :root{--shell-max:720px}
+  #appShell{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+}
