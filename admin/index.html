@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789089297';
+  var CURRENT_BUILD = 'v1789090830';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3015,6 +3015,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row .gantt-cell.c-dur > span{margin:0!important;font-size:11px!important;padding:2px 7px!important}   /* .gantt-row 로 한정 — 머리글의 정렬 화살표(span)까지 키워 「남은 기간」 화살표만 컸다(2026-09-09 사용자 지적) */   /* dDayLabel 은 인라인 스타일이라 !important 로만 키울 수 있다(공용 함수는 안 건드린다) */
 /* 캠페인 펼치기(트리형) — 부모 행 + 기간 자식 행, 진척률 막대 */
 .gantt-title-line{display:flex;align-items:center;gap:4px;min-width:0}
+.gantt-title-row{display:flex;align-items:center;gap:6px;min-width:0}   /* 부모 행: 접기 단추 20 · 썸네일 32 · 글 — 자식 행 들여쓰기 72px 와 한 세트(8+20+6+32+6) */
+.gantt-title-text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .gantt-chev{flex-shrink:0;width:20px;height:20px;border:none;background:none;padding:0;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:4px}
 .gantt-chev:hover{background:var(--surface-dim);color:var(--ink)}
 .gantt-chev:disabled{opacity:.25;cursor:default}
@@ -3023,7 +3025,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-row.child .gantt-left{background:var(--surface-container-low)}
 .gantt-row.child .gantt-track{background-color:var(--surface-container-low)}   /* 달력 칸도 표 칸과 같은 회색 — .gantt-track 이 흰 배경을 직접 가져 여기서 덮어야 한다 */
 .gantt-row.child .gantt-cell{padding-top:3px;padding-bottom:3px}
-.gantt-row.child .c-title{padding-left:30px}
+.gantt-row.child .c-title{padding-left:72px}   /* 부모 행의 접기 단추+썸네일 폭만큼 — 썸네일 크기를 바꾸면 여기도 */
 .gantt-child-name{font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0}
 .gantt-child-date{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-row.parent.open{border-bottom-color:transparent}
@@ -3136,7 +3138,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-11 10:14 · 0fb5ceb</span>
+          <span class="admin-build-text">2026-09-11 10:40 · 6edd739</span>
         </div>
       </div>
     </aside>
@@ -25915,11 +25917,15 @@ function brandOpsChannelText(channel, match) {
   }).filter(Boolean).join(sep);
 }
 
-// 미니카드 썸네일 (img1 없으면 placeholder)
-function brandOpsCampThumb(c) {
+// 캠페인 썸네일 (img1 없으면 placeholder). 브랜드 뷰 미니카드(56px)와 일정 뷰 캠페인 행(32px)이 같은 함수를 쓴다
+function brandOpsCampThumb(c, size) {
+  var px = size || 56;
+  var radius = px >= 48 ? 8 : 6;
+  var icon = px >= 48 ? 22 : 16;
+  var box = 'width:' + px + 'px;height:' + px + 'px;border-radius:' + radius + 'px;flex-shrink:0;background:#f0f0f0';
   return c.img1
-    ? '<img src="' + esc(storageThumbUrl(c.img1)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
-    : '<div style="width:56px;height:56px;border-radius:8px;flex-shrink:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:#bbb">image</span></div>';
+    ? '<img src="' + esc(storageThumbUrl(c.img1)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="' + box + ';object-fit:cover">'
+    : '<div style="' + box + ';display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:' + icon + 'px;color:#bbb">image</span></div>';
 }
 
 // 미니카드 상단: 모집 타입 + 채널
@@ -26756,11 +26762,16 @@ function renderScheduleRow(c, range, stats) {
   var html = '<div class="gantt-row parent' + (open ? ' open' : '') + '">'
     + '<div class="gantt-left">'
     +   '<div class="gantt-cell c-title">'
-    +     '<div class="gantt-title-line">'
+    +     '<div class="gantt-title-row">'   // 접기 단추 · 썸네일 · (이름 + 부제) 가로 배치. 자식 행 들여쓰기(.gantt-row.child .c-title)가 이 폭에 맞춰져 있다
     +       '<button type="button" class="gantt-chev" onclick="toggleGanttRow(\'' + idJs + '\')" title="' + (open ? '기간 접기' : '기간 펼치기') + '" aria-expanded="' + open + '"' + (segs.length ? '' : ' disabled') + '><span class="material-icons-round notranslate" translate="no">' + (open ? 'expand_more' : 'chevron_right') + '</span></button>'
-    +       '<a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a>'
+    +       brandOpsCampThumb(c, 32)
+    +       '<div class="gantt-title-text">'
+    +         '<div class="gantt-title-line">'
+    +           '<a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a>'
+    +         '</div>'
+    +         '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
+    +       '</div>'
     +     '</div>'
-    +     '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
     +   '</div>'
     +   '<div class="gantt-cell c-status"><span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '') + '</span></div>'
     +   '<div class="gantt-cell c-dur">' + (span ? ganttRemainHtml(span.end) : '<span style="color:var(--muted)">—</span>') + '</div>'
