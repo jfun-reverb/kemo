@@ -16099,7 +16099,10 @@ async function openCampaign(id) {
     <div class="detail-main">
       ${slideHtml}
 
-      <div style="background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px">
+      <!-- detail-head: 브랜드·형식·제목·리워드 배지·페이백 안내 한 덩어리.
+           iOS 테마가 가로 넓은 화면에서 이 덩어리를 사진 오른쪽 열로 옮긴다(ios-theme.css).
+           ⚠️ 이름이 없으면 붙일 자리가 없어 순서(:nth-child)로 잡아야 하는데 이 저장소는 그것을 금지한다. -->
+      <div class="detail-head" style="background:#fff">
         <div style="padding:16px 0 12px">
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
@@ -16144,6 +16147,9 @@ async function openCampaign(id) {
             <div>${esc(t('detail.paybackNoticeLine2'))}</div>
           </div>`;
         })()}
+      </div><!-- /detail-head — 사진 오른쪽으로 옮기는 범위는 여기까지다(브랜드·형식·제목·리워드 배지·페이백 안내).
+             ⚠️ 아래 정보표까지 이 안에 두면 가로 2단에서 표도 오른쪽 열로 딸려가 왼쪽이 텅 빈다. -->
+      <div class="detail-body" style="background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px">
         ${(()=>{
           // 캠페인 상세 표 — 시간 흐름 순으로 행 배치
           // 순서: 상품명 → 모집타입 → 채널 → 콘텐츠 → 모집기간 → 구매/방문기간 → 결과물 제출 마감 → 모집인원

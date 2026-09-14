@@ -17,6 +17,37 @@
   --ios-fill-strong: rgba(120,120,128,.2);
   --ios-card-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 18px rgba(0,0,0,.06);
   --ios-radius: 16px;
+
+  /* ── 넓은 화면 대응 1단계 「채우기」 — 사양서 2026-09-11-ios-app-wide-layout §3-1 ──
+     앱은 기둥(480/720)을 쓰지 않는다. 웹 CSS 가 이 변수를 쓰는 9자리(#appShell·.container
+     3종·시트 4자리·#detailFloatBar)가 이 한 줄로 함께 풀린다.
+     ⚠️ #appShell 의 left:50%/translateX(-50%) 는 그대로 둔다 — 떠 있는 요소의 기준 상자다. */
+  --shell-max: none;
+  /* 읽기 폭은 Apple 기준 672. 웹의 20자리가 이 변수를 쓰므로 함께 넓어진다. */
+  --reading-max: 672px;
+}
+
+/* 시트 넷만 예외 — 대화창에 672 는 너무 넓다.
+   🔴 `.modal` 을 맨 클래스로 적지 않는다. 웹에서 그렇게 했다가 **관리자 확인창이 함께 바뀌는
+      회귀**가 났다(웹 사양서 §5 「관리자 회귀」). 이 파일은 앱에만 실려 지금은 무해하지만,
+      웹과 **같은 선택자·같은 특이도**로 적지 않으면 덮어쓰기가 빗나간다. */
+#appShell .modal,
+#legalModal .legal-sheet,
+#policyNoticeModal .legal-sheet,
+.login-prompt-sheet { max-width: 560px; }
+
+/* 좌우 안전영역 — 폭과 무관하게 늘 건다.
+   🔴 근거는 폭이 아니라 「조건을 하나로 두는 것」이다. 인셋이 0인 기기·방향에서는 패딩도 0이라
+      무해하고, 모드·폭마다 조건을 나누면 경계에서 규칙이 둘로 갈린다. */
+#appShell {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* 카드 — 폭을 따라 열이 는다(669·744 → 3열, 1180 홈 → 5열). 홈의 캠페인 절도 같은 클래스라
+   함께 는다(의도). 🔴 600 미만은 웹과 같이 2열 고정 — 이 규칙이 그 위에서만 돈다. */
+@media (min-width: 600px) {
+  .camp-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 }
 
 /* ───────────────────────────────────────────
@@ -79,7 +110,8 @@ body.kb-open .page.active { padding-bottom: 8px; }
   display: flex; align-items: center; justify-content: center;
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--ios-tab-gap) + env(safe-area-inset-bottom));
-  width: auto; max-width: calc(100% - 32px);
+  /* 🔴 상한 480 을 여기서 박는다 — 기둥을 푼 뒤로는 이 값이 기둥에서 오지 않는다(§3-1). */
+  width: auto; max-width: min(calc(100% - 32px), 480px);
   height: var(--ios-tab-h);
   padding: 0 6px; gap: 2px;
   z-index: 200;
@@ -458,11 +490,47 @@ body.apply-filter-in-gnb .gnb-title { flex: 0 1 auto; }
    훅이 없어 기존 카드형 그대로 — 사용자 확인 완료(2026-07-09).
    ══════════════════════════════════════════════════════════════════ */
 /* .container(좌우 16px) 와 .page.active(상단 네비바 높이) 를 음수 마진으로 탈출 */
-#campSlider {
-  border-radius: 0 !important;
-  margin: calc(-1 * (var(--ios-nav-h) + env(safe-area-inset-top))) -16px 0 !important;
-  width: calc(100% + 32px) !important;
-  max-width: none !important;
+/* ══════════════════════════════════════════════════════════════════
+   가로로 누운 넓은 화면 — 대표 사진 오른쪽에 머리 정보를 놓는다
+   (사용자 지시 2026-09-14). 세로에서는 지금처럼 사진 아래에 그대로 둔다.
+   ══════════════════════════════════════════════════════════════════ */
+/* 사진의 상한 — 웹 규칙 `min(var(--reading-max), 35vh)` 와 **같은 식**이다.
+   ⚠️ 두 곳에 적힌 같은 판단이라, 웹(`campaign.css` 의 `#campSlider`)을 고치면 여기도 고친다.
+      아래 열 폭이 사진 폭과 **정확히 같아야** 오른쪽 열이 어긋나지 않아 변수로 묶었다. */
+:root { --ios-hero-max: min(var(--reading-max), 35vh); }
+#campSlider { max-width: var(--ios-hero-max); }
+
+/* ⚠️ 사진이 있을 때만 2단으로 간다 — 이미지 없는 캠페인은 회색 상자에 `#campSlider` 가
+      없어(application.js), 그대로 두면 빈 왼쪽 열만 생긴다. */
+@media (min-width: 600px) and (orientation: landscape) {
+  .detail-main:has(#campSlider) {
+    display: grid;
+    grid-template-columns: var(--ios-hero-max) 1fr;
+    column-gap: 20px;
+    align-items: start;
+  }
+  /* 나머지 덩어리(정보표·가이드·주의사항 등)는 아래에 전체 폭으로. */
+  .detail-main:has(#campSlider) > * { grid-column: 1 / -1; }
+  .detail-main:has(#campSlider) > #campSlider { grid-column: 1; grid-row: 1; }
+  .detail-main:has(#campSlider) > .detail-head { grid-column: 2; grid-row: 1; }
+  /* 글이 672 보다 넓어지지 않게 — 오른쪽 열은 화면 폭에 따라 더 넓어질 수 있다. */
+  .detail-main:has(#campSlider) > .detail-head { max-width: var(--reading-max); }
+}
+
+/* 🔴 여백 뚫기는 **좁은 폭에서만** 한다.
+   이 규칙의 `max-width:none !important` 는 웹이 건 높이 상한
+   `min(var(--reading-max), 35vh)` 를 이긴다. 앱은 기둥까지 풀려 있어(위 --shell-max:none)
+   그대로 두면 아이패드에서 사진이 **화면 폭 전체의 정사각**이 된다 — 웹에서 화면의 70%를
+   먹어 사용자 지적을 받았던 것보다 더 커진다(웹 사양서 §5 「대표 사진 크기 정정」).
+   → 600 이상에서는 이 덮어쓰기를 걸지 않아 웹 규칙이 그대로 잡게 둔다.
+   ⚠️ 폰(600 미만)의 전면 사진은 지금 모습 그대로다. */
+@media (max-width: 599px) {
+  #campSlider {
+    border-radius: 0 !important;
+    margin: calc(-1 * (var(--ios-nav-h) + env(safe-area-inset-top))) -16px 0 !important;
+    width: calc(100% + 32px) !important;
+    max-width: none !important;
+  }
 }
 /* 이미지 위에 얹힌 GNB — 배경 없이 흰 글자 + 위에서 내려오는 검은 그라데이션으로 가독성 확보.
    조건을 #campSlider 존재로 한정: 이미지 없는 캠페인은 회색 배경이라 흰 글자면 안 읽힌다.
@@ -722,7 +790,7 @@ body:has(#page-detail.page.active:not(.past-hero) #campSlider) .gnb-title {
 .ios-tab-back:active { transform: scale(.92); }
 /* 뒤로가기가 떠 있는 동안 탭바가 그 자리를 비켜 준다 */
 .ios-tab-back.on ~ .ios-tabbar {
-  max-width: calc(100% - 32px - var(--ios-tab-h) - 12px);
+  max-width: min(calc(100% - 32px - var(--ios-tab-h) - 12px), calc(480px - var(--ios-tab-h) - 12px));
   transform: translateX(calc(-50% + (var(--ios-tab-h) + 12px) / 2));
 }
 .ios-tab-back.on ~ .ios-tabbar.kb-hidden {
