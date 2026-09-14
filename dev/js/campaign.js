@@ -406,7 +406,7 @@ function renderCampaigns(camps) {
     const _icon = _failed ? 'cloud_off' : 'assignment';
     const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
     const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
-    // iOS 브랜치: 조회는 됐는데 필터로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
+    // 조회는 됐는데 조건으로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
     grid.innerHTML = _failed
       ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`
       : campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');

@@ -523,8 +523,8 @@ async function openCampaign(id) {
     // 마감 판정 — 상태 「모집마감」 또는 마감일 경과(사양서 §설계 5-(1) 단방향 규칙).
     //   자정을 넘겨 캐시의 status 가 active 로 남은 경우에도 여기서 닫혀야 서버 거부를 안 본다.
     //   ⚠️ 종료된 캠페인은 마감일도 이미 지나 이 조건에 걸린다. 아래 「종료」 분기보다 먼저라
-    //      버튼에 「종료」 대신 「모집마감」이 떴다(2026-08-21, 카드 딱지 겹침과 같은 원인).
-    //      목록 쪽(campaign.js buildCampCards)과 같은 모양으로 종료를 먼저 비켜 준다.
+    //      버튼에 「종료」 대신 「모집마감」이 떴다(2026-08-21 실기기 신고, 카드 딱지 겹침과 같은 원인).
+    //      목록 쪽(campaign.js buildCampCards)과 **같은 모양으로** 종료를 먼저 비켜 준다.
     else if (camp.status!=='ended' && (camp.status==='closed' || (typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(camp) && camp.status!=='scheduled'))) { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='ended') { floatApplyBtn.textContent=t('detail.endedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 모집 시작 전 — 링크로 직접 들어온 경우에도 응모를 막는다(목록에서는 카드 클릭 자체가 불가)
@@ -568,6 +568,10 @@ async function openCampaign(id) {
   // iOS: 제목이 상단바 뒤로 넘어가면 응모 바를 위로 붙인다(navigate 뒤에 걸어야 teardown 에 안 씻김)
   if (typeof setupFloatBarDock === 'function') setupFloatBarDock();
   // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
+  //   🔴 **이 줄을 위로 옮기면 안 된다.** 바로 위 `navigate()` 안에 `stopSlideAuto()` 가 있어,
+  //      앞에 두면 방금 켠 타이머를 그것이 꺼 버려 **자동 넘김이 아예 안 돈다.** 오류도 안 나고
+  //      빌드도 통과해서, 「초기화니까 위로」가 자연스러워 보이는 것이 함정이다.
+  //   ⚠️ 초대 전용 게이트로 빠지는 위쪽 `navigate('detail-' + id)` 에는 넣지 않는다(그 화면엔 사진이 없다).
   if (typeof startSlideAuto === 'function') startSlideAuto();
 
   // 오프라인 행사면 타임 선택표를 채운다(서버 집계라 비동기).

@@ -216,6 +216,13 @@
   });
 })();
 </script>
+<script>
+// 카탈로그 「한국어 검수」 버튼은 ?lang=ko 로 들어온다 — 위 탭 처리기를 그대로 써서 한국어 탭을 눌러 준다
+if (new URLSearchParams(location.search).get('lang') === 'ko') {
+  const koBtn = document.querySelector('.lang-toggle button[data-lang="ko"]');
+  if (koBtn) koBtn.click();
+}
+</script>
 
 </body>
 </html>

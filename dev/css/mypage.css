@@ -218,3 +218,16 @@
 @media (prefers-reduced-motion:reduce){
   .ticket-check circle,.ticket-check path{animation:none;stroke-dashoffset:0}
 }
+
+/* 넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2.
+   글은 왼쪽 정렬 그대로 두고 폭만 묶는다. */
+@media(min-width:600px){
+  .msg-faq-answer-body{max-width:var(--reading-max)}
+  .ticket-msg{max-width:var(--reading-max)}
+  /* 아래 둘은 배포 뒤 실측(작업표 조각 7 ④-b)으로 드러난 자리다.
+     .email-tx-desc = 업무 알림 안내 박스(611px) ·
+     #withdrawViewBody = 탈퇴 화면 본문(675px — 안쪽 글이 클래스 없는 div 라
+     가장 가까운 고정 id 로 묶는다. 버튼도 함께 560 이 되는 것이 낫다). */
+  .email-tx-desc{max-width:var(--reading-max)}
+  #withdrawViewBody{max-width:var(--reading-max)}
+}

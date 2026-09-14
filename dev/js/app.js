@@ -223,6 +223,11 @@ function navigate(page, pushHistory) {
 
   const fb = $('detailFloatBar');
   if (fb && pageName !== 'detail') fb.style.display = 'none';
+  // 이미지 자동 넘김도 함께 멈춘다 — 상세를 떠난 뒤에도 돌면 화면에 없는 요소를 계속 건드린다.
+  //   ⚠️ 상세를 떠나는 길이 전부 이 함수를 지나므로 여기 한 줄이면 된다.
+  //   ⚠️ 이 줄은 **상세로 들어올 때도** 돈다 — 그래서 시작 호출(startSlideAuto)은 반드시
+  //      `navigate('detail-' + id)` **뒤**에 있어야 한다(application.js 의 그 자리 주석 참조).
+  if (typeof stopSlideAuto === 'function') stopSlideAuto();
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
@@ -244,9 +249,6 @@ function navigate(page, pushHistory) {
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
   // 응모 바 도킹 관찰자도 해제 (상세 진입이 다시 켠다)
   if (typeof teardownFloatBarDock === 'function') teardownFloatBarDock();
-  // 이미지 자동 넘김도 함께 멈춘다 — 상세를 떠난 뒤에도 돌면 화면에 없는 요소를 계속 건드리고,
-  //   다음 캠페인을 열 때 타이머가 둘이 되어 사진이 두 칸씩 건너뛴다.
-  if (typeof stopSlideAuto === 'function') stopSlideAuto();
   // 마이페이지를 떠나면 상단바에 올려 둔 응모이력 상태 필터를 제자리로 돌려놓는다
   if (pageName !== 'mypage' && typeof moveApplyFilterToGnb === 'function') moveApplyFilterToGnb(false);
   // iOS: 화면 안에 자체 헤더(뒤로가기·제목)를 가진 페이지는 GNB 로고 줄이 중복된다 → 상단바 숨김.
