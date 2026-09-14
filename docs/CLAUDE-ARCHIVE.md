@@ -49,6 +49,7 @@
   - ③ 결과물 제출 (`deliverable_events.action='submit'` — 재제출 자동 배제)
   - ④ 재처리 일감 (`deliverable_events` resubmit/revert + `application_events.action='revert_to_pending'`)
 - 4섹션 모두 0건이면 미발송. 부분 0건은 발송 + 0건 섹션 본문 생략
+- ⚠️ **위 「4섹션」은 2026-05-18 시점 기록이다** — 2026-09-11 에 **다섯째 절 「조치가 필요한 캠페인」**이 붙어 지금은 5섹션이다(마이그레이션 433·434·435). 그 절만 **시간 창을 안 쓰고 오늘 기준**이라 사실상 매일 발송된다. 현재 동작은 `CLAUDE.md` 를 볼 것
 - **동시성 패턴**: status='failed' 마커 INSERT 선행(digest_date UNIQUE = mutex) → 23505 발생 시 즉시 종료(메일 중복 차단) → 성공 시 데이터 조회·메일 발송 후 UPDATE 로 상태 갱신
 - 수신자: `application_cancel` ∪ `application_received` ∪ env (Promise.all 개별 try-catch + env 폴백)
 - 로그 `admin_daily_digest_runs`
