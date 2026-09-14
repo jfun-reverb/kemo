@@ -121,14 +121,20 @@ async function openCampaign(id) {
   const slideData = rawSlides.filter(s => seen.has(s.url) ? false : (seen.add(s.url), true));
   const slideImgs = slideData.map(s => s.url);
 
+  // 대표 사진 칸 — 높이를 고정하지 않는다(정사각 `aspect-ratio:1/1` 은 2026-09-14 에 뺐다).
+  // 가로로 긴 배너가 대부분이라 정사각 칸 안에서 위아래가 회색으로 비었다(사용자 지적).
+  // ⚠️ 사진이 여러 장이고 비율이 서로 다르면 칸 높이는 **가장 높은 장**에 맞춰지고,
+  //    낮은 장은 가운데 놓인다(`align-items:center`). 사진 없는 캠페인의 회색 상자는
+  //    채울 것이 없어 정사각 그대로 둔다.
+  // 🔴 사진 태그의 `height:100%` 를 덮어쓰는 규칙이 campaign.css 에 있다 — 같이 본다.
   const slideHtml = slideImgs.length > 0 ? `
-    <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)};aspect-ratio:1/1;height:auto">
-      <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
+    <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)}">
+      <div id="campSlides" style="display:flex;align-items:center;transition:transform .32s cubic-bezier(.4,0,.2,1)">
         ${slideData.map((s,idx)=>{
           const crop = s.key ? crops[s.key] : null;
           // 첫 장(LCP)만 720, lazy 로드 나머지는 480으로 용량 절감
           const thumb = idx === 0 ? 720 : 480;
-          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
+          return `<div style="flex:0 0 100%;width:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
         }).join('')}
       </div>
       ${slideImgs.length>1?`
