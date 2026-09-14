@@ -1784,7 +1784,7 @@ rejected: any stage → rejected 로 분기 가능 (reviewing 이후 어느 단�
 | 코드 | 설명 |
 |------|------|
 | `brand_notify` | 광고주(브랜드) 신청 접수 알림 — Edge Function `notify-brand-application` |
-| `daily_digest` | 관리자 일일 통합 다이제스트(신청 접수·응모 취소·결과물 제출·재처리) — Edge Function `notify-admin-daily-digest`. 구 `application_cancel`·`application_received` 2종 흡수 (마이그레이션 164) |
+| `daily_digest` | 관리자 일일 통합 다이제스트(신청 접수·응모 취소·결과물 제출·재처리·조치가 필요한 캠페인) — Edge Function `notify-admin-daily-digest`. 다섯째 절은 시간 창 없이 서버 함수 `get_campaign_action_alerts()`(마이그레이션 434)로 오늘 기준 판정(2026-09-11 추가). 구 `application_cancel`·`application_received` 2종 흡수 (마이그레이션 164) |
 | `campaign_promo` | 캠페인 홍보 메일 — Edge Function `notify-campaign-promo-digest` |
 
 ### 40.4 수신자 조회 흐름

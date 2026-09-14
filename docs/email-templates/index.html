@@ -354,21 +354,23 @@
   <div class="card">
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">관리자 일일 통합 다이제스트 <span style="color:#1F5DBF;font-size:12px;font-weight:600">— NEW 2026-05-18</span></div>
-    <div class="card-desc">신청 접수 + 응모 취소 + 결과물 제출 + 재처리 일감 4섹션을 한 통으로 통합 발송. 기존 ⑫·⑭ 흡수 + 결과물·재처리 신규 섹션 추가. 4섹션 모두 0건이면 미발송.</div>
+    <div class="card-desc">신청 접수 + 응모 취소 + 결과물 제출 + 재처리 일감 + 조치가 필요한 캠페인 5섹션을 한 통으로 통합 발송. 5섹션 모두 0건이면 미발송 — 다만 다섯째 절이 사실상 매일 떠서 발송도 거의 매일입니다.</div>
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
-      <div class="cc-text">어제 한국시간 0~24시 동안 일어난 관리자 일감을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다. 신청 접수·응모 취소·결과물 제출·재처리(재제출/되돌리기) 모두 한 메일에 섹션 형태로 모아 안내합니다.</div>
-      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (관리자당 1통, 4섹션 모두 0건이면 미발송)</div>
+      <div class="cc-text">어제 한국시간 0~24시 동안 일어난 관리자 일감을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다. 신청 접수·응모 취소·결과물 제출·재처리(재제출/되돌리기) 모두 한 메일에 섹션 형태로 모아 안내합니다. <b>다섯째 절 「조치가 필요한 캠페인」만 다릅니다</b> — 어제 일어난 일이 아니라 <b>오늘 기준</b>으로 모집·제출 마감이 임박하거나 모집·결과물이 저조한 캠페인을 지금 상태와 함께 알립니다(운영현황 「일정」 뷰의 경고와 같은 판정).</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (관리자당 1통, 5섹션 모두 0건이면 미발송 — 다섯째 절이 사실상 매일 떠서 발송도 거의 매일입니다)</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
-      <div><b>수신자:</b> get_subscribed_admin_emails('application_cancel') ∪ get_subscribed_admin_emails('application_received') + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>수신자:</b> get_subscribed_admin_emails('daily_digest') + NOTIFY_ADMIN_EMAILS (마이그레이션 164 에서 구 application_cancel·application_received 2종 구독을 daily_digest 하나로 통합)</div>
       <div><b>언어:</b> KO</div>
       <div><b>동시성:</b> INSERT 선행 mutex (digest_date UNIQUE — 메일 중복 발송 차단)</div>
+      <div><b>다섯째 절:</b> 서버 함수 <code>get_campaign_action_alerts()</code>(마이그레이션 434)가 판정 — 운영현황 「일정」 뷰가 같은 결과를 읽습니다</div>
     </div>
     <div class="card-actions">
       <a class="btn btn-primary" href="admin-daily-digest.preview.html">미리보기</a>
       <a class="btn btn-ghost" href="source.html?f=admin-daily-digest.html">원본 (메인)</a>
+      <a class="btn btn-ghost" href="source.html?f=admin-daily-digest.row-action.html">조치 필요 카드</a>
     </div>
   </div>
 

@@ -786,10 +786,11 @@ flowchart TB
     AD3 --> AD4[§2 응모 취소<br/>cancelled_at 어제 · cancel_phase!=recruit]
     AD4 --> AD5[§3 결과물 제출<br/>deliverable_events action=submit]
     AD5 --> AD6[§4 재처리 일감<br/>deliverable_events resubmit/revert<br/>+ application_events revert_to_pending]
-    AD6 --> AD7{4섹션 모두 0건?}
+    AD6 --> AD6b[§5 조치가 필요한 캠페인<br/>⚠️ 시간 창 없음 — 오늘 기준<br/>get_campaign_action_alerts migration 434]
+    AD6b --> AD7{5섹션 모두 0건?}
     AD7 -->|Yes| AD8[미발송 + status=skipped_no_data]
     AD7 -->|No| AD9[수신자 결정<br/>get_subscribed_admin_emails×2<br/>+ env NOTIFY_ADMIN_EMAILS]
-    AD9 --> AD10[관리자 1통 발송<br/>Brevo SMTP · 한국어<br/>6종 HTML 템플릿]
+    AD9 --> AD10[관리자 1통 발송<br/>Brevo SMTP · 한국어<br/>7종 HTML 템플릿]
     AD10 --> AD11[status=sent UPDATE<br/>sections_summary jsonb 기록]
   end
 
@@ -817,6 +818,7 @@ flowchart TB
     <div class="chart-desc" style="margin-top:8px; font-size:13px;">
       <strong>migration 130 (2026-05-18)</strong>: 인플루언서 일일 다이제스트 — <code>notify-influencer-daily-digest</code> Edge Function + <code>influencer_daily_digest_runs</code> 로그 + <code>deadline_reminder_email_sent</code> 재발송 방지.<br/>
       <strong>migration 132 (2026-05-18)</strong>: 관리자 통합 일일 다이제스트 — <code>notify-admin-daily-digest</code> Edge Function + <code>admin_daily_digest_runs</code> 로그. 4섹션: ①신청접수 ②응모취소 ③결과물제출 ④재처리일감. 첫 자동 발송 2026-05-19 09:00 KST.<br/>
+      <strong>migration 433·434·435 (2026-09-11)</strong>: 관리자 다이제스트 <strong>다섯째 절 「조치가 필요한 캠페인」</strong> 추가 — 앞 네 절이 「어제 0~24시」인 것과 달리 이 절만 <strong>시간 창을 안 쓰고 오늘 기준</strong>으로 판정한다. 판정 원본은 서버 함수 <code>get_campaign_action_alerts()</code>(434) 하나이고 <strong>운영현황 「일정」 뷰가 같은 결과를 읽는다</strong>. 인증 성공 인원은 <code>_campaign_cert_success_counts()</code>(433). 435 는 실행 기록 칸 주석 정정(동작 영향 없음).<br/>
       <strong>Deprecated</strong>: <code>notify-application-cancelled-daily</code> · <code>notify-application-received-admin-daily</code> — cron 해제됨, Edge Function 코드는 2026-06-01 이후 별도 정리 PR에서 삭제 예정.
     </div>
   </div>

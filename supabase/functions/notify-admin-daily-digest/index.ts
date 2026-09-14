@@ -1,19 +1,24 @@
 // ══════════════════════════════════════════════════════════════════
 // Edge Function: notify-admin-daily-digest
 // ──────────────────────────────────────────────────────────────────
-// PR 2 — 관리자 일일 통합 다이제스트 (4섹션 1통/일)
+// PR 2 — 관리자 일일 통합 다이제스트 (5섹션 1통/일)
 // 사양서: docs/specs/2026-05-18-mail-pipeline-consolidation.md §13~§14 (확정)
 // HANDOFF: docs/specs/2026-05-18-HANDOFF-mail-pipeline-consolidation.md §5
 //
 // 트리거: pg_cron 매일 UTC 00:00 (= 한국시간 오전 9시) net.http_post
 // 윈도우: 전일 한국시간 0시~24시
 //
-// 4섹션 본문:
+// 5섹션 본문:
 //   1. 캠페인 신청 접수    — applications.created_at IN window
 //   2. 응모 취소           — applications.cancelled_at IN window AND cancel_phase != 'recruit'
 //   3. 결과물 제출         — deliverable_events.action='submit' IN window (재제출 자동 배제)
 //   4. 재처리 일감         — deliverable_events.action IN ('resubmit','revert')
 //                            + application_events.action='revert_to_pending'
+//   5. 조치가 필요한 캠페인 — get_campaign_action_alerts()(마이그레이션 434, 2026-09-11 신설)
+//      🔴 앞 네 절과 달리 **시간 창을 안 쓴다** — 「어제 일어난 일」이 아니라 「오늘 기준」
+//         판정이라 창에 안 걸린다. 서버가 일본 시각 오늘로 판정해 돌려준다.
+//      🔴 판정은 서버 함수 한 곳이고 운영현황 일정 뷰가 **같은 결과**를 읽는다.
+//         사유 문구 표만 두 벌(두 앱이라 코드 공유 불가) — 한쪽만 고치면 화면과 메일이 갈린다.
 //
 // 동시성 (supabase-expert 검증):
 //   1. status='failed' 로 admin_daily_digest_runs INSERT (digest_date UNIQUE 가 mutex)
@@ -22,7 +27,9 @@
 //   4. UPDATE 로 실제 status / sections_summary / recipients_count 갱신
 //
 // 0건 처리:
-//   - 4섹션 모두 0건 → UPDATE status='skipped_no_data' + 메일 미발송
+//   - 5섹션 모두 0건 → UPDATE status='skipped_no_data' + 메일 미발송
+//     ⚠️ 섹션 5 가 있으면 앞 네 절이 0건이어도 메일이 나간다 — 의도한 동작(사양서 §2-6).
+//     그래서 이 메일은 사실상 매일 나가기 시작한다(운영팀 사전 통지 대상).
 //   - 부분 0건 → 발송, 0건 섹션은 본문에서 생략
 //
 // 수신자:
@@ -745,6 +752,143 @@ function reprocessTypeChipHtml(t: ReprocessedItem["type"]): string {
   return `<span style="background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${escapeHtml(REPROCESS_TYPE_LABELS[t])}</span>`;
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 섹션 5 — 조치가 필요한 캠페인 (2026-09-11 신설)
+//   판정은 **서버 함수 get_campaign_action_alerts()**(마이그레이션 434) 한 곳이다.
+//   이 절도, 운영현황 일정 뷰도 그 결과만 읽는다 — 어느 쪽도 다시 판정하지 않는다.
+//   사양서 docs/specs/2026-09-11-admin-digest-deadline-section.md §3-3
+// ══════════════════════════════════════════════════════════════════
+interface ActionAlertRow {
+  campaign_id: string;
+  campaign_no: string | null;
+  campaign_title: string | null;
+  brand_name: string | null;
+  recruit_type: string | null;
+  status: string;
+  level: string;                 // danger / warning / caution
+  reason_codes: string[];
+  deadline: string | null;
+  submission_end: string | null;
+  days_left: number | null;      // 마감이 없거나 이미 지났으면 null
+  slots: number;
+  approved_count: number;
+  cert_raw: number;
+  cert_capped: number;
+  uncert_count: number;
+}
+
+// 등급 색 — 🔴 화면 상수 BRAND_OPS_ALERT(dev/js/admin-brand-ops.js 19~24행)와 같은 값.
+//   다른 값을 쓰면 같은 등급이 화면과 메일에서 다른 색으로 보인다.
+//   ⚠️ 등급 **이름**은 카드에 안 적는다 — 정렬과 색에만 쓴다(사양서 §3-1 ②).
+const ACTION_LEVEL_COLOR: Record<string, string> = {
+  danger: "#DC2626",
+  warning: "#f97316",
+  caution: "#f59e0b",
+};
+// 정렬 순위 — 화면 BRAND_OPS_ALERT_RANK 와 같다(숫자가 작을수록 높은 등급).
+const ACTION_LEVEL_RANK: Record<string, number> = { danger: 0, warning: 1, caution: 2 };
+
+// 남은 날 표기 세 갈래 — 🔴 **남은 날이 있을 때만** 만든다.
+//   없는데 만들면 「null일 남음」이 된다(화면이 표기를 빈 값 검사보다 먼저 계산하는 구조를
+//   그대로 옮기면 생기는 함정 — 착수 전 코드 대조에서 나왔다).
+function actionLeftText(daysLeft: number | null): string {
+  if (daysLeft === null || daysLeft === undefined) return "";
+  return daysLeft === 0 ? "오늘" : daysLeft === 1 ? "하루 전" : `${daysLeft}일 남음`;
+}
+
+// 사유 코드 → 한국어 문구.
+//   🔴 **화면 쪽 표(dev/js/admin-brand-ops.js 의 ganttAlertLine)와 글자 그대로 같아야 한다.**
+//      두 앱이라 코드를 공유할 수 없어 표가 두 벌이다 — 한쪽만 고치면 화면과 메일이 다른 말을 한다.
+//      두 벌 대조는 사양서 §3-6 ④(여섯 줄을 한 글자씩 나란히 놓고).
+//   ⚠️ 비율(N%)은 사유 문구에 안 넣는다 — 카드의 「지금 상태」 줄에만 들어간다.
+function actionReasonLine(code: string, a: ActionAlertRow): string {
+  const left = a.days_left;
+  switch (code) {
+    case "deadline_1d":        return left === 0 ? "마감 오늘" : "마감 하루 전";
+    case "deadline_3d":        return `마감 ${left}일 남음`;
+    // 🔴 마감 갈래가 **3일까지** 말하므로 4일 이상일 때만 덧붙인다 — `left > 1` 로 두면
+    //    남은 날 2·3일에서 위 deadline_3d 와 겹쳐 같은 마감일을 두 번 적는다
+    //    (화면 admin-brand-ops.js 의 ganttAlertLine 과 글자 그대로 같아야 한다)
+    case "recruit_low_urgent": return "모집 저조" + ((left !== null && left > 3) ? ` · 마감 ${left}일 남음` : "");
+    case "recruit_low":        return "모집 저조";
+    case "uncert_near":        return `미인증 ${a.uncert_count}명 · 제출 마감 ${actionLeftText(left)}`;
+    case "result_low":         return `결과물 저조 · 제출 마감 ${actionLeftText(left)}`;
+    default:                   return "";
+  }
+}
+
+// 「무엇이 임박했나」 줄 — 상태가 어느 마감을 쓰는지 정한다(서버 판정과 같은 구조).
+//   ⚠️ 남은 날이 없으면 **날짜만** 적는다. 「지남」이라고 쓰지 않는다 —
+//      그건 경고로 알리는 것이 되어 이번 범위(마감 지남을 판정 갈래로 안 만든다)와 어긋난다.
+function actionDeadlineLine(a: ActionAlertRow): string {
+  const isRecruit = a.status === "active";
+  const label = isRecruit ? "모집 마감" : "결과물 제출 마감";
+  const ymd = isRecruit ? a.deadline : a.submission_end;
+  const dateTxt = ymd ? ymd.replace(/-/g, "/") : "";
+  if (a.days_left === null || a.days_left === undefined) {
+    return dateTxt ? `${label} ${dateTxt}` : `${label}일 없음`;
+  }
+  return `${label} ${actionLeftText(a.days_left)}(${dateTxt})`;
+}
+
+// 「지금 상태」 줄 — 🔴 비율(N%)이 들어가는 **유일한** 자리다.
+//   일정 뷰는 오른쪽에 「모집률」·「결과물 승인률」 열이 있어 문구에서 뺐고, 메일엔 그 열이 없다.
+//   🔴 인증 성공은 cert_capped 를 쓴다 — 그래야 인증 성공 + 미인증 = 승인 이 맞는다.
+//      cert_raw 를 섞어 쓰면 「인증 성공 7명 / 승인 5명」 같은 숫자가 나간다.
+function actionStatusLine(a: ActionAlertRow): string {
+  if (a.status === "active") {
+    const pct = a.slots > 0 ? Math.round((a.approved_count / a.slots) * 100) : 0;
+    return `승인 ${a.approved_count}명 / 모집 ${a.slots}명(${pct}%)`;
+  }
+  const pct = a.approved_count > 0 ? Math.round((a.cert_capped / a.approved_count) * 100) : 0;
+  return `인증 성공 ${a.cert_capped}명 / 승인 ${a.approved_count}명(${pct}%) · 미인증 ${a.uncert_count}명`;
+}
+
+function renderActionSection(args: { alerts: ActionAlertRow[] }): string {
+  if (args.alerts.length === 0) return "";   // 0건이면 절 통째로 생략(기존 네 절과 같은 규칙)
+
+  // 정렬 — 등급 높은 순, 같으면 남은 날 적은 순.
+  //   🔴 남은 날이 없는 카드는 그 등급 안에서 **맨 뒤**(사양서 §3-3).
+  const sorted = [...args.alerts].sort((x, y) => {
+    const rx = ACTION_LEVEL_RANK[x.level] ?? 99, ry = ACTION_LEVEL_RANK[y.level] ?? 99;
+    if (rx !== ry) return rx - ry;
+    const dx = x.days_left === null ? Number.POSITIVE_INFINITY : x.days_left;
+    const dy = y.days_left === null ? Number.POSITIVE_INFINITY : y.days_left;
+    if (dx !== dy) return dx - dy;
+    return (x.campaign_no || "").localeCompare(y.campaign_no || "");
+  });
+
+  const rowTpl = loadTemplate("admin-daily-digest.row-action");
+  const bodyHtml = sorted.map((a) => {
+    const reasonText = (a.reason_codes || [])
+      .map((code) => actionReasonLine(code, a))
+      .filter(Boolean)
+      .join(" · ");
+    return render(rowTpl, {
+      campaign_no: escapeHtml(`【${a.campaign_no ?? ""}】`),
+      campaign_title: escapeHtml(a.campaign_title ?? ""),
+      brand_name: escapeHtml(a.brand_name ?? ""),
+      recruit_type_ko: escapeHtml(recruitTypeKo(a.recruit_type)),
+      level_color: ACTION_LEVEL_COLOR[a.level] ?? "#f59e0b",
+      deadline_line: escapeHtml(actionDeadlineLine(a)),
+      status_line: escapeHtml(actionStatusLine(a)),
+      reason_text: escapeHtml(reasonText),
+    });
+  }).join("");
+
+  // 절 껍데기는 기존 네 절과 **같은 공용 함수**를 쓴다(renderSectionWrapper) —
+  //   직접 render 하면 절 양식 필드가 바뀔 때 두 곳을 따로 고쳐야 한다.
+  return renderSectionWrapper({
+    title: "조치가 필요한 캠페인",
+    color: "#E8344E",
+    count: sorted.length,
+    // 캠페인 하나로 바로 가는 링크는 지금 만들 수 없다(그 화면은 새로고침하면 목록으로
+    // 되돌아간다) — 캠페인 관리 목록까지만 안내한다(사양서 §1-5).
+    bodyHtml: bodyHtml +
+      `<p style="margin:10px 0 0;font-size:12px;color:#888">자세한 내용은 관리자 페이지 → 캠페인 관리에서 확인해 주세요.</p>`,
+  });
+}
+
 function renderReprocessedSection(args: {
   items: ReprocessedItem[];
   campaignMap: Map<string, CampaignRow>;
@@ -1164,7 +1308,7 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    // ── 2. 4섹션 쿼리 병렬 ──
+    // ── 2. 5섹션 쿼리 병렬 ──
     const startIso = windowStartUtc.toISOString();
     const endIso = windowEndUtc.toISOString();
 
@@ -1174,6 +1318,7 @@ Deno.serve(async (req: Request) => {
       submittedEventsRes,
       deliverableReprocessEventsRes,
       applicationReprocessEventsRes,
+      actionAlertsRes,
     ] = await Promise.all([
       // [D-7] 다섯 조회 모두 1,000행 상한 대응(pagedRes) — 정렬에 id 를 덧붙여 페이지 경계를 안정시킨다.
       // 섹션 1: 신청 접수 (재응모 새 INSERT 포함)
@@ -1217,6 +1362,12 @@ Deno.serve(async (req: Request) => {
         .lt("created_at", endIso)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })),
+      // 섹션 5: 조치가 필요한 캠페인 — 🔴 **시간 창을 안 쓴다.**
+      //   기존 네 절은 전부 「어제 0~24시」 안의 사건인데, 이 절은 「오늘 기준」 판정이라
+      //   그 창에 안 걸린다. 서버 함수가 일본 시각 오늘로 판정해 돌려준다(사양서 §1-4·§3-3).
+      // [D-7] 상한 대응 — 캠페인 수만큼이라 1,000행을 넘을 일은 드물지만 규약을 지킨다.
+      //   빌더는 호출마다 새로 만들고 정렬을 걸어 페이지 경계를 안정시킨다.
+      pagedRes<ActionAlertRow>(() => sb.rpc("get_campaign_action_alerts").order("campaign_id")),
     ]);
 
     // 에러 점검 — 한 섹션이라도 실패하면 전체 실패 처리
@@ -1226,6 +1377,7 @@ Deno.serve(async (req: Request) => {
       ["submitted_events", submittedEventsRes],
       ["deliv_reprocess_events", deliverableReprocessEventsRes],
       ["app_reprocess_events", applicationReprocessEventsRes],
+      ["action_alerts", actionAlertsRes],
     ] as const) {
       if (res.error) {
         const msg = `query ${label}: ${res.error.message}`;
@@ -1250,23 +1402,28 @@ Deno.serve(async (req: Request) => {
     let submittedEvents = (submittedEventsRes.data || []) as SubmittedEvent[];
     let deliverableReprocessEvents = (deliverableReprocessEventsRes.data || []) as DeliverableReprocessEvent[];
     let applicationReprocessEvents = (applicationReprocessEventsRes.data || []) as ApplicationReprocessEvent[];
+    // 섹션 5 는 캠페인 단위라 아래 감사용 계정 필터([F-7])의 대상이 아니다 —
+    //   서버 함수가 이미 감사용을 빼고 세어 돌려준다. 그래서 const 로 둔다.
+    const actionAlerts = (actionAlertsRes.data || []) as ActionAlertRow[];
 
-    // ── 3. 4섹션 모두 0건(감사용 계정 필터 적용 전) → 스킵 ──
+    // ── 3. 5섹션 모두 0건(감사용 계정 필터 적용 전) → 스킵 ──
     //    이 시점엔 아직 감사용 여부를 판정할 수 없다(섹션 3·4 는 deliverable_id/
     //    application_id 만 갖고 있어 user_id 를 알려면 아래 [F-7] 배치 lookup 이
     //    끝나야 함). 여기서는 "애초에 아무 일도 없던 날"만 먼저 걸러 불필요한
     //    조회를 피한다 — 아래에 [F-7] 필터 후 재확인이 한 번 더 있다.
     const totalCountRaw =
       receivedRows.length + cancelledRows.length + submittedEvents.length +
-      deliverableReprocessEvents.length + applicationReprocessEvents.length;
+      deliverableReprocessEvents.length + applicationReprocessEvents.length +
+      actionAlerts.length;
     console.log("[notify-admin-daily] sections (raw, 감사용 필터 전)", {
       received: receivedRows.length,
       cancelled: cancelledRows.length,
       submitted: submittedEvents.length,
       reprocessed: deliverableReprocessEvents.length + applicationReprocessEvents.length,
+      action: actionAlerts.length,
     });
     if (totalCountRaw === 0) {
-      const emptySummary = { received: 0, cancelled: 0, submitted: 0, reprocessed: 0 };
+      const emptySummary = { received: 0, cancelled: 0, submitted: 0, reprocessed: 0, action: 0 };
       await finalizeRun({
         status: "skipped_no_data",
         sections_summary: emptySummary,
@@ -1373,12 +1530,16 @@ Deno.serve(async (req: Request) => {
       cancelled: cancelledRows.length,
       submitted: submittedEvents.length,
       reprocessed: deliverableReprocessEvents.length + applicationReprocessEvents.length,
+      // 섹션 5 — 감사용 필터를 안 거친다(캠페인 단위, 서버가 이미 뺐다).
+      //   🔴 이 절이 있으면 네 절이 0건이어도 메일이 나간다(사양서 §2-6 — 의도한 동작).
+      action: actionAlerts.length,
     };
     const totalCount =
       sectionsSummary.received +
       sectionsSummary.cancelled +
       sectionsSummary.submitted +
-      sectionsSummary.reprocessed;
+      sectionsSummary.reprocessed +
+      sectionsSummary.action;
 
     console.log("[notify-admin-daily] sections (감사용 제외 후)", sectionsSummary);
 
@@ -1444,7 +1605,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 이메일 — 4섹션 전체 user_id 대상 (섹션 3·4 카드에도 이메일 노출)
+    // 이메일 — 섹션 1~4 의 user_id 대상 (섹션 3·4 카드에도 이메일 노출).
+    //   ⚠️ 섹션 5 는 캠페인 단위라 회원 식별자를 모을 일이 없다 — 이 배치 lookup 대상이 아니다.
     const emailUserIds = [...userIds];
     const emailMap = new Map<string, string>();
     if (emailUserIds.length > 0) {
@@ -1529,12 +1691,16 @@ Deno.serve(async (req: Request) => {
       emailMap,
     });
 
+    // 섹션 5 — 캠페인 단위라 campaignMap·influencerMap 이 필요 없다(서버가 다 채워 준다).
+    const sectionActionHtml = renderActionSection({ alerts: actionAlerts });
+
     // 섹션 칩 (헤더 요약)
     const chipDef: { key: keyof typeof sectionsSummary; label: string; bg: string; fg: string }[] = [
       { key: "received",    label: "접수",   bg: "#FFF5F8", fg: "#C8789C" },
       { key: "cancelled",   label: "취소",   bg: "#FFE4E9", fg: "#E8344E" },
       { key: "submitted",   label: "제출",   bg: "#E4F0FF", fg: "#1F5DBF" },
       { key: "reprocessed", label: "재처리", bg: "#F0E6FA", fg: "#6F40A6" },
+      { key: "action",      label: "조치 필요", bg: "#FDECEA", fg: "#DC2626" },
     ];
     const summaryChipHtml = chipDef
       .filter((c) => sectionsSummary[c.key] > 0)
@@ -1555,6 +1721,7 @@ Deno.serve(async (req: Request) => {
       section_cancelled_html: sectionCancelledHtml,
       section_submitted_html: sectionSubmittedHtml,
       section_reprocessed_html: sectionReprocessedHtml,
+      section_action_html: sectionActionHtml,
       admin_pane_url: escapeHtml(adminPaneUrl),
     });
 
@@ -1563,7 +1730,7 @@ Deno.serve(async (req: Request) => {
     // text fallback
     const textLines = [
       `관리자 일일 통합 요약 (${digestDate})`,
-      `총 ${totalCount}건 — 접수 ${sectionsSummary.received} · 취소 ${sectionsSummary.cancelled} · 제출 ${sectionsSummary.submitted} · 재처리 ${sectionsSummary.reprocessed}`,
+      `총 ${totalCount}건 — 접수 ${sectionsSummary.received} · 취소 ${sectionsSummary.cancelled} · 제출 ${sectionsSummary.submitted} · 재처리 ${sectionsSummary.reprocessed} · 조치 필요 ${sectionsSummary.action}`,
       "",
       `관리자 페이지: ${adminPaneUrl}`,
     ];
