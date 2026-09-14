@@ -229,6 +229,16 @@ function toggleCampPageSearch(force) {
   }
 }
 
+// 캠페인이 한 건도 없을 때의 안내.
+//   ⚠️ 문구가 「현재 모집 중인 캠페인이 없습니다」 하나로 고정돼 있어, 「모집예정」·「종료」 같은
+//      다른 탭을 골라 0건일 때도 **모집중 얘기를 했다**(2026-08-21 실기기 신고). 조건을 걸어
+//      찾은 결과가 없는 것과, 캠페인 자체가 없는 것을 나눠 말한다.
+function campEmptyStateHtml(isFiltered) {
+  const title = isFiltered ? t('campaign.emptyFiltered') : t('campaign.emptyState');
+  const sub = isFiltered ? t('campaign.emptyFilteredSub') : t('campaign.emptyStateSub');
+  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${esc(title)}</div><div class="empty-sub">${esc(sub)}</div></div>`;
+}
+
 function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
@@ -243,7 +253,7 @@ function renderCampaignGrid() {
   }
   camps = sortByStatusAndDeadline(camps);
   if (!camps.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    grid.innerHTML = campEmptyStateHtml(campPageTypeFilter !== 'all' || campPageStatusFilter !== 'all' || !!campPageSearch);
     return;
   }
   grid.innerHTML = buildCampCards(camps);
@@ -373,7 +383,10 @@ function renderCampaigns(camps) {
     const _icon = _failed ? 'cloud_off' : 'assignment';
     const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
     const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`;
+    // 조회는 됐는데 조건으로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
+    grid.innerHTML = _failed
+      ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`
+      : campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }
