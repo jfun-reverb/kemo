@@ -7272,6 +7272,42 @@ async function fetchCampaignApplicationCountsOrNull() {
   } catch(e) { console.error('fetchCampaignApplicationCountsOrNull:', e); return null; }
 }
 
+// 캠페인별 「조치가 필요한 경고」 — 서버 함수 get_campaign_action_alerts()(마이그레이션 434).
+//   판정이 화면이 아니라 서버에 있다. 운영현황 일정 뷰와 관리자 일일 메일이 **같은 결과**를 읽는다.
+//   사양서 docs/specs/2026-09-11-admin-digest-deadline-section.md §3-2
+//
+// 🔴 실패는 null, 0건은 빈 맵({}) — 둘을 반드시 가른다.
+//    0건이면 경고가 하나도 없는 정상 상태이고, 실패면 판정 근거를 못 받은 것이라
+//    화면이 그 둘을 같게 그리면 「경고 없음」과 「모르는 상태」가 구분되지 않는다.
+// 🔴 실패를 조용히 넘기지 않는다 — console.error 로 남긴다. 화면은 아무것도 안 그리므로
+//    기록이 없으면 0건과 실패를 눈으로 구분할 방법이 사라진다(사양서 §3-6 ③).
+async function fetchCampaignActionAlertsOrNull() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_action_alerts');
+    if (error) throw error;
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        level: row.level,
+        codes: row.reason_codes || [],
+        status: row.status,
+        daysLeft: (row.days_left === null || row.days_left === undefined) ? null : Number(row.days_left),
+        deadline: row.deadline,
+        submissionEnd: row.submission_end,
+        slots: Number(row.slots || 0),
+        approved: Number(row.approved_count || 0),
+        certCapped: Number(row.cert_capped || 0),
+        uncert: Number(row.uncert_count || 0),
+        campaignNo: row.campaign_no,
+        title: row.campaign_title,
+        brand: row.brand_name,
+        recruitType: row.recruit_type,
+      };
+      return map;
+    }, {});
+  } catch(e) { console.error('fetchCampaignActionAlertsOrNull:', e); return null; }
+}
+
 async function fetchCampaignApplicationCounts() {
   if (!db) return {};
   try {
