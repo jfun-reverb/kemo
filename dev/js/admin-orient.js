@@ -238,6 +238,16 @@ function setOrientStatusTab(btn) {
   renderOrientSheets();
 }
 
+// 작성기한 셀 — 날짜 + D배지(공용 dDayLabel, 다른 관리자 목록과 같은 규약).
+// 🔴 제출이 끝난 시트는 배지를 흐린 회색으로 죽인다. 기한 자체는 살아 있지만
+//    (제출 뒤에도 브랜드가 같은 링크로 고쳐 다시 낼 수 있다) 운영자가 재촉할 대상은 아니다.
+// ⚠️ 판정은 submitted_at 하나로 한다 — 제출됨·일부 발행·발행됨이 전부 이 값을 갖는다.
+//    status 를 갈래로 나눠 보면 부분 발행(제출됨 + 카드 일부 발행)에서 갈린다.
+function osExpireCell(s) {
+  if (!s.token_expires_at) return '-';
+  return formatDate(s.token_expires_at) + ' ' + dDayLabel(s.token_expires_at, { muted: !!s.submitted_at });
+}
+
 function osRowHtml(s) {
   const linkBadge = s.application_id
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
@@ -247,7 +257,7 @@ function osRowHtml(s) {
     <td>${osCardsSummary(s.data)}</td>
     <td>${osBadge(osStatusOf(s))}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
-    <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
+    <td style="white-space:nowrap">${osExpireCell(s)}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
