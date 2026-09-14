@@ -132,10 +132,10 @@ async function openCampaign(id) {
         }).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
-        <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
+        <button onclick="slideMoveManual(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
+        <button onclick="slideMoveManual(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
         <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
-          ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
+          ${slideImgs.map((_,i)=>`<div onclick="slideToManual(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
@@ -509,7 +509,10 @@ async function openCampaign(id) {
     else if (camp.status === 'draft' || camp.status === 'expired') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 마감 판정 — 상태 「모집마감」 또는 마감일 경과(사양서 §설계 5-(1) 단방향 규칙).
     //   자정을 넘겨 캐시의 status 가 active 로 남은 경우에도 여기서 닫혀야 서버 거부를 안 본다.
-    else if (camp.status==='closed' || (typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(camp) && camp.status!=='scheduled')) { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    //   ⚠️ 종료된 캠페인은 마감일도 이미 지나 이 조건에 걸린다. 아래 「종료」 분기보다 먼저라
+    //      버튼에 「종료」 대신 「모집마감」이 떴다(2026-08-21 실기기 신고, 카드 딱지 겹침과 같은 원인).
+    //      목록 쪽(campaign.js buildCampCards)과 **같은 모양으로** 종료를 먼저 비켜 준다.
+    else if (camp.status!=='ended' && (camp.status==='closed' || (typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(camp) && camp.status!=='scheduled'))) { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='ended') { floatApplyBtn.textContent=t('detail.endedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 모집 시작 전 — 링크로 직접 들어온 경우에도 응모를 막는다(목록에서는 카드 클릭 자체가 불가)
     else if (camp.status==='scheduled') { floatApplyBtn.textContent=t('detail.scheduledBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
@@ -546,6 +549,12 @@ async function openCampaign(id) {
   if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : t('detail.backToCampaigns');
 
   navigate('detail-' + id);
+  // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
+  //   🔴 **이 줄을 위로 옮기면 안 된다.** 바로 위 `navigate()` 안에 `stopSlideAuto()` 가 있어,
+  //      앞에 두면 방금 켠 타이머를 그것이 꺼 버려 **자동 넘김이 아예 안 돈다.** 오류도 안 나고
+  //      빌드도 통과해서, 「초기화니까 위로」가 자연스러워 보이는 것이 함정이다.
+  //   ⚠️ 초대 전용 게이트로 빠지는 위쪽 `navigate('detail-' + id)` 에는 넣지 않는다(그 화면엔 사진이 없다).
+  if (typeof startSlideAuto === 'function') startSlideAuto();
 
   // 오프라인 행사면 타임 선택표를 채운다(서버 집계라 비동기).
   //   화면 전환을 막지 않으려고 await 하지 않는다 — 숫자가 오면 그때 들어간다.
