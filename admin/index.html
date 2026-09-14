@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789366524';
+  var CURRENT_BUILD = 'v1789367445';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3195,7 +3195,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-14 15:15 · a941e0e</span>
+          <span class="admin-build-text">2026-09-14 15:30 · b9793e4</span>
         </div>
       </div>
     </aside>
@@ -10544,6 +10544,42 @@ async function fetchCampaignApplicationCountsOrNull() {
       return map;
     }, {});
   } catch(e) { console.error('fetchCampaignApplicationCountsOrNull:', e); return null; }
+}
+
+// 캠페인별 「조치가 필요한 경고」 — 서버 함수 get_campaign_action_alerts()(마이그레이션 434).
+//   판정이 화면이 아니라 서버에 있다. 운영현황 일정 뷰와 관리자 일일 메일이 **같은 결과**를 읽는다.
+//   사양서 docs/specs/2026-09-11-admin-digest-deadline-section.md §3-2
+//
+// 🔴 실패는 null, 0건은 빈 맵({}) — 둘을 반드시 가른다.
+//    0건이면 경고가 하나도 없는 정상 상태이고, 실패면 판정 근거를 못 받은 것이라
+//    화면이 그 둘을 같게 그리면 「경고 없음」과 「모르는 상태」가 구분되지 않는다.
+// 🔴 실패를 조용히 넘기지 않는다 — console.error 로 남긴다. 화면은 아무것도 안 그리므로
+//    기록이 없으면 0건과 실패를 눈으로 구분할 방법이 사라진다(사양서 §3-6 ③).
+async function fetchCampaignActionAlertsOrNull() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_action_alerts');
+    if (error) throw error;
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        level: row.level,
+        codes: row.reason_codes || [],
+        status: row.status,
+        daysLeft: (row.days_left === null || row.days_left === undefined) ? null : Number(row.days_left),
+        deadline: row.deadline,
+        submissionEnd: row.submission_end,
+        slots: Number(row.slots || 0),
+        approved: Number(row.approved_count || 0),
+        certCapped: Number(row.cert_capped || 0),
+        uncert: Number(row.uncert_count || 0),
+        campaignNo: row.campaign_no,
+        title: row.campaign_title,
+        brand: row.brand_name,
+        recruitType: row.recruit_type,
+      };
+      return map;
+    }, {});
+  } catch(e) { console.error('fetchCampaignActionAlertsOrNull:', e); return null; }
 }
 
 async function fetchCampaignApplicationCounts() {
@@ -25523,6 +25559,10 @@ function brandOpsAlertReasonLines(b) {
 // 한 번에 받고 현재 뷰를 그린다. 결과물 조회는 일정 뷰가 그려질 때 따로(loadScheduleDeliverables).
 var _brandOpsCampaigns = [];     // fetchCampaigns() 전건 — 일정 뷰가 쓴다
 var _brandOpsApprCounts = null;  // get_campaign_application_counts (감사용 제외됨). 조회 실패면 null
+// 조치 필요 경고 — 서버 함수 get_campaign_action_alerts()(마이그레이션 434)가 판정한다.
+//   🔴 화면은 판정하지 않고 이 결과만 읽는다(2026-09-11 이관). 관리자 일일 메일이 같은 결과를 쓴다.
+//   🔴 조회 실패 null / 0건 {} — 둘을 가른다. 실패면 경고를 아예 안 그린다(없는 근거로 그리지 않는다).
+var _brandOpsActionAlerts = null;
 var _brandOpsLoadToken = 0;      // 새로고침 연타·페인 들락거림 — 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는 것을 막는다
 async function loadBrandOps() {
   var token = ++_brandOpsLoadToken;
@@ -25534,6 +25574,8 @@ async function loadBrandOps() {
   applyBrandOpsView();
   // 🔴 다시 들어올 때마다 결과물 캐시를 비운다 — 안 비우면 막대는 새 값인데 제출·인증 숫자만 옛 값으로 남는다.
   _brandOpsDelivCache = {};
+  // 경고도 같은 이유로 비운다 — 안 비우면 막대는 새 값인데 경고만 옛 값이 된다.
+  _brandOpsActionAlerts = null;
   var results = await Promise.all([
     fetchCompanies({ status: 'all' }),            // 회사 드롭다운(전체/회사별/미분류)
     getBrandOpsOverview(null),                    // 브랜드 집계 — 회사/미분류 필터는 화면에서
@@ -25543,6 +25585,9 @@ async function loadBrandOps() {
     //   ⚠️ 브랜드 상세(loadBrandOpsDetail)도 같은 조회로 같은 전역을 채운다 — 같은 집합이라 어느 쪽이 먼저 돌아도 같다.
     //   ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212).
     db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
+    // 조치 필요 경고(서버 판정). ⚠️ 이 Promise.all 안에 둬야 아래 _brandOpsLoadToken 검사가 그대로 보호한다 —
+    //   밖에 두면 새로고침 연타 때 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는다.
+    fetchCampaignActionAlertsOrNull(),
   ]);
   if (token !== _brandOpsLoadToken) return;   // 그 사이 다시 들어왔다 — 이 회차 결과는 버린다
   _brandOpsCompanies = results[0];
@@ -25551,6 +25596,7 @@ async function loadBrandOps() {
   _brandOpsCampaigns = results[2] || [];
   _brandOpsApprCounts = results[3];
   _brandOpsAuditIds = new Set((((results[4] && results[4].data) || [])).map(function(r){ return r.id; }));
+  _brandOpsActionAlerts = results[5];
   renderBrandOpsCurrentView();
   // 「최근 신청」 표는 2026-09-07 사용자 결정으로 뺐다 — 인플 신청 관리 페인에 같은 내용이 있다.
 }
@@ -26188,37 +26234,46 @@ function ganttProgHtml(pr, pending) {
 //   운영 실측에서 승인률 55~75% 인 D-Day 캠페인이 조용했다 — 마감 직전엔 「몇 명이 못 냈나」가 「비율이 낮나」보다 급하다.
 //   stats 가 없으면(집계 중·실패) 결과물 경고는 판정하지 않는다 — 없는 것을 「정상」으로 그리지 않고 그냥 비운다.
 //   정상이면 null — 아무것도 안 그린다(0건 원칙).
-function ganttCampaignAlert(c, stats) {
-  var today = ganttTodayYmd();
-  var daysTo = function(ymd) { if (!ymd) return null; var n = ganttDayOffset(today, ymd); return (isNaN(n) || n < 0) ? null : n; };   // 남은 일(오늘 0). 지난 날짜는 null
-  var ac = _brandOpsApprCounts ? _brandOpsApprCounts[c.id] : null;
-  var appr = _brandOpsApprCounts === null ? null : (ac ? ac.approved : 0);
-  var lines = [], level = null;
-  var bump = function(lv) { var r = BRAND_OPS_ALERT_RANK; if (level === null || r[lv] < r[level]) level = lv; };
-  if (c.status === 'active') {
-    var slots = Number(c.slots || 0);
-    var pct = (appr !== null && slots > 0) ? Math.round(appr / slots * 100) : null;
-    var left = daysTo(c.deadline);
-    if (left !== null && left <= 1)      { lines.push(left === 0 ? '마감 오늘' : '마감 하루 전'); bump('danger'); }
-    else if (left !== null && left <= 3) { lines.push('마감 ' + left + '일 남음'); bump('warning'); }
-    // 모집률 숫자는 안 적는다 — 오른쪽 「모집률」 열에 있다(2026-09-09 사용자 지시). 임계값(30/50%)만 문구로 갈린다
-    if (pct !== null && pct < 30 && left !== null && left < 7) { lines.push('모집 저조' + (left > 1 ? ' · 마감 ' + left + '일 남음' : '')); bump('danger'); }
-    else if (pct !== null && pct < 50 && (left === null || left >= 7)) { lines.push('모집 저조'); bump('caution'); }
-  } else if (c.status === 'closed' && stats && appr !== null && appr > 0) {
-    var leftS = daysTo(c.submission_end);
-    var cert = Math.min(appr, stats.cert || 0), uncert = appr - cert;
-    var certPct = Math.round(cert / appr * 100);
-    var leftTxt = leftS === 0 ? '오늘' : leftS === 1 ? '하루 전' : leftS + '일 남음';
-    if (leftS !== null && leftS <= 3 && uncert > 0) {
-      lines.push('미인증 ' + uncert + '명 · 제출 마감 ' + leftTxt);
-      bump(leftS <= 1 ? 'danger' : 'warning');
-    } else if (leftS !== null && leftS <= 7 && certPct < 50) {
-      lines.push('결과물 저조 · 제출 마감 ' + leftTxt);
-      bump('caution');
-    }
+// 사유 코드 → 한국어 문구. 🔴 서버(마이그레이션 434)는 **코드만** 주고 문구는 화면·메일이 각자 조립한다.
+//   🔴 **메일 쪽 표(supabase/functions/notify-admin-daily-digest/index.ts)와 글자 그대로 같아야 한다.**
+//      두 앱이라 코드를 공유할 수 없어 표가 두 벌이다 — 한쪽만 고치면 화면과 메일이 다른 말을 한다.
+//      두 벌 대조는 사양서 §3-6 ④(여섯 줄을 한 글자씩).
+//   ⚠️ 비율(N%)은 안 넣는다 — 오른쪽에 「모집률」·「결과물 승인률」 열이 있다(2026-09-09 사용자 지시).
+//   ⚠️ 남은 날 표기는 **남은 날이 있을 때만** 만든다 — 없는데 만들면 「null일 남음」이 된다.
+function ganttAlertLeftText(daysLeft) {
+  if (daysLeft === null || daysLeft === undefined) return '';
+  return daysLeft === 0 ? '오늘' : daysLeft === 1 ? '하루 전' : daysLeft + '일 남음';
+}
+function ganttAlertLine(code, a) {
+  var left = a.daysLeft;
+  switch (code) {
+    case 'deadline_1d':        return left === 0 ? '마감 오늘' : '마감 하루 전';
+    case 'deadline_3d':        return '마감 ' + left + '일 남음';
+    // 🔴 마감 갈래가 **3일까지** 말하므로 4일 이상일 때만 덧붙인다 — `left > 1` 로 두면
+    //    남은 날 2·3일에서 위 deadline_3d 와 겹쳐 「마감 3일 남음 · 모집 저조 · 마감 3일 남음」이 된다
+    //    (2026-09-14 브라우저 대조에서 실제로 그렇게 그려지는 것을 확인. 옛 화면부터 있던 어긋남)
+    case 'recruit_low_urgent': return '모집 저조' + (left > 3 ? ' · 마감 ' + left + '일 남음' : '');
+    case 'recruit_low':        return '모집 저조';
+    case 'uncert_near':        return '미인증 ' + a.uncert + '명 · 제출 마감 ' + ganttAlertLeftText(left);
+    case 'result_low':         return '결과물 저조 · 제출 마감 ' + ganttAlertLeftText(left);
+    default:                   return '';
   }
-  if (!level) return null;
-  return { level: level, lines: lines };
+}
+
+// 캠페인 단위 경고 — 🔴 **판정하지 않는다.** 서버 함수 결과(_brandOpsActionAlerts)를 읽어
+//   {level, lines} 를 만들 뿐이다(2026-09-11 이관, 마이그레이션 434).
+//   ⚠️ 시그니처와 반환 모양을 그대로 둔다 — 부르는 자리가 둘(빠른 필터 alert · 일정 뷰 본체)이고
+//      ganttAlertTagHtml 이 a.level·a.lines 와 BRAND_OPS_ALERT[a.level].label 을 그대로 쓴다.
+//   ⚠️ stats 인자는 이제 안 쓴다 — 서버가 인증 성공까지 세어 돌려주기 때문. 호출부를 안 건드리려고 남겼다.
+//   🔴 조회 실패(null)면 경고를 **아예 안 그린다** — 없는 근거로 그리는 것보다 안 그리는 쪽을 택했다.
+//      교체 전에는 재료가 둘이라 하나가 실패해도 나머지 쪽 경고는 떴다(사양서 §3-6 ① 의 명시적 예외).
+function ganttCampaignAlert(c, stats) {
+  if (!c || !_brandOpsActionAlerts) return null;
+  var a = _brandOpsActionAlerts[c.id];
+  if (!a || !a.level) return null;
+  var lines = (a.codes || []).map(function(code) { return ganttAlertLine(code, a); }).filter(Boolean);
+  if (!lines.length) return null;
+  return { level: a.level, lines: lines };
 }
 // 경고 꼬리표 — 캠페인 행의 막대 오른쪽 옆에 붙인다(2026-09-09 사용자 지시 「우측 막대 옆에」. 처음엔 상태 배지 아래였다).
 //   위치(left)는 renderGanttTrack 이 막대 끝을 알고 정한다. 막대가 화면 밖이면 가장자리 마커 반대편에.
