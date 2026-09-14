@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789367452';
+  var CURRENT_BUILD = 'v1789374106';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3195,7 +3195,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-14 15:30 · f2d2833</span>
+          <span class="admin-build-text">2026-09-14 17:21 · 7c00862</span>
         </div>
       </div>
     </aside>
@@ -16758,12 +16758,20 @@ function formatDateTime(d) {
   if (isNaN(dt.getTime())) return '';
   return formatDate(dt) + ' ' + formatTimeHm(dt);
 }
-function dDayLabel(d) {
+// D배지 — 'D-Day' / 'D-n' / 'D+n'. 관리자 목록 전반이 이 규약을 쓴다.
+// opts.muted = 「기한은 남아 있지만 더 재촉할 일이 없다」 — 남은 날과 무관하게 항상 흐린 회색.
+//   ⚠️ 색만 죽이고 글자는 그대로 둔다. 글자 만드는 규칙을 따로 복사하면
+//      나중에 한쪽만 고쳐져 화면마다 다른 말을 한다(이 저장소의 반복 사고 유형).
+//   현재 쓰는 곳: 오리엔시트 목록의 작성기한(제출이 끝난 시트).
+function dDayLabel(d, opts) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
-  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+  const muted = !!(opts && opts.muted);
+  const color = muted ? 'var(--muted)' : diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  const bg = muted ? 'rgba(0,0,0,.03)' : 'rgba(0,0,0,.06)';
+  const extra = muted ? ';opacity:.55' : '';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:${bg};padding:1px 5px;border-radius:4px;margin-left:4px${extra}">${text}</span>`;
 }
 // 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
 //   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
@@ -19437,6 +19445,16 @@ function setOrientStatusTab(btn) {
   renderOrientSheets();
 }
 
+// 작성기한 셀 — 날짜 + D배지(공용 dDayLabel, 다른 관리자 목록과 같은 규약).
+// 🔴 제출이 끝난 시트는 배지를 흐린 회색으로 죽인다. 기한 자체는 살아 있지만
+//    (제출 뒤에도 브랜드가 같은 링크로 고쳐 다시 낼 수 있다) 운영자가 재촉할 대상은 아니다.
+// ⚠️ 판정은 submitted_at 하나로 한다 — 제출됨·일부 발행·발행됨이 전부 이 값을 갖는다.
+//    status 를 갈래로 나눠 보면 부분 발행(제출됨 + 카드 일부 발행)에서 갈린다.
+function osExpireCell(s) {
+  if (!s.token_expires_at) return '-';
+  return formatDate(s.token_expires_at) + ' ' + dDayLabel(s.token_expires_at, { muted: !!s.submitted_at });
+}
+
 function osRowHtml(s) {
   const linkBadge = s.application_id
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
@@ -19446,7 +19464,7 @@ function osRowHtml(s) {
     <td>${osCardsSummary(s.data)}</td>
     <td>${osBadge(osStatusOf(s))}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
-    <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
+    <td style="white-space:nowrap">${osExpireCell(s)}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
