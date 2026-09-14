@@ -72,6 +72,13 @@ window._supabaseLoaded = false;
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
   --tab-h:0px; /* deprecated: 바텀탭 제거됨. 과거 계산식 호환용 */
+
+  /* 넓은 화면 대응 — 값은 여기 한 곳에만 둔다(사양서 2026-09-11-wide-screen-layout §3-0).
+     --shell-max : 기둥(#appShell)·컨테이너·시트의 상한. 기본은 지금 값 480,
+                   폭 600 이상에서만 720 으로 올린다(아래 미디어 블록).
+     --reading-max: 글·폼의 읽기 폭. 폭 600 이상에서만 쓰인다. */
+  --shell-max:480px;
+  --reading-max:560px;
 }
 
 /* Material Design 타이포그래피 */
@@ -87,13 +94,22 @@ img{display:block;max-width:100%}
 .material-icons-round{font-size:24px;vertical-align:middle;translate:no}
 
 /* Mobile app shell */
-#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
+#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--shell-max);background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
 
 /* ── LAYOUT ── */
 .page{display:none}.page.active{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.container{max-width:480px;width:100%;margin:0 auto;padding:0 16px}
-.container-sm{max-width:480px;margin:0 auto;padding:0 16px}
-.container-md{max-width:480px;margin:0 auto;padding:0 16px}
+.container{max-width:var(--shell-max);width:100%;margin:0 auto;padding:0 16px}
+.container-sm{max-width:var(--shell-max);margin:0 auto;padding:0 16px}
+.container-md{max-width:var(--shell-max);margin:0 auto;padding:0 16px}
+
+/* 폭 600 이상(아이패드·아이폰 폴드 속 화면·폰 가로)에서만 기둥을 넓힌다.
+   600 미만은 한 픽셀도 안 바뀐다 — 위 :root 기본값이 지금과 같은 480 이다.
+   ⚠️ 좌우 안전영역은 기둥이 화면을 다 채우는 구간에서만 필요해 같은 블록에 둔다.
+      기둥이 overflow:hidden 이라 안쪽 요소는 자동으로 그 안에 앉는다. */
+@media(min-width:600px){
+  :root{--shell-max:720px}
+  #appShell{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+}
 
 /* ══════════════════════════════════
    COMPONENTS — 상단바, 버튼, 카드, 배지, 폼 (Material Design 3)
@@ -201,6 +217,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:flex-end;justify-content:center;padding:0}
 .modal-overlay.open{display:flex}
 .modal{background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4)}
+/* 🔴 .modal·.modal-overlay 는 관리자 화면도 쓴다(마크업 54·56곳 + 관리자 자바스크립트가 만드는 것)
+   — components.css 가 관리자 빌드에도 이어붙여지기 때문이다(dev/build.sh ADMIN_CSS_FILES).
+   관리자는 폭이 늘 900 이상이라 넓은 화면 규칙이 상시 걸린다. 그래서 위 기본값은 480 리터럴로
+   두고(관리자 지금 그대로), 기둥 안쪽에서만 변수를 쓴다. .form-row 와 같은 처리. */
+#appShell .modal{max-width:var(--shell-max)}
 .modal-header{padding:24px 24px 0;display:flex;align-items:flex-start;justify-content:space-between}
 .modal-title{font-size:20px;font-weight:700}
 .modal-close{width:30px;height:30px;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
@@ -307,7 +328,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .notif-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 
 /* ── FLOATING APPLY BAR ── */
-#detailFloatBar{display:none;position:fixed;bottom:var(--tab-h);left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--outline);padding:12px 16px;z-index:149;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+#detailFloatBar{display:none;position:fixed;bottom:var(--tab-h);left:50%;transform:translateX(-50%);width:100%;max-width:var(--shell-max);background:var(--surface);border-top:1px solid var(--outline);padding:12px 16px;z-index:149;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
 
 /* ── ANIMATIONS (Material Motion) ── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -331,7 +352,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── LEGAL MODAL ── */
 #legalModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;align-items:flex-end;justify-content:center}
 #legalModal.on{display:flex}
-#legalModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#legalModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
 #legalModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 #legalModal .legal-title{font-size:15px;font-weight:700}
 #legalModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
@@ -342,11 +363,15 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 #legalModal .legal-body dt{font-weight:600;color:var(--muted);margin-top:6px;font-size:12px}
 #legalModal .legal-body dd{margin:0 0 4px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* 로그인 안내 창 — 폭·모서리를 index.html 인라인에서 옮겨 왔다.
+   ⚠️ 인라인으로 두면 인라인이 아래 ≥600 규칙을 이겨 넓은 화면에서 안 바뀐다. */
+.login-prompt-overlay{align-items:flex-end}
+.login-prompt-sheet{max-width:var(--shell-max);border-radius:20px 20px 0 0}
 
 /* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
 #policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
 #policyNoticeModal.on{display:flex}
-#policyNoticeModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
 #policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 #policyNoticeModal .legal-title{font-size:15px;font-weight:700}
 #policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
@@ -356,7 +381,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
 .policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
 /* 홈 상단 배너 — GNB(.gnb height:56px) 바로 아래에 fixed 오버레이로 떠서 hero 위에 겹침(콘텐츠 안 밀림).
-   #appShell 이 transform 보유 → 자손 position:fixed 는 appShell(480px) 기준. 홈 외 페이지는 app.js navigate 에서 숨김. */
+   #appShell 이 transform 보유 → 자손 position:fixed 는 appShell(기둥 폭) 기준. 홈 외 페이지는 app.js navigate 에서 숨김. */
 #policyNoticeBannerWrap{position:fixed;top:56px;left:0;right:0;z-index:90;padding:10px 14px;pointer-events:none}
 #policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:auto}
 #policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
@@ -461,6 +486,37 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 }
 @keyframes ptr-spin{ to{ transform:rotate(360deg); } }
 
+/* ══════════════════════════════════════════════════════════════════
+   넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2
+   600 미만은 한 픽셀도 안 바뀐다. 여기 있는 것이 전부 그 조건 안이다.
+   ══════════════════════════════════════════════════════════════════ */
+@keyframes sheetFadeIn{from{opacity:0}to{opacity:1}}
+@media(min-width:600px){
+  /* 시트 — 아래 붙는 모양에서 가운데 카드로. 등장도 올라오기 대신 페이드.
+     ⚠️ 이미 가운데형인 대화창 7종(#alertModal·#cautionCompareModal·#applyActionModal·
+        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay·#cropModal)과
+        .notif-modal-body(top:15%)는 손대지 않는다.
+     ⚠️ 선택자를 묶지 않고 하나씩 적는다 — 자리 수를 세어 빠뜨린 곳을 찾는 검사가
+        작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
+  #appShell .modal-overlay{align-items:center}
+  .login-prompt-overlay{align-items:center}
+  #appShell .modal{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  #legalModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  #policyNoticeModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+  .login-prompt-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
+
+  /* 폼 — 가운데. 🔴 .form-row 는 관리자 문서도 쓰는 공용 클래스라 #appShell 로 좁힌다. */
+  #appShell .form-row{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+
+  /* 글 — 왼쪽 정렬 그대로 두고 폭만 묶는다(가운데로 옮기지 않는다). */
+  #appShell .rich-content{max-width:var(--reading-max)}
+  .legal-body{max-width:var(--reading-max)}
+  .legal-page-body{max-width:var(--reading-max)}
+  /* 비밀번호 규칙 안내 — 회원가입·재설정 화면에서는 카드(560)가 이미 잡지만
+     마이페이지 비밀번호 변경 화면에서는 .form-row 밖이라 안 잡힌다(배포 뒤 실측 672px). */
+  .pw-policy{max-width:var(--reading-max)}
+}
+
 /* ══════════════════════════════════
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
@@ -550,6 +606,15 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 html.preview-mode .gnb{display:none}
 html.preview-mode #page-detail .detail-back{display:none}
 .detail-layout{display:grid;grid-template-columns:1fr;gap:0}
+
+/* 상세 대표 사진 — 사진 비율 그대로 그린다. 정사각 고정(aspect-ratio:1/1)은 2026-09-14 에
+   뺐다. 가로로 긴 배너가 대부분이라 정사각 칸 안에서 위아래가 회색으로 비었다(사용자 지적).
+   🔴 `!important` 가 필요하다 — 사진 태그의 `height:100%` 가 **인라인 스타일**이다
+      (`renderCroppedImg`, dev/js/ui.js). 그 함수는 카드 목록도 함께 쓰는데 거기서는
+      정사각 칸을 채워야 하므로 **함수 자체는 고치지 않고** 상세 사진에만 덮어쓴다.
+   ⚠️ 높이 상한은 세로로 긴 사진용 안전판이다 — 걸리면 좌우가 비지만(object-fit:contain)
+      그 경우가 드물고, 안 걸면 세로 사진이 화면을 통째로 먹는다. */
+#campSlider img{height:auto !important;max-height:60vh}
 .detail-main{}
 .detail-header{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:24px;margin-bottom:16px;box-shadow:var(--elevation-1)}
 .detail-img{height:200px;background:var(--surface-dim);border-radius:var(--r12);display:flex;align-items:center;justify-content:center;font-size:72px;margin-bottom:16px;position:relative;overflow:hidden}
@@ -680,6 +745,36 @@ html.preview-mode #page-detail .detail-back{display:none}
 }
 .deliv-past-toggle:hover{ color:var(--ink); border-color:var(--muted); }
 
+/* ══════════════════════════════════════════════════════════════════
+   넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2
+   600 미만은 한 픽셀도 안 바뀐다.
+   ⚠️ 이 블록은 파일 끝이라 위의 기본 규칙(.hero-sub 의 max-width:100% 등)보다
+      뒤에 오고, 그래서 이긴다. 자리를 위로 옮기지 말 것.
+   ⚠️ 선택자를 묶지 않고 하나씩 적는다(자리 수 검사가 완료 조건).
+   ══════════════════════════════════════════════════════════════════ */
+@media(min-width:600px){
+  /* 카드 — 한 장 크기를 폰과 비슷하게 유지하려고 열을 늘린다.
+     🔴 auto-fill 금지 — 375 폰이 1열이 된다(사양서 §2-1 ⑨). */
+  .camp-grid{grid-template-columns:repeat(3,1fr)}
+
+  /* 상세 대표 사진 — 넓은 폭에서 화면을 다 먹지 않게. 가운데.
+     🔴 **폭과 화면 높이를 함께 묶는다.** 읽기 폭(560)만 걸었더니 아이패드 세로 49%·
+        폴드 속 세로 59%·PC 70% 를 먹었다(2026-09-11 배포 뒤 실측, 사용자 지적).
+        2026-09-14 에 정사각 고정을 빼면서 높이 = 폭 × 사진 비율이 됐으므로, 같은
+        몫을 유지하려면 높이 기준을 그만큼 키워야 한다(가로로 긴 배너면 50vh 폭 ≈ 28vh 높이).
+     ⚠️ 세로·가로 **양쪽**에 건다 — 세로에만 빠뜨리면 아이패드 세로가 그대로 크다. */
+  #campSlider{max-width:min(var(--reading-max),50vh);margin-left:auto;margin-right:auto}
+
+  /* 글 — 왼쪽 정렬 그대로 두고 폭만 묶는다. */
+  .hero-sub{max-width:var(--reading-max)}
+  .guide-val{max-width:var(--reading-max)}
+  .caution-box{max-width:var(--reading-max)}
+  .invite-gate-hint{max-width:var(--reading-max)}
+  .dpb-step{max-width:var(--reading-max)}
+}
+/* ⚠️ 가로 전용 70vh 규칙은 없앴다(2026-09-11) — 위 35vh 가 방향과 무관하게 더 작아
+   항상 이긴다. 남겨 두면 「가로에서만 다른 값」이라는 착각을 만든다. */
+
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
@@ -713,6 +808,14 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
 .birthdate-selects{display:flex;gap:6px}
 .birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}
+
+/* 넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2.
+   ⚠️ 파일 끝이라 위의 .auth-card{max-width:100%} 보다 뒤에 온다 — 자리를 옮기지 말 것.
+   ⚠️ #page-signup 의 인라인 max-width:560px 는 그대로 둔다(값이 같아 겹쳐도 무해하고,
+      지우면 600 미만에서 지금과 달라진다). */
+@media(min-width:600px){
+  .auth-card{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+}
 
 /* ══════════════════════════════════
    MY PAGE — マイページ (リスト → 詳細)
@@ -920,6 +1023,19 @@ html.preview-mode #page-detail .detail-back{display:none}
   .ticket-check circle,.ticket-check path{animation:none;stroke-dashoffset:0}
 }
 
+/* 넓은 화면(폭 600 이상) — 사양서 2026-09-11-wide-screen-layout §3-2.
+   글은 왼쪽 정렬 그대로 두고 폭만 묶는다. */
+@media(min-width:600px){
+  .msg-faq-answer-body{max-width:var(--reading-max)}
+  .ticket-msg{max-width:var(--reading-max)}
+  /* 아래 둘은 배포 뒤 실측(작업표 조각 7 ④-b)으로 드러난 자리다.
+     .email-tx-desc = 업무 알림 안내 박스(611px) ·
+     #withdrawViewBody = 탈퇴 화면 본문(675px — 안쪽 글이 클래스 없는 div 라
+     가장 가까운 고정 id 로 묶는다. 버튼도 함께 560 이 되는 것이 낫다). */
+  .email-tx-desc{max-width:var(--reading-max)}
+  #withdrawViewBody{max-width:var(--reading-max)}
+}
+
 </style>
 </head>
 <body>
@@ -1121,8 +1237,8 @@ html.preview-mode #page-detail .detail-back{display:none}
 </div>
 
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
-<div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
-  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
+<div id="loginPromptOverlay" class="login-prompt-overlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;justify-content:center">
+  <div class="login-prompt-sheet" style="background:#fff;width:100%;padding:24px 20px 36px">
     <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">
@@ -1742,7 +1858,7 @@ html.preview-mode #page-detail .detail-back{display:none}
             <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
             <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
@@ -1861,7 +1977,7 @@ html.preview-mode #page-detail .detail-back{display:none}
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">
@@ -2075,7 +2191,7 @@ html.preview-mode #page-detail .detail-back{display:none}
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
       </div>
@@ -5455,6 +5571,8 @@ window.I18N_JA = {
   campaign: {
     emptyState: '現在募集中のキャンペーンはありません',
     emptyStateSub: '近日中に新しいKブランド体験団が登録されます',
+    emptyFiltered: '条件に合うキャンペーンはありません',
+    emptyFilteredSub: '別の条件で探してみてください',
     loadFailed: 'キャンペーンを読み込めませんでした',
     loadFailedSub: 'しばらくしてから もう一度 ごらんください',
     badgeUrgent: '締切間近',
@@ -6403,6 +6521,8 @@ window.I18N_KO = {
   campaign: {
     emptyState: '현재 모집 중인 캠페인이 없습니다',
     emptyStateSub: '곧 새로운 K브랜드 체험단이 등록됩니다',
+    emptyFiltered: '조건에 맞는 캠페인이 없습니다',
+    emptyFilteredSub: '다른 조건으로 찾아보세요',
     loadFailed: '캠페인을 불러오지 못했습니다',
     loadFailedSub: '잠시 후 다시 확인해 주세요',
     badgeUrgent: '마감 임박',
@@ -13836,6 +13956,45 @@ function openImageLightbox(url, alt) {
 
 // ── 이미지 슬라이더 ──
 let _slideIdx = 0;
+// 자동 넘김 — 이미지가 2장 이상인 캠페인에서만 돈다.
+//   ⚠️ 타이머를 끄는 자리를 반드시 짝으로 둔다(`navigate()` 안 — app.js). 상세를 떠난 뒤에도
+//      돌면 화면에 없는 요소를 계속 건드린다. `navigate()` 는 페이지를 지우지 않고 active
+//      클래스만 떼므로, 아래 isConnected 검사로는 스스로 안 멈춘다.
+let _slideTimer = null;
+const SLIDE_INTERVAL_MS = 3500;
+
+function startSlideAuto() {
+  stopSlideAuto();
+  // 현재 장 번호를 0으로 되돌린다 — **중복 방어**다.
+  //   `openCampaign()`(application.js) 이 이미 같은 초기화를 하고 있어 지금은 없어도 동작한다.
+  //   여기에 한 번 더 두는 이유는, 이 값이 화면 밖 전역이라 남아 있으면 **자동 넘김이 첫 장이
+  //   보이는 화면에서 엉뚱한 장으로 건너뛰기** 때문이다. ⚠️ 저쪽 초기화를 지우면 이 줄이 유일한 방어선이 된다.
+  _slideIdx = 0;
+  const slides = $('campSlides');
+  if (!slides || slides.children.length < 2) return;   // 한 장뿐이면 넘길 것이 없다
+  // 움직임을 줄이도록 설정한 사용자에게는 자동으로 움직이지 않는다(기기 접근성 설정).
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  } catch(e) {}
+  _slideTimer = setInterval(() => {
+    // 다른 화면으로 갔거나 앱이 뒤로 넘어갔으면 그동안은 넘기지 않는다.
+    //   ⚠️ 여기서 멈추기만 하고 타이머는 살려 둔다 — 돌아왔을 때 저절로 이어진다.
+    if (document.hidden) return;
+    const el = $('campSlides');
+    if (!el || !el.isConnected) { stopSlideAuto(); return; }
+    slideMove(1);
+  }, SLIDE_INTERVAL_MS);
+}
+
+function stopSlideAuto() {
+  if (_slideTimer) { clearInterval(_slideTimer); _slideTimer = null; }
+}
+
+// 사용자가 직접 넘기면 자동 넘김을 멈춘다 — 보고 있는 사진이 저절로 넘어가면 안 된다.
+//   화살표·점을 누르는 자리에서만 부른다(자동 넘김 자신은 slideMove 를 직접 쓴다).
+function slideMoveManual(dir) { stopSlideAuto(); slideMove(dir); }
+function slideToManual(idx) { stopSlideAuto(); slideTo(idx); }
+
 function slideMove(dir) {
   const slides = $('campSlides');
   if (!slides) return;
@@ -14659,6 +14818,16 @@ function toggleCampPageSearch(force) {
   }
 }
 
+// 캠페인이 한 건도 없을 때의 안내.
+//   ⚠️ 문구가 「현재 모집 중인 캠페인이 없습니다」 하나로 고정돼 있어, 「모집예정」·「종료」 같은
+//      다른 탭을 골라 0건일 때도 **모집중 얘기를 했다**(2026-08-21 실기기 신고). 조건을 걸어
+//      찾은 결과가 없는 것과, 캠페인 자체가 없는 것을 나눠 말한다.
+function campEmptyStateHtml(isFiltered) {
+  const title = isFiltered ? t('campaign.emptyFiltered') : t('campaign.emptyState');
+  const sub = isFiltered ? t('campaign.emptyFilteredSub') : t('campaign.emptyStateSub');
+  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${esc(title)}</div><div class="empty-sub">${esc(sub)}</div></div>`;
+}
+
 function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
@@ -14673,7 +14842,7 @@ function renderCampaignGrid() {
   }
   camps = sortByStatusAndDeadline(camps);
   if (!camps.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    grid.innerHTML = campEmptyStateHtml(campPageTypeFilter !== 'all' || campPageStatusFilter !== 'all' || !!campPageSearch);
     return;
   }
   grid.innerHTML = buildCampCards(camps);
@@ -14803,7 +14972,10 @@ function renderCampaigns(camps) {
     const _icon = _failed ? 'cloud_off' : 'assignment';
     const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
     const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`;
+    // 조회는 됐는데 조건으로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
+    grid.innerHTML = _failed
+      ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`
+      : campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }
@@ -15631,21 +15803,27 @@ async function openCampaign(id) {
   const slideData = rawSlides.filter(s => seen.has(s.url) ? false : (seen.add(s.url), true));
   const slideImgs = slideData.map(s => s.url);
 
+  // 대표 사진 칸 — 높이를 고정하지 않는다(정사각 `aspect-ratio:1/1` 은 2026-09-14 에 뺐다).
+  // 가로로 긴 배너가 대부분이라 정사각 칸 안에서 위아래가 회색으로 비었다(사용자 지적).
+  // ⚠️ 사진이 여러 장이고 비율이 서로 다르면 칸 높이는 **가장 높은 장**에 맞춰지고,
+  //    낮은 장은 가운데 놓인다(`align-items:center`). 사진 없는 캠페인의 회색 상자는
+  //    채울 것이 없어 정사각 그대로 둔다.
+  // 🔴 사진 태그의 `height:100%` 를 덮어쓰는 규칙이 campaign.css 에 있다 — 같이 본다.
   const slideHtml = slideImgs.length > 0 ? `
-    <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)};aspect-ratio:1/1;height:auto">
-      <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
+    <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)}">
+      <div id="campSlides" style="display:flex;align-items:center;transition:transform .32s cubic-bezier(.4,0,.2,1)">
         ${slideData.map((s,idx)=>{
           const crop = s.key ? crops[s.key] : null;
           // 첫 장(LCP)만 720, lazy 로드 나머지는 480으로 용량 절감
           const thumb = idx === 0 ? 720 : 480;
-          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
+          return `<div style="flex:0 0 100%;width:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
         }).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
-        <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
+        <button onclick="slideMoveManual(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
+        <button onclick="slideMoveManual(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
         <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
-          ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
+          ${slideImgs.map((_,i)=>`<div onclick="slideToManual(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
@@ -16019,7 +16197,10 @@ async function openCampaign(id) {
     else if (camp.status === 'draft' || camp.status === 'expired') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 마감 판정 — 상태 「모집마감」 또는 마감일 경과(사양서 §설계 5-(1) 단방향 규칙).
     //   자정을 넘겨 캐시의 status 가 active 로 남은 경우에도 여기서 닫혀야 서버 거부를 안 본다.
-    else if (camp.status==='closed' || (typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(camp) && camp.status!=='scheduled')) { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    //   ⚠️ 종료된 캠페인은 마감일도 이미 지나 이 조건에 걸린다. 아래 「종료」 분기보다 먼저라
+    //      버튼에 「종료」 대신 「모집마감」이 떴다(2026-08-21 실기기 신고, 카드 딱지 겹침과 같은 원인).
+    //      목록 쪽(campaign.js buildCampCards)과 **같은 모양으로** 종료를 먼저 비켜 준다.
+    else if (camp.status!=='ended' && (camp.status==='closed' || (typeof recruitDeadlinePassed === 'function' && recruitDeadlinePassed(camp) && camp.status!=='scheduled'))) { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='ended') { floatApplyBtn.textContent=t('detail.endedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     // 모집 시작 전 — 링크로 직접 들어온 경우에도 응모를 막는다(목록에서는 카드 클릭 자체가 불가)
     else if (camp.status==='scheduled') { floatApplyBtn.textContent=t('detail.scheduledBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
@@ -16056,6 +16237,12 @@ async function openCampaign(id) {
   if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : t('detail.backToCampaigns');
 
   navigate('detail-' + id);
+  // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
+  //   🔴 **이 줄을 위로 옮기면 안 된다.** 바로 위 `navigate()` 안에 `stopSlideAuto()` 가 있어,
+  //      앞에 두면 방금 켠 타이머를 그것이 꺼 버려 **자동 넘김이 아예 안 돈다.** 오류도 안 나고
+  //      빌드도 통과해서, 「초기화니까 위로」가 자연스러워 보이는 것이 함정이다.
+  //   ⚠️ 초대 전용 게이트로 빠지는 위쪽 `navigate('detail-' + id)` 에는 넣지 않는다(그 화면엔 사진이 없다).
+  if (typeof startSlideAuto === 'function') startSlideAuto();
 
   // 오프라인 행사면 타임 선택표를 채운다(서버 집계라 비동기).
   //   화면 전환을 막지 않으려고 await 하지 않는다 — 숫자가 오면 그때 들어간다.
@@ -21217,6 +21404,11 @@ function navigate(page, pushHistory) {
 
   const fb = $('detailFloatBar');
   if (fb && pageName !== 'detail') fb.style.display = 'none';
+  // 이미지 자동 넘김도 함께 멈춘다 — 상세를 떠난 뒤에도 돌면 화면에 없는 요소를 계속 건드린다.
+  //   ⚠️ 상세를 떠나는 길이 전부 이 함수를 지나므로 여기 한 줄이면 된다.
+  //   ⚠️ 이 줄은 **상세로 들어올 때도** 돈다 — 그래서 시작 호출(startSlideAuto)은 반드시
+  //      `navigate('detail-' + id)` **뒤**에 있어야 한다(application.js 의 그 자리 주석 참조).
+  if (typeof stopSlideAuto === 'function') stopSlideAuto();
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
