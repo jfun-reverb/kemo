@@ -64,19 +64,42 @@ async function loadAdminAccounts() {
   const _pmBtn = document.getElementById('btnPermManageBtn');
   if (_pmBtn) _pmBtn.style.display = isSuper ? '' : 'none';
 
-  // 구독 상태 + 메일 종류 카탈로그 일괄 로드
+  // 구독 상태 + 메일 종류 카탈로그 + 최근 로그인 일괄 로드
+  // ⚠️ 최근 로그인은 **슈퍼관리자일 때만** 부른다 — 서버가 42501 로 거부하므로,
+  //    안 그러면 매 진입마다 콘솔에 오류가 쌓여 「고장인가」 하는 오해를 만든다.
   const adminIds = admins.map(a => a.id);
-  const [subs, kinds] = await Promise.all([
+  const [subs, kinds, lastSignIn] = await Promise.all([
     fetchAdminEmailSubscriptions(adminIds),
-    _getAdminEmailKinds()
+    _getAdminEmailKinds(),
+    isSuper ? fetchAdminLastSignIn() : Promise.resolve(null)
   ]);
 
-  _renderAdminAccountsTable(admins, subs, kinds, isSuper);
+  _renderAdminAccountsTable(admins, subs, kinds, isSuper, lastSignIn);
   applyLookupMenuVisibility();
 }
 
 // 관리자 목록 테이블 렌더 (loadAdminAccounts 길이 축소 목적 분리)
-function _renderAdminAccountsTable(admins, subs, kinds, isSuper) {
+// lastSignIn = 슈퍼관리자이고 조회에 성공했을 때만 Map, 그 외에는 null.
+//   🔴 이 값 하나가 「최근 로그인」 열의 유일한 판정이다 — 머리글·본문 셀·빈 상태 칸 수가
+//      전부 이것을 본다. 판정을 세 곳에 복사하면 셋이 갈려 표가 밀린다(이 저장소 반복 사고).
+function _renderAdminAccountsTable(admins, subs, kinds, isSuper, lastSignIn) {
+  const showLastSignIn = !!lastSignIn;
+  const thLast = document.getElementById('adminAccLastSignInTh');
+  if (thLast) thLast.style.display = showLastSignIn ? '' : 'none';
+
+  // 최근 로그인 셀 — 세 상태를 구분한다. 🔴 어느 경우에도 등록일 같은 다른 날짜로
+  //   대신 채우지 않는다(정산이 「인증성공일」 자리에 등록일을 넣었다가 겪은 실수).
+  // ⚠️ dDayLabel 을 쓰지 않는다 — 그건 미래 기한용이라 과거 시각에 쓰면 전 행이 D+n 이 되고
+  //    색 규칙상 **모두 빨개진다**. 경과 일수는 옅은 회색 글자로만.
+  const renderLastSignInCell = a => {
+    if (!a.auth_id) return '<span style="color:var(--muted);font-size:12px">계정 연결 없음</span>';
+    const at = lastSignIn[a.id];
+    if (!at) return '<span style="color:var(--muted);font-size:12px">로그인 이력 없음</span>';
+    const days = Math.floor((new Date().setHours(0,0,0,0) - new Date(at).setHours(0,0,0,0)) / 86400000);
+    const ago = days <= 0 ? '오늘' : days === 1 ? '어제' : days + '일 전';
+    return `<span style="font-size:12px">${formatDate(at)}</span>`
+      + `<span style="font-size:11px;color:var(--muted);margin-left:6px">${ago}</span>`;
+  };
   const kindLabel = code => (kinds.find(k => k.code === code) || {}).name_ko || code;
 
   const roleLabel = r => r === 'super_admin'
@@ -127,12 +150,15 @@ function _renderAdminAccountsTable(admins, subs, kinds, isSuper) {
     <td>${renderMailCell(a)}</td>
     <td>${renderInviteCell(a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
+    ${showLastSignIn ? `<td style="white-space:nowrap">${renderLastSignInCell(a)}</td>` : ''}
     <td><div style="display:flex;gap:5px">
       ${isSuper ? `<button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>` : ''}
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
       ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:var(--red-d)" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
-  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
+  </tr>`).join('')
+    // ⚠️ 빈 상태 칸 수는 열 개수를 따라가야 한다 — 고정값으로 두면 열이 보일 때 표가 밀린다.
+    : `<tr><td colspan="${showLastSignIn ? 8 : 7}" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
 }
 
 // ──────────────────────────────────────
