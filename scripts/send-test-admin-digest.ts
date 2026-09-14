@@ -168,7 +168,7 @@ const dummyAction = [
   { level: "danger", level_color: "#DC2626", campaign_no: "B0008-C008", campaign_title: "韓国スナック詰め合わせ 春の新作",
     brand_name: "모모 스낵", recruit_type_ko: "기프팅",
     deadline_line: "모집 마감 3일 남음(2026/09/17)", status_line: "승인 0명 / 모집 20명(0%)",
-    reason_text: "마감 3일 남음 · 모집 저조 · 마감 3일 남음" },
+    reason_text: "마감 3일 남음 · 모집 저조" },
   { level: "warning", level_color: "#f97316", campaign_no: "B0008-C007", campaign_title: "방문형 데이터 검증 캠페인",
     brand_name: "글로우 스킨케어", recruit_type_ko: "방문형",
     deadline_line: "결과물 제출 마감 오늘(2026/09/14)", status_line: "인증 성공 0명 / 승인 1명(0%) · 미인증 1명",

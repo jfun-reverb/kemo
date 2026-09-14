@@ -806,8 +806,10 @@ function actionReasonLine(code: string, a: ActionAlertRow): string {
   switch (code) {
     case "deadline_1d":        return left === 0 ? "마감 오늘" : "마감 하루 전";
     case "deadline_3d":        return `마감 ${left}일 남음`;
-    // 남은 날이 2일 이상일 때만 마감을 덧붙인다(0·1일은 위 마감 갈래가 이미 말한다)
-    case "recruit_low_urgent": return "모집 저조" + ((left !== null && left > 1) ? ` · 마감 ${left}일 남음` : "");
+    // 🔴 마감 갈래가 **3일까지** 말하므로 4일 이상일 때만 덧붙인다 — `left > 1` 로 두면
+    //    남은 날 2·3일에서 위 deadline_3d 와 겹쳐 같은 마감일을 두 번 적는다
+    //    (화면 admin-brand-ops.js 의 ganttAlertLine 과 글자 그대로 같아야 한다)
+    case "recruit_low_urgent": return "모집 저조" + ((left !== null && left > 3) ? ` · 마감 ${left}일 남음` : "");
     case "recruit_low":        return "모집 저조";
     case "uncert_near":        return `미인증 ${a.uncert_count}명 · 제출 마감 ${actionLeftText(left)}`;
     case "result_low":         return `결과물 저조 · 제출 마감 ${actionLeftText(left)}`;
