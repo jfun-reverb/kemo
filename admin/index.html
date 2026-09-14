@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789366960';
+  var CURRENT_BUILD = 'v1789366974';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3139,7 +3139,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-14 15:22 · 733c184</span>
+          <span class="admin-build-text">2026-09-14 15:22 · 2132787</span>
         </div>
       </div>
     </aside>
@@ -26154,8 +26154,10 @@ function ganttAlertLine(code, a) {
   switch (code) {
     case 'deadline_1d':        return left === 0 ? '마감 오늘' : '마감 하루 전';
     case 'deadline_3d':        return '마감 ' + left + '일 남음';
-    // 남은 날이 2일 이상일 때만 마감을 덧붙인다(0·1일은 위 마감 갈래가 이미 말한다)
-    case 'recruit_low_urgent': return '모집 저조' + (left > 1 ? ' · 마감 ' + left + '일 남음' : '');
+    // 🔴 마감 갈래가 **3일까지** 말하므로 4일 이상일 때만 덧붙인다 — `left > 1` 로 두면
+    //    남은 날 2·3일에서 위 deadline_3d 와 겹쳐 「마감 3일 남음 · 모집 저조 · 마감 3일 남음」이 된다
+    //    (2026-09-14 브라우저 대조에서 실제로 그렇게 그려지는 것을 확인. 옛 화면부터 있던 어긋남)
+    case 'recruit_low_urgent': return '모집 저조' + (left > 3 ? ' · 마감 ' + left + '일 남음' : '');
     case 'recruit_low':        return '모집 저조';
     case 'uncert_near':        return '미인증 ' + a.uncert + '명 · 제출 마감 ' + ganttAlertLeftText(left);
     case 'result_low':         return '결과물 저조 · 제출 마감 ' + ganttAlertLeftText(left);
