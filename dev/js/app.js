@@ -153,6 +153,11 @@ function navigate(page, pushHistory) {
 
   const fb = $('detailFloatBar');
   if (fb && pageName !== 'detail') fb.style.display = 'none';
+  // 이미지 자동 넘김도 함께 멈춘다 — 상세를 떠난 뒤에도 돌면 화면에 없는 요소를 계속 건드린다.
+  //   ⚠️ 상세를 떠나는 길이 전부 이 함수를 지나므로 여기 한 줄이면 된다.
+  //   ⚠️ 이 줄은 **상세로 들어올 때도** 돈다 — 그래서 시작 호출(startSlideAuto)은 반드시
+  //      `navigate('detail-' + id)` **뒤**에 있어야 한다(application.js 의 그 자리 주석 참조).
+  if (typeof stopSlideAuto === 'function') stopSlideAuto();
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
