@@ -6,14 +6,17 @@
   To:      get_subscribed_admin_emails('daily_digest') ∪ env.NOTIFY_ADMIN_EMAILS
            (migration 164: application_cancel + application_received → daily_digest 통합)
   Lang:    KO
-  Skip:    4섹션 모두 0건이면 메일 미발송 + 발송 로그 status='skipped_no_data'
+  Skip:    5섹션 모두 0건이면 메일 미발송 + 발송 로그 status='skipped_no_data'
+           ⚠️ 섹션 5 가 있으면 앞 네 절이 0건이어도 나간다(사양서 §2-6 — 의도)
 
-  4섹션 구조:
+  5섹션 구조:
     1. 캠페인 신청 접수 (received) — applications.created_at 윈도우
     2. 응모 취소 (cancelled) — cancelled_at 윈도우, cancel_phase != 'recruit'
     3. 결과물 제출 (submitted) — deliverable_events.action='submit' 윈도우
     4. 재처리 일감 (reprocessed) — deliverable_events.action IN ('resubmit','revert')
                                   + application_events.action='revert_to_pending'
+    5. 조치가 필요한 캠페인 (action) — get_campaign_action_alerts()(마이그레이션 434)
+                                  🔴 시간 창을 안 쓴다(오늘 기준 판정). 운영현황 일정 뷰와 같은 결과
 
   Subject (Edge Function이 동적 생성):
     [REVERB] 관리자 일일 요약 — {{digest_date}} (총 {{total_count}}건)
