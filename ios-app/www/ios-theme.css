@@ -494,10 +494,12 @@ body.apply-filter-in-gnb .gnb-title { flex: 0 1 auto; }
    가로로 누운 넓은 화면 — 대표 사진 오른쪽에 머리 정보를 놓는다
    (사용자 지시 2026-09-14). 세로에서는 지금처럼 사진 아래에 그대로 둔다.
    ══════════════════════════════════════════════════════════════════ */
-/* 사진의 상한 — 웹 규칙 `min(var(--reading-max), 35vh)` 와 **같은 식**이다.
+/* 사진의 상한 — 웹 규칙 `min(var(--reading-max), 50vh)` 와 **같은 식**이다.
    ⚠️ 두 곳에 적힌 같은 판단이라, 웹(`campaign.css` 의 `#campSlider`)을 고치면 여기도 고친다.
-      아래 열 폭이 사진 폭과 **정확히 같아야** 오른쪽 열이 어긋나지 않아 변수로 묶었다. */
-:root { --ios-hero-max: min(var(--reading-max), 35vh); }
+      아래 열 폭이 사진 폭과 **정확히 같아야** 오른쪽 열이 어긋나지 않아 변수로 묶었다.
+   ⚠️ 2026-09-14 에 정사각 고정을 빼서 이제 **높이 = 폭 × 사진 비율**이다. 그래서 폭 상한을
+      35vh 에서 50vh 로 키웠다 — 가로로 긴 배너면 실제 높이는 28vh 쯤으로 종전과 비슷하다. */
+:root { --ios-hero-max: min(var(--reading-max), 50vh); }
 #campSlider { max-width: var(--ios-hero-max); }
 
 /* ⚠️ 사진이 있을 때만 2단으로 간다 — 이미지 없는 캠페인은 회색 상자에 `#campSlider` 가
@@ -515,12 +517,40 @@ body.apply-filter-in-gnb .gnb-title { flex: 0 1 auto; }
   .detail-main:has(#campSlider) > .detail-head { grid-column: 2; grid-row: 1; }
   /* 글이 672 보다 넓어지지 않게 — 오른쪽 열은 화면 폭에 따라 더 넓어질 수 있다. */
   .detail-main:has(#campSlider) > .detail-head { max-width: var(--reading-max); }
+
+  /* 인스타그램·LINE 안내 띠 — 가로에서는 나란히 둘(사용자 지시 2026-09-14).
+     ⚠️ 사진이 없는 캠페인에도 걸려야 한다 — 위 격자와 달리 `:has(#campSlider)` 로 막지 않는다.
+        띠 두 장은 사진과 무관하다. */
+}
+@media (min-width: 600px) and (orientation: landscape) {
+  /* 🔴 `!important` 가 필요하다 — 감싸개의 `flex-direction:column` 이 **인라인 스타일**이라
+     보통 규칙으로는 못 이긴다(application.js 가 화면을 문자열로 만든다). */
+  .detail-cta { flex-direction: row !important; align-items: stretch; }
+  /* 둘이 같은 폭을 나눠 갖는다. `min-width:0` 이 없으면 안쪽 글이 길 때 칸이 안 줄어 넘친다. */
+  .detail-cta > * { flex: 1 1 0; min-width: 0; }
+}
+
+/* 캠페인 정보표 — 가로에서는 두 줄씩 나란히(사용자 지시 2026-09-14).
+   ⚠️ 행마다 있는 윗줄(hairline)은 그대로 두고 **왼쪽 줄만 더한다** — 왼쪽 열의 줄은 카드
+      안쪽 왼쪽 모서리에 겹쳐 안 보이고, 오른쪽 열의 줄만 두 열을 가르는 선이 된다.
+      순서(`:nth-child`)로 열을 집지 않아도 되는 방법이라 이 저장소의 금지 규칙에 안 걸린다.
+   ⚠️ 행 수가 홀수면 마지막 칸이 빈다 — 카드 배경이 흰색이라 그 자리는 그냥 여백으로 보인다. */
+@media (min-width: 600px) and (orientation: landscape) {
+  .dinfo-list { display: grid; grid-template-columns: 1fr 1fr; }
+  .dinfo-row { border-left: .5px solid rgba(0,0,0,.08); }
+  /* 🔴 첫 줄 윗줄 처리를 되돌린다 — 1열에서는 「첫 칸 = 첫 줄」이라 위 규칙이 첫 칸의
+     윗줄만 껐지만, 2열에서는 **오른쪽 위 칸도 첫 줄**이라 그 칸에만 줄이 남아 좌우가
+     어긋난다(리뷰 지적 2026-09-14). 칸마다 윗줄을 다시 켜고 카드 위 테두리를 지워
+     두 칸이 같은 위치에서 같은 선 하나를 쓰게 한다.
+     ⚠️ 순번(:nth-child)으로 오른쪽 위 칸만 집는 방법은 이 저장소가 금지한다. */
+  .dinfo-list { border-top-color: transparent; }
+  .dinfo-list .dinfo-row:first-child { border-top: .5px solid rgba(0,0,0,.08) !important; }
 }
 
 /* 🔴 여백 뚫기는 **좁은 폭에서만** 한다.
-   이 규칙의 `max-width:none !important` 는 웹이 건 높이 상한
-   `min(var(--reading-max), 35vh)` 를 이긴다. 앱은 기둥까지 풀려 있어(위 --shell-max:none)
-   그대로 두면 아이패드에서 사진이 **화면 폭 전체의 정사각**이 된다 — 웹에서 화면의 70%를
+   이 규칙의 `max-width:none !important` 는 웹이 건 폭 상한
+   `min(var(--reading-max), 50vh)` 를 이긴다. 앱은 기둥까지 풀려 있어(위 --shell-max:none)
+   그대로 두면 아이패드에서 사진이 **화면 폭 전체**로 벌어진다 — 웹에서 화면의 70%를
    먹어 사용자 지적을 받았던 것보다 더 커진다(웹 사양서 §5 「대표 사진 크기 정정」).
    → 600 이상에서는 이 덮어쓰기를 걸지 않아 웹 규칙이 그대로 잡게 둔다.
    ⚠️ 폰(600 미만)의 전면 사진은 지금 모습 그대로다. */
