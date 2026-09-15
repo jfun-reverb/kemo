@@ -144,6 +144,8 @@
              클라 PERM_SUPER_LOCKED + 서버 마이그레이션 271 이 write 로 고정한다.
              이 항목을 되살릴 일이 생기면 그 두 잠금도 함께 재검토할 것. -->
         <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openErrorsOpen()" title="미해결만 보기">0</span></div>
+        <!-- 광고 추적(메타 픽셀 설정) — 화면은 dev/js/admin-ad-tracking.js 가 동적으로 그린다(권한 menu.ad-tracking) -->
+        <div class="admin-si" data-pane="ad-tracking" id="adminAdTrackingSi" onclick="navAdminPaneReload('ad-tracking')"><span class="si-icon material-icons-round notranslate" translate="no">ads_click</span><span class="si-text">광고 추적</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
@@ -2863,6 +2865,9 @@
             </div>
           </div>
         </div>
+
+        <!-- AD TRACKING PANE — 광고 추적(메타 픽셀 설정). 내용은 loadAdTrackingPane() 이 그린다 -->
+        <div id="adminPane-ad-tracking" class="admin-pane"></div>
 
         <!-- MY ACCOUNT PANE -->
         <div id="adminPane-my-account" class="admin-pane">
