@@ -430,7 +430,16 @@ async function init() {
   let confirmLandingToast = false, confirmLandingNotice = false;
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
-      if (new URLSearchParams(location.search).has('code')) {
+      const codeStillInUrl = new URLSearchParams(location.search).has('code');
+      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
+      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
+      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
+      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
+      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
+      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
+        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
+      }
+      if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }
       if (session) confirmLandingToast = true; else confirmLandingNotice = true;
@@ -465,6 +474,11 @@ async function init() {
   // 실패해도 화면에 영향 없음(함수 안에서 삼킨다).
   if (typeof recordSiteVisit === 'function') recordSiteVisit('influencer');
 
+  // 메타 픽셀 판정 (사양서 2026-09-03-meta-pixel 흐름 2) — 방문자 집계와 같은 이유로 세션 복원 뒤.
+  //   ⚠️ 위 가입 확인 착지 블록이 주소의 `?code=` 를 먼저 지워야 한다 — 이 안에서 민감 주소를 판정한다.
+  //   기다리지 않는다(조회가 화면을 막지 않게). 그 전까지 이벤트는 줄에 쌓인다.
+  if (typeof initMetaPixel === 'function') initMetaPixel();
+
   // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
   // - implicit flow: #access_token=...&type=recovery
   //   (주소의 `?code=` 는 재설정 신호가 아니다 — 맨 위 detectRecoveryUrlEarly 주석 참조)
@@ -497,6 +511,10 @@ async function init() {
           navigate('reset-pw');
           return;
         }
+        // 메타 픽셀 로그인 재판정(흐름 6) — 토큰 갱신도 이 조건으로 들어오지만, 함수가 계정 고유번호로
+        //   「계정이 바뀐 순간」만 골라 나머지는 무시한다. `!currentUser` 안에 넣지 않는 이유: 로그인 화면이
+        //   currentUser 를 먼저 세우는 순서도 있다(두 자리가 모두 부르고 함수가 중복을 거른다).
+        if (typeof notifyMetaPixelSignedIn === 'function') notifyMetaPixelSignedIn(session.user.id);
         if (!currentUser) {
           currentUser = session.user;
           const {data:adminData} = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();

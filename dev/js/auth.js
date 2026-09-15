@@ -141,6 +141,14 @@ async function handleSignup(e) {
     // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
     if (error) { logAppError('handleSignup', error); showSignupFailure(errEl); btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
+      // 메타 픽셀 3번 이벤트 — 가입 폼 제출 성공(운영은 아직 이메일 확인 전이라 status=pending_email).
+      //   ⚠️ 이미 가입된 이메일로 다시 내면 인증 서비스가 오류 대신 **신원 목록이 빈** 가짜 사용자를 돌려준다
+      //      (계정 열거 방지). 그건 새 가입이 아니라 세지 않는다 — 화면 안내는 종전과 똑같다.
+      //   ⚠️ 개발서버는 확인 메일이 꺼져 바로 세션이 생기지만 같은 상태 값을 보낸다(사양서 1-검증 ⑦ — 감수).
+      const _isNewSignup = !(Array.isArray(data.user.identities) && data.user.identities.length === 0);
+      if (_isNewSignup && typeof trackMetaPixelEvent === 'function') {
+        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.PENDING_EMAIL });
+      }
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
         btn.disabled=false; btn.textContent=t('auth.signup.btn');
@@ -195,6 +203,9 @@ async function handleLogin(e) {
     btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
   }
 
+  // 메타 픽셀 새로고침 보류(흐름 6) — 로그인 요청 도중 픽셀 재조회가 먼저 끝나 새로고침하면 아래 관리자
+  //   이동(/admin/)이 실행되지 못한다. 일반 회원으로 끝나는 갈래에서만 풀고, 오류 경로는 시간이 지나면 풀린다.
+  if (typeof metaPixelHoldReload === 'function') metaPixelHoldReload();
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
@@ -209,6 +220,8 @@ async function handleLogin(e) {
       btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
     }
     currentUser = data.user;
+    // 메타 픽셀 로그인 재판정(흐름 6) — app.js 로그인 처리기와 둘 다 부르고 함수가 같은 계정 중복을 거른다
+    if (typeof notifyMetaPixelSignedIn === 'function') notifyMetaPixelSignedIn(data.user.id);
     // 관리자 테이블에서 확인
     const {data:adminData} = await db.from('admins').select('*').eq('auth_id', data.user.id).maybeSingle();
     if (adminData) {
@@ -237,7 +250,12 @@ async function handleLogin(e) {
       }
       toast(t('auth.toast.welcomeBack'),'success'); updateGnb();
       // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
-      if (typeof consumeInviteReturn === 'function' && consumeInviteReturn()) return;
+      const returnedToInvite = typeof consumeInviteReturn === 'function' && consumeInviteReturn();
+      // 일반 회원으로 끝났다 — 메타 픽셀 새로고침 보류를 푼다. 관리자 갈래에서는 부르지 않는다.
+      //   ⚠️ 초대 복귀 **뒤에** 푼다 — 복귀가 주소를 캠페인 상세로 바꿔 두어야 새로고침해도 그 자리로 온다
+      //      (복귀 기억은 한 번 쓰면 지워져, 먼저 새로고침하면 캠페인으로 못 돌아간다).
+      if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
+      if (returnedToInvite) return;
       navigate('home');
     }
   } catch(e) {
