@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789376338';
+  var CURRENT_BUILD = 'v1789442608';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3195,7 +3195,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-14 17:58 · 61643f7</span>
+          <span class="admin-build-text">2026-09-15 12:23 · 7662cb3</span>
         </div>
       </div>
     </aside>
@@ -5887,7 +5887,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th style="width:170px" title="초대 메일 발송 여부와 본인이 비밀번호를 설정했는지">초대 메일</th><th>등록일</th><th id="adminAccLastSignInTh" style="width:150px;display:none" title="마지막으로 로그인한 날. 로그인 상태를 유지한 채 계속 사용하면 이 날짜는 갱신되지 않습니다. 인플루언서 화면에서 로그인해도 함께 반영됩니다.">최근 로그인</th><th>처리</th></tr></thead>
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th style="width:170px" title="초대 메일 발송 여부와 본인이 비밀번호를 설정했는지">초대 메일</th><th>등록일</th><th id="adminAccLastSignInTh" style="width:150px;display:none" title="마지막으로 사용한 날. 로그인 상태를 유지한 채 사용한 날도 반영됩니다. 로그아웃하면 마지막으로 직접 로그인한 날로 돌아갑니다. 인플루언서 화면에서 사용해도 함께 반영됩니다.">최근 접속</th><th>처리</th></tr></thead>
               <tbody id="adminAccountsBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -14058,8 +14058,12 @@ async function fetchAdminEmailSubscriptions(adminIds) {
   return map;
 }
 
-// 관리자별 마지막 로그인 시각 — 관리자 계정 목록의 「최근 로그인」 열(마이그레이션 436).
+// 관리자별 최근 접속 시각 — 관리자 계정 목록의 「최근 접속」 열(마이그레이션 436 → 437).
 // 반환은 일반 객체 `{ 관리자id: 시각 }` (Map 객체가 아니다 — .get() 이 아니라 [] 로 읽는다).
+// 시각 = last_active_at(로그인·로그인 연장 중 늦은 쪽, 437). 🔴 last_sign_in_at 만 쓰면
+//   로그인 상태를 유지한 채 오늘 쓴 사람이 「어제」로 보인다(2026-09-15 실측).
+//   437 이 적용 안 된 서버(칸 없음)에서는 last_sign_in_at 으로 떨어진다 — 배포 순서가
+//   어긋나도 열이 비지 않게. 함수·함수 이름은 호출 자리를 안 바꾸려고 그대로 뒀다.
 // 🔴 실패에 null, 0건에 {} 로 **구분해서** 돌려준다.
 //    바로 위 fetchAdminEmailSubscriptions 는 오류에도 {} 를 돌려주는데, 그건 이 저장소가
 //    반복해서 데인 「조회 실패를 0건으로 뭉개는」 형태다 — 여기서는 따라 하지 않는다.
@@ -14071,7 +14075,7 @@ async function fetchAdminLastSignIn() {
   const {data, error} = await db.rpc('get_admin_last_sign_in');
   if (error) { console.error('[fetchAdminLastSignIn]', error); return null; }
   const map = {};
-  for (const row of data || []) map[row.admin_id] = row.last_sign_in_at || null;
+  for (const row of data || []) map[row.admin_id] = row.last_active_at || row.last_sign_in_at || null;
   return map;
 }
 
@@ -38318,8 +38322,8 @@ async function loadAdminAccounts() {
   const _pmBtn = document.getElementById('btnPermManageBtn');
   if (_pmBtn) _pmBtn.style.display = isSuper ? '' : 'none';
 
-  // 구독 상태 + 메일 종류 카탈로그 + 최근 로그인 일괄 로드
-  // ⚠️ 최근 로그인은 **슈퍼관리자일 때만** 부른다 — 서버가 42501 로 거부하므로,
+  // 구독 상태 + 메일 종류 카탈로그 + 최근 접속 일괄 로드
+  // ⚠️ 최근 접속은 **슈퍼관리자일 때만** 부른다 — 서버가 42501 로 거부하므로,
   //    안 그러면 매 진입마다 콘솔에 오류가 쌓여 「고장인가」 하는 오해를 만든다.
   const adminIds = admins.map(a => a.id);
   const [subs, kinds, lastSignIn] = await Promise.all([
@@ -38334,21 +38338,21 @@ async function loadAdminAccounts() {
 
 // 관리자 목록 테이블 렌더 (loadAdminAccounts 길이 축소 목적 분리)
 // lastSignIn = 슈퍼관리자이고 조회에 성공했을 때만 Map, 그 외에는 null.
-//   🔴 이 값 하나가 「최근 로그인」 열의 유일한 판정이다 — 머리글·본문 셀·빈 상태 칸 수가
+//   🔴 이 값 하나가 「최근 접속」 열의 유일한 판정이다 — 머리글·본문 셀·빈 상태 칸 수가
 //      전부 이것을 본다. 판정을 세 곳에 복사하면 셋이 갈려 표가 밀린다(이 저장소 반복 사고).
 function _renderAdminAccountsTable(admins, subs, kinds, isSuper, lastSignIn) {
   const showLastSignIn = !!lastSignIn;
   const thLast = document.getElementById('adminAccLastSignInTh');
   if (thLast) thLast.style.display = showLastSignIn ? '' : 'none';
 
-  // 최근 로그인 셀 — 세 상태를 구분한다. 🔴 어느 경우에도 등록일 같은 다른 날짜로
+  // 최근 접속 셀 — 세 상태를 구분한다. 🔴 어느 경우에도 등록일 같은 다른 날짜로
   //   대신 채우지 않는다(정산이 「인증성공일」 자리에 등록일을 넣었다가 겪은 실수).
   // ⚠️ dDayLabel 을 쓰지 않는다 — 그건 미래 기한용이라 과거 시각에 쓰면 전 행이 D+n 이 되고
   //    색 규칙상 **모두 빨개진다**. 경과 일수는 옅은 회색 글자로만.
   const renderLastSignInCell = a => {
     if (!a.auth_id) return '<span style="color:var(--muted);font-size:12px">계정 연결 없음</span>';
     const at = lastSignIn[a.id];
-    if (!at) return '<span style="color:var(--muted);font-size:12px">로그인 이력 없음</span>';
+    if (!at) return '<span style="color:var(--muted);font-size:12px">접속 이력 없음</span>';
     const days = Math.floor((new Date().setHours(0,0,0,0) - new Date(at).setHours(0,0,0,0)) / 86400000);
     const ago = days <= 0 ? '오늘' : days === 1 ? '어제' : days + '일 전';
     return `<span style="font-size:12px">${formatDate(at)}</span>`
