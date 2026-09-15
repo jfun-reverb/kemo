@@ -3689,6 +3689,27 @@ async function fetchAdminEmailSubscriptions(adminIds) {
   return map;
 }
 
+// 관리자별 최근 접속 시각 — 관리자 계정 목록의 「최근 접속」 열(마이그레이션 436 → 437).
+// 반환은 일반 객체 `{ 관리자id: 시각 }` (Map 객체가 아니다 — .get() 이 아니라 [] 로 읽는다).
+// 시각 = last_active_at(로그인·로그인 연장 중 늦은 쪽, 437). 🔴 last_sign_in_at 만 쓰면
+//   로그인 상태를 유지한 채 오늘 쓴 사람이 「어제」로 보인다(2026-09-15 실측).
+//   437 이 적용 안 된 서버(칸 없음)에서는 last_sign_in_at 으로 떨어진다 — 배포 순서가
+//   어긋나도 열이 비지 않게. 함수·함수 이름은 호출 자리를 안 바꾸려고 그대로 뒀다.
+// 🔴 실패에 null, 0건에 {} 로 **구분해서** 돌려준다.
+//    바로 위 fetchAdminEmailSubscriptions 는 오류에도 {} 를 돌려주는데, 그건 이 저장소가
+//    반복해서 데인 「조회 실패를 0건으로 뭉개는」 형태다 — 여기서는 따라 하지 않는다.
+//    화면은 null 이면 그 열을 아예 안 그린다(빈 날짜가 줄줄이 뜨는 것보다 낫다).
+// ⚠️ 서버가 슈퍼관리자가 아니면 42501 로 거부한다 — 그래서 화면은 슈퍼일 때만 부른다.
+//    (반드시 실패할 것을 부르면 콘솔에 오류가 쌓여 「고장인가」 하는 오해를 만든다)
+async function fetchAdminLastSignIn() {
+  if (!db) return null;
+  const {data, error} = await db.rpc('get_admin_last_sign_in');
+  if (error) { console.error('[fetchAdminLastSignIn]', error); return null; }
+  const map = {};
+  for (const row of data || []) map[row.admin_id] = row.last_active_at || row.last_sign_in_at || null;
+  return map;
+}
+
 // 메일 종류 카탈로그 (lookup_values kind='admin_email_kind')
 // 모달의 체크박스 목록을 동적 렌더하기 위함.
 async function fetchAdminEmailKinds() {
