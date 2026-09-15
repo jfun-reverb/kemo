@@ -3689,8 +3689,12 @@ async function fetchAdminEmailSubscriptions(adminIds) {
   return map;
 }
 
-// 관리자별 마지막 로그인 시각 — 관리자 계정 목록의 「최근 로그인」 열(마이그레이션 436).
+// 관리자별 최근 접속 시각 — 관리자 계정 목록의 「최근 접속」 열(마이그레이션 436 → 437).
 // 반환은 일반 객체 `{ 관리자id: 시각 }` (Map 객체가 아니다 — .get() 이 아니라 [] 로 읽는다).
+// 시각 = last_active_at(로그인·로그인 연장 중 늦은 쪽, 437). 🔴 last_sign_in_at 만 쓰면
+//   로그인 상태를 유지한 채 오늘 쓴 사람이 「어제」로 보인다(2026-09-15 실측).
+//   437 이 적용 안 된 서버(칸 없음)에서는 last_sign_in_at 으로 떨어진다 — 배포 순서가
+//   어긋나도 열이 비지 않게. 함수·함수 이름은 호출 자리를 안 바꾸려고 그대로 뒀다.
 // 🔴 실패에 null, 0건에 {} 로 **구분해서** 돌려준다.
 //    바로 위 fetchAdminEmailSubscriptions 는 오류에도 {} 를 돌려주는데, 그건 이 저장소가
 //    반복해서 데인 「조회 실패를 0건으로 뭉개는」 형태다 — 여기서는 따라 하지 않는다.
@@ -3702,7 +3706,7 @@ async function fetchAdminLastSignIn() {
   const {data, error} = await db.rpc('get_admin_last_sign_in');
   if (error) { console.error('[fetchAdminLastSignIn]', error); return null; }
   const map = {};
-  for (const row of data || []) map[row.admin_id] = row.last_sign_in_at || null;
+  for (const row of data || []) map[row.admin_id] = row.last_active_at || row.last_sign_in_at || null;
   return map;
 }
 
