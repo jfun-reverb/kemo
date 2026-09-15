@@ -5134,6 +5134,60 @@ async function updateQuoteSetting(key, amount) {
   });
 }
 
+// ── 메타 픽셀 설정 (마이그레이션 438) ──
+// 관리 화면 조회: 관리자 전원. 반환 {meta_pixel_id, enabled, policy_effective_date, updated_at, status, history[]}
+//   🔴 실패는 null — 화면은 「불러오지 못했습니다」를 그리고 스위치를 그리지 않는다.
+//   status 는 서버가 정한다(policy_locked·no_pixel_id·disabled·active) — 화면이 날짜를 비교하지 말 것.
+async function fetchMetaPixelAdmin() {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('get_meta_pixel_admin');
+      if (error) throw error;
+      return (data && typeof data === 'object') ? data : null;
+    });
+  } catch (e) {
+    console.error('[fetchMetaPixelAdmin]', e);
+    return null;
+  }
+}
+// 저장(아이디·켜기·끄기): 서버 가드 has_permission('ad_tracking.manage','write').
+//   반환 { ok: true } | { ok: false, error_code } — error_code:
+//   forbidden · invalid_input · invalid_pixel_id · policy_not_in_effect · request_failed(통신·예외)
+async function updateMetaPixelSettings(pixelId, enabled) {
+  if (!db) return { ok: false, error_code: 'request_failed' };
+  try {
+    const data = await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('update_meta_pixel_settings', {
+        p_meta_pixel_id: pixelId == null ? null : String(pixelId),
+        p_enabled: !!enabled,
+      });
+      if (error) throw error;
+      return data;
+    });
+    if (data && data.success === true) return { ok: true };
+    return { ok: false, error_code: (data && data.reason) || 'request_failed' };
+  } catch (e) {
+    console.error('[updateMetaPixelSettings]', e);
+    return { ok: false, error_code: 'request_failed' };
+  }
+}
+// 인플루언서 앱용 조회(비로그인·로그인). 반환: 아이디 문자열 | '' (전송하지 않음) | null (조회 실패)
+//   🔴 '' 와 null 을 합치지 않는다 — 사양서 흐름 7 이 둘을 같은 방향(불러오지 않음)으로 다루더라도
+//      실패 기록·재조회 판정은 구분해야 한다. 이 함수는 절대 throw 하지 않는다(화면을 막지 않는다).
+async function fetchPublicMetaPixelId() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_public_meta_pixel_id');
+    if (error) throw error;
+    return typeof data === 'string' ? data : null;
+  } catch (e) {
+    console.error('[fetchPublicMetaPixelId]', e);
+    if (typeof logAppError === 'function') logAppError('fetchPublicMetaPixelId', e);
+    return null;
+  }
+}
+
 // 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
 // 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
 // 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }
