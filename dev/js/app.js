@@ -430,7 +430,16 @@ async function init() {
   let confirmLandingToast = false, confirmLandingNotice = false;
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
-      if (new URLSearchParams(location.search).has('code')) {
+      const codeStillInUrl = new URLSearchParams(location.search).has('code');
+      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
+      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
+      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
+      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
+      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
+      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
+        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
+      }
+      if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }
       if (session) confirmLandingToast = true; else confirmLandingNotice = true;

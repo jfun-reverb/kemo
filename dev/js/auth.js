@@ -141,6 +141,14 @@ async function handleSignup(e) {
     // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
     if (error) { logAppError('handleSignup', error); showSignupFailure(errEl); btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
+      // 메타 픽셀 3번 이벤트 — 가입 폼 제출 성공(운영은 아직 이메일 확인 전이라 status=pending_email).
+      //   ⚠️ 이미 가입된 이메일로 다시 내면 인증 서비스가 오류 대신 **신원 목록이 빈** 가짜 사용자를 돌려준다
+      //      (계정 열거 방지). 그건 새 가입이 아니라 세지 않는다 — 화면 안내는 종전과 똑같다.
+      //   ⚠️ 개발서버는 확인 메일이 꺼져 바로 세션이 생기지만 같은 상태 값을 보낸다(사양서 1-검증 ⑦ — 감수).
+      const _isNewSignup = !(Array.isArray(data.user.identities) && data.user.identities.length === 0);
+      if (_isNewSignup && typeof trackMetaPixelEvent === 'function') {
+        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.PENDING_EMAIL });
+      }
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
         btn.disabled=false; btn.textContent=t('auth.signup.btn');
