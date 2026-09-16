@@ -415,6 +415,11 @@ input[type="date"] { min-height: 44px; }
 .opt-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: 13px; }
 .opt-row input { width: 16px; height: 16px; }
 .opt-row .opt-fee { color: var(--ink-mute); font-size: 12px; }
+/* 구매 가이드(리뷰어 전용, §4-3) — 자율구매는 우리가 정한 고정 문구라 읽기 전용 상자로 보여 준다(결정 18) */
+.pg { display: flex; gap: 18px; margin-bottom: 8px; }
+.pg-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.pg-opt input { width: 16px; height: 16px; }
+.pg-free-box { background: var(--surface-dim, #f5f5f5); color: var(--ink-mute); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 
 /* 형식별 표시 분기 (카드 스코프) — data-ctype 미설정이면 입력 영역 전체 숨김 */
 .ocard:not([data-ctype]) .card-gated { display: none; }
@@ -744,7 +749,7 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
     <div class="notice-title" id="priceNoticeTitle"><span class="material-icons-outlined notranslate" translate="no">info</span>상시가 확인</div>
     <div class="notice-body">큐텐에서 상품 정보를 불러왔어요. 상시가 칸의 금액이<br>
       <strong>캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격</strong>인지 확인하고, 다르면 고쳐 주세요.<br>
-      <span class="notice-sub">※ 메가와리 쿠폰 적용 불가</span></div>
+      <span class="notice-sub" id="priceNoticeCoupon">※ 메가와리 쿠폰 적용 불가</span></div>
     <div class="notice-actions"><button type="button" class="btn-submit" onclick="closePriceNotice()">확인</button></div>
   </div>
 </div>
@@ -832,15 +837,14 @@ let categoryOptionsHtml = '<option value="">카테고리 선택</option>';
 let loadedData = null;                     // boot() 가 불러온 data 원본 — 새/옛 판별과 issued 값 참조용
 const LIMIT_LONG_TEXT = 1000;              // 긴 글 칸 공통 글자 수(서식 뺀 본문) — 서버 submit_orient_sheet 도 같은 값으로 재검증(425·429)
 const LIMIT_REVIEW_GUIDE = LIMIT_LONG_TEXT;  // 리뷰 가이드
-const LIMIT_SEEDING_APPEAL = LIMIT_LONG_TEXT; // 소구 키워드
-// 한도가 걸리는 긴 글 칸 여섯 — 클래스 → 이름표·서버 field 키. 🔴 칸을 더하면 여기 + cardHtmlNew 의 char-count + 서버(429 계열) 셋을 함께
+const LIMIT_SEEDING_APPEAL = LIMIT_LONG_TEXT; // 시딩 리뷰 가이드(저장 열쇠말은 seeding.appeal 그대로)
+// 한도가 걸리는 긴 글 칸 — 클래스 → 이름표·서버 field 키. 🔴 칸을 더하면 여기 + cardHtmlNew 의 char-count + 서버(429 계열) 셋을 함께
+// [2026-09-16 §4-6] 배송 안내·금지 표현·추가 안내 세 칸을 폼에서 뺐다 — 서버 검사(429)는 그대로 둔다(옛 캐시 폼 대비).
+//   그래서 그 셋이 서버에서 걸리면 `hit` 가 없어 토스트가 「내용이(가) …」로 나간다(의도).
 const LONG_TEXT_FIELDS = {
   'f-review-guide': { label: '리뷰 가이드', field: 'review_guide' },
-  'f-appeal':       { label: '소구 키워드', field: 'appeal' },
+  'f-appeal':       { label: '리뷰 가이드', field: 'appeal' },
   'f-shooting':     { label: '촬영 가이드', field: 'shooting_guide' },
-  'f-shipping':     { label: '배송 안내', field: 'shipping_note' },
-  'f-ng':           { label: '금지 표현', field: 'ng' },
-  'f-cautions':     { label: '추가 안내', field: 'cautions' },
 };
 const LONG_TEXT_CLASSES = Object.keys(LONG_TEXT_FIELDS);
 function longTextCounter(cls) { return `<div class="char-count" data-count-for="${cls}"><span class="cc-cur">0</span> / ${LIMIT_LONG_TEXT}</div>`; }
@@ -849,6 +853,18 @@ function isNewLayout() { return !!(loadedData && loadedData.issued && typeof loa
 // 모집 인원 구간 (사양서 2026-09-16 §4-1) — 🔴 구간 이름은 형식과 무관하게 이 넷뿐이다.
 //   「실검작업」은 구간 이름이 아니라 리뷰어 견적의 줄 이름이다(시딩 500건 견적서에 그 이름이 찍히면 안 된다).
 //   ⚠️ 서버도 인원 숫자로 구간을 다시 판정한다(443) — 여기 값은 화면 표시용이다.
+// [2026-09-16 §4-3] 구매 가이드 — 자율구매 고정 문구(한국어). 일본어 짝(「商品を自由にご購入ください。」)은
+//   발행 자동 채움이 캠페인 칸에 넣는다(`admin-orient.js`) — 우리가 정한 문장이라 번역할 것이 없다.
+const PURCHASE_GUIDE_FREE_KO = '상품을 자유롭게 구매해 주세요.';
+const PURCHASE_GUIDE_OPTIONS_MAX = 200;   // 긴 글 칸이 아니다(한두 줄) — 1,000자 검사 대상에 넣지 않는다
+
+// 리뷰어 추가 옵션(§4-9) — 폼과 확인 화면이 같은 목록을 쓴다.
+// ⚠️ 실제 견적 금액은 서버가 기준값 표에서 읽는다 — 여기 금액은 「고를지 말지」를 그 자리에서 판단하기 위한 표시값이다(두 자리가 되는 것을 감수한 결정)
+const EXTRA_MARKETS = [
+  { key: 'lips',  label: 'LIPS 추가',   fee: 5000 },
+  { key: 'cosme', label: '@cosme 추가', fee: 5000 },
+];
+
 // 「500건 이상」 구간에서 직접 입력할 수 있는 최소 인원 — 입력칸 min·구간 전환·제출 검사 세 곳이 이 값을 본다
 // ⚠️ 서버 판정(443)의 경계(500 미만은 t300)와 같은 숫자여야 한다. 한쪽만 바꾸면 화면은 받고 서버는 다른 구간으로 계산한다
 const TIER_DIRECT_MIN_SLOTS = 500;
@@ -878,6 +894,29 @@ function onTierPick(btn) {
   onInput();
 }
 
+// 구매 가이드 — 고른 쪽 상자만 연다. 🔴 감출 때 값을 비우지 않는다(잘못 눌렀다가 되돌리면 적던 것이 사라진다)
+function onPurchaseGuidePick(radio) {
+  const card = radio.closest('.ocard'); if (!card) return;
+  const freeBox = card.querySelector('.pg-free-box');
+  const fixedBox = card.querySelector('.pg-fixed-box');
+  if (freeBox) freeBox.classList.toggle('hidden', radio.value !== 'free');
+  if (fixedBox) fixedBox.classList.toggle('hidden', radio.value !== 'fixed');
+  if (radio.value === 'fixed') { const inp = card.querySelector('.f-pg-options'); if (inp) inp.focus(); }
+  onInput();
+}
+
+// 해시태그 — 5개를 넘으면 경고만 띄운다(저장은 앞 5개). 막지 않는다(§4-7)
+function onHashtagInput(input) {
+  const card = input.closest('.ocard');
+  const warn = card && card.querySelector('.hashtag-warn');
+  if (warn) {
+    const n = input.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean).length;
+    warn.textContent = n > MAX_HASHTAGS ? `해시태그는 ${MAX_HASHTAGS}개까지 저장됩니다. 지금 ${n}개 적으셨어요.` : '';
+    warn.style.display = n > MAX_HASHTAGS ? '' : 'none';
+  }
+  onInput();
+}
+
 function updateTierSummary(card) {
   const el = card.querySelector('.tier-summary'); if (!el) return;
   const v = (card.querySelector('.f-slots') || {}).value || '';
@@ -894,7 +933,15 @@ function $(id) { return document.getElementById(id); }
 // 상시가 안내 모달 — 큐텐 자동 채움이 실제로 돈 뒤 한 번(applyQoo10Result 의 notify). ESC·바탕 클릭·「확인」으로 닫힘
 //   닫히면 그 카드의 상시가 칸으로 초점을 옮긴다(2026-09-10 사용자 지시 — 확인 뒤 바로 고칠 수 있게). 어느 카드인지는 열 때 기억한다
 let _priceNoticeTarget = null;
-function showPriceNotice(priceEl) { const m = $('priceNotice'); if (!m) return; _priceNoticeTarget = priceEl || null; m.classList.remove('hidden'); const b = m.querySelector('button'); if (b) b.focus(); }
+function showPriceNotice(priceEl) {
+  const m = $('priceNotice'); if (!m) return;
+  _priceNoticeTarget = priceEl || null;
+  // [2026-09-16 §4-10] 시딩은 아무도 구매하지 않으므로 쿠폰 줄을 감춘다(폼의 상시가 안내와 같은 기준)
+  const coupon = $('priceNoticeCoupon');
+  if (coupon) coupon.style.display = (isNewLayout() && issuedFormType() === 'seeding') ? 'none' : '';
+  m.classList.remove('hidden');
+  const b = m.querySelector('button'); if (b) b.focus();
+}
 function closePriceNotice() {
   const m = $('priceNotice'); if (!m || m.classList.contains('hidden')) return;
   m.classList.add('hidden');
@@ -1388,6 +1435,21 @@ function cardHtmlNew(id, card) {
   const lookupAttrs = ['goods_code', 'store_name', 'image_url', 'price_list']
     .map(k => sale[k] != null && sale[k] !== '' ? ` data-sale-${k.replace('_', '-')}="${escAttr(String(sale[k]))}"` : '').join('');
 
+  // [2026-09-16 §4-3] 구매 가이드 — 리뷰어 전용. 자율구매는 우리가 정한 고정 문구라 읽기 전용 상자로 보여 주고,
+  //   지정구매만 브랜드가 적는다. 저장은 값이 있을 때만 키를 만든다(`mode` 가 없으면 옛 시트·미선택).
+  const pg = card.purchase_guide || {};
+  const purchaseGuideBlock = (ft === 'reviewer') ? `
+        <div class="field"><label>구매 가이드<span class="req">*</span></label>
+          <div class="pg">
+            <label class="pg-opt"><input type="radio" name="pg_${id}" value="free" ${pg.mode === 'free' ? 'checked' : ''} onchange="onPurchaseGuidePick(this)">자율구매</label>
+            <label class="pg-opt"><input type="radio" name="pg_${id}" value="fixed" ${pg.mode === 'fixed' ? 'checked' : ''} onchange="onPurchaseGuidePick(this)">지정구매</label>
+          </div>
+          <div class="pg-free-box${pg.mode === 'free' ? '' : ' hidden'}">${escAttr(PURCHASE_GUIDE_FREE_KO)}</div>
+          <div class="pg-fixed-box${pg.mode === 'fixed' ? '' : ' hidden'}">
+            <input type="text" class="f-pg-options" maxlength="${PURCHASE_GUIDE_OPTIONS_MAX}" placeholder="구매할 옵션을 적어 주세요. 예: 50ml / 핑크" value="${escAttr(pg.options)}" oninput="onInput()">
+          </div>
+        </div>` : '';
+
   const reviewerBlock = (ft === 'reviewer') ? `
         <div class="field only-reviewer"><label>리뷰 가이드</label>
           ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '일본 스텔스 마케팅(스테마) 규제로 리뷰 내용이나 별점(★)을 지정·강요할 수 없습니다. 제품의 매력 포인트, 꼭 전달하고 싶은 내용, 사진 촬영 시 참고할 점을 작성해 주세요.')}
@@ -1398,27 +1460,23 @@ function cardHtmlNew(id, card) {
           <div class="field"><label>게시 채널</label>
             <div><span class="ch-badge">${escAttr(CHANNEL_LABEL[ch] || ch || '채널 미지정')}</span></div>
             <div class="field-hint">발급 때 정해진 채널입니다. 다른 채널도 진행하려면 담당자에게 링크를 따로 받아 주세요.</div></div>
-          <div class="field"><label>소구 키워드 · 어필 포인트</label>
-            <textarea class="f-appeal" placeholder="이 채널에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
+          <!-- [2026-09-16 §4-5] 이름만 「리뷰 가이드」로 바꿨다 — 저장 열쇠말(seeding.appeal)·1,000자 제한은 그대로.
+               🔴 열쇠말을 함께 바꾸면 이미 저장된 시딩 시트의 값이 화면에서 사라지고 서버 글자 수 검사(429)와도 어긋난다. -->
+          <div class="field"><label>리뷰 가이드</label>
+            <textarea class="f-appeal" placeholder="인플루언서분들이 업로드 시 강조했으면 하는 소구 포인트, 어필 포인트, NG 사항 등을 작성해 주세요." oninput="onInput()">${escAttr(seedingAppealInit(sd))}</textarea>
             <div class="char-count" data-count-for="f-appeal"><span class="cc-cur">0</span> / ${LIMIT_SEEDING_APPEAL}</div></div>
           <div class="field"><label>촬영 가이드</label>
             <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea>
             ${longTextCounter('f-shooting')}</div>
+          <!-- [2026-09-16 §4-7] 상한 5개는 그대로 두고 경고만 더한다 — 🔴 입력을 막지 않는다(붙여넣기로 한꺼번에 넣는 정상 흐름이 끊긴다).
+               지금 문제는 조용히 잘리는 것이지 잘리는 것 자체가 아니다. -->
           <div class="field"><label>게시물에 꼭 넣을 해시태그 (최대 5개)</label>
-            <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
-          <div class="field"><label>게시물에 태그할 계정</label>
+            <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onHashtagInput(this)">
+            <div class="field-hint hashtag-warn" style="display:none;color:#B45309"></div></div>
+          <div class="field"><label>게시물에 태그할 계정<span class="req">*</span></label>
             <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()">
             <div class="field-hint">인플루언서가 게시물에 멘션(@)할 계정입니다. 브랜드 공식 SNS 계정을 포함해 적어 주세요.</div></div>
-          <div class="field"><label>배송 안내</label>
-            <textarea class="f-shipping" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()">${escAttr(sd.shipping_note)}</textarea>
-            ${longTextCounter('f-shipping')}</div>
-        </div>
-        <div class="field"><label>금지 표현 (NG)</label>
-          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}
-          ${longTextCounter('f-ng')}</div>
-        <div class="field"><label>추가 안내 · 필독 사항</label>
-          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}
-          ${longTextCounter('f-cautions')}</div>` : '';
+        </div>` : '';
 
   // 시딩 예상 일정 안내 — 시작일을 넣으면 그 아래 계산값(저장하지 않는다 — 저장하면 「희망일」이 되살아난다)
   const scheduleHint = (ft === 'seeding') ? `<div class="cg-schedule-hint" data-schedule-hint></div>` : '';
@@ -1450,7 +1508,9 @@ function cardHtmlNew(id, card) {
           <div class="row2 row-price">
             <div class="field"><label>상시가<span class="req">*</span></label>
               <input type="text" class="f-price-regular" placeholder="예: 5300" value="${escAttr(sale.price_regular)}" oninput="onInput()">
-              <div class="field-hint">캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격으로 작성해주세요.<br>※ 메가와리 쿠폰 적용 불가</div></div>
+              <!-- [2026-09-16 §4-10] 쿠폰 안내는 시딩에서 감춘다 — 시딩은 브랜드가 제품을 보내는 방식이라 아무도 구매하지 않는다.
+                   🔴 줄 자체를 지우면 실제로 구매하는 리뷰어에서도 사라진다. 형식으로 가른다. -->
+              <div class="field-hint">캠페인 진행 기간 중 소비자가 실 구매하는 판매 가격으로 작성해주세요.${ft === 'seeding' ? '' : '<br>※ 메가와리 쿠폰 적용 불가'}</div></div>
             <!-- 배송비(선택, 2026-09-10 사용자 지시) — 리뷰어만(.only-reviewer). 비우면 0. 견적서 페이백은 (상시가 + 배송비) × 환율(서버 431).
                  시딩은 이 칸이 없고 .row-price 가 한 칸이 된다(아래 CSS) — 리뷰 지적: 시딩에 보이면 입력해도 아무 데도 안 쓰인다 -->
             <div class="field only-reviewer"><label>배송비 <span class="opt">(선택)</span></label>
@@ -1459,6 +1519,7 @@ function cardHtmlNew(id, card) {
           </div>
         </div>
 
+${purchaseGuideBlock}
         <div class="field"><label>모집 인원 *</label>
           <!-- 구간 버튼 넷 — 하나만 고른다. 「500건 이상」만 숫자를 직접 적는다(사양서 §4-1).
                ⚠️ 사람이 보는 글은 「건」으로 쓴다(운영팀 표기) — 한 화면에 「100건」과 「100명」이 같이 보이지 않게. -->
@@ -1474,8 +1535,7 @@ function cardHtmlNew(id, card) {
         </div>
         <!-- 추가 옵션 — 리뷰어 전용(LIPS·@cosme 는 리뷰어형 채널이다). 안 골라도 제출된다. -->
         <div class="field only-reviewer"><label>추가 옵션 <span class="opt">(선택)</span></label>
-          <label class="opt-row"><input type="checkbox" class="f-extra-lips" ${(sale.extra_markets || []).includes('lips') ? 'checked' : ''} onchange="onInput()">LIPS 추가 <span class="opt-fee">+5,000원 / 1건</span></label>
-          <label class="opt-row"><input type="checkbox" class="f-extra-cosme" ${(sale.extra_markets || []).includes('cosme') ? 'checked' : ''} onchange="onInput()">@cosme 추가 <span class="opt-fee">+5,000원 / 1건</span></label>
+          ${EXTRA_MARKETS.map(o => `<label class="opt-row"><input type="checkbox" class="f-extra-${o.key}" ${(sale.extra_markets || []).includes(o.key) ? 'checked' : ''} onchange="onInput()">${o.label} <span class="opt-fee">+${o.fee.toLocaleString('ko-KR')}원 / 1건</span></label>`).join('')}
         </div>
         <div class="field"><label>희망 모집 시작일</label>
           <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
@@ -2014,9 +2074,9 @@ function collectCardNew(el) {
   //   ⚠️ 서버는 이 값을 믿지 않고 인원 숫자로 다시 판정한다(443) — 여기 값은 화면·관리자 확인용이다.
   const tierBtn = el.querySelector('.tier-btn.active');
   // [2026-09-16] 추가 옵션 — 고른 것이 없으면 키를 안 만든다
-  const extras = [];
-  if (el.querySelector('.f-extra-lips') && el.querySelector('.f-extra-lips').checked) extras.push('lips');
-  if (el.querySelector('.f-extra-cosme') && el.querySelector('.f-extra-cosme').checked) extras.push('cosme');
+  const extras = EXTRA_MARKETS
+    .filter(o => { const n = el.querySelector('.f-extra-' + o.key); return n && n.checked; })
+    .map(o => o.key);
 
   const out = {
     form_type: ft,
@@ -2036,19 +2096,25 @@ function collectCardNew(el) {
   });
   if (ft === 'reviewer') {
     out.review_guide = richValue(q('.f-review-guide'));
+    // [2026-09-16 §4-3] 구매 가이드 — 안 고르면 키를 아예 안 만든다(옛 시트·미선택과 같은 모양)
+    const pgPick = el.querySelector('.pg input[type="radio"]:checked');
+    if (pgPick) {
+      out.purchase_guide = { mode: pgPick.value };
+      const opts = val('.f-pg-options');
+      if (pgPick.value === 'fixed' && opts) out.purchase_guide.options = opts;
+    }
   }
   if (ft === 'seeding') {
     const hashtags = val('.f-hashtags').split(/[\s,]+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
+    // [2026-09-16 §4-6] 배송 안내·금지 표현(ng)·추가 안내(cautions) 세 칸을 폼에서 뺐다 — 🔴 빈 키도 만들지 않는다.
+    //   관리자 상세·발행 자동 채움은 그 값을 계속 읽는다(옛 시트) — 그쪽은 한 줄도 건드리지 않았다.
     out.seeding = {
       channels: issuedChannel() ? [issuedChannel()] : [],
       appeal: val('.f-appeal'),
       hashtags,
       account_tags: val('.f-account-tags'),
       shooting_guide: val('.f-shooting'),
-      shipping_note: val('.f-shipping'),
     };
-    out.ng = richValue(q('.f-ng'));
-    out.cautions = richValue(q('.f-cautions'));
   }
   // 되돌려 보내는 값 3종 — 옛 구조와 같은 규칙(값이 있을 때만 키를 만든다)
   const uid = el.getAttribute('data-uid');
@@ -2293,6 +2359,16 @@ function findInvalidField(mode) {
       return { message: '모집 인원을 골라 주세요.', card: el, target: el.querySelector('.tier') };
     if (c.product.slots_tier === 't500plus' && !(Number(c.product.slots) >= TIER_DIRECT_MIN_SLOTS))
       return { message: TIER_DIRECT_MIN_SLOTS + '건 이상부터 직접 입력할 수 있어요.', card: el, target: el.querySelector('.f-slots') };
+    // [2026-09-16 §4-3·§4-7] 아래 셋은 **제출에서만** 막는다 — 작성 도중·미리보기에서 걸면 쓰다 만 상태로 갇힌다
+    if (forSubmit && c.form_type === 'reviewer') {
+      const pg = c.purchase_guide || {};
+      if (!pg.mode)
+        return { message: '구매 가이드를 골라 주세요.', card: el, target: el.querySelector('.pg') };
+      if (pg.mode === 'fixed' && !pg.options)
+        return { message: '구매할 옵션을 적어 주세요.', card: el, target: el.querySelector('.f-pg-options') };
+    }
+    if (forSubmit && c.form_type === 'seeding' && !(c.seeding && c.seeding.account_tags))
+      return { message: '게시물에 태그할 계정을 입력해 주세요.', card: el, target: el.querySelector('.f-account-tags') };
     const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
     if (pendingUrl && pendingUrl.value.trim())
       return { message: '공유 링크를 「확인」 버튼으로 확정해 주세요.', card: el, target: pendingUrl };
@@ -2458,18 +2534,29 @@ function renderPreviewCardNew(c, idx) {
   rows += pvRow('판매 URL', c.sale.url);
   rows += pvRow('상시가', c.sale.price_regular);
   if (ft === 'reviewer') rows += pvRow('배송비', c.sale.shipping_fee || '0 (별도 배송비 없음)');
-  rows += pvRow('모집 인원', c.product.slots);
+  // [2026-09-16] 고른 구간 이름·추가 옵션·구매 가이드를 확인 화면에도 보여 준다 —
+  //   추가 옵션은 1건당 요금이 붙는 선택이라, 잘못 켠 것을 되돌릴 마지막 기회가 이 화면이다.
+  const pvTier = TIER_OPTIONS.find(t => t.key === c.product.slots_tier);
+  rows += pvRow('모집 인원', c.product.slots ? c.product.slots + '건' + (pvTier ? ` (${pvTier.name})` : '') : '');
+  if (ft === 'reviewer' && c.purchase_guide && c.purchase_guide.mode) {
+    rows += pvRow('구매 가이드', c.purchase_guide.mode === 'free'
+      ? '자율구매 — ' + PURCHASE_GUIDE_FREE_KO
+      : '지정구매 — ' + (c.purchase_guide.options || ''));
+  }
+  if (ft === 'reviewer' && (c.sale.extra_markets || []).length) {
+    rows += pvRow('추가 옵션', c.sale.extra_markets.map(k => {
+      const o = EXTRA_MARKETS.find(x => x.key === k);
+      return o ? `${o.label} (+${o.fee.toLocaleString('ko-KR')}원 / 1건)` : k;
+    }).join('\n'));
+  }
   rows += pvRow('희망 모집 시작일', c.recruit.recruit_start);
   if (ft === 'reviewer') rows += pvRowHtml('리뷰 가이드', c.review_guide);
   if (ft === 'seeding') {
     const sd = c.seeding || {};
-    rows += pvRow('소구 키워드', sd.appeal);
+    rows += pvRow('리뷰 가이드', sd.appeal);
     rows += pvRow('촬영 가이드', sd.shooting_guide);
     rows += pvRow('게시물에 꼭 넣을 해시태그', (sd.hashtags || []).join(' '));
     rows += pvRow('게시물에 태그할 계정', sd.account_tags);
-    rows += pvRow('배송 안내', sd.shipping_note);
-    if (c.ng) rows += pvRowHtml('금지 표현 (NG)', c.ng);
-    if (c.cautions) rows += pvRowHtml('추가 안내 · 필독 사항', c.cautions);
   }
   if (c.images.length) rows += pvRow('예시 이미지·자료', c.images.map(x => x.value).join('\n'));
   const chChip = (ft === 'seeding' && ch) ? `<span class="ocard-chip ch">${escAttr(CHANNEL_LABEL[ch] || ch)}</span>` : '';
@@ -2598,7 +2685,7 @@ async function submitSheet() {
     // [425] 새 구조 시트의 서버 재검증 — 폼이 자르고 있어 보통 안 뜨지만, 옛 캐시 폼·직접 호출을 서버가 막는다
     if (res && res.reason === 'cards_limit') { closePreview(); showToast('이 링크에는 제품 하나만 제출할 수 있어요. 화면을 새로고침해 주세요.'); return; }
     if (res && res.reason === 'guide_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_REVIEW_GUIDE.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
-    if (res && res.reason === 'appeal_too_long') { closePreview(); showToast(`소구 키워드가 ${LIMIT_SEEDING_APPEAL.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
+    if (res && res.reason === 'appeal_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_SEEDING_APPEAL.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
     if (res && res.reason === 'text_too_long') {   // [429] 촬영 가이드·배송 안내·금지 표현·추가 안내 — field 로 어느 칸인지
       const hit = Object.values(LONG_TEXT_FIELDS).find(f => f.field === res.field);
       closePreview(); showToast(`${hit ? hit.label : '내용'}이(가) ${LIMIT_LONG_TEXT.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return;
@@ -2636,8 +2723,13 @@ const QUOTE_ERROR_TEXT = {
   price_unreadable: '상시가를 숫자로 적으면 견적서를 받을 수 있어요. (예: 5300)',
   slots_missing: '모집 인원을 숫자로 적으면 견적서를 받을 수 있어요.',
   calc_error: '견적을 계산하지 못했어요. 담당자가 확인한 뒤 견적을 안내해 드릴게요.',
+  // [2026-09-16 §4-1] 요금 기준값 행이 없을 때 — 제출은 통과하고 견적서만 못 만든다
+  fee_missing: '요금 기준값이 아직 준비되지 않았어요. 담당자가 확인한 뒤 견적을 안내해 드릴게요.',
 };
 function krw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+// 🔴 「담당자 협의」 줄은 금액 칸을 비운다 — `krw()` 자체를 고치면 정상 0원까지 빈 칸이 된다
+// ⚠️ `Number(null)` 이 0 이라 빈 값 검사를 먼저 한다(0 은 그대로 「0원」)
+function krwCell(n) { return (n === null || n === undefined || n === '') ? '' : krw(n); }
 function jpy(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
 function ymdOf(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[1]}.${m[2]}.${m[3]}` : ''; }
 
@@ -2717,8 +2809,8 @@ function renderQuoteDoc(q, data) {
   const rows = lines.map(l => `<tr>
       <td>${escAttr(l.label || '')}</td>
       <td class="num">${escAttr(String(l.qty ?? ''))}</td>
-      <td class="num">${escAttr(krw(l.unit_krw))}</td>
-      <td class="num">${escAttr(krw(l.amount_krw))}</td>
+      <td class="num">${escAttr(krwCell(l.unit_krw))}</td>
+      <td class="num">${escAttr(krwCell(l.amount_krw))}</td>
     </tr>`).join('');
   const fixed = (ft === 'seeding')
     ? '본 견적은 브랜드가 입력한 모집 인원 기준 예상 금액이며, 최종 금액은 담당자 확인 후 확정됩니다.'
@@ -2749,7 +2841,7 @@ function renderQuoteDoc(q, data) {
       <tr><th style="width:96px">제품</th><td colspan="3">${escAttr((c.product && c.product.name) || '')}</td></tr>
       <tr><th>판매 URL</th><td colspan="3" style="word-break:break-all">${escAttr((c.sale && c.sale.url) || '')}</td></tr>
       <tr><th>모집 형식</th><td colspan="3">${escAttr(ftLabel)}${chLabel ? ' · ' + escAttr(chLabel) : ''}</td></tr>
-      <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}명</td></tr>
+      <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}건</td></tr>
     </table>
     <table class="quote-table">
       <thead><tr><th>항목</th><th class="num">수량</th><th class="num">단가</th><th class="num">금액</th></tr></thead>
