@@ -211,7 +211,7 @@ async function loadCampApplicants() {
     <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
-      :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
+      :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>${restoreCancelledBtnHtml(a)}`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">되돌리기</button></div>`}
     </td>
   </tr>`;
@@ -308,6 +308,196 @@ function showEventStatusBlockedNotice(what) {
 async function rejectApplication(appId, isEvent) {
   if (isEvent) { showEventStatusBlockedNotice('미승인'); return; }
   await updateAppStatus(appId, 'rejected');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 취소 되돌리기 — 회원이 본인 취소한 신청을 취소 직전 상태로 (마이그레이션 440)
+//   사양서 docs/specs/2026-09-15-restore-cancelled-application.md
+// ══════════════════════════════════════════════════════════════════
+
+// 서버 거부 코드 → 화면 문구. 🔴 **하나도 「알 수 없는 오류」로 뭉뚱그리지 않는다**(사양서 「결과」).
+//   ⚠️ `friendlyError`(admin-core.js)에 넣지 않는다 — 그쪽은 데이터베이스 원문 문자열을
+//      맞춰 보는 방식이라 코드 체계와 안 맞고, 핫스팟이라 손댈 이유가 없다(작업표 S-12).
+//   ⚠️ 열쇠는 마이그레이션 440 의 거부 코드와 **글자 그대로** 같아야 한다.
+const APP_RESTORE_ERROR_TEXT = {
+  forbidden:                      '되돌릴 권한이 없습니다. 캠페인 관리자 이상만 할 수 있습니다.',
+  memo_required:                  '되돌리는 사유를 입력해 주세요.',
+  not_found:                      '그 신청을 찾을 수 없습니다. 목록을 새로 고친 뒤 다시 시도해 주세요.',
+  not_cancelled:                  '이미 취소 상태가 아닙니다. 다른 관리자가 먼저 처리했을 수 있습니다.',
+  withdrawal_related:             '탈퇴와 얽힌 신청이라 되돌릴 수 없습니다. 회원 탈퇴로 철회됐거나, 그 회원이 탈퇴를 진행 중이거나 이미 탈퇴했습니다.',
+  previous_status_not_restorable: '취소 직전 상태가 기록돼 있지 않아 어느 상태로 되돌려야 할지 알 수 없습니다. 회원에게 다시 신청하도록 안내해 주세요.',
+  campaign_deleted:               '삭제된 캠페인의 신청이라 되돌릴 수 없습니다.',
+  event_campaign:                 '오프라인 행사 캠페인은 여기서 되돌릴 수 없습니다. 캠페인 진행현황의 「예약 현황」 탭에서 처리해 주세요.',
+  active_application_exists:      '그 회원이 같은 캠페인에 이미 다시 신청했습니다. 되돌리면 신청이 둘이 되므로 막았습니다.',
+  slots_full:                     '모집 정원이 이미 찼습니다. 빈자리를 다른 사람이 채웠습니다.'
+};
+// 통신 실패(저장소 함수가 null) — 서버 판정이 아니라 「서버에 닿지 못했다」라서 문구가 다르다.
+const APP_RESTORE_NETWORK_TEXT = '서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요. (되돌리기는 실행되지 않았습니다)';
+
+// 취소 행의 「되돌리기」 버튼 — 🔴 **두 목록(캠페인 진행현황·신청 관리)이 같은 함수를 쓴다.**
+//   행 그리기가 두 벌이라 문자열을 각자 쓰면 화면마다 다르게 보인다(작업표 「공유 지점 경고」 4).
+// 보이는 조건: 권한 있음 + 탈퇴로 철회된 신청이 아님. 없으면 **그리지 않는다**(취소 행에는 원래 버튼이 없었다).
+// ⚠️ 탈퇴가 진행 중·확정인 회원의 **본인 취소** 행에는 버튼이 보인다 — 목록 조회에 탈퇴 상태를
+//    더하지 않기로 했기 때문이다(사양서 ①). 그 경우 서버가 `withdrawal_related` 로 거부한다.
+function restoreCancelledBtnHtml(a) {
+  if (!a || a.status !== 'cancelled') return '';
+  if (typeof canWrite === 'function' && !canWrite('application.restore_cancelled')) return '';
+  if (a.cancel_reason_code === 'withdrawal') return '';
+  return `<button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="openRestoreCancelledModal('${esc(a.id)}')">취소 되돌리기</button>`;
+}
+
+// 모달 DOM 1회 생성 — `dev/admin/index.html` 을 건드리지 않는다(오리엔시트 모달 선례).
+// ⚠️ id 는 필수다 — ESC 전역 처리기(dev/js/ui.js)가 id 로 닫는다.
+function ensureRestoreCancelledModal() {
+  if (document.getElementById('restoreCancelledModal')) return;
+  const html = `
+  <div class="modal-overlay" id="restoreCancelledModal">
+    <div class="modal" style="max-width:520px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>취소 되돌리기</h2>
+        <button type="button" class="modal-close-btn" onclick="closeModal('restoreCancelledModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
+        <div id="restoreCancelledInfo"></div>
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label" for="restoreCancelledMemo">되돌리는 사유 <span style="color:var(--red)">*</span></label>
+          <textarea id="restoreCancelledMemo" class="form-input" rows="3" placeholder="예) 회원이 상품을 이미 받았고 기한 내 리뷰 제출 의사를 밝혀 되돌림" oninput="restoreCancelledMemoInput()"></textarea>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">기록에 그대로 남습니다. 원래 취소 시각·사유도 함께 저장됩니다.</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('restoreCancelledModal')">닫기</button>
+        <button type="button" class="btn btn-green" id="restoreCancelledSubmit" disabled onclick="submitRestoreCancelled()">되돌리기</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+var _restoreCancelledAppId = null;   // 지금 확인 창이 다루는 신청 id
+
+// 일본 시각 오늘 날짜를 `연-월-일` 문자열로.
+// 🔴 `new Date('연-월-일')` 파싱을 쓰지 않는다 — 시간대가 끼어들어 하루가 밀린다(사양서 ⑦).
+function _restoreTodayJst() {
+  try { return new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Tokyo'}).format(new Date()); }
+  catch(e) { return ''; }
+}
+
+async function openRestoreCancelledModal(appId) {
+  if (!appId) return;
+  ensureRestoreCancelledModal();
+  _restoreCancelledAppId = appId;
+  const memoEl = $('restoreCancelledMemo');
+  if (memoEl) memoEl.value = '';
+  const btn = $('restoreCancelledSubmit');
+  if (btn) btn.disabled = true;
+  const info = $('restoreCancelledInfo');
+  if (info) info.innerHTML = '<div style="color:var(--muted);font-size:13px">불러오는 중…</div>';
+  openModal('restoreCancelledModal');
+
+  // 사유 이름 캐시 — 안 채우면 `cancelDetailLinesHtml` 이 사유를 아예 안 그린다.
+  if (typeof ensureCancelReasonsCache === 'function') await ensureCancelReasonsCache();
+
+  let app = null, camp = null;
+  try {
+    const r1 = await db?.from('applications').select('*').eq('id', appId).maybeSingle();
+    app = r1?.data || null;
+    if (app?.campaign_id) {
+      const r2 = await db?.from('campaigns').select('title, status, submission_end, deleted_at').eq('id', app.campaign_id).maybeSingle();
+      camp = r2?.data || null;
+    }
+  } catch(e) {
+    console.error('[openRestoreCancelledModal]', e);
+  }
+  if (!app) {
+    // ⚠️ 못 읽었으면 실행 버튼을 열지 않는다 — 열어 두면 눌렀을 때 원문 오류가 그대로 뜬다.
+    if (info) info.innerHTML = `<div style="color:var(--red);font-size:13px">${esc(APP_RESTORE_ERROR_TEXT.not_found)}</div>`;
+    return;
+  }
+
+  const prev = app.previous_status;
+  const prevLabel = prev === 'approved' ? '승인' : prev === 'pending' ? '심사중' : null;
+  const rows = [
+    ['회원', (app.user_name || '—') + (app.user_email ? ` (${app.user_email})` : '')],
+    ['캠페인', camp?.title || '—'],
+    ['되돌릴 상태', prevLabel || '되돌릴 상태를 알 수 없음']
+  ];
+  let html = '<div style="font-size:13px;line-height:1.9">'
+    + rows.map(r => `<div><span style="color:var(--muted);display:inline-block;min-width:88px">${esc(r[0])}</span>${esc(r[1])}</div>`).join('')
+    + '</div>';
+
+  // 원래 취소 기록 — 목록과 같은 내용을 같은 함수로(두 벌이 되면 갈린다)
+  const cancelLines = (typeof cancelDetailLinesHtml === 'function') ? cancelDetailLinesHtml(app) : '';
+  html += `<div style="margin-top:10px;padding:10px;background:#FAFAF7;border-radius:8px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:2px">원래 취소</div>
+    <div style="font-size:12px">${app.cancelled_at ? esc(formatDateTime(app.cancelled_at)) : '—'}</div>
+    ${cancelLines}
+  </div>`;
+
+  const notices = [];
+  if (!prevLabel) {
+    notices.push(['red', '취소 직전 상태가 기록돼 있지 않습니다. 실행하면 서버가 거부합니다.']);
+  }
+  // ⑦ 승인으로 되돌리는데 제출 마감이 지난 경우 — 막지 않고 알린다
+  if (prev === 'approved' && camp?.submission_end) {
+    const today = _restoreTodayJst();
+    if (today && today > camp.submission_end) {
+      notices.push(['amber', '제출 마감이 지나 회원이 직접 제출할 수 없습니다 — 관리자 대리 등록이 필요합니다.']);
+    }
+  }
+  // 결정 8 — 종료·노출종료 캠페인에 심사중으로 되돌리면 자동 정리가 안 돈다
+  if (prev === 'pending' && (camp?.status === 'ended' || camp?.status === 'expired')) {
+    notices.push(['amber', '이 캠페인은 종료되어 심사중 신청이 자동으로 정리되지 않습니다 — 되돌린 뒤 직접 승인 또는 미승인해 주세요.']);
+  }
+  notices.forEach(n => {
+    const color = n[0] === 'red' ? 'var(--red)' : '#B8741A';
+    html += `<div style="margin-top:8px;font-size:12px;color:${color};line-height:1.7">${esc(n[1])}</div>`;
+  });
+
+  // ⑥ 되돌린 뒤 후속 처리 — 되돌릴 상태별로 다르다
+  const followUp = prev === 'approved'
+    ? '되돌린 뒤 다시 취소 상태로 만들 수는 없습니다. 필요하면 「되돌리기」로 심사중에 돌린 뒤 「미승인」 하세요.'
+    : '되돌린 뒤 다시 취소 상태로 만들 수는 없습니다. 필요하면 「승인」 또는 「미승인」 하세요.';
+  html += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.7">
+    회원에게 앱 알림이 1건 발송됩니다.<br>${esc(followUp)}
+  </div>`;
+  if (info) info.innerHTML = html;
+}
+
+function restoreCancelledMemoInput() {
+  const memo = ($('restoreCancelledMemo')?.value || '').trim();
+  const btn = $('restoreCancelledSubmit');
+  if (btn) btn.disabled = !memo;
+}
+
+async function submitRestoreCancelled() {
+  const appId = _restoreCancelledAppId;
+  const memo = ($('restoreCancelledMemo')?.value || '').trim();
+  if (!appId || !memo) return;
+  const btn = $('restoreCancelledSubmit');
+  if (btn) btn.disabled = true;
+  const res = await restoreCancelledApplication(appId, memo);
+  if (btn) btn.disabled = false;
+
+  if (res === null) { toast(APP_RESTORE_NETWORK_TEXT, 'error'); return; }
+  if (!res.ok) {
+    toast(APP_RESTORE_ERROR_TEXT[res.error_code] || ('되돌리지 못했습니다. (' + (res.error_code || '사유 불명') + ')'), 'error');
+    return;
+  }
+
+  closeModal('restoreCancelledModal');
+  _restoreCancelledAppId = null;
+  const restoredLabel = res.restored_status === 'approved' ? '승인' : '심사중';
+  toast(`취소를 되돌렸습니다 — ${restoredLabel} 상태로 복구했습니다`, 'success');
+  // ④ 보류 정산은 서버가 자동으로 풀지 않는다 — 있으면 운영자가 정산 화면에서 판단한다
+  if (res.on_hold_settlement_count > 0) {
+    $('alertModalMessage').innerHTML = `보류된 정산 <strong>${esc(String(res.on_hold_settlement_count))}건</strong>이 있습니다.<br>정산 화면에서 확인해 주세요.`;
+    openModal('alertModal');
+  }
+  // 목록·배지 갱신 — 심사중 건수가 바뀌어 사이드바 배지도 달라진다(작업표 S-15).
+  //   두 화면 중 지금 보고 있는 쪽만 다시 그리면 다른 쪽이 옛 값으로 남으므로 둘 다 부른다.
+  invalidateAppListCache();
+  if (typeof refreshPane === 'function') await refreshPane('applications');
+  if (typeof loadCampApplicants === 'function' && currentCampApplicantId) await refreshPane('camp-applicants');
+  if (typeof loadAdminData === 'function') loadAdminData();
 }
 
 // ── 캠페인 진행현황: 신청자 목록 / 결과물 목록 탭 ─────────────────────
@@ -1046,7 +1236,7 @@ async function renderAppCampList() {
       <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
-        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
+        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>${restoreCancelledBtnHtml(a)}`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
