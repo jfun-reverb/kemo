@@ -3780,6 +3780,35 @@ async function cancelApplication(applicationId, opts) {
   }
 }
 
+// 관리자가 회원 본인 취소 신청을 취소 직전 상태로 되돌린다 (마이그레이션 440).
+//   성공     : { ok:true, restored_status:'pending'|'approved', on_hold_settlement_count:<정수> }
+//   서버 거부: { ok:false, error_code:'forbidden'|'memo_required'|'not_found'|'not_cancelled'|
+//                'withdrawal_related'|'previous_status_not_restorable'|'campaign_deleted'|
+//                'event_campaign'|'active_application_exists'|'slots_full' }
+//   통신 실패·예외: null
+// 🔴 **거부와 통신 실패를 반드시 구분한다.** 거부는 서버가 판정한 정상 결과라 화면이 코드별
+//    전용 문구를 띄우고, null 은 「서버에 닿지 못했다」라서 문구가 달라야 한다. 둘을 하나로
+//    합치면 「알 수 없는 오류」가 되어 사양서 「하나도 뭉뚱그리지 않는다」를 어긴다.
+// ⚠️ 이 함수는 거부를 예외로 던지지 않는다(서버가 jsonb 로 돌려준다) — 예외는 통신·세션
+//    문제뿐이므로 걸러 낼 「정상 거부 목록」이 필요 없다.
+async function restoreCancelledApplication(appId, memo) {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('restore_cancelled_application', {
+        p_application_id: appId,
+        p_memo:           memo || null
+      });
+      if (error) throw error;
+      return data;
+    });
+  } catch(e) {
+    console.error('[restoreCancelledApplication]', e);
+    logAppError('restoreCancelledApplication', e);
+    return null;
+  }
+}
+
 // 회원(본인) 탈퇴 신청 RPC 호출 (현재 원본 마이그레이션 357).
 // 반환은 request_withdrawal() 의 jsonb 결과를 그대로 전달한다 — 함수 자신의
 // 정상 응답이 이미 {ok, ...} 형태이므로 여기서 다시 감싸지 않는다.

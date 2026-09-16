@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
 // admin-permissions.js — 동적 권한 관리 설정 화면 (super_admin 전용). PR2 조각 C.
-//   등급(super_admin/campaign_admin/campaign_manager) × 기능(ADMIN_PERMISSION_CATALOG 36)
+//   등급(super_admin/campaign_admin/campaign_manager) × 기능(ADMIN_PERMISSION_CATALOG 46 = 화면 22 + 기능 24)
 //   그리드에서 super_admin 이 접근수준(쓰기/읽기/숨김)을 설정.
 //   저장 = update_role_permissions RPC(일괄·원자·이력·권한상승/충돌 가드, storage.js saveRolePermissions).
 //   ⚠️ 이 설정은 "화면 표시 제어"다. 실제 데이터 접근 차단이 아니다(서버 RLS/has_permission 이 방어선, PR3).
