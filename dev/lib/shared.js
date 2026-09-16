@@ -1974,9 +1974,10 @@ const ADMIN_PERMISSION_CATALOG = [
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 24개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 25개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
-  //       2026-09-03 report.export·report.share 둘을 더해 23, 2026-09-15 ad_tracking.manage 로 24. ⚠️ 2026-09-03 에 더한
+  //       2026-09-03 report.export·report.share 둘을 더해 23, 2026-09-15 ad_tracking.manage 로 24,
+  //       2026-09-16 application.restore_cancelled 로 25. ⚠️ 2026-09-03 에 더한
   //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
   //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
   { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
@@ -2012,6 +2013,12 @@ const ADMIN_PERMISSION_CATALOG = [
   //    update_meta_pixel_settings(438)가 has_permission 으로 서버 강제 → server_enforced=true.
   //    ⚠️ 열쇠말이 네 곳(시드 439 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 438) — 철자가 하나만 달라도 조용히 거부된다.
   { key: 'ad_tracking.manage',            label_ko: '광고 추적 켜기·끄기·픽셀 아이디 저장',          category: '관리자 설정',  server_enforced: true },
+  // ── 신청 취소 되돌리기 1개 — 마이그레이션 441 role_permissions 시드와 1:1 ──
+  //    restore_cancelled_application(440)이 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 441 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 440) — 철자가 하나만 달라도 조용히 거부된다.
+  //    ⚠️ 한계: 관리자 누구나 applications 표를 직접 수정하는 경로(기존 승인·미승인과 같은 경로)는 그대로라,
+  //       이 설정이 막는 것은 **이 함수와 화면 버튼**뿐이다(사양서 ⑧).
+  { key: 'application.restore_cancelled', label_ko: '신청 취소 되돌리기(회원 본인 취소를 원래 상태로)', category: '캠페인',       server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -2039,7 +2046,7 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
   'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request',
-  'ad_tracking.manage'
+  'ad_tracking.manage', 'application.restore_cancelled'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
