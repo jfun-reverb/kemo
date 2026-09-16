@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789536981';
+  var CURRENT_BUILD = 'v1789537473';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3197,7 +3197,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-16 14:36 · 5d63642</span>
+          <span class="admin-build-text">2026-09-16 14:44 · cd6dda9</span>
         </div>
       </div>
     </aside>
@@ -19508,17 +19508,18 @@ function renderAdTrackingPane(pane, d) {
     <div class="admin-card" style="margin-bottom:16px">
       <div class="admin-card-header">
         <span class="admin-card-title">광고 추적 (메타 픽셀)</span>
-        <!-- 상태 배지 · 마지막 저장 · 전송 켜기 스위치를 제목 줄 오른쪽에 모은다(2026-09-16 사용자 요청).
+        <!-- 상태 배지 · 마지막 저장 · 「Meta 전송」 스위치를 제목 줄 오른쪽에 모은다(2026-09-16 사용자 요청).
              ⚠️ 스위치 옆 설명(잠금 사유·권한 없음·저장 안내)은 본문에 그대로 둔다 — 머리글에 넣으면 제목 줄이 두 줄로 접힌다. -->
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end">
           ${_adTrackingStatusBadge(d)}
           ${d.updated_at ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap">마지막 저장 ${esc(formatDateTime(d.updated_at))}</span>` : ''}
+          <!-- ⚠️ 라벨은 「Meta 전송」(무엇을 켜고 끄는지)이다. 「전송 켜기」로 두면 스위치 옆에서 **지금 켜져 있다는 뜻**으로 읽힌다(2026-09-16 사용자 지적).
+               지금 상태는 왼쪽 배지가 말하므로 스위치 옆에 꺼짐/켜짐을 또 적지 않는다. -->
           <span style="display:flex;align-items:center;gap:8px">
-            <span class="visibility-toggle-label" style="font-size:13px;white-space:nowrap">전송 켜기</span>
+            <span class="visibility-toggle-label" style="font-size:13px;white-space:nowrap">Meta 전송</span>
             <button type="button" id="adTrackingToggle" class="visibility-toggle${d.enabled ? ' is-on' : ''}${toggleDisabled ? ' is-disabled' : ''}"
-                    role="switch" aria-checked="${d.enabled ? 'true' : 'false'}" aria-label="메타 픽셀 전송 켜기"
+                    role="switch" aria-checked="${d.enabled ? 'true' : 'false'}" aria-label="메타 픽셀 전송"
                     ${toggleDisabled ? 'disabled' : ''} onclick="toggleAdTrackingEnabled()"><span class="visibility-toggle-knob"></span></button>
-            <span style="font-size:12px;color:var(--muted);white-space:nowrap">${d.enabled ? '켜짐' : '꺼짐'}</span>
           </span>
         </div>
       </div>
@@ -19569,7 +19570,7 @@ function renderAdTrackingPane(pane, d) {
       <div class="admin-card-header"><span class="admin-card-title">변경 이력</span><span style="font-size:12px;color:var(--muted)">최근 50건</span></div>
       <div class="admin-table-wrap">
         <table class="data-table">
-          <thead><tr><th style="width:160px">시각</th><th style="width:160px">누가</th><th>무엇을</th></tr></thead>
+          <thead><tr><th style="width:160px">시각</th><th style="width:160px">수정자</th><th>변경 내역</th></tr></thead>
           <tbody>${historyRows}</tbody>
         </table>
       </div>
