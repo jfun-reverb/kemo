@@ -1128,7 +1128,8 @@ function osCardDetail(c, idx, catMap, readonly) {
       const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
       inner += osField('게시 채널', chNames.join(', '));
     }
-    inner += osField('소구 키워드', osSeedingAppeal(sd), true);
+    // [2026-09-16 §4-5] 이름만 바뀐다 — ⚠️ 옛 시트도 이 줄을 지난다(osSeedingAppeal 이 옛 seeding.guides 를 함께 읽는다). 값은 그대로다
+    inner += osField('리뷰 가이드', osSeedingAppeal(sd), true);
     inner += osField('촬영 가이드', sd.shooting_guide, true)
       + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
       + osField('계정 태그', sd.account_tags);
@@ -1766,7 +1767,7 @@ function osBuildGuideDraft(card, isNew) {
     const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
     if (chNames.length) blocks.push('[게시 채널] ' + chNames.join(', '));
     const appeal = osSeedingAppeal(sd);
-    if (appeal) blocks.push('[소구 키워드]\n' + appeal);
+    if (appeal) blocks.push('[리뷰 가이드]\n' + appeal);
     if (sd.shooting_guide) blocks.push('[촬영 가이드]\n' + sd.shooting_guide);
     if (sd.required_content) blocks.push('[필수 내용]\n' + sd.required_content);
     if (sd.gift) blocks.push('[증정품] ' + sd.gift);
