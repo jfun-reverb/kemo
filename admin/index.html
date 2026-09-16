@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789518843';
+  var CURRENT_BUILD = 'v1789518942';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3197,7 +3197,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-16 09:34 · c097922</span>
+          <span class="admin-build-text">2026-09-16 09:35 · 1aa269b</span>
         </div>
       </div>
     </aside>
@@ -37898,6 +37898,11 @@ function _restoreTodayJst() {
 
 async function openRestoreCancelledModal(appId) {
   if (!appId) return;
+  // 🔴 더보기 메뉴를 **여기서** 닫는다. 바깥 클릭 처리기는 메뉴 **안**을 누른 이 클릭에서는
+  //    안 닫고, `.camp-more-menu` 의 z-index(999)가 확인 창보다 높아 **창 위에 메뉴가 떠 있게**
+  //    된다(2026-09-16 개발서버에서 눈으로 확인). 선례(브랜드 신청 더보기)도 같은 구조지만
+  //    거기서는 메뉴가 창 밖에 가려 눈에 안 띌 뿐이다.
+  document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
   ensureRestoreCancelledModal();
   _restoreCancelledAppId = appId;
   const memoEl = $('restoreCancelledMemo');
