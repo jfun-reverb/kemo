@@ -1051,6 +1051,16 @@ function osBrandCard(brand, headerName) {
 //   🔴 견적서 사본을 여기서 그리지 않는다 — 「견적서 열기」는 sales 도메인의 인쇄용 화면(?view=quote)을 새창에 연다.
 //   토큰이 만료·발행(consumed)됐으면 그 화면이 막히므로 단추를 안 그리고 숫자 요약만 남긴다.
 function osKrw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+// 🔴 「담당자 협의」 줄은 금액 칸을 비운다 — `osKrw()` 자체를 고치면 정상 0원까지 빈 칸이 된다
+// ⚠️ `Number(null)` 이 0 이라 빈 값 검사를 먼저 한다(0 은 그대로 「0원」). 작성 폼의 `krwCell` 과 같은 규칙
+function osKrwCell(n) { return (n === null || n === undefined || n === '') ? '' : osKrw(n); }
+// 견적을 못 만든 이유 — 🔴 코드마다 문구가 따로 있어야 한다(기본값으로 뭉치면 틀린 이유를 보여준다)
+const OS_QUOTE_ERROR_TEXT = {
+  price_unreadable: '상시가를 숫자로 못 읽어 견적이 없습니다',
+  slots_missing: '모집 인원을 숫자로 못 읽어 견적이 없습니다',
+  fee_missing: '요금 기준값이 없어 견적이 없습니다(기준 데이터 「견적 기준값」 확인)',
+  calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)',
+};
 function osQuoteLinkable(s) {
   if (!s || !s.token) return false;
   if (s.status === 'consumed' || s.status === 'expired') return false;
@@ -1072,12 +1082,12 @@ function osQuoteCard(s, readonly) {
     ? `<a class="btn btn-ghost btn-xs" href="${esc(osBuildLink(s.token) + '&view=quote')}" target="_blank" rel="noopener">견적서 열기</a>`
     : '';
   if (err) {
-    const why = ({ slots_missing: '모집 인원을 숫자로 못 읽어 견적이 없습니다', calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)' })[err] || '상시가를 숫자로 못 읽어 견적이 없습니다';
+    const why = OS_QUOTE_ERROR_TEXT[err] || '견적을 만들지 못했습니다(사유: ' + String(err) + ')';
     return `<div class="os-card"><div class="os-card-title">예상 견적</div>
       <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history)}</div>`;
   }
   const lines = (Array.isArray(q.lines) ? q.lines : []).map(l =>
-    `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrw(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrw(l.amount_krw))}</td></tr>`).join('');
+    `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrwCell(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrwCell(l.amount_krw))}</td></tr>`).join('');
   return `<div class="os-card">
     <div class="os-card-title" style="display:flex;align-items:center;gap:8px">예상 견적
       <span style="font-size:11px;font-weight:600;color:var(--muted)">${esc(q.quote_no || '')} · ${esc(String(q.revision || 1))}차 견적 · ${esc(q.issued_at ? formatDateTime(q.issued_at) : '')}</span>

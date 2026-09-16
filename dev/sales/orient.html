@@ -2636,8 +2636,13 @@ const QUOTE_ERROR_TEXT = {
   price_unreadable: '상시가를 숫자로 적으면 견적서를 받을 수 있어요. (예: 5300)',
   slots_missing: '모집 인원을 숫자로 적으면 견적서를 받을 수 있어요.',
   calc_error: '견적을 계산하지 못했어요. 담당자가 확인한 뒤 견적을 안내해 드릴게요.',
+  // [2026-09-16 §4-1] 요금 기준값 행이 없을 때 — 제출은 통과하고 견적서만 못 만든다
+  fee_missing: '요금 기준값이 아직 준비되지 않았어요. 담당자가 확인한 뒤 견적을 안내해 드릴게요.',
 };
 function krw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+// 🔴 「담당자 협의」 줄은 금액 칸을 비운다 — `krw()` 자체를 고치면 정상 0원까지 빈 칸이 된다
+// ⚠️ `Number(null)` 이 0 이라 빈 값 검사를 먼저 한다(0 은 그대로 「0원」)
+function krwCell(n) { return (n === null || n === undefined || n === '') ? '' : krw(n); }
 function jpy(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
 function ymdOf(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[1]}.${m[2]}.${m[3]}` : ''; }
 
@@ -2717,8 +2722,8 @@ function renderQuoteDoc(q, data) {
   const rows = lines.map(l => `<tr>
       <td>${escAttr(l.label || '')}</td>
       <td class="num">${escAttr(String(l.qty ?? ''))}</td>
-      <td class="num">${escAttr(krw(l.unit_krw))}</td>
-      <td class="num">${escAttr(krw(l.amount_krw))}</td>
+      <td class="num">${escAttr(krwCell(l.unit_krw))}</td>
+      <td class="num">${escAttr(krwCell(l.amount_krw))}</td>
     </tr>`).join('');
   const fixed = (ft === 'seeding')
     ? '본 견적은 브랜드가 입력한 모집 인원 기준 예상 금액이며, 최종 금액은 담당자 확인 후 확정됩니다.'
@@ -2749,7 +2754,7 @@ function renderQuoteDoc(q, data) {
       <tr><th style="width:96px">제품</th><td colspan="3">${escAttr((c.product && c.product.name) || '')}</td></tr>
       <tr><th>판매 URL</th><td colspan="3" style="word-break:break-all">${escAttr((c.sale && c.sale.url) || '')}</td></tr>
       <tr><th>모집 형식</th><td colspan="3">${escAttr(ftLabel)}${chLabel ? ' · ' + escAttr(chLabel) : ''}</td></tr>
-      <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}명</td></tr>
+      <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}건</td></tr>
     </table>
     <table class="quote-table">
       <thead><tr><th>항목</th><th class="num">수량</th><th class="num">단가</th><th class="num">금액</th></tr></thead>
