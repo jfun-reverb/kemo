@@ -48,23 +48,39 @@ function _adTrackingStatusBadge(d) {
   }
 }
 
-// 이력 한 줄의 「무엇을」 — 바뀐 칸만 나열
+// 이력 한 줄의 「무엇을」 — 바뀐 칸마다 **무엇을 어떻게 했는지** 한 문장으로.
+//   ⚠️ 「켬/끔」처럼 동작만 적으면 어느 아이디로 켰는지·무엇이 달라졌는지 알 수 없다(2026-09-16 사용자 지적).
+//   트리거는 세 칸의 전·후 값을 **매번 다 기록**하므로, 안 바뀐 칸의 값도 설명에 끌어다 쓸 수 있다.
 function _adTrackingHistoryChanges(h) {
   const parts = [];
+  const idText = v => v ? esc(v) : '(없음)';
+
   if (h.prev_meta_pixel_id !== h.next_meta_pixel_id) {
-    const prev = h.prev_meta_pixel_id || '(없음)';
-    const next = h.next_meta_pixel_id || '(없음)';
-    parts.push(`아이디 ${esc(prev)} → ${esc(next)}`);
+    if (!h.prev_meta_pixel_id)      parts.push(`픽셀 아이디 등록 — ${idText(h.next_meta_pixel_id)}`);
+    else if (!h.next_meta_pixel_id) parts.push(`픽셀 아이디 삭제 — ${idText(h.prev_meta_pixel_id)} 를 지움 (전송 중단)`);
+    else                            parts.push(`픽셀 아이디 변경 — ${idText(h.prev_meta_pixel_id)} → ${idText(h.next_meta_pixel_id)}`);
   }
+
   if (h.prev_enabled !== h.next_enabled) {
-    parts.push(h.next_enabled ? '<strong style="color:var(--green)">켬</strong>' : '<strong>끔</strong>');
+    if (h.next_enabled) {
+      // ⚠️ 아이디가 없으면 켜도 서버가 내주지 않아 실제 전송은 0 이다 — 문구가 사실보다 강해지지 않게 가른다
+      parts.push(h.next_meta_pixel_id
+        ? `<strong style="color:var(--green)">전송 켜기</strong> — 아이디 ${idText(h.next_meta_pixel_id)} 로 인플루언서 사이트 방문·가입·신청 정보를 Meta 로 보내기 시작`
+        : '<strong style="color:var(--green)">전송 켜기</strong> — 다만 픽셀 아이디가 없어 실제로는 전송되지 않음');
+    } else {
+      parts.push('<strong>전송 끄기</strong> — Meta 로 보내지 않음 (이미 열려 있던 화면은 새로고침 전까지 보낼 수 있음)');
+    }
   }
+
   if (h.prev_policy_effective_date !== h.next_policy_effective_date) {
-    const prev = h.prev_policy_effective_date ? _adTrackingDateText(h.prev_policy_effective_date) : '(없음)';
-    const next = h.next_policy_effective_date ? _adTrackingDateText(h.next_policy_effective_date) : '(없음)';
-    parts.push(`방침 시행일 ${esc(prev)} → ${esc(next)}`);
+    const prev = h.prev_policy_effective_date ? _adTrackingDateText(h.prev_policy_effective_date) : null;
+    const next = h.next_policy_effective_date ? _adTrackingDateText(h.next_policy_effective_date) : null;
+    if (!prev)      parts.push(`방침 시행일 설정 — ${esc(next)} (그날부터 켤 수 있음)`);
+    else if (!next) parts.push(`방침 시행일 삭제 — ${esc(prev)} 를 지움 (다시 켤 수 없음)`);
+    else            parts.push(`방침 시행일 변경 — ${esc(prev)} → ${esc(next)}`);
   }
-  return parts.length ? parts.join(' · ') : '-';
+
+  return parts.length ? parts.join('<br>') : '-';
 }
 
 async function loadAdTrackingPane() {
@@ -129,7 +145,19 @@ function renderAdTrackingPane(pane, d) {
     <div class="admin-card" style="margin-bottom:16px">
       <div class="admin-card-header">
         <span class="admin-card-title">광고 추적 (메타 픽셀)</span>
-        ${_adTrackingStatusBadge(d)}
+        <!-- 상태 배지 · 마지막 저장 · 전송 켜기 스위치를 제목 줄 오른쪽에 모은다(2026-09-16 사용자 요청).
+             ⚠️ 스위치 옆 설명(잠금 사유·권한 없음·저장 안내)은 본문에 그대로 둔다 — 머리글에 넣으면 제목 줄이 두 줄로 접힌다. -->
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end">
+          ${_adTrackingStatusBadge(d)}
+          ${d.updated_at ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap">마지막 저장 ${esc(formatDateTime(d.updated_at))}</span>` : ''}
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="visibility-toggle-label" style="font-size:13px;white-space:nowrap">전송 켜기</span>
+            <button type="button" id="adTrackingToggle" class="visibility-toggle${d.enabled ? ' is-on' : ''}${toggleDisabled ? ' is-disabled' : ''}"
+                    role="switch" aria-checked="${d.enabled ? 'true' : 'false'}" aria-label="메타 픽셀 전송 켜기"
+                    ${toggleDisabled ? 'disabled' : ''} onclick="toggleAdTrackingEnabled()"><span class="visibility-toggle-knob"></span></button>
+            <span style="font-size:12px;color:var(--muted);white-space:nowrap">${d.enabled ? '켜짐' : '꺼짐'}</span>
+          </span>
+        </div>
       </div>
       <div style="padding:18px 20px">
         ${stagingWarn}
@@ -147,17 +175,9 @@ function renderAdTrackingPane(pane, d) {
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px">비워서 저장하면 아이디가 지워집니다.</div>
 
-        <div style="display:flex;align-items:center;gap:10px;margin-top:20px">
-          <div class="visibility-toggle-label">전송 켜기</div>
-          <button type="button" id="adTrackingToggle" class="visibility-toggle${d.enabled ? ' is-on' : ''}${toggleDisabled ? ' is-disabled' : ''}"
-                  role="switch" aria-checked="${d.enabled ? 'true' : 'false'}" aria-label="메타 픽셀 전송 켜기"
-                  ${toggleDisabled ? 'disabled' : ''} onclick="toggleAdTrackingEnabled()"><span class="visibility-toggle-knob"></span></button>
-          <span style="font-size:13px;color:var(--muted)">${d.enabled ? '켜짐' : '꺼짐'}</span>
-        </div>
         ${lockLine}
         ${noPermLine}
         ${noticeLine}
-        ${d.updated_at ? `<div style="font-size:11px;color:var(--muted);margin-top:14px">마지막 저장 ${esc(formatDateTime(d.updated_at))}</div>` : ''}
       </div>
     </div>
 
