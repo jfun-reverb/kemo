@@ -150,7 +150,7 @@
   - 칸: `quote_settings.group_ko`(값 `공통`·`리뷰어`·`시딩`)
   - 열쇠말 신규 26개 — `reviewer_recruit_fee_krw_{t50|t100|t300|t500plus}` · `reviewer_option_fee_krw_{lips|cosme}` · `seeding_fee_krw_{instagram_feed|instagram_reels|x|tiktok|youtube}_{t50|t100|t300|t500plus}`
   - 삭제 6개 — `reviewer_recruit_fee_krw` · `seeding_fee_krw_{채널}`(구간 없는 5개)
-  - 함수: `get_quote_settings()` → 8칸(`key, amount, unit, label_ko, group_ko, sort_order, updated_at, updated_by`)
+  - 함수: `get_quote_settings()` → 8칸(`key, amount, unit, label_ko, sort_order, updated_at, updated_by, group_ko`) — ⚠️ **새 칸은 맨 끝**(2026-09-16 구현 시 결정. 가운데 끼우면 다음에 자리로 읽는 코드가 생겼을 때 조용히 어긋난다. 지금 부르는 화면은 이름으로 읽어 영향 없음)
 - **완료 정의**
   - 행 수 **29**, 옛 6개 열쇠말 조회 결과 **0행** (사양서 §9-1 1번)
   - 🔴 `get_quote_settings()` 실행 권한 — **공개 없음 · 비로그인 없음 · 로그인 사용자 있음**. `p.proacl::text` 맨 앞 `=X/` 유무까지 본다 (§9-1 2번 · 메모리 `feedback_function_execute_grants`)

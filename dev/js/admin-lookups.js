@@ -179,14 +179,25 @@ async function renderQuoteSettingsTable() {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">등록된 기준값이 없습니다 (마이그레이션 426 적용 필요)</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map((r, i) => `<tr data-qkey="${esc(r.key)}">
+  // [442] 묶음 머리 — group_ko 가 바뀌는 자리마다 한 줄. 29행이라 묶음이 없으면 어디까지가 무엇인지 안 보인다.
+  //   ⚠️ **기본은 펼침**(접으면 「시딩 단가가 시드 값인데 안 보여서 몰랐다」가 생긴다 — 사양서 §4-2)
+  //   ⚠️ group_ko 가 없는 행(옛 데이터)은 머리를 안 그리고 그대로 잇는다
+  let _qGroup = null;
+  tbody.innerHTML = rows.map((r, i) => {
+    let head = '';
+    if (r.group_ko && r.group_ko !== _qGroup) {
+      _qGroup = r.group_ko;
+      head = `<tr class="q-group-head"><td colspan="6" style="background:var(--surface-dim);font-size:12px;font-weight:700;color:var(--ink);padding:8px 12px">${esc(r.group_ko)}</td></tr>`;
+    }
+    return head + `<tr data-qkey="${esc(r.key)}">
       <td style="color:var(--muted);font-size:11px">${i + 1}</td>
       <td><strong style="font-size:13px">${esc(r.label_ko)}</strong><div style="font-size:10px;color:var(--muted)">${esc(r.key)}</div></td>
       <td class="q-amount" style="font-size:13px;font-weight:600">${esc(quoteAmountText(r))}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(QUOTE_UNIT_LABEL[r.unit] || r.unit)}</td>
       <td style="font-size:12px;color:var(--muted)">${r.updated_at ? esc(formatDateTime(r.updated_at)) : '-'}</td>
       <td style="white-space:nowrap">${canEdit ? `<button class="btn btn-ghost btn-xs" onclick="editQuoteSetting('${esc(r.key)}', '${esc(String(r.amount))}', '${esc(r.unit)}')">수정</button>` : ''}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 // 인라인 수정 — 그 행의 값 칸을 입력칸으로 바꾼다. 비율은 % 로 받아 0~1 로 저장.
 function editQuoteSetting(key, current, unit) {
