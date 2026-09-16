@@ -259,6 +259,12 @@
 - **내 계정**: 이름/비밀번호 변경
 - **감사용 계정 메커니즘**(179·181, 운영 모니터링용): 운영팀이 인플루언서 동선을 본인 입장에서 시뮬레이션하는 공용 계정(`influencers.is_audit=true`). 응모수(`get_campaign_application_counts`)·슬롯(`check_monitor_slots`)·카드 「N명 신청」(`recompute_campaign_applied_count`)·대시보드 지표·운영현황(`get_brand_ops_overview`/`detail`)에서 **격리**된다. 6개 관리자 페인(인플/신청/캠페인별 신청자/결과물/대시보드 최근/메시지)에 「감사용」 주황 배지(`auditBadgeHtml`, shared.js). 엑셀 5개 export 다운로드 시 결과에 감사용 포함되면 「포함/제외」 확인 모달(`confirmAuditExport`, 0명이면 생략·세션 캐시). 흔적 청소 함수 2종(`purge_audit_data_all`/`purge_audit_data_for_campaign`, super_admin 한정 — **저장소 파일 경로를 돌려주고 화면이 지운다**): 캠페인 더보기 「감사용 흔적 청소」 + 인플루언서 상세 「전체 청소」. ⚠️ `fetchInfluencers(opts)` 기본값이 `includeAudit:true` 라 **통계·엑셀에서만 false 를 명시**해야 한다. 사양서 `docs/specs/2026-05-28-audit-influencer-account.md`
 - **오류 로그**(`/admin#errors`, 마이그레이션 165, `dev/js/admin-errors.js`): 사용자(인플루언서) 앱에서 발생한 오류를 모아 보는 페인. 사이드바 「오류 로그」(미해결 건수 빨강 배지). 목록(상태[기본 미해결]·앱·기간 필터 + 메시지/코드 검색 + lazy-load) + 상세 모달(전체 메시지·스택·발생정보 + 해결/무시/메모, `resolve_client_error` RPC). 개인정보는 수집 단계에서 마스킹됨. 수집은 인플 앱 `error-report.js`(전역 핸들러 + friendlyErrorJa 훅)
+- **광고 추적**(`/admin#ad-tracking`, 마이그레이션 438·439, `dev/js/admin-ad-tracking.js` — **2026-09-15 개발 적용, 운영 대기**): 인플루언서 사이트의 메타 픽셀을 켜고 끄고 아이디를 넣는 화면. 사이드바 「관리자 설정」 묶음. 구성 = 상태 배지 · 픽셀 아이디 저장 · 전송 켜기 스위치 · 보내는 이벤트 표(읽기 전용) · 확인 방법 안내 · 변경 이력. 권한 `menu.ad-tracking`(매니저 읽기) + `ad_tracking.manage`(매니저 숨김, **서버 강제**).
+  - 🔴 **상태 배지 4종은 서버가 정한 `status` 를 그대로 그린다** — 화면이 시행일을 날짜로 비교하지 않는다(갈리면 「켤 수 있어 보이는데 서버가 거부」가 된다). 판정 순서 `policy_locked`(방침 시행 전 — 켜짐 값이어도 이 배지) → `no_pixel_id` → `disabled` → `active`
+  - ⚠️ **스위치는 저장된 아이디로만 켜고 끈다** — 입력칸에 저장 안 한 값이 있으면 멈추고 먼저 저장하라고 한다. 켤 때만 확인 창, 끌 때는 바로(끄는 쪽이 안전한 방향)
+  - ⚠️ 권한이 쓰기가 아니면 **숨기지 않고 비활성** + 「변경 권한이 없습니다」(등급 이름은 안 박는다). 거부 사유 넷(`forbidden`·`invalid_input`·`invalid_pixel_id`·`policy_not_in_effect`)과 통신 실패는 **각각 다른 문구**
+  - ⚠️ 저장 뒤 안내는 셋 모두 같다 — 「새로 들어오는 방문부터 적용됩니다. 이미 열려 있는 화면은 새로고침 전까지 이전 설정으로 동작할 수 있습니다」. 이미 켜진 탭은 새로고침 전까지 옛 설정으로 보낸다
+  - ⚠️ 개발서버에서는 「운영 아이디를 넣지 마세요」 경고(`IS_STAGING`). 🔴 **관리자 앱에는 픽셀을 심지 않는다**(운영자 행동이 전환으로 잡히면 숫자가 오염된다)
 - **에러 처리**: `friendlyError()` 한국어 메시지 + 에러 코드
 - **상태 뱃지**: `getStatusBadgeKo()` 한국어 상태 표시
 
@@ -484,6 +490,18 @@
 - ⚠️ **조회 실패(`null`)와 기록 0건(`[]`)을 구분**해 서로 다른 안내를 띄운다 — 어느 쪽도 0을 그리지 않는다(마이그레이션 276 에서 세운 원칙). ⚠️ **도입 이전 구간은 자르되 도입 이후의 빈 날은 0이 맞다**(진짜 방문 0명)
 - ⚠️ 차트 오른쪽 끝은 「오늘」이 아니라 **`max(오늘, 마지막 기록일)`** — 날짜는 서버가 찍고 화면 판정은 관리자 PC 시계라, 자정 직후 시계가 몇 분만 느려도 「기록일 > 오늘」이 되어 **그릴 칸이 0개가 된다**(개발 중 실제로 재현됨)
 - 열람 권한은 **관리자 전원**(`is_admin()` — 등급 무관). 권한 카탈로그에 새 열쇠말을 만들지 않고 대시보드 권한을 상속
+
+### 메타 픽셀 (마이그레이션 438·439 — 개발 적용 2026-09-15, **운영 대기**)
+> 인플루언서 사이트의 방문·가입·신청을 Meta 로 보내 광고 성과를 본다. 관리 화면은 위 「광고 추적」, 앱 쪽 전송은 `dev/js/meta-pixel.js`. 사양서 `docs/specs/2026-09-03-meta-pixel.md` · 작업표 `…-meta-pixel-breakdown.md`
+> 🔴 **지금 전송은 0건이다** — 방침 시행일이 비어 있어 서버가 켜기를 거부하고 앱용 조회도 빈 값을 준다. 개인정보처리방침 §8.1 신설·공고 30일 뒤가 시행일이고, **그 날짜를 설정 표에 넣는 것이 곧 잠금 해제**다.
+- `meta_pixel_settings` — 한 줄(id=1). `meta_pixel_id`(숫자만) · `enabled` · `policy_effective_date` · `updated_at/by`. 조회 `is_admin()`, **쓰기 정책 없음**. 🔴 **시행일을 바꾸는 함수는 없다** — SQL 편집기로만 넣는다(사람 실수로 잠금이 풀리지 않게)
+- `meta_pixel_settings_history` — 추가만. 🔴 **저장 함수가 아니라 설정 표의 트리거가 쓴다** — SQL 로 넣은 시행일·SQL 로 켠 값도 남아야 하기 때문. 로그인 사용자가 없으면 `actor NULL` → 화면 「시스템(직접 입력)」. ⚠️ `updated_by` 를 이력의 `actor` 로 옮겨 적지 않는다(직전 저장자가 찍힌다)
+- 🔴 **시행일 판정식은 `_meta_pixel_policy_in_effect(date)` 한 곳**이고 저장 거부·앱용 조회·상태 배지 셋이 그것을 부른다(사양서는 「세 곳에 글자 그대로 같게」였는데 **베끼는 대신 한 함수로** 모았다). 식 = `p_date IS NOT NULL AND p_date <= (now() AT TIME ZONE 'Asia/Tokyo')::date`. **다른 함수에 복사하지 말 것**
+- `get_meta_pixel_admin()` — 관리자 전원. 설정 + `status` + 최근 이력 50건. `update_meta_pixel_settings(text, boolean)` — 가드가 `is_campaign_admin()` 이 아니라 **`has_permission('ad_tracking.manage','write')`**(「설정 미적용」 목록을 늘리지 않으려고). ⚠️ **「꺼짐 → 켜짐」 요청만** 시행 전이면 거부 — 켜짐 유지 상태의 아이디 저장·끄기는 항상 허용(SQL 로 켜 둔 값을 화면에서 끌 수 있어야 한다)
+- `get_public_meta_pixel_id()` — 비로그인·로그인 모두. ①켜짐 ②아이디 있음 ③시행일 도래 ④관리자·감사용 계정 아님(332 와 같은 판정) — 넷 다 참일 때만 아이디, 아니면 **빈 문자열**(NULL 아님 — 화면이 조회 실패와 구분한다). 설정 표를 통째로 열지 않는다
+- ⚠️ **실행 권한은 회수 방향이 둘**(369·370·375) — 앱용 조회만 `anon`·`authenticated`, 관리 화면 함수 둘은 `authenticated` 만, 판정 헬퍼·트리거 함수는 셋 다 회수
+- ⚠️ **관리자·권한·감사용 판정은 SQL 편집기로 재현 못 한다**(서비스 키에는 로그인 사용자가 없다) — 실제 로그인 브라우저로 확인할 것
+- 🔴 **배포는 데이터베이스 먼저, 코드 나중** — 반대면 앱이 없는 함수를 불러 오류 로그가 쌓인다. ⚠️ 개발에서 실제로 **앱 코드(#1516)가 438 적용보다 먼저 나가 있던 구간**이 있었다(2026-09-15, 몇 시간). 439 는 438 뒤, 그리고 **관리 화면과 같은 배포**에(화면은 못 읽으면 쓰기로 열고 서버는 거부라 방향이 반대다)
 
 ### 메일·기준 데이터·알림
 - `lookup_values` — 캠페인 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason/**admin_proxy_reason**), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`. channel 만 recruit_types 사용. `admin_proxy_reason`(마이그레이션 160) 시드 4건: shipping_delay/system_error/inflexible_deadline/other
