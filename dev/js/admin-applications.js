@@ -208,10 +208,10 @@ async function loadCampApplicants() {
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-    <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
+    <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${restoreCancelledMenuHtml(a)}${cancelDetailLinesHtml(a)}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">미승인</button></div>`
-      :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>${restoreCancelledBtnHtml(a)}`
+      :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${_campDetailIsEvent ? 'true' : 'false'})">되돌리기</button></div>`}
     </td>
   </tr>`;
@@ -334,16 +334,46 @@ const APP_RESTORE_ERROR_TEXT = {
 // 통신 실패(저장소 함수가 null) — 서버 판정이 아니라 「서버에 닿지 못했다」라서 문구가 다르다.
 const APP_RESTORE_NETWORK_TEXT = '서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요. (되돌리기는 실행되지 않았습니다)';
 
-// 취소 행의 「되돌리기」 버튼 — 🔴 **두 목록(캠페인 진행현황·신청 관리)이 같은 함수를 쓴다.**
-//   행 그리기가 두 벌이라 문자열을 각자 쓰면 화면마다 다르게 보인다(작업표 「공유 지점 경고」 4).
-// 보이는 조건: 권한 있음 + 탈퇴로 철회된 신청이 아님. 없으면 **그리지 않는다**(취소 행에는 원래 버튼이 없었다).
-// ⚠️ 탈퇴가 진행 중·확정인 회원의 **본인 취소** 행에는 버튼이 보인다 — 목록 조회에 탈퇴 상태를
+// 취소 행의 더보기(세로 점 세 개) — 「취소됨」 배지 **옆**에 붙는다(2026-09-16 사용자 지시).
+//   🔴 **두 목록(캠페인 진행현황·신청 관리)이 같은 함수를 쓴다.** 행 그리기가 두 벌이라
+//   각자 쓰면 화면마다 다르게 보인다(작업표 「공유 지점 경고」 4).
+// 보이는 조건: 권한 있음 + 탈퇴로 철회된 신청이 아님. 없으면 **그리지 않는다**(취소 행에는 원래 동작이 없었다).
+// ⚠️ 탈퇴가 진행 중·확정인 회원의 **본인 취소** 행에는 보인다 — 목록 조회에 탈퇴 상태를
 //    더하지 않기로 했기 때문이다(사양서 ①). 그 경우 서버가 `withdrawal_related` 로 거부한다.
-function restoreCancelledBtnHtml(a) {
+// ⚠️ **「처리」 칸이 아니라 「상태」 칸이다** — 되돌리기는 상태를 되돌리는 일이라 상태 옆이 맞고,
+//    「처리」 칸은 심사 결과(승인·미승인)를 다루는 자리다.
+function restoreCancelledMenuHtml(a) {
   if (!a || a.status !== 'cancelled') return '';
   if (typeof canWrite === 'function' && !canWrite('application.restore_cancelled')) return '';
   if (a.cancel_reason_code === 'withdrawal') return '';
-  return `<button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="openRestoreCancelledModal('${esc(a.id)}')">취소 되돌리기</button>`;
+  return `<span class="material-icons-round notranslate" translate="no" title="더보기"`
+    + ` style="font-size:20px;color:var(--muted);cursor:pointer;padding:2px;border-radius:50%;vertical-align:middle;margin-left:2px"`
+    + ` onclick="event.stopPropagation();toggleCancelledRowMenu(event,this,'${esc(a.id)}')">more_vert</span>`;
+}
+
+// 취소 행 더보기 메뉴 — 캠페인·브랜드 신청 목록의 더보기 패턴(camp-more-menu)을 그대로 쓴다.
+// ⚠️ 항목을 고를 때 메뉴를 따로 안 닫는다 — 아래 바깥 클릭 처리기가 같은 클릭에서 닫는다
+//    (브랜드 신청 목록 더보기와 같은 동작).
+function toggleCancelledRowMenu(e, btnEl, appId) {
+  e.stopPropagation();
+  document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
+
+  var rect = btnEl.getBoundingClientRect();
+  var menu = document.createElement('div');
+  menu.className = 'camp-more-menu';
+  menu.innerHTML = '<div class="camp-more-item" onclick="openRestoreCancelledModal(\'' + esc(appId) + '\')">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">restore</span>취소 되돌리기</div>';
+  document.body.appendChild(menu);
+  _positionMenuInViewport(menu, rect, {placement: 'left-of'});
+
+  setTimeout(function() {
+    document.addEventListener('click', function _close(ev) {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
 }
 
 // 모달 DOM 1회 생성 — `dev/admin/index.html` 을 건드리지 않는다(오리엔시트 모달 선례).
@@ -1233,10 +1263,10 @@ async function renderAppCampList() {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${cancelDetailLinesHtml(a)}</td>
+      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${restoreCancelledMenuHtml(a)}${cancelDetailLinesHtml(a)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="rejectApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">미승인</button></div>`
-        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>${restoreCancelledBtnHtml(a)}`
+        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="revertApplication('${a.id}', ${((typeof isEventCampaign === 'function') && isEventCampaign(camp)) ? 'true' : 'false'})">되돌리기</button></div>`}
       </td>
     </tr>`;
