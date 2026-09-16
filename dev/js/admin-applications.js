@@ -413,6 +413,11 @@ function _restoreTodayJst() {
 
 async function openRestoreCancelledModal(appId) {
   if (!appId) return;
+  // 🔴 더보기 메뉴를 **여기서** 닫는다. 바깥 클릭 처리기는 메뉴 **안**을 누른 이 클릭에서는
+  //    안 닫고, `.camp-more-menu` 의 z-index(999)가 확인 창보다 높아 **창 위에 메뉴가 떠 있게**
+  //    된다(2026-09-16 개발서버에서 눈으로 확인). 선례(브랜드 신청 더보기)도 같은 구조지만
+  //    거기서는 메뉴가 창 밖에 가려 눈에 안 띌 뿐이다.
+  document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
   ensureRestoreCancelledModal();
   _restoreCancelledAppId = appId;
   const memoEl = $('restoreCancelledMemo');
