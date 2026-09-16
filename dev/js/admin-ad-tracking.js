@@ -17,6 +17,8 @@
 let _adTrackingData = null;      // 마지막으로 받은 get_meta_pixel_admin 결과
 let _adTrackingBusy = false;     // 저장 중 두 번 누르기 방지
 let _adTrackingNotice = '';      // 저장 직후 안내 — 다시 그린 뒤에도 한 번 보여준다
+let _adTrackingNoticeTimer = null;      // 그 안내를 지울 타이머
+const AD_TRACKING_NOTICE_MS = 8000;     // 두 줄짜리 안내를 읽을 만한 시간
 
 // 저장 뒤 안내 — 사양서 ⑬(새 방문부터 적용 / 이미 열린 화면은 새로고침 전까지 옛 설정).
 //   ⚠️ 셋을 같은 문장으로 두면 **껐을 때 「이전 설정으로 동작」이 무슨 뜻인지 알 수 없다**(2026-09-16 사용자 지적).
@@ -133,7 +135,7 @@ function renderAdTrackingPane(pane, d) {
     : '';
   const noPermLine = canEdit ? '' : '<div style="font-size:12px;color:var(--red);margin-top:8px">변경 권한이 없습니다.</div>';
   const noticeLine = notice
-    ? `<div style="margin-top:12px;padding:9px 12px;border-radius:8px;background:var(--blue-l);color:var(--blue);font-size:12px;line-height:1.6">${esc(notice)}</div>`
+    ? `<div id="adTrackingNotice" style="margin-top:12px;padding:9px 12px;border-radius:8px;background:var(--blue-l);color:var(--blue);font-size:12px;line-height:1.6;transition:opacity .4s">${esc(notice)}</div>`
     : '';
 
   const eventRows = (typeof META_PIXEL_EVENT_TABLE !== 'undefined' ? META_PIXEL_EVENT_TABLE : []).map(r => `<tr>
@@ -222,6 +224,23 @@ function renderAdTrackingPane(pane, d) {
         </table>
       </div>
     </div>`;
+
+  // 저장 안내는 읽을 만큼만 두고 스스로 사라진다(2026-09-16 사용자 요청).
+  //   🔴 **대기 중인 타이머는 항상 하나**여야 한다 — 옅어지기 타이머까지 같은 변수에 이어 담는다.
+  //      따로 두면 옅어지는 0.4초 사이에 다시 저장했을 때 **옛 타이머가 방금 뜬 새 안내를 지운다**
+  //      (id 로 찾기 때문에 옛 것인지 새 것인지 구분하지 못한다 — 리뷰 지적, 2026-09-16).
+  if (_adTrackingNoticeTimer) { clearTimeout(_adTrackingNoticeTimer); _adTrackingNoticeTimer = null; }
+  if (notice) {
+    _adTrackingNoticeTimer = setTimeout(() => {
+      const el = document.getElementById('adTrackingNotice');
+      if (el) el.style.opacity = '0';
+      _adTrackingNoticeTimer = setTimeout(() => {
+        _adTrackingNoticeTimer = null;
+        const e2 = document.getElementById('adTrackingNotice');
+        if (e2) e2.remove();
+      }, 400);
+    }, AD_TRACKING_NOTICE_MS);
+  }
 }
 
 // 공용 저장 — 성공이면 그 동작에 맞는 안내를 남기고 페인을 다시 그린다
