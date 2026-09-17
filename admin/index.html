@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789637578';
+  var CURRENT_BUILD = 'v1789642702';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-17 18:32 · b3b4824</span>
+          <span class="admin-build-text">2026-09-17 19:58 · 4a4d5e6</span>
         </div>
       </div>
     </aside>
@@ -21471,7 +21471,8 @@ function osUnlinkFailMsg(reason) {
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
 
 // 관리자 상세에 쓰는 이름표 — 작성 폼(orient.html)의 TIER_OPTIONS·EXTRA_MARKETS 와 같은 열쇠말
-const OS_TIER_LABEL = { t50: '라이트 (50건)', t100: '스탠다드 (100건)', t300: '프리미엄 (300건)', t500plus: '500건 이상 (직접 입력)' };
+// ⚠️ 네 번째는 「500건」 고정이다(448 — 직접 입력을 없앴다). 옛 방식으로 저장된 700건 같은 시트는 「모집 인원」 칸의 숫자가 다르게 보인다
+const OS_TIER_LABEL = { t50: '라이트 (50건)', t100: '스탠다드 (100건)', t300: '프리미엄 (300건)', t500plus: '500건 (+실검작업)' };
 const OS_EXTRA_MARKET_LABEL = { lips: 'LIPS', cosme: '@cosme' };
 
 // 리뷰어 추가 옵션으로 넘길 수 있는 채널 코드 — 시트의 `sale.extra_markets` 값과 기준 데이터 채널 code 가 같은 글자다.
