@@ -1109,7 +1109,8 @@ function osCardDetail(c, idx, catMap, readonly) {
   const catLabel = (catMap && catMap[p.category]) || p.category;
 
   // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
+  // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 구간 이름은 작성 폼 TIER_OPTIONS 와 같은 넷
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', OS_TIER_LABEL[p.slots_tier] || '')
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
@@ -1119,6 +1120,13 @@ function osCardDetail(c, idx, catMap, readonly) {
   }
   if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
   if (ft === 'reviewer') {
+    // [2026-09-16] 브랜드가 고른 구간·구매 가이드·추가 옵션 — 발행하는 사람이 봐야 하는 값이다.
+    //   값이 없으면 줄을 안 만든다(옛 시트·미선택).
+    const pg = c.purchase_guide || {};
+    if (pg.mode === 'free') inner += osField('구매 가이드', '자율구매 — ' + OS_PURCHASE_GUIDE_FREE_KO);
+    else if (pg.mode === 'fixed') inner += osField('구매 가이드', '지정구매 — ' + (pg.options || ''));
+    const extras = Array.isArray(sale.extra_markets) ? sale.extra_markets : [];
+    inner += osField('추가 옵션', extras.map(k => OS_EXTRA_MARKET_LABEL[k] || k).join(', '));
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
   }
   if (ft === 'seeding') {
@@ -1709,6 +1717,26 @@ function osUnlinkFailMsg(reason) {
 
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
 
+// 관리자 상세에 쓰는 이름표 — 작성 폼(orient.html)의 TIER_OPTIONS·EXTRA_MARKETS 와 같은 열쇠말
+const OS_TIER_LABEL = { t50: '라이트 (50건)', t100: '스탠다드 (100건)', t300: '프리미엄 (300건)', t500plus: '500건 이상 (직접 입력)' };
+const OS_EXTRA_MARKET_LABEL = { lips: 'LIPS', cosme: '@cosme' };
+
+// 리뷰어 추가 옵션으로 넘길 수 있는 채널 코드 — 시트의 `sale.extra_markets` 값과 기준 데이터 채널 code 가 같은 글자다.
+//   🔴 `atcosme` 가 아니라 `cosme` 다(2026-07-31 정정한 자리 — 아래 주석)
+const OS_EXTRA_MARKET_CHANNELS = ['lips', 'cosme'];
+
+// 구매 가이드 자율구매 고정 문구 — 인플루언서가 보는 캠페인 본문에 들어가는 일본어(뜻: 「상품을 자유롭게 구매해 주세요.」)
+//   브랜드 작성 폼의 한국어 짝은 orient.html 의 PURCHASE_GUIDE_FREE_KO. 우리가 정한 문장이라 번역할 것이 없다(결정 18)
+const OS_PURCHASE_GUIDE_FREE_JA = '商品を自由にご購入ください。';
+const OS_PURCHASE_GUIDE_FREE_KO = '상품을 자유롭게 구매해 주세요.';
+
+// 새 구조 리뷰어 시트의 구매 가이드(mode) — 'free' | 'fixed' | ''(옛 시트·미선택·다른 형식)
+function osPurchaseGuideMode(card, isNew) {
+  if (!isNew || !card || card.form_type !== 'reviewer') return '';
+  const m = card.purchase_guide && card.purchase_guide.mode;
+  return (m === 'free' || m === 'fixed') ? m : '';
+}
+
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
   if (card.form_type === 'seeding') {
@@ -1725,7 +1753,15 @@ function osPrefillChannels(card) {
   //    2026-07-31 정정 — '@cosme' 가 존재하지 않는 'atcosme' 로 매핑돼 있었다.
   const map = { 'Qoo10': 'qoo10', '@cosme': 'cosme', 'LIPS': 'lips' };
   const m = (card.sale && card.sale.market) || '';
-  return map[m] ? [map[m]] : [];
+  const out = map[m] ? [map[m]] : [];
+  // [2026-09-16 §4-9] 리뷰어 추가 옵션(LIPS·@cosme)을 채널로 넘긴다 → ['qoo10','lips'] 처럼.
+  //   🔴 허용 목록으로만 옮긴다 — 시트 값은 브랜드가 보낸 것이라 그대로 넘기면 없는 코드가 섞여 체크박스가 안 그려진다.
+  //   ⚠️ 가구매(proxy_purchase)에는 넘기지 않는다 — 가구매는 영수증만 받아 리뷰 채널이 없다.
+  if (card.form_type === 'reviewer') {
+    const extras = (card.sale && Array.isArray(card.sale.extra_markets)) ? card.sale.extra_markets : [];
+    OS_EXTRA_MARKET_CHANNELS.forEach(code => { if (extras.indexOf(code) !== -1 && out.indexOf(code) === -1) out.push(code); });
+  }
+  return out;
 }
 
 // 발행 형식 안내를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
@@ -1800,6 +1836,12 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
   // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
   window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase' };
+  // [2026-09-16 §4-3] 자율/지정 선택을 시트 값 그대로 골라 둔다 —
+  //   🔴 본문만 채우고 이 선택을 비워 두면 **저장하는 순간 옛 판으로 떨어진다**(이름만 새 판이고 값이 NULL).
+  //   ⚠️ 바로 위 switchAdminPane 이 이 칸을 비운 **뒤**에 넣는다(동기 함수라 순서가 보장된다). 라벨은 아래
+  //      applyDeadlineFieldsVisibility 와 라디오 change 가 이 값을 읽어 세운다.
+  const pgMode = osPurchaseGuideMode(card, isNew);
+  osSetVal('newCampPurchaseGuideMode', pgMode);
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 
@@ -1888,10 +1930,21 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
     setRichValue('newCampGuide', osBuildGuideDraft(card, isNew));
     // 통합 소구 키워드 — 신규 seeding.appeal / 옛 seeding.guides 양쪽 하위호환(모듈 헬퍼 재사용)
     setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal(card.seeding)));
-    setRichValue('newCampDesc', isNew ? '' : osPlainToRich(brand.intro || ''));
+    // 캠페인 설명 / 구매 가이드 본문 — 네 갈래(§4-3). 🔴 옛 구조 분기를 지우지 않는다(발행된 옛 시트의 재발행이 달라진다)
+    //   자율구매 = 우리가 정한 일본어 고정 문구 / 지정구매 = 브랜드가 쓴 한국어 그대로(관리자가 일본어로 다듬는다)
+    const pgOptions = (card.purchase_guide && card.purchase_guide.options) || '';
+    const descHtml = !isNew ? osPlainToRich(brand.intro || '')
+      : pgMode === 'free' ? osPlainToRich(OS_PURCHASE_GUIDE_FREE_JA)
+      : pgMode === 'fixed' ? osPlainToRich(pgOptions)
+      : '';
+    setRichValue('newCampDesc', descHtml);
   }
+  if (typeof applyCampDescLabel === 'function') applyCampDescLabel('new', recruitType);
 
-  toast('오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
+  // ⚠️ 일본어 게이트는 가이드 칸만 본다 — 지정구매의 한국어 본문은 아무도 안 막아 준다. 그래서 안내로 챙긴다
+  toast(pgMode === 'fixed'
+    ? '오리엔시트 내용을 채웠습니다. 「구매 가이드」 본문이 브랜드가 쓴 한국어입니다 — 제목·제품명·가이드와 함께 일본어로 고친 뒤 발행해 주세요.'
+    : '오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
