@@ -184,10 +184,10 @@ async function refreshOrientBadge(cached) {
 }
 
 // ⚠️ colspan 은 목록 제목줄(dev/admin/index.html)의 칸 수와 **항상 같아야** 한다.
-//   열을 더하거나 뺄 때 세 곳(제목줄 · osRowHtml 의 각 줄 · 이 안내줄)을 함께 고친다.
+//   열을 더하거나 뺄 때 **네 곳**(제목줄 · 그 아래 첫 진입용 「불러오는 중…」 줄 · osRowHtml 의 각 줄 · 이 안내줄)을 함께 고친다.
 //   하나만 고치면 「불러오는 중」·「결과 없음」 줄만 어긋나 보인다.
 function osMsgRow(msg) {
-  return `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
+  return `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
 }
 
 function renderOrientSheets() {
@@ -259,6 +259,7 @@ function osRowHtml(s) {
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
     <td style="white-space:nowrap">${osExpireCell(s)}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
+    <td style="white-space:nowrap">${osRowQuoteCell(s)}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
       ${(!osIsExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
@@ -1066,8 +1067,9 @@ function osBrandCard(brand, headerName) {
 }
 
 // ── [2단계] 예상 견적 카드 (사양서 §4-3·§4-6, 작업 19) ──
-//   🔴 견적서 사본을 여기서 그리지 않는다 — 「견적서 열기」는 sales 도메인의 인쇄용 화면(?view=quote)을 새창에 연다.
-//   토큰이 만료·발행(consumed)됐으면 그 화면이 막히므로 단추를 안 그리고 숫자 요약만 남긴다.
+//   🔴 견적서 사본을 여기서 그리지 않는다 — 견적서를 그리는 코드는 작성 폼(orient.html) 한 벌이다.
+//   「견적서 열기」는 그 화면을 관리자 창 안에 끼워 넣고(?embed=quote) 이미 가진 견적 내용을 넘겨 그리게 한다(osOpenQuoteDoc).
+//   토큰을 안 쓰므로 발행됐거나 기한이 지난 시트·지난 견적(1차·2차)도 열린다.
 function osKrw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
 // 🔴 「담당자 협의」 줄은 금액 칸을 비운다 — `osKrw()` 자체를 고치면 정상 0원까지 빈 칸이 된다
 // ⚠️ `Number(null)` 이 0 이라 빈 값 검사를 먼저 한다(0 은 그대로 「0원」). 작성 폼의 `krwCell` 과 같은 규칙
@@ -1079,17 +1081,17 @@ const OS_QUOTE_ERROR_TEXT = {
   fee_missing: '요금 기준값이 없어 견적이 없습니다(기준 데이터 「견적 기준값」 확인)',
   calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)',
 };
-function osQuoteLinkable(s) {
-  if (!s || !s.token) return false;
-  if (s.status === 'consumed' || s.status === 'expired') return false;
-  if (s.token_expires_at && new Date(s.token_expires_at).getTime() < Date.now()) return false;
-  return true;
-}
-function osQuoteHistoryHtml(hist) {
-  const list = Array.isArray(hist) ? hist.slice().reverse() : [];
-  if (!list.length) return '';
-  const items = list.map(h => `<li style="font-size:12px;color:var(--muted);padding:2px 0">${esc(String(h.revision || '?'))}차 견적 · ${esc(h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h.total_krw))}</li>`).join('');
-  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 견적 ${list.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
+// 지난 견적 — 줄마다 「열기」(그 판의 견적서 문서). 새창 출력(readonly)에는 단추를 안 그린다(그 창은 정적 HTML 이라 함수가 없다).
+//   ⚠️ 화면은 최신이 위로 오게 뒤집어 그리지만, 단추가 넘기는 번호는 **저장된 배열의 자리**다(osOpenQuoteDoc 이 그 자리로 찾는다)
+function osQuoteHistoryHtml(hist, sheetId, readonly) {
+  const src = Array.isArray(hist) ? hist : [];
+  if (!src.length) return '';
+  const items = src.map((h, i) => {
+    const openBtn = (!readonly && sheetId && h && typeof h === 'object' && Array.isArray(h.lines))
+      ? ` <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(sheetId)}', ${i})">열기</button>` : '';
+    return `<li style="font-size:12px;color:var(--muted);padding:2px 0">${esc(String((h && h.revision) || '?'))}차 견적 · ${esc(h && h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h && h.total_krw))}${openBtn}</li>`;
+  }).reverse().join('');
+  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 견적 ${src.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
 }
 // 발급 때 이 시트만 모집비를 다르게 지정했으면 한 줄(§4-11). 없으면 안 그린다.
 //   🔴 0 도 값이다 — `Number(null)` 이 0 이라 키의 유무를 먼저 본다(없는 것을 「0원」으로 그리면 무료 발급으로 읽힌다)
@@ -1105,13 +1107,14 @@ function osQuoteCard(s, readonly) {
   const q = d.quote;
   const err = d.quote_error;
   if (!q && !err) return '';
-  const openBtn = (!readonly && osQuoteLinkable(s))
-    ? `<a class="btn btn-ghost btn-xs" href="${esc(osBuildLink(s.token) + '&view=quote')}" target="_blank" rel="noopener">견적서 열기</a>`
+  // 토큰 상태와 무관하게 항상 연다 — 발행·만료된 시트일수록 견적서를 다시 볼 일이 많다
+  const openBtn = (!readonly && s && s.id)
+    ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서 열기</button>`
     : '';
   if (err) {
     const why = OS_QUOTE_ERROR_TEXT[err] || '견적을 만들지 못했습니다(사유: ' + String(err) + ')';
     return `<div class="os-card"><div class="os-card-title">예상 견적</div>
-      <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history)}</div>`;
+      <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history, s && s.id, readonly)}</div>`;
   }
   const lines = (Array.isArray(q.lines) ? q.lines : []).map(l =>
     `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrwCell(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrwCell(l.amount_krw))}</td></tr>`).join('');
@@ -1124,7 +1127,114 @@ function osQuoteCard(s, readonly) {
       <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
     ${osRecruitFeeOverrideLine(d)}
     <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
-    ${osQuoteHistoryHtml(d.quote_history)}</div>`;
+    ${osQuoteHistoryHtml(d.quote_history, s && s.id, readonly)}</div>`;
+}
+
+// ── 견적서 문서 보기 — 작성 폼의 견적서 화면을 끼워 넣고 내용을 넘긴다 ──
+//   주고받는 신호: 끼워 넣은 화면 → 'reverb-orient-quote-ready'(값 없음) / 관리자 → 'reverb-orient-quote'{quote, data, note}
+//   🔴 보내는 내용은 견적서가 실제로 읽는 값만(수신처 이름·담당자·이메일, 제품명, 판매 URL, 형식·채널, 견적 스냅샷).
+//      전화번호·가이드 본문·기준값 표 전체(quote.basis)는 안 보낸다 — basis 는 환율·부가세율 두 값만.
+//   🔴 받는 쪽 출처를 고정해서 보낸다('*' 금지) — 끼워 넣은 화면이 다른 곳으로 옮겨 갔으면 아무에게도 안 간다.
+function osQuoteEmbedUrl() {
+  // 로컬 미리보기(산출물을 직접 띄운 경우)는 같은 출처의 sales/ 를 연다 — 개발서버 폼은 로컬 출처를 안 받는다
+  return /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+    ? location.origin + '/sales/orient.html?embed=quote'
+    : osSalesBase() + '/orient?embed=quote';
+}
+// 시트 찾기 — 🔴 목록(_orientSheets)만 보면 안 된다. 상세 모달은 브랜드 서베이·브랜드 상세에서도 열리고 그때 목록은 비어 있다
+function osFindSheetForQuote(id) {
+  if (_osDetailSheet && _osDetailSheet.id === id) return _osDetailSheet;
+  return _orientSheets.find(x => x.id === id) || null;
+}
+function osQuotePayload(s, historyIndex) {
+  const d = (s && s.data) || {};
+  const isPast = Number.isInteger(historyIndex);
+  const q = isPast ? (Array.isArray(d.quote_history) ? d.quote_history[historyIndex] : null) : d.quote;
+  if (!q || typeof q !== 'object') return null;
+  const b = d.brand || {};
+  const c = (Array.isArray(d.cards) && d.cards[0]) || {};
+  const basis = q.basis || {};
+  const quote = Object.assign({}, q, { basis: { exchange_rate_krw_per_jpy: basis.exchange_rate_krw_per_jpy, vat_rate: basis.vat_rate } });
+  return {
+    type: 'reverb-orient-quote',
+    quote,
+    data: {
+      brand: { name: b.name || osBrandName(s) || '', contact_name: b.contact_name || '', email: b.email || '' },
+      cards: [{ product: { name: (c.product && c.product.name) || '' }, sale: { url: (c.sale && c.sale.url) || '' } }],
+      issued: { form_type: (d.issued && d.issued.form_type) || q.form_type || '', channel: (d.issued && d.issued.channel) || q.channel || '' },
+    },
+    // 지난 판은 무엇이 그때 값이고 무엇이 지금 값인지 밝힌다 — 뭉뚱그리면 브랜드에게 보내도 되는지 판단을 못 한다
+    note: isPast ? `${q.revision || '?'}차 견적(지난 판)입니다. 금액은 그때 계산한 값 그대로이고, 제품명·판매 URL·수신처는 지금 저장된 값입니다.` : '',
+  };
+}
+let _osQuoteDoc = null;   // 열려 있는 견적서 창의 상태 { payload, origin, onMsg, timer }
+function osOpenQuoteDoc(sheetId, historyIndex) {
+  const s = osFindSheetForQuote(sheetId);
+  const payload = s ? osQuotePayload(s, historyIndex) : null;
+  if (!payload) { toast('견적서가 없습니다.'); return; }
+  ensureOrientModals();
+  osCloseQuoteDoc();
+  const url = osQuoteEmbedUrl();
+  const origin = new URL(url).origin;
+  const frame = document.getElementById('osQuoteFrame');
+  const fail = document.getElementById('osQuoteFail');
+  document.getElementById('osQuoteTitle').textContent =
+    `견적서 · ${s.orient_no || ''} · ${payload.quote.revision || 1}차${Number.isInteger(historyIndex) ? ' (지난 판)' : ''}`;
+  fail.style.display = 'none'; frame.style.display = '';
+  const st = _osQuoteDoc = { payload, origin, timer: null, onMsg: null };
+  st.onMsg = (ev) => {
+    if (ev.origin !== origin || ev.source !== frame.contentWindow) return;
+    if (!ev.data || ev.data.type !== 'reverb-orient-quote-ready') return;
+    clearTimeout(st.timer);
+    fail.style.display = 'none'; frame.style.display = '';   // 늦게 온 준비 신호(느린 회선)도 살린다
+    frame.contentWindow.postMessage(payload, origin);
+  };
+  window.addEventListener('message', st.onMsg);
+  // 작성 폼이 옛 판이면(관리자 화면만 먼저 배포된 구간) 준비 신호가 안 온다 — 빈 창으로 두지 않고 이유를 말한다
+  st.timer = setTimeout(() => { frame.style.display = 'none'; fail.style.display = ''; }, 6000);
+  frame.src = url;
+  document.getElementById('orientQuoteModal').classList.add('open');
+}
+// 인쇄는 새 탭에서 — 창 안(iframe)에서 인쇄하면 브라우저에 따라 관리자 화면이 통째로 인쇄되고 PDF 파일명도 못 정한다
+//   ⚠️ 새 탭의 수신기는 창(모달)과 따로 산다 — 새 탭이 뜨는 사이 창을 닫아도 내용이 전달돼야 한다. 전달하면(또는 30초 뒤) 스스로 걷힌다
+function osPrintQuoteDoc() {
+  const st = _osQuoteDoc; if (!st) return;
+  const payload = st.payload, origin = st.origin;
+  const w = window.open(osQuoteEmbedUrl(), '_blank');   // 🔴 noopener 를 주면 안 된다 — 새 탭이 이 창(opener)에 준비 신호를 보내야 한다
+  if (!w) { toast('팝업이 차단됐습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요.'); return; }
+  const onMsg = (ev) => {
+    if (ev.origin !== origin || ev.source !== w) return;
+    if (!ev.data || ev.data.type !== 'reverb-orient-quote-ready') return;
+    w.postMessage(payload, origin);
+    window.removeEventListener('message', onMsg);
+  };
+  window.addEventListener('message', onMsg);
+  setTimeout(() => window.removeEventListener('message', onMsg), 30000);
+}
+function osCloseQuoteDoc() {
+  const st = _osQuoteDoc;
+  if (st) { clearTimeout(st.timer); if (st.onMsg) window.removeEventListener('message', st.onMsg); }
+  _osQuoteDoc = null;
+  const frame = document.getElementById('osQuoteFrame');
+  if (frame) frame.src = 'about:blank';
+  const m = document.getElementById('orientQuoteModal');
+  if (m) m.classList.remove('open');
+}
+
+// 목록 「견적」 칸 — 합계 + 「견적서」. 견적을 못 만든 시트는 주황 「견적 없음」(이유는 말풍선), 그 밖(옛 구조·제출 전)은 「-」
+//   ⚠️ `Number(null)` 이 0 이라 합계가 없으면 「0원」으로 그려진다 — 견적 객체 유무를 먼저 본다
+function osRowQuoteCell(s) {
+  const d = (s && s.data) || {};
+  const q = d.quote;
+  if (q && typeof q === 'object') {
+    return `<span style="font-weight:600;color:var(--ink)">${esc(osKrw(q.total_krw))}</span> <span style="font-size:11px;color:var(--muted)">${esc(String(q.revision || 1))}차</span>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서</button>`;
+  }
+  if (d.quote_error) {
+    const why = OS_QUOTE_ERROR_TEXT[d.quote_error] || ('견적을 만들지 못했습니다(사유: ' + String(d.quote_error) + ')');
+    return `<span style="font-size:12px;color:#B45309" title="${esc(why)}">견적 없음</span>`;
+  }
+  return '-';
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
@@ -2142,6 +2252,25 @@ function ensureOrientModals() {
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientPublishModal')">닫기</button>
       </div>
+    </div>
+  </div>
+  <!-- 견적서 문서 창 — 작성 폼의 견적서 화면(?embed=quote)을 끼워 넣는다.
+       🔴 z-index 를 적는다: 모든 modal-overlay 가 500 이라, 안 적으면 ESC 가 「위에 뜬 창」을 못 가려 뒤의 상세 창을 닫는다(ui.js 가 큰 쪽을 고른다).
+       🔴 드래그·크기조정 목록(DRAGGABLE_ADMIN_MODALS)에 넣지 않는다 — 포인터가 다른 출처 iframe 위로 가면 부모가 이동 이벤트를 못 받아 드래그가 멎는다.
+       상세 창(1040px)보다 좁게 잡아 뒤 창이 양옆으로 비치게 한다(「위에 하나 더 떴다」가 보이게). iframe 은 자기 높이를 못 알려 주므로 고정 높이 + 안쪽 스크롤 -->
+  <div class="modal-overlay" id="orientQuoteModal" style="z-index:618">
+    <div class="modal" style="max-width:860px;width:94vw;border-radius:16px;margin:auto;height:88vh;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2 id="osQuoteTitle">견적서</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseQuoteDoc()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;background:#F7F5F0">
+        <iframe id="osQuoteFrame" title="견적서" src="about:blank" style="width:100%;height:100%;flex:1;border:0;background:#F7F5F0"></iframe>
+        <div id="osQuoteFail" style="display:none;padding:32px 24px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7">
+          견적서 화면을 불러오지 못했습니다.<br>작성 폼이 아직 새 판으로 배포되지 않았거나 연결이 끊긴 것일 수 있습니다.<br>금액은 시트 상세의 「예상 견적」 카드에 그대로 있습니다.</div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size:12px;color:var(--muted);margin-right:auto">브랜드가 보는 견적서와 같은 화면입니다. 인쇄·PDF 저장은 새 탭에서 합니다.</span>
+        <button type="button" class="btn btn-ghost" onclick="osPrintQuoteDoc()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">print</span> 인쇄 · PDF (새 탭)</button>
+        <button type="button" class="btn btn-ghost" onclick="osCloseQuoteDoc()">닫기</button></div>
     </div>
   </div>`;
   // #page-admin 안에 넣는다 — 이 요소가 z-index:200 으로 자체 쌓임 맥락을 만들어서,
