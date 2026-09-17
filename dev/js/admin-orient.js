@@ -1748,7 +1748,8 @@ function osUnlinkFailMsg(reason) {
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
 
 // 관리자 상세에 쓰는 이름표 — 작성 폼(orient.html)의 TIER_OPTIONS·EXTRA_MARKETS 와 같은 열쇠말
-const OS_TIER_LABEL = { t50: '라이트 (50건)', t100: '스탠다드 (100건)', t300: '프리미엄 (300건)', t500plus: '500건 이상 (직접 입력)' };
+// ⚠️ 네 번째는 「500건」 고정이다(448 — 직접 입력을 없앴다). 옛 방식으로 저장된 700건 같은 시트는 「모집 인원」 칸의 숫자가 다르게 보인다
+const OS_TIER_LABEL = { t50: '라이트 (50건)', t100: '스탠다드 (100건)', t300: '프리미엄 (300건)', t500plus: '500건 (+실검작업)' };
 const OS_EXTRA_MARKET_LABEL = { lips: 'LIPS', cosme: '@cosme' };
 
 // 리뷰어 추가 옵션으로 넘길 수 있는 채널 코드 — 시트의 `sale.extra_markets` 값과 기준 데이터 채널 code 가 같은 글자다.

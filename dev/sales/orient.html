@@ -395,7 +395,7 @@ input[type="date"] { min-height: 44px; }
 .needtype-hint { font-size: 13px; color: var(--ink-mute); text-align: center; padding: 8px 0 4px; }
 
 /* 모집 인원 구간 버튼 (사양서 2026-09-16 §4-1) — 형식 선택(.seg)과 같은 모양을 쓰되 네 칸이다.
-   ⚠️ 단가는 여기 적지 않는다(관리자가 바꾸는 값이라 폼에 박으면 두 번째 정의처가 된다). */
+   ⚠️ 단가를 코드에 박지 않는다(관리자가 바꾸는 값이라 두 번째 정의처가 된다) — 서버에서 받아 와 .tier-price 에 그린다(448). */
 .tier { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
 .tier-btn {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -407,23 +407,15 @@ input[type="date"] { min-height: 44px; }
 .tier-btn:hover { border-color: var(--brand); }
 .tier-btn.active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
 .tier-btn .tier-name { font-size: 13px; font-weight: 800; white-space: nowrap; }
-/* 휴대폰 폭에서는 네 칸이 한 줄에 안 들어가 「스탠다드」·「500건 이상」이 두 줄로 접혔다 → 2×2 로 */
+/* 휴대폰 폭에서는 네 칸이 한 줄에 안 들어가 「스탠다드」가 두 줄로 접혔다 → 2×2 로 */
 @media (max-width: 520px) { .tier { grid-template-columns: repeat(2, 1fr); } }
 .tier-btn .tier-sub { font-size: 11px; color: var(--ink-mute); }
 .tier-btn.active .tier-sub { color: var(--brand-dark); }
-/* 「500건 이상」 칸 — 고르면 「직접 입력」 글자 자리에 인원 입력칸이 들어온다 */
-.tier-btn-direct { text-align: center; user-select: none; line-height: normal; }   /* line-height: <button> 기본값과 맞춘다 — 안 맞추면 이 칸만 글자가 1~2px 내려앉는다 */
-.tier-btn-direct:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.tier-btn-direct.active .tier-sub { display: none; }
-.tier-slots { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--brand-dark); }
-.tier-slots .f-slots {
-  width: 84px; padding: 3px 6px; text-align: center; border-radius: 8px; background: #fff;
-  font-size: 16px;            /* 모바일 자동 확대 방지 — 16px 미만으로 줄이지 말 것 */
-  -moz-appearance: textfield;
-}
-.tier-slots .f-slots::-webkit-outer-spin-button,
-.tier-slots .f-slots::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.tier-summary { font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 6px; }
+/* 구간 단가(448) — 서버에서 받아 온 뒤에야 채워진다. 비어 있으면 자리를 안 차지한다(못 받아 와도 단추 높이가 안 흔들린다) */
+.tier-btn .tier-price { font-size: 11px; font-weight: 700; color: var(--ink); margin-top: 3px; }
+.tier-btn .tier-price:empty { display: none; }
+.tier-btn.active .tier-price { color: var(--brand-dark); }
+.tier-note:empty { display: none; }
 /* 추가 옵션(리뷰어 전용) — 🔴 여기는 금액을 적는다: 고를지 말지를 그 자리에서 판단하는 값이라
    금액이 없으면 고를 수가 없다. 기준값과 두 자리가 되는 것을 감수한 결정(사양서 §4-9). */
 /* ⚠️ `.field label`(display:block·굵게·아래 여백)이 클래스 하나짜리 규칙을 이긴다 — 그래서 `.field label.…` 로 쓴다.
@@ -931,38 +923,90 @@ const EXTRA_MARKETS = [
   { key: 'cosme', label: '@cosme 추가', fee: 5000 },
 ];
 
-// 「500건 이상」 구간에서 직접 입력할 수 있는 최소 인원 — 입력칸 min·구간 전환·제출 검사 세 곳이 이 값을 본다
-// ⚠️ 서버 판정(443)의 경계(500 미만은 t300)와 같은 숫자여야 한다. 한쪽만 바꾸면 화면은 받고 서버는 다른 구간으로 계산한다
-const TIER_DIRECT_MIN_SLOTS = 500;
-
+// 모집 인원 구간 — 넷 다 인원이 정해져 있다(2026-09-17 사용자 결정: 네 번째는 「500건」 고정, 직접 입력 없음).
+// ⚠️ 열쇠말 `t500plus` 는 그대로 둔다 — 기준값 행·저장된 slots_tier·견적의 tier 가 전부 그 글자를 쓴다.
+//    서버(448)는 여전히 「500 이상」을 이 구간으로 본다(옛 값·조작된 호출 대비).
+// ⚠️ 「(+실검작업)」은 리뷰어·시딩 공통이다 — 서버가 형식과 무관하게 500건 견적서에 그 줄을 붙인다(443).
 const TIER_OPTIONS = [
-  { key: 't50',      name: '라이트',     sub: '50건',      slots: '50' },
-  { key: 't100',     name: '스탠다드',   sub: '100건',     slots: '100' },
-  { key: 't300',     name: '프리미엄',   sub: '300건',     slots: '300' },
-  { key: 't500plus', name: '500건 이상', sub: '직접 입력', slots: '' },
+  { key: 't50',      name: '라이트',   sub: '50건',        slots: '50' },
+  { key: 't100',     name: '스탠다드', sub: '100건',       slots: '100' },
+  { key: 't300',     name: '프리미엄', sub: '300건',       slots: '300' },
+  { key: 't500plus', name: '500건',    sub: '(+실검작업)', slots: '500' },
 ];
 
-// 「500건 이상」 칸은 <button> 이 아니라 상자라 키보드(Enter·Space)를 직접 받아 준다
-function onTierKey(ev, el) {
-  if (ev.key !== 'Enter' && ev.key !== ' ') return;
-  ev.preventDefault();
-  onTierPick(el);
+// 확인 화면·요약에 쓰는 표기 — 「100건 (스탠다드)」 / 「500건 (+실검작업)」.
+//   네 번째 구간은 이름이 곧 건수라 다른 셋처럼 조립하면 「500건 (500건)」이 된다.
+function tierDisplay(product) {
+  const p = product || {};
+  if (!p.slots) return '';
+  const opt = TIER_OPTIONS.find(t => t.key === p.slots_tier);
+  if (!opt) return p.slots + '건';
+  return p.slots + '건 ' + (opt.key === 't500plus' ? opt.sub : `(${opt.name})`);
 }
-// 구간 버튼 — 누르면 그 카드의 인원 칸을 채우고, 「500건 이상」일 때만 숫자 입력을 연다
+
+// 구간 단가(448 `get_orient_tier_fees`) — 폼을 연 뒤 한 번 받아 온다. null = 아직 못 받음(또는 실패) → 아무것도 안 그린다.
+//   { fees: {t50: 8000, …}, override: 7000|null, formType }
+let tierFees = null;
+async function loadTierFees() {
+  if (!sb || !token || !isNewLayout()) return;
+  try {
+    const { data: res, error } = await sb.rpc('get_orient_tier_fees', { p_token: token });
+    if (error || !res || res.success !== true) return;   // 함수가 아직 없거나 통신 실패 — 폼은 단가 없이 그대로 동작한다
+    tierFees = {
+      fees: (res.fees && typeof res.fees === 'object') ? res.fees : {},
+      override: (res.override_krw === null || res.override_krw === undefined) ? null : Number(res.override_krw),
+      formType: res.form_type || issuedFormType(),
+    };
+    document.querySelectorAll('#cardList .ocard').forEach(applyTierPrices);
+  } catch (e) { /* 단가 표시는 부가 정보 — 실패해도 조용히 넘어간다 */ }
+}
+// 단추 하나에 적을 글 — 🔴 리뷰어는 「모집비」를 붙인다: 1건당 실제 비용은 상품 결제비용·송금 수수료가 더 붙어서,
+//   숫자만 적으면 그것이 전부인 줄 안다. 시딩은 진행비가 곧 1건당 비용이라 숫자만 쓴다.
+function tierPriceText(tierKey) {
+  if (!tierFees || tierFees.override !== null) return '';
+  const v = tierFees.fees[tierKey];
+  if (v === null || v === undefined || !isFinite(Number(v))) return '';   // 🔴 Number(null) 은 0 이다 — 빈 값 검사가 먼저
+  const amount = Number(v).toLocaleString('ko-KR') + '원/건';
+  return tierFees.formType === 'reviewer' ? '모집비 ' + amount : amount;
+}
+// 단추 아래 한 줄 — 무엇의 금액인지·부가세 별도. 직접 지정 시트는 구간 비교가 무의미해 그 단가 하나만 알린다
+function tierNoteText() {
+  if (!tierFees) return '';
+  if (tierFees.override !== null) {
+    return `이 시트는 협의된 단가(1건당 ${tierFees.override.toLocaleString('ko-KR')}원)가 모든 구간에 적용됩니다. (부가세 별도)`;
+  }
+  if (!Object.keys(tierFees.fees).length) return '';
+  return tierFees.formType === 'reviewer'
+    ? '표시 금액은 1건당 모집비입니다(부가세 별도). 상품 결제비용·해외 송금 수수료는 따로 더해지며, 전체 금액은 「견적 보기」에서 확인할 수 있습니다.'
+    : '표시 금액은 1건당 진행비입니다(부가세 별도). 전체 금액은 「견적 보기」에서 확인할 수 있습니다.';
+}
+function applyTierPrices(card) {
+  if (!card) return;
+  card.querySelectorAll('.tier-btn').forEach(b => {
+    const el = b.querySelector('.tier-price');
+    if (el) el.textContent = tierPriceText(b.dataset.tier);
+  });
+  const note = card.querySelector('.tier-note');
+  if (note) note.textContent = tierNoteText();
+}
+
+// 구간 버튼 — 누르면 그 카드의 인원 칸(감춰진 .f-slots)을 그 구간의 건수로 채운다
 function onTierPick(btn) {
   const card = btn.closest('.ocard'); if (!card) return;
   const tier = btn.dataset.tier;
   const opt = TIER_OPTIONS.find(t => t.key === tier); if (!opt) return;
-  card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', b === btn));
-  const box = card.querySelector('.tier-slots');
   const input = card.querySelector('.f-slots');
-  if (box) box.classList.toggle('hidden', tier !== 't500plus');
-  if (input) {
-    // ⚠️ 「500건 이상」으로 옮길 때 앞 구간의 숫자(50·100·300)를 남기면 500 미만이 그대로 저장된다
-    if (tier === 't500plus') { if (Number(input.value) < TIER_DIRECT_MIN_SLOTS) input.value = ''; input.focus(); }
-    else input.value = opt.slots;
-  }
-  updateTierSummary(card);
+  // 이미 고른 구간을 다시 눌러도 값을 안 건드린다 — 옛 방식(직접 입력)으로 700 을 저장한 시트가 말없이 500 이 되는 것을 막는다.
+  //   단, 인원이 빈 채로 구간만 남은 시트는 다시 눌러 채울 수 있어야 한다
+  if (btn.classList.contains('active') && input && input.value) return;
+  card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', b === btn));
+  if (input) input.value = opt.slots;
+  // 옛 값(700건 등)을 이름 자리에 보여주던 단추는 제 이름으로 되돌린다
+  card.querySelectorAll('.tier-btn').forEach(b => {
+    const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier);
+    const nameEl = b.querySelector('.tier-name');
+    if (o && nameEl) nameEl.textContent = o.name;
+  });
   onInput();
 }
 
@@ -989,11 +1033,6 @@ function onHashtagInput(input) {
   onInput();
 }
 
-function updateTierSummary(card) {
-  const el = card.querySelector('.tier-summary'); if (!el) return;
-  const v = (card.querySelector('.f-slots') || {}).value || '';
-  el.textContent = v ? v + '건으로 모집합니다' : '';
-}
 function issuedFormType() { return isNewLayout() ? (loadedData.issued.form_type || '') : ''; }
 function issuedChannel() { return isNewLayout() ? (loadedData.issued.channel || '') : ''; }
 
@@ -1089,6 +1128,7 @@ async function boot() {
     loadedData = data;
     applyLayoutMode();
     fillForm(data);
+    loadTierFees();   // 구간 단가(448) — 기다리지 않는다. 받아 오면 단추에 채워지고, 못 받아 와도 폼은 그대로다
     // 2단계 — 새 구조 시트: ?view=quote 는 견적서 화면, 제출된 시트 재진입은 완료 화면 먼저(작성 화면은 「내용 수정하기」로만).
     //   옛 시트(issued 없음)는 견적이 없으므로 종전대로 작성 화면.
     if (isNewLayout() && params.get('view') === 'quote' && data.quote) { enterQuoteScreen(false); return; }
@@ -1615,24 +1655,18 @@ function cardHtmlNew(id, card) {
 
 ${purchaseGuideBlock}
         <div class="field"><label>모집 인원<span class="req">*</span></label>
-          <!-- 구간 버튼 넷 — 하나만 고른다. 「500건 이상」만 숫자를 직접 적는다(사양서 §4-1).
-               ⚠️ 사람이 보는 글은 「건」으로 쓴다(운영팀 표기) — 한 화면에 「100건」과 「100명」이 같이 보이지 않게. -->
+          <!-- 구간 버튼 넷 — 하나만 고른다. 넷 다 인원이 정해져 있고 직접 입력은 없다(2026-09-17 사용자 결정).
+               ⚠️ 사람이 보는 글은 「건」으로 쓴다(운영팀 표기) — 한 화면에 「100건」과 「100명」이 같이 보이지 않게.
+               ⚠️ 옛 방식으로 500 을 넘는 값(예: 700)을 저장한 시트는 네 번째 단추 이름 자리에 그 값을 보여준다 —
+                  단추는 「500건」인데 견적은 700건으로 나오는 어긋남을 화면에 드러내려는 것이다. 다른 단추를 눌렀다 돌아오면 500 이 된다.
+               .tier-price 는 비워서 그린다 — 단가는 loadTierFees() 가 받아 온 뒤 applyTierPrices() 가 채운다(448). -->
           <div class="tier">
-            ${TIER_OPTIONS.filter(t => t.key !== 't500plus').map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
-              <span class="tier-name">${t.name}</span><span class="tier-sub">${t.sub}</span></button>`).join('')}
-            <!-- [2026-09-17 사용자 지시] 「500건 이상」은 숫자를 **그 칸 안에서** 적는다. <button> 안에는 입력칸을 넣을 수 없어
-                 이 칸만 단추 역할을 하는 상자(role=button)다. 고르기 전에는 「직접 입력」, 고르면 그 자리가 입력칸으로 바뀐다.
-                 ⚠️ .f-slots 는 이 폼에 하나뿐이고 **다른 구간의 인원(50·100·300)도 여기 담긴다**(감춰진 채) — 지우지 말 것. -->
-            <div class="tier-btn tier-btn-direct${p.slots_tier === 't500plus' ? ' active' : ''}" data-tier="t500plus" role="button" tabindex="0"
-                 onclick="onTierPick(this)" onkeydown="onTierKey(event, this)">
-              <span class="tier-name">${TIER_OPTIONS.find(t => t.key === 't500plus').name}</span>
-              <span class="tier-sub">${TIER_OPTIONS.find(t => t.key === 't500plus').sub}</span>
-              <span class="tier-slots${p.slots_tier === 't500plus' ? '' : ' hidden'}">
-                <input type="number" class="f-slots" inputmode="numeric" min="${TIER_DIRECT_MIN_SLOTS}" placeholder="예: 700" aria-label="모집 인원(건)" value="${escAttr(p.slots)}"
-                       onclick="event.stopPropagation()" onkeydown="event.stopPropagation()" oninput="updateTierSummary(this.closest('.ocard')); onInput()">건</span>
-            </div>
+            ${TIER_OPTIONS.map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
+              <span class="tier-name">${(t.key === 't500plus' && p.slots_tier === 't500plus' && p.slots && String(p.slots) !== t.slots) ? escAttr(p.slots) + '건' : t.name}</span><span class="tier-sub">${t.sub}</span><span class="tier-price"></span></button>`).join('')}
           </div>
-          <div class="tier-summary">${p.slots ? escAttr(p.slots) + '건으로 모집합니다' : ''}</div>
+          <!-- 인원 숫자는 여기 담긴다(감춰진 채) — 구간 단추가 채운다. 🔴 지우지 말 것: 저장·검사·요약이 전부 이 값을 읽는다 -->
+          <input type="hidden" class="f-slots" value="${escAttr(p.slots)}">
+          <div class="field-hint tier-note"></div>
           <div class="field-hint">충전식 이용이 곧 가능해집니다. 준비되면 다시 안내드리겠습니다.</div>
         </div>
         <!-- 추가 옵션 — 리뷰어 전용(LIPS·@cosme 는 리뷰어형 채널이다). 안 골라도 제출된다. -->
@@ -1673,13 +1707,15 @@ function addCard(card, opts) {
   // 빈 새 카드 + 첫 카드 + 연결 신청값 있으면 모집 정보 미리 채움
   if (opts.prefill && !usedInitial && initialValues) {
     usedInitial = true;
+    // 🔴 새 구조에서는 안 채운다 — 인원은 구간 단추로 고르는 값이라(50·100·300·500), 신청의 희망 수량을 넣으면
+    //    구간 없이 숫자만 든 채 화면 어디에도 안 보이는 값이 저장된다
     const slots = el.querySelector('.f-slots');
-    if (slots && initialValues.total_qty != null) slots.value = initialValues.total_qty;
+    if (!isNewLayout() && slots && initialValues.total_qty != null) slots.value = initialValues.total_qty;
   }
 
   if (opts.open) openCard(id);
   updateCardSummary(id);
-  if (isNewLayout()) { refreshCharCounts(el); updateScheduleHint(el); }
+  if (isNewLayout()) { refreshCharCounts(el); updateScheduleHint(el); applyTierPrices(el); }
   refreshEmptyState();
   if (opts.prefill) onInput();   // 사용자가 직접 추가한 카드는 즉시 저장(구조 보존)
   onSpyScroll();
@@ -2462,10 +2498,9 @@ function findInvalidField(mode) {
     if (!c.sale.url) return { message: '판매 URL을 입력해 주세요.', card: el, target: el.querySelector('.f-sale-url') };
     if (!c.sale.price_regular) return { message: '상시가를 입력해 주세요.', card: el, target: el.querySelector('.f-price-regular') };
     // [2026-09-16 §4-1] 구간·인원 — **세 경로 모두**에서 막는다(없으면 견적 계산 자체가 안 된다)
-    if (!c.product.slots_tier)
+    //   ⚠️ 인원이 빈 채 구간만 남은 시트(옛 「직접 입력」 칸을 비워 둔 임시저장)도 여기서 걸린다 — 단추를 다시 누르면 채워진다
+    if (!c.product.slots_tier || !c.product.slots)
       return { message: '모집 인원을 골라 주세요.', card: el, target: el.querySelector('.tier') };
-    if (c.product.slots_tier === 't500plus' && !(Number(c.product.slots) >= TIER_DIRECT_MIN_SLOTS))
-      return { message: TIER_DIRECT_MIN_SLOTS + '건 이상부터 직접 입력할 수 있어요.', card: el, target: el.querySelector('.f-slots') };
     // [2026-09-16 §4-3·§4-7] 아래 셋은 **제출에서만** 막는다 — 작성 도중·미리보기에서 걸면 쓰다 만 상태로 갇힌다
     if (forSubmit && c.form_type === 'reviewer') {
       const pg = c.purchase_guide || {};
@@ -2647,8 +2682,7 @@ function renderPreviewCardNew(c, idx) {
   if (ft === 'reviewer') rows += pvRow('배송비', c.sale.shipping_fee || '0 (별도 배송비 없음)');
   // [2026-09-16] 고른 구간 이름·추가 옵션·구매 가이드를 확인 화면에도 보여 준다 —
   //   추가 옵션은 1건당 요금이 붙는 선택이라, 잘못 켠 것을 되돌릴 마지막 기회가 이 화면이다.
-  const pvTier = TIER_OPTIONS.find(t => t.key === c.product.slots_tier);
-  rows += pvRow('모집 인원', c.product.slots ? c.product.slots + '건' + (pvTier ? ` (${pvTier.name})` : '') : '');
+  rows += pvRow('모집 인원', tierDisplay(c.product));
   if (ft === 'reviewer' && c.purchase_guide && c.purchase_guide.mode) {
     // 지정구매 본문은 편집기 값(서식 HTML)이라 pvRowHtml 이 정화해서 그린다 — pvRow 로 그리면 태그가 글자로 보인다
     rows += c.purchase_guide.mode === 'free'
