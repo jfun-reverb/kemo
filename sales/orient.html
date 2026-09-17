@@ -411,6 +411,18 @@ input[type="date"] { min-height: 44px; }
 @media (max-width: 520px) { .tier { grid-template-columns: repeat(2, 1fr); } }
 .tier-btn .tier-sub { font-size: 11px; color: var(--ink-mute); }
 .tier-btn.active .tier-sub { color: var(--brand-dark); }
+/* 「500건 이상」 칸 — 고르면 「직접 입력」 글자 자리에 인원 입력칸이 들어온다 */
+.tier-btn-direct { text-align: center; user-select: none; line-height: normal; }   /* line-height: <button> 기본값과 맞춘다 — 안 맞추면 이 칸만 글자가 1~2px 내려앉는다 */
+.tier-btn-direct:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tier-btn-direct.active .tier-sub { display: none; }
+.tier-slots { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--brand-dark); }
+.tier-slots .f-slots {
+  width: 84px; padding: 3px 6px; text-align: center; border-radius: 8px; background: #fff;
+  font-size: 16px;            /* 모바일 자동 확대 방지 — 16px 미만으로 줄이지 말 것 */
+  -moz-appearance: textfield;
+}
+.tier-slots .f-slots::-webkit-outer-spin-button,
+.tier-slots .f-slots::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .tier-summary { font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 6px; }
 /* 추가 옵션(리뷰어 전용) — 🔴 여기는 금액을 적는다: 고를지 말지를 그 자리에서 판단하는 값이라
    금액이 없으면 고를 수가 없다. 기준값과 두 자리가 되는 것을 감수한 결정(사양서 §4-9). */
@@ -930,6 +942,12 @@ const TIER_OPTIONS = [
   { key: 't500plus', name: '500건 이상', sub: '직접 입력', slots: '' },
 ];
 
+// 「500건 이상」 칸은 <button> 이 아니라 상자라 키보드(Enter·Space)를 직접 받아 준다
+function onTierKey(ev, el) {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  ev.preventDefault();
+  onTierPick(el);
+}
 // 구간 버튼 — 누르면 그 카드의 인원 칸을 채우고, 「500건 이상」일 때만 숫자 입력을 연다
 function onTierPick(btn) {
   const card = btn.closest('.ocard'); if (!card) return;
@@ -1600,11 +1618,19 @@ ${purchaseGuideBlock}
           <!-- 구간 버튼 넷 — 하나만 고른다. 「500건 이상」만 숫자를 직접 적는다(사양서 §4-1).
                ⚠️ 사람이 보는 글은 「건」으로 쓴다(운영팀 표기) — 한 화면에 「100건」과 「100명」이 같이 보이지 않게. -->
           <div class="tier">
-            ${TIER_OPTIONS.map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
+            ${TIER_OPTIONS.filter(t => t.key !== 't500plus').map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
               <span class="tier-name">${t.name}</span><span class="tier-sub">${t.sub}</span></button>`).join('')}
-          </div>
-          <div class="tier-slots${p.slots_tier === 't500plus' ? '' : ' hidden'}">
-            <label style="font-size:13px">인원 <input type="number" class="f-slots" min="${TIER_DIRECT_MIN_SLOTS}" placeholder="예: 700" value="${escAttr(p.slots)}" oninput="onInput()" style="width:120px;display:inline-block;margin:0 6px"> 건</label>
+            <!-- [2026-09-17 사용자 지시] 「500건 이상」은 숫자를 **그 칸 안에서** 적는다. <button> 안에는 입력칸을 넣을 수 없어
+                 이 칸만 단추 역할을 하는 상자(role=button)다. 고르기 전에는 「직접 입력」, 고르면 그 자리가 입력칸으로 바뀐다.
+                 ⚠️ .f-slots 는 이 폼에 하나뿐이고 **다른 구간의 인원(50·100·300)도 여기 담긴다**(감춰진 채) — 지우지 말 것. -->
+            <div class="tier-btn tier-btn-direct${p.slots_tier === 't500plus' ? ' active' : ''}" data-tier="t500plus" role="button" tabindex="0"
+                 onclick="onTierPick(this)" onkeydown="onTierKey(event, this)">
+              <span class="tier-name">${TIER_OPTIONS.find(t => t.key === 't500plus').name}</span>
+              <span class="tier-sub">${TIER_OPTIONS.find(t => t.key === 't500plus').sub}</span>
+              <span class="tier-slots${p.slots_tier === 't500plus' ? '' : ' hidden'}">
+                <input type="number" class="f-slots" inputmode="numeric" min="${TIER_DIRECT_MIN_SLOTS}" placeholder="예: 700" aria-label="모집 인원(건)" value="${escAttr(p.slots)}"
+                       onclick="event.stopPropagation()" onkeydown="event.stopPropagation()" oninput="updateTierSummary(this.closest('.ocard')); onInput()">건</span>
+            </div>
           </div>
           <div class="tier-summary">${p.slots ? escAttr(p.slots) + '건으로 모집합니다' : ''}</div>
           <div class="field-hint">충전식 이용이 곧 가능해집니다. 준비되면 다시 안내드리겠습니다.</div>
