@@ -500,6 +500,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
   #appShell .modal-overlay{align-items:center}
   .login-prompt-overlay{align-items:center}
+  /* 🔴 아래 붙는 오버레이는 넷이다(.modal-overlay · .login-prompt-overlay · #legalModal · #policyNoticeModal).
+     뒤의 둘은 .modal-overlay 클래스를 안 쓰고 자기 id 로 아래에 붙어 있어 첫 줄에 안 걸린다 —
+     빠뜨리면 카드 모양(둥근 네 모서리)만 바뀌고 자리는 아래에 남는다. */
+  #legalModal{align-items:center}
+  #policyNoticeModal{align-items:center}
   #appShell .modal{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   #legalModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   #policyNoticeModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
