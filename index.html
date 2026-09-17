@@ -12286,16 +12286,22 @@ async function submitOrientSheet(token, data, version) {
 //   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
 // 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
 //   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
-//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel
-async function createOrientSheet(brandId, applicationId, formType, channel) {
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+// [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
+//   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
+//      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.
+//      안 보내면 옛 4인자 함수도, 새 5인자 함수(DEFAULT NULL)도 그대로 받는다 — 배포 순서가 뒤집혀도 평소 발급은 산다.
+async function createOrientSheet(brandId, applicationId, formType, channel, recruitFeeKrw) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
-    const { data, error } = await db.rpc('create_orient_sheet', {
+    const params = {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
       p_form_type: formType || null,
       p_channel: channel || null,
-    });
+    };
+    if (recruitFeeKrw !== null && recruitFeeKrw !== undefined) params.p_recruit_fee_krw = recruitFeeKrw;
+    const { data, error } = await db.rpc('create_orient_sheet', params);
     if (error) throw error;
     return data;
   });

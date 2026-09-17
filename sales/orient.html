@@ -454,6 +454,17 @@ input[type="date"] { min-height: 44px; }
 /* ============ 새 구조(2026-09-08 단순화, data.issued) ============ */
 /* 옛 구조 전용 요소는 body.layout-new 에서 감춘다 — 함수째 지우지 않는다(옛 시트가 쓴다) */
 body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptyState { display: none !important; }
+/* 새 구조 전용 요소 — 옛 시트 화면에는 아예 안 보인다 */
+body:not(.layout-new) .new-only { display: none !important; }
+/* 브랜드 고정 안내(§4-8) — 정보 톤. 빨강을 쓰지 않는다 */
+.notice-ack { margin-top: 28px; padding: 16px; border: 1px solid var(--line, #e5e5e5); border-radius: 12px; background: var(--surface-dim, #f7f7f7); }
+.notice-ack-title { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+.notice-ack-title .material-icons-outlined { font-size: 18px; color: var(--ink-mute); }
+.notice-ack-list { margin: 0 0 14px; padding-left: 20px; font-size: 13px; line-height: 1.65; color: var(--ink); }
+.notice-ack-list li { margin-bottom: 6px; }
+.notice-ack-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; cursor: pointer; padding: 10px 12px; border-radius: 8px; background: #fff; border: 1px solid var(--line, #e5e5e5); }
+.notice-ack-check input { width: 18px; height: 18px; flex: none; }
+.notice-ack-check.field-invalid { border-color: #C41E3A; }
 .ocard-chip.ch { background: #EEF2FF; color: #3730A3; border-color: #C7D2FE; }
 .char-count { font-size: 11.5px; color: var(--ink-mute); text-align: right; margin-top: 4px; }
 .char-count.full { color: #C41E3A; font-weight: 700; }
@@ -686,6 +697,17 @@ body.layout-new .old-only, body.layout-new #btnAddCard, body.layout-new #emptySt
       <textarea id="f_reverb_request" placeholder="예: 특정 일정 협의, 인플루언서 구성 요청 등" oninput="onInput()"></textarea>
     </div>
   </div>
+
+  <!-- 브랜드 고정 안내 + 확인 체크(사양서 2026-09-16 §4-8) — **새 구조 시트만**. 옛 시트는 이 상자가 없다(옛 화면 그대로).
+       🔴 정보 톤(회색·연한 테두리) — 정상 흐름에서 늘 보이는 상자라 빨강이면 「원래 빨간 화면」으로 학습된다.
+       문안은 아래 스크립트의 NOTICE_LINES(형식별 4줄)가 채운다. -->
+  <div class="notice-ack new-only" id="noticeAckBox">
+    <div class="notice-ack-title"><span class="material-icons-outlined notranslate" translate="no">fact_check</span>꼭 확인해 주세요</div>
+    <ol class="notice-ack-list" id="noticeAckList"></ol>
+    <label class="notice-ack-check" id="noticeAckLabel">
+      <input type="checkbox" id="f_notice_ack" onchange="onInput()">위 내용을 모두 확인했습니다.<span class="req">*</span>
+    </label>
+  </div>
 </div>
 
 <!-- 미리보기(제출 전 검토) -->
@@ -853,6 +875,24 @@ function isNewLayout() { return !!(loadedData && loadedData.issued && typeof loa
 // 모집 인원 구간 (사양서 2026-09-16 §4-1) — 🔴 구간 이름은 형식과 무관하게 이 넷뿐이다.
 //   「실검작업」은 구간 이름이 아니라 리뷰어 견적의 줄 이름이다(시딩 500건 견적서에 그 이름이 찍히면 안 된다).
 //   ⚠️ 서버도 인원 숫자로 구간을 다시 판정한다(443) — 여기 값은 화면 표시용이다.
+// [2026-09-16 §4-8] 브랜드 고정 안내 — 형식별 4줄. 🔴 문안의 정의처는 사양서 §4-8 이다(사용자 제공 원문).
+//   우리가 쓴 고정 문자열이라 굵은 글씨 태그를 그대로 둔다 — 브랜드 입력값이 섞이는 자리가 아니다.
+//   ⚠️ 문안을 고쳐도 이미 확인한 시트는 다시 묻지 않는다(서버가 확인 기록의 유무만 본다 — notice_ack.version 은 자리만 잡아 둔 값)
+const NOTICE_LINES = {
+  reviewer: [
+    '리뷰어가 상품을 구매한 경우, 구매 후 <strong>3일 이내 배송 진행 및 송장번호 등록</strong>을 완료해 주셔야 합니다.',
+    '배송 과정에서 제품이 누락되거나 파손되는 경우, 해당 리뷰어의 캠페인 진행을 위해 <strong>브랜드사에서 제품을 재발송</strong>해 주시는 방향으로 진행되는 점 참고 부탁드립니다.',
+    '리뷰어 구매 현황은 구매 및 모집 완료 후, <strong>캠페인 종료 시 일괄 전달</strong>드립니다.',
+    '<strong>스테마 규제로 인해 리뷰의 구체적인 내용이나 평점(★)을 지정하거나 강제할 수 없는</strong> 점 양해 부탁드립니다.',
+  ],
+  seeding: [
+    '<strong>배송 리스트 전달 후 3일 이내</strong> 배송 및 송장번호 전달을 완료해 주셔야 합니다.',
+    '<strong>스테마 규제로 인해 리뷰의 구체적인 내용이나 평점(★)을 지정하거나 강제할 수 없는</strong> 점 양해 부탁드립니다.',
+    '체험단은 실제 상품을 사용한 후, 개인적인 경험을 바탕으로 자연스럽게 리뷰를 작성하게 됩니다.',
+    '다만, 상품의 매력이나 브랜드에서 전달하고자 하는 주요 포인트는 리뷰 작성 시 참고할 수 있도록 안내하실 수 있습니다.',
+  ],
+};
+
 // [2026-09-16 §4-3] 구매 가이드 — 자율구매 고정 문구(한국어). 일본어 짝(「商品を自由にご購入ください。」)은
 //   발행 자동 채움이 캠페인 칸에 넣는다(`admin-orient.js`) — 우리가 정한 문장이라 번역할 것이 없다.
 const PURCHASE_GUIDE_FREE_KO = '상품을 자유롭게 구매해 주세요.';
@@ -1039,6 +1079,22 @@ function applyLayoutMode() {
   const chLabel = (ft === 'seeding' && ch) ? ` · ${CHANNEL_LABEL[ch] || ch}` : '';
   $('introText').textContent = `이 링크는 「${ftLabel}${chLabel}」 모집 하나를 위한 것입니다. 제품 정보와 가이드를 한국어로 적어 주세요. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.`;
   $('brandSectionDesc').textContent = '브랜드명은 발급 때 정해졌습니다. 담당자명·연락처·이메일을 적어 주세요.';
+  renderNoticeAck(ft);
+}
+
+// 고정 안내 상자 — 형식별 4줄을 그리고 체크를 복원한다(매번 다시 누르게 하지 않는다).
+//   🔴 복원은 두 값을 이 순서로 본다: ①확인 기록(notice_ack — 서버가 제출 때 쓴 값) ②임시저장된 notice_ack_checked.
+//      ②는 서버 보존 대상이 아니라 옛 판 폼이 자동저장하면 사라질 수 있다 — 그때는 체크가 꺼져 다시 누를 뿐이다.
+function renderNoticeAck(ft) {
+  const list = $('noticeAckList'); const box = $('f_notice_ack');
+  if (!list || !box) return;
+  // 열쇠는 서버 값이라 자기 열쇠일 때만 읽는다('constructor' 같은 값이 와도 예외가 나지 않게)
+  const lines = Object.prototype.hasOwnProperty.call(NOTICE_LINES, ft) ? NOTICE_LINES[ft] : [];
+  list.innerHTML = lines.map(line => `<li>${line}</li>`).join('');
+  const d = loadedData || {};
+  box.checked = !!(d.notice_ack && typeof d.notice_ack === 'object') || d.notice_ack_checked === true;
+  // 형식을 모르면(문안이 없으면) 상자를 감춘다 — 읽을 것이 없는데 체크만 요구하게 된다
+  $('noticeAckBox').classList.toggle('hidden', !lines.length);
 }
 
 // 카테고리 드롭다운 옵션을 기준 데이터(lookup_values kind=category)에서 채움.
@@ -2240,7 +2296,7 @@ function collectData() {
   const cards = lastCollectedCardEls.map(collectCard);
   if (isNewLayout()) {
     // 새 구조 — 브랜드 소개·공식 계정·레버브 요청 키를 만들지 않는다. issued 등 서버 키는 안 보내도 서버가 지킨다(425).
-    return {
+    const out = {
       brand: {
         name: $('f_brand_name').value.trim(),
         contact_name: $('f_brand_contact_name').value.trim(),
@@ -2249,6 +2305,9 @@ function collectData() {
       },
       cards,
     };
+    // [§4-8] 폼은 「체크했다」만 보낸다 — 확인 기록(notice_ack)과 시각은 서버가 쓴다. 체크 안 했으면 키를 안 만든다
+    if (noticeAckChecked()) out.notice_ack_checked = true;
+    return out;
   }
   return {
     brand: {
@@ -2263,6 +2322,8 @@ function collectData() {
     cards,
   };
 }
+
+function noticeAckChecked() { const b = $('f_notice_ack'); return !!(b && b.checked); }
 
 // ══════════════════════════════════════
 // 자동저장 (debounce + 낙관적 락)
@@ -2372,6 +2433,10 @@ function findInvalidField(mode) {
     const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
     if (pendingUrl && pendingUrl.value.trim())
       return { message: '공유 링크를 「확인」 버튼으로 확정해 주세요.', card: el, target: pendingUrl };
+    // [§4-8] 고정 안내 확인 — **제출에서만**. 안내문을 읽는 것은 제출 직전에 하면 된다(서버 446 이 최종 방어선).
+    //   상자가 감춰져 있으면(형식을 모름) 묻지 않는다 — 누를 수 없는 체크를 요구하면 막다른 길이 된다
+    if (forSubmit && !$('noticeAckBox').classList.contains('hidden') && !noticeAckChecked())
+      return { message: '맨 아래 「꼭 확인해 주세요」를 읽고 체크해 주세요.', card: null, target: $('noticeAckLabel') };
     return null;
   }
   if (!cardEls.length) {
@@ -2666,6 +2731,11 @@ async function submitSheet() {
         // 2단계 — 서버가 돌려준 견적 세트를 화면 원본(loadedData)에도 실어 완료 화면·견적서가 같은 값을 본다.
         //   제출한 data 로 loadedData 를 갈아 끼우되 서버 키(issued 등)는 그대로 둔다(서버가 지킨 값).
         const keep = { issued: loadedData.issued, quote_history: loadedData.quote_history };
+        // 확인 기록 — 서버는 응답에 notice_ack 를 싣지 않는다. 이미 있던 기록은 그대로 두고,
+        //   이번 제출로 처음 생긴 경우는 「확인함」 표시만 남긴다(시각은 서버가 가진 값이 정본 — 새로고침하면 그 값이 온다).
+        //   안 남기면 새로고침 없이 「내용 수정하기」로 돌아왔을 때 화면 원본에 기록이 없는 것으로 읽힌다.
+        if (loadedData.notice_ack) keep.notice_ack = loadedData.notice_ack;
+        else if (data.notice_ack_checked === true) keep.notice_ack = { version: 1 };
         loadedData = Object.assign({}, data, keep);
         if (res.quote) { loadedData.quote = res.quote; delete loadedData.quote_error; }
         else { delete loadedData.quote; loadedData.quote_error = res.quote_error || 'price_unreadable'; }
@@ -2683,6 +2753,11 @@ async function submitSheet() {
     if (res && res.reason === 'data_required') { showToast('내용을 입력해 주세요.'); return; }
     if (res && res.reason === 'data_too_large') { showToast('내용이 너무 깁니다. 줄여 주세요.'); return; }
     // [425] 새 구조 시트의 서버 재검증 — 폼이 자르고 있어 보통 안 뜨지만, 옛 캐시 폼·직접 호출을 서버가 막는다
+    // [446] 옛 캐시 폼·직접 호출 대비 — 이 폼은 위 findInvalidField 가 먼저 막는다
+    if (res && res.reason === 'notice_not_acknowledged') {
+      closePreview(); showToast('맨 아래 「꼭 확인해 주세요」를 읽고 체크해 주세요.');
+      focusInvalid({ card: null, target: $('noticeAckLabel') }); return;
+    }
     if (res && res.reason === 'cards_limit') { closePreview(); showToast('이 링크에는 제품 하나만 제출할 수 있어요. 화면을 새로고침해 주세요.'); return; }
     if (res && res.reason === 'guide_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_REVIEW_GUIDE.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
     if (res && res.reason === 'appeal_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_SEEDING_APPEAL.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
