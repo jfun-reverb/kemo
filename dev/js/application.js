@@ -2,6 +2,11 @@
 // CAMPAIGN DETAIL + APPLICATION
 // ══════════════════════════════════════
 
+// 메타 픽셀 「캠페인 상세 조회」를 마지막으로 보낸 캠페인 — 같은 상세를 다시 그릴 때 두 번 세지 않기 위한 기억.
+//   ⚠️ 「현재 캠페인 번호 + 활성 페이지」로 가르면 안 된다 — 초대 게이트(상세 페이지 안에 그려진다)를 통과해
+//      내용이 처음 보이는 호출이 「다시 그리기」로 잘못 걸려 영영 안 나간다(2026-09-15 리뷰 지적).
+let _pixelViewContentShownId = null;
+
 async function openCampaign(id) {
   const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
@@ -25,6 +30,11 @@ async function openCampaign(id) {
     return;
   }
 
+  // 메타 픽셀 「캠페인 상세 조회」를 이번에 보낼지 — 이 캠페인 내용을 이미 보여 준 상세 화면을 **다시 그리는**
+  //   호출(신청 완료·마감 거부·행사 대기 등록 뒤)은 세지 않는다. 다른 화면에 갔다가 다시 열면 센다.
+  //   판정은 화면 전환(아래 navigate) **전에** 한다.
+  const _pixelIsReRender = _pixelViewContentShownId === id
+    && document.querySelector('#appShell .page.active')?.id === 'page-detail';
   currentCampaignId = id;
 
   // 조회수 증가 (비동기, UI 차단 없음)
@@ -555,6 +565,12 @@ async function openCampaign(id) {
   if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : t('detail.backToCampaigns');
 
   navigate('detail-' + id);
+  // 메타 픽셀 2번 이벤트(사양서 「심는 이벤트」) — 상세 내용이 실제로 보이는 이 자리에만.
+  //   ⚠️ 초대 전용 게이트로 빠지는 위쪽 navigate 에는 넣지 않는다(상세가 안 보이는 화면).
+  if (!_pixelIsReRender && typeof trackMetaPixelEvent === 'function') {
+    trackMetaPixelEvent(META_PIXEL_EVENTS.VIEW_CONTENT, { content_name: camp.title || '', content_ids: [String(id)] });
+  }
+  _pixelViewContentShownId = id;
   // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
   //   🔴 **이 줄을 위로 옮기면 안 된다.** 바로 위 `navigate()` 안에 `stopSlideAuto()` 가 있어,
   //      앞에 두면 방금 켠 타이머를 그것이 꺼 버려 **자동 넘김이 아예 안 돈다.** 오류도 안 나고
@@ -1066,6 +1082,11 @@ async function _submitApplicationInner() {
     // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
     if (camp) camp.applied_count = (camp.applied_count||0) + 1;
+    // 메타 픽셀 5번 이벤트 — 신청이 **실제로 저장된 뒤에만**(마감·정원·중복 거부는 아래 catch 로 빠져 안 나간다).
+    //   금액 인자는 넣지 않는다(사양서 결정 2 — 신청서 제출은 금액이 없다).
+    if (typeof trackMetaPixelEvent === 'function') {
+      trackMetaPixelEvent(META_PIXEL_EVENTS.SUBMIT_APPLICATION, { content_name: camp?.title || '', content_ids: [String(currentCampaignId)] });
+    }
   } catch(e) {
     if (e.message?.includes('row-level security')) {
       // ⚠️ 이 분기는 return 으로 빠져나가 아래 friendlyErrorJa 를 안 거친다 —
