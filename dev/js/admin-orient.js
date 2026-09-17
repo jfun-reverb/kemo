@@ -1737,6 +1737,30 @@ function osPurchaseGuideMode(card, isNew) {
   return (m === 'free' || m === 'fixed') ? m : '';
 }
 
+// 발행 자동 채움이 넘긴 채널 중 **체크박스로 안 그려진 것**을 발행자에게 알린다.
+//   🔴 채널 체크박스는 기준 데이터에서 「활성」인 것만 그린다 — 브랜드가 돈을 내고 고른 추가 옵션(LIPS·@cosme)이
+//      기준 데이터에서 꺼져 있으면 **아무 표시 없이 빠진다**(2026-09-17 개발서버에서 LIPS 가 그렇게 빠졌다).
+//      견적서에는 그 줄이 청구돼 있는데 캠페인에는 채널이 없는 상태가 된다. 막지 않고 눈에 보이게만 한다.
+//   ⚠️ 토스트가 아니라 채널 칸 아래 상자다 — 발행 직후 토스트는 일본어 보완 안내가 쓰고 있고 몇 초 뒤 사라진다.
+//      지우는 곳은 신규 등록 진입 초기화(admin-core.js) 한 곳.
+function osWarnDroppedPrefillChannels(wanted) {
+  const old = document.getElementById('newCampChannelPrefillWarn');
+  if (old) old.remove();
+  const wrap = document.getElementById('newCampChannelWrap');
+  if (!wrap || !Array.isArray(wanted) || !wanted.length) return;
+  const drawn = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c => c.value);
+  const missing = wanted.filter(code => drawn.indexOf(code) === -1);
+  if (!missing.length) return;
+  // 채널 코드 → 화면 이름. 목록에 없는 코드는 그대로 보여 준다(무엇이 빠졌는지는 알 수 있어야 한다)
+  const label = Object.assign({ qoo10: 'Qoo10', instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' }, OS_EXTRA_MARKET_LABEL);
+  const names = missing.map(code => label[code] || code).join(', ');
+  const box = document.createElement('div');
+  box.id = 'newCampChannelPrefillWarn';
+  box.style.cssText = 'margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;font-size:12px;line-height:1.5';
+  box.textContent = '오리엔시트에서 넘어온 채널 중 ' + names + ' 이(가) 선택되지 않았습니다. 기준 데이터의 채널에서 꺼져 있거나 이 모집 타입에 없는 채널입니다. 브랜드가 추가 옵션으로 고른 채널이면 견적에는 청구돼 있으니, 기준 데이터에서 켠 뒤 다시 발행하거나 브랜드와 확인해 주세요.';
+  wrap.insertAdjacentElement('afterend', box);
+}
+
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
   if (card.form_type === 'seeding') {
@@ -1869,7 +1893,9 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (rt) { rt.checked = true; rt.dispatchEvent(new Event('change')); }
 
   // 채널·카테고리 렌더
-  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, osPrefillChannels(card));
+  const wantedChannels = osPrefillChannels(card);
+  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, wantedChannels);
+  osWarnDroppedPrefillChannels(wantedChannels);
   if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', isNew ? '' : ((card.product && card.product.category) || ''));
 
   // 텍스트 (한국어→_ko, 일본어 표시칸은 비움 → 일본어 게이트가 보완 유도)
