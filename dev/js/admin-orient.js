@@ -377,6 +377,7 @@ async function osOpenCreate(opts) {
   const chSel = document.getElementById('osCreateChannel');
   chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
   chSel.value = '';
+  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) fee.value = ''; }   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
   osOnFormTypeChange();
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
@@ -535,10 +536,17 @@ async function osSubmitCreate() {
   if (!formType) { toast('모집 형식을 선택해 주세요.'); return; }
   const channel = (formType === 'seeding') ? (document.getElementById('osCreateChannel').value || '') : '';
   if (formType === 'seeding' && !channel) { toast('게시 채널을 선택해 주세요.'); return; }
+  // [447] 모집비 직접 지정 — 비움=null(기준값) / 0 이상 정수. 🔴 0 은 값이다(무료) — 빈 칸과 구분한다
+  const feeRaw = (document.getElementById('osCreateRecruitFee')?.value || '').replace(/[,\s]/g, '');
+  let recruitFee = null;
+  if (feeRaw !== '') {
+    if (!/^\d{1,9}$/.test(feeRaw)) { toast('모집비는 0 이상의 숫자로 적어 주세요.'); return; }
+    recruitFee = Number(feeRaw);
+  }
   const btn = document.getElementById('osCreateSubmitBtn');
   btn.disabled = true;
   try {
-    const res = await createOrientSheet(brandId, appId, formType, channel || null);
+    const res = await createOrientSheet(brandId, appId, formType, channel || null, recruitFee);
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
@@ -570,6 +578,7 @@ function osReasonText(r) {
     invalid_form_type: '모집 형식은 리뷰어·시딩 중 하나여야 합니다',
     channel_required: '시딩은 게시 채널을 골라야 합니다',
     invalid_channel: '고를 수 없는 채널입니다',
+    invalid_recruit_fee: '모집비는 0 이상이어야 합니다',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -1006,6 +1015,10 @@ function osDetailHtml(s, catMap, readonly) {
   } else {
     bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard + quoteCard;
   }
+  // [2026-09-16 §4-8] 브랜드가 고정 안내를 확인한 시각 — 서버가 제출 때 찍은 값(notice_ack.at). 없으면 줄을 안 그린다.
+  //   ⚠️ 날짜만 보여 준다 — notice_ack.form_type 은 「어느 안내문을 보고 확인했나」의 기록용이라 화면에 안 그린다(형식이 두 번 나온다)
+  const ackAt = d.notice_ack && typeof d.notice_ack === 'object' ? d.notice_ack.at : null;
+  if (ackAt) bodyHtml += `<div style="font-size:12px;color:var(--muted);margin-top:10px">고정 안내 확인 — ${esc(formatDateTime(ackAt))}</div>`;
   // 새창 출력(readonly)은 한 덩어리 그대로 — 메모를 아예 그리지 않으므로 나눌 것이 없다.
   //   그 출력물은 인쇄·브랜드 화면 공유 대상이라 내부 대화가 들어가면 안 된다.
   if (readonly) return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
@@ -1073,6 +1086,15 @@ function osQuoteHistoryHtml(hist) {
   const items = list.map(h => `<li style="font-size:12px;color:var(--muted);padding:2px 0">${esc(String(h.revision || '?'))}차 견적 · ${esc(h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h.total_krw))}</li>`).join('');
   return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 견적 ${list.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
 }
+// 발급 때 이 시트만 모집비를 다르게 지정했으면 한 줄(§4-11). 없으면 안 그린다.
+//   🔴 0 도 값이다 — `Number(null)` 이 0 이라 키의 유무를 먼저 본다(없는 것을 「0원」으로 그리면 무료 발급으로 읽힌다)
+function osRecruitFeeOverrideLine(d) {
+  const issued = d && d.issued;
+  if (!issued || typeof issued !== 'object' || !('recruit_fee_krw' in issued)) return '';
+  const v = issued.recruit_fee_krw;
+  if (v === null || v === '' || !isFinite(Number(v))) return '';
+  return `<div style="font-size:12px;color:#B45309;margin-top:6px">모집비 직접 지정 — ${esc(osKrw(v))} / 1건</div>`;
+}
 function osQuoteCard(s, readonly) {
   const d = (s && s.data) || {};
   const q = d.quote;
@@ -1095,6 +1117,7 @@ function osQuoteCard(s, readonly) {
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
     <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
       <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
+    ${osRecruitFeeOverrideLine(d)}
     <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
     ${osQuoteHistoryHtml(d.quote_history)}</div>`;
 }
@@ -1737,6 +1760,30 @@ function osPurchaseGuideMode(card, isNew) {
   return (m === 'free' || m === 'fixed') ? m : '';
 }
 
+// 발행 자동 채움이 넘긴 채널 중 **체크박스로 안 그려진 것**을 발행자에게 알린다.
+//   🔴 채널 체크박스는 기준 데이터에서 「활성」인 것만 그린다 — 브랜드가 돈을 내고 고른 추가 옵션(LIPS·@cosme)이
+//      기준 데이터에서 꺼져 있으면 **아무 표시 없이 빠진다**(2026-09-17 개발서버에서 LIPS 가 그렇게 빠졌다).
+//      견적서에는 그 줄이 청구돼 있는데 캠페인에는 채널이 없는 상태가 된다. 막지 않고 눈에 보이게만 한다.
+//   ⚠️ 토스트가 아니라 채널 칸 아래 상자다 — 발행 직후 토스트는 일본어 보완 안내가 쓰고 있고 몇 초 뒤 사라진다.
+//      지우는 곳은 신규 등록 진입 초기화(admin-core.js) 한 곳.
+function osWarnDroppedPrefillChannels(wanted) {
+  const old = document.getElementById('newCampChannelPrefillWarn');
+  if (old) old.remove();
+  const wrap = document.getElementById('newCampChannelWrap');
+  if (!wrap || !Array.isArray(wanted) || !wanted.length) return;
+  const drawn = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c => c.value);
+  const missing = wanted.filter(code => drawn.indexOf(code) === -1);
+  if (!missing.length) return;
+  // 채널 코드 → 화면 이름. 목록에 없는 코드는 그대로 보여 준다(무엇이 빠졌는지는 알 수 있어야 한다)
+  const label = Object.assign({ qoo10: 'Qoo10', instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' }, OS_EXTRA_MARKET_LABEL);
+  const names = missing.map(code => label[code] || code).join(', ');
+  const box = document.createElement('div');
+  box.id = 'newCampChannelPrefillWarn';
+  box.style.cssText = 'margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;font-size:12px;line-height:1.5';
+  box.textContent = '오리엔시트에서 넘어온 채널 중 ' + names + ' 이(가) 선택되지 않았습니다. 기준 데이터의 채널에서 꺼져 있거나 이 모집 타입에 없는 채널입니다. 브랜드가 추가 옵션으로 고른 채널이면 견적에는 청구돼 있으니, 기준 데이터에서 켠 뒤 다시 발행하거나 브랜드와 확인해 주세요.';
+  wrap.insertAdjacentElement('afterend', box);
+}
+
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
   if (card.form_type === 'seeding') {
@@ -1869,7 +1916,9 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (rt) { rt.checked = true; rt.dispatchEvent(new Event('change')); }
 
   // 채널·카테고리 렌더
-  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, osPrefillChannels(card));
+  const wantedChannels = osPrefillChannels(card);
+  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, wantedChannels);
+  osWarnDroppedPrefillChannels(wantedChannels);
   if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', isNew ? '' : ((card.product && card.product.category) || ''));
 
   // 텍스트 (한국어→_ko, 일본어 표시칸은 비움 → 일본어 게이트가 보완 유도)
@@ -1991,6 +2040,11 @@ function ensureOrientModals() {
           <div class="form-group" id="osCreateChannelRow" style="display:none"><label class="form-label">게시 채널 <span style="color:var(--pink,#1A1A1A)">*</span></label>
             <select id="osCreateChannel" class="form-input"><option value="">선택</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">채널이 여럿이면 링크를 따로 발급하세요.</div></div>
+          <div class="form-group"><label class="form-label">모집비 직접 지정 <span style="font-weight:400;color:var(--muted)">(선택)</span></label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" inputmode="numeric" id="osCreateRecruitFee" class="form-input" style="max-width:160px" placeholder="비움 = 기준값" autocomplete="off">
+              <span style="font-size:13px;color:var(--muted)">원 / 1건</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">비우면 기준값의 구간 단가를 씁니다. 시딩이면 진행비를 대신합니다. 0 을 넣으면 무료로 계산됩니다.<br>발급 뒤에는 바꿀 수 없습니다 — 잘못 넣었으면 시트를 지우고 다시 발급하세요.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
             링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>
         </div>
