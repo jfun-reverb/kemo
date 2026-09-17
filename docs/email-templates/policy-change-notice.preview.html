@@ -41,7 +41,7 @@
 <div class="head">
   <a href="index.html" class="back-link">← 메일 목록</a>
   <h1>약관·방침 개정 사전 통지</h1>
-  <p class="sub">약관이나 개인정보처리방침을 고칠 때, 시행 30일 전에 회원 전원에게 1회 발송 (연령 정책 개정 문안)</p>
+  <p class="sub">약관이나 개인정보처리방침을 고칠 때, 시행 30일 전에 회원 전원에게 1회 발송 (지금 문안: 개인정보 처리방침 개정 — 메타 픽셀, 2026-10-17 시행)</p>
 </div>
 
 <div class="lang-toggle" role="tablist" aria-label="미리보기 언어 선택">
@@ -50,55 +50,94 @@
 </div>
 <p class="lang-note">※ 한국어 미리보기는 검수용 번역입니다. 실제 메일은 일본어로만 발송됩니다.</p>
 
-<p class="sample-note">📌 본문은 원본 그대로입니다. <code>{{effective_date}}</code> 자리는 운영자가 실행할 때 지정하는 시행일(공고일 + 30일)로 치환됩니다.</p>
+<p class="sample-note">📌 본문은 원본 그대로입니다. 이 통지는 날짜(공지 기간 2026-09-17 ~ 10-16 · 시행일 2026-10-17)를 <b>글자로 박아</b> 두었습니다 — 치환되는 자리가 없습니다. 제목과 텍스트 판은 함수 코드(<code>index.ts</code> 의 <code>buildMail</code>)에 있습니다.</p>
 
 <div class="mail-card">
   <div class="mail-head">
     <div class="mail-from">Preview · Policy Change Notice</div>
     <div class="mail-meta">
       <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
-      <div><b>To:</b> 전체 인플루언서 1명당 1통 (홍보 수신 동의와 무관 — 필수 고지)</div>
+      <div><b>To:</b> 전체 인플루언서 1명당 1통 (홍보 수신 동의와 무관 — 홍보가 아닌 서비스 고지)</div>
     </div>
     <div class="mail-subject"
-         data-subject-ja="【REVERB JP】満18歳以上のご利用への変更・規約改定のお知らせ"
-         data-subject-ko="【REVERB JP】만 18세 이상 이용으로 변경 · 약관 개정 안내">【REVERB JP】満18歳以上のご利用への変更・規約改定のお知らせ</div>
+         data-subject-ja="【REVERB JP】個人情報処理方針 改定のお知らせ（2026年10月17日施行）"
+         data-subject-ko="【REVERB JP】개인정보 처리방침 개정 안내(2026년 10월 17일 시행)">【REVERB JP】個人情報処理方針 改定のお知らせ（2026年10月17日施行）</div>
   </div>
   <div class="mail-body">
 
 <div class="lang-ja">
 <div style="font-family:'Hiragino Sans','Noto Sans JP',Arial,sans-serif;color:#222;max-width:600px;margin:0 auto;font-size:14px;line-height:1.7">
-  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:19px">満18歳以上のご利用への変更・規約改定のお知らせ</h2>
+  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:19px">個人情報処理方針 改定のお知らせ</h2>
   <p style="margin:0 0 18px;color:#666;font-size:13px">REVERB JP からの大切なお知らせです</p>
 
   <p style="margin:0 0 16px">
-    REVERB JP をご利用いただきありがとうございます。<br>
-    {{effective_date}}より、REVERB は満18歳以上の方のみご利用いただけるよう変更されます。あわせて、登録情報に「生年月日」と「性別」が追加されます。
+    いつも REVERB JP をご利用いただきありがとうございます。<br>
+    よりよいサービスのご提供のため、個人情報処理方針の一部を改定します。下記の内容をご確認ください。
   </p>
 
-  <div style="margin:0 0 16px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 変更内容</div>
-    <div style="margin-left:2px">
-      1. 満18歳以上の方のみキャンペーンにご応募いただけます。<br>
-      2. ご応募の際に生年月日をご入力ください（一度入力すると変更できません）。<br>
-      3. 性別もご入力ください（「回答しない」も選べます）。
-    </div>
-  </div>
-
-  <div style="margin:0 0 16px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ ご確認いただきたいこと</div>
-    <div style="margin-left:2px">
-      ・満18歳未満の方は、施行日以降、新しいご応募ができなくなります。<br>
-      ・すでに当選・進行中のキャンペーンには影響しません。そのままお進めいただけます。
-    </div>
-  </div>
-
   <div style="margin:0 0 16px;padding:12px 14px;background:#F4F6FF;border-radius:8px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:4px">■ 施行日</div>
-    <div style="font-size:16px;font-weight:700;color:#222">{{effective_date}}</div>
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:4px">■ 改定スケジュール</div>
+    <div>
+      ・お知らせ期間：2026年9月17日（木）〜 2026年10月16日（金）<br>
+      ・施行日：<strong>2026年10月17日（土）</strong>
+    </div>
   </div>
+
+  <div style="margin:0 0 16px">
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 主な改定内容</div>
+    <div style="margin-left:2px">
+      ・広告の効果を測定するためのツール「Metaピクセル」の導入に伴い、外部サービスへの情報送信に関する事項を新設します。
+    </div>
+  </div>
+
+  <div style="margin:0 0 16px">
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 会員の皆さまへ</div>
+    <div style="margin-left:2px">
+      ・お名前・メールアドレス・電話番号・配送先などの会員情報は送信しません。<br>
+      ・この送信は、ブラウザの設定、またはMetaアカウントの「広告設定」からオフにできます。<br>
+      ・オフにしても、REVERB JP はこれまでどおりご利用いただけます。
+    </div>
+  </div>
+
+  <div style="margin:0 0 16px">
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 改定項目</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;font-size:12.5px;line-height:1.65">
+      <tr>
+        <th align="left" style="width:34%;padding:8px 10px;background:#F4F6FF;border:1px solid #D9DEF2;color:#5B6BBF;font-weight:700">改定前</th>
+        <th align="left" style="padding:8px 10px;background:#F4F6FF;border:1px solid #D9DEF2;color:#5B6BBF;font-weight:700">改定後</th>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:7px 10px;background:#FAFAFC;border:1px solid #D9DEF2;font-weight:700;color:#444">第5条（個人情報の国外移転）</td>
+      </tr>
+      <tr>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2;color:#777">（記載なし）</td>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2">インフルエンサーサイトのMetaピクセルによる情報送信は、当社が提供するものではなくMetaが会員のブラウザから直接収集するものであり、§8.1によります。</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:7px 10px;background:#FAFAFC;border:1px solid #D9DEF2;font-weight:700;color:#444">第8条 8.1 外部サービスへの情報送信（Metaピクセル）</td>
+      </tr>
+      <tr>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2;color:#777">＜新設＞</td>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2">
+          当社は、広告効果の測定および広告配信の最適化のため、インフルエンサーサイトにMeta Platforms, Inc.（米国）が提供する「Metaピクセル」を設置します。このツールは会員のブラウザからMetaへ下記の情報を直接送信するもので、当社がMetaの収集した情報を受け取ったり、会員情報と結び付けたりすることはありません。<br>
+          <br>
+          ・送信される情報：閲覧したページのURL・閲覧日時、ブラウザ・端末情報、IPアドレス、Cookie識別子／キャンペーン詳細の閲覧・会員登録の申込み・メール認証の完了・キャンペーン応募完了の事実、（キャンペーン詳細の閲覧・応募完了時）当該キャンペーンの識別番号・タイトル<br>
+          ・送信先：Meta Platforms, Inc.（米国）<br>
+          ・当社の利用目的：どの広告を経由して訪問・登録・応募に至ったかの測定、広告配信対象の最適化<br>
+          ・送信先の利用目的：Metaのデータポリシーに基づく広告の提供・測定等（https://www.facebook.com/privacy/policy/）
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="margin:0 0 16px">
+    改定後の個人情報処理方針に同意いただけない場合は、退会（利用契約の解除）をお申し出いただけます。お知らせ期間内（2026年10月16日まで）に改定内容への拒否の意思を表明されない場合は、改定内容に同意いただいたものとみなします。<br>
+    退会は、メニューの「退会する」からお手続きいただけます。
+  </p>
 
   <p style="margin:0 0 16px;color:#555;font-size:13px">
-    改定後の利用規約・プライバシーポリシーの全文は、アプリ下部の「利用規約」「個人情報処理方針」からご確認いただけます。
+    改定後の全文は、サイト下部の「個人情報処理方針」からご確認いただけます。<br>
+    <a href="https://globalreverb.com" style="color:#5B6BBF;text-decoration:underline">https://globalreverb.com</a>
   </p>
 
   <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
@@ -117,38 +156,77 @@
 -->
 <div class="lang-ko" style="display:none">
 <div style="font-family:'Hiragino Sans','Noto Sans JP',Arial,sans-serif;color:#222;max-width:600px;margin:0 auto;font-size:14px;line-height:1.7">
-  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:19px">만 18세 이상 이용으로 변경 · 약관 개정 안내</h2>
+  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:19px">개인정보 처리방침 개정 안내</h2>
   <p style="margin:0 0 18px;color:#666;font-size:13px">REVERB JP 의 중요한 안내입니다</p>
 
   <p style="margin:0 0 16px">
-    REVERB JP 를 이용해 주셔서 감사합니다.<br>
-    {{effective_date}} 부터 REVERB 는 만 18세 이상만 이용하실 수 있도록 바뀝니다. 이와 함께 등록 정보에 「생년월일」과 「성별」이 추가됩니다.
+    늘 REVERB JP 를 이용해 주셔서 감사합니다.<br>
+    더 나은 서비스 제공을 위해 개인정보 처리방침의 일부를 개정합니다. 아래 내용을 확인해 주세요.
   </p>
 
-  <div style="margin:0 0 16px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 바뀌는 내용</div>
-    <div style="margin-left:2px">
-      1. 만 18세 이상만 캠페인에 응모하실 수 있습니다.<br>
-      2. 응모하실 때 생년월일을 입력해 주세요(한 번 입력하면 바꿀 수 없습니다).<br>
-      3. 성별도 입력해 주세요(「답하지 않음」도 고를 수 있습니다).
-    </div>
-  </div>
-
-  <div style="margin:0 0 16px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 확인해 주실 것</div>
-    <div style="margin-left:2px">
-      · 만 18세 미만이신 분은 시행일 이후 새로 응모하실 수 없습니다.<br>
-      · 이미 당선되었거나 진행 중인 캠페인에는 영향이 없습니다. 그대로 진행하시면 됩니다.
-    </div>
-  </div>
-
   <div style="margin:0 0 16px;padding:12px 14px;background:#F4F6FF;border-radius:8px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:4px">■ 시행일</div>
-    <div style="font-size:16px;font-weight:700;color:#222">{{effective_date}}</div>
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:4px">■ 개정 일정</div>
+    <div>
+      · 공지 기간: 2026년 9월 17일(목) ~ 2026년 10월 16일(금)<br>
+      · 시행일: <strong>2026년 10월 17일(토)</strong>
+    </div>
   </div>
+
+  <div style="margin:0 0 16px">
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 주요 개정 내용</div>
+    <div style="margin-left:2px">
+      · 광고 효과를 측정하는 도구 「Meta 픽셀」 도입에 따라, 외부 서비스로의 정보 송신에 관한 사항을 신설합니다.
+    </div>
+  </div>
+
+  <div style="margin:0 0 16px">
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 회원 여러분께</div>
+    <div style="margin-left:2px">
+      · 이름·이메일·전화번호·배송지 등 회원 정보는 송신하지 않습니다.<br>
+      · 이 송신은 브라우저 설정 또는 Meta 계정의 「광고 설정」에서 끌 수 있습니다.<br>
+      · 꺼도 REVERB JP 는 지금까지와 똑같이 이용하실 수 있습니다.
+    </div>
+  </div>
+
+  <div style="margin:0 0 16px">
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 개정 항목</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;font-size:12.5px;line-height:1.65">
+      <tr>
+        <th align="left" style="padding:8px 10px;background:#F4F6FF;border:1px solid #D9DEF2;color:#5B6BBF;font-weight:700;width:34%">개정 전</th>
+        <th align="left" style="padding:8px 10px;background:#F4F6FF;border:1px solid #D9DEF2;color:#5B6BBF;font-weight:700">개정 후</th>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:7px 10px;background:#FAFAFC;border:1px solid #D9DEF2;font-weight:700;color:#444">제5조(개인정보의 국외 이전)</td>
+      </tr>
+      <tr>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2;color:#777">(기재 없음)</td>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2">인플루언서 사이트의 Meta 픽셀에 의한 정보 송신은 회사가 제공하는 것이 아니라 Meta 가 회원의 브라우저에서 직접 수집하는 것이며, §8.1 에 따릅니다.</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:7px 10px;background:#FAFAFC;border:1px solid #D9DEF2;font-weight:700;color:#444">제8조 8.1 외부 서비스로의 정보 송신(Meta 픽셀)</td>
+      </tr>
+      <tr>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2;color:#777">&lt;신설&gt;</td>
+        <td valign="top" style="padding:8px 10px;border:1px solid #D9DEF2">
+          회사는 광고 성과 측정과 광고 전달 최적화를 위해 인플루언서 사이트에 Meta Platforms, Inc.(미국)가 제공하는 「Meta 픽셀」을 설치합니다. 이 장치는 회원의 브라우저에서 Meta로 아래 정보를 직접 전송하며, 회사는 Meta가 수집한 정보를 받거나 회원 정보와 결합하지 않습니다.<br>
+          <br>
+          · 송신되는 정보: 방문한 페이지 주소·방문 일시, 브라우저·기기 정보, IP 주소, 쿠키 식별자 / 캠페인 상세 열람·회원가입 신청·이메일 인증 완료·캠페인 응모 완료 사실, (캠페인 상세 열람·응모 완료 시) 해당 캠페인의 식별번호·제목<br>
+          · 송신처: Meta Platforms, Inc.(미국)<br>
+          · 회사의 이용 목적: 어떤 광고를 거쳐 방문·가입·응모에 이르렀는지 측정, 광고 대상 최적화<br>
+          · 송신처의 이용 목적: Meta 데이터 정책에 따른 광고 제공·측정 등(https://www.facebook.com/privacy/policy/)
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="margin:0 0 16px">
+    개정 후 개인정보 처리방침에 동의하지 않으시는 경우 탈퇴(이용계약의 해지)를 신청하실 수 있습니다. 공지 기간 안(2026년 10월 16일까지)에 개정 내용에 대한 거부 의사를 표시하지 않으시면 개정 내용에 동의하신 것으로 간주합니다.<br>
+    탈퇴는 메뉴의 「退会する」(탈퇴하기)에서 하실 수 있습니다.
+  </p>
 
   <p style="margin:0 0 16px;color:#555;font-size:13px">
-    개정된 이용약관·개인정보처리방침 전문은 앱 하단의 「이용약관」·「개인정보처리방침」에서 확인하실 수 있습니다.
+    개정 후 전문은 사이트 아래쪽 「개인정보 처리방침」에서 확인하실 수 있습니다.<br>
+    <a href="https://globalreverb.com" style="color:#5B6BBF;text-decoration:underline">https://globalreverb.com</a>
   </p>
 
   <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
@@ -193,7 +271,7 @@
     <dt>트리거</dt><dd>운영자가 Edge Function notify-policy-change 를 1회 수동 호출 (cron 아님 — 사건 단위)</dd>
     <dt>수신자</dt><dd>전체 인플루언서 (marketing_opt_in 무관)</dd>
     <dt>중복 방지</dt><dd><code>policy_notice_sent</code> (회원 × 개정 열쇠말 유일) + <code>policy_notice_runs.notice_key</code> 실행 잠금</dd>
-    <dt>Placeholder</dt><dd><code>{{effective_date}}</code> — 시행일 (호출 시 지정)</dd>
+    <dt>호출 값</dt><dd><code>noticeKey = meta_pixel_2026</code> · <code>effectiveDate = 2026年10月17日</code> — 함수에 박힌 값과 다르면 발송을 거부합니다(<code>notice_mismatch</code>)</dd>
     <dt>원본</dt><dd><a href="source.html?f=policy-change-notice.html">policy-change-notice.html</a></dd>
   </dl>
 </details>

@@ -12,8 +12,14 @@
 //   6. 마지막 배치에서 policy_notice_runs status/count finalize
 //
 // 호출 (운영자 수동, cron 아님):
-//   { "noticeKey": "message_feature_2026", "effectiveDate": "2026年6月27日" }
+//   { "noticeKey": "meta_pixel_2026", "effectiveDate": "2026年10月17日" }
 //   testRecipient 지정 시 단일 발송 + 로그/멱등 우회(디버그).
+//
+// 🔴 통지 한 번마다 갈아 끼우는 자리가 넷이다 — 하나라도 빠지면 옛 통지가 섞여 나간다:
+//   ① docs/email-templates/policy-change-notice.html (→ sync 스크립트가 _templates/ 와 templates.ts 를 만든다)
+//   ② 아래 CURRENT_NOTICE (키·시행일)
+//   ③ buildMail 의 제목(subject)
+//   ④ buildMail 의 텍스트 판(text) — HTML 을 못 읽는 메일 프로그램이 이쪽을 보여준다
 //
 // 마이그레이션 153 (policy_notice_runs / policy_notice_sent) 의존.
 // 메모: influencers.id = auth.users.id (project_influencer_join_key)
@@ -23,7 +29,14 @@ import { TEMPLATES } from "./templates.ts";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 const BATCH_SIZE = 200;          // 배치당 인플 수 (Deno 150초 timeout 안전)
-const DEFAULT_NOTICE_KEY = "message_feature_2026";
+// 지금 템플릿에 들어 있는 통지. 날짜의 정의처는 사양서 docs/specs/2026-09-17-meta-pixel-policy-notice.md §3 표.
+//   템플릿·제목·텍스트 판의 날짜는 글자로 박혀 있어(공지 기간 두 날짜와 요일은 인자로 받을 길이 없다),
+//   호출 인자가 이 값과 다르면 보내지 않는다 — 전 회원에게 나가는 메일이라 되돌릴 수 없다.
+const CURRENT_NOTICE = {
+  key: "meta_pixel_2026",
+  effectiveDate: "2026年10月17日",
+};
+const DEFAULT_NOTICE_KEY = CURRENT_NOTICE.key;
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
@@ -231,27 +244,52 @@ function escapeHtml(v: unknown): string {
 
 function buildMail(effectiveDate: string): { subject: string; html: string; text: string } {
   const tpl = loadTemplate("policy-change-notice");
+  // 지금 템플릿에는 {{effective_date}} 자리가 없다(날짜를 글자로 박았다) — 치환은 다음 통지가 다시 쓸 수 있게 남겨 둔다.
   const html = render(tpl, { effective_date: escapeHtml(effectiveDate) });
-  const subject = "【REVERB JP】満18歳以上のご利用への変更・規約改定のお知らせ";
+  const subject = "【REVERB JP】個人情報処理方針 改定のお知らせ（2026年10月17日施行）";
+  // 텍스트 판 — HTML 템플릿과 같은 순서·같은 문장(사양서 §4-1 블록 ②~⑧).
+  //   🔴 「会員の皆さまへ」(설정에서 끌 수 있다)가 맺음말(동의하지 않으면 탈퇴)보다 반드시 앞.
   const text = [
-    "REVERB JP をご利用いただきありがとうございます。",
+    "個人情報処理方針 改定のお知らせ",
     "",
-    `${effectiveDate}より、REVERBは満18歳以上の方のみご利用いただけるよう変更されます。`,
-    "あわせて、登録情報に「生年月日」と「性別」が追加されます。",
+    "いつも REVERB JP をご利用いただきありがとうございます。",
+    "よりよいサービスのご提供のため、個人情報処理方針の一部を改定します。下記の内容をご確認ください。",
     "",
-    "■ 変更内容",
-    "1. 満18歳以上の方のみキャンペーンにご応募いただけます。",
-    "2. ご応募の際に生年月日をご入力ください（一度入力すると変更できません）。",
-    "3. 性別もご入力ください（「回答しない」も選べます）。",
+    "■ 改定スケジュール",
+    "・お知らせ期間：2026年9月17日（木）〜 2026年10月16日（金）",
+    "・施行日：2026年10月17日（土）",
     "",
-    "■ ご確認いただきたいこと",
-    "・満18歳未満の方は、施行日以降、新しいご応募ができなくなります。",
-    "・すでに当選・進行中のキャンペーンには影響しません。そのままお進めいただけます。",
+    "■ 主な改定内容",
+    "・広告の効果を測定するためのツール「Metaピクセル」の導入に伴い、外部サービスへの情報送信に関する事項を新設します。",
     "",
-    `■ 施行日：${effectiveDate}`,
+    "■ 会員の皆さまへ",
+    "・お名前・メールアドレス・電話番号・配送先などの会員情報は送信しません。",
+    "・この送信は、ブラウザの設定、またはMetaアカウントの「広告設定」からオフにできます。",
+    "・オフにしても、REVERB JP はこれまでどおりご利用いただけます。",
     "",
-    "改定後の規約全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。",
-    "お問い合わせは公式LINE @reverb.jp まで。",
+    "■ 改定項目",
+    "【第5条（個人情報の国外移転）】",
+    "改定前：（記載なし）",
+    "改定後：インフルエンサーサイトのMetaピクセルによる情報送信は、当社が提供するものではなくMetaが会員のブラウザから直接収集するものであり、§8.1によります。",
+    "",
+    "【第8条 8.1 外部サービスへの情報送信（Metaピクセル）】",
+    "改定前：＜新設＞",
+    "改定後：当社は、広告効果の測定および広告配信の最適化のため、インフルエンサーサイトにMeta Platforms, Inc.（米国）が提供する「Metaピクセル」を設置します。このツールは会員のブラウザからMetaへ下記の情報を直接送信するもので、当社がMetaの収集した情報を受け取ったり、会員情報と結び付けたりすることはありません。",
+    "・送信される情報：閲覧したページのURL・閲覧日時、ブラウザ・端末情報、IPアドレス、Cookie識別子／キャンペーン詳細の閲覧・会員登録の申込み・メール認証の完了・キャンペーン応募完了の事実、（キャンペーン詳細の閲覧・応募完了時）当該キャンペーンの識別番号・タイトル",
+    "・送信先：Meta Platforms, Inc.（米国）",
+    "・当社の利用目的：どの広告を経由して訪問・登録・応募に至ったかの測定、広告配信対象の最適化",
+    "・送信先の利用目的：Metaのデータポリシーに基づく広告の提供・測定等（https://www.facebook.com/privacy/policy/）",
+    "",
+    "改定後の個人情報処理方針に同意いただけない場合は、退会（利用契約の解除）をお申し出いただけます。お知らせ期間内（2026年10月16日まで）に改定内容への拒否の意思を表明されない場合は、改定内容に同意いただいたものとみなします。",
+    "退会は、メニューの「退会する」からお手続きいただけます。",
+    "",
+    "改定後の全文は、サイト下部の「個人情報処理方針」からご確認いただけます。",
+    "https://globalreverb.com",
+    "",
+    "REVERB JP のメンバーシップに紐づいて自動送信されています。",
+    "お問い合わせは LINE @reverb.jp までお願いいたします。",
+    "© JFUN Corp. · 株式会社ジェイファン",
+    "https://globalreverb.com",
   ].join("\n");
   return { subject, html, text };
 }
@@ -303,9 +341,14 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* 빈 body 허용 */ }
 
   const noticeKey = body.noticeKey || DEFAULT_NOTICE_KEY;
-  const effectiveDate = body.effectiveDate || "別途ご案内いたします";
-  if (!body.effectiveDate) {
-    console.warn("[notify-policy-change] effectiveDate 미지정 — 폴백 문구로 발송됨. 통지 메일엔 시행일 명시 권장");
+  const effectiveDate = body.effectiveDate || CURRENT_NOTICE.effectiveDate;
+  // 🔴 템플릿에 박힌 통지와 호출 인자가 어긋나면 보내지 않는다(시험 발송 포함).
+  //   옛 키로 부르면 그때 받은 회원이 「이미 받음」으로 빠지고, 날짜가 다르면 기록과 본문이 다른 날을 말한다.
+  if (noticeKey !== CURRENT_NOTICE.key || effectiveDate !== CURRENT_NOTICE.effectiveDate) {
+    console.error("[notify-policy-change] notice mismatch", { noticeKey, effectiveDate, expected: CURRENT_NOTICE });
+    return new Response(JSON.stringify({
+      error: "notice_mismatch", expected: CURRENT_NOTICE, got: { noticeKey, effectiveDate },
+    }), { status: 400, headers: { "content-type": "application/json" } });
   }
   const batchOffset = body.batchOffset ?? 0;
   const isFirstBatch = batchOffset === 0;
