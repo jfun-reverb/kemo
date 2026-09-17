@@ -91,19 +91,10 @@ function _excelInfluencerNameParts(u) {
   };
 }
 
-// SNS 핸들 → 전체 URL 변환 (각 SNS 공식 URL 형식 유지). TikTok/YouTube 는 @ 필수
-function _excelSnsUrl(channel, raw) {
-  if (!raw) return '';
-  var handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : String(raw).replace(/^@/, '').trim();
-  if (!handle) return '';
-  switch (channel) {
-    case 'instagram': return 'https://www.instagram.com/' + handle + '/';
-    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
-    case 'x':         return 'https://x.com/' + handle;
-    case 'youtube':   return 'https://www.youtube.com/@' + handle;
-    default: return handle;
-  }
-}
+// ⚠️ `_excelSnsUrl`(SNS 핸들 → 전체 URL)은 2026-09-17 에 `report-rows.js` 로 옮겼다 — 리포트의 계정 칸이
+//    브랜드 공유 화면에서도 같은 함수를 써야 하는데 그 화면에는 이 파일이 없다. 이름·쓰는 법은 그대로다.
+//    🔴 여기에 같은 이름의 함수를 **다시 만들지 말 것** — 빌드가 한 덩어리로 이어 붙여, 둘 다 있으면
+//       뒤의 것(`report-rows.js`)이 오류 없이 이긴다.
 
 // 우편번호 (별도 컬럼용). 〒 prefix 제거, 하이픈 유지
 function _excelZip(u) {
