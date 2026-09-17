@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789635396';
+  var CURRENT_BUILD = 'v1789636290';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -396,11 +396,16 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
 #policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
 #policyNoticeModal.on{display:flex}
-#policyNoticeModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:70vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
 #policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 #policyNoticeModal .legal-title{font-size:15px;font-weight:700}
 #policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
 #policyNoticeModal .legal-body{padding:18px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--ink)}
+/* 위 .legal-sheet 의 높이 상한은 70vh 다(#legalModal 의 90vh 와 다르다 — 통지 글이 길어 화면을 거의 다 덮는다는 지적, 2026-09-17).
+   ⚠️ 상한을 낮추면 본문 맨 아래 문단이 스크롤 아래로 숨는다 → 「아래에 더 있다」는 흐림 표시를 함께 둔다.
+      ::after 는 본문 끝에 놓인 빈 칸인데 sticky 라 스크롤 중에는 보이는 영역 맨 아래에 붙어 글을 흐리고,
+      끝까지 내리면 제자리(글 뒤)로 돌아가 아무것도 안 가린다. 그래서 스크롤이 없을 때도 가리는 것이 없다. */
+#policyNoticeModal .legal-body::after{content:'';display:block;position:sticky;bottom:-18px;height:40px;margin:0 -18px -18px;background:linear-gradient(rgba(255,255,255,0),#fff 85%);pointer-events:none}
 .policy-notice-actions{flex-shrink:0;display:flex;gap:8px;padding:12px 16px 18px;border-top:1px solid var(--line)}
 .policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
@@ -3202,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-17 17:56 · 0263750</span>
+          <span class="admin-build-text">2026-09-17 18:11 · 59efa98</span>
         </div>
       </div>
     </aside>
