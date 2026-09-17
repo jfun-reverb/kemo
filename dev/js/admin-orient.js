@@ -1043,6 +1043,11 @@ function osFieldHtml(label, htmlVal, wide) {
   if (!htmlVal || !String(htmlVal).trim()) return '';
   return osFieldRow(label, htmlVal, wide);
 }
+// 지정구매 본문 — 서식 HTML 이면 정화, 평문(옛 값)이면 이스케이프. 작성 폼의 richInitial 과 같은 판정
+function osPgOptionsHtml(v) {
+  const s = String(v || '');
+  return /<[a-z][\s\S]*>/i.test(s) ? sanitizeCautionHtml(s) : esc(s);
+}
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 
 // 공통 브랜드 카드 (1회). headerName: 모달 헤더의 발급 브랜드 마스터명 — 작성 브랜드명과 같으면 중복이라 생략
@@ -1147,7 +1152,9 @@ function osCardDetail(c, idx, catMap, readonly) {
     //   값이 없으면 줄을 안 만든다(옛 시트·미선택).
     const pg = c.purchase_guide || {};
     if (pg.mode === 'free') inner += osField('구매 가이드', '자율구매 — ' + OS_PURCHASE_GUIDE_FREE_KO);
-    else if (pg.mode === 'fixed') inner += osField('구매 가이드', '지정구매 — ' + (pg.options || ''));
+    // [2026-09-17] 지정구매 본문은 리뷰 가이드와 같은 편집기 값(서식 HTML)이다 — 정화해서 그린다.
+    //   옛 한 줄짜리 평문은 태그가 없으므로 이스케이프해서 같은 자리에 그린다.
+    else if (pg.mode === 'fixed') inner += osFieldHtml('구매 가이드', '지정구매 — ' + osPgOptionsHtml(pg.options), true);
     const extras = Array.isArray(sale.extra_markets) ? sale.extra_markets : [];
     inner += osField('추가 옵션', extras.map(k => OS_EXTRA_MARKET_LABEL[k] || k).join(', '));
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
@@ -1984,7 +1991,7 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
     const pgOptions = (card.purchase_guide && card.purchase_guide.options) || '';
     const descHtml = !isNew ? osPlainToRich(brand.intro || '')
       : pgMode === 'free' ? osPlainToRich(OS_PURCHASE_GUIDE_FREE_JA)
-      : pgMode === 'fixed' ? osPlainToRich(pgOptions)
+      : pgMode === 'fixed' ? osPlainToRich(osStripHtml(pgOptions))   // 편집기 값 — 리뷰 가이드 초안과 같이 서식을 걷어 낸다
       : '';
     setRichValue('newCampDesc', descHtml);
   }
