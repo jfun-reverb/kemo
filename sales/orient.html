@@ -452,6 +452,11 @@ input[type="date"] { min-height: 44px; }
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="seeding"] .only-rp,
 .ocard[data-ctype="seeding"] .only-seeding { margin-bottom: 14px; }
+/* 가격 줄(상시가·배송비) — 아래 여백은 위 래퍼의 14px 하나만 쓴다.
+   안쪽 칸의 14px(첫 칸은 :last-child 가 아니라 남는다)과 모바일의 .row2 14px 가 래퍼 여백에 겹쳐
+   다음 제목(구매 가이드) 위만 28px 로 벌어졌다. 옛 구조의 .row2 줄들은 래퍼가 없어 건드리지 않는다. */
+.only-rp > .row-price { margin-bottom: 0; }
+.only-rp > .row-price > .field { margin-bottom: 0; }
 /* 시딩 등급별: 촬영가이드·필수내용·증정품은 미들·메가만 */
 .ocard .only-mega { display: none; }
 .ocard[data-cgrade="middle_mega"] .only-mega { display: block; }
@@ -872,6 +877,9 @@ const LONG_TEXT_FIELDS = {
   'f-review-guide': { label: '리뷰 가이드', field: 'review_guide' },
   'f-appeal':       { label: '리뷰 가이드', field: 'appeal' },
   'f-shooting':     { label: '촬영 가이드', field: 'shooting_guide' },
+  // [2026-09-17] 지정구매 본문 — 리뷰 가이드와 같은 편집기·같은 글자 수 표시. ⚠️ 이 칸만 **화면에서만** 센다 —
+  //   서버(446)는 이 칸 길이를 안 본다(전체 100KB 상한만). 그래서 `field` 는 서버 거부 코드에 나오지 않는 이름이다.
+  'f-pg-options':   { label: '구매 가이드', field: 'purchase_guide_options' },
 };
 const LONG_TEXT_CLASSES = Object.keys(LONG_TEXT_FIELDS);
 function longTextCounter(cls) { return `<div class="char-count" data-count-for="${cls}"><span class="cc-cur">0</span> / ${LIMIT_LONG_TEXT}</div>`; }
@@ -901,7 +909,6 @@ const NOTICE_LINES = {
 // [2026-09-16 §4-3] 구매 가이드 — 자율구매 고정 문구(한국어). 일본어 짝(「商品を自由にご購入ください。」)은
 //   발행 자동 채움이 캠페인 칸에 넣는다(`admin-orient.js`) — 우리가 정한 문장이라 번역할 것이 없다.
 const PURCHASE_GUIDE_FREE_KO = '상품을 자유롭게 구매해 주세요.';
-const PURCHASE_GUIDE_OPTIONS_MAX = 200;   // 긴 글 칸이 아니다(한두 줄) — 1,000자 검사 대상에 넣지 않는다
 
 // 리뷰어 추가 옵션(§4-9) — 폼과 확인 화면이 같은 목록을 쓴다.
 // ⚠️ 실제 견적 금액은 서버가 기준값 표에서 읽는다 — 여기 금액은 「고를지 말지」를 그 자리에서 판단하기 위한 표시값이다(두 자리가 되는 것을 감수한 결정)
@@ -1510,7 +1517,10 @@ function cardHtmlNew(id, card) {
           </div>
           <div class="pg-free-box${pg.mode === 'free' ? '' : ' hidden'}">${escAttr(PURCHASE_GUIDE_FREE_KO)}</div>
           <div class="pg-fixed-box${pg.mode === 'fixed' ? '' : ' hidden'}">
-            <input type="text" class="f-pg-options" maxlength="${PURCHASE_GUIDE_OPTIONS_MAX}" placeholder="구매할 옵션을 적어 주세요. 예: 50ml / 핑크" value="${escAttr(pg.options)}" oninput="onInput()">
+            <!-- [2026-09-17 사용자 지시] 리뷰 가이드와 같은 편집기(굵게·기울임·밑줄·취소선·링크 + 글자 수).
+                 옛 한 줄짜리 값은 richInitial 이 그대로 읽는다(평문이면 이스케이프). 저장은 정화한 HTML. -->
+            ${richEditorHtml(richInitial(pg.options), 'f-pg-options', '구매할 옵션을 적어 주세요. 예: 50ml / 핑크')}
+            ${longTextCounter('f-pg-options')}
           </div>
         </div>` : '';
 
@@ -1584,7 +1594,7 @@ function cardHtmlNew(id, card) {
         </div>
 
 ${purchaseGuideBlock}
-        <div class="field"><label>모집 인원 *</label>
+        <div class="field"><label>모집 인원<span class="req">*</span></label>
           <!-- 구간 버튼 넷 — 하나만 고른다. 「500건 이상」만 숫자를 직접 적는다(사양서 §4-1).
                ⚠️ 사람이 보는 글은 「건」으로 쓴다(운영팀 표기) — 한 화면에 「100건」과 「100명」이 같이 보이지 않게. -->
           <div class="tier">
@@ -2164,7 +2174,7 @@ function collectCardNew(el) {
     const pgPick = el.querySelector('.pg input[type="radio"]:checked');
     if (pgPick) {
       out.purchase_guide = { mode: pgPick.value };
-      const opts = val('.f-pg-options');
+      const opts = richValue(q('.f-pg-options'));   // 편집기(contenteditable) — 정화한 HTML, 비면 ''
       if (pgPick.value === 'fixed' && opts) out.purchase_guide.options = opts;
     }
   }
@@ -2189,7 +2199,7 @@ function collectCardNew(el) {
   return out;
 }
 
-// ── 글자 수 제한(새 구조) — 긴 글 칸 여섯(LONG_TEXT_FIELDS) 전부 1,000자. 넘는 입력은 그 자리에서 잘라 「{현재} / 1000」 로 보여준다.
+// ── 글자 수 제한(새 구조) — 긴 글 칸(LONG_TEXT_FIELDS 에 적힌 것 전부) 1,000자. ⚠️ 개수를 여기 적지 않는다 — 목록이 바뀔 때마다 이 줄이 먼저 낡았다. 넘는 입력은 그 자리에서 잘라 「{현재} / 1000」 로 보여준다.
 //   세는 기준은 서식(태그)을 뺀 본문(textContent) — 서버(_orient_text_length, 425)와 같은 셈법.
 //   ⚠️ 임시저장은 서버 검사가 없어 잘린 값만 저장되고, 제출은 서버가 다시 센다(guide_too_long·appeal_too_long·text_too_long).
 function longTextClassOf(node) {
@@ -2612,9 +2622,10 @@ function renderPreviewCardNew(c, idx) {
   const pvTier = TIER_OPTIONS.find(t => t.key === c.product.slots_tier);
   rows += pvRow('모집 인원', c.product.slots ? c.product.slots + '건' + (pvTier ? ` (${pvTier.name})` : '') : '');
   if (ft === 'reviewer' && c.purchase_guide && c.purchase_guide.mode) {
-    rows += pvRow('구매 가이드', c.purchase_guide.mode === 'free'
-      ? '자율구매 — ' + PURCHASE_GUIDE_FREE_KO
-      : '지정구매 — ' + (c.purchase_guide.options || ''));
+    // 지정구매 본문은 편집기 값(서식 HTML)이라 pvRowHtml 이 정화해서 그린다 — pvRow 로 그리면 태그가 글자로 보인다
+    rows += c.purchase_guide.mode === 'free'
+      ? pvRow('구매 가이드', '자율구매 — ' + PURCHASE_GUIDE_FREE_KO)
+      : pvRowHtml('구매 가이드', '지정구매 — ' + richInitial(c.purchase_guide.options));
   }
   if (ft === 'reviewer' && (c.sale.extra_markets || []).length) {
     rows += pvRow('추가 옵션', c.sale.extra_markets.map(k => {
