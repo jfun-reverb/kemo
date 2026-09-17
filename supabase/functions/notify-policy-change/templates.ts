@@ -54,7 +54,7 @@ export const TEMPLATES: Record<string, string> = {
     <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 会員の皆さまへ</div>
     <div style="margin-left:2px">
       ・お名前・メールアドレス・電話番号・配送先などの会員情報は送信しません。<br>
-      ・この送信は、ブラウザの設定、またはMetaアカウントの「広告設定」からオフにできます。<br>
+      ・この送信は、お使いのブラウザの設定（トラッキング防止など）でオフにできます。また、FacebookやInstagramをお使いの方は、ご自身のMetaアカウントの「広告設定」で、送られた情報を広告に使うことをオフにできます。<br>
       ・オフにしても、REVERB JP はこれまでどおりご利用いただけます。
     </div>
   </div>
