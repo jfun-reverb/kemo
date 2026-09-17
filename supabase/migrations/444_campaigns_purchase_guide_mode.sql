@@ -49,7 +49,7 @@ COMMENT ON COLUMN public.campaigns.purchase_guide_mode IS
   '구매 가이드 판 구분(2026-09-16 §4-12) — free=자율구매 / fixed=지정구매 / NULL=고르지 않음(옛 판). 본문은 description 에 있다.';
 
 -- 공개 데이터베이스 접근 계층(PostgREST)의 스키마 캐시를 즉시 갱신 —
--- 안 넣으면 배포 직후 잠깐 `select('*')` 에 이 칸이 안 보이는 구간이 생긴다(이 저장소 관행: 440~443 전부 있다)
+-- 안 넣으면 배포 직후 잠깐 전체 조회에 이 칸이 안 보이는 구간이 생긴다(이 저장소 관행: 440~443 전부 있다)
 NOTIFY pgrst, 'reload schema';
 
 COMMIT;

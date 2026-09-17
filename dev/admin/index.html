@@ -778,7 +778,17 @@
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="editCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="editCampPgRow" style="display:none;margin-bottom:8px">
+                <select id="editCampPurchaseGuideMode" class="form-input" style="max-width:220px" onchange="applyCampDescLabel('edit')">
+                  <option value="">구매 가이드: 고르지 않음</option>
+                  <option value="free">자율구매</option>
+                  <option value="fixed">지정구매</option>
+                </select>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">고르면 위 칸 이름이 「구매 가이드」로 바뀝니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
@@ -1162,7 +1172,17 @@
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="newCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="newCampPgRow" style="display:none;margin-bottom:8px">
+                <select id="newCampPurchaseGuideMode" class="form-input" style="max-width:220px" onchange="applyCampDescLabel('new')">
+                  <option value="">구매 가이드: 고르지 않음</option>
+                  <option value="free">자율구매</option>
+                  <option value="fixed">지정구매</option>
+                </select>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">고르면 위 칸 이름이 「구매 가이드」로 바뀝니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_newCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="newCampHashtags" data-prefix="#"></div>
