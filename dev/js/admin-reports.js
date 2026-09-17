@@ -1032,8 +1032,10 @@ function _reportShareColGroupsHtml(reportId, saved) {
   const list = _reportShareSelectable(reportId);
   const order = [], byGrp = {};
   list.forEach(function(c){ const g = c.grp || '기본'; if (!byGrp[g]) { byGrp[g] = []; order.push(g); } byGrp[g].push(c); });
-  return order.map(function(g) {
-    return `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">${esc(g)}</div>
+  return order.map(function(g, gi) {
+    // 묶음 사이에 구분선 — 첫 묶음 위에는 안 넣는다(제목 바로 아래라 줄이 겹쳐 보인다). 2026-09-18 사용자 요청
+    const sep = gi === 0 ? 'margin-top:8px' : 'margin-top:10px;padding-top:10px;border-top:1px solid var(--line)';
+    return `<div style="${sep}"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">${esc(g)}</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
         ${byGrp[g].map(function(c){ const on = !reportShareColOff(c.key, saved); return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${esc(c.key)}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.pick || c.label)}</label>`; }).join('')}
       </div></div>`;
