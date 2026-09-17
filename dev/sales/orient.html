@@ -412,13 +412,18 @@ input[type="date"] { min-height: 44px; }
 .tier-summary { font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 6px; }
 /* 추가 옵션(리뷰어 전용) — 🔴 여기는 금액을 적는다: 고를지 말지를 그 자리에서 판단하는 값이라
    금액이 없으면 고를 수가 없다. 기준값과 두 자리가 되는 것을 감수한 결정(사양서 §4-9). */
-.opt-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: 13px; }
-.opt-row input { width: 16px; height: 16px; }
+/* ⚠️ `.field label`(display:block·굵게·아래 여백)이 클래스 하나짜리 규칙을 이긴다 — 그래서 `.field label.…` 로 쓴다.
+   `.opt-row` 만 쓰면 flex 정렬이 통째로 무시돼 체크박스와 글자가 어긋난다(아래 `.check-row` 와 같은 이유). */
+.field label.opt-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; margin: 0; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.opt-row input { width: 16px; height: 16px; margin: 0; flex: none; accent-color: var(--brand); cursor: pointer; }
 .opt-row .opt-fee { color: var(--ink-mute); font-size: 12px; }
 /* 구매 가이드(리뷰어 전용, §4-3) — 자율구매는 우리가 정한 고정 문구라 읽기 전용 상자로 보여 준다(결정 18) */
-.pg { display: flex; gap: 18px; margin-bottom: 8px; }
-.pg-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
-.pg-opt input { width: 16px; height: 16px; }
+/* 제목 줄 — 왼쪽에 「구매 가이드」, 오른쪽에 자율/지정 라디오 */
+.pg-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 8px; }   /* 아주 좁은 화면에서는 라디오가 아랫줄로 내려간다 */
+.field .pg-head > label { margin-bottom: 0; }
+.pg { display: flex; align-items: center; gap: 16px; border-radius: 8px; }
+.field label.pg-opt { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.pg-opt input { width: 16px; height: 16px; margin: 0; flex: none; accent-color: var(--brand); cursor: pointer; }
 .pg-free-box { background: var(--surface-dim, #f5f5f5); color: var(--ink-mute); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 
 /* 형식별 표시 분기 (카드 스코프) — data-ctype 미설정이면 입력 영역 전체 숨김 */
@@ -1495,10 +1500,13 @@ function cardHtmlNew(id, card) {
   //   지정구매만 브랜드가 적는다. 저장은 값이 있을 때만 키를 만든다(`mode` 가 없으면 옛 시트·미선택).
   const pg = card.purchase_guide || {};
   const purchaseGuideBlock = (ft === 'reviewer') ? `
-        <div class="field"><label>구매 가이드<span class="req">*</span></label>
-          <div class="pg">
-            <label class="pg-opt"><input type="radio" name="pg_${id}" value="free" ${pg.mode === 'free' ? 'checked' : ''} onchange="onPurchaseGuidePick(this)">자율구매</label>
-            <label class="pg-opt"><input type="radio" name="pg_${id}" value="fixed" ${pg.mode === 'fixed' ? 'checked' : ''} onchange="onPurchaseGuidePick(this)">지정구매</label>
+        <div class="field">
+          <div class="pg-head">
+            <label>구매 가이드<span class="req">*</span></label>
+            <div class="pg">
+              <label class="pg-opt"><input type="radio" name="pg_${id}" value="free" ${pg.mode === 'free' ? 'checked' : ''} onchange="onPurchaseGuidePick(this)">자율구매</label>
+              <label class="pg-opt"><input type="radio" name="pg_${id}" value="fixed" ${pg.mode === 'fixed' ? 'checked' : ''} onchange="onPurchaseGuidePick(this)">지정구매</label>
+            </div>
           </div>
           <div class="pg-free-box${pg.mode === 'free' ? '' : ' hidden'}">${escAttr(PURCHASE_GUIDE_FREE_KO)}</div>
           <div class="pg-fixed-box${pg.mode === 'fixed' ? '' : ' hidden'}">
