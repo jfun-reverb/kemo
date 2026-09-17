@@ -18,6 +18,7 @@ let _adTrackingData = null;      // 마지막으로 받은 get_meta_pixel_admin 
 let _adTrackingBusy = false;     // 저장 중 두 번 누르기 방지
 let _adTrackingNotice = '';      // 저장 직후 안내 — 다시 그린 뒤에도 한 번 보여준다
 let _adTrackingNoticeTimer = null;      // 그 안내를 지울 타이머
+let _adTrackingEditing = false;  // 아이디 입력칸이 열려 있는가 — 저장된 아이디가 있으면 잠가 두고 「수정」으로 연다(2026-09-18 사용자 요청)
 const AD_TRACKING_NOTICE_MS = 8000;     // 두 줄짜리 안내를 읽을 만한 시간
 
 // 저장 뒤 안내 — 사양서 ⑬(새 방문부터 적용 / 이미 열린 화면은 새로고침 전까지 옛 설정).
@@ -120,6 +121,8 @@ function renderAdTrackingPane(pane, d) {
   const locked = d.status === 'policy_locked';
   // 방침 시행 전에는 「켜는 방향」만 막는다 — 켜짐 값이면(SQL 로 켠 경우) 끄기는 허용(사양서 화면 구성 3)
   const toggleDisabled = !canEdit || (locked && !d.enabled);
+  const hasSavedId = !!d.meta_pixel_id;
+  const idInputOpen = canEdit && (!hasSavedId || _adTrackingEditing);   // 열린 입력칸 = 권한 있고(아이디 없음 또는 수정 중)
   const notice = _adTrackingNotice;
   _adTrackingNotice = '';
 
@@ -179,14 +182,19 @@ function renderAdTrackingPane(pane, d) {
         </div>
 
         <label class="form-label" for="adTrackingPixelId" style="display:block;font-size:13px;font-weight:700;margin-bottom:6px">메타 픽셀 아이디</label>
+        <!-- 저장된 아이디가 있으면 입력칸을 잠그고 「수정」으로 연다 — 실수로 글자가 바뀐 채 저장되는 것을 막는다(2026-09-18 사용자 요청).
+             아이디가 없으면 바로 입력할 수 있다. 저장·취소가 끝나면 다시 잠긴다(다시 그리면서 _adTrackingEditing 이 false 로). -->
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input id="adTrackingPixelId" class="form-input" inputmode="numeric" autocomplete="off" maxlength="32"
                  placeholder="숫자만 (예: 1234567890123456)" value="${esc(d.meta_pixel_id || '')}"
-                 style="width:280px" ${canEdit ? '' : 'disabled'}
+                 style="width:280px" ${idInputOpen ? '' : 'disabled'}
                  onkeydown="if(event.key==='Enter'){saveAdTrackingPixelId()}">
-          <button class="btn btn-primary btn-sm" onclick="saveAdTrackingPixelId()" ${canEdit ? '' : 'disabled'}>저장</button>
+          ${idInputOpen
+            ? `<button class="btn btn-primary btn-sm" onclick="saveAdTrackingPixelId()">저장</button>` +
+              (hasSavedId ? `<button class="btn btn-ghost btn-sm" onclick="cancelAdTrackingPixelIdEdit()">취소</button>` : '')
+            : `<button class="btn btn-ghost btn-sm" onclick="editAdTrackingPixelId()" ${canEdit ? '' : 'disabled'}>수정</button>`}
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">비워서 저장하면 아이디가 지워집니다.</div>
+        ${idInputOpen ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">비워서 저장하면 아이디가 지워집니다.</div>' : ''}
 
         ${lockLine}
         ${noPermLine}
@@ -251,15 +259,32 @@ async function _adTrackingSave(pixelId, enabled, successToast, noticeKey) {
     const res = await updateMetaPixelSettings(pixelId, enabled);
     if (!res.ok) {
       toast(AD_TRACKING_ERROR_TEXT[res.error_code] || AD_TRACKING_ERROR_TEXT.request_failed, 'error');
+      // 아이디 저장이 거부된 경우(형식 오류 등)는 입력칸을 열어 둔 채 다시 그린다 — 닫으면 고치던 값이 사라진다
       await refreshPane('ad-tracking');   // 서버 값 기준으로 스위치 모양을 되돌린다
       return;
     }
     toast(successToast, 'success');
     _adTrackingNotice = AD_TRACKING_NOTICE[noticeKey] || '';
+    _adTrackingEditing = false;          // 저장이 끝나면 입력칸을 다시 잠근다
     await refreshPane('ad-tracking');
   } finally {
     _adTrackingBusy = false;
   }
+}
+
+// 「수정」 — 잠긴 입력칸을 연다. 다시 그리면 입력칸이 열리고 초점이 간다
+async function editAdTrackingPixelId() {
+  if (typeof canWrite === 'function' && !canWrite('ad_tracking.manage')) { toast(AD_TRACKING_ERROR_TEXT.forbidden, 'error'); return; }
+  _adTrackingEditing = true;
+  await refreshPane('ad-tracking');
+  const input = document.getElementById('adTrackingPixelId');
+  if (input) { input.focus(); input.select(); }
+}
+
+// 「취소」 — 고치던 값을 버리고 저장된 아이디로 되돌린 채 잠근다
+async function cancelAdTrackingPixelIdEdit() {
+  _adTrackingEditing = false;
+  await refreshPane('ad-tracking');
 }
 
 async function saveAdTrackingPixelId() {
@@ -267,9 +292,10 @@ async function saveAdTrackingPixelId() {
   if (!d) return;
   if (typeof canWrite === 'function' && !canWrite('ad_tracking.manage')) { toast(AD_TRACKING_ERROR_TEXT.forbidden, 'error'); return; }
   const input = document.getElementById('adTrackingPixelId');
-  const value = input ? input.value.trim() : '';
+  if (!input || input.disabled) return;   // 잠긴 상태에서는 저장하지 않는다(「수정」으로 먼저 연다)
+  const value = input.value.trim();
   if (value && !/^[0-9]{1,32}$/.test(value)) { toast(AD_TRACKING_ERROR_TEXT.invalid_pixel_id, 'error'); return; }
-  if (value === (d.meta_pixel_id || '')) { toast('바뀐 내용이 없습니다.'); return; }
+  if (value === (d.meta_pixel_id || '')) { toast('바뀐 내용이 없습니다.'); await cancelAdTrackingPixelIdEdit(); return; }
   // 켜기 상태는 그대로 두고 아이디만 바꾼다
   // 꺼져 있으면 아이디를 저장해도 전송은 안 되므로 「이 아이디로 전송」이라고 적지 않는다
   const noticeKey = !value ? (d.meta_pixel_id ? 'idCleared' : 'idMissing') : (d.enabled ? 'id' : 'off');
