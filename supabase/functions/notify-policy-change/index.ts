@@ -8,6 +8,7 @@
 //      - policy_notice_sent 에 status='sent' 선점 INSERT (ON CONFLICT 23505 → already_sent skip)
 //      - 선점 성공 시 Brevo 발송, 실패 시 status='failed' UPDATE
 //      - 이메일 없으면 status='skipped'(no_email)
+//      - 탈퇴 확정 회원(자리표시 주소 `…@deleted.reverbjp.invalid`)이면 status='skipped'(withdrawn) — 반송될 주소라 안 보낸다
 //   5. hasMore 면 자기재호출(fire-and-forget, source='chained')
 //   6. 마지막 배치에서 policy_notice_runs status/count finalize
 //
@@ -242,6 +243,15 @@ function escapeHtml(v: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
+// 탈퇴가 확정된 회원의 자리표시 주소 — 확정되는 순간 파기 함수(마이그레이션 352·396)가
+//   `withdrawn+<회원id>@deleted.reverbjp.invalid` 로 바꾼다. 행은 안 지워져(정산 감사 기록이 붙든다)
+//   회원 전건 조회에 그대로 나오는데, 실재하지 않는 주소라 보내면 반송된다.
+//   🔴 「진행 중」(신청만 한 회원)은 여기 안 걸린다 — 아직 회원이고 통지를 받아야 한다. 걸리는 것은 확정뿐이다.
+const WITHDRAWN_EMAIL_DOMAIN = "@deleted.reverbjp.invalid";
+function isWithdrawnPlaceholder(email: string): boolean {
+  return email.trim().toLowerCase().endsWith(WITHDRAWN_EMAIL_DOMAIN);
+}
+
 function buildMail(effectiveDate: string): { subject: string; html: string; text: string } {
   const tpl = loadTemplate("policy-change-notice");
   // 지금 템플릿에는 {{effective_date}} 자리가 없다(날짜를 글자로 박았다) — 치환은 다음 통지가 다시 쓸 수 있게 남겨 둔다.
@@ -466,6 +476,14 @@ Deno.serve(async (req) => {
         await sb.from("policy_notice_sent").insert({
           influencer_id: id, notice_key: noticeKey, status: "skipped", skip_reason: "no_email",
         }); // 충돌(이미 처리)은 무시
+        skipped++;
+        continue;
+      }
+      if (isWithdrawnPlaceholder(email)) {
+        // 탈퇴 확정 회원 — 보내지 않고 건너뛴 기록만 남긴다(재호출이 다시 집지 않게). 충돌(이미 처리)은 무시
+        await sb.from("policy_notice_sent").insert({
+          influencer_id: id, notice_key: noticeKey, status: "skipped", skip_reason: "withdrawn",
+        });
         skipped++;
         continue;
       }
