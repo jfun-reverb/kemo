@@ -272,10 +272,12 @@ function _reportChannelCellHtml(url, kind, who) {
   return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
 
-function _reportRowHtml(r) {
+// cols = reportColumnsFor(rows) 가 계산한 열 목록(report-rows.js). 머리글·몸통·엑셀이 **같은 목록**을 돈다 —
+//   한쪽만 REPORT_COLS(고정 17칸)를 돌면 머리글과 몸통의 칸이 어긋난다.
+function _reportRowHtml(r, cols) {
   // 확대 창 제목 머리말 — 주문번호가 있으면 그것, 없으면 이름(외부 행은 계정)으로 사람을 지목한다
   const whoBase = r.order_no ? ('주문번호 ' + r.order_no) : (r.name_kanji || r.account_id || ('No.' + r.no));
-  const cells = REPORT_COLS.map(function(c) {
+  const cells = (cols || REPORT_COLS).map(function(c) {
     if (c.key === 'receipt_url') {
       // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
       if (!r.receipt_url) return '<td></td>';
@@ -286,13 +288,25 @@ function _reportRowHtml(r) {
         ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
         : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
     }
-    if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind, whoBase + ' · 큐텐 결과물')}</td>`;
-    if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind, whoBase + ' · 엣코스메 결과물')}</td>`;
+    // 채널 결과물 칸 — 대장의 어느 채널이든(기타 포함) 같은 방식. 종류(사진·게시물)는 `ch_{코드}_kind` 에 있다.
+    if (c.ch && /_url$/.test(c.key)) {
+      const more = (c.ch === 'etc' && r.ch_etc_more > 0) ? ` <span style="color:var(--muted);font-size:11px">외 ${r.ch_etc_more}건</span>` : '';
+      return `<td style="white-space:nowrap">${_reportChannelCellHtml(r[c.key], r['ch_' + c.ch + '_kind'], whoBase + ' · ' + c.label.replace(/\s*\(URL\)$/, ''))}${more}</td>`;
+    }
+    // SNS 계정 칸 — 글자는 「@아이디」, 누르면 그 계정이 새 탭으로. 회원 조회 실패면 「?」(주소가 아니라 링크를 안 건다).
+    if (c.acct) {
+      const au = r[c.key] || '', at = r[c.key + '_text'] || au;
+      if (!au) return '<td></td>';
+      return /^https?:\/\//i.test(au)
+        ? `<td style="white-space:nowrap"><a href="${esc(au)}" target="_blank" rel="noopener">${esc(at)}</a></td>`
+        : `<td style="white-space:nowrap">${esc(at)}</td>`;
+    }
     if (c.key === 'amount') {
       // ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다 — 안 하면 「¥0」으로 그려진다.
       return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
     }
-    if (c.key === 'receipt_uploaded_at' || c.key === 'ch_qoo10_at' || c.key === 'ch_cosme_at') {
+    // 날짜 칸 — 열쇠가 `_at` 로 끝나는가로 본다(공유 화면과 같다). 이름을 나열하면 채널이 늘 때마다 빠뜨린다.
+    if (/_at$/.test(c.key)) {
       return `<td style="font-size:11px;white-space:nowrap">${esc(formatDateTime(r[c.key]))}</td>`;
     }
     return `<td${c.wrap ? '' : ' style="white-space:nowrap"'}>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
@@ -343,9 +357,14 @@ async function openReport(reportId) {
   const maskedN = extStd.filter(function(r){ return /\*\*/.test(r.account_id || ''); }).length;
   const deletedCount = camps.filter(function(c){ return !c._exists; }).length;
   const purchaseN = rows.filter(function(r){ return r.receipt_url; }).length;
-  const reviewN   = rows.filter(function(r){ return r.ch_qoo10_url || r.ch_cosme_url; }).length;
+  // 「결과물 N」 — 결과물 칸(대장의 모든 채널 + 기타) 중 하나라도 주소가 있는 줄. 공유 화면 요약과 같은 함수.
+  const resultN   = rows.filter(reportRowHasResult).length;
+  // 열 목록은 행에서 계산한다 — 「쓰일 때만」 생기는 채널 열·기타 열이 여기서 정해진다(report-rows.js).
+  const cols = reportColumnsFor(rows);
+  // 표 최소 폭 = 「구분」 50 + 열 너비의 합. 숫자로 박아 두면 열이 늘 때 눌린다.
+  const tableMinW = 50 + cols.reduce(function(a, c){ return a + (parseInt(c.w, 10) || 0); }, 0);
 
-  _openReport = {id: reportId, title: rep.title, rows: rows, reverbQueriedAt: reverbQueriedAt};
+  _openReport = {id: reportId, title: rep.title, rows: rows, cols: cols, reverbQueriedAt: reverbQueriedAt};
 
   pane.innerHTML = `
     <div class="admin-card">
@@ -378,7 +397,7 @@ async function openReport(reportId) {
       </div>
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
-        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 결과물 ${resultN}
         <a href="javascript:void(0)" onclick="openReportComposeModal('${esc(reportId)}')" style="margin-left:8px;font-size:12px">구성 보기·설정</a>
         ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
         ${extFailed ? '<div style="color:var(--pink);font-size:12px">⚠️ 외부 참가자 행을 불러오지 못했습니다 — 표에 외부 행이 빠져 있습니다.</div>' : ''}
@@ -386,13 +405,14 @@ async function openReport(reportId) {
       </div>
 
       <div class="admin-table-wrap" style="overflow-x:auto">
-        <table class="data-table" style="min-width:2400px">
+        <table class="data-table" style="min-width:${tableMinW}px">
           <thead><tr>
             <th style="width:50px;text-align:center">구분</th>
-            ${REPORT_COLS.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
+            ${cols.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
           </tr></thead>
           <tbody>
-            ${rows.length ? rows.map(_reportRowHtml).join('')
+            <!-- ⚠️ 빈 상태 colspan 18 은 그대로 맞다 — 행이 0이면 「쓰일 때만」 열이 생길 재료가 없어 열은 늘 17칸(+구분)이다. -->
+            ${rows.length ? rows.map(function(r){ return _reportRowHtml(r, cols); }).join('')
               : `<tr><td colspan="18" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
           </tbody>
         </table>
@@ -410,9 +430,10 @@ async function openReport(reportId) {
 
 async function exportReportExcel(reportId) {
   // 화면에서 이미 조회한 것을 그대로 쓴다 — 다시 조회하면 화면과 다른 숫자가 나올 수 있다.
-  let rows, title;
+  let rows, title, cols;
   if (_openReport && _openReport.id === reportId) {
     rows = _openReport.rows; title = _openReport.title;
+    cols = _openReport.cols || reportColumnsFor(rows);      // 화면과 **같은 열**
   } else {
     if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
     return;
@@ -421,13 +442,13 @@ async function exportReportExcel(reportId) {
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('리포트');
-    ws.columns = REPORT_COLS.map(function(c) {
+    ws.columns = cols.map(function(c) {
       return {header: c.label, key: c.key, width: Math.max(10, Math.round(parseInt(c.w, 10) / 8))};
     });
     ws.getRow(1).font = {bold: true};
     rows.forEach(function(r) {
       const o = {};
-      REPORT_COLS.forEach(function(c) {
+      cols.forEach(function(c) {
         // ⚠️ 구매금액은 숫자로 넣는다(엑셀에서 합계를 낼 수 있게). 빈 값은 빈칸.
         if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
         else { o[c.key] = (r[c.key] === null || r[c.key] === undefined) ? '' : r[c.key]; }
@@ -904,7 +925,14 @@ async function _reportComposeRefresh(reportId) {
 
 // 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID 는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다).
 //   영수증 주소는 2026-09-04 사용자 결정으로 열었다(마이그레이션 414 + 방침 §3.1).
-const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id'; });
+//   ⚠️ 2026-09-17 부터 **상수가 아니다** — 「쓰일 때만」 생기는 채널 열이 있어 창을 열 때 그 리포트의 행으로 계산한다.
+//      창은 리포트 화면에서만 열리므로 열려 있는 리포트의 행(`_openReport.rows`)을 쓴다.
+function _reportShareSelectable(reportId) {
+  const rows = (_openReport && _openReport.id === reportId) ? _openReport.rows : [];
+  return reportColumnsFor(rows).filter(function(c){ return c.key !== 'account_id'; });
+}
+// 창을 그릴 때 읽은 저장 배열 — 저장할 때 창에 안 나온 `-열쇠` 를 보존하는 재료(report-rows.js `reportShareColsToSave`).
+let _reportShareSaved = null;
 
 function _reportShareUrl(token) {
   return location.origin + '/report.html?t=' + token;
@@ -936,6 +964,7 @@ async function _reportShareRefresh(reportId) {
   const rep = await fetchCampaignReport(reportId);
   const expired = st.expires_at && new Date(st.expires_at) < new Date();
   const cols = Array.isArray(st.columns) ? st.columns : null;      // null = 기본(값 없는 열 제외)
+  _reportShareSaved = cols;
   const evKo = {view:'브랜드 열람', pw_reveal:'비밀번호 보기', link_on:'링크 켬', link_off:'링크 끔', pw_reset:'비밀번호 다시 정함'};
 
   if (!st.enabled) {
@@ -970,10 +999,8 @@ async function _reportShareRefresh(reportId) {
       <div style="display:flex;gap:6px"><input type="date" class="form-input" id="reportShareExp" value="${_reportDateInput(st.expires_at)}" style="flex:1">
         <button class="btn btn-ghost btn-xs" onclick="submitShareSettings('${esc(reportId)}')">저장</button></div></div>
     <div class="form-group"><label class="form-label">브랜드에게 보여줄 열</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
-        ${REPORT_SHARE_SELECTABLE.map(function(c){ const on = cols ? cols.indexOf(c.key) !== -1 : true; return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${c.key}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.label)}</label>`; }).join('')}
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
+      ${_reportShareColGroupsHtml(reportId, cols)}
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID(로그인 이메일)는 어떤 설정이어도 보내지 않습니다. 값이 하나도 없는 열은 켜져 있어도 브랜드 화면에 나오지 않습니다.</div></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="submitDisableShare('${esc(reportId)}')">링크 끄기</button>
     </div>
@@ -998,10 +1025,32 @@ async function submitDisableShare(reportId) {
   try { await disableReportShare(reportId); toast('링크를 껐습니다'); await _reportShareRefresh(reportId); }
   catch (e) { toast('끄지 못했습니다 — ' + ((e && e.message) || e)); }
 }
+// 열 고르기 — 채널별로 묶어 그린다. 날짜 항목은 창에서만 앞말을 붙인다(pick — 「업로드 날짜」가 여럿이라 어느 날짜인지 모른다).
+//   🔴 체크 상태는 **「꺼져 있는가」(`reportShareColOff`)만** 본다. 「그릴 것인가」를 쓰면 값 없는 옛 열이
+//      꺼진 것으로 그려지고, 그대로 저장하면 「끈 적 없는데 꺼진 열」로 굳는다.
+function _reportShareColGroupsHtml(reportId, saved) {
+  const list = _reportShareSelectable(reportId);
+  const order = [], byGrp = {};
+  list.forEach(function(c){ const g = c.grp || '기본'; if (!byGrp[g]) { byGrp[g] = []; order.push(g); } byGrp[g].push(c); });
+  return order.map(function(g, gi) {
+    // 묶음 사이에 구분선 — 첫 묶음 위에는 안 넣는다(제목 바로 아래라 줄이 겹쳐 보인다). 2026-09-18 사용자 요청
+    const sep = gi === 0 ? 'margin-top:8px' : 'margin-top:10px;padding-top:10px;border-top:1px solid var(--line)';
+    return `<div style="${sep}"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">${esc(g)}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
+        ${byGrp[g].map(function(c){ const on = !reportShareColOff(c.key, saved); return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${esc(c.key)}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.pick || c.label)}</label>`; }).join('')}
+      </div></div>`;
+  }).join('');
+}
+
 async function submitShareSettings(reportId) {
   const exp = document.getElementById('reportShareExp');
-  const cols = [...document.querySelectorAll('.reportShareCol:checked')].map(function(i){ return i.value; });
-  try { await updateReportShareSettings(reportId, _reportDateToIso(exp && exp.value), cols); toast('저장했습니다'); }
+  // 저장 형식은 report-rows.js 한 곳 — 옛 열쇠는 켠 것을 `열쇠` 로, 새 열쇠는 끈 것만 `-열쇠` 로,
+  //   창에 안 나온 `-열쇠` 는 보존. 🔴 만료일 「저장」만 눌러도 이 함수가 돈다(목록이 그 순간 굳는다).
+  const boxes = [...document.querySelectorAll('.reportShareCol')];
+  const shown = boxes.map(function(i){ return i.value; });
+  const checked = boxes.filter(function(i){ return i.checked; }).map(function(i){ return i.value; });
+  const cols = reportShareColsToSave(shown, checked, _reportShareSaved);
+  try { await updateReportShareSettings(reportId, _reportDateToIso(exp && exp.value), cols); _reportShareSaved = cols; toast('저장했습니다'); }
   catch (e) { toast('저장하지 못했습니다 — ' + ((e && e.message) || e)); }
 }
 async function revealSharePw(reportId) {

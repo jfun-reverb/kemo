@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789689035';
+  var CURRENT_BUILD = 'v1789689772';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-18 08:50 · 62c0bf5</span>
+          <span class="admin-build-text">2026-09-18 09:02 · 5a421e9</span>
         </div>
       </div>
     </aside>
@@ -12305,6 +12305,8 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17). 공유 화면 쪽 짝은
+//    get_report_share_data(449) — 채널 코드 ↔ 이 네 칸의 짝이 두 곳에 있다.
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -12313,7 +12315,7 @@ async function fetchInfluencersForReport(userIds) {
   try {
     for (let i = 0; i < ids.length; i += 200) {
       const {data, error} = await db.from('influencers_admin_view')
-        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
         .in('id', ids.slice(i, i + 200));
       if (error) throw error;
       (data || []).forEach(function(r) { map[r.id] = r; });
@@ -34674,19 +34676,10 @@ function _excelInfluencerNameParts(u) {
   };
 }
 
-// SNS 핸들 → 전체 URL 변환 (각 SNS 공식 URL 형식 유지). TikTok/YouTube 는 @ 필수
-function _excelSnsUrl(channel, raw) {
-  if (!raw) return '';
-  var handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : String(raw).replace(/^@/, '').trim();
-  if (!handle) return '';
-  switch (channel) {
-    case 'instagram': return 'https://www.instagram.com/' + handle + '/';
-    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
-    case 'x':         return 'https://x.com/' + handle;
-    case 'youtube':   return 'https://www.youtube.com/@' + handle;
-    default: return handle;
-  }
-}
+// ⚠️ `_excelSnsUrl`(SNS 핸들 → 전체 URL)은 2026-09-17 에 `report-rows.js` 로 옮겼다 — 리포트의 계정 칸이
+//    브랜드 공유 화면에서도 같은 함수를 써야 하는데 그 화면에는 이 파일이 없다. 이름·쓰는 법은 그대로다.
+//    🔴 여기에 같은 이름의 함수를 **다시 만들지 말 것** — 빌드가 한 덩어리로 이어 붙여, 둘 다 있으면
+//       뒤의 것(`report-rows.js`)이 오류 없이 이긴다.
 
 // 우편번호 (별도 컬럼용). 〒 prefix 제거, 하이픈 유지
 function _excelZip(u) {
@@ -47209,6 +47202,8 @@ function campLeaveCancel() {
 //   🔴 여기 판정을 고치면 두 화면이 함께 바뀐다 — 그게 이 파일이 따로 있는 이유다.
 //   ⚠️ 이 파일은 esc()·toast() 같은 화면 헬퍼를 쓰지 않는다(공유 화면에는 그것들이 없다).
 //   ⚠️ 인증 상태 판정 3함수는 admin-excel.js 에서 옮겨 온 것이다(2026-09-04). 이름 그대로.
+//   ⚠️ 계정 주소 함수 `_excelSnsUrl` 도 같은 이유로 옮겨 왔다(2026-09-17). 이름·`function` 선언 형태 그대로 —
+//      빌드가 한 덩어리로 이어 붙여 선언이 끌어올려지므로 앞 파일(admin-excel.js)에서 불러도 된다.
 // ══════════════════════════════════════════════════════════════
 
 // monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
@@ -47289,23 +47284,25 @@ function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurch
 // 17칸 머리글 — 사양서 16칸에 「캠페인 번호」를 더했다(2026-09-04 사용자 결정: 「ID」 자리는 캠페인 번호, 계정 ID 는 업로드 날짜 옆)
 const REPORT_COLS = [
   // w = 열 너비, wrap = 줄바꿈 허용(캠페인명만). 나머지는 nowrap — 날짜·번호·상태가 두 줄로 접히면 표가 읽기 어렵다(2026-09-04 사용자 요청).
-  {key:'no',                  label:'No.',              w:'46px'},
-  {key:'campaign_no',         label:'캠페인 번호',       w:'110px'},
-  {key:'campaign_name',       label:'캠페인명',          w:'260px', wrap:true},
-  {key:'purchase_period',     label:'구매기간',          w:'185px'},
-  {key:'status',              label:'상태',             w:'100px'},
-  {key:'order_no',            label:'주문 번호',         w:'130px'},
-  {key:'purchase_date',       label:'구매일',            w:'96px'},
-  {key:'amount',              label:'구매금액',          w:'100px'},
-  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px'},
-  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px'},
-  {key:'account_id',          label:'계정 ID',           w:'210px'},
-  {key:'name_kanji',          label:'이름 (한자)',        w:'120px'},
-  {key:'name_kana',           label:'이름 (일본어)',      w:'130px'},
-  {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px'},
-  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px'},
-  {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px'},
-  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'130px'},
+  // grp  = 열 고르기 창에서 묶는 이름. pick = 그 창에서만 쓰는 이름(「업로드 날짜」가 여럿이라 앞말을 붙인다).
+  //   ⚠️ 표 머리글·엑셀 머리글은 label 그대로다 — pick 은 창 전용.
+  {key:'no',                  label:'No.',              w:'46px',  grp:'기본'},
+  {key:'campaign_no',         label:'캠페인 번호',       w:'110px', grp:'기본'},
+  {key:'campaign_name',       label:'캠페인명',          w:'260px', grp:'기본', wrap:true},
+  {key:'purchase_period',     label:'구매기간',          w:'185px', grp:'기본'},
+  {key:'status',              label:'상태',             w:'100px', grp:'기본'},
+  {key:'order_no',            label:'주문 번호',         w:'130px', grp:'구매·영수증'},
+  {key:'purchase_date',       label:'구매일',            w:'96px',  grp:'구매·영수증'},
+  {key:'amount',              label:'구매금액',          w:'100px', grp:'구매·영수증'},
+  {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px', grp:'구매·영수증'},
+  {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px', grp:'구매·영수증', pick:'영수증 업로드 날짜'},
+  {key:'account_id',          label:'계정 ID',           w:'210px', grp:'기본'},
+  {key:'name_kanji',          label:'이름 (한자)',        w:'120px', grp:'기본'},
+  {key:'name_kana',           label:'이름 (일본어)',      w:'130px', grp:'기본'},
+  {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px', grp:'큐텐',     ch:'qoo10'},
+  {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px', grp:'큐텐',     ch:'qoo10', pick:'큐텐 업로드 날짜'},
+  {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px', grp:'엣코스메', ch:'cosme'},
+  {key:'ch_cosme_at',         label:'업로드 날짜',        w:'130px', grp:'엣코스메', ch:'cosme', pick:'엣코스메 업로드 날짜'},
 ];
 
 // ══════════════════════════════════════════════════════════════
@@ -47317,14 +47314,172 @@ const REPORT_COLS = [
 //   구분 값: 'B' = REVERB / 'A-1'·'A-2' = 외부(작업 16에서 채운다)
 // ══════════════════════════════════════════════════════════════
 
-// 13·15번 칸이 쓰는 채널 코드.
-//   ⚠️ 기준 데이터(lookup_values)의 code 를 그대로 쓴다 — 마이그레이션 157 이 심은 값.
+// ── 채널 대장 — 리포트가 아는 채널은 **여기 한 곳**이다 (2026-09-17) ──
+//   열 만들기·칸 채우기·열 고르기 창·두 엑셀이 전부 이것만 본다.
+//   always = 늘 있는 열(지금의 17칸에 든 큐텐·엣코스메) / false = 「쓰일 때만」 생기는 열
+//   acct   = 계정 열이 있으면 회원 표(`influencers`)의 칸 이름, 없으면 null
+//   ⚠️ code 는 기준 데이터(lookup_values)의 code 와 **글자 그대로** 같아야 한다 — 마이그레이션 157 이 심은 값.
 //   🔴 이 값을 바꾸면 기준 데이터·캠페인(`campaigns.channel`)·이미 낸 결과물
 //      (`deliverables.post_channel`) **세 곳을 함께** 옮겨야 한다. 하나만 바꾸면
 //      문자열 비교가 깨져 결과물이 화면·인증·정산 세 곳에서 동시에 사라진다
 //      (2026-07-30 @cosme 사고 — 승인된 인증샷 55건이 두 달간 안 보였다).
-const REPORT_CH_QOO10 = 'qoo10';
-const REPORT_CH_COSME = 'cosme';
+//   🔴 **사본이 하나 더 있다** — acct 가 있는 네 채널의 「코드 ↔ 회원 표의 칸」 짝은 공유용 서버 함수
+//      `get_report_share_data`(마이그레이션 449) 안에도 적혀 있다. 계정 열이 있는 채널을 더하는 날은 **두 곳을 함께**.
+//   ⚠️ 기준 데이터에 채널을 더하면 여기도 한 줄 더한다. 빠뜨려도 결과물은 「기타 결과물」 칸으로 가므로 사라지지는 않는다.
+//   ⚠️ 상수로 두는 이유 — 공유 화면은 로그인이 없고 기준 데이터를 읽지 않는다.
+const REPORT_CHANNELS = [
+  {code:'qoo10',     label:'큐텐',       always:true,  acct:null},
+  {code:'cosme',     label:'엣코스메',    always:true,  acct:null},
+  {code:'lips',      label:'LIPS',      always:false, acct:null},
+  {code:'instagram', label:'인스타그램',  always:false, acct:'ig'},
+  {code:'tiktok',    label:'틱톡',       always:false, acct:'tiktok'},
+  {code:'x',         label:'X',         always:false, acct:'x'},
+  {code:'youtube',   label:'유튜브',      always:false, acct:'youtube'},
+];
+
+// 옛 열쇠 — 2026-09-17 이전부터 열 고르기 창에 있던 16개(17칸에서 계정 ID 제외).
+//   저장된 열 목록(`share_columns`)에서 이 열쇠들은 「목록에 **없으면** 관리자가 끈 것」이다.
+//   🔴 **이 목록에는 앞으로 아무것도 더하지 않는다.** 그 뜻은 「그 열이 창에 늘 나와 있을 때」만 성립한다 —
+//      나중에 생긴 열을 여기 넣으면, 그 열이 없던 시절에 저장된 목록에서 전부 「끈 열」로 읽힌다.
+//   ⚠️ REPORT_COLS 에서 계산하지 않고 글자로 적어 둔 이유도 같다(REPORT_COLS 가 늘어도 이 목록은 안 늘어야 한다).
+const REPORT_SHARE_LEGACY_KEYS = [
+  'no', 'campaign_no', 'campaign_name', 'purchase_period', 'status',
+  'order_no', 'purchase_date', 'amount', 'receipt_url', 'receipt_uploaded_at',
+  'name_kanji', 'name_kana',
+  'ch_qoo10_url', 'ch_qoo10_at', 'ch_cosme_url', 'ch_cosme_at',
+];
+
+// 값이 있는가 — 빈 문자열·null·undefined 만 「없음」이다(0 은 값이다).
+function _reportHasVal(v) { return v !== '' && v !== null && v !== undefined; }
+
+// 열 목록 — **행을 받아 계산한다.** 관리자 화면·공유 화면·두 엑셀·열 고르기 창이 같은 함수를 부른다.
+//   · 지금의 17칸(REPORT_COLS)은 그대로, 늘 있다.
+//   · 「쓰일 때만」 채널은 둘 중 하나면 열이 생긴다 —
+//       「요구」 어느 줄이든 그 줄의 모집 건이 그 채널을 요구한다(`_channels`)
+//       「값」   어느 줄이든 그 채널 칸에 주소나 날짜가 있다
+//   · 계정 열은 그 채널 열이 생겼고 대장에 acct 가 있을 때 함께. 한 채널의 차례는 계정 → 결과물 → 날짜.
+//   · 「기타 결과물」 두 칸은 「값」일 때만, 맨 끝.
+//   ⚠️ 판정 재료는 **행뿐**이다 — 그래서 두 화면이 같은 입력으로 같은 열을 만든다.
+function reportColumnsFor(rows) {
+  rows = rows || [];
+  const cols = REPORT_COLS.slice();
+  REPORT_CHANNELS.forEach(function(ch) {
+    if (ch.always) return;
+    const k = 'ch_' + ch.code;
+    const used = rows.some(function(r) {
+      return (r._channels && r._channels.indexOf(ch.code) !== -1) || _reportHasVal(r[k + '_url']) || _reportHasVal(r[k + '_at']);
+    });
+    if (!used) return;
+    if (ch.acct) cols.push({key: k + '_acct', label: ch.label + ' 계정', w:'150px', grp: ch.label, ch: ch.code, acct: true});
+    cols.push({key: k + '_url', label: ch.label + ' 결과물 (URL)', w:'150px', grp: ch.label, ch: ch.code});
+    cols.push({key: k + '_at',  label: '업로드 날짜', w:'130px', grp: ch.label, ch: ch.code, pick: ch.label + ' 업로드 날짜'});
+  });
+  if (rows.some(function(r){ return _reportHasVal(r.ch_etc_url) || _reportHasVal(r.ch_etc_at); })) {
+    cols.push({key:'ch_etc_url', label:'기타 결과물 (URL)', w:'170px', grp:'기타', ch:'etc'});
+    cols.push({key:'ch_etc_at',  label:'업로드 날짜',       w:'130px', grp:'기타', ch:'etc', pick:'기타 업로드 날짜'});
+  }
+  return cols;
+}
+
+// 결과물 칸(대장의 모든 채널 + 기타) 중 하나라도 주소가 있는 줄인가 — 요약의 「결과물 N」이 센다.
+//   ⚠️ 관리자 요약과 공유 화면 요약이 **같은 함수**를 쓴다(두 화면의 N 이 갈리지 않게).
+function reportRowHasResult(r) {
+  if (!r) return false;
+  if (_reportHasVal(r.ch_etc_url)) return true;
+  return REPORT_CHANNELS.some(function(ch){ return _reportHasVal(r['ch_' + ch.code + '_url']); });
+}
+
+// ── 공유 화면 열 고르기 — 판정은 이 **둘**이다 ──
+//   saved = 저장된 열 목록(`campaign_reports.share_columns`). 배열이 아니면(null) 「꺼진 것 없음」.
+//
+// ① 「꺼져 있는가」 — **열 고르기 창(체크 상태)과 공유 화면이 같이** 쓴다.
+//    두 벌이 되면 창에서 끈 것과 브랜드 화면에서 빠지는 것이 갈린다.
+//      옛 열쇠 : 배열이 있는데 `열쇠` 가 **없으면** 꺼짐 (종전 그대로)
+//      새 열쇠 : 배열에 `-열쇠` 가 **있으면** 꺼짐     (없으면 「아직 안 고른 것」 = 켜짐)
+//    🔴 뜻이 옛·새가 반대인 것이 핵심이다 — 하나로 합치면 「새 열이 브랜드에게 안 보인다」 또는
+//       「관리자가 끈 영수증 열이 되살아난다」 둘 중 하나가 난다.
+//    계정 ID(로그인 이메일)는 어떤 값이 저장돼 있어도 꺼짐이다.
+function reportShareColOff(key, saved) {
+  if (key === 'account_id') return true;
+  if (!Array.isArray(saved)) return false;
+  if (REPORT_SHARE_LEGACY_KEYS.indexOf(key) !== -1) return saved.indexOf(key) === -1;
+  return saved.indexOf('-' + key) !== -1;
+}
+
+// ② 「그릴 것인가」 = 꺼져 있지 않다 + 그 열에 값이 하나라도 있다 — **공유 화면과 브랜드용 엑셀이 같이** 쓴다.
+//    열마다 따로 본다(아무도 안 낸 채널은 결과물·날짜 없이 계정 열만 그려질 수 있다 — 의도).
+//    🔴 **열 고르기 창의 체크 상태에 이것을 쓰면 안 된다.** 값 없는 옛 열이 꺼진 것으로 그려지고,
+//       그대로 저장하면 그 열쇠가 배열에서 빠져 「끈 적 없는데 꺼진 열」로 굳는다.
+function reportShareColDraw(col, saved, rows) {
+  if (!col || reportShareColOff(col.key, saved)) return false;
+  return (rows || []).some(function(r){ return _reportHasVal(r[col.key]); });
+}
+
+// 저장할 배열 만들기 — 열 고르기 창이 부른다(형식이 ①과 한 세트라 여기 둔다).
+//   shownKeys   : 창에 나온 열쇠 전부(계정 ID 제외)
+//   checkedKeys : 그중 체크된 것
+//   prevSaved   : 지금 저장돼 있는 배열(없으면 null)
+//   · 옛 열쇠는 켠 것을 `열쇠` 로(종전 그대로) · 새 열쇠는 **끈 것만** `-열쇠` 로. 켠 새 열쇠는 적지 않는다.
+//   🔴 **창에 안 나온 새 열쇠의 `-열쇠` 는 그대로 보존한다.** 틱톡 계정을 꺼 둔 리포트에서 틱톡 모집 건을
+//      뺐다가 다시 넣어도 꺼진 채여야 한다. 창에 나온 것만으로 새로 만들면 그 기록이 사라진다.
+function reportShareColsToSave(shownKeys, checkedKeys, prevSaved) {
+  shownKeys = shownKeys || []; checkedKeys = checkedKeys || [];
+  const out = [];
+  REPORT_SHARE_LEGACY_KEYS.forEach(function(k){ if (checkedKeys.indexOf(k) !== -1) out.push(k); });
+  shownKeys.forEach(function(k) {
+    if (k === 'account_id' || REPORT_SHARE_LEGACY_KEYS.indexOf(k) !== -1) return;
+    if (checkedKeys.indexOf(k) === -1) out.push('-' + k);
+  });
+  (Array.isArray(prevSaved) ? prevSaved : []).forEach(function(v) {
+    if (typeof v !== 'string' || v.charAt(0) !== '-') return;
+    const k = v.slice(1);
+    if (REPORT_SHARE_LEGACY_KEYS.indexOf(k) !== -1) return;      // 옛 열쇠에 `-` 는 뜻이 없다
+    if (shownKeys.indexOf(k) !== -1) return;                     // 창에 나온 것은 위에서 정했다
+    if (out.indexOf(v) === -1) out.push(v);
+  });
+  return out;
+}
+
+// SNS 계정 → 전체 주소 (각 SNS 공식 주소 형식). TikTok/YouTube 는 @ 필수.
+//   ⚠️ admin-excel.js 에서 옮겨 왔다(2026-09-17) — 공유 화면에는 admin-excel.js 가 없다. 이름 그대로.
+//   🔴 **틀린 주소를 조립하지 않는다.**
+//      · `extractSnsHandle`(shared.js)이 있는 자리(관리자)는 그것으로 아이디를 뽑아 공식 주소를 만든다.
+//      · 없는 자리(공유 화면)에서 저장된 값이 주소 모양(`http` 로 시작, 앞의 `@` 는 떼고 본다)이면
+//        **그 주소 그대로** 돌려준다. 예전처럼 「@ 떼기」만 하면 `instagram.com/https://…` 가 된다.
+//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(`snsProfileUrl` 과 같은 판정).
+//        `/@UC…` 는 없는 주소다 — 관리자 엑셀에도 있던 결함이라 함께 고쳐진다.
+function _excelSnsUrl(channel, raw) {
+  if (!raw) return '';
+  var hasEx = (typeof extractSnsHandle === 'function');
+  var bare = String(raw).replace(/^@+/, '').trim();
+  if (!hasEx && /^https?:\/\//i.test(bare)) return bare;
+  var handle = hasEx ? extractSnsHandle(channel, raw) : bare;
+  if (!handle) return '';
+  if (/^https?:\/\//i.test(handle)) return handle;   // 아이디를 못 뽑은 주소(게시물 주소 등) — 조립하지 않는다
+  switch (channel) {
+    case 'instagram': return 'https://www.instagram.com/' + handle + '/';
+    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
+    case 'x':         return 'https://x.com/' + handle;
+    case 'youtube':   return /^UC[A-Za-z0-9_-]{20,}$/.test(handle) ? 'https://www.youtube.com/channel/' + handle
+                                                                   : 'https://www.youtube.com/@' + handle;
+    default: return handle;
+  }
+}
+
+// 계정 칸 — 주소(url)와 화면에 보이는 글자(text).
+//   text: 아이디 모양이면 「@아이디」. 주소 모양이면 아이디를 뽑을 수 있는 자리(관리자)는 「@아이디」,
+//         못 뽑는 자리(공유 화면)는 **주소 그대로**.
+function _reportAcctCell(channel, raw) {
+  var s = String(raw === null || raw === undefined ? '' : raw).trim();
+  if (!s) return {url: '', text: ''};
+  var bare = s.replace(/^@+/, '').trim();
+  var url = _excelSnsUrl(channel, s);
+  if (/^https?:\/\//i.test(bare)) {
+    var h = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, s) : '';
+    return (h && !/^https?:\/\//i.test(h)) ? {url: url, text: '@' + h} : {url: url || bare, text: bare};
+  }
+  return {url: url, text: '@' + bare};
+}
 
 // 결과물을 (캠페인 + 응모) 단위로 묶는다.
 //
@@ -47343,6 +47498,10 @@ function _reportGroupDeliverables(delivs) {
         key: key, campaign_id: d.campaign_id, application_id: d.application_id,
         user_id: d.user_id, campaign: d.campaigns || null,
         receipt: null, result: null, reviewByCh: {}, postByCh: {},
+        // 채널이 **빈** 게시물·인증샷을 담는 바구니(2026-09-17). 「기타 결과물」 칸이 쓴다.
+        //   🔴 인증 상태 판정이 보는 `result`·`reviewByCh`·`postByCh` 는 **내용을 바꾸지 않는다** —
+        //      이 바구니는 그 옆에 **더하는** 것이다. 판정이 바뀌면 안 된다.
+        etcNoCh: [],
       });
     }
     const g = groups.get(key);
@@ -47351,17 +47510,17 @@ function _reportGroupDeliverables(delivs) {
     if (d.kind === 'receipt') {
       if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image') {
-      // ⚠️ 채널 없는 옛 인증샷은 칸에 넣을 자리가 없어 건너뛴다(엑셀도 같다).
+      // ⚠️ 채널 없는 옛 인증샷은 채널 칸에 넣을 자리가 없다(엑셀도 같다) — 「기타 결과물」 바구니로 간다.
       if (d.post_channel) {
         const prev = g.reviewByCh[d.post_channel];
         if (!prev || subAt > (prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
-      }
+      } else { g.etcNoCh.push(d); }
     } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
       if (d.post_channel) {
         const prevP = g.postByCh[d.post_channel];
         if (!prevP || subAt > (prevP.submitted_at || '')) g.postByCh[d.post_channel] = d;
-      }
+      } else { g.etcNoCh.push(d); }
     }
   }
   return [...groups.values()];
@@ -47383,6 +47542,40 @@ function _reportChannelCell(g, channel) {
   // 주소는 없는데 행은 있는 경우 — 날짜만이라도 남긴다(빈 줄로 보이면 안 낸 것과 구분이 안 된다)
   const any = rv || po;
   return {url: '', at: any ? (any.submitted_at || '') : '', kind: rv ? 'photo' : (po ? 'post' : '')};
+}
+
+// 그 줄의 모집 건이 요구하는 채널 목록 — `campaigns.channel` 을 쉼표로 나눠 **앞뒤 공백만** 뗀다.
+//   ⚠️ 대소문자 변환 없음 — 서버 함수(449)·인증 판정과 같은 비교다.
+function _reportCampChannels(camp) {
+  return String((camp && camp.channel) || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean);
+}
+
+// 「기타 결과물」 칸 — 게시물·인증샷 가운데 **채널이 비었거나 대장에 없는 코드**인 것(「other」 포함).
+//   · 채널이 빈 것은 묶는 단계의 바구니(`etcNoCh`)에, 대장에 없는 코드는 `reviewByCh`·`postByCh` 에
+//     그 코드 이름으로 들어 있다 — 둘을 합쳐 본다.
+//   · 여러 건이면 **제출 시각이 가장 늦은 1건**, 나머지 건수는 `more`(화면이 「외 N건」으로 적는다).
+//   🔴 **요구 채널을 다 채운 줄은 비운다**(2026-09-17 사용자 결정) — 그 줄의 모집 건이 요구하는 채널이
+//      하나 이상 있고 그 채널의 결과물 칸이 **전부 주소를 갖고 있으면** 후보가 있어도 넣지 않는다(「외 N건」도).
+//      채널 코드를 옮기다 남은 옛 코드 행(같은 응모에 새 코드 행이 따로 있다)이 브랜드 표에 두 번 나오는 것을 막는다.
+//      `detect_channel_code_drift` 의 「올바른 채널에 행이 있으면 덮인 것」과 같은 생각 — 검수 상태는 안 본다.
+//      · 요구 채널 가운데 대장에 없는 코드가 있으면 그 채널은 **안 채워진 것**이다(→ 넣는다).
+//      · 요구 채널이 하나도 없는 모집 건은 늘 넣는다(그 결과물은 기타 칸이 유일한 자리다).
+//   filledByCode = 이 줄에서 방금 채운 채널 칸 {코드: 주소}
+function _reportEtcCell(g, campChannels, filledByCode) {
+  const known = {};
+  REPORT_CHANNELS.forEach(function(ch){ known[ch.code] = 1; });
+  const cand = (g.etcNoCh || []).slice();
+  [g.reviewByCh || {}, g.postByCh || {}].forEach(function(byCh) {
+    Object.keys(byCh).forEach(function(code){ if (!known[code] && byCh[code]) cand.push(byCh[code]); });
+  });
+  const empty = {url: '', at: '', kind: '', more: 0};
+  if (!cand.length) return empty;
+  const chs = campChannels || [];
+  if (chs.length > 0 && chs.every(function(code){ return known[code] && _reportHasVal((filledByCode || {})[code]); })) return empty;
+  cand.sort(function(a, b){ return (b.submitted_at || '').localeCompare(a.submitted_at || ''); });
+  const d = cand[0];
+  const isPhoto = d.kind === 'review_image';
+  return {url: (isPhoto ? d.receipt_url : d.post_url) || '', at: d.submitted_at || '', kind: isPhoto ? 'photo' : 'post', more: cand.length - 1};
 }
 
 // 캠페인의 구매 기간(4번 칸).
@@ -47448,10 +47641,27 @@ function buildReportRows(delivs, camps, usersById) {
     });
     const u = users[g.user_id] || null;
     const r = g.receipt;
-    const q = _reportChannelCell(g, REPORT_CH_QOO10);
-    const c = _reportChannelCell(g, REPORT_CH_COSME);
     const unknown = lookupFailed ? '?' : '';
-    return {
+    // 채널 칸 — 대장의 채널마다 `_reportChannelCell` 을 그대로 부른다(사진 우선, 없으면 게시물).
+    //   계정 칸은 **그 줄이 그 채널과 관계있을 때만** 채운다 — 모집 건이 그 채널을 요구하거나, 그 줄의 그 채널 칸에 값이 있을 때.
+    //   🔴 회원 단위로 채우면 큐텐 리뷰만 한 사람의 인스타그램 계정까지 브랜드에게 간다(혼합 리포트).
+    //   회원이 그 계정을 등록하지 않았으면 조건에 맞아도 빈칸. 회원 조회가 실패했으면 조건에 맞는 칸에 「?」(이름 칸과 같은 규칙).
+    const campChannels = _reportCampChannels(camp);
+    const chVals = {}, filled = {};
+    REPORT_CHANNELS.forEach(function(ch) {
+      const k = 'ch_' + ch.code;
+      const cell = _reportChannelCell(g, ch.code);
+      chVals[k + '_url'] = cell.url; chVals[k + '_kind'] = cell.kind; chVals[k + '_at'] = cell.at;
+      filled[ch.code] = cell.url;
+      if (!ch.acct) return;
+      const related = campChannels.indexOf(ch.code) !== -1 || _reportHasVal(cell.url) || _reportHasVal(cell.at);
+      let acct = {url: '', text: ''};
+      if (related) acct = u ? _reportAcctCell(ch.code, u[ch.acct]) : {url: unknown, text: unknown};
+      chVals[k + '_acct'] = acct.url;            // 엑셀에는 전체 주소(결과물 칸이 주소를 넣는 것과 같다)
+      chVals[k + '_acct_text'] = acct.text;      // 화면에 보이는 글자(표에 안 그리는 값 — 계정 칸이 쓴다)
+    });
+    const etc = _reportEtcCell(g, campChannels, filled);
+    return Object.assign({
       src: 'B',                                            // 구분 — REVERB
       no: i + 1,                                           // 1
       campaign_no: camp.campaign_no || '',                 // 2 (2026-09-04)
@@ -47467,11 +47677,12 @@ function buildReportRows(delivs, camps, usersById) {
       receipt_uploaded_at: r ? (r.submitted_at || '') : '',// 10
       name_kanji: u ? (u.name_kanji || u.name || '') : unknown, // 11
       name_kana: u ? (u.name_kana || '') : unknown,        // 12
-      ch_qoo10_url: q.url, ch_qoo10_kind: q.kind, ch_qoo10_at: q.at,   // 13·14
-      ch_cosme_url: c.url, ch_cosme_kind: c.kind, ch_cosme_at: c.at,   // 15·16
+      // 13~16(큐텐·엣코스메)과 그 밖의 채널 칸은 아래 chVals 가 채운다 — 열쇠 이름은 종전 그대로(`ch_qoo10_url` 등)
+      ch_etc_url: etc.url, ch_etc_kind: etc.kind, ch_etc_at: etc.at, ch_etc_more: etc.more,
       // 화면이 되짚어 볼 때 쓰는 값(표에는 안 그린다)
       _campaign_id: g.campaign_id, _application_id: g.application_id, _user_id: g.user_id,
-    };
+      _channels: campChannels,                             // 열 만들기(reportColumnsFor)의 「요구」 판정 재료
+    }, chVals);
   });
 }
 
@@ -47936,10 +48147,12 @@ function _reportChannelCellHtml(url, kind, who) {
   return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
 
-function _reportRowHtml(r) {
+// cols = reportColumnsFor(rows) 가 계산한 열 목록(report-rows.js). 머리글·몸통·엑셀이 **같은 목록**을 돈다 —
+//   한쪽만 REPORT_COLS(고정 17칸)를 돌면 머리글과 몸통의 칸이 어긋난다.
+function _reportRowHtml(r, cols) {
   // 확대 창 제목 머리말 — 주문번호가 있으면 그것, 없으면 이름(외부 행은 계정)으로 사람을 지목한다
   const whoBase = r.order_no ? ('주문번호 ' + r.order_no) : (r.name_kanji || r.account_id || ('No.' + r.no));
-  const cells = REPORT_COLS.map(function(c) {
+  const cells = (cols || REPORT_COLS).map(function(c) {
     if (c.key === 'receipt_url') {
       // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
       if (!r.receipt_url) return '<td></td>';
@@ -47950,13 +48163,25 @@ function _reportRowHtml(r) {
         ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
         : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
     }
-    if (c.key === 'ch_qoo10_url') return `<td>${_reportChannelCellHtml(r.ch_qoo10_url, r.ch_qoo10_kind, whoBase + ' · 큐텐 결과물')}</td>`;
-    if (c.key === 'ch_cosme_url') return `<td>${_reportChannelCellHtml(r.ch_cosme_url, r.ch_cosme_kind, whoBase + ' · 엣코스메 결과물')}</td>`;
+    // 채널 결과물 칸 — 대장의 어느 채널이든(기타 포함) 같은 방식. 종류(사진·게시물)는 `ch_{코드}_kind` 에 있다.
+    if (c.ch && /_url$/.test(c.key)) {
+      const more = (c.ch === 'etc' && r.ch_etc_more > 0) ? ` <span style="color:var(--muted);font-size:11px">외 ${r.ch_etc_more}건</span>` : '';
+      return `<td style="white-space:nowrap">${_reportChannelCellHtml(r[c.key], r['ch_' + c.ch + '_kind'], whoBase + ' · ' + c.label.replace(/\s*\(URL\)$/, ''))}${more}</td>`;
+    }
+    // SNS 계정 칸 — 글자는 「@아이디」, 누르면 그 계정이 새 탭으로. 회원 조회 실패면 「?」(주소가 아니라 링크를 안 건다).
+    if (c.acct) {
+      const au = r[c.key] || '', at = r[c.key + '_text'] || au;
+      if (!au) return '<td></td>';
+      return /^https?:\/\//i.test(au)
+        ? `<td style="white-space:nowrap"><a href="${esc(au)}" target="_blank" rel="noopener">${esc(at)}</a></td>`
+        : `<td style="white-space:nowrap">${esc(at)}</td>`;
+    }
     if (c.key === 'amount') {
       // ⚠️ Number(null) 이 0 이라 빈 값을 먼저 거른다 — 안 하면 「¥0」으로 그려진다.
       return `<td style="text-align:right">${r.amount === '' || r.amount === null || r.amount === undefined ? '' : '¥' + Number(r.amount).toLocaleString('ja-JP')}</td>`;
     }
-    if (c.key === 'receipt_uploaded_at' || c.key === 'ch_qoo10_at' || c.key === 'ch_cosme_at') {
+    // 날짜 칸 — 열쇠가 `_at` 로 끝나는가로 본다(공유 화면과 같다). 이름을 나열하면 채널이 늘 때마다 빠뜨린다.
+    if (/_at$/.test(c.key)) {
       return `<td style="font-size:11px;white-space:nowrap">${esc(formatDateTime(r[c.key]))}</td>`;
     }
     return `<td${c.wrap ? '' : ' style="white-space:nowrap"'}>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
@@ -48007,9 +48232,14 @@ async function openReport(reportId) {
   const maskedN = extStd.filter(function(r){ return /\*\*/.test(r.account_id || ''); }).length;
   const deletedCount = camps.filter(function(c){ return !c._exists; }).length;
   const purchaseN = rows.filter(function(r){ return r.receipt_url; }).length;
-  const reviewN   = rows.filter(function(r){ return r.ch_qoo10_url || r.ch_cosme_url; }).length;
+  // 「결과물 N」 — 결과물 칸(대장의 모든 채널 + 기타) 중 하나라도 주소가 있는 줄. 공유 화면 요약과 같은 함수.
+  const resultN   = rows.filter(reportRowHasResult).length;
+  // 열 목록은 행에서 계산한다 — 「쓰일 때만」 생기는 채널 열·기타 열이 여기서 정해진다(report-rows.js).
+  const cols = reportColumnsFor(rows);
+  // 표 최소 폭 = 「구분」 50 + 열 너비의 합. 숫자로 박아 두면 열이 늘 때 눌린다.
+  const tableMinW = 50 + cols.reduce(function(a, c){ return a + (parseInt(c.w, 10) || 0); }, 0);
 
-  _openReport = {id: reportId, title: rep.title, rows: rows, reverbQueriedAt: reverbQueriedAt};
+  _openReport = {id: reportId, title: rep.title, rows: rows, cols: cols, reverbQueriedAt: reverbQueriedAt};
 
   pane.innerHTML = `
     <div class="admin-card">
@@ -48042,7 +48272,7 @@ async function openReport(reportId) {
       </div>
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
-        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 리뷰 ${reviewN}
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 결과물 ${resultN}
         <a href="javascript:void(0)" onclick="openReportComposeModal('${esc(reportId)}')" style="margin-left:8px;font-size:12px">구성 보기·설정</a>
         ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
         ${extFailed ? '<div style="color:var(--pink);font-size:12px">⚠️ 외부 참가자 행을 불러오지 못했습니다 — 표에 외부 행이 빠져 있습니다.</div>' : ''}
@@ -48050,13 +48280,14 @@ async function openReport(reportId) {
       </div>
 
       <div class="admin-table-wrap" style="overflow-x:auto">
-        <table class="data-table" style="min-width:2400px">
+        <table class="data-table" style="min-width:${tableMinW}px">
           <thead><tr>
             <th style="width:50px;text-align:center">구분</th>
-            ${REPORT_COLS.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
+            ${cols.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
           </tr></thead>
           <tbody>
-            ${rows.length ? rows.map(_reportRowHtml).join('')
+            <!-- ⚠️ 빈 상태 colspan 18 은 그대로 맞다 — 행이 0이면 「쓰일 때만」 열이 생길 재료가 없어 열은 늘 17칸(+구분)이다. -->
+            ${rows.length ? rows.map(function(r){ return _reportRowHtml(r, cols); }).join('')
               : `<tr><td colspan="18" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
           </tbody>
         </table>
@@ -48074,9 +48305,10 @@ async function openReport(reportId) {
 
 async function exportReportExcel(reportId) {
   // 화면에서 이미 조회한 것을 그대로 쓴다 — 다시 조회하면 화면과 다른 숫자가 나올 수 있다.
-  let rows, title;
+  let rows, title, cols;
   if (_openReport && _openReport.id === reportId) {
     rows = _openReport.rows; title = _openReport.title;
+    cols = _openReport.cols || reportColumnsFor(rows);      // 화면과 **같은 열**
   } else {
     if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
     return;
@@ -48085,13 +48317,13 @@ async function exportReportExcel(reportId) {
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('리포트');
-    ws.columns = REPORT_COLS.map(function(c) {
+    ws.columns = cols.map(function(c) {
       return {header: c.label, key: c.key, width: Math.max(10, Math.round(parseInt(c.w, 10) / 8))};
     });
     ws.getRow(1).font = {bold: true};
     rows.forEach(function(r) {
       const o = {};
-      REPORT_COLS.forEach(function(c) {
+      cols.forEach(function(c) {
         // ⚠️ 구매금액은 숫자로 넣는다(엑셀에서 합계를 낼 수 있게). 빈 값은 빈칸.
         if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
         else { o[c.key] = (r[c.key] === null || r[c.key] === undefined) ? '' : r[c.key]; }
@@ -48568,7 +48800,14 @@ async function _reportComposeRefresh(reportId) {
 
 // 공유 화면에 내보낼 수 있는 열 — 🔴 계정 ID 는 목록에 **아예 없다**(서버가 어떤 값이어도 안 보낸다).
 //   영수증 주소는 2026-09-04 사용자 결정으로 열었다(마이그레이션 414 + 방침 §3.1).
-const REPORT_SHARE_SELECTABLE = REPORT_COLS.filter(function(c){ return c.key !== 'account_id'; });
+//   ⚠️ 2026-09-17 부터 **상수가 아니다** — 「쓰일 때만」 생기는 채널 열이 있어 창을 열 때 그 리포트의 행으로 계산한다.
+//      창은 리포트 화면에서만 열리므로 열려 있는 리포트의 행(`_openReport.rows`)을 쓴다.
+function _reportShareSelectable(reportId) {
+  const rows = (_openReport && _openReport.id === reportId) ? _openReport.rows : [];
+  return reportColumnsFor(rows).filter(function(c){ return c.key !== 'account_id'; });
+}
+// 창을 그릴 때 읽은 저장 배열 — 저장할 때 창에 안 나온 `-열쇠` 를 보존하는 재료(report-rows.js `reportShareColsToSave`).
+let _reportShareSaved = null;
 
 function _reportShareUrl(token) {
   return location.origin + '/report.html?t=' + token;
@@ -48600,6 +48839,7 @@ async function _reportShareRefresh(reportId) {
   const rep = await fetchCampaignReport(reportId);
   const expired = st.expires_at && new Date(st.expires_at) < new Date();
   const cols = Array.isArray(st.columns) ? st.columns : null;      // null = 기본(값 없는 열 제외)
+  _reportShareSaved = cols;
   const evKo = {view:'브랜드 열람', pw_reveal:'비밀번호 보기', link_on:'링크 켬', link_off:'링크 끔', pw_reset:'비밀번호 다시 정함'};
 
   if (!st.enabled) {
@@ -48634,10 +48874,8 @@ async function _reportShareRefresh(reportId) {
       <div style="display:flex;gap:6px"><input type="date" class="form-input" id="reportShareExp" value="${_reportDateInput(st.expires_at)}" style="flex:1">
         <button class="btn btn-ghost btn-xs" onclick="submitShareSettings('${esc(reportId)}')">저장</button></div></div>
     <div class="form-group"><label class="form-label">브랜드에게 보여줄 열</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
-        ${REPORT_SHARE_SELECTABLE.map(function(c){ const on = cols ? cols.indexOf(c.key) !== -1 : true; return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${c.key}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.label)}</label>`; }).join('')}
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID는 어떤 설정이어도 보내지 않습니다. ${cols ? '' : '(지금은 기본값 — 값이 하나도 없는 열은 자동으로 뺍니다)'}</div></div>
+      ${_reportShareColGroupsHtml(reportId, cols)}
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">계정 ID(로그인 이메일)는 어떤 설정이어도 보내지 않습니다. 값이 하나도 없는 열은 켜져 있어도 브랜드 화면에 나오지 않습니다.</div></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="submitDisableShare('${esc(reportId)}')">링크 끄기</button>
     </div>
@@ -48662,10 +48900,32 @@ async function submitDisableShare(reportId) {
   try { await disableReportShare(reportId); toast('링크를 껐습니다'); await _reportShareRefresh(reportId); }
   catch (e) { toast('끄지 못했습니다 — ' + ((e && e.message) || e)); }
 }
+// 열 고르기 — 채널별로 묶어 그린다. 날짜 항목은 창에서만 앞말을 붙인다(pick — 「업로드 날짜」가 여럿이라 어느 날짜인지 모른다).
+//   🔴 체크 상태는 **「꺼져 있는가」(`reportShareColOff`)만** 본다. 「그릴 것인가」를 쓰면 값 없는 옛 열이
+//      꺼진 것으로 그려지고, 그대로 저장하면 「끈 적 없는데 꺼진 열」로 굳는다.
+function _reportShareColGroupsHtml(reportId, saved) {
+  const list = _reportShareSelectable(reportId);
+  const order = [], byGrp = {};
+  list.forEach(function(c){ const g = c.grp || '기본'; if (!byGrp[g]) { byGrp[g] = []; order.push(g); } byGrp[g].push(c); });
+  return order.map(function(g, gi) {
+    // 묶음 사이에 구분선 — 첫 묶음 위에는 안 넣는다(제목 바로 아래라 줄이 겹쳐 보인다). 2026-09-18 사용자 요청
+    const sep = gi === 0 ? 'margin-top:8px' : 'margin-top:10px;padding-top:10px;border-top:1px solid var(--line)';
+    return `<div style="${sep}"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">${esc(g)}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
+        ${byGrp[g].map(function(c){ const on = !reportShareColOff(c.key, saved); return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportShareCol" value="${esc(c.key)}" ${on ? 'checked' : ''} onchange="submitShareSettings('${esc(reportId)}')"> ${esc(c.pick || c.label)}</label>`; }).join('')}
+      </div></div>`;
+  }).join('');
+}
+
 async function submitShareSettings(reportId) {
   const exp = document.getElementById('reportShareExp');
-  const cols = [...document.querySelectorAll('.reportShareCol:checked')].map(function(i){ return i.value; });
-  try { await updateReportShareSettings(reportId, _reportDateToIso(exp && exp.value), cols); toast('저장했습니다'); }
+  // 저장 형식은 report-rows.js 한 곳 — 옛 열쇠는 켠 것을 `열쇠` 로, 새 열쇠는 끈 것만 `-열쇠` 로,
+  //   창에 안 나온 `-열쇠` 는 보존. 🔴 만료일 「저장」만 눌러도 이 함수가 돈다(목록이 그 순간 굳는다).
+  const boxes = [...document.querySelectorAll('.reportShareCol')];
+  const shown = boxes.map(function(i){ return i.value; });
+  const checked = boxes.filter(function(i){ return i.checked; }).map(function(i){ return i.value; });
+  const cols = reportShareColsToSave(shown, checked, _reportShareSaved);
+  try { await updateReportShareSettings(reportId, _reportDateToIso(exp && exp.value), cols); _reportShareSaved = cols; toast('저장했습니다'); }
   catch (e) { toast('저장하지 못했습니다 — ' + ((e && e.message) || e)); }
 }
 async function revealSharePw(reportId) {
