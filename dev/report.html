@@ -160,20 +160,24 @@ async function loadReport(ticket) {
   // 계정 ID 는 서버가 안 보낸다 — 열 자체가 비도록 확실히 비운다
   rows.forEach(r => { r.account_id = ''; });
   _rows = rows; _title = data.title || '리포트';
-  // 열 — 관리자가 고른 목록. 없으면 「값이 하나도 없는 열은 뺀다」. 계정 ID 는 어떤 설정이어도 뺀다.
-  const banned = { account_id: 1 };
+  // 열 — 행에서 계산한 목록(report-rows.js `reportColumnsFor` — 관리자 화면과 같은 함수) 가운데
+  //   「그릴 것인가」(`reportShareColDraw` = 꺼져 있지 않다 + 값이 하나라도 있다)를 통과한 것만. 브랜드용 엑셀도 이 `_cols` 를 쓴다.
+  //   ⚠️ 2026-09-17 부터 목록이 저장돼 있어도 **값이 없는 열은 안 그린다**(기프팅 리포트에 빈 영수증·큐텐 열이 줄줄이 생기는 것을 막는다).
+  //   계정 ID(로그인 이메일)는 어떤 설정이어도 뺀다 — 「꺼져 있는가」 판정이 늘 꺼짐으로 돌려준다.
   const chosen = Array.isArray(data.columns) ? data.columns : null;
-  _cols = REPORT_COLS.filter(c => !banned[c.key]).filter(c => chosen ? chosen.indexOf(c.key) !== -1 : rows.some(r => r[c.key] !== '' && r[c.key] !== null && r[c.key] !== undefined));
+  _cols = reportColumnsFor(rows).filter(c => reportShareColDraw(c, chosen, rows));
+  // 줄이 하나도 없으면 「값 있는 열」이 0개라 머리글까지 사라진다 — 그때만 꺼져 있지 않은 열을 그대로 보여 준다(빈 상태 줄의 colspan 재료).
+  if (!rows.length) _cols = reportColumnsFor(rows).filter(c => !reportShareColOff(c.key, chosen));
   // 「업데이트」 = 리포트를 마지막으로 손본 시각(서버 updated_at — 캠페인 더하기·파일 붙이기 등 구성 변경).
   //   2026-09-04 사용자 결정: 조회 시각·포인테일 파일 시각을 따로 적지 않고 이 하나만 보인다.
   const updatedAt = data.updated_at || null;
-  const buyN = rows.filter(r => r.receipt_uploaded_at).length, revN = rows.filter(r => r.ch_qoo10_url || r.ch_cosme_url).length;
+  const buyN = rows.filter(r => r.receipt_uploaded_at).length, revN = rows.filter(reportRowHasResult).length;   // 「결과물 N」 — 관리자 요약과 같은 함수
 
   const el = document.getElementById('report');
   el.innerHTML = `
     <div class="head">
       <div><h1>${esc(_title)}</h1>
-        <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}<span style="margin:0 10px;color:var(--line)">|</span><b>요약</b> 인원 ${rows.length}명 · 구매 ${buyN} · 리뷰 ${revN}</div></div>
+        <div class="meta"><b>업데이트</b> ${updatedAt ? esc(fmtDT(updatedAt)) : '—'}<span style="margin:0 10px;color:var(--line)">|</span><b>요약</b> 인원 ${rows.length}명 · 구매 ${buyN} · 결과물 ${revN}</div></div>
       <div><button class="btn" onclick="downloadExcel()"><span class="material-icons-round" translate="no" style="font-size:16px">download</span> 엑셀 내려받기</button></div>
     </div>
     <div class="tblwrap"><table><colgroup>${_cols.map(c => '<col style="width:' + esc(c.w) + '">').join('')}</colgroup><thead><tr>${_cols.map(c => '<th>' + esc(c.label) + '</th>').join('')}</tr></thead>
@@ -196,8 +200,17 @@ function rowHtml(r) {
   return '<tr>' + _cols.map(c => {
     const v = r[c.key];
     if (c.key === 'receipt_url') return '<td class="nw">' + chanCell(r.receipt_url, 'photo', who + ' · 영수증') + '</td>';
-    if (c.key === 'ch_qoo10_url') return '<td class="nw">' + chanCell(r.ch_qoo10_url, r.ch_qoo10_kind, who + ' · 큐텐 결과물') + '</td>';
-    if (c.key === 'ch_cosme_url') return '<td class="nw">' + chanCell(r.ch_cosme_url, r.ch_cosme_kind, who + ' · 엣코스메 결과물') + '</td>';
+    // 채널 결과물 칸 — 대장의 어느 채널이든(기타 포함) 같은 방식
+    if (c.ch && /_url$/.test(c.key)) {
+      const more = (c.ch === 'etc' && r.ch_etc_more > 0) ? ' <span class="tag">외 ' + r.ch_etc_more + '건</span>' : '';
+      return '<td class="nw">' + chanCell(v, r['ch_' + c.ch + '_kind'], who + ' · ' + c.label.replace(/\s*\(URL\)$/, '')) + more + '</td>';
+    }
+    // SNS 계정 칸 — 글자(「@아이디」, 주소 모양으로 저장된 값이면 주소 그대로)를 보이고 누르면 그 계정이 새 탭으로
+    if (c.acct) {
+      if (!v) return '<td class="nw"></td>';
+      const txt = r[c.key + '_text'] || v;
+      return '<td class="nw">' + (/^https?:\/\//i.test(v) ? '<a href="' + esc(v) + '" target="_blank" rel="noopener">' + esc(txt) + '</a>' : esc(txt)) + '</td>';
+    }
     if (c.key === 'amount') return '<td class="num">' + (v === '' || v === null || v === undefined ? '' : '¥' + Number(v).toLocaleString('ja-JP')) + '</td>';
     if (/_at$/.test(c.key)) return '<td class="nw" style="font-size:11px">' + esc(fmtDT(v)) + '</td>';
     const t = v === null || v === undefined ? '' : String(v);

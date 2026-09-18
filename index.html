@@ -9035,6 +9035,8 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17). 공유 화면 쪽 짝은
+//    get_report_share_data(449) — 채널 코드 ↔ 이 네 칸의 짝이 두 곳에 있다.
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -9043,7 +9045,7 @@ async function fetchInfluencersForReport(userIds) {
   try {
     for (let i = 0; i < ids.length; i += 200) {
       const {data, error} = await db.from('influencers_admin_view')
-        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
         .in('id', ids.slice(i, i + 200));
       if (error) throw error;
       (data || []).forEach(function(r) { map[r.id] = r; });
