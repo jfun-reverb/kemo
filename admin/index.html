@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789692808';
+  var CURRENT_BUILD = 'v1789696958';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-18 09:53 · e7bc7d8</span>
+          <span class="admin-build-text">2026-09-18 11:02 · 69225fb</span>
         </div>
       </div>
     </aside>
@@ -12352,8 +12352,12 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
-// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17). 공유 화면 쪽 짝은
-//    get_report_share_data(449) — 채널 코드 ↔ 이 네 칸의 짝이 두 곳에 있다.
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17).
+// 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+//    ①REPORT_CHANNELS(report-rows.js) ②get_report_share_data(449)의 코드 ↔ 회원 표 칸 짝
+//    ③_excelSnsUrl 의 채널별 주소 줄 ④**바로 이 select 문** — 칸 이름이 글자로 나열돼 있다.
+//    ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(여기 칸이 없어 값이 비고,
+//       ③이 없어 링크도 안 걸린다 — 조용히 빈 칸으로 보인다).
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -47915,8 +47919,11 @@ const REPORT_COLS = [
 //      (`deliverables.post_channel`) **세 곳을 함께** 옮겨야 한다. 하나만 바꾸면
 //      문자열 비교가 깨져 결과물이 화면·인증·정산 세 곳에서 동시에 사라진다
 //      (2026-07-30 @cosme 사고 — 승인된 인증샷 55건이 두 달간 안 보였다).
-//   🔴 **사본이 하나 더 있다** — acct 가 있는 네 채널의 「코드 ↔ 회원 표의 칸」 짝은 공유용 서버 함수
-//      `get_report_share_data`(마이그레이션 449) 안에도 적혀 있다. 계정 열이 있는 채널을 더하는 날은 **두 곳을 함께**.
+//   🔴 **계정 열이 있는 채널을 더하는 날은 「네 곳」을 함께 고친다** — 「두 곳」이 아니다(2026-09-18 정정).
+//      ①이 대장 ②공유용 서버 함수 `get_report_share_data`(449)의 코드 ↔ 회원 표 칸 짝
+//      ③`_excelSnsUrl` 의 채널별 주소 줄 ④`fetchInfluencersForReport`(storage.js)의 조회 칸.
+//      ⚠️ ①②만 고치면 **새 채널 계정이 화면까지 안 오는데 오류도 안 난다** — 조회에 칸이 없어 값이 비고,
+//         주소를 만들 줄이 없어 링크도 안 걸린다. 조용히 빈 칸으로 보인다.
 //   ⚠️ 기준 데이터에 채널을 더하면 여기도 한 줄 더한다. 빠뜨려도 결과물은 「기타 결과물」 칸으로 가므로 사라지지는 않는다.
 //   ⚠️ 상수로 두는 이유 — 공유 화면은 로그인이 없고 기준 데이터를 읽지 않는다.
 const REPORT_CHANNELS = [
