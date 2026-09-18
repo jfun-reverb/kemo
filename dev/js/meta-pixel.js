@@ -10,6 +10,11 @@
 // 🔴 아이디는 dev/lib/storage.js fetchPublicMetaPixelId() 로만 받는다 — '' = 보내지 않음, null = 조회 실패.
 // 🔴 고급 매칭(이메일·전화 등 회원 정보)을 넘기지 않는다 — fbq('init') 에 세 번째 인자를 절대 붙이지 말 것(결정 11).
 //    붙이면 「메타의 직접 취득이라 동의가 필요 없다」는 법적 전제가 무너진다.
+// 🔴 **그런데 「자동 고급 매칭」은 이 코드로 못 막는다** — 메타 이벤트 관리자의 **설정**이라,
+//    여기서 세 번째 인자를 안 붙여도 그 설정이 켜져 있으면 픽셀이 스스로 회원 정보를 보낸다.
+//    메타 공식 문서: "To automatically implement advanced matching use the Events Manager."
+//    (https://developers.facebook.com/docs/meta-pixel/advanced/advanced-matching/)
+//    ⚠️ 코드만 읽고 「안 보낸다」고 단정하지 말 것 — **이벤트 관리자에서 꺼져 있는지 눈으로** 확인한다.
 // 🔴 어떤 실패도 화면을 막지 않는다 — 공개 함수는 전부 try/catch 로 삼킨다.
 //
 // 상태 셋(흐름 5):
@@ -91,8 +96,11 @@ function _metaPixelLoadScript(pixelId) {
     document.head.appendChild(s);
   }
   // 자동 이벤트(버튼 클릭·페이지 정보 수집) 끄기 — 회원 정보를 보내지 않는다는 전제(결정 11)를
-  //   코드 쪽에서도 지킨다. ⚠️ 이 설정이 화면 전환 페이지뷰 자동 감지에 영향을 주는지는
-  //   1-검증 ②(작업 8)에서 시험용 픽셀로 확인한다.
+  //   코드 쪽에서도 지킨다(다만 위 머리말대로 「자동 고급 매칭」은 이것으로도 안 막힌다).
+  // ✅ 이 설정은 **화면 전환 페이지뷰와 별개 스위치**다(2026-09-18 공식 문서로 확정 — 옛 주석의
+  //   「영향을 주는지 확인한다」는 이제 답이 있다). 화면 전환 페이지뷰를 끄는 것은 `disablePushState`
+  //   이고 메타는 그것을 끄지 말라고 권한다("it is not recommended").
+  //   (https://developers.facebook.com/docs/meta-pixel/implementation/tag_spa/)
   window.fbq('set', 'autoConfig', false, pixelId);
   window.fbq('init', pixelId); // 🔴 세 번째 인자(고급 매칭) 금지 — 결정 11
   window.fbq('track', META_PIXEL_EVENTS.PAGE_VIEW); // 흐름 3 — 초기화 시 페이지뷰 1회
