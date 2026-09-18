@@ -17,7 +17,8 @@
 // 2026-09-08 작업 21 읽기 검증 통과(상품 3개, 개발 Edge Function). 큐텐 이용약관 위험은 사용자가 감수하기로 결정(선-2, 2026-09-08).
 //
 // 가격이 세 겹이다 — 参考価格(정가) · 販売価格(판매가, DOM `#dl_sell_price [data-price]`) · メガ割時(행사가, JSON-LD offers.price).
-// 🔴 offers.price 는 행사가라 상시가로 쓰면 틀린다 — 판매가(DOM)를 price_sale_jpy 로, 정가를 price_list_jpy 로 돌려준다(확정 ⓚ).
+// 🔴 offers.price 는 행사가라 폼의 「판매가」 칸에 쓰면 틀린다 — 販売価格(DOM)을 price_sale_jpy 로, 参考価格(정가)을 price_list_jpy 로 돌려준다(확정 ⓚ).
+// ⚠️ 폼 칸 이름이 2026-09-18 에 「상시가」 → 「판매가」로 바뀌어 이 줄의 販売価格 과 이름이 같아졌다. 그래도 **행사가는 여전히 아니다**.
 
 const CHROME_HEADERS: Record<string, string> = {
   "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",

@@ -1076,7 +1076,7 @@ function osKrw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
 function osKrwCell(n) { return (n === null || n === undefined || n === '') ? '' : osKrw(n); }
 // 견적을 못 만든 이유 — 🔴 코드마다 문구가 따로 있어야 한다(기본값으로 뭉치면 틀린 이유를 보여준다)
 const OS_QUOTE_ERROR_TEXT = {
-  price_unreadable: '상시가를 숫자로 못 읽어 견적이 없습니다',
+  price_unreadable: '판매가를 숫자로 못 읽어 견적이 없습니다',
   slots_missing: '모집 인원을 숫자로 못 읽어 견적이 없습니다',
   fee_missing: '요금 기준값이 없어 견적이 없습니다(기준 데이터 「견적 기준값」 확인)',
   calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)',
@@ -1126,7 +1126,7 @@ function osQuoteCard(s, readonly) {
     <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
       <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
     ${osRecruitFeeOverrideLine(d)}
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 상시가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 판매가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
     ${osQuoteHistoryHtml(d.quote_history, s && s.id, readonly)}</div>`;
 }
 
@@ -1254,7 +1254,7 @@ function osCardDetail(c, idx, catMap, readonly) {
 
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
-      + osField('상시가', sale.price_regular);
+      + osField('판매가', sale.price_regular);
   }
   if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
   if (ft === 'reviewer') {
@@ -1930,9 +1930,9 @@ function osPrefillChannels(card) {
 }
 
 // 발행 형식 안내를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
-// ⚠️ 상시가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
+// ⚠️ 판매가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
 //   ①「캠페인 어느 칸에도 자동으로 넣지 않는다」는 결정이 제품 가격 칸에만 적용되면 반쪽이다.
-//     상시가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
+//     판매가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
 //     확인하지 않은 금액을 사실인 것처럼 보여 준다.
 //   ②`reward_note` 는 **인플루언서 응모 화면에 그대로 노출**된다(application.js). 브랜드가 쓴
 //     한국어가 일본어 화면에 실리는 자리다.
@@ -2046,10 +2046,10 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampTitle', '');
   osSetVal('newCampSlots', p.slots || '');
   osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
-  // ⚠️ 상시가는 **캠페인 어느 칸에도 자동으로 넣지 않는다**(2026-08-11 사용자 결정).
+  // ⚠️ 판매가는 **캠페인 어느 칸에도 자동으로 넣지 않는다**(2026-08-11 사용자 결정).
   //   브랜드가 오리엔시트에 적은 값이라, 그대로 실으면 **관리자가 확인하지 않은 금액이
   //   그대로 지급 상한**이 된다(리뷰어형 정산 = min(영수증 실결제액, product_price)).
-  //   상시가는 발행 화면의 오리엔 상세에서 눈으로 확인하고 관리자가 직접 입력한다.
+  //   판매가는 발행 화면의 오리엔 상세에서 눈으로 확인하고 관리자가 직접 입력한다.
   //   ⚠️ 리뷰어형에서 이 칸이 0인 채로 발행되면 ①인플루언서 화면에 페이백 상한 안내가
   //      안 뜨고 ②정산이 「금액 미확정」으로 자동 등록에서 빠진다(마이그레이션 300).
   //      후자는 마이그레이션 324 이후 「과거 미등록」 화면에 나타나므로 조용히 사라지진 않는다.
