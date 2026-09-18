@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789691534';
+  var CURRENT_BUILD = 'v1789692217';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-18 09:32 · 0fd880b</span>
+          <span class="admin-build-text">2026-09-18 09:43 · 35f1309</span>
         </div>
       </div>
     </aside>
@@ -48032,6 +48032,20 @@ function reportShareColsToSave(shownKeys, checkedKeys, prevSaved) {
   return out;
 }
 
+// 스킴(`https://`)이 없는 **주소**인가 — 첫 빗금 앞이 도메인 모양(점이 있다)일 때만.
+//   🔴 **빗금과 점이 둘 다** 있어야 한다. 하나만으로는 안 되는 이유가 각각 있다:
+//      · 점만 보면 — `sy_beauty.com` 같은 **실제 틱톡 아이디**(운영에 있다)를 주소로 오인해
+//        멀쩡하던 계정 링크가 깨진다. SNS 아이디에는 점을 쓸 수 있다.
+//      · 빗금만 보면 — `myhandle/` 처럼 **도메인이 없는** 값이 `https://myhandle/` 이 되어,
+//        적어도 채널 도메인은 맞던 종전(`tiktok.com/@myhandle/`)보다 나빠진다.
+//   ⚠️ 그래서 `gmail.com`·`a@gmail.com` 처럼 아이디 칸에 잘못 적힌 값은 **종전대로** 아이디로 다룬다.
+//      틀린 값을 우리가 고쳐 주지는 않되, 없는 주소를 조립하지도 않는 선이다.
+function _reportLooksLikeAddress(v) {
+  if (typeof v !== 'string') return false;
+  var slash = v.indexOf('/');
+  return slash > 0 && v.slice(0, slash).indexOf('.') !== -1;
+}
+
 // SNS 계정 → 전체 주소 (각 SNS 공식 주소 형식). TikTok/YouTube 는 @ 필수.
 //   ⚠️ admin-excel.js 에서 옮겨 왔다(2026-09-17) — 공유 화면에는 admin-excel.js 가 없다. 이름 그대로.
 //   🔴 **틀린 주소를 조립하지 않는다.**
@@ -48044,10 +48058,12 @@ function _excelSnsUrl(channel, raw) {
   if (!raw) return '';
   var hasEx = (typeof extractSnsHandle === 'function');
   var bare = String(raw).replace(/^@+/, '').trim();
-  if (!hasEx && /^https?:\/\//i.test(bare)) return bare;
+  if (/^https?:\/\//i.test(bare)) { if (!hasEx) return bare; }
+  else if (_reportLooksLikeAddress(bare)) return 'https://' + bare;   // 스킴 없는 주소 — 앞에 https:// 만 붙인다
   var handle = hasEx ? extractSnsHandle(channel, raw) : bare;
   if (!handle) return '';
   if (/^https?:\/\//i.test(handle)) return handle;   // 아이디를 못 뽑은 주소(게시물 주소 등) — 조립하지 않는다
+  if (_reportLooksLikeAddress(handle)) return 'https://' + handle;
   switch (channel) {
     case 'instagram': return 'https://www.instagram.com/' + handle + '/';
     case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
@@ -48065,6 +48081,9 @@ function _reportAcctCell(channel, raw) {
   var s = String(raw === null || raw === undefined ? '' : raw).trim();
   if (!s) return {url: '', text: ''};
   var bare = s.replace(/^@+/, '').trim();
+  // 스킴 없는 주소는 **먼저 스킴을 붙여** 아래 주소 갈래로 보낸다 — 안 그러면 글자가 「@www.tiktok.com/@아이디」가 된다.
+  //   ⚠️ 이렇게 해야 아이디를 뽑을 수 있는 자리(관리자)가 「@아이디」로 줄여 보여 준다.
+  if (!/^https?:\/\//i.test(bare) && _reportLooksLikeAddress(bare)) { s = 'https://' + bare; bare = s; }
   var url = _excelSnsUrl(channel, s);
   if (/^https?:\/\//i.test(bare)) {
     var h = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, s) : '';
