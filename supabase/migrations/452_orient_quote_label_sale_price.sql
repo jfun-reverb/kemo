@@ -1,5 +1,5 @@
 -- ============================================================
--- 450: 오리엔시트 견적 줄 이름 — 「상시가」 → 「판매가」
+-- 452: 오리엔시트 견적 줄 이름 — 「상시가」 → 「판매가」
 -- ============================================================
 -- 무엇을 왜 바꾸는가
 --   견적서 페이백 줄 이름에 「상시가」라는 낱말이 박혀 있었다. 브랜드가 폼에 입력하는 항목은
@@ -140,7 +140,7 @@ BEGIN
       v_ship_txt := replace(COALESCE(v_ship_txt, ''), ',', '');
       v_ship_jpy := CASE WHEN v_ship_txt = '' THEN 0 ELSE v_ship_txt::numeric END;
 
-      -- [450] 「상시가」 → 「판매가」 — 브랜드 입력칸 이름과 견적 줄 이름을 같은 낱말로 맞춘다
+      -- [452] 「상시가」 → 「판매가」 — 브랜드 입력칸 이름과 견적 줄 이름을 같은 낱말로 맞춘다
       v_payback_label := CASE WHEN v_ship_jpy > 0
         THEN '상품 결제비용 ((판매가 + 배송비) × 환율)'
         ELSE '상품 결제비용 (판매가 × 환율)' END;
@@ -283,11 +283,11 @@ $$;
 REVOKE EXECUTE ON FUNCTION public._orient_compute_quote(jsonb, text, timestamptz, timestamptz) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public._orient_compute_quote(jsonb, text, timestamptz, timestamptz) FROM anon, authenticated;
 COMMENT ON FUNCTION public._orient_compute_quote(jsonb, text, timestamptz, timestamptz) IS
-  '[450, 베이스 448] 오리엔시트 견적 계산 본문 — 인원으로 구간 판정(t50·t100·t300·t500plus), 구간별 모집비·시딩 진행비, '
+  '[452, 베이스 448] 오리엔시트 견적 계산 본문 — 인원으로 구간 판정(t50·t100·t300·t500plus), 구간별 모집비·시딩 진행비, '
   '발급 예외(issued.recruit_fee_krw → 줄 이름에 「· 직접 지정」), 리뷰어 추가 옵션(LIPS·@cosme), 500건 이상이면 형식과 무관하게 '
   '「실검작업 — 담당자 협의」(값 없음·합계 제외), 기준값 행이 없으면 fee_missing. [448] 네 번째 구간 이름 「500건」(판정 경계는 그대로). '
-  '[450] 페이백 줄 이름 「상시가」 → 「판매가」(계산·저장키 무변경, 기존 저장 견적 소급 없음). '
-  'submit_orient_sheet·preview_orient_quote 가 공용. 실행 권한 없음(내부 전용). 🔴 다음 재정의의 베이스는 450.';
+  '[452] 페이백 줄 이름 「상시가」 → 「판매가」(계산·저장키 무변경, 기존 저장 견적 소급 없음). '
+  'submit_orient_sheet·preview_orient_quote 가 공용. 실행 권한 없음(내부 전용). 🔴 다음 재정의의 베이스는 452.';
 
 NOTIFY pgrst, 'reload schema';
 
@@ -303,7 +303,7 @@ COMMIT;
 --   SELECT public._orient_compute_quote(
 --     '{"issued":{"form_type":"reviewer","channel":null},
 --       "cards":[{"product":{"slots":"50"},"sale":{"price_regular":"3000"}}]}'::jsonb,
---     'TEST-450-A', now() + interval '30 days', now()
+--     'TEST-452-A', now() + interval '30 days', now()
 --   ) -> 'quote' -> 'lines' -> 0 ->> 'label';
 --   기대: '상품 결제비용 (판매가 × 환율)'
 --
@@ -311,7 +311,7 @@ COMMIT;
 --   SELECT public._orient_compute_quote(
 --     '{"issued":{"form_type":"reviewer","channel":null},
 --       "cards":[{"product":{"slots":"50"},"sale":{"price_regular":"3000","shipping_fee":"500"}}]}'::jsonb,
---     'TEST-450-B', now() + interval '30 days', now()
+--     'TEST-452-B', now() + interval '30 days', now()
 --   ) -> 'quote' -> 'lines' -> 0 ->> 'label';
 --   기대: '상품 결제비용 ((판매가 + 배송비) × 환율)'
 --
