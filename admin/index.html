@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789984937';
+  var CURRENT_BUILD = 'v1789986120';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3123,23 +3123,29 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-range { color: var(--muted); font-size: 12px; }
 .q-scroll { overflow-x: auto; }
 .q-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
-.q-val, .q-val-ro { font: inherit; font-weight: 700; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; }
-.q-val { cursor: pointer; }
-.q-val:hover { border-color: var(--outline); background: var(--surface-dim); }
-.q-val.is-ph, .q-val-ro.is-ph { background: #FEF3C7; border-color: #F59E0B; }
-.q-ph { color: #92400E; }
+.q-val-ro { font: inherit; font-weight: 700; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; }
+.q-val-ro.is-ph { background: #FEF3C7; border-color: #F59E0B; }
 .q-ph-tag { margin-left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: #D97706; border-radius: 4px; padding: 1px 5px; }
 .q-missing { color: var(--muted); }
 .q-warn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #92400E; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
 .q-warn .material-icons-round { font-size: 16px; }
-.q-edit { display: flex; gap: 4px; align-items: center; }
-.q-edit input { width: 110px; padding: 4px 8px; font-size: 13px; }
-.q-edit-unit { font-size: 11px; color: var(--muted); }
 /* 🔴 이 표들은 .data-table 안에 들어가 있어 `.data-table th` 의 어두운 머리 모양이 **줄 제목(tbody th)에도** 번진다 — 되돌린다 */
 .q-board .q-table th { position: static; }   /* 바깥 .admin-pane-list .data-table th 의 sticky 를 끈다 */
 .q-board .q-table tbody th { background: none; color: var(--ink); text-transform: none; letter-spacing: normal; }
 .q-tier { width: auto; min-width: 640px; }
 .q-tier td, .q-tier th { padding-right: 24px; }
+/* 값 입력칸 — 늘 보인다(2026-09-21). 고친 뒤 Enter·칸 이동으로 저장 */
+.q-in-wrap { display: inline-flex; align-items: center; gap: 4px; }
+.q-input { width: 96px; padding: 5px 8px; font: inherit; font-weight: 700; text-align: right; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--outline); border-radius: 6px; }
+.q-input:hover { border-color: var(--muted); }
+.q-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,.18); }
+.q-in-wrap.is-ph .q-input { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+.q-unit { font-size: 12px; color: var(--muted); }
+/* 🔴 행 구분선 — 이 표들은 바깥 .data-table 의 **한 줄(마지막 줄)** 안에 들어 있어
+   `.data-table tr:last-child td{border-bottom:none}` 이 안쪽 모든 칸의 선을 지운다. 명시도를 올려 되살린다 */
+.q-board .q-table tbody tr td, .q-board .q-table tbody tr th { border-bottom: 1px solid var(--outline); }
+.q-board .q-table tbody tr:hover td, .q-board .q-table tbody tr:hover th { background: var(--surface-dim); }
 
 </style>
 </head>
@@ -3240,7 +3246,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 19:02 · fadfb8e</span>
+          <span class="admin-build-text">2026-09-21 19:22 · 60a0cac</span>
         </div>
       </div>
     </aside>
@@ -40177,7 +40183,6 @@ async function renderLookupsTable() {
 //   수정은 캠페인 관리자 이상(서버 가드 is_campaign_admin — 화면은 단추만 감춘다).
 //   🔴 fetchQuoteSettings 는 실패 null / 0건 [] — 합치면 「환율 0」 화면이 된다.
 // ════════════════════════════════════════════════════════════════════
-const QUOTE_UNIT_LABEL = { krw: '원', jpy: '엔', rate: '비율', count: '건' };
 function quoteAmountText(r) {
   const n = Number(r.amount);
   if (r.unit === 'rate') return (n * 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + ' %';
@@ -40189,7 +40194,7 @@ function quoteAmountText(r) {
 // ── 견적 기준값 화면 — 형식별 구간표(2026-09-21 사용자 결정) ──
 //   예전에는 45행을 한 줄 목록으로 그려 「스탠다드는 몇 명부터, 모집비 얼마」를 알려면 위아래 묶음을 오가야 했다.
 //   이제 **공통 · 리뷰어 · 시딩** 카드 셋으로, 카드 안에서 구간이 줄이고 시작 인원·인원 범위·비용이 칸이다.
-//   🔴 **값과 저장 경로는 그대로**다 — 칸을 누르면 editQuoteSetting → saveQuoteSetting(update_quote_setting).
+//   🔴 **값과 저장 경로는 그대로**다 — 입력칸(늘 보임)에서 Enter·칸 이동 → quoteInputChange → saveQuoteSetting(update_quote_setting).
 //   🔴 **어느 카드에도 안 들어간 행은 맨 아래 「그 밖의 기준값」에 그대로 그린다** — 새 기준값 행이 생겼는데
 //      이 배치표에 안 넣으면 화면에서 조용히 사라진다(고칠 길이 없어진다).
 const QUOTE_TIER_KEYS = ['tmin', 't50', 't100', 't300', 't500plus'];
@@ -40202,19 +40207,44 @@ function quoteIsPlaceholder(r) {
   const n = Number(r.amount);
   return n >= QUOTE_SEED_PLACEHOLDER.min && n <= QUOTE_SEED_PLACEHOLDER.max;
 }
-// 값 칸 하나 — 누르면 그 자리에서 입력칸이 된다(권한 없으면 글자만).
+// 값 칸 하나 — 편집 권한이 있으면 **처음부터 입력칸**으로 그린다(2026-09-21 사용자 지시 — 눌러야 입력칸이
+//   나오면 고칠 수 있는 자리인지 안 보인다). 고친 뒤 Enter 또는 다른 칸으로 옮기면(change) 저장된다.
+//   권한이 없으면 글자만.
+const QUOTE_INPUT_UNIT = { krw: '원', jpy: '엔', rate: '%', count: '명' };
+function quoteInputValue(r) {
+  const n = Number(r.amount);
+  return r.unit === 'rate' ? String(Math.round(n * 10000) / 100) : String(n);
+}
 function quoteCell(byKey, key, opts) {
   const r = byKey[key];
   if (!r) return '<td class="q-cell q-missing" title="기준값 행이 없습니다">—</td>';
   byKey.__used.add(key);
   const ph = quoteIsPlaceholder(r);
   const tip = (r.label_ko || '') + (r.updated_at ? ' · 마지막 수정 ' + formatDateTime(r.updated_at) : '');
+  const tag = ph ? '<span class="q-ph-tag">미입력</span>' : '';
+  if (opts && opts.canEdit) {
+    const v = quoteInputValue(r);
+    const isRate = r.unit === 'rate';
+    return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><div class="q-in-wrap${ph ? ' is-ph' : ''}">
+      <input type="number" class="q-input" data-qkey="${esc(r.key)}" data-unit="${esc(r.unit)}" data-orig="${esc(v)}" value="${esc(v)}"
+        step="${isRate ? '0.01' : '1'}" min="${r.unit === 'count' ? '1' : '0'}"${isRate ? ' max="100"' : ''}
+        onchange="quoteInputChange(this)" onkeydown="quoteInputKey(event, this)">
+      <span class="q-unit">${esc(QUOTE_INPUT_UNIT[r.unit] || '')}</span>${tag}</div></td>`;
+  }
   const text = r.unit === 'count' ? Number(r.amount).toLocaleString('ko-KR') + '명' : quoteAmountText(r);
-  const body = ph ? `<span class="q-ph">${esc(text)}</span><span class="q-ph-tag">미입력</span>` : esc(text);
-  const inner = (opts && opts.canEdit)
-    ? `<button type="button" class="q-val${ph ? ' is-ph' : ''}" onclick="editQuoteSetting('${esc(r.key)}', '${esc(String(r.amount))}', '${esc(r.unit)}')">${body}</button>`
-    : `<span class="q-val-ro${ph ? ' is-ph' : ''}">${body}</span>`;
-  return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}">${inner}</td>`;
+  return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><span class="q-val-ro${ph ? ' is-ph' : ''}">${esc(text)}${tag}</span></td>`;
+}
+// Enter = 확정(칸을 떠나 change 를 일으킨다), Escape = 원래 값으로 되돌리고 떠난다
+function quoteInputKey(e, input) {
+  if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+  else if (e.key === 'Escape') { input.value = input.dataset.orig; input.blur(); }
+}
+// 값이 바뀌었을 때만 저장한다. 실패하면 칸을 원래 값으로 되돌린다(틀린 숫자가 저장된 것처럼 남지 않게).
+//   저장되면 표를 다시 그리는데(범위 글이 따라 바뀐다), 그사이 옮겨 간 칸에 초점을 돌려준다.
+async function quoteInputChange(input) {
+  if (!input || input.value === input.dataset.orig) return;
+  const ok = await saveQuoteSetting(input.dataset.qkey, input, input.dataset.unit);
+  if (!ok) { input.value = input.dataset.orig; return; }
 }
 // 인원 범위 글 — 「그 구간의 시작 인원 ~ 다음 구간 시작 - 1」. 기준값이 비면 「—」(기본값으로 채우지 않는다).
 function quoteTierRanges(byKey, prefix) {
@@ -40292,7 +40322,8 @@ async function renderQuoteSettingsTable() {
   // 저장 뒤 다시 그릴 때 보던 자리를 지킨다 — 안 그러면 시딩 칸을 고칠 때마다 맨 위로 튄다
   const scroller = tbody.closest('.admin-table-wrap');
   const keepTop = scroller ? scroller.scrollTop : 0;
-  tbody.innerHTML = wrap(`<div style="text-align:center;padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>`);
+  // 이미 표가 떠 있으면(저장 뒤 다시 그리기) 스피너로 비우지 않는다 — 비우면 치던 칸의 초점이 끊기고 화면이 깜빡인다
+  if (!tbody.querySelector('.q-board')) tbody.innerHTML = wrap(`<div style="text-align:center;padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>`);
   const rows = await fetchQuoteSettings();
   if (rows === null) {
     tbody.innerHTML = wrap('<div style="text-align:center;color:var(--red);padding:24px">견적 기준값을 불러오지 못했습니다. 새로고침해 주세요.</div>');
@@ -40308,32 +40339,33 @@ async function renderQuoteSettingsTable() {
   // ⚠️ 「그 밖의 기준값」(quoteRestCard)은 **반드시 마지막** — 앞 카드들이 그린 칸을 byKey.__used 에 적어 두고,
   //    남은 것만 그린다. 순서를 바꾸면 이미 그린 행이 한 번 더 나온다.
   const html = quoteCommonCard(byKey, o) + quoteReviewerCard(byKey, o) + quoteSeedingCard(byKey, o) + quoteRestCard(byKey, rows, o);
+  // ⚠️ 아래 둘은 **조회가 끝난 뒤, 그리기 직전**에 잡는다 — 조회 중에도 사용자는 계속 칠 수 있다.
+  // 저장 → 다시 그리기 사이에 사용자가 다음 칸으로 옮겨 가 있을 수 있다 — 그 칸에 초점을 돌려준다
+  const focusKey = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('q-input')
+    ? document.activeElement.dataset.qkey : null;
+  // 🔴 아직 확정 안 한 입력을 지킨다 — 앞 칸 저장이 끝나 다시 그릴 때, 그사이 다른 칸에 치던 숫자가
+  //    서버 값으로 덮여 조용히 사라진다(여러 칸을 연달아 채울 때 실제로 겪는다). 바뀐 칸만 모아 뒤에 되돌린다.
+  const pending = {};
+  tbody.querySelectorAll('.q-input').forEach(el => { if (el.value !== el.dataset.orig) pending[el.dataset.qkey] = el.value; });
   tbody.innerHTML = wrap(`<div class="q-board">${canEdit ? '' : '<p class="q-note">보기 전용입니다 — 수정은 캠페인 관리자 이상.</p>'}${html}</div>`);
   if (scroller) scroller.scrollTop = keepTop;
-}
-// 인라인 수정 — 그 칸을 입력칸으로 바꾼다. 비율은 % 로 받아 0~1 로 저장.
-//   ⚠️ 칸은 `.q-amount[data-qkey]` 로 찾는다(카드 배치 — 한 줄에 값 칸이 여럿이다)
-function editQuoteSetting(key, current, unit) {
-  const cell = document.querySelector(`#lookupsTableBody .q-amount[data-qkey="${CSS.escape(key)}"]`);
-  if (!cell) return;
-  const isRate = unit === 'rate';
-  const initial = isRate ? String(Number(current) * 100) : String(Number(current));
-  cell.innerHTML = `<div class="q-edit">
-      <input type="number" class="form-input" step="${isRate ? '0.01' : '1'}" min="0" ${isRate ? 'max="100"' : ''} value="${esc(initial)}" onkeydown="if(event.key==='Enter'){saveQuoteSetting('${esc(key)}',this,'${esc(unit)}')}else if(event.key==='Escape'){renderQuoteSettingsTable()}">
-      <span class="q-edit-unit">${isRate ? '%' : (unit === 'count' ? '명' : (QUOTE_UNIT_LABEL[unit] || ''))}</span>
-      <button class="btn btn-primary btn-xs" onclick="saveQuoteSetting('${esc(key)}', this.parentNode.querySelector('input'), '${esc(unit)}')">저장</button>
-      <button class="btn btn-ghost btn-xs" onclick="renderQuoteSettingsTable()">취소</button>
-    </div>`;
-  const input = cell.querySelector('input'); if (input) { input.focus(); input.select(); }
+  Object.keys(pending).forEach(k => {
+    const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(k)}"]`);
+    if (el) el.value = pending[k];   // data-orig 는 새 서버 값 — 칸을 떠나면 그 차이로 저장된다
+  });
+  if (focusKey) {
+    const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(focusKey)}"]`);
+    if (el) { el.focus({ preventScroll: true }); if (!(focusKey in pending)) el.select(); }
+  }
 }
 async function saveQuoteSetting(key, input, unit) {
   const raw = Number(input && input.value);
-  if (!Number.isFinite(raw) || raw < 0) { toast('0 이상의 숫자를 입력해 주세요.'); return; }
+  if (!Number.isFinite(raw) || raw < 0) { toast('0 이상의 숫자를 입력해 주세요.'); return false; }
   // 🔴 인원은 0·소수가 될 수 없다 — 0 이면 「0건 단추」가 생기고, 소수면 단추에 「50.5건」이 뜬다.
   //    금액(0 원이 정상인 행이 있다)과 다르므로 이 단위에서만 막는다. 서버(454)가 최종 방어선.
-  if (unit === 'count' && (raw < 1 || !Number.isInteger(raw))) { toast('구간 인원은 1 이상의 정수여야 합니다.'); return; }
+  if (unit === 'count' && (raw < 1 || !Number.isInteger(raw))) { toast('구간 인원은 1 이상의 정수여야 합니다.'); return false; }
   const amount = unit === 'rate' ? raw / 100 : raw;
-  if (unit === 'rate' && amount > 1) { toast('비율은 100% 를 넘을 수 없습니다.'); return; }
+  if (unit === 'rate' && amount > 1) { toast('비율은 100% 를 넘을 수 없습니다.'); return false; }
   try {
     const res = await updateQuoteSetting(key, amount);
     if (!res || res.success !== true) {
@@ -40346,12 +40378,14 @@ async function saveQuoteSetting(key, input, unit) {
       const tierWho = ({ reviewer: '리뷰어 구간 ', seeding: '시딩 구간 ' })[res && res.form_type] || '';
       const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다',
                      tier_slots_not_ascending: tierWho + '인원은 최소 인원 ≤ 라이트 < 스탠다드 < 프리미엄 < 실검작업 구간 순이어야 합니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
-      toast('저장 실패: ' + why); return;
+      toast('저장 실패: ' + why); return false;
     }
     toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');
     await refreshPane('lookups');
+    return true;
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '저장에 실패했습니다.');
+    return false;
   }
 }
 
