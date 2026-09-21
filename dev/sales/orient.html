@@ -1049,8 +1049,10 @@ function readSlots(raw) {
 function tierOfSlots(n) {
   if (!n || !tierFees || !tierFees.slots) return null;
   const at = k => { const v = Number(tierFees.slots[k]); return isFinite(v) && v > 0 ? v : null; };
-  const t50 = at('tier_slots_t50'), t100 = at('tier_slots_t100');
-  const t300 = at('tier_slots_t300'), t500 = at('tier_slots_t500plus');
+  // 🔴 서버(get_orient_tier_fees)는 구간 이름(t50…)을 열쇠로 준다 — `tier_slots_` 를 붙이면 넷 다 빈다
+  //    (applyTierSlots 도 slots[t.key] 로 같은 열쇠를 읽는다)
+  const t50 = at('t50'), t100 = at('t100');
+  const t300 = at('t300'), t500 = at('t500plus');
   if (t50 === null || t100 === null || t300 === null || t500 === null) return null;
   if (n < t50)  return 'tmin';
   if (n < t100) return 't50';
