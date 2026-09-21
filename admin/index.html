@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789957960';
+  var CURRENT_BUILD = 'v1789964612';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 11:32 · 8c02871</span>
+          <span class="admin-build-text">2026-09-21 13:23 · 3d46772</span>
         </div>
       </div>
     </aside>
@@ -33118,6 +33118,28 @@ function buildDeliverableGroups(delivs, campMap, opts) {
 }
 
 // monitor 신청의 「대표 결과물 상태」 result_status_repr — rejected > pending > approved > legacy_no_channel > none
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 를 그대로 부른다** — 사본을 만들지 않는다.
+//      관리자 빌드에 `lib/shared.js` 가 들어가므로 부를 수 있다(`dev/build.sh` 의 ADMIN_JS_FILES).
+//      응모 자격 판정과 결과물 판정이 갈리면 「응모는 되는데 결과물은 안 되는」 어긋남이 생긴다.
+//   ⚠️ 못 부르면 `and` 로 떨어진다 — **종전 동작(전부 요구)**이라 안전한 방향이다.
+function _certChannelKind(camp) {
+  if (typeof campaignFollowerKind !== 'function') return 'and';
+  return campaignFollowerKind(camp || {});
+}
+
+// 채널별 상태 목록에서 대표 상태 하나를 고른다.
+//   and·single : 하나라도 안 냈으면(none) 미완 — 종전 그대로
+//   or         : 🔴 **승인이 하나라도 있으면 완료**. 「하나 승인 + 하나 반려」도 완료다
+//                (반려된 채널은 애초에 낼 의무가 없던 채널이다)
+function _certReprFromStates(states, kind) {
+  if (kind === 'or' && states.indexOf('approved') !== -1) return 'approved';
+  if (states.indexOf('rejected') !== -1) return 'rejected';
+  if (states.indexOf('pending') !== -1) return 'pending';
+  if (states.indexOf('none') !== -1) return 'none';
+  return 'approved';
+}
+
 function _finalizeMonitorReprs(groups) {
   for (const g of groups.values()) {
     const rt = g.campaign?.recruit_type;
@@ -33129,12 +33151,9 @@ function _finalizeMonitorReprs(groups) {
       continue;
     }
     const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) {
-      repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
-    }
+    let repr = _certReprFromStates(states, _certChannelKind(g.campaign));
+    // 「아직 안 낸 채널이 있다」는 결론일 때만 옛 채널 미지정 행을 대신 본다(종전 그대로).
+    if (repr === 'none' && g.hasLegacyReviewImage) repr = 'legacy_no_channel';
     g.result_status_repr = repr;
     const stateSet = new Set(states);
     // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
@@ -33161,11 +33180,7 @@ function _finalizePostReprs(groups) {
     const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     if (channels.length === 0) { g.post_status_repr = 'none'; continue; }
     const states = channels.map(ch => (g.postByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) repr = 'none';
-    g.post_status_repr = repr;
+    g.post_status_repr = _certReprFromStates(states, _certChannelKind(g.campaign));
   }
 }
 
@@ -36099,7 +36114,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
         _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase,
-          (cc.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
+          (cc.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh,
+          _reportChannelKind(cc)),
         // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (T~Y열=20~25)
@@ -36562,7 +36578,8 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
         _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase,
-          (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
+          (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh,
+          _reportChannelKind(camp)),
         // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (R~W열=18~23)
@@ -36822,7 +36839,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=8) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh, camp.proxy_purchase),
+      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh, camp.proxy_purchase, _reportChannelKind(camp)),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
@@ -37033,7 +37050,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=10) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh, cc.proxy_purchase),
+      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh, cc.proxy_purchase, _reportChannelKind(cc)),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
@@ -48024,7 +48041,22 @@ function campLeaveCancel() {
 
 // monitor 채널별 review_image 상태 집합 → 대표 상태 repr (admin-deliverables 와 동일 우선순위)
 //   campChannels: 캠페인 채널 코드 배열, reviewByCh: { channelCode: deliv }
-function _excelMonitorResultRepr(campChannels, reviewByCh) {
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **이 파일은 두 곳에서 돈다** — 관리자 번들(`shared.js` 가 함께 실림)과
+//      **브랜드 공유 화면 `report.html`**(빌드가 이 파일만 인라인 — `shared.js` 는 **없다**).
+//      그래서 공용 함수가 있으면 그것을 쓰고, 없으면 같은 기준을 그대로 쓴다.
+//   ⚠️ **기본값은 `or`**(「`and` 가 아니면 `or`」). 반대로 적으면 지금 정상인 캠페인이 깨진다.
+function _reportChannelKind(camp) {
+  if (typeof campaignFollowerKind === 'function') return campaignFollowerKind(camp || {});
+  var list = String((camp && camp.channel) || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean);
+  if (list.length <= 1) return 'single';
+  return String((camp && camp.channel_match) || '').trim().toLowerCase() === 'and' ? 'and' : 'or';
+}
+
+// 채널별 상태 목록에서 대표 상태 하나.
+//   ⚠️ `channelKind` 를 **안 넘기면 `and`(전부 요구)** 로 떨어진다 — 종전 동작이라 안전한 방향이다.
+//   🔴 `or` 에서 「하나 승인 + 하나 반려」는 **완료**다(반려된 채널은 낼 의무가 없던 채널).
+function _excelMonitorResultRepr(campChannels, reviewByCh, channelKind) {
   reviewByCh = reviewByCh || {};
   var channels = (campChannels || []).filter(Boolean);
   if (channels.length === 0) {
@@ -48032,6 +48064,7 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
     return Object.keys(reviewByCh).length > 0 ? 'pending' : 'none';
   }
   var states = channels.map(function(ch) { return (reviewByCh[ch] && reviewByCh[ch].status) || 'none'; });
+  if (channelKind === 'or' && states.indexOf('approved') !== -1) return 'approved';
   if (states.indexOf('rejected') !== -1) return 'rejected';
   if (states.indexOf('pending') !== -1) return 'pending';
   if (states.indexOf('none') !== -1) return 'none';
@@ -48044,7 +48077,7 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
 //   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
 //   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
 //   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh) {
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh, channelKind) {
   // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
   var _as = (receipt && receipt.applications && receipt.applications.status)
          || (result && result.applications && result.applications.status) || null;
@@ -48067,7 +48100,7 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campCha
   var _chs = (campChannels || []).filter(Boolean);
   if (_chs.length > 0) {
     // 채널 목록이 넘어온 경우 — 리뷰어형과 같은 대표 상태 계산을 재사용(같은 모양의 판정)
-    var _repr = _excelMonitorResultRepr(_chs, postByCh || {});
+    var _repr = _excelMonitorResultRepr(_chs, postByCh || {}, channelKind);
     if (_repr === 'approved') return '인증성공';
     if (_repr !== 'none') return '인증샷 제출중';
     return result ? '인증샷 제출중' : '미제출';
@@ -48079,7 +48112,7 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campCha
 }
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
+function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase, channelKind) {
   // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
   var _as = (receipt && receipt.applications && receipt.applications.status) || null;
   if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
@@ -48092,7 +48125,7 @@ function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurch
   }
   var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
   if (!hasReceipt && !hasReview) return '미제출';
-  var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
+  var repr = _excelMonitorResultRepr(campChannels, reviewByCh, channelKind);
   if (receipt && receipt.status === 'approved' && repr === 'approved') return '인증성공';
   return '인증샷 제출중';
 }
@@ -48441,10 +48474,13 @@ function _reportPurchasePeriod(camp) {
 function _reportCertStatus(g) {
   const camp = g.campaign || {};
   const chs = (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean);
+  // 🔴 갈래를 넘긴다 — 안 넘기면 「또는」 캠페인이 여기서만 「전부 요구」로 판정돼
+  //   관리자 화면·서버와 다른 상태를 브랜드에게 보여주게 된다(2026-09-21, 2단계).
+  const kind = _reportChannelKind(camp);
   if (camp.recruit_type === 'monitor' && chs.length > 0) {
-    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, !!camp.proxy_purchase);
+    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, !!camp.proxy_purchase, kind);
   }
-  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, !!camp.proxy_purchase, chs, g.postByCh);
+  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, !!camp.proxy_purchase, chs, g.postByCh, kind);
 }
 
 // REVERB 결과물 → 표준 행 배열.
