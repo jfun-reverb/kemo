@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789986120';
+  var CURRENT_BUILD = 'v1789988982';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3134,7 +3134,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-board .q-table tbody th { background: none; color: var(--ink); text-transform: none; letter-spacing: normal; }
 .q-tier { width: auto; min-width: 640px; }
 .q-tier td, .q-tier th { padding-right: 24px; }
-/* 값 입력칸 — 늘 보인다(2026-09-21). 고친 뒤 Enter·칸 이동으로 저장 */
+/* 값 입력칸 — 늘 보인다(2026-09-21). 고치면 옆에 「저장」·「취소」가 나오고 저장 버튼(또는 Enter)으로 저장 */
 .q-in-wrap { display: inline-flex; align-items: center; gap: 4px; }
 .q-input { width: 96px; padding: 5px 8px; font: inherit; font-weight: 700; text-align: right; color: var(--ink);
   background: var(--surface); border: 1px solid var(--outline); border-radius: 6px; }
@@ -3146,6 +3146,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    `.data-table tr:last-child td{border-bottom:none}` 이 안쪽 모든 칸의 선을 지운다. 명시도를 올려 되살린다 */
 .q-board .q-table tbody tr td, .q-board .q-table tbody tr th { border-bottom: 1px solid var(--outline); }
 .q-board .q-table tbody tr:hover td, .q-board .q-table tbody tr:hover th { background: var(--surface-dim); }
+.q-act { display: inline-flex; gap: 4px; margin-left: 4px; }
+.q-act[hidden] { display: none; }
+.q-in-wrap.is-dirty .q-input { border-color: var(--primary); background: var(--surface); color: var(--ink); }
 
 </style>
 </head>
@@ -3246,7 +3249,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 19:22 · 60a0cac</span>
+          <span class="admin-build-text">2026-09-21 20:09 · 0e4f758</span>
         </div>
       </div>
     </aside>
@@ -40194,7 +40197,7 @@ function quoteAmountText(r) {
 // ── 견적 기준값 화면 — 형식별 구간표(2026-09-21 사용자 결정) ──
 //   예전에는 45행을 한 줄 목록으로 그려 「스탠다드는 몇 명부터, 모집비 얼마」를 알려면 위아래 묶음을 오가야 했다.
 //   이제 **공통 · 리뷰어 · 시딩** 카드 셋으로, 카드 안에서 구간이 줄이고 시작 인원·인원 범위·비용이 칸이다.
-//   🔴 **값과 저장 경로는 그대로**다 — 입력칸(늘 보임)에서 Enter·칸 이동 → quoteInputChange → saveQuoteSetting(update_quote_setting).
+//   🔴 **값과 저장 경로는 그대로**다 — 입력칸(늘 보임)을 고치면 나오는 「저장」(또는 Enter) → quoteInputSave → saveQuoteSetting(update_quote_setting).
 //   🔴 **어느 카드에도 안 들어간 행은 맨 아래 「그 밖의 기준값」에 그대로 그린다** — 새 기준값 행이 생겼는데
 //      이 배치표에 안 넣으면 화면에서 조용히 사라진다(고칠 길이 없어진다).
 const QUOTE_TIER_KEYS = ['tmin', 't50', 't100', 't300', 't500plus'];
@@ -40208,7 +40211,8 @@ function quoteIsPlaceholder(r) {
   return n >= QUOTE_SEED_PLACEHOLDER.min && n <= QUOTE_SEED_PLACEHOLDER.max;
 }
 // 값 칸 하나 — 편집 권한이 있으면 **처음부터 입력칸**으로 그린다(2026-09-21 사용자 지시 — 눌러야 입력칸이
-//   나오면 고칠 수 있는 자리인지 안 보인다). 고친 뒤 Enter 또는 다른 칸으로 옮기면(change) 저장된다.
+//   나오면 고칠 수 있는 자리인지 안 보인다). 값을 고치면 그 칸 옆에 「저장」·「취소」가 나타나고,
+//   **저장 버튼(또는 Enter)을 눌러야 저장**된다(같은 날 사용자 지시 — 칸만 옮겨도 저장되면 의도치 않게 바뀐다).
 //   권한이 없으면 글자만.
 const QUOTE_INPUT_UNIT = { krw: '원', jpy: '엔', rate: '%', count: '명' };
 function quoteInputValue(r) {
@@ -40228,23 +40232,44 @@ function quoteCell(byKey, key, opts) {
     return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><div class="q-in-wrap${ph ? ' is-ph' : ''}">
       <input type="number" class="q-input" data-qkey="${esc(r.key)}" data-unit="${esc(r.unit)}" data-orig="${esc(v)}" value="${esc(v)}"
         step="${isRate ? '0.01' : '1'}" min="${r.unit === 'count' ? '1' : '0'}"${isRate ? ' max="100"' : ''}
-        onchange="quoteInputChange(this)" onkeydown="quoteInputKey(event, this)">
-      <span class="q-unit">${esc(QUOTE_INPUT_UNIT[r.unit] || '')}</span>${tag}</div></td>`;
+        oninput="quoteInputDirty(this)" onkeydown="quoteInputKey(event, this)">
+      <span class="q-unit">${esc(QUOTE_INPUT_UNIT[r.unit] || '')}</span>${tag}
+      <span class="q-act" hidden><button type="button" class="btn btn-primary btn-xs" onclick="quoteInputSave(this)">저장</button><button type="button" class="btn btn-ghost btn-xs" onclick="quoteInputCancel(this)">취소</button></span></div></td>`;
   }
   const text = r.unit === 'count' ? Number(r.amount).toLocaleString('ko-KR') + '명' : quoteAmountText(r);
   return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><span class="q-val-ro${ph ? ' is-ph' : ''}">${esc(text)}${tag}</span></td>`;
 }
-// Enter = 확정(칸을 떠나 change 를 일으킨다), Escape = 원래 값으로 되돌리고 떠난다
-function quoteInputKey(e, input) {
-  if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-  else if (e.key === 'Escape') { input.value = input.dataset.orig; input.blur(); }
+// 값이 원래와 달라지면 그 칸의 「저장」·「취소」를 보인다(같아지면 다시 감춘다)
+function quoteInputDirty(input) {
+  const wrap = input && input.closest('.q-in-wrap'); if (!wrap) return;
+  const dirty = input.value !== input.dataset.orig;
+  wrap.classList.toggle('is-dirty', dirty);
+  const act = wrap.querySelector('.q-act'); if (act) act.hidden = !dirty;
 }
-// 값이 바뀌었을 때만 저장한다. 실패하면 칸을 원래 값으로 되돌린다(틀린 숫자가 저장된 것처럼 남지 않게).
-//   저장되면 표를 다시 그리는데(범위 글이 따라 바뀐다), 그사이 옮겨 간 칸에 초점을 돌려준다.
-async function quoteInputChange(input) {
-  if (!input || input.value === input.dataset.orig) return;
+// Enter = 저장, Escape = 원래 값으로 되돌리기
+function quoteInputKey(e, input) {
+  if (e.key === 'Enter') { e.preventDefault(); quoteInputSave(input); }
+  else if (e.key === 'Escape') { e.preventDefault(); input.value = input.dataset.orig; quoteInputDirty(input); }
+}
+function quoteInputOf(el) {
+  if (el && el.classList && el.classList.contains('q-input')) return el;
+  const wrap = el && el.closest('.q-in-wrap');
+  return wrap ? wrap.querySelector('.q-input') : null;
+}
+function quoteInputCancel(el) {
+  const input = quoteInputOf(el); if (!input) return;
+  input.value = input.dataset.orig; quoteInputDirty(input);
+}
+// 저장 — 값이 바뀌었을 때만. 실패하면 **친 값을 그대로 둔다**(안내를 보고 고쳐 다시 저장할 수 있게).
+//   저장되면 표를 다시 그리는데(범위 글이 따라 바뀐다), 다른 칸에 고치던 값은 그대로 남는다.
+async function quoteInputSave(el) {
+  const input = quoteInputOf(el); if (!input) return;
+  if (input.value === input.dataset.orig) { quoteInputDirty(input); return; }
+  const wrap = input.closest('.q-in-wrap');
+  const btns = wrap ? wrap.querySelectorAll('.q-act button') : [];
+  btns.forEach(b => { b.disabled = true; });   // 두 번 눌러 두 번 저장되지 않게
   const ok = await saveQuoteSetting(input.dataset.qkey, input, input.dataset.unit);
-  if (!ok) { input.value = input.dataset.orig; return; }
+  if (!ok) btns.forEach(b => { b.disabled = false; });
 }
 // 인원 범위 글 — 「그 구간의 시작 인원 ~ 다음 구간 시작 - 1」. 기준값이 비면 「—」(기본값으로 채우지 않는다).
 function quoteTierRanges(byKey, prefix) {
@@ -40351,7 +40376,7 @@ async function renderQuoteSettingsTable() {
   if (scroller) scroller.scrollTop = keepTop;
   Object.keys(pending).forEach(k => {
     const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(k)}"]`);
-    if (el) el.value = pending[k];   // data-orig 는 새 서버 값 — 칸을 떠나면 그 차이로 저장된다
+    if (el) { el.value = pending[k]; quoteInputDirty(el); }   // data-orig 는 새 서버 값 — 「저장」을 누르면 그 차이로 저장된다
   });
   if (focusKey) {
     const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(focusKey)}"]`);
