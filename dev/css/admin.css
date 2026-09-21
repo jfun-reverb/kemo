@@ -2604,3 +2604,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-in-wrap.is-ph .q-input[readonly] { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
 /* 저장·취소 — 칸 옆에 붙는 작은 버튼(기본 btn-xs 보다 작게. 같은 방식: .faq-item-actions .btn-xs) */
 .q-act .btn-xs { padding: 2px 7px; font-size: 11px; line-height: 1.4; border-radius: 5px; }
+/* 구간 이름·옵션 문구 칸(글자) — 숫자 칸보다 넓게, 왼쪽 정렬 */
+.q-input.q-input-text { width: 104px; text-align: left; font-weight: 600; }
+.q-input.q-input-text.q-input-opt { width: 150px; font-weight: 500; }
+.q-muted { color: var(--muted); font-weight: 400; }

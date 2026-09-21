@@ -12370,6 +12370,31 @@ async function updateQuoteSetting(key, amount) {
   });
 }
 
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // ── 메타 픽셀 설정 (마이그레이션 438) ──
 // 관리 화면 조회: 관리자 전원. 반환 {meta_pixel_id, enabled, policy_effective_date, updated_at, status, history[]}
 //   🔴 실패는 null — 화면은 「불러오지 못했습니다」를 그리고 스위치를 그리지 않는다.
