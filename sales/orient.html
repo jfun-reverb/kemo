@@ -933,12 +933,58 @@ const EXTRA_MARKETS = [
 // ⚠️ 열쇠말 `t500plus` 는 그대로 둔다 — 기준값 행·저장된 slots_tier·견적의 tier 가 전부 그 글자를 쓴다.
 //    서버(448)는 여전히 「500 이상」을 이 구간으로 본다(옛 값·조작된 호출 대비).
 // ⚠️ 「(+실검작업)」은 리뷰어·시딩 공통이다 — 서버가 형식과 무관하게 500건 견적서에 그 줄을 붙인다(443).
+// 🔴 아래 건수는 **기본값(안전망)일 뿐**이다 — 실제 값은 기준값 표(`tier_slots_*`)에서 오고
+//    loadTierFees() 가 받아 applyTierSlots() 로 덮는다. 조회가 실패하면 이 값으로 그려서
+//    「고를 것이 하나도 없는 폼」이 되지 않게 한다(사양서 2026-09-18 §2-①).
+// 🔴 열쇠말의 숫자는 뜻이 없다 — `t100` 은 **둘째 구간**이라는 뜻이고 100명을 뜻하지 않는다.
+//    기준값에서 150 으로 고치면 열쇠말은 `t100` 그대로이고 건수만 150 이 된다.
+// ⚠️ 건수가 적힌 자리가 **둘**이다 — 앞 셋은 `sub`, 넷째는 `name` 이 곧 건수다(applyTierSlots 가 둘 다 고친다).
 const TIER_OPTIONS = [
   { key: 't50',      name: '라이트',   sub: '50건',        slots: '50' },
   { key: 't100',     name: '스탠다드', sub: '100건',       slots: '100' },
   { key: 't300',     name: '프리미엄', sub: '300건',       slots: '300' },
   { key: 't500plus', name: '500건',    sub: '(+실검작업)', slots: '500' },
 ];
+
+// 서버에서 받은 구간 인원으로 단추 값을 덮는다. 하나라도 덮었으면 true.
+// 🔴 넷째만 `name` 이 건수이고 앞 셋은 `sub` 가 건수다 — 한쪽만 고치면 단추에 옛 숫자가 남는다.
+// ⚠️ 넷째의 `sub`(「(+실검작업)」)는 건수가 아니라 설명이라 건드리지 않는다.
+function applyTierSlots(slots) {
+  if (!slots || typeof slots !== 'object') return false;
+  let changed = false;
+  TIER_OPTIONS.forEach(t => {
+    const v = Number(slots[t.key]);
+    if (!isFinite(v) || v <= 0) return;      // 🔴 Number(null) 은 0 이다 — 빈 값 검사가 먼저
+    if (String(v) === t.slots) return;       // 같으면 건드리지 않는다
+    t.slots = String(v);
+    if (t.key === 't500plus') t.name = v + '건';
+    else t.sub = v + '건';
+    changed = true;
+  });
+  return changed;
+}
+
+// 단추에 적힌 글을 다시 쓴다(인원이 바뀐 뒤).
+// 🔴 넷째 이름의 예외 분기는 **카드를 처음 그릴 때와 글자 그대로 같아야** 한다 —
+//    옛 방식으로 기본값과 다른 인원을 저장한 시트는 그 값을 이름 자리에 보여준다(어긋남을 화면에 드러낸다).
+// ⚠️ 감춰진 인원 칸(.f-slots)은 **건드리지 않는다** — 그 시트에 저장된 값이고,
+//    서버는 폼이 보낸 구간이 아니라 인원으로 다시 판정한다.
+function refreshTierButtons(card) {
+  if (!card) return;
+  const slotsEl   = card.querySelector('.f-slots');
+  const saved     = slotsEl ? slotsEl.value : '';
+  const activeBtn = card.querySelector('.tier-btn.active');
+  const savedTier = activeBtn ? activeBtn.dataset.tier : '';
+  card.querySelectorAll('.tier-btn').forEach(b => {
+    const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier); if (!o) return;
+    const nameEl = b.querySelector('.tier-name');
+    const subEl  = b.querySelector('.tier-sub');
+    if (nameEl) nameEl.textContent =
+      (o.key === 't500plus' && savedTier === 't500plus' && saved && String(saved) !== o.slots)
+        ? saved + '건' : o.name;
+    if (subEl) subEl.textContent = o.sub;
+  });
+}
 
 // 확인 화면·요약에 쓰는 표기 — 「100건 (스탠다드)」 / 「500건 (+실검작업)」.
 //   네 번째 구간은 이름이 곧 건수라 다른 셋처럼 조립하면 「500건 (500건)」이 된다.
@@ -963,8 +1009,13 @@ async function loadTierFees() {
       override: (res.override_krw === null || res.override_krw === undefined) ? null : Number(res.override_krw),
       formType: res.form_type || issuedFormType(),
     };
-    document.querySelectorAll('#cardList .ocard').forEach(applyTierPrices);
-  } catch (e) { /* 단가 표시는 부가 정보 — 실패해도 조용히 넘어간다 */ }
+    // 구간 인원(453·454) — 받아 오면 단추 값·글을 덮는다. 못 받아 오면 위 기본값 그대로다.
+    const slotsChanged = applyTierSlots(res.slots);
+    document.querySelectorAll('#cardList .ocard').forEach(card => {
+      if (slotsChanged) refreshTierButtons(card);
+      applyTierPrices(card);
+    });
+  } catch (e) { /* 단가·인원 표시는 부가 정보 — 실패해도 폼은 기본값으로 그대로 동작한다 */ }
 }
 // 단추 하나에 적을 글 — 🔴 리뷰어는 「모집비」를 붙인다: 1건당 실제 비용은 상품 결제비용·송금 수수료가 더 붙어서,
 //   숫자만 적으면 그것이 전부인 줄 안다. 시딩은 진행비가 곧 1건당 비용이라 숫자만 쓴다.
