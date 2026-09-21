@@ -173,12 +173,14 @@ async function loadCampApplicants() {
   if (!body) return;
   // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
   // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  // 판정은 `_reportAcctCell`(report-rows.js) 한 곳 — 리포트·엑셀과 같은 함수다.
+  // ⚠️ 여기서 `@` 를 덧붙이지 말 것(아이디면 이미 붙어 오고, 주소는 그대로 온다).
+  // ⚠️ 있는지 검사는 종전대로 두되 **폴백 판정은 만들지 않는다** — 옛 판정을 되살리는 길이 된다.
   const snsCell = (channel, raw, followers) => {
-    const handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : (raw || '').replace(/^@/,'').trim();
-    if (!handle) return '—';
-    const safe = esc(handle);
-    const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(channel, handle) : '';
-    const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+    const { url, text } = (typeof _reportAcctCell === 'function') ? _reportAcctCell(channel, raw) : { url: '', text: '' };
+    if (!text) return '—';
+    const safe = esc(text);
+    const inner = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">${safe}</a>` : safe;
     return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };

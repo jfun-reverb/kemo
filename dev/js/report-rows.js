@@ -263,8 +263,9 @@ function _reportLooksLikeAddress(v) {
 //      · `extractSnsHandle`(shared.js)이 있는 자리(관리자)는 그것으로 아이디를 뽑아 공식 주소를 만든다.
 //      · 없는 자리(공유 화면)에서 저장된 값이 주소 모양(`http` 로 시작, 앞의 `@` 는 떼고 본다)이면
 //        **그 주소 그대로** 돌려준다. 예전처럼 「@ 떼기」만 하면 `instagram.com/https://…` 가 된다.
-//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(`snsProfileUrl` 과 같은 판정).
+//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(아래 `case 'youtube'`).
 //        `/@UC…` 는 없는 주소다 — 관리자 엑셀에도 있던 결함이라 함께 고쳐진다.
+//        ⚠️ 이 줄은 2026-09-21 까지 없어진 `snsProfileUrl` 을 근거로 들고 있었다 — 그 함수는 지웠다.
 function _excelSnsUrl(channel, raw) {
   if (!raw) return '';
   var hasEx = (typeof extractSnsHandle === 'function');
