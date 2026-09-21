@@ -1681,7 +1681,9 @@ function renderBrandOrientSheetCard(s, campMap) {
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
       + ((typeof osCardsSummary === 'function') ? osCardsSummary(d) : '')
-      + ((typeof osStatusOf === 'function') ? osStatusOf(s) : '')
+      // 🔴 `osCardsSummary` 는 글자열을 돌려주지만 `osStatusOf` 는 **객체**(`{label,color,bg}`)다 —
+      //    `osBadge()` 로 감싸지 않으면 화면에 「[object Object]」가 찍힌다(개발서버에서 실제로 그랬다).
+      + ((typeof osStatusOf === 'function' && typeof osBadge === 'function') ? osBadge(osStatusOf(s)) : '')
       + '<span style="flex:1"></span>'
       + '<span style="font-size:11px;color:var(--muted)">' + dateTxt + '</span>'
     + '</div>'
