@@ -198,6 +198,10 @@ interface NextStepCampaign {
   recruit_type: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 「또는」(or) / 「그리고」(and) — 여러 채널을 모집할 때 전부 내야 하는지.
+  // 🔴 조회에서 빠지면 `undefined` 가 되어 **전부 `or` 로 잡힌다** — 「그리고」 캠페인에
+  //    「완료됐다」는 메일이 나간다. 아래 campaignChannelKind 주석 참조.
+  channel_match?: string | null;
   // 아래 두 칸은 완료 문구를 고르는 재료다(completionTail 참조).
   //   ⚠️ `undefined`(조회가 안 가져옴)와 `null`(데이터베이스가 비었다고 답함)을
   //   반드시 구분한다 — 앞은 "모른다", 뒤는 "없다"이고 문구가 갈린다.
@@ -283,6 +287,30 @@ async function fetchChannelLabelMap(
     if (c.name_ja) map.set(c.code, c.name_ja);
   });
   return map;
+}
+
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 와 같은 기준**이다 — Edge Function 은
+//      공유 모듈이 없어 사본이다(같은 사본이 notify-influencer-daily-digest 에도 있다).
+//      셋 중 하나만 고치면 화면·메일이 서로 다른 말을 한다.
+//   ⚠️ **기본값은 `or`**(「`and` 가 아니면 `or`」). 반대로 적으면 지금 정상인 캠페인이 깨진다.
+function campaignChannelKind(camp: NextStepCampaign): "single" | "and" | "or" {
+  const list = String(camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+  if (list.length <= 1) return "single";
+  return String(camp.channel_match || "").trim().toLowerCase() === "and" ? "and" : "or";
+}
+
+// 「또는」 캠페인에서는 요구 채널 중 **하나라도** 승인됐으면 완료다.
+//   `fetchMissingChannels` 는 「최신이 승인이 아닌 채널」을 돌려주므로,
+//   남은 수가 요구 수보다 적다 = 하나 이상 승인됐다는 뜻이다.
+//   ⚠️ `and`·`single` 은 받은 값을 그대로 쓴다(종전 그대로).
+function missingAfterKind(
+  camp: NextStepCampaign,
+  requiredChannels: string[],
+  missing: string[],
+): string[] {
+  if (campaignChannelKind(camp) !== "or") return missing;
+  return missing.length < requiredChannels.length ? [] : missing;
 }
 
 // review_image(리뷰 인증샷) 채널별 완성 여부 조회.
@@ -422,7 +450,9 @@ async function buildNextStepBlock(
         `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
       );
     }
-    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "review_image");
+    const missingRaw = await fetchMissingChannels(sb, applicationId, requiredChannels, "review_image");
+    // 🔴 갈래 보정 — 「또는」이면 하나만 승인돼도 완료다(2026-09-21, 2단계)
+    const missingChannels = missingRaw === null ? null : missingAfterKind(camp, requiredChannels, missingRaw);
     // 조회 실패 — 완료 여부를 모르는 채 "완료"라고 말하지 않는다. 최소한의 진행 상황만 전달.
     if (missingChannels === null) {
       return nextStepBox(
@@ -472,7 +502,9 @@ async function buildNextStepBlock(
         `<div style="font-size:13px;color:#222;line-height:1.7">投稿URLが承認されました。次のステップは「活動管理」でご確認ください。</div>`,
       );
     }
-    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "post");
+    const missingRaw = await fetchMissingChannels(sb, applicationId, requiredChannels, "post");
+    // 🔴 갈래 보정 — 「또는」이면 하나만 승인돼도 완료다(2026-09-21, 2단계)
+    const missingChannels = missingRaw === null ? null : missingAfterKind(camp, requiredChannels, missingRaw);
     if (missingChannels === null) {
       return nextStepBox(
         "blue",
@@ -688,7 +720,7 @@ Deno.serve(async (req: Request) => {
     .select(`
       id, application_id, kind, status, post_url, post_channel,
       submitted_at, reviewed_at, reject_reason,
-      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, reward, product_price)
+      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, channel_match, reward, product_price)
     `)
     .eq("id", note.ref_id)
     .maybeSingle();
