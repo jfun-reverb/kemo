@@ -145,11 +145,13 @@ async function renderLookupsTable() {
 //   수정은 캠페인 관리자 이상(서버 가드 is_campaign_admin — 화면은 단추만 감춘다).
 //   🔴 fetchQuoteSettings 는 실패 null / 0건 [] — 합치면 「환율 0」 화면이 된다.
 // ════════════════════════════════════════════════════════════════════
-const QUOTE_UNIT_LABEL = { krw: '원', jpy: '엔', rate: '비율' };
+const QUOTE_UNIT_LABEL = { krw: '원', jpy: '엔', rate: '비율', count: '건' };
 function quoteAmountText(r) {
   const n = Number(r.amount);
   if (r.unit === 'rate') return (n * 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + ' %';
   if (r.unit === 'jpy') return '¥' + n.toLocaleString('ja-JP');
+  // 🔴 구간 인원(tier_slots_*)은 금액이 아니다 — 이 분기가 없으면 아래 기본으로 떨어져 「50 원」으로 그려진다
+  if (r.unit === 'count') return n.toLocaleString('ko-KR') + ' 건';
   return n.toLocaleString('ko-KR') + ' 원';
 }
 async function renderQuoteSettingsTable() {
@@ -217,12 +219,18 @@ function editQuoteSetting(key, current, unit) {
 async function saveQuoteSetting(key, input, unit) {
   const raw = Number(input && input.value);
   if (!Number.isFinite(raw) || raw < 0) { toast('0 이상의 숫자를 입력해 주세요.'); return; }
+  // 🔴 인원은 0·소수가 될 수 없다 — 0 이면 「0건 단추」가 생기고, 소수면 단추에 「50.5건」이 뜬다.
+  //    금액(0 원이 정상인 행이 있다)과 다르므로 이 단위에서만 막는다. 서버(454)가 최종 방어선.
+  if (unit === 'count' && (raw < 1 || !Number.isInteger(raw))) { toast('구간 인원은 1 이상의 정수여야 합니다.'); return; }
   const amount = unit === 'rate' ? raw / 100 : raw;
   if (unit === 'rate' && amount > 1) { toast('비율은 100% 를 넘을 수 없습니다.'); return; }
   try {
     const res = await updateQuoteSetting(key, amount);
     if (!res || res.success !== true) {
-      const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
+      // 🔴 tier_slots_not_ascending 은 서버(454)가 돌려주는 코드와 **글자가 같아야** 한다 —
+      //    구간 인원이 오름차순이 아니면 단추와 판정이 말없이 어긋나 틀린 금액이 견적서에 찍힌다.
+      const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다',
+                     tier_slots_not_ascending: '구간 인원은 라이트 < 스탠다드 < 프리미엄 < 실검작업 구간 순으로 커져야 합니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
       toast('저장 실패: ' + why); return;
     }
     toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');
