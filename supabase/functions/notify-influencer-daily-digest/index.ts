@@ -186,6 +186,18 @@ function dateDiffDays(a: string, b: string): number {
   return Math.round((aMs - bMs) / (24 * 3600 * 1000));
 }
 
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 와 같은 기준이다** — Edge Function 은
+//      공유 모듈이 없어 사본이다. 한쪽만 고치면 「응모는 되는데 결과물은 안 되는」 어긋남이 생긴다.
+//   🔴 채널이 하나면 `channel_match` 를 **보지 않는다**(그쪽 원본과 같은 이유).
+//   ⚠️ **기본값은 `or` 다** — 「`and` 가 아니면 `or`」. 반대로 적으면 지금 정상인 캠페인이 깨진다.
+//   ⚠️ 채널 이름 비교 자체는 이 함수가 하지 않는다 — 부르는 쪽의 기존 방식(공백만 제거)을 그대로 둔다.
+function campaignChannelKind(camp: CampRow): "single" | "and" | "or" {
+  const list = String(camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+  if (list.length <= 1) return "single";
+  return String(camp.channel_match || "").trim().toLowerCase() === "and" ? "and" : "or";
+}
+
 function loadTemplate(name: string): string {
   const html = TEMPLATES[name];
   if (!html) throw new Error(`template not registered: ${name}`);
@@ -291,6 +303,10 @@ interface CampRow {
   submission_end: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 「또는」(or) / 「그리고」(and) — 여러 채널을 모집할 때 전부 내야 하는지, 하나만 내면 되는지.
+  // 🔴 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **전부 or 로 잡힌다** — 이번 증상은
+  //    사라진 것처럼 보이는데 진짜 and 캠페인의 남은 채널 안내가 한 통도 안 나간다(사양서 §2-①).
+  channel_match: string | null;
   // 행사(오프라인 팝업 방문 예약) 캠페인인가 — 당선 섹션 제외 판정용(2026-08-24 결정 3).
   // ⚠️ 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **아무것도 안 걸러진다**(오류 없이 조용히).
   event_mode: boolean | null;
@@ -756,7 +772,7 @@ Deno.serve(async (req: Request) => {
             // 抜けると上限が消えたまま案内が届く（2026-08-05）。
             // event_mode — 행사 캠페인은 당선 섹션에서 뺀다(2026-08-24 결정 3, 아래 8번 분류 참조).
             //   빠뜨리면 제외 조건이 늘 거짓이 되어 방문객에게 「報酬 -」「提出期限」이 그대로 나간다.
-            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, event_mode")
+            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, channel_match, event_mode")
             .in("id", allCampIds)
             .order("id", { ascending: true })
         );
@@ -938,12 +954,20 @@ Deno.serve(async (req: Request) => {
         (camp.recruit_type === "gifting" || camp.recruit_type === "visit") &&
         camp.submission_end
       ) {
-        // ⚠️ 「게시물이 하나라도 있으면 안 보낸다」가 아니다 — 요구한 채널 **전부**를 내야
-        //   인증 성공이므로(마이그레이션 331), 아직 안 낸 채널이 하나라도 있으면 안내한다.
+        // 🔴 **요구한 채널을 전부 내야 하는지는 캠페인이 정한다**(2026-09-21).
+        //   「또는」(or) 캠페인은 셋 중 하나만 내면 되는데도 전부 요구해, 조건대로 하나만 낸
+        //   회원에게 「아직 안 냈다」는 안내가 계속 갔다(운영 방문형 3건 · 80명).
+        //   - or          : 하나라도 냈으면 안내하지 않는다
+        //   - and·single  : 종전 그대로 — 안 낸 채널이 하나라도 있으면 안내한다
         //   채널이 기록 안 된 옛 캠페인은 채널별로 따질 근거가 없어 종전대로 「하나라도 있으면 멈춤」.
+        //   ⚠️ **인증 성공 판정(마이그레이션 331)은 아직 전부 요구한다** — 그쪽은 2단계에서 고친다.
+        //      그 사이 어긋남은 「메일이 덜 가는」 방향이고, 인증·정산은 지금도 막혀 있어 더 나빠지지 않는다.
         const requiredPostChannels = (camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+        const postKind = campaignChannelKind(camp);
         const missingPost = requiredPostChannels.length > 0
-          ? requiredPostChannels.filter((ch) => !delivInfo.postChannels.has(ch))
+          ? (postKind === "or"
+              ? (requiredPostChannels.some((ch) => delivInfo.postChannels.has(ch)) ? [] : requiredPostChannels)
+              : requiredPostChannels.filter((ch) => !delivInfo.postChannels.has(ch)))
           : (delivKinds.has("post") ? [] : ["*"]);
         if (missingPost.length > 0) {
           const d = dateDiffDays(camp.submission_end, todayDate);
