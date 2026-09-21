@@ -281,7 +281,7 @@ COMMIT;
 --    true→false 로 바뀌는 응모는 0건이어야 한다. 1건이라도 나오면 즉시 멈추고
 --    원인을 먼저 본다.
 WITH target_campaigns AS (
-  SELECT id AS campaign_id, campaign_no, title, channel, channel_match, recruit_type
+  SELECT id AS campaign_id, campaign_no, title, channel, channel_match, recruit_type, proxy_purchase
   FROM public.campaigns
   WHERE status IN ('active', 'scheduled', 'closed', 'ended') AND deleted_at IS NULL
     AND (SELECT count(*) FROM unnest(string_to_array(channel, ',')) AS ch(name) WHERE btrim(ch.name) <> '') >= 2
