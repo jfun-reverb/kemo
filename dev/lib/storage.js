@@ -42,8 +42,11 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 async function fetchRolePermissions() {
   if (!db) return [];
   try {
-    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level, default_level');
-    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    // 등급 × 기능이라 기능이 늘면 1,000행을 넘는다 — 넘으면 권한이 조용히 빠지므로 끊어 받는다
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('role_permissions').select('role, feature_key, access_level, default_level').order('role').order('feature_key'));
+    } catch (error) { console.warn('role_permissions 로드 실패(fail-open):', error?.message); return []; }
     return data || [];
   } catch (e) {
     console.warn('role_permissions 로드 예외(fail-open):', e?.message);
@@ -1725,12 +1728,18 @@ async function fetchDeliverableGate(applicationId) {
 async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
-    const {data, error} = await db?.from('influencers_admin_view')
-      .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-      .in('id', userIds);
-    if (error) throw error;
+    // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
+    //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
+    //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    const ids = [...new Set(userIds)];
     const map = {};
-    (data || []).forEach(i => { map[i.id] = i; });
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(inf => { map[inf.id] = inf; });
+    }
     return map;
   } catch(e) { return {}; }
 }
@@ -2842,15 +2851,18 @@ async function fetchAdminNotices(filters) {
   if (!db) return [];
   try {
     const uid = (await db.auth.getUser()).data?.user?.id;
-    let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
-    if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
-    if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
-    q = q.order('is_pinned', {ascending: false})
-         .order('pinned_at', {ascending: false, nullsFirst: false})
-         .order('published_at', {ascending: false, nullsFirst: false})
-         .order('created_at', {ascending: false});
-    const {data, error} = await q;
-    if (error) throw error;
+    // 끊어 받을 때 쿼리를 페이지마다 새로 만든다(같은 객체에 range 를 거듭 걸지 않는다)
+    const buildQuery = () => {
+      let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
+      if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      return q.order('is_pinned', {ascending: false})
+        .order('pinned_at', {ascending: false, nullsFirst: false})
+        .order('published_at', {ascending: false, nullsFirst: false})
+        .order('created_at', {ascending: false})
+        .order('id');
+    };
+    const data = await fetchAllPaged(buildQuery);
     return (data || []).map(n => {
       const mine = (n.admin_notice_reads || []).find(r => r.auth_id === uid);
       return {...n, is_read: !!mine, read_at: mine?.read_at || null, admin_notice_reads: undefined};
@@ -3496,10 +3508,8 @@ async function fetchOrientMemoSummaries() {
 async function fetchBrandAppHistoryCounts() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.from('brand_application_history')
-      .select('application_id', {count: 'exact', head: false})
-      .limit(100000);
-    if (error) throw error;
+    // ⚠️ .limit(100000) 은 효과가 없었다 — 서버가 1,000행에서 자른다. 끊어 받는다.
+    const data = await fetchAllPaged(() => db.from('brand_application_history').select('application_id').order('id'));
     const counts = {};
     (data || []).forEach(r => { counts[r.application_id] = (counts[r.application_id] || 0) + 1; });
     return counts;
@@ -4504,24 +4514,25 @@ async function fetchAdminSentAtMap() {
 // 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
 //   숨김/회수 메시지는 제외(미리보기 노출 부적절). created_at 내림차순 후 클라에서 첫 행=최신.
 //   반환: Map<application_id, {body, sender_kind, created_at}>
-//   ⚠️ PostgREST 1000행 cap: 청크당 application 100개 + limit 1000. 한 청크 내
-//      메시지 밀도가 매우 높으면(application 평균 10건 초과) 뒤쪽 응모건 미리보기가
-//      누락될 수 있음. 미리보기는 보조 정보라 치명적이지 않음. 정밀도 필요 시
-//      차후 「응모건당 최신 1건」 전용 RPC 로 개선 권장.
+//   PostgREST 1000행 cap: 청크(응모 100건) 안에서도 끊어 받는다(2026-09-21 — 예전에는
+//      limit 1000 이라 메시지가 많은 청크에서 뒤쪽 응모건 미리보기가 빠졌다).
+//      더 가볍게 하려면 「응모건당 최신 1건」 전용 서버 함수가 낫다(후속).
 async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
-  const CHUNK = 100;  // application_id 청크 (청크당 1000행 cap 내 평균 10건 커버)
+  const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
   for (let i = 0; i < applicationIds.length; i += CHUNK) {
     const ids = applicationIds.slice(i, i + CHUNK);
-    const {data, error} = await db?.from('application_messages')
-      .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
-      .in('application_id', ids)
-      .is('hidden_by_admin_at', null)
-      .is('self_withdrawn_at', null)
-      .order('created_at', { ascending: false })
-      .limit(1000);
-    if (error) { console.warn('[fetchMessagePreviews]', error); continue; }
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('application_messages')
+        .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
+        .in('application_id', ids)
+        .is('hidden_by_admin_at', null)
+        .is('self_withdrawn_at', null)
+        .order('created_at', { ascending: false })
+        .order('id'));
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
     (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
   }
   return map;
@@ -4672,12 +4683,13 @@ async function updateBroadcastTitle(broadcastId, title) {
 // 관리자용 전체 노드 (active 무관) — 트리 렌더용. sort_order → created_at 정렬
 async function fetchFaqNodes() {
   if (!db) return [];
-  const {data, error} = await db?.from('faq_nodes')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
-  return data || [];
+  try {
+    return await fetchAllPaged(() => db.from('faq_nodes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'));
+  } catch (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
 }
 
 // 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
