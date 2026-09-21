@@ -5754,9 +5754,11 @@ async function deleteOutboundImage(path) {
 async function fetchPastUnregisteredSettlements() {
   if (!db) return null;   // [B-9] 「실패 = null」 계약 — 아래 주석. 저장소가 없으면 모르는 것이지 0건이 아니다.
   try {
-    const {data, error} = await db.rpc('get_past_unregistered_settlements');
-    if (error) throw error;
-    return data || [];
+    // 🔴 1,000행 상한 — 한 번에 부르면 PostgREST 가 1,000건에서 **표시 없이** 자른다.
+    //    2026-09-21 운영 실측: 실제 1,306건인데 화면·지급 준비 합계가 1,000건만 봤다
+    //    (「또는」 채널 소급 80건 중 59건이 잘린 쪽에 있었다). 함수에 ORDER BY 가 없어
+    //    끊어 받을 때 순서가 흔들리지 않게 application_id 로 고정한다.
+    return await fetchAllPaged(() => db.rpc('get_past_unregistered_settlements').order('application_id'));
   } catch(e) {
     console.error('[fetchPastUnregisteredSettlements]', e);
     // ⚠️ **[] 로 바꾸지 말 것.** 실패를 빈 목록으로 돌려주면 「보낼 것이 없음」과 구분이
