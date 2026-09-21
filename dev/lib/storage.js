@@ -3219,8 +3219,12 @@ async function fetchCampaignCountsByBrand() {
 
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
 // 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
+// 🔴 **실패는 `null`, 0건은 `0`** — 2026-09-21 에 바꿨다. 그전에는 실패에도 `0` 을 돌려줘서
+//    브랜드 상세가 「캠페인 없음 → 삭제 가능」으로 **오판**했고(조회가 실패했을 뿐인데),
+//    병합 확인창은 「캠페인 0건을 옮깁니다」라고 **거짓 안내**했다. 둘 다 되돌릴 수 없는 동작이다.
+//    ⚠️ 호출부는 실패(`null`)와 0건(`0`)을 반드시 갈라야 한다 — 뭉치면 그 사고가 되살아난다.
 async function countCampaignsByBrand(brandId) {
-  if (!db) return 0;
+  if (!db) return null;
   try {
     // 보관 삭제된 캠페인 제외 — 서버의 브랜드 삭제 판정(마이그레이션 325)과 같은 기준.
     //   기준이 어긋나면 화면은 「0개」인데 삭제는 「캠페인이 남아 있다」로 막힌다.
@@ -3228,7 +3232,7 @@ async function countCampaignsByBrand(brandId) {
       .is('deleted_at', null).eq('brand_id', brandId);
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
+  } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
 }
 
 // 브랜드 할당 모달용 조회
@@ -3268,6 +3272,20 @@ async function fetchBrandApplicationsByBrand(brandId) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchBrandApplicationsByBrand]', e); return []; }
+}
+
+// 브랜드 서베이(brand_applications) 신청 건수 — 브랜드 상세 삭제 판정·안내줄용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6).
+// 🔴 실패는 null, 0건은 0 — 둘을 반드시 구분한다(마이그레이션 276 원칙). 호출부는
+//   null 이면 삭제 버튼을 아예 안 그리고 「일부 정보를 불러오지 못해 삭제를 잠갔습니다」로 안내한다.
+async function countBrandApplicationsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {count, error} = await db.from('brand_applications').select('id', {count:'exact', head:true})
+      .eq('brand_id', brandId);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[countBrandApplicationsByBrand]', e); return null; }
 }
 
 // 광고주 신청 메모 (multi-entry, migration 080 + 123 — 제품별 분리)
@@ -5334,6 +5352,37 @@ async function fetchOrientSheetsByApplication(applicationId) {
     if (error) throw error;
     return data || [];
   });
+}
+
+// 브랜드에 발급된 오리엔시트 전체 — 브랜드 상세 「오리엔시트」 구역용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6). 최신 발급순.
+// data 는 형식(osCardsSummary)·제품명·견적(osQuoteState)·발행 캠페인 표시에 전부 쓰여 반드시 받는다.
+//   orient_sheets.form_type 칸은 형식 표시 함수가 안 읽으므로(새 시트=data.issued, 옛 시트=data.cards) 안 받는다.
+// 🔴 1,000행 상한 대응 — 브랜드당 건수를 실측하지 않았으므로 fetchAllPaged 로 전건 반복 조회한다
+//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문(fetchCampaignCountsByBrand)을 본뜨지 않는다.
+// 실패 null / 0건 [].
+async function fetchOrientSheetsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false }));
+  } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
+}
+
+// 브랜드별 오리엔시트 수 일괄 집계 — 브랜드 목록 「오리엔시트 수」 컬럼용. {brand_id: count} 반환.
+//   뜻은 fetchCampaignCountsByBrand 와 같다(전건 반복 조회 + 클라 집계) — 단 반복 도우미는
+//   fetchAllPaged 로 통일한다(사양서 §1-1·§4-6, 손수 짠 while 반복문을 본뜨지 않는다).
+// 🔴 실패는 null, 0건은 {} — 둘을 반드시 구분한다(마이그레이션 276 원칙).
+async function fetchOrientSheetCountsByBrand() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const counts = {};
+    (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
+    return counts;
+  } catch (e) { console.error('[fetchOrientSheetCountsByBrand]', e); return null; }
 }
 
 // ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
