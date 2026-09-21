@@ -674,6 +674,28 @@ function buildDeliverableGroups(delivs, campMap, opts) {
 }
 
 // monitor 신청의 「대표 결과물 상태」 result_status_repr — rejected > pending > approved > legacy_no_channel > none
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 를 그대로 부른다** — 사본을 만들지 않는다.
+//      관리자 빌드에 `lib/shared.js` 가 들어가므로 부를 수 있다(`dev/build.sh` 의 ADMIN_JS_FILES).
+//      응모 자격 판정과 결과물 판정이 갈리면 「응모는 되는데 결과물은 안 되는」 어긋남이 생긴다.
+//   ⚠️ 못 부르면 `and` 로 떨어진다 — **종전 동작(전부 요구)**이라 안전한 방향이다.
+function _certChannelKind(camp) {
+  if (typeof campaignFollowerKind !== 'function') return 'and';
+  return campaignFollowerKind(camp || {});
+}
+
+// 채널별 상태 목록에서 대표 상태 하나를 고른다.
+//   and·single : 하나라도 안 냈으면(none) 미완 — 종전 그대로
+//   or         : 🔴 **승인이 하나라도 있으면 완료**. 「하나 승인 + 하나 반려」도 완료다
+//                (반려된 채널은 애초에 낼 의무가 없던 채널이다)
+function _certReprFromStates(states, kind) {
+  if (kind === 'or' && states.indexOf('approved') !== -1) return 'approved';
+  if (states.indexOf('rejected') !== -1) return 'rejected';
+  if (states.indexOf('pending') !== -1) return 'pending';
+  if (states.indexOf('none') !== -1) return 'none';
+  return 'approved';
+}
+
 function _finalizeMonitorReprs(groups) {
   for (const g of groups.values()) {
     const rt = g.campaign?.recruit_type;
@@ -685,12 +707,9 @@ function _finalizeMonitorReprs(groups) {
       continue;
     }
     const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) {
-      repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
-    }
+    let repr = _certReprFromStates(states, _certChannelKind(g.campaign));
+    // 「아직 안 낸 채널이 있다」는 결론일 때만 옛 채널 미지정 행을 대신 본다(종전 그대로).
+    if (repr === 'none' && g.hasLegacyReviewImage) repr = 'legacy_no_channel';
     g.result_status_repr = repr;
     const stateSet = new Set(states);
     // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
@@ -717,11 +736,7 @@ function _finalizePostReprs(groups) {
     const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     if (channels.length === 0) { g.post_status_repr = 'none'; continue; }
     const states = channels.map(ch => (g.postByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) repr = 'none';
-    g.post_status_repr = repr;
+    g.post_status_repr = _certReprFromStates(states, _certChannelKind(g.campaign));
   }
 }
 
