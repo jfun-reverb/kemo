@@ -156,7 +156,7 @@ function quoteAmountText(r) {
 // ── 견적 기준값 화면 — 형식별 구간표(2026-09-21 사용자 결정) ──
 //   예전에는 45행을 한 줄 목록으로 그려 「스탠다드는 몇 명부터, 모집비 얼마」를 알려면 위아래 묶음을 오가야 했다.
 //   이제 **공통 · 리뷰어 · 시딩** 카드 셋으로, 카드 안에서 구간이 줄이고 시작 인원·인원 범위·비용이 칸이다.
-//   🔴 **값과 저장 경로는 그대로**다 — 입력칸(늘 보임)을 고치면 나오는 「저장」(또는 Enter) → quoteInputSave → saveQuoteSetting(update_quote_setting).
+//   🔴 **값과 저장 경로는 그대로**다 — 칸을 누르면 나오는 「저장」(또는 Enter) → quoteInputSave → saveQuoteSetting(update_quote_setting).
 //   🔴 **어느 카드에도 안 들어간 행은 맨 아래 「그 밖의 기준값」에 그대로 그린다** — 새 기준값 행이 생겼는데
 //      이 배치표에 안 넣으면 화면에서 조용히 사라진다(고칠 길이 없어진다).
 const QUOTE_TIER_KEYS = ['tmin', 't50', 't100', 't300', 't500plus'];
@@ -170,8 +170,9 @@ function quoteIsPlaceholder(r) {
   return n >= QUOTE_SEED_PLACEHOLDER.min && n <= QUOTE_SEED_PLACEHOLDER.max;
 }
 // 값 칸 하나 — 편집 권한이 있으면 **처음부터 입력칸**으로 그린다(2026-09-21 사용자 지시 — 눌러야 입력칸이
-//   나오면 고칠 수 있는 자리인지 안 보인다). 값을 고치면 그 칸 옆에 「저장」·「취소」가 나타나고,
-//   **저장 버튼(또는 Enter)을 눌러야 저장**된다(같은 날 사용자 지시 — 칸만 옮겨도 저장되면 의도치 않게 바뀐다).
+//   나오면 고칠 수 있는 자리인지 안 보인다). 평소에는 **읽기 상태**이고, 칸을 누르면 입력 상태가 되며
+//   옆에 「저장」·「취소」가 **바로** 나타난다. **저장 버튼(또는 Enter)을 눌러야 저장**된다(같은 날 사용자 지시 —
+//   ①칸만 옮겨도 저장되면 의도치 않게 바뀐다 ②처음부터 다 고쳐지는 칸이면 저장 버튼이 어디 있는지 안 보인다).
 //   권한이 없으면 글자만.
 const QUOTE_INPUT_UNIT = { krw: '원', jpy: '엔', rate: '%', count: '명' };
 function quoteInputValue(r) {
@@ -189,26 +190,40 @@ function quoteCell(byKey, key, opts) {
     const v = quoteInputValue(r);
     const isRate = r.unit === 'rate';
     return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><div class="q-in-wrap${ph ? ' is-ph' : ''}">
-      <input type="number" class="q-input" data-qkey="${esc(r.key)}" data-unit="${esc(r.unit)}" data-orig="${esc(v)}" value="${esc(v)}"
+      <input type="number" class="q-input" readonly title="눌러서 수정" data-qkey="${esc(r.key)}" data-unit="${esc(r.unit)}" data-orig="${esc(v)}" value="${esc(v)}"
         step="${isRate ? '0.01' : '1'}" min="${r.unit === 'count' ? '1' : '0'}"${isRate ? ' max="100"' : ''}
-        oninput="quoteInputDirty(this)" onkeydown="quoteInputKey(event, this)">
+        onfocus="quoteStartEdit(this)" onclick="quoteStartEdit(this)" oninput="quoteInputDirty(this)" onkeydown="quoteInputKey(event, this)">
       <span class="q-unit">${esc(QUOTE_INPUT_UNIT[r.unit] || '')}</span>${tag}
       <span class="q-act" hidden><button type="button" class="btn btn-primary btn-xs" onclick="quoteInputSave(this)">저장</button><button type="button" class="btn btn-ghost btn-xs" onclick="quoteInputCancel(this)">취소</button></span></div></td>`;
   }
   const text = r.unit === 'count' ? Number(r.amount).toLocaleString('ko-KR') + '명' : quoteAmountText(r);
   return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><span class="q-val-ro${ph ? ' is-ph' : ''}">${esc(text)}${tag}</span></td>`;
 }
-// 값이 원래와 달라지면 그 칸의 「저장」·「취소」를 보인다(같아지면 다시 감춘다)
+// 칸을 누르면 입력 상태로 — 「저장」·「취소」를 바로 보인다.
+//   다른 칸을 누르면, **아무것도 안 고친** 칸은 읽기 상태로 돌려놓는다(고치던 칸은 버튼째 남긴다).
+function quoteSetEditing(input, on) {
+  const wrap = input && input.closest('.q-in-wrap'); if (!wrap) return;
+  input.readOnly = !on;
+  wrap.classList.toggle('is-editing', on);
+  const act = wrap.querySelector('.q-act'); if (act) act.hidden = !on;
+}
+function quoteStartEdit(input) {
+  if (!input || !input.readOnly) return;
+  document.querySelectorAll('#lookupsTableBody .q-input').forEach(el => {
+    if (el !== input && !el.readOnly && el.value === el.dataset.orig) quoteSetEditing(el, false);
+  });
+  quoteSetEditing(input, true);
+  input.select();
+}
+// 값이 원래와 다른지 표시만 한다(버튼은 입력 상태인 동안 늘 보인다)
 function quoteInputDirty(input) {
   const wrap = input && input.closest('.q-in-wrap'); if (!wrap) return;
-  const dirty = input.value !== input.dataset.orig;
-  wrap.classList.toggle('is-dirty', dirty);
-  const act = wrap.querySelector('.q-act'); if (act) act.hidden = !dirty;
+  wrap.classList.toggle('is-dirty', input.value !== input.dataset.orig);
 }
 // Enter = 저장, Escape = 원래 값으로 되돌리기
 function quoteInputKey(e, input) {
   if (e.key === 'Enter') { e.preventDefault(); quoteInputSave(input); }
-  else if (e.key === 'Escape') { e.preventDefault(); input.value = input.dataset.orig; quoteInputDirty(input); }
+  else if (e.key === 'Escape') { e.preventDefault(); quoteInputCancel(input); }
 }
 function quoteInputOf(el) {
   if (el && el.classList && el.classList.contains('q-input')) return el;
@@ -217,13 +232,13 @@ function quoteInputOf(el) {
 }
 function quoteInputCancel(el) {
   const input = quoteInputOf(el); if (!input) return;
-  input.value = input.dataset.orig; quoteInputDirty(input);
+  input.value = input.dataset.orig; quoteInputDirty(input); quoteSetEditing(input, false); input.blur();
 }
 // 저장 — 값이 바뀌었을 때만. 실패하면 **친 값을 그대로 둔다**(안내를 보고 고쳐 다시 저장할 수 있게).
 //   저장되면 표를 다시 그리는데(범위 글이 따라 바뀐다), 다른 칸에 고치던 값은 그대로 남는다.
 async function quoteInputSave(el) {
   const input = quoteInputOf(el); if (!input) return;
-  if (input.value === input.dataset.orig) { quoteInputDirty(input); return; }
+  if (input.value === input.dataset.orig) { quoteInputCancel(input); return; }   // 바꾼 게 없으면 그냥 닫는다
   const wrap = input.closest('.q-in-wrap');
   const btns = wrap ? wrap.querySelectorAll('.q-act button') : [];
   btns.forEach(b => { b.disabled = true; });   // 두 번 눌러 두 번 저장되지 않게
@@ -335,11 +350,12 @@ async function renderQuoteSettingsTable() {
   if (scroller) scroller.scrollTop = keepTop;
   Object.keys(pending).forEach(k => {
     const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(k)}"]`);
-    if (el) { el.value = pending[k]; quoteInputDirty(el); }   // data-orig 는 새 서버 값 — 「저장」을 누르면 그 차이로 저장된다
+    if (el) { el.value = pending[k]; quoteSetEditing(el, true); quoteInputDirty(el); }   // data-orig 는 새 서버 값 — 「저장」을 누르면 그 차이로 저장된다
   });
-  if (focusKey) {
+  // 초점은 **고치던 칸**에만 돌려준다 — 방금 저장해 읽기 상태로 돌아간 칸에 돌려주면 다시 입력 상태로 열린다
+  if (focusKey && (focusKey in pending)) {
     const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(focusKey)}"]`);
-    if (el) { el.focus({ preventScroll: true }); if (!(focusKey in pending)) el.select(); }
+    if (el) el.focus({ preventScroll: true });
   }
 }
 async function saveQuoteSetting(key, input, unit) {
@@ -365,6 +381,9 @@ async function saveQuoteSetting(key, input, unit) {
       toast('저장 실패: ' + why); return false;
     }
     toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');
+    // 🔴 다시 그리기 전에 이 칸의 「원래 값」을 새 값으로 — 안 그러면 다시 그릴 때 「아직 안 저장한 칸」으로
+    //    잘못 잡혀(renderQuoteSettingsTable 의 pending) 방금 저장한 칸이 입력 상태로 다시 열린다
+    if (input && input.dataset) input.dataset.orig = input.value;
     await refreshPane('lookups');
     return true;
   } catch (e) {
