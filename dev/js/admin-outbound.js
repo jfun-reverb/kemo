@@ -249,17 +249,21 @@ function outboundFollowersDisplay(v) {
   return Number(v).toLocaleString() + '명';
 }
 
-// 채널 key(ig) → snsProfileUrl 채널명(instagram) 매핑. 나머지는 동일.
+// 채널 key(ig) → 계정 판정 함수가 쓰는 채널명(instagram) 매핑. 나머지는 동일.
 const OUTBOUND_CH_SNS = { ig: 'instagram', tiktok: 'tiktok', youtube: 'youtube', x: 'x' };
 
-// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
+// 채널별 팔로워 셀 — 계정이 있으면 팔로워 + 계정(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
+// 🔴 이 자리는 예전에 **계정 값을 다듬지 않고** 주소를 만들어, 주소가 저장된 값이 통째로 깨졌다
+//    (네 자리 중 유일하게 `extractSnsHandle` 을 안 거치던 곳). 이제 `_reportAcctCell` 이 둘 다 한다.
+// ⚠️ 빈 값일 때는 맨 글자가 아니라 **회색 조각**을 돌려준다 — 표 모양이 다른 칸과 어긋나지 않게.
 function outboundChannelFollowersCell(o, ch) {
-  const handle = o[ch.handleCol];
-  if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
-  const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
+  const { url, text } = (typeof _reportAcctCell === 'function')
+    ? _reportAcctCell(OUTBOUND_CH_SNS[ch.key], o[ch.handleCol]) : { url: '', text: '' };
+  if (!text) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const safe = esc(text);
   const handleHtml = url
-    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">@${esc(handle)}</a>`
-    : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">${safe}</a>`
+    : `<span style="font-size:10px;color:var(--muted)">${safe}</span>`;
   return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
     + `<div>${handleHtml}</div>`;
 }
