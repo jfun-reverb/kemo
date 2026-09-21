@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789991178';
+  var CURRENT_BUILD = 'v1789994560';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3158,6 +3158,10 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-in-wrap.is-ph .q-input[readonly] { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
 /* 저장·취소 — 칸 옆에 붙는 작은 버튼(기본 btn-xs 보다 작게. 같은 방식: .faq-item-actions .btn-xs) */
 .q-act .btn-xs { padding: 2px 7px; font-size: 11px; line-height: 1.4; border-radius: 5px; }
+/* 구간 이름·옵션 문구 칸(글자) — 숫자 칸보다 넓게, 왼쪽 정렬 */
+.q-input.q-input-text { width: 104px; text-align: left; font-weight: 600; }
+.q-input.q-input-text.q-input-opt { width: 150px; font-weight: 500; }
+.q-muted { color: var(--muted); font-weight: 400; }
 
 </style>
 </head>
@@ -3258,7 +3262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 20:46 · d3976bb</span>
+          <span class="admin-build-text">2026-09-21 21:42 · fcc63d5</span>
         </div>
       </div>
     </aside>
@@ -15713,6 +15717,31 @@ async function updateQuoteSetting(key, amount) {
   });
 }
 
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // ── 메타 픽셀 설정 (마이그레이션 438) ──
 // 관리 화면 조회: 관리자 전원. 반환 {meta_pixel_id, enabled, policy_effective_date, updated_at, status, history[]}
 //   🔴 실패는 null — 화면은 「불러오지 못했습니다」를 그리고 스위치를 그리지 않는다.
@@ -20030,6 +20059,7 @@ async function loadOrientSheets() {
   }
   // 메모 집계 — 목록 「메모」 칸의 안 읽은 수. 실패해도 목록은 그린다(메모는 부가 정보).
   try { _osMemoSummary = await fetchOrientMemoSummaries(); } catch (_) { _osMemoSummary = {}; }
+  _osTierLabels = null; await osEnsureTierLabels();   // 구간 이름 — 진입마다 새로(관리자가 방금 고쳤을 수 있다)
   renderOrientSheets();
   refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
 }
@@ -20735,6 +20765,7 @@ async function osOpenDetail(id) {
   catch (e) { body.innerHTML = '<p style="padding:20px;width:100%">불러오지 못했습니다.</p>'; return; }
   if (!s) { body.innerHTML = '<p style="padding:20px;width:100%">데이터가 없습니다.</p>'; return; }
   _osDetailSheet = s;
+  await osEnsureTierLabels();   // 브랜드 상세 등 다른 페인에서 바로 열린 경우 아직 없을 수 있다
   // 발행된 카드의 연결 캠페인 번호·상태 조회 (활성=번호 링크 / 보관삭제=삭제됨 / 맵에 없음=완전삭제)
   try {
     const campIds = ((s.data && s.data.cards) || []).map(c => c && c.campaign_id).filter(Boolean);
@@ -20879,7 +20910,7 @@ function osDetailHtml(s, catMap, readonly) {
       : '작성된 모집 건이 없습니다.';
     bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard + quoteCard;
   } else {
-    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard + quoteCard;
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly, s)).join('') + reqCard + quoteCard;
   }
   // [2026-09-16 §4-8] 브랜드가 고정 안내를 확인한 시각 — 서버가 제출 때 찍은 값(notice_ack.at). 없으면 줄을 안 그린다.
   //   ⚠️ 날짜만 보여 준다 — notice_ack.form_type 은 「어느 안내문을 보고 확인했나」의 기록용이라 화면에 안 그린다(형식이 두 번 나온다)
@@ -21135,7 +21166,7 @@ function osRowQuoteCell(s) {
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
-function osCardDetail(c, idx, catMap, readonly) {
+function osCardDetail(c, idx, catMap, readonly, sheet) {
   const ft = (c && c.form_type) || '';
   const p = c.product || {};
   const r = c.recruit || {};
@@ -21144,8 +21175,8 @@ function osCardDetail(c, idx, catMap, readonly) {
   const catLabel = (catMap && catMap[p.category]) || p.category;
 
   // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
-  // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 구간 이름은 작성 폼 TIER_OPTIONS 와 같은 넷
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', OS_TIER_LABEL[p.slots_tier] || '')
+  // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 이름은 osTierName 이 고르고 osField 가 esc 한다(관리자 입력값)
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, p.slots_tier))
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
@@ -21754,13 +21785,28 @@ function osUnlinkFailMsg(reason) {
 
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
 
-// 관리자 상세에 쓰는 모집 구간 이름표 — 작성 폼(orient.html)의 TIER_OPTIONS·EXTRA_MARKETS 와 같은 열쇠말.
-// 🔴 **건수를 적지 않는다**(2026-09-21) — 구간 시작 인원이 리뷰어·시딩마다 따로라(「견적 기준값」의
-//    reviewer_tier_slots_*·seeding_tier_slots_*) 한 벌의 글자로는 둘 다 맞출 수 없다. 실제 인원은
-//    바로 옆 「모집 인원」 칸이 보여준다. 예전에는 건수를 박아 두어 기준값만 고치면 여기만 거짓말했다.
-// ⚠️ 맨 끝 구간은 「실검작업 구간」 — 숫자 이름(「500건」)은 형식마다 달라져 관리자 화면에서는 안 쓴다.
-//    브랜드가 보는 폼 단추·견적서 줄 이름은 그 형식의 시작 인원 숫자를 쓴다(사양서 2026-09-21 §3-7).
-const OS_TIER_LABEL = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '실검작업 구간' };
+// 관리자 상세 「모집 구간」 이름 — 구간 이름은 관리자가 형식별로 고친다(quote_tier_labels, 사양서
+//   2026-09-21-orient-tier-names-editable §3-7). 이름을 고르는 순서는 osTierName **한 곳**에서만 정한다:
+//   ① 견적 스냅샷 quote.tier_name(제출 때 쓴 이름) → ② 지금 표의 그 형식 이름 → ③ 아래 기본 이름.
+// 🔴 기본 이름은 §3-1 시드와 **글자 그대로 같아야** 한다(서버 계산식·작성 폼에도 같은 사본이 있다).
+const OS_TIER_DEFAULT_NAME = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '프리미엄+' };
+// 지금 구간 이름 표 — 페인 진입(또는 상세를 처음 열 때) 한 번 받는다. null = 못 받음(→ ③ 기본 이름)
+let _osTierLabels = null;
+async function osEnsureTierLabels() {
+  if (_osTierLabels !== null) return;
+  try { _osTierLabels = (typeof fetchQuoteTierLabels === 'function') ? await fetchQuoteTierLabels() : null; }
+  catch (_) { _osTierLabels = null; }
+}
+function osTierName(sheet, tier) {
+  if (!tier) return '';
+  const d = (sheet && sheet.data) || {};
+  const q = d.quote;
+  if (q && q.tier === tier && typeof q.tier_name === 'string' && q.tier_name.trim()) return q.tier_name;
+  const ft = d.issued && d.issued.form_type;
+  const row = Array.isArray(_osTierLabels) ? _osTierLabels.find(r => r.form_type === ft && r.tier === tier) : null;
+  if (row && row.name) return row.name;
+  return OS_TIER_DEFAULT_NAME[tier] || '';
+}
 const OS_EXTRA_MARKET_LABEL = { lips: 'LIPS', cosme: '@cosme' };
 
 // 리뷰어 추가 옵션으로 넘길 수 있는 채널 코드 — 시트의 `sale.extra_markets` 값과 기준 데이터 채널 code 가 같은 글자다.
@@ -40210,7 +40256,11 @@ function quoteAmountText(r) {
 //   🔴 **어느 카드에도 안 들어간 행은 맨 아래 「그 밖의 기준값」에 그대로 그린다** — 새 기준값 행이 생겼는데
 //      이 배치표에 안 넣으면 화면에서 조용히 사라진다(고칠 길이 없어진다).
 const QUOTE_TIER_KEYS = ['tmin', 't50', 't100', 't300', 't500plus'];
-const QUOTE_TIER_NAME = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '실검작업' };
+// 구간 줄 머리 — **이름이 아니라 순번**이다(2026-09-21). 이름은 편집 칸(quote_tier_labels)이라 머리에
+//   또 쓰면 같은 값이 두 번 보이고, 고치는 동안 서로 다른 말을 한다(사양서 orient-tier-names-editable §3-7).
+const QUOTE_TIER_HEAD = { tmin: '최소', t50: '1구간', t100: '2구간', t300: '3구간', t500plus: '4구간' };
+// 구간 이름·옵션 문구 길이(서버 update_quote_tier_label 과 같은 값 — 서버가 최종 방어선)
+const QUOTE_TIER_NAME_MAX = 8, QUOTE_TIER_OPTION_MAX = 16;
 // 시딩 단가 시드는 가짜 값(99001~99025, 442·458) — 이 범위면 「미입력」으로 눈에 띄게 그린다.
 //   ⚠️ 판정은 **시딩 단가 행에만** 건다(다른 행에 우연히 이 숫자가 들어가도 경고하지 않게).
 const QUOTE_SEED_PLACEHOLDER = { min: 99000, max: 99999 };
@@ -40248,6 +40298,26 @@ function quoteCell(byKey, key, opts) {
   }
   const text = r.unit === 'count' ? Number(r.amount).toLocaleString('ko-KR') + '명' : quoteAmountText(r);
   return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><span class="q-val-ro${ph ? ' is-ph' : ''}">${esc(text)}${tag}</span></td>`;
+}
+// 구간 이름·옵션 문구 칸. labels = 조회 결과 맵(`형식:구간` → 행), null 이면 「불러오지 못했습니다」.
+//   🔴 값은 관리자 입력이라 **반드시 esc**. data-qkey 는 다시 그릴 때 고치던 값을 되살리는 열쇠(숫자 칸과 한 규칙).
+function quoteLabelCell(labels, form, tier, field, opts) {
+  if (!labels) return '<td class="q-cell q-missing" title="구간 이름을 불러오지 못했습니다">불러오지 못했습니다</td>';
+  const row = labels[form + ':' + tier];
+  if (!row) return '<td class="q-cell q-missing" title="이 구간의 이름 행이 없습니다">—</td>';
+  const v = field === 'name' ? (row.name || '') : (row.option_text || '');
+  const key = 'label:' + form + ':' + tier + ':' + field;
+  const tip = (field === 'name' ? '구간 이름' : '옵션 문구') + (row.updated_at ? ' · 마지막 수정 ' + formatDateTime(row.updated_at) : '');
+  if (opts && opts.canEdit) {
+    const max = field === 'name' ? QUOTE_TIER_NAME_MAX : QUOTE_TIER_OPTION_MAX;
+    return `<td class="q-cell q-amount q-label" data-qkey="${esc(key)}" title="${esc(tip)}"><div class="q-in-wrap">
+      <input type="text" class="q-input q-input-text${field === 'option' ? ' q-input-opt' : ''}" readonly title="눌러서 수정" maxlength="${max}"
+        data-qkey="${esc(key)}" data-kind="label" data-form="${esc(form)}" data-tier="${esc(tier)}" data-field="${esc(field)}"
+        data-orig="${esc(v)}" value="${esc(v)}" placeholder="${field === 'name' ? '' : '(없음)'}"
+        onfocus="quoteStartEdit(this)" onclick="quoteStartEdit(this)" oninput="quoteInputDirty(this)" onkeydown="quoteInputKey(event, this)">
+      <span class="q-act" hidden><button type="button" class="btn btn-primary btn-xs" onclick="quoteInputSave(this)">저장</button><button type="button" class="btn btn-ghost btn-xs" onclick="quoteInputCancel(this)">취소</button></span></div></td>`;
+  }
+  return `<td class="q-cell q-amount q-label" data-qkey="${esc(key)}" title="${esc(tip)}"><span class="q-val-ro">${v ? esc(v) : '<span class="q-muted">(없음)</span>'}</span></td>`;
 }
 // 칸을 누르면 입력 상태로 — 「저장」·「취소」를 바로 보인다.
 //   다른 칸을 누르면, **아무것도 안 고친** 칸은 읽기 상태로 돌려놓는다(고치던 칸은 버튼째 남긴다).
@@ -40292,7 +40362,9 @@ async function quoteInputSave(el) {
   const wrap = input.closest('.q-in-wrap');
   const btns = wrap ? wrap.querySelectorAll('.q-act button') : [];
   btns.forEach(b => { b.disabled = true; });   // 두 번 눌러 두 번 저장되지 않게
-  const ok = await saveQuoteSetting(input.dataset.qkey, input, input.dataset.unit);
+  const ok = input.dataset.kind === 'label'
+    ? await saveQuoteTierLabel(input)
+    : await saveQuoteSetting(input.dataset.qkey, input, input.dataset.unit);
   if (!ok) btns.forEach(b => { b.disabled = false; });
 }
 // 인원 범위 글 — 「그 구간의 시작 인원 ~ 다음 구간 시작 - 1」. 기준값이 비면 「—」(기본값으로 채우지 않는다).
@@ -40310,6 +40382,7 @@ function quoteTierRanges(byKey, prefix) {
   });
   return out;
 }
+const QUOTE_OPTION_NOTE = '<p class="q-note">구간 <strong>이름·옵션 문구</strong>는 브랜드 작성 폼 단추와 견적서 줄 이름에 쓰입니다(이름 1~8자, 옵션 0~16자). 옵션 문구는 설명일 뿐 <strong>견적 금액을 바꾸지 않습니다</strong> — 「실검작업 — 담당자 협의」 줄은 4구간이면 옵션 문구와 상관없이 붙습니다.</p>';
 function quoteCard(title, sub, inner) {
   return `<section class="q-card"><div class="q-card-head"><span class="q-card-title">${esc(title)}</span>${sub ? `<span class="q-card-sub">${esc(sub)}</span>` : ''}</div>${inner}</section>`;
 }
@@ -40322,14 +40395,17 @@ function quoteCommonCard(byKey, o) {
 function quoteReviewerCard(byKey, o) {
   const rg = quoteTierRanges(byKey, 'reviewer_tier_');
   const rows = QUOTE_TIER_KEYS.map(t => `<tr>
-      <th>${QUOTE_TIER_NAME[t]}</th>
+      <th>${QUOTE_TIER_HEAD[t]}</th>
+      ${quoteLabelCell(o.labels, 'reviewer', t, 'name', o)}
+      ${quoteLabelCell(o.labels, 'reviewer', t, 'option', o)}
       ${t === 'tmin' ? quoteCell(byKey, 'reviewer_tier_min_slots', o) : quoteCell(byKey, 'reviewer_tier_slots_' + t, o)}
       <td class="q-range">${esc(rg[t])}</td>
       ${quoteCell(byKey, 'reviewer_recruit_fee_krw_' + t, o)}
     </tr>`).join('');
   return quoteCard('리뷰어', '구간은 모집 인원으로 정해집니다 — 시작 인원을 고치면 아래 범위가 함께 바뀝니다', `
-    <table class="q-table q-tier"><thead><tr><th>구간</th><th>시작 인원</th><th>인원 범위</th><th>모집비 (1건당)</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="q-note">「소량」의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 이보다 적으면 접수하지 않습니다.</p>
+    <div class="q-scroll"><table class="q-table q-tier"><thead><tr><th>구간</th><th>이름</th><th>옵션 문구</th><th>시작 인원</th><th>인원 범위</th><th>모집비 (1건당)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="q-note">「최소」 줄의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 이보다 적으면 접수하지 않습니다.</p>
+    ${QUOTE_OPTION_NOTE}
     <table class="q-table q-kv"><tbody>
       <tr><th>해외 송금 수수료 (1건당)</th>${quoteCell(byKey, 'reviewer_transfer_fee_krw', o)}</tr>
       <tr><th>추가 옵션 — LIPS (1건당)</th>${quoteCell(byKey, 'reviewer_option_fee_krw_lips', o)}</tr>
@@ -40340,9 +40416,11 @@ function quoteSeedingCard(byKey, o) {
   const rg = quoteTierRanges(byKey, 'seeding_tier_');
   const chs = (typeof OS_SEEDING_CHANNELS !== 'undefined') ? OS_SEEDING_CHANNELS : ['instagram_feed', 'instagram_reels', 'x', 'tiktok', 'youtube'];
   const chName = c => (typeof osChLabel === 'function') ? osChLabel(c) : c;
-  const head = `<tr><th>구간</th><th>시작 인원</th><th>인원 범위</th>${chs.map(c => `<th>${esc(chName(c))}</th>`).join('')}</tr>`;
+  const head = `<tr><th>구간</th><th>이름</th><th>옵션 문구</th><th>시작 인원</th><th>인원 범위</th>${chs.map(c => `<th>${esc(chName(c))}</th>`).join('')}</tr>`;
   const rows = QUOTE_TIER_KEYS.map(t => `<tr>
-      <th>${QUOTE_TIER_NAME[t]}</th>
+      <th>${QUOTE_TIER_HEAD[t]}</th>
+      ${quoteLabelCell(o.labels, 'seeding', t, 'name', o)}
+      ${quoteLabelCell(o.labels, 'seeding', t, 'option', o)}
       ${t === 'tmin' ? quoteCell(byKey, 'seeding_tier_min_slots', o) : quoteCell(byKey, 'seeding_tier_slots_' + t, o)}
       <td class="q-range">${esc(rg[t])}</td>
       ${chs.map(c => quoteCell(byKey, 'seeding_fee_krw_' + c + '_' + t, o)).join('')}
@@ -40351,7 +40429,8 @@ function quoteSeedingCard(byKey, o) {
   const warn = phCount ? `<div class="q-warn"><span class="material-icons-round" translate="no">warning</span>진행비 ${phCount}칸이 아직 가짜 값(99,0xx원)입니다 — 실제 금액을 넣어야 시딩 견적이 맞게 나갑니다.</div>` : '';
   return quoteCard('시딩', '진행비는 채널 × 구간 1건당 금액입니다', `${warn}
     <div class="q-scroll"><table class="q-table q-tier q-wide"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
-    <p class="q-note">「소량」의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 구간 인원을 바꾸면 그 구간 진행비가 가리키는 사람 수도 바뀌니 함께 확인해 주세요.</p>`);
+    <p class="q-note">「최소」 줄의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 구간 인원을 바꾸면 그 구간 진행비가 가리키는 사람 수도 바뀌니 함께 확인해 주세요.</p>
+    ${QUOTE_OPTION_NOTE}`);
 }
 function quoteRestCard(byKey, rows, o) {
   const rest = rows.filter(r => !byKey.__used.has(r.key));
@@ -40384,7 +40463,15 @@ async function renderQuoteSettingsTable() {
   }
   const byKey = { __used: new Set() };
   rows.forEach(r => { byKey[r.key] = r; });
-  const o = { canEdit };
+  // 구간 이름·옵션(quote_tier_labels) — 실패 null, 또는 10행이 아니면 이름 칸만 「불러오지 못했습니다」.
+  //   숫자 칸은 그대로 편집할 수 있다(이름 조회 실패가 금액 수정을 막지 않게).
+  let labelRows = null;
+  try { labelRows = (typeof fetchQuoteTierLabels === 'function') ? await fetchQuoteTierLabels() : null; } catch (_) { labelRows = null; }
+  let labels = null;
+  if (Array.isArray(labelRows) && labelRows.length === 10) {
+    labels = {}; labelRows.forEach(r => { labels[r.form_type + ':' + r.tier] = r; });
+  }
+  const o = { canEdit, labels };
   // ⚠️ 「그 밖의 기준값」(quoteRestCard)은 **반드시 마지막** — 앞 카드들이 그린 칸을 byKey.__used 에 적어 두고,
   //    남은 것만 그린다. 순서를 바꾸면 이미 그린 행이 한 번 더 나온다.
   const html = quoteCommonCard(byKey, o) + quoteReviewerCard(byKey, o) + quoteSeedingCard(byKey, o) + quoteRestCard(byKey, rows, o);
@@ -40408,6 +40495,39 @@ async function renderQuoteSettingsTable() {
     if (el) el.focus({ preventScroll: true });
   }
 }
+// 구간 이름·옵션 저장 — 한 칸만 고쳐도 함수는 두 값을 다 보낸다(안 고친 칸은 **원래 값**).
+const QUOTE_LABEL_REASON = {
+  forbidden: '권한이 없습니다 (캠페인 관리자 이상)',
+  unknown_tier: '없는 형식·구간입니다',
+  name_required: '구간 이름을 입력해 주세요',
+  name_too_long: '구간 이름은 ' + QUOTE_TIER_NAME_MAX + '자까지입니다',
+  option_too_long: '옵션 문구는 ' + QUOTE_TIER_OPTION_MAX + '자까지입니다',
+  invalid_text: '< > 기호는 쓸 수 없습니다',
+};
+async function saveQuoteTierLabel(input) {
+  const form = input.dataset.form, tier = input.dataset.tier, field = input.dataset.field;
+  const val = String(input.value || '').trim();
+  if (field === 'name' && !val) { toast('저장 실패: ' + QUOTE_LABEL_REASON.name_required); return false; }
+  if (/[<>]/.test(val)) { toast('저장 실패: ' + QUOTE_LABEL_REASON.invalid_text); return false; }
+  const other = document.querySelector(`#lookupsTableBody .q-input[data-kind="label"][data-form="${CSS.escape(form)}"][data-tier="${CSS.escape(tier)}"][data-field="${field === 'name' ? 'option' : 'name'}"]`);
+  const otherVal = other ? other.dataset.orig : '';
+  const name = field === 'name' ? val : otherVal;
+  const option = field === 'option' ? val : otherVal;
+  try {
+    const res = await updateQuoteTierLabel(form, tier, name, option);
+    if (!res || res.success !== true) {
+      toast('저장 실패: ' + (QUOTE_LABEL_REASON[res && res.reason] || (res && res.reason) || '알 수 없는 오류'));
+      return false;
+    }
+    toast('저장되었습니다. 이후 브랜드 폼과 새로 만드는 견적부터 적용됩니다.');
+    input.value = val; input.dataset.orig = val;   // 다시 그릴 때 「안 저장한 칸」으로 잡히지 않게(숫자 칸과 같은 이유)
+    await refreshPane('lookups');
+    return true;
+  } catch (e) {
+    toast(typeof friendlyError === 'function' ? friendlyError(e) : '저장에 실패했습니다.');
+    return false;
+  }
+}
 async function saveQuoteSetting(key, input, unit) {
   const raw = Number(input && input.value);
   if (!Number.isFinite(raw) || raw < 0) { toast('0 이상의 숫자를 입력해 주세요.'); return false; }
@@ -40427,7 +40547,7 @@ async function saveQuoteSetting(key, input, unit) {
       //    옛 서버라 없으면 앞머리 없이 종전 문구 그대로.
       const tierWho = ({ reviewer: '리뷰어 구간 ', seeding: '시딩 구간 ' })[res && res.form_type] || '';
       const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다',
-                     tier_slots_not_ascending: tierWho + '인원은 최소 인원 ≤ 라이트 < 스탠다드 < 프리미엄 < 실검작업 구간 순이어야 합니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
+                     tier_slots_not_ascending: tierWho + '시작 인원은 위에서 아래로 커져야 합니다(「최소」 줄의 시작 인원은 1구간 시작 인원과 같아도 됩니다)' })[res && res.reason] || (res && res.reason) || '저장 실패';
       toast('저장 실패: ' + why); return false;
     }
     toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');

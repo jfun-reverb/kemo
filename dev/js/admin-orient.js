@@ -165,6 +165,7 @@ async function loadOrientSheets() {
   }
   // 메모 집계 — 목록 「메모」 칸의 안 읽은 수. 실패해도 목록은 그린다(메모는 부가 정보).
   try { _osMemoSummary = await fetchOrientMemoSummaries(); } catch (_) { _osMemoSummary = {}; }
+  _osTierLabels = null; await osEnsureTierLabels();   // 구간 이름 — 진입마다 새로(관리자가 방금 고쳤을 수 있다)
   renderOrientSheets();
   refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
 }
@@ -870,6 +871,7 @@ async function osOpenDetail(id) {
   catch (e) { body.innerHTML = '<p style="padding:20px;width:100%">불러오지 못했습니다.</p>'; return; }
   if (!s) { body.innerHTML = '<p style="padding:20px;width:100%">데이터가 없습니다.</p>'; return; }
   _osDetailSheet = s;
+  await osEnsureTierLabels();   // 브랜드 상세 등 다른 페인에서 바로 열린 경우 아직 없을 수 있다
   // 발행된 카드의 연결 캠페인 번호·상태 조회 (활성=번호 링크 / 보관삭제=삭제됨 / 맵에 없음=완전삭제)
   try {
     const campIds = ((s.data && s.data.cards) || []).map(c => c && c.campaign_id).filter(Boolean);
@@ -1014,7 +1016,7 @@ function osDetailHtml(s, catMap, readonly) {
       : '작성된 모집 건이 없습니다.';
     bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard + quoteCard;
   } else {
-    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard + quoteCard;
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly, s)).join('') + reqCard + quoteCard;
   }
   // [2026-09-16 §4-8] 브랜드가 고정 안내를 확인한 시각 — 서버가 제출 때 찍은 값(notice_ack.at). 없으면 줄을 안 그린다.
   //   ⚠️ 날짜만 보여 준다 — notice_ack.form_type 은 「어느 안내문을 보고 확인했나」의 기록용이라 화면에 안 그린다(형식이 두 번 나온다)
@@ -1270,7 +1272,7 @@ function osRowQuoteCell(s) {
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
-function osCardDetail(c, idx, catMap, readonly) {
+function osCardDetail(c, idx, catMap, readonly, sheet) {
   const ft = (c && c.form_type) || '';
   const p = c.product || {};
   const r = c.recruit || {};
@@ -1279,8 +1281,8 @@ function osCardDetail(c, idx, catMap, readonly) {
   const catLabel = (catMap && catMap[p.category]) || p.category;
 
   // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
-  // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 구간 이름은 작성 폼 TIER_OPTIONS 와 같은 넷
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', OS_TIER_LABEL[p.slots_tier] || '')
+  // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 이름은 osTierName 이 고르고 osField 가 esc 한다(관리자 입력값)
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, p.slots_tier))
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
@@ -1889,13 +1891,28 @@ function osUnlinkFailMsg(reason) {
 
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
 
-// 관리자 상세에 쓰는 모집 구간 이름표 — 작성 폼(orient.html)의 TIER_OPTIONS·EXTRA_MARKETS 와 같은 열쇠말.
-// 🔴 **건수를 적지 않는다**(2026-09-21) — 구간 시작 인원이 리뷰어·시딩마다 따로라(「견적 기준값」의
-//    reviewer_tier_slots_*·seeding_tier_slots_*) 한 벌의 글자로는 둘 다 맞출 수 없다. 실제 인원은
-//    바로 옆 「모집 인원」 칸이 보여준다. 예전에는 건수를 박아 두어 기준값만 고치면 여기만 거짓말했다.
-// ⚠️ 맨 끝 구간은 「실검작업 구간」 — 숫자 이름(「500건」)은 형식마다 달라져 관리자 화면에서는 안 쓴다.
-//    브랜드가 보는 폼 단추·견적서 줄 이름은 그 형식의 시작 인원 숫자를 쓴다(사양서 2026-09-21 §3-7).
-const OS_TIER_LABEL = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '실검작업 구간' };
+// 관리자 상세 「모집 구간」 이름 — 구간 이름은 관리자가 형식별로 고친다(quote_tier_labels, 사양서
+//   2026-09-21-orient-tier-names-editable §3-7). 이름을 고르는 순서는 osTierName **한 곳**에서만 정한다:
+//   ① 견적 스냅샷 quote.tier_name(제출 때 쓴 이름) → ② 지금 표의 그 형식 이름 → ③ 아래 기본 이름.
+// 🔴 기본 이름은 §3-1 시드와 **글자 그대로 같아야** 한다(서버 계산식·작성 폼에도 같은 사본이 있다).
+const OS_TIER_DEFAULT_NAME = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '프리미엄+' };
+// 지금 구간 이름 표 — 페인 진입(또는 상세를 처음 열 때) 한 번 받는다. null = 못 받음(→ ③ 기본 이름)
+let _osTierLabels = null;
+async function osEnsureTierLabels() {
+  if (_osTierLabels !== null) return;
+  try { _osTierLabels = (typeof fetchQuoteTierLabels === 'function') ? await fetchQuoteTierLabels() : null; }
+  catch (_) { _osTierLabels = null; }
+}
+function osTierName(sheet, tier) {
+  if (!tier) return '';
+  const d = (sheet && sheet.data) || {};
+  const q = d.quote;
+  if (q && q.tier === tier && typeof q.tier_name === 'string' && q.tier_name.trim()) return q.tier_name;
+  const ft = d.issued && d.issued.form_type;
+  const row = Array.isArray(_osTierLabels) ? _osTierLabels.find(r => r.form_type === ft && r.tier === tier) : null;
+  if (row && row.name) return row.name;
+  return OS_TIER_DEFAULT_NAME[tier] || '';
+}
 const OS_EXTRA_MARKET_LABEL = { lips: 'LIPS', cosme: '@cosme' };
 
 // 리뷰어 추가 옵션으로 넘길 수 있는 채널 코드 — 시트의 `sale.extra_markets` 값과 기준 데이터 채널 code 가 같은 글자다.

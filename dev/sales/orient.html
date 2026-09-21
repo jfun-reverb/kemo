@@ -413,6 +413,10 @@ input[type="date"] { min-height: 44px; }
 @media (max-width: 520px) { .tier { grid-template-columns: repeat(2, 1fr); } }
 .tier-btn .tier-sub { font-size: 11px; color: var(--ink-mute); }
 .tier-btn.active .tier-sub { color: var(--brand-dark); }
+/* 구간 옵션 문구(관리자가 고침, 0~16자) — 비면 자리를 안 차지한다. 이름과 달리 줄바꿈을 허용한다(단추 폭이 늘지 않게) */
+.tier-btn .tier-opt { font-size: 11px; color: var(--ink-mute); line-height: 1.3; }
+.tier-btn .tier-opt:empty { display: none; }
+.tier-btn.active .tier-opt { color: var(--brand-dark); }
 /* 구간 단가(448) — 서버에서 받아 온 뒤에야 채워진다. 비어 있으면 자리를 안 차지한다(못 받아 와도 단추 높이가 안 흔들린다) */
 .tier-btn .tier-price { font-size: 11px; font-weight: 700; color: var(--ink); margin-top: 3px; }
 .tier-btn .tier-price:empty { display: none; }
@@ -907,8 +911,8 @@ const LONG_TEXT_CLASSES = Object.keys(LONG_TEXT_FIELDS);
 function longTextCounter(cls) { return `<div class="char-count" data-count-for="${cls}"><span class="cc-cur">0</span> / ${LIMIT_LONG_TEXT}</div>`; }
 function isNewLayout() { return !!(loadedData && loadedData.issued && typeof loadedData.issued === 'object'); }
 
-// 모집 인원 구간 (사양서 2026-09-16 §4-1) — 🔴 구간 이름은 형식과 무관하게 이 넷뿐이다.
-//   「실검작업」은 구간 이름이 아니라 리뷰어 견적의 줄 이름이다(시딩 500건 견적서에 그 이름이 찍히면 안 된다).
+// 모집 인원 구간 (사양서 2026-09-16 §4-1) — 구간 이름·옵션 문구는 관리자가 형식별로 고친다(quote_tier_labels, 2026-09-21).
+//   「실검작업 — 담당자 협의」는 구간 이름이 아니라 **형식과 무관하게** 맨 끝(t500plus) 견적에 붙는 줄이다(443·461).
 //   ⚠️ 서버도 인원 숫자로 구간을 다시 판정한다(443) — 여기 값은 화면 표시용이다.
 // [2026-09-16 §4-8] 브랜드 고정 안내 — 형식별 4줄. 🔴 문안의 정의처는 사양서 §4-8 이다(사용자 제공 원문).
 //   우리가 쓴 고정 문자열이라 굵은 글씨 태그를 그대로 둔다 — 브랜드 입력값이 섞이는 자리가 아니다.
@@ -942,7 +946,10 @@ const EXTRA_MARKETS = [
 // 모집 인원 구간 — 단추 넷(+ 단추 없는 최하단 「소량」) + 직접 입력 한 칸(2026-09-21). 단추 인원은 서버가 준다.
 // ⚠️ 열쇠말 `t500plus` 는 그대로 둔다 — 기준값 행·저장된 slots_tier·견적의 tier 가 전부 그 글자를 쓴다.
 //    서버(448)는 여전히 「500 이상」을 이 구간으로 본다(옛 값·조작된 호출 대비).
-// ⚠️ 「(+실검작업)」은 리뷰어·시딩 공통이다 — 서버가 형식과 무관하게 500건 견적서에 그 줄을 붙인다(443).
+// 🔴 **이름·옵션 문구는 서버(get_orient_tier_fees 의 names·options)가 준다**(사양서 2026-09-21-orient-tier-names-editable §3-5).
+//    아래 기본값은 응답에 이름이 없을 때(주로 옛 서버)만 쓰이고 §3-1 시드와 **글자 그대로 같아야** 한다.
+//    `sub` 는 **인원 전용**, 옵션은 `option` — 예전엔 `sub` 가 인원과 설명 두 뜻을 겸했다.
+//    ⚠️ 옵션은 표시 문구일 뿐 계산을 바꾸지 않는다 — 「실검작업」 줄은 옵션과 무관하게 맨 끝 구간에 붙는다.
 // 🔴 **건수는 여기 적지 않는다**(2026-09-21 — 사양서 2026-09-21-orient-tier-slots-per-form §3-6).
 //    구간 시작 인원이 리뷰어·시딩마다 따로라(`reviewer_tier_slots_*`·`seeding_tier_slots_*`) 기본값 한 벌로는
 //    둘 다 흉내 낼 수 없고, 틀린 숫자 단추를 누르면 견적서 구간과 어긋난다. 서버(get_orient_tier_fees)가
@@ -950,24 +957,32 @@ const EXTRA_MARKETS = [
 //    못 받으면 단추 줄을 감춘 채 둔다 — 직접 입력 칸이 있어 「고를 것이 없는 폼」은 되지 않는다.
 // 🔴 열쇠말의 숫자는 뜻이 없다 — `t100` 은 **둘째 구간**이라는 뜻이고 100명을 뜻하지 않는다.
 //    기준값에서 150 으로 고치면 열쇠말은 `t100` 그대로이고 건수만 150 이 된다.
-// ⚠️ 건수가 들어갈 자리가 **둘**이다 — 앞 셋은 `sub`, 넷째는 `name` 이 곧 건수다(applyTierSlots 가 둘 다 채운다).
 // ⚠️ **최하단 구간(`tmin`)은 단추로 그리지 않는다** — 고정 건수가 없어(최소 인원 ~ 49) 단추에 적을 숫자가 없다.
 //    그래도 **같은 목록에 담는다**(사양서 2026-09-21 §3-4) — 목록을 둘로 나누면 이름·경계가 갈린다.
 //    🔴 서버가 `tmin` 인원을 주지 않으므로 `applyTierSlots` 가 건너뛴다(최하단의 시작은 최소 모집 인원이 대신한다).
 const TIER_OPTIONS = [
-  { key: 'tmin',     name: '소량',     sub: '',            slots: '', noButton: true },
-  { key: 't50',      name: '라이트',   sub: '',            slots: '' },
-  { key: 't100',     name: '스탠다드', sub: '',            slots: '' },
-  { key: 't300',     name: '프리미엄', sub: '',            slots: '' },
-  { key: 't500plus', name: '',         sub: '(+실검작업)', slots: '' },
+  { key: 'tmin',     name: '소량',      option: '',          sub: '', slots: '', noButton: true },
+  { key: 't50',      name: '라이트',    option: '',          sub: '', slots: '' },
+  { key: 't100',     name: '스탠다드',  option: '',          sub: '', slots: '' },
+  { key: 't300',     name: '프리미엄',  option: '',          sub: '', slots: '' },
+  { key: 't500plus', name: '프리미엄+', option: '+실검작업', sub: '', slots: '' },
 ];
+// 서버가 준 이름·옵션으로 덮는다. 🔴 **판정이 둘로 갈린다** —
+//   이름: 키가 있고 **빈 값이 아닐 때만** 덮는다(빈 이름 단추를 만들지 않는다)
+//   옵션: 키가 **있으면 빈 문자열이어도** 덮는다 — 이름처럼 다루면 관리자가 비운 옵션 자리에
+//         기본값 「+실검작업」이 되살아난다(사양서 V7). 기본값은 키가 없을 때만 남는다.
+function applyTierLabels(names, options) {
+  TIER_OPTIONS.forEach(t => {
+    if (names && typeof names === 'object' && typeof names[t.key] === 'string' && names[t.key].trim()) t.name = names[t.key].trim();
+    if (options && typeof options === 'object' && Object.prototype.hasOwnProperty.call(options, t.key)) t.option = String(options[t.key] == null ? '' : options[t.key]).trim();
+  });
+}
 // 서버에서 구간 인원 넷을 **모두** 받았는가 — 판단과 보이기는 loadTierFees 가 한다(§3-6).
 //   카드를 그릴 때(cardHtmlNew) 이 값이 거짓이면 단추 줄을 감춘 채 그린다.
 let tierSlotsReady = false;
 
 // 서버에서 받은 구간 인원으로 단추 값을 덮는다. 하나라도 덮었으면 true.
-// 🔴 넷째만 `name` 이 건수이고 앞 셋은 `sub` 가 건수다 — 한쪽만 고치면 단추에 옛 숫자가 남는다.
-// ⚠️ 넷째의 `sub`(「(+실검작업)」)는 건수가 아니라 설명이라 건드리지 않는다.
+//   다섯 구간 모두 인원은 `sub` 에 들어간다(맨 끝 예외 없음 — 2026-09-21 이름 통일).
 function applyTierSlots(slots) {
   if (!slots || typeof slots !== 'object') return false;
   let changed = false;
@@ -976,43 +991,38 @@ function applyTierSlots(slots) {
     if (!isFinite(v) || v <= 0) return;      // 🔴 Number(null) 은 0 이다 — 빈 값 검사가 먼저
     if (String(v) === t.slots) return;       // 같으면 건드리지 않는다
     t.slots = String(v);
-    if (t.key === 't500plus') t.name = v + '건';
-    else t.sub = v + '건';
+    t.sub = v + '건';
     changed = true;
   });
   return changed;
 }
 
-// 단추에 적힌 글을 다시 쓴다(인원이 바뀐 뒤).
-// 🔴 넷째 이름의 예외 분기는 **카드를 처음 그릴 때와 글자 그대로 같아야** 한다 —
-//    옛 방식으로 기본값과 다른 인원을 저장한 시트는 그 값을 이름 자리에 보여준다(어긋남을 화면에 드러낸다).
+// 단추에 적힌 글(이름·인원·옵션)을 다시 쓴다(서버 값을 받은 뒤). textContent 라 이스케이프가 필요 없다.
+// ⚠️ 단추의 인원 자리는 **언제나 그 구간 시작 인원**이다 — 옛 방식으로 700 같은 인원이 저장된 시트는
+//    직접 입력 칸에 700 이 그대로 보여 어긋남은 거기서 드러난다(예전의 「이름 자리에 저장 인원」 예외는 지웠다).
 // ⚠️ 감춰진 인원 칸(.f-slots)은 **건드리지 않는다** — 그 시트에 저장된 값이고,
 //    서버는 폼이 보낸 구간이 아니라 인원으로 다시 판정한다.
 function refreshTierButtons(card) {
   if (!card) return;
-  const slotsEl   = card.querySelector('.f-slots');
-  const saved     = slotsEl ? slotsEl.value : '';
-  const activeBtn = card.querySelector('.tier-btn.active');
-  const savedTier = activeBtn ? activeBtn.dataset.tier : '';
   card.querySelectorAll('.tier-btn').forEach(b => {
     const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier); if (!o) return;
     const nameEl = b.querySelector('.tier-name');
     const subEl  = b.querySelector('.tier-sub');
-    if (nameEl) nameEl.textContent =
-      (o.key === 't500plus' && savedTier === 't500plus' && saved && String(saved) !== o.slots)
-        ? saved + '건' : o.name;
+    const optEl  = b.querySelector('.tier-opt');
+    if (nameEl) nameEl.textContent = o.name;
     if (subEl) subEl.textContent = o.sub;
+    if (optEl) optEl.textContent = o.option || '';
   });
 }
 
-// 확인 화면·요약에 쓰는 표기 — 「100건 (스탠다드)」 / 「500건 (+실검작업)」.
-//   네 번째 구간은 이름이 곧 건수라 다른 셋처럼 조립하면 「500건 (500건)」이 된다.
+// 확인 화면·요약에 쓰는 표기 — 다섯 구간 모두 「N건 (이름)」 한 모양. 옵션은 싣지 않는다(§2-3 — 요약·견적은 금액 문서).
+//   ⚠️ 이 글은 부르는 쪽(pvRow)이 이스케이프해서 그린다.
 function tierDisplay(product) {
   const p = product || {};
   if (!p.slots) return '';
   const opt = TIER_OPTIONS.find(t => t.key === p.slots_tier);
   if (!opt) return p.slots + '건';
-  return p.slots + '건 ' + (opt.key === 't500plus' ? opt.sub : `(${opt.name})`);
+  return p.slots + '건 (' + opt.name + ')';
 }
 
 // 구간 단가(448 `get_orient_tier_fees`) — 폼을 연 뒤 한 번 받아 온다. null = 아직 못 받음(또는 실패) → 아무것도 안 그린다.
@@ -1036,6 +1046,8 @@ async function loadTierFees() {
     //   하나라도 빠지면 단추 줄은 감춘 채 둔다 — 일부만 채운 단추는 틀린 숫자를 보인다(§3-6).
     const allSlots = !!(res.slots && typeof res.slots === 'object') &&
       ['t50', 't100', 't300', 't500plus'].every(k => { const v = Number(res.slots[k]); return isFinite(v) && v > 0; });
+    // 이름·옵션(2026-09-21) — **인원과 같은 자리에서** 덮어 단추가 한 번에 그려지게 한다
+    applyTierLabels(res.names, res.options);
     if (allSlots) { applyTierSlots(res.slots); tierSlotsReady = true; }
     document.querySelectorAll('#cardList .ocard').forEach(card => {
       if (tierSlotsReady) {
@@ -1123,7 +1135,8 @@ function tierDirectInfo(n) {
   const opt = TIER_OPTIONS.find(t => t.key === tier);
   const price = tierPriceText(tier);
   const name = opt ? opt.name : '';
-  return { blocked: false, text: name + (price ? ' 구간 — ' + price : ' 구간') };
+  const option = opt && opt.option ? ' · ' + opt.option : '';   // 「소량」 옵션은 여기서만 보인다(단추가 없다)
+  return { blocked: false, text: name + (price ? ' 구간 — ' + price : ' 구간') + option };
 }
 
 // 직접 입력 — 값은 감춰진 칸 하나다. 들어간 숫자가 어느 구간에 들면 그 단추가 켜진다.
@@ -1135,12 +1148,6 @@ function onSlotsDirect(input) {
   if (hidden) hidden.value = n ? String(n) : '';
   const tier = n ? tierOfSlots(n) : null;
   card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', !!tier && b.dataset.tier === tier));
-  // 옛 값(700건 등)을 이름 자리에 보여주던 단추는 제 이름으로 되돌린다
-  card.querySelectorAll('.tier-btn').forEach(b => {
-    const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier);
-    const nameEl = b.querySelector('.tier-name');
-    if (o && nameEl) nameEl.textContent = o.name;
-  });
   applyTierDirectInfo(card);
   onInput();
 }
@@ -1182,12 +1189,6 @@ function onTierPick(btn) {
   const direct = card.querySelector('.f-slots-direct');
   if (direct) direct.value = opt.slots;
   applyTierDirectInfo(card);
-  // 옛 값(700건 등)을 이름 자리에 보여주던 단추는 제 이름으로 되돌린다
-  card.querySelectorAll('.tier-btn').forEach(b => {
-    const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier);
-    const nameEl = b.querySelector('.tier-name');
-    if (o && nameEl) nameEl.textContent = o.name;
-  });
   onInput();
 }
 
@@ -1880,7 +1881,7 @@ ${purchaseGuideBlock}
                .tier-price 는 비워서 그린다 — 단가는 loadTierFees() 가 받아 온 뒤 applyTierPrices() 가 채운다(448). -->
           <div class="tier"${tierSlotsReady ? '' : ' hidden'}>
             ${TIER_OPTIONS.filter(t => !t.noButton).map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
-              <span class="tier-name">${(t.key === 't500plus' && p.slots_tier === 't500plus' && p.slots && String(p.slots) !== t.slots) ? escAttr(p.slots) + '건' : t.name}</span><span class="tier-sub">${t.sub}</span><span class="tier-price"></span></button>`).join('')}
+              <span class="tier-name">${escAttr(t.name)}</span><span class="tier-sub">${escAttr(t.sub)}</span><span class="tier-opt">${escAttr(t.option)}</span><span class="tier-price"></span></button>`).join('')}
           </div>
           <!-- 인원 숫자는 여기 담긴다(감춰진 채) — 구간 단추와 아래 직접 입력이 채운다.
                🔴 지우지 말 것: 저장·검사·요약이 전부 이 값을 읽는다 -->
