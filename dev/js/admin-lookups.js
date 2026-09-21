@@ -257,6 +257,9 @@ async function renderQuoteSettingsTable() {
   const canEdit = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
   if (thead) thead.innerHTML = '';   // 카드 배치라 표 머리가 없다 — 다른 탭은 저마다 머리를 다시 그린다
   const wrap = inner => `<tr class="q-wrap-row"><td colspan="6" style="padding:0">${inner}</td></tr>`;
+  // 저장 뒤 다시 그릴 때 보던 자리를 지킨다 — 안 그러면 시딩 칸을 고칠 때마다 맨 위로 튄다
+  const scroller = tbody.closest('.admin-table-wrap');
+  const keepTop = scroller ? scroller.scrollTop : 0;
   tbody.innerHTML = wrap(`<div style="text-align:center;padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>`);
   const rows = await fetchQuoteSettings();
   if (rows === null) {
@@ -274,6 +277,7 @@ async function renderQuoteSettingsTable() {
   //    남은 것만 그린다. 순서를 바꾸면 이미 그린 행이 한 번 더 나온다.
   const html = quoteCommonCard(byKey, o) + quoteReviewerCard(byKey, o) + quoteSeedingCard(byKey, o) + quoteRestCard(byKey, rows, o);
   tbody.innerHTML = wrap(`<div class="q-board">${canEdit ? '' : '<p class="q-note">보기 전용입니다 — 수정은 캠페인 관리자 이상.</p>'}${html}</div>`);
+  if (scroller) scroller.scrollTop = keepTop;
 }
 // 인라인 수정 — 그 칸을 입력칸으로 바꾼다. 비율은 % 로 받아 0~1 로 저장.
 //   ⚠️ 칸은 `.q-amount[data-qkey]` 로 찾는다(카드 배치 — 한 줄에 값 칸이 여럿이다)

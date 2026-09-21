@@ -2556,7 +2556,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 /* ── 견적 기준값 — 형식별 구간표 (admin-lookups.js renderQuoteSettingsTable, 2026-09-21) ── */
 .q-board { display: grid; gap: 16px; padding: 16px; }
-.q-card { border: 1px solid var(--outline); border-radius: 10px; background: var(--surface); padding: 14px 16px; }
+.q-card { border: 1px solid var(--outline); border-radius: 10px; background: var(--surface); padding: 14px 16px; overflow-x: auto; }
 .q-card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
 .q-card-title { font-size: 14px; font-weight: 800; color: var(--ink); }
 .q-card-sub { font-size: 12px; color: var(--muted); }
@@ -2581,3 +2581,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-edit { display: flex; gap: 4px; align-items: center; }
 .q-edit input { width: 110px; padding: 4px 8px; font-size: 13px; }
 .q-edit-unit { font-size: 11px; color: var(--muted); }
+/* 🔴 이 표들은 .data-table 안에 들어가 있어 `.data-table th` 의 어두운 머리 모양이 **줄 제목(tbody th)에도** 번진다 — 되돌린다 */
+.q-board .q-table th { position: static; }   /* 바깥 .admin-pane-list .data-table th 의 sticky 를 끈다 */
+.q-board .q-table tbody th { background: none; color: var(--ink); text-transform: none; letter-spacing: normal; }
+.q-tier { width: auto; min-width: 640px; }
+.q-tier td, .q-tier th { padding-right: 24px; }
