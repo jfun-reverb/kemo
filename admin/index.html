@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789952996';
+  var CURRENT_BUILD = 'v1789956442';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 10:09 · b02c2c9</span>
+          <span class="admin-build-text">2026-09-21 11:07 · b5eb924</span>
         </div>
       </div>
     </aside>
@@ -9057,22 +9057,12 @@ function extractSnsHandle(channel, raw) {
   return withoutAt.replace(/\s+/g, '');
 }
 
-// 핸들로 프로필 URL 생성. 빈 핸들이면 빈 문자열 반환.
-function snsProfileUrl(channel, handle) {
-  if (!handle) return '';
-  const h = String(handle).replace(/^@+/, '');
-  if (!h) return '';
-  switch (channel) {
-    case 'instagram': return `https://instagram.com/${encodeURIComponent(h)}`;
-    case 'x':         return `https://x.com/${encodeURIComponent(h)}`;
-    case 'tiktok':    return `https://tiktok.com/@${encodeURIComponent(h)}`;
-    case 'youtube':
-      // UCxxxxx 형태면 채널 ID 경로
-      if (/^UC[A-Za-z0-9_-]{20,}$/.test(h)) return `https://youtube.com/channel/${encodeURIComponent(h)}`;
-      return `https://youtube.com/@${encodeURIComponent(h)}`;
-    default: return '';
-  }
-}
+// 🔴 `snsProfileUrl` 은 2026-09-21 에 없앴다 — **되살리지 말 것.**
+//    같은 일을 하는 판정이 두 벌이라 같은 계정이 엑셀·리포트에서는 정상 링크인데
+//    화면에서는 깨진 링크로 나왔다. 이제 **`_reportAcctCell`(dev/js/report-rows.js)** 한 벌이
+//    링크·화면 글자·「@」를 붙일지를 모두 정한다(사양서 `docs/specs/2026-09-18-sns-account-url-unify.md`).
+//    ⚠️ 그 함수는 관리자 번들에만 있다 — 인플루언서 화면에서 계정 링크가 필요해지면
+//       그 파일을 인플루언서 빌드 목록에 더하는 것이 먼저다(옛 함수를 되살리는 것이 아니라).
 
 // ──────────────────────────────────────
 // 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용
@@ -30660,12 +30650,15 @@ function buildInfRowAll(u) {
   const paypalBadge = u.has_paypal ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
   // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
   // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  // 🔴 링크·글자·「@」를 붙일지는 전부 `_reportAcctCell`(report-rows.js) 이 정한다 —
+  //    리포트·엑셀이 이미 쓰는 함수라, 여기서 따로 판정하면 같은 계정이 화면과 엑셀에서 갈린다.
+  //    ⚠️ 여기서 `@` 를 덧붙이지 말 것: 아이디면 이미 붙어 오고, 게시물 주소처럼
+  //       아이디를 못 뽑은 값은 **주소 그대로**가 와서 앞에 엉뚱한 `@` 가 붙는다.
   const snsCell = (channel, raw, followers) => {
-    const handle = extractSnsHandle(channel, raw);
-    if (!handle) return '—';
-    const safe = esc(handle);
-    const url = snsProfileUrl(channel, handle);
-    const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+    const { url, text } = _reportAcctCell(channel, raw);
+    if (!text) return '—';
+    const safe = esc(text);
+    const inner = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">${safe}</a>` : safe;
     return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
@@ -30746,15 +30739,18 @@ async function openInfluencerDetail(userId) {
     row('가입일', formatDate(u.created_at));
 
   // SNS
+  // 판정은 `_reportAcctCell` 한 곳(위 snsCell 주석 참조).
+  // 🔴 마우스 올림 표시(title)가 **아래 여섯 줄 밑**에 있다 — 링크 글자만 바꾸고 그것을 두면
+  //    마우스를 올렸을 때만 옛 값이 남는다(이 사양서를 쓰며 한 번 놓친 자리).
   const snsRow = (label, channel, raw, followers) => {
-    const handle = extractSnsHandle(channel, raw);
-    const url = snsProfileUrl(channel, handle);
-    const idHtml = handle
-      ? (url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--ink)">@${esc(handle)}</a>` : `@${esc(handle)}`)
+    const { url, text } = _reportAcctCell(channel, raw);
+    const safe = esc(text);
+    const idHtml = text
+      ? (url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--ink)">${safe}</a>` : safe)
       : '—';
     return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${label}</div>
-      <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(handle||'')}">${idHtml}</div>
+      <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${idHtml}</div>
       <div style="font-size:13px;font-weight:700;color:var(--pink)">${(followers||0).toLocaleString()}명</div>
     </div>`;
   };
@@ -37560,12 +37556,14 @@ async function loadCampApplicants() {
   if (!body) return;
   // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
   // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  // 판정은 `_reportAcctCell`(report-rows.js) 한 곳 — 리포트·엑셀과 같은 함수다.
+  // ⚠️ 여기서 `@` 를 덧붙이지 말 것(아이디면 이미 붙어 오고, 주소는 그대로 온다).
+  // ⚠️ 있는지 검사는 종전대로 두되 **폴백 판정은 만들지 않는다** — 옛 판정을 되살리는 길이 된다.
   const snsCell = (channel, raw, followers) => {
-    const handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : (raw || '').replace(/^@/,'').trim();
-    if (!handle) return '—';
-    const safe = esc(handle);
-    const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(channel, handle) : '';
-    const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+    const { url, text } = (typeof _reportAcctCell === 'function') ? _reportAcctCell(channel, raw) : { url: '', text: '' };
+    if (!text) return '—';
+    const safe = esc(text);
+    const inner = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">${safe}</a>` : safe;
     return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
@@ -44306,17 +44304,21 @@ function outboundFollowersDisplay(v) {
   return Number(v).toLocaleString() + '명';
 }
 
-// 채널 key(ig) → snsProfileUrl 채널명(instagram) 매핑. 나머지는 동일.
+// 채널 key(ig) → 계정 판정 함수가 쓰는 채널명(instagram) 매핑. 나머지는 동일.
 const OUTBOUND_CH_SNS = { ig: 'instagram', tiktok: 'tiktok', youtube: 'youtube', x: 'x' };
 
-// 채널별 팔로워 셀 — 핸들 있으면 팔로워 + @핸들(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
+// 채널별 팔로워 셀 — 계정이 있으면 팔로워 + 계정(클릭 시 새 탭 SNS 이동), 없으면(미보유) —
+// 🔴 이 자리는 예전에 **계정 값을 다듬지 않고** 주소를 만들어, 주소가 저장된 값이 통째로 깨졌다
+//    (네 자리 중 유일하게 `extractSnsHandle` 을 안 거치던 곳). 이제 `_reportAcctCell` 이 둘 다 한다.
+// ⚠️ 빈 값일 때는 맨 글자가 아니라 **회색 조각**을 돌려준다 — 표 모양이 다른 칸과 어긋나지 않게.
 function outboundChannelFollowersCell(o, ch) {
-  const handle = o[ch.handleCol];
-  if (!handle) return '<span style="color:var(--muted);font-size:11px">—</span>';
-  const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(OUTBOUND_CH_SNS[ch.key], handle) : '';
+  const { url, text } = (typeof _reportAcctCell === 'function')
+    ? _reportAcctCell(OUTBOUND_CH_SNS[ch.key], o[ch.handleCol]) : { url: '', text: '' };
+  if (!text) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  const safe = esc(text);
   const handleHtml = url
-    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">@${esc(handle)}</a>`
-    : `<span style="font-size:10px;color:var(--muted)">@${esc(handle)}</span>`;
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--ink)">${safe}</a>`
+    : `<span style="font-size:10px;color:var(--muted)">${safe}</span>`;
   return `<div style="font-size:12px">${esc(outboundFollowersDisplay(o[ch.followCol]))}</div>`
     + `<div>${handleHtml}</div>`;
 }
@@ -47465,8 +47467,9 @@ function _reportLooksLikeAddress(v) {
 //      · `extractSnsHandle`(shared.js)이 있는 자리(관리자)는 그것으로 아이디를 뽑아 공식 주소를 만든다.
 //      · 없는 자리(공유 화면)에서 저장된 값이 주소 모양(`http` 로 시작, 앞의 `@` 는 떼고 본다)이면
 //        **그 주소 그대로** 돌려준다. 예전처럼 「@ 떼기」만 하면 `instagram.com/https://…` 가 된다.
-//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(`snsProfileUrl` 과 같은 판정).
+//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(아래 `case 'youtube'`).
 //        `/@UC…` 는 없는 주소다 — 관리자 엑셀에도 있던 결함이라 함께 고쳐진다.
+//        ⚠️ 이 줄은 2026-09-21 까지 없어진 `snsProfileUrl` 을 근거로 들고 있었다 — 그 함수는 지웠다.
 function _excelSnsUrl(channel, raw) {
   if (!raw) return '';
   var hasEx = (typeof extractSnsHandle === 'function');
