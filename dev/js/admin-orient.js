@@ -1081,6 +1081,36 @@ const OS_QUOTE_ERROR_TEXT = {
   fee_missing: '요금 기준값이 없어 견적이 없습니다(기준 데이터 「견적 기준값」 확인)',
   calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)',
 };
+// 사유 코드 → 문구. 🔴 매핑에 없는 값도 **반드시 무언가를 말해야 한다** — 빈 문구가 되면
+//   화면에 아무 이유도 안 뜨고 「왜 견적이 없나」를 아무도 모른다.
+function osQuoteErrorText(reason) {
+  return OS_QUOTE_ERROR_TEXT[reason] || ('견적을 만들지 못했습니다(사유: ' + String(reason) + ')');
+}
+// 🔴 견적 상태 판정 **한 벌** — 이 판정을 쓰는 자리가 **셋**이다:
+//   ①오리엔 상세 카드(`osQuoteCard`) ②오리엔 목록 「견적」 칸(`osRowQuoteCell`)
+//   ③브랜드 상세 카드 한 줄(`osQuoteSummaryLine`).
+//   따로 두면 같은 시트가 화면마다 다른 말을 하고, 고칠 때 한 곳만 고쳐진다(사양서 2026-09-10 결정 6).
+//   ⚠️ `data.quote` 를 직접 들여다보는 코드를 새로 만들지 말 것 — 그 순간 네 벌이 된다.
+// 네 갈래 — quote(견적 있음) · error(사유 있음) · pending(새 구조인데 아직 제출 전) · legacy(옛 구조라 견적 자체가 없다)
+//   ⚠️ ①②는 pending·legacy 를 **똑같이 안 그린다**. 넷으로 나눈 것은 ③이 둘을 다르게 말하기 때문이다.
+function osQuoteState(data) {
+  const d = data || {};
+  if (d.quote && typeof d.quote === 'object') return { kind: 'quote', quote: d.quote };
+  if (d.quote_error) return { kind: 'error', reason: d.quote_error };
+  return { kind: d.issued ? 'pending' : 'legacy' };
+}
+// 브랜드 상세 카드의 견적 한 줄(사양서 2026-09-10 §4-1-a 표).
+//   ⚠️ 지난 판·견적 번호·「견적서 열기」는 **오리엔 상세**가 맡는다 — 여기 넣으면 같은 것이 두 자리에 생긴다.
+function osQuoteSummaryLine(s) {
+  const st = osQuoteState((s && s.data) || {});
+  if (st.kind === 'quote') {
+    const rev = Number(st.quote.revision || 1);
+    return '견적 ' + osKrw(st.quote.total_krw) + (rev >= 2 ? ' (' + rev + '차)' : '');
+  }
+  if (st.kind === 'error')   return osQuoteErrorText(st.reason);
+  if (st.kind === 'pending') return '제출 전';
+  return '견적 없음(옛 형식)';
+}
 // 지난 견적 — 줄마다 「열기」(그 판의 견적서 문서). 새창 출력(readonly)에는 단추를 안 그린다(그 창은 정적 HTML 이라 함수가 없다).
 //   ⚠️ 화면은 최신이 위로 오게 뒤집어 그리지만, 단추가 넘기는 번호는 **저장된 배열의 자리**다(osOpenQuoteDoc 이 그 자리로 찾는다)
 function osQuoteHistoryHtml(hist, sheetId, readonly) {
@@ -1104,15 +1134,17 @@ function osRecruitFeeOverrideLine(d) {
 }
 function osQuoteCard(s, readonly) {
   const d = (s && s.data) || {};
-  const q = d.quote;
-  const err = d.quote_error;
-  if (!q && !err) return '';
+  // 판정은 공용 `osQuoteState` 하나 — pending·legacy 는 둘 다 카드를 안 그린다(종전과 같은 결과)
+  const st = osQuoteState(d);
+  if (st.kind === 'pending' || st.kind === 'legacy') return '';
+  const q = st.kind === 'quote' ? st.quote : null;
+  const err = st.kind === 'error' ? st.reason : null;
   // 토큰 상태와 무관하게 항상 연다 — 발행·만료된 시트일수록 견적서를 다시 볼 일이 많다
   const openBtn = (!readonly && s && s.id)
     ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서 열기</button>`
     : '';
   if (err) {
-    const why = OS_QUOTE_ERROR_TEXT[err] || '견적을 만들지 못했습니다(사유: ' + String(err) + ')';
+    const why = osQuoteErrorText(err);
     return `<div class="os-card"><div class="os-card-title">예상 견적</div>
       <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history, s && s.id, readonly)}</div>`;
   }
@@ -1224,17 +1256,17 @@ function osCloseQuoteDoc() {
 // 목록 「견적」 칸 — 합계 + 「견적서」. 견적을 못 만든 시트는 주황 「견적 없음」(이유는 말풍선), 그 밖(옛 구조·제출 전)은 「-」
 //   ⚠️ `Number(null)` 이 0 이라 합계가 없으면 「0원」으로 그려진다 — 견적 객체 유무를 먼저 본다
 function osRowQuoteCell(s) {
-  const d = (s && s.data) || {};
-  const q = d.quote;
-  if (q && typeof q === 'object') {
+  // 판정·문구는 공용 `osQuoteState`·`osQuoteErrorText`(위) — 이 칸만 따로 판정하지 않는다
+  const st = osQuoteState((s && s.data) || {});
+  if (st.kind === 'quote') {
+    const q = st.quote;
     return `<span style="font-weight:600;color:var(--ink)">${esc(osKrw(q.total_krw))}</span> <span style="font-size:11px;color:var(--muted)">${esc(String(q.revision || 1))}차</span>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서</button>`;
   }
-  if (d.quote_error) {
-    const why = OS_QUOTE_ERROR_TEXT[d.quote_error] || ('견적을 만들지 못했습니다(사유: ' + String(d.quote_error) + ')');
-    return `<span style="font-size:12px;color:#B45309" title="${esc(why)}">견적 없음</span>`;
+  if (st.kind === 'error') {
+    return `<span style="font-size:12px;color:#B45309" title="${esc(osQuoteErrorText(st.reason))}">견적 없음</span>`;
   }
-  return '-';
+  return '-';   // pending·legacy — 종전과 같다
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
