@@ -1263,22 +1263,12 @@ function extractSnsHandle(channel, raw) {
   return withoutAt.replace(/\s+/g, '');
 }
 
-// 핸들로 프로필 URL 생성. 빈 핸들이면 빈 문자열 반환.
-function snsProfileUrl(channel, handle) {
-  if (!handle) return '';
-  const h = String(handle).replace(/^@+/, '');
-  if (!h) return '';
-  switch (channel) {
-    case 'instagram': return `https://instagram.com/${encodeURIComponent(h)}`;
-    case 'x':         return `https://x.com/${encodeURIComponent(h)}`;
-    case 'tiktok':    return `https://tiktok.com/@${encodeURIComponent(h)}`;
-    case 'youtube':
-      // UCxxxxx 형태면 채널 ID 경로
-      if (/^UC[A-Za-z0-9_-]{20,}$/.test(h)) return `https://youtube.com/channel/${encodeURIComponent(h)}`;
-      return `https://youtube.com/@${encodeURIComponent(h)}`;
-    default: return '';
-  }
-}
+// 🔴 `snsProfileUrl` 은 2026-09-21 에 없앴다 — **되살리지 말 것.**
+//    같은 일을 하는 판정이 두 벌이라 같은 계정이 엑셀·리포트에서는 정상 링크인데
+//    화면에서는 깨진 링크로 나왔다. 이제 **`_reportAcctCell`(dev/js/report-rows.js)** 한 벌이
+//    링크·화면 글자·「@」를 붙일지를 모두 정한다(사양서 `docs/specs/2026-09-18-sns-account-url-unify.md`).
+//    ⚠️ 그 함수는 관리자 번들에만 있다 — 인플루언서 화면에서 계정 링크가 필요해지면
+//       그 파일을 인플루언서 빌드 목록에 더하는 것이 먼저다(옛 함수를 되살리는 것이 아니라).
 
 // ──────────────────────────────────────
 // 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용

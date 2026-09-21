@@ -269,8 +269,9 @@ function _reportLooksLikeAddress(v) {
 //      · 🔴 **주소 모양 판정은 「`http` 로 시작」이 아니다** — `_reportLooksLikeAddress`(빗금 있고 그 앞에 점)가
 //        정의처이고, 이 함수는 그것만 본다. 주석을 「`http` 로 시작」으로 좁혀 적으면 다음 사람이
 //        「스킴 없는 값은 아이디」로 읽어 2026-09-18 수정을 되돌린다(기획 세션 지적).
-//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(`snsProfileUrl` 과 같은 판정).
+//      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(아래 `case 'youtube'`).
 //        `/@UC…` 는 없는 주소다 — 관리자 엑셀에도 있던 결함이라 함께 고쳐진다.
+//        ⚠️ 이 줄은 2026-09-21 까지 없어진 `snsProfileUrl` 을 근거로 들고 있었다 — 그 함수는 지웠다.
 function _excelSnsUrl(channel, raw) {
   if (!raw) return '';
   var hasEx = (typeof extractSnsHandle === 'function');
