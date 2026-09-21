@@ -1677,6 +1677,7 @@ function renderBrandOrientSheetCard(s, campMap) {
   var dateTxt = '발급 ' + esc(formatDate(s.created_at))
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
+  var quoteTxt = (typeof osQuoteSummaryLine === 'function') ? (osQuoteSummaryLine(s) || '') : '';
   return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card)">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
@@ -1689,8 +1690,12 @@ function renderBrandOrientSheetCard(s, campMap) {
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px">'
       + '<span style="color:var(--ink)">' + esc(productTxt) + '</span>'
-      + '<span style="color:var(--muted)">·</span>'
-      + '<span style="color:var(--muted)">' + esc((typeof osQuoteSummaryLine === 'function') ? osQuoteSummaryLine(s) : '') + '</span>'
+      // 🔴 견적 글이 비면 **구분점까지 함께** 뺀다 — 안 그러면 「제품명 · 」처럼 점만 남는다.
+      //    비는 경우가 실제로 있다: **견적 기능이 없는 서버**에서는 `osQuoteSummaryLine` 자체가
+      //    없다(오리엔시트 개편이 아직 안 나간 판). 그 서버에서는 이 줄이 통째로 안 나오는 것이 맞다 —
+      //    없는 기능의 자리를 비워 두면 운영자가 「왜 비었나」를 찾게 된다.
+      + (quoteTxt ? '<span style="color:var(--muted)">·</span>'
+                  + '<span style="color:var(--muted)">' + esc(quoteTxt) + '</span>' : '')
       + '<span style="flex:1"></span>'
       + (campTxt ? '<span style="font-size:11px;color:var(--muted)">' + esc(campTxt) + '</span>' : '')
     + '</div>'
