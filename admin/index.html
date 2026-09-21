@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789976517';
+  var CURRENT_BUILD = 'v1789977230';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 16:41 · 6443fd1</span>
+          <span class="admin-build-text">2026-09-21 16:53 · b0b6100</span>
         </div>
       </div>
     </aside>
@@ -10478,6 +10478,8 @@ async function retryWithRefresh(fn) {
 }
 
 // PostgREST 기본 1000행 제한 우회: range() 반복으로 전체 수집
+// 🔴 여러 행을 돌려주는 원격 호출 함수(db.rpc)도 같은 상한에 걸린다 — 반드시 이 함수로 감싸고
+//    .order() 로 고유 순서를 고정할 것(2026-09-21 「과거 미등록」 1,306건 중 1,000건만 보이던 사고).
 // buildQuery: 매 반복마다 새 query builder 반환하는 함수 (filter/order 이미 적용)
 async function fetchAllPaged(buildQuery, pageSize = 1000) {
   const all = [];
@@ -10639,8 +10641,7 @@ async function fetchCampaignsForAdminList() {
 async function fetchCampaignApplicationCountsOrNull() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_application_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_application_counts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = { total: Number(row.total || 0), approved: Number(row.approved || 0), pending: Number(row.pending || 0) };
       return map;
@@ -10660,8 +10661,7 @@ async function fetchCampaignApplicationCountsOrNull() {
 async function fetchCampaignActionAlertsOrNull() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_action_alerts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_action_alerts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
         level: row.level,
@@ -10687,8 +10687,7 @@ async function fetchCampaignActionAlertsOrNull() {
 async function fetchCampaignApplicationCounts() {
   if (!db) return {};
   try {
-    const { data, error } = await db.rpc('get_campaign_application_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_application_counts').order('campaign_id'));
     // 배열을 campaign_id 키 맵으로 변환
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
@@ -10715,8 +10714,7 @@ async function fetchCampaignApplicationCounts() {
 async function fetchCampaignDeliverableCounts() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_deliverable_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_deliverable_counts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
         receipt_submitted: Number(row.receipt_submitted || 0),
@@ -12259,8 +12257,8 @@ async function createCampaignReport(title, campaignIds, includeAudit) {
 async function fetchCampaignReports() {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('list_campaign_reports');
-    if (error) throw error;
+    // 함수가 최근 만든 순으로 준다 — 끊어 받을 때도 같은 순서 + 고유 열쇠로 고정한다
+    const data = await fetchAllPaged(() => db.rpc('list_campaign_reports').order('o_created_at', {ascending: false}).order('o_id'));
     // ⚠️ 반환 칸에 o_ 접두어가 붙어 있다(42702 모호한 참조 회피 — 마이그레이션 405).
     //    화면이 그 접두어를 알 이유가 없으므로 여기서 벗겨서 넘긴다.
     return (data || []).map(function(r) {
@@ -12645,8 +12643,8 @@ async function fetchCampaignVersion(id) {
 async function fetchChannelDriftAlerts() {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('detect_channel_code_drift');
-    if (error) throw error;
+    // 함수의 순서(층·캠페인 번호·채널)를 그대로 따르고 고유하게 끝을 맺는다
+    const data = await fetchAllPaged(() => db.rpc('detect_channel_code_drift').order('layer').order('campaign_no').order('channel_code').order('campaign_id').order('kind'));
     return Array.isArray(data) ? data : [];
   } catch(e) {
     console.warn('[fetchChannelDriftAlerts]', e);
@@ -13483,10 +13481,9 @@ async function fetchCompanies({ status = 'active', search } = {}) {
 async function getBrandOpsOverview(companyId) {
   if (!db) return [];
   try {
-    const {data, error} = await db.rpc('get_brand_ops_overview', {
+    const data = await fetchAllPaged(() => db.rpc('get_brand_ops_overview', {
       p_company_id: companyId || null
-    });
-    if (error) throw error;
+    }).order('brand_id'));
     return data || [];
   } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
 }
@@ -13818,8 +13815,7 @@ async function deleteBrandAppMemo(memoId) {
 async function fetchBrandAppMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.rpc('get_brand_app_memo_summaries');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_brand_app_memo_summaries').order('application_id').order('product_idx'));
     const summary = {};
     (data || []).forEach(r => {
       const key = r.application_id + '_' + (r.product_idx || 0);
@@ -13942,8 +13938,7 @@ async function markOrientMemosRead(sheetId) {
 async function fetchOrientMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.rpc('get_orient_sheet_memo_summaries');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_orient_sheet_memo_summaries').order('orient_sheet_id').order('card_uid'));
     const summary = {};
     (data || []).forEach(r => {
       summary[r.orient_sheet_id + '_' + r.card_uid] = {
@@ -14872,8 +14867,10 @@ async function unhideApplicationMessage(messageId, reasonMemo) {
 // 반환: Map<application_id, unread_count> (응모행 배지·받은편지함 개인 강조용)
 async function fetchAdminMessageUnreadCounts() {
   if (!db) return new Map();
-  const {data, error} = await db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null });
-  if (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null }).order('application_id'));
+  } catch (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
   const map = new Map();
   (data || []).forEach(r => map.set(r.application_id, Number(r.unread_count) || 0));
   return map;
