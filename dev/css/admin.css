@@ -2569,20 +2569,26 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-range { color: var(--muted); font-size: 12px; }
 .q-scroll { overflow-x: auto; }
 .q-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
-.q-val, .q-val-ro { font: inherit; font-weight: 700; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; }
-.q-val { cursor: pointer; }
-.q-val:hover { border-color: var(--outline); background: var(--surface-dim); }
-.q-val.is-ph, .q-val-ro.is-ph { background: #FEF3C7; border-color: #F59E0B; }
-.q-ph { color: #92400E; }
+.q-val-ro { font: inherit; font-weight: 700; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; }
+.q-val-ro.is-ph { background: #FEF3C7; border-color: #F59E0B; }
 .q-ph-tag { margin-left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: #D97706; border-radius: 4px; padding: 1px 5px; }
 .q-missing { color: var(--muted); }
 .q-warn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #92400E; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
 .q-warn .material-icons-round { font-size: 16px; }
-.q-edit { display: flex; gap: 4px; align-items: center; }
-.q-edit input { width: 110px; padding: 4px 8px; font-size: 13px; }
-.q-edit-unit { font-size: 11px; color: var(--muted); }
 /* 🔴 이 표들은 .data-table 안에 들어가 있어 `.data-table th` 의 어두운 머리 모양이 **줄 제목(tbody th)에도** 번진다 — 되돌린다 */
 .q-board .q-table th { position: static; }   /* 바깥 .admin-pane-list .data-table th 의 sticky 를 끈다 */
 .q-board .q-table tbody th { background: none; color: var(--ink); text-transform: none; letter-spacing: normal; }
 .q-tier { width: auto; min-width: 640px; }
 .q-tier td, .q-tier th { padding-right: 24px; }
+/* 값 입력칸 — 늘 보인다(2026-09-21). 고친 뒤 Enter·칸 이동으로 저장 */
+.q-in-wrap { display: inline-flex; align-items: center; gap: 4px; }
+.q-input { width: 96px; padding: 5px 8px; font: inherit; font-weight: 700; text-align: right; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--outline); border-radius: 6px; }
+.q-input:hover { border-color: var(--muted); }
+.q-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,.18); }
+.q-in-wrap.is-ph .q-input { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+.q-unit { font-size: 12px; color: var(--muted); }
+/* 🔴 행 구분선 — 이 표들은 바깥 .data-table 의 **한 줄(마지막 줄)** 안에 들어 있어
+   `.data-table tr:last-child td{border-bottom:none}` 이 안쪽 모든 칸의 선을 지운다. 명시도를 올려 되살린다 */
+.q-board .q-table tbody tr td, .q-board .q-table tbody tr th { border-bottom: 1px solid var(--outline); }
+.q-board .q-table tbody tr:hover td, .q-board .q-table tbody tr:hover th { background: var(--surface-dim); }
