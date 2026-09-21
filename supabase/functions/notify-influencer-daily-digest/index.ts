@@ -991,7 +991,13 @@ Deno.serve(async (req: Request) => {
         // 캠페인에 요구 채널이 하나도 없으면(데이터 미비) 어느 채널이 미완료인지 판정 불가 —
         // 잘못된 안내를 보내느니 발송하지 않는다.
         if (requiredChannels.length > 0) {
-          const missingChannels = requiredChannels.filter((ch) => !delivInfo.reviewChannels.has(ch));
+          // 🔴 **요구한 채널을 전부 내야 하는지는 캠페인이 정한다**(2026-09-21, 2단계).
+          //   게시물 쪽은 1단계가 이미 이렇게 고쳤고, 여기는 인증 성공 판정과 **함께** 고친다
+          //   (안내만 멈추면 「안내는 안 오는데 인증은 막힌」 지금보다 나쁜 상태가 된다).
+          const reviewKind = campaignChannelKind(camp);
+          const missingChannels = reviewKind === "or"
+            ? (requiredChannels.some((ch) => delivInfo.reviewChannels.has(ch)) ? [] : requiredChannels)
+            : requiredChannels.filter((ch) => !delivInfo.reviewChannels.has(ch));
           if (missingChannels.length > 0) {
             const d = dateDiffDays(camp.submission_end, todayDate);
             if (d === 5 || d === 1) {
@@ -1003,8 +1009,13 @@ Deno.serve(async (req: Request) => {
                   app: a,
                   deadlineDate: camp.submission_end,
                   dMinus: d,
-                  missingChannels,
-                  requiredChannelCount: requiredChannels.length,
+                  // 🔴 「또는」 캠페인에는 채널 이름을 병기하지 않는다 — 하나만 내면 되는데
+                  //   「인스타그램・X・틱톡」을 나열하면 **셋 다 내라는 말**로 읽힌다.
+                  //   `reviewImageKindLabel` 은 값이 없으면 「レビュー認証写真」만 쓴다.
+                  //   ⚠️ 둘 다 안 넘긴다 — `requiredChannelCount` 는 채널 이름표를 조회할지
+                  //      정하는 데만 쓰여, 남겨 두면 쓰지도 않을 조회가 한 번 더 돈다.
+                  missingChannels: reviewKind === "or" ? undefined : missingChannels,
+                  requiredChannelCount: reviewKind === "or" ? undefined : requiredChannels.length,
                 });
               }
             }
