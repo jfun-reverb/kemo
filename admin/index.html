@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1789956442';
+  var CURRENT_BUILD = 'v1789968593';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-21 11:07 · b5eb924</span>
+          <span class="admin-build-text">2026-09-21 14:29 · 16fd964</span>
         </div>
       </div>
     </aside>
@@ -5583,7 +5583,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:200px">브랜드명</th>
                   <th style="width:160px">대표 담당자</th>
                   <th style="width:200px">대표 이메일</th>
-                  <th style="width:90px;text-align:center">신청수</th>
+                  <th style="width:90px;text-align:center">오리엔시트 수</th>
                   <th style="width:90px;text-align:center">캠페인 수</th>
                   <th style="width:120px">최근 신청일</th>
                   <th style="width:100px">상태</th>
@@ -13632,8 +13632,12 @@ async function fetchCampaignCountsByBrand() {
 
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
 // 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
+// 🔴 **실패는 `null`, 0건은 `0`** — 2026-09-21 에 바꿨다. 그전에는 실패에도 `0` 을 돌려줘서
+//    브랜드 상세가 「캠페인 없음 → 삭제 가능」으로 **오판**했고(조회가 실패했을 뿐인데),
+//    병합 확인창은 「캠페인 0건을 옮깁니다」라고 **거짓 안내**했다. 둘 다 되돌릴 수 없는 동작이다.
+//    ⚠️ 호출부는 실패(`null`)와 0건(`0`)을 반드시 갈라야 한다 — 뭉치면 그 사고가 되살아난다.
 async function countCampaignsByBrand(brandId) {
-  if (!db) return 0;
+  if (!db) return null;
   try {
     // 보관 삭제된 캠페인 제외 — 서버의 브랜드 삭제 판정(마이그레이션 325)과 같은 기준.
     //   기준이 어긋나면 화면은 「0개」인데 삭제는 「캠페인이 남아 있다」로 막힌다.
@@ -13641,7 +13645,7 @@ async function countCampaignsByBrand(brandId) {
       .is('deleted_at', null).eq('brand_id', brandId);
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
+  } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
 }
 
 // 브랜드 할당 모달용 조회
@@ -13681,6 +13685,20 @@ async function fetchBrandApplicationsByBrand(brandId) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchBrandApplicationsByBrand]', e); return []; }
+}
+
+// 브랜드 서베이(brand_applications) 신청 건수 — 브랜드 상세 삭제 판정·안내줄용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6).
+// 🔴 실패는 null, 0건은 0 — 둘을 반드시 구분한다(마이그레이션 276 원칙). 호출부는
+//   null 이면 삭제 버튼을 아예 안 그리고 「일부 정보를 불러오지 못해 삭제를 잠갔습니다」로 안내한다.
+async function countBrandApplicationsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {count, error} = await db.from('brand_applications').select('id', {count:'exact', head:true})
+      .eq('brand_id', brandId);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[countBrandApplicationsByBrand]', e); return null; }
 }
 
 // 광고주 신청 메모 (multi-entry, migration 080 + 123 — 제품별 분리)
@@ -15747,6 +15765,37 @@ async function fetchOrientSheetsByApplication(applicationId) {
     if (error) throw error;
     return data || [];
   });
+}
+
+// 브랜드에 발급된 오리엔시트 전체 — 브랜드 상세 「오리엔시트」 구역용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6). 최신 발급순.
+// data 는 형식(osCardsSummary)·제품명·견적(osQuoteState)·발행 캠페인 표시에 전부 쓰여 반드시 받는다.
+//   orient_sheets.form_type 칸은 형식 표시 함수가 안 읽으므로(새 시트=data.issued, 옛 시트=data.cards) 안 받는다.
+// 🔴 1,000행 상한 대응 — 브랜드당 건수를 실측하지 않았으므로 fetchAllPaged 로 전건 반복 조회한다
+//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문(fetchCampaignCountsByBrand)을 본뜨지 않는다.
+// 실패 null / 0건 [].
+async function fetchOrientSheetsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false }));
+  } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
+}
+
+// 브랜드별 오리엔시트 수 일괄 집계 — 브랜드 목록 「오리엔시트 수」 컬럼용. {brand_id: count} 반환.
+//   뜻은 fetchCampaignCountsByBrand 와 같다(전건 반복 조회 + 클라 집계) — 단 반복 도우미는
+//   fetchAllPaged 로 통일한다(사양서 §1-1·§4-6, 손수 짠 while 반복문을 본뜨지 않는다).
+// 🔴 실패는 null, 0건은 {} — 둘을 반드시 구분한다(마이그레이션 276 원칙).
+async function fetchOrientSheetCountsByBrand() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const counts = {};
+    (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
+    return counts;
+  } catch (e) { console.error('[fetchOrientSheetCountsByBrand]', e); return null; }
 }
 
 // ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
@@ -22609,6 +22658,7 @@ function renderGoogleSheetLinkOnly(urlOrNull) {
 // ══════════════════════════════════════
 var _brandsCache = [];
 var _brandCampCounts = {};  // {brand_id: 캠페인 수} — 브랜드 목록 「캠페인 수」 컬럼용
+var _brandSheetCounts = null;  // {brand_id: 오리엔시트 수} — 브랜드 목록 「오리엔시트 수」 열. 🔴 실패 `null` / 0건 `{}`
 var _brandCompanyMap = {};  // {company_id: 회사명} — 목록 회사명을 company_id 기준 표시(company_name 보조컬럼 미동기화 대비)
 var _brandsCurrentId = null;
 var brandsLazy;
@@ -22619,6 +22669,9 @@ async function loadBrandsPane() {
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
   _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
+  // 「오리엔시트 수」 열 — 데이터베이스 카운터를 새로 만들지 않고 캠페인 수와 같은 뜻(전건 조회 + 클라 집계)으로 센다.
+  //   🔴 실패는 `null` 이라 셀이 「—」가 된다(0건 `{}` 와 구분 — 「시트가 없다」로 읽히면 안 된다)
+  _brandSheetCounts = (typeof fetchOrientSheetCountsByBrand === 'function') ? await fetchOrientSheetCountsByBrand() : null;
   // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
   var _companies = (typeof fetchCompanies === 'function') ? (await fetchCompanies({ status: 'all' }) || []) : [];
   _brandCompanyMap = {};
@@ -22662,7 +22715,10 @@ function renderBrandsList() {
       + '</td>'
       + '<td>' + esc(b.primary_contact_name || '—') + (b.primary_phone ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(formatPhoneDisplay(b.primary_phone)) + '</div>' : '') + '</td>'
       + '<td style="font-size:12px;word-break:break-all">' + esc(b.primary_email || '—') + '</td>'
-      + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + (b.total_applications || 0) + '</td>'
+      // 「오리엔시트 수」 — 2026-09-21 에 서베이 「신청수」(`brands.total_applications`)에서 바꿨다.
+      //   ⚠️ 그 칸과 트리거(082)는 **손대지 않았다** — 화면에서 안 읽을 뿐이다.
+      //   🔴 조회 실패면 「—」(0 으로 그리면 「시트가 없다」는 거짓말이 된다)
+      + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + (_brandSheetCounts ? ((_brandSheetCounts[b.id]) || 0) : '—') + '</td>'
       + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + ((_brandCampCounts && _brandCampCounts[b.id]) || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--muted)">' + (b.last_applied_at ? fmtDate(b.last_applied_at) : '—') + '</td>'
       + '<td>' + statusBadge + '</td>'
@@ -22680,6 +22736,18 @@ function renderBrandsList() {
   });
 }
 
+// 시트 목록에서 발행 캠페인 식별자를 전부 모은다(카드마다 최대 1개).
+//   ⚠️ 조회 실패(`null`)면 빈 배열 — 그 경우 캠페인 맵을 부르지 않는다.
+function collectOrientCampaignIds(sheets) {
+  var out = [];
+  (Array.isArray(sheets) ? sheets : []).forEach(function(x){
+    (((x && x.data && x.data.cards) || [])).forEach(function(c){
+      if (c && c.campaign_id) out.push(c.campaign_id);
+    });
+  });
+  return out;
+}
+
 async function openBrandDetailModal(id) {
   _brandsCurrentId = id;
   var modal = $('brandDetailModal');
@@ -22690,20 +22758,35 @@ async function openBrandDetailModal(id) {
   bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
-  var [b, apps, companies, campCount] = await Promise.all([
+  // 🔴 실패는 전부 `null` 이고 자리마다 표시가 따로 있다 — 「0건인 척」 그리지 않는다.
+  var [b, sheets, surveyCount, companies, campCount] = await Promise.all([
     fetchBrandById(id),
-    fetchBrandApplicationsByBrand(id),
+    (typeof fetchOrientSheetsByBrand === 'function' ? fetchOrientSheetsByBrand(id) : Promise.resolve(null)),
+    (typeof countBrandApplicationsByBrand === 'function' ? countBrandApplicationsByBrand(id) : Promise.resolve(null)),
     (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
-    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(0))
+    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(null))
   ]);
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
+  // 발행 캠페인 맵 — 시트 목록이 와야 id 를 알 수 있어 위 동시 조회에 못 넣는다(오리엔 상세와 같은 순서).
+  //   ⚠️ 이 조회가 실패해도 **삭제 판정과는 무관**하다 — 카드의 번호 자리만 비운다.
+  var campMap = {};
+  try {
+    var campIds = collectOrientCampaignIds(sheets);
+    if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds);
+  } catch (_) { campMap = {}; }
   _brandFormCompanies = companies || [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
-  bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
+  bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap);
   renderBrandContactsRows();
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
   var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
-  var canDeleteBrand = (apps.length === 0) && (campCount === 0) && isAdm;
+  // 🔴 삭제 판정은 **두 단계**다. ㉠셋(시트·서베이·캠페인) 중 하나라도 조회 실패면 **버튼을 아예 안 그리고**
+  //    잠금 안내를 둔다 — 모르면 열지 않는다. 그 전에는 실패를 0으로 봐서 「삭제 가능」으로 오판했다.
+  //    ㉡셋 다 유효할 때만 0·0·0 을 본다 — 서버 `delete_brand`(325)와 **같은 셋**이라
+  //    「버튼은 뜨는데 누르면 실패」가 없어진다.
+  var countsKnown = Array.isArray(sheets) && (surveyCount !== null && surveyCount !== undefined)
+                    && (campCount !== null && campCount !== undefined);
+  var canDeleteBrand = countsKnown && (sheets.length === 0) && (surveyCount === 0) && (campCount === 0) && isAdm;
   if (footerEl) footerEl.innerHTML = ''
     + (canDeleteBrand
         ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
@@ -22711,8 +22794,15 @@ async function openBrandDetailModal(id) {
     + (isAdm
         ? '<button class="btn btn-ghost btn-sm" onclick="openBrandMergeModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">merge</span>병합</button>'
         : '')
-    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
-    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
+    // ⚠️ 「이 브랜드로 신규 신청」(서베이 등록)은 2026-09-21 에 뺐다 — 사용자 결정(신규 서베이 등록 경로 종료).
+    //    `openNewBrandAppModal` 함수·모달은 **남긴다**(기존 신청 수정 경로가 같은 모달을 쓴다).
+    //    `margin-right:auto` 는 그 버튼에 있었으므로 여기로 옮겨 왼쪽 묶음 배치를 유지한다.
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
+    // 🔴 삭제를 잠근 이유를 말한다 — 캠페인 수 조회 실패는 이 줄이 **유일한 안내**다
+    //    (시트 실패는 구역 본문이, 서베이 실패는 안내줄이 따로 말한다)
+    + ((!countsKnown && isAdm)
+        ? '<span style="font-size:11px;color:#B45309;align-self:center">일부 정보를 불러오지 못해 삭제를 잠갔습니다</span>'
+        : '')
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
 }
@@ -22727,7 +22817,7 @@ function closeBrandDetailModal() {
 async function deleteBrandConfirm() {
   var id = _brandsCurrentId;
   if (!id) return;
-  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·신청이 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
+  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·서베이 신청·오리엔시트가 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
   var result = await deleteBrand(id);
   if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   toast('브랜드를 삭제했습니다');
@@ -22741,7 +22831,9 @@ async function openBrandMergeModal(sourceId) {
   var src = (_brandsCache || []).find(function(b){ return b.id === sourceId; });
   if (!src) return;
   // 회사 무관 병합 허용(2026-06-09 — 회사 등록→연결→병합 단계 과다 해소). 오병합 방지는 모달 정보·확인으로.
-  var campCount = (typeof countCampaignsByBrand === 'function') ? await countCampaignsByBrand(sourceId) : 0;
+  // 🔴 실패는 `null` 이다 — 「0건」이라 적으면 **되돌릴 수 없는 병합**을 잘못된 정보로 승인하게 된다
+  var campCount = (typeof countCampaignsByBrand === 'function') ? await countCampaignsByBrand(sourceId) : null;
+  var campCountTxt = (campCount === null || campCount === undefined) ? '수 확인 불가' : (campCount + '건');
   var apps = (typeof fetchBrandApplicationsByBrand === 'function') ? (await fetchBrandApplicationsByBrand(sourceId) || []) : [];
   var srcCo = (src.company_id && _brandCompanyMap[src.company_id]) || src.company_name || '회사 미등록';
   var targets = (_brandsCache || []).filter(function(b){
@@ -22757,7 +22849,7 @@ async function openBrandMergeModal(sourceId) {
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;display:flex;align-items:center;justify-content:center';
   ov.innerHTML = '<div style="background:#fff;border-radius:12px;width:480px;max-width:92vw;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,.25)">'
     + '<h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--ink)">브랜드 병합</h3>'
-    + '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」(' + esc(srcCo) + ')의 <b>캠페인 ' + campCount + '건·신청 ' + apps.length + '건</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
+    + '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」(' + esc(srcCo) + ')의 <b>캠페인 ' + campCountTxt + '·신청 ' + apps.length + '건</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
     + '<label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px">병합 대상 브랜드 <span style="color:var(--muted);font-weight:400">(회사가 달라도 선택 가능 — 대상을 정확히 확인하세요)</span></label>'
     + '<select id="brandMergeTarget" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:20px">' + opts + '</select>'
     + '<div style="display:flex;justify-content:flex-end;gap:8px">'
@@ -22824,6 +22916,12 @@ function _genContactId() {
   return 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
 }
 
+// ⚠️ **2026-09-21 부터 호출부가 0이다** — 브랜드 상세 구역이 오리엔시트로 바뀌면서
+//    이 함수와 아래 `renderBrandAppBundleCard`·`toggleBrandAppBundleCard` 셋은 **서로만 부르는 덩어리**가 됐다.
+//    지우지 않고 둔 이유: 이번 변경 범위를 좁게 두고(운영 대기 중인 작업이 많다), 서베이를 다시 쓰게 될
+//    가능성이 남아 있어서다. **무해하지만 죽은 코드다** — 다음에 이 파일을 정리할 때 함께 지워도 된다.
+//    ⚠️ `BRAND_QUOTE_CONST`·`calcBrandAppFinalKrw`·`fetchBrandApplicationsByBrand` 는 **살아 있다**
+//       (서베이 페인·엑셀·병합 모달이 쓴다) — 같이 지우지 말 것.
 // 브랜드 상세 모달 「이 브랜드의 신청 내역」 전용 — 신청별 펼침 카드 (조회 전용)
 //   카드 헤더: 신청번호·폼·상태·신청일 + 합산(제품수·총수량·최종 견적·VAT·예상 견적)
 //   카드 본문(펼치면): 제품 N행 표(제품명·URL·수량·단가엔/원·모집비·이체수수료·소계)
@@ -23037,7 +23135,9 @@ function openCompanyModalForBrand() {
   }});
 }
 
-function renderBrandDetailFormHtml(b, apps) {
+// ⚠️ 인자가 넷이다 — `sheets`(오리엔시트 목록 · 실패는 `null`) · `surveyCount`(지난 서베이 건수 · 실패는 `null`)
+//    · `campMap`(발행 캠페인 맵). 신규 브랜드 등록 폼은 `({}, [], 0, {})` 로 부른다.
+function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap) {
   // contacts 초기화
   _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
     return {
@@ -23076,8 +23176,6 @@ function renderBrandDetailFormHtml(b, apps) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="' + (rows || 3) + '" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
   };
 
-  // 신청 내역 — 신청별 펼침 카드 (헤더에 합산, 펼치면 제품 N행 표)
-  var appsHtml = renderBrandAppsBundledView(apps);
 
   return ''
     // § 기본 정보 — 회사 연결(드롭다운+읽기전용 카드) / 브랜드명 3열
@@ -23116,8 +23214,84 @@ function renderBrandDetailFormHtml(b, apps) {
     + section('영업 메모', '',
         '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
       )
-    // § 신청 내역
-    + section('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)', '', appsHtml);
+    // § 오리엔시트 — 2026-09-21 에 「신청 내역(브랜드 서베이)」에서 바꿨다.
+    //   서베이는 2026-06-30 공개 접수 중단 뒤로 안 쓰고, 브랜드 영업은 오리엔시트로 한다.
+    //   🔴 제목의 건수는 **조회에 성공했을 때만** 붙인다 — 실패를 「(0건)」으로 그리면 「시트가 없다」는 거짓말이 된다.
+    + section('오리엔시트' + (Array.isArray(sheets) ? ' (' + sheets.length + '건)' : ''), '',
+        renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount));
+}
+
+// 브랜드 상세의 오리엔시트 구역 — 카드 1장 = 시트 1건, 최신 발급순. 펼침 없음(제품 표는 오리엔 상세가 갖고 있다).
+// 🔴 실패(`null`)와 0건(`[]`)을 가른다 — 뭉치면 「불러오지 못했다」가 「없다」로 보인다.
+function renderBrandOrientSheetsView(sheets, campMap) {
+  if (!Array.isArray(sheets)) {
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>';
+  }
+  if (!sheets.length) {
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">오리엔시트 없음 — 하단 「오리엔시트 발급」으로 만듭니다</div>';
+  }
+  return sheets.map(function(x){ return renderBrandOrientSheetCard(x, campMap); }).join('');
+}
+
+// 지난 서베이 신청 안내 — 🔴 세 갈래(있음/0건/조회 실패)를 가른다.
+//   서베이만 있고 시트가 0건인 옛 브랜드는 이 줄이 없으면 과거 신청이 어디서도 안 보인다.
+function renderBrandSurveyNoteHtml(surveyCount) {
+  if (surveyCount === null || surveyCount === undefined) {
+    return '<div style="margin-top:8px;font-size:11px;color:#B45309">서베이 신청 수를 불러오지 못했습니다</div>';
+  }
+  if (!surveyCount) return '';
+  return '<div style="margin-top:8px;font-size:11px;color:var(--muted)">지난 브랜드 서베이 신청 ' + surveyCount + '건은 브랜드 서베이 화면에서 봅니다</div>';
+}
+
+// 카드 한 장 — 머리(번호·형식·상태·날짜) + 요약(제품명·견적·발행 캠페인).
+// ⚠️ 형식·상태·견적 표시는 전부 `admin-orient.js` 의 공용 부품을 쓴다 — 여기서 따로 판정하지 않는다.
+function renderBrandOrientSheetCard(s, campMap) {
+  var d = (s && s.data) || {};
+  var cards = Array.isArray(d.cards) ? d.cards : [];
+  // 제품명 — **카드 수 하나로** 가른다(새/옛 구조는 안 본다. 새 구조는 항상 카드 1개라 자연히 가운데 갈래)
+  var productTxt = (cards.length === 0) ? '—'
+    : (cards.length === 1) ? (((cards[0] || {}).product || {}).name || '—')
+    : ('제품 ' + cards.length + '개');
+  // 발행 캠페인 번호 — 세 갈래(활성 번호 / 「삭제됨」 / 「(완전삭제)」)는 오리엔 상세와 같다.
+  // 🔴 `fetchCampaignsByIds` 는 실패에도 `{}` 를 돌려줘 **실패와 「전부 완전삭제」가 구분되지 않는다** →
+  //    맵이 통째로 비어 있으면 「—」로 둔다(양쪽 어느 경우에도 맞는 표시). 🔴 식별 문자열 자체는 화면에 안 낸다.
+  var ids = cards.map(function(c){ return c && c.campaign_id; }).filter(Boolean);
+  var campTxt = '';
+  if (ids.length) {
+    var mapEmpty = !campMap || !Object.keys(campMap).length;
+    if (mapEmpty) { campTxt = '—'; }
+    else {
+      var resolved = ids.map(function(id){
+        var c = campMap[id];
+        if (!c) return '(완전삭제)';
+        return c.deleted_at ? '삭제됨' : (c.campaign_no || '—');
+      });
+      var first = resolved.filter(function(t){ return t !== '(완전삭제)' && t !== '삭제됨'; })[0] || resolved[0];
+      campTxt = first + (ids.length > 1 ? ' 외 ' + (ids.length - 1) + '건' : '');
+    }
+  }
+  var expired = (typeof osIsExpired === 'function') && osIsExpired(s);
+  var dateTxt = '발급 ' + esc(formatDate(s.created_at))
+    + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
+    + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
+  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card)">'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
+      + ((typeof osCardsSummary === 'function') ? osCardsSummary(d) : '')
+      // 🔴 `osCardsSummary` 는 글자열을 돌려주지만 `osStatusOf` 는 **객체**(`{label,color,bg}`)다 —
+      //    `osBadge()` 로 감싸지 않으면 화면에 「[object Object]」가 찍힌다(개발서버에서 실제로 그랬다).
+      + ((typeof osStatusOf === 'function' && typeof osBadge === 'function') ? osBadge(osStatusOf(s)) : '')
+      + '<span style="flex:1"></span>'
+      + '<span style="font-size:11px;color:var(--muted)">' + dateTxt + '</span>'
+    + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px">'
+      + '<span style="color:var(--ink)">' + esc(productTxt) + '</span>'
+      + '<span style="color:var(--muted)">·</span>'
+      + '<span style="color:var(--muted)">' + esc((typeof osQuoteSummaryLine === 'function') ? osQuoteSummaryLine(s) : '') + '</span>'
+      + '<span style="flex:1"></span>'
+      + (campTxt ? '<span style="font-size:11px;color:var(--muted)">' + esc(campTxt) + '</span>' : '')
+    + '</div>'
+  + '</div>';
 }
 
 // 담당자 행 렌더링 (헤더와 동일한 grid: 이름/연락처/메일/대표/삭제)
@@ -23247,7 +23421,7 @@ async function openNewBrandModal(callbackPrefix) {
   // 회사 드롭다운용 회사 목록 로드 (archived 포함 — 보관 회사 연결 유지)
   _brandFormCompanies = (typeof fetchCompanies === 'function') ? (await fetchCompanies({ status: 'all' }) || []) : [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml({status: 'active', name: '새 브랜드'});
-  bodyEl.innerHTML = renderBrandDetailFormHtml({}, []);
+  bodyEl.innerHTML = renderBrandDetailFormHtml({}, [], 0, {});   // 새 브랜드 — 시트 0건·서베이 0건
   renderBrandContactsRows();
   if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">취소</button>'
     + '<button class="btn btn-primary btn-sm" onclick="submitNewBrand()">등록</button>';
