@@ -154,6 +154,100 @@ function quoteAmountText(r) {
   if (r.unit === 'count') return n.toLocaleString('ko-KR') + ' 건';
   return n.toLocaleString('ko-KR') + ' 원';
 }
+// ── 견적 기준값 화면 — 형식별 구간표(2026-09-21 사용자 결정) ──
+//   예전에는 45행을 한 줄 목록으로 그려 「스탠다드는 몇 명부터, 모집비 얼마」를 알려면 위아래 묶음을 오가야 했다.
+//   이제 **공통 · 리뷰어 · 시딩** 카드 셋으로, 카드 안에서 구간이 줄이고 시작 인원·인원 범위·비용이 칸이다.
+//   🔴 **값과 저장 경로는 그대로**다 — 칸을 누르면 editQuoteSetting → saveQuoteSetting(update_quote_setting).
+//   🔴 **어느 카드에도 안 들어간 행은 맨 아래 「그 밖의 기준값」에 그대로 그린다** — 새 기준값 행이 생겼는데
+//      이 배치표에 안 넣으면 화면에서 조용히 사라진다(고칠 길이 없어진다).
+const QUOTE_TIER_KEYS = ['tmin', 't50', 't100', 't300', 't500plus'];
+const QUOTE_TIER_NAME = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '실검작업' };
+// 시딩 단가 시드는 가짜 값(99001~99025, 442·458) — 이 범위면 「미입력」으로 눈에 띄게 그린다.
+//   ⚠️ 판정은 **시딩 단가 행에만** 건다(다른 행에 우연히 이 숫자가 들어가도 경고하지 않게).
+const QUOTE_SEED_PLACEHOLDER = { min: 99000, max: 99999 };
+function quoteIsPlaceholder(r) {
+  if (!r || !/^seeding_fee_krw_/.test(r.key)) return false;
+  const n = Number(r.amount);
+  return n >= QUOTE_SEED_PLACEHOLDER.min && n <= QUOTE_SEED_PLACEHOLDER.max;
+}
+// 값 칸 하나 — 누르면 그 자리에서 입력칸이 된다(권한 없으면 글자만).
+function quoteCell(byKey, key, opts) {
+  const r = byKey[key];
+  if (!r) return '<td class="q-cell q-missing" title="기준값 행이 없습니다">—</td>';
+  byKey.__used.add(key);
+  const ph = quoteIsPlaceholder(r);
+  const tip = (r.label_ko || '') + (r.updated_at ? ' · 마지막 수정 ' + formatDateTime(r.updated_at) : '');
+  const text = r.unit === 'count' ? Number(r.amount).toLocaleString('ko-KR') + '명' : quoteAmountText(r);
+  const body = ph ? `<span class="q-ph">${esc(text)}</span><span class="q-ph-tag">미입력</span>` : esc(text);
+  const inner = (opts && opts.canEdit)
+    ? `<button type="button" class="q-val${ph ? ' is-ph' : ''}" onclick="editQuoteSetting('${esc(r.key)}', '${esc(String(r.amount))}', '${esc(r.unit)}')">${body}</button>`
+    : `<span class="q-val-ro${ph ? ' is-ph' : ''}">${body}</span>`;
+  return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}">${inner}</td>`;
+}
+// 인원 범위 글 — 「그 구간의 시작 인원 ~ 다음 구간 시작 - 1」. 기준값이 비면 「—」(기본값으로 채우지 않는다).
+function quoteTierRanges(byKey, prefix) {
+  const v = k => { const r = byKey[prefix + k]; const n = r ? Number(r.amount) : NaN; return isFinite(n) ? n : null; };
+  const starts = { tmin: v('min_slots'), t50: v('slots_t50'), t100: v('slots_t100'), t300: v('slots_t300'), t500plus: v('slots_t500plus') };
+  const out = {};
+  QUOTE_TIER_KEYS.forEach((t, i) => {
+    const a = starts[t];
+    const next = QUOTE_TIER_KEYS[i + 1] ? starts[QUOTE_TIER_KEYS[i + 1]] : null;
+    if (a === null) { out[t] = '—'; return; }
+    if (!QUOTE_TIER_KEYS[i + 1]) { out[t] = a.toLocaleString('ko-KR') + '명 이상'; return; }
+    if (next === null) { out[t] = '—'; return; }
+    out[t] = next - 1 < a ? '쓰이지 않음' : a.toLocaleString('ko-KR') + '~' + (next - 1).toLocaleString('ko-KR') + '명';
+  });
+  return out;
+}
+function quoteCard(title, sub, inner) {
+  return `<section class="q-card"><div class="q-card-head"><span class="q-card-title">${esc(title)}</span>${sub ? `<span class="q-card-sub">${esc(sub)}</span>` : ''}</div>${inner}</section>`;
+}
+function quoteCommonCard(byKey, o) {
+  return quoteCard('공통', '리뷰어·시딩 견적 모두에 쓰입니다', `<table class="q-table q-kv"><tbody>
+    <tr><th>엔→원 환율 (1엔당)</th>${quoteCell(byKey, 'exchange_rate_krw_per_jpy', o)}</tr>
+    <tr><th>부가세율</th>${quoteCell(byKey, 'vat_rate', o)}</tr>
+  </tbody></table>`);
+}
+function quoteReviewerCard(byKey, o) {
+  const rg = quoteTierRanges(byKey, 'reviewer_tier_');
+  const rows = QUOTE_TIER_KEYS.map(t => `<tr>
+      <th>${QUOTE_TIER_NAME[t]}</th>
+      ${t === 'tmin' ? quoteCell(byKey, 'reviewer_tier_min_slots', o) : quoteCell(byKey, 'reviewer_tier_slots_' + t, o)}
+      <td class="q-range">${esc(rg[t])}</td>
+      ${quoteCell(byKey, 'reviewer_recruit_fee_krw_' + t, o)}
+    </tr>`).join('');
+  return quoteCard('리뷰어', '구간은 모집 인원으로 정해집니다 — 시작 인원을 고치면 아래 범위가 함께 바뀝니다', `
+    <table class="q-table q-tier"><thead><tr><th>구간</th><th>시작 인원</th><th>인원 범위</th><th>모집비 (1건당)</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="q-note">「소량」의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 이보다 적으면 접수하지 않습니다.</p>
+    <table class="q-table q-kv"><tbody>
+      <tr><th>해외 송금 수수료 (1건당)</th>${quoteCell(byKey, 'reviewer_transfer_fee_krw', o)}</tr>
+      <tr><th>추가 옵션 — LIPS (1건당)</th>${quoteCell(byKey, 'reviewer_option_fee_krw_lips', o)}</tr>
+      <tr><th>추가 옵션 — @cosme (1건당)</th>${quoteCell(byKey, 'reviewer_option_fee_krw_cosme', o)}</tr>
+    </tbody></table>`);
+}
+function quoteSeedingCard(byKey, o) {
+  const rg = quoteTierRanges(byKey, 'seeding_tier_');
+  const chs = (typeof OS_SEEDING_CHANNELS !== 'undefined') ? OS_SEEDING_CHANNELS : ['instagram_feed', 'instagram_reels', 'x', 'tiktok', 'youtube'];
+  const chName = c => (typeof osChLabel === 'function') ? osChLabel(c) : c;
+  const head = `<tr><th>구간</th><th>시작 인원</th><th>인원 범위</th>${chs.map(c => `<th>${esc(chName(c))}</th>`).join('')}</tr>`;
+  const rows = QUOTE_TIER_KEYS.map(t => `<tr>
+      <th>${QUOTE_TIER_NAME[t]}</th>
+      ${t === 'tmin' ? quoteCell(byKey, 'seeding_tier_min_slots', o) : quoteCell(byKey, 'seeding_tier_slots_' + t, o)}
+      <td class="q-range">${esc(rg[t])}</td>
+      ${chs.map(c => quoteCell(byKey, 'seeding_fee_krw_' + c + '_' + t, o)).join('')}
+    </tr>`).join('');
+  const phCount = Object.keys(byKey).filter(k => k !== '__used' && quoteIsPlaceholder(byKey[k])).length;
+  const warn = phCount ? `<div class="q-warn"><span class="material-icons-round" translate="no">warning</span>진행비 ${phCount}칸이 아직 가짜 값(99,0xx원)입니다 — 실제 금액을 넣어야 시딩 견적이 맞게 나갑니다.</div>` : '';
+  return quoteCard('시딩', '진행비는 채널 × 구간 1건당 금액입니다', `${warn}
+    <div class="q-scroll"><table class="q-table q-tier q-wide"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+    <p class="q-note">「소량」의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 구간 인원을 바꾸면 그 구간 진행비가 가리키는 사람 수도 바뀌니 함께 확인해 주세요.</p>`);
+}
+function quoteRestCard(byKey, rows, o) {
+  const rest = rows.filter(r => !byKey.__used.has(r.key));
+  if (!rest.length) return '';
+  return quoteCard('그 밖의 기준값', '위 표에 자리가 없는 항목입니다', `<table class="q-table q-kv"><tbody>${
+    rest.map(r => `<tr><th>${esc(r.label_ko || r.key)}</th>${quoteCell(byKey, r.key, o)}</tr>`).join('')}</tbody></table>`);
+}
 async function renderQuoteSettingsTable() {
   const tbody = $('lookupsTableBody');
   const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = 'none';   // 기준값은 순서가 고정
@@ -161,56 +255,36 @@ async function renderQuoteSettingsTable() {
   const title = $('lookupTableTitle');
   if (title) title.textContent = '견적 기준값';
   const canEdit = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
-  if (thead) {
-    thead.innerHTML = `<tr>
-      <th style="width:40px"></th>
-      <th>항목</th>
-      <th style="width:180px">값</th>
-      <th style="width:80px">단위</th>
-      <th style="width:160px">마지막 수정</th>
-      <th style="width:120px"></th>
-    </tr>`;
-  }
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  if (thead) thead.innerHTML = '';   // 카드 배치라 표 머리가 없다 — 다른 탭은 저마다 머리를 다시 그린다
+  const wrap = inner => `<tr class="q-wrap-row"><td colspan="6" style="padding:0">${inner}</td></tr>`;
+  tbody.innerHTML = wrap(`<div style="text-align:center;padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>`);
   const rows = await fetchQuoteSettings();
   if (rows === null) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:24px">견적 기준값을 불러오지 못했습니다. 새로고침해 주세요.</td></tr>';
+    tbody.innerHTML = wrap('<div style="text-align:center;color:var(--red);padding:24px">견적 기준값을 불러오지 못했습니다. 새로고침해 주세요.</div>');
     return;
   }
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">등록된 기준값이 없습니다 (마이그레이션 426 적용 필요)</td></tr>';
+    tbody.innerHTML = wrap('<div style="text-align:center;color:var(--muted);padding:24px">등록된 기준값이 없습니다 (마이그레이션 426 적용 필요)</div>');
     return;
   }
-  // [442] 묶음 머리 — group_ko 가 바뀌는 자리마다 한 줄. 29행이라 묶음이 없으면 어디까지가 무엇인지 안 보인다.
-  //   ⚠️ **기본은 펼침**(접으면 「시딩 단가가 시드 값인데 안 보여서 몰랐다」가 생긴다 — 사양서 §4-2)
-  //   ⚠️ group_ko 가 없는 행(옛 데이터)은 머리를 안 그리고 그대로 잇는다
-  let _qGroup = null;
-  tbody.innerHTML = rows.map((r, i) => {
-    let head = '';
-    if (r.group_ko && r.group_ko !== _qGroup) {
-      _qGroup = r.group_ko;
-      head = `<tr class="q-group-head"><td colspan="6" style="background:var(--surface-dim);font-size:12px;font-weight:700;color:var(--ink);padding:8px 12px">${esc(r.group_ko)}</td></tr>`;
-    }
-    return head + `<tr data-qkey="${esc(r.key)}">
-      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
-      <td><strong style="font-size:13px">${esc(r.label_ko)}</strong><div style="font-size:10px;color:var(--muted)">${esc(r.key)}</div></td>
-      <td class="q-amount" style="font-size:13px;font-weight:600">${esc(quoteAmountText(r))}</td>
-      <td style="font-size:12px;color:var(--muted)">${esc(QUOTE_UNIT_LABEL[r.unit] || r.unit)}</td>
-      <td style="font-size:12px;color:var(--muted)">${r.updated_at ? esc(formatDateTime(r.updated_at)) : '-'}</td>
-      <td style="white-space:nowrap">${canEdit ? `<button class="btn btn-ghost btn-xs" onclick="editQuoteSetting('${esc(r.key)}', '${esc(String(r.amount))}', '${esc(r.unit)}')">수정</button>` : ''}</td>
-    </tr>`;
-  }).join('');
+  const byKey = { __used: new Set() };
+  rows.forEach(r => { byKey[r.key] = r; });
+  const o = { canEdit };
+  // ⚠️ 「그 밖의 기준값」(quoteRestCard)은 **반드시 마지막** — 앞 카드들이 그린 칸을 byKey.__used 에 적어 두고,
+  //    남은 것만 그린다. 순서를 바꾸면 이미 그린 행이 한 번 더 나온다.
+  const html = quoteCommonCard(byKey, o) + quoteReviewerCard(byKey, o) + quoteSeedingCard(byKey, o) + quoteRestCard(byKey, rows, o);
+  tbody.innerHTML = wrap(`<div class="q-board">${canEdit ? '' : '<p class="q-note">보기 전용입니다 — 수정은 캠페인 관리자 이상.</p>'}${html}</div>`);
 }
-// 인라인 수정 — 그 행의 값 칸을 입력칸으로 바꾼다. 비율은 % 로 받아 0~1 로 저장.
+// 인라인 수정 — 그 칸을 입력칸으로 바꾼다. 비율은 % 로 받아 0~1 로 저장.
+//   ⚠️ 칸은 `.q-amount[data-qkey]` 로 찾는다(카드 배치 — 한 줄에 값 칸이 여럿이다)
 function editQuoteSetting(key, current, unit) {
-  const tr = document.querySelector(`#lookupsTableBody tr[data-qkey="${CSS.escape(key)}"]`);
-  if (!tr) return;
-  const cell = tr.querySelector('.q-amount');
+  const cell = document.querySelector(`#lookupsTableBody .q-amount[data-qkey="${CSS.escape(key)}"]`);
+  if (!cell) return;
   const isRate = unit === 'rate';
   const initial = isRate ? String(Number(current) * 100) : String(Number(current));
-  cell.innerHTML = `<div style="display:flex;gap:4px;align-items:center">
-      <input type="number" class="form-input" step="${isRate ? '0.01' : '1'}" min="0" ${isRate ? 'max="100"' : ''} value="${esc(initial)}" style="width:110px;padding:4px 8px;font-size:13px" onkeydown="if(event.key==='Enter'){saveQuoteSetting('${esc(key)}',this,'${esc(unit)}')}else if(event.key==='Escape'){renderQuoteSettingsTable()}">
-      <span style="font-size:11px;color:var(--muted)">${isRate ? '%' : (QUOTE_UNIT_LABEL[unit] || '')}</span>
+  cell.innerHTML = `<div class="q-edit">
+      <input type="number" class="form-input" step="${isRate ? '0.01' : '1'}" min="0" ${isRate ? 'max="100"' : ''} value="${esc(initial)}" onkeydown="if(event.key==='Enter'){saveQuoteSetting('${esc(key)}',this,'${esc(unit)}')}else if(event.key==='Escape'){renderQuoteSettingsTable()}">
+      <span class="q-edit-unit">${isRate ? '%' : (unit === 'count' ? '명' : (QUOTE_UNIT_LABEL[unit] || ''))}</span>
       <button class="btn btn-primary btn-xs" onclick="saveQuoteSetting('${esc(key)}', this.parentNode.querySelector('input'), '${esc(unit)}')">저장</button>
       <button class="btn btn-ghost btn-xs" onclick="renderQuoteSettingsTable()">취소</button>
     </div>`;
