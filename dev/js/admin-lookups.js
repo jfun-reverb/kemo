@@ -150,7 +150,7 @@ function quoteAmountText(r) {
   const n = Number(r.amount);
   if (r.unit === 'rate') return (n * 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + ' %';
   if (r.unit === 'jpy') return '¥' + n.toLocaleString('ja-JP');
-  // 🔴 구간 인원(tier_slots_*)은 금액이 아니다 — 이 분기가 없으면 아래 기본으로 떨어져 「50 원」으로 그려진다
+  // 🔴 구간 인원(reviewer_tier_slots_*·seeding_tier_slots_*)은 금액이 아니다 — 이 분기가 없으면 아래 기본으로 떨어져 「50 원」으로 그려진다
   if (r.unit === 'count') return n.toLocaleString('ko-KR') + ' 건';
   return n.toLocaleString('ko-KR') + ' 원';
 }
@@ -228,11 +228,14 @@ async function saveQuoteSetting(key, input, unit) {
     const res = await updateQuoteSetting(key, amount);
     if (!res || res.success !== true) {
       // 🔴 tier_slots_not_ascending 은 서버가 돌려주는 코드와 **글자가 같아야** 한다 —
-      //    ⚠️ 2026-09-21 부터 그 검사에 **최소 인원(`tier_min_slots`)이 들어간다** — 문구도 함께 바뀌었다.
+      //    검사에는 최소 인원(`reviewer_tier_min_slots`·`seeding_tier_min_slots`)이 들어간다.
       //    네 이름만 적으면 「최소 인원을 라이트보다 크게」 넣었을 때 왜 막혔는지 알 수 없다.
       //    구간 인원이 오름차순이 아니면 단추와 판정이 말없이 어긋나 틀린 금액이 견적서에 찍힌다.
+      // ⚠️ 2026-09-21 부터 구간 인원이 리뷰어·시딩 따로라 서버가 어느 쪽인지(`form_type`)를 함께 준다.
+      //    옛 서버라 없으면 앞머리 없이 종전 문구 그대로.
+      const tierWho = ({ reviewer: '리뷰어 구간 ', seeding: '시딩 구간 ' })[res && res.form_type] || '';
       const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다',
-                     tier_slots_not_ascending: '인원은 최소 인원 ≤ 라이트 < 스탠다드 < 프리미엄 < 실검작업 구간 순이어야 합니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
+                     tier_slots_not_ascending: tierWho + '인원은 최소 인원 ≤ 라이트 < 스탠다드 < 프리미엄 < 실검작업 구간 순이어야 합니다' })[res && res.reason] || (res && res.reason) || '저장 실패';
       toast('저장 실패: ' + why); return;
     }
     toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');
