@@ -416,6 +416,14 @@ input[type="date"] { min-height: 44px; }
 .tier-btn .tier-price:empty { display: none; }
 .tier-btn.active .tier-price { color: var(--brand-dark); }
 .tier-note:empty { display: none; }
+/* 직접 입력 줄 — 단추 격자(4칸) 아래. 🔴 격자를 건드리지 않는다(최하단 구간은 단추가 없다) */
+.tier-direct { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.tier-direct-label { font-size: 12px; color: var(--ink-mute); font-weight: 700; }
+.tier-direct input { width: 110px; }
+.tier-direct-unit { font-size: 12px; color: var(--ink-mute); }
+.tier-direct-info { font-size: 12px; font-weight: 700; color: var(--ink); }
+.tier-direct-info:empty { display: none; }
+.tier-direct-info.blocked { color: var(--danger, #b91c1c); font-weight: 700; }
 /* 추가 옵션(리뷰어 전용) — 🔴 여기는 금액을 적는다: 고를지 말지를 그 자리에서 판단하는 값이라
    금액이 없으면 고를 수가 없다. 기준값과 두 자리가 되는 것을 감수한 결정(사양서 §4-9). */
 /* ⚠️ `.field label`(display:block·굵게·아래 여백)이 클래스 하나짜리 규칙을 이긴다 — 그래서 `.field label.…` 로 쓴다.
@@ -939,7 +947,11 @@ const EXTRA_MARKETS = [
 // 🔴 열쇠말의 숫자는 뜻이 없다 — `t100` 은 **둘째 구간**이라는 뜻이고 100명을 뜻하지 않는다.
 //    기준값에서 150 으로 고치면 열쇠말은 `t100` 그대로이고 건수만 150 이 된다.
 // ⚠️ 건수가 적힌 자리가 **둘**이다 — 앞 셋은 `sub`, 넷째는 `name` 이 곧 건수다(applyTierSlots 가 둘 다 고친다).
+// ⚠️ **최하단 구간(`tmin`)은 단추로 그리지 않는다** — 고정 건수가 없어(최소 인원 ~ 49) 단추에 적을 숫자가 없다.
+//    그래도 **같은 목록에 담는다**(사양서 2026-09-21 §3-4) — 목록을 둘로 나누면 이름·경계가 갈린다.
+//    🔴 `slots` 가 빈 값이라 `applyTierSlots` 가 건너뛴다(서버도 `tier_slots_tmin` 행을 안 준다 — §3-6).
 const TIER_OPTIONS = [
+  { key: 'tmin',     name: '소량',     sub: '',            slots: '', noButton: true },
   { key: 't50',      name: '라이트',   sub: '50건',        slots: '50' },
   { key: 't100',     name: '스탠다드', sub: '100건',       slots: '100' },
   { key: 't300',     name: '프리미엄', sub: '300건',       slots: '300' },
@@ -1008,6 +1020,10 @@ async function loadTierFees() {
       fees: (res.fees && typeof res.fees === 'object') ? res.fees : {},
       override: (res.override_krw === null || res.override_krw === undefined) ? null : Number(res.override_krw),
       formType: res.form_type || issuedFormType(),
+      // 🔴 구간 인원·최소 인원을 **간직한다** — 직접 입력한 숫자가 어느 구간에 드는지 판정하고
+      //    최소 인원 미만을 막는 데 쓴다(2026-09-21). 못 받아 왔으면 아무것도 안 그리고 안 막는다.
+      slots: (res.slots && typeof res.slots === 'object') ? res.slots : null,
+      minSlots: (res.min_slots === null || res.min_slots === undefined) ? null : Number(res.min_slots),
     };
     // 구간 인원(453·454) — 받아 오면 단추 값·글을 덮는다. 못 받아 오면 위 기본값 그대로다.
     const slotsChanged = applyTierSlots(res.slots);
@@ -1017,6 +1033,38 @@ async function loadTierFees() {
     });
   } catch (e) { /* 단가·인원 표시는 부가 정보 — 실패해도 폼은 기본값으로 그대로 동작한다 */ }
 }
+// 인원을 숫자로 읽는다. 🔴 **서버와 같은 방식**(숫자가 아닌 글자를 걷어낸 정수) —
+//   화면이 `30.5` 를 30 으로 보고 서버가 305 로 읽으면 구간이 갈린다(사양서 §3-4).
+function readSlots(raw) {
+  const digits = String(raw == null ? '' : raw).replace(/[^0-9]/g, '');
+  if (!digits) return null;
+  const n = parseInt(digits, 10);
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+// 인원이 어느 구간에 드는가 — 🔴 **서버 `_orient_compute_quote` 와 같은 규칙**(§3-2).
+//   기준값은 「그 구간의 **시작값**」이라 전부 `<` 로 견준다.
+//   ⚠️ 기준값을 못 받아 왔으면 **null** 을 돌려준다 — 기본값으로 판정하면
+//      「화면엔 스탠다드인데 견적서엔 라이트」가 된다(§3-4). 부르는 쪽이 아무것도 안 그린다.
+function tierOfSlots(n) {
+  if (!n || !tierFees || !tierFees.slots) return null;
+  const at = k => { const v = Number(tierFees.slots[k]); return isFinite(v) && v > 0 ? v : null; };
+  const t50 = at('tier_slots_t50'), t100 = at('tier_slots_t100');
+  const t300 = at('tier_slots_t300'), t500 = at('tier_slots_t500plus');
+  if (t50 === null || t100 === null || t300 === null || t500 === null) return null;
+  if (n < t50)  return 'tmin';
+  if (n < t100) return 't50';
+  if (n < t300) return 't100';
+  if (n < t500) return 't300';
+  return 't500plus';
+}
+
+// 최소 인원 — 못 받아 왔으면 1(= 아무도 안 막는다). 서버 기본값과 같은 값(§3-3).
+function minSlots() {
+  const v = tierFees ? Number(tierFees.minSlots) : NaN;
+  return (isFinite(v) && v > 0) ? v : 1;
+}
+
 // 단추 하나에 적을 글 — 🔴 리뷰어는 「모집비」를 붙인다: 1건당 실제 비용은 상품 결제비용·송금 수수료가 더 붙어서,
 //   숫자만 적으면 그것이 전부인 줄 안다. 시딩은 진행비가 곧 1건당 비용이라 숫자만 쓴다.
 function tierPriceText(tierKey) {
@@ -1037,6 +1085,55 @@ function tierNoteText() {
     ? '표시 금액은 1건당 모집비입니다(부가세 별도). 상품 결제비용·해외 송금 수수료는 따로 더해지며, 전체 금액은 「견적 보기」에서 확인할 수 있습니다.'
     : '표시 금액은 1건당 진행비입니다(부가세 별도). 전체 금액은 「견적 보기」에서 확인할 수 있습니다.';
 }
+// 직접 입력 칸 옆 한 줄 — 적용 구간과 1건당 단가.
+//   🔴 **기준값을 못 받아 왔으면 아무것도 안 그린다**(§3-4) — 구간은 인원만으로 정해지지 않고
+//      경계 기준값과 견줘야 정해지므로, 기본값으로 그리면 「화면엔 스탠다드인데 견적서엔 라이트」가 된다.
+//   ⚠️ 칸이 비어 있어도 안 그린다 — 미리 띄우면 「아무것도 안 넣었는데 8,500원」으로 읽힌다.
+function tierDirectInfo(n) {
+  if (!n) return { text: '', blocked: false };
+  const min = minSlots();
+  if (n < min) {
+    return { blocked: true,
+             text: `최소 ${min.toLocaleString('ko-KR')}명부터 신청할 수 있습니다 — 담당자와 협의해 주세요.` };
+  }
+  const tier = tierOfSlots(n);
+  if (!tier) return { text: '', blocked: false };      // 기준값을 못 받았다 — 이름도 단가도 안 그린다
+  const opt = TIER_OPTIONS.find(t => t.key === tier);
+  const price = tierPriceText(tier);
+  const name = opt ? opt.name : '';
+  return { blocked: false, text: name + (price ? ' 구간 — ' + price : ' 구간') };
+}
+
+// 직접 입력 — 값은 감춰진 칸 하나다. 들어간 숫자가 어느 구간에 들면 그 단추가 켜진다.
+//   ⚠️ 최하단 구간은 단추가 없어 **넷 다 꺼진다**(§2-⑦).
+function onSlotsDirect(input) {
+  const card = input.closest('.ocard'); if (!card) return;
+  const n = readSlots(input.value);
+  const hidden = card.querySelector('.f-slots');
+  if (hidden) hidden.value = n ? String(n) : '';
+  const tier = n ? tierOfSlots(n) : null;
+  card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', !!tier && b.dataset.tier === tier));
+  // 옛 값(700건 등)을 이름 자리에 보여주던 단추는 제 이름으로 되돌린다
+  card.querySelectorAll('.tier-btn').forEach(b => {
+    const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier);
+    const nameEl = b.querySelector('.tier-name');
+    if (o && nameEl) nameEl.textContent = o.name;
+  });
+  applyTierDirectInfo(card);
+  onInput();
+}
+
+function applyTierDirectInfo(card) {
+  if (!card) return;
+  const el = card.querySelector('.tier-direct-info'); if (!el) return;
+  const input = card.querySelector('.f-slots-direct');
+  const info = tierDirectInfo(readSlots(input ? input.value : ''));
+  el.textContent = info.text;
+  el.classList.toggle('blocked', !!info.blocked);
+  // 입력칸의 min 은 거들기만 한다 — 실제로 막는 일은 「견적 보기」·「제출」이 한다(§3-4)
+  if (input) input.min = String(minSlots());
+}
+
 function applyTierPrices(card) {
   if (!card) return;
   card.querySelectorAll('.tier-btn').forEach(b => {
@@ -1045,6 +1142,7 @@ function applyTierPrices(card) {
   });
   const note = card.querySelector('.tier-note');
   if (note) note.textContent = tierNoteText();
+  applyTierDirectInfo(card);
 }
 
 // 구간 버튼 — 누르면 그 카드의 인원 칸(감춰진 .f-slots)을 그 구간의 건수로 채운다
@@ -1058,6 +1156,10 @@ function onTierPick(btn) {
   if (btn.classList.contains('active') && input && input.value) return;
   card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', b === btn));
   if (input) input.value = opt.slots;
+  // 🔴 직접 입력 칸도 같은 값으로 — 값은 하나다(§3-4). 안 맞추면 두 칸이 다른 숫자를 보인다.
+  const direct = card.querySelector('.f-slots-direct');
+  if (direct) direct.value = opt.slots;
+  applyTierDirectInfo(card);
   // 옛 값(700건 등)을 이름 자리에 보여주던 단추는 제 이름으로 되돌린다
   card.querySelectorAll('.tier-btn').forEach(b => {
     const o = TIER_OPTIONS.find(t => t.key === b.dataset.tier);
@@ -1754,11 +1856,21 @@ ${purchaseGuideBlock}
                   단추는 「500건」인데 견적은 700건으로 나오는 어긋남을 화면에 드러내려는 것이다. 다른 단추를 눌렀다 돌아오면 500 이 된다.
                .tier-price 는 비워서 그린다 — 단가는 loadTierFees() 가 받아 온 뒤 applyTierPrices() 가 채운다(448). -->
           <div class="tier">
-            ${TIER_OPTIONS.map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
+            ${TIER_OPTIONS.filter(t => !t.noButton).map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
               <span class="tier-name">${(t.key === 't500plus' && p.slots_tier === 't500plus' && p.slots && String(p.slots) !== t.slots) ? escAttr(p.slots) + '건' : t.name}</span><span class="tier-sub">${t.sub}</span><span class="tier-price"></span></button>`).join('')}
           </div>
-          <!-- 인원 숫자는 여기 담긴다(감춰진 채) — 구간 단추가 채운다. 🔴 지우지 말 것: 저장·검사·요약이 전부 이 값을 읽는다 -->
+          <!-- 인원 숫자는 여기 담긴다(감춰진 채) — 구간 단추와 아래 직접 입력이 채운다.
+               🔴 지우지 말 것: 저장·검사·요약이 전부 이 값을 읽는다 -->
           <input type="hidden" class="f-slots" value="${escAttr(p.slots)}">
+          <!-- 직접 입력 — 🔴 값은 위 감춰진 칸 하나다. 단추는 빠른 입력이고, 여기 넣은 숫자가
+               어느 구간에 들면 그 단추가 켜진다(2026-09-21 §3-4). -->
+          <div class="tier-direct">
+            <label class="tier-direct-label">또는 직접 입력</label>
+            <input type="number" class="f-slots-direct" min="1" step="1" placeholder="예: 30"
+                   value="${escAttr(p.slots)}" oninput="onSlotsDirect(this)">
+            <span class="tier-direct-unit">명</span>
+            <span class="tier-direct-info"></span>
+          </div>
           <div class="field-hint tier-note"></div>
           <div class="field-hint">충전식 이용이 곧 가능해집니다. 준비되면 다시 안내드리겠습니다.</div>
         </div>
@@ -2316,7 +2428,15 @@ function collectCardNew(el) {
     sale: { market: 'Qoo10', url: normalizeUrl(val('.f-sale-url')), price_regular: val('.f-price-regular') },
     images,
   };
+  // 🔴 **최하단 구간은 단추가 없어** 여기서 빠진다 — 직접 입력한 30명이 `slots_tier` 없이 저장되면
+  //    「작성 내용 확인」과 관리자 상세의 「모집 구간」 칸이 **그 구간만 빈다**(2026-09-21 검토에서 잡음).
+  //    ⚠️ 금액에는 영향이 없다 — 서버는 화면이 보낸 구간을 믿지 않고 **인원으로 다시 판정**한다.
+  //    ⚠️ 기준값을 못 받아 왔으면 `tierOfSlots` 가 null 이라 **키를 안 만든다**(종전과 같다).
   if (tierBtn) out.product.slots_tier = tierBtn.dataset.tier;
+  else {
+    const k = tierOfSlots(readSlots(out.product.slots));
+    if (k) out.product.slots_tier = k;
+  }
   if (extras.length) out.sale.extra_markets = extras;
   const shipping = val('.f-shipping-fee');
   if (shipping) out.sale.shipping_fee = shipping;   // 배송비(선택) — 비우면 키를 안 만든다 = 서버가 0 으로 계산
@@ -2701,11 +2821,39 @@ function backToPreviewFromQuote() {
 //   제출 때와 같은 함수(_orient_compute_quote)로 계산하므로 여기서 본 금액이 제출 뒤 견적서와 같다.
 let previewQuote = null;          // 견적서 확인 화면에 그린 견적(제출 전) — 인쇄 파일명에도 쓴다
 let previewQuoteData = null;
+// 최소 인원 미만인 카드를 찾는다 — 🔴 **「견적 보기」와 「제출」 둘만** 이 검사를 쓴다(2026-09-21 §3-4).
+//   ⚠️ 「작성 내용 확인」에는 걸지 않는다 — 입력한 것을 되짚어 보는 자리라 금액이 안 나온다.
+//      공용 검사(`findInvalidField`)에 넣으면 그 자리까지 막힌다(그 함수 주석이 같은 함정을 경고한다).
+//   🔴 「견적 보기」를 안 막으면 브랜드가 30명짜리 견적서를 **끝까지 본 뒤 제출에서 막힌다**.
+//   ⚠️ 최소 인원을 못 받아 왔으면 1 로 보고 **아무도 안 막는다** — 그 구간에서는 서버도 「견적 보기」를
+//      안 막으므로(§3-3) 위 상황이 실제로 일어난다. 드물지만 모르고 지나가지 않게 적어 둔다.
+function findSlotsBelowMin() {
+  if (!isNewLayout()) return null;
+  const min = minSlots();
+  if (min <= 1) return null;
+  const cards = [...document.querySelectorAll('#cardList > .ocard')];
+  for (const card of cards) {
+    const n = readSlots((card.querySelector('.f-slots') || {}).value);
+    if (n && n < min) {
+      return { card,
+        message: `모집 인원은 최소 ${min.toLocaleString('ko-KR')}명부터 신청할 수 있습니다. 더 적은 인원을 원하시면 담당자와 협의해 주세요.` };
+    }
+  }
+  return null;
+}
+
 async function openQuotePreview() {
   if (!sb || !token) return;
   if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 진행할 수 있어요.'); return; }
   const invalid = findInvalidField('preflight');
   if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
+  // 🔴 최소 인원 미만이면 여기서 멈춘다 — 견적서를 끝까지 보여준 뒤 제출에서 막으면 헛수고가 된다
+  const tooFew = findSlotsBelowMin();
+  if (tooFew) {
+    closePreview(); showToast(tooFew.message);
+    const el = tooFew.card.querySelector('.f-slots-direct'); if (el) { el.focus(); }
+    return;
+  }
   const data = collectData();
   const btn = $('btnQuoteView');
   btn.disabled = true; const orig = btn.textContent; btn.textContent = '견적 계산 중…';
@@ -2888,6 +3036,13 @@ async function submitSheet() {
 
   const invalid = findInvalidField('submit');
   if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
+  // 🔴 서버도 같은 것을 막는다(`slots_below_min`) — 화면이 먼저 걸러 이유와 다음 걸음을 말한다
+  const tooFew = findSlotsBelowMin();
+  if (tooFew) {
+    closePreview(); showToast(tooFew.message);
+    const el = tooFew.card.querySelector('.f-slots-direct'); if (el) { el.focus(); }
+    return;
+  }
   const data = collectData();
   const cardEls = lastCollectedCardEls.slice();   // 요청 시점의 목록을 붙잡아 둔다(위 주석)
 
@@ -2940,6 +3095,16 @@ async function submitSheet() {
     if (res && res.reason === 'notice_not_acknowledged') {
       closePreview(); showToast('맨 아래 「꼭 확인해 주세요」를 읽고 체크해 주세요.');
       focusInvalid({ card: null, target: $('noticeAckLabel') }); return;
+    }
+    // 🔴 화면이 먼저 막지만(findSlotsBelowMin) **최소 인원을 못 받아 온 구간**에서는 여기까지 온다 —
+    //    그때 이 문구가 이유와 다음 걸음을 말하는 유일한 자리다(2026-09-21 §3-4).
+    if (res && res.reason === 'slots_below_min') {
+      closePreview();
+      const min = res.min_slots ? Number(res.min_slots).toLocaleString('ko-KR') : '';
+      showToast(min
+        ? `모집 인원은 최소 ${min}명부터 신청할 수 있습니다. 더 적은 인원을 원하시면 담당자와 협의해 주세요.`
+        : '신청 가능한 최소 모집 인원에 못 미칩니다. 담당자와 협의해 주세요.');
+      return;
     }
     if (res && res.reason === 'cards_limit') { closePreview(); showToast('이 링크에는 제품 하나만 제출할 수 있어요. 화면을 새로고침해 주세요.'); return; }
     if (res && res.reason === 'guide_too_long') { closePreview(); showToast(`리뷰 가이드가 ${LIMIT_REVIEW_GUIDE.toLocaleString('ko-KR')}자를 넘었어요. 줄여 주세요.`); return; }
