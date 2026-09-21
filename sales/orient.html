@@ -427,9 +427,11 @@ input[type="date"] { min-height: 44px; }
 .tier-direct-label { font-size: 12px; color: var(--ink-mute); font-weight: 700; }
 .tier-direct input { width: 110px; }
 .tier-direct-unit { font-size: 12px; color: var(--ink-mute); }
-.tier-direct-info { font-size: 12px; font-weight: 700; color: var(--ink); }
+.tier-direct-info { font-size: 12px; font-weight: 700; color: var(--danger, #b91c1c); }
 .tier-direct-info:empty { display: none; }
-.tier-direct-info.blocked { color: var(--danger, #b91c1c); font-weight: 700; }
+/* 직접 입력을 고른 상태 — 단추의 선택 모양(.tier-btn.active)과 같은 색. 단추와 동시에 켜지지 않는다(setTierMode) */
+.tier-direct.active .tier-direct-label { color: var(--brand-dark); }
+.tier-direct.active input { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
 /* 추가 옵션(리뷰어 전용) — 🔴 여기는 금액을 적는다: 고를지 말지를 그 자리에서 판단하는 값이라
    금액이 없으면 고를 수가 없다. 기준값과 두 자리가 되는 것을 감수한 결정(사양서 §4-9). */
 /* ⚠️ `.field label`(display:block·굵게·아래 여백)이 클래스 하나짜리 규칙을 이긴다 — 그래서 `.field label.…` 로 쓴다.
@@ -1053,13 +1055,6 @@ async function loadTierFees() {
       if (tierSlotsReady) {
         refreshTierButtons(card);
         const row = card.querySelector('.tier'); if (row) row.hidden = false;
-        // 저장된 인원에 맞는 단추를 켠다 — 직접 입력으로 저장돼 구간 표시가 비어 있던 시트도 여기서 맞춰진다.
-        //   🔴 저장된 구간이 이미 켜져 있으면 건드리지 않는다(옛 방식 700건 같은 값의 표시를 지키려고)
-        if (!card.querySelector('.tier-btn.active')) {
-          const slotsEl = card.querySelector('.f-slots');
-          const tier = tierOfSlots(readSlots(slotsEl ? slotsEl.value : ''));
-          if (tier) card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', b.dataset.tier === tier));
-        }
       }
       applyTierPrices(card);
     });
@@ -1119,10 +1114,9 @@ function tierNoteText() {
     ? '표시 금액은 1건당 모집비입니다(부가세 별도). 상품 결제비용·해외 송금 수수료는 따로 더해지며, 전체 금액은 「견적 보기」에서 확인할 수 있습니다.'
     : '표시 금액은 1건당 진행비입니다(부가세 별도). 전체 금액은 「견적 보기」에서 확인할 수 있습니다.';
 }
-// 직접 입력 칸 옆 한 줄 — 적용 구간과 1건당 단가.
-//   🔴 **기준값을 못 받아 왔으면 아무것도 안 그린다**(§3-4) — 구간은 인원만으로 정해지지 않고
-//      경계 기준값과 견줘야 정해지므로, 기본값으로 그리면 「화면엔 스탠다드인데 견적서엔 라이트」가 된다.
-//   ⚠️ 칸이 비어 있어도 안 그린다 — 미리 띄우면 「아무것도 안 넣었는데 8,500원」으로 읽힌다.
+// 직접 입력 칸 옆 한 줄 — **최소 인원 미만일 때만** 경고를 띄운다.
+//   ⚠️ 「○○ 구간 — 모집비 N원/건」 안내는 2026-09-21 사용자 지시로 뺐다(직접 입력은 단추와 별개 선택으로 보이게).
+//      적용 구간·금액은 「견적 보기」에서 확인한다. 기준값을 못 받아 왔으면 최소 인원도 몰라 아무것도 안 그린다.
 function tierDirectInfo(n) {
   if (!n) return { text: '', blocked: false };
   const min = minSlots();
@@ -1130,24 +1124,52 @@ function tierDirectInfo(n) {
     return { blocked: true,
              text: `최소 ${min.toLocaleString('ko-KR')}명부터 신청할 수 있습니다 — 담당자와 협의해 주세요.` };
   }
-  const tier = tierOfSlots(n);
-  if (!tier) return { text: '', blocked: false };      // 기준값을 못 받았다 — 이름도 단가도 안 그린다
-  const opt = TIER_OPTIONS.find(t => t.key === tier);
-  const price = tierPriceText(tier);
-  const name = opt ? opt.name : '';
-  const option = opt && opt.option ? ' · ' + opt.option : '';   // 「소량」 옵션은 여기서만 보인다(단추가 없다)
-  return { blocked: false, text: name + (price ? ' 구간 — ' + price : ' 구간') + option };
+  return { text: '', blocked: false };
 }
 
-// 직접 입력 — 값은 감춰진 칸 하나다. 들어간 숫자가 어느 구간에 들면 그 단추가 켜진다.
-//   ⚠️ 최하단 구간은 단추가 없어 **넷 다 꺼진다**(§2-⑦).
+// 선택 상태 한 곳 — 단추 하나(구간 열쇠) · 직접 입력('direct') · 아무것도 아님(null) **중 하나만** 켠다.
+//   🔴 단추와 직접 입력이 함께 켜지지 않게 여기서만 바꾼다(2026-09-21 사용자 지시).
+//   ⚠️ 감춰진 인원 칸(.f-slots)은 건드리지 않는다 — 값을 넣는 쪽(onTierPick·onSlotsDirect)이 채운다.
+function setTierMode(card, mode) {
+  if (!card) return;
+  card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', !!mode && b.dataset.tier === mode));
+  const box = card.querySelector('.tier-direct');
+  if (box) box.classList.toggle('active', mode === 'direct');
+}
+// 화면을 그리거나 단추 값을 받은 뒤 — 저장된 인원으로 어느 쪽이 선택된 것인지 다시 정한다.
+//   인원이 **어느 단추의 인원과 정확히 같으면** 그 단추, 아니면 직접 입력(칸에 그 숫자를 둔다).
+//   ⚠️ 단추 인원을 못 받아 왔으면(줄이 감춰짐) 늘 직접 입력이다.
+//   ⚠️ 직접 입력으로 50 을 넣고 다시 열면 「스탠다드 50건」 단추로 보인다 — 값이 같아 어느 쪽이든 견적이 같다.
+function syncTierMode(card) {
+  if (!card) return;
+  // 브랜드가 지금 직접 입력 칸에 적고 있으면 건드리지 않는다 — 단추 값이 늦게 도착해도 적던 숫자가 사라지지 않게
+  const typing = card.querySelector('.f-slots-direct');
+  if (typing && document.activeElement === typing) { applyTierDirectInfo(card); return; }
+  const slotsEl = card.querySelector('.f-slots');
+  const n = readSlots(slotsEl ? slotsEl.value : '');
+  const direct = card.querySelector('.f-slots-direct');
+  const btnOpt = (n && tierSlotsReady)
+    ? TIER_OPTIONS.find(t => !t.noButton && t.slots && String(t.slots) === String(n)) : null;
+  if (btnOpt) {
+    if (direct) direct.value = '';
+    setTierMode(card, btnOpt.key);
+  } else if (n) {
+    if (direct) direct.value = String(n);
+    setTierMode(card, 'direct');
+  } else {
+    setTierMode(card, null);
+  }
+  applyTierDirectInfo(card);
+}
+
+// 직접 입력 — 값은 감춰진 칸 하나다. 🔴 숫자를 넣으면 **단추는 모두 꺼지고 직접 입력이 선택**된다
+//   (숫자가 어느 구간에 들든 — 2026-09-21 사용자 지시). 구간은 서버가 인원으로 다시 판정한다.
 function onSlotsDirect(input) {
   const card = input.closest('.ocard'); if (!card) return;
   const n = readSlots(input.value);
   const hidden = card.querySelector('.f-slots');
   if (hidden) hidden.value = n ? String(n) : '';
-  const tier = n ? tierOfSlots(n) : null;
-  card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', !!tier && b.dataset.tier === tier));
+  setTierMode(card, n ? 'direct' : null);
   applyTierDirectInfo(card);
   onInput();
 }
@@ -1158,7 +1180,6 @@ function applyTierDirectInfo(card) {
   const input = card.querySelector('.f-slots-direct');
   const info = tierDirectInfo(readSlots(input ? input.value : ''));
   el.textContent = info.text;
-  el.classList.toggle('blocked', !!info.blocked);
   // 입력칸의 min 은 거들기만 한다 — 실제로 막는 일은 「견적 보기」·「제출」이 한다(§3-4)
   if (input) input.min = String(minSlots());
 }
@@ -1171,7 +1192,7 @@ function applyTierPrices(card) {
   });
   const note = card.querySelector('.tier-note');
   if (note) note.textContent = tierNoteText();
-  applyTierDirectInfo(card);
+  syncTierMode(card);   // 그리기·단추 값 받기 뒤 — 단추/직접 입력 선택 상태를 인원으로 다시 맞춘다
 }
 
 // 구간 버튼 — 누르면 그 카드의 인원 칸(감춰진 .f-slots)을 그 구간의 건수로 채운다
@@ -1183,11 +1204,12 @@ function onTierPick(btn) {
   // 이미 고른 구간을 다시 눌러도 값을 안 건드린다 — 옛 방식(직접 입력)으로 700 을 저장한 시트가 말없이 500 이 되는 것을 막는다.
   //   단, 인원이 빈 채로 구간만 남은 시트는 다시 눌러 채울 수 있어야 한다
   if (btn.classList.contains('active') && input && input.value) return;
-  card.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', b === btn));
+  setTierMode(card, tier);
   if (input) input.value = opt.slots;
-  // 🔴 직접 입력 칸도 같은 값으로 — 값은 하나다(§3-4). 안 맞추면 두 칸이 다른 숫자를 보인다.
+  // 🔴 단추를 고르면 직접 입력 칸은 비운다 — 두 쪽이 함께 선택된 것처럼 보이지 않게(2026-09-21 사용자 지시).
+  //    값은 감춰진 칸 하나라 비워도 인원은 그대로다.
   const direct = card.querySelector('.f-slots-direct');
-  if (direct) direct.value = opt.slots;
+  if (direct) direct.value = '';
   applyTierDirectInfo(card);
   onInput();
 }
@@ -1876,8 +1898,7 @@ ${purchaseGuideBlock}
           <!-- 구간 버튼 넷 — 하나만 고른다. 건수는 그 시트 형식의 구간 인원(서버)으로 채우고, 넷 다 받기 전에는
                줄째 감춘다(2026-09-21 §3-6). 아래 직접 입력 칸은 늘 쓸 수 있다.
                ⚠️ 사람이 보는 글은 「건」으로 쓴다(운영팀 표기) — 한 화면에 「100건」과 「100명」이 같이 보이지 않게.
-               ⚠️ 넷째 구간 시작 인원보다 큰 값(예: 700)을 저장한 시트는 네 번째 단추 이름 자리에 그 값을 보여준다 —
-                  단추 이름과 견적 인원이 다른 것을 화면에 드러내려는 것이다. 다른 단추를 눌렀다 돌아오면 시작 인원이 된다.
+               ⚠️ 단추 인원과 다른 값(예: 700)을 저장한 시트는 단추가 모두 꺼지고 직접 입력 칸에 그 값이 선택돼 보인다(syncTierMode).
                .tier-price 는 비워서 그린다 — 단가는 loadTierFees() 가 받아 온 뒤 applyTierPrices() 가 채운다(448). -->
           <div class="tier"${tierSlotsReady ? '' : ' hidden'}>
             ${TIER_OPTIONS.filter(t => !t.noButton).map(t => `<button type="button" class="tier-btn${p.slots_tier === t.key ? ' active' : ''}" data-tier="${t.key}" onclick="onTierPick(this)">
@@ -1886,8 +1907,8 @@ ${purchaseGuideBlock}
           <!-- 인원 숫자는 여기 담긴다(감춰진 채) — 구간 단추와 아래 직접 입력이 채운다.
                🔴 지우지 말 것: 저장·검사·요약이 전부 이 값을 읽는다 -->
           <input type="hidden" class="f-slots" value="${escAttr(p.slots)}">
-          <!-- 직접 입력 — 🔴 값은 위 감춰진 칸 하나다. 단추는 빠른 입력이고, 여기 넣은 숫자가
-               어느 구간에 들면 그 단추가 켜진다(2026-09-21 §3-4). -->
+          <!-- 직접 입력 — 🔴 값은 위 감춰진 칸 하나다. 여기 숫자를 넣으면 단추는 모두 꺼지고 이 칸이 선택된다
+               (단추와 동시에 켜지지 않는다 — setTierMode, 2026-09-21). -->
           <div class="tier-direct">
             <label class="tier-direct-label">또는 직접 입력</label>
             <input type="number" class="f-slots-direct" min="1" step="1" placeholder="예: 30"
