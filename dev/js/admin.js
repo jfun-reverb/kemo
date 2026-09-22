@@ -4749,11 +4749,14 @@ async function addCampaign() {
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampBrandInput','newCampSourceAppId',
-   'newCampProduct','newCampProductUrl',
+   'newCampProduct','newCampProductKo','newCampProductUrl',
    'newCampSlots','newCampRecruitStart','newCampDeadline',
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
-   'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
+   'newCampProductPrice','newCampReward','newCampRewardNote',
+   // 2026-09-23 추가 — 이 둘이 빠져 있어 등록 직후 새 폼에 **직전 캠페인 값이 남았다**.
+   //   제품명 한국어 표기는 신청관리·엑셀에 그대로 나가고, 최소 팔로워수는 응모 자격을 바꾼다.
+   'newCampMinFollowers'].forEach(id => { const el=$(id); if(el) el.value=''; });
   var newSrcWrap = $('newCampSourceAppContainer'); if (newSrcWrap) newSrcWrap.style.display = 'none';
   var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) { newSrcSel.value = ''; _srcAppSyncTrigger('new'); }
   // flatpickr range picker 클리어
@@ -4763,6 +4766,10 @@ async function addCampaign() {
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   // 자율/지정 선택도 비우고 라벨을 되돌린다 — 안 하면 직전 등록의 「구매 가이드」 이름이 남는다
   setCampPgMode('new', 'free');   // 새 캠페인 기본 = 자율구매(2026-09-22)
+  // 채널 매칭(or/&)도 기본값 「or」로 되돌린다 — 안 되돌리면 「&」로 저장한 직후 새 폼에서
+  //   채널을 2개 이상 고르는 순간 「&」가 켜진 채 나타나, 관계없는 캠페인이 조용히 「모두 해당」으로 저장된다.
+  { document.querySelectorAll('input[name="newChannelMatch"]').forEach(r => { r.checked = (r.value === 'or'); });
+    if (typeof applyFollowerKindUI === 'function') applyFollowerKindUI('new'); }
   applyCampDescLabel('new', '');
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
