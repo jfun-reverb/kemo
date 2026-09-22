@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790065442';
+  var CURRENT_BUILD = 'v1790068450';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3108,6 +3108,61 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-prog-fill{height:100%;background:var(--accent);border-radius:3px}
 .gantt-row.child .gantt-prog-fill{background:#8E8E95}
 
+/* ── 견적 기준값 — 형식별 구간표 (admin-lookups.js renderQuoteSettingsTable, 2026-09-21) ── */
+.q-board { display: grid; gap: 16px; padding: 16px; }
+.q-card { border: 1px solid var(--outline); border-radius: 10px; background: var(--surface); padding: 14px 16px; overflow-x: auto; }
+.q-card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.q-card-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+.q-card-sub { font-size: 12px; color: var(--muted); }
+.q-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.q-table th, .q-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.q-table thead th { background: var(--th-bg); color: var(--th-fg); font-size: 12px; font-weight: 700; }
+.q-table tbody th { font-weight: 700; color: var(--ink); width: 1%; }
+.q-kv { margin-top: 10px; max-width: 520px; }
+.q-kv tbody th { font-weight: 600; width: 60%; }
+.q-range { color: var(--muted); font-size: 12px; }
+.q-scroll { overflow-x: auto; }
+.q-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.q-val-ro { font: inherit; font-weight: 700; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; }
+.q-val-ro.is-ph { background: #FEF3C7; border-color: #F59E0B; }
+.q-ph-tag { margin-left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: #D97706; border-radius: 4px; padding: 1px 5px; }
+.q-missing { color: var(--muted); }
+.q-warn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #92400E; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+.q-warn .material-icons-round { font-size: 16px; }
+/* 🔴 이 표들은 .data-table 안에 들어가 있어 `.data-table th` 의 어두운 머리 모양이 **줄 제목(tbody th)에도** 번진다 — 되돌린다 */
+.q-board .q-table th { position: static; }   /* 바깥 .admin-pane-list .data-table th 의 sticky 를 끈다 */
+.q-board .q-table tbody th { background: none; color: var(--ink); text-transform: none; letter-spacing: normal; }
+.q-tier { width: auto; min-width: 640px; }
+.q-tier td, .q-tier th { padding-right: 24px; }
+/* 값 칸 — 상자는 늘 보이고 평소엔 읽기 상태. 누르면 입력 상태 + 옆에 「저장」·「취소」(2026-09-21) */
+.q-in-wrap { display: inline-flex; align-items: center; gap: 4px; }
+.q-input { width: 96px; padding: 5px 8px; font: inherit; font-weight: 700; text-align: right; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--outline); border-radius: 6px; }
+.q-input:hover { border-color: var(--muted); }
+.q-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,.18); }
+.q-in-wrap.is-ph .q-input { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+.q-unit { font-size: 12px; color: var(--muted); }
+/* 🔴 행 구분선 — 이 표들은 바깥 .data-table 의 **한 줄(마지막 줄)** 안에 들어 있어
+   `.data-table tr:last-child td{border-bottom:none}` 이 안쪽 모든 칸의 선을 지운다. 명시도를 올려 되살린다 */
+.q-board .q-table tbody tr td, .q-board .q-table tbody tr th { border-bottom: 1px solid var(--outline); }
+.q-board .q-table tbody tr td, .q-board .q-table tbody tr th { background: var(--surface); }
+/* 🔴 바깥 `.data-table tr:hover td` 가 **카드 전체를 담은 한 줄**에 걸려 안쪽 모든 칸이 회색이 됐다 — 끈다 */
+.data-table tr.q-wrap-row:hover > td { background: var(--surface); }
+.q-act { display: inline-flex; gap: 4px; margin-left: 4px; }
+.q-act[hidden] { display: none; }
+.q-input[readonly] { background: var(--surface); cursor: pointer; }
+.q-input[readonly]:hover { border-color: var(--muted); }
+.q-in-wrap.is-editing .q-input { background: var(--surface); border-color: var(--primary); color: var(--ink); cursor: text; box-shadow: 0 0 0 2px rgba(99,102,241,.18); }
+/* 고쳤지만 아직 저장 안 한 칸 — 주황 테두리 */
+.q-in-wrap.is-editing.is-dirty .q-input { border-color: #D97706; box-shadow: 0 0 0 2px rgba(217,119,6,.2); }
+.q-in-wrap.is-ph .q-input[readonly] { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+/* 저장·취소 — 칸 옆에 붙는 작은 버튼(기본 btn-xs 보다 작게. 같은 방식: .faq-item-actions .btn-xs) */
+.q-act .btn-xs { padding: 2px 7px; font-size: 11px; line-height: 1.4; border-radius: 5px; }
+/* 구간 이름·옵션 문구 칸(글자) — 숫자 칸보다 넓게, 왼쪽 정렬 */
+.q-input.q-input-text { width: 104px; text-align: left; font-weight: 600; }
+.q-input.q-input-text.q-input-opt { width: 150px; font-weight: 500; }
+.q-muted { color: var(--muted); font-weight: 400; }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -3207,7 +3262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 17:24 · b054b89</span>
+          <span class="admin-build-text">2026-09-22 18:14 · 8e00457</span>
         </div>
       </div>
     </aside>
@@ -3818,7 +3873,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="editCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="editCampPgRow" style="display:none;margin-bottom:8px">
+                <select id="editCampPurchaseGuideMode" class="form-input" style="max-width:220px" onchange="applyCampDescLabel('edit')">
+                  <option value="">구매 가이드: 고르지 않음</option>
+                  <option value="free">자율구매</option>
+                  <option value="fixed">지정구매</option>
+                </select>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">고르면 위 칸 이름이 「구매 가이드」로 바뀝니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
@@ -3838,7 +3903,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
             <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="editCampAppeal"></div></div>
-            <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampGuideLabel">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div><!-- 라벨은 모집 형식에 따라 바뀐다(리뷰어형=리뷰 가이드, applyDeadlineFieldsVisibility) -->
             <!-- 참여방법: 요약 카드 + 편집 모달로 분리 (긴 인라인 편집 UI 는 모달 안으로 이동) -->
             <div class="bundle-summary-card" id="editCampPsetSummary" data-kind="pset" data-form-mode="edit">
               <div class="bundle-summary-label">참여방법</div>
@@ -4202,7 +4267,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="newCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="newCampPgRow" style="display:none;margin-bottom:8px">
+                <select id="newCampPurchaseGuideMode" class="form-input" style="max-width:220px" onchange="applyCampDescLabel('new')">
+                  <option value="">구매 가이드: 고르지 않음</option>
+                  <option value="free">자율구매</option>
+                  <option value="fixed">지정구매</option>
+                </select>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">고르면 위 칸 이름이 「구매 가이드」로 바뀝니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_newCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="newCampHashtags" data-prefix="#"></div>
@@ -4216,7 +4291,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
             </div>
             <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="newCampAppeal"></div></div>
-            <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampGuideLabel">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div><!-- 라벨은 모집 형식에 따라 바뀐다(리뷰어형=리뷰 가이드, applyDeadlineFieldsVisibility) -->
             <!-- 참여방법: 요약 카드 + 편집 모달로 분리 -->
             <div class="bundle-summary-card" id="newCampPsetSummary" data-kind="pset" data-form-mode="new">
               <div class="bundle-summary-label">참여방법</div>
@@ -5742,10 +5817,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <th style="width:120px">발급일</th>
                   <th style="width:120px">작성 기한</th>
                   <th style="width:140px">제출일시</th>
+                  <th style="width:150px">견적</th>
                   <th style="width:70px">메모</th>
                   <th style="width:170px">관리</th>
                 </tr></thead>
-                <tbody id="orientTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+                <tbody id="orientTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -5774,6 +5850,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
               <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
               <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
+              <!-- 견적 기준값(426) — 카드를 더 넣지 않고 여덟 번째 종류 탭으로(목록형 레이아웃은 admin-card 하나만 — 작업표 stale ⑥) -->
+              <button class="lookup-tab" data-kind="quote_settings" onclick="switchLookupTab('quote_settings',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">견적 기준값</button>
             </div>
           </div>
 
@@ -8225,6 +8303,32 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
+// 「촬영 가이드」 칸의 이름표 — **새 판 리뷰어형**(자율/지정을 고른 캠페인)만 「리뷰 가이드」(2026-09-10 지시 → 2026-09-22 범위 축소).
+//   🔴 판정은 「캠페인 설명 / 구매 가이드」(campaignDescSectionLabel)와 **같은 기준**이다 — 형식만 보고 바꾸면
+//     운영 중인 리뷰어형 캠페인 전부의 제목이 한꺼번에 바뀌어 혼선이 생긴다(2026-09-22 사용자 지적).
+//     두 이름표는 짝이라 한쪽만 새 이름이 되지 않게 같은 조건을 쓴다.
+//   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
+//   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
+function campaignGuideSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? 'レビューガイド' : '撮影ガイド';
+  return isNew ? '리뷰 가이드' : '촬영 가이드';
+}
+
+// 「캠페인 설명」 칸의 화면 이름 (사양서 2026-09-16 §4-3·§4-12)
+// 🔴 형식만 받지 않고 캠페인을 통째로 받는다 — 판정에 `recruit_type` 과 `purchase_guide_mode` 둘 다 필요하다.
+//   리뷰어형이라고 다 바뀌는 것이 아니다: 운영 중인 리뷰어형 캠페인은 그 칸에 제품·브랜드 설명이 들어 있어,
+//   이름만 바꾸면 **설명 글이 구매 안내처럼 읽힌다**. 그래서 **자율/지정을 고른 캠페인만** 새 이름을 쓴다.
+// ⚠️ 폼에서는 저장된 캠페인이 아니라 **화면의 현재 선택**으로 임시 객체를 만들어 넘긴다
+//   (저장된 값을 넘기면 고른 즉시 안 바뀐다). 「값이 있으면 새 판」의 정의처는 §4-12.
+function campaignDescSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? '購入ガイド' : 'キャンペーン説明';
+  return isNew ? '구매 가이드' : '캠페인 설명';
+}
+
 const CAMPAIGN_FIELD_LABELS = {
   title: '캠페인명', brand_id: '연결 브랜드', brand: '브랜드명', brand_ko: '브랜드명(한국어)',
   brand_ja: '브랜드명(일본어)', brand_en: '브랜드명(영문)', product: '제품명',
@@ -8235,7 +8339,9 @@ const CAMPAIGN_FIELD_LABELS = {
   recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
   purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
   submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
-  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영 가이드',
+  // 화면 이름표는 형식·판별(campaignGuideSectionLabel·campaignDescSectionLabel)에 따라 갈리지만,
+  // 🔴 이력 표는 그 캠페인이 어느 형식·어느 판인지 모른다 → 둘을 함께 적는다
+  description: '캠페인 설명·구매 가이드', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',
   hashtags: '필수 해시태그', mentions: '필수 멘션',
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
@@ -12302,8 +12408,12 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
-// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17). 공유 화면 쪽 짝은
-//    get_report_share_data(449) — 채널 코드 ↔ 이 네 칸의 짝이 두 곳에 있다.
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17).
+// 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+//    ①REPORT_CHANNELS(report-rows.js) ②get_report_share_data(449)의 코드 ↔ 회원 표 칸 짝
+//    ③_excelSnsUrl 의 채널별 주소 줄 ④**바로 이 select 문** — 칸 이름이 글자로 나열돼 있다.
+//    ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(여기 칸이 없어 값이 비고,
+//       ③이 없어 링크도 안 걸린다 — 조용히 빈 칸으로 보인다).
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -15496,6 +15606,7 @@ async function getOrientSheet(token) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
 // 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
 async function saveOrientDraft(token, data, version) {
@@ -15524,6 +15635,7 @@ async function saveOrientDraft(token, data, version) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
 // 발행 전까지 재제출 가능(사양서 결정⑨).
 // 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
@@ -15557,17 +15669,77 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
-// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190 → 205 → 424) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
-// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
-// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
-// 반환: {success, id, token, token_expires_at} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId) {
+// [424] 4인자(brand_id, application_id, form_type, channel) — 관리자가 발급 때 형식(리뷰어/시딩)과
+//   시딩 채널(5종 중 하나)을 정한다. data 초기값은 두 갈래:
+//   · formType 있음 → {issued:{form_type,channel,issued_at}, brand:{name,contact_name,email,phone}, cards:[카드 1개]}
+//   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
+// 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
+//   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+// [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
+//   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
+//      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.
+//      안 보내면 옛 4인자 함수도, 새 5인자 함수(DEFAULT NULL)도 그대로 받는다 — 배포 순서가 뒤집혀도 평소 발급은 산다.
+async function createOrientSheet(brandId, applicationId, formType, channel, recruitFeeKrw) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
-    const { data, error } = await db.rpc('create_orient_sheet', {
+    const params = {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
+      p_form_type: formType || null,
+      p_channel: channel || null,
+    };
+    if (recruitFeeKrw !== null && recruitFeeKrw !== undefined) params.p_recruit_fee_krw = recruitFeeKrw;
+    const { data, error } = await db.rpc('create_orient_sheet', params);
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 기준값 (마이그레이션 426, 오리엔시트 단순화 2단계) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — 합치면 화면이 「환율 0」으로 그린다.
+async function fetchQuoteSettings() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_settings');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteSettings]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, key, prev_amount, amount} | {success:false, reason}
+async function updateQuoteSetting(key, amount) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_setting', { p_key: key, p_amount: amount });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
     });
     if (error) throw error;
     return data;
@@ -16937,12 +17109,20 @@ function formatDateTime(d) {
   if (isNaN(dt.getTime())) return '';
   return formatDate(dt) + ' ' + formatTimeHm(dt);
 }
-function dDayLabel(d) {
+// D배지 — 'D-Day' / 'D-n' / 'D+n'. 관리자 목록 전반이 이 규약을 쓴다.
+// opts.muted = 「기한은 남아 있지만 더 재촉할 일이 없다」 — 남은 날과 무관하게 항상 흐린 회색.
+//   ⚠️ 색만 죽이고 글자는 그대로 둔다. 글자 만드는 규칙을 따로 복사하면
+//      나중에 한쪽만 고쳐져 화면마다 다른 말을 한다(이 저장소의 반복 사고 유형).
+//   현재 쓰는 곳: 오리엔시트 목록의 작성기한(제출이 끝난 시트).
+function dDayLabel(d, opts) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
-  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+  const muted = !!(opts && opts.muted);
+  const color = muted ? 'var(--muted)' : diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  const bg = muted ? 'rgba(0,0,0,.03)' : 'rgba(0,0,0,.06)';
+  const extra = muted ? ';opacity:.55' : '';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:${bg};padding:1px 5px;border-radius:4px;margin-left:4px${extra}">${text}</span>`;
 }
 // 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
 //   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
@@ -17198,6 +17378,10 @@ document.addEventListener('keydown', (e) => {
     //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
     } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
       osCloseModal('orientDetailModal');
+    // 견적서 창은 닫을 때 끼워 넣은 화면을 비우고 메시지 수신기를 걷어야 한다 — 일반 closeModal 이면 둘 다 남는다.
+    //   ⚠️ 포커스가 끼워 넣은 화면(iframe) 안에 있으면 ESC 가 이 처리기에 안 온다(다른 출처) — 그때는 닫기 단추로 닫는다
+    } else if (top.id === 'orientQuoteModal' && typeof osCloseQuoteDoc === 'function') {
+      osCloseQuoteDoc();
     // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
     //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
     } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {
@@ -18136,6 +18320,12 @@ function switchAdminPane(pane, el, pushHistory) {
     renderContentTypeCheckboxes('new', [], 'monitor');
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', 'monitor');
+    // 구매 가이드 자율/지정 — 🔴 라벨 판정(아래 applyDeadlineFieldsVisibility)보다 먼저 비운다.
+    //   안 비우면 저장 안 하고 나갔다 들어온 새 등록에 지난 선택이 남아, 관계없는 캠페인이 조용히 「구매 가이드」 판으로 저장된다.
+    //   「저장하지 않은 변경」 기준값도 이 블록 직후에 뜨므로 거기서도 안 잡힌다.
+    { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = ''; }
+    // 오리엔 발행 자동 채움이 남긴 「선택되지 않은 채널」 경고 — 새 등록에 지난 경고가 남지 않게
+    { const w = $('newCampChannelPrefillWarn'); if (w) w.remove(); }
     applyDeadlineFieldsVisibility('new', 'monitor');
     // 모집 기간·결과물 제출 마감일 비우기.
     //   ⚠️ 바로 위 applyDeadlineFieldsVisibility 는 **형식에 안 맞는 칸**(구매·방문·선정)만
@@ -19098,7 +19288,6 @@ function withdrawalOpsModalHtml(a) {
   //   ⚠️ 451 이전(419)에는 그 기준이 「예정이 된 **날**의 09:30」이라, **09:00 이후에 예정이 된
   //      행**(그날 배치가 이미 지나가 다음 날 09:00 이 첫 기회)을 하루 동안 오탐했다 —
   //      2026-09-18 운영에서 3건이 그렇게 떴다. 판정은 서버 몫이고 화면은 숫자만 그린다.
-
   //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
   if (n(a.mail_retrying) > 0) {
     rows.push(_withdrawOpsRow('mail', '#B8741A',
@@ -19711,8 +19900,11 @@ async function toggleAdTrackingEnabled() {
 // admin-orient.js — 브랜드 셀프 오리엔시트 관리자 발급·조회
 // 신규 페인 #adminPane-orient-sheets: 목록 · 발급 모달 · 상세 모달 · 링크 복사
 // 사양서 docs/specs/2026-06-18-brand-self-orient-sheet.md §7·§15
-// 발급 함수 create_orient_sheet (마이그레이션 195, 2인자, is_admin 가드)
-// §15 재설계: 1 링크 = 공통 브랜드 + 카드 N개(카드마다 form_type). data = cards 배열(§15-A)
+// 발급 함수 create_orient_sheet (마이그레이션 195 → 205 → 424, 4인자, is_admin 가드)
+// 2026-09-08 단순화 재설계(사양서 docs/specs/2026-09-08-orient-sheet-simplify-and-quote.md):
+//   새 시트 = 링크 1개 = 형식 1개(리뷰어/시딩) + 제품 1개 — 관리자가 발급 때 형식·시딩 채널을 정한다.
+//   data.issued 유무로 새/옛 구조를 가른다. 옛 시트(카드 N개, 카드마다 form_type)는 그대로 읽힌다 —
+//   cards 배열은 유지(uid·메모·발행 표시·연결/해제·삭제가 전부 cards[i] 를 본다).
 // ============================================================
 
 let _orientSheets = [];
@@ -19760,6 +19952,10 @@ let _orientActiveStatusTab = null;
 //    코드 정정(atcosme→cosme, osPrefillChannels)의 영향을 받지 않는다. 도달하지 않을 뿐
 //    「안 쓰이는 표」는 아니므로, sd.channels 의 값 범위를 넓힐 땐 여기도 함께 봐야 한다.
 const OS_CH_LABEL = { instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
+// 발급 모달의 시딩 채널 드롭다운 재료 — 🔴 위 OS_CH_LABEL(9종)을 쓰지 않는다. 그 표에는 서버가 거부하는
+//   값(instagram·qoo10·lips·atcosme)이 섞여 있어 「고를 수는 있는데 발급이 막히는」 화면이 된다.
+//   ⚠️ 같은 5종이 세 곳에 산다 — ①dev/sales/orient.html SEEDING_CHANNELS ②여기 ③마이그레이션 424 서버 검증.
+const OS_SEEDING_CHANNELS = ['instagram_feed', 'instagram_reels', 'x', 'tiktok', 'youtube'];
 
 // 운영/개발 sales 도메인 분기 (orient.html SUPABASE_ENV 규칙과 동일)
 function osSalesBase() {
@@ -19769,7 +19965,6 @@ function osSalesBase() {
 }
 function osBuildLink(token) { return osSalesBase() + '/orient?token=' + token; }
 
-// 만료 판정 (조회 함수는 status 미전환 — 클라에서 함께 판정)
 // 작성 링크의 기한이 지났는가 — 링크를 다시 보내도 되는지(메일 단추)·기한 글자 흐리게 판정용
 function osTokenExpired(s) {
   return !!(s && s.token_expires_at && new Date(s.token_expires_at) < new Date());
@@ -19827,6 +20022,15 @@ function osSeedingAppeal(sd) {
   return guides.map(g => ((g && g.guide) || '').trim()).filter(Boolean).join('\n');
 }
 
+// 새 구조(2026-09-08 단순화) 판별 — data.issued 가 있으면 관리자가 형식·채널을 정해 발급한 시트
+function osSheetIsNew(s) { return !!(s && s.data && s.data.issued && typeof s.data.issued === 'object'); }
+// 새 구조 시트의 발급 채널 — issued.channel 이 원본(시딩만). cards[0].seeding.channels[0] 은 서버가 맞춰 두는 사본
+function osIssuedChannel(s) { return osSheetIsNew(s) ? (s.data.issued.channel || '') : ''; }
+function osChannelChip(ch) {
+  if (!ch) return '';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#3730A3;background:#EEF2FF">${esc(osChLabel(ch))}</span>`;
+}
+
 // 형식 칩 (상세 모달 카드 헤더)
 function osTypeChip(ft) {
   if (!ft) return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#8A8A90;background:#F0F0F0">형식 미선택</span>';
@@ -19834,8 +20038,15 @@ function osTypeChip(ft) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${c.color};background:${c.bg}">${OS_TYPE_LABEL[ft] || esc(ft)}</span>`;
 }
 
-// 목록 「형식」 컬럼 — form_type 컬럼은 NULL(카드별 형식)이라 data.cards 를 형식별로 집계
+// 목록 「모집 형식」 컬럼 — 옛 시트는 form_type 컬럼이 NULL(카드별 형식)이라 data.cards 를 형식별로 집계.
+//   새 시트(issued)는 형식 하나 + 시딩이면 채널 이름을 덧붙인다(「시딩 · 인스타그램-피드」).
 function osCardsSummary(data) {
+  if (data && data.issued && typeof data.issued === 'object') {
+    const ft = data.issued.form_type || '';
+    const label = OS_TYPE_LABEL[ft] || ft || '형식 미상';
+    const ch = (ft === 'seeding' && data.issued.channel) ? ' · ' + osChLabel(data.issued.channel) : '';
+    return esc(label + ch);
+  }
   const cards = (data && Array.isArray(data.cards)) ? data.cards : [];
   if (!cards.length) return '<span style="color:var(--muted)">미작성</span>';
   const cnt = {};
@@ -19860,6 +20071,7 @@ async function loadOrientSheets() {
   }
   // 메모 집계 — 목록 「메모」 칸의 안 읽은 수. 실패해도 목록은 그린다(메모는 부가 정보).
   try { _osMemoSummary = await fetchOrientMemoSummaries(); } catch (_) { _osMemoSummary = {}; }
+  _osTierLabels = null; await osEnsureTierLabels();   // 구간 이름 — 진입마다 새로(관리자가 방금 고쳤을 수 있다)
   renderOrientSheets();
   refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
 }
@@ -19879,10 +20091,10 @@ async function refreshOrientBadge(cached) {
 }
 
 // ⚠️ colspan 은 목록 제목줄(dev/admin/index.html)의 칸 수와 **항상 같아야** 한다.
-//   열을 더하거나 뺄 때 세 곳(제목줄 · osRowHtml 의 각 줄 · 이 안내줄)을 함께 고친다.
+//   열을 더하거나 뺄 때 **네 곳**(제목줄 · 그 아래 첫 진입용 「불러오는 중…」 줄 · osRowHtml 의 각 줄 · 이 안내줄)을 함께 고친다.
 //   하나만 고치면 「불러오는 중」·「결과 없음」 줄만 어긋나 보인다.
 function osMsgRow(msg) {
-  return `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
+  return `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
 }
 
 function renderOrientSheets() {
@@ -19933,6 +20145,16 @@ function setOrientStatusTab(btn) {
   renderOrientSheets();
 }
 
+// 작성기한 셀 — 날짜 + D배지(공용 dDayLabel, 다른 관리자 목록과 같은 규약).
+// 🔴 제출이 끝난 시트는 배지를 흐린 회색으로 죽인다. 기한 자체는 살아 있지만
+//    (제출 뒤에도 브랜드가 같은 링크로 고쳐 다시 낼 수 있다) 운영자가 재촉할 대상은 아니다.
+// ⚠️ 판정은 submitted_at 하나로 한다 — 제출됨·일부 발행·발행됨이 전부 이 값을 갖는다.
+//    status 를 갈래로 나눠 보면 부분 발행(제출됨 + 카드 일부 발행)에서 갈린다.
+function osExpireCell(s) {
+  if (!s.token_expires_at) return '-';
+  return formatDate(s.token_expires_at) + ' ' + dDayLabel(s.token_expires_at, { muted: !!s.submitted_at });
+}
+
 function osRowHtml(s) {
   const linkBadge = s.application_id
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
@@ -19942,8 +20164,9 @@ function osRowHtml(s) {
     <td>${osCardsSummary(s.data)}</td>
     <td>${osBadge(osStatusOf(s))}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
-    <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
+    <td style="white-space:nowrap">${osExpireCell(s)}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
+    <td style="white-space:nowrap">${osRowQuoteCell(s)}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
       ${(!osIsExpired(s) && !osTokenExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
@@ -20052,11 +20275,18 @@ async function osReopenSendMail(id) {
 //   {} (무인자)          — #orient-sheets "신규 발급": 브랜드·신청 자유 선택
 //   {brandId, appId}     — 서베이 목록 더보기: 신청 연결 고정
 //   {brandId, lockBrand} — 브랜드 관리: 브랜드 고정·신청 없음
-// 형식·제품은 발급 시 정하지 않음 — 브랜드가 작성 폼에서 카드마다 직접 고름(§15-11).
+// [424] 형식(리뷰어/시딩)은 발급 때 관리자가 정한다. 시딩이면 채널 1개까지. 제품은 브랜드가 폼에서 적는다.
+//   열릴 때마다 형식·채널을 비운다 — 동적 생성 모달이라 초기 문자열과 여기 두 곳이 초기화 자리다.
 async function osOpenCreate(opts) {
   opts = opts || {};
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
+  document.querySelectorAll('input[name="osCreateFormType"]').forEach(r => { r.checked = false; });
+  const chSel = document.getElementById('osCreateChannel');
+  chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
+  chSel.value = '';
+  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) fee.value = ''; }   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+  osOnFormTypeChange();
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
   document.getElementById('osCreateSubmitBtn').style.display = '';
@@ -20089,13 +20319,20 @@ async function osOpenCreate(opts) {
 
 // 진입점 ② — 브랜드 서베이(신청) 목록 더보기 「오리엔시트 링크생성」.
 // admin-brand.js 의 _brandApps 캐시에서 신청을 찾아 브랜드·신청을 주입하며 발급 모달을 연다.
-// (형식·제품은 발급 시 미지정 — 브랜드가 작성 폼에서 카드마다 선택)
+// (형식은 이 모달에서 관리자가 고른다 — 신청의 form_type 을 미리 채우지는 않는다: 신청과 다른 형식으로 발급하는 경우가 있다)
 function osIssueFromApplication(appId) {
   const apps = (typeof _brandApps !== 'undefined' && Array.isArray(_brandApps)) ? _brandApps : [];
   const a = apps.find(x => x.id === appId);
   if (!a) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
   if (!a.brand_id) { toast('이 신청은 브랜드가 연결돼 있지 않아 오리엔시트를 발급할 수 없습니다.'); return; }
   osOpenCreate({ appId: appId, brandId: a.brand_id });
+}
+
+// 형식 라디오 → 시딩일 때만 채널 줄을 보인다
+function osOnFormTypeChange() {
+  const ft = (document.querySelector('input[name="osCreateFormType"]:checked') || {}).value || '';
+  const row = document.getElementById('osCreateChannelRow');
+  if (row) row.style.display = (ft === 'seeding') ? '' : 'none';
 }
 
 async function osOnBrandChange() {
@@ -20203,10 +20440,21 @@ async function osSubmitCreate() {
   const brandId = document.getElementById('osCreateBrand').value;
   if (!brandId) { toast('브랜드를 선택해 주세요.'); return; }
   const appId = document.getElementById('osCreateApp').value || null;
+  const formType = (document.querySelector('input[name="osCreateFormType"]:checked') || {}).value || '';
+  if (!formType) { toast('모집 형식을 선택해 주세요.'); return; }
+  const channel = (formType === 'seeding') ? (document.getElementById('osCreateChannel').value || '') : '';
+  if (formType === 'seeding' && !channel) { toast('게시 채널을 선택해 주세요.'); return; }
+  // [447] 모집비 직접 지정 — 비움=null(기준값) / 0 이상 정수. 🔴 0 은 값이다(무료) — 빈 칸과 구분한다
+  const feeRaw = (document.getElementById('osCreateRecruitFee')?.value || '').replace(/[,\s]/g, '');
+  let recruitFee = null;
+  if (feeRaw !== '') {
+    if (!/^\d{1,9}$/.test(feeRaw)) { toast('모집비는 0 이상의 숫자로 적어 주세요.'); return; }
+    recruitFee = Number(feeRaw);
+  }
   const btn = document.getElementById('osCreateSubmitBtn');
   btn.disabled = true;
   try {
-    const res = await createOrientSheet(brandId, appId);
+    const res = await createOrientSheet(brandId, appId, formType, channel || null, recruitFee);
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
@@ -20235,6 +20483,10 @@ function osReasonText(r) {
     brand_seq_missing: '브랜드 식별번호가 없습니다 (관리자에게 문의)',
     application_not_found: '신청을 찾을 수 없습니다',
     brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
+    invalid_form_type: '모집 형식은 리뷰어·시딩 중 하나여야 합니다',
+    channel_required: '시딩은 게시 채널을 골라야 합니다',
+    invalid_channel: '고를 수 없는 채널입니다',
+    invalid_recruit_fee: '모집비는 0 이상이어야 합니다',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -20525,6 +20777,7 @@ async function osOpenDetail(id) {
   catch (e) { body.innerHTML = '<p style="padding:20px;width:100%">불러오지 못했습니다.</p>'; return; }
   if (!s) { body.innerHTML = '<p style="padding:20px;width:100%">데이터가 없습니다.</p>'; return; }
   _osDetailSheet = s;
+  await osEnsureTierLabels();   // 브랜드 상세 등 다른 페인에서 바로 열린 경우 아직 없을 수 있다
   // 발행된 카드의 연결 캠페인 번호·상태 조회 (활성=번호 링크 / 보관삭제=삭제됨 / 맵에 없음=완전삭제)
   try {
     const campIds = ((s.data && s.data.cards) || []).map(c => c && c.campaign_id).filter(Boolean);
@@ -20619,6 +20872,7 @@ const OS_DETAIL_STYLE = `<style>
     cursor:pointer;padding:4px 0;font-size:12.5px;font-weight:700;color:#161618;text-align:left}
   .os-memo-head .os-memo-caret{font-size:18px;color:var(--muted,#8a8a90);transition:transform .15s}
   .os-memo.open .os-memo-head .os-memo-caret{transform:rotate(180deg)}
+  .os-memo-head.os-memo-head-fixed{cursor:default}
   /*  모달 안에서는 안 읽은 수를 숫자로 세지 않는다 — 메모가 눈앞에 다 보이므로
       「여기 새 게 있다」는 신호만 있으면 된다. 모달을 한 번이라도 누르면 지워진다.
       (목록 쪽 숫자 배지는 인라인 스타일로 따로 그린다 — osRowMemoCell) */
@@ -20654,8 +20908,10 @@ function osDetailHtml(s, catMap, readonly) {
   </div>` : '';
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
-    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
+    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${(cards.length && !osNewSheetNotStarted(s)) ? cards.length + '개 모집 건' : ''}</span></div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
+  // [2단계] 예상 견적 카드 — data.quote / quote_error 세트(마이그레이션 427)로 판별. 옛 시트는 둘 다 없어 안 그린다.
+  const quoteCard = osQuoteCard(s, readonly);
   // 브랜드가 레버브 운영팀에 전한 요청 — 값 있을 때만 카드로 1회 표시(발행 자동채움 대상 아님)
   const reqCard = d.reverb_request
     ? `<div class="os-card"><div class="os-card-title">레버브 측 요청</div><div class="os-fields">${osField('요청·요구사항', d.reverb_request, true)}</div></div>`
@@ -20665,10 +20921,14 @@ function osDetailHtml(s, catMap, readonly) {
     const msg = (s.status === 'draft')
       ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
       : '작성된 모집 건이 없습니다.';
-    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard;
+    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>` + reqCard + quoteCard;
   } else {
-    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('') + reqCard;
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly, s)).join('') + reqCard + quoteCard;
   }
+  // [2026-09-16 §4-8] 브랜드가 고정 안내를 확인한 시각 — 서버가 제출 때 찍은 값(notice_ack.at). 없으면 줄을 안 그린다.
+  //   ⚠️ 날짜만 보여 준다 — notice_ack.form_type 은 「어느 안내문을 보고 확인했나」의 기록용이라 화면에 안 그린다(형식이 두 번 나온다)
+  const ackAt = d.notice_ack && typeof d.notice_ack === 'object' ? d.notice_ack.at : null;
+  if (ackAt) bodyHtml += `<div style="font-size:12px;color:var(--muted);margin-top:10px">고정 안내 확인 — ${esc(formatDateTime(ackAt))}</div>`;
   // 새창 출력(readonly)은 한 덩어리 그대로 — 메모를 아예 그리지 않으므로 나눌 것이 없다.
   //   그 출력물은 인쇄·브랜드 화면 공유 대상이라 내부 대화가 들어가면 안 된다.
   if (readonly) return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
@@ -20682,14 +20942,21 @@ function osDetailHtml(s, catMap, readonly) {
 function osFieldRow(label, valHtml, wide) {
   return `<div class="os-field${wide ? ' os-field-wide' : ''}"><div class="os-field-label">${label}</div><div class="os-field-val">${valHtml}</div></div>`;
 }
+// 값이 있을 때만 줄을 그린다(2026-09-08 단순화 — 새 시트는 없는 항목이 조용히 빠지고, 옛 시트는 옛 값이 그대로 보인다).
+//   ⚠️ 카드가 통째로 비면 osCardDetail 이 「아직 작성 전입니다」 한 줄을 대신 그린다.
 function osField(label, val, wide) {
-  const v = (val == null || val === '') ? '<span class="os-empty">미입력</span>' : esc(String(val));
-  return osFieldRow(label, v, wide);
+  if (val == null || String(val).trim() === '') return '';
+  return osFieldRow(label, esc(String(val)), wide);
 }
 // 값이 이미 안전한 HTML(링크 등 — 호출부가 esc·화이트리스트 보장)일 때. esc 미적용.
 function osFieldHtml(label, htmlVal, wide) {
-  const v = htmlVal ? htmlVal : '<span class="os-empty">미입력</span>';
-  return osFieldRow(label, v, wide);
+  if (!htmlVal || !String(htmlVal).trim()) return '';
+  return osFieldRow(label, htmlVal, wide);
+}
+// 지정구매 본문 — 서식 HTML 이면 정화, 평문(옛 값)이면 이스케이프. 작성 폼의 richInitial 과 같은 판정
+function osPgOptionsHtml(v) {
+  const s = String(v || '');
+  return /<[a-z][\s\S]*>/i.test(s) ? sanitizeCautionHtml(s) : esc(s);
 }
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 
@@ -20702,13 +20969,232 @@ function osBrandCard(brand, headerName) {
     ? osField('담당자명', b.contact_name) + osField('이메일', b.email) + osField('연락처', b.phone)
     : '';
   const inner = nameField + contactFields + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
+  const body = inner || '<div style="color:var(--muted);font-size:12px">아직 작성 전입니다.</div>';
   return `<div class="os-card">
     <div class="os-card-title">브랜드 정보</div>
-    <div class="os-fields">${inner}</div></div>`;
+    <div class="os-fields">${body}</div></div>`;
+}
+
+// ── [2단계] 예상 견적 카드 (사양서 §4-3·§4-6, 작업 19) ──
+//   🔴 견적서 사본을 여기서 그리지 않는다 — 견적서를 그리는 코드는 작성 폼(orient.html) 한 벌이다.
+//   「견적서 열기」는 그 화면을 관리자 창 안에 끼워 넣고(?embed=quote) 이미 가진 견적 내용을 넘겨 그리게 한다(osOpenQuoteDoc).
+//   토큰을 안 쓰므로 발행됐거나 기한이 지난 시트·지난 견적(1차·2차)도 열린다.
+function osKrw(n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+// 🔴 「담당자 협의」 줄은 금액 칸을 비운다 — `osKrw()` 자체를 고치면 정상 0원까지 빈 칸이 된다
+// ⚠️ `Number(null)` 이 0 이라 빈 값 검사를 먼저 한다(0 은 그대로 「0원」). 작성 폼의 `krwCell` 과 같은 규칙
+function osKrwCell(n) { return (n === null || n === undefined || n === '') ? '' : osKrw(n); }
+// 견적을 못 만든 이유 — 🔴 코드마다 문구가 따로 있어야 한다(기본값으로 뭉치면 틀린 이유를 보여준다)
+const OS_QUOTE_ERROR_TEXT = {
+  price_unreadable: '판매가를 숫자로 못 읽어 견적이 없습니다',
+  slots_missing: '모집 인원을 숫자로 못 읽어 견적이 없습니다',
+  fee_missing: '요금 기준값이 없어 견적이 없습니다(기준 데이터 「견적 기준값」 확인)',
+  calc_error: '견적 계산 중 오류가 나 견적이 없습니다(서버 로그 확인)',
+};
+// 사유 코드 → 문구. 🔴 매핑에 없는 값도 **반드시 무언가를 말해야 한다** — 빈 문구가 되면
+//   화면에 아무 이유도 안 뜨고 「왜 견적이 없나」를 아무도 모른다.
+function osQuoteErrorText(reason) {
+  return OS_QUOTE_ERROR_TEXT[reason] || ('견적을 만들지 못했습니다(사유: ' + String(reason) + ')');
+}
+// 🔴 견적 상태 판정 **한 벌** — 이 판정을 쓰는 자리가 **셋**이다:
+//   ①오리엔 상세 카드(`osQuoteCard`) ②오리엔 목록 「견적」 칸(`osRowQuoteCell`)
+//   ③브랜드 상세 카드 한 줄(`osQuoteSummaryLine`).
+//   따로 두면 같은 시트가 화면마다 다른 말을 하고, 고칠 때 한 곳만 고쳐진다(사양서 2026-09-10 결정 6).
+//   ⚠️ `data.quote` 를 직접 들여다보는 코드를 새로 만들지 말 것 — 그 순간 네 벌이 된다.
+// 네 갈래 — quote(견적 있음) · error(사유 있음) · pending(새 구조인데 아직 제출 전) · legacy(옛 구조라 견적 자체가 없다)
+//   ⚠️ ①②는 pending·legacy 를 **똑같이 안 그린다**. 넷으로 나눈 것은 ③이 둘을 다르게 말하기 때문이다.
+function osQuoteState(data) {
+  const d = data || {};
+  if (d.quote && typeof d.quote === 'object') return { kind: 'quote', quote: d.quote };
+  if (d.quote_error) return { kind: 'error', reason: d.quote_error };
+  return { kind: d.issued ? 'pending' : 'legacy' };
+}
+// 브랜드 상세 카드의 견적 한 줄(사양서 2026-09-10 §4-1-a 표).
+//   ⚠️ 지난 판·견적 번호·「견적서 열기」는 **오리엔 상세**가 맡는다 — 여기 넣으면 같은 것이 두 자리에 생긴다.
+function osQuoteSummaryLine(s) {
+  const st = osQuoteState((s && s.data) || {});
+  if (st.kind === 'quote') {
+    const rev = Number(st.quote.revision || 1);
+    return '견적 ' + osKrw(st.quote.total_krw) + (rev >= 2 ? ' (' + rev + '차)' : '');
+  }
+  if (st.kind === 'error')   return osQuoteErrorText(st.reason);
+  if (st.kind === 'pending') return '제출 전';
+  return '견적 없음(옛 형식)';
+}
+// 지난 견적 — 줄마다 「열기」(그 판의 견적서 문서). 새창 출력(readonly)에는 단추를 안 그린다(그 창은 정적 HTML 이라 함수가 없다).
+//   ⚠️ 화면은 최신이 위로 오게 뒤집어 그리지만, 단추가 넘기는 번호는 **저장된 배열의 자리**다(osOpenQuoteDoc 이 그 자리로 찾는다)
+function osQuoteHistoryHtml(hist, sheetId, readonly) {
+  const src = Array.isArray(hist) ? hist : [];
+  if (!src.length) return '';
+  const items = src.map((h, i) => {
+    const openBtn = (!readonly && sheetId && h && typeof h === 'object' && Array.isArray(h.lines))
+      ? ` <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(sheetId)}', ${i})">열기</button>` : '';
+    return `<li style="font-size:12px;color:var(--muted);padding:2px 0">${esc(String((h && h.revision) || '?'))}차 견적 · ${esc(h && h.issued_at ? formatDateTime(h.issued_at) : '-')} · 합계 ${esc(osKrw(h && h.total_krw))}${openBtn}</li>`;
+  }).reverse().join('');
+  return `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">지난 견적 ${src.length}개</summary><ul style="margin:6px 0 0;padding-left:16px">${items}</ul></details>`;
+}
+// 발급 때 이 시트만 모집비를 다르게 지정했으면 한 줄(§4-11). 없으면 안 그린다.
+//   🔴 0 도 값이다 — `Number(null)` 이 0 이라 키의 유무를 먼저 본다(없는 것을 「0원」으로 그리면 무료 발급으로 읽힌다)
+function osRecruitFeeOverrideLine(d) {
+  const issued = d && d.issued;
+  if (!issued || typeof issued !== 'object' || !('recruit_fee_krw' in issued)) return '';
+  const v = issued.recruit_fee_krw;
+  if (v === null || v === '' || !isFinite(Number(v))) return '';
+  return `<div style="font-size:12px;color:#B45309;margin-top:6px">모집비 직접 지정 — ${esc(osKrw(v))} / 1건</div>`;
+}
+function osQuoteCard(s, readonly) {
+  const d = (s && s.data) || {};
+  // 판정은 공용 `osQuoteState` 하나 — pending·legacy 는 둘 다 카드를 안 그린다(종전과 같은 결과)
+  const st = osQuoteState(d);
+  if (st.kind === 'pending' || st.kind === 'legacy') return '';
+  const q = st.kind === 'quote' ? st.quote : null;
+  const err = st.kind === 'error' ? st.reason : null;
+  // 토큰 상태와 무관하게 항상 연다 — 발행·만료된 시트일수록 견적서를 다시 볼 일이 많다
+  const openBtn = (!readonly && s && s.id)
+    ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서 열기</button>`
+    : '';
+  if (err) {
+    const why = osQuoteErrorText(err);
+    return `<div class="os-card"><div class="os-card-title">예상 견적</div>
+      <div style="font-size:13px;color:#B45309">${esc(why)} — 브랜드가 고쳐 다시 제출하면 만들어집니다.</div>${osQuoteHistoryHtml(d.quote_history, s && s.id, readonly)}</div>`;
+  }
+  const lines = (Array.isArray(q.lines) ? q.lines : []).map(l =>
+    `<tr><td style="padding:3px 6px 3px 0">${esc(l.label || '')}</td><td style="text-align:right;padding:3px 6px">${esc(String(l.qty ?? ''))}</td><td style="text-align:right;padding:3px 6px">${esc(osKrwCell(l.unit_krw))}</td><td style="text-align:right;padding:3px 0 3px 6px;font-weight:600">${esc(osKrwCell(l.amount_krw))}</td></tr>`).join('');
+  return `<div class="os-card">
+    <div class="os-card-title" style="display:flex;align-items:center;gap:8px">예상 견적
+      <span style="font-size:11px;font-weight:600;color:var(--muted)">${esc(q.quote_no || '')} · ${esc(String(q.revision || 1))}차 견적 · ${esc(q.issued_at ? formatDateTime(q.issued_at) : '')}</span>
+      <span style="flex:1"></span>${openBtn}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>${lines}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;gap:16px;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+      <span>공급가 ${esc(osKrw(q.subtotal_krw))}</span><span>부가세 ${esc(osKrw(q.vat_krw))}</span><strong>합계 ${esc(osKrw(q.total_krw))}</strong></div>
+    ${osRecruitFeeOverrideLine(d)}
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(q.note || '브랜드 입력값 기준 예상 견적')}${q.price_regular_jpy != null ? ' · 판매가 ¥' + esc(Number(q.price_regular_jpy).toLocaleString('ja-JP')) : ''}${Number(q.shipping_fee_jpy || 0) > 0 ? ' + 배송비 ¥' + esc(Number(q.shipping_fee_jpy).toLocaleString('ja-JP')) : ''}</div>
+    ${osQuoteHistoryHtml(d.quote_history, s && s.id, readonly)}</div>`;
+}
+
+// ── 견적서 문서 보기 — 작성 폼의 견적서 화면을 끼워 넣고 내용을 넘긴다 ──
+//   주고받는 신호: 끼워 넣은 화면 → 'reverb-orient-quote-ready'(값 없음) / 관리자 → 'reverb-orient-quote'{quote, data, note}
+//   🔴 보내는 내용은 견적서가 실제로 읽는 값만(수신처 이름·담당자·이메일, 제품명, 판매 URL, 형식·채널, 견적 스냅샷).
+//      전화번호·가이드 본문·기준값 표 전체(quote.basis)는 안 보낸다 — basis 는 환율·부가세율 두 값만.
+//   🔴 받는 쪽 출처를 고정해서 보낸다('*' 금지) — 끼워 넣은 화면이 다른 곳으로 옮겨 갔으면 아무에게도 안 간다.
+function osQuoteEmbedUrl() {
+  // 로컬 미리보기(산출물을 직접 띄운 경우)는 같은 출처의 sales/ 를 연다 — 개발서버 폼은 로컬 출처를 안 받는다
+  return /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+    ? location.origin + '/sales/orient.html?embed=quote'
+    : osSalesBase() + '/orient?embed=quote';
+}
+// 시트 찾기 — 🔴 목록(_orientSheets)만 보면 안 된다. 상세 모달은 브랜드 서베이·브랜드 상세에서도 열리고 그때 목록은 비어 있다
+function osFindSheetForQuote(id) {
+  if (_osDetailSheet && _osDetailSheet.id === id) return _osDetailSheet;
+  return _orientSheets.find(x => x.id === id) || null;
+}
+function osQuotePayload(s, historyIndex) {
+  const d = (s && s.data) || {};
+  const isPast = Number.isInteger(historyIndex);
+  const q = isPast ? (Array.isArray(d.quote_history) ? d.quote_history[historyIndex] : null) : d.quote;
+  if (!q || typeof q !== 'object') return null;
+  const b = d.brand || {};
+  const c = (Array.isArray(d.cards) && d.cards[0]) || {};
+  const basis = q.basis || {};
+  const quote = Object.assign({}, q, { basis: { exchange_rate_krw_per_jpy: basis.exchange_rate_krw_per_jpy, vat_rate: basis.vat_rate } });
+  return {
+    type: 'reverb-orient-quote',
+    quote,
+    data: {
+      brand: { name: b.name || osBrandName(s) || '', contact_name: b.contact_name || '', email: b.email || '' },
+      cards: [{ product: { name: (c.product && c.product.name) || '' }, sale: { url: (c.sale && c.sale.url) || '' } }],
+      issued: { form_type: (d.issued && d.issued.form_type) || q.form_type || '', channel: (d.issued && d.issued.channel) || q.channel || '' },
+    },
+    // 지난 판은 무엇이 그때 값이고 무엇이 지금 값인지 밝힌다 — 뭉뚱그리면 브랜드에게 보내도 되는지 판단을 못 한다
+    note: isPast ? `${q.revision || '?'}차 견적(지난 판)입니다. 금액은 그때 계산한 값 그대로이고, 제품명·판매 URL·수신처는 지금 저장된 값입니다.` : '',
+  };
+}
+let _osQuoteDoc = null;   // 열려 있는 견적서 창의 상태 { payload, origin, onMsg, timer }
+// sheetObj(선택) — 오리엔시트 화면 밖(캠페인 진행현황 비용 카드)에서 부를 때 그 시트를 직접 넘긴다.
+//   osFindSheetForQuote 는 _osDetailSheet·_orientSheets 만 보는데 그 화면에서는 둘 다 비어 있을 수 있다.
+//   기존 호출부(인자 하나·둘)는 영향 없다(사양서 2026-09-22-brand-ops-and-cost-card-orient §4)
+function osOpenQuoteDoc(sheetId, historyIndex, sheetObj) {
+  const s = (sheetObj && sheetObj.id === sheetId) ? sheetObj : osFindSheetForQuote(sheetId);
+  const payload = s ? osQuotePayload(s, historyIndex) : null;
+  if (!payload) { toast('견적서가 없습니다.'); return; }
+  ensureOrientModals();
+  osCloseQuoteDoc();
+  const url = osQuoteEmbedUrl();
+  const origin = new URL(url).origin;
+  const frame = document.getElementById('osQuoteFrame');
+  const fail = document.getElementById('osQuoteFail');
+  document.getElementById('osQuoteTitle').textContent =
+    `견적서 · ${s.orient_no || ''} · ${payload.quote.revision || 1}차${Number.isInteger(historyIndex) ? ' (지난 판)' : ''}`;
+  fail.style.display = 'none'; frame.style.display = '';
+  const st = _osQuoteDoc = { payload, origin, timer: null, onMsg: null };
+  st.onMsg = (ev) => {
+    if (ev.origin !== origin || ev.source !== frame.contentWindow) return;
+    if (!ev.data || ev.data.type !== 'reverb-orient-quote-ready') return;
+    clearTimeout(st.timer);
+    fail.style.display = 'none'; frame.style.display = '';   // 늦게 온 준비 신호(느린 회선)도 살린다
+    frame.contentWindow.postMessage(payload, origin);
+  };
+  window.addEventListener('message', st.onMsg);
+  // 작성 폼이 옛 판이면(관리자 화면만 먼저 배포된 구간) 준비 신호가 안 온다 — 빈 창으로 두지 않고 이유를 말한다
+  st.timer = setTimeout(() => { frame.style.display = 'none'; fail.style.display = ''; }, 6000);
+  frame.src = url;
+  document.getElementById('orientQuoteModal').classList.add('open');
+}
+// 인쇄는 새 탭에서 — 창 안(iframe)에서 인쇄하면 브라우저에 따라 관리자 화면이 통째로 인쇄되고 PDF 파일명도 못 정한다
+//   ⚠️ 새 탭의 수신기는 창(모달)과 따로 산다 — 새 탭이 뜨는 사이 창을 닫아도 내용이 전달돼야 한다. 전달하면(또는 30초 뒤) 스스로 걷힌다
+function osPrintQuoteDoc() {
+  const st = _osQuoteDoc; if (!st) return;
+  const payload = st.payload, origin = st.origin;
+  const w = window.open(osQuoteEmbedUrl(), '_blank');   // 🔴 noopener 를 주면 안 된다 — 새 탭이 이 창(opener)에 준비 신호를 보내야 한다
+  if (!w) { toast('팝업이 차단됐습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요.'); return; }
+  const onMsg = (ev) => {
+    if (ev.origin !== origin || ev.source !== w) return;
+    if (!ev.data || ev.data.type !== 'reverb-orient-quote-ready') return;
+    w.postMessage(payload, origin);
+    window.removeEventListener('message', onMsg);
+  };
+  window.addEventListener('message', onMsg);
+  setTimeout(() => window.removeEventListener('message', onMsg), 30000);
+}
+function osCloseQuoteDoc() {
+  const st = _osQuoteDoc;
+  if (st) { clearTimeout(st.timer); if (st.onMsg) window.removeEventListener('message', st.onMsg); }
+  _osQuoteDoc = null;
+  const frame = document.getElementById('osQuoteFrame');
+  if (frame) frame.src = 'about:blank';
+  const m = document.getElementById('orientQuoteModal');
+  if (m) m.classList.remove('open');
+}
+
+// 목록 「견적」 칸 — 합계 + 「견적서」. 견적을 못 만든 시트는 주황 「견적 없음」(이유는 말풍선), 그 밖(옛 구조·제출 전)은 「-」
+//   ⚠️ `Number(null)` 이 0 이라 합계가 없으면 「0원」으로 그려진다 — 견적 객체 유무를 먼저 본다
+function osRowQuoteCell(s) {
+  // 판정·문구는 공용 `osQuoteState`·`osQuoteErrorText`(위) — 이 칸만 따로 판정하지 않는다
+  const st = osQuoteState((s && s.data) || {});
+  if (st.kind === 'quote') {
+    const q = st.quote;
+    return `<span style="font-weight:600;color:var(--ink)">${esc(osKrw(q.total_krw))}</span> <span style="font-size:11px;color:var(--muted)">${esc(String(q.revision || 1))}차</span>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서</button>`;
+  }
+  if (st.kind === 'error') {
+    return `<span style="font-size:12px;color:#B45309" title="${esc(osQuoteErrorText(st.reason))}">견적 없음</span>`;
+  }
+  return '-';   // pending·legacy — 종전과 같다
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
-function osCardDetail(c, idx, catMap, readonly) {
+// 새 구조 시트를 발급만 하고 브랜드가 아직 아무것도 안 적은 상태 — 발급 때 미리 만든 카드에는
+//   판매처 기본값(Qoo10)이 들어 있어 「값 있음」으로 세면 안내가 안 뜬다(2026-09-22).
+//   제품명·판매 URL·판매가 셋이 다 비어 있을 때만 「작성 전」으로 본다(하나라도 적었으면 적은 것을 보여 준다).
+function osNewSheetNotStarted(s) {
+  if (!s || s.status !== 'draft' || typeof osSheetIsNew !== 'function' || !osSheetIsNew(s)) return false;
+  const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  if (cards.length !== 1) return false;   // 새 구조는 카드 1개 — 그 밖이면 판단하지 않는다(다른 카드의 내용을 가리지 않게)
+  const c = cards[0] || {};
+  const p = c.product || {}, sale = c.sale || {};
+  return !String(p.name || '').trim() && !String(sale.url || '').trim() && !String(sale.price_regular || '').trim();
+}
+
+function osCardDetail(c, idx, catMap, readonly, sheet) {
   const ft = (c && c.form_type) || '';
   const p = c.product || {};
   const r = c.recruit || {};
@@ -20716,22 +21202,38 @@ function osCardDetail(c, idx, catMap, readonly) {
   const sd = c.seeding || {};
   const catLabel = (catMap && catMap[p.category]) || p.category;
 
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
-    + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end))
+  // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
+  // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 이름은 osTierName 이 고르고 osField 가 esc 한다(관리자 입력값)
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, p.slots_tier))
+    + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
-      + osField('상시가', sale.price_regular);
+      + osField('판매가', sale.price_regular);
   }
+  if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
   if (ft === 'reviewer') {
+    // [2026-09-16] 브랜드가 고른 구간·구매 가이드·추가 옵션 — 발행하는 사람이 봐야 하는 값이다.
+    //   값이 없으면 줄을 안 만든다(옛 시트·미선택).
+    const pg = c.purchase_guide || {};
+    if (pg.mode === 'free') inner += osField('구매 가이드', '자율구매 — ' + OS_PURCHASE_GUIDE_FREE_KO);
+    // [2026-09-17] 지정구매 본문은 리뷰 가이드와 같은 편집기 값(서식 HTML)이다 — 정화해서 그린다.
+    //   옛 한 줄짜리 평문은 태그가 없으므로 이스케이프해서 같은 자리에 그린다.
+    else if (pg.mode === 'fixed') inner += osFieldHtml('구매 가이드', '지정구매 — ' + osPgOptionsHtml(pg.options), true);
+    const extras = Array.isArray(sale.extra_markets) ? sale.extra_markets : [];
+    inner += osField('추가 옵션', extras.map(k => OS_EXTRA_MARKET_LABEL[k] || k).join(', '));
     inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
   }
   if (ft === 'seeding') {
     inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
-    const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
-    inner += osField('게시 채널', chNames.join(', '));
-    inner += osField('소구 키워드', osSeedingAppeal(sd), true);
+    // 새 구조 시트는 채널이 카드 머리의 칩에 있어 본문에는 안 그린다(이중 표시 방지). 옛 시트는 본문 줄 그대로.
+    if (!osSheetIsNew(_osDetailSheet)) {
+      const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
+      inner += osField('게시 채널', chNames.join(', '));
+    }
+    // [2026-09-16 §4-5] 이름만 바뀐다 — ⚠️ 옛 시트도 이 줄을 지난다(osSeedingAppeal 이 옛 seeding.guides 를 함께 읽는다). 값은 그대로다
+    inner += osField('리뷰 가이드', osSeedingAppeal(sd), true);
     inner += osField('촬영 가이드', sd.shooting_guide, true)
       + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
       + osField('계정 태그', sd.account_tags);
@@ -20742,11 +21244,16 @@ function osCardDetail(c, idx, catMap, readonly) {
   }
   inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng), true) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions), true) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
+  // 값이 있는 줄이 하나도 없으면 빈 상자 대신 한 줄 안내. 새 구조 발급 직후는 판매처 기본값 때문에
+  //   inner 가 비지 않으므로 osNewSheetNotStarted 로 따로 본다
+  if (!inner.trim() || osNewSheetNotStarted(sheet)) inner = '<div style="color:var(--muted);font-size:12px">아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.</div>';
 
+  // 새 구조 시트의 시딩 카드에는 발급 채널 칩 — 원본은 issued.channel(사본 seeding.channels 가 아니라)
+  const chChip = (ft === 'seeding') ? osChannelChip(osIssuedChannel(_osDetailSheet)) : '';
   // ⚠️ 제목은 osCardTitle 로만 만든다 — 오른쪽 메모 묶음 머리줄도 같은 함수를 쓴다.
   //    여기서 따로 계산하면 왼쪽 카드 제목과 오른쪽 메모 이름이 어긋난다.
   const head = `<div class="os-card-head">
-    ${osTypeChip(ft)}<span class="os-name">${esc(osCardTitle(c, idx))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
+    ${osTypeChip(ft)}${chChip}<span class="os-name">${esc(osCardTitle(c, idx))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
   // 메모는 이 카드 안이 아니라 **오른쪽 칸**에 모아 그린다(osMemoPanelHtml).
   //   시트 내용을 읽으면서 동시에 메모를 쓸 수 있어야 해서 좌우로 나눴다.
   return `<div class="os-card">${head}<div class="os-fields">${inner}</div></div>`;
@@ -20851,7 +21358,7 @@ function osMemoItemHtml(m) {
 // 오른쪽 메모 칸 전체 — 모집 건마다 묶음 하나 + 맨 아래 「삭제된 모집 건의 메모」
 function osMemoPanelHtml(cards) {
   const list = Array.isArray(cards) ? cards : [];
-  const groups = list.map((c, i) => (c && c.uid) ? osMemoSectionHtml(c.uid, i, osCardTitle(c, i)) : '').join('');
+  const groups = list.map((c, i) => (c && c.uid) ? osMemoSectionHtml(c.uid, i, osCardTitle(c, i), list.length === 1) : '').join('');
   const orphan = osOrphanMemoHtml();
   // 붙일 자리가 없어 메모를 못 남기는 두 경우의 안내 — 문구를 한 곳에만 둔다
   const noSlotMsg = list.length
@@ -20877,10 +21384,12 @@ function osCardTitle(c, idx) {
 // 모집 건 1개의 메모 묶음. slotKey = 카드 순번(숫자) — 새 메모 입력칸 식별용
 //   「삭제된 모집 건의 메모」는 카드별로 묶어 제품명을 얹어야 해서 이 함수를 쓰지 않고
 //   osOrphanMemoHtml 이 같은 모양의 마크업을 따로 만든다.
-function osMemoSectionHtml(uid, slotKey, cardName) {
+//   fixed = 모집 건이 하나뿐인 시트(새 구조는 늘 하나) — 접을 이유가 없어 늘 펼치고 접기 단추를 안 그린다(2026-09-22).
+//   모집 건이 여럿인 옛 시트는 종전대로 접힘(안 읽은 메모가 있으면 자동 펼침).
+function osMemoSectionHtml(uid, slotKey, cardName, fixed) {
   const list = osMemosOfCard(uid);
   const unread = osMemoUnread(list);
-  const open = unread > 0;   // 안 읽은 메모가 있으면 자동 펼침 (놓치지 않게 하는 장치)
+  const open = fixed || unread > 0;   // 안 읽은 메모가 있으면 자동 펼침 (놓치지 않게 하는 장치)
   const items = list.length
     ? list.map(osMemoItemHtml).join('')
     : '<div class="os-memo-empty">아직 메모가 없습니다. 아래에 남겨 주세요.</div>';
@@ -20895,13 +21404,18 @@ function osMemoSectionHtml(uid, slotKey, cardName) {
         <button type="button" class="btn btn-primary btn-sm" onclick="osMemoSubmit(${slotKey})">남기기</button>
       </div>
     </div>`;
-  return `<div class="os-memo${open ? ' open' : ''}" data-memo-slot="${slotKey}">
-    <button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
-      <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
-      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cardName || '모집 건')}</span>
+  const headInner = `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cardName || '모집 건')}</span>
       <span style="color:var(--muted,#8a8a90);font-weight:600;font-size:11.5px;flex-shrink:0">${list.length}</span>
-      ${unread ? `<span class="os-memo-dot" role="img" aria-label="아직 열어보지 않은 메모가 있습니다" title="아직 열어보지 않은 메모가 있습니다"></span>` : ''}
-    </button>
+      ${unread ? `<span class="os-memo-dot" role="img" aria-label="아직 열어보지 않은 메모가 있습니다" title="아직 열어보지 않은 메모가 있습니다"></span>` : ''}`;
+  // ⚠️ 고정일 때도 머리줄 클래스(.os-memo-head)는 남긴다 — 점 되살리기(osRestoreMemoState)가 그 자리를 찾는다
+  const head = fixed
+    ? `<div class="os-memo-head os-memo-head-fixed">${headInner}</div>`
+    : `<button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
+      <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
+      ${headInner}
+    </button>`;
+  return `<div class="os-memo${open ? ' open' : ''}" data-memo-slot="${slotKey}">
+    ${head}
     <div class="os-memo-body">${items}${form}</div>
   </div>`;
 }
@@ -20987,7 +21501,7 @@ async function osRefreshMemos() {
     }
     const idx = parseInt(slot, 10);
     if (isNaN(idx) || !cards[idx]) return;
-    el.outerHTML = osMemoSectionHtml(cards[idx].uid, idx, osCardTitle(cards[idx], idx));
+    el.outerHTML = osMemoSectionHtml(cards[idx].uid, idx, osCardTitle(cards[idx], idx), cards.length === 1);
     osRestoreMemoState(`#osDetailBody .os-memo[data-memo-slot="${idx}"]`, wasOpen, hadDot);
   });
 }
@@ -21129,7 +21643,7 @@ async function osChooseNewPublish() {
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
   try {
-    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, _osPublishCardIdx);
+    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, _osPublishCardIdx, s.data);
   } catch (e) {
     console.error('[osChooseNewPublish]', e);
     toast('자동 채움 중 오류가 발생했습니다. 폼을 직접 확인해 주세요.');
@@ -21332,6 +21846,70 @@ function osUnlinkFailMsg(reason) {
 
 function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
 
+// 관리자 상세 「모집 구간」 이름 — 구간 이름은 관리자가 형식별로 고친다(quote_tier_labels, 사양서
+//   2026-09-21-orient-tier-names-editable §3-7). 이름을 고르는 순서는 osTierName **한 곳**에서만 정한다:
+//   ① 견적 스냅샷 quote.tier_name(제출 때 쓴 이름) → ② 지금 표의 그 형식 이름 → ③ 아래 기본 이름.
+// 🔴 기본 이름은 §3-1 시드와 **글자 그대로 같아야** 한다(서버 계산식·작성 폼에도 같은 사본이 있다).
+const OS_TIER_DEFAULT_NAME = { tmin: '소량', t50: '라이트', t100: '스탠다드', t300: '프리미엄', t500plus: '프리미엄+' };
+// 지금 구간 이름 표 — 페인 진입(또는 상세를 처음 열 때) 한 번 받는다. null = 못 받음(→ ③ 기본 이름)
+let _osTierLabels = null;
+async function osEnsureTierLabels() {
+  if (_osTierLabels !== null) return;
+  try { _osTierLabels = (typeof fetchQuoteTierLabels === 'function') ? await fetchQuoteTierLabels() : null; }
+  catch (_) { _osTierLabels = null; }
+}
+function osTierName(sheet, tier) {
+  if (!tier) return '';
+  const d = (sheet && sheet.data) || {};
+  const q = d.quote;
+  if (q && q.tier === tier && typeof q.tier_name === 'string' && q.tier_name.trim()) return q.tier_name;
+  const ft = d.issued && d.issued.form_type;
+  const row = Array.isArray(_osTierLabels) ? _osTierLabels.find(r => r.form_type === ft && r.tier === tier) : null;
+  if (row && row.name) return row.name;
+  return OS_TIER_DEFAULT_NAME[tier] || '';
+}
+const OS_EXTRA_MARKET_LABEL = { lips: 'LIPS', cosme: '@cosme' };
+
+// 리뷰어 추가 옵션으로 넘길 수 있는 채널 코드 — 시트의 `sale.extra_markets` 값과 기준 데이터 채널 code 가 같은 글자다.
+//   🔴 `atcosme` 가 아니라 `cosme` 다(2026-07-31 정정한 자리 — 아래 주석)
+const OS_EXTRA_MARKET_CHANNELS = ['lips', 'cosme'];
+
+// 구매 가이드 자율구매 고정 문구 — 인플루언서가 보는 캠페인 본문에 들어가는 일본어(뜻: 「상품을 자유롭게 구매해 주세요.」)
+//   브랜드 작성 폼의 한국어 짝은 orient.html 의 PURCHASE_GUIDE_FREE_KO. 우리가 정한 문장이라 번역할 것이 없다(결정 18)
+const OS_PURCHASE_GUIDE_FREE_JA = '商品を自由にご購入ください。';
+const OS_PURCHASE_GUIDE_FREE_KO = '상품을 자유롭게 구매해 주세요.';
+
+// 새 구조 리뷰어 시트의 구매 가이드(mode) — 'free' | 'fixed' | ''(옛 시트·미선택·다른 형식)
+function osPurchaseGuideMode(card, isNew) {
+  if (!isNew || !card || card.form_type !== 'reviewer') return '';
+  const m = card.purchase_guide && card.purchase_guide.mode;
+  return (m === 'free' || m === 'fixed') ? m : '';
+}
+
+// 발행 자동 채움이 넘긴 채널 중 **체크박스로 안 그려진 것**을 발행자에게 알린다.
+//   🔴 채널 체크박스는 기준 데이터에서 「활성」인 것만 그린다 — 브랜드가 돈을 내고 고른 추가 옵션(LIPS·@cosme)이
+//      기준 데이터에서 꺼져 있으면 **아무 표시 없이 빠진다**(2026-09-17 개발서버에서 LIPS 가 그렇게 빠졌다).
+//      견적서에는 그 줄이 청구돼 있는데 캠페인에는 채널이 없는 상태가 된다. 막지 않고 눈에 보이게만 한다.
+//   ⚠️ 토스트가 아니라 채널 칸 아래 상자다 — 발행 직후 토스트는 일본어 보완 안내가 쓰고 있고 몇 초 뒤 사라진다.
+//      지우는 곳은 신규 등록 진입 초기화(admin-core.js) 한 곳.
+function osWarnDroppedPrefillChannels(wanted) {
+  const old = document.getElementById('newCampChannelPrefillWarn');
+  if (old) old.remove();
+  const wrap = document.getElementById('newCampChannelWrap');
+  if (!wrap || !Array.isArray(wanted) || !wanted.length) return;
+  const drawn = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c => c.value);
+  const missing = wanted.filter(code => drawn.indexOf(code) === -1);
+  if (!missing.length) return;
+  // 채널 코드 → 화면 이름. 목록에 없는 코드는 그대로 보여 준다(무엇이 빠졌는지는 알 수 있어야 한다)
+  const label = Object.assign({ qoo10: 'Qoo10', instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' }, OS_EXTRA_MARKET_LABEL);
+  const names = missing.map(code => label[code] || code).join(', ');
+  const box = document.createElement('div');
+  box.id = 'newCampChannelPrefillWarn';
+  box.style.cssText = 'margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;font-size:12px;line-height:1.5';
+  box.textContent = '오리엔시트에서 넘어온 채널 중 ' + names + ' 이(가) 선택되지 않았습니다. 기준 데이터의 채널에서 꺼져 있거나 이 모집 타입에 없는 채널입니다. 브랜드가 추가 옵션으로 고른 채널이면 견적에는 청구돼 있으니, 기준 데이터에서 켠 뒤 다시 발행하거나 브랜드와 확인해 주세요.';
+  wrap.insertAdjacentElement('afterend', box);
+}
+
 // 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
   if (card.form_type === 'seeding') {
@@ -21348,13 +21926,21 @@ function osPrefillChannels(card) {
   //    2026-07-31 정정 — '@cosme' 가 존재하지 않는 'atcosme' 로 매핑돼 있었다.
   const map = { 'Qoo10': 'qoo10', '@cosme': 'cosme', 'LIPS': 'lips' };
   const m = (card.sale && card.sale.market) || '';
-  return map[m] ? [map[m]] : [];
+  const out = map[m] ? [map[m]] : [];
+  // [2026-09-16 §4-9] 리뷰어 추가 옵션(LIPS·@cosme)을 채널로 넘긴다 → ['qoo10','lips'] 처럼.
+  //   🔴 허용 목록으로만 옮긴다 — 시트 값은 브랜드가 보낸 것이라 그대로 넘기면 없는 코드가 섞여 체크박스가 안 그려진다.
+  //   ⚠️ 가구매(proxy_purchase)에는 넘기지 않는다 — 가구매는 영수증만 받아 리뷰 채널이 없다.
+  if (card.form_type === 'reviewer') {
+    const extras = (card.sale && Array.isArray(card.sale.extra_markets)) ? card.sale.extra_markets : [];
+    OS_EXTRA_MARKET_CHANNELS.forEach(code => { if (extras.indexOf(code) !== -1 && out.indexOf(code) === -1) out.push(code); });
+  }
+  return out;
 }
 
 // 발행 형식 안내를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
-// ⚠️ 상시가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
+// ⚠️ 판매가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
 //   ①「캠페인 어느 칸에도 자동으로 넣지 않는다」는 결정이 제품 가격 칸에만 적용되면 반쪽이다.
-//     상시가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
+//     판매가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
 //     확인하지 않은 금액을 사실인 것처럼 보여 준다.
 //   ②`reward_note` 는 **인플루언서 응모 화면에 그대로 노출**된다(application.js). 브랜드가 쓴
 //     한국어가 일본어 화면에 실리는 자리다.
@@ -21378,33 +21964,58 @@ function osStripHtml(html) {
 }
 
 // 카드 한국어 콘텐츠를 가이드 초안으로 합침 (관리자가 일본어로 번역)
-function osBuildGuideDraft(card) {
+//   isNew: 새 구조(issued) 시트 — 리뷰어면 [NG]·[추가 안내] 블록을 생략(관리자가 NG·주의사항 번들로).
+//   🔴 시딩은 새 구조에서도 그 두 블록을 그대로 둔다(배송·NG·추가 안내를 당분간 유지 — 사양서 잠정 ⓐ).
+//      두 줄을 형식 구분 없이 지우면 시딩 값까지 사라진다(작업표 stale ⑨).
+function osBuildGuideDraft(card, isNew) {
   const blocks = [];
+  const skipCommonBlocks = !!isNew && card.form_type === 'reviewer';
   if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + osStripHtml(card.review_guide));
   if (card.form_type === 'seeding') {
     const sd = card.seeding || {};
     const chNames = (Array.isArray(sd.channels) ? sd.channels : []).map(osChLabel).filter(Boolean);
     if (chNames.length) blocks.push('[게시 채널] ' + chNames.join(', '));
     const appeal = osSeedingAppeal(sd);
-    if (appeal) blocks.push('[소구 키워드]\n' + appeal);
+    if (appeal) blocks.push('[리뷰 가이드]\n' + appeal);
     if (sd.shooting_guide) blocks.push('[촬영 가이드]\n' + sd.shooting_guide);
     if (sd.required_content) blocks.push('[필수 내용]\n' + sd.required_content);
     if (sd.gift) blocks.push('[증정품] ' + sd.gift);
     if (sd.shipping_note) blocks.push('[배송 안내] ' + sd.shipping_note);
     if (sd.account_tags) blocks.push('[태그 계정] ' + sd.account_tags);
   }
-  if (card.cautions) blocks.push('[추가 안내]\n' + osStripHtml(card.cautions));
-  if (card.ng) blocks.push('[NG]\n' + osStripHtml(card.ng));
+  if (!skipCommonBlocks && card.cautions) blocks.push('[추가 안내]\n' + osStripHtml(card.cautions));
+  if (!skipCommonBlocks && card.ng) blocks.push('[NG]\n' + osStripHtml(card.ng));
   return blocks.map(osPlainToRich).join('<br><br>');
 }
 
+// 새 구조 시트의 제안 모집 마감 = 희망 모집 시작일 + 14일(시딩 예상 일정 안내의 상한과 같다).
+//   ⚠️ 날짜는 문자열 자르기로만 계산한다(new Date('YYYY-MM-DD') 는 시간대가 끼어든다 — CLAUDE.md 규칙).
+function osAddDays(ymd, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+  if (!m) return '';
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]) + days * 86400000;
+  const d = new Date(t);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+
 // 캠페인 등록 폼에 카드 내용 자동 채움. 한국어는 _ko 칸·가이드 초안에, 일본어 표시칸(제목·제품명)은 비워 관리자 보완.
-async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, cardIdx) {
+// [2026-09-08] 새 구조(issued) 시트와 옛 시트의 매핑을 **나란히** 둔다 — 옛 값을 읽는 줄을 지우면
+//   발행된 옛 시트의 재발행·연결이 깨진다. 새 구조에서 사라진 값: 카테고리(비움) · 희망 모집 마감(시작+14일 제안) ·
+//   희망 업로드 기간(구매 기간·제출 마감 비움 → 기존 자동 제안) · 브랜드 소개(캠페인 설명 비움) ·
+//   리뷰어의 NG·추가 안내(가이드 초안에서 생략). isNew 는 _osDetailSheet 가 아니라 호출부가 준 orientData 로 판단한다.
+async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, cardIdx, orientData) {
+  const isNew = !!(orientData && orientData.issued && typeof orientData.issued === 'object');
   if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
   // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
   // sheetBrandId — 발행 폼에서 브랜드를 바꿨는지 저장 직전에 비교하는 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-3)
   window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase', sheetBrandId: brandId || '' };
+  // [2026-09-16 §4-3] 자율/지정 선택을 시트 값 그대로 골라 둔다 —
+  //   🔴 본문만 채우고 이 선택을 비워 두면 **저장하는 순간 옛 판으로 떨어진다**(이름만 새 판이고 값이 NULL).
+  //   ⚠️ 바로 위 switchAdminPane 이 이 칸을 비운 **뒤**에 넣는다(동기 함수라 순서가 보장된다). 라벨은 아래
+  //      applyDeadlineFieldsVisibility 와 라디오 change 가 이 값을 읽어 세운다.
+  const pgMode = osPurchaseGuideMode(card, isNew);
+  osSetVal('newCampPurchaseGuideMode', pgMode);
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 
@@ -21432,8 +22043,10 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (rt) { rt.checked = true; rt.dispatchEvent(new Event('change')); }
 
   // 채널·카테고리 렌더
-  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, osPrefillChannels(card));
-  if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', (card.product && card.product.category) || '');
+  const wantedChannels = osPrefillChannels(card);
+  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, wantedChannels);
+  osWarnDroppedPrefillChannels(wantedChannels);
+  if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', isNew ? '' : ((card.product && card.product.category) || ''));
 
   // 텍스트 (한국어→_ko, 일본어 표시칸은 비움 → 일본어 게이트가 보완 유도)
   const p = card.product || {};
@@ -21442,10 +22055,10 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampTitle', '');
   osSetVal('newCampSlots', p.slots || '');
   osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
-  // ⚠️ 상시가는 **캠페인 어느 칸에도 자동으로 넣지 않는다**(2026-08-11 사용자 결정).
+  // ⚠️ 판매가는 **캠페인 어느 칸에도 자동으로 넣지 않는다**(2026-08-11 사용자 결정).
   //   브랜드가 오리엔시트에 적은 값이라, 그대로 실으면 **관리자가 확인하지 않은 금액이
   //   그대로 지급 상한**이 된다(리뷰어형 정산 = min(영수증 실결제액, product_price)).
-  //   상시가는 발행 화면의 오리엔 상세에서 눈으로 확인하고 관리자가 직접 입력한다.
+  //   판매가는 발행 화면의 오리엔 상세에서 눈으로 확인하고 관리자가 직접 입력한다.
   //   ⚠️ 리뷰어형에서 이 칸이 0인 채로 발행되면 ①인플루언서 화면에 페이백 상한 안내가
   //      안 뜨고 ②정산이 「금액 미확정」으로 자동 등록에서 빠진다(마이그레이션 300).
   //      후자는 마이그레이션 324 이후 「과거 미등록」 화면에 나타나므로 조용히 사라지진 않는다.
@@ -21470,16 +22083,19 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
 
   // 날짜 (희망 모집·업로드 기간) — flatpickr range + deadline + 결과물 제출 마감일
   const r = card.recruit || {};
-  const uploadEnd = r.upload_end || null;
+  // 새 구조: 희망 마감·업로드 기간이 없다 → 마감은 시작+14일 제안, 업로드 기간은 비워 기존 자동 제안에 맡긴다
+  const recruitEnd = isNew ? (osAddDays(r.recruit_start, 14) || null) : (r.recruit_end || null);
+  const uploadStart = isNew ? null : (r.upload_start || null);
+  const uploadEnd = isNew ? null : (r.upload_end || null);
   // 업로드 기간 → 가구매·리뷰어(monitor)는 구매 기간에, 시딩(gifting)은 구매 행이 없어 결과물 마감일에만 반영
   // ⚠️ 이 monitor 분기는 applyDeadlineFieldsVisibility 의 구매 필드 노출 조건(monitor 만 유지)과 맞물려 있음.
   //    오리엔 카드에 visit(방문형) 형식이 추가되면 이 가정이 깨지므로 그때 매핑 재검토 필요.
-  const purchasePair = (recruitType === 'monitor') ? [r.upload_start || null, uploadEnd] : [null, null];
+  const purchasePair = (recruitType === 'monitor') ? [uploadStart, uploadEnd] : [null, null];
   if (typeof applyCampRangeValues === 'function') {
-    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, r.recruit_end || null], purchase: purchasePair, visit: [null, null] });
+    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, recruitEnd], purchase: purchasePair, visit: [null, null] });
   }
   osSetVal('newCampRecruitStart', r.recruit_start || '');
-  osSetVal('newCampDeadline', r.recruit_end || '');
+  osSetVal('newCampDeadline', recruitEnd || '');
   // 결과물 제출 마감일 = 업로드 마감일 그대로 (3형식 공통)
   osSetVal('newCampSubmissionEnd', uploadEnd || '');
   // 단일 picker(결과물 제출 마감일) + 구매 range picker 경계·표시 동기화
@@ -21487,13 +22103,24 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
 
   // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
   if (typeof setRichValue === 'function') {
-    setRichValue('newCampGuide', osBuildGuideDraft(card));
+    setRichValue('newCampGuide', osBuildGuideDraft(card, isNew));
     // 통합 소구 키워드 — 신규 seeding.appeal / 옛 seeding.guides 양쪽 하위호환(모듈 헬퍼 재사용)
     setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal(card.seeding)));
-    setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
+    // 캠페인 설명 / 구매 가이드 본문 — 네 갈래(§4-3). 🔴 옛 구조 분기를 지우지 않는다(발행된 옛 시트의 재발행이 달라진다)
+    //   자율구매 = 우리가 정한 일본어 고정 문구 / 지정구매 = 브랜드가 쓴 한국어 그대로(관리자가 일본어로 다듬는다)
+    const pgOptions = (card.purchase_guide && card.purchase_guide.options) || '';
+    const descHtml = !isNew ? osPlainToRich(brand.intro || '')
+      : pgMode === 'free' ? osPlainToRich(OS_PURCHASE_GUIDE_FREE_JA)
+      : pgMode === 'fixed' ? osPlainToRich(osStripHtml(pgOptions))   // 편집기 값 — 리뷰 가이드 초안과 같이 서식을 걷어 낸다
+      : '';
+    setRichValue('newCampDesc', descHtml);
   }
+  if (typeof applyCampDescLabel === 'function') applyCampDescLabel('new', recruitType);
 
-  toast('오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
+  // ⚠️ 일본어 게이트는 가이드 칸만 본다 — 지정구매의 한국어 본문은 아무도 안 막아 준다. 그래서 안내로 챙긴다
+  toast(pgMode === 'fixed'
+    ? '오리엔시트 내용을 채웠습니다. 「구매 가이드」 본문이 브랜드가 쓴 한국어입니다 — 제목·제품명·가이드와 함께 일본어로 고친 뒤 발행해 주세요.'
+    : '오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -21532,8 +22159,21 @@ function ensureOrientModals() {
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input" disabled><option value="">연결 안 함</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.</div></div>
+          <div class="form-group"><label class="form-label">모집 형식 <span style="color:var(--pink,#1A1A1A)">*</span></label>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;padding:4px 0">
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="radio" name="osCreateFormType" value="reviewer" onchange="osOnFormTypeChange()"> 리뷰어</label>
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="radio" name="osCreateFormType" value="seeding" onchange="osOnFormTypeChange()"> 시딩</label>
+            </div></div>
+          <div class="form-group" id="osCreateChannelRow" style="display:none"><label class="form-label">게시 채널 <span style="color:var(--pink,#1A1A1A)">*</span></label>
+            <select id="osCreateChannel" class="form-input"><option value="">선택</option></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">채널이 여럿이면 링크를 따로 발급하세요.</div></div>
+          <div class="form-group"><label class="form-label">모집비 직접 지정 <span style="font-weight:400;color:var(--muted)">(선택)</span></label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" inputmode="numeric" id="osCreateRecruitFee" class="form-input" style="max-width:160px" placeholder="비움 = 기준값" autocomplete="off">
+              <span style="font-size:13px;color:var(--muted)">원 / 1건</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">비우면 기준값의 구간 단가를 씁니다. 시딩이면 진행비를 대신합니다. 0 을 넣으면 무료로 계산됩니다.<br>발급 뒤에는 바꿀 수 없습니다 — 잘못 넣었으면 시트를 지우고 다시 발급하세요.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
-            모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
+            링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>
         </div>
         <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:6px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
@@ -21621,6 +22261,25 @@ function ensureOrientModals() {
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientPublishModal')">닫기</button>
       </div>
+    </div>
+  </div>
+  <!-- 견적서 문서 창 — 작성 폼의 견적서 화면(?embed=quote)을 끼워 넣는다.
+       🔴 z-index 를 적는다: 모든 modal-overlay 가 500 이라, 안 적으면 ESC 가 「위에 뜬 창」을 못 가려 뒤의 상세 창을 닫는다(ui.js 가 큰 쪽을 고른다).
+       🔴 드래그·크기조정 목록(DRAGGABLE_ADMIN_MODALS)에 넣지 않는다 — 포인터가 다른 출처 iframe 위로 가면 부모가 이동 이벤트를 못 받아 드래그가 멎는다.
+       상세 창(1040px)보다 좁게 잡아 뒤 창이 양옆으로 비치게 한다(「위에 하나 더 떴다」가 보이게). iframe 은 자기 높이를 못 알려 주므로 고정 높이 + 안쪽 스크롤 -->
+  <div class="modal-overlay" id="orientQuoteModal" style="z-index:618">
+    <div class="modal" style="max-width:860px;width:94vw;border-radius:16px;margin:auto;height:88vh;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2 id="osQuoteTitle">견적서</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseQuoteDoc()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;background:#F7F5F0">
+        <iframe id="osQuoteFrame" title="견적서" src="about:blank" style="width:100%;height:100%;flex:1;border:0;background:#F7F5F0"></iframe>
+        <div id="osQuoteFail" style="display:none;padding:32px 24px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7">
+          견적서 화면을 불러오지 못했습니다.<br>작성 폼이 아직 새 판으로 배포되지 않았거나 연결이 끊긴 것일 수 있습니다.<br>금액은 시트 상세의 「예상 견적」 카드에 그대로 있습니다.</div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size:12px;color:var(--muted);margin-right:auto">브랜드가 보는 견적서와 같은 화면입니다. 인쇄·PDF 저장은 새 탭에서 합니다.</span>
+        <button type="button" class="btn btn-ghost" onclick="osPrintQuoteDoc()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">print</span> 인쇄 · PDF (새 탭)</button>
+        <button type="button" class="btn btn-ghost" onclick="osCloseQuoteDoc()">닫기</button></div>
     </div>
   </div>`;
   // #page-admin 안에 넣는다 — 이 요소가 z-index:200 으로 자체 쌓임 맥락을 만들어서,
@@ -38679,10 +39338,14 @@ function campOpsEventStatusCard(camp) {
   </div>`;
 }
 
-// 비용 카드 — 권한(campaign_admin 이상) + 연결 신청 있을 때만. 비동기로 뒤에 붙임.
+// 비용 카드 — 권한(campaign_admin 이상). 비동기로 뒤에 붙임. 두 갈래(사양서 2026-09-22-brand-ops-and-cost-card-orient §4):
+//   ① 서베이 신청에 연결된 캠페인 → 종전 그대로(신청 기준)
+//   ② 아니면 그 캠페인과 이어진 오리엔시트의 견적 — 🔴 **전체 시트**에서 캠페인 id 로 찾는다
+//      (캠페인 브랜드 ≠ 시트 브랜드인 캠페인이 있다). 조회 실패·못 찾음이면 카드 없음(원래 없던 카드라 종전 상태)
 async function appendCampOpsCostCard(camp) {
   if (typeof isCampaignAdminOrAbove === 'function' && !isCampaignAdminOrAbove()) return;
-  if (!camp || !camp.source_application_id) return;
+  if (!camp) return;
+  if (!camp.source_application_id) { await appendCampOpsOrientCostCard(camp); return; }
   let app = null;
   try { app = await fetchBrandApplicationById(camp.source_application_id); } catch (e) { app = null; }
   // 비동기 사이 다른 캠페인으로 전환됐으면 중단 (stale 카드 방지)
@@ -38695,6 +39358,50 @@ async function appendCampOpsCostCard(camp) {
   //    이미 붙어 있으면 지우고 다시 붙인다.
   box.querySelectorAll('[data-cost-card]').forEach(el => el.remove());
   box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
+}
+
+// ② 오리엔시트 견적 비용 카드. 여러 시트에 걸리면(서버가 막아 방어용) 제출이 가장 늦은 시트 → 없으면 발급이 가장 늦은 시트
+var _campOpsCostSheet = null;   // 「견적서 열기」가 넘길 시트(osOpenQuoteDoc 셋째 인자)
+async function appendCampOpsOrientCostCard(camp) {
+  if (typeof fetchOrientSheets !== 'function' || typeof osQuoteState !== 'function') return;
+  let sheets = null;
+  try { sheets = await fetchOrientSheets(); } catch (e) { console.error('[appendCampOpsOrientCostCard]', e); sheets = null; }
+  if (currentCampApplicantId !== camp.id) return;   // 전환됐으면 중단
+  if (!Array.isArray(sheets)) return;               // 조회 실패 → 카드 없음(§2 ④)
+  const hits = sheets.filter(s => ((s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : []).some(c => c && c.campaign_id === camp.id));
+  if (!hits.length) return;
+  const key = s => [s.submitted_at ? 1 : 0, String(s.submitted_at || ''), String(s.created_at || '')];
+  hits.sort((a, b) => { const x = key(a), y = key(b);
+    return (y[0] - x[0]) || y[1].localeCompare(x[1]) || y[2].localeCompare(x[2]); });
+  const sheet = hits[0];
+  _campOpsCostSheet = sheet;
+  const box = $('campApplicantsSummary');
+  if (!box) return;
+  box.querySelectorAll('[data-cost-card]').forEach(el => el.remove());
+  box.insertAdjacentHTML('beforeend', campOpsOrientCostCard(sheet));
+}
+function campOpsOrientCostCard(sheet) {
+  const st = osQuoteState(sheet.data);
+  const krw = (typeof osKrw === 'function') ? osKrw : (n => Number(n || 0).toLocaleString('ko-KR') + '원');
+  const head = `<div class="camp-ops-card-title">비용</div>`;
+  if (st.kind === 'quote') {
+    const q = st.quote || {};
+    return `<div class="camp-ops-card" data-cost-card>${head}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">오리엔시트 ${esc(sheet.orient_no || '')} · ${esc(String(q.revision || 1))}차 견적 기준 (브랜드 제출 시점 예상 견적)</div>
+      <div class="camp-ops-row"><span class="k">합계(부가세 포함)</span><span class="v">${esc(krw(q.total_krw))}</span></div>
+      <div class="camp-ops-row"><span class="k">공급가</span><span class="v">${esc(krw(q.subtotal_krw))}</span></div>
+      <div class="camp-ops-row"><span class="k">부가세</span><span class="v">${esc(krw(q.vat_krw))}</span></div>
+      <div class="camp-ops-row"><span class="k">모집 인원 · 구간</span><span class="v">${esc(String(q.slots ?? '—'))}명${q.tier_name ? ' · ' + esc(q.tier_name) : ''}</span></div>
+      <div style="margin-top:8px"><button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc(_campOpsCostSheet && _campOpsCostSheet.id, undefined, _campOpsCostSheet)">견적서 열기</button></div>
+    </div>`;
+  }
+  const msg = (st.kind === 'error')
+    ? '견적 없음 — ' + ((typeof osQuoteErrorText === 'function') ? osQuoteErrorText(st.reason) : String(st.reason))
+    : '견적 없음(이 오리엔시트에는 견적이 없습니다)';
+  return `<div class="camp-ops-card" data-cost-card>${head}
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">오리엔시트 ${esc(sheet.orient_no || '')}</div>
+    <div style="font-size:12px;color:var(--muted)">${esc(msg)}</div>
+  </div>`;
 }
 
 function campOpsCostCard(app) {
@@ -39598,7 +40305,7 @@ async function sendResetEmail() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -39649,9 +40356,11 @@ async function renderLookupsTable() {
   const title = $('lookupTableTitle');
   if (!tbody) return;
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
+  { const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = ''; }   // 기본은 보임 — 견적 기준값 탭만 자기 함수 안에서 감춘다(조기 반환보다 앞에 둬야 참여방법·주의사항·NG 탭으로 돌아갈 때도 되살아난다)
   if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
   if (_currentLookupKind === 'ng_set') { await renderNgSetTable(); return; }
+  if (_currentLookupKind === 'quote_settings') { await renderQuoteSettingsTable(); return; }
   const isChannel = _currentLookupKind === 'channel';
   const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
@@ -39717,6 +40426,333 @@ async function renderLookupsTable() {
   }).join('');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 견적 기준값 탭 (마이그레이션 426 · 오리엔시트 단순화 2단계 사양서 §4-5)
+//   같은 표(#lookupsTableBody)에 그린다 — 카드를 더 넣지 않는다(작업표 stale ⑥).
+//   수정은 캠페인 관리자 이상(서버 가드 is_campaign_admin — 화면은 단추만 감춘다).
+//   🔴 fetchQuoteSettings 는 실패 null / 0건 [] — 합치면 「환율 0」 화면이 된다.
+// ════════════════════════════════════════════════════════════════════
+function quoteAmountText(r) {
+  const n = Number(r.amount);
+  if (r.unit === 'rate') return (n * 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + ' %';
+  if (r.unit === 'jpy') return '¥' + n.toLocaleString('ja-JP');
+  // 🔴 구간 인원(reviewer_tier_slots_*·seeding_tier_slots_*)은 금액이 아니다 — 이 분기가 없으면 아래 기본으로 떨어져 「50 원」으로 그려진다
+  if (r.unit === 'count') return n.toLocaleString('ko-KR') + ' 건';
+  return n.toLocaleString('ko-KR') + ' 원';
+}
+// ── 견적 기준값 화면 — 형식별 구간표(2026-09-21 사용자 결정) ──
+//   예전에는 45행을 한 줄 목록으로 그려 「스탠다드는 몇 명부터, 모집비 얼마」를 알려면 위아래 묶음을 오가야 했다.
+//   이제 **공통 · 리뷰어 · 시딩** 카드 셋으로, 카드 안에서 구간이 줄이고 시작 인원·인원 범위·비용이 칸이다.
+//   🔴 **값과 저장 경로는 그대로**다 — 칸을 누르면 나오는 「저장」(또는 Enter) → quoteInputSave → saveQuoteSetting(update_quote_setting).
+//   🔴 **어느 카드에도 안 들어간 행은 맨 아래 「그 밖의 기준값」에 그대로 그린다** — 새 기준값 행이 생겼는데
+//      이 배치표에 안 넣으면 화면에서 조용히 사라진다(고칠 길이 없어진다).
+const QUOTE_TIER_KEYS = ['tmin', 't50', 't100', 't300', 't500plus'];
+// 구간 줄 머리 — **이름이 아니라 순번**이다(2026-09-21). 이름은 편집 칸(quote_tier_labels)이라 머리에
+//   또 쓰면 같은 값이 두 번 보이고, 고치는 동안 서로 다른 말을 한다(사양서 orient-tier-names-editable §3-7).
+const QUOTE_TIER_HEAD = { tmin: '최소', t50: '1구간', t100: '2구간', t300: '3구간', t500plus: '4구간' };
+// 구간 이름·옵션 문구 길이(서버 update_quote_tier_label 과 같은 값 — 서버가 최종 방어선)
+const QUOTE_TIER_NAME_MAX = 8, QUOTE_TIER_OPTION_MAX = 16;
+// 시딩 단가 시드는 가짜 값(99001~99025, 442·458) — 이 범위면 「미입력」으로 눈에 띄게 그린다.
+//   ⚠️ 판정은 **시딩 단가 행에만** 건다(다른 행에 우연히 이 숫자가 들어가도 경고하지 않게).
+const QUOTE_SEED_PLACEHOLDER = { min: 99000, max: 99999 };
+function quoteIsPlaceholder(r) {
+  if (!r || !/^seeding_fee_krw_/.test(r.key)) return false;
+  const n = Number(r.amount);
+  return n >= QUOTE_SEED_PLACEHOLDER.min && n <= QUOTE_SEED_PLACEHOLDER.max;
+}
+// 값 칸 하나 — 편집 권한이 있으면 **처음부터 입력칸**으로 그린다(2026-09-21 사용자 지시 — 눌러야 입력칸이
+//   나오면 고칠 수 있는 자리인지 안 보인다). 평소에는 **읽기 상태**이고, 칸을 누르면 입력 상태가 되며
+//   옆에 「저장」·「취소」가 **바로** 나타난다. **저장 버튼(또는 Enter)을 눌러야 저장**된다(같은 날 사용자 지시 —
+//   ①칸만 옮겨도 저장되면 의도치 않게 바뀐다 ②처음부터 다 고쳐지는 칸이면 저장 버튼이 어디 있는지 안 보인다).
+//   권한이 없으면 글자만.
+const QUOTE_INPUT_UNIT = { krw: '원', jpy: '엔', rate: '%', count: '명' };
+function quoteInputValue(r) {
+  const n = Number(r.amount);
+  return r.unit === 'rate' ? String(Math.round(n * 10000) / 100) : String(n);
+}
+function quoteCell(byKey, key, opts) {
+  const r = byKey[key];
+  if (!r) return '<td class="q-cell q-missing" title="기준값 행이 없습니다">—</td>';
+  byKey.__used.add(key);
+  const ph = quoteIsPlaceholder(r);
+  const tip = (r.label_ko || '') + (r.updated_at ? ' · 마지막 수정 ' + formatDateTime(r.updated_at) : '');
+  const tag = ph ? '<span class="q-ph-tag">미입력</span>' : '';
+  if (opts && opts.canEdit) {
+    const v = quoteInputValue(r);
+    const isRate = r.unit === 'rate';
+    return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><div class="q-in-wrap${ph ? ' is-ph' : ''}">
+      <input type="number" class="q-input" readonly title="눌러서 수정" data-qkey="${esc(r.key)}" data-unit="${esc(r.unit)}" data-orig="${esc(v)}" value="${esc(v)}"
+        step="${isRate ? '0.01' : '1'}" min="${r.unit === 'count' ? '1' : '0'}"${isRate ? ' max="100"' : ''}
+        onfocus="quoteStartEdit(this)" onclick="quoteStartEdit(this)" oninput="quoteInputDirty(this)" onkeydown="quoteInputKey(event, this)">
+      <span class="q-unit">${esc(QUOTE_INPUT_UNIT[r.unit] || '')}</span>${tag}
+      <span class="q-act" hidden><button type="button" class="btn btn-primary btn-xs" onclick="quoteInputSave(this)">저장</button><button type="button" class="btn btn-ghost btn-xs" onclick="quoteInputCancel(this)">취소</button></span></div></td>`;
+  }
+  const text = r.unit === 'count' ? Number(r.amount).toLocaleString('ko-KR') + '명' : quoteAmountText(r);
+  return `<td class="q-cell q-amount" data-qkey="${esc(r.key)}" title="${esc(tip)}"><span class="q-val-ro${ph ? ' is-ph' : ''}">${esc(text)}${tag}</span></td>`;
+}
+// 구간 이름·옵션 문구 칸. labels = 조회 결과 맵(`형식:구간` → 행), null 이면 「불러오지 못했습니다」.
+//   🔴 값은 관리자 입력이라 **반드시 esc**. data-qkey 는 다시 그릴 때 고치던 값을 되살리는 열쇠(숫자 칸과 한 규칙).
+function quoteLabelCell(labels, form, tier, field, opts) {
+  if (!labels) return '<td class="q-cell q-missing" title="구간 이름을 불러오지 못했습니다">불러오지 못했습니다</td>';
+  const row = labels[form + ':' + tier];
+  if (!row) return '<td class="q-cell q-missing" title="이 구간의 이름 행이 없습니다">—</td>';
+  const v = field === 'name' ? (row.name || '') : (row.option_text || '');
+  const key = 'label:' + form + ':' + tier + ':' + field;
+  const tip = (field === 'name' ? '구간 이름' : '옵션 문구') + (row.updated_at ? ' · 마지막 수정 ' + formatDateTime(row.updated_at) : '');
+  if (opts && opts.canEdit) {
+    const max = field === 'name' ? QUOTE_TIER_NAME_MAX : QUOTE_TIER_OPTION_MAX;
+    return `<td class="q-cell q-amount q-label" data-qkey="${esc(key)}" title="${esc(tip)}"><div class="q-in-wrap">
+      <input type="text" class="q-input q-input-text${field === 'option' ? ' q-input-opt' : ''}" readonly title="눌러서 수정" maxlength="${max}"
+        data-qkey="${esc(key)}" data-kind="label" data-form="${esc(form)}" data-tier="${esc(tier)}" data-field="${esc(field)}"
+        data-orig="${esc(v)}" value="${esc(v)}" placeholder="${field === 'name' ? '' : '(없음)'}"
+        onfocus="quoteStartEdit(this)" onclick="quoteStartEdit(this)" oninput="quoteInputDirty(this)" onkeydown="quoteInputKey(event, this)">
+      <span class="q-act" hidden><button type="button" class="btn btn-primary btn-xs" onclick="quoteInputSave(this)">저장</button><button type="button" class="btn btn-ghost btn-xs" onclick="quoteInputCancel(this)">취소</button></span></div></td>`;
+  }
+  return `<td class="q-cell q-amount q-label" data-qkey="${esc(key)}" title="${esc(tip)}"><span class="q-val-ro">${v ? esc(v) : '<span class="q-muted">(없음)</span>'}</span></td>`;
+}
+// 칸을 누르면 입력 상태로 — 「저장」·「취소」를 바로 보인다.
+//   다른 칸을 누르면, **아무것도 안 고친** 칸은 읽기 상태로 돌려놓는다(고치던 칸은 버튼째 남긴다).
+function quoteSetEditing(input, on) {
+  const wrap = input && input.closest('.q-in-wrap'); if (!wrap) return;
+  input.readOnly = !on;
+  wrap.classList.toggle('is-editing', on);
+  const act = wrap.querySelector('.q-act'); if (act) act.hidden = !on;
+}
+function quoteStartEdit(input) {
+  if (!input || !input.readOnly) return;
+  document.querySelectorAll('#lookupsTableBody .q-input').forEach(el => {
+    if (el !== input && !el.readOnly && el.value === el.dataset.orig) quoteSetEditing(el, false);
+  });
+  quoteSetEditing(input, true);
+  input.select();
+}
+// 값이 원래와 다른지 표시만 한다(버튼은 입력 상태인 동안 늘 보인다)
+function quoteInputDirty(input) {
+  const wrap = input && input.closest('.q-in-wrap'); if (!wrap) return;
+  wrap.classList.toggle('is-dirty', input.value !== input.dataset.orig);
+}
+// Enter = 저장, Escape = 원래 값으로 되돌리기
+function quoteInputKey(e, input) {
+  if (e.key === 'Enter') { e.preventDefault(); quoteInputSave(input); }
+  else if (e.key === 'Escape') { e.preventDefault(); quoteInputCancel(input); }
+}
+function quoteInputOf(el) {
+  if (el && el.classList && el.classList.contains('q-input')) return el;
+  const wrap = el && el.closest('.q-in-wrap');
+  return wrap ? wrap.querySelector('.q-input') : null;
+}
+function quoteInputCancel(el) {
+  const input = quoteInputOf(el); if (!input) return;
+  input.value = input.dataset.orig; quoteInputDirty(input); quoteSetEditing(input, false); input.blur();
+}
+// 저장 — 값이 바뀌었을 때만. 실패하면 **친 값을 그대로 둔다**(안내를 보고 고쳐 다시 저장할 수 있게).
+//   저장되면 표를 다시 그리는데(범위 글이 따라 바뀐다), 다른 칸에 고치던 값은 그대로 남는다.
+async function quoteInputSave(el) {
+  const input = quoteInputOf(el); if (!input) return;
+  if (input.value === input.dataset.orig) { quoteInputCancel(input); return; }   // 바꾼 게 없으면 그냥 닫는다
+  const wrap = input.closest('.q-in-wrap');
+  const btns = wrap ? wrap.querySelectorAll('.q-act button') : [];
+  btns.forEach(b => { b.disabled = true; });   // 두 번 눌러 두 번 저장되지 않게
+  const ok = input.dataset.kind === 'label'
+    ? await saveQuoteTierLabel(input)
+    : await saveQuoteSetting(input.dataset.qkey, input, input.dataset.unit);
+  if (!ok) btns.forEach(b => { b.disabled = false; });
+}
+// 인원 범위 글 — 「그 구간의 시작 인원 ~ 다음 구간 시작 - 1」. 기준값이 비면 「—」(기본값으로 채우지 않는다).
+function quoteTierRanges(byKey, prefix) {
+  const v = k => { const r = byKey[prefix + k]; const n = r ? Number(r.amount) : NaN; return isFinite(n) ? n : null; };
+  const starts = { tmin: v('min_slots'), t50: v('slots_t50'), t100: v('slots_t100'), t300: v('slots_t300'), t500plus: v('slots_t500plus') };
+  const out = {};
+  QUOTE_TIER_KEYS.forEach((t, i) => {
+    const a = starts[t];
+    const next = QUOTE_TIER_KEYS[i + 1] ? starts[QUOTE_TIER_KEYS[i + 1]] : null;
+    if (a === null) { out[t] = '—'; return; }
+    if (!QUOTE_TIER_KEYS[i + 1]) { out[t] = a.toLocaleString('ko-KR') + '명 이상'; return; }
+    if (next === null) { out[t] = '—'; return; }
+    out[t] = next - 1 < a ? '쓰이지 않음' : a.toLocaleString('ko-KR') + '~' + (next - 1).toLocaleString('ko-KR') + '명';
+  });
+  return out;
+}
+const QUOTE_OPTION_NOTE = '<p class="q-note">구간 <strong>이름·옵션 문구</strong>는 브랜드 작성 폼 단추와 견적서 줄 이름에 쓰입니다(이름 1~8자, 옵션 0~16자). 옵션 문구는 설명일 뿐 <strong>견적 금액을 바꾸지 않습니다</strong> — 「실검작업 — 담당자 협의」 줄은 4구간이면 옵션 문구와 상관없이 붙습니다.</p>';
+function quoteCard(title, sub, inner) {
+  return `<section class="q-card"><div class="q-card-head"><span class="q-card-title">${esc(title)}</span>${sub ? `<span class="q-card-sub">${esc(sub)}</span>` : ''}</div>${inner}</section>`;
+}
+function quoteCommonCard(byKey, o) {
+  return quoteCard('공통', '리뷰어·시딩 견적 모두에 쓰입니다', `<table class="q-table q-kv"><tbody>
+    <tr><th>엔→원 환율 (1엔당)</th>${quoteCell(byKey, 'exchange_rate_krw_per_jpy', o)}</tr>
+    <tr><th>부가세율</th>${quoteCell(byKey, 'vat_rate', o)}</tr>
+  </tbody></table>`);
+}
+function quoteReviewerCard(byKey, o) {
+  const rg = quoteTierRanges(byKey, 'reviewer_tier_');
+  const rows = QUOTE_TIER_KEYS.map(t => `<tr>
+      <th>${QUOTE_TIER_HEAD[t]}</th>
+      ${quoteLabelCell(o.labels, 'reviewer', t, 'name', o)}
+      ${quoteLabelCell(o.labels, 'reviewer', t, 'option', o)}
+      ${t === 'tmin' ? quoteCell(byKey, 'reviewer_tier_min_slots', o) : quoteCell(byKey, 'reviewer_tier_slots_' + t, o)}
+      <td class="q-range">${esc(rg[t])}</td>
+      ${quoteCell(byKey, 'reviewer_recruit_fee_krw_' + t, o)}
+    </tr>`).join('');
+  return quoteCard('리뷰어', '구간은 모집 인원으로 정해집니다 — 시작 인원을 고치면 아래 범위가 함께 바뀝니다', `
+    <div class="q-scroll"><table class="q-table q-tier"><thead><tr><th>구간</th><th>이름</th><th>옵션 문구</th><th>시작 인원</th><th>인원 범위</th><th>모집비 (1건당)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="q-note">「최소」 줄의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 이보다 적으면 접수하지 않습니다.</p>
+    ${QUOTE_OPTION_NOTE}
+    <table class="q-table q-kv"><tbody>
+      <tr><th>해외 송금 수수료 (1건당)</th>${quoteCell(byKey, 'reviewer_transfer_fee_krw', o)}</tr>
+      <tr><th>추가 옵션 — LIPS (1건당)</th>${quoteCell(byKey, 'reviewer_option_fee_krw_lips', o)}</tr>
+      <tr><th>추가 옵션 — @cosme (1건당)</th>${quoteCell(byKey, 'reviewer_option_fee_krw_cosme', o)}</tr>
+    </tbody></table>`);
+}
+function quoteSeedingCard(byKey, o) {
+  const rg = quoteTierRanges(byKey, 'seeding_tier_');
+  const chs = (typeof OS_SEEDING_CHANNELS !== 'undefined') ? OS_SEEDING_CHANNELS : ['instagram_feed', 'instagram_reels', 'x', 'tiktok', 'youtube'];
+  const chName = c => (typeof osChLabel === 'function') ? osChLabel(c) : c;
+  const head = `<tr><th>구간</th><th>이름</th><th>옵션 문구</th><th>시작 인원</th><th>인원 범위</th>${chs.map(c => `<th>${esc(chName(c))}</th>`).join('')}</tr>`;
+  const rows = QUOTE_TIER_KEYS.map(t => `<tr>
+      <th>${QUOTE_TIER_HEAD[t]}</th>
+      ${quoteLabelCell(o.labels, 'seeding', t, 'name', o)}
+      ${quoteLabelCell(o.labels, 'seeding', t, 'option', o)}
+      ${t === 'tmin' ? quoteCell(byKey, 'seeding_tier_min_slots', o) : quoteCell(byKey, 'seeding_tier_slots_' + t, o)}
+      <td class="q-range">${esc(rg[t])}</td>
+      ${chs.map(c => quoteCell(byKey, 'seeding_fee_krw_' + c + '_' + t, o)).join('')}
+    </tr>`).join('');
+  const phCount = Object.keys(byKey).filter(k => k !== '__used' && quoteIsPlaceholder(byKey[k])).length;
+  const warn = phCount ? `<div class="q-warn"><span class="material-icons-round" translate="no">warning</span>진행비 ${phCount}칸이 아직 가짜 값(99,0xx원)입니다 — 실제 금액을 넣어야 시딩 견적이 맞게 나갑니다.</div>` : '';
+  return quoteCard('시딩', '진행비는 채널 × 구간 1건당 금액입니다', `${warn}
+    <div class="q-scroll"><table class="q-table q-tier q-wide"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+    <p class="q-note">「최소」 줄의 시작 인원 = <strong>최소 모집 인원</strong>입니다. 구간 인원을 바꾸면 그 구간 진행비가 가리키는 사람 수도 바뀌니 함께 확인해 주세요.</p>
+    ${QUOTE_OPTION_NOTE}`);
+}
+function quoteRestCard(byKey, rows, o) {
+  const rest = rows.filter(r => !byKey.__used.has(r.key));
+  if (!rest.length) return '';
+  return quoteCard('그 밖의 기준값', '위 표에 자리가 없는 항목입니다', `<table class="q-table q-kv"><tbody>${
+    rest.map(r => `<tr><th>${esc(r.label_ko || r.key)}</th>${quoteCell(byKey, r.key, o)}</tr>`).join('')}</tbody></table>`);
+}
+async function renderQuoteSettingsTable() {
+  const tbody = $('lookupsTableBody');
+  const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = 'none';   // 기준값은 순서가 고정
+  const thead = $('lookupTableHead');
+  const title = $('lookupTableTitle');
+  if (title) title.textContent = '견적 기준값';
+  const canEdit = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
+  if (thead) thead.innerHTML = '';   // 카드 배치라 표 머리가 없다 — 다른 탭은 저마다 머리를 다시 그린다
+  const wrap = inner => `<tr class="q-wrap-row"><td colspan="6" style="padding:0">${inner}</td></tr>`;
+  // 저장 뒤 다시 그릴 때 보던 자리를 지킨다 — 안 그러면 시딩 칸을 고칠 때마다 맨 위로 튄다
+  const scroller = tbody.closest('.admin-table-wrap');
+  const keepTop = scroller ? scroller.scrollTop : 0;
+  // 이미 표가 떠 있으면(저장 뒤 다시 그리기) 스피너로 비우지 않는다 — 비우면 치던 칸의 초점이 끊기고 화면이 깜빡인다
+  if (!tbody.querySelector('.q-board')) tbody.innerHTML = wrap(`<div style="text-align:center;padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>`);
+  const rows = await fetchQuoteSettings();
+  if (rows === null) {
+    tbody.innerHTML = wrap('<div style="text-align:center;color:var(--red);padding:24px">견적 기준값을 불러오지 못했습니다. 새로고침해 주세요.</div>');
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = wrap('<div style="text-align:center;color:var(--muted);padding:24px">등록된 기준값이 없습니다 (마이그레이션 426 적용 필요)</div>');
+    return;
+  }
+  const byKey = { __used: new Set() };
+  rows.forEach(r => { byKey[r.key] = r; });
+  // 구간 이름·옵션(quote_tier_labels) — 실패 null, 또는 10행이 아니면 이름 칸만 「불러오지 못했습니다」.
+  //   숫자 칸은 그대로 편집할 수 있다(이름 조회 실패가 금액 수정을 막지 않게).
+  let labelRows = null;
+  try { labelRows = (typeof fetchQuoteTierLabels === 'function') ? await fetchQuoteTierLabels() : null; } catch (_) { labelRows = null; }
+  let labels = null;
+  if (Array.isArray(labelRows) && labelRows.length === 10) {
+    labels = {}; labelRows.forEach(r => { labels[r.form_type + ':' + r.tier] = r; });
+  }
+  const o = { canEdit, labels };
+  // ⚠️ 「그 밖의 기준값」(quoteRestCard)은 **반드시 마지막** — 앞 카드들이 그린 칸을 byKey.__used 에 적어 두고,
+  //    남은 것만 그린다. 순서를 바꾸면 이미 그린 행이 한 번 더 나온다.
+  const html = quoteCommonCard(byKey, o) + quoteReviewerCard(byKey, o) + quoteSeedingCard(byKey, o) + quoteRestCard(byKey, rows, o);
+  // ⚠️ 아래 둘은 **조회가 끝난 뒤, 그리기 직전**에 잡는다 — 조회 중에도 사용자는 계속 칠 수 있다.
+  // 저장 → 다시 그리기 사이에 사용자가 다음 칸으로 옮겨 가 있을 수 있다 — 그 칸에 초점을 돌려준다
+  const focusKey = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('q-input')
+    ? document.activeElement.dataset.qkey : null;
+  // 🔴 아직 확정 안 한 입력을 지킨다 — 앞 칸 저장이 끝나 다시 그릴 때, 그사이 다른 칸에 치던 숫자가
+  //    서버 값으로 덮여 조용히 사라진다(여러 칸을 연달아 채울 때 실제로 겪는다). 바뀐 칸만 모아 뒤에 되돌린다.
+  const pending = {};
+  tbody.querySelectorAll('.q-input').forEach(el => { if (el.value !== el.dataset.orig) pending[el.dataset.qkey] = el.value; });
+  tbody.innerHTML = wrap(`<div class="q-board">${canEdit ? '' : '<p class="q-note">보기 전용입니다 — 수정은 캠페인 관리자 이상.</p>'}${html}</div>`);
+  if (scroller) scroller.scrollTop = keepTop;
+  Object.keys(pending).forEach(k => {
+    const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(k)}"]`);
+    if (el) { el.value = pending[k]; quoteSetEditing(el, true); quoteInputDirty(el); }   // data-orig 는 새 서버 값 — 「저장」을 누르면 그 차이로 저장된다
+  });
+  // 초점은 **고치던 칸**에만 돌려준다 — 방금 저장해 읽기 상태로 돌아간 칸에 돌려주면 다시 입력 상태로 열린다
+  if (focusKey && (focusKey in pending)) {
+    const el = tbody.querySelector(`.q-input[data-qkey="${CSS.escape(focusKey)}"]`);
+    if (el) el.focus({ preventScroll: true });
+  }
+}
+// 구간 이름·옵션 저장 — 한 칸만 고쳐도 함수는 두 값을 다 보낸다(안 고친 칸은 **원래 값**).
+const QUOTE_LABEL_REASON = {
+  forbidden: '권한이 없습니다 (캠페인 관리자 이상)',
+  unknown_tier: '없는 형식·구간입니다',
+  name_required: '구간 이름을 입력해 주세요',
+  name_too_long: '구간 이름은 ' + QUOTE_TIER_NAME_MAX + '자까지입니다',
+  option_too_long: '옵션 문구는 ' + QUOTE_TIER_OPTION_MAX + '자까지입니다',
+  invalid_text: '< > 기호는 쓸 수 없습니다',
+};
+async function saveQuoteTierLabel(input) {
+  const form = input.dataset.form, tier = input.dataset.tier, field = input.dataset.field;
+  const val = String(input.value || '').trim();
+  if (field === 'name' && !val) { toast('저장 실패: ' + QUOTE_LABEL_REASON.name_required); return false; }
+  if (/[<>]/.test(val)) { toast('저장 실패: ' + QUOTE_LABEL_REASON.invalid_text); return false; }
+  const other = document.querySelector(`#lookupsTableBody .q-input[data-kind="label"][data-form="${CSS.escape(form)}"][data-tier="${CSS.escape(tier)}"][data-field="${field === 'name' ? 'option' : 'name'}"]`);
+  const otherVal = other ? other.dataset.orig : '';
+  const name = field === 'name' ? val : otherVal;
+  const option = field === 'option' ? val : otherVal;
+  try {
+    const res = await updateQuoteTierLabel(form, tier, name, option);
+    if (!res || res.success !== true) {
+      toast('저장 실패: ' + (QUOTE_LABEL_REASON[res && res.reason] || (res && res.reason) || '알 수 없는 오류'));
+      return false;
+    }
+    toast('저장되었습니다. 이후 브랜드 폼과 새로 만드는 견적부터 적용됩니다.');
+    input.value = val; input.dataset.orig = val;   // 다시 그릴 때 「안 저장한 칸」으로 잡히지 않게(숫자 칸과 같은 이유)
+    await refreshPane('lookups');
+    return true;
+  } catch (e) {
+    toast(typeof friendlyError === 'function' ? friendlyError(e) : '저장에 실패했습니다.');
+    return false;
+  }
+}
+async function saveQuoteSetting(key, input, unit) {
+  const raw = Number(input && input.value);
+  if (!Number.isFinite(raw) || raw < 0) { toast('0 이상의 숫자를 입력해 주세요.'); return false; }
+  // 🔴 인원은 0·소수가 될 수 없다 — 0 이면 「0건 단추」가 생기고, 소수면 단추에 「50.5건」이 뜬다.
+  //    금액(0 원이 정상인 행이 있다)과 다르므로 이 단위에서만 막는다. 서버(454)가 최종 방어선.
+  if (unit === 'count' && (raw < 1 || !Number.isInteger(raw))) { toast('구간 인원은 1 이상의 정수여야 합니다.'); return false; }
+  const amount = unit === 'rate' ? raw / 100 : raw;
+  if (unit === 'rate' && amount > 1) { toast('비율은 100% 를 넘을 수 없습니다.'); return false; }
+  try {
+    const res = await updateQuoteSetting(key, amount);
+    if (!res || res.success !== true) {
+      // 🔴 tier_slots_not_ascending 은 서버가 돌려주는 코드와 **글자가 같아야** 한다 —
+      //    검사에는 최소 인원(`reviewer_tier_min_slots`·`seeding_tier_min_slots`)이 들어간다.
+      //    네 이름만 적으면 「최소 인원을 라이트보다 크게」 넣었을 때 왜 막혔는지 알 수 없다.
+      //    구간 인원이 오름차순이 아니면 단추와 판정이 말없이 어긋나 틀린 금액이 견적서에 찍힌다.
+      // ⚠️ 2026-09-21 부터 구간 인원이 리뷰어·시딩 따로라 서버가 어느 쪽인지(`form_type`)를 함께 준다.
+      //    옛 서버라 없으면 앞머리 없이 종전 문구 그대로.
+      const tierWho = ({ reviewer: '리뷰어 구간 ', seeding: '시딩 구간 ' })[res && res.form_type] || '';
+      const why = ({ forbidden: '권한이 없습니다 (캠페인 관리자 이상)', invalid_amount: '값이 올바르지 않습니다', unknown_key: '없는 항목입니다',
+                     tier_slots_not_ascending: tierWho + '시작 인원은 위에서 아래로 커져야 합니다(「최소」 줄의 시작 인원은 1구간 시작 인원과 같아도 됩니다)' })[res && res.reason] || (res && res.reason) || '저장 실패';
+      toast('저장 실패: ' + why); return false;
+    }
+    toast('저장되었습니다. 이후 제출되는 오리엔시트 견적부터 적용됩니다.');
+    // 🔴 다시 그리기 전에 이 칸의 「원래 값」을 새 값으로 — 안 그러면 다시 그릴 때 「아직 안 저장한 칸」으로
+    //    잘못 잡혀(renderQuoteSettingsTable 의 pending) 방금 저장한 칸이 입력 상태로 다시 열린다
+    if (input && input.dataset) input.dataset.orig = input.value;
+    await refreshPane('lookups');
+    return true;
+  } catch (e) {
+    toast(typeof friendlyError === 'function' ? friendlyError(e) : '저장에 실패했습니다.');
+    return false;
+  }
+}
+
 const RECRUIT_TYPE_LABEL_KO = {monitor:'리뷰어', gifting:'기프팅', visit:'방문형'};
 let _lookupReorderMode = false;
 // ════════════════════════════════════════════════════════════════════
@@ -39748,6 +40784,7 @@ function applyLookupModalKindUI(kind, recruitTypes) {
 }
 
 function openLookupAddModal() {
+  if (_currentLookupKind === 'quote_settings') { toast('견적 기준값은 항목을 추가하지 않습니다. 값만 수정할 수 있어요.'); return; }
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   if (_currentLookupKind === 'caution') { openCsetAddModal(); return; }
@@ -47669,8 +48706,11 @@ const REPORT_COLS = [
 //      (`deliverables.post_channel`) **세 곳을 함께** 옮겨야 한다. 하나만 바꾸면
 //      문자열 비교가 깨져 결과물이 화면·인증·정산 세 곳에서 동시에 사라진다
 //      (2026-07-30 @cosme 사고 — 승인된 인증샷 55건이 두 달간 안 보였다).
-//   🔴 **사본이 하나 더 있다** — acct 가 있는 네 채널의 「코드 ↔ 회원 표의 칸」 짝은 공유용 서버 함수
-//      `get_report_share_data`(마이그레이션 449) 안에도 적혀 있다. 계정 열이 있는 채널을 더하는 날은 **두 곳을 함께**.
+//   🔴 **계정 열이 있는 채널을 더하는 날은 「네 곳」을 함께 고친다** — 「두 곳」이 아니다(2026-09-18 정정).
+//      ①이 대장 ②공유용 서버 함수 `get_report_share_data`(449)의 코드 ↔ 회원 표 칸 짝
+//      ③`_excelSnsUrl` 의 채널별 주소 줄 ④`fetchInfluencersForReport`(storage.js)의 조회 칸.
+//      ⚠️ ①②만 고치면 **새 채널 계정이 화면까지 안 오는데 오류도 안 난다** — 조회에 칸이 없어 값이 비고,
+//         주소를 만들 줄이 없어 링크도 안 걸린다. 조용히 빈 칸으로 보인다.
 //   ⚠️ 기준 데이터에 채널을 더하면 여기도 한 줄 더한다. 빠뜨려도 결과물은 「기타 결과물」 칸으로 가므로 사라지지는 않는다.
 //   ⚠️ 상수로 두는 이유 — 공유 화면은 로그인이 없고 기준 데이터를 읽지 않는다.
 const REPORT_CHANNELS = [
@@ -47804,8 +48844,11 @@ function _reportLooksLikeAddress(v) {
 //   ⚠️ admin-excel.js 에서 옮겨 왔다(2026-09-17) — 공유 화면에는 admin-excel.js 가 없다. 이름 그대로.
 //   🔴 **틀린 주소를 조립하지 않는다.**
 //      · `extractSnsHandle`(shared.js)이 있는 자리(관리자)는 그것으로 아이디를 뽑아 공식 주소를 만든다.
-//      · 없는 자리(공유 화면)에서 저장된 값이 주소 모양(`http` 로 시작, 앞의 `@` 는 떼고 본다)이면
-//        **그 주소 그대로** 돌려준다. 예전처럼 「@ 떼기」만 하면 `instagram.com/https://…` 가 된다.
+//      · 저장된 값이 **주소**면 그대로 쓴다 — `http` 로 시작하면 그 주소 그대로, 스킴이 없으면
+//        `https://` 만 붙인다. 예전처럼 「@ 떼기」만 하면 `instagram.com/https://…` 가 된다.
+//      · 🔴 **주소 모양 판정은 「`http` 로 시작」이 아니다** — `_reportLooksLikeAddress`(빗금 있고 그 앞에 점)가
+//        정의처이고, 이 함수는 그것만 본다. 주석을 「`http` 로 시작」으로 좁혀 적으면 다음 사람이
+//        「스킴 없는 값은 아이디」로 읽어 2026-09-18 수정을 되돌린다(기획 세션 지적).
 //      · 유튜브 아이디가 채널 아이디(`UC…`) 모양이면 `/channel/` 주소다(아래 `case 'youtube'`).
 //        `/@UC…` 는 없는 주소다 — 관리자 엑셀에도 있던 결함이라 함께 고쳐진다.
 //        ⚠️ 이 줄은 2026-09-21 까지 없어진 `snsProfileUrl` 을 근거로 들고 있었다 — 그 함수는 지웠다.
@@ -50552,6 +51595,8 @@ async function openEditCampaign(campId) {
   validateCampDateRangesInline('editCamp', camp);
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、お申込の状態変更(当選)及びメールにてご連絡');
   sv('editCampDesc', camp.description||'');
+  // 자율/지정 선택 — 저장된 값 그대로(옛 판이면 「고르지 않음」). 라벨은 아래 applyDeadlineFieldsVisibility 가 세운다
+  sv('editCampPurchaseGuideMode', camp.purchase_guide_mode || '');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
@@ -52358,6 +53403,7 @@ async function saveCampaignEdit() {
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: editRecruitType,
+      purchase_guide_mode: campPurchaseGuideModeValue('edit'),   // 「고르지 않음」=NULL=옛 판(§4-12). 열어서 저장만 해서는 안 바뀐다 — 선택 칸이 원래 값으로 채워지기 때문
       channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
@@ -52623,6 +53669,8 @@ async function duplicateCampaign(campId) {
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, min_followers_by_channel: src.min_followers_by_channel || {}, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
+      // 본문(description)과 판 표시는 한 쌍이다 — 본문만 복사하면 복제본이 옛 판 이름 아래 새 판 문구를 그린다
+      purchase_guide_mode: src.purchase_guide_mode || null,
       // 🔴 가구매 표시(마이그레이션 197)도 이어받는다 — 안 넣으면 기본값 false 로 떨어져 복제본이
       //   영수증만이 아니라 리뷰·게시 인증샷까지 요구하게 되고, 인증 성공·정산·엑셀이 원본과 갈린다.
       proxy_purchase: !!src.proxy_purchase,
@@ -52922,7 +53970,7 @@ async function openDeletedCampDetail(campId) {
     ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
     ${row('삭제자', deletedByLabel)}
     ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
-    ${richBlock('제품 · 캠페인 설명', c.description)}
+    ${richBlock('제품 · 캠페인 설명·구매 가이드', c.description)}
     ${richBlock('소구 포인트', c.appeal)}
     ${richBlock('콘텐츠 가이드', c.guide)}
   `;
@@ -52980,6 +54028,7 @@ function buildPreviewCamp(mode) {
     reward: parseInt(val(g+'Reward'))||0,
     reward_note: val(g+'RewardNote') || null,
     recruit_type: recruitType,
+    purchase_guide_mode: campPurchaseGuideModeValue(mode),   // 「캠페인 설명/구매 가이드」 제목 판정용(§4-3) — 폼 객체라 조회가 아니다
     channel: channels.join(','),
     channel_match: channelMatch,
     content_types: contentTypes.join(','),
@@ -53077,9 +54126,9 @@ const CP_I18N = {
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
     evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、お申込の状態変更(当選)及びメールにてご連絡',
-    secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
+    secParticipation:'参加方法', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
-    secGuide:'撮影ガイド', secNg:'NG事項', secCaution:'注意事項',
+    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식·판별) · 캠페인 설명/구매 가이드 제목은 campaignDescSectionLabel(형식·판별)
   },
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
@@ -53102,9 +54151,9 @@ const CP_I18N = {
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
     evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 응모 상태 변경(당선) 및 메일로 연락',
-    secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
+    secParticipation:'참여 방법', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
-    secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
+    secNg:'NG 사항', secCaution:'주의사항',
   }
 };
 
@@ -53393,7 +54442,7 @@ function renderCampPreview(mode) {
           }).join('')}
         </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${esc(L.productPage)}</div>`:''}
-        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignDescSectionLabel(camp, lang))}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
           ${camp.hashtags?(()=>{
@@ -53407,7 +54456,7 @@ function renderCampPreview(mode) {
           })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${(() => {
           // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
           const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
@@ -54043,6 +55092,7 @@ async function addCampaign() {
     product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), min_followers_by_channel: (recruitType==='monitor') ? {} : minFollowersByChannelForSave('new', ch.split(',').filter(Boolean), document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or'), category:cat,
     recruit_type: recruitType,
+    purchase_guide_mode: campPurchaseGuideModeValue('new'),
     order_index: minOrder - 1,
     content_types: contentTypes,
     image_url: imgUrls[0],
@@ -54152,6 +55202,9 @@ async function addCampaign() {
   // 리치 에디터 초기화
   ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
+  // 자율/지정 선택도 비우고 라벨을 되돌린다 — 안 하면 직전 등록의 「구매 가이드」 이름이 남는다
+  { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = ''; }
+  applyCampDescLabel('new', '');
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
   await Promise.all([
@@ -54588,6 +55641,35 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   applyDeadlineFieldsVisibility(formMode, recruitType);
 }
 
+// 「캠페인 설명」 칸 이름 + 자율/지정 선택(사양서 2026-09-16 §4-3·§4-12)
+// 🔴 라벨을 다시 세우는 축이 둘이다 — 모집 형식 라디오(applyDeadlineFieldsVisibility)와 자율/지정 선택(onchange).
+//    두 곳이 이 함수 하나를 부른다. 두 벌로 쓰면 한쪽만 고쳐져 화면마다 이름이 갈린다.
+// ⚠️ 판정은 **화면의 현재 선택**으로 한다(저장된 값이 아니다) — 고르는 즉시 바뀌고, 저장 없이 나가면 되돌아간다.
+// 🔴 리뷰어형이 아니면 선택 칸을 **감추기만** 하고 값은 비우지 않는다 —
+//    형식 라디오를 잘못 눌렀다 되돌리는 것만으로 골라 둔 값이 사라지면 안 된다(리뷰어형 구매 기간에서 겪은 함정).
+function applyCampDescLabel(formMode, recruitType) {
+  const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const rtName = formMode === 'edit' ? 'editRecruitType' : 'recruitType';
+  const rt = recruitType || document.querySelector(`input[name="${rtName}"]:checked`)?.value || '';
+  const row = $(prefix + 'PgRow');
+  if (row) row.style.display = rt === 'monitor' ? '' : 'none';
+  const sel = $(prefix + 'PurchaseGuideMode');
+  const label = $(prefix + 'DescLabel');
+  const cur = { recruit_type: rt, purchase_guide_mode: sel ? sel.value : '' };
+  if (label) label.textContent = campaignDescSectionLabel(cur, 'ko');
+  // 「촬영 가이드 / 리뷰 가이드」 라벨도 같은 기준이라 여기서 함께 세운다(선택 축에서도 바뀌어야 한다)
+  const guideLabel = $(prefix + 'GuideLabel');
+  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(cur, 'ko');
+}
+
+// 저장에 실을 값 — 「고르지 않음」은 빈 문자열이 아니라 **NULL**(빈 문자열은 새 판으로 잘못 판정되고 444 CHECK 가 거부한다).
+// ⚠️ 리뷰어형이 아니어도 선택 칸의 값을 그대로 싣는다 — 감춤과 비움을 한 기준으로 묶지 않는다(§4-12)
+function campPurchaseGuideModeValue(formMode) {
+  const sel = $((formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PurchaseGuideMode');
+  const v = sel ? sel.value : '';
+  return (v === 'free' || v === 'fixed') ? v : null;
+}
+
 // Stage 1: 모집 타입별 기한 필드 표시/숨김 (monitor=구매기간, visit=방문기간)
 // 숨겨지는 필드는 값도 초기화 — 타입 변경 후 저장 시 잔여 값 DB 오염 방지
 //   savedCamp — 「저장된 두 기간이 다른가」 판정에 쓸 원본. 편집 폼을 여는 시점에는
@@ -54595,6 +55677,8 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
 //   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
 function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  // 「캠페인 설명 / 구매 가이드」·「촬영 / 리뷰 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(select onchange) 두 곳이 같은 함수를 부른다
+  applyCampDescLabel(formMode, recruitType);
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
   // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는
