@@ -4598,6 +4598,17 @@ async function addCampaign() {
 
   // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
   //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
+  // 오리엔시트 발행인데 브랜드를 시트와 다르게 골랐으면 결과를 알린다 — 입력 검증 뒤 **가장 먼저**(§3-1).
+  //   시트 브랜드를 모르면(값 없음) 띄우지 않는다 — 빈 값과 비교하면 발행마다 창이 뜬다
+  if (_opc && _opc.sheetBrandId && String(_opc.sheetBrandId) !== String(brandId)) {
+    const [_sheetName, _pickName] = await Promise.all([campBrandNameForConfirm(_opc.sheetBrandId), campBrandNameForConfirm(brandId)]);
+    const _goOn = await showConfirm(
+      `오리엔시트는 「${_sheetName}」 것인데 「${_pickName}」로 발행합니다.\n`
+      + `\n· 캠페인 번호는 「${_pickName}」 번호로 매겨집니다.`
+      + `\n· 오리엔시트는 「${_sheetName}」에 그대로 남고, 이 카드는 「발행됨」으로 표시됩니다.`,
+      '이대로 발행', '돌아가기');
+    if (!_goOn) return;
+  }
   if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──

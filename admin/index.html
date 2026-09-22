@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790046866';
+  var CURRENT_BUILD = 'v1790047062';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3262,7 +3262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 12:14 · c0512e9</span>
+          <span class="admin-build-text">2026-09-22 12:17 · 50c16d6</span>
         </div>
       </div>
     </aside>
@@ -21980,7 +21980,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
   // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
-  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase' };
+  // sheetBrandId — 발행 폼에서 브랜드를 바꿨는지 저장 직전에 비교하는 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-3)
+  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase', sheetBrandId: brandId || '' };
   // [2026-09-16 §4-3] 자율/지정 선택을 시트 값 그대로 골라 둔다 —
   //   🔴 본문만 채우고 이 선택을 비워 두면 **저장하는 순간 옛 판으로 떨어진다**(이름만 새 판이고 값이 NULL).
   //   ⚠️ 바로 위 switchAdminPane 이 이 칸을 비운 **뒤**에 넣는다(동기 함수라 순서가 보장된다). 라벨은 아래
@@ -54885,6 +54886,17 @@ async function addCampaign() {
 
   // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
   //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
+  // 오리엔시트 발행인데 브랜드를 시트와 다르게 골랐으면 결과를 알린다 — 입력 검증 뒤 **가장 먼저**(§3-1).
+  //   시트 브랜드를 모르면(값 없음) 띄우지 않는다 — 빈 값과 비교하면 발행마다 창이 뜬다
+  if (_opc && _opc.sheetBrandId && String(_opc.sheetBrandId) !== String(brandId)) {
+    const [_sheetName, _pickName] = await Promise.all([campBrandNameForConfirm(_opc.sheetBrandId), campBrandNameForConfirm(brandId)]);
+    const _goOn = await showConfirm(
+      `오리엔시트는 「${_sheetName}」 것인데 「${_pickName}」로 발행합니다.\n`
+      + `\n· 캠페인 번호는 「${_pickName}」 번호로 매겨집니다.`
+      + `\n· 오리엔시트는 「${_sheetName}」에 그대로 남고, 이 카드는 「발행됨」으로 표시됩니다.`,
+      '이대로 발행', '돌아가기');
+    if (!_goOn) return;
+  }
   if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
