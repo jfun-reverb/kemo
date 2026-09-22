@@ -287,7 +287,7 @@ function switchAdminPane(pane, el, pushHistory) {
     // 구매 가이드 자율/지정 — 🔴 라벨 판정(아래 applyDeadlineFieldsVisibility)보다 먼저 비운다.
     //   안 비우면 저장 안 하고 나갔다 들어온 새 등록에 지난 선택이 남아, 관계없는 캠페인이 조용히 「구매 가이드」 판으로 저장된다.
     //   「저장하지 않은 변경」 기준값도 이 블록 직후에 뜨므로 거기서도 안 잡힌다.
-    { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = ''; }
+    { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = 'free'; }   // 새 캠페인 기본 = 자율구매(「고르지 않음」 없음, 2026-09-22)
     // 오리엔 발행 자동 채움이 남긴 「선택되지 않은 채널」 경고 — 새 등록에 지난 경고가 남지 않게
     { const w = $('newCampChannelPrefillWarn'); if (w) w.remove(); }
     applyDeadlineFieldsVisibility('new', 'monitor');
