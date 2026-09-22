@@ -61,10 +61,19 @@ function osSalesBase() {
 function osBuildLink(token) { return osSalesBase() + '/orient?token=' + token; }
 
 // 만료 판정 (조회 함수는 status 미전환 — 클라에서 함께 판정)
+// 작성 링크의 기한이 지났는가 — 링크를 다시 보내도 되는지(메일 단추)·기한 글자 흐리게 판정용
+function osTokenExpired(s) {
+  return !!(s && s.token_expires_at && new Date(s.token_expires_at) < new Date());
+}
+// 만료 판정(상태·탭·사이드바 숫자용) — 조회 함수는 status 미전환이라 클라에서 함께 판정
+//   🔴 브랜드가 **제출한 시트는 기한이 지나도 「만료」가 아니다**(2026-09-22) — 작성 기한은 브랜드의
+//      작성·수정 기한이지 관리자의 발행 기한이 아니다. 예전엔 제출됐는데 기한만 지난 시트가
+//      「만료」로 바뀌어 「제출됨」 탭·사이드바 숫자에서 빠져 관리자가 놓쳤다(서버 상태는 submitted 라 발행은 됐다).
+//   ⚠️ 링크 재발송 여부는 이 함수가 아니라 osTokenExpired 로 본다 — 여기서 빠진 시트도 링크는 이미 죽어 있다.
 function osIsExpired(s) {
-  if (s.status === 'consumed') return false;
+  if (s.status === 'consumed' || s.status === 'submitted') return false;
   if (s.status === 'expired') return true;
-  return !!(s.token_expires_at && new Date(s.token_expires_at) < new Date());
+  return osTokenExpired(s);
 }
 // 카드 발행 수 — 부분 발행(카드 일부만 발행) 판정용. published = campaign_id 있는 "발행된 카드 수".
 // 삭제 경고용 osPublishedCampaignCount(DISTINCT 캠페인 수)와는 목적이 다름(정상 플로우는 카드당 고유 캠페인이라 값 일치).
@@ -228,7 +237,7 @@ function osRowHtml(s) {
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
-      ${(!osIsExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
+      ${(!osIsExpired(s) && !osTokenExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${esc(s.id)}')">상세</button>
       <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
