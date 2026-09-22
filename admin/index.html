@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790064558';
+  var CURRENT_BUILD = 'v1790064864';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3262,7 +3262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 17:09 · cfe4bd2</span>
+          <span class="admin-build-text">2026-09-22 17:14 · 1e94f07</span>
         </div>
       </div>
     </aside>
@@ -21105,8 +21105,11 @@ function osQuotePayload(s, historyIndex) {
   };
 }
 let _osQuoteDoc = null;   // 열려 있는 견적서 창의 상태 { payload, origin, onMsg, timer }
-function osOpenQuoteDoc(sheetId, historyIndex) {
-  const s = osFindSheetForQuote(sheetId);
+// sheetObj(선택) — 오리엔시트 화면 밖(캠페인 진행현황 비용 카드)에서 부를 때 그 시트를 직접 넘긴다.
+//   osFindSheetForQuote 는 _osDetailSheet·_orientSheets 만 보는데 그 화면에서는 둘 다 비어 있을 수 있다.
+//   기존 호출부(인자 하나·둘)는 영향 없다(사양서 2026-09-22-brand-ops-and-cost-card-orient §4)
+function osOpenQuoteDoc(sheetId, historyIndex, sheetObj) {
+  const s = (sheetObj && sheetObj.id === sheetId) ? sheetObj : osFindSheetForQuote(sheetId);
   const payload = s ? osQuotePayload(s, historyIndex) : null;
   if (!payload) { toast('견적서가 없습니다.'); return; }
   ensureOrientModals();
@@ -39331,10 +39334,14 @@ function campOpsEventStatusCard(camp) {
   </div>`;
 }
 
-// 비용 카드 — 권한(campaign_admin 이상) + 연결 신청 있을 때만. 비동기로 뒤에 붙임.
+// 비용 카드 — 권한(campaign_admin 이상). 비동기로 뒤에 붙임. 두 갈래(사양서 2026-09-22-brand-ops-and-cost-card-orient §4):
+//   ① 서베이 신청에 연결된 캠페인 → 종전 그대로(신청 기준)
+//   ② 아니면 그 캠페인과 이어진 오리엔시트의 견적 — 🔴 **전체 시트**에서 캠페인 id 로 찾는다
+//      (캠페인 브랜드 ≠ 시트 브랜드인 캠페인이 있다). 조회 실패·못 찾음이면 카드 없음(원래 없던 카드라 종전 상태)
 async function appendCampOpsCostCard(camp) {
   if (typeof isCampaignAdminOrAbove === 'function' && !isCampaignAdminOrAbove()) return;
-  if (!camp || !camp.source_application_id) return;
+  if (!camp) return;
+  if (!camp.source_application_id) { await appendCampOpsOrientCostCard(camp); return; }
   let app = null;
   try { app = await fetchBrandApplicationById(camp.source_application_id); } catch (e) { app = null; }
   // 비동기 사이 다른 캠페인으로 전환됐으면 중단 (stale 카드 방지)
@@ -39347,6 +39354,50 @@ async function appendCampOpsCostCard(camp) {
   //    이미 붙어 있으면 지우고 다시 붙인다.
   box.querySelectorAll('[data-cost-card]').forEach(el => el.remove());
   box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
+}
+
+// ② 오리엔시트 견적 비용 카드. 여러 시트에 걸리면(서버가 막아 방어용) 제출이 가장 늦은 시트 → 없으면 발급이 가장 늦은 시트
+var _campOpsCostSheet = null;   // 「견적서 열기」가 넘길 시트(osOpenQuoteDoc 셋째 인자)
+async function appendCampOpsOrientCostCard(camp) {
+  if (typeof fetchOrientSheets !== 'function' || typeof osQuoteState !== 'function') return;
+  let sheets = null;
+  try { sheets = await fetchOrientSheets(); } catch (e) { console.error('[appendCampOpsOrientCostCard]', e); sheets = null; }
+  if (currentCampApplicantId !== camp.id) return;   // 전환됐으면 중단
+  if (!Array.isArray(sheets)) return;               // 조회 실패 → 카드 없음(§2 ④)
+  const hits = sheets.filter(s => ((s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : []).some(c => c && c.campaign_id === camp.id));
+  if (!hits.length) return;
+  const key = s => [s.submitted_at ? 1 : 0, String(s.submitted_at || ''), String(s.created_at || '')];
+  hits.sort((a, b) => { const x = key(a), y = key(b);
+    return (y[0] - x[0]) || y[1].localeCompare(x[1]) || y[2].localeCompare(x[2]); });
+  const sheet = hits[0];
+  _campOpsCostSheet = sheet;
+  const box = $('campApplicantsSummary');
+  if (!box) return;
+  box.querySelectorAll('[data-cost-card]').forEach(el => el.remove());
+  box.insertAdjacentHTML('beforeend', campOpsOrientCostCard(sheet));
+}
+function campOpsOrientCostCard(sheet) {
+  const st = osQuoteState(sheet.data);
+  const krw = (typeof osKrw === 'function') ? osKrw : (n => Number(n || 0).toLocaleString('ko-KR') + '원');
+  const head = `<div class="camp-ops-card-title">비용</div>`;
+  if (st.kind === 'quote') {
+    const q = st.quote || {};
+    return `<div class="camp-ops-card" data-cost-card>${head}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">오리엔시트 ${esc(sheet.orient_no || '')} · ${esc(String(q.revision || 1))}차 견적 기준 (브랜드 제출 시점 예상 견적)</div>
+      <div class="camp-ops-row"><span class="k">합계(부가세 포함)</span><span class="v">${esc(krw(q.total_krw))}</span></div>
+      <div class="camp-ops-row"><span class="k">공급가</span><span class="v">${esc(krw(q.subtotal_krw))}</span></div>
+      <div class="camp-ops-row"><span class="k">부가세</span><span class="v">${esc(krw(q.vat_krw))}</span></div>
+      <div class="camp-ops-row"><span class="k">모집 인원 · 구간</span><span class="v">${esc(String(q.slots ?? '—'))}명${q.tier_name ? ' · ' + esc(q.tier_name) : ''}</span></div>
+      <div style="margin-top:8px"><button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc(_campOpsCostSheet && _campOpsCostSheet.id, undefined, _campOpsCostSheet)">견적서 열기</button></div>
+    </div>`;
+  }
+  const msg = (st.kind === 'error')
+    ? '견적 없음 — ' + ((typeof osQuoteErrorText === 'function') ? osQuoteErrorText(st.reason) : String(st.reason))
+    : '견적 없음(이 오리엔시트에는 견적이 없습니다)';
+  return `<div class="camp-ops-card" data-cost-card>${head}
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">오리엔시트 ${esc(sheet.orient_no || '')}</div>
+    <div style="font-size:12px;color:var(--muted)">${esc(msg)}</div>
+  </div>`;
 }
 
 function campOpsCostCard(app) {
