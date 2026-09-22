@@ -1673,7 +1673,8 @@ function renderBrandOrientSheetCard(s, campMap) {
       campTxt = first + (ids.length > 1 ? ' 외 ' + (ids.length - 1) + '건' : '');
     }
   }
-  var expired = (typeof osIsExpired === 'function') && osIsExpired(s);
+  // 기한 글자 흐리게 — 링크 기한이 지났는가(제출된 시트도 흐리게 보인다, 상태 판정과 따로)
+  var expired = (typeof osTokenExpired === 'function') ? osTokenExpired(s) : ((typeof osIsExpired === 'function') && osIsExpired(s));
   var dateTxt = '발급 ' + esc(formatDate(s.created_at))
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
