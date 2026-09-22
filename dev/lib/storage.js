@@ -1889,8 +1889,12 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
-// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17). 공유 화면 쪽 짝은
-//    get_report_share_data(449) — 채널 코드 ↔ 이 네 칸의 짝이 두 곳에 있다.
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17).
+// 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+//    ①REPORT_CHANNELS(report-rows.js) ②get_report_share_data(449)의 코드 ↔ 회원 표 칸 짝
+//    ③_excelSnsUrl 의 채널별 주소 줄 ④**바로 이 select 문** — 칸 이름이 글자로 나열돼 있다.
+//    ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(여기 칸이 없어 값이 비고,
+//       ③이 없어 링크도 안 걸린다 — 조용히 빈 칸으로 보인다).
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -5083,6 +5087,7 @@ async function getOrientSheet(token) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
 // 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
 async function saveOrientDraft(token, data, version) {
@@ -5111,6 +5116,7 @@ async function saveOrientDraft(token, data, version) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
 // 발행 전까지 재제출 가능(사양서 결정⑨).
 // 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
@@ -5144,17 +5150,77 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
-// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190 → 205 → 424) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
-// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
-// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
-// 반환: {success, id, token, token_expires_at} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId) {
+// [424] 4인자(brand_id, application_id, form_type, channel) — 관리자가 발급 때 형식(리뷰어/시딩)과
+//   시딩 채널(5종 중 하나)을 정한다. data 초기값은 두 갈래:
+//   · formType 있음 → {issued:{form_type,channel,issued_at}, brand:{name,contact_name,email,phone}, cards:[카드 1개]}
+//   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
+// 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
+//   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+// [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
+//   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
+//      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.
+//      안 보내면 옛 4인자 함수도, 새 5인자 함수(DEFAULT NULL)도 그대로 받는다 — 배포 순서가 뒤집혀도 평소 발급은 산다.
+async function createOrientSheet(brandId, applicationId, formType, channel, recruitFeeKrw) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
-    const { data, error } = await db.rpc('create_orient_sheet', {
+    const params = {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
+      p_form_type: formType || null,
+      p_channel: channel || null,
+    };
+    if (recruitFeeKrw !== null && recruitFeeKrw !== undefined) params.p_recruit_fee_krw = recruitFeeKrw;
+    const { data, error } = await db.rpc('create_orient_sheet', params);
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 기준값 (마이그레이션 426, 오리엔시트 단순화 2단계) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — 합치면 화면이 「환율 0」으로 그린다.
+async function fetchQuoteSettings() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_settings');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteSettings]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, key, prev_amount, amount} | {success:false, reason}
+async function updateQuoteSetting(key, amount) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_setting', { p_key: key, p_amount: amount });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
     });
     if (error) throw error;
     return data;

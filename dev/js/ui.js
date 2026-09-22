@@ -231,12 +231,20 @@ function formatDateTime(d) {
   if (isNaN(dt.getTime())) return '';
   return formatDate(dt) + ' ' + formatTimeHm(dt);
 }
-function dDayLabel(d) {
+// D배지 — 'D-Day' / 'D-n' / 'D+n'. 관리자 목록 전반이 이 규약을 쓴다.
+// opts.muted = 「기한은 남아 있지만 더 재촉할 일이 없다」 — 남은 날과 무관하게 항상 흐린 회색.
+//   ⚠️ 색만 죽이고 글자는 그대로 둔다. 글자 만드는 규칙을 따로 복사하면
+//      나중에 한쪽만 고쳐져 화면마다 다른 말을 한다(이 저장소의 반복 사고 유형).
+//   현재 쓰는 곳: 오리엔시트 목록의 작성기한(제출이 끝난 시트).
+function dDayLabel(d, opts) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
-  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+  const muted = !!(opts && opts.muted);
+  const color = muted ? 'var(--muted)' : diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  const bg = muted ? 'rgba(0,0,0,.03)' : 'rgba(0,0,0,.06)';
+  const extra = muted ? ';opacity:.55' : '';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:${bg};padding:1px 5px;border-radius:4px;margin-left:4px${extra}">${text}</span>`;
 }
 // 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
 //   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
@@ -492,6 +500,10 @@ document.addEventListener('keydown', (e) => {
     //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
     } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
       osCloseModal('orientDetailModal');
+    // 견적서 창은 닫을 때 끼워 넣은 화면을 비우고 메시지 수신기를 걷어야 한다 — 일반 closeModal 이면 둘 다 남는다.
+    //   ⚠️ 포커스가 끼워 넣은 화면(iframe) 안에 있으면 ESC 가 이 처리기에 안 온다(다른 출처) — 그때는 닫기 단추로 닫는다
+    } else if (top.id === 'orientQuoteModal' && typeof osCloseQuoteDoc === 'function') {
+      osCloseQuoteDoc();
     // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
     //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
     } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {

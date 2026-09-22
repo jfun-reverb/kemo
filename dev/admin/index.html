@@ -778,7 +778,17 @@
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="editCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="editCampPgRow" style="display:none;margin-bottom:8px">
+                <select id="editCampPurchaseGuideMode" class="form-input" style="max-width:220px" onchange="applyCampDescLabel('edit')">
+                  <option value="">구매 가이드: 고르지 않음</option>
+                  <option value="free">자율구매</option>
+                  <option value="fixed">지정구매</option>
+                </select>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">고르면 위 칸 이름이 「구매 가이드」로 바뀝니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
@@ -798,7 +808,7 @@
               </div>
             </div>
             <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="editCampAppeal"></div></div>
-            <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampGuideLabel">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div><!-- 라벨은 모집 형식에 따라 바뀐다(리뷰어형=리뷰 가이드, applyDeadlineFieldsVisibility) -->
             <!-- 참여방법: 요약 카드 + 편집 모달로 분리 (긴 인라인 편집 UI 는 모달 안으로 이동) -->
             <div class="bundle-summary-card" id="editCampPsetSummary" data-kind="pset" data-form-mode="edit">
               <div class="bundle-summary-label">참여방법</div>
@@ -1162,7 +1172,17 @@
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="newCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="newCampPgRow" style="display:none;margin-bottom:8px">
+                <select id="newCampPurchaseGuideMode" class="form-input" style="max-width:220px" onchange="applyCampDescLabel('new')">
+                  <option value="">구매 가이드: 고르지 않음</option>
+                  <option value="free">자율구매</option>
+                  <option value="fixed">지정구매</option>
+                </select>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">고르면 위 칸 이름이 「구매 가이드」로 바뀝니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_newCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="newCampHashtags" data-prefix="#"></div>
@@ -1176,7 +1196,7 @@
               </div>
             </div>
             <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="newCampAppeal"></div></div>
-            <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampGuideLabel">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div><!-- 라벨은 모집 형식에 따라 바뀐다(리뷰어형=리뷰 가이드, applyDeadlineFieldsVisibility) -->
             <!-- 참여방법: 요약 카드 + 편집 모달로 분리 -->
             <div class="bundle-summary-card" id="newCampPsetSummary" data-kind="pset" data-form-mode="new">
               <div class="bundle-summary-label">참여방법</div>
@@ -2702,10 +2722,11 @@
                   <th style="width:120px">발급일</th>
                   <th style="width:120px">작성 기한</th>
                   <th style="width:140px">제출일시</th>
+                  <th style="width:150px">견적</th>
                   <th style="width:70px">메모</th>
                   <th style="width:170px">관리</th>
                 </tr></thead>
-                <tbody id="orientTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+                <tbody id="orientTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2734,6 +2755,8 @@
               <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
               <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
               <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
+              <!-- 견적 기준값(426) — 카드를 더 넣지 않고 여덟 번째 종류 탭으로(목록형 레이아웃은 admin-card 하나만 — 작업표 stale ⑥) -->
+              <button class="lookup-tab" data-kind="quote_settings" onclick="switchLookupTab('quote_settings',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">견적 기준값</button>
             </div>
           </div>
 

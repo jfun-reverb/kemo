@@ -2553,3 +2553,58 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .gantt-prog-frac{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:34px}
 .gantt-prog-fill{height:100%;background:var(--accent);border-radius:3px}
 .gantt-row.child .gantt-prog-fill{background:#8E8E95}
+
+/* ── 견적 기준값 — 형식별 구간표 (admin-lookups.js renderQuoteSettingsTable, 2026-09-21) ── */
+.q-board { display: grid; gap: 16px; padding: 16px; }
+.q-card { border: 1px solid var(--outline); border-radius: 10px; background: var(--surface); padding: 14px 16px; overflow-x: auto; }
+.q-card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.q-card-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+.q-card-sub { font-size: 12px; color: var(--muted); }
+.q-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.q-table th, .q-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.q-table thead th { background: var(--th-bg); color: var(--th-fg); font-size: 12px; font-weight: 700; }
+.q-table tbody th { font-weight: 700; color: var(--ink); width: 1%; }
+.q-kv { margin-top: 10px; max-width: 520px; }
+.q-kv tbody th { font-weight: 600; width: 60%; }
+.q-range { color: var(--muted); font-size: 12px; }
+.q-scroll { overflow-x: auto; }
+.q-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.q-val-ro { font: inherit; font-weight: 700; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; }
+.q-val-ro.is-ph { background: #FEF3C7; border-color: #F59E0B; }
+.q-ph-tag { margin-left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: #D97706; border-radius: 4px; padding: 1px 5px; }
+.q-missing { color: var(--muted); }
+.q-warn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #92400E; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+.q-warn .material-icons-round { font-size: 16px; }
+/* 🔴 이 표들은 .data-table 안에 들어가 있어 `.data-table th` 의 어두운 머리 모양이 **줄 제목(tbody th)에도** 번진다 — 되돌린다 */
+.q-board .q-table th { position: static; }   /* 바깥 .admin-pane-list .data-table th 의 sticky 를 끈다 */
+.q-board .q-table tbody th { background: none; color: var(--ink); text-transform: none; letter-spacing: normal; }
+.q-tier { width: auto; min-width: 640px; }
+.q-tier td, .q-tier th { padding-right: 24px; }
+/* 값 칸 — 상자는 늘 보이고 평소엔 읽기 상태. 누르면 입력 상태 + 옆에 「저장」·「취소」(2026-09-21) */
+.q-in-wrap { display: inline-flex; align-items: center; gap: 4px; }
+.q-input { width: 96px; padding: 5px 8px; font: inherit; font-weight: 700; text-align: right; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--outline); border-radius: 6px; }
+.q-input:hover { border-color: var(--muted); }
+.q-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,.18); }
+.q-in-wrap.is-ph .q-input { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+.q-unit { font-size: 12px; color: var(--muted); }
+/* 🔴 행 구분선 — 이 표들은 바깥 .data-table 의 **한 줄(마지막 줄)** 안에 들어 있어
+   `.data-table tr:last-child td{border-bottom:none}` 이 안쪽 모든 칸의 선을 지운다. 명시도를 올려 되살린다 */
+.q-board .q-table tbody tr td, .q-board .q-table tbody tr th { border-bottom: 1px solid var(--outline); }
+.q-board .q-table tbody tr td, .q-board .q-table tbody tr th { background: var(--surface); }
+/* 🔴 바깥 `.data-table tr:hover td` 가 **카드 전체를 담은 한 줄**에 걸려 안쪽 모든 칸이 회색이 됐다 — 끈다 */
+.data-table tr.q-wrap-row:hover > td { background: var(--surface); }
+.q-act { display: inline-flex; gap: 4px; margin-left: 4px; }
+.q-act[hidden] { display: none; }
+.q-input[readonly] { background: var(--surface); cursor: pointer; }
+.q-input[readonly]:hover { border-color: var(--muted); }
+.q-in-wrap.is-editing .q-input { background: var(--surface); border-color: var(--primary); color: var(--ink); cursor: text; box-shadow: 0 0 0 2px rgba(99,102,241,.18); }
+/* 고쳤지만 아직 저장 안 한 칸 — 주황 테두리 */
+.q-in-wrap.is-editing.is-dirty .q-input { border-color: #D97706; box-shadow: 0 0 0 2px rgba(217,119,6,.2); }
+.q-in-wrap.is-ph .q-input[readonly] { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+/* 저장·취소 — 칸 옆에 붙는 작은 버튼(기본 btn-xs 보다 작게. 같은 방식: .faq-item-actions .btn-xs) */
+.q-act .btn-xs { padding: 2px 7px; font-size: 11px; line-height: 1.4; border-radius: 5px; }
+/* 구간 이름·옵션 문구 칸(글자) — 숫자 칸보다 넓게, 왼쪽 정렬 */
+.q-input.q-input-text { width: 104px; text-align: left; font-weight: 600; }
+.q-input.q-input-text.q-input-opt { width: 150px; font-weight: 500; }
+.q-muted { color: var(--muted); font-weight: 400; }

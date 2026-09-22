@@ -1150,6 +1150,8 @@ async function openEditCampaign(campId) {
   validateCampDateRangesInline('editCamp', camp);
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、お申込の状態変更(当選)及びメールにてご連絡');
   sv('editCampDesc', camp.description||'');
+  // 자율/지정 선택 — 저장된 값 그대로(옛 판이면 「고르지 않음」). 라벨은 아래 applyDeadlineFieldsVisibility 가 세운다
+  sv('editCampPurchaseGuideMode', camp.purchase_guide_mode || '');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
@@ -2956,6 +2958,7 @@ async function saveCampaignEdit() {
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: editRecruitType,
+      purchase_guide_mode: campPurchaseGuideModeValue('edit'),   // 「고르지 않음」=NULL=옛 판(§4-12). 열어서 저장만 해서는 안 바뀐다 — 선택 칸이 원래 값으로 채워지기 때문
       channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
@@ -3221,6 +3224,8 @@ async function duplicateCampaign(campId) {
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, min_followers_by_channel: src.min_followers_by_channel || {}, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
+      // 본문(description)과 판 표시는 한 쌍이다 — 본문만 복사하면 복제본이 옛 판 이름 아래 새 판 문구를 그린다
+      purchase_guide_mode: src.purchase_guide_mode || null,
       // 🔴 가구매 표시(마이그레이션 197)도 이어받는다 — 안 넣으면 기본값 false 로 떨어져 복제본이
       //   영수증만이 아니라 리뷰·게시 인증샷까지 요구하게 되고, 인증 성공·정산·엑셀이 원본과 갈린다.
       proxy_purchase: !!src.proxy_purchase,
@@ -3520,7 +3525,7 @@ async function openDeletedCampDetail(campId) {
     ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
     ${row('삭제자', deletedByLabel)}
     ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
-    ${richBlock('제품 · 캠페인 설명', c.description)}
+    ${richBlock('제품 · 캠페인 설명·구매 가이드', c.description)}
     ${richBlock('소구 포인트', c.appeal)}
     ${richBlock('콘텐츠 가이드', c.guide)}
   `;
@@ -3578,6 +3583,7 @@ function buildPreviewCamp(mode) {
     reward: parseInt(val(g+'Reward'))||0,
     reward_note: val(g+'RewardNote') || null,
     recruit_type: recruitType,
+    purchase_guide_mode: campPurchaseGuideModeValue(mode),   // 「캠페인 설명/구매 가이드」 제목 판정용(§4-3) — 폼 객체라 조회가 아니다
     channel: channels.join(','),
     channel_match: channelMatch,
     content_types: contentTypes.join(','),
@@ -3675,9 +3681,9 @@ const CP_I18N = {
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
     evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、お申込の状態変更(当選)及びメールにてご連絡',
-    secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
+    secParticipation:'参加方法', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
-    secGuide:'撮影ガイド', secNg:'NG事項', secCaution:'注意事項',
+    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식·판별) · 캠페인 설명/구매 가이드 제목은 campaignDescSectionLabel(형식·판별)
   },
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
@@ -3700,9 +3706,9 @@ const CP_I18N = {
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
     evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 응모 상태 변경(당선) 및 메일로 연락',
-    secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
+    secParticipation:'참여 방법', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
-    secGuide:'촬영 가이드', secNg:'NG 사항', secCaution:'주의사항',
+    secNg:'NG 사항', secCaution:'주의사항',
   }
 };
 
@@ -3991,7 +3997,7 @@ function renderCampPreview(mode) {
           }).join('')}
         </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${esc(L.productPage)}</div>`:''}
-        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignDescSectionLabel(camp, lang))}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
           ${camp.hashtags?(()=>{
@@ -4005,7 +4011,7 @@ function renderCampPreview(mode) {
           })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuide)}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${(() => {
           // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
           const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
@@ -4641,6 +4647,7 @@ async function addCampaign() {
     product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), min_followers_by_channel: (recruitType==='monitor') ? {} : minFollowersByChannelForSave('new', ch.split(',').filter(Boolean), document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or'), category:cat,
     recruit_type: recruitType,
+    purchase_guide_mode: campPurchaseGuideModeValue('new'),
     order_index: minOrder - 1,
     content_types: contentTypes,
     image_url: imgUrls[0],
@@ -4750,6 +4757,9 @@ async function addCampaign() {
   // 리치 에디터 초기화
   ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
+  // 자율/지정 선택도 비우고 라벨을 되돌린다 — 안 하면 직전 등록의 「구매 가이드」 이름이 남는다
+  { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = ''; }
+  applyCampDescLabel('new', '');
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
   await Promise.all([
@@ -5186,6 +5196,35 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   applyDeadlineFieldsVisibility(formMode, recruitType);
 }
 
+// 「캠페인 설명」 칸 이름 + 자율/지정 선택(사양서 2026-09-16 §4-3·§4-12)
+// 🔴 라벨을 다시 세우는 축이 둘이다 — 모집 형식 라디오(applyDeadlineFieldsVisibility)와 자율/지정 선택(onchange).
+//    두 곳이 이 함수 하나를 부른다. 두 벌로 쓰면 한쪽만 고쳐져 화면마다 이름이 갈린다.
+// ⚠️ 판정은 **화면의 현재 선택**으로 한다(저장된 값이 아니다) — 고르는 즉시 바뀌고, 저장 없이 나가면 되돌아간다.
+// 🔴 리뷰어형이 아니면 선택 칸을 **감추기만** 하고 값은 비우지 않는다 —
+//    형식 라디오를 잘못 눌렀다 되돌리는 것만으로 골라 둔 값이 사라지면 안 된다(리뷰어형 구매 기간에서 겪은 함정).
+function applyCampDescLabel(formMode, recruitType) {
+  const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const rtName = formMode === 'edit' ? 'editRecruitType' : 'recruitType';
+  const rt = recruitType || document.querySelector(`input[name="${rtName}"]:checked`)?.value || '';
+  const row = $(prefix + 'PgRow');
+  if (row) row.style.display = rt === 'monitor' ? '' : 'none';
+  const sel = $(prefix + 'PurchaseGuideMode');
+  const label = $(prefix + 'DescLabel');
+  const cur = { recruit_type: rt, purchase_guide_mode: sel ? sel.value : '' };
+  if (label) label.textContent = campaignDescSectionLabel(cur, 'ko');
+  // 「촬영 가이드 / 리뷰 가이드」 라벨도 같은 기준이라 여기서 함께 세운다(선택 축에서도 바뀌어야 한다)
+  const guideLabel = $(prefix + 'GuideLabel');
+  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(cur, 'ko');
+}
+
+// 저장에 실을 값 — 「고르지 않음」은 빈 문자열이 아니라 **NULL**(빈 문자열은 새 판으로 잘못 판정되고 444 CHECK 가 거부한다).
+// ⚠️ 리뷰어형이 아니어도 선택 칸의 값을 그대로 싣는다 — 감춤과 비움을 한 기준으로 묶지 않는다(§4-12)
+function campPurchaseGuideModeValue(formMode) {
+  const sel = $((formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PurchaseGuideMode');
+  const v = sel ? sel.value : '';
+  return (v === 'free' || v === 'fixed') ? v : null;
+}
+
 // Stage 1: 모집 타입별 기한 필드 표시/숨김 (monitor=구매기간, visit=방문기간)
 // 숨겨지는 필드는 값도 초기화 — 타입 변경 후 저장 시 잔여 값 DB 오염 방지
 //   savedCamp — 「저장된 두 기간이 다른가」 판정에 쓸 원본. 편집 폼을 여는 시점에는
@@ -5193,6 +5232,8 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
 //   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
 function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  // 「캠페인 설명 / 구매 가이드」·「촬영 / 리뷰 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(select onchange) 두 곳이 같은 함수를 부른다
+  applyCampDescLabel(formMode, recruitType);
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
   // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는
