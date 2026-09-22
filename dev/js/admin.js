@@ -1249,11 +1249,11 @@ async function openEditCampaign(campId) {
   //   원본 마감일과 비교해야 하기 때문(2026-07-30. 누락된 채로 배포해 확인창이 한 번도 뜨지 않았다).
   _editCampOriginal = {
     id: camp.id,
-    version: camp.version || 1,
+    version: camp.version || 1,   // 동시 저장 방어 — 편집 화면을 연 시점의 버전(마이그레이션 275)
     // 브랜드 — 저장 때 「브랜드를 바꿨는지」 확인 창의 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-2).
     //   ⚠️ 이 키가 없으면 그 창이 죽은 코드가 된다(아래 deadline·channel 이 같은 이유로 죽었던 선례)
     brand_id: camp.brand_id || '',
-    campaign_no: camp.campaign_no || '',   // 동시 저장 방어 — 편집 화면을 연 시점의 버전(마이그레이션 275)
+    campaign_no: camp.campaign_no || '',
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
