@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790119628';
+  var CURRENT_BUILD = 'v1790121329';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1924,8 +1924,8 @@ input.admin-filter{padding-right:8px}
 
 /* 가격체크 드롭다운 (제품별 4상태) — 신청 목록 페인 「가격체크」 컬럼.
    마켓 등록 가격과 신청 금액 비교 결과 (가격높음/낮음/동일) 또는 미선택. */
-.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
-.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background-color:#fafafa;font-weight:400}
+.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
+.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--line);background-color:#fafafa;font-weight:400}
 .brand-app-pricecheck-select.pc-higher{background-color:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
 .brand-app-pricecheck-select.pc-lower{background-color:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
 .brand-app-pricecheck-select.pc-equal{background-color:#EEEEEE;color:#555555;border-color:#D0D0D0}
@@ -3268,7 +3268,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-23 08:27 · c68b605</span>
+          <span class="admin-build-text">2026-09-23 08:55 · a80b30b</span>
         </div>
       </div>
     </aside>
@@ -23992,7 +23992,7 @@ function renderBrandOrientSheetCard(s, campMap) {
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
   var quoteTxt = (typeof osQuoteSummaryLine === 'function') ? (osQuoteSummaryLine(s) || '') : '';
-  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card)">'
+  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
       + ((typeof osCardsSummary === 'function') ? osCardsSummary(d) : '')
