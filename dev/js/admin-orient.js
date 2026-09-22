@@ -1211,8 +1211,11 @@ function osQuotePayload(s, historyIndex) {
   };
 }
 let _osQuoteDoc = null;   // 열려 있는 견적서 창의 상태 { payload, origin, onMsg, timer }
-function osOpenQuoteDoc(sheetId, historyIndex) {
-  const s = osFindSheetForQuote(sheetId);
+// sheetObj(선택) — 오리엔시트 화면 밖(캠페인 진행현황 비용 카드)에서 부를 때 그 시트를 직접 넘긴다.
+//   osFindSheetForQuote 는 _osDetailSheet·_orientSheets 만 보는데 그 화면에서는 둘 다 비어 있을 수 있다.
+//   기존 호출부(인자 하나·둘)는 영향 없다(사양서 2026-09-22-brand-ops-and-cost-card-orient §4)
+function osOpenQuoteDoc(sheetId, historyIndex, sheetObj) {
+  const s = (sheetObj && sheetObj.id === sheetId) ? sheetObj : osFindSheetForQuote(sheetId);
   const payload = s ? osQuotePayload(s, historyIndex) : null;
   if (!payload) { toast('견적서가 없습니다.'); return; }
   ensureOrientModals();
