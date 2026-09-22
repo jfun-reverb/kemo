@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790064864';
+  var CURRENT_BUILD = 'v1790066962';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3262,7 +3262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 17:14 · 1e94f07</span>
+          <span class="admin-build-text">2026-09-22 17:49 · a408cd8</span>
         </div>
       </div>
     </aside>
@@ -8303,13 +8303,17 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
-// 「촬영 가이드」 칸의 이름표 — 리뷰어형(monitor)은 「리뷰 가이드」(2026-09-10 사용자 지시).
+// 「촬영 가이드」 칸의 이름표 — **새 판 리뷰어형**(자율/지정을 고른 캠페인)만 「리뷰 가이드」(2026-09-10 지시 → 2026-09-22 범위 축소).
+//   🔴 판정은 「캠페인 설명 / 구매 가이드」(campaignDescSectionLabel)와 **같은 기준**이다 — 형식만 보고 바꾸면
+//     운영 중인 리뷰어형 캠페인 전부의 제목이 한꺼번에 바뀌어 혼선이 생긴다(2026-09-22 사용자 지적).
+//     두 이름표는 짝이라 한쪽만 새 이름이 되지 않게 같은 조건을 쓴다.
 //   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
 //   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
-function campaignGuideSectionLabel(recruitType, lang) {
-  const isReview = recruitType === 'monitor';
-  if (lang === 'ja') return isReview ? 'レビューガイド' : '撮影ガイド';
-  return isReview ? '리뷰 가이드' : '촬영 가이드';
+function campaignGuideSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? 'レビューガイド' : '撮影ガイド';
+  return isNew ? '리뷰 가이드' : '촬영 가이드';
 }
 
 // 「캠페인 설명」 칸의 화면 이름 (사양서 2026-09-16 §4-3·§4-12)
@@ -54124,7 +54128,7 @@ const CP_I18N = {
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、お申込の状態変更(当選)及びメールにてご連絡',
     secParticipation:'参加方法', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
-    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식별) · 캠페인 설명/구매 가이드 제목은 campaignDescSectionLabel(형식·판별)
+    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식·판별) · 캠페인 설명/구매 가이드 제목은 campaignDescSectionLabel(형식·판별)
   },
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
@@ -54452,7 +54456,7 @@ function renderCampPreview(mode) {
           })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp.recruit_type, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${(() => {
           // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
           const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
@@ -55651,7 +55655,11 @@ function applyCampDescLabel(formMode, recruitType) {
   if (row) row.style.display = rt === 'monitor' ? '' : 'none';
   const sel = $(prefix + 'PurchaseGuideMode');
   const label = $(prefix + 'DescLabel');
-  if (label) label.textContent = campaignDescSectionLabel({ recruit_type: rt, purchase_guide_mode: sel ? sel.value : '' }, 'ko');
+  const cur = { recruit_type: rt, purchase_guide_mode: sel ? sel.value : '' };
+  if (label) label.textContent = campaignDescSectionLabel(cur, 'ko');
+  // 「촬영 가이드 / 리뷰 가이드」 라벨도 같은 기준이라 여기서 함께 세운다(선택 축에서도 바뀌어야 한다)
+  const guideLabel = $(prefix + 'GuideLabel');
+  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(cur, 'ko');
 }
 
 // 저장에 실을 값 — 「고르지 않음」은 빈 문자열이 아니라 **NULL**(빈 문자열은 새 판으로 잘못 판정되고 444 CHECK 가 거부한다).
@@ -55669,10 +55677,7 @@ function campPurchaseGuideModeValue(formMode) {
 //   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
 function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
-  // 「촬영 가이드」 라벨 — 리뷰어형이면 「리뷰 가이드」(2026-09-10 사용자 지시). 형식이 바뀌는 모든 경로가 이 함수를 지난다
-  const guideLabel = $(prefix + 'GuideLabel');
-  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(recruitType, 'ko');
-  // 「캠페인 설명 / 구매 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(select onchange) 두 곳이 같은 함수를 부른다
+  // 「캠페인 설명 / 구매 가이드」·「촬영 / 리뷰 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(select onchange) 두 곳이 같은 함수를 부른다
   applyCampDescLabel(formMode, recruitType);
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');

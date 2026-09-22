@@ -407,13 +407,17 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
-// 「촬영 가이드」 칸의 이름표 — 리뷰어형(monitor)은 「리뷰 가이드」(2026-09-10 사용자 지시).
+// 「촬영 가이드」 칸의 이름표 — **새 판 리뷰어형**(자율/지정을 고른 캠페인)만 「리뷰 가이드」(2026-09-10 지시 → 2026-09-22 범위 축소).
+//   🔴 판정은 「캠페인 설명 / 구매 가이드」(campaignDescSectionLabel)와 **같은 기준**이다 — 형식만 보고 바꾸면
+//     운영 중인 리뷰어형 캠페인 전부의 제목이 한꺼번에 바뀌어 혼선이 생긴다(2026-09-22 사용자 지적).
+//     두 이름표는 짝이라 한쪽만 새 이름이 되지 않게 같은 조건을 쓴다.
 //   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
 //   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
-function campaignGuideSectionLabel(recruitType, lang) {
-  const isReview = recruitType === 'monitor';
-  if (lang === 'ja') return isReview ? 'レビューガイド' : '撮影ガイド';
-  return isReview ? '리뷰 가이드' : '촬영 가이드';
+function campaignGuideSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? 'レビューガイド' : '撮影ガイド';
+  return isNew ? '리뷰 가이드' : '촬영 가이드';
 }
 
 // 「캠페인 설명」 칸의 화면 이름 (사양서 2026-09-16 §4-3·§4-12)
