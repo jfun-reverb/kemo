@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790055776';
+  var CURRENT_BUILD = 'v1790060909';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 14:42 · 6e92748</span>
+          <span class="admin-build-text">2026-09-22 16:08 · 1ad2992</span>
         </div>
       </div>
     </aside>
@@ -19770,10 +19770,19 @@ function osSalesBase() {
 function osBuildLink(token) { return osSalesBase() + '/orient?token=' + token; }
 
 // 만료 판정 (조회 함수는 status 미전환 — 클라에서 함께 판정)
+// 작성 링크의 기한이 지났는가 — 링크를 다시 보내도 되는지(메일 단추)·기한 글자 흐리게 판정용
+function osTokenExpired(s) {
+  return !!(s && s.token_expires_at && new Date(s.token_expires_at) < new Date());
+}
+// 만료 판정(상태·탭·사이드바 숫자용) — 조회 함수는 status 미전환이라 클라에서 함께 판정
+//   🔴 브랜드가 **제출한 시트는 기한이 지나도 「만료」가 아니다**(2026-09-22) — 작성 기한은 브랜드의
+//      작성·수정 기한이지 관리자의 발행 기한이 아니다. 예전엔 제출됐는데 기한만 지난 시트가
+//      「만료」로 바뀌어 「제출됨」 탭·사이드바 숫자에서 빠져 관리자가 놓쳤다(서버 상태는 submitted 라 발행은 됐다).
+//   ⚠️ 링크 재발송 여부는 이 함수가 아니라 osTokenExpired 로 본다 — 여기서 빠진 시트도 링크는 이미 죽어 있다.
 function osIsExpired(s) {
-  if (s.status === 'consumed') return false;
+  if (s.status === 'consumed' || s.status === 'submitted') return false;
   if (s.status === 'expired') return true;
-  return !!(s.token_expires_at && new Date(s.token_expires_at) < new Date());
+  return osTokenExpired(s);
 }
 // 카드 발행 수 — 부분 발행(카드 일부만 발행) 판정용. published = campaign_id 있는 "발행된 카드 수".
 // 삭제 경고용 osPublishedCampaignCount(DISTINCT 캠페인 수)와는 목적이 다름(정상 플로우는 카드당 고유 캠페인이라 값 일치).
@@ -19937,7 +19946,7 @@ function osRowHtml(s) {
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
-      ${(!osIsExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
+      ${(!osIsExpired(s) && !osTokenExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${esc(s.id)}')">상세</button>
       <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
@@ -23307,10 +23316,12 @@ function renderBrandOrientSheetCard(s, campMap) {
       campTxt = first + (ids.length > 1 ? ' 외 ' + (ids.length - 1) + '건' : '');
     }
   }
-  var expired = (typeof osIsExpired === 'function') && osIsExpired(s);
+  // 기한 글자 흐리게 — 링크 기한이 지났는가(제출된 시트도 흐리게 보인다, 상태 판정과 따로)
+  var expired = (typeof osTokenExpired === 'function') ? osTokenExpired(s) : ((typeof osIsExpired === 'function') && osIsExpired(s));
   var dateTxt = '발급 ' + esc(formatDate(s.created_at))
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
+  var quoteTxt = (typeof osQuoteSummaryLine === 'function') ? (osQuoteSummaryLine(s) || '') : '';
   return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card)">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
@@ -23323,8 +23334,12 @@ function renderBrandOrientSheetCard(s, campMap) {
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px">'
       + '<span style="color:var(--ink)">' + esc(productTxt) + '</span>'
-      + '<span style="color:var(--muted)">·</span>'
-      + '<span style="color:var(--muted)">' + esc((typeof osQuoteSummaryLine === 'function') ? osQuoteSummaryLine(s) : '') + '</span>'
+      // 🔴 견적 글이 비면 **구분점까지 함께** 뺀다 — 안 그러면 「제품명 · 」처럼 점만 남는다.
+      //    비는 경우가 실제로 있다: **견적 기능이 없는 서버**에서는 `osQuoteSummaryLine` 자체가
+      //    없다(오리엔시트 개편이 아직 안 나간 판). 그 서버에서는 이 줄이 통째로 안 나오는 것이 맞다 —
+      //    없는 기능의 자리를 비워 두면 운영자가 「왜 비었나」를 찾게 된다.
+      + (quoteTxt ? '<span style="color:var(--muted)">·</span>'
+                  + '<span style="color:var(--muted)">' + esc(quoteTxt) + '</span>' : '')
       + '<span style="flex:1"></span>'
       + (campTxt ? '<span style="font-size:11px;color:var(--muted)">' + esc(campTxt) + '</span>' : '')
     + '</div>'
