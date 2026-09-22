@@ -288,6 +288,10 @@ function switchAdminPane(pane, el, pushHistory) {
     //   안 비우면 저장 안 하고 나갔다 들어온 새 등록에 지난 선택이 남아, 관계없는 캠페인이 조용히 「구매 가이드」 판으로 저장된다.
     //   「저장하지 않은 변경」 기준값도 이 블록 직후에 뜨므로 거기서도 안 잡힌다.
     setCampPgMode('new', 'free');   // 새 캠페인 기본 = 자율구매(「고르지 않음」 없음, 2026-09-22)
+    // 채널 매칭(or/&)도 기본값 「or」로 되돌린다 — 안 되돌리면 「&」로 저장한 직후 새 폼에서
+    //   채널을 2개 이상 고르는 순간 「&」가 켜진 채 나타나, 관계없는 캠페인이 조용히 「모두 해당」으로 저장된다.
+    { document.querySelectorAll('input[name="newChannelMatch"]').forEach(r => { r.checked = (r.value === 'or'); });
+      if (typeof applyFollowerKindUI === 'function') applyFollowerKindUI('new'); }
     // 오리엔 발행 자동 채움이 남긴 「선택되지 않은 채널」 경고 — 새 등록에 지난 경고가 남지 않게
     { const w = $('newCampChannelPrefillWarn'); if (w) w.remove(); }
     applyDeadlineFieldsVisibility('new', 'monitor');
