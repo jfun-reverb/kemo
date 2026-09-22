@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790075515';
+  var CURRENT_BUILD = 'v1790075832';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3262,7 +3262,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 20:11 · 4357dbe</span>
+          <span class="admin-build-text">2026-09-22 20:17 · 33db442</span>
         </div>
       </div>
     </aside>
@@ -3878,7 +3878,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="camp-pg-row" id="editCampPgRow" style="display:none;margin-bottom:8px">
                 <!-- 「고르지 않음」은 옛 캠페인(값이 빈 캠페인)에서만 고를 수 있다 — 이미 새 방식으로 저장된 캠페인은 그 라디오를 감춘다(openEditCampaign) -->
                 <div class="camp-pg-radios" role="radiogroup" aria-label="구매 가이드">
-                  <span style="font-size:12px;font-weight:600;color:var(--muted);margin-right:10px">구매 가이드</span>
                   <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="editCampPgMode" id="editCampPgFree" value="free" onchange="applyCampDescLabel('edit')" style="accent-color:var(--pink);vertical-align:middle"> 자율구매</label>
                   <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="editCampPgMode" id="editCampPgFixed" value="fixed" onchange="applyCampDescLabel('edit')" style="accent-color:var(--pink);vertical-align:middle"> 지정구매</label>
                   <label style="font-size:13px;cursor:pointer;margin-right:14px" id="editCampPgNoneLabel"><input type="radio" name="editCampPgMode" id="editCampPgNone" value="" onchange="applyCampDescLabel('edit')" style="accent-color:var(--pink);vertical-align:middle"> 고르지 않음 (예전 방식)</label>
@@ -4274,7 +4273,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div class="camp-pg-row" id="newCampPgRow" style="display:none;margin-bottom:8px">
                 <!-- 🔴 새 캠페인에는 「고르지 않음」이 없다(2026-09-22 사용자 결정) — 옛 이름(캠페인 설명·촬영 가이드)은 이미 만들어진 캠페인에만 남긴다. 기본값 자율구매 -->
                 <div class="camp-pg-radios" role="radiogroup" aria-label="구매 가이드">
-                  <span style="font-size:12px;font-weight:600;color:var(--muted);margin-right:10px">구매 가이드</span>
                   <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="newCampPgMode" id="newCampPgFree" value="free" checked onchange="applyCampDescLabel('new')" style="accent-color:var(--pink);vertical-align:middle"> 자율구매</label>
                   <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="newCampPgMode" id="newCampPgFixed" value="fixed" onchange="applyCampDescLabel('new')" style="accent-color:var(--pink);vertical-align:middle"> 지정구매</label>
                 </div>
