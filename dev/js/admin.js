@@ -1151,9 +1151,10 @@ async function openEditCampaign(campId) {
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、お申込の状態変更(当選)及びメールにてご連絡');
   sv('editCampDesc', camp.description||'');
   // 자율/지정 선택 — 저장된 값 그대로(옛 판이면 「고르지 않음」). 라벨은 아래 applyDeadlineFieldsVisibility 가 세운다
-  sv('editCampPurchaseGuideMode', camp.purchase_guide_mode || '');
-  // 이미 새 방식(자율/지정)으로 저장된 캠페인은 「고르지 않음」으로 되돌리지 못하게 — 옛 이름은 옛 캠페인에만 남긴다(2026-09-22)
-  { const none = $('editCampPgNone'); if (none) none.disabled = !!camp.purchase_guide_mode; }
+  setCampPgMode('edit', camp.purchase_guide_mode || '');
+  // 이미 새 방식(자율/지정)으로 저장된 캠페인은 「고르지 않음」을 감춘다 — 옛 이름은 옛 캠페인에만 남긴다(2026-09-22)
+  { const none = $('editCampPgNone'); if (none) none.disabled = !!camp.purchase_guide_mode;
+    const nl = $('editCampPgNoneLabel'); if (nl) nl.style.display = camp.purchase_guide_mode ? 'none' : ''; }
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
@@ -4761,7 +4762,7 @@ async function addCampaign() {
   ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   // 자율/지정 선택도 비우고 라벨을 되돌린다 — 안 하면 직전 등록의 「구매 가이드」 이름이 남는다
-  { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = 'free'; }   // 새 캠페인 기본 = 자율구매(2026-09-22)
+  setCampPgMode('new', 'free');   // 새 캠페인 기본 = 자율구매(2026-09-22)
   applyCampDescLabel('new', '');
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
@@ -5211,20 +5212,30 @@ function applyCampDescLabel(formMode, recruitType) {
   const rt = recruitType || document.querySelector(`input[name="${rtName}"]:checked`)?.value || '';
   const row = $(prefix + 'PgRow');
   if (row) row.style.display = rt === 'monitor' ? '' : 'none';
-  const sel = $(prefix + 'PurchaseGuideMode');
   const label = $(prefix + 'DescLabel');
-  const cur = { recruit_type: rt, purchase_guide_mode: sel ? sel.value : '' };
+  const cur = { recruit_type: rt, purchase_guide_mode: getCampPgMode(formMode) };
   if (label) label.textContent = campaignDescSectionLabel(cur, 'ko');
   // 「촬영 가이드 / 리뷰 가이드」 라벨도 같은 기준이라 여기서 함께 세운다(선택 축에서도 바뀌어야 한다)
   const guideLabel = $(prefix + 'GuideLabel');
   if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(cur, 'ko');
 }
 
+// 자율/지정 라디오 읽기·쓰기 — 라디오 이름은 newCampPgMode / editCampPgMode. 값을 만지는 자리는 이 둘로만(2026-09-22 드롭다운→라디오)
+//   ⚠️ 아무것도 안 골라져 있으면 '' 를 준다 — 저장 쪽(campPurchaseGuideModeValue)이 NULL(옛 판)로 바꾼다
+function getCampPgMode(formMode) {
+  const nm = (formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PgMode';
+  return document.querySelector(`input[name="${nm}"]:checked`)?.value || '';
+}
+function setCampPgMode(formMode, value) {
+  const nm = (formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PgMode';
+  const v = value == null ? '' : String(value);
+  document.querySelectorAll(`input[name="${nm}"]`).forEach(r => { r.checked = (r.value === v); });
+}
+
 // 저장에 실을 값 — 「고르지 않음」은 빈 문자열이 아니라 **NULL**(빈 문자열은 새 판으로 잘못 판정되고 444 CHECK 가 거부한다).
 // ⚠️ 리뷰어형이 아니어도 선택 칸의 값을 그대로 싣는다 — 감춤과 비움을 한 기준으로 묶지 않는다(§4-12)
 function campPurchaseGuideModeValue(formMode) {
-  const sel = $((formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PurchaseGuideMode');
-  const v = sel ? sel.value : '';
+  const v = getCampPgMode(formMode);
   return (v === 'free' || v === 'fixed') ? v : null;
 }
 
@@ -5235,7 +5246,7 @@ function campPurchaseGuideModeValue(formMode) {
 //   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
 function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
-  // 「캠페인 설명 / 구매 가이드」·「촬영 / 리뷰 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(select onchange) 두 곳이 같은 함수를 부른다
+  // 「캠페인 설명 / 구매 가이드」·「촬영 / 리뷰 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(라디오 onchange) 두 곳이 같은 함수를 부른다
   applyCampDescLabel(formMode, recruitType);
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');

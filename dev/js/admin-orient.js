@@ -2117,7 +2117,7 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   //   ⚠️ 바로 위 switchAdminPane 이 이 칸을 비운 **뒤**에 넣는다(동기 함수라 순서가 보장된다). 라벨은 아래
   //      applyDeadlineFieldsVisibility 와 라디오 change 가 이 값을 읽어 세운다.
   const pgMode = osPurchaseGuideMode(card, isNew);
-  osSetVal('newCampPurchaseGuideMode', pgMode || 'free');   // 새 등록 폼에는 「고르지 않음」이 없다 — 옛 시트·형식 불명은 자율구매
+  setCampPgMode('new', pgMode || 'free');   // 새 등록 폼에는 「고르지 않음」이 없다 — 옛 시트·형식 불명은 자율구매
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 
