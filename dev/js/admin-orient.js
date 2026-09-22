@@ -1685,7 +1685,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
   // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
-  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase' };
+  // sheetBrandId — 발행 폼에서 브랜드를 바꿨는지 저장 직전에 비교하는 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-3)
+  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase', sheetBrandId: brandId || '' };
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 

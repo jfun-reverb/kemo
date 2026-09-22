@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790045462';
+  var CURRENT_BUILD = 'v1790055776';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3207,7 +3207,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-22 11:51 · 9b6e8d7</span>
+          <span class="admin-build-text">2026-09-22 14:42 · 6e92748</span>
         </div>
       </div>
     </aside>
@@ -21394,7 +21394,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
   // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
-  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase' };
+  // sheetBrandId — 발행 폼에서 브랜드를 바꿨는지 저장 직전에 비교하는 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-3)
+  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase', sheetBrandId: brandId || '' };
   const ft = card.form_type;
   const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
 
@@ -50554,6 +50555,10 @@ async function openEditCampaign(campId) {
   _editCampOriginal = {
     id: camp.id,
     version: camp.version || 1,   // 동시 저장 방어 — 편집 화면을 연 시점의 버전(마이그레이션 275)
+    // 브랜드 — 저장 때 「브랜드를 바꿨는지」 확인 창의 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-2).
+    //   ⚠️ 이 키가 없으면 그 창이 죽은 코드가 된다(아래 deadline·channel 이 같은 이유로 죽었던 선례)
+    brand_id: camp.brand_id || '',
+    campaign_no: camp.campaign_no || '',
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
@@ -52166,6 +52171,26 @@ async function saveCampaignEdit() {
     // 편집 폼에서 상태를 직접 「종료」·「노출종료」로 바꿔 저장하는 길 — 상태 드롭다운·노출 토글을
     //   전혀 거치지 않고 바로 저장된다. 결과는 같다(심사중 응모 전원 낙첨).
     //   ⚠️ 리뷰에서 이 경로가 **무경고로 열려 있는 게** 드러났다 — 앞의 세 곳만 막아 뒀었다.
+    // ⚠️ 채널 필수 검사는 입력 검증이라 **브랜드 확인 창보다 앞**에 둔다(2026-09-22) — 뒤에 있으면
+    //    브랜드 창을 통과한 뒤에야 저장이 막히고, 고쳐서 다시 누르면 브랜드 창을 또 본다.
+    const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
+    // 채널 1개+ 강제 — **모든 모집 형식**. 신규 등록(addCampaign)이 이미 형식 무관 강제이므로
+    //   두 화면의 규칙을 맞춘 것이다(2026-07-31). 예전에는 리뷰어형에만 걸려 있어, 편집으로
+    //   시딩·방문형 캠페인의 채널을 0개로 만들 수 있었다.
+    //   ⚠️ 채널이 빈 캠페인은 「기타」 구멍의 원천이다 — 인플루언서 게시물 제출 화면의 수동
+    //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
+    //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
+    //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
+    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
+    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
+    if (!editChannel && !_isEventEdit) {
+      toast('채널을 1개 이상 선택해야 합니다','error');
+      return;
+    }
+
+    // 브랜드를 바꿨으면 결과를 알리는 확인 창 — 입력 검증 뒤 **가장 먼저**(§3-1). 「돌아가기」면 뒤 창·저장 없음
+    if (!await confirmCampaignBrandChange(campId, (_editCampOriginal && _editCampOriginal.brand_id) || '',
+                                          brandId, (_editCampOriginal && _editCampOriginal.campaign_no) || '')) return;
     if (editStatus !== origStatus && !await confirmCampaignEndMassReject(campId, editStatus)) return;
     const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
     const _dlKind = classifyDeadlineChange(_origDeadline, editDeadline);
@@ -52194,21 +52219,6 @@ async function saveCampaignEdit() {
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const editRecruitType = recruitTypeEl?.value || 'monitor';
-    const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
-    // 채널 1개+ 강제 — **모든 모집 형식**. 신규 등록(addCampaign)이 이미 형식 무관 강제이므로
-    //   두 화면의 규칙을 맞춘 것이다(2026-07-31). 예전에는 리뷰어형에만 걸려 있어, 편집으로
-    //   시딩·방문형 캠페인의 채널을 0개로 만들 수 있었다.
-    //   ⚠️ 채널이 빈 캠페인은 「기타」 구멍의 원천이다 — 인플루언서 게시물 제출 화면의 수동
-    //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
-    //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
-    //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
-    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
-    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
-    if (!editChannel && !_isEventEdit) {
-      toast('채널을 1개 이상 선택해야 합니다','error');
-      return;
-    }
-
     // 리뷰어형 제품 금액 미입력 확인 (막지 않음) — 등록 화면과 같은 판정을 쓴다.
     //   편집에도 거는 이유: 여기만 빠지면 편집으로 금액을 0 으로 만드는 길이 그대로 남는다.
     if (!await confirmMonitorWithoutPrice(editRecruitType, gv('editCampProductPrice'))) return;
@@ -53700,6 +53710,46 @@ async function confirmCampaignEndMassReject(campId, newStatus) {
 //   채우는 정상적인 순서가 있고, 막으면 그 흐름이 통째로 끊긴다(2026-08-11 사용자 결정).
 // ⚠️ **등록·편집 두 곳에서 같이 부른다.** 등록만 막으면 편집으로 0 을 넣는 길이 그대로 남는다.
 // ⚠️ 시딩·방문형은 대상이 아니다 — 그쪽 정산 기준은 `reward` 라 제품 금액이 0이어도 정상이다.
+// 확인 창에 쓰는 브랜드 이름 — 원래·새·시트 브랜드 세 자리 공통 규칙(사양서 §1-4, 판정 순서대로):
+//   ①id 가 비면 「브랜드 없음」 ②활성 캐시에 있으면 「이름 [번호]」 ③없으면(보관) 따로 찾아
+//   「이름 [번호] (보관)」 — 폼 브랜드 칸(loadCampBrandSelect)과 같은 글자 ④그래도 못 찾으면 안내 문구
+async function campBrandNameForConfirm(id) {
+  if (!id) return '브랜드 없음';
+  const hit = (_campBrandsCache || []).find(b => String(b.id) === String(id));
+  if (hit) return campBrandLabel(hit);
+  const b = (typeof fetchBrandById === 'function') ? await fetchBrandById(id) : null;
+  return b ? campBrandLabel(b) + ' (보관)' : '(이름을 불러오지 못한 브랜드)';
+}
+
+// 편집 저장 — 브랜드가 실제로 바뀐 경우에만 결과를 알린다. **막지 않는다**(자매 브랜드로 옮기는 정상 업무).
+//   번호는 삽입 때만 매겨져 그대로다. 오리엔시트에 연결된 캠페인이면 그 시트는 **시트 자신의 브랜드**에 남는다 —
+//   🔴 원래 브랜드로 채우지 않는다(이미 한 번 옮겨진 캠페인에서 틀린 말이 된다, §2 4번).
+//   오리엔시트 조회 실패는 「연결 없음」으로 단정하지 않고 확인하지 못했다고 쓴다.
+async function confirmCampaignBrandChange(campId, oldBrandId, newBrandId, campaignNo) {
+  if (String(oldBrandId || '') === String(newBrandId || '')) return true;
+  const [oldName, newName] = await Promise.all([campBrandNameForConfirm(oldBrandId), campBrandNameForConfirm(newBrandId)]);
+  let sheetLine = '';
+  try {
+    const sheets = (typeof fetchOrientSheets === 'function') ? await fetchOrientSheets() : null;
+    if (!Array.isArray(sheets)) throw new Error('orient sheets unavailable');
+    const linked = sheets.find(s => {
+      const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+      return cards.some(c => c && c.campaign_id === campId);
+    });
+    if (linked) {
+      const sheetName = await campBrandNameForConfirm(linked.brand_id);
+      sheetLine = `\n· 이 캠페인은 「${sheetName}」 오리엔시트에 연결돼 있습니다. 그 시트는 「${sheetName}」에 그대로 남습니다.`;
+    }
+  } catch (e) {
+    console.error('[confirmCampaignBrandChange]', e);
+    sheetLine = '\n· 오리엔시트 연결 여부는 확인하지 못했습니다.';
+  }
+  const noLine = campaignNo ? `\n· 캠페인 번호 ${campaignNo} 는 바뀌지 않습니다.` : '\n· 캠페인 번호는 바뀌지 않습니다.';
+  return await showConfirm(
+    `브랜드를 「${oldName}」에서 「${newName}」로 바꿉니다.\n` + noLine + sheetLine,
+    '바꿔서 저장', '돌아가기');
+}
+
 async function confirmMonitorWithoutPrice(recruitType, price) {
   if (recruitType !== 'monitor') return true;
   if (Number(price) > 0) return true;
@@ -53849,6 +53899,17 @@ async function addCampaign() {
 
   // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
   //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
+  // 오리엔시트 발행인데 브랜드를 시트와 다르게 골랐으면 결과를 알린다 — 입력 검증 뒤 **가장 먼저**(§3-1).
+  //   시트 브랜드를 모르면(값 없음) 띄우지 않는다 — 빈 값과 비교하면 발행마다 창이 뜬다
+  if (_opc && _opc.sheetBrandId && String(_opc.sheetBrandId) !== String(brandId)) {
+    const [_sheetName, _pickName] = await Promise.all([campBrandNameForConfirm(_opc.sheetBrandId), campBrandNameForConfirm(brandId)]);
+    const _goOn = await showConfirm(
+      `오리엔시트는 「${_sheetName}」 것인데 「${_pickName}」로 발행합니다.\n`
+      + `\n· 캠페인 번호는 「${_pickName}」 번호로 매겨집니다.`
+      + `\n· 오리엔시트는 「${_sheetName}」에 그대로 남고, 이 카드는 「발행됨」으로 표시됩니다.`,
+      '이대로 발행', '돌아가기');
+    if (!_goOn) return;
+  }
   if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
