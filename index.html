@@ -782,8 +782,11 @@ html.preview-mode #page-detail .detail-back{display:none}
   .invite-gate-hint{max-width:var(--reading-max)}
   .dpb-step{max-width:var(--reading-max)}
 }
-/* ⚠️ 가로 전용 70vh 규칙은 없앴다(2026-09-11) — 위 35vh 가 방향과 무관하게 더 작아
-   항상 이긴다. 남겨 두면 「가로에서만 다른 값」이라는 착각을 만든다. */
+/* ⚠️ 가로 전용 70vh 규칙은 없앴다(2026-09-11) — 위 상한이 방향과 무관하게 더 작아
+   항상 이긴다. 남겨 두면 「가로에서만 다른 값」이라는 착각을 만든다.
+   🔴 여기에 값을 다시 적지 않는다 — 그 값은 2026-09-11 에 70vh → 35vh, 2026-09-14 에
+      35vh → 50vh 로 **두 번** 바뀌었고 그때마다 이 주석이 제일 먼저 낡았다.
+      지금 값은 위 `#campSlider` 규칙 한 곳에만 둔다. */
 
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
@@ -2778,6 +2781,32 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
+// 「촬영 가이드」 칸의 이름표 — **새 판 리뷰어형**(자율/지정을 고른 캠페인)만 「리뷰 가이드」(2026-09-10 지시 → 2026-09-22 범위 축소).
+//   🔴 판정은 「캠페인 설명 / 구매 가이드」(campaignDescSectionLabel)와 **같은 기준**이다 — 형식만 보고 바꾸면
+//     운영 중인 리뷰어형 캠페인 전부의 제목이 한꺼번에 바뀌어 혼선이 생긴다(2026-09-22 사용자 지적).
+//     두 이름표는 짝이라 한쪽만 새 이름이 되지 않게 같은 조건을 쓴다.
+//   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
+//   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
+function campaignGuideSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? 'レビューガイド' : '撮影ガイド';
+  return isNew ? '리뷰 가이드' : '촬영 가이드';
+}
+
+// 「캠페인 설명」 칸의 화면 이름 (사양서 2026-09-16 §4-3·§4-12)
+// 🔴 형식만 받지 않고 캠페인을 통째로 받는다 — 판정에 `recruit_type` 과 `purchase_guide_mode` 둘 다 필요하다.
+//   리뷰어형이라고 다 바뀌는 것이 아니다: 운영 중인 리뷰어형 캠페인은 그 칸에 제품·브랜드 설명이 들어 있어,
+//   이름만 바꾸면 **설명 글이 구매 안내처럼 읽힌다**. 그래서 **자율/지정을 고른 캠페인만** 새 이름을 쓴다.
+// ⚠️ 폼에서는 저장된 캠페인이 아니라 **화면의 현재 선택**으로 임시 객체를 만들어 넘긴다
+//   (저장된 값을 넘기면 고른 즉시 안 바뀐다). 「값이 있으면 새 판」의 정의처는 §4-12.
+function campaignDescSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? '購入ガイド' : 'キャンペーン説明';
+  return isNew ? '구매 가이드' : '캠페인 설명';
+}
+
 const CAMPAIGN_FIELD_LABELS = {
   title: '캠페인명', brand_id: '연결 브랜드', brand: '브랜드명', brand_ko: '브랜드명(한국어)',
   brand_ja: '브랜드명(일본어)', brand_en: '브랜드명(영문)', product: '제품명',
@@ -2788,7 +2817,9 @@ const CAMPAIGN_FIELD_LABELS = {
   recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
   purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
   submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
-  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영 가이드',
+  // 화면 이름표는 형식·판별(campaignGuideSectionLabel·campaignDescSectionLabel)에 따라 갈리지만,
+  // 🔴 이력 표는 그 캠페인이 어느 형식·어느 판인지 모른다 → 둘을 함께 적는다
+  description: '캠페인 설명·구매 가이드', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',
   hashtags: '필수 해시태그', mentions: '필수 멘션',
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
@@ -5434,7 +5465,6 @@ window.I18N_JA = {
     brandAppeal: 'ブランドアピールポイント',
     requiredHashtag: '必須ハッシュタグ',
     requiredMention: '必須メンション',
-    shootingGuide: '撮影ガイド',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
     productPageShort: '商品ページ',
@@ -6389,7 +6419,6 @@ window.I18N_KO = {
     brandAppeal: '브랜드 어필 포인트',
     requiredHashtag: '필수 해시태그',
     requiredMention: '필수 멘션',
-    shootingGuide: '촬영 가이드',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
     productPageShort: '상품 페이지',
@@ -9032,8 +9061,12 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
-// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17). 공유 화면 쪽 짝은
-//    get_report_share_data(449) — 채널 코드 ↔ 이 네 칸의 짝이 두 곳에 있다.
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17).
+// 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+//    ①REPORT_CHANNELS(report-rows.js) ②get_report_share_data(449)의 코드 ↔ 회원 표 칸 짝
+//    ③_excelSnsUrl 의 채널별 주소 줄 ④**바로 이 select 문** — 칸 이름이 글자로 나열돼 있다.
+//    ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(여기 칸이 없어 값이 비고,
+//       ③이 없어 링크도 안 걸린다 — 조용히 빈 칸으로 보인다).
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -12226,6 +12259,7 @@ async function getOrientSheet(token) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
 // 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
 async function saveOrientDraft(token, data, version) {
@@ -12254,6 +12288,7 @@ async function saveOrientDraft(token, data, version) {
   }
 }
 
+// ⚠️ 호출부 없음 — 작성 폼(dev/sales/orient.html)은 sb.rpc 를 직접 부른다. 빌드 산출물에는 실리지만 죽은 감싸개(2026-09-08 확인, 지우지는 않는다).
 // 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
 // 발행 전까지 재제출 가능(사양서 결정⑨).
 // 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
@@ -12287,17 +12322,77 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
-// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190 → 205 → 424) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
-// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
-// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
-// 반환: {success, id, token, token_expires_at} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId) {
+// [424] 4인자(brand_id, application_id, form_type, channel) — 관리자가 발급 때 형식(리뷰어/시딩)과
+//   시딩 채널(5종 중 하나)을 정한다. data 초기값은 두 갈래:
+//   · formType 있음 → {issued:{form_type,channel,issued_at}, brand:{name,contact_name,email,phone}, cards:[카드 1개]}
+//   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
+// 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
+//   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+// [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
+//   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
+//      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.
+//      안 보내면 옛 4인자 함수도, 새 5인자 함수(DEFAULT NULL)도 그대로 받는다 — 배포 순서가 뒤집혀도 평소 발급은 산다.
+async function createOrientSheet(brandId, applicationId, formType, channel, recruitFeeKrw) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
-    const { data, error } = await db.rpc('create_orient_sheet', {
+    const params = {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
+      p_form_type: formType || null,
+      p_channel: channel || null,
+    };
+    if (recruitFeeKrw !== null && recruitFeeKrw !== undefined) params.p_recruit_fee_krw = recruitFeeKrw;
+    const { data, error } = await db.rpc('create_orient_sheet', params);
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 기준값 (마이그레이션 426, 오리엔시트 단순화 2단계) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — 합치면 화면이 「환율 0」으로 그린다.
+async function fetchQuoteSettings() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_settings');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteSettings]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, key, prev_amount, amount} | {success:false, reason}
+async function updateQuoteSetting(key, amount) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_setting', { p_key: key, p_amount: amount });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
     });
     if (error) throw error;
     return data;
@@ -13893,12 +13988,20 @@ function formatDateTime(d) {
   if (isNaN(dt.getTime())) return '';
   return formatDate(dt) + ' ' + formatTimeHm(dt);
 }
-function dDayLabel(d) {
+// D배지 — 'D-Day' / 'D-n' / 'D+n'. 관리자 목록 전반이 이 규약을 쓴다.
+// opts.muted = 「기한은 남아 있지만 더 재촉할 일이 없다」 — 남은 날과 무관하게 항상 흐린 회색.
+//   ⚠️ 색만 죽이고 글자는 그대로 둔다. 글자 만드는 규칙을 따로 복사하면
+//      나중에 한쪽만 고쳐져 화면마다 다른 말을 한다(이 저장소의 반복 사고 유형).
+//   현재 쓰는 곳: 오리엔시트 목록의 작성기한(제출이 끝난 시트).
+function dDayLabel(d, opts) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
-  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+  const muted = !!(opts && opts.muted);
+  const color = muted ? 'var(--muted)' : diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  const bg = muted ? 'rgba(0,0,0,.03)' : 'rgba(0,0,0,.06)';
+  const extra = muted ? ';opacity:.55' : '';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:${bg};padding:1px 5px;border-radius:4px;margin-left:4px${extra}">${text}</span>`;
 }
 // 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
 //   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
@@ -14154,6 +14257,10 @@ document.addEventListener('keydown', (e) => {
     //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
     } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
       osCloseModal('orientDetailModal');
+    // 견적서 창은 닫을 때 끼워 넣은 화면을 비우고 메시지 수신기를 걷어야 한다 — 일반 closeModal 이면 둘 다 남는다.
+    //   ⚠️ 포커스가 끼워 넣은 화면(iframe) 안에 있으면 ESC 가 이 처리기에 안 온다(다른 출처) — 그때는 닫기 단추로 닫는다
+    } else if (top.id === 'orientQuoteModal' && typeof osCloseQuoteDoc === 'function') {
+      osCloseQuoteDoc();
     // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
     //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
     } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {
@@ -14818,6 +14925,11 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
 // 🔴 아이디는 dev/lib/storage.js fetchPublicMetaPixelId() 로만 받는다 — '' = 보내지 않음, null = 조회 실패.
 // 🔴 고급 매칭(이메일·전화 등 회원 정보)을 넘기지 않는다 — fbq('init') 에 세 번째 인자를 절대 붙이지 말 것(결정 11).
 //    붙이면 「메타의 직접 취득이라 동의가 필요 없다」는 법적 전제가 무너진다.
+// 🔴 **그런데 「자동 고급 매칭」은 이 코드로 못 막는다** — 메타 이벤트 관리자의 **설정**이라,
+//    여기서 세 번째 인자를 안 붙여도 그 설정이 켜져 있으면 픽셀이 스스로 회원 정보를 보낸다.
+//    메타 공식 문서: "To automatically implement advanced matching use the Events Manager."
+//    (https://developers.facebook.com/docs/meta-pixel/advanced/advanced-matching/)
+//    ⚠️ 코드만 읽고 「안 보낸다」고 단정하지 말 것 — **이벤트 관리자에서 꺼져 있는지 눈으로** 확인한다.
 // 🔴 어떤 실패도 화면을 막지 않는다 — 공개 함수는 전부 try/catch 로 삼킨다.
 //
 // 상태 셋(흐름 5):
@@ -14899,8 +15011,11 @@ function _metaPixelLoadScript(pixelId) {
     document.head.appendChild(s);
   }
   // 자동 이벤트(버튼 클릭·페이지 정보 수집) 끄기 — 회원 정보를 보내지 않는다는 전제(결정 11)를
-  //   코드 쪽에서도 지킨다. ⚠️ 이 설정이 화면 전환 페이지뷰 자동 감지에 영향을 주는지는
-  //   1-검증 ②(작업 8)에서 시험용 픽셀로 확인한다.
+  //   코드 쪽에서도 지킨다(다만 위 머리말대로 「자동 고급 매칭」은 이것으로도 안 막힌다).
+  // ✅ 이 설정은 **화면 전환 페이지뷰와 별개 스위치**다(2026-09-18 공식 문서로 확정 — 옛 주석의
+  //   「영향을 주는지 확인한다」는 이제 답이 있다). 화면 전환 페이지뷰를 끄는 것은 `disablePushState`
+  //   이고 메타는 그것을 끄지 말라고 권한다("it is not recommended").
+  //   (https://developers.facebook.com/docs/meta-pixel/implementation/tag_spa/)
   window.fbq('set', 'autoConfig', false, pixelId);
   window.fbq('init', pixelId); // 🔴 세 번째 인자(고급 매칭) 금지 — 결정 11
   window.fbq('track', META_PIXEL_EVENTS.PAGE_VIEW); // 흐름 3 — 초기화 시 페이지뷰 1회
@@ -16572,7 +16687,7 @@ async function openCampaign(id) {
 
       ${camp.description ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.campaignDesc')}</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignDescSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
         <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
       </div>` : ''}
 
@@ -16595,7 +16710,7 @@ async function openCampaign(id) {
 
       ${camp.guide ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.shootingGuide')}</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
