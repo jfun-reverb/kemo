@@ -1679,7 +1679,7 @@ function renderBrandOrientSheetCard(s, campMap) {
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
   var quoteTxt = (typeof osQuoteSummaryLine === 'function') ? (osQuoteSummaryLine(s) || '') : '';
-  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card)">'
+  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
       + ((typeof osCardsSummary === 'function') ? osCardsSummary(d) : '')
