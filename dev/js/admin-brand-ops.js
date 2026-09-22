@@ -71,6 +71,11 @@ var _brandOpsApprCounts = null;  // get_campaign_application_counts (감사용 �
 //   🔴 화면은 판정하지 않고 이 결과만 읽는다(2026-09-11 이관). 관리자 일일 메일이 같은 결과를 쓴다.
 //   🔴 조회 실패 null / 0건 {} — 둘을 가른다. 실패면 경고를 아예 안 그린다(없는 근거로 그리지 않는다).
 var _brandOpsActionAlerts = null;
+// 오리엔시트 전체 목록 — 운영현황 전용(사양서 2026-09-22-brand-ops-and-cost-card-orient §3-1).
+//   🔴 세 상태를 가른다: undefined = 아직 안 받음 / null = 받다 실패 / 배열 = 받음(0건이면 []).
+//   새로 받는 곳은 둘뿐 — loadBrandOps 진입, 그리고 상세로 바로 들어와 undefined 일 때.
+//   null(실패)이면 상세에서 다시 받지 않는다 — 카드와 상세가 서로 다른 목록을 보게 되므로.
+var _brandOpsOrientSheets;
 var _brandOpsLoadToken = 0;      // 새로고침 연타·페인 들락거림 — 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는 것을 막는다
 async function loadBrandOps() {
   var token = ++_brandOpsLoadToken;
@@ -96,6 +101,7 @@ async function loadBrandOps() {
     // 조치 필요 경고(서버 판정). ⚠️ 이 Promise.all 안에 둬야 아래 _brandOpsLoadToken 검사가 그대로 보호한다 —
     //   밖에 두면 새로고침 연타 때 늦게 시작한 호출이 먼저 끝나 옛 값으로 덮는다.
     fetchCampaignActionAlertsOrNull(),
+    brandOpsFetchOrientSheets(),                   // 오리엔시트 전체 — 실패면 null(§3-1)
   ]);
   if (token !== _brandOpsLoadToken) return;   // 그 사이 다시 들어왔다 — 이 회차 결과는 버린다
   _brandOpsCompanies = results[0];
@@ -105,8 +111,38 @@ async function loadBrandOps() {
   _brandOpsApprCounts = results[3];
   _brandOpsAuditIds = new Set((((results[4] && results[4].data) || [])).map(function(r){ return r.id; }));
   _brandOpsActionAlerts = results[5];
+  _brandOpsOrientSheets = results[6];
   renderBrandOpsCurrentView();
   // 「최근 신청」 표는 2026-09-07 사용자 결정으로 뺐다 — 인플 신청 관리 페인에 같은 내용이 있다.
+}
+
+// 오리엔시트 전체 목록 받기 — 실패는 null(0건 [] 과 가른다)
+async function brandOpsFetchOrientSheets() {
+  if (typeof fetchOrientSheets !== 'function') return null;
+  try {
+    const rows = await fetchOrientSheets();
+    return Array.isArray(rows) ? rows : null;
+  } catch (e) { console.error('[brandOpsFetchOrientSheets]', e); return null; }
+}
+// 그 브랜드의 시트(시트 브랜드 기준 — §2 ⑤). 목록을 못 받았으면 null
+function brandOpsSheetsOfBrand(brandId) {
+  if (!Array.isArray(_brandOpsOrientSheets)) return null;
+  return _brandOpsOrientSheets.filter(function(x){ return x && x.brand_id === brandId; });
+}
+// 진행·전체 오리엔시트 수 — 🔴 오리엔시트 화면의 탭 판정을 그대로 쓴다(두 화면 숫자가 같게, §2 ②).
+//   진행 = 「작성 중」+「제출됨」 탭 · 전체 = 「전체」 탭. 목록을 못 받았으면 null
+function brandOpsOrientCounts(brandId) {
+  var list = brandOpsSheetsOfBrand(brandId);
+  if (!list) return null;
+  var open = list.filter(function(x){
+    return (typeof osMatchesTab === 'function') && (osMatchesTab(x, 'draft') || osMatchesTab(x, 'submitted'));
+  }).length;
+  return { open: open, total: list.length };
+}
+// 오리엔시트에 연결된 캠페인 id — 🔴 **전체 시트** 기준(캠페인 브랜드 ≠ 시트 브랜드인 캠페인을 놓치지 않게, §2 ⑤)
+function brandOpsOrientLinkedCampIds() {
+  if (!Array.isArray(_brandOpsOrientSheets)) return null;
+  return new Set((typeof collectOrientCampaignIds === 'function') ? collectOrientCampaignIds(_brandOpsOrientSheets) : []);
 }
 
 function fillBrandOpsCompanyFilter() {
@@ -199,7 +235,10 @@ function renderBrandOpsCard(b) {
       + badge
     + '</div>'
     + '<div style="display:flex;gap:14px;margin-top:8px;font-size:12px">'
-      + '<div><span style="color:var(--muted)">진행 신청</span> <b style="color:var(--ink)">' + (b.open_applications||0) + '</b></div>'
+      // 진행 오리엔시트 — 목록을 못 받았으면 「—」(0 은 거짓). 진행 신청은 **0보다 클 때만**(서베이는 옛 이력, §2 ①)
+      + (function(){ var oc = brandOpsOrientCounts(b.brand_id);
+          return '<div><span style="color:var(--muted)">진행 오리엔시트</span> <b style="color:var(--ink)">' + (oc ? oc.open : '—') + '</b></div>'; })()
+      + ((b.open_applications || 0) > 0 ? '<div><span style="color:var(--muted)">진행 신청</span> <b style="color:var(--ink)">' + b.open_applications + '</b></div>' : '')
       + '<div><span style="color:var(--muted)">진행 캠페인</span> <b style="color:var(--ink)">' + (b.active_campaigns||0) + '</b></div>'
     + '</div>'
     + brandOpsRateBar('모집률', b.recruit_rate, b.approved_total, b.slots_total)
@@ -220,6 +259,7 @@ function renderBrandOpsCard(b) {
 
 var _brandOpsDetailId = null;
 var _brandOpsDetailData = null;
+var _brandOpsSheetCampMap = {};   // 상세의 시트 카드가 쓰는 발행 캠페인 맵(campaign_id → 캠페인)
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
 var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
 
@@ -240,6 +280,15 @@ async function loadBrandOpsDetail() {
   ]);
   var detail = results[0];
   var apps = results[1] || [];
+  // 오리엔시트 목록 — 🔴 아직 안 받았을 때(undefined)만 받는다. 실패(null)면 다시 받지 않는다(§3-1)
+  if (_brandOpsOrientSheets === undefined) _brandOpsOrientSheets = await brandOpsFetchOrientSheets();
+  // 시트 카드의 발행 캠페인 번호 — 브랜드 상세 모달과 같은 방식(삭제된 캠페인도 「삭제됨」으로 보이게 id 로 조회)
+  _brandOpsSheetCampMap = {};
+  var _bSheets = brandOpsSheetsOfBrand(_brandOpsDetailId);
+  if (_bSheets && _bSheets.length && typeof fetchCampaignsByIds === 'function' && typeof collectOrientCampaignIds === 'function') {
+    try { var _ids = collectOrientCampaignIds(_bSheets); if (_ids.length) _brandOpsSheetCampMap = await fetchCampaignsByIds(_ids) || {}; }
+    catch (_) { _brandOpsSheetCampMap = {}; }
+  }
   var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
   _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
   _brandOpsDetailData = detail;
@@ -282,28 +331,58 @@ function renderBrandOpsDetail(d) {
       + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
     + '</div>';
 
-  // 요약 KPI 바
+  // 오리엔시트 — 시트 브랜드 기준 목록·숫자(§2 ⑤). 실패면 null
+  var sheets = brandOpsSheetsOfBrand(b.id);
+  var oc = brandOpsOrientCounts(b.id);
+  // 캠페인 분류 — 전체 시트 기준 연결 id(§2 ⑤). 실패면 null → 가르지 않는다(§2 ④)
+  var linkedIds = brandOpsOrientLinkedCampIds();
+  var orientCamps = linkedIds ? external.filter(function(c){ return linkedIds.has(c.id); }) : [];
+  var directCamps = linkedIds ? external.filter(function(c){ return !linkedIds.has(c.id); }) : external;
+  // 「신청에 연결」 단추 — 직접 등록 캠페인에서만, 서베이 신청이 1건 이상일 때만, 시트 목록을 받았을 때만(§3-4)
+  var canLinkApp = apps.length > 0 && !!linkedIds;
+
+  // 요약 KPI 바 — 오리엔시트 두 칸이 앞. 서베이 칸은 신청이 1건이라도 있을 때만(§2 ①)
   html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">'
-    + brandOpsKpi('진행 신청', openApps)
-    + brandOpsKpi('전체 신청', apps.length)
+    + brandOpsKpi('진행 오리엔시트', oc ? oc.open : '—')
+    + brandOpsKpi('전체 오리엔시트', oc ? oc.total : '—')
+    + (apps.length ? brandOpsKpi('진행 신청', openApps) + brandOpsKpi('전체 신청', apps.length) : '')
     + brandOpsKpi('진행 캠페인', activeCamps)
     + brandOpsKpi('전체 캠페인', allCamps.length)
     + '</div>';
 
-  // 신청 아코디언
-  html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:8px 0">광고주 신청 (' + apps.length + ')</div>';
-  if (apps.length === 0) {
-    html += '<div style="color:var(--muted);font-size:13px;padding:12px 0">연결된 광고주 신청이 없습니다</div>';
-  } else {
+  // 1) 오리엔시트 — 브랜드 상세 모달과 같은 카드(renderBrandOrientSheetCard). 최신 발급순
+  var sheetsSorted = sheets ? sheets.slice().sort(function(x, y){ return String(y.created_at || '').localeCompare(String(x.created_at || '')); }) : null;
+  html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:8px 0">오리엔시트' + (sheets ? ' (' + sheets.length + ')' : '') + '</div>';
+  if (!sheets) {
+    html += '<div style="color:var(--muted);font-size:13px;padding:12px 0">오리엔시트를 불러오지 못했습니다</div>';
+  } else if (!sheets.length) {
+    html += '<div style="color:var(--muted);font-size:13px;padding:12px 0">발급된 오리엔시트가 없습니다</div>';
+  } else if (typeof renderBrandOrientSheetCard === 'function') {
+    html += sheetsSorted.map(function(x){ return renderBrandOrientSheetCard(x, _brandOpsSheetCampMap); }).join('');
+  }
+
+  // 2) 광고주 신청 — 서베이 신청이 1건 이상일 때만(옛 이력)
+  if (apps.length) {
+    html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:18px 0 8px">광고주 신청 (' + apps.length + ')</div>';
     html += apps.map(function(a){ return renderBrandOpsAppBlock(a); }).join('');
   }
 
-  // 직접 등록 캠페인 (신청 미연결)
-  html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:18px 0 8px">직접 등록 캠페인 (' + external.length + ')</div>';
-  if (external.length === 0) {
+  // 3) 오리엔시트 연결 캠페인 — 서베이 미연결 캠페인 중 어느 시트 카드에 이어진 것(발행·기존 연결 둘 다). 단추 없음
+  if (linkedIds) {
+    html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:18px 0 8px">오리엔시트 연결 캠페인 (' + orientCamps.length + ')</div>';
+    html += orientCamps.length
+      ? '<div class="brand-ops-mini-grid">' + orientCamps.map(function(c){ return renderCampMiniCard(c, true, null, false); }).join('') + '</div>'
+      : '<div style="color:var(--muted);font-size:13px;padding:12px 0">오리엔시트에 연결된 캠페인이 없습니다</div>';
+  }
+
+  // 4) 직접 등록 캠페인 — 어느 시트에도 연결되지 않은 나머지. 시트 목록을 못 받았으면 전부 여기 + 안내(§2 ④)
+  html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:18px 0 8px">직접 등록 캠페인 (' + directCamps.length + ')'
+    + (linkedIds ? '' : ' <span style="font-size:11px;font-weight:500;color:#B45309">(오리엔시트를 불러오지 못해 나누지 못했습니다)</span>')
+    + '</div>';
+  if (directCamps.length === 0) {
     html += '<div style="color:var(--muted);font-size:13px;padding:12px 0">직접 등록 캠페인이 없습니다</div>';
   } else {
-    html += '<div class="brand-ops-mini-grid">' + external.map(function(c){ return renderCampMiniCard(c, true); }).join('') + '</div>';
+    html += '<div class="brand-ops-mini-grid">' + directCamps.map(function(c){ return renderCampMiniCard(c, true, null, canLinkApp); }).join('') + '</div>';
   }
 
   body.innerHTML = html;
@@ -451,7 +530,8 @@ function brandOpsSubmitDateText(c) {
   return parts.join(' · ');
 }
 
-function renderCampMiniCard(c, isExternal, applicationId) {
+// showLinkBtn — 신청 미연결(isExternal) 캠페인의 「신청에 연결」 단추를 그릴지(§3-4). 안 넘기면 종전대로 그린다
+function renderCampMiniCard(c, isExternal, applicationId, showLinkBtn) {
   // 모집: 승인 인플 / slots (RPC approved_app_count 우선, 없으면 화면 집계 폴백)
   var approved = (c.approved_app_count != null) ? c.approved_app_count : (_brandOpsApprByCamp[c.id] || 0);
   var slots = c.slots || 0;
@@ -467,7 +547,7 @@ function renderCampMiniCard(c, isExternal, applicationId) {
 
   // 연결/해제 버튼: 직접 등록(external)이면 「신청에 연결」, 신청 연결됨이면 「연결 해제」
   var linkBtn = isExternal
-    ? '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openLinkCampaignModal(\'' + esc(c.id) + '\')">신청에 연결</button>'
+    ? (showLinkBtn === false ? '' : '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openLinkCampaignModal(\'' + esc(c.id) + '\')">신청에 연결</button>')
     : '<button class="btn btn-ghost btn-xs" style="color:#c0392b" onclick="event.stopPropagation();confirmUnlinkCampaign(\'' + esc(c.id) + '\')">연결 해제</button>';
 
   return '<div class="brand-ops-mini-card">'
