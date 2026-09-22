@@ -1471,7 +1471,24 @@ function osLinkedCampaignIds() {
   return set;
 }
 
-// 기존 캠페인 목록 렌더 — 같은 브랜드 + 미연결 캠페인만. q 로 캠페인명·번호 부분일치 필터.
+// 카드 형식 → 캠페인이 가져야 할 모집 형식. 🔴 서버(link_orient_card_to_campaign, 464)와 같은 매핑.
+//   reviewer 와 proxy_purchase 는 recruit_type 이 같아(monitor) proxy_purchase 로만 가른다.
+//   방문형(visit)은 대응하는 카드 형식이 없다 — 어느 카드로도 목록에 안 뜬다.
+const OS_CARD_CAMPAIGN_TYPE = {
+  reviewer:       { recruit_type: 'monitor', proxy: false, label: '리뷰어' },
+  proxy_purchase: { recruit_type: 'monitor', proxy: true,  label: '가구매' },
+  seeding:        { recruit_type: 'gifting', proxy: null,  label: '시딩' },
+};
+function osCampaignMatchesCardType(c, cardFt) {
+  const exp = OS_CARD_CAMPAIGN_TYPE[cardFt];
+  if (!exp) return true;   // 카드 형식을 모르면 막지 않는다(서버와 같은 원칙)
+  if (c.recruit_type !== exp.recruit_type) return false;
+  // ⚠️ proxy_purchase 칸이 안 실린 캐시(목록 전용 조회)면 가르지 않는다 — 서버가 최종 방어선
+  if (exp.proxy !== null && c.proxy_purchase !== undefined && !!c.proxy_purchase !== exp.proxy) return false;
+  return true;
+}
+
+// 기존 캠페인 목록 렌더 — 같은 브랜드 + 미연결 + **카드와 같은 모집 형식**(464)만. q 로 캠페인명·번호 부분일치 필터.
 function osRenderLinkList(q) {
   const body = document.getElementById('osLinkListBody');
   if (!body) return;
@@ -1479,7 +1496,11 @@ function osRenderLinkList(q) {
   const brandId = s && s.brand_id;
   const all = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns : [];
   const linked = osLinkedCampaignIds();
-  let list = all.filter(c => c && c.brand_id === brandId && !linked.has(c.id));
+  // 🔴 두 단계로 센다 — 빈 목록일 때 「브랜드에 캠페인이 없다」와 「형식 맞는 캠페인이 없다」를 가르려고
+  const brandOnly = all.filter(c => c && c.brand_id === brandId && !linked.has(c.id));
+  const card = (s && s.data && Array.isArray(s.data.cards)) ? (s.data.cards[_osPublishCardIdx] || {}) : {};
+  const cardFt = card.form_type;
+  let list = brandOnly.filter(c => osCampaignMatchesCardType(c, cardFt));
   if (q) {
     list = list.filter(c => {
       const hay = [c.title, c.product_ko, c.product, c.campaign_no].filter(Boolean).join(' ').toLowerCase();
@@ -1487,9 +1508,12 @@ function osRenderLinkList(q) {
     });
   }
   if (!list.length) {
-    body.innerHTML = q
-      ? '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">검색 결과가 없습니다.</div>'
-      : '<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">이 브랜드에 연결 가능한 캠페인이 없습니다. 신규 발행을 이용하세요.</div>';
+    const typeLabel = (OS_CARD_CAMPAIGN_TYPE[cardFt] || {}).label;
+    const msg = q ? '검색 결과가 없습니다.'
+      : (brandOnly.length && typeLabel)
+        ? `이 브랜드에 ${typeLabel} 캠페인이 없습니다. 신규 발행을 이용하거나, 연결하려는 캠페인을 편집해 모집 형식을 먼저 맞춰 주세요.`
+        : '이 브랜드에 연결 가능한 캠페인이 없습니다. 신규 발행을 이용하세요.';
+    body.innerHTML = `<div style="text-align:center;color:var(--muted);padding:24px 8px;font-size:13px">${esc(msg)}</div>`;
     return;
   }
   body.innerHTML = list.map(c => {
@@ -1567,6 +1591,7 @@ async function osUnlinkCard(cardIdx) {
 function osLinkFailMsg(reason) {
   switch (reason) {
     case 'brand_mismatch':           return '브랜드가 일치하지 않습니다.';
+    case 'recruit_type_mismatch':    return '이 캠페인의 모집 형식이 이 카드와 다릅니다. 캠페인을 편집해 형식을 맞추거나, 다른 캠페인을 골라 주세요.';
     case 'campaign_already_linked':  return '이미 다른 카드/시트에 연결된 캠페인입니다.';
     case 'already_published':        return '이미 발행된 카드입니다.';
     case 'invalid_status':           return '제출된 오리엔시트만 발행할 수 있습니다.';
