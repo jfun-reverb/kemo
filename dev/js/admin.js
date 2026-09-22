@@ -4749,11 +4749,14 @@ async function addCampaign() {
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampBrandInput','newCampSourceAppId',
-   'newCampProduct','newCampProductUrl',
+   'newCampProduct','newCampProductKo','newCampProductUrl',
    'newCampSlots','newCampRecruitStart','newCampDeadline',
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
-   'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
+   'newCampProductPrice','newCampReward','newCampRewardNote',
+   // 2026-09-23 추가 — 이 둘이 빠져 있어 등록 직후 새 폼에 **직전 캠페인 값이 남았다**.
+   //   제품명 한국어 표기는 신청관리·엑셀에 그대로 나가고, 최소 팔로워수는 응모 자격을 바꾼다.
+   'newCampMinFollowers'].forEach(id => { const el=$(id); if(el) el.value=''; });
   var newSrcWrap = $('newCampSourceAppContainer'); if (newSrcWrap) newSrcWrap.style.display = 'none';
   var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) { newSrcSel.value = ''; _srcAppSyncTrigger('new'); }
   // flatpickr range picker 클리어
