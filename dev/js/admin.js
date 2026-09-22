@@ -3217,6 +3217,9 @@ async function duplicateCampaign(campId) {
       recruit_type: src.recruit_type, content_types: src.content_types,
       // 본문(description)과 판 표시는 한 쌍이다 — 본문만 복사하면 복제본이 옛 판 이름 아래 새 판 문구를 그린다
       purchase_guide_mode: src.purchase_guide_mode || null,
+      // 🔴 가구매 표시(마이그레이션 197)도 이어받는다 — 안 넣으면 기본값 false 로 떨어져 복제본이
+      //   영수증만이 아니라 리뷰·게시 인증샷까지 요구하게 되고, 인증 성공·정산·엑셀이 원본과 갈린다.
+      proxy_purchase: !!src.proxy_purchase,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
