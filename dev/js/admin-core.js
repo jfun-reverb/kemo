@@ -284,6 +284,12 @@ function switchAdminPane(pane, el, pushHistory) {
     renderContentTypeCheckboxes('new', [], 'monitor');
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', 'monitor');
+    // 구매 가이드 자율/지정 — 🔴 라벨 판정(아래 applyDeadlineFieldsVisibility)보다 먼저 비운다.
+    //   안 비우면 저장 안 하고 나갔다 들어온 새 등록에 지난 선택이 남아, 관계없는 캠페인이 조용히 「구매 가이드」 판으로 저장된다.
+    //   「저장하지 않은 변경」 기준값도 이 블록 직후에 뜨므로 거기서도 안 잡힌다.
+    { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = ''; }
+    // 오리엔 발행 자동 채움이 남긴 「선택되지 않은 채널」 경고 — 새 등록에 지난 경고가 남지 않게
+    { const w = $('newCampChannelPrefillWarn'); if (w) w.remove(); }
     applyDeadlineFieldsVisibility('new', 'monitor');
     // 모집 기간·결과물 제출 마감일 비우기.
     //   ⚠️ 바로 위 applyDeadlineFieldsVisibility 는 **형식에 안 맞는 칸**(구매·방문·선정)만
@@ -1246,7 +1252,6 @@ function withdrawalOpsModalHtml(a) {
   //   ⚠️ 451 이전(419)에는 그 기준이 「예정이 된 **날**의 09:30」이라, **09:00 이후에 예정이 된
   //      행**(그날 배치가 이미 지나가 다음 날 09:00 이 첫 기회)을 하루 동안 오탐했다 —
   //      2026-09-18 운영에서 3건이 그렇게 떴다. 판정은 서버 몫이고 화면은 숫자만 그린다.
-
   //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
   if (n(a.mail_retrying) > 0) {
     rows.push(_withdrawOpsRow('mail', '#B8741A',

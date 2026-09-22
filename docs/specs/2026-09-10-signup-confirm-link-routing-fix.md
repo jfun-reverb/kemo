@@ -229,4 +229,4 @@
 - **어디**: `init()` 초기 라우팅 사슬에서 `confirmLandingNotice` 갈래 다음에 `else if (confirmLandingToast && consumeInviteReturn())` — 캠페인 목록이 실린 뒤라 상세를 열 수 있고, `consumeInviteReturn` 이 한 번 쓰면 지우므로 `SIGNED_IN` 핸들러 자리(그대로 둠, 주석만 정정)와 겹쳐도 두 번 열리지 않는다. 초대가 없는 일반 가입은 `false` 를 받아 종전대로 홈.
 - **안 되는 것(원래 한계)**: 세션 없음 갈래(다른 브라우저)는 저장소가 달라 돌아갈 곳이 없다 — 로그인 성공 자리(`auth.js`)가 받는다.
 - ⚠️ 리뷰 지적(후속 과제): 확인 메일을 늦게 눌러 그 캠페인이 삭제·비공개가 된 경우 `openCampaign` 이 조용히 돌아가 화면은 홈인데 주소만 `#detail-{id}` 로 남는다 — `openCampaign` 의 기존 동작이고 이 갈래로 도달 가능해졌다.
-- **검증**: (아래 갱신)
+- **검증**: ⚠️ **브라우저 실증 미완**(2026-09-10 세션 종료 시점). 리뷰어가 코드 추적으로 ①②③④(openCampaign 시점·이중 열림 없음·일반 가입은 홈·홈 replaceState 와 충돌 없음)를 확인했고 dev 병합 #1459 로 개발서버에 올라가 있으나, 초대 링크 → 가입 → 확인 링크 → 캠페인 상세 복귀를 실제 브라우저로는 아직 보지 않았다. 다음 세션이 할 것: 개발서버 「Confirm email」 켜기 → 초대 링크(`#detail-{초대 전용 시험 캠페인}?invite=…`) → 게이트 「会員登録」 → 가입 → `auth.users.confirmation_token` 으로 `GET /auth/v1/verify?token=…&type=signup` → 같은 탭에서 그 캠페인 상세 + 「メール認証が完了しました」 토스트 확인 → 일반 가입은 홈(회귀) → 「Confirm email」 끄기·시험 회원 삭제. **운영 배포는 그 뒤에.**

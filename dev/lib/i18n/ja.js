@@ -636,7 +636,6 @@ window.I18N_JA = {
     brandAppeal: 'ブランドアピールポイント',
     requiredHashtag: '必須ハッシュタグ',
     requiredMention: '必須メンション',
-    shootingGuide: '撮影ガイド',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
     productPageShort: '商品ページ',

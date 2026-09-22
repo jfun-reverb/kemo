@@ -13,7 +13,9 @@
 --
 -- 「코드 ↔ 회원 표의 칸」 네 짝(화면 쪽 채널 대장 REPORT_CHANNELS 의 사본 — dev/js/report-rows.js):
 --   instagram → ig / tiktok → tiktok / x → x / youtube → youtube
--- 🔴 계정 열이 있는 채널을 더하는 날은 이 함수와 REPORT_CHANNELS 두 곳을 함께 고친다.
+-- 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+--   ①이 함수 ②REPORT_CHANNELS ③_excelSnsUrl 의 채널별 주소 줄 ④fetchInfluencersForReport 의 조회 칸.
+--   ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(조용히 빈 칸).
 --
 -- 각 회원의 계정 값은 아래 조건이 맞을 때만 넣고, 아니면 NULL:
 --   그 회원이 이 리포트가 가리키는 캠페인(v_camp)에 낸 임시저장이 아닌(status <> 'draft')
