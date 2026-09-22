@@ -2373,7 +2373,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 /* 캠페인 콘텐츠 가이드 — 이미지 등록 안내 (신규 등록·편집 두 폼이 같은 문구를 쓴다) */
 .rich-img-help{
-  margin:-4px 0 14px;
+  margin:-4px 0 28px;
   padding:10px 12px;
   background:var(--surface-dim);
   border:1px solid var(--outline);
@@ -2608,3 +2608,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .q-input.q-input-text { width: 104px; text-align: left; font-weight: 600; }
 .q-input.q-input-text.q-input-opt { width: 150px; font-weight: 500; }
 .q-muted { color: var(--muted); font-weight: 400; }
+
+/* 캠페인 등록·편집 폼 — 소제목(칸 제목) 위 여백을 넓힌다(2026-09-22 사용자 요청).
+   공용 .form-group 은 16px 인데, 이 두 폼은 칸이 많아 제목끼리 붙어 보였다.
+   「이미지 넣는 법」 상자 아래(.rich-img-help)도 같은 28px 로 맞춘다 */
+#adminPane-add-campaign .form-group,
+#adminPane-edit-campaign .form-group{margin-bottom:28px}
