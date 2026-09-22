@@ -67,11 +67,19 @@ function osSalesBase() {
 }
 function osBuildLink(token) { return osSalesBase() + '/orient?token=' + token; }
 
-// 만료 판정 (조회 함수는 status 미전환 — 클라에서 함께 판정)
+// 작성 링크의 기한이 지났는가 — 링크를 다시 보내도 되는지(메일 단추)·기한 글자 흐리게 판정용
+function osTokenExpired(s) {
+  return !!(s && s.token_expires_at && new Date(s.token_expires_at) < new Date());
+}
+// 만료 판정(상태·탭·사이드바 숫자용) — 조회 함수는 status 미전환이라 클라에서 함께 판정
+//   🔴 브랜드가 **제출한 시트는 기한이 지나도 「만료」가 아니다**(2026-09-22) — 작성 기한은 브랜드의
+//      작성·수정 기한이지 관리자의 발행 기한이 아니다. 예전엔 제출됐는데 기한만 지난 시트가
+//      「만료」로 바뀌어 「제출됨」 탭·사이드바 숫자에서 빠져 관리자가 놓쳤다(서버 상태는 submitted 라 발행은 됐다).
+//   ⚠️ 링크 재발송 여부는 이 함수가 아니라 osTokenExpired 로 본다 — 여기서 빠진 시트도 링크는 이미 죽어 있다.
 function osIsExpired(s) {
-  if (s.status === 'consumed') return false;
+  if (s.status === 'consumed' || s.status === 'submitted') return false;
   if (s.status === 'expired') return true;
-  return !!(s.token_expires_at && new Date(s.token_expires_at) < new Date());
+  return osTokenExpired(s);
 }
 // 카드 발행 수 — 부분 발행(카드 일부만 발행) 판정용. published = campaign_id 있는 "발행된 카드 수".
 // 삭제 경고용 osPublishedCampaignCount(DISTINCT 캠페인 수)와는 목적이 다름(정상 플로우는 카드당 고유 캠페인이라 값 일치).
@@ -263,7 +271,7 @@ function osRowHtml(s) {
     <td style="white-space:nowrap">${osRowQuoteCell(s)}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
-      ${(!osIsExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
+      ${(!osIsExpired(s) && !osTokenExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${esc(s.id)}')">상세</button>
       <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
@@ -1002,7 +1010,7 @@ function osDetailHtml(s, catMap, readonly) {
   </div>` : '';
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
-    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
+    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${(cards.length && !osNewSheetNotStarted(s)) ? cards.length + '개 모집 건' : ''}</span></div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
   // [2단계] 예상 견적 카드 — data.quote / quote_error 세트(마이그레이션 427)로 판별. 옛 시트는 둘 다 없어 안 그린다.
   const quoteCard = osQuoteCard(s, readonly);
@@ -1273,6 +1281,18 @@ function osRowQuoteCell(s) {
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
+// 새 구조 시트를 발급만 하고 브랜드가 아직 아무것도 안 적은 상태 — 발급 때 미리 만든 카드에는
+//   판매처 기본값(Qoo10)이 들어 있어 「값 있음」으로 세면 안내가 안 뜬다(2026-09-22).
+//   제품명·판매 URL·판매가 셋이 다 비어 있을 때만 「작성 전」으로 본다(하나라도 적었으면 적은 것을 보여 준다).
+function osNewSheetNotStarted(s) {
+  if (!s || s.status !== 'draft' || typeof osSheetIsNew !== 'function' || !osSheetIsNew(s)) return false;
+  const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  if (cards.length !== 1) return false;   // 새 구조는 카드 1개 — 그 밖이면 판단하지 않는다(다른 카드의 내용을 가리지 않게)
+  const c = cards[0] || {};
+  const p = c.product || {}, sale = c.sale || {};
+  return !String(p.name || '').trim() && !String(sale.url || '').trim() && !String(sale.price_regular || '').trim();
+}
+
 function osCardDetail(c, idx, catMap, readonly, sheet) {
   const ft = (c && c.form_type) || '';
   const p = c.product || {};
@@ -1323,8 +1343,9 @@ function osCardDetail(c, idx, catMap, readonly, sheet) {
   }
   inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng), true) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions), true) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
-  // 값이 있는 줄이 하나도 없으면(새 시트 발급 직후) 빈 상자 대신 한 줄 안내
-  if (!inner.trim()) inner = '<div style="color:var(--muted);font-size:12px">아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.</div>';
+  // 값이 있는 줄이 하나도 없으면 빈 상자 대신 한 줄 안내. 새 구조 발급 직후는 판매처 기본값 때문에
+  //   inner 가 비지 않으므로 osNewSheetNotStarted 로 따로 본다
+  if (!inner.trim() || osNewSheetNotStarted(sheet)) inner = '<div style="color:var(--muted);font-size:12px">아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.</div>';
 
   // 새 구조 시트의 시딩 카드에는 발급 채널 칩 — 원본은 issued.channel(사본 seeding.channels 가 아니라)
   const chChip = (ft === 'seeding') ? osChannelChip(osIssuedChannel(_osDetailSheet)) : '';
