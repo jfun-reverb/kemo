@@ -5298,7 +5298,7 @@ async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
 // 기존 캠페인과 연결(발행 처리). 마이그레이션 237.
 // 서버가 브랜드 일치·전역 중복(다른 시트/카드에서 이미 이 캠페인을 쓰는지) 검증.
 // 반환 reason: not_found/permission_denied/invalid_status/invalid_card/
-//   already_published/campaign_not_found/brand_mismatch/campaign_already_linked
+//   already_published/campaign_not_found/brand_mismatch/recruit_type_mismatch(464)/campaign_already_linked
 async function linkOrientCardToCampaign(orientId, cardIdx, campaignId) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
