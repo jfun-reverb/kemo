@@ -1152,6 +1152,8 @@ async function openEditCampaign(campId) {
   sv('editCampDesc', camp.description||'');
   // 자율/지정 선택 — 저장된 값 그대로(옛 판이면 「고르지 않음」). 라벨은 아래 applyDeadlineFieldsVisibility 가 세운다
   sv('editCampPurchaseGuideMode', camp.purchase_guide_mode || '');
+  // 이미 새 방식(자율/지정)으로 저장된 캠페인은 「고르지 않음」으로 되돌리지 못하게 — 옛 이름은 옛 캠페인에만 남긴다(2026-09-22)
+  { const none = $('editCampPgNone'); if (none) none.disabled = !!camp.purchase_guide_mode; }
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
@@ -3224,8 +3226,9 @@ async function duplicateCampaign(campId) {
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, min_followers_by_channel: src.min_followers_by_channel || {}, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
-      // 본문(description)과 판 표시는 한 쌍이다 — 본문만 복사하면 복제본이 옛 판 이름 아래 새 판 문구를 그린다
-      purchase_guide_mode: src.purchase_guide_mode || null,
+      // 판 표시 — 원본이 새 판이면 그대로 잇고, 옛 판(NULL)이면 자율구매로 올린다. 복제도 「새로 만드는 캠페인」이라
+      //   옛 이름(캠페인 설명·촬영 가이드)을 새 캠페인에 남기지 않는다(2026-09-22 사용자 결정). 본문은 그대로 복사되니 필요하면 고친다
+      purchase_guide_mode: src.purchase_guide_mode || 'free',   // 복제도 새 캠페인 — 옛 방식 원본이면 자율구매로(2026-09-22 사용자 결정)
       // 🔴 가구매 표시(마이그레이션 197)도 이어받는다 — 안 넣으면 기본값 false 로 떨어져 복제본이
       //   영수증만이 아니라 리뷰·게시 인증샷까지 요구하게 되고, 인증 성공·정산·엑셀이 원본과 갈린다.
       proxy_purchase: !!src.proxy_purchase,
@@ -4758,7 +4761,7 @@ async function addCampaign() {
   ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   // 자율/지정 선택도 비우고 라벨을 되돌린다 — 안 하면 직전 등록의 「구매 가이드」 이름이 남는다
-  { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = ''; }
+  { const pg = $('newCampPurchaseGuideMode'); if (pg) pg.value = 'free'; }   // 새 캠페인 기본 = 자율구매(2026-09-22)
   applyCampDescLabel('new', '');
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
