@@ -966,6 +966,7 @@ const OS_DETAIL_STYLE = `<style>
     cursor:pointer;padding:4px 0;font-size:12.5px;font-weight:700;color:#161618;text-align:left}
   .os-memo-head .os-memo-caret{font-size:18px;color:var(--muted,#8a8a90);transition:transform .15s}
   .os-memo.open .os-memo-head .os-memo-caret{transform:rotate(180deg)}
+  .os-memo-head.os-memo-head-fixed{cursor:default}
   /*  모달 안에서는 안 읽은 수를 숫자로 세지 않는다 — 메모가 눈앞에 다 보이므로
       「여기 새 게 있다」는 신호만 있으면 된다. 모달을 한 번이라도 누르면 지워진다.
       (목록 쪽 숫자 배지는 인라인 스타일로 따로 그린다 — osRowMemoCell) */
@@ -1435,7 +1436,7 @@ function osMemoItemHtml(m) {
 // 오른쪽 메모 칸 전체 — 모집 건마다 묶음 하나 + 맨 아래 「삭제된 모집 건의 메모」
 function osMemoPanelHtml(cards) {
   const list = Array.isArray(cards) ? cards : [];
-  const groups = list.map((c, i) => (c && c.uid) ? osMemoSectionHtml(c.uid, i, osCardTitle(c, i)) : '').join('');
+  const groups = list.map((c, i) => (c && c.uid) ? osMemoSectionHtml(c.uid, i, osCardTitle(c, i), list.length === 1) : '').join('');
   const orphan = osOrphanMemoHtml();
   // 붙일 자리가 없어 메모를 못 남기는 두 경우의 안내 — 문구를 한 곳에만 둔다
   const noSlotMsg = list.length
@@ -1461,10 +1462,12 @@ function osCardTitle(c, idx) {
 // 모집 건 1개의 메모 묶음. slotKey = 카드 순번(숫자) — 새 메모 입력칸 식별용
 //   「삭제된 모집 건의 메모」는 카드별로 묶어 제품명을 얹어야 해서 이 함수를 쓰지 않고
 //   osOrphanMemoHtml 이 같은 모양의 마크업을 따로 만든다.
-function osMemoSectionHtml(uid, slotKey, cardName) {
+//   fixed = 모집 건이 하나뿐인 시트(새 구조는 늘 하나) — 접을 이유가 없어 늘 펼치고 접기 단추를 안 그린다(2026-09-22).
+//   모집 건이 여럿인 옛 시트는 종전대로 접힘(안 읽은 메모가 있으면 자동 펼침).
+function osMemoSectionHtml(uid, slotKey, cardName, fixed) {
   const list = osMemosOfCard(uid);
   const unread = osMemoUnread(list);
-  const open = unread > 0;   // 안 읽은 메모가 있으면 자동 펼침 (놓치지 않게 하는 장치)
+  const open = fixed || unread > 0;   // 안 읽은 메모가 있으면 자동 펼침 (놓치지 않게 하는 장치)
   const items = list.length
     ? list.map(osMemoItemHtml).join('')
     : '<div class="os-memo-empty">아직 메모가 없습니다. 아래에 남겨 주세요.</div>';
@@ -1479,13 +1482,18 @@ function osMemoSectionHtml(uid, slotKey, cardName) {
         <button type="button" class="btn btn-primary btn-sm" onclick="osMemoSubmit(${slotKey})">남기기</button>
       </div>
     </div>`;
-  return `<div class="os-memo${open ? ' open' : ''}" data-memo-slot="${slotKey}">
-    <button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
-      <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
-      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cardName || '모집 건')}</span>
+  const headInner = `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cardName || '모집 건')}</span>
       <span style="color:var(--muted,#8a8a90);font-weight:600;font-size:11.5px;flex-shrink:0">${list.length}</span>
-      ${unread ? `<span class="os-memo-dot" role="img" aria-label="아직 열어보지 않은 메모가 있습니다" title="아직 열어보지 않은 메모가 있습니다"></span>` : ''}
-    </button>
+      ${unread ? `<span class="os-memo-dot" role="img" aria-label="아직 열어보지 않은 메모가 있습니다" title="아직 열어보지 않은 메모가 있습니다"></span>` : ''}`;
+  // ⚠️ 고정일 때도 머리줄 클래스(.os-memo-head)는 남긴다 — 점 되살리기(osRestoreMemoState)가 그 자리를 찾는다
+  const head = fixed
+    ? `<div class="os-memo-head os-memo-head-fixed">${headInner}</div>`
+    : `<button type="button" class="os-memo-head" onclick="osMemoToggle(this)">
+      <span class="material-icons-round notranslate os-memo-caret" translate="no">expand_more</span>
+      ${headInner}
+    </button>`;
+  return `<div class="os-memo${open ? ' open' : ''}" data-memo-slot="${slotKey}">
+    ${head}
     <div class="os-memo-body">${items}${form}</div>
   </div>`;
 }
@@ -1571,7 +1579,7 @@ async function osRefreshMemos() {
     }
     const idx = parseInt(slot, 10);
     if (isNaN(idx) || !cards[idx]) return;
-    el.outerHTML = osMemoSectionHtml(cards[idx].uid, idx, osCardTitle(cards[idx], idx));
+    el.outerHTML = osMemoSectionHtml(cards[idx].uid, idx, osCardTitle(cards[idx], idx), cards.length === 1);
     osRestoreMemoState(`#osDetailBody .os-memo[data-memo-slot="${idx}"]`, wasOpen, hadDot);
   });
 }
