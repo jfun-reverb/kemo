@@ -1639,7 +1639,11 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
   };
 
 
-  return ''
+  // 2026-09-23 사용자 요청 — **영업 메모를 오른쪽 칸으로**. 왼쪽은 본문(기본 정보·담당자·콘텐츠·탭),
+  //   오른쪽은 메모 한 칸이고 스크롤을 따라 붙는다(`--brand-detail-head` 는 페이지 머리글 높이. 모달에서는 값이 없어 0).
+  // ⚠️ 신규 등록 모달도 같은 함수를 쓰므로 그쪽도 두 칸이 된다(폭 1280 기준이라 좁아지지 않는다).
+  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">'
+    + '<div>'
     // § 기본 정보 — 회사 연결(드롭다운+읽기전용 카드) / 브랜드명 3열
     + section('기본 정보', '',
         renderBrandCompanyBlock(b)
@@ -1672,10 +1676,6 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
         + '</div>'
       )
-    // § 영업 메모
-    + section('영업 메모', '',
-        '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
-      )
     // § 오리엔시트 — 2026-09-21 에 「신청 내역(브랜드 서베이)」에서 바꿨다.
     //   서베이는 2026-06-30 공개 접수 중단 뒤로 안 쓰고, 브랜드 영업은 오리엔시트로 한다.
     //   🔴 제목의 건수는 **조회에 성공했을 때만** 붙인다 — 실패를 「(0건)」으로 그리면 「시트가 없다」는 거짓말이 된다.
@@ -1684,7 +1684,15 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
     + (b && b.id
         ? renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount)
         : section('오리엔시트' + (Array.isArray(sheets) ? ' (' + sheets.length + '건)' : ''), '',
-            renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount)));
+            renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount)))
+    + '</div>'
+    // § 영업 메모 — 오른쪽 칸(스크롤을 따라 붙는다)
+    + '<aside style="position:sticky;top:var(--brand-detail-head,0px)">'
+      + section('영업 메모', '',
+          '<textarea id="brandFormMemo" class="admin-filter" rows="14" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
+        )
+    + '</aside>'
+  + '</div>';
 }
 
 // 브랜드 상세 맨 아래 절 — 「오리엔시트 / 캠페인」 탭 두 개.
