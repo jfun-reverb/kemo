@@ -30,6 +30,10 @@ var _orientByApp = {};
 var _brandDetailTab = 'sheets';
 // 브랜드 상세 페이지의 「돌아가기」 — 들어온 곳별 글자·동작. 🔴 값이 없으면 브랜드 관리로(빈 화면 방지).
 var _brandDetailFrom = 'brands';
+// 영업 메모(마이그레이션 466) — 조회 실패 null / 0건 [] / 아직 안 받음 undefined
+var _brandMemos = undefined;
+var _brandMemoDraft = '';      // 쓰다 만 새 메모 — 메모 영역을 다시 그려도 살아남아야 한다
+var _brandMemoEditDraft = {};  // {메모id: 고치던 내용}
 var BRAND_DETAIL_BACK = {
   'brands':             { label: '브랜드 관리로',   action: "switchAdminPane('brands')" },
   'brand-ops':          { label: '운영 현황으로',   action: "switchAdminPane('brand-ops-detail')" },
@@ -1076,6 +1080,7 @@ function renderGoogleSheetLinkOnly(urlOrNull) {
 // ══════════════════════════════════════
 var _brandsCache = [];
 var _brandCampCounts = {};  // {brand_id: 캠페인 수} — 브랜드 목록 「캠페인 수」 컬럼용
+var _brandMemoSummaries = null;  // {brand_id: {count, latest_body, latest_at}} — 목록 「메모」 열. 🔴 실패 `null` / 0건 `{}`
 var _brandSheetCounts = null;  // {brand_id: 오리엔시트 수} — 브랜드 목록 「오리엔시트 수」 열. 🔴 실패 `null` / 0건 `{}`
 var _brandCompanyMap = {};  // {company_id: 회사명} — 목록 회사명을 company_id 기준 표시(company_name 보조컬럼 미동기화 대비)
 var _brandsCurrentId = null;
@@ -1090,6 +1095,8 @@ async function loadBrandsPane() {
   // 「오리엔시트 수」 열 — 데이터베이스 카운터를 새로 만들지 않고 캠페인 수와 같은 뜻(전건 조회 + 클라 집계)으로 센다.
   //   🔴 실패는 `null` 이라 셀이 「—」가 된다(0건 `{}` 와 구분 — 「시트가 없다」로 읽히면 안 된다)
   _brandSheetCounts = (typeof fetchOrientSheetCountsByBrand === 'function') ? await fetchOrientSheetCountsByBrand() : null;
+  // 「메모」 열 — 브랜드마다 최신 1건 + 건수. 조회는 **딱 한 번**(마이그레이션 466 이후 여러 건이 된다)
+  _brandMemoSummaries = (typeof fetchBrandMemoSummaries === 'function') ? await fetchBrandMemoSummaries() : null;
   // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
   var _companies = (typeof fetchCompanies === 'function') ? (await fetchCompanies({ status: 'all' }) || []) : [];
   _brandCompanyMap = {};
@@ -1117,10 +1124,17 @@ function renderBrandsList() {
     return;
   }
   var renderRow = function(b) {
-    var memoText = (b.memo || '').trim();
-    var memoCell = memoText
-      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
-      : '<span style="color:var(--muted)">—</span>';
+    // 「메모」 열 — 이제 `brand_memos` 표의 **최신 1건 + 건수**다(옛 `brands.memo` 칸은 더 이상 안 쓴다).
+    //   🔴 조회 실패(`null`)와 0건을 가른다 — 실패를 「메모 없음」으로 그리면 거짓말이 된다.
+    //   ⚠️ 서식 있는 글이라 **태그를 걷어 평문으로** 넣는다(툴팁도 평문).
+    var memoSum = (_brandMemoSummaries && _brandMemoSummaries[b.id]) || null;
+    var memoText = memoSum ? String(memoSum.latest_body || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    var memoMore = (memoSum && memoSum.count > 1) ? '<span style="font-size:10px;color:var(--muted);margin-left:4px">+' + (memoSum.count - 1) + '</span>' : '';
+    var memoCell = (_brandMemoSummaries === null)
+      ? '<span style="color:var(--muted)">—</span>'
+      : (memoText
+      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + memoMore + '</div>'
+      : '<span style="color:var(--muted)">—</span>');
     var statusBadge = b.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
       : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
@@ -1173,6 +1187,12 @@ function collectOrientCampaignIds(sheets) {
 //      `$()`(getElementById)가 앞의 것을 읽고, 오류 없이 **엉뚱한 값이 저장**된다(사양서 2-2).
 async function openBrandDetail(id, from) {
   _brandsCurrentId = id;
+  // 🔴 메모 상태를 **그리기 전에** 비운다 — 안 비우면 브랜드 B 를 여는 순간 화면에
+  //    직전 브랜드 A 의 메모(작성자·시각·본문)가 잠깐 그대로 보인다(리뷰에서 잡힌 결함).
+  //    받아 오는 것은 뒤에서 하지만, **보이는 값**은 이 시점에 이미 비어 있어야 한다.
+  _brandMemos = undefined;
+  _brandMemoDraft = '';
+  _brandMemoEditDraft = {};
   _brandDetailFrom = (from === 'brand-ops' || from === 'brand-applications') ? from : 'brands';
   clearBrandModalBody();
   var titleEl = $('brandDetailPaneHeader');
@@ -1215,6 +1235,8 @@ async function openBrandDetail(id, from) {
   var canDeleteBrand = countsKnown && (sheets.length === 0) && (surveyCount === 0) && (campCount === 0) && isAdm;
   if (titleEl) titleEl.innerHTML = renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id);
   syncBrandDetailTabOffset();
+  // 메모는 화면을 그린 뒤 따로 받는다 — 본문이 메모를 기다리지 않게(오리엔 상세와 같은 순서)
+  loadBrandMemos(id);
 }
 
 // 페이지 머리글 — 돌아가기 + 제목 + 단추 묶음. 🔴 단추는 **모달 바닥에 있던 것 그대로**이되
@@ -1275,7 +1297,12 @@ function closeBrandDetailModal() {
 async function deleteBrandConfirm() {
   var id = _brandsCurrentId;
   if (!id) return;
-  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·서베이 신청·오리엔시트가 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
+  // ⚠️ 삭제 가능한 브랜드는 캠페인·서베이·오리엔시트가 이미 0건이라, **실제로 사라지는 것은 메모뿐**이다.
+  //    그 사실을 확인 창이 말하지 않으면 무엇을 잃는지 모른 채 누르게 된다(사양서 결정 ⑧).
+  var memoCnt = Array.isArray(_brandMemos) ? _brandMemos.length : 0;
+  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·서베이 신청·오리엔시트가 없는 빈 브랜드만 삭제됩니다.'
+      + (memoCnt ? '\n남긴 영업 메모 ' + memoCnt + '개도 함께 사라집니다.' : '')
+      + '\n되돌릴 수 없습니다.')) return;
   var result = await deleteBrand(id);
   if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   toast('브랜드를 삭제했습니다');
@@ -1331,7 +1358,11 @@ async function doBrandMerge(sourceId) {
   var result = await mergeBrands(sourceId, targetId);
   if (!result.ok) { toast('병합 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   var d = result.data || {};
-  toast('병합 완료 — 캠페인 ' + (d.moved_campaigns || 0) + '건·신청 ' + (d.moved_apps || 0) + '건 이동');
+  // ⚠️ 서버가 돌려주는 건수를 그대로 읽는다 — 오리엔시트·메모는 각각 328·467 에서 더해졌다.
+  //    옛 서버(그 마이그레이션 전)에서는 키가 없어 0 으로 보인다.
+  toast('병합 완료 — 캠페인 ' + (d.moved_campaigns || 0) + '건·신청 ' + (d.moved_apps || 0) + '건'
+        + (d.moved_orient_sheets ? '·오리엔시트 ' + d.moved_orient_sheets + '건' : '')
+        + (d.moved_memos ? '·메모 ' + d.moved_memos + '건' : '') + ' 이동');
   closeBrandMergeModal();
   switchAdminPane('brands');   // 병합된 원본 브랜드 페이지에 머무를 수 없다(삭제와 같은 이유)
   _brandsCurrentId = null;
@@ -1689,12 +1720,154 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
             renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount)))
     + '</div>'
     // § 영업 메모 — 오른쪽 칸(스크롤을 따라 붙는다)
-    + '<aside style="position:sticky;top:var(--brand-detail-head,0px)">'
-      + section('영업 메모', '',
-          '<textarea id="brandFormMemo" class="admin-filter" rows="14" style="resize:vertical;font-family:inherit;width:100%;box-sizing:border-box" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
-        )
+    // § 영업 메모 — 오른쪽 칸. 🔴 자체 스크롤이 없으면 메모가 쌓였을 때 아래가 영영 안 닿는다(사양서 2-①)
+    + '<aside style="position:sticky;top:var(--brand-detail-head,0px);max-height:calc(100vh - var(--brand-detail-head,0px) - 40px);overflow-y:auto">'
+      + '<div id="brandMemoPanel">' + renderBrandMemoPanelHtml(b) + '</div>'
     + '</aside>'
   + '</div>';
+}
+
+// ══ 영업 메모 — 오리엔시트 내부 메모와 같은 모양(사양서 2026-09-23-brand-memo-entries §3-C) ══
+//   🔴 브랜드 식별자가 없으면(신규 등록 창) **안 그린다** — 아직 만들지도 않은 브랜드에 메모를 붙일 수 없고,
+//      같은 이름의 입력칸이 화면에 둘이 되는 사고(브랜드 상세 페이지 사양서 2-2)도 막는다.
+function renderBrandMemoPanelHtml(b) {
+  var head = function(inner) {
+    return '<section style="margin-bottom:30px">'
+      + '<div style="display:flex;align-items:center;gap:6px;padding-bottom:8px;margin-bottom:18px;border-bottom:2px solid var(--pink)">'
+        + '<span style="font-size:13px;font-weight:700;color:var(--ink)">영업 메모</span>'
+        + (Array.isArray(_brandMemos) ? '<span style="font-size:12px;color:var(--muted);font-weight:600">(' + _brandMemos.length + ')</span>' : '')
+        + '<span style="font-size:11px;color:var(--muted);font-weight:600">· 관리자만 보입니다</span>'
+      + '</div>' + inner
+    + '</section>';
+  };
+  if (!b || !b.id) {
+    return head('<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">브랜드를 만든 뒤 상세 화면에서 메모를 남길 수 있습니다</div>');
+  }
+  if (_brandMemos === undefined) {
+    return head('<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>');
+  }
+  if (!Array.isArray(_brandMemos)) {
+    return head('<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>');
+  }
+  var items = _brandMemos.length
+    ? _brandMemos.map(renderBrandMemoItemHtml).join('')
+    : '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px;margin-bottom:12px">아직 메모가 없습니다. 아래에 남겨 주세요.</div>';
+  // ⚠️ 입력칸 초기값은 빈 문자열이 아니라 **쓰다 만 내용**이다 — 메모 영역은 저장·삭제 때마다 다시 그려지는데,
+  //    빈 값으로 그리면 화면에서만 글이 사라지고 뒤에 남은 값이 나중에 등록된다(오리엔 메모가 겪은 함정).
+  var form = '<div style="margin-top:4px">'
+    + miniEditorHtml(_brandMemoDraft || '', '_brandMemoDraft=this.innerHTML', '이 브랜드에 대한 영업 메모',
+                     { allowImage: false, sanitize: sanitizeMemoHtml })
+    + '<div style="display:flex;justify-content:flex-end;margin-top:8px">'
+      + '<button type="button" class="btn btn-primary btn-sm" onclick="submitBrandMemo()">남기기</button>'
+    + '</div>'
+    // 🔴 저장 시점이 둘로 갈린다 — 메모는 즉시 저장, 왼쪽 폼은 위 「저장」(사양서 2-②)
+    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">메모는 「남기기」를 누르면 바로 저장됩니다. 왼쪽 내용은 위 「저장」을 눌러야 저장됩니다.</div>'
+  + '</div>';
+  return head(items + form);
+}
+
+function renderBrandMemoItemHtml(m) {
+  var editing = Object.prototype.hasOwnProperty.call(_brandMemoEditDraft, m.id);
+  var edited = (m.updated_at && m.created_at && m.updated_at !== m.created_at)
+    ? '<span style="font-size:10px;color:var(--muted)">수정됨</span>' : '';
+  var meta = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'
+    + '<span style="font-size:11px;font-weight:700;color:var(--ink)">' + esc(m.author_name || '이름 없음') + '</span>'
+    + '<span style="font-size:11px;color:var(--muted)">' + esc(formatDateTime(m.created_at)) + '</span>' + edited
+    + (editing ? '' : '<span style="margin-left:auto;display:flex;gap:2px">'
+        + '<button type="button" class="btn btn-ghost btn-xs" onclick="editBrandMemo(\'' + esc(m.id) + '\')">고침</button>'
+        + '<button type="button" class="btn btn-ghost btn-xs" onclick="removeBrandMemo(\'' + esc(m.id) + '\')">지움</button>'
+      + '</span>')
+  + '</div>';
+  var box = 'border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)';
+  if (!editing) {
+    return '<div style="' + box + '">' + meta
+      + '<div style="font-size:12px;color:var(--ink);line-height:1.7;word-break:break-word">' + sanitizeMemoHtml(m.body_html) + '</div></div>';
+  }
+  return '<div style="' + box + '">' + meta
+    + miniEditorHtml(_brandMemoEditDraft[m.id] || '', '_brandMemoEditDraft[\'' + esc(m.id) + '\']=this.innerHTML', '메모를 고치세요',
+                     { allowImage: false, sanitize: sanitizeMemoHtml })
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">'
+      + '<button type="button" class="btn btn-ghost btn-sm" onclick="cancelBrandMemoEdit(\'' + esc(m.id) + '\')">취소</button>'
+      + '<button type="button" class="btn btn-primary btn-sm" onclick="saveBrandMemoEdit(\'' + esc(m.id) + '\')">저장</button>'
+    + '</div></div>';
+}
+
+// 🔴 메모 영역만 다시 그린다 — 전체를 다시 그리면 **왼쪽 폼에서 고치던 값이 날아간다**
+function refreshBrandMemoPanel() {
+  var el = $('brandMemoPanel');
+  if (el) el.innerHTML = renderBrandMemoPanelHtml({ id: _brandsCurrentId });
+  if (typeof syncBrandDetailTabOffset === 'function') syncBrandDetailTabOffset();
+}
+
+async function loadBrandMemos(brandId) {
+  // ⚠️ 여는 함수(openBrandDetail)가 이미 비우지만, 이 함수를 따로 부르는 자리가 생겨도
+  //    직전 브랜드 값이 남지 않게 여기서도 비운다.
+  _brandMemos = undefined;
+  _brandMemoDraft = '';
+  _brandMemoEditDraft = {};
+  if (!brandId) { _brandMemos = []; return; }
+  var rows = await fetchBrandMemos(brandId);
+  // ⚠️ 받아 오는 사이 다른 브랜드를 열었으면 버린다
+  if (_brandsCurrentId !== brandId) return;
+  _brandMemos = rows;
+  refreshBrandMemoPanel();
+}
+
+function brandMemoAuthor() {
+  return {
+    name: (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.name)
+          || (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '관리자',
+    id: (typeof currentUser !== 'undefined' && currentUser && currentUser.id) || null
+  };
+}
+
+function brandMemoPlainLen(html) {
+  return String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length;
+}
+
+async function submitBrandMemo() {
+  var id = _brandsCurrentId;
+  if (!id) return;
+  var body = sanitizeMemoHtml(_brandMemoDraft || '');
+  if (!brandMemoPlainLen(body)) { toast('메모 내용을 입력해 주세요', 'error'); return; }
+  var who = brandMemoAuthor();
+  var res = await insertBrandMemo(id, body, who.id, who.name);
+  if (!res.ok) { toast('메모를 남기지 못했습니다', 'error'); return; }
+  _brandMemoDraft = '';
+  _brandMemos = await fetchBrandMemos(id);
+  refreshBrandMemoPanel();
+  toast('메모를 남겼습니다');   // ⚠️ 폼 저장의 「저장되었습니다」와 구분되는 문구
+}
+
+function editBrandMemo(memoId) {
+  var m = (Array.isArray(_brandMemos) ? _brandMemos : []).find(function(x){ return x.id === memoId; });
+  _brandMemoEditDraft[memoId] = (m && m.body_html) || '';
+  refreshBrandMemoPanel();
+}
+
+function cancelBrandMemoEdit(memoId) {
+  delete _brandMemoEditDraft[memoId];
+  refreshBrandMemoPanel();
+}
+
+async function saveBrandMemoEdit(memoId) {
+  var body = sanitizeMemoHtml(_brandMemoEditDraft[memoId] || '');
+  if (!brandMemoPlainLen(body)) { toast('메모 내용을 입력해 주세요', 'error'); return; }
+  var res = await updateBrandMemo(memoId, body);
+  if (!res.ok) { toast('메모를 고치지 못했습니다', 'error'); return; }
+  delete _brandMemoEditDraft[memoId];
+  _brandMemos = await fetchBrandMemos(_brandsCurrentId);
+  refreshBrandMemoPanel();
+  toast('메모를 고쳤습니다');
+}
+
+async function removeBrandMemo(memoId) {
+  if (!confirm('이 메모를 지울까요? 되돌릴 수 없습니다.')) return;
+  var res = await deleteBrandMemo(memoId);
+  if (!res.ok) { toast('메모를 지우지 못했습니다', 'error'); return; }
+  _brandMemos = await fetchBrandMemos(_brandsCurrentId);
+  refreshBrandMemoPanel();
+  toast('메모를 지웠습니다');
 }
 
 // 브랜드 상세 맨 아래 절 — 「오리엔시트 / 캠페인」 탭 두 개.
@@ -1956,8 +2129,9 @@ function _collectBrandFormPatch() {
     appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
     official_qoo10_url: ($('brandFormQoo10Url')?.value || '').trim() || null,
     official_instagram_url: ($('brandFormInstagramUrl')?.value || '').trim() || null,
-    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null,
-    memo: ($('brandFormMemo')?.value || '').trim() || null
+    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null
+    // 🔴 `memo:` 를 뺐다 — 영업 메모는 이제 `brand_memos` 표에 따로 쌓는다(마이그레이션 466).
+    //    옛 칸(`brands.memo`)은 남아 있지만 화면은 더 이상 쓰지 않는다. 둘 다 쓰면 같은 메모가 두 벌이 된다(마이그레이션 124 사고).
   };
 }
 

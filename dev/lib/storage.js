@@ -3248,6 +3248,84 @@ async function countCampaignsByBrand(brandId) {
   } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
 }
 
+// ══ 브랜드 영업 메모 (마이그레이션 466, 사양서 2026-09-23-brand-memo-entries) ══
+//   오리엔시트 내부 메모(297)와 같은 방식 — 서버 함수 없이 표를 직접 읽고 쓴다.
+//   ⚠️ 조회 실패는 **null**, 0건은 **[]**. 화면이 「불러오지 못했습니다」와 「메모 없음」을 다르게 그린다.
+async function fetchBrandMemos(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {data, error} = await db.from('brand_memos')
+      .select('id, brand_id, body_html, author_id, author_name, created_at, updated_at')
+      .eq('brand_id', brandId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandMemos]', e); return null; }
+}
+
+async function insertBrandMemo(brandId, bodyHtml, authorId, authorName) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_memos')
+        .insert({ brand_id: brandId, body_html: bodyHtml, author_id: authorId || null, author_name: authorName || null })
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 낙관적 잠금을 일부러 걸지 않는다(마지막 저장 승리 — 297 과 같은 결정)
+async function updateBrandMemo(memoId, bodyHtml) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_memos')
+        .update({body_html: bodyHtml})
+        .eq('id', memoId)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 목록 「메모」 열 — 브랜드마다 최신 1건 + 건수. 조회는 **딱 한 번**(브랜드마다 부르면 77번이 된다).
+//   🔴 실패는 `null`, 0건은 `{}` — 옆 「오리엔시트 수」 열과 같은 규칙(실패를 0으로 그리면 「메모가 없다」는 거짓말).
+//   ⚠️ 1,000행 상한 대비 `fetchAllPaged` + 고유 정렬. 최신 판정은 받아 온 뒤 화면에서 한다.
+async function fetchBrandMemoSummaries() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('brand_memos')
+      .select('brand_id, body_html, created_at')
+      .order('created_at', {ascending: false}).order('id', {ascending: true}));
+    const out = {};
+    (rows || []).forEach(r => {
+      if (!r.brand_id) return;
+      const cur = out[r.brand_id];
+      if (!cur) { out[r.brand_id] = { count: 1, latest_body: r.body_html, latest_at: r.created_at }; return; }
+      cur.count += 1;
+      if (!cur.latest_at || (r.created_at && r.created_at > cur.latest_at)) { cur.latest_body = r.body_html; cur.latest_at = r.created_at; }
+    });
+    return out;
+  } catch(e) { console.error('[fetchBrandMemoSummaries]', e); return null; }
+}
+
+async function deleteBrandMemo(memoId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('brand_memos').delete().eq('id', memoId);
+      if (error) throw error;
+      return true;
+    });
+    return {ok: true};
+  } catch(e) { console.error('[deleteBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
 // 브랜드 상세 모달 「캠페인」 탭 — 그 브랜드의 캠페인 목록(보관 삭제분 제외).
 //   🔴 기준은 `countCampaignsByBrand`(바로 위)와 **글자 그대로 같다**(`brand_id` + `deleted_at IS NULL`) —
 //      어긋나면 탭 라벨의 건수와 실제 목록 길이가 달라져 「몇 건이 맞나」를 운영자가 판단하게 된다.
