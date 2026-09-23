@@ -21,7 +21,15 @@
 // ══════════════════════════════════════
 
 var _brandApps = [];          // 캐시된 전체 목록
-var _orientByApp = {};        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
+var _orientByApp = {};
+// 브랜드 상세 모달 「오리엔시트 / 캠페인」 탭 (2026-09-23)
+//   🔴 탭 전환은 **형제 div 의 display 토글**로만 한다 — 이 모달은 읽기 화면이 아니라 **편집 폼**이라
+//      본문을 다시 그리면 고치던 브랜드명·담당자·메모가 경고 없이 사라진다(값은 DOM 에서 읽는다).
+//   ⚠️ 모달을 열 때마다 'sheets' 로 되돌린다(캠페인 진행현황 탭과 같은 관행) — 직전 브랜드의 탭이 남으면
+//      「0건」 화면으로 열려 혼란스럽다.
+var _brandDetailTab = 'sheets';
+var _brandDetailCamps = undefined;   // undefined=아직 안 받음 / null=조회 실패 / []=0건
+var _brandDetailSheetCampIds = [];   // 이 브랜드 시트가 발행한 캠페인 id — 「오리엔 연결 / 직접 등록」 분류용        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
@@ -1172,14 +1180,17 @@ async function openBrandDetailModal(id) {
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
   // 발행 캠페인 맵 — 시트 목록이 와야 id 를 알 수 있어 위 동시 조회에 못 넣는다(오리엔 상세와 같은 순서).
   //   ⚠️ 이 조회가 실패해도 **삭제 판정과는 무관**하다 — 카드의 번호 자리만 비운다.
+  _brandDetailTab = 'sheets';
+  _brandDetailCamps = undefined;
   var campMap = {};
   try {
     var campIds = collectOrientCampaignIds(sheets);
+    _brandDetailSheetCampIds = campIds.slice();
     if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds);
   } catch (_) { campMap = {}; }
   _brandFormCompanies = companies || [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
-  bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap);
+  bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
   var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
@@ -1540,7 +1551,7 @@ function openCompanyModalForBrand() {
 
 // ⚠️ 인자가 넷이다 — `sheets`(오리엔시트 목록 · 실패는 `null`) · `surveyCount`(지난 서베이 건수 · 실패는 `null`)
 //    · `campMap`(발행 캠페인 맵). 신규 브랜드 등록 폼은 `({}, [], 0, {})` 로 부른다.
-function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap) {
+function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
   // contacts 초기화
   _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
     return {
@@ -1620,8 +1631,103 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap) {
     // § 오리엔시트 — 2026-09-21 에 「신청 내역(브랜드 서베이)」에서 바꿨다.
     //   서베이는 2026-06-30 공개 접수 중단 뒤로 안 쓰고, 브랜드 영업은 오리엔시트로 한다.
     //   🔴 제목의 건수는 **조회에 성공했을 때만** 붙인다 — 실패를 「(0건)」으로 그리면 「시트가 없다」는 거짓말이 된다.
-    + section('오리엔시트' + (Array.isArray(sheets) ? ' (' + sheets.length + '건)' : ''), '',
-        renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount));
+    // 🔴 「새 브랜드」 등록도 이 함수를 쓴다(openNewBrandModal) — 아직 만들지도 않은 브랜드의
+    //    캠페인 탭은 뜻이 없어 그때는 탭을 안 그리고 종전 그대로 둔다.
+    + (b && b.id
+        ? renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount)
+        : section('오리엔시트' + (Array.isArray(sheets) ? ' (' + sheets.length + '건)' : ''), '',
+            renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount)));
+}
+
+// 브랜드 상세 맨 아래 절 — 「오리엔시트 / 캠페인」 탭 두 개.
+//   ⚠️ 탭 줄은 `status-tab-bar` 공용 클래스를 쓴다(다른 화면 12곳과 같은 모양). 모달 안에서 쓰는 첫 사례라
+//      스크롤을 따라 붙게 `position:sticky` 를 여기서 직접 준다 — 이 절이 폼 맨 아래라 안 붙이면 탭이 화면 밖에 있다.
+//   ⚠️ 캠페인 건수는 **모달을 열 때 이미 받은 값**(countCampaignsByBrand)을 쓴다 — 탭 때문에 조회를 늘리지 않는다.
+//      실패면 숫자 대신 「…」(운영현황 탭과 같은 표기).
+function renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount) {
+  var sheetCnt = Array.isArray(sheets) ? String(sheets.length) : '…';
+  var campCnt = (campCount === null || campCount === undefined) ? '…' : String(campCount);
+  var tab = function(code, label, cnt) {
+    return '<button type="button" class="status-tab-btn' + (code === 'sheets' ? ' on' : '') + '" '
+      + 'id="brandDetailTab_' + code + '" onclick="setBrandDetailTab(\'' + code + '\')">'
+      + esc(label) + '<span class="tab-count">(' + esc(cnt) + ')</span></button>';
+  };
+  return '<section style="margin-bottom:18px">'
+    + '<div class="status-tab-bar" style="position:sticky;top:0;z-index:2;background:var(--surface);margin-bottom:12px">'
+      + tab('sheets', '오리엔시트', sheetCnt)
+      + tab('camps', '캠페인', campCnt)
+    + '</div>'
+    + '<div id="brandDetailPane_sheets">' + renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount) + '</div>'
+    + '<div id="brandDetailPane_camps" style="display:none">' + renderBrandCampaignsView(undefined) + '</div>'
+  + '</section>';
+}
+
+// 탭 전환 — 🔴 본문을 다시 그리지 않는다(편집 중인 값이 사라진다). `display` 만 바꾼다.
+//   캠페인 목록은 **탭을 처음 누를 때** 받는다 — 안 누르는 사람에게 조회를 시키지 않는다.
+async function setBrandDetailTab(code) {
+  _brandDetailTab = (code === 'camps') ? 'camps' : 'sheets';
+  ['sheets', 'camps'].forEach(function(k){
+    var btn = $('brandDetailTab_' + k); if (btn) btn.classList.toggle('on', k === _brandDetailTab);
+    var pane = $('brandDetailPane_' + k); if (pane) pane.style.display = (k === _brandDetailTab) ? '' : 'none';
+  });
+  if (_brandDetailTab !== 'camps' || _brandDetailCamps !== undefined) return;
+  var brandId = _brandsCurrentId;
+  var pane = $('brandDetailPane_camps');
+  if (pane) pane.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>';
+  var rows = (typeof fetchCampaignsByBrand === 'function') ? await fetchCampaignsByBrand(brandId) : null;
+  // ⚠️ 받아 오는 사이에 모달을 닫고 다른 브랜드를 열었을 수 있다 — 그러면 이 결과는 버린다.
+  if (_brandsCurrentId !== brandId) return;
+  _brandDetailCamps = rows;
+  var pane2 = $('brandDetailPane_camps');
+  if (pane2) pane2.innerHTML = renderBrandCampaignsView(rows);
+}
+
+// 캠페인 탭 본문 — 「오리엔시트 연결 / 직접 등록」 두 묶음(운영현황 브랜드 상세와 같은 분류).
+//   🔴 분류 기준은 **이 브랜드의 시트**가 발행한 캠페인인가다. 다른 브랜드 시트로 발행한 뒤 브랜드를 옮긴
+//      캠페인은 여기서 「직접 등록」으로 보인다 — 운영현황은 전체 시트를 보므로 그쪽과 갈릴 수 있다.
+//   ⚠️ 보관 삭제된 캠페인은 조회에서 빠진다(브랜드 목록 「캠페인 수」와 같은 기준, 2026-09-23 사용자 결정).
+function renderBrandCampaignsView(camps) {
+  if (camps === undefined) return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>';
+  if (!Array.isArray(camps)) {
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>';
+  }
+  if (!camps.length) {
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">캠페인 없음</div>';
+  }
+  var ids = _brandDetailSheetCampIds || [];
+  var linked = camps.filter(function(c){ return ids.indexOf(c.id) !== -1; });
+  var direct = camps.filter(function(c){ return ids.indexOf(c.id) === -1; });
+  var group = function(title, list) {
+    if (!list.length) return '';
+    return '<div style="margin-bottom:12px">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">' + esc(title) + ' (' + list.length + ')</div>'
+      + list.map(renderBrandCampaignRow).join('')
+    + '</div>';
+  };
+  return group('오리엔시트 연결', linked) + group('직접 등록', direct);
+}
+
+// 캠페인 한 줄 — 썸네일 + 번호·제목 + 형식/채널 + 기간. 🔴 누르는 단추를 두지 않는다:
+//   운영현황 미니카드의 단추들(연결·해제·상세)은 그 화면 전역값에 기대고 있어 모달에서는 눌러도 아무 일이 없다.
+function renderBrandCampaignRow(c) {
+  var st = (typeof BRAND_OPS_CAMP_STATUS_COLOR !== 'undefined' && BRAND_OPS_CAMP_STATUS_COLOR[c.status]) || { bg: 'var(--surface-dim)', color: 'var(--muted)' };
+  var stKo = (typeof BRAND_OPS_CAMP_STATUS_KO !== 'undefined' && BRAND_OPS_CAMP_STATUS_KO[c.status]) || c.status || '';
+  var recruit = (typeof brandOpsDateRange === 'function') ? brandOpsDateRange(c.recruit_start, c.deadline) : '';
+  var submit = (typeof brandOpsSubmitDateText === 'function') ? brandOpsSubmitDateText(c) : '';
+  return '<div style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:var(--surface)">'
+    + ((typeof brandOpsCampThumb === 'function') ? brandOpsCampThumb(c, 40) : '')
+    + '<div style="min-width:0;flex:1">'
+      + ((typeof brandOpsCampTypeChannel === 'function') ? brandOpsCampTypeChannel(c) : '')
+      + '<div style="display:flex;align-items:center;gap:6px;min-width:0">'
+        + (c.campaign_no ? '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + esc(c.campaign_no) + '</span>' : '')
+        + '<span style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.title || '—') + '</span>'
+      + '</div>'
+    + '</div>'
+    + '<div style="text-align:right;flex-shrink:0">'
+      + '<span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(stKo) + '</span>'
+      + ((recruit || submit) ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">' + esc([recruit ? '모집 ' + recruit : '', submit].filter(Boolean).join(' · ')) + '</div>' : '')
+    + '</div>'
+  + '</div>';
 }
 
 // 브랜드 상세의 오리엔시트 구역 — 카드 1장 = 시트 1건, 최신 발급순. 펼침 없음(제품 표는 오리엔 상세가 갖고 있다).
