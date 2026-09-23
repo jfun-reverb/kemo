@@ -2521,6 +2521,13 @@
           </div>
         </div>
 
+        <!-- 브랜드 상세 (2026-09-23 사양서 2026-09-23-brand-detail-pane) — 모달에서 페이지로.
+             🔴 목록 페인이 아니다(`admin-pane-list` 안 붙임) — 폼이라 자연 스크롤.
+             머리글은 sticky 라 저장 단추가 화면에서 사라지지 않는다. 그 높이만큼 본문 탭 줄의 top 을 내린다. -->
+        <div id="adminPane-brand-detail" class="admin-pane">
+          <div id="brandDetailPaneHeader" style="position:sticky;top:0;z-index:5;background:var(--surface);padding:4px 0 10px;border-bottom:1px solid var(--line)"></div>
+          <div id="brandDetailPaneBody" style="padding-top:14px"></div>
+        </div>
         <div id="adminPane-brands" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">

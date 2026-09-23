@@ -178,7 +178,11 @@ function switchAdminPane(pane, el, pushHistory) {
       if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
       return switchAdminPane('dashboard', null, pushHistory);
     }
-  } else if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+  // 🔴 하위 화면은 **부모 목록의 열쇠말**로 판정한다 — 권한 카탈로그에 없는 열쇠말은 `permLevel` 이
+  //    'write' 로 돌려줘 아무도 안 막힌다. 이 줄이 없으면 「브랜드 관리」가 숨김인 등급도
+  //    주소창에 `#brand-detail` 을 쳐서 들어온다(사양서 2026-09-23-brand-detail-pane 2-3).
+  } else if (pane !== 'dashboard' && typeof isHidden === 'function'
+             && isHidden('menu.' + ({'brand-detail':'brands'}[pane] || pane))) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
@@ -223,7 +227,7 @@ function switchAdminPane(pane, el, pushHistory) {
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops'}[pane] || pane;
+      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops','brand-detail':'brands'}[pane] || pane;
     el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
@@ -249,6 +253,9 @@ function switchAdminPane(pane, el, pushHistory) {
     'brand-ops-detail': loadBrandOpsDetail,
     'companies': loadCompanies,
     'brands': loadBrandsPane,
+    // 브랜드 상세 페이지는 목록에서 고른 브랜드를 화면 상태로 들고 있다 —
+    //   주소로 직접 들어오면 고른 브랜드가 없으므로 목록으로 돌려보낸다(app.js 의 subToParent 와 같은 뜻).
+    'brand-detail': () => { if (!_brandsCurrentId) switchAdminPane('brands'); },
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,
