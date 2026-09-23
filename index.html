@@ -10420,6 +10420,21 @@ async function countCampaignsByBrand(brandId) {
   } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
 }
 
+// 브랜드 상세 모달 「캠페인」 탭 — 그 브랜드의 캠페인 목록(보관 삭제분 제외).
+//   🔴 기준은 `countCampaignsByBrand`(바로 위)와 **글자 그대로 같다**(`brand_id` + `deleted_at IS NULL`) —
+//      어긋나면 탭 라벨의 건수와 실제 목록 길이가 달라져 「몇 건이 맞나」를 운영자가 판단하게 된다.
+//   ⚠️ 실패 `null` / 0건 `[]`. 화면이 둘을 다른 문구로 그린다(마이그레이션 276 원칙).
+//   ⚠️ 칸은 한 줄 표시에 필요한 것만 — 기간 문구 판정(`campaignPeriodRowKind`)이 구매·방문 기간을 읽으므로 함께 받는다.
+async function fetchCampaignsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('campaigns')
+      .select('id,campaign_no,title,status,recruit_type,proxy_purchase,channel,channel_match,img1,recruit_start,deadline,submission_end,purchase_start,purchase_end,visit_start,visit_end')
+      .is('deleted_at', null).eq('brand_id', brandId)
+      .order('created_at', {ascending:false}).order('id', {ascending:true}));
+  } catch(e) { console.error('[fetchCampaignsByBrand]', e); return null; }
+}
+
 // 브랜드 할당 모달용 조회
 // unassignedOnly=true → company_id IS NULL 인 미분류 브랜드만
 // companyId 지정 시 → 현재 소속(= companyId) + 미분류 양쪽 모두 반환
