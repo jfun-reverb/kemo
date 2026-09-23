@@ -1621,9 +1621,11 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
   }
 
   // 공통 헬퍼 — 신청 등록 모달과 동일한 섹션 패턴(border-bottom:2px solid pink)
+  // 절 간격 — 2026-09-23 사용자 요청으로 넓혔다(제목끼리 붙어 빽빽해 보였다).
+  //   절 사이 18→30px · 제목 줄 아래 12→18px · 제목 글자와 밑줄 사이 6→8px.
   var section = function(title, rightHtml, contentHtml) {
-    return '<section style="margin-bottom:18px">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:12px;border-bottom:2px solid var(--pink)">'
+    return '<section style="margin-bottom:30px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;margin-bottom:18px;border-bottom:2px solid var(--pink)">'
         + '<span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span>'
         + (rightHtml || '')
       + '</div>'
@@ -1642,12 +1644,12 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
   // 2026-09-23 사용자 요청 — **영업 메모를 오른쪽 칸으로**. 왼쪽은 본문(기본 정보·담당자·콘텐츠·탭),
   //   오른쪽은 메모 한 칸이고 스크롤을 따라 붙는다(`--brand-detail-head` 는 페이지 머리글 높이. 모달에서는 값이 없어 0).
   // ⚠️ 신규 등록 모달도 같은 함수를 쓰므로 그쪽도 두 칸이 된다(폭 1280 기준이라 좁아지지 않는다).
-  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start">'
+  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">'
     + '<div>'
     // § 기본 정보 — 회사 연결(드롭다운+읽기전용 카드) / 브랜드명 3열
     + section('기본 정보', '',
         renderBrandCompanyBlock(b)
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px">'
           + input('brandFormName', '브랜드명 (한국어) *', b.name)
           + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
           + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
@@ -1666,11 +1668,11 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
       )
     // § 브랜드 콘텐츠
     + section('브랜드 콘텐츠 (오리엔시트용)', '',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">'
           + ta('brandFormDescription', '브랜드 소개', b.description, '브랜드 한줄 소개·수상 이력 등', 3)
           + ta('brandFormAppealPoints', '어필 포인트', b.appeal_points, '제품·시장에서의 강점', 3)
         + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'
           + input('brandFormQoo10Url', '공식 Qoo10 URL', b.official_qoo10_url, 'https://www.qoo10.jp/...')
           + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
