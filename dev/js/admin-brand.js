@@ -28,6 +28,13 @@ var _orientByApp = {};
 //   ⚠️ 모달을 열 때마다 'sheets' 로 되돌린다(캠페인 진행현황 탭과 같은 관행) — 직전 브랜드의 탭이 남으면
 //      「0건」 화면으로 열려 혼란스럽다.
 var _brandDetailTab = 'sheets';
+// 브랜드 상세 페이지의 「돌아가기」 — 들어온 곳별 글자·동작. 🔴 값이 없으면 브랜드 관리로(빈 화면 방지).
+var _brandDetailFrom = 'brands';
+var BRAND_DETAIL_BACK = {
+  'brands':             { label: '브랜드 관리로',   action: "switchAdminPane('brands')" },
+  'brand-ops':          { label: '운영 현황으로',   action: "switchAdminPane('brand-ops-detail')" },
+  'brand-applications': { label: '브랜드 서베이로', action: "switchAdminPane('brand-applications')" }
+};
 var _brandDetailCamps = undefined;   // undefined=아직 안 받음 / null=조회 실패 / []=0건
 var _brandDetailSheetCampIds = [];   // 이 브랜드 시트가 발행한 캠페인 id — 「오리엔 연결 / 직접 등록」 분류용        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
@@ -1117,7 +1124,7 @@ function renderBrandsList() {
     var statusBadge = b.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
       : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
-    return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
+    return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetail(\'' + esc(b.id) + '\', \'brands\')">'
       + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
         + '<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '—') + '</div>'
@@ -1159,16 +1166,21 @@ function collectOrientCampaignIds(sheets) {
   return out;
 }
 
-async function openBrandDetailModal(id) {
+// 브랜드 상세 — **페이지**(2026-09-23, 사양서 `docs/specs/2026-09-23-brand-detail-pane.md`).
+//   from: 'brands' | 'brand-ops' | 'brand-applications' — 돌아가기 단추의 글자·목적지를 정한다(캠페인 진행현황과 같은 관행).
+//   🔴 신규 브랜드 등록은 **여전히 모달**이다(같은 본문 함수를 쓴다). 그래서 이 페이지를 그릴 때
+//      **모달 본문을 반드시 비운다** — 안 비우면 `#brandFormName` 같은 이름이 화면에 둘이 되어
+//      `$()`(getElementById)가 앞의 것을 읽고, 오류 없이 **엉뚱한 값이 저장**된다(사양서 2-2).
+async function openBrandDetail(id, from) {
   _brandsCurrentId = id;
-  var modal = $('brandDetailModal');
-  var titleEl = $('brandDetailTitle');
-  var bodyEl = $('brandDetailBody');
-  var footerEl = $('brandDetailFooter');
-  if (!modal || !bodyEl) return;
+  _brandDetailFrom = (from === 'brand-ops' || from === 'brand-applications') ? from : 'brands';
+  clearBrandModalBody();
+  var titleEl = $('brandDetailPaneHeader');
+  var bodyEl = $('brandDetailPaneBody');
+  if (!bodyEl) return;
   bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
-  if (footerEl) footerEl.innerHTML = '';
-  modal.classList.add('open');
+  if (titleEl) titleEl.innerHTML = '';
+  switchAdminPane('brand-detail');
   // 🔴 실패는 전부 `null` 이고 자리마다 표시가 따로 있다 — 「0건인 척」 그리지 않는다.
   var [b, sheets, surveyCount, companies, campCount] = await Promise.all([
     fetchBrandById(id),
@@ -1177,6 +1189,7 @@ async function openBrandDetailModal(id) {
     (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
     (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(null))
   ]);
+  if (_brandsCurrentId !== id) return;   // 받아 오는 사이 다른 브랜드로 옮겼으면 버린다
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
   // 발행 캠페인 맵 — 시트 목록이 와야 id 를 알 수 있어 위 동시 조회에 못 넣는다(오리엔 상세와 같은 순서).
   //   ⚠️ 이 조회가 실패해도 **삭제 판정과는 무관**하다 — 카드의 번호 자리만 비운다.
@@ -1189,7 +1202,6 @@ async function openBrandDetailModal(id) {
     if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds);
   } catch (_) { campMap = {}; }
   _brandFormCompanies = companies || [];
-  if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
@@ -1201,7 +1213,18 @@ async function openBrandDetailModal(id) {
   var countsKnown = Array.isArray(sheets) && (surveyCount !== null && surveyCount !== undefined)
                     && (campCount !== null && campCount !== undefined);
   var canDeleteBrand = countsKnown && (sheets.length === 0) && (surveyCount === 0) && (campCount === 0) && isAdm;
-  if (footerEl) footerEl.innerHTML = ''
+  if (titleEl) titleEl.innerHTML = renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id);
+  syncBrandDetailTabOffset();
+}
+
+// 페이지 머리글 — 돌아가기 + 제목 + 단추 묶음. 🔴 단추는 **모달 바닥에 있던 것 그대로**이되
+//   「닫기」는 없고, 오리엔시트 발급은 **모달을 닫지 않는다**(페이지 위에 발급 창이 뜬다).
+function renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id) {
+  var back = BRAND_DETAIL_BACK[_brandDetailFrom] || BRAND_DETAIL_BACK.brands;
+  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" onclick="' + back.action + '">← ' + esc(back.label) + '</button>'
+    + '<div style="min-width:0">' + renderBrandDetailHeaderHtml(b) + '</div>'
+    + '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
     + (canDeleteBrand
         ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
         : '')
@@ -1211,19 +1234,40 @@ async function openBrandDetailModal(id) {
     // ⚠️ 「이 브랜드로 신규 신청」(서베이 등록)은 2026-09-21 에 뺐다 — 사용자 결정(신규 서베이 등록 경로 종료).
     //    `openNewBrandAppModal` 함수·모달은 **남긴다**(기존 신청 수정 경로가 같은 모달을 쓴다).
     //    `margin-right:auto` 는 그 버튼에 있었으므로 여기로 옮겨 왼쪽 묶음 배치를 유지한다.
-    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
+    + '<button class="btn btn-ghost btn-sm" onclick="osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
     // 🔴 삭제를 잠근 이유를 말한다 — 캠페인 수 조회 실패는 이 줄이 **유일한 안내**다
     //    (시트 실패는 구역 본문이, 서베이 실패는 안내줄이 따로 말한다)
     + ((!countsKnown && isAdm)
         ? '<span style="font-size:11px;color:#B45309;align-self:center">일부 정보를 불러오지 못해 삭제를 잠갔습니다</span>'
         : '')
-    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
-    + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
+    + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>'
+  + '</div></div>';
+}
+
+// 본문 탭 줄(`position:sticky`)이 머리글 아래에 붙게 — 머리글 높이는 글자 줄바꿈에 따라 달라지므로 잰다.
+function syncBrandDetailTabOffset() {
+  var head = $('brandDetailPaneHeader');
+  var body = $('brandDetailPaneBody');
+  if (!head || !body) return;
+  body.style.setProperty('--brand-detail-head', head.offsetHeight + 'px');
+}
+
+// 🔴 같은 이름의 입력칸이 화면에 둘이 되는 것을 막는 장치 — **두 자리가 한 세트**다(사양서 2-2).
+//    페인은 숨겨도 DOM 이 남고 모달도 닫아도 본문이 남아, 한쪽만 비우면 그대로 재발한다.
+//    `$()` 는 `getElementById` 라 문서 순서상 앞의 것(=페이지)을 읽어, **오류 없이 엉뚱한 값이 저장**된다.
+function clearBrandModalBody() {
+  var mb = $('brandDetailBody'); if (mb) mb.innerHTML = '';
+  var mf = $('brandDetailFooter'); if (mf) mf.innerHTML = '';
+}
+function clearBrandDetailPaneBody() {
+  var pb = $('brandDetailPaneBody'); if (pb) pb.innerHTML = '';
+  var ph = $('brandDetailPaneHeader'); if (ph) ph.innerHTML = '';
 }
 
 function closeBrandDetailModal() {
   var modal = $('brandDetailModal');
   if (modal) modal.classList.remove('open');
+  clearBrandModalBody();   // 🔴 같은 이름의 입력칸이 페이지와 겹치지 않게(사양서 2-2)
   _brandsCurrentId = null;
 }
 
@@ -1235,7 +1279,10 @@ async function deleteBrandConfirm() {
   var result = await deleteBrand(id);
   if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   toast('브랜드를 삭제했습니다');
-  closeBrandDetailModal();
+  // 삭제한 브랜드의 페이지에 머무를 수 없다 — 목록 **화면**으로 나간다(사양서 5-3).
+  //   `refreshPane` 은 숨은 목록의 데이터만 새로 받을 뿐 화면을 바꾸지 않는다.
+  switchAdminPane('brands');
+  _brandsCurrentId = null;
   if (typeof refreshPane === 'function') { await refreshPane('brands'); }
   else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
@@ -1286,7 +1333,8 @@ async function doBrandMerge(sourceId) {
   var d = result.data || {};
   toast('병합 완료 — 캠페인 ' + (d.moved_campaigns || 0) + '건·신청 ' + (d.moved_apps || 0) + '건 이동');
   closeBrandMergeModal();
-  closeBrandDetailModal();
+  switchAdminPane('brands');   // 병합된 원본 브랜드 페이지에 머무를 수 없다(삭제와 같은 이유)
+  _brandsCurrentId = null;
   if (typeof refreshPane === 'function') { await refreshPane('brands'); }
   else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
@@ -1301,7 +1349,7 @@ function renderBrandDetailHeaderHtml(b) {
   return ''
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
-      + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
+      + '<span data-brand-name style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
       + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : 'var(--green)') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
@@ -1653,7 +1701,7 @@ function renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount) {
       + esc(label) + '<span class="tab-count">(' + esc(cnt) + ')</span></button>';
   };
   return '<section style="margin-bottom:18px">'
-    + '<div class="status-tab-bar" style="position:sticky;top:0;z-index:2;background:var(--surface);margin-bottom:12px">'
+    + '<div class="status-tab-bar" style="position:sticky;top:var(--brand-detail-head,0px);z-index:2;background:var(--surface);margin-bottom:12px">'
       + tab('sheets', '오리엔시트', sheetCnt)
       + tab('camps', '캠페인', campCnt)
     + '</div>'
@@ -1785,7 +1833,10 @@ function renderBrandOrientSheetCard(s, campMap) {
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
   var quoteTxt = (typeof osQuoteSummaryLine === 'function') ? (osQuoteSummaryLine(s) || '') : '';
-  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">'
+  // 🔴 `closeBrandDetailModal()` 을 부르지 않는다 — 그 함수는 `_brandsCurrentId` 를 비우는데,
+  //    페이지는 그대로 남아 있어 그 뒤 저장·삭제가 **토스트도 없이 조용히 무시**된다(리뷰에서 잡힌 결함).
+  //    오리엔시트 상세 창은 이 페이지 **위에** 뜨면 된다.
+  return '<div onclick="osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
       + ((typeof osCardsSummary === 'function') ? osCardsSummary(d) : '')
@@ -1915,7 +1966,13 @@ async function saveBrandDetail() {
     return;
   }
   toast('저장되었습니다.');
-  closeBrandDetailModal();
+  // 🔴 페이지에 머문다(사양서 ㉤) — `closeBrandDetailModal()` 을 부르면 `_brandsCurrentId` 가 비워져
+  //    두 번째 저장·삭제가 **토스트도 없이 조용히 무시**된다(리뷰에서 잡힌 결함).
+  //    제목은 저장한 값으로 그 자리에서 고친다(브랜드를 다시 받지 않는다 — 방금 보낸 값이 곧 새 이름).
+  { var nameEl = $('brandDetailPaneHeader') && $('brandDetailPaneHeader').querySelector('[data-brand-name]');
+    if (nameEl && patch.name) nameEl.textContent = patch.name;
+    syncBrandDetailTabOffset(); }
+  // 목록은 뒤에서 새로 받는다 — 안 받으면 돌아갔을 때 옛 이름이 남는다.
   await refreshPane('brands');
 }
 
@@ -1925,6 +1982,9 @@ var _newBrandCallbackPrefix = null;
 var NEW_BRAND_CALLBACKS = ['new', 'edit', 'orient'];
 
 async function openNewBrandModal(callbackPrefix) {
+  // 🔴 이 모달과 브랜드 상세 **페이지**가 같은 입력칸 이름을 쓴다 — 페이지 본문을 먼저 비운다(사양서 2-2).
+  clearBrandDetailPaneBody();
+  _brandsCurrentId = null;
   _newBrandCallbackPrefix = NEW_BRAND_CALLBACKS.indexOf(callbackPrefix) >= 0 ? callbackPrefix : null;
   // 빈 brand 객체로 모달 열기
   _brandsCurrentId = null;
@@ -2572,7 +2632,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var brandName = a.brand?.name || a.brand_name || '—';
     var brandNo = a.brand?.brand_no || '';
     if (a.brand_id) {
-      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetail(\'' + esc(a.brand_id) + '\', \'brand-applications\')" title="브랜드 상세">' + esc(brandName) + '</div>'
         + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
       + '</td>';
     }

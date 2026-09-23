@@ -328,7 +328,7 @@ function renderBrandOpsDetail(d) {
         + '<div style="font-size:11px;color:var(--muted)">' + crumb + '</div>'
         + '<div style="font-size:18px;font-weight:700;color:var(--ink)">' + esc(b.name || '—') + ' <span style="font-size:12px;font-weight:500;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
       + '</div>'
-      + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
+      + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + esc(b.id) + '\', \'brand-ops\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
     + '</div>';
 
   // 오리엔시트 — 시트 브랜드 기준 목록·숫자(§2 ⑤). 실패면 null
