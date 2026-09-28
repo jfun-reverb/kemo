@@ -2719,6 +2719,11 @@ function detectLocalBackup() {
   let bk = null;
   try { bk = JSON.parse(localStorage.getItem(LS_KEY_PREFIX + token) || 'null'); } catch (e) { bk = null; }
   if (!bk || !bk.data || typeof bk.data !== 'object') return;
+  // 판 번호로 걸러낸다 — ①판 번호 없는 백업(옛 코드가 남긴 것)은 버린다 ②서버가 그 판보다 앞서 있으면
+  //   다른 곳에서 나중에 저장한 것이라 덮으면 안 된다 → 버린다. 단 충돌을 겪은 글은 제안한다(enterConflict 표시).
+  const drop = () => { try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {} };
+  if (typeof bk.version !== 'number') { drop(); return; }
+  if (bk.version < currentVersion && !bk.conflict) { drop(); return; }
   let same = false;
   try { same = JSON.stringify(bk.data) === JSON.stringify(collectData()); } catch (e) { same = false; }
   if (same) { try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {} return; }
@@ -2751,8 +2756,9 @@ function discardLocalBackup() {
   $('restoreNote').classList.add('hidden');
 }
 
+// version = 이 글이 올라탄 서버 판 번호. 되살리기 판단에 쓴다(detectLocalBackup).
 function localBackup(data) {
-  try { localStorage.setItem(LS_KEY_PREFIX + token, JSON.stringify({ data, at: Date.now() })); } catch (e) {}
+  try { localStorage.setItem(LS_KEY_PREFIX + token, JSON.stringify({ data, at: Date.now(), version: currentVersion })); } catch (e) {}
 }
 
 async function doAutosave() {
@@ -2814,6 +2820,11 @@ async function runAutosave() {
 
 function enterConflict() {
   conflicted = true;
+  // 충돌을 겪은 글은 서버가 앞서 있어도 다시 열 때 되살리기를 제안한다(안내 문구가 그렇게 약속한다)
+  try {
+    const bk = JSON.parse(localStorage.getItem(LS_KEY_PREFIX + token) || 'null');
+    if (bk && bk.data) { bk.conflict = true; localStorage.setItem(LS_KEY_PREFIX + token, JSON.stringify(bk)); }
+  } catch (e) {}
   clearTimeout(saveTimer);
   $('conflictNote').classList.remove('hidden');
   setSaveState('error', '다른 곳에서 수정됨');
