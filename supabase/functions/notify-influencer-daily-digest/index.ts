@@ -242,6 +242,23 @@ async function fetchAllPaged<T>(
   return all;
 }
 
+// [3차 전수조사 2026-09-28] id 목록으로 찾는 조회는 200개씩 끊는다 — 관리자 다이제스트의
+//   fetchByIdsChunked 와 같은 본문(Edge Function 은 공유 모듈이 없다).
+//   🔴 누적 승인 응모 id 를 한 번에 `.in()` 에 넣으면 주소가 너무 길어 `TypeError: Invalid URL`
+//   로 **매일** 실패했고, 실패를 삼켜 이미 낸 회원에게도 마감 안내가 나갔다(운영 승인 3,574건).
+async function fetchByIdsChunked<T>(
+  ids: string[],
+  buildQuery: (chunk: string[]) => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  chunkSize = 200,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    out.push(...await fetchAllPaged<T>(() => buildQuery(chunk)));
+  }
+  return out;
+}
+
 async function sendBrevoEmail(params: {
   to: { email: string; name?: string }[];
   subject: string;
@@ -349,16 +366,17 @@ const PUBLIC_CLIENT_KEYS = [
 //   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
 //   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
 //   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
-function isAnonJwt(token: string): boolean {
-  if (!token.startsWith("eyJ")) return false;
+// JWT 의 역할(role)만 읽는다 — 서명은 플랫폼이 이미 검증했다. 못 읽으면 null(막지 않는다).
+function jwtRole(token: string): string | null {
+  if (!token.startsWith("eyJ")) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
   try {
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
-    return payload?.role === "anon";
+    return typeof payload?.role === "string" ? payload.role : null;
   } catch {
-    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+    return null;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
   }
 }
 
@@ -370,13 +388,18 @@ function rejectPublicKeyCaller(req: Request, tag: string): boolean {
     console.warn(`[${tag}] rejected — called with the public client key`);
     return true;
   }
-  if (isAnonJwt(token)) {
-    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+  // 🔴 비로그인(anon)·로그인 회원(authenticated) 토큰은 거부한다(2026-09-28 전수조사 3차).
+  //   회원가입은 누구나 할 수 있어 authenticated 토큰도 사실상 공개다 — 예전에는 anon 만 막아
+  //   로그인한 회원이 방침 통지 시험 발송(임의 주소)·홍보 메일 전체 발송을 부를 수 있었다.
+  //   예약 실행(vault edge_function_jwt)·데이터베이스 웹훅은 service_role 이라 통과한다.
+  const role = jwtRole(token);
+  if (role === "anon" || role === "authenticated") {
+    console.warn(`[${tag}] rejected — called with an end-user JWT`, { role });
     return true;
   }
   // 토큰 자체는 절대 남기지 않는다.
   const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  console.log(`[${tag}] caller check passed`, { isServiceRole, role });
   return false;
 }
 
@@ -766,14 +789,14 @@ Deno.serve(async (req: Request) => {
     const campMap = new Map<string, CampRow>();
     if (allCampIds.length > 0) {
       try {
-        const camps = await fetchAllPaged<CampRow>(() =>
+        const camps = await fetchByIdsChunked<CampRow>(allCampIds, (chunk) =>
           sb.from("campaigns")
             // product_price — レビュアー型の報酬欄「購入金額をペイバック（最大 ¥N）」の上限表示に使う。
             // 抜けると上限が消えたまま案内が届く（2026-08-05）。
             // event_mode — 행사 캠페인은 당선 섹션에서 뺀다(2026-08-24 결정 3, 아래 8번 분류 참조).
             //   빠뜨리면 제외 조건이 늘 거짓이 되어 방문객에게 「報酬 -」「提出期限」이 그대로 나간다.
             .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, channel_match, event_mode")
-            .in("id", allCampIds)
+            .in("id", chunk)
             .order("id", { ascending: true })
         );
         camps.forEach((c) => campMap.set(c.id, c));
@@ -796,12 +819,14 @@ Deno.serve(async (req: Request) => {
       postChannels: Set<string>;
     }
     const delivByApp = new Map<string, DelivInfo>(); // app_id → 제출 현황
+    // 제출 현황·발송 이력 중 하나라도 못 읽으면 마감 안내를 보내지 않는다(잘못 보내는 것보다 안 보내는 것이 낫다).
+    let deadlineLookupFailed = false;
     if (approvedAppIds.length > 0) {
       try {
-        const delivs = await fetchAllPaged<DelivRow>(() =>
+        const delivs = await fetchByIdsChunked<DelivRow>(approvedAppIds, (chunk) =>
           sb.from("deliverables")
             .select("application_id, kind, status, post_channel")
-            .in("application_id", approvedAppIds)
+            .in("application_id", chunk)
             .in("status", ["pending", "approved"])
             .order("id", { ascending: true })
         );
@@ -819,7 +844,9 @@ Deno.serve(async (req: Request) => {
           if (d.kind === "post" && d.post_channel) info.postChannels.add(d.post_channel);
         });
       } catch (e) {
-        console.warn("[notify-infl-digest] deliverable lookup failed", (e as Error).message);
+        // 🔴 실패하면 제출 현황이 비어 **전원이 「안 냄」으로 판정**된다 — 마감 안내 절을 통째로 건너뛴다.
+        deadlineLookupFailed = true;
+        console.error("[notify-infl-digest] deliverable lookup failed — deadline section skipped", (e as Error).message);
       }
     }
 
@@ -835,17 +862,19 @@ Deno.serve(async (req: Request) => {
     if (approvedAppIds.length > 0) {
       const approvedCampIds = [...new Set((appsApproved || []).map((a) => a.campaign_id))];
       try {
-        const sent = await fetchAllPaged<SentRow>(() =>
+        const sent = await fetchByIdsChunked<SentRow>(approvedCampIds, (chunk) =>
           sb.from("deadline_reminder_email_sent")
             .select("influencer_id, campaign_id, kind, d_minus, deadline_date")
-            .in("campaign_id", approvedCampIds)
+            .in("campaign_id", chunk)
             .order("id", { ascending: true })
         );
         sent.forEach((s) => {
           sentMap.add(`${s.influencer_id}|${s.campaign_id}|${s.kind}|${s.d_minus}|${s.deadline_date}`);
         });
       } catch (e) {
-        console.warn("[notify-infl-digest] deadline reminder log lookup failed", (e as Error).message);
+        // 이력을 못 읽으면 중복 차단이 풀린다 — 마감 안내 절을 건너뛴다.
+        deadlineLookupFailed = true;
+        console.error("[notify-infl-digest] deadline reminder log lookup failed — deadline section skipped", (e as Error).message);
       }
     }
 
@@ -911,6 +940,7 @@ Deno.serve(async (req: Request) => {
     //   이 블록은 그 판정을 서버(발송 시점)에서 재현한 것이므로, 어느 한쪽을 고칠 때
     //   반드시 다른 쪽도 함께 검토할 것.
     (appsApproved || []).forEach((a: AppRow) => {
+      if (deadlineLookupFailed) return;
       const camp = campMap.get(a.campaign_id);
       if (!camp) return;
       const delivInfo = delivByApp.get(a.id) || { kinds: new Set<string>(), reviewChannels: new Set<string>(), postChannels: new Set<string>() };
