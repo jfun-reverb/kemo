@@ -38,6 +38,6 @@
 
 ## 하지 않아도 되는 것
 
-- `2026-08-12-campaign-suspend.md` · `2026-08-19-paypal-business-account-faq.md` · `2026-08-27-operator-change-notice.md` · `2026-09-16-orient-sheet-bilingual-fields.md` · `2026-07-15-brand-portal.md` · `2026-05-28-policy-versioning.md` — **구현 미착수**(2026-09-28 코드 확인 흔적 0건). 채울 것이 없다
+- `2026-08-12-campaign-suspend.md` · `2026-08-19-paypal-business-account-faq.md` · `2026-08-27-operator-change-notice.md` · `2026-09-16-orient-sheet-bilingual-fields.md` · `2026-07-15-brand-portal.md` · `2026-05-28-policy-versioning.md` — 아직 구현 전이다(진행·보류 결정은 각 문서 맨 위 상태 줄). 채울 것이 없다. ⚠️ 약관 버전 관리는 3단계만 다른 사양서로 구현됐고, 기록은 그쪽에 있다
 - `2026-08-12-reward-promise-by-recruit-type.md` — 같은 일을 `2026-09-02-unpaid-campaign-reward-mail.md` 가 구현했고 기록도 그쪽에 있다
 - 조사·보고·점검표·문안 초안 — 구현 대상이 아니다. 종류는 `docs/specs/INDEX.md` 참조
