@@ -261,13 +261,13 @@ function _reportChannelCellHtml(url, kind, who) {
   if (list.length > 1) {
     // 여러 장은 한 창에서 화살표로 넘겨 본다 — 누른 사진부터 시작
     const js = esc(JSON.stringify(list));
-    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},"${esc(who)}")'>사진 ${i+1}</a>`; }).join(' · ');
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},${jsStr(who)})'>사진 ${i+1}</a>`; }).join(' · ');
   }
   url = list[0] || url;
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
   const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
   if (kind === 'photo') {
-    return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(url)}','${esc(who)} 사진 1/1')">열기</a>${tagHtml}`;
+    return `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(url)},${jsStr(who + ' 사진 1/1')})">열기</a>${tagHtml}`;
   }
   return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
@@ -285,8 +285,8 @@ function _reportRowHtml(r, cols) {
       const whoR = whoBase + ' · 영수증';
       const rjs = esc(JSON.stringify(rl));
       return '<td>' + (rl.length > 1
-        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
-        : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},${jsStr(whoR)})'>사진 ${i+1}</a>`; }).join(' · ')
+        : `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(rl[0])},${jsStr(whoR + ' 사진 1/1')})">열기</a>`) + '</td>';
     }
     // 채널 결과물 칸 — 대장의 어느 채널이든(기타 포함) 같은 방식. 종류(사진·게시물)는 `ch_{코드}_kind` 에 있다.
     if (c.ch && /_url$/.test(c.key)) {

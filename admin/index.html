@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790561503';
+  var CURRENT_BUILD = 'v1790578725';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3278,7 +3278,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-28 11:11 · 197caff</span>
+          <span class="admin-build-text">2026-09-28 15:58 · 546fffc</span>
         </div>
       </div>
     </aside>
@@ -17011,6 +17011,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// 이벤트 속성(onclick 등) 안의 **자바스크립트 문자열 값**용 — 따옴표까지 붙은 문자열 리터럴을 돌려준다.
+//   🔴 `onclick="f('${esc(x)}')"` 는 안전하지 않다 — 브라우저가 속성값을 읽을 때 `&#39;`·`&quot;` 를
+//   따옴표로 되돌린 뒤 자바스크립트로 해석해서, 값 속 따옴표가 문자열을 빠져나온다(2026-09-28 전수조사 3차 H-1).
+//   먼저 JSON 문자열로 만들고(역슬래시·따옴표 처리) 그다음 HTML 로 바꾼다. 사용: `onclick="f(${jsStr(x)})"`
+function jsStr(s) {
+  return esc(JSON.stringify(s == null ? '' : String(s)));
+}
+
 // 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
 function debounce(fn, wait = 300) {
   let timer = null;
@@ -23651,6 +23659,9 @@ async function openBrandDetail(id, from) {
     _brandDetailSheetCampIds = campIds.slice();
     if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds);
   } catch (_) { campMap = {}; }
+  // 🔴 두 번째 기다림 뒤에도 다시 대조한다 — 캠페인 맵을 받는 사이 다른 브랜드를 열면
+  //    앞 브랜드의 폼이 뒤늦게 덮어써 「저장」이 **엉뚱한 브랜드에** 기록됐다(2026-09-28 전수조사 3차 H-3).
+  if (_brandsCurrentId !== id) return;
   _brandFormCompanies = companies || [];
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
@@ -29714,7 +29725,7 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
         }
         const elId = `admatt-${msg.id}-${i}`;
         loadAdmMsgAttachThumb(elId, a.path);
-        return `<div class="msg-attach-thumb" id="${elId}" onclick="openAdmMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
+        return `<div class="msg-attach-thumb" id="${elId}" onclick="openAdmMsgLightbox(${jsStr(a.path)})"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
       }).join('')}</div>`;
     }
 
@@ -32385,7 +32396,7 @@ function renderEditingFilePreview() {
   const kept = _editingKeptPaths.map((p, i) => {
     const url = _editingKeptUrlMap[p];
     const thumb = url
-      ? `<img src="${esc(url)}" style="width:48px;height:48px;object-fit:cover;border-radius:4px" onclick="openImageLightbox('${esc(url)}')">`
+      ? `<img src="${esc(url)}" style="width:48px;height:48px;object-fit:cover;border-radius:4px" onclick="openImageLightbox(${jsStr(url)})">`
       : `<div style="width:48px;height:48px;background:#F0F0F0;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:10px;color:#666">파일</div>`;
     return `<div style="position:relative;display:inline-block" data-kept="${esc(p)}">${thumb}<button onclick="removeKeptPath(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#C62828;color:#fff;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0" aria-label="삭제">×</button></div>`;
   }).join('');
@@ -32958,7 +32969,7 @@ async function renderInfluencerFlagsPanel(influencerId) {
     const thumbs = (f.evidence_paths || []).map(p => {
       const url = signedMap[p];
       if (!url) return '';
-      return `<img src="${esc(url)}" alt="증빙" onclick="openImageLightbox('${esc(url)}')" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--line)">`;
+      return `<img src="${esc(url)}" alt="증빙" onclick="openImageLightbox(${jsStr(url)})" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--line)">`;
     }).filter(Boolean).join('');
     return `
     <div style="padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start">
@@ -34239,7 +34250,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     if (d.receipt_url) {
       const thumb = storageThumbUrl(d.receipt_url);
-      preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox('${esc(d.receipt_url)}')">`;
+      preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox(${jsStr(d.receipt_url)})">`;
     }
   } else if (d.kind === 'post') {
     if (d.post_url) {
@@ -34311,7 +34322,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
+            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -34706,7 +34717,7 @@ async function renderDelivCombinedBody(applicationId) {
       const rowsHtml = unassigned.map(function(d){
         const orig = d.receipt_url || '';
         const thumb = orig
-          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
+          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox(${jsStr(orig)})" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
         const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
@@ -34918,7 +34929,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
     <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
       <div style="font-weight:600;margin-bottom:4px">영수증 정보 수정</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">주문번호·구매일·구매금액 중 최소 1개만 입력해도 저장됩니다.</div>
-      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin('${esc(id)}','${esc(receiptUrl)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">qr_code_scanner</span> 영수증에서 읽기</button>
+      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin(${jsStr(id)},${jsStr(receiptUrl)})"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">qr_code_scanner</span> 영수증에서 읽기</button>
       <div id="receiptOcrStatusAdmin-${esc(id)}" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>` : ''}
       <div style="margin-bottom:6px">
         <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호</label>
@@ -35204,7 +35215,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
-        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
+        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
@@ -46113,7 +46124,7 @@ function renderOutboundRow(o) {
     const url = (typeof outboundImagePublicUrl === 'function') ? outboundImagePublicUrl(o.rep_image_path) : '';
     if (url) {
       const t = (typeof storageThumbUrl === 'function') ? storageThumbUrl(url) : url;
-      thumbCell = `<img src="${esc(t)}" data-orig="${esc(url)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox('${esc(url)}')" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer">`;
+      thumbCell = `<img src="${esc(t)}" data-orig="${esc(url)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(url)})" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer">`;
     }
   }
 
@@ -50026,13 +50037,13 @@ function _reportChannelCellHtml(url, kind, who) {
   if (list.length > 1) {
     // 여러 장은 한 창에서 화살표로 넘겨 본다 — 누른 사진부터 시작
     const js = esc(JSON.stringify(list));
-    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},"${esc(who)}")'>사진 ${i+1}</a>`; }).join(' · ');
+    return list.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${js},${i},${jsStr(who)})'>사진 ${i+1}</a>`; }).join(' · ');
   }
   url = list[0] || url;
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
   const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
   if (kind === 'photo') {
-    return `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(url)}','${esc(who)} 사진 1/1')">열기</a>${tagHtml}`;
+    return `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(url)},${jsStr(who + ' 사진 1/1')})">열기</a>${tagHtml}`;
   }
   return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
@@ -50050,8 +50061,8 @@ function _reportRowHtml(r, cols) {
       const whoR = whoBase + ' · 영수증';
       const rjs = esc(JSON.stringify(rl));
       return '<td>' + (rl.length > 1
-        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},"${esc(whoR)}")'>사진 ${i+1}</a>`; }).join(' · ')
-        : `<a href="javascript:void(0)" onclick="openImageLightbox('${esc(rl[0])}','${esc(whoR)} 사진 1/1')">열기</a>`) + '</td>';
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},${jsStr(whoR)})'>사진 ${i+1}</a>`; }).join(' · ')
+        : `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(rl[0])},${jsStr(whoR + ' 사진 1/1')})">열기</a>`) + '</td>';
     }
     // 채널 결과물 칸 — 대장의 어느 채널이든(기타 포함) 같은 방식. 종류(사진·게시물)는 `ch_{코드}_kind` 에 있다.
     if (c.ch && /_url$/.test(c.key)) {

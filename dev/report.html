@@ -103,6 +103,8 @@ const TOKEN = new URLSearchParams(location.search).get('t') || '';
 const TICKET_KEY = 'reverb.report.ticket.' + TOKEN;
 
 function esc(s){ if (s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// 이벤트 속성 안의 자바스크립트 문자열 값용 — esc() 만으로는 따옴표가 되살아나 문자열을 빠져나온다(관리자 ui.js 의 jsStr 과 같은 본문).
+function jsStr(s){ return esc(JSON.stringify(s == null ? '' : String(s))); }
 function fmtDT(v){ if(!v) return ''; const d=new Date(v); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function fmtD(v){ if(!v) return ''; const d=new Date(v); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate()); }
 
@@ -192,8 +194,8 @@ function chanCell(url, kind, who) {
   const tag = kind === 'photo' ? '<span class="tag">사진</span>' : (kind === 'post' ? '<span class="tag">게시물</span>' : '');
   if (kind === 'post') return `<a href="${esc(list[0])}" target="_blank" rel="noopener">열기 ↗</a>${tag}`;
   const js = esc(JSON.stringify(list));
-  if (list.length > 1) return list.map((u, i) => `<a href="javascript:void(0)" onclick='openLb(${js},${i},"${esc(who)}")'>사진 ${i + 1}</a>`).join(' · ');
-  return `<a href="javascript:void(0)" onclick='openLb(${js},0,"${esc(who)}")'>열기</a>${tag}`;
+  if (list.length > 1) return list.map((u, i) => `<a href="javascript:void(0)" onclick='openLb(${js},${i},${jsStr(who)})'>사진 ${i + 1}</a>`).join(' · ');
+  return `<a href="javascript:void(0)" onclick='openLb(${js},0,${jsStr(who)})'>열기</a>${tag}`;
 }
 function rowHtml(r) {
   const who = r.order_no ? '주문번호 ' + r.order_no : (r.name_kanji || 'No.' + r.no);
