@@ -220,7 +220,7 @@ function renderOutboundRow(o) {
     const url = (typeof outboundImagePublicUrl === 'function') ? outboundImagePublicUrl(o.rep_image_path) : '';
     if (url) {
       const t = (typeof storageThumbUrl === 'function') ? storageThumbUrl(url) : url;
-      thumbCell = `<img src="${esc(t)}" data-orig="${esc(url)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox('${esc(url)}')" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer">`;
+      thumbCell = `<img src="${esc(t)}" data-orig="${esc(url)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(url)})" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer">`;
     }
   }
 

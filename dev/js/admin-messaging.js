@@ -783,7 +783,7 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
         }
         const elId = `admatt-${msg.id}-${i}`;
         loadAdmMsgAttachThumb(elId, a.path);
-        return `<div class="msg-attach-thumb" id="${elId}" onclick="openAdmMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
+        return `<div class="msg-attach-thumb" id="${elId}" onclick="openAdmMsgLightbox(${jsStr(a.path)})"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
       }).join('')}</div>`;
     }
 

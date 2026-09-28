@@ -16,6 +16,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// 이벤트 속성(onclick 등) 안의 **자바스크립트 문자열 값**용 — 따옴표까지 붙은 문자열 리터럴을 돌려준다.
+//   🔴 `onclick="f('${esc(x)}')"` 는 안전하지 않다 — 브라우저가 속성값을 읽을 때 `&#39;`·`&quot;` 를
+//   따옴표로 되돌린 뒤 자바스크립트로 해석해서, 값 속 따옴표가 문자열을 빠져나온다(2026-09-28 전수조사 3차 H-1).
+//   먼저 JSON 문자열로 만들고(역슬래시·따옴표 처리) 그다음 HTML 로 바꾼다. 사용: `onclick="f(${jsStr(x)})"`
+function jsStr(s) {
+  return esc(JSON.stringify(s == null ? '' : String(s)));
+}
+
 // 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
 function debounce(fn, wait = 300) {
   let timer = null;
