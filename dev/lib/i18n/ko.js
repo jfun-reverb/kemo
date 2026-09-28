@@ -816,7 +816,7 @@ window.I18N_KO = {
     paypalEmail: 'PayPal 이메일',
     paypalConfirm: '확인을 위해 다시 입력',
     paypalHint: '리워드는 PayPal로 송금됩니다. 수령용 PayPal 이메일을 등록해주세요.',
-    paypalNoAccount: 'PayPal 계정이 없어도 수령 시 이메일로 안내가 옵니다.',
+    paypalBusinessRequired: '보수를 받으려면 PayPal 「비즈니스 계정」이 필요합니다.<br>1. 개인 계정인 분도 새로 만들 필요는 없습니다. PayPal 「설정」에서 바꾸실 수 있습니다. 바꾸실 때 하시는 일의 내용 등을 입력하는 화면이 나올 수 있습니다.<br>2. 바꾸신 뒤 본인확인을 마쳐 주세요.',
     paypalSaveBtn: 'PayPal 정보 저장',
     currentPw: '현재 비밀번호',
     newPw: '새 비밀번호',
