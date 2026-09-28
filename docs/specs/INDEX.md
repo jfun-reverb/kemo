@@ -21,6 +21,7 @@
 | [2026-08-04-settlement-receipt-basis.md](2026-08-04-settlement-receipt-basis.md) | [2026-08-05-settlement-receipt-amount-switch.md](2026-08-05-settlement-receipt-amount-switch.md) | 결정 문서 → 구현 사양서로 이어짐 |
 | [2026-05-19-supabase-tokyo-region-migration.md](2026-05-19-supabase-tokyo-region-migration.md) | [2026-05-25-supabase-tokyo-migration.md](2026-05-25-supabase-tokyo-migration.md) | 결정 초안 → 실행 계획 |
 | [2026-06-18-brand-self-orient-sheet.md](2026-06-18-brand-self-orient-sheet.md) | [2026-09-08-orient-sheet-simplify-and-quote.md](2026-09-08-orient-sheet-simplify-and-quote.md) | 새로 발급하는 시트의 형식만 대체. 옛 시트는 앞 문서 규칙 그대로 |
+| [2026-05-19-campaign-promo-email.md](2026-05-19-campaign-promo-email.md) §17-5 창 정의 | [2026-09-28-promo-mail-new-and-deadline-window.md](2026-09-28-promo-mail-new-and-deadline-window.md) | 홍보 메일 「신규」·「마감 임박」 범위 |
 | [2026-06-15-admin-permission-matrix.md](2026-06-15-admin-permission-matrix.md) | [2026-06-15-admin-permission-management.md](2026-06-15-admin-permission-management.md) | 감사 결과가 구현 사양서의 「현재 상태」·기본값이 됨 |
 | [2026-08-12-reward-promise-by-recruit-type.md](2026-08-12-reward-promise-by-recruit-type.md) | [2026-09-02-unpaid-campaign-reward-mail.md](2026-09-02-unpaid-campaign-reward-mail.md) | 검수 결과 메일의 「보수 지급」 문구 — 뒤 문서가 다시 설계해 구현 |
 | 관리자 머티리얼 3 디자인 사양(파일 없음) | 흑백 재설계 + 보라 강조색 | 관리자 화면 기준이 바뀌었다 — 옛 문서를 기준으로 삼지 말 것(`planning.md`) |
@@ -281,6 +282,7 @@
 | 2026-09-22 | [오리엔시트 「기존 캠페인 연결」 — 모집 형식 일치 검사](2026-09-22-orient-link-existing-recruit-type-check.md) | 사양서 |  |
 | 2026-09-23 | [브랜드 상세 — 모달에서 페이지로](2026-09-23-brand-detail-pane.md) | 사양서 |  |
 | 2026-09-23 | [브랜드 영업 메모 — 오리엔시트 메모처럼 여러 건으로](2026-09-23-brand-memo-entries.md) | 사양서 |  |
+| 2026-09-28 | [캠페인 홍보 메일 — 「신규」 절이 한 번도 안 나간 문제와 「마감 임박」 범위](2026-09-28-promo-mail-new-and-deadline-window.md) | 사양서 | |
 | 2026-09-28 | [인수인계 — 사양서 「구현 결과」 채우기](2026-09-28-spec-results-handoff.md) | 인수인계 | |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
