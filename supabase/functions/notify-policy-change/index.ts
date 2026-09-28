@@ -8,12 +8,19 @@
 //      - policy_notice_sent 에 status='sent' 선점 INSERT (ON CONFLICT 23505 → already_sent skip)
 //      - 선점 성공 시 Brevo 발송, 실패 시 status='failed' UPDATE
 //      - 이메일 없으면 status='skipped'(no_email)
+//      - 탈퇴 확정 회원(자리표시 주소 `…@deleted.reverbjp.invalid`)이면 status='skipped'(withdrawn) — 반송될 주소라 안 보낸다
 //   5. hasMore 면 자기재호출(fire-and-forget, source='chained')
 //   6. 마지막 배치에서 policy_notice_runs status/count finalize
 //
 // 호출 (운영자 수동, cron 아님):
-//   { "noticeKey": "message_feature_2026", "effectiveDate": "2026年6月27日" }
+//   { "noticeKey": "meta_pixel_2026", "effectiveDate": "2026年10月17日" }
 //   testRecipient 지정 시 단일 발송 + 로그/멱등 우회(디버그).
+//
+// 🔴 통지 한 번마다 갈아 끼우는 자리가 넷이다 — 하나라도 빠지면 옛 통지가 섞여 나간다:
+//   ① docs/email-templates/policy-change-notice.html (→ sync 스크립트가 _templates/ 와 templates.ts 를 만든다)
+//   ② 아래 CURRENT_NOTICE (키·시행일)
+//   ③ buildMail 의 제목(subject)
+//   ④ buildMail 의 텍스트 판(text) — HTML 을 못 읽는 메일 프로그램이 이쪽을 보여준다
 //
 // 마이그레이션 153 (policy_notice_runs / policy_notice_sent) 의존.
 // 메모: influencers.id = auth.users.id (project_influencer_join_key)
@@ -23,7 +30,14 @@ import { TEMPLATES } from "./templates.ts";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 const BATCH_SIZE = 200;          // 배치당 인플 수 (Deno 150초 timeout 안전)
-const DEFAULT_NOTICE_KEY = "message_feature_2026";
+// 지금 템플릿에 들어 있는 통지. 날짜의 정의처는 사양서 docs/specs/2026-09-17-meta-pixel-policy-notice.md §3 표.
+//   템플릿·제목·텍스트 판의 날짜는 글자로 박혀 있어(공지 기간 두 날짜와 요일은 인자로 받을 길이 없다),
+//   호출 인자가 이 값과 다르면 보내지 않는다 — 전 회원에게 나가는 메일이라 되돌릴 수 없다.
+const CURRENT_NOTICE = {
+  key: "meta_pixel_2026",
+  effectiveDate: "2026年10月17日",
+};
+const DEFAULT_NOTICE_KEY = CURRENT_NOTICE.key;
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
@@ -100,19 +114,6 @@ const PUBLIC_CLIENT_KEYS = [
 //   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
 //   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
 //   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
-function isAnonJwt(token: string): boolean {
-  if (!token.startsWith("eyJ")) return false;
-  const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  try {
-    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
-    return payload?.role === "anon";
-  } catch {
-    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
-  }
-}
-
 // ── [D-9] 재시도 규칙 ──────────────────────────────────────────────
 //   예전에는 실행 행(policy_notice_runs, notice_key 유일)이 있으면 무조건 「이미 처리됨」으로 끝내,
 //   한 번 죽은 실행(status='failed', error 'in-flight')이 영원히 재시도를 막았다. 회원별 행도
@@ -198,6 +199,20 @@ async function recountMembers(
   return { sent: await countOf("sent"), skipped: await countOf("skipped"), failed: await countOf("failed") };
 }
 
+// JWT 의 역할(role)만 읽는다 — 서명은 플랫폼이 이미 검증했다. 못 읽으면 null(막지 않는다).
+function jwtRole(token: string): string | null {
+  if (!token.startsWith("eyJ")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return typeof payload?.role === "string" ? payload.role : null;
+  } catch {
+    return null;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
 function rejectPublicKeyCaller(req: Request, tag: string): boolean {
   const raw = (req.headers.get("Authorization") ?? "").trim();
   const token = raw.replace(/^Bearer\s+/i, "").trim();
@@ -206,13 +221,18 @@ function rejectPublicKeyCaller(req: Request, tag: string): boolean {
     console.warn(`[${tag}] rejected — called with the public client key`);
     return true;
   }
-  if (isAnonJwt(token)) {
-    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+  // 🔴 비로그인(anon)·로그인 회원(authenticated) 토큰은 거부한다(2026-09-28 전수조사 3차).
+  //   회원가입은 누구나 할 수 있어 authenticated 토큰도 사실상 공개다 — 예전에는 anon 만 막아
+  //   로그인한 회원이 방침 통지 시험 발송(임의 주소)·홍보 메일 전체 발송을 부를 수 있었다.
+  //   예약 실행(vault edge_function_jwt)·데이터베이스 웹훅은 service_role 이라 통과한다.
+  const role = jwtRole(token);
+  if (role === "anon" || role === "authenticated") {
+    console.warn(`[${tag}] rejected — called with an end-user JWT`, { role });
     return true;
   }
   // 토큰 자체는 절대 남기지 않는다.
   const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  console.log(`[${tag}] caller check passed`, { isServiceRole, role });
   return false;
 }
 
@@ -229,29 +249,63 @@ function escapeHtml(v: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
+// 탈퇴가 확정된 회원의 자리표시 주소 — 확정되는 순간 파기 함수(마이그레이션 352·396)가
+//   `withdrawn+<회원id>@deleted.reverbjp.invalid` 로 바꾼다. 행은 안 지워져(정산 감사 기록이 붙든다)
+//   회원 전건 조회에 그대로 나오는데, 실재하지 않는 주소라 보내면 반송된다.
+//   🔴 「진행 중」(신청만 한 회원)은 여기 안 걸린다 — 아직 회원이고 통지를 받아야 한다. 걸리는 것은 확정뿐이다.
+const WITHDRAWN_EMAIL_DOMAIN = "@deleted.reverbjp.invalid";
+function isWithdrawnPlaceholder(email: string): boolean {
+  return email.trim().toLowerCase().endsWith(WITHDRAWN_EMAIL_DOMAIN);
+}
+
 function buildMail(effectiveDate: string): { subject: string; html: string; text: string } {
   const tpl = loadTemplate("policy-change-notice");
+  // 지금 템플릿에는 {{effective_date}} 자리가 없다(날짜를 글자로 박았다) — 치환은 다음 통지가 다시 쓸 수 있게 남겨 둔다.
   const html = render(tpl, { effective_date: escapeHtml(effectiveDate) });
-  const subject = "【REVERB JP】満18歳以上のご利用への変更・規約改定のお知らせ";
+  const subject = "【REVERB JP】個人情報処理方針 改定のお知らせ（2026年10月17日施行）";
+  // 텍스트 판 — HTML 템플릿과 같은 순서·같은 문장(사양서 §4-1 블록 ②~⑧).
+  //   🔴 「会員の皆さまへ」(설정에서 끌 수 있다)가 맺음말(동의하지 않으면 탈퇴)보다 반드시 앞.
   const text = [
-    "REVERB JP をご利用いただきありがとうございます。",
+    "個人情報処理方針 改定のお知らせ",
     "",
-    `${effectiveDate}より、REVERBは満18歳以上の方のみご利用いただけるよう変更されます。`,
-    "あわせて、登録情報に「生年月日」と「性別」が追加されます。",
+    "いつも REVERB JP をご利用いただきありがとうございます。",
+    "よりよいサービスのご提供のため、個人情報処理方針の一部を改定します。下記の内容をご確認ください。",
     "",
-    "■ 変更内容",
-    "1. 満18歳以上の方のみキャンペーンにご応募いただけます。",
-    "2. ご応募の際に生年月日をご入力ください（一度入力すると変更できません）。",
-    "3. 性別もご入力ください（「回答しない」も選べます）。",
+    "■ 改定スケジュール",
+    "・お知らせ期間：2026年9月17日（木）〜 2026年10月16日（金）",
+    "・施行日：2026年10月17日（土）",
     "",
-    "■ ご確認いただきたいこと",
-    "・満18歳未満の方は、施行日以降、新しいご応募ができなくなります。",
-    "・すでに当選・進行中のキャンペーンには影響しません。そのままお進めいただけます。",
+    "■ 主な改定内容",
+    "・広告の効果を測定するためのツール「Metaピクセル」の導入に伴い、外部サービスへの情報送信に関する事項を新設します。",
     "",
-    `■ 施行日：${effectiveDate}`,
+    "■ 会員の皆さまへ",
+    "・お名前・メールアドレス・電話番号・配送先などの会員情報は送信しません。",
+    "・この送信は、お使いのブラウザの設定（トラッキング防止など）でオフにできます。また、FacebookやInstagramをお使いの方は、ご自身のMetaアカウントの「広告設定」で、送られた情報を広告に使うことをオフにできます。",
+    "・オフにしても、REVERB JP はこれまでどおりご利用いただけます。",
     "",
-    "改定後の規約全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。",
-    "お問い合わせは公式LINE @reverb.jp まで。",
+    "■ 改定項目",
+    "【第5条（個人情報の国外移転）】",
+    "改定前：（記載なし）",
+    "改定後：インフルエンサーサイトのMetaピクセルによる情報送信は、当社が提供するものではなくMetaが会員のブラウザから直接収集するものであり、§8.1によります。",
+    "",
+    "【第8条 8.1 外部サービスへの情報送信（Metaピクセル）】",
+    "改定前：＜新設＞",
+    "改定後：当社は、広告効果の測定および広告配信の最適化のため、インフルエンサーサイトにMeta Platforms, Inc.（米国）が提供する「Metaピクセル」を設置します。このツールは会員のブラウザからMetaへ下記の情報を直接送信するもので、当社がMetaの収集した情報を受け取ったり、会員情報と結び付けたりすることはありません。",
+    "・送信される情報：閲覧したページのURL・閲覧日時、ブラウザ・端末情報、IPアドレス、Cookie識別子／キャンペーン詳細の閲覧・会員登録の申込み・メール認証の完了・キャンペーン応募完了の事実、（キャンペーン詳細の閲覧・応募完了時）当該キャンペーンの識別番号・タイトル",
+    "・送信先：Meta Platforms, Inc.（米国）",
+    "・当社の利用目的：どの広告を経由して訪問・登録・応募に至ったかの測定、広告配信対象の最適化",
+    "・送信先の利用目的：Metaのデータポリシーに基づく広告の提供・測定等（https://www.facebook.com/privacy/policy/）",
+    "",
+    "改定後の個人情報処理方針に同意いただけない場合は、退会（利用契約の解除）をお申し出いただけます。お知らせ期間内（2026年10月16日まで）に改定内容への拒否の意思を表明されない場合は、改定内容に同意いただいたものとみなします。",
+    "退会は、メニューの「退会する」からお手続きいただけます。",
+    "",
+    "改定後の全文は、サイト下部の「個人情報処理方針」からご確認いただけます。",
+    "https://globalreverb.com",
+    "",
+    "REVERB JP のメンバーシップに紐づいて自動送信されています。",
+    "お問い合わせは LINE @reverb.jp までお願いいたします。",
+    "© JFUN Corp. · 株式会社ジェイファン",
+    "https://globalreverb.com",
   ].join("\n");
   return { subject, html, text };
 }
@@ -303,9 +357,14 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* 빈 body 허용 */ }
 
   const noticeKey = body.noticeKey || DEFAULT_NOTICE_KEY;
-  const effectiveDate = body.effectiveDate || "別途ご案内いたします";
-  if (!body.effectiveDate) {
-    console.warn("[notify-policy-change] effectiveDate 미지정 — 폴백 문구로 발송됨. 통지 메일엔 시행일 명시 권장");
+  const effectiveDate = body.effectiveDate || CURRENT_NOTICE.effectiveDate;
+  // 🔴 템플릿에 박힌 통지와 호출 인자가 어긋나면 보내지 않는다(시험 발송 포함).
+  //   옛 키로 부르면 그때 받은 회원이 「이미 받음」으로 빠지고, 날짜가 다르면 기록과 본문이 다른 날을 말한다.
+  if (noticeKey !== CURRENT_NOTICE.key || effectiveDate !== CURRENT_NOTICE.effectiveDate) {
+    console.error("[notify-policy-change] notice mismatch", { noticeKey, effectiveDate, expected: CURRENT_NOTICE });
+    return new Response(JSON.stringify({
+      error: "notice_mismatch", expected: CURRENT_NOTICE, got: { noticeKey, effectiveDate },
+    }), { status: 400, headers: { "content-type": "application/json" } });
   }
   const batchOffset = body.batchOffset ?? 0;
   const isFirstBatch = batchOffset === 0;
@@ -423,6 +482,14 @@ Deno.serve(async (req) => {
         await sb.from("policy_notice_sent").insert({
           influencer_id: id, notice_key: noticeKey, status: "skipped", skip_reason: "no_email",
         }); // 충돌(이미 처리)은 무시
+        skipped++;
+        continue;
+      }
+      if (isWithdrawnPlaceholder(email)) {
+        // 탈퇴 확정 회원 — 보내지 않고 건너뛴 기록만 남긴다(재호출이 다시 집지 않게). 충돌(이미 처리)은 무시
+        await sb.from("policy_notice_sent").insert({
+          influencer_id: id, notice_key: noticeKey, status: "skipped", skip_reason: "withdrawn",
+        });
         skipped++;
         continue;
       }
