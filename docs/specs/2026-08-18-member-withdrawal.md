@@ -1,6 +1,7 @@
 # 회원 탈퇴 — 기능·문구·약관 정합
 
 **작성일:** 2026-08-18
+**상태:** 운영 배포 완료(2026-08-21) — 조각별 구현 기록은 작업표 [`2026-08-19-member-withdrawal-breakdown.md`](2026-08-19-member-withdrawal-breakdown.md) 의 「구현 결과」에 있다. 이 문서의 「구현 결과」는 개발 세션 기록 대기 (**2026-09-28 사양서 정리**)
 **작성:** 기획 세션
 **요청:** 사용자 — 「회원탈퇴가 정상 작동하는지, 사유·안내를 하는지, 관리자가 어디서 보는지」 확인 → **「모두 처리」**
 **관련:** `docs/TERMS_kr.md` 제6조 · `docs/PRIVACY_kr.md` · 메모리 `project_line_minimization` · `project_copy_vs_behavior_audit`
