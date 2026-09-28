@@ -1165,7 +1165,7 @@ window._supabaseLoaded = false;
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n="profile.paypalNoAccount">PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。</span>
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
         <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
