@@ -156,6 +156,12 @@ body {
   font-family: inherit; cursor: pointer;
 }
 
+/* 이 기기에 저장되지 못한 작성 내용 — 되살리기 안내(H-4) */
+.restore-note { flex-wrap: wrap; }
+.restore-note .restore-actions { display: flex; gap: 6px; margin-left: auto; }
+.restore-note .restore-actions button { margin-left: 0; }
+.restore-note .restore-actions .ghost { background: #fff; color: var(--warn); border: 1px solid #F4C9AE; }
+
 /* ============ SECTION CARD ============ */
 .section {
   background: var(--card);
@@ -676,8 +682,17 @@ body.embed-frame .quote-print-btn { display: none; }
 
   <div id="conflictNote" class="conflict-note hidden">
     <span class="material-icons-outlined notranslate" translate="no">sync_problem</span>
-    <span>다른 곳에서 먼저 수정되었습니다. 최신 내용을 불러오려면 새로고침해 주세요.</span>
+    <span>다른 곳에서 먼저 수정되었습니다. 새로고침하면 최신 내용을 불러오고, 이 기기에서 쓰던 내용도 다시 불러올 수 있습니다.</span>
     <button type="button" onclick="location.reload()">새로고침</button>
+  </div>
+
+  <div id="restoreNote" class="conflict-note restore-note hidden">
+    <span class="material-icons-outlined notranslate" translate="no">history</span>
+    <span id="restoreNoteText">이 기기에 저장되지 못한 작성 내용이 있습니다. 불러올까요?</span>
+    <div class="restore-actions">
+      <button type="button" class="ghost" onclick="discardLocalBackup()">버리기</button>
+      <button type="button" onclick="restoreLocalBackup()">불러오기</button>
+    </div>
   </div>
 
 
@@ -885,6 +900,11 @@ let currentStatus = 'draft';
 let conflicted = false;            // 충돌 발생 시 자동저장 중단
 let saveTimer = null;
 let dirty = false;                 // 미저장 변경 존재 여부
+// 🔴 저장 요청은 한 번에 하나만(H-4, 2026-09-28 전수조사 3차) — 진행 중에 다음 자동저장이 같은 판 번호로 나가면
+//    서버가 충돌로 돌려줘 「다른 곳에서 수정됨」으로 자동저장이 영구히 멈췄다(느린 회선에서 자기 자신과 충돌).
+let saveInFlight = null;           // 진행 중인 저장(Promise) — 없으면 null
+let saveQueued = false;            // 진행 중에 또 저장할 일이 생겼는가
+let pendingBackup = null;          // 부팅 때 찾은, 서버와 다른 로컬 백업 {data, at}
 let cardSeq = 0;                   // 카드 DOM 고유 id 채번
 let initialValues = null;          // 연결 신청 참고값 (첫 카드 prefill용)
 let usedInitial = false;           // initial_values를 첫 카드에 1회만 사용
@@ -1368,6 +1388,7 @@ async function boot() {
     loadedData = data;
     applyLayoutMode();
     fillForm(data);
+    detectLocalBackup();
     loadTierFees();   // 구간 단가(448) — 기다리지 않는다. 받아 오면 단추에 채워지고, 못 받아 와도 폼은 그대로다
     // 2단계 — 새 구조 시트: ?view=quote 는 견적서 화면, 제출된 시트 재진입은 완료 화면 먼저(작성 화면은 「내용 수정하기」로만).
     //   옛 시트(issued 없음)는 견적이 없으므로 종전대로 작성 화면.
@@ -2690,12 +2711,76 @@ function setSaveState(kind, text) {
   $('saveStateText').textContent = text;
 }
 
+// 부팅 때 — 이 기기에 저장되지 못한 백업이 있고 서버 내용과 다르면 되살리기 안내를 띄운다(H-4).
+//   백업은 저장 성공 때 지워지므로, 남아 있다는 것은 마지막 글이 서버에 못 간 것이다.
+//   ⚠️ 다른 기기에서 그 뒤에 저장했을 수 있어 **자동으로 덮지 않는다** — 브랜드가 고른다.
+function detectLocalBackup() {
+  pendingBackup = null;
+  let bk = null;
+  try { bk = JSON.parse(localStorage.getItem(LS_KEY_PREFIX + token) || 'null'); } catch (e) { bk = null; }
+  if (!bk || !bk.data || typeof bk.data !== 'object') return;
+  let same = false;
+  try { same = JSON.stringify(bk.data) === JSON.stringify(collectData()); } catch (e) { same = false; }
+  if (same) { try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {} return; }
+  pendingBackup = bk;
+  const at = bk.at ? new Date(bk.at) : null;
+  const when = at && !isNaN(at) ? ` (${at.getMonth() + 1}월 ${at.getDate()}일 ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')})` : '';
+  $('restoreNoteText').textContent = `이 기기에 저장되지 못한 작성 내용이 있습니다${when}. 불러올까요? 불러오면 지금 화면의 내용을 덮어씁니다.`;
+  $('restoreNote').classList.remove('hidden');
+}
+
+function restoreLocalBackup() {
+  if (!pendingBackup) return;
+  // 서버가 지키는 값(발급 정보·견적·확인 기록)은 서버 판을 그대로 쓴다 — 백업의 옛 값으로 되돌리지 않는다
+  const keep = {};
+  ['issued', 'quote', 'quote_history', 'quote_error', 'notice_ack'].forEach(k => { if (loadedData && k in loadedData) keep[k] = loadedData[k]; });
+  const merged = Object.assign({}, pendingBackup.data, keep);
+  fillForm(merged);
+  // 고정 안내 확인 체크는 fillForm 이 아니라 renderNoticeAck 가 그린다 — 서버 기록이 없을 때만 백업 값을 되살린다
+  const ack = $('f_notice_ack');
+  if (ack && !(loadedData && loadedData.notice_ack)) ack.checked = merged.notice_ack_checked === true;
+  pendingBackup = null;
+  $('restoreNote').classList.add('hidden');
+  onInput();   // 되살린 내용을 서버에 저장(자동저장 경로 그대로)
+  showToast('이 기기에 남아 있던 내용을 불러왔습니다.');
+}
+
+function discardLocalBackup() {
+  pendingBackup = null;
+  try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
+  $('restoreNote').classList.add('hidden');
+}
+
 function localBackup(data) {
   try { localStorage.setItem(LS_KEY_PREFIX + token, JSON.stringify({ data, at: Date.now() })); } catch (e) {}
 }
 
 async function doAutosave() {
   if (conflicted || !sb || !token) return;
+  if (saveInFlight) { saveQueued = true; return; }   // 끝나면 한 번 더(아래 finally)
+  saveInFlight = runAutosave();
+  try { await saveInFlight; } finally {
+    saveInFlight = null;
+    if (saveQueued && !conflicted) { saveQueued = false; doAutosave(); }
+  }
+}
+
+// 진행 중인 저장이 끝날 때까지 기다린다 — 제출은 최신 판 번호로 나가야 한다
+//   최대 ms 까지만 — 넘기면 false(부르는 쪽이 안내하고 멈춘다). 느린 회선이 이 수정의 대상이라 무한정 기다리지 않는다.
+const SAVE_WAIT_LIMIT_MS = 15000;
+async function waitForSave(ms = SAVE_WAIT_LIMIT_MS) {
+  const deadline = Date.now() + ms;
+  while (saveInFlight) {
+    const left = deadline - Date.now();
+    if (left <= 0) return false;
+    let timer;
+    const timeout = new Promise(r => { timer = setTimeout(r, left); });
+    try { await Promise.race([saveInFlight, timeout]); } catch (e) {} finally { clearTimeout(timer); }
+  }
+  return true;
+}
+
+async function runAutosave() {
   const data = collectData();
   const cardEls = lastCollectedCardEls.slice();   // 요청 시점의 목록을 붙잡아 둔다(위 주석)
   localBackup(data);
@@ -2708,7 +2793,9 @@ async function doAutosave() {
     if (res && res.success === true) {
       currentVersion = res.version;
       applyCardUids(cardEls, res.card_uids);   // 서버가 붙인 번호를 담아 둔다(다음 저장 때 실어 보냄)
-      dirty = false;
+      dirty = saveQueued;   // 진행 중에 또 고쳤으면 아직 미저장
+      // 저장에 성공하면 백업을 지운다 — 백업은 「이 기기에 저장되지 못한 글」이 있을 때만 남는다
+      if (!saveQueued) { try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {} }
       const now = new Date();
       const hh = String(now.getHours()).padStart(2, '0');
       const mm = String(now.getMinutes()).padStart(2, '0');
@@ -3088,14 +3175,19 @@ async function submitSheet() {
     const el = tooFew.card.querySelector('.f-slots-direct'); if (el) { el.focus(); }
     return;
   }
-  const data = collectData();
-  const cardEls = lastCollectedCardEls.slice();   // 요청 시점의 목록을 붙잡아 둔다(위 주석)
-
   const btn = $('btnSubmit');
   btn.disabled = true;
   const orig = btn.textContent;
   btn.textContent = '제출 중…';
   clearTimeout(saveTimer);
+  saveQueued = false;
+  // 🔴 진행 중인 자동저장이 끝난 뒤에 제출한다 — 안 기다리면 옛 판 번호로 나가 충돌한다(H-4)
+  const settled = await waitForSave();
+  if (!settled) { btn.disabled = false; btn.textContent = orig; showToast('저장이 늦어지고 있어요. 잠시 뒤 다시 제출해 주세요.'); return; }
+  if (conflicted) { btn.disabled = false; btn.textContent = orig; showToast('새로고침 후 다시 시도해 주세요.'); return; }
+
+  const data = collectData();
+  const cardEls = lastCollectedCardEls.slice();   // 요청 시점의 목록을 붙잡아 둔다(위 주석)
 
   try {
     const { data: res, error } = await sb.rpc('submit_orient_sheet', {
@@ -3109,6 +3201,10 @@ async function submitSheet() {
       currentStatus = 'submitted';
       dirty = false;
       try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
+      // 제출된 판이 원본이 됐다 — 되살리기 안내와 메모리의 옛 백업도 버린다(안 버리면 「내용 수정하기」로
+      //   돌아왔을 때 안내가 다시 보이고, 누르면 제출 전 옛 초안으로 덮어쓴다 — 리뷰 지적)
+      pendingBackup = null;
+      $('restoreNote').classList.add('hidden');
       closePreview();
       if (isNewLayout()) {
         // 2단계 — 서버가 돌려준 견적 세트를 화면 원본(loadedData)에도 실어 완료 화면·견적서가 같은 값을 본다.
@@ -3173,7 +3269,7 @@ async function submitSheet() {
 
 // 미저장 이탈 경고
 window.addEventListener('beforeunload', (e) => {
-  if (dirty && !conflicted) { e.preventDefault(); e.returnValue = ''; }
+  if ((dirty || saveInFlight) && !conflicted) { e.preventDefault(); e.returnValue = ''; }
 });
 
 // ══════════════════════════════════════
