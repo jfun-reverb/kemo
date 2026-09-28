@@ -860,7 +860,7 @@ window.I18N_JA = {
     paypalEmail: 'PayPal メールアドレス',
     paypalConfirm: '確認のため再入力',
     paypalHint: '報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。',
-    paypalNoAccount: 'PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。',
+    paypalBusinessRequired: '報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。',
     paypalSaveBtn: 'PayPal情報を保存',
     currentPw: '現在のパスワード',
     newPw: '新しいパスワード',
