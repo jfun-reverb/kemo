@@ -1922,7 +1922,7 @@ function renderActivityReceiptList(delivs) {
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(r.receipt_url)},'_blank')">` : ''}
         </div>
         <div style="flex:1;min-width:0">
           ${stBadge}
@@ -1987,7 +1987,7 @@ function renderActivityReviewImageList(delivs, channels) {
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(row)}</div>`
         : '';
       const thumb = row.receipt_url
-        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
+        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(row.receipt_url)},'_blank')">`
         : '';
       cardBody += `
         <div style="display:flex;align-items:center;gap:12px">
@@ -2009,9 +2009,9 @@ function renderActivityReviewImageList(delivs, channels) {
           <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
             <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span>
             <span data-i18n="activity.imageBtn">画像を選択</span>
-            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, '${esc(ch)}')">
+            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, ${jsStr(ch)})">
           </label>
-          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage('${esc(ch)}', this)" data-i18n="activity.addDraftBtn">リストに追加</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage(${jsStr(ch)}, this)" data-i18n="activity.addDraftBtn">リストに追加</button>
         </div>`;
     }
 

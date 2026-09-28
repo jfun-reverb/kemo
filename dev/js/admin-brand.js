@@ -1177,6 +1177,9 @@ async function openBrandDetailModal(id) {
     var campIds = collectOrientCampaignIds(sheets);
     if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds);
   } catch (_) { campMap = {}; }
+  // 🔴 두 번째 기다림 뒤에도 다시 대조한다 — 캠페인 맵을 받는 사이 다른 브랜드를 열면
+  //    앞 브랜드의 폼이 뒤늦게 덮어써 「저장」이 **엉뚱한 브랜드에** 기록됐다(2026-09-28 전수조사 3차 H-3).
+  if (_brandsCurrentId !== id) return;
   _brandFormCompanies = companies || [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap);
