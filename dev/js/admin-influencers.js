@@ -588,7 +588,7 @@ function renderEditingFilePreview() {
   const kept = _editingKeptPaths.map((p, i) => {
     const url = _editingKeptUrlMap[p];
     const thumb = url
-      ? `<img src="${esc(url)}" style="width:48px;height:48px;object-fit:cover;border-radius:4px" onclick="openImageLightbox('${esc(url)}')">`
+      ? `<img src="${esc(url)}" style="width:48px;height:48px;object-fit:cover;border-radius:4px" onclick="openImageLightbox(${jsStr(url)})">`
       : `<div style="width:48px;height:48px;background:#F0F0F0;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:10px;color:#666">파일</div>`;
     return `<div style="position:relative;display:inline-block" data-kept="${esc(p)}">${thumb}<button onclick="removeKeptPath(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#C62828;color:#fff;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0" aria-label="삭제">×</button></div>`;
   }).join('');
@@ -1161,7 +1161,7 @@ async function renderInfluencerFlagsPanel(influencerId) {
     const thumbs = (f.evidence_paths || []).map(p => {
       const url = signedMap[p];
       if (!url) return '';
-      return `<img src="${esc(url)}" alt="증빙" onclick="openImageLightbox('${esc(url)}')" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--line)">`;
+      return `<img src="${esc(url)}" alt="증빙" onclick="openImageLightbox(${jsStr(url)})" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--line)">`;
     }).filter(Boolean).join('');
     return `
     <div style="padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start">

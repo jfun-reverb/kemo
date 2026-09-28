@@ -13773,6 +13773,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// 이벤트 속성(onclick 등) 안의 **자바스크립트 문자열 값**용 — 따옴표까지 붙은 문자열 리터럴을 돌려준다.
+//   🔴 `onclick="f('${esc(x)}')"` 는 안전하지 않다 — 브라우저가 속성값을 읽을 때 `&#39;`·`&quot;` 를
+//   따옴표로 되돌린 뒤 자바스크립트로 해석해서, 값 속 따옴표가 문자열을 빠져나온다(2026-09-28 전수조사 3차 H-1).
+//   먼저 JSON 문자열로 만들고(역슬래시·따옴표 처리) 그다음 HTML 로 바꾼다. 사용: `onclick="f(${jsStr(x)})"`
+function jsStr(s) {
+  return esc(JSON.stringify(s == null ? '' : String(s)));
+}
+
 // 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
 function debounce(fn, wait = 300) {
   let timer = null;
@@ -18232,7 +18240,7 @@ function renderActivityReceiptList(delivs) {
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(r.receipt_url)},'_blank')">` : ''}
         </div>
         <div style="flex:1;min-width:0">
           ${stBadge}
@@ -18297,7 +18305,7 @@ function renderActivityReviewImageList(delivs, channels) {
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(row)}</div>`
         : '';
       const thumb = row.receipt_url
-        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
+        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(row.receipt_url)},'_blank')">`
         : '';
       cardBody += `
         <div style="display:flex;align-items:center;gap:12px">
@@ -18319,9 +18327,9 @@ function renderActivityReviewImageList(delivs, channels) {
           <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
             <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span>
             <span data-i18n="activity.imageBtn">画像を選択</span>
-            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, '${esc(ch)}')">
+            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, ${jsStr(ch)})">
           </label>
-          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage('${esc(ch)}', this)" data-i18n="activity.addDraftBtn">リストに追加</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage(${jsStr(ch)}, this)" data-i18n="activity.addDraftBtn">リストに追加</button>
         </div>`;
     }
 
@@ -21284,7 +21292,7 @@ function renderMessageThread(messages) {
       attachHtml = `<div class="msg-attachments">${visibleAtts.map((a, i) => {
         const elId = `msgatt-${msg.id}-${i}`;
         loadMsgAttachThumb(elId, a.path);
-        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
+        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox(${jsStr(a.path)})"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
       }).join('')}</div>`;
     }
 
@@ -21839,7 +21847,7 @@ function openFaqItem(itemId, opts) {
   let actionBtn = '';
   if (node.action_type === 'navigate' && node.action_target) {
     const actLabel = _faqPick(node, 'action_label') || t('messaging.statusLine.goBtn');
-    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate('${esc(node.action_target)}')"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
+    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate(${jsStr(node.action_target)})"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
   }
   tree.innerHTML = `
     <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
