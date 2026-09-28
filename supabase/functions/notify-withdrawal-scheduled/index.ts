@@ -139,6 +139,20 @@ const PUBLIC_CLIENT_KEYS = [
   "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
 ];
 
+// JWT 의 역할(role)만 읽는다 — 서명은 플랫폼이 이미 검증했다. 못 읽으면 null(막지 않는다).
+function jwtRole(token: string): string | null {
+  if (!token.startsWith("eyJ")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return typeof payload?.role === "string" ? payload.role : null;
+  } catch {
+    return null;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
 function rejectPublicKeyCaller(req: Request, tag: string): boolean {
   const raw = (req.headers.get("Authorization") ?? "").trim();
   const token = raw.replace(/^Bearer\s+/i, "").trim();
@@ -147,9 +161,18 @@ function rejectPublicKeyCaller(req: Request, tag: string): boolean {
     console.warn(`[${tag}] rejected — called with the public client key`);
     return true;
   }
+  // 🔴 비로그인(anon)·로그인 회원(authenticated) 토큰은 거부한다(2026-09-28 전수조사 3차).
+  //   회원가입은 누구나 할 수 있어 authenticated 토큰도 사실상 공개다 — 예전에는 anon 만 막아
+  //   로그인한 회원이 방침 통지 시험 발송(임의 주소)·홍보 메일 전체 발송을 부를 수 있었다.
+  //   예약 실행(vault edge_function_jwt)·데이터베이스 웹훅은 service_role 이라 통과한다.
+  const role = jwtRole(token);
+  if (role === "anon" || role === "authenticated") {
+    console.warn(`[${tag}] rejected — called with an end-user JWT`, { role });
+    return true;
+  }
   // 토큰 자체는 절대 남기지 않는다.
   const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  console.log(`[${tag}] caller check passed`, { isServiceRole, role });
   return false;
 }
 
