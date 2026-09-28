@@ -11,7 +11,7 @@ export const TEMPLATES: Record<string, string> = {
            → Edge Function notify-campaign-promo-digest
   Window:
     - 「新着」 섹션: campaigns.first_active_at 가 p_digest_date (KST) 윈도우 안
-    - 「締切間近」 섹션: campaigns.deadline = 내일 (KST) — D-1 단일 시점
+    - 「締切間近」 섹션: campaigns.deadline 이 발송일(당일 포함) ~ 다음 발송일(월→목, 목→다음 월) — 마이그레이션 471
   To: 인플루언서 1명당 1통 (To 헤더에 다른 인플 이메일 노출 안 됨)
   Lang: JA (친근체)
   Skip: 두 섹션 모두 0건이면 인플 단위로 발송 미실시 (status='skipped_no_data')
@@ -98,7 +98,7 @@ export const TEMPLATES: Record<string, string> = {
   레이아웃: 좌(이미지) / 우(정보 + 버튼) 수평 분할 — table 기반 (메일 클라이언트 호환).
   이미지 폭 ~40%, 정보 폭 ~60%.
 
-  D-1 칩은 deadline_d1 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
+  마감 임박 칩은 deadline_d1(= 마감 임박) 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
   slots 행은 monitor (리뷰어) 캠페인에서만 채움. 다른 타입은 slots_row_html = "".
 
   Row Placeholders:
@@ -108,7 +108,7 @@ export const TEMPLATES: Record<string, string> = {
     {{type_chip_fg}}         모집 타입 칩 글자색
     {{brand}}                브랜드명
     {{title}}                캠페인 제목
-    {{d1_chip_html}}         「締切間近 D-1」 칩 HTML (신규 섹션은 "", D-1 섹션만 채움)
+    {{d1_chip_html}}         「締切間近」 칩 HTML (신규 섹션은 "", 마감 임박 섹션만 채움)
     {{reward}}               리워드 표기
     {{deadline_label}}       마감 표기 (「あと N日」 또는 「明日まで」)
     {{slots_row_html}}       잔여 슬롯 행 (monitor 만 채움, 다른 타입은 "")
@@ -153,7 +153,7 @@ export const TEMPLATES: Record<string, string> = {
   대상: 관리자 「메일 받기 설정」 에서 캠페인 홍보 메일(campaign_promo) 토글을 켠 관리자
   Lang: 머리말·안내·푸터는 한국어, 캠페인 카드(제목·리워드·모집유형)는 원본 일본어 그대로
 
-  내용: 그날 홍보 대상이 된 캠페인 전체(신규 + 마감 D-1) 1통.
+  내용: 그날 홍보 대상이 된 캠페인 전체(신규 = 모집 시작 14일 이내 + 마감 임박 = 다음 발송일까지 마감) 1통.
         인플루언서와 달리 자격 매칭/개인화 없음 — 그날 풀 전체.
   Skip: 그날 홍보 캠페인 풀이 비면 관리자 발송 자체 생략.
 
