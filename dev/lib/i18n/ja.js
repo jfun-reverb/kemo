@@ -980,6 +980,18 @@ window.I18N_JA = {
       suggestHead: 'こちらで解決できるか確認してみましょう',
     },
   },
+  // 문의 창구 — 일반 문의 창구(2026-09). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
+  inquiry: {
+    title: 'お問い合わせ',
+    lead: 'お問い合わせの内容をえらんでください',
+    branchApp: '応募したキャンペーンについて',
+    branchOther: 'その他のお問い合わせ',
+    readOnly: '閲覧のみ',
+    loadError: '応募履歴を読み込めませんでした',
+    retry: 'もう一度読み込む',
+    generalTitle: '運営チームへのお問い合わせ',
+    unknownCampaign: 'キャンペーン',
+  },
   // 政策変更の告知 — 一般お問い合わせ窓口の開設 + 個人情報処理方針の改定（2026-09-29 公告 → 2026-10-06 施行）
   //   ⚠️ メール通知なし（アプリ内のみ）。{date} は施行日。
   policyNotice: {

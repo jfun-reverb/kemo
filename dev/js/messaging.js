@@ -11,6 +11,53 @@ const MSG_MAX_ATTACH = 5;                       // 메시지당 첨부 최대 5�
 
 let _msgCurrentAppId = null;
 let _msgFrom = 'mypage';     // 메시지 페이지 진입 출처 (뒤로가기 목적지 결정)
+// 페이지 모드 — 'app'(응모건 메시지) / 'general'(일반 문의, 응모 없음 — 마이그레이션 475~482).
+//   같은 #page-messages 를 재사용하므로 **진입 함수가 매번 정하고 정리 함수가 'app' 으로 되돌린다.**
+//   ⚠️ 일반 문의에서는 _msgCurrentAppId 가 null 이다 — 「대화가 열려 있나」는 _msgActive() 로 본다.
+let _msgMode = 'app';
+// 일반 문의 「그 외」 갈래에 보일 자주 묻는 질문 카테고리(보수·정산 / 계정·프로필 / 그 외 — 시드 146 고유 번호).
+//   사양서 §7 — 이 셋 안에서도 단계 무관(relevant_stages 비어 있음) 항목만 낸다.
+const FAQ_GENERAL_CATEGORY_IDS = [
+  '00000001-0000-0000-0000-000000000005',
+  '00000001-0000-0000-0000-000000000006',
+  '00000001-0000-0000-0000-000000000007',
+];
+
+// 대화가 열려 있나 — 일반 문의는 응모 번호가 없으므로 모드로 판정한다.
+function _msgActive() { return _msgMode === 'general' || !!_msgCurrentAppId; }
+// 모드별 분기 넷 — 조회·읽음·발송·첨부. 일반 문의는 본인 회원 id 를 **항상** 넘긴다
+//   (관리자를 겸한 회원은 서버가 관리자로 판정해 회원 id 가 없으면 거부한다).
+async function _msgLoad() {
+  if (_msgMode === 'general') {
+    const rows = await fetchGeneralInquiryMessages(currentUser?.id || null);
+    if (rows === null) throw new Error('general_inquiry_load_failed');   // 실패와 0건을 가른다
+    return rows;
+  }
+  return await fetchApplicationMessages(_msgCurrentAppId);
+}
+async function _msgMarkRead() {
+  if (_msgMode === 'general') {
+    await markGeneralInquiryMessagesRead(currentUser?.id || null);
+    if (typeof markNotificationsReadByRef === 'function' && currentUser) {
+      await markNotificationsReadByRef('general_inquiry', currentUser.id, 'message_received');
+    }
+    if (typeof refreshNavInquiryBadge === 'function') refreshNavInquiryBadge();
+    return;
+  }
+  await markApplicationMessagesRead(_msgCurrentAppId);
+  // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
+  if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(_msgCurrentAppId);
+}
+function _msgUpload(f) {
+  return _msgMode === 'general'
+    ? uploadGeneralInquiryAttachment(f, currentUser?.id)
+    : uploadMessageAttachment(f, _msgCurrentAppId);
+}
+function _msgSend(body, attachments) {
+  return _msgMode === 'general'
+    ? sendGeneralInquiryMessage(body, attachments, currentUser?.id || null)
+    : sendApplicationMessage(_msgCurrentAppId, body, attachments);
+}
 let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
 let _msgLastCount = 0;       // 현재 표시 중인 메시지 수 (도착 감지 기준)
@@ -38,9 +85,9 @@ function _stopMsgPoll() {
 }
 
 async function _checkNewMessages() {
-  if (!_msgCurrentAppId || document.hidden) return;
+  if (!_msgActive() || document.hidden) return;
   try {
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    const msgs = await _msgLoad();
     // 메시지 수가 늘었으면(새 메시지 도착) 안내 띠만 표시 — 화면은 사용자가 새로고침할 때만 갱신
     if ((msgs?.length || 0) > _msgLastCount) _toggleMsgNewBanner(true);
   } catch (_e) { /* 폴링 실패는 무시 */ }
@@ -52,17 +99,49 @@ function _toggleMsgNewBanner(show) {
 
 // 메시지 모달 수동 새로고침 (헤더 버튼 + 「새 메시지 도착」 띠 공용)
 async function refreshMessageModal() {
-  if (!_msgCurrentAppId) return;
+  if (!_msgActive()) return;
   try {
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    const msgs = await _msgLoad();
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0;
     _toggleMsgNewBanner(false);
-    await markApplicationMessagesRead(_msgCurrentAppId);
-    if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(_msgCurrentAppId);
+    await _msgMarkRead();
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
   } catch (e) { console.error('[refreshMessageModal]', e); logAppError('refreshMessageModal', e); }
+}
+
+// 작성 줄 준비 — 응모건·일반 문의 진입이 같이 쓴다(페이지를 재사용하므로 매 진입마다 되돌린다).
+function _msgPrepareCompose(_msgReadOnly) {
+  // 읽기 전용(취소된 응모) — 작성 줄을 감추고 안내 한 줄로 바꾼다.
+  //   ⚠️ 모달이 아니라 페이지를 재사용하므로, 취소 아닌 응모로 들어올 때 **반드시 되돌린다.**
+  {
+    const inputRow = document.querySelector('#page-messages .msg-input-row');
+    const note = $('msgReadOnlyNote');
+    if (inputRow) inputRow.style.display = _msgReadOnly ? 'none' : '';
+    if (note) {
+      note.style.display = _msgReadOnly ? '' : 'none';
+      if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
+    }
+  }
+
+  renderMsgAttachPreview();
+  const inputEl = $('msgModalInput');
+  if (inputEl) {
+    inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder');
+    inputEl.style.height = ''; // 1줄로 리셋
+    if (!inputEl._autosizeBound) {
+      // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
+      // 전제: #msgModalInput DOM 은 페이지 생명주기 동안 재사용(cleanupMessagesPage 가 제거 안 함).
+      //       향후 cleanup 이 입력창을 재생성하면 _autosizeBound 가 stale 이 되므로 그때 플래그 재설계 필요.
+      inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+      });
+      inputEl._autosizeBound = true;
+    }
+  }
+
 }
 
 // 응모건 메시지 페이지 열기 (모달→페이지 전환, 2026-05-22)
@@ -94,6 +173,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   //   → 들어가서 읽을 수는 있게 하고(배지도 지워진다), **새로 쓰지는 못하게** 한다.
   //   차단 의도(취소된 건으로 새 문의를 시작하지 않는다)는 그대로 지켜진다.
   const _msgReadOnly = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  _msgMode = 'app';
   _msgCurrentAppId = applicationId;
   _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
@@ -115,34 +195,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
 
-  // 읽기 전용(취소된 응모) — 작성 줄을 감추고 안내 한 줄로 바꾼다.
-  //   ⚠️ 모달이 아니라 페이지를 재사용하므로, 취소 아닌 응모로 들어올 때 **반드시 되돌린다.**
-  {
-    const inputRow = document.querySelector('#page-messages .msg-input-row');
-    const note = $('msgReadOnlyNote');
-    if (inputRow) inputRow.style.display = _msgReadOnly ? 'none' : '';
-    if (note) {
-      note.style.display = _msgReadOnly ? '' : 'none';
-      if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
-    }
-  }
-
-  renderMsgAttachPreview();
-  const inputEl = $('msgModalInput');
-  if (inputEl) {
-    inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder');
-    inputEl.style.height = ''; // 1줄로 리셋
-    if (!inputEl._autosizeBound) {
-      // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
-      // 전제: #msgModalInput DOM 은 페이지 생명주기 동안 재사용(cleanupMessagesPage 가 제거 안 함).
-      //       향후 cleanup 이 입력창을 재생성하면 _autosizeBound 가 stale 이 되므로 그때 플래그 재설계 필요.
-      inputEl.addEventListener('input', () => {
-        inputEl.style.height = 'auto';
-        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
-      });
-      inputEl._autosizeBound = true;
-    }
-  }
+  _msgPrepareCompose(_msgReadOnly);
 
   const thread = $('msgModalThread');
   if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
@@ -161,10 +214,8 @@ async function openMessagesPage(applicationId, from, pushHistory) {
     _toggleMsgNewBanner(false);
     // 스레드는 항상 표시(0건이면 안내 문구). 게이트 오버레이는 닫힌 상태로 시작.
     closeFaqOverlay();
-    // 열람 시 본인 미열람 읽음 처리 후 응모이력 배지 갱신
-    await markApplicationMessagesRead(applicationId);
-    // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
-    if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(applicationId);
+    // 열람 시 본인 미열람 읽음 처리(+ 같은 응모건 알림) 후 응모이력 배지 갱신
+    await _msgMarkRead();
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
     _startMsgPoll(); // 페이지 열린 동안 새 메시지 도착 감지 시작
@@ -176,9 +227,151 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 }
 
 // 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
+//   들어온 길을 따른다(사양서 §3) — 일반 문의: 갈래 화면 / 탈퇴 화면 / 홈(메뉴·알림).
+//   응모건 메시지: 갈래 화면에서 왔으면 갈래 화면, 그 밖은 종전대로 응모이력.
 function navigateBackFromMessages() {
+  if (_msgFrom === 'inquiry' || (_msgMode === 'general' && _msgFrom === 'branch')) {
+    if (typeof openInquiryPage === 'function') { openInquiryPage('back'); return; }
+  }
+  if (_msgMode === 'general') {
+    if (_msgFrom === 'withdraw' && typeof handleWithdraw === 'function') { handleWithdraw(); return; }
+    navigate('home');
+    return;
+  }
   navigate('mypage');
   if (typeof openMypageSub === 'function') openMypageSub('applications');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 일반 문의 창구 — 햄버거 「お問い合わせ」 단일 입구 (사양서 docs/specs/2026-05-21-general-inquiry-desk.md §3)
+//   갈래 화면 #inquiry → 「응모한 캠페인에 대해」(응모건 메시지 그대로) / 「그 외 문의」(#inquiry-general)
+// ════════════════════════════════════════════════════════════════════
+let _inqApps = null;        // 갈래 화면용 응모 목록 — null=조회 실패, []=0건
+let _inqAppListOpen = false; // 「응모에 대해」 목록 펼침 여부
+
+// 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로) / 'withdraw' 등.
+//   🔴 갈래를 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 갈래를 보인다(§5-4 ⑩).
+async function openInquiryPage(from, pushHistory) {
+  if (!currentUser) { navigate('login'); return; }
+  const apps = await fetchMyApplicationsForInquiry();
+  if (Array.isArray(apps) && apps.length === 0) {
+    // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 그 외 문의로.
+    //   뒤로가기 목적지는 홈(갈래 화면을 거치지 않았으므로).
+    openGeneralInquiryPage(from === 'withdraw' ? 'withdraw' : 'nav', pushHistory);
+    return;
+  }
+  _inqApps = apps;           // null(실패) 또는 1건 이상
+  _inqAppListOpen = false;
+  if (navigate('inquiry', pushHistory) === false) return;
+  if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
+    try { allCampaigns = await fetchCampaigns(); } catch (_e) {}
+  }
+  renderInquiryBranch();
+}
+
+function renderInquiryBranch() {
+  const box = $('inquiryBranchBody');
+  if (!box) return;
+  let listHtml = '';
+  if (_inqAppListOpen) {
+    if (_inqApps === null) {
+      listHtml = `<div class="inq-app-error">
+        <p>${esc(t('inquiry.loadError'))}</p>
+        <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
+      </div>`;
+    } else {
+      listHtml = `<div class="inq-app-list">${_inqApps.map(a => {
+        const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
+        const title = camp.title || t('inquiry.unknownCampaign');
+        const ro = a.status === 'cancelled'
+          ? `<span class="inq-app-readonly">${esc(t('inquiry.readOnly'))}</span>` : '';
+        return `<button type="button" class="inq-app-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
+          <span class="inq-app-title">${esc(title)}</span>${ro}
+          <span class="material-icons-round notranslate" translate="no">chevron_right</span>
+        </button>`;
+      }).join('')}</div>`;
+    }
+  }
+  box.innerHTML = `
+    <button type="button" class="inq-branch-btn" onclick="toggleInquiryAppList()" aria-expanded="${_inqAppListOpen}">
+      <span class="material-icons-round notranslate" translate="no">campaign</span>
+      <span class="inq-branch-label">${esc(t('inquiry.branchApp'))}</span>
+      <span class="material-icons-round notranslate" translate="no">${_inqAppListOpen ? 'expand_less' : 'expand_more'}</span>
+    </button>
+    ${listHtml}
+    <button type="button" class="inq-branch-btn" onclick="openGeneralInquiryPage('branch')">
+      <span class="material-icons-round notranslate" translate="no">support_agent</span>
+      <span class="inq-branch-label">${esc(t('inquiry.branchOther'))}</span>
+      <span class="material-icons-round notranslate" translate="no">chevron_right</span>
+    </button>`;
+}
+
+function toggleInquiryAppList() { _inqAppListOpen = !_inqAppListOpen; renderInquiryBranch(); }
+
+async function retryInquiryApps() {
+  const apps = await fetchMyApplicationsForInquiry();
+  _inqApps = apps;
+  if (Array.isArray(apps) && !apps.length) { openGeneralInquiryPage('nav'); return; }
+  renderInquiryBranch();
+}
+
+// 일반 문의 대화 — #page-messages 를 재사용하고 주소는 #inquiry-general.
+//   from: 'nav' / 'branch' / 'withdraw' / 'notif' — 뒤로가기 목적지(navigateBackFromMessages).
+async function openGeneralInquiryPage(from, pushHistory) {
+  if (!currentUser) { navigate('login'); return; }
+  _msgMode = 'general';
+  _msgCurrentAppId = null;
+  _msgFrom = from || 'nav';
+  _msgPendingFiles = [];
+  _faqLoaded = false;
+  _faqOverlayOpen = false;
+  if (navigate('inquiry-general', pushHistory) === false) { _msgMode = 'app'; return; }
+  // 기록을 안 남기고 들어왔으면(뒤로가기·갈래 건너뛰기) 주소만 맞춘다 — 새로고침이 이 화면으로 돌아오게.
+  if (pushHistory === false && location.hash !== '#inquiry-general') {
+    try { history.replaceState({page:'inquiry-general'}, '', '#inquiry-general'); } catch (_e) {}
+  }
+  const titleEl = $('msgModalTitle');
+  if (titleEl) titleEl.textContent = t('inquiry.generalTitle');
+  // 일반 문의에는 응모 상태 한 줄이 없다(특정 응모가 아니므로)
+  const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
+  _msgPrepareCompose(false);
+  const thread = $('msgModalThread');
+  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  await setupFaqGate(null, {}, { general: true });
+  // 기다리는 사이 화면을 떠났으면(정리 함수가 모드를 'app' 으로 되돌림) 여기서 멈춘다 —
+  //   안 멈추면 응모 번호 없이 응모건 조회를 부르고 폴링까지 시작한다.
+  if (_msgMode !== 'general') return;
+  try {
+    const msgs = await _msgLoad();
+    if (_msgMode !== 'general') return;
+    renderMessageThread(msgs);
+    _msgLastCount = msgs?.length || 0;
+    _toggleMsgNewBanner(false);
+    closeFaqOverlay();
+    await _msgMarkRead();
+    if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
+    _startMsgPoll();
+  } catch (e) {
+    console.error('[openGeneralInquiryPage]', e);
+    logAppError('openGeneralInquiryPage', e);
+    closeFaqOverlay();   // 응모건 화면에서 바로 넘어온 경우 그쪽 덮개가 남지 않게
+    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+  }
+}
+
+// 햄버거 「お問い合わせ」 배지 — 일반 문의 안 읽은 답장 수. 실패(null)면 지난 값을 유지한다.
+let _navInquiryUnread = 0;
+async function refreshNavInquiryBadge() {
+  if (!currentUser) return;
+  const n = await fetchMyGeneralInquiryUnread();
+  if (n !== null) _navInquiryUnread = n;
+  applyNavInquiryBadge();
+}
+function applyNavInquiryBadge() {
+  document.querySelectorAll('[data-role="nav-inquiry-badge"]').forEach(b => {
+    if (_navInquiryUnread > 0) { b.textContent = _navInquiryUnread > 9 ? '9+' : String(_navInquiryUnread); b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  });
 }
 
 // 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).
@@ -187,6 +380,7 @@ function cleanupMessagesPage() {
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   _msgCurrentAppId = null;
+  _msgMode = 'app';   // 일반 문의로 바꿔 둔 것을 되돌린다 — 다음 응모건 진입이 옛 모드를 물려받지 않게
   _msgPendingFiles = [];
   // 상태 한 줄·전체 보기 오버레이 정리 (봇 카드는 스레드 일부라 thread 비우면 함께 사라짐)
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
@@ -330,7 +524,7 @@ async function confirmWithdrawMessage(messageId, attachmentPaths) {
   try {
     await withdrawOwnMessage(messageId, attachmentPaths || []);
     // 스레드 재로드
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    const msgs = await _msgLoad();
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0; // 도착 감지 기준 동기화 (회수로 인한 변동 반영)
   } catch (e) {
@@ -368,7 +562,7 @@ function renderMsgAttachPreview() {
 
 // ── 전송 ──
 async function sendMessageFromModal() {
-  if (!_msgCurrentAppId) return;
+  if (!_msgActive()) return;
   // 취소된 응모는 읽기만 가능하다(F-11). 작성 줄은 감춰 두지만, 화면 상태가 어긋난 채로
   //   이 함수에 닿는 경로(캐시가 늦게 채워져 취소 판정이 나중에 바뀌는 등)가 있어 여기서도 막는다.
   if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
@@ -385,13 +579,13 @@ async function sendMessageFromModal() {
   //   대체 — 동작은 같고, 첨부 업로드가 오래 걸릴 때 진행 표시가 뜨는 것이 추가됐다.
   //   ⚠️ 진행 문구는 넣지 않는다(빈 문자열) — 보내기 버튼은 40px 원형 아이콘 버튼이라
   //      스피너+문구가 안 들어가고 넘친다. 잠금만으로 연타는 이미 막힌다.
-  return withSubmitLock('sendMsg:' + _msgCurrentAppId, 'msgModalSendBtn', '', async function() {
+  return withSubmitLock('sendMsg:' + (_msgMode === 'general' ? 'general' : _msgCurrentAppId), 'msgModalSendBtn', '', async function() {
     try {
       // 첨부 압축·업로드 (순차 — 실패 시 즉시 중단)
       const attachments = [];
       for (const f of _msgPendingFiles) {
         try {
-          attachments.push(await uploadMessageAttachment(f, _msgCurrentAppId));
+          attachments.push(await _msgUpload(f));
         } catch (e) {
           console.error('[sendMessageFromModal] 첨부 업로드', e);
           // too_large 는 정상 거부(용량 초과 안내) — 그 외는 예상 못 한 오류로 기록된다.
@@ -400,12 +594,12 @@ async function sendMessageFromModal() {
           return;   // 잠금 해제는 헬퍼 finally 가 한다
         }
       }
-      await sendApplicationMessage(_msgCurrentAppId, body, attachments);
+      await _msgSend(body, attachments);
       // 입력 초기화 + 재로드
       if (inputEl) { inputEl.value = ''; inputEl.style.height = ''; } // 전송 후 1줄로 리셋
       _msgPendingFiles = [];
       renderMsgAttachPreview();
-      const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+      const msgs = await _msgLoad();
       renderMessageThread(msgs);
       _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
       _toggleMsgNewBanner(false);
@@ -417,7 +611,7 @@ async function sendMessageFromModal() {
       // 그 외 DB 내부 에러(42702 등)는 일반 메시지로 — 원문 노출 방지
       //   ⚠️ 바로 그 「일반 메시지로 덮는」 경로가 취소 사고와 같은 모양이다.
       //      P0001(서버가 의도적으로 거부)은 정상 거부, 나머지는 예상 못 한 오류로 기록.
-      logAppError('sendApplicationMessage', e, e?.code === 'P0001' ? [String(e.message || '')] : null);
+      logAppError(_msgMode === 'general' ? 'sendGeneralInquiryMessage' : 'sendApplicationMessage', e, e?.code === 'P0001' ? [String(e.message || '')] : null);
       toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
     }
   });
@@ -608,7 +802,8 @@ function faqNodeChainActive(node, byId) {
   return true;
 }
 
-async function setupFaqGate(app, camp) {
+//   opts.general — 일반 문의 「그 외」 갈래(사양서 §7): 카테고리 셋 안의 단계 무관 항목만.
+async function setupFaqGate(app, camp, opts) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
   try {
@@ -620,6 +815,7 @@ async function setupFaqGate(app, camp) {
     const _byId = {};
     (all || []).forEach(n => { if (n && n.id) _byId[n.id] = n; });
     _faqNodes = (all || []).filter(n => faqNodeChainActive(n, _byId));
+    if (opts && opts.general) _faqNodes = _faqNodes.filter(n => _faqNodeInGeneral(n, _byId));
     _faqLoaded = true;
   } catch (e) {
     console.error('[setupFaqGate]', e);
@@ -628,6 +824,17 @@ async function setupFaqGate(app, camp) {
     _faqNodes = [];
     _faqLoaded = true;
   }
+}
+
+// 일반 문의 갈래 판정 — 맨 위 카테고리가 FAQ_GENERAL_CATEGORY_IDS 안이고,
+//   질문이면 relevant_stages 가 비어 있을 것(단계 정보가 없는 갈래이므로).
+function _faqNodeInGeneral(node, byId) {
+  let root = node, guard = 0;
+  while (root && root.parent_id && byId[root.parent_id] && guard++ < 20) root = byId[root.parent_id];
+  if (!root || !FAQ_GENERAL_CATEGORY_IDS.includes(root.id)) return false;
+  if (node.kind === 'category') return true;
+  const st = node.relevant_stages;
+  return !Array.isArray(st) || st.length === 0;
 }
 
 // 추천 후보 — 현재 단계(relevant_stages) 우선, 답변 노드(handoff 아닌 item, body 보유)만 상위 N개.
