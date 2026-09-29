@@ -53,6 +53,7 @@
 
 **확인할 자료 우선순위:**
 1. `CLAUDE.md` 해당 섹션 (Features / Database Schema / Rules)
+   - 🔴 그 절이 「상세는 `.claude/rules/…md`」로 안내하면 **그 파일을 직접 연다** — 경로 조건부 규칙이라 기획·고문 세션에서는 자동으로 안 읽힌다(예: `event-ticketing.md`)
 2. `docs/specs/` 내 같은 영역 최근 사양서 → 「구현 결과」 섹션 (`.claude/rules/docs-tracking.md`)
 3. `docs/CODEMAPS/*` 코드맵
 4. 실제 소스 파일 (`dev/js/*.js`, `supabase/migrations/*.sql`)
