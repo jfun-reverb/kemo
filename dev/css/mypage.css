@@ -244,10 +244,8 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
 @media(min-width:600px){
   .msg-faq-answer-body{max-width:var(--reading-max)}
   .ticket-msg{max-width:var(--reading-max)}
-  /* 아래 둘은 배포 뒤 실측(작업표 조각 7 ④-b)으로 드러난 자리다.
-     .email-tx-desc = 업무 알림 안내 박스(611px) ·
-     #withdrawViewBody = 탈퇴 화면 본문(675px — 안쪽 글이 클래스 없는 div 라
-     가장 가까운 고정 id 로 묶는다. 버튼도 함께 560 이 되는 것이 낫다). */
+  /* 배포 뒤 실측(작업표 조각 7 ④-b)으로 드러난 자리 — 업무 알림 안내 박스(611px).
+     ⚠️ 탈퇴 화면 본문(#withdrawViewBody)은 묶지 않는다 — 머리·다른 마이페이지 폼은 폭을 꽉 채우는데
+        본문과 버튼만 560 에서 멈춰 화면이 틀어져 보였다(2026-09-29 사용자 지적). */
   .email-tx-desc{max-width:var(--reading-max)}
-  #withdrawViewBody{max-width:var(--reading-max)}
 }
