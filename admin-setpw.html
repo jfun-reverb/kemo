@@ -433,11 +433,44 @@ function clearError() {
 
 // 비밀번호 정책 — dev/js/ui.js validatePasswordPolicy 와 기준 동일(8자·영소문자·기호),
 // 문구만 한국어. 자립형 페이지라 공용 함수를 못 불러와 복제한다.
+// ⚠️ dev/js/ui.js passwordPolicyIssue 와 같은 규칙(이 화면은 ui.js 를 안 싣는다) — 고치면 두 곳을 함께.
 function validateAdminPassword(pw) {
   if (!pw || pw.length < 8) return '비밀번호는 8자 이상으로 입력해 주세요.';
   if (!/[a-z]/.test(pw)) return '비밀번호에 영문 소문자를 1개 이상 포함해 주세요.';
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return '비밀번호에 기호(!@#$%^&* 등)를 1개 이상 포함해 주세요.';
   return null;
+}
+
+// 흔한(유출 목록에 있는) 비밀번호 판정 — 'common' | 'ok' | 'unknown'.
+//   ⚠️ dev/js/ui.js commonPasswordCheck 의 사본(이 화면은 ui.js 를 안 싣는다) — 고치면 두 곳을 함께.
+//   'unknown'(실패·3초 초과)은 통과로 다룬다. 사양서 docs/specs/2026-09-29-common-password-warning.md
+async function commonPasswordCheck(pw) {
+  try {
+    if (!pw || !(window.crypto && crypto.subtle)) return 'unknown';
+    const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(pw));
+    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const prefix = hex.slice(0, 5), suffix = hex.slice(5);
+    const env = SUPABASE_ENVS[SUPABASE_ENV];
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    let res;
+    try {
+      const r = await fetch(env.url + '/functions/v1/password-range-lookup', {
+        method: 'POST', signal: ctrl.signal,
+        headers: {'content-type': 'application/json', 'apikey': env.key, 'Authorization': 'Bearer ' + env.key},
+        body: JSON.stringify({prefix})
+      });
+      res = await r.json();
+    } finally { clearTimeout(timer); }
+    if (!res || res.ok !== true || typeof res.lines !== 'string') return 'unknown';
+    for (const line of res.lines.split(/\r?\n/)) {
+      const [suf, cnt] = line.trim().split(':');
+      if (suf && suf.toUpperCase() === suffix) return Number(cnt) > 0 ? 'common' : 'ok';
+    }
+    return 'ok';
+  } catch (e) {
+    return 'unknown';
+  }
 }
 
 // 착지 문구 분기 — mode 는 문구만 좌우하고 어떤 권한·검증에도 쓰이지 않는다.
@@ -670,6 +703,14 @@ $('pwForm').addEventListener('submit', async (e) => {
   const btn = $('pwSubmit');
   btn.disabled = true;
   btn.textContent = '설정하는 중...';
+
+  // 흔한 비밀번호는 거부(관리자) — 잠금 뒤·updateUser 앞. 'unknown' 은 통과
+  if (await commonPasswordCheck(pw) === 'common') {
+    showError('많은 사람이 쓰는 비밀번호라 사용할 수 없습니다. 다른 비밀번호를 입력해 주세요.');
+    btn.disabled = false;
+    btn.textContent = '비밀번호 설정하기';
+    return;
+  }
 
   try {
     const { error } = await sb.auth.updateUser({ password: pw });

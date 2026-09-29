@@ -278,6 +278,21 @@ async function saveMyAdminInfo() {
   }
 }
 
+// 관리자 화면용 비밀번호 규칙 문구(판정은 ui.js passwordPolicyIssue — 회원과 같은 규칙).
+//   문구는 admin-setpw.html validateAdminPassword 와 같게 둔다.
+function adminPasswordPolicyMessage(pw) {
+  const msg = {
+    short: '비밀번호는 8자 이상으로 입력해 주세요.',
+    needLower: '비밀번호에 영문 소문자를 1개 이상 포함해 주세요.',
+    needSpecial: '비밀번호에 기호(!@#$%^&* 등)를 1개 이상 포함해 주세요.'
+  };
+  const issue = passwordPolicyIssue(pw);
+  return issue ? msg[issue] : null;
+}
+
+// 흔한 비밀번호 거부 문구 — admin-setpw.html 과 같은 문장
+const COMMON_PW_ADMIN_MSG = '많은 사람이 쓰는 비밀번호라 사용할 수 없습니다. 다른 비밀번호를 입력해 주세요.';
+
 async function changeMyAdminPassword() {
   if (!db) return;
   const cur = $('myAdminCurrentPw')?.value;
@@ -286,17 +301,24 @@ async function changeMyAdminPassword() {
   const err = $('myPwError');
   err.style.display = 'none';
   if (!cur || !nw) { err.textContent='모든 항목을 입력해주세요'; err.style.display='block'; return; }
-  if (nw.length < 8) { err.textContent='새 비밀번호는 8자 이상이어야 합니다'; err.style.display='block'; return; }
+  const pwIssue = adminPasswordPolicyMessage(nw);
+  if (pwIssue) { err.textContent = pwIssue; err.style.display='block'; return; }
   if (nw !== nw2) { err.textContent='비밀번호가 일치하지 않습니다'; err.style.display='block'; return; }
+  const btn = $('btnChangeMyAdminPw');
+  if (btn) btn.disabled = true;
   try {
+    // 흔한 비밀번호는 거부(관리자). 판정 중(최대 3초) 버튼 잠금 — 두 번 눌러 판정 전에 보내지지 않게
+    if (await commonPasswordCheck(nw) === 'common') { err.textContent = COMMON_PW_ADMIN_MSG; err.style.display='block'; return; }
     const {error} = await db.auth.updateUser({password: nw});
-    if (error) { err.textContent = error.message; err.style.display='block'; return; }
+    if (error) { err.textContent = '변경 오류: ' + friendlyError(error.message); err.style.display='block'; return; }
     toast('비밀번호가 변경되었습니다','success');
     $('myAdminCurrentPw').value = '';
     $('myAdminNewPw').value = '';
     $('myAdminNewPw2').value = '';
   } catch(e) {
     err.textContent = '변경 오류: ' + friendlyError(e.message); err.style.display='block';
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -448,14 +470,20 @@ async function executeResetPw() {
   const newPw = $('resetPwNew').value;
   const err = $('resetPwError');
   err.style.display = 'none';
-  if (!newPw || newPw.length < 8) { err.textContent = '비밀번호는 8자 이상이어야 합니다'; err.style.display = 'block'; return; }
+  const pwIssue = adminPasswordPolicyMessage(newPw);
+  if (pwIssue) { err.textContent = pwIssue; err.style.display = 'block'; return; }
+  const btn = $('btnExecuteResetPw');
+  if (btn) btn.disabled = true;
   try {
+    if (await commonPasswordCheck(newPw) === 'common') { err.textContent = COMMON_PW_ADMIN_MSG; err.style.display = 'block'; return; }
     const {error} = await db.rpc('reset_admin_password', {target_auth_id: authId, new_password: newPw});
     if (error) throw error;
     toast('비밀번호가 초기화되었습니다','success');
     closeModal('resetPwModal');
   } catch(e) {
     err.textContent = '초기화 오류: ' + friendlyError(e.message); err.style.display = 'block';
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
