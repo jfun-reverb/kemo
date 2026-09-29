@@ -1853,9 +1853,6 @@ input.admin-filter{padding-right:8px}
 .admin-input:focus { outline: none; border-color: var(--accent-ink); box-shadow: 0 0 0 3px rgba(98,94,189,.18); }
 
 /* ── 일괄 발송 / 발송 이력 (PR 3, 마이그레이션 167) ── */
-.inbox-tabs { display: flex; gap: 4px; }
-.inbox-tab { padding: 5px 12px; border: 1px solid var(--line); background: #fff; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
-.inbox-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
 .bulk-chk-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .bulk-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink); cursor: pointer; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; }
 .bulk-chk input { margin: 0; }

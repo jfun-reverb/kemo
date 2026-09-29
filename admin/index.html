@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790670448';
+  var CURRENT_BUILD = 'v1790670799';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2409,9 +2409,6 @@ input.admin-filter{padding-right:8px}
 .admin-input:focus { outline: none; border-color: var(--accent-ink); box-shadow: 0 0 0 3px rgba(98,94,189,.18); }
 
 /* ── 일괄 발송 / 발송 이력 (PR 3, 마이그레이션 167) ── */
-.inbox-tabs { display: flex; gap: 4px; }
-.inbox-tab { padding: 5px 12px; border: 1px solid var(--line); background: #fff; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
-.inbox-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
 .bulk-chk-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .bulk-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink); cursor: pointer; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; }
 .bulk-chk input { margin: 0; }
@@ -3281,7 +3278,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-29 17:27 · 83746ca</span>
+          <span class="admin-build-text">2026-09-29 17:33 · 5387887</span>
         </div>
       </div>
     </aside>
@@ -5258,19 +5255,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 메시지 받은편지함 (3단: 캠페인 / 대화 상대 / 대화 내용) -->
         <div id="adminPane-messages" class="admin-pane">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="display:flex;align-items:center;gap:14px">
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
-                <div class="inbox-tabs" style="display:flex;gap:4px">
-                  <button class="inbox-tab is-active" id="inboxTabInbox" onclick="switchInboxTab('inbox')">받은편지함</button>
-                  <button class="inbox-tab" id="inboxTabBroadcasts" onclick="switchInboxTab('broadcasts')">일괄발송 이력</button>
-                </div>
-              </div>
-              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
-              </button>
+            <div style="display:flex;align-items:center;margin-bottom:8px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <!-- 탭 한 줄: 캠페인 문의 / 서비스 문의 / 일괄발송 이력(캠페인관리자 이상) — renderInboxKindTabs 가 그린다(조각 6-B) -->
+            <div id="inboxKindTabBar" class="status-tab-bar"></div>
+            <div id="inboxFilterRow" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>기간</label>
                 <select id="inboxSinceSelect" class="admin-select" onchange="changeInboxSince(this.value)">
@@ -5308,9 +5298,13 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
+                  <input type="search" id="inboxSearchInput" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
                 </div>
               </div>
+              <!-- 일괄 발송 — 캠페인 한 건의 응모건 대상이라 캠페인 문의 탭에서만 보인다(applyBulkMsgButtonVisibility) -->
+              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px;height:32px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
+              </button>
             </div>
           </div>
           <div class="inbox-3pane stage-campaigns" id="inboxMainView">
@@ -29322,9 +29316,8 @@ async function loadMessagesInbox() {
   _inboxSearch = '';  // 페인 재진입 시 검색어 초기화 (정렬은 사용자 선택 유지)
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
-  switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
   _admMsgGeneralId = null;
-  ensureInboxKindTabBar();
+  switchInboxTab(_inboxKind);       // 페인 진입 시 받은편지함(보던 종류) — 이력 탭에 있었어도 받은편지함으로
   // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
   const _ucb = document.getElementById('inboxUnresolvedCheckbox');
   if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
@@ -29659,27 +29652,21 @@ function inboxWithdrawChip(influencerId) {
 }
 
 // ── 서비스 문의 탭 ──
-function ensureInboxKindTabBar() {
-  if (document.getElementById('inboxKindTabBar')) return;
-  const main = document.getElementById('inboxMainView');
-  if (!main || !main.parentNode) return;
-  const bar = document.createElement('div');
-  bar.id = 'inboxKindTabBar';
-  bar.className = 'status-tab-bar';
-  main.parentNode.insertBefore(bar, main);
-}
 function renderInboxKindTabs() {
   const bar = document.getElementById('inboxKindTabBar');
   if (!bar) return;
   const nApp = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
   const nGen = _genThreads.filter(t => t.unresolved_for_admin_team).length;
-  const tab = (kind, label, n, failed) => {
-    const on = _inboxKind === kind ? ' on' : '';
-    const cnt = failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
-    return `<button type="button" class="status-tab-btn${on}" onclick="switchInboxKind('${kind}')">${esc(label)}${cnt}</button>`;
+  const tab = (key, label, cnt) => {
+    const on = _inboxTab === key ? ' on' : '';
+    return `<button type="button" class="status-tab-btn${on}" onclick="switchInboxTab('${key}')">${esc(label)}${cnt}</button>`;
   };
-  bar.innerHTML = tab('app', '캠페인 문의', nApp, false) + tab('general', '서비스 문의', nGen, _genLoadFailed);
+  const cnt = (n, failed) => failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
+  bar.innerHTML = tab('app', '캠페인 문의', cnt(nApp, false))
+    + tab('general', '서비스 문의', cnt(nGen, _genLoadFailed))
+    + (admMsgIsCampaignAdmin() ? tab('broadcasts', '일괄발송 이력', '') : '');
 }
+// 받은편지함 종류 전환(캠페인 문의 ↔ 서비스 문의) — switchInboxTab 이 부른다
 function switchInboxKind(kind) {
   _inboxKind = kind === 'general' ? 'general' : 'app';
   _admMsgAppId = null; _admMsgGeneralId = null;
@@ -30552,35 +30539,35 @@ const BULK_CAMPAIGN_STATUSES = [
 let _bulkState = null;            // { presetIds, campaignId, recipientIds, filterSnapshot }
 let _bulkRecountTimer = null;
 let _bulkSending = false;
-let _inboxTab = 'inbox';
+let _inboxTab = 'app';   // 탭 한 줄의 상태 — 'app'(캠페인 문의) | 'general'(서비스 문의) | 'broadcasts'(일괄발송 이력)
 
 // campaign_admin 이상만 일괄 발송 버튼·발송이력 탭 노출
 function admMsgIsCampaignAdmin() {
   return typeof currentAdminInfo !== 'undefined'
     && (currentAdminInfo?.role === 'super_admin' || currentAdminInfo?.role === 'campaign_admin');
 }
+// 「일괄 발송」 — 캠페인 한 건의 응모건이 대상(resolve_bulk_recipients)이라 캠페인 문의 탭에서만(조각 6-B)
 function applyBulkMsgButtonVisibility() {
   const btn = document.getElementById('bulkMsgOpenBtn');
-  if (btn) btn.style.display = admMsgIsCampaignAdmin() ? 'inline-flex' : 'none';
-  const tab = document.getElementById('inboxTabBroadcasts');
-  if (tab) tab.style.display = admMsgIsCampaignAdmin() ? '' : 'none';
+  if (btn) btn.style.display = (admMsgIsCampaignAdmin() && _inboxTab === 'app') ? 'inline-flex' : 'none';
 }
 
-// 받은편지함 / 발송 이력 탭 전환
+// 탭 전환 — 캠페인 문의 / 서비스 문의 / 일괄발송 이력 (옛 1층 「받은편지함 / 일괄발송 이력」 은 이 한 줄로 합쳤다)
 function switchInboxTab(tab) {
-  _inboxTab = tab;
-  const ti = document.getElementById('inboxTabInbox');
-  const tb = document.getElementById('inboxTabBroadcasts');
-  if (ti) ti.classList.toggle('is-active', tab === 'inbox');
-  if (tb) tb.classList.toggle('is-active', tab === 'broadcasts');
+  if (tab === 'broadcasts' && !admMsgIsCampaignAdmin()) tab = 'app';
+  _inboxTab = (tab === 'general' || tab === 'broadcasts') ? tab : 'app';
+  const isList = _inboxTab !== 'broadcasts';
   const main = document.getElementById('inboxMainView');
   const bc = document.getElementById('inboxBroadcastsView');
-  if (main) main.style.display = tab === 'inbox' ? '' : 'none';
-  if (bc) bc.style.display = tab === 'broadcasts' ? '' : 'none';
-  // 「캠페인 문의 / 서비스 문의」 탭은 받은편지함 안의 구분이라 발송 이력에서는 숨긴다
-  const kb = document.getElementById('inboxKindTabBar');
-  if (kb) kb.style.display = tab === 'inbox' ? '' : 'none';
-  if (tab === 'broadcasts') loadBroadcasts();
+  const filters = document.getElementById('inboxFilterRow');
+  if (main) main.style.display = isList ? '' : 'none';
+  if (bc) bc.style.display = isList ? 'none' : '';
+  if (filters) filters.style.display = isList ? 'flex' : 'none';   // 이력 탭에서는 거르기가 없다
+  const search = document.getElementById('inboxSearchInput');
+  if (search) search.placeholder = _inboxTab === 'general' ? '인플루언서명 검색' : '인플루언서명 · 캠페인명 검색';
+  applyBulkMsgButtonVisibility();
+  if (isList) switchInboxKind(_inboxTab);
+  else { renderInboxKindTabs(); loadBroadcasts(); }
 }
 
 // ── 일괄 발송 모달 ──

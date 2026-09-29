@@ -2144,19 +2144,12 @@
         <!-- 메시지 받은편지함 (3단: 캠페인 / 대화 상대 / 대화 내용) -->
         <div id="adminPane-messages" class="admin-pane">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="display:flex;align-items:center;gap:14px">
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
-                <div class="inbox-tabs" style="display:flex;gap:4px">
-                  <button class="inbox-tab is-active" id="inboxTabInbox" onclick="switchInboxTab('inbox')">받은편지함</button>
-                  <button class="inbox-tab" id="inboxTabBroadcasts" onclick="switchInboxTab('broadcasts')">일괄발송 이력</button>
-                </div>
-              </div>
-              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
-              </button>
+            <div style="display:flex;align-items:center;margin-bottom:8px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
             </div>
-            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <!-- 탭 한 줄: 캠페인 문의 / 서비스 문의 / 일괄발송 이력(캠페인관리자 이상) — renderInboxKindTabs 가 그린다(조각 6-B) -->
+            <div id="inboxKindTabBar" class="status-tab-bar"></div>
+            <div id="inboxFilterRow" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>기간</label>
                 <select id="inboxSinceSelect" class="admin-select" onchange="changeInboxSince(this.value)">
@@ -2194,9 +2187,13 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
+                  <input type="search" id="inboxSearchInput" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
                 </div>
               </div>
+              <!-- 일괄 발송 — 캠페인 한 건의 응모건 대상이라 캠페인 문의 탭에서만 보인다(applyBulkMsgButtonVisibility) -->
+              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px;height:32px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
+              </button>
             </div>
           </div>
           <div class="inbox-3pane stage-campaigns" id="inboxMainView">
