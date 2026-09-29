@@ -15,6 +15,8 @@ function openNavPanel() {
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
   }
+  // 「お問い合わせ」 배지 — 일반 문의 안 읽은 답장(실패면 지난 값 유지)
+  if (currentUser && typeof refreshNavInquiryBadge === 'function') refreshNavInquiryBadge().catch(() => {});
   // 오프라인 행사 예약 유무 최신화 — 「入場チケット」 항목을 띄울지 판단한다.
   //   첫 렌더는 이전에 받아 둔 값으로 그리고, 조회가 끝나면 다시 그린다(프로필과 같은 방식).
   if (currentUser && typeof preloadEventTickets === 'function') {
@@ -90,6 +92,14 @@ function renderNavMenu() {
     `).join('');
     html += `</div>`;
     html += divider;
+    // 문의하기 — 운영팀 문의의 단일 입구(일반 문의 창구, 2026-09). 안에서 「응모에 대해 / 그 외」로 갈린다.
+    //   배지는 일반 문의의 안 읽은 답장 수(응모건 메시지 배지는 응모이력 카드에 있다).
+    html += `<button class="nav-item" data-nav="inquiry" onclick="closeNavPanel();openInquiryPage('nav')">
+      <span class="material-icons-round notranslate nav-icon" translate="no">support_agent</span>
+      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
+      <span class="notif-badge hidden" data-role="nav-inquiry-badge"></span>
+    </button>`;
+    html += divider;
     // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
     // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
@@ -109,6 +119,7 @@ function renderNavMenu() {
   applyNotifBadge(_lastUnread);  // 캐시값으로 즉시 복원 (재렌더 직후 stale 가드로 fetch 스킵돼도 배지 유지)
   refreshNotifBadge();           // 백그라운드 최신화
   updateNavMsgBadge();
+  if (typeof applyNavInquiryBadge === 'function') applyNavInquiryBadge();  // 캐시값으로 즉시 복원
 }
 
 // 메시지 미읽음 배지 (GNB 「メッセージ」 항목) — _myMsgUnreadByApp(mypage.js) 합계
@@ -323,6 +334,13 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     await markNotificationRead(id);
   }
   closeNotifModal();
+  // 일반 문의 답장 알림 → 일반 문의 대화. ⚠️ 종류가 응모건과 같은 message_received 라
+  //   **표 이름으로 먼저 가른다**(아래 분기로 새면 회원 id 를 응모 id 자리에 들고 가 엉뚱한 화면이 된다).
+  if (refTable === 'general_inquiry' && currentUser) {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif');
+    refreshNotifBadge();
+    return;
+  }
   // 메시지 알림 → 응모건 메시지 페이지 직접 오픈 (사양서 §5-5, 2026-05-22 모달→페이지 전환)
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {

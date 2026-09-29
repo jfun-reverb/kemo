@@ -309,6 +309,22 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
+<!-- 문의 갈래 화면 (일반 문의 창구, 2026-09) — 햄버거 「お問い合わせ」 단일 입구.
+     「응모한 캠페인에 대해」(응모건 메시지) / 「그 외 문의」(#inquiry-general, 아래 #page-messages 재사용) -->
+<div id="page-inquiry" class="page">
+  <div class="msg-modal-header">
+    <button class="msg-back-btn" onclick="navigate('home')" data-i18n-attr="aria-label:common.back" aria-label="戻る">
+      <span class="material-icons-round notranslate" translate="no">arrow_back</span>
+    </button>
+    <div class="msg-modal-title" data-i18n="inquiry.title">お問い合わせ</div>
+    <span class="inq-header-spacer"></span>
+  </div>
+  <div class="inq-body">
+    <p class="inq-lead" data-i18n="inquiry.lead">お問い合わせの内容をえらんでください</p>
+    <div id="inquiryBranchBody"></div>
+  </div>
+</div>
+
 <div id="page-messages" class="page">
   <div class="msg-modal-header">
     <button class="msg-back-btn" onclick="navigateBackFromMessages()" data-i18n-attr="aria-label:common.back" aria-label="戻る">

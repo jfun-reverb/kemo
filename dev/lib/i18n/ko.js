@@ -934,6 +934,18 @@ window.I18N_KO = {
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
     },
   },
+  // 문의 창구 — 일반 문의 창구(2026-09). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
+  inquiry: {
+    title: '문의하기',
+    lead: '문의 내용을 골라 주세요',
+    branchApp: '응모한 캠페인에 대해',
+    branchOther: '그 외 문의',
+    readOnly: '읽기만',
+    loadError: '응모 이력을 불러오지 못했습니다',
+    retry: '다시 불러오기',
+    generalTitle: '운영팀 문의',
+    unknownCampaign: '캠페인',
+  },
   // 정책 변경 통지 — 일반 문의 창구 개설 + 개인정보 처리방침 개정(2026-09-29 공고 → 2026-10-06 시행)
   //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.
   policyNotice: {

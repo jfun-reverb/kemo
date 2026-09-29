@@ -55,6 +55,23 @@
 /* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
 /* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
    visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
+/* 문의 갈래 화면 (일반 문의 창구, 2026-09) — 누름 영역 48px 이상(Apple 지침 44pt) */
+#page-inquiry.page.active{display:flex;flex-direction:column;padding:0;background:var(--bg,#fff)}
+.inq-header-spacer{width:40px;flex-shrink:0}
+.inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
+.inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
+.inq-branch-btn{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff);color:var(--ink);font-size:15px;font-weight:600;text-align:left;cursor:pointer}
+.inq-branch-btn .inq-branch-label{flex:1}
+.inq-branch-btn .material-icons-round{font-size:22px;color:var(--muted)}
+.inq-app-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:-4px}
+.inq-app-item{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
+.inq-app-item:last-child{border-bottom:none}
+.inq-app-item .inq-app-title{flex:1;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.inq-app-item .material-icons-round{font-size:20px;color:var(--faint)}
+.inq-app-readonly{flex-shrink:0;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--primary-light);color:var(--muted)}
+.inq-app-error{padding:14px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:14px;color:var(--muted)}
+.inq-app-error p{margin:0 0 10px}
+.inq-retry-btn{min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);color:var(--ink);font-size:14px;cursor:pointer}
 #page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
 .msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
