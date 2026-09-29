@@ -99,7 +99,7 @@
 - 보류·취소는 `_payoutRows` 에 애초에 없다(1798) — 엑셀도 같다
 - `_payoutRows === null` 이면 단추 비활성 + 말풍선 「미등록 건을 불러오지 못해 내보낼 수 없습니다」
 
-**시트 1 「회차 합계」(사람 단위)** — 사람 묶음은 `groupSettlementsByPerson` 결과 그대로 쓰고, 건수·합계는 엑셀이 그 묶음의 행을 `settlementEffectiveAmount` 로 다시 더한다(미확정 제외)
+**시트 1 「회차 합계」(사람 단위)** — 사람 묶음은 `groupSettlementsByPerson` 결과 그대로 쓰고, 건수·합계는 엑셀이 그 묶음의 행 **`r.amount`** 를 더한다(미확정 제외). 🔴 지급 행에는 `amount_jpy`·`paid_amount_jpy` 칸이 없어 `settlementEffectiveAmount(r)` 를 **다시 부르면 0원**이 된다(작업표 stale #2, 2026-09-29) — `r.amount` 가 이미 그 함수의 결과다
 | 열 | 출처 |
 |---|---|
 | 이름(한자) · 이름(가나) | 행 값 → 없으면 `ensurePayoutPersonInfo` 결과. 조회 결과에 없으면 「(이름 미상)」, 조회 자체가 실패(`null`)면 「확인 실패」 — PayPal 과 같은 세 갈래 |
@@ -116,7 +116,7 @@
 **규칙**
 - `buildPayoutRows` 에 **이메일·모집 형식** 두 값을 더 옮긴다 — 미등록 행은 응답 `influencer_email`·`recruit_type`, 정산 행은 조인된 `influencers.email`·`campaigns.recruit_type`(§1-1 「행에 없는 값」의 출처 그대로). `fetchPayoutInfluencerInfo` 는 손대지 않는다(두 출처로 충분하다). ⚠️ **이름은 옮기지 않는다** — 정산 행 이름을 비워 두고 늦게 채우는 것은 기존 동작이고 화면(`payoutPersonOf`)이 그 전제로 돈다. 이번 변경은 **없던 값 둘을 더하는 것**까지만
 - 회차 계산은 **`payoutDueDate` 결과(`due`)를 그대로 쓴다** — 엑셀 안에서 다시 계산하지 않는다(shared.js 주석 그대로)
-- 금액은 **`settlementEffectiveAmount`** 만(CLAUDE.md 「합계를 내는 자리는 반드시」)
+- 금액은 `buildPayoutRows` 가 `settlementEffectiveAmount` 로 이미 계산해 둔 **`r.amount`** 만(CLAUDE.md 「합계를 내는 자리는 반드시」 원칙은 그 한 번으로 지켜진다 — 지급 행에 다시 부르지 않는다)
 - 가드는 정산 엑셀과 같게 `_checkExportAllowed`·`_markExportStart/End`·`loadExcelJS`. `confirmAuditExport` 는 **안 쓴다**(서버가 감사용을 이미 뺀다 — 정산 엑셀과 같은 판단)
 - 파일명 `payout-{due}-{unpaid|all}-{건수}-{YYYYMMDD}.xlsx`. 시트 이름 「회차 합계」·「건별」
 - 이름 칸은 정산 엑셀처럼 `name`/`name_kana` 를 직접 넣는다(`_excelInfluencerNameParts` 는 `name_kanji` 기대 — §1-3)
@@ -140,11 +140,11 @@
 
 | 단계 | 내용 | 선행 |
 |---|---|---|
-| **A** | 지급 준비 회차 엑셀(§3-A) — `admin-settlements.js` · `admin/index.html`(단추) | 없음(회차 규칙 ✅ 확인 — §6) |
+| **A** | 지급 준비 회차 엑셀(§3-A) — `admin-settlements.js` 만(단추·체크박스는 요약 표·사람별 머리가 자바스크립트 문자열로 그려지므로 `admin/index.html` 은 안 건드린다 — 작업표 stale #1) | 없음(회차 규칙 ✅ 확인 — §6) |
 | **B-0** | 화면 `certSuccessAt` 「또는」 결함 수정(③-3) — **이 사양서 범위 밖**, 별도 조각 | 없음 |
 | **B** | 결과물 관리 「보이는 목록 엑셀」(§3-B) — `admin-deliverables.js` · `admin/index.html` | **B-0**(✅ 사용자 — §6) |
 
-- A 와 B 는 자바스크립트 파일은 안 겹치지만 **`admin/index.html` 은 둘 다 고친다** — 병렬로 만들되 **병합은 순차**(뒤에 병합하는 쪽이 충돌을 푼다). 운영 배포는 각각.
+- A 와 B 는 원본 파일이 안 겹친다(A 는 `admin/index.html` 도 안 건드림 — 2026-09-29 작업표 대조) → **병렬 가능**. 겹치는 것은 빌드 산출물·`CLAUDE.md`·사양서 「구현 결과」뿐이라 뒤에 병합하는 쪽이 받아서 다시 빌드한다. 운영 배포는 각각.
 - A 는 데이터베이스 변경이 없어 운영 배포 순서 제약이 없다(도입일·4단계와 무관 — 지급 예정일 10/15 이후 회차는 그 전에도 정확하고, 9/30 이하 회차만 §2-2 경고).
 
 ---
