@@ -663,6 +663,35 @@ async function commonPasswordCheck(pw) {
   }
 }
 
+// 회원 비밀번호 칸의 「흔한 비밀번호」 경고 줄 — 사양서 §3-3(회원은 경고만, 버튼을 막지 않는다).
+//   입력을 멈추고 0.6초 또는 칸을 떠날 때, **규칙(passwordPolicyIssue)을 통과한 값만** 판정한다.
+//   늦게 온 응답은 버린다(판정 중 값이 바뀌면 바뀐 값만 반영). 'ok'·'unknown' 이면 줄을 지운다.
+//   ⚠️ 경고를 보고 진행했는지는 **기록하지 않는다**(새 정보 수집이 된다).
+function bindCommonPasswordWarning(inputId, warnId) {
+  const input = document.getElementById(inputId);
+  const warn = document.getElementById(warnId);
+  if (!input || !warn || input.dataset.commonPwBound) return;
+  input.dataset.commonPwBound = '1';
+  let timer = null, seq = 0;
+  const hide = () => { warn.style.display = 'none'; };
+  const run = async () => {
+    clearTimeout(timer);
+    const v = input.value;
+    const my = ++seq;
+    if (!v || passwordPolicyIssue(v)) { hide(); return; }
+    const r = await commonPasswordCheck(v);
+    if (my !== seq || input.value !== v) return;   // 늦은 응답 버림
+    warn.style.display = (r === 'common') ? 'block' : 'none';
+  };
+  input.addEventListener('input', () => { clearTimeout(timer); seq++; hide(); timer = setTimeout(run, 600); });
+  input.addEventListener('blur', run);
+}
+
+function hideCommonPasswordWarning(warnId) {
+  const warn = document.getElementById(warnId);
+  if (warn) warn.style.display = 'none';
+}
+
 function validatePasswordPolicy(pw) {
   const fallback = {
     short: 'パスワードは8文字以上で入力してください。',

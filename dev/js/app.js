@@ -695,6 +695,12 @@ document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, 
 document.addEventListener('DOMContentLoaded', async function() {
   // 전역 에러 수집 핸들러 등록 (가능한 일찍 — 마이그레이션 165)
   if (typeof initErrorReporting === 'function') { try { initErrorReporting(); } catch(_){} }
+  // 흔한 비밀번호 경고 줄(회원 — 경고만, 사양서 2026-09-29-common-password-warning §3-3)
+  if (typeof bindCommonPasswordWarning === 'function') {
+    bindCommonPasswordWarning('signupPw', 'signupPwCommonWarn');
+    bindCommonPasswordWarning('resetPwNew', 'resetPwCommonWarn');
+    bindCommonPasswordWarning('newPw', 'newPwCommonWarn');
+  }
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
   let inRecovery = false;
   try { inRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}

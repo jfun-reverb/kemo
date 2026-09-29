@@ -470,6 +470,7 @@ async function changePassword() {
   if (error) { logAppError('changePassword', error); err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
+  if (typeof hideCommonPasswordWarning === 'function') hideCommonPasswordWarning('newPwCommonWarn');
 }
 
 // 메일 수신 설정 토글 (ON=재구독 / OFF=수신거부)
