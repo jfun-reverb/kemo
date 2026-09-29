@@ -22893,6 +22893,12 @@ window.addEventListener('langchange', function() {
       openCancelModalFor(_cancelTargetAppId);
     }
   }
+  // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
+  else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
+  else if (page === 'inquiry-general') {
+    const _tt = document.getElementById('msgModalTitle');
+    if (_tt) _tt.textContent = t('inquiry.generalTitle');
+  }
   // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
   if (typeof renderNavMenu === 'function') renderNavMenu();
 });
