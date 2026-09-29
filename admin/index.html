@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790669623';
+  var CURRENT_BUILD = 'v1790669741';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -221,6 +221,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .pw-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;background:transparent;border:none;cursor:pointer;color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;transition:color .2s}
 .pw-toggle:hover{color:var(--on-surface)}
 .form-error{font-size:12px;color:#B3261E;margin-top:4px}
+/* 흔한 비밀번호 경고 줄 — 막지 않는 안내라 노란 톤(오류 빨강과 구분). 마이페이지는 반쪽 폭이라 줄바꿈 허용 */
+.pw-common-warn{font-size:12px;line-height:1.5;color:#7A5200;background:#FFF6D6;border-radius:8px;padding:6px 10px;margin-top:6px;word-break:break-word}
 .form-row{display:grid;grid-template-columns:1fr;gap:12px}
 /* Admin form: 2-col layout */
 #page-admin .form-row{grid-template-columns:1fr 1fr;gap:40px}
@@ -3279,7 +3281,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-29 17:13 · 391f251</span>
+          <span class="admin-build-text">2026-09-29 17:15 · 0911ab8</span>
         </div>
       </div>
     </aside>
@@ -17889,6 +17891,35 @@ async function commonPasswordCheck(pw) {
   } catch (e) {
     return 'unknown';
   }
+}
+
+// 회원 비밀번호 칸의 「흔한 비밀번호」 경고 줄 — 사양서 §3-3(회원은 경고만, 버튼을 막지 않는다).
+//   입력을 멈추고 0.6초 또는 칸을 떠날 때, **규칙(passwordPolicyIssue)을 통과한 값만** 판정한다.
+//   늦게 온 응답은 버린다(판정 중 값이 바뀌면 바뀐 값만 반영). 'ok'·'unknown' 이면 줄을 지운다.
+//   ⚠️ 경고를 보고 진행했는지는 **기록하지 않는다**(새 정보 수집이 된다).
+function bindCommonPasswordWarning(inputId, warnId) {
+  const input = document.getElementById(inputId);
+  const warn = document.getElementById(warnId);
+  if (!input || !warn || input.dataset.commonPwBound) return;
+  input.dataset.commonPwBound = '1';
+  let timer = null, seq = 0;
+  const hide = () => { warn.style.display = 'none'; };
+  const run = async () => {
+    clearTimeout(timer);
+    const v = input.value;
+    const my = ++seq;
+    if (!v || passwordPolicyIssue(v)) { hide(); return; }
+    const r = await commonPasswordCheck(v);
+    if (my !== seq || input.value !== v) return;   // 늦은 응답 버림
+    warn.style.display = (r === 'common') ? 'block' : 'none';
+  };
+  input.addEventListener('input', () => { clearTimeout(timer); seq++; hide(); timer = setTimeout(run, 600); });
+  input.addEventListener('blur', run);
+}
+
+function hideCommonPasswordWarning(warnId) {
+  const warn = document.getElementById(warnId);
+  if (warn) warn.style.display = 'none';
 }
 
 function validatePasswordPolicy(pw) {
