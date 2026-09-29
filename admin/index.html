@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790671713';
+  var CURRENT_BUILD = 'v1790672152';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3278,7 +3278,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-29 17:48 · 062b2ca</span>
+          <span class="admin-build-text">2026-09-29 17:55 · 99f9be9</span>
         </div>
       </div>
     </aside>
@@ -5274,11 +5274,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group" id="inboxCustomRange" style="display:none">
                 <label>날짜 직접 선택</label>
-                <div style="display:flex;gap:6px;align-items:center">
-                  <input type="date" id="inboxDateFrom" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
-                  <span style="color:var(--muted)">~</span>
-                  <input type="date" id="inboxDateTo" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
-                </div>
+                <!-- 결과물 관리 「인증 성공일」과 같은 범위 달력 한 칸(조각 6-C) — setupInboxDateRange 가 붙인다 -->
+                <input type="text" id="inboxDateRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
               </div>
               <div class="admin-filter-group">
                 <label>정렬</label>
@@ -29823,19 +29820,41 @@ function openMessagesUnresolved() {
 function changeInboxSince(v) {
   const custom = document.getElementById('inboxCustomRange');
   if (v === 'custom') {
-    // 「직접 선택」 → 날짜 입력칸 노출. 실제 적용은 날짜 입력 시 applyInboxCustomRange
+    // 「직접 선택」 → 범위 달력 노출. 실제 적용은 시작·끝을 모두 고른 뒤 applyInboxCustomRange
     if (custom) custom.style.display = '';
+    setupInboxDateRange();
     return;
   }
   if (custom) custom.style.display = 'none';
+  // 다른 기간으로 돌아가면 달력도 비운다 — clear(false) 로 변경 이벤트(재조회)는 일으키지 않는다
+  if (_inboxRangeFp) { _inboxRangeFp.clear(false); document.getElementById('inboxDateRange')?.classList.remove('filter-active'); }
   _inboxFilters.sinceMonths = Number(v) || 6;
   _inboxFilters.fromIso = null; _inboxFilters.toIso = null;   // 상대 기간으로 복귀
   refreshInboxData();
 }
-// 「직접 선택」 날짜 입력 적용 — 시작 00:00 ~ 종료 23:59 (한쪽만 입력해도 단방향 적용)
-function applyInboxCustomRange() {
-  const f = document.getElementById('inboxDateFrom')?.value;
-  const t = document.getElementById('inboxDateTo')?.value;
+// 「직접 선택」 범위 달력 mount (1회) — 결과물 관리 setupDelivCertRange 와 같은 옵션
+let _inboxRangeFp = null;
+function setupInboxDateRange() {
+  if (typeof flatpickr === 'undefined') return;
+  const el = document.getElementById('inboxDateRange');
+  if (!el || _inboxRangeFp) return;
+  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+  _inboxRangeFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    onChange: function(selectedDates) {
+      el.classList.toggle('filter-active', selectedDates.length > 0);
+      // 시작만 고른 중간 상태에서는 조회하지 않는다(끝까지 고르거나 비웠을 때만)
+      if (selectedDates.length === 0 || selectedDates.length === 2) {
+        applyInboxCustomRange(fmt(selectedDates[0]), fmt(selectedDates[1]));
+      }
+    }
+  });
+}
+// 「직접 선택」 적용 — 시작 00:00 ~ 종료 23:59. 둘 다 비면 상대 기간(sinceMonths)으로 돌아간다
+function applyInboxCustomRange(f, t) {
   _inboxFilters.fromIso = f ? new Date(f + 'T00:00:00').toISOString() : null;
   _inboxFilters.toIso = t ? new Date(t + 'T23:59:59').toISOString() : null;
   refreshInboxData();

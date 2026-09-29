@@ -2163,11 +2163,8 @@
               </div>
               <div class="admin-filter-group" id="inboxCustomRange" style="display:none">
                 <label>날짜 직접 선택</label>
-                <div style="display:flex;gap:6px;align-items:center">
-                  <input type="date" id="inboxDateFrom" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
-                  <span style="color:var(--muted)">~</span>
-                  <input type="date" id="inboxDateTo" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
-                </div>
+                <!-- 결과물 관리 「인증 성공일」과 같은 범위 달력 한 칸(조각 6-C) — setupInboxDateRange 가 붙인다 -->
+                <input type="text" id="inboxDateRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
               </div>
               <div class="admin-filter-group">
                 <label>정렬</label>
