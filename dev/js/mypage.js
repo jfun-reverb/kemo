@@ -516,6 +516,11 @@ function openMypageSub(sub, pushHistory) {
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
+  } else if (target) {
+    // 새로고침·뒤로가기 경로 — 앞의 navigate('mypage') 가 closeMypageSub 로 주소를 #mypage-applications 로
+    //   덮어 두므로 **지금 보이는 화면으로 되돌린다**. 안 하면 화면은 탈퇴·기본정보인데 주소만 응모이력이라
+    //   새로고침하면 다른 화면으로 간다(2026-09-29 발견).
+    history.replaceState({page:'mypage', sub}, '', '#mypage-' + sub);
   }
 }
 
