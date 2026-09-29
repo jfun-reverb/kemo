@@ -312,12 +312,9 @@ window._supabaseLoaded = false;
 <!-- 문의 갈래 화면 (일반 문의 창구, 2026-09) — 햄버거 「お問い合わせ」 단일 입구.
      「응모한 캠페인에 대해」(응모건 메시지) / 「그 외 문의」(#inquiry-general, 아래 #page-messages 재사용) -->
 <div id="page-inquiry" class="page">
-  <div class="msg-modal-header">
-    <button class="msg-back-btn" onclick="inquiryBack()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
-      <span class="material-icons-round notranslate" translate="no">arrow_back</span>
-    </button>
-    <div class="msg-modal-title" data-i18n="inquiry.title">お問い合わせ</div>
-    <span class="inq-header-spacer"></span>
+  <!-- 머리는 마이페이지 폼 화면과 같다(조각 5-C) — 뒤로 화살표 없음, 이동은 햄버거·브라우저 뒤로가기 -->
+  <div class="mypage-sub-header">
+    <div class="mypage-sub-title" data-i18n="inquiry.title">お問い合わせ</div>
   </div>
   <div class="inq-body">
     <p class="inq-lead" data-i18n="inquiry.lead">お問い合わせの内容をえらんでください</p>

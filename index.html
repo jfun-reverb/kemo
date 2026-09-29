@@ -894,7 +894,6 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
    visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
 /* 문의 갈래 화면 (일반 문의 창구, 2026-09) — 누름 영역 48px 이상(Apple 지침 44pt) */
 #page-inquiry.page.active{display:flex;flex-direction:column;padding:0;background:var(--bg,#fff)}
-.inq-header-spacer{width:40px;flex-shrink:0}
 .inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
 .inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
 /* 탭 모양 = 언어 전환 토글(.lang-toggle/.lang-btn, 위 44~47행)과 같은 값. 폭 채움·누름 영역 44px 만 다르다.
@@ -908,8 +907,9 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
 .inq-other-lead{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
 .inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 .inq-start-btn .material-icons-round{font-size:20px}
-#page-inquiry .msg-back-btn{width:44px;height:44px}
 .inq-pick-title{font-size:15px;font-weight:700;color:var(--ink)}
+.inq-pick-back{align-self:flex-start;margin-bottom:0;font-size:13px;min-height:44px;border:none;background:none;font-family:inherit}
+.inq-pick-back:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
 .inq-pick-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);text-align:left;cursor:pointer}
 .inq-pick-item:last-child{border-bottom:none}
 .inq-pick-item>.material-icons-round{font-size:20px;color:var(--faint)}
@@ -1353,12 +1353,9 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
 <!-- 문의 갈래 화면 (일반 문의 창구, 2026-09) — 햄버거 「お問い合わせ」 단일 입구.
      「응모한 캠페인에 대해」(응모건 메시지) / 「그 외 문의」(#inquiry-general, 아래 #page-messages 재사용) -->
 <div id="page-inquiry" class="page">
-  <div class="msg-modal-header">
-    <button class="msg-back-btn" onclick="inquiryBack()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
-      <span class="material-icons-round notranslate" translate="no">arrow_back</span>
-    </button>
-    <div class="msg-modal-title" data-i18n="inquiry.title">お問い合わせ</div>
-    <span class="inq-header-spacer"></span>
+  <!-- 머리는 마이페이지 폼 화면과 같다(조각 5-C) — 뒤로 화살표 없음, 이동은 햄버거·브라우저 뒤로가기 -->
+  <div class="mypage-sub-header">
+    <div class="mypage-sub-title" data-i18n="inquiry.title">お問い合わせ</div>
   </div>
   <div class="inq-body">
     <p class="inq-lead" data-i18n="inquiry.lead">お問い合わせの内容をえらんでください</p>
@@ -21881,7 +21878,7 @@ function _inqNewThreadBtnHtml() {
   </button>`;
 }
 function openInquiryPick() { _inqPicking = true; renderInquiryBranch(); const pg = $('page-inquiry'); if (pg) pg.scrollTop = 0; }
-// 문의하기 화면 머리글 뒤로 — 고르기 보기면 탭 보기로, 아니면 홈으로
+// 고르기 보기의 「← お問い合わせ」 — 탭 보기로. (머리글 뒤로 화살표는 조각 5-C 에서 없앴다 — 탭 보기에선 홈으로)
 function inquiryBack() {
   if (_inqPicking) { _inqPicking = false; renderInquiryBranch(); return; }
   navigate('home');
@@ -21903,7 +21900,8 @@ function renderInquiryPick(box) {
       <span class="material-icons-round notranslate" translate="no">chevron_right</span>
     </button>`;
   }).join('');
-  box.innerHTML = `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
+  box.innerHTML = `<button type="button" class="detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">arrow_back</span> ${esc(t('inquiry.title'))}</button>`
+    + `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
     + (rows ? `<div class="inq-app-list">${rows}</div>` : `<div class="inq-app-error"><p>${esc(t('inquiry.pickEmpty'))}</p></div>`);
 }
 

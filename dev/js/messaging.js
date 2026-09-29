@@ -332,7 +332,7 @@ function _inqNewThreadBtnHtml() {
   </button>`;
 }
 function openInquiryPick() { _inqPicking = true; renderInquiryBranch(); const pg = $('page-inquiry'); if (pg) pg.scrollTop = 0; }
-// 문의하기 화면 머리글 뒤로 — 고르기 보기면 탭 보기로, 아니면 홈으로
+// 고르기 보기의 「← お問い合わせ」 — 탭 보기로. (머리글 뒤로 화살표는 조각 5-C 에서 없앴다 — 탭 보기에선 홈으로)
 function inquiryBack() {
   if (_inqPicking) { _inqPicking = false; renderInquiryBranch(); return; }
   navigate('home');
@@ -354,7 +354,8 @@ function renderInquiryPick(box) {
       <span class="material-icons-round notranslate" translate="no">chevron_right</span>
     </button>`;
   }).join('');
-  box.innerHTML = `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
+  box.innerHTML = `<button type="button" class="detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">arrow_back</span> ${esc(t('inquiry.title'))}</button>`
+    + `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
     + (rows ? `<div class="inq-app-list">${rows}</div>` : `<div class="inq-app-error"><p>${esc(t('inquiry.pickEmpty'))}</p></div>`);
 }
 

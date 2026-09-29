@@ -60,7 +60,6 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
    visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
 /* 문의 갈래 화면 (일반 문의 창구, 2026-09) — 누름 영역 48px 이상(Apple 지침 44pt) */
 #page-inquiry.page.active{display:flex;flex-direction:column;padding:0;background:var(--bg,#fff)}
-.inq-header-spacer{width:40px;flex-shrink:0}
 .inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
 .inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
 /* 탭 모양 = 언어 전환 토글(.lang-toggle/.lang-btn, 위 44~47행)과 같은 값. 폭 채움·누름 영역 44px 만 다르다.
@@ -74,8 +73,9 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
 .inq-other-lead{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
 .inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 .inq-start-btn .material-icons-round{font-size:20px}
-#page-inquiry .msg-back-btn{width:44px;height:44px}
 .inq-pick-title{font-size:15px;font-weight:700;color:var(--ink)}
+.inq-pick-back{align-self:flex-start;margin-bottom:0;font-size:13px;min-height:44px;border:none;background:none;font-family:inherit}
+.inq-pick-back:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
 .inq-pick-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);text-align:left;cursor:pointer}
 .inq-pick-item:last-child{border-bottom:none}
 .inq-pick-item>.material-icons-round{font-size:20px;color:var(--faint)}
