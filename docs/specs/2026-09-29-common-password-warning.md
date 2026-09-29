@@ -228,4 +228,11 @@ commonPasswordCheck(pw) → 'common' | 'ok' | 'unknown'
 - 관리자 두 곳의 잠금은 `try … finally` 로 푼다 — 거부·서버 오류·성공 모든 경로
 - 서버 함수는 `--no-verify-jwt` 로 배포(공개 키가 새 형식 `sb_publishable_…` 라 토큰 검사가 켜져 있으면 거부된다 — `qoo10-product-lookup` 과 같다)
 - 검증: 판정 함수를 실제 목록 서비스로 — `Password1!` → `'common'`, 긴 무작위 → `'ok'` / 통신 실패·서버 거절 → 즉시 `'unknown'`, 무응답 → 3초 뒤 `'unknown'`, 횟수 0 줄만 → `'ok'`. 개발 서버 함수 — 후보 2,199줄 중 일치 줄 `…:584516`, 횟수 0 줄 179, 잘못된 입력 `{ok:false}`, OPTIONS 200·교차 출처 허용
-- 운영 서버 함수는 **아직 배포하지 않았다** — 화면을 운영에 내기 전에 먼저(§4)
+- 운영 반영(2026-09-29): 운영 서버 함수 먼저 배포·확인(`Password1!` 일치 584516) → 화면은 관리자 비밀번호 규칙 통일(#1736)과 함께 골라 담아 운영 병합 #1746. 운영 인플루언서 앱에서 판정 실측 — 유출 `'common'`·무작위 `'ok'`
+
+### 단계 2 (회원 경고) — 개발 2026-09-29
+- **달라진 것:** §4 파일 목록의 `dev/js/auth.js` 는 **안 고쳤다** — 경고는 제출 흐름과 무관해 `dev/js/app.js` 부팅 때 `bindCommonPasswordWarning` 으로 세 칸(`signupPw`·`resetPwNew`·`newPw`)에 한 번 붙인다. 경고 줄은 `dev/index.html` 의 `signupPwCommonWarn`·`resetPwCommonWarn`·`newPwCommonWarn`, 스타일 `.pw-common-warn`(`dev/css/components.css`), 문구 `auth.pwCommonWarn`(§6 문구 A)
+- 마이페이지 성공 시 `hideCommonPasswordWarning('newPwCommonWarn')`. 확인용 칸은 판정하지 않는다
+- ⚠️ 가입 화면도 마이페이지처럼 두 칸이 한 줄(`.form-row`)이라 경고 줄이 반쪽 폭에 들어간다(모바일 폭에서는 세로로 쌓여 전체 폭)
+- 검증(로컬 미리보기 → 개발 서버 함수): 가입 칸에 유출 비밀번호 입력 → 경고 표시, 무작위 긴 값으로 바꾸면 사라짐. 마이페이지는 로그인이 필요해 눈으로 못 봤다
+- 약관: §7 `/약관확인` 완료(개정 불필요). 방침 §9 안내 한 줄은 선택 — 사용자 결정 대기
