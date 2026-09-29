@@ -73,7 +73,7 @@ async function loadMessagesInbox() {
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
   _admMsgGeneralId = null;
-  switchInboxTab(_inboxKind);       // 페인 진입 시 받은편지함(보던 종류) — 이력 보기에 있었어도 받은편지함으로
+  switchInboxTab(_inboxKind);       // 페인 진입 시 받은편지함(보던 종류) — 이력 탭에 있었어도 받은편지함으로
   // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
   const _ucb = document.getElementById('inboxUnresolvedCheckbox');
   if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
@@ -419,7 +419,8 @@ function renderInboxKindTabs() {
   };
   const cnt = (n, failed) => failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
   bar.innerHTML = tab('app', '캠페인 문의', cnt(nApp, false))
-    + tab('general', '서비스 문의', cnt(nGen, _genLoadFailed));
+    + tab('general', '서비스 문의', cnt(nGen, _genLoadFailed))
+    + (admMsgIsCampaignAdmin() ? tab('broadcasts', '일괄발송 이력', '') : '');
 }
 // 받은편지함 종류 전환(캠페인 문의 ↔ 서비스 문의) — switchInboxTab 이 부른다
 function switchInboxKind(kind) {
@@ -1294,60 +1295,39 @@ const BULK_CAMPAIGN_STATUSES = [
 let _bulkState = null;            // { presetIds, campaignId, recipientIds, filterSnapshot }
 let _bulkRecountTimer = null;
 let _bulkSending = false;
-let _inboxTab = 'app';       // 탭 — 'app'(캠페인 문의) | 'general'(서비스 문의)
-let _inboxView = 'inbox';    // 캠페인 문의 탭 안의 보기 — 'inbox'(받은편지함) | 'broadcasts'(일괄발송 이력)
+let _inboxTab = 'app';   // 탭 한 줄의 상태 — 'app'(캠페인 문의) | 'general'(서비스 문의) | 'broadcasts'(일괄발송 이력)
+// ⚠️ 이력을 단추로 옮겼다가 탭으로 되돌렸다(2026-09-29 사용자 결정 — 탭이 더 낫다)
 
-// campaign_admin 이상만 일괄 발송·발송 이력 단추 노출
+// campaign_admin 이상만 일괄 발송 버튼·발송이력 탭 노출
 function admMsgIsCampaignAdmin() {
   return typeof currentAdminInfo !== 'undefined'
     && (currentAdminInfo?.role === 'super_admin' || currentAdminInfo?.role === 'campaign_admin');
 }
-// 「일괄 발송」·「일괄발송 이력」 — 캠페인 한 건의 응모건이 대상(resolve_bulk_recipients)이라
-//   캠페인 문의 탭에서만(조각 6-B, 2026-09-29 사용자 결정 — 이력은 탭이 아니라 단추)
+// 「일괄 발송」 — 캠페인 한 건의 응모건이 대상(resolve_bulk_recipients)이라 캠페인 문의 탭에서만(조각 6-B)
 function applyBulkMsgButtonVisibility() {
-  const show = admMsgIsCampaignAdmin() && _inboxTab === 'app';
-  ['bulkMsgOpenBtn', 'bulkHistoryOpenBtn'].forEach(id => {
-    const b = document.getElementById(id);
-    if (b) b.style.display = show ? 'inline-flex' : 'none';
-  });
+  const btn = document.getElementById('bulkMsgOpenBtn');
+  if (btn) btn.style.display = (admMsgIsCampaignAdmin() && _inboxTab === 'app') ? 'inline-flex' : 'none';
 }
 
-// 탭 전환 — 캠페인 문의 / 서비스 문의. 옛 값('inbox'·'broadcasts')으로 불려도 안전하게 받는다
+// 탭 전환 — 캠페인 문의 / 서비스 문의 / 일괄발송 이력
 function switchInboxTab(tab) {
-  if (tab === 'broadcasts') { switchInboxTab('app'); openInboxBroadcasts(); return; }
-  _inboxTab = tab === 'general' ? 'general' : 'app';
-  _inboxView = 'inbox';   // 탭을 바꾸면 이력 보기는 닫는다
-  _applyInboxViewDisplay();
+  if (tab === 'broadcasts' && !admMsgIsCampaignAdmin()) tab = 'app';
+  _inboxTab = (tab === 'general' || tab === 'broadcasts') ? tab : 'app';
+  const isList = _inboxTab !== 'broadcasts';
+  const main = document.getElementById('inboxMainView');
+  const bc = document.getElementById('inboxBroadcastsView');
+  const filters = document.getElementById('inboxFilterRow');
+  if (main) main.style.display = isList ? '' : 'none';
+  if (bc) bc.style.display = isList ? 'none' : '';
+  if (filters) filters.style.display = isList ? 'flex' : 'none';   // 이력 탭에서는 거르기가 없다
+  // 「날짜 직접 선택」 칸은 기간에서 「직접 선택」을 골랐을 때만(changeInboxSince 와 같은 기준)
+  const custom = document.getElementById('inboxCustomRange');
+  if (custom) custom.style.display = (document.getElementById('inboxSinceSelect')?.value === 'custom') ? '' : 'none';
   const search = document.getElementById('inboxSearchInput');
   if (search) search.placeholder = _inboxTab === 'general' ? '인플루언서명 검색' : '인플루언서명 · 캠페인명 검색';
   applyBulkMsgButtonVisibility();
-  switchInboxKind(_inboxTab);
-}
-// 받은편지함 ↔ 발송 이력 — 이력일 때는 거르기 칸만 숨기고 단추 둘은 남긴다
-function _applyInboxViewDisplay() {
-  const isList = _inboxView !== 'broadcasts';
-  const main = document.getElementById('inboxMainView');
-  const bc = document.getElementById('inboxBroadcastsView');
-  if (main) main.style.display = isList ? '' : 'none';
-  if (bc) bc.style.display = isList ? 'none' : '';
-  document.querySelectorAll('#inboxFilterRow .admin-filter-group').forEach(g => {
-    // 「날짜 직접 선택」 칸은 기간에서 「직접 선택」을 골랐을 때만 보인다 — 한꺼번에 켜면 늘 나온다(2026-09-29 발견)
-    if (g.id === 'inboxCustomRange') {
-      g.style.display = (isList && document.getElementById('inboxSinceSelect')?.value === 'custom') ? '' : 'none';
-      return;
-    }
-    g.style.display = isList ? '' : 'none';
-  });
-}
-function openInboxBroadcasts() {
-  if (!admMsgIsCampaignAdmin()) return;
-  _inboxView = 'broadcasts';
-  _applyInboxViewDisplay();
-  loadBroadcasts();
-}
-function closeInboxBroadcasts() {
-  _inboxView = 'inbox';
-  _applyInboxViewDisplay();
+  if (isList) switchInboxKind(_inboxTab);
+  else { renderInboxKindTabs(); loadBroadcasts(); }
 }
 
 // ── 일괄 발송 모달 ──
@@ -1701,7 +1681,7 @@ async function confirmBulkSend() {
     await sendApplicationMessageBulk(ids, body, [], contextKind, contextCampaignId, contextFilter, title);
     toast(`${ids.length}건 발송했습니다.`);
     closeBulkMessageModal();
-    if (_inboxView === 'broadcasts') loadBroadcasts();
+    if (_inboxTab === 'broadcasts') loadBroadcasts();
     // 받은편지함 탭의 미읽음·응대 배지 stale 방지 (발송 = 자동 응대 완료) — 비동기 갱신
     if (typeof refreshInboxData === 'function') refreshInboxData();
   } catch (e) {
