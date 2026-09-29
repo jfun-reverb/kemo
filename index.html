@@ -892,9 +892,12 @@ html.preview-mode #page-detail .detail-back{display:none}
 .inq-header-spacer{width:40px;flex-shrink:0}
 .inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
 .inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
-.inq-tabs{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--primary-light)}
-.inq-tab{flex:1;min-height:44px;padding:8px 6px;border:none;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;line-height:1.3}
-.inq-tab.on{background:var(--surface,#fff);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* 탭 모양 = 언어 전환 토글(.lang-toggle/.lang-btn, 위 44~47행)과 같은 값. 폭 채움·누름 영역 44px 만 다르다.
+   ⚠️ 클래스를 공유하지 않는다 — updateLangToggleUI 가 .lang-btn 을 전역으로 다시 매긴다. 토글 모양을 바꾸면 여기도 */
+.inq-tabs{display:flex;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
+.inq-tab{flex:1;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s;line-height:1.3}
+.inq-tab.on{background:var(--primary);color:#fff}
+.inq-tab:not(.on):hover{background:var(--outline)}
 #inquiryBranchBody{display:flex;flex-direction:column;gap:14px}
 .inq-other{display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff)}
 .inq-other-lead{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
@@ -21705,6 +21708,9 @@ async function openInquiryPage(from, pushHistory) {
 function renderInquiryBranch() {
   const box = $('inquiryBranchBody');
   if (!box) return;
+  // 모양은 햄버거 메뉴 언어 전환 토글(.lang-toggle)과 같게 — 2026-09-29 사용자 지시.
+  //   🔴 클래스를 같이 쓰지 않는다 — updateLangToggleUI(mypage.js)가 `.lang-toggle .lang-btn` 을
+  //      전역으로 잡아 data-lang 으로 on 을 다시 매겨, 언어를 바꾸면 이 탭의 선택 표시가 사라진다.
   const tab = (key, label) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
       aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}</button>`;
   let body = '';

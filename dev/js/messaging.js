@@ -273,6 +273,9 @@ async function openInquiryPage(from, pushHistory) {
 function renderInquiryBranch() {
   const box = $('inquiryBranchBody');
   if (!box) return;
+  // 모양은 햄버거 메뉴 언어 전환 토글(.lang-toggle)과 같게 — 2026-09-29 사용자 지시.
+  //   🔴 클래스를 같이 쓰지 않는다 — updateLangToggleUI(mypage.js)가 `.lang-toggle .lang-btn` 을
+  //      전역으로 잡아 data-lang 으로 on 을 다시 매겨, 언어를 바꾸면 이 탭의 선택 표시가 사라진다.
   const tab = (key, label) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
       aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}</button>`;
   let body = '';
