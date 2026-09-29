@@ -41,6 +41,17 @@ let _applicantMsgUnreadMap = new Map();
 let _inboxInflMap = {};
 // 받은편지함 최근 메시지 미리보기 맵 (application_id → {body, sender_kind, created_at})
 let _inboxPreviewMap = new Map();
+// ── 서비스 문의(일반 문의, 응모 없음 — 마이그레이션 475~482) ──
+//   받은편지함 안 탭 「캠페인 문의 / 서비스 문의」. 서비스 문의는 왼쪽 캠페인 열 없이 회원별 2단.
+//   🔴 대화 열쇠가 둘이다 — 응모건은 _admMsgAppId, 서비스 문의는 _admMsgGeneralId(회원 id). 동시에 둘 다 차지 않는다.
+let _inboxKind = 'app';                  // 'app'(캠페인 문의) | 'general'(서비스 문의)
+let _genThreads = [];                    // fetchAdminGeneralInquiryThreads 결과
+let _genLoadFailed = false;              // 실패(null)와 0건을 가른다 — 실패면 그 탭에 「불러오지 못했습니다」
+let _genUnreadMap = new Map();           // influencer_id → 본인 미열람 수
+let _genPreviewMap = new Map();          // influencer_id → 최근 살아 있는 메시지
+let _genSentAtMap = new Map();           // 'sent' 정렬용 — influencer_id → 본인 최신 발신 시각
+let _admMsgGeneralId = null;             // 열린 서비스 문의 대화의 회원 id
+let _inboxWithdrawMap = null;            // 탈퇴 신청 상태(fetchWithdrawalStatesByInfluencer) — 실패 null 이면 표시 안 함
 
 // 현재 super_admin 여부 (admin.js 의 currentAdminInfo 기준)
 function admMsgIsSuper() {
@@ -62,6 +73,8 @@ async function loadMessagesInbox() {
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
   switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
+  _admMsgGeneralId = null;
+  ensureInboxKindTabBar();
   // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
   const _ucb = document.getElementById('inboxUnresolvedCheckbox');
   if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
@@ -75,7 +88,7 @@ async function loadMessagesInbox() {
 //   (사용자: '캠페인 제목 영역 클릭하면 캠페인 영역이 넓어지게')
 function setInboxStageCampaigns() {
   _inboxSelectedCampaign = null;
-  _admMsgAppId = null;
+  _admMsgAppId = null; _admMsgGeneralId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '';
   renderInboxCampaignList();
@@ -85,7 +98,7 @@ function setInboxStageCampaigns() {
 
 // 대화 목록 영역 확장 — 대화 선택만 해제하고 캠페인 선택은 유지 → stage-threads (캠페인 선택 상태일 때만 의미).
 function setInboxStageThreads() {
-  _admMsgAppId = null;
+  _admMsgAppId = null; _admMsgGeneralId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '';
   renderInboxThreadList();
@@ -99,9 +112,10 @@ function updateInboxStage() {
   if (!pane) return;
   pane.classList.remove('stage-campaigns', 'stage-threads', 'stage-view');
   const sentMode = _inboxSort === 'sent';
-  pane.classList.toggle('inbox-flat', sentMode);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
-  const threadOpen = _admMsgContext === 'inbox' && _admMsgAppId;
-  if (sentMode) {
+  const flat = sentMode || _inboxKind === 'general';   // 서비스 문의는 캠페인이 없어 항상 평면
+  pane.classList.toggle('inbox-flat', flat);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
+  const threadOpen = _admMsgContext === 'inbox' && (_inboxKind === 'general' ? _admMsgGeneralId : _admMsgAppId);
+  if (flat) {
     // 「내가 보낸 순」: 좌측 숨김 → 대화 목록(중)을 넓게, 대화 열면 내용(우)
     pane.classList.add(threadOpen ? 'stage-view' : 'stage-threads');
   } else if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
@@ -112,22 +126,35 @@ function updateInboxStage() {
 // 뷰 + 본인 미열람 맵을 다시 조회하고 좌/중 패널 재렌더
 async function refreshInboxData() {
   try {
-    const [threads, unreadMap, sentMap] = await Promise.all([
-      fetchAdminMessageThreads({ sinceMonths: _inboxFilters.sinceMonths, fromIso: _inboxFilters.fromIso, toIso: _inboxFilters.toIso }),
+    const range = { sinceMonths: _inboxFilters.sinceMonths, fromIso: _inboxFilters.fromIso, toIso: _inboxFilters.toIso };
+    const [threads, unreadMap, sentMap, gThreads, gUnread, gSent, wMap] = await Promise.all([
+      fetchAdminMessageThreads(range),
       fetchAdminMessageUnreadCounts(),
       (_inboxSort === 'sent') ? fetchAdminSentAtMap() : Promise.resolve(_inboxSentAtMap),
+      fetchAdminGeneralInquiryThreads(range),
+      fetchGeneralInquiryAdminUnreadCounts(),
+      (_inboxSort === 'sent') ? fetchAdminGeneralSentAtMap() : Promise.resolve(_genSentAtMap),
+      fetchWithdrawalStatesByInfluencer(),
     ]);
     _inboxThreads = threads || [];
     _inboxUnreadMap = unreadMap || new Map();
     _inboxSentAtMap = sentMap || new Map();
-    // 인플루언서 이름·최근 메시지 미리보기 보강 (병렬)
-    const inflIds = [...new Set(_inboxThreads.map(t => t.influencer_id).filter(Boolean))];
+    // 서비스 문의 — 실패(null)는 그 탭만 「불러오지 못했습니다」, 캠페인 문의는 그대로 그린다
+    _genLoadFailed = gThreads === null;
+    _genThreads = gThreads || [];
+    _genUnreadMap = gUnread || new Map();
+    _genSentAtMap = gSent || new Map();
+    _inboxWithdrawMap = wMap;   // null 이면 탈퇴 표시를 안 한다(목록은 막지 않는다)
+    // 인플루언서 이름·최근 메시지 미리보기 보강 (병렬) — 두 탭의 회원을 함께
+    const inflIds = [...new Set([..._inboxThreads, ..._genThreads].map(t => t.influencer_id).filter(Boolean))];
     const appIds = [...new Set(_inboxThreads.map(t => t.application_id).filter(Boolean))];
-    const [inflMap, prevMap] = await Promise.all([
+    const genIds = [...new Set(_genThreads.map(t => t.influencer_id).filter(Boolean))];
+    const [inflMap, prevMap, gPrevMap] = await Promise.all([
       inflIds.length ? fetchInfluencersByIds(inflIds) : Promise.resolve({}),
       appIds.length ? fetchMessagePreviews(appIds) : Promise.resolve(new Map()),
+      genIds.length ? fetchGeneralInquiryPreviews(genIds) : Promise.resolve(new Map()),
     ]);
-    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap;
+    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap; _genPreviewMap = gPrevMap || new Map();
     // 캠페인 캐시 보강 — 메시지 탭 단독 진입·새로고침 시 전역 allCampaigns 가 비어
     // 캠페인명이 '(캠페인)'으로 떨어지는 문제 방지. 스레드의 campaign_id 중 캐시에
     // 없는 게 하나라도 있으면(빈 캐시·신규 캠페인 누락) 1회 재로드.
@@ -136,16 +163,21 @@ async function refreshInboxData() {
   } catch (e) {
     console.error('[refreshInboxData]', e);
     _inboxThreads = []; _inboxUnreadMap = new Map(); _inboxInflMap = {}; _inboxPreviewMap = new Map();
+    _genThreads = []; _genLoadFailed = true;
   }
+  renderInboxKindTabs();
   renderInboxCampaignList();
   renderInboxThreadList();
   updateInboxSidebarBadge();
 }
 
 // 사이드바 「메시지」 미응대 배지 = 우리 팀 미응대 응모건 수 (그룹 공통)
+//   캠페인 문의 + 서비스 문의 합산. ⚠️ 30초 경로(refreshMsgBadgesLight)도 같은 합산이어야 한다 — 한쪽만 더하면 30초 뒤 되돌아간다
 function updateInboxSidebarBadge() {
-  const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
+  const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length
+    + _genThreads.filter(t => t.unresolved_for_admin_team).length;
   applyMsgBadgeCount(n);
+  renderInboxKindTabs();
 }
 
 // 사이드바 메시지 배지 + 브라우저 탭 배지를 동일 미응대 건수로 갱신 (공용 진입점)
@@ -215,8 +247,8 @@ function drawFaviconWithDot(baseHref, favEl) {
 async function refreshMsgBadgesLight() {
   try {
     if (!db) return;
-    const n = await fetchUnresolvedMessageCount();
-    applyMsgBadgeCount(n);
+    const [n, g] = await Promise.all([fetchUnresolvedMessageCount(), fetchGeneralInquiryUnresolvedCount()]);
+    applyMsgBadgeCount((n || 0) + (g || 0));   // 서비스 문의 조회 실패(null)면 캠페인 문의 숫자만
   } catch (e) { /* 무시 */ }
 }
 let _msgBadgePollingTimer = null;
@@ -236,6 +268,7 @@ function renderInboxCampaignList() {
     return;
   }
   el.classList.remove('inbox-camp-disabled');
+  if (_inboxKind === 'general') { el.innerHTML = ''; return; }   // 평면 모드라 이 열은 숨겨진다
   // campaign_id 별 집계 (미응대만·검색 필터 적용된 목록 기준)
   const byCamp = new Map();
   for (const t of filteredInboxThreads()) {
@@ -294,6 +327,7 @@ function selectInboxCampaign(campaignId) {
 function renderInboxThreadList() {
   const el = document.getElementById('inboxThreads');
   if (!el) return;
+  if (_inboxKind === 'general') { renderGeneralThreadList(el); return; }
   const sentMode = _inboxSort === 'sent';
   let list;
   if (sentMode) {
@@ -353,14 +387,162 @@ function renderInboxThreadList() {
       </span>
       <span class="inbox-thread-right">
         <span class="inbox-thread-time">${esc(formatDateTime(timeVal))}</span>
-        <span class="inbox-thread-chips">${unresolved}${unreadChip}</span>
+        <span class="inbox-thread-chips">${inboxWithdrawChip(t.influencer_id)}${unresolved}${unreadChip}</span>
       </span>
     </button>`;
   }).join('');
 }
 
+// 탈퇴 표시 — 예정일이 잡힌 회원은 남은 날수, 미지급 대기면 「탈퇴 대기 중」(사양서 §12 ②).
+//   확정되면 로그인이 막혀 답을 못 본다 — 그 전에 답하라는 신호. 조회 실패(null)면 아무것도 안 그린다.
+function inboxWithdrawChip(influencerId) {
+  const w = _inboxWithdrawMap && _inboxWithdrawMap[influencerId];
+  if (!w) return '';
+  if (w.status === 'scheduled' && w.scheduled_date) {
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+    today.setHours(0, 0, 0, 0);
+    const d = Math.round((new Date(w.scheduled_date + 'T00:00:00') - today) / 86400000);
+    return `<span class="inbox-thread-chip withdraw" title="탈퇴 예정일 ${esc(w.scheduled_date)}">탈퇴 D-${Math.max(d, 0)}</span>`;
+  }
+  if (w.status === 'pending_payout') return '<span class="inbox-thread-chip withdraw" title="미지급 보수 정리 뒤 탈퇴 예정">탈퇴 대기 중</span>';
+  return '';
+}
+
+// ── 서비스 문의 탭 ──
+function ensureInboxKindTabBar() {
+  if (document.getElementById('inboxKindTabBar')) return;
+  const main = document.getElementById('inboxMainView');
+  if (!main || !main.parentNode) return;
+  const bar = document.createElement('div');
+  bar.id = 'inboxKindTabBar';
+  bar.className = 'status-tab-bar';
+  main.parentNode.insertBefore(bar, main);
+}
+function renderInboxKindTabs() {
+  const bar = document.getElementById('inboxKindTabBar');
+  if (!bar) return;
+  const nApp = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
+  const nGen = _genThreads.filter(t => t.unresolved_for_admin_team).length;
+  const tab = (kind, label, n, failed) => {
+    const on = _inboxKind === kind ? ' on' : '';
+    const cnt = failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
+    return `<button type="button" class="status-tab-btn${on}" onclick="switchInboxKind('${kind}')">${esc(label)}${cnt}</button>`;
+  };
+  bar.innerHTML = tab('app', '캠페인 문의', nApp, false) + tab('general', '서비스 문의', nGen, _genLoadFailed);
+}
+function switchInboxKind(kind) {
+  _inboxKind = kind === 'general' ? 'general' : 'app';
+  _admMsgAppId = null; _admMsgGeneralId = null;
+  const v = document.getElementById('inboxThreadView');
+  if (v) v.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
+  renderInboxKindTabs();
+  renderInboxCampaignList();
+  renderInboxThreadList();
+  updateInboxStage();
+}
+function filteredGeneralThreads() {
+  let list = _genThreads;
+  if (_inboxFilters.unresolvedOnly) list = list.filter(t => t.unresolved_for_admin_team);
+  if (_inboxSearch) {
+    list = list.filter(t => {
+      const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
+      return [inf.name, inf.name_kana, inf.email].filter(Boolean).join(' ').toLowerCase().includes(_inboxSearch);
+    });
+  }
+  return list;
+}
+function renderGeneralThreadList(el) {
+  if (_genLoadFailed) { el.innerHTML = '<div class="inbox-empty">서비스 문의를 불러오지 못했습니다.</div>'; return; }
+  let list = filteredGeneralThreads();
+  if (_inboxSort === 'sent') {
+    list = list.filter(t => _genSentAtMap.has(t.influencer_id));
+    list.sort((a, b) => (_genSentAtMap.get(b.influencer_id) || '').localeCompare(_genSentAtMap.get(a.influencer_id) || ''));
+  } else if (_inboxSort === 'unresolved') {
+    list = list.slice().sort((a, b) => (Number(b.unresolved_for_admin_team) - Number(a.unresolved_for_admin_team))
+      || (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  } else {
+    list = list.slice().sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  }
+  if (!list.length) { el.innerHTML = '<div class="inbox-empty">서비스 문의가 없습니다.</div>'; return; }
+  el.innerHTML = list.map(t => {
+    const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
+    const kanji = esc(inf.name || '(이름 없음)');
+    const kana = inf.name_kana ? esc(inf.name_kana) : '';
+    const email = inf.email ? esc(inf.email) : '';
+    const unread = _genUnreadMap.get(t.influencer_id) || 0;
+    const active = t.influencer_id === _admMsgGeneralId ? 'active' : '';
+    const unresolved = t.unresolved_for_admin_team ? '<span class="inbox-thread-chip unresolved">미응대</span>' : '';
+    const unreadChip = unread > 0 ? `<span class="inbox-thread-chip unread">${unread > 99 ? '99+' : unread}</span>` : '';
+    const prev = _genPreviewMap.get(t.influencer_id);
+    let previewHtml = '';
+    if (prev) {
+      const who = prev.sender_kind === 'admin' ? '운영팀: ' : '';
+      const prevSrc = (prev.sender_kind !== 'admin' && prev.translate_status === 'done' && prev.body_translated)
+        ? prev.body_translated : prev.body;
+      const body = (prevSrc || '').replace(/\s+/g, ' ').trim();
+      previewHtml = `<span class="inbox-thread-preview">${esc(who + (body || '(이미지)'))}</span>`;
+    }
+    const timeVal = (_inboxSort === 'sent' && _genSentAtMap.get(t.influencer_id)) || t.last_message_at;
+    return `<button type="button" class="inbox-thread-item ${active}" onclick="openGeneralInboxThread(${jsStr(t.influencer_id)})">
+      <span class="inbox-thread-main">
+        <span class="inbox-thread-name">${kanji}${auditBadgeHtml(inf)}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
+        ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
+        ${previewHtml}
+      </span>
+      <span class="inbox-thread-right">
+        <span class="inbox-thread-time">${esc(formatDateTime(timeVal))}</span>
+        <span class="inbox-thread-chips">${inboxWithdrawChip(t.influencer_id)}${unresolved}${unreadChip}</span>
+      </span>
+    </button>`;
+  }).join('');
+}
+
+// 서비스 문의 대화 열기 — 응모 상태 한 줄·FAQ 열람 이력은 없다(특정 응모가 아니므로)
+async function openGeneralInboxThread(influencerId) {
+  _admMsgAppId = null;
+  _admMsgGeneralId = influencerId;
+  _admMsgContext = 'inbox';
+  _admMsgPendingFiles = [];
+  updateInboxStage();
+  renderInboxThreadList();
+  const view = document.getElementById('inboxThreadView');
+  if (view) view.innerHTML = '<div class="inbox-empty">불러오는 중…</div>';
+  try {
+    const msgs = await _admFetchCurrent();
+    if (_admMsgGeneralId !== influencerId) return;   // 기다리는 사이 다른 대화를 열었다
+    const thread = _genThreads.find(t => t.influencer_id === influencerId);
+    const isResolved = !!thread && !thread.unresolved_for_admin_team;
+    if (view) view.innerHTML = adminThreadViewHtml('inbox', isResolved, { general: true });
+    renderAdminMsgThread('inboxMsgThread', msgs);
+    // 읽음 처리 실패는 대화를 덮지 않는다(이미 그린 대화는 그대로 두고 기록만)
+    try {
+      await markGeneralInquiryMessagesRead(influencerId);
+      const m = await fetchGeneralInquiryAdminUnreadCounts();
+      if (m) _genUnreadMap = m;
+      renderInboxThreadList();
+    } catch (e2) { console.warn('[openGeneralInboxThread] read', e2); if (typeof logAppError === 'function') logAppError('openGeneralInboxThread.read', e2); }
+  } catch (e) {
+    console.error('[openGeneralInboxThread]', e);
+    if (typeof logAppError === 'function') logAppError('openGeneralInboxThread', e);
+    if (view) view.innerHTML = '<div class="inbox-empty">메시지를 불러오지 못했습니다.</div>';
+  }
+}
+
+// 현재 열린 대화 — 두 종류를 한 자리에서 가른다(답장·회수·숨김·복구·응대완료 공용)
+function _admHasThread() { return !!(_admMsgAppId || _admMsgGeneralId); }
+async function _admFetchCurrent() {
+  if (_admMsgGeneralId) {
+    const rows = await fetchGeneralInquiryMessages(_admMsgGeneralId);
+    if (rows === null) throw new Error('general_inquiry_load_failed');
+    return rows;
+  }
+  return await fetchApplicationMessages(_admMsgAppId);
+}
+function _admThreadElId() { return _admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread'; }
+
 // 우: 선택 응모건 대화 내용 (인라인 패널)
 async function openInboxThread(applicationId) {
+  _admMsgGeneralId = null;
   _admMsgAppId = applicationId;
   _admMsgContext = 'inbox';
   _admMsgPendingFiles = [];
@@ -425,7 +607,7 @@ function changeInboxSort(v) {
   // 「내가 보낸 순」 진입 시 본인 발신 시각 맵을 로드해야 하므로 재조회. 그 외는 재렌더만.
   if (_inboxSort === 'sent') {
     _inboxSelectedCampaign = null;          // 평면 모드 — 캠페인 선택 해제
-    if (_admMsgContext === 'inbox') _admMsgAppId = null;
+    if (_admMsgContext === 'inbox') { _admMsgAppId = null; _admMsgGeneralId = null; }
     const view = document.getElementById('inboxThreadView');
     if (view) view.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
     updateInboxStage();
@@ -465,6 +647,7 @@ function filteredInboxThreads() {
 // ════════════════════════════════════════════════════════════════════
 async function openAdminMessageModal(applicationId, campaignId) {
   if (!applicationId) return;
+  _admMsgGeneralId = null;
   _admMsgAppId = applicationId;
   _admMsgContext = 'modal';
   _admMsgPendingFiles = [];
@@ -501,7 +684,8 @@ function closeAdminMessageModal() {
 
 // 대화 내용 컨테이너 HTML (받은편지함 우측 / 모달 본문 공용)
 //   ctx: 'inbox' | 'modal' — thread/composer DOM id 접두사 결정
-function adminThreadViewHtml(ctx, isResolved = false) {
+function adminThreadViewHtml(ctx, isResolved = false, opts) {
+  const isGeneral = !!(opts && opts.general);
   const threadId = ctx === 'inbox' ? 'inboxMsgThread' : 'admMsgThread';
   const composerId = ctx === 'inbox' ? 'inboxComposer' : 'admComposer';
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
@@ -509,7 +693,8 @@ function adminThreadViewHtml(ctx, isResolved = false) {
   const faqHistId = ctx === 'inbox' ? 'inboxFaqHist' : 'admFaqHist';
   const histBtn = admMsgIsSuper()
     ? `<button type="button" class="adm-msg-bar-btn" onclick="toggleHideHistory('${ctx}')">숨김 이력</button>` : '';
-  const faqBtn = `<button type="button" class="adm-msg-bar-btn" onclick="toggleFaqHistory('${ctx}')">FAQ 열람 이력</button>`;
+  // FAQ 열람 이력은 응모 번호로 조회한다 — 서비스 문의에서는 그리지 않는다(작업표 stale 9)
+  const faqBtn = isGeneral ? '' : `<button type="button" class="adm-msg-bar-btn" onclick="toggleFaqHistory('${ctx}')">FAQ 열람 이력</button>`;
   // 응대 완료 상태면 버튼을 「완료됨」 비활성으로 렌더 (진입 시 + 클릭 후 즉시 반영 공용)
   const resolveBtn = isResolved
     ? `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn done" disabled>응대 완료됨</button>`
@@ -543,12 +728,13 @@ function adminThreadViewHtml(ctx, isResolved = false) {
 async function toggleHideHistory(ctx) {
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
   const el = document.getElementById(histId);
-  if (!el || !_admMsgAppId) return;
+  if (!el || !_admHasThread()) return;
   if (el.style.display !== 'none') { el.style.display = 'none'; return; }
   el.style.display = '';
   el.innerHTML = '<div class="msg-empty">불러오는 중…</div>';
   try {
-    const rows = await fetchApplicationHideHistory(_admMsgAppId);
+    const rows = _admMsgGeneralId ? await fetchGeneralInquiryHideHistory(_admMsgGeneralId) : await fetchApplicationHideHistory(_admMsgAppId);
+    if (rows === null) throw new Error('hide_history_load_failed');
     if (!rows.length) { el.innerHTML = '<div class="adm-hide-hist-empty">숨김/복구 이력이 없습니다.</div>'; return; }
     el.innerHTML = '<div class="adm-hide-hist-title">숨김/복구 이력</div>' + rows.map(r => {
       const act = r.action === 'hide' ? '숨김' : '복구';
@@ -913,7 +1099,7 @@ function renderAdmMsgAttachPreview() {
 }
 
 async function sendAdminMessage() {
-  if (_admMsgSending || !_admMsgAppId) return;
+  if (_admMsgSending || !_admHasThread()) return;
   const inputEl = document.getElementById(curComposerId() + 'Input');
   const body = (inputEl?.value || '').trim();
   if (!body && !_admMsgPendingFiles.length) { toast('메시지를 입력하세요.'); return; }
@@ -921,19 +1107,25 @@ async function sendAdminMessage() {
   try {
     const attachments = [];
     for (const f of _admMsgPendingFiles) {
-      try { attachments.push(await uploadMessageAttachment(f, _admMsgAppId)); }
+      try {
+        // 서비스 문의 첨부는 그 회원의 폴더(general/{회원id}/) — 서버가 경로 접두를 검사한다
+        attachments.push(_admMsgGeneralId
+          ? await uploadGeneralInquiryAttachment(f, _admMsgGeneralId)
+          : await uploadMessageAttachment(f, _admMsgAppId));
+      }
       catch (e) {
         console.error('[sendAdminMessage] 첨부', e);
         toast(e?.message === 'too_large' ? '이미지 용량이 큽니다.' : '첨부 업로드에 실패했습니다.');
         _admMsgSending = false; return;
       }
     }
-    await sendApplicationMessage(_admMsgAppId, body, attachments);
+    if (_admMsgGeneralId) await sendGeneralInquiryMessage(body, attachments, _admMsgGeneralId);
+    else await sendApplicationMessage(_admMsgAppId, body, attachments);
     if (inputEl) inputEl.value = '';
     _admMsgPendingFiles = [];
     renderAdmMsgAttachPreview();
-    const msgs = await fetchApplicationMessages(_admMsgAppId);
-    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
+    const msgs = await _admFetchCurrent();
+    renderAdminMsgThread(_admThreadElId(), msgs);
     // 관리자 답장 = 자동 응대 완료 → 받은편지함 집계 갱신
     if (_admMsgContext === 'inbox') await refreshInboxData();
     else updateInboxSidebarBadge();
@@ -950,8 +1142,8 @@ async function confirmAdmWithdraw(messageId, attachmentPaths) {
   if (!confirm('이 메시지를 회수하시겠습니까?')) return;
   try {
     await withdrawOwnMessage(messageId, attachmentPaths || []);
-    const msgs = await fetchApplicationMessages(_admMsgAppId);
-    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
+    const msgs = await _admFetchCurrent();
+    renderAdminMsgThread(_admThreadElId(), msgs);
   } catch (e) {
     console.error('[confirmAdmWithdraw]', e);
     toast(e?.code === 'P0001' && e?.message ? e.message : '회수에 실패했습니다.');
@@ -983,8 +1175,8 @@ async function confirmHideMessage() {
   try {
     await hideApplicationMessage(_hideTargetMsgId, code, memo);
     closeHideModal();
-    const msgs = await fetchApplicationMessages(_admMsgAppId);
-    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
+    const msgs = await _admFetchCurrent();
+    renderAdminMsgThread(_admThreadElId(), msgs);
     toast('메시지를 숨김 처리했습니다.');
   } catch (e) {
     console.error('[confirmHideMessage]', e);
@@ -998,8 +1190,8 @@ async function promptUnhideMessage(messageId) {
   if (!memo.trim()) { toast('복구 사유는 필수입니다.'); return; }
   try {
     await unhideApplicationMessage(messageId, memo.trim());
-    const msgs = await fetchApplicationMessages(_admMsgAppId);
-    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
+    const msgs = await _admFetchCurrent();
+    renderAdminMsgThread(_admThreadElId(), msgs);
     toast('메시지를 복구했습니다.');
   } catch (e) {
     console.error('[promptUnhideMessage]', e);
@@ -1020,9 +1212,10 @@ function _setResolveBtnDone(ctx) {
 
 // ── 수동 응대 완료 ──
 async function markCurrentResolved() {
-  if (!_admMsgAppId) return;
+  if (!_admHasThread()) return;
   try {
-    await markApplicationResolved(_admMsgAppId);
+    if (_admMsgGeneralId) await markGeneralInquiryResolved(_admMsgGeneralId);
+    else await markApplicationResolved(_admMsgAppId);
     toast('응대 완료로 표시했습니다.');
     _setResolveBtnDone(_admMsgContext); // 현재 대화창 버튼 즉시 「완료됨」 비활성
     if (_admMsgContext === 'inbox') await refreshInboxData();
@@ -1134,6 +1327,9 @@ function switchInboxTab(tab) {
   const bc = document.getElementById('inboxBroadcastsView');
   if (main) main.style.display = tab === 'inbox' ? '' : 'none';
   if (bc) bc.style.display = tab === 'broadcasts' ? '' : 'none';
+  // 「캠페인 문의 / 서비스 문의」 탭은 받은편지함 안의 구분이라 발송 이력에서는 숨긴다
+  const kb = document.getElementById('inboxKindTabBar');
+  if (kb) kb.style.display = tab === 'inbox' ? '' : 'none';
   if (tab === 'broadcasts') loadBroadcasts();
 }
 

@@ -1504,6 +1504,7 @@ input.admin-filter{padding-right:8px}
 .inbox-thread-time{font-size:10px;color:var(--muted);white-space:nowrap}
 .inbox-thread-chip{display:inline-flex;align-items:center;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
 .inbox-thread-chip.unresolved{background:var(--gold-l);color:var(--gold)}
+.inbox-thread-chip.withdraw{background:#FFF4E5;color:#B45309;border:1px solid #F5C98A}  /* 탈퇴 D-N·대기 중 — 미응대(빨강)와 구분 */
 .inbox-thread-chip.unread{background:var(--pink);color:#fff}
 
 /* 대화 내용 영역 (받은편지함 우측 + 모달 본문 공용) */
