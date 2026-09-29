@@ -316,7 +316,18 @@ SQL 편집기는 서비스 키로 돌아 정책을 거치지 않으므로 **거�
 | 9 (화면 이미지 표시) | 없음 | 없음 |
 | 10 (보안 점검 화면) | 해당 없음(운영만) | 없음 |
 
-**남은 것** — 단계 1 의 사후 확인(위 표) · 단계 0 의 ①②③ · 단계 2(마이그레이션 B·C). 넘기는 순서는 [`2026-09-29-storage-bucket-listing-lockdown-handoff.md`](./2026-09-29-storage-bucket-listing-lockdown-handoff.md).
+**단계 0 결과 ①②③ (2026-09-29, 개발 세션 — 운영·개발 각각 읽기 전용 조회)**
+
+| 항목 | 운영 | 개발 | 이 결과로 정해지는 것 |
+|---|---|---|---|
+| ① 세 통의 정책 | `campaign_images_{select,insert,update,delete}` · `receipts_insert_authenticated`(INSERT · `{authenticated}` · CHECK `bucket_id = 'campaign-images' AND (storage.foldername(name))[1] = 'receipts'`) · `orient_images_{anon_insert,public_select}` · `outbound_images_{public_select,admin_insert,admin_update,admin_delete}` | **운영과 이름·정의 모두 같다**(311 적용됨 — `campaign_images_select` 가 `{authenticated}`, `receipts_insert_authenticated` 도 있음) | 마이그레이션 B 는 **양쪽 모두 동작 변경 없음**(정의처를 저장소로 옮길 뿐) — §3-4 의 「개발서버에 없으면 생긴다」는 해당 없음. 함께 지울 다른 이름의 정책 **없음** |
+| ① 전체 목록(통 이름 없는 정책 찾기) | 나머지는 `admin-proxy-evidence`·`influencer-flag-evidence`·`application-message-attachments` 전용 정책뿐 | 같음 | **모든 통에 걸리는 정책은 없다** — 세 통의 조회 권한은 위 정책만으로 정해진다 |
+| ② 「올린 사람」 칸 | `owner_id text` · `owner uuid`(옛 칸) — 두 칸 채워진 건수 같음 | 같음 | §3-2 판정은 **`owner_id = auth.uid()::text`** |
+| ③ 아웃바운드 통 파일 수 | **0개** | 0개 | 지금 노출될 파일은 없다. 검증 8 은 검증 7 로 파일을 올린 뒤에만 의미가 있다 |
+| (추가) 회원 영수증 썸네일 | 9/1 이후 회원이 올린 영수증 **980개 중 972개에 썸네일 있음** | 9/2 이후 영수증 0개 | §2-1 2번의 「이미 죽어 있을 수 있다」는 **운영에서는 아니다**. 조회를 「본인 파일」로 좁혀도 새 썸네일은 본인 파일이라 계속 되어야 한다(검증 4 로 확인). 개발서버는 비교할 최근 영수증이 없어 검증 4 「앞」을 새로 찍어야 한다 |
+| (참고) 캠페인 이미지 통 파일 | 8,259개(영수증 7,319 · 캠페인 사진 642 · 인증샷 278 · 설명 이미지 20), 올린 사람 기록 없는 옛 파일 1,210개 | 156개 | 기록 없는 옛 파일은 회원 목록에 안 나온다 — 회원이 목록을 쓰는 화면이 없어 영향 없음 |
+
+**남은 것** — 단계 1 의 사후 확인(위 표) · 단계 2(마이그레이션 B·C). 넘기는 순서는 [`2026-09-29-storage-bucket-listing-lockdown-handoff.md`](./2026-09-29-storage-bucket-listing-lockdown-handoff.md).
 
 ---
 
