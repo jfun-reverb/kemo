@@ -11816,6 +11816,213 @@ async function fetchApplicationHideHistory(applicationId) {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// 일반 문의 — 응모에 매이지 않는 회원↔운영팀 메시지 (마이그레이션 475~482)
+//   같은 표(application_messages)에 application_id 가 비고 influencer_id 가 찬 행.
+//   🔴 규약: 조회 실패는 `null`, 0건은 `[]`/빈 Map — 「못 불러옴」과 「없음」을 가른다(276 원칙).
+//   ⚠️ 응모건 함수(fetchApplicationMessages 등)는 응모 번호로 묶여 있어 부르지 않는다 — 짝을 쓴다.
+//      메시지 id 만 보는 회수·숨김·복구·첨부 서명 주소는 기존 함수를 그대로 쓴다.
+//   사양서 docs/specs/2026-05-21-general-inquiry-desk.md §5-4·§6
+// ════════════════════════════════════════════════════════════════════
+
+// 일반 문의 대화 목록 (마스킹 적용). 회원은 인자 없이 본인 것, 관리자는 회원 id 필수.
+async function fetchGeneralInquiryMessages(influencerId = null) {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_general_inquiry_messages', { p_influencer_id: influencerId });
+      if (error) throw error;
+      return data || [];
+    });
+  } catch (e) { console.warn('[fetchGeneralInquiryMessages]', e); logAppError('fetchGeneralInquiryMessages', e); return null; }
+}
+
+// 일반 문의 발송 (회원·관리자 공용, 발신자 종류는 서버가 판별). 관리자는 회원 id 필수.
+//   attachments: uploadGeneralInquiryAttachment() 반환값 배열. 실패는 예외 — 화면이 문구를 띄운다.
+async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_general_inquiry_message', {
+      p_influencer_id: influencerId,
+      p_body: body || '',
+      p_attachments: attachments,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 일반 문의 읽음 처리 (관리자: 개인별 / 회원: read_by_influencer_at).
+async function markGeneralInquiryMessagesRead(influencerId = null) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_general_inquiry_messages_read', { p_influencer_id: influencerId });
+    if (error) throw error;
+  });
+}
+
+// 일반 문의 수동 응대 완료 (관리자).
+async function markGeneralInquiryResolved(influencerId) {
+  if (!db || !influencerId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_general_inquiry_resolved', { p_influencer_id: influencerId });
+    if (error) throw error;
+  });
+}
+
+// 일반 문의 첨부 업로드 — 경로 `general/{회원id}/{난수}.jpg` (첫 조각 'general' 고정 — 저장소 정책이 이 두 조각을 본다).
+//   관리자 답장 첨부도 **그 회원의 폴더**에 올린다(서버가 경로 접두를 검사한다).
+async function uploadGeneralInquiryAttachment(file, influencerId) {
+  if (!db) throw new Error('DB 미연결');
+  if (!influencerId) throw new Error('회원 id 없음');
+  const compressed = await compressImageFile(file);
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `general/${influencerId}/${uuid}.jpg`;
+  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 문의 갈래 판정용 — 본인 응모 목록(취소 포함). 🔴 실패 `null` 이면 화면은 갈래를 건너뛰지 않는다(§5-4 ⑩).
+async function fetchMyApplicationsForInquiry() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('applications')
+      .select('id, campaign_id, status, created_at')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .order('id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationsForInquiry]', e); logAppError('fetchMyApplicationsForInquiry', e); return null; }
+}
+
+// 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
+async function fetchMyGeneralInquiryUnread() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const {data, error} = await db.from('general_inquiry_message_summary')
+      .select('unread_for_influencer')
+      .eq('influencer_id', currentUser.id)
+      .maybeSingle();
+    if (error) throw error;
+    return Number(data?.unread_for_influencer) || 0;   // 문의가 없으면 행이 없다 → 0
+  } catch (e) { console.warn('[fetchMyGeneralInquiryUnread]', e); logAppError('fetchMyGeneralInquiryUnread', e); return null; }
+}
+
+// 관리자 받은편지함 「일반 문의」 탭 목록 — 새 뷰(481). 열 모양은 응모건 뷰와 같다(application_id·campaign_id 는 빈 값).
+//   opts: fetchAdminMessageThreads 와 같음(sinceMonths / fromIso·toIso). 실패 `null`.
+async function fetchAdminGeneralInquiryThreads(opts = {}) {
+  if (!db) return null;
+  const useRange = !!(opts.fromIso || opts.toIso);
+  const sinceIso = new Date(Date.now() - (opts.sinceMonths || 6) * 30 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('general_inquiry_message_summary')
+        .select('application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at')
+        .gt('message_count', 0)
+        .order('last_message_at', { ascending: false })
+        .order('influencer_id');
+      if (useRange) {
+        if (opts.fromIso) q = q.gte('last_message_at', opts.fromIso);
+        if (opts.toIso) q = q.lte('last_message_at', opts.toIso);
+      } else {
+        q = q.gte('last_message_at', sinceIso);
+      }
+      return q;
+    });
+    return data || [];
+  } catch (e) { console.warn('[fetchAdminGeneralInquiryThreads]', e); logAppError('fetchAdminGeneralInquiryThreads', e); return null; }
+}
+
+// 일반 문의 미응대 수 — 사이드바·탭 배지 합산용(fetchUnresolvedMessageCount 의 짝, 같은 6개월 창). 실패 `null`.
+async function fetchGeneralInquiryUnresolvedCount() {
+  if (!db) return null;
+  try {
+    const sinceIso = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const {count, error} = await db.from('general_inquiry_message_summary')
+      .select('influencer_id', { count: 'exact', head: true })
+      .gt('message_count', 0)
+      .eq('unresolved_for_admin_team', true)
+      .gte('last_message_at', sinceIso);
+    if (error) { console.warn('[fetchGeneralInquiryUnresolvedCount]', error); return null; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchGeneralInquiryUnresolvedCount]', e); return null; }
+}
+
+// 관리자 본인 미열람 수 (회원별). 반환 Map<influencer_id, count>, 실패 `null`.
+async function fetchGeneralInquiryAdminUnreadCounts() {
+  if (!db) return null;
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('influencer_id'));
+  } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadCounts]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.influencer_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 「내가 보낸 순」 정렬 — 본인 관리자가 일반 문의에 보낸 회원별 최신 시각. 반환 Map<influencer_id, iso>, 실패 `null`.
+//   ⚠️ fetchAdminSentAtMap 을 쓰면 일반 문의 행이 빈 열쇠 하나로 뭉친다(§5-4 ⑨) — 이 짝을 쓴다.
+async function fetchAdminGeneralSentAtMap() {
+  if (!db) return null;
+  let data;
+  try {
+    const {data: udata} = await db.auth.getUser();
+    const uid = udata?.user?.id;
+    if (!uid) return null;
+    data = await fetchAllPaged(() => db.from('application_messages')
+      .select('influencer_id, created_at')
+      .is('application_id', null)
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .order('id'));
+  } catch (e) { console.warn('[fetchAdminGeneralSentAtMap]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => { if (!map.has(r.influencer_id)) map.set(r.influencer_id, r.created_at); });
+  return map;
+}
+
+// 일반 문의 미리보기 — 회원별 마지막 살아 있는 메시지. 반환 Map<influencer_id, row>, 실패 `null`.
+async function fetchGeneralInquiryPreviews(influencerIds) {
+  if (!db) return null;
+  const map = new Map();
+  if (!influencerIds || !influencerIds.length) return map;
+  const CHUNK = 100;
+  for (let i = 0; i < influencerIds.length; i += CHUNK) {
+    const ids = influencerIds.slice(i, i + CHUNK);
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('application_messages')
+        .select('influencer_id, body, body_translated, translate_status, sender_kind, created_at')
+        .is('application_id', null)
+        .in('influencer_id', ids)
+        .is('hidden_by_admin_at', null)
+        .is('self_withdrawn_at', null)
+        .order('created_at', { ascending: false })
+        .order('id'));
+    } catch (e) { console.warn('[fetchGeneralInquiryPreviews]', e); return null; }
+    (data || []).forEach(m => { if (!map.has(m.influencer_id)) map.set(m.influencer_id, m); });
+  }
+  return map;
+}
+
+// 일반 문의 숨김/복구 이력 (최고 관리자 — 표 정책상 그 외는 빈 배열). 실패 `null`.
+async function fetchGeneralInquiryHideHistory(influencerId) {
+  if (!db || !influencerId) return [];
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_hide_history')
+      .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(influencer_id, application_id)')
+      .eq('application_messages.influencer_id', influencerId)
+      .is('application_messages.application_id', null)
+      .order('at', { ascending: false })
+      .order('id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchGeneralInquiryHideHistory]', e); return null; }
+}
+
+// ════════════════════════════════════════════════════════════════════
 // 응모건 메시지 — 일괄 발송 (BCC, PR 3)
 //   마이그레이션 167. campaign_admin 이상. send_bulk / withdraw_broadcast /
 //   resolve_bulk_recipients / get_broadcast_detail RPC + 발송 이력 목록 조회.
