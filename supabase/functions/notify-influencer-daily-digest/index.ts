@@ -186,6 +186,18 @@ function dateDiffDays(a: string, b: string): number {
   return Math.round((aMs - bMs) / (24 * 3600 * 1000));
 }
 
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 와 같은 기준이다** — Edge Function 은
+//      공유 모듈이 없어 사본이다. 한쪽만 고치면 「응모는 되는데 결과물은 안 되는」 어긋남이 생긴다.
+//   🔴 채널이 하나면 `channel_match` 를 **보지 않는다**(그쪽 원본과 같은 이유).
+//   ⚠️ **기본값은 `or` 다** — 「`and` 가 아니면 `or`」. 반대로 적으면 지금 정상인 캠페인이 깨진다.
+//   ⚠️ 채널 이름 비교 자체는 이 함수가 하지 않는다 — 부르는 쪽의 기존 방식(공백만 제거)을 그대로 둔다.
+function campaignChannelKind(camp: CampRow): "single" | "and" | "or" {
+  const list = String(camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+  if (list.length <= 1) return "single";
+  return String(camp.channel_match || "").trim().toLowerCase() === "and" ? "and" : "or";
+}
+
 function loadTemplate(name: string): string {
   const html = TEMPLATES[name];
   if (!html) throw new Error(`template not registered: ${name}`);
@@ -228,6 +240,23 @@ async function fetchAllPaged<T>(
     from += pageSize;
   }
   return all;
+}
+
+// [3차 전수조사 2026-09-28] id 목록으로 찾는 조회는 200개씩 끊는다 — 관리자 다이제스트의
+//   fetchByIdsChunked 와 같은 본문(Edge Function 은 공유 모듈이 없다).
+//   🔴 누적 승인 응모 id 를 한 번에 `.in()` 에 넣으면 주소가 너무 길어 `TypeError: Invalid URL`
+//   로 **매일** 실패했고, 실패를 삼켜 이미 낸 회원에게도 마감 안내가 나갔다(운영 승인 3,574건).
+async function fetchByIdsChunked<T>(
+  ids: string[],
+  buildQuery: (chunk: string[]) => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  chunkSize = 200,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    out.push(...await fetchAllPaged<T>(() => buildQuery(chunk)));
+  }
+  return out;
 }
 
 async function sendBrevoEmail(params: {
@@ -291,6 +320,10 @@ interface CampRow {
   submission_end: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 「또는」(or) / 「그리고」(and) — 여러 채널을 모집할 때 전부 내야 하는지, 하나만 내면 되는지.
+  // 🔴 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **전부 or 로 잡힌다** — 이번 증상은
+  //    사라진 것처럼 보이는데 진짜 and 캠페인의 남은 채널 안내가 한 통도 안 나간다(사양서 §2-①).
+  channel_match: string | null;
   // 행사(오프라인 팝업 방문 예약) 캠페인인가 — 당선 섹션 제외 판정용(2026-08-24 결정 3).
   // ⚠️ 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **아무것도 안 걸러진다**(오류 없이 조용히).
   event_mode: boolean | null;
@@ -333,16 +366,17 @@ const PUBLIC_CLIENT_KEYS = [
 //   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
 //   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
 //   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
-function isAnonJwt(token: string): boolean {
-  if (!token.startsWith("eyJ")) return false;
+// JWT 의 역할(role)만 읽는다 — 서명은 플랫폼이 이미 검증했다. 못 읽으면 null(막지 않는다).
+function jwtRole(token: string): string | null {
+  if (!token.startsWith("eyJ")) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
   try {
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
-    return payload?.role === "anon";
+    return typeof payload?.role === "string" ? payload.role : null;
   } catch {
-    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+    return null;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
   }
 }
 
@@ -354,13 +388,18 @@ function rejectPublicKeyCaller(req: Request, tag: string): boolean {
     console.warn(`[${tag}] rejected — called with the public client key`);
     return true;
   }
-  if (isAnonJwt(token)) {
-    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+  // 🔴 비로그인(anon)·로그인 회원(authenticated) 토큰은 거부한다(2026-09-28 전수조사 3차).
+  //   회원가입은 누구나 할 수 있어 authenticated 토큰도 사실상 공개다 — 예전에는 anon 만 막아
+  //   로그인한 회원이 방침 통지 시험 발송(임의 주소)·홍보 메일 전체 발송을 부를 수 있었다.
+  //   예약 실행(vault edge_function_jwt)·데이터베이스 웹훅은 service_role 이라 통과한다.
+  const role = jwtRole(token);
+  if (role === "anon" || role === "authenticated") {
+    console.warn(`[${tag}] rejected — called with an end-user JWT`, { role });
     return true;
   }
   // 토큰 자체는 절대 남기지 않는다.
   const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  console.log(`[${tag}] caller check passed`, { isServiceRole, role });
   return false;
 }
 
@@ -750,14 +789,14 @@ Deno.serve(async (req: Request) => {
     const campMap = new Map<string, CampRow>();
     if (allCampIds.length > 0) {
       try {
-        const camps = await fetchAllPaged<CampRow>(() =>
+        const camps = await fetchByIdsChunked<CampRow>(allCampIds, (chunk) =>
           sb.from("campaigns")
             // product_price — レビュアー型の報酬欄「購入金額をペイバック（最大 ¥N）」の上限表示に使う。
             // 抜けると上限が消えたまま案内が届く（2026-08-05）。
             // event_mode — 행사 캠페인은 당선 섹션에서 뺀다(2026-08-24 결정 3, 아래 8번 분류 참조).
             //   빠뜨리면 제외 조건이 늘 거짓이 되어 방문객에게 「報酬 -」「提出期限」이 그대로 나간다.
-            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, event_mode")
-            .in("id", allCampIds)
+            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, channel_match, event_mode")
+            .in("id", chunk)
             .order("id", { ascending: true })
         );
         camps.forEach((c) => campMap.set(c.id, c));
@@ -780,12 +819,14 @@ Deno.serve(async (req: Request) => {
       postChannels: Set<string>;
     }
     const delivByApp = new Map<string, DelivInfo>(); // app_id → 제출 현황
+    // 제출 현황·발송 이력 중 하나라도 못 읽으면 마감 안내를 보내지 않는다(잘못 보내는 것보다 안 보내는 것이 낫다).
+    let deadlineLookupFailed = false;
     if (approvedAppIds.length > 0) {
       try {
-        const delivs = await fetchAllPaged<DelivRow>(() =>
+        const delivs = await fetchByIdsChunked<DelivRow>(approvedAppIds, (chunk) =>
           sb.from("deliverables")
             .select("application_id, kind, status, post_channel")
-            .in("application_id", approvedAppIds)
+            .in("application_id", chunk)
             .in("status", ["pending", "approved"])
             .order("id", { ascending: true })
         );
@@ -803,7 +844,9 @@ Deno.serve(async (req: Request) => {
           if (d.kind === "post" && d.post_channel) info.postChannels.add(d.post_channel);
         });
       } catch (e) {
-        console.warn("[notify-infl-digest] deliverable lookup failed", (e as Error).message);
+        // 🔴 실패하면 제출 현황이 비어 **전원이 「안 냄」으로 판정**된다 — 마감 안내 절을 통째로 건너뛴다.
+        deadlineLookupFailed = true;
+        console.error("[notify-infl-digest] deliverable lookup failed — deadline section skipped", (e as Error).message);
       }
     }
 
@@ -819,17 +862,19 @@ Deno.serve(async (req: Request) => {
     if (approvedAppIds.length > 0) {
       const approvedCampIds = [...new Set((appsApproved || []).map((a) => a.campaign_id))];
       try {
-        const sent = await fetchAllPaged<SentRow>(() =>
+        const sent = await fetchByIdsChunked<SentRow>(approvedCampIds, (chunk) =>
           sb.from("deadline_reminder_email_sent")
             .select("influencer_id, campaign_id, kind, d_minus, deadline_date")
-            .in("campaign_id", approvedCampIds)
+            .in("campaign_id", chunk)
             .order("id", { ascending: true })
         );
         sent.forEach((s) => {
           sentMap.add(`${s.influencer_id}|${s.campaign_id}|${s.kind}|${s.d_minus}|${s.deadline_date}`);
         });
       } catch (e) {
-        console.warn("[notify-infl-digest] deadline reminder log lookup failed", (e as Error).message);
+        // 이력을 못 읽으면 중복 차단이 풀린다 — 마감 안내 절을 건너뛴다.
+        deadlineLookupFailed = true;
+        console.error("[notify-infl-digest] deadline reminder log lookup failed — deadline section skipped", (e as Error).message);
       }
     }
 
@@ -895,6 +940,7 @@ Deno.serve(async (req: Request) => {
     //   이 블록은 그 판정을 서버(발송 시점)에서 재현한 것이므로, 어느 한쪽을 고칠 때
     //   반드시 다른 쪽도 함께 검토할 것.
     (appsApproved || []).forEach((a: AppRow) => {
+      if (deadlineLookupFailed) return;
       const camp = campMap.get(a.campaign_id);
       if (!camp) return;
       const delivInfo = delivByApp.get(a.id) || { kinds: new Set<string>(), reviewChannels: new Set<string>(), postChannels: new Set<string>() };
@@ -938,12 +984,20 @@ Deno.serve(async (req: Request) => {
         (camp.recruit_type === "gifting" || camp.recruit_type === "visit") &&
         camp.submission_end
       ) {
-        // ⚠️ 「게시물이 하나라도 있으면 안 보낸다」가 아니다 — 요구한 채널 **전부**를 내야
-        //   인증 성공이므로(마이그레이션 331), 아직 안 낸 채널이 하나라도 있으면 안내한다.
+        // 🔴 **요구한 채널을 전부 내야 하는지는 캠페인이 정한다**(2026-09-21).
+        //   「또는」(or) 캠페인은 셋 중 하나만 내면 되는데도 전부 요구해, 조건대로 하나만 낸
+        //   회원에게 「아직 안 냈다」는 안내가 계속 갔다(운영 방문형 3건 · 80명).
+        //   - or          : 하나라도 냈으면 안내하지 않는다
+        //   - and·single  : 종전 그대로 — 안 낸 채널이 하나라도 있으면 안내한다
         //   채널이 기록 안 된 옛 캠페인은 채널별로 따질 근거가 없어 종전대로 「하나라도 있으면 멈춤」.
+        //   ⚠️ **인증 성공 판정(마이그레이션 331)은 아직 전부 요구한다** — 그쪽은 2단계에서 고친다.
+        //      그 사이 어긋남은 「메일이 덜 가는」 방향이고, 인증·정산은 지금도 막혀 있어 더 나빠지지 않는다.
         const requiredPostChannels = (camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+        const postKind = campaignChannelKind(camp);
         const missingPost = requiredPostChannels.length > 0
-          ? requiredPostChannels.filter((ch) => !delivInfo.postChannels.has(ch))
+          ? (postKind === "or"
+              ? (requiredPostChannels.some((ch) => delivInfo.postChannels.has(ch)) ? [] : requiredPostChannels)
+              : requiredPostChannels.filter((ch) => !delivInfo.postChannels.has(ch)))
           : (delivKinds.has("post") ? [] : ["*"]);
         if (missingPost.length > 0) {
           const d = dateDiffDays(camp.submission_end, todayDate);
@@ -967,7 +1021,13 @@ Deno.serve(async (req: Request) => {
         // 캠페인에 요구 채널이 하나도 없으면(데이터 미비) 어느 채널이 미완료인지 판정 불가 —
         // 잘못된 안내를 보내느니 발송하지 않는다.
         if (requiredChannels.length > 0) {
-          const missingChannels = requiredChannels.filter((ch) => !delivInfo.reviewChannels.has(ch));
+          // 🔴 **요구한 채널을 전부 내야 하는지는 캠페인이 정한다**(2026-09-21, 2단계).
+          //   게시물 쪽은 1단계가 이미 이렇게 고쳤고, 여기는 인증 성공 판정과 **함께** 고친다
+          //   (안내만 멈추면 「안내는 안 오는데 인증은 막힌」 지금보다 나쁜 상태가 된다).
+          const reviewKind = campaignChannelKind(camp);
+          const missingChannels = reviewKind === "or"
+            ? (requiredChannels.some((ch) => delivInfo.reviewChannels.has(ch)) ? [] : requiredChannels)
+            : requiredChannels.filter((ch) => !delivInfo.reviewChannels.has(ch));
           if (missingChannels.length > 0) {
             const d = dateDiffDays(camp.submission_end, todayDate);
             if (d === 5 || d === 1) {
@@ -979,8 +1039,13 @@ Deno.serve(async (req: Request) => {
                   app: a,
                   deadlineDate: camp.submission_end,
                   dMinus: d,
-                  missingChannels,
-                  requiredChannelCount: requiredChannels.length,
+                  // 🔴 「또는」 캠페인에는 채널 이름을 병기하지 않는다 — 하나만 내면 되는데
+                  //   「인스타그램・X・틱톡」을 나열하면 **셋 다 내라는 말**로 읽힌다.
+                  //   `reviewImageKindLabel` 은 값이 없으면 「レビュー認証写真」만 쓴다.
+                  //   ⚠️ 둘 다 안 넘긴다 — `requiredChannelCount` 는 채널 이름표를 조회할지
+                  //      정하는 데만 쓰여, 남겨 두면 쓰지도 않을 조회가 한 번 더 돈다.
+                  missingChannels: reviewKind === "or" ? undefined : missingChannels,
+                  requiredChannelCount: reviewKind === "or" ? undefined : requiredChannels.length,
                 });
               }
             }

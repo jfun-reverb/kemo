@@ -376,11 +376,16 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
 #policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
 #policyNoticeModal.on{display:flex}
-#policyNoticeModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-sheet{width:100%;max-width:var(--shell-max);max-height:70vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
 #policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 #policyNoticeModal .legal-title{font-size:15px;font-weight:700}
 #policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
 #policyNoticeModal .legal-body{padding:18px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--ink)}
+/* 위 .legal-sheet 의 높이 상한은 70vh 다(#legalModal 의 90vh 와 다르다 — 통지 글이 길어 화면을 거의 다 덮는다는 지적, 2026-09-17).
+   ⚠️ 상한을 낮추면 본문 맨 아래 문단이 스크롤 아래로 숨는다 → 「아래에 더 있다」는 흐림 표시를 함께 둔다.
+      ::after 는 본문 끝에 놓인 빈 칸인데 sticky 라 스크롤 중에는 보이는 영역 맨 아래에 붙어 글을 흐리고,
+      끝까지 내리면 제자리(글 뒤)로 돌아가 아무것도 안 가린다. 그래서 스크롤이 없을 때도 가리는 것이 없다. */
+#policyNoticeModal .legal-body::after{content:'';display:block;position:sticky;bottom:-18px;height:40px;margin:0 -18px -18px;background:linear-gradient(rgba(255,255,255,0),#fff 85%);pointer-events:none}
 .policy-notice-actions{flex-shrink:0;display:flex;gap:8px;padding:12px 16px 18px;border-top:1px solid var(--line)}
 .policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
@@ -508,6 +513,11 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
   #appShell .modal-overlay{align-items:center}
   .login-prompt-overlay{align-items:center}
+  /* 🔴 아래 붙는 오버레이는 넷이다(.modal-overlay · .login-prompt-overlay · #legalModal · #policyNoticeModal).
+     뒤의 둘은 .modal-overlay 클래스를 안 쓰고 자기 id 로 아래에 붙어 있어 첫 줄에 안 걸린다 —
+     빠뜨리면 카드 모양(둥근 네 모서리)만 바뀌고 자리는 아래에 남는다. */
+  #legalModal{align-items:center}
+  #policyNoticeModal{align-items:center}
   #appShell .modal{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   #legalModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
   #policyNoticeModal .legal-sheet{max-width:var(--reading-max);border-radius:20px;animation:sheetFadeIn .18s ease}
@@ -780,8 +790,11 @@ html.preview-mode #page-detail .detail-back{display:none}
   .invite-gate-hint{max-width:var(--reading-max)}
   .dpb-step{max-width:var(--reading-max)}
 }
-/* ⚠️ 가로 전용 70vh 규칙은 없앴다(2026-09-11) — 위 35vh 가 방향과 무관하게 더 작아
-   항상 이긴다. 남겨 두면 「가로에서만 다른 값」이라는 착각을 만든다. */
+/* ⚠️ 가로 전용 70vh 규칙은 없앴다(2026-09-11) — 위 상한이 방향과 무관하게 더 작아
+   항상 이긴다. 남겨 두면 「가로에서만 다른 값」이라는 착각을 만든다.
+   🔴 여기에 값을 다시 적지 않는다 — 그 값은 2026-09-11 에 70vh → 35vh, 2026-09-14 에
+      35vh → 50vh 로 **두 번** 바뀌었고 그때마다 이 주석이 제일 먼저 낡았다.
+      지금 값은 위 `#campSlider` 규칙 한 곳에만 둔다. */
 
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
@@ -2275,7 +2288,7 @@ html.preview-mode #page-detail .detail-back{display:none}
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n="profile.paypalNoAccount">PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。</span>
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
         <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
@@ -2919,13 +2932,30 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
-// 「촬영 가이드」 칸의 이름표 — 리뷰어형(monitor)은 「리뷰 가이드」(2026-09-10 사용자 지시).
+// 「촬영 가이드」 칸의 이름표 — **새 판 리뷰어형**(자율/지정을 고른 캠페인)만 「리뷰 가이드」(2026-09-10 지시 → 2026-09-22 범위 축소).
+//   🔴 판정은 「캠페인 설명 / 구매 가이드」(campaignDescSectionLabel)와 **같은 기준**이다 — 형식만 보고 바꾸면
+//     운영 중인 리뷰어형 캠페인 전부의 제목이 한꺼번에 바뀌어 혼선이 생긴다(2026-09-22 사용자 지적).
+//     두 이름표는 짝이라 한쪽만 새 이름이 되지 않게 같은 조건을 쓴다.
 //   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
 //   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
-function campaignGuideSectionLabel(recruitType, lang) {
-  const isReview = recruitType === 'monitor';
-  if (lang === 'ja') return isReview ? 'レビューガイド' : '撮影ガイド';
-  return isReview ? '리뷰 가이드' : '촬영 가이드';
+function campaignGuideSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? 'レビューガイド' : '撮影ガイド';
+  return isNew ? '리뷰 가이드' : '촬영 가이드';
+}
+
+// 「캠페인 설명」 칸의 화면 이름 (사양서 2026-09-16 §4-3·§4-12)
+// 🔴 형식만 받지 않고 캠페인을 통째로 받는다 — 판정에 `recruit_type` 과 `purchase_guide_mode` 둘 다 필요하다.
+//   리뷰어형이라고 다 바뀌는 것이 아니다: 운영 중인 리뷰어형 캠페인은 그 칸에 제품·브랜드 설명이 들어 있어,
+//   이름만 바꾸면 **설명 글이 구매 안내처럼 읽힌다**. 그래서 **자율/지정을 고른 캠페인만** 새 이름을 쓴다.
+// ⚠️ 폼에서는 저장된 캠페인이 아니라 **화면의 현재 선택**으로 임시 객체를 만들어 넘긴다
+//   (저장된 값을 넘기면 고른 즉시 안 바뀐다). 「값이 있으면 새 판」의 정의처는 §4-12.
+function campaignDescSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? '購入ガイド' : 'キャンペーン説明';
+  return isNew ? '구매 가이드' : '캠페인 설명';
 }
 
 const CAMPAIGN_FIELD_LABELS = {
@@ -2938,7 +2968,9 @@ const CAMPAIGN_FIELD_LABELS = {
   recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
   purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
   submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
-  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',   // 화면 이름표는 형식별(campaignGuideSectionLabel) — 이력 표는 형식을 모르니 둘을 함께 적는다
+  // 화면 이름표는 형식·판별(campaignGuideSectionLabel·campaignDescSectionLabel)에 따라 갈리지만,
+  // 🔴 이력 표는 그 캠페인이 어느 형식·어느 판인지 모른다 → 둘을 함께 적는다
+  description: '캠페인 설명·구매 가이드', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',
   hashtags: '필수 해시태그', mentions: '필수 멘션',
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
@@ -3760,22 +3792,12 @@ function extractSnsHandle(channel, raw) {
   return withoutAt.replace(/\s+/g, '');
 }
 
-// 핸들로 프로필 URL 생성. 빈 핸들이면 빈 문자열 반환.
-function snsProfileUrl(channel, handle) {
-  if (!handle) return '';
-  const h = String(handle).replace(/^@+/, '');
-  if (!h) return '';
-  switch (channel) {
-    case 'instagram': return `https://instagram.com/${encodeURIComponent(h)}`;
-    case 'x':         return `https://x.com/${encodeURIComponent(h)}`;
-    case 'tiktok':    return `https://tiktok.com/@${encodeURIComponent(h)}`;
-    case 'youtube':
-      // UCxxxxx 형태면 채널 ID 경로
-      if (/^UC[A-Za-z0-9_-]{20,}$/.test(h)) return `https://youtube.com/channel/${encodeURIComponent(h)}`;
-      return `https://youtube.com/@${encodeURIComponent(h)}`;
-    default: return '';
-  }
-}
+// 🔴 `snsProfileUrl` 은 2026-09-21 에 없앴다 — **되살리지 말 것.**
+//    같은 일을 하는 판정이 두 벌이라 같은 계정이 엑셀·리포트에서는 정상 링크인데
+//    화면에서는 깨진 링크로 나왔다. 이제 **`_reportAcctCell`(dev/js/report-rows.js)** 한 벌이
+//    링크·화면 글자·「@」를 붙일지를 모두 정한다(사양서 `docs/specs/2026-09-18-sns-account-url-unify.md`).
+//    ⚠️ 그 함수는 관리자 번들에만 있다 — 인플루언서 화면에서 계정 링크가 필요해지면
+//       그 파일을 인플루언서 빌드 목록에 더하는 것이 먼저다(옛 함수를 되살리는 것이 아니라).
 
 // ──────────────────────────────────────
 // 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용
@@ -3948,6 +3970,10 @@ const PANE_REFRESHERS = {
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
   },
+  // 광고 추적(메타 픽셀) — 로더 이름은 admin-core.js switchAdminPane 의 loaders 와 같아야 한다
+  'ad-tracking': async () => {
+    if (typeof loadAdTrackingPane === 'function') await loadAdTrackingPane();
+  },
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
@@ -4005,16 +4031,20 @@ function genderLabel(code) {
 }
 
 // ══════════════════════════════════════
-// 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+// 정책 변경 통지 — 통지 한 번마다 아래 상수와 i18n `policyNotice.*`(ja·ko) 를 갈아 끼운다
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-22 → 시행일 2026-07-22(공고+30일).
-  id: 'agePolicy2026',          // localStorage 키 식별자
-  effectiveDate: '2026-07-22',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
-  noticeUntil: '2026-08-05',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
+  // 일반 문의 창구 개설 + 개인정보처리방침 개정(문의 범위 확대·보관 기간 표기 정정) 예고.
+  //   공고일 2026-09-29 → 시행일 2026-10-06(공고+7일). 근거 사양서 docs/specs/2026-05-21-general-inquiry-desk.md §10
+  //   ⚠️ 메타 픽셀 공지(metaPixel2026, ~10-17)를 대체한다 — 공지 틀이 하나뿐이라서(2026-09-29 사용자 결정. 픽셀은 메일 통지 완료)
+  //   ⚠️ 본문의 「お問い合わせ」「その他のお問い合わせ」는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
+  id: 'inquiryDesk2026',        // localStorage 키 식별자 — 통지마다 새 값(옛 값이면 지난 공지를 닫은 사람에게 안 뜬다)
+  effectiveDate: '2026-10-06',  // 시행일(본문 {date} 표기용) = 창구 개설일
+  // 노출 종료일 = 시행일. 이 날 0시(KST)부터 자동 비노출 — 본문이 「10월 5일까지」 기간과 「10월 6일부터」 예고를 말하므로
+  noticeUntil: '2026-10-06',
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
@@ -4134,7 +4164,7 @@ const UPCOMING_FEATURES = [
     key: 'age-policy-2026',
     title: '연령 정책 (만 18세 이상)',
     desc: '가입·응모 시 생년월일·성별을 입력받습니다. 만 18세 미만은 캠페인 응모가 제한됩니다.',
-    effectiveDate: '2026-07-22',  // 공고 2026-06-22 + 30일. 약관 부칙·age_policy_settings·POLICY_NOTICE 와 동일 시행일
+    effectiveDate: '2026-07-22',  // 공고 2026-06-22 + 30일. 약관 부칙·age_policy_settings 와 동일 시행일
   },
   {
     key: 'message-translation-2026',
@@ -4421,9 +4451,38 @@ const OB_CATEGORY_SERIES = {
   tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
 };
 
+// ══════════════════════════════════════
+// 메타 픽셀 — 이벤트 이름·상태 값의 **유일한 정의처** (사양서 docs/specs/2026-09-03-meta-pixel.md)
+//   🔴 이벤트 이름을 바꾸면 메타 쪽에서 전후가 **다른 이벤트로 쌓여** 집계가 끊기고 광고 학습이
+//      처음부터 다시 시작된다 — 이름은 여기서만 고정하고 관리 화면은 표로 보여주기만 한다(결정 5).
+//   ⚠️ 이 목록은 세 곳이 한 세트다: 아래 두 상수 ↔ 사양서 「심는 이벤트」 표 ↔ 개인정보처리방침
+//      §8.1 「송신되는 정보」. 이벤트를 더하거나 빼면 셋을 함께 고친다.
+//   ⚠️ 관리자 앱에는 픽셀을 심지 않는다(사양서 ⑥) — 여기 상수는 관리 화면이 표를 그리는 용도로만 쓴다.
+// ══════════════════════════════════════
+const META_PIXEL_EVENTS = {
+  PAGE_VIEW:             'PageView',
+  VIEW_CONTENT:          'ViewContent',
+  COMPLETE_REGISTRATION: 'CompleteRegistration',
+  SUBMIT_APPLICATION:    'SubmitApplication',
+};
+// 가입 이벤트(CompleteRegistration)를 둘로 가르는 상태 값 — 운영은 이메일 확인이 필수라 폼 제출 ≠ 회원
+const META_PIXEL_REG_STATUS = {
+  PENDING_EMAIL: 'pending_email',
+  CONFIRMED:     'confirmed',
+};
+// 관리 화면 「보내는 이벤트」 표(읽기 전용) — 호출은 다섯, 이름은 넷(3·4번이 같은 이름에 상태 값만 다르다)
+const META_PIXEL_EVENT_TABLE = [
+  { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
+  { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했을 때 (이메일 확인 전)',              params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '같은 브라우저에서 확인 링크를 열어 이메일 확인이 끝났을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
+];
+
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
-  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22)
+  // ── 메뉴(페인) 23개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22,
+  //     2026-09-15 menu.ad-tracking 추가로 23)
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -4447,14 +4506,16 @@ const ADMIN_PERMISSION_CATALOG = [
   //    슈퍼관리자는 이 메뉴를 숨길 수 없다(PERM_SUPER_LOCKED + 서버 271). 등급 2종은 자유.
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.errors',             label_ko: '오류 로그',                    category: '관리자 설정', server_enforced: false },
+  { key: 'menu.ad-tracking',        label_ko: '광고 추적',                    category: '관리자 설정', server_enforced: false },
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
   // menu.permissions 는 2026-07-29 카탈로그에서 제거됨 — 사이드바 「권한 관리」 상설 항목을
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 23개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 25개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
-  //       2026-09-03 report.export·report.share 둘을 더해 23. ⚠️ 같은 날 더한
+  //       2026-09-03 report.export·report.share 둘을 더해 23, 2026-09-15 ad_tracking.manage 로 24,
+  //       2026-09-16 application.restore_cancelled 로 25. ⚠️ 2026-09-03 에 더한
   //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
   //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
   { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
@@ -4486,6 +4547,16 @@ const ADMIN_PERMISSION_CATALOG = [
   //    request_withdrawal_for_member·cancel_withdrawal_admin(357)이 has_permission 으로
   //    서버 강제 → server_enforced=true. 화면 버튼 숨김은 표시 제어일 뿐이다.
   { key: 'withdrawal.proxy_request',      label_ko: '회원 대신 탈퇴 신청·되돌리기',                  category: '회원 관리',    server_enforced: true },
+  // ── 광고 추적(메타 픽셀) 1개 — 마이그레이션 439 role_permissions 시드와 1:1 ──
+  //    update_meta_pixel_settings(438)가 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 439 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 438) — 철자가 하나만 달라도 조용히 거부된다.
+  { key: 'ad_tracking.manage',            label_ko: '광고 추적 켜기·끄기·픽셀 아이디 저장',          category: '관리자 설정',  server_enforced: true },
+  // ── 신청 취소 되돌리기 1개 — 마이그레이션 441 role_permissions 시드와 1:1 ──
+  //    restore_cancelled_application(440)이 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 441 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 440) — 철자가 하나만 달라도 조용히 거부된다.
+  //    ⚠️ 한계: 관리자 누구나 applications 표를 직접 수정하는 경로(기존 승인·미승인과 같은 경로)는 그대로라,
+  //       이 설정이 막는 것은 **이 함수와 화면 버튼**뿐이다(사양서 ⑧).
+  { key: 'application.restore_cancelled', label_ko: '신청 취소 되돌리기(회원 본인 취소를 원래 상태로)', category: '캠페인',       server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -4512,7 +4583,8 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
-  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request'
+  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request',
+  'ad_tracking.manage', 'application.restore_cancelled'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
@@ -5768,7 +5840,7 @@ window.I18N_JA = {
     paypalEmail: 'PayPal メールアドレス',
     paypalConfirm: '確認のため再入力',
     paypalHint: '報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。',
-    paypalNoAccount: 'PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。',
+    paypalBusinessRequired: '報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。',
     paypalSaveBtn: 'PayPal情報を保存',
     currentPw: '現在のパスワード',
     newPw: '新しいパスワード',
@@ -5890,11 +5962,12 @@ window.I18N_JA = {
       suggestHead: 'こちらで解決できるか確認してみましょう',
     },
   },
-  // 政策変更の告知（お問い合わせ機能の追加・規約改定、2026-05-27 即時施行・リリース案内）
+  // 政策変更の告知 — 一般お問い合わせ窓口の開設 + 個人情報処理方針の改定（2026-09-29 公告 → 2026-10-06 施行）
+  //   ⚠️ メール通知なし（アプリ内のみ）。{date} は施行日。
   policyNotice: {
-    title: '満18歳以上のご利用への変更・規約改定のお知らせ',
-    body: 'いつもREVERBをご利用いただきありがとうございます。<br><br>{date}より、REVERBは満18歳以上の方のみご利用いただけるよう変更されます。あわせて、登録情報に「生年月日」と「性別」が追加されます。<br><br>■ 変更内容<br>1. 満18歳以上の方のみキャンペーンにご応募いただけます。<br>2. ご応募の際に生年月日をご入力ください（一度入力すると変更できません）。<br>3. 性別もご入力ください（「回答しない」も選べます）。<br><br>■ ご確認いただきたいこと<br>・満18歳未満の方は、施行日以降、新しいご応募ができなくなります。<br>・すでに当選・進行中のキャンペーンには影響しません。そのままお進めいただけます。<br><br>くわしくはアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。',
-    banner: '満18歳以上の方のみご利用いただけるよう変更されます。規約・個人情報処理方針を改定しました。',
+    title: '「お問い合わせ」窓口ができます',
+    body: 'いつも REVERB JP をご利用いただきありがとうございます。<br><br>■ {date}から<br>キャンペーンのこと以外でも、運営チームにお問い合わせできるようになります。<br><br>■ お問い合わせのしかた<br>1. 右上のメニュー（≡）をひらく<br>2. 「お問い合わせ」をえらぶ<br>3. 「その他のお問い合わせ」をえらんで、送る<br><br>■ 個人情報処理方針も変わります<br>これにあわせて、お問い合わせ内容の保管について個人情報処理方針を改定しました（10月6日から）。<br>くわしくは、下の「詳しく見る」またはアプリ下部の「個人情報処理方針」をご覧ください。<br><br>■ 同意できない場合<br>2026年10月5日までにお申し出がない場合は、同意いただいたものとみなします。<br>同意できない場合は、メニューの「退会する」から退会できます。',
+    banner: '10月6日から「お問い合わせ」窓口ができます（個人情報処理方針の改定あり）。くわしくはこちら。',
     detailBtn: '詳しく見る',
     closeBtn: '今後表示しない',
   },
@@ -6718,7 +6791,7 @@ window.I18N_KO = {
     paypalEmail: 'PayPal 이메일',
     paypalConfirm: '확인을 위해 다시 입력',
     paypalHint: '리워드는 PayPal로 송금됩니다. 수령용 PayPal 이메일을 등록해주세요.',
-    paypalNoAccount: 'PayPal 계정이 없어도 수령 시 이메일로 안내가 옵니다.',
+    paypalBusinessRequired: '보수를 받으려면 PayPal 「비즈니스 계정」이 필요합니다.<br>1. 개인 계정인 분도 새로 만들 필요는 없습니다. PayPal 「설정」에서 바꾸실 수 있습니다. 바꾸실 때 하시는 일의 내용 등을 입력하는 화면이 나올 수 있습니다.<br>2. 바꾸신 뒤 본인확인을 마쳐 주세요.',
     paypalSaveBtn: 'PayPal 정보 저장',
     currentPw: '현재 비밀번호',
     newPw: '새 비밀번호',
@@ -6838,11 +6911,12 @@ window.I18N_KO = {
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
     },
   },
-  // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+  // 정책 변경 통지 — 일반 문의 창구 개설 + 개인정보 처리방침 개정(2026-09-29 공고 → 2026-10-06 시행)
+  //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.
   policyNotice: {
-    title: '만 18세 이상 이용 변경·약관 개정 안내',
-    body: '항상 REVERB를 이용해 주셔서 감사합니다.<br><br>{date}부터 REVERB는 만 18세 이상만 이용하실 수 있도록 변경됩니다. 아울러 가입 정보에 「생년월일」과 「성별」이 추가됩니다.<br><br>■ 변경 내용<br>1. 만 18세 이상만 캠페인에 응모하실 수 있습니다.<br>2. 응모 시 생년월일을 입력해 주세요(한 번 입력하면 변경할 수 없습니다).<br>3. 성별도 입력해 주세요(「응답하지 않음」도 선택 가능).<br><br>■ 확인해 주세요<br>· 만 18세 미만은 시행일 이후 새로운 응모가 불가합니다.<br>· 이미 당첨·진행 중인 캠페인에는 영향이 없습니다.<br><br>자세한 내용은 앱 하단 「이용약관」「개인정보처리방침」에서 확인해 주세요.',
-    banner: '만 18세 이상만 이용하실 수 있도록 변경됩니다. 약관·개인정보처리방침을 개정했습니다.',
+    title: '「문의」 창구가 생깁니다',
+    body: '늘 REVERB JP 를 이용해 주셔서 감사합니다.<br><br>■ {date}부터<br>캠페인 말고 다른 일로도 운영팀에 문의할 수 있습니다.<br><br>■ 문의하는 방법<br>1. 오른쪽 위 메뉴(≡)를 연다<br>2. 「문의하기」를 고른다<br>3. 「그 외 문의」를 골라 보낸다<br><br>■ 개인정보 처리방침도 바뀝니다<br>이에 맞춰 문의 내용 보관에 관한 부분을 개정했습니다(10월 6일부터).<br>자세한 내용은 아래 「자세히 보기」나 앱 아래쪽 「개인정보 처리방침」에서 봐 주세요.<br><br>■ 동의하지 않는 경우<br>2026년 10월 5일까지 아무 말씀이 없으시면 동의하신 것으로 봅니다.<br>동의하지 않으시면 메뉴의 「회원 탈퇴」에서 탈퇴하실 수 있습니다.',
+    banner: '10월 6일부터 「문의」 창구가 생깁니다(개인정보 처리방침 개정 포함). 자세한 내용은 여기로.',
     detailBtn: '자세히 보기',
     closeBtn: '다시 보지 않기',
   },
@@ -7270,6 +7344,8 @@ async function retryWithRefresh(fn) {
 }
 
 // PostgREST 기본 1000행 제한 우회: range() 반복으로 전체 수집
+// 🔴 여러 행을 돌려주는 원격 호출 함수(db.rpc)도 같은 상한에 걸린다 — 반드시 이 함수로 감싸고
+//    .order() 로 고유 순서를 고정할 것(2026-09-21 「과거 미등록」 1,306건 중 1,000건만 보이던 사고).
 // buildQuery: 매 반복마다 새 query builder 반환하는 함수 (filter/order 이미 적용)
 async function fetchAllPaged(buildQuery, pageSize = 1000) {
   const all = [];
@@ -7292,8 +7368,11 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 async function fetchRolePermissions() {
   if (!db) return [];
   try {
-    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level, default_level');
-    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    // 등급 × 기능이라 기능이 늘면 1,000행을 넘는다 — 넘으면 권한이 조용히 빠지므로 끊어 받는다
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('role_permissions').select('role, feature_key, access_level, default_level').order('role').order('feature_key'));
+    } catch (error) { console.warn('role_permissions 로드 실패(fail-open):', error?.message); return []; }
     return data || [];
   } catch (e) {
     console.warn('role_permissions 로드 예외(fail-open):', e?.message);
@@ -7431,8 +7510,7 @@ async function fetchCampaignsForAdminList() {
 async function fetchCampaignApplicationCountsOrNull() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_application_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_application_counts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = { total: Number(row.total || 0), approved: Number(row.approved || 0), pending: Number(row.pending || 0) };
       return map;
@@ -7440,11 +7518,45 @@ async function fetchCampaignApplicationCountsOrNull() {
   } catch(e) { console.error('fetchCampaignApplicationCountsOrNull:', e); return null; }
 }
 
+// 캠페인별 「조치가 필요한 경고」 — 서버 함수 get_campaign_action_alerts()(마이그레이션 434).
+//   판정이 화면이 아니라 서버에 있다. 운영현황 일정 뷰와 관리자 일일 메일이 **같은 결과**를 읽는다.
+//   사양서 docs/specs/2026-09-11-admin-digest-deadline-section.md §3-2
+//
+// 🔴 실패는 null, 0건은 빈 맵({}) — 둘을 반드시 가른다.
+//    0건이면 경고가 하나도 없는 정상 상태이고, 실패면 판정 근거를 못 받은 것이라
+//    화면이 그 둘을 같게 그리면 「경고 없음」과 「모르는 상태」가 구분되지 않는다.
+// 🔴 실패를 조용히 넘기지 않는다 — console.error 로 남긴다. 화면은 아무것도 안 그리므로
+//    기록이 없으면 0건과 실패를 눈으로 구분할 방법이 사라진다(사양서 §3-6 ③).
+async function fetchCampaignActionAlertsOrNull() {
+  if (!db) return null;
+  try {
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_action_alerts').order('campaign_id'));
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        level: row.level,
+        codes: row.reason_codes || [],
+        status: row.status,
+        daysLeft: (row.days_left === null || row.days_left === undefined) ? null : Number(row.days_left),
+        deadline: row.deadline,
+        submissionEnd: row.submission_end,
+        slots: Number(row.slots || 0),
+        approved: Number(row.approved_count || 0),
+        certCapped: Number(row.cert_capped || 0),
+        uncert: Number(row.uncert_count || 0),
+        campaignNo: row.campaign_no,
+        title: row.campaign_title,
+        brand: row.brand_name,
+        recruitType: row.recruit_type,
+      };
+      return map;
+    }, {});
+  } catch(e) { console.error('fetchCampaignActionAlertsOrNull:', e); return null; }
+}
+
 async function fetchCampaignApplicationCounts() {
   if (!db) return {};
   try {
-    const { data, error } = await db.rpc('get_campaign_application_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_application_counts').order('campaign_id'));
     // 배열을 campaign_id 키 맵으로 변환
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
@@ -7471,8 +7583,7 @@ async function fetchCampaignApplicationCounts() {
 async function fetchCampaignDeliverableCounts() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_deliverable_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_deliverable_counts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
         receipt_submitted: Number(row.receipt_submitted || 0),
@@ -8943,12 +9054,18 @@ async function fetchDeliverableGate(applicationId) {
 async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
-    const {data, error} = await db?.from('influencers_admin_view')
-      .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-      .in('id', userIds);
-    if (error) throw error;
+    // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
+    //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
+    //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    const ids = [...new Set(userIds)];
     const map = {};
-    (data || []).forEach(i => { map[i.id] = i; });
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(inf => { map[inf.id] = inf; });
+    }
     return map;
   } catch(e) { return {}; }
 }
@@ -9015,8 +9132,8 @@ async function createCampaignReport(title, campaignIds, includeAudit) {
 async function fetchCampaignReports() {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('list_campaign_reports');
-    if (error) throw error;
+    // 함수가 최근 만든 순으로 준다 — 끊어 받을 때도 같은 순서 + 고유 열쇠로 고정한다
+    const data = await fetchAllPaged(() => db.rpc('list_campaign_reports').order('o_created_at', {ascending: false}).order('o_id'));
     // ⚠️ 반환 칸에 o_ 접두어가 붙어 있다(42702 모호한 참조 회피 — 마이그레이션 405).
     //    화면이 그 접두어를 알 이유가 없으므로 여기서 벗겨서 넘긴다.
     return (data || []).map(function(r) {
@@ -9098,6 +9215,12 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17).
+// 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+//    ①REPORT_CHANNELS(report-rows.js) ②get_report_share_data(449)의 코드 ↔ 회원 표 칸 짝
+//    ③_excelSnsUrl 의 채널별 주소 줄 ④**바로 이 select 문** — 칸 이름이 글자로 나열돼 있다.
+//    ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(여기 칸이 없어 값이 비고,
+//       ③이 없어 링크도 안 걸린다 — 조용히 빈 칸으로 보인다).
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -9106,7 +9229,7 @@ async function fetchInfluencersForReport(userIds) {
   try {
     for (let i = 0; i < ids.length; i += 200) {
       const {data, error} = await db.from('influencers_admin_view')
-        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
         .in('id', ids.slice(i, i + 200));
       if (error) throw error;
       (data || []).forEach(function(r) { map[r.id] = r; });
@@ -9395,8 +9518,8 @@ async function fetchCampaignVersion(id) {
 async function fetchChannelDriftAlerts() {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('detect_channel_code_drift');
-    if (error) throw error;
+    // 함수의 순서(층·캠페인 번호·채널)를 그대로 따르고 고유하게 끝을 맺는다
+    const data = await fetchAllPaged(() => db.rpc('detect_channel_code_drift').order('layer').order('campaign_no').order('channel_code').order('campaign_id').order('kind'));
     return Array.isArray(data) ? data : [];
   } catch(e) {
     console.warn('[fetchChannelDriftAlerts]', e);
@@ -10054,15 +10177,18 @@ async function fetchAdminNotices(filters) {
   if (!db) return [];
   try {
     const uid = (await db.auth.getUser()).data?.user?.id;
-    let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
-    if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
-    if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
-    q = q.order('is_pinned', {ascending: false})
-         .order('pinned_at', {ascending: false, nullsFirst: false})
-         .order('published_at', {ascending: false, nullsFirst: false})
-         .order('created_at', {ascending: false});
-    const {data, error} = await q;
-    if (error) throw error;
+    // 끊어 받을 때 쿼리를 페이지마다 새로 만든다(같은 객체에 range 를 거듭 걸지 않는다)
+    const buildQuery = () => {
+      let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
+      if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      return q.order('is_pinned', {ascending: false})
+        .order('pinned_at', {ascending: false, nullsFirst: false})
+        .order('published_at', {ascending: false, nullsFirst: false})
+        .order('created_at', {ascending: false})
+        .order('id');
+    };
+    const data = await fetchAllPaged(buildQuery);
     return (data || []).map(n => {
       const mine = (n.admin_notice_reads || []).find(r => r.auth_id === uid);
       return {...n, is_read: !!mine, read_at: mine?.read_at || null, admin_notice_reads: undefined};
@@ -10233,10 +10359,9 @@ async function fetchCompanies({ status = 'active', search } = {}) {
 async function getBrandOpsOverview(companyId) {
   if (!db) return [];
   try {
-    const {data, error} = await db.rpc('get_brand_ops_overview', {
+    const data = await fetchAllPaged(() => db.rpc('get_brand_ops_overview', {
       p_company_id: companyId || null
-    });
-    if (error) throw error;
+    }).order('brand_id'));
     return data || [];
   } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
 }
@@ -10433,8 +10558,12 @@ async function fetchCampaignCountsByBrand() {
 
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
 // 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
+// 🔴 **실패는 `null`, 0건은 `0`** — 2026-09-21 에 바꿨다. 그전에는 실패에도 `0` 을 돌려줘서
+//    브랜드 상세가 「캠페인 없음 → 삭제 가능」으로 **오판**했고(조회가 실패했을 뿐인데),
+//    병합 확인창은 「캠페인 0건을 옮깁니다」라고 **거짓 안내**했다. 둘 다 되돌릴 수 없는 동작이다.
+//    ⚠️ 호출부는 실패(`null`)와 0건(`0`)을 반드시 갈라야 한다 — 뭉치면 그 사고가 되살아난다.
 async function countCampaignsByBrand(brandId) {
-  if (!db) return 0;
+  if (!db) return null;
   try {
     // 보관 삭제된 캠페인 제외 — 서버의 브랜드 삭제 판정(마이그레이션 325)과 같은 기준.
     //   기준이 어긋나면 화면은 「0개」인데 삭제는 「캠페인이 남아 있다」로 막힌다.
@@ -10442,7 +10571,100 @@ async function countCampaignsByBrand(brandId) {
       .is('deleted_at', null).eq('brand_id', brandId);
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
+  } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
+}
+
+// ══ 브랜드 영업 메모 (마이그레이션 466, 사양서 2026-09-23-brand-memo-entries) ══
+//   오리엔시트 내부 메모(297)와 같은 방식 — 서버 함수 없이 표를 직접 읽고 쓴다.
+//   ⚠️ 조회 실패는 **null**, 0건은 **[]**. 화면이 「불러오지 못했습니다」와 「메모 없음」을 다르게 그린다.
+async function fetchBrandMemos(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {data, error} = await db.from('brand_memos')
+      .select('id, brand_id, body_html, author_id, author_name, created_at, updated_at')
+      .eq('brand_id', brandId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandMemos]', e); return null; }
+}
+
+async function insertBrandMemo(brandId, bodyHtml, authorId, authorName) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_memos')
+        .insert({ brand_id: brandId, body_html: bodyHtml, author_id: authorId || null, author_name: authorName || null })
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 낙관적 잠금을 일부러 걸지 않는다(마지막 저장 승리 — 297 과 같은 결정)
+async function updateBrandMemo(memoId, bodyHtml) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_memos')
+        .update({body_html: bodyHtml})
+        .eq('id', memoId)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 목록 「메모」 열 — 브랜드마다 최신 1건 + 건수. 조회는 **딱 한 번**(브랜드마다 부르면 77번이 된다).
+//   🔴 실패는 `null`, 0건은 `{}` — 옆 「오리엔시트 수」 열과 같은 규칙(실패를 0으로 그리면 「메모가 없다」는 거짓말).
+//   ⚠️ 1,000행 상한 대비 `fetchAllPaged` + 고유 정렬. 최신 판정은 받아 온 뒤 화면에서 한다.
+async function fetchBrandMemoSummaries() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('brand_memos')
+      .select('brand_id, body_html, created_at')
+      .order('created_at', {ascending: false}).order('id', {ascending: true}));
+    const out = {};
+    (rows || []).forEach(r => {
+      if (!r.brand_id) return;
+      const cur = out[r.brand_id];
+      if (!cur) { out[r.brand_id] = { count: 1, latest_body: r.body_html, latest_at: r.created_at }; return; }
+      cur.count += 1;
+      if (!cur.latest_at || (r.created_at && r.created_at > cur.latest_at)) { cur.latest_body = r.body_html; cur.latest_at = r.created_at; }
+    });
+    return out;
+  } catch(e) { console.error('[fetchBrandMemoSummaries]', e); return null; }
+}
+
+async function deleteBrandMemo(memoId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('brand_memos').delete().eq('id', memoId);
+      if (error) throw error;
+      return true;
+    });
+    return {ok: true};
+  } catch(e) { console.error('[deleteBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 상세 모달 「캠페인」 탭 — 그 브랜드의 캠페인 목록(보관 삭제분 제외).
+//   🔴 기준은 `countCampaignsByBrand`(바로 위)와 **글자 그대로 같다**(`brand_id` + `deleted_at IS NULL`) —
+//      어긋나면 탭 라벨의 건수와 실제 목록 길이가 달라져 「몇 건이 맞나」를 운영자가 판단하게 된다.
+//   ⚠️ 실패 `null` / 0건 `[]`. 화면이 둘을 다른 문구로 그린다(마이그레이션 276 원칙).
+//   ⚠️ 칸은 한 줄 표시에 필요한 것만 — 기간 문구 판정(`campaignPeriodRowKind`)이 구매·방문 기간을 읽으므로 함께 받는다.
+async function fetchCampaignsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('campaigns')
+      .select('id,campaign_no,title,status,recruit_type,proxy_purchase,channel,channel_match,img1,recruit_start,deadline,submission_end,purchase_start,purchase_end,visit_start,visit_end')
+      .is('deleted_at', null).eq('brand_id', brandId)
+      .order('created_at', {ascending:false}).order('id', {ascending:true}));
+  } catch(e) { console.error('[fetchCampaignsByBrand]', e); return null; }
 }
 
 // 브랜드 할당 모달용 조회
@@ -10482,6 +10704,20 @@ async function fetchBrandApplicationsByBrand(brandId) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchBrandApplicationsByBrand]', e); return []; }
+}
+
+// 브랜드 서베이(brand_applications) 신청 건수 — 브랜드 상세 삭제 판정·안내줄용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6).
+// 🔴 실패는 null, 0건은 0 — 둘을 반드시 구분한다(마이그레이션 276 원칙). 호출부는
+//   null 이면 삭제 버튼을 아예 안 그리고 「일부 정보를 불러오지 못해 삭제를 잠갔습니다」로 안내한다.
+async function countBrandApplicationsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {count, error} = await db.from('brand_applications').select('id', {count:'exact', head:true})
+      .eq('brand_id', brandId);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[countBrandApplicationsByBrand]', e); return null; }
 }
 
 // 광고주 신청 메모 (multi-entry, migration 080 + 123 — 제품별 분리)
@@ -10550,8 +10786,7 @@ async function deleteBrandAppMemo(memoId) {
 async function fetchBrandAppMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.rpc('get_brand_app_memo_summaries');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_brand_app_memo_summaries').order('application_id').order('product_idx'));
     const summary = {};
     (data || []).forEach(r => {
       const key = r.application_id + '_' + (r.product_idx || 0);
@@ -10674,8 +10909,7 @@ async function markOrientMemosRead(sheetId) {
 async function fetchOrientMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.rpc('get_orient_sheet_memo_summaries');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_orient_sheet_memo_summaries').order('orient_sheet_id').order('card_uid'));
     const summary = {};
     (data || []).forEach(r => {
       summary[r.orient_sheet_id + '_' + r.card_uid] = {
@@ -10693,10 +10927,8 @@ async function fetchOrientMemoSummaries() {
 async function fetchBrandAppHistoryCounts() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.from('brand_application_history')
-      .select('application_id', {count: 'exact', head: false})
-      .limit(100000);
-    if (error) throw error;
+    // ⚠️ .limit(100000) 은 효과가 없었다 — 서버가 1,000행에서 자른다. 끊어 받는다.
+    const data = await fetchAllPaged(() => db.from('brand_application_history').select('application_id').order('id'));
     const counts = {};
     (data || []).forEach(r => { counts[r.application_id] = (counts[r.application_id] || 0) + 1; });
     return counts;
@@ -10905,6 +11137,27 @@ async function fetchAdminEmailSubscriptions(adminIds) {
   return map;
 }
 
+// 관리자별 최근 접속 시각 — 관리자 계정 목록의 「최근 접속」 열(마이그레이션 436 → 437).
+// 반환은 일반 객체 `{ 관리자id: 시각 }` (Map 객체가 아니다 — .get() 이 아니라 [] 로 읽는다).
+// 시각 = last_active_at(로그인·로그인 연장 중 늦은 쪽, 437). 🔴 last_sign_in_at 만 쓰면
+//   로그인 상태를 유지한 채 오늘 쓴 사람이 「어제」로 보인다(2026-09-15 실측).
+//   437 이 적용 안 된 서버(칸 없음)에서는 last_sign_in_at 으로 떨어진다 — 배포 순서가
+//   어긋나도 열이 비지 않게. 함수·함수 이름은 호출 자리를 안 바꾸려고 그대로 뒀다.
+// 🔴 실패에 null, 0건에 {} 로 **구분해서** 돌려준다.
+//    바로 위 fetchAdminEmailSubscriptions 는 오류에도 {} 를 돌려주는데, 그건 이 저장소가
+//    반복해서 데인 「조회 실패를 0건으로 뭉개는」 형태다 — 여기서는 따라 하지 않는다.
+//    화면은 null 이면 그 열을 아예 안 그린다(빈 날짜가 줄줄이 뜨는 것보다 낫다).
+// ⚠️ 서버가 슈퍼관리자가 아니면 42501 로 거부한다 — 그래서 화면은 슈퍼일 때만 부른다.
+//    (반드시 실패할 것을 부르면 콘솔에 오류가 쌓여 「고장인가」 하는 오해를 만든다)
+async function fetchAdminLastSignIn() {
+  if (!db) return null;
+  const {data, error} = await db.rpc('get_admin_last_sign_in');
+  if (error) { console.error('[fetchAdminLastSignIn]', error); return null; }
+  const map = {};
+  for (const row of data || []) map[row.admin_id] = row.last_active_at || row.last_sign_in_at || null;
+  return map;
+}
+
 // 메일 종류 카탈로그 (lookup_values kind='admin_email_kind')
 // 모달의 체크박스 목록을 동적 렌더하기 위함.
 async function fetchAdminEmailKinds() {
@@ -10972,6 +11225,35 @@ async function cancelApplication(applicationId, opts) {
     //   같은 거부가 여기서 「예상 못 한 오류」로 한 번 더 쌓인다(2026-09-02 운영 실측).
     logAppError('cancelApplication', e, CANCEL_APPLICATION_EXPECTED);
     return {ok: false, error: msg};
+  }
+}
+
+// 관리자가 회원 본인 취소 신청을 취소 직전 상태로 되돌린다 (마이그레이션 440).
+//   성공     : { ok:true, restored_status:'pending'|'approved', on_hold_settlement_count:<정수> }
+//   서버 거부: { ok:false, error_code:'forbidden'|'memo_required'|'not_found'|'not_cancelled'|
+//                'withdrawal_related'|'previous_status_not_restorable'|'campaign_deleted'|
+//                'event_campaign'|'active_application_exists'|'slots_full' }
+//   통신 실패·예외: null
+// 🔴 **거부와 통신 실패를 반드시 구분한다.** 거부는 서버가 판정한 정상 결과라 화면이 코드별
+//    전용 문구를 띄우고, null 은 「서버에 닿지 못했다」라서 문구가 달라야 한다. 둘을 하나로
+//    합치면 「알 수 없는 오류」가 되어 사양서 「하나도 뭉뚱그리지 않는다」를 어긴다.
+// ⚠️ 이 함수는 거부를 예외로 던지지 않는다(서버가 jsonb 로 돌려준다) — 예외는 통신·세션
+//    문제뿐이므로 걸러 낼 「정상 거부 목록」이 필요 없다.
+async function restoreCancelledApplication(appId, memo) {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('restore_cancelled_application', {
+        p_application_id: appId,
+        p_memo:           memo || null
+      });
+      if (error) throw error;
+      return data;
+    });
+  } catch(e) {
+    console.error('[restoreCancelledApplication]', e);
+    logAppError('restoreCancelledApplication', e);
+    return null;
   }
 }
 
@@ -11554,8 +11836,10 @@ async function unhideApplicationMessage(messageId, reasonMemo) {
 // 반환: Map<application_id, unread_count> (응모행 배지·받은편지함 개인 강조용)
 async function fetchAdminMessageUnreadCounts() {
   if (!db) return new Map();
-  const {data, error} = await db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null });
-  if (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null }).order('application_id'));
+  } catch (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
   const map = new Map();
   (data || []).forEach(r => map.set(r.application_id, Number(r.unread_count) || 0));
   return map;
@@ -11649,24 +11933,25 @@ async function fetchAdminSentAtMap() {
 // 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
 //   숨김/회수 메시지는 제외(미리보기 노출 부적절). created_at 내림차순 후 클라에서 첫 행=최신.
 //   반환: Map<application_id, {body, sender_kind, created_at}>
-//   ⚠️ PostgREST 1000행 cap: 청크당 application 100개 + limit 1000. 한 청크 내
-//      메시지 밀도가 매우 높으면(application 평균 10건 초과) 뒤쪽 응모건 미리보기가
-//      누락될 수 있음. 미리보기는 보조 정보라 치명적이지 않음. 정밀도 필요 시
-//      차후 「응모건당 최신 1건」 전용 RPC 로 개선 권장.
+//   PostgREST 1000행 cap: 청크(응모 100건) 안에서도 끊어 받는다(2026-09-21 — 예전에는
+//      limit 1000 이라 메시지가 많은 청크에서 뒤쪽 응모건 미리보기가 빠졌다).
+//      더 가볍게 하려면 「응모건당 최신 1건」 전용 서버 함수가 낫다(후속).
 async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
-  const CHUNK = 100;  // application_id 청크 (청크당 1000행 cap 내 평균 10건 커버)
+  const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
   for (let i = 0; i < applicationIds.length; i += CHUNK) {
     const ids = applicationIds.slice(i, i + CHUNK);
-    const {data, error} = await db?.from('application_messages')
-      .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
-      .in('application_id', ids)
-      .is('hidden_by_admin_at', null)
-      .is('self_withdrawn_at', null)
-      .order('created_at', { ascending: false })
-      .limit(1000);
-    if (error) { console.warn('[fetchMessagePreviews]', error); continue; }
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('application_messages')
+        .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
+        .in('application_id', ids)
+        .is('hidden_by_admin_at', null)
+        .is('self_withdrawn_at', null)
+        .order('created_at', { ascending: false })
+        .order('id'));
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
     (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
   }
   return map;
@@ -11817,12 +12102,13 @@ async function updateBroadcastTitle(broadcastId, title) {
 // 관리자용 전체 노드 (active 무관) — 트리 렌더용. sort_order → created_at 정렬
 async function fetchFaqNodes() {
   if (!db) return [];
-  const {data, error} = await db?.from('faq_nodes')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
-  return data || [];
+  try {
+    return await fetchAllPaged(() => db.from('faq_nodes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'));
+  } catch (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
 }
 
 // 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
@@ -12291,16 +12577,22 @@ async function submitOrientSheet(token, data, version) {
 //   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
 // 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
 //   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
-//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel
-async function createOrientSheet(brandId, applicationId, formType, channel) {
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+// [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
+//   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
+//      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.
+//      안 보내면 옛 4인자 함수도, 새 5인자 함수(DEFAULT NULL)도 그대로 받는다 — 배포 순서가 뒤집혀도 평소 발급은 산다.
+async function createOrientSheet(brandId, applicationId, formType, channel, recruitFeeKrw) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
-    const { data, error } = await db.rpc('create_orient_sheet', {
+    const params = {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
       p_form_type: formType || null,
       p_channel: channel || null,
-    });
+    };
+    if (recruitFeeKrw !== null && recruitFeeKrw !== undefined) params.p_recruit_fee_krw = recruitFeeKrw;
+    const { data, error } = await db.rpc('create_orient_sheet', params);
     if (error) throw error;
     return data;
   });
@@ -12327,6 +12619,85 @@ async function updateQuoteSetting(key, amount) {
     if (error) throw error;
     return data;
   });
+}
+
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 메타 픽셀 설정 (마이그레이션 438) ──
+// 관리 화면 조회: 관리자 전원. 반환 {meta_pixel_id, enabled, policy_effective_date, updated_at, status, history[]}
+//   🔴 실패는 null — 화면은 「불러오지 못했습니다」를 그리고 스위치를 그리지 않는다.
+//   status 는 서버가 정한다(policy_locked·no_pixel_id·disabled·active) — 화면이 날짜를 비교하지 말 것.
+async function fetchMetaPixelAdmin() {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('get_meta_pixel_admin');
+      if (error) throw error;
+      return (data && typeof data === 'object') ? data : null;
+    });
+  } catch (e) {
+    console.error('[fetchMetaPixelAdmin]', e);
+    return null;
+  }
+}
+// 저장(아이디·켜기·끄기): 서버 가드 has_permission('ad_tracking.manage','write').
+//   반환 { ok: true } | { ok: false, error_code } — error_code:
+//   forbidden · invalid_input · invalid_pixel_id · policy_not_in_effect · request_failed(통신·예외)
+async function updateMetaPixelSettings(pixelId, enabled) {
+  if (!db) return { ok: false, error_code: 'request_failed' };
+  try {
+    const data = await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('update_meta_pixel_settings', {
+        p_meta_pixel_id: pixelId == null ? null : String(pixelId),
+        p_enabled: !!enabled,
+      });
+      if (error) throw error;
+      return data;
+    });
+    if (data && data.success === true) return { ok: true };
+    return { ok: false, error_code: (data && data.reason) || 'request_failed' };
+  } catch (e) {
+    console.error('[updateMetaPixelSettings]', e);
+    return { ok: false, error_code: 'request_failed' };
+  }
+}
+// 인플루언서 앱용 조회(비로그인·로그인). 반환: 아이디 문자열 | '' (전송하지 않음) | null (조회 실패)
+//   🔴 '' 와 null 을 합치지 않는다 — 사양서 흐름 7 이 둘을 같은 방향(불러오지 않음)으로 다루더라도
+//      실패 기록·재조회 판정은 구분해야 한다. 이 함수는 절대 throw 하지 않는다(화면을 막지 않는다).
+async function fetchPublicMetaPixelId() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_public_meta_pixel_id');
+    if (error) throw error;
+    return typeof data === 'string' ? data : null;
+  } catch (e) {
+    console.error('[fetchPublicMetaPixelId]', e);
+    if (typeof logAppError === 'function') logAppError('fetchPublicMetaPixelId', e);
+    return null;
+  }
 }
 
 // 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
@@ -12412,7 +12783,7 @@ async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
 // 기존 캠페인과 연결(발행 처리). 마이그레이션 237.
 // 서버가 브랜드 일치·전역 중복(다른 시트/카드에서 이미 이 캠페인을 쓰는지) 검증.
 // 반환 reason: not_found/permission_denied/invalid_status/invalid_card/
-//   already_published/campaign_not_found/brand_mismatch/campaign_already_linked
+//   already_published/campaign_not_found/brand_mismatch/recruit_type_mismatch(464)/campaign_already_linked
 async function linkOrientCardToCampaign(orientId, cardIdx, campaignId) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
@@ -12526,6 +12897,37 @@ async function revokePushToken(token) {
     console.error('[revokePushToken]', e);
     return { ok: false, error: e?.message || 'unknown' };
   }
+}
+
+// 브랜드에 발급된 오리엔시트 전체 — 브랜드 상세 「오리엔시트」 구역용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6). 최신 발급순.
+// data 는 형식(osCardsSummary)·제품명·견적(osQuoteState)·발행 캠페인 표시에 전부 쓰여 반드시 받는다.
+//   orient_sheets.form_type 칸은 형식 표시 함수가 안 읽으므로(새 시트=data.issued, 옛 시트=data.cards) 안 받는다.
+// 🔴 1,000행 상한 대응 — 브랜드당 건수를 실측하지 않았으므로 fetchAllPaged 로 전건 반복 조회한다
+//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문(fetchCampaignCountsByBrand)을 본뜨지 않는다.
+// 실패 null / 0건 [].
+async function fetchOrientSheetsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false }));
+  } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
+}
+
+// 브랜드별 오리엔시트 수 일괄 집계 — 브랜드 목록 「오리엔시트 수」 컬럼용. {brand_id: count} 반환.
+//   뜻은 fetchCampaignCountsByBrand 와 같다(전건 반복 조회 + 클라 집계) — 단 반복 도우미는
+//   fetchAllPaged 로 통일한다(사양서 §1-1·§4-6, 손수 짠 while 반복문을 본뜨지 않는다).
+// 🔴 실패는 null, 0건은 {} — 둘을 반드시 구분한다(마이그레이션 276 원칙).
+async function fetchOrientSheetCountsByBrand() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const counts = {};
+    (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
+    return counts;
+  } catch (e) { console.error('[fetchOrientSheetCountsByBrand]', e); return null; }
 }
 
 // ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
@@ -12856,9 +13258,11 @@ async function deleteOutboundImage(path) {
 async function fetchPastUnregisteredSettlements() {
   if (!db) return null;   // [B-9] 「실패 = null」 계약 — 아래 주석. 저장소가 없으면 모르는 것이지 0건이 아니다.
   try {
-    const {data, error} = await db.rpc('get_past_unregistered_settlements');
-    if (error) throw error;
-    return data || [];
+    // 🔴 1,000행 상한 — 한 번에 부르면 PostgREST 가 1,000건에서 **표시 없이** 자른다.
+    //    2026-09-21 운영 실측: 실제 1,306건인데 화면·지급 준비 합계가 1,000건만 봤다
+    //    (「또는」 채널 소급 80건 중 59건이 잘린 쪽에 있었다). 함수에 ORDER BY 가 없어
+    //    끊어 받을 때 순서가 흔들리지 않게 application_id 로 고정한다.
+    return await fetchAllPaged(() => db.rpc('get_past_unregistered_settlements').order('application_id'));
   } catch(e) {
     console.error('[fetchPastUnregisteredSettlements]', e);
     // ⚠️ **[] 로 바꾸지 말 것.** 실패를 빈 목록으로 돌려주면 「보낼 것이 없음」과 구분이
@@ -13685,6 +14089,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// 이벤트 속성(onclick 등) 안의 **자바스크립트 문자열 값**용 — 따옴표까지 붙은 문자열 리터럴을 돌려준다.
+//   🔴 `onclick="f('${esc(x)}')"` 는 안전하지 않다 — 브라우저가 속성값을 읽을 때 `&#39;`·`&quot;` 를
+//   따옴표로 되돌린 뒤 자바스크립트로 해석해서, 값 속 따옴표가 문자열을 빠져나온다(2026-09-28 전수조사 3차 H-1).
+//   먼저 JSON 문자열로 만들고(역슬래시·따옴표 처리) 그다음 HTML 로 바꾼다. 사용: `onclick="f(${jsStr(x)})"`
+function jsStr(s) {
+  return esc(JSON.stringify(s == null ? '' : String(s)));
+}
+
 // 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
 function debounce(fn, wait = 300) {
   let timer = null;
@@ -13900,12 +14312,20 @@ function formatDateTime(d) {
   if (isNaN(dt.getTime())) return '';
   return formatDate(dt) + ' ' + formatTimeHm(dt);
 }
-function dDayLabel(d) {
+// D배지 — 'D-Day' / 'D-n' / 'D+n'. 관리자 목록 전반이 이 규약을 쓴다.
+// opts.muted = 「기한은 남아 있지만 더 재촉할 일이 없다」 — 남은 날과 무관하게 항상 흐린 회색.
+//   ⚠️ 색만 죽이고 글자는 그대로 둔다. 글자 만드는 규칙을 따로 복사하면
+//      나중에 한쪽만 고쳐져 화면마다 다른 말을 한다(이 저장소의 반복 사고 유형).
+//   현재 쓰는 곳: 오리엔시트 목록의 작성기한(제출이 끝난 시트).
+function dDayLabel(d, opts) {
   if (!d) return '';
   const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
-  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+  const muted = !!(opts && opts.muted);
+  const color = muted ? 'var(--muted)' : diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  const bg = muted ? 'rgba(0,0,0,.03)' : 'rgba(0,0,0,.06)';
+  const extra = muted ? ';opacity:.55' : '';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:${bg};padding:1px 5px;border-radius:4px;margin-left:4px${extra}">${text}</span>`;
 }
 // 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
 //   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
@@ -14161,6 +14581,10 @@ document.addEventListener('keydown', (e) => {
     //   목록의 안 읽은 수가 예전 숫자로 남는다(다음 목록 재조회 전까지).
     } else if (top.id === 'orientDetailModal' && typeof osCloseModal === 'function') {
       osCloseModal('orientDetailModal');
+    // 견적서 창은 닫을 때 끼워 넣은 화면을 비우고 메시지 수신기를 걷어야 한다 — 일반 closeModal 이면 둘 다 남는다.
+    //   ⚠️ 포커스가 끼워 넣은 화면(iframe) 안에 있으면 ESC 가 이 처리기에 안 온다(다른 출처) — 그때는 닫기 단추로 닫는다
+    } else if (top.id === 'orientQuoteModal' && typeof osCloseQuoteDoc === 'function') {
+      osCloseQuoteDoc();
     // 저장 확인 창은 버튼이 둘 다 「나간다」라, ESC 가 **폼으로 돌아가는 유일한 길**이다.
     //   그냥 닫으면 예약해 둔 이동 함수가 남아 다음 판단을 흐린다 — 전용 취소로 위임한다.
     } else if (top.id === 'campLeaveModal' && typeof campLeaveCancel === 'function') {
@@ -14811,6 +15235,290 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get rendered() { return state.cursor; },
     get total() { return state.rows.length; },
   };
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 메타 픽셀 — 인플루언서 앱 공용 전송 함수 (사양서 docs/specs/2026-09-03-meta-pixel.md)
+// ════════════════════════════════════════════════════════════════════
+// 사양서 「인플루언서 앱 쪽 흐름」 1~7 과 ⑯(민감 주소)을 이 파일 하나의 상태 기계로 옮겼다.
+//   작업표 docs/specs/2026-09-15-meta-pixel-breakdown.md 「작업 5」.
+//
+// 🔴 인플루언서 앱 전용. 관리자 앱(dev/admin/index.html · ADMIN_JS_FILES)에는 넣지 않는다(사양서 ⑥).
+// 🔴 이벤트 이름·상태 값은 여기 문자열로 쓰지 말고 dev/lib/shared.js 의
+//    META_PIXEL_EVENTS · META_PIXEL_REG_STATUS 를 쓴다(이름 고정 — 결정 5).
+// 🔴 아이디는 dev/lib/storage.js fetchPublicMetaPixelId() 로만 받는다 — '' = 보내지 않음, null = 조회 실패.
+// 🔴 고급 매칭(이메일·전화 등 회원 정보)을 넘기지 않는다 — fbq('init') 에 세 번째 인자를 절대 붙이지 말 것(결정 11).
+//    붙이면 「메타의 직접 취득이라 동의가 필요 없다」는 법적 전제가 무너진다.
+// 🔴 **그런데 「자동 고급 매칭」은 이 코드로 못 막는다** — 메타 이벤트 관리자의 **설정**이라,
+//    여기서 세 번째 인자를 안 붙여도 그 설정이 켜져 있으면 픽셀이 스스로 회원 정보를 보낸다.
+//    메타 공식 문서: "To automatically implement advanced matching use the Events Manager."
+//    (https://developers.facebook.com/docs/meta-pixel/advanced/advanced-matching/)
+//    ⚠️ 코드만 읽고 「안 보낸다」고 단정하지 말 것 — **이벤트 관리자에서 꺼져 있는지 눈으로** 확인한다.
+// 🔴 어떤 실패도 화면을 막지 않는다 — 공개 함수는 전부 try/catch 로 삼킨다.
+//
+// 상태 셋(흐름 5):
+//   'pending' 판정 전 — 수동 이벤트를 버리지 않고 줄에 쌓는다(부팅 중 확인 링크 착지·광고 링크 상세 진입)
+//   'on'      켜짐   — 바로 보낸다
+//   'off'     꺼짐   — 버리고 줄도 비운다(미리보기·민감 주소·아이디 없음·잠금·조회 실패 등 사유 무관)
+
+// 흐름 1 — 관리자 캠페인 미리보기는 처음부터 꺼짐. 표시는 dev/index.html 머리의 스크립트가
+//   이 파일보다 먼저 <html> 에 붙인다.
+let _metaPixelState = (function () {
+  try { return document.documentElement.classList.contains('preview-mode') ? 'off' : 'pending'; }
+  catch (e) { return 'off'; }
+})();
+let _metaPixelQueue = [];
+let _metaPixelLoginSeq = 0;       // 로그인 순번 — 조회 도중 로그인이 있었는지 가른다(흐름 7)
+let _metaPixelBootReached = false; // 흐름 2 자리에 왔는가
+let _metaPixelFetching = false;    // 조회가 진행 중인가(부팅·로그인 재조회 공통)
+let _metaPixelUserId = null;       // 마지막으로 본 로그인 계정 — 로그인 「전이」 판정용(S3)
+let _metaPixelLoaded = false;      // 픽셀 스크립트를 이미 불러왔는가(한 탭에 한 번)
+
+const META_PIXEL_QUEUE_MAX = 50;   // 판정 전 줄 상한 — 조회가 멈춰도 메모리가 계속 늘지 않게
+const META_PIXEL_SCRIPT_URL = 'https://connect.facebook.net/en_US/fbevents.js';
+
+// ── 민감 주소 판정 (사양서 ⑯ · 작업표 S1·S2) ─────────────────────────────
+//   🔴 판정은 **이 함수 한 곳**이다. 밖에서 따로 만들지 않는다(작업표 공유 지점 7).
+//   🔴 검색부(location.search)와 해시(location.hash) **둘 다** 본다 — 이 앱은 값을 두 자리에 싣는다.
+//   대상(2026-09-15 코드·메일 링크 대조로 확정):
+//     code          가입 확인 코드 `?code=` (검색부)
+//     invite        초대 번호 `#detail-{id}?invite=`
+//     token         수신거부 토큰 `#unsubscribe?token=` — 이 값이면 남의 수신 설정을 끌 수 있다
+//     token_hash    비밀번호 재설정 `#reset-pw?token_hash=` — 🔴 이 값이면 남의 비밀번호를 바꿀 수 있다
+//     access_token / refresh_token, type=recovery   옛 방식 재설정 해시 `#access_token=…&type=recovery`
+//     promo_token   홍보 메일 캠페인 링크 `#detail-{id}?promo_token=` — 값이 수신거부 토큰과 **같다**
+//                   (notify-campaign-promo-digest). 앱이 읽지 않아 주소에 그대로 남는다
+//   ⚠️ 이름에 token 이 들어간 열쇠는 목록에 없어도 민감으로 본다 — 새 링크가 생겨도 새지 않는 쪽으로.
+const META_PIXEL_SENSITIVE_KEYS = ['code', 'invite'];
+
+function _metaPixelParamSources() {
+  const out = [];
+  if (location.search) out.push(location.search.replace(/^\?/, ''));
+  const h = (location.hash || '').replace(/^#/, '');
+  if (h.includes('?')) out.push(h.slice(h.indexOf('?') + 1));
+  else if (h.includes('=')) out.push(h); // 옛 방식 해시 — `#access_token=…&type=recovery`
+  return out;
+}
+
+function metaPixelUrlHasSensitiveValue() {
+  try {
+    for (const src of _metaPixelParamSources()) {
+      for (const [rawKey, rawVal] of new URLSearchParams(src)) {
+        const key = rawKey.toLowerCase();
+        if (META_PIXEL_SENSITIVE_KEYS.includes(key) || key.includes('token')) return true;
+        if (key === 'type' && String(rawVal).toLowerCase() === 'recovery') return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    return true; // 판정이 깨지면 새지 않는 쪽 — 이 방문은 픽셀을 불러오지 않는다
+  }
+}
+
+// ── 픽셀 불러오기 ────────────────────────────────────────────────────────
+//   메타 공식 설치 코드와 같은 동작을 읽기 쉽게 풀어 쓴 것이다. 스크립트가 도착하기 전 호출은
+//   fbq 가 자체 줄에 담아 두었다가 도착하면 보낸다.
+function _metaPixelLoadScript(pixelId) {
+  if (_metaPixelLoaded) return;
+  _metaPixelLoaded = true;
+  if (!window.fbq) {
+    const fbq = function () {
+      if (fbq.callMethod) fbq.callMethod.apply(fbq, arguments);
+      else fbq.queue.push(arguments);
+    };
+    fbq.push = fbq; fbq.loaded = true; fbq.version = '2.0'; fbq.queue = [];
+    window.fbq = fbq;
+    if (!window._fbq) window._fbq = fbq;
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = META_PIXEL_SCRIPT_URL;
+    document.head.appendChild(s);
+  }
+  // 자동 이벤트(버튼 클릭·페이지 정보 수집) 끄기 — 회원 정보를 보내지 않는다는 전제(결정 11)를
+  //   코드 쪽에서도 지킨다(다만 위 머리말대로 「자동 고급 매칭」은 이것으로도 안 막힌다).
+  // ✅ 이 설정은 **화면 전환 페이지뷰와 별개 스위치**다(2026-09-18 공식 문서로 확정 — 옛 주석의
+  //   「영향을 주는지 확인한다」는 이제 답이 있다). 화면 전환 페이지뷰를 끄는 것은 `disablePushState`
+  //   이고 메타는 그것을 끄지 말라고 권한다("it is not recommended").
+  //   (https://developers.facebook.com/docs/meta-pixel/implementation/tag_spa/)
+  window.fbq('set', 'autoConfig', false, pixelId);
+  window.fbq('init', pixelId); // 🔴 세 번째 인자(고급 매칭) 금지 — 결정 11
+  window.fbq('track', META_PIXEL_EVENTS.PAGE_VIEW); // 흐름 3 — 초기화 시 페이지뷰 1회
+}
+
+function _metaPixelSend(name, params) {
+  try {
+    if (typeof window.fbq !== 'function') return;
+    if (params) window.fbq('track', name, params);
+    else window.fbq('track', name);
+  } catch (e) { /* 전송 실패가 화면을 막지 않는다 */ }
+}
+
+function _metaPixelFlush() {
+  const q = _metaPixelQueue;
+  _metaPixelQueue = [];
+  q.forEach(ev => _metaPixelSend(ev.name, ev.params));
+}
+
+function _metaPixelSetOff() {
+  _metaPixelState = 'off';
+  _metaPixelQueue = [];
+}
+
+// ── 조회 (흐름 3·4·6·7) ──────────────────────────────────────────────────
+//   origin: 'boot'  부팅 조회 — 부정 결과면 꺼짐(흐름 4)
+//           'login' 켜진 탭의 로그인 재조회 — 부정 결과면 새로고침(흐름 6)
+//   🔴 부팅 조회가 흐름 7 로 다시 도는 경우도 origin 은 'boot' 그대로다(사양서 흐름 5 「꺼짐」 괄호).
+// ── 흐름 6 새로고침 보류 ─────────────────────────────────────────────────
+//   🔴 로그인 화면은 관리자 계정이면 `/admin/` 으로 옮긴다(auth.js handleLogin). 그 판정(관리자 표 조회)이
+//      끝나기 전에 여기서 새로고침하면 **이동 코드 자체가 실행되지 못해** 관리자가 인플루언서 화면에 남는다.
+//      로그인 사건 처리기(app.js)가 로그인 함수보다 먼저 불려 재조회를 시작하므로, 호출 순서를 바꾸는 것으로는
+//      못 막는다 → 로그인 화면이 처리하는 동안 새로고침을 **보류**하고, 일반 회원으로 끝나면 풀어 준다.
+//   ⚠️ 관리자로 끝나면 풀지 않는다(곧 다른 문서로 떠나 전송이 멈춘다). 오류로 끝나는 경로는 시간이 지나면
+//      저절로 풀린다 — 풀리지 않은 보류가 이후 로그인의 새로고침을 영영 막지 않게.
+//   ⚠️ 보류 중에도 상태는 판정 전이라 수동 이벤트는 줄에 남아 나가지 않는다.
+const META_PIXEL_RELOAD_HOLD_MS = 15000;
+let _metaPixelReloadHoldUntil = 0;
+let _metaPixelReloadWanted = false;
+let _metaPixelLeaving = false;     // 페이지를 떠나기 시작했는가(보류·재조회 동안만 듣는다)
+function _metaPixelOnLeave() { _metaPixelLeaving = true; }
+
+function _metaPixelMaybeReload() {
+  if (!_metaPixelReloadWanted || _metaPixelLeaving) return;
+  if (Date.now() < _metaPixelReloadHoldUntil) return;
+  _metaPixelReloadWanted = false;
+  location.reload();
+}
+
+// 로그인 화면이 로그인 요청 **직전**에 부른다. 반환 없음 — 풀기는 metaPixelReleaseReload().
+function metaPixelHoldReload() {
+  try {
+    _metaPixelReloadHoldUntil = Date.now() + META_PIXEL_RELOAD_HOLD_MS;
+    window.addEventListener('beforeunload', _metaPixelOnLeave);
+    setTimeout(_metaPixelMaybeReload, META_PIXEL_RELOAD_HOLD_MS + 50);
+  } catch (e) { /* 보류 실패가 로그인을 막지 않는다 */ }
+}
+
+// 로그인 화면이 **일반 회원으로 끝났을 때만** 부른다(관리자로 이동하는 갈래에서는 부르지 않는다).
+function metaPixelReleaseReload() {
+  try {
+    _metaPixelReloadHoldUntil = 0;
+    if (!_metaPixelFetching) window.removeEventListener('beforeunload', _metaPixelOnLeave);
+    _metaPixelMaybeReload();
+  } catch (e) { /* 새로고침 실패가 화면을 막지 않는다 */ }
+}
+
+async function _metaPixelFetch(origin) {
+  _metaPixelFetching = true;
+  _metaPixelState = 'pending';
+  // 떠나기 시작하면 브라우저가 알려 주는 사건을 재조회 동안에도 듣는다(상시로 달면 뒤로가기 캐시에 영향)
+  if (origin === 'login') window.addEventListener('beforeunload', _metaPixelOnLeave);
+  let id = null;
+  // 흐름 7 — 응답(성공·실패)을 받았는데 그사이 로그인이 있었으면 결과를 쓰지 않고 다시 묻는다.
+  //   반복은 조회 도중 일어난 로그인 횟수를 넘지 않는다.
+  for (;;) {
+    const seq = _metaPixelLoginSeq;
+    try { id = await fetchPublicMetaPixelId(); } catch (e) { id = null; }
+    if (seq === _metaPixelLoginSeq) break;
+  }
+  // 보류 중이면 떠남 감지를 계속 둔다 — 보류가 끝나기 전 관리자 이동이 시작될 수 있다
+  if (origin === 'login' && Date.now() >= _metaPixelReloadHoldUntil) {
+    window.removeEventListener('beforeunload', _metaPixelOnLeave);
+  }
+  _metaPixelFetching = false;
+  try {
+    _metaPixelApplyResult(origin, id);
+  } catch (e) {
+    // 부르는 쪽이 기다리지 않는 비동기라 여기서 새면 처리 안 된 오류가 된다 — 꺼짐으로 닫는다
+    _metaPixelSetOff();
+    if (typeof logAppError === 'function') logAppError('metaPixelApplyResult', e);
+  }
+}
+
+// 앱이 이미 알고 있는 「관리자·감사용 계정」 표시 — 서버 판정(438)의 **보조** 확인이다.
+//   🔴 로그인 직후 조회가 드물게 로그인 정보 없이 나가면(라이브러리가 매 호출 저장소를 다시 읽다 실패하는 경우 —
+//      2026-09-10 운영 실측, docs/research/2026-09-10-signup-confirm-link-misrouted-to-reset.md) 서버는 비로그인으로
+//      보고 아이디를 준다. 픽셀은 한 번 불러오면 걷어낼 수 없어, 앱이 아는 표시가 있으면 아이디를 받아도 쓰지 않는다.
+//   ⚠️ 관리자 표 조회가 픽셀 조회보다 늦게 끝나면 이 표시가 아직 없다 — 완전한 차단이 아니라 확률을 줄이는 장치다.
+function _metaPixelLocalExcluded() {
+  const u = (typeof currentUser !== 'undefined') ? currentUser : null;
+  const p = (typeof currentUserProfile !== 'undefined') ? currentUserProfile : null;
+  return !!(u && u._isAdmin === true) || !!(p && p.is_audit === true);
+}
+
+function _metaPixelApplyResult(origin, id) {
+  const ok = typeof id === 'string' && /^[0-9]+$/.test(id) && !_metaPixelLocalExcluded();
+  if (ok) {
+    // ⚠️ 이미 불러온 탭에서 아이디가 바뀌었으면 옛 아이디로 계속 보낸다(사양서 ⑬ — 새로고침 전까지)
+    _metaPixelLoadScript(id);
+    _metaPixelState = 'on';
+    _metaPixelFlush();
+    return;
+  }
+  if (origin === 'login') {
+    // 흐름 6 — 이유(관리자 계정·전체 끄기·아이디 삭제·잠금·통신 실패)를 가르지 않고 새로고침.
+    //   이미 불러온 픽셀은 걷어낼 수 없어 새로고침으로 확실히 멈춘다. 새로 켜진 앱이 부팅 조회로
+    //   다시 판정하고, 거기서도 실패하면 꺼짐으로 끝나 반복되지 않는다.
+    //   ⚠️ 로그인 화면이 처리 중이면 보류했다가 끝나면 새로고침한다(위 「새로고침 보류」). 상태는 판정 전으로
+    //      남겨 그사이 수동 이벤트는 줄에만 쌓인다.
+    _metaPixelReloadWanted = true;
+    _metaPixelMaybeReload();
+    return;
+  }
+  _metaPixelSetOff();
+}
+
+// ── 공개 함수 ────────────────────────────────────────────────────────────
+
+// 흐름 2 — app.js init() 의 세션 복원·방문자 집계 바로 뒤에서 부팅 1회 부른다.
+//   🔴 세션 복원 전에 부르면 관리자가 비로그인으로 보여 서버가 아이디를 내준다.
+//   🔴 민감 값 판정은 **여기서 한 번**이다 — 가입 확인 코드는 이 자리 전에 지워져 있어야
+//      4번 이벤트가 산다(작업표 S8, 사양서 ⑯ 표).
+function initMetaPixel() {
+  try {
+    if (_metaPixelBootReached) return;
+    _metaPixelBootReached = true;
+    _metaPixelUserId = (typeof currentUser !== 'undefined' && currentUser && currentUser.id) || null;
+    if (_metaPixelState === 'off') { _metaPixelSetOff(); return; } // 흐름 1(미리보기)
+    if (metaPixelUrlHasSensitiveValue()) { _metaPixelSetOff(); return; }
+    if (typeof fetchPublicMetaPixelId !== 'function') { _metaPixelSetOff(); return; }
+    _metaPixelFetch('boot');
+  } catch (e) {
+    _metaPixelSetOff();
+    if (typeof logAppError === 'function') logAppError('initMetaPixel', e);
+  }
+}
+
+// 수동 이벤트는 전부 이 함수를 거친다(흐름 5). 픽셀이 스스로 보내는 자동 페이지뷰는 거치지 않는다.
+//   name 은 META_PIXEL_EVENTS 값만 받는다 — 문자열을 직접 넘기면 조용히 버린다(이름 고정, 결정 5).
+function trackMetaPixelEvent(name, params) {
+  try {
+    if (!Object.values(META_PIXEL_EVENTS).includes(name)) return;
+    if (_metaPixelState === 'off') return;
+    if (_metaPixelState === 'on') { _metaPixelSend(name, params); return; }
+    if (_metaPixelQueue.length < META_PIXEL_QUEUE_MAX) _metaPixelQueue.push({name, params});
+  } catch (e) { /* 이벤트 기록 실패가 화면을 막지 않는다 */ }
+}
+
+// 흐름 6 — 로그인 사건 훅. app.js onAuthStateChange 와 auth.js handleLogin 두 자리에서 부른다.
+//   🔴 「로그인 사건」 = **로그인 계정이 바뀐 순간 한 번**(작업표 S3). app.js 처리기는 SIGNED_IN 과
+//      TOKEN_REFRESHED 를 한 조건으로 받으므로, 사건 이름으로 거르면 켜진 탭이 토큰 갱신마다
+//      재조회하고 관리자가 픽셀을 끈 뒤라면 응모서를 쓰던 화면이 새로고침된다. 그래서 계정
+//      고유번호로 가른다 — 같은 계정의 반복 호출(토큰 갱신·두 자리 중복 호출)은 전부 무시된다.
+//   🔴 이 함수 안에서 조회를 **기다리지(await) 말 것.** 토큰 갱신 알림은 라이브러리가 내부 빗장을 건 채
+//      보내므로, 여기서 조회 응답을 기다리면 빗장을 서로 기다리는 교착이 생긴다(supabase-js 2.116 확인).
+//   ⚠️ 로그아웃 때 기억을 비우지 않는다 — 같은 계정이 다시 로그인하면 관리자 여부가 바뀔 일이 없어
+//      재조회가 필요 없고, 다른 계정이면 고유번호가 달라 전이로 잡힌다.
+function notifyMetaPixelSignedIn(userId) {
+  try {
+    if (!_metaPixelBootReached) return; // 흐름 2 전 — 흐름 2 가 로그인 상태에서 판정한다
+    const uid = userId || null;
+    if (!uid || uid === _metaPixelUserId) return;
+    _metaPixelUserId = uid;
+    _metaPixelLoginSeq++;
+    if (_metaPixelFetching) return;       // 조회 중 — 흐름 7 이 순번을 보고 다시 묻는다
+    if (_metaPixelState !== 'on') return; // 꺼짐 — 탭 도중에 픽셀을 새로 불러오지 않는다
+    _metaPixelFetch('login');
+  } catch (e) { /* 재판정 실패가 로그인을 막지 않는다 */ }
 }
 
 // ══════════════════════════════════════
@@ -15558,6 +16266,14 @@ async function handleSignup(e) {
     // 문구는 그대로 모호하게 두되, 원문은 기록해 둔다(기가입 등 정상 거부는 자동 구분됨).
     if (error) { logAppError('handleSignup', error); showSignupFailure(errEl); btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
+      // 메타 픽셀 3번 이벤트 — 가입 폼 제출 성공(운영은 아직 이메일 확인 전이라 status=pending_email).
+      //   ⚠️ 이미 가입된 이메일로 다시 내면 인증 서비스가 오류 대신 **신원 목록이 빈** 가짜 사용자를 돌려준다
+      //      (계정 열거 방지). 그건 새 가입이 아니라 세지 않는다 — 화면 안내는 종전과 똑같다.
+      //   ⚠️ 개발서버는 확인 메일이 꺼져 바로 세션이 생기지만 같은 상태 값을 보낸다(사양서 1-검증 ⑦ — 감수).
+      const _isNewSignup = !(Array.isArray(data.user.identities) && data.user.identities.length === 0);
+      if (_isNewSignup && typeof trackMetaPixelEvent === 'function') {
+        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.PENDING_EMAIL });
+      }
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
         btn.disabled=false; btn.textContent=t('auth.signup.btn');
@@ -15612,6 +16328,9 @@ async function handleLogin(e) {
     btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
   }
 
+  // 메타 픽셀 새로고침 보류(흐름 6) — 로그인 요청 도중 픽셀 재조회가 먼저 끝나 새로고침하면 아래 관리자
+  //   이동(/admin/)이 실행되지 못한다. 일반 회원으로 끝나는 갈래에서만 풀고, 오류 경로는 시간이 지나면 풀린다.
+  if (typeof metaPixelHoldReload === 'function') metaPixelHoldReload();
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
@@ -15626,6 +16345,8 @@ async function handleLogin(e) {
       btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
     }
     currentUser = data.user;
+    // 메타 픽셀 로그인 재판정(흐름 6) — app.js 로그인 처리기와 둘 다 부르고 함수가 같은 계정 중복을 거른다
+    if (typeof notifyMetaPixelSignedIn === 'function') notifyMetaPixelSignedIn(data.user.id);
     // 관리자 테이블에서 확인
     const {data:adminData} = await db.from('admins').select('*').eq('auth_id', data.user.id).maybeSingle();
     if (adminData) {
@@ -15665,7 +16386,12 @@ async function handleLogin(e) {
       //   초대 복귀보다 먼저 — 아래 return 뒤에 두면 초대 링크로 들어온 사람만 푸시 등록이 빠진다.
       if (window._enablePush) { try { window._enablePush(); } catch(e){} }
       // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
-      if (typeof consumeInviteReturn === 'function' && consumeInviteReturn()) return;
+      const returnedToInvite = typeof consumeInviteReturn === 'function' && consumeInviteReturn();
+      // 일반 회원으로 끝났다 — 메타 픽셀 새로고침 보류를 푼다. 관리자 갈래에서는 부르지 않는다.
+      //   ⚠️ 초대 복귀 **뒤에** 푼다 — 복귀가 주소를 캠페인 상세로 바꿔 두어야 새로고침해도 그 자리로 온다
+      //      (복귀 기억은 한 번 쓰면 지워져, 먼저 새로고침하면 캠페인으로 못 돌아간다).
+      if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
+      if (returnedToInvite) return;
       navigate('home');
     }
   } catch(e) {
@@ -15950,6 +16676,11 @@ function showSignupFailure(errEl) {
 // CAMPAIGN DETAIL + APPLICATION
 // ══════════════════════════════════════
 
+// 메타 픽셀 「캠페인 상세 조회」를 마지막으로 보낸 캠페인 — 같은 상세를 다시 그릴 때 두 번 세지 않기 위한 기억.
+//   ⚠️ 「현재 캠페인 번호 + 활성 페이지」로 가르면 안 된다 — 초대 게이트(상세 페이지 안에 그려진다)를 통과해
+//      내용이 처음 보이는 호출이 「다시 그리기」로 잘못 걸려 영영 안 나간다(2026-09-15 리뷰 지적).
+let _pixelViewContentShownId = null;
+
 async function openCampaign(id) {
   const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
@@ -15973,6 +16704,11 @@ async function openCampaign(id) {
     return;
   }
 
+  // 메타 픽셀 「캠페인 상세 조회」를 이번에 보낼지 — 이 캠페인 내용을 이미 보여 준 상세 화면을 **다시 그리는**
+  //   호출(신청 완료·마감 거부·행사 대기 등록 뒤)은 세지 않는다. 다른 화면에 갔다가 다시 열면 센다.
+  //   판정은 화면 전환(아래 navigate) **전에** 한다.
+  const _pixelIsReRender = _pixelViewContentShownId === id
+    && document.querySelector('#appShell .page.active')?.id === 'page-detail';
   currentCampaignId = id;
 
   // 진입 출처 기록 — 뒤로가기가 들어온 화면으로 돌아가게 한다.
@@ -16334,7 +17070,7 @@ async function openCampaign(id) {
 
       ${camp.description ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.campaignDesc')}</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignDescSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
         <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
       </div>` : ''}
 
@@ -16357,7 +17093,7 @@ async function openCampaign(id) {
 
       ${camp.guide ? `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp.recruit_type, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
@@ -16528,6 +17264,12 @@ async function openCampaign(id) {
   navigate('detail-' + id);
   // iOS: 제목이 상단바 뒤로 넘어가면 응모 바를 위로 붙인다(navigate 뒤에 걸어야 teardown 에 안 씻김)
   if (typeof setupFloatBarDock === 'function') setupFloatBarDock();
+  // 메타 픽셀 2번 이벤트(사양서 「심는 이벤트」) — 상세 내용이 실제로 보이는 이 자리에만.
+  //   ⚠️ 초대 전용 게이트로 빠지는 위쪽 navigate 에는 넣지 않는다(상세가 안 보이는 화면).
+  if (!_pixelIsReRender && typeof trackMetaPixelEvent === 'function') {
+    trackMetaPixelEvent(META_PIXEL_EVENTS.VIEW_CONTENT, { content_name: camp.title || '', content_ids: [String(id)] });
+  }
+  _pixelViewContentShownId = id;
   // 이미지가 2장 이상이면 자동으로 넘긴다(한 장이면 아무 일도 안 한다).
   //   🔴 **이 줄을 위로 옮기면 안 된다.** 바로 위 `navigate()` 안에 `stopSlideAuto()` 가 있어,
   //      앞에 두면 방금 켠 타이머를 그것이 꺼 버려 **자동 넘김이 아예 안 돈다.** 오류도 안 나고
@@ -17039,6 +17781,11 @@ async function _submitApplicationInner() {
     // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
     if (camp) camp.applied_count = (camp.applied_count||0) + 1;
+    // 메타 픽셀 5번 이벤트 — 신청이 **실제로 저장된 뒤에만**(마감·정원·중복 거부는 아래 catch 로 빠져 안 나간다).
+    //   금액 인자는 넣지 않는다(사양서 결정 2 — 신청서 제출은 금액이 없다).
+    if (typeof trackMetaPixelEvent === 'function') {
+      trackMetaPixelEvent(META_PIXEL_EVENTS.SUBMIT_APPLICATION, { content_name: camp?.title || '', content_ids: [String(currentCampaignId)] });
+    }
   } catch(e) {
     if (e.message?.includes('row-level security')) {
       // ⚠️ 이 분기는 return 으로 빠져나가 아래 friendlyErrorJa 를 안 거친다 —
@@ -17884,7 +18631,7 @@ function renderActivityReceiptList(delivs) {
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(r.receipt_url)},'_blank')">` : ''}
         </div>
         <div style="flex:1;min-width:0">
           ${stBadge}
@@ -17949,7 +18696,7 @@ function renderActivityReviewImageList(delivs, channels) {
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(row)}</div>`
         : '';
       const thumb = row.receipt_url
-        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
+        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(row.receipt_url)},'_blank')">`
         : '';
       cardBody += `
         <div style="display:flex;align-items:center;gap:12px">
@@ -17971,9 +18718,9 @@ function renderActivityReviewImageList(delivs, channels) {
           <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
             <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span>
             <span data-i18n="activity.imageBtn">画像を選択</span>
-            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, '${esc(ch)}')">
+            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, ${jsStr(ch)})">
           </label>
-          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage('${esc(ch)}', this)" data-i18n="activity.addDraftBtn">リストに追加</button>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage(${jsStr(ch)}, this)" data-i18n="activity.addDraftBtn">リストに追加</button>
         </div>`;
     }
 
@@ -19191,7 +19938,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}, event_selection_won:{icon:'celebration',color:'#16A34A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}, event_selection_won:{icon:'celebration',color:'#16A34A'}, application_restored:{icon:'restore',color:'#16A34A'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -19269,6 +20016,15 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     }
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
+    refreshNotifBadge();
+    return;
+  }
+  // 취소 되돌리기 알림 → 응모이력 (마이그레이션 440, ref_table='applications')
+  //   ⚠️ 이 분기가 없어도 아래 else 로 새서 결국 응모이력에 도착한다 — **방어용**이다.
+  //      ref_table 이 같은 알림이 이미 넷(취소·당선·마감일 변경·되돌리기)이라, 위쪽에
+  //      새 분기가 하나 끼면 조용히 그쪽으로 빨려 들어간다. 목적지를 이름으로 못 박는다.
+  if (kind === 'application_restored' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('applications'); }
     refreshNotifBadge();
     return;
   }
@@ -21077,7 +21833,7 @@ function renderMessageThread(messages) {
       attachHtml = `<div class="msg-attachments">${visibleAtts.map((a, i) => {
         const elId = `msgatt-${msg.id}-${i}`;
         loadMsgAttachThumb(elId, a.path);
-        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
+        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox(${jsStr(a.path)})"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
       }).join('')}</div>`;
     }
 
@@ -21632,7 +22388,7 @@ function openFaqItem(itemId, opts) {
   let actionBtn = '';
   if (node.action_type === 'navigate' && node.action_target) {
     const actLabel = _faqPick(node, 'action_label') || t('messaging.statusLine.goBtn');
-    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate('${esc(node.action_target)}')"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
+    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate(${jsStr(node.action_target)})"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
   }
   tree.innerHTML = `
     <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
@@ -22412,7 +23168,16 @@ async function init() {
   let confirmLandingToast = false, confirmLandingNotice = false;
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
-      if (new URLSearchParams(location.search).has('code')) {
+      const codeStillInUrl = new URLSearchParams(location.search).has('code');
+      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
+      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
+      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
+      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
+      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
+      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
+        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
+      }
+      if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }
       if (session) confirmLandingToast = true; else confirmLandingNotice = true;
@@ -22447,6 +23212,11 @@ async function init() {
   // 실패해도 화면에 영향 없음(함수 안에서 삼킨다).
   if (typeof recordSiteVisit === 'function') recordSiteVisit('influencer');
 
+  // 메타 픽셀 판정 (사양서 2026-09-03-meta-pixel 흐름 2) — 방문자 집계와 같은 이유로 세션 복원 뒤.
+  //   ⚠️ 위 가입 확인 착지 블록이 주소의 `?code=` 를 먼저 지워야 한다 — 이 안에서 민감 주소를 판정한다.
+  //   기다리지 않는다(조회가 화면을 막지 않게). 그 전까지 이벤트는 줄에 쌓인다.
+  if (typeof initMetaPixel === 'function') initMetaPixel();
+
   // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
   // - implicit flow: #access_token=...&type=recovery
   //   (주소의 `?code=` 는 재설정 신호가 아니다 — 맨 위 detectRecoveryUrlEarly 주석 참조)
@@ -22479,6 +23249,10 @@ async function init() {
           navigate('reset-pw');
           return;
         }
+        // 메타 픽셀 로그인 재판정(흐름 6) — 토큰 갱신도 이 조건으로 들어오지만, 함수가 계정 고유번호로
+        //   「계정이 바뀐 순간」만 골라 나머지는 무시한다. `!currentUser` 안에 넣지 않는 이유: 로그인 화면이
+        //   currentUser 를 먼저 세우는 순서도 있다(두 자리가 모두 부르고 함수가 중복을 거른다).
+        if (typeof notifyMetaPixelSignedIn === 'function') notifyMetaPixelSignedIn(session.user.id);
         if (!currentUser) {
           currentUser = session.user;
           const {data:adminData} = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();

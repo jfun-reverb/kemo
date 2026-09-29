@@ -259,7 +259,7 @@ function renderMessageThread(messages) {
       attachHtml = `<div class="msg-attachments">${visibleAtts.map((a, i) => {
         const elId = `msgatt-${msg.id}-${i}`;
         loadMsgAttachThumb(elId, a.path);
-        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
+        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox(${jsStr(a.path)})"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
       }).join('')}</div>`;
     }
 
@@ -814,7 +814,7 @@ function openFaqItem(itemId, opts) {
   let actionBtn = '';
   if (node.action_type === 'navigate' && node.action_target) {
     const actLabel = _faqPick(node, 'action_label') || t('messaging.statusLine.goBtn');
-    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate('${esc(node.action_target)}')"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
+    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate(${jsStr(node.action_target)})"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
   }
   tree.innerHTML = `
     <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>

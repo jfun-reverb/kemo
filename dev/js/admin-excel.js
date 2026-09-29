@@ -91,19 +91,10 @@ function _excelInfluencerNameParts(u) {
   };
 }
 
-// SNS 핸들 → 전체 URL 변환 (각 SNS 공식 URL 형식 유지). TikTok/YouTube 는 @ 필수
-function _excelSnsUrl(channel, raw) {
-  if (!raw) return '';
-  var handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : String(raw).replace(/^@/, '').trim();
-  if (!handle) return '';
-  switch (channel) {
-    case 'instagram': return 'https://www.instagram.com/' + handle + '/';
-    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
-    case 'x':         return 'https://x.com/' + handle;
-    case 'youtube':   return 'https://www.youtube.com/@' + handle;
-    default: return handle;
-  }
-}
+// ⚠️ `_excelSnsUrl`(SNS 핸들 → 전체 URL)은 2026-09-17 에 `report-rows.js` 로 옮겼다 — 리포트의 계정 칸이
+//    브랜드 공유 화면에서도 같은 함수를 써야 하는데 그 화면에는 이 파일이 없다. 이름·쓰는 법은 그대로다.
+//    🔴 여기에 같은 이름의 함수를 **다시 만들지 말 것** — 빌드가 한 덩어리로 이어 붙여, 둘 다 있으면
+//       뒤의 것(`report-rows.js`)이 오류 없이 이긴다.
 
 // 우편번호 (별도 컬럼용). 〒 prefix 제거, 하이픈 유지
 function _excelZip(u) {
@@ -817,7 +808,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
         _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase,
-          (cc.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
+          (cc.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh,
+          _reportChannelKind(cc)),
         // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (T~Y열=20~25)
@@ -1280,7 +1272,8 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
         _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase,
-          (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh),
+          (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean), g.postByCh,
+          _reportChannelKind(camp)),
         // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (R~W열=18~23)
@@ -1540,7 +1533,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=8) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh, camp.proxy_purchase),
+      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh, camp.proxy_purchase, _reportChannelKind(camp)),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
@@ -1751,7 +1744,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=10) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh, cc.proxy_purchase),
+      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh, cc.proxy_purchase, _reportChannelKind(cc)),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];

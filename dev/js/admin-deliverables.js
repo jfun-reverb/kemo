@@ -674,6 +674,28 @@ function buildDeliverableGroups(delivs, campMap, opts) {
 }
 
 // monitor 신청의 「대표 결과물 상태」 result_status_repr — rejected > pending > approved > legacy_no_channel > none
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 를 그대로 부른다** — 사본을 만들지 않는다.
+//      관리자 빌드에 `lib/shared.js` 가 들어가므로 부를 수 있다(`dev/build.sh` 의 ADMIN_JS_FILES).
+//      응모 자격 판정과 결과물 판정이 갈리면 「응모는 되는데 결과물은 안 되는」 어긋남이 생긴다.
+//   ⚠️ 못 부르면 `and` 로 떨어진다 — **종전 동작(전부 요구)**이라 안전한 방향이다.
+function _certChannelKind(camp) {
+  if (typeof campaignFollowerKind !== 'function') return 'and';
+  return campaignFollowerKind(camp || {});
+}
+
+// 채널별 상태 목록에서 대표 상태 하나를 고른다.
+//   and·single : 하나라도 안 냈으면(none) 미완 — 종전 그대로
+//   or         : 🔴 **승인이 하나라도 있으면 완료**. 「하나 승인 + 하나 반려」도 완료다
+//                (반려된 채널은 애초에 낼 의무가 없던 채널이다)
+function _certReprFromStates(states, kind) {
+  if (kind === 'or' && states.indexOf('approved') !== -1) return 'approved';
+  if (states.indexOf('rejected') !== -1) return 'rejected';
+  if (states.indexOf('pending') !== -1) return 'pending';
+  if (states.indexOf('none') !== -1) return 'none';
+  return 'approved';
+}
+
 function _finalizeMonitorReprs(groups) {
   for (const g of groups.values()) {
     const rt = g.campaign?.recruit_type;
@@ -685,12 +707,9 @@ function _finalizeMonitorReprs(groups) {
       continue;
     }
     const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) {
-      repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
-    }
+    let repr = _certReprFromStates(states, _certChannelKind(g.campaign));
+    // 「아직 안 낸 채널이 있다」는 결론일 때만 옛 채널 미지정 행을 대신 본다(종전 그대로).
+    if (repr === 'none' && g.hasLegacyReviewImage) repr = 'legacy_no_channel';
     g.result_status_repr = repr;
     const stateSet = new Set(states);
     // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
@@ -717,11 +736,7 @@ function _finalizePostReprs(groups) {
     const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     if (channels.length === 0) { g.post_status_repr = 'none'; continue; }
     const states = channels.map(ch => (g.postByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) repr = 'none';
-    g.post_status_repr = repr;
+    g.post_status_repr = _certReprFromStates(states, _certChannelKind(g.campaign));
   }
 }
 
@@ -1042,7 +1057,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     if (d.receipt_url) {
       const thumb = storageThumbUrl(d.receipt_url);
-      preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox('${esc(d.receipt_url)}')">`;
+      preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox(${jsStr(d.receipt_url)})">`;
     }
   } else if (d.kind === 'post') {
     if (d.post_url) {
@@ -1114,7 +1129,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
+            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -1509,7 +1524,7 @@ async function renderDelivCombinedBody(applicationId) {
       const rowsHtml = unassigned.map(function(d){
         const orig = d.receipt_url || '';
         const thumb = orig
-          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
+          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox(${jsStr(orig)})" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
         const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
@@ -1721,7 +1736,7 @@ function renderReceiptInfoBlock(d, isExcluded) {
     <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
       <div style="font-weight:600;margin-bottom:4px">영수증 정보 수정</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">주문번호·구매일·구매금액 중 최소 1개만 입력해도 저장됩니다.</div>
-      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin('${esc(id)}','${esc(receiptUrl)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">qr_code_scanner</span> 영수증에서 읽기</button>
+      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin(${jsStr(id)},${jsStr(receiptUrl)})"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">qr_code_scanner</span> 영수증에서 읽기</button>
       <div id="receiptOcrStatusAdmin-${esc(id)}" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>` : ''}
       <div style="margin-bottom:6px">
         <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호</label>
@@ -2007,7 +2022,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
-        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
+        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)

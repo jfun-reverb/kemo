@@ -292,7 +292,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}, event_selection_won:{icon:'celebration',color:'#16A34A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#18181B'}, application_approved:{icon:'celebration',color:'#16A34A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}, submission_deadline_changed:{icon:'event_available',color:'#B8741A'}, event_waitlist_promoted:{icon:'confirmation_number',color:'#16A34A'}, event_selection_won:{icon:'celebration',color:'#16A34A'}, application_restored:{icon:'restore',color:'#16A34A'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -370,6 +370,15 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     }
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
+    refreshNotifBadge();
+    return;
+  }
+  // 취소 되돌리기 알림 → 응모이력 (마이그레이션 440, ref_table='applications')
+  //   ⚠️ 이 분기가 없어도 아래 else 로 새서 결국 응모이력에 도착한다 — **방어용**이다.
+  //      ref_table 이 같은 알림이 이미 넷(취소·당선·마감일 변경·되돌리기)이라, 위쪽에
+  //      새 분기가 하나 끼면 조용히 그쪽으로 빨려 들어간다. 목적지를 이름으로 못 박는다.
+  if (kind === 'application_restored' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('applications'); }
     refreshNotifBadge();
     return;
   }

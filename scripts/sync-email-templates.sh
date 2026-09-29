@@ -36,7 +36,7 @@ SYNC_GROUPS=(
   "notify-brand-application|brand-admin-notify.html,brand-ack-reviewer.html,brand-ack-seeding.html"
   "notify-deliverable-decision|deliverable-receipt-approved.html,deliverable-receipt-rejected.html,deliverable-review-image-approved.html,deliverable-review-image-rejected.html,deliverable-post-approved.html,deliverable-post-rejected.html"
   "notify-influencer-daily-digest|influencer-daily-digest.html,influencer-daily-digest.row-received.html,influencer-daily-digest.row-approved.html,influencer-daily-digest.row-rejected.html,influencer-daily-digest.row-deadline.html"
-  "notify-admin-daily-digest|admin-daily-digest.html,admin-daily-digest.section.html,admin-daily-digest.row-received.html,admin-daily-digest.row-cancelled.html,admin-daily-digest.row-submitted.html,admin-daily-digest.row-reprocessed.html"
+  "notify-admin-daily-digest|admin-daily-digest.html,admin-daily-digest.section.html,admin-daily-digest.row-received.html,admin-daily-digest.row-cancelled.html,admin-daily-digest.row-submitted.html,admin-daily-digest.row-reprocessed.html,admin-daily-digest.row-action.html"
   "notify-campaign-promo-digest|campaign-promo-digest.html,campaign-promo-digest.section.html,campaign-promo-digest.row-campaign.html,campaign-promo-digest.admin.html"
   "notify-policy-change|policy-change-notice.html"
   "notify-orient-sheet|orient-sheet-invite.html"
@@ -90,7 +90,7 @@ for group in "${SYNC_GROUPS[@]}"; do
   # 동작을 회피하기 위해 templates.ts 자동 생성. 대상 함수:
   #   - notify-deliverable-decision (결과물 검수 메일 6종)
   #   - notify-influencer-daily-digest (인플루언서 일일 다이제스트 5종 — 마이그레이션 130)
-  #   - notify-admin-daily-digest (관리자 통합 다이제스트 6종 — 마이그레이션 132, PR 2. 구 application_cancel·received 일일요약 2종 흡수 — 마이그레이션 164)
+  #   - notify-admin-daily-digest (관리자 통합 다이제스트 7종 — 마이그레이션 132, PR 2. 구 application_cancel·received 일일요약 2종 흡수 — 마이그레이션 164)
   #   - notify-campaign-promo-digest (캠페인 홍보 메일 다이제스트 3종 — 마이그레이션 139~143, PR 2)
   # notify-brand-application 은 과거 deploy 가 _templates/ 를 포함했던 시점에
   # 등록되어 그대로 동작 중 — 추후 재배포 회귀 발생 시 동일 분기로 이동.

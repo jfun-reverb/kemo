@@ -1150,6 +1150,11 @@ async function openEditCampaign(campId) {
   validateCampDateRangesInline('editCamp', camp);
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、お申込の状態変更(当選)及びメールにてご連絡');
   sv('editCampDesc', camp.description||'');
+  // 자율/지정 선택 — 저장된 값 그대로(옛 판이면 「고르지 않음」). 라벨은 아래 applyDeadlineFieldsVisibility 가 세운다
+  setCampPgMode('edit', camp.purchase_guide_mode || '');
+  // 이미 새 방식(자율/지정)으로 저장된 캠페인은 「고르지 않음」을 감춘다 — 옛 이름은 옛 캠페인에만 남긴다(2026-09-22)
+  { const none = $('editCampPgNone'); if (none) none.disabled = !!camp.purchase_guide_mode;
+    const nl = $('editCampPgNoneLabel'); if (nl) nl.style.display = camp.purchase_guide_mode ? 'none' : ''; }
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
   initTagInput('tagWrap_editCampHashtags');
@@ -1248,6 +1253,10 @@ async function openEditCampaign(campId) {
   _editCampOriginal = {
     id: camp.id,
     version: camp.version || 1,   // 동시 저장 방어 — 편집 화면을 연 시점의 버전(마이그레이션 275)
+    // 브랜드 — 저장 때 「브랜드를 바꿨는지」 확인 창의 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-2).
+    //   ⚠️ 이 키가 없으면 그 창이 죽은 코드가 된다(아래 deadline·channel 이 같은 이유로 죽었던 선례)
+    brand_id: camp.brand_id || '',
+    campaign_no: camp.campaign_no || '',
     status: camp.status || '',
     deadline: camp.deadline || '',
     submission_end: camp.submission_end || '',
@@ -2860,6 +2869,26 @@ async function saveCampaignEdit() {
     // 편집 폼에서 상태를 직접 「종료」·「노출종료」로 바꿔 저장하는 길 — 상태 드롭다운·노출 토글을
     //   전혀 거치지 않고 바로 저장된다. 결과는 같다(심사중 응모 전원 낙첨).
     //   ⚠️ 리뷰에서 이 경로가 **무경고로 열려 있는 게** 드러났다 — 앞의 세 곳만 막아 뒀었다.
+    // ⚠️ 채널 필수 검사는 입력 검증이라 **브랜드 확인 창보다 앞**에 둔다(2026-09-22) — 뒤에 있으면
+    //    브랜드 창을 통과한 뒤에야 저장이 막히고, 고쳐서 다시 누르면 브랜드 창을 또 본다.
+    const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
+    // 채널 1개+ 강제 — **모든 모집 형식**. 신규 등록(addCampaign)이 이미 형식 무관 강제이므로
+    //   두 화면의 규칙을 맞춘 것이다(2026-07-31). 예전에는 리뷰어형에만 걸려 있어, 편집으로
+    //   시딩·방문형 캠페인의 채널을 0개로 만들 수 있었다.
+    //   ⚠️ 채널이 빈 캠페인은 「기타」 구멍의 원천이다 — 인플루언서 게시물 제출 화면의 수동
+    //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
+    //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
+    //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
+    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
+    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
+    if (!editChannel && !_isEventEdit) {
+      toast('채널을 1개 이상 선택해야 합니다','error');
+      return;
+    }
+
+    // 브랜드를 바꿨으면 결과를 알리는 확인 창 — 입력 검증 뒤 **가장 먼저**(§3-1). 「돌아가기」면 뒤 창·저장 없음
+    if (!await confirmCampaignBrandChange(campId, (_editCampOriginal && _editCampOriginal.brand_id) || '',
+                                          brandId, (_editCampOriginal && _editCampOriginal.campaign_no) || '')) return;
     if (editStatus !== origStatus && !await confirmCampaignEndMassReject(campId, editStatus)) return;
     const _origDeadline = (_editCampOriginal && _editCampOriginal.deadline) || '';
     const _dlKind = classifyDeadlineChange(_origDeadline, editDeadline);
@@ -2888,21 +2917,6 @@ async function saveCampaignEdit() {
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const editRecruitType = recruitTypeEl?.value || 'monitor';
-    const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
-    // 채널 1개+ 강제 — **모든 모집 형식**. 신규 등록(addCampaign)이 이미 형식 무관 강제이므로
-    //   두 화면의 규칙을 맞춘 것이다(2026-07-31). 예전에는 리뷰어형에만 걸려 있어, 편집으로
-    //   시딩·방문형 캠페인의 채널을 0개로 만들 수 있었다.
-    //   ⚠️ 채널이 빈 캠페인은 「기타」 구멍의 원천이다 — 인플루언서 게시물 제출 화면의 수동
-    //      채널 선택지는 캠페인 채널로 제한되는데, 캠페인 채널이 비면 그 제한이 통째로
-    //      우회되어 기준 데이터에 없는 값(`other`)이 저장될 수 있다. 그렇게 저장된 값은
-    //      어떤 캠페인 채널 목록과도 영원히 일치하지 않는다(감지 함수 C층).
-    // 행사 모드는 채널 칸 자체를 숨긴다(SNS 게시물이 없다) — 보이지도 않는 칸 때문에
-    // 저장이 막히면 안 된다. 숨김과 검증 건너뛰기는 반드시 같은 판정을 써야 한다.
-    if (!editChannel && !_isEventEdit) {
-      toast('채널을 1개 이상 선택해야 합니다','error');
-      return;
-    }
-
     // 리뷰어형 제품 금액 미입력 확인 (막지 않음) — 등록 화면과 같은 판정을 쓴다.
     //   편집에도 거는 이유: 여기만 빠지면 편집으로 금액을 0 으로 만드는 길이 그대로 남는다.
     if (!await confirmMonitorWithoutPrice(editRecruitType, gv('editCampProductPrice'))) return;
@@ -2947,6 +2961,7 @@ async function saveCampaignEdit() {
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: editRecruitType,
+      purchase_guide_mode: campPurchaseGuideModeValue('edit'),   // 「고르지 않음」=NULL=옛 판(§4-12). 열어서 저장만 해서는 안 바뀐다 — 선택 칸이 원래 값으로 채워지기 때문
       channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
@@ -3212,6 +3227,12 @@ async function duplicateCampaign(campId) {
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, min_followers_by_channel: src.min_followers_by_channel || {}, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
+      // 판 표시 — 원본이 새 판이면 그대로 잇고, 옛 판(NULL)이면 자율구매로 올린다. 복제도 「새로 만드는 캠페인」이라
+      //   옛 이름(캠페인 설명·촬영 가이드)을 새 캠페인에 남기지 않는다(2026-09-22 사용자 결정). 본문은 그대로 복사되니 필요하면 고친다
+      purchase_guide_mode: src.purchase_guide_mode || 'free',   // 복제도 새 캠페인 — 옛 방식 원본이면 자율구매로(2026-09-22 사용자 결정)
+      // 🔴 가구매 표시(마이그레이션 197)도 이어받는다 — 안 넣으면 기본값 false 로 떨어져 복제본이
+      //   영수증만이 아니라 리뷰·게시 인증샷까지 요구하게 되고, 인증 성공·정산·엑셀이 원본과 갈린다.
+      proxy_purchase: !!src.proxy_purchase,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
@@ -3508,7 +3529,7 @@ async function openDeletedCampDetail(campId) {
     ${row('삭제일', delAt ? formatDateTime(c.deleted_at) : '')}
     ${row('삭제자', deletedByLabel)}
     ${row('자동 완전삭제 예정', purgeAt ? `<span style="color:#B3261E">${formatDate(purgeAt.toISOString())}</span>` : '')}
-    ${richBlock('제품 · 캠페인 설명', c.description)}
+    ${richBlock('제품 · 캠페인 설명·구매 가이드', c.description)}
     ${richBlock('소구 포인트', c.appeal)}
     ${richBlock('콘텐츠 가이드', c.guide)}
   `;
@@ -3566,6 +3587,7 @@ function buildPreviewCamp(mode) {
     reward: parseInt(val(g+'Reward'))||0,
     reward_note: val(g+'RewardNote') || null,
     recruit_type: recruitType,
+    purchase_guide_mode: campPurchaseGuideModeValue(mode),   // 「캠페인 설명/구매 가이드」 제목 판정용(§4-3) — 폼 객체라 조회가 아니다
     channel: channels.join(','),
     channel_match: channelMatch,
     content_types: contentTypes.join(','),
@@ -3663,9 +3685,9 @@ const CP_I18N = {
     kEventTimes:'来場日時', evtTimeUnit:'枠', evtNoTimes:'（まだ登録されていません）',
     evtRemain:'残り{n}名', evtFull:'満席（キャンセル待ち）',
     kWinnerAnnounce:'当選発表', kReward:'報酬', unit:'名', winnerDefault:'選考後、お申込の状態変更(当選)及びメールにてご連絡',
-    secParticipation:'参加方法', secDescription:'キャンペーン説明', secGuideline:'投稿ガイドライン',
+    secParticipation:'参加方法', secGuideline:'投稿ガイドライン',
     subBrandAppeal:'ブランドアピール', subHashtag:'必須ハッシュタグ', subMention:'必須メンション',
-    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식별)
+    secNg:'NG事項', secCaution:'注意事項',   // 촬영/리뷰 가이드 제목은 campaignGuideSectionLabel(형식·판별) · 캠페인 설명/구매 가이드 제목은 campaignDescSectionLabel(형식·판별)
   },
   ko: {
     preview:'미리보기', noImage:'이미지 없음', apply:'응모', productPage:'상품 페이지',
@@ -3688,7 +3710,7 @@ const CP_I18N = {
     kEventTimes:'방문 일시', evtTimeUnit:'타임', evtNoTimes:'(아직 등록되지 않았습니다)',
     evtRemain:'잔여 {n}명', evtFull:'만석(대기 신청)',
     kWinnerAnnounce:'당선 발표', kReward:'보수', unit:'명', winnerDefault:'심사 후 응모 상태 변경(당선) 및 메일로 연락',
-    secParticipation:'참여 방법', secDescription:'캠페인 설명', secGuideline:'게시 가이드라인',
+    secParticipation:'참여 방법', secGuideline:'게시 가이드라인',
     subBrandAppeal:'브랜드 어필', subHashtag:'필수 해시태그', subMention:'필수 멘션',
     secNg:'NG 사항', secCaution:'주의사항',
   }
@@ -3979,7 +4001,7 @@ function renderCampPreview(mode) {
           }).join('')}
         </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${esc(L.productPage)}</div>`:''}
-        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secDescription)}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignDescSectionLabel(camp, lang))}</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">${esc(L.secGuideline)}</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">${esc(L.subBrandAppeal)}</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
           ${camp.hashtags?(()=>{
@@ -3993,7 +4015,7 @@ function renderCampPreview(mode) {
           })():''}
           ${camp.mentions?`<div><div class="cp-sec-subtitle">${esc(L.subMention)}</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp.recruit_type, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">${esc(campaignGuideSectionLabel(camp, lang))}</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${(() => {
           // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
           const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
@@ -4391,6 +4413,46 @@ async function confirmCampaignEndMassReject(campId, newStatus) {
 //   채우는 정상적인 순서가 있고, 막으면 그 흐름이 통째로 끊긴다(2026-08-11 사용자 결정).
 // ⚠️ **등록·편집 두 곳에서 같이 부른다.** 등록만 막으면 편집으로 0 을 넣는 길이 그대로 남는다.
 // ⚠️ 시딩·방문형은 대상이 아니다 — 그쪽 정산 기준은 `reward` 라 제품 금액이 0이어도 정상이다.
+// 확인 창에 쓰는 브랜드 이름 — 원래·새·시트 브랜드 세 자리 공통 규칙(사양서 §1-4, 판정 순서대로):
+//   ①id 가 비면 「브랜드 없음」 ②활성 캐시에 있으면 「이름 [번호]」 ③없으면(보관) 따로 찾아
+//   「이름 [번호] (보관)」 — 폼 브랜드 칸(loadCampBrandSelect)과 같은 글자 ④그래도 못 찾으면 안내 문구
+async function campBrandNameForConfirm(id) {
+  if (!id) return '브랜드 없음';
+  const hit = (_campBrandsCache || []).find(b => String(b.id) === String(id));
+  if (hit) return campBrandLabel(hit);
+  const b = (typeof fetchBrandById === 'function') ? await fetchBrandById(id) : null;
+  return b ? campBrandLabel(b) + ' (보관)' : '(이름을 불러오지 못한 브랜드)';
+}
+
+// 편집 저장 — 브랜드가 실제로 바뀐 경우에만 결과를 알린다. **막지 않는다**(자매 브랜드로 옮기는 정상 업무).
+//   번호는 삽입 때만 매겨져 그대로다. 오리엔시트에 연결된 캠페인이면 그 시트는 **시트 자신의 브랜드**에 남는다 —
+//   🔴 원래 브랜드로 채우지 않는다(이미 한 번 옮겨진 캠페인에서 틀린 말이 된다, §2 4번).
+//   오리엔시트 조회 실패는 「연결 없음」으로 단정하지 않고 확인하지 못했다고 쓴다.
+async function confirmCampaignBrandChange(campId, oldBrandId, newBrandId, campaignNo) {
+  if (String(oldBrandId || '') === String(newBrandId || '')) return true;
+  const [oldName, newName] = await Promise.all([campBrandNameForConfirm(oldBrandId), campBrandNameForConfirm(newBrandId)]);
+  let sheetLine = '';
+  try {
+    const sheets = (typeof fetchOrientSheets === 'function') ? await fetchOrientSheets() : null;
+    if (!Array.isArray(sheets)) throw new Error('orient sheets unavailable');
+    const linked = sheets.find(s => {
+      const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+      return cards.some(c => c && c.campaign_id === campId);
+    });
+    if (linked) {
+      const sheetName = await campBrandNameForConfirm(linked.brand_id);
+      sheetLine = `\n· 이 캠페인은 「${sheetName}」 오리엔시트에 연결돼 있습니다. 그 시트는 「${sheetName}」에 그대로 남습니다.`;
+    }
+  } catch (e) {
+    console.error('[confirmCampaignBrandChange]', e);
+    sheetLine = '\n· 오리엔시트 연결 여부는 확인하지 못했습니다.';
+  }
+  const noLine = campaignNo ? `\n· 캠페인 번호 ${campaignNo} 는 바뀌지 않습니다.` : '\n· 캠페인 번호는 바뀌지 않습니다.';
+  return await showConfirm(
+    `브랜드를 「${oldName}」에서 「${newName}」로 바꿉니다.\n` + noLine + sheetLine,
+    '바꿔서 저장', '돌아가기');
+}
+
 async function confirmMonitorWithoutPrice(recruitType, price) {
   if (recruitType !== 'monitor') return true;
   if (Number(price) > 0) return true;
@@ -4540,6 +4602,17 @@ async function addCampaign() {
 
   // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
   //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
+  // 오리엔시트 발행인데 브랜드를 시트와 다르게 골랐으면 결과를 알린다 — 입력 검증 뒤 **가장 먼저**(§3-1).
+  //   시트 브랜드를 모르면(값 없음) 띄우지 않는다 — 빈 값과 비교하면 발행마다 창이 뜬다
+  if (_opc && _opc.sheetBrandId && String(_opc.sheetBrandId) !== String(brandId)) {
+    const [_sheetName, _pickName] = await Promise.all([campBrandNameForConfirm(_opc.sheetBrandId), campBrandNameForConfirm(brandId)]);
+    const _goOn = await showConfirm(
+      `오리엔시트는 「${_sheetName}」 것인데 「${_pickName}」로 발행합니다.\n`
+      + `\n· 캠페인 번호는 「${_pickName}」 번호로 매겨집니다.`
+      + `\n· 오리엔시트는 「${_sheetName}」에 그대로 남고, 이 카드는 「발행됨」으로 표시됩니다.`,
+      '이대로 발행', '돌아가기');
+    if (!_goOn) return;
+  }
   if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
@@ -4578,6 +4651,7 @@ async function addCampaign() {
     product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), min_followers_by_channel: (recruitType==='monitor') ? {} : minFollowersByChannelForSave('new', ch.split(',').filter(Boolean), document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or'), category:cat,
     recruit_type: recruitType,
+    purchase_guide_mode: campPurchaseGuideModeValue('new'),
     order_index: minOrder - 1,
     content_types: contentTypes,
     image_url: imgUrls[0],
@@ -4675,11 +4749,14 @@ async function addCampaign() {
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampBrandInput','newCampSourceAppId',
-   'newCampProduct','newCampProductUrl',
+   'newCampProduct','newCampProductKo','newCampProductUrl',
    'newCampSlots','newCampRecruitStart','newCampDeadline',
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
-   'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
+   'newCampProductPrice','newCampReward','newCampRewardNote',
+   // 2026-09-23 추가 — 이 둘이 빠져 있어 등록 직후 새 폼에 **직전 캠페인 값이 남았다**.
+   //   제품명 한국어 표기는 신청관리·엑셀에 그대로 나가고, 최소 팔로워수는 응모 자격을 바꾼다.
+   'newCampMinFollowers'].forEach(id => { const el=$(id); if(el) el.value=''; });
   var newSrcWrap = $('newCampSourceAppContainer'); if (newSrcWrap) newSrcWrap.style.display = 'none';
   var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) { newSrcSel.value = ''; _srcAppSyncTrigger('new'); }
   // flatpickr range picker 클리어
@@ -4687,6 +4764,13 @@ async function addCampaign() {
   // 리치 에디터 초기화
   ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
+  // 자율/지정 선택도 비우고 라벨을 되돌린다 — 안 하면 직전 등록의 「구매 가이드」 이름이 남는다
+  setCampPgMode('new', 'free');   // 새 캠페인 기본 = 자율구매(2026-09-22)
+  // 채널 매칭(or/&)도 기본값 「or」로 되돌린다 — 안 되돌리면 「&」로 저장한 직후 새 폼에서
+  //   채널을 2개 이상 고르는 순간 「&」가 켜진 채 나타나, 관계없는 캠페인이 조용히 「모두 해당」으로 저장된다.
+  { document.querySelectorAll('input[name="newChannelMatch"]').forEach(r => { r.checked = (r.value === 'or'); });
+    if (typeof applyFollowerKindUI === 'function') applyFollowerKindUI('new'); }
+  applyCampDescLabel('new', '');
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
   await Promise.all([
@@ -5123,6 +5207,45 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   applyDeadlineFieldsVisibility(formMode, recruitType);
 }
 
+// 「캠페인 설명」 칸 이름 + 자율/지정 선택(사양서 2026-09-16 §4-3·§4-12)
+// 🔴 라벨을 다시 세우는 축이 둘이다 — 모집 형식 라디오(applyDeadlineFieldsVisibility)와 자율/지정 선택(onchange).
+//    두 곳이 이 함수 하나를 부른다. 두 벌로 쓰면 한쪽만 고쳐져 화면마다 이름이 갈린다.
+// ⚠️ 판정은 **화면의 현재 선택**으로 한다(저장된 값이 아니다) — 고르는 즉시 바뀌고, 저장 없이 나가면 되돌아간다.
+// 🔴 리뷰어형이 아니면 선택 칸을 **감추기만** 하고 값은 비우지 않는다 —
+//    형식 라디오를 잘못 눌렀다 되돌리는 것만으로 골라 둔 값이 사라지면 안 된다(리뷰어형 구매 기간에서 겪은 함정).
+function applyCampDescLabel(formMode, recruitType) {
+  const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const rtName = formMode === 'edit' ? 'editRecruitType' : 'recruitType';
+  const rt = recruitType || document.querySelector(`input[name="${rtName}"]:checked`)?.value || '';
+  const row = $(prefix + 'PgRow');
+  if (row) row.style.display = rt === 'monitor' ? '' : 'none';
+  const label = $(prefix + 'DescLabel');
+  const cur = { recruit_type: rt, purchase_guide_mode: getCampPgMode(formMode) };
+  if (label) label.textContent = campaignDescSectionLabel(cur, 'ko');
+  // 「촬영 가이드 / 리뷰 가이드」 라벨도 같은 기준이라 여기서 함께 세운다(선택 축에서도 바뀌어야 한다)
+  const guideLabel = $(prefix + 'GuideLabel');
+  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(cur, 'ko');
+}
+
+// 자율/지정 라디오 읽기·쓰기 — 라디오 이름은 newCampPgMode / editCampPgMode. 값을 만지는 자리는 이 둘로만(2026-09-22 드롭다운→라디오)
+//   ⚠️ 아무것도 안 골라져 있으면 '' 를 준다 — 저장 쪽(campPurchaseGuideModeValue)이 NULL(옛 판)로 바꾼다
+function getCampPgMode(formMode) {
+  const nm = (formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PgMode';
+  return document.querySelector(`input[name="${nm}"]:checked`)?.value || '';
+}
+function setCampPgMode(formMode, value) {
+  const nm = (formMode === 'edit' ? 'editCamp' : 'newCamp') + 'PgMode';
+  const v = value == null ? '' : String(value);
+  document.querySelectorAll(`input[name="${nm}"]`).forEach(r => { r.checked = (r.value === v); });
+}
+
+// 저장에 실을 값 — 「고르지 않음」은 빈 문자열이 아니라 **NULL**(빈 문자열은 새 판으로 잘못 판정되고 444 CHECK 가 거부한다).
+// ⚠️ 리뷰어형이 아니어도 선택 칸의 값을 그대로 싣는다 — 감춤과 비움을 한 기준으로 묶지 않는다(§4-12)
+function campPurchaseGuideModeValue(formMode) {
+  const v = getCampPgMode(formMode);
+  return (v === 'free' || v === 'fixed') ? v : null;
+}
+
 // Stage 1: 모집 타입별 기한 필드 표시/숨김 (monitor=구매기간, visit=방문기간)
 // 숨겨지는 필드는 값도 초기화 — 타입 변경 후 저장 시 잔여 값 DB 오염 방지
 //   savedCamp — 「저장된 두 기간이 다른가」 판정에 쓸 원본. 편집 폼을 여는 시점에는
@@ -5130,9 +5253,8 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
 //   넘긴다. 그 밖의 호출(형식 라디오 변경 등)은 생략하면 스냅샷을 본다.
 function applyDeadlineFieldsVisibility(formMode, recruitType, savedCamp) {
   const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
-  // 「촬영 가이드」 라벨 — 리뷰어형이면 「리뷰 가이드」(2026-09-10 사용자 지시). 형식이 바뀌는 모든 경로가 이 함수를 지난다
-  const guideLabel = $(prefix + 'GuideLabel');
-  if (guideLabel) guideLabel.textContent = campaignGuideSectionLabel(recruitType, 'ko');
+  // 「캠페인 설명 / 구매 가이드」·「촬영 / 리뷰 가이드」 라벨 + 자율/지정 선택 표시 — 형식 축(여기)과 선택 축(라디오 onchange) 두 곳이 같은 함수를 부른다
+  applyCampDescLabel(formMode, recruitType);
   const purchaseRow = $(prefix + 'PurchaseRow');
   const visitRow = $(prefix + 'VisitRow');
   // ⚠️ 행사 캠페인은 형식이 방문형이어도 「방문 기간」 칸을 쓰지 않는다 — 날짜는

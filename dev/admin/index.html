@@ -144,6 +144,8 @@
              클라 PERM_SUPER_LOCKED + 서버 마이그레이션 271 이 write 로 고정한다.
              이 항목을 되살릴 일이 생기면 그 두 잠금도 함께 재검토할 것. -->
         <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none;cursor:pointer" onclick="event.stopPropagation();openErrorsOpen()" title="미해결만 보기">0</span></div>
+        <!-- 광고 추적(메타 픽셀 설정) — 화면은 dev/js/admin-ad-tracking.js 가 동적으로 그린다(권한 menu.ad-tracking) -->
+        <div class="admin-si" data-pane="ad-tracking" id="adminAdTrackingSi" onclick="navAdminPaneReload('ad-tracking')"><span class="si-icon material-icons-round notranslate" translate="no">ads_click</span><span class="si-text">광고 추적</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
@@ -776,7 +778,18 @@
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="editCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="editCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="editCampPgRow" style="display:none;margin-bottom:8px">
+                <!-- 「고르지 않음」은 옛 캠페인(값이 빈 캠페인)에서만 고를 수 있다 — 이미 새 방식으로 저장된 캠페인은 그 라디오를 감춘다(openEditCampaign) -->
+                <div class="camp-pg-radios" role="radiogroup" aria-label="구매 가이드">
+                  <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="editCampPgMode" id="editCampPgFree" value="free" onchange="applyCampDescLabel('edit')" style="accent-color:var(--pink);vertical-align:middle"> 자율구매</label>
+                  <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="editCampPgMode" id="editCampPgFixed" value="fixed" onchange="applyCampDescLabel('edit')" style="accent-color:var(--pink);vertical-align:middle"> 지정구매</label>
+                  <label style="font-size:13px;cursor:pointer;margin-right:14px" id="editCampPgNoneLabel"><input type="radio" name="editCampPgMode" id="editCampPgNone" value="" onchange="applyCampDescLabel('edit')" style="accent-color:var(--pink);vertical-align:middle"> 고르지 않음 (예전 방식)</label>
+                </div>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">자율·지정을 고르면 위 칸 이름이 「구매 가이드」·아래 가이드 칸이 「리뷰 가이드」로 바뀝니다. 한 번 바꿔 저장하면 「고르지 않음」으로 되돌릴 수 없습니다. 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
@@ -1160,7 +1173,17 @@
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="rich-img-help" id="newCampRichImgHelp"></div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
+            <div class="form-group"><label class="form-label" id="newCampDescLabel">캠페인 설명</label>
+              <!-- [2026-09-16 §4-12] 자율/지정 선택 — 리뷰어형일 때만 보인다(applyCampDescLabel). 🔴 감출 때 값을 비우지 않는다. 「고르지 않음」=옛 판 -->
+              <div class="camp-pg-row" id="newCampPgRow" style="display:none;margin-bottom:8px">
+                <!-- 🔴 새 캠페인에는 「고르지 않음」이 없다(2026-09-22 사용자 결정) — 옛 이름(캠페인 설명·촬영 가이드)은 이미 만들어진 캠페인에만 남긴다. 기본값 자율구매 -->
+                <div class="camp-pg-radios" role="radiogroup" aria-label="구매 가이드">
+                  <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="newCampPgMode" id="newCampPgFree" value="free" checked onchange="applyCampDescLabel('new')" style="accent-color:var(--pink);vertical-align:middle"> 자율구매</label>
+                  <label style="font-size:13px;cursor:pointer;margin-right:14px"><input type="radio" name="newCampPgMode" id="newCampPgFixed" value="fixed" onchange="applyCampDescLabel('new')" style="accent-color:var(--pink);vertical-align:middle"> 지정구매</label>
+                </div>
+                <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">리뷰어형 새 캠페인은 「구매 가이드」·「리뷰 가이드」로 씁니다. 아래 본문은 자동으로 바뀌지 않습니다.</div>
+              </div>
+              <div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_newCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="newCampHashtags" data-prefix="#"></div>
@@ -2498,6 +2521,13 @@
           </div>
         </div>
 
+        <!-- 브랜드 상세 (2026-09-23 사양서 2026-09-23-brand-detail-pane) — 모달에서 페이지로.
+             🔴 목록 페인이 아니다(`admin-pane-list` 안 붙임) — 폼이라 자연 스크롤.
+             머리글은 sticky 라 저장 단추가 화면에서 사라지지 않는다. 그 높이만큼 본문 탭 줄의 top 을 내린다. -->
+        <div id="adminPane-brand-detail" class="admin-pane">
+          <div id="brandDetailPaneHeader" style="position:sticky;top:0;z-index:5;background:var(--surface);padding:6px 0 12px;border-bottom:1px solid var(--line)"></div>
+          <div id="brandDetailPaneBody" style="padding-top:22px"></div>
+        </div>
         <div id="adminPane-brands" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
@@ -2541,7 +2571,7 @@
                   <th style="width:200px">브랜드명</th>
                   <th style="width:160px">대표 담당자</th>
                   <th style="width:200px">대표 이메일</th>
-                  <th style="width:90px;text-align:center">신청수</th>
+                  <th style="width:90px;text-align:center">오리엔시트 수</th>
                   <th style="width:90px;text-align:center">캠페인 수</th>
                   <th style="width:120px">최근 신청일</th>
                   <th style="width:100px">상태</th>
@@ -2700,10 +2730,11 @@
                   <th style="width:120px">발급일</th>
                   <th style="width:120px">작성 기한</th>
                   <th style="width:140px">제출일시</th>
+                  <th style="width:150px">견적</th>
                   <th style="width:70px">메모</th>
                   <th style="width:170px">관리</th>
                 </tr></thead>
-                <tbody id="orientTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+                <tbody id="orientTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2857,12 +2888,15 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th style="width:170px" title="초대 메일 발송 여부와 본인이 비밀번호를 설정했는지">초대 메일</th><th>등록일</th><th>처리</th></tr></thead>
-              <tbody id="adminAccountsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th style="width:170px" title="초대 메일 발송 여부와 본인이 비밀번호를 설정했는지">초대 메일</th><th>등록일</th><th id="adminAccLastSignInTh" style="width:150px;display:none" title="마지막으로 사용한 날. 로그인 상태를 유지한 채 사용한 날도 반영됩니다. 로그아웃하면 마지막으로 직접 로그인한 날로 돌아갑니다. 인플루언서 화면에서 사용해도 함께 반영됩니다.">최근 접속</th><th>처리</th></tr></thead>
+              <tbody id="adminAccountsBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
         </div>
+
+        <!-- AD TRACKING PANE — 광고 추적(메타 픽셀 설정). 내용은 loadAdTrackingPane() 이 그린다 -->
+        <div id="adminPane-ad-tracking" class="admin-pane"></div>
 
         <!-- MY ACCOUNT PANE -->
         <div id="adminPane-my-account" class="admin-pane">

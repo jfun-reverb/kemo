@@ -178,7 +178,11 @@ function switchAdminPane(pane, el, pushHistory) {
       if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
       return switchAdminPane('dashboard', null, pushHistory);
     }
-  } else if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+  // 🔴 하위 화면은 **부모 목록의 열쇠말**로 판정한다 — 권한 카탈로그에 없는 열쇠말은 `permLevel` 이
+  //    'write' 로 돌려줘 아무도 안 막힌다. 이 줄이 없으면 「브랜드 관리」가 숨김인 등급도
+  //    주소창에 `#brand-detail` 을 쳐서 들어온다(사양서 2026-09-23-brand-detail-pane 2-3).
+  } else if (pane !== 'dashboard' && typeof isHidden === 'function'
+             && isHidden('menu.' + ({'brand-detail':'brands'}[pane] || pane))) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
@@ -223,7 +227,7 @@ function switchAdminPane(pane, el, pushHistory) {
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops'}[pane] || pane;
+      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops','brand-detail':'brands'}[pane] || pane;
     el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
@@ -231,6 +235,7 @@ function switchAdminPane(pane, el, pushHistory) {
     // 🔴 여기에 등록하지 않으면 사이드바를 눌러도 **오류 없이 빈 화면**이 된다.
     //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
     'reports': loadReportsPane,
+    'ad-tracking': loadAdTrackingPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
@@ -248,6 +253,9 @@ function switchAdminPane(pane, el, pushHistory) {
     'brand-ops-detail': loadBrandOpsDetail,
     'companies': loadCompanies,
     'brands': loadBrandsPane,
+    // 브랜드 상세 페이지는 목록에서 고른 브랜드를 화면 상태로 들고 있다 —
+    //   주소로 직접 들어오면 고른 브랜드가 없으므로 목록으로 돌려보낸다(app.js 의 subToParent 와 같은 뜻).
+    'brand-detail': () => { if (!_brandsCurrentId) switchAdminPane('brands'); },
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,
@@ -283,6 +291,16 @@ function switchAdminPane(pane, el, pushHistory) {
     renderContentTypeCheckboxes('new', [], 'monitor');
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', 'monitor');
+    // 구매 가이드 자율/지정 — 🔴 라벨 판정(아래 applyDeadlineFieldsVisibility)보다 먼저 비운다.
+    //   안 비우면 저장 안 하고 나갔다 들어온 새 등록에 지난 선택이 남아, 관계없는 캠페인이 조용히 「구매 가이드」 판으로 저장된다.
+    //   「저장하지 않은 변경」 기준값도 이 블록 직후에 뜨므로 거기서도 안 잡힌다.
+    setCampPgMode('new', 'free');   // 새 캠페인 기본 = 자율구매(「고르지 않음」 없음, 2026-09-22)
+    // 채널 매칭(or/&)도 기본값 「or」로 되돌린다 — 안 되돌리면 「&」로 저장한 직후 새 폼에서
+    //   채널을 2개 이상 고르는 순간 「&」가 켜진 채 나타나, 관계없는 캠페인이 조용히 「모두 해당」으로 저장된다.
+    { document.querySelectorAll('input[name="newChannelMatch"]').forEach(r => { r.checked = (r.value === 'or'); });
+      if (typeof applyFollowerKindUI === 'function') applyFollowerKindUI('new'); }
+    // 오리엔 발행 자동 채움이 남긴 「선택되지 않은 채널」 경고 — 새 등록에 지난 경고가 남지 않게
+    { const w = $('newCampChannelPrefillWarn'); if (w) w.remove(); }
     applyDeadlineFieldsVisibility('new', 'monitor');
     // 모집 기간·결과물 제출 마감일 비우기.
     //   ⚠️ 바로 위 applyDeadlineFieldsVisibility 는 **형식에 안 맞는 칸**(구매·방문·선정)만
@@ -1238,10 +1256,13 @@ function withdrawalOpsModalHtml(a) {
       `파기 기한이 지난 응모건 메시지 사진 ${n(a.message_attachment_overdue)}건`, sub));
   }
 
-  // ⑤ 예정일 안내 메일이 아직 안 나간 탈퇴 (마이그레이션 419, 전수조사 2차 3-3)
+  // ⑤ 예정일 안내 메일이 아직 안 나간 탈퇴 (마이그레이션 419 → **451**, 전수조사 2차 3-3)
   //   이 메일은 정산 알림을 없앤 뒤 회원에게 닿는 **유일한 통지**다. 서버가 세는 것은
-  //   「한 번 이상 실패」 또는 「예정 상태가 된 날의 09:00 이 지났는데 미발송」 — 뒤쪽이
-  //   예약 실행 자체가 멈춘 경우를 잡는다(시도 횟수는 그때 0 그대로다).
+  //   「한 번 이상 실패」 또는 「**예정이 된 시각 뒤 처음 오는 09:00 + 1시간**이 지났는데
+  //   미발송」 — 뒤쪽이 예약 실행 자체가 멈춘 경우를 잡는다(시도 횟수는 그때 0 그대로다).
+  //   ⚠️ 451 이전(419)에는 그 기준이 「예정이 된 **날**의 09:30」이라, **09:00 이후에 예정이 된
+  //      행**(그날 배치가 이미 지나가 다음 날 09:00 이 첫 기회)을 하루 동안 오탐했다 —
+  //      2026-09-18 운영에서 3건이 그렇게 떴다. 판정은 서버 몫이고 화면은 숫자만 그린다.
   //   ⚠️ 예정일이 지난 행은 ①(멈춘 확정)이 세므로 여기엔 안 들어온다.
   if (n(a.mail_retrying) > 0) {
     rows.push(_withdrawOpsRow('mail', '#B8741A',
@@ -1250,6 +1271,7 @@ function withdrawalOpsModalHtml(a) {
          예정 상태가 된 뒤 <b>매일 09:00</b> 에 보내는데 아직 발송 표시가 없습니다. 회원 상세의 「탈퇴 신청」 카드에서 시도 횟수를 볼 수 있습니다.
          <br>→ <b>시도 횟수가 0인데 하루 넘게 그대로</b>면 예약 실행 자체가 멈춘 것 — <b>개발 담당자에게 알려 주세요.</b>
          <br>→ 시도 횟수가 쌓이면 그 회원의 <b>이메일 주소</b>와 Brevo 우측 상단 <b>「Usage and plan」</b>(구독 만료·큐 정지)을 확인하세요.
+         <br>⚠️ 메일이 나가 <b>해소되어도 이 화면은 새로고침해야 숫자가 바뀝니다</b> — 들어올 때 한 번만 세기 때문입니다.
        </div>`));
   }
 

@@ -407,13 +407,30 @@ function miniRichHtml(raw) {
 //   내보내면 비개발자가 읽을 수 없다. 아래 표·헬퍼로 한국어 라벨을 붙인다.
 //   ⚠️ 키 목록은 265 의 field_name 허용 목록(48개)과 같은 집합이어야 한다.
 // ══════════════════════════════════════════════════════════════════════════
-// 「촬영 가이드」 칸의 이름표 — 리뷰어형(monitor)은 「리뷰 가이드」(2026-09-10 사용자 지시).
+// 「촬영 가이드」 칸의 이름표 — **새 판 리뷰어형**(자율/지정을 고른 캠페인)만 「리뷰 가이드」(2026-09-10 지시 → 2026-09-22 범위 축소).
+//   🔴 판정은 「캠페인 설명 / 구매 가이드」(campaignDescSectionLabel)와 **같은 기준**이다 — 형식만 보고 바꾸면
+//     운영 중인 리뷰어형 캠페인 전부의 제목이 한꺼번에 바뀌어 혼선이 생긴다(2026-09-22 사용자 지적).
+//     두 이름표는 짝이라 한쪽만 새 이름이 되지 않게 같은 조건을 쓴다.
 //   쓰는 자리: 관리자 등록·편집 폼 라벨 · 관리자 미리보기 · 인플루언서 캠페인 상세. 🔴 이름을 바꿀 땐 여기 한 곳만.
 //   lang 'ko'(관리자·인플루언서 한국어) / 'ja'(인플루언서 일본어·관리자 미리보기 일본어)
-function campaignGuideSectionLabel(recruitType, lang) {
-  const isReview = recruitType === 'monitor';
-  if (lang === 'ja') return isReview ? 'レビューガイド' : '撮影ガイド';
-  return isReview ? '리뷰 가이드' : '촬영 가이드';
+function campaignGuideSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? 'レビューガイド' : '撮影ガイド';
+  return isNew ? '리뷰 가이드' : '촬영 가이드';
+}
+
+// 「캠페인 설명」 칸의 화면 이름 (사양서 2026-09-16 §4-3·§4-12)
+// 🔴 형식만 받지 않고 캠페인을 통째로 받는다 — 판정에 `recruit_type` 과 `purchase_guide_mode` 둘 다 필요하다.
+//   리뷰어형이라고 다 바뀌는 것이 아니다: 운영 중인 리뷰어형 캠페인은 그 칸에 제품·브랜드 설명이 들어 있어,
+//   이름만 바꾸면 **설명 글이 구매 안내처럼 읽힌다**. 그래서 **자율/지정을 고른 캠페인만** 새 이름을 쓴다.
+// ⚠️ 폼에서는 저장된 캠페인이 아니라 **화면의 현재 선택**으로 임시 객체를 만들어 넘긴다
+//   (저장된 값을 넘기면 고른 즉시 안 바뀐다). 「값이 있으면 새 판」의 정의처는 §4-12.
+function campaignDescSectionLabel(campaign, lang) {
+  const c = campaign || {};
+  const isNew = c.recruit_type === 'monitor' && !!c.purchase_guide_mode;
+  if (lang === 'ja') return isNew ? '購入ガイド' : 'キャンペーン説明';
+  return isNew ? '구매 가이드' : '캠페인 설명';
 }
 
 const CAMPAIGN_FIELD_LABELS = {
@@ -426,7 +443,9 @@ const CAMPAIGN_FIELD_LABELS = {
   recruit_start: '모집 시작일', deadline: '모집 마감일', purchase_start: '구매 시작일',
   purchase_end: '구매 종료일', visit_start: '방문 시작일', visit_end: '방문 종료일',
   submission_end: '결과물 제출 마감일', winner_announce: '당첨 발표 안내',
-  description: '캠페인 설명', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',   // 화면 이름표는 형식별(campaignGuideSectionLabel) — 이력 표는 형식을 모르니 둘을 함께 적는다
+  // 화면 이름표는 형식·판별(campaignGuideSectionLabel·campaignDescSectionLabel)에 따라 갈리지만,
+  // 🔴 이력 표는 그 캠페인이 어느 형식·어느 판인지 모른다 → 둘을 함께 적는다
+  description: '캠페인 설명·구매 가이드', appeal: '소구 포인트', guide: '촬영·리뷰 가이드',
   hashtags: '필수 해시태그', mentions: '필수 멘션',
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
@@ -1248,22 +1267,12 @@ function extractSnsHandle(channel, raw) {
   return withoutAt.replace(/\s+/g, '');
 }
 
-// 핸들로 프로필 URL 생성. 빈 핸들이면 빈 문자열 반환.
-function snsProfileUrl(channel, handle) {
-  if (!handle) return '';
-  const h = String(handle).replace(/^@+/, '');
-  if (!h) return '';
-  switch (channel) {
-    case 'instagram': return `https://instagram.com/${encodeURIComponent(h)}`;
-    case 'x':         return `https://x.com/${encodeURIComponent(h)}`;
-    case 'tiktok':    return `https://tiktok.com/@${encodeURIComponent(h)}`;
-    case 'youtube':
-      // UCxxxxx 형태면 채널 ID 경로
-      if (/^UC[A-Za-z0-9_-]{20,}$/.test(h)) return `https://youtube.com/channel/${encodeURIComponent(h)}`;
-      return `https://youtube.com/@${encodeURIComponent(h)}`;
-    default: return '';
-  }
-}
+// 🔴 `snsProfileUrl` 은 2026-09-21 에 없앴다 — **되살리지 말 것.**
+//    같은 일을 하는 판정이 두 벌이라 같은 계정이 엑셀·리포트에서는 정상 링크인데
+//    화면에서는 깨진 링크로 나왔다. 이제 **`_reportAcctCell`(dev/js/report-rows.js)** 한 벌이
+//    링크·화면 글자·「@」를 붙일지를 모두 정한다(사양서 `docs/specs/2026-09-18-sns-account-url-unify.md`).
+//    ⚠️ 그 함수는 관리자 번들에만 있다 — 인플루언서 화면에서 계정 링크가 필요해지면
+//       그 파일을 인플루언서 빌드 목록에 더하는 것이 먼저다(옛 함수를 되살리는 것이 아니라).
 
 // ──────────────────────────────────────
 // 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용
@@ -1436,6 +1445,10 @@ const PANE_REFRESHERS = {
     if (typeof reloadOutboundData === 'function') await reloadOutboundData();
     else if (typeof renderOutboundList === 'function') renderOutboundList();
   },
+  // 광고 추적(메타 픽셀) — 로더 이름은 admin-core.js switchAdminPane 의 loaders 와 같아야 한다
+  'ad-tracking': async () => {
+    if (typeof loadAdTrackingPane === 'function') await loadAdTrackingPane();
+  },
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
@@ -1493,16 +1506,20 @@ function genderLabel(code) {
 }
 
 // ══════════════════════════════════════
-// 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+// 정책 변경 통지 — 통지 한 번마다 아래 상수와 i18n `policyNotice.*`(ja·ko) 를 갈아 끼운다
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-22 → 시행일 2026-07-22(공고+30일).
-  id: 'agePolicy2026',          // localStorage 키 식별자
-  effectiveDate: '2026-07-22',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
-  noticeUntil: '2026-08-05',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
+  // 일반 문의 창구 개설 + 개인정보처리방침 개정(문의 범위 확대·보관 기간 표기 정정) 예고.
+  //   공고일 2026-09-29 → 시행일 2026-10-06(공고+7일). 근거 사양서 docs/specs/2026-05-21-general-inquiry-desk.md §10
+  //   ⚠️ 메타 픽셀 공지(metaPixel2026, ~10-17)를 대체한다 — 공지 틀이 하나뿐이라서(2026-09-29 사용자 결정. 픽셀은 메일 통지 완료)
+  //   ⚠️ 본문의 「お問い合わせ」「その他のお問い合わせ」는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
+  id: 'inquiryDesk2026',        // localStorage 키 식별자 — 통지마다 새 값(옛 값이면 지난 공지를 닫은 사람에게 안 뜬다)
+  effectiveDate: '2026-10-06',  // 시행일(본문 {date} 표기용) = 창구 개설일
+  // 노출 종료일 = 시행일. 이 날 0시(KST)부터 자동 비노출 — 본문이 「10월 5일까지」 기간과 「10월 6일부터」 예고를 말하므로
+  noticeUntil: '2026-10-06',
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
@@ -1622,7 +1639,7 @@ const UPCOMING_FEATURES = [
     key: 'age-policy-2026',
     title: '연령 정책 (만 18세 이상)',
     desc: '가입·응모 시 생년월일·성별을 입력받습니다. 만 18세 미만은 캠페인 응모가 제한됩니다.',
-    effectiveDate: '2026-07-22',  // 공고 2026-06-22 + 30일. 약관 부칙·age_policy_settings·POLICY_NOTICE 와 동일 시행일
+    effectiveDate: '2026-07-22',  // 공고 2026-06-22 + 30일. 약관 부칙·age_policy_settings 와 동일 시행일
   },
   {
     key: 'message-translation-2026',
@@ -1909,9 +1926,38 @@ const OB_CATEGORY_SERIES = {
   tech:    'other',   // 테크/기타 (마이그레이션 236, 2026-07-14)
 };
 
+// ══════════════════════════════════════
+// 메타 픽셀 — 이벤트 이름·상태 값의 **유일한 정의처** (사양서 docs/specs/2026-09-03-meta-pixel.md)
+//   🔴 이벤트 이름을 바꾸면 메타 쪽에서 전후가 **다른 이벤트로 쌓여** 집계가 끊기고 광고 학습이
+//      처음부터 다시 시작된다 — 이름은 여기서만 고정하고 관리 화면은 표로 보여주기만 한다(결정 5).
+//   ⚠️ 이 목록은 세 곳이 한 세트다: 아래 두 상수 ↔ 사양서 「심는 이벤트」 표 ↔ 개인정보처리방침
+//      §8.1 「송신되는 정보」. 이벤트를 더하거나 빼면 셋을 함께 고친다.
+//   ⚠️ 관리자 앱에는 픽셀을 심지 않는다(사양서 ⑥) — 여기 상수는 관리 화면이 표를 그리는 용도로만 쓴다.
+// ══════════════════════════════════════
+const META_PIXEL_EVENTS = {
+  PAGE_VIEW:             'PageView',
+  VIEW_CONTENT:          'ViewContent',
+  COMPLETE_REGISTRATION: 'CompleteRegistration',
+  SUBMIT_APPLICATION:    'SubmitApplication',
+};
+// 가입 이벤트(CompleteRegistration)를 둘로 가르는 상태 값 — 운영은 이메일 확인이 필수라 폼 제출 ≠ 회원
+const META_PIXEL_REG_STATUS = {
+  PENDING_EMAIL: 'pending_email',
+  CONFIRMED:     'confirmed',
+};
+// 관리 화면 「보내는 이벤트」 표(읽기 전용) — 호출은 다섯, 이름은 넷(3·4번이 같은 이름에 상태 값만 다르다)
+const META_PIXEL_EVENT_TABLE = [
+  { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
+  { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했을 때 (이메일 확인 전)',              params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '같은 브라우저에서 확인 링크를 열어 이메일 확인이 끝났을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
+];
+
 const ADMIN_PERMISSION_CATALOG = [
-  // ── 메뉴(페인) 22개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
-  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22)
+  // ── 메뉴(페인) 23개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  //    (2026-07-29 menu.permissions 제거로 22 → 21, 2026-09-03 menu.reports 추가로 22,
+  //     2026-09-15 menu.ad-tracking 추가로 23)
   { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
   { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
   { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
@@ -1935,14 +1981,16 @@ const ADMIN_PERMISSION_CATALOG = [
   //    슈퍼관리자는 이 메뉴를 숨길 수 없다(PERM_SUPER_LOCKED + 서버 271). 등급 2종은 자유.
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.errors',             label_ko: '오류 로그',                    category: '관리자 설정', server_enforced: false },
+  { key: 'menu.ad-tracking',        label_ko: '광고 추적',                    category: '관리자 설정', server_enforced: false },
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
   // menu.permissions 는 2026-07-29 카탈로그에서 제거됨 — 사이드바 「권한 관리」 상설 항목을
   //   없애고 「관리자 계정」 화면 안 버튼으로 일원화해, 이 키가 제어할 대상이 사라졌다(죽은 설정).
   //   서버 잠금(270·271 의 write 고정)과 클라 PERM_DENYLIST·PERM_SUPER_LOCKED 항목은 방어로 남겨 둔다.
 
-  // ── 주요 기능 23개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  // ── 주요 기능 25개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   //    ⚠️ 이 숫자는 오래 실제와 어긋나 있었다(적혀 있던 20 ↔ 실제 21).
-  //       2026-09-03 report.export·report.share 둘을 더해 23. ⚠️ 같은 날 더한
+  //       2026-09-03 report.export·report.share 둘을 더해 23, 2026-09-15 ad_tracking.manage 로 24,
+  //       2026-09-16 application.restore_cancelled 로 25. ⚠️ 2026-09-03 에 더한
   //       `menu.reports` 는 **기능이 아니라 화면 항목**이라 위 메뉴 수에 들어간다 —
   //       작업표가 「3개 더해 24」로 계산했으나 세어 보면 22 + 23 이다.
   { key: 'report.export',           label_ko: '리포트 엑셀 내려받기',          category: '리포트',      server_enforced: true },
@@ -1974,6 +2022,16 @@ const ADMIN_PERMISSION_CATALOG = [
   //    request_withdrawal_for_member·cancel_withdrawal_admin(357)이 has_permission 으로
   //    서버 강제 → server_enforced=true. 화면 버튼 숨김은 표시 제어일 뿐이다.
   { key: 'withdrawal.proxy_request',      label_ko: '회원 대신 탈퇴 신청·되돌리기',                  category: '회원 관리',    server_enforced: true },
+  // ── 광고 추적(메타 픽셀) 1개 — 마이그레이션 439 role_permissions 시드와 1:1 ──
+  //    update_meta_pixel_settings(438)가 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 439 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 438) — 철자가 하나만 달라도 조용히 거부된다.
+  { key: 'ad_tracking.manage',            label_ko: '광고 추적 켜기·끄기·픽셀 아이디 저장',          category: '관리자 설정',  server_enforced: true },
+  // ── 신청 취소 되돌리기 1개 — 마이그레이션 441 role_permissions 시드와 1:1 ──
+  //    restore_cancelled_application(440)이 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 441 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 440) — 철자가 하나만 달라도 조용히 거부된다.
+  //    ⚠️ 한계: 관리자 누구나 applications 표를 직접 수정하는 경로(기존 승인·미승인과 같은 경로)는 그대로라,
+  //       이 설정이 막는 것은 **이 함수와 화면 버튼**뿐이다(사양서 ⑧).
+  { key: 'application.restore_cancelled', label_ko: '신청 취소 되돌리기(회원 본인 취소를 원래 상태로)', category: '캠페인',       server_enforced: true },
 ];
 
 // ══════════════════════════════════════
@@ -2000,7 +2058,8 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 //      (사양서 docs/specs/2026-07-29-super-admin-self-restriction.md §1-5·§2-4).
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
-  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request'
+  'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request',
+  'ad_tracking.manage', 'application.restore_cancelled'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';

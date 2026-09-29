@@ -18,6 +18,8 @@ async function retryWithRefresh(fn) {
 }
 
 // PostgREST 기본 1000행 제한 우회: range() 반복으로 전체 수집
+// 🔴 여러 행을 돌려주는 원격 호출 함수(db.rpc)도 같은 상한에 걸린다 — 반드시 이 함수로 감싸고
+//    .order() 로 고유 순서를 고정할 것(2026-09-21 「과거 미등록」 1,306건 중 1,000건만 보이던 사고).
 // buildQuery: 매 반복마다 새 query builder 반환하는 함수 (filter/order 이미 적용)
 async function fetchAllPaged(buildQuery, pageSize = 1000) {
   const all = [];
@@ -40,8 +42,11 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 async function fetchRolePermissions() {
   if (!db) return [];
   try {
-    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level, default_level');
-    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    // 등급 × 기능이라 기능이 늘면 1,000행을 넘는다 — 넘으면 권한이 조용히 빠지므로 끊어 받는다
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('role_permissions').select('role, feature_key, access_level, default_level').order('role').order('feature_key'));
+    } catch (error) { console.warn('role_permissions 로드 실패(fail-open):', error?.message); return []; }
     return data || [];
   } catch (e) {
     console.warn('role_permissions 로드 예외(fail-open):', e?.message);
@@ -179,8 +184,7 @@ async function fetchCampaignsForAdminList() {
 async function fetchCampaignApplicationCountsOrNull() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_application_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_application_counts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = { total: Number(row.total || 0), approved: Number(row.approved || 0), pending: Number(row.pending || 0) };
       return map;
@@ -188,11 +192,45 @@ async function fetchCampaignApplicationCountsOrNull() {
   } catch(e) { console.error('fetchCampaignApplicationCountsOrNull:', e); return null; }
 }
 
+// 캠페인별 「조치가 필요한 경고」 — 서버 함수 get_campaign_action_alerts()(마이그레이션 434).
+//   판정이 화면이 아니라 서버에 있다. 운영현황 일정 뷰와 관리자 일일 메일이 **같은 결과**를 읽는다.
+//   사양서 docs/specs/2026-09-11-admin-digest-deadline-section.md §3-2
+//
+// 🔴 실패는 null, 0건은 빈 맵({}) — 둘을 반드시 가른다.
+//    0건이면 경고가 하나도 없는 정상 상태이고, 실패면 판정 근거를 못 받은 것이라
+//    화면이 그 둘을 같게 그리면 「경고 없음」과 「모르는 상태」가 구분되지 않는다.
+// 🔴 실패를 조용히 넘기지 않는다 — console.error 로 남긴다. 화면은 아무것도 안 그리므로
+//    기록이 없으면 0건과 실패를 눈으로 구분할 방법이 사라진다(사양서 §3-6 ③).
+async function fetchCampaignActionAlertsOrNull() {
+  if (!db) return null;
+  try {
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_action_alerts').order('campaign_id'));
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        level: row.level,
+        codes: row.reason_codes || [],
+        status: row.status,
+        daysLeft: (row.days_left === null || row.days_left === undefined) ? null : Number(row.days_left),
+        deadline: row.deadline,
+        submissionEnd: row.submission_end,
+        slots: Number(row.slots || 0),
+        approved: Number(row.approved_count || 0),
+        certCapped: Number(row.cert_capped || 0),
+        uncert: Number(row.uncert_count || 0),
+        campaignNo: row.campaign_no,
+        title: row.campaign_title,
+        brand: row.brand_name,
+        recruitType: row.recruit_type,
+      };
+      return map;
+    }, {});
+  } catch(e) { console.error('fetchCampaignActionAlertsOrNull:', e); return null; }
+}
+
 async function fetchCampaignApplicationCounts() {
   if (!db) return {};
   try {
-    const { data, error } = await db.rpc('get_campaign_application_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_application_counts').order('campaign_id'));
     // 배열을 campaign_id 키 맵으로 변환
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
@@ -219,8 +257,7 @@ async function fetchCampaignApplicationCounts() {
 async function fetchCampaignDeliverableCounts() {
   if (!db) return null;
   try {
-    const { data, error } = await db.rpc('get_campaign_deliverable_counts');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_campaign_deliverable_counts').order('campaign_id'));
     return (data || []).reduce((map, row) => {
       map[row.campaign_id] = {
         receipt_submitted: Number(row.receipt_submitted || 0),
@@ -1691,12 +1728,18 @@ async function fetchDeliverableGate(applicationId) {
 async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
-    const {data, error} = await db?.from('influencers_admin_view')
-      .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-      .in('id', userIds);
-    if (error) throw error;
+    // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
+    //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
+    //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    const ids = [...new Set(userIds)];
     const map = {};
-    (data || []).forEach(i => { map[i.id] = i; });
+    for (let i = 0; i < ids.length; i += 200) {
+      const {data, error} = await db.from('influencers_admin_view')
+        .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
+        .in('id', ids.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(inf => { map[inf.id] = inf; });
+    }
     return map;
   } catch(e) { return {}; }
 }
@@ -1763,8 +1806,8 @@ async function createCampaignReport(title, campaignIds, includeAudit) {
 async function fetchCampaignReports() {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('list_campaign_reports');
-    if (error) throw error;
+    // 함수가 최근 만든 순으로 준다 — 끊어 받을 때도 같은 순서 + 고유 열쇠로 고정한다
+    const data = await fetchAllPaged(() => db.rpc('list_campaign_reports').order('o_created_at', {ascending: false}).order('o_id'));
     // ⚠️ 반환 칸에 o_ 접두어가 붙어 있다(42702 모호한 참조 회피 — 마이그레이션 405).
     //    화면이 그 접두어를 알 이유가 없으므로 여기서 벗겨서 넘긴다.
     return (data || []).map(function(r) {
@@ -1846,6 +1889,12 @@ async function fetchDeliverablesForReport(campaignIds) {
 //    통로를 거치면 권한 체계도 그대로 따라와, 민감정보 읽기 권한이 없는 등급에게는
 //    서버가 알아서 가린다.
 // ⚠️ 200개씩 나눠 부르는 이유는 `fetchPayoutInfluencerInfo` 와 같다(주소 길이).
+// ⚠️ ig·tiktok·x·youtube 는 리포트의 SNS 계정 열이 쓴다(2026-09-17).
+// 🔴 계정 열이 있는 채널을 더하는 날은 **네 곳**을 함께 고친다(2026-09-18 정정 — 「두 곳」이 아니었다):
+//    ①REPORT_CHANNELS(report-rows.js) ②get_report_share_data(449)의 코드 ↔ 회원 표 칸 짝
+//    ③_excelSnsUrl 의 채널별 주소 줄 ④**바로 이 select 문** — 칸 이름이 글자로 나열돼 있다.
+//    ⚠️ ①②만 고치면 새 채널 계정이 화면까지 안 오는데 **오류도 안 난다**(여기 칸이 없어 값이 비고,
+//       ③이 없어 링크도 안 걸린다 — 조용히 빈 칸으로 보인다).
 async function fetchInfluencersForReport(userIds) {
   if (!db) return null;
   const ids = [...new Set((userIds || []).filter(Boolean))];
@@ -1854,7 +1903,7 @@ async function fetchInfluencersForReport(userIds) {
   try {
     for (let i = 0; i < ids.length; i += 200) {
       const {data, error} = await db.from('influencers_admin_view')
-        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit')
+        .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
         .in('id', ids.slice(i, i + 200));
       if (error) throw error;
       (data || []).forEach(function(r) { map[r.id] = r; });
@@ -2143,8 +2192,8 @@ async function fetchCampaignVersion(id) {
 async function fetchChannelDriftAlerts() {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('detect_channel_code_drift');
-    if (error) throw error;
+    // 함수의 순서(층·캠페인 번호·채널)를 그대로 따르고 고유하게 끝을 맺는다
+    const data = await fetchAllPaged(() => db.rpc('detect_channel_code_drift').order('layer').order('campaign_no').order('channel_code').order('campaign_id').order('kind'));
     return Array.isArray(data) ? data : [];
   } catch(e) {
     console.warn('[fetchChannelDriftAlerts]', e);
@@ -2802,15 +2851,18 @@ async function fetchAdminNotices(filters) {
   if (!db) return [];
   try {
     const uid = (await db.auth.getUser()).data?.user?.id;
-    let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
-    if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
-    if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
-    q = q.order('is_pinned', {ascending: false})
-         .order('pinned_at', {ascending: false, nullsFirst: false})
-         .order('published_at', {ascending: false, nullsFirst: false})
-         .order('created_at', {ascending: false});
-    const {data, error} = await q;
-    if (error) throw error;
+    // 끊어 받을 때 쿼리를 페이지마다 새로 만든다(같은 객체에 range 를 거듭 걸지 않는다)
+    const buildQuery = () => {
+      let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
+      if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      return q.order('is_pinned', {ascending: false})
+        .order('pinned_at', {ascending: false, nullsFirst: false})
+        .order('published_at', {ascending: false, nullsFirst: false})
+        .order('created_at', {ascending: false})
+        .order('id');
+    };
+    const data = await fetchAllPaged(buildQuery);
     return (data || []).map(n => {
       const mine = (n.admin_notice_reads || []).find(r => r.auth_id === uid);
       return {...n, is_read: !!mine, read_at: mine?.read_at || null, admin_notice_reads: undefined};
@@ -2981,10 +3033,9 @@ async function fetchCompanies({ status = 'active', search } = {}) {
 async function getBrandOpsOverview(companyId) {
   if (!db) return [];
   try {
-    const {data, error} = await db.rpc('get_brand_ops_overview', {
+    const data = await fetchAllPaged(() => db.rpc('get_brand_ops_overview', {
       p_company_id: companyId || null
-    });
-    if (error) throw error;
+    }).order('brand_id'));
     return data || [];
   } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
 }
@@ -3181,8 +3232,12 @@ async function fetchCampaignCountsByBrand() {
 
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
 // 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
+// 🔴 **실패는 `null`, 0건은 `0`** — 2026-09-21 에 바꿨다. 그전에는 실패에도 `0` 을 돌려줘서
+//    브랜드 상세가 「캠페인 없음 → 삭제 가능」으로 **오판**했고(조회가 실패했을 뿐인데),
+//    병합 확인창은 「캠페인 0건을 옮깁니다」라고 **거짓 안내**했다. 둘 다 되돌릴 수 없는 동작이다.
+//    ⚠️ 호출부는 실패(`null`)와 0건(`0`)을 반드시 갈라야 한다 — 뭉치면 그 사고가 되살아난다.
 async function countCampaignsByBrand(brandId) {
-  if (!db) return 0;
+  if (!db) return null;
   try {
     // 보관 삭제된 캠페인 제외 — 서버의 브랜드 삭제 판정(마이그레이션 325)과 같은 기준.
     //   기준이 어긋나면 화면은 「0개」인데 삭제는 「캠페인이 남아 있다」로 막힌다.
@@ -3190,7 +3245,100 @@ async function countCampaignsByBrand(brandId) {
       .is('deleted_at', null).eq('brand_id', brandId);
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
+  } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
+}
+
+// ══ 브랜드 영업 메모 (마이그레이션 466, 사양서 2026-09-23-brand-memo-entries) ══
+//   오리엔시트 내부 메모(297)와 같은 방식 — 서버 함수 없이 표를 직접 읽고 쓴다.
+//   ⚠️ 조회 실패는 **null**, 0건은 **[]**. 화면이 「불러오지 못했습니다」와 「메모 없음」을 다르게 그린다.
+async function fetchBrandMemos(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {data, error} = await db.from('brand_memos')
+      .select('id, brand_id, body_html, author_id, author_name, created_at, updated_at')
+      .eq('brand_id', brandId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandMemos]', e); return null; }
+}
+
+async function insertBrandMemo(brandId, bodyHtml, authorId, authorName) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_memos')
+        .insert({ brand_id: brandId, body_html: bodyHtml, author_id: authorId || null, author_name: authorName || null })
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 낙관적 잠금을 일부러 걸지 않는다(마지막 저장 승리 — 297 과 같은 결정)
+async function updateBrandMemo(memoId, bodyHtml) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_memos')
+        .update({body_html: bodyHtml})
+        .eq('id', memoId)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 목록 「메모」 열 — 브랜드마다 최신 1건 + 건수. 조회는 **딱 한 번**(브랜드마다 부르면 77번이 된다).
+//   🔴 실패는 `null`, 0건은 `{}` — 옆 「오리엔시트 수」 열과 같은 규칙(실패를 0으로 그리면 「메모가 없다」는 거짓말).
+//   ⚠️ 1,000행 상한 대비 `fetchAllPaged` + 고유 정렬. 최신 판정은 받아 온 뒤 화면에서 한다.
+async function fetchBrandMemoSummaries() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('brand_memos')
+      .select('brand_id, body_html, created_at')
+      .order('created_at', {ascending: false}).order('id', {ascending: true}));
+    const out = {};
+    (rows || []).forEach(r => {
+      if (!r.brand_id) return;
+      const cur = out[r.brand_id];
+      if (!cur) { out[r.brand_id] = { count: 1, latest_body: r.body_html, latest_at: r.created_at }; return; }
+      cur.count += 1;
+      if (!cur.latest_at || (r.created_at && r.created_at > cur.latest_at)) { cur.latest_body = r.body_html; cur.latest_at = r.created_at; }
+    });
+    return out;
+  } catch(e) { console.error('[fetchBrandMemoSummaries]', e); return null; }
+}
+
+async function deleteBrandMemo(memoId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('brand_memos').delete().eq('id', memoId);
+      if (error) throw error;
+      return true;
+    });
+    return {ok: true};
+  } catch(e) { console.error('[deleteBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 상세 모달 「캠페인」 탭 — 그 브랜드의 캠페인 목록(보관 삭제분 제외).
+//   🔴 기준은 `countCampaignsByBrand`(바로 위)와 **글자 그대로 같다**(`brand_id` + `deleted_at IS NULL`) —
+//      어긋나면 탭 라벨의 건수와 실제 목록 길이가 달라져 「몇 건이 맞나」를 운영자가 판단하게 된다.
+//   ⚠️ 실패 `null` / 0건 `[]`. 화면이 둘을 다른 문구로 그린다(마이그레이션 276 원칙).
+//   ⚠️ 칸은 한 줄 표시에 필요한 것만 — 기간 문구 판정(`campaignPeriodRowKind`)이 구매·방문 기간을 읽으므로 함께 받는다.
+async function fetchCampaignsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('campaigns')
+      .select('id,campaign_no,title,status,recruit_type,proxy_purchase,channel,channel_match,img1,recruit_start,deadline,submission_end,purchase_start,purchase_end,visit_start,visit_end')
+      .is('deleted_at', null).eq('brand_id', brandId)
+      .order('created_at', {ascending:false}).order('id', {ascending:true}));
+  } catch(e) { console.error('[fetchCampaignsByBrand]', e); return null; }
 }
 
 // 브랜드 할당 모달용 조회
@@ -3230,6 +3378,20 @@ async function fetchBrandApplicationsByBrand(brandId) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchBrandApplicationsByBrand]', e); return []; }
+}
+
+// 브랜드 서베이(brand_applications) 신청 건수 — 브랜드 상세 삭제 판정·안내줄용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6).
+// 🔴 실패는 null, 0건은 0 — 둘을 반드시 구분한다(마이그레이션 276 원칙). 호출부는
+//   null 이면 삭제 버튼을 아예 안 그리고 「일부 정보를 불러오지 못해 삭제를 잠갔습니다」로 안내한다.
+async function countBrandApplicationsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    const {count, error} = await db.from('brand_applications').select('id', {count:'exact', head:true})
+      .eq('brand_id', brandId);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[countBrandApplicationsByBrand]', e); return null; }
 }
 
 // 광고주 신청 메모 (multi-entry, migration 080 + 123 — 제품별 분리)
@@ -3298,8 +3460,7 @@ async function deleteBrandAppMemo(memoId) {
 async function fetchBrandAppMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.rpc('get_brand_app_memo_summaries');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_brand_app_memo_summaries').order('application_id').order('product_idx'));
     const summary = {};
     (data || []).forEach(r => {
       const key = r.application_id + '_' + (r.product_idx || 0);
@@ -3422,8 +3583,7 @@ async function markOrientMemosRead(sheetId) {
 async function fetchOrientMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.rpc('get_orient_sheet_memo_summaries');
-    if (error) throw error;
+    const data = await fetchAllPaged(() => db.rpc('get_orient_sheet_memo_summaries').order('orient_sheet_id').order('card_uid'));
     const summary = {};
     (data || []).forEach(r => {
       summary[r.orient_sheet_id + '_' + r.card_uid] = {
@@ -3441,10 +3601,8 @@ async function fetchOrientMemoSummaries() {
 async function fetchBrandAppHistoryCounts() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.from('brand_application_history')
-      .select('application_id', {count: 'exact', head: false})
-      .limit(100000);
-    if (error) throw error;
+    // ⚠️ .limit(100000) 은 효과가 없었다 — 서버가 1,000행에서 자른다. 끊어 받는다.
+    const data = await fetchAllPaged(() => db.from('brand_application_history').select('application_id').order('id'));
     const counts = {};
     (data || []).forEach(r => { counts[r.application_id] = (counts[r.application_id] || 0) + 1; });
     return counts;
@@ -3653,6 +3811,27 @@ async function fetchAdminEmailSubscriptions(adminIds) {
   return map;
 }
 
+// 관리자별 최근 접속 시각 — 관리자 계정 목록의 「최근 접속」 열(마이그레이션 436 → 437).
+// 반환은 일반 객체 `{ 관리자id: 시각 }` (Map 객체가 아니다 — .get() 이 아니라 [] 로 읽는다).
+// 시각 = last_active_at(로그인·로그인 연장 중 늦은 쪽, 437). 🔴 last_sign_in_at 만 쓰면
+//   로그인 상태를 유지한 채 오늘 쓴 사람이 「어제」로 보인다(2026-09-15 실측).
+//   437 이 적용 안 된 서버(칸 없음)에서는 last_sign_in_at 으로 떨어진다 — 배포 순서가
+//   어긋나도 열이 비지 않게. 함수·함수 이름은 호출 자리를 안 바꾸려고 그대로 뒀다.
+// 🔴 실패에 null, 0건에 {} 로 **구분해서** 돌려준다.
+//    바로 위 fetchAdminEmailSubscriptions 는 오류에도 {} 를 돌려주는데, 그건 이 저장소가
+//    반복해서 데인 「조회 실패를 0건으로 뭉개는」 형태다 — 여기서는 따라 하지 않는다.
+//    화면은 null 이면 그 열을 아예 안 그린다(빈 날짜가 줄줄이 뜨는 것보다 낫다).
+// ⚠️ 서버가 슈퍼관리자가 아니면 42501 로 거부한다 — 그래서 화면은 슈퍼일 때만 부른다.
+//    (반드시 실패할 것을 부르면 콘솔에 오류가 쌓여 「고장인가」 하는 오해를 만든다)
+async function fetchAdminLastSignIn() {
+  if (!db) return null;
+  const {data, error} = await db.rpc('get_admin_last_sign_in');
+  if (error) { console.error('[fetchAdminLastSignIn]', error); return null; }
+  const map = {};
+  for (const row of data || []) map[row.admin_id] = row.last_active_at || row.last_sign_in_at || null;
+  return map;
+}
+
 // 메일 종류 카탈로그 (lookup_values kind='admin_email_kind')
 // 모달의 체크박스 목록을 동적 렌더하기 위함.
 async function fetchAdminEmailKinds() {
@@ -3720,6 +3899,35 @@ async function cancelApplication(applicationId, opts) {
     //   같은 거부가 여기서 「예상 못 한 오류」로 한 번 더 쌓인다(2026-09-02 운영 실측).
     logAppError('cancelApplication', e, CANCEL_APPLICATION_EXPECTED);
     return {ok: false, error: msg};
+  }
+}
+
+// 관리자가 회원 본인 취소 신청을 취소 직전 상태로 되돌린다 (마이그레이션 440).
+//   성공     : { ok:true, restored_status:'pending'|'approved', on_hold_settlement_count:<정수> }
+//   서버 거부: { ok:false, error_code:'forbidden'|'memo_required'|'not_found'|'not_cancelled'|
+//                'withdrawal_related'|'previous_status_not_restorable'|'campaign_deleted'|
+//                'event_campaign'|'active_application_exists'|'slots_full' }
+//   통신 실패·예외: null
+// 🔴 **거부와 통신 실패를 반드시 구분한다.** 거부는 서버가 판정한 정상 결과라 화면이 코드별
+//    전용 문구를 띄우고, null 은 「서버에 닿지 못했다」라서 문구가 달라야 한다. 둘을 하나로
+//    합치면 「알 수 없는 오류」가 되어 사양서 「하나도 뭉뚱그리지 않는다」를 어긴다.
+// ⚠️ 이 함수는 거부를 예외로 던지지 않는다(서버가 jsonb 로 돌려준다) — 예외는 통신·세션
+//    문제뿐이므로 걸러 낼 「정상 거부 목록」이 필요 없다.
+async function restoreCancelledApplication(appId, memo) {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('restore_cancelled_application', {
+        p_application_id: appId,
+        p_memo:           memo || null
+      });
+      if (error) throw error;
+      return data;
+    });
+  } catch(e) {
+    console.error('[restoreCancelledApplication]', e);
+    logAppError('restoreCancelledApplication', e);
+    return null;
   }
 }
 
@@ -4302,8 +4510,10 @@ async function unhideApplicationMessage(messageId, reasonMemo) {
 // 반환: Map<application_id, unread_count> (응모행 배지·받은편지함 개인 강조용)
 async function fetchAdminMessageUnreadCounts() {
   if (!db) return new Map();
-  const {data, error} = await db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null });
-  if (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null }).order('application_id'));
+  } catch (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
   const map = new Map();
   (data || []).forEach(r => map.set(r.application_id, Number(r.unread_count) || 0));
   return map;
@@ -4397,24 +4607,25 @@ async function fetchAdminSentAtMap() {
 // 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
 //   숨김/회수 메시지는 제외(미리보기 노출 부적절). created_at 내림차순 후 클라에서 첫 행=최신.
 //   반환: Map<application_id, {body, sender_kind, created_at}>
-//   ⚠️ PostgREST 1000행 cap: 청크당 application 100개 + limit 1000. 한 청크 내
-//      메시지 밀도가 매우 높으면(application 평균 10건 초과) 뒤쪽 응모건 미리보기가
-//      누락될 수 있음. 미리보기는 보조 정보라 치명적이지 않음. 정밀도 필요 시
-//      차후 「응모건당 최신 1건」 전용 RPC 로 개선 권장.
+//   PostgREST 1000행 cap: 청크(응모 100건) 안에서도 끊어 받는다(2026-09-21 — 예전에는
+//      limit 1000 이라 메시지가 많은 청크에서 뒤쪽 응모건 미리보기가 빠졌다).
+//      더 가볍게 하려면 「응모건당 최신 1건」 전용 서버 함수가 낫다(후속).
 async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
-  const CHUNK = 100;  // application_id 청크 (청크당 1000행 cap 내 평균 10건 커버)
+  const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
   for (let i = 0; i < applicationIds.length; i += CHUNK) {
     const ids = applicationIds.slice(i, i + CHUNK);
-    const {data, error} = await db?.from('application_messages')
-      .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
-      .in('application_id', ids)
-      .is('hidden_by_admin_at', null)
-      .is('self_withdrawn_at', null)
-      .order('created_at', { ascending: false })
-      .limit(1000);
-    if (error) { console.warn('[fetchMessagePreviews]', error); continue; }
+    let data;
+    try {
+      data = await fetchAllPaged(() => db.from('application_messages')
+        .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
+        .in('application_id', ids)
+        .is('hidden_by_admin_at', null)
+        .is('self_withdrawn_at', null)
+        .order('created_at', { ascending: false })
+        .order('id'));
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
     (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
   }
   return map;
@@ -4565,12 +4776,13 @@ async function updateBroadcastTitle(broadcastId, title) {
 // 관리자용 전체 노드 (active 무관) — 트리 렌더용. sort_order → created_at 정렬
 async function fetchFaqNodes() {
   if (!db) return [];
-  const {data, error} = await db?.from('faq_nodes')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
-  return data || [];
+  try {
+    return await fetchAllPaged(() => db.from('faq_nodes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'));
+  } catch (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
 }
 
 // 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
@@ -5039,16 +5251,22 @@ async function submitOrientSheet(token, data, version) {
 //   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
 // 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
 //   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
-//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel
-async function createOrientSheet(brandId, applicationId, formType, channel) {
+//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+// [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
+//   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
+//      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.
+//      안 보내면 옛 4인자 함수도, 새 5인자 함수(DEFAULT NULL)도 그대로 받는다 — 배포 순서가 뒤집혀도 평소 발급은 산다.
+async function createOrientSheet(brandId, applicationId, formType, channel, recruitFeeKrw) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
-    const { data, error } = await db.rpc('create_orient_sheet', {
+    const params = {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
       p_form_type: formType || null,
       p_channel: channel || null,
-    });
+    };
+    if (recruitFeeKrw !== null && recruitFeeKrw !== undefined) params.p_recruit_fee_krw = recruitFeeKrw;
+    const { data, error } = await db.rpc('create_orient_sheet', params);
     if (error) throw error;
     return data;
   });
@@ -5075,6 +5293,85 @@ async function updateQuoteSetting(key, amount) {
     if (error) throw error;
     return data;
   });
+}
+
+// ── 견적 구간 이름·옵션 문구 (마이그레이션 462·463, 오리엔시트 구간 이름 관리자 편집) ──
+// 조회: 관리자 전원. 🔴 실패는 null, 0건은 [] — fetchQuoteSettings 와 같은 규칙.
+async function fetchQuoteTierLabels() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_quote_tier_labels');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[fetchQuoteTierLabels]', e);
+    return null;
+  }
+}
+// 수정: 캠페인 관리자 이상(서버 가드). 반환 {success, form_type, tier, name, option_text} | {success:false, reason}
+async function updateQuoteTierLabel(formType, tier, name, optionText) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('update_quote_tier_label', {
+      p_form_type: formType, p_tier: tier, p_name: name, p_option_text: optionText,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// ── 메타 픽셀 설정 (마이그레이션 438) ──
+// 관리 화면 조회: 관리자 전원. 반환 {meta_pixel_id, enabled, policy_effective_date, updated_at, status, history[]}
+//   🔴 실패는 null — 화면은 「불러오지 못했습니다」를 그리고 스위치를 그리지 않는다.
+//   status 는 서버가 정한다(policy_locked·no_pixel_id·disabled·active) — 화면이 날짜를 비교하지 말 것.
+async function fetchMetaPixelAdmin() {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('get_meta_pixel_admin');
+      if (error) throw error;
+      return (data && typeof data === 'object') ? data : null;
+    });
+  } catch (e) {
+    console.error('[fetchMetaPixelAdmin]', e);
+    return null;
+  }
+}
+// 저장(아이디·켜기·끄기): 서버 가드 has_permission('ad_tracking.manage','write').
+//   반환 { ok: true } | { ok: false, error_code } — error_code:
+//   forbidden · invalid_input · invalid_pixel_id · policy_not_in_effect · request_failed(통신·예외)
+async function updateMetaPixelSettings(pixelId, enabled) {
+  if (!db) return { ok: false, error_code: 'request_failed' };
+  try {
+    const data = await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('update_meta_pixel_settings', {
+        p_meta_pixel_id: pixelId == null ? null : String(pixelId),
+        p_enabled: !!enabled,
+      });
+      if (error) throw error;
+      return data;
+    });
+    if (data && data.success === true) return { ok: true };
+    return { ok: false, error_code: (data && data.reason) || 'request_failed' };
+  } catch (e) {
+    console.error('[updateMetaPixelSettings]', e);
+    return { ok: false, error_code: 'request_failed' };
+  }
+}
+// 인플루언서 앱용 조회(비로그인·로그인). 반환: 아이디 문자열 | '' (전송하지 않음) | null (조회 실패)
+//   🔴 '' 와 null 을 합치지 않는다 — 사양서 흐름 7 이 둘을 같은 방향(불러오지 않음)으로 다루더라도
+//      실패 기록·재조회 판정은 구분해야 한다. 이 함수는 절대 throw 하지 않는다(화면을 막지 않는다).
+async function fetchPublicMetaPixelId() {
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('get_public_meta_pixel_id');
+    if (error) throw error;
+    return typeof data === 'string' ? data : null;
+  } catch (e) {
+    console.error('[fetchPublicMetaPixelId]', e);
+    if (typeof logAppError === 'function') logAppError('fetchPublicMetaPixelId', e);
+    return null;
+  }
 }
 
 // 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
@@ -5160,7 +5457,7 @@ async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
 // 기존 캠페인과 연결(발행 처리). 마이그레이션 237.
 // 서버가 브랜드 일치·전역 중복(다른 시트/카드에서 이미 이 캠페인을 쓰는지) 검증.
 // 반환 reason: not_found/permission_denied/invalid_status/invalid_card/
-//   already_published/campaign_not_found/brand_mismatch/campaign_already_linked
+//   already_published/campaign_not_found/brand_mismatch/recruit_type_mismatch(464)/campaign_already_linked
 async function linkOrientCardToCampaign(orientId, cardIdx, campaignId) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
@@ -5274,6 +5571,37 @@ async function revokePushToken(token) {
     console.error('[revokePushToken]', e);
     return { ok: false, error: e?.message || 'unknown' };
   }
+}
+
+// 브랜드에 발급된 오리엔시트 전체 — 브랜드 상세 「오리엔시트」 구역용
+//   (사양서 2026-09-10-brand-detail-orient-sheets.md §4-6). 최신 발급순.
+// data 는 형식(osCardsSummary)·제품명·견적(osQuoteState)·발행 캠페인 표시에 전부 쓰여 반드시 받는다.
+//   orient_sheets.form_type 칸은 형식 표시 함수가 안 읽으므로(새 시트=data.issued, 옛 시트=data.cards) 안 받는다.
+// 🔴 1,000행 상한 대응 — 브랜드당 건수를 실측하지 않았으므로 fetchAllPaged 로 전건 반복 조회한다
+//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문(fetchCampaignCountsByBrand)을 본뜨지 않는다.
+// 실패 null / 0건 [].
+async function fetchOrientSheetsByBrand(brandId) {
+  if (!db || !brandId) return null;
+  try {
+    return await fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false }));
+  } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
+}
+
+// 브랜드별 오리엔시트 수 일괄 집계 — 브랜드 목록 「오리엔시트 수」 컬럼용. {brand_id: count} 반환.
+//   뜻은 fetchCampaignCountsByBrand 와 같다(전건 반복 조회 + 클라 집계) — 단 반복 도우미는
+//   fetchAllPaged 로 통일한다(사양서 §1-1·§4-6, 손수 짠 while 반복문을 본뜨지 않는다).
+// 🔴 실패는 null, 0건은 {} — 둘을 반드시 구분한다(마이그레이션 276 원칙).
+async function fetchOrientSheetCountsByBrand() {
+  if (!db) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const counts = {};
+    (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
+    return counts;
+  } catch (e) { console.error('[fetchOrientSheetCountsByBrand]', e); return null; }
 }
 
 // ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
@@ -5604,9 +5932,11 @@ async function deleteOutboundImage(path) {
 async function fetchPastUnregisteredSettlements() {
   if (!db) return null;   // [B-9] 「실패 = null」 계약 — 아래 주석. 저장소가 없으면 모르는 것이지 0건이 아니다.
   try {
-    const {data, error} = await db.rpc('get_past_unregistered_settlements');
-    if (error) throw error;
-    return data || [];
+    // 🔴 1,000행 상한 — 한 번에 부르면 PostgREST 가 1,000건에서 **표시 없이** 자른다.
+    //    2026-09-21 운영 실측: 실제 1,306건인데 화면·지급 준비 합계가 1,000건만 봤다
+    //    (「또는」 채널 소급 80건 중 59건이 잘린 쪽에 있었다). 함수에 ORDER BY 가 없어
+    //    끊어 받을 때 순서가 흔들리지 않게 application_id 로 고정한다.
+    return await fetchAllPaged(() => db.rpc('get_past_unregistered_settlements').order('application_id'));
   } catch(e) {
     console.error('[fetchPastUnregisteredSettlements]', e);
     // ⚠️ **[] 로 바꾸지 말 것.** 실패를 빈 목록으로 돌려주면 「보낼 것이 없음」과 구분이

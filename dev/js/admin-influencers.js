@@ -296,12 +296,15 @@ function buildInfRowAll(u) {
   const paypalBadge = u.has_paypal ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
   // 계정을 등록한 채널만 팔로워 줄을 함께 보여준다 — 미등록 칸에 「팔로워 0명」이 남으면
   // 등록을 안 한 건지 진짜 0명인지 구분이 안 된다.
+  // 🔴 링크·글자·「@」를 붙일지는 전부 `_reportAcctCell`(report-rows.js) 이 정한다 —
+  //    리포트·엑셀이 이미 쓰는 함수라, 여기서 따로 판정하면 같은 계정이 화면과 엑셀에서 갈린다.
+  //    ⚠️ 여기서 `@` 를 덧붙이지 말 것: 아이디면 이미 붙어 오고, 게시물 주소처럼
+  //       아이디를 못 뽑은 값은 **주소 그대로**가 와서 앞에 엉뚱한 `@` 가 붙는다.
   const snsCell = (channel, raw, followers) => {
-    const handle = extractSnsHandle(channel, raw);
-    if (!handle) return '—';
-    const safe = esc(handle);
-    const url = snsProfileUrl(channel, handle);
-    const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+    const { url, text } = _reportAcctCell(channel, raw);
+    if (!text) return '—';
+    const safe = esc(text);
+    const inner = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">${safe}</a>` : safe;
     return `<div style="max-width:140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`
       + `<div style="font-size:10px;color:var(--muted)">팔로워 ${followers}명</div>`;
   };
@@ -382,15 +385,18 @@ async function openInfluencerDetail(userId) {
     row('가입일', formatDate(u.created_at));
 
   // SNS
+  // 판정은 `_reportAcctCell` 한 곳(위 snsCell 주석 참조).
+  // 🔴 마우스 올림 표시(title)가 **아래 여섯 줄 밑**에 있다 — 링크 글자만 바꾸고 그것을 두면
+  //    마우스를 올렸을 때만 옛 값이 남는다(이 사양서를 쓰며 한 번 놓친 자리).
   const snsRow = (label, channel, raw, followers) => {
-    const handle = extractSnsHandle(channel, raw);
-    const url = snsProfileUrl(channel, handle);
-    const idHtml = handle
-      ? (url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--ink)">@${esc(handle)}</a>` : `@${esc(handle)}`)
+    const { url, text } = _reportAcctCell(channel, raw);
+    const safe = esc(text);
+    const idHtml = text
+      ? (url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--ink)">${safe}</a>` : safe)
       : '—';
     return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${label}</div>
-      <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(handle||'')}">${idHtml}</div>
+      <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${idHtml}</div>
       <div style="font-size:13px;font-weight:700;color:var(--pink)">${(followers||0).toLocaleString()}명</div>
     </div>`;
   };
@@ -582,7 +588,7 @@ function renderEditingFilePreview() {
   const kept = _editingKeptPaths.map((p, i) => {
     const url = _editingKeptUrlMap[p];
     const thumb = url
-      ? `<img src="${esc(url)}" style="width:48px;height:48px;object-fit:cover;border-radius:4px" onclick="openImageLightbox('${esc(url)}')">`
+      ? `<img src="${esc(url)}" style="width:48px;height:48px;object-fit:cover;border-radius:4px" onclick="openImageLightbox(${jsStr(url)})">`
       : `<div style="width:48px;height:48px;background:#F0F0F0;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:10px;color:#666">파일</div>`;
     return `<div style="position:relative;display:inline-block" data-kept="${esc(p)}">${thumb}<button onclick="removeKeptPath(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#C62828;color:#fff;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0" aria-label="삭제">×</button></div>`;
   }).join('');
@@ -1155,7 +1161,7 @@ async function renderInfluencerFlagsPanel(influencerId) {
     const thumbs = (f.evidence_paths || []).map(p => {
       const url = signedMap[p];
       if (!url) return '';
-      return `<img src="${esc(url)}" alt="증빙" onclick="openImageLightbox('${esc(url)}')" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--line)">`;
+      return `<img src="${esc(url)}" alt="증빙" onclick="openImageLightbox(${jsStr(url)})" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--line)">`;
     }).filter(Boolean).join('');
     return `
     <div style="padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start">

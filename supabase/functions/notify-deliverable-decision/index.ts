@@ -198,6 +198,10 @@ interface NextStepCampaign {
   recruit_type: string | null;
   proxy_purchase: boolean | null;
   channel: string | null;
+  // 「또는」(or) / 「그리고」(and) — 여러 채널을 모집할 때 전부 내야 하는지.
+  // 🔴 조회에서 빠지면 `undefined` 가 되어 **전부 `or` 로 잡힌다** — 「그리고」 캠페인에
+  //    「완료됐다」는 메일이 나간다. 아래 campaignChannelKind 주석 참조.
+  channel_match?: string | null;
   // 아래 두 칸은 완료 문구를 고르는 재료다(completionTail 참조).
   //   ⚠️ `undefined`(조회가 안 가져옴)와 `null`(데이터베이스가 비었다고 답함)을
   //   반드시 구분한다 — 앞은 "모른다", 뒤는 "없다"이고 문구가 갈린다.
@@ -283,6 +287,30 @@ async function fetchChannelLabelMap(
     if (c.name_ja) map.set(c.code, c.name_ja);
   });
   return map;
+}
+
+// 캠페인이 여러 채널을 모집할 때 **전부** 내야 하는지, **하나만** 내면 되는지.
+//   🔴 **`dev/lib/shared.js` 의 `campaignFollowerKind` 와 같은 기준**이다 — Edge Function 은
+//      공유 모듈이 없어 사본이다(같은 사본이 notify-influencer-daily-digest 에도 있다).
+//      셋 중 하나만 고치면 화면·메일이 서로 다른 말을 한다.
+//   ⚠️ **기본값은 `or`**(「`and` 가 아니면 `or`」). 반대로 적으면 지금 정상인 캠페인이 깨진다.
+function campaignChannelKind(camp: NextStepCampaign): "single" | "and" | "or" {
+  const list = String(camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+  if (list.length <= 1) return "single";
+  return String(camp.channel_match || "").trim().toLowerCase() === "and" ? "and" : "or";
+}
+
+// 「또는」 캠페인에서는 요구 채널 중 **하나라도** 승인됐으면 완료다.
+//   `fetchMissingChannels` 는 「최신이 승인이 아닌 채널」을 돌려주므로,
+//   남은 수가 요구 수보다 적다 = 하나 이상 승인됐다는 뜻이다.
+//   ⚠️ `and`·`single` 은 받은 값을 그대로 쓴다(종전 그대로).
+function missingAfterKind(
+  camp: NextStepCampaign,
+  requiredChannels: string[],
+  missing: string[],
+): string[] {
+  if (campaignChannelKind(camp) !== "or") return missing;
+  return missing.length < requiredChannels.length ? [] : missing;
 }
 
 // review_image(리뷰 인증샷) 채널별 완성 여부 조회.
@@ -422,7 +450,9 @@ async function buildNextStepBlock(
         `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
       );
     }
-    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "review_image");
+    const missingRaw = await fetchMissingChannels(sb, applicationId, requiredChannels, "review_image");
+    // 🔴 갈래 보정 — 「또는」이면 하나만 승인돼도 완료다(2026-09-21, 2단계)
+    const missingChannels = missingRaw === null ? null : missingAfterKind(camp, requiredChannels, missingRaw);
     // 조회 실패 — 완료 여부를 모르는 채 "완료"라고 말하지 않는다. 최소한의 진행 상황만 전달.
     if (missingChannels === null) {
       return nextStepBox(
@@ -472,7 +502,9 @@ async function buildNextStepBlock(
         `<div style="font-size:13px;color:#222;line-height:1.7">投稿URLが承認されました。次のステップは「活動管理」でご確認ください。</div>`,
       );
     }
-    const missingChannels = await fetchMissingChannels(sb, applicationId, requiredChannels, "post");
+    const missingRaw = await fetchMissingChannels(sb, applicationId, requiredChannels, "post");
+    // 🔴 갈래 보정 — 「또는」이면 하나만 승인돼도 완료다(2026-09-21, 2단계)
+    const missingChannels = missingRaw === null ? null : missingAfterKind(camp, requiredChannels, missingRaw);
     if (missingChannels === null) {
       return nextStepBox(
         "blue",
@@ -523,16 +555,17 @@ const PUBLIC_CLIENT_KEYS = [
 //   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
 //   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
 //   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
-function isAnonJwt(token: string): boolean {
-  if (!token.startsWith("eyJ")) return false;
+// JWT 의 역할(role)만 읽는다 — 서명은 플랫폼이 이미 검증했다. 못 읽으면 null(막지 않는다).
+function jwtRole(token: string): string | null {
+  if (!token.startsWith("eyJ")) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
   try {
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
-    return payload?.role === "anon";
+    return typeof payload?.role === "string" ? payload.role : null;
   } catch {
-    return false;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+    return null;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
   }
 }
 
@@ -544,13 +577,18 @@ function rejectPublicKeyCaller(req: Request, tag: string): boolean {
     console.warn(`[${tag}] rejected — called with the public client key`);
     return true;
   }
-  if (isAnonJwt(token)) {
-    console.warn(`[${tag}] rejected — called with a legacy anon JWT`);
+  // 🔴 비로그인(anon)·로그인 회원(authenticated) 토큰은 거부한다(2026-09-28 전수조사 3차).
+  //   회원가입은 누구나 할 수 있어 authenticated 토큰도 사실상 공개다 — 예전에는 anon 만 막아
+  //   로그인한 회원이 방침 통지 시험 발송(임의 주소)·홍보 메일 전체 발송을 부를 수 있었다.
+  //   예약 실행(vault edge_function_jwt)·데이터베이스 웹훅은 service_role 이라 통과한다.
+  const role = jwtRole(token);
+  if (role === "anon" || role === "authenticated") {
+    console.warn(`[${tag}] rejected — called with an end-user JWT`, { role });
     return true;
   }
   // 토큰 자체는 절대 남기지 않는다.
   const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-  console.log(`[${tag}] caller check passed`, { isServiceRole });
+  console.log(`[${tag}] caller check passed`, { isServiceRole, role });
   return false;
 }
 
@@ -688,7 +726,7 @@ Deno.serve(async (req: Request) => {
     .select(`
       id, application_id, kind, status, post_url, post_channel,
       submitted_at, reviewed_at, reject_reason,
-      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, reward, product_price)
+      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, channel_match, reward, product_price)
     `)
     .eq("id", note.ref_id)
     .maybeSingle();
