@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790672713';
+  var CURRENT_BUILD = 'v1790674334';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3278,7 +3278,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-29 18:05 · 9e01833</span>
+          <span class="admin-build-text">2026-09-29 18:32 · 117bf59</span>
         </div>
       </div>
     </aside>
@@ -30255,8 +30255,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
           const pathsJson = esc(JSON.stringify(atts.map(a => a.path)));
           actions += `<button type="button" class="adm-msg-act withdraw" onclick='confirmAdmWithdraw("${esc(msg.id)}", ${pathsJson})'>회수</button>`;
         }
-      } else {
-        // 인플루언서 메시지 → campaign_admin+ 강제 숨김 (RPC 가 권한 가드)
+      } else if (admMsgIsCampaignAdmin()) {
+        // 인플루언서 메시지 → campaign_admin+ 강제 숨김. 매니저에게는 안 그린다(누르면 서버가 거절만 한다)
         actions += `<button type="button" class="adm-msg-act hide" onclick="promptHideMessage('${esc(msg.id)}')">숨김</button>`;
       }
     }

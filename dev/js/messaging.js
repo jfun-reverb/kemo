@@ -340,7 +340,8 @@ function inquiryBack() {
 // 고르기 보기 — 아직 대화가 없는 응모만, 취소된 응모 제외(새로 못 쓰는 막다른 길), 최근 응모순
 function renderInquiryPick(box) {
   const started = new Set((_inqApps || []).map(a => a.id));
-  const list = (_inqAllApps || []).filter(a => a.status !== 'cancelled' && !started.has(a.id));
+  const unstarted = (_inqAllApps || []).filter(a => !started.has(a.id));
+  const list = unstarted.filter(a => a.status !== 'cancelled');
   const rows = list.map(a => {
     // 응모 표와 캠페인 표 사이에 외래 키가 없어 조회에 붙일 수 없다 — 캠페인 문의 탭처럼 받아 둔 목록에서 찾는다
     const c = (allCampaigns || []).find(x => x.id === a.campaign_id) || {};
@@ -356,7 +357,9 @@ function renderInquiryPick(box) {
   }).join('');
   box.innerHTML = `<button type="button" class="detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">arrow_back</span> ${esc(t('inquiry.title'))}</button>`
     + `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
-    + (rows ? `<div class="inq-app-list">${rows}</div>` : `<div class="inq-app-error"><p>${esc(t('inquiry.pickEmpty'))}</p></div>`);
+    + (rows ? `<div class="inq-app-list">${rows}</div>`
+       // 빈 이유가 둘이다 — 전부 이미 대화 중(pickEmpty) / 남은 응모가 전부 취소됨(pickNone). 취소만 있는 회원에게 「모두 시작했다」는 사실이 아니다
+       : `<div class="inq-app-error"><p>${esc(t(unstarted.length ? 'inquiry.pickNone' : 'inquiry.pickEmpty'))}</p></div>`);
 }
 
 function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }

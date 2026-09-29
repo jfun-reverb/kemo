@@ -1013,8 +1013,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
           const pathsJson = esc(JSON.stringify(atts.map(a => a.path)));
           actions += `<button type="button" class="adm-msg-act withdraw" onclick='confirmAdmWithdraw("${esc(msg.id)}", ${pathsJson})'>회수</button>`;
         }
-      } else {
-        // 인플루언서 메시지 → campaign_admin+ 강제 숨김 (RPC 가 권한 가드)
+      } else if (admMsgIsCampaignAdmin()) {
+        // 인플루언서 메시지 → campaign_admin+ 강제 숨김. 매니저에게는 안 그린다(누르면 서버가 거절만 한다)
         actions += `<button type="button" class="adm-msg-act hide" onclick="promptHideMessage('${esc(msg.id)}')">숨김</button>`;
       }
     }
