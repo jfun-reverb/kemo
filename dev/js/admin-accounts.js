@@ -278,6 +278,18 @@ async function saveMyAdminInfo() {
   }
 }
 
+// 관리자 화면용 비밀번호 규칙 문구(판정은 ui.js passwordPolicyIssue — 회원과 같은 규칙).
+//   문구는 admin-setpw.html validateAdminPassword 와 같게 둔다.
+function adminPasswordPolicyMessage(pw) {
+  const msg = {
+    short: '비밀번호는 8자 이상으로 입력해 주세요.',
+    needLower: '비밀번호에 영문 소문자를 1개 이상 포함해 주세요.',
+    needSpecial: '비밀번호에 기호(!@#$%^&* 등)를 1개 이상 포함해 주세요.'
+  };
+  const issue = passwordPolicyIssue(pw);
+  return issue ? msg[issue] : null;
+}
+
 async function changeMyAdminPassword() {
   if (!db) return;
   const cur = $('myAdminCurrentPw')?.value;
@@ -286,11 +298,12 @@ async function changeMyAdminPassword() {
   const err = $('myPwError');
   err.style.display = 'none';
   if (!cur || !nw) { err.textContent='모든 항목을 입력해주세요'; err.style.display='block'; return; }
-  if (nw.length < 8) { err.textContent='새 비밀번호는 8자 이상이어야 합니다'; err.style.display='block'; return; }
+  const pwIssue = adminPasswordPolicyMessage(nw);
+  if (pwIssue) { err.textContent = pwIssue; err.style.display='block'; return; }
   if (nw !== nw2) { err.textContent='비밀번호가 일치하지 않습니다'; err.style.display='block'; return; }
   try {
     const {error} = await db.auth.updateUser({password: nw});
-    if (error) { err.textContent = error.message; err.style.display='block'; return; }
+    if (error) { err.textContent = '변경 오류: ' + friendlyError(error.message); err.style.display='block'; return; }
     toast('비밀번호가 변경되었습니다','success');
     $('myAdminCurrentPw').value = '';
     $('myAdminNewPw').value = '';
@@ -448,7 +461,8 @@ async function executeResetPw() {
   const newPw = $('resetPwNew').value;
   const err = $('resetPwError');
   err.style.display = 'none';
-  if (!newPw || newPw.length < 8) { err.textContent = '비밀번호는 8자 이상이어야 합니다'; err.style.display = 'block'; return; }
+  const pwIssue = adminPasswordPolicyMessage(newPw);
+  if (pwIssue) { err.textContent = pwIssue; err.style.display = 'block'; return; }
   try {
     const {error} = await db.rpc('reset_admin_password', {target_auth_id: authId, new_password: newPw});
     if (error) throw error;
