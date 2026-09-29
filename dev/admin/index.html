@@ -2147,7 +2147,8 @@
             <div style="display:flex;align-items:center;margin-bottom:8px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
             </div>
-            <!-- 탭 한 줄: 캠페인 문의 / 서비스 문의 / 일괄발송 이력(캠페인관리자 이상) — renderInboxKindTabs 가 그린다(조각 6-B) -->
+            <!-- 탭 한 줄: 캠페인 문의 / 서비스 문의 — renderInboxKindTabs 가 그린다(조각 6-B).
+                 일괄발송 이력은 탭이 아니라 캠페인 문의 탭 필터 줄 끝의 단추(2026-09-29 사용자 결정) -->
             <div id="inboxKindTabBar" class="status-tab-bar"></div>
             <div id="inboxFilterRow" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -2190,10 +2191,15 @@
                   <input type="search" id="inboxSearchInput" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
                 </div>
               </div>
-              <!-- 일괄 발송 — 캠페인 한 건의 응모건 대상이라 캠페인 문의 탭에서만 보인다(applyBulkMsgButtonVisibility) -->
-              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px;height:32px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
-              </button>
+              <!-- 일괄 발송 · 일괄발송 이력 — 캠페인 한 건의 응모건 대상이라 캠페인 문의 탭에서만, 캠페인관리자 이상(applyBulkMsgButtonVisibility) -->
+              <div style="display:flex;gap:6px;align-items:flex-end">
+                <button class="btn btn-ghost btn-sm" id="bulkHistoryOpenBtn" onclick="openInboxBroadcasts()" style="display:none;align-items:center;gap:4px;height:32px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>일괄발송 이력
+                </button>
+                <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px;height:32px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
+                </button>
+              </div>
             </div>
           </div>
           <div class="inbox-3pane stage-campaigns" id="inboxMainView">
@@ -2220,6 +2226,9 @@
           </div>
           <!-- 발송 이력 탭 (PR 3 일괄 발송) -->
           <div id="inboxBroadcastsView" style="display:none;flex:1;overflow:auto;padding:4px 0">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="closeInboxBroadcasts()" style="margin-bottom:8px;display:inline-flex;align-items:center;gap:4px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:16px">arrow_back</span>받은편지함
+            </button>
             <div id="broadcastsList" class="broadcasts-list"></div>
           </div>
         </div>
