@@ -939,8 +939,8 @@ UNIQUE 제약: `(kind, code)`
 - **필수 조합**: 영문 소문자 + 특수문자 (최소)
 - **권장 조합**: 영문 대소문자 + 숫자 + 특수문자 중 2개 이상
 - **사용 가능 특수문자**: `!@#$%^&*()_+-=[]{}|;:,.<>?` 등 일반적인 ASCII 기호
-- **유출 비번 차단**: Supabase Auth의 HIBP(Have I Been Pwned) 검사 활성 — 유출 이력 있는 비밀번호는 가입·변경 모두 차단
-- 클라이언트 검증(`dev/js/auth.js`)과 Supabase Auth 정책 이중 적용
+- **흔한(유출 목록) 비밀번호**: Supabase Auth 의 유출 비밀번호 검사는 **꺼 둔다**(켜면 회원까지 거부). 대신 브라우저가 SHA-1 앞 5글자만 서버 함수 `password-range-lookup` 에 보내 Have I Been Pwned 목록과 대조한다(`commonPasswordCheck`, `dev/js/ui.js` · `dev/admin-setpw.html`). **관리자 비밀번호 설정·변경·초기화 세 곳은 거부**, 회원은 경고만(단계 2, 미구현). 판정 실패·3초 초과는 통과
+- 규칙(8자·소문자·기호)은 **화면에서만** 검사한다 — Supabase 서버 설정은 6자·문자 조건 없음. 판정은 `passwordPolicyIssue`(`dev/js/ui.js`)·`validateAdminPassword`(`dev/admin-setpw.html`) 두 곳
 
 ### 17.2 변경 시 추가 제약
 - **현재 비밀번호와 동일 금지** — 새 비밀번호가 기존과 같으면 거부
