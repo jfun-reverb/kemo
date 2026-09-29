@@ -1135,3 +1135,8 @@ Edge Function `purge-withdrawal-message-attachments` + 화면 3곳(`shared.js`·
 ### 나머지 작업
 
 (진행하면서 채울 것)
+
+### 일반 문의 창구와의 연결 (2026-09-29, 일반 문의 작업표 조각 7)
+- **탈퇴 화면의 운영팀 연락이 LINE → 앱 안 「お問い合わせ」(문의하기)** — 잠금 안내(`bContact`)·취소 못 한 응모(`rContact`)·관리자 겸직(`eAdmin`)은 문구 아래 버튼으로 서비스 문의 대화에 바로 착지(`openGeneralInquiryPage('withdraw')`, 뒤로가기 = 탈퇴 화면). 토스트로만 뜨는 `dCancelAdminOnly`·`errLocked` 는 「메뉴의 お問い合わせ」 안내. 안 쓰던 `withdrawGuide` 키 삭제.
+- **LINE 유지** — 확정 뒤 로그아웃 안내(`auth.withdrawnLogout`·`auth.js` 예비 문구)와 예정일 메일. 로그인할 수 없거나 로그인 보장이 없는 자리다.
+- **359 재판단(일반 문의 사양서 §12 ③) — 결론 「그대로 둔다」**: 탈퇴 차단 트리거는 메시지 발송을 막지 않는다. 확정 전 회원이 운영팀에 닿는 유일한 앱 안 길이라 막으면 안 되고, 확정 뒤에는 로그인 자체가 막혀 발송할 수 없다.
