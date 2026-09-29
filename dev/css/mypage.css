@@ -60,10 +60,16 @@
 .inq-header-spacer{width:40px;flex-shrink:0}
 .inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
 .inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
-.inq-branch-btn{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff);color:var(--ink);font-size:15px;font-weight:600;text-align:left;cursor:pointer}
-.inq-branch-btn .inq-branch-label{flex:1}
-.inq-branch-btn .material-icons-round{font-size:22px;color:var(--muted)}
-.inq-app-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:-4px}
+.inq-tabs{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--primary-light)}
+.inq-tab{flex:1;min-height:44px;padding:8px 6px;border:none;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;line-height:1.3}
+.inq-tab.on{background:var(--surface,#fff);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+#inquiryBranchBody{display:flex;flex-direction:column;gap:14px}
+.inq-other{display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff)}
+.inq-other-lead{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
+.inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.inq-start-btn .material-icons-round{font-size:20px}
+#page-inquiry .msg-back-btn{width:44px;height:44px}
+.inq-app-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .inq-app-item{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
 .inq-app-item:last-child{border-bottom:none}
 .inq-app-item .inq-app-title{flex:1;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}

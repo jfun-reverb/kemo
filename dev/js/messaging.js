@@ -246,22 +246,22 @@ function navigateBackFromMessages() {
 // 일반 문의 창구 — 햄버거 「お問い合わせ」 단일 입구 (사양서 docs/specs/2026-05-21-general-inquiry-desk.md §3)
 //   갈래 화면 #inquiry → 「응모한 캠페인에 대해」(응모건 메시지 그대로) / 「그 외 문의」(#inquiry-general)
 // ════════════════════════════════════════════════════════════════════
-let _inqApps = null;        // 갈래 화면용 응모 목록 — null=조회 실패, []=0건
-let _inqAppListOpen = false; // 「응모에 대해」 목록 펼침 여부
+let _inqApps = null;        // 문의 화면용 응모 목록 — null=조회 실패, []=0건
+let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(그 외 문의)
 
-// 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로) / 'withdraw' 등.
-//   🔴 갈래를 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 갈래를 보인다(§5-4 ⑩).
+// 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로 — 보던 탭 유지) / 'withdraw' 등.
+//   🔴 화면을 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 화면을 보인다(§5-4 ⑩).
 async function openInquiryPage(from, pushHistory) {
   if (!currentUser) { navigate('login'); return; }
   const apps = await fetchMyApplicationsForInquiry();
   if (Array.isArray(apps) && apps.length === 0) {
     // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 그 외 문의로.
-    //   뒤로가기 목적지는 홈(갈래 화면을 거치지 않았으므로).
+    //   뒤로가기 목적지는 홈(이 화면을 거치지 않았으므로).
     openGeneralInquiryPage(from === 'withdraw' ? 'withdraw' : 'nav', pushHistory);
     return;
   }
   _inqApps = apps;           // null(실패) 또는 1건 이상
-  _inqAppListOpen = false;
+  if (from !== 'back') _inqTab = 'app';
   if (navigate('inquiry', pushHistory) === false) return;
   if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
     try { allCampaigns = await fetchCampaigns(); } catch (_e) {}
@@ -269,44 +269,41 @@ async function openInquiryPage(from, pushHistory) {
   renderInquiryBranch();
 }
 
+// 탭 둘(2026-09-29 사용자 결정) — 아래에는 목록/안내만, 대화는 눌러서 들어간다.
 function renderInquiryBranch() {
   const box = $('inquiryBranchBody');
   if (!box) return;
-  let listHtml = '';
-  if (_inqAppListOpen) {
-    if (_inqApps === null) {
-      listHtml = `<div class="inq-app-error">
-        <p>${esc(t('inquiry.loadError'))}</p>
-        <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
-      </div>`;
-    } else {
-      listHtml = `<div class="inq-app-list">${_inqApps.map(a => {
-        const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
-        const title = camp.title || t('inquiry.unknownCampaign');
-        const ro = a.status === 'cancelled'
-          ? `<span class="inq-app-readonly">${esc(t('inquiry.readOnly'))}</span>` : '';
-        return `<button type="button" class="inq-app-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
-          <span class="inq-app-title">${esc(title)}</span>${ro}
-          <span class="material-icons-round notranslate" translate="no">chevron_right</span>
-        </button>`;
-      }).join('')}</div>`;
-    }
+  const tab = (key, label) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
+      aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}</button>`;
+  let body = '';
+  if (_inqTab === 'other') {
+    body = `<div class="inq-other">
+      <p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>
+      <button type="button" class="inq-start-btn" onclick="openGeneralInquiryPage('branch')">
+        <span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('inquiry.otherStart'))}
+      </button>
+    </div>`;
+  } else if (_inqApps === null) {
+    body = `<div class="inq-app-error">
+      <p>${esc(t('inquiry.loadError'))}</p>
+      <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
+    </div>`;
+  } else {
+    body = `<div class="inq-app-list">${_inqApps.map(a => {
+      const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
+      const title = camp.title || t('inquiry.unknownCampaign');
+      const ro = a.status === 'cancelled'
+        ? `<span class="inq-app-readonly">${esc(t('inquiry.readOnly'))}</span>` : '';
+      return `<button type="button" class="inq-app-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
+        <span class="inq-app-title">${esc(title)}</span>${ro}
+        <span class="material-icons-round notranslate" translate="no">chevron_right</span>
+      </button>`;
+    }).join('')}</div>`;
   }
-  box.innerHTML = `
-    <button type="button" class="inq-branch-btn" onclick="toggleInquiryAppList()" aria-expanded="${_inqAppListOpen}">
-      <span class="material-icons-round notranslate" translate="no">campaign</span>
-      <span class="inq-branch-label">${esc(t('inquiry.branchApp'))}</span>
-      <span class="material-icons-round notranslate" translate="no">${_inqAppListOpen ? 'expand_less' : 'expand_more'}</span>
-    </button>
-    ${listHtml}
-    <button type="button" class="inq-branch-btn" onclick="openGeneralInquiryPage('branch')">
-      <span class="material-icons-round notranslate" translate="no">support_agent</span>
-      <span class="inq-branch-label">${esc(t('inquiry.branchOther'))}</span>
-      <span class="material-icons-round notranslate" translate="no">chevron_right</span>
-    </button>`;
+  box.innerHTML = `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'))}${tab('other', t('inquiry.branchOther'))}</div>${body}`;
 }
 
-function toggleInquiryAppList() { _inqAppListOpen = !_inqAppListOpen; renderInquiryBranch(); }
+function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }
 
 async function retryInquiryApps() {
   const apps = await fetchMyApplicationsForInquiry();
