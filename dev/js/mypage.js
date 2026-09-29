@@ -842,7 +842,7 @@ function withdrawResultHtml(res) {
 
   // 철회 못 한 응모가 있으면 문의 안내 — 그 응모가 어떻게 되는지 달리 알 길이 없다.
   const contactHtml = n(res.uncancelled_count) > 0
-    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}</div>` : '';
+    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
 
   return `<div style="font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('rTitle'))}</div>
     ${listHtml}${statusHtml}${contactHtml}
@@ -882,10 +882,18 @@ function withdrawLockedHtml(b) {
     ${detail}
     <div style="background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:var(--ink)">
       ${esc(wt('bContact'))}
+      ${withdrawContactBtnHtml()}
     </div>
     <div style="margin:28px 0 40px">
       <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
+}
+
+// 운영팀 연락 버튼 — LINE 대신 앱 안 「서비스 문의」 대화로 바로(일반 문의 창구, 사양서 §12 ①).
+//   뒤로가기는 이 탈퇴 화면으로 돌아온다(openGeneralInquiryPage 의 from='withdraw').
+//   ⚠️ 로그아웃 뒤 안내(auth.withdrawnLogout)·예정일 메일은 로그인할 수 없어 LINE 을 그대로 둔다.
+function withdrawContactBtnHtml() {
+  return `<button type="button" class="btn btn-primary" style="width:100%;margin-top:12px;min-height:44px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
 }
 
 // ── 【C】 대기 중 — pending_payout ──
@@ -932,7 +940,9 @@ function withdrawExceptionHtml(info) {
   let msg = wt('eError');
   if (info?.reason === 'audit_account_blocked')  msg = wt('eAudit');
   if (info?.reason === 'admin_account_excluded') msg = wt('eAdmin');
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}</div>
+  // 관리자 겸직은 운영팀에 물어야 풀린다 — 문의 창구로 바로 보낸다(감사용·조회 실패는 버튼 없음)
+  const contactBtn = info?.reason === 'admin_account_excluded' ? withdrawContactBtnHtml() : '';
+  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}${contactBtn}</div>
     <div style="margin:28px 0 40px">
       <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
