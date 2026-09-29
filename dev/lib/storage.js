@@ -4726,6 +4726,20 @@ async function fetchMyApplicationsForInquiry() {
   } catch (e) { console.warn('[fetchMyApplicationsForInquiry]', e); logAppError('fetchMyApplicationsForInquiry', e); return null; }
 }
 
+// 문의하기 「캠페인 문의」 탭 — 대화가 시작된 응모건만(메시지 1건 이상, 최근 대화 순).
+//   반환 [{application_id, last_message_at}] / 실패 `null`(화면은 「불러오지 못했습니다」).
+async function fetchMyApplicationThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_summary')
+      .select('application_id, last_message_at')
+      .gt('message_count', 0)
+      .order('last_message_at', { ascending: false })
+      .order('application_id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
+}
+
 // 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
 async function fetchMyGeneralInquiryUnread() {
   if (!db || typeof currentUser === 'undefined' || !currentUser) return null;

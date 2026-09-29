@@ -244,10 +244,10 @@ function navigateBackFromMessages() {
 
 // ════════════════════════════════════════════════════════════════════
 // 일반 문의 창구 — 햄버거 「お問い合わせ」 단일 입구 (사양서 docs/specs/2026-05-21-general-inquiry-desk.md §3)
-//   갈래 화면 #inquiry → 「응모한 캠페인에 대해」(응모건 메시지 그대로) / 「그 외 문의」(#inquiry-general)
+//   문의 화면 #inquiry → 탭 「캠페인 문의」(대화가 시작된 응모건) / 「서비스 문의」(#inquiry-general)
 // ════════════════════════════════════════════════════════════════════
 let _inqApps = null;        // 문의 화면용 응모 목록 — null=조회 실패, []=0건
-let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(그 외 문의)
+let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(서비스 문의)
 
 // 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로 — 보던 탭 유지) / 'withdraw' 등.
 //   🔴 화면을 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 화면을 보인다(§5-4 ⑩).
@@ -255,12 +255,19 @@ async function openInquiryPage(from, pushHistory) {
   if (!currentUser) { navigate('login'); return; }
   const apps = await fetchMyApplicationsForInquiry();
   if (Array.isArray(apps) && apps.length === 0) {
-    // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 그 외 문의로.
+    // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 서비스 문의로.
     //   뒤로가기 목적지는 홈(이 화면을 거치지 않았으므로).
     openGeneralInquiryPage(from === 'withdraw' ? 'withdraw' : 'nav', pushHistory);
     return;
   }
-  _inqApps = apps;           // null(실패) 또는 1건 이상
+  // 「캠페인 문의」 탭은 대화가 시작된 응모건만 보인다(2026-09-29 사용자 지시). 새 문의는 응모이력의 말풍선 버튼에서.
+  const threads = Array.isArray(apps) ? await fetchMyApplicationThreads() : null;
+  if (Array.isArray(apps) && Array.isArray(threads)) {
+    const byId = new Map(apps.map(a => [a.id, a]));
+    _inqApps = threads.map(th => byId.get(th.application_id)).filter(Boolean);
+  } else {
+    _inqApps = null;         // 둘 중 하나라도 실패 — 「불러오지 못했습니다」
+  }
   if (from !== 'back') _inqTab = 'app';
   if (navigate('inquiry', pushHistory) === false) return;
   if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
@@ -291,6 +298,14 @@ function renderInquiryBranch() {
       <p>${esc(t('inquiry.loadError'))}</p>
       <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
     </div>`;
+  } else if (!_inqApps.length) {
+    // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
+    body = `<div class="inq-other">
+      <p class="inq-other-lead">${esc(t('inquiry.appEmpty'))}</p>
+      <button type="button" class="inq-start-btn" onclick="navigate('mypage');openMypageSub('applications')">
+        <span class="material-icons-round notranslate" translate="no">chat_bubble_outline</span>${esc(t('inquiry.otherStart'))}
+      </button>
+    </div>`;
   } else {
     body = `<div class="inq-app-list">${_inqApps.map(a => {
       const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
@@ -308,12 +323,7 @@ function renderInquiryBranch() {
 
 function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }
 
-async function retryInquiryApps() {
-  const apps = await fetchMyApplicationsForInquiry();
-  _inqApps = apps;
-  if (Array.isArray(apps) && !apps.length) { openGeneralInquiryPage('nav'); return; }
-  renderInquiryBranch();
-}
+async function retryInquiryApps() { openInquiryPage('back', false); }
 
 // 일반 문의 대화 — #page-messages 를 재사용하고 주소는 #inquiry-general.
 //   from: 'nav' / 'branch' / 'withdraw' / 'notif' — 뒤로가기 목적지(navigateBackFromMessages).

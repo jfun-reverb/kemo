@@ -3931,7 +3931,7 @@ const POLICY_NOTICE = {
   // 일반 문의 창구 개설 + 개인정보처리방침 개정(문의 범위 확대·보관 기간 표기 정정) 예고.
   //   공고일 2026-09-29 → 시행일 2026-10-06(공고+7일). 근거 사양서 docs/specs/2026-05-21-general-inquiry-desk.md §10
   //   ⚠️ 메타 픽셀 공지(metaPixel2026, ~10-17)를 대체한다 — 공지 틀이 하나뿐이라서(2026-09-29 사용자 결정. 픽셀은 메일 통지 완료)
-  //   ⚠️ 본문의 「お問い合わせ」「その他のお問い合わせ」는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
+  //   ⚠️ 본문의 「お問い合わせ」「サービスのお問い合わせ」는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
   id: 'inquiryDesk2026',        // localStorage 키 식별자 — 통지마다 새 값(옛 값이면 지난 공지를 닫은 사람에게 안 뜬다)
   effectiveDate: '2026-10-06',  // 시행일(본문 {date} 표기용) = 창구 개설일
   // 노출 종료일 = 시행일. 이 날 0시(KST)부터 자동 비노출 — 본문이 「10월 5일까지」 기간과 「10월 6일부터」 예고를 말하므로
@@ -5855,13 +5855,14 @@ window.I18N_JA = {
   inquiry: {
     title: 'お問い合わせ',
     lead: 'お問い合わせの内容をえらんでください',
-    branchApp: '応募したキャンペーンについて',
-    branchOther: 'その他のお問い合わせ',
+    branchApp: 'キャンペーンのお問い合わせ',
+    branchOther: 'サービスのお問い合わせ',
     readOnly: '閲覧のみ',
     loadError: '応募履歴を読み込めませんでした',
     retry: 'もう一度読み込む',
     generalTitle: '運営チームへのお問い合わせ',
     unknownCampaign: 'キャンペーン',
+    appEmpty: 'お問い合わせ中のキャンペーンはまだありません。下のボタンから応募履歴をひらき、聞きたいキャンペーンの吹き出しボタンを押してください。',
     otherLead: 'キャンペーン以外のこと（アカウント・お支払いなど）は、こちらから運営チームにお問い合わせください。',
     otherStart: 'お問い合わせを始める',
   },
@@ -5869,7 +5870,7 @@ window.I18N_JA = {
   //   ⚠️ メール通知なし（アプリ内のみ）。{date} は施行日。
   policyNotice: {
     title: '「お問い合わせ」窓口ができます',
-    body: 'いつも REVERB JP をご利用いただきありがとうございます。<br><br>■ {date}から<br>キャンペーンのこと以外でも、運営チームにお問い合わせできるようになります。<br><br>■ 10月6日からのお問い合わせのしかた<br>1. 右上のメニュー（≡）をひらく<br>2. 「お問い合わせ」をえらぶ<br>3. 「その他のお問い合わせ」をえらんで、送る<br>※10月5日までは、これまでどおり応募履歴の吹き出しボタン、またはLINE（@reverb.jp）でお問い合わせください。<br><br>■ 個人情報処理方針も変わります<br>これにあわせて、お問い合わせ内容の保管について個人情報処理方針を改定しました（10月6日から）。<br>くわしくは、下の「詳しく見る」またはアプリ下部の「個人情報処理方針」をご覧ください。<br><br>■ 同意できない場合<br>2026年10月5日までにお申し出がない場合は、同意いただいたものとみなします。<br>同意できない場合は、メニューの「退会する」から退会できます。',
+    body: 'いつも REVERB JP をご利用いただきありがとうございます。<br><br>■ {date}から<br>キャンペーンのこと以外でも、運営チームにお問い合わせできるようになります。<br><br>■ 10月6日からのお問い合わせのしかた<br>1. 右上のメニュー（≡）をひらく<br>2. 「お問い合わせ」をえらぶ<br>3. 「サービスのお問い合わせ」をえらんで、送る<br>※10月5日までは、これまでどおり応募履歴の吹き出しボタン、またはLINE（@reverb.jp）でお問い合わせください。<br><br>■ 個人情報処理方針も変わります<br>これにあわせて、お問い合わせ内容の保管について個人情報処理方針を改定しました（10月6日から）。<br>くわしくは、下の「詳しく見る」またはアプリ下部の「個人情報処理方針」をご覧ください。<br><br>■ 同意できない場合<br>2026年10月5日までにお申し出がない場合は、同意いただいたものとみなします。<br>同意できない場合は、メニューの「退会する」から退会できます。',
     banner: '10月6日から「お問い合わせ」窓口ができます（個人情報処理方針の改定あり）。くわしくはこちら。',
     detailBtn: '詳しく見る',
     closeBtn: '今後表示しない',
@@ -6816,13 +6817,14 @@ window.I18N_KO = {
   inquiry: {
     title: '문의하기',
     lead: '문의 내용을 골라 주세요',
-    branchApp: '응모한 캠페인에 대해',
-    branchOther: '그 외 문의',
+    branchApp: '캠페인 문의',
+    branchOther: '서비스 문의',
     readOnly: '읽기만',
     loadError: '응모 이력을 불러오지 못했습니다',
     retry: '다시 불러오기',
     generalTitle: '운영팀 문의',
     unknownCampaign: '캠페인',
+    appEmpty: '문의 중인 캠페인이 아직 없습니다. 아래 버튼으로 응모이력을 열고, 묻고 싶은 캠페인의 말풍선 버튼을 눌러 주세요.',
     otherLead: '캠페인 말고 다른 일(계정·지급 등)은 여기서 운영팀에 문의해 주세요.',
     otherStart: '문의 시작하기',
   },
@@ -6830,7 +6832,7 @@ window.I18N_KO = {
   //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.
   policyNotice: {
     title: '「문의」 창구가 생깁니다',
-    body: '늘 REVERB JP 를 이용해 주셔서 감사합니다.<br><br>■ {date}부터<br>캠페인 말고 다른 일로도 운영팀에 문의할 수 있습니다.<br><br>■ 10월 6일부터 문의하는 방법<br>1. 오른쪽 위 메뉴(≡)를 연다<br>2. 「문의하기」를 고른다<br>3. 「그 외 문의」를 골라 보낸다<br>※10월 5일까지는 지금처럼 응모이력의 말풍선 버튼이나 LINE(@reverb.jp)으로 문의해 주세요.<br><br>■ 개인정보 처리방침도 바뀝니다<br>이에 맞춰 문의 내용 보관에 관한 부분을 개정했습니다(10월 6일부터).<br>자세한 내용은 아래 「자세히 보기」나 앱 아래쪽 「개인정보 처리방침」에서 봐 주세요.<br><br>■ 동의하지 않는 경우<br>2026년 10월 5일까지 아무 말씀이 없으시면 동의하신 것으로 봅니다.<br>동의하지 않으시면 메뉴의 「회원 탈퇴」에서 탈퇴하실 수 있습니다.',
+    body: '늘 REVERB JP 를 이용해 주셔서 감사합니다.<br><br>■ {date}부터<br>캠페인 말고 다른 일로도 운영팀에 문의할 수 있습니다.<br><br>■ 10월 6일부터 문의하는 방법<br>1. 오른쪽 위 메뉴(≡)를 연다<br>2. 「문의하기」를 고른다<br>3. 「서비스 문의」를 골라 보낸다<br>※10월 5일까지는 지금처럼 응모이력의 말풍선 버튼이나 LINE(@reverb.jp)으로 문의해 주세요.<br><br>■ 개인정보 처리방침도 바뀝니다<br>이에 맞춰 문의 내용 보관에 관한 부분을 개정했습니다(10월 6일부터).<br>자세한 내용은 아래 「자세히 보기」나 앱 아래쪽 「개인정보 처리방침」에서 봐 주세요.<br><br>■ 동의하지 않는 경우<br>2026년 10월 5일까지 아무 말씀이 없으시면 동의하신 것으로 봅니다.<br>동의하지 않으시면 메뉴의 「회원 탈퇴」에서 탈퇴하실 수 있습니다.',
     banner: '10월 6일부터 「문의」 창구가 생깁니다(개인정보 처리방침 개정 포함). 자세한 내용은 여기로.',
     detailBtn: '자세히 보기',
     closeBtn: '다시 보지 않기',
@@ -11965,6 +11967,20 @@ async function fetchMyApplicationsForInquiry() {
       .order('id'));
     return data || [];
   } catch (e) { console.warn('[fetchMyApplicationsForInquiry]', e); logAppError('fetchMyApplicationsForInquiry', e); return null; }
+}
+
+// 문의하기 「캠페인 문의」 탭 — 대화가 시작된 응모건만(메시지 1건 이상, 최근 대화 순).
+//   반환 [{application_id, last_message_at}] / 실패 `null`(화면은 「불러오지 못했습니다」).
+async function fetchMyApplicationThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_summary')
+      .select('application_id, last_message_at')
+      .gt('message_count', 0)
+      .order('last_message_at', { ascending: false })
+      .order('application_id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
 }
 
 // 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
@@ -21679,10 +21695,10 @@ function navigateBackFromMessages() {
 
 // ════════════════════════════════════════════════════════════════════
 // 일반 문의 창구 — 햄버거 「お問い合わせ」 단일 입구 (사양서 docs/specs/2026-05-21-general-inquiry-desk.md §3)
-//   갈래 화면 #inquiry → 「응모한 캠페인에 대해」(응모건 메시지 그대로) / 「그 외 문의」(#inquiry-general)
+//   문의 화면 #inquiry → 탭 「캠페인 문의」(대화가 시작된 응모건) / 「서비스 문의」(#inquiry-general)
 // ════════════════════════════════════════════════════════════════════
 let _inqApps = null;        // 문의 화면용 응모 목록 — null=조회 실패, []=0건
-let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(그 외 문의)
+let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(서비스 문의)
 
 // 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로 — 보던 탭 유지) / 'withdraw' 등.
 //   🔴 화면을 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 화면을 보인다(§5-4 ⑩).
@@ -21690,12 +21706,19 @@ async function openInquiryPage(from, pushHistory) {
   if (!currentUser) { navigate('login'); return; }
   const apps = await fetchMyApplicationsForInquiry();
   if (Array.isArray(apps) && apps.length === 0) {
-    // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 그 외 문의로.
+    // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 서비스 문의로.
     //   뒤로가기 목적지는 홈(이 화면을 거치지 않았으므로).
     openGeneralInquiryPage(from === 'withdraw' ? 'withdraw' : 'nav', pushHistory);
     return;
   }
-  _inqApps = apps;           // null(실패) 또는 1건 이상
+  // 「캠페인 문의」 탭은 대화가 시작된 응모건만 보인다(2026-09-29 사용자 지시). 새 문의는 응모이력의 말풍선 버튼에서.
+  const threads = Array.isArray(apps) ? await fetchMyApplicationThreads() : null;
+  if (Array.isArray(apps) && Array.isArray(threads)) {
+    const byId = new Map(apps.map(a => [a.id, a]));
+    _inqApps = threads.map(th => byId.get(th.application_id)).filter(Boolean);
+  } else {
+    _inqApps = null;         // 둘 중 하나라도 실패 — 「불러오지 못했습니다」
+  }
   if (from !== 'back') _inqTab = 'app';
   if (navigate('inquiry', pushHistory) === false) return;
   if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
@@ -21726,6 +21749,14 @@ function renderInquiryBranch() {
       <p>${esc(t('inquiry.loadError'))}</p>
       <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
     </div>`;
+  } else if (!_inqApps.length) {
+    // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
+    body = `<div class="inq-other">
+      <p class="inq-other-lead">${esc(t('inquiry.appEmpty'))}</p>
+      <button type="button" class="inq-start-btn" onclick="navigate('mypage');openMypageSub('applications')">
+        <span class="material-icons-round notranslate" translate="no">chat_bubble_outline</span>${esc(t('inquiry.otherStart'))}
+      </button>
+    </div>`;
   } else {
     body = `<div class="inq-app-list">${_inqApps.map(a => {
       const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
@@ -21743,12 +21774,7 @@ function renderInquiryBranch() {
 
 function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }
 
-async function retryInquiryApps() {
-  const apps = await fetchMyApplicationsForInquiry();
-  _inqApps = apps;
-  if (Array.isArray(apps) && !apps.length) { openGeneralInquiryPage('nav'); return; }
-  renderInquiryBranch();
-}
+async function retryInquiryApps() { openInquiryPage('back', false); }
 
 // 일반 문의 대화 — #page-messages 를 재사용하고 주소는 #inquiry-general.
 //   from: 'nav' / 'branch' / 'withdraw' / 'notif' — 뒤로가기 목적지(navigateBackFromMessages).
