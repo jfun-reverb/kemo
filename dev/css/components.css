@@ -86,6 +86,8 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* 흔한 비밀번호 경고 줄 — 막지 않는 안내라 노란 톤(오류 빨강과 구분). 마이페이지는 반쪽 폭이라 줄바꿈 허용 */
 .pw-common-warn{font-size:12px;line-height:1.5;color:#7A5200;background:#FFF6D6;border-radius:8px;padding:6px 10px;margin-top:6px;word-break:break-word}
 .form-row{display:grid;grid-template-columns:1fr;gap:12px}
+/* 마이페이지는 줄 안의 칸이 위아래로 쌓이고 칸마다 아래 여백이 있어, 줄 간격까지 더하면 그 사이만 넓어진다 */
+#appShell .mypage-wrap .form-row{gap:0}
 /* Admin form: 2-col layout */
 #page-admin .form-row{grid-template-columns:1fr 1fr;gap:40px}
 
@@ -406,6 +408,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
   /* 폼 — 가운데. 🔴 .form-row 는 관리자 문서도 쓰는 공용 클래스라 #appShell 로 좁힌다. */
   #appShell .form-row{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
+  /* 마이페이지는 한 칸짜리 항목·안내·버튼이 전체 폭이라, 두 칸짜리 줄만 좁혀 가운데로 옮기면 한 화면 안에서 어긋난다
+     (비밀번호 변경 화면에서 새 비밀번호 두 칸만 안쪽으로 들어가 보였다) — 마이페이지 안에서는 줄도 전체 폭 */
+  #appShell .mypage-wrap .form-row{max-width:none;margin-left:0;margin-right:0}
 
   /* 글 — 왼쪽 정렬 그대로 두고 폭만 묶는다(가운데로 옮기지 않는다). */
   #appShell .rich-content{max-width:var(--reading-max)}
