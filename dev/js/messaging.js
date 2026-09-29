@@ -248,6 +248,8 @@ function navigateBackFromMessages() {
 // ════════════════════════════════════════════════════════════════════
 let _inqApps = null;        // 문의 화면용 응모 목록 — null=조회 실패, []=0건
 let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(서비스 문의)
+let _inqAllApps = null;     // 본인 응모 전체(취소 포함) — 「새 문의」 고르기 재료
+let _inqPicking = false;    // 「새 문의」 응모 고르기 보기(문의하기 화면 안의 하위 보기)
 
 // 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로 — 보던 탭 유지) / 'withdraw' 등.
 //   🔴 화면을 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 화면을 보인다(§5-4 ⑩).
@@ -262,6 +264,8 @@ async function openInquiryPage(from, pushHistory) {
   }
   // 「캠페인 문의」 탭은 대화가 시작된 응모건만 보인다(2026-09-29 사용자 지시). 새 문의는 응모이력의 말풍선 버튼에서.
   const threads = Array.isArray(apps) ? await fetchMyApplicationThreads() : null;
+  _inqAllApps = Array.isArray(apps) ? apps : null;
+  _inqPicking = false;
   if (Array.isArray(apps) && Array.isArray(threads)) {
     const byId = new Map(apps.map(a => [a.id, a]));
     _inqApps = threads.map(th => byId.get(th.application_id)).filter(Boolean);
@@ -280,6 +284,7 @@ async function openInquiryPage(from, pushHistory) {
 function renderInquiryBranch() {
   const box = $('inquiryBranchBody');
   if (!box) return;
+  if (_inqPicking) { renderInquiryPick(box); return; }
   // 모양은 햄버거 메뉴 언어 전환 토글(.lang-toggle)과 같게 — 2026-09-29 사용자 지시.
   //   🔴 클래스를 같이 쓰지 않는다 — updateLangToggleUI(mypage.js)가 `.lang-toggle .lang-btn` 을
   //      전역으로 잡아 data-lang 으로 on 을 다시 매겨, 언어를 바꾸면 이 탭의 선택 표시가 사라진다.
@@ -302,9 +307,7 @@ function renderInquiryBranch() {
     // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
     body = `<div class="inq-other">
       <p class="inq-other-lead">${esc(t('inquiry.appEmpty'))}</p>
-      <button type="button" class="inq-start-btn" onclick="navigate('mypage');openMypageSub('applications')">
-        <span class="material-icons-round notranslate" translate="no">chat_bubble_outline</span>${esc(t('inquiry.otherStart'))}
-      </button>
+      ${_inqNewThreadBtnHtml()}
     </div>`;
   } else {
     body = `<div class="inq-app-list">${_inqApps.map(a => {
@@ -317,8 +320,42 @@ function renderInquiryBranch() {
         <span class="material-icons-round notranslate" translate="no">chevron_right</span>
       </button>`;
     }).join('')}</div>`;
+    body += _inqNewThreadBtnHtml();
   }
   box.innerHTML = `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'))}${tab('other', t('inquiry.branchOther'))}</div>${body}`;
+}
+
+// 「새 문의」 — 캠페인 문의 탭 맨 아래(빈 상태에도). 누르면 응모 고르기 보기(조각 5-B)
+function _inqNewThreadBtnHtml() {
+  return `<button type="button" class="inq-start-btn" onclick="openInquiryPick()">
+    <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+  </button>`;
+}
+function openInquiryPick() { _inqPicking = true; renderInquiryBranch(); const pg = $('page-inquiry'); if (pg) pg.scrollTop = 0; }
+// 문의하기 화면 머리글 뒤로 — 고르기 보기면 탭 보기로, 아니면 홈으로
+function inquiryBack() {
+  if (_inqPicking) { _inqPicking = false; renderInquiryBranch(); return; }
+  navigate('home');
+}
+// 고르기 보기 — 아직 대화가 없는 응모만, 취소된 응모 제외(새로 못 쓰는 막다른 길), 최근 응모순
+function renderInquiryPick(box) {
+  const started = new Set((_inqApps || []).map(a => a.id));
+  const list = (_inqAllApps || []).filter(a => a.status !== 'cancelled' && !started.has(a.id));
+  const rows = list.map(a => {
+    // 응모 표와 캠페인 표 사이에 외래 키가 없어 조회에 붙일 수 없다 — 캠페인 문의 탭처럼 받아 둔 목록에서 찾는다
+    const c = (allCampaigns || []).find(x => x.id === a.campaign_id) || {};
+    const title = c.title || t('inquiry.unknownCampaign');
+    const thumb = c.img1
+      ? `<img src="${esc(storageThumbUrl(c.img1))}" data-orig="${esc(c.img1)}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
+    return `<button type="button" class="inq-pick-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
+      <span class="apply-thumb">${thumb}</span>
+      <span class="inq-pick-main"><span class="inq-app-title">${esc(title)}</span><span class="inq-pick-status">${getStatusBadge(a.status)}</span></span>
+      <span class="material-icons-round notranslate" translate="no">chevron_right</span>
+    </button>`;
+  }).join('');
+  box.innerHTML = `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
+    + (rows ? `<div class="inq-app-list">${rows}</div>` : `<div class="inq-app-error"><p>${esc(t('inquiry.pickEmpty'))}</p></div>`);
 }
 
 function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }

@@ -75,6 +75,12 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
 .inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 .inq-start-btn .material-icons-round{font-size:20px}
 #page-inquiry .msg-back-btn{width:44px;height:44px}
+.inq-pick-title{font-size:15px;font-weight:700;color:var(--ink)}
+.inq-pick-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);text-align:left;cursor:pointer}
+.inq-pick-item:last-child{border-bottom:none}
+.inq-pick-item>.material-icons-round{font-size:20px;color:var(--faint)}
+.inq-pick-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.inq-pick-status .badge{font-size:11px}
 .inq-app-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .inq-app-item{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
 .inq-app-item:last-child{border-bottom:none}
