@@ -1330,7 +1330,14 @@ function _applyInboxViewDisplay() {
   const bc = document.getElementById('inboxBroadcastsView');
   if (main) main.style.display = isList ? '' : 'none';
   if (bc) bc.style.display = isList ? 'none' : '';
-  document.querySelectorAll('#inboxFilterRow .admin-filter-group').forEach(g => { g.style.display = isList ? '' : 'none'; });
+  document.querySelectorAll('#inboxFilterRow .admin-filter-group').forEach(g => {
+    // 「날짜 직접 선택」 칸은 기간에서 「직접 선택」을 골랐을 때만 보인다 — 한꺼번에 켜면 늘 나온다(2026-09-29 발견)
+    if (g.id === 'inboxCustomRange') {
+      g.style.display = (isList && document.getElementById('inboxSinceSelect')?.value === 'custom') ? '' : 'none';
+      return;
+    }
+    g.style.display = isList ? '' : 'none';
+  });
 }
 function openInboxBroadcasts() {
   if (!admMsgIsCampaignAdmin()) return;
