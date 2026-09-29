@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790668408';
+  var CURRENT_BUILD = 'v1790668459';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3278,7 +3278,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-29 16:53 · 747c68c</span>
+          <span class="admin-build-text">2026-09-29 16:54 · eb3935f</span>
         </div>
       </div>
     </aside>
@@ -14966,9 +14966,18 @@ async function withdrawOwnMessage(messageId, attachmentPaths = []) {
   });
   if (attachmentPaths && attachmentPaths.length) {
     // 본인 회수는 첨부 즉시 삭제 (개인정보 최소화). 실패해도 회수 자체는 성공이므로 경고만.
-    try { await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths); }
-    // ⚠️ 여기서 실패하면 회수했다고 표시된 메시지의 첨부 파일이 저장소에 남는다
-    //    (개인정보). 기록이 없으면 남은 파일을 찾아 지울 방법이 없었다.
+    // ⚠️ 여기서 실패하면 회수했다고 표시된 메시지의 첨부 파일이 저장소에 남는다(개인정보).
+    // 🔴 삭제는 **오류 없이 0건**으로 끝날 수 있다 — 저장소 삭제는 조회 정책으로 보이는 파일만 지운다.
+    //    2026-08-19(315)부터 회수된 사진이 조회 정책에 가려져 운영에서 12장이 조용히 남았다(483 이 고침).
+    //    그래서 오류뿐 아니라 **지워진 건수가 모자라는 경우도** 기록한다.
+    try {
+      const {data, error} = await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths);
+      if (error) throw error;
+      const removed = Array.isArray(data) ? data.length : 0;
+      if (removed < attachmentPaths.length) {
+        logAppError('withdrawOwnMessage.attachment', new Error(`attachment_not_removed ${removed}/${attachmentPaths.length}`));
+      }
+    }
     catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); logAppError('withdrawOwnMessage.attachment', e); }
   }
 }
