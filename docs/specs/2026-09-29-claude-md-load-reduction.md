@@ -248,6 +248,7 @@
 | `supabase/functions/notify-withdrawal-scheduled/index.ts` | `member-withdrawal.md` | ✅ 주입 |
 | `dev/js/admin-lookups.js` (⑤로 더한 파일 — **둘째 세션에서 이 파일 하나만** 열었다) | `orient-sheet.md` | ✅ 주입(`settlement.md`·`member-withdrawal.md` 는 안 실림 — 의도대로) |
 - ⚠️ 첫 세션에서 넷째 파일을 열었을 때는 새로 안 붙었다 — 같은 규칙은 **한 세션에 한 번만** 실린다. 그래서 ⑤ 경로 확인은 **그 파일을 가장 먼저** 여는 새 세션으로 따로 했다.
-- `/context` 목록은 화면으로 직접 대조하지 못했다 — 🔴 **이 저장소에서는 `/context` 를 치면 프로젝트 명령 `.claude/commands/context.md`(맥락 불러오기)가 먼저 잡혀 내장 목록이 안 나온다**(실측). 대신 둘째 세션에서 `admin-lookups.js` 를 열 때 `orient-sheet.md` 가 「Loaded」로 **새로** 실린 것이 「시작 때는 안 실려 있었다」는 간접 근거다.
+- 🔴 **이 저장소에서는 `/context` 를 치면 프로젝트 명령 `.claude/commands/context.md`(맥락 불러오기)가 먼저 잡혀 내장 목록이 안 나온다**(실측). 그래서 병합 뒤 작업 폴더에서 그 명령 파일을 잠시 치우고 `claude -p "/context"` 로 내장 목록을 받았다(파일은 즉시 되돌림 — 남은 변경 0).
+- `/context` 「Memory files」 결과: 새 파일 3개 **없음** · `planning.md` **있음**(양성 대조) · 목록 **21개**(전역 7 + `CLAUDE.md` + 프로젝트 규칙 13) = 시작 후크 개수와 같음 · 기존 `paths:` 규칙 4개도 없음. `CLAUDE.md` 약 102.3k 토큰, Memory files 합계 약 189k 토큰(메모리 색인 포함).
 - 항상 읽히는 지시 문서 합계(시작 후크와 같은 셈법): **21개 219,047자**(이 세션 시작 때 228,231자).
 - 첫 응답 입력 토큰 비교(검증 3)는 재지 못했다.
