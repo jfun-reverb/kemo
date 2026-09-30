@@ -404,7 +404,7 @@ async function init() {
   let campaignsPromise = null;
   if (db) {
     try {
-      campaignsPromise = fetchCampaigns();  // 병렬 발사, 나중에 await
+      campaignsPromise = refreshCampaignsShared();  // 병렬 발사, 나중에 await — 받은 목록은 화면 이동 때 재사용(campaign.js)
       await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
@@ -576,7 +576,7 @@ async function init() {
   }
 
   // 캠페인 불러오기 (init 초입에서 병렬 발사해둔 promise 재사용)
-  allCampaigns = campaignsPromise ? (await campaignsPromise) : await fetchCampaigns();
+  allCampaigns = campaignsPromise ? (await campaignsPromise) : await refreshCampaignsShared();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 

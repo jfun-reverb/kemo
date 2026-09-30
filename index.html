@@ -5340,6 +5340,7 @@ window.I18N_JA = {
     headerN: 'お知らせ ({n})',
     emptyUnread: '未読の通知はありません',
     refMissing: '関連する成果物が見つかりません',
+    refLoadFailed: 'いまは ひらけませんでした。しばらくしてから もう一度 おためしください。',
     applicationCancelledTitle: '応募を取り消しました',
   },
 
@@ -6318,6 +6319,7 @@ window.I18N_KO = {
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
     refMissing: '관련 결과물을 찾을 수 없습니다',
+    refLoadFailed: '지금은 열 수 없습니다. 잠시 후 다시 시도해 주세요.',
     applicationCancelledTitle: '응모를 취소했습니다',
   },
 
@@ -7233,6 +7235,57 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
   return all;
 }
 
+// 목록을 size 개씩 자른다 — 번호 목록을 .in() 으로 보낼 때 주소 길이를 넘지 않게.
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// items 를 최대 limit 개씩 **동시에** fn 으로 처리한다. 결과는 items 순서 그대로.
+//   하나라도 throw 하면 전체가 reject 된다 — 「조각 하나 실패 = 통째로 실패」 규약은 그대로 지켜진다.
+//   ⚠️ 조각마다 실패를 건너뛰어야 하는 곳은 fn 안에서 직접 잡아야 한다(fetchMessagePreviews).
+//   ⚠️ limit 를 크게 잡지 말 것 — 운영 데이터베이스가 가장 작은 사양이라 동시 요청이 몰리면 전부 느려진다.
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({length: n}, worker));
+  return out;
+}
+
+// fetchAllPaged 와 결과가 같되, 둘째 페이지부터는 concurrency 개씩 **동시에** 받는다.
+//   🔴 쓸 수 있는 조건 — ①일반 표 조회일 것(db.rpc 는 페이지마다 함수 전체가 다시 돌아
+//      동시에 부르면 서버 부하가 몰린다) ②.order() 가 **고유 순서**일 것(마지막에 .order('id')).
+//      순서가 고유하지 않으면 페이지 경계에서 행이 겹치거나 빠진다 — 이건 fetchAllPaged 도 같다.
+//   ⚠️ 1,000건이 안 되면 첫 요청 하나로 끝난다(추가 요청 없음). 짧은 페이지를 만나면 거기서 멈춘다.
+async function fetchAllPagedFast(buildQuery, opts) {
+  const pageSize = (opts && opts.pageSize) || 1000;
+  const concurrency = (opts && opts.concurrency) || 4;
+  const first = await buildQuery().range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  const all = (first.data || []).slice();
+  if (all.length < pageSize) return all;
+  let from = pageSize;
+  while (true) {
+    const starts = Array.from({length: concurrency}, (_, k) => from + k * pageSize);
+    const pages = await Promise.all(starts.map(s => buildQuery().range(s, s + pageSize - 1)));
+    for (const p of pages) {
+      if (p.error) throw p.error;
+      const d = p.data || [];
+      all.push(...d);
+      if (d.length < pageSize) return all;
+    }
+    from += concurrency * pageSize;
+  }
+}
+
 // ── Campaigns ──
 // 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
 // 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
@@ -7896,8 +7949,9 @@ async function fetchInfluencers(opts = {}) {
   if (!db) return [];
   const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() => {
-      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true});
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
+      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true}).order('id');
       if (!includeAudit) q = q.eq('is_audit', false);
       return q;
     });
@@ -8177,12 +8231,13 @@ async function updateInfluencer(userId, updates) {
 async function fetchApplications(filters) {
   if (!db) return [];
   try {
-    return await fetchAllPaged(() => {
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
       let q = db.from('applications').select('*');
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) {
     return [];
@@ -8331,7 +8386,9 @@ async function fetchPendingApplicationCount() {
 //   fetchDeliverablesByCampaignIds → 실패에 null, 0건에 []  (운영현황 일정 뷰, 2026-09-07)
 // opts.skipInfluencers — 인플루언서 이름이 필요 없는 집계용이면 회원 조회를 건너뛴다.
 async function _queryDeliverables(filters, opts) {
-    const data = await fetchAllPaged(() => {
+    // 결과물은 수천 건이라 페이지를 동시에 받는다(fetchAllPagedFast). 정렬 끝의 .order('id') 는
+    //    필수 — 수정 시각이 같은 행이 페이지 경계에 걸리면 한 건이 겹치거나 빠진다(2026-09-30).
+    const data = await fetchAllPagedFast(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
         receipt_url, order_number, purchase_date, purchase_amount, memo,
@@ -8352,8 +8409,8 @@ async function _queryDeliverables(filters, opts) {
       // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
       if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
       else q = q.order('updated_at', {ascending: false});
-      return q;
-    });
+      return q.order('id');
+    }, {concurrency: 2});   // 캠페인·신청을 끼워 넣은 무거운 조회라 동시 2개까지(운영 데이터베이스 메모리 여유가 없다)
     if (opts?.skipInfluencers) return data;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
     const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
@@ -8371,7 +8428,7 @@ async function fetchDeliverables(filters) {
 // 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
 //   🔴 실패는 null, 0건은 []. 위 fetchDeliverables 와 규약이 다르다 — 그 화면은
 //      「서버에 못 물어봤다」와 「낸 사람이 없다」를 구분해 그려야 한다(마이그레이션 276 원칙).
-//   ⚠️ id 는 200개 단위로 잘라 **차례로** 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다).
+//   ⚠️ id 는 200개 단위로 잘라 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다) — 최대 4조각 동시.
 //      조각 하나라도 실패하면 **통째로 null** — 성공한 조각만 합치면 0건과 구분되지 않는
 //      낮은 숫자가 그려진다.
 const DELIV_CAMPAIGN_ID_CHUNK = 200;
@@ -8381,12 +8438,10 @@ async function fetchDeliverablesByCampaignIds(campaignIds, opts) {
   if (!ids.length) return [];
   const chunk = (opts && opts.chunkSize) || DELIV_CAMPAIGN_ID_CHUNK;
   try {
-    const out = [];
-    for (let i = 0; i < ids.length; i += chunk) {
-      const part = await _queryDeliverables({ campaignIds: ids.slice(i, i + chunk) }, { skipInfluencers: true });
-      out.push(...part);
-    }
-    return out;
+    // 조각은 최대 4개씩 동시에 — 하나라도 실패하면 mapLimit 가 reject → 아래 catch 에서 통째로 null.
+    const parts = await mapLimit(chunkArray(ids, chunk), 4,
+      (slice) => _queryDeliverables({ campaignIds: slice }, { skipInfluencers: true }));
+    return [].concat(...parts);
   } catch(e) { console.error('[fetchDeliverablesByCampaignIds]', e); return null; }
 }
 
@@ -8428,6 +8483,39 @@ async function fetchMyNotifications(opts) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchMyNotifications]', e); logAppError('fetchMyNotifications', e); return []; }
+}
+
+// 미읽음 알림 **건수만** — 30초마다 도는 배지 갱신용(2026-09-30). 예전에는 배지 하나를 위해
+//   알림 목록을 통째로 받고 그때마다 로그인 서버에도 한 번 더 물었다.
+//   🔴 제외 조건(정산 알림 2종)은 위 fetchMyNotifications 와 **글자 그대로 같아야** 한다 —
+//      다르면 「배지 숫자는 있는데 목록은 비어있음」이 된다.
+//   ⚠️ 실패는 null, 0건은 0 — 부르는 쪽이 실패면 직전 숫자를 유지한다(예전엔 실패하면 배지가 꺼졌다).
+//   ⚠️ 오프라인이면 30초마다 실패하므로 오류 기록(logAppError)은 남기지 않는다.
+async function countMyUnreadNotifications(uid) {
+  if (!db || !uid) return null;
+  try {
+    const {count, error} = await db.from('notifications')
+      .select('id', {count: 'exact', head: true})
+      .eq('user_id', uid)
+      .not('kind', 'in', '(settlement_paid,settlement_paypal_required)')
+      .is('read_at', null);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('[countMyUnreadNotifications]', e); return null; }
+}
+
+// 알림이 가리키는 결과물 한 건 — 알림을 눌렀을 때 활동관리로 보내기 위해(2026-09-30).
+//   예전에는 이 한 건을 찾으려고 본인 결과물 전체를 받았다.
+//   🔴 **실패는 throw, 없으면 null** — 부르는 쪽이 「지금 못 읽었다」와 「참조가 사라졌다」를
+//      갈라야 한다. 합치면 일시적 통신 실패만으로 알림이 영구 삭제된다(실제로 그랬다).
+async function fetchMyDeliverableRef(deliverableId) {
+  if (!db || !deliverableId) return null;
+  const {data, error} = await db.from('deliverables')
+    .select('id, application_id, campaign_id')
+    .eq('id', deliverableId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 // 알림 1건 읽음 처리
@@ -8929,15 +9017,17 @@ async function fetchInfluencersByIds(userIds) {
     // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
     //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
     //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    //    조각은 최대 4개씩 동시에 받는다(mapLimit) — 하나라도 실패하면 종전처럼 {} .
     const ids = [...new Set(userIds)];
     const map = {};
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(inf => { map[inf.id] = inf; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(inf => { map[inf.id] = inf; }));
     return map;
   } catch(e) { return {}; }
 }
@@ -8959,13 +9049,14 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, paypal_email')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) {
     console.warn('[fetchPayoutInfluencerInfo]', e);
@@ -9099,13 +9190,14 @@ async function fetchInfluencersForReport(userIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
 }
@@ -11728,20 +11820,19 @@ async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
   const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
-  for (let i = 0; i < applicationIds.length; i += CHUNK) {
-    const ids = applicationIds.slice(i, i + CHUNK);
-    let data;
+  // 청크는 최대 4개씩 동시에. ⚠️ 실패한 청크만 건너뛰는 종전 규약을 지키려고 fn 안에서 잡는다.
+  const parts = await mapLimit(chunkArray(applicationIds, CHUNK), 4, async (ids) => {
     try {
-      data = await fetchAllPaged(() => db.from('application_messages')
+      return await fetchAllPaged(() => db.from('application_messages')
         .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
         .in('application_id', ids)
         .is('hidden_by_admin_at', null)
         .is('self_withdrawn_at', null)
         .order('created_at', { ascending: false })
         .order('id'));
-    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
-    (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
-  }
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); return []; }
+  });
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); }));
   return map;
 }
 
@@ -15336,10 +15427,68 @@ DEMO_CAMPAIGNS = [
   {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:_demoDeadline(35),post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！報酬¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
 ];
 
+// ── 캠페인 목록 보관 — 인플루언서 앱 전용 (2026-09-30) ──
+//   화면을 옮길 때마다(홈·캠페인·응모이력) 캠페인 전체를 다시 받느라 이동이 느렸다.
+//   받아 둔 목록이 있으면 **그것으로 먼저 그리고, 뒤에서 새로 받아 바뀐 게 있으면 다시 그린다**
+//   (사용자 결정 — 신청 인원·마감 상태가 낡지 않게). 서버 요청 수는 종전과 비슷하다.
+//   ⚠️ fetchCampaigns 자체는 관리자 화면도 쓴다 — 관리자는 편집 직후 최신값이 필요하므로
+//      여기(인플루언서 앱)에서만 감싼다.
+//   ⚠️ 응모·취소·행사 예약처럼 신청 인원을 바꾸는 동작 뒤에는 invalidateCampaignsCache() —
+//      다음 이동은 보관분 없이 새로 받은 뒤 그린다.
+const CAMP_FRESH_MS = 10000;   // 방금(10초 안) 받은 목록이면 뒤에서 또 받지 않는다(부팅 직후 홈 이동 등)
+let _campFetchPromise = null;
+let _campFetchedAt = 0;
+let _campGen = 0;   // 무효화 세대 — 무효화 전에 출발한 조회가 뒤늦게 와도 「방금 받음」으로 치지 않게
+
+// 새로 받는다. 같은 조회가 진행 중이면 그 결과를 함께 쓴다.
+function refreshCampaignsShared() {
+  if (_campFetchPromise) return _campFetchPromise;
+  const hadData = _campFetchedAt > 0 && Array.isArray(allCampaigns) && allCampaigns.length > 0;
+  const gen = _campGen;
+  const p = fetchCampaigns().then(data => {
+    if (_campaignsLoadFailed && hadData) {
+      // 뒤에서 받다가 실패 — 멀쩡히 받아 둔 목록을 지우지 않고, 「못 불러왔다」 표시도 세우지 않는다
+      _campaignsLoadFailed = false;
+      return allCampaigns;
+    }
+    allCampaigns = data;
+    _campFetchedAt = (_campaignsLoadFailed || gen !== _campGen) ? 0 : Date.now();
+    return allCampaigns;
+  }).finally(() => { if (_campFetchPromise === p) _campFetchPromise = null; });
+  _campFetchPromise = p;
+  return p;
+}
+
+// 신청 인원이 바뀐 뒤 — 진행 중이던 조회도 버리고 다음엔 새로 받는다
+function invalidateCampaignsCache() { _campFetchedAt = 0; _campGen++; _campFetchPromise = null; }
+
+// 다시 그릴지 판단용 — 화면에 보이는 값이 바뀌었는지만 본다(조회수 등은 뺀다)
+function _campListSignature(camps) {
+  return (camps || []).map(c => [c.id, c.status, c.applied_count, c.slots, c.deadline, c.updated_at].join('|')).join(',');
+}
+
+// 보관분이 있으면 즉시 돌려주고 뒤에서 새로 받는다. onChange(새 목록)는 **바뀌었을 때만** 불린다.
+//   보관분이 없으면(첫 진입·무효화 뒤) 새로 받을 때까지 기다린다 — 종전과 같다.
+async function getCampaignsCached(onChange) {
+  const cached = _campFetchedAt > 0 && Array.isArray(allCampaigns) && allCampaigns.length > 0;
+  if (!cached) return refreshCampaignsShared();
+  if (Date.now() - _campFetchedAt >= CAMP_FRESH_MS) {
+    const before = _campListSignature(allCampaigns);
+    refreshCampaignsShared().then(fresh => {
+      if (typeof onChange === 'function' && _campListSignature(fresh) !== before) onChange(fresh);
+    }).catch(() => {});
+  }
+  return allCampaigns;
+}
+
 async function loadCampaigns() {
-  allCampaigns = await fetchCampaigns();
-  renderCampaigns(allCampaigns);
-  updateStats(allCampaigns);
+  const camps = await getCampaignsCached(fresh => {
+    // 뒤에서 받은 목록이 달라졌을 때 — 지금 보이는 화면만 다시 그린다
+    if ($('page-home')?.classList.contains('active')) { renderCampaigns(fresh); updateStats(fresh); }
+    if ($('page-campaigns')?.classList.contains('active')) renderCampaignGrid();
+  });
+  renderCampaigns(camps);
+  updateStats(camps);
 }
 
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
@@ -15409,8 +15558,8 @@ let campPageStatusFilter = 'all';   // all | active | scheduled | closed | ended
 let campPageSearch = '';
 
 async function loadCampaignsPage() {
-  // 진입할 때마다 캠페인 데이터 새로고침 — 캐시(allCampaigns)에 의존하지 않음.
-  // 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  // 진입할 때마다 캠페인 데이터 새로고침 — 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  //   2026-09-30 부터는 받아 둔 목록으로 먼저 그리고 뒤에서 새로 받는다(loadCampaigns → getCampaignsCached).
   await loadCampaigns();
   campPageTypeFilter = 'all';
   campPageStatusFilter = 'all';
@@ -16469,55 +16618,53 @@ async function openCampaign(id) {
   let alreadyApplied = false;
   let _myApp = null;
   let hasCancelledHistory = false;
-  if (currentUser) {
-    // 🔴 아래 조회를 `await` 하는 사이에 세션이 사라질 수 있다. 그러면 `currentUser` 가
-    //    null 이 되어 **두 번째 조회의 `currentUser.id` 에서 터진다** — 운영 실측
-    //    2026-08-31 18:03 `TypeError: Cannot read properties of null (reading 'id')`.
-    //    잡히지 않은 거부(rejection)라 캠페인 상세가 그리다 만 채로 멈춘다.
-    //    그래서 **가드를 통과한 그 자리에서 한 번만** 꺼내 두고 이후로는 그 값을 쓴다.
-    //    ⚠️ 세션이 죽었으면 조회가 행 단위 보안 정책에 막혀 0건이 되고 「아직 응모 안 함」
-    //       으로 그려진다. 화면이 통째로 멈추는 것보다 낫고, 만료 자체는
-    //       `onAuthStateChange` 가 받아 로그인 화면으로 보낸다.
-    //    ⚠️ **같은 위험이 이 파일에 세 곳 더 있다** — `_submitApplicationInner`(응모 제출) ·
-    //       `_addDraftImageInner`(영수증·현장사진) · `_addDraftReviewImageInner`(리뷰 인증샷).
-    //       뒤의 둘은 **사진을 올리는 동안** 세션이 끊기면 터지는 자리라, 파일은 이미
-    //       저장소에 올라간 채 남는다. 아직 운영에서 터진 적이 없어 이번엔 손대지 않았다.
-    //    🔴 **네 곳이 아니라 세 곳이다.** `_addDraftUrlInner`(게시물 주소)도 가드 뒤에서
-    //       `currentUser.id` 를 다시 읽지만 **그 사이에 `await` 가 없다** — 그 값은
-    //       `insertDraftDeliverable(...)` 의 **인자라서 `await` 가 멈추기 전에 계산**된다.
-    //       자바스크립트는 한 줄기로 돌아 `await` 가 없으면 그 사이에 값이 바뀔 수 없다.
-    //       **`await` 가 사이에 있는지로 가른다** — 「가드 뒤에서 다시 읽는다」만 보고
-    //       세면 고칠 필요 없는 자리를 고치게 된다(2026-09-01 검수에서 실제로 걸렸다).
-    const _uid = currentUser.id;
-    // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
-    // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
-    const {data:_appData} = await (db?.from('applications').select('*')
-      .eq('user_id', _uid)
-      .eq('campaign_id', id)
-      .neq('status', 'cancelled')
-      .maybeSingle() || {data:null});
-    _myApp = _appData;
+  // 🔴 아래 조회를 `await` 하는 사이에 세션이 사라질 수 있다. 그러면 `currentUser` 가
+  //    null 이 되어 **두 번째 조회의 `currentUser.id` 에서 터진다** — 운영 실측
+  //    2026-08-31 18:03 `TypeError: Cannot read properties of null (reading 'id')`.
+  //    잡히지 않은 거부(rejection)라 캠페인 상세가 그리다 만 채로 멈춘다.
+  //    그래서 **가드를 통과한 그 자리에서 한 번만** 꺼내 두고 이후로는 그 값을 쓴다.
+  //    (2026-09-30 부터 조회를 한꺼번에 보내 기다림은 한 번이지만, 이 원칙은 그대로 지킨다.)
+  //    ⚠️ 세션이 죽었으면 조회가 행 단위 보안 정책에 막혀 0건이 되고 「아직 응모 안 함」
+  //       으로 그려진다. 화면이 통째로 멈추는 것보다 낫고, 만료 자체는
+  //       `onAuthStateChange` 가 받아 로그인 화면으로 보낸다.
+  //    ⚠️ **같은 위험이 이 파일에 세 곳 더 있다** — `_submitApplicationInner`(응모 제출) ·
+  //       `_addDraftImageInner`(영수증·현장사진) · `_addDraftReviewImageInner`(리뷰 인증샷).
+  //       뒤의 둘은 **사진을 올리는 동안** 세션이 끊기면 터지는 자리라, 파일은 이미
+  //       저장소에 올라간 채 남는다. 아직 운영에서 터진 적이 없어 이번엔 손대지 않았다.
+  //    🔴 **네 곳이 아니라 세 곳이다.** `_addDraftUrlInner`(게시물 주소)도 가드 뒤에서
+  //       `currentUser.id` 를 다시 읽지만 **그 사이에 `await` 가 없다** — 그 값은
+  //       `insertDraftDeliverable(...)` 의 **인자라서 `await` 가 멈추기 전에 계산**된다.
+  //       자바스크립트는 한 줄기로 돌아 `await` 가 없으면 그 사이에 값이 바뀔 수 없다.
+  //       **`await` 가 사이에 있는지로 가른다** — 「가드 뒤에서 다시 읽는다」만 보고
+  //       세면 고칠 필요 없는 자리를 고치게 된다(2026-09-01 검수에서 실제로 걸렸다).
+  const _uid = currentUser ? currentUser.id : null;
+
+  // 서로 기다릴 필요 없는 조회 셋을 **한꺼번에** 보낸다(2026-09-30 — 하나씩 차례로 기다리느라
+  //   상세 화면이 늦게 넘어갔다).
+  //   ① 이 캠페인의 내 신청 — 예전 두 번(취소 아닌 행 / 취소 이력)을 한 번으로 합쳤다.
+  //      partial unique index 가 cancelled 가 아닌 행을 1개만 보장하므로 아래에서 가려낸다.
+  //   ② 리뷰어(monitor)만 실시간 신청 수 — 모집인원 초과 시 신규 응모 차단 판정용.
+  //      applied_count 는 수동 동기화 캐시라 DB count(pending+approved, 트리거와 일치)로 본다.
+  //      countActiveApplications 는 실패하면 null — 아래 `cnt > 0` 이 캐시값을 유지한다(종전과 같다).
+  //   ③ 초대 전용(비공개) 캠페인 게이트 확인.
+  const [_myAppsRes, cnt, _inviteOk] = await Promise.all([
+    (_uid && db) ? db.from('applications').select('*').eq('user_id', _uid).eq('campaign_id', id)
+                 : Promise.resolve({data: null}),
+    (camp.recruit_type === 'monitor' && db) ? countActiveApplications(id) : Promise.resolve(null),
+    (typeof canOpenInviteCampaign === 'function') ? canOpenInviteCampaign(camp) : Promise.resolve(true),
+  ]);
+  if (_uid) {
+    const _rows = (_myAppsRes && _myAppsRes.data) || [];
+    _myApp = _rows.find(r => r.status !== 'cancelled') || null;
     alreadyApplied = !!_myApp;
-    if (!alreadyApplied) {
-      // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
-      const {data:_cancelled} = await (db?.from('applications').select('id')
-        .eq('user_id', _uid)
-        .eq('campaign_id', id)
-        .eq('status', 'cancelled')
-        .limit(1)
-        .maybeSingle() || {data:null});
-      hasCancelledHistory = !!_cancelled;
-    }
+    // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 → 재응모 동선
+    if (!alreadyApplied) hasCancelledHistory = _rows.some(r => r.status === 'cancelled');
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
   // DB 트리거(048)가 최종 방어선, 여기서는 UX 보조.
-  // applied_count는 수동 동기화 캐시 → 실시간 DB count로 판정 (pending+approved 기준, 트리거와 일치)
   let actualApplied = camp.applied_count || 0;
-  if (camp.recruit_type === 'monitor' && db) {
-    const cnt = await countActiveApplications(id);
-    if (cnt > 0) actualApplied = cnt;
-  }
+  if (cnt > 0) actualApplied = cnt;
   const isFull = camp.recruit_type === 'monitor' && actualApplied >= (camp.slots || 0);
   if (isFull && !alreadyApplied) {
     toast(t('apply.slotsFull'), 'error');
@@ -16527,7 +16674,7 @@ async function openCampaign(id) {
   // ── 초대 전용(비공개) 캠페인 게이트 (사양서 §4-3 「초대 전용 진입」) ──
   //   확인되지 않으면 캠페인 내용을 **한 글자도 그리지 않고** 게이트만 띄운다.
   //   ⚠️ 화면 단계 방어라 우회할 수 있다. 예약을 실제로 막는 것은 서버 재검증이다.
-  if (typeof canOpenInviteCampaign === 'function' && !(await canOpenInviteCampaign(camp))) {
+  if (!_inviteOk) {
     if (typeof renderInviteGate === 'function') renderInviteGate(camp.id);
     // 게이트 화면에는 신청 버튼을 띄우지 않는다.
     //   ⚠️ 아이디는 detailFloatBar 다. 'floatBar' 로 적으면 항상 null 이라 **조용히 안 숨겨진다**
@@ -17236,6 +17383,8 @@ async function submitEventReservation(camp) {
     return;
   }
 
+  // 신청 인원이 바뀌었을 수 있다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+  if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
   if (!res || !res.ok) {
     // 사전에 있는 사유는 정상 거부. 그 밖의 값은 예상 못 한 오류로 기록된다
     // (기본 문구 event.failGeneric 이 원인을 덮어 버리는 자리라 기록이 유일한 단서다).
@@ -17508,6 +17657,8 @@ async function _submitApplicationInner() {
     // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
     if (camp) camp.applied_count = (camp.applied_count||0) + 1;
+    // 신청 인원이 바뀌었다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+    if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
     // 메타 픽셀 5번 이벤트 — 신청이 **실제로 저장된 뒤에만**(마감·정원·중복 거부는 아래 catch 로 빠져 안 나간다).
     //   금액 인자는 넣지 않는다(사양서 결정 2 — 신청서 제출은 금액이 없다).
     if (typeof trackMetaPixelEvent === 'function') {
@@ -19305,6 +19456,8 @@ async function cancelMyTicket(ticketId) {
     return;
   }
 
+  // 신청 인원이 바뀌었을 수 있다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+  if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
   if (!res || !res.ok) {
     // 사전에 있는 사유는 정상 거부, 그 밖의 값(서버 결함 등)은 예상 못 한 오류로 기록한다.
     //   ⚠️ `permission_denied` 는 **일부러 뺐다** — 본인 예약만 취소할 수 있으므로
@@ -19570,11 +19723,10 @@ async function refreshNotifBadge(opts) {
   if (!force && now - _notifLastFetchAt < _NOTIF_STALE_MS) return;
   _notifLastFetchAt = now;
   // 관리자라도 본인 알림은 받아야 하므로 숨기지 않음 (본인이 인플루언서로도 활동 가능)
-  let unread = 0;
-  try {
-    const items = await fetchMyNotifications({unreadOnly: true, limit: 30});
-    unread = items.length;
-  } catch(e) {}
+  //   건수만 센다(countMyUnreadNotifications) — 30초마다 목록을 통째로 받지 않게(2026-09-30).
+  //   ⚠️ 조회 실패(null)면 직전 숫자를 그대로 둔다 — 예전엔 실패하면 0 으로 배지가 꺼졌다.
+  const unread = await countMyUnreadNotifications(currentUser.id);
+  if (unread === null) { applyNotifBadge(_lastUnread); return; }
   _lastUnread = unread;
   applyNotifBadge(unread);
 }
@@ -19708,18 +19860,22 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   활동관리는 신청 id + 캠페인 id 가 둘 다 필요한데 알림에는 캠페인 id 가 없어 그 한 건만 조회한다
   //   (행 단위 보안 정책상 본인 신청만 보이므로 남의 것을 열 수는 없다).
   if (kind === 'submission_deadline_changed' && refId && currentUser) {
+    // 「지금 못 읽었다」(조회 실패)와 「참조가 사라졌다」(0건)를 가른다 — 실패면 알림을 지우지 않는다
+    //   (2026-09-30. 예전엔 오류를 삼켜 일시적 통신 실패만으로 알림이 영구 삭제됐다).
+    let _app = null;
     try {
-      const {data: _app} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
-      if (_app) {
-        openActivityPage(_app.id, _app.campaign_id, 'mypage');
-        refreshNotifBadge();
-        return;
-      }
+      const {data, error} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
+      if (error) throw error;
+      _app = data;
     } catch(e) {
-      // ⚠️ 여기서 조회가 **일시적으로** 실패해도 아래에서 알림을 영구 삭제한다.
-      //    (「참조가 사라졌다」와 「지금 못 읽었다」를 구분하지 않는다 — 동작 개선은 후속,
-      //     지금은 그런 일이 실제로 일어나는지 볼 수 있게 기록부터 남긴다.)
       logAppError('notifClick.applicationRef', e);
+      toast(t('notif.refLoadFailed'), 'error');
+      return;
+    }
+    if (_app) {
+      openActivityPage(_app.id, _app.campaign_id, 'mypage');
+      refreshNotifBadge();
+      return;
     }
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
@@ -19737,17 +19893,20 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   }
   // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
+    // 가리키는 결과물 한 건만 조회한다(예전엔 본인 결과물 전체를 받았다 — 2026-09-30).
+    //   ⚠️ 실패(throw)와 0건(null)을 가른다 — 실패면 알림을 지우지 않는다(위 마감일 변경 알림과 같은 이유).
+    let hit = null;
     try {
-      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
-      const hit = delivs.find(d => d.id === refId);
-      if (hit) {
-        openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
-        refreshNotifBadge();
-        return;
-      }
+      hit = await fetchMyDeliverableRef(refId);
     } catch(e) {
-      // ⚠️ 위와 같은 자리 — 일시적 조회 실패도 알림 영구 삭제로 이어진다(후속 개선 대상).
       logAppError('notifClick.deliverableRef', e);
+      toast(t('notif.refLoadFailed'), 'error');
+      return;
+    }
+    if (hit) {
+      openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
+      refreshNotifBadge();
+      return;
     }
     // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
     await deleteNotification(id);
@@ -19892,12 +20051,19 @@ const APP_STATUS_GROUPS = {
 
 async function loadMyApplications() {
   if (!currentUser) return;
-  if (db) {
-    const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
-    _myApps = data || [];
-  }
-  // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지
-  allCampaigns = await fetchCampaigns();
+  // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지.
+  //   2026-09-30: 신청 조회와 **동시에** 보내고, 받아 둔 목록이 있으면 그것으로 먼저 그린 뒤
+  //   뒤에서 새로 받아 바뀐 게 있으면 응모이력을 다시 그린다(getCampaignsCached, campaign.js).
+  const [appsRes, camps] = await Promise.all([
+    db ? db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false}) : null,
+    getCampaignsCached(() => {
+      if (!$('page-mypage')?.classList.contains('active')) return;
+      renderMyApplyTabs();
+      renderMyApplyList();
+    }),
+  ]);
+  if (db) _myApps = (appsRes && appsRes.data) || [];
+  allCampaigns = camps;
   renderMyApplyTabs();
   // ⚠️ 반드시 기다린다 — renderMyApplyList 안에서 결과물 캐시(_myDelivsByApp)를 채운다.
   //   안 기다리면 이 함수를 await 한 쪽은 캐시가 빈 채로 다음 화면을 그린다.
@@ -21068,6 +21234,8 @@ async function submitCancelApplicationFromPage() {
       });
     });
   if (!res) return;   // 이미 실행 중이라 무시됨
+  // 신청 인원이 바뀌었을 수 있다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+  if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
   if (!res.ok) {
     // 데드락 자동 복구: 화면은 간단(recruit) 모드인데 서버가 사유·동의를 요구하면
     // 클라이언트/서버 단계 판정이 엇갈린 것. 사유 입력란을 펼쳐 재입력받는다.
@@ -22435,7 +22603,7 @@ async function init() {
   let campaignsPromise = null;
   if (db) {
     try {
-      campaignsPromise = fetchCampaigns();  // 병렬 발사, 나중에 await
+      campaignsPromise = refreshCampaignsShared();  // 병렬 발사, 나중에 await — 받은 목록은 화면 이동 때 재사용(campaign.js)
       await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
@@ -22607,7 +22775,7 @@ async function init() {
   }
 
   // 캠페인 불러오기 (init 초입에서 병렬 발사해둔 promise 재사용)
-  allCampaigns = campaignsPromise ? (await campaignsPromise) : await fetchCampaigns();
+  allCampaigns = campaignsPromise ? (await campaignsPromise) : await refreshCampaignsShared();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 
