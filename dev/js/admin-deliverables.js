@@ -858,11 +858,13 @@ function stalledChip(g, st) {
 //   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
 //   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
 // 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
-//   판정에 쓰인 결과물들의 승인 시각 중 **가장 늦은 것** = 마지막 한 건이 승인된 순간.
-//   서버 쪽 원본은 마이그레이션 331 의 `_settlement_cert_candidates()` — 형식별 분기가 같다:
-//     가구매      : 영수증 승인 시각
-//     리뷰어형    : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
-//     시딩·방문형 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//   = **인증 성공 조건을 처음 만족한 순간.**
+//   서버 쪽 원본은 `_settlement_cert_candidates()`(현재 원본 **455**) — 형식·채널 갈래가 같다:
+//     가구매              : 영수증 승인 시각
+//     리뷰어형 그리고·1개 : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
+//     리뷰어형 또는       : 영수증 시각과 「가장 먼저 승인된 채널」 시각 중 늦은 것
+//     시딩·방문형 그리고·1개 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//     시딩·방문형 또는    : 가장 먼저 승인된 채널 게시물 시각
 //   ⚠️ 채널 목록은 `_finalizePostReprs` 와 **같은 곳**에서 얻는다(캠페인 channel 문자열).
 //      여기만 다른 데서 얻으면 「인증성공인데 날짜가 빈」 행이 생긴다.
 //   ⚠️ 인증 성공이 아닌 건은 빈 값이다 — 진행 중인 건에 날짜를 붙이면 끝난 것처럼 보인다.
@@ -882,11 +884,28 @@ function certSuccessAt(g) {
     return m;
   };
   const channels = String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  // 「또는」 캠페인은 채널 하나만 승인돼도 인증 성공이다 → 날짜는 **가장 먼저 승인된 채널** 시각.
+  //   서버 _settlement_cert_candidates(현재 원본 455)의 or 갈래와 글자 그대로 같게 둔다:
+  //   ⚠️ 승인됐지만 승인 시각이 빈 채널은 **건너뛴다**(서버 MIN(...) FILTER 가 NULL 을 무시한다).
+  //   ⚠️ 리뷰어형은 영수증 시각과 그중 늦은 쪽(서버 GREATEST 도 NULL 을 무시 — 채널 시각이
+  //      전부 비면 영수증 시각이 된다). 영수증 시각이 없으면 빈 값.
+  const orKind = _certChannelKind(camp) === 'or';
+  const earliest = (byCh) => {
+    let m = null;
+    for (const ch of channels) { const v = okAt((byCh || {})[ch]); if (v && (!m || v < m)) m = v; }
+    return m;
+  };
   if (rt === 'monitor') {
     const r = okAt(g.receipt);
     if (camp.proxy_purchase) return r;
+    if (orKind) {
+      if (!r) return null;
+      const e = earliest(g.reviewByChannel);
+      return (e && e > r) ? e : r;
+    }
     return latest([r].concat(channels.map(ch => okAt((g.reviewByChannel || {})[ch]))));
   }
+  if (orKind) return earliest(g.postByChannel);
   return latest(channels.map(ch => okAt((g.postByChannel || {})[ch])));
 }
 
