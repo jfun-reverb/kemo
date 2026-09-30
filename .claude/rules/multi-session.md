@@ -1,50 +1,18 @@
-# 멀티 세션 운영 규칙 (영구)
+# 멀티 세션 운영 규칙 (영구) — REVERB 세부
 
-> REVERB JP를 동시에 여러 Claude Code 세션으로 작업할 때 충돌·작업 손실을 막기 위한 규칙.
-> 모든 세션·모든 에이전트에 영구 적용.
+> **원칙 정의처는 전역 `~/.claude/rules/common-multi-session.md`** (한 작업이면 메인 폴더 / 동시 작업이면 작업마다 worktree + feature 브랜치 · 비유 · 공통 충돌 포인트 · 세션 사이 말은 저장소의 사실이 아니다 · 세션 시작 자동 점검 · 사용 시점 표). 여기는 이 저장소의 **단축키·경로·실제 사고**만 적는다.
 
-## 핵심 원칙
+## 이 저장소의 흐름 (단축키)
 
-- **한 시점에 한 작업만이면** → 메인 폴더(`~/Documents/projects/reverb-jp`)에서 그대로 작업해도 충돌 없음
-- **동시에 두 개 이상의 작업을 진행하면** → 작업마다 별도 git worktree(전시장)와 feature 브랜치를 사용
-- 같은 기능을 여러 세션이 동시에 수정하는 패턴은 금지 (의미 없고 충돌 유발)
-
-## 비유 (사용자 안내용 — 비개발자 친화)
-
-- 메인 폴더 = 본 거실 (감독이 OK한 작품만 들여놓음)
-- worktree 폴더 = 전시장 (인부 자유 작업장)
-- feature 브랜치 = 그 전시장의 도면
-- PR + 머지 = 전시장 작품을 본 거실로 옮기기
-- 충돌 = 두 인부가 같은 거실에서 같은 벽에 작업해서 망친 상황
-
-## 권장 워크플로
-
-### 1단계 — 세션 시작
-- 메인 폴더(`~/Documents/projects/reverb-jp`)에서 `/새세션 작업이름` 호출
-- Claude가 자동으로 `~/Documents/projects/reverb-jp-{작업이름}` worktree + `feature/{작업이름}` 브랜치 생성
-- 사용자는 새 터미널을 열고 그 폴더에서 Claude Code 세션을 시작
-
-### 2단계 — 세션 안 작업
-- 코드 수정·`bash dev/build.sh`·commit·push 모두 그 worktree 안에서만 수행
-- push 대상은 항상 `feature/{작업이름}` 브랜치 (dev·main 직접 push 금지)
-- 마이그레이션 새로 만들 일이 있으면 §마이그레이션 번호 룰 참조
-
-### 3단계 — 세션 종료
-- worktree 안에서 `/세션종료` 호출
-- Claude가 reviewer 검수·빌드·commit·push·PR 생성을 자동 진행
-- PR URL 안내 받음
-
-### 4단계 — PR 머지 후 정리
-- 사용자가 GitHub에서 PR 직접 검토·머지 (자동 머지는 위험해서 안 함)
-- ⚠️ **검증이 끝난 `dev` 병합 요청은 예외다** — reviewer GO + 빌드 + 충돌 해소가 끝났으면 **Claude 가 머지한다**([`git.md`](git.md) 「개발서버 배포는 위임」, 2026-05-22 사용자 지시). 여기 「사용자가 직접」은 **운영(`main`)과 미검증 병합 요청**에 한정된다.
-- 머지 완료 후 메인 폴더에서:
-  ```bash
-  cd ~/Documents/projects/reverb-jp
-  git worktree remove ../reverb-jp-{작업이름}
-  git branch -D feature/{작업이름}
-  git pull origin dev
-  ```
-- 또는 추후 `/세션정리` 단축키 도입 시 자동화
+1. **시작** — 메인 폴더(`~/Documents/projects/reverb-jp`)에서 `/새세션 작업이름` → `~/Documents/projects/reverb-jp-{작업이름}` + `feature/{작업이름}` 생성·진입
+2. **작업** — 수정·`bash dev/build.sh`·커밋·push 모두 그 worktree 안에서, push 는 `feature/…` 로만
+3. **종료** — `/세션종료` → reviewer·빌드·커밋·push·PR 생성
+4. **머지·정리** — 운영(`main`)·미검증 PR 은 사용자가 머지. ⚠️ **검증이 끝난 `dev` PR 은 예외 — Claude 가 머지**(reviewer GO + 빌드 + 충돌 해소 뒤, [`git.md`](git.md) 「개발서버 배포는 위임」). 머지 뒤 메인 폴더에서:
+   ```bash
+   git worktree remove ../reverb-jp-{작업이름} && git branch -D feature/{작업이름} && git pull origin dev
+   ```
+- 운영(`main`)은 `dev → main` PR 을 따로 만든다. 사용자 명시 지시 없이 `/세션종료` 에서 운영까지 가지 않는다.
+- worktree 안에서 시작하면 위치·브랜치·「끝나면 `/세션종료`」 한 줄을 안내한다(전역 「세션 시작 시 자동 점검」).
 
 ## REVERB JP 특화 충돌 포인트
 
@@ -99,21 +67,13 @@
 
 ⚠️ **`dev/js/admin-*.js` 는 이 목록이 아니다.** 2026-05-25 페인 분리 이후 화면별로 파일이 갈렸으므로, 서로 다른 페인을 만지는 작업은 병렬로 나눠도 된다.
 
-### dev 브랜치 직접 push 금지
-- dev 브랜치는 「본 거실」 — 작품을 옮기는 곳이지 작업하는 곳이 아님
-- worktree에서는 항상 feature 브랜치로 push, PR로 dev에 머지
-- 메인 폴더(dev 브랜치)에서 직접 작업하는 시나리오는 **단일 세션 + 시퀀셜 작업**일 때만
+### dev 브랜치 — 직접 push 금지 · 작업 폴더로 빼지 않는다
 
-### dev 브랜치를 작업 폴더(worktree)로 빼지 않는다 (2026-08-25)
+원칙은 전역 「공통 충돌 포인트」. 예외는 거버넌스 문서 직접 커밋([`session-roles.md`](session-roles.md) §2).
 
-git 은 **같은 브랜치를 두 폴더에서 동시에 못 연다.** `dev` 를 작업 폴더가 쥐면 **메인 폴더는 그때부터 `dev` 로 돌아갈 수 없고**, 고문·기획이 거버넌스 문서를 `dev` 에 직접 커밋하는 경로([`session-roles.md`](session-roles.md) §2)가 통째로 막힌다.
-
-- ⚠️ **증상이 「브랜치를 잘못 잡았다」로 보인다.** 메인 폴더가 `dev` 를 못 열면 `git worktree list` 로 **그 브랜치를 쥔 폴더부터** 찾을 것. 실제 오류 문구는 `fatal: 'dev' is already used by worktree at …` 이다.
-- 🔴 **원인은 「누가 만들었나」가 아니라 「메인 폴더가 비어 있지 않다」다.** 2026-08-25 실측 — ①`dev` 작업 폴더(`reverb-jp-specs`)가 **전날 만들어져 있었고** ②그날 **개발 세션이 메인 폴더에서 `feature` 브랜치로** 작업하고 있었다. 뒤늦게 뜬 고문 세션은 **규칙 문서를 커밋할 자리가 아예 없었다.** 둘 중 하나만이면 막히지 않는다 — **겹쳐야 막힌다.**
-- ⚠️ **이건 규칙이 없어서가 아니라 있는데 안 지켜져서 생겼다.** [`session-roles.md`](session-roles.md) §1 이 이미 「**고문은 메인 폴더 `dev`**, 개발은 별도 worktree `feature` 브랜치」로 배치를 정하고 있다. **개발이 메인 폴더를 쓰기 시작한 순간** 그 배치가 깨진다.
-- 🔴 **그럼 기획 세션은 어디로 가나 — 아직 정해진 게 없다.** 고문과 기획은 **둘 다** `dev` 에 직접 커밋하는데 `dev` 는 한 폴더만 열 수 있어, **동시에 뜨면 반드시 한쪽이 밀려난다.** 당분간은 그때그때 조율하고, **정식 해법은 후속 사양서에서 정한다.**
-
-(원칙 정의처: 글로벌 `~/.claude/rules/common-multi-session.md` 「공통 충돌 포인트」)
+- ⚠️ **증상이 「브랜치를 잘못 잡았다」로 보인다** — 실제 오류 문구 `fatal: 'dev' is already used by worktree at …`. `git worktree list` 로 **그 브랜치를 쥔 폴더부터** 찾는다.
+- 🔴 **막히는 것은 두 조건이 겹칠 때다** — 2026-08-25 실측: ①`dev` 작업 폴더(`reverb-jp-specs`)가 전날부터 있었고 ②그날 개발 세션이 **메인 폴더에서** `feature` 로 작업 중이라, 뒤늦게 뜬 고문이 규칙을 커밋할 자리가 없었다. 규칙이 없어서가 아니라 **배치(고문=메인 `dev` / 개발=worktree)가 안 지켜져서** 생겼다.
+- 기획은 `feature` 브랜치에서 일하고 사양서를 PR 로 올린다(2026-08-25 결정 — [`git.md`](git.md) 「거버넌스 문서는 고문이 dev 직접 커밋」).
 
 ### Playwright(브라우저 테스트) 단일 자원 — 동시 실행 금지 (2026-06-05)
 - Playwright 는 **사용자의 단일 크롬 1개**에 붙는다(새 브라우저를 띄우는 게 아님). 연결은 한 번에 하나만 잡힌다.
@@ -122,37 +82,7 @@ git 은 **같은 브랜치를 두 폴더에서 동시에 못 연다.** `dev` 를
 - **규칙: qa-test 는 한 번에 한 세션만.** 개발 세션이 배포 전 자동으로 호출하지 말 것 — reverb-reviewer 가 "qa 권장: light/full/skip" 만 보고하고, **다른 세션이 Playwright 를 안 쓰는 걸 확인 + 사용자 트리거 후 단일 세션에서** 실행한다.
 - 에이전트 정의 `.claude/agents/reverb-qa-tester.md` 「실행 전 필수」 + 호출 의무는 `.claude/rules/git.md`/`interaction.md` 에 반영됨.
 
-### 운영 배포(main)는 별도 단계
-- dev 머지가 끝나도 운영 자동 반영 안 됨
-- 운영 배포는 `dev → main` PR을 별도로 만들어야 함 (`.claude/rules/git.md` 참조)
-- 사용자 명시 지시 없으면 `/세션종료` 단계에서 운영 배포까지 자동 진행 금지
-
-## Claude 가 자동으로 챙겨야 할 동작
-
-세션 시작 시 (특히 Claude Code 세션이 worktree 폴더에서 시작될 때):
-
-1. `git rev-parse --show-toplevel`로 현재 위치 확인
-2. 만약 worktree 안이면 사용자에게 한 줄 안내:
-   ```
-   📁 현재 위치: {WORKTREE}
-   🌿 브랜치: feature/{X}
-   💡 작업 끝나면 /세션종료 호출하세요.
-   ```
-3. 만약 메인 폴더이고 사용자 요청이 「동시에 다른 기능을 추가로 하고 싶다」 류면 `/새세션` 단축키를 안내
-
-## 사용 시점 요약
-
-| 상황 | 권장 |
-|---|---|
-| 한 사람·한 작업 (시퀀셜) | 메인 폴더에서 그대로. worktree 불필요 |
-| 동시에 다른 기능 둘 이상 | 작업마다 `/새세션`로 worktree 분리 |
-| 한 작업이 너무 길어져 다른 작업 끼워넣고 싶음 | 끼워넣을 작업만 `/새세션` |
-| 다른 사람과 같이 작업 | 사람마다 `/새세션` |
 
 ## 관련 규칙·단축키
-
-- `.claude/commands/새세션.md` — `/새세션 X` 단축키
-- `.claude/commands/세션종료.md` — `/세션종료` 단축키
-- `.claude/rules/git.md` — 커밋 컨벤션·운영 배포 가드
-- `.claude/rules/build.md` — `bash dev/build.sh` 의무
-- `.claude/rules/interaction.md` — 약어 풀어쓰기·AskUserQuestion 사용
+- `.claude/commands/새세션.md` · `.claude/commands/세션종료.md`
+- [`git.md`](git.md) · [`build.md`](build.md) · [`interaction.md`](interaction.md)

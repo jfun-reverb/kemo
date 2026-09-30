@@ -129,7 +129,7 @@ const checklist = [
   '   □ 자릿수 표시 NNNN/### → "4자리 숫자" / "3자리 숫자"',
   '   □ 서브 에이전트 답변 약어도 메인 Claude가 한글로 재가공 후 전달',
   '   □ AskUserQuestion 옵션 label·description 모두 한글 풀이',
-  '   (.claude/rules/interaction.md "약어·전문용어 자제" 섹션 참조)',
+  '   (전역 ~/.claude/CLAUDE.md "약어·전문용어 자제" 섹션 참조)',
   '',
   '🔔 commit-guard hook이 git commit 직전 누락 감지 시 경고 출력',
   '   (2026-05-18 차단 모드 전환 검토 예정)',
