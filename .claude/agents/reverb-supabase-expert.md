@@ -67,7 +67,7 @@ model: sonnet
 - [ ] **기준 데이터(`lookup_values` 등) 추가 시 기존 동종 항목과 중복 확인** — 같은 `kind` 를 `grep -rni supabase/seed/ supabase/migrations/` + 개발 DB `SELECT code,name_ko,name_ja FROM lookup_values WHERE kind='…'` 로 조회. 표기·대소문자 차이(`@Cosme` vs `@cosme`)도 중복. 시드와 후속 마이그레이션이 다른 `code` 로 같은 항목을 추가하면 유니크 제약을 안 걸리고 화면에 중복 노출됨 (마이그레이션 157 @cosme 사고, `.claude/rules/supabase.md` 「기준 데이터 추가 시 중복 확인」)
 
 ## 환경 분리
-- 운영서버: `nrwtujmlbktxjgdwlpjj.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / NANO compute) — 2026-05-27 도쿄 이관 완료
+- 운영서버: `nrwtujmlbktxjgdwlpjj.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute(1GB) — 2026-09-30 대시보드 확인, 오래 NANO 로 잘못 적혀 있었다) — 2026-05-27 도쿄 이관 완료
 - 개발서버: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute)
 - Org `jfun-reverb's Org`가 PRO 플랜 — 양 프로젝트 모두 Pro 혜택 적용 (compute만 별도 add-on)
 - URL/Key는 `SUPABASE_ENVS` 객체에서만 (하드코딩 금지)
