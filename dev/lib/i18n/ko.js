@@ -618,6 +618,7 @@ window.I18N_KO = {
     channelRequired: 'Reverb 채널 등록은 필수입니다',
     backToCampaigns: '캠페인 목록으로',
     backToHistory: '응모 이력으로',
+    backToHome: '홈으로',
     applyTitle: '응모',
     followerWarning: '※ 팔로워 수 허위 신고 시 계정 정지 등의 불이익이 있을 수 있습니다.',
     followerRequirement: '이 캠페인 응모 조건은',
