@@ -657,6 +657,7 @@ window.I18N_JA = {
     channelRequired: 'Reverbチャンネル登録は必須です',
     backToCampaigns: 'キャンペーン一覧へ',
     backToHistory: '応募履歴へ',
+    backToHome: 'ホームへ',
     applyTitle: '応募',
     followerWarning: '※ フォロワー数の虚偽申告が発覚した場合、アカウント停止等の不利益を受ける場合があります。',
     followerRequirement: 'このキャンペーンの応募条件は',

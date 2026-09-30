@@ -25,16 +25,25 @@ let _signupConfirmCodeSeen = false;
   } catch(e) {}
 })();
 
+// 상세 화면을 어디서 열었나 — 'mypage'(응모이력) · 'home' · 'campaigns'(목록 — 그때 탭 주소를 _detailFromHash 에) · null(그 밖).
+//   정하는 곳은 openCampaign() 한 곳(떠 있던 화면으로 판정). 상세 안에서 다시 그릴 때는 덮어쓰지 않는다.
 let _detailFrom = null;
-
+let _detailFromHash = null;
+// 상세의 화면 안 뒤로 단추 — 온 곳으로. ⚠️ history.back() 을 쓰지 않는다(광고·공유 링크로 직접 들어왔으면 사이트를 떠난다).
 function navigateBackFromDetail() {
-  if (_detailFrom === 'mypage') {
-    _detailFrom = null;
+  const from = _detailFrom;
+  const fromHash = _detailFromHash;
+  _detailFrom = null;
+  _detailFromHash = null;
+  if (from === 'mypage') {
     navigate('mypage');
     openMypageSub('applications');
-  } else {
-    _detailFrom = null;
+  } else if (from === 'home') {
     navigate('home');
+  } else if (from === 'campaigns' && isCampaignsHash(fromHash)) {
+    navigate(fromHash);   // 보던 탭 주소로(전체 초기화 + 그 탭)
+  } else {
+    navigate('campaigns');
   }
 }
 
