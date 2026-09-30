@@ -1862,6 +1862,7 @@ async function openPayoutPrepView() {
   }
   _payoutRows = buildPayoutRows(unreg, _settlements);
   _payoutExportIncludePaid = false;   // 회차 엑셀 「송금완료 포함」은 들어올 때마다 꺼진 상태로
+  _payoutExportIncludeEarlier = true; // 「이전 회차 미지급 포함」은 들어올 때마다 켜진 상태로(사양서 D-6 기본 켬)
   // ⚠️ 사람 정보 캐시를 비운다 — 안 비우면 그 사이 새로 생긴 정산 행의 인플루언서가
   //    「(이름 미상)·페이팔 미등록」으로 보인다(조회를 안 하니 값이 없을 뿐인데).
   _payoutPersonInfo = null;
@@ -1932,7 +1933,7 @@ function payoutDueRowHtml(due, rows, todayStr) {
 function payoutRoundExcelBtnHtml(due) {
   return `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;margin-left:4px"
       title="이 회차의 송금 명단을 내려받습니다. 검색어·회원별/캠페인별 보기와 상관없이 회차 전체가 대상입니다"
-      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid})"><span
+      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid, includeEarlier:_payoutExportIncludeEarlier})"><span
       class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">download</span>
       이 회차 송금 명단 엑셀</button>`;
 }
@@ -1943,6 +1944,14 @@ function payoutExportIncludePaidHtml(id) {
       title="체크하면 이미 송금완료한 건도 엑셀에 함께 담습니다"><input type="checkbox" id="${id}"
       ${_payoutExportIncludePaid ? 'checked' : ''} onchange="setPayoutExportIncludePaid(this.checked)"
       style="vertical-align:-2px"> 송금완료 포함</label>`;
+}
+
+// 「이전 회차 미지급 포함」 체크박스 — 「송금완료 포함」과 같은 방식(두 화면이 한 변수를 본다).
+function payoutExportIncludeEarlierHtml(id) {
+  return `<label style="font-size:11px;font-weight:400;color:var(--muted);white-space:nowrap;cursor:pointer;margin-left:8px"
+      title="밀린 이전 회차의 미지급 건을 함께 담아, 사람별 합계가 한 번에 보낼 금액이 되게 합니다. ${PAYOUT_CARRYOVER_FROM} 회차부터만 합칩니다(그 전 회차는 지급대장 대조 전이라 이중 송금 위험)"><input type="checkbox" id="${id}"
+      ${_payoutExportIncludeEarlier ? 'checked' : ''} onchange="setPayoutExportIncludeEarlier(this.checked)"
+      style="vertical-align:-2px"> 이전 회차 미지급 포함</label>`;
 }
 
 // 구역 머리 + 그 구역의 회차들. ⚠️ **표 하나 안**에 넣는다 — 구역마다 표를 따로 만들면
@@ -2041,7 +2050,7 @@ function renderPayoutSummary() {
              ⚠️ 열을 옮길 때는 **머리글·회차 줄·「지급일 기록 없음」 줄 셋을 함께** 옮긴다. -->
         <th style="width:150px">기한</th>
         <!-- 상세 + 회차 엑셀 단추가 한 칸에 들어간다. 체크박스는 엑셀 단추의 옵션이라 여기 둔다. -->
-        <th style="width:250px;text-align:right">${payoutExportIncludePaidHtml('payoutExportIncludePaidSummary')}</th>
+        <th style="width:250px;text-align:right">${payoutExportIncludePaidHtml('payoutExportIncludePaidSummary')}<br>${payoutExportIncludeEarlierHtml('payoutExportIncludeEarlierSummary')}</th>
       </tr></thead>
       <tbody>`
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
@@ -2133,9 +2142,16 @@ function _payoutSum(list) { return list.reduce(function(a, r) { return a + r.amo
 const PAYOUT_LEDGER_WARN_UNTIL = '2026-09-30';
 // 「송금완료 포함」 체크 상태 — 요약·사람별 두 체크박스가 함께 쓴다. 지급 준비에 들어올 때 끈다.
 let _payoutExportIncludePaid = false;
+// 「이전 회차 미지급 포함」 — 밀린 건을 다음 회차 송금에 합칠 때 사람별 합계가 실제 송금액이 되게.
+//   🔴 합치는 범위의 아래 끝(사양서 D-6, 사용자 결정 2026-09-30). 그 전 회차 미지급(6~9월 약 486건)은
+//      대부분 운영 시트로 이미 보냈는데 기록이 없는 건이라, 넣으면 **이중 송금**이 된다.
+//      정산 3단계(시트 반영) 뒤 「송금 기록 없는 건」이 정리되기 전에는 이 값을 앞당기지 않는다.
+const PAYOUT_CARRYOVER_FROM = '2026-10-15';
+let _payoutExportIncludeEarlier = true;
 const PAYOUT_EXCEL_STATUS_KO = { unregistered: '미등록', pending: '정산대기', paid: '송금완료' };
 
 function setPayoutExportIncludePaid(checked) { _payoutExportIncludePaid = !!checked; }
+function setPayoutExportIncludeEarlier(checked) { _payoutExportIncludeEarlier = !!checked; }
 
 // 한 사람 묶음의 이름·이메일·페이팔 칸. 조회 실패(_payoutPersonInfo === null)는 「확인 실패」로.
 function _payoutExcelPersonCells(list) {
@@ -2192,28 +2208,36 @@ function _payoutExcelSaveWorkbook(wb, fileName) {
 
 // 시트 1 「회차 합계」 — 머리 줄 → 빈 줄 → 표. ⚠️ columns 에 header 를 주면 1행이 머리글로
 //   박혀 머리 줄을 위에 둘 수 없다. 그래서 너비만 columns 로 정하고 머리글 행은 직접 넣는다.
-function _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid) {
+function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
   const ws = wb.addWorksheet('회차 합계');
-  ws.columns = [14, 16, 26, 30, 8, 12, 8, 10].map(function(w) { return { width: w }; });
+  ws.columns = [14, 16, 26, 30, 8, 12, 8, 10, 12].map(function(w) { return { width: w }; });
   ws.addRow(['지급 예정일 ' + due + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
-    + (includePaid ? '송금완료 포함' : '미지급만') + ') · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
+    + (opts.includePaid ? '송금완료 포함' : '미지급만') + ') · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
+  if (opts.includeEarlier) {
+    ws.addRow([opts.carryCount
+      ? '이전 회차 미지급 ' + opts.carryCount + '건 포함(' + PAYOUT_CARRYOVER_FROM + ' 회차부터) — 사람별 「미지급」 합계가 한 번에 보낼 금액'
+      : '이전 회차 미지급 없음(합치는 범위: ' + PAYOUT_CARRYOVER_FROM + ' 회차부터)']);
+  }
   if (due <= PAYOUT_LEDGER_WARN_UNTIL) {
     ws.addRow(['⚠️ 지급대장 대조 전 — 이미 보낸 건이 미지급으로 보일 수 있습니다']).font = { color: { argb: 'FFCC3333' } };
   }
   ws.addRow([]);
-  ws.addRow(['이름(한자)', '이름(가나)', '이메일', 'PayPal', '건수', '합계(¥)', '미확정', '상태']).font = { bold: true };
+  ws.addRow(['이름(한자)', '이름(가나)', '이메일', 'PayPal', '건수', '합계(¥)', '미확정', '상태', '이전 회차 포함']).font = { bold: true };
   const byPerson = groupSettlementsByPerson(rows);
   Object.keys(byPerson).forEach(function(id) {
     const entry = byPerson[id];
-    // 포함 모드면 한 사람이 두 줄(미지급 · 송금완료)이 된다 — 합치지 않는다.
+    // 미지급은 **여러 회차(이 회차 + 합친 이전 회차)를 한 줄로** — 한 번에 보낼 금액이다.
+    //   포함 모드면 송금완료가 따로 한 줄 더 생긴다 — 합치지 않는다.
+    const unpaid = Object.keys(entry.dues).reduce(function(a, d) { return a.concat(entry.dues[d]); }, []);
     const groups = [];
-    if (entry.dues[due]) groups.push({ list: entry.dues[due], label: '미지급' });
+    if (unpaid.length) groups.push({ list: unpaid, label: '미지급' });
     if (entry.paid.length) groups.push({ list: entry.paid, label: '송금완료' });
     groups.forEach(function(g) {
       const p = _payoutExcelPersonCells(g.list);
       const unknown = g.list.filter(function(r) { return r.amountUnknown; }).length;
       const known = g.list.filter(function(r) { return !r.amountUnknown; });
-      ws.addRow([p.name, p.kana, p.email, p.paypal, g.list.length, _payoutSum(known), unknown || '', g.label]);
+      const earlier = g.list.filter(function(r) { return r.due && r.due < due; }).length;
+      ws.addRow([p.name, p.kana, p.email, p.paypal, g.list.length, _payoutSum(known), unknown || '', g.label, earlier || '']);
     });
   });
 }
@@ -2225,7 +2249,7 @@ function _payoutExcelItemSheet(wb, rows, brandMap) {
     { header: '이름(한자)', width: 14 }, { header: '이름(가나)', width: 16 },
     { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 }, { header: '브랜드', width: 18 },
     { header: '모집 형식', width: 10 }, { header: '인증성공일', width: 12 },
-    { header: '지급 예정일', width: 12 }, { header: '금액(¥)', width: 10 },
+    { header: '원래 지급 예정일', width: 14 }, { header: '금액(¥)', width: 10 },
     { header: '미확정', width: 8 }, { header: '상태', width: 10 },
     { header: '송금완료일', width: 18 }, { header: 'PayPal', width: 30 },
   ];
@@ -2244,12 +2268,17 @@ function _payoutExcelItemSheet(wb, rows, brandMap) {
 
 async function exportPayoutRoundExcel(due, opts) {
   const includePaid = !!(opts && opts.includePaid);
+  const includeEarlier = !!(opts && opts.includeEarlier);
   // 미등록 조회 실패면 회차 자체를 믿을 수 없다 — 「보낼 게 없음」으로 내보내지 않는다.
   if (_payoutRows === null) { toast('미등록 건을 불러오지 못해 내보낼 수 없습니다', 'error'); return; }
   if (!due || due === PAYOUT_NO_DUE) return;
   if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
   const roundAll = _payoutRows.filter(function(r) { return r.due === due; });
-  const rows = includePaid ? roundAll : roundAll.filter(_payoutUnsent);
+  // 밀린 이전 회차 미지급 — 범위의 아래 끝(PAYOUT_CARRYOVER_FROM)을 반드시 지킨다. 문자열 비교('YYYY-MM-DD').
+  const carry = includeEarlier
+    ? _payoutRows.filter(function(r) { return _payoutUnsent(r) && r.due && r.due >= PAYOUT_CARRYOVER_FROM && r.due < due; })
+    : [];
+  const rows = carry.concat(includePaid ? roundAll : roundAll.filter(_payoutUnsent));
   if (!rows.length) { toast('내보낼 건이 없습니다', 'warn'); return; }
   if (typeof _markExportStart === 'function') _markExportStart();
   try {
@@ -2257,11 +2286,11 @@ async function exportPayoutRoundExcel(due, opts) {
     if (_payoutPersonInfo === undefined || _payoutPersonInfo === null) await ensurePayoutPersonInfo();
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
-    _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid);
+    _payoutExcelSummarySheet(wb, due, roundAll, rows, { includePaid: includePaid, includeEarlier: includeEarlier, carryCount: carry.length });
     _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows));
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
-    await _payoutExcelSaveWorkbook(wb, 'payout-' + due + '-' + (includePaid ? 'all' : 'unpaid') + '-' + rows.length + '-' + ymd + '.xlsx');
+    await _payoutExcelSaveWorkbook(wb, 'payout-' + due + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx');
     toast('엑셀 다운로드 완료 (' + rows.length + '건)');
   } catch (e) {
     toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
@@ -2683,7 +2712,8 @@ function renderPayoutPersonList() {
         </div>
         ${payoutGroupSwitchHtml()}
         ${(_payoutDueFilter && _payoutDueFilter !== PAYOUT_NO_DUE)
-          ? payoutExportIncludePaidHtml('payoutExportIncludePaidPerson') + payoutRoundExcelBtnHtml(_payoutDueFilter) : ''}
+          ? payoutExportIncludePaidHtml('payoutExportIncludePaidPerson') + payoutExportIncludeEarlierHtml('payoutExportIncludeEarlierPerson')
+            + payoutRoundExcelBtnHtml(_payoutDueFilter) : ''}
       </div>
     </div>
       <div id="payoutStickyInfo"></div>

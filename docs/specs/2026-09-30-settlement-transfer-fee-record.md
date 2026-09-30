@@ -192,4 +192,16 @@
 - 화면 배타 짝 자리(`admin-settlements.js`): `showUnregisteredTab` · `hideUnregisteredTab` · `openPayoutPrepView` · `closePayoutPrepView` · `enterSettlementsWithView` · 진입 로더의 `entryView` 분기 · `openPastUnregView`/`closePastUnregView`. 공용 필터 줄(`applySettlementSharedFilterMode`)을 넷째 화면에서 어떻게 할지 정할 것.
 - 2단계 마이그레이션 번호는 **10/6 문의 창구 운영 반영(475~482) 뒤** 잡는 편이 개발↔운영 대조가 단순하다(개발 세션 제안).
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+### 1단계 — 회차 엑셀 「이전 회차 미지급 포함」 (D-6)
+**구현일:** 2026-09-30 / **관련 커밋:** feature/회차엑셀-이전회차포함
+
+- 상수 `PAYOUT_CARRYOVER_FROM = '2026-10-15'`, 상태 `_payoutExportIncludeEarlier`(기본 켬, `openPayoutPrepView` 진입 때 켬). 요약 표 머리·회차 상세 머리에 체크박스(「송금완료 포함」과 같은 공유 방식)
+- 포함 대상 = `_payoutUnsent(r) && r.due >= PAYOUT_CARRYOVER_FROM && r.due < 이 회차`(문자열 비교). **이전 회차의 송금완료는 담지 않는다**(「송금완료 포함」은 이 회차만)
+- 「회차 합계」: 사람별 미지급을 **회차를 가리지 않고 한 줄**로 합치고 「이전 회차 포함」 건수 칸을 더했다. 머리 둘째 줄에 포함 건수(또는 「없음」)
+- 「건별」: 기존 「지급 예정일」 열이 곧 원래 회차(`r.due`)라 **새 열을 늘리지 않고 이름을 「원래 지급 예정일」로 바꿨다**
+- 파일명에 이전 회차 건수가 있으면 `-prev{N}` 을 붙인다
+- 🔴 9/30 이하 회차는 합칠 대상이 없다(아래 끝이 10/15) — 지금 운영에서는 **10/31 회차부터 효과가 난다**
+
+## 구현 결과 (2단계 이후 — 개발 세션이 채울 것)
