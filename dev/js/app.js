@@ -58,6 +58,11 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // campaigns-{reviewer|gifting|visit} — 캠페인 목록 모집 형식 탭 주소(2026-09-30). 페이지는 하나다.
+  //   Vercel 집계(pv_inf)·햄버거 강조도 이 떼어 낸 이름('campaigns')을 쓴다.
+  if (isCampaignsHash(page)) {
+    pageName = 'campaigns';
+  }
   // messages-{id} — 응모건 메시지 페이지 (모달→페이지 전환, 2026-05-22)
   if (page.startsWith('messages-')) {
     pageName = 'messages';
@@ -175,7 +180,7 @@ function navigate(page, pushHistory) {
 
   if (pageName === 'home') { loadCampaigns(); if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner(); }
   else { const _pnb = document.getElementById('policyNoticeBannerWrap'); if (_pnb) _pnb.style.display = 'none'; }  // 배너는 fixed 오버레이 → 홈 외 페이지에선 숨김
-  if (pageName === 'campaigns') loadCampaignsPage();
+  if (pageName === 'campaigns') loadCampaignsPage(page);   // 목표 주소의 탭으로 시작(부르기 전 주소 X)
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
     closeMypageSub();
@@ -283,6 +288,10 @@ window.addEventListener('popstate', function(e) {
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
     if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
     else navigate('mypage', false);
+  } else if (isCampaignsHash(page) && document.querySelector('#appShell .page.active')?.id === 'page-campaigns') {
+    // 목록이 떠 있는 채 탭 주소 사이를 오가는 뒤로가기 — 탭만 바꾼다(전체 초기화하면 상태 칩·검색어가 매번 날아간다).
+    //   다른 화면(상세 등)에서 목록으로 돌아오는 경우는 아래 navigate() 경로(전체 초기화 + 주소의 탭).
+    if (typeof applyCampPageTypeFromHistory === 'function') applyCampPageTypeFromHistory(page);
   } else {
     navigate(page, false);
   }
@@ -292,7 +301,7 @@ window.addEventListener('popstate', function(e) {
 window.addEventListener('langchange', function() {
   const page = location.hash.replace('#','') || 'home';
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
-  else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
+  else if (isCampaignsHash(page)) { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(page); }   // 선택한 탭 유지
   else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-','')); }
   else if (page === 'app-cancel') {
     // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
@@ -714,6 +723,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
+    : isCampaignsHash(initHash) ? 'campaigns'
     : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');
