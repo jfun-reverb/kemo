@@ -46,7 +46,56 @@ const roleBlock = sessionRole ? [
   '',
 ] : [];
 
+// 항상 읽히는 지시 문서 합계 — 사양서 docs/specs/2026-09-30-instruction-load-budget.md 조각 E.
+// Claude Code 는 합계가 150k 를 넘을 때만 경고하므로, 넘기 전 추세를 보이게 한다. 경고만, 차단 없음.
+// 세는 법은 사양서 「재는 법」과 같다: paths: 머리말이 있는 규칙은 빼고, 문자(코드 포인트) 단위.
+const INSTRUCTION_TARGET_CHARS = 150000; // 2026-09-30 사용자 결정(목표 15만 자)
+
+function instructionTotalLine() {
+  try {
+    const os = require('os');
+    const projectDir = process.env.CLAUDE_PROJECT_DIR || cwd;
+    const home = path.join(os.homedir(), '.claude');
+    const listMd = (dir) => {
+      try {
+        return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => path.join(dir, f));
+      } catch {
+        return [];
+      }
+    };
+    const files = [
+      path.join(home, 'CLAUDE.md'),
+      ...listMd(path.join(home, 'rules')),
+      path.join(projectDir, 'CLAUDE.md'),
+      ...listMd(path.join(projectDir, '.claude', 'rules')),
+    ];
+    let total = 0;
+    let count = 0;
+    for (const f of files) {
+      let text;
+      try {
+        text = fs.readFileSync(f, 'utf8');
+      } catch {
+        continue;
+      }
+      // 닫는 --- 가 있어야 머리말로 본다(첫 줄이 가로줄인 문서를 잘못 제외하지 않게). BOM·CRLF 허용.
+      const m = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/);
+      const fm = m ? m[1] : '';
+      if (/^paths:/m.test(fm)) continue;
+      total += [...text].length;
+      count += 1;
+    }
+    const over = total > INSTRUCTION_TARGET_CHARS;
+    // 프로젝트 CLAUDE.md 를 못 찾으면 합계가 조용히 작아진다 — 눈에 보이게 적는다.
+    const missing = fs.existsSync(path.join(projectDir, 'CLAUDE.md')) ? '' : ` (⚠️ 프로젝트 CLAUDE.md 못 찾음: ${projectDir})`;
+    return `${over ? '⚠️' : '📏'} [지시 문서 합계] ${count}개 ${total.toLocaleString('en-US')}자 / 목표 ${INSTRUCTION_TARGET_CHARS.toLocaleString('en-US')}자${over ? ' — 초과. 새 영역 상세는 paths: 규칙으로(docs-tracking.md)' : ''}${missing}`;
+  } catch {
+    return '📏 [지시 문서 합계] 측정 실패';
+  }
+}
+
 const checklist = [
+  instructionTotalLine(),
   ...roleBlock,
   '',
   '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
