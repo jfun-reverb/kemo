@@ -148,6 +148,10 @@ var _delivCertTo = '';
 var _delivCertFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
+// 「현재 목록 다운로드」가 내보낼 배열 — 화면이 마지막에 그린 필터·정렬 결과 그대로.
+//   null = 목록을 그리는 중이거나 아직 안 그렸다(그 사이엔 내보내지 않는다).
+//   ⚠️ passesFilters(건수 집계용)로 다시 거르지 않는다 — 「대리 등록만」이 거기 없어 화면과 갈린다.
+var _delivVisibleGroups = null;
 // 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
 //   신청 1건 = computeCertStatus 4종 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
 var _delivCertTab = '';
@@ -260,6 +264,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
+  _delivVisibleGroups = null;
   tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
@@ -595,6 +600,7 @@ async function renderDeliverablesList() {
     });
   }
   applyDelivSortIndicators();
+  _delivVisibleGroups = filtered.slice();
 
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
@@ -858,11 +864,13 @@ function stalledChip(g, st) {
 //   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
 //   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
 // 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
-//   판정에 쓰인 결과물들의 승인 시각 중 **가장 늦은 것** = 마지막 한 건이 승인된 순간.
-//   서버 쪽 원본은 마이그레이션 331 의 `_settlement_cert_candidates()` — 형식별 분기가 같다:
-//     가구매      : 영수증 승인 시각
-//     리뷰어형    : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
-//     시딩·방문형 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//   = **인증 성공 조건을 처음 만족한 순간.**
+//   서버 쪽 원본은 `_settlement_cert_candidates()`(현재 원본 **455**) — 형식·채널 갈래가 같다:
+//     가구매              : 영수증 승인 시각
+//     리뷰어형 그리고·1개 : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
+//     리뷰어형 또는       : 영수증 시각과 「가장 먼저 승인된 채널」 시각 중 늦은 것
+//     시딩·방문형 그리고·1개 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//     시딩·방문형 또는    : 가장 먼저 승인된 채널 게시물 시각
 //   ⚠️ 채널 목록은 `_finalizePostReprs` 와 **같은 곳**에서 얻는다(캠페인 channel 문자열).
 //      여기만 다른 데서 얻으면 「인증성공인데 날짜가 빈」 행이 생긴다.
 //   ⚠️ 인증 성공이 아닌 건은 빈 값이다 — 진행 중인 건에 날짜를 붙이면 끝난 것처럼 보인다.
@@ -882,11 +890,28 @@ function certSuccessAt(g) {
     return m;
   };
   const channels = String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  // 「또는」 캠페인은 채널 하나만 승인돼도 인증 성공이다 → 날짜는 **가장 먼저 승인된 채널** 시각.
+  //   서버 _settlement_cert_candidates(현재 원본 455)의 or 갈래와 글자 그대로 같게 둔다:
+  //   ⚠️ 승인됐지만 승인 시각이 빈 채널은 **건너뛴다**(서버 MIN(...) FILTER 가 NULL 을 무시한다).
+  //   ⚠️ 리뷰어형은 영수증 시각과 그중 늦은 쪽(서버 GREATEST 도 NULL 을 무시 — 채널 시각이
+  //      전부 비면 영수증 시각이 된다). 영수증 시각이 없으면 빈 값.
+  const orKind = _certChannelKind(camp) === 'or';
+  const earliest = (byCh) => {
+    let m = null;
+    for (const ch of channels) { const v = okAt((byCh || {})[ch]); if (v && (!m || v < m)) m = v; }
+    return m;
+  };
   if (rt === 'monitor') {
     const r = okAt(g.receipt);
     if (camp.proxy_purchase) return r;
+    if (orKind) {
+      if (!r) return null;
+      const e = earliest(g.reviewByChannel);
+      return (e && e > r) ? e : r;
+    }
     return latest([r].concat(channels.map(ch => okAt((g.reviewByChannel || {})[ch]))));
   }
+  if (orKind) return earliest(g.postByChannel);
   return latest(channels.map(ch => okAt((g.postByChannel || {})[ch])));
 }
 
@@ -913,6 +938,80 @@ function receiptAmountCell(g) {
     ? `<div style="font-size:10px;color:var(--dark-pink)">상한 ¥${cap.toLocaleString()}</div>`
     : '';
   return `<div style="font-weight:600">¥${amt.toLocaleString()}</div>${capNote}`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 「현재 목록 다운로드」 (사양서 2026-09-29-payback-period-excel.md §3-B)
+//   = **검수 현황 엑셀**이다. 지금 화면에 걸린 필터·탭·검색·정렬 결과를 그대로 담는다.
+//   ⚠️ 감사용 확인 창을 띄우지 않는다 — 「현재 목록」이라는 이름을 지키려고(감사용 열로 표시).
+//   ⚠️ 회차·지급 예정일 열은 넣지 않는다 — 그 계산은 정산 → 지급 준비의 몫.
+// ══════════════════════════════════════════════════════════════════
+const DELIV_VIEW_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
+const DELIV_VIEW_STATUS_KO = { none: '미제출', draft: '임시저장', legacy_no_channel: '채널 미지정' };
+
+function _delivViewStatusKo(st) { return DELIV_VIEW_STATUS_KO[st] || statusLabelKo(st); }
+
+// 한 신청 그룹 → 엑셀 한 줄
+function _delivViewExcelRow(g) {
+  const camp = g.campaign || {};
+  const inf = g.influencer || {};
+  const isMonitor = camp.recruit_type === 'monitor';
+  const chLabel = (c) => getLookupLabel('channel', c, 'ko') || c;
+  const channels = isMonitor
+    ? String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean).map(chLabel).join(', ')
+    : (g.result && g.result.post_channel ? chLabel(g.result.post_channel) : '');
+  // ⚠️ Number(null) 은 0 — 빈 값 검사를 먼저 해야 「¥0」이 안 찍힌다
+  const rawAmt = isMonitor && g.receipt ? g.receipt.purchase_amount : null;
+  const amt = (rawAmt === null || rawAmt === undefined || rawAmt === '') ? '' : Number(rawAmt);
+  const cap = isMonitor && camp.product_price != null && camp.product_price !== '' ? Number(camp.product_price) : '';
+  const cert = certSuccessAt(g);
+  const all = [g.receipt, g.result].concat(Object.values(g.reviewByChannel || {})).filter(Boolean);
+  return [
+    (inf.name || '').trim(), (inf.name_kana || '').trim(), inf.email || '',
+    camp.campaign_no || '', camp.title || '',
+    DELIV_VIEW_TYPE_KO[camp.recruit_type] || camp.recruit_type || '', channels,
+    inf.is_audit ? 'O' : '', certStatusLabelKo(g), cert ? formatDate(cert) : '',
+    Number.isFinite(amt) ? amt : '', Number.isFinite(cap) ? cap : '',
+    g.latest_submitted_at ? formatDateTime(g.latest_submitted_at) : '',
+    isMonitor ? _delivViewStatusKo(g.receipt ? g.receipt.status : 'none') : '해당 없음',
+    _delivViewStatusKo(isMonitor ? (g.result_status_repr || 'none') : (g.result ? g.result.status : 'none')),
+    all.some(d => d.submitted_by_admin) ? 'O' : '',
+  ];
+}
+
+async function exportDeliverablesViewExcel() {
+  if (_delivVisibleGroups === null) { toast('목록을 불러오는 중입니다', 'warn'); return; }
+  const rows = _delivVisibleGroups;
+  if (!rows.length) { toast('내보낼 건이 없습니다', 'warn'); return; }
+  if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
+  if (typeof _markExportStart === 'function') _markExportStart();
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('결과물(현재 목록)');
+    ws.columns = [
+      ['이름(한자)', 14], ['이름(가나)', 16], ['이메일', 24], ['캠페인번호', 16], ['캠페인', 28],
+      ['모집 형식', 10], ['채널', 18], ['감사용', 8], ['인증 상태', 14], ['인증 성공일', 12],
+      ['구매금액(¥)', 12], ['상한(¥)', 10], ['최근 제출일', 18], ['영수증 상태', 12], ['결과물 상태', 12], ['대리 등록', 10],
+    ].map(([h, w]) => ({ header: h, width: w }));
+    ws.getRow(1).font = { bold: true };
+    rows.forEach(g => ws.addRow(_delivViewExcelRow(g)));
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement('a');
+    const ts = new Date();
+    const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.href = url;
+    aEl.download = 'deliverables-view-' + rows.length + '-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + rows.length + '건)');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+  } finally {
+    if (typeof _markExportEnd === 'function') _markExportEnd();
+  }
 }
 
 function renderDelivAppRow(g, opts) {

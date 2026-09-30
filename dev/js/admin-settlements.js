@@ -1320,6 +1320,7 @@ async function exportSettlementsExcel() {
       { header: '이메일',     key: 'email',    width: 24 },
       { header: '캠페인번호', key: 'campno',   width: 16 },
       { header: '캠페인',     key: 'title',    width: 28 },
+      { header: '브랜드',     key: 'brand',    width: 18 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
       // 299 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
@@ -1349,6 +1350,7 @@ async function exportSettlementsExcel() {
         email:    inf.email || '',
         campno:   camp.campaign_no || '',
         title:    camp.title || '',
+        brand:    brandLabelAdmin(camp),
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
         // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 299 이전 행이
@@ -1790,6 +1792,10 @@ function buildPayoutRows(unregRows, settlementRows) {
       amountUnknown: !r.amount_jpy,     // 금액을 정할 수 없는 건(amount_issue)
       influencerId: r.influencer_id,
       name: r.influencer_name, nameKana: r.influencer_name_kana,
+      // 회차 엑셀용(2026-09-29 사양서). 화면 목록은 안 쓴다.
+      email: r.influencer_email || null, recruitType: r.recruit_type || null,
+      // 브랜드는 미등록 조회가 주지 않는다 — 회차 엑셀이 캠페인 목록에서 채운다(_payoutFillBrands)
+      campaignId: r.campaign_id || null, brand: null,
       campaignNo: r.campaign_no, campaignTitle: r.campaign_title,
       applicationId: r.application_id,
     });
@@ -1810,6 +1816,9 @@ function buildPayoutRows(unregRows, settlementRows) {
       amountUnknown: false,
       influencerId: s.influencer_id,
       name: null, nameKana: null,       // 이름은 작업 3에서 통로로 채운다
+      // 회차 엑셀용. 이메일은 가림막 뷰를 거친 값(fetchSettlements → fetchInfluencersByIds)
+      email: (s.influencers && s.influencers.email) || null, recruitType: camp.recruit_type || null,
+      campaignId: s.campaign_id || null, brand: brandLabelAdmin(camp) || null,
       campaignNo: camp.campaign_no, campaignTitle: camp.title,
       applicationId: s.application_id,
       settlementId: s.id, paypalEmail: s.paypal_email, paidAt: s.paid_at,
@@ -1852,6 +1861,7 @@ async function openPayoutPrepView() {
     return;
   }
   _payoutRows = buildPayoutRows(unreg, _settlements);
+  _payoutExportIncludePaid = false;   // 회차 엑셀 「송금완료 포함」은 들어올 때마다 꺼진 상태로
   // ⚠️ 사람 정보 캐시를 비운다 — 안 비우면 그 사이 새로 생긴 정산 행의 인플루언서가
   //    「(이름 미상)·페이팔 미등록」으로 보인다(조회를 안 하니 값이 없을 뿐인데).
   _payoutPersonInfo = null;
@@ -1912,9 +1922,27 @@ function payoutDueRowHtml(due, rows, todayStr) {
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
     <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
-    <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
-        onclick="openPayoutPersonList('${esc(due)}')">상세</button></td>
+    <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+        onclick="openPayoutPersonList('${esc(due)}')">상세</button>
+      ${payoutRoundExcelBtnHtml(due)}</td>
   </tr>`;
+}
+
+// 「이 회차 송금 명단 엑셀」 단추 — 요약 회차 줄과 사람별 화면 머리가 같은 것을 쓴다.
+function payoutRoundExcelBtnHtml(due) {
+  return `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;margin-left:4px"
+      title="이 회차의 송금 명단을 내려받습니다. 검색어·회원별/캠페인별 보기와 상관없이 회차 전체가 대상입니다"
+      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid})"><span
+      class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">download</span>
+      이 회차 송금 명단 엑셀</button>`;
+}
+
+// 「송금완료 포함」 체크박스 — id 만 다르고 두 화면이 같은 변수를 본다.
+function payoutExportIncludePaidHtml(id) {
+  return `<label style="font-size:11px;font-weight:400;color:var(--muted);white-space:nowrap;cursor:pointer"
+      title="체크하면 이미 송금완료한 건도 엑셀에 함께 담습니다"><input type="checkbox" id="${id}"
+      ${_payoutExportIncludePaid ? 'checked' : ''} onchange="setPayoutExportIncludePaid(this.checked)"
+      style="vertical-align:-2px"> 송금완료 포함</label>`;
 }
 
 // 구역 머리 + 그 구역의 회차들. ⚠️ **표 하나 안**에 넣는다 — 구역마다 표를 따로 만들면
@@ -2012,7 +2040,8 @@ function renderPayoutSummary() {
              금액 옆에 있을 때는 그 회차 전체 금액에 걸린 말처럼 읽혔다.
              ⚠️ 열을 옮길 때는 **머리글·회차 줄·「지급일 기록 없음」 줄 셋을 함께** 옮긴다. -->
         <th style="width:150px">기한</th>
-        <th style="width:70px"></th>
+        <!-- 상세 + 회차 엑셀 단추가 한 칸에 들어간다. 체크박스는 엑셀 단추의 옵션이라 여기 둔다. -->
+        <th style="width:250px;text-align:right">${payoutExportIncludePaidHtml('payoutExportIncludePaidSummary')}</th>
       </tr></thead>
       <tbody>`
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
@@ -2090,6 +2119,156 @@ function groupSettlementsByPerson(rows) {
 }
 
 function _payoutSum(list) { return list.reduce(function(a, r) { return a + r.amount; }, 0); }
+
+// ══════════════════════════════════════════════════════════════════
+// 지급 준비 — 회차 송금 명단 엑셀 (사양서 2026-09-29-payback-period-excel.md §3-A)
+//
+// ▶ 대상은 **그 회차 전체**다. 사람별 화면의 검색어·「회원별/캠페인별」 보기와 상관없다.
+// ⚠️ 금액은 행의 `amount` 를 그대로 더한다. 지급 행에는 amount_jpy·paid_amount_jpy 칸이 없어서
+//    `settlementEffectiveAmount` 를 다시 부르면 **0원**이 된다(그 함수 결과가 이미 `amount` 다).
+// ⚠️ 회차는 행의 `due` 를 그대로 쓴다. payoutDueDate 를 다시 부르지 않는다(계산처는 하나).
+// ══════════════════════════════════════════════════════════════════
+
+// 이 날짜까지의 회차는 지급대장 대조 전이라 「이미 보낸 건이 미지급으로 보일 수 있다」.
+const PAYOUT_LEDGER_WARN_UNTIL = '2026-09-30';
+// 「송금완료 포함」 체크 상태 — 요약·사람별 두 체크박스가 함께 쓴다. 지급 준비에 들어올 때 끈다.
+let _payoutExportIncludePaid = false;
+const PAYOUT_EXCEL_STATUS_KO = { unregistered: '미등록', pending: '정산대기', paid: '송금완료' };
+
+function setPayoutExportIncludePaid(checked) { _payoutExportIncludePaid = !!checked; }
+
+// 한 사람 묶음의 이름·이메일·페이팔 칸. 조회 실패(_payoutPersonInfo === null)는 「확인 실패」로.
+function _payoutExcelPersonCells(list) {
+  const first = list[0] || {};
+  const failed = _payoutPersonInfo === null;
+  const info = (!failed && _payoutPersonInfo[first.influencerId]) || null;
+  const pick = function(key) { const r = list.find(function(x) { return x[key]; }); return r ? r[key] : null; };
+  const name = pick('name') || (info && info.name) || (failed ? '확인 실패' : '(이름 미상)');
+  const kana = pick('nameKana') || (info && info.name_kana) || '';
+  // ⚠️ 정산 행 스냅샷을 먼저 쓴다(그 주소로 송금 기록이 남는다). 현재 값과 다르면 「확인 필요」.
+  //    groupSettlementsByPerson 의 person.paypal 은 첫 행 기준이라 여기선 묶음을 직접 훑는다.
+  const snap = pick('paypalEmail');
+  const cur = info && info.paypal_email;
+  let paypal;
+  if (snap) paypal = (cur && cur !== snap) ? snap + ' (확인 필요)' : snap;
+  else if (cur) paypal = cur;
+  else paypal = failed ? '확인 실패' : '미등록';
+  return { name: name, kana: kana, email: pick('email') || '', paypal: paypal };
+}
+
+// 브랜드가 빈 행(미등록 건)을 캠페인 목록에서 채운다. 캠페인 목록을 못 받으면 「확인 실패」.
+//   ⚠️ 행 객체에 직접 쓰지 않고 캠페인 id → 브랜드 표를 돌려준다(지급 준비 화면 행을 건드리지 않게).
+async function _payoutBrandMap(rows) {
+  const need = rows.some(function(r) { return !r.brand && r.campaignId; });
+  if (!need) return {};
+  let camps = (typeof allCampaigns !== 'undefined' && allCampaigns && allCampaigns.length) ? allCampaigns : null;
+  if (!camps) { try { camps = await fetchCampaigns(); } catch (e) { camps = null; } }
+  // 빈 배열·배열 아닌 값도 「못 받음」 — 조용히 전부 빈칸이 되지 않게
+  if (!Array.isArray(camps) || !camps.length) return null;
+  const map = {};
+  camps.forEach(function(c) { map[c.id] = brandLabelAdmin(c); });
+  return map;
+}
+function _payoutBrandOf(r, brandMap) {
+  if (r.brand) return r.brand;
+  if (brandMap === null) return '확인 실패';
+  if (!r.campaignId) return '';
+  // 목록에 없는 캠페인(보관 삭제 등)은 「브랜드 없음」과 가르려고 따로 적는다
+  if (!(r.campaignId in brandMap)) return '(캠페인 목록에 없음)';
+  return brandMap[r.campaignId] || '';
+}
+
+function _payoutExcelSaveWorkbook(wb, fileName) {
+  return wb.xlsx.writeBuffer().then(function(buf) {
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement('a');
+    aEl.href = url;
+    aEl.download = fileName;
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+  });
+}
+
+// 시트 1 「회차 합계」 — 머리 줄 → 빈 줄 → 표. ⚠️ columns 에 header 를 주면 1행이 머리글로
+//   박혀 머리 줄을 위에 둘 수 없다. 그래서 너비만 columns 로 정하고 머리글 행은 직접 넣는다.
+function _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid) {
+  const ws = wb.addWorksheet('회차 합계');
+  ws.columns = [14, 16, 26, 30, 8, 12, 8, 10].map(function(w) { return { width: w }; });
+  ws.addRow(['지급 예정일 ' + due + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
+    + (includePaid ? '송금완료 포함' : '미지급만') + ') · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
+  if (due <= PAYOUT_LEDGER_WARN_UNTIL) {
+    ws.addRow(['⚠️ 지급대장 대조 전 — 이미 보낸 건이 미지급으로 보일 수 있습니다']).font = { color: { argb: 'FFCC3333' } };
+  }
+  ws.addRow([]);
+  ws.addRow(['이름(한자)', '이름(가나)', '이메일', 'PayPal', '건수', '합계(¥)', '미확정', '상태']).font = { bold: true };
+  const byPerson = groupSettlementsByPerson(rows);
+  Object.keys(byPerson).forEach(function(id) {
+    const entry = byPerson[id];
+    // 포함 모드면 한 사람이 두 줄(미지급 · 송금완료)이 된다 — 합치지 않는다.
+    const groups = [];
+    if (entry.dues[due]) groups.push({ list: entry.dues[due], label: '미지급' });
+    if (entry.paid.length) groups.push({ list: entry.paid, label: '송금완료' });
+    groups.forEach(function(g) {
+      const p = _payoutExcelPersonCells(g.list);
+      const unknown = g.list.filter(function(r) { return r.amountUnknown; }).length;
+      const known = g.list.filter(function(r) { return !r.amountUnknown; });
+      ws.addRow([p.name, p.kana, p.email, p.paypal, g.list.length, _payoutSum(known), unknown || '', g.label]);
+    });
+  });
+}
+
+// 시트 2 「건별」
+function _payoutExcelItemSheet(wb, rows, brandMap) {
+  const ws = wb.addWorksheet('건별');
+  ws.columns = [
+    { header: '이름(한자)', width: 14 }, { header: '이름(가나)', width: 16 },
+    { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 }, { header: '브랜드', width: 18 },
+    { header: '모집 형식', width: 10 }, { header: '인증성공일', width: 12 },
+    { header: '지급 예정일', width: 12 }, { header: '금액(¥)', width: 10 },
+    { header: '미확정', width: 8 }, { header: '상태', width: 10 },
+    { header: '송금완료일', width: 18 }, { header: 'PayPal', width: 30 },
+  ];
+  ws.getRow(1).font = { bold: true };
+  rows.forEach(function(r) {
+    const p = _payoutExcelPersonCells([r]);
+    const paid = r.paidAt ? formatDate(r.paidAt) + (r.recordDateOnly ? ' (기록일)' : '') : '';
+    ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '', _payoutBrandOf(r, brandMap),
+      PAST_UNREG_TYPE_LABELS[r.recruitType] || r.recruitType || '',
+      r.certAt ? formatDate(r.certAt) : '', r.due || '',
+      // ⚠️ 미확정은 빈칸 — 「¥0」으로 적으면 0원을 보내라는 뜻이 된다
+      r.amountUnknown ? '' : r.amount, r.amountUnknown ? 'O' : '',
+      PAYOUT_EXCEL_STATUS_KO[r.status] || r.status || '', paid, p.paypal]);
+  });
+}
+
+async function exportPayoutRoundExcel(due, opts) {
+  const includePaid = !!(opts && opts.includePaid);
+  // 미등록 조회 실패면 회차 자체를 믿을 수 없다 — 「보낼 게 없음」으로 내보내지 않는다.
+  if (_payoutRows === null) { toast('미등록 건을 불러오지 못해 내보낼 수 없습니다', 'error'); return; }
+  if (!due || due === PAYOUT_NO_DUE) return;
+  if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
+  const roundAll = _payoutRows.filter(function(r) { return r.due === due; });
+  const rows = includePaid ? roundAll : roundAll.filter(_payoutUnsent);
+  if (!rows.length) { toast('내보낼 건이 없습니다', 'warn'); return; }
+  if (typeof _markExportStart === 'function') _markExportStart();
+  try {
+    // 요약에서 바로 누르면 사람 정보가 아직 없다(정산 행 이름·미등록 행 페이팔이 빈다).
+    if (_payoutPersonInfo === undefined || _payoutPersonInfo === null) await ensurePayoutPersonInfo();
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid);
+    _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows));
+    const ts = new Date();
+    const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    await _payoutExcelSaveWorkbook(wb, 'payout-' + due + '-' + (includePaid ? 'all' : 'unpaid') + '-' + rows.length + '-' + ymd + '.xlsx');
+    toast('엑셀 다운로드 완료 (' + rows.length + '건)');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+  } finally {
+    if (typeof _markExportEnd === 'function') _markExportEnd();
+  }
+}
 
 function payoutPaypalHtml(p) {
   if (p.paypal) return `<span style="font-size:11px;color:var(--muted);font-family:monospace">${esc(p.paypal)}</span>`;
@@ -2503,6 +2682,8 @@ function renderPayoutPersonList() {
                  value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)">
         </div>
         ${payoutGroupSwitchHtml()}
+        ${(_payoutDueFilter && _payoutDueFilter !== PAYOUT_NO_DUE)
+          ? payoutExportIncludePaidHtml('payoutExportIncludePaidPerson') + payoutRoundExcelBtnHtml(_payoutDueFilter) : ''}
       </div>
     </div>
       <div id="payoutStickyInfo"></div>
