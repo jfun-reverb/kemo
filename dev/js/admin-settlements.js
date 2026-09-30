@@ -1320,6 +1320,7 @@ async function exportSettlementsExcel() {
       { header: '이메일',     key: 'email',    width: 24 },
       { header: '캠페인번호', key: 'campno',   width: 16 },
       { header: '캠페인',     key: 'title',    width: 28 },
+      { header: '브랜드',     key: 'brand',    width: 18 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
       // 299 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
@@ -1349,6 +1350,7 @@ async function exportSettlementsExcel() {
         email:    inf.email || '',
         campno:   camp.campaign_no || '',
         title:    camp.title || '',
+        brand:    brandLabelAdmin(camp),
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
         // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 299 이전 행이
@@ -1792,6 +1794,8 @@ function buildPayoutRows(unregRows, settlementRows) {
       name: r.influencer_name, nameKana: r.influencer_name_kana,
       // 회차 엑셀용(2026-09-29 사양서). 화면 목록은 안 쓴다.
       email: r.influencer_email || null, recruitType: r.recruit_type || null,
+      // 브랜드는 미등록 조회가 주지 않는다 — 회차 엑셀이 캠페인 목록에서 채운다(_payoutFillBrands)
+      campaignId: r.campaign_id || null, brand: null,
       campaignNo: r.campaign_no, campaignTitle: r.campaign_title,
       applicationId: r.application_id,
     });
@@ -1814,6 +1818,7 @@ function buildPayoutRows(unregRows, settlementRows) {
       name: null, nameKana: null,       // 이름은 작업 3에서 통로로 채운다
       // 회차 엑셀용. 이메일은 가림막 뷰를 거친 값(fetchSettlements → fetchInfluencersByIds)
       email: (s.influencers && s.influencers.email) || null, recruitType: camp.recruit_type || null,
+      campaignId: s.campaign_id || null, brand: brandLabelAdmin(camp) || null,
       campaignNo: camp.campaign_no, campaignTitle: camp.title,
       applicationId: s.application_id,
       settlementId: s.id, paypalEmail: s.paypal_email, paidAt: s.paid_at,
@@ -2151,6 +2156,28 @@ function _payoutExcelPersonCells(list) {
   return { name: name, kana: kana, email: pick('email') || '', paypal: paypal };
 }
 
+// 브랜드가 빈 행(미등록 건)을 캠페인 목록에서 채운다. 캠페인 목록을 못 받으면 「확인 실패」.
+//   ⚠️ 행 객체에 직접 쓰지 않고 캠페인 id → 브랜드 표를 돌려준다(지급 준비 화면 행을 건드리지 않게).
+async function _payoutBrandMap(rows) {
+  const need = rows.some(function(r) { return !r.brand && r.campaignId; });
+  if (!need) return {};
+  let camps = (typeof allCampaigns !== 'undefined' && allCampaigns && allCampaigns.length) ? allCampaigns : null;
+  if (!camps) { try { camps = await fetchCampaigns(); } catch (e) { camps = null; } }
+  // 빈 배열·배열 아닌 값도 「못 받음」 — 조용히 전부 빈칸이 되지 않게
+  if (!Array.isArray(camps) || !camps.length) return null;
+  const map = {};
+  camps.forEach(function(c) { map[c.id] = brandLabelAdmin(c); });
+  return map;
+}
+function _payoutBrandOf(r, brandMap) {
+  if (r.brand) return r.brand;
+  if (brandMap === null) return '확인 실패';
+  if (!r.campaignId) return '';
+  // 목록에 없는 캠페인(보관 삭제 등)은 「브랜드 없음」과 가르려고 따로 적는다
+  if (!(r.campaignId in brandMap)) return '(캠페인 목록에 없음)';
+  return brandMap[r.campaignId] || '';
+}
+
 function _payoutExcelSaveWorkbook(wb, fileName) {
   return wb.xlsx.writeBuffer().then(function(buf) {
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -2192,11 +2219,11 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid) {
 }
 
 // 시트 2 「건별」
-function _payoutExcelItemSheet(wb, rows) {
+function _payoutExcelItemSheet(wb, rows, brandMap) {
   const ws = wb.addWorksheet('건별');
   ws.columns = [
     { header: '이름(한자)', width: 14 }, { header: '이름(가나)', width: 16 },
-    { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 },
+    { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 }, { header: '브랜드', width: 18 },
     { header: '모집 형식', width: 10 }, { header: '인증성공일', width: 12 },
     { header: '지급 예정일', width: 12 }, { header: '금액(¥)', width: 10 },
     { header: '미확정', width: 8 }, { header: '상태', width: 10 },
@@ -2206,7 +2233,7 @@ function _payoutExcelItemSheet(wb, rows) {
   rows.forEach(function(r) {
     const p = _payoutExcelPersonCells([r]);
     const paid = r.paidAt ? formatDate(r.paidAt) + (r.recordDateOnly ? ' (기록일)' : '') : '';
-    ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '',
+    ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '', _payoutBrandOf(r, brandMap),
       PAST_UNREG_TYPE_LABELS[r.recruitType] || r.recruitType || '',
       r.certAt ? formatDate(r.certAt) : '', r.due || '',
       // ⚠️ 미확정은 빈칸 — 「¥0」으로 적으면 0원을 보내라는 뜻이 된다
@@ -2231,7 +2258,7 @@ async function exportPayoutRoundExcel(due, opts) {
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
     _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid);
-    _payoutExcelItemSheet(wb, rows);
+    _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows));
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
     await _payoutExcelSaveWorkbook(wb, 'payout-' + due + '-' + (includePaid ? 'all' : 'unpaid') + '-' + rows.length + '-' + ymd + '.xlsx');

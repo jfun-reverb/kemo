@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790732326';
+  var CURRENT_BUILD = 'v1790732808';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3283,7 +3283,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-30 10:38 · 4778c5c</span>
+          <span class="admin-build-text">2026-09-30 10:46 · eb6670c</span>
         </div>
       </div>
     </aside>
@@ -4770,7 +4770,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <button type="button" class="btn btn-ghost btn-xs" id="btnDelivViewExcel" onclick="exportDeliverablesViewExcel()" style="white-space:nowrap"
                         title="지금 화면에 보이는 신청을 그대로 내려받습니다. 페이백 지급 명단은 정산 관리 → 지급 준비에서">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span>
-                  보이는 목록 엑셀</button>
+                  현재 목록 다운로드</button>
               </div>
               <!-- 텍스트 검색 입력 (기본 숨김 — 돋보기 버튼으로 토글) -->
               <div class="admin-filter-group" id="delivSearchBox" style="display:none;flex:1;min-width:220px">
@@ -33868,7 +33868,7 @@ var _delivCertTo = '';
 var _delivCertFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
-// 「보이는 목록 엑셀」이 내보낼 배열 — 화면이 마지막에 그린 필터·정렬 결과 그대로.
+// 「현재 목록 다운로드」가 내보낼 배열 — 화면이 마지막에 그린 필터·정렬 결과 그대로.
 //   null = 목록을 그리는 중이거나 아직 안 그렸다(그 사이엔 내보내지 않는다).
 //   ⚠️ passesFilters(건수 집계용)로 다시 거르지 않는다 — 「대리 등록만」이 거기 없어 화면과 갈린다.
 var _delivVisibleGroups = null;
@@ -34661,9 +34661,9 @@ function receiptAmountCell(g) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 「보이는 목록 엑셀」 (사양서 2026-09-29-payback-period-excel.md §3-B)
+// 「현재 목록 다운로드」 (사양서 2026-09-29-payback-period-excel.md §3-B)
 //   = **검수 현황 엑셀**이다. 지금 화면에 걸린 필터·탭·검색·정렬 결과를 그대로 담는다.
-//   ⚠️ 감사용 확인 창을 띄우지 않는다 — 「보이는 목록」이라는 이름을 지키려고(감사용 열로 표시).
+//   ⚠️ 감사용 확인 창을 띄우지 않는다 — 「현재 목록」이라는 이름을 지키려고(감사용 열로 표시).
 //   ⚠️ 회차·지급 예정일 열은 넣지 않는다 — 그 계산은 정산 → 지급 준비의 몫.
 // ══════════════════════════════════════════════════════════════════
 const DELIV_VIEW_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
@@ -34708,7 +34708,7 @@ async function exportDeliverablesViewExcel() {
   try {
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('결과물(보이는 목록)');
+    const ws = wb.addWorksheet('결과물(현재 목록)');
     ws.columns = [
       ['이름(한자)', 14], ['이름(가나)', 16], ['이메일', 24], ['캠페인번호', 16], ['캠페인', 28],
       ['모집 형식', 10], ['채널', 18], ['감사용', 8], ['인증 상태', 14], ['인증 성공일', 12],
@@ -45173,6 +45173,7 @@ async function exportSettlementsExcel() {
       { header: '이메일',     key: 'email',    width: 24 },
       { header: '캠페인번호', key: 'campno',   width: 16 },
       { header: '캠페인',     key: 'title',    width: 28 },
+      { header: '브랜드',     key: 'brand',    width: 18 },
       { header: '금액(¥)',    key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
       // 299 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
@@ -45202,6 +45203,7 @@ async function exportSettlementsExcel() {
         email:    inf.email || '',
         campno:   camp.campaign_no || '',
         title:    camp.title || '',
+        brand:    brandLabelAdmin(camp),
         amount:   Number(s.amount_jpy) || 0,
         amtsrc:   settlementAmountSourceLabel(s.amount_source),
         // ⚠️ Number(null) 은 0 이므로 null 검사를 먼저 — 안 그러면 299 이전 행이
@@ -45645,6 +45647,8 @@ function buildPayoutRows(unregRows, settlementRows) {
       name: r.influencer_name, nameKana: r.influencer_name_kana,
       // 회차 엑셀용(2026-09-29 사양서). 화면 목록은 안 쓴다.
       email: r.influencer_email || null, recruitType: r.recruit_type || null,
+      // 브랜드는 미등록 조회가 주지 않는다 — 회차 엑셀이 캠페인 목록에서 채운다(_payoutFillBrands)
+      campaignId: r.campaign_id || null, brand: null,
       campaignNo: r.campaign_no, campaignTitle: r.campaign_title,
       applicationId: r.application_id,
     });
@@ -45667,6 +45671,7 @@ function buildPayoutRows(unregRows, settlementRows) {
       name: null, nameKana: null,       // 이름은 작업 3에서 통로로 채운다
       // 회차 엑셀용. 이메일은 가림막 뷰를 거친 값(fetchSettlements → fetchInfluencersByIds)
       email: (s.influencers && s.influencers.email) || null, recruitType: camp.recruit_type || null,
+      campaignId: s.campaign_id || null, brand: brandLabelAdmin(camp) || null,
       campaignNo: camp.campaign_no, campaignTitle: camp.title,
       applicationId: s.application_id,
       settlementId: s.id, paypalEmail: s.paypal_email, paidAt: s.paid_at,
@@ -46004,6 +46009,28 @@ function _payoutExcelPersonCells(list) {
   return { name: name, kana: kana, email: pick('email') || '', paypal: paypal };
 }
 
+// 브랜드가 빈 행(미등록 건)을 캠페인 목록에서 채운다. 캠페인 목록을 못 받으면 「확인 실패」.
+//   ⚠️ 행 객체에 직접 쓰지 않고 캠페인 id → 브랜드 표를 돌려준다(지급 준비 화면 행을 건드리지 않게).
+async function _payoutBrandMap(rows) {
+  const need = rows.some(function(r) { return !r.brand && r.campaignId; });
+  if (!need) return {};
+  let camps = (typeof allCampaigns !== 'undefined' && allCampaigns && allCampaigns.length) ? allCampaigns : null;
+  if (!camps) { try { camps = await fetchCampaigns(); } catch (e) { camps = null; } }
+  // 빈 배열·배열 아닌 값도 「못 받음」 — 조용히 전부 빈칸이 되지 않게
+  if (!Array.isArray(camps) || !camps.length) return null;
+  const map = {};
+  camps.forEach(function(c) { map[c.id] = brandLabelAdmin(c); });
+  return map;
+}
+function _payoutBrandOf(r, brandMap) {
+  if (r.brand) return r.brand;
+  if (brandMap === null) return '확인 실패';
+  if (!r.campaignId) return '';
+  // 목록에 없는 캠페인(보관 삭제 등)은 「브랜드 없음」과 가르려고 따로 적는다
+  if (!(r.campaignId in brandMap)) return '(캠페인 목록에 없음)';
+  return brandMap[r.campaignId] || '';
+}
+
 function _payoutExcelSaveWorkbook(wb, fileName) {
   return wb.xlsx.writeBuffer().then(function(buf) {
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -46045,11 +46072,11 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid) {
 }
 
 // 시트 2 「건별」
-function _payoutExcelItemSheet(wb, rows) {
+function _payoutExcelItemSheet(wb, rows, brandMap) {
   const ws = wb.addWorksheet('건별');
   ws.columns = [
     { header: '이름(한자)', width: 14 }, { header: '이름(가나)', width: 16 },
-    { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 },
+    { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 }, { header: '브랜드', width: 18 },
     { header: '모집 형식', width: 10 }, { header: '인증성공일', width: 12 },
     { header: '지급 예정일', width: 12 }, { header: '금액(¥)', width: 10 },
     { header: '미확정', width: 8 }, { header: '상태', width: 10 },
@@ -46059,7 +46086,7 @@ function _payoutExcelItemSheet(wb, rows) {
   rows.forEach(function(r) {
     const p = _payoutExcelPersonCells([r]);
     const paid = r.paidAt ? formatDate(r.paidAt) + (r.recordDateOnly ? ' (기록일)' : '') : '';
-    ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '',
+    ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '', _payoutBrandOf(r, brandMap),
       PAST_UNREG_TYPE_LABELS[r.recruitType] || r.recruitType || '',
       r.certAt ? formatDate(r.certAt) : '', r.due || '',
       // ⚠️ 미확정은 빈칸 — 「¥0」으로 적으면 0원을 보내라는 뜻이 된다
@@ -46084,7 +46111,7 @@ async function exportPayoutRoundExcel(due, opts) {
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
     _payoutExcelSummarySheet(wb, due, roundAll, rows, includePaid);
-    _payoutExcelItemSheet(wb, rows);
+    _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows));
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
     await _payoutExcelSaveWorkbook(wb, 'payout-' + due + '-' + (includePaid ? 'all' : 'unpaid') + '-' + rows.length + '-' + ymd + '.xlsx');
