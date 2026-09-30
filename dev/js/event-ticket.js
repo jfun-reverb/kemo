@@ -328,6 +328,8 @@ async function cancelMyTicket(ticketId) {
     return;
   }
 
+  // 신청 인원이 바뀌었을 수 있다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+  if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
   if (!res || !res.ok) {
     // 사전에 있는 사유는 정상 거부, 그 밖의 값(서버 결함 등)은 예상 못 한 오류로 기록한다.
     //   ⚠️ `permission_denied` 는 **일부러 뺐다** — 본인 예약만 취소할 수 있으므로

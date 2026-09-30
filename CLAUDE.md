@@ -629,6 +629,8 @@
 - **익명 폼 INSERT 패턴**: anon 이 쓰는 테이블은 `.insert().select()` 대신 **SECURITY DEFINER RPC** 로 (RETURNING SELECT 충돌로 42501)
 - **관리자 리스트 IntersectionObserver lazy-load**: 8개 페인(campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts/brand-applications) sentinel 점진 렌더(필터·검색·정렬 변경 시 리셋 필수). `renderAppCampList` 는 campaigns/applications/influencers 캐시 공유
 - **PostgREST 1000-row cap 대응**: 집계용 fetch(`fetchInfluencers`/`fetchApplications`/`fetchDeliverables` 등)는 `range(from, from+999)` 루프로 전건 조회. 단일 `.from().select()` 는 1000건에서 잘림
+  - **무거운 목록은 페이지를 동시에 받는다**(2026-09-30): `fetchAllPagedFast`(storage.js — 결과물·신청·인플루언서 목록). 🔴 **조건 둘** — ①일반 표 조회만(`db.rpc` 는 페이지마다 함수 전체가 다시 돌아 부하가 몰린다) ②정렬 끝에 **`.order('id')`**(고유 순서가 아니면 페이지 경계에서 한 건이 겹치거나 빠진다 — `fetchAllPaged` 도 같다). 번호 목록을 200개씩 끊는 조회도 `mapLimit`(최대 4개 동시) — ⚠️ 함수마다 실패 규약이 다르다(`{}`·`null`·「실패 조각만 건너뜀」), 옮길 때 그대로. ⚠️ 운영 데이터베이스가 가장 작은 사양이라 **결과물 조회는 동시 2개**
+- **인플루언서 앱 캠페인 목록 보관**(2026-09-30, `campaign.js` `getCampaignsCached`): 받아 둔 목록으로 먼저 그리고 뒤에서 새로 받아 **바뀌었을 때만** 다시 그린다(10초 안이면 안 받음). ⚠️ 신청 인원을 바꾸는 동작(응모·취소·행사 예약·예약 취소) 뒤에는 **`invalidateCampaignsCache()`** — 새 경로를 만들면 함께. ⚠️ `fetchCampaigns` 자체는 관리자도 써서 **보관하지 않는다**(편집 직후 최신값 필요)
 
 ## Mobile Layout Rules
 - `#appShell` 은 `position:fixed` + `top:0`/`bottom:0`

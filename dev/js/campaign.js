@@ -21,10 +21,68 @@ DEMO_CAMPAIGNS = [
   {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:_demoDeadline(35),post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！報酬¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
 ];
 
+// ── 캠페인 목록 보관 — 인플루언서 앱 전용 (2026-09-30) ──
+//   화면을 옮길 때마다(홈·캠페인·응모이력) 캠페인 전체를 다시 받느라 이동이 느렸다.
+//   받아 둔 목록이 있으면 **그것으로 먼저 그리고, 뒤에서 새로 받아 바뀐 게 있으면 다시 그린다**
+//   (사용자 결정 — 신청 인원·마감 상태가 낡지 않게). 서버 요청 수는 종전과 비슷하다.
+//   ⚠️ fetchCampaigns 자체는 관리자 화면도 쓴다 — 관리자는 편집 직후 최신값이 필요하므로
+//      여기(인플루언서 앱)에서만 감싼다.
+//   ⚠️ 응모·취소·행사 예약처럼 신청 인원을 바꾸는 동작 뒤에는 invalidateCampaignsCache() —
+//      다음 이동은 보관분 없이 새로 받은 뒤 그린다.
+const CAMP_FRESH_MS = 10000;   // 방금(10초 안) 받은 목록이면 뒤에서 또 받지 않는다(부팅 직후 홈 이동 등)
+let _campFetchPromise = null;
+let _campFetchedAt = 0;
+let _campGen = 0;   // 무효화 세대 — 무효화 전에 출발한 조회가 뒤늦게 와도 「방금 받음」으로 치지 않게
+
+// 새로 받는다. 같은 조회가 진행 중이면 그 결과를 함께 쓴다.
+function refreshCampaignsShared() {
+  if (_campFetchPromise) return _campFetchPromise;
+  const hadData = _campFetchedAt > 0 && Array.isArray(allCampaigns) && allCampaigns.length > 0;
+  const gen = _campGen;
+  const p = fetchCampaigns().then(data => {
+    if (_campaignsLoadFailed && hadData) {
+      // 뒤에서 받다가 실패 — 멀쩡히 받아 둔 목록을 지우지 않고, 「못 불러왔다」 표시도 세우지 않는다
+      _campaignsLoadFailed = false;
+      return allCampaigns;
+    }
+    allCampaigns = data;
+    _campFetchedAt = (_campaignsLoadFailed || gen !== _campGen) ? 0 : Date.now();
+    return allCampaigns;
+  }).finally(() => { if (_campFetchPromise === p) _campFetchPromise = null; });
+  _campFetchPromise = p;
+  return p;
+}
+
+// 신청 인원이 바뀐 뒤 — 진행 중이던 조회도 버리고 다음엔 새로 받는다
+function invalidateCampaignsCache() { _campFetchedAt = 0; _campGen++; _campFetchPromise = null; }
+
+// 다시 그릴지 판단용 — 화면에 보이는 값이 바뀌었는지만 본다(조회수 등은 뺀다)
+function _campListSignature(camps) {
+  return (camps || []).map(c => [c.id, c.status, c.applied_count, c.slots, c.deadline, c.updated_at].join('|')).join(',');
+}
+
+// 보관분이 있으면 즉시 돌려주고 뒤에서 새로 받는다. onChange(새 목록)는 **바뀌었을 때만** 불린다.
+//   보관분이 없으면(첫 진입·무효화 뒤) 새로 받을 때까지 기다린다 — 종전과 같다.
+async function getCampaignsCached(onChange) {
+  const cached = _campFetchedAt > 0 && Array.isArray(allCampaigns) && allCampaigns.length > 0;
+  if (!cached) return refreshCampaignsShared();
+  if (Date.now() - _campFetchedAt >= CAMP_FRESH_MS) {
+    const before = _campListSignature(allCampaigns);
+    refreshCampaignsShared().then(fresh => {
+      if (typeof onChange === 'function' && _campListSignature(fresh) !== before) onChange(fresh);
+    }).catch(() => {});
+  }
+  return allCampaigns;
+}
+
 async function loadCampaigns() {
-  allCampaigns = await fetchCampaigns();
-  renderCampaigns(allCampaigns);
-  updateStats(allCampaigns);
+  const camps = await getCampaignsCached(fresh => {
+    // 뒤에서 받은 목록이 달라졌을 때 — 지금 보이는 화면만 다시 그린다
+    if ($('page-home')?.classList.contains('active')) { renderCampaigns(fresh); updateStats(fresh); }
+    if ($('page-campaigns')?.classList.contains('active')) renderCampaignGrid();
+  });
+  renderCampaigns(camps);
+  updateStats(camps);
 }
 
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
@@ -94,8 +152,8 @@ let campPageStatusFilter = 'all';   // all | active | scheduled | closed | ended
 let campPageSearch = '';
 
 async function loadCampaignsPage() {
-  // 진입할 때마다 캠페인 데이터 새로고침 — 캐시(allCampaigns)에 의존하지 않음.
-  // 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  // 진입할 때마다 캠페인 데이터 새로고침 — 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  //   2026-09-30 부터는 받아 둔 목록으로 먼저 그리고 뒤에서 새로 받는다(loadCampaigns → getCampaignsCached).
   await loadCampaigns();
   campPageTypeFilter = 'all';
   campPageStatusFilter = 'all';
