@@ -151,13 +151,58 @@ function buildChannelFilters(camps) {
 let campPageStatusFilter = 'all';   // all | active | scheduled | closed | ended
 let campPageSearch = '';
 
-async function loadCampaignsPage() {
+// 모집 형식 탭 ↔ 주소 대응 — 이 표가 유일한 정의처다(사양서 2026-09-30-campaign-list-tab-url).
+//   리뷰어는 내부 코드(monitor)가 아니라 화면 이름을 주소에 쓴다. 상태 칩·검색어는 주소에 안 담는다.
+//   ⚠️ 주소를 읽는 자리(app.js 의 navigate·뒤로가기·새로고침 첫 화면·언어 전환)는 전부 아래 두 함수로 판정한다.
+//      'campaigns' 와 정확히 같은지로 판정하는 자리를 새로 만들면 탭 주소에서 빈 화면이 된다.
+const CAMP_PAGE_TYPE_HASH = { all: 'campaigns', monitor: 'campaigns-reviewer', gifting: 'campaigns-gifting', visit: 'campaigns-visit' };
+
+// 'campaigns' 또는 'campaigns-…' 이면 캠페인 목록 주소
+function isCampaignsHash(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  return h === 'campaigns' || h.startsWith('campaigns-');
+}
+
+// 주소 → 탭. 표에 없는 'campaigns-…'(틀린 주소)는 'all', 캠페인 목록 주소가 아니면 null
+function campPageTypeFromHash(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  if (!isCampaignsHash(h)) return null;
+  const hit = Object.keys(CAMP_PAGE_TYPE_HASH).find(t => CAMP_PAGE_TYPE_HASH[t] === h);
+  return hit || 'all';
+}
+
+// 틀린 탭 주소(#campaigns-foo)는 기록을 늘리지 않고 #campaigns 로 바꿔 적는다
+function _fixUnknownCampaignsHash(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  if (!isCampaignsHash(h) || Object.values(CAMP_PAGE_TYPE_HASH).includes(h)) return;
+  try { history.replaceState({page: 'campaigns'}, '', '#campaigns'); } catch (e) { /* 주소 교정 실패는 화면에 영향 없음 */ }
+}
+
+// 탭 강조 칠하기 — 진입·클릭·뒤로가기 세 곳이 쓴다
+function _paintCampPageTypeTabs(type) {
+  ['all','monitor','gifting','visit'].forEach(t => {
+    const btn = $('campPageType-'+t);
+    if (!btn) return;
+    const on = t === type;
+    btn.style.color = on ? 'var(--pink)' : 'var(--muted)';
+    btn.style.borderBottomColor = on ? 'var(--pink)' : 'transparent';
+    btn.style.fontWeight = on ? '700' : '600';
+  });
+}
+
+// 목록 진입(전체 초기화). targetHash = navigate() 가 받은 목표 주소 — 그 주소의 탭으로 시작한다.
+//   ⚠️ 부르기 전의 브라우저 주소(location.hash)를 읽으면 안 된다 — 방문형을 보다 햄버거 「캠페인」을
+//      누르면 옛 주소가 읽혀 「전체」로 가야 할 진입이 방문형으로 복원된다.
+async function loadCampaignsPage(targetHash) {
+  // 탭·필터 상태는 목록을 받기 **전에** 정한다 — 받는 사이 탭을 누르면 그 선택이 덮이지 않게.
+  campPageTypeFilter = campPageTypeFromHash(targetHash) || 'all';
+  _fixUnknownCampaignsHash(targetHash);
+  campPageStatusFilter = 'all';
+  campPageSearch = '';
+  _paintCampPageTypeTabs(campPageTypeFilter);
   // 진입할 때마다 캠페인 데이터 새로고침 — 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
   //   2026-09-30 부터는 받아 둔 목록으로 먼저 그리고 뒤에서 새로 받는다(loadCampaigns → getCampaignsCached).
   await loadCampaigns();
-  campPageTypeFilter = 'all';
-  campPageStatusFilter = 'all';
-  campPageSearch = '';
   const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
   // 검색 폼 초기 상태: 닫힘 (제목 + 아이콘 노출)
   const searchWrap = $('campPageSearchWrap');
@@ -168,13 +213,7 @@ async function loadCampaignsPage() {
   if (searchTitle) searchTitle.style.display = '';
   // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
   setupCampPageHeaderAutoHide();
-  ['all','monitor','gifting','visit'].forEach(t => {
-    const btn = $('campPageType-'+t);
-    if (!btn) return;
-    btn.style.color = t==='all'?'var(--pink)':'var(--muted)';
-    btn.style.borderBottomColor = t==='all'?'var(--pink)':'transparent';
-    btn.style.fontWeight = t==='all'?'700':'600';
-  });
+  _paintCampPageTypeTabs(campPageTypeFilter);
   // 상태 필터 칩 초기화
   document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
   const allChip = $('campPageStatus-all'); if (allChip) allChip.classList.add('on');
@@ -188,12 +227,25 @@ function _scrollCampPageTop() {
   else if (page) page.scrollTop = 0;
 }
 
-function setCampPageType(type, el) {
+// 탭 클릭 — 다른 탭이면 방문 기록을 쌓는다(메타 픽셀이 pushState 를 페이지뷰 1건으로 센다 — 실측된 유일한 방식).
+//   ⚠️ 이미 그 탭이면 아무것도 안 한다 — 쌓으면 뒤로가기가 「변화 없음」을 한 번 더 거치고 가짜 페이지뷰가 간다.
+//   ⚠️ navigate() 를 부르지 않는다 — 부르면 목록을 통째로 다시 받고 상태 칩·검색어가 초기화된다.
+function setCampPageType(type) {
+  if (!CAMP_PAGE_TYPE_HASH[type] || type === campPageTypeFilter) return;
   campPageTypeFilter = type;
-  document.querySelectorAll('[id^="campPageType-"]').forEach(b => {
-    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
-  });
-  el.style.color = 'var(--pink)'; el.style.borderBottomColor = 'var(--pink)'; el.style.fontWeight = '700';
+  const hash = CAMP_PAGE_TYPE_HASH[type];
+  try { history.pushState({page: hash}, '', '#' + hash); } catch (e) { /* 기록 실패해도 탭 전환은 한다 */ }
+  _paintCampPageTypeTabs(type);
+  renderCampaignGrid();
+  _scrollCampPageTop();
+}
+
+// 목록이 떠 있는 채 뒤로가기·앞으로가기로 탭 주소에 왔을 때 — 탭만 바꾼다(상태 칩·검색어 유지).
+//   부르는 곳은 app.js 뒤로가기 처리 한 곳. 목록이 아닌 화면에서 온 경우는 navigate() 경로(전체 초기화)다.
+function applyCampPageTypeFromHistory(hash) {
+  campPageTypeFilter = campPageTypeFromHash(hash) || 'all';
+  _fixUnknownCampaignsHash(hash);
+  _paintCampPageTypeTabs(campPageTypeFilter);
   renderCampaignGrid();
   _scrollCampPageTop();
 }
