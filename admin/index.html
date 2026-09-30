@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790738846';
+  var CURRENT_BUILD = 'v1790747129';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -221,7 +221,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .pw-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;background:transparent;border:none;cursor:pointer;color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;transition:color .2s}
 .pw-toggle:hover{color:var(--on-surface)}
 .form-error{font-size:12px;color:#B3261E;margin-top:4px}
-/* 흔한 비밀번호 경고 줄 — 막지 않는 안내라 노란 톤(오류 빨강과 구분). 긴 문구가 칸 폭에서 줄바꿈되게 */
+/* 흔한 비밀번호 경고 줄 — 막지 않는 안내라 노란 톤(오류 빨강과 구분). 마이페이지는 반쪽 폭이라 줄바꿈 허용 */
 .pw-common-warn{font-size:12px;line-height:1.5;color:#7A5200;background:#FFF6D6;border-radius:8px;padding:6px 10px;margin-top:6px;word-break:break-word}
 .form-row{display:grid;grid-template-columns:1fr;gap:12px}
 /* 마이페이지는 줄 안의 칸이 위아래로 쌓이고 칸마다 아래 여백이 있어, 줄 간격까지 더하면 그 사이만 넓어진다 */
@@ -1931,8 +1931,8 @@ input.admin-filter{padding-right:8px}
 
 /* 가격체크 드롭다운 (제품별 4상태) — 신청 목록 페인 「가격체크」 컬럼.
    마켓 등록 가격과 신청 금액 비교 결과 (가격높음/낮음/동일) 또는 미선택. */
-.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
-.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--line);background-color:#fafafa;font-weight:400}
+.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 22px 4px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background-color:#fff;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2216%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M2 6l3-3 3 3%22/><path d=%22M2 10l3 3 3-3%22/></svg>');background-repeat:no-repeat;background-position:right 7px center;background-size:8px 13px;font-weight:600;-webkit-appearance:none;appearance:none}
+.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background-color:#fafafa;font-weight:400}
 .brand-app-pricecheck-select.pc-higher{background-color:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
 .brand-app-pricecheck-select.pc-lower{background-color:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
 .brand-app-pricecheck-select.pc-equal{background-color:#EEEEEE;color:#555555;border-color:#D0D0D0}
@@ -2065,7 +2065,6 @@ input.admin-filter{padding-right:8px}
 .inbox-thread-time{font-size:10px;color:var(--muted);white-space:nowrap}
 .inbox-thread-chip{display:inline-flex;align-items:center;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
 .inbox-thread-chip.unresolved{background:var(--gold-l);color:var(--gold)}
-.inbox-thread-chip.withdraw{background:#FFF4E5;color:#B45309;border:1px solid #F5C98A}  /* 탈퇴 D-N·대기 중 — 미응대(빨강)와 구분 */
 .inbox-thread-chip.unread{background:var(--pink);color:#fff}
 
 /* 대화 내용 영역 (받은편지함 우측 + 모달 본문 공용) */
@@ -2414,6 +2413,9 @@ input.admin-filter{padding-right:8px}
 .admin-input:focus { outline: none; border-color: var(--accent-ink); box-shadow: 0 0 0 3px rgba(98,94,189,.18); }
 
 /* ── 일괄 발송 / 발송 이력 (PR 3, 마이그레이션 167) ── */
+.inbox-tabs { display: flex; gap: 4px; }
+.inbox-tab { padding: 5px 12px; border: 1px solid var(--line); background: #fff; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.inbox-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
 .bulk-chk-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .bulk-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink); cursor: pointer; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; }
 .bulk-chk input { margin: 0; }
@@ -2479,16 +2481,6 @@ input.admin-filter{padding-right:8px}
 }
 /* 감사용 행 — 행 배경도 옅게 강조해 목록에서 즉시 식별 */
 tr.audit-row, .audit-row { background: #fff3e0 !important; }
-
-/* 🔴 여러 줄 입력칸은 `.admin-filter` 의 `height:32px`(필터 컨트롤 통일 규칙)에 눌려 **한 줄로 납작해진다**.
-   브랜드 상세 페이지·신규 등록 모달의 메모·소개 칸은 길게 쓰는 자리라 `rows` 가 정한 높이를 쓰게 되돌린다.
-   ⚠️ 이 두 자리로만 좁힌다 — `.admin-filter` 자체를 고치면 관리자 화면 전체의 필터 줄 높이가 흐트러진다. */
-#adminPane-brand-detail textarea.admin-filter,
-#brandDetailModal textarea.admin-filter{height:auto;padding:8px}
-/* 브랜드 상세 페이지도 모달과 같은 글자 크기 */
-#adminPane-brand-detail input.admin-filter,
-#adminPane-brand-detail textarea.admin-filter,
-#adminPane-brand-detail select.admin-filter{font-size:14px}
 
 /* 브랜드 상세·신규 브랜드 등록 모달 입력칸 글자 크기 (HTML 인라인 <style>에서 이전, 2026-06-17) */
 #brandDetailModal input.admin-filter,
@@ -3283,7 +3275,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-30 12:27 · 9a0e021</span>
+          <span class="admin-build-text">2026-09-30 14:45 · fb3c48c</span>
         </div>
       </div>
     </aside>
@@ -5267,13 +5259,19 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 메시지 받은편지함 (3단: 캠페인 / 대화 상대 / 대화 내용) -->
         <div id="adminPane-messages" class="admin-pane">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;margin-bottom:8px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
+                <div class="inbox-tabs" style="display:flex;gap:4px">
+                  <button class="inbox-tab is-active" id="inboxTabInbox" onclick="switchInboxTab('inbox')">받은편지함</button>
+                  <button class="inbox-tab" id="inboxTabBroadcasts" onclick="switchInboxTab('broadcasts')">일괄발송 이력</button>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
+              </button>
             </div>
-            <!-- 탭 한 줄: 캠페인 문의 / 서비스 문의 / 일괄발송 이력(캠페인관리자 이상) — renderInboxKindTabs 가 그린다(조각 6-B).
-                 ⚠️ 이력을 단추로 옮겼다가 탭으로 되돌렸다(2026-09-29 사용자 결정 — 탭이 더 낫다) -->
-            <div id="inboxKindTabBar" class="status-tab-bar"></div>
-            <div id="inboxFilterRow" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>기간</label>
                 <select id="inboxSinceSelect" class="admin-select" onchange="changeInboxSince(this.value)">
@@ -5286,8 +5284,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group" id="inboxCustomRange" style="display:none">
                 <label>날짜 직접 선택</label>
-                <!-- 결과물 관리 「인증 성공일」과 같은 범위 달력 한 칸(조각 6-C) — setupInboxDateRange 가 붙인다 -->
-                <input type="text" id="inboxDateRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="date" id="inboxDateFrom" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
+                  <span style="color:var(--muted)">~</span>
+                  <input type="date" id="inboxDateTo" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
+                </div>
               </div>
               <div class="admin-filter-group">
                 <label>정렬</label>
@@ -5308,13 +5309,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="inboxSearchInput" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
+                  <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
                 </div>
               </div>
-              <!-- 일괄 발송 — 캠페인 한 건의 응모건 대상이라 캠페인 문의 탭에서만, 캠페인관리자 이상(applyBulkMsgButtonVisibility) -->
-              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px;height:32px">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
-              </button>
             </div>
           </div>
           <div class="inbox-3pane stage-campaigns" id="inboxMainView">
@@ -5639,13 +5636,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           </div>
         </div>
 
-        <!-- 브랜드 상세 (2026-09-23 사양서 2026-09-23-brand-detail-pane) — 모달에서 페이지로.
-             🔴 목록 페인이 아니다(`admin-pane-list` 안 붙임) — 폼이라 자연 스크롤.
-             머리글은 sticky 라 저장 단추가 화면에서 사라지지 않는다. 그 높이만큼 본문 탭 줄의 top 을 내린다. -->
-        <div id="adminPane-brand-detail" class="admin-pane">
-          <div id="brandDetailPaneHeader" style="position:sticky;top:0;z-index:5;background:var(--surface);padding:6px 0 12px;border-bottom:1px solid var(--line)"></div>
-          <div id="brandDetailPaneBody" style="padding-top:22px"></div>
-        </div>
         <div id="adminPane-brands" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
@@ -13800,99 +13790,6 @@ async function countCampaignsByBrand(brandId) {
   } catch(e) { console.error('[countCampaignsByBrand]', e); return null; }
 }
 
-// ══ 브랜드 영업 메모 (마이그레이션 466, 사양서 2026-09-23-brand-memo-entries) ══
-//   오리엔시트 내부 메모(297)와 같은 방식 — 서버 함수 없이 표를 직접 읽고 쓴다.
-//   ⚠️ 조회 실패는 **null**, 0건은 **[]**. 화면이 「불러오지 못했습니다」와 「메모 없음」을 다르게 그린다.
-async function fetchBrandMemos(brandId) {
-  if (!db || !brandId) return null;
-  try {
-    const {data, error} = await db.from('brand_memos')
-      .select('id, brand_id, body_html, author_id, author_name, created_at, updated_at')
-      .eq('brand_id', brandId)
-      .order('created_at', {ascending: false});
-    if (error) throw error;
-    return data || [];
-  } catch(e) { console.error('[fetchBrandMemos]', e); return null; }
-}
-
-async function insertBrandMemo(brandId, bodyHtml, authorId, authorName) {
-  if (!db) return {ok:false, error:'no_db'};
-  try {
-    const result = await retryWithRefresh(async () => {
-      const {data, error} = await db?.from('brand_memos')
-        .insert({ brand_id: brandId, body_html: bodyHtml, author_id: authorId || null, author_name: authorName || null })
-        .select('*').maybeSingle();
-      if (error) throw error;
-      return data;
-    });
-    return {ok: true, data: result};
-  } catch(e) { console.error('[insertBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
-}
-
-// 낙관적 잠금을 일부러 걸지 않는다(마지막 저장 승리 — 297 과 같은 결정)
-async function updateBrandMemo(memoId, bodyHtml) {
-  if (!db) return {ok:false, error:'no_db'};
-  try {
-    const result = await retryWithRefresh(async () => {
-      const {data, error} = await db?.from('brand_memos')
-        .update({body_html: bodyHtml})
-        .eq('id', memoId)
-        .select('*').maybeSingle();
-      if (error) throw error;
-      return data;
-    });
-    return {ok: true, data: result};
-  } catch(e) { console.error('[updateBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
-}
-
-// 브랜드 목록 「메모」 열 — 브랜드마다 최신 1건 + 건수. 조회는 **딱 한 번**(브랜드마다 부르면 77번이 된다).
-//   🔴 실패는 `null`, 0건은 `{}` — 옆 「오리엔시트 수」 열과 같은 규칙(실패를 0으로 그리면 「메모가 없다」는 거짓말).
-//   ⚠️ 1,000행 상한 대비 `fetchAllPaged` + 고유 정렬. 최신 판정은 받아 온 뒤 화면에서 한다.
-async function fetchBrandMemoSummaries() {
-  if (!db) return null;
-  try {
-    const rows = await fetchAllPaged(() => db.from('brand_memos')
-      .select('brand_id, body_html, created_at')
-      .order('created_at', {ascending: false}).order('id', {ascending: true}));
-    const out = {};
-    (rows || []).forEach(r => {
-      if (!r.brand_id) return;
-      const cur = out[r.brand_id];
-      if (!cur) { out[r.brand_id] = { count: 1, latest_body: r.body_html, latest_at: r.created_at }; return; }
-      cur.count += 1;
-      if (!cur.latest_at || (r.created_at && r.created_at > cur.latest_at)) { cur.latest_body = r.body_html; cur.latest_at = r.created_at; }
-    });
-    return out;
-  } catch(e) { console.error('[fetchBrandMemoSummaries]', e); return null; }
-}
-
-async function deleteBrandMemo(memoId) {
-  if (!db) return {ok:false, error:'no_db'};
-  try {
-    await retryWithRefresh(async () => {
-      const {error} = await db?.from('brand_memos').delete().eq('id', memoId);
-      if (error) throw error;
-      return true;
-    });
-    return {ok: true};
-  } catch(e) { console.error('[deleteBrandMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
-}
-
-// 브랜드 상세 모달 「캠페인」 탭 — 그 브랜드의 캠페인 목록(보관 삭제분 제외).
-//   🔴 기준은 `countCampaignsByBrand`(바로 위)와 **글자 그대로 같다**(`brand_id` + `deleted_at IS NULL`) —
-//      어긋나면 탭 라벨의 건수와 실제 목록 길이가 달라져 「몇 건이 맞나」를 운영자가 판단하게 된다.
-//   ⚠️ 실패 `null` / 0건 `[]`. 화면이 둘을 다른 문구로 그린다(마이그레이션 276 원칙).
-//   ⚠️ 칸은 한 줄 표시에 필요한 것만 — 기간 문구 판정(`campaignPeriodRowKind`)이 구매·방문 기간을 읽으므로 함께 받는다.
-async function fetchCampaignsByBrand(brandId) {
-  if (!db || !brandId) return null;
-  try {
-    return await fetchAllPaged(() => db.from('campaigns')
-      .select('id,campaign_no,title,status,recruit_type,proxy_purchase,channel,channel_match,img1,recruit_start,deadline,submission_end,purchase_start,purchase_end,visit_start,visit_end')
-      .is('deleted_at', null).eq('brand_id', brandId)
-      .order('created_at', {ascending:false}).order('id', {ascending:true}));
-  } catch(e) { console.error('[fetchCampaignsByBrand]', e); return null; }
-}
-
 // 브랜드 할당 모달용 조회
 // unassignedOnly=true → company_id IS NULL 인 미분류 브랜드만
 // companyId 지정 시 → 현재 소속(= companyId) + 미분류 양쪽 모두 반환
@@ -15203,227 +15100,6 @@ async function fetchApplicationHideHistory(applicationId) {
     .order('at', { ascending: false });
   if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
   return data || [];
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 일반 문의 — 응모에 매이지 않는 회원↔운영팀 메시지 (마이그레이션 475~482)
-//   같은 표(application_messages)에 application_id 가 비고 influencer_id 가 찬 행.
-//   🔴 규약: 조회 실패는 `null`, 0건은 `[]`/빈 Map — 「못 불러옴」과 「없음」을 가른다(276 원칙).
-//   ⚠️ 응모건 함수(fetchApplicationMessages 등)는 응모 번호로 묶여 있어 부르지 않는다 — 짝을 쓴다.
-//      메시지 id 만 보는 회수·숨김·복구·첨부 서명 주소는 기존 함수를 그대로 쓴다.
-//   사양서 docs/specs/2026-05-21-general-inquiry-desk.md §5-4·§6
-// ════════════════════════════════════════════════════════════════════
-
-// 일반 문의 대화 목록 (마스킹 적용). 회원은 인자 없이 본인 것, 관리자는 회원 id 필수.
-async function fetchGeneralInquiryMessages(influencerId = null) {
-  if (!db) return null;
-  try {
-    return await retryWithRefresh(async () => {
-      const {data, error} = await db.rpc('get_general_inquiry_messages', { p_influencer_id: influencerId });
-      if (error) throw error;
-      return data || [];
-    });
-  } catch (e) { console.warn('[fetchGeneralInquiryMessages]', e); logAppError('fetchGeneralInquiryMessages', e); return null; }
-}
-
-// 일반 문의 발송 (회원·관리자 공용, 발신자 종류는 서버가 판별). 관리자는 회원 id 필수.
-//   attachments: uploadGeneralInquiryAttachment() 반환값 배열. 실패는 예외 — 화면이 문구를 띄운다.
-async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null) {
-  if (!db) throw new Error('DB 미연결');
-  return await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('send_general_inquiry_message', {
-      p_influencer_id: influencerId,
-      p_body: body || '',
-      p_attachments: attachments,
-    });
-    if (error) throw error;
-    return data;
-  });
-}
-
-// 일반 문의 읽음 처리 (관리자: 개인별 / 회원: read_by_influencer_at).
-async function markGeneralInquiryMessagesRead(influencerId = null) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {error} = await db.rpc('mark_general_inquiry_messages_read', { p_influencer_id: influencerId });
-    if (error) throw error;
-  });
-}
-
-// 일반 문의 수동 응대 완료 (관리자).
-async function markGeneralInquiryResolved(influencerId) {
-  if (!db || !influencerId) return;
-  await retryWithRefresh(async () => {
-    const {error} = await db.rpc('mark_general_inquiry_resolved', { p_influencer_id: influencerId });
-    if (error) throw error;
-  });
-}
-
-// 일반 문의 첨부 업로드 — 경로 `general/{회원id}/{난수}.jpg` (첫 조각 'general' 고정 — 저장소 정책이 이 두 조각을 본다).
-//   관리자 답장 첨부도 **그 회원의 폴더**에 올린다(서버가 경로 접두를 검사한다).
-async function uploadGeneralInquiryAttachment(file, influencerId) {
-  if (!db) throw new Error('DB 미연결');
-  if (!influencerId) throw new Error('회원 id 없음');
-  const compressed = await compressImageFile(file);
-  const uuid = crypto.randomUUID ? crypto.randomUUID()
-    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
-  const path = `general/${influencerId}/${uuid}.jpg`;
-  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
-    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
-  if (error) throw error;
-  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
-}
-
-// 문의 갈래 판정용 — 본인 응모 목록(취소 포함). 🔴 실패 `null` 이면 화면은 갈래를 건너뛰지 않는다(§5-4 ⑩).
-async function fetchMyApplicationsForInquiry() {
-  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
-  try {
-    const data = await fetchAllPaged(() => db.from('applications')
-      .select('id, campaign_id, status, created_at')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false })
-      .order('id'));
-    return data || [];
-  } catch (e) { console.warn('[fetchMyApplicationsForInquiry]', e); logAppError('fetchMyApplicationsForInquiry', e); return null; }
-}
-
-// 문의하기 「캠페인 문의」 탭 — 대화가 시작된 응모건만(메시지 1건 이상, 최근 대화 순).
-//   반환 [{application_id, last_message_at}] / 실패 `null`(화면은 「불러오지 못했습니다」).
-async function fetchMyApplicationThreads() {
-  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
-  try {
-    const data = await fetchAllPaged(() => db.from('application_message_summary')
-      .select('application_id, last_message_at')
-      .gt('message_count', 0)
-      .order('last_message_at', { ascending: false })
-      .order('application_id'));
-    return data || [];
-  } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
-}
-
-// 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
-async function fetchMyGeneralInquiryUnread() {
-  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
-  try {
-    const {data, error} = await db.from('general_inquiry_message_summary')
-      .select('unread_for_influencer')
-      .eq('influencer_id', currentUser.id)
-      .maybeSingle();
-    if (error) throw error;
-    return Number(data?.unread_for_influencer) || 0;   // 문의가 없으면 행이 없다 → 0
-  } catch (e) { console.warn('[fetchMyGeneralInquiryUnread]', e); logAppError('fetchMyGeneralInquiryUnread', e); return null; }
-}
-
-// 관리자 받은편지함 「일반 문의」 탭 목록 — 새 뷰(481). 열 모양은 응모건 뷰와 같다(application_id·campaign_id 는 빈 값).
-//   opts: fetchAdminMessageThreads 와 같음(sinceMonths / fromIso·toIso). 실패 `null`.
-async function fetchAdminGeneralInquiryThreads(opts = {}) {
-  if (!db) return null;
-  const useRange = !!(opts.fromIso || opts.toIso);
-  const sinceIso = new Date(Date.now() - (opts.sinceMonths || 6) * 30 * 24 * 60 * 60 * 1000).toISOString();
-  try {
-    const data = await fetchAllPaged(() => {
-      let q = db.from('general_inquiry_message_summary')
-        .select('application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at')
-        .gt('message_count', 0)
-        .order('last_message_at', { ascending: false })
-        .order('influencer_id');
-      if (useRange) {
-        if (opts.fromIso) q = q.gte('last_message_at', opts.fromIso);
-        if (opts.toIso) q = q.lte('last_message_at', opts.toIso);
-      } else {
-        q = q.gte('last_message_at', sinceIso);
-      }
-      return q;
-    });
-    return data || [];
-  } catch (e) { console.warn('[fetchAdminGeneralInquiryThreads]', e); logAppError('fetchAdminGeneralInquiryThreads', e); return null; }
-}
-
-// 일반 문의 미응대 수 — 사이드바·탭 배지 합산용(fetchUnresolvedMessageCount 의 짝, 같은 6개월 창). 실패 `null`.
-async function fetchGeneralInquiryUnresolvedCount() {
-  if (!db) return null;
-  try {
-    const sinceIso = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString();
-    const {count, error} = await db.from('general_inquiry_message_summary')
-      .select('influencer_id', { count: 'exact', head: true })
-      .gt('message_count', 0)
-      .eq('unresolved_for_admin_team', true)
-      .gte('last_message_at', sinceIso);
-    if (error) { console.warn('[fetchGeneralInquiryUnresolvedCount]', error); return null; }
-    return count || 0;
-  } catch (e) { console.warn('[fetchGeneralInquiryUnresolvedCount]', e); return null; }
-}
-
-// 관리자 본인 미열람 수 (회원별). 반환 Map<influencer_id, count>, 실패 `null`.
-async function fetchGeneralInquiryAdminUnreadCounts() {
-  if (!db) return null;
-  let data;
-  try {
-    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('influencer_id'));
-  } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadCounts]', e); return null; }
-  const map = new Map();
-  (data || []).forEach(r => map.set(r.influencer_id, Number(r.unread_count) || 0));
-  return map;
-}
-
-// 「내가 보낸 순」 정렬 — 본인 관리자가 일반 문의에 보낸 회원별 최신 시각. 반환 Map<influencer_id, iso>, 실패 `null`.
-//   ⚠️ fetchAdminSentAtMap 을 쓰면 일반 문의 행이 빈 열쇠 하나로 뭉친다(§5-4 ⑨) — 이 짝을 쓴다.
-async function fetchAdminGeneralSentAtMap() {
-  if (!db) return null;
-  let data;
-  try {
-    const {data: udata} = await db.auth.getUser();
-    const uid = udata?.user?.id;
-    if (!uid) return null;
-    data = await fetchAllPaged(() => db.from('application_messages')
-      .select('influencer_id, created_at')
-      .is('application_id', null)
-      .eq('sender_id', uid)
-      .eq('sender_kind', 'admin')
-      .order('created_at', { ascending: false })
-      .order('id'));
-  } catch (e) { console.warn('[fetchAdminGeneralSentAtMap]', e); return null; }
-  const map = new Map();
-  (data || []).forEach(r => { if (!map.has(r.influencer_id)) map.set(r.influencer_id, r.created_at); });
-  return map;
-}
-
-// 일반 문의 미리보기 — 회원별 마지막 살아 있는 메시지. 반환 Map<influencer_id, row>, 실패 `null`.
-async function fetchGeneralInquiryPreviews(influencerIds) {
-  if (!db) return null;
-  const map = new Map();
-  if (!influencerIds || !influencerIds.length) return map;
-  const CHUNK = 100;
-  for (let i = 0; i < influencerIds.length; i += CHUNK) {
-    const ids = influencerIds.slice(i, i + CHUNK);
-    let data;
-    try {
-      data = await fetchAllPaged(() => db.from('application_messages')
-        .select('influencer_id, body, body_translated, translate_status, sender_kind, created_at')
-        .is('application_id', null)
-        .in('influencer_id', ids)
-        .is('hidden_by_admin_at', null)
-        .is('self_withdrawn_at', null)
-        .order('created_at', { ascending: false })
-        .order('id'));
-    } catch (e) { console.warn('[fetchGeneralInquiryPreviews]', e); return null; }
-    (data || []).forEach(m => { if (!map.has(m.influencer_id)) map.set(m.influencer_id, m); });
-  }
-  return map;
-}
-
-// 일반 문의 숨김/복구 이력 (최고 관리자 — 표 정책상 그 외는 빈 배열). 실패 `null`.
-async function fetchGeneralInquiryHideHistory(influencerId) {
-  if (!db || !influencerId) return [];
-  try {
-    const data = await fetchAllPaged(() => db.from('application_message_hide_history')
-      .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(influencer_id, application_id)')
-      .eq('application_messages.influencer_id', influencerId)
-      .is('application_messages.application_id', null)
-      .order('at', { ascending: false })
-      .order('id'));
-    return data || [];
-  } catch (e) { console.warn('[fetchGeneralInquiryHideHistory]', e); return null; }
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -18651,11 +18327,7 @@ function switchAdminPane(pane, el, pushHistory) {
       if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
       return switchAdminPane('dashboard', null, pushHistory);
     }
-  // 🔴 하위 화면은 **부모 목록의 열쇠말**로 판정한다 — 권한 카탈로그에 없는 열쇠말은 `permLevel` 이
-  //    'write' 로 돌려줘 아무도 안 막힌다. 이 줄이 없으면 「브랜드 관리」가 숨김인 등급도
-  //    주소창에 `#brand-detail` 을 쳐서 들어온다(사양서 2026-09-23-brand-detail-pane 2-3).
-  } else if (pane !== 'dashboard' && typeof isHidden === 'function'
-             && isHidden('menu.' + ({'brand-detail':'brands'}[pane] || pane))) {
+  } else if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
@@ -18700,7 +18372,7 @@ function switchAdminPane(pane, el, pushHistory) {
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops','brand-detail':'brands'}[pane] || pane;
+      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops'}[pane] || pane;
     el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
@@ -18726,9 +18398,6 @@ function switchAdminPane(pane, el, pushHistory) {
     'brand-ops-detail': loadBrandOpsDetail,
     'companies': loadCompanies,
     'brands': loadBrandsPane,
-    // 브랜드 상세 페이지는 목록에서 고른 브랜드를 화면 상태로 들고 있다 —
-    //   주소로 직접 들어오면 고른 브랜드가 없으므로 목록으로 돌려보낸다(app.js 의 subToParent 와 같은 뜻).
-    'brand-detail': () => { if (!_brandsCurrentId) switchAdminPane('brands'); },
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,
@@ -22771,26 +22440,7 @@ document.addEventListener('click', function(e) {
 // ══════════════════════════════════════
 
 var _brandApps = [];          // 캐시된 전체 목록
-var _orientByApp = {};
-// 브랜드 상세 모달 「오리엔시트 / 캠페인」 탭 (2026-09-23)
-//   🔴 탭 전환은 **형제 div 의 display 토글**로만 한다 — 이 모달은 읽기 화면이 아니라 **편집 폼**이라
-//      본문을 다시 그리면 고치던 브랜드명·담당자·메모가 경고 없이 사라진다(값은 DOM 에서 읽는다).
-//   ⚠️ 모달을 열 때마다 'sheets' 로 되돌린다(캠페인 진행현황 탭과 같은 관행) — 직전 브랜드의 탭이 남으면
-//      「0건」 화면으로 열려 혼란스럽다.
-var _brandDetailTab = 'sheets';
-// 브랜드 상세 페이지의 「돌아가기」 — 들어온 곳별 글자·동작. 🔴 값이 없으면 브랜드 관리로(빈 화면 방지).
-var _brandDetailFrom = 'brands';
-// 영업 메모(마이그레이션 466) — 조회 실패 null / 0건 [] / 아직 안 받음 undefined
-var _brandMemos = undefined;
-var _brandMemoDraft = '';      // 쓰다 만 새 메모 — 메모 영역을 다시 그려도 살아남아야 한다
-var _brandMemoEditDraft = {};  // {메모id: 고치던 내용}
-var BRAND_DETAIL_BACK = {
-  'brands':             { label: '브랜드 관리로',   action: "switchAdminPane('brands')" },
-  'brand-ops':          { label: '운영 현황으로',   action: "switchAdminPane('brand-ops-detail')" },
-  'brand-applications': { label: '브랜드 서베이로', action: "switchAdminPane('brand-applications')" }
-};
-var _brandDetailCamps = undefined;   // undefined=아직 안 받음 / null=조회 실패 / []=0건
-var _brandDetailSheetCampIds = [];   // 이 브랜드 시트가 발행한 캠페인 id — 「오리엔 연결 / 직접 등록」 분류용        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
+var _orientByApp = {};        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
@@ -23830,7 +23480,6 @@ function renderGoogleSheetLinkOnly(urlOrNull) {
 // ══════════════════════════════════════
 var _brandsCache = [];
 var _brandCampCounts = {};  // {brand_id: 캠페인 수} — 브랜드 목록 「캠페인 수」 컬럼용
-var _brandMemoSummaries = null;  // {brand_id: {count, latest_body, latest_at}} — 목록 「메모」 열. 🔴 실패 `null` / 0건 `{}`
 var _brandSheetCounts = null;  // {brand_id: 오리엔시트 수} — 브랜드 목록 「오리엔시트 수」 열. 🔴 실패 `null` / 0건 `{}`
 var _brandCompanyMap = {};  // {company_id: 회사명} — 목록 회사명을 company_id 기준 표시(company_name 보조컬럼 미동기화 대비)
 var _brandsCurrentId = null;
@@ -23845,8 +23494,6 @@ async function loadBrandsPane() {
   // 「오리엔시트 수」 열 — 데이터베이스 카운터를 새로 만들지 않고 캠페인 수와 같은 뜻(전건 조회 + 클라 집계)으로 센다.
   //   🔴 실패는 `null` 이라 셀이 「—」가 된다(0건 `{}` 와 구분 — 「시트가 없다」로 읽히면 안 된다)
   _brandSheetCounts = (typeof fetchOrientSheetCountsByBrand === 'function') ? await fetchOrientSheetCountsByBrand() : null;
-  // 「메모」 열 — 브랜드마다 최신 1건 + 건수. 조회는 **딱 한 번**(마이그레이션 466 이후 여러 건이 된다)
-  _brandMemoSummaries = (typeof fetchBrandMemoSummaries === 'function') ? await fetchBrandMemoSummaries() : null;
   // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
   var _companies = (typeof fetchCompanies === 'function') ? (await fetchCompanies({ status: 'all' }) || []) : [];
   _brandCompanyMap = {};
@@ -23874,21 +23521,14 @@ function renderBrandsList() {
     return;
   }
   var renderRow = function(b) {
-    // 「메모」 열 — 이제 `brand_memos` 표의 **최신 1건 + 건수**다(옛 `brands.memo` 칸은 더 이상 안 쓴다).
-    //   🔴 조회 실패(`null`)와 0건을 가른다 — 실패를 「메모 없음」으로 그리면 거짓말이 된다.
-    //   ⚠️ 서식 있는 글이라 **태그를 걷어 평문으로** 넣는다(툴팁도 평문).
-    var memoSum = (_brandMemoSummaries && _brandMemoSummaries[b.id]) || null;
-    var memoText = memoSum ? String(memoSum.latest_body || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
-    var memoMore = (memoSum && memoSum.count > 1) ? '<span style="font-size:10px;color:var(--muted);margin-left:4px">+' + (memoSum.count - 1) + '</span>' : '';
-    var memoCell = (_brandMemoSummaries === null)
-      ? '<span style="color:var(--muted)">—</span>'
-      : (memoText
-      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + memoMore + '</div>'
-      : '<span style="color:var(--muted)">—</span>');
+    var memoText = (b.memo || '').trim();
+    var memoCell = memoText
+      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
+      : '<span style="color:var(--muted)">—</span>';
     var statusBadge = b.status === 'archived'
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
       : '<span style="background:#E8F5E9;color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
-    return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetail(\'' + esc(b.id) + '\', \'brands\')">'
+    return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
         + '<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '—') + '</div>'
@@ -23930,27 +23570,16 @@ function collectOrientCampaignIds(sheets) {
   return out;
 }
 
-// 브랜드 상세 — **페이지**(2026-09-23, 사양서 `docs/specs/2026-09-23-brand-detail-pane.md`).
-//   from: 'brands' | 'brand-ops' | 'brand-applications' — 돌아가기 단추의 글자·목적지를 정한다(캠페인 진행현황과 같은 관행).
-//   🔴 신규 브랜드 등록은 **여전히 모달**이다(같은 본문 함수를 쓴다). 그래서 이 페이지를 그릴 때
-//      **모달 본문을 반드시 비운다** — 안 비우면 `#brandFormName` 같은 이름이 화면에 둘이 되어
-//      `$()`(getElementById)가 앞의 것을 읽고, 오류 없이 **엉뚱한 값이 저장**된다(사양서 2-2).
-async function openBrandDetail(id, from) {
+async function openBrandDetailModal(id) {
   _brandsCurrentId = id;
-  // 🔴 메모 상태를 **그리기 전에** 비운다 — 안 비우면 브랜드 B 를 여는 순간 화면에
-  //    직전 브랜드 A 의 메모(작성자·시각·본문)가 잠깐 그대로 보인다(리뷰에서 잡힌 결함).
-  //    받아 오는 것은 뒤에서 하지만, **보이는 값**은 이 시점에 이미 비어 있어야 한다.
-  _brandMemos = undefined;
-  _brandMemoDraft = '';
-  _brandMemoEditDraft = {};
-  _brandDetailFrom = (from === 'brand-ops' || from === 'brand-applications') ? from : 'brands';
-  clearBrandModalBody();
-  var titleEl = $('brandDetailPaneHeader');
-  var bodyEl = $('brandDetailPaneBody');
-  if (!bodyEl) return;
+  var modal = $('brandDetailModal');
+  var titleEl = $('brandDetailTitle');
+  var bodyEl = $('brandDetailBody');
+  var footerEl = $('brandDetailFooter');
+  if (!modal || !bodyEl) return;
   bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
-  if (titleEl) titleEl.innerHTML = '';
-  switchAdminPane('brand-detail');
+  if (footerEl) footerEl.innerHTML = '';
+  modal.classList.add('open');
   // 🔴 실패는 전부 `null` 이고 자리마다 표시가 따로 있다 — 「0건인 척」 그리지 않는다.
   var [b, sheets, surveyCount, companies, campCount] = await Promise.all([
     fetchBrandById(id),
@@ -23959,23 +23588,20 @@ async function openBrandDetail(id, from) {
     (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
     (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(null))
   ]);
-  if (_brandsCurrentId !== id) return;   // 받아 오는 사이 다른 브랜드로 옮겼으면 버린다
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
   // 발행 캠페인 맵 — 시트 목록이 와야 id 를 알 수 있어 위 동시 조회에 못 넣는다(오리엔 상세와 같은 순서).
   //   ⚠️ 이 조회가 실패해도 **삭제 판정과는 무관**하다 — 카드의 번호 자리만 비운다.
-  _brandDetailTab = 'sheets';
-  _brandDetailCamps = undefined;
   var campMap = {};
   try {
     var campIds = collectOrientCampaignIds(sheets);
-    _brandDetailSheetCampIds = campIds.slice();
     if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds);
   } catch (_) { campMap = {}; }
   // 🔴 두 번째 기다림 뒤에도 다시 대조한다 — 캠페인 맵을 받는 사이 다른 브랜드를 열면
   //    앞 브랜드의 폼이 뒤늦게 덮어써 「저장」이 **엉뚱한 브랜드에** 기록됐다(2026-09-28 전수조사 3차 H-3).
   if (_brandsCurrentId !== id) return;
   _brandFormCompanies = companies || [];
-  bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
+  if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
+  bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap);
   renderBrandContactsRows();
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
   var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
@@ -23986,20 +23612,7 @@ async function openBrandDetail(id, from) {
   var countsKnown = Array.isArray(sheets) && (surveyCount !== null && surveyCount !== undefined)
                     && (campCount !== null && campCount !== undefined);
   var canDeleteBrand = countsKnown && (sheets.length === 0) && (surveyCount === 0) && (campCount === 0) && isAdm;
-  if (titleEl) titleEl.innerHTML = renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id);
-  syncBrandDetailTabOffset();
-  // 메모는 화면을 그린 뒤 따로 받는다 — 본문이 메모를 기다리지 않게(오리엔 상세와 같은 순서)
-  loadBrandMemos(id);
-}
-
-// 페이지 머리글 — 돌아가기 + 제목 + 단추 묶음. 🔴 단추는 **모달 바닥에 있던 것 그대로**이되
-//   「닫기」는 없고, 오리엔시트 발급은 **모달을 닫지 않는다**(페이지 위에 발급 창이 뜬다).
-function renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id) {
-  var back = BRAND_DETAIL_BACK[_brandDetailFrom] || BRAND_DETAIL_BACK.brands;
-  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-    + '<button class="btn btn-ghost btn-sm" onclick="' + back.action + '">← ' + esc(back.label) + '</button>'
-    + '<div style="min-width:0">' + renderBrandDetailHeaderHtml(b) + '</div>'
-    + '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+  if (footerEl) footerEl.innerHTML = ''
     + (canDeleteBrand
         ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
         : '')
@@ -24009,40 +23622,19 @@ function renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id
     // ⚠️ 「이 브랜드로 신규 신청」(서베이 등록)은 2026-09-21 에 뺐다 — 사용자 결정(신규 서베이 등록 경로 종료).
     //    `openNewBrandAppModal` 함수·모달은 **남긴다**(기존 신청 수정 경로가 같은 모달을 쓴다).
     //    `margin-right:auto` 는 그 버튼에 있었으므로 여기로 옮겨 왼쪽 묶음 배치를 유지한다.
-    + '<button class="btn btn-ghost btn-sm" onclick="osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
     // 🔴 삭제를 잠근 이유를 말한다 — 캠페인 수 조회 실패는 이 줄이 **유일한 안내**다
     //    (시트 실패는 구역 본문이, 서베이 실패는 안내줄이 따로 말한다)
     + ((!countsKnown && isAdm)
         ? '<span style="font-size:11px;color:#B45309;align-self:center">일부 정보를 불러오지 못해 삭제를 잠갔습니다</span>'
         : '')
-    + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>'
-  + '</div></div>';
-}
-
-// 본문 탭 줄(`position:sticky`)이 머리글 아래에 붙게 — 머리글 높이는 글자 줄바꿈에 따라 달라지므로 잰다.
-function syncBrandDetailTabOffset() {
-  var head = $('brandDetailPaneHeader');
-  var body = $('brandDetailPaneBody');
-  if (!head || !body) return;
-  body.style.setProperty('--brand-detail-head', head.offsetHeight + 'px');
-}
-
-// 🔴 같은 이름의 입력칸이 화면에 둘이 되는 것을 막는 장치 — **두 자리가 한 세트**다(사양서 2-2).
-//    페인은 숨겨도 DOM 이 남고 모달도 닫아도 본문이 남아, 한쪽만 비우면 그대로 재발한다.
-//    `$()` 는 `getElementById` 라 문서 순서상 앞의 것(=페이지)을 읽어, **오류 없이 엉뚱한 값이 저장**된다.
-function clearBrandModalBody() {
-  var mb = $('brandDetailBody'); if (mb) mb.innerHTML = '';
-  var mf = $('brandDetailFooter'); if (mf) mf.innerHTML = '';
-}
-function clearBrandDetailPaneBody() {
-  var pb = $('brandDetailPaneBody'); if (pb) pb.innerHTML = '';
-  var ph = $('brandDetailPaneHeader'); if (ph) ph.innerHTML = '';
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
+    + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
 }
 
 function closeBrandDetailModal() {
   var modal = $('brandDetailModal');
   if (modal) modal.classList.remove('open');
-  clearBrandModalBody();   // 🔴 같은 이름의 입력칸이 페이지와 겹치지 않게(사양서 2-2)
   _brandsCurrentId = null;
 }
 
@@ -24050,19 +23642,11 @@ function closeBrandDetailModal() {
 async function deleteBrandConfirm() {
   var id = _brandsCurrentId;
   if (!id) return;
-  // ⚠️ 삭제 가능한 브랜드는 캠페인·서베이·오리엔시트가 이미 0건이라, **실제로 사라지는 것은 메모뿐**이다.
-  //    그 사실을 확인 창이 말하지 않으면 무엇을 잃는지 모른 채 누르게 된다(사양서 결정 ⑧).
-  var memoCnt = Array.isArray(_brandMemos) ? _brandMemos.length : 0;
-  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·서베이 신청·오리엔시트가 없는 빈 브랜드만 삭제됩니다.'
-      + (memoCnt ? '\n남긴 영업 메모 ' + memoCnt + '개도 함께 사라집니다.' : '')
-      + '\n되돌릴 수 없습니다.')) return;
+  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·서베이 신청·오리엔시트가 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
   var result = await deleteBrand(id);
   if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   toast('브랜드를 삭제했습니다');
-  // 삭제한 브랜드의 페이지에 머무를 수 없다 — 목록 **화면**으로 나간다(사양서 5-3).
-  //   `refreshPane` 은 숨은 목록의 데이터만 새로 받을 뿐 화면을 바꾸지 않는다.
-  switchAdminPane('brands');
-  _brandsCurrentId = null;
+  closeBrandDetailModal();
   if (typeof refreshPane === 'function') { await refreshPane('brands'); }
   else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
@@ -24111,14 +23695,9 @@ async function doBrandMerge(sourceId) {
   var result = await mergeBrands(sourceId, targetId);
   if (!result.ok) { toast('병합 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   var d = result.data || {};
-  // ⚠️ 서버가 돌려주는 건수를 그대로 읽는다 — 오리엔시트·메모는 각각 328·467 에서 더해졌다.
-  //    옛 서버(그 마이그레이션 전)에서는 키가 없어 0 으로 보인다.
-  toast('병합 완료 — 캠페인 ' + (d.moved_campaigns || 0) + '건·신청 ' + (d.moved_apps || 0) + '건'
-        + (d.moved_orient_sheets ? '·오리엔시트 ' + d.moved_orient_sheets + '건' : '')
-        + (d.moved_memos ? '·메모 ' + d.moved_memos + '건' : '') + ' 이동');
+  toast('병합 완료 — 캠페인 ' + (d.moved_campaigns || 0) + '건·신청 ' + (d.moved_apps || 0) + '건 이동');
   closeBrandMergeModal();
-  switchAdminPane('brands');   // 병합된 원본 브랜드 페이지에 머무를 수 없다(삭제와 같은 이유)
-  _brandsCurrentId = null;
+  closeBrandDetailModal();
   if (typeof refreshPane === 'function') { await refreshPane('brands'); }
   else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
@@ -24133,7 +23712,7 @@ function renderBrandDetailHeaderHtml(b) {
   return ''
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
-      + '<span data-brand-name style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
+      + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
       + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : 'var(--green)') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
@@ -24383,7 +23962,7 @@ function openCompanyModalForBrand() {
 
 // ⚠️ 인자가 넷이다 — `sheets`(오리엔시트 목록 · 실패는 `null`) · `surveyCount`(지난 서베이 건수 · 실패는 `null`)
 //    · `campMap`(발행 캠페인 맵). 신규 브랜드 등록 폼은 `({}, [], 0, {})` 로 부른다.
-function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
+function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap) {
   // contacts 초기화
   _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
     return {
@@ -24405,11 +23984,9 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
   }
 
   // 공통 헬퍼 — 신청 등록 모달과 동일한 섹션 패턴(border-bottom:2px solid pink)
-  // 절 간격 — 2026-09-23 사용자 요청으로 넓혔다(제목끼리 붙어 빽빽해 보였다).
-  //   절 사이 18→30px · 제목 줄 아래 12→18px · 제목 글자와 밑줄 사이 6→8px.
   var section = function(title, rightHtml, contentHtml) {
-    return '<section style="margin-bottom:30px">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;margin-bottom:18px;border-bottom:2px solid var(--pink)">'
+    return '<section style="margin-bottom:18px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:12px;border-bottom:2px solid var(--pink)">'
         + '<span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span>'
         + (rightHtml || '')
       + '</div>'
@@ -24425,15 +24002,11 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
   };
 
 
-  // 2026-09-23 사용자 요청 — **영업 메모를 오른쪽 칸으로**. 왼쪽은 본문(기본 정보·담당자·콘텐츠·탭),
-  //   오른쪽은 메모 한 칸이고 스크롤을 따라 붙는다(`--brand-detail-head` 는 페이지 머리글 높이. 모달에서는 값이 없어 0).
-  // ⚠️ 신규 등록 모달도 같은 함수를 쓰므로 그쪽도 두 칸이 된다(폭 1280 기준이라 좁아지지 않는다).
-  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">'
-    + '<div>'
+  return ''
     // § 기본 정보 — 회사 연결(드롭다운+읽기전용 카드) / 브랜드명 3열
     + section('기본 정보', '',
         renderBrandCompanyBlock(b)
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">'
           + input('brandFormName', '브랜드명 (한국어) *', b.name)
           + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
           + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
@@ -24452,266 +24025,25 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
       )
     // § 브랜드 콘텐츠
     + section('브랜드 콘텐츠 (오리엔시트용)', '',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
           + ta('brandFormDescription', '브랜드 소개', b.description, '브랜드 한줄 소개·수상 이력 등', 3)
           + ta('brandFormAppealPoints', '어필 포인트', b.appeal_points, '제품·시장에서의 강점', 3)
         + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
           + input('brandFormQoo10Url', '공식 Qoo10 URL', b.official_qoo10_url, 'https://www.qoo10.jp/...')
           + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
         + '</div>'
       )
+    // § 영업 메모
+    + section('영업 메모', '',
+        '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
+      )
     // § 오리엔시트 — 2026-09-21 에 「신청 내역(브랜드 서베이)」에서 바꿨다.
     //   서베이는 2026-06-30 공개 접수 중단 뒤로 안 쓰고, 브랜드 영업은 오리엔시트로 한다.
     //   🔴 제목의 건수는 **조회에 성공했을 때만** 붙인다 — 실패를 「(0건)」으로 그리면 「시트가 없다」는 거짓말이 된다.
-    // 🔴 「새 브랜드」 등록도 이 함수를 쓴다(openNewBrandModal) — 아직 만들지도 않은 브랜드의
-    //    캠페인 탭은 뜻이 없어 그때는 탭을 안 그리고 종전 그대로 둔다.
-    + (b && b.id
-        ? renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount)
-        : section('오리엔시트' + (Array.isArray(sheets) ? ' (' + sheets.length + '건)' : ''), '',
-            renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount)))
-    + '</div>'
-    // § 영업 메모 — 오른쪽 칸(스크롤을 따라 붙는다)
-    // § 영업 메모 — 오른쪽 칸. 🔴 자체 스크롤이 없으면 메모가 쌓였을 때 아래가 영영 안 닿는다(사양서 2-①)
-    + '<aside style="position:sticky;top:var(--brand-detail-head,0px);max-height:calc(100vh - var(--brand-detail-head,0px) - 40px);overflow-y:auto">'
-      + '<div id="brandMemoPanel">' + renderBrandMemoPanelHtml(b) + '</div>'
-    + '</aside>'
-  + '</div>';
-}
-
-// ══ 영업 메모 — 오리엔시트 내부 메모와 같은 모양(사양서 2026-09-23-brand-memo-entries §3-C) ══
-//   🔴 브랜드 식별자가 없으면(신규 등록 창) **안 그린다** — 아직 만들지도 않은 브랜드에 메모를 붙일 수 없고,
-//      같은 이름의 입력칸이 화면에 둘이 되는 사고(브랜드 상세 페이지 사양서 2-2)도 막는다.
-function renderBrandMemoPanelHtml(b) {
-  var head = function(inner) {
-    return '<section style="margin-bottom:30px">'
-      + '<div style="display:flex;align-items:center;gap:6px;padding-bottom:8px;margin-bottom:18px;border-bottom:2px solid var(--pink)">'
-        + '<span style="font-size:13px;font-weight:700;color:var(--ink)">영업 메모</span>'
-        + (Array.isArray(_brandMemos) ? '<span style="font-size:12px;color:var(--muted);font-weight:600">(' + _brandMemos.length + ')</span>' : '')
-        + '<span style="font-size:11px;color:var(--muted);font-weight:600">· 관리자만 보입니다</span>'
-      + '</div>' + inner
-    + '</section>';
-  };
-  if (!b || !b.id) {
-    return head('<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">브랜드를 만든 뒤 상세 화면에서 메모를 남길 수 있습니다</div>');
-  }
-  if (_brandMemos === undefined) {
-    return head('<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>');
-  }
-  if (!Array.isArray(_brandMemos)) {
-    return head('<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>');
-  }
-  var items = _brandMemos.length
-    ? _brandMemos.map(renderBrandMemoItemHtml).join('')
-    : '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px;margin-bottom:12px">아직 메모가 없습니다. 아래에 남겨 주세요.</div>';
-  // ⚠️ 입력칸 초기값은 빈 문자열이 아니라 **쓰다 만 내용**이다 — 메모 영역은 저장·삭제 때마다 다시 그려지는데,
-  //    빈 값으로 그리면 화면에서만 글이 사라지고 뒤에 남은 값이 나중에 등록된다(오리엔 메모가 겪은 함정).
-  var form = '<div style="margin-top:4px">'
-    + miniEditorHtml(_brandMemoDraft || '', '_brandMemoDraft=this.innerHTML', '이 브랜드에 대한 영업 메모',
-                     { allowImage: false, sanitize: sanitizeMemoHtml })
-    + '<div style="display:flex;justify-content:flex-end;margin-top:8px">'
-      + '<button type="button" class="btn btn-primary btn-sm" onclick="submitBrandMemo()">남기기</button>'
-    + '</div>'
-    // 🔴 저장 시점이 둘로 갈린다 — 메모는 즉시 저장, 왼쪽 폼은 위 「저장」(사양서 2-②)
-    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">메모는 「남기기」를 누르면 바로 저장됩니다. 왼쪽 내용은 위 「저장」을 눌러야 저장됩니다.</div>'
-  + '</div>';
-  return head(items + form);
-}
-
-function renderBrandMemoItemHtml(m) {
-  var editing = Object.prototype.hasOwnProperty.call(_brandMemoEditDraft, m.id);
-  var edited = (m.updated_at && m.created_at && m.updated_at !== m.created_at)
-    ? '<span style="font-size:10px;color:var(--muted)">수정됨</span>' : '';
-  var meta = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'
-    + '<span style="font-size:11px;font-weight:700;color:var(--ink)">' + esc(m.author_name || '이름 없음') + '</span>'
-    + '<span style="font-size:11px;color:var(--muted)">' + esc(formatDateTime(m.created_at)) + '</span>' + edited
-    + (editing ? '' : '<span style="margin-left:auto;display:flex;gap:2px">'
-        + '<button type="button" class="btn btn-ghost btn-xs" onclick="editBrandMemo(\'' + esc(m.id) + '\')">고침</button>'
-        + '<button type="button" class="btn btn-ghost btn-xs" onclick="removeBrandMemo(\'' + esc(m.id) + '\')">지움</button>'
-      + '</span>')
-  + '</div>';
-  var box = 'border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)';
-  if (!editing) {
-    return '<div style="' + box + '">' + meta
-      + '<div style="font-size:12px;color:var(--ink);line-height:1.7;word-break:break-word">' + sanitizeMemoHtml(m.body_html) + '</div></div>';
-  }
-  return '<div style="' + box + '">' + meta
-    + miniEditorHtml(_brandMemoEditDraft[m.id] || '', '_brandMemoEditDraft[\'' + esc(m.id) + '\']=this.innerHTML', '메모를 고치세요',
-                     { allowImage: false, sanitize: sanitizeMemoHtml })
-    + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">'
-      + '<button type="button" class="btn btn-ghost btn-sm" onclick="cancelBrandMemoEdit(\'' + esc(m.id) + '\')">취소</button>'
-      + '<button type="button" class="btn btn-primary btn-sm" onclick="saveBrandMemoEdit(\'' + esc(m.id) + '\')">저장</button>'
-    + '</div></div>';
-}
-
-// 🔴 메모 영역만 다시 그린다 — 전체를 다시 그리면 **왼쪽 폼에서 고치던 값이 날아간다**
-function refreshBrandMemoPanel() {
-  var el = $('brandMemoPanel');
-  if (el) el.innerHTML = renderBrandMemoPanelHtml({ id: _brandsCurrentId });
-  if (typeof syncBrandDetailTabOffset === 'function') syncBrandDetailTabOffset();
-}
-
-async function loadBrandMemos(brandId) {
-  // ⚠️ 여는 함수(openBrandDetail)가 이미 비우지만, 이 함수를 따로 부르는 자리가 생겨도
-  //    직전 브랜드 값이 남지 않게 여기서도 비운다.
-  _brandMemos = undefined;
-  _brandMemoDraft = '';
-  _brandMemoEditDraft = {};
-  if (!brandId) { _brandMemos = []; return; }
-  var rows = await fetchBrandMemos(brandId);
-  // ⚠️ 받아 오는 사이 다른 브랜드를 열었으면 버린다
-  if (_brandsCurrentId !== brandId) return;
-  _brandMemos = rows;
-  refreshBrandMemoPanel();
-}
-
-function brandMemoAuthor() {
-  return {
-    name: (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.name)
-          || (typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '관리자',
-    id: (typeof currentUser !== 'undefined' && currentUser && currentUser.id) || null
-  };
-}
-
-function brandMemoPlainLen(html) {
-  return String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length;
-}
-
-async function submitBrandMemo() {
-  var id = _brandsCurrentId;
-  if (!id) return;
-  var body = sanitizeMemoHtml(_brandMemoDraft || '');
-  if (!brandMemoPlainLen(body)) { toast('메모 내용을 입력해 주세요', 'error'); return; }
-  var who = brandMemoAuthor();
-  var res = await insertBrandMemo(id, body, who.id, who.name);
-  if (!res.ok) { toast('메모를 남기지 못했습니다', 'error'); return; }
-  _brandMemoDraft = '';
-  _brandMemos = await fetchBrandMemos(id);
-  refreshBrandMemoPanel();
-  toast('메모를 남겼습니다');   // ⚠️ 폼 저장의 「저장되었습니다」와 구분되는 문구
-}
-
-function editBrandMemo(memoId) {
-  var m = (Array.isArray(_brandMemos) ? _brandMemos : []).find(function(x){ return x.id === memoId; });
-  _brandMemoEditDraft[memoId] = (m && m.body_html) || '';
-  refreshBrandMemoPanel();
-}
-
-function cancelBrandMemoEdit(memoId) {
-  delete _brandMemoEditDraft[memoId];
-  refreshBrandMemoPanel();
-}
-
-async function saveBrandMemoEdit(memoId) {
-  var body = sanitizeMemoHtml(_brandMemoEditDraft[memoId] || '');
-  if (!brandMemoPlainLen(body)) { toast('메모 내용을 입력해 주세요', 'error'); return; }
-  var res = await updateBrandMemo(memoId, body);
-  if (!res.ok) { toast('메모를 고치지 못했습니다', 'error'); return; }
-  delete _brandMemoEditDraft[memoId];
-  _brandMemos = await fetchBrandMemos(_brandsCurrentId);
-  refreshBrandMemoPanel();
-  toast('메모를 고쳤습니다');
-}
-
-async function removeBrandMemo(memoId) {
-  if (!confirm('이 메모를 지울까요? 되돌릴 수 없습니다.')) return;
-  var res = await deleteBrandMemo(memoId);
-  if (!res.ok) { toast('메모를 지우지 못했습니다', 'error'); return; }
-  _brandMemos = await fetchBrandMemos(_brandsCurrentId);
-  refreshBrandMemoPanel();
-  toast('메모를 지웠습니다');
-}
-
-// 브랜드 상세 맨 아래 절 — 「오리엔시트 / 캠페인」 탭 두 개.
-//   ⚠️ 탭 줄은 `status-tab-bar` 공용 클래스를 쓴다(다른 화면 12곳과 같은 모양). 모달 안에서 쓰는 첫 사례라
-//      스크롤을 따라 붙게 `position:sticky` 를 여기서 직접 준다 — 이 절이 폼 맨 아래라 안 붙이면 탭이 화면 밖에 있다.
-//   ⚠️ 캠페인 건수는 **모달을 열 때 이미 받은 값**(countCampaignsByBrand)을 쓴다 — 탭 때문에 조회를 늘리지 않는다.
-//      실패면 숫자 대신 「…」(운영현황 탭과 같은 표기).
-function renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount) {
-  var sheetCnt = Array.isArray(sheets) ? String(sheets.length) : '…';
-  var campCnt = (campCount === null || campCount === undefined) ? '…' : String(campCount);
-  var tab = function(code, label, cnt) {
-    return '<button type="button" class="status-tab-btn' + (code === 'sheets' ? ' on' : '') + '" '
-      + 'id="brandDetailTab_' + code + '" onclick="setBrandDetailTab(\'' + code + '\')">'
-      + esc(label) + '<span class="tab-count">(' + esc(cnt) + ')</span></button>';
-  };
-  return '<section style="margin-bottom:18px">'
-    + '<div class="status-tab-bar" style="position:sticky;top:var(--brand-detail-head,0px);z-index:2;background:var(--surface);margin-bottom:12px">'
-      + tab('sheets', '오리엔시트', sheetCnt)
-      + tab('camps', '캠페인', campCnt)
-    + '</div>'
-    + '<div id="brandDetailPane_sheets">' + renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount) + '</div>'
-    + '<div id="brandDetailPane_camps" style="display:none">' + renderBrandCampaignsView(undefined) + '</div>'
-  + '</section>';
-}
-
-// 탭 전환 — 🔴 본문을 다시 그리지 않는다(편집 중인 값이 사라진다). `display` 만 바꾼다.
-//   캠페인 목록은 **탭을 처음 누를 때** 받는다 — 안 누르는 사람에게 조회를 시키지 않는다.
-async function setBrandDetailTab(code) {
-  _brandDetailTab = (code === 'camps') ? 'camps' : 'sheets';
-  ['sheets', 'camps'].forEach(function(k){
-    var btn = $('brandDetailTab_' + k); if (btn) btn.classList.toggle('on', k === _brandDetailTab);
-    var pane = $('brandDetailPane_' + k); if (pane) pane.style.display = (k === _brandDetailTab) ? '' : 'none';
-  });
-  if (_brandDetailTab !== 'camps' || _brandDetailCamps !== undefined) return;
-  var brandId = _brandsCurrentId;
-  var pane = $('brandDetailPane_camps');
-  if (pane) pane.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>';
-  var rows = (typeof fetchCampaignsByBrand === 'function') ? await fetchCampaignsByBrand(brandId) : null;
-  // ⚠️ 받아 오는 사이에 모달을 닫고 다른 브랜드를 열었을 수 있다 — 그러면 이 결과는 버린다.
-  if (_brandsCurrentId !== brandId) return;
-  _brandDetailCamps = rows;
-  var pane2 = $('brandDetailPane_camps');
-  if (pane2) pane2.innerHTML = renderBrandCampaignsView(rows);
-}
-
-// 캠페인 탭 본문 — 「오리엔시트 연결 / 직접 등록」 두 묶음(운영현황 브랜드 상세와 같은 분류).
-//   🔴 분류 기준은 **이 브랜드의 시트**가 발행한 캠페인인가다. 다른 브랜드 시트로 발행한 뒤 브랜드를 옮긴
-//      캠페인은 여기서 「직접 등록」으로 보인다 — 운영현황은 전체 시트를 보므로 그쪽과 갈릴 수 있다.
-//   ⚠️ 보관 삭제된 캠페인은 조회에서 빠진다(브랜드 목록 「캠페인 수」와 같은 기준, 2026-09-23 사용자 결정).
-function renderBrandCampaignsView(camps) {
-  if (camps === undefined) return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>';
-  if (!Array.isArray(camps)) {
-    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>';
-  }
-  if (!camps.length) {
-    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">캠페인 없음</div>';
-  }
-  var ids = _brandDetailSheetCampIds || [];
-  var linked = camps.filter(function(c){ return ids.indexOf(c.id) !== -1; });
-  var direct = camps.filter(function(c){ return ids.indexOf(c.id) === -1; });
-  var group = function(title, list) {
-    if (!list.length) return '';
-    return '<div style="margin-bottom:12px">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">' + esc(title) + ' (' + list.length + ')</div>'
-      + list.map(renderBrandCampaignRow).join('')
-    + '</div>';
-  };
-  return group('오리엔시트 연결', linked) + group('직접 등록', direct);
-}
-
-// 캠페인 한 줄 — 썸네일 + 번호·제목 + 형식/채널 + 기간. 🔴 누르는 단추를 두지 않는다:
-//   운영현황 미니카드의 단추들(연결·해제·상세)은 그 화면 전역값에 기대고 있어 모달에서는 눌러도 아무 일이 없다.
-function renderBrandCampaignRow(c) {
-  var st = (typeof BRAND_OPS_CAMP_STATUS_COLOR !== 'undefined' && BRAND_OPS_CAMP_STATUS_COLOR[c.status]) || { bg: 'var(--surface-dim)', color: 'var(--muted)' };
-  var stKo = (typeof BRAND_OPS_CAMP_STATUS_KO !== 'undefined' && BRAND_OPS_CAMP_STATUS_KO[c.status]) || c.status || '';
-  var recruit = (typeof brandOpsDateRange === 'function') ? brandOpsDateRange(c.recruit_start, c.deadline) : '';
-  var submit = (typeof brandOpsSubmitDateText === 'function') ? brandOpsSubmitDateText(c) : '';
-  return '<div style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:var(--surface)">'
-    + ((typeof brandOpsCampThumb === 'function') ? brandOpsCampThumb(c, 40) : '')
-    + '<div style="min-width:0;flex:1">'
-      + ((typeof brandOpsCampTypeChannel === 'function') ? brandOpsCampTypeChannel(c) : '')
-      + '<div style="display:flex;align-items:center;gap:6px;min-width:0">'
-        + (c.campaign_no ? '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + esc(c.campaign_no) + '</span>' : '')
-        + '<span style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.title || '—') + '</span>'
-      + '</div>'
-    + '</div>'
-    + '<div style="text-align:right;flex-shrink:0">'
-      + '<span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(stKo) + '</span>'
-      + ((recruit || submit) ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">' + esc([recruit ? '모집 ' + recruit : '', submit].filter(Boolean).join(' · ')) + '</div>' : '')
-    + '</div>'
-  + '</div>';
+    + section('오리엔시트' + (Array.isArray(sheets) ? ' (' + sheets.length + '건)' : ''), '',
+        renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(surveyCount));
 }
 
 // 브랜드 상세의 오리엔시트 구역 — 카드 1장 = 시트 1건, 최신 발급순. 펼침 없음(제품 표는 오리엔 상세가 갖고 있다).
@@ -24769,10 +24101,7 @@ function renderBrandOrientSheetCard(s, campMap) {
     + (s.token_expires_at ? ' · <span style="' + (expired ? 'color:var(--muted)' : '') + '">기한 ' + esc(formatDate(s.token_expires_at)) + '</span>' : '')
     + (s.submitted_at ? ' · 제출 ' + esc(formatDate(s.submitted_at)) : '');
   var quoteTxt = (typeof osQuoteSummaryLine === 'function') ? (osQuoteSummaryLine(s) || '') : '';
-  // 🔴 `closeBrandDetailModal()` 을 부르지 않는다 — 그 함수는 `_brandsCurrentId` 를 비우는데,
-  //    페이지는 그대로 남아 있어 그 뒤 저장·삭제가 **토스트도 없이 조용히 무시**된다(리뷰에서 잡힌 결함).
-  //    오리엔시트 상세 창은 이 페이지 **위에** 뜨면 된다.
-  return '<div onclick="osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">'
+  return '<div onclick="closeBrandDetailModal();osOpenDetail(\'' + esc(s.id) + '\')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card)">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + '<span style="font-weight:700;font-size:13px">' + esc(s.orient_no || '—') + '</span>'
       + ((typeof osCardsSummary === 'function') ? osCardsSummary(d) : '')
@@ -24882,9 +24211,8 @@ function _collectBrandFormPatch() {
     appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
     official_qoo10_url: ($('brandFormQoo10Url')?.value || '').trim() || null,
     official_instagram_url: ($('brandFormInstagramUrl')?.value || '').trim() || null,
-    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null
-    // 🔴 `memo:` 를 뺐다 — 영업 메모는 이제 `brand_memos` 표에 따로 쌓는다(마이그레이션 466).
-    //    옛 칸(`brands.memo`)은 남아 있지만 화면은 더 이상 쓰지 않는다. 둘 다 쓰면 같은 메모가 두 벌이 된다(마이그레이션 124 사고).
+    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null,
+    memo: ($('brandFormMemo')?.value || '').trim() || null
   };
 }
 
@@ -24903,13 +24231,7 @@ async function saveBrandDetail() {
     return;
   }
   toast('저장되었습니다.');
-  // 🔴 페이지에 머문다(사양서 ㉤) — `closeBrandDetailModal()` 을 부르면 `_brandsCurrentId` 가 비워져
-  //    두 번째 저장·삭제가 **토스트도 없이 조용히 무시**된다(리뷰에서 잡힌 결함).
-  //    제목은 저장한 값으로 그 자리에서 고친다(브랜드를 다시 받지 않는다 — 방금 보낸 값이 곧 새 이름).
-  { var nameEl = $('brandDetailPaneHeader') && $('brandDetailPaneHeader').querySelector('[data-brand-name]');
-    if (nameEl && patch.name) nameEl.textContent = patch.name;
-    syncBrandDetailTabOffset(); }
-  // 목록은 뒤에서 새로 받는다 — 안 받으면 돌아갔을 때 옛 이름이 남는다.
+  closeBrandDetailModal();
   await refreshPane('brands');
 }
 
@@ -24919,9 +24241,6 @@ var _newBrandCallbackPrefix = null;
 var NEW_BRAND_CALLBACKS = ['new', 'edit', 'orient'];
 
 async function openNewBrandModal(callbackPrefix) {
-  // 🔴 이 모달과 브랜드 상세 **페이지**가 같은 입력칸 이름을 쓴다 — 페이지 본문을 먼저 비운다(사양서 2-2).
-  clearBrandDetailPaneBody();
-  _brandsCurrentId = null;
   _newBrandCallbackPrefix = NEW_BRAND_CALLBACKS.indexOf(callbackPrefix) >= 0 ? callbackPrefix : null;
   // 빈 brand 객체로 모달 열기
   _brandsCurrentId = null;
@@ -25569,7 +24888,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var brandName = a.brand?.name || a.brand_name || '—';
     var brandNo = a.brand?.brand_no || '';
     if (a.brand_id) {
-      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetail(\'' + esc(a.brand_id) + '\', \'brand-applications\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+      return '<td><div class="link-cell" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
         + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
       + '</td>';
     }
@@ -27998,7 +27317,7 @@ function renderBrandOpsDetail(d) {
         + '<div style="font-size:11px;color:var(--muted)">' + crumb + '</div>'
         + '<div style="font-size:18px;font-weight:700;color:var(--ink)">' + esc(b.name || '—') + ' <span style="font-size:12px;font-weight:500;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
       + '</div>'
-      + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + esc(b.id) + '\', \'brand-ops\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
+      + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
     + '</div>';
 
   // 오리엔시트 — 시트 브랜드 기준 목록·숫자(§2 ⑤). 실패면 null
@@ -29295,17 +28614,6 @@ let _applicantMsgUnreadMap = new Map();
 let _inboxInflMap = {};
 // 받은편지함 최근 메시지 미리보기 맵 (application_id → {body, sender_kind, created_at})
 let _inboxPreviewMap = new Map();
-// ── 서비스 문의(일반 문의, 응모 없음 — 마이그레이션 475~482) ──
-//   받은편지함 안 탭 「캠페인 문의 / 서비스 문의」. 서비스 문의는 왼쪽 캠페인 열 없이 회원별 2단.
-//   🔴 대화 열쇠가 둘이다 — 응모건은 _admMsgAppId, 서비스 문의는 _admMsgGeneralId(회원 id). 동시에 둘 다 차지 않는다.
-let _inboxKind = 'app';                  // 'app'(캠페인 문의) | 'general'(서비스 문의)
-let _genThreads = [];                    // fetchAdminGeneralInquiryThreads 결과
-let _genLoadFailed = false;              // 실패(null)와 0건을 가른다 — 실패면 그 탭에 「불러오지 못했습니다」
-let _genUnreadMap = new Map();           // influencer_id → 본인 미열람 수
-let _genPreviewMap = new Map();          // influencer_id → 최근 살아 있는 메시지
-let _genSentAtMap = new Map();           // 'sent' 정렬용 — influencer_id → 본인 최신 발신 시각
-let _admMsgGeneralId = null;             // 열린 서비스 문의 대화의 회원 id
-let _inboxWithdrawMap = null;            // 탈퇴 신청 상태(fetchWithdrawalStatesByInfluencer) — 실패 null 이면 표시 안 함
 
 // 현재 super_admin 여부 (admin.js 의 currentAdminInfo 기준)
 function admMsgIsSuper() {
@@ -29326,8 +28634,7 @@ async function loadMessagesInbox() {
   _inboxSearch = '';  // 페인 재진입 시 검색어 초기화 (정렬은 사용자 선택 유지)
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
-  _admMsgGeneralId = null;
-  switchInboxTab(_inboxKind);       // 페인 진입 시 받은편지함(보던 종류) — 이력 탭에 있었어도 받은편지함으로
+  switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
   // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
   const _ucb = document.getElementById('inboxUnresolvedCheckbox');
   if (_ucb) _ucb.checked = !!_inboxFilters.unresolvedOnly;
@@ -29341,7 +28648,7 @@ async function loadMessagesInbox() {
 //   (사용자: '캠페인 제목 영역 클릭하면 캠페인 영역이 넓어지게')
 function setInboxStageCampaigns() {
   _inboxSelectedCampaign = null;
-  _admMsgAppId = null; _admMsgGeneralId = null;
+  _admMsgAppId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '';
   renderInboxCampaignList();
@@ -29351,7 +28658,7 @@ function setInboxStageCampaigns() {
 
 // 대화 목록 영역 확장 — 대화 선택만 해제하고 캠페인 선택은 유지 → stage-threads (캠페인 선택 상태일 때만 의미).
 function setInboxStageThreads() {
-  _admMsgAppId = null; _admMsgGeneralId = null;
+  _admMsgAppId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '';
   renderInboxThreadList();
@@ -29365,10 +28672,9 @@ function updateInboxStage() {
   if (!pane) return;
   pane.classList.remove('stage-campaigns', 'stage-threads', 'stage-view');
   const sentMode = _inboxSort === 'sent';
-  const flat = sentMode || _inboxKind === 'general';   // 서비스 문의는 캠페인이 없어 항상 평면
-  pane.classList.toggle('inbox-flat', flat);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
-  const threadOpen = _admMsgContext === 'inbox' && (_inboxKind === 'general' ? _admMsgGeneralId : _admMsgAppId);
-  if (flat) {
+  pane.classList.toggle('inbox-flat', sentMode);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
+  const threadOpen = _admMsgContext === 'inbox' && _admMsgAppId;
+  if (sentMode) {
     // 「내가 보낸 순」: 좌측 숨김 → 대화 목록(중)을 넓게, 대화 열면 내용(우)
     pane.classList.add(threadOpen ? 'stage-view' : 'stage-threads');
   } else if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
@@ -29379,35 +28685,22 @@ function updateInboxStage() {
 // 뷰 + 본인 미열람 맵을 다시 조회하고 좌/중 패널 재렌더
 async function refreshInboxData() {
   try {
-    const range = { sinceMonths: _inboxFilters.sinceMonths, fromIso: _inboxFilters.fromIso, toIso: _inboxFilters.toIso };
-    const [threads, unreadMap, sentMap, gThreads, gUnread, gSent, wMap] = await Promise.all([
-      fetchAdminMessageThreads(range),
+    const [threads, unreadMap, sentMap] = await Promise.all([
+      fetchAdminMessageThreads({ sinceMonths: _inboxFilters.sinceMonths, fromIso: _inboxFilters.fromIso, toIso: _inboxFilters.toIso }),
       fetchAdminMessageUnreadCounts(),
       (_inboxSort === 'sent') ? fetchAdminSentAtMap() : Promise.resolve(_inboxSentAtMap),
-      fetchAdminGeneralInquiryThreads(range),
-      fetchGeneralInquiryAdminUnreadCounts(),
-      (_inboxSort === 'sent') ? fetchAdminGeneralSentAtMap() : Promise.resolve(_genSentAtMap),
-      fetchWithdrawalStatesByInfluencer(),
     ]);
     _inboxThreads = threads || [];
     _inboxUnreadMap = unreadMap || new Map();
     _inboxSentAtMap = sentMap || new Map();
-    // 서비스 문의 — 실패(null)는 그 탭만 「불러오지 못했습니다」, 캠페인 문의는 그대로 그린다
-    _genLoadFailed = gThreads === null;
-    _genThreads = gThreads || [];
-    _genUnreadMap = gUnread || new Map();
-    _genSentAtMap = gSent || new Map();
-    _inboxWithdrawMap = wMap;   // null 이면 탈퇴 표시를 안 한다(목록은 막지 않는다)
-    // 인플루언서 이름·최근 메시지 미리보기 보강 (병렬) — 두 탭의 회원을 함께
-    const inflIds = [...new Set([..._inboxThreads, ..._genThreads].map(t => t.influencer_id).filter(Boolean))];
+    // 인플루언서 이름·최근 메시지 미리보기 보강 (병렬)
+    const inflIds = [...new Set(_inboxThreads.map(t => t.influencer_id).filter(Boolean))];
     const appIds = [...new Set(_inboxThreads.map(t => t.application_id).filter(Boolean))];
-    const genIds = [...new Set(_genThreads.map(t => t.influencer_id).filter(Boolean))];
-    const [inflMap, prevMap, gPrevMap] = await Promise.all([
+    const [inflMap, prevMap] = await Promise.all([
       inflIds.length ? fetchInfluencersByIds(inflIds) : Promise.resolve({}),
       appIds.length ? fetchMessagePreviews(appIds) : Promise.resolve(new Map()),
-      genIds.length ? fetchGeneralInquiryPreviews(genIds) : Promise.resolve(new Map()),
     ]);
-    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap; _genPreviewMap = gPrevMap || new Map();
+    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap;
     // 캠페인 캐시 보강 — 메시지 탭 단독 진입·새로고침 시 전역 allCampaigns 가 비어
     // 캠페인명이 '(캠페인)'으로 떨어지는 문제 방지. 스레드의 campaign_id 중 캐시에
     // 없는 게 하나라도 있으면(빈 캐시·신규 캠페인 누락) 1회 재로드.
@@ -29416,21 +28709,16 @@ async function refreshInboxData() {
   } catch (e) {
     console.error('[refreshInboxData]', e);
     _inboxThreads = []; _inboxUnreadMap = new Map(); _inboxInflMap = {}; _inboxPreviewMap = new Map();
-    _genThreads = []; _genLoadFailed = true;
   }
-  renderInboxKindTabs();
   renderInboxCampaignList();
   renderInboxThreadList();
   updateInboxSidebarBadge();
 }
 
 // 사이드바 「메시지」 미응대 배지 = 우리 팀 미응대 응모건 수 (그룹 공통)
-//   캠페인 문의 + 서비스 문의 합산. ⚠️ 30초 경로(refreshMsgBadgesLight)도 같은 합산이어야 한다 — 한쪽만 더하면 30초 뒤 되돌아간다
 function updateInboxSidebarBadge() {
-  const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length
-    + _genThreads.filter(t => t.unresolved_for_admin_team).length;
+  const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
   applyMsgBadgeCount(n);
-  renderInboxKindTabs();
 }
 
 // 사이드바 메시지 배지 + 브라우저 탭 배지를 동일 미응대 건수로 갱신 (공용 진입점)
@@ -29500,8 +28788,8 @@ function drawFaviconWithDot(baseHref, favEl) {
 async function refreshMsgBadgesLight() {
   try {
     if (!db) return;
-    const [n, g] = await Promise.all([fetchUnresolvedMessageCount(), fetchGeneralInquiryUnresolvedCount()]);
-    applyMsgBadgeCount((n || 0) + (g || 0));   // 서비스 문의 조회 실패(null)면 캠페인 문의 숫자만
+    const n = await fetchUnresolvedMessageCount();
+    applyMsgBadgeCount(n);
   } catch (e) { /* 무시 */ }
 }
 let _msgBadgePollingTimer = null;
@@ -29521,7 +28809,6 @@ function renderInboxCampaignList() {
     return;
   }
   el.classList.remove('inbox-camp-disabled');
-  if (_inboxKind === 'general') { el.innerHTML = ''; return; }   // 평면 모드라 이 열은 숨겨진다
   // campaign_id 별 집계 (미응대만·검색 필터 적용된 목록 기준)
   const byCamp = new Map();
   for (const t of filteredInboxThreads()) {
@@ -29580,7 +28867,6 @@ function selectInboxCampaign(campaignId) {
 function renderInboxThreadList() {
   const el = document.getElementById('inboxThreads');
   if (!el) return;
-  if (_inboxKind === 'general') { renderGeneralThreadList(el); return; }
   const sentMode = _inboxSort === 'sent';
   let list;
   if (sentMode) {
@@ -29640,156 +28926,14 @@ function renderInboxThreadList() {
       </span>
       <span class="inbox-thread-right">
         <span class="inbox-thread-time">${esc(formatDateTime(timeVal))}</span>
-        <span class="inbox-thread-chips">${inboxWithdrawChip(t.influencer_id)}${unresolved}${unreadChip}</span>
+        <span class="inbox-thread-chips">${unresolved}${unreadChip}</span>
       </span>
     </button>`;
   }).join('');
 }
-
-// 탈퇴 표시 — 예정일이 잡힌 회원은 남은 날수, 미지급 대기면 「탈퇴 대기 중」(사양서 §12 ②).
-//   확정되면 로그인이 막혀 답을 못 본다 — 그 전에 답하라는 신호. 조회 실패(null)면 아무것도 안 그린다.
-function inboxWithdrawChip(influencerId) {
-  const w = _inboxWithdrawMap && _inboxWithdrawMap[influencerId];
-  if (!w) return '';
-  if (w.status === 'scheduled' && w.scheduled_date) {
-    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-    today.setHours(0, 0, 0, 0);
-    const d = Math.round((new Date(w.scheduled_date + 'T00:00:00') - today) / 86400000);
-    return `<span class="inbox-thread-chip withdraw" title="탈퇴 예정일 ${esc(w.scheduled_date)}">탈퇴 D-${Math.max(d, 0)}</span>`;
-  }
-  if (w.status === 'pending_payout') return '<span class="inbox-thread-chip withdraw" title="미지급 보수 정리 뒤 탈퇴 예정">탈퇴 대기 중</span>';
-  return '';
-}
-
-// ── 서비스 문의 탭 ──
-function renderInboxKindTabs() {
-  const bar = document.getElementById('inboxKindTabBar');
-  if (!bar) return;
-  const nApp = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
-  const nGen = _genThreads.filter(t => t.unresolved_for_admin_team).length;
-  const tab = (key, label, cnt) => {
-    const on = _inboxTab === key ? ' on' : '';
-    return `<button type="button" class="status-tab-btn${on}" onclick="switchInboxTab('${key}')">${esc(label)}${cnt}</button>`;
-  };
-  const cnt = (n, failed) => failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
-  bar.innerHTML = tab('app', '캠페인 문의', cnt(nApp, false))
-    + tab('general', '서비스 문의', cnt(nGen, _genLoadFailed))
-    + (admMsgIsCampaignAdmin() ? tab('broadcasts', '일괄발송 이력', '') : '');
-}
-// 받은편지함 종류 전환(캠페인 문의 ↔ 서비스 문의) — switchInboxTab 이 부른다
-function switchInboxKind(kind) {
-  _inboxKind = kind === 'general' ? 'general' : 'app';
-  _admMsgAppId = null; _admMsgGeneralId = null;
-  const v = document.getElementById('inboxThreadView');
-  if (v) v.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
-  renderInboxKindTabs();
-  renderInboxCampaignList();
-  renderInboxThreadList();
-  updateInboxStage();
-}
-function filteredGeneralThreads() {
-  let list = _genThreads;
-  if (_inboxFilters.unresolvedOnly) list = list.filter(t => t.unresolved_for_admin_team);
-  if (_inboxSearch) {
-    list = list.filter(t => {
-      const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
-      return [inf.name, inf.name_kana, inf.email].filter(Boolean).join(' ').toLowerCase().includes(_inboxSearch);
-    });
-  }
-  return list;
-}
-function renderGeneralThreadList(el) {
-  if (_genLoadFailed) { el.innerHTML = '<div class="inbox-empty">서비스 문의를 불러오지 못했습니다.</div>'; return; }
-  let list = filteredGeneralThreads();
-  if (_inboxSort === 'sent') {
-    list = list.filter(t => _genSentAtMap.has(t.influencer_id));
-    list.sort((a, b) => (_genSentAtMap.get(b.influencer_id) || '').localeCompare(_genSentAtMap.get(a.influencer_id) || ''));
-  } else if (_inboxSort === 'unresolved') {
-    list = list.slice().sort((a, b) => (Number(b.unresolved_for_admin_team) - Number(a.unresolved_for_admin_team))
-      || (b.last_message_at || '').localeCompare(a.last_message_at || ''));
-  } else {
-    list = list.slice().sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
-  }
-  if (!list.length) { el.innerHTML = '<div class="inbox-empty">서비스 문의가 없습니다.</div>'; return; }
-  el.innerHTML = list.map(t => {
-    const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
-    const kanji = esc(inf.name || '(이름 없음)');
-    const kana = inf.name_kana ? esc(inf.name_kana) : '';
-    const email = inf.email ? esc(inf.email) : '';
-    const unread = _genUnreadMap.get(t.influencer_id) || 0;
-    const active = t.influencer_id === _admMsgGeneralId ? 'active' : '';
-    const unresolved = t.unresolved_for_admin_team ? '<span class="inbox-thread-chip unresolved">미응대</span>' : '';
-    const unreadChip = unread > 0 ? `<span class="inbox-thread-chip unread">${unread > 99 ? '99+' : unread}</span>` : '';
-    const prev = _genPreviewMap.get(t.influencer_id);
-    let previewHtml = '';
-    if (prev) {
-      const who = prev.sender_kind === 'admin' ? '운영팀: ' : '';
-      const prevSrc = (prev.sender_kind !== 'admin' && prev.translate_status === 'done' && prev.body_translated)
-        ? prev.body_translated : prev.body;
-      const body = (prevSrc || '').replace(/\s+/g, ' ').trim();
-      previewHtml = `<span class="inbox-thread-preview">${esc(who + (body || '(이미지)'))}</span>`;
-    }
-    const timeVal = (_inboxSort === 'sent' && _genSentAtMap.get(t.influencer_id)) || t.last_message_at;
-    return `<button type="button" class="inbox-thread-item ${active}" onclick="openGeneralInboxThread(${jsStr(t.influencer_id)})">
-      <span class="inbox-thread-main">
-        <span class="inbox-thread-name">${kanji}${auditBadgeHtml(inf)}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
-        ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
-        ${previewHtml}
-      </span>
-      <span class="inbox-thread-right">
-        <span class="inbox-thread-time">${esc(formatDateTime(timeVal))}</span>
-        <span class="inbox-thread-chips">${inboxWithdrawChip(t.influencer_id)}${unresolved}${unreadChip}</span>
-      </span>
-    </button>`;
-  }).join('');
-}
-
-// 서비스 문의 대화 열기 — 응모 상태 한 줄·FAQ 열람 이력은 없다(특정 응모가 아니므로)
-async function openGeneralInboxThread(influencerId) {
-  _admMsgAppId = null;
-  _admMsgGeneralId = influencerId;
-  _admMsgContext = 'inbox';
-  _admMsgPendingFiles = [];
-  updateInboxStage();
-  renderInboxThreadList();
-  const view = document.getElementById('inboxThreadView');
-  if (view) view.innerHTML = '<div class="inbox-empty">불러오는 중…</div>';
-  try {
-    const msgs = await _admFetchCurrent();
-    if (_admMsgGeneralId !== influencerId) return;   // 기다리는 사이 다른 대화를 열었다
-    const thread = _genThreads.find(t => t.influencer_id === influencerId);
-    const isResolved = !!thread && !thread.unresolved_for_admin_team;
-    if (view) view.innerHTML = adminThreadViewHtml('inbox', isResolved, { general: true });
-    renderAdminMsgThread('inboxMsgThread', msgs);
-    // 읽음 처리 실패는 대화를 덮지 않는다(이미 그린 대화는 그대로 두고 기록만)
-    try {
-      await markGeneralInquiryMessagesRead(influencerId);
-      const m = await fetchGeneralInquiryAdminUnreadCounts();
-      if (m) _genUnreadMap = m;
-      renderInboxThreadList();
-    } catch (e2) { console.warn('[openGeneralInboxThread] read', e2); if (typeof logAppError === 'function') logAppError('openGeneralInboxThread.read', e2); }
-  } catch (e) {
-    console.error('[openGeneralInboxThread]', e);
-    if (typeof logAppError === 'function') logAppError('openGeneralInboxThread', e);
-    if (view) view.innerHTML = '<div class="inbox-empty">메시지를 불러오지 못했습니다.</div>';
-  }
-}
-
-// 현재 열린 대화 — 두 종류를 한 자리에서 가른다(답장·회수·숨김·복구·응대완료 공용)
-function _admHasThread() { return !!(_admMsgAppId || _admMsgGeneralId); }
-async function _admFetchCurrent() {
-  if (_admMsgGeneralId) {
-    const rows = await fetchGeneralInquiryMessages(_admMsgGeneralId);
-    if (rows === null) throw new Error('general_inquiry_load_failed');
-    return rows;
-  }
-  return await fetchApplicationMessages(_admMsgAppId);
-}
-function _admThreadElId() { return _admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread'; }
 
 // 우: 선택 응모건 대화 내용 (인라인 패널)
 async function openInboxThread(applicationId) {
-  _admMsgGeneralId = null;
   _admMsgAppId = applicationId;
   _admMsgContext = 'inbox';
   _admMsgPendingFiles = [];
@@ -29832,41 +28976,19 @@ function openMessagesUnresolved() {
 function changeInboxSince(v) {
   const custom = document.getElementById('inboxCustomRange');
   if (v === 'custom') {
-    // 「직접 선택」 → 범위 달력 노출. 실제 적용은 시작·끝을 모두 고른 뒤 applyInboxCustomRange
+    // 「직접 선택」 → 날짜 입력칸 노출. 실제 적용은 날짜 입력 시 applyInboxCustomRange
     if (custom) custom.style.display = '';
-    setupInboxDateRange();
     return;
   }
   if (custom) custom.style.display = 'none';
-  // 다른 기간으로 돌아가면 달력도 비운다 — clear(false) 로 변경 이벤트(재조회)는 일으키지 않는다
-  if (_inboxRangeFp) { _inboxRangeFp.clear(false); document.getElementById('inboxDateRange')?.classList.remove('filter-active'); }
   _inboxFilters.sinceMonths = Number(v) || 6;
   _inboxFilters.fromIso = null; _inboxFilters.toIso = null;   // 상대 기간으로 복귀
   refreshInboxData();
 }
-// 「직접 선택」 범위 달력 mount (1회) — 결과물 관리 setupDelivCertRange 와 같은 옵션
-let _inboxRangeFp = null;
-function setupInboxDateRange() {
-  if (typeof flatpickr === 'undefined') return;
-  const el = document.getElementById('inboxDateRange');
-  if (!el || _inboxRangeFp) return;
-  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
-  _inboxRangeFp = flatpickr(el, {
-    mode: 'range',
-    dateFormat: 'Y-m-d',
-    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
-    showMonths: 1,
-    onChange: function(selectedDates) {
-      el.classList.toggle('filter-active', selectedDates.length > 0);
-      // 시작만 고른 중간 상태에서는 조회하지 않는다(끝까지 고르거나 비웠을 때만)
-      if (selectedDates.length === 0 || selectedDates.length === 2) {
-        applyInboxCustomRange(fmt(selectedDates[0]), fmt(selectedDates[1]));
-      }
-    }
-  });
-}
-// 「직접 선택」 적용 — 시작 00:00 ~ 종료 23:59. 둘 다 비면 상대 기간(sinceMonths)으로 돌아간다
-function applyInboxCustomRange(f, t) {
+// 「직접 선택」 날짜 입력 적용 — 시작 00:00 ~ 종료 23:59 (한쪽만 입력해도 단방향 적용)
+function applyInboxCustomRange() {
+  const f = document.getElementById('inboxDateFrom')?.value;
+  const t = document.getElementById('inboxDateTo')?.value;
   _inboxFilters.fromIso = f ? new Date(f + 'T00:00:00').toISOString() : null;
   _inboxFilters.toIso = t ? new Date(t + 'T23:59:59').toISOString() : null;
   refreshInboxData();
@@ -29876,7 +28998,7 @@ function changeInboxSort(v) {
   // 「내가 보낸 순」 진입 시 본인 발신 시각 맵을 로드해야 하므로 재조회. 그 외는 재렌더만.
   if (_inboxSort === 'sent') {
     _inboxSelectedCampaign = null;          // 평면 모드 — 캠페인 선택 해제
-    if (_admMsgContext === 'inbox') { _admMsgAppId = null; _admMsgGeneralId = null; }
+    if (_admMsgContext === 'inbox') _admMsgAppId = null;
     const view = document.getElementById('inboxThreadView');
     if (view) view.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
     updateInboxStage();
@@ -29916,7 +29038,6 @@ function filteredInboxThreads() {
 // ════════════════════════════════════════════════════════════════════
 async function openAdminMessageModal(applicationId, campaignId) {
   if (!applicationId) return;
-  _admMsgGeneralId = null;
   _admMsgAppId = applicationId;
   _admMsgContext = 'modal';
   _admMsgPendingFiles = [];
@@ -29953,8 +29074,7 @@ function closeAdminMessageModal() {
 
 // 대화 내용 컨테이너 HTML (받은편지함 우측 / 모달 본문 공용)
 //   ctx: 'inbox' | 'modal' — thread/composer DOM id 접두사 결정
-function adminThreadViewHtml(ctx, isResolved = false, opts) {
-  const isGeneral = !!(opts && opts.general);
+function adminThreadViewHtml(ctx, isResolved = false) {
   const threadId = ctx === 'inbox' ? 'inboxMsgThread' : 'admMsgThread';
   const composerId = ctx === 'inbox' ? 'inboxComposer' : 'admComposer';
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
@@ -29962,8 +29082,7 @@ function adminThreadViewHtml(ctx, isResolved = false, opts) {
   const faqHistId = ctx === 'inbox' ? 'inboxFaqHist' : 'admFaqHist';
   const histBtn = admMsgIsSuper()
     ? `<button type="button" class="adm-msg-bar-btn" onclick="toggleHideHistory('${ctx}')">숨김 이력</button>` : '';
-  // FAQ 열람 이력은 응모 번호로 조회한다 — 서비스 문의에서는 그리지 않는다(작업표 stale 9)
-  const faqBtn = isGeneral ? '' : `<button type="button" class="adm-msg-bar-btn" onclick="toggleFaqHistory('${ctx}')">FAQ 열람 이력</button>`;
+  const faqBtn = `<button type="button" class="adm-msg-bar-btn" onclick="toggleFaqHistory('${ctx}')">FAQ 열람 이력</button>`;
   // 응대 완료 상태면 버튼을 「완료됨」 비활성으로 렌더 (진입 시 + 클릭 후 즉시 반영 공용)
   const resolveBtn = isResolved
     ? `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn done" disabled>응대 완료됨</button>`
@@ -29997,13 +29116,12 @@ function adminThreadViewHtml(ctx, isResolved = false, opts) {
 async function toggleHideHistory(ctx) {
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
   const el = document.getElementById(histId);
-  if (!el || !_admHasThread()) return;
+  if (!el || !_admMsgAppId) return;
   if (el.style.display !== 'none') { el.style.display = 'none'; return; }
   el.style.display = '';
   el.innerHTML = '<div class="msg-empty">불러오는 중…</div>';
   try {
-    const rows = _admMsgGeneralId ? await fetchGeneralInquiryHideHistory(_admMsgGeneralId) : await fetchApplicationHideHistory(_admMsgAppId);
-    if (rows === null) throw new Error('hide_history_load_failed');
+    const rows = await fetchApplicationHideHistory(_admMsgAppId);
     if (!rows.length) { el.innerHTML = '<div class="adm-hide-hist-empty">숨김/복구 이력이 없습니다.</div>'; return; }
     el.innerHTML = '<div class="adm-hide-hist-title">숨김/복구 이력</div>' + rows.map(r => {
       const act = r.action === 'hide' ? '숨김' : '복구';
@@ -30267,8 +29385,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
           const pathsJson = esc(JSON.stringify(atts.map(a => a.path)));
           actions += `<button type="button" class="adm-msg-act withdraw" onclick='confirmAdmWithdraw("${esc(msg.id)}", ${pathsJson})'>회수</button>`;
         }
-      } else if (admMsgIsCampaignAdmin()) {
-        // 인플루언서 메시지 → campaign_admin+ 강제 숨김. 매니저에게는 안 그린다(누르면 서버가 거절만 한다)
+      } else {
+        // 인플루언서 메시지 → campaign_admin+ 강제 숨김 (RPC 가 권한 가드)
         actions += `<button type="button" class="adm-msg-act hide" onclick="promptHideMessage('${esc(msg.id)}')">숨김</button>`;
       }
     }
@@ -30368,7 +29486,7 @@ function renderAdmMsgAttachPreview() {
 }
 
 async function sendAdminMessage() {
-  if (_admMsgSending || !_admHasThread()) return;
+  if (_admMsgSending || !_admMsgAppId) return;
   const inputEl = document.getElementById(curComposerId() + 'Input');
   const body = (inputEl?.value || '').trim();
   if (!body && !_admMsgPendingFiles.length) { toast('메시지를 입력하세요.'); return; }
@@ -30376,25 +29494,19 @@ async function sendAdminMessage() {
   try {
     const attachments = [];
     for (const f of _admMsgPendingFiles) {
-      try {
-        // 서비스 문의 첨부는 그 회원의 폴더(general/{회원id}/) — 서버가 경로 접두를 검사한다
-        attachments.push(_admMsgGeneralId
-          ? await uploadGeneralInquiryAttachment(f, _admMsgGeneralId)
-          : await uploadMessageAttachment(f, _admMsgAppId));
-      }
+      try { attachments.push(await uploadMessageAttachment(f, _admMsgAppId)); }
       catch (e) {
         console.error('[sendAdminMessage] 첨부', e);
         toast(e?.message === 'too_large' ? '이미지 용량이 큽니다.' : '첨부 업로드에 실패했습니다.');
         _admMsgSending = false; return;
       }
     }
-    if (_admMsgGeneralId) await sendGeneralInquiryMessage(body, attachments, _admMsgGeneralId);
-    else await sendApplicationMessage(_admMsgAppId, body, attachments);
+    await sendApplicationMessage(_admMsgAppId, body, attachments);
     if (inputEl) inputEl.value = '';
     _admMsgPendingFiles = [];
     renderAdmMsgAttachPreview();
-    const msgs = await _admFetchCurrent();
-    renderAdminMsgThread(_admThreadElId(), msgs);
+    const msgs = await fetchApplicationMessages(_admMsgAppId);
+    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
     // 관리자 답장 = 자동 응대 완료 → 받은편지함 집계 갱신
     if (_admMsgContext === 'inbox') await refreshInboxData();
     else updateInboxSidebarBadge();
@@ -30411,8 +29523,8 @@ async function confirmAdmWithdraw(messageId, attachmentPaths) {
   if (!confirm('이 메시지를 회수하시겠습니까?')) return;
   try {
     await withdrawOwnMessage(messageId, attachmentPaths || []);
-    const msgs = await _admFetchCurrent();
-    renderAdminMsgThread(_admThreadElId(), msgs);
+    const msgs = await fetchApplicationMessages(_admMsgAppId);
+    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
   } catch (e) {
     console.error('[confirmAdmWithdraw]', e);
     toast(e?.code === 'P0001' && e?.message ? e.message : '회수에 실패했습니다.');
@@ -30444,8 +29556,8 @@ async function confirmHideMessage() {
   try {
     await hideApplicationMessage(_hideTargetMsgId, code, memo);
     closeHideModal();
-    const msgs = await _admFetchCurrent();
-    renderAdminMsgThread(_admThreadElId(), msgs);
+    const msgs = await fetchApplicationMessages(_admMsgAppId);
+    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
     toast('메시지를 숨김 처리했습니다.');
   } catch (e) {
     console.error('[confirmHideMessage]', e);
@@ -30459,8 +29571,8 @@ async function promptUnhideMessage(messageId) {
   if (!memo.trim()) { toast('복구 사유는 필수입니다.'); return; }
   try {
     await unhideApplicationMessage(messageId, memo.trim());
-    const msgs = await _admFetchCurrent();
-    renderAdminMsgThread(_admThreadElId(), msgs);
+    const msgs = await fetchApplicationMessages(_admMsgAppId);
+    renderAdminMsgThread(_admMsgContext === 'inbox' ? 'inboxMsgThread' : 'admMsgThread', msgs);
     toast('메시지를 복구했습니다.');
   } catch (e) {
     console.error('[promptUnhideMessage]', e);
@@ -30481,10 +29593,9 @@ function _setResolveBtnDone(ctx) {
 
 // ── 수동 응대 완료 ──
 async function markCurrentResolved() {
-  if (!_admHasThread()) return;
+  if (!_admMsgAppId) return;
   try {
-    if (_admMsgGeneralId) await markGeneralInquiryResolved(_admMsgGeneralId);
-    else await markApplicationResolved(_admMsgAppId);
+    await markApplicationResolved(_admMsgAppId);
     toast('응대 완료로 표시했습니다.');
     _setResolveBtnDone(_admMsgContext); // 현재 대화창 버튼 즉시 「완료됨」 비활성
     if (_admMsgContext === 'inbox') await refreshInboxData();
@@ -30571,39 +29682,32 @@ const BULK_CAMPAIGN_STATUSES = [
 let _bulkState = null;            // { presetIds, campaignId, recipientIds, filterSnapshot }
 let _bulkRecountTimer = null;
 let _bulkSending = false;
-let _inboxTab = 'app';   // 탭 한 줄의 상태 — 'app'(캠페인 문의) | 'general'(서비스 문의) | 'broadcasts'(일괄발송 이력)
-// ⚠️ 이력을 단추로 옮겼다가 탭으로 되돌렸다(2026-09-29 사용자 결정 — 탭이 더 낫다)
+let _inboxTab = 'inbox';
 
 // campaign_admin 이상만 일괄 발송 버튼·발송이력 탭 노출
 function admMsgIsCampaignAdmin() {
   return typeof currentAdminInfo !== 'undefined'
     && (currentAdminInfo?.role === 'super_admin' || currentAdminInfo?.role === 'campaign_admin');
 }
-// 「일괄 발송」 — 캠페인 한 건의 응모건이 대상(resolve_bulk_recipients)이라 캠페인 문의 탭에서만(조각 6-B)
 function applyBulkMsgButtonVisibility() {
   const btn = document.getElementById('bulkMsgOpenBtn');
-  if (btn) btn.style.display = (admMsgIsCampaignAdmin() && _inboxTab === 'app') ? 'inline-flex' : 'none';
+  if (btn) btn.style.display = admMsgIsCampaignAdmin() ? 'inline-flex' : 'none';
+  const tab = document.getElementById('inboxTabBroadcasts');
+  if (tab) tab.style.display = admMsgIsCampaignAdmin() ? '' : 'none';
 }
 
-// 탭 전환 — 캠페인 문의 / 서비스 문의 / 일괄발송 이력
+// 받은편지함 / 발송 이력 탭 전환
 function switchInboxTab(tab) {
-  if (tab === 'broadcasts' && !admMsgIsCampaignAdmin()) tab = 'app';
-  _inboxTab = (tab === 'general' || tab === 'broadcasts') ? tab : 'app';
-  const isList = _inboxTab !== 'broadcasts';
+  _inboxTab = tab;
+  const ti = document.getElementById('inboxTabInbox');
+  const tb = document.getElementById('inboxTabBroadcasts');
+  if (ti) ti.classList.toggle('is-active', tab === 'inbox');
+  if (tb) tb.classList.toggle('is-active', tab === 'broadcasts');
   const main = document.getElementById('inboxMainView');
   const bc = document.getElementById('inboxBroadcastsView');
-  const filters = document.getElementById('inboxFilterRow');
-  if (main) main.style.display = isList ? '' : 'none';
-  if (bc) bc.style.display = isList ? 'none' : '';
-  if (filters) filters.style.display = isList ? 'flex' : 'none';   // 이력 탭에서는 거르기가 없다
-  // 「날짜 직접 선택」 칸은 기간에서 「직접 선택」을 골랐을 때만(changeInboxSince 와 같은 기준)
-  const custom = document.getElementById('inboxCustomRange');
-  if (custom) custom.style.display = (document.getElementById('inboxSinceSelect')?.value === 'custom') ? '' : 'none';
-  const search = document.getElementById('inboxSearchInput');
-  if (search) search.placeholder = _inboxTab === 'general' ? '인플루언서명 검색' : '인플루언서명 · 캠페인명 검색';
-  applyBulkMsgButtonVisibility();
-  if (isList) switchInboxKind(_inboxTab);
-  else { renderInboxKindTabs(); loadBroadcasts(); }
+  if (main) main.style.display = tab === 'inbox' ? '' : 'none';
+  if (bc) bc.style.display = tab === 'broadcasts' ? '' : 'none';
+  if (tab === 'broadcasts') loadBroadcasts();
 }
 
 // ── 일괄 발송 모달 ──
@@ -58556,7 +57660,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var initHash = location.hash.replace('#','') || (window._adminAppMode === 'outbound' ? 'outbound' : 'dashboard');
   // 예약 현황도 「어느 캠페인인지」를 화면 상태로만 들고 있어(주소에 없다),
   // 새로고침하면 캠페인을 잃고 빈 표만 남는다 → 캠페인 목록으로 돌려보낸다.
-  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops','brand-detail':'brands'};
+  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
     history.replaceState({pane: initHash}, '', '#' + initHash);
