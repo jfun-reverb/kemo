@@ -479,6 +479,7 @@ window.I18N_KO = {
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
     refMissing: '관련 결과물을 찾을 수 없습니다',
+    refLoadFailed: '지금은 열 수 없습니다. 잠시 후 다시 시도해 주세요.',
     applicationCancelledTitle: '응모를 취소했습니다',
   },
 

@@ -35,6 +35,57 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
   return all;
 }
 
+// 목록을 size 개씩 자른다 — 번호 목록을 .in() 으로 보낼 때 주소 길이를 넘지 않게.
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// items 를 최대 limit 개씩 **동시에** fn 으로 처리한다. 결과는 items 순서 그대로.
+//   하나라도 throw 하면 전체가 reject 된다 — 「조각 하나 실패 = 통째로 실패」 규약은 그대로 지켜진다.
+//   ⚠️ 조각마다 실패를 건너뛰어야 하는 곳은 fn 안에서 직접 잡아야 한다(fetchMessagePreviews).
+//   ⚠️ limit 를 크게 잡지 말 것 — 운영 데이터베이스가 가장 작은 사양이라 동시 요청이 몰리면 전부 느려진다.
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({length: n}, worker));
+  return out;
+}
+
+// fetchAllPaged 와 결과가 같되, 둘째 페이지부터는 concurrency 개씩 **동시에** 받는다.
+//   🔴 쓸 수 있는 조건 — ①일반 표 조회일 것(db.rpc 는 페이지마다 함수 전체가 다시 돌아
+//      동시에 부르면 서버 부하가 몰린다) ②.order() 가 **고유 순서**일 것(마지막에 .order('id')).
+//      순서가 고유하지 않으면 페이지 경계에서 행이 겹치거나 빠진다 — 이건 fetchAllPaged 도 같다.
+//   ⚠️ 1,000건이 안 되면 첫 요청 하나로 끝난다(추가 요청 없음). 짧은 페이지를 만나면 거기서 멈춘다.
+async function fetchAllPagedFast(buildQuery, opts) {
+  const pageSize = (opts && opts.pageSize) || 1000;
+  const concurrency = (opts && opts.concurrency) || 4;
+  const first = await buildQuery().range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  const all = (first.data || []).slice();
+  if (all.length < pageSize) return all;
+  let from = pageSize;
+  while (true) {
+    const starts = Array.from({length: concurrency}, (_, k) => from + k * pageSize);
+    const pages = await Promise.all(starts.map(s => buildQuery().range(s, s + pageSize - 1)));
+    for (const p of pages) {
+      if (p.error) throw p.error;
+      const d = p.data || [];
+      all.push(...d);
+      if (d.length < pageSize) return all;
+    }
+    from += concurrency * pageSize;
+  }
+}
+
 // ── Campaigns ──
 // 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
 // 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
@@ -698,8 +749,9 @@ async function fetchInfluencers(opts = {}) {
   if (!db) return [];
   const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() => {
-      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true});
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
+      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true}).order('id');
       if (!includeAudit) q = q.eq('is_audit', false);
       return q;
     });
@@ -979,12 +1031,13 @@ async function updateInfluencer(userId, updates) {
 async function fetchApplications(filters) {
   if (!db) return [];
   try {
-    return await fetchAllPaged(() => {
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
       let q = db.from('applications').select('*');
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) {
     return [];
@@ -1133,7 +1186,9 @@ async function fetchPendingApplicationCount() {
 //   fetchDeliverablesByCampaignIds → 실패에 null, 0건에 []  (운영현황 일정 뷰, 2026-09-07)
 // opts.skipInfluencers — 인플루언서 이름이 필요 없는 집계용이면 회원 조회를 건너뛴다.
 async function _queryDeliverables(filters, opts) {
-    const data = await fetchAllPaged(() => {
+    // 결과물은 수천 건이라 페이지를 동시에 받는다(fetchAllPagedFast). 정렬 끝의 .order('id') 는
+    //    필수 — 수정 시각이 같은 행이 페이지 경계에 걸리면 한 건이 겹치거나 빠진다(2026-09-30).
+    const data = await fetchAllPagedFast(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
         receipt_url, order_number, purchase_date, purchase_amount, memo,
@@ -1154,8 +1209,8 @@ async function _queryDeliverables(filters, opts) {
       // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
       if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
       else q = q.order('updated_at', {ascending: false});
-      return q;
-    });
+      return q.order('id');
+    }, {concurrency: 2});   // 캠페인·신청을 끼워 넣은 무거운 조회라 동시 2개까지(운영 데이터베이스 메모리 여유가 없다)
     if (opts?.skipInfluencers) return data;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
     const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
@@ -1173,7 +1228,7 @@ async function fetchDeliverables(filters) {
 // 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
 //   🔴 실패는 null, 0건은 []. 위 fetchDeliverables 와 규약이 다르다 — 그 화면은
 //      「서버에 못 물어봤다」와 「낸 사람이 없다」를 구분해 그려야 한다(마이그레이션 276 원칙).
-//   ⚠️ id 는 200개 단위로 잘라 **차례로** 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다).
+//   ⚠️ id 는 200개 단위로 잘라 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다) — 최대 4조각 동시.
 //      조각 하나라도 실패하면 **통째로 null** — 성공한 조각만 합치면 0건과 구분되지 않는
 //      낮은 숫자가 그려진다.
 const DELIV_CAMPAIGN_ID_CHUNK = 200;
@@ -1183,12 +1238,10 @@ async function fetchDeliverablesByCampaignIds(campaignIds, opts) {
   if (!ids.length) return [];
   const chunk = (opts && opts.chunkSize) || DELIV_CAMPAIGN_ID_CHUNK;
   try {
-    const out = [];
-    for (let i = 0; i < ids.length; i += chunk) {
-      const part = await _queryDeliverables({ campaignIds: ids.slice(i, i + chunk) }, { skipInfluencers: true });
-      out.push(...part);
-    }
-    return out;
+    // 조각은 최대 4개씩 동시에 — 하나라도 실패하면 mapLimit 가 reject → 아래 catch 에서 통째로 null.
+    const parts = await mapLimit(chunkArray(ids, chunk), 4,
+      (slice) => _queryDeliverables({ campaignIds: slice }, { skipInfluencers: true }));
+    return [].concat(...parts);
   } catch(e) { console.error('[fetchDeliverablesByCampaignIds]', e); return null; }
 }
 
@@ -1230,6 +1283,39 @@ async function fetchMyNotifications(opts) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchMyNotifications]', e); logAppError('fetchMyNotifications', e); return []; }
+}
+
+// 미읽음 알림 **건수만** — 30초마다 도는 배지 갱신용(2026-09-30). 예전에는 배지 하나를 위해
+//   알림 목록을 통째로 받고 그때마다 로그인 서버에도 한 번 더 물었다.
+//   🔴 제외 조건(정산 알림 2종)은 위 fetchMyNotifications 와 **글자 그대로 같아야** 한다 —
+//      다르면 「배지 숫자는 있는데 목록은 비어있음」이 된다.
+//   ⚠️ 실패는 null, 0건은 0 — 부르는 쪽이 실패면 직전 숫자를 유지한다(예전엔 실패하면 배지가 꺼졌다).
+//   ⚠️ 오프라인이면 30초마다 실패하므로 오류 기록(logAppError)은 남기지 않는다.
+async function countMyUnreadNotifications(uid) {
+  if (!db || !uid) return null;
+  try {
+    const {count, error} = await db.from('notifications')
+      .select('id', {count: 'exact', head: true})
+      .eq('user_id', uid)
+      .not('kind', 'in', '(settlement_paid,settlement_paypal_required)')
+      .is('read_at', null);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('[countMyUnreadNotifications]', e); return null; }
+}
+
+// 알림이 가리키는 결과물 한 건 — 알림을 눌렀을 때 활동관리로 보내기 위해(2026-09-30).
+//   예전에는 이 한 건을 찾으려고 본인 결과물 전체를 받았다.
+//   🔴 **실패는 throw, 없으면 null** — 부르는 쪽이 「지금 못 읽었다」와 「참조가 사라졌다」를
+//      갈라야 한다. 합치면 일시적 통신 실패만으로 알림이 영구 삭제된다(실제로 그랬다).
+async function fetchMyDeliverableRef(deliverableId) {
+  if (!db || !deliverableId) return null;
+  const {data, error} = await db.from('deliverables')
+    .select('id, application_id, campaign_id')
+    .eq('id', deliverableId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 // 알림 1건 읽음 처리
@@ -1731,15 +1817,17 @@ async function fetchInfluencersByIds(userIds) {
     // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
     //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
     //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    //    조각은 최대 4개씩 동시에 받는다(mapLimit) — 하나라도 실패하면 종전처럼 {} .
     const ids = [...new Set(userIds)];
     const map = {};
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(inf => { map[inf.id] = inf; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(inf => { map[inf.id] = inf; }));
     return map;
   } catch(e) { return {}; }
 }
@@ -1761,13 +1849,14 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, paypal_email')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) {
     console.warn('[fetchPayoutInfluencerInfo]', e);
@@ -1901,13 +1990,14 @@ async function fetchInfluencersForReport(userIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
 }
@@ -4530,20 +4620,19 @@ async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
   const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
-  for (let i = 0; i < applicationIds.length; i += CHUNK) {
-    const ids = applicationIds.slice(i, i + CHUNK);
-    let data;
+  // 청크는 최대 4개씩 동시에. ⚠️ 실패한 청크만 건너뛰는 종전 규약을 지키려고 fn 안에서 잡는다.
+  const parts = await mapLimit(chunkArray(applicationIds, CHUNK), 4, async (ids) => {
     try {
-      data = await fetchAllPaged(() => db.from('application_messages')
+      return await fetchAllPaged(() => db.from('application_messages')
         .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
         .in('application_id', ids)
         .is('hidden_by_admin_at', null)
         .is('self_withdrawn_at', null)
         .order('created_at', { ascending: false })
         .order('id'));
-    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
-    (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
-  }
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); return []; }
+  });
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); }));
   return map;
 }
 

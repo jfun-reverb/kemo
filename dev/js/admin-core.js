@@ -766,13 +766,51 @@ const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
 //   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
 // 여러 장 넘기기 상태 — openImageGallery 로 열었을 때만 산다. { urls, i, base }
 let _lbGallery = null;
+// 불러오기 순번 — 원본이 늦게 도착했을 때 그사이 다른 사진으로 넘겼거나 창을 닫았으면 버린다.
+let _lbLoadSeq = 0;
+
+// 확대 창에 사진을 넣는다 — 목록에서 이미 받아 둔 썸네일을 즉시 띄우고, 원본은 뒤에서 받아
+//   도착하면 바꿔 끼운다(2026-09-30 — 원본 1~3MB 를 처음부터 받느라 창이 한참 비어 있었다).
+//   썸네일이 없는 사진(옛 파일·비공개 통·외부 주소)은 storageThumbUrl 이 원본을 그대로 주거나
+//   onerror 로 원본에 폴백한다.
+function _lbSetImage(url) {
+  const img = $('imageLightboxImg');
+  if (!img) return;
+  const seq = ++_lbLoadSeq;
+  img.onerror = null;
+  const thumb = (typeof storageThumbUrl === 'function') ? storageThumbUrl(url) : url;
+  if (!thumb || thumb === url) { img.src = url; return; }
+  img.onerror = function() { img.onerror = null; if (seq === _lbLoadSeq) img.src = url; };
+  img.src = thumb;
+  const full = new Image();
+  full.onload = function() {
+    if (seq !== _lbLoadSeq) return;
+    // ESC 는 ui.js 공통 처리로 닫혀 closeImageLightbox 를 안 거친다 — 열려 있는지도 본다
+    const lb = $('imageLightbox');
+    if (!lb || !lb.classList.contains('open')) return;
+    img.onerror = null;
+    img.src = url;
+  };
+  full.src = url;
+}
+
+// 검수 창 안의 큰 사진 — 썸네일(src)이 뜬 뒤 원본(data-orig)을 뒤에서 받아 바꿔 끼운다.
+//   담당자가 주문번호·금액을 읽는 자리라 결국 원본으로 바뀌어야 한다(2026-09-30 사용자 결정 — 표시 없이 자동 교체).
+//   onload 에서 부른다. 원본으로 바뀐 뒤 다시 불려도 data-upgraded 로 한 번만 돈다.
+function _imgUpgradeToOrig(img) {
+  const orig = img && img.dataset && img.dataset.orig;
+  if (!orig || img.dataset.upgraded || img.src === orig) return;
+  img.dataset.upgraded = '1';
+  const full = new Image();
+  full.onload = function() { if (img.isConnected) img.src = orig; };
+  full.src = orig;
+}
 
 function openImageLightbox(url, caption) {
   if (!url) return;
   _lbGallery = null;                    // 한 장 열기 — 화살표 숨김
   _lbSyncNav();
-  const img = $('imageLightboxImg');
-  if (img) img.src = url;
+  _lbSetImage(url);
   const ttl = $('imageLightboxTitle');
   if (ttl) ttl.textContent = caption || '이미지 보기';
   _lbZoom = 1;            // 열 때마다 배율 초기화
@@ -790,8 +828,7 @@ function openImageGallery(urls, startIndex, base) {
 }
 function _lbShowCurrent() {
   const g = _lbGallery; if (!g) return;
-  const img = $('imageLightboxImg');
-  if (img) img.src = g.urls[g.i];
+  _lbSetImage(g.urls[g.i]);
   const ttl = $('imageLightboxTitle');
   if (ttl) ttl.textContent = (g.base ? g.base + ' ' : '') + '사진 ' + (g.i + 1) + '/' + g.urls.length;
   _lbZoom = 1; applyLightboxZoom();
@@ -820,8 +857,9 @@ document.addEventListener('keydown', function(e) {
 function closeImageLightbox() {
   closeModal('imageLightbox');
   _lbGallery = null; _lbSyncNav();
+  _lbLoadSeq++;   // 받는 중이던 원본이 뒤늦게 도착해도 바꿔 끼우지 않게
   const img = $('imageLightboxImg');
-  if (img) img.src = '';
+  if (img) { img.onerror = null; img.src = ''; }
 }
 // 이미지 배율 적용 — 1배는 창에 맞춤(contain), 1배 초과는 width %로 키우고 넘치면 modal-body 스크롤
 function applyLightboxZoom() {

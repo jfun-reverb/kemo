@@ -43,55 +43,53 @@ async function openCampaign(id) {
   let alreadyApplied = false;
   let _myApp = null;
   let hasCancelledHistory = false;
-  if (currentUser) {
-    // 🔴 아래 조회를 `await` 하는 사이에 세션이 사라질 수 있다. 그러면 `currentUser` 가
-    //    null 이 되어 **두 번째 조회의 `currentUser.id` 에서 터진다** — 운영 실측
-    //    2026-08-31 18:03 `TypeError: Cannot read properties of null (reading 'id')`.
-    //    잡히지 않은 거부(rejection)라 캠페인 상세가 그리다 만 채로 멈춘다.
-    //    그래서 **가드를 통과한 그 자리에서 한 번만** 꺼내 두고 이후로는 그 값을 쓴다.
-    //    ⚠️ 세션이 죽었으면 조회가 행 단위 보안 정책에 막혀 0건이 되고 「아직 응모 안 함」
-    //       으로 그려진다. 화면이 통째로 멈추는 것보다 낫고, 만료 자체는
-    //       `onAuthStateChange` 가 받아 로그인 화면으로 보낸다.
-    //    ⚠️ **같은 위험이 이 파일에 세 곳 더 있다** — `_submitApplicationInner`(응모 제출) ·
-    //       `_addDraftImageInner`(영수증·현장사진) · `_addDraftReviewImageInner`(리뷰 인증샷).
-    //       뒤의 둘은 **사진을 올리는 동안** 세션이 끊기면 터지는 자리라, 파일은 이미
-    //       저장소에 올라간 채 남는다. 아직 운영에서 터진 적이 없어 이번엔 손대지 않았다.
-    //    🔴 **네 곳이 아니라 세 곳이다.** `_addDraftUrlInner`(게시물 주소)도 가드 뒤에서
-    //       `currentUser.id` 를 다시 읽지만 **그 사이에 `await` 가 없다** — 그 값은
-    //       `insertDraftDeliverable(...)` 의 **인자라서 `await` 가 멈추기 전에 계산**된다.
-    //       자바스크립트는 한 줄기로 돌아 `await` 가 없으면 그 사이에 값이 바뀔 수 없다.
-    //       **`await` 가 사이에 있는지로 가른다** — 「가드 뒤에서 다시 읽는다」만 보고
-    //       세면 고칠 필요 없는 자리를 고치게 된다(2026-09-01 검수에서 실제로 걸렸다).
-    const _uid = currentUser.id;
-    // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
-    // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
-    const {data:_appData} = await (db?.from('applications').select('*')
-      .eq('user_id', _uid)
-      .eq('campaign_id', id)
-      .neq('status', 'cancelled')
-      .maybeSingle() || {data:null});
-    _myApp = _appData;
+  // 🔴 아래 조회를 `await` 하는 사이에 세션이 사라질 수 있다. 그러면 `currentUser` 가
+  //    null 이 되어 **두 번째 조회의 `currentUser.id` 에서 터진다** — 운영 실측
+  //    2026-08-31 18:03 `TypeError: Cannot read properties of null (reading 'id')`.
+  //    잡히지 않은 거부(rejection)라 캠페인 상세가 그리다 만 채로 멈춘다.
+  //    그래서 **가드를 통과한 그 자리에서 한 번만** 꺼내 두고 이후로는 그 값을 쓴다.
+  //    (2026-09-30 부터 조회를 한꺼번에 보내 기다림은 한 번이지만, 이 원칙은 그대로 지킨다.)
+  //    ⚠️ 세션이 죽었으면 조회가 행 단위 보안 정책에 막혀 0건이 되고 「아직 응모 안 함」
+  //       으로 그려진다. 화면이 통째로 멈추는 것보다 낫고, 만료 자체는
+  //       `onAuthStateChange` 가 받아 로그인 화면으로 보낸다.
+  //    ⚠️ **같은 위험이 이 파일에 세 곳 더 있다** — `_submitApplicationInner`(응모 제출) ·
+  //       `_addDraftImageInner`(영수증·현장사진) · `_addDraftReviewImageInner`(리뷰 인증샷).
+  //       뒤의 둘은 **사진을 올리는 동안** 세션이 끊기면 터지는 자리라, 파일은 이미
+  //       저장소에 올라간 채 남는다. 아직 운영에서 터진 적이 없어 이번엔 손대지 않았다.
+  //    🔴 **네 곳이 아니라 세 곳이다.** `_addDraftUrlInner`(게시물 주소)도 가드 뒤에서
+  //       `currentUser.id` 를 다시 읽지만 **그 사이에 `await` 가 없다** — 그 값은
+  //       `insertDraftDeliverable(...)` 의 **인자라서 `await` 가 멈추기 전에 계산**된다.
+  //       자바스크립트는 한 줄기로 돌아 `await` 가 없으면 그 사이에 값이 바뀔 수 없다.
+  //       **`await` 가 사이에 있는지로 가른다** — 「가드 뒤에서 다시 읽는다」만 보고
+  //       세면 고칠 필요 없는 자리를 고치게 된다(2026-09-01 검수에서 실제로 걸렸다).
+  const _uid = currentUser ? currentUser.id : null;
+
+  // 서로 기다릴 필요 없는 조회 셋을 **한꺼번에** 보낸다(2026-09-30 — 하나씩 차례로 기다리느라
+  //   상세 화면이 늦게 넘어갔다).
+  //   ① 이 캠페인의 내 신청 — 예전 두 번(취소 아닌 행 / 취소 이력)을 한 번으로 합쳤다.
+  //      partial unique index 가 cancelled 가 아닌 행을 1개만 보장하므로 아래에서 가려낸다.
+  //   ② 리뷰어(monitor)만 실시간 신청 수 — 모집인원 초과 시 신규 응모 차단 판정용.
+  //      applied_count 는 수동 동기화 캐시라 DB count(pending+approved, 트리거와 일치)로 본다.
+  //      countActiveApplications 는 실패하면 null — 아래 `cnt > 0` 이 캐시값을 유지한다(종전과 같다).
+  //   ③ 초대 전용(비공개) 캠페인 게이트 확인.
+  const [_myAppsRes, cnt, _inviteOk] = await Promise.all([
+    (_uid && db) ? db.from('applications').select('*').eq('user_id', _uid).eq('campaign_id', id)
+                 : Promise.resolve({data: null}),
+    (camp.recruit_type === 'monitor' && db) ? countActiveApplications(id) : Promise.resolve(null),
+    (typeof canOpenInviteCampaign === 'function') ? canOpenInviteCampaign(camp) : Promise.resolve(true),
+  ]);
+  if (_uid) {
+    const _rows = (_myAppsRes && _myAppsRes.data) || [];
+    _myApp = _rows.find(r => r.status !== 'cancelled') || null;
     alreadyApplied = !!_myApp;
-    if (!alreadyApplied) {
-      // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
-      const {data:_cancelled} = await (db?.from('applications').select('id')
-        .eq('user_id', _uid)
-        .eq('campaign_id', id)
-        .eq('status', 'cancelled')
-        .limit(1)
-        .maybeSingle() || {data:null});
-      hasCancelledHistory = !!_cancelled;
-    }
+    // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 → 재응모 동선
+    if (!alreadyApplied) hasCancelledHistory = _rows.some(r => r.status === 'cancelled');
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
   // DB 트리거(048)가 최종 방어선, 여기서는 UX 보조.
-  // applied_count는 수동 동기화 캐시 → 실시간 DB count로 판정 (pending+approved 기준, 트리거와 일치)
   let actualApplied = camp.applied_count || 0;
-  if (camp.recruit_type === 'monitor' && db) {
-    const cnt = await countActiveApplications(id);
-    if (cnt > 0) actualApplied = cnt;
-  }
+  if (cnt > 0) actualApplied = cnt;
   const isFull = camp.recruit_type === 'monitor' && actualApplied >= (camp.slots || 0);
   if (isFull && !alreadyApplied) {
     toast(t('apply.slotsFull'), 'error');
@@ -101,7 +99,7 @@ async function openCampaign(id) {
   // ── 초대 전용(비공개) 캠페인 게이트 (사양서 §4-3 「초대 전용 진입」) ──
   //   확인되지 않으면 캠페인 내용을 **한 글자도 그리지 않고** 게이트만 띄운다.
   //   ⚠️ 화면 단계 방어라 우회할 수 있다. 예약을 실제로 막는 것은 서버 재검증이다.
-  if (typeof canOpenInviteCampaign === 'function' && !(await canOpenInviteCampaign(camp))) {
+  if (!_inviteOk) {
     if (typeof renderInviteGate === 'function') renderInviteGate(camp.id);
     // 게이트 화면에는 신청 버튼을 띄우지 않는다.
     //   ⚠️ 아이디는 detailFloatBar 다. 'floatBar' 로 적으면 항상 null 이라 **조용히 안 숨겨진다**
@@ -810,6 +808,8 @@ async function submitEventReservation(camp) {
     return;
   }
 
+  // 신청 인원이 바뀌었을 수 있다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+  if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
   if (!res || !res.ok) {
     // 사전에 있는 사유는 정상 거부. 그 밖의 값은 예상 못 한 오류로 기록된다
     // (기본 문구 event.failGeneric 이 원인을 덮어 버리는 자리라 기록이 유일한 단서다).
@@ -1082,6 +1082,8 @@ async function _submitApplicationInner() {
     // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
     if (camp) camp.applied_count = (camp.applied_count||0) + 1;
+    // 신청 인원이 바뀌었다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+    if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
     // 메타 픽셀 5번 이벤트 — 신청이 **실제로 저장된 뒤에만**(마감·정원·중복 거부는 아래 catch 로 빠져 안 나간다).
     //   금액 인자는 넣지 않는다(사양서 결정 2 — 신청서 제출은 금액이 없다).
     if (typeof trackMetaPixelEvent === 'function') {

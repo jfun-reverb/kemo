@@ -503,6 +503,7 @@ window.I18N_JA = {
     headerN: 'お知らせ ({n})',
     emptyUnread: '未読の通知はありません',
     refMissing: '関連する成果物が見つかりません',
+    refLoadFailed: 'いまは ひらけませんでした。しばらくしてから もう一度 おためしください。',
     applicationCancelledTitle: '応募を取り消しました',
   },
 
