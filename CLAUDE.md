@@ -20,7 +20,7 @@
 - 스테이징 (인플루언서): https://dev.globalreverb.com
 - 스테이징 (관리자): https://dev.globalreverb.com/admin/ (admin@kemo.jp / admin1234)
 - GitHub: github.com/jfun-reverb/kemo
-- Supabase (production): https://nrwtujmlbktxjgdwlpjj.supabase.co (🇯🇵 Tokyo `ap-northeast-1`, Pro/NANO)
+- Supabase (production): https://nrwtujmlbktxjgdwlpjj.supabase.co (🇯🇵 Tokyo `ap-northeast-1`, Pro/MICRO 1GB — 경위·메모리 현황은 `.claude/rules/supabase.md`)
 - Supabase (staging): https://qysmxtipobomefudyixw.supabase.co (🇯🇵 Tokyo `ap-northeast-1`, Pro/MICRO)
 - LINE: @reverb.jp
 
