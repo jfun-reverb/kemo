@@ -23,6 +23,24 @@ async function openCampaign(id) {
   //      길이 아예 없다(2026-08-12 운영 보고 — 목록으로 튕기며 「공개되지 않았습니다」).
   //      미리보기는 관리자만 여는 자리라 이 가드가 막으려던 「몰래 접수되는 응모」와 무관하다
   //      (그 화면에는 응모 버튼을 눌러도 진행할 사용자 세션이 없다).
+  // 상세를 어디서 열었나 — 뒤로 단추의 목적지·이름(아래 detailBackLabel)이 쓴다. 떠 있던 화면으로 판정한다.
+  //   ⚠️ 상세 안에서 다시 부르는 호출(신청 뒤 재그리기·초대 게이트·언어 전환)은 출처를 덮어쓰지 않는다.
+  //   ⚠️ 응모이력 카드는 부르기 직전 _detailFrom='mypage' 를 세우는데, 그 화면이 page-mypage 라 결과가 같다.
+  //      화면으로 판정하면 뒤로가기로 상세를 떠나 옛 'mypage' 가 남아 있어도 다음 진입에서 바로잡힌다.
+  const _openerPage = document.querySelector('#appShell .page.active')?.id;
+  if (_openerPage !== 'page-detail') {
+    _detailFromHash = null;
+    if (_openerPage === 'page-mypage') _detailFrom = 'mypage';
+    else if (_openerPage === 'page-home') _detailFrom = 'home';
+    // 탭은 주소가 아니라 선택된 탭 값으로 — 앞으로가기(popstate)로 오면 주소가 이미 detail- 로 바뀌어 있다.
+    else if (_openerPage === 'page-campaigns') { _detailFrom = 'campaigns'; _detailFromHash = CAMP_PAGE_TYPE_HASH[campPageTypeFilter] || 'campaigns'; }
+    else _detailFrom = null;
+  }
+  // 뒤로 단추 이름은 **여기서** 붙인다 — 아래 초대 게이트 갈래(비공개 행사)는 상세 끝까지 안 가고 먼저 끝나서,
+  //   끝에서만 붙이면 직전 캠페인의 이름이 남는다(응모이력에서 왔는데 「キャンペーン一覧へ」).
+  const backLabel = $('detailBackLabel');
+  if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : _detailFrom === 'home' ? t('detail.backToHome') : t('detail.backToCampaigns');
+
   const _isPreview = document.documentElement.classList.contains('preview-mode');
   if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage' && !_isPreview) {
     if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
@@ -557,10 +575,6 @@ async function openCampaign(id) {
     }
   }
   if (fb) fb.style.display='block';
-
-  // 뒤로가기 버튼 라벨 업데이트
-  const backLabel = $('detailBackLabel');
-  if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? t('detail.backToHistory') : t('detail.backToCampaigns');
 
   navigate('detail-' + id);
   // 메타 픽셀 2번 이벤트(사양서 「심는 이벤트」) — 상세 내용이 실제로 보이는 이 자리에만.
