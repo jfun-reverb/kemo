@@ -724,7 +724,25 @@ async function refreshSettlementSidebarBadge() {
 // SECTION: SETTLEMENTS — 송금 완료 처리 (낙관적 락)
 // ════════════════════════════════════════════════════════════════════
 
+// ★ [조각 12] 행 「송금완료」도 **송금 묶음 확인 창**으로 보낸다(묶음 1개 = 페이팔 송금 한 번).
+//   ⚠️ 옛 단건 창(settlementPayModal · confirmSettlementPay → mark_settlement_paid)은 더 열지 않는다 —
+//      묶음이 한 번이라도 기록되면 서버가 그 경로를 payout_bundle_required 로 거부한다(486).
+//      아래 옛 함수 본문은 되돌릴 여지로 남겨 둔 것이고 어디서도 부르지 않는다.
 function openSettlementPayModal(id) {
+  const s = _settlements.find(x => x.id === id);
+  if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
+  if (settlementBulkLocked()) return;
+  _bulkPayCtx = {
+    settlementIds: [s.id],
+    applicationIds: [],
+    items: [_bulkItemFromSettlementRow(s)],
+    from: 'list',
+    single: true,   // 행 하나만 — 성공해도 목록에서 체크해 둔 다른 행은 그대로 둔다
+  };
+  _openBulkPayModal();
+}
+
+function _openSettlementPayModalLegacy(id) {
   const s = _settlements.find(x => x.id === id);
   if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
   _settlementModalCtx = { id: s.id, version: s.version };
@@ -889,10 +907,19 @@ function openSettlementCorrectModal(id) {
         <div style="font-weight:600">${nowAmount}</div>
         <div style="color:var(--muted)">시스템 계산 금액</div>
         <div>${settlementAmountYen(s.amount_jpy)}</div>
-      </div>`;
+      </div>
+      ${s.current_transfer_id ? `<div style="padding:8px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:12px;line-height:1.6;margin-bottom:12px">
+        이 건은 <b>송금 묶음</b>으로 기록됐습니다. <b>송금일은 「송금 내역」에서 묶음 단위로</b> 고칩니다(같이 보낸 건이 함께 바뀝니다).
+        여기서는 이 건의 <b>보낸 금액만</b> 고칠 수 있고, 고치면 묶음 합계와 자동 수수료가 함께 다시 계산됩니다.
+      </div>` : ''}`;
   }
+  // ★ [조각 12] 묶음에 속한 건은 송금일 칸을 잠근다 — 서버도 paid_at_owned_by_transfer 로 거부한다(486)
   const dateEl = $('settlementCorrectDate');
-  if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
+  if (dateEl) {
+    dateEl.value = ''; dateEl.max = jstTodayStr();
+    dateEl.disabled = !!s.current_transfer_id;
+    dateEl.title = s.current_transfer_id ? '송금일은 「송금 내역」에서 묶음 단위로 고칩니다' : '';
+  }
   const amtEl = $('settlementCorrectAmount');
   if (amtEl) amtEl.value = '';
   const memoEl = $('settlementCorrectMemo');
@@ -973,11 +1000,386 @@ async function confirmSettlementCorrect() {
 //   무엇을 처리할지만 담는다.
 //   ⚠️ 두 종류가 섞인다: 정산 행이 있는 건(`settlementIds`)과 아직 없는 건(`applicationIds`).
 //      서버 함수가 다르므로 아래 confirm 이 **둘 다** 부른다.
-let _bulkPayCtx = null;   // {settlementIds:[], applicationIds:[], from:'list'|'payout', summaryHtml}
+let _bulkPayCtx = null;   // {settlementIds:[], applicationIds:[], items:[], from:'list'|'payout'|'unreg', mode?, summaryHtml}
+
+// ════════════════════════════════════════════════════════════════════
+// 송금 묶음 확인 창 (조각 11 — 사양서 2026-09-30-settlement-transfer-fee-record.md D-1~D-3)
+//
+// ▶ 페이팔 송금 1건 = 묶음 1개. 기본은 **사람마다 묶음 1개**, 「따로 보내기」로 나누고 「합치기」로 되돌린다.
+// ▶ 저장은 `recordSettlementTransfers` **한 번**. 서버가 전부 검사해 하나라도 걸리면 아무것도 안 쓰고
+//   사유 목록을 돌려준다 → 창을 닫지 않고 사유를 보여 준다(사용자 결정 2026-09-30).
+// ⚠️ 진입점이 다섯이다(목록 선택 · 과거 미등록 · 지급 준비 건별 · 사람·회차 묶음 · 선택한 건).
+//    넘기는 행 모양이 달라 아래 `_bulkItemFrom*` 로 **공통 항목**으로 바꾼 뒤 이 창 하나로 처리한다.
+// ⚠️ 수수료는 **서버에 묻는다**(`previewSettlementFees`, 마이그레이션 488). 화면에 계산식 사본을 두지 않는다.
+// ⚠️ 「정산대기 추가」(mode='pending')는 **이 창을 쓰지 않는다** — 옛 창·옛 동작 그대로.
+// ════════════════════════════════════════════════════════════════════
+
+// 공통 항목: {kind:'settlement'|'unregistered', settlementId, applicationId, influencerId,
+//            name, paypalText, paypalOk:true|false|null(확인 실패), amount, due, campaignLabel, blockReason}
+function _bulkCampaignLabel(no, title) {
+  return (no ? '[' + no + '] ' : '') + (title || '(캠페인 미상)');
+}
+// 정산 목록 행(_settlements) — 정산대기가 아니면 보낼 수 없다(서버도 거부한다)
+function _bulkItemFromSettlementRow(r) {
+  const inf = r.influencers || {};
+  const paypal = inf.paypal_email || r.paypal_email || null;
+  const c = r.campaigns || {};
+  return {
+    kind: 'settlement', settlementId: r.id, applicationId: r.application_id, influencerId: r.influencer_id,
+    name: inf.name || null,
+    paypalText: paypal,
+    paypalOk: paypal ? true : (inf.has_paypal === true ? true : false),
+    amount: settlementEffectiveAmount(r),
+    due: payoutDueDate(r.cert_at),
+    campaignLabel: _bulkCampaignLabel(c.campaign_no, c.title),
+    blockReason: r.status !== 'pending' ? '정산대기 상태가 아님' : null,
+  };
+}
+// 과거 미등록 행(_pastUnregById) — 페이팔 주소는 없고 등록 여부만 온다
+function _bulkItemFromUnregRow(r) {
+  return {
+    kind: 'unregistered', settlementId: null, applicationId: r.application_id, influencerId: r.influencer_id,
+    name: r.influencer_name || null,
+    paypalText: r.has_paypal ? '페이팔 등록됨' : null,
+    paypalOk: !!r.has_paypal,
+    amount: Number(r.amount_jpy) || 0,
+    due: payoutDueDate(r.cert_at),
+    campaignLabel: _bulkCampaignLabel(r.campaign_no, r.campaign_title),
+    blockReason: null,
+  };
+}
+// 지급 준비 행(_payoutRows) — ⚠️ 금액은 행의 amount 그대로(settlementEffectiveAmount 를 다시 부르면 0원)
+function _bulkItemFromPayoutRow(r) {
+  const p = payoutPersonOf(r);
+  return {
+    kind: r.kind === 'settlement' ? 'settlement' : 'unregistered',
+    settlementId: r.kind === 'settlement' ? r.settlementId : null,
+    applicationId: r.applicationId, influencerId: r.influencerId,
+    name: p.name,
+    paypalText: p.paypal,
+    paypalOk: p.paypal ? true : (p.paypalUnknown ? null : false),
+    amount: Number(r.amount) || 0,
+    due: r.due || null,
+    campaignLabel: _bulkCampaignLabel(r.campaignNo, r.campaignTitle),
+    blockReason: null,
+  };
+}
+
+// 보낼 수 없는 건(정산대기 아님·페이팔 미등록)은 묶음에서 빼고 따로 보여 준다
+function _bulkBuildBundles(items) {
+  const bundles = [];
+  const blocked = [];
+  const today = jstTodayStr();
+  const byPerson = {};
+  items.forEach(function (it, idx) {
+    if (it.blockReason) { blocked.push({ idx: idx, reason: it.blockReason }); return; }
+    if (it.paypalOk === false) { blocked.push({ idx: idx, reason: '페이팔 미등록' }); return; }
+    const key = it.influencerId || '(미상)';
+    if (byPerson[key] === undefined) {
+      byPerson[key] = bundles.length;
+      bundles.push({ influencerId: it.influencerId, itemIdx: [], sentDate: today, feeOverride: null, feeEditing: false, txn: '' });
+    }
+    bundles[byPerson[key]].itemIdx.push(idx);
+  });
+  return { bundles: bundles, blocked: blocked };
+}
+
+function _bulkItemAmount(idx) {
+  const v = _bulkPayCtx.amounts[idx];
+  return (v === undefined || v === null || v === '') ? _bulkPayCtx.items[idx].amount : Number(v);
+}
+function _bulkBundleTotal(b) {
+  return b.itemIdx.reduce(function (a, idx) { const n = _bulkItemAmount(idx); return a + (Number.isFinite(n) ? n : 0); }, 0);
+}
+function _bulkBundleFee(bi) {
+  const b = _bulkPayCtx.bundles[bi];
+  if (b.feeOverride !== null && b.feeOverride !== '') return Number(b.feeOverride);
+  const f = _bulkPayCtx.feePreview;
+  return (f && Array.isArray(f.fees) && f.fees[bi] !== undefined) ? f.fees[bi] : null;   // null = 아직/계산 못 함
+}
+
+function _renderBulkBundles() {
+  const ctx = _bulkPayCtx;
+  const body = $('settlementBulkPayBody');
+  if (!ctx || !body) return;
+  const items = ctx.items;
+  const personBundleCount = {};
+  ctx.bundles.forEach(function (b) { personBundleCount[b.influencerId] = (personBundleCount[b.influencerId] || 0) + 1; });
+  const firstOfPerson = {};
+
+  const cards = ctx.bundles.map(function (b, bi) {
+    const head = items[b.itemIdx[0]];
+    const isFirst = firstOfPerson[b.influencerId] === undefined;
+    if (isFirst) firstOfPerson[b.influencerId] = bi;
+    const rows = b.itemIdx.map(function (idx) {
+      const it = items[idx];
+      const val = ctx.amounts[idx] !== undefined ? ctx.amounts[idx] : it.amount;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
+          <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.campaignLabel)}">${esc(it.campaignLabel)}</div>
+          <div style="width:84px;text-align:right;color:var(--muted)">${esc(it.due || '지급일 없음')}</div>
+          <input type="number" min="1" step="1" value="${esc(String(val))}" oninput="onBulkItemAmountInput(${idx}, this.value)"
+                 style="width:96px;text-align:right;padding:3px 6px;font-size:16px;border:1px solid var(--line);border-radius:6px"
+                 aria-label="보낸 금액">
+          ${b.itemIdx.length > 1
+            ? `<button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="splitBulkItem(${bi}, ${idx})" title="이 건만 따로 송금한 경우">따로 보내기</button>`
+            : '<span style="width:74px"></span>'}
+        </div>`;
+    }).join('');
+    const fee = _bulkBundleFee(bi);
+    const total = _bulkBundleTotal(b);
+    const manual = b.feeOverride !== null && b.feeOverride !== '';
+    const feeHtml = b.feeEditing
+      ? `<input type="number" min="0" step="1" value="${esc(b.feeOverride === null ? '' : String(b.feeOverride))}"
+               placeholder="${fee === null ? '' : esc(String(fee))}"
+               oninput="onBulkFeeInput(${bi}, this.value)"
+               style="width:84px;text-align:right;padding:3px 6px;font-size:16px;border:1px solid #F59E0B;border-radius:6px" aria-label="수수료">
+         <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="resetBulkFee(${bi})">자동으로</button>`
+      : `<span id="bulkFee_${bi}">${fee === null ? `<span style="color:var(--muted)">${_bulkFeePendingText()}</span>` : esc(settlementAmountYen(fee))}</span>
+         ${manual ? '<span style="font-size:11px;color:#B8741A">고친 값</span>' : ''}
+         <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="editBulkFee(${bi})">고치기</button>`;
+    return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <b style="font-size:13px">${esc(head.name || '(이름 미상)')}</b>
+          ${head.paypalOk === null
+            ? '<span style="font-size:11px;color:#B8741A">페이팔 확인 실패 — 서버가 다시 확인합니다</span>'
+            : `<span style="font-size:11px;color:var(--muted);font-family:monospace">${esc(head.paypalText || '')}</span>`}
+          ${!isFirst ? `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;margin-left:auto" onclick="mergeBulkBundle(${bi})" title="같은 사람의 첫 묶음과 합칩니다">합치기</button>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <label style="font-size:11px;color:var(--muted)">송금일
+            <input type="date" value="${esc(b.sentDate)}" max="${esc(jstTodayStr())}" onchange="onBulkBundleField(${bi}, 'sentDate', this.value)"
+                   style="font-size:16px;padding:2px 6px;border:1px solid var(--line);border-radius:6px">
+          </label>
+          <label style="font-size:11px;color:var(--muted)">페이팔 거래번호(선택)
+            <input type="text" value="${esc(b.txn)}" maxlength="100" oninput="onBulkBundleField(${bi}, 'txn', this.value)"
+                   style="font-size:16px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;width:180px">
+          </label>
+          ${personBundleCount[b.influencerId] > 1 ? `<span style="font-size:11px;color:#2563EB;align-self:center">같은 사람 묶음 ${personBundleCount[b.influencerId]}개 — 수수료가 묶음마다 붙습니다</span>` : ''}
+        </div>
+        ${rows}
+        <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-size:12px">
+          <span>보낸 금액 <b id="bulkTotal_${bi}">${esc(settlementAmountYen(total))}</b></span>
+          <span style="display:flex;align-items:center;gap:6px">수수료 ${feeHtml}</span>
+          <span>총지출 <b id="bulkSpend_${bi}">${fee === null ? '—' : esc(settlementAmountYen(total + fee))}</b></span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const blockedHtml = ctx.blocked.length ? `<div style="padding:10px 12px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;margin-bottom:10px;font-size:12px;line-height:1.7">
+      <b style="color:#B91C1C">보낼 수 없어 뺀 건 ${ctx.blocked.length}건</b>
+      ${ctx.blocked.map(function (x) { const it = items[x.idx];
+        return `<div>${esc(it.name || '(이름 미상)')} · ${esc(it.campaignLabel)} — ${esc(x.reason)}</div>`; }).join('')}
+    </div>` : '';
+
+  body.innerHTML = `
+    ${blockedHtml}
+    <div id="settlementBulkPayErrors"></div>
+    <div style="max-height:52vh;overflow:auto;padding-right:4px">${cards || '<div style="padding:16px;color:var(--muted);font-size:13px">보낼 수 있는 건이 없습니다.</div>'}</div>
+    <div id="bulkGrandTotal" style="padding:10px 12px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin:6px 0 14px;font-size:13px"></div>`;
+  _renderBulkGrandTotal();
+}
+
+// 수수료 미리보기가 아직이면 「계산 중…」, 실패했으면 「계산 못 함」(세 자리가 같은 말을 한다)
+function _bulkFeePendingText() {
+  const f = _bulkPayCtx && _bulkPayCtx.feePreview;
+  return (f && f.failed) ? '계산 못 함' : '계산 중…';
+}
+
+function _renderBulkGrandTotal() {
+  const el = $('bulkGrandTotal');
+  const ctx = _bulkPayCtx;
+  if (!el || !ctx) return;
+  let sent = 0, fee = 0, feeUnknown = false, count = 0;
+  ctx.bundles.forEach(function (b, bi) {
+    sent += _bulkBundleTotal(b);
+    count += b.itemIdx.length;
+    const f = _bulkBundleFee(bi);
+    if (f === null) feeUnknown = true; else fee += f;
+  });
+  el.innerHTML = `묶음 <b>${ctx.bundles.length}개</b>(페이팔 송금 ${ctx.bundles.length}번) · ${count}건 ·
+      보낸 금액 <b>${esc(settlementAmountYen(sent))}</b> · 수수료 <b>${feeUnknown ? _bulkFeePendingText() : esc(settlementAmountYen(fee))}</b> ·
+      총지출 <b>${feeUnknown ? '—' : esc(settlementAmountYen(sent + fee))}</b>`;
+}
+
+// 금액·묶음이 바뀌면 서버에 수수료를 다시 묻는다(300ms 모아서). ⚠️ 늦게 온 옛 응답은 버린다
+let _bulkFeeTimer = null;
+let _bulkFeeSeq = 0;
+function _scheduleBulkFeePreview() {
+  if (_bulkFeeTimer) clearTimeout(_bulkFeeTimer);
+  // ⚠️ 예약하는 **순간** 번호를 올린다 — 날아가 있던 옛 요청의 응답(나누기·합치기 전 순서)을 무효로 한다
+  const seq = ++_bulkFeeSeq;
+  _bulkFeeTimer = setTimeout(async function () {
+    const ctx = _bulkPayCtx;
+    if (!ctx || !ctx.bundles || seq !== _bulkFeeSeq) return;
+    const totals = ctx.bundles.map(_bulkBundleTotal);
+    const res = await previewSettlementFees(totals);
+    if (ctx !== _bulkPayCtx || seq !== _bulkFeeSeq) return;
+    const wasFailed = !!(ctx.feePreview && ctx.feePreview.failed);
+    ctx.feePreview = res || { fees: totals.map(function () { return null; }), failed: true };
+    ctx.bundles.forEach(function (b, bi) { _refreshBulkBundleNumbers(bi); });
+    _renderBulkGrandTotal();
+    // 실패 안내는 **처음 한 번만**(입력할 때마다 반복하지 않는다)
+    if (!res && !wasFailed) toast('수수료를 계산하지 못했습니다 — 저장하면 서버가 계산합니다', 'warn');
+  }, 300);
+}
+
+function _refreshBulkBundleNumbers(bi) {
+  const b = _bulkPayCtx.bundles[bi];
+  const total = _bulkBundleTotal(b);
+  const fee = _bulkBundleFee(bi);
+  const t = $('bulkTotal_' + bi); if (t) t.textContent = settlementAmountYen(total);
+  const f = $('bulkFee_' + bi);
+  if (f) f.innerHTML = fee === null ? `<span style="color:var(--muted)">${_bulkFeePendingText()}</span>` : esc(settlementAmountYen(fee));
+  const s = $('bulkSpend_' + bi); if (s) s.textContent = fee === null ? '—' : settlementAmountYen(total + fee);
+}
+
+function onBulkItemAmountInput(idx, v) {
+  if (!_bulkPayCtx) return;
+  _bulkPayCtx.amounts[idx] = v;
+  const bi = _bulkPayCtx.bundles.findIndex(function (b) { return b.itemIdx.indexOf(idx) >= 0; });
+  if (bi >= 0) _refreshBulkBundleNumbers(bi);
+  _renderBulkGrandTotal();
+  _scheduleBulkFeePreview();
+}
+function onBulkBundleField(bi, field, v) {
+  if (!_bulkPayCtx || !_bulkPayCtx.bundles[bi]) return;
+  _bulkPayCtx.bundles[bi][field] = v;
+}
+function onBulkFeeInput(bi, v) {
+  if (!_bulkPayCtx || !_bulkPayCtx.bundles[bi]) return;
+  _bulkPayCtx.bundles[bi].feeOverride = (v === '' ? null : v);
+  const b = _bulkPayCtx.bundles[bi];
+  const fee = _bulkBundleFee(bi);
+  const s = $('bulkSpend_' + bi); if (s) s.textContent = fee === null ? '—' : settlementAmountYen(_bulkBundleTotal(b) + fee);
+  _renderBulkGrandTotal();
+}
+function editBulkFee(bi) { _bulkPayCtx.bundles[bi].feeEditing = true; _renderBulkBundles(); }
+function resetBulkFee(bi) {
+  const b = _bulkPayCtx.bundles[bi];
+  b.feeOverride = null; b.feeEditing = false;
+  _renderBulkBundles();
+}
+// 「따로 보내기」 — 그 건을 같은 사람의 새 묶음으로 뺀다(수수료가 한 번 더 붙는다)
+function splitBulkItem(bi, idx) {
+  const ctx = _bulkPayCtx;
+  const b = ctx.bundles[bi];
+  if (!b || b.itemIdx.length < 2) return;
+  b.itemIdx = b.itemIdx.filter(function (x) { return x !== idx; });
+  ctx.bundles.splice(bi + 1, 0, { influencerId: b.influencerId, itemIdx: [idx], sentDate: b.sentDate, feeOverride: null, feeEditing: false, txn: '' });
+  // ⚠️ 묶음 순서가 바뀌면 미리보기 배열 자리도 밀린다 — 다시 받을 때까지 「계산 중」으로 둔다
+  ctx.feePreview = null;
+  _renderBulkBundles();
+  _scheduleBulkFeePreview();
+}
+// 「합치기」 — 같은 사람의 첫 묶음으로 옮긴다
+function mergeBulkBundle(bi) {
+  const ctx = _bulkPayCtx;
+  const b = ctx.bundles[bi];
+  if (!b) return;
+  const target = ctx.bundles.findIndex(function (x) { return x.influencerId === b.influencerId; });
+  if (target < 0 || target === bi) return;
+  ctx.bundles[target].itemIdx = ctx.bundles[target].itemIdx.concat(b.itemIdx);
+  ctx.bundles.splice(bi, 1);
+  ctx.feePreview = null;
+  _renderBulkBundles();
+  _scheduleBulkFeePreview();
+}
+
+// 서버 사유 → 한국어 (조각 10 의 전역 문구와 같은 말)
+const BULK_FAILURE_TEXT = {
+  bundle_paypal_missing:   '페이팔 미등록',
+  bundle_not_pending:      '이미 처리됐거나 정산대기가 아님',
+  bundle_not_found:        '정산 건이 없어짐',
+  bundle_not_candidate:    '정산 대상이 아님(인증 성공 전·조건 변경 등)',
+  bundle_amount_issue:     '금액을 정할 수 없음',
+  bundle_empty:            '빈 묶음',
+  bundle_duplicate_item:   '같은 건이 두 번 들어감',
+  bundle_amount_invalid:   '금액·수수료 값이 올바르지 않음',
+  sent_at_in_future:       '송금일이 미래',
+  bundle_mixed_influencer: '한 묶음에 여러 사람',
+  bundle_txn_id_invalid:   '거래번호가 너무 김(100자 이하)',
+};
+function _renderBulkFailures(failures) {
+  const box = $('settlementBulkPayErrors');
+  if (!box) return;
+  const ctx = _bulkPayCtx;
+  const lines = (failures || []).map(function (f) {
+    const b = ctx.bundles[f.bundle_index];
+    const who = b ? (ctx.items[b.itemIdx[0]].name || '(이름 미상)') : '(묶음 ' + (Number(f.bundle_index) + 1) + ')';
+    let what = '';
+    const id = f.settlement_id || f.application_id;
+    if (id) {
+      const it = ctx.items.find(function (x) { return x.settlementId === id || x.applicationId === id; });
+      if (it) what = ' · ' + it.campaignLabel;
+    }
+    return `<div>${esc(who)}${esc(what)} — ${esc(BULK_FAILURE_TEXT[f.reason] || f.reason)}</div>`;
+  }).join('');
+  box.innerHTML = `<div style="padding:10px 12px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;margin-bottom:10px;font-size:12px;line-height:1.7">
+      <b style="color:#B91C1C">아무것도 기록하지 않았습니다 — 아래를 고친 뒤 다시 누르세요</b>
+      ${lines}
+      <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" onclick="closeBulkPayAndRefresh()">닫고 목록 새로 받기</button></div>
+    </div>`;
+  box.scrollIntoView({ block: 'nearest' });
+}
+async function closeBulkPayAndRefresh() {
+  const from = _bulkPayCtx && _bulkPayCtx.from;
+  closeSettlementBulkPayModal();
+  await _settlementRefreshKeepingView(from);
+}
+
+// 저장 — 묶음 전부를 한 번에(서버가 전부 검사 → 하나라도 걸리면 아무것도 안 씀)
+async function _confirmBulkTransfers(ctx, memo, btn) {
+  const bad = [];
+  const bundles = ctx.bundles.map(function (b, bi) {
+    const settlementIds = [], applicationIds = [], itemAmounts = {};
+    b.itemIdx.forEach(function (idx) {
+      const it = ctx.items[idx];
+      const n = _bulkItemAmount(idx);
+      if (!Number.isInteger(n) || n <= 0) bad.push((it.name || '(이름 미상)') + ' · ' + it.campaignLabel);
+      const key = it.kind === 'settlement' ? it.settlementId : it.applicationId;
+      if (it.kind === 'settlement') settlementIds.push(key); else applicationIds.push(key);
+      itemAmounts[key] = n;
+    });
+    const payload = {
+      settlement_ids: settlementIds, application_ids: applicationIds, item_amounts: itemAmounts,
+      sent_at: _settlementJstMidnight(b.sentDate || jstTodayStr()),
+      paypal_txn_id: (b.txn || '').trim() || null,
+      memo: memo, source: 'app',
+    };
+    if (b.feeOverride !== null && b.feeOverride !== '') {
+      const f = Number(b.feeOverride);
+      if (!Number.isInteger(f) || f < 0) bad.push((ctx.items[b.itemIdx[0]].name || '(이름 미상)') + ' 묶음 수수료');
+      payload.fee_jpy = f;
+    }
+    return payload;
+  });
+  if (bad.length) { toast('금액은 1엔 이상 정수로 넣어 주세요 — ' + bad.slice(0, 3).join(' / '), 'warn'); return false; }
+  if (!bundles.length) { toast('보낼 수 있는 건이 없습니다', 'warn'); return false; }
+
+  let r;
+  try { r = await recordSettlementTransfers(bundles); }
+  catch (e) { toast('기록 실패 — ' + friendlyError(e.message || e), 'error'); return false; }
+  if (!r.ok) { _renderBulkFailures(r.failures); return false; }
+  toast(`${r.settlementCount}건을 송금 ${r.transferIds.length}번으로 기록했습니다 · 수수료 ${settlementAmountYen(r.feeTotal)}`
+    + (ctx.blocked.length ? ` (보낼 수 없는 ${ctx.blocked.length}건은 뺐습니다)` : ''), ctx.blocked.length ? 'warn' : 'success');
+  return true;
+}
 
 function _openBulkPayModal() {
   const body = $('settlementBulkPayBody');
-  if (body) body.innerHTML = (_bulkPayCtx && _bulkPayCtx.summaryHtml) || '';
+  // ★ 송금완료 모드는 새 묶음 창(조각 11). 「정산대기 추가」 모드는 옛 요약 그대로
+  const pendingMode = !!(_bulkPayCtx && _bulkPayCtx.mode === 'pending');
+  const modalBox = document.querySelector('#settlementBulkPayModal .modal');
+  if (modalBox) modalBox.style.maxWidth = pendingMode ? '520px' : '820px';
+  if (!pendingMode && _bulkPayCtx) {
+    const built = _bulkBuildBundles(_bulkPayCtx.items || []);
+    _bulkPayCtx.bundles = built.bundles;
+    _bulkPayCtx.blocked = built.blocked;
+    _bulkPayCtx.amounts = {};
+    _bulkPayCtx.feePreview = null;
+    _renderBulkBundles();
+    _scheduleBulkFeePreview();
+  } else if (body) body.innerHTML = (_bulkPayCtx && _bulkPayCtx.summaryHtml) || '';
   const dateEl = $('settlementBulkPayDate');
   if (dateEl) { dateEl.value = ''; dateEl.max = jstTodayStr(); }
   const memoEl = $('settlementBulkPayMemo');
@@ -985,9 +1387,10 @@ function _openBulkPayModal() {
   // ★ 「정산대기 추가」 모드 — 아직 보내지 않은 건이라 **송금일이 없다.**
   //   ⚠️ 송금일 칸을 남겨 두면 「지금 보낸 것」으로 오해해 날짜를 넣게 되고, 그 값은
   //      정산대기 등록에 쓰이지 않아 **입력한 것이 조용히 버려진다.**
-  const pending = !!(_bulkPayCtx && _bulkPayCtx.mode === 'pending');
+  const pending = pendingMode;
+  // 송금완료 모드는 송금일을 **묶음마다** 받는다(창 안 묶음 카드) — 공용 날짜 칸은 두 모드 모두 감춘다
   const dateGroup = $('settlementBulkPayDateGroup');
-  if (dateGroup) dateGroup.style.display = pending ? 'none' : '';
+  if (dateGroup) dateGroup.style.display = 'none';
   const titleEl = $('settlementBulkPayTitle');
   if (titleEl) titleEl.textContent = pending ? '선택 건 정산대기 추가' : '선택 건 송금완료 기록';
   const btn = $('settlementBulkPayConfirmBtn');
@@ -996,8 +1399,9 @@ function _openBulkPayModal() {
   if (warn) warn.innerHTML = pending
     ? '<b>아직 지급하지 않은 건만</b> 처리하세요. 정산대기로 올려 두면 나중에 「송금완료 기록」으로 마무리합니다.'
       + '<br>⚠️ 인플루언서에게는 알림이 가지 않습니다.'
-    : '금액은 <b>건마다 시스템 계산 금액</b>으로 기록됩니다. 실제로 다르게 보낸 건은 기록한 뒤 그 행의 「기록 정정」으로 고치세요.'
-      + '<br>⚠️ PayPal 미등록 건은 <b>건너뜁니다</b>. 처리 후 몇 건이 왜 빠졌는지 알려 드립니다.';
+    : '<b>묶음 하나 = 페이팔 송금 한 번</b>입니다. 실제로 따로 보낸 건은 「따로 보내기」로 나누세요(수수료가 묶음마다 붙습니다).'
+      + '<br>금액은 <b>실제로 보낸 금액</b>으로, 수수료는 자동 계산값과 다르면 「고치기」로 넣으세요.'
+      + '<br>⚠️ 하나라도 기록할 수 없으면 <b>아무것도 기록하지 않고</b> 이유를 보여 드립니다. 페이팔 미등록 건은 미리 뺐습니다.';
   onSettlementBulkPayInput();
   openModal('settlementBulkPayModal');
 }
@@ -1011,6 +1415,7 @@ function openSettlementBulkPayModal() {
   _bulkPayCtx = {
     settlementIds: rows.map(r => r.id),
     applicationIds: [],
+    items: rows.map(_bulkItemFromSettlementRow),
     from: 'list',
     summaryHtml: `
       <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
@@ -1038,7 +1443,6 @@ async function confirmSettlementBulkPay() {
   if (!ctx) return;
   const memo = ($('settlementBulkPayMemo')?.value || '').trim();
   if (!memo) { toast('처리 사유를 입력해 주세요', 'warn'); return; }
-  const paidAt = _settlementJstMidnight(($('settlementBulkPayDate')?.value || '').trim());
   const btn = $('settlementBulkPayConfirmBtn');
   if (btn) btn.disabled = true;
 
@@ -1046,19 +1450,9 @@ async function confirmSettlementBulkPay() {
   const skipped = [];
   const failed = [];
 
-  // ① 정산 행이 이미 있는 건 — 상태만 송금완료로
-  //   🔴 「정산대기 추가」 모드에서는 **돌면 안 된다**(전수조사 B-4). 예전엔 모드 검사가 이 블록
-  //      뒤에 있어, 그 모드로 들어왔는데 정산 행이 섞여 있으면 **되돌릴 수 없는 송금완료**가
-  //      먼저 찍혔다. 지금 진입점은 미등록 건만 넘겨 잠복이었지만, 순서를 여기서 막는다.
-  if (ctx.mode !== 'pending' && ctx.settlementIds.length) {
-    try {
-      const r = await markSettlementsPaidBulk(ctx.settlementIds, paidAt, memo);
-      done += r.paid;
-      if (r.skippedNoPaypal)   skipped.push(`PayPal 미등록 ${r.skippedNoPaypal}건`);
-      if (r.skippedNotPending) skipped.push(`이미 처리됨·보류·취소 ${r.skippedNotPending}건`);
-      if (r.notFound)          skipped.push(`사라진 건 ${r.notFound}건`);
-    } catch (e) { failed.push('정산대기 건: ' + friendlyError(e.message || e)); }
-  }
+  // ⚠️ 옛 일괄 송금완료(markSettlementsPaidBulk · registerPastSettlements 'paid')는 **이 창에서 더는 안 부른다.**
+  //    묶음이 한 번이라도 기록되면 서버가 그 경로를 payout_bundle_required 로 거부한다(486).
+  //    🔴 「정산대기 추가」 모드는 송금완료를 절대 먼저 찍지 않는다(전수조사 B-4) — 아래 분기가 먼저 끝난다.
 
   // ★ 「정산대기 추가」 모드 — 아직 안 보낸 건이라 송금일을 넘기지 않는다.
   //   ⚠️ 이 모드에는 페이팔 확인이 걸리지 않는다(돈을 보내는 것이 아니라 목록에 올리는 것뿐).
@@ -1083,36 +1477,17 @@ async function confirmSettlementBulkPay() {
     return;
   }
 
-  // ② 아직 정산 행이 없는 건 — 송금완료 상태로 새로 만든다
-  //    ⚠️ 한쪽이 실패해도 다른 쪽은 이미 처리됐을 수 있다. **되돌리지 않고 그대로 알린다** —
-  //       조용히 삼키면 「눌렀는데 절반만 됐다」를 아무도 모른다.
-  if (ctx.applicationIds.length) {
-    try {
-      const r = await registerPastSettlements(ctx.applicationIds, 'paid', memo, paidAt);
-      done += r.registered;
-      if (r.skippedNoPaypal) skipped.push(`PayPal 미등록 ${r.skippedNoPaypal}건(미등록분)`);
-      // ⚠️ 서버(339)는 후보에 없는 응모를 어느 건수에도 안 넣는다 — 고른 수와 대조해 알린다(B-5).
-      const _gone = _payoutUnaccounted(ctx.applicationIds, r);
-      if (_gone) skipped.push(`후보 아님(인증 성공 전·이미 등록·조건 변경 등) ${_gone}건`);
-    } catch (e) { failed.push('미등록 건: ' + friendlyError(e.message || e)); }
-  }
-
-  if (failed.length && !done) {
-    toast('기록 실패 — ' + failed.join(' / '), 'error');
-    if (btn) btn.disabled = false;
-    return;
-  }
-  const tail = []
-    .concat(skipped.length ? ['건너뜀 — ' + skipped.join(' · ')] : [])
-    .concat(failed.length  ? ['실패 — ' + failed.join(' / ')] : []);
-  toast(`${done}건을 송금완료로 기록했습니다.` + (tail.length ? ' ' + tail.join(' / ') : ''),
-        tail.length ? 'warn' : 'success');
+  // ② 송금완료 — 묶음 전부를 서버 한 번으로(record_settlement_transfers, 486).
+  //    정산 행이 있는 건과 없는 건이 한 묶음에 함께 들어간다. 하나라도 걸리면 아무것도 안 쓴다.
+  const ok = await _confirmBulkTransfers(ctx, memo, btn);
+  if (!ok) { if (btn) btn.disabled = false; return; }
 
   closeModal('settlementBulkPayModal');
   // 처리한 선택은 비운다 — 남겨 두면 「선택 3묶음 · 0건 · ¥0」 처럼 뜻 없는 줄이 남는다.
   //   ⚠️ 회차 상세로 돌아가는 경로는 openPayoutPersonList() 가 어차피 비우지만, 전 기간
   //      화면에서 처리하면 그 경로를 안 타므로 여기서 직접 비운다.
-  if (ctx.from === 'list') _settlementSelected.clear();
+  if (ctx.from === 'list' && ctx.single) ctx.settlementIds.forEach(function (id) { _settlementSelected.delete(id); });
+  else if (ctx.from === 'list') _settlementSelected.clear();
   else if (typeof _payoutSelected !== 'undefined' && _payoutSelected) _payoutSelected.clear();
   _bulkPayCtx = null;
   await _settlementRefreshKeepingView(ctx.from);
@@ -1727,6 +2102,7 @@ function pastUnregRegister(targetStatus) {
   _bulkPayCtx = {
     settlementIds: [],                 // 미등록 건은 정산 행이 아직 없다
     applicationIds: ids,
+    items: rows.map(_bulkItemFromUnregRow),
     mode: targetStatus === 'pending' ? 'pending' : 'paid',
     from: 'unreg',
     summaryHtml: `
@@ -2378,6 +2754,7 @@ function openPayoutSendOneModal(appId) {
   _bulkPayCtx = {
     settlementIds:  r.kind === 'settlement'   ? [r.settlementId]  : [],
     applicationIds: r.kind === 'unregistered' ? [r.applicationId] : [],
+    items: [_bulkItemFromPayoutRow(r)],
     from: 'payout',
     summaryHtml: `
       <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
@@ -2457,6 +2834,7 @@ function openPayoutSendModal(key) {
   _bulkPayCtx = {
     settlementIds:  usable.filter(function (r) { return r.kind === 'settlement';   }).map(function (r) { return r.settlementId; }),
     applicationIds: usable.filter(function (r) { return r.kind === 'unregistered'; }).map(function (r) { return r.applicationId; }),
+    items: usable.map(_bulkItemFromPayoutRow),
     from: 'payout',
     summaryHtml: `
       <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
@@ -2518,6 +2896,7 @@ function openPayoutSendSelectedModal() {
   _bulkPayCtx = {
     settlementIds:  usable.filter(function (r) { return r.kind === 'settlement';   }).map(function (r) { return r.settlementId; }),
     applicationIds: usable.filter(function (r) { return r.kind === 'unregistered'; }).map(function (r) { return r.applicationId; }),
+    items: usable.map(_bulkItemFromPayoutRow),
     from: 'payout',
     summaryHtml: `
       <div style="padding:12px 14px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">
