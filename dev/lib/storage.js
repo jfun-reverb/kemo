@@ -5898,7 +5898,7 @@ async function fetchSettlements(opts) {
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
-        cert_at, paid_amount_jpy,
+        cert_at, paid_amount_jpy, current_transfer_id,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -6242,6 +6242,145 @@ async function registerPastSettlements(applicationIds, targetStatus, memo, paidA
     skippedNoPaypal = (row?.skipped_no_paypal_count ?? 0);
   });
   return { registered: Number(registered) || 0, skippedNoPaypal: Number(skippedNoPaypal) || 0 };
+}
+
+// ── 송금 묶음·수수료 (마이그레이션 484·486·487) ──────────────────
+// 사양서 docs/specs/2026-09-30-settlement-transfer-fee-record.md · 작업표 「조각 9」
+// 조회 함수는 실패 **null**, 0건 **빈 배열** — 실패를 0건으로 넘기면 화면이 「기록 없음」으로 그린다.
+
+// 수수료 규칙 조회 — RPC get_settlement_fee_rule(484). 반환 {rate_percent, fixed_jpy, rounding,
+// updated_at, updated_by, updated_by_name, history[]} 또는 실패 시 null.
+async function fetchSettlementFeeRule() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_fee_rule');
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchSettlementFeeRule]', e); return null; }
+}
+
+// 수수료 규칙 저장 — RPC update_settlement_fee_rule(484). 서버가 반환한 jsonb 를 그대로 돌려준다.
+// 오류는 던진다(호출부가 friendlyError 로 안내).
+async function updateSettlementFeeRule(ratePercent, fixedJpy, rounding) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_settlement_fee_rule', {
+      p_rate_percent: Number(ratePercent),
+      p_fixed_jpy: Number(fixedJpy),
+      p_rounding: rounding
+    });
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+// 송금 묶음 기록 — RPC record_settlement_transfers(486). 페이팔 거래 1건 = 묶음 1개.
+// 반환: {ok:true, transferIds, settlementCount, feeTotal} 또는 {ok:false, failures} (failures 는 가공 없이 그대로).
+// ⚠️ ok:false 는 예외가 아니다 — 호출부가 반드시 ok 를 확인하고 failures 의 reason 별로 안내해야 한다.
+//    서버는 하나라도 걸리면 아무것도 쓰지 않는다. DB 오류는 다른 변경 함수처럼 던진다.
+async function recordSettlementTransfers(bundles) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('record_settlement_transfers', {p_bundles: bundles});
+    if (error) throw error;
+    result = data;
+  });
+  if (result && result.ok) {
+    return {
+      ok: true,
+      transferIds: result.transfer_ids || [],
+      settlementCount: Number(result.settlement_count) || 0,
+      feeTotal: Number(result.fee_total) || 0
+    };
+  }
+  return {ok: false, failures: (result && result.failures) || []};
+}
+
+// 송금 묶음 정정 — RPC correct_settlement_transfer(486). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
+// ⚠️ txnId·memo 는 서버에서 NULL = 「안 고침」, '' = 「비움」이다. 그래서 빈 문자열을
+//    null 로 바꾸지 않는다(다른 함수의 `x || null` 을 그대로 쓰면 「비우기」가 조용히 「안 고침」이 된다).
+//    undefined/null 만 null 로 보낸다.
+// ⚠️ sentAt·feeJpy 는 빈 값이면 null(안 고침). 수수료 0 은 유효한 값이다.
+async function correctSettlementTransfer(id, version, sentAt, feeJpy, txnId, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('correct_settlement_transfer', {
+      p_transfer_id: id,
+      p_version: version,
+      p_sent_at: sentAt || null,
+      p_fee_jpy: (feeJpy === 0 || feeJpy) ? Number(feeJpy) : null,
+      p_paypal_txn_id: (txnId === undefined || txnId === null) ? null : txnId,
+      p_memo: (memo === undefined || memo === null) ? null : memo
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 송금 묶음 목록 — RPC get_settlement_transfers(487, sent_at·id 순 정렬). from/to = 'YYYY-MM-DD' 또는 null.
+// 1,000행 상한 때문에 fetchAllPaged. 실패 null, 0건 [].
+async function fetchSettlementTransfers(from, to) {
+  if (!db) return null;
+  try {
+    return await fetchAllPaged(() => db.rpc('get_settlement_transfers', {
+      p_from: from || null,
+      p_to: to || null
+    }));
+  } catch(e) { console.error('[fetchSettlementTransfers]', e); return null; }
+}
+
+// 월별 송금 집계 — RPC get_settlement_transfer_monthly(487). 실패 null, 0건 [].
+async function fetchSettlementTransferMonthly(from, to) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_transfer_monthly', {
+      p_from: from || null,
+      p_to: to || null
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferMonthly]', e); return null; }
+}
+
+// 회차별 송금 집계 — RPC get_settlement_transfer_by_round(487). 실패 null, 0건 [].
+async function fetchSettlementTransferByRound(from, to) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_transfer_by_round', {
+      p_from: from || null,
+      p_to: to || null
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferByRound]', e); return null; }
+}
+
+// 송금 기록 없는 건 요약 — RPC get_settlement_transfer_unrecorded(487). 단일 행 객체, 실패·행 없음 null.
+async function fetchSettlementTransferUnrecorded() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_transfer_unrecorded');
+    if (error) throw error;
+    return (Array.isArray(data) ? data[0] : data) || null;
+  } catch(e) { console.error('[fetchSettlementTransferUnrecorded]', e); return null; }
+}
+
+// 확인 창 수수료 미리보기(마이그레이션 488). 묶음 합계 배열 → 같은 순서의 수수료 배열.
+//   ⚠️ 화면에 수수료 계산식을 두지 않으려고 서버에 묻는다(식은 486 `_settlement_fee_calc` 한 곳).
+//   ⚠️ **미리보기일 뿐** — 실제 기록 수수료는 저장 순간 서버가 다시 계산한다.
+//   반환: {rate_percent, fixed_jpy, rounding, fees:[…]} / 실패 null(화면은 「계산 못 함」, 0엔으로 그리지 않는다)
+async function previewSettlementFees(totals) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('preview_settlement_fees', {p_totals: (totals || []).map(n => Number(n) || 0)});
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[previewSettlementFees]', e); return null; }
 }
 
 // ── 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283 ──────────────────

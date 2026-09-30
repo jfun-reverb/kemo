@@ -133,6 +133,15 @@ function friendlyError(msg) {
   const s = String(msg);
   // 마이그레이션 251 — 정산 기록이 있는 대상 삭제 차단(사전 체크 트리거)
   if (s.includes('settlement_exists_cannot_delete')) return '정산 기록이 있어 삭제할 수 없습니다. 먼저 정산 관리 화면에서 상태를 확인해 주세요. [ERR_SETTLEMENT_EXISTS]';
+  // 마이그레이션 484~488 — 송금 묶음·수수료. ⚠️ 아래 일반 규칙(not found 등)보다 **먼저** 둔다
+  //   (「rule row missing」 같은 원문이 일반 규칙에 먼저 걸리면 엉뚱한 안내가 뜬다)
+  if (s.includes('payout_bundle_required')) return '송금 기록 방식이 바뀌었습니다. 화면을 새로 고친 뒤 다시 기록해 주세요. [ERR_PAYOUT_BUNDLE_REQUIRED]';
+  if (s.includes('paid_at_owned_by_transfer')) return '이 건의 송금일은 「송금 내역」에서 송금 단위로 고칩니다. [ERR_PAID_AT_OWNED_BY_TRANSFER]';
+  if (s.includes('fee_rule_invalid')) return '수수료 규칙 값이 올바르지 않습니다(비율 0~100%, 고정액 0엔 이상). [ERR_FEE_RULE_INVALID]';
+  if (s.includes('transfer_item_missing')) return '송금 묶음 연결이 맞지 않아 정정할 수 없습니다. 관리자에게 알려 주세요. [ERR_TRANSFER_ITEM_MISSING]';
+  if (s.includes('nothing_to_correct')) return '고칠 항목을 하나 이상 입력해 주세요. [ERR_NOTHING_TO_CORRECT]';
+  if (s.includes('sent_at_in_future')) return '송금일이 미래입니다. 실제로 보낸 날짜를 넣어 주세요. [ERR_SENT_AT_IN_FUTURE]';
+  if (/bundle_[a-z_]+/.test(s)) return '송금 묶음을 기록할 수 없습니다 — 화면을 새로 고친 뒤 다시 확인해 주세요. [ERR_BUNDLE_REJECTED]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
   if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
   if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
