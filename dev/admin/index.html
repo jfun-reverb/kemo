@@ -1711,6 +1711,12 @@
                 <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openTransferHistoryView()" title="실제로 보낸 페이팔 송금(묶음)과 수수료를 봅니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">receipt_long</span> 송금 내역
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="openSettlementFeeRuleModal()" title="송금 수수료 계산 규칙(비율·고정액·끝수 처리)을 보고 고칩니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">percent</span> 수수료 설정
+                </button>
                 <button class="btn btn-ghost btn-sm" onclick="openPayoutPrepView()" title="지급 예정일별로 얼마를 보내야 하는지 봅니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
                   지급 준비
@@ -1805,6 +1811,12 @@
                   <div style="font-size:18px;font-weight:800;color:var(--ink)">정산 관리</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openTransferHistoryView()" title="실제로 보낸 페이팔 송금(묶음)과 수수료를 봅니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">receipt_long</span> 송금 내역
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="openSettlementFeeRuleModal()" title="송금 수수료 계산 규칙(비율·고정액·끝수 처리)을 보고 고칩니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">percent</span> 수수료 설정
+                </button>
                 <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)" title="지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span> 사람으로 찾기
                 </button>
@@ -1819,6 +1831,36 @@
                    들어가 카드 여백을 안 받는데, 여기만 감싸개에 여백이 있어 표가 안쪽으로
                    밀려 보였다. 표는 여백 없이, 표 아닌 내용만 자기 여백을 갖는다. -->
               <div id="payoutSummaryBody"></div>
+            </div>
+          </div>
+
+
+          <!-- 「송금 내역」 뷰 (사양서 2026-09-30-settlement-transfer-fee-record.md D-4·D-5, 작업표 조각 14·15)
+               ⚠️ 네 화면(정산 목록·미등록·지급 준비·송금 내역)은 **서로 배타**다 — 켜는 함수마다 나머지를
+                  닫는 짝이 있다(admin-settlements.js `_hideTransferView`). 공용 필터 줄은 이 화면에 없다(사용자 결정). -->
+          <div id="settlementTransferView" style="display:none;flex-direction:column;flex:1;min-height:0">
+            <div class="admin-sticky-header">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <div style="font-size:18px;font-weight:800;color:var(--ink)">정산 관리</div>
+                  <div style="font-size:13px;color:var(--muted)">송금 내역 — 페이팔 송금 한 번 = 한 줄</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button class="btn btn-ghost btn-sm" onclick="openSettlementFeeRuleModal()" title="송금 수수료 계산 규칙을 보고 고칩니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">percent</span> 수수료 설정
+                  </button>
+                  <button class="btn btn-ghost btn-sm" onclick="openPayoutPrepView()" title="지급 예정일별로 얼마를 보내야 하는지 봅니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span> 지급 준비
+                  </button>
+                  <button class="btn btn-ghost btn-sm" onclick="closeTransferHistoryView(true)" title="건별 목록·상태 탭·개별 처리로 이동합니다">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px">list_alt</span> 정산 목록
+                  </button>
+                </div>
+              </div>
+              <div id="transferHistoryToolbar"></div>
+            </div>
+            <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
+              <div id="transferHistoryBody"></div>
             </div>
           </div>
 
