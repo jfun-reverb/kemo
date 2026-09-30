@@ -3676,6 +3676,12 @@ function _transferMonthlyHtml() {
   }, '송금일(일본 날짜) 기준입니다. 건수는 연결 건 기준(보류 해제로 끊긴 옛 송금도 실제로 나간 돈이라 포함).');
 }
 function _transferRoundHtml() {
+  // ⚠️ 기간을 넣으면 「지급일 기록 없음」(인증 성공일 없는 건) 줄이 빠진다 — 0건이어도 「보낸 것 없음」이 아니다
+  if (Array.isArray(_transferRound) && !_transferRound.length && (_transferFrom || _transferTo)) {
+    return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">'
+      + '이 기간(회차 날짜 기준)에 해당하는 송금이 없습니다.<br>'
+      + '인증 성공일이 없는 건은 「지급일 기록 없음」으로 따로 모이는데, 그 줄은 <b>「전체 기간」에서만</b> 보입니다.</div>';
+  }
   return _transferSummaryTableHtml(_transferRound, '원래 지급 예정일(회차)', function (r) {
     return r.due_date ? esc(r.due_date) : '<span style="color:var(--muted)">지급일 기록 없음</span>';
   }, '보낸 금액은 <b>각 건의 원래 회차</b>에, 수수료는 <b>묶음 안 가장 늦은 회차에 통째로</b> 들어갑니다. 송금일 기준 합계는 「월별」에서 보세요.<br>⚠️ 기간은 <b>회차 날짜</b>로 거르므로 기간을 넣으면 월별·목록 합계와 다를 수 있습니다 — <b>「전체 기간」에서는 셋이 같습니다.</b> 「지급일 기록 없음」 줄은 전체 기간에서만 보입니다.');
