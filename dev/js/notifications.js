@@ -228,11 +228,10 @@ async function refreshNotifBadge(opts) {
   if (!force && now - _notifLastFetchAt < _NOTIF_STALE_MS) return;
   _notifLastFetchAt = now;
   // 관리자라도 본인 알림은 받아야 하므로 숨기지 않음 (본인이 인플루언서로도 활동 가능)
-  let unread = 0;
-  try {
-    const items = await fetchMyNotifications({unreadOnly: true, limit: 30});
-    unread = items.length;
-  } catch(e) {}
+  //   건수만 센다(countMyUnreadNotifications) — 30초마다 목록을 통째로 받지 않게(2026-09-30).
+  //   ⚠️ 조회 실패(null)면 직전 숫자를 그대로 둔다 — 예전엔 실패하면 0 으로 배지가 꺼졌다.
+  const unread = await countMyUnreadNotifications(currentUser.id);
+  if (unread === null) { applyNotifBadge(_lastUnread); return; }
   _lastUnread = unread;
   applyNotifBadge(unread);
 }
@@ -373,18 +372,22 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   활동관리는 신청 id + 캠페인 id 가 둘 다 필요한데 알림에는 캠페인 id 가 없어 그 한 건만 조회한다
   //   (행 단위 보안 정책상 본인 신청만 보이므로 남의 것을 열 수는 없다).
   if (kind === 'submission_deadline_changed' && refId && currentUser) {
+    // 「지금 못 읽었다」(조회 실패)와 「참조가 사라졌다」(0건)를 가른다 — 실패면 알림을 지우지 않는다
+    //   (2026-09-30. 예전엔 오류를 삼켜 일시적 통신 실패만으로 알림이 영구 삭제됐다).
+    let _app = null;
     try {
-      const {data: _app} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
-      if (_app) {
-        openActivityPage(_app.id, _app.campaign_id, 'mypage');
-        refreshNotifBadge();
-        return;
-      }
+      const {data, error} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
+      if (error) throw error;
+      _app = data;
     } catch(e) {
-      // ⚠️ 여기서 조회가 **일시적으로** 실패해도 아래에서 알림을 영구 삭제한다.
-      //    (「참조가 사라졌다」와 「지금 못 읽었다」를 구분하지 않는다 — 동작 개선은 후속,
-      //     지금은 그런 일이 실제로 일어나는지 볼 수 있게 기록부터 남긴다.)
       logAppError('notifClick.applicationRef', e);
+      toast(t('notif.refLoadFailed'), 'error');
+      return;
+    }
+    if (_app) {
+      openActivityPage(_app.id, _app.campaign_id, 'mypage');
+      refreshNotifBadge();
+      return;
     }
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
@@ -402,17 +405,20 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   }
   // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
+    // 가리키는 결과물 한 건만 조회한다(예전엔 본인 결과물 전체를 받았다 — 2026-09-30).
+    //   ⚠️ 실패(throw)와 0건(null)을 가른다 — 실패면 알림을 지우지 않는다(위 마감일 변경 알림과 같은 이유).
+    let hit = null;
     try {
-      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
-      const hit = delivs.find(d => d.id === refId);
-      if (hit) {
-        openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
-        refreshNotifBadge();
-        return;
-      }
+      hit = await fetchMyDeliverableRef(refId);
     } catch(e) {
-      // ⚠️ 위와 같은 자리 — 일시적 조회 실패도 알림 영구 삭제로 이어진다(후속 개선 대상).
       logAppError('notifClick.deliverableRef', e);
+      toast(t('notif.refLoadFailed'), 'error');
+      return;
+    }
+    if (hit) {
+      openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
+      refreshNotifBadge();
+      return;
     }
     // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
     await deleteNotification(id);

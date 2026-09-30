@@ -111,12 +111,19 @@ const APP_STATUS_GROUPS = {
 
 async function loadMyApplications() {
   if (!currentUser) return;
-  if (db) {
-    const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
-    _myApps = data || [];
-  }
-  // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지
-  allCampaigns = await fetchCampaigns();
+  // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지.
+  //   2026-09-30: 신청 조회와 **동시에** 보내고, 받아 둔 목록이 있으면 그것으로 먼저 그린 뒤
+  //   뒤에서 새로 받아 바뀐 게 있으면 응모이력을 다시 그린다(getCampaignsCached, campaign.js).
+  const [appsRes, camps] = await Promise.all([
+    db ? db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false}) : null,
+    getCampaignsCached(() => {
+      if (!$('page-mypage')?.classList.contains('active')) return;
+      renderMyApplyTabs();
+      renderMyApplyList();
+    }),
+  ]);
+  if (db) _myApps = (appsRes && appsRes.data) || [];
+  allCampaigns = camps;
   renderMyApplyTabs();
   // ⚠️ 반드시 기다린다 — renderMyApplyList 안에서 결과물 캐시(_myDelivsByApp)를 채운다.
   //   안 기다리면 이 함수를 await 한 쪽은 캐시가 빈 채로 다음 화면을 그린다.
@@ -1297,6 +1304,8 @@ async function submitCancelApplicationFromPage() {
       });
     });
   if (!res) return;   // 이미 실행 중이라 무시됨
+  // 신청 인원이 바뀌었을 수 있다 — 다음 화면 이동은 보관분 대신 새로 받은 목록으로(campaign.js)
+  if (typeof invalidateCampaignsCache === 'function') invalidateCampaignsCache();
   if (!res.ok) {
     // 데드락 자동 복구: 화면은 간단(recruit) 모드인데 서버가 사유·동의를 요구하면
     // 클라이언트/서버 단계 판정이 엇갈린 것. 사유 입력란을 펼쳐 재입력받는다.

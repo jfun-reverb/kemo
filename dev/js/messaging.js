@@ -275,7 +275,7 @@ async function openInquiryPage(from, pushHistory) {
   if (from !== 'back') _inqTab = 'app';
   if (navigate('inquiry', pushHistory) === false) return;
   if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
-    try { allCampaigns = await fetchCampaigns(); } catch (_e) {}
+    try { allCampaigns = await getCampaignsCached(); } catch (_e) {}
   }
   renderInquiryBranch();
 }

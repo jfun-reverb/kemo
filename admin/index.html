@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790738846';
+  var CURRENT_BUILD = 'v1790748512';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3283,7 +3283,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-30 12:27 · 9a0e021</span>
+          <span class="admin-build-text">2026-09-30 15:08 · fdd8b85</span>
         </div>
       </div>
     </aside>
@@ -10587,6 +10587,57 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
   return all;
 }
 
+// 목록을 size 개씩 자른다 — 번호 목록을 .in() 으로 보낼 때 주소 길이를 넘지 않게.
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// items 를 최대 limit 개씩 **동시에** fn 으로 처리한다. 결과는 items 순서 그대로.
+//   하나라도 throw 하면 전체가 reject 된다 — 「조각 하나 실패 = 통째로 실패」 규약은 그대로 지켜진다.
+//   ⚠️ 조각마다 실패를 건너뛰어야 하는 곳은 fn 안에서 직접 잡아야 한다(fetchMessagePreviews).
+//   ⚠️ limit 를 크게 잡지 말 것 — 운영 데이터베이스가 가장 작은 사양이라 동시 요청이 몰리면 전부 느려진다.
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({length: n}, worker));
+  return out;
+}
+
+// fetchAllPaged 와 결과가 같되, 둘째 페이지부터는 concurrency 개씩 **동시에** 받는다.
+//   🔴 쓸 수 있는 조건 — ①일반 표 조회일 것(db.rpc 는 페이지마다 함수 전체가 다시 돌아
+//      동시에 부르면 서버 부하가 몰린다) ②.order() 가 **고유 순서**일 것(마지막에 .order('id')).
+//      순서가 고유하지 않으면 페이지 경계에서 행이 겹치거나 빠진다 — 이건 fetchAllPaged 도 같다.
+//   ⚠️ 1,000건이 안 되면 첫 요청 하나로 끝난다(추가 요청 없음). 짧은 페이지를 만나면 거기서 멈춘다.
+async function fetchAllPagedFast(buildQuery, opts) {
+  const pageSize = (opts && opts.pageSize) || 1000;
+  const concurrency = (opts && opts.concurrency) || 4;
+  const first = await buildQuery().range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  const all = (first.data || []).slice();
+  if (all.length < pageSize) return all;
+  let from = pageSize;
+  while (true) {
+    const starts = Array.from({length: concurrency}, (_, k) => from + k * pageSize);
+    const pages = await Promise.all(starts.map(s => buildQuery().range(s, s + pageSize - 1)));
+    for (const p of pages) {
+      if (p.error) throw p.error;
+      const d = p.data || [];
+      all.push(...d);
+      if (d.length < pageSize) return all;
+    }
+    from += concurrency * pageSize;
+  }
+}
+
 // ── Campaigns ──
 // 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
 // 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
@@ -11250,8 +11301,9 @@ async function fetchInfluencers(opts = {}) {
   if (!db) return [];
   const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() => {
-      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true});
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
+      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true}).order('id');
       if (!includeAudit) q = q.eq('is_audit', false);
       return q;
     });
@@ -11531,12 +11583,13 @@ async function updateInfluencer(userId, updates) {
 async function fetchApplications(filters) {
   if (!db) return [];
   try {
-    return await fetchAllPaged(() => {
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
       let q = db.from('applications').select('*');
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) {
     return [];
@@ -11685,7 +11738,9 @@ async function fetchPendingApplicationCount() {
 //   fetchDeliverablesByCampaignIds → 실패에 null, 0건에 []  (운영현황 일정 뷰, 2026-09-07)
 // opts.skipInfluencers — 인플루언서 이름이 필요 없는 집계용이면 회원 조회를 건너뛴다.
 async function _queryDeliverables(filters, opts) {
-    const data = await fetchAllPaged(() => {
+    // 결과물은 수천 건이라 페이지를 동시에 받는다(fetchAllPagedFast). 정렬 끝의 .order('id') 는
+    //    필수 — 수정 시각이 같은 행이 페이지 경계에 걸리면 한 건이 겹치거나 빠진다(2026-09-30).
+    const data = await fetchAllPagedFast(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
         receipt_url, order_number, purchase_date, purchase_amount, memo,
@@ -11706,8 +11761,8 @@ async function _queryDeliverables(filters, opts) {
       // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
       if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
       else q = q.order('updated_at', {ascending: false});
-      return q;
-    });
+      return q.order('id');
+    }, {concurrency: 2});   // 캠페인·신청을 끼워 넣은 무거운 조회라 동시 2개까지(운영 데이터베이스 메모리 여유가 없다)
     if (opts?.skipInfluencers) return data;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
     const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
@@ -11725,7 +11780,7 @@ async function fetchDeliverables(filters) {
 // 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
 //   🔴 실패는 null, 0건은 []. 위 fetchDeliverables 와 규약이 다르다 — 그 화면은
 //      「서버에 못 물어봤다」와 「낸 사람이 없다」를 구분해 그려야 한다(마이그레이션 276 원칙).
-//   ⚠️ id 는 200개 단위로 잘라 **차례로** 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다).
+//   ⚠️ id 는 200개 단위로 잘라 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다) — 최대 4조각 동시.
 //      조각 하나라도 실패하면 **통째로 null** — 성공한 조각만 합치면 0건과 구분되지 않는
 //      낮은 숫자가 그려진다.
 const DELIV_CAMPAIGN_ID_CHUNK = 200;
@@ -11735,12 +11790,10 @@ async function fetchDeliverablesByCampaignIds(campaignIds, opts) {
   if (!ids.length) return [];
   const chunk = (opts && opts.chunkSize) || DELIV_CAMPAIGN_ID_CHUNK;
   try {
-    const out = [];
-    for (let i = 0; i < ids.length; i += chunk) {
-      const part = await _queryDeliverables({ campaignIds: ids.slice(i, i + chunk) }, { skipInfluencers: true });
-      out.push(...part);
-    }
-    return out;
+    // 조각은 최대 4개씩 동시에 — 하나라도 실패하면 mapLimit 가 reject → 아래 catch 에서 통째로 null.
+    const parts = await mapLimit(chunkArray(ids, chunk), 4,
+      (slice) => _queryDeliverables({ campaignIds: slice }, { skipInfluencers: true }));
+    return [].concat(...parts);
   } catch(e) { console.error('[fetchDeliverablesByCampaignIds]', e); return null; }
 }
 
@@ -11782,6 +11835,39 @@ async function fetchMyNotifications(opts) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchMyNotifications]', e); logAppError('fetchMyNotifications', e); return []; }
+}
+
+// 미읽음 알림 **건수만** — 30초마다 도는 배지 갱신용(2026-09-30). 예전에는 배지 하나를 위해
+//   알림 목록을 통째로 받고 그때마다 로그인 서버에도 한 번 더 물었다.
+//   🔴 제외 조건(정산 알림 2종)은 위 fetchMyNotifications 와 **글자 그대로 같아야** 한다 —
+//      다르면 「배지 숫자는 있는데 목록은 비어있음」이 된다.
+//   ⚠️ 실패는 null, 0건은 0 — 부르는 쪽이 실패면 직전 숫자를 유지한다(예전엔 실패하면 배지가 꺼졌다).
+//   ⚠️ 오프라인이면 30초마다 실패하므로 오류 기록(logAppError)은 남기지 않는다.
+async function countMyUnreadNotifications(uid) {
+  if (!db || !uid) return null;
+  try {
+    const {count, error} = await db.from('notifications')
+      .select('id', {count: 'exact', head: true})
+      .eq('user_id', uid)
+      .not('kind', 'in', '(settlement_paid,settlement_paypal_required)')
+      .is('read_at', null);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('[countMyUnreadNotifications]', e); return null; }
+}
+
+// 알림이 가리키는 결과물 한 건 — 알림을 눌렀을 때 활동관리로 보내기 위해(2026-09-30).
+//   예전에는 이 한 건을 찾으려고 본인 결과물 전체를 받았다.
+//   🔴 **실패는 throw, 없으면 null** — 부르는 쪽이 「지금 못 읽었다」와 「참조가 사라졌다」를
+//      갈라야 한다. 합치면 일시적 통신 실패만으로 알림이 영구 삭제된다(실제로 그랬다).
+async function fetchMyDeliverableRef(deliverableId) {
+  if (!db || !deliverableId) return null;
+  const {data, error} = await db.from('deliverables')
+    .select('id, application_id, campaign_id')
+    .eq('id', deliverableId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 // 알림 1건 읽음 처리
@@ -12283,15 +12369,17 @@ async function fetchInfluencersByIds(userIds) {
     // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
     //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
     //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    //    조각은 최대 4개씩 동시에 받는다(mapLimit) — 하나라도 실패하면 종전처럼 {} .
     const ids = [...new Set(userIds)];
     const map = {};
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(inf => { map[inf.id] = inf; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(inf => { map[inf.id] = inf; }));
     return map;
   } catch(e) { return {}; }
 }
@@ -12313,13 +12401,14 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, paypal_email')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) {
     console.warn('[fetchPayoutInfluencerInfo]', e);
@@ -12453,13 +12542,14 @@ async function fetchInfluencersForReport(userIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
 }
@@ -15175,20 +15265,19 @@ async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
   const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
-  for (let i = 0; i < applicationIds.length; i += CHUNK) {
-    const ids = applicationIds.slice(i, i + CHUNK);
-    let data;
+  // 청크는 최대 4개씩 동시에. ⚠️ 실패한 청크만 건너뛰는 종전 규약을 지키려고 fn 안에서 잡는다.
+  const parts = await mapLimit(chunkArray(applicationIds, CHUNK), 4, async (ids) => {
     try {
-      data = await fetchAllPaged(() => db.from('application_messages')
+      return await fetchAllPaged(() => db.from('application_messages')
         .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
         .in('application_id', ids)
         .is('hidden_by_admin_at', null)
         .is('self_withdrawn_at', null)
         .order('created_at', { ascending: false })
         .order('id'));
-    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
-    (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
-  }
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); return []; }
+  });
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); }));
   return map;
 }
 
@@ -15394,21 +15483,19 @@ async function fetchGeneralInquiryPreviews(influencerIds) {
   const map = new Map();
   if (!influencerIds || !influencerIds.length) return map;
   const CHUNK = 100;
-  for (let i = 0; i < influencerIds.length; i += CHUNK) {
-    const ids = influencerIds.slice(i, i + CHUNK);
-    let data;
-    try {
-      data = await fetchAllPaged(() => db.from('application_messages')
-        .select('influencer_id, body, body_translated, translate_status, sender_kind, created_at')
-        .is('application_id', null)
-        .in('influencer_id', ids)
-        .is('hidden_by_admin_at', null)
-        .is('self_withdrawn_at', null)
-        .order('created_at', { ascending: false })
-        .order('id'));
-    } catch (e) { console.warn('[fetchGeneralInquiryPreviews]', e); return null; }
-    (data || []).forEach(m => { if (!map.has(m.influencer_id)) map.set(m.influencer_id, m); });
-  }
+  // 청크는 최대 4개씩 동시에 — 하나라도 실패하면 종전처럼 통째로 null.
+  let parts;
+  try {
+    parts = await mapLimit(chunkArray(influencerIds, CHUNK), 4, (ids) => fetchAllPaged(() => db.from('application_messages')
+      .select('influencer_id, body, body_translated, translate_status, sender_kind, created_at')
+      .is('application_id', null)
+      .in('influencer_id', ids)
+      .is('hidden_by_admin_at', null)
+      .is('self_withdrawn_at', null)
+      .order('created_at', { ascending: false })
+      .order('id')));
+  } catch (e) { console.warn('[fetchGeneralInquiryPreviews]', e); return null; }
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.influencer_id)) map.set(m.influencer_id, m); }));
   return map;
 }
 
@@ -19246,13 +19333,51 @@ const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
 //   (2026-09-03 리포트 화면 요청). 안 주면 종전대로 「이미지 보기」. 기존 호출부(1인자)는 그대로다.
 // 여러 장 넘기기 상태 — openImageGallery 로 열었을 때만 산다. { urls, i, base }
 let _lbGallery = null;
+// 불러오기 순번 — 원본이 늦게 도착했을 때 그사이 다른 사진으로 넘겼거나 창을 닫았으면 버린다.
+let _lbLoadSeq = 0;
+
+// 확대 창에 사진을 넣는다 — 목록에서 이미 받아 둔 썸네일을 즉시 띄우고, 원본은 뒤에서 받아
+//   도착하면 바꿔 끼운다(2026-09-30 — 원본 1~3MB 를 처음부터 받느라 창이 한참 비어 있었다).
+//   썸네일이 없는 사진(옛 파일·비공개 통·외부 주소)은 storageThumbUrl 이 원본을 그대로 주거나
+//   onerror 로 원본에 폴백한다.
+function _lbSetImage(url) {
+  const img = $('imageLightboxImg');
+  if (!img) return;
+  const seq = ++_lbLoadSeq;
+  img.onerror = null;
+  const thumb = (typeof storageThumbUrl === 'function') ? storageThumbUrl(url) : url;
+  if (!thumb || thumb === url) { img.src = url; return; }
+  img.onerror = function() { img.onerror = null; if (seq === _lbLoadSeq) img.src = url; };
+  img.src = thumb;
+  const full = new Image();
+  full.onload = function() {
+    if (seq !== _lbLoadSeq) return;
+    // ESC 는 ui.js 공통 처리로 닫혀 closeImageLightbox 를 안 거친다 — 열려 있는지도 본다
+    const lb = $('imageLightbox');
+    if (!lb || !lb.classList.contains('open')) return;
+    img.onerror = null;
+    img.src = url;
+  };
+  full.src = url;
+}
+
+// 검수 창 안의 큰 사진 — 썸네일(src)이 뜬 뒤 원본(data-orig)을 뒤에서 받아 바꿔 끼운다.
+//   담당자가 주문번호·금액을 읽는 자리라 결국 원본으로 바뀌어야 한다(2026-09-30 사용자 결정 — 표시 없이 자동 교체).
+//   onload 에서 부른다. 원본으로 바뀐 뒤 다시 불려도 data-upgraded 로 한 번만 돈다.
+function _imgUpgradeToOrig(img) {
+  const orig = img && img.dataset && img.dataset.orig;
+  if (!orig || img.dataset.upgraded || img.src === orig) return;
+  img.dataset.upgraded = '1';
+  const full = new Image();
+  full.onload = function() { if (img.isConnected) img.src = orig; };
+  full.src = orig;
+}
 
 function openImageLightbox(url, caption) {
   if (!url) return;
   _lbGallery = null;                    // 한 장 열기 — 화살표 숨김
   _lbSyncNav();
-  const img = $('imageLightboxImg');
-  if (img) img.src = url;
+  _lbSetImage(url);
   const ttl = $('imageLightboxTitle');
   if (ttl) ttl.textContent = caption || '이미지 보기';
   _lbZoom = 1;            // 열 때마다 배율 초기화
@@ -19270,8 +19395,7 @@ function openImageGallery(urls, startIndex, base) {
 }
 function _lbShowCurrent() {
   const g = _lbGallery; if (!g) return;
-  const img = $('imageLightboxImg');
-  if (img) img.src = g.urls[g.i];
+  _lbSetImage(g.urls[g.i]);
   const ttl = $('imageLightboxTitle');
   if (ttl) ttl.textContent = (g.base ? g.base + ' ' : '') + '사진 ' + (g.i + 1) + '/' + g.urls.length;
   _lbZoom = 1; applyLightboxZoom();
@@ -19300,8 +19424,9 @@ document.addEventListener('keydown', function(e) {
 function closeImageLightbox() {
   closeModal('imageLightbox');
   _lbGallery = null; _lbSyncNav();
+  _lbLoadSeq++;   // 받는 중이던 원본이 뒤늦게 도착해도 바꿔 끼우지 않게
   const img = $('imageLightboxImg');
-  if (img) img.src = '';
+  if (img) { img.onerror = null; img.src = ''; }
 }
 // 이미지 배율 적용 — 1배는 창에 맞춤(contain), 1배 초과는 width %로 키우고 넘치면 modal-body 스크롤
 function applyLightboxZoom() {
@@ -33981,20 +34106,46 @@ function toggleDelivSearch() {
   else if (input && input.value) { input.value = ''; renderDeliverablesList(); }
 }
 
+// 그리기 호출 번호 — 조회를 동시에 보내면서, 필터를 빨리 바꿀 때 늦게 도착한 옛 결과가
+//   새 목록을 덮지 못하게 한다(2026-09-30).
+let _delivRenderSeq = 0;
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   _delivVisibleGroups = null;
   tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
-  await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  const seq = ++_delivRenderSeq;
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
-  // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
-  let channelLookup = [];
-  try { channelLookup = await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
+  const includeMissing = !!$('delivIncludeMissing')?.checked;
 
-  // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
-  const campsForFilter = await fetchCampaigns().catch(() => []);
+  // 서로 기다릴 필요 없는 조회는 한꺼번에 보낸다(2026-09-30 — 하나씩 차례로 받아 약 5.5초 걸렸다).
+  //   · 채널 라벨 캐시(fetchLookups) — monitor 채널별 미니 행·검수 모달 패널 제목의 getLookupLabel 용.
+  //     실패해도 코드 그대로 보일 뿐이라 [] 로 넘긴다.
+  //   · 미제출 토글 ON 이면 당첨된(approved) 신청도 — deliverable 0건 행 노출용.
+  //   · 「올려두고 미제출」 표시용 조회는 판정에 안 쓰인다(작업 7).
+  //     ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
+  //        0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
+  const [, channelLookup, campsForFilter, allDelivs, approvedApps, stalledDraftApps] = await Promise.all([
+    loadApplicantMsgUnread(),  // 응모건 메시지 본인 미열람 배지 맵
+    fetchLookups('channel').catch(() => []),
+    fetchCampaigns().catch(() => []),
+    // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
+    fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'}),
+    includeMissing ? fetchApplications({status: 'approved'}) : Promise.resolve([]),
+    fetchStalledDraftApplications(),
+  ]);
+  let infMissingMap = {};
+  if (includeMissing) {
+    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
+    infMissingMap = await fetchInfluencersByIds(userIds);
+  }
+  // 그사이 필터를 또 바꿔 새 그리기가 시작됐으면 이 결과는 버린다 — 늦게 온 옛 응답이 새 목록을 덮지 않게.
+  if (seq !== _delivRenderSeq) return;
+  _delivCache = allDelivs;
+  _delivStalledDraftApps = stalledDraftApps;
+
+  // 캠페인 리스트 + 모집타입↔캠페인 캐스케이드
   const sortedCampsForFilter = campsForFilter.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
   const recruitTypeVals = getMultiFilterValues('delivRecruitTypeMulti');
@@ -34015,27 +34166,8 @@ async function renderDeliverablesList() {
   //   전체 탭은 검수 불필요를 포함해 보여준다(과거 「검수 불필요 포함」 토글 기본 ON 동작을 계승). 특정 탭은 그 상태만.
   const certTab = _delivCertTab || '';
   const delivCampVals = getMultiFilterValues('delivCampMulti');
-  const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
-
-  // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
-  const allDelivs = await fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'});
-  _delivCache = allDelivs;
-
-  // 미제출 토글 ON 시 당첨된(approved) 신청도 fetch — deliverable 0건 행 노출
-  let approvedApps = [];
-  let infMissingMap = {};
-  if (includeMissing) {
-    approvedApps = await fetchApplications({status: 'approved'});
-    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
-    infMissingMap = await fetchInfluencersByIds(userIds);
-  }
-
-  // 「올려두고 미제출」 표시용 별도 조회 — 판정에는 안 쓰인다(작업 7).
-  //   ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
-  //      0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
-  _delivStalledDraftApps = await fetchStalledDraftApplications();
 
   // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
   //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
@@ -34948,7 +35080,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+            ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -35841,7 +35973,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
-        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+        ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)

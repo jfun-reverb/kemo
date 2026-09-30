@@ -261,20 +261,46 @@ function toggleDelivSearch() {
   else if (input && input.value) { input.value = ''; renderDeliverablesList(); }
 }
 
+// 그리기 호출 번호 — 조회를 동시에 보내면서, 필터를 빨리 바꿀 때 늦게 도착한 옛 결과가
+//   새 목록을 덮지 못하게 한다(2026-09-30).
+let _delivRenderSeq = 0;
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   _delivVisibleGroups = null;
   tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
-  await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  const seq = ++_delivRenderSeq;
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
-  // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
-  let channelLookup = [];
-  try { channelLookup = await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
+  const includeMissing = !!$('delivIncludeMissing')?.checked;
 
-  // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
-  const campsForFilter = await fetchCampaigns().catch(() => []);
+  // 서로 기다릴 필요 없는 조회는 한꺼번에 보낸다(2026-09-30 — 하나씩 차례로 받아 약 5.5초 걸렸다).
+  //   · 채널 라벨 캐시(fetchLookups) — monitor 채널별 미니 행·검수 모달 패널 제목의 getLookupLabel 용.
+  //     실패해도 코드 그대로 보일 뿐이라 [] 로 넘긴다.
+  //   · 미제출 토글 ON 이면 당첨된(approved) 신청도 — deliverable 0건 행 노출용.
+  //   · 「올려두고 미제출」 표시용 조회는 판정에 안 쓰인다(작업 7).
+  //     ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
+  //        0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
+  const [, channelLookup, campsForFilter, allDelivs, approvedApps, stalledDraftApps] = await Promise.all([
+    loadApplicantMsgUnread(),  // 응모건 메시지 본인 미열람 배지 맵
+    fetchLookups('channel').catch(() => []),
+    fetchCampaigns().catch(() => []),
+    // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
+    fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'}),
+    includeMissing ? fetchApplications({status: 'approved'}) : Promise.resolve([]),
+    fetchStalledDraftApplications(),
+  ]);
+  let infMissingMap = {};
+  if (includeMissing) {
+    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
+    infMissingMap = await fetchInfluencersByIds(userIds);
+  }
+  // 그사이 필터를 또 바꿔 새 그리기가 시작됐으면 이 결과는 버린다 — 늦게 온 옛 응답이 새 목록을 덮지 않게.
+  if (seq !== _delivRenderSeq) return;
+  _delivCache = allDelivs;
+  _delivStalledDraftApps = stalledDraftApps;
+
+  // 캠페인 리스트 + 모집타입↔캠페인 캐스케이드
   const sortedCampsForFilter = campsForFilter.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
   const recruitTypeVals = getMultiFilterValues('delivRecruitTypeMulti');
@@ -295,27 +321,8 @@ async function renderDeliverablesList() {
   //   전체 탭은 검수 불필요를 포함해 보여준다(과거 「검수 불필요 포함」 토글 기본 ON 동작을 계승). 특정 탭은 그 상태만.
   const certTab = _delivCertTab || '';
   const delivCampVals = getMultiFilterValues('delivCampMulti');
-  const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
-
-  // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
-  const allDelivs = await fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'});
-  _delivCache = allDelivs;
-
-  // 미제출 토글 ON 시 당첨된(approved) 신청도 fetch — deliverable 0건 행 노출
-  let approvedApps = [];
-  let infMissingMap = {};
-  if (includeMissing) {
-    approvedApps = await fetchApplications({status: 'approved'});
-    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
-    infMissingMap = await fetchInfluencersByIds(userIds);
-  }
-
-  // 「올려두고 미제출」 표시용 별도 조회 — 판정에는 안 쓰인다(작업 7).
-  //   ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
-  //      0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
-  _delivStalledDraftApps = await fetchStalledDraftApplications();
 
   // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
   //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
@@ -1228,7 +1235,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+            ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -2121,7 +2128,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
-        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+        ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
