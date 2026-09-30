@@ -259,7 +259,7 @@ async function loadSettlements() {
   //   ⚠️ 그 전에는 정산 목록의 「정산대기」 탭으로 열렸는데, 자동 등록이 꺼져 있어
   //      **정산대기가 구조적으로 0건**이라 들어올 때마다 빈 화면이 보였다.
   //      지급 준비는 「이번 달에 누구에게 얼마 보내나」에 답하는 화면이고 실제 데이터가 있다.
-  //   ⚠️ 돌아가는 길은 그 화면 상단의 「← 정산 목록」 버튼이다(closePayoutPrepView).
+  //   ⚠️ 다른 화면으로 가는 길은 페인 맨 위 탭 줄(settlementNavBar — openSettlementTab)이다.
   //   ⚠️ 조회 실패해도 화면 전환은 그대로 둔다 — 그 화면이 실패를 스스로 알린다.
   //   ⚠️ 다만 **부르는 쪽이 열 화면을 지정했으면 그쪽을 따른다**(`_settlementEntryView`).
   //      사이드바의 배지·경고 표시처럼 「이 목록을 보여 달라」고 들어오는 경로가 있는데,
@@ -412,6 +412,7 @@ function showUnregisteredTab() {
     main.style.flex = '0 0 auto';
   }
   renderSettlementStatusTabs();
+  refreshSettlementNav();
   loadPastUnregSettlements();
 }
 
@@ -424,8 +425,7 @@ function applySettlementSharedFilterMode(isUnregistered) {
   if (typeGroup) typeGroup.style.display = isUnregistered ? '' : 'none';
   const resetBtn = $('settlementResetBtn');
   if (resetBtn) resetBtn.style.display = isUnregistered ? '' : 'none';
-  const excelBtn = $('settlementExcelBtn');
-  if (excelBtn) excelBtn.style.display = isUnregistered ? 'none' : '';
+  // 「엑셀」 표시는 refreshSettlementNav() 가 정한다(탭 줄로 옮겨 목록 탭에서만 보인다).
   if (!isUnregistered) {
     const typeEl = $('settlementTypeFilter');
     if (typeEl) typeEl.value = '';
@@ -446,6 +446,7 @@ function hideUnregisteredTab() {
   }
   const listCard = $('settlementListCard');
   if (listCard) listCard.style.display = '';
+  refreshSettlementNav();
 }
 
 // (미등록 탭 아래 안내 한 줄은 없앴다 — 2026-08-19 사용자 요청. 도입일 유무로 문구를 갈라
@@ -1520,6 +1521,7 @@ async function confirmSettlementBulkPay() {
 //      자리를 다시 찾아 들어가야 한다.
 async function _settlementRefreshKeepingView(from) {
   const due = _payoutDueFilter;           // 지급 준비에서 보던 회차(없으면 요약 화면)
+  const wasPersonTab = _payoutSubView === 'person' && !due;   // 「사람별」 탭(전 기간)에서 처리했나
   await refreshPane('settlements');
   // ★ 미등록 탭에서 처리한 경우 — **그 목록을 다시 불러온다.** 안 하면 방금 처리한 건이
   //   목록에 그대로 남아 「처리가 안 됐나」로 읽히고, 다시 골라 누르게 된다(중복 처리 시도).
@@ -1530,7 +1532,9 @@ async function _settlementRefreshKeepingView(from) {
     return;
   }
   if (from !== 'payout') return;          // 목록 경로는 목록만 다시 그리면 된다
-  await openPayoutPrepView();             // _payoutRows 재계산 + 요약 재렌더
+  // ⚠️ 「사람별」 탭에서 처리했으면 **그 탭으로** 돌아온다 — 요약으로 튕기면 탭 표시까지 바뀌어
+  //    「어디로 갔지」가 된다. 검색어는 openPayoutPrepView 가 비우지 않아 그대로 남는다.
+  await openPayoutPrepView(wasPersonTab); // _payoutRows 재계산 + 요약(또는 사람별) 재렌더
   if (due) await openPayoutPersonList(due);
   // ⚠️ 지급 준비에서 **미등록 건을 송금완료로 기록**하면 미등록 건수가 실제로 준다(전수조사 F-2).
   //    위 미등록 경로만 갱신하던 때는 주 동선(지급 준비)에서 처리해도 「미등록」 탭 건수와
@@ -2157,6 +2161,14 @@ function _payoutMonthOf(dueStr) { return dueStr ? String(dueStr).slice(0, 7) : n
 //   (전수조사 F-3). `settlementEffectiveAmount` 가 그 행에 0 을 주므로 그냥 그리면 「¥0」이 되고,
 //   합계에서는 조용히 빠져 지급대장 대조 금액이 낮게 나온다. 같은 행이 미등록 탭에서는 빨간
 //   배지로 정상 표시되던 것과 맞춘다.
+// 데이터가 **빠진** 칸 — 표에서는 「—」로 쓰되 주황색으로 칠하고 마우스를 올리면 이유가 뜬다(2026-09-30 사용자 결정).
+//   ⚠️ 그냥 「—」(아직 안 보냄 등 정상적인 빈칸)와 **색으로 반드시 갈린다** — 빠진 인증 성공일을 다른 날짜로 채우지 않는 규칙의 표시.
+//   확인 창의 문장·엑셀처럼 글로 읽는 자리는 「기록 없음」 글자를 그대로 쓴다.
+const _MISSING_CERT_TIP = '인증 성공일 기록 없음 — 이 날짜가 없어 지급 회차를 계산할 수 없습니다';
+function _missingDash(why) {
+  return `<span style="color:#D97706;font-weight:700;cursor:help" title="${esc(why)}">—</span>`;
+}
+
 function _payoutAmountCell(r) {
   if (r && r.amountUnknown) {
     return '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px" title="금액을 정할 수 없어 합계에서 뺐습니다 — 미등록 탭에서 사유를 확인하세요">금액 미확정</span>';
@@ -2221,7 +2233,65 @@ function buildPayoutRows(unregRows, settlementRows) {
 // 아직 안 보낸 것 = 미등록 + 정산대기. 「기한 초과」와 「다가오는」의 공통 조건이다.
 function _payoutUnsent(r) { return r.status === 'unregistered' || r.status === 'pending'; }
 
-async function openPayoutPrepView() {
+// ─── 화면 탭 줄(settlementNavBar) — 네 화면이 같은 줄을 쓴다(2026-09-30 사용자 결정) ───
+//   ★ 「지금 어느 탭인가」는 **화면 상태에서 계산한다**(따로 변수로 들고 다니지 않는다).
+//     화면을 켜고 끄는 길이 많아(페인 진입·배지 진입·저장 뒤 재조회) 변수로 들면 한 곳만 빠져도 탭이 거짓말을 한다.
+//   ⚠️ 「사람별」은 지급 준비 화면 **안의** 사람 목록이다(별도 화면 아님). 회차 「상세」로 들어간 사람 목록은
+//      그 회차의 일부라 「지급 준비」 탭으로 표시한다 — 「사람별」 탭은 **전 기간 사람 목록**(_payoutDueFilter=null)일 때만.
+let _payoutSubView = 'summary';   // 지급 준비 화면 안: 'summary'(회차 요약) | 'person'(사람 목록)
+
+function _settlementActiveTab() {
+  const shown = function (id) { const e = $(id); return !!e && e.style.display !== 'none'; };
+  if (shown('settlementTransferView')) return 'transfer';
+  if (shown('settlementPayoutView')) return (_payoutSubView === 'person' && !_payoutDueFilter) ? 'person' : 'prep';
+  return 'list';
+}
+
+function refreshSettlementNav() {
+  const active = _settlementActiveTab();
+  document.querySelectorAll('#settlementNavBar [data-settle-tab]').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-settle-tab') === active);
+  });
+  // 탭 줄 오른쪽 도구는 회차별 **요약**에서만(renderPayoutSummary 가 채운다) — 다른 화면이면 비운다.
+  const tools = $('settlementNavTools');
+  if (tools && !(active === 'prep' && _payoutSubView === 'summary')) tools.innerHTML = '';
+  // 엑셀은 **정산 목록**을 내보내므로 목록 탭(미등록 제외)에서만 보인다.
+  const excelBtn = $('settlementExcelBtn');
+  if (excelBtn) {
+    const isUnreg = !!(_settlementFilters && _settlementFilters.status === 'unregistered');
+    excelBtn.style.display = (active === 'list' && !isUnreg) ? '' : 'none';
+  }
+}
+
+// 지급 준비 안에서 보던 회차·검색어·선택을 비운다 — 다른 탭에서 돌아올 때 남의 회차가 열린 채 뜨지 않게.
+function _resetPayoutSubState() {
+  _payoutDueFilter = null;
+  _payoutPersonSearch = '';
+  _payoutSearchTokens = [];
+  _payoutSelected.clear();
+}
+
+async function openSettlementTab(key) {
+  const payoutShown = (function () { const e = $('settlementPayoutView'); return !!e && e.style.display !== 'none'; })();
+  if (key === 'transfer') { openTransferHistoryView(); return; }
+  if (key === 'list') {
+    const pv = $('settlementPayoutView');
+    if (pv) pv.style.display = 'none';
+    closeTransferHistoryView(true);   // 목록을 켜고, 미등록 탭을 보던 중이면 그 자리로
+    return;
+  }
+  _resetPayoutSubState();
+  // 지급 준비가 이미 떠 있고 자료가 있으면 다시 받지 않는다(탭만 바꾼다).
+  //   ⚠️ 다른 탭에서 들어오면 다시 받는다 — 그 사이 송금 기록이 바뀌었을 수 있다(기존 동작과 같다).
+  if (payoutShown && Array.isArray(_payoutRows)) {
+    if (key === 'person') await openPayoutPersonList(null);
+    else renderPayoutSummary();
+    return;
+  }
+  await openPayoutPrepView(key === 'person');
+}
+
+async function openPayoutPrepView(thenPerson) {
   const main = $('settlementMainView'), view = $('settlementPayoutView');
   if (!main || !view) return;
   // ⚠️ 「미등록」 화면은 목록 화면의 **형제**라, 목록만 감추면 그대로 남는다.
@@ -2230,6 +2300,8 @@ async function openPayoutPrepView() {
   hideUnregisteredTab();                // 송금 내역도 여기서 닫힌다(_hideTransferView)
   main.style.display = 'none';
   view.style.display = 'flex';
+  _payoutSubView = thenPerson ? 'person' : 'summary';   // 불러오는 동안에도 누른 탭이 켜져 있게
+  refreshSettlementNav();
   const body = $('payoutSummaryBody');
   if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
 
@@ -2253,10 +2325,12 @@ async function openPayoutPrepView() {
   }
   _payoutRows = buildPayoutRows(unreg, _settlements);
   _payoutExportIncludePaid = false;   // 회차 엑셀 「송금완료 포함」은 들어올 때마다 꺼진 상태로
+  _payoutRoundPick.clear();           // 고른 회차도 들어올 때마다 비운다
   _payoutExportIncludeEarlier = true; // 「이전 회차 미지급 포함」은 들어올 때마다 켜진 상태로(사양서 D-6 기본 켬)
   // ⚠️ 사람 정보 캐시를 비운다 — 안 비우면 그 사이 새로 생긴 정산 행의 인플루언서가
   //    「(이름 미상)·페이팔 미등록」으로 보인다(조회를 안 하니 값이 없을 뿐인데).
   _payoutPersonInfo = null;
+  if (thenPerson) { await openPayoutPersonList(null); return; }   // 「사람별」 탭 — 요약을 거치지 않는다(번쩍임 방지)
   renderPayoutSummary();
 }
 
@@ -2271,6 +2345,7 @@ function closePayoutPrepView() {
       && typeof showUnregisteredTab === 'function') {
     showUnregisteredTab();
   }
+  refreshSettlementNav();
 }
 
 // 'YYYY-MM' 을 n달 옮긴다(문자열 연산 — 시간대가 끼어들 자리가 없다)
@@ -2308,26 +2383,54 @@ function payoutDueRowHtml(due, rows, todayStr) {
     : '<span style="color:var(--muted);opacity:.5">—</span>';
   const notes = [];
   if (unknown) notes.push(`<span style="color:#C33">금액 미확정 ${unknown}건</span>`);
+  const picked = _payoutRoundPick.has(due);
   return `<tr>
+    <td style="width:36px;text-align:center"><input type="checkbox" ${picked ? 'checked' : ''}
+        onchange="togglePayoutRoundPick('${esc(due)}', this.checked)" title="이 회차를 엑셀 다운로드에 담습니다" style="margin:0;cursor:pointer"></td>
     <td style="font-weight:700;white-space:nowrap">${esc(due)}</td>
     <td style="text-align:right;white-space:nowrap">${cnt}건</td>
     <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(sum))}</td>
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
     <td style="white-space:nowrap">${when}${notes.length ? `<div style="font-size:11px">${notes.join(' · ')}</div>` : ''}</td>
-    <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
-        onclick="openPayoutPersonList('${esc(due)}')">상세</button>
-      ${payoutRoundExcelBtnHtml(due)}</td>
+    <td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+        onclick="openPayoutPersonList('${esc(due)}')">상세</button></td>
   </tr>`;
 }
 
-// 「이 회차 송금 명단 엑셀」 단추 — 요약 회차 줄과 사람별 화면 머리가 같은 것을 쓴다.
+// ─── 회차 골라 엑셀 받기(요약) ───────────────────────────────────────
+//   줄 앞 체크박스로 회차를 고르고 표 위 「다운로드」로 받는다. **여러 회차면 한 파일**에 담는다(2026-09-30 사용자 결정).
+const _payoutRoundPick = new Set();   // 고른 회차('YYYY-MM-DD')
+// 내려받기 단추 글자 — 정산 관리의 내려받기 단추는 모두 「↓ 다운로드(xlsx)」로 맞춘다(2026-09-30 사용자 결정).
+const _DOWNLOAD_XLSX_HTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span> 다운로드(xlsx)';
+function payoutRoundPickDownloadBtnHtml() {
+  const n = _payoutRoundPick.size;
+  return `<button class="btn btn-ghost btn-sm" id="payoutRoundPickDownloadBtn" ${n ? '' : 'disabled'}
+      title="${n ? '고른 회차의 송금 명단을 한 파일로 내려받습니다(검색어·보기와 상관없이 회차 전체)' : '표에서 회차를 먼저 고르세요'}"
+      onclick="exportPickedPayoutRounds()">${_DOWNLOAD_XLSX_HTML}${n
+        ? ` <span style="display:inline-block;min-width:16px;padding:0 5px;border-radius:8px;background:var(--ink);color:#fff;font-size:10px;line-height:16px;text-align:center">${n}</span>` : ''}</button>`;
+}
+function togglePayoutRoundPick(due, on) {
+  if (on) _payoutRoundPick.add(due); else _payoutRoundPick.delete(due);
+  renderPayoutSummary();   // 머리의 「전체 선택」 표시와 단추 숫자를 함께 맞춘다
+}
+function togglePayoutRoundPickAll(on) {
+  const rows = _payoutRows || [];
+  _payoutRoundPick.clear();
+  if (on) rows.forEach(function (r) { if (r.due) _payoutRoundPick.add(r.due); });
+  renderPayoutSummary();
+}
+function exportPickedPayoutRounds() {
+  const dues = Array.from(_payoutRoundPick).sort();
+  if (!dues.length) { toast('표에서 회차를 먼저 고르세요', 'warn'); return; }
+  exportPayoutRoundExcel(dues, { includePaid: _payoutExportIncludePaid, includeEarlier: _payoutExportIncludeEarlier });
+}
+
+// 「이 회차 송금 명단 엑셀」 단추 — 사람별 화면(회차 상세) 머리가 쓴다.
 function payoutRoundExcelBtnHtml(due) {
-  return `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;margin-left:4px"
+  return `<button class="btn btn-ghost btn-sm"
       title="이 회차의 송금 명단을 내려받습니다. 검색어·회원별/캠페인별 보기와 상관없이 회차 전체가 대상입니다"
-      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid, includeEarlier:_payoutExportIncludeEarlier})"><span
-      class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">download</span>
-      이 회차 송금 명단 엑셀</button>`;
+      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid, includeEarlier:_payoutExportIncludeEarlier})">${_DOWNLOAD_XLSX_HTML}</button>`;
 }
 
 // 「송금완료 포함」 체크박스 — id 만 다르고 두 화면이 같은 변수를 본다.
@@ -2359,13 +2462,13 @@ function payoutSectionHtml(title, color, dues, byDue, todayStr, emptyText) {
   //      표의 첫 열 세로선과 겹쳐 줄이 어긋나 보였다.
   //   ⚠️ `background` 는 `td` 에 준다 — `tr` 에 주면 셀 배경(.data-table td 의 흰 배경)이
   //      위에 덮여 아무것도 안 보인다.
-  const head = `<tr><td colspan="7" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
+  const head = `<tr><td colspan="8" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
       <span style="font-weight:700;font-size:13px;color:${color}">${esc(title)}</span>
       ${dues.length ? `<span style="font-size:12px;color:var(--muted);margin-left:8px">${cnt}건 · ${esc(_payoutYen(sum))}</span>` : ''}
     </td></tr>`;
   const body = dues.length
     ? dues.map(function(d) { return payoutDueRowHtml(d, byDue[d], todayStr); }).join('')
-    : `<tr><td colspan="7" style="color:var(--muted);font-size:12px">${esc(emptyText)}</td></tr>`;
+    : `<tr><td colspan="8" style="color:var(--muted);font-size:12px">${esc(emptyText)}</td></tr>`;
   return head + body;
 }
 
@@ -2382,18 +2485,19 @@ function payoutNoDueSectionHtml(rows) {
   const cell = (n, amt, c) => n
     ? `<div style="font-weight:600;color:${c}">${n}건</div><div style="font-size:11px;color:${c}">${esc(_payoutYen(amt))}</div>`
     : '<span style="color:var(--muted);opacity:.5">—</span>';
-  const head = `<tr><td colspan="7" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
+  const head = `<tr><td colspan="8" style="background:${color}14;padding:7px 12px;border-bottom:1px solid var(--outline)">
       <span style="font-weight:700;font-size:13px;color:${color}">지급일 기록 없음</span>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">인증 성공일이 없어 지급 예정일을 계산할 수 없는 건</span>
     </td></tr>`;
   return head + `<tr>
+    <td></td>
     <td style="font-weight:700;white-space:nowrap;color:var(--muted)">기록 없음</td>
     <td style="text-align:right;white-space:nowrap">${rows.length}건</td>
     <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(_payoutSum(rows)))}</td>
     <td style="text-align:right;white-space:nowrap">${cell(sent.length, _payoutSum(sent), '#16A34A')}</td>
     <td style="text-align:right;white-space:nowrap">${cell(unsent.length, _payoutSum(unsent), '#C33')}</td>
     <td style="white-space:nowrap;color:var(--muted)">—</td>
-    <td style="text-align:right"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+    <td><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
         onclick="openPayoutPersonList('${PAYOUT_NO_DUE}')">상세</button></td>
   </tr>`;
 }
@@ -2401,6 +2505,8 @@ function payoutNoDueSectionHtml(rows) {
 function renderPayoutSummary() {
   const body = $('payoutSummaryBody');
   if (!body) return;
+  _payoutSubView = 'summary';
+  refreshSettlementNav();
   const rows = _payoutRows || [];
   const todayStr = jstTodayStr();
   const thisMonth = todayStr.slice(0, 7);
@@ -2428,9 +2534,21 @@ function renderPayoutSummary() {
   //    없기 때문이다. 즉 지금은 생기면 **화면 어디에도 안 보인다.** 다시 보이게 하려면
   //    `rows.filter(r => !r.due)` 를 세어 **0건이 아닐 때만** 한 줄 띄우면 된다.
 
+  // 표 상자 = admin-card > admin-table-wrap (다른 목록 페인과 같은 구조 — 스크롤은 표 안에서만).
+  //   ★ 엑셀 옵션·다운로드는 표 **위 한 줄**에 둔다(2026-09-30 사용자 결정). 회차는 줄 앞 체크박스로 고른다.
+  const pickable = dues.slice();   // 체크박스가 있는 회차(「지급일 기록 없음」 제외)
+  _payoutRoundPick.forEach(function (d) { if (pickable.indexOf(d) < 0) _payoutRoundPick.delete(d); });
+  const allPicked = pickable.length > 0 && pickable.every(function (d) { return _payoutRoundPick.has(d); });
+  // 엑셀 옵션·다운로드는 **탭 줄 오른쪽**(settlementNavTools)에 둔다(2026-09-30 사용자 결정).
+  const tools = $('settlementNavTools');
+  if (tools) tools.innerHTML = payoutExportIncludePaidHtml('payoutExportIncludePaidSummary')
+    + payoutExportIncludeEarlierHtml('payoutExportIncludeEarlierSummary')
+    + payoutRoundPickDownloadBtnHtml();
   body.innerHTML =
-    `<div class="admin-table-wrap"><table class="data-table" style="width:100%">
+    `<div class="admin-card" style="flex:1;min-height:0"><div class="admin-table-wrap"><table class="data-table" style="width:100%">
       <thead><tr>
+        <th style="width:36px;text-align:center"><input type="checkbox" ${allPicked ? 'checked' : ''} ${pickable.length ? '' : 'disabled'}
+            onchange="togglePayoutRoundPickAll(this.checked)" title="모든 회차 선택" style="margin:0;cursor:pointer"></th>
         <th style="width:110px">지급 예정일</th>
         <th style="width:70px;text-align:right">건수</th>
         <th style="width:110px;text-align:right">금액</th>
@@ -2441,8 +2559,7 @@ function renderPayoutSummary() {
              금액 옆에 있을 때는 그 회차 전체 금액에 걸린 말처럼 읽혔다.
              ⚠️ 열을 옮길 때는 **머리글·회차 줄·「지급일 기록 없음」 줄 셋을 함께** 옮긴다. -->
         <th style="width:150px">기한</th>
-        <!-- 상세 + 회차 엑셀 단추가 한 칸에 들어간다. 체크박스는 엑셀 단추의 옵션이라 여기 둔다. -->
-        <th style="width:250px;text-align:right">${payoutExportIncludePaidHtml('payoutExportIncludePaidSummary')}<br>${payoutExportIncludeEarlierHtml('payoutExportIncludeEarlierSummary')}</th>
+        <th style="width:90px"></th>
       </tr></thead>
       <tbody>`
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
@@ -2451,13 +2568,9 @@ function renderPayoutSummary() {
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#CC3333', before, byDue, todayStr, '밀린 것이 없습니다.')
   + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   + payoutNoDueSectionHtml(rows.filter(function(r) { return !r.due; }))
-  + `</tbody></table></div>`
-  + `<div style="border-top:1px solid var(--line);padding:14px 18px 16px">
-      <!-- ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
-           회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다. -->
-      <div>
-      </div>
-    </div>`;
+  // ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
+  //    회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다.
+  + `</tbody></table></div></div>`;
 }
 
 // 「지급 완료」가 보여줄 달을 옮긴다. ⚠️ **과거·미래 양방향** — 과거만 되면
@@ -2603,14 +2716,14 @@ function _payoutExcelSaveWorkbook(wb, fileName) {
 function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
   const ws = wb.addWorksheet('회차 합계');
   ws.columns = [14, 16, 26, 30, 8, 12, 8, 10, 12].map(function(w) { return { width: w }; });
-  ws.addRow(['지급 예정일 ' + due + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
+  ws.addRow(['지급 예정일 ' + (opts.dueLabel || due) + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
     + (opts.includePaid ? '송금완료 포함' : '미지급만') + ') · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
   if (opts.includeEarlier) {
     ws.addRow([opts.carryCount
       ? '이전 회차 미지급 ' + opts.carryCount + '건 포함(' + PAYOUT_CARRYOVER_FROM + ' 회차부터) — 사람별 「미지급」 합계가 한 번에 보낼 금액'
       : '이전 회차 미지급 없음(합치는 범위: ' + PAYOUT_CARRYOVER_FROM + ' 회차부터)']);
   }
-  if (due <= PAYOUT_LEDGER_WARN_UNTIL) {
+  if ((opts.firstDue || due) <= PAYOUT_LEDGER_WARN_UNTIL) {   // 여러 회차면 가장 이른 회차로 판정
     ws.addRow(['⚠️ 지급대장 대조 전 — 이미 보낸 건이 미지급으로 보일 수 있습니다']).font = { color: { argb: 'FFCC3333' } };
   }
   ws.addRow([]);
@@ -2658,17 +2771,22 @@ function _payoutExcelItemSheet(wb, rows, brandMap) {
   });
 }
 
-async function exportPayoutRoundExcel(due, opts) {
+// dueArg = 회차 하나('YYYY-MM-DD') 또는 여럿(배열). 여럿이면 **한 파일**에 담는다.
+//   ⚠️ 「이전 회차 미지급」은 **고른 회차 중 가장 늦은 것**보다 앞선, 고르지 않은 회차의 미지급만 — 고른 회차를 두 번 담지 않는다.
+async function exportPayoutRoundExcel(dueArg, opts) {
   const includePaid = !!(opts && opts.includePaid);
   const includeEarlier = !!(opts && opts.includeEarlier);
   // 미등록 조회 실패면 회차 자체를 믿을 수 없다 — 「보낼 게 없음」으로 내보내지 않는다.
   if (_payoutRows === null) { toast('미등록 건을 불러오지 못해 내보낼 수 없습니다', 'error'); return; }
-  if (!due || due === PAYOUT_NO_DUE) return;
+  const dues = (Array.isArray(dueArg) ? dueArg : [dueArg]).filter(function (d) { return d && d !== PAYOUT_NO_DUE; }).sort();
+  if (!dues.length) return;
+  const due = dues[dues.length - 1];   // 가장 늦은 회차 — 「이전 회차」 판정의 기준
+  const dueLabel = dues.join(', ');
   if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
-  const roundAll = _payoutRows.filter(function(r) { return r.due === due; });
+  const roundAll = _payoutRows.filter(function(r) { return dues.indexOf(r.due) >= 0; });
   // 밀린 이전 회차 미지급 — 범위의 아래 끝(PAYOUT_CARRYOVER_FROM)을 반드시 지킨다. 문자열 비교('YYYY-MM-DD').
   const carry = includeEarlier
-    ? _payoutRows.filter(function(r) { return _payoutUnsent(r) && r.due && r.due >= PAYOUT_CARRYOVER_FROM && r.due < due; })
+    ? _payoutRows.filter(function(r) { return _payoutUnsent(r) && r.due && r.due >= PAYOUT_CARRYOVER_FROM && r.due < due && dues.indexOf(r.due) < 0; })
     : [];
   const rows = carry.concat(includePaid ? roundAll : roundAll.filter(_payoutUnsent));
   if (!rows.length) { toast('내보낼 건이 없습니다', 'warn'); return; }
@@ -2678,11 +2796,11 @@ async function exportPayoutRoundExcel(due, opts) {
     if (_payoutPersonInfo === undefined || _payoutPersonInfo === null) await ensurePayoutPersonInfo();
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
-    _payoutExcelSummarySheet(wb, due, roundAll, rows, { includePaid: includePaid, includeEarlier: includeEarlier, carryCount: carry.length });
+    _payoutExcelSummarySheet(wb, due, roundAll, rows, { includePaid: includePaid, includeEarlier: includeEarlier, carryCount: carry.length, dueLabel: dueLabel, firstDue: dues[0] });
     _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows));
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
-    await _payoutExcelSaveWorkbook(wb, 'payout-' + due + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx');
+    await _payoutExcelSaveWorkbook(wb, 'payout-' + (dues.length > 1 ? dues[0] + '_to_' + due + '-' + dues.length + 'rounds' : due) + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx');
     toast('엑셀 다운로드 완료 (' + rows.length + '건)');
   } catch (e) {
     toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
@@ -2697,66 +2815,119 @@ function payoutPaypalHtml(p) {
   return '<span style="font-size:11px;color:#C33">페이팔 미등록</span>';
 }
 
-// 건별 줄의 **열 제목**. ⚠️ 없으면 오른쪽 날짜가 무슨 날짜인지 알 수 없다 —
-//   운영팀은 지급 예정일·송금일·승인일을 한 화면에서 함께 보므로, 제목 없는 날짜는
-//   곧 오해가 된다(2026-08-18 지적). 건별 줄과 **같은 폭**으로 맞춰 그린다.
-function payoutItemsHeadHtml() {
-  return `<div style="display:flex;gap:10px;align-items:center;padding:2px 0 3px 26px;font-size:10px;color:var(--muted);
-              letter-spacing:.03em;border-bottom:1px solid var(--line);margin-bottom:2px">
-    <div style="flex:1">캠페인</div>
-    <div style="width:96px;text-align:right">결과물 승인일</div>
-    <div style="width:96px;text-align:right">송금 완료일</div>
-    <div style="width:88px;text-align:right">금액</div>
-    <div style="width:52px"></div>
+// ─── 사람별 — 표(사람 1명 = 1줄, 펼치면 세부 내역) ─────────────────────────
+//   송금 내역 「전체」와 같은 보기 방식(2026-09-30 사용자 결정 — 카드를 다 펼쳐 두면 사람이 많을 때 훑기 어렵다).
+//   ★ 줄 체크박스 = **그 사람의 미지급 전부**(지금 보이는 범위 — 회차 상세면 그 회차만). 선택 열쇠말은 종전대로
+//      `사람id|회차` 라서 「선택한 건 보냄」·합계는 그대로 동작한다. 회차를 나눠 보낼 때는 펼친 내역의 「회차 보냄」.
+//   ⚠️ 날짜 칸 제목이 없으면 무슨 날짜인지 모른다(2026-08-18 지적) — 펼친 격자에도 칸 제목을 단다.
+const _payoutPersonOpen = new Set();   // 펼친 사람 id
+let _payoutPersonKeyMap = {};          // 사람 id → 그 사람의 선택 열쇠말(사람id|회차) 목록
+const _PAYOUT_ITEM_COLS = 'display:grid;grid-template-columns:100px minmax(0,1fr) 100px 100px 90px 64px;column-gap:12px;align-items:center;padding:6px 12px';
+
+function _payoutPersonKeys(entry) {
+  return Object.keys(entry.dues).map(function (d) { return entry.person.id + '|' + d; });
+}
+
+function togglePayoutPersonOpen(id) {
+  if (_payoutPersonOpen.has(id)) _payoutPersonOpen.delete(id); else _payoutPersonOpen.add(id);
+  renderPayoutPersonBody();
+}
+// 줄 체크박스 — 그 사람의 (보이는 범위) 미지급 회차를 전부 고르거나 전부 푼다.
+function togglePayoutPersonSelect(id, on) {
+  (_payoutPersonKeyMap[id] || []).forEach(function (k) { if (on) _payoutSelected.add(k); else _payoutSelected.delete(k); });
+  renderPayoutPersonBody();
+}
+
+// 펼친 세부 격자 한 줄
+function _payoutItemRowHtml(r, sent, showDue) {
+  const camp = esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '') + esc(r.campaignTitle || '(캠페인 미상)');
+  const state = sent
+    ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>'
+    : (r.applicationId
+        ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px;white-space:nowrap"
+             onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
+        : '');
+  return `<div style="${_PAYOUT_ITEM_COLS};font-size:12px;border-top:1px solid var(--line)${sent ? ';color:var(--muted)' : ''}">
+    <div style="white-space:nowrap">${showDue ? (r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)) : ''}</div>
+    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${camp}">${camp}</div>
+    <div style="white-space:nowrap" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : _missingDash(_MISSING_CERT_TIP)}</div>
+    <div style="white-space:nowrap" title="실제로 송금한 날(기록된 값)">${sent && r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
+    <div style="text-align:right;white-space:nowrap">${sent ? esc(_payoutYen(r.amount)) : _payoutAmountCell(r)}</div>
+    <div>${state}</div>
   </div>`;
 }
 
-// 건별 줄만 (묶음 줄과 따로 쓸 수 있게 분리)
-function payoutDueItemsHtml(list, sent) {
-  return list.map(function(r) {
-    // ⚠️ **이미 보낸 건은 버튼을 안 단다.** 안 보낸 줄과 똑같이 보이면 「이미 기록됨」이라는
-    //    요약이 바로 위 줄들을 가리키는 것처럼 읽혀, 보낸 것에 또 「보냄」이 붙은 줄로 오해된다
-    //    (2026-08-18 실제 지적). 흐리게 + 「기록됨」 표로 갈라 놓는다.
-    if (sent) {
-      return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted);opacity:.7">
-        <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
-        <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
-        <div style="width:96px;text-align:right" title="실제로 송금한 날(기록된 값)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
-        <div style="width:88px;text-align:right">${esc(_payoutYen(r.amount))}</div>
-        <div style="width:52px;text-align:right"><span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px">기록됨</span></div>
+// 펼친 내용 — 미지급 → 이미 기록됨.
+//   회차 머리 줄(「이 회차 N건 · 회차 보냄」)은 **회차가 둘 이상이고 그 회차에 2건 이상**일 때만 단다.
+//   1건뿐인 회차에 달면 머리 줄과 건 줄이 같은 금액·같은 「보냄」을 두 번 말한다(2026-09-30). 그때는 건 줄에 회차를 적는다.
+function _payoutPersonDetailHtml(entry) {
+  const p = entry.person;
+  const dues = Object.keys(entry.dues).sort();
+  let html = `<div style="${_PAYOUT_ITEM_COLS};font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3">
+      <div>지급 예정(회차)</div><div>캠페인</div><div>결과물 승인일</div><div>송금 완료일</div><div style="text-align:right">금액</div><div>상태</div>
+    </div>`;
+  dues.forEach(function (d) {
+    const list = entry.dues[d];
+    const groupHead = dues.length > 1 && list.length > 1;
+    if (groupHead) {
+      html += `<div style="${_PAYOUT_ITEM_COLS};font-size:12px;border-top:1px solid var(--line);background:#FAFAFA">
+        <div style="font-weight:700;white-space:nowrap">${esc(d)}</div>
+        <div style="color:var(--muted)">이 회차 ${list.length}건</div><div></div><div></div>
+        <div style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(_payoutSum(list)))}</div>
+        <div><button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px;white-space:nowrap"
+             onclick="openPayoutSendModal('${esc(p.id + '|' + d)}')" title="이 사람의 이 회차를 송금완료로 기록">회차 보냄</button></div>
       </div>`;
     }
-    // ⚠️ 건을 가리키는 열쇠는 **응모 id** 를 쓴다 — 정산 행이 아직 없는 건(미등록)에는
-    //    정산 id 자체가 없다. 응모 id 는 두 갈래 모두에 있다.
-    return `<div style="display:flex;gap:10px;align-items:center;padding:3px 0 3px 26px;font-size:12px;color:var(--muted)">
-      <div style="flex:1">${esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '')}${esc(r.campaignTitle || '(캠페인 미상)')}</div>
-      <div style="width:96px;text-align:right" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
-      <!-- 아직 안 보낸 줄이라 송금일은 비어 있다 — 열을 비워 두어야 아래 보낸 줄과 자리가 맞는다 -->
-      <div style="width:96px;text-align:right;color:var(--muted);opacity:.5">—</div>
-      <div style="width:88px;text-align:right">${_payoutAmountCell(r)}</div>
-      <div style="width:52px;text-align:right">${r.applicationId
-        ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px"
-             onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
-        : ''}</div>
-    </div>`;
-  }).join('');
+    list.forEach(function (r) { html += _payoutItemRowHtml(r, false, !groupHead); });
+  });
+  // 이미 기록된 건 — 건수·합계 머리 줄은 두지 않는다(사람 줄의 「지급 금액」 칸과 같은 말이라, 2026-09-30 사용자 결정).
+  //   건 줄의 「기록됨」 표시와 흐린 글자로 갈린다.
+  if (entry.paid.length) {
+    entry.paid.slice().sort(function (a, b) { return String(a.due || '').localeCompare(String(b.due || '')); })
+      .forEach(function (r) { html += _payoutItemRowHtml(r, true, true); });
+  }
+  return `<div style="background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden">${html}</div>`;
 }
 
-// 지급일 묶음 한 줄 (+ 펼치면 건별)
-function payoutDueGroupHtml(personId, due, list) {
-  const key = personId + '|' + due;
-  const checked = _payoutSelected.has(key) ? 'checked' : '';
-  const items = payoutDueItemsHtml(list);
-  return `<div style="border-top:1px dashed var(--line);padding:6px 0">
-    <div style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" ${checked} onchange="togglePayoutSelect('${esc(key)}')" style="width:15px;height:15px">
-      <div style="width:110px;font-size:12px;font-weight:600">${esc(due)}</div>
-      <div style="width:50px;text-align:right;font-size:12px">${list.length}건</div>
-      <div style="width:96px;text-align:right;font-weight:700;font-size:12px">${esc(_payoutSum(list) ? _payoutYen(_payoutSum(list)) : '—')}</div>
-      <button class="btn btn-ghost btn-xs" onclick="openPayoutSendModal('${esc(key)}')" style="padding:2px 10px" title="이 사람의 이 회차를 송금완료로 기록합니다">보냄</button>
-    </div>
-    ${items}
-  </div>`;
+function _payoutPersonTableHtml(entries) {
+  _payoutPersonKeyMap = {};
+  entries.forEach(function (e) { _payoutPersonKeyMap[e.person.id] = _payoutPersonKeys(e); });
+  const N = 'text-align:right;white-space:nowrap';
+  const dash = '<span style="color:var(--muted);opacity:.5">—</span>';
+  const rows = entries.map(function (e) {
+    const p = e.person;
+    const keys = _payoutPersonKeys(e);
+    const picked = keys.filter(function (k) { return _payoutSelected.has(k); }).length;
+    const unsent = Object.keys(e.dues).reduce(function (a, d) { return a.concat(e.dues[d]); }, []);
+    const open = _payoutPersonOpen.has(p.id);
+    return `<tr style="cursor:pointer" onclick="togglePayoutPersonOpen('${esc(p.id)}')">
+        <td style="width:36px;text-align:center" onclick="event.stopPropagation()">${keys.length
+          ? `<input type="checkbox" ${picked === keys.length ? 'checked' : ''}
+               onchange="togglePayoutPersonSelect('${esc(p.id)}', this.checked)" title="이 사람의 미지급을 모두 고릅니다" style="margin:0;cursor:pointer">`
+          // 지급이 다 끝난 사람 — 칸을 비우지 않고 **비활성 체크박스**로 둔다(줄마다 같은 자리에 같은 것이 보이게, 2026-09-30 사용자 결정)
+          : `<input type="checkbox" disabled title="지급이 끝나 고를 미지급이 없습니다" style="margin:0;cursor:not-allowed">`}</td>
+        <td style="width:28px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">${open ? 'expand_less' : 'expand_more'}</span></td>
+        <td style="font-weight:600;white-space:nowrap">${esc(p.name || '(이름 미상)')}</td>
+        <td style="font-size:12px;color:var(--muted);white-space:nowrap">${esc(p.kana || '')}</td>
+        <td style="white-space:nowrap">${payoutPaypalHtml(p)}</td>
+        <td style="${N}">${unsent.length ? unsent.length + '건' : dash}</td>
+        <td style="${N};font-weight:700;color:#C33">${unsent.length ? esc(_payoutYen(_payoutSum(unsent))) + _payoutUnknownNote(unsent) : dash}</td>
+        <td style="${N};color:#16A34A">${e.paid.length ? e.paid.length + '건 · ' + esc(_payoutYen(_payoutSum(e.paid))) : dash}</td>
+        <td style="white-space:nowrap" onclick="event.stopPropagation()">${keys.length
+          ? `<button class="btn btn-ghost btn-xs" style="padding:2px 10px" onclick="openPayoutSendPersonModal('${esc(p.id)}')"
+               title="${keys.length === 1 ? '이 사람의 미지급을 송금완료로 기록합니다' : '이 사람의 모든 회차 미지급을 한 번에 송금완료로 기록합니다'}">보냄</button>`
+          : ''}</td>
+      </tr>${open ? `<tr><td colspan="9" style="background:#FAFAFA;padding:10px 16px 12px 16px">${_payoutPersonDetailHtml(e)}</td></tr>` : ''}`;
+  }).join('');
+  return `<table class="data-table" style="width:100%">
+      <thead><tr>
+        <th style="width:36px"></th><th style="width:28px"></th>
+        <th style="width:140px">이름</th><th style="width:140px">가나</th><th>페이팔</th>
+        <th style="width:70px;text-align:right">미지급</th><th style="width:120px;text-align:right">미지급 금액</th>
+        <th style="width:150px;text-align:right" title="송금완료로 기록된 건수·금액">지급 금액</th><th style="width:70px"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 // 건별 「보냄」 — 그 한 건만 송금완료로 기록한다.
@@ -2781,43 +2952,6 @@ function openPayoutSendOneModal(appId) {
       </div>`
   };
   _openBulkPayModal();
-}
-
-function payoutPersonCardHtml(entry) {
-  const p = entry.person;
-  const dues = Object.keys(entry.dues).sort();
-  const allUnsent = dues.reduce(function(a, d) { return a.concat(entry.dues[d]); }, []);
-  const paidSum = _payoutSum(entry.paid);
-  // ⚠️ 회차가 **하나뿐이면** 그 회차 줄이 사람 머리와 같은 말을 두 번 한다(날짜·건수·금액).
-  //    그때는 줄을 없애고 **체크박스는 이름 왼쪽, 「보냄」은 합계 오른쪽**으로 옮긴다.
-  //    회차가 둘 이상이면 어느 회차인지 갈라야 하므로 종전대로 회차 줄을 남긴다.
-  const single = dues.length === 1;
-  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      ${single
-        ? `<input type="checkbox" ${_payoutSelected.has(p.id + '|' + dues[0]) ? 'checked' : ''}
-             onchange="togglePayoutSelect('${esc(p.id + '|' + dues[0])}')" style="width:15px;height:15px">`
-        : ''}
-      <div style="font-weight:700;font-size:13px">${esc(p.name || '(이름 미상)')}</div>
-      ${p.kana ? `<div style="font-size:11px;color:var(--muted)">${esc(p.kana)}</div>` : ''}
-      ${payoutPaypalHtml(p)}
-      <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-        <span style="font-size:12px">${allUnsent.length}건 · <b>${esc(_payoutYen(_payoutSum(allUnsent)))}</b>${_payoutUnknownNote(allUnsent)}</span>
-        ${single
-          ? `<button class="btn btn-ghost btn-xs" style="padding:2px 10px"
-               onclick="openPayoutSendModal('${esc(p.id + '|' + dues[0])}')" title="이 사람의 이 회차를 송금완료로 기록">보냄</button>`
-          : ''}
-      </div>
-    </div>
-    ${payoutItemsHeadHtml()}
-    ${single
-      ? payoutDueItemsHtml(entry.dues[dues[0]])
-      : dues.map(function(d) { return payoutDueGroupHtml(p.id, d, entry.dues[d]); }).join('')}
-    ${entry.paid.length ? `<div style="border-top:1px dashed var(--line);margin-top:6px;padding-top:6px">
-        <div style="font-size:12px;color:#16A34A;padding-left:26px">이미 기록됨 ${entry.paid.length}건 · ${esc(_payoutYen(paidSum))}</div>
-        ${payoutDueItemsHtml(entry.paid, true)}
-      </div>` : ''}
-  </div>`;
 }
 
 function togglePayoutSelect(key) {
@@ -2861,6 +2995,20 @@ function openPayoutSendModal(key) {
       </div>`
   };
   _openBulkPayModal();
+}
+
+// 사람 줄 「보냄」 — 그 사람의 (보이는 범위) 미지급 회차 전부를 한 번에. 선택 열쇠말을 잠시 그 사람 것만으로 바꿔
+//   「선택한 건 보냄」과 **같은 창·같은 처리**를 태운다(처리 경로를 새로 만들지 않는다). 창을 연 뒤 원래 선택으로 되돌린다.
+//   ⚠️ 창은 열 때 대상을 _bulkPayCtx 에 복사해 두므로, 선택을 되돌려도 창의 대상은 바뀌지 않는다.
+function openPayoutSendPersonModal(id) {
+  const keys = _payoutPersonKeyMap[id] || [];
+  if (!keys.length) { toast('보낼 건이 없습니다', 'warn'); return; }
+  if (keys.length === 1) { openPayoutSendModal(keys[0]); return; }
+  const saved = new Set(_payoutSelected);
+  _payoutSelected.clear();
+  keys.forEach(function (k) { _payoutSelected.add(k); });
+  try { openPayoutSendSelectedModal(); }
+  finally { _payoutSelected.clear(); saved.forEach(function (k) { _payoutSelected.add(k); }); }
 }
 
 // 「선택한 건 보냄」 — 체크한 묶음 전부를 한 번에 송금완료로 기록한다.
@@ -2929,6 +3077,8 @@ function openPayoutSendSelectedModal() {
 
 async function openPayoutPersonList(dueStr) {
   _payoutDueFilter = dueStr || null;
+  _payoutSubView = 'person';
+  refreshSettlementNav();
   _payoutSelected.clear();
   const body = $('payoutSummaryBody');
   if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
@@ -3005,7 +3155,7 @@ let _payoutGroupBy = 'person';   // 'person' | 'campaign'
 function payoutGroupSwitchHtml() {
   const on  = 'background:var(--pink);color:#fff;font-weight:700';
   const off = 'background:transparent;color:var(--muted);font-weight:600';
-  const base = 'border:0;border-radius:6px;padding:2px 11px;font-size:11px;cursor:pointer;line-height:1.5;white-space:nowrap';
+  const base = 'border:0;border-radius:6px;height:28px;padding:0 12px;font-size:12px;cursor:pointer;white-space:nowrap';
   return `<div style="display:inline-flex;gap:2px;padding:1px;background:#F1F1F3;border:1px solid var(--line);border-radius:8px">
     <button type="button" style="${base};${_payoutGroupBy === 'person' ? on : off}"
             onclick="setPayoutGroupBy('person')" title="사람별로 묶어 봅니다(송금 처리는 여기서)">회원별</button>
@@ -3039,11 +3189,11 @@ function payoutCampaignCardHtml(entry) {
              letter-spacing:.03em;border-top:1px solid var(--line);margin-top:4px">
       <div style="min-width:150px">인플루언서</div>
       <div style="flex:1">가나</div>
-      <div style="width:96px;text-align:right">지급 예정일</div>
-      <div style="width:96px;text-align:right">결과물 승인일</div>
-      <div style="width:96px;text-align:right">송금 완료일</div>
+      <div style="width:96px">지급 예정일</div>
+      <div style="width:96px">결과물 승인일</div>
+      <div style="width:96px">송금 완료일</div>
       <div style="width:88px;text-align:right">금액</div>
-      <div style="width:52px;text-align:right">상태</div>
+      <div style="width:52px">상태</div>
     </div>`;
   const items = rows.map(function (r) {
     const p = payoutPersonOf(r);
@@ -3051,12 +3201,12 @@ function payoutCampaignCardHtml(entry) {
     return `<div style="display:flex;gap:10px;align-items:baseline;padding:3px 0;font-size:12px;border-top:1px dashed var(--line)${sent ? ';opacity:.7' : ''}">
       <div style="min-width:150px;font-weight:600;color:var(--ink)">${esc(p.name || '(이름 미상)')}</div>
       <div style="flex:1;color:var(--muted)">${esc(p.kana || '')}</div>
-      <div style="width:96px;text-align:right;color:var(--muted)">${esc(r.due || '(예정일 없음)')}</div>
-      <div style="width:96px;text-align:right;color:var(--muted)">${r.certAt ? esc(formatDate(r.certAt)) : '기록 없음'}</div>
-      <div style="width:96px;text-align:right;color:var(--muted)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
+      <div style="width:96px;color:var(--muted)">${r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)}</div>
+      <div style="width:96px;color:var(--muted)">${r.certAt ? esc(formatDate(r.certAt)) : _missingDash(_MISSING_CERT_TIP)}</div>
+      <div style="width:96px;color:var(--muted)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
       <div style="width:88px;text-align:right;font-weight:700">${_payoutAmountCell(r)}</div>
-      <div style="width:52px;text-align:right">${sent
-        ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px">기록됨</span>'
+      <div style="width:52px">${sent
+        ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>'
         : '<span style="font-size:10px;color:#C33;font-weight:700">미지급</span>'}</div>
     </div>`;
   }).join('');
@@ -3073,20 +3223,21 @@ function payoutCampaignCardHtml(entry) {
 function renderPayoutPersonList() {
   const body = $('payoutSummaryBody');
   if (!body) return;
+  _payoutSubView = 'person';
+  refreshSettlementNav();
   body.innerHTML = `
-   <div style="padding:0 18px 16px">
-    <!-- ⚠️ 머리(뒤로가기·제목·검색·스위치)와 요약·선택 정보를 **위에 붙여** 둔다.
+   <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <!-- ⚠️ 바깥 상자 없이 **머리는 고정, 목록만 스크롤**한다(2026-09-30 사용자 지적 — 상자가 두 겹이었다).
+         ⚠️ 머리(뒤로가기·제목·검색·스위치)와 요약·선택 정보를 **위에 붙여** 둔다.
          목록이 길어 스크롤하면 「지금 어느 회차를 보고 있고 얼마가 남았는지」가 화면 밖으로
          나가고, 고른 건수도 맨 아래에 있어 **고를 때마다 끝까지 내려가야** 했다.
-         ⚠️ 좌우로 -18px 빼고 다시 채우는 것은 감싸개 여백을 덮어 배경이 끊기지 않게 하려는 것.
-            안 그러면 스크롤할 때 옆으로 내용이 비쳐 보인다.
          ⚠️ **아래쪽 구분선은 꼭 있어야 한다.** 없으면 목록이 이 영역 바로 밑으로 파고들어
             잘린 줄이 붙은 채로 보이고, 어디까지가 고정 영역인지 알 수 없다(2026-08-19 지적).
             선은 이 감싸개에 준다 — 안쪽 요소에 주면 선택 줄이 생겼다 없어질 때 선도 함께
             사라진다(선택 줄은 있을 때만 그려진다). -->
-    <div style="position:sticky;top:0;z-index:5;background:#fff;margin:0 -18px;padding:16px 18px 0;border-bottom:1px solid var(--line)">
+    <div style="flex-shrink:0;border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" style="padding:2px 8px">← 지급일 요약</button>
+      ${_payoutDueFilter ? '<button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()">← 지급일 요약</button>' : ''}
       <div style="font-weight:700;font-size:14px">${
         !_payoutDueFilter ? '전체 기간'
         : (_payoutDueFilter === PAYOUT_NO_DUE ? '지급일 기록 없음' : esc(_payoutDueFilter) + ' 지급 예정')}</div>
@@ -3116,7 +3267,7 @@ function renderPayoutPersonList() {
     <!-- ⚠️ 여백은 **고정 영역이 아니라 목록 쪽**에 준다. 고정 영역 안에 넣으면 스크롤 중에도
          그만큼 흰 띠가 따라다녀 화면이 좁아진다. 목록에 주면 **맨 위에서만** 벌어지고,
          스크롤하면 자연스럽게 구분선 밑으로 들어간다(2026-08-19 사용자 지적). -->
-    <div id="payoutPersonListBody" style="margin-top:14px"></div>
+    <div id="payoutPersonListBody" style="flex:1;min-height:0;overflow-y:auto"></div>
    </div>`;
   renderPayoutPersonBody();
 }
@@ -3149,7 +3300,8 @@ function renderPayoutPersonBody() {
     const byCamp = groupPayoutRowsByCampaign(cr);
     const list = Object.keys(byCamp).map(function (k) { return byCamp[k]; })
       .sort(function (a, b) { return _payoutSum(b.rows) - _payoutSum(a.rows); });
-    body.innerHTML = `
+    // 스크롤 칸(payoutPersonListBody)은 회원별 표가 끝까지 쓰도록 여백이 없다 — 카드 보기는 안쪽 여백을 따로 준다.
+    body.innerHTML = `<div style="padding:14px 4px 16px 0">
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
         캠페인 ${list.length}개 · ${cr.length}건 · 합계 <b style="color:var(--ink)">${esc(_payoutYen(_payoutSum(cr)))}</b>
       </div>
@@ -3158,7 +3310,7 @@ function renderPayoutPersonBody() {
         한 사람이 여러 캠페인에 걸쳐 있어, 캠페인 쪽에서 고르면 그 사람에게 보낼 금액이 갈라집니다.
       </div>
       ${list.length ? list.map(payoutCampaignCardHtml).join('')
-        : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}`;
+        : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}</div>`;
     return;
   }
 
@@ -3193,9 +3345,9 @@ function renderPayoutPersonBody() {
   const paidCnt = entries.reduce(function(a, e) { return a + e.paid.length; }, 0);
   const paidSum2 = entries.reduce(function(a, e) { return a + _payoutSum(e.paid); }, 0);
   const progressHtml = _payoutDueFilter
-    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 · 미지급 <b style="color:#C33">${esc(_payoutYen(unsentSum))}</b>${
-        paidCnt ? ` · 송금완료 <b style="color:#16A34A">${paidCnt}건 ${esc(_payoutYen(paidSum2))}</b>` : ''}</div>`
-    : `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${total}명 중 <b style="color:var(--ink)">${doneCount}명</b> 처리 · ${total - doneCount}명 남음</div>`;
+    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px"><span>${total}명 · 미지급 <b style="color:#C33">${esc(_payoutYen(unsentSum))}</b>${
+        paidCnt ? ` · 송금완료 <b style="color:#16A34A">${paidCnt}건 ${esc(_payoutYen(paidSum2))}</b>` : ''}</span></div>`
+    : `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px"><span>${total}명 중 <b style="color:var(--ink)">${doneCount}명</b> 처리 · ${total - doneCount}명 남음</span></div>`;
 
   const info = $('payoutStickyInfo');
   if (info) {
@@ -3203,14 +3355,14 @@ function renderPayoutPersonBody() {
       + (_payoutSelected.size ? `
       <div style="border-top:1px solid var(--line);padding:8px 0;font-size:13px;display:flex;align-items:center;gap:10px">
         <span>선택 <b>${_payoutSelected.size}</b>묶음 · <b>${selectedRows.length}</b>건 · 합계 <b>${esc(_payoutYen(_payoutSum(selectedRows)))}</b>${_payoutUnknownNote(selectedRows)}</span>
-        <button class="btn btn-primary btn-xs" style="margin-left:auto;padding:3px 12px"
+        <button class="btn btn-primary btn-sm" style="margin-left:auto"
                 onclick="openPayoutSendSelectedModal()" title="고른 묶음을 한 번에 송금완료로 기록합니다">선택한 건 보냄</button>
-        <button class="btn btn-ghost btn-xs" style="padding:2px 10px"
+        <button class="btn btn-ghost btn-sm"
                 onclick="_payoutSelected.clear(); renderPayoutPersonBody();">선택 해제</button>
       </div>` : '<div style="height:8px"></div>');
   }
   body.innerHTML = `
-    ${entries.length ? entries.map(payoutPersonCardHtml).join('')
+    ${entries.length ? _payoutPersonTableHtml(entries)
       : `<div id="payoutEmptyBox" style="padding:24px;text-align:center;color:var(--muted);font-size:13px">${
           _payoutSearchTokens.length ? '찾는 중…' : '대상이 없습니다.'}</div>`}
     `;
@@ -3445,6 +3597,10 @@ let _transferMonthly = undefined;
 let _transferRound = undefined;
 let _transferUnrecorded = undefined; // undefined 안 받음 / null 실패 / 객체
 const _transferOpen = new Set();     // 펼친 묶음 id
+// 월별·회차별 「상세」 — 표 안에서 펼치지 않고 **같은 자리에서 상세 화면으로 넘어간다**(회차별 탭의 「상세」와 같은 방식, 2026-09-30 사용자 결정).
+//   null = 요약 표 / { mode:'monthly'|'round', key:'YYYY-MM' | 'YYYY-MM-DD' | 'none' }
+let _transferDetail = null;
+let _transferAllRows = undefined;    // 회차별 상세용 **전 기간** 묶음(기간을 넣었을 때만 따로 받는다). undefined 안 받음 / null 실패 / 배열
 let _transferLoadSeq = 0;
 
 function _hideTransferView() {
@@ -3455,10 +3611,15 @@ function _hideTransferView() {
 async function openTransferHistoryView() {
   const main = $('settlementMainView'), payout = $('settlementPayoutView'), view = $('settlementTransferView');
   if (!view) return;
+  // 들어올 때마다 요약에서 시작한다 — 보던 상세를 남겨 두면, 아래 재조회가 전 기간 묶음(_transferAllRows)을 비워
+  //   회차별 상세가 「불러오는 중…」에 영영 멈춘다(그 자료는 openTransferSumDetail 만 받는다. 2026-09-30 리뷰).
+  _transferDetail = null;
+  closeTransferHelp();
   hideUnregisteredTab();               // 미등록 닫기(안에서 _hideTransferView 도 부르므로 아래에서 켠다)
   if (main) main.style.display = 'none';
   if (payout) payout.style.display = 'none';
   view.style.display = 'flex';
+  refreshSettlementNav();
   if (_transferFrom === null && _transferTo === null) {
     // 기본 기간 = 지난달 1일 ~ 오늘(일본 날짜). 문자열 연산이라 시간대가 끼어들 자리가 없다
     const today = jstTodayStr();
@@ -3469,60 +3630,165 @@ async function openTransferHistoryView() {
   await _loadTransferHistory();
 }
 
-// 「정산 목록」 버튼 — 목록 화면으로(toList). 다른 화면을 켜는 함수는 각자 이 화면을 닫는다.
+// 정산 목록으로 이동(toList) — 탭 줄의 「정산 목록」 탭이 부른다(openSettlementTab). 다른 화면을 켜는 함수는 각자 이 화면을 닫는다.
 function closeTransferHistoryView(toList) {
   _hideTransferView();
-  if (!toList) return;
+  if (!toList) { refreshSettlementNav(); return; }
   const main = $('settlementMainView');
   if (main) main.style.display = 'flex';
   if (_settlementFilters && _settlementFilters.status === 'unregistered') { showUnregisteredTab(); return; }
   renderSettlementsList();
+  refreshSettlementNav();
+}
+
+// 도구 줄 — **왼쪽 보기 탭 · 오른쪽 기간(달력 한 칸)·엑셀**(2026-09-30 사용자 결정).
+//   ⚠️ 줄 전체는 **한 번만** 만든다 — 기간 칸에 달력(flatpickr)이 붙어 있어 innerHTML 로 다시 그리면 떨어진다.
+//      보기를 바꿀 때는 탭 칸(transferModeTabs)만 다시 그린다.
+//   기간 칸은 결과물 관리 「인증 성공일」과 같은 모양·같은 동작(양끝을 다 골랐을 때만 조회).
+let _transferFp = null;
+// 보기별 도움말 — 표 위에 늘 띄우지 않고 탭 옆 「?」를 눌러 본다(2026-09-30 사용자 결정).
+const _TRANSFER_HELP = {
+  list: '페이팔 송금 <b>한 번 = 한 줄</b>입니다. 줄을 누르면 그 송금에 들어간 건(캠페인·회차·금액)이 펼쳐집니다.<br>'
+      + '기간은 <b>송금일(일본 날짜)</b>로 거릅니다. 「정정」으로 송금일·수수료·거래번호·메모를 고칠 수 있습니다.',
+  monthly: '송금일(일본 날짜) 기준입니다. 건수는 연결 건 기준(보류 해제로 끊긴 옛 송금도 실제로 나간 돈이라 포함).' + '<br>「상세」를 누르면 그 달에 보낸 송금이 한 줄씩 나옵니다.',
+  round: '보낸 금액은 <b>각 건의 원래 회차</b>에, 수수료는 <b>묶음 안 가장 늦은 회차에 통째로</b> 들어갑니다. 송금일 기준 합계는 「월별」에서 보세요.<br>⚠️ 기간은 <b>회차 날짜</b>로 거르므로 기간을 넣으면 「월별」·「전체」 합계와 다를 수 있습니다 — <b>「전체 기간」에서는 셋이 같습니다.</b> 「지급일 기록 없음」 줄은 전체 기간에서만 보입니다.' + '<br>「상세」를 누르면 그 회차 건이 든 송금이 나옵니다. 다른 회차로 간 수수료는 「—」로 표시됩니다.',
+};
+// 말풍선 — 탭마다 붙은 「?」를 누르면 그 아래에 뜬다. 바깥을 누르거나 같은 「?」를 다시 누르면 닫힌다.
+//   ⚠️ 말풍선은 body 에 붙인 고정 위치 요소 하나다 — 표 카드 안에 두면 overflow 에 잘린다.
+//   ⚠️ 「?」는 탭 버튼 **안**에 있어, 누를 때 탭 전환이 같이 일어나지 않게 전파를 막는다.
+let _transferHelpFor = null;
+function _transferHelpPop() {
+  let el = document.getElementById('transferHelpPop');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'transferHelpPop';
+    el.setAttribute('role', 'tooltip');
+    // 오른쪽 아래 모서리로 크기를 바꿀 수 있다(resize:both — 넘치는 글은 안에서 스크롤).
+    //   열 때마다 폭은 처음 값(380px)으로, 높이는 글이 다 보이게(자동, 최대 70vh) 되돌린다 — toggleTransferHelp.
+    el.style.cssText = 'display:none;position:fixed;z-index:700;width:380px;min-width:240px;min-height:60px;max-height:70vh;'
+      + 'resize:both;overflow:auto;padding:12px 14px;background:#fff;'
+      + 'border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.14);font-size:12px;line-height:1.7;color:var(--ink)';
+    document.body.appendChild(el);
+    // ⚠️ 크기 조절을 말풍선 안에서 시작해 **바깥에서 손을 떼면** 클릭이 바깥으로 잡혀 닫혀 버린다.
+    //    누르기 시작한 자리가 말풍선 안이었으면 그 클릭은 닫기로 치지 않는다.
+    let pressInside = false;
+    document.addEventListener('mousedown', function (e) { pressInside = el.contains(e.target); }, true);
+    document.addEventListener('click', function (e) {
+      if (!_transferHelpFor) return;
+      if (pressInside) { pressInside = false; return; }
+      if (el.contains(e.target) || (e.target.closest && e.target.closest('[data-transfer-help]'))) return;
+      closeTransferHelp();
+    });
+  }
+  return el;
+}
+function closeTransferHelp() {
+  _transferHelpFor = null;
+  const el = document.getElementById('transferHelpPop');
+  if (el) el.style.display = 'none';
+}
+function toggleTransferHelp(mode, ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  const el = _transferHelpPop();
+  if (_transferHelpFor === mode) { closeTransferHelp(); return; }
+  _transferHelpFor = mode;
+  // 고정 문구(사용자 입력 아님). 줄바꿈(<br>)마다 문단으로 나눠 문단 사이를 띄운다.
+  el.innerHTML = String(_TRANSFER_HELP[mode] || '').split('<br>').map(function (t, i) {
+    return `<p style="margin:${i ? '10px' : '0'} 0 0">${t}</p>`;
+  }).join('');
+  // 지난번에 끌어 바꾼 크기를 버린다(끌기는 style.width·height 를 직접 적는다). 높이 최대는 max-height(70vh).
+  el.style.width = '380px';
+  el.style.height = '';
+  el.style.display = 'block';
+  const r = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { left: 0, bottom: 0 };
+  const w = el.offsetWidth;
+  el.style.left = Math.max(8, Math.min(r.left - 12, window.innerWidth - w - 8)) + 'px';
+  el.style.top = (r.bottom + 6) + 'px';
 }
 
 function _renderTransferToolbar() {
   const bar = $('transferHistoryToolbar');
   if (!bar) return;
-  const modes = [['list', '송금 목록'], ['monthly', '월별'], ['round', '회차별']];
-  bar.innerHTML = `
-    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-      <div class="admin-filter-group">
-        <label>송금일(일본 날짜)</label>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="date" id="transferFrom" class="admin-filter" value="${esc(_transferFrom || '')}" onchange="onTransferPeriodChange()">
-          <span style="color:var(--muted)">~</span>
-          <input type="date" id="transferTo" class="admin-filter" value="${esc(_transferTo || '')}" onchange="onTransferPeriodChange()">
-          <button class="btn btn-ghost btn-sm" onclick="clearTransferPeriod()" title="기간을 비우면 전체 기간">전체 기간</button>
+  if (!$('transferModeTabs')) {
+    bar.innerHTML = `
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div id="transferModeTabs" class="status-tab-bar" style="margin:0;border-bottom:none"></div>
+        <!-- 필터 줄 모양은 진행현황 「인증 성공일」과 같다 — 달력 칸 + 옆의 × 지우기(기간이 있을 때만).
+             admin-filter-bar 안이라 버튼 높이가 입력 칸과 같은 32px 로 맞춰진다(admin.css). -->
+        <div class="admin-filter-bar">
+          <div class="admin-filter-group">
+            <!-- × 는 입력 칸 **안쪽 오른쪽 끝**에 겹쳐 둔다(2026-09-30 사용자 결정). 입력 칸 오른쪽 여백을 그만큼 비운다.
+                 ⚠️ 아이콘을 1px 내린 것은 날짜 글자(12px)가 글꼴 특성상 칸 가운데보다 살짝 아래에 그려져서다 — 가운데 정렬만 하면 × 가 떠 보인다. -->
+            <div style="position:relative">
+              <input type="text" id="transferRange" class="admin-filter-search" readonly placeholder="시작일~종료일 선택"
+                     title="이 기간에 보낸 송금만 봅니다(회차별은 회차 날짜로 거릅니다). 비우면 전체 기간"
+                     style="min-width:200px;cursor:pointer;background:#fff;padding:6px 28px 6px 10px">
+              <button type="button" id="btnTransferRangeClear" onclick="clearTransferPeriod()" title="기간 지우기(전체 기간)" aria-label="기간 지우기"
+                      style="display:none;position:absolute;right:4px;top:0;bottom:0;margin:auto 0;width:22px;height:22px;padding:0;border:none;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;line-height:1;display:block;position:relative;top:1px">close</span></button>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="exportTransferHistoryExcel()" title="지금 기간의 송금 내역과 포함 건을 엑셀로 내려받습니다">
+            ${_DOWNLOAD_XLSX_HTML}
+          </button>
         </div>
       </div>
-      <div class="status-tab-bar" style="margin:0">
-        ${modes.map(function (m) {
-          return `<button type="button" class="status-tab-btn${_transferMode === m[0] ? ' on' : ''}" onclick="setTransferMode('${m[0]}')">${m[1]}</button>`;
-        }).join('')}
-      </div>
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="exportTransferHistoryExcel()" title="지금 기간의 송금 내역과 포함 건을 엑셀로 내려받습니다">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span> 엑셀
-      </button>
-    </div>
-    <div id="transferUnrecordedLine" style="margin-top:10px"></div>`;
+      <div id="transferUnrecordedLine" style="margin-top:10px"></div>`;
+    _transferFp = null;
+    _setupTransferRange();
+  }
+  const modes = [['list', '전체'], ['monthly', '월별'], ['round', '회차별']];
+  $('transferModeTabs').innerHTML = modes.map(function (m) {
+    return `<button type="button" class="status-tab-btn${_transferMode === m[0] ? ' on' : ''}" onclick="setTransferMode('${m[0]}')"
+        style="display:inline-flex;align-items:center;gap:3px">${m[1]}<span data-transfer-help="${m[0]}" role="button" tabindex="0"
+        onclick="toggleTransferHelp('${m[0]}', event)"
+        onkeydown="if(event.key==='Enter'||event.key===' '){toggleTransferHelp('${m[0]}', event);}" title="「${m[1]}」 도움말" aria-label="「${m[1]}」 도움말"
+        style="display:inline-flex;color:#D4D4D8;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">help</span></span></button>`;
+  }).join('');
+  closeTransferHelp();
 }
 
-function onTransferPeriodChange() {
-  _transferFrom = ($('transferFrom')?.value || '').trim() || null;
-  _transferTo = ($('transferTo')?.value || '').trim() || null;
-  if (_transferFrom && _transferTo && _transferFrom > _transferTo) {
-    toast('시작일이 끝일보다 늦습니다 — 두 날짜를 바꿔 조회합니다', 'warn');
-    const f = _transferFrom; _transferFrom = _transferTo; _transferTo = f;
-    _renderTransferToolbar();
-  }
-  _loadTransferHistory();
+// 기간 칸의 「걸림」 표시와 × 버튼을 함께 맞춘다(기간이 있을 때만 × 가 보인다).
+function _syncTransferRangeUi() {
+  const on = !!(_transferFrom || _transferTo);
+  const el = $('transferRange');
+  if (el) el.classList.toggle('filter-active', on);
+  const x = $('btnTransferRangeClear');
+  if (x) x.style.display = on ? 'inline-flex' : 'none';
 }
+
+function _setupTransferRange() {
+  const el = $('transferRange');
+  if (!el || typeof flatpickr === 'undefined') return;
+  const fmt = function (d) { return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : ''; };
+  _transferFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    defaultDate: (_transferFrom && _transferTo) ? [_transferFrom, _transferTo] : undefined,
+    onChange: function (d) {
+      // 양끝을 다 골랐을 때만 조회한다(한쪽만 고른 중간 상태에서 조회하면 결과가 번쩍인다)
+      if (d.length !== 2) return;
+      _transferFrom = fmt(d[0]); _transferTo = fmt(d[1]);
+      _syncTransferRangeUi();
+      _transferDetail = null;
+      _loadTransferHistory();
+    },
+  });
+  _syncTransferRangeUi();
+}
+
 function clearTransferPeriod() {
   _transferFrom = ''; _transferTo = '';   // 빈 문자열 = 사용자가 일부러 비움(null 은 「기본 기간 아직 안 정함」)
-  _renderTransferToolbar();
+  // ⚠️ clear(false) — 변경 이벤트를 안 일으킨다(인증 성공일 필터와 같은 함정)
+  if (_transferFp) _transferFp.clear(false);
+  _syncTransferRangeUi();
+  _transferDetail = null;
   _loadTransferHistory();
 }
 function setTransferMode(m) {
   _transferMode = m;
+  _transferDetail = null;   // 보기를 바꾸면 보던 상세에서 나온다
   _renderTransferToolbar();
   _renderTransferUnrecorded();
   _renderTransferBody();
@@ -3532,6 +3798,7 @@ async function _loadTransferHistory() {
   const seq = ++_transferLoadSeq;
   // 불러오는 동안 엑셀이 **옛 기간 데이터를 새 기간 이름으로** 내려받지 않게 비워 둔다
   _transferRows = undefined; _transferMonthly = undefined; _transferRound = undefined;
+  _transferAllRows = undefined;   // 기간·기록이 바뀌었을 수 있다 — 회차별 상세는 다시 받는다
   const body = $('transferHistoryBody');
   if (body) body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>';
   const from = _transferFrom || null, to = _transferTo || null;
@@ -3575,9 +3842,18 @@ function _transferEmptyHtml() {
 function _renderTransferBody() {
   const body = $('transferHistoryBody');
   if (!body) return;
+  if (_transferDetail && _transferDetail.mode === _transferMode) { body.innerHTML = _transferDetailPageHtml(); return; }
   if (_transferMode === 'monthly') { body.innerHTML = _transferMonthlyHtml(); return; }
   if (_transferMode === 'round')   { body.innerHTML = _transferRoundHtml(); return; }
   body.innerHTML = _transferListHtml();
+}
+
+// 받는 사람은 송금 내역의 모든 표에서 **이름 · 페이팔 두 칸**으로 같게 보인다(2026-09-30 사용자 결정 — 표마다 달랐다).
+//   ⚠️ 줄바꿈하지 않는다(nowrap). 페이팔은 정산 행 스냅샷에서 찾는다(_transferPaypalOf).
+const _TRANSFER_PAYEE_HEAD = '<th style="width:130px">받는 사람</th><th style="width:220px">페이팔</th>';
+function _transferPayeeCells(name, paypal) {
+  return `<td style="font-weight:600;white-space:nowrap">${esc(name || '(탈퇴한 회원)')}</td>
+    <td style="font-size:11px;font-family:monospace;white-space:nowrap;color:var(--muted)">${paypal ? esc(paypal) : '—'}</td>`;
 }
 
 function _transferPaypalOf(t) {
@@ -3602,43 +3878,57 @@ function _transferListHtml() {
     const items = Array.isArray(t.items) ? t.items : [];
     const paypal = _transferPaypalOf(t);
     const feeNote = t.fee_manual
-      ? `<div style="font-size:10px;color:#B8741A">${t.fee_stale ? '금액이 바뀐 뒤 손으로 고친 값 — 확인 필요' : '고친 값'}</div>`
+      ? `<div style="font-size:10px;color:#B8741A;white-space:nowrap">${t.fee_stale ? '금액이 바뀐 뒤 손으로 고친 값 — 확인 필요' : '고친 값'}</div>`
       : '';
-    const detail = open ? `<tr><td colspan="9" style="background:#FAFAFA;padding:6px 14px 10px 40px">
-        ${items.map(function (it) {
-          return `<div style="display:flex;gap:10px;font-size:12px;padding:3px 0;${it.is_current ? '' : 'color:var(--muted);text-decoration:line-through'}">
-              <div style="flex:1">${esc(_bulkCampaignLabel(it.campaign_no, it.campaign_title))}</div>
-              <div style="width:110px;text-align:right">지급 예정 ${esc(it.due_date || '기록 없음')}</div>
-              <div style="width:90px;text-align:right">${esc(settlementAmountYen(it.amount_jpy))}</div>
-              ${it.is_current ? '' : '<div style="width:110px;font-size:11px">보류 해제로 끊김</div>'}
+    // 펼친 내용 = 칸이 고정된 작은 표(2026-09-30 사용자 지적 — 줄바꿈·칸 어긋남·구분선 없음).
+    //   ⚠️ 「보류 해제로 끊김」은 **상태 칸 하나**에만 적는다. 줄마다 칸 수가 달라지면 금액이 옆으로 밀린다.
+    //   ⚠️ 날짜·금액 칸은 줄바꿈하지 않는다(nowrap) — 「지급 예정 2026-09-30」이 두 줄로 꺾였다.
+    //   ⚠️ <table> 이 아니라 격자(grid)다 — 바깥 목록이 data-table 이라 안쪽 표가 그 머리글 색(흰 글자)·칸 세로줄을 물려받는다.
+    const cols = 'display:grid;grid-template-columns:minmax(0,1fr) 120px 100px 130px;column-gap:12px;align-items:center;padding:7px 12px';
+    const detail = open ? `<tr><td colspan="10" style="background:#FAFAFA;padding:10px 16px 12px 16px">
+        <div style="background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+          <div style="${cols};font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3;border-bottom:1px solid var(--line)">
+            <div>캠페인</div><div style="white-space:nowrap">지급 예정(회차)</div><div style="text-align:right">금액</div><div>상태</div>
+          </div>
+          ${items.map(function (it, idx) {
+            const line = idx === items.length - 1 ? '' : ';border-bottom:1px solid var(--line)';
+            const off = it.is_current ? '' : ';color:var(--muted)';
+            const strike = it.is_current ? '' : ';text-decoration:line-through';
+            return `<div style="${cols};font-size:12px${line}${off}">
+              <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap${strike}" title="${esc(_bulkCampaignLabel(it.campaign_no, it.campaign_title))}">${esc(_bulkCampaignLabel(it.campaign_no, it.campaign_title))}</div>
+              <div style="white-space:nowrap">${it.due_date ? esc(it.due_date) : _missingDash(_MISSING_CERT_TIP)}</div>
+              <div style="text-align:right;white-space:nowrap${strike}">${esc(settlementAmountYen(it.amount_jpy))}</div>
+              <div>${it.is_current ? '' : '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#F4F4F5;white-space:nowrap">보류 해제로 끊김</span>'}</div>
             </div>`;
-        }).join('')}
-        ${t.memo ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">메모: ${esc(t.memo)}</div>` : ''}
-        <div style="font-size:11px;color:var(--muted)">기록: ${esc(t.recorded_by_name || '(이름 미상)')} · ${esc(formatDateTime(t.recorded_at))}${t.source === 'sheet_backfill' ? ' · 지급 시트에서 채움' : ''}</div>
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px">
+          ${t.memo ? `<span>메모: ${esc(t.memo)}</span>` : ''}
+          <span>기록: ${esc(t.recorded_by_name || '(이름 미상)')} · ${esc(formatDateTime(t.recorded_at))}${t.source === 'sheet_backfill' ? ' · 지급 시트에서 채움' : ''}</span>
+        </div>
       </td></tr>` : '';
     return `<tr style="cursor:pointer" onclick="toggleTransferRow('${esc(t.id)}')">
         <td style="width:28px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">${open ? 'expand_less' : 'expand_more'}</span></td>
-        <td>${esc(_settlementDateInputValue(t.sent_at))}</td>
-        <td><div style="font-weight:600">${esc(t.influencer_name || '(탈퇴한 회원)')}</div>
-            <div style="font-size:11px;color:var(--muted);font-family:monospace">${esc(paypal || '')}</div></td>
-        <td style="text-align:right">${items.length}건</td>
-        <td style="text-align:right;font-weight:600">${esc(settlementAmountYen(t.sent_total_jpy))}</td>
-        <td style="text-align:right">${esc(settlementAmountYen(t.fee_jpy))}${feeNote}</td>
-        <td style="text-align:right;font-weight:700">${esc(settlementAmountYen(t.total_spend_jpy))}</td>
-        <td style="font-size:11px;font-family:monospace">${esc(t.paypal_txn_id || '')}</td>
-        <td onclick="event.stopPropagation()">${canEdit
+        <td style="white-space:nowrap">${esc(_settlementDateInputValue(t.sent_at))}</td>
+        ${_transferPayeeCells(t.influencer_name, paypal)}
+        <td style="text-align:right;white-space:nowrap">${items.length}건</td>
+        <td style="text-align:right;font-weight:600;white-space:nowrap">${esc(settlementAmountYen(t.sent_total_jpy))}</td>
+        <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(t.fee_jpy))}${feeNote}</td>
+        <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(t.total_spend_jpy))}</td>
+        <td style="font-size:11px;font-family:monospace;white-space:nowrap">${esc(t.paypal_txn_id || '')}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">${canEdit
           ? `<button class="btn btn-ghost btn-xs" onclick="openTransferCorrectModal('${esc(t.id)}')">정정</button>`
           : ''}</td>
       </tr>${detail}`;
   }).join('');
   return `<div class="admin-table-wrap"><table class="data-table">
-      <thead><tr><th></th><th>송금일</th><th>받는 사람</th><th style="text-align:right">건수</th>
-        <th style="text-align:right">보낸 금액</th><th style="text-align:right">수수료</th><th style="text-align:right">총지출</th>
-        <th>페이팔 거래번호</th><th></th></tr></thead>
+      <thead><tr><th style="width:28px"></th><th style="width:100px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th style="width:60px;text-align:right">건수</th>
+        <th style="width:100px;text-align:right">보낸 금액</th><th style="width:210px;text-align:right">수수료</th><th style="width:100px;text-align:right">총지출</th>
+        <th>페이팔 거래번호</th><th style="width:84px"></th></tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr style="font-weight:700;background:#FAFAFA"><td></td><td colspan="2">합계 · 송금 ${rows.length}번</td>
-        <td style="text-align:right">${cnt}건</td><td style="text-align:right">${esc(settlementAmountYen(sent))}</td>
-        <td style="text-align:right">${esc(settlementAmountYen(fee))}</td><td style="text-align:right">${esc(settlementAmountYen(sent + fee))}</td>
+      <tfoot><tr class="transfer-foot"><td></td><td colspan="3" style="white-space:nowrap">합계 · 송금 ${rows.length}번</td>
+        <td style="text-align:right;white-space:nowrap">${cnt}건</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent))}</td>
+        <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(fee))}</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent + fee))}</td>
         <td colspan="2"></td></tr></tfoot>
     </table></div>`;
 }
@@ -3648,7 +3938,8 @@ function toggleTransferRow(id) {
   _renderTransferBody();
 }
 
-function _transferSummaryTableHtml(rows, firstHead, firstCell, note) {
+// opts.mode / opts.keyOf(r) — 줄마다 「상세」를 달고, 누르면 그 줄의 상세 화면으로 넘어간다(_transferDetailPageHtml).
+function _transferSummaryTableHtml(rows, firstHead, firstCell, note, opts) {
   if (rows === undefined) return '';
   if (rows === null) return _transferFailHtml();
   if (!rows.length) return _transferEmptyHtml();
@@ -3657,23 +3948,28 @@ function _transferSummaryTableHtml(rows, firstHead, firstCell, note) {
   return `${note ? `<div style="padding:8px 14px;font-size:12px;color:var(--muted)">${note}</div>` : ''}
     <div class="admin-table-wrap"><table class="data-table">
       <thead><tr><th>${firstHead}</th><th style="text-align:right">건수</th><th style="text-align:right">보낸 금액</th>
-        <th style="text-align:right">수수료</th><th style="text-align:right">총지출</th></tr></thead>
+        <th style="text-align:right">수수료</th><th style="text-align:right">총지출</th><th style="width:80px"></th></tr></thead>
       <tbody>${rows.map(function (r) {
-        return `<tr><td>${firstCell(r)}</td><td style="text-align:right">${Number(r.settlement_count) || 0}건</td>
-          <td style="text-align:right">${esc(settlementAmountYen(r.sent_total_jpy))}</td>
-          <td style="text-align:right">${esc(settlementAmountYen(r.fee_jpy))}</td>
-          <td style="text-align:right;font-weight:700">${esc(settlementAmountYen(r.total_spend_jpy))}</td></tr>`;
+        const key = opts.keyOf(r);
+        return `<tr><td style="white-space:nowrap">${firstCell(r)}</td><td style="text-align:right;white-space:nowrap">${Number(r.settlement_count) || 0}건</td>
+          <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(r.sent_total_jpy))}</td>
+          <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(r.fee_jpy))}</td>
+          <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(r.total_spend_jpy))}</td>
+          <td><button class="btn btn-ghost btn-xs" style="white-space:nowrap" onclick="openTransferSumDetail('${opts.mode}','${esc(key)}')">상세</button></td></tr>`;
       }).join('')}</tbody>
-      <tfoot><tr style="font-weight:700;background:#FAFAFA"><td>합계</td><td style="text-align:right">${cnt}건</td>
-        <td style="text-align:right">${esc(settlementAmountYen(sent))}</td><td style="text-align:right">${esc(settlementAmountYen(fee))}</td>
-        <td style="text-align:right">${esc(settlementAmountYen(sent + fee))}</td></tr></tfoot>
+      <tfoot><tr class="transfer-foot"><td>합계</td><td style="text-align:right;white-space:nowrap">${cnt}건</td>
+        <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent))}</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(fee))}</td>
+        <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent + fee))}</td><td></td></tr></tfoot>
     </table></div>`;
 }
 function _transferMonthlyHtml() {
   return _transferSummaryTableHtml(_transferMonthly, '송금한 달', function (r) {
     const m = String(r.month || '').slice(0, 7);
     return m ? esc(m.replace('-', '년 ') + '월') : '—';
-  }, '송금일(일본 날짜) 기준입니다. 건수는 연결 건 기준(보류 해제로 끊긴 옛 송금도 실제로 나간 돈이라 포함).');
+  }, '', {
+    mode: 'monthly',
+    keyOf: function (r) { return String(r.month || '').slice(0, 7); },
+  });
 }
 function _transferRoundHtml() {
   // ⚠️ 기간을 넣으면 「지급일 기록 없음」(인증 성공일 없는 건) 줄이 빠진다 — 0건이어도 「보낸 것 없음」이 아니다
@@ -3684,7 +3980,128 @@ function _transferRoundHtml() {
   }
   return _transferSummaryTableHtml(_transferRound, '원래 지급 예정일(회차)', function (r) {
     return r.due_date ? esc(r.due_date) : '<span style="color:var(--muted)">지급일 기록 없음</span>';
-  }, '보낸 금액은 <b>각 건의 원래 회차</b>에, 수수료는 <b>묶음 안 가장 늦은 회차에 통째로</b> 들어갑니다. 송금일 기준 합계는 「월별」에서 보세요.<br>⚠️ 기간은 <b>회차 날짜</b>로 거르므로 기간을 넣으면 월별·목록 합계와 다를 수 있습니다 — <b>「전체 기간」에서는 셋이 같습니다.</b> 「지급일 기록 없음」 줄은 전체 기간에서만 보입니다.');
+  }, '', {
+    mode: 'round',
+    keyOf: function (r) { return r.due_date ? String(r.due_date) : 'none'; },
+  });
+}
+
+// ─── 월별·회차별 「상세」 화면 ──────────────────────────────────────────
+function openTransferSumDetail(mode, key) {
+  _transferDetail = { mode: mode, key: key };
+  _renderTransferBody();
+  // 회차별은 **회차 날짜**로 거르고 목록은 **송금일**로 거른다 — 기간을 넣었으면 그 회차 몫이 기간 밖 송금에 있을 수 있어
+  //   전 기간 묶음을 따로 받는다(한 번 받아 두고, 기간이 바뀌면 _loadTransferHistory 가 비운다).
+  if (mode === 'round' && (_transferFrom || _transferTo) && _transferAllRows === undefined) {
+    const seq = _transferLoadSeq;
+    fetchSettlementTransfers(null, null).then(function (rows) {
+      if (seq !== _transferLoadSeq) return;
+      _transferAllRows = rows;
+      _renderTransferBody();
+    });
+  }
+}
+function backTransferSumDetail() {
+  _transferDetail = null;
+  _renderTransferBody();
+}
+
+// 상세 화면 — 머리(← 요약 · 제목 · 합계)는 고정, 표만 스크롤.
+function _transferDetailPageHtml() {
+  const d = _transferDetail;
+  const isRound = d.mode === 'round';
+  const title = isRound
+    ? (d.key === 'none' ? '지급일 기록 없음' : esc(d.key) + ' 회차')
+    : esc(d.key.replace('-', '년 ') + '월') + ' 송금';
+  const src = isRound ? _transferRound : _transferMonthly;
+  const row = Array.isArray(src) ? src.find(function (r) {
+    return isRound ? ((r.due_date ? String(r.due_date) : 'none') === d.key) : (String(r.month || '').slice(0, 7) === d.key);
+  }) : null;
+  const sum = row
+    ? `${Number(row.settlement_count) || 0}건 · 보낸 금액 <b>${esc(settlementAmountYen(row.sent_total_jpy))}</b> · 수수료 ${esc(settlementAmountYen(row.fee_jpy))} · 총지출 <b>${esc(settlementAmountYen(row.total_spend_jpy))}</b>`
+    : '';
+  return `<div style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div style="flex-shrink:0;padding:14px 16px 12px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-ghost btn-sm" onclick="backTransferSumDetail()">← ${isRound ? '회차별' : '월별'} 요약</button>
+          <div style="font-weight:700;font-size:14px">${title}</div>
+        </div>
+        ${sum ? `<div style="font-size:12px;color:var(--muted);margin-top:8px">${sum}</div>` : ''}
+      </div>
+      <!-- 목록은 좌우 여백 없이 카드 폭을 다 쓴다. 머리글(th)은 이 스크롤 칸 기준으로 위에 붙는다(data-table 기본 sticky). -->
+      <div style="flex:1;min-height:0;overflow-y:auto;background:#FAFAFA">
+        ${isRound ? _transferRoundDetailHtml(d.key) : _transferMonthDetailHtml(d.key)}
+      </div>
+    </div>`;
+}
+
+// 상세 안의 작은 표 — 송금 한 번 = 한 줄. extra(t) 가 그 줄의 건수·금액·수수료 칸을 정한다.
+function _transferDetailTableHtml(list, extra, note) {
+  if (!list.length) return '<div style="padding:16px;font-size:12px;color:var(--muted)">이 줄에 해당하는 송금을 찾지 못했습니다.</div>';
+  // ⚠️ 머리글 고정은 .admin-pane-list .data-table th 의 sticky 에 기댄다 — th 에 position:static 을 주면 풀린다.
+  return `${note ? `<div style="padding:8px 16px;font-size:11px;color:var(--muted);background:#fff;border-bottom:1px solid var(--line)">${note}</div>` : ''}
+    <table class="data-table" style="width:100%">
+      <thead><tr><th style="width:100px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th>캠페인</th>
+        <th style="width:70px;text-align:right">건수</th><th style="width:110px;text-align:right">보낸 금액</th>
+        <th style="width:150px;text-align:right">수수료</th><th style="width:150px">페이팔 거래번호</th></tr></thead>
+      <tbody>${list.map(function (t) {
+        const x = extra(t);
+        return `<tr><td style="white-space:nowrap">${esc(_settlementDateInputValue(t.sent_at))}</td>
+          ${_transferPayeeCells(t.influencer_name, _transferPaypalOf(t))}
+          <td style="font-size:12px;line-height:1.7">${x.campaigns}</td>
+          <td style="text-align:right;white-space:nowrap">${x.count}건</td>
+          <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(x.sent))}</td>
+          <td style="text-align:right">${x.feeHtml}</td>
+          <td style="font-size:11px;font-family:monospace;white-space:nowrap">${esc(t.paypal_txn_id || '')}</td></tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+function _transferItemCampaigns(items) {
+  return items.map(function (it) {
+    const label = esc(_bulkCampaignLabel(it.campaign_no, it.campaign_title));
+    return `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px" title="${label}">${label}</div>`;
+  }).join('');
+}
+
+// 월별 상세 — 그 달(송금일, 일본 날짜)에 보낸 묶음. 월별 합계와 같은 기간으로 받은 목록에서 고른다.
+function _transferMonthDetailHtml(ym) {
+  const rows = _transferRows;
+  if (rows === undefined) return '<div style="padding:16px;font-size:12px;color:var(--muted)">불러오는 중…</div>';
+  if (rows === null) return '<div style="padding:16px;font-size:12px;color:#B8741A">송금 목록을 불러오지 못했습니다.</div>';
+  const list = rows.filter(function (t) { return _settlementDateInputValue(t.sent_at).slice(0, 7) === ym; });
+  return _transferDetailTableHtml(list, function (t) {
+    const items = Array.isArray(t.items) ? t.items : [];
+    return { campaigns: _transferItemCampaigns(items), count: items.length, sent: t.sent_total_jpy,
+             feeHtml: esc(settlementAmountYen(t.fee_jpy)) };
+  });
+}
+
+// 회차별 상세 — 그 회차 건이 든 묶음. 금액·건수는 **그 회차 건만**, 수수료는 서버 규칙(487 [4])대로
+//   **묶음 안 가장 늦은 회차**에만 붙는다 — 다른 회차로 간 수수료는 「—」로 두고 어느 회차인지 알린다.
+//   ⚠️ 연결 행은 보류 해제로 끊긴 옛 건까지 전부 센다(회차 합계와 같은 기준).
+function _transferRoundDetailHtml(key) {
+  const rows = (_transferFrom || _transferTo) ? _transferAllRows : _transferRows;
+  if (rows === undefined) return '<div style="padding:16px;font-size:12px;color:var(--muted)">불러오는 중…</div>';
+  if (rows === null) return '<div style="padding:16px;font-size:12px;color:#B8741A">송금 목록을 불러오지 못했습니다.</div>';
+  const due = key === 'none' ? null : key;
+  const list = [];
+  rows.forEach(function (t) {
+    const items = Array.isArray(t.items) ? t.items : [];
+    const mine = items.filter(function (it) { return (it.due_date || null) === due; });
+    if (mine.length) list.push({ t: t, mine: mine, items: items });
+  });
+  const byId = {};
+  list.forEach(function (x) { byId[x.t.id] = x; });
+  return _transferDetailTableHtml(list.map(function (x) { return x.t; }), function (t) {
+    const x = byId[t.id];
+    const dues = x.items.map(function (it) { return it.due_date; }).filter(Boolean).sort();
+    const feeRound = dues.length ? dues[dues.length - 1] : null;
+    const sent = x.mine.reduce(function (a, it) { return a + (Number(it.amount_jpy) || 0); }, 0);
+    const feeHtml = feeRound === due
+      ? esc(settlementAmountYen(t.fee_jpy))
+      : `<span style="color:var(--muted)" title="이 묶음의 수수료는 가장 늦은 회차(${esc(feeRound || '지급일 기록 없음')})에 들어갑니다">— <span style="font-size:10px">(${esc(feeRound || '기록 없음')} 회차에)</span></span>`;
+    return { campaigns: _transferItemCampaigns(x.mine), count: x.mine.length, sent: sent, feeHtml: feeHtml };
+  }, '보낸 금액·건수는 <b>이 회차 건만</b> 셉니다. 여러 회차를 합쳐 보낸 묶음의 수수료는 가장 늦은 회차에만 들어갑니다.');
 }
 
 // 엑셀 — 시트 둘(송금 내역 한 줄 = 송금 한 번 / 포함 건). 수수료 합 = 화면 합(같은 저장값)
