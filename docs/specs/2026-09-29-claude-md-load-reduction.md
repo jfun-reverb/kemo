@@ -240,5 +240,14 @@
 - 리뷰어(reverb-reviewer): GO · 새 파일은 `.vercelignore` 의 `.claude` 로 공개 차단 확인.
 - 후속(조각 4 후보, 이 커밋과 분리): 434 「`mark_settlement_paid` 가 `settlement_paid` 알림」은 343 이후 낡은 서술 · 448 은 350 만 적힘(현재 원본 450) · 옮긴 파일 안에 「현재 원본」 없이 옛 번호만 적힌 함수(`mark_settlement_paid` 222·`register_past_settlements` 233·`get_past_unregistered_settlements` 232·`save_orient_draft` 425) · `*withdraw*` 가 다른 영역 파일 4개(360·367·482·483)도 잡음(로드만 조금 늘어남).
 
-### 3단계 검증
-(작업 폴더에서 새로 띄운 세션이 기록)
+### 3단계 검증 (2026-09-30 — 작업 폴더에서 새로 띄운 세션 2개, Read 도구)
+| 연 파일 | 기대 규칙 | 결과 |
+|---|---|---|
+| `dev/js/admin-settlements.js` | `settlement.md` | ✅ 주입 |
+| `dev/js/admin-orient.js` | `orient-sheet.md` | ✅ 주입 |
+| `supabase/functions/notify-withdrawal-scheduled/index.ts` | `member-withdrawal.md` | ✅ 주입 |
+| `dev/js/admin-lookups.js` (⑤로 더한 파일 — **둘째 세션에서 이 파일 하나만** 열었다) | `orient-sheet.md` | ✅ 주입(`settlement.md`·`member-withdrawal.md` 는 안 실림 — 의도대로) |
+- ⚠️ 첫 세션에서 넷째 파일을 열었을 때는 새로 안 붙었다 — 같은 규칙은 **한 세션에 한 번만** 실린다. 그래서 ⑤ 경로 확인은 **그 파일을 가장 먼저** 여는 새 세션으로 따로 했다.
+- `/context` 목록은 화면으로 직접 대조하지 못했다 — 🔴 **이 저장소에서는 `/context` 를 치면 프로젝트 명령 `.claude/commands/context.md`(맥락 불러오기)가 먼저 잡혀 내장 목록이 안 나온다**(실측). 대신 둘째 세션에서 `admin-lookups.js` 를 열 때 `orient-sheet.md` 가 「Loaded」로 **새로** 실린 것이 「시작 때는 안 실려 있었다」는 간접 근거다.
+- 항상 읽히는 지시 문서 합계(시작 후크와 같은 셈법): **21개 219,047자**(이 세션 시작 때 228,231자).
+- 첫 응답 입력 토큰 비교(검증 3)는 재지 못했다.
