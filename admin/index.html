@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790761365';
+  var CURRENT_BUILD = 'v1790761943';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3292,7 +3292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-09-30 18:42 · 52328b6</span>
+          <span class="admin-build-text">2026-09-30 18:52 · 05c1597</span>
         </div>
       </div>
     </aside>
@@ -60036,6 +60036,16 @@ async function adminLogout() {
   window.location.href = '/';
 }
 
+// 가림막(#admin-cloak)과 로딩 화면(#admin-boot)을 걷는다 — 짝으로 걷는다(하나만 지우면 화면이 가려진 채 남는다).
+// ⚠️ 부르는 곳은 init() 의 세 자리뿐: ①관리자 확인·메뉴 숨김 뒤 ②관리자 아닌 계정(안내 전 — 안 걷으면 안내가 가려진다)
+//   ③초기화 오류(안 걷으면 「불러오는 중…」에 영영 멈춘다). 로그인 없음은 걷지 않고 로딩 화면 그대로 이동한다.
+function revealAdminShell() {
+  var cloak = document.getElementById('admin-cloak');
+  if (cloak) cloak.remove();
+  var boot = document.getElementById('admin-boot');
+  if (boot) boot.remove();
+}
+
 async function init() {
   try {
     // 세션 확인
@@ -60055,6 +60065,7 @@ async function init() {
     // 관리자 확인
     var adminResult = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
     if (!adminResult.data) {
+      revealAdminShell();
       toast('관리자 권한이 없습니다','error');
       setTimeout(function() { window.location.href = '/'; }, 1500);
       return;
@@ -60071,6 +60082,8 @@ async function init() {
     applyOutboundModeUI();   // 아웃바운드 전용 모드면 권한 기준 노출 위에 사이드바 필터 덮어씀
     setAdminScreenSelect();  // 화면 이동 드롭다운 현재값 반영(모드 확정 후)
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
+    // 관리자 확인 + 권한별 메뉴 숨김까지 끝난 뒤에 화면을 드러낸다(대시보드 데이터는 기다리지 않는다).
+    revealAdminShell();
 
     // 세션 만료/갱신 감지
     db.auth.onAuthStateChange(function(event) {
@@ -60140,6 +60153,7 @@ async function init() {
       await loadAdminData(preloaded);
     }
   } catch(e) {
+    revealAdminShell();
     toast('초기화 오류: ' + (e.message||'알 수 없는 오류'), 'error');
   }
 }
@@ -60190,12 +60204,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // 권한 기준 최종 판정(campaign_manager 해제)은 init()의 applyLookupMenuVisibility 뒤 재호출.
   applyOutboundModeUI();
   setAdminScreenSelect();
-  // 패널 설정 완료 후 body 표시
-  var cloak = document.getElementById('admin-cloak');
-  if (cloak) cloak.remove();
-  // 로딩 화면도 함께 걷는다(가림막과 짝 — 하나만 지우면 화면이 가려진 채 남는다).
-  var boot = document.getElementById('admin-boot');
-  if (boot) boot.remove();
+  // ⚠️ 가림막은 여기서 걷지 않는다 — 로그인·관리자 확인 전에 걷으면 로그인 안 한 사람에게
+  //   관리자 화면이 잠깐 보인다(2026-09-30). 걷는 곳은 init() 안 revealAdminShell() 호출부.
 
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();
