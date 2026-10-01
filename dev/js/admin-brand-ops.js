@@ -262,6 +262,7 @@ var _brandOpsDetailData = null;
 var _brandOpsSheetCampMap = {};   // 상세의 시트 카드가 쓰는 발행 캠페인 맵(campaign_id → 캠페인)
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
 var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
+var _brandOpsDetailReq = 0;   // 상세 불러오기 요청 번호 — 늦게 끝난 옛 요청이 새 화면을 덮지 않게(전수조사 3차 ⑥-6)
 
 async function loadBrandOpsDetail() {
   var body = $('brandOpsDetailBody');
@@ -270,6 +271,9 @@ async function loadBrandOpsDetail() {
     return;
   }
   if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
+  // 🔴 기다릴 때마다 요청 번호를 대조한다 — 받는 사이 다른 브랜드를 열면(또는 같은 브랜드를 다시 불러오면)
+  //   앞 요청이 늦게 끝나 새 화면을 옛 브랜드로 덮었다(전수조사 3차 ⑥-6). 브랜드 번호 대조만으로는 같은 브랜드 겹침을 못 막는다.
+  var req = ++_brandOpsDetailReq;
 
   // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
   var results = await Promise.all([
@@ -278,16 +282,20 @@ async function loadBrandOpsDetail() {
     // ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212, 조치 계획 묶음 E-1).
     db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
   ]);
+  if (req !== _brandOpsDetailReq) return;
   var detail = results[0];
   var apps = results[1] || [];
   // 오리엔시트 목록 — 🔴 아직 안 받았을 때(undefined)만 받는다. 실패(null)면 다시 받지 않는다(§3-1)
+  //   ⚠️ 오리엔시트를 바꾼 화면은 refreshPane('brand-ops-detail') 로 이 값을 비운다 → 다음 불러오기에 새로 받는다
   if (_brandOpsOrientSheets === undefined) _brandOpsOrientSheets = await brandOpsFetchOrientSheets();
+  if (req !== _brandOpsDetailReq) return;
   // 시트 카드의 발행 캠페인 번호 — 브랜드 상세 모달과 같은 방식(삭제된 캠페인도 「삭제됨」으로 보이게 id 로 조회)
   _brandOpsSheetCampMap = {};
   var _bSheets = brandOpsSheetsOfBrand(_brandOpsDetailId);
   if (_bSheets && _bSheets.length && typeof fetchCampaignsByIds === 'function' && typeof collectOrientCampaignIds === 'function') {
     try { var _ids = collectOrientCampaignIds(_bSheets); if (_ids.length) _brandOpsSheetCampMap = await fetchCampaignsByIds(_ids) || {}; }
     catch (_) { _brandOpsSheetCampMap = {}; }
+    if (req !== _brandOpsDetailReq) return;
   }
   var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
   _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
@@ -1410,7 +1418,14 @@ function _scheduleStatsFor(list) {
   list.forEach(function(c){
     var ds = byCamp[c.id] || [];
     var infs = {}, rcpt = {};
-    ds.forEach(function(d){ if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; } });
+    ds.forEach(function(d){
+      // 반려·취소된 신청의 결과물은 세지 않는다(전수조사 3차 ⑥-7 — 「13/12」). 조건은 isCertExcluded 와 글자 그대로 같다.
+      //   ⚠️ 운영현황 브랜드 상세 미니카드의 「제출」 막대는 서버 값(deliv_submitted_inf, 259)이라 **여전히 센다** —
+      //      두 화면 숫자가 다를 수 있다(2026-10-01 사용자 결정: 이 화면만 고친다).
+      var st = d.applications && d.applications.status;
+      if (st === 'rejected' || st === 'cancelled') return;
+      if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; }
+    });
     // countCertSuccess 는 검수 화면·미니카드와 같은 판정(buildDeliverableGroups → computeCertStatus).
     //   camp 는 fetchCampaigns() 가 준 실제 행이다(가구매·채널 판정 포함). 결과물 행에 임베드된
     //   campaigns 가 있으면 그쪽이 우선 쓰이는데, 판정에 필요한 값이 전부 있어 결과가 같다.
