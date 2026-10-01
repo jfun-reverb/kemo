@@ -959,11 +959,25 @@ const NOTICE_LINES = {
 const PURCHASE_GUIDE_FREE_KO = '상품을 자유롭게 구매해 주세요.';
 
 // 리뷰어 추가 옵션(§4-9) — 폼과 확인 화면이 같은 목록을 쓴다.
-// ⚠️ 실제 견적 금액은 서버가 기준값 표에서 읽는다 — 여기 금액은 「고를지 말지」를 그 자리에서 판단하기 위한 표시값이다(두 자리가 되는 것을 감수한 결정)
+// 🔴 **금액을 여기 적지 않는다**(전수조사 3차 ①-3) — 예전엔 5,000원을 박아 두어 기준값을 바꾸면
+//    폼과 견적서가 다른 금액을 말했다. 금액은 서버(get_orient_tier_fees 의 option_fees, 489)가 준
+//    기준값을 그대로 보인다(`extraMarketFeeText`). 못 받으면 금액 대신 「견적 보기」로 안내한다.
 const EXTRA_MARKETS = [
-  { key: 'lips',  label: 'LIPS 추가',   fee: 5000 },
-  { key: 'cosme', label: '@cosme 추가', fee: 5000 },
+  { key: 'lips',  label: 'LIPS 추가' },
+  { key: 'cosme', label: '@cosme 추가' },
 ];
+// 옵션 1건당 금액 글 — 서버 값이 있을 때만 「+N원 / 1건」(0원도 그대로 「+0원」 — 사용자 결정 2026-10-01).
+//   ⚠️ Number(null) 은 0 이라 빈 값 검사가 먼저다. 모집비 직접 지정 시트에서도 옵션은 기준값이다(서버 계산과 같다).
+function extraMarketFeeAmount(key) {
+  const f = tierFees && tierFees.optionFees;
+  if (!f || f[key] === null || f[key] === undefined) return null;
+  const v = Number(f[key]);
+  return isFinite(v) && v >= 0 ? v : null;
+}
+function extraMarketFeeText(key) {
+  const v = extraMarketFeeAmount(key);
+  return v === null ? '금액은 「견적 보기」에서 확인' : '+' + v.toLocaleString('ko-KR') + '원 / 1건';
+}
 
 // 모집 인원 구간 — 단추 넷(+ 단추 없는 최하단 「소량」) + 직접 입력 한 칸(2026-09-21). 단추 인원은 서버가 준다.
 // ⚠️ 열쇠말 `t500plus` 는 그대로 둔다 — 기준값 행·저장된 slots_tier·견적의 tier 가 전부 그 글자를 쓴다.
@@ -1063,6 +1077,8 @@ async function loadTierFees() {
       //    최소 인원 미만을 막는 데 쓴다(2026-09-21). 못 받아 왔으면 아무것도 안 그리고 안 막는다.
       slots: (res.slots && typeof res.slots === 'object') ? res.slots : null,
       minSlots: (res.min_slots === null || res.min_slots === undefined) ? null : Number(res.min_slots),
+      // [489] 추가 옵션 1건당 금액(리뷰어만) — 없으면 null(폼은 금액 대신 「견적 보기」 안내)
+      optionFees: (res.option_fees && typeof res.option_fees === 'object') ? res.option_fees : null,
     };
     // 구간 인원 — 그 시트 형식의 값(리뷰어·시딩 따로). **넷 다** 받았을 때만 단추를 채워 보인다.
     //   하나라도 빠지면 단추 줄은 감춘 채 둔다 — 일부만 채운 단추는 틀린 숫자를 보인다(§3-6).
@@ -1077,6 +1093,8 @@ async function loadTierFees() {
         const row = card.querySelector('.tier'); if (row) row.hidden = false;
       }
       applyTierPrices(card);
+      // 추가 옵션 금액 — 카드를 그린 뒤 받아 오므로 여기서 다시 쓴다
+      card.querySelectorAll('.opt-fee[data-extra-fee]').forEach(el => { el.textContent = extraMarketFeeText(el.dataset.extraFee); });
     });
   } catch (e) { /* 단가·인원 표시는 부가 정보 — 실패하면 단추 줄은 감춘 채, 직접 입력으로 그대로 동작한다 */ }
 }
@@ -1942,7 +1960,7 @@ ${purchaseGuideBlock}
         </div>
         <!-- 추가 옵션 — 리뷰어 전용(LIPS·@cosme 는 리뷰어형 채널이다). 안 골라도 제출된다. -->
         <div class="field only-reviewer"><label>추가 옵션 <span class="opt">(선택)</span></label>
-          ${EXTRA_MARKETS.map(o => `<label class="opt-row"><input type="checkbox" class="f-extra-${o.key}" ${(sale.extra_markets || []).includes(o.key) ? 'checked' : ''} onchange="onInput()">${o.label} <span class="opt-fee">+${o.fee.toLocaleString('ko-KR')}원 / 1건</span></label>`).join('')}
+          ${EXTRA_MARKETS.map(o => `<label class="opt-row"><input type="checkbox" class="f-extra-${o.key}" ${(sale.extra_markets || []).includes(o.key) ? 'checked' : ''} onchange="onInput()">${o.label} <span class="opt-fee" data-extra-fee="${o.key}">${extraMarketFeeText(o.key)}</span></label>`).join('')}
         </div>
         <div class="field"><label>희망 모집 시작일</label>
           <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
@@ -2855,7 +2873,10 @@ function findInvalidField(mode) {
     if (!c.sale.price_regular) return { message: '판매가를 입력해 주세요.', card: el, target: el.querySelector('.f-price-regular') };
     // [2026-09-16 §4-1] 구간·인원 — **세 경로 모두**에서 막는다(없으면 견적 계산 자체가 안 된다)
     //   ⚠️ 인원이 빈 채 구간만 남은 시트(옛 「직접 입력」 칸을 비워 둔 임시저장)도 여기서 걸린다 — 단추를 다시 누르면 채워진다
-    if (!c.product.slots_tier || !c.product.slots)
+    // 🔴 구간(slots_tier)은 요구하지 않는다(전수조사 3차 ①-2) — 구간 기준을 못 받으면 단추가 감춰지고
+    //   직접 입력한 인원에 구간이 안 붙어, 예전엔 「견적 보기」·제출이 **영영 막혔다**. 서버(_orient_compute_quote)는
+    //   어차피 인원으로 구간을 다시 판정한다. 인원은 서버와 같은 셈법(readSlots)으로 본다 — "0"·글자만 든 값 차단.
+    if (!readSlots(c.product.slots))
       return { message: '모집 인원을 골라 주세요.', card: el, target: el.querySelector('.tier') };
     // [2026-09-16 §4-3·§4-7] 아래 셋은 **제출에서만** 막는다 — 작성 도중·미리보기에서 걸면 쓰다 만 상태로 갇힌다
     if (forSubmit && c.form_type === 'reviewer') {
@@ -3085,7 +3106,9 @@ function renderPreviewCardNew(c, idx) {
   if (ft === 'reviewer' && (c.sale.extra_markets || []).length) {
     rows += pvRow('추가 옵션', c.sale.extra_markets.map(k => {
       const o = EXTRA_MARKETS.find(x => x.key === k);
-      return o ? `${o.label} (+${o.fee.toLocaleString('ko-KR')}원 / 1건)` : k;
+      if (!o) return k;
+      const fee = extraMarketFeeAmount(k);
+      return fee === null ? o.label : `${o.label} (+${fee.toLocaleString('ko-KR')}원 / 1건)`;
     }).join('\n'));
   }
   rows += pvRow('희망 모집 시작일', c.recruit.recruit_start);

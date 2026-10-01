@@ -387,7 +387,16 @@ async function osOpenCreate(opts) {
   const chSel = document.getElementById('osCreateChannel');
   chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
   chSel.value = '';
-  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) fee.value = ''; }   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) {
+      fee.value = '';   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+      // [490] 모집비 직접 지정은 캠페인 관리자 이상만(사용자 결정 2026-10-01 — 기준값 수정 권한과 맞춤).
+      //   서버(create_orient_sheet)가 최종 방어선이고, 여기서는 칸을 잠가 누르기 전에 알린다. 진입점이 셋이라 열 때마다 정한다
+      const canFee = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
+      fee.disabled = !canFee;
+      fee.placeholder = canFee ? '비움 = 기준값' : '캠페인 관리자 이상만';
+      const lock = document.getElementById('osCreateRecruitFeeLock');
+      if (lock) lock.style.display = canFee ? 'none' : '';
+    } }
   osOnFormTypeChange();
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
@@ -571,7 +580,7 @@ async function osSubmitCreate() {
     // 브랜드만 선택한 건만 수신자 선택 UI 노출 (신청 연결 건은 신청 담당자 이메일 자동)
     if (!appId) { osLoadRecipients(brandId); }
     else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
-    await refreshPane('orient-sheets');
+    await osRefreshAfterSheetChange();
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -589,6 +598,7 @@ function osReasonText(r) {
     channel_required: '시딩은 게시 채널을 골라야 합니다',
     invalid_channel: '고를 수 없는 채널입니다',
     invalid_recruit_fee: '모집비는 0 이상이어야 합니다',
+    recruit_fee_forbidden: '모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 칸을 비우고 발급해 주세요',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -832,7 +842,7 @@ async function osExecuteDelete() {
       osCloseModal('orientDeleteModal');
       const n = Array.isArray(res.deleted_campaign_ids) ? res.deleted_campaign_ids.length : 0;
       toast(n > 0 ? ('오리엔시트와 연결 캠페인 ' + n + '개를 삭제했습니다.') : '오리엔시트를 삭제했습니다.', 'success');
-      await refreshPane('orient-sheets');
+      await osRefreshAfterSheetChange();
     } else if (res && res.reason === 'blocked_has_applications') {
       const n = Array.isArray(res.campaign_ids) ? res.campaign_ids.length : 0;
       err.textContent = '연결 캠페인 중 신청이 있는 캠페인(' + n + '개)이 있어 삭제할 수 없습니다. 신청을 먼저 정리해 주세요.';
@@ -1306,7 +1316,12 @@ function osCardDetail(c, idx, catMap, readonly, sheet) {
 
   // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
   // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 이름은 osTierName 이 고르고 osField 가 esc 한다(관리자 입력값)
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, p.slots_tier))
+  // ⚠️ 폼이 구간 기준을 못 받아 인원만 직접 넣고 제출하면 slots_tier 가 없다(전수조사 3차 ①-2 이후 제출 가능) —
+  //   그때는 새 구조(카드 1개) 시트에 한해 서버가 인원으로 판정한 견적의 구간(quote.tier)을 대신 보인다
+  const sheetData = (sheet && sheet.data) || {};
+  const tierKey = p.slots_tier
+    || (sheetData.issued && sheetData.quote && typeof sheetData.quote.tier === 'string' ? sheetData.quote.tier : '');
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, tierKey))
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
@@ -1886,7 +1901,7 @@ async function osConfirmLink(campaignId) {
   toast('연결(발행)되었습니다.');
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
 }
 
 // 발행 카드의 연결 캠페인 번호 클릭 → 그 캠페인 진행현황(신청자·요약)으로 이동. 오리엔 상세 모달은 닫는다.
@@ -1918,7 +1933,14 @@ async function osUnlinkCard(cardIdx) {
   }
   toast('연결을 해제했습니다.');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
+}
+
+// 오리엔시트를 바꾼 뒤(발급·삭제·연결·해제) — 목록뿐 아니라 **그 시트를 보여 주는 브랜드 화면 둘**도 갱신한다
+//   (전수조사 3차 ⑥-2·⑥-3). 그 둘은 숨어 있으면 다시 받지 않고 「돌아올 때 다시 그리기」 표시만 남긴다(shared.js).
+//   동시에 돌린다 — 차례로 기다리면 전체 시트 목록을 다 받은 뒤에야 다음이 시작된다.
+async function osRefreshAfterSheetChange() {
+  await Promise.all([refreshPane('orient-sheets'), refreshPane('brand-detail'), refreshPane('brand-ops-detail')]);
 }
 
 // 연결/해제 실패 reason → 사용자 안내 문구
@@ -2273,6 +2295,7 @@ function ensureOrientModals() {
             <div style="display:flex;align-items:center;gap:8px">
               <input type="text" inputmode="numeric" id="osCreateRecruitFee" class="form-input" style="max-width:160px" placeholder="비움 = 기준값" autocomplete="off">
               <span style="font-size:13px;color:var(--muted)">원 / 1건</span></div>
+            <div id="osCreateRecruitFeeLock" style="display:none;font-size:11px;color:var(--muted);margin-top:4px">모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 비워 두면 기준값으로 발급됩니다.</div>
             <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">비우면 기준값의 구간 단가를 씁니다. 시딩이면 진행비를 대신합니다. 0 을 넣으면 무료로 계산됩니다.<br>발급 뒤에는 바꿀 수 없습니다 — 잘못 넣었으면 시트를 지우고 다시 발급하세요.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
             링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>

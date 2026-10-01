@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790822858';
+  var CURRENT_BUILD = 'v1790823122';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3292,7 +3292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-01 11:47 · dfd359a</span>
+          <span class="admin-build-text">2026-10-01 11:52 · 96a40d5</span>
         </div>
       </div>
     </aside>
@@ -9373,8 +9373,18 @@ const PANE_REFRESHERS = {
   'brand-ops': async () => {
     if (typeof loadBrandOps === 'function') await loadBrandOps();
   },
+  // ⚠️ 오리엔시트를 바꾼 화면(admin-orient.js)이 이 둘도 부른다 — **숨은 화면은 다시 받지 않는다**
+  //   (전체 신청 조회까지 돌아 비싸다). 대신 다음에 그 화면으로 돌아올 때 최신이 되게 표시만 남긴다
+  //   (전수조사 3차 ⑥-2·⑥-3, 2026-10-01 사용자 결정 「돌아올 때 다시 그리기」).
   'brand-ops-detail': async () => {
-    if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+    // 오리엔시트 목록은 「아직 안 받음(undefined)」일 때만 다시 받는다 — 비워 두면 다음 진입(화면 전환이 늘 load 를 부른다)에 새로 받는다
+    if (typeof _brandOpsOrientSheets !== 'undefined') _brandOpsOrientSheets = undefined;
+    const el = document.getElementById('adminPane-brand-ops-detail');
+    if (el && el.classList.contains('on') && typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+  },
+  'brand-detail': async () => {
+    // 🔴 편집 폼이라 본문 전체를 다시 그리지 않는다 — 오리엔시트 구역·탭 숫자만(refreshBrandDetailSheets)
+    if (typeof refreshBrandDetailSheets === 'function') await refreshBrandDetailSheets();
   },
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
@@ -18989,7 +18999,11 @@ function switchAdminPane(pane, el, pushHistory) {
     'brands': loadBrandsPane,
     // 브랜드 상세 페이지는 목록에서 고른 브랜드를 화면 상태로 들고 있다 —
     //   주소로 직접 들어오면 고른 브랜드가 없으므로 목록으로 돌려보낸다(app.js 의 subToParent 와 같은 뜻).
-    'brand-detail': () => { if (!_brandsCurrentId) switchAdminPane('brands'); },
+    'brand-detail': () => {
+      if (!_brandsCurrentId) { switchAdminPane('brands'); return; }
+      // 숨어 있는 동안 오리엔시트가 바뀌었으면(발급·발행·연결·삭제) 돌아온 지금 그 구역만 다시 그린다
+      if (typeof _brandDetailStale !== 'undefined' && _brandDetailStale && typeof refreshBrandDetailSheets === 'function') refreshBrandDetailSheets();
+    },
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,
@@ -21032,7 +21046,16 @@ async function osOpenCreate(opts) {
   const chSel = document.getElementById('osCreateChannel');
   chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
   chSel.value = '';
-  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) fee.value = ''; }   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) {
+      fee.value = '';   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+      // [490] 모집비 직접 지정은 캠페인 관리자 이상만(사용자 결정 2026-10-01 — 기준값 수정 권한과 맞춤).
+      //   서버(create_orient_sheet)가 최종 방어선이고, 여기서는 칸을 잠가 누르기 전에 알린다. 진입점이 셋이라 열 때마다 정한다
+      const canFee = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
+      fee.disabled = !canFee;
+      fee.placeholder = canFee ? '비움 = 기준값' : '캠페인 관리자 이상만';
+      const lock = document.getElementById('osCreateRecruitFeeLock');
+      if (lock) lock.style.display = canFee ? 'none' : '';
+    } }
   osOnFormTypeChange();
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
@@ -21216,7 +21239,7 @@ async function osSubmitCreate() {
     // 브랜드만 선택한 건만 수신자 선택 UI 노출 (신청 연결 건은 신청 담당자 이메일 자동)
     if (!appId) { osLoadRecipients(brandId); }
     else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
-    await refreshPane('orient-sheets');
+    await osRefreshAfterSheetChange();
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -21234,6 +21257,7 @@ function osReasonText(r) {
     channel_required: '시딩은 게시 채널을 골라야 합니다',
     invalid_channel: '고를 수 없는 채널입니다',
     invalid_recruit_fee: '모집비는 0 이상이어야 합니다',
+    recruit_fee_forbidden: '모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 칸을 비우고 발급해 주세요',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -21477,7 +21501,7 @@ async function osExecuteDelete() {
       osCloseModal('orientDeleteModal');
       const n = Array.isArray(res.deleted_campaign_ids) ? res.deleted_campaign_ids.length : 0;
       toast(n > 0 ? ('오리엔시트와 연결 캠페인 ' + n + '개를 삭제했습니다.') : '오리엔시트를 삭제했습니다.', 'success');
-      await refreshPane('orient-sheets');
+      await osRefreshAfterSheetChange();
     } else if (res && res.reason === 'blocked_has_applications') {
       const n = Array.isArray(res.campaign_ids) ? res.campaign_ids.length : 0;
       err.textContent = '연결 캠페인 중 신청이 있는 캠페인(' + n + '개)이 있어 삭제할 수 없습니다. 신청을 먼저 정리해 주세요.';
@@ -21951,7 +21975,12 @@ function osCardDetail(c, idx, catMap, readonly, sheet) {
 
   // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
   // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 이름은 osTierName 이 고르고 osField 가 esc 한다(관리자 입력값)
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, p.slots_tier))
+  // ⚠️ 폼이 구간 기준을 못 받아 인원만 직접 넣고 제출하면 slots_tier 가 없다(전수조사 3차 ①-2 이후 제출 가능) —
+  //   그때는 새 구조(카드 1개) 시트에 한해 서버가 인원으로 판정한 견적의 구간(quote.tier)을 대신 보인다
+  const sheetData = (sheet && sheet.data) || {};
+  const tierKey = p.slots_tier
+    || (sheetData.issued && sheetData.quote && typeof sheetData.quote.tier === 'string' ? sheetData.quote.tier : '');
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, tierKey))
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
@@ -22531,7 +22560,7 @@ async function osConfirmLink(campaignId) {
   toast('연결(발행)되었습니다.');
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
 }
 
 // 발행 카드의 연결 캠페인 번호 클릭 → 그 캠페인 진행현황(신청자·요약)으로 이동. 오리엔 상세 모달은 닫는다.
@@ -22563,7 +22592,14 @@ async function osUnlinkCard(cardIdx) {
   }
   toast('연결을 해제했습니다.');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
+}
+
+// 오리엔시트를 바꾼 뒤(발급·삭제·연결·해제) — 목록뿐 아니라 **그 시트를 보여 주는 브랜드 화면 둘**도 갱신한다
+//   (전수조사 3차 ⑥-2·⑥-3). 그 둘은 숨어 있으면 다시 받지 않고 「돌아올 때 다시 그리기」 표시만 남긴다(shared.js).
+//   동시에 돌린다 — 차례로 기다리면 전체 시트 목록을 다 받은 뒤에야 다음이 시작된다.
+async function osRefreshAfterSheetChange() {
+  await Promise.all([refreshPane('orient-sheets'), refreshPane('brand-detail'), refreshPane('brand-ops-detail')]);
 }
 
 // 연결/해제 실패 reason → 사용자 안내 문구
@@ -22918,6 +22954,7 @@ function ensureOrientModals() {
             <div style="display:flex;align-items:center;gap:8px">
               <input type="text" inputmode="numeric" id="osCreateRecruitFee" class="form-input" style="max-width:160px" placeholder="비움 = 기준값" autocomplete="off">
               <span style="font-size:13px;color:var(--muted)">원 / 1건</span></div>
+            <div id="osCreateRecruitFeeLock" style="display:none;font-size:11px;color:var(--muted);margin-top:4px">모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 비워 두면 기준값으로 발급됩니다.</div>
             <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">비우면 기준값의 구간 단가를 씁니다. 시딩이면 진행비를 대신합니다. 0 을 넣으면 무료로 계산됩니다.<br>발급 뒤에는 바꿀 수 없습니다 — 잘못 넣었으면 시트를 지우고 다시 발급하세요.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
             링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>
@@ -24133,6 +24170,12 @@ var _brandMemoSummaries = null;  // {brand_id: {count, latest_body, latest_at}} 
 var _brandSheetCounts = null;  // {brand_id: 오리엔시트 수} — 브랜드 목록 「오리엔시트 수」 열. 🔴 실패 `null` / 0건 `{}`
 var _brandCompanyMap = {};  // {company_id: 회사명} — 목록 회사명을 company_id 기준 표시(company_name 보조컬럼 미동기화 대비)
 var _brandsCurrentId = null;
+// 브랜드 상세 오리엔시트 구역 다시 그리기(전수조사 3차 ⑥-2) — 요청 번호로 늦게 끝난 옛 결과를 버린다
+//   (브랜드 번호 대조만으로는 「같은 브랜드를 두 번 다시 받는」 겹침을 못 막는다).
+var _brandDetailStale = false;        // 숨어 있는 동안 오리엔시트가 바뀜 → 돌아올 때 다시 그린다(admin-core 화면 전환)
+var _brandDetailSheetsReq = 0;
+var _brandDetailCampsReq = 0;         // 캠페인 탭 조회 요청 번호(setBrandDetailTab)
+var _brandDetailSurveyCount = null;   // 서베이 안내줄을 다시 그릴 때 쓰는 값(openBrandDetail 에서 받은 것)
 var brandsLazy;
 var BRANDS_PAGE_SIZE = 50;
 
@@ -24243,6 +24286,8 @@ async function openBrandDetail(id, from) {
   _brandMemoDraft = '';
   _brandMemoEditDraft = {};
   _brandDetailFrom = (from === 'brand-ops' || from === 'brand-applications') ? from : 'brands';
+  _brandDetailStale = false;
+  _brandDetailSheetsReq++;   // 앞 브랜드의 구역 다시 그리기가 도는 중이면 버리게
   clearBrandModalBody();
   var titleEl = $('brandDetailPaneHeader');
   var bodyEl = $('brandDetailPaneBody');
@@ -24274,6 +24319,7 @@ async function openBrandDetail(id, from) {
   //    앞 브랜드의 폼이 뒤늦게 덮어써 「저장」이 **엉뚱한 브랜드에** 기록됐다(2026-09-28 전수조사 3차 H-3).
   if (_brandsCurrentId !== id) return;
   _brandFormCompanies = companies || [];
+  _brandDetailSurveyCount = surveyCount;
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
@@ -24300,7 +24346,7 @@ function renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id
     + '<div style="min-width:0">' + renderBrandDetailHeaderHtml(b) + '</div>'
     + '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
     + (canDeleteBrand
-        ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
+        ? '<button class="btn btn-ghost btn-sm" id="brandDetailDeleteBtn" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
         : '')
     + (isAdm
         ? '<button class="btn btn-ghost btn-sm" onclick="openBrandMergeModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">merge</span>병합</button>'
@@ -24324,6 +24370,50 @@ function syncBrandDetailTabOffset() {
   var body = $('brandDetailPaneBody');
   if (!head || !body) return;
   body.style.setProperty('--brand-detail-head', head.offsetHeight + 'px');
+}
+
+// 오리엔시트 구역만 다시 그린다(전수조사 3차 ⑥-2) — 발급·삭제·연결·해제·발행 뒤 `refreshPane('brand-detail')` 가 부른다.
+//   🔴 **본문 전체를 다시 그리지 않는다** — 이 페이지는 편집 폼이라 고치던 값(회사·담당자·브랜드명)이 경고 없이 사라진다.
+//      머리글도 그대로 둔다(상태 선택칸이 있다). 다만 시트가 생겼으면 「삭제」 단추만 뗀다 — 누르면 서버가 거부할 단추다.
+//   ⚠️ 화면이 숨어 있으면 받지 않고 표시만 남긴다 — 돌아올 때(admin-core 화면 전환) 다시 부른다.
+async function refreshBrandDetailSheets() {
+  var id = _brandsCurrentId;
+  if (!id) return;
+  var paneEl = $('adminPane-brand-detail');
+  if (!paneEl || !paneEl.classList.contains('on') || !$('brandDetailPane_sheets')) { _brandDetailStale = true; return; }
+  _brandDetailStale = false;
+  var req = ++_brandDetailSheetsReq;
+  var res = await Promise.all([
+    (typeof fetchOrientSheetsByBrand === 'function' ? fetchOrientSheetsByBrand(id) : Promise.resolve(null)),
+    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(null))
+  ]);
+  if (req !== _brandDetailSheetsReq || _brandsCurrentId !== id) return;
+  var sheets = res[0], campCount = res[1];
+  var campMap = {};
+  if (Array.isArray(sheets)) {
+    var campIds = [];
+    try {
+      campIds = collectOrientCampaignIds(sheets);
+      if (campIds.length && typeof fetchCampaignsByIds === 'function') campMap = await fetchCampaignsByIds(campIds) || {};
+    } catch (_) { campMap = {}; }
+    if (req !== _brandDetailSheetsReq || _brandsCurrentId !== id) return;
+    // ⚠️ 실패(null)면 앞 값을 그대로 둔다 — 비우면 캠페인 탭이 전부 「직접 등록」으로 잘못 갈린다
+    _brandDetailSheetCampIds = campIds.slice();
+  }
+  var pane = $('brandDetailPane_sheets');
+  if (pane) pane.innerHTML = renderBrandOrientSheetsView(sheets, campMap) + renderBrandSurveyNoteHtml(_brandDetailSurveyCount);
+  var setCnt = function(code, v) {
+    var el = $('brandDetailTab_' + code);
+    var c = el && el.querySelector('.tab-count');
+    if (c) c.textContent = '(' + v + ')';
+  };
+  setCnt('sheets', Array.isArray(sheets) ? String(sheets.length) : '…');
+  setCnt('camps', (campCount === null || campCount === undefined) ? '…' : String(campCount));
+  if (Array.isArray(sheets) && sheets.length > 0) { var del = $('brandDetailDeleteBtn'); if (del) del.remove(); }
+  // 캠페인 탭은 다음에 열 때 새로 받는다 — 지금 열려 있으면 바로 다시 받는다(도는 중인 옛 조회는 요청 번호로 버린다)
+  _brandDetailCampsReq++;
+  _brandDetailCamps = undefined;
+  if (_brandDetailTab === 'camps') await setBrandDetailTab('camps');
 }
 
 // 🔴 같은 이름의 입력칸이 화면에 둘이 되는 것을 막는 장치 — **두 자리가 한 세트**다(사양서 2-2).
@@ -24366,37 +24456,69 @@ async function deleteBrandConfirm() {
   else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
 
-// 브랜드 병합 모달 — 같은 회사 다른 활성 브랜드로 source 의 캠페인·신청 이동(채번 재발급). 원본 보관.
+// 브랜드 병합 모달 — 다른 활성 브랜드로 source 의 캠페인·신청·오리엔시트·영업 메모를 옮긴다(채번 재발급). 원본 보관.
+//   (전수조사 3차 ⑥-4·⑥-5) ①목록을 **창을 열 때마다 새로** 받는다 — 운영현황·서베이에서 들어온 브랜드 페이지는
+//   목록 캐시가 비어 단추가 무반응이었고, 캐시가 있어도 그 사이 바뀐 대상이 틀릴 수 있다(되돌릴 수 없는 동작).
+//   ②건수 넷은 **동시에** 받고, 받는 동안 창에 「불러오는 중」을 띄운다. ③🔴 **창이 이미 있으면 그만** —
+//   늦게 뜨는 사이 다시 누르면 같은 id 의 창이 둘 생기고 `$('brandMergeTarget')` 가 앞 창을 읽어 **엉뚱한 대상으로 병합**된다.
+//   ④실패는 전부 「확인 불가」 — 「0건」이라 적으면 되돌릴 수 없는 병합을 잘못된 정보로 승인하게 된다.
 async function openBrandMergeModal(sourceId) {
-  var src = (_brandsCache || []).find(function(b){ return b.id === sourceId; });
-  if (!src) return;
-  // 회사 무관 병합 허용(2026-06-09 — 회사 등록→연결→병합 단계 과다 해소). 오병합 방지는 모달 정보·확인으로.
-  // 🔴 실패는 `null` 이다 — 「0건」이라 적으면 **되돌릴 수 없는 병합**을 잘못된 정보로 승인하게 된다
-  var campCount = (typeof countCampaignsByBrand === 'function') ? await countCampaignsByBrand(sourceId) : null;
-  var campCountTxt = (campCount === null || campCount === undefined) ? '수 확인 불가' : (campCount + '건');
-  var apps = (typeof fetchBrandApplicationsByBrand === 'function') ? (await fetchBrandApplicationsByBrand(sourceId) || []) : [];
-  var srcCo = (src.company_id && _brandCompanyMap[src.company_id]) || src.company_name || '회사 미등록';
-  var targets = (_brandsCache || []).filter(function(b){
-    return b.id !== sourceId && b.status === 'active';
-  });
-  if (!targets.length) { toast('병합할 다른 활성 브랜드가 없습니다', 'warn'); return; }
-  var opts = targets.map(function(b){
-    var co = (b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '회사 미등록';
-    return '<option value="' + esc(b.id) + '">' + esc(b.name || b.brand_no || '브랜드') + (b.name_ja ? ' (' + esc(b.name_ja) + ')' : '') + ' · ' + esc(b.brand_no || '') + ' · ' + esc(co) + '</option>';
-  }).join('');
+  if ($('brandMergeOverlay')) return;
   var ov = document.createElement('div');
   ov.id = 'brandMergeOverlay';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;display:flex;align-items:center;justify-content:center';
-  ov.innerHTML = '<div style="background:#fff;border-radius:12px;width:480px;max-width:92vw;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,.25)">'
-    + '<h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--ink)">브랜드 병합</h3>'
-    + '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」(' + esc(srcCo) + ')의 <b>캠페인 ' + campCountTxt + '·신청 ' + apps.length + '건</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
+  var box = function(inner) {
+    return '<div style="background:#fff;border-radius:12px;width:480px;max-width:92vw;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,.25)">'
+      + '<h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--ink)">브랜드 병합</h3>' + inner + '</div>';
+  };
+  // 받는 동안에도 닫을 수 있게 — 조회 하나가 오래 걸리면 덮개가 화면을 막는다(닫으면 아래 대조로 결과를 버린다)
+  ov.innerHTML = box('<p style="margin:0;font-size:13px;color:var(--muted)">불러오는 중…</p>'
+    + '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="closeBrandMergeModal()">닫기</button></div>');
+  document.body.appendChild(ov);
+  var res = await Promise.all([
+    fetchBrands(),
+    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
+    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(sourceId) : Promise.resolve(null)),
+    (typeof countBrandApplicationsByBrand === 'function' ? countBrandApplicationsByBrand(sourceId) : Promise.resolve(null)),
+    (typeof fetchOrientSheetsByBrand === 'function' ? fetchOrientSheetsByBrand(sourceId) : Promise.resolve(null)),
+    (typeof fetchBrandMemos === 'function' ? fetchBrandMemos(sourceId) : Promise.resolve(null))
+  ]);
+  if ($('brandMergeOverlay') !== ov) return;   // 받는 사이 창을 닫았으면 그만
+  var brands = res[0] || [];
+  var coMap = {};
+  (res[1] || []).forEach(function(c){ coMap[c.id] = c.name_ko || c.name_ja || c.name_en || ''; });
+  var cnt = function(v) { return (v === null || v === undefined) ? '수 확인 불가' : (v + '건'); };
+  var campCountTxt = cnt(res[2]);
+  var appCountTxt = cnt(res[3]);
+  var sheetCountTxt = cnt(Array.isArray(res[4]) ? res[4].length : null);
+  var memoCountTxt = cnt(Array.isArray(res[5]) ? res[5].length : null);
+  var closeOnly = '<div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="closeBrandMergeModal()">닫기</button></div>';
+  var src = brands.find(function(b){ return b.id === sourceId; });
+  if (!src) {
+    // fetchBrands 는 실패해도 [] 를 준다 — 원본이 안 보이면 목록을 못 받은 것으로 본다
+    ov.innerHTML = box('<p style="margin:0;font-size:13px;color:#c0392b">브랜드 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>' + closeOnly);
+    return;
+  }
+  var srcCo = (src.company_id && coMap[src.company_id]) || src.company_name || '회사 미등록';
+  var targets = brands.filter(function(b){ return b.id !== sourceId && b.status === 'active'; });
+  if (!targets.length) {
+    ov.innerHTML = box('<p style="margin:0;font-size:13px;color:var(--muted)">병합할 다른 활성 브랜드가 없습니다.</p>' + closeOnly);
+    return;
+  }
+  var opts = targets.map(function(b){
+    var co = (b.company_id && coMap[b.company_id]) || b.company_name || '회사 미등록';
+    return '<option value="' + esc(b.id) + '">' + esc(b.name || b.brand_no || '브랜드') + (b.name_ja ? ' (' + esc(b.name_ja) + ')' : '') + ' · ' + esc(b.brand_no || '') + ' · ' + esc(co) + '</option>';
+  }).join('');
+  ov.innerHTML = box(
+    '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」(' + esc(srcCo) + ')의 '
+      + '<b>캠페인 ' + campCountTxt + '·신청 ' + appCountTxt + '·오리엔시트 ' + sheetCountTxt + '·영업 메모 ' + memoCountTxt + '</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.'
+      + '<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
     + '<label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px">병합 대상 브랜드 <span style="color:var(--muted);font-weight:400">(회사가 달라도 선택 가능 — 대상을 정확히 확인하세요)</span></label>'
     + '<select id="brandMergeTarget" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:20px">' + opts + '</select>'
     + '<div style="display:flex;justify-content:flex-end;gap:8px">'
       + '<button class="btn btn-ghost btn-sm" onclick="closeBrandMergeModal()">취소</button>'
       + '<button class="btn btn-primary btn-sm" style="background:#c0392b" onclick="doBrandMerge(\'' + esc(sourceId) + '\')">병합 실행</button>'
-    + '</div></div>';
-  document.body.appendChild(ov);
+    + '</div>');
 }
 function closeBrandMergeModal() {
   var ov = $('brandMergeOverlay');
@@ -24955,11 +25077,12 @@ async function setBrandDetailTab(code) {
   });
   if (_brandDetailTab !== 'camps' || _brandDetailCamps !== undefined) return;
   var brandId = _brandsCurrentId;
+  var req = ++_brandDetailCampsReq;
   var pane = $('brandDetailPane_camps');
   if (pane) pane.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>';
   var rows = (typeof fetchCampaignsByBrand === 'function') ? await fetchCampaignsByBrand(brandId) : null;
-  // ⚠️ 받아 오는 사이에 모달을 닫고 다른 브랜드를 열었을 수 있다 — 그러면 이 결과는 버린다.
-  if (_brandsCurrentId !== brandId) return;
+  // ⚠️ 받아 오는 사이에 다른 브랜드를 열었거나 오리엔시트 갱신이 다시 받기를 시작했으면 이 결과는 버린다.
+  if (_brandsCurrentId !== brandId || req !== _brandDetailCampsReq) return;
   _brandDetailCamps = rows;
   var pane2 = $('brandDetailPane_camps');
   if (pane2) pane2.innerHTML = renderBrandCampaignsView(rows);
@@ -28231,6 +28354,7 @@ var _brandOpsDetailData = null;
 var _brandOpsSheetCampMap = {};   // 상세의 시트 카드가 쓰는 발행 캠페인 맵(campaign_id → 캠페인)
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
 var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
+var _brandOpsDetailReq = 0;   // 상세 불러오기 요청 번호 — 늦게 끝난 옛 요청이 새 화면을 덮지 않게(전수조사 3차 ⑥-6)
 
 async function loadBrandOpsDetail() {
   var body = $('brandOpsDetailBody');
@@ -28239,6 +28363,9 @@ async function loadBrandOpsDetail() {
     return;
   }
   if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
+  // 🔴 기다릴 때마다 요청 번호를 대조한다 — 받는 사이 다른 브랜드를 열면(또는 같은 브랜드를 다시 불러오면)
+  //   앞 요청이 늦게 끝나 새 화면을 옛 브랜드로 덮었다(전수조사 3차 ⑥-6). 브랜드 번호 대조만으로는 같은 브랜드 겹침을 못 막는다.
+  var req = ++_brandOpsDetailReq;
 
   // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
   var results = await Promise.all([
@@ -28247,16 +28374,20 @@ async function loadBrandOpsDetail() {
     // ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212, 조치 계획 묶음 E-1).
     db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
   ]);
+  if (req !== _brandOpsDetailReq) return;
   var detail = results[0];
   var apps = results[1] || [];
   // 오리엔시트 목록 — 🔴 아직 안 받았을 때(undefined)만 받는다. 실패(null)면 다시 받지 않는다(§3-1)
+  //   ⚠️ 오리엔시트를 바꾼 화면은 refreshPane('brand-ops-detail') 로 이 값을 비운다 → 다음 불러오기에 새로 받는다
   if (_brandOpsOrientSheets === undefined) _brandOpsOrientSheets = await brandOpsFetchOrientSheets();
+  if (req !== _brandOpsDetailReq) return;
   // 시트 카드의 발행 캠페인 번호 — 브랜드 상세 모달과 같은 방식(삭제된 캠페인도 「삭제됨」으로 보이게 id 로 조회)
   _brandOpsSheetCampMap = {};
   var _bSheets = brandOpsSheetsOfBrand(_brandOpsDetailId);
   if (_bSheets && _bSheets.length && typeof fetchCampaignsByIds === 'function' && typeof collectOrientCampaignIds === 'function') {
     try { var _ids = collectOrientCampaignIds(_bSheets); if (_ids.length) _brandOpsSheetCampMap = await fetchCampaignsByIds(_ids) || {}; }
     catch (_) { _brandOpsSheetCampMap = {}; }
+    if (req !== _brandOpsDetailReq) return;
   }
   var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
   _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
@@ -29379,7 +29510,14 @@ function _scheduleStatsFor(list) {
   list.forEach(function(c){
     var ds = byCamp[c.id] || [];
     var infs = {}, rcpt = {};
-    ds.forEach(function(d){ if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; } });
+    ds.forEach(function(d){
+      // 반려·취소된 신청의 결과물은 세지 않는다(전수조사 3차 ⑥-7 — 「13/12」). 조건은 isCertExcluded 와 글자 그대로 같다.
+      //   ⚠️ 운영현황 브랜드 상세 미니카드의 「제출」 막대는 서버 값(deliv_submitted_inf, 259)이라 **여전히 센다** —
+      //      두 화면 숫자가 다를 수 있다(2026-10-01 사용자 결정: 이 화면만 고친다).
+      var st = d.applications && d.applications.status;
+      if (st === 'rejected' || st === 'cancelled') return;
+      if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; }
+    });
     // countCertSuccess 는 검수 화면·미니카드와 같은 판정(buildDeliverableGroups → computeCertStatus).
     //   camp 는 fetchCampaigns() 가 준 실제 행이다(가구매·채널 판정 포함). 결과물 행에 임베드된
     //   campaigns 가 있으면 그쪽이 우선 쓰이는데, 판정에 필요한 값이 전부 있어 결과가 같다.
@@ -58329,6 +58467,9 @@ async function addCampaign() {
         toast(cr.all_published
           ? '카드 발행 완료 — 모든 카드가 발행되어 오리엔시트가 잠겼습니다.'
           : '카드 발행 완료 (' + cr.published_count + '/' + cr.total_count + ' 발행)', 'success');
+        // 발행 표시가 바뀌었다 — 뒤로 가기로 돌아갈 브랜드 화면 둘이 옛 상태로 남지 않게(전수조사 3차 ⑥-2·⑥-3).
+        //   지금은 캠페인 등록 화면이라 둘 다 숨어 있어 「돌아올 때 다시 그리기」 표시만 남는다.
+        if (typeof refreshPane === 'function') { await Promise.all([refreshPane('brand-detail'), refreshPane('brand-ops-detail')]); }
       } else {
         toast('캠페인은 등록됐으나 오리엔시트 연결에 실패했습니다: ' + (cr && cr.reason ? cr.reason : '알 수 없음'), 'error');
       }
