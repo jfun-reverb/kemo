@@ -41,6 +41,36 @@ function populateBirthdateSelects(prefix) {
   yEl.dataset.filled = '1';
 }
 
+// 가입 이메일 도메인 점검(2026-10-01 — 운영 실측: `@gmail`·`@gmail.co`·`@i.softbank.jo` 로 가입한 4계정이
+//   확인 메일을 영영 못 받아 로그인 못 한 채 남았다). 입력칸의 `type="email"` 은 웹 표준상 점 없는 도메인도 통과시키고
+//   인증 서비스도 막지 않는다.
+//   ①점이 없거나 끝이 글자 2자 이상이 아니면 **막는다**(메일이 갈 수 없는 주소)
+//   ②흔한 오타 도메인은 **한 번 알리고**, 같은 주소로 다시 누르면 통과(사용자 결정 — 드물게 실재하는 도메인을 막지 않게)
+//   ⚠️ 판정은 화면에서만 한다(서버 검사 아님) — 목적은 실수 방지다.
+const SIGNUP_EMAIL_TYPO_DOMAINS = {
+  'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com', 'gmail.om': 'gmail.com',
+  'gmail.comm': 'gmail.com', 'gmail.cmo': 'gmail.com', 'gmail.jp': 'gmail.com', 'gmail.co.jp': 'gmail.com',
+  'gmial.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gnail.com': 'gmail.com',
+  'yahoo.co.j': 'yahoo.co.jp', 'yahoo.co.jo': 'yahoo.co.jp', 'yahoo.co.jpp': 'yahoo.co.jp', 'yaho.co.jp': 'yahoo.co.jp',
+  'yahooo.co.jp': 'yahoo.co.jp', 'yahoo.jp': 'yahoo.co.jp', 'yahoo.co': 'yahoo.co.jp',
+  'icloud.co': 'icloud.com', 'icloud.con': 'icloud.com', 'icoud.com': 'icloud.com', 'iclod.com': 'icloud.com', 'icould.com': 'icloud.com',
+  'i.softbank.jo': 'i.softbank.jp', 'softbank.jp': 'i.softbank.jp', 'i.softbank.co.jp': 'i.softbank.jp',
+  'docomo.ne.j': 'docomo.ne.jp', 'docomo.ne.jo': 'docomo.ne.jp', 'docomo.co.jp': 'docomo.ne.jp', 'docomo.jp': 'docomo.ne.jp',
+  'ezweb.ne.j': 'ezweb.ne.jp', 'ezweb.ne.jo': 'ezweb.ne.jp',
+  'hotmail.co': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotmial.com': 'hotmail.com',
+  'outlook.co': 'outlook.com', 'outlook.con': 'outlook.com', 'outlok.com': 'outlook.com',
+};
+function signupEmailCheck(email) {
+  const at = email.lastIndexOf('@');
+  const domain = at > 0 ? email.slice(at + 1).toLowerCase() : '';
+  if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(domain)) return { invalid: true };
+  let suggest = SIGNUP_EMAIL_TYPO_DOMAINS[domain] || null;
+  if (!suggest && /\.con$/.test(domain)) suggest = domain.replace(/\.con$/, '.com');
+  return suggest ? { domain, suggest } : {};
+}
+// 오타 안내를 이미 본 주소 — 같은 주소로 다시 누르면 통과시킨다(주소를 고치면 다시 점검)
+let _signupEmailTypoAcked = '';
+
 async function handleSignup(e) {
   e.preventDefault();
   const name = ($('signupNameKanji')?.value||'').trim();
@@ -77,6 +107,18 @@ async function handleSignup(e) {
     return;
   }
   const marketingOptIn = !!$('agreeMarketing')?.checked;
+  // 이메일 도메인 점검 — 다른 입력이 다 맞은 **뒤**에 한다(안내를 보고 고친 뒤 다른 칸에서 또 막히지 않게)
+  const emailCheck = signupEmailCheck(email);
+  if (emailCheck.invalid) {
+    errEl.textContent = t('authError.emailInvalid'); errEl.style.display = 'block';
+    $('signupEmail')?.focus(); return;
+  }
+  if (emailCheck.suggest && _signupEmailTypoAcked !== email) {
+    _signupEmailTypoAcked = email;
+    errEl.textContent = t('authError.emailTypo').replace('{typed}', emailCheck.domain).replace('{suggest}', emailCheck.suggest);
+    errEl.style.display = 'block';
+    $('signupEmail')?.focus(); return;
+  }
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
