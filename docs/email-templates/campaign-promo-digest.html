@@ -5,7 +5,7 @@
            → Edge Function notify-campaign-promo-digest
   Window:
     - 「新着」 섹션: campaigns.first_active_at 가 p_digest_date (KST) 윈도우 안
-    - 「締切間近」 섹션: campaigns.deadline = 내일 (KST) — D-1 단일 시점
+    - 「締切間近」 섹션: campaigns.deadline 이 발송일(당일 포함) ~ 다음 발송일(월→목, 목→다음 월) — 마이그레이션 471
   To: 인플루언서 1명당 1통 (To 헤더에 다른 인플 이메일 노출 안 됨)
   Lang: JA (친근체)
   Skip: 두 섹션 모두 0건이면 인플 단위로 발송 미실시 (status='skipped_no_data')

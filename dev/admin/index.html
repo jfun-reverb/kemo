@@ -1652,7 +1652,7 @@
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
                 <button type="button" class="btn btn-ghost btn-xs" id="btnDelivViewExcel" onclick="exportDeliverablesViewExcel()" style="white-space:nowrap"
-                        title="지금 화면에 보이는 신청을 그대로 내려받습니다. 페이백 지급 명단은 정산 관리 → 지급 준비에서">
+                        title="지금 화면에 보이는 신청을 그대로 내려받습니다. 페이백 지급 명단은 정산 관리 → 회차별 탭에서">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">download</span>
                   현재 목록 다운로드</button>
               </div>
@@ -1699,30 +1699,47 @@
 
         <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
         <div id="adminPane-settlements" class="admin-pane admin-pane-list">
+          <!-- ★ 화면 탭 줄 — 네 화면(회차별[코드·주석상 「지급 준비」]·사람별·송금 내역·정산 목록)이 **모두 같은 자리의 같은 줄**을 쓴다(2026-09-30 사용자 결정).
+               예전에는 화면마다 머리 버튼 모음이 달라 어디에 있는지·어디로 가는지 헷갈렸다.
+               「on」 표시는 refreshSettlementNav() 한 곳이 정한다 — 화면을 켜고 끄는 함수들이 끝에서 부른다.
+               ⚠️ 처음 표시는 지급 준비(첫 화면, 2026-08-18 결정)와 맞춘다 — 안 맞추면 새로고침 때 탭이 한 번 바뀐다. -->
+          <div class="admin-sticky-header" id="settlementNavBar" style="padding-bottom:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 관리</div>
+                <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="openSettlementFeeRuleModal()" title="송금 수수료 계산 규칙(비율·고정액·끝수 처리)을 보고 고칩니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">percent</span> 수수료 설정
+                </button>
+                <!-- ⚠️ 정산 목록 탭에서만 보인다(refreshSettlementNav) — 이 버튼은 **정산 목록**을 내보낸다.
+                     미등록 탭에서도 숨긴다 — 「보고 있는 미등록 목록이 나오겠지」로 읽혀 다른 자료를 받게 된다. -->
+                <button class="btn btn-ghost btn-sm" id="settlementExcelBtn" style="display:none" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                  다운로드(xlsx)
+                </button>
+              </div>
+            </div>
+            <!-- 탭 줄 오른쪽 = 그 화면 전용 도구 자리(settlementNavTools). 지금은 회차별(요약·회차 상세)의 엑셀 옵션·다운로드만 쓴다 —
+                 renderPayoutSummary·renderPayoutPersonList 가 채우고, 다른 화면으로 가면 refreshSettlementNav 가 비운다. -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--surface-dim);margin-bottom:12px">
+            <div class="status-tab-bar" style="margin:0;border-bottom:none">
+              <button type="button" class="status-tab-btn on" data-settle-tab="prep" onclick="openSettlementTab('prep')" title="지급 회차(지급 예정일)별로 얼마를 보내야 하는지 봅니다">회차별</button>
+              <button type="button" class="status-tab-btn" data-settle-tab="person" onclick="openSettlementTab('person')" title="사람 이름·페이팔 이메일로 찾습니다. 지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다">사람별</button>
+              <button type="button" class="status-tab-btn" data-settle-tab="transfer" onclick="openSettlementTab('transfer')" title="실제로 보낸 페이팔 송금(묶음)과 수수료를 봅니다">송금 내역</button>
+              <button type="button" class="status-tab-btn" data-settle-tab="list" onclick="openSettlementTab('list')" title="건별 목록·상태 탭·개별 처리">정산 목록</button>
+            </div>
+            <div id="settlementNavTools" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"></div>
+            </div>
+          </div>
+
           <!-- 메인 뷰(정산 목록) — 「미등록」 탭·지급 준비 뷰와 같은 페인 안에서 전환 -->
           <!-- ⚠️ 처음 표시는 **감춤**이다. 정산 관리의 첫 화면은 지급 준비인데(2026-08-18 결정),
                여기를 보이게 두면 새로고침 때 **목록이 한 번 번쩍했다가** 지급 준비로 바뀐다.
                표시의 기본값을 도착지와 맞춰 그 깜빡임을 없앤다. -->
           <div id="settlementMainView" style="display:none;flex-direction:column;flex:1;min-height:0">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 관리</div>
-                <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <button class="btn btn-ghost btn-sm" onclick="openPayoutPrepView()" title="지급 예정일별로 얼마를 보내야 하는지 봅니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">event_available</span>
-                  지급 준비
-                </button>
-                <!-- ⚠️ 미등록 탭에서는 숨긴다 — 이 버튼은 **정산 목록**을 내보내므로, 필터를 공용으로
-                     합친 뒤에는 「보고 있는 미등록 목록이 나오겠지」로 읽혀 다른 자료를 받게 된다. -->
-                <button class="btn btn-ghost btn-sm" id="settlementExcelBtn" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
-                  엑셀
-                </button>
-              </div>
-            </div>
             <!-- 금액 확인 필요 안내 — 인증은 끝났는데 캠페인에 금액이 없어 정산을 만들 수 없는 건.
                  0건이면 통째로 숨긴다(평소엔 안 보이는 게 정상). -->
             <div id="settlementAmountIssueBanner" style="display:none;padding:10px 12px;background:#FFF4F4;border:1px solid #F2B8B8;border-radius:8px;font-size:12px;line-height:1.6;color:#8A2B2B;margin-bottom:12px">
@@ -1751,7 +1768,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 가나 · 이메일 검색" oninput="onSettlementFilterChange()">
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름(한자·후리가나)·이메일 검색" oninput="onSettlementFilterChange()">
                 </div>
               </div>
               <button class="btn btn-ghost btn-sm" id="settlementResetBtn" style="display:none" onclick="resetPastUnregFilters()">초기화</button>
@@ -1773,15 +1790,15 @@
                 <thead><tr>
                   <!-- 선택 칸 — 「정산대기」 탭에서만 체크박스가 그려진다(다른 상태는 일괄 대상이 아니다) -->
                   <th style="width:34px"><input type="checkbox" id="settlementSelectAll" onchange="settlementToggleAll(this)" title="보이는 정산대기 건 전체 선택"></th>
-                  <th>인플루언서</th>
+                  <th>이름</th>
                   <th style="min-width:240px">캠페인</th>
-                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:110px">금액</th>
                   <!-- 실제로 보낸 금액. 계산값과 같으면 「계산액 그대로」 — 「0원」이 아니다 -->
-                  <th style="width:110px">실제 송금액</th>
-                  <th style="width:200px">PayPal</th>
+                  <th style="width:110px">보낸 금액</th>
+                  <th style="width:200px">페이팔</th>
                   <th style="width:90px">상태</th>
-                  <th style="width:120px">인증성공일</th>
-                  <th style="width:120px">송금완료일</th>
+                  <th style="width:120px">인증 성공일</th>
+                  <th style="width:120px">송금일</th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
                 <tbody id="settlementsTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
@@ -1794,31 +1811,25 @@
                ⚠️ 「과거」라는 말을 쓰지 않는다 — 도입일이 켜지면 과거가 아닌 건도 여기 들어온다(사양서 §4-2) -->
           <!-- 지급 준비 뷰 (사양서 2026-08-18 §4-1 화면 ㄱ) — 같은 페인 안에서 전환 -->
           <div id="settlementPayoutView" style="display:flex;flex-direction:column;flex:1;min-height:0">
+            <!-- ⚠️ 머리 버튼 모음은 없앴다 — 화면 이동은 위 탭 줄(settlementNavBar) 하나로 한다(2026-09-30).
+                 ⚠️ 예전의 「← 정산 목록」 뒤로가기 모양은 **되살리지 말 것.** 첫 화면에 뒤로가기가 있으면
+                    「어디선가 잘못 들어왔나」로 읽힌다. -->
+            <!-- ⚠️ 바깥 카드 상자는 없앴다(2026-09-30 사용자 지적) — 탭 줄 아래 상자가 두 겹으로 보였다.
+                 이 칸은 **세로 flex 틀**이고, 스크롤은 안쪽 목록(요약 표 / 사람 목록)만 한다. -->
+            <div id="payoutSummaryBody" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>
+          </div>
+
+
+          <!-- 「송금 내역」 뷰 (사양서 2026-09-30-settlement-transfer-fee-record.md D-4·D-5, 작업표 조각 14·15)
+               ⚠️ 네 화면(정산 목록·미등록·지급 준비·송금 내역)은 **서로 배타**다 — 켜는 함수마다 나머지를
+                  닫는 짝이 있다(admin-settlements.js `_hideTransferView`). 공용 필터 줄은 이 화면에 없다(사용자 결정). -->
+          <div id="settlementTransferView" style="display:none;flex-direction:column;flex:1;min-height:0">
             <div class="admin-sticky-header">
-              <!-- ⚠️ 이 화면이 정산 관리의 **첫 화면**이다(2026-08-18 사용자 결정).
-                   그래서 머리글도 곁가지가 아니라 **메인 화면 모양**으로 둔다 —
-                   왼쪽에 페인 제목, 오른쪽에 다른 화면으로 가는 버튼.
-                   ⚠️ 예전의 「← 정산 목록」 뒤로가기 모양은 **되살리지 말 것.** 들어오자마자
-                      보이는 화면에 뒤로가기가 있으면 「어디선가 잘못 들어왔나」로 읽힌다. -->
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                  <div style="font-size:18px;font-weight:800;color:var(--ink)">정산 관리</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
-                <button class="btn btn-ghost btn-sm" onclick="openPayoutPersonList(null)" title="지급대장이 사람 순이라 한 명씩 맞추는 편이 빠릅니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">person_search</span> 사람으로 찾기
-                </button>
-                <button class="btn btn-ghost btn-sm" onclick="closePayoutPrepView()" title="건별 목록·상태 탭·개별 처리로 이동합니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">list_alt</span> 정산 목록
-                </button>
-                </div>
-              </div>
+              <div id="transferHistoryToolbar"></div>
             </div>
-            <div class="admin-card" style="flex:1;min-height:0;overflow-y:auto">
-              <!-- ⚠️ 여백은 **안쪽에서** 준다. 다른 화면의 표는 `admin-table-wrap` 안에 바로
-                   들어가 카드 여백을 안 받는데, 여기만 감싸개에 여백이 있어 표가 안쪽으로
-                   밀려 보였다. 표는 여백 없이, 표 아닌 내용만 자기 여백을 갖는다. -->
-              <div id="payoutSummaryBody"></div>
+            <!-- 스크롤은 안쪽이 한다 — 요약 표는 표 안에서, 월별·회차별 「상세」 화면은 머리를 고정하고 목록만. -->
+            <div class="admin-card" style="flex:1;min-height:0">
+              <div id="transferHistoryBody" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto"></div>
             </div>
           </div>
 
@@ -1855,11 +1866,11 @@
               <table class="data-table">
                 <thead><tr>
                   <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 필터 결과 전체 선택"></th>
-                  <th>인플루언서</th>
+                  <th>이름</th>
                   <th>캠페인</th>
-                  <th style="width:150px">금액(¥)</th>
-                  <th style="width:130px">인증성공일</th>
-                  <th style="width:100px">PayPal</th>
+                  <th style="width:150px">금액</th>
+                  <th style="width:130px">인증 성공일</th>
+                  <th style="width:100px">페이팔</th>
                 </tr></thead>
                 <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
@@ -3791,7 +3802,7 @@
         <div class="form-row required">
           <label>인플루언서 선택</label>
           <div class="admin-proxy-combobox" id="adminProxyInfCombobox">
-            <input type="text" id="adminProxyInfInput" class="admin-proxy-combobox-input" placeholder="이름·가나·이메일 검색" autocomplete="off" data-lpignore="true" data-1p-ignore="true" oninput="onAdminProxyInfInput()" onfocus="showAdminProxyInfList()" disabled>
+            <input type="text" id="adminProxyInfInput" class="admin-proxy-combobox-input" placeholder="이름(한자·후리가나)·이메일 검색" autocomplete="off" data-lpignore="true" data-1p-ignore="true" oninput="onAdminProxyInfInput()" onfocus="showAdminProxyInfList()" disabled>
             <input type="hidden" id="adminProxyApp" value="">
             <div class="admin-proxy-combobox-list" id="adminProxyInfList"></div>
           </div>
@@ -4178,7 +4189,7 @@
           <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 오늘로 기록됩니다.</div>
         </div>
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">실제 송금액 (¥)</label>
+          <label class="form-label">보낸 금액</label>
           <input type="number" id="settlementPayAmount" class="form-input" min="1" step="1" placeholder="계산 금액 그대로" oninput="onSettlementPayInput()">
           <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 위 계산 금액 그대로입니다.</div>
         </div>
@@ -4238,7 +4249,7 @@
           <input type="date" id="settlementCorrectDate" class="form-input" onchange="onSettlementCorrectInput()">
         </div>
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">실제 송금액 (¥)</label>
+          <label class="form-label">보낸 금액</label>
           <input type="number" id="settlementCorrectAmount" class="form-input" min="1" step="1" oninput="onSettlementCorrectInput()">
         </div>
       </div>
@@ -4266,11 +4277,13 @@
 
 <!-- 선택 건 일괄 송금완료 모달 (mark_settlements_paid_bulk · 마이그레이션 340) -->
 <div class="modal-overlay" id="settlementBulkPayModal" style="z-index:615">
-  <div class="modal" style="max-width:520px;border-radius:20px;margin:auto">
-    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+  <!-- 스크롤은 **제목 아래 본문 하나만**(2026-10-01 사용자 결정) — 창 자체는 넘치지 않게 하고 제목·아래 단추는 고정.
+       ⚠️ 본문 안에 따로 스크롤 상자를 두지 않는다(묶음 표가 길면 스크롤이 둘이 된다). -->
+  <div class="modal" style="max-width:520px;border-radius:20px;margin:auto;display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);flex-shrink:0">
       <div id="settlementBulkPayTitle" style="font-size:16px;font-weight:700;color:var(--ink)">선택 건 송금완료 기록</div>
     </div>
-    <div class="modal-body" style="padding:20px 22px">
+    <div class="modal-body" style="padding:20px 22px;flex:1 1 auto;min-height:0;overflow-y:auto">
       <div id="settlementBulkPayBody"></div>
       <!-- 「정산대기 추가」 모드에서는 이 칸을 감춘다 — 아직 보내지 않은 건이라 송금일이 없다. -->
       <div class="form-group" id="settlementBulkPayDateGroup">
@@ -4280,7 +4293,8 @@
       </div>
       <div class="form-group">
         <label class="form-label">처리 사유 <span style="color:#C33">*</span></label>
-        <input type="text" id="settlementBulkPayMemo" class="form-input" placeholder="예: 8월 15일 회차 일괄 송금" oninput="onSettlementBulkPayInput()">
+        <!-- 이 창은 #page-admin 밖이라 form-input 이 회원 앱 크기(16px)가 된다 — 관리자 공통 admin-input(13px)을 쓴다 -->
+        <input type="text" id="settlementBulkPayMemo" class="admin-input" style="width:100%;box-sizing:border-box" placeholder="예: 8월 15일 회차 일괄 송금" oninput="onSettlementBulkPayInput()">
       </div>
       <div id="settlementBulkPayWarn" style="padding:10px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412">
         금액은 <b>건마다 시스템 계산 금액</b>으로 기록됩니다. 실제로 다르게 보낸 건은
@@ -4288,7 +4302,7 @@
         <br>⚠️ PayPal 미등록 건은 <b>건너뜁니다</b>. 처리 후 몇 건이 왜 빠졌는지 알려 드립니다.
       </div>
     </div>
-    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
       <button class="btn btn-ghost" onclick="closeSettlementBulkPayModal()">취소</button>
       <button class="btn btn-primary" id="settlementBulkPayConfirmBtn" onclick="confirmSettlementBulkPay()">송금완료 기록</button>
     </div>

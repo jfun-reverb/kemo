@@ -11,7 +11,9 @@
   · 주소: /report.html?t={토큰}  (P4 확정)
   · 🔴 비밀번호는 서버가 확인한다(verify_report_share_password). 통과 전에는 데이터가 한 줄도 안 온다.
   · 🔴 통과하면 열람 표(ticket)를 sessionStorage 에 둔다 — 탭이 살아 있는 동안만. 비밀번호는 브라우저에 안 남는다.
-  · 🔴 가리기는 서버(get_report_share_data)가 한다 — 계정 ID·영수증 주소는 응답에 키 자체가 없다.
+  · 🔴 가리기는 서버(get_report_share_data)가 한다 — 계정 ID 는 응답에 키 자체가 없고, 이름은 가려서 온다.
+    관리자가 **끈 열의 값은 서버가 null 로 보낸다**(469 — 주문번호·구매일·금액·영수증·결과물 주소·이름).
+    화면의 열 숨김(reportShareColOff)은 표시용이고, 끈 값이 응답에 남지 않게 하는 것은 서버다.
   · 표 만들기 코드는 관리자와 같은 원본(js/report-rows.js) — 빌드가 아래 자리에 인라인한다.
   · storage.js 를 안 쓰고 자체 조회를 갖는다(event-scan.html 선례) — 공용 함수를 고쳐도 여기는 안 따라온다.
 -->

@@ -5,7 +5,7 @@
   레이아웃: 좌(이미지) / 우(정보 + 버튼) 수평 분할 — table 기반 (메일 클라이언트 호환).
   이미지 폭 ~40%, 정보 폭 ~60%.
 
-  D-1 칩은 deadline_d1 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
+  마감 임박 칩은 deadline_d1(= 마감 임박) 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
   slots 행은 monitor (리뷰어) 캠페인에서만 채움. 다른 타입은 slots_row_html = "".
 
   Row Placeholders:
@@ -15,7 +15,7 @@
     {{type_chip_fg}}         모집 타입 칩 글자색
     {{brand}}                브랜드명
     {{title}}                캠페인 제목
-    {{d1_chip_html}}         「締切間近 D-1」 칩 HTML (신규 섹션은 "", D-1 섹션만 채움)
+    {{d1_chip_html}}         「締切間近」 칩 HTML (신규 섹션은 "", 마감 임박 섹션만 채움)
     {{reward}}               리워드 표기
     {{deadline_label}}       마감 표기 (「あと N日」 또는 「明日まで」)
     {{slots_row_html}}       잔여 슬롯 행 (monitor 만 채움, 다른 타입은 "")

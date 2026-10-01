@@ -194,7 +194,7 @@ function influencerNameKanji(row: {
   return kanji || name || "-";
 }
 
-// 이름(가나) — name_kana, 없으면 「-」
+// 후리가나(읽는 법) — name_kana, 없으면 「-」
 function influencerNameKana(row: { name_kana: string | null }): string {
   const kana = (row.name_kana || "").trim();
   return kana || "-";
