@@ -19,6 +19,16 @@
   .legend .brand { background:#FBE2E7; color:#A02038; }
   .legend .infl { background:#E5EAE0; color:#3F5530; }
   .legend .admin { background:#DDE4EE; color:#2F4460; }
+  /* 라벨 필터 — 누르면 그 종류 카드만, 같은 라벨을 다시 누르면 전체 */
+  .legend button { font:inherit; font-size:11px; padding:3px 10px; border-radius:99px; font-weight:700; letter-spacing:0.04em; border:2px solid transparent; cursor:pointer; }
+  .legend button.auth { background:#E0DBE6; color:#5B3F66; }
+  .legend button.brand { background:#FBE2E7; color:#A02038; }
+  .legend button.infl { background:#E5EAE0; color:#3F5530; }
+  .legend button.admin { background:#DDE4EE; color:#2F4460; }
+  .legend button.all { background:#fff; color:#444; border-color:#EAEAE4; }
+  .legend button[aria-pressed="true"] { border-color:currentColor; }
+  .legend.filtering button[aria-pressed="false"]:not(.all) { opacity:0.45; }
+  .legend .filter-count { font-size:11px; color:#888; align-self:center; margin-left:4px; padding:0; font-weight:400; }
   h2 { font-size:14px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#666; max-width:1100px; margin:32px auto 14px; }
   .grid { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px; }
   .card { background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); padding:20px 22px 18px; display:flex; flex-direction:column; transition:transform 0.15s, box-shadow 0.15s; }
@@ -57,11 +67,13 @@
 <div class="head">
   <h1>REVERB JP · 메일 템플릿 카탈로그</h1>
   <p class="sub">서비스에서 발송되는 모든 메일의 템플릿 + 미리보기. 각 카드에서 미리보기를 열어 실제 발송 시 모습을 확인할 수 있습니다.</p>
-  <div class="legend">
-    <span class="auth">Auth · Supabase 자동 발송</span>
-    <span class="brand">Brand · Edge Function</span>
-    <span class="infl">Influencer · Edge Function</span>
-    <span class="admin">Admin · 관리자 수신</span>
+  <div class="legend" id="tagFilter">
+    <button type="button" class="all" data-filter="" aria-pressed="true">전체</button>
+    <button type="button" class="auth" data-filter="auth" aria-pressed="false">Auth · Supabase 자동 발송</button>
+    <button type="button" class="brand" data-filter="brand" aria-pressed="false">Brand · Edge Function</button>
+    <button type="button" class="infl" data-filter="infl" aria-pressed="false">Influencer · Edge Function</button>
+    <button type="button" class="admin" data-filter="admin" aria-pressed="false">Admin · 관리자 수신</button>
+    <span class="filter-count" id="filterCount" aria-live="polite"></span>
   </div>
 </div>
 
@@ -674,6 +686,57 @@
   🔴 <b>그래서 이 폴더의 HTML 을 고치기만 하면 메일은 안 바뀝니다.</b> 고친 뒤 반드시 <code>bash scripts/sync-email-templates.sh</code> 를 돌려 복사본을 맞추고, 그 다음 함수를 다시 배포해야 합니다.<br>
   자세한 가이드는 <a href="README.md">README.md</a> 참고.
 </div>
+
+<script>
+// 라벨 필터 — 카드의 card-tag 클래스(tag-auth 등)로 거른다. 카드가 0개인 묶음은 제목·안내까지 숨긴다
+(function () {
+  const bar = document.getElementById('tagFilter');
+  const countEl = document.getElementById('filterCount');
+  const buttons = bar.querySelectorAll('button[data-filter]');
+  const grids = document.querySelectorAll('.grid');
+
+  // 묶음 하나 = 그 grid 앞의 h2 부터 grid 까지 (사이의 안내 상자 포함)
+  function sectionHeadOf(grid) {
+    const parts = [];
+    let el = grid.previousElementSibling;
+    while (el && !el.classList.contains('grid') && !el.classList.contains('head')) {
+      parts.push(el);
+      if (el.tagName === 'H2') break;
+      el = el.previousElementSibling;
+    }
+    return parts;
+  }
+
+  function apply(filter) {
+    let shown = 0;
+    grids.forEach(grid => {
+      let visible = 0;
+      grid.querySelectorAll('.card').forEach(card => {
+        const tag = card.querySelector('.card-tag');
+        const hit = !filter || (tag && tag.classList.contains('tag-' + filter));
+        card.style.display = hit ? '' : 'none';
+        if (hit) visible++;
+      });
+      const hide = visible === 0;
+      grid.style.display = hide ? 'none' : '';
+      sectionHeadOf(grid).forEach(el => { el.style.display = hide ? 'none' : ''; });
+      shown += visible;
+    });
+    buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    bar.classList.toggle('filtering', !!filter);
+    countEl.textContent = filter ? shown + '개' : '';
+  }
+
+  let current = '';
+  bar.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-filter]');
+    if (!btn) return;
+    // 같은 라벨을 다시 누르면 전체로 되돌린다
+    current = btn.dataset.filter === current ? '' : btn.dataset.filter;
+    apply(current);
+  });
+})();
+</script>
 
 </body>
 </html>
