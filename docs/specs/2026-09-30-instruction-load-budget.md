@@ -202,6 +202,12 @@
 
 ## 구현 결과 (조각마다 채울 것)
 
+### 조각 D′ — 신청·결과물 관리 절 (2026-10-01, 개발)
+- **배치(새 묶음 3개)**: 신청 관리·취소 되돌리기·진행현황 → `application-admin.md` · 결과물 검수·인증 상태/성공일/구매금액 열·검수대기 배지·영수증 수정·엑셀 → `deliverable-review.md` · 캠페인 리포트·브랜드 공유 → `report-share.md`.
+- **`CLAUDE.md` 에 남긴 것**: 안내 한 줄 · 번호표(`get_report_share_data` 491 + `CREATE OR REPLACE` 만 · `touch_campaign_report_updated_at` 491) · 지도 3줄.
+- **기계 대조**: 없어진 줄 0 · ⚠️ 28→28 · 🔴 13→18 · 식별자·번호 잃은 것 0 · 열릴 조건 누락 1건(`recalc` → `admin-settlements.js`) 보완. 주입 확인: `admin-applications.js`·`admin-reports.js` → 새 3개 실림.
+- **실측**: 지시 문서 합계 → **169,390자**.
+
 ### 조각 D′ — 브랜드 서베이 절 (2026-10-01, 개발)
 - **배치**: 오리엔시트 발급·조회 페인 → `orient-sheet.md`(열릴 조건 +발급 메일 양식) · 브랜드·회사·서베이 신청 관리 → **새 묶음 `brand-admin.md`** · 운영 현황(일정 간트·브랜드 뷰) → **새 묶음 `brand-ops.md`**.
 - **`CLAUDE.md` 에 남긴 것**: 안내 한 줄 · 번호표(`merge_brands` 467) · 지도 3줄.
