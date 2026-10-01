@@ -202,6 +202,14 @@
 
 ## 구현 결과 (조각마다 채울 것)
 
+### 조각 D′ — 회원 탈퇴 절 (2026-10-01, 개발)
+- **배치**: 탈퇴 본문(신청·상태 전이·행사 예약 정리·파기·페이팔·재가입 차단·홍보 제외·영수증 파기·관리자 화면) → `member-withdrawal.md`(열릴 조건에 `mypage.js`·`admin-applications.js`·`admin-excel.js`·`admin-core.js`·`admin-deliverables.js`·`admin-errors.js`·응모 취소·행사·홍보 메일 마이그레이션·홍보 메일 함수 추가) · 탈퇴 확정 계정 차단 장치 → **새 묶음 `withdrawn-account-guards.md`**(`auth.js`·`app.js`·`ui.js`·`shared.js`·`application.js`·행사 화면 둘·`event-scan.html`·마감 가드·`180_*` 등 — 공용 파일에 걸리므로 작게 따로).
+- **`CLAUDE.md` 에 남긴 것**: 번호표(+450·396·418·394 네 줄) · 잠금 3줄 · 덩어리 안에 흩어져 있던 「아직 안 한 것」을 모은 한 줄(④ 복사) · 지도 2줄.
+- **기계 대조**: 없어진 줄 0 · ⚠️ 69→75 · 🔴 21→25 · 식별자·번호 잃은 것 0 · 열릴 조건 패턴 전부 실제 파일. **언급 위치 → 열릴 조건 검사**(새로 만든 검사기): 12건 걸림 → 전부 오탐(서버 함수·표는 탈퇴 마이그레이션에 정의되어 이미 걸림 / 마이그레이션 204·243·320·325·327 은 「선례」 언급 / 「400」은 응답 코드).
+- **주입 양성 대조**: 새 세션에서 `auth.js` → `withdrawn-account-guards`, `mypage.js` → `member-withdrawal` 실림.
+- **리뷰 반영**: 사이드바 경고 아이콘 자리 규칙 2줄은 탈퇴 전용이 아니라 **새 묶음 `admin-sidebar-indicators.md`**(관리자 사이드바를 건드리는 파일 7개 + `admin/index.html`)로 따로 뺐다 — 2.3만 자 탈퇴 파일이 `admin.js` 를 열 때마다 실리지 않게. 탈퇴 파일 열릴 조건에 `admin/index.html`·탈퇴 예정일 메일 양식 추가. 「아직 안 한 것」에 메시지 첨부 파기 미가동·페이팔 5년 파기 미시험·강제 탈퇴 미개방 추가, 지도 줄에 차단 대상 2종·361/362 구분 추가.
+- **실측**: `CLAUDE.md` → **117,905자** · 지시 문서 합계 216,196 → **204,942자**(−11,254). 목표까지 약 54,900자.
+
 ### 조각 D′ — 정산 절 (2026-10-01, 개발)
 - **덩어리 배치**: 정산 전용 → `settlement.md`(열릴 조건에 `admin-applications.js`·`admin-deliverables.js`·`admin-permissions.js`·`*admin_view*`·`*pii*`·`*reject*` 추가) · 인증 성공 판정 사본 덩어리(후보 함수·임시저장 제외·채널 요구) → **새 묶음 `cert-success.md`**(화면 5파일·`report.html`·`storage.js`·메일 함수 3개·`*settle*`·`*cert*`·`*report_share*`) · 리뷰어형 금액·페이백 문구·영수증 재계산 → **새 묶음 `receipt-amount.md`**(회원 화면 2·번역 2·`admin.js`·`admin-deliverables.js`·메일 함수 2·`*settle*`·`*receipt*`·`*faq*`).
 - **`CLAUDE.md` 에 남긴 것**: 안내 줄 · 번호표(+`_settlement_cert_candidates` **455** 한 줄) · ④ 잠금(노출 제거·코드는 있으나 잠김) · 운영 첫 기록 전/시험 호출 금지 · 3단계 머리 줄과 그 아래 「이중 송금 위험 엑셀 줄」·「화면과 함수 배포 분리」·「남은 일」 · 지도 3줄.
