@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790822913';
+  var CURRENT_BUILD = 'v1790824550';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3285,7 +3285,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-01 11:48 · 0a262f6</span>
+          <span class="admin-build-text">2026-10-01 12:15 · 8350329</span>
         </div>
       </div>
     </aside>
@@ -10710,7 +10710,7 @@ async function fetchCampaigns() {
     // 페인이 공유하는 함수라, 여기서 제외하면 양쪽 모두 자동으로 안전해진다.
     // 「삭제됨」 탭(2단계) 전용 조회는 fetchDeletedCampaigns() 별도 함수 사용.
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
+      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false}).order('id')
     );
     _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
@@ -10779,7 +10779,7 @@ async function fetchCampaignsForAdminList() {
       db.from('campaigns')
         .select(ADMIN_LIST_COLUMNS)
         .is('deleted_at', null)
-        .order('order_index', { ascending: true, nullsFirst: false })
+        .order('order_index', { ascending: true, nullsFirst: false }).order('id')
     );
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
@@ -11142,7 +11142,7 @@ async function fetchDeletedCampaigns() {
   if (!db) return [];
   try {
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false})
+      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false}).order('id')
     );
     return data;
   } catch (e) {
@@ -11558,7 +11558,7 @@ async function fetchViolationCountsByInfluencer() {
   if (!db) return {};
   try {
     const data = await fetchAllPaged(() =>
-      db.from('influencer_flags').select('influencer_id').eq('action', 'violation')
+      db.from('influencer_flags').select('influencer_id').eq('action', 'violation').order('id')
     );
     const counts = {};
     data.forEach(r => { counts[r.influencer_id] = (counts[r.influencer_id] || 0) + 1; });
@@ -11680,7 +11680,7 @@ async function fetchReceipts(filters) {
       if (filters?.application_id) q = q.eq('application_id', filters.application_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { return []; }
 }
@@ -11792,6 +11792,15 @@ async function fetchDeliverables(filters) {
   try {
     return await _queryDeliverables(filters);
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+// 실패를 null 로 구분하는 판 — 엑셀처럼 「실패」와 「0건」이 다른 결과를 내는 자리 전용(전수조사 3차 ③-5).
+//   ⚠️ fetchDeliverables 자체는 [] 를 유지한다(부르는 곳이 많아 한꺼번에 바꾸면 화면이 깨진다).
+async function fetchDeliverablesOrNull(filters) {
+  if (!db) return null;
+  try {
+    return await _queryDeliverables(filters);
+  } catch(e) { console.error('[fetchDeliverablesOrNull]', e); return null; }
 }
 
 // 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
@@ -12011,7 +12020,9 @@ async function fetchDeliverablesByCampaign(campaignId) {
       .order('submitted_at', {ascending: false})
       .order('id', {ascending: true}));
     return data || [];
-  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
+  // 🔴 실패는 null — [] 로 돌려주면 인증 성공·제출 막대가 「0%」로 그려져 실패가 「아무도 안 냄」으로 보였다(전수조사 3차 ③-5).
+  //   부르는 쪽(admin-brand-ops hydrateCampCertBars · admin-applications 진행현황)이 null 을 「—」로 그린다.
+  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return null; }
 }
 
 // 응모건(application) 1건의 기존 결과물 조회 — 관리자 대리 등록 모달 사전 안내용 (is_admin SELECT)
@@ -12532,7 +12543,7 @@ async function fetchDeliverablesForReport(campaignIds) {
         applications:application_id (status),
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft').in('campaign_id', chunk)
-        .order('submitted_at', {ascending: false}));
+        .order('submitted_at', {ascending: false}).order('id'));
       rows = rows.concat(part || []);
     }
     return rows;
@@ -12621,7 +12632,7 @@ async function fetchReportExtRows(sourceIds) {
   try {
     return await fetchAllPaged(() => db.from('campaign_report_ext_rows')
       .select('id, source_id, member_no, account_id, mission_status, order_no, purchase_amount, receipt_url, receipt_at, review_kind, qoo10_urls, qoo10_at, cosme_urls, cosme_at')
-      .in('source_id', ids).order('member_no'));
+      .in('source_id', ids).order('member_no').order('id'));
   } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
 }
 
@@ -13628,7 +13639,7 @@ async function fetchBrands(filters) {
       var q = db.from('brands')
         .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_id, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchBrands]', e); return []; }
 }
@@ -13680,7 +13691,7 @@ async function fetchCompanies({ status = 'active', search } = {}) {
         const s = search.trim();
         q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
       }
-      return q.order('name_ko', {ascending: true});
+      return q.order('name_ko', {ascending: true}).order('id');
     });
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
@@ -14021,7 +14032,7 @@ async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search 
       if (search && search.trim()) {
         q = q.ilike('name', `%${search.trim()}%`);
       }
-      return q.order('name', {ascending: true});
+      return q.order('name', {ascending: true}).order('id');
     });
   } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
 }
@@ -14303,7 +14314,7 @@ async function fetchBrandApplications(filters) {
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.from) q = q.gte('created_at', filters.from);
       if (filters?.to) q = q.lte('created_at', filters.to);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchBrandApplications]', e); return []; }
 }
@@ -14870,7 +14881,7 @@ async function fetchWithdrawalStatesByInfluencer() {
     const rows = await fetchAllPaged(() =>
       db.from('withdrawal_requests')
         .select('influencer_id, status, scheduled_date, requested_by_kind, requested_at')
-        .order('requested_at', {ascending: false})
+        .order('requested_at', {ascending: false}).order('id')
     );
     const map = {};
     rows.forEach(r => {
@@ -15609,7 +15620,7 @@ async function fetchClientErrors(filters = {}) {
       if (filters.expected === true || filters.expected === false) {
         q = q.eq('is_expected', filters.expected);
       }
-      return q.order('last_seen_at', { ascending: false });
+      return q.order('last_seen_at', { ascending: false }).order('id');
     });
   } catch (e) { console.error('[fetchClientErrors]', e); return []; }
 }
@@ -16159,7 +16170,7 @@ async function fetchOrientSheets() {
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
       .select('id, brand_id, application_id, orient_no, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, brands(name, name_ja)')
-      .order('created_at', { ascending: false }))
+      .order('created_at', { ascending: false }).order('id'))
   );
 }
 
@@ -16202,7 +16213,7 @@ async function fetchOrientSheetsByBrand(brandId) {
     return await fetchAllPaged(() => db.from('orient_sheets')
       .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
       .eq('brand_id', brandId)
-      .order('created_at', { ascending: false }));
+      .order('created_at', { ascending: false }).order('id'));
   } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
 }
 
@@ -16213,7 +16224,7 @@ async function fetchOrientSheetsByBrand(brandId) {
 async function fetchOrientSheetCountsByBrand() {
   if (!db) return null;
   try {
-    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null).order('id'));
     const counts = {};
     (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
     return counts;
@@ -16256,7 +16267,7 @@ async function fetchSettlements(opts) {
       if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
       if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
       // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
-      q = q.order('created_at', {ascending: true});
+      q = q.order('created_at', {ascending: true}).order('id');
       return q;
     });
     const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
@@ -16469,7 +16480,7 @@ async function fetchOutboundInfluencers(opts) {
       if (opts.availability) q = q.eq('availability', opts.availability);
       if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
       // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
 }
@@ -16879,7 +16890,7 @@ async function fetchEventTicketsByCampaign(campaignId) {
         //    **오류도 안 나고 조회도 성공하는데 값은 계속 빈다**(열 이름으로 연결돼 원본 표로 되돌아간다).
         .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencers_admin_view (name_kanji, name_kana, email, is_audit)')
         .eq('campaign_id', campaignId)
-        .order('created_at', {ascending: true})
+        .order('created_at', {ascending: true}).order('id')
     );
   } catch(e) { return []; }
 }
@@ -28120,6 +28131,8 @@ async function hydrateCampCertBars() {
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
+    // 조회 실패(null)는 「0%」가 아니라 「—」로 — 실패를 「아무도 인증 안 함」으로 보이지 않게(전수조사 3차 ③-5)
+    if (delivs === null) { el.innerHTML = brandOpsRateBar('인증 성공 (불러오지 못함)', null); return; }
     // 결과물이 0건이면 갈아탈 대상이 없지만, 그때는 인증 성공도 0이라 판정에 쓰이지 않는다.
     if (delivs.length && delivs[0].campaigns) camp = delivs[0].campaigns;
     // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
@@ -37107,8 +37120,10 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     var allDelivs = [];
     for (var i = 0; i < camps.length; i++) {
       var c = camps[i];
-      var dels = await fetchDeliverables({ campaign_id: c.id });
-      (dels || []).forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
+      var dels = await fetchDeliverablesOrNull({ campaign_id: c.id });
+      // 🔴 조회 실패면 내보내지 않는다 — 계속하면 그 캠페인 사람들이 전원 「미제출」로 찍힌 파일이 나간다(전수조사 3차 ③-5)
+      if (dels === null) { toast('「' + (c.title || c.campaign_no || '캠페인') + '」 결과물을 불러오지 못해 내보내기를 멈췄습니다. 잠시 후 다시 시도해 주세요.', 'error'); return; }
+      dels.forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
     }
     if (allDelivs.length === 0) { toast('결과물이 없습니다', 'warn'); return; }
 
@@ -37570,7 +37585,9 @@ async function exportCampaignDeliverables(campId) {
     if (!camp) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
 
     // 2) 결과물 로드 (전체 상태 — 검수중·반려·미제출 인증 상태가 보이도록, 2026-06-09 사용자 결정)
-    var delivs = await fetchDeliverables({campaign_id: campId});
+    var delivs = await fetchDeliverablesOrNull({campaign_id: campId});
+    // 🔴 조회 실패면 내보내지 않는다 — 계속하면 승인 신청이 전원 「미제출」 빈 행으로 찍힌다(전수조사 3차 ③-5)
+    if (delivs === null) { toast('결과물을 불러오지 못해 내보내기를 멈췄습니다. 잠시 후 다시 시도해 주세요.', 'error'); return; }
     // 미제출(결과물 0건) 신청도 행에 포함 — 화면 목록(renderDeliverablesList includeMissing) 과 동일.
     //   승인된(approved) 신청을 가져와, 결과물 그룹에 없는 신청은 빈 행 + 인증 상태 '미제출' 로 추가.
     var approvedApps = await fetchApplications({campaign_id: campId, status: 'approved'});
@@ -39481,9 +39498,12 @@ async function loadCampApplicants() {
   // (2026-07-23) 카드 제목·건수 줄 제거 — 상태 탭이 이름과 건수를 함께 보여준다
 
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
-  const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  // ⚠️ 실패는 null(전수조사 3차 ③-5) — 요약 막대는 「—」로, 아래 목록은 빈 결과물로 그리고 알린다
+  const delivFetched = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  if (delivFetched === null) toast('결과물을 불러오지 못했습니다. 결과물 칸이 비어 보일 수 있으니 새로고침해 주세요.', 'error');
+  const allDelivs = delivFetched || [];
   // 상단 요약 카드 (개요 + 모집/결과물 현황 + 비용)
-  renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
+  renderCampOpsSummary(camp, allApps, delivFetched, { total, approved: allApproved, pending: allPending, slots });
   const delivByApp = {};
   allDelivs.forEach(d => {
     const arr = (delivByApp[d.application_id] ||= []);
@@ -39593,7 +39613,7 @@ async function loadCampApplicants() {
     // 요약 카드는 위(110행)에서 이미 그려졌는데, 그때는 예약을 아직 안 읽어 0 으로 나온다.
     //   읽고 나서 다시 그린다. 그 사이 다른 캠페인으로 옮겼으면 덮지 않는다(낡은 카드 방지).
     if (currentCampApplicantId === camp.id) {
-      renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
+      renderCampOpsSummary(camp, allApps, delivFetched, { total, approved: allApproved, pending: allPending, slots });
     }
   } else if (_campDetailTab === 'tickets') {
     _campDetailTab = 'applicants';   // 행사가 아닌 캠페인에 예약 탭이 남아 있으면 빈 화면이 된다
@@ -40240,16 +40260,18 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
   // 제출 인플 = 승인 신청 중 결과물 제출한 distinct 신청 (미니카드 정의와 동일)
   const approvedIdSet = new Set(allApps.filter(a => a.status === 'approved').map(a => a.id));
-  const submittedInf = new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size;
-  const submitPct = approved > 0 ? Math.round(submittedInf / approved * 100) : null;
+  // ⚠️ 결과물 조회 실패(null)면 아래 두 막대는 「—」 — 0% 로 그리면 실패가 「아무도 안 냄」으로 보인다(전수조사 3차 ③-5)
+  const delivKnown = Array.isArray(allDelivs);
+  const submittedInf = delivKnown ? new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size : null;
+  const submitPct = (delivKnown && approved > 0) ? Math.round(submittedInf / approved * 100) : null;
   // 3번째 진행바: 인증 성공(결과물 관리 화면과 동일 판정 — countCertSuccess) / 모집인원
-  const certSuccess = (typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0;
-  const certPct = slots > 0 ? Math.round(certSuccess / slots * 100) : null;
+  const certSuccess = !delivKnown ? null : ((typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0);
+  const certPct = (delivKnown && slots > 0) ? Math.round(certSuccess / slots * 100) : null;
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
     ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
-    ${brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved)}
-    ${brandOpsRateBar('인증 성공', certPct, certSuccess, slots)}
+    ${delivKnown ? brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
+    ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certSuccess, slots) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
       <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
