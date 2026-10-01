@@ -108,40 +108,10 @@
 - **로딩 UX**: 테이블·KPI·차트 영역 인라인 스피너
 
 ### 캠페인 관리
-- CRUD + 복제 + **보관 삭제(soft delete)**(확인모달, 30일 보관 후 자동 완전삭제) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
-- **삭제 복구**: 캠페인 행만 30일 보관(신청·결과물 즉시 파기), 상태 탭 **「삭제됨」**에서 복구(campaign_admin)·완전삭제(super_admin). 별도 렌더(`fetchDeletedCampaigns`·`renderDeletedCampsPane`/`buildDeletedCampRow`), 활성 전용 필터·툴바 숨김. `soft_delete_campaign`/`restore_campaign`/`purge_campaign`/`purge_expired_deleted_campaigns`(마이그레이션 254~258) + 운영현황·홍보메일 RPC deleted_at 제외(259). 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
-- **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3, INSERT 트리거 채번. 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달. **서베이 신청 선택 UI는 숨김**(마이그206) — 편집 폼은 기존 연결만 읽기전용(`renderSurveyLinkReadonly`), hidden select `#{prefix}CampSourceAppId`·저장 로직·`source_application_id`·비용 카드는 그대로. 사양서 `docs/specs/2026-07-15-campaign-form-hide-survey-link.md`. v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no`·`numbering_legacy_map` 에 보존
-  - 🔴 **복제는 원본의 `brand_id`·`source_application_id` 를 이어받는다** — 비우면 트리거가 「브랜드 미상」 갈래로 **옛 형식 `CAMP-YYYY-NNNN`** 을 박고, **번호는 삽입 순간 한 번만** 정해져 나중에 브랜드를 넣어도 그대로다. ⚠️ **둘 다** 이어받아야 한다 — `brand_id` 만이면 신청 연결 원본의 복제본이 외부 형식이 된다. ⚠️ 원본에 없으면 **없는 채로**. ⚠️ **이미 그렇게 생긴 캠페인은 재발급하지 않는다** — 브랜드 화면·집계엔 정상이고(`get_brand_ops_detail`), 되돌리면 옛 번호가 `legacy_no` 에 쌓여 **나간 견적서·메일과 어긋난다**
-- **캠페인 등록/편집 폼**: 4개 섹션(기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오, 채널은 복수 체크박스(Instagram/X/Qoo10/TikTok/YouTube/LIPS/@cosme, 콤마 저장 `"instagram,x"`. LIPS·@cosme는 리뷰어형 전용 — `lookup_values.recruit_types=['monitor']`). 채널 2개+ 면 `or`/`&` 라디오 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
-- **브랜드를 바꾸면 확인 창**(막지 않고 알림만): ①편집 저장 = 「번호는 그대로 · 연결 오리엔시트는 시트 브랜드에 남음」 ②오리엔시트 발행 폼에서 자동 채움 브랜드를 바꿈 = 「고른 브랜드 번호로 매겨짐」. 입력 검증 뒤 **가장 먼저**, 「돌아가기」면 저장 없음. 이름은 `campBrandNameForConfirm` 한 곳(빈 id 「브랜드 없음」 · 보관 「이름 [번호] (보관)」). ⚠️ 편집 창은 `_editCampOriginal.brand_id`, 발행 창은 `_orientPublishCtx.sheetBrandId` 에 기댄다 — 빠지면 창이 조용히 죽는다. 사양서 `docs/specs/2026-09-22-campaign-brand-change-confirm.md`
-- **「촬영 가이드」 칸 이름은 새 판 리뷰어형만 「리뷰 가이드」**(「レビューガイド」). 판정 `campaignGuideSectionLabel(campaign, lang)`(shared.js) **한 곳** — `campaignDescSectionLabel` 과 **같은 조건**(리뷰어형 + `purchase_guide_mode` 값). 🔴 형식만 보고 바꾸면 기존 리뷰어형 제목이 한꺼번에 바뀐다. 폼 라벨(`applyCampDescLabel` — 형식·자율/지정 두 축)·미리보기·인플루언서 상세가 부른다. 변경 이력 표는 「촬영·리뷰 가이드」. ⚠️ 시딩 카드 「촬영 가이드」(`seeding.shooting_guide`)는 별개 칸
-- **콘텐츠 가이드 리치 텍스트** (Quill v2, 3개 필드 — 캠페인 설명·소구·가이드): Notion 복사·붙여넣기 서식 유지. XSS 방어 DOMPurify 저장+렌더 이중 sanitize. 헬퍼는 `dev/lib/shared.js`
-  - **이미지 넣기**: 툴바 단추 + 붙여넣기. 미니 에디터와 **같은 함수**(`uploadContentImage` → `campaign-images/content/`, 5MB·jpg/png/webp), **같은 정책**(`_applyContentImagePolicy` — 우리 저장소 주소만). **가로 100% 고정**(Quill 이 `data-rich-size` 를 저장 때 버린다)
-  - **여러 장 한 번에**: 최대 **20장**, **파일 이름 순**(`_richImagesInNameOrder` — `localeCompare` 의 `numeric:true` 필수, 없으면 `배너_1` 다음이 `배너_10`). **한 장씩 차례대로**(`_insertRichImages`), 자리는 처음 한 번 정하고 뒤로 민다. ⚠️ **붙여넣기도 같은 함수**, **이름순 정렬은 끈다**(전부 `image.png`). ⚠️ 형식·크기 위반은 **올리기 전에** 확인, 올리는 중 실패는 **되는 것만 넣고 파일 이름을 알린다**(올라간 파일은 지우면 안 된다 — 복제본이 가리킨다). ⚠️ **장수 검사를 확인 창보다 먼저**. ⚠️ `q.enable(false)` 는 **툴바 단추를 못 막는다** → `q.__richImgBusy` 로 두 번째 호출 차단(안 막으면 순서가 뒤섞인다)
-  - **올릴 때 가로 폭만 줄인다**(`_shrinkRichImage` → `compressImageFile(file, {maxWidth:1600, keepIfSmall:true})`). ⚠️ **긴 변 기준이면 안 된다** — 세로로 긴 배너가 축소돼 글자가 뭉개진다. ⚠️ `keepIfSmall` 은 줄일 필요가 없으면 **원본을 그대로** 돌려준다 — 다시 그리면 JPEG 가 되어 **투명한 PNG 배경이 검게** 된다(메시지 첨부·영수증은 이 옵션 없음). 축소 실패는 **원본으로 올린다**
-  - ⚠️ **`image-compress.js` 는 관리자 빌드에도 있어야 한다** — `storage.js` `uploadMessageAttachment` 가 불러, 없으면 관리자 메시지 이미지 첨부가 **반드시 실패**. ⚠️ `dev/build.sh` 는 목록(`ADMIN_JS_FILES`)과 **원본 `<script>` 태그를 지우는 정규식** 두 곳을 함께 — 정규식에 빠지면 죽은 태그가 남아 없는 경로를 부른다
-  - ⚠️ **세 곳이 한 세트다** — ①`sanitizeRich` 이미지 허용 ②`getRichEditor` 의 `formats` 에 `image` ③`.quill-wrap .ql-editor img` CSS. ①만이면 넣는 순간, ②만이면 저장 때 사라지고, ③이 없으면 편집기 안에서 상자를 뚫는다
-  - ⚠️ **외부 이미지는 못 가져온다**(교차 출처 차단). 캡처·파일 붙여넣기는 **자동 업로드**, 주소만 온 외부 이미지는 그 자리에서 지우고 안내한다(저장 때 조용히 사라지면 원인을 모른다)
-  - ⚠️ **관리자 공지사항도 같은 `sanitizeRich` 를 쓰지만** 자기 편집기 `formats` 에 `image` 를 안 넣어 **동작이 그대로다**(캠페인 세 칸만 연다)
-  - ⚠️ **저장소 파일은 본문에서 빼도 남는다.** `duplicateCampaign` 이 세 칸을 문자열째 복사해 **두 캠페인이 같은 파일을 가리키므로** 참조 세기 없이 지우면 복제본이 깨진다. 사양서 `docs/specs/2026-08-12-quill-image-upload.md`
-  - **이어지는 이미지는 자동으로 붙는다**: `_markStackedImages` 가 **이미지만 든 블록이 연달아 있으면 앞 블록에** `rich-img-joined` 를 붙이고 CSS 가 여백·이음매 모서리를 없앤다(**글과 이미지 사이는 그대로**). ⚠️ 판정은 **허용 안 된 이미지를 지운 뒤** — 먼저 하면 낀 외부 이미지 때문에 「연속 아님」이 된다. ⚠️ 편집기 안은 CSS `:has(> img:only-child)` 로 **같은 기준**을 재현한다(어긋나면 편집기와 저장 결과가 갈린다)
-- **캠페인 미리보기와 비공개 캠페인**: 미리보기(`?preview=1`)는 인플루언서 앱의 `draft`·`expired` 상세 차단을 `preview-mode` 표시로 통과한다(관리자만 여는 자리). ⚠️ **응모 차단 자체는 그대로**(가드가 막는 것은 열람이 아니라 접수)
-- **참여방법·주의사항·NG 미니 에디터**: 굵게/기울이기/링크/이미지. 이미지는 `campaign-images/content/` 업로드(5MB / jpg·png·webp) → `<img class="rich-img">`, 팝오버로 Small/Medium/Large/Original. XSS 방어는 src 화이트리스트(https + `*.supabase.co`)
-- **캠페인 목록**: 썸네일+이미지수, 상태 탭(전체/준비/모집예정/모집중/모집마감/종료/노출종료, 건수·단일 선택) + 타입 드롭다운, 검색(캠페인명+브랜드+제품+campaign_no), 헤더 정렬(상태/신청/기간[모집 시작일]/선정기간[선정 시작일]/결과물 제출 마감/조회/등록일/수정일 — 날짜 3열은 문자열 비교·**빈 값은 방향 무관 뒤로**), D-day, 승인수/모집수 + 대기 배지
-  - **「결과물 현황」 열**(마이그레이션 401): 「영수증 12/12 · 결과물 8/12」 — **앞이 승인, 뒤가 제출 건수**(사람 수 아님). `get_campaign_deliverable_counts()` 를 **목록에 한 번**(감사용·임시저장·반려/취소 신청 제외 — 179·318 기준). ⚠️ **첫 줄 이름은 `campDeliverableCountsCell` 이 형식으로** — 리뷰어형 「영수증」 / 방문형 **「현장 사진」** / 기프팅 「해당 없음」 / 그 밖 「알 수 없음」. 🔴 **방문형 현장 사진도 `kind='receipt'`** — 「해당 없음」이면 사라진다. ⚠️ `fetchCampaignDeliverableCounts` 는 **실패 `null`, 0건 `{}`** — `{}` 로 합치면 실패가 「0건」이 된다. 실패·승인 0명 「—」, 제출 0건 「0/N」. 열을 늘리면 머리글 2곳 + `colspan` 2곳(16). 사양서 `docs/specs/2026-09-03-campaign-list-deliverable-column.md`
-- **캠페인 미리보기**: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
-- **캠페인 상태 6단계**: `draft` → `scheduled` → `active` → `closed`(모집마감) → `ended`(종료), `expired`(노출마감). 자동 전이: `scheduled→active`(recruit_start), `active→closed`(deadline), `closed→ended`(submission_end — `autoEndCampaigns`, 마이그레이션 156). `expired` 는 노출 토글 OFF 로만. `closed`·`ended` 는 인플 화면 노출(募集締切 / 終了). 컬러 배지(closed=핑크, ended=남보라 `badge-done`), draft/expired 회색·점선
-- **캠페인 노출 토글**: 폼 최상단 + 목록 「상태」 빠른 토글. **편집 폼·목록**은 즉시 저장 — OFF 는 확인 후 status=expired(심사중 응모 전원 낙첨), ON 은 자연 상태 재계산, draft 는 비활성(상태 드롭다운으로). `toggleCampaignVisibility` + `computeCampaignStatus`
-  - ⚠️ **신규 등록 폼은 이 토글이 「저장될 상태」를 정한다** — 켜짐=`computeCampaignStatus` 결과, 꺼짐=`draft`. 안내 문구(`setCampVisibilitySub`)와 **`addCampaign` 의 status 결정은 반드시 같이 고칠 것**(어긋나면 「바로 공개」라 적고 draft 로 저장된다)
-  - ⚠️ 신규 폼에서는 **꺼짐(draft)이어도 토글을 잠그지 않는다**(잠그면 되돌릴 수 없다 — `_renderCampVisibilityToggle` 의 `isNewForm`). 저장 전이라 **확인 모달·낙첨 경고·「즉시 저장됨」을 모두 건너뛴다**(표시하면 거짓 안내가 뜬다)
-  - **힌트 말풍선**(`.visibility-hint`): 폼 진입 시 한 번만, 닫으면 안 뜬다. `localStorage`(`reverb.hint.campVisibility`) — **브라우저 단위**
-- **상태 변경 드롭다운 전이 규칙**: `CAMP_STATUS_TRANSITIONS` 기준, 못 가는 상태는 회색(`status-dropdown-item.disabled`). draft→[scheduled,active] / scheduled→[draft,active,closed] / active→[scheduled,closed] / closed→[active,ended] / ended→[closed] / expired→[]. 자기 자신·노출종료·마감 지난 건의 active/scheduled 도 비활성, expired 는 「노출 토글로만 변경」(`status-dropdown-note`). `toggleStatusDropdown`/`buildStatusDropdownItem`, `changeCampStatus`(deadline 차단)
-- **마감일 연장 시 상태 자동 전환 확인**: 마감일을 과거→미래로 바꿨고 `closed` 면 확인 모달 → 「확인」 = 마감일+`status='active'` **함께 저장**, 「취소」 = **마감일도 저장 안 함**(서버 트리거 272 는 마감일만 봐, 마감일만 저장하면 「서버는 받는데 버튼은 닫힌」 어긋남). `closed`→`active` 한 방향만(ended·expired·draft 제외). 드롭다운으로 이미 `active` 를 고르면 확인창 없음. `saveCampaignEdit()`
-- **자동 시작·종료**: `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()`. deadline 지난 캠페인은 active/scheduled 저장 불가
-- **날짜 입력**: flatpickr range 2개(모집·구매/방문) + single 1개(`submission_end`). 모집 종료일 선택 시 `submission_end` +14일 제안. 구매·방문 기간은 모집 시작~제출 마감으로 clamp. monitor 면 콘텐츠 종류 영상/이미지만
-- **모집인원 초과 승인 차단**: 승인 수가 slots 에 도달하면 알럿 모달 차단
-- **조회수**: `campaigns.view_count`, 캠페인 상세 열 때 +1, 관리자 목록에 표시
-- **이미지 관리**: 드래그앤드롭 업로드·크롭·미리보기, Supabase Storage
+> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+
+- 캠페인 삭제 복구·번호 매기기(🔴 복제는 원본의 `brand_id`·`source_application_id` 를 둘 다 이어받는다)·등록/편집 폼·브랜드 변경 확인 창·가이드 칸 이름 판정(🔴 형식만 보고 바꾸면 기존 리뷰어형 제목이 한꺼번에 바뀐다)·미리보기·목록 「결과물 현황」 열(🔴 방문형 현장 사진도 `kind='receipt'`)·상태 6단계·노출 토글(신규 폼 안내 문구와 저장 상태를 같이 고친다)·상태 전이·마감일 연장 확인 — 상세 `.claude/rules/campaign-admin.md`
+- 캠페인 리치 텍스트 편집기 이미지(⚠️ 정화·편집기 형식·CSS **세 곳이 한 세트** · `image-compress.js` 는 관리자 빌드에도 · 본문에서 빼도 저장소 파일은 남는다 — 복제본이 가리킨다) — 상세 `.claude/rules/rich-editor-images.md`
 
 ### 신청·결과물 관리
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
