@@ -39,7 +39,7 @@
 3. 관리자는 수정 여부를 알 길이 없다
 
 ### 충돌 가능성 있는 기존 동작
-- **reverb-jp-42 가 `submit_orient_sheet`·`sales/orient.html` 을 지금 고치는 중**(전수조사 ①-2~①-5). 🔴 **그 변경이 `dev` 에 들어온 뒤 그것을 베이스로** 착수한다
+- 전수조사 ①-2~①-4 는 reverb-jp-42 가 처리했다(489·490 — `submit_orient_sheet` 는 안 건드림). **①-5(견적 예외 경로)는 사용자 결정으로 보류**(2026-10-01) → `submit_orient_sheet` 현재 원본은 **461 그대로**
 - 그 밖 충돌 없음 — 확인 영역: 견적 미리보기(화면 값) · 제출 알림 게이트 · 일일 보고(`last_submitted_at`/`submitted_at` 기준) · 발행 함수 3종(`jsonb_set` 으로 `data` 자기 키만)
 
 ### 미해결 백로그
@@ -63,7 +63,7 @@
 
 ### ① 데이터베이스 — 마이그레이션 2개(번호는 개발이 정한다. ①이 먼저)
 - **① 칸 추가** — `orient_sheets.draft_data jsonb NULL`, `orient_sheets.draft_saved_at timestamptz NULL`. 기본값 없음(기존 행 전부 NULL = 작성본 없음)
-- **② 함수 3종 재정의** — 🔴 각각 **현재 원본**을 베이스로: `save_orient_draft` = 425, `get_orient_sheet` = 187, `submit_orient_sheet` = **reverb-jp-42 의 변경이 들어간 판**(지금 461)
+- **② 함수 3종 재정의** — 🔴 각각 **현재 원본**을 베이스로: `save_orient_draft` = 425, `get_orient_sheet` = 187, `submit_orient_sheet` = **461**(착수 직전 더 큰 번호의 정의가 생겼는지 다시 확인)
   - `save_orient_draft`: `status='submitted'` 이면 지금과 같은 보정(카드 번호·발행 카드 복구·서버 키 보존 — **기준은 제출본 `data`**)을 거친 값을 **`draft_data` 에** 쓰고 `draft_saved_at = now()`. 보정한 값이 제출본과 같으면 `draft_data`·`draft_saved_at` 을 NULL 로(경우의 수 7). `data` 는 손대지 않는다. 낙관적 잠금(`version`)·100KB 상한은 지금과 같게. `draft` 상태는 **지금 그대로** `data` 에
   - 🔴 **거부를 새로 걸지 않는다** — 425·429·446 원칙 유지
   - `get_orient_sheet`: 반환에 `draft_data`(있을 때만) 추가. 나머지 무변경
@@ -95,7 +95,7 @@
 9. 서버 키(`issued`·`quote`·`quote_history`·`quote_error`·`notice_ack`)를 폼이 위조해 보내도 작성본·제출본 어디에도 안 들어간다
 
 ## 착수 전 확인 (개발)
-- reverb-jp-42 의 `submit_orient_sheet`·`orient.html` 변경이 `dev` 에 들어왔는가 — 들어온 판을 베이스로
+- `submit_orient_sheet`·`save_orient_draft`·`get_orient_sheet` 의 현재 원본이 여전히 461·425·187 인가(정의 `CREATE` 가 있는 파일만 센다)
 - 운영에서 「제출 뒤 고쳐진」 시트 건수(되살릴 수 없는 범위 파악용) — 결정에 영향은 없다. 세는 방법은 개발이 정한다(`updated_at` 은 발행·알림 갱신에도 바뀌어 그대로 쓰면 부풀 수 있다)
 
 ## 범위 밖
