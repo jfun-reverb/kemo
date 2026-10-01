@@ -141,7 +141,7 @@ async function fetchCampaigns() {
     // 페인이 공유하는 함수라, 여기서 제외하면 양쪽 모두 자동으로 안전해진다.
     // 「삭제됨」 탭(2단계) 전용 조회는 fetchDeletedCampaigns() 별도 함수 사용.
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
+      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false}).order('id')
     );
     _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
@@ -210,7 +210,7 @@ async function fetchCampaignsForAdminList() {
       db.from('campaigns')
         .select(ADMIN_LIST_COLUMNS)
         .is('deleted_at', null)
-        .order('order_index', { ascending: true, nullsFirst: false })
+        .order('order_index', { ascending: true, nullsFirst: false }).order('id')
     );
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
@@ -573,7 +573,7 @@ async function fetchDeletedCampaigns() {
   if (!db) return [];
   try {
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false})
+      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false}).order('id')
     );
     return data;
   } catch (e) {
@@ -989,7 +989,7 @@ async function fetchViolationCountsByInfluencer() {
   if (!db) return {};
   try {
     const data = await fetchAllPaged(() =>
-      db.from('influencer_flags').select('influencer_id').eq('action', 'violation')
+      db.from('influencer_flags').select('influencer_id').eq('action', 'violation').order('id')
     );
     const counts = {};
     data.forEach(r => { counts[r.influencer_id] = (counts[r.influencer_id] || 0) + 1; });
@@ -1111,7 +1111,7 @@ async function fetchReceipts(filters) {
       if (filters?.application_id) q = q.eq('application_id', filters.application_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { return []; }
 }
@@ -1223,6 +1223,15 @@ async function fetchDeliverables(filters) {
   try {
     return await _queryDeliverables(filters);
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+// 실패를 null 로 구분하는 판 — 엑셀처럼 「실패」와 「0건」이 다른 결과를 내는 자리 전용(전수조사 3차 ③-5).
+//   ⚠️ fetchDeliverables 자체는 [] 를 유지한다(부르는 곳이 많아 한꺼번에 바꾸면 화면이 깨진다).
+async function fetchDeliverablesOrNull(filters) {
+  if (!db) return null;
+  try {
+    return await _queryDeliverables(filters);
+  } catch(e) { console.error('[fetchDeliverablesOrNull]', e); return null; }
 }
 
 // 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
@@ -1442,7 +1451,9 @@ async function fetchDeliverablesByCampaign(campaignId) {
       .order('submitted_at', {ascending: false})
       .order('id', {ascending: true}));
     return data || [];
-  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
+  // 🔴 실패는 null — [] 로 돌려주면 인증 성공·제출 막대가 「0%」로 그려져 실패가 「아무도 안 냄」으로 보였다(전수조사 3차 ③-5).
+  //   부르는 쪽(admin-brand-ops hydrateCampCertBars · admin-applications 진행현황)이 null 을 「—」로 그린다.
+  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return null; }
 }
 
 // 응모건(application) 1건의 기존 결과물 조회 — 관리자 대리 등록 모달 사전 안내용 (is_admin SELECT)
@@ -1963,7 +1974,7 @@ async function fetchDeliverablesForReport(campaignIds) {
         applications:application_id (status),
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft').in('campaign_id', chunk)
-        .order('submitted_at', {ascending: false}));
+        .order('submitted_at', {ascending: false}).order('id'));
       rows = rows.concat(part || []);
     }
     return rows;
@@ -2052,7 +2063,7 @@ async function fetchReportExtRows(sourceIds) {
   try {
     return await fetchAllPaged(() => db.from('campaign_report_ext_rows')
       .select('id, source_id, member_no, account_id, mission_status, order_no, purchase_amount, receipt_url, receipt_at, review_kind, qoo10_urls, qoo10_at, cosme_urls, cosme_at')
-      .in('source_id', ids).order('member_no'));
+      .in('source_id', ids).order('member_no').order('id'));
   } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
 }
 
@@ -3059,7 +3070,7 @@ async function fetchBrands(filters) {
       var q = db.from('brands')
         .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_id, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchBrands]', e); return []; }
 }
@@ -3111,7 +3122,7 @@ async function fetchCompanies({ status = 'active', search } = {}) {
         const s = search.trim();
         q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
       }
-      return q.order('name_ko', {ascending: true});
+      return q.order('name_ko', {ascending: true}).order('id');
     });
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
@@ -3452,7 +3463,7 @@ async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search 
       if (search && search.trim()) {
         q = q.ilike('name', `%${search.trim()}%`);
       }
-      return q.order('name', {ascending: true});
+      return q.order('name', {ascending: true}).order('id');
     });
   } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
 }
@@ -3734,7 +3745,7 @@ async function fetchBrandApplications(filters) {
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.from) q = q.gte('created_at', filters.from);
       if (filters?.to) q = q.lte('created_at', filters.to);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchBrandApplications]', e); return []; }
 }
@@ -4301,7 +4312,7 @@ async function fetchWithdrawalStatesByInfluencer() {
     const rows = await fetchAllPaged(() =>
       db.from('withdrawal_requests')
         .select('influencer_id, status, scheduled_date, requested_by_kind, requested_at')
-        .order('requested_at', {ascending: false})
+        .order('requested_at', {ascending: false}).order('id')
     );
     const map = {};
     rows.forEach(r => {
@@ -5040,7 +5051,7 @@ async function fetchClientErrors(filters = {}) {
       if (filters.expected === true || filters.expected === false) {
         q = q.eq('is_expected', filters.expected);
       }
-      return q.order('last_seen_at', { ascending: false });
+      return q.order('last_seen_at', { ascending: false }).order('id');
     });
   } catch (e) { console.error('[fetchClientErrors]', e); return []; }
 }
@@ -5590,7 +5601,7 @@ async function fetchOrientSheets() {
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
       .select('id, brand_id, application_id, orient_no, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, brands(name, name_ja)')
-      .order('created_at', { ascending: false }))
+      .order('created_at', { ascending: false }).order('id'))
   );
 }
 
@@ -5633,7 +5644,7 @@ async function fetchOrientSheetsByBrand(brandId) {
     return await fetchAllPaged(() => db.from('orient_sheets')
       .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
       .eq('brand_id', brandId)
-      .order('created_at', { ascending: false }));
+      .order('created_at', { ascending: false }).order('id'));
   } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
 }
 
@@ -5644,7 +5655,7 @@ async function fetchOrientSheetsByBrand(brandId) {
 async function fetchOrientSheetCountsByBrand() {
   if (!db) return null;
   try {
-    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null).order('id'));
     const counts = {};
     (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
     return counts;
@@ -5687,7 +5698,7 @@ async function fetchSettlements(opts) {
       if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
       if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
       // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
-      q = q.order('created_at', {ascending: true});
+      q = q.order('created_at', {ascending: true}).order('id');
       return q;
     });
     const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
@@ -5900,7 +5911,7 @@ async function fetchOutboundInfluencers(opts) {
       if (opts.availability) q = q.eq('availability', opts.availability);
       if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
       // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
 }
@@ -6310,7 +6321,7 @@ async function fetchEventTicketsByCampaign(campaignId) {
         //    **오류도 안 나고 조회도 성공하는데 값은 계속 빈다**(열 이름으로 연결돼 원본 표로 되돌아간다).
         .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencers_admin_view (name_kanji, name_kana, email, is_audit)')
         .eq('campaign_id', campaignId)
-        .order('created_at', {ascending: true})
+        .order('created_at', {ascending: true}).order('id')
     );
   } catch(e) { return []; }
 }
