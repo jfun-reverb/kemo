@@ -1,0 +1,50 @@
+---
+description: 관리자 캠페인 관리 — 삭제 복구·번호 매기기·등록/편집 폼·목록·상태 전이·노출 토글·마감일 연장(묶음 규칙)
+paths:
+  - "dev/js/admin.js"
+  - "dev/js/admin-campaign-dirty.js"
+  - "dev/js/admin-event.js"
+  - "dev/js/admin-lookups.js"
+  - "dev/js/admin-core.js"
+  - "dev/js/admin-orient.js"
+  - "dev/js/admin-applications.js"
+  - "dev/js/application.js"
+  - "dev/js/meta-pixel.js"
+  - "dev/css/campaign.css"
+  - "dev/lib/shared.js"
+  - "dev/lib/storage.js"
+  - "dev/admin/index.html"
+  - "supabase/migrations/*campaign*"
+  - "supabase/migrations/*purge*"
+  - "supabase/migrations/*deleted*"
+  - "supabase/migrations/*deadline*"
+  - "supabase/migrations/*brand_survey*"
+  - "supabase/migrations/179_*"
+  - "supabase/migrations/318_*"
+---
+
+# 관리자 캠페인 관리 (CLAUDE.md 캠페인 관리 절에서 옮겨 옴 — 2026-10-01 조각 D′)
+- CRUD + 복제 + **보관 삭제(soft delete)**(확인모달, 30일 보관 후 자동 완전삭제) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
+- **삭제 복구**: 캠페인 행만 30일 보관(신청·결과물 즉시 파기), 상태 탭 **「삭제됨」**에서 복구(campaign_admin)·완전삭제(super_admin). 별도 렌더(`fetchDeletedCampaigns`·`renderDeletedCampsPane`/`buildDeletedCampRow`), 활성 전용 필터·툴바 숨김. `soft_delete_campaign`/`restore_campaign`/`purge_campaign`/`purge_expired_deleted_campaigns`(마이그레이션 254~258) + 운영현황·홍보메일 RPC deleted_at 제외(259). 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
+- **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3, INSERT 트리거 채번. 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달. **서베이 신청 선택 UI는 숨김**(마이그206) — 편집 폼은 기존 연결만 읽기전용(`renderSurveyLinkReadonly`), hidden select `#{prefix}CampSourceAppId`·저장 로직·`source_application_id`·비용 카드는 그대로. 사양서 `docs/specs/2026-07-15-campaign-form-hide-survey-link.md`. v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no`·`numbering_legacy_map` 에 보존
+  - 🔴 **복제는 원본의 `brand_id`·`source_application_id` 를 이어받는다** — 비우면 트리거가 「브랜드 미상」 갈래로 **옛 형식 `CAMP-YYYY-NNNN`** 을 박고, **번호는 삽입 순간 한 번만** 정해져 나중에 브랜드를 넣어도 그대로다. ⚠️ **둘 다** 이어받아야 한다 — `brand_id` 만이면 신청 연결 원본의 복제본이 외부 형식이 된다. ⚠️ 원본에 없으면 **없는 채로**. ⚠️ **이미 그렇게 생긴 캠페인은 재발급하지 않는다** — 브랜드 화면·집계엔 정상이고(`get_brand_ops_detail`), 되돌리면 옛 번호가 `legacy_no` 에 쌓여 **나간 견적서·메일과 어긋난다**
+- **캠페인 등록/편집 폼**: 4개 섹션(기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오, 채널은 복수 체크박스(Instagram/X/Qoo10/TikTok/YouTube/LIPS/@cosme, 콤마 저장 `"instagram,x"`. LIPS·@cosme는 리뷰어형 전용 — `lookup_values.recruit_types=['monitor']`). 채널 2개+ 면 `or`/`&` 라디오 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
+- **브랜드를 바꾸면 확인 창**(막지 않고 알림만): ①편집 저장 = 「번호는 그대로 · 연결 오리엔시트는 시트 브랜드에 남음」 ②오리엔시트 발행 폼에서 자동 채움 브랜드를 바꿈 = 「고른 브랜드 번호로 매겨짐」. 입력 검증 뒤 **가장 먼저**, 「돌아가기」면 저장 없음. 이름은 `campBrandNameForConfirm` 한 곳(빈 id 「브랜드 없음」 · 보관 「이름 [번호] (보관)」). ⚠️ 편집 창은 `_editCampOriginal.brand_id`, 발행 창은 `_orientPublishCtx.sheetBrandId` 에 기댄다 — 빠지면 창이 조용히 죽는다. 사양서 `docs/specs/2026-09-22-campaign-brand-change-confirm.md`
+- **「촬영 가이드」 칸 이름은 새 판 리뷰어형만 「리뷰 가이드」**(「レビューガイド」). 판정 `campaignGuideSectionLabel(campaign, lang)`(shared.js) **한 곳** — `campaignDescSectionLabel` 과 **같은 조건**(리뷰어형 + `purchase_guide_mode` 값). 🔴 형식만 보고 바꾸면 기존 리뷰어형 제목이 한꺼번에 바뀐다. 폼 라벨(`applyCampDescLabel` — 형식·자율/지정 두 축)·미리보기·인플루언서 상세가 부른다. 변경 이력 표는 「촬영·리뷰 가이드」. ⚠️ 시딩 카드 「촬영 가이드」(`seeding.shooting_guide`)는 별개 칸
+- **캠페인 미리보기와 비공개 캠페인**: 미리보기(`?preview=1`)는 인플루언서 앱의 `draft`·`expired` 상세 차단을 `preview-mode` 표시로 통과한다(관리자만 여는 자리). ⚠️ **응모 차단 자체는 그대로**(가드가 막는 것은 열람이 아니라 접수)
+- **참여방법·주의사항·NG 미니 에디터**: 굵게/기울이기/링크/이미지. 이미지는 `campaign-images/content/` 업로드(5MB / jpg·png·webp) → `<img class="rich-img">`, 팝오버로 Small/Medium/Large/Original. XSS 방어는 src 화이트리스트(https + `*.supabase.co`)
+- **캠페인 목록**: 썸네일+이미지수, 상태 탭(전체/준비/모집예정/모집중/모집마감/종료/노출종료, 건수·단일 선택) + 타입 드롭다운, 검색(캠페인명+브랜드+제품+campaign_no), 헤더 정렬(상태/신청/기간[모집 시작일]/선정기간[선정 시작일]/결과물 제출 마감/조회/등록일/수정일 — 날짜 3열은 문자열 비교·**빈 값은 방향 무관 뒤로**), D-day, 승인수/모집수 + 대기 배지
+  - **「결과물 현황」 열**(마이그레이션 401): 「영수증 12/12 · 결과물 8/12」 — **앞이 승인, 뒤가 제출 건수**(사람 수 아님). `get_campaign_deliverable_counts()` 를 **목록에 한 번**(감사용·임시저장·반려/취소 신청 제외 — 179·318 기준). ⚠️ **첫 줄 이름은 `campDeliverableCountsCell` 이 형식으로** — 리뷰어형 「영수증」 / 방문형 **「현장 사진」** / 기프팅 「해당 없음」 / 그 밖 「알 수 없음」. 🔴 **방문형 현장 사진도 `kind='receipt'`** — 「해당 없음」이면 사라진다. ⚠️ `fetchCampaignDeliverableCounts` 는 **실패 `null`, 0건 `{}`** — `{}` 로 합치면 실패가 「0건」이 된다. 실패·승인 0명 「—」, 제출 0건 「0/N」. 열을 늘리면 머리글 2곳 + `colspan` 2곳(16). 사양서 `docs/specs/2026-09-03-campaign-list-deliverable-column.md`
+- **캠페인 미리보기**: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
+- **캠페인 상태 6단계**: `draft` → `scheduled` → `active` → `closed`(모집마감) → `ended`(종료), `expired`(노출마감). 자동 전이: `scheduled→active`(recruit_start), `active→closed`(deadline), `closed→ended`(submission_end — `autoEndCampaigns`, 마이그레이션 156). `expired` 는 노출 토글 OFF 로만. `closed`·`ended` 는 인플 화면 노출(募集締切 / 終了). 컬러 배지(closed=핑크, ended=남보라 `badge-done`), draft/expired 회색·점선
+- **캠페인 노출 토글**: 폼 최상단 + 목록 「상태」 빠른 토글. **편집 폼·목록**은 즉시 저장 — OFF 는 확인 후 status=expired(심사중 응모 전원 낙첨), ON 은 자연 상태 재계산, draft 는 비활성(상태 드롭다운으로). `toggleCampaignVisibility` + `computeCampaignStatus`
+  - ⚠️ **신규 등록 폼은 이 토글이 「저장될 상태」를 정한다** — 켜짐=`computeCampaignStatus` 결과, 꺼짐=`draft`. 안내 문구(`setCampVisibilitySub`)와 **`addCampaign` 의 status 결정은 반드시 같이 고칠 것**(어긋나면 「바로 공개」라 적고 draft 로 저장된다)
+  - ⚠️ 신규 폼에서는 **꺼짐(draft)이어도 토글을 잠그지 않는다**(잠그면 되돌릴 수 없다 — `_renderCampVisibilityToggle` 의 `isNewForm`). 저장 전이라 **확인 모달·낙첨 경고·「즉시 저장됨」을 모두 건너뛴다**(표시하면 거짓 안내가 뜬다)
+  - **힌트 말풍선**(`.visibility-hint`): 폼 진입 시 한 번만, 닫으면 안 뜬다. `localStorage`(`reverb.hint.campVisibility`) — **브라우저 단위**
+- **상태 변경 드롭다운 전이 규칙**: `CAMP_STATUS_TRANSITIONS` 기준, 못 가는 상태는 회색(`status-dropdown-item.disabled`). draft→[scheduled,active] / scheduled→[draft,active,closed] / active→[scheduled,closed] / closed→[active,ended] / ended→[closed] / expired→[]. 자기 자신·노출종료·마감 지난 건의 active/scheduled 도 비활성, expired 는 「노출 토글로만 변경」(`status-dropdown-note`). `toggleStatusDropdown`/`buildStatusDropdownItem`, `changeCampStatus`(deadline 차단)
+- **마감일 연장 시 상태 자동 전환 확인**: 마감일을 과거→미래로 바꿨고 `closed` 면 확인 모달 → 「확인」 = 마감일+`status='active'` **함께 저장**, 「취소」 = **마감일도 저장 안 함**(서버 트리거 272 는 마감일만 봐, 마감일만 저장하면 「서버는 받는데 버튼은 닫힌」 어긋남). `closed`→`active` 한 방향만(ended·expired·draft 제외). 드롭다운으로 이미 `active` 를 고르면 확인창 없음. `saveCampaignEdit()`
+- **자동 시작·종료**: `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()`. deadline 지난 캠페인은 active/scheduled 저장 불가
+- **날짜 입력**: flatpickr range 2개(모집·구매/방문) + single 1개(`submission_end`). 모집 종료일 선택 시 `submission_end` +14일 제안. 구매·방문 기간은 모집 시작~제출 마감으로 clamp. monitor 면 콘텐츠 종류 영상/이미지만
+- **모집인원 초과 승인 차단**: 승인 수가 slots 에 도달하면 알럿 모달 차단
+- **조회수**: `campaigns.view_count`, 캠페인 상세 열 때 +1, 관리자 목록에 표시
+- **이미지 관리**: 드래그앤드롭 업로드·크롭·미리보기, Supabase Storage
