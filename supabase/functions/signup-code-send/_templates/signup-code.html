@@ -1,64 +1,85 @@
 <!DOCTYPE html>
 <!--
   Mail: 회원가입 이메일 인증번호 (인플루언서 가입 희망자용)
-  Trigger: signup-code-send Edge Function (가입 화면의 「認証コードを送る」 — 비로그인 호출)
+  Trigger: signup-code-send Edge Function (가입 화면의 「認証する」 — 비로그인 호출)
   To:      가입하려는 이메일 주소 (그 사람이 입력한 주소)
   Lang:    JA
+  Style:   🔴 가입·로그인 길 메일이라 **가입 확인 메일(confirm-signup.html)과 같은 틀**(진한 머리 + R 로고 + 분홍). 활동 알림 메일(빨간 머리)과 다르다
 
   Placeholders:
-    {{code}}      6자리 숫자 (함수가 숫자만 넣는다 — 이스케이프 불필요하나 함수가 한 번 더 숫자 검사)
+    {{code}}      6자리 숫자 (함수가 숫자만 넣는다)
     {{minutes}}   유효 시간(분, 숫자) — code_expires_at 에서 계산
     {{site_url}}  사이트 루트 URL
     {{help_line_url}} LINE 문의 URL
 
   ── 한국어 뜻(담당자 전달용, 화면에는 노출되지 않음) ──────────────────
     제목: "[REVERB JP] 인증 코드 안내"
-    헤더: "인증 코드 안내"
-    본문: "REVERB JP에 회원가입해 주셔서 감사합니다. 아래 숫자 6자리를 가입 화면에 입력해 주세요.
-          [큰 숫자] 인증 코드
-          이 코드는 {{minutes}}분 동안 유효합니다.
+    본문: "인증 코드 안내 / REVERB JP에 가입해 주셔서 감사합니다. 아래 6자리 숫자를 가입 화면에 입력해 주세요.
+          [큰 숫자] / 이 코드는 {{minutes}}분간 유효합니다.
           이 메일에 짚이는 데가 없으면 아무것도 하지 말고 이 메일을 삭제해 주세요."
-    푸터(4줄, 전 템플릿 공통 문구)
+    푸터(4줄, 회원 메일 공통 문구)
   ──────────────────────────────────────────────────────────────────
 -->
-<div style="font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Manrope',Arial,sans-serif;color:#222;max-width:600px">
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#E8E0EC;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E8E0EC;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px 2px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);">
 
-  <!-- 헤더 -->
-  <div style="background:#E8344E;border-radius:12px 12px 0 0;padding:28px 32px 24px">
-    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">REVERB JP</div>
-    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.3">認証コードのお知らせ</div>
-  </div>
+          <!-- ヘッダー (가입 확인 메일 confirm-signup.html 과 같은 틀) -->
+          <tr>
+            <td style="background:#2D1F2B;padding:28px 24px;text-align:center;">
+              <div style="width:44px;height:44px;background:#C878A3;border-radius:10px;display:inline-block;line-height:44px;font-family:'Helvetica Neue',Arial,sans-serif;font-weight:800;font-size:20px;color:#ffffff;">R</div>
+              <div style="color:#ffffff;font-size:18px;font-weight:700;margin-top:10px;letter-spacing:0.5px;">REVERB JP</div>
+            </td>
+          </tr>
 
-  <!-- 본문 -->
-  <div style="background:#fff;border:1px solid #EAEAE4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px 24px">
+          <!-- 本文 -->
+          <tr>
+            <td style="padding:32px 28px 24px;">
+              <h1 style="font-size:18px;font-weight:700;color:#1E1320;margin:0 0 16px;line-height:1.5;">認証コードのお知らせ</h1>
+              <p style="font-size:14px;color:#7A6B78;line-height:1.7;margin:0 0 24px;">
+                REVERB JP にご登録いただきありがとうございます。<br>
+                下の6けたの数字を、登録画面に入力してください。
+              </p>
 
-    <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.7">
-    REVERB JP にご登録いただきありがとうございます。<br>
-    下の6けたの数字を、登録画面に入力してください。</p>
+              <!-- 認証コード -->
+              <div style="background:#FDF0F7;border-radius:12px;padding:20px 18px;margin-bottom:20px;text-align:center;">
+                <div style="font-size:11px;font-weight:700;color:#7D4A6A;letter-spacing:0.1em;margin-bottom:8px;">認証コード</div>
+                <div style="font-size:34px;font-weight:800;color:#1E1320;letter-spacing:0.3em;padding-left:0.3em;">{{code}}</div>
+              </div>
 
-    <!-- 코드 박스 -->
-    <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:10px;padding:20px 18px;margin-bottom:22px;text-align:center">
-      <div style="color:#888;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px">認証コード</div>
-      <div style="font-weight:800;font-size:34px;color:#161618;letter-spacing:0.3em;padding-left:0.3em">{{code}}</div>
-    </div>
+              <p style="font-size:14px;color:#7A6B78;line-height:1.7;margin:0 0 12px;">
+                このコードは <b style="color:#1E1320;">{{minutes}}分間</b> 有効です。
+              </p>
+              <p style="font-size:12px;color:#7A6B78;line-height:1.7;margin:0;">
+                ※ このメールに心当たりがない場合は、何もせずこのメールを削除してください。
+              </p>
+            </td>
+          </tr>
 
-    <p style="margin:0 0 14px;font-size:14px;color:#444;line-height:1.7">
-      このコードは <b>{{minutes}}分間</b> 有効です。
-    </p>
+          <!-- フッター (회원 메일 4줄 푸터 — 자동 발송 안내 · LINE · © JFUN · 사이트 주소) -->
+          <tr>
+            <td style="background:#F8F5F8;padding:20px 28px;text-align:center;">
+              <p style="font-size:11px;color:#999999;line-height:1.6;margin:0;">
+                REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
+                お問い合わせは LINE <a href="{{help_line_url}}" style="color:#999999;text-decoration:underline">@reverb.jp</a> までお願いいたします。
+              </p>
+              <p style="font-size:11px;color:#999999;line-height:1.6;margin:12px 0 0;">
+                © JFUN Corp. · 株式会社ジェイファン<br>
+                <a href="{{site_url}}" style="color:#999999;text-decoration:underline">{{site_url}}</a>
+              </p>
+            </td>
+          </tr>
 
-    <p style="margin:0;font-size:12px;color:#888;line-height:1.7">
-      このメールに心当たりがない場合は、何もせずこのメールを削除してください。
-    </p>
-
-  </div>
-
-  <!-- 푸터 (통일) -->
-  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
-    REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
-    お問い合わせは LINE <a href="{{help_line_url}}" style="color:#999;text-decoration:underline">@reverb.jp</a> までお願いいたします。<br>
-    <br>
-    © JFUN Corp. · 株式会社ジェイファン<br>
-    <a href="{{site_url}}" style="color:#999;text-decoration:underline">{{site_url}}</a>
-  </p>
-
-</div>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
