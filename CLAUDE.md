@@ -408,7 +408,7 @@
 **현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
 - `mark_settlements_paid_bulk` · `mark_settlement_revert` · `mark_settlement_paid` · `register_past_settlements` · `correct_settlement_payment` — **486**(베이스 416·416·343·339·341 아님)
 
-**송금 묶음·수수료**(마이그레이션 484~488 — ★**개발서버만**. 🔴 운영은 10/6 문의 창구 반영 뒤, **데이터베이스 먼저·화면 나중**. 사양서 `docs/specs/2026-09-30-settlement-transfer-fee-record.md`)
+**송금 묶음·수수료**(마이그레이션 484~488 — ★**운영 반영 완료 2026-10-01**(문의 창구 475~482 보다 먼저, 골라 담기 #1831). 🔴 **운영 첫 기록 전**: 「미등록 응모를 묶음으로 기록」 경로를 시험 데이터로 한 번 — 첫 기록이 곧 도입일이다. 사양서 `docs/specs/2026-09-30-settlement-transfer-fee-record.md`)
 - 페이팔 송금 1건 = `settlement_transfers` 1줄, 건과는 `settlement_transfer_items`, 건의 현재 묶음은 `settlements.current_transfer_id`. 🔴 **현재 묶음이 있으면 건의 송금일·보낸 금액은 묶음이 정본** — 건에서 날짜를 바꾸면 `paid_at_owned_by_transfer`
 - 🔴 **`source='app'` 묶음이 한 줄이라도 생기면 옛 송금완료 경로 셋이 거부된다**(`payout_bundle_required`) — **운영 SQL 편집기에서 `record_settlement_transfers` 를 시험 호출하지 말 것**(첫 기록이 곧 도입일, 되돌릴 함수 없음)
 - 수수료 계산식은 `_settlement_fee_calc` **한 곳**, 화면은 `preview_settlement_fees`(488)로 묻는다 — 화면에 식을 두지 않는다. 묶음 표엔 **페이팔 주소 칸이 없다**(363 파기 대상을 늘리지 않으려고)
