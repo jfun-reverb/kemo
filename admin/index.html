@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790823477';
+  var CURRENT_BUILD = 'v1790824639';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3292,7 +3292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-01 11:57 · ad322b2</span>
+          <span class="admin-build-text">2026-10-01 12:17 · c9ca15a</span>
         </div>
       </div>
     </aside>
@@ -7307,7 +7307,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 오늘로 기록됩니다.</div>
         </div>
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">실제 송금액 (¥)</label>
+          <label class="form-label">보낸 금액</label>
           <input type="number" id="settlementPayAmount" class="form-input" min="1" step="1" placeholder="계산 금액 그대로" oninput="onSettlementPayInput()">
           <div style="font-size:11px;color:var(--muted);margin-top:4px">비우면 위 계산 금액 그대로입니다.</div>
         </div>
@@ -7367,7 +7367,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <input type="date" id="settlementCorrectDate" class="form-input" onchange="onSettlementCorrectInput()">
         </div>
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">실제 송금액 (¥)</label>
+          <label class="form-label">보낸 금액</label>
           <input type="number" id="settlementCorrectAmount" class="form-input" min="1" step="1" oninput="onSettlementCorrectInput()">
         </div>
       </div>
