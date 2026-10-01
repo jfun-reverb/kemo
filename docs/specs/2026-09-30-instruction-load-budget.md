@@ -202,6 +202,13 @@
 
 ## 구현 결과 (조각마다 채울 것)
 
+### 조각 D′ — 인플루언서 기능 절 (2026-10-01, 개발)
+- **배치(새 묶음 6개)**: 가입·로그인·인증 → `member-signup-auth.md` · 목록·상세·마이페이지·메뉴·알림·수신 설정·푸터 → `member-app-screens.md` · 신청·주의사항·정원·마감 후 응모 차단·본인 취소 → `apply-and-cancel.md` · 활동관리·미제출 방지·제출 마감 판정 → `deliverable-submit.md` · 기간 문구·페이백 안내 판정 헬퍼 → `campaign-period-wording.md` · 응모건 메시지(회원 쪽)·자동 번역 → `member-messages.md`.
+- **`CLAUDE.md` 에 남긴 것**: 절 제목 · 안내 한 줄 · 번호표(가입 트리거 420 · 마감 가드 326) · 「아직 안 한 것」 한 줄(④ 복사) · 지도 6줄(🔴 핵심 경고 요지 포함).
+- **기계 대조**: 없어진 줄 0 · ⚠️ 35→37 · 🔴 10→16 · 식별자·번호 잃은 것 0 · 언급 위치 → 열릴 조건 누락 1건(`275_*`) 보완 · 오탐 1건(「110픽셀」).
+- **주입 양성 대조**: 새 세션에서 `auth.js`·`campaign.js`·`application.js`·`messaging.js` Read → 새 6개 전부 실림.
+- **실측**: 지시 문서 합계 205,294 → **21개 193,680자**.
+
 ### 조각 D′ — 회원 탈퇴 절 (2026-10-01, 개발)
 - **배치**: 탈퇴 본문(신청·상태 전이·행사 예약 정리·파기·페이팔·재가입 차단·홍보 제외·영수증 파기·관리자 화면) → `member-withdrawal.md`(열릴 조건에 `mypage.js`·`admin-applications.js`·`admin-excel.js`·`admin-core.js`·`admin-deliverables.js`·`admin-errors.js`·응모 취소·행사·홍보 메일 마이그레이션·홍보 메일 함수 추가) · 탈퇴 확정 계정 차단 장치 → **새 묶음 `withdrawn-account-guards.md`**(`auth.js`·`app.js`·`ui.js`·`shared.js`·`application.js`·행사 화면 둘·`event-scan.html`·마감 가드·`180_*` 등 — 공용 파일에 걸리므로 작게 따로).
 - **`CLAUDE.md` 에 남긴 것**: 번호표(+450·396·418·394 네 줄) · 잠금 3줄 · 덩어리 안에 흩어져 있던 「아직 안 한 것」을 모은 한 줄(④ 복사) · 지도 2줄.
