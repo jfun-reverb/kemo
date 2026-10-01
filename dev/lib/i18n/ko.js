@@ -226,8 +226,8 @@ window.I18N_KO = {
       title: '회원가입',
       sub: 'REVERB에 참여해서 K브랜드 캠페인을 체험하세요',
       nameKanjiLabel: '이름 (한자)',
-      nameKanaLabel: '이름 (가나)',
-      nameKanaHint: '일본 주소 배송을 위해 일본어 가나 표기를 입력해주세요',
+      nameKanaLabel: '이름 (후리가나)',
+      nameKanaHint: '일본 주소 배송을 위해 후리가나(가타카나)를 입력해주세요',
       birthdateLabel: '생년월일',
       birthYear: '년',
       birthMonth: '월',
@@ -801,7 +801,7 @@ window.I18N_KO = {
 
   profile: {
     nameKanji: '이름 (한자)',
-    nameKana: '이름 (가나)',
+    nameKana: '이름 (후리가나)',
     birthdate: '생년월일',
     gender: '성별',
     notRegistered: '미등록',

@@ -237,8 +237,8 @@ window.I18N_JA = {
       title: '新規登録',
       sub: 'REVERBに参加してKブランドキャンペーンを体験しよう',
       nameKanjiLabel: '氏名（漢字）',
-      nameKanaLabel: '氏名（ふりがな）',
-      nameKanaHint: '日本語の配送先登録のため、かな名を入力してください',
+      nameKanaLabel: '氏名（フリガナ）',
+      nameKanaHint: '日本語の配送先登録のため、フリガナ（カタカナ）を入力してください',
       birthdateLabel: '生年月日',
       birthYear: '年',
       birthMonth: '月',
@@ -845,7 +845,7 @@ window.I18N_JA = {
   // 프로필 라벨
   profile: {
     nameKanji: '氏名（漢字）',
-    nameKana: '氏名（ふりがな）',
+    nameKana: '氏名（フリガナ）',
     birthdate: '生年月日',
     gender: '性別',
     notRegistered: '未登録',
