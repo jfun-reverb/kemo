@@ -455,8 +455,7 @@ async function handleSignup(e) {
     // ① 이미 가입된 주소 — 인증 서비스가 오류 대신 **신원 목록이 빈** 가짜 사용자를 돌려준다(계정 열거 방지).
     //    자동 로그인을 시도하지 않고 일반 실패 + 로그인·비밀번호 찾기 안내. 픽셀도 안 보낸다(새 가입이 아니다)
     if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      showSignupFailure(errEl);
-      errEl.insertAdjacentHTML('beforeend', '<br>' + esc(t('authError.alreadyRegisteredHint')));
+      showSignupFailure(errEl);   // 「이미 가입한 경우」 안내는 이 함수가 늘 붙인다
       resetSignupEmailVerification(false);   // 확인증을 썼다 — 「認証済み」 표시를 남기지 않는다
       _restoreBtn(); return;
     }
@@ -861,8 +860,14 @@ function showSignupFailure(errEl) {
     : '登録に失敗しました。しばらくしてからもう一度お試しください';
   const help = typeof t === 'function' ? t('authError.signupHelp')
     : 'お困りの場合は LINE までご連絡ください。';
+  // 「이미 가입한 경우」 안내는 **어떤 실패에나** 붙인다 — 특정 경우에만 붙이면 그것이 가입 여부를 드러낸다
+  const hint = typeof t === 'function' ? t('authError.alreadyRegisteredHint') : '';
   errEl.innerHTML = esc(msg) + '<br>' + esc(help)
     + ' <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener"'
-    + ' style="color:var(--pink);text-decoration:underline">@reverb.jp</a>';
+    + ' style="color:var(--pink);text-decoration:underline">@reverb.jp</a>'
+    + (hint ? '<br>' + esc(hint) : '');
   errEl.style.display = 'block';
+  // 🔴 안내 칸이 「登録する」보다 위(동의 칸 위)에 있어, 누른 자리에서 안 보이면 「아무 일도 안 일어났다」로 보인다
+  //   (2026-10-01 개발서버 실측). 실패하면 그 자리로 화면을 옮긴다
+  try { errEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch(_) {}
 }
