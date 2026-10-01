@@ -2624,3 +2624,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
    「이미지 넣는 법」 상자 아래(.rich-img-help)도 같은 28px 로 맞춘다 */
 #adminPane-add-campaign .form-group,
 #adminPane-edit-campaign .form-group{margin-bottom:28px}
+/* 정산 「송금 내역」 표의 합계 줄 — 마지막 행 아래 구분선 + 옅은 바탕(2026-09-30 사용자 지적). td 배경이 tr 배경을 덮어 td 에 준다 */
+.transfer-foot td{border-top:1px solid var(--outline);background:#FAFAFA;font-weight:700}
+/* ── 정산 관리 버튼 높이 통일(2026-09-30 사용자 지적 — 아이콘·글자 크기 때문에 버튼마다 23~35px 로 제각각이었다) ──
+   도구 줄 버튼(btn-sm) = 입력 칸(admin-filter·admin-filter-search)과 같은 32px / 표·펼친 목록 안 버튼(btn-xs) = 28px.
+   아이콘은 16px 한 가지. 인라인 padding 이 남아 있어도 높이·좌우 여백은 여기서 정한다(!important).
+   ⚠️ 이 페인 안에서만 — 공용 .btn-sm/.btn-xs 를 바꾸면 다른 화면이 전부 바뀐다. */
+#adminPane-settlements .btn.btn-sm{height:32px!important;padding:0 12px!important;font-size:13px!important;line-height:1;gap:4px}
+#adminPane-settlements .btn.btn-xs{height:28px!important;padding:0 10px!important;font-size:12px!important;line-height:1}
+#adminPane-settlements .btn .material-icons-round{font-size:16px!important;vertical-align:middle}

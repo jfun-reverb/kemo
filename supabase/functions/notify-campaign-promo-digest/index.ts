@@ -6,8 +6,10 @@
 //
 // 트리거: pg_cron 매주 월·목 UTC 00:00 (= 한국시간 오전 9시) net.http_post
 //         (cron 등록은 PR 5 마이그레이션 142 에서 진행)
-// 윈도우: 신규 = first_active_at AT TIME ZONE 'Asia/Seoul'::date = p_digest_date
-//         D-1 = deadline = CURRENT_DATE + 1
+// 윈도우(마이그레이션 471, 사양서 2026-09-28-promo-mail-new-and-deadline-window.md):
+//         신규     = 모집 시작(first_active_at, 도쿄 날짜)이 발송일-13 ~ 발송일 · 마감이 다음 발송일 뒤 또는 없음
+//         마감 임박 = 마감이 발송일(당일 포함) ~ 다음 발송일(월→목, 목→다음 월)
+//         ⚠️ 종류 값·변수 이름의 「d1」 은 옛 이름(489건 이력·유일 제약이 걸려 있다) — 뜻은 위 「마감 임박」
 //
 // 처리 흐름:
 //   1. INSERT mutex (digest_date UNIQUE) — 첫 배치만
@@ -21,7 +23,7 @@
 //   3. 양 섹션 모두 0건이면 status='skipped_no_data' + 종료
 //   4. 캠페인 일괄 조회 + monitor approved count 일괄 조회
 //   5. 200명 배치 직렬 발송 (Brevo SMTP):
-//      a. 메일 HTML 렌더 (신규 섹션 + D-1 섹션, 한쪽 0건이면 그 섹션 생략)
+//      a. 메일 HTML 렌더 (신규 섹션 + 마감 임박 섹션, 한쪽 0건이면 그 섹션 생략)
 //      b. campaign_promo_exposure INSERT (kind='new' / 'deadline_d1')
 //      c. mark_promo_digest_sent RPC 로 발송 결과 기록
 //      d. 100ms 슬립 (Brevo rate limit 보호)
@@ -374,7 +376,7 @@ function renderCampaignCard(args: {
     ?? "https://dummyimage.com/200x200/eeeeee/888888.png&text=No+Image";
 
   const d1ChipHtml = args.showD1Chip
-    ? `<span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近 D-1</span>`
+    ? `<span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近</span>`
     : "";
 
   // 사용자 결정 E: monitor (리뷰어) 만 잔여 슬롯 행 표시
@@ -539,7 +541,7 @@ function renderMailBody(args: {
     `新しいキャンペーン情報が届きました。`,
   ];
   if (newCount > 0) textLines.push(`・新着キャンペーン: ${newCount}件`);
-  if (d1Count > 0) textLines.push(`・締切間近 (D-1): ${d1Count}件`);
+  if (d1Count > 0) textLines.push(`・締切間近: ${d1Count}件`);
   textLines.push("");
   textLines.push(`すべてのキャンペーンを見る: ${campaignsUrl}`);
   // 수신거부 안내 — 일본 특정전자메일법 요구. HTML 을 못 읽는 환경에도 반드시 남아야 한다
@@ -573,7 +575,8 @@ function renderAdminPromoMailBody(args: {
 
   const newSectionHtml = renderSection({
     sectionTpl, rowTpl,
-    title: "新着キャンペーン",
+    // 관리자 요약은 회원별 노출 기록이 없어 같은 캠페인이 14일 동안 반복된다 — 제목이 그 이유를 말한다(사양서 §3 ④)
+    title: "신규 캠페인 (모집 시작 14일 이내)",
     color: "#C8789C",
     campaignIds: args.newCampaignIds,
     totalCount: args.newTotalCount,
@@ -587,7 +590,7 @@ function renderAdminPromoMailBody(args: {
 
   const deadlineSectionHtml = renderSection({
     sectionTpl, rowTpl,
-    title: "締切間近キャンペーン",
+    title: "마감 임박 캠페인 (다음 발송일까지 마감)",
     color: "#E8344E",
     campaignIds: args.d1CampaignIds,
     totalCount: args.d1TotalCount,
@@ -620,8 +623,8 @@ function renderAdminPromoMailBody(args: {
   const textLines = [
     "오늘 인플루언서에게 발송된 홍보 대상 캠페인입니다 (운영 참고용).",
   ];
-  if (n > 0) textLines.push(`· 신규: ${n}건`);
-  if (d > 0) textLines.push(`· 마감임박(D-1): ${d}건`);
+  if (n > 0) textLines.push(`· 신규(모집 시작 14일 이내): ${n}건`);
+  if (d > 0) textLines.push(`· 마감임박(다음 발송일까지 마감): ${d}건`);
   const text = textLines.join("\n");
 
   return { html, subject, text };
