@@ -255,7 +255,11 @@ function switchAdminPane(pane, el, pushHistory) {
     'brands': loadBrandsPane,
     // 브랜드 상세 페이지는 목록에서 고른 브랜드를 화면 상태로 들고 있다 —
     //   주소로 직접 들어오면 고른 브랜드가 없으므로 목록으로 돌려보낸다(app.js 의 subToParent 와 같은 뜻).
-    'brand-detail': () => { if (!_brandsCurrentId) switchAdminPane('brands'); },
+    'brand-detail': () => {
+      if (!_brandsCurrentId) { switchAdminPane('brands'); return; }
+      // 숨어 있는 동안 오리엔시트가 바뀌었으면(발급·발행·연결·삭제) 돌아온 지금 그 구역만 다시 그린다
+      if (typeof _brandDetailStale !== 'undefined' && _brandDetailStale && typeof refreshBrandDetailSheets === 'function') refreshBrandDetailSheets();
+    },
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,

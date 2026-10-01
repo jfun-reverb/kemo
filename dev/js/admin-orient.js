@@ -580,7 +580,7 @@ async function osSubmitCreate() {
     // 브랜드만 선택한 건만 수신자 선택 UI 노출 (신청 연결 건은 신청 담당자 이메일 자동)
     if (!appId) { osLoadRecipients(brandId); }
     else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
-    await refreshPane('orient-sheets');
+    await osRefreshAfterSheetChange();
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -842,7 +842,7 @@ async function osExecuteDelete() {
       osCloseModal('orientDeleteModal');
       const n = Array.isArray(res.deleted_campaign_ids) ? res.deleted_campaign_ids.length : 0;
       toast(n > 0 ? ('오리엔시트와 연결 캠페인 ' + n + '개를 삭제했습니다.') : '오리엔시트를 삭제했습니다.', 'success');
-      await refreshPane('orient-sheets');
+      await osRefreshAfterSheetChange();
     } else if (res && res.reason === 'blocked_has_applications') {
       const n = Array.isArray(res.campaign_ids) ? res.campaign_ids.length : 0;
       err.textContent = '연결 캠페인 중 신청이 있는 캠페인(' + n + '개)이 있어 삭제할 수 없습니다. 신청을 먼저 정리해 주세요.';
@@ -1901,7 +1901,7 @@ async function osConfirmLink(campaignId) {
   toast('연결(발행)되었습니다.');
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
 }
 
 // 발행 카드의 연결 캠페인 번호 클릭 → 그 캠페인 진행현황(신청자·요약)으로 이동. 오리엔 상세 모달은 닫는다.
@@ -1933,7 +1933,14 @@ async function osUnlinkCard(cardIdx) {
   }
   toast('연결을 해제했습니다.');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
+}
+
+// 오리엔시트를 바꾼 뒤(발급·삭제·연결·해제) — 목록뿐 아니라 **그 시트를 보여 주는 브랜드 화면 둘**도 갱신한다
+//   (전수조사 3차 ⑥-2·⑥-3). 그 둘은 숨어 있으면 다시 받지 않고 「돌아올 때 다시 그리기」 표시만 남긴다(shared.js).
+//   동시에 돌린다 — 차례로 기다리면 전체 시트 목록을 다 받은 뒤에야 다음이 시작된다.
+async function osRefreshAfterSheetChange() {
+  await Promise.all([refreshPane('orient-sheets'), refreshPane('brand-detail'), refreshPane('brand-ops-detail')]);
 }
 
 // 연결/해제 실패 reason → 사용자 안내 문구
