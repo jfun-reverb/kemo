@@ -117,6 +117,19 @@ async function sendBrevoEmail(params: {
   }
 }
 
+// ── 개발서버 전용 「메일 대신 화면」 (2026-10-01 사용자 결정) ─────────────
+//   개발서버에는 메일 발송 열쇠가 없어 인증번호 메일이 나가지 않는다. 그래서 개발서버에서만
+//   메일을 보내지 않고 **보냈을 메일(제목·본문)을 응답에 싣는다** — 가입 화면이 새 창에 띄운다.
+//   🔴 두 겹 잠금 — 둘 다 참일 때만 켜진다(운영에 설정값을 잘못 넣어도 주소가 달라 안 켜진다):
+//     ① 환경변수 SIGNUP_CODE_DEV_ECHO === "1" (개발서버에만 넣는다)
+//     ② 이 함수가 도는 프로젝트 주소가 개발서버(STAGING_PROJECT_REF)
+//   ⚠️ 켜지면 번호가 응답에 그대로 실린다 — 운영에서 켜지면 인증이 무력해진다. 잠금 둘 다 지우지 말 것.
+const STAGING_PROJECT_REF = "qysmxtipobomefudyixw";
+function devEchoEnabled(): boolean {
+  return env("SIGNUP_CODE_DEV_ECHO") === "1"
+    && env("SUPABASE_URL").includes(`://${STAGING_PROJECT_REF}.`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
@@ -189,10 +202,22 @@ Deno.serve(async (req: Request) => {
       `このメールに心当たりがない場合は、何もせずこのメールを削除してください。\n\n` +
       `お問い合わせ LINE: ${HELP_LINE_URL}\n`;
 
+    const subject = "【REVERB JP】認証コードのお知らせ";
+    if (devEchoEnabled()) {
+      // 개발서버 — 메일 대신 보냈을 메일을 그대로 돌려준다(위 두 겹 잠금)
+      return json({
+        ok: true,
+        status: "sent",
+        code_expires_at: data.code_expires_at,
+        resend_available_at: data.resend_available_at,
+        dev_mail: { to: email, subject, html },
+      });
+    }
+
     try {
       await sendBrevoEmail({
         to: email,
-        subject: "【REVERB JP】認証コードのお知らせ",
+        subject,
         htmlContent: html,
         textContent: text,
       });

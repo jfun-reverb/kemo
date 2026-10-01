@@ -4197,7 +4197,9 @@ async function requestSignupCode(email) {
   const r = await _invokeSignupCodeFn('signup-code-send', { email });
   if (!r) return null;
   if (r.ok === false) return { error: r.error || 'server_error' };
-  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null };
+  // dev_mail — 개발서버 전용(서버·화면 두 겹 잠금). 운영 화면에서는 받아도 쓰지 않는다
+  const devMail = (typeof IS_STAGING !== 'undefined' && IS_STAGING && r.dev_mail && typeof r.dev_mail.html === 'string') ? r.dev_mail : null;
+  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null, devMail };
 }
 // → { ok:true, ticket, ticketExpiresAt } · { ok:false, reason, attemptsLeft } · null
 async function verifySignupCode(email, code) {

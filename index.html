@@ -11583,7 +11583,9 @@ async function requestSignupCode(email) {
   const r = await _invokeSignupCodeFn('signup-code-send', { email });
   if (!r) return null;
   if (r.ok === false) return { error: r.error || 'server_error' };
-  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null };
+  // dev_mail — 개발서버 전용(서버·화면 두 겹 잠금). 운영 화면에서는 받아도 쓰지 않는다
+  const devMail = (typeof IS_STAGING !== 'undefined' && IS_STAGING && r.dev_mail && typeof r.dev_mail.html === 'string') ? r.dev_mail : null;
+  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null, devMail };
 }
 // → { ok:true, ticket, ticketExpiresAt } · { ok:false, reason, attemptsLeft } · null
 async function verifySignupCode(email, code) {
@@ -16989,6 +16991,15 @@ async function requestSignupCodeFromForm(isResend) {
   // 다른 주소로 다시 보내면 앞의 번호 상태는 버린다
   if (_signupCode.email && _signupCode.email !== email) resetSignupEmailVerification(false);
 
+  // 개발서버 전용 — 메일 대신 「받은 메일」 새 창(서버·화면 두 겹 잠금, 2026-10-01 사용자 결정).
+  //   🔴 창은 **누른 순간 바로** 연다 — 응답을 기다린 뒤 열면 브라우저가 팝업으로 막는다.
+  //   운영(IS_STAGING=false)에서는 창을 아예 안 연다.
+  let devMailWin = null;
+  if (typeof IS_STAGING !== 'undefined' && IS_STAGING) {
+    devMailWin = window.open('', 'reverbDevSignupMail', 'width=640,height=760');
+    try { devMailWin?.document.write('<p style="font-family:sans-serif;color:#888;padding:24px">送信中…</p>'); } catch(_) {}
+  }
+
   _signupCode.busy = true;
   const vb = $('signupEmailVerifyBtn');
   const resend = $('signupCodeResendBtn');
@@ -16998,6 +17009,7 @@ async function requestSignupCodeFromForm(isResend) {
   _signupCode.busy = false;
   if (vb) { vb.disabled = false; vb.textContent = t('auth.signup.code.verifyBtn'); }
 
+  _showDevSignupMail(devMailWin, r && r.devMail);
   if (!r || r.error) {
     // 통신 실패·메일 실패·서버 오류 — 같은 안내(다시 누르면 된다)
     _signupCodeMsg(t('auth.signup.code.sendFailed'), 'error');
@@ -17019,6 +17031,25 @@ async function requestSignupCodeFromForm(isResend) {
   onSignupCodeInput();
   _signupCodeMsg(t('auth.signup.code.sent'));
   _signupStartTimer(); _signupTick();
+}
+
+// 개발서버 전용 「받은 메일」 창 채우기 — 메일이 없으면(발송 제한·실패·운영) 창을 닫는다.
+//   html 은 우리 서버 함수가 만든 메일 본문 그대로다(운영 메일과 같은 양식). 개발서버 화면에서만 들어온다.
+function _showDevSignupMail(win, devMail) {
+  if (!win) return;
+  if (!devMail) { try { win.close(); } catch(_) {} return; }
+  try {
+    const d = win.document;
+    d.open();
+    d.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>[DEV] ' + esc(devMail.subject || '') + '</title></head>'
+      + '<body style="margin:0;padding:20px;background:#F5F5F7;font-family:sans-serif">'
+      + '<div style="max-width:600px;margin:0 auto 12px;padding:10px 14px;background:#FFF7E6;border:1px solid #FFD591;border-radius:8px;font-size:12px;color:#874D00;line-height:1.6">'
+      + '<b>開発サーバー専用</b> — 実際のメールは送られていません。運営サーバーでは、この内容がメールで届きます。</div>'
+      + '<div style="max-width:600px;margin:0 auto 12px;font-size:12px;color:#555;line-height:1.7">'
+      + '<div><b>To:</b> ' + esc(devMail.to || '') + '</div><div><b>件名:</b> ' + esc(devMail.subject || '') + '</div></div>'
+      + '<div style="max-width:600px;margin:0 auto">' + devMail.html + '</div></body></html>');
+    d.close();
+  } catch(_) { /* 창이 이미 닫혔으면 무시 */ }
 }
 
 // 「確認」
