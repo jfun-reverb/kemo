@@ -2,7 +2,6 @@
 description: 빌드 워크플로우 규칙
 paths:
   - "dev/**"
-  - "build.sh"
   - "index.html"
   - "admin/index.html"
 ---
