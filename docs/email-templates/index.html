@@ -423,6 +423,26 @@
     </div>
   </div>
 
+  <!-- 가입 인증번호 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">회원가입 인증번호</div>
+    <div class="card-desc">회원가입 화면에서 이메일을 입력하고 「인증 코드 보내기」를 누르면, 그 주소로 6자리 숫자를 보냅니다. 가입자는 그 숫자를 화면에 입력해 이메일을 확인합니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">가입 화면에서 코드 발송을 요청할 때마다 즉시 1통. 같은 주소로 짧은 시간에 반복 요청하면 제한에 걸려 보내지 않습니다(설정 표의 수치).</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 요청 즉시</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 가입 화면 → Edge Function signup-code-send (로그인 없이 호출)</div>
+      <div><b>수신자:</b> 가입 화면에 입력된 이메일 주소</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-ghost" href="source.html?f=signup-code.html">원본</a>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">관리자 초대</div>
