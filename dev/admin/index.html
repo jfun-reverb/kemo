@@ -1721,8 +1721,8 @@
                 </button>
               </div>
             </div>
-            <!-- 탭 줄 오른쪽 = 그 화면 전용 도구 자리(settlementNavTools). 지금은 회차별 요약의 엑셀 옵션·다운로드만 쓴다 —
-                 renderPayoutSummary 가 채우고, 다른 화면으로 가면 refreshSettlementNav 가 비운다. -->
+            <!-- 탭 줄 오른쪽 = 그 화면 전용 도구 자리(settlementNavTools). 지금은 회차별(요약·회차 상세)의 엑셀 옵션·다운로드만 쓴다 —
+                 renderPayoutSummary·renderPayoutPersonList 가 채우고, 다른 화면으로 가면 refreshSettlementNav 가 비운다. -->
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--surface-dim);margin-bottom:12px">
             <div class="status-tab-bar" style="margin:0;border-bottom:none">
               <button type="button" class="status-tab-btn on" data-settle-tab="prep" onclick="openSettlementTab('prep')" title="지급 회차(지급 예정일)별로 얼마를 보내야 하는지 봅니다">회차별</button>
@@ -1768,7 +1768,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름 · 가나 · 이메일 검색" oninput="onSettlementFilterChange()">
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="이름(한자·후리가나)·이메일 검색" oninput="onSettlementFilterChange()">
                 </div>
               </div>
               <button class="btn btn-ghost btn-sm" id="settlementResetBtn" style="display:none" onclick="resetPastUnregFilters()">초기화</button>
@@ -1790,15 +1790,15 @@
                 <thead><tr>
                   <!-- 선택 칸 — 「정산대기」 탭에서만 체크박스가 그려진다(다른 상태는 일괄 대상이 아니다) -->
                   <th style="width:34px"><input type="checkbox" id="settlementSelectAll" onchange="settlementToggleAll(this)" title="보이는 정산대기 건 전체 선택"></th>
-                  <th>인플루언서</th>
+                  <th>이름</th>
                   <th style="min-width:240px">캠페인</th>
-                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:110px">금액</th>
                   <!-- 실제로 보낸 금액. 계산값과 같으면 「계산액 그대로」 — 「0원」이 아니다 -->
-                  <th style="width:110px">실제 송금액</th>
-                  <th style="width:200px">PayPal</th>
+                  <th style="width:110px">보낸 금액</th>
+                  <th style="width:200px">페이팔</th>
                   <th style="width:90px">상태</th>
-                  <th style="width:120px">인증성공일</th>
-                  <th style="width:120px">송금완료일</th>
+                  <th style="width:120px">인증 성공일</th>
+                  <th style="width:120px">송금일</th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
                 <tbody id="settlementsTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
@@ -1866,11 +1866,11 @@
               <table class="data-table">
                 <thead><tr>
                   <th style="width:38px"><input type="checkbox" id="pastUnregSelectAll" onchange="pastUnregToggleAll(this)" title="현재 필터 결과 전체 선택"></th>
-                  <th>인플루언서</th>
+                  <th>이름</th>
                   <th>캠페인</th>
-                  <th style="width:150px">금액(¥)</th>
-                  <th style="width:130px">인증성공일</th>
-                  <th style="width:100px">PayPal</th>
+                  <th style="width:150px">금액</th>
+                  <th style="width:130px">인증 성공일</th>
+                  <th style="width:100px">페이팔</th>
                 </tr></thead>
                 <tbody id="pastUnregTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
@@ -3797,7 +3797,7 @@
         <div class="form-row required">
           <label>인플루언서 선택</label>
           <div class="admin-proxy-combobox" id="adminProxyInfCombobox">
-            <input type="text" id="adminProxyInfInput" class="admin-proxy-combobox-input" placeholder="이름·가나·이메일 검색" autocomplete="off" data-lpignore="true" data-1p-ignore="true" oninput="onAdminProxyInfInput()" onfocus="showAdminProxyInfList()" disabled>
+            <input type="text" id="adminProxyInfInput" class="admin-proxy-combobox-input" placeholder="이름(한자·후리가나)·이메일 검색" autocomplete="off" data-lpignore="true" data-1p-ignore="true" oninput="onAdminProxyInfInput()" onfocus="showAdminProxyInfList()" disabled>
             <input type="hidden" id="adminProxyApp" value="">
             <div class="admin-proxy-combobox-list" id="adminProxyInfList"></div>
           </div>
@@ -4272,11 +4272,13 @@
 
 <!-- 선택 건 일괄 송금완료 모달 (mark_settlements_paid_bulk · 마이그레이션 340) -->
 <div class="modal-overlay" id="settlementBulkPayModal" style="z-index:615">
-  <div class="modal" style="max-width:520px;border-radius:20px;margin:auto">
-    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+  <!-- 스크롤은 **제목 아래 본문 하나만**(2026-10-01 사용자 결정) — 창 자체는 넘치지 않게 하고 제목·아래 단추는 고정.
+       ⚠️ 본문 안에 따로 스크롤 상자를 두지 않는다(묶음 표가 길면 스크롤이 둘이 된다). -->
+  <div class="modal" style="max-width:520px;border-radius:20px;margin:auto;display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);flex-shrink:0">
       <div id="settlementBulkPayTitle" style="font-size:16px;font-weight:700;color:var(--ink)">선택 건 송금완료 기록</div>
     </div>
-    <div class="modal-body" style="padding:20px 22px">
+    <div class="modal-body" style="padding:20px 22px;flex:1 1 auto;min-height:0;overflow-y:auto">
       <div id="settlementBulkPayBody"></div>
       <!-- 「정산대기 추가」 모드에서는 이 칸을 감춘다 — 아직 보내지 않은 건이라 송금일이 없다. -->
       <div class="form-group" id="settlementBulkPayDateGroup">
@@ -4286,7 +4288,8 @@
       </div>
       <div class="form-group">
         <label class="form-label">처리 사유 <span style="color:#C33">*</span></label>
-        <input type="text" id="settlementBulkPayMemo" class="form-input" placeholder="예: 8월 15일 회차 일괄 송금" oninput="onSettlementBulkPayInput()">
+        <!-- 이 창은 #page-admin 밖이라 form-input 이 회원 앱 크기(16px)가 된다 — 관리자 공통 admin-input(13px)을 쓴다 -->
+        <input type="text" id="settlementBulkPayMemo" class="admin-input" style="width:100%;box-sizing:border-box" placeholder="예: 8월 15일 회차 일괄 송금" oninput="onSettlementBulkPayInput()">
       </div>
       <div id="settlementBulkPayWarn" style="padding:10px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412">
         금액은 <b>건마다 시스템 계산 금액</b>으로 기록됩니다. 실제로 다르게 보낸 건은
@@ -4294,7 +4297,7 @@
         <br>⚠️ PayPal 미등록 건은 <b>건너뜁니다</b>. 처리 후 몇 건이 왜 빠졌는지 알려 드립니다.
       </div>
     </div>
-    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
       <button class="btn btn-ghost" onclick="closeSettlementBulkPayModal()">취소</button>
       <button class="btn btn-primary" id="settlementBulkPayConfirmBtn" onclick="confirmSettlementBulkPay()">송금완료 기록</button>
     </div>
