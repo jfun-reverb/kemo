@@ -158,9 +158,12 @@ async function loadCampApplicants() {
   // (2026-07-23) 카드 제목·건수 줄 제거 — 상태 탭이 이름과 건수를 함께 보여준다
 
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
-  const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  // ⚠️ 실패는 null(전수조사 3차 ③-5) — 요약 막대는 「—」로, 아래 목록은 빈 결과물로 그리고 알린다
+  const delivFetched = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  if (delivFetched === null) toast('결과물을 불러오지 못했습니다. 결과물 칸이 비어 보일 수 있으니 새로고침해 주세요.', 'error');
+  const allDelivs = delivFetched || [];
   // 상단 요약 카드 (개요 + 모집/결과물 현황 + 비용)
-  renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
+  renderCampOpsSummary(camp, allApps, delivFetched, { total, approved: allApproved, pending: allPending, slots });
   const delivByApp = {};
   allDelivs.forEach(d => {
     const arr = (delivByApp[d.application_id] ||= []);
@@ -270,7 +273,7 @@ async function loadCampApplicants() {
     // 요약 카드는 위(110행)에서 이미 그려졌는데, 그때는 예약을 아직 안 읽어 0 으로 나온다.
     //   읽고 나서 다시 그린다. 그 사이 다른 캠페인으로 옮겼으면 덮지 않는다(낡은 카드 방지).
     if (currentCampApplicantId === camp.id) {
-      renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
+      renderCampOpsSummary(camp, allApps, delivFetched, { total, approved: allApproved, pending: allPending, slots });
     }
   } else if (_campDetailTab === 'tickets') {
     _campDetailTab = 'applicants';   // 행사가 아닌 캠페인에 예약 탭이 남아 있으면 빈 화면이 된다
@@ -917,16 +920,18 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
   // 제출 인플 = 승인 신청 중 결과물 제출한 distinct 신청 (미니카드 정의와 동일)
   const approvedIdSet = new Set(allApps.filter(a => a.status === 'approved').map(a => a.id));
-  const submittedInf = new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size;
-  const submitPct = approved > 0 ? Math.round(submittedInf / approved * 100) : null;
+  // ⚠️ 결과물 조회 실패(null)면 아래 두 막대는 「—」 — 0% 로 그리면 실패가 「아무도 안 냄」으로 보인다(전수조사 3차 ③-5)
+  const delivKnown = Array.isArray(allDelivs);
+  const submittedInf = delivKnown ? new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size : null;
+  const submitPct = (delivKnown && approved > 0) ? Math.round(submittedInf / approved * 100) : null;
   // 3번째 진행바: 인증 성공(결과물 관리 화면과 동일 판정 — countCertSuccess) / 모집인원
-  const certSuccess = (typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0;
-  const certPct = slots > 0 ? Math.round(certSuccess / slots * 100) : null;
+  const certSuccess = !delivKnown ? null : ((typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0);
+  const certPct = (delivKnown && slots > 0) ? Math.round(certSuccess / slots * 100) : null;
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
     ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
-    ${brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved)}
-    ${brandOpsRateBar('인증 성공', certPct, certSuccess, slots)}
+    ${delivKnown ? brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
+    ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certSuccess, slots) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
       <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
