@@ -25,6 +25,7 @@
 //   하나로 포착된다 — 별도 분기 불필요.
 //   → scheduled_mail_sent_at 은 **발송에 실제로 성공한 뒤에만** 채운다
 //   (먼저 채우면 실패한 건이 다음 실행에서 재시도되지 않는다).
+//   → 발송 전에 **시도 횟수 칸으로 선점**한다(겹친 실행이 두 통 보내지 않게 — 루프 안 주석).
 //
 // 실패 처리:
 //   한 건이 실패해도 나머지는 계속 처리(try/catch). 실패 건은
@@ -123,6 +124,7 @@ interface WithdrawalRow {
   influencer_id: string;
   scheduled_date: string | null;
   scheduled_mail_attempt_count: number | null;
+  requested_by_kind: string | null;
 }
 
 // ── 공개 키로 온 호출은 거부한다 ─────────────────────────────────
@@ -237,7 +239,38 @@ Deno.serve(async (req: Request) => {
   let failed = 0;
 
   for (const row of rows) {
+    // 🔴 선점 먼저(전수조사 3차 ④-5) — 예전엔 「조회 → 발송 → 표시」라 두 실행이 겹치면
+    //   같은 회원에게 두 통이 나갔다. 시도 횟수 칸을 「조회 때 본 값과 같고 아직 안 보냈을 때만
+    //   +1」로 바꿔 선점한다(같은 칸이 조건이자 바뀌는 값 — 두 실행 중 하나만 통과한다).
+    //   ⚠️ 「보낸 시각」 칸으로 선점하지 않는 이유 — 함수가 중간에 죽으면 그 행이 「보냄」으로
+    //     굳어 관리자 경고(451 mail_retrying·mail_lost)가 영영 못 잡고 재시도도 안 된다.
+    //     이 방식이면 죽어도 보낸 시각이 비어 있어 「1회 실패」로 보이고 다음 날 다시 잡힌다.
+    //   ⚠️ 이 칸은 관리자 화면(admin-influencers.js withdrawMailLine)이 **실패 횟수**로 읽는다
+    //     → 성공하면 선점 전 값으로 되돌린다(아래 표시 UPDATE 에서 함께).
+    //   ⚠️ 한계 — 실행 A 가 보내는 **도중에** 새로 시작한 실행 B 는 바뀐 값(1)을 읽어 다시 잡을 수
+    //     있다(「실패 1회」와 「지금 보내는 중」을 이 칸으로는 못 가른다). 하루 한 번 예약 실행이라
+    //     수동 재호출이 겹칠 때만 생긴다. 완전히 막으려면 진행 중 표시 칸(다이제스트 3종의
+    //     `in_flight@시각` 방식)이 필요하고 마이그레이션이 든다 — 이번엔 하지 않았다.
+    const prevAttempts = row.scheduled_mail_attempt_count ?? 0;
+    let claimed = false;
     try {
+      let claimQ = sb
+        .from("withdrawal_requests")
+        .update({ scheduled_mail_attempt_count: prevAttempts + 1 })
+        .eq("id", row.id)
+        .is("scheduled_mail_sent_at", null);
+      claimQ = row.scheduled_mail_attempt_count === null
+        ? claimQ.is("scheduled_mail_attempt_count", null)
+        : claimQ.eq("scheduled_mail_attempt_count", prevAttempts);
+      const { data: claimRows, error: claimErr } = await claimQ.select("id");
+      if (claimErr) throw new Error(`claim failed: ${claimErr.message}`);
+      if (!claimRows || claimRows.length === 0) {
+        // 다른 실행이 이미 잡았거나 보냈다 — 건너뛴다(실패로 세지 않는다).
+        console.log("[notify-withdrawal-scheduled] skipped — claimed or sent by another run", row.id);
+        continue;
+      }
+      claimed = true;
+
       if (!row.scheduled_date) {
         // 이론상 status='scheduled' 면 scheduled_date 도 항상 채워져 있어야
         // 한다(345·347·350 설계상 그 두 값은 같은 UPDATE/INSERT 에서 함께
@@ -322,7 +355,11 @@ Deno.serve(async (req: Request) => {
       // 자동 재시도한다.
       const { error: markErr } = await sb
         .from("withdrawal_requests")
-        .update({ scheduled_mail_sent_at: new Date().toISOString() })
+        // 선점 때 올린 시도 횟수를 되돌린다 — 이 칸은 「실패 횟수」다(위 선점 주석).
+        .update({
+          scheduled_mail_sent_at: new Date().toISOString(),
+          scheduled_mail_attempt_count: prevAttempts,
+        })
         .eq("id", row.id)
         .is("scheduled_mail_sent_at", null); // 동시 실행 방어(멱등 UPDATE)
 
@@ -340,13 +377,18 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       failed++;
       console.error("[notify-withdrawal-scheduled] row failed", row.id, (e as Error).message);
-      try {
-        await sb
-          .from("withdrawal_requests")
-          .update({ scheduled_mail_attempt_count: (row.scheduled_mail_attempt_count ?? 0) + 1 })
-          .eq("id", row.id);
-      } catch (_e2) {
-        // best-effort — 실패해도 무시(다음 실행이 어차피 다시 시도한다)
+      // 선점에 성공했으면 시도 횟수는 이미 +1 돼 있다 — 그것이 곧 실패 기록이다(다시 올리지 않는다).
+      // 선점 자체가 오류로 실패한 경우만 따로 올린다(다음 실행이 어차피 다시 시도한다).
+      if (!claimed) {
+        try {
+          await sb
+            .from("withdrawal_requests")
+            .update({ scheduled_mail_attempt_count: prevAttempts + 1 })
+            .eq("id", row.id)
+            .is("scheduled_mail_sent_at", null);
+        } catch (_e2) {
+          // best-effort — 실패해도 무시
+        }
       }
     }
   }
