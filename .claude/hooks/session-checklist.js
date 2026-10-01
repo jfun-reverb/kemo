@@ -49,6 +49,7 @@ const roleBlock = sessionRole ? [
 // 항상 읽히는 지시 문서 합계 — 사양서 docs/specs/2026-09-30-instruction-load-budget.md 조각 E.
 // Claude Code 는 합계가 150k 를 넘을 때만 경고하므로, 넘기 전 추세를 보이게 한다. 경고만, 차단 없음.
 // 세는 법은 사양서 「재는 법」과 같다: paths: 머리말이 있는 규칙은 빼고, 문자(코드 포인트) 단위.
+// HTML 주석(<!-- -->)은 뺀다 — Claude 에게 주입되기 전에 지워져 실제 비용이 0 이다(조각 G 실측). 코드 블록 안 주석은 남는다.
 const INSTRUCTION_TARGET_CHARS = 150000; // 2026-09-30 사용자 결정(목표 15만 자)
 
 function instructionTotalLine() {
@@ -71,6 +72,10 @@ function instructionTotalLine() {
     ];
     let total = 0;
     let count = 0;
+    let commentChars = 0;
+    // 코드 블록(```)·인라인 코드(`…`) 밖의 주석만 지운다 — 그 안의 주석 표기는 그대로 주입된다.
+    const stripComments = (t) =>
+      t.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((part, i) => (i % 2 ? part : part.replace(/<!--[\s\S]*?-->/g, ''))).join('');
     for (const f of files) {
       let text;
       try {
@@ -82,13 +87,15 @@ function instructionTotalLine() {
       const m = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/);
       const fm = m ? m[1] : '';
       if (/^paths:/m.test(fm)) continue;
-      total += [...text].length;
+      const kept = [...stripComments(text)].length;
+      commentChars += [...text].length - kept;
+      total += kept;
       count += 1;
     }
     const over = total > INSTRUCTION_TARGET_CHARS;
     // 프로젝트 CLAUDE.md 를 못 찾으면 합계가 조용히 작아진다 — 눈에 보이게 적는다.
     const missing = fs.existsSync(path.join(projectDir, 'CLAUDE.md')) ? '' : ` (⚠️ 프로젝트 CLAUDE.md 못 찾음: ${projectDir})`;
-    return `${over ? '⚠️' : '📏'} [지시 문서 합계] ${count}개 ${total.toLocaleString('en-US')}자 / 목표 ${INSTRUCTION_TARGET_CHARS.toLocaleString('en-US')}자${over ? ' — 초과. 새 영역 상세는 paths: 규칙으로(docs-tracking.md)' : ''}${missing}`;
+    return `${over ? '⚠️' : '📏'} [지시 문서 합계] ${count}개 ${total.toLocaleString('en-US')}자 / 목표 ${INSTRUCTION_TARGET_CHARS.toLocaleString('en-US')}자${commentChars ? ` (주석 ${commentChars.toLocaleString('en-US')}자 제외)` : ''}${over ? ' — 초과. 새 영역 상세는 paths: 규칙으로(docs-tracking.md)' : ''}${missing}`;
   } catch {
     return '📏 [지시 문서 합계] 측정 실패';
   }
