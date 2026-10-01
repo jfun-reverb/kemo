@@ -276,6 +276,14 @@ function _reportLooksLikeAddress(v) {
   return slash > 0 && v.slice(0, slash).indexOf('.') !== -1;
 }
 
+// 결과물 칸을 「열기 ↗」 링크로 만들어도 되는 주소인가 — `http://`·`https://` 로 시작할 때만(전수조사 3차 ②-8).
+//   게시물 주소는 회원이 적은 값이라 `javascript:` 같은 형식이 들어오면 누르는 순간 실행된다.
+//   아니면 링크 없이 글자로만 그린다 — 운영의 옛 오타(`ttps://…`)처럼 깨진 주소도 무엇이 적혔는지 보이게.
+//   🔴 두 화면(관리자 리포트 `_reportChannelCellHtml` · 공유 화면 `chanCell`)이 **이 함수 하나**를 쓴다.
+function reportIsLinkable(u) {
+  return /^https?:\/\//i.test(String(u || '').trim());
+}
+
 // SNS 계정 → 전체 주소 (각 SNS 공식 주소 형식). TikTok/YouTube 는 @ 필수.
 //   ⚠️ admin-excel.js 에서 옮겨 왔다(2026-09-17) — 공유 화면에는 admin-excel.js 가 없다. 이름 그대로.
 //   🔴 **틀린 주소를 조립하지 않는다.**

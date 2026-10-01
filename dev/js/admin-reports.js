@@ -269,6 +269,8 @@ function _reportChannelCellHtml(url, kind, who) {
   if (kind === 'photo') {
     return `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(url)},${jsStr(who + ' 사진 1/1')})">열기</a>${tagHtml}`;
   }
+  // 🔴 http(s) 가 아니면 링크로 만들지 않는다 — reportIsLinkable(report-rows.js, 공유 화면과 같은 판정)
+  if (!reportIsLinkable(url)) return `<span style="color:var(--muted)">${esc(url)}</span>${tagHtml}`;
   return `<a href="${esc(url)}" target="_blank" rel="noopener">열기 ↗</a>${tagHtml}`;
 }
 
