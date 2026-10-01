@@ -457,6 +457,28 @@
     </div>
   </div>
 
+  <!-- 가입 — 이미 가입된 주소 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">회원가입 — 이미 가입된 주소 안내</div>
+    <div class="card-desc">이미 가입된 주소로 가입 화면에서 인증 코드를 요청하면, 번호 대신 「이미 가입되어 있습니다 → 로그인 / 비밀번호 재설정」을 보냅니다. 화면에는 번호 메일과 똑같이 「보냈습니다」가 떠서, 그 주소가 회원인지는 메일함 주인만 압니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">가입 화면 코드 요청 때, 그 주소에 이메일 확인까지 마친 계정이 있으면 번호 메일 대신 1통. 발송 제한은 번호 메일과 같습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 요청 즉시</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 가입 화면 → Edge Function signup-code-send (로그인 없이 호출)</div>
+      <div><b>수신자:</b> 가입 화면에 입력된 이메일 주소</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="signup-already-registered.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="signup-already-registered.preview.html?lang=ko">한국어 검수</a>
+      <a class="btn btn-ghost" href="source.html?f=signup-already-registered.html">원본</a>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">관리자 초대</div>

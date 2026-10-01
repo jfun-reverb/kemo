@@ -45,7 +45,7 @@ SYNC_GROUPS=(
   "notify-admin-invite|admin-invite.html"
   "admin-password-reset-request|admin-password-reset.html"
   "notify-withdrawal-scheduled|withdrawal-scheduled.html"
-  "signup-code-send|signup-code.html"
+  "signup-code-send|signup-code.html,signup-already-registered.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
