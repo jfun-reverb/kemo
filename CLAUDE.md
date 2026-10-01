@@ -309,7 +309,7 @@
 - `brands` — `name`, `name_normalized`, `brand_seq` UNIQUE, `company_id` FK ON DELETE SET NULL
 - `brand_memos`(466) — 브랜드 영업 메모 여러 건(옛 `brands.memo` 는 더 안 쓴다). 관리자 전원 읽기·쓰기, 브랜드 삭제 시 함께 삭제. `merge_brands`(**현재 원본 467**, 베이스 328)가 메모도 옮긴다
 - `get_brand_ops_overview(p_company_id uuid)` — 22컬럼 집계 RPC(`SECURITY DEFINER + SET search_path='' + is_admin()`). 148 로 `alert_reasons text[]` + `soonest_deadline date` + `d1_count bigint` 추가. 임계값 120 기준, `flag_agg` CTE 로 1회 계산 후 재참조. 181 로 `app_agg`·`deliv_agg` 에 `JOIN influencers AND is_audit=false`(감사용 격리)
-- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb. 149 로 캠페인 항목에 `channel`/`channel_match`/`img1`/`recruit_start`/`submission_end` + `approved_app_count`·`deliv_submitted_inf`·`deliv_total`·`deliv_approved`, 150 으로 `purchase_start`/`purchase_end`·`visit_start`/`visit_end`. 미니카드 진행바 중 **인증 성공률**은 RPC에 없어 `hydrateCampCertBars`(admin-brand-ops.js)가 `fetchDeliverablesByCampaign` 후 `countCertSuccess`(admin-deliverables.js — `buildDeliverableGroups`+`computeCertStatus` 단일 소스)로 비동기 채움
+- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb. 149 로 캠페인 항목에 `channel`/`channel_match`/`img1`/`recruit_start`/`submission_end` + `approved_app_count`·`deliv_submitted_inf`·`deliv_total`·`deliv_approved`, 150 으로 `purchase_start`/`purchase_end`·`visit_start`/`visit_end`. 미니카드 진행바 중 **인증 성공률**은 RPC에 없어 `hydrateCampCertBars`(admin-brand-ops.js)가 `fetchDeliverablesByCampaign`(🔴 **실패 `null`·0건 `[]`** — 실패를 「0%」로 그리지 않는다. 진행현황 요약 카드도 같다) 후 `countCertSuccess`(admin-deliverables.js — `buildDeliverableGroups`+`computeCertStatus` 단일 소스)로 비동기 채움
 - `link_campaign_to_application` / `unlink_campaign_from_application` — 연결/해제 RPC (`is_campaign_admin()` 이상, advisory_xact_lock 2단)
 
 ### 브랜드 셀프 오리엔시트 (마이그레이션 186~195·200)

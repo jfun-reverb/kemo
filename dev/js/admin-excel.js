@@ -583,8 +583,10 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     var allDelivs = [];
     for (var i = 0; i < camps.length; i++) {
       var c = camps[i];
-      var dels = await fetchDeliverables({ campaign_id: c.id });
-      (dels || []).forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
+      var dels = await fetchDeliverablesOrNull({ campaign_id: c.id });
+      // 🔴 조회 실패면 내보내지 않는다 — 계속하면 그 캠페인 사람들이 전원 「미제출」로 찍힌 파일이 나간다(전수조사 3차 ③-5)
+      if (dels === null) { toast('「' + (c.title || c.campaign_no || '캠페인') + '」 결과물을 불러오지 못해 내보내기를 멈췄습니다. 잠시 후 다시 시도해 주세요.', 'error'); return; }
+      dels.forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
     }
     if (allDelivs.length === 0) { toast('결과물이 없습니다', 'warn'); return; }
 
@@ -1046,7 +1048,9 @@ async function exportCampaignDeliverables(campId) {
     if (!camp) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
 
     // 2) 결과물 로드 (전체 상태 — 검수중·반려·미제출 인증 상태가 보이도록, 2026-06-09 사용자 결정)
-    var delivs = await fetchDeliverables({campaign_id: campId});
+    var delivs = await fetchDeliverablesOrNull({campaign_id: campId});
+    // 🔴 조회 실패면 내보내지 않는다 — 계속하면 승인 신청이 전원 「미제출」 빈 행으로 찍힌다(전수조사 3차 ③-5)
+    if (delivs === null) { toast('결과물을 불러오지 못해 내보내기를 멈췄습니다. 잠시 후 다시 시도해 주세요.', 'error'); return; }
     // 미제출(결과물 0건) 신청도 행에 포함 — 화면 목록(renderDeliverablesList includeMissing) 과 동일.
     //   승인된(approved) 신청을 가져와, 결과물 그룹에 없는 신청은 빈 행 + 인증 상태 '미제출' 로 추가.
     var approvedApps = await fetchApplications({campaign_id: campId, status: 'approved'});

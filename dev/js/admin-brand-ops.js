@@ -414,6 +414,8 @@ async function hydrateCampCertBars() {
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
+    // 조회 실패(null)는 「0%」가 아니라 「—」로 — 실패를 「아무도 인증 안 함」으로 보이지 않게(전수조사 3차 ③-5)
+    if (delivs === null) { el.innerHTML = brandOpsRateBar('인증 성공 (불러오지 못함)', null); return; }
     // 결과물이 0건이면 갈아탈 대상이 없지만, 그때는 인증 성공도 0이라 판정에 쓰이지 않는다.
     if (delivs.length && delivs[0].campaigns) camp = delivs[0].campaigns;
     // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
