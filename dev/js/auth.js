@@ -160,6 +160,13 @@ function _signupStartTimer() {
   }, 1000);
 }
 
+// 번호 칸 아래 출구 안내 — 「이미 가입」 메일을 받은 사람이 같은 탭에서 로그인으로 간다(완료 기준 17).
+//   입력해 둔 주소를 로그인 칸에 옮겨 둔다(다시 치지 않게)
+function goLoginFromSignupCode() {
+  const v = ($('signupEmail')?.value || '').trim();
+  const le = $('loginEmail'); if (le && v) le.value = v;
+  navigate('login');
+}
 // 가입 화면에 들어올 때(app.js navigate) — 진행 중이던 인증 상태가 있으면 타이머를 다시 켠다
 function onSignupPageEnter() {
   if (_signupCode.opened || _signupCode.ticket || _signupCode.resendAt) _signupStartTimer();
