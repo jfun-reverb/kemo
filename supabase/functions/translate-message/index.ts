@@ -162,9 +162,77 @@ async function callGoogleTranslate(text: string, target: string): Promise<Google
   }
 }
 
+// ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
+// 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
+//    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
+// ⚠️ 공개 키를 교체하면 이 목록도 함께 갱신할 것.
+const PUBLIC_CLIENT_KEYS = [
+  "sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP",  // 운영
+  "sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv",  // 개발
+];
+
+// 옛 형식(JWT) 키는 **값을 적지 않고 안에 든 role 표시를 보고** 막는다.
+//   🔴 2026-09-03 실측 — 위 목록에는 「지금 화면에 실려 있는 키」만 있었는데, 프로젝트에는
+//   **옛 형식 anon 키가 아직 활성 상태**로 남아 있었다. 그 키를 가진 사람(옛 판을 캐시로
+//   물고 있는 브라우저·저장해 둔 사람)은 이 함수들을 그대로 부를 수 있었다 — 어제 건
+//   차단의 절반이 비어 있던 셈이다.
+//   ⚠️ 값을 목록에 더하는 대신 role 을 보는 이유 셋: ①키 값을 소스에 늘리지 않는다
+//   ②앞으로 키가 새로 생겨도 자동으로 막힌다 ③운영·개발 키를 따로 챙길 필요가 없다.
+//   ⚠️ 서명은 검증하지 않는다 — 그건 플랫폼이 한다. 여기는 「정상 경로로 들어온 호출이
+//   어떤 역할인가」만 본다(다중 방어의 한 겹이지 유일한 방어선이 아니다).
+//   🔴 service_role 은 반드시 통과시킨다 — 운영 웹훅 4개가 **전부 옛 형식 service_role
+//   JWT** 로 부른다(2026-09-03 확인: application_messages·brand_applications·
+//   notifications·orient_sheets). 여기서 옛 JWT 를 통째로 막으면 자동 번역·광고주 접수
+//   알림·검수 결과 메일·오리엔 제출 알림이 **한꺼번에 죽는다.** anon 만 막는다.
+// JWT 의 역할(role)만 읽는다 — 서명은 플랫폼이 이미 검증했다. 못 읽으면 null(막지 않는다).
+function jwtRole(token: string): string | null {
+  if (!token.startsWith("eyJ")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return typeof payload?.role === "string" ? payload.role : null;
+  } catch {
+    return null;   // 못 읽으면 막지 않는다 — 정상 발송을 세우는 쪽이 더 나쁘다
+  }
+}
+
+function rejectPublicKeyCaller(req: Request, tag: string): boolean {
+  const raw = (req.headers.get("Authorization") ?? "").trim();
+  const token = raw.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;                       // 토큰 없음 — 플랫폼이 이미 막는다
+  if (PUBLIC_CLIENT_KEYS.includes(token)) {
+    console.warn(`[${tag}] rejected — called with the public client key`);
+    return true;
+  }
+  // 🔴 비로그인(anon)·로그인 회원(authenticated) 토큰은 거부한다(2026-09-28 전수조사 3차).
+  //   회원가입은 누구나 할 수 있어 authenticated 토큰도 사실상 공개다 — 예전에는 anon 만 막아
+  //   로그인한 회원이 방침 통지 시험 발송(임의 주소)·홍보 메일 전체 발송을 부를 수 있었다.
+  //   예약 실행(vault edge_function_jwt)·데이터베이스 웹훅은 service_role 이라 통과한다.
+  const role = jwtRole(token);
+  if (role === "anon" || role === "authenticated") {
+    console.warn(`[${tag}] rejected — called with an end-user JWT`, { role });
+    return true;
+  }
+  // 토큰 자체는 절대 남기지 않는다.
+  const isServiceRole = token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  console.log(`[${tag}] caller check passed`, { isServiceRole, role });
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  // 🔴 웹훅(service_role) 말고는 거부한다(2026-10-01 — 이 함수만 호출자 검사가 빠져 있었다).
+  //   없으면 로그인한 회원이 아무 메시지 번호와 본문을 보내 **남의 메시지 번역문을 덮어쓸** 수 있었다.
+  //   ⚠️ 검사 본문은 다른 웹훅 함수 11개와 **글자 그대로 같다** — 고칠 때 함께.
+  if (rejectPublicKeyCaller(req, "translate-message")) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   let payload: WebhookPayload;
@@ -197,8 +265,30 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const record = payload.record;
-  const messageId = record.id;
+  const messageId = payload.record.id;
+
+  // 🔴 본문·보낸 쪽은 **데이터베이스의 행**에서 읽는다 — 요청 본문은 번호만 쓴다(2026-10-01).
+  //   이미 처리된 메시지(translate_status 가 채워짐)는 다시 번역하지 않는다 — 같은 번호로
+  //   반복 호출해 유료 번역 사용량을 태우거나 번역문을 바꾸는 것을 막는다.
+  const { data: record, error: rowErr } = await getServiceClient()
+    .from("application_messages")
+    .select("id, sender_kind, body, translate_status")
+    .eq("id", messageId)
+    .maybeSingle();
+  if (rowErr || !record) {
+    console.error("[translate-message] message fetch failed or not found", { messageId, error: rowErr?.message });
+    return new Response(JSON.stringify({ skipped: true, reason: rowErr ? "fetch_error" : "not_found" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  if (record.translate_status) {
+    console.log("[translate-message] skipped: already processed", { messageId, status: record.translate_status });
+    return new Response(JSON.stringify({ skipped: true, reason: "already_processed" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   try {
     // 본문 빈값(첨부만 있는 메시지) → 번역 대상 아님
