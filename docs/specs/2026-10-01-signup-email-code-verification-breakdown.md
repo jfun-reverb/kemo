@@ -39,6 +39,9 @@
 | ⑦ | 「응모·결과물·정산 등 다른 기록이 있으면 건너뜀」 | 회원·인증 계정을 가리키는 외래 키(FK)가 42개 파일에 65건, 대부분 연쇄 삭제. `policy_notice_log`(`153:99`)도 연쇄 삭제 — 미인증 주소로 보낸 법적 통지 기록이 함께 사라짐 | 선결 3. 함수 본문에 건너뛸 표 목록 명시, 나머지는 부속 기록으로 분류해 주석에 |
 | ⑧ | 「강제면 확인증 없는 가입은 서버가 거부」 | 이미 있는 **미인증** 주소로 `signUp` 하면 인증 서비스가 새 행 대신 기존 행을 수정하고 확인 메일을 다시 보내는 것으로 알려짐(미실측). 그러면 관문을 안 거치고, 번호까지 확인한 사람도 「메일 확인 안내」로 떨어짐. 기존 40건·대기 구간 미인증이 지워지기 전(최대 7일)만 해당 | 선결 4 실측. 그렇다면 기획 판단: (가) 7일 안에 정리되니 감수 / (나) `BEFORE UPDATE` 에도 관문 |
 | ⑨ | 단계 1·3 「운영에서 옛 화면으로 실제 가입 1회」 | 메모리 「실제 가입 없이 운영 검증」과 부딪힘(회원 행·통계·홍보 대상이 남음) | 시험 주소로 하고 `delete_admin_completely` 로 정리. O1·O3 완료 정의에 포함 |
+| ⑩ | 완료 기준 11 「픽셀 `confirmed` 1건」 | 🔴 **메타 쪽에 「Meta를 통한 전환 API」가 켜져 있다**(2026-10-01 이벤트 관리자 확인 — 2026-02-27 대행사 비즈니스 단위 옵트인, 우리 코드 무관). 같은 이벤트가 브라우저·전환 API 두 경로로 들어와 **「총 이벤트」가 2건으로 보인다**(등록 완료 9/3~9/30 = 브라우저 137 + 전환 API 105 = 242) | Q1·O2 확인은 **「이벤트 테스트」 탭** 또는 이벤트 행을 펼쳐 **브라우저 경로 건수만** 센다. 「총 이벤트」 2건을 실패로 읽지 않는다 |
+| ⑪ | 가입 뒤 「세션 있음 → 로그인 상태」 갈래 | 🔴 세션이 생기는 순간 `SIGNED_IN` → `notifyMetaPixelSignedIn`(`app.js:551`)이 픽셀 **로그인 재조회**를 돌린다. 조회가 실패하면 `_metaPixelApplyResult` 가 **곧바로 `location.reload()`** — 가입 직후 화면이 새로고침되고 줄에 쌓인 `confirmed` 도 사라진다. 로그인 화면은 `metaPixelHoldReload`/`metaPixelReleaseReload`(`auth.js:250·299`)로 보류하지만 **가입 화면엔 없다**. 지금 운영은 가입 때 세션이 안 생겨(확인 메일 필수) 안 드러났던 갈래 — 새 방식에선 **주 경로**가 된다 | S1 에서 `signUp` 직전 `metaPixelHoldReload()`, 일반 회원 가입 완료 처리 뒤 `metaPixelReleaseReload()`(로그인 화면과 같은 짝). 오류로 끝나는 갈래는 보류가 15초 뒤 저절로 풀린다 |
+| ⑫ | 「`confirmed` 1회」로 바뀌는 시점의 숫자 | 과도기엔 두 방식이 섞인다 — 전환 전 가입한 미인증 계정이 메일 링크로 인증하면 여전히 `pending_email` + `confirmed` 2건. 광고 세트 2개가 「등록 완료」를 학습 기준으로 쓴다 → 전환 직후 가입 이벤트 수가 **약 절반으로 줄어 보인다**(실제 가입 감소 아님) | O2 운영 반영 때 광고 담당에게 미리 알린다. 전후를 같은 기준으로 보려면 메타 「맞춤 전환」에 `status = confirmed` 만 세는 전환을 미리 만들어 둔다(메타 화면 작업, 코드 무관) |
 
 ---
 
@@ -139,7 +142,7 @@ P1 방침 개정 + 공지(10/6 뒤 공지 교체, 병렬) ─┐
 - **병렬:** D·F 와 ✅, S1 과 ✗(`shared.js`·번역 파일) — S1 착수 전에 dev 병합
 
 ### S1 — 가입 화면
-- 사양서 설계 ③ 전부. 「認証する」(인증하기) → 번호 칸(`inputmode="numeric"`·`autocomplete="one-time-code"`·16픽셀 이상) + 「確認」(확인) + 남은 시간. 만료 → 비활성 + 「再送信」(재발송), 대기 중 남은 초. 발송 제한 → 「しばらくしてから再送信してください」(잠시 후 다시 보내 주세요) + 시각까지 비활성(열린 칸 유지·처음이면 안 엶). 확인 → 「認証済み」(인증됨) + 이메일 잠금 + 「変更」(변경). 「登録する」(가입하기)는 확인증 있고 만료 전만. 가입 뒤 갈래 넷(신원 목록 빔 → 일반 실패 + 「ログイン」·「パスワードを忘れた方」 안내·픽셀 없음 / 세션 있음 → 로그인 상태 / 세션 없고 인증 완료 → `signInWithPassword`, 실패 시 「登録が完了しました。ログインしてください」(가입 완료, 로그인해 주세요) / 세션 없고 미인증 → `#signupConfirmMsg`). 픽셀 인증 완료면 `confirmed` 1회, 그 밖 `pending_email`. 픽셀 설명표 두 줄
+- 사양서 설계 ③ 전부. 「認証する」(인증하기) → 번호 칸(`inputmode="numeric"`·`autocomplete="one-time-code"`·16픽셀 이상) + 「確認」(확인) + 남은 시간. 만료 → 비활성 + 「再送信」(재발송), 대기 중 남은 초. 발송 제한 → 「しばらくしてから再送信してください」(잠시 후 다시 보내 주세요) + 시각까지 비활성(열린 칸 유지·처음이면 안 엶). 확인 → 「認証済み」(인증됨) + 이메일 잠금 + 「変更」(변경). 「登録する」(가입하기)는 확인증 있고 만료 전만. 가입 뒤 갈래 넷(신원 목록 빔 → 일반 실패 + 「ログイン」·「パスワードを忘れた方」 안내·픽셀 없음 / 세션 있음 → 로그인 상태 / 세션 없고 인증 완료 → `signInWithPassword`, 실패 시 「登録が完了しました。ログインしてください」(가입 완료, 로그인해 주세요) / 세션 없고 미인증 → `#signupConfirmMsg`). 픽셀 인증 완료면 `confirmed` 1회, 그 밖 `pending_email`. 픽셀 설명표 두 줄. **픽셀 새로고침 보류 짝**(위 어긋남 ⑪ — `signUp` 직전 `metaPixelHoldReload()`, 일반 회원으로 끝나면 `metaPixelReleaseReload()`)
 - **산출 계약:** storage `requestSignupCode(email)` → `{status,codeExpiresAt,resendAvailableAt}` · `{error}` · 통신 실패 `null` / `verifySignupCode(email, code)` → `{ok,ticket,ticketExpiresAt,reason,attemptsLeft}` · 통신 실패 `null`. `signUp` `options.data.signup_ticket`. DOM id `signupEmailVerifyBtn`·`signupCodeArea`·`signupCodeInput`·`signupCodeConfirmBtn`·`signupCodeTimer`·`signupCodeResendBtn`·`signupCodeMsg`·`signupEmailVerified`·`signupEmailChangeBtn`(기존 `signupEmail`·`signupBtn`·`signupError`·`signupConfirmMsg`·`signupFormArea` 유지). 번역 키 `auth.signup.code.verifyBtn`·`.resendBtn`·`.resendWait`·`.placeholder`·`.confirmBtn`·`.remaining`·`.expired`·`.verified`·`.changeBtn`·`.mismatch`·`.locked`·`.rateLimited`·`.sent`·`.sendFailed`·`.ticketExpired`·`auth.signup.doneLogin`·`authError.alreadyRegisteredHint`
 - **완료 정의:** 완료 기준 1·2·3·5·5-2·8·9·11 화면 재현(Q1), 화면 코드에 유효 시간 숫자 없음
 - **주의:** 🔴 탈퇴 재가입 대조(`isEmailWithdrawalBlocked`)는 **가입 직전 그대로**. 도메인 오타 점검은 「認証する」 앞에서도 권고. 🔴 문의 창구가 고친 dev 판 위에서. 핫스팟 병렬 금지. 새 파일이면 `build.sh` 두 자리 — 권고는 `auth.js` 안에
@@ -151,7 +154,7 @@ P1 방침 개정 + 공지(10/6 뒤 공지 교체, 병렬) ─┐
 
 ### O2 — 단계 2 운영 반영
 - **선행:** Q1 · 10/6 창구 운영 반영 뒤 · P1 시행일 경과 · 선결 6 · 사용자 확인
-- **완료 정의:** 운영 시험 주소로 새 화면 가입 → 추가 동작 없이 로그인, 픽셀 `confirmed` 1건, 생년월일·동의 시각 있음, 메타데이터 깨끗(완료 기준 8·11). `curl -sL` + md5. 시험 계정 정리
+- **완료 정의:** 운영 시험 주소로 새 화면 가입 → 추가 동작 없이 로그인, 픽셀 `confirmed` 1건(**브라우저 경로 기준** — 어긋남 ⑩), 생년월일·동의 시각 있음, 메타데이터 깨끗(완료 기준 8·11). `curl -sL` + md5. 시험 계정 정리
 - **주의:** 골라 담기 구간(9/29~10/5)에는 병합하지 않는다
 
 ### O3 — 단계 3 강제 + 정기 삭제 켜기
