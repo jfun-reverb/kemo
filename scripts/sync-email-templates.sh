@@ -45,6 +45,7 @@ SYNC_GROUPS=(
   "notify-admin-invite|admin-invite.html"
   "admin-password-reset-request|admin-password-reset.html"
   "notify-withdrawal-scheduled|withdrawal-scheduled.html"
+  "signup-code-send|signup-code.html,signup-already-registered.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
@@ -104,7 +105,8 @@ for group in "${SYNC_GROUPS[@]}"; do
      [[ "$fn_name" == "notify-brand-daily-digest" ]] || \
      [[ "$fn_name" == "notify-admin-invite" ]] || \
      [[ "$fn_name" == "admin-password-reset-request" ]] || \
-     [[ "$fn_name" == "notify-withdrawal-scheduled" ]]; then
+     [[ "$fn_name" == "notify-withdrawal-scheduled" ]] || \
+     [[ "$fn_name" == "signup-code-send" ]]; then
     ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
     {
       echo "// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지"

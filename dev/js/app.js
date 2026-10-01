@@ -181,6 +181,8 @@ function navigate(page, pushHistory) {
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
+  // 가입 인증번호 — 다시 들어오면 남은 시간·가입 단추 상태를 다시 그린다(화면을 떠나면 타이머가 멈춘다)
+  if (pageName === 'signup' && typeof onSignupPageEnter === 'function') onSignupPageEnter();
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
   if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';

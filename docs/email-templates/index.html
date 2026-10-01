@@ -19,6 +19,16 @@
   .legend .brand { background:#FBE2E7; color:#A02038; }
   .legend .infl { background:#E5EAE0; color:#3F5530; }
   .legend .admin { background:#DDE4EE; color:#2F4460; }
+  /* 라벨 필터 — 누르면 그 종류 카드만, 같은 라벨을 다시 누르면 전체 */
+  .legend button { font:inherit; font-size:11px; padding:3px 10px; border-radius:99px; font-weight:700; letter-spacing:0.04em; border:2px solid transparent; cursor:pointer; }
+  .legend button.auth { background:#E0DBE6; color:#5B3F66; }
+  .legend button.brand { background:#FBE2E7; color:#A02038; }
+  .legend button.infl { background:#E5EAE0; color:#3F5530; }
+  .legend button.admin { background:#DDE4EE; color:#2F4460; }
+  .legend button.all { background:#fff; color:#444; border-color:#EAEAE4; }
+  .legend button[aria-pressed="true"] { border-color:currentColor; }
+  .legend.filtering button[aria-pressed="false"]:not(.all) { opacity:0.45; }
+  .legend .filter-count { font-size:11px; color:#888; align-self:center; margin-left:4px; padding:0; font-weight:400; }
   h2 { font-size:14px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#666; max-width:1100px; margin:32px auto 14px; }
   .grid { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px; }
   .card { background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); padding:20px 22px 18px; display:flex; flex-direction:column; transition:transform 0.15s, box-shadow 0.15s; }
@@ -57,11 +67,13 @@
 <div class="head">
   <h1>REVERB JP · 메일 템플릿 카탈로그</h1>
   <p class="sub">서비스에서 발송되는 모든 메일의 템플릿 + 미리보기. 각 카드에서 미리보기를 열어 실제 발송 시 모습을 확인할 수 있습니다.</p>
-  <div class="legend">
-    <span class="auth">Auth · Supabase 자동 발송</span>
-    <span class="brand">Brand · Edge Function</span>
-    <span class="infl">Influencer · Edge Function</span>
-    <span class="admin">Admin · 관리자 수신</span>
+  <div class="legend" id="tagFilter">
+    <button type="button" class="all" data-filter="" aria-pressed="true">전체</button>
+    <button type="button" class="auth" data-filter="auth" aria-pressed="false">Auth · Supabase 자동 발송</button>
+    <button type="button" class="brand" data-filter="brand" aria-pressed="false">Brand · Edge Function</button>
+    <button type="button" class="infl" data-filter="infl" aria-pressed="false">Influencer · Edge Function</button>
+    <button type="button" class="admin" data-filter="admin" aria-pressed="false">Admin · 관리자 수신</button>
+    <span class="filter-count" id="filterCount" aria-live="polite"></span>
   </div>
 </div>
 
@@ -352,7 +364,7 @@
 
   <!-- ⑮ 관리자 통합 다이제스트 (신규 — 2026-05-18 PR 2) -->
   <div class="card">
-    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-tag tag-admin">Admin</div>
     <div class="card-title">관리자 일일 통합 다이제스트 <span style="color:#1F5DBF;font-size:12px;font-weight:600">— NEW 2026-05-18</span></div>
     <div class="card-desc">신청 접수 + 응모 취소 + 결과물 제출 + 재처리 일감 + 조치가 필요한 캠페인 5섹션을 한 통으로 통합 발송. 5섹션 모두 0건이면 미발송 — 다만 다섯째 절이 사실상 매일 떠서 발송도 거의 매일입니다.</div>
     <div class="card-condition">
@@ -420,6 +432,50 @@
       <a class="btn btn-primary" href="withdrawal-scheduled.preview.html">미리보기</a>
       <a class="btn btn-ghost" href="withdrawal-scheduled.preview.html?lang=ko">한국어 검수</a>
       <a class="btn btn-ghost" href="source.html?f=withdrawal-scheduled.html">원본</a>
+    </div>
+  </div>
+
+  <!-- 가입 인증번호 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">회원가입 인증번호</div>
+    <div class="card-desc">회원가입 화면에서 이메일을 입력하고 「인증 코드 보내기」를 누르면, 그 주소로 6자리 숫자를 보냅니다. 가입자는 그 숫자를 화면에 입력해 이메일을 확인합니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">가입 화면에서 코드 발송을 요청할 때마다 즉시 1통. 같은 주소로 짧은 시간에 반복 요청하면 제한에 걸려 보내지 않습니다(설정 표의 수치).</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 요청 즉시</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 가입 화면 → Edge Function signup-code-send (로그인 없이 호출)</div>
+      <div><b>수신자:</b> 가입 화면에 입력된 이메일 주소</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="signup-code.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="signup-code.preview.html?lang=ko">한국어 검수</a>
+      <a class="btn btn-ghost" href="source.html?f=signup-code.html">원본</a>
+    </div>
+  </div>
+
+  <!-- 가입 — 이미 가입된 주소 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">회원가입 — 이미 가입된 주소 안내</div>
+    <div class="card-desc">이미 가입된 주소로 가입 화면에서 인증 코드를 요청하면, 번호 대신 「이미 가입되어 있습니다 → 로그인 / 비밀번호 재설정」을 보냅니다. 화면에는 번호 메일과 똑같이 「보냈습니다」가 떠서, 그 주소가 회원인지는 메일함 주인만 압니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">가입 화면 코드 요청 때, 그 주소에 이메일 확인까지 마친 계정이 있으면 번호 메일 대신 1통. 발송 제한은 번호 메일과 같습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 요청 즉시</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 가입 화면 → Edge Function signup-code-send (로그인 없이 호출)</div>
+      <div><b>수신자:</b> 가입 화면에 입력된 이메일 주소</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="signup-already-registered.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="signup-already-registered.preview.html?lang=ko">한국어 검수</a>
+      <a class="btn btn-ghost" href="source.html?f=signup-already-registered.html">원본</a>
     </div>
   </div>
 
@@ -554,7 +610,7 @@
 </div>
 
 <h2>메일이 안 가는 상황 (앱 알림만 / 미구현)</h2>
-<div class="footer-note" style="margin:0 0 16px">
+<div class="footer-note" style="margin:0 auto 16px">
   <b>⚠️ 아래 상황에서는 회원에게 메일이 가지 않습니다 — 앱 안 알림만 뜹니다.</b><br>
   회원이 앱에 안 들어오면 그 사실을 모릅니다. CS 응대 시 「메일 못 받았다」는 문의가 오면 아래 목록부터 확인하세요.<br>
   <br>
@@ -652,6 +708,57 @@
   🔴 <b>그래서 이 폴더의 HTML 을 고치기만 하면 메일은 안 바뀝니다.</b> 고친 뒤 반드시 <code>bash scripts/sync-email-templates.sh</code> 를 돌려 복사본을 맞추고, 그 다음 함수를 다시 배포해야 합니다.<br>
   자세한 가이드는 <a href="README.md">README.md</a> 참고.
 </div>
+
+<script>
+// 라벨 필터 — 카드의 card-tag 클래스(tag-auth 등)로 거른다. 카드가 0개인 묶음은 제목·안내까지 숨긴다
+(function () {
+  const bar = document.getElementById('tagFilter');
+  const countEl = document.getElementById('filterCount');
+  const buttons = bar.querySelectorAll('button[data-filter]');
+  const grids = document.querySelectorAll('.grid');
+
+  // 묶음 하나 = 그 grid 앞의 h2 부터 grid 까지 (사이의 안내 상자 포함)
+  function sectionHeadOf(grid) {
+    const parts = [];
+    let el = grid.previousElementSibling;
+    while (el && !el.classList.contains('grid') && !el.classList.contains('head')) {
+      parts.push(el);
+      if (el.tagName === 'H2') break;
+      el = el.previousElementSibling;
+    }
+    return parts;
+  }
+
+  function apply(filter) {
+    let shown = 0;
+    grids.forEach(grid => {
+      let visible = 0;
+      grid.querySelectorAll('.card').forEach(card => {
+        const tag = card.querySelector('.card-tag');
+        const hit = !filter || (tag && tag.classList.contains('tag-' + filter));
+        card.style.display = hit ? '' : 'none';
+        if (hit) visible++;
+      });
+      const hide = visible === 0;
+      grid.style.display = hide ? 'none' : '';
+      sectionHeadOf(grid).forEach(el => { el.style.display = hide ? 'none' : ''; });
+      shown += visible;
+    });
+    buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    bar.classList.toggle('filtering', !!filter);
+    countEl.textContent = filter ? shown + '개' : '';
+  }
+
+  let current = '';
+  bar.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-filter]');
+    if (!btn) return;
+    // 같은 라벨을 다시 누르면 전체로 되돌린다
+    current = btn.dataset.filter === current ? '' : btn.dataset.filter;
+    apply(current);
+  });
+})();
+</script>
 
 </body>
 </html>
