@@ -405,6 +405,7 @@
 > 🔴 **이 영역을 설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 > 🔴 아래는 규칙 파일이 자동으로 안 읽히는 자리에서도 알아야 하는 것이라 여기 남겼다(다른 영역·현재 원본 번호·잠금 상태 등).
 > 🔴 **이 영역 파일은 Read 도구로 연다** — 셸(`cat`·`sed`·`grep`)로 보거나 고치면 규칙 파일이 **안 실린다**.
+> 설계·질문이면 **`reverb-settlement` 스킬**이 길을 안내한다(파일을 안 여는 세션용 입구).
 
 **현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
 - `mark_settlements_paid_bulk` · `mark_settlement_revert` · `mark_settlement_paid` · `register_past_settlements` · `correct_settlement_payment` — **486**(베이스 416·416·343·339·341 아님)
