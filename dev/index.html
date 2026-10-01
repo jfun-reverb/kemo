@@ -1001,6 +1001,10 @@ window._supabaseLoaded = false;
               <span id="signupCodeTimer" class="signup-code-timer" aria-live="polite"></span>
               <button type="button" class="btn btn-ghost signup-code-resend" id="signupCodeResendBtn" onclick="requestSignupCodeFromForm(true)" disabled data-i18n="auth.signup.code.resendBtn">再送信</button>
             </div>
+            <!-- 출구 안내(사양서 설계 ③·완료 기준 17) — 새 주소·가입된 주소 모두에게 **늘 똑같이** 보인다(가입 여부를 드러내지 않는다) -->
+            <div class="signup-code-exit">
+              <span data-i18n="auth.signup.code.exitText">数字のかわりに「すでに登録されています」というメールがとどいた方は、</span><a href="#login" onclick="goLoginFromSignupCode();return false" data-i18n="auth.signup.code.exitLink">こちらからログイン</a>
+            </div>
           </div>
           <div id="signupCodeMsg" class="signup-code-msg" role="status" aria-live="polite" style="display:none"></div>
         </div>

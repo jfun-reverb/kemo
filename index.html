@@ -838,6 +838,8 @@ html.preview-mode #page-detail .detail-back{display:none}
 .signup-code-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
 .signup-code-timer{font-size:13px;color:var(--on-surface-variant)}
 .signup-code-resend{min-height:44px;padding:0 12px;font-size:13px}
+.signup-code-exit{margin-top:8px;font-size:12px;line-height:1.6;color:var(--on-surface-variant)}
+.signup-code-exit a{color:var(--primary);font-weight:600;text-decoration:underline;cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
 .signup-code-msg{margin-top:8px;font-size:13px;line-height:1.6;color:var(--on-surface-variant)}
 .signup-code-msg.is-error{color:var(--red)}
 .signup-code-msg.is-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8)}
@@ -2063,6 +2065,10 @@ html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 
             <div class="signup-code-sub">
               <span id="signupCodeTimer" class="signup-code-timer" aria-live="polite"></span>
               <button type="button" class="btn btn-ghost signup-code-resend" id="signupCodeResendBtn" onclick="requestSignupCodeFromForm(true)" disabled data-i18n="auth.signup.code.resendBtn">再送信</button>
+            </div>
+            <!-- 출구 안내(사양서 설계 ③·완료 기준 17) — 새 주소·가입된 주소 모두에게 **늘 똑같이** 보인다(가입 여부를 드러내지 않는다) -->
+            <div class="signup-code-exit">
+              <span data-i18n="auth.signup.code.exitText">数字のかわりに「すでに登録されています」というメールがとどいた方は、</span><a href="#login" onclick="goLoginFromSignupCode();return false" data-i18n="auth.signup.code.exitLink">こちらからログイン</a>
             </div>
           </div>
           <div id="signupCodeMsg" class="signup-code-msg" role="status" aria-live="polite" style="display:none"></div>
@@ -5229,6 +5235,8 @@ window.I18N_JA = {
         ticketExpired: '認証の有効時間がすぎました。もう一度「認証する」を押してください。',
         contactSupport: 'このメールアドレスではご登録手続きを進められません。お問い合わせください',
         needVerify: 'メールアドレスの「認証する」を押して、とどいた数字を入力してください',
+        exitText: '数字のかわりに「すでに登録されています」というメールがとどいた方は、',
+        exitLink: 'こちらからログイン',
       },
     },
   },
@@ -6264,6 +6272,8 @@ window.I18N_KO = {
         ticketExpired: '인증 유효 시간이 지났습니다. 「인증하기」를 다시 눌러 주세요.',
         contactSupport: '이 메일 주소로는 가입을 진행할 수 없습니다. 문의해 주세요',
         needVerify: '이메일의 「인증하기」를 눌러 받은 숫자를 입력해 주세요',
+        exitText: '숫자 대신 「이미 가입되어 있습니다」 메일을 받으셨다면 ',
+        exitLink: '여기서 로그인',
       },
     },
   },
@@ -16938,6 +16948,13 @@ function _signupStartTimer() {
   }, 1000);
 }
 
+// 번호 칸 아래 출구 안내 — 「이미 가입」 메일을 받은 사람이 같은 탭에서 로그인으로 간다(완료 기준 17).
+//   입력해 둔 주소를 로그인 칸에 옮겨 둔다(다시 치지 않게)
+function goLoginFromSignupCode() {
+  const v = ($('signupEmail')?.value || '').trim();
+  const le = $('loginEmail'); if (le && v) le.value = v;
+  navigate('login');
+}
 // 가입 화면에 들어올 때(app.js navigate) — 진행 중이던 인증 상태가 있으면 타이머를 다시 켠다
 function onSignupPageEnter() {
   if (_signupCode.opened || _signupCode.ticket || _signupCode.resendAt) _signupStartTimer();
