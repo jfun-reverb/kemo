@@ -457,7 +457,7 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
       { header: '신청일',        key: 'created',    width: 20 },
       { header: '상태',          key: 'status',     width: 10 },
       { header: '이름(한자)',    key: 'nameKanji',  width: 16 },
-      { header: '이름(가나)',    key: 'nameKana',   width: 16 },
+      { header: '후리가나',    key: 'nameKana',   width: 16 },
       { header: '이메일',        key: 'email',      width: 26 },
       { header: '연락처',        key: 'phone',      width: 16 },
       { header: 'Instagram URL', key: 'ig',         width: 36 },
@@ -730,7 +730,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 컬럼 헤더 (4행)
     ws.getRow(4).values = [
       '캠페인 번호', '캠페인 제목',
-      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '인증 상태',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
@@ -923,7 +923,7 @@ async function exportCampaignApplicationsExcel(campId) {
       { header: '신청일',            key: 'created',    width: 20 },
       { header: '상태',              key: 'status',     width: 10 },
       { header: '이름(한자)',        key: 'nameKanji',  width: 16 },
-      { header: '이름(가나)',        key: 'nameKana',   width: 16 },
+      { header: '후리가나',        key: 'nameKana',   width: 16 },
       { header: '이메일',            key: 'email',      width: 26 },
       { header: '연락처',            key: 'phone',      width: 16 },
       { header: 'Instagram URL',     key: 'ig',         width: 36 },
@@ -1180,7 +1180,7 @@ async function exportCampaignDeliverables(campId) {
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL
     // W컬럼 「관리자 · 사유」: 영수증 또는 결과물 중 1건이라도 대리 등록이면 표시
     ws.getRow(4).values = [
-      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '인증 상태',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL',
@@ -1467,7 +1467,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
 
   // row 4: 컬럼 헤더 (인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var headerValues = [
-    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
     '인증 상태',
     '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
   ];
@@ -1678,7 +1678,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   // row 4: 컬럼 헤더 (캠페인 2 → 인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var headerValues = [
     '캠페인 번호', '캠페인 제목',
-    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
     '인증 상태',
     '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
   ];
@@ -1826,7 +1826,7 @@ async function exportInfluencersExcel() {
     var ws = wb.addWorksheet('인플루언서');
     var cols = [
       { header: '이름(한자)', key: 'kanji', width: 14 },
-      { header: '이름(가나)', key: 'kana', width: 16 },
+      { header: '후리가나', key: 'kana', width: 16 },
       { header: '이메일', key: 'email', width: 24 },
       { header: '대표SNS', key: 'primary', width: 10 },
       { header: 'Instagram', key: 'ig', width: 28 },
@@ -1980,7 +1980,7 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '날짜',     key: 'date',  width: 12 },
       { header: '시각',     key: 'time',  width: 14 },
       { header: '이름(한자)', key: 'kanji', width: 16 },
-      { header: '이름(가나)', key: 'kana',  width: 18 },
+      { header: '후리가나', key: 'kana',  width: 18 },
       { header: '예약번호', key: 'code',  width: 12 },
       { header: '상태',     key: 'st',    width: 12 },
       // 선정형은 순번을 아예 안 넣는다(마이그레이션 378). 열은 자리를 지키되 **값을 비운다** —

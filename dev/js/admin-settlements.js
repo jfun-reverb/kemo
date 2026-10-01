@@ -1124,57 +1124,74 @@ function _renderBulkBundles() {
     const head = items[b.itemIdx[0]];
     const isFirst = firstOfPerson[b.influencerId] === undefined;
     if (isFirst) firstOfPerson[b.influencerId] = bi;
+    // ★ 표 형식(2026-10-01 사용자 결정) — 묶음 정보는 「항목 | 값」 표, 건은 「캠페인 | 지급 예정일 | 보낸 금액」 표,
+    //   합계 셋(보낸 금액·수수료·총지출)은 건 표의 아래 줄. ⚠️ bulkTotal_·bulkFee_·bulkSpend_ id 는 금액 입력 때
+    //   그 자리만 고쳐 쓰는 데 쓴다 — 지우거나 이름을 바꾸면 합계가 안 따라온다.
+    const TH = 'padding:6px 10px;font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3;text-align:left;white-space:nowrap';
+    const TD = 'padding:6px 10px;font-size:12px;border-top:1px solid var(--line);vertical-align:middle';
+    // 입력칸은 관리자 공통 「admin-input」(13px). ⚠️ 이 확인 창은 #page-admin **밖**이라 form-input 을 쓰면
+    //   회원 앱 크기(16px)가 된다 — 높이만 표 줄에 맞게 줄인다.
+    const INP = 'padding:4px 8px;height:30px;box-sizing:border-box';
+    const canSplit = b.itemIdx.length > 1;
     const rows = b.itemIdx.map(function (idx) {
       const it = items[idx];
       const val = ctx.amounts[idx] !== undefined ? ctx.amounts[idx] : it.amount;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
-          <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.campaignLabel)}">${esc(it.campaignLabel)}</div>
-          <div style="width:84px;text-align:right;color:var(--muted)">${esc(it.due || '지급일 없음')}</div>
-          <input type="number" min="1" step="1" value="${esc(String(val))}" oninput="onBulkItemAmountInput(${idx}, this.value)"
-                 style="width:96px;text-align:right;padding:3px 6px;font-size:16px;border:1px solid var(--line);border-radius:6px"
-                 aria-label="보낸 금액">
-          ${b.itemIdx.length > 1
-            ? `<button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="splitBulkItem(${bi}, ${idx})" title="이 건만 따로 송금한 경우">따로 보내기</button>`
-            : '<span style="width:74px"></span>'}
-        </div>`;
+      return `<tr>
+          <td style="${TD};max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.campaignLabel)}">${esc(it.campaignLabel)}</td>
+          <td style="${TD};white-space:nowrap;color:var(--muted)">${esc(it.due || '지급일 없음')}</td>
+          <td style="${TD};text-align:right"><input type="number" class="admin-input" min="1" step="1" value="${esc(String(val))}" oninput="onBulkItemAmountInput(${idx}, this.value)"
+                 style="width:110px;text-align:right;${INP}" aria-label="보낸 금액"></td>
+          ${canSplit ? `<td style="${TD};white-space:nowrap"><button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="splitBulkItem(${bi}, ${idx})" title="이 건만 따로 송금한 경우">따로 보내기</button></td>` : ''}
+        </tr>`;
     }).join('');
     const fee = _bulkBundleFee(bi);
     const total = _bulkBundleTotal(b);
     const manual = b.feeOverride !== null && b.feeOverride !== '';
     const feeHtml = b.feeEditing
-      ? `<input type="number" min="0" step="1" value="${esc(b.feeOverride === null ? '' : String(b.feeOverride))}"
+      ? `<input type="number" class="admin-input" min="0" step="1" value="${esc(b.feeOverride === null ? '' : String(b.feeOverride))}"
                placeholder="${fee === null ? '' : esc(String(fee))}"
                oninput="onBulkFeeInput(${bi}, this.value)"
-               style="width:84px;text-align:right;padding:3px 6px;font-size:16px;border:1px solid #F59E0B;border-radius:6px" aria-label="수수료">
+               style="width:96px;text-align:right;${INP};border-color:#F59E0B" aria-label="수수료">
          <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="resetBulkFee(${bi})">자동으로</button>`
       : `<span id="bulkFee_${bi}">${fee === null ? `<span style="color:var(--muted)">${_bulkFeePendingText()}</span>` : esc(settlementAmountYen(fee))}</span>
          ${manual ? '<span style="font-size:11px;color:#B8741A">고친 값</span>' : ''}
-         <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="editBulkFee(${bi})">고치기</button>`;
+         <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="editBulkFee(${bi})">수정</button>`;
+    const span = canSplit ? 2 : 1;   // 합계 줄의 값 칸이 「보낸 금액」 열(+ 따로 보내기 열)을 덮는다
+    const sumRow = function (label, valueHtml) {
+      return `<tr><td colspan="2" style="${TD};text-align:right;color:var(--muted);background:#FAFAFA">${label}</td>
+        <td colspan="${span}" style="${TD};text-align:right;background:#FAFAFA;white-space:nowrap">${valueHtml}</td></tr>`;
+    };
     return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
           <b style="font-size:13px">${esc(head.name || '(이름 미상)')}</b>
-          ${head.paypalOk === null
-            ? '<span style="font-size:11px;color:#B8741A">페이팔 확인 실패 — 서버가 다시 확인합니다</span>'
-            : `<span style="font-size:11px;color:var(--muted);font-family:monospace">${esc(head.paypalText || '')}</span>`}
+          ${personBundleCount[b.influencerId] > 1 ? `<span style="font-size:11px;color:#2563EB">같은 사람 묶음 ${personBundleCount[b.influencerId]}개 — 수수료가 묶음마다 붙습니다</span>` : ''}
           ${!isFirst ? `<button class="btn btn-ghost btn-xs" style="padding:2px 8px;margin-left:auto" onclick="mergeBulkBundle(${bi})" title="같은 사람의 첫 묶음과 합칩니다">합치기</button>` : ''}
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          <label style="font-size:11px;color:var(--muted)">송금일
-            <input type="date" value="${esc(b.sentDate)}" max="${esc(jstTodayStr())}" onchange="onBulkBundleField(${bi}, 'sentDate', this.value)"
-                   style="font-size:16px;padding:2px 6px;border:1px solid var(--line);border-radius:6px">
-          </label>
-          <label style="font-size:11px;color:var(--muted)">페이팔 거래번호(선택)
-            <input type="text" value="${esc(b.txn)}" maxlength="100" oninput="onBulkBundleField(${bi}, 'txn', this.value)"
-                   style="font-size:16px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;width:180px">
-          </label>
-          ${personBundleCount[b.influencerId] > 1 ? `<span style="font-size:11px;color:#2563EB;align-self:center">같은 사람 묶음 ${personBundleCount[b.influencerId]}개 — 수수료가 묶음마다 붙습니다</span>` : ''}
-        </div>
-        ${rows}
-        <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-size:12px">
-          <span>보낸 금액 <b id="bulkTotal_${bi}">${esc(settlementAmountYen(total))}</b></span>
-          <span style="display:flex;align-items:center;gap:6px">수수료 ${feeHtml}</span>
-          <span>총지출 <b id="bulkSpend_${bi}">${fee === null ? '—' : esc(settlementAmountYen(total + fee))}</b></span>
-        </div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid var(--line);margin-bottom:8px">
+          <tr><th style="${TH};width:140px">페이팔</th>
+            <td style="${TD};border-top:none">${head.paypalOk === null
+              ? '<span style="font-size:11px;color:#B8741A">페이팔 확인 실패 — 서버가 다시 확인합니다</span>'
+              : `<span style="font-size:11px;font-family:monospace">${esc(head.paypalText || '')}</span>`}</td></tr>
+          <tr><th style="${TH};border-top:1px solid var(--line)">송금일</th>
+            <td style="${TD}"><input type="date" class="admin-input" value="${esc(b.sentDate)}" max="${esc(jstTodayStr())}" onchange="onBulkBundleField(${bi}, 'sentDate', this.value)"
+                   style="${INP}" aria-label="송금일"></td></tr>
+          <tr><th style="${TH};border-top:1px solid var(--line)">페이팔 거래번호(선택)</th>
+            <td style="${TD}"><input type="text" class="admin-input" value="${esc(b.txn)}" maxlength="100" oninput="onBulkBundleField(${bi}, 'txn', this.value)"
+                   style="${INP};width:220px" aria-label="페이팔 거래번호"></td></tr>
+        </table>
+        <table style="width:100%;border-collapse:collapse;border:1px solid var(--line);table-layout:fixed">
+          <thead><tr>
+            <th style="${TH}">캠페인</th>
+            <th style="${TH};width:110px">지급 예정(회차)</th>
+            <th style="${TH};width:120px;text-align:right">보낸 금액</th>
+            ${canSplit ? `<th style="${TH};width:96px"></th>` : ''}
+          </tr></thead>
+          <tbody>${rows}
+          ${sumRow('보낸 금액 합계', `<b id="bulkTotal_${bi}">${esc(settlementAmountYen(total))}</b>`)}
+          ${sumRow('수수료', `<span style="display:inline-flex;align-items:center;gap:6px">${feeHtml}</span>`)}
+          ${sumRow('총지출', `<b id="bulkSpend_${bi}">${fee === null ? '—' : esc(settlementAmountYen(total + fee))}</b>`)}
+          </tbody>
+        </table>
       </div>`;
   }).join('');
 
@@ -1187,31 +1204,14 @@ function _renderBulkBundles() {
   body.innerHTML = `
     ${blockedHtml}
     <div id="settlementBulkPayErrors"></div>
-    <div style="max-height:52vh;overflow:auto;padding-right:4px">${cards || '<div style="padding:16px;color:var(--muted);font-size:13px">보낼 수 있는 건이 없습니다.</div>'}</div>
-    <div id="bulkGrandTotal" style="padding:10px 12px;background:#FAFAFA;border:1px solid var(--line);border-radius:10px;margin:6px 0 14px;font-size:13px"></div>`;
-  _renderBulkGrandTotal();
+    <div style="margin-bottom:14px">${cards || '<div style="padding:16px;color:var(--muted);font-size:13px">보낼 수 있는 건이 없습니다.</div>'}</div>`;
+  // 묶음 전체 합계 줄은 두지 않는다(2026-10-01 사용자 결정) — 묶음마다 표 아래에 합계가 있다.
 }
 
 // 수수료 미리보기가 아직이면 「계산 중…」, 실패했으면 「계산 못 함」(세 자리가 같은 말을 한다)
 function _bulkFeePendingText() {
   const f = _bulkPayCtx && _bulkPayCtx.feePreview;
   return (f && f.failed) ? '계산 못 함' : '계산 중…';
-}
-
-function _renderBulkGrandTotal() {
-  const el = $('bulkGrandTotal');
-  const ctx = _bulkPayCtx;
-  if (!el || !ctx) return;
-  let sent = 0, fee = 0, feeUnknown = false, count = 0;
-  ctx.bundles.forEach(function (b, bi) {
-    sent += _bulkBundleTotal(b);
-    count += b.itemIdx.length;
-    const f = _bulkBundleFee(bi);
-    if (f === null) feeUnknown = true; else fee += f;
-  });
-  el.innerHTML = `묶음 <b>${ctx.bundles.length}개</b>(페이팔 송금 ${ctx.bundles.length}번) · ${count}건 ·
-      보낸 금액 <b>${esc(settlementAmountYen(sent))}</b> · 수수료 <b>${feeUnknown ? _bulkFeePendingText() : esc(settlementAmountYen(fee))}</b> ·
-      총지출 <b>${feeUnknown ? '—' : esc(settlementAmountYen(sent + fee))}</b>`;
 }
 
 // 금액·묶음이 바뀌면 서버에 수수료를 다시 묻는다(300ms 모아서). ⚠️ 늦게 온 옛 응답은 버린다
@@ -1230,7 +1230,6 @@ function _scheduleBulkFeePreview() {
     const wasFailed = !!(ctx.feePreview && ctx.feePreview.failed);
     ctx.feePreview = res || { fees: totals.map(function () { return null; }), failed: true };
     ctx.bundles.forEach(function (b, bi) { _refreshBulkBundleNumbers(bi); });
-    _renderBulkGrandTotal();
     // 실패 안내는 **처음 한 번만**(입력할 때마다 반복하지 않는다)
     if (!res && !wasFailed) toast('수수료를 계산하지 못했습니다 — 저장하면 서버가 계산합니다', 'warn');
   }, 300);
@@ -1251,7 +1250,6 @@ function onBulkItemAmountInput(idx, v) {
   _bulkPayCtx.amounts[idx] = v;
   const bi = _bulkPayCtx.bundles.findIndex(function (b) { return b.itemIdx.indexOf(idx) >= 0; });
   if (bi >= 0) _refreshBulkBundleNumbers(bi);
-  _renderBulkGrandTotal();
   _scheduleBulkFeePreview();
 }
 function onBulkBundleField(bi, field, v) {
@@ -1264,7 +1262,6 @@ function onBulkFeeInput(bi, v) {
   const b = _bulkPayCtx.bundles[bi];
   const fee = _bulkBundleFee(bi);
   const s = $('bulkSpend_' + bi); if (s) s.textContent = fee === null ? '—' : settlementAmountYen(_bulkBundleTotal(b) + fee);
-  _renderBulkGrandTotal();
 }
 function editBulkFee(bi) { _bulkPayCtx.bundles[bi].feeEditing = true; _renderBulkBundles(); }
 function resetBulkFee(bi) {
@@ -1412,9 +1409,9 @@ function _openBulkPayModal() {
   if (warn) warn.innerHTML = pending
     ? '<b>아직 지급하지 않은 건만</b> 처리하세요. 정산대기로 올려 두면 나중에 「송금완료 기록」으로 마무리합니다.'
       + '<br>⚠️ 인플루언서에게는 알림이 가지 않습니다.'
-    : '<b>묶음 하나 = 페이팔 송금 한 번</b>입니다. 실제로 따로 보낸 건은 「따로 보내기」로 나누세요(수수료가 묶음마다 붙습니다).'
-      + '<br>금액은 <b>실제로 보낸 금액</b>으로, 수수료는 자동 계산값과 다르면 「고치기」로 넣으세요.'
-      + '<br>⚠️ 하나라도 기록할 수 없으면 <b>아무것도 기록하지 않고</b> 이유를 보여 드립니다. 페이팔 미등록 건은 미리 뺐습니다.';
+    : '<b>묶음 하나 = 페이팔 송금 한 번</b>입니다. 한 사람에게 여러 건을 실제로 따로 보냈으면 「따로 보내기」로 나누세요(건이 둘 이상인 묶음에만 보입니다. 수수료는 묶음마다 붙습니다).'
+      + '<br>금액은 <b>실제로 보낸 금액</b>으로, 수수료는 자동 계산값과 다르면 「수정」으로 넣으세요.'
+      + '<br>⚠️ 하나라도 기록할 수 없으면 <b>아무것도 기록하지 않고</b> 이유를 보여 드립니다. 페이팔 미등록·정산대기가 아닌 건은 묶음에 넣지 않고 맨 위 빨간 상자에 따로 보여 드립니다.';
   onSettlementBulkPayInput();
   openModal('settlementBulkPayModal');
 }
@@ -1709,27 +1706,28 @@ async function exportSettlementsExcel() {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('정산');
     ws.columns = [
+      // 열 이름은 화면 열 제목과 같게 맞춘다(2026-10-01 사용자 결정) — 이름(한자)·후리가나·페이팔·금액·보낸 금액·인증 성공일·송금일
       { header: '이름(한자)', key: 'kanji',    width: 14 },
-      { header: '이름(가나)', key: 'kana',     width: 16 },
+      { header: '후리가나',   key: 'kana',     width: 16 },
       { header: '이메일',     key: 'email',    width: 24 },
-      { header: '캠페인번호', key: 'campno',   width: 16 },
+      { header: '캠페인 번호', key: 'campno',  width: 16 },
       { header: '캠페인',     key: 'title',    width: 28 },
       { header: '브랜드',     key: 'brand',    width: 18 },
-      { header: '금액(¥)',    key: 'amount',   width: 12 },
+      { header: '금액',       key: 'amount',   width: 12 },
       { header: '금액구분',   key: 'amtsrc',   width: 12 },
       // 299 추가 — 영수증 기준 건에서 「왜 이 금액인가」를 엑셀에서도 대조할 수 있게.
       // 옛 행(상시가·현금 리워드 기준)은 빈 칸으로 남는다.
-      { header: '영수증금액(¥)', key: 'receipt', width: 14 },
-      { header: '상한(¥)',    key: 'cap',      width: 12 },
+      { header: '영수증 금액', key: 'receipt', width: 14 },
+      { header: '상한',       key: 'cap',      width: 12 },
       { header: '상한적용',   key: 'capped',   width: 10 },
       // [338·339] 실제로 보낸 금액. ⚠️ 빈 칸은 「계산 금액과 같음」이지 0원이 아니다 —
       //   Number(null) 이 0 이라 그냥 넘기면 「0엔을 보냈다」로 읽힌다(299 때와 같은 함정).
-      { header: '실제송금액(¥)', key: 'paidamt', width: 14 },
+      { header: '보낸 금액',  key: 'paidamt',  width: 14 },
       { header: '계산액과다름', key: 'amtdiff',  width: 12 },
-      { header: 'PayPal',     key: 'paypal',   width: 26 },
+      { header: '페이팔',     key: 'paypal',   width: 26 },
       { header: '상태',       key: 'status',   width: 10 },
-      { header: '인증성공일', key: 'certdate', width: 14 },
-      { header: '송금완료일', key: 'paiddate', width: 14 },
+      { header: '인증 성공일', key: 'certdate', width: 14 },
+      { header: '송금일',     key: 'paiddate', width: 14 },
     ];
     ws.getRow(1).font = { bold: true };
 
@@ -2252,9 +2250,10 @@ function refreshSettlementNav() {
   document.querySelectorAll('#settlementNavBar [data-settle-tab]').forEach(function (b) {
     b.classList.toggle('on', b.getAttribute('data-settle-tab') === active);
   });
-  // 탭 줄 오른쪽 도구는 회차별 **요약**에서만(renderPayoutSummary 가 채운다) — 다른 화면이면 비운다.
+  // 탭 줄 오른쪽 도구는 회차별(요약·회차 상세)에서만 — 요약은 renderPayoutSummary, 회차 상세는
+  // renderPayoutPersonList 가 채운다. 다른 화면이면 비운다.
   const tools = $('settlementNavTools');
-  if (tools && !(active === 'prep' && _payoutSubView === 'summary')) tools.innerHTML = '';
+  if (tools && active !== 'prep') tools.innerHTML = '';
   // 엑셀은 **정산 목록**을 내보내므로 목록 탭(미등록 제외)에서만 보인다.
   const excelBtn = $('settlementExcelBtn');
   if (excelBtn) {
@@ -2268,6 +2267,7 @@ function _resetPayoutSubState() {
   _payoutDueFilter = null;
   _payoutPersonSearch = '';
   _payoutSearchTokens = [];
+  _payoutPeriodFrom = ''; _payoutPeriodTo = '';
   _payoutSelected.clear();
 }
 
@@ -2396,6 +2396,36 @@ function payoutDueRowHtml(due, rows, todayStr) {
     <td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" style="padding:2px 10px"
         onclick="openPayoutPersonList('${esc(due)}')">상세</button></td>
   </tr>`;
+}
+
+// ─── 검색칸·기간 칸 모양 — 「사람별」과 「송금 내역」이 같은 모양을 쓴다(2026-10-01 사용자 결정) ───
+//   ⚠️ 「admin-filter-search」 는 돋보기 자리로 왼쪽 28px 을 비우는 클래스다 — 아이콘과 한 쌍으로만 쓴다.
+//   ⚠️ 이 함수가 돌려주는 문자열은 템플릿 안에 끼워 넣는다 — 주석에 backtick 을 쓰지 말 것.
+function settleSearchInputHtml(id, value, oninput, opts) {
+  const o = opts || {};
+  return `<div style="position:relative;width:300px">
+      <span class="material-icons-round notranslate" translate="no"
+            style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+      <input id="${id}" type="search" class="admin-filter-search"
+             autocomplete="off" data-lpignore="true" data-1p-ignore="true"
+             placeholder="이름(한자·후리가나)·페이팔 이메일로 검색"
+             value="${esc(value || '')}" oninput="${oninput}"${o.disabled ? ' disabled' : ''}
+             ${o.title ? `title="${esc(o.title)}"` : ''}>
+    </div>`;
+}
+// 기간 칸 + 칸 안쪽 오른쪽 끝의 × 지우기(기간이 있을 때만 보인다). 달력(flatpickr)은 부르는 쪽이 붙인다.
+//   ⚠️ × 아이콘을 1px 내린 것은 날짜 글자(12px)가 글꼴 특성상 칸 가운데보다 살짝 아래에 그려져서다.
+function settleRangeInputHtml(inputId, clearId, clearFn, title, placeholder) {
+  return `<div style="position:relative">
+      <input type="text" id="${inputId}" class="admin-filter-search" readonly placeholder="${esc(placeholder || '시작일~종료일 선택')}"
+             title="${esc(title)}"
+             style="min-width:200px;cursor:pointer;background:#fff;padding:6px 28px 6px 10px">
+      <button type="button" id="${clearId}" onclick="${clearFn}()" title="기간 지우기(전체 기간)" aria-label="기간 지우기"
+              style="display:none;position:absolute;right:4px;top:0;bottom:0;margin:auto 0;width:22px;height:22px;padding:0;border:none;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;line-height:1;display:block;position:relative;top:1px">close</span></button>
+    </div>`;
+}
+function _settleFpDate(d) {
+  return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
 }
 
 // ─── 회차 골라 엑셀 받기(요약) ───────────────────────────────────────
@@ -2549,10 +2579,10 @@ function renderPayoutSummary() {
       <thead><tr>
         <th style="width:36px;text-align:center"><input type="checkbox" ${allPicked ? 'checked' : ''} ${pickable.length ? '' : 'disabled'}
             onchange="togglePayoutRoundPickAll(this.checked)" title="모든 회차 선택" style="margin:0;cursor:pointer"></th>
-        <th style="width:110px">지급 예정일</th>
+        <th style="width:120px">지급 예정(회차)</th>
         <th style="width:70px;text-align:right">건수</th>
         <th style="width:110px;text-align:right">금액</th>
-        <th style="width:110px;text-align:right">송금완료</th>
+        <th style="width:110px;text-align:right">지급 금액</th>
         <th style="width:110px;text-align:right">미지급</th>
         <!-- ★ 「기한」은 **미지급 바로 옆**이다. 기한이 말하는 대상이 미지급이기 때문 —
              「미지급 22건인데 지급 기한이 4일 지났다」로 읽혀야 한다(2026-08-19 사용자 지적).
@@ -2593,6 +2623,11 @@ let _payoutDueFilter = null;    // 'YYYY-MM-DD' = 그 회차만 / null = 전 기
 const PAYOUT_NO_DUE = '__nodue__';
 let _payoutSearchTokens = [];   // 검색어를 낱말로 쪼갠 것(순서·공백 무관 비교용)
 let _payoutPersonSearch = '';
+// 「사람별」(전 기간 사람 목록) 기간 — **지급 예정일(회차 날짜)** 로 거른다(2026-10-01 사용자 결정).
+//   '' = 전체 기간. ⚠️ 기간을 넣으면 지급일 기록이 없는 건(r.due 없음)은 빠진다.
+let _payoutPeriodFrom = '';
+let _payoutPeriodTo = '';
+let _payoutPeriodFp = null;
 let _payoutSelected = new Set();  // 선택한 열쇠말(influencerId|due)
 
 // 이름·이메일을 통로에서 채운다. ⚠️ 원본 표를 직접 부르지 않는다(storage.js 주석 참조).
@@ -2716,7 +2751,7 @@ function _payoutExcelSaveWorkbook(wb, fileName) {
 function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
   const ws = wb.addWorksheet('회차 합계');
   ws.columns = [14, 16, 26, 30, 8, 12, 8, 10, 12].map(function(w) { return { width: w }; });
-  ws.addRow(['지급 예정일 ' + (opts.dueLabel || due) + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
+  ws.addRow(['지급 예정(회차) ' + (opts.dueLabel || due) + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
     + (opts.includePaid ? '송금완료 포함' : '미지급만') + ') · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
   if (opts.includeEarlier) {
     ws.addRow([opts.carryCount
@@ -2727,7 +2762,7 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
     ws.addRow(['⚠️ 지급대장 대조 전 — 이미 보낸 건이 미지급으로 보일 수 있습니다']).font = { color: { argb: 'FFCC3333' } };
   }
   ws.addRow([]);
-  ws.addRow(['이름(한자)', '이름(가나)', '이메일', 'PayPal', '건수', '합계(¥)', '미확정', '상태', '이전 회차 포함']).font = { bold: true };
+  ws.addRow(['이름(한자)', '후리가나', '이메일', '페이팔', '건수', '합계', '미확정', '상태', '이전 회차 포함']).font = { bold: true };
   const byPerson = groupSettlementsByPerson(rows);
   Object.keys(byPerson).forEach(function(id) {
     const entry = byPerson[id];
@@ -2751,12 +2786,12 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
 function _payoutExcelItemSheet(wb, rows, brandMap) {
   const ws = wb.addWorksheet('건별');
   ws.columns = [
-    { header: '이름(한자)', width: 14 }, { header: '이름(가나)', width: 16 },
-    { header: '캠페인번호', width: 16 }, { header: '캠페인', width: 28 }, { header: '브랜드', width: 18 },
-    { header: '모집 형식', width: 10 }, { header: '인증성공일', width: 12 },
-    { header: '원래 지급 예정일', width: 14 }, { header: '금액(¥)', width: 10 },
+    { header: '이름(한자)', width: 14 }, { header: '후리가나', width: 16 },
+    { header: '캠페인 번호', width: 16 }, { header: '캠페인', width: 28 }, { header: '브랜드', width: 18 },
+    { header: '모집 형식', width: 10 }, { header: '인증 성공일', width: 12 },
+    { header: '지급 예정(회차)', width: 14 }, { header: '금액', width: 10 },
     { header: '미확정', width: 8 }, { header: '상태', width: 10 },
-    { header: '송금완료일', width: 18 }, { header: 'PayPal', width: 30 },
+    { header: '송금일', width: 18 }, { header: '페이팔', width: 30 },
   ];
   ws.getRow(1).font = { bold: true };
   rows.forEach(function(r) {
@@ -2822,7 +2857,8 @@ function payoutPaypalHtml(p) {
 //   ⚠️ 날짜 칸 제목이 없으면 무슨 날짜인지 모른다(2026-08-18 지적) — 펼친 격자에도 칸 제목을 단다.
 const _payoutPersonOpen = new Set();   // 펼친 사람 id
 let _payoutPersonKeyMap = {};          // 사람 id → 그 사람의 선택 열쇠말(사람id|회차) 목록
-const _PAYOUT_ITEM_COLS = 'display:grid;grid-template-columns:100px minmax(0,1fr) 100px 100px 90px 64px;column-gap:12px;align-items:center;padding:6px 12px';
+// 열 순서는 캠페인별 펼침(_PAYOUT_CAMP_ITEM_COLS)과 같다 — … · 인증 성공일 · 지급 예정(회차) · 송금일 · 금액 · 상태(2026-10-01 사용자 결정)
+const _PAYOUT_ITEM_COLS = 'display:grid;grid-template-columns:minmax(0,1fr) 100px 100px 100px 90px 64px;column-gap:12px;align-items:center;padding:6px 12px';
 
 function _payoutPersonKeys(entry) {
   return Object.keys(entry.dues).map(function (d) { return entry.person.id + '|' + d; });
@@ -2848,9 +2884,9 @@ function _payoutItemRowHtml(r, sent, showDue) {
              onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
         : '');
   return `<div style="${_PAYOUT_ITEM_COLS};font-size:12px;border-top:1px solid var(--line)${sent ? ';color:var(--muted)' : ''}">
-    <div style="white-space:nowrap">${showDue ? (r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)) : ''}</div>
     <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${camp}">${camp}</div>
     <div style="white-space:nowrap" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : _missingDash(_MISSING_CERT_TIP)}</div>
+    <div style="white-space:nowrap">${showDue ? (r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)) : ''}</div>
     <div style="white-space:nowrap" title="실제로 송금한 날(기록된 값)">${sent && r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
     <div style="text-align:right;white-space:nowrap">${sent ? esc(_payoutYen(r.amount)) : _payoutAmountCell(r)}</div>
     <div>${state}</div>
@@ -2864,15 +2900,15 @@ function _payoutPersonDetailHtml(entry) {
   const p = entry.person;
   const dues = Object.keys(entry.dues).sort();
   let html = `<div style="${_PAYOUT_ITEM_COLS};font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3">
-      <div>지급 예정(회차)</div><div>캠페인</div><div>결과물 승인일</div><div>송금 완료일</div><div style="text-align:right">금액</div><div>상태</div>
+      <div>캠페인</div><div>인증 성공일</div><div>지급 예정(회차)</div><div>송금일</div><div style="text-align:right">금액</div><div>상태</div>
     </div>`;
   dues.forEach(function (d) {
     const list = entry.dues[d];
     const groupHead = dues.length > 1 && list.length > 1;
     if (groupHead) {
       html += `<div style="${_PAYOUT_ITEM_COLS};font-size:12px;border-top:1px solid var(--line);background:#FAFAFA">
-        <div style="font-weight:700;white-space:nowrap">${esc(d)}</div>
-        <div style="color:var(--muted)">이 회차 ${list.length}건</div><div></div><div></div>
+        <div style="color:var(--muted)">이 회차 ${list.length}건</div><div></div>
+        <div style="font-weight:700;white-space:nowrap">${esc(d)}</div><div></div>
         <div style="text-align:right;font-weight:700;white-space:nowrap">${esc(_payoutYen(_payoutSum(list)))}</div>
         <div><button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px;white-space:nowrap"
              onclick="openPayoutSendModal('${esc(p.id + '|' + d)}')" title="이 사람의 이 회차를 송금완료로 기록">회차 보냄</button></div>
@@ -2922,7 +2958,7 @@ function _payoutPersonTableHtml(entries) {
   return `<table class="data-table" style="width:100%">
       <thead><tr>
         <th style="width:36px"></th><th style="width:28px"></th>
-        <th style="width:140px">이름</th><th style="width:140px">가나</th><th>페이팔</th>
+        <th style="width:140px">이름(한자)</th><th style="width:140px">후리가나</th><th>페이팔</th>
         <th style="width:70px;text-align:right">미지급</th><th style="width:120px;text-align:right">미지급 금액</th>
         <th style="width:150px;text-align:right" title="송금완료로 기록된 건수·금액">지급 금액</th><th style="width:70px"></th>
       </tr></thead>
@@ -3123,17 +3159,21 @@ function onPayoutPersonSearch(v) {
   // ⚠️ 검색으로 **화면에서 사라진 선택은 버린다**(전수조사 B-2) — 정산 목록(527행 근처)·미등록
   //    화면이 이미 그렇게 한다. 안 보이는 사람의 묶음이 「선택한 건 보냄」에 그대로 실려
   //    확인창에는 걸러진 요약만 뜨고 실제 처리는 전체에서 고르던 어긋남을 막는다.
-  if (_payoutSearchTokens.length && _payoutSelected.size) {
-    const byPerson = groupSettlementsByPerson(_payoutRows || []);
-    const visible = new Set();
-    Object.keys(byPerson).forEach(function (k) {
-      const e = byPerson[k];
-      if (!payoutSearchHit([e.person.name, e.person.kana, e.person.paypal], _payoutSearchTokens)) return;
-      Object.keys(e.dues).forEach(function (d) { visible.add(e.person.id + '|' + d); });
-    });
-    _payoutSelected.forEach(function (key) { if (!visible.has(key)) _payoutSelected.delete(key); });
-  }
+  _payoutPruneHiddenSelection();
   renderPayoutPersonBody();   // ⚠️ 껍데기를 다시 그리면 검색창 포커스가 날아간다
+}
+// 검색·기간으로 화면에서 사라진 선택을 버린다 — 둘 다 같은 이유(위 B-2)라 한 곳에서 한다.
+function _payoutPruneHiddenSelection() {
+  const periodOn = !_payoutDueFilter && _payoutPeriodFrom && _payoutPeriodTo;
+  if (!_payoutSelected.size || !(_payoutSearchTokens.length || periodOn)) return;
+  const byPerson = groupSettlementsByPerson((_payoutRows || []).filter(_payoutInPeriod));
+  const visible = new Set();
+  Object.keys(byPerson).forEach(function (k) {
+    const e = byPerson[k];
+    if (!payoutSearchHit([e.person.name, e.person.kana, e.person.paypal], _payoutSearchTokens)) return;
+    Object.keys(e.dues).forEach(function (d) { visible.add(e.person.id + '|' + d); });
+  });
+  _payoutSelected.forEach(function (key) { if (!visible.has(key)) _payoutSelected.delete(key); });
 }
 
 // 껍데기(뒤로가기·제목·검색창)는 **한 번만** 그린다.
@@ -3180,44 +3220,73 @@ function groupPayoutRowsByCampaign(rows) {
   return by;
 }
 
-function payoutCampaignCardHtml(entry) {
+// ─── 캠페인별 보기 — 회원별 표와 같은 모양(2026-10-01 사용자 결정) ───
+//   줄을 누르면 펼치고, 펼친 안쪽은 회원별 펼침(_payoutPersonDetailHtml)과 같은 회색 머리 격자.
+//   ⚠️ **보기 전용**이라 체크박스·「보냄」 열이 없다(위 안내 상자 참조).
+//   ⚠️ 펼침은 캠페인 열쇠(번호|제목)로 기억한다 — onclick 에는 **목록 순번만** 넘긴다(제목에 따옴표가 들어올 수 있다).
+const _payoutCampOpen = new Set();
+let _payoutCampList = [];
+const _PAYOUT_CAMP_ITEM_COLS = 'display:grid;grid-template-columns:140px minmax(0,1fr) 100px 100px 100px 90px 64px;column-gap:12px;align-items:center;padding:6px 12px';
+function _payoutCampKey(entry) { return (entry.no || '') + '|' + (entry.title || ''); }
+function togglePayoutCampOpen(i) {
+  const e = _payoutCampList[i];
+  if (!e) return;
+  const k = _payoutCampKey(e);
+  if (_payoutCampOpen.has(k)) _payoutCampOpen.delete(k); else _payoutCampOpen.add(k);
+  renderPayoutPersonBody();
+}
+function _payoutCampDetailHtml(entry) {
   const rows = entry.rows.slice().sort(function (a, b) { return b.amount - a.amount; });
-  const people = new Set(rows.map(function (r) { return r.influencerId; })).size;
-  // ⚠️ 열 제목을 단다 — 회원별 화면과 **같은 항목·같은 순서**로. 제목 없는 날짜가 셋이면
-  //    어느 것이 무엇인지 알 수 없고, 두 화면이 서로 다른 순서로 보여주면 더 헷갈린다.
-  const head = `<div style="display:flex;gap:10px;align-items:baseline;padding:2px 0 3px;font-size:10px;color:var(--muted);
-             letter-spacing:.03em;border-top:1px solid var(--line);margin-top:4px">
-      <div style="min-width:150px">인플루언서</div>
-      <div style="flex:1">가나</div>
-      <div style="width:96px">지급 예정일</div>
-      <div style="width:96px">결과물 승인일</div>
-      <div style="width:96px">송금 완료일</div>
-      <div style="width:88px;text-align:right">금액</div>
-      <div style="width:52px">상태</div>
+  let html = `<div style="${_PAYOUT_CAMP_ITEM_COLS};font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3">
+      <div>이름(한자)</div><div>후리가나</div><div>인증 성공일</div><div>지급 예정(회차)</div><div>송금일</div><div style="text-align:right">금액</div><div>상태</div>
     </div>`;
-  const items = rows.map(function (r) {
+  rows.forEach(function (r) {
     const p = payoutPersonOf(r);
     const sent = r.status === 'paid';
-    return `<div style="display:flex;gap:10px;align-items:baseline;padding:3px 0;font-size:12px;border-top:1px dashed var(--line)${sent ? ';opacity:.7' : ''}">
-      <div style="min-width:150px;font-weight:600;color:var(--ink)">${esc(p.name || '(이름 미상)')}</div>
-      <div style="flex:1;color:var(--muted)">${esc(p.kana || '')}</div>
-      <div style="width:96px;color:var(--muted)">${r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)}</div>
-      <div style="width:96px;color:var(--muted)">${r.certAt ? esc(formatDate(r.certAt)) : _missingDash(_MISSING_CERT_TIP)}</div>
-      <div style="width:96px;color:var(--muted)">${r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
-      <div style="width:88px;text-align:right;font-weight:700">${_payoutAmountCell(r)}</div>
-      <div style="width:52px">${sent
+    html += `<div style="${_PAYOUT_CAMP_ITEM_COLS};font-size:12px;border-top:1px solid var(--line)${sent ? ';color:var(--muted)' : ''}">
+      <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name || '(이름 미상)')}</div>
+      <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.kana || '')}</div>
+      <div style="white-space:nowrap" title="결과물 최종 승인(인증 성공)일">${r.certAt ? esc(formatDate(r.certAt)) : _missingDash(_MISSING_CERT_TIP)}</div>
+      <div style="white-space:nowrap">${r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)}</div>
+      <div style="white-space:nowrap" title="실제로 송금한 날(기록된 값)">${sent && r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
+      <div style="text-align:right;white-space:nowrap">${sent ? esc(_payoutYen(r.amount)) : _payoutAmountCell(r)}</div>
+      <div>${sent
         ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>'
-        : '<span style="font-size:10px;color:#C33;font-weight:700">미지급</span>'}</div>
+        : '<span style="font-size:10px;color:#C33;font-weight:700;white-space:nowrap">미지급</span>'}</div>
     </div>`;
+  });
+  return `<div style="background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden">${html}</div>`;
+}
+function _payoutCampTableHtml(list) {
+  _payoutCampList = list;
+  const N = 'text-align:right;white-space:nowrap';
+  const dash = '<span style="color:var(--muted);opacity:.5">—</span>';
+  const rows = list.map(function (e, i) {
+    const unsent = e.rows.filter(_payoutUnsent);
+    const paid = e.rows.filter(function (r) { return r.status === 'paid'; });
+    const people = new Set(e.rows.map(function (r) { return r.influencerId; })).size;
+    const open = _payoutCampOpen.has(_payoutCampKey(e));
+    return `<tr style="cursor:pointer" onclick="togglePayoutCampOpen(${i})">
+        <td style="padding-left:0;padding-right:0;text-align:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);vertical-align:middle">${open ? 'expand_less' : 'expand_more'}</span></td>
+        <td style="font-size:12px;color:var(--muted);white-space:nowrap">${esc(e.no || '')}</td>
+        <td style="font-weight:600;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.title || '(캠페인 미상)')}">${esc(e.title || '(캠페인 미상)')}</td>
+        <td style="${N}">${people}명</td>
+        <td style="${N}">${unsent.length ? unsent.length + '건' : dash}</td>
+        <td style="${N};font-weight:700;color:#C33">${unsent.length ? esc(_payoutYen(_payoutSum(unsent))) + _payoutUnknownNote(unsent) : dash}</td>
+        <td style="${N};color:#16A34A">${paid.length ? paid.length + '건 · ' + esc(_payoutYen(_payoutSum(paid))) : dash}</td>
+      </tr>${open ? `<tr><td colspan="7" style="background:#FAFAFA;padding:10px 16px 12px 16px">${_payoutCampDetailHtml(e)}</td></tr>` : ''}`;
   }).join('');
-  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">
-    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px">
-      ${entry.no ? `<div style="font-size:11px;color:var(--muted)">${esc(entry.no)}</div>` : ''}
-      <div style="font-weight:700;font-size:13px">${esc(entry.title || '(캠페인 미상)')}</div>
-      <div style="margin-left:auto;font-size:12px">${rows.length}건 · ${people}명 · <b>${esc(_payoutYen(_payoutSum(rows)))}</b></div>
-    </div>
-    ${head}${items}
-  </div>`;
+  return `<table class="data-table" style="width:100%;table-layout:fixed">
+      <thead><tr>
+        <!-- ⚠️ 너비 고정 표라 칸 너비가 그대로 지켜진다 — 28px 에 여백 12px 씩이면 아이콘(18px)이 칸 밖으로 삐져나온다 -->
+        <th style="width:44px"></th>
+        <th style="width:140px">캠페인 번호</th><th>캠페인</th>
+        <th style="width:70px;text-align:right">인원</th>
+        <th style="width:70px;text-align:right">미지급</th><th style="width:120px;text-align:right">미지급 금액</th>
+        <th style="width:150px;text-align:right" title="송금완료로 기록된 건수·금액">지급 금액</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function renderPayoutPersonList() {
@@ -3225,6 +3294,15 @@ function renderPayoutPersonList() {
   if (!body) return;
   _payoutSubView = 'person';
   refreshSettlementNav();
+  // 회차 상세의 엑셀 옵션·다운로드는 요약과 같은 **탭 줄 오른쪽**(settlementNavTools)에 둔다(2026-10-01 사용자 결정).
+  //   ⚠️ 「지급일 기록 없음」은 엑셀이 없으므로 비운다 — 안 비우면 요약에서 남은 단추가 그대로 보인다.
+  const navTools = $('settlementNavTools');
+  if (navTools && _payoutDueFilter) {
+    navTools.innerHTML = _payoutDueFilter !== PAYOUT_NO_DUE
+      ? payoutExportIncludePaidHtml('payoutExportIncludePaidPerson') + payoutExportIncludeEarlierHtml('payoutExportIncludeEarlierPerson')
+        + payoutRoundExcelBtnHtml(_payoutDueFilter)
+      : '';
+  }
   body.innerHTML = `
    <div style="display:flex;flex-direction:column;flex:1;min-height:0">
     <!-- ⚠️ 바깥 상자 없이 **머리는 고정, 목록만 스크롤**한다(2026-09-30 사용자 지적 — 상자가 두 겹이었다).
@@ -3237,9 +3315,9 @@ function renderPayoutPersonList() {
             사라진다(선택 줄은 있을 때만 그려진다). -->
     <div style="flex-shrink:0;border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      ${_payoutDueFilter ? '<button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()">← 지급일 요약</button>' : ''}
-      <div style="font-weight:700;font-size:14px">${
-        !_payoutDueFilter ? '전체 기간'
+      ${_payoutDueFilter ? '<button class="btn btn-ghost btn-sm" onclick="backToPayoutSummary()" title="지급일 요약으로"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px;margin-left:-4px">chevron_left</span>뒤로</button>' : ''}
+      <div id="payoutPersonTitle" style="font-weight:700;font-size:14px">${
+        !_payoutDueFilter ? _payoutPeriodTitle()
         : (_payoutDueFilter === PAYOUT_NO_DUE ? '지급일 기록 없음' : esc(_payoutDueFilter) + ' 지급 예정')}</div>
       <!-- 검색칸과 스위치를 **한 덩어리로 묶어 오른쪽 끝**에 붙인다.
            ⚠️ 「admin-filter-search」 는 돋보기 아이콘 자리로 왼쪽 28px 을 비워 두는 클래스다.
@@ -3248,18 +3326,10 @@ function renderPayoutPersonList() {
            ⚠️ 이 주석은 **문자열 안**이다. 여기에 backtick 을 쓰면 문자열이 그 자리에서
               끊겨 파일 전체가 깨진다(2026-08-18 실제로 그랬다). 「」 로 감쌀 것. -->
       <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
-        <div style="position:relative;width:260px">
-          <span class="material-icons-round notranslate" translate="no"
-                style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-          <input id="payoutPersonSearchInput" type="search" class="admin-filter-search"
-                 autocomplete="off" data-lpignore="true" data-1p-ignore="true"
-                 placeholder="이름(한자·가나)·페이팔 이메일로 검색"
-                 value="${esc(_payoutPersonSearch)}" oninput="onPayoutPersonSearch(this.value)">
-        </div>
+        ${settleSearchInputHtml('payoutPersonSearchInput', _payoutPersonSearch, 'onPayoutPersonSearch(this.value)')}
+        ${!_payoutDueFilter ? settleRangeInputHtml('payoutPeriodRange', 'btnPayoutPeriodClear', 'clearPayoutPeriod',
+            '이 기간에 지급 예정인 건만 봅니다(지급 예정일 = 회차 날짜). 비우면 전체 기간', '지급 예정 시작일~종료일') : ''}
         ${payoutGroupSwitchHtml()}
-        ${(_payoutDueFilter && _payoutDueFilter !== PAYOUT_NO_DUE)
-          ? payoutExportIncludePaidHtml('payoutExportIncludePaidPerson') + payoutExportIncludeEarlierHtml('payoutExportIncludeEarlierPerson')
-            + payoutRoundExcelBtnHtml(_payoutDueFilter) : ''}
       </div>
     </div>
       <div id="payoutStickyInfo"></div>
@@ -3269,7 +3339,57 @@ function renderPayoutPersonList() {
          스크롤하면 자연스럽게 구분선 밑으로 들어간다(2026-08-19 사용자 지적). -->
     <div id="payoutPersonListBody" style="flex:1;min-height:0;overflow-y:auto"></div>
    </div>`;
+  _setupPayoutPeriodRange();
   renderPayoutPersonBody();
+}
+
+// 「사람별」 기간 칸 — 송금 내역 기간 칸과 같은 동작(양끝을 다 골랐을 때만 거른다).
+//   ⚠️ 머리를 다시 그릴 때마다(renderPayoutPersonList) 칸이 새 노드라 달력도 새로 붙인다.
+function _payoutPeriodTitle() {
+  return (_payoutPeriodFrom && _payoutPeriodTo)
+    ? esc(_payoutPeriodFrom) + ' ~ ' + esc(_payoutPeriodTo) + ' 지급 예정'
+    : '전체 기간';
+}
+function _syncPayoutPeriodUi() {
+  const on = !!(_payoutPeriodFrom && _payoutPeriodTo);
+  const el = $('payoutPeriodRange');
+  if (el) el.classList.toggle('filter-active', on);
+  const x = $('btnPayoutPeriodClear');
+  if (x) x.style.display = on ? 'inline-flex' : 'none';
+  const t = $('payoutPersonTitle');
+  if (t && !_payoutDueFilter) t.innerHTML = _payoutPeriodTitle();
+}
+function _setupPayoutPeriodRange() {
+  if (_payoutPeriodFp) { try { _payoutPeriodFp.destroy(); } catch (e) {} _payoutPeriodFp = null; }
+  const el = $('payoutPeriodRange');
+  if (!el || typeof flatpickr === 'undefined') return;
+  _payoutPeriodFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    defaultDate: (_payoutPeriodFrom && _payoutPeriodTo) ? [_payoutPeriodFrom, _payoutPeriodTo] : undefined,
+    onChange: function (d) {
+      if (d.length !== 2) return;
+      _payoutPeriodFrom = _settleFpDate(d[0]); _payoutPeriodTo = _settleFpDate(d[1]);
+      _syncPayoutPeriodUi();
+      _payoutPruneHiddenSelection();
+      renderPayoutPersonBody();
+    },
+  });
+  _syncPayoutPeriodUi();
+}
+function clearPayoutPeriod() {
+  _payoutPeriodFrom = ''; _payoutPeriodTo = '';
+  // ⚠️ clear(false) — 변경 이벤트를 안 일으킨다(인증 성공일 필터와 같은 함정)
+  if (_payoutPeriodFp) _payoutPeriodFp.clear(false);
+  _syncPayoutPeriodUi();
+  renderPayoutPersonBody();
+}
+// 사람별 기간 안의 건인가 — 기간이 없으면 전부, 있으면 지급 예정일이 그 안인 것만(문자열 비교 — 시간대 무관).
+function _payoutInPeriod(r) {
+  if (!(_payoutPeriodFrom && _payoutPeriodTo) || _payoutDueFilter) return true;
+  return !!r.due && r.due >= _payoutPeriodFrom && r.due <= _payoutPeriodTo;
 }
 
 // 목록만 다시 그린다(검색창은 건드리지 않는다).
@@ -3282,7 +3402,7 @@ function renderPayoutPersonBody() {
   //   ⚠️ 예전에는 안 보낸 것만 넘겼다. 그러면 절반을 보낸 회차에서 **이미 보낸 사람이
   //      목록에서 사라져**, 「이 사람 보냈던가」를 확인할 데가 없었다.
   //   보낸 것은 사람 카드 안에서 「이미 기록됨」 줄로 따로 묶인다(groupSettlementsByPerson).
-  let rows = !_payoutDueFilter ? all
+  let rows = !_payoutDueFilter ? all.filter(_payoutInPeriod)
     : (_payoutDueFilter === PAYOUT_NO_DUE
         ? all.filter(function(r) { return !r.due; })
         : all.filter(function(r) { return r.due === _payoutDueFilter; }));
@@ -3300,17 +3420,15 @@ function renderPayoutPersonBody() {
     const byCamp = groupPayoutRowsByCampaign(cr);
     const list = Object.keys(byCamp).map(function (k) { return byCamp[k]; })
       .sort(function (a, b) { return _payoutSum(b.rows) - _payoutSum(a.rows); });
-    // 스크롤 칸(payoutPersonListBody)은 회원별 표가 끝까지 쓰도록 여백이 없다 — 카드 보기는 안쪽 여백을 따로 준다.
-    body.innerHTML = `<div style="padding:14px 4px 16px 0">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+    // 요약 줄은 회원별과 같은 자리(고정 영역 payoutStickyInfo)에 둔다 — 선택 줄은 없다(보기 전용).
+    const info = $('payoutStickyInfo');
+    if (info) info.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">
         캠페인 ${list.length}개 · ${cr.length}건 · 합계 <b style="color:var(--ink)">${esc(_payoutYen(_payoutSum(cr)))}</b>
-      </div>
-      <div style="padding:8px 10px;background:#F7F7F8;border:1px solid var(--line);border-radius:8px;font-size:12px;line-height:1.6;color:var(--muted);margin-bottom:12px">
-        캠페인별은 <b>보기 전용</b>입니다. 송금은 사람에게 하므로 실제 처리는 「회원별」에서 하세요 —
-        한 사람이 여러 캠페인에 걸쳐 있어, 캠페인 쪽에서 고르면 그 사람에게 보낼 금액이 갈라집니다.
-      </div>
-      ${list.length ? list.map(payoutCampaignCardHtml).join('')
-        : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>'}</div>`;
+        <span style="margin-left:8px">· 캠페인별은 <b>보기 전용</b>입니다. 송금은 사람에게 하므로 실제 처리는 「회원별」에서 하세요
+          (한 사람이 여러 캠페인에 걸쳐 있어, 캠페인 쪽에서 고르면 그 사람에게 보낼 금액이 갈라집니다).</span>
+      </div><div style="height:8px"></div>`;
+    body.innerHTML = list.length ? _payoutCampTableHtml(list)
+      : '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">대상이 없습니다.</div>';
     return;
   }
 
@@ -3363,12 +3481,20 @@ function renderPayoutPersonBody() {
   }
   body.innerHTML = `
     ${entries.length ? _payoutPersonTableHtml(entries)
-      : `<div id="payoutEmptyBox" style="padding:24px;text-align:center;color:var(--muted);font-size:13px">${
-          _payoutSearchTokens.length ? '찾는 중…' : '대상이 없습니다.'}</div>`}
+      : `<div id="payoutEmptyBox" style="padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">${
+          _payoutSearchTokens.length ? '찾는 중…'
+          : (!_payoutDueFilter && _payoutPeriodFrom && _payoutPeriodTo)
+            ? '이 기간(지급 예정일 기준)에 해당하는 건이 없습니다.<br>지급일 기록이 없는 건은 기간을 비워야 보입니다.'
+            : '대상이 없습니다.'}</div>`}
     `;
 
   // 비었으면 **왜 없는지** 찾아본다(화면을 그린 뒤 비동기 — 목록 표시를 막지 않는다)
-  if (!entries.length && _payoutSearchTokens.length) payoutExplainMissing(_payoutPersonSearch);
+  // ⚠️ 기간을 넣은 채면 「왜 없는지」 조회가 기간 밖 건을 「이 화면에 없다」로 잘못 말한다 — 기간이 없을 때만.
+  if (!entries.length && _payoutSearchTokens.length && !(_payoutPeriodFrom && _payoutPeriodTo)) payoutExplainMissing(_payoutPersonSearch);
+  else if (!entries.length && _payoutSearchTokens.length) {
+    const box = $('payoutEmptyBox');
+    if (box) box.innerHTML = '이 기간(지급 예정일 기준)에 찾는 사람이 없습니다.<br>기간을 비우고 다시 찾아보세요.';
+  }
 }
 
 // 검색 결과가 비었을 때 왜 없는지 알려준다.
@@ -3602,6 +3728,10 @@ const _transferOpen = new Set();     // 펼친 묶음 id
 let _transferDetail = null;
 let _transferAllRows = undefined;    // 회차별 상세용 **전 기간** 묶음(기간을 넣었을 때만 따로 받는다). undefined 안 받음 / null 실패 / 배열
 let _transferLoadSeq = 0;
+// 송금 내역 검색(받는 사람 이름 한자·가나·페이팔) — 「전체」 목록만 거른다(2026-10-01).
+//   ⚠️ 월별·회차별은 **서버 집계값**이라 사람으로 다시 거를 수 없다(합계는 서버 저장값만 — 위 규칙). 그 보기에선 칸을 잠근다.
+let _transferSearch = '';
+let _transferSearchTokens = [];
 
 function _hideTransferView() {
   const v = $('settlementTransferView');
@@ -3716,16 +3846,13 @@ function _renderTransferToolbar() {
         <!-- 필터 줄 모양은 진행현황 「인증 성공일」과 같다 — 달력 칸 + 옆의 × 지우기(기간이 있을 때만).
              admin-filter-bar 안이라 버튼 높이가 입력 칸과 같은 32px 로 맞춰진다(admin.css). -->
         <div class="admin-filter-bar">
+          <!-- 검색칸·기간 칸은 「사람별」과 같은 모양(settleSearchInputHtml·settleRangeInputHtml). × 는 칸 안쪽 오른쪽 끝. -->
+          <div class="admin-filter-group" id="transferSearchWrap">
+            ${settleSearchInputHtml('transferSearchInput', _transferSearch, 'onTransferSearch(this.value)')}
+          </div>
           <div class="admin-filter-group">
-            <!-- × 는 입력 칸 **안쪽 오른쪽 끝**에 겹쳐 둔다(2026-09-30 사용자 결정). 입력 칸 오른쪽 여백을 그만큼 비운다.
-                 ⚠️ 아이콘을 1px 내린 것은 날짜 글자(12px)가 글꼴 특성상 칸 가운데보다 살짝 아래에 그려져서다 — 가운데 정렬만 하면 × 가 떠 보인다. -->
-            <div style="position:relative">
-              <input type="text" id="transferRange" class="admin-filter-search" readonly placeholder="시작일~종료일 선택"
-                     title="이 기간에 보낸 송금만 봅니다(회차별은 회차 날짜로 거릅니다). 비우면 전체 기간"
-                     style="min-width:200px;cursor:pointer;background:#fff;padding:6px 28px 6px 10px">
-              <button type="button" id="btnTransferRangeClear" onclick="clearTransferPeriod()" title="기간 지우기(전체 기간)" aria-label="기간 지우기"
-                      style="display:none;position:absolute;right:4px;top:0;bottom:0;margin:auto 0;width:22px;height:22px;padding:0;border:none;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;line-height:1;display:block;position:relative;top:1px">close</span></button>
-            </div>
+            ${settleRangeInputHtml('transferRange', 'btnTransferRangeClear', 'clearTransferPeriod',
+              '이 기간에 보낸 송금만 봅니다(회차별은 회차 날짜로 거릅니다). 비우면 전체 기간', _transferRangePlaceholder())}
           </div>
           <button class="btn btn-ghost btn-sm" onclick="exportTransferHistoryExcel()" title="지금 기간의 송금 내역과 포함 건을 엑셀로 내려받습니다">
             ${_DOWNLOAD_XLSX_HTML}
@@ -3745,6 +3872,41 @@ function _renderTransferToolbar() {
         style="display:inline-flex;color:#D4D4D8;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">help</span></span></button>`;
   }).join('');
   closeTransferHelp();
+  _syncTransferSearchUi();
+}
+
+// 기간 칸 안내 문구 — 무엇의 시작·종료일인지 적는다. ⚠️ 회차별은 송금일이 아니라 **회차 날짜**로 거른다.
+function _transferRangePlaceholder() {
+  return _transferMode === 'round' ? '회차 시작일~종료일' : '송금 시작일~종료일';
+}
+// 검색칸은 「전체」 목록에서만 쓴다 — 월별·회차별(상세 포함)에서는 잠그고 이유를 말한다(숨기지 않는다).
+function _syncTransferSearchUi() {
+  const rg = $('transferRange');
+  if (rg) rg.placeholder = _transferRangePlaceholder();   // 도구 줄은 한 번만 그리므로 보기를 바꿀 때 여기서 맞춘다
+  const el = $('transferSearchInput');
+  if (!el) return;
+  const on = _transferMode === 'list';
+  el.disabled = !on;
+  el.title = on ? '받는 사람 이름(한자·후리가나)·페이팔 이메일로 찾습니다'
+    : '월별·회차별 합계는 서버가 낸 값이라 사람으로 거를 수 없습니다. 「전체」에서 검색하세요';
+  el.style.opacity = on ? '' : '0.5';
+  // ⚠️ 잠긴 칸에 검색어가 남아 보이면 월별·회차별 합계가 걸러진 것으로 읽힌다 — 잠긴 동안은 비워 보이고 「전체」에서 되살린다.
+  el.value = on ? _transferSearch : '';
+}
+function onTransferSearch(v) {
+  _transferSearch = (v || '').trim();
+  _transferSearchTokens = _transferSearch.split(/[\s\u3000]+/).filter(Boolean).map(_payoutNorm);
+  if (_transferMode === 'list' && !_transferDetail) _renderTransferBody();   // ⚠️ 도구 줄은 다시 그리지 않는다(포커스 유지)
+}
+// 묶음의 받는 사람 가나 — 묶음 조회에는 없어 정산 행(_settlements)의 회원 정보에서 찾는다.
+function _transferKanaOf(t) {
+  const items = Array.isArray(t.items) ? t.items : [];
+  for (let i = 0; i < items.length; i++) {
+    const s = (_settlements || []).find(function (x) { return x.id === items[i].settlement_id; });
+    const k = s && s.influencers && s.influencers.name_kana;
+    if (k) return k;
+  }
+  return null;
 }
 
 // 기간 칸의 「걸림」 표시와 × 버튼을 함께 맞춘다(기간이 있을 때만 × 가 보인다).
@@ -3759,7 +3921,7 @@ function _syncTransferRangeUi() {
 function _setupTransferRange() {
   const el = $('transferRange');
   if (!el || typeof flatpickr === 'undefined') return;
-  const fmt = function (d) { return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : ''; };
+  const fmt = _settleFpDate;
   _transferFp = flatpickr(el, {
     mode: 'range',
     dateFormat: 'Y-m-d',
@@ -3850,7 +4012,7 @@ function _renderTransferBody() {
 
 // 받는 사람은 송금 내역의 모든 표에서 **이름 · 페이팔 두 칸**으로 같게 보인다(2026-09-30 사용자 결정 — 표마다 달랐다).
 //   ⚠️ 줄바꿈하지 않는다(nowrap). 페이팔은 정산 행 스냅샷에서 찾는다(_transferPaypalOf).
-const _TRANSFER_PAYEE_HEAD = '<th style="width:130px">받는 사람</th><th style="width:220px">페이팔</th>';
+const _TRANSFER_PAYEE_HEAD = '<th style="width:130px">이름(한자)</th><th style="width:220px">페이팔</th>';
 function _transferPayeeCells(name, paypal) {
   return `<td style="font-weight:600;white-space:nowrap">${esc(name || '(탈퇴한 회원)')}</td>
     <td style="font-size:11px;font-family:monospace;white-space:nowrap;color:var(--muted)">${paypal ? esc(paypal) : '—'}</td>`;
@@ -3866,10 +4028,19 @@ function _transferPaypalOf(t) {
 }
 
 function _transferListHtml() {
-  const rows = _transferRows;
-  if (rows === undefined) return '';
-  if (rows === null) return _transferFailHtml();
-  if (!rows.length) return _transferEmptyHtml();
+  const all = _transferRows;
+  if (all === undefined) return '';
+  if (all === null) return _transferFailHtml();
+  if (!all.length) return _transferEmptyHtml();
+  const rows = _transferSearchTokens.length
+    ? all.filter(function (t) {
+        return payoutSearchHit([t.influencer_name, _transferKanaOf(t), _transferPaypalOf(t)], _transferSearchTokens);
+      })
+    : all;
+  if (!rows.length) {
+    return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">'
+      + '이 기간 송금 중 「' + esc(_transferSearch) + '」 로 찾은 받는 사람이 없습니다.<br>기간을 넓히거나 이름 표기를 확인해 주세요.</div>';
+  }
   let sent = 0, fee = 0, cnt = 0;
   rows.forEach(function (t) { sent += Number(t.sent_total_jpy) || 0; fee += Number(t.fee_jpy) || 0; cnt += (t.items || []).length; });
   const canEdit = canWrite('settlement.pay');
@@ -3978,7 +4149,7 @@ function _transferRoundHtml() {
       + '이 기간(회차 날짜 기준)에 해당하는 송금이 없습니다.<br>'
       + '인증 성공일이 없는 건은 「지급일 기록 없음」으로 따로 모이는데, 그 줄은 <b>「전체 기간」에서만</b> 보입니다.</div>';
   }
-  return _transferSummaryTableHtml(_transferRound, '원래 지급 예정일(회차)', function (r) {
+  return _transferSummaryTableHtml(_transferRound, '지급 예정(회차)', function (r) {
     return r.due_date ? esc(r.due_date) : '<span style="color:var(--muted)">지급일 기록 없음</span>';
   }, '', {
     mode: 'round',
@@ -4006,7 +4177,7 @@ function backTransferSumDetail() {
   _renderTransferBody();
 }
 
-// 상세 화면 — 머리(← 요약 · 제목 · 합계)는 고정, 표만 스크롤.
+// 상세 화면 — 머리(뒤로 · 제목 · 합계)는 고정, 표만 스크롤.
 function _transferDetailPageHtml() {
   const d = _transferDetail;
   const isRound = d.mode === 'round';
@@ -4023,7 +4194,7 @@ function _transferDetailPageHtml() {
   return `<div style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div style="flex-shrink:0;padding:14px 16px 12px;border-bottom:1px solid var(--line)">
         <div style="display:flex;align-items:center;gap:10px">
-          <button class="btn btn-ghost btn-sm" onclick="backTransferSumDetail()">← ${isRound ? '회차별' : '월별'} 요약</button>
+          <button class="btn btn-ghost btn-sm" onclick="backTransferSumDetail()" title="${isRound ? '회차별' : '월별'} 요약으로"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px;margin-left:-4px">chevron_left</span>뒤로</button>
           <div style="font-weight:700;font-size:14px">${title}</div>
         </div>
         ${sum ? `<div style="font-size:12px;color:var(--muted);margin-top:8px">${sum}</div>` : ''}
@@ -4117,10 +4288,10 @@ async function exportTransferHistoryExcel() {
     ws1.columns = [12, 18, 30, 8, 12, 10, 8, 12, 22, 30].map(function (w) { return { width: w }; });
     ws1.addRow(['송금 내역 · 송금일 ' + (_transferFrom || '처음') + ' ~ ' + (_transferTo || '지금') + ' · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
     ws1.addRow([]);
-    ws1.addRow(['송금일', '받는 사람', '페이팔(정산 행 기록)', '건수', '보낸 금액', '수수료', '수수료 고침', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
+    ws1.addRow(['송금일', '이름(한자)', '페이팔', '건수', '보낸 금액', '수수료', '수수료 수정', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
     const ws2 = wb.addWorksheet('포함 건');
     ws2.columns = [12, 18, 14, 34, 12, 12, 10].map(function (w) { return { width: w }; });
-    ws2.addRow(['송금일', '받는 사람', '캠페인 번호', '캠페인', '원래 지급 예정일', '보낸 금액', '현재 연결']).font = { bold: true };
+    ws2.addRow(['송금일', '이름(한자)', '캠페인 번호', '캠페인', '지급 예정(회차)', '보낸 금액', '현재 연결']).font = { bold: true };
     let sent = 0, fee = 0;
     rows.forEach(function (t) {
       const day = _settlementDateInputValue(t.sent_at);
