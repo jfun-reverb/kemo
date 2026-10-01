@@ -181,6 +181,55 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: "server_error" }, 500);
     }
 
+    // ── 이미 가입된 주소(인증 완료 계정) — 번호 대신 「이미 가입되어 있습니다」 안내 메일 ──
+    //   사용자 결정 2026-10-01(마이그레이션 499). 🔴 **응답은 번호 메일과 똑같이 「sent」** — 가입 여부는
+    //   이 메일함 주인만 안다(완료 기준 10). 발급한 번호는 곧바로 무효로 한다(쓸 일이 없다).
+    //   판정에 실패하면 **번호 메일로 진행**한다 — 안내를 못 해도 가입 관문이 최종 방어선이다.
+    const appUrlBase = env("PUBLIC_APP_URL", "https://globalreverb.com").replace(/\/$/, "");
+    let registered = false;
+    {
+      const { data: reg, error: regErr } = await sb.rpc("signup_email_registered", { p_email: email });
+      if (regErr) console.error("[signup-code-send] registered check failed", regErr.message);
+      else registered = reg === true;
+    }
+    if (registered) {
+      const { error: cancelErr } = await sb.rpc("signup_code_cancel", { p_code_id: data.code_id });
+      if (cancelErr) console.error("[signup-code-send] cancel rpc failed", cancelErr.message);
+      const tplReg = TEMPLATES["signup-already-registered"].replace(/<!--[\s\S]*?-->/g, "");
+      const loginUrl = `${appUrlBase}/#login`;
+      const forgotUrl = `${appUrlBase}/#forgot`;
+      const regHtml = render(tplReg, {
+        login_url: loginUrl,
+        forgot_url: forgotUrl,
+        site_url: appUrlBase,
+        help_line_url: HELP_LINE_URL,
+      });
+      const regSubject = "【REVERB JP】すでに登録されています";
+      const regText =
+        `このメールアドレスは、すでに REVERB JP に登録されています。\n` +
+        `そのため、認証コードはお送りしていません。\n\n` +
+        `ログイン: ${loginUrl}\n` +
+        `パスワードを再設定する: ${forgotUrl}\n\n` +
+        `このメールに心当たりがない場合は、何もせずこのメールを削除してください。登録内容は変わりません。\n\n` +
+        `お問い合わせ LINE: ${HELP_LINE_URL}\n`;
+      const sameReply = {
+        ok: true,
+        status: "sent",
+        code_expires_at: data.code_expires_at,
+        resend_available_at: data.resend_available_at,
+      };
+      if (devEchoEnabled()) {
+        return json({ ...sameReply, dev_mail: { to: email, subject: regSubject, html: regHtml } });
+      }
+      try {
+        await sendBrevoEmail({ to: email, subject: regSubject, htmlContent: regHtml, textContent: regText });
+      } catch (e) {
+        console.error("[signup-code-send] registered mail failed", (e as Error).message);
+        return json({ ok: false, error: "send_failed" });
+      }
+      return json(sameReply);
+    }
+
     // 유효 시간(분) — 서버가 정한 만료 시각에서 계산(설정 표 수치가 바뀌어도 메일이 맞다)
     const expiresMs = new Date(data.code_expires_at).getTime() - Date.now();
     const minutes = String(Math.max(1, Math.round(expiresMs / 60000)));
