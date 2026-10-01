@@ -87,60 +87,19 @@
 - 🔴 **빌드는 ES 모듈이 아니라 단순 이어붙이기(concat)라 전역 스코프가 하나다** — `admin-core.js` 가 다른 `admin-*` 보다 **앞**, `admin.js` 가 페인 파일들보다 **뒤**, `admin/app.js` 가 **맨 마지막**(`dev/build.sh` 의 순서). 인플루언서 쪽은 `lib/*` 가 `js/*` 보다 앞, `js/app.js` 가 맨 마지막
 - Supabase 미연결 시 localStorage 로 동작 (DEMO_MODE)
 ## Features — 인플루언서 (모바일)
-- **회원가입**: 1단계 폼 (이름 한자·가나 + **생년월일·성별** + 이메일 + 비밀번호 + 약관·개인정보 동의[필수]·마케팅 동의[선택]), SNS·배송지는 마이페이지에서 입력
-  - 🔴 **폼 값은 화면이 아니라 가입 트리거가 저장한다**(마이그레이션 382, 현재 원본 **420**). ⚠️ **420 부터 동의 시각 셋은 계정 생성 ±1일 안에서만 브라우저 값을 믿고 밖이면 `now()`, 생년월일은 1900~오늘(일본) 밖이면 NULL** — `signUp` 은 공개 키로 누구나 부른다(I-1). 소급분(381, 동의 시각 = 가입 시각) 구분 유지. 화면은 `signUp` 의 `options.data` 로 넘기고 서버가 `auth.users.raw_user_meta_data` 에서 꺼내 `influencers` 에 넣은 뒤 **그 자리를 지운다**(`email` 키는 남긴다).
-  - ⚠️ **화면에서 저장할 수 없는 이유** — 가입 직후에는 세션이 없어 본인 행 쓰기 정책에 막힌다. 그래서 이 경로가 유일하다.
-  - 🔴 **지우는 일은 삽입 때 한 번으로 안 끝난다**(마이그레이션 383). 인증 서비스가 계정 생성 직후 자기 사본으로 한 번 더 저장하며 382 가 지운 자리를 되돌린다(`updated_at > created_at`, 트리거 자체는 `age_consent_at` 까지 끝까지 돈다). 그래서 383 이 `auth.users` 에 **`BEFORE UPDATE OF raw_user_meta_data`** 트리거로 **쓰기마다** 그 아홉 개를 떨궈낸다(순서에 기대지 않는다).
-    - ⚠️ **열쇠말 목록은 `public._strip_signup_meta(jsonb)` 한 곳**이고 트리거와 기존 행 일괄 정리가 함께 쓴다. 382 안에도 같은 목록이 남아 있는데 **어긋나면 383 쪽이 이긴다**(쓰기마다 돌기 때문).
-    - 🔴 **이 함수가 오류를 내면 로그인이 통째로 막힌다**(마지막 로그인 시각 쓰기에도 낀다). 그래서 ①객체가 아니면 통과 ②`EXCEPTION WHEN others THEN RETURN NEW` 로 **오류가 새지 않게** 했다 — 대신 실패는 조용하다(값이 남은 채 지나간다).
-    - ⚠️ **이 칸에 `name` 같은 값을 담아 쓰려 하면 조용히 사라진다.** 지금 읽는 곳 0곳, 관리자 초대(245)의 `sub`·`email`·`email_verified`·`phone_verified` 와도 안 겹친다.
-    - ⚠️ **적용 뒤 반드시 실제 가입을 한 번 해 볼 것** — 되돌려 쓰는 순간을 재현해야 한다(SQL 편집기로는 안 됨).
-  - ⚠️ **가입 뒤 `upsertInfluencer` 를 다시 부르지 말 것** — **행 전체를 대체**해 트리거가 넣은 값을 되돌린다(`created_at` 이 브라우저 시각으로 덮인다). 그 호출은 382 에서 제거했다.
-  - ⚠️ 382 이전 가입 폼 값은 **운영에서 저장되지 않았다**(`auth.js` 가 이메일 확인 대기면 `return` — 확인이 꺼진 개발서버와 달랐다). 과거분은 381 로 소급.
-- **가입 이메일 도메인 점검**(`signupEmailCheck`, auth.js — 화면에서만): `@` 뒤에 점이 없거나 끝이 글자 2자 미만이면 **막고**(`authError.emailInvalid`), 흔한 오타(`SIGNUP_EMAIL_TYPO_DOMAINS` — `gmail.co`·`i.softbank.jo` 등, `.con`)는 **한 번 알리고 같은 주소로 다시 누르면 통과**(`authError.emailTypo`). ⚠️ `type="email"` 은 `a@gmail` 을 통과시키고 인증 서비스도 안 막는다 — 운영에 그렇게 가입해 확인 메일을 영영 못 받은 계정이 있었다(2026-10-01)
-- **흔한 비밀번호 경고**(가입·재설정·마이페이지 변경): 새 비밀번호 칸 아래 노란 줄(`auth.pwCommonWarn`)만 띄우고 **버튼은 막지 않는다**. 판정은 관리자 거부와 같은 `commonPasswordCheck`(`bindCommonPasswordWarning` 이 `app.js` 부팅 때 세 칸에 붙인다). ⚠️ 경고를 보고 진행했는지는 기록하지 않는다(새 정보 수집). 약관 판단은 「방침 개정 불필요 — 해시 앞 5글자만, 우리 서버 함수 경유」에 기대므로 **브라우저가 외부 서비스에 직접 묻게 바꾸면 다시 본다**
-- **로그인/로그아웃**: 이메일+비밀번호, 세션 복원, 관리자 로그인 시 admin 페이지 자동 오픈
-- **비밀번호 재설정**: 이메일 → 재설정 메일 → 앱 내 새 비밀번호 설정 (`#page-forgot`, `#page-reset-pw`)
-- **GNB**: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 우측 햄버거 메뉴 (계정 카드[우측 알림 벨] + 홈/캠페인/마이페이지 아코디언/로그아웃/회원탈퇴), 관리자는 Admin 버튼
-- **회원가입 이메일 확인**: 운영서버 한정 Supabase Confirm sign-up 활성, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단. 개발서버는 Confirm email OFF. auth.js 는 `data.session` 유무로 자동 분기
-  - 🔴 **확인 링크는 `?code=` 로 착지하고, 그것은 재설정 신호가 아니다**. `detectRecoveryUrlEarly` 가 재설정으로 읽으면 새 회원이 **「새 비밀번호 설정」 화면**에 떨어지고, 다른 브라우저면(검증값 없음 — supabase-js 는 교환을 시도조차 안 한다) 「Auth session missing」. 착지는 **세션 있으면 홈 + 「メール認証が完了しました」 토스트 / 없으면 로그인 화면 + `#loginNotice` 안내**. ⚠️ `?code=` 는 **스크립트 로드 때** `_signupConfirmCodeSeen` 에 봐 둔다(교환 성공 시 주소에서 지워져 `init()` 에서는 놓친다). ⚠️ `?error=…expired` 착지는 **로그인 화면**(`auth.confirm.linkExpired`). ⚠️ 재설정 신호는 `#reset-pw?`·`PASSWORD_RECOVERY`·옛 implicit 해시(`type=recovery`·`access_token=`)뿐 — `?code=` 조건을 되살리지 말 것. `handleLogin` 의 「프로필 없으면 만든다」는 **조회 실패(error)와 0건을 가른다**(실패면 `handleLogin.profileFetch` 기록만). 사양서 `docs/specs/2026-09-10-signup-confirm-link-routing-fix.md`
-- **캠페인 목록**: 채널·모집유형 필터. 노출 대상은 active + scheduled + closed(노출 ON)
-- **캠페인 카드 배지**: 좌상단 `募集中`(active), 우상단 `NEW`(7일 이내), 제목 위 `締切間近`(deadline<5일 또는 잔여 slots≤30%), 콘텐츠 종류 아래 모집타입 pill + `{applied}/{slots}名` 슬롯 카운트, 이미지 좌하단 첫 채널+`+N`
-- **캠페인 목록 탭별 주소**: `#campaigns`·`#campaigns-reviewer`·`-gifting`·`-visit`. 판정은 `isCampaignsHash`·`campPageTypeFromHash`(campaign.js) **두 함수로만** — `'campaigns'` 와 정확히 같은지로 판정하는 자리를 새로 만들면 탭 주소에서 빈 화면. 탭 클릭은 `pushState`(메타 픽셀이 페이지뷰 1건으로 셈), 같은 탭 재클릭은 무동작. 🔴 `loadCampaignsPage(목표 주소)` — 부르기 전 `location.hash` 를 읽지 말 것. 사양서 `docs/specs/2026-09-30-campaign-list-tab-url.md`
-- **상세 뒤로 단추 = 온 곳으로**: 출처(`_detailFrom` 응모이력/홈/목록+탭)와 단추 이름은 `openCampaign()` **한 곳에서 떠 있던 화면으로** 정한다(상세 안 재호출은 유지). ⚠️ 이름표는 초대 게이트 갈래보다 **앞**에서 붙인다. `history.back()` 금지(직접 진입이면 사이트를 떠난다)
-- **캠페인 상세**: 이미지 캐러셀(최대9장), 상품정보·모집조건·참가방법·가이드라인·NG, LINE/Instagram CTA, 조회수 카운트, closed 시 신청버튼 비활성(募集締切). 채널 pill 사이에 `or` 또는 `&` 구분자 (`channel_match`)
-- **캠페인 신청**: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS / zip+prefecture+city+phone / PayPal) → 동기메시지 + 배송지 + PR태그 동의, 중복 방지, 최소 팔로워 미달 차단
-- **주의사항 동의**: `caution_items` 가 있으면 ①상세 "주의 사항" 섹션 + ②신청 모달 상단 빨간 박스. 하단 "全ての注意事項を確認しました" 체크 필수. 동의 시 `applications.caution_agreed_at` + `caution_snapshot`(jsonb) — 신청 시점 스냅샷이라 번들 수정 무영향. 응모이력에 동의 시각 배지
-- **응모 차단**: 리뷰어(monitor)는 `applied_count >= slots` 면 신규 응모 차단(기프팅·방문형은 초과 허용)
-- **마이페이지**: 입력 폼 7종(応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/メール受信設定) 컨테이너(`#mypage-list` 제거). 진입은 햄버거 「マイページ」 서브항목, 백버튼 없음. `navigate('mypage')`·`#mypage`/`#mypage-*` popstate 는 応募履歴(`closeMypageSub`)로. 대표SNS 선택, 미입력 "未登録" 배지(`computeProfileBadges`)
-- **메일 수신 설정**(`#mypage-email-settings`): 마케팅 메일 ON/OFF + 업무 알림 상시 발송 안내. ON → `resubscribe_marketing()`(`marketing_agreed_at` 갱신 — 특정전자메일법 동의 근거), OFF → `influencers.marketing_opt_in=false` + `marketing_unsubscribed_at` 본인 행 UPDATE. `storage.js` `resubscribeMarketing()`/`updateMarketingOptIn(value)`(ON 은 RPC 위임 — 동의시각 누락 차단)
-- **메일 수신거부 라우트**(`#unsubscribe?token=...`): 홍보 메일 하단 1-click 수신거부. 비로그인·토큰만으로 `unsubscribe_by_token(token)` 익명 RPC → 성공/무효 화면(무효·만료는 「リンクが無効です」). `app.js` 가 쿼리 붙은 해시(`#unsubscribe?token=`)를 파싱해 `handleUnsubscribePage(token)`. ⚠️ **템플릿의 수신거부 줄은 지우지 말 것** — 일본 특정전자메일법 필수 표시다(한때 주석으로 빠진 채 몇 달간 아무도 몰랐다)
-- **GNB 햄버거 메뉴**: ☰ 미읽음 배지(9+), 우측 슬라이드. 로그인 시 — 계정 카드(이름·SNS핸들·이메일 + **알림 벨**·배지) → 홈/캠페인 → 「マイページ」 아코디언(기본 펼침, 서브 7종 각 `min-height:48px`, 「未登録」 배지) → ログアウト → 退会する(`margin-top`). **メッセージ 항목 없음**(메시지는 응모이력 카드, 답장은 `message_received` 알림), **通知는 벨로 통합**. 열 때 프로필 새로고침(`_lastUnread` 캐시 → `applyNotifBadge`). 찌부러짐 방지 `.nav-menu>*{flex-shrink:0}` 필수. 비로그인은 로그인/회원가입, 인증 페이지에선 숨김
-- **알림 모달**: deliverables.status 트리거 알림 3종(rejected/changed/approved). 클릭 시 읽음 + 활동관리로. "모두 읽음" 버튼
-- **활동관리**: 승인된 캠페인에서 결과물 제출. monitor=영수증(이미지 + 주문번호·구매일·구매금액 필수. 「画像から自動入力」(이미지에서 자동 입력)이 기기 안 글자인식(Tesseract.js jpn+eng)으로 **빈 칸만 채운다 — 외부 전송 0·최종 확인 필수**, 실패해도 제출 가능. `dev/lib/ocr-receipt.js`) / gifting·visit=SNS 게시물 주소(자동 채널 판별, 실패 시 드롭다운 — **캠페인 채널로 제한**, **불일치면 toast 차단**. `postChannelMatchesCampaign`(shared.js), 서버는 182). **주소 오타 자동 보정**(`normalizeUrlInput`, shared.js — `ttp://`·스킴 누락 → `https://`, 위험 스킴 차단. **대리 등록 공통**). `deliverables` 직접 INSERT + `submit_deliverable` RPC. 반려 사유는 빨간 배너, 재제출 시 pending(동일 URL 은 `post_submissions` 에 날짜 누적). `submission_end` 경과 시 폼 비활성
-- **「올려두고 제출 안 함」 재발 방지**(데이터베이스 변경 없음 — 작업표 `docs/specs/2026-08-25-deliverable-draft-stall-breakdown.md`): **①리스트에 추가 ②제출하기** 중 ①만 하고 끝난 줄 아는 미제출이 쌓인다(세 종류 전부).
-  - **인플루언서가 보는 자리 네 곳** — 추가 직후 알림(`activity.draftAddedNeedSubmit`) · 활동관리 안내 줄(`renderDraftPendingBar`, 세 화면 공용) · 응모이력 「미제출」 배지(진한 주황+테두리) · 문의 게이트 한 줄(`faqComputeStatus` → `draft_pending`)
-  - ⚠️ **안내 줄은 주황(행동 유도)이다. 빨강이 아니다** — 정상 흐름에서도 「추가」와 「제출」 사이는 미제출이라 빨강이면 「원래 빨간 화면」으로 학습된다. 같은 이유로 **0건이면 아무것도 안 그린다**
-  - ⚠️ 응모이력 배지는 **테두리가 핵심** — 검수중(옅은 주황)과 눈으로 안 갈린다
-  - **게시물 제출 버튼이 채널 단위로**(작업 3) — 종류 단위면 한 채널만 서버가 거부할 때 **버튼이 켜진 채 절반만 나간다.** `gateAllows` 를 채널마다 보고 **버튼과 안내 줄이 같은 수**를 센다. 부분 실패 시 **못 나간 채널을 이름으로**(`submitDrafts` 가 `failedChannels` 반환). ⚠️ `gateAllows` 는 행이 **0건이면 `true`** — 채널 빈 캠페인·조회 실패에서는 **버튼이 뜬다**(막지 않는 방향)
-  - **미제출을 남긴 채 떠나면 확인**(작업 4) — `navigate()` 안. 🔴 **`return` 만으로는 부족하다** — 부르는 쪽이 다음 줄을 계속 실행한다(`navigateBackFromActivity` 가 `navigate('mypage')` 뒤 `openMypageSub` 를 불러 **화면은 활동관리, 주소는 응모이력**). `navigate` 뒤에 더 하는 자리가 **스무 곳 가까워** **두 겹**으로: ①막을 때 **`false` 반환**(뒤로 버튼·popstate 가 멈춤) ②`restoreActivityHash()` 가 **다음 차례에** 주소를 되돌린다(⚠️ **화면이 실제로 활동관리일 때만**, `pushState` 아닌 `replaceState`)
-  - **주소 형태 경고**(작업 10, `looksLikeBarePostUrl` in shared.js) — 경로 없는 주소(채널 첫 화면)면 경고만. 🔴 **막지 않는다**(채널 주소 모양이 바뀌어 단정하면 멀쩡한 제출이 막힌다). ⚠️ `normalizeUrlInput` 은 **안 건드렸다** — 인플·관리자 대리 등록 공용이라 두 화면이 같이 바뀐다. 판정은 옆 새 함수, **양쪽이 같은 함수를 부른다**
-  - ⚠️ **아직 안 한 것** — 관리자 대신 제출 기록(작업 9)·일일 메일 안내(작업 11)는 범위 밖. 자주 묻는 질문 노드(작업 12)는 **작업 2·5 운영 배포 뒤**에만(화면에 없는 안내를 찾게 만들지 않게)
-- **응모이력**: **상태 드롭다운**(進行中[심사중+당첨, 기본]/すべて/審査中/当選/落選/取消, 건수 병기), 캠페인상태/채널/정렬 필터. 진행중 0건이면 「すべて表示」 안내. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
-- **응모건 메시지**: 응모이력 카드 메시지 버튼(미읽음 배지) → 게시판형 **페이지**(`#page-messages`, 해시 `#messages-{id}` — 모달이면 키보드가 가린다. `#appShell` 키보드 패턴). **취소(cancelled) 응모는 읽기만** — 읽고 배지도 지워지지만 작성 줄 자리에 안내(`messaging.cancelledReadOnly`), 「직접 문의」도 막고 **전환 기록을 안 남긴다**. 🔴 **진입 자체를 막으면 안 된다** — 관리자 메시지·알림은 계속 와 **막다른 길**이 되고 배지가 영영 안 지워진다. ⚠️ **페이지 재사용**이라 **정상 응모로 재진입하면 작성 줄을 반드시 되돌린다**. ⚠️ 화면 단 규칙 — `send_application_message` 에는 취소 차단이 없다. 텍스트+이미지(자동 압축/HEIC 변환, 최대 5장), 25분 내 본인 회수, 숨김·회수는 가림. 마스킹은 서버(`get_application_messages` RPC). 진입 `openMessagesPage(appId, from)`·이탈 `cleanupMessagesPage()`(navigate 훅). `dev/js/messaging.js`. **자동 번역 병기**(마이그레이션 235): INSERT → 웹훅(Dashboard 수동) → `translate-message` → Google Cloud Translation v2 → `body_translated`/`translated_lang`/`translate_status`. 번역문 위·원문 아래(인플=일본어, 관리자=한국어 + 미리보기·검색도 번역본). NULL/failed/과거는 원문만(발송·조회 안 막음), 마스킹 행은 번역본도 NULL. secrets `GOOGLE_TRANSLATE_API_KEY`. 사양서 `docs/specs/2026-07-13-message-translation.md`. 방침 반영(`docs/PRIVACY_{kr,ja}.md` §4·§5)
-- **캠페인 날짜 문구 정리 + 페이백 안내**(데이터베이스 변경 없음): 리뷰어형 기간·마감 표기 정리. 판정 헬퍼 2개(`dev/lib/shared.js`)를 **인플루언서 상세와 관리자 미리보기가 같이 쓴다**(두 벌이면 두 화면이 갈린다).
-  - `campaignPeriodRowKind(camp)` → **네 갈래**: `merged`(구매 = 모집 기간) / `split`(불일치) / `monitorNoPurchase`(리뷰어형, 구매 빔) / `none`(**시딩·방문형 전용**). ⚠️ **리뷰어형 세 갈래는 「모집 및 구매 기간」 한 줄**, `split` 만 그 안에 **날짜 두 줄**+「(모집기간)」·「(구매기간)」(`detail.periodTagRecruit`/`…Purchase`) — 구매 마감일이 사라지면 안 된다. 구매 기간 **별도 줄은 없다**(날짜가 두 번 나온다). ⚠️ **`none` 을 구매 빈 리뷰어형과 겸하면** 시딩·방문형에 「구매 기간」이 붙는다. ⚠️ 호출부는 **갈래를 이름으로 지목** — `!== 'split'` 같은 부정 조건은 갈래가 늘 때 조용히 틀린다. ⚠️ 비교는 **날짜 문자열 그대로**(`new Date()` 금지 — 시간대)
-  - `campaignSubmissionLabelCode(camp)` → 제출 마감 이름 3갈래(가구매=「영수증 제출 마감일」 / 일반 리뷰어형=「영수증·게시물 인증샷 제출 마감일」 / 시딩·방문형=바꾸지 않음). ⚠️ **번역문이 아니라 코드값만 돌려준다** — 관리자 빌드에는 i18n 파일이 없어 `t()` 가 존재하지 않는다
-  - **저장 규칙**: 리뷰어형은 `purchase_start=recruit_start`·`purchase_end=deadline` 으로 저장(`applyMonitorPeriodCopy`) — **신규 등록·복제 두 곳뿐**, 편집 저장은 손대지 않는다(과거 값을 되찾을 길이 없다). 저장 칸은 12곳이 읽어 계속 채운다
-  - **관리자 폼**: 리뷰어형이면 구매 기간 입력칸을 숨기되, **저장된 두 기간이 다르면 편집 시 보여준다**. ⚠️ 숨김 기준(`showPurchaseRow`)과 값 비우기 기준(`typeWantsPurchase`)을 **절대 한 변수로 묶지 않는다** — 묶으면 리뷰어형 구매 기간이 통째로 지워진다. ⚠️ `_editCampOriginal` 은 폼을 여는 시점에 **아직 직전 캠페인 것**이라 `applyDeadlineFieldsVisibility` 세 번째 인자로 `camp` 를 직접 넘긴다
-  - **페이백 안내**(`campaignPaybackNotice`): 리뷰어형 상세 정보표 위 파란 상자(주의사항 빨강과 구분). 첫 줄은 그려지는 방식에 맞춰 갈린다(`split` 이면 「구매 기간에…」). ⚠️ 줄 이름은 **「구매 기간」**(영수증 마감은 결과물 제출 마감일). 문구는 **두 벌**(인플 `dev/lib/i18n/*.js` · 관리자 `admin.js`)이라 항상 같이 고칠 것
-  - **검수 화면 경고**(`receiptPurchaseWindowWarning`, admin-deliverables.js): 구매일이 구매 기간 밖이면 판단 기준(「배송 지연·품절 등 우리 쪽 사정만 승인」)과 빨간 경고. **막지 않는다**. 값이 비면 경고 없음(조회 실패를 위반으로 읽지 않는다)
-  - 라벨 칸 폭 **110픽셀**(새 이름이 네 줄로 접혀서). 사양서 `docs/specs/2026-08-06-campaign-period-wording-and-payback-notice.md`
-- **모집 마감 후 응모 차단**(마이그레이션 272 → **현행 원본은 326**): `applications` BEFORE INSERT 트리거 `trg_application_deadline_guard`. **삭제된 캠페인은 관리자도 거부**, 그 외 **active 가 아니면 거부**(화면 응모 버튼과 같은 기준). 마감 판정 `(now() AT TIME ZONE 'Asia/Tokyo')::date <= campaigns.deadline`, NULL 은 무기한. 거부 코드 `recruit_deadline_passed`·`campaign_deleted`·`recruit_not_open`(`friendlyErrorJa` 등록). 통과 `auth.uid() IS NULL`(배치·서비스 키) · `is_admin()`(대비). **감사용 계정도 차단**. ⚠️ 이름 `a…` 로 정원 가드(`trg_monitor_*`)보다 **먼저** 실행. ⚠️ **SQL Editor 는 서비스 키라 재현 못 한다**(검증법은 파일 하단 주석). ⚠️ **삽입 전용** — 행사 대기자 승격(UPDATE)엔 안 걸린다. 자동 마감이 브라우저 조회 시 돌아 **서버 트리거가 유일한 최종 방어선**이다.
-- **결과물 제출 마감 차단(274)·동시 저장 방어(275)·화면 판정 서버 일원화(276)**: `get_deliverable_gate(신청id)` 가 항목별(영수증 / 채널별 게시물 / 채널별 인증샷) 제출 가부를 주고 **화면은 소비만**(`gateAllows`/`gateAllowsAny`). 게시물 반려 예외는 **채널 단위**. ⚠️ **조회 실패(`null`)와 「0건」(`[]`)을 반드시 구분** — 못 물어보면 폼·안내문 **둘 다 안 막는다**(최종 방어선은 트리거). ⚠️ 방문형은 **현장 사진(`receipt`)도 포함**(인증 성공 판정과는 다른 축). 사양서 `docs/specs/2026-07-29-deadline-server-enforcement.md`
-- **본인 응모 취소**: `cancel_application(uuid, reason_code, reason_note, acknowledged)` RPC — 본인 검증·결과물 승인 차단·구매기간 이후 사유·동의 강제. 🔴 **인플루언서 행은 `id` 로 찾는다**(`auth_id` 칸 없음) — 틀리면 흔적 없이 죽는다(`storage.js` 가 오류를 삼키고 `mypage.js` 가 `friendlyErrorJa()` 없이 덮었다). **오류를 일반 문구로 덮는 자리는 같은 실패를 또 숨긴다** → 308 오류 기록 68곳(`docs/specs/2026-08-07-app-error-visibility.md`). 🔴 **취소 알림은 서버가 만든다**(309) — `notifications` 는 **쓰기 정책이 없어**(037 「INSERT 는 SECURITY DEFINER 트리거에서만」) **브라우저에서 알림을 만드는 코드를 되살리지 말 것**
-- **홈 하단 푸터**: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
-- **성능 최적화**: preconnect(Supabase/Fonts/jsDelivr), 썸네일 lazy loading + decoding=async, **캠페인 사진은 올릴 때 저장한 720px 썸네일**(아래 Rules 「캠페인 사진 썸네일」), 로드 실패 시 원본 URL 폴백
+> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+
+**현재 원본 번호**
+- 가입 트리거(폼 값 저장) — **420**(382 → 420) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
+
+> ⚠️ **아직 안 한 것**: 「올려두고 제출 안 함」 재발 방지의 관리자 대신 제출 기록(작업 9)·일일 메일 안내(작업 11)는 범위 밖, 자주 묻는 질문 노드(작업 12)는 작업 2·5 운영 배포 뒤에만
+
+- 🔴 **가입 폼 값은 화면이 아니라 가입 트리거가 저장한다**·지우는 일은 쓰기마다(383)·확인 링크 `?code=` 는 재설정 신호가 아니다·가입 이메일 도메인 점검·흔한 비밀번호 경고 — 상세 `.claude/rules/member-signup-auth.md`
+- 캠페인 목록(탭별 주소 판정 두 함수)·상세 뒤로 단추·마이페이지·메일 수신 설정(켜기는 서버 함수)·수신거부 라우트(🔴 템플릿 수신거부 줄 삭제 금지)·햄버거 메뉴·알림·응모이력·푸터 — 상세 `.claude/rules/member-app-screens.md`
+- 신청 사전 체크·주의사항 동의 스냅샷·리뷰어형 정원 차단·🔴 **모집 마감 후 응모 차단은 서버 트리거가 유일한 최종 방어선**·본인 응모 취소(🔴 인플루언서 행은 `id` 로 찾는다 · 취소 알림은 서버가 만든다) — 상세 `.claude/rules/apply-and-cancel.md`
+- 활동관리 결과물 제출·「올려두고 제출 안 함」 방지(채널 단위 버튼·떠날 때 확인 두 겹)·제출 마감 판정 `get_deliverable_gate`(⚠️ 조회 실패 `null` 과 0건 `[]` 구분) — 상세 `.claude/rules/deliverable-submit.md`
+- 리뷰어형 기간·마감 문구 판정 헬퍼(회원 상세와 관리자 미리보기가 **같은 함수**) · 페이백 안내 문구 **두 벌**(i18n·`admin.js`) — 상세 `.claude/rules/campaign-period-wording.md`
+- 응모건 메시지 회원 화면(🔴 취소 응모도 진입은 막지 않는다 · 페이지 재사용)·자동 번역 파이프라인 — 상세 `.claude/rules/member-messages.md`
 
 ## Features — 관리자 (PC)
 - **사이드바**: Material Icons, 접기/펼치기 토글, `data-pane` 속성 기반 라우팅, pending 배지 항상 표시
