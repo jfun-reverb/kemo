@@ -146,39 +146,18 @@
 - **조건 추천 탭**(2단계, `runOutboundRecommend`·`outboundRecoScore`·`compareOutboundReco`): 조건 입력 → **DB 변경 없이** 전건 조회 + 클라 계산. **계열 필터 + `is_active=false` 제외** → 점수(`RECO_SCORE`: 등급 정확 +30/인접 +10[`sort_order`], 채널 +20, 예산 내 +20/초과 −20/미상 0). 정렬 ①가용 ②점수 ③팔로워 ④최신. 예산은 모집형식 단가(`price_feed/reels/story/tiktok`)로 판정. N번째 뒤 구분선 + 점수 근거 배지. 3~5단계 미착수. 사양서 `docs/specs/2026-07-08-influencer-recommendation.md` §구현 결과 + HANDOFF `2026-07-09-influencer-recommendation-stage1-handoff.md`
 
 ### 기준 데이터·번들·관리자 계정
-- **기준 데이터 관리**(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/반려사유/블랙리스트·위반 사유/주의사항/취소 사유/메일 종류 등을 한국어·일본어로 관리(campaign_admin 이상). 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete 만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code 자동 생성·비공개
-- **자주 묻는 질문(FAQ) 관리**(`/admin#faq`, campaign_admin 이상): 응모건 메시지 자동응답 등록 페인. 좌우 2단(카테고리 | 질문 + 측정 배지[조회수·직접문의 전환수]) + 편집 모달(한/일 2열·화면이동 드롭다운·handoff·단계 다중선택·미리보기)
-- **주의사항 번들**(`caution_sets`): 폼 콘텐츠 가이드 섹션 — 번들 드롭다운(recruit_type 필터) + "번들 다시 불러오기". 저장 시 스냅샷 복사
-- **참여방법 번들**(`participation_sets`): 1~6단계, title/desc ko·ja, recruit_types[] 필터. 스냅샷 `participation_steps jsonb`
-- **NG 번들**(`ng_sets`): caution_sets 미러. items `{html_ko, html_ja}` (DOMPurify, inline 서식만). `campaigns.ng_set_id` + `ng_items jsonb`. 인플은 jsonb 우선 + legacy `campaigns.ng` 폴백
-- **민감 항목 변경 경고**: `caution_items`/`participation_steps`/`ng_items` 변경 시 `#sensitiveChangeModal`. closed 캠페인은 변경 차단 트리거. 이력 `campaign_caution_history` → 「변경 이력」(super_admin) + 인플 응모이력 「現在の文言と比較」 토글
-- **변경 이력 = 전체 항목**(마이그레이션 265·266): 「변경 이력」 모달이 3영역 + **48개 항목**을 시각 역순 한 목록으로. **실제로 안 바뀐 기록은 접어 둠**. 변환 `CAMPAIGN_FIELD_LABELS`/`campaignFieldValueText`(shared.js), 렌더 `campaignChangeCardHtml`/`campaignChangeRowHtml`(admin.js). 열람은 super_admin 하드코딩
-- **변경 이력 차이 표시**: **항목 단위 차이 목록**(`renderSensitiveDiffSection`/`renderSensitiveDiffRow`, admin.js) — 바뀐 글자만 강조, 한·일 둘 다. 엔진은 `dev/lib/shared.js`(`diffSensitiveItemLists`/`diffChars`/`richToPlainText`/`textSimilarity`/`sensitiveListsIdentical`) — **리치 HTML에 강조 태그를 직접 끼우지 않고** sanitize→텍스트→글자 비교→이스케이프 후 강조(태그 붕괴·저장형 XSS 차단). 상한 1200자·변경 비율 60% 초과 시 전문 비교 폴백. 저장 전 경고 모달(`#sensitiveChangeModal`)은 아직 옛 2단 표시
-- **편집 모달 분리**: 참여방법/주의사항 편집을 별도 모달로, 注意事項 미리보기 한·일 토글
-- **오픈 예정 기능 보드**(`/admin#upcoming`, 관리자 전원 읽기): 시행 예정 기능·D-day 카드(가까운 순). **DB 미사용** — `dev/lib/shared.js` 의 `UPCOMING_FEATURES` 상수(배포 시 1줄 등록). 시행 후 14일 뒤 숨김. 판정은 클라 `+09:00` 날짜 단위. ⚠️ **예고판일 뿐 기능 스위치 아님**(`effectiveDate`는 실제 시행일과 단일 소스). 렌더 `dev/js/admin-roadmap.js`, 헬퍼 `upcomingFeatureStatus`/`Dday`/`visibleUpcomingFeatures`. 사양서 `docs/specs/2026-06-15-admin-upcoming-features-board.md`
-- **관리자 공지사항**(`/admin#admin-notices`): 사이드바 최상단 + 미읽음 배지. 카테고리 4종(system_update/release/warning/general), 고정(push_pin), Quill. **draft/published 분리** — 신규·draft는 `[초안 저장][게시하기]`, published는 `[게시 유지하며 저장][초안으로 되돌리고 저장]`. 작성자/super 한정 `[지금 게시]`/`[게시 회수]`. 노출은 published 만. 초안은 `/공지초안-관리자`
-- **관리자 계정**: 3단계 권한(super_admin > campaign_admin > campaign_manager)
-  - **추가**: super_admin 이 이메일+이름+역할 입력 → `invite_admin()` RPC(현재 원본 **417**, 베이스 245 — 이메일 `lower(btrim())` 정규화) → Edge Function `notify-admin-invite` 가 **서버에서** 링크 발급(`auth.admin.generateLink`) + **한국어** 메일 Brevo 발송 → 자립형 `/admin-setpw.html` 에서 설정. 재발송은 「재발송」(super_admin, 서버도 가드) 또는 `mode=reset`. `storage.js` `sendAdminInviteMail(email, mode)`
-    - **발송 상태 표시**(마이그레이션 244): `invite_completed_at` 있으면 「설정 완료」 / `invite_mail_sent_at` 있으면 「발송 {날짜}」 / 없으면 「미발송」. 발송 기록은 Edge Function, 설정 완료는 자립형 페이지가 본인 행 UPDATE(`.is(null)` 최초 1회)
-    - **기존 계정 승격 시 비밀번호 보존**(마이그레이션 245): 🔴 **기존 비밀번호를 덮어쓰지 않는다** — 덮어쓰면 인플루언서 로그인이 즉시 끊기고, 메일이 스팸함으로 가면 계정에서 잠긴다. `admins.promoted_at` 로 메일 문구가 갈린다(승격자=「권한이 추가되었습니다」 / 신규=「비밀번호를 설정해 주세요」)
-    - ⚠️ 이메일로 `admins` 조회 시 **`ilike` + 와일드카드 이스케이프**(`escapeLikePattern`). `eq` 는 대소문자를 구분해 못 찾고, 이스케이프 없는 `ilike` 는 `_`·`%` 든 이메일이 다른 행에 매칭된다
-    - ⚠️ **`resetPasswordForEmail` 을 안 쓰는 이유**: ①템플릿이 인플루언서 비밀번호 찾기와 공유 ②`flowType:'pkce'` 라 검증값이 **호출한 브라우저**(super_admin)에 저장돼 초대 대상 브라우저에선 교환 실패. 서버 발급은 이 문제가 없음
-    - **랜딩이 `/admin/` 밖인 이유**: 관리자 앱은 세션 없으면 리다이렉트(`dev/admin/app.js`). `dev/admin-setpw.html` → `build.sh` 가 루트로 복사. 사양서 `docs/specs/2026-07-20-admin-invite-mail-and-setpw.md`
-  - **관리자 전용 로그인 화면**(`/admin-setpw.html?mode=login`): `/admin/` 세션 없음·만료·로그아웃 시 이 화면(옛 `/#login` 대체). 인플루언서 앱에서 관리자 로그인 시 `/admin/` 으로 가는 경로(`auth.js`)는 보존. 관리자 아닌 계정은 안내 + 인플루언서 앱 버튼. ⚠️ **`persistSession` 이 모드마다 다름** — `login`=true / `setpw`=false(임시 세션이 저장소를 공유해 「비밀번호 바꾸기 전에 다른 탭에서 `/admin/` 이 열리는」 사고 방지) + 완료 후 `signOut()`
-  - **관리자 비밀번호 찾기**(로그인 화면 → forgot): 익명 Edge Function `admin-password-reset-request` 가 관리자면 발송, 아니면 아무것도 안 함. **계정 존재 여부 비노출** — 모든 분기가 `{ok:true}` 200 + 최소 2500밀리초로 수렴. **요청 제한 3층**(이메일별 5분1회·24시간5회 / 전역 시간당 30건 / 형식·길이) — Brevo 직접 발송이라 Auth Rate Limits 보호가 없고, 한도 소진 시 다른 메일까지 죽기 때문. 제한에 걸려도 「요청이 많습니다」 비노출. 마이그레이션 243
-  - **흔한 비밀번호 거부**(관리자 비밀번호를 정하는 세 곳 — 초대·재설정 화면·「내 계정」·슈퍼관리자 초기화): 브라우저가 SHA-1 앞 5글자만 서버 함수 `password-range-lookup` 에 보내 Have I Been Pwned 목록과 대조(`commonPasswordCheck` — `ui.js`·`admin-setpw.html` **두 곳**). 🔴 **Supabase 「유출 비밀번호 검사」는 일부러 꺼 둔다**(켜면 회원까지 거부 — 회원은 경고만이 결정). 🔴 **서버 함수를 먼저, 화면을 나중에** 배포 — 함수가 없으면 판정이 조용히 `'unknown'`(통과)이 되어 효과 0이고 오류도 안 난다. 함수는 git 병합으로 반영되지 않아 개발·운영에 따로 배포. 사양서 `docs/specs/2026-09-29-common-password-warning.md`
-  - **삭제 2택**: `remove_admin_role`(권한만 해제) / `delete_admin_completely`(auth/influencers/applications/receipts cascade). 자기 삭제 불가
-  - **「최근 접속」 열**(마이그레이션 436 → **437**): `get_admin_last_sign_in()` 이 `last_sign_in_at` 과 **`last_active_at` = GREATEST(로그인 시각, `auth.sessions.updated_at` 최댓값)** 을 주고 화면은 뒤쪽을 쓴다(auth 스키마라 브라우저가 못 읽음). 🔴 **로그인 시각만 쓰면 안 된다** — 토큰 연장만 일어나 오늘 쓴 사람이 「어제」로 보인다(436). 🔴 **슈퍼관리자 전용, 두 겹** — `is_super_admin()` 가드 + 실행 권한(PUBLIC·`anon`·`service_role` 회수, `authenticated` 만 부여). 🔴 반환 칸을 바꾸려면 `DROP` 후 `CREATE` 라 **회수를 다시 걸어야 한다**(437). **화면에서 열을 숨기는 것은 보안이 아니다**. ⚠️ 「관리자 화면에 들어온 날」과 다르다 — ①겸직 회원은 인플루언서 화면만 써도 오르고 ②**로그아웃하면 세션 행이 지워져 로그인 시각으로 돌아간다**(툴팁). ⚠️ 열 노출 판정은 **`showLastSignIn` 하나**이고 머리글·셀·빈 상태 `colspan` 이 그것만 본다 — 나누면 표가 밀린다. ⚠️ 조회 실패는 **`null`**(0건 `{}` 와 구분) → 열을 안 그린다. ⚠️ 권한 관리 화면에 이 열 열쇠말이 **없다**(슈퍼 고정) — 열려면 마이그레이션 필요
-- **메일 수신 설정**(`/admin#admin-accounts`): 「메일받기」 셀 칩 + 「설정」 모달(종류별 체크박스). `admin_email_subscriptions` + `lookup_values(kind='admin_email_kind')`. super_admin 은 타인 편집 가능. 새 종류는 `lookup_values` 한 줄로
-- **내 계정**: 이름/비밀번호
-- **감사용 계정 메커니즘**(179·181): 운영팀 시뮬레이션용 공용 계정(`influencers.is_audit=true`). 응모수(`get_campaign_application_counts`)·슬롯(`check_monitor_slots`)·「N명 신청」(`recompute_campaign_applied_count`)·대시보드·운영현황(`get_brand_ops_overview`/`detail`)에서 **격리**. 「감사용」 배지 `auditBadgeHtml`. 엑셀 5개 export 에 포함되면 「포함/제외」 확인(`confirmAuditExport`, 0명이면 생략). 청소 함수 2종(`purge_audit_data_all`/`purge_audit_data_for_campaign`, super_admin — **저장소 파일 경로를 돌려주고 화면이 지운다**). ⚠️ `fetchInfluencers(opts)` 기본값이 `includeAudit:true` 라 **통계·엑셀에서만 false 를 명시**해야 한다. 사양서 `docs/specs/2026-05-28-audit-influencer-account.md`
-- **오류 로그**(`/admin#errors`, 마이그레이션 165, `dev/js/admin-errors.js`): 인플 앱 오류 모음. 상세 모달에서 해결/무시/메모(`resolve_client_error`). 개인정보는 수집 단계 마스킹. 수집은 `error-report.js`
-- **광고 추적**(`/admin#ad-tracking`, 마이그레이션 438·439, `dev/js/admin-ad-tracking.js` — ★**운영 배포 완료**. 🔴 **운영에서 켜져 있다**(켜짐·아이디 있음·시행일 `2026-09-18` — 사용자 결정으로 공고상 시행일 10-17 을 기다리지 않았고, 방침·앱 공지·메일의 10-17 은 그대로 둔다)): 메타 픽셀 켜기·아이디 입력 화면(「관리자 설정」 묶음). 권한 `menu.ad-tracking`(매니저 읽기) + `ad_tracking.manage`(매니저 숨김, **서버 강제**).
-  - 🔴 **상태 배지 4종은 서버 `status` 를 그대로 그린다** — 화면이 시행일을 비교하지 않는다(갈리면 「켤 수 있어 보이는데 서버가 거부」). 순서 `policy_locked` → `no_pixel_id` → `disabled` → `active`
-  - ⚠️ **스위치는 저장된 아이디로만** — 저장 안 한 입력이 있으면 멈추고 먼저 저장하라고 한다. 켤 때만 확인 창
-  - ⚠️ 쓰기 권한이 아니면 **숨기지 않고 비활성** + 「변경 권한이 없습니다」. 거부 사유 넷(`forbidden`·`invalid_input`·`invalid_pixel_id`·`policy_not_in_effect`)과 통신 실패는 **각각 다른 문구**
-  - ⚠️ 저장 뒤 안내는 셋 모두 같다 — 이미 열린 탭은 새로고침 전까지 옛 설정으로 보낸다
-  - ⚠️ 개발서버에서는 「운영 아이디를 넣지 마세요」 경고(`IS_STAGING`). 🔴 **관리자 앱에는 픽셀을 심지 않는다**(운영자 행동이 전환으로 잡힌다)
+> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+
+**현재 원본 번호**
+- `invite_admin` — **417**(베이스 245)
+- `get_admin_last_sign_in` — **437**(🔴 반환 칸을 바꾸려면 `DROP` 후 `CREATE` 라 **실행 권한 회수를 다시 걸어야 한다**)
+
+> 🔴 **광고 추적(메타 픽셀)은 운영에서 켜져 있다**(시행일 `2026-09-18` — 방침·앱 공지·메일의 10-17 은 사용자 결정으로 그대로). 관리자 앱에는 픽셀을 심지 않는다
+
+- 기준 데이터·자주 묻는 질문 관리·주의사항/참여방법/NG 번들(스냅샷)·민감 항목 변경 경고·캠페인 변경 이력(차이 표시는 정화 뒤 글자 비교) — 상세 `.claude/rules/lookups-bundles.md`
+- 오픈 예정 보드(예고판일 뿐 스위치 아님)·관리자 공지·관리자 계정(🔴 승격 때 기존 비밀번호를 덮어쓰지 않는다 · `resetPasswordForEmail` 안 씀 · 비밀번호 찾기는 계정 존재 비노출 · 흔한 비밀번호 거부는 서버 함수 먼저 배포 · 「최근 접속」은 슈퍼관리자 전용 두 겹) — 상세 `.claude/rules/admin-accounts-notices.md`
+- 🔴 **감사용 계정 격리**(응모수·정원·통계·운영현황·엑셀 — ⚠️ `fetchInfluencers` 기본값이 포함이라 통계·엑셀에서만 `includeAudit:false` 명시) — 상세 `.claude/rules/audit-account.md`
+- 오류 로그·광고 추적 화면(상태 배지는 서버 값 그대로 · 스위치는 저장된 아이디로만) — 상세 `.claude/rules/admin-tools.md`
 - **에러 처리**: `friendlyError()` 한국어 메시지 + 에러 코드
 - **상태 뱃지**: `getStatusBadgeKo()` 한국어 상태 표시
 
