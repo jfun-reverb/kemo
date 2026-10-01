@@ -6,6 +6,8 @@ paths:
   - "dev/js/app.js"
   - "dev/js/mypage.js"
   - "dev/js/notifications.js"
+  - "dev/js/event-ticket.js"
+  - "dev/js/messaging.js"
   - "dev/js/ui.js"
   - "dev/index.html"
   - "dev/lib/storage.js"
@@ -27,3 +29,6 @@ paths:
 - **응모이력**: **상태 드롭다운**(進行中[심사중+당첨, 기본]/すべて/審査中/当選/落選/取消, 건수 병기), 캠페인상태/채널/정렬 필터. 진행중 0건이면 「すべて表示」 안내. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
 - **홈 하단 푸터**: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
 - **성능 최적화**: preconnect(Supabase/Fonts/jsDelivr), 썸네일 lazy loading + decoding=async, **캠페인 사진은 올릴 때 저장한 720px 썸네일**(아래 Rules 「캠페인 사진 썸네일」), 로드 실패 시 원본 URL 폴백
+
+## CLAUDE.md Rules 절에서 옮겨 온 것 — 캠페인 목록 보관 (2026-10-01 조각 D′)
+- **인플루언서 앱 캠페인 목록 보관**(2026-09-30, `campaign.js` `getCampaignsCached`): 받아 둔 목록으로 먼저 그리고 뒤에서 새로 받아 **바뀌었을 때만** 다시 그린다(10초 안이면 안 받음). ⚠️ 신청 인원을 바꾸는 동작(응모·취소·행사 예약·예약 취소) 뒤에는 **`invalidateCampaignsCache()`** — 새 경로를 만들면 함께. ⚠️ `fetchCampaigns` 자체는 관리자도 써서 **보관하지 않는다**(편집 직후 최신값 필요)

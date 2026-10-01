@@ -20,6 +20,8 @@ paths:
   - "supabase/migrations/*deadline*"
   - "supabase/migrations/*brand_survey*"
   - "supabase/migrations/179_*"
+  - "supabase/migrations/*settlement_delete_guard*"
+  - "supabase/migrations/325_*"
   - "supabase/migrations/318_*"
 ---
 
@@ -48,3 +50,6 @@ paths:
 - **모집인원 초과 승인 차단**: 승인 수가 slots 에 도달하면 알럿 모달 차단
 - **조회수**: `campaigns.view_count`, 캠페인 상세 열 때 +1, 관리자 목록에 표시
 - **이미지 관리**: 드래그앤드롭 업로드·크롭·미리보기, Supabase Storage
+
+## CLAUDE.md Rules 절에서 옮겨 온 것 — 캠페인 보관 삭제 (2026-10-01 조각 D′)
+- 캠페인 삭제는 **보관 삭제(soft delete)** — 🔴 **저장소 파일은 「신청을 지우기 직전에 경로를 모아 돌려주고」 화면(`softDeleteCampaign`)이 지운다**(325). 뒤집으면 **나중에 지울 방법이 없다**. 영수증 수정 이력(`receipt_edit_history`)도 함께 파기. ⚠️ **캠페인 이미지(img1~8)는 안 지운다**— 다만 **완전 삭제(`purge_campaign`·`purge_expired_deleted_campaigns`) 때도 안 지워** 공개 버킷에 영구 잔존(후속 과제). 캠페인 행은 `deleted_at` 으로 30일 보관(「삭제됨」 탭 복구) 후 pg_cron 자동 완전삭제, applications·deliverables(개인정보)는 즉시 파기. 정산 걸린 캠페인은 삭제 차단(251 트리거). 복구=campaign_admin·완전삭제=super_admin. 사양서 `docs/specs/2026-07-22-campaign-soft-delete-restore.md`
