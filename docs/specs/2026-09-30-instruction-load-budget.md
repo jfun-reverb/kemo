@@ -202,6 +202,14 @@
 
 ## 구현 결과 (조각마다 채울 것)
 
+### 조각 D′ — 정산 절 (2026-10-01, 개발)
+- **덩어리 배치**: 정산 전용 → `settlement.md`(열릴 조건에 `admin-applications.js`·`admin-deliverables.js`·`admin-permissions.js`·`*admin_view*`·`*pii*`·`*reject*` 추가) · 인증 성공 판정 사본 덩어리(후보 함수·임시저장 제외·채널 요구) → **새 묶음 `cert-success.md`**(화면 5파일·`report.html`·`storage.js`·메일 함수 3개·`*settle*`·`*cert*`·`*report_share*`) · 리뷰어형 금액·페이백 문구·영수증 재계산 → **새 묶음 `receipt-amount.md`**(회원 화면 2·번역 2·`admin.js`·`admin-deliverables.js`·메일 함수 2·`*settle*`·`*receipt*`·`*faq*`).
+- **`CLAUDE.md` 에 남긴 것**: 안내 줄 · 번호표(+`_settlement_cert_candidates` **455** 한 줄) · ④ 잠금(노출 제거·코드는 있으나 잠김) · 운영 첫 기록 전/시험 호출 금지 · 3단계 머리 줄과 그 아래 「이중 송금 위험 엑셀 줄」·「화면과 함수 배포 분리」·「남은 일」 · 지도 3줄.
+- **문장 압축은 하지 않았다**(옮긴 덩어리는 글자 그대로).
+- **기계 대조**: 원래 절의 비어 있지 않은 줄 중 새 배치에 없는 줄 **0개** · ⚠️ 45→48 · 🔴 15→19(지도·번호표 추가분) · 백틱 식별자·마이그레이션 번호 잃은 것 **0개** · 열릴 조건 패턴 전부 실제 파일 1개 이상. ⚠️ 이 점검은 「본문이 언급하는 위치가 열릴 조건에 빠진 것」은 못 잡는다 — 리뷰어 대조가 `notify-deliverable-decision`(`receipt-amount.md`)·`notifications.js`·`mypage.js`(`settlement.md`) 누락을 잡아 더했다. **다음 절부터는 덩어리마다 「언급 위치 → 열릴 조건」 대조를 기계로 한다**.
+- **주입 양성 대조**: 새 세션(`claude -p`)에서 `report-rows.js`·`i18n/ko.js`·`admin-permissions.js` 를 Read → 맥락 제목 목록에 `cert-success`·`receipt-amount`·`settlement` 셋 다 실림(대조: `ui.md`·`build.md` 도 실림). ⚠️ `stream-json` 출력에는 주입 흔적이 **안 남는다** — 확인은 「맥락에 보이는 제목을 나열하라」로 해야 한다.
+- **실측**: `CLAUDE.md` 138,910 → **129,143자**(−9,767) · 지시 문서 합계 225,947 → **216,180자**. 목표까지 약 66,200자.
+
 ### 조각 F ① — 2026-10-01 (개발) · 스킬 추가 · 불렸나: **처음엔 안 불림 → 설명 고친 뒤 불림**
 - `.claude/skills/reverb-settlement/SKILL.md` 신규 — 본문은 얇은 안내(①`settlement.md` 를 Read 로 ②`CLAUDE.md` 「### 정산」 절의 현재 원본 번호·잠금·송금 묶음 ③관련 사양서 ④되돌릴 수 없는 동작은 정산 절 🔴 경고를 직접 확인). **규칙 내용은 베끼지 않았다.** `CLAUDE.md` 정산 절 머리에 안내 한 줄(+1줄).
 - 양성 대조: 작업 폴더에서 `claude -p "송금 묶음 수수료 규칙이 뭐야? 짧게 답해줘."`(비대화 실행, 새 세션)
