@@ -13,6 +13,7 @@ paths:
   - "supabase/migrations/*delete_brand*"
   - "dev/lib/storage.js"
   - "dev/js/admin-brand.js"
+  - "docs/email-templates/orient-sheet-invite*"
 ---
 
 # 브랜드 셀프 오리엔시트 (마이그레이션 186~195·200)
@@ -43,3 +44,11 @@ paths:
   - **칸 정리**: 시딩 카드에서 배송 안내·금지 표현·추가 안내 제거(`LONG_TEXT_FIELDS` = 서버도 세는 3칸 + **화면에서만 세는** `f-pg-options` 1칸 — 446 은 그 칸 길이를 안 본다). 시딩 「소구 포인트」 → 「리뷰 가이드」. 서버 1,000자 검사는 여섯 칸 그대로(옛 폼 보호)
 
 > 「캠페인 발행·기존 캠페인 연결·구매 가이드 모드」는 관리자 캠페인 폼(`admin.js`)과 얽혀 있어 `.claude/rules/orient-publish.md` 로 따로 묶었다.
+
+## CLAUDE.md 「브랜드 서베이」 절에서 옮겨 온 것 — 오리엔시트 발급·조회 페인 (2026-10-01 조각 D′)
+- **오리엔시트 발급·조회 페인**(`/admin#orient-sheets`, `dev/js/admin-orient.js`): 작성 토큰 링크 발급(`create_orient_sheet`, `is_admin()` 가드 — campaign_manager 포함) + 제출 내용 확인. 목록 + 발급 모달(⚠️ **신규 발급 창의 「신청 연결」 칸은 잠겨 있다**(`osCreateApp` `disabled`. 신청 연결은 서베이 신청 목록의 발급 버튼 `osIssueFromApplication` 뿐)) + 상세 모달(§11 스키마대로 한국어 렌더, 이미지 링크 http/https만). 링크 도메인은 hostname 분기. 만료는 클라 판정(조회 함수가 status 미전환). **상태 탭·배지**: 카드별로 따로 발행(마이그196). 「부분 발행」은 「발행됨」 탭에 포함 + 「일부 발행 (n/m)」 앰버 배지(`osCardCounts`). `osStatusKey` 우선순위 = consumed·부분발행 → expired(발행 시작한 시트는 토큰 만료돼도 발행됨). 전 카드 발행 시 status='consumed'.
+  - **발급 목록 삭제**(마이그레이션 199 `delete_orient_sheet` RPC): 브랜드명 재입력 확인 모달(`osOpenDelete`/`osCheckDeleteConfirm`/`osExecuteDelete`). **미발행**은 시트 행만 삭제(`is_admin`), **발행**은 그 캠페인들에 신청이 1건이라도 있으면 차단(`blocked_has_applications`)·전부 0건이면 캠페인+시트 함께 삭제(`is_campaign_admin`, FOR UPDATE·트랜잭션). 캠페인은 `data.cards[].campaign_id` 순회 수집(DISTINCT). `storage.js` `deleteOrientSheet`.
+  - **발급 직후 메일 자동 발송**(198 + Edge Function `notify-orient-sheet`): `sendOrientInviteMail(id)` 로 작성 링크 발송, 결과 표시 `osCreateMailStatus`. **수신자는 Edge Function 이 service_role 로 정한다**(서베이 연결=`brand_applications.applicant_email`→`email` / 비-서베이=`brands` 대표 담당자). ⚠️ **링크 도메인은 서버 환경변수 `PUBLIC_SALES_URL`**(화면에서 넘기면 조작된다). 양식 `docs/email-templates/orient-sheet-invite.html`. **발송 성공 + 연결 신청이 있으면** `advance_to_orient_sheet_sent()` 로 `orient_sheet_sent` 로 **자동 전진**(이전 5단계[new~kakao_room_created]일 때만·신청 연결 건만. FOR UPDATE·멱등·service_role 전용). ⚠️ 수신자가 없으면 발급만 성공시키고 발송·전이를 건너뛰며, **발송 실패가 발급을 무효화하지 않는다**. ⚠️ 재발송 버튼·발송 이력은 **없다**. 메일 시험은 운영에서만(`supabase.md`).
+  - **발급 함수 확장**(마이그레이션 192, 190 3인자 DROP→4인자): `create_orient_sheet(p_brand_id, p_application_id, p_form_type, p_product_idx)`. `p_product_idx` 지정 시 `brand_applications` 를 읽어 **data에 prefill**(brand_name→`data.brand.name`, products[idx].name→`data.product.name`, reviewer면 url→`urls`/price→`prices`. **카테고리 제외**). 반려(`products[idx].status='rejected'`) 제품은 차단(`reason:'product_rejected'`).
+  - **발급 진입점 3개**: ①`#orient-sheets` 「신규 발급」(신청 연결 잠김) ②서베이 신청 목록 더보기 「오리엔시트 링크생성」(`osIssueFromApplication` — 신청·제품 고정 + prefill) ③브랜드 상세 모달 「오리엔시트 발급」(`osOpenCreate({brandId,lockBrand})`). 한 모달 `osOpenCreate(opts)` 재사용이라 **진입마다 맥락 초기화**.
+  - brand-applications 목록 「오리엔시트」 **통합 열**(`renderOrientCombinedCell` — 옛 `orient_sheet_sent_url` 열 통합·**데이터 무변경**). 구글시트 줄만 `.brand-app-orient-cell` 로 감싸 ✎ 편집이 시스템 줄 보존. `fetchOrientSheets` 1회 후 `_orientByApp` 그룹(N+1 회피). 사양서 `docs/specs/2026-06-18-brand-self-orient-sheet.md` §7·§14
