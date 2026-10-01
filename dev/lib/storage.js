@@ -4171,6 +4171,42 @@ async function isEmailWithdrawalBlocked(email) {
   }
 }
 
+// 가입 이메일 인증번호 — 서버 함수 두 개(signup-code-send · signup-code-verify, 마이그레이션 495)를 부른다.
+//   사양서 docs/specs/2026-10-01-signup-email-code-verification.md 설계 ①·③.
+//   🔴 **통신 실패는 null**, 서버가 답한 거부는 객체 — 화면이 둘을 다른 문구로 그린다.
+//   ⚠️ 서버 함수는 오류 응답(500 등)도 JSON 본문을 준다 → invoke 가 error 로 돌려도 본문을 먼저 읽는다.
+//   ⚠️ 시각(만료·재발송 가능)은 **서버가 준 값만** 쓴다 — 화면에 유효 시간 숫자를 두지 않는다(완료 기준 4-2).
+async function _invokeSignupCodeFn(name, body) {
+  if (!db?.functions) return null;
+  try {
+    const {data, error} = await db.functions.invoke(name, { body });
+    if (!error) return data && typeof data === 'object' ? data : null;
+    try {
+      const j = await error.context?.json?.();
+      if (j && typeof j === 'object') return j;
+    } catch(_) { /* 본문이 JSON 이 아니면 통신 실패로 본다 */ }
+    logAppError(name, error);
+    return null;
+  } catch(e) {
+    logAppError(name, e);
+    return null;
+  }
+}
+// → { status:'sent'|'rate_limited', codeExpiresAt, resendAvailableAt } · { error:'invalid_email'|'send_failed'|'server_error' } · null
+async function requestSignupCode(email) {
+  const r = await _invokeSignupCodeFn('signup-code-send', { email });
+  if (!r) return null;
+  if (r.ok === false) return { error: r.error || 'server_error' };
+  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null };
+}
+// → { ok:true, ticket, ticketExpiresAt } · { ok:false, reason, attemptsLeft } · null
+async function verifySignupCode(email, code) {
+  const r = await _invokeSignupCodeFn('signup-code-verify', { email, code });
+  if (!r) return null;
+  if (r.ok === true) return { ok: true, ticket: r.ticket, ticketExpiresAt: r.ticket_expires_at };
+  return { ok: false, reason: r.reason || 'server_error', attemptsLeft: (typeof r.attempts_left === 'number') ? r.attempts_left : null };
+}
+
 // 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).
 //   성공: { ok:true, has_request, status, scheduled_date,
 //           login_blocked, write_blocked }
