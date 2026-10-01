@@ -3979,6 +3979,7 @@ async function _loadTransferHistory() {
 }
 
 // 「수수료 기록 없음」 — 도입 전 송금(옛 경로)이라 묶음이 없는 송금완료 건. **0엔으로 더하지 않는다**
+//   ⚠️ 서버(487)는 **기간 인자가 없다** — 전체 기간·상태 무관(송금완료·보류·취소)으로 센다. 문구가 그 사실을 말해야 한다(2026-10-01)
 function _renderTransferUnrecorded() {
   const el = $('transferUnrecordedLine');
   if (!el) return;
@@ -3988,8 +3989,9 @@ function _renderTransferUnrecorded() {
   const n = Number(u.unrecorded_count) || 0;
   if (!n) { el.innerHTML = ''; return; }
   el.innerHTML = `<div style="padding:8px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;font-size:12px;line-height:1.6;color:#9A3412">
-      <b>수수료 기록 없는 송금 ${n.toLocaleString('ja-JP')}건 · 보낸 금액 ${esc(settlementAmountYen(u.sent_total_jpy))}</b>
-      — 이 화면이 생기기 전에 송금완료로 기록한 건이라 묶음·수수료가 없습니다(아래 합계에 들어가지 않습니다). 3단계에서 지급 시트로 채웁니다.
+      <b>수수료 기록 없는 송금 ${n.toLocaleString('ja-JP')}건 · 보낸 금액 ${esc(settlementAmountYen(u.sent_total_jpy))} (전체 기간)</b>
+      — 송금 묶음 기능이 생기기 전 방식으로 송금완료를 기록해 수수료가 없는 건입니다(그 뒤 보류·취소된 건 포함).
+      위 기간 선택과 상관없이 전체 기간을 세며, 아래 합계에는 들어가지 않습니다. 과거 지급 시트를 옮겨 넣는 작업(예정) 때 채웁니다.
     </div>`;
 }
 
