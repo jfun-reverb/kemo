@@ -740,7 +740,7 @@ Deno.serve(async (req: Request) => {
     .update({ mail_sent_at: claimedAt })
     .eq("id", note.id)
     .is("mail_sent_at", null)
-    .select("id");
+    .select("id, kind, user_id, ref_table, ref_id, title");
   if (claimErr) {
     console.error("[notify-deliverable-decision] claim failed", claimErr);
     return new Response(JSON.stringify({ error: claimErr.message }), {
@@ -772,6 +772,29 @@ Deno.serve(async (req: Request) => {
       console.warn("[notify-deliverable-decision] claim released", { id: note.id, why });
     }
   };
+
+  // 🔴 여기서부터는 **데이터베이스에 있는 알림 행의 값**을 쓴다(2026-10-01 전수조사 3차 ④-4).
+  //   요청 본문(웹훅 페이로드)의 수신자·종류·대상·제목을 그대로 믿으면, 호출 경로가 뚫렸을 때
+  //   **아무 회원에게 아무 제목으로** 메일을 보낼 수 있다. 외부 호출은 rejectPublicKeyCaller 가 막지만
+  //   방어를 한 겹 더 둔다 — 선점 UPDATE 가 돌려준 행이 곧 진짜 값이다(추가 조회 없음).
+  //   ⚠️ 위의 화이트리스트·대상 검사는 페이로드 기준이라 **진짜 값으로 한 번 더** 본다.
+  //      어긋나면 선점을 되돌리고 건너뛴다(메일 대상이 아닌 알림에 「보냄」 표시를 남기지 않는다).
+  const dbNote = claimed[0] as { kind: string; user_id: string; ref_table: string | null; ref_id: string | null; title: string | null };
+  if (!MAIL_KINDS.has(dbNote.kind) || dbNote.ref_table !== "deliverables" || !dbNote.ref_id || !dbNote.user_id) {
+    console.error("[notify-deliverable-decision] payload does not match the stored notification — skipped", {
+      id: note.id, payload_kind: note.kind, db_kind: dbNote.kind, db_ref_table: dbNote.ref_table,
+    });
+    await unclaim("payload mismatch");
+    return new Response(JSON.stringify({ skipped: true, reason: "payload_mismatch" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  note.kind = dbNote.kind;
+  note.user_id = dbNote.user_id;
+  note.ref_table = dbNote.ref_table;
+  note.ref_id = dbNote.ref_id;
+  note.title = dbNote.title;
 
   // 결과물 + 캠페인 + 인플루언서 정보 조회
   // application_id·campaigns.recruit_type/proxy_purchase/channel 은 buildNextStepBlock 이
