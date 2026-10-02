@@ -467,14 +467,10 @@ async function init() {
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
       const codeStillInUrl = new URLSearchParams(location.search).has('code');
-      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
-      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
-      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
-      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
-      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
-      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
-        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
-      }
+      // 메타 픽셀 — 🔴 이 착지에서는 가입 이벤트를 **보내지 않는다**(2026-10-02 사용자 결정, 1인 1건).
+      //   이 착지는 가입 폼 제출 때 이미 `pending_email` 을 보낸 옛 흐름 가입자뿐이라, 여기서 `confirmed` 를 또 보내면
+      //   가입 1명이 「등록 완료」 2건이 된다(광고 세트가 이 이벤트로 학습한다). 새 가입 화면은 가입 순간 `confirmed`
+      //   1건을 `auth.js` 가 보낸다. ⚠️ 되살리지 말 것 — 1인 1건이 깨진다(사양서 2026-09-03-meta-pixel.md 표 4번).
       if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }

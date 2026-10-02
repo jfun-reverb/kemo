@@ -1960,7 +1960,7 @@ const META_PIXEL_EVENT_TABLE = [
   { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
   { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
   { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했지만 이메일 확인 전일 때 (인증번호 없이 지나간 옛 흐름 가입)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '인증번호를 확인하고 가입을 마쳤을 때 · 옛 흐름 가입자가 같은 브라우저에서 확인 링크로 이메일 확인을 끝냈을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '인증번호를 확인하고 가입을 마쳤을 때 (확인 링크로 이메일 확인을 끝낼 때는 보내지 않음 — 1인 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
   { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
 ];
 
