@@ -5,7 +5,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"><!-- 확대·축소 금지(2026-09-29 사용자 지시). 아이폰은 이 설정을 무시하므로 mypage.css touch-action + app.js gesturestart 가 함께 막는다 -->
 <meta name="theme-color" content="#ffffff">
 <title>REVERB Seeding</title>
 <link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23e91e63'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>R</text></svg>">
@@ -309,6 +309,19 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
+<!-- 문의 갈래 화면 (일반 문의 창구, 2026-09) — 햄버거 「お問い合わせ」 단일 입구.
+     「응모한 캠페인에 대해」(응모건 메시지) / 「그 외 문의」(#inquiry-general, 아래 #page-messages 재사용) -->
+<div id="page-inquiry" class="page">
+  <!-- 머리는 마이페이지 폼 화면과 같다(조각 5-C) — 뒤로 화살표 없음, 이동은 햄버거·브라우저 뒤로가기 -->
+  <div class="mypage-sub-header">
+    <div class="mypage-sub-title" data-i18n="inquiry.title">お問い合わせ</div>
+  </div>
+  <div class="inq-body">
+    <p class="inq-lead" data-i18n="inquiry.lead">お問い合わせの内容をえらんでください</p>
+    <div id="inquiryBranchBody"></div>
+  </div>
+</div>
+
 <div id="page-messages" class="page">
   <div class="msg-modal-header">
     <button class="msg-back-btn" onclick="navigateBackFromMessages()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
