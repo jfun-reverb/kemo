@@ -229,6 +229,7 @@ RETURNS TABLE (
   fee_rate_percent  numeric,
   fee_fixed_jpy     integer,
   fee_rounding      text,
+  fee_rule_jpy      bigint,
   paypal_txn_id     text,
   memo              text,
   source            text,
@@ -264,6 +265,11 @@ BEGIN
          t.fee_rate_percent,
          t.fee_fixed_jpy,
          t.fee_rounding,
+         -- fee_rule_jpy — 저장된 규칙 스냅샷으로 다시 계산한 수수료(2026-10-02 사용자 결정 ①: 고친 값이면 「규칙 계산 · 실제 · 차이」).
+         --   🔴 계산식은 _settlement_fee_calc 한 곳 — 화면에 식을 두지 않는다. 스냅샷이 하나라도 비면 NULL(시트 실제값 묶음 — 결정 6)
+         CASE WHEN t.fee_rate_percent IS NOT NULL AND t.fee_fixed_jpy IS NOT NULL AND t.fee_rounding IS NOT NULL
+              THEN public._settlement_fee_calc(t.sent_total_jpy, t.fee_rate_percent, t.fee_fixed_jpy, t.fee_rounding)
+         END,
          t.paypal_txn_id,
          t.memo,
          t.source,
@@ -318,7 +324,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_settlement_transfers(date, date) IS
-  '[502] 송금 묶음 목록(송금일=일본 날짜 기준 기간, NULL=열림). 묶음 1줄 + items(포함 건: 캠페인·연결 금액·원래 지급 예정일·현재 연결 여부) + fee_stale + 추정 표시(sent_at_estimated·fee_estimated). '
+  '[502] 송금 묶음 목록(송금일=일본 날짜 기준 기간, NULL=열림). 묶음 1줄 + items(포함 건: 캠페인·연결 금액·원래 지급 예정일·현재 연결 여부) + fee_stale + 추정 표시(sent_at_estimated·fee_estimated) + fee_rule_jpy(스냅샷 규칙 계산값, 스냅샷 없으면 NULL). '
   '정렬 sent_at,id 유일. 페이팔 주소 미노출. fee_stale 규칙은 487 머리말 [2].';
 
 REVOKE ALL ON FUNCTION public.get_settlement_transfers(date, date) FROM PUBLIC;
