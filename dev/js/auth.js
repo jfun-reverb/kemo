@@ -517,10 +517,9 @@ async function handleSignup(e) {
   // 초대 링크로 들어와 가입한 경우 그 캠페인으로 되돌린다(사양서 §2-8 U7).
   //   안 돌려보내면 가입만 하고 이탈한다 — 첫날 초대분이 그대로 새는 자리다.
   const _toInvite = typeof consumeInviteReturn === 'function' && consumeInviteReturn();
-  // 일반 회원으로 끝났다 — 픽셀 새로고침 보류를 푼다(초대 복귀 **뒤** — 로그인 화면과 같은 순서)
+  if (!_toInvite) navigate('home');
+  // 일반 회원으로 끝났다 — 픽셀 새로고침 보류를 푼다. 🔴 **홈 이동 뒤에** 푼다(로그인 화면과 같은 이유 — 아래 handleLogin)
   if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
-  if (_toInvite) return;
-  navigate('home');
 }
 
 async function handleLogin(e) {
@@ -586,12 +585,14 @@ async function handleLogin(e) {
       toast(t('auth.toast.welcomeBack'),'success'); updateGnb();
       // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
       const returnedToInvite = typeof consumeInviteReturn === 'function' && consumeInviteReturn();
+      if (!returnedToInvite) navigate('home');
       // 일반 회원으로 끝났다 — 메타 픽셀 새로고침 보류를 푼다. 관리자 갈래에서는 부르지 않는다.
-      //   ⚠️ 초대 복귀 **뒤에** 푼다 — 복귀가 주소를 캠페인 상세로 바꿔 두어야 새로고침해도 그 자리로 온다
-      //      (복귀 기억은 한 번 쓰면 지워져, 먼저 새로고침하면 캠페인으로 못 돌아간다).
+      //   🔴 **주소를 옮긴 뒤에** 푼다(초대 복귀 → 캠페인 상세, 아니면 홈). 새로고침은 **부른 순간의 주소**로
+      //      다시 열린다 — 직후에 홈으로 옮겨도 소용없다(2026-10-02 크롬 실측). 먼저 풀면 `#login` 으로 다시 열려
+      //      로그인된 채 로그인 화면 + 공지 팝업이 뜬다(2026-10-02 운영 모바일 신고). 복귀 기억은 한 번 쓰면 지워지므로
+      //      캠페인으로 못 돌아가는 것도 같은 이유다.
       if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
       if (returnedToInvite) return;
-      navigate('home');
     }
   } catch(e) {
     logAppError('handleLogin', e);
