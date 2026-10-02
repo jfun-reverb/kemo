@@ -76,6 +76,10 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
+  // inquiry-general — 일반 문의 대화(같은 #page-messages 재사용, 2026-09)
+  if (page === 'inquiry-general') {
+    pageName = 'messages';
+  }
   // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
   //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
   if (page === 'ticket' || page.startsWith('ticket-')) {
@@ -283,6 +287,12 @@ window.addEventListener('popstate', function(e) {
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
+  } else if (page === 'inquiry') {
+    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    else navigate('home', false);
+  } else if (page === 'inquiry-general') {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+    else navigate('home', false);
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
     if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
@@ -311,13 +321,19 @@ window.addEventListener('langchange', function() {
       openCancelModalFor(_cancelTargetAppId);
     }
   }
+  // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
+  else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
+  else if (page === 'inquiry-general') {
+    const _tt = document.getElementById('msgModalTitle');
+    if (_tt) _tt.textContent = t('inquiry.generalTitle');
+  }
   // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
   if (typeof renderNavMenu === 'function') renderNavMenu();
 });
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -653,6 +669,14 @@ async function init() {
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
     else navigate('mypage', false);
+  } else if (hash === 'inquiry') {
+    // 문의 갈래 화면 새로고침 복원 — 응모 목록을 다시 받아 그린다
+    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    else navigate('home', false);
+  } else if (hash === 'inquiry-general') {
+    // 일반 문의 대화 새로고침 복원 — 뒤로가기 목적지는 홈
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+    else navigate('home', false);
   } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
     // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
     const tid = hash.replace('ticket-', '').replace('ticket', '');
@@ -704,6 +728,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : initHash === 'inquiry-general' ? 'messages'
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
