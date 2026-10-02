@@ -6348,6 +6348,21 @@ async function recordSettlementTransfers(bundles) {
   return {ok: false, failures: (result && result.failures) || []};
 }
 
+// 과거 지급 시트 소급 — RPC backfill_settlement_transfers_from_sheet(501). 출처는 서버가 항상 sheet_backfill 로 고정한다.
+// 반환: {written:[{bundle_index, transfer_id, items}], skipped:[{bundle_index, reason:'already_applied'}]}.
+// ⚠️ 위 기록 함수와 달리 거부는 ok:false 가 아니라 **예외**다(`bundle_xxx: … (묶음 순번 N)` — 하나라도 걸리면 아무것도 안 썼다).
+//    화면은 부르지 않는다 — 일회성 콘솔 도구(scripts/)만 쓴다.
+async function backfillSettlementTransfersFromSheet(bundles) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlement_transfers_from_sheet', {p_bundles: bundles});
+    if (error) throw error;
+    result = data;
+  });
+  return {written: (result && result.written) || [], skipped: (result && result.skipped) || []};
+}
+
 // 송금 묶음 정정 — RPC correct_settlement_transfer(486). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
 // ⚠️ txnId·memo 는 서버에서 NULL = 「안 고침」, '' = 「비움」이다. 그래서 빈 문자열을
 //    null 로 바꾸지 않는다(다른 함수의 `x || null` 을 그대로 쓰면 「비우기」가 조용히 「안 고침」이 된다).
