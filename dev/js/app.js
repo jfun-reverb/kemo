@@ -682,6 +682,10 @@ async function init() {
   if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
 }
 
+// 아이폰 사파리 확대 동작 차단 — 화면 설정(user-scalable=no)을 사파리가 무시하므로(iOS 10+).
+//   touch-action(mypage.css)이 대부분 막고, 이것은 그 속성을 모르는 옛 사파리용 보조다.
+document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+
 document.addEventListener('DOMContentLoaded', async function() {
   // 전역 에러 수집 핸들러 등록 (가능한 일찍 — 마이그레이션 165)
   if (typeof initErrorReporting === 'function') { try { initErrorReporting(); } catch(_){} }
