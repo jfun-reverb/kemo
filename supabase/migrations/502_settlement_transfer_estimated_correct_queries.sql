@@ -173,8 +173,8 @@ BEGIN
   SELECT a.name INTO v_actor_name FROM public.admins a WHERE a.auth_id = auth.uid() LIMIT 1;
 
   -- 이력 메모: 입력한 메모(486 과 같음) + 추정이 지워졌으면 그 사실
-  IF v_t.sent_at_estimated AND NOT v_new_sent_est THEN v_cleared := v_cleared || '송금일'; END IF;
-  IF v_t.fee_estimated     AND NOT v_new_fee_est  THEN v_cleared := v_cleared || '수수료'; END IF;
+  IF v_t.sent_at_estimated AND NOT v_new_sent_est THEN v_cleared := array_append(v_cleared, '송금일'::text); END IF;
+  IF v_t.fee_estimated     AND NOT v_new_fee_est  THEN v_cleared := array_append(v_cleared, '수수료'::text); END IF;
   v_ev_memo := CASE WHEN p_memo IS NULL THEN NULL ELSE NULLIF(btrim(p_memo), '') END;
   IF array_length(v_cleared, 1) IS NOT NULL THEN
     v_ev_memo := COALESCE(v_ev_memo || ' ', '') || '[추정 해제: ' || array_to_string(v_cleared, ', ') || ']';
