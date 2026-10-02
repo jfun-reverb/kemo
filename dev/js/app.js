@@ -692,6 +692,12 @@ async function init() {
     history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
     navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications', false);
+  } else if (currentUser && ['login', 'signup', 'forgot'].includes(hash)) {
+    // 이미 로그인된 채 로그인·가입 화면 주소로 들어왔다 — 홈으로. 로그인 화면을 그리면 「로그인됐는데 로그인 화면」이 된다
+    //   (2026-10-02 운영 모바일 신고 — 로그인 직후 픽셀 새로고침이 `#login` 으로 다시 연 경우. 그 순서는 auth.js 에서 고쳤고 이건 안전장치)
+    //   ⚠️ replaceState 만으로는 안 된다 — 첫 화면이 이미 주소대로(로그인) 켜져 있어 navigate 로 바꿔 그린다
+    history.replaceState({page:'home'}, '', '#home');
+    navigate('home', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
