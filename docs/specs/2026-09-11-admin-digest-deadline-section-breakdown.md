@@ -1,5 +1,7 @@
 # 📋 작업 분해표 — 관리자 일일 메일 「조치가 필요한 캠페인」 절
 
+**상태:** ✅ 운영 반영 — 기록은 본 사양서 「구현 결과」 (2026-10-02 상태 점검)
+
 **사양서:** [`docs/specs/2026-09-11-admin-digest-deadline-section.md`](2026-09-11-admin-digest-deadline-section.md)
 **착수 전 알아야 할 것(코드 대조):** [`docs/specs/2026-09-11-admin-digest-deadline-section-precheck.md`](2026-09-11-admin-digest-deadline-section-precheck.md)
 **분해일:** 2026-09-11 · **분해:** 기획 에이전트 · **기준 커밋:** `46d4689b`(dev)

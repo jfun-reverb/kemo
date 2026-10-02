@@ -1,6 +1,7 @@
 # 기간 문구·선정 기간 잔여분 인수인계
 
 **작성일:** 2026-08-11 (고문 세션)
+**상태:** ✅ 운영 반영(묶음 A) — 「구현 결과」 기록 대기. 묶음 B 의 기획 결정(질문 2·4)이 끝났는지 확인 필요 (2026-10-02 상태 점검)
 **상위 지도:** `docs/specs/2026-08-11-period-wording-rollout-gaps.md`
 **함께 볼 것:** `docs/specs/2026-08-11-selection-period-visibility.md` (선정 기간 — 미구현) · `docs/specs/2026-08-11-receipt-deadline-mail-fix.md` (영수증 마감 메일 — **구현 완료**)
 
