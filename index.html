@@ -4439,7 +4439,7 @@ const META_PIXEL_EVENT_TABLE = [
   { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
   { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
   { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했지만 이메일 확인 전일 때 (인증번호 없이 지나간 옛 흐름 가입)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '인증번호를 확인하고 가입을 마쳤을 때 · 옛 흐름 가입자가 같은 브라우저에서 확인 링크로 이메일 확인을 끝냈을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '인증번호를 확인하고 가입을 마쳤을 때 (확인 링크로 이메일 확인을 끝낼 때는 보내지 않음 — 1인 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
   { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
 ];
 
@@ -16054,7 +16054,8 @@ function _metaPixelApplyResult(origin, id) {
 // 흐름 2 — app.js init() 의 세션 복원·방문자 집계 바로 뒤에서 부팅 1회 부른다.
 //   🔴 세션 복원 전에 부르면 관리자가 비로그인으로 보여 서버가 아이디를 내준다.
 //   🔴 민감 값 판정은 **여기서 한 번**이다 — 가입 확인 코드는 이 자리 전에 지워져 있어야
-//      4번 이벤트가 산다(작업표 S8, 사양서 ⑯ 표).
+//      확인 링크 착지에서도 픽셀이 켜진다(작업표 S8, 사양서 ⑯ 표). 그 착지는 2026-10-02 부터
+//      가입 이벤트를 안 보내고 페이지뷰만 나간다(app.js — 1인 1건).
 function initMetaPixel() {
   try {
     if (_metaPixelBootReached) return;
@@ -24064,14 +24065,10 @@ async function init() {
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
       const codeStillInUrl = new URLSearchParams(location.search).has('code');
-      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
-      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
-      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
-      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
-      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
-      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
-        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
-      }
+      // 메타 픽셀 — 🔴 이 착지에서는 가입 이벤트를 **보내지 않는다**(2026-10-02 사용자 결정, 1인 1건).
+      //   이 착지는 가입 폼 제출 때 이미 `pending_email` 을 보낸 옛 흐름 가입자뿐이라, 여기서 `confirmed` 를 또 보내면
+      //   가입 1명이 「등록 완료」 2건이 된다(광고 세트가 이 이벤트로 학습한다). 새 가입 화면은 가입 순간 `confirmed`
+      //   1건을 `auth.js` 가 보낸다. ⚠️ 되살리지 말 것 — 1인 1건이 깨진다(사양서 2026-09-03-meta-pixel.md 표 4번).
       if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }
