@@ -1,5 +1,7 @@
 # 📋 작업 분해표 — 정산 관리 3단계 (실제 송금 기록)
 
+**상태:** ✅ 운영 반영 (마이그레이션 338~342 · 2026-08-19 — 기록은 [`2026-08-18-settlement-stage3-handoff.md`](2026-08-18-settlement-stage3-handoff.md)) (2026-10-02 상태 점검)
+
 **사양서:** `docs/specs/2026-08-18-settlement-list-unification-and-payout-schedule.md` §4-3 · §8 표 3단계
 **분해일:** 2026-08-18 (기획 세션)
 **총 작업 조각:** 7개 · **마이그레이션 5개** · **병렬 가능:** 1개

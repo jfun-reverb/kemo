@@ -284,5 +284,26 @@
 | 2026-09-23 | [브랜드 영업 메모 — 오리엔시트 메모처럼 여러 건으로](2026-09-23-brand-memo-entries.md) | 사양서 |  |
 | 2026-09-28 | [캠페인 홍보 메일 — 「신규」 절이 한 번도 안 나간 문제와 「마감 임박」 범위](2026-09-28-promo-mail-new-and-deadline-window.md) | 사양서 | |
 | 2026-09-28 | [인수인계 — 사양서 「구현 결과」 채우기](2026-09-28-spec-results-handoff.md) | 인수인계 | |
+| 2026-09-29 | [CLAUDE.md 큰 절 세 개를 「필요할 때만 읽히는 규칙 파일」로 옮기기](2026-09-29-claude-md-load-reduction.md) | 사양서 |  |
+| 2026-09-29 | [흔한 비밀번호 — 회원은 경고, 관리자는 거부](2026-09-29-common-password-warning.md) | 사양서 |  |
+| 2026-09-29 | [회원 앱 스타일 통일](2026-09-29-member-app-style-unification.md) | 사양서 |  |
+| 2026-09-29 | [작업표 — 회원 앱 스타일 통일](2026-09-29-member-app-style-unification-breakdown.md) | 작업표 | [2026-09-29-member-app-style-unification.md](2026-09-29-member-app-style-unification.md) |
+| 2026-09-29 | [인증 성공일 회차별 페이백 대상 엑셀](2026-09-29-payback-period-excel.md) | 사양서 |  |
+| 2026-09-29 | [작업표 — 인증 성공일 회차별 페이백 대상 엑셀](2026-09-29-payback-period-excel-breakdown.md) | 작업표 | [2026-09-29-payback-period-excel.md](2026-09-29-payback-period-excel.md) |
+| 2026-09-29 | [공개 저장소 통 3개 — 파일 목록 조회 닫기](2026-09-29-storage-bucket-listing-lockdown.md) | 사양서 |  |
+| 2026-09-29 | [인수인계 — 공개 저장소 통 목록 조회 닫기](2026-09-29-storage-bucket-listing-lockdown-handoff.md) | 인수인계 | [2026-09-29-storage-bucket-listing-lockdown.md](2026-09-29-storage-bucket-listing-lockdown.md) |
+| 2026-09-30 | [관리자 페이지 진입 시 화면 깜빡임 — 개발 인수인계](2026-09-30-admin-entry-flash-handoff.md) | 인수인계 |  |
+| 2026-09-30 | [캠페인 목록 탭별 주소 분리](2026-09-30-campaign-list-tab-url.md) | 사양서 |  |
+| 2026-09-30 | [항상 읽히는 지시 문서를 15만 자 아래로 — 전체 방안](2026-09-30-instruction-load-budget.md) | 사양서 |  |
+| 2026-09-30 | [정산 송금 수수료·총지출 기록](2026-09-30-settlement-transfer-fee-record.md) | 사양서 |  |
+| 2026-09-30 | [작업표 — 정산 송금 수수료·총지출 기록(2단계)](2026-09-30-settlement-transfer-fee-record-breakdown.md) | 작업표 | [2026-09-30-settlement-transfer-fee-record.md](2026-09-30-settlement-transfer-fee-record.md) |
+
+### 2026-10
+
+| 날짜 | 문서 | 종류 | 짝 |
+|---|---|---|---|
+| 2026-10-01 | [회원가입 — 이메일 인증번호를 먼저 확인한 뒤에만 가입](2026-10-01-signup-email-code-verification.md) | 사양서 |  |
+| 2026-10-01 | [작업표 — 회원가입 이메일 인증번호](2026-10-01-signup-email-code-verification-breakdown.md) | 작업표 | [2026-10-01-signup-email-code-verification.md](2026-10-01-signup-email-code-verification.md) |
+| 2026-10-02 | [인수인계 — 사양서 상태 점검 뒤 남은 일](2026-10-02-spec-status-audit-handoff.md) | 인수인계 |  |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)

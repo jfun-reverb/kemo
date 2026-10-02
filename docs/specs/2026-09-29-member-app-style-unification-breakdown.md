@@ -1,5 +1,7 @@
 # 📋 작업 분해표 — 회원 앱 스타일 통일
 
+**상태:** ⏸️ 착수 대기 — 10/6 일반 문의 창구 시행 뒤 착수(본 사양서와 같다) (2026-10-02 상태 점검)
+
 **사양서:** `docs/specs/2026-09-29-member-app-style-unification.md`
 **근거 보고서:** `docs/research/2026-09-29-member-app-style-audit.md`
 **분해일:** 2026-09-29

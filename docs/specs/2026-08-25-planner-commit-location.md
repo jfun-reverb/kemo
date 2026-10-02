@@ -1,6 +1,7 @@
 # 고문과 기획이 동시에 뜰 때 기획은 어디서 커밋하나
 
 **작성일:** 2026-08-25 (기획 세션)
+**상태:** 📄 결정 문서 — 결정 완료, `.claude/rules/git.md`·`session-roles.md` 에 반영 (2026-10-02 상태 점검)
 **넘겨받은 곳:** 고문 세션(`reverb-jp-57`) — 「규칙 한 줄이 아니라 세션 역할 규칙 본문을 다시 쓰는 설계 결정」이라 판단해 기획으로 이관
 **관련 규칙:** `.claude/rules/session-roles.md` §1·§2 · `.claude/rules/multi-session.md` · `.claude/rules/git.md` §거버넌스 문서 직접 커밋 · 글로벌 `~/.claude/rules/common-session-roles.md` §1 · `~/.claude/rules/common-multi-session.md`
 **계기:** 2026-08-25 고문 세션이 규칙 문서를 커밋할 자리를 잃음

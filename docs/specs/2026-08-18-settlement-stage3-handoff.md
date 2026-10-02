@@ -1,5 +1,7 @@
 # 인수인계 — 정산 3단계 (실제 송금 기록)
 
+**상태:** 📄 인수인계 — 3단계 운영 적용 완료(2026-08-19). 4·5단계는 [`2026-08-18-settlement-list-unification-and-payout-schedule.md`](2026-08-18-settlement-list-unification-and-payout-schedule.md) 소관 (2026-10-02 상태 점검)
+
 **작성:** 2026-08-18 · 개발 세션
 **브랜치:** `feature/정산3단계-송금기록` (메인 폴더)
 **사양서:** `docs/specs/2026-08-18-settlement-list-unification-and-payout-schedule.md`
