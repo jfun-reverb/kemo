@@ -1097,7 +1097,7 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
 
     // 자동 번역 병기 (마이그레이션 235): 번역본도 esc() 필수(XSS).
     //  - 회원 글·운영팀 글 모두 **원문이 위(본문), 번역이 아래**(2026-10-06 인수인계).
-    //  - 라벨은 translated_lang 으로 — ko 「한국어 번역(자동)」 · ja 「일본어 번역(자동)」.
+    //  - 라벨은 translated_lang 으로 — ko 「번역」(2026-10-06 사용자 지시 — 짧게) · ja 「일본어 번역(자동)」.
     //    운영팀이 일본어로 쓰면 번역 함수가 한국어 번역을 만든다(그때 회원은 원문을 본다).
     //  - 운영팀 글의 일본어 번역은 회원 화면에 본문으로 나간다 — 그때만 그 안내를 붙인다(실제 전달 문구 검수용)
     let bodyHtml;
@@ -1105,7 +1105,7 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
     if (hasTrans) {
       const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
       const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
-      const transLabel = msg.translated_lang === 'ja' ? '일본어 번역(자동)' : '한국어 번역(자동)';
+      const transLabel = msg.translated_lang === 'ja' ? '일본어 번역(자동)' : '번역';
       const caption = (fromAdmin && msg.translated_lang === 'ja')
         ? '<div class="msg-trans-caption">인플루언서 화면에는 이 일본어 번역이 본문으로 표시됩니다</div>' : '';
       bodyHtml = `${origHtml}
