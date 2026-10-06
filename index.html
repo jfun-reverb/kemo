@@ -9036,6 +9036,27 @@ async function fetchStalledDraftApplications() {
   } catch(e) { console.error('[fetchStalledDraftApplications]', e); return null; }
 }
 
+// 「올려두고 제출 안 한 건」 안내 창의 목록용 — 임시저장 결과물을 캠페인·회원과 함께(2026-10-06).
+//   🔴 실패는 null, 0건은 [] — 실패를 「0건」으로 그리면 감지 장치가 막으려던 상태가 재현된다.
+//   ⚠️ 세는 기준은 위 fetchStalledDraftApplications 와 같다(status='draft' 결과물이 있는 응모).
+async function fetchStalledDraftDetails() {
+  if (!db) return null;
+  try {
+    const rows = [];
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('deliverables')
+        .select('id, kind, post_channel, updated_at, application_id, user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand)')
+        .eq('status', 'draft').order('updated_at', {ascending: false}).order('id').range(from, from + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
+    const infMap = userIds.length ? await fetchInfluencersByIds(userIds) : {};
+    return rows.map(r => ({...r, influencers: infMap[r.user_id] || null}));
+  } catch(e) { console.error('[fetchStalledDraftDetails]', e); return null; }
+}
+
 // 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
 async function fetchPendingApplicationCount() {
   if (!db) return 0;

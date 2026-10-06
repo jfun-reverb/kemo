@@ -1440,9 +1440,11 @@ function openStalledDraftModal() {
   body.innerHTML = `
     <div style="padding:16px;font-size:13px;line-height:1.7;color:var(--ink)">
       <div style="padding:12px 14px;background:#FFE4EC;border-left:3px solid #B91C5C;border-radius:8px;margin-bottom:14px">
-        <b>${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
+        <b id="stalledDraftCountText">${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
         본인 화면에는 남아 있지만 <b>운영팀에는 전달되지 않았습니다</b> — 검수 대상도, 인증 성공 판정 대상도 아닙니다.
       </div>
+      <b>해당 응모</b>
+      <div id="stalledDraftList" style="margin:6px 0 14px;color:var(--muted)">불러오는 중…</div>
       <b>어디서 보나</b>
       <div style="margin:6px 0 14px">
         결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려만 둠</span> 딱지가 붙습니다.<br>
@@ -1451,13 +1453,58 @@ function openStalledDraftModal() {
       <b>지금 할 수 있는 것</b>
       <div style="margin:6px 0 14px">
         관리자가 대신 제출해 주는 기능은 <b>아직 없습니다.</b> 본인이 활동관리 화면에서 「제출하기」를 눌러야 합니다.<br>
-        해당 인플루언서에게 <b>응모건 메시지</b>로 안내해 주세요 — 목록 각 행의 메시지 버튼으로 바로 보낼 수 있습니다.
+        위 목록의 「메시지」로 해당 인플루언서에게 <b>응모건 메시지</b>를 보내 안내해 주세요.
       </div>
       <div style="color:var(--muted);font-size:12px">
         인플루언서 화면에는 안내 줄과 「미제출」 표시가 이미 들어가 있어, 앞으로 생기는 건은 줄어들 것으로 봅니다.
       </div>
     </div>`;
   overlay.classList.add('open');
+  loadStalledDraftList();
+}
+
+// 「해당 응모」 목록 — 응모 1건 = 1줄(한 응모에 임시저장이 여럿이면 「올려둔 것」에 모아 적는다)
+//   ⚠️ 조회 실패는 「불러오지 못함」으로 말한다 — 빈 목록으로 그리면 「없다」로 읽힌다
+const STALLED_DRAFT_KIND_LABEL = { receipt: '영수증', review_image: '인증샷', post: '게시물' };
+async function loadStalledDraftList() {
+  const box = document.getElementById('stalledDraftList');
+  if (!box) return;
+  const rows = await fetchStalledDraftDetails();
+  if (!document.getElementById('stalledDraftModal')?.classList.contains('open')) return;
+  if (rows === null) { box.textContent = '목록을 불러오지 못했습니다. 창을 닫았다가 다시 열어 주세요.'; return; }
+  const byApp = new Map();
+  rows.forEach(r => {
+    if (!r.application_id) return;
+    const g = byApp.get(r.application_id) || { appId: r.application_id, campaignId: r.campaign_id, camp: r.campaigns, inf: r.influencers, items: [], last: r.updated_at };
+    const label = (STALLED_DRAFT_KIND_LABEL[r.kind] || r.kind) + (r.post_channel ? '(' + getChannelLabel(r.post_channel, 'ko') + ')' : '');
+    if (!g.items.includes(label)) g.items.push(label);
+    if (r.updated_at && (!g.last || r.updated_at > g.last)) g.last = r.updated_at;
+    byApp.set(r.application_id, g);
+  });
+  const groups = [...byApp.values()];
+  // 건수를 목록과 맞춘다 — 창을 연 뒤 새로 생기거나 제출된 건이 있으면 위 숫자도 따라간다
+  const cnt = document.getElementById('stalledDraftCountText');
+  if (cnt) cnt.textContent = groups.length + '건';
+  if (groups.length === 0) { box.textContent = '지금은 해당하는 응모가 없습니다.'; return; }
+  box.style.color = '';
+  box.innerHTML = `
+    <div class="admin-table-wrap" style="max-height:none">
+      <table class="data-table" style="font-size:12px">
+        <thead><tr><th>인플루언서</th><th>캠페인</th><th>올려둔 것</th><th>마지막 저장</th><th></th></tr></thead>
+        <tbody>${groups.map(g => {
+          const infName = g.inf ? (g.inf.name_kanji || g.inf.name || g.inf.email || '—') : '—';
+          const campTitle = g.camp ? (g.camp.title || '—') : '—';
+          const campNo = g.camp?.campaign_no ? `<div style="color:var(--muted);font-size:11px">${esc(g.camp.campaign_no)}</div>` : '';
+          return `<tr>
+            <td>${esc(infName)}</td>
+            <td>${esc(campTitle)}${campNo}</td>
+            <td>${esc(g.items.join(', '))}</td>
+            <td style="white-space:nowrap">${g.last ? esc(formatDateTime(g.last)) : '—'}</td>
+            <td><button type="button" class="btn btn-ghost btn-xs" onclick="closeStalledDraftModal();openAdminMessageModal('${esc(g.appId)}','${esc(g.campaignId || '')}')">메시지</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
 }
 
 function closeStalledDraftModal() {
