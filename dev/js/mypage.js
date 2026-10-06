@@ -62,16 +62,17 @@ async function loadMyPage() {
     el.dataset.snsExtractBound = '1';
     el.addEventListener('blur', () => {
       const next = extractSnsHandle(channel, el.value);
-      if (next !== el.value) el.value = next;
+      if (next !== el.value) { el.value = next; refreshMypageSaveButtons(); }
     });
   };
   bindSnsExtract('profileIg', 'instagram');
   bindSnsExtract('profileX', 'x');
   bindSnsExtract('profileTiktok', 'tiktok');
   bindSnsExtract('profileYoutube', 'youtube');
-  if(p.primary_sns && $('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns;
+  // 값이 없으면 빈 선택으로 되돌린다 — 「저장하지 않고 이동」 뒤에 고르다 만 값이 남지 않게(두 선택 칸 모두 value="" 항목이 있다)
+  if($('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns || '';
   setVal('profileZip', p.zip);
-  if(p.prefecture && $('profilePrefecture')) $('profilePrefecture').value = p.prefecture;
+  if($('profilePrefecture')) $('profilePrefecture').value = p.prefecture || '';
   setVal('profileCity', p.city);
   setVal('profileBuilding', p.building);
   setVal('profilePhone', p.phone);
@@ -92,6 +93,10 @@ async function loadMyPage() {
   addrFields.forEach(f => f.val ? clearRequired(f.id) : markRequired(f.id, reqMsg));
   // PayPal: 개별 체크
   if (hasPaypal) clearRequired('paypalEmail'); else markRequired('paypalEmail', reqMsg);
+
+  // 저장 단추 — 칸을 다 채운 뒤에 기준값을 잡는다(먼저 잡으면 빈 값이 기준이 되어 처음부터 켜진다)
+  bindMypageSaveButtons();
+  snapshotMypageForms();
 
   loadMyApplications();
 }
@@ -406,8 +411,123 @@ function openCautionCompareModal(appId) {
   openModal('cautionCompareModal');
 }
 
+// ── 저장 단추는 바뀐 값이 있을 때만 켠다(2026-10-06 사용자 결정) ──
+// 기본 정보·SNS·배송지: 화면을 채운 순간의 값과 다르면 켠다(원래대로 되돌리면 다시 꺼진다).
+// PayPal: 저장된 주소와 다르고 확인 칸까지 채워지면 · 비밀번호: 세 칸이 다 채워지면.
+//   ⚠️ 형식 오류(주소 형식·불일치·비밀번호 규칙)는 지금처럼 **누른 뒤** 안내한다 — 단추를 끄는 조건에 넣지 않는다.
+//   ⚠️ 코드가 값을 바꾸는 자리(주소 검색·SNS 핸들 정리)는 입력 신호가 안 나서 직접 갱신을 부른다.
+const MYPAGE_DIRTY_FORMS = {
+  'mypage-sub-profile-basic':   'profileBasicSaveBtn',
+  'mypage-sub-profile-sns':     'profileSnsSaveBtn',
+  'mypage-sub-profile-address': 'profileAddressSaveBtn',
+};
+const MYPAGE_SAVE_WATCH_VIEWS = [...Object.keys(MYPAGE_DIRTY_FORMS), 'mypage-sub-paypal', 'mypage-sub-password'];
+const _mypageSnapshot = {};
+function _mypageFormValues(viewId) {
+  const view = $(viewId);
+  if (!view) return '';
+  const fields = view.querySelectorAll('input[id],select[id],textarea[id]');
+  return JSON.stringify(Array.from(fields).map(el => [el.id, el.type === 'checkbox' ? el.checked : el.value]));
+}
+function snapshotMypageForms() {
+  Object.keys(MYPAGE_DIRTY_FORMS).forEach(viewId => { _mypageSnapshot[viewId] = _mypageFormValues(viewId); });
+  _mypageSnapshot.paypal = ($('paypalEmail')?.value || '').trim();
+  refreshMypageSaveButtons();
+}
+function refreshMypageSaveButtons() {
+  Object.entries(MYPAGE_DIRTY_FORMS).forEach(([viewId, btnId]) => {
+    const btn = $(btnId);
+    // 기준값이 아직 없으면(화면을 채우기 전) 막지 않는다
+    if (btn) btn.disabled = (viewId in _mypageSnapshot) && _mypageFormValues(viewId) === _mypageSnapshot[viewId];
+  });
+  const paypalBtn = $('paypalSaveBtn');
+  if (paypalBtn) {
+    const email = ($('paypalEmail')?.value || '').trim();
+    const confirmVal = ($('paypalEmailConfirm')?.value || '').trim();
+    paypalBtn.disabled = !email || !confirmVal || email === _mypageSnapshot.paypal;
+  }
+  const pwBtn = $('pwChangeBtn');
+  if (pwBtn) pwBtn.disabled = !($('currentPw')?.value && $('newPw')?.value && $('newPw2')?.value);
+}
+function bindMypageSaveButtons() {
+  MYPAGE_SAVE_WATCH_VIEWS.forEach(viewId => {
+    const view = $(viewId);
+    if (!view || view.dataset.saveWatchBound === '1') return;
+    view.dataset.saveWatchBound = '1';
+    view.addEventListener('input', refreshMypageSaveButtons);
+    view.addEventListener('change', refreshMypageSaveButtons);
+  });
+}
+
+// ── 저장하지 않고 나갈 때 묻기(2026-10-06 사용자 결정 — 단추 둘: 「保存する」 / 「保存せずに移動」) ──
+// 「바뀐 값이 있다」 = 그 폼의 저장 단추가 켜져 있다(위 refreshMypageSaveButtons 와 같은 판정 — 따로 세지 않는다).
+const MYPAGE_SAVE_BTN_BY_VIEW = { ...MYPAGE_DIRTY_FORMS, 'mypage-sub-paypal': 'paypalSaveBtn', 'mypage-sub-password': 'pwChangeBtn' };
+const MYPAGE_SAVE_FN_BY_VIEW = {
+  'mypage-sub-profile-basic': () => saveProfile(),
+  'mypage-sub-profile-sns': () => saveProfile(),
+  'mypage-sub-profile-address': () => saveProfile(),
+  'mypage-sub-paypal': () => savePaypalInfo(),
+  'mypage-sub-password': () => changePassword(),
+};
+let _mypageLeavePending = null;   // { view, page, push, sub, subPush }
+let _mypageLeaveBypass = false;   // 고른 뒤 같은 이동을 다시 실행하는 동안만 참
+function mypageDirtyView() {
+  if (!currentUser || !$('page-mypage')?.classList.contains('active')) return null;
+  const active = document.querySelector('#page-mypage .mypage-view.active');
+  const btn = active && $(MYPAGE_SAVE_BTN_BY_VIEW[active.id]);
+  return btn && !btn.disabled ? active.id : null;
+}
+function openMypageLeaveDialog(pending) {
+  _mypageLeavePending = pending;
+  const ov = $('mypageLeaveOverlay');
+  if (ov) ov.style.display = 'flex';
+}
+// navigate() 가 부른다 — false 면 그 이동을 멈춘다
+function mypageLeaveGuard(page, pushHistory) {
+  if (_mypageLeaveBypass) return true;
+  if (_mypageLeavePending) return false;
+  const dirtyView = mypageDirtyView();
+  if (!dirtyView) return true;
+  openMypageLeaveDialog({ view: dirtyView, page, push: pushHistory });
+  return false;
+}
+// 막은 뒤 주소를 지금 보이는 폼으로 되돌린다(뒤로가기는 주소가 이미 옮겨져 있다)
+function restoreMypageHash() {
+  const active = document.querySelector('#page-mypage .mypage-view.active');
+  if (!active || !$('page-mypage')?.classList.contains('active')) return;
+  const sub = active.id.replace('mypage-sub-', '');
+  if (location.hash !== '#mypage-' + sub) history.replaceState({page:'mypage', sub}, '', '#mypage-' + sub);
+}
+async function resolveMypageLeave(choice) {
+  const p = _mypageLeavePending;
+  if (!p) return;
+  const ov = $('mypageLeaveOverlay');
+  if (choice === 'save') {
+    const saveBtn = $('mypageLeaveSaveBtn');
+    if (saveBtn) saveBtn.disabled = true;
+    let ok = false;
+    try { ok = await (MYPAGE_SAVE_FN_BY_VIEW[p.view] || (async () => false))(); }
+    finally { if (saveBtn) saveBtn.disabled = false; }
+    // 저장 실패·형식 오류 — 창을 닫고 그 폼에 남아 안내를 보게 한다(이동하지 않는다)
+    if (!ok) { if (ov) ov.style.display = 'none'; _mypageLeavePending = null; return; }
+  }
+  if (ov) ov.style.display = 'none';
+  _mypageLeavePending = null;
+  _mypageLeaveBypass = true;
+  try {
+    if (p.page) {
+      navigate(p.page, p.push);
+      // 뒤로가기로 막혔던 이동은 주소를 되돌려 뒀으므로 목적지 주소로 맞춘다(폼 이동이면 아래 openMypageSub 가 맞춘다)
+      if (p.push === false && !p.sub) history.replaceState({page: p.page}, '', '#' + p.page);
+    }
+    if (p.sub) openMypageSub(p.sub, p.subPush);
+  } finally {
+    _mypageLeaveBypass = false;
+  }
+}
+
 async function saveProfile() {
-  if (!currentUser) return;
+  if (!currentUser) return false;
   const getVal = id => $(id)?.value||'';
   const zip = getVal('profileZip');
   const pref = getVal('profilePrefecture');
@@ -434,13 +554,15 @@ async function saveProfile() {
     await updateInfluencer(currentUser.id, updated);
     currentUserProfile = Object.assign(currentUserProfile || {}, updated);
     toast(t('profile.saved'),'success'); loadMyPage();
+    return true;
   } catch(e) {
     toast(friendlyErrorJa(e), 'error');
+    return false;
   }
 }
 
 async function savePaypalInfo() {
-  if (!currentUser) return;
+  if (!currentUser) return false;
   const getVal = id => $(id)?.value?.trim()||'';
   const email = getVal('paypalEmail');
   const confirm = getVal('paypalEmailConfirm');
@@ -456,8 +578,10 @@ async function savePaypalInfo() {
     currentUserProfile = Object.assign(currentUserProfile || {}, { paypal_email: email });
     toast(t('profile.paypalSaved'),'success');
     loadMyPage();
+    return true;
   } catch(e) {
     toast(friendlyErrorJa(e), 'error');
+    return false;
   }
 }
 
@@ -479,7 +603,9 @@ async function changePassword() {
   if (error) { logAppError('changePassword', error); err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
+  refreshMypageSaveButtons();
   if (typeof hideCommonPasswordWarning === 'function') hideCommonPasswordWarning('newPwCommonWarn');
+  return true;
 }
 
 // 메일 수신 설정 토글 (ON=재구독 / OFF=수신거부)
@@ -503,6 +629,13 @@ async function toggleMarketingEmail(checked) {
 }
 
 function openMypageSub(sub, pushHistory) {
+  // 저장 안 한 변경 확인 중이면 이 이동은 고른 뒤로 미룬다(navigate 가 막혀도 부르는 쪽이 이어서 여기를 부른다)
+  if (_mypageLeavePending) { _mypageLeavePending.sub = sub; _mypageLeavePending.subPush = pushHistory; return; }
+  // navigate 를 거치지 않고 폼끼리 옮겨 가는 경우도 묻는다
+  if (!_mypageLeaveBypass) {
+    const dirtyView = mypageDirtyView();
+    if (dirtyView && dirtyView !== 'mypage-sub-' + sub) { openMypageLeaveDialog({ view: dirtyView, page: null, sub, subPush: pushHistory }); return; }
+  }
   // ⚠️ 「報酬・精算」 화면은 없앴다(2026-08-19). 이 되돌림은 **지우면 안 된다** — 과거 북마크·
   //    브라우저 뒤로가기·해시 직접 입력(#mypage-settlements)으로 들어올 수 있는데, 화면이 없으면
   //    어느 것도 활성화되지 않아 **텅 빈 마이페이지**가 뜬다.
