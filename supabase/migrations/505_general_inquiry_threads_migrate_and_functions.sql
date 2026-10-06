@@ -714,7 +714,8 @@ BEGIN
          AND m.sender_kind = 'influencer'
          AND m.hidden_by_admin_at IS NULL
          AND m.self_withdrawn_at IS NULL
-         AND m.created_at > v_seen_at
+         -- 조회 정렬(created_at, id)과 같은 기준 — 같은 시각에 들어온 글도 순서가 갈린다
+         AND (m.created_at, m.id) > (v_seen_at, p_seen_last_message_id)
     ) THEN
       RAISE EXCEPTION 'new_message_since_view' USING ERRCODE = 'P0001';
     END IF;
