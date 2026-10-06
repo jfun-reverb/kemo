@@ -1,7 +1,7 @@
 # 일괄 발송 — 「같은 조건으로, 아직 안 받은 사람에게만 추가 발송」
 
 **작성일:** 2026-08-27
-**상태:** ✅ 코드 운영 반영(마이그레이션 388~391·393 — 저장소 기준) — **운영 데이터베이스 적용 기록이 없다, 확인 필요** (2026-10-02 상태 점검)
+**상태:** ✅ 운영 반영 — 코드 + 운영 데이터베이스(마이그레이션 388~391·393 — 2026-10-06 운영 조회로 확인: `parent_broadcast_id` 칸·`idx_broadcasts_parent`·`resolve_bulk_recipients` 의 `p_exclude_broadcast_id`·`send_application_message_bulk` 의 `p_parent_broadcast_id`·`get_broadcast_detail` 사슬·`update_broadcast_title` 모두 있음)
 **작성:** 기획/설계 세션
 **계기:** 사용자 요청 — 「일괄발송 이력에서 이미 보낸 조건과 동일하지만 이미 발송한 사람을 제외하고 추가로 더 보내고 싶을 때 같은 조건으로 추가 발송을 할 수 있으면 좋겠어」
 
