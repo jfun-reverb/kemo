@@ -999,6 +999,16 @@ window.I18N_KO = {
     otherLead: '참여한 캠페인 외 서비스 관련 문의는 여기서 해 주세요.',
     otherStart: '문의 시작하기',
     newReply: '새 답장이 있습니다',
+    // 서비스 문의 여러 대화(2026-10-06)
+    currentTitle: '지금의 문의',
+    pastTitle: '지난 문의',
+    backToList: '문의 목록으로 돌아가기',
+    more: '더 보기',
+    resolved: '응대 완료',
+    noVisibleMessage: '표시할 메시지가 없습니다',
+    threadNotFound: '이 문의를 열 수 없었습니다',
+    threadsLoadError: '문의를 불러오지 못했습니다',
+    pastReadOnly: '이 문의는 끝났습니다. 이어서 묻고 싶으면 목록으로 돌아가 주세요.',
   },
   // 정책 변경 통지 — 일반 문의 창구 개설 + 개인정보 처리방침 개정(2026-09-29 공고 → 2026-10-06 시행)
   //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.

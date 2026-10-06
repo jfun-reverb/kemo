@@ -335,8 +335,10 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   closeNotifModal();
   // 일반 문의 답장 알림 → 일반 문의 대화. ⚠️ 종류가 응모건과 같은 message_received 라
   //   **표 이름으로 먼저 가른다**(아래 분기로 새면 회원 id 를 응모 id 자리에 들고 가 엉뚱한 화면이 된다).
+  //   505 부터 ref_id = 대화 id → 그 대화. 그 전 알림은 ref_id = 회원 id → 서비스 탭 목록(경우의 수 #6 하위 호환)
   if (refTable === 'general_inquiry' && currentUser) {
-    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif');
+    if (refId && refId !== currentUser.id && typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif', undefined, refId);
+    else if (typeof openInquiryPage === 'function') openInquiryPage('notif');
     refreshNotifBadge();
     return;
   }
