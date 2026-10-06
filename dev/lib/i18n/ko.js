@@ -1000,7 +1000,7 @@ window.I18N_KO = {
     otherStart: '문의 시작하기',
     newReply: '새 답장이 있습니다',
     // 서비스 문의 여러 대화(2026-10-06)
-    currentTitle: '지금의 문의',
+    currentTitle: '진행 중인 문의',
     pastTitle: '지난 문의',
     backToList: '문의 목록으로 돌아가기',
     more: '더 보기',
@@ -1009,6 +1009,17 @@ window.I18N_KO = {
     threadNotFound: '이 문의를 열 수 없었습니다',
     threadsLoadError: '문의를 불러오지 못했습니다',
     pastReadOnly: '이 문의는 끝났습니다. 이어서 묻고 싶으면 목록으로 돌아가 주세요.',
+    // 서비스 문의 여러 대화 개정(2026-10-06 R2) — 새 문의 제목·열린 문의 상한
+    subjectLabel: '제목',
+    subjectPlaceholder: '예: 포인트 사용 방법',
+    subjectRequired: '제목을 입력해 주세요',
+    subjectTooLong: '제목은 40자 이내로 입력해 주세요',
+    openLimit: '열려 있는 문의가 상한에 닿았습니다. 열려 있는 문의에 이어서 써 주세요',
+    openLimitReopen: '열려 있는 문의가 상한이라 이 문의는 다시 열 수 없습니다. 열려 있는 문의에 이어서 써 주세요',
+    threadClosedNew: '이 문의는 끝났습니다. 새로 문의해 주세요',
+    openCountHint: '열려 있는 문의가 {n}건 있습니다. 같은 내용이면 거기에 이어서 써 주세요',
+    seeList: '문의 목록 보기',
+    withdrawSubject: '탈퇴에 대해',
   },
   // 정책 변경 통지 — 일반 문의 창구 개설 + 개인정보 처리방침 개정(2026-09-29 공고 → 2026-10-06 시행)
   //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.
