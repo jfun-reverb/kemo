@@ -305,5 +305,6 @@
 | 2026-10-01 | [회원가입 — 이메일 인증번호를 먼저 확인한 뒤에만 가입](2026-10-01-signup-email-code-verification.md) | 사양서 |  |
 | 2026-10-01 | [작업표 — 회원가입 이메일 인증번호](2026-10-01-signup-email-code-verification-breakdown.md) | 작업표 | [2026-10-01-signup-email-code-verification.md](2026-10-01-signup-email-code-verification.md) |
 | 2026-10-02 | [인수인계 — 사양서 상태 점검 뒤 남은 일](2026-10-02-spec-status-audit-handoff.md) | 인수인계 |  |
+| 2026-10-06 | [인수인계 — 문의하기 「서비스 문의」 탭에 새 답장 표시](2026-10-06-inquiry-service-tab-badge-handoff.md) | 인수인계 |  |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
