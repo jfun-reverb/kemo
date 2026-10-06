@@ -83,6 +83,7 @@
 - **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — **별도 Vercel 프로젝트 `reverb-sales`**(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com`. anon 이 `submit_brand_application` 을 거쳐 `brand_applications` 에 넣는다. `cleanUrls`+catch-all rewrite 로 `/reviewer` → `reviewer.html`. **파일 업로드 없음**. ⚠️ 배포 대상이 달라 **커밋 머지 ≠ 페이지 반영**
 - 배포용 산출물: 루트 `index.html`·`admin/index.html` (`dev/build.sh` 가 생성 — **직접 수정 금지**)
 - **폴더 구조는 `ls dev/js/`·`dev/lib/`·`dev/css/` 로 본다**(목록을 베껴 적지 않는다). 빌드 목록 단일 소스는 **`dev/build.sh` 의 `CLIENT_JS_FILES`·`ADMIN_JS_FILES`**
+- **회원 앱 공용 부품은 `dev/css/member-ui.css`**(회원 빌드 맨 끝 — 관리자 빌드엔 없다) + 상태 안내 헬퍼 `stateEmptyHtml`·`stateLoadingHtml`·`stateErrorHtml`(`ui.js`, 🔴 조회 실패 `null` 은 오류 · 0건 `[]` 은 빈 상태). 🔴 `base.css`·`components.css`·`ui.js` 는 관리자와 공유라 **기존 값을 고치지 않는다** — 화면을 옮길 때는 그 화면 선택자로만 덮어쓴다(사양서 `docs/specs/2026-09-29-member-app-style-unification.md`)
 - 🔴 **빌드는 ES 모듈이 아니라 단순 이어붙이기(concat)라 전역 스코프가 하나다** — `admin-core.js` 가 다른 `admin-*` 보다 **앞**, `admin.js` 가 페인 파일들보다 **뒤**, `admin/app.js` 가 **맨 마지막**(`dev/build.sh` 의 순서). 인플루언서 쪽은 `lib/*` 가 `js/*` 보다 앞, `js/app.js` 가 맨 마지막
 - Supabase 미연결 시 localStorage 로 동작 (DEMO_MODE)
 ## Features — 인플루언서 (모바일)

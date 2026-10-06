@@ -95,7 +95,7 @@ window.I18N_KO = {
     //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
     submitting: '전송 중…',
     uploading: '올리는 중…',
-    retry: '다시 시도',
+    retry: '다시 불러오기',
     close: '닫기',
     apply: '적용',
     ok: '확인',
@@ -103,7 +103,7 @@ window.I18N_KO = {
 
   home: {
     hero: {
-      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      eyebrow: 'K-Brand × Japan Only',
       titleLine1: '한국 인기 K브랜드를',
       titleLine2: '당신의 SNS로',
       titleLine3: '체험해보세요',
@@ -215,7 +215,7 @@ window.I18N_KO = {
       newLabel: '새 비밀번호 (8자 이상)',
       confirmLabel: '비밀번호 확인',
       btn: '비밀번호 변경',
-      verifying: '확인하고 있습니다...',
+      verifying: '확인하고 있습니다…',
       expiredTitle: '이 링크는 사용할 수 없습니다',
       expiredStep1: '링크는 받은 뒤 시간이 지나면 사용할 수 없게 됩니다',
       expiredStep2: '여러 번 보낸 경우에는 가장 최근 메일의 링크만 사용할 수 있습니다',
@@ -395,7 +395,7 @@ window.I18N_KO = {
 
   // 메일 1-click 수신거부 페이지
   unsubscribe: {
-    loading: '확인 중입니다...',
+    loading: '확인 중입니다…',
     successTitle: '메일 수신을 중지했습니다',
     successDesc: '앞으로 캠페인 정보 안내 메일은 보내지 않습니다. 응모 현황·심사 결과 등 업무 알림 메일은 계속 발송됩니다.',
     backToMypage: '마이페이지로',
@@ -700,7 +700,7 @@ window.I18N_KO = {
     receiptDateLabel: '구매일',
     receiptAmountLabel: '금액(엔)',
     submitBtn: '등록',
-    uploading: '업로드 중...',
+    uploading: '업로드 중…',
     noReceipt: '아직 등록된 영수증이 없습니다',
     noImage: '아직 추가된 이미지가 없습니다',
     imageSection: '이미지 제출',
@@ -854,6 +854,7 @@ window.I18N_KO = {
     currentPw: '현재 비밀번호',
     newPw: '새 비밀번호',
     newPwConfirm: '새 비밀번호 (확인)',
+    changePwBtn: '비밀번호 변경',
     pwChangeHint: '정기적인 비밀번호 변경을 권장합니다',
     requiredHint: '캠페인 응모에 필수 입력 항목입니다',
     unregistered: '미등록',
@@ -910,7 +911,7 @@ window.I18N_KO = {
     cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
-    loading: '불러오는 중...',
+    loading: '불러오는 중…',
     loadError: '문의를 불러오지 못했습니다',
     emptyThread: '아직 문의가 없습니다. 아래 입력란에서 운영팀에 문의할 수 있습니다.',
     you: '본인',
@@ -921,7 +922,7 @@ window.I18N_KO = {
     withdraw: '취소',
     withdrawConfirm: '이 메시지를 취소할까요?',
     withdrawFailed: '메시지 취소에 실패했습니다',
-    placeholder: '문의 내용을 입력...',
+    placeholder: '문의 내용을 입력…',
     attachMax: '첨부는 최대 {n}장까지입니다',
     attachTooLarge: '이미지가 너무 큽니다. 다른 이미지를 시도해 주세요',
     attachUploadFailed: '이미지 업로드에 실패했습니다',

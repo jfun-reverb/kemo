@@ -97,14 +97,12 @@ html.preview-mode #page-detail .detail-back{display:none}
       그 경우가 드물고, 안 걸면 세로 사진이 화면을 통째로 먹는다. */
 #campSlider img{height:auto !important;max-height:60vh}
 .detail-main{}
-.detail-header{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:24px;margin-bottom:16px;box-shadow:var(--elevation-1)}
 .detail-img{height:200px;background:var(--surface-dim);border-radius:var(--r12);display:flex;align-items:center;justify-content:center;font-size:72px;margin-bottom:16px;position:relative;overflow:hidden}
 .detail-badges{display:flex;gap:6px;margin-bottom:10px}
 .detail-h1{font-size:22px;font-weight:800;margin-bottom:6px}
 .detail-brand{font-size:13px;color:var(--on-surface-variant);margin-bottom:12px}
 .detail-meta-row{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--on-surface-variant);padding:12px 0;border-top:1px solid var(--outline);border-bottom:1px solid var(--outline);margin:12px 0}
 .detail-meta-item{display:flex;align-items:center;gap:5px}
-.guideline-section{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:0;margin-bottom:16px;overflow:hidden;box-shadow:var(--elevation-1)}
 .guide-title{font-size:13px;font-weight:700;padding:14px 20px;background:var(--primary-container);color:var(--on-primary-container);border-bottom:1px solid var(--outline);letter-spacing:.04em}
 .guide-row{display:flex;gap:0;font-size:13px;border-bottom:1px solid var(--surface-dim)}
 .guide-row:last-child{border-bottom:none}
@@ -118,7 +116,6 @@ html.preview-mode #page-detail .detail-back{display:none}
 
 /* Sidebar */
 .detail-sidebar{}
-.apply-box{background:linear-gradient(160deg,var(--primary-container) 0%,var(--surface) 60%);border:1.5px solid var(--baby-pink);border-radius:var(--r24);padding:24px;position:sticky;top:74px;box-shadow:var(--elevation-2)}
 .apply-reward{font-size:24px;font-weight:900;margin-bottom:4px}
 .apply-reward-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:16px}
 .apply-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}

@@ -503,7 +503,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 @media(min-width:600px){
   /* 시트 — 아래 붙는 모양에서 가운데 카드로. 등장도 올라오기 대신 페이드.
      ⚠️ 이미 가운데형인 대화창 7종(#alertModal·#cautionCompareModal·#applyActionModal·
-        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay·#cropModal)과
+        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay, 관리자 화면의 #cropModal)과
         .notif-modal-body(top:15%)는 손대지 않는다.
      ⚠️ 선택자를 묶지 않고 하나씩 적는다 — 자리 수를 세어 빠뜨린 곳을 찾는 검사가
         작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
@@ -633,14 +633,12 @@ html.preview-mode #page-detail .detail-back{display:none}
       그 경우가 드물고, 안 걸면 세로 사진이 화면을 통째로 먹는다. */
 #campSlider img{height:auto !important;max-height:60vh}
 .detail-main{}
-.detail-header{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:24px;margin-bottom:16px;box-shadow:var(--elevation-1)}
 .detail-img{height:200px;background:var(--surface-dim);border-radius:var(--r12);display:flex;align-items:center;justify-content:center;font-size:72px;margin-bottom:16px;position:relative;overflow:hidden}
 .detail-badges{display:flex;gap:6px;margin-bottom:10px}
 .detail-h1{font-size:22px;font-weight:800;margin-bottom:6px}
 .detail-brand{font-size:13px;color:var(--on-surface-variant);margin-bottom:12px}
 .detail-meta-row{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--on-surface-variant);padding:12px 0;border-top:1px solid var(--outline);border-bottom:1px solid var(--outline);margin:12px 0}
 .detail-meta-item{display:flex;align-items:center;gap:5px}
-.guideline-section{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:0;margin-bottom:16px;overflow:hidden;box-shadow:var(--elevation-1)}
 .guide-title{font-size:13px;font-weight:700;padding:14px 20px;background:var(--primary-container);color:var(--on-primary-container);border-bottom:1px solid var(--outline);letter-spacing:.04em}
 .guide-row{display:flex;gap:0;font-size:13px;border-bottom:1px solid var(--surface-dim)}
 .guide-row:last-child{border-bottom:none}
@@ -654,7 +652,6 @@ html.preview-mode #page-detail .detail-back{display:none}
 
 /* Sidebar */
 .detail-sidebar{}
-.apply-box{background:linear-gradient(160deg,var(--primary-container) 0%,var(--surface) 60%);border:1.5px solid var(--baby-pink);border-radius:var(--r24);padding:24px;position:sticky;top:74px;box-shadow:var(--elevation-2)}
 .apply-reward{font-size:24px;font-weight:900;margin-bottom:4px}
 .apply-reward-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:16px}
 .apply-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
@@ -954,7 +951,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .inq-app-error p{margin:0 0 10px}
 .inq-retry-btn{min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);color:var(--ink);font-size:14px;cursor:pointer}
 #page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
-.msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
+.msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
 .msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .msg-refresh-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
@@ -965,9 +962,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .msg-card{background:#fff;border:1px solid var(--outline);border-radius:10px;padding:10px 12px;max-width:88%;align-self:flex-start}
 .msg-card.mine{align-self:flex-end;background:#eef4ff;border-color:#cfe0ff}
 .msg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.msg-sender{font-size:12px;font-weight:700;color:var(--text)}
+.msg-sender{font-size:12px;font-weight:700;color:var(--ink)}
 .msg-time{font-size:11px;color:var(--muted)}
-.msg-card-body{font-size:14px;line-height:1.6;color:var(--text);word-break:break-word}
+.msg-card-body{font-size:14px;line-height:1.6;color:var(--ink);word-break:break-word}
 .msg-card-masked .msg-masked-body{font-size:13px;color:var(--muted);font-style:italic}
 /* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 원문은 아래 작은 글씨 */
 .msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line,#E5E5EA);font-size:12px;line-height:1.5;color:var(--muted)}
@@ -1002,20 +999,20 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* ── FAQ 전체 보기 오버레이 (#msgFaqTree) — 스레드 위에 떠서 표시 (PR B-rev) ── */
 .msg-faq-tree{position:absolute;left:0;right:0;top:0;bottom:0;z-index:4;overflow-y:auto;padding:16px;background:var(--surface-dim,#f7f7f8);display:flex;flex-direction:column;gap:12px}
-.msg-faq-intro{font-size:13px;line-height:1.6;color:var(--text)}
+.msg-faq-intro{font-size:13px;line-height:1.6;color:var(--ink)}
 .msg-faq-chips{display:flex;flex-direction:column;gap:8px}
-.msg-faq-chip{text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer}
+.msg-faq-chip{text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer}
 .msg-faq-chip:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
 .msg-faq-back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;padding:2px 0}
 .msg-faq-back .material-icons-round{font-size:18px}
-.msg-faq-cat-title{font-size:14px;font-weight:700;color:var(--text)}
+.msg-faq-cat-title{font-size:14px;font-weight:700;color:var(--ink)}
 .msg-faq-qlist{display:flex;flex-direction:column;gap:8px}
-.msg-faq-q{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;line-height:1.4;color:var(--text);cursor:pointer}
+.msg-faq-q{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;line-height:1.4;color:var(--ink);cursor:pointer}
 .msg-faq-q:hover{background:#fafafa}
 .msg-faq-q .material-icons-round{flex-shrink:0;font-size:20px;color:var(--muted)}
 .msg-faq-answer{background:#fff;border:1px solid var(--outline);border-radius:12px;padding:14px}
-.msg-faq-answer-q{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px}
-.msg-faq-answer-body{font-size:14px;line-height:1.7;color:var(--text);word-break:break-word}
+.msg-faq-answer-q{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.msg-faq-answer-body{font-size:14px;line-height:1.7;color:var(--ink);word-break:break-word}
 .msg-faq-action-btn{margin-top:12px;display:inline-flex;align-items:center;gap:6px;border:1px solid #B6CEF5;background:#F4F8FF;color:#2563EB;font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer}
 .msg-faq-action-btn .material-icons-round{font-size:17px}
 .msg-faq-answer-actions{display:flex;flex-direction:column;gap:8px}
@@ -1024,7 +1021,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .msg-faq-contact-link:hover{background:#fafafa}
 /* FAQ 전체 보기 오버레이 상단 헤더 (카테고리 1단 닫기) */
 .msg-faq-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.msg-faq-overlay-title{font-size:15px;font-weight:700;color:var(--text)}
+.msg-faq-overlay-title{font-size:15px;font-weight:700;color:var(--ink)}
 .msg-faq-overlay-close{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:36px;min-height:36px;align-items:center;justify-content:center}
 
 /* ── 봇 안내 카드 (스레드 맨 위, 게이트→봇 카드 전환 2026-05-22) — 추천 질문·전체 보기 진입 ── */
@@ -1032,11 +1029,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .msg-card-bot-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#23416E;margin-bottom:8px}
 .msg-card-bot-head .material-icons-round{font-size:18px;color:#2563EB}
 .msg-faq-botcard-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
-.msg-faq-botcard-all{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--text);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
+.msg-faq-botcard-all{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--ink);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
 .msg-faq-botcard-all:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
 .msg-faq-botcard-all .material-icons-round{font-size:18px;color:var(--muted)}
 /* 봇 카드 추천 질문 항목 */
-.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--text);cursor:pointer}
+.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--ink);cursor:pointer}
 .msg-faq-suggest-item:hover{background:#fafbff}
 .msg-faq-suggest-item .material-icons-round{flex-shrink:0;font-size:18px;color:#2563EB}
 .msg-faq-suggest-q{flex:1;min-width:0}
@@ -1113,6 +1110,73 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .email-tx-desc{max-width:var(--reading-max)}
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   회원 앱 공용 부품 — 회원 앱 전용 (사양서 docs/specs/2026-09-29-member-app-style-unification.md)
+   🔴 이 파일은 회원 빌드(CLIENT_CSS_FILES)의 **맨 끝**에만 붙는다. 관리자 빌드에는 없다.
+      base.css·components.css 는 관리자와 공유라 거기 값을 고치면 관리자 화면이 같이 바뀐다 —
+      회원 앱용 값은 전부 여기서 덮어쓴다(§3-0).
+   🔴 덮어쓰기(.btn 높이·본문 글자 등)는 **전역으로 걸지 않는다** — 화면 조각이 자기 화면 선택자를
+      아래 「화면별 덮어쓰기」 묶음에 더한다(#page-detail .btn{…}). 전역으로 걸면 아직 인라인을
+      안 걷어낸 화면에 옛 단추와 새 단추가 섞인다. 마지막 조각 뒤 전역 한 줄로 합친다.
+   ⚠️ 부품 클래스는 여기에만 있다 — 관리자 코드에서 쓰면 스타일 없이 그려진다.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* 글자 크기 5단계(입력칸은 이 밖 — 16px 고정, 모바일 확대 방지) */
+  --fs-caption:11px;--fs-desc:13px;--fs-body:15px;--fs-subtitle:17px;--fs-title:20px;
+  /* 누르는 영역 최소값 · 팝업 모서리 */
+  --tap-min:44px;--r-popup:20px;
+}
+
+/* ── 상태 안내 셋 — 조회 실패(null)·0건([])·불러오는 중을 서로 다른 모양으로 ── */
+.state-empty,.state-loading,.state-error{text-align:center;padding:40px 24px;color:var(--muted)}
+.state-empty .state-icon{font-size:48px;color:var(--faint);margin-bottom:12px}
+.state-empty .state-title{font-size:var(--fs-subtitle);font-weight:600;color:var(--ink);margin-bottom:6px}
+.state-empty .state-sub{font-size:var(--fs-desc);line-height:1.5}
+.state-loading{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:var(--fs-desc)}
+.state-loading .state-spin{width:24px;height:24px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:stateSpin .8s linear infinite}
+@keyframes stateSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.state-loading .state-spin{animation-duration:2.4s}}
+.state-error .state-icon{font-size:32px;color:var(--red);margin-bottom:8px}
+.state-error .state-text{font-size:var(--fs-body);line-height:1.6;color:var(--ink);margin-bottom:16px}
+.state-error .btn{min-height:var(--tap-min)}
+
+/* ── 팝업 안쪽 상자 둘 — 바깥은 기존 .modal-overlay(배경·z-index) 그대로 ── */
+/* 아래에서 올라오는 창: 내용이 긴 것(응모·약관·정책 통지·알림) */
+.sheet{background:var(--surface);border-radius:var(--r-popup) var(--r-popup) 0 0;width:100%;max-width:var(--shell-max);max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4);padding-bottom:env(safe-area-inset-bottom)}
+/* 가운데 창: 짧은 확인·경고. 바깥(.modal-overlay)이 아래 붙임이라 자기만 가운데로 */
+.dialog{background:var(--surface);border-radius:var(--r-popup);width:calc(100% - 32px);max-width:400px;max-height:85vh;overflow-y:auto;align-self:center;margin:auto;box-shadow:var(--elevation-4)}
+.popup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 12px 8px 20px}
+.popup-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);line-height:1.4}
+/* 닫기 = 아이콘 하나(24) · 누르는 영역 44 · aria-label 필수(t('common.close')). 확인창은 닫기 대신 「キャンセル」 단추 */
+.popup-close{flex-shrink:0;width:var(--tap-min);height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:50%;color:var(--muted);cursor:pointer}
+.popup-close .material-icons-round{font-size:24px}
+.popup-close:hover{background:var(--surface-dim);color:var(--ink)}
+.popup-close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.popup-body{padding:8px 20px 20px;font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
+.popup-actions{display:flex;gap:10px;padding:0 20px 20px}
+.popup-actions .btn{flex:1;min-height:var(--tap-min)}
+/* 넓은 화면 — 시트는 기존 .modal 과 같이 가운데 카드로(components.css 넓은 화면 규칙과 같은 모양) */
+@media(min-width:600px){
+  .sheet{border-radius:var(--r-popup);align-self:center;margin:auto;max-height:85vh}
+}
+
+/* ── 누르는 영역 도우미 ── */
+/* 아이콘만 있는 작은 단추(닫기·넘김 화살표·뒤로): 보이는 크기는 그대로, 누르는 영역만 44 */
+.tap-44{position:relative}
+.tap-44::after{content:'';position:absolute;left:50%;top:50%;width:var(--tap-min);height:var(--tap-min);transform:translate(-50%,-50%)}
+/* 깊은 화면(캠페인 상세·활동관리·응모 취소·문의 응모 고르기)의 「← 되돌아가기」 */
+.back-link{display:inline-flex;align-items:center;gap:2px;min-height:var(--tap-min);padding:0 8px 0 0;border:none;background:none;color:var(--muted);font-size:var(--fs-desc);font-weight:600;cursor:pointer;font-family:inherit}
+.back-link .material-icons-round{font-size:24px}
+.back-link:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:var(--r8)}
+
+/* ===== 화면별 덮어쓰기 — 조각이 자기 선택자를 더한다 =====
+   예) #page-detail .btn{min-height:var(--tap-min)}
+       #page-detail .btn-xs{min-height:32px;position:relative}
+       #page-detail .btn-xs::after{content:'';position:absolute;inset:-6px 0}
+       #page-detail{font-size:var(--fs-body)}
+   (조각 0 — 아직 비어 있다) */
+
 </style>
 </head>
 <body>
@@ -1187,23 +1251,6 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
       <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── 이미지 크롭 모달 ── -->
-<div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow:hidden">
-    <div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)">
-      <div style="font-size:16px;font-weight:700">1:1 이미지 크롭</div>
-      <div onclick="closeCropModal()" style="width:32px;height:32px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
-    </div>
-    <div style="padding:16px;background:#000">
-      <img id="cropImage" style="max-width:100%;display:block">
-    </div>
-    <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeCropModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="applyCrop()">適用</button>
     </div>
   </div>
 </div>
@@ -1449,7 +1496,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   </div>
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
+      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">K-Brand × Japan Only</div>
       <h1 class="hero-h1"><span data-i18n="home.hero.titleLine1">韓国の人気Kブランドを</span><span data-i18n="home.hero.titleLine2">あなたのSNSで</span><span data-i18n="home.hero.titleLine3">体験しよう</span><span class="hero-jp" data-i18n="home.hero.titleJp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
       <p class="hero-sub" data-i18n="home.hero.sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
@@ -1919,7 +1966,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
       <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
       <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
         <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています...</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
       </div>
       <!-- 만료·무효 링크 안내 -->
       <div id="resetPwExpired" style="display:none">
@@ -1927,7 +1974,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
           <div class="auth-logo-mark">R</div>
           <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
         </div>
-        <ol style="font-size:14px;line-height:1.9;color:var(--text);padding-left:20px;margin:0 0 20px">
+        <ol style="font-size:14px;line-height:1.9;color:var(--ink);padding-left:20px;margin:0 0 20px">
           <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
           <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
           <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
@@ -1975,7 +2022,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
       <!-- 처리 중 -->
       <div id="unsubLoading" style="text-align:center;padding:32px 0">
         <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています...</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
       </div>
       <!-- 성공 -->
       <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
@@ -2311,7 +2358,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="auth.reset.btn">パスワードを変更</button>
+        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
     </div>
   </div>
@@ -5046,7 +5093,7 @@ window.I18N_JA = {
     //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
     submitting: '送信中…',
     uploading: 'アップロード中…',
-    retry: '再試行',
+    retry: 'もう一度読み込む',
     close: '閉じる',
     apply: '適用',
     ok: 'OK',
@@ -5055,7 +5102,7 @@ window.I18N_JA = {
   // 홈
   home: {
     hero: {
-      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      eyebrow: 'K-Brand × Japan Only',
       titleLine1: '韓国の人気Kブランドを',
       titleLine2: 'あなたのSNSで',
       titleLine3: '体験しよう',
@@ -5173,7 +5220,7 @@ window.I18N_JA = {
       newLabel: '新しいパスワード（8文字以上）',
       confirmLabel: 'パスワード確認',
       btn: 'パスワードを変更',
-      verifying: '確認しています...',
+      verifying: '確認しています…',
       expiredTitle: 'このリンクは使えません',
       expiredStep1: 'リンクは受け取ってから しばらくすると 使えなくなります',
       expiredStep2: '何回か送った場合は いちばん新しいメールのリンクだけ 使えます',
@@ -5364,7 +5411,7 @@ window.I18N_JA = {
 
   // 메일 1-click 수신거부 페이지
   unsubscribe: {
-    loading: '確認しています...',
+    loading: '確認しています…',
     successTitle: 'メールの配信を停止しました',
     successDesc: '今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。',
     backToMypage: 'マイページへ',
@@ -5688,7 +5735,7 @@ window.I18N_JA = {
     receiptDateLabel: '購入日',
     receiptAmountLabel: '金額（円）',
     submitBtn: '登録する',
-    uploading: 'アップロード中...',
+    uploading: 'アップロード中…',
     noReceipt: 'まだレシートが登録されていません',
     noImage: 'まだ画像が追加されていません',
     imageSection: '画像の提出',
@@ -5845,6 +5892,7 @@ window.I18N_JA = {
     currentPw: '現在のパスワード',
     newPw: '新しいパスワード',
     newPwConfirm: '新しいパスワード（確認）',
+    changePwBtn: 'パスワードを変更',
     pwChangeHint: '定期的なパスワード変更をお勧めします',
     requiredHint: 'キャンペーン応募に必須の入力項目です',
     unregistered: '未登録',
@@ -5903,7 +5951,7 @@ window.I18N_JA = {
     cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
-    loading: '読み込み中...',
+    loading: '読み込み中…',
     loadError: 'お問い合わせの読み込みに失敗しました',
     emptyThread: 'まだお問い合わせはありません。下の入力欄から運営チームへお問い合わせいただけます。',
     you: '本人',
@@ -5914,7 +5962,7 @@ window.I18N_JA = {
     withdraw: '取り消す',
     withdrawConfirm: 'このメッセージを取り消しますか？',
     withdrawFailed: 'メッセージの取り消しに失敗しました',
-    placeholder: 'お問い合わせ内容を入力...',
+    placeholder: 'お問い合わせ内容を入力…',
     attachMax: '添付は最大{n}枚までです',
     attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
     attachUploadFailed: '画像のアップロードに失敗しました',
@@ -6090,7 +6138,7 @@ window.I18N_KO = {
     //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
     submitting: '전송 중…',
     uploading: '올리는 중…',
-    retry: '다시 시도',
+    retry: '다시 불러오기',
     close: '닫기',
     apply: '적용',
     ok: '확인',
@@ -6098,7 +6146,7 @@ window.I18N_KO = {
 
   home: {
     hero: {
-      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      eyebrow: 'K-Brand × Japan Only',
       titleLine1: '한국 인기 K브랜드를',
       titleLine2: '당신의 SNS로',
       titleLine3: '체험해보세요',
@@ -6210,7 +6258,7 @@ window.I18N_KO = {
       newLabel: '새 비밀번호 (8자 이상)',
       confirmLabel: '비밀번호 확인',
       btn: '비밀번호 변경',
-      verifying: '확인하고 있습니다...',
+      verifying: '확인하고 있습니다…',
       expiredTitle: '이 링크는 사용할 수 없습니다',
       expiredStep1: '링크는 받은 뒤 시간이 지나면 사용할 수 없게 됩니다',
       expiredStep2: '여러 번 보낸 경우에는 가장 최근 메일의 링크만 사용할 수 있습니다',
@@ -6390,7 +6438,7 @@ window.I18N_KO = {
 
   // 메일 1-click 수신거부 페이지
   unsubscribe: {
-    loading: '확인 중입니다...',
+    loading: '확인 중입니다…',
     successTitle: '메일 수신을 중지했습니다',
     successDesc: '앞으로 캠페인 정보 안내 메일은 보내지 않습니다. 응모 현황·심사 결과 등 업무 알림 메일은 계속 발송됩니다.',
     backToMypage: '마이페이지로',
@@ -6695,7 +6743,7 @@ window.I18N_KO = {
     receiptDateLabel: '구매일',
     receiptAmountLabel: '금액(엔)',
     submitBtn: '등록',
-    uploading: '업로드 중...',
+    uploading: '업로드 중…',
     noReceipt: '아직 등록된 영수증이 없습니다',
     noImage: '아직 추가된 이미지가 없습니다',
     imageSection: '이미지 제출',
@@ -6849,6 +6897,7 @@ window.I18N_KO = {
     currentPw: '현재 비밀번호',
     newPw: '새 비밀번호',
     newPwConfirm: '새 비밀번호 (확인)',
+    changePwBtn: '비밀번호 변경',
     pwChangeHint: '정기적인 비밀번호 변경을 권장합니다',
     requiredHint: '캠페인 응모에 필수 입력 항목입니다',
     unregistered: '미등록',
@@ -6905,7 +6954,7 @@ window.I18N_KO = {
     cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
-    loading: '불러오는 중...',
+    loading: '불러오는 중…',
     loadError: '문의를 불러오지 못했습니다',
     emptyThread: '아직 문의가 없습니다. 아래 입력란에서 운영팀에 문의할 수 있습니다.',
     you: '본인',
@@ -6916,7 +6965,7 @@ window.I18N_KO = {
     withdraw: '취소',
     withdrawConfirm: '이 메시지를 취소할까요?',
     withdrawFailed: '메시지 취소에 실패했습니다',
-    placeholder: '문의 내용을 입력...',
+    placeholder: '문의 내용을 입력…',
     attachMax: '첨부는 최대 {n}장까지입니다',
     attachTooLarge: '이미지가 너무 큽니다. 다른 이미지를 시도해 주세요',
     attachUploadFailed: '이미지 업로드에 실패했습니다',
@@ -15832,6 +15881,31 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get rendered() { return state.cursor; },
     get total() { return state.rows.length; },
   };
+}
+
+// ── 회원 앱 상태 안내 셋(사양서 2026-09-29-member-app-style-unification §3-2) ──
+//   🔴 조회 실패(null) = stateErrorHtml, 0건([]) = stateEmptyHtml — 둘을 같은 모양으로 그리지 않는다.
+//   ⚠️ 클래스는 회원 전용 member-ui.css 에만 있다 — 관리자 코드에서 부르지 않는다(스타일 없이 그려진다).
+//   ⚠️ retryFnName 은 코드가 넣는 고정 함수 이름만(사용자 입력 금지). 이름 모양이 아니면 단추를 그리지 않는다.
+function stateEmptyHtml(icon, title, sub) {
+  return '<div class="state-empty" role="status">' +
+    (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
+    '<div class="state-title">' + esc(title || '') + '</div>' +
+    (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
+  '</div>';
+}
+function stateLoadingHtml(text) {
+  const label = text || t('common.loading');
+  return '<div class="state-loading" role="status" aria-live="polite">' +
+    '<span class="state-spin" aria-hidden="true"></span><span>' + esc(label) + '</span></div>';
+}
+function stateErrorHtml(text, retryFnName) {
+  const fn = (typeof retryFnName === 'string' && /^[A-Za-z_$][\w$]*$/.test(retryFnName)) ? retryFnName : '';
+  return '<div class="state-error" role="alert">' +
+    '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">error_outline</span>' +
+    '<div class="state-text">' + esc(text || t('authError.genericError')) + '</div>' +
+    (fn ? '<button type="button" class="btn btn-ghost" onclick="' + fn + '()">' + esc(t('common.retry')) + '</button>' : '') +
+  '</div>';
 }
 
 // ════════════════════════════════════════════════════════════════════
