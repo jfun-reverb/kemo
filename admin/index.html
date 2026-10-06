@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1790899167';
+  var CURRENT_BUILD = 'v1791248772';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3292,7 +3292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-02 08:59 · 3e6579d</span>
+          <span class="admin-build-text">2026-10-06 10:06 · 6317f49</span>
         </div>
       </div>
     </aside>
@@ -9912,7 +9912,7 @@ const META_PIXEL_EVENT_TABLE = [
   { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
   { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
   { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했을 때 (이메일 확인 전)',              params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '같은 브라우저에서 확인 링크를 열어 이메일 확인이 끝났을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '지금은 보내지 않음 (확인 링크로 이메일 확인을 끝내도 보내지 않음 — 가입 1명당 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
   { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
 ];
 
@@ -16896,6 +16896,21 @@ async function recordSettlementTransfers(bundles) {
     };
   }
   return {ok: false, failures: (result && result.failures) || []};
+}
+
+// 과거 지급 시트 소급 — RPC backfill_settlement_transfers_from_sheet(501). 출처는 서버가 항상 sheet_backfill 로 고정한다.
+// 반환: {written:[{bundle_index, transfer_id, items}], skipped:[{bundle_index, reason:'already_applied'}]}.
+// ⚠️ 위 기록 함수와 달리 거부는 ok:false 가 아니라 **예외**다(`bundle_xxx: … (묶음 순번 N)` — 하나라도 걸리면 아무것도 안 썼다).
+//    화면은 부르지 않는다 — 일회성 콘솔 도구(scripts/)만 쓴다.
+async function backfillSettlementTransfersFromSheet(bundles) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlement_transfers_from_sheet', {p_bundles: bundles});
+    if (error) throw error;
+    result = data;
+  });
+  return {written: (result && result.written) || [], skipped: (result && result.skipped) || []};
 }
 
 // 송금 묶음 정정 — RPC correct_settlement_transfer(486). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
@@ -48348,6 +48363,30 @@ function _transferPaypalOf(t) {
   return null;
 }
 
+// 「추정」 배지 — 시트 소급(501)이 회차 지급일·수수료 규칙으로 채운 값(사양서 2026-10-01 결정 3·2).
+//   ⚠️ 「추정」이라는 말은 배지·엑셀 열·툴팁에서 같게 쓴다.
+const _TRANSFER_EST_TIP = '지급 시트에 값이 없어 회차 지급일·수수료 규칙으로 채운 값입니다. 「정정」에서 실제 값을 넣거나 「값이 맞음」을 체크하면 사라집니다';
+function _transferEstBadge(on) {
+  return on
+    ? `<span title="${esc(_TRANSFER_EST_TIP)}" style="display:inline-block;margin-left:4px;font-size:10px;font-weight:600;line-height:1.4;padding:0 5px;border-radius:4px;background:#FFF4E5;color:#B45309;border:1px solid #F5C98A;white-space:nowrap;vertical-align:1px">추정</span>`
+    : '';
+}
+// 수수료 칸 아래 줄 — 고친 값이면 「규칙 계산 ¥A · 차이 ±¥B」로 근거를 남긴다(2026-10-02 사용자 결정 ①).
+//   🔴 규칙 계산값(fee_rule_jpy)은 서버가 저장된 규칙으로 계산해 준다 — 화면에 계산식을 두지 않는다.
+//   스냅샷이 없는 묶음(시트 합산 탭의 실제 수수료 — 결정 6)은 비교할 규칙이 없어 「지급 시트 실제값」으로 적는다.
+function _transferFeeNoteHtml(t) {
+  const lines = [];
+  if (t.fee_manual) lines.push(t.fee_stale ? '금액이 바뀐 뒤 손으로 고친 값 — 확인 필요' : '고친 값');
+  if (t.fee_manual && t.fee_rule_jpy !== null && t.fee_rule_jpy !== undefined) {
+    const diff = (Number(t.fee_jpy) || 0) - Number(t.fee_rule_jpy);
+    lines.push('규칙 계산 ' + settlementAmountYen(t.fee_rule_jpy) + ' · 차이 ' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + settlementAmountYen(Math.abs(diff)));
+  }
+  if (!t.fee_manual && !t.fee_estimated && t.source === 'sheet_backfill' && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined)) {
+    lines.push('지급 시트 실제값');
+  }
+  return lines.map(function (l) { return `<div style="font-size:10px;color:#B8741A;white-space:nowrap">${esc(l)}</div>`; }).join('');
+}
+
 function _transferListHtml() {
   const all = _transferRows;
   if (all === undefined) return '';
@@ -48362,16 +48401,17 @@ function _transferListHtml() {
     return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">'
       + '이 기간 송금 중 「' + esc(_transferSearch) + '」 로 찾은 받는 사람이 없습니다.<br>기간을 넓히거나 이름 표기를 확인해 주세요.</div>';
   }
-  let sent = 0, fee = 0, cnt = 0;
-  rows.forEach(function (t) { sent += Number(t.sent_total_jpy) || 0; fee += Number(t.fee_jpy) || 0; cnt += (t.items || []).length; });
+  let sent = 0, fee = 0, cnt = 0, est = 0;
+  rows.forEach(function (t) {
+    sent += Number(t.sent_total_jpy) || 0; fee += Number(t.fee_jpy) || 0; cnt += (t.items || []).length;
+    if (t.sent_at_estimated || t.fee_estimated) est += 1;
+  });
   const canEdit = canWrite('settlement.pay');
   const body = rows.map(function (t) {
     const open = _transferOpen.has(t.id);
     const items = Array.isArray(t.items) ? t.items : [];
     const paypal = _transferPaypalOf(t);
-    const feeNote = t.fee_manual
-      ? `<div style="font-size:10px;color:#B8741A;white-space:nowrap">${t.fee_stale ? '금액이 바뀐 뒤 손으로 고친 값 — 확인 필요' : '고친 값'}</div>`
-      : '';
+    const feeNote = _transferFeeNoteHtml(t);
     // 펼친 내용 = 칸이 고정된 작은 표(2026-09-30 사용자 지적 — 줄바꿈·칸 어긋남·구분선 없음).
     //   ⚠️ 「보류 해제로 끊김」은 **상태 칸 하나**에만 적는다. 줄마다 칸 수가 달라지면 금액이 옆으로 밀린다.
     //   ⚠️ 날짜·금액 칸은 줄바꿈하지 않는다(nowrap) — 「지급 예정 2026-09-30」이 두 줄로 꺾였다.
@@ -48401,11 +48441,11 @@ function _transferListHtml() {
       </td></tr>` : '';
     return `<tr style="cursor:pointer" onclick="toggleTransferRow('${esc(t.id)}')">
         <td style="width:28px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">${open ? 'expand_less' : 'expand_more'}</span></td>
-        <td style="white-space:nowrap">${esc(_settlementDateInputValue(t.sent_at))}</td>
+        <td style="white-space:nowrap">${esc(_settlementDateInputValue(t.sent_at))}${_transferEstBadge(t.sent_at_estimated)}</td>
         ${_transferPayeeCells(t.influencer_name, paypal)}
         <td style="text-align:right;white-space:nowrap">${items.length}건</td>
         <td style="text-align:right;font-weight:600;white-space:nowrap">${esc(settlementAmountYen(t.sent_total_jpy))}</td>
-        <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(t.fee_jpy))}${feeNote}</td>
+        <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(t.fee_jpy))}${_transferEstBadge(t.fee_estimated)}${feeNote}</td>
         <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(t.total_spend_jpy))}</td>
         <td style="font-size:11px;font-family:monospace;white-space:nowrap">${esc(t.paypal_txn_id || '')}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">${canEdit
@@ -48414,11 +48454,11 @@ function _transferListHtml() {
       </tr>${detail}`;
   }).join('');
   return `<div class="admin-table-wrap"><table class="data-table">
-      <thead><tr><th style="width:28px"></th><th style="width:100px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th style="width:60px;text-align:right">건수</th>
+      <thead><tr><th style="width:28px"></th><th style="width:130px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th style="width:60px;text-align:right">건수</th>
         <th style="width:100px;text-align:right">보낸 금액</th><th style="width:210px;text-align:right">수수료</th><th style="width:100px;text-align:right">총지출</th>
         <th>페이팔 거래번호</th><th style="width:84px"></th></tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr class="transfer-foot"><td></td><td colspan="3" style="white-space:nowrap">합계 · 송금 ${rows.length}번</td>
+      <tfoot><tr class="transfer-foot"><td></td><td colspan="3" style="white-space:nowrap">합계 · 송금 ${rows.length}번${est ? ` <span style="font-weight:400;color:#B45309" title="${esc(_TRANSFER_EST_TIP)}">· 추정 포함 송금 ${est}번</span>` : ''}</td>
         <td style="text-align:right;white-space:nowrap">${cnt}건</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent))}</td>
         <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(fee))}</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent + fee))}</td>
         <td colspan="2"></td></tr></tfoot>
@@ -48443,7 +48483,10 @@ function _transferSummaryTableHtml(rows, firstHead, firstCell, note, opts) {
         <th style="text-align:right">수수료</th><th style="text-align:right">총지출</th><th style="width:80px"></th></tr></thead>
       <tbody>${rows.map(function (r) {
         const key = opts.keyOf(r);
-        return `<tr><td style="white-space:nowrap">${firstCell(r)}</td><td style="text-align:right;white-space:nowrap">${Number(r.settlement_count) || 0}건</td>
+        // estimated_count = 추정 표시가 있는 **송금(묶음) 수**(502) — 건수와 단위가 달라 「송금 N번」으로 적는다
+        const estN = Number(r.estimated_count) || 0;
+        const estHtml = estN ? ` <span style="font-size:11px;color:#B45309" title="${esc(_TRANSFER_EST_TIP)}">· 추정 포함 송금 ${estN}번</span>` : '';
+        return `<tr><td style="white-space:nowrap">${firstCell(r)}${estHtml}</td><td style="text-align:right;white-space:nowrap">${Number(r.settlement_count) || 0}건</td>
           <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(r.sent_total_jpy))}</td>
           <td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(r.fee_jpy))}</td>
           <td style="text-align:right;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(r.total_spend_jpy))}</td>
@@ -48533,12 +48576,12 @@ function _transferDetailTableHtml(list, extra, note) {
   // ⚠️ 머리글 고정은 .admin-pane-list .data-table th 의 sticky 에 기댄다 — th 에 position:static 을 주면 풀린다.
   return `${note ? `<div style="padding:8px 16px;font-size:11px;color:var(--muted);background:#fff;border-bottom:1px solid var(--line)">${note}</div>` : ''}
     <table class="data-table" style="width:100%">
-      <thead><tr><th style="width:100px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th>캠페인</th>
+      <thead><tr><th style="width:130px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th>캠페인</th>
         <th style="width:70px;text-align:right">건수</th><th style="width:110px;text-align:right">보낸 금액</th>
         <th style="width:150px;text-align:right">수수료</th><th style="width:150px">페이팔 거래번호</th></tr></thead>
       <tbody>${list.map(function (t) {
         const x = extra(t);
-        return `<tr><td style="white-space:nowrap">${esc(_settlementDateInputValue(t.sent_at))}</td>
+        return `<tr><td style="white-space:nowrap">${esc(_settlementDateInputValue(t.sent_at))}${_transferEstBadge(t.sent_at_estimated)}</td>
           ${_transferPayeeCells(t.influencer_name, _transferPaypalOf(t))}
           <td style="font-size:12px;line-height:1.7">${x.campaigns}</td>
           <td style="text-align:right;white-space:nowrap">${x.count}건</td>
@@ -48564,7 +48607,7 @@ function _transferMonthDetailHtml(ym) {
   return _transferDetailTableHtml(list, function (t) {
     const items = Array.isArray(t.items) ? t.items : [];
     return { campaigns: _transferItemCampaigns(items), count: items.length, sent: t.sent_total_jpy,
-             feeHtml: esc(settlementAmountYen(t.fee_jpy)) };
+             feeHtml: esc(settlementAmountYen(t.fee_jpy)) + _transferEstBadge(t.fee_estimated) + _transferFeeNoteHtml(t) };
   });
 }
 
@@ -48590,7 +48633,7 @@ function _transferRoundDetailHtml(key) {
     const feeRound = dues.length ? dues[dues.length - 1] : null;
     const sent = x.mine.reduce(function (a, it) { return a + (Number(it.amount_jpy) || 0); }, 0);
     const feeHtml = feeRound === due
-      ? esc(settlementAmountYen(t.fee_jpy))
+      ? esc(settlementAmountYen(t.fee_jpy)) + _transferEstBadge(t.fee_estimated) + _transferFeeNoteHtml(t)
       : `<span style="color:var(--muted)" title="이 묶음의 수수료는 가장 늦은 회차(${esc(feeRound || '지급일 기록 없음')})에 들어갑니다">— <span style="font-size:10px">(${esc(feeRound || '기록 없음')} 회차에)</span></span>`;
     return { campaigns: _transferItemCampaigns(x.mine), count: x.mine.length, sent: sent, feeHtml: feeHtml };
   }, '보낸 금액·건수는 <b>이 회차 건만</b> 셉니다. 여러 회차를 합쳐 보낸 묶음의 수수료는 가장 늦은 회차에만 들어갑니다.');
@@ -48606,10 +48649,10 @@ async function exportTransferHistoryExcel() {
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
     const ws1 = wb.addWorksheet('송금 내역');
-    ws1.columns = [12, 18, 30, 8, 12, 10, 8, 12, 22, 30].map(function (w) { return { width: w }; });
+    ws1.columns = [12, 18, 30, 8, 12, 10, 8, 10, 10, 12, 22, 30].map(function (w) { return { width: w }; });
     ws1.addRow(['송금 내역 · 송금일 ' + (_transferFrom || '처음') + ' ~ ' + (_transferTo || '지금') + ' · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
     ws1.addRow([]);
-    ws1.addRow(['송금일', '이름(한자)', '페이팔', '건수', '보낸 금액', '수수료', '수수료 수정', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
+    ws1.addRow(['송금일', '이름(한자)', '페이팔', '건수', '보낸 금액', '수수료', '수수료 수정', '송금일 추정', '수수료 추정', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
     const ws2 = wb.addWorksheet('포함 건');
     ws2.columns = [12, 18, 14, 34, 12, 12, 10].map(function (w) { return { width: w }; });
     ws2.addRow(['송금일', '이름(한자)', '캠페인 번호', '캠페인', '지급 예정(회차)', '보낸 금액', '현재 연결']).font = { bold: true };
@@ -48619,15 +48662,15 @@ async function exportTransferHistoryExcel() {
       const items = Array.isArray(t.items) ? t.items : [];
       sent += Number(t.sent_total_jpy) || 0; fee += Number(t.fee_jpy) || 0;
       ws1.addRow([day, t.influencer_name || '(탈퇴한 회원)', _transferPaypalOf(t) || '', items.length,
-        Number(t.sent_total_jpy) || 0, Number(t.fee_jpy) || 0, t.fee_manual ? '예' : '', Number(t.total_spend_jpy) || 0,
+        Number(t.sent_total_jpy) || 0, Number(t.fee_jpy) || 0, t.fee_manual ? '예' : '', t.sent_at_estimated ? '예' : '', t.fee_estimated ? '예' : '', Number(t.total_spend_jpy) || 0,
         t.paypal_txn_id || '', t.memo || '']);
       items.forEach(function (it) {
         ws2.addRow([day, t.influencer_name || '(탈퇴한 회원)', it.campaign_no || '', it.campaign_title || '',
           it.due_date || '기록 없음', Number(it.amount_jpy) || 0, it.is_current ? '예' : '보류 해제로 끊김']);
       });
     });
-    ws1.addRow(['합계', '', '', '', sent, fee, '', sent + fee, '', '']).font = { bold: true };
-    [5, 6, 8].forEach(function (c) { ws1.getColumn(c).numFmt = '#,##0'; });
+    ws1.addRow(['합계', '', '', '', sent, fee, '', '', '', sent + fee, '', '']).font = { bold: true };
+    [5, 6, 10].forEach(function (c) { ws1.getColumn(c).numFmt = '#,##0'; });
     ws2.getColumn(6).numFmt = '#,##0';
     await _payoutExcelSaveWorkbook(wb, 'transfers-' + (_transferFrom || 'all') + '-' + (_transferTo || 'now') + '-' + rows.length + '.xlsx');
   } catch (e) {
@@ -48638,7 +48681,9 @@ async function exportTransferHistoryExcel() {
 // ── 묶음 정정 (correct_settlement_transfer · 486) ──────────────────────
 //   송금일·수수료·거래번호·메모. **바꾼 칸만** 보낸다(서버: NULL = 안 고침, '' = 비움).
 //   ⚠️ 송금일을 고치면 이 묶음에 현재 연결된 건들의 송금일도 함께 바뀐다(서버가 한다).
-//   ⚠️ 수수료를 넣으면 「고친 값」이 된다 — 자동 계산으로 되돌리는 칸은 없다(되돌리려면 계산값을 그대로 넣는다).
+//   ⚠️ 수수료를 다른 값으로 넣으면 「고친 값」이 된다 — 자동 계산으로 되돌리는 칸은 없다.
+//   ⚠️ 「추정」 칸에는 「값이 맞음(추정 해제)」 체크가 붙는다 — 체크하면 **같은 값이라도** 그 칸을 보내 추정 표시만 지운다
+//      (서버 502: 같은 수수료면 fee_manual 을 안 건드린다 — 사양서 결정 7).
 let _transferCorrectCtx = null;
 
 function _ensureTransferCorrectModal() {
@@ -48669,16 +48714,23 @@ function openTransferCorrectModal(id) {
   if (!t) { toast('송금 묶음을 찾을 수 없습니다', 'warn'); return; }
   _ensureTransferCorrectModal();
   const day = _settlementDateInputValue(t.sent_at);
-  _transferCorrectCtx = { id: t.id, version: t.version, day: day, fee: Number(t.fee_jpy), txn: t.paypal_txn_id || '', memo: t.memo || '' };
+  _transferCorrectCtx = { id: t.id, version: t.version, day: day, fee: Number(t.fee_jpy), txn: t.paypal_txn_id || '', memo: t.memo || '',
+                          dayEst: !!t.sent_at_estimated, feeEst: !!t.fee_estimated };
+  const estChk = function (id, on) {
+    return on ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:6px;cursor:pointer">
+        <input type="checkbox" id="${id}"> 값이 맞음(추정 해제) ${_transferEstBadge(true)}</label>` : '';
+  };
   const current = (Array.isArray(t.items) ? t.items : []).filter(function (it) { return it.is_current; }).length;
   $('transferCorrectBody').innerHTML = `
     <div style="font-size:13px;margin-bottom:12px"><b>${esc(t.influencer_name || '(탈퇴한 회원)')}</b> · 보낸 금액 ${esc(settlementAmountYen(t.sent_total_jpy))}</div>
     <div class="form-group"><label class="form-label">송금일</label>
       <input type="date" id="transferCorrectDate" class="form-input" value="${esc(day)}" max="${esc(jstTodayStr())}">
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">바꾸면 이 송금에 들어 있는 ${current}건의 송금일도 함께 바뀝니다.</div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">바꾸면 이 송금에 들어 있는 ${current}건의 송금일도 함께 바뀝니다.</div>
+      ${estChk('transferCorrectDateOk', t.sent_at_estimated)}</div>
     <div class="form-group"><label class="form-label">수수료(엔)</label>
       <input type="number" id="transferCorrectFee" class="form-input" min="0" step="1" value="${esc(String(t.fee_jpy))}">
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">바꾸면 「고친 값」으로 남습니다. 지금 ${t.fee_manual ? '고친 값' : '자동 계산값'}입니다.</div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">다른 값으로 바꾸면 「고친 값」으로 남습니다. 지금 ${t.fee_manual ? '고친 값' : (t.source === 'sheet_backfill' && !t.fee_estimated && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined) ? '지급 시트 실제값' : '자동 계산값')}입니다.</div>
+      ${estChk('transferCorrectFeeOk', t.fee_estimated)}</div>
     <div class="form-group"><label class="form-label">페이팔 거래번호</label>
       <input type="text" id="transferCorrectTxn" class="form-input" maxlength="100" value="${esc(t.paypal_txn_id || '')}"></div>
     <div class="form-group"><label class="form-label">메모</label>
@@ -48700,8 +48752,11 @@ async function saveTransferCorrect() {
   const fee = Number(feeRaw);
   if (feeRaw === '' || !Number.isInteger(fee) || fee < 0) { toast('수수료는 0엔 이상 정수로 넣어 주세요', 'warn'); return; }
   // 바꾼 칸만 보낸다 — NULL 은 「안 고침」, 빈 문자열은 「비움」(거래번호·메모)
-  const sentAt = day !== ctx.day ? _settlementJstMidnight(day) : null;
-  const feeArg = fee !== ctx.fee ? fee : null;
+  // 「값이 맞음」을 체크한 추정 칸은 같은 값이라도 보낸다 — 서버가 그 칸의 추정 표시만 지운다
+  const dayOk = ctx.dayEst && !!$('transferCorrectDateOk')?.checked;
+  const feeOk = ctx.feeEst && !!$('transferCorrectFeeOk')?.checked;
+  const sentAt = (day !== ctx.day || dayOk) ? _settlementJstMidnight(day) : null;
+  const feeArg = (fee !== ctx.fee || feeOk) ? fee : null;
   const txnArg = txn !== ctx.txn ? txn : null;
   const memoArg = memo !== ctx.memo ? memo : null;
   if (sentAt === null && feeArg === null && txnArg === null && memoArg === null) { toast('바꾼 칸이 없습니다', 'warn'); return; }

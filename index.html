@@ -840,6 +840,9 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 확대·축소 금지(인플루언서 화면 전용, 2026-09-29 사용자 지시) — 상하좌우 스크롤만 허용해 두 손가락·두 번 톡 확대를 막는다.
    ⚠️ base.css 는 관리자 빌드에도 실려 여기에 둔다(관리자는 모바일에서 핀치 확대가 필요하다) */
 html,body,*{touch-action:pan-x pan-y}  /* 스크롤 영역(.page 등) 안쪽도 막도록 전체에 — 스크롤 컨테이너에서 계산이 끊긴다 */
+/* 아이폰 글자 자동 확대 금지 — 가로로 돌리면 사파리가 긴 문단(캠페인 설명 등)의 글자를 키우고 세로로 돌아와도 안 돌려놓는다
+   (2026-10-02 운영 신고). 100% = 우리가 정한 크기 그대로. ⚠️ none 은 쓰지 않는다 — 일부 브라우저에서 사용자 글자 확대 설정까지 막는다 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* ══════════════════════════════════
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
@@ -4390,7 +4393,7 @@ const META_PIXEL_EVENT_TABLE = [
   { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
   { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
   { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했을 때 (이메일 확인 전)',              params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '같은 브라우저에서 확인 링크를 열어 이메일 확인이 끝났을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '지금은 보내지 않음 (확인 링크로 이메일 확인을 끝내도 보내지 않음 — 가입 1명당 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
   { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
 ];
 
@@ -13606,6 +13609,21 @@ async function recordSettlementTransfers(bundles) {
   return {ok: false, failures: (result && result.failures) || []};
 }
 
+// 과거 지급 시트 소급 — RPC backfill_settlement_transfers_from_sheet(501). 출처는 서버가 항상 sheet_backfill 로 고정한다.
+// 반환: {written:[{bundle_index, transfer_id, items}], skipped:[{bundle_index, reason:'already_applied'}]}.
+// ⚠️ 위 기록 함수와 달리 거부는 ok:false 가 아니라 **예외**다(`bundle_xxx: … (묶음 순번 N)` — 하나라도 걸리면 아무것도 안 썼다).
+//    화면은 부르지 않는다 — 일회성 콘솔 도구(scripts/)만 쓴다.
+async function backfillSettlementTransfersFromSheet(bundles) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlement_transfers_from_sheet', {p_bundles: bundles});
+    if (error) throw error;
+    result = data;
+  });
+  return {written: (result && result.written) || [], skipped: (result && result.skipped) || []};
+}
+
 // 송금 묶음 정정 — RPC correct_settlement_transfer(486). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
 // ⚠️ txnId·memo 는 서버에서 NULL = 「안 고침」, '' = 「비움」이다. 그래서 빈 문자열을
 //    null 로 바꾸지 않는다(다른 함수의 `x || null` 을 그대로 쓰면 「비우기」가 조용히 「안 고침」이 된다).
@@ -16943,12 +16961,14 @@ async function handleLogin(e) {
       toast(t('auth.toast.welcomeBack'),'success'); updateGnb();
       // 초대 링크로 들어와 로그인한 경우 그 캠페인으로 되돌린다(가입 경로와 같은 이유).
       const returnedToInvite = typeof consumeInviteReturn === 'function' && consumeInviteReturn();
+      if (!returnedToInvite) navigate('home');
       // 일반 회원으로 끝났다 — 메타 픽셀 새로고침 보류를 푼다. 관리자 갈래에서는 부르지 않는다.
-      //   ⚠️ 초대 복귀 **뒤에** 푼다 — 복귀가 주소를 캠페인 상세로 바꿔 두어야 새로고침해도 그 자리로 온다
-      //      (복귀 기억은 한 번 쓰면 지워져, 먼저 새로고침하면 캠페인으로 못 돌아간다).
+      //   🔴 **주소를 옮긴 뒤에** 푼다(초대 복귀 → 캠페인 상세, 아니면 홈). 새로고침은 **부른 순간의 주소**로
+      //      다시 열린다 — 직후에 홈으로 옮겨도 소용없다(2026-10-02 크롬 실측). 먼저 풀면 `#login` 으로 다시 열려
+      //      로그인된 채 로그인 화면 + 공지 팝업이 뜬다(2026-10-02 운영 모바일 신고). 복귀 기억은 한 번 쓰면 지워지므로
+      //      캠페인으로 못 돌아가는 것도 같은 이유다.
       if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
       if (returnedToInvite) return;
-      navigate('home');
     }
   } catch(e) {
     logAppError('handleLogin', e);
@@ -23616,14 +23636,10 @@ async function init() {
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
       const codeStillInUrl = new URLSearchParams(location.search).has('code');
-      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
-      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
-      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
-      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
-      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
-      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
-        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
-      }
+      // 메타 픽셀 — 🔴 이 착지에서는 가입 이벤트를 **보내지 않는다**(2026-10-02 사용자 결정, 1인 1건).
+      //   이 착지는 가입 폼 제출 때 이미 `pending_email` 을 보낸 옛 흐름 가입자뿐이라, 여기서 `confirmed` 를 또 보내면
+      //   가입 1명이 「등록 완료」 2건이 된다(광고 세트가 이 이벤트로 학습한다). 새 가입 화면은 가입 순간 `confirmed`
+      //   1건을 `auth.js` 가 보낸다. ⚠️ 되살리지 말 것 — 1인 1건이 깨진다(사양서 2026-09-03-meta-pixel.md 표 4번).
       if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }
@@ -23841,6 +23857,12 @@ async function init() {
     history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
     navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications', false);
+  } else if (currentUser && ['login', 'signup', 'forgot'].includes(hash)) {
+    // 이미 로그인된 채 로그인·가입 화면 주소로 들어왔다 — 홈으로. 로그인 화면을 그리면 「로그인됐는데 로그인 화면」이 된다
+    //   (2026-10-02 운영 모바일 신고 — 로그인 직후 픽셀 새로고침이 `#login` 으로 다시 연 경우. 그 순서는 auth.js 에서 고쳤고 이건 안전장치)
+    //   ⚠️ replaceState 만으로는 안 된다 — 첫 화면이 이미 주소대로(로그인) 켜져 있어 navigate 로 바꿔 그린다
+    history.replaceState({page:'home'}, '', '#home');
+    navigate('home', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
