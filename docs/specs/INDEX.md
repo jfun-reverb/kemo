@@ -310,5 +310,6 @@
 | 2026-10-06 | [서비스 문의 — 회원 한 명이 여러 대화를 갖는 구조](2026-10-06-service-inquiry-threads.md) | 사양서 |  |
 | 2026-10-06 | [대리 등록 기간 — 캠페인 기준일 + 1개월까지만](2026-10-06-proxy-registration-window.md) | 사양서 |  |
 | 2026-10-06 | [인수인계 — 회원 활동관리 결과물 옆 제출일·승인일](2026-10-06-deliverable-submit-approve-dates-handoff.md) | 인수인계 |  |
+| 2026-10-06 | [인수인계 — 관리자 메시지 번역: 원문 위·번역 아래 + 운영팀 일본어 글 번역](2026-10-06-admin-message-translation-order-handoff.md) | 인수인계 |  |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
