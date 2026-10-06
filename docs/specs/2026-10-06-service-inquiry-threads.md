@@ -223,4 +223,24 @@
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
+### 조각 1 — 데이터베이스 (2026-10-06, 개발서버 적용·검증 완료 · 운영 미적용)
+
+**관련 커밋:** `573e0f7f`(504~506 초안) · `db96493e`(닫기 판정을 (작성 시각, 글 번호) 쌍으로)
+**마이그레이션:** `504_general_inquiry_threads_table` → `505_general_inquiry_threads_migrate_and_functions` → `506_general_inquiry_thread_summary_view` · 되돌림 `supabase/patches/2026-10-06-general-inquiry-threads-rollback.sql`
+
+#### 작업표 「분해 중 발견」 넷의 확정
+1. **발신 반환** = `TABLE(message_id uuid, thread_id uuid)` (옛 화면은 반환값을 버려 무영향 — 개발서버 확인)
+2. **뷰에 번역 미리보기 칸을 넣었다** — `last_message_preview_translated`·`last_translate_status`. 뷰는 15칸: `thread_id · influencer_id · status · opened_at · closed_at · message_count · last_message_at · last_sender_kind · first_message_preview · last_message_preview · last_message_preview_translated · last_translate_status · unread_for_influencer · needs_reply · influencer_thread_count`
+3. **거부 코드** = `new_message_since_view` · `open_thread_exists` · `no_open_thread` · `thread_closed` · `thread_not_found` (제안 그대로)
+4. **탈퇴 개인정보 파기(현재 원본 396)는 메시지 행을 지우지 않는다** — 회원 표·응모 표의 개인정보만 비운다. 글 없는 열린 대화가 남는 일은 없다
+
+#### 구현 중 기술 결정
+- 호출자 판정을 보조 함수 `_general_inquiry_resolve_caller(p_influencer_id, p_thread_id, p_check_thread) → (is_staff, target_id)` 하나로 모았다(서버 전용 — `authenticated`·`anon` 실행 권한 없음)
+- 닫기의 「화면이 본 마지막 글 뒤 회원 글」 판정은 **(작성 시각, 글 번호) 쌍**으로 비교 — 목록 정렬(`created_at, id`)과 같은 기준이라 같은 시각에 들어온 글도 갈린다
+- 「다시 열기」는 이미 열린 그 대화에 다시 누르면 **아무 일 없이 끝난다**(연속 클릭 대비 — 다시 연 횟수도 안 올린다). 다른 대화가 열려 있으면 `open_thread_exists`
+- 관리자가 존재하지 않는 회원 id 를 넘기면 기존 거부 「ユーザーが見つかりません」(회원을 찾을 수 없습니다)가 먼저 난다. 실제 다른 회원 id + 남의 대화면 `thread_not_found`
+
+#### 개발서버 검증 (2026-10-06)
+- 적용 전 기준: 서비스 문의 글 8 · 회원 1 · 응대 완료 1(자동 응답) → 옮긴 뒤 글 8 = 대화 칸 채워진 글 8 · 대화 1(**열림** — 수동 응대 완료가 아니라 규칙상 열림) · 대화 빠진 글 0 · 검사 제약 유효 · 함수 7 · 실행 권한(공개·비로그인 없음, 보조 함수는 서버 전용)
+- 검증 2(23시간 → 같은 대화 다시 열림 / 25시간 → 새 대화, `closed_at` 을 SQL 로 당김) · 3(동시 2통 → 대화 하나) · 4(회원·관리자 양쪽 — 겸직 회원은 시험 계정이 없어 미실시) · 9(감사용 청소 — 감사용 응모 1·알림 2 삭제, 일반 회원 대화 2·글 15 그대로. 감사용 계정에 대화가 없어 「감사용 대화 0건」은 원래 0) · 12(「보이는 글 0건 대화 닫기」 외 전부) · 13-1 운영팀 먼저 시작 → `no_open_thread` · 13(옛 회원·관리자 화면 그대로, 옛 배지 조회 그대로, 옛 응대 완료 함수로 대화 안 닫힘)
+- 남은 검증(화면 조각에서): 화면 동작 6·7·8·10·11 · 12 「보이는 글 0건 대화 닫기」 · 관리자 겸직 회원(S4 데이터 필요)

@@ -244,11 +244,15 @@
 - 뷰 `application_message_summary`(security_invoker) + RPC: `get_application_messages`(역할별 4종 마스킹. ⚠️ **326 으로 `sender_id` 추가** — **관리자가 부를 때만** 채운다. 없으면 **다른 관리자 메시지에도 「회수」 버튼이 떠 누르면 반드시 실패**. ⚠️ 개별 회수(`withdraw_own_message`)에는 **최고 관리자 예외가 없다** — 일괄 회수의 예외를 옮기면 버튼만 뜨고 실패한다)·`send_application_message`(rate limit 100/h + 자동응대 + 관리자 발신 시 `message_received`)·`mark_application_messages_read`·`withdraw_own_message`(25분)·`mark_application_resolved`·`hide_application_message`(campaign_admin)·`unhide_application_message`(super_admin). 모두 SECURITY DEFINER
 - lookup `message_hide_reason` 7종 + Storage 버킷 `application-message-attachments`(비공개). 첨부는 클라 압축(`dev/lib/image-compress.js`, HEIC→JPEG/2048px) 후 업로드
 
-### 일반 문의 창구 (응모와 무관한 회원 ↔ 운영팀, 마이그레이션 475~483 — 개발 완료 · 🔴**운영은 시행일 2026-10-06 에 한 번에**)
+### 일반 문의 창구 (응모와 무관한 회원 ↔ 운영팀, 마이그레이션 475~483 — ★운영 반영 2026-10-06 · 서비스 문의 여러 대화 504~506 은 **개발서버만**)
 > 햄버거 「お問い合わせ」 → `#page-inquiry` 탭 둘(「キャンペーンのお問い合わせ」 = 대화가 시작된 응모만 + 「新しくお問い合わせ」 응모 고르기 / 「サービスのお問い合わせ」). 대화 화면은 `#page-messages` 를 **재사용**(`_msgMode` 로 갈림 — 나갈 때 정리 함수가 응모건 모드로 되돌려야 한다). 관리자 받은편지함은 탭 셋(캠페인 문의 / 서비스 문의 / 일괄발송 이력[캠페인관리자 이상]). 사양서 `docs/specs/2026-05-21-general-inquiry-desk.md`(「구현 결과」) · 작업표 `…-breakdown.md`
-> 🔴 **공고 기간(9/29~10/5) 운영 배포는 골라 담기** — 개발 브랜치를 통째로 올리면 창구가 시행일 전에 열린다(방침 개정 공고 중). 앱 안 공지(`POLICY_NOTICE` `inquiryDesk2026`)만 먼저 나갈 수 있다
+
+**현재 원본 번호**
+- `send_general_inquiry_message` · `get_general_inquiry_messages` · `mark_general_inquiry_messages_read` · `general_inquiry_admin_unread_counts` · `purge_audit_data_all` — **505**(베이스 478·478·478·478·480. 🔴 앞 넷은 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다) · `close_general_inquiry_thread` · `reopen_general_inquiry_thread` · `_general_inquiry_resolve_caller` — **505** 신설. ⚠️ 505 는 **개발서버에만** 있다 — 운영은 아직 478~480 이 원본이다
+
+- **서비스 문의 여러 대화**(504~506, 사양서 `docs/specs/2026-10-06-service-inquiry-threads.md` · 작업표 `…-breakdown.md`): 대화 표 `general_inquiry_threads`(열림·닫힘, 회원당 열린 대화 하나 — 부분 유일 색인) + 메시지 칸 `general_thread_id`(응모 칸이 빈 행은 필수 — 검사 제약) + 뷰 `general_inquiry_thread_summary`(대화 단위). 🔴 **회원·운영팀·닫기·다시 열기가 같은 회원 단위 잠금**을 쓴다. 회원 글은 닫힌 지 24시간 안이면 그 대화를 다시 열고, 지나면 새 대화. 운영팀은 열린 대화가 없으면 못 쓴다(`no_open_thread`). 옛 응대 완료 표(477)·옛 뷰(481)는 화면 조각이 다 나갈 때까지 남긴다
 - **같은 표에 산다** — 일반 문의는 새 표가 아니라 `application_messages` 에 `application_id` NULL + `influencer_id` 로 들어간다. 🔴 **그래서 응모건을 세는 자리가 일반 문의 행을 딸려 올 수 있다** — 479(관리자 안 읽은 수)·480(감사용 청소)·482(탈퇴 파기 셋, `INNER` → `LEFT JOIN`)가 그 자리들을 고쳤다. 새로 메시지를 세는 조회를 만들면 **`application_id IS NOT NULL` 이 필요한지** 먼저 본다
-- 회원 정책 넷 + 첨부 경로 판정 `_general_inquiry_path_is_own`(476, 경로 `general/{회원id}/{파일}`) · 응대 완료 `general_inquiry_resolutions`(477) · 함수 다섯(478 — 조회·발송·읽음·응대 완료·관리자 안 읽은 수) · 뷰 `general_inquiry_message_summary`(481). ⚠️ **뷰는 메시지 표 기준** — 회원 표 기준이면 관리자의 회원 표 읽기가 312 로 막혀 **관리자에게 빈 뷰**가 된다
+- 회원 정책 넷 + 첨부 경로 판정 `_general_inquiry_path_is_own`(476, 경로 `general/{회원id}/{파일}`) · 응대 완료 `general_inquiry_resolutions`(477) · 함수 다섯(478 — 조회·발송·읽음·응대 완료·관리자 안 읽은 수. 응대 완료 외 넷은 개발서버에서 505 로 대체) · 뷰 `general_inquiry_message_summary`(481). ⚠️ **뷰는 메시지 표 기준** — 회원 표 기준이면 관리자의 회원 표 읽기가 312 로 막혀 **관리자에게 빈 뷰**가 된다
 - **483 은 이미 운영에 있다**(창구와 별개) — 본인이 보낸 첨부의 조회 정책. 저장소 삭제는 **조회 정책이 보이는 행만** 지우므로, 이게 없으면 「회수」가 성공해도 파일이 남는다(응모건 메시지도 같은 결함이었다). 폴더 소유까지 확인
 - 사이드바 메시지 미응대 수는 **두 종류 합산이고 세는 자리가 둘**(`updateInboxSidebarBadge` · 30초 `refreshMsgBadgesLight`) — 한쪽만 고치면 30초 뒤 숫자가 되돌아간다
 - 알림은 종류가 `message_received` 그대로이고 **`ref_table='general_inquiry'` 로만 갈린다** — 그 분기가 응모건 분기보다 **앞에** 있어야 한다(`notifications.js`, 뒤에 두면 응모건 화면으로 간다). 탈퇴 화면의 연락 안내는 이 창구로 간다. **로그인할 수 없는 자리**(로그아웃된 확정 회원 안내·가입 실패 안내)는 LINE 유지
