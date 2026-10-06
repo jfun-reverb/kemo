@@ -133,7 +133,7 @@ window._supabaseLoaded = false;
   <div class="legal-sheet">
     <div class="legal-head">
       <div class="legal-title" id="legalTitle"></div>
-      <button class="legal-close" onclick="closeLegalModal()" aria-label="閉じる">×</button>
+      <button type="button" class="popup-close legal-close" onclick="closeLegalModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
     <div class="legal-body" id="legalBody"></div>
   </div>
@@ -144,7 +144,7 @@ window._supabaseLoaded = false;
   <div class="legal-sheet">
     <div class="legal-head">
       <div class="legal-title" id="policyNoticeTitle"></div>
-      <button class="legal-close" onclick="closePolicyNotice()" aria-label="閉じる">×</button>
+      <button type="button" class="popup-close legal-close" onclick="closePolicyNotice()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
     <div class="legal-body" id="policyNoticeBody"></div>
     <div class="policy-notice-actions">
@@ -232,14 +232,14 @@ window._supabaseLoaded = false;
 
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" class="login-prompt-overlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;justify-content:center">
-  <div class="login-prompt-sheet" style="background:#fff;width:100%;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
+  <div class="login-prompt-sheet lp-sheet" role="dialog" aria-modal="true" aria-labelledby="loginPromptTitle">
+    <div class="lp-title" id="loginPromptTitle" data-i18n="loginPrompt.title">ログインが必要です</div>
+    <div class="lp-desc" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()" data-i18n="common.cancel">キャンセル</button>
       <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">ログイン</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
+    <div class="lp-foot"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" class="lp-link" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
   </div>
 </div>
 
@@ -553,7 +553,7 @@ window._supabaseLoaded = false;
   <div class="legal-page-head">
     <div class="container" style="display:flex;align-items:center;gap:8px;padding:14px 16px">
       <button class="legal-back" onclick="navigate('home')" aria-label="戻る"><span class="material-icons-round notranslate" translate="no">arrow_back</span></button>
-      <div id="legalPageTitle" style="font-size:15px;font-weight:700;flex:1"></div>
+      <h1 id="legalPageTitle" class="legal-page-title"></h1>
       <div class="legal-lang-tabs">
         <button class="legal-lang-btn on" data-lang="ko" onclick="setLegalLang('ko')">한국어</button>
         <button class="legal-lang-btn" data-lang="ja" onclick="setLegalLang('ja')">日本語</button>
@@ -619,11 +619,13 @@ window._supabaseLoaded = false;
 <!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
      진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
 <div id="page-ticket" class="page">
+  <!-- 머리는 햄버거 화면들과 같은 mypage-sub-header(결함 2). 뒤로 단추는 남긴다 — backFromTicket 이 들어온 길(상세/응모이력)로 돌려보낸다.
+       ⚠️ .detail-back 클래스는 iOS 앱 덮어쓰기가 숨기려고 찾는다 — 지우지 말 것 -->
+  <div class="mypage-sub-header">
+    <button type="button" class="ticket-back detail-back" onclick="backFromTicket()" data-i18n-attr="aria-label:common.back" aria-label="戻る"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span></button>
+    <span class="mypage-sub-title" data-i18n="event.ticketTitle">入場チケット</span>
+  </div>
   <div class="container" style="padding-top:16px;padding-bottom:40px">
-    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
-      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
-      <span data-i18n="event.ticketTitle">入場チケット</span>
-    </div>
     <div id="ticketBody"></div>
   </div>
 </div>
@@ -824,9 +826,9 @@ window._supabaseLoaded = false;
   <div class="auth-wrap">
     <div class="auth-card fade-up">
       <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
-      <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
-        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
+      <div id="resetPwVerifying" class="auth-loading" style="display:none">
+        <span class="state-spin" aria-hidden="true"></span>
+        <div class="auth-hint" style="margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
       </div>
       <!-- 만료·무효 링크 안내 -->
       <div id="resetPwExpired" style="display:none">
@@ -834,7 +836,7 @@ window._supabaseLoaded = false;
           <div class="auth-logo-mark">R</div>
           <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
         </div>
-        <ol style="font-size:14px;line-height:1.9;color:var(--ink);padding-left:20px;margin:0 0 20px">
+        <ol class="auth-steps">
           <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
           <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
           <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
@@ -856,7 +858,7 @@ window._supabaseLoaded = false;
             <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
           <div id="resetPwCommonWarn" class="pw-common-warn" role="status" style="display:none" data-i18n="auth.pwCommonWarn">このパスワードは多くの人に使われていて、推測されやすいパスワードです。別のパスワードをおすすめします。</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+          <div class="pw-policy auth-hint" style="margin-top:4px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
@@ -880,23 +882,23 @@ window._supabaseLoaded = false;
   <div class="auth-wrap">
     <div class="auth-card fade-up">
       <!-- 처리 중 -->
-      <div id="unsubLoading" style="text-align:center;padding:32px 0">
-        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
+      <div id="unsubLoading" class="auth-loading">
+        <span class="state-spin" aria-hidden="true"></span>
+        <div class="auth-hint" style="margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
       </div>
       <!-- 성공 -->
-      <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">unsubscribe</span>
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
-        <div id="unsubName" style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px"></div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
+      <div id="unsubSuccess" class="auth-state" style="display:none">
+        <span class="material-icons-round notranslate auth-state-icon ok" translate="no" aria-hidden="true">unsubscribe</span>
+        <div class="auth-state-title" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
+        <div id="unsubName" class="auth-state-name"></div>
+        <div class="auth-state-desc" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('mypage')" data-i18n="unsubscribe.backToMypage">マイページへ</button>
       </div>
       <!-- 무효 토큰 -->
-      <div id="unsubInvalid" style="display:none;text-align:center;padding:8px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--on-surface-variant);margin-bottom:12px">link_off</span>
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
+      <div id="unsubInvalid" class="auth-state" style="display:none">
+        <span class="material-icons-round notranslate auth-state-icon" translate="no" aria-hidden="true">link_off</span>
+        <div class="auth-state-title" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
+        <div class="auth-state-desc" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('home')" data-i18n="unsubscribe.toTop">トップへ</button>
       </div>
     </div>
@@ -909,16 +911,16 @@ window._supabaseLoaded = false;
 <div id="page-signup" class="page">
   <div class="auth-wrap" style="align-items:flex-start;padding-top:32px">
     <div class="auth-card fade-up" style="max-width:560px">
-      <div class="auth-logo" style="margin-bottom:16px">
-        <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">新規登録</div>
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title" data-i18n="auth.signup.title">新規登録</div>
         <div class="auth-sub" data-i18n="auth.signup.sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
-      <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
-        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
+      <div id="signupConfirmMsg" class="auth-state" style="display:none;padding:24px 0">
+        <span class="material-icons-round notranslate auth-state-icon ok" translate="no" aria-hidden="true">mark_email_read</span>
+        <div class="auth-state-title" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
+        <div class="auth-state-desc" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
@@ -931,7 +933,7 @@ window._supabaseLoaded = false;
           <div class="form-group">
             <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（フリガナ）</span> <span class="req-mark">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="ヤマダ ハナコ" required>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
+            <div class="auth-hint" style="margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
           </div>
         </div>
         <div class="form-row">
@@ -942,7 +944,7 @@ window._supabaseLoaded = false;
               <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
               <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
             </div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+            <div class="auth-hint" style="margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
           </div>
           <div class="form-group">
             <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span class="req-mark">*</span></label>
@@ -961,7 +963,7 @@ window._supabaseLoaded = false;
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span class="req-mark">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span class="req-mark">*</span> <span class="auth-hint" style="font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" data-i18n-attr="placeholder:auth.signup.pwPlaceholder" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -976,7 +978,7 @@ window._supabaseLoaded = false;
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div class="pw-policy auth-hint" style="margin-top:-8px;margin-bottom:10px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">

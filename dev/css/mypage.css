@@ -195,24 +195,24 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .ticket-card{background:#fff;border:1px solid var(--line);border-radius:16px;
   padding:20px 18px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .ticket-card.off{opacity:.6}
-.ticket-camp{font-size:13px;font-weight:700;color:var(--pink);margin-bottom:14px;line-height:1.4}
+.ticket-camp{font-size:var(--fs-desc);font-weight:700;color:var(--pink);margin-bottom:14px;line-height:1.4}
 .ticket-qr-wrap{display:flex;justify-content:center;align-items:center;min-height:200px;margin-bottom:10px}
 .ticket-qr-wrap canvas{border-radius:8px}
-.ticket-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
-.ticket-entered{margin-top:8px;font-size:12px;font-weight:700;color:var(--green)}
+.ticket-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.6;margin-top:6px}
+.ticket-entered{margin-top:8px;font-size:var(--fs-desc);font-weight:700;color:var(--green)}
 
 .ticket-rows{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;text-align:left}
-.ticket-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:13px}
-.ticket-row span{flex:0 0 84px;color:var(--muted);font-size:12px}
+.ticket-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:var(--fs-desc)}
+.ticket-row span{flex:0 0 84px;color:var(--muted);font-size:var(--fs-desc)}
 .ticket-row b{flex:1;color:var(--ink);font-weight:700;word-break:break-word}
 /* 예약번호는 손으로 불러 주는 값이라 크고 자간을 벌린다 */
-.ticket-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:.14em}
+.ticket-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-title);letter-spacing:.14em}
 
 .ticket-state{padding:22px 8px}
 .ticket-state .material-icons-round{font-size:44px;color:var(--muted)}
 .ticket-state-wait .material-icons-round{color:var(--pink)}
-.ticket-state-title{font-size:17px;font-weight:800;color:var(--ink);margin-top:8px}
-.ticket-state-hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+.ticket-state-title{font-size:var(--fs-subtitle);font-weight:800;color:var(--ink);margin-top:8px}
+.ticket-state-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.7;margin-top:8px}
 
 .ticket-switch{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none}
 .ticket-switch::-webkit-scrollbar{display:none}
@@ -222,8 +222,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 .ticket-cancel{margin-top:16px;min-height:48px}
 .ticket-cancel:disabled{opacity:.45;cursor:not-allowed}
-.ticket-msg{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
-.ticket-msg-err{color:var(--red);font-size:12px;line-height:1.7}
+.ticket-msg{padding:40px 20px;text-align:center;font-size:var(--fs-desc);color:var(--muted);line-height:1.7}
+.ticket-msg-err{color:var(--red);font-size:var(--fs-desc);line-height:1.7}
 
 /* 입장 확인 완료 — QR 자리에 뜬다(사용자 요청 2026-08-03) */
 .ticket-state-done{padding:20px 8px}
@@ -323,4 +323,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .wd-warn{background:var(--red-l);border:1px solid #FECACA;border-radius:var(--r8);padding:14px;font-size:var(--fs-body);line-height:1.7;color:var(--red-d)}
 .wd-actions{display:flex;gap:8px;margin:28px 0 40px}
 .wd-actions .btn{flex:1}
+/* 입장 티켓 머리의 뒤로 단추 — 조각 6(결함 2: 햄버거 화면과 같은 머리) */
+.ticket-back{width:var(--tap-min);height:var(--tap-min);margin:0 0 0 -10px;padding:0;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:50%;color:var(--ink);cursor:pointer}
+.ticket-back .material-icons-round{font-size:24px}
 
