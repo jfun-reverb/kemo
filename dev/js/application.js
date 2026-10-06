@@ -441,7 +441,7 @@ async function openCampaign(id) {
         <h2 class="cd-sec-title">${t('detail.noticeTitle')}</h2>
         <div class="cd-muted">${renderCautionItemsHtml(camp.caution_items)}</div>
       </div>` : ''}
-      <div class="sns-follow-list">
+      <div class="sns-follow-list in-detail">
         <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
           <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igC" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igC)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
           <span class="sns-follow-text">

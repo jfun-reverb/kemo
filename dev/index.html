@@ -388,23 +388,23 @@ window._supabaseLoaded = false;
     </div>
   </section>
 
-  <section style="background:#fff;padding:32px 0;border-bottom:1px solid var(--line)">
+  <section class="home-feat-sec">
     <div class="container">
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;text-align:center">
-        <div style="min-width:0;padding:16px 6px">
-          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+      <div class="home-feat">
+        <div class="home-feat-item">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">local_shipping</span>
+          <div class="home-feat-title" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div class="home-feat-desc" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
-        <div style="min-width:0;padding:16px 6px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
-          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35" data-i18n="home.feature.freeTitle">完全無償提供</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
+        <div class="home-feat-item">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">volunteer_activism</span>
+          <div class="home-feat-title" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div class="home-feat-desc" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
         </div>
-        <div style="min-width:0;padding:16px 6px">
-          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+        <div class="home-feat-item">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">auto_awesome</span>
+          <div class="home-feat-title" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div class="home-feat-desc" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -413,45 +413,39 @@ window._supabaseLoaded = false;
   <section class="campaigns-section">
     <div class="container">
       <div class="section-header">
-        <div><div class="section-title"><span data-i18n="home.section.campaignsTitle">キャンペーン</span> <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub" data-i18n="home.section.campaignsSub">今すぐ応募できる体験団</div></div>
-        <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0" data-i18n="home.section.viewAll">すべて見る →</button>
+        <div><div class="section-title"><span data-i18n="home.section.campaignsTitle">キャンペーン</span> <span id="campCount" class="home-count">0</span></div><div class="section-sub" data-i18n="home.section.campaignsSub">今すぐ応募できる体験団</div></div>
+        <button type="button" class="home-viewall" onclick="navigate('campaigns')" data-i18n="home.section.viewAll">すべて見る →</button>
       </div>
       <!-- 채널 필터 -->
       <div class="filter-row" id="filterRow" style="margin-bottom:14px"></div>
-      <div class="camp-grid" id="campGrid"></div>
+      <div class="camp-grid" id="campGrid"><div class="state-loading" role="status" aria-live="polite"><span class="state-spin" aria-hidden="true"></span><span data-i18n="common.loading">読み込み中…</span></div></div>
       <!-- 더보기 — 홈 화면은 최대 10건, 초과분은 캠페인 페이지로 이동 -->
       <div id="campMoreBtnWrap" style="display:none;text-align:center;margin-top:16px">
-        <button onclick="navigate('campaigns')" class="btn btn-ghost btn-block" style="font-size:13px;font-weight:600" data-i18n="campaign.moreBtn">もっと見る</button>
+        <button type="button" onclick="navigate('campaigns')" class="btn btn-ghost btn-block" data-i18n="campaign.moreBtn">もっと見る</button>
       </div>
     </div>
   </section>
 
-  <section style="background:#fff;padding:24px 0 80px;border-top:8px solid var(--bg)">
+  <section class="home-sns-sec">
     <div class="container">
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <!-- Instagram 카드 -->
-        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
-          <div style="flex-shrink:0;width:52px;height:52px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="ig3" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig3)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
-          </div>
-        </div>
-        <!-- LINE 카드 -->
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
-          <div style="flex-shrink:0;width:52px;height:52px;background:#fff;border-radius:12px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
-          </div>
-        </div>
+      <div class="sns-follow-list">
+        <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="ig3" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig3)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>INSTAGRAM</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</span>
+            <span class="sns-follow-sub" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</span>
+          </span>
+        </button>
+        <button type="button" class="sns-follow-card line" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
+          <span class="sns-follow-icon"><img src="https://qr-official.line.me/sid/M/reverb.jp.png" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'"></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>LINE</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</span>
+            <span class="sns-follow-sub" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</span>
+            <span class="sns-follow-badge"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span></span>
+          </span>
+        </button>
       </div>
     </div>
   </section>
@@ -488,37 +482,37 @@ window._supabaseLoaded = false;
      PAGE: CAMPAIGNS LIST
 ══════════════════════════════════ -->
 <div id="page-campaigns" class="page">
-  <div id="campPageStickyHeader" style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
+  <div id="campPageStickyHeader" class="cl-head">
     <div class="container" style="padding-top:14px;padding-bottom:0">
       <!-- 제목 행 — 닫힘 모드(제목+🔍) / 열림 모드(검색 input+✕) 가 같은 row 자리를 토글로 차지 -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
-        <div id="campPageTitle" style="flex:1;font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
-        <button id="campPageSearchToggle" onclick="toggleCampPageSearch(true)" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px;flex-shrink:0">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>
+      <div class="cl-head-row">
+        <h1 id="campPageTitle" class="cl-title" data-i18n="campaigns.pageTitle">キャンペーン一覧</h1>
+        <button type="button" id="campPageSearchToggle" class="cl-icon-btn" onclick="toggleCampPageSearch(true)" aria-label="検索" style="color:var(--ink)">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">search</span>
         </button>
         <!-- 검색 입력 폼 (열림 모드) — 캠페인명·브랜드명·상품·캠페인번호 매칭 -->
         <div id="campPageSearchWrap" style="display:none;flex:1;align-items:center;gap:8px">
           <div style="flex:1;position:relative">
-            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
-            <button onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px 6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:6px">
-              <span class="material-icons-round notranslate" translate="no" style="font-size:18px">search</span>
+            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" class="form-input" style="padding:10px 44px 10px 12px">
+            <button type="button" class="cl-icon-btn" onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:0;top:50%;transform:translateY(-50%);color:var(--ink)">
+              <span class="material-icons-round notranslate" translate="no" aria-hidden="true">search</span>
             </button>
           </div>
-          <button onclick="toggleCampPageSearch(false)" aria-label="閉じる" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-radius:8px;flex-shrink:0">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span>
+          <button type="button" class="cl-icon-btn" onclick="toggleCampPageSearch(false)" aria-label="閉じる" data-i18n-attr="aria-label:common.close">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
           </button>
         </div>
       </div>
       <!-- 모집 유형 탭 — 고정 (스크롤 영향 없음) -->
-      <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
-        <button id="campPageType-all" onclick="setCampPageType('all')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
-        <button id="campPageType-monitor" onclick="setCampPageType('monitor')" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">レビュアー</button>
-        <button id="campPageType-gifting" onclick="setCampPageType('gifting')" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
-        <button id="campPageType-visit" onclick="setCampPageType('visit')" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">訪問</button>
+      <div class="cl-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" id="campPageType-all" class="cl-tab on" onclick="setCampPageType('all')" data-i18n="campaigns.typeAll">すべて</button>
+        <button type="button" role="tab" id="campPageType-monitor" class="cl-tab" onclick="setCampPageType('monitor')" data-i18n="campaigns.typeMonitor">レビュアー</button>
+        <button type="button" role="tab" id="campPageType-gifting" class="cl-tab" onclick="setCampPageType('gifting')" data-i18n="campaigns.typeGifting">ギフティング</button>
+        <button type="button" role="tab" id="campPageType-visit" class="cl-tab" onclick="setCampPageType('visit')" data-i18n="campaigns.typeVisit">訪問</button>
       </div>
       <!-- 상태 칩 영역 — 스크롤 시 자동 숨김/노출 대상 -->
       <div id="campPageFilterArea" style="overflow:hidden;transition:max-height .25s ease,opacity .2s ease;max-height:80px;opacity:1">
-        <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
+        <div class="filter-row" style="padding:10px 0 4px;margin-bottom:0">
           <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
           <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
           <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
@@ -529,33 +523,29 @@ window._supabaseLoaded = false;
     </div>
   </div>
   <div class="container" style="padding-top:16px;padding-bottom:0">
-    <div class="camp-grid" id="campListGrid"></div>
+    <div class="camp-grid" id="campListGrid"><div class="state-loading" role="status" aria-live="polite"><span class="state-spin" aria-hidden="true"></span><span data-i18n="common.loading">読み込み中…</span></div></div>
   </div>
   <!-- SNS 배너 -->
-  <section style="background:#fff;padding:20px 0 calc(var(--tab-h) + 20px);border-top:8px solid var(--bg)">
+  <section class="list-sns-sec">
     <div class="container">
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igB" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igB)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
-          </div>
-        </div>
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
-          </div>
-        </div>
+      <div class="sns-follow-list">
+        <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igB" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igB)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>INSTAGRAM</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</span>
+            <span class="sns-follow-sub" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</span>
+          </span>
+        </button>
+        <button type="button" class="sns-follow-card line" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
+          <span class="sns-follow-icon"><img src="https://qr-official.line.me/sid/M/reverb.jp.png" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'"></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>LINE</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</span>
+            <span class="sns-follow-sub" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</span>
+            <span class="sns-follow-badge"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span></span>
+          </span>
+        </button>
       </div>
     </div>
   </section>
