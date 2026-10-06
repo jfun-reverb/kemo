@@ -98,6 +98,32 @@ function _toggleMsgNewBanner(show) {
 }
 
 // 메시지 모달 수동 새로고침 (헤더 버튼 + 「새 메시지 도착」 띠 공용)
+// 스레드를 처음 못 불러왔을 때의 「다시 불러오기」(상태 안내 단추) — 두 모드 공용.
+//   ⚠️ refreshMessageModal 로 대신하지 않는다: 그건 불러오는 중을 안 보이고 실패를 조용히 삼키며,
+//      첫 진입이 실패해 꺼져 있던 새 메시지 감지(폴링)를 다시 켜지 않는다.
+async function retryMessageThread() {
+  if (!_msgActive()) return;
+  // 기다리는 사이 다른 응모건·모드로 옮겼으면 그 화면에 그리지 않는다
+  const startMode = _msgMode, startApp = _msgCurrentAppId;
+  const stillHere = () => _msgActive() && _msgMode === startMode && _msgCurrentAppId === startApp;
+  const thread = $('msgModalThread');
+  if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
+  try {
+    const msgs = await _msgLoad();
+    if (!stillHere()) return;
+    renderMessageThread(msgs);
+    _msgLastCount = msgs?.length || 0;
+    _toggleMsgNewBanner(false);
+    await _msgMarkRead();
+    if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
+    if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
+    _startMsgPoll();
+  } catch (e) {
+    logAppError('retryMessageThread', e);
+    if (thread && stillHere()) thread.innerHTML = stateErrorHtml(t('messaging.loadError'), 'retryMessageThread');
+  }
+}
+
 async function refreshMessageModal() {
   if (!_msgActive()) return;
   try {
@@ -198,7 +224,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   _msgPrepareCompose(_msgReadOnly);
 
   const thread = $('msgModalThread');
-  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
 
   // 개인화 상태 한 줄 — 0건/1건+ 모두 상단 표시 (§3)
   renderAppStatusLine(app, camp);
@@ -222,7 +248,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   } catch (e) {
     console.error('[openMessagesPage]', e);
     logAppError('openMessagesPage', e);
-    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+    if (thread) thread.innerHTML = stateErrorHtml(t('messaging.loadError'), 'retryMessageThread');
   }
 }
 
@@ -299,10 +325,7 @@ function renderInquiryBranch() {
       </button>
     </div>`;
   } else if (_inqApps === null) {
-    body = `<div class="inq-app-error">
-      <p>${esc(t('inquiry.loadError'))}</p>
-      <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
-    </div>`;
+    body = stateErrorHtml(t('inquiry.loadError'), 'retryInquiryApps');
   } else if (!_inqApps.length) {
     // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
     body = `<div class="inq-other">
@@ -355,11 +378,11 @@ function renderInquiryPick(box) {
       <span class="material-icons-round notranslate" translate="no">chevron_right</span>
     </button>`;
   }).join('');
-  box.innerHTML = `<button type="button" class="detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">arrow_back</span> ${esc(t('inquiry.title'))}</button>`
+  box.innerHTML = `<button type="button" class="back-link detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span>${esc(t('inquiry.title'))}</button>`
     + `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
     + (rows ? `<div class="inq-app-list">${rows}</div>`
        // 빈 이유가 둘이다 — 전부 이미 대화 중(pickEmpty) / 남은 응모가 전부 취소됨(pickNone). 취소만 있는 회원에게 「모두 시작했다」는 사실이 아니다
-       : `<div class="inq-app-error"><p>${esc(t(unstarted.length ? 'inquiry.pickNone' : 'inquiry.pickEmpty'))}</p></div>`);
+       : stateEmptyHtml('', '', t(unstarted.length ? 'inquiry.pickNone' : 'inquiry.pickEmpty')));
 }
 
 function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }
@@ -387,7 +410,7 @@ async function openGeneralInquiryPage(from, pushHistory) {
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
   _msgPrepareCompose(false);
   const thread = $('msgModalThread');
-  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
   await setupFaqGate(null, {}, { general: true });
   // 기다리는 사이 화면을 떠났으면(정리 함수가 모드를 'app' 으로 되돌림) 여기서 멈춘다 —
   //   안 멈추면 응모 번호 없이 응모건 조회를 부르고 폴링까지 시작한다.
@@ -406,7 +429,7 @@ async function openGeneralInquiryPage(from, pushHistory) {
     console.error('[openGeneralInquiryPage]', e);
     logAppError('openGeneralInquiryPage', e);
     closeFaqOverlay();   // 응모건 화면에서 바로 넘어온 경우 그쪽 덮개가 남지 않게
-    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+    if (thread) thread.innerHTML = stateErrorHtml(t('messaging.loadError'), 'retryMessageThread');
   }
 }
 
@@ -447,7 +470,7 @@ function renderMessageThread(messages) {
   // 스레드 맨 위 봇 안내 카드 (게이트→봇 카드 전환 2026-05-22) — 0건/N건 공통 prepend
   const botCard = _faqBotCardHtml();
   if (!messages || !messages.length) {
-    thread.innerHTML = botCard + `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
+    thread.innerHTML = botCard + stateEmptyHtml('chat_bubble_outline', '', t('messaging.emptyThread'));
     return;
   }
   const now = Date.now();
@@ -982,7 +1005,7 @@ function renderFaqCategories(opts) {
   if (!opts || !opts.noPush) _faqNav = [{ view: 'cats' }];
   const cats = _faqSortNodes(_faqNodes.filter(n => n.kind === 'category' && !n.parent_id));
   if (!cats.length) {
-    tree.innerHTML = `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`;
+    tree.innerHTML = stateEmptyHtml('help_outline', '', t('messaging.faq.unavailable'));
     return;
   }
   const chips = cats.map(c =>
@@ -1020,7 +1043,7 @@ function openFaqCategory(catId, opts) {
   tree.innerHTML = `
     <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.backToCategories'))}</button>
     <div class="msg-faq-cat-title">${esc(_faqPick(cat, 'label'))}</div>
-    <div class="msg-faq-qlist">${list || `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`}</div>
+    <div class="msg-faq-qlist">${list || stateEmptyHtml('help_outline', '', t('messaging.faq.unavailable'))}</div>
     <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
   `;
   tree.scrollTop = 0;

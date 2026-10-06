@@ -1150,61 +1150,58 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* 문의 갈래 화면 (일반 문의 창구, 2026-09) — 누름 영역 48px 이상(Apple 지침 44pt) */
 #page-inquiry.page.active{display:flex;flex-direction:column;padding:0;background:var(--bg,#fff)}
 .inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
-.inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
+.inq-lead{margin:0 0 4px;font-size:var(--fs-body);color:var(--muted)}
 /* 탭 모양 = 언어 전환 토글(.lang-toggle/.lang-btn, 위 44~47행)과 같은 값. 폭 채움·누름 영역 44px 만 다르다.
    ⚠️ 클래스를 공유하지 않는다 — updateLangToggleUI 가 .lang-btn 을 전역으로 다시 매긴다. 토글 모양을 바꾸면 여기도 */
 .inq-tabs{display:flex;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
-.inq-tab{flex:1;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s;line-height:1.3}
+.inq-tab{flex:1;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:var(--fs-desc);font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s;line-height:1.3}
 .inq-tab.on{background:var(--primary);color:#fff}
 .inq-tab:not(.on):hover{background:var(--outline)}
 #inquiryBranchBody{display:flex;flex-direction:column;gap:14px}
 .inq-other{display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff)}
-.inq-other-lead{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
-.inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.inq-other-lead{margin:0;font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
+.inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:var(--fs-body);font-weight:600;cursor:pointer}
 .inq-start-btn .material-icons-round{font-size:20px}
-.inq-pick-title{font-size:15px;font-weight:700;color:var(--ink)}
-.inq-pick-back{align-self:flex-start;margin-bottom:0;font-size:13px;min-height:44px;border:none;background:none;font-family:inherit}
+.inq-pick-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink)}
+.inq-pick-back{align-self:flex-start;margin-bottom:0;font-size:var(--fs-desc);min-height:44px;border:none;background:none;font-family:inherit}
 .inq-pick-back:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
 .inq-pick-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);text-align:left;cursor:pointer}
 .inq-pick-item:last-child{border-bottom:none}
 .inq-pick-item>.material-icons-round{font-size:20px;color:var(--faint)}
-.inq-pick-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
-.inq-pick-status .badge{font-size:11px}
+.inq-pick-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:var(--fs-body)}
+.inq-pick-status .badge{font-size:var(--fs-caption)}
 .inq-app-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.inq-app-item{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
+.inq-app-item{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);font-size:var(--fs-body);text-align:left;cursor:pointer}
 .inq-app-item:last-child{border-bottom:none}
 .inq-app-item .inq-app-title{flex:1;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .inq-app-item .material-icons-round{font-size:20px;color:var(--faint)}
-.inq-app-readonly{flex-shrink:0;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--primary-light);color:var(--muted)}
-.inq-app-error{padding:14px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:14px;color:var(--muted)}
-.inq-app-error p{margin:0 0 10px}
-.inq-retry-btn{min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);color:var(--ink);font-size:14px;cursor:pointer}
+.inq-app-readonly{flex-shrink:0;font-size:var(--fs-caption);padding:2px 8px;border-radius:999px;background:var(--primary-light);color:var(--muted)}
 #page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
-.msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
+.msg-back-btn{flex-shrink:0;width:var(--tap-min);height:var(--tap-min);border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
-.msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-modal-title{flex:1;font-size:var(--fs-subtitle);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .msg-refresh-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
-.msg-new-banner{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:var(--pink,#E8629A);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.msg-new-banner{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:var(--pink,#E8629A);color:#fff;font-size:var(--fs-desc);font-weight:700;cursor:pointer}
 .msg-new-banner .material-icons-round{font-size:16px}
 .msg-modal-thread{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface-dim,#f7f7f8)}
-.msg-empty{text-align:center;color:var(--muted);font-size:13px;padding:32px 16px;line-height:1.6}
+.msg-empty{text-align:center;color:var(--muted);font-size:var(--fs-desc);padding:32px 16px;line-height:1.6}
 .msg-card{background:#fff;border:1px solid var(--outline);border-radius:10px;padding:10px 12px;max-width:88%;align-self:flex-start}
 .msg-card.mine{align-self:flex-end;background:#eef4ff;border-color:#cfe0ff}
 .msg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.msg-sender{font-size:12px;font-weight:700;color:var(--ink)}
-.msg-time{font-size:11px;color:var(--muted)}
-.msg-card-body{font-size:14px;line-height:1.6;color:var(--ink);word-break:break-word}
-.msg-card-masked .msg-masked-body{font-size:13px;color:var(--muted);font-style:italic}
+.msg-sender{font-size:var(--fs-desc);font-weight:700;color:var(--ink)}
+.msg-time{font-size:var(--fs-caption);color:var(--muted)}
+.msg-card-body{font-size:var(--fs-body);line-height:1.6;color:var(--ink);word-break:break-word}
+.msg-card-masked .msg-masked-body{font-size:var(--fs-desc);color:var(--muted);font-style:italic}
 /* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 원문은 아래 작은 글씨 */
-.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line,#E5E5EA);font-size:12px;line-height:1.5;color:var(--muted)}
-.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--line,#E5E5EA);border-radius:6px;font-size:10px;color:var(--muted)}
-.msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
-.msg-withdraw-btn{margin-left:auto;border:none;background:transparent;color:var(--pink,#e84a7f);font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
+.msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line,#E5E5EA);font-size:var(--fs-desc);line-height:1.5;color:var(--muted)}
+.msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--line,#E5E5EA);border-radius:6px;font-size:var(--fs-caption);color:var(--muted)}
+.msg-trans-caption{margin-top:4px;font-size:var(--fs-caption);color:var(--muted);text-align:right}
+.msg-withdraw-btn{margin-left:auto;border:none;background:transparent;color:var(--pink,#e84a7f);font-size:var(--fs-desc);font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
 .msg-withdraw-btn:hover{background:rgba(232,74,127,.1)}
 .msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
 .msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
-.msg-pending-inline{align-self:center;max-width:90%;margin:4px auto 0;padding:8px 14px;background:#FFF6E5;color:#8A6D3B;font-size:12px;line-height:1.5;border-radius:10px;text-align:center}
+.msg-pending-inline{align-self:center;max-width:90%;margin:4px auto 0;padding:8px 14px;background:#FFF6E5;color:#8A6D3B;font-size:var(--fs-desc);line-height:1.5;border-radius:10px;text-align:center}
 .msg-modal-input-area{flex-shrink:0;display:flex;flex-direction:column;max-height:60%;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
 .msg-attach-preview{flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px}
 .msg-attach-preview:not(:empty){margin-bottom:8px}
@@ -1214,55 +1211,55 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .msg-attach-remove .material-icons-round{font-size:14px}
 .msg-input-row{flex-shrink:0;display:flex;align-items:flex-end;gap:8px}
 /* 취소된 응모 — 작성 줄 자리에 들어가는 안내 한 줄(F-11) */
-.msg-readonly-note{flex-shrink:0;padding:10px 12px;font-size:13px;line-height:1.6;color:var(--muted);background:#F5F5F5;border-radius:8px;text-align:center}
+.msg-readonly-note{flex-shrink:0;padding:10px 12px;font-size:var(--fs-desc);line-height:1.6;color:var(--muted);background:#F5F5F5;border-radius:8px;text-align:center}
 .msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
 .msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;min-height:40px;max-height:120px;box-sizing:border-box;font-family:inherit}
 .msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .msg-send-btn:disabled{opacity:.5;cursor:default}
 
 /* ── 개인화 상태 한 줄 (#msgStatusLine, §3) ── */
-.msg-status-line{flex-shrink:0;padding:5px 14px;font-size:12px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
+.msg-status-line{flex-shrink:0;padding:5px 14px;font-size:var(--fs-desc);background:#F4F8FF;border-bottom:1px solid var(--outline)}
 .msg-status-row{display:flex;align-items:center;gap:10px}
-.msg-status-text{flex:1;font-size:12px;line-height:1.5;font-weight:600;color:#23416E}
-.msg-status-reason{margin-top:6px;font-size:12px;line-height:1.5;color:#8A3B3B;background:#FDECEC;border-radius:8px;padding:6px 10px;word-break:break-word}
+.msg-status-text{flex:1;font-size:var(--fs-desc);line-height:1.5;font-weight:600;color:#23416E}
+.msg-status-reason{margin-top:6px;font-size:var(--fs-desc);line-height:1.5;color:#8A3B3B;background:#FDECEC;border-radius:8px;padding:6px 10px;word-break:break-word}
 
 /* ── FAQ 전체 보기 오버레이 (#msgFaqTree) — 스레드 위에 떠서 표시 (PR B-rev) ── */
 .msg-faq-tree{position:absolute;left:0;right:0;top:0;bottom:0;z-index:4;overflow-y:auto;padding:16px;background:var(--surface-dim,#f7f7f8);display:flex;flex-direction:column;gap:12px}
-.msg-faq-intro{font-size:13px;line-height:1.6;color:var(--ink)}
+.msg-faq-intro{font-size:var(--fs-desc);line-height:1.6;color:var(--ink)}
 .msg-faq-chips{display:flex;flex-direction:column;gap:8px}
-.msg-faq-chip{text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer}
+.msg-faq-chip{text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:var(--fs-body);font-weight:600;color:var(--ink);cursor:pointer}
 .msg-faq-chip:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
-.msg-faq-back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;padding:2px 0}
+.msg-faq-back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;color:var(--muted);font-size:var(--fs-desc);font-weight:600;cursor:pointer;padding:2px 0}
 .msg-faq-back .material-icons-round{font-size:18px}
-.msg-faq-cat-title{font-size:14px;font-weight:700;color:var(--ink)}
+.msg-faq-cat-title{font-size:var(--fs-body);font-weight:700;color:var(--ink)}
 .msg-faq-qlist{display:flex;flex-direction:column;gap:8px}
-.msg-faq-q{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;line-height:1.4;color:var(--ink);cursor:pointer}
+.msg-faq-q{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:var(--fs-body);line-height:1.4;color:var(--ink);cursor:pointer}
 .msg-faq-q:hover{background:#fafafa}
 .msg-faq-q .material-icons-round{flex-shrink:0;font-size:20px;color:var(--muted)}
 .msg-faq-answer{background:#fff;border:1px solid var(--outline);border-radius:12px;padding:14px}
-.msg-faq-answer-q{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px}
-.msg-faq-answer-body{font-size:14px;line-height:1.7;color:var(--ink);word-break:break-word}
-.msg-faq-action-btn{margin-top:12px;display:inline-flex;align-items:center;gap:6px;border:1px solid #B6CEF5;background:#F4F8FF;color:#2563EB;font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer}
+.msg-faq-answer-q{font-size:var(--fs-body);font-weight:700;color:var(--ink);margin-bottom:8px}
+.msg-faq-answer-body{font-size:var(--fs-body);line-height:1.7;color:var(--ink);word-break:break-word}
+.msg-faq-action-btn{margin-top:12px;display:inline-flex;align-items:center;gap:6px;border:1px solid #B6CEF5;background:#F4F8FF;color:#2563EB;font-size:var(--fs-desc);font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer}
 .msg-faq-action-btn .material-icons-round{font-size:17px}
 .msg-faq-answer-actions{display:flex;flex-direction:column;gap:8px}
-.msg-faq-resolved-btn{border:none;background:var(--primary,#E8629A);color:#fff;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer}
-.msg-faq-contact-link{border:1px solid var(--outline);background:#fff;color:var(--muted);font-size:13px;font-weight:600;padding:11px;border-radius:10px;cursor:pointer}
+.msg-faq-resolved-btn{border:none;background:var(--primary,#E8629A);color:#fff;font-size:var(--fs-body);font-weight:700;padding:12px;border-radius:10px;cursor:pointer}
+.msg-faq-contact-link{border:1px solid var(--outline);background:#fff;color:var(--muted);font-size:var(--fs-desc);font-weight:600;padding:11px;border-radius:10px;cursor:pointer}
 .msg-faq-contact-link:hover{background:#fafafa}
 /* FAQ 전체 보기 오버레이 상단 헤더 (카테고리 1단 닫기) */
 .msg-faq-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.msg-faq-overlay-title{font-size:15px;font-weight:700;color:var(--ink)}
+.msg-faq-overlay-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink)}
 .msg-faq-overlay-close{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:36px;min-height:36px;align-items:center;justify-content:center}
 
 /* ── 봇 안내 카드 (스레드 맨 위, 게이트→봇 카드 전환 2026-05-22) — 추천 질문·전체 보기 진입 ── */
 .msg-card-bot{align-self:stretch;background:#F4F8FF;border:1px solid #DCE7FB}
-.msg-card-bot-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#23416E;margin-bottom:8px}
+.msg-card-bot-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-desc);font-weight:700;color:#23416E;margin-bottom:8px}
 .msg-card-bot-head .material-icons-round{font-size:18px;color:#2563EB}
 .msg-faq-botcard-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
-.msg-faq-botcard-all{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--ink);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
+.msg-faq-botcard-all{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--ink);font-size:var(--fs-desc);font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
 .msg-faq-botcard-all:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
 .msg-faq-botcard-all .material-icons-round{font-size:18px;color:var(--muted)}
 /* 봇 카드 추천 질문 항목 */
-.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--ink);cursor:pointer}
+.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:var(--fs-desc);line-height:1.4;color:var(--ink);cursor:pointer}
 .msg-faq-suggest-item:hover{background:#fafbff}
 .msg-faq-suggest-item .material-icons-round{flex-shrink:0;font-size:18px;color:#2563EB}
 .msg-faq-suggest-q{flex:1;min-width:0}
@@ -1396,6 +1393,23 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .mp-dl{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start;font-size:var(--fs-desc);color:var(--ink);line-height:1.8}
 .mp-dl dt,.mp-dl .k{color:var(--muted);font-weight:600}
 
+/* ══════════════════════════════════════════════════════════════════
+   회원 탈퇴 화면 — 회원 앱 스타일 통일 조각 5 (renderWithdrawView 가 그린다)
+   ══════════════════════════════════════════════════════════════════ */
+.wd-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink)}
+.wd-text{font-size:var(--fs-body);line-height:1.7;color:var(--ink)}
+.wd-sub{font-size:var(--fs-desc);color:var(--muted)}
+.wd-list{padding-left:18px;margin:14px 0;font-size:var(--fs-body);line-height:1.8;color:var(--ink)}
+.wd-li{margin-bottom:10px}
+.wd-li-sub{margin:-6px 0 10px -18px;padding-left:0;font-size:var(--fs-desc);color:var(--muted);list-style:none}
+.wd-radio{display:flex;align-items:center;gap:8px;min-height:var(--tap-min);padding:4px 0;font-size:var(--fs-body)}
+.wd-reason{margin-top:24px}
+.wd-box{background:var(--bg);border-radius:var(--r8);padding:14px;font-size:var(--fs-desc);line-height:1.7;color:var(--ink)}
+/* 되돌릴 수 없음 — 응모 취소 화면(.ac-warn-box)과 같은 빨강 */
+.wd-warn{background:var(--red-l);border:1px solid #FECACA;border-radius:var(--r8);padding:14px;font-size:var(--fs-body);line-height:1.7;color:var(--red-d)}
+.wd-actions{display:flex;gap:8px;margin:28px 0 40px}
+.wd-actions .btn{flex:1}
+
 
 /* ══════════════════════════════════════════════════════════════════
    회원 앱 공용 부품 — 회원 앱 전용 (사양서 docs/specs/2026-09-29-member-app-style-unification.md)
@@ -1496,6 +1510,23 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #mypage-sub-applications .btn,#mypage-sub-profile-basic .btn,#mypage-sub-profile-sns .btn,#mypage-sub-profile-address .btn,#mypage-sub-paypal .btn,#mypage-sub-password .btn,#mypage-sub-email-settings .btn,#cautionCompareModal .btn,#applyActionModal .btn,#cancelDetailModal .btn{min-height:var(--tap-min)}
 #mypage-sub-applications .mypage-sub-title,#mypage-sub-profile-basic .mypage-sub-title,#mypage-sub-profile-sns .mypage-sub-title,#mypage-sub-profile-address .mypage-sub-title,#mypage-sub-paypal .mypage-sub-title,#mypage-sub-password .mypage-sub-title,#mypage-sub-email-settings .mypage-sub-title{font-size:var(--fs-subtitle)}
 #mypage-sub-applications .badge{font-size:var(--fs-caption)}
+/* 조각 5 — 메시지 대화 + 문의하기 + 알림 + 탈퇴 */
+#page-messages,#page-inquiry,#notifModal,#mypage-sub-withdraw{font-size:var(--fs-body)}
+#page-messages .btn,#page-inquiry .btn,#notifModal .btn,#mypage-sub-withdraw .btn{min-height:var(--tap-min)}
+#page-inquiry .mypage-sub-title,#mypage-sub-withdraw .mypage-sub-title{font-size:var(--fs-subtitle)}
+#page-inquiry .back-link{margin-bottom:8px}
+/* 알림 창 — notif-* 정의는 공유 파일(components.css)이라 여기서 덮는다 */
+#notifModal .notif-modal-title{font-size:var(--fs-subtitle)}
+#notifModal .notif-mark-all{font-size:var(--fs-desc);min-height:var(--tap-min)}
+#notifModal .notif-item-title{font-size:var(--fs-body)}
+#notifModal .notif-item-desc{font-size:var(--fs-desc)}
+#notifModal .notif-item-time{font-size:var(--fs-caption)}
+#notifModal .notif-modal-body{border-radius:var(--r-popup) var(--r-popup) 0 0}
+#notifModal .notif-head-actions{display:flex;gap:8px;align-items:center}
+#notifModal .notif-close-btn{width:var(--tap-min);height:var(--tap-min)}
+#page-messages .msg-refresh-btn{width:var(--tap-min);height:var(--tap-min)}
+#page-messages .msg-withdraw-btn{position:relative}
+#page-messages .msg-withdraw-btn::after{content:'';position:absolute;inset:-10px -4px}
 
 </style>
 </head>
@@ -1733,10 +1764,10 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div class="notif-modal-body">
     <div class="notif-modal-header">
       <div class="notif-modal-title" data-i18n="menu.notifications">お知らせ</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
-        <button class="notif-close-btn" onclick="closeNotifModal()" aria-label="Close">
-          <span class="material-icons-round notranslate" translate="no">close</span>
+      <div class="notif-head-actions">
+        <button type="button" id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
+        <button type="button" class="notif-close-btn" onclick="closeNotifModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
         </button>
       </div>
     </div>
@@ -21282,7 +21313,7 @@ async function openNotifModal() {
   if (!m) return;
   m.setAttribute('aria-hidden', 'false');
   const body = $('notifModalBody');
-  if (body) body.innerHTML = '<div class="notif-empty">' + t('common.loading') + '</div>';
+  if (body) body.innerHTML = stateLoadingHtml();
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
@@ -21290,7 +21321,7 @@ async function openNotifModal() {
     renderNotifModal(items);
   } catch(e) {
     logAppError('openNotifModal', e);
-    if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
+    if (body) body.innerHTML = stateErrorHtml(t('authError.serverError'), 'openNotifModal');
   }
 }
 
@@ -21304,7 +21335,7 @@ function renderNotifModal(items) {
   const markBtn = $('notifMarkAllBtn');
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = '<div class="notif-empty">' + t('notif.emptyUnread') + '</div>';
+    body.innerHTML = stateEmptyHtml('notifications_none', '', t('notif.emptyUnread'));
     if (markBtn) markBtn.disabled = true;
     return;
   }
@@ -21317,7 +21348,7 @@ function renderNotifModal(items) {
     const rt = _notifRecruitTypeMap[n.ref_id];
     const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
     const rtBadge = rtLabel
-      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      ? `<div class="apply-item-kicker">${esc(rtLabel)}</div>`
       : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.kind||'')}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
@@ -21980,7 +22011,7 @@ function openMypageSub(sub, pushHistory) {
   //      **껍데기만 뜨고 안이 빈 채로 남는다** — 햄버거로 들어온 경우만 채워진다.
   if (sub === 'withdraw' && typeof loadWithdrawView === 'function') {
     const b = $('withdrawViewBody');
-    if (b) b.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px">${esc(wt('loading'))}</div>`;
+    if (b) b.innerHTML = stateLoadingHtml(wt('loading'));
     loadWithdrawView();
   }
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
@@ -22115,7 +22146,7 @@ function withdrawNoticeHtml(info, reasons) {
   // ⚠️ 「5일」을 한 문구로 덮지 않는다 — 미지급이 있으면 「지급이 끝난 뒤」가 앞에 붙는다.
   //    한 문구로 둘 다 덮으면 한쪽이 거짓이 된다.
   const scheduleLine = unpaid > 0 ? wt('aScheduleUnpaid', {n: unpaid}) : wt('aSchedule');
-  const li = (s) => `<li style="margin-bottom:10px">${esc(s)}</li>`;
+  const li = (s) => `<li class="wd-li">${esc(s)}</li>`;
 
   // ⚠️ 사유는 **선택**이다(마이그레이션 347). 안 골라도 눌린다.
   //    조회에 실패했으면 이 부분만 통째로 감춘다.
@@ -22123,29 +22154,29 @@ function withdrawNoticeHtml(info, reasons) {
   if (Array.isArray(reasons) && reasons.length) {
     const opts = reasons.map(r => {
       const label = (typeof getLang === 'function' && getLang() === 'ko') ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko);
-      return `<label style="display:flex;align-items:center;gap:8px;padding:10px 0;font-size:14px">
+      return `<label class="wd-radio">
         <input type="radio" name="withdrawReason" value="${esc(r.code)}" onchange="onWithdrawReasonChange()">
         <span>${esc(label)}</span></label>`;
     }).join('');
-    reasonHtml = `<div style="margin-top:24px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
+    reasonHtml = `<div class="wd-reason">
+      <div class="wd-sub" style="margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
       ${opts}
       <textarea id="withdrawReasonNote" rows="3" placeholder="${esc(wt('aReasonPlaceholder'))}"
-        style="display:none;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit"></textarea>
+        class="form-input" style="display:none;margin-top:8px"></textarea>
     </div>`;
   }
 
-  return `<ul style="padding-left:18px;margin:8px 0 0;font-size:14px;line-height:1.7;color:var(--ink)">
+  return `<ul class="wd-list" style="margin-top:8px">
       ${li(wt('aCancelApps'))}
-      <li style="margin:-6px 0 10px;font-size:12px;color:var(--muted);list-style:none;margin-left:-18px;padding-left:0">${esc(wt('aCancelAppsSub'))}</li>
+      <li class="wd-li-sub">${esc(wt('aCancelAppsSub'))}</li>
       ${li(scheduleLine)}
       ${li(wt('aPaypal'))}
       ${li(wt('aIrreversible'))}
     </ul>
     ${reasonHtml}
-    <div style="display:flex;gap:8px;margin:28px 0 40px">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
-      <button class="btn btn-primary" style="flex:1" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
+      <button type="button" class="btn btn-primary" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
     </div>`;
 }
 
@@ -22167,13 +22198,13 @@ function showWithdrawConfirm() {
   };
   const body = $('withdrawViewBody');
   if (!body) return;
-  body.innerHTML = `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
-    <div style="background:#FFF5F5;border:1px solid #F5C2C2;border-radius:8px;padding:14px;font-size:14px;line-height:1.7;color:#C33">
+  body.innerHTML = `<div class="wd-title" style="margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
+    <div class="wd-warn">
       ${esc(wt('aConfirm'))}
     </div>
-    <div style="display:flex;gap:8px;margin:28px 0 40px">
-      <button class="btn btn-ghost" style="flex:1" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
-      <button id="withdrawSubmitBtn" class="btn btn-primary" style="flex:1" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
+      <button type="button" id="withdrawSubmitBtn" class="btn btn-primary" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
     </div>`;
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
@@ -22301,28 +22332,28 @@ function withdrawResultHtml(res) {
   if (n(res.cancelled_count) > 0)   lines.push(`<li>${esc(wt('rCancelled', {n: n(res.cancelled_count)}))}</li>`);
   if (n(res.uncancelled_count) > 0) {
     lines.push(`<li>${esc(wt('rUncancelled', {n: n(res.uncancelled_count)}))}
-      <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
+      <div class="wd-sub" style="margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
   }
   const listHtml = lines.length
-    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.join('')}</ul>` : '';
+    ? `<ul class="wd-list">${lines.join('')}</ul>` : '';
 
   // 상태에 따라 아래 안내가 갈린다 — 예정일이 있으면 그 날짜, 없으면 「대기」 안내.
   let statusHtml = '';
   if (res.status === 'scheduled' && res.scheduled_date) {
-    statusHtml = `<div style="margin-top:18px;font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
-      <div style="font-size:14px;line-height:1.7;color:var(--ink);margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
+    statusHtml = `<div class="wd-title" style="margin-top:18px">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
+      <div class="wd-text" style="margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
   } else {
-    statusHtml = `<div style="margin-top:18px;font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>`;
+    statusHtml = `<div class="wd-text" style="margin-top:18px">${esc(wt('cBody'))}</div>`;
   }
 
   // 철회 못 한 응모가 있으면 문의 안내 — 그 응모가 어떻게 되는지 달리 알 길이 없다.
   const contactHtml = n(res.uncancelled_count) > 0
-    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
+    ? `<div class="wd-box" style="margin-top:18px">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
 
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('rTitle'))}</div>
+  return `<div class="wd-title">${esc(wt('rTitle'))}</div>
     ${listHtml}${statusHtml}${contactHtml}
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
     </div>`;
 }
 
@@ -22350,17 +22381,17 @@ function withdrawLockedHtml(b) {
   if (n(b?.unpaid_count) > 0)              lines.push(wt('bUnpaid',   {n: n(b.unpaid_count)}));
   // 세 줄이 다 비면(= 정산 기록만 걸림) 뭉뚱그린 한 줄
   const detail = lines.length
-    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
-    : `<div style="margin:14px 0;font-size:14px;color:var(--muted)">${esc(wt('bOther'))}</div>`;
+    ? `<ul class="wd-list">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
+    : `<div class="wd-text" style="margin:14px 0;color:var(--muted)">${esc(wt('bOther'))}</div>`;
 
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('bIntro'))}</div>
+  return `<div class="wd-text">${esc(wt('bIntro'))}</div>
     ${detail}
-    <div style="background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:var(--ink)">
+    <div class="wd-box">
       ${esc(wt('bContact'))}
       ${withdrawContactBtnHtml()}
     </div>
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
 }
 
@@ -22368,7 +22399,7 @@ function withdrawLockedHtml(b) {
 //   뒤로가기는 이 탈퇴 화면으로 돌아온다(openGeneralInquiryPage 의 from='withdraw').
 //   ⚠️ 로그아웃 뒤 안내(auth.withdrawnLogout)·예정일 메일은 로그인할 수 없어 LINE 을 그대로 둔다.
 function withdrawContactBtnHtml() {
-  return `<button type="button" class="btn btn-primary" style="width:100%;margin-top:12px;min-height:44px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
+  return `<button type="button" class="btn btn-primary btn-block" style="margin-top:12px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
 }
 
 // ── 【C】 대기 중 — pending_payout ──
@@ -22376,10 +22407,10 @@ function withdrawContactBtnHtml() {
 //      회원에게 닿는 **유일한 통지**다(351). 「앱에서 알려드립니다」로 쓰면 안 온다.
 //   ⚠️ **예정일 칸 자체를 그리지 않는다** — 이 상태에는 예정일이 아직 없다.
 function withdrawPendingHtml() {
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('cTitle'))}</div>
-    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>
-    <div style="margin:28px 0 40px">
-      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+  return `<div class="wd-title" style="margin-bottom:10px">${esc(wt('cTitle'))}</div>
+    <div class="wd-text">${esc(wt('cBody'))}</div>
+    <div class="wd-actions">
+      <button type="button" id="withdrawCancelBtn" class="btn btn-ghost" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
     </div>`;
 }
 
@@ -22391,10 +22422,10 @@ function withdrawPendingHtml() {
 //      거기서 「탈퇴 그만두기」에 닿는 자리는 이 화면 하나뿐이다.
 function withdrawScheduledHtml(req) {
   const d = req?.scheduled_date ? withdrawDateLabel(req.scheduled_date) : '';
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
-    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('dCanCancel'))}</div>
-    <div style="margin:28px 0 40px">
-      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+  return `<div class="wd-title" style="margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
+    <div class="wd-text">${esc(wt('dCanCancel'))}</div>
+    <div class="wd-actions">
+      <button type="button" id="withdrawCancelBtn" class="btn btn-ghost" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
     </div>`;
 }
 
@@ -22417,9 +22448,9 @@ function withdrawExceptionHtml(info) {
   if (info?.reason === 'admin_account_excluded') msg = wt('eAdmin');
   // 관리자 겸직은 운영팀에 물어야 풀린다 — 문의 창구로 바로 보낸다(감사용·조회 실패는 버튼 없음)
   const contactBtn = info?.reason === 'admin_account_excluded' ? withdrawContactBtnHtml() : '';
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}${contactBtn}</div>
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+  return `<div class="wd-text">${esc(msg)}${contactBtn}</div>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
 }
 
@@ -22952,6 +22983,32 @@ function _toggleMsgNewBanner(show) {
 }
 
 // 메시지 모달 수동 새로고침 (헤더 버튼 + 「새 메시지 도착」 띠 공용)
+// 스레드를 처음 못 불러왔을 때의 「다시 불러오기」(상태 안내 단추) — 두 모드 공용.
+//   ⚠️ refreshMessageModal 로 대신하지 않는다: 그건 불러오는 중을 안 보이고 실패를 조용히 삼키며,
+//      첫 진입이 실패해 꺼져 있던 새 메시지 감지(폴링)를 다시 켜지 않는다.
+async function retryMessageThread() {
+  if (!_msgActive()) return;
+  // 기다리는 사이 다른 응모건·모드로 옮겼으면 그 화면에 그리지 않는다
+  const startMode = _msgMode, startApp = _msgCurrentAppId;
+  const stillHere = () => _msgActive() && _msgMode === startMode && _msgCurrentAppId === startApp;
+  const thread = $('msgModalThread');
+  if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
+  try {
+    const msgs = await _msgLoad();
+    if (!stillHere()) return;
+    renderMessageThread(msgs);
+    _msgLastCount = msgs?.length || 0;
+    _toggleMsgNewBanner(false);
+    await _msgMarkRead();
+    if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
+    if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
+    _startMsgPoll();
+  } catch (e) {
+    logAppError('retryMessageThread', e);
+    if (thread && stillHere()) thread.innerHTML = stateErrorHtml(t('messaging.loadError'), 'retryMessageThread');
+  }
+}
+
 async function refreshMessageModal() {
   if (!_msgActive()) return;
   try {
@@ -23052,7 +23109,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   _msgPrepareCompose(_msgReadOnly);
 
   const thread = $('msgModalThread');
-  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
 
   // 개인화 상태 한 줄 — 0건/1건+ 모두 상단 표시 (§3)
   renderAppStatusLine(app, camp);
@@ -23076,7 +23133,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   } catch (e) {
     console.error('[openMessagesPage]', e);
     logAppError('openMessagesPage', e);
-    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+    if (thread) thread.innerHTML = stateErrorHtml(t('messaging.loadError'), 'retryMessageThread');
   }
 }
 
@@ -23153,10 +23210,7 @@ function renderInquiryBranch() {
       </button>
     </div>`;
   } else if (_inqApps === null) {
-    body = `<div class="inq-app-error">
-      <p>${esc(t('inquiry.loadError'))}</p>
-      <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
-    </div>`;
+    body = stateErrorHtml(t('inquiry.loadError'), 'retryInquiryApps');
   } else if (!_inqApps.length) {
     // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
     body = `<div class="inq-other">
@@ -23209,11 +23263,11 @@ function renderInquiryPick(box) {
       <span class="material-icons-round notranslate" translate="no">chevron_right</span>
     </button>`;
   }).join('');
-  box.innerHTML = `<button type="button" class="detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">arrow_back</span> ${esc(t('inquiry.title'))}</button>`
+  box.innerHTML = `<button type="button" class="back-link detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span>${esc(t('inquiry.title'))}</button>`
     + `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
     + (rows ? `<div class="inq-app-list">${rows}</div>`
        // 빈 이유가 둘이다 — 전부 이미 대화 중(pickEmpty) / 남은 응모가 전부 취소됨(pickNone). 취소만 있는 회원에게 「모두 시작했다」는 사실이 아니다
-       : `<div class="inq-app-error"><p>${esc(t(unstarted.length ? 'inquiry.pickNone' : 'inquiry.pickEmpty'))}</p></div>`);
+       : stateEmptyHtml('', '', t(unstarted.length ? 'inquiry.pickNone' : 'inquiry.pickEmpty')));
 }
 
 function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }
@@ -23241,7 +23295,7 @@ async function openGeneralInquiryPage(from, pushHistory) {
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
   _msgPrepareCompose(false);
   const thread = $('msgModalThread');
-  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
   await setupFaqGate(null, {}, { general: true });
   // 기다리는 사이 화면을 떠났으면(정리 함수가 모드를 'app' 으로 되돌림) 여기서 멈춘다 —
   //   안 멈추면 응모 번호 없이 응모건 조회를 부르고 폴링까지 시작한다.
@@ -23260,7 +23314,7 @@ async function openGeneralInquiryPage(from, pushHistory) {
     console.error('[openGeneralInquiryPage]', e);
     logAppError('openGeneralInquiryPage', e);
     closeFaqOverlay();   // 응모건 화면에서 바로 넘어온 경우 그쪽 덮개가 남지 않게
-    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+    if (thread) thread.innerHTML = stateErrorHtml(t('messaging.loadError'), 'retryMessageThread');
   }
 }
 
@@ -23301,7 +23355,7 @@ function renderMessageThread(messages) {
   // 스레드 맨 위 봇 안내 카드 (게이트→봇 카드 전환 2026-05-22) — 0건/N건 공통 prepend
   const botCard = _faqBotCardHtml();
   if (!messages || !messages.length) {
-    thread.innerHTML = botCard + `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
+    thread.innerHTML = botCard + stateEmptyHtml('chat_bubble_outline', '', t('messaging.emptyThread'));
     return;
   }
   const now = Date.now();
@@ -23836,7 +23890,7 @@ function renderFaqCategories(opts) {
   if (!opts || !opts.noPush) _faqNav = [{ view: 'cats' }];
   const cats = _faqSortNodes(_faqNodes.filter(n => n.kind === 'category' && !n.parent_id));
   if (!cats.length) {
-    tree.innerHTML = `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`;
+    tree.innerHTML = stateEmptyHtml('help_outline', '', t('messaging.faq.unavailable'));
     return;
   }
   const chips = cats.map(c =>
@@ -23874,7 +23928,7 @@ function openFaqCategory(catId, opts) {
   tree.innerHTML = `
     <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.backToCategories'))}</button>
     <div class="msg-faq-cat-title">${esc(_faqPick(cat, 'label'))}</div>
-    <div class="msg-faq-qlist">${list || `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`}</div>
+    <div class="msg-faq-qlist">${list || stateEmptyHtml('help_outline', '', t('messaging.faq.unavailable'))}</div>
     <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
   `;
   tree.scrollTop = 0;
