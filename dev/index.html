@@ -347,9 +347,9 @@ window._supabaseLoaded = false;
     <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
     <!-- 취소된 응모: 읽기만 가능하다는 안내. 작성 줄 대신 이 줄을 보여준다(F-11) -->
     <div id="msgReadOnlyNote" class="msg-readonly-note" style="display:none" data-i18n="messaging.cancelledReadOnly"></div>
-    <!-- 서비스 문의 지난 문의(닫히고 24시간 지난 대화): 읽기만 — 입력란 대신 안내 + 문의 목록으로(사양서 2026-10-06 회원 화면) -->
+    <!-- 서비스 문의 지난 문의(닫히고 24시간 지난 대화): 읽기만 — 입력란 대신 「문의 목록으로」 버튼.
+         「끝난 문의」 안내 문구는 대화 맨 아래 안내 줄 자리에 나온다(renderMessageThread, 2026-10-06 사용자 지시) -->
     <div id="msgPastNote" class="msg-past-note" style="display:none">
-      <p class="msg-past-note-text" data-i18n="inquiry.pastReadOnly"></p>
       <button type="button" class="inq-start-btn" onclick="backToInquiryList()">
         <span class="material-icons-round notranslate" translate="no">list</span><span data-i18n="inquiry.backToList"></span>
       </button>

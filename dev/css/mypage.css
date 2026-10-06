@@ -104,7 +104,6 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .inq-more-btn{align-self:center;min-height:44px;padding:0 20px;border:1px solid var(--outline);border-radius:999px;background:var(--surface,#fff);color:var(--ink);font-size:var(--fs-desc);cursor:pointer}
 /* 지난 문의 대화 화면 — 작성 줄 대신 안내 + 문의 목록으로 */
 .msg-past-note{display:flex;flex-direction:column;gap:10px;padding:12px 14px}
-.msg-past-note-text{margin:0;font-size:var(--fs-desc);line-height:1.6;color:var(--muted)}
 #page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
 .msg-back-btn{flex-shrink:0;width:var(--tap-min);height:var(--tap-min);border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
