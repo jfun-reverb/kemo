@@ -519,7 +519,7 @@ function openMypageSub(sub, pushHistory) {
   //      **껍데기만 뜨고 안이 빈 채로 남는다** — 햄버거로 들어온 경우만 채워진다.
   if (sub === 'withdraw' && typeof loadWithdrawView === 'function') {
     const b = $('withdrawViewBody');
-    if (b) b.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px">${esc(wt('loading'))}</div>`;
+    if (b) b.innerHTML = stateLoadingHtml(wt('loading'));
     loadWithdrawView();
   }
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
@@ -654,7 +654,7 @@ function withdrawNoticeHtml(info, reasons) {
   // ⚠️ 「5일」을 한 문구로 덮지 않는다 — 미지급이 있으면 「지급이 끝난 뒤」가 앞에 붙는다.
   //    한 문구로 둘 다 덮으면 한쪽이 거짓이 된다.
   const scheduleLine = unpaid > 0 ? wt('aScheduleUnpaid', {n: unpaid}) : wt('aSchedule');
-  const li = (s) => `<li style="margin-bottom:10px">${esc(s)}</li>`;
+  const li = (s) => `<li class="wd-li">${esc(s)}</li>`;
 
   // ⚠️ 사유는 **선택**이다(마이그레이션 347). 안 골라도 눌린다.
   //    조회에 실패했으면 이 부분만 통째로 감춘다.
@@ -662,29 +662,29 @@ function withdrawNoticeHtml(info, reasons) {
   if (Array.isArray(reasons) && reasons.length) {
     const opts = reasons.map(r => {
       const label = (typeof getLang === 'function' && getLang() === 'ko') ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko);
-      return `<label style="display:flex;align-items:center;gap:8px;padding:10px 0;font-size:14px">
+      return `<label class="wd-radio">
         <input type="radio" name="withdrawReason" value="${esc(r.code)}" onchange="onWithdrawReasonChange()">
         <span>${esc(label)}</span></label>`;
     }).join('');
-    reasonHtml = `<div style="margin-top:24px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
+    reasonHtml = `<div class="wd-reason">
+      <div class="wd-sub" style="margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
       ${opts}
       <textarea id="withdrawReasonNote" rows="3" placeholder="${esc(wt('aReasonPlaceholder'))}"
-        style="display:none;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit"></textarea>
+        class="form-input" style="display:none;margin-top:8px"></textarea>
     </div>`;
   }
 
-  return `<ul style="padding-left:18px;margin:8px 0 0;font-size:14px;line-height:1.7;color:var(--ink)">
+  return `<ul class="wd-list" style="margin-top:8px">
       ${li(wt('aCancelApps'))}
-      <li style="margin:-6px 0 10px;font-size:12px;color:var(--muted);list-style:none;margin-left:-18px;padding-left:0">${esc(wt('aCancelAppsSub'))}</li>
+      <li class="wd-li-sub">${esc(wt('aCancelAppsSub'))}</li>
       ${li(scheduleLine)}
       ${li(wt('aPaypal'))}
       ${li(wt('aIrreversible'))}
     </ul>
     ${reasonHtml}
-    <div style="display:flex;gap:8px;margin:28px 0 40px">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
-      <button class="btn btn-primary" style="flex:1" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
+      <button type="button" class="btn btn-primary" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
     </div>`;
 }
 
@@ -706,13 +706,13 @@ function showWithdrawConfirm() {
   };
   const body = $('withdrawViewBody');
   if (!body) return;
-  body.innerHTML = `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
-    <div style="background:#FFF5F5;border:1px solid #F5C2C2;border-radius:8px;padding:14px;font-size:14px;line-height:1.7;color:#C33">
+  body.innerHTML = `<div class="wd-title" style="margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
+    <div class="wd-warn">
       ${esc(wt('aConfirm'))}
     </div>
-    <div style="display:flex;gap:8px;margin:28px 0 40px">
-      <button class="btn btn-ghost" style="flex:1" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
-      <button id="withdrawSubmitBtn" class="btn btn-primary" style="flex:1" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
+      <button type="button" id="withdrawSubmitBtn" class="btn btn-primary" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
     </div>`;
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
@@ -840,28 +840,28 @@ function withdrawResultHtml(res) {
   if (n(res.cancelled_count) > 0)   lines.push(`<li>${esc(wt('rCancelled', {n: n(res.cancelled_count)}))}</li>`);
   if (n(res.uncancelled_count) > 0) {
     lines.push(`<li>${esc(wt('rUncancelled', {n: n(res.uncancelled_count)}))}
-      <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
+      <div class="wd-sub" style="margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
   }
   const listHtml = lines.length
-    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.join('')}</ul>` : '';
+    ? `<ul class="wd-list">${lines.join('')}</ul>` : '';
 
   // 상태에 따라 아래 안내가 갈린다 — 예정일이 있으면 그 날짜, 없으면 「대기」 안내.
   let statusHtml = '';
   if (res.status === 'scheduled' && res.scheduled_date) {
-    statusHtml = `<div style="margin-top:18px;font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
-      <div style="font-size:14px;line-height:1.7;color:var(--ink);margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
+    statusHtml = `<div class="wd-title" style="margin-top:18px">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
+      <div class="wd-text" style="margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
   } else {
-    statusHtml = `<div style="margin-top:18px;font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>`;
+    statusHtml = `<div class="wd-text" style="margin-top:18px">${esc(wt('cBody'))}</div>`;
   }
 
   // 철회 못 한 응모가 있으면 문의 안내 — 그 응모가 어떻게 되는지 달리 알 길이 없다.
   const contactHtml = n(res.uncancelled_count) > 0
-    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
+    ? `<div class="wd-box" style="margin-top:18px">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
 
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('rTitle'))}</div>
+  return `<div class="wd-title">${esc(wt('rTitle'))}</div>
     ${listHtml}${statusHtml}${contactHtml}
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
     </div>`;
 }
 
@@ -889,17 +889,17 @@ function withdrawLockedHtml(b) {
   if (n(b?.unpaid_count) > 0)              lines.push(wt('bUnpaid',   {n: n(b.unpaid_count)}));
   // 세 줄이 다 비면(= 정산 기록만 걸림) 뭉뚱그린 한 줄
   const detail = lines.length
-    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
-    : `<div style="margin:14px 0;font-size:14px;color:var(--muted)">${esc(wt('bOther'))}</div>`;
+    ? `<ul class="wd-list">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
+    : `<div class="wd-text" style="margin:14px 0;color:var(--muted)">${esc(wt('bOther'))}</div>`;
 
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('bIntro'))}</div>
+  return `<div class="wd-text">${esc(wt('bIntro'))}</div>
     ${detail}
-    <div style="background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:var(--ink)">
+    <div class="wd-box">
       ${esc(wt('bContact'))}
       ${withdrawContactBtnHtml()}
     </div>
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
 }
 
@@ -907,7 +907,7 @@ function withdrawLockedHtml(b) {
 //   뒤로가기는 이 탈퇴 화면으로 돌아온다(openGeneralInquiryPage 의 from='withdraw').
 //   ⚠️ 로그아웃 뒤 안내(auth.withdrawnLogout)·예정일 메일은 로그인할 수 없어 LINE 을 그대로 둔다.
 function withdrawContactBtnHtml() {
-  return `<button type="button" class="btn btn-primary" style="width:100%;margin-top:12px;min-height:44px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
+  return `<button type="button" class="btn btn-primary btn-block" style="margin-top:12px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
 }
 
 // ── 【C】 대기 중 — pending_payout ──
@@ -915,10 +915,10 @@ function withdrawContactBtnHtml() {
 //      회원에게 닿는 **유일한 통지**다(351). 「앱에서 알려드립니다」로 쓰면 안 온다.
 //   ⚠️ **예정일 칸 자체를 그리지 않는다** — 이 상태에는 예정일이 아직 없다.
 function withdrawPendingHtml() {
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('cTitle'))}</div>
-    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>
-    <div style="margin:28px 0 40px">
-      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+  return `<div class="wd-title" style="margin-bottom:10px">${esc(wt('cTitle'))}</div>
+    <div class="wd-text">${esc(wt('cBody'))}</div>
+    <div class="wd-actions">
+      <button type="button" id="withdrawCancelBtn" class="btn btn-ghost" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
     </div>`;
 }
 
@@ -930,10 +930,10 @@ function withdrawPendingHtml() {
 //      거기서 「탈퇴 그만두기」에 닿는 자리는 이 화면 하나뿐이다.
 function withdrawScheduledHtml(req) {
   const d = req?.scheduled_date ? withdrawDateLabel(req.scheduled_date) : '';
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
-    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('dCanCancel'))}</div>
-    <div style="margin:28px 0 40px">
-      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+  return `<div class="wd-title" style="margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
+    <div class="wd-text">${esc(wt('dCanCancel'))}</div>
+    <div class="wd-actions">
+      <button type="button" id="withdrawCancelBtn" class="btn btn-ghost" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
     </div>`;
 }
 
@@ -956,9 +956,9 @@ function withdrawExceptionHtml(info) {
   if (info?.reason === 'admin_account_excluded') msg = wt('eAdmin');
   // 관리자 겸직은 운영팀에 물어야 풀린다 — 문의 창구로 바로 보낸다(감사용·조회 실패는 버튼 없음)
   const contactBtn = info?.reason === 'admin_account_excluded' ? withdrawContactBtnHtml() : '';
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}${contactBtn}</div>
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+  return `<div class="wd-text">${esc(msg)}${contactBtn}</div>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
 }
 

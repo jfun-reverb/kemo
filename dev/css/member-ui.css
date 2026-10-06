@@ -97,3 +97,20 @@
 #mypage-sub-applications .btn,#mypage-sub-profile-basic .btn,#mypage-sub-profile-sns .btn,#mypage-sub-profile-address .btn,#mypage-sub-paypal .btn,#mypage-sub-password .btn,#mypage-sub-email-settings .btn,#cautionCompareModal .btn,#applyActionModal .btn,#cancelDetailModal .btn{min-height:var(--tap-min)}
 #mypage-sub-applications .mypage-sub-title,#mypage-sub-profile-basic .mypage-sub-title,#mypage-sub-profile-sns .mypage-sub-title,#mypage-sub-profile-address .mypage-sub-title,#mypage-sub-paypal .mypage-sub-title,#mypage-sub-password .mypage-sub-title,#mypage-sub-email-settings .mypage-sub-title{font-size:var(--fs-subtitle)}
 #mypage-sub-applications .badge{font-size:var(--fs-caption)}
+/* 조각 5 — 메시지 대화 + 문의하기 + 알림 + 탈퇴 */
+#page-messages,#page-inquiry,#notifModal,#mypage-sub-withdraw{font-size:var(--fs-body)}
+#page-messages .btn,#page-inquiry .btn,#notifModal .btn,#mypage-sub-withdraw .btn{min-height:var(--tap-min)}
+#page-inquiry .mypage-sub-title,#mypage-sub-withdraw .mypage-sub-title{font-size:var(--fs-subtitle)}
+#page-inquiry .back-link{margin-bottom:8px}
+/* 알림 창 — notif-* 정의는 공유 파일(components.css)이라 여기서 덮는다 */
+#notifModal .notif-modal-title{font-size:var(--fs-subtitle)}
+#notifModal .notif-mark-all{font-size:var(--fs-desc);min-height:var(--tap-min)}
+#notifModal .notif-item-title{font-size:var(--fs-body)}
+#notifModal .notif-item-desc{font-size:var(--fs-desc)}
+#notifModal .notif-item-time{font-size:var(--fs-caption)}
+#notifModal .notif-modal-body{border-radius:var(--r-popup) var(--r-popup) 0 0}
+#notifModal .notif-head-actions{display:flex;gap:8px;align-items:center}
+#notifModal .notif-close-btn{width:var(--tap-min);height:var(--tap-min)}
+#page-messages .msg-refresh-btn{width:var(--tap-min);height:var(--tap-min)}
+#page-messages .msg-withdraw-btn{position:relative}
+#page-messages .msg-withdraw-btn::after{content:'';position:absolute;inset:-10px -4px}
