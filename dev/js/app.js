@@ -83,8 +83,8 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
-  // inquiry-general — 일반 문의 대화(같은 #page-messages 재사용, 2026-09)
-  if (page === 'inquiry-general') {
+  // inquiry-general / inquiry-general-{대화id} — 서비스 문의 새 문의·대화(같은 #page-messages 재사용)
+  if (isInquiryGeneralHash(page)) {
     pageName = 'messages';
   }
   // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
@@ -313,10 +313,11 @@ window.addEventListener('popstate', function(e) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
   } else if (page === 'inquiry') {
-    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    // 대화에서 브라우저 뒤로가기로 돌아온 경우가 대부분이다 — 보던 탭을 유지한다('back')
+    if (typeof openInquiryPage === 'function') openInquiryPage('back', false);
     else navigate('home', false);
-  } else if (page === 'inquiry-general') {
-    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+  } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(page));
     else navigate('home', false);
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
@@ -348,7 +349,7 @@ window.addEventListener('langchange', function() {
   }
   // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
   else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
-  else if (page === 'inquiry-general') {
+  else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
     const _tt = document.getElementById('msgModalTitle');
     if (_tt) _tt.textContent = t('inquiry.generalTitle');
   }
@@ -697,9 +698,9 @@ async function init() {
     // 문의 갈래 화면 새로고침 복원 — 응모 목록을 다시 받아 그린다
     if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
     else navigate('home', false);
-  } else if (hash === 'inquiry-general') {
-    // 일반 문의 대화 새로고침 복원 — 뒤로가기 목적지는 홈
-    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+  } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(hash)) {
+    // 서비스 문의 새 문의·대화 새로고침 복원 — 뒤로가기 목적지는 서비스 탭 목록
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(hash));
     else navigate('home', false);
   } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
     // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
@@ -758,7 +759,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
-    : initHash === 'inquiry-general' ? 'messages'
+    : isInquiryGeneralHash(initHash) ? 'messages'
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
