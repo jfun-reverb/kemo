@@ -49,4 +49,9 @@
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
+**구현일:** 2026-10-06 · 개발 세션
+
+- 고칠 것 1~4 그대로. `openInquiryPage` 가 응모 목록 조회와 `refreshNavInquiryBadge()` 를 `Promise.all` 로 함께 받은 뒤, `from !== 'back'` 이면 `_navInquiryUnread > 0 ? 'other' : 'app'`
+- 탭·버튼 배지 = 탭 전용 `.inq-tab-badge`(mypage.css — 햄버거 `.notif-badge` 와 같은 빨강·크기, 위치만 글자 옆). 값·`9+` 규칙은 햄버거와 같은 `_navInquiryUnread`
+- 안내 줄 `.inq-new-reply` + 번역 `inquiry.newReply`(ja 「新しい返信があります」 · ko 「새 답장이 있습니다」)
+- 초안 대비 달라진 것: 없음
