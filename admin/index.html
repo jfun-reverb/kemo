@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791263225';
+  var CURRENT_BUILD = 'v1791263885';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2294,6 +2294,13 @@ input.admin-filter{padding-right:8px}
 .modal.draggable .modal-header button,
 .modal.draggable .modal-header input{cursor:pointer}
 .modal.draggable .modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}
+/* 모서리 — 창 자체는 리사이즈 핸들 때문에 overflow:visible 이라 안쪽 상자의 배경이 둥근 모서리를 덮는다
+   (메시지 창 아래 입력 줄의 흰 배경이 각진 모서리로 보이던 결함, 2026-10-06 사용자 지적).
+   창은 그대로 두고 맨 위 머리·맨 아래 상자만 창의 모서리 값을 물려받아 잘라 낸다(모달마다 인라인 값이 달라 inherit).
+   ⚠️ 본문은 아래에 바닥 줄이 없을 때만 — 바닥 줄이 있으면 그쪽이 맨 아래다 */
+.modal.draggable > .modal-header{border-top-left-radius:inherit;border-top-right-radius:inherit}
+.modal.draggable > .modal-footer,
+.modal.draggable > .modal-body:not(:has(~ .modal-footer)){border-bottom-left-radius:inherit;border-bottom-right-radius:inherit}
 /* 8방향 리사이즈 핸들 — 모달 안쪽 가장자리(overflow:hidden 이어도 안 잘림). 무늬 없이 커서만으로 표시 */
 .modal-rsz{position:absolute;z-index:5}
 .modal-rsz-n {top:0;left:12px;right:12px;height:6px;cursor:ns-resize}
@@ -3292,7 +3299,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-06 14:07 · 5b8846c</span>
+          <span class="admin-build-text">2026-10-06 14:18 · 8967ecd</span>
         </div>
       </div>
     </aside>
@@ -11765,7 +11772,7 @@ async function fetchStalledDraftDetails() {
     const rows = [];
     for (let from = 0; ; from += 1000) {
       const {data, error} = await db.from('deliverables')
-        .select('id, kind, post_channel, updated_at, application_id, user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand)')
+        .select('id, kind, post_channel, updated_at, application_id, user_id, campaign_id, applications:application_id (id, status, campaign_id, user_id), campaigns:campaign_id (id, campaign_no, title, brand)')
         .eq('status', 'draft').order('updated_at', {ascending: false}).order('id').range(from, from + 999);
       if (error) throw error;
       rows.push(...(data || []));
@@ -20208,10 +20215,36 @@ async function refreshChannelDriftIndicators() {
 var _stalledDraftCount = null;
 
 async function refreshStalledDraftIndicators() {
-  const ids = (typeof fetchStalledDraftApplications === 'function')
-    ? await fetchStalledDraftApplications() : null;
-  _stalledDraftCount = ids ? ids.size : null;
+  const rows = await fetchActionableStalledDrafts();
+  _stalledDraftCount = rows ? new Set(rows.map(r => r.application_id)).size : null;
   applyStalledDraftIndicators();
+}
+
+// 「올려두고 제출 안 한 건」 중 **안내가 필요한 응모만**(2026-10-06 사용자 결정).
+//   = 승인된 응모 + 인증 상태가 「미제출」·「인증샷 제출중」 — 목록의 「올려만 둠」 딱지가 붙는 바로 그 조건이다
+//     (`certStatusBadge` 가 그 두 상태에만 딱지를 붙인다). 그래서 건수 = 딱지 붙은 행 수.
+//   빼는 것: 반려·취소된 응모(「검수 불필요」) · 이미 「인증성공」인데 쓰지 않은 임시저장만 남은 응모.
+//   ⚠️ 인증 상태는 목록과 **같은 함수**(`buildDeliverableGroups`·`computeCertStatus`)로 센다 — 사본을 만들지 않는다.
+//   🔴 실패는 null — 0건(`[]`)과 구분한다(0으로 그리면 「없다」로 읽힌다).
+async function fetchActionableStalledDrafts() {
+  if (typeof fetchStalledDraftDetails !== 'function') return null;
+  const rows = await fetchStalledDraftDetails();
+  if (rows === null) return null;
+  const approved = rows.filter(r => r.applications?.status === 'approved');
+  if (approved.length === 0) return [];
+  if (typeof buildDeliverableGroups !== 'function' || typeof computeCertStatus !== 'function') return approved;
+  const campIds = [...new Set(approved.map(r => r.campaign_id).filter(Boolean))];
+  const delivs = await fetchDeliverablesByCampaignIds(campIds);
+  if (delivs === null) return null;
+  const campMap = new Map();
+  delivs.forEach(d => { if (d.campaigns && d.campaign_id) campMap.set(d.campaign_id, d.campaigns); });
+  const apps = [...new Map(approved.map(r => [r.application_id, r.applications])).values()];
+  const groups = buildDeliverableGroups(delivs, campMap, { includeApps: apps });
+  return approved.filter(r => {
+    const g = groups.get(r.application_id);
+    const s = g ? computeCertStatus(g) : 'none';
+    return s === 'none' || s === 'submitting';
+  });
 }
 
 // 캐시된 값으로 표시만 다시 입힌다(재조회 없음).
@@ -20278,7 +20311,7 @@ const STALLED_DRAFT_KIND_LABEL = { receipt: '영수증', review_image: '인증�
 async function loadStalledDraftList() {
   const box = document.getElementById('stalledDraftList');
   if (!box) return;
-  const rows = await fetchStalledDraftDetails();
+  const rows = await fetchActionableStalledDrafts();
   if (!document.getElementById('stalledDraftModal')?.classList.contains('open')) return;
   if (rows === null) { box.textContent = '목록을 불러오지 못했습니다. 창을 닫았다가 다시 열어 주세요.'; return; }
   const byApp = new Map();
@@ -20294,6 +20327,9 @@ async function loadStalledDraftList() {
   // 건수를 목록과 맞춘다 — 창을 연 뒤 새로 생기거나 제출된 건이 있으면 위 숫자도 따라간다
   const cnt = document.getElementById('stalledDraftCountText');
   if (cnt) cnt.textContent = groups.length + '건';
+  // 열 제목 옆 경고 단추의 건수도 같은 값으로(창을 연 사이 바뀌었을 수 있다)
+  _stalledDraftCount = groups.length;
+  applyStalledDraftIndicators();
   if (groups.length === 0) { box.textContent = '지금은 해당하는 응모가 없습니다.'; return; }
   box.style.color = '';
   box.innerHTML = `
