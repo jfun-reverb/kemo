@@ -2396,6 +2396,9 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 송금 묶음 도입 뒤 옛 송금완료 경로 거부 · 묶음 건의 송금일을 건에서 바꾸려 함(마이그레이션 486)
   //   — 서버의 의도적 거부다. 오류 문구 등록(admin-core.js friendlyError)과 **한 세트**다.
   /payout_bundle_required|paid_at_owned_by_transfer/,
+  // 서비스 문의 여러 대화의 의도적 거부(마이그레이션 505) — 화면을 본 뒤 새 글 도착 · 이미 열린 대화 있음 ·
+  //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화
+  /new_message_since_view|open_thread_exists|no_open_thread|thread_closed|thread_not_found/,
   /모집 정원|slots_full|under_age|age_policy/,
   // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
   /uidx_applications_user_campaign|applications_user_camp_active_uidx/,
