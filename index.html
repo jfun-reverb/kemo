@@ -900,6 +900,38 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
 /* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
    visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
+/* 문의 갈래 화면 (일반 문의 창구, 2026-09) — 누름 영역 48px 이상(Apple 지침 44pt) */
+#page-inquiry.page.active{display:flex;flex-direction:column;padding:0;background:var(--bg,#fff)}
+.inq-body{padding:20px 16px;display:flex;flex-direction:column;gap:12px}
+.inq-lead{margin:0 0 4px;font-size:14px;color:var(--muted)}
+/* 탭 모양 = 언어 전환 토글(.lang-toggle/.lang-btn, 위 44~47행)과 같은 값. 폭 채움·누름 영역 44px 만 다르다.
+   ⚠️ 클래스를 공유하지 않는다 — updateLangToggleUI 가 .lang-btn 을 전역으로 다시 매긴다. 토글 모양을 바꾸면 여기도 */
+.inq-tabs{display:flex;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
+.inq-tab{flex:1;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s;line-height:1.3}
+.inq-tab.on{background:var(--primary);color:#fff}
+.inq-tab:not(.on):hover{background:var(--outline)}
+#inquiryBranchBody{display:flex;flex-direction:column;gap:14px}
+.inq-other{display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff)}
+.inq-other-lead{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
+.inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.inq-start-btn .material-icons-round{font-size:20px}
+.inq-pick-title{font-size:15px;font-weight:700;color:var(--ink)}
+.inq-pick-back{align-self:flex-start;margin-bottom:0;font-size:13px;min-height:44px;border:none;background:none;font-family:inherit}
+.inq-pick-back:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
+.inq-pick-item{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);text-align:left;cursor:pointer}
+.inq-pick-item:last-child{border-bottom:none}
+.inq-pick-item>.material-icons-round{font-size:20px;color:var(--faint)}
+.inq-pick-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.inq-pick-status .badge{font-size:11px}
+.inq-app-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.inq-app-item{display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:none;border-bottom:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
+.inq-app-item:last-child{border-bottom:none}
+.inq-app-item .inq-app-title{flex:1;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.inq-app-item .material-icons-round{font-size:20px;color:var(--faint)}
+.inq-app-readonly{flex-shrink:0;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--primary-light);color:var(--muted)}
+.inq-app-error{padding:14px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:14px;color:var(--muted)}
+.inq-app-error p{margin:0 0 10px}
+.inq-retry-btn{min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);color:var(--ink);font-size:14px;cursor:pointer}
 #page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
 .msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
@@ -1324,6 +1356,19 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 </div>
 
 <!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
+<!-- 문의 갈래 화면 (일반 문의 창구, 2026-09) — 햄버거 「お問い合わせ」 단일 입구.
+     「응모한 캠페인에 대해」(응모건 메시지) / 「그 외 문의」(#inquiry-general, 아래 #page-messages 재사용) -->
+<div id="page-inquiry" class="page">
+  <!-- 머리는 마이페이지 폼 화면과 같다(조각 5-C) — 뒤로 화살표 없음, 이동은 햄버거·브라우저 뒤로가기 -->
+  <div class="mypage-sub-header">
+    <div class="mypage-sub-title" data-i18n="inquiry.title">お問い合わせ</div>
+  </div>
+  <div class="inq-body">
+    <p class="inq-lead" data-i18n="inquiry.lead">お問い合わせの内容をえらんでください</p>
+    <div id="inquiryBranchBody"></div>
+  </div>
+</div>
+
 <div id="page-messages" class="page">
   <div class="msg-modal-header">
     <button class="msg-back-btn" onclick="navigateBackFromMessages()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
@@ -5033,7 +5078,7 @@ window.I18N_JA = {
   auth: {
     // 탈퇴가 확정된 계정을 로그아웃시킬 때 로그인 화면에 남기는 안내(작업 8).
     //   ⚠️ 이유와 갈 곳을 함께 적는다 — 이유 없이 튕기면 「해킹당했나」로 읽힌다.
-    //   ⚠️ 앱 안 문의 창구가 생기면(작업 2) LINE 안내를 그것으로 바꾼다.
+    //   ⚠️ 앱 안 문의 창구가 생겨도 **LINE 을 그대로 둔다** — 로그아웃된 뒤라 창구에 들어갈 수 없다(일반 문의 사양서 §12 ① 표 7, 2026-09-29).
     withdrawnLogout: '退会手続きが完了したため、ログアウトしました。ご不明な点は運営までLINEでご連絡ください。',
     // 가입 확인 링크(?code=) 착지 안내(사양서 2026-09-10-signup-confirm-link-routing-fix).
     //   done = 세션이 생겨 홈으로 갈 때 토스트 / doneLogin = 세션 없이 로그인 화면에 남기는 초록 안내
@@ -5167,10 +5212,6 @@ window.I18N_JA = {
     },
     withdraw: '退会する',
     // ⚠️ 옛 열쇠말 2개는 지웠다 — 「受け付けました(접수했습니다)」가 거짓말이었다. 자세한 것은 ko.js 참고.
-    // ⚠️ 이 문구는 2026-08-20 부터 **안 쓰인다** — 탈퇴 화면이 생기면서 그 역할을
-    //    `withdrawView.bContact`(운영팀 연락 안내)가 이어받았다. 지우지 않고 두는 것은
-    //    작업 2(앱 안 문의 창구)에서 다시 쓸 수 있어서다.
-    withdrawGuide: '退会をご希望の方は、運営までLINEでご連絡ください。担当者がご案内します。',
     // ── 회원 탈퇴 화면 (사양서 §4-4) ──
     //   ⚠️ 문구의 단일 소스는 사양서 §4-4 다. 여기서 새로 짓지 않는다.
     //   ⚠️ 인플루언서 화면이라 **초등학생 눈높이** — 전문용어 금지, 한 문장 한 동작.
@@ -5200,7 +5241,7 @@ window.I18N_JA = {
       bUnpaid: 'お受け取りでない報酬：{n}件',
       // ⚠️ 정산 기록만 걸린 회원에게는 건수 대신 이 한 줄(볼 데가 없는 것을 가리키지 않는다)
       bOther: 'ご応募や報酬のお手続きが残っているため',
-      bContact: '運営（LINE：@reverb.jp）までご連絡ください。担当者がご案内します。',
+      bContact: '下の「お問い合わせ」から運営にご連絡ください。担当者がご案内します。',
       bBackBtn: '戻る',
       // 【C】 대기 중
       cTitle: '退会のお手続き中です',
@@ -5214,11 +5255,11 @@ window.I18N_JA = {
       dCanCancel: 'この日までは、退会をキャンセルできます。',
       dCancelBtn: '退会をキャンセルする',
       dCancelled: '退会のお手続きをキャンセルしました。キャンセルされた応募は元に戻りませんので、ご了承ください。',
-      dCancelAdminOnly: 'このお手続きは運営が行ったため、こちらではキャンセルできません。運営（LINE：@reverb.jp）までご連絡ください。',
+      dCancelAdminOnly: 'このお手続きは運営が行ったため、こちらではキャンセルできません。メニューの「お問い合わせ」から運営にご連絡ください。',
       // 【E】 예외 — ⚠️ 어떤 실패도 「알 수 없는 오류」로 뭉뚱그리지 않는다
       eError: 'ただいま確認できません。しばらくしてからもう一度お試しください。',
       eAudit: 'このアカウントは退会のお手続きの対象外です。',
-      eAdmin: 'このアカウントは運営側の権限があるため、こちらではお手続きできません。運営（LINE：@reverb.jp）までご連絡ください。',
+      eAdmin: 'このアカウントは運営側の権限があるため、こちらではお手続きできません。「お問い合わせ」から運営にご連絡ください。',
       // 신청 결과 (§4-4-7) — 숫자는 여기서만 말한다
       rTitle: '退会のお手続きを受け付けました',
       rCancelled: 'キャンセルした応募：{n}件',
@@ -5230,9 +5271,9 @@ window.I18N_JA = {
       confirmBackBtn: '戻る',
       submitting: 'お手続き中です…',
       rDoneBtn: '閉じる',
-      rContact: 'キャンセルできなかった応募については、運営（LINE：@reverb.jp）までお問い合わせください。',
+      rContact: 'キャンセルできなかった応募については、下の「お問い合わせ」から運営にお問い合わせください。',
       // 실패 사유 — ⚠️ 하나도 「알 수 없는 오류」로 뭉뚱그리지 않는다
-      errLocked: '現在、ご自身でのお手続きができない状態です。運営（LINE：@reverb.jp）までご連絡ください。',
+      errLocked: '現在、ご自身でのお手続きができない状態です。メニューの「お問い合わせ」から運営にご連絡ください。',
       errAlready: 'すでに退会のお手続きが進んでいます。画面を更新してご確認ください。',
       errReason: '選んだ理由が正しくありません。もう一度お選びください。',
       errAuth: 'ログインの状態をご確認ください。',
@@ -5849,8 +5890,27 @@ window.I18N_JA = {
       suggestHead: 'こちらで解決できるか確認してみましょう',
     },
   },
-  // 政策変更の告知 — 個人情報処理方針の改定（Metaピクセル §8.1 新設、2026-09-17 公告 → 2026-10-17 施行）
-  //   ⚠️ body は通知メール(policy-change-notice)のブロック②④⑤⑦と同じ文。⑤(オフにできます) が ⑦(拒否の意思) より必ず前。
+  // 문의 창구 — 일반 문의 창구(2026-09). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
+  inquiry: {
+    title: 'お問い合わせ',
+    lead: 'お問い合わせの内容をえらんでください',
+    branchApp: 'キャンペーンのお問い合わせ',
+    branchOther: 'サービスのお問い合わせ',
+    readOnly: '閲覧のみ',
+    loadError: '応募履歴を読み込めませんでした',
+    retry: 'もう一度読み込む',
+    generalTitle: '運営チームへのお問い合わせ',
+    unknownCampaign: 'キャンペーン',
+    newThread: '新しくお問い合わせ',
+    pickTitle: 'どの応募についてですか',
+    pickEmpty: 'すべての応募でお問い合わせを開始しています',
+    pickNone: 'お問い合わせをはじめられる応募がありません。キャンセルした応募は、新しくお問い合わせできません。',
+    appEmpty: 'お問い合わせ中のキャンペーンはまだありません。下のボタンから、聞きたい応募をえらんでください。',
+    otherLead: '参加したキャンペーン以外の、サービスに関するお問い合わせはこちらからどうぞ。',
+    otherStart: 'お問い合わせを始める',
+  },
+  // 政策変更の告知 — 一般お問い合わせ窓口の開設 + 個人情報処理方針の改定（2026-09-29 公告 → 2026-10-06 施行）
+  //   ⚠️ メール通知なし（アプリ内のみ）。{date} は施行日。
   policyNotice: {
     title: '「お問い合わせ」窓口ができます',
     body: 'いつも REVERB JP をご利用いただきありがとうございます。<br><br>■ {date}から<br>キャンペーンのこと以外でも、運営チームにお問い合わせできるようになります。<br><br>■ 10月6日からのお問い合わせのしかた<br>1. 右上のメニュー（≡）をひらく<br>2. 「お問い合わせ」をえらぶ<br>3. 「サービスのお問い合わせ」をえらんで、送る<br>※10月5日までは、これまでどおり応募履歴の吹き出しボタン、またはLINE（@reverb.jp）でお問い合わせください。<br><br>■ 個人情報処理方針も変わります<br>これにあわせて、お問い合わせ内容の保管について個人情報処理方針を改定しました（10月6日から）。<br>くわしくは、下の「詳しく見る」またはアプリ下部の「個人情報処理方針」をご覧ください。<br><br>■ 同意できない場合<br>2026年10月5日までにお申し出がない場合は、同意いただいたものとみなします。<br>同意できない場合は、メニューの「退会する」から退会できます。',
@@ -6030,7 +6090,7 @@ window.I18N_KO = {
   auth: {
     // 탈퇴가 확정된 계정을 로그아웃시킬 때 로그인 화면에 남기는 안내(작업 8).
     //   ⚠️ 이유와 갈 곳을 함께 적는다 — 이유 없이 튕기면 「해킹당했나」로 읽힌다.
-    //   ⚠️ 앱 안 문의 창구가 생기면(작업 2) LINE 안내를 그것으로 바꾼다.
+    //   ⚠️ 앱 안 문의 창구가 생겨도 **LINE 을 그대로 둔다** — 로그아웃된 뒤라 창구에 들어갈 수 없다(일반 문의 사양서 §12 ① 표 7, 2026-09-29).
     withdrawnLogout: '탈퇴 처리가 완료되어 로그아웃했습니다. 궁금한 점은 운영팀으로 LINE 연락해 주세요.',
     // 가입 확인 링크(?code=) 착지 안내 — ja.js 와 짝
     confirm: {
@@ -6164,10 +6224,6 @@ window.I18N_KO = {
     //    때문이다(누르면 서버에 아무 일도 일어나지 않는다). 이름까지 바꾼 이유는 남겨 두면
     //    나중에 누가 옛 문구를 되살리기 때문. 진짜 탈퇴 기능은 사양서 2026-08-18-member-withdrawal.
     //    ⚠️ 「지금은 받지 않습니다」로 쓰지 말 것 — 약관 제6조 1항(언제든지 신청)과 부딪힌다.
-    // ⚠️ 이 문구는 2026-08-20 부터 **안 쓰인다** — 탈퇴 화면이 생기면서 그 역할을
-    //    `withdrawView.bContact`(운영팀 연락 안내)가 이어받았다. 지우지 않고 두는 것은
-    //    작업 2(앱 안 문의 창구)에서 다시 쓸 수 있어서다.
-    withdrawGuide: '탈퇴를 원하시는 분은 운영팀으로 LINE 연락해 주세요. 담당자가 안내해 드립니다.',
     // ── 회원 탈퇴 화면 (사양서 §4-4) ──
     //   ⚠️ 일본어(ja.js)와 **의미·단계 수가 같아야 한다.** 한쪽만 고치면 언어를 바꾼
     //      회원이 다른 안내를 본다.
@@ -6191,7 +6247,7 @@ window.I18N_KO = {
       bEvent: '행사(방문 예약) 응모: {n}건',
       bUnpaid: '받지 않으신 보수: {n}건',
       bOther: '응모나 보수 절차가 남아 있어서',
-      bContact: '운영팀(LINE: @reverb.jp)으로 연락해 주세요. 담당자가 안내해 드립니다.',
+      bContact: '아래 「문의하기」로 운영팀에 연락해 주세요. 담당자가 안내해 드립니다.',
       bBackBtn: '돌아가기',
       cTitle: '탈퇴 절차가 진행 중입니다',
       cBody: '받지 않으신 보수 지급이 끝난 뒤에 탈퇴 예정일을 메일로 알려 드립니다.',
@@ -6201,10 +6257,10 @@ window.I18N_KO = {
       dCanCancel: '이날까지는 탈퇴를 취소하실 수 있습니다.',
       dCancelBtn: '탈퇴 취소',
       dCancelled: '탈퇴 절차를 취소했습니다. 취소된 응모는 되돌아오지 않으니 양해 부탁드립니다.',
-      dCancelAdminOnly: '이 절차는 운영팀이 진행한 것이라 여기서는 취소하실 수 없습니다. 운영팀(LINE: @reverb.jp)으로 연락해 주세요.',
+      dCancelAdminOnly: '이 절차는 운영팀이 진행한 것이라 여기서는 취소하실 수 없습니다. 메뉴의 「문의하기」로 운영팀에 연락해 주세요.',
       eError: '지금은 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.',
       eAudit: '이 계정은 탈퇴 절차 대상이 아닙니다.',
-      eAdmin: '이 계정은 운영 측 권한이 있어 여기서는 절차를 진행할 수 없습니다. 운영팀(LINE: @reverb.jp)으로 연락해 주세요.',
+      eAdmin: '이 계정은 운영 측 권한이 있어 여기서는 절차를 진행할 수 없습니다. 「문의하기」로 운영팀에 연락해 주세요.',
       rTitle: '탈퇴 절차를 접수했습니다',
       rCancelled: '취소한 응모: {n}건',
       rUncancelled: '취소하지 못한 응모: {n}건',
@@ -6215,8 +6271,8 @@ window.I18N_KO = {
       confirmBackBtn: '돌아가기',
       submitting: '처리하고 있습니다…',
       rDoneBtn: '닫기',
-      rContact: '취소하지 못한 응모에 대해서는 운영팀(LINE: @reverb.jp)으로 문의해 주세요.',
-      errLocked: '지금은 직접 절차를 진행하실 수 없는 상태입니다. 운영팀(LINE: @reverb.jp)으로 연락해 주세요.',
+      rContact: '취소하지 못한 응모에 대해서는 아래 「문의하기」로 운영팀에 문의해 주세요.',
+      errLocked: '지금은 직접 절차를 진행하실 수 없는 상태입니다. 메뉴의 「문의하기」로 운영팀에 연락해 주세요.',
       errAlready: '이미 탈퇴 절차가 진행 중입니다. 화면을 새로고침해 확인해 주세요.',
       errReason: '고르신 이유가 올바르지 않습니다. 다시 골라 주세요.',
       errAuth: '로그인 상태를 확인해 주세요.',
@@ -6809,9 +6865,27 @@ window.I18N_KO = {
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
     },
   },
-  // 정책 변경 통지 — 개인정보 처리방침 개정(메타 픽셀 §8.1 신설, 2026-09-17 공고 → 2026-10-17 시행)
-  //   ⚠️ body 는 통지 메일(policy-change-notice) 블록 ②④⑤⑦ 과 같은 뜻. ⑤(끌 수 있습니다)가 ⑦(거부 의사)보다 반드시 앞.
-  //      ⑤ 는 「끄다」, ⑦ 은 「거부 의사」 — 낱말을 섞지 않는다(ja.js 와 같은 구분).
+  // 문의 창구 — 일반 문의 창구(2026-09). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
+  inquiry: {
+    title: '문의하기',
+    lead: '문의 내용을 골라 주세요',
+    branchApp: '캠페인 문의',
+    branchOther: '서비스 문의',
+    readOnly: '읽기만',
+    loadError: '응모 이력을 불러오지 못했습니다',
+    retry: '다시 불러오기',
+    generalTitle: '운영팀 문의',
+    unknownCampaign: '캠페인',
+    newThread: '새 문의',
+    pickTitle: '어느 응모에 대한 문의인가요',
+    pickEmpty: '모든 응모에서 문의를 시작했습니다',
+    pickNone: '문의를 시작할 수 있는 응모가 없습니다. 취소한 응모는 새로 문의할 수 없습니다.',
+    appEmpty: '문의 중인 캠페인이 아직 없습니다. 아래 버튼을 눌러 묻고 싶은 응모를 골라 주세요.',
+    otherLead: '참여한 캠페인 외 서비스 관련 문의는 여기서 해 주세요.',
+    otherStart: '문의 시작하기',
+  },
+  // 정책 변경 통지 — 일반 문의 창구 개설 + 개인정보 처리방침 개정(2026-09-29 공고 → 2026-10-06 시행)
+  //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.
   policyNotice: {
     title: '「문의」 창구가 생깁니다',
     body: '늘 REVERB JP 를 이용해 주셔서 감사합니다.<br><br>■ {date}부터<br>캠페인 말고 다른 일로도 운영팀에 문의할 수 있습니다.<br><br>■ 10월 6일부터 문의하는 방법<br>1. 오른쪽 위 메뉴(≡)를 연다<br>2. 「문의하기」를 고른다<br>3. 「서비스 문의」를 골라 보낸다<br>※10월 5일까지는 지금처럼 응모이력의 말풍선 버튼이나 LINE(@reverb.jp)으로 문의해 주세요.<br><br>■ 개인정보 처리방침도 바뀝니다<br>이에 맞춰 문의 내용 보관에 관한 부분을 개정했습니다(10월 6일부터).<br>자세한 내용은 아래 「자세히 보기」나 앱 아래쪽 「개인정보 처리방침」에서 봐 주세요.<br><br>■ 동의하지 않는 경우<br>2026년 10월 5일까지 아무 말씀이 없으시면 동의하신 것으로 봅니다.<br>동의하지 않으시면 메뉴의 「회원 탈퇴」에서 탈퇴하실 수 있습니다.',
@@ -11976,6 +12050,225 @@ async function fetchApplicationHideHistory(applicationId) {
     .order('at', { ascending: false });
   if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
   return data || [];
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 일반 문의 — 응모에 매이지 않는 회원↔운영팀 메시지 (마이그레이션 475~482)
+//   같은 표(application_messages)에 application_id 가 비고 influencer_id 가 찬 행.
+//   🔴 규약: 조회 실패는 `null`, 0건은 `[]`/빈 Map — 「못 불러옴」과 「없음」을 가른다(276 원칙).
+//   ⚠️ 응모건 함수(fetchApplicationMessages 등)는 응모 번호로 묶여 있어 부르지 않는다 — 짝을 쓴다.
+//      메시지 id 만 보는 회수·숨김·복구·첨부 서명 주소는 기존 함수를 그대로 쓴다.
+//   사양서 docs/specs/2026-05-21-general-inquiry-desk.md §5-4·§6
+// ════════════════════════════════════════════════════════════════════
+
+// 일반 문의 대화 목록 (마스킹 적용). 회원은 인자 없이 본인 것, 관리자는 회원 id 필수.
+async function fetchGeneralInquiryMessages(influencerId = null) {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_general_inquiry_messages', { p_influencer_id: influencerId });
+      if (error) throw error;
+      return data || [];
+    });
+  } catch (e) { console.warn('[fetchGeneralInquiryMessages]', e); logAppError('fetchGeneralInquiryMessages', e); return null; }
+}
+
+// 일반 문의 발송 (회원·관리자 공용, 발신자 종류는 서버가 판별). 관리자는 회원 id 필수.
+//   attachments: uploadGeneralInquiryAttachment() 반환값 배열. 실패는 예외 — 화면이 문구를 띄운다.
+async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_general_inquiry_message', {
+      p_influencer_id: influencerId,
+      p_body: body || '',
+      p_attachments: attachments,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 일반 문의 읽음 처리 (관리자: 개인별 / 회원: read_by_influencer_at).
+async function markGeneralInquiryMessagesRead(influencerId = null) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_general_inquiry_messages_read', { p_influencer_id: influencerId });
+    if (error) throw error;
+  });
+}
+
+// 일반 문의 수동 응대 완료 (관리자).
+async function markGeneralInquiryResolved(influencerId) {
+  if (!db || !influencerId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_general_inquiry_resolved', { p_influencer_id: influencerId });
+    if (error) throw error;
+  });
+}
+
+// 일반 문의 첨부 업로드 — 경로 `general/{회원id}/{난수}.jpg` (첫 조각 'general' 고정 — 저장소 정책이 이 두 조각을 본다).
+//   관리자 답장 첨부도 **그 회원의 폴더**에 올린다(서버가 경로 접두를 검사한다).
+async function uploadGeneralInquiryAttachment(file, influencerId) {
+  if (!db) throw new Error('DB 미연결');
+  if (!influencerId) throw new Error('회원 id 없음');
+  const compressed = await compressImageFile(file);
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `general/${influencerId}/${uuid}.jpg`;
+  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 문의 갈래 판정용 — 본인 응모 목록(취소 포함). 🔴 실패 `null` 이면 화면은 갈래를 건너뛰지 않는다(§5-4 ⑩).
+async function fetchMyApplicationsForInquiry() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('applications')
+      .select('id, campaign_id, status, created_at')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .order('id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationsForInquiry]', e); logAppError('fetchMyApplicationsForInquiry', e); return null; }
+}
+
+// 문의하기 「캠페인 문의」 탭 — 대화가 시작된 응모건만(메시지 1건 이상, 최근 대화 순).
+//   반환 [{application_id, last_message_at}] / 실패 `null`(화면은 「불러오지 못했습니다」).
+async function fetchMyApplicationThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_summary')
+      .select('application_id, last_message_at')
+      .gt('message_count', 0)
+      .order('last_message_at', { ascending: false })
+      .order('application_id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
+}
+
+// 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
+async function fetchMyGeneralInquiryUnread() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const {data, error} = await db.from('general_inquiry_message_summary')
+      .select('unread_for_influencer')
+      .eq('influencer_id', currentUser.id)
+      .maybeSingle();
+    if (error) throw error;
+    return Number(data?.unread_for_influencer) || 0;   // 문의가 없으면 행이 없다 → 0
+  } catch (e) { console.warn('[fetchMyGeneralInquiryUnread]', e); logAppError('fetchMyGeneralInquiryUnread', e); return null; }
+}
+
+// 관리자 받은편지함 「일반 문의」 탭 목록 — 새 뷰(481). 열 모양은 응모건 뷰와 같다(application_id·campaign_id 는 빈 값).
+//   opts: fetchAdminMessageThreads 와 같음(sinceMonths / fromIso·toIso). 실패 `null`.
+async function fetchAdminGeneralInquiryThreads(opts = {}) {
+  if (!db) return null;
+  const useRange = !!(opts.fromIso || opts.toIso);
+  const sinceIso = new Date(Date.now() - (opts.sinceMonths || 6) * 30 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('general_inquiry_message_summary')
+        .select('application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at')
+        .gt('message_count', 0)
+        .order('last_message_at', { ascending: false })
+        .order('influencer_id');
+      if (useRange) {
+        if (opts.fromIso) q = q.gte('last_message_at', opts.fromIso);
+        if (opts.toIso) q = q.lte('last_message_at', opts.toIso);
+      } else {
+        q = q.gte('last_message_at', sinceIso);
+      }
+      return q;
+    });
+    return data || [];
+  } catch (e) { console.warn('[fetchAdminGeneralInquiryThreads]', e); logAppError('fetchAdminGeneralInquiryThreads', e); return null; }
+}
+
+// 일반 문의 미응대 수 — 사이드바·탭 배지 합산용(fetchUnresolvedMessageCount 의 짝, 같은 6개월 창). 실패 `null`.
+async function fetchGeneralInquiryUnresolvedCount() {
+  if (!db) return null;
+  try {
+    const sinceIso = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const {count, error} = await db.from('general_inquiry_message_summary')
+      .select('influencer_id', { count: 'exact', head: true })
+      .gt('message_count', 0)
+      .eq('unresolved_for_admin_team', true)
+      .gte('last_message_at', sinceIso);
+    if (error) { console.warn('[fetchGeneralInquiryUnresolvedCount]', error); return null; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchGeneralInquiryUnresolvedCount]', e); return null; }
+}
+
+// 관리자 본인 미열람 수 (회원별). 반환 Map<influencer_id, count>, 실패 `null`.
+async function fetchGeneralInquiryAdminUnreadCounts() {
+  if (!db) return null;
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('influencer_id'));
+  } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadCounts]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.influencer_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 「내가 보낸 순」 정렬 — 본인 관리자가 일반 문의에 보낸 회원별 최신 시각. 반환 Map<influencer_id, iso>, 실패 `null`.
+//   ⚠️ fetchAdminSentAtMap 을 쓰면 일반 문의 행이 빈 열쇠 하나로 뭉친다(§5-4 ⑨) — 이 짝을 쓴다.
+async function fetchAdminGeneralSentAtMap() {
+  if (!db) return null;
+  let data;
+  try {
+    const {data: udata} = await db.auth.getUser();
+    const uid = udata?.user?.id;
+    if (!uid) return null;
+    data = await fetchAllPaged(() => db.from('application_messages')
+      .select('influencer_id, created_at')
+      .is('application_id', null)
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .order('id'));
+  } catch (e) { console.warn('[fetchAdminGeneralSentAtMap]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => { if (!map.has(r.influencer_id)) map.set(r.influencer_id, r.created_at); });
+  return map;
+}
+
+// 일반 문의 미리보기 — 회원별 마지막 살아 있는 메시지. 반환 Map<influencer_id, row>, 실패 `null`.
+async function fetchGeneralInquiryPreviews(influencerIds) {
+  if (!db) return null;
+  const map = new Map();
+  if (!influencerIds || !influencerIds.length) return map;
+  const CHUNK = 100;
+  // 청크는 최대 4개씩 동시에 — 하나라도 실패하면 종전처럼 통째로 null.
+  let parts;
+  try {
+    parts = await mapLimit(chunkArray(influencerIds, CHUNK), 4, (ids) => fetchAllPaged(() => db.from('application_messages')
+      .select('influencer_id, body, body_translated, translate_status, sender_kind, created_at')
+      .is('application_id', null)
+      .in('influencer_id', ids)
+      .is('hidden_by_admin_at', null)
+      .is('self_withdrawn_at', null)
+      .order('created_at', { ascending: false })
+      .order('id')));
+  } catch (e) { console.warn('[fetchGeneralInquiryPreviews]', e); return null; }
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.influencer_id)) map.set(m.influencer_id, m); }));
+  return map;
+}
+
+// 일반 문의 숨김/복구 이력 (최고 관리자 — 표 정책상 그 외는 빈 배열). 실패 `null`.
+async function fetchGeneralInquiryHideHistory(influencerId) {
+  if (!db || !influencerId) return [];
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_hide_history')
+      .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(influencer_id, application_id)')
+      .eq('application_messages.influencer_id', influencerId)
+      .is('application_messages.application_id', null)
+      .order('at', { ascending: false })
+      .order('id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchGeneralInquiryHideHistory]', e); return null; }
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -19914,6 +20207,8 @@ function openNavPanel() {
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
   }
+  // 「お問い合わせ」 배지 — 일반 문의 안 읽은 답장(실패면 지난 값 유지)
+  if (currentUser && typeof refreshNavInquiryBadge === 'function') refreshNavInquiryBadge().catch(() => {});
   // 오프라인 행사 예약 유무 최신화 — 「入場チケット」 항목을 띄울지 판단한다.
   //   첫 렌더는 이전에 받아 둔 값으로 그리고, 조회가 끝나면 다시 그린다(프로필과 같은 방식).
   if (currentUser && typeof preloadEventTickets === 'function') {
@@ -19989,6 +20284,14 @@ function renderNavMenu() {
     `).join('');
     html += `</div>`;
     html += divider;
+    // 문의하기 — 운영팀 문의의 단일 입구(일반 문의 창구, 2026-09). 안에서 「응모에 대해 / 그 외」로 갈린다.
+    //   배지는 일반 문의의 안 읽은 답장 수(응모건 메시지 배지는 응모이력 카드에 있다).
+    html += `<button class="nav-item" data-nav="inquiry" onclick="closeNavPanel();openInquiryPage('nav')">
+      <span class="material-icons-round notranslate nav-icon" translate="no">support_agent</span>
+      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
+      <span class="notif-badge hidden" data-role="nav-inquiry-badge"></span>
+    </button>`;
+    html += divider;
     // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
     // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
@@ -20008,6 +20311,7 @@ function renderNavMenu() {
   applyNotifBadge(_lastUnread);  // 캐시값으로 즉시 복원 (재렌더 직후 stale 가드로 fetch 스킵돼도 배지 유지)
   refreshNotifBadge();           // 백그라운드 최신화
   updateNavMsgBadge();
+  if (typeof applyNavInquiryBadge === 'function') applyNavInquiryBadge();  // 캐시값으로 즉시 복원
 }
 
 // 메시지 미읽음 배지 (GNB 「メッセージ」 항목) — _myMsgUnreadByApp(mypage.js) 합계
@@ -20221,6 +20525,13 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     await markNotificationRead(id);
   }
   closeNotifModal();
+  // 일반 문의 답장 알림 → 일반 문의 대화. ⚠️ 종류가 응모건과 같은 message_received 라
+  //   **표 이름으로 먼저 가른다**(아래 분기로 새면 회원 id 를 응모 id 자리에 들고 가 엉뚱한 화면이 된다).
+  if (refTable === 'general_inquiry' && currentUser) {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif');
+    refreshNotifBadge();
+    return;
+  }
   // 메시지 알림 → 응모건 메시지 페이지 직접 오픈 (사양서 §5-5, 2026-05-22 모달→페이지 전환)
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
@@ -21187,7 +21498,7 @@ function withdrawResultHtml(res) {
 
   // 철회 못 한 응모가 있으면 문의 안내 — 그 응모가 어떻게 되는지 달리 알 길이 없다.
   const contactHtml = n(res.uncancelled_count) > 0
-    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}</div>` : '';
+    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
 
   return `<div style="font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('rTitle'))}</div>
     ${listHtml}${statusHtml}${contactHtml}
@@ -21227,10 +21538,18 @@ function withdrawLockedHtml(b) {
     ${detail}
     <div style="background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:var(--ink)">
       ${esc(wt('bContact'))}
+      ${withdrawContactBtnHtml()}
     </div>
     <div style="margin:28px 0 40px">
       <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
+}
+
+// 운영팀 연락 버튼 — LINE 대신 앱 안 「서비스 문의」 대화로 바로(일반 문의 창구, 사양서 §12 ①).
+//   뒤로가기는 이 탈퇴 화면으로 돌아온다(openGeneralInquiryPage 의 from='withdraw').
+//   ⚠️ 로그아웃 뒤 안내(auth.withdrawnLogout)·예정일 메일은 로그인할 수 없어 LINE 을 그대로 둔다.
+function withdrawContactBtnHtml() {
+  return `<button type="button" class="btn btn-primary" style="width:100%;margin-top:12px;min-height:44px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
 }
 
 // ── 【C】 대기 중 — pending_payout ──
@@ -21277,7 +21596,9 @@ function withdrawExceptionHtml(info) {
   let msg = wt('eError');
   if (info?.reason === 'audit_account_blocked')  msg = wt('eAudit');
   if (info?.reason === 'admin_account_excluded') msg = wt('eAdmin');
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}</div>
+  // 관리자 겸직은 운영팀에 물어야 풀린다 — 문의 창구로 바로 보낸다(감사용·조회 실패는 버튼 없음)
+  const contactBtn = info?.reason === 'admin_account_excluded' ? withdrawContactBtnHtml() : '';
+  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}${contactBtn}</div>
     <div style="margin:28px 0 40px">
       <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
@@ -21725,6 +22046,53 @@ const MSG_MAX_ATTACH = 5;                       // 메시지당 첨부 최대 5�
 
 let _msgCurrentAppId = null;
 let _msgFrom = 'mypage';     // 메시지 페이지 진입 출처 (뒤로가기 목적지 결정)
+// 페이지 모드 — 'app'(응모건 메시지) / 'general'(일반 문의, 응모 없음 — 마이그레이션 475~482).
+//   같은 #page-messages 를 재사용하므로 **진입 함수가 매번 정하고 정리 함수가 'app' 으로 되돌린다.**
+//   ⚠️ 일반 문의에서는 _msgCurrentAppId 가 null 이다 — 「대화가 열려 있나」는 _msgActive() 로 본다.
+let _msgMode = 'app';
+// 일반 문의 「그 외」 갈래에 보일 자주 묻는 질문 카테고리(보수·정산 / 계정·프로필 / 그 외 — 시드 146 고유 번호).
+//   사양서 §7 — 이 셋 안에서도 단계 무관(relevant_stages 비어 있음) 항목만 낸다.
+const FAQ_GENERAL_CATEGORY_IDS = [
+  '00000001-0000-0000-0000-000000000005',
+  '00000001-0000-0000-0000-000000000006',
+  '00000001-0000-0000-0000-000000000007',
+];
+
+// 대화가 열려 있나 — 일반 문의는 응모 번호가 없으므로 모드로 판정한다.
+function _msgActive() { return _msgMode === 'general' || !!_msgCurrentAppId; }
+// 모드별 분기 넷 — 조회·읽음·발송·첨부. 일반 문의는 본인 회원 id 를 **항상** 넘긴다
+//   (관리자를 겸한 회원은 서버가 관리자로 판정해 회원 id 가 없으면 거부한다).
+async function _msgLoad() {
+  if (_msgMode === 'general') {
+    const rows = await fetchGeneralInquiryMessages(currentUser?.id || null);
+    if (rows === null) throw new Error('general_inquiry_load_failed');   // 실패와 0건을 가른다
+    return rows;
+  }
+  return await fetchApplicationMessages(_msgCurrentAppId);
+}
+async function _msgMarkRead() {
+  if (_msgMode === 'general') {
+    await markGeneralInquiryMessagesRead(currentUser?.id || null);
+    if (typeof markNotificationsReadByRef === 'function' && currentUser) {
+      await markNotificationsReadByRef('general_inquiry', currentUser.id, 'message_received');
+    }
+    if (typeof refreshNavInquiryBadge === 'function') refreshNavInquiryBadge();
+    return;
+  }
+  await markApplicationMessagesRead(_msgCurrentAppId);
+  // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
+  if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(_msgCurrentAppId);
+}
+function _msgUpload(f) {
+  return _msgMode === 'general'
+    ? uploadGeneralInquiryAttachment(f, currentUser?.id)
+    : uploadMessageAttachment(f, _msgCurrentAppId);
+}
+function _msgSend(body, attachments) {
+  return _msgMode === 'general'
+    ? sendGeneralInquiryMessage(body, attachments, currentUser?.id || null)
+    : sendApplicationMessage(_msgCurrentAppId, body, attachments);
+}
 let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
 let _msgLastCount = 0;       // 현재 표시 중인 메시지 수 (도착 감지 기준)
@@ -21752,9 +22120,9 @@ function _stopMsgPoll() {
 }
 
 async function _checkNewMessages() {
-  if (!_msgCurrentAppId || document.hidden) return;
+  if (!_msgActive() || document.hidden) return;
   try {
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    const msgs = await _msgLoad();
     // 메시지 수가 늘었으면(새 메시지 도착) 안내 띠만 표시 — 화면은 사용자가 새로고침할 때만 갱신
     if ((msgs?.length || 0) > _msgLastCount) _toggleMsgNewBanner(true);
   } catch (_e) { /* 폴링 실패는 무시 */ }
@@ -21766,17 +22134,49 @@ function _toggleMsgNewBanner(show) {
 
 // 메시지 모달 수동 새로고침 (헤더 버튼 + 「새 메시지 도착」 띠 공용)
 async function refreshMessageModal() {
-  if (!_msgCurrentAppId) return;
+  if (!_msgActive()) return;
   try {
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    const msgs = await _msgLoad();
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0;
     _toggleMsgNewBanner(false);
-    await markApplicationMessagesRead(_msgCurrentAppId);
-    if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(_msgCurrentAppId);
+    await _msgMarkRead();
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
   } catch (e) { console.error('[refreshMessageModal]', e); logAppError('refreshMessageModal', e); }
+}
+
+// 작성 줄 준비 — 응모건·일반 문의 진입이 같이 쓴다(페이지를 재사용하므로 매 진입마다 되돌린다).
+function _msgPrepareCompose(_msgReadOnly) {
+  // 읽기 전용(취소된 응모) — 작성 줄을 감추고 안내 한 줄로 바꾼다.
+  //   ⚠️ 모달이 아니라 페이지를 재사용하므로, 취소 아닌 응모로 들어올 때 **반드시 되돌린다.**
+  {
+    const inputRow = document.querySelector('#page-messages .msg-input-row');
+    const note = $('msgReadOnlyNote');
+    if (inputRow) inputRow.style.display = _msgReadOnly ? 'none' : '';
+    if (note) {
+      note.style.display = _msgReadOnly ? '' : 'none';
+      if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
+    }
+  }
+
+  renderMsgAttachPreview();
+  const inputEl = $('msgModalInput');
+  if (inputEl) {
+    inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder');
+    inputEl.style.height = ''; // 1줄로 리셋
+    if (!inputEl._autosizeBound) {
+      // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
+      // 전제: #msgModalInput DOM 은 페이지 생명주기 동안 재사용(cleanupMessagesPage 가 제거 안 함).
+      //       향후 cleanup 이 입력창을 재생성하면 _autosizeBound 가 stale 이 되므로 그때 플래그 재설계 필요.
+      inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+      });
+      inputEl._autosizeBound = true;
+    }
+  }
+
 }
 
 // 응모건 메시지 페이지 열기 (모달→페이지 전환, 2026-05-22)
@@ -21808,6 +22208,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   //   → 들어가서 읽을 수는 있게 하고(배지도 지워진다), **새로 쓰지는 못하게** 한다.
   //   차단 의도(취소된 건으로 새 문의를 시작하지 않는다)는 그대로 지켜진다.
   const _msgReadOnly = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  _msgMode = 'app';
   _msgCurrentAppId = applicationId;
   _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
@@ -21829,34 +22230,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
 
-  // 읽기 전용(취소된 응모) — 작성 줄을 감추고 안내 한 줄로 바꾼다.
-  //   ⚠️ 모달이 아니라 페이지를 재사용하므로, 취소 아닌 응모로 들어올 때 **반드시 되돌린다.**
-  {
-    const inputRow = document.querySelector('#page-messages .msg-input-row');
-    const note = $('msgReadOnlyNote');
-    if (inputRow) inputRow.style.display = _msgReadOnly ? 'none' : '';
-    if (note) {
-      note.style.display = _msgReadOnly ? '' : 'none';
-      if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
-    }
-  }
-
-  renderMsgAttachPreview();
-  const inputEl = $('msgModalInput');
-  if (inputEl) {
-    inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder');
-    inputEl.style.height = ''; // 1줄로 리셋
-    if (!inputEl._autosizeBound) {
-      // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
-      // 전제: #msgModalInput DOM 은 페이지 생명주기 동안 재사용(cleanupMessagesPage 가 제거 안 함).
-      //       향후 cleanup 이 입력창을 재생성하면 _autosizeBound 가 stale 이 되므로 그때 플래그 재설계 필요.
-      inputEl.addEventListener('input', () => {
-        inputEl.style.height = 'auto';
-        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
-      });
-      inputEl._autosizeBound = true;
-    }
-  }
+  _msgPrepareCompose(_msgReadOnly);
 
   const thread = $('msgModalThread');
   if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
@@ -21875,10 +22249,8 @@ async function openMessagesPage(applicationId, from, pushHistory) {
     _toggleMsgNewBanner(false);
     // 스레드는 항상 표시(0건이면 안내 문구). 게이트 오버레이는 닫힌 상태로 시작.
     closeFaqOverlay();
-    // 열람 시 본인 미열람 읽음 처리 후 응모이력 배지 갱신
-    await markApplicationMessagesRead(applicationId);
-    // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
-    if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(applicationId);
+    // 열람 시 본인 미열람 읽음 처리(+ 같은 응모건 알림) 후 응모이력 배지 갱신
+    await _msgMarkRead();
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
     _startMsgPoll(); // 페이지 열린 동안 새 메시지 도착 감지 시작
@@ -21890,9 +22262,202 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 }
 
 // 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
+//   들어온 길을 따른다(사양서 §3) — 일반 문의: 갈래 화면 / 탈퇴 화면 / 홈(메뉴·알림).
+//   응모건 메시지: 갈래 화면에서 왔으면 갈래 화면, 그 밖은 종전대로 응모이력.
 function navigateBackFromMessages() {
+  if (_msgFrom === 'inquiry' || (_msgMode === 'general' && _msgFrom === 'branch')) {
+    if (typeof openInquiryPage === 'function') { openInquiryPage('back'); return; }
+  }
+  if (_msgMode === 'general') {
+    if (_msgFrom === 'withdraw' && typeof handleWithdraw === 'function') { handleWithdraw(); return; }
+    navigate('home');
+    return;
+  }
   navigate('mypage');
   if (typeof openMypageSub === 'function') openMypageSub('applications');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 일반 문의 창구 — 햄버거 「お問い合わせ」 단일 입구 (사양서 docs/specs/2026-05-21-general-inquiry-desk.md §3)
+//   문의 화면 #inquiry → 탭 「캠페인 문의」(대화가 시작된 응모건) / 「서비스 문의」(#inquiry-general)
+// ════════════════════════════════════════════════════════════════════
+let _inqApps = null;        // 문의 화면용 응모 목록 — null=조회 실패, []=0건
+let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / 'other'(서비스 문의)
+let _inqAllApps = null;     // 본인 응모 전체(취소 포함) — 「새 문의」 고르기 재료
+let _inqPicking = false;    // 「새 문의」 응모 고르기 보기(문의하기 화면 안의 하위 보기)
+
+// 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로 — 보던 탭 유지) / 'withdraw' 등.
+//   🔴 화면을 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 화면을 보인다(§5-4 ⑩).
+async function openInquiryPage(from, pushHistory) {
+  if (!currentUser) { navigate('login'); return; }
+  const apps = await fetchMyApplicationsForInquiry();
+  if (Array.isArray(apps) && apps.length === 0) {
+    // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 서비스 문의로.
+    //   뒤로가기 목적지는 홈(이 화면을 거치지 않았으므로).
+    openGeneralInquiryPage(from === 'withdraw' ? 'withdraw' : 'nav', pushHistory);
+    return;
+  }
+  // 「캠페인 문의」 탭은 대화가 시작된 응모건만 보인다(2026-09-29 사용자 지시). 새 문의는 응모이력의 말풍선 버튼에서.
+  const threads = Array.isArray(apps) ? await fetchMyApplicationThreads() : null;
+  _inqAllApps = Array.isArray(apps) ? apps : null;
+  _inqPicking = false;
+  if (Array.isArray(apps) && Array.isArray(threads)) {
+    const byId = new Map(apps.map(a => [a.id, a]));
+    _inqApps = threads.map(th => byId.get(th.application_id)).filter(Boolean);
+  } else {
+    _inqApps = null;         // 둘 중 하나라도 실패 — 「불러오지 못했습니다」
+  }
+  if (from !== 'back') _inqTab = 'app';
+  if (navigate('inquiry', pushHistory) === false) return;
+  if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
+    try { allCampaigns = await getCampaignsCached(); } catch (_e) {}
+  }
+  renderInquiryBranch();
+}
+
+// 탭 둘(2026-09-29 사용자 결정) — 아래에는 목록/안내만, 대화는 눌러서 들어간다.
+function renderInquiryBranch() {
+  const box = $('inquiryBranchBody');
+  if (!box) return;
+  if (_inqPicking) { renderInquiryPick(box); return; }
+  // 모양은 햄버거 메뉴 언어 전환 토글(.lang-toggle)과 같게 — 2026-09-29 사용자 지시.
+  //   🔴 클래스를 같이 쓰지 않는다 — updateLangToggleUI(mypage.js)가 `.lang-toggle .lang-btn` 을
+  //      전역으로 잡아 data-lang 으로 on 을 다시 매겨, 언어를 바꾸면 이 탭의 선택 표시가 사라진다.
+  const tab = (key, label) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
+      aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}</button>`;
+  let body = '';
+  if (_inqTab === 'other') {
+    body = `<div class="inq-other">
+      <p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>
+      <button type="button" class="inq-start-btn" onclick="openGeneralInquiryPage('branch')">
+        <span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('inquiry.otherStart'))}
+      </button>
+    </div>`;
+  } else if (_inqApps === null) {
+    body = `<div class="inq-app-error">
+      <p>${esc(t('inquiry.loadError'))}</p>
+      <button type="button" class="inq-retry-btn" onclick="retryInquiryApps()">${esc(t('inquiry.retry'))}</button>
+    </div>`;
+  } else if (!_inqApps.length) {
+    // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
+    body = `<div class="inq-other">
+      <p class="inq-other-lead">${esc(t('inquiry.appEmpty'))}</p>
+      ${_inqNewThreadBtnHtml()}
+    </div>`;
+  } else {
+    body = `<div class="inq-app-list">${_inqApps.map(a => {
+      const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
+      const title = camp.title || t('inquiry.unknownCampaign');
+      const ro = a.status === 'cancelled'
+        ? `<span class="inq-app-readonly">${esc(t('inquiry.readOnly'))}</span>` : '';
+      return `<button type="button" class="inq-app-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
+        <span class="inq-app-title">${esc(title)}</span>${ro}
+        <span class="material-icons-round notranslate" translate="no">chevron_right</span>
+      </button>`;
+    }).join('')}</div>`;
+    body += _inqNewThreadBtnHtml();
+  }
+  box.innerHTML = `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'))}${tab('other', t('inquiry.branchOther'))}</div>${body}`;
+}
+
+// 「새 문의」 — 캠페인 문의 탭 맨 아래(빈 상태에도). 누르면 응모 고르기 보기(조각 5-B)
+function _inqNewThreadBtnHtml() {
+  return `<button type="button" class="inq-start-btn" onclick="openInquiryPick()">
+    <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+  </button>`;
+}
+function openInquiryPick() { _inqPicking = true; renderInquiryBranch(); const pg = $('page-inquiry'); if (pg) pg.scrollTop = 0; }
+// 고르기 보기의 「← お問い合わせ」 — 탭 보기로. (머리글 뒤로 화살표는 조각 5-C 에서 없앴다 — 탭 보기에선 홈으로)
+function inquiryBack() {
+  if (_inqPicking) { _inqPicking = false; renderInquiryBranch(); return; }
+  navigate('home');
+}
+// 고르기 보기 — 아직 대화가 없는 응모만, 취소된 응모 제외(새로 못 쓰는 막다른 길), 최근 응모순
+function renderInquiryPick(box) {
+  const started = new Set((_inqApps || []).map(a => a.id));
+  const unstarted = (_inqAllApps || []).filter(a => !started.has(a.id));
+  const list = unstarted.filter(a => a.status !== 'cancelled');
+  const rows = list.map(a => {
+    // 응모 표와 캠페인 표 사이에 외래 키가 없어 조회에 붙일 수 없다 — 캠페인 문의 탭처럼 받아 둔 목록에서 찾는다
+    const c = (allCampaigns || []).find(x => x.id === a.campaign_id) || {};
+    const title = c.title || t('inquiry.unknownCampaign');
+    const thumb = c.img1
+      ? `<img src="${esc(storageThumbUrl(c.img1))}" data-orig="${esc(c.img1)}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
+    return `<button type="button" class="inq-pick-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
+      <span class="apply-thumb">${thumb}</span>
+      <span class="inq-pick-main"><span class="inq-app-title">${esc(title)}</span><span class="inq-pick-status">${getStatusBadge(a.status)}</span></span>
+      <span class="material-icons-round notranslate" translate="no">chevron_right</span>
+    </button>`;
+  }).join('');
+  box.innerHTML = `<button type="button" class="detail-back inq-pick-back" onclick="inquiryBack()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">arrow_back</span> ${esc(t('inquiry.title'))}</button>`
+    + `<div class="inq-pick-title">${esc(t('inquiry.pickTitle'))}</div>`
+    + (rows ? `<div class="inq-app-list">${rows}</div>`
+       // 빈 이유가 둘이다 — 전부 이미 대화 중(pickEmpty) / 남은 응모가 전부 취소됨(pickNone). 취소만 있는 회원에게 「모두 시작했다」는 사실이 아니다
+       : `<div class="inq-app-error"><p>${esc(t(unstarted.length ? 'inquiry.pickNone' : 'inquiry.pickEmpty'))}</p></div>`);
+}
+
+function switchInquiryTab(key) { _inqTab = key === 'other' ? 'other' : 'app'; renderInquiryBranch(); }
+
+async function retryInquiryApps() { openInquiryPage('back', false); }
+
+// 일반 문의 대화 — #page-messages 를 재사용하고 주소는 #inquiry-general.
+//   from: 'nav' / 'branch' / 'withdraw' / 'notif' — 뒤로가기 목적지(navigateBackFromMessages).
+async function openGeneralInquiryPage(from, pushHistory) {
+  if (!currentUser) { navigate('login'); return; }
+  _msgMode = 'general';
+  _msgCurrentAppId = null;
+  _msgFrom = from || 'nav';
+  _msgPendingFiles = [];
+  _faqLoaded = false;
+  _faqOverlayOpen = false;
+  if (navigate('inquiry-general', pushHistory) === false) { _msgMode = 'app'; return; }
+  // 기록을 안 남기고 들어왔으면(뒤로가기·갈래 건너뛰기) 주소만 맞춘다 — 새로고침이 이 화면으로 돌아오게.
+  if (pushHistory === false && location.hash !== '#inquiry-general') {
+    try { history.replaceState({page:'inquiry-general'}, '', '#inquiry-general'); } catch (_e) {}
+  }
+  const titleEl = $('msgModalTitle');
+  if (titleEl) titleEl.textContent = t('inquiry.generalTitle');
+  // 일반 문의에는 응모 상태 한 줄이 없다(특정 응모가 아니므로)
+  const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
+  _msgPrepareCompose(false);
+  const thread = $('msgModalThread');
+  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  await setupFaqGate(null, {}, { general: true });
+  // 기다리는 사이 화면을 떠났으면(정리 함수가 모드를 'app' 으로 되돌림) 여기서 멈춘다 —
+  //   안 멈추면 응모 번호 없이 응모건 조회를 부르고 폴링까지 시작한다.
+  if (_msgMode !== 'general') return;
+  try {
+    const msgs = await _msgLoad();
+    if (_msgMode !== 'general') return;
+    renderMessageThread(msgs);
+    _msgLastCount = msgs?.length || 0;
+    _toggleMsgNewBanner(false);
+    closeFaqOverlay();
+    await _msgMarkRead();
+    if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
+    _startMsgPoll();
+  } catch (e) {
+    console.error('[openGeneralInquiryPage]', e);
+    logAppError('openGeneralInquiryPage', e);
+    closeFaqOverlay();   // 응모건 화면에서 바로 넘어온 경우 그쪽 덮개가 남지 않게
+    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+  }
+}
+
+// 햄버거 「お問い合わせ」 배지 — 일반 문의 안 읽은 답장 수. 실패(null)면 지난 값을 유지한다.
+let _navInquiryUnread = 0;
+async function refreshNavInquiryBadge() {
+  if (!currentUser) return;
+  const n = await fetchMyGeneralInquiryUnread();
+  if (n !== null) _navInquiryUnread = n;
+  applyNavInquiryBadge();
+}
+function applyNavInquiryBadge() {
+  document.querySelectorAll('[data-role="nav-inquiry-badge"]').forEach(b => {
+    if (_navInquiryUnread > 0) { b.textContent = _navInquiryUnread > 9 ? '9+' : String(_navInquiryUnread); b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  });
 }
 
 // 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).
@@ -21901,6 +22466,7 @@ function cleanupMessagesPage() {
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   _msgCurrentAppId = null;
+  _msgMode = 'app';   // 일반 문의로 바꿔 둔 것을 되돌린다 — 다음 응모건 진입이 옛 모드를 물려받지 않게
   _msgPendingFiles = [];
   // 상태 한 줄·전체 보기 오버레이 정리 (봇 카드는 스레드 일부라 thread 비우면 함께 사라짐)
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
@@ -22044,7 +22610,7 @@ async function confirmWithdrawMessage(messageId, attachmentPaths) {
   try {
     await withdrawOwnMessage(messageId, attachmentPaths || []);
     // 스레드 재로드
-    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    const msgs = await _msgLoad();
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0; // 도착 감지 기준 동기화 (회수로 인한 변동 반영)
   } catch (e) {
@@ -22082,7 +22648,7 @@ function renderMsgAttachPreview() {
 
 // ── 전송 ──
 async function sendMessageFromModal() {
-  if (!_msgCurrentAppId) return;
+  if (!_msgActive()) return;
   // 취소된 응모는 읽기만 가능하다(F-11). 작성 줄은 감춰 두지만, 화면 상태가 어긋난 채로
   //   이 함수에 닿는 경로(캐시가 늦게 채워져 취소 판정이 나중에 바뀌는 등)가 있어 여기서도 막는다.
   if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
@@ -22099,13 +22665,13 @@ async function sendMessageFromModal() {
   //   대체 — 동작은 같고, 첨부 업로드가 오래 걸릴 때 진행 표시가 뜨는 것이 추가됐다.
   //   ⚠️ 진행 문구는 넣지 않는다(빈 문자열) — 보내기 버튼은 40px 원형 아이콘 버튼이라
   //      스피너+문구가 안 들어가고 넘친다. 잠금만으로 연타는 이미 막힌다.
-  return withSubmitLock('sendMsg:' + _msgCurrentAppId, 'msgModalSendBtn', '', async function() {
+  return withSubmitLock('sendMsg:' + (_msgMode === 'general' ? 'general' : _msgCurrentAppId), 'msgModalSendBtn', '', async function() {
     try {
       // 첨부 압축·업로드 (순차 — 실패 시 즉시 중단)
       const attachments = [];
       for (const f of _msgPendingFiles) {
         try {
-          attachments.push(await uploadMessageAttachment(f, _msgCurrentAppId));
+          attachments.push(await _msgUpload(f));
         } catch (e) {
           console.error('[sendMessageFromModal] 첨부 업로드', e);
           // too_large 는 정상 거부(용량 초과 안내) — 그 외는 예상 못 한 오류로 기록된다.
@@ -22114,12 +22680,12 @@ async function sendMessageFromModal() {
           return;   // 잠금 해제는 헬퍼 finally 가 한다
         }
       }
-      await sendApplicationMessage(_msgCurrentAppId, body, attachments);
+      await _msgSend(body, attachments);
       // 입력 초기화 + 재로드
       if (inputEl) { inputEl.value = ''; inputEl.style.height = ''; } // 전송 후 1줄로 리셋
       _msgPendingFiles = [];
       renderMsgAttachPreview();
-      const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+      const msgs = await _msgLoad();
       renderMessageThread(msgs);
       _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
       _toggleMsgNewBanner(false);
@@ -22131,7 +22697,7 @@ async function sendMessageFromModal() {
       // 그 외 DB 내부 에러(42702 등)는 일반 메시지로 — 원문 노출 방지
       //   ⚠️ 바로 그 「일반 메시지로 덮는」 경로가 취소 사고와 같은 모양이다.
       //      P0001(서버가 의도적으로 거부)은 정상 거부, 나머지는 예상 못 한 오류로 기록.
-      logAppError('sendApplicationMessage', e, e?.code === 'P0001' ? [String(e.message || '')] : null);
+      logAppError(_msgMode === 'general' ? 'sendGeneralInquiryMessage' : 'sendApplicationMessage', e, e?.code === 'P0001' ? [String(e.message || '')] : null);
       toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
     }
   });
@@ -22322,7 +22888,8 @@ function faqNodeChainActive(node, byId) {
   return true;
 }
 
-async function setupFaqGate(app, camp) {
+//   opts.general — 일반 문의 「그 외」 갈래(사양서 §7): 카테고리 셋 안의 단계 무관 항목만.
+async function setupFaqGate(app, camp, opts) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
   try {
@@ -22334,6 +22901,7 @@ async function setupFaqGate(app, camp) {
     const _byId = {};
     (all || []).forEach(n => { if (n && n.id) _byId[n.id] = n; });
     _faqNodes = (all || []).filter(n => faqNodeChainActive(n, _byId));
+    if (opts && opts.general) _faqNodes = _faqNodes.filter(n => _faqNodeInGeneral(n, _byId));
     _faqLoaded = true;
   } catch (e) {
     console.error('[setupFaqGate]', e);
@@ -22342,6 +22910,17 @@ async function setupFaqGate(app, camp) {
     _faqNodes = [];
     _faqLoaded = true;
   }
+}
+
+// 일반 문의 갈래 판정 — 맨 위 카테고리가 FAQ_GENERAL_CATEGORY_IDS 안이고,
+//   질문이면 relevant_stages 가 비어 있을 것(단계 정보가 없는 갈래이므로).
+function _faqNodeInGeneral(node, byId) {
+  let root = node, guard = 0;
+  while (root && root.parent_id && byId[root.parent_id] && guard++ < 20) root = byId[root.parent_id];
+  if (!root || !FAQ_GENERAL_CATEGORY_IDS.includes(root.id)) return false;
+  if (node.kind === 'category') return true;
+  const st = node.relevant_stages;
+  return !Array.isArray(st) || st.length === 0;
 }
 
 // 추천 후보 — 현재 단계(relevant_stages) 우선, 답변 노드(handoff 아닌 item, body 보유)만 상위 N개.
@@ -22668,6 +23247,10 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
+  // inquiry-general — 일반 문의 대화(같은 #page-messages 재사용, 2026-09)
+  if (page === 'inquiry-general') {
+    pageName = 'messages';
+  }
   // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
   //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
   if (page === 'ticket' || page.startsWith('ticket-')) {
@@ -22875,6 +23458,12 @@ window.addEventListener('popstate', function(e) {
   } else if (page.startsWith('messages-')) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
+  } else if (page === 'inquiry') {
+    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    else navigate('home', false);
+  } else if (page === 'inquiry-general') {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+    else navigate('home', false);
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
     if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
@@ -22903,13 +23492,19 @@ window.addEventListener('langchange', function() {
       openCancelModalFor(_cancelTargetAppId);
     }
   }
+  // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
+  else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
+  else if (page === 'inquiry-general') {
+    const _tt = document.getElementById('msgModalTitle');
+    if (_tt) _tt.textContent = t('inquiry.generalTitle');
+  }
   // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
   if (typeof renderNavMenu === 'function') renderNavMenu();
 });
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -23241,6 +23836,14 @@ async function init() {
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
     else navigate('mypage', false);
+  } else if (hash === 'inquiry') {
+    // 문의 갈래 화면 새로고침 복원 — 응모 목록을 다시 받아 그린다
+    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    else navigate('home', false);
+  } else if (hash === 'inquiry-general') {
+    // 일반 문의 대화 새로고침 복원 — 뒤로가기 목적지는 홈
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+    else navigate('home', false);
   } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
     // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
     const tid = hash.replace('ticket-', '').replace('ticket', '');
@@ -23298,6 +23901,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : initHash === 'inquiry-general' ? 'messages'
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
