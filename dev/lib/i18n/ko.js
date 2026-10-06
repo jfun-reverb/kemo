@@ -485,6 +485,13 @@ window.I18N_KO = {
     mypage: '마이페이지',
   },
 
+  mypageLeave: {
+    title: '변경한 내용을 저장할까요?',
+    desc: '저장하지 않고 이동하면 변경한 내용이 사라집니다.',
+    save: '저장하기',
+    discard: '저장하지 않고 이동',
+  },
+
   profileAlert: {
     title: '캠페인 응모 전에',
     desc: '응모하려면 마이페이지에서 "개인정보"와 "PayPal" 등록이 필요합니다.<br>아래 항목을 등록해주세요.',

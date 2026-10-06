@@ -1575,6 +1575,20 @@ body{font-size:var(--fs-body)}
 </div>
 
 <!-- ── 프로필 부족 알럿 모달 ── -->
+<!-- ── 마이페이지 폼을 저장하지 않고 나갈 때(2026-10-06 사용자 결정 — 단추 둘: 저장 / 저장하지 않고 이동) ── -->
+<div id="mypageLeaveOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="mypageLeaveTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="mypageLeaveTitle" data-i18n="mypageLeave.title">変更した内容を保存しますか？</div></div>
+    <div class="popup-body center">
+      <div class="popup-desc" data-i18n="mypageLeave.desc">保存しないで移動すると、変更した内容は消えます。</div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" id="mypageLeaveDiscardBtn" onclick="resolveMypageLeave('discard')" data-i18n="mypageLeave.discard">保存せずに移動</button>
+      <button type="button" class="btn btn-primary" id="mypageLeaveSaveBtn" onclick="resolveMypageLeave('save')" data-i18n="mypageLeave.save">保存する</button>
+    </div>
+  </div>
+</div>
+
 <div id="profileAlertOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="profileAlertTitle">
   <div class="dialog">
     <div class="popup-head center"><div class="popup-title" id="profileAlertTitle" data-i18n="profileAlert.title">キャンペーン応募の前に</div></div>
@@ -2571,7 +2585,7 @@ body{font-size:var(--fs-body)}
         </div>
         <div class="form-group"><label class="form-label" data-i18n="profile.lineId">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@reverb.jpを追加後、IDを入力" data-i18n-attr="placeholder:profile.lineIdHint"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.bio">一言自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
-        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
+        <button type="button" id="profileBasicSaveBtn" class="btn btn-primary btn-block" disabled onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
       </div>
     </div>
   </div>
@@ -2614,7 +2628,7 @@ body{font-size:var(--fs-body)}
           <input type="text" id="profileYoutube" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">YouTube Subscribers</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
-        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
+        <button type="button" id="profileSnsSaveBtn" class="btn btn-primary btn-block" disabled onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
       </div>
     </div>
   </div>
@@ -2641,7 +2655,7 @@ body{font-size:var(--fs-body)}
         <div class="form-group"><label class="form-label" data-i18n="profile.city">市区町村・番地</label><input type="text" id="profileCity" class="form-input" placeholder="渋谷区渋谷1-2-3" data-i18n-attr="placeholder:profile.cityPlaceholder"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.building">建物名・部屋番号</label><input type="text" id="profileBuilding" class="form-input"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.phone">電話番号</label><input type="tel" id="profilePhone" class="form-input" placeholder="090-1234-5678"></div>
-        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
+        <button type="button" id="profileAddressSaveBtn" class="btn btn-primary btn-block" disabled onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
       </div>
     </div>
   </div>
@@ -2660,7 +2674,7 @@ body{font-size:var(--fs-body)}
         <div class="mp-note">
           <span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
-        <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
+        <button type="button" id="paypalSaveBtn" class="btn btn-primary btn-block" disabled onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
     </div>
   </div>
@@ -2696,7 +2710,7 @@ body{font-size:var(--fs-body)}
         </div>
         <div class="pw-policy mp-caption" style="margin-top:-8px;margin-bottom:12px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
+        <button type="button" id="pwChangeBtn" class="btn btn-primary btn-block" disabled onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
     </div>
   </div>
@@ -5843,6 +5857,13 @@ window.I18N_JA = {
   },
 
   // 프로필 부족 알림
+  mypageLeave: {
+    title: '変更した内容を保存しますか？',
+    desc: '保存しないで移動すると、変更した内容は消えます。',
+    save: '保存する',
+    discard: '保存せずに移動',
+  },
+
   profileAlert: {
     title: 'キャンペーン応募の前に',
     desc: '応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。',
@@ -6839,6 +6860,13 @@ window.I18N_KO = {
     home: '홈',
     campaigns: '캠페인',
     mypage: '마이페이지',
+  },
+
+  mypageLeave: {
+    title: '변경한 내용을 저장할까요?',
+    desc: '저장하지 않고 이동하면 변경한 내용이 사라집니다.',
+    save: '저장하기',
+    discard: '저장하지 않고 이동',
   },
 
   profileAlert: {
@@ -15620,6 +15648,8 @@ async function lookupZipProfile() {
       if (pref) { const opts = Array.from(pref.options); const match = opts.find(o=>o.text===r.address1); if(match) pref.value=match.value||match.text; }
       const city = $('profileCity');
       if (city) city.value = (r.address2||'') + (r.address3||'');
+      // 코드로 채운 값은 입력 신호가 안 나므로 직접 알린다(마이페이지 저장 단추가 바뀐 값을 알아보게)
+      if (city) city.dispatchEvent(new Event('change', {bubbles: true}));
       toast('住所を自動入力しました', 'success');
     } else { toast('該当する住所が見つかりませんでした', 'error'); }
   // 외부 주소 검색 서비스(zipcloud) 장애는 우리 잘못이 아니지만, 「주소 입력이 안 된다」는
@@ -21152,16 +21182,17 @@ async function loadMyPage() {
     el.dataset.snsExtractBound = '1';
     el.addEventListener('blur', () => {
       const next = extractSnsHandle(channel, el.value);
-      if (next !== el.value) el.value = next;
+      if (next !== el.value) { el.value = next; refreshMypageSaveButtons(); }
     });
   };
   bindSnsExtract('profileIg', 'instagram');
   bindSnsExtract('profileX', 'x');
   bindSnsExtract('profileTiktok', 'tiktok');
   bindSnsExtract('profileYoutube', 'youtube');
-  if(p.primary_sns && $('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns;
+  // 값이 없으면 빈 선택으로 되돌린다 — 「저장하지 않고 이동」 뒤에 고르다 만 값이 남지 않게(두 선택 칸 모두 value="" 항목이 있다)
+  if($('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns || '';
   setVal('profileZip', p.zip);
-  if(p.prefecture && $('profilePrefecture')) $('profilePrefecture').value = p.prefecture;
+  if($('profilePrefecture')) $('profilePrefecture').value = p.prefecture || '';
   setVal('profileCity', p.city);
   setVal('profileBuilding', p.building);
   setVal('profilePhone', p.phone);
@@ -21182,6 +21213,10 @@ async function loadMyPage() {
   addrFields.forEach(f => f.val ? clearRequired(f.id) : markRequired(f.id, reqMsg));
   // PayPal: 개별 체크
   if (hasPaypal) clearRequired('paypalEmail'); else markRequired('paypalEmail', reqMsg);
+
+  // 저장 단추 — 칸을 다 채운 뒤에 기준값을 잡는다(먼저 잡으면 빈 값이 기준이 되어 처음부터 켜진다)
+  bindMypageSaveButtons();
+  snapshotMypageForms();
 
   loadMyApplications();
 }
@@ -21496,8 +21531,123 @@ function openCautionCompareModal(appId) {
   openModal('cautionCompareModal');
 }
 
+// ── 저장 단추는 바뀐 값이 있을 때만 켠다(2026-10-06 사용자 결정) ──
+// 기본 정보·SNS·배송지: 화면을 채운 순간의 값과 다르면 켠다(원래대로 되돌리면 다시 꺼진다).
+// PayPal: 저장된 주소와 다르고 확인 칸까지 채워지면 · 비밀번호: 세 칸이 다 채워지면.
+//   ⚠️ 형식 오류(주소 형식·불일치·비밀번호 규칙)는 지금처럼 **누른 뒤** 안내한다 — 단추를 끄는 조건에 넣지 않는다.
+//   ⚠️ 코드가 값을 바꾸는 자리(주소 검색·SNS 핸들 정리)는 입력 신호가 안 나서 직접 갱신을 부른다.
+const MYPAGE_DIRTY_FORMS = {
+  'mypage-sub-profile-basic':   'profileBasicSaveBtn',
+  'mypage-sub-profile-sns':     'profileSnsSaveBtn',
+  'mypage-sub-profile-address': 'profileAddressSaveBtn',
+};
+const MYPAGE_SAVE_WATCH_VIEWS = [...Object.keys(MYPAGE_DIRTY_FORMS), 'mypage-sub-paypal', 'mypage-sub-password'];
+const _mypageSnapshot = {};
+function _mypageFormValues(viewId) {
+  const view = $(viewId);
+  if (!view) return '';
+  const fields = view.querySelectorAll('input[id],select[id],textarea[id]');
+  return JSON.stringify(Array.from(fields).map(el => [el.id, el.type === 'checkbox' ? el.checked : el.value]));
+}
+function snapshotMypageForms() {
+  Object.keys(MYPAGE_DIRTY_FORMS).forEach(viewId => { _mypageSnapshot[viewId] = _mypageFormValues(viewId); });
+  _mypageSnapshot.paypal = ($('paypalEmail')?.value || '').trim();
+  refreshMypageSaveButtons();
+}
+function refreshMypageSaveButtons() {
+  Object.entries(MYPAGE_DIRTY_FORMS).forEach(([viewId, btnId]) => {
+    const btn = $(btnId);
+    // 기준값이 아직 없으면(화면을 채우기 전) 막지 않는다
+    if (btn) btn.disabled = (viewId in _mypageSnapshot) && _mypageFormValues(viewId) === _mypageSnapshot[viewId];
+  });
+  const paypalBtn = $('paypalSaveBtn');
+  if (paypalBtn) {
+    const email = ($('paypalEmail')?.value || '').trim();
+    const confirmVal = ($('paypalEmailConfirm')?.value || '').trim();
+    paypalBtn.disabled = !email || !confirmVal || email === _mypageSnapshot.paypal;
+  }
+  const pwBtn = $('pwChangeBtn');
+  if (pwBtn) pwBtn.disabled = !($('currentPw')?.value && $('newPw')?.value && $('newPw2')?.value);
+}
+function bindMypageSaveButtons() {
+  MYPAGE_SAVE_WATCH_VIEWS.forEach(viewId => {
+    const view = $(viewId);
+    if (!view || view.dataset.saveWatchBound === '1') return;
+    view.dataset.saveWatchBound = '1';
+    view.addEventListener('input', refreshMypageSaveButtons);
+    view.addEventListener('change', refreshMypageSaveButtons);
+  });
+}
+
+// ── 저장하지 않고 나갈 때 묻기(2026-10-06 사용자 결정 — 단추 둘: 「保存する」 / 「保存せずに移動」) ──
+// 「바뀐 값이 있다」 = 그 폼의 저장 단추가 켜져 있다(위 refreshMypageSaveButtons 와 같은 판정 — 따로 세지 않는다).
+const MYPAGE_SAVE_BTN_BY_VIEW = { ...MYPAGE_DIRTY_FORMS, 'mypage-sub-paypal': 'paypalSaveBtn', 'mypage-sub-password': 'pwChangeBtn' };
+const MYPAGE_SAVE_FN_BY_VIEW = {
+  'mypage-sub-profile-basic': () => saveProfile(),
+  'mypage-sub-profile-sns': () => saveProfile(),
+  'mypage-sub-profile-address': () => saveProfile(),
+  'mypage-sub-paypal': () => savePaypalInfo(),
+  'mypage-sub-password': () => changePassword(),
+};
+let _mypageLeavePending = null;   // { view, page, push, sub, subPush }
+let _mypageLeaveBypass = false;   // 고른 뒤 같은 이동을 다시 실행하는 동안만 참
+function mypageDirtyView() {
+  if (!currentUser || !$('page-mypage')?.classList.contains('active')) return null;
+  const active = document.querySelector('#page-mypage .mypage-view.active');
+  const btn = active && $(MYPAGE_SAVE_BTN_BY_VIEW[active.id]);
+  return btn && !btn.disabled ? active.id : null;
+}
+function openMypageLeaveDialog(pending) {
+  _mypageLeavePending = pending;
+  const ov = $('mypageLeaveOverlay');
+  if (ov) ov.style.display = 'flex';
+}
+// navigate() 가 부른다 — false 면 그 이동을 멈춘다
+function mypageLeaveGuard(page, pushHistory) {
+  if (_mypageLeaveBypass) return true;
+  if (_mypageLeavePending) return false;
+  const dirtyView = mypageDirtyView();
+  if (!dirtyView) return true;
+  openMypageLeaveDialog({ view: dirtyView, page, push: pushHistory });
+  return false;
+}
+// 막은 뒤 주소를 지금 보이는 폼으로 되돌린다(뒤로가기는 주소가 이미 옮겨져 있다)
+function restoreMypageHash() {
+  const active = document.querySelector('#page-mypage .mypage-view.active');
+  if (!active || !$('page-mypage')?.classList.contains('active')) return;
+  const sub = active.id.replace('mypage-sub-', '');
+  if (location.hash !== '#mypage-' + sub) history.replaceState({page:'mypage', sub}, '', '#mypage-' + sub);
+}
+async function resolveMypageLeave(choice) {
+  const p = _mypageLeavePending;
+  if (!p) return;
+  const ov = $('mypageLeaveOverlay');
+  if (choice === 'save') {
+    const saveBtn = $('mypageLeaveSaveBtn');
+    if (saveBtn) saveBtn.disabled = true;
+    let ok = false;
+    try { ok = await (MYPAGE_SAVE_FN_BY_VIEW[p.view] || (async () => false))(); }
+    finally { if (saveBtn) saveBtn.disabled = false; }
+    // 저장 실패·형식 오류 — 창을 닫고 그 폼에 남아 안내를 보게 한다(이동하지 않는다)
+    if (!ok) { if (ov) ov.style.display = 'none'; _mypageLeavePending = null; return; }
+  }
+  if (ov) ov.style.display = 'none';
+  _mypageLeavePending = null;
+  _mypageLeaveBypass = true;
+  try {
+    if (p.page) {
+      navigate(p.page, p.push);
+      // 뒤로가기로 막혔던 이동은 주소를 되돌려 뒀으므로 목적지 주소로 맞춘다(폼 이동이면 아래 openMypageSub 가 맞춘다)
+      if (p.push === false && !p.sub) history.replaceState({page: p.page}, '', '#' + p.page);
+    }
+    if (p.sub) openMypageSub(p.sub, p.subPush);
+  } finally {
+    _mypageLeaveBypass = false;
+  }
+}
+
 async function saveProfile() {
-  if (!currentUser) return;
+  if (!currentUser) return false;
   const getVal = id => $(id)?.value||'';
   const zip = getVal('profileZip');
   const pref = getVal('profilePrefecture');
@@ -21524,13 +21674,15 @@ async function saveProfile() {
     await updateInfluencer(currentUser.id, updated);
     currentUserProfile = Object.assign(currentUserProfile || {}, updated);
     toast(t('profile.saved'),'success'); loadMyPage();
+    return true;
   } catch(e) {
     toast(friendlyErrorJa(e), 'error');
+    return false;
   }
 }
 
 async function savePaypalInfo() {
-  if (!currentUser) return;
+  if (!currentUser) return false;
   const getVal = id => $(id)?.value?.trim()||'';
   const email = getVal('paypalEmail');
   const confirm = getVal('paypalEmailConfirm');
@@ -21546,8 +21698,10 @@ async function savePaypalInfo() {
     currentUserProfile = Object.assign(currentUserProfile || {}, { paypal_email: email });
     toast(t('profile.paypalSaved'),'success');
     loadMyPage();
+    return true;
   } catch(e) {
     toast(friendlyErrorJa(e), 'error');
+    return false;
   }
 }
 
@@ -21569,7 +21723,9 @@ async function changePassword() {
   if (error) { logAppError('changePassword', error); err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
+  refreshMypageSaveButtons();
   if (typeof hideCommonPasswordWarning === 'function') hideCommonPasswordWarning('newPwCommonWarn');
+  return true;
 }
 
 // 메일 수신 설정 토글 (ON=재구독 / OFF=수신거부)
@@ -21593,6 +21749,13 @@ async function toggleMarketingEmail(checked) {
 }
 
 function openMypageSub(sub, pushHistory) {
+  // 저장 안 한 변경 확인 중이면 이 이동은 고른 뒤로 미룬다(navigate 가 막혀도 부르는 쪽이 이어서 여기를 부른다)
+  if (_mypageLeavePending) { _mypageLeavePending.sub = sub; _mypageLeavePending.subPush = pushHistory; return; }
+  // navigate 를 거치지 않고 폼끼리 옮겨 가는 경우도 묻는다
+  if (!_mypageLeaveBypass) {
+    const dirtyView = mypageDirtyView();
+    if (dirtyView && dirtyView !== 'mypage-sub-' + sub) { openMypageLeaveDialog({ view: dirtyView, page: null, sub, subPush: pushHistory }); return; }
+  }
   // ⚠️ 「報酬・精算」 화면은 없앴다(2026-08-19). 이 되돌림은 **지우면 안 된다** — 과거 북마크·
   //    브라우저 뒤로가기·해시 직접 입력(#mypage-settlements)으로 들어올 수 있는데, 화면이 없으면
   //    어느 것도 활성화되지 않아 **텅 빈 마이페이지**가 뜬다.
@@ -23783,6 +23946,16 @@ function navigate(page, pushHistory) {
       return false;
     }
   }
+  // 마이페이지 폼에 저장 안 한 변경이 있는 채 떠나려 하면 묻는다(2026-10-06).
+  //   ⚠️ 목적지가 마이페이지여도 묻는다 — navigate('mypage') 는 loadMyPage 로 칸을 **서버 값으로 다시 채워**
+  //      고친 내용을 조용히 지운다(햄버거로 다른 폼에 갈 때가 이 경로).
+  //   ⚠️ 활동관리와 같은 이유로 false 를 돌려주고 주소를 되돌린다. 묻는 창은 비동기라
+  //      고른 뒤에 같은 이동을 다시 실행한다(resolveMypageLeave).
+  if (_prevActivePage && _prevActivePage.id === 'page-mypage'
+      && typeof mypageLeaveGuard === 'function' && !mypageLeaveGuard(page, pushHistory)) {
+    setTimeout(restoreMypageHash, 0);
+    return false;
+  }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
   try {
@@ -23917,8 +24090,14 @@ window.addEventListener('popstate', function(e) {
   if (page === 'mypage' || page.startsWith('mypage-')) {
     // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
     //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
-    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
+    if (navigate('mypage', false) === false) {
+      // 마이페이지 저장 확인에 막힌 뒤로가기 — 고른 뒤 그 폼으로 가도록 목적지를 적어 둔다(안 적으면 응모이력으로 간다)
+      if (sub && typeof _mypageLeavePending !== 'undefined' && _mypageLeavePending && !_mypageLeavePending.sub) {
+        _mypageLeavePending.sub = sub; _mypageLeavePending.subPush = false;
+      }
+      return;
+    }
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
     if (sub) openMypageSub(sub, false); else closeMypageSub();

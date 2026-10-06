@@ -726,6 +726,8 @@ async function lookupZipProfile() {
       if (pref) { const opts = Array.from(pref.options); const match = opts.find(o=>o.text===r.address1); if(match) pref.value=match.value||match.text; }
       const city = $('profileCity');
       if (city) city.value = (r.address2||'') + (r.address3||'');
+      // 코드로 채운 값은 입력 신호가 안 나므로 직접 알린다(마이페이지 저장 단추가 바뀐 값을 알아보게)
+      if (city) city.dispatchEvent(new Event('change', {bubbles: true}));
       toast('住所を自動入力しました', 'success');
     } else { toast('該当する住所が見つかりませんでした', 'error'); }
   // 외부 주소 검색 서비스(zipcloud) 장애는 우리 잘못이 아니지만, 「주소 입력이 안 된다」는

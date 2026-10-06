@@ -141,6 +141,16 @@ function navigate(page, pushHistory) {
       return false;
     }
   }
+  // 마이페이지 폼에 저장 안 한 변경이 있는 채 떠나려 하면 묻는다(2026-10-06).
+  //   ⚠️ 목적지가 마이페이지여도 묻는다 — navigate('mypage') 는 loadMyPage 로 칸을 **서버 값으로 다시 채워**
+  //      고친 내용을 조용히 지운다(햄버거로 다른 폼에 갈 때가 이 경로).
+  //   ⚠️ 활동관리와 같은 이유로 false 를 돌려주고 주소를 되돌린다. 묻는 창은 비동기라
+  //      고른 뒤에 같은 이동을 다시 실행한다(resolveMypageLeave).
+  if (_prevActivePage && _prevActivePage.id === 'page-mypage'
+      && typeof mypageLeaveGuard === 'function' && !mypageLeaveGuard(page, pushHistory)) {
+    setTimeout(restoreMypageHash, 0);
+    return false;
+  }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
   try {
@@ -275,8 +285,14 @@ window.addEventListener('popstate', function(e) {
   if (page === 'mypage' || page.startsWith('mypage-')) {
     // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
     //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
-    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
+    if (navigate('mypage', false) === false) {
+      // 마이페이지 저장 확인에 막힌 뒤로가기 — 고른 뒤 그 폼으로 가도록 목적지를 적어 둔다(안 적으면 응모이력으로 간다)
+      if (sub && typeof _mypageLeavePending !== 'undefined' && _mypageLeavePending && !_mypageLeavePending.sub) {
+        _mypageLeavePending.sub = sub; _mypageLeavePending.subPush = false;
+      }
+      return;
+    }
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
     if (sub) openMypageSub(sub, false); else closeMypageSub();
