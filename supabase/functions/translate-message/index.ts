@@ -23,8 +23,8 @@
 //      source 는 지정하지 않고 Google 자동 감지에 맡긴다(사양서 §의심 8 —
 //      드물게 반대 언어로 쓰는 예외 대응).
 //   4) Google Cloud Translation v2 REST API 호출.
-//        감지된 원본 언어가 target 과 같으면(이미 상대 언어로 씀) 번역 없이
-//        skipped 처리(무의미한 API 호출·저장 방지).
+//        감지된 원본 언어가 target 과 같으면(운영팀이 일본어로 씀 등) **반대 언어로 한 번 더**
+//        번역하고 translated_lang 에 실제 번역 언어를 적는다(2026-10-06 — 예전엔 skipped).
 //   5) 성공 시 body_translated·translated_lang·translate_status='done' 을
 //      해당 메시지 행에 UPDATE (service_role).
 //   6) Google API 실패·타임아웃 시 translate_status='failed' 로 기록하고
@@ -398,27 +398,40 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 이미 대상 언어로 쓴 메시지(감지된 원본 언어 == target) → 번역 불필요
-    if (result.detectedSourceLanguage && result.detectedSourceLanguage === target) {
-      await updateTranslationColumns(messageId, { translate_status: "skipped" });
-      console.log("[translate-message] skipped: already target language", {
-        messageId,
-        target,
-      });
-      return new Response(JSON.stringify({ skipped: true, reason: "same_language" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+    // 이미 목표 언어로 쓴 메시지(감지 언어 == 목표) → 건너뛰지 않고 **반대 언어로** 다시 번역한다
+    //   (2026-10-06 인수인계 — 운영팀이 일본어로 쓰면 관리자가 읽을 한국어 번역, 회원이 한국어로 쓰면 일본어 번역).
+    //   🔴 반대 언어 호출은 **같은 원문**을 보낸다(첫 결과를 다시 번역하지 않는다). 감지 언어가 정확히 ja·ko 일 때만 —
+    //   지역 표기(zh-CN 등)·빈 값이면 목표 언어 결과를 그대로 쓴다. 실패면 failed(같은 언어 결과는 저장하지 않는다).
+    //   ⚠️ 회원 화면은 translated_lang === 'ja' 일 때만 번역을 본문으로 그린다(messaging.js) — 이 갈래가 운영팀 글에
+    //   ko 번역을 만들기 때문. 운영 배포는 그 화면이 먼저 나간 뒤에.
+    let finalText = result.translatedText;
+    let finalLang: "ko" | "ja" = target;
+    const detected = result.detectedSourceLanguage;
+    if (detected === target && (detected === "ja" || detected === "ko")) {
+      finalLang = target === "ja" ? "ko" : "ja";
+      try {
+        finalText = (await callGoogleTranslate(textToTranslate, finalLang)).translatedText;
+      } catch (apiErr) {
+        console.error("[translate-message] google translate error (reverse)", {
+          messageId,
+          message: (apiErr as Error).message,
+        });
+        await updateTranslationColumns(messageId, { translate_status: "failed" });
+        return new Response(JSON.stringify({ translated: false, reason: "api_error" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
     }
 
     await updateTranslationColumns(messageId, {
-      body_translated: result.translatedText,
-      translated_lang: target,
+      body_translated: finalText,
+      translated_lang: finalLang,
       translate_status: "done",
     });
 
-    console.log("[translate-message] done", { messageId, target });
-    return new Response(JSON.stringify({ translated: true, target }), {
+    console.log("[translate-message] done", { messageId, target: finalLang });
+    return new Response(JSON.stringify({ translated: true, target: finalLang }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });

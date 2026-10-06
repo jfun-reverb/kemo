@@ -1096,23 +1096,20 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
     }
 
     // 자동 번역 병기 (마이그레이션 235): 번역본도 esc() 필수(XSS).
-    //  - 인플루언서 발신: 한국어 번역문을 본문 위치에, 일본어 원문을 아래 작은 글씨로
-    //  - 운영팀 본인 발신: 한국어 원문 본문 + 인플에게 나간 일본어 번역을 아래 서브로
-    //    (운영팀이 실제 전달된 일본어를 검수할 수 있게 — 2026-07-13 사용자 요청)
+    //  - 회원 글·운영팀 글 모두 **원문이 위(본문), 번역이 아래**(2026-10-06 인수인계).
+    //  - 라벨은 translated_lang 으로 — ko 「한국어 번역(자동)」 · ja 「일본어 번역(자동)」.
+    //    운영팀이 일본어로 쓰면 번역 함수가 한국어 번역을 만든다(그때 회원은 원문을 본다).
+    //  - 운영팀 글의 일본어 번역은 회원 화면에 본문으로 나간다 — 그때만 그 안내를 붙인다(실제 전달 문구 검수용)
     let bodyHtml;
     const hasTrans = msg.body_translated && msg.translate_status === 'done';
-    if (!fromAdmin && hasTrans) {
-      const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
-      const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
-      bodyHtml = `${transHtml}
-        <div class="msg-trans-orig"><span class="msg-trans-label">원문</span>${origHtml}</div>
-        <div class="msg-trans-caption">자동 번역</div>`;
-    } else if (fromAdmin && hasTrans) {
+    if (hasTrans) {
       const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
       const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
+      const transLabel = msg.translated_lang === 'ja' ? '일본어 번역(자동)' : '한국어 번역(자동)';
+      const caption = (fromAdmin && msg.translated_lang === 'ja')
+        ? '<div class="msg-trans-caption">인플루언서 화면에는 이 일본어 번역이 본문으로 표시됩니다</div>' : '';
       bodyHtml = `${origHtml}
-        <div class="msg-trans-orig"><span class="msg-trans-label">일본어 번역(자동)</span>${transHtml}</div>
-        <div class="msg-trans-caption">인플루언서 화면에는 위 일본어가 본문으로 표시됩니다</div>`;
+        <div class="msg-trans-orig"><span class="msg-trans-label">${transLabel}</span>${transHtml}</div>${caption}`;
     } else {
       bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
     }

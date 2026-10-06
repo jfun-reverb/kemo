@@ -720,8 +720,11 @@ function renderMessageThread(messages) {
     // 자동 번역 병기 (마이그레이션 235): 받은 메시지(운영팀 발신)에 번역본이 있으면
     // 번역문을 본문 위치에, 원문(한국어)을 아래 작은 글씨로 병기 — 오역 시 원문 확인 경로 확보.
     // 번역본도 외부 API 반환값이므로 esc() 필수. 번역 없으면(NULL/실패/과거 메시지) 원문만.
+    // 🔴 **일본어 번역일 때만**(translated_lang === 'ja') — 운영팀이 일본어로 쓴 글엔 번역 함수가 관리자용 한국어
+    //    번역을 만든다(2026-10-06). 조건이 없으면 회원에게 한국어가 본문으로 보인다. 아니면 원문만
+    //    🔴 배포 순서: 이 화면이 운영(main)에 먼저 나가고, 번역 서버 함수는 그 뒤에(옛 앱은 이 조건이 없다)
     let bodyHtml;
-    if (!mine && msg.body_translated && msg.translate_status === 'done') {
+    if (!mine && msg.body_translated && msg.translate_status === 'done' && msg.translated_lang === 'ja') {
       const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
       const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
       bodyHtml = `${transHtml}
