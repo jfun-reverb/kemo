@@ -1399,10 +1399,36 @@ async function refreshChannelDriftIndicators() {
 var _stalledDraftCount = null;
 
 async function refreshStalledDraftIndicators() {
-  const ids = (typeof fetchStalledDraftApplications === 'function')
-    ? await fetchStalledDraftApplications() : null;
-  _stalledDraftCount = ids ? ids.size : null;
+  const rows = await fetchActionableStalledDrafts();
+  _stalledDraftCount = rows ? new Set(rows.map(r => r.application_id)).size : null;
   applyStalledDraftIndicators();
+}
+
+// 「올려두고 제출 안 한 건」 중 **안내가 필요한 응모만**(2026-10-06 사용자 결정).
+//   = 승인된 응모 + 인증 상태가 「미제출」·「인증샷 제출중」 — 목록의 「올려만 둠」 딱지가 붙는 바로 그 조건이다
+//     (`certStatusBadge` 가 그 두 상태에만 딱지를 붙인다). 그래서 건수 = 딱지 붙은 행 수.
+//   빼는 것: 반려·취소된 응모(「검수 불필요」) · 이미 「인증성공」인데 쓰지 않은 임시저장만 남은 응모.
+//   ⚠️ 인증 상태는 목록과 **같은 함수**(`buildDeliverableGroups`·`computeCertStatus`)로 센다 — 사본을 만들지 않는다.
+//   🔴 실패는 null — 0건(`[]`)과 구분한다(0으로 그리면 「없다」로 읽힌다).
+async function fetchActionableStalledDrafts() {
+  if (typeof fetchStalledDraftDetails !== 'function') return null;
+  const rows = await fetchStalledDraftDetails();
+  if (rows === null) return null;
+  const approved = rows.filter(r => r.applications?.status === 'approved');
+  if (approved.length === 0) return [];
+  if (typeof buildDeliverableGroups !== 'function' || typeof computeCertStatus !== 'function') return approved;
+  const campIds = [...new Set(approved.map(r => r.campaign_id).filter(Boolean))];
+  const delivs = await fetchDeliverablesByCampaignIds(campIds);
+  if (delivs === null) return null;
+  const campMap = new Map();
+  delivs.forEach(d => { if (d.campaigns && d.campaign_id) campMap.set(d.campaign_id, d.campaigns); });
+  const apps = [...new Map(approved.map(r => [r.application_id, r.applications])).values()];
+  const groups = buildDeliverableGroups(delivs, campMap, { includeApps: apps });
+  return approved.filter(r => {
+    const g = groups.get(r.application_id);
+    const s = g ? computeCertStatus(g) : 'none';
+    return s === 'none' || s === 'submitting';
+  });
 }
 
 // 캐시된 값으로 표시만 다시 입힌다(재조회 없음).
@@ -1469,7 +1495,7 @@ const STALLED_DRAFT_KIND_LABEL = { receipt: '영수증', review_image: '인증�
 async function loadStalledDraftList() {
   const box = document.getElementById('stalledDraftList');
   if (!box) return;
-  const rows = await fetchStalledDraftDetails();
+  const rows = await fetchActionableStalledDrafts();
   if (!document.getElementById('stalledDraftModal')?.classList.contains('open')) return;
   if (rows === null) { box.textContent = '목록을 불러오지 못했습니다. 창을 닫았다가 다시 열어 주세요.'; return; }
   const byApp = new Map();
@@ -1485,6 +1511,9 @@ async function loadStalledDraftList() {
   // 건수를 목록과 맞춘다 — 창을 연 뒤 새로 생기거나 제출된 건이 있으면 위 숫자도 따라간다
   const cnt = document.getElementById('stalledDraftCountText');
   if (cnt) cnt.textContent = groups.length + '건';
+  // 열 제목 옆 경고 단추의 건수도 같은 값으로(창을 연 사이 바뀌었을 수 있다)
+  _stalledDraftCount = groups.length;
+  applyStalledDraftIndicators();
   if (groups.length === 0) { box.textContent = '지금은 해당하는 응모가 없습니다.'; return; }
   box.style.color = '';
   box.innerHTML = `

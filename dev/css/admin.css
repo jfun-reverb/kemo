@@ -1733,6 +1733,13 @@ input.admin-filter{padding-right:8px}
 .modal.draggable .modal-header button,
 .modal.draggable .modal-header input{cursor:pointer}
 .modal.draggable .modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}
+/* 모서리 — 창 자체는 리사이즈 핸들 때문에 overflow:visible 이라 안쪽 상자의 배경이 둥근 모서리를 덮는다
+   (메시지 창 아래 입력 줄의 흰 배경이 각진 모서리로 보이던 결함, 2026-10-06 사용자 지적).
+   창은 그대로 두고 맨 위 머리·맨 아래 상자만 창의 모서리 값을 물려받아 잘라 낸다(모달마다 인라인 값이 달라 inherit).
+   ⚠️ 본문은 아래에 바닥 줄이 없을 때만 — 바닥 줄이 있으면 그쪽이 맨 아래다 */
+.modal.draggable > .modal-header{border-top-left-radius:inherit;border-top-right-radius:inherit}
+.modal.draggable > .modal-footer,
+.modal.draggable > .modal-body:not(:has(~ .modal-footer)){border-bottom-left-radius:inherit;border-bottom-right-radius:inherit}
 /* 8방향 리사이즈 핸들 — 모달 안쪽 가장자리(overflow:hidden 이어도 안 잘림). 무늬 없이 커서만으로 표시 */
 .modal-rsz{position:absolute;z-index:5}
 .modal-rsz-n {top:0;left:12px;right:12px;height:6px;cursor:ns-resize}
