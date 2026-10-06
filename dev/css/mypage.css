@@ -27,24 +27,24 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .apply-thumb{width:44px;height:44px;border-radius:8px;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden}
 .apply-thumb img{width:100%;height:100%;object-fit:cover}
 .apply-item-info{flex:1;min-width:0}
-.apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px}
-.apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
+.apply-item-name{font-size:var(--fs-body);font-weight:700;margin-bottom:2px}
+.apply-item-meta{font-size:var(--fs-caption);color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
 
 /* メール受信設定 — 토글 카드 + 업무 알림 안내 박스 */
-.email-setting-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r8);padding:16px;margin-bottom:16px}
+.email-setting-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:16px;margin-bottom:16px}
 .email-setting-info{flex:1;min-width:0}
-.email-setting-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}
-.email-setting-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+.email-setting-title{font-size:var(--fs-body);font-weight:700;color:var(--ink);margin-bottom:4px}
+.email-setting-desc{font-size:var(--fs-desc);color:var(--on-surface-variant);line-height:1.6}
 .email-switch{position:relative;display:inline-block;width:48px;height:28px;flex-shrink:0}
 .email-switch input{opacity:0;width:0;height:0}
 .email-switch .slider{position:absolute;cursor:pointer;inset:0;background:var(--outline);border-radius:28px;transition:.2s}
 .email-switch .slider::before{content:"";position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
 .email-switch input:checked + .slider{background:var(--primary)}
 .email-switch input:checked + .slider::before{transform:translateX(20px)}
-.email-tx-box{background:var(--surface-dim);border-radius:var(--r8);padding:14px}
-.email-tx-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px}
-.email-tx-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+.email-tx-box{background:var(--surface-dim);border-radius:var(--r12);padding:14px}
+.email-tx-title{font-size:var(--fs-desc);font-weight:700;color:var(--ink);margin-bottom:6px}
+.email-tx-desc{font-size:var(--fs-desc);color:var(--on-surface-variant);line-height:1.6}
 
 /* 언어 토글 */
 .lang-toggle{display:inline-flex;gap:0;margin-left:auto;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
@@ -54,9 +54,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* ── 응모이력 메시지 버튼/배지 ── */
 .apply-item-actions{display:flex;align-items:center;gap:2px}
-.apply-msg-btn{position:relative;min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
+.apply-msg-btn{position:relative;min-width:var(--tap-min);min-height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
 .apply-msg-btn:hover{background:var(--surface-dim)}
-.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
+.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:var(--fs-caption);font-weight:700;line-height:16px;text-align:center;border-radius:8px}
 
 /* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
 /* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
@@ -252,3 +252,61 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         본문과 버튼만 560 에서 멈춰 화면이 틀어져 보였다(2026-09-29 사용자 지적). */
   .email-tx-desc{max-width:var(--reading-max)}
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   응모이력 + 마이페이지 폼 — 회원 앱 스타일 통일 조각 4
+   ══════════════════════════════════════════════════════════════════ */
+.mp-filter-row{display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap}
+.mp-filter-row .form-input{padding:8px 32px 8px 10px;border-radius:var(--r8);width:auto;flex:1;min-width:110px}
+.mp-status-select{padding:8px 30px 8px 12px;font-weight:600;border-radius:var(--r8);width:auto;max-width:55%}
+.mp-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.6;margin-bottom:18px}
+.mp-caption{font-size:var(--fs-caption);color:var(--muted);line-height:1.5}
+.mp-note{background:var(--light-pink);border-radius:var(--r8);padding:10px 14px;font-size:var(--fs-desc);color:var(--dark-pink);margin-bottom:14px;line-height:1.6}
+.mp-note .material-icons-round{font-size:16px;vertical-align:-3px}
+.mp-at{position:relative}
+.mp-at > span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:var(--fs-body)}
+.mp-at .form-input{padding-left:28px}
+.mp-zip-row{display:flex;gap:8px}
+.mp-zip-row .form-input{flex:1}
+.mp-zip-row .btn{white-space:nowrap}
+/* 응모이력 카드 안 */
+.apply-card-menu-btn{min-width:var(--tap-min);min-height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:50%;cursor:pointer;color:var(--muted)}
+.apply-card-menu-btn .material-icons-round{font-size:24px}
+.apply-msg-btn .material-icons-round{font-size:22px}
+.apply-item-kicker{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:2px}
+.apply-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.apply-item-sub{font-size:var(--fs-caption);color:var(--muted);margin-top:2px}
+.apply-item-caution{font-size:var(--fs-caption);color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap}
+.apply-item-caution .material-icons-round{font-size:14px}
+.apply-item-badges{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.mp-dbadge{display:inline-block;font-size:var(--fs-caption);font-weight:700;padding:2px 8px;border-radius:4px;background:#FFF4E4;color:#B8741A}
+.mp-dbadge.ok{background:var(--green-l);color:var(--green)}
+.mp-dbadge.ng{background:var(--red-l);color:var(--red-d)}
+/* 미제출 — 검수중(옅은 주황)과 나란히 놓여도 갈리게 진하게 + 테두리. 반려(빨강)와도 다르다 */
+.mp-dbadge.draft{background:#FFE0B2;color:#8A3B00;border:1px solid #E8912D}
+.mp-compare-btn{position:relative;background:var(--red-l);color:var(--red-d);border:1px solid #FECACA;border-radius:var(--r-full);font-size:var(--fs-caption);font-weight:600;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:inherit}
+.mp-compare-btn::after{content:'';position:absolute;inset:-12px -2px}
+.mp-compare-btn .material-icons-round{font-size:13px}
+.mp-empty-action{text-align:center;margin-top:-24px;padding-bottom:24px}
+/* 주의사항 비교 창 안 */
+.mp-compare{display:flex;flex-direction:column;gap:14px}
+.mp-compare-box{border:1px solid;border-radius:var(--r8);padding:12px 14px}
+.mp-compare-box.agreed{border-color:#BBF7D0;background:var(--green-l)}
+.mp-compare-box.now{border-color:#FECACA;background:var(--red-l)}
+.mp-compare-head{font-size:var(--fs-caption);font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.mp-compare-box.agreed .mp-compare-head{color:var(--green)}
+.mp-compare-box.now .mp-compare-head{color:var(--red-d)}
+.mp-compare-head .material-icons-round{font-size:14px}
+.mp-compare-box ul{margin:0;padding-left:18px;font-size:var(--fs-desc);line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+.mp-compare-note{font-size:var(--fs-caption);color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:var(--r8);padding:10px 12px}
+/* 응모이력 ⋮ 동작 선택 창 */
+.mp-action-row{width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left;font-family:inherit}
+.mp-action-row .material-icons-round{font-size:26px;flex-shrink:0;color:var(--pink)}
+.mp-action-row.danger .material-icons-round{color:var(--red)}
+.mp-action-text{flex:1;min-width:0}
+.mp-action-title{display:block;font-size:var(--fs-body);font-weight:700;color:var(--ink)}
+.mp-action-hint{display:block;font-size:var(--fs-caption);color:var(--muted);margin-top:3px;line-height:1.5}
+/* 취소 상세 창 */
+.mp-dl{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start;font-size:var(--fs-desc);color:var(--ink);line-height:1.8}
+.mp-dl dt,.mp-dl .k{color:var(--muted);font-weight:600}
+

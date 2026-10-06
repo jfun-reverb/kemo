@@ -168,40 +168,37 @@ window._supabaseLoaded = false;
 
 <!-- 주의사항 비교 모달 (Phase 2 — 인플루언서 응모이력) — 동의 시점 vs 현재 캠페인 문구 비교 -->
 <div class="modal-overlay" id="cautionCompareModal" style="z-index:610">
-  <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:85vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
-      <button onclick="closeModal('cautionCompareModal')" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cautionCompareTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="cautionCompareTitle" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
+      <button type="button" class="popup-close" onclick="closeModal('cautionCompareModal')" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" id="cautionCompareModalBody" style="padding:18px 20px;overflow-y:auto;flex:1"></div>
+    <div class="popup-body" id="cautionCompareModalBody"></div>
   </div>
 </div>
 
 <!-- 응모이력 ⋮ 액션 선택 모달 (결과물 제출 / 응모 취소) — 모바일 큰 터치 영역 -->
 <div class="modal-overlay" id="applyActionModal" style="z-index:613">
-  <div class="modal" style="max-width:420px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.title">アクションを選択</div>
-      <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="applyActionTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="applyActionTitle" data-i18n="appHistory.action.title">アクションを選択</div>
+      <button type="button" class="popup-close" onclick="closeApplyActionModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
-      <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.submit">結果物を提出</span>
-          <span id="applyActionSubmitHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+    <div class="popup-body">
+      <button type="button" id="applyActionSubmitBtn" class="apply-action-row mp-action-row">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">upload_file</span>
+        <span class="mp-action-text">
+          <span class="mp-action-title" data-i18n="appHistory.action.submit">結果物を提出</span>
+          <span id="applyActionSubmitHint" class="mp-action-hint"></span>
         </span>
       </button>
-      <button type="button" id="applyActionCancelBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:14px;text-align:left">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:#C33;flex-shrink:0">cancel</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.cancel">応募を取り消す</span>
-          <span id="applyActionCancelHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
+      <button type="button" id="applyActionCancelBtn" class="apply-action-row mp-action-row danger">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">cancel</span>
+        <span class="mp-action-text">
+          <span class="mp-action-title" data-i18n="appHistory.action.cancel">応募を取り消す</span>
+          <span id="applyActionCancelHint" class="mp-action-hint" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
         </span>
       </button>
-      <div style="text-align:center;margin-top:4px">
-        <button class="btn btn-ghost" onclick="closeApplyActionModal()" style="min-width:120px;min-height:44px" data-i18n="appHistory.action.close">閉じる</button>
-      </div>
     </div>
   </div>
 </div>
@@ -210,27 +207,25 @@ window._supabaseLoaded = false;
 
 <!-- 취소 사유 확인 모달 (취소된 응모이력 카드 클릭 시) -->
 <div class="modal-overlay" id="cancelDetailModal" style="z-index:614">
-  <div class="modal" style="max-width:400px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
-      <button onclick="closeCancelDetailModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cancelDetailTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="cancelDetailTitle" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
+      <button type="button" class="popup-close" onclick="closeCancelDetailModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink);line-height:1.8">
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start">
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
+    <div class="popup-body">
+      <div class="mp-dl">
+        <div class="k" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
         <div id="cancelDetailDatetime"></div>
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
+        <div class="k" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
         <div id="cancelDetailCategory"></div>
         <div id="cancelDetailNoteRow" style="display:contents">
-          <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.note">補足</div>
+          <div class="k" data-i18n="appHistory.cancelDetail.note">補足</div>
           <div id="cancelDetailNote" style="white-space:pre-wrap"></div>
         </div>
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
+        <div class="k" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
         <div id="cancelDetailPhase"></div>
       </div>
-      <div style="margin-top:16px;text-align:center">
-        <button class="btn btn-ghost" onclick="closeCancelDetailModal()" data-i18n="appHistory.cancelDetail.closeBtn">閉じる</button>
-      </div>
+
     </div>
   </div>
 </div>
@@ -1019,20 +1014,20 @@ window._supabaseLoaded = false;
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header" style="justify-content:space-between">
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
-      <select id="myApplyStatusSelect" class="form-input" style="padding:6px 30px 6px 12px;font-size:13px;font-weight:600;border-radius:8px;width:auto;max-width:55%" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
+      <select id="myApplyStatusSelect" class="form-input mp-status-select" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
-      <div style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
-        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
+      <div class="mp-filter-row">
+        <select id="myApplyCampStatus" class="form-input" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
           <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
           <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
-        <select id="myApplyChannel" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+        <select id="myApplyChannel" class="form-input" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.allChannels">全チャンネル</option>
         </select>
-        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+        <select id="myApplySort" class="form-input" onchange="renderMyApplyList()">
           <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
           <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
@@ -1060,7 +1055,7 @@ window._supabaseLoaded = false;
             <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
           </div>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
+        <div class="mp-caption" style="margin-top:-6px;margin-bottom:10px" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="" data-i18n="common.select">選択してください</option>
@@ -1094,26 +1089,26 @@ window._supabaseLoaded = false;
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
           </select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
+          <div class="mp-caption" style="margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
         </div>
         <div class="form-group"><label class="form-label">Instagram ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileIg" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">Instagram Followers</label><input type="number" id="profileIgFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">X(Twitter) ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileX" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileX" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">X Followers</label><input type="number" id="profileXFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">TikTok ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileTiktok" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileTiktok" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">TikTok Followers</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">YouTube ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileYoutube" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileYoutube" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">YouTube Subscribers</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
@@ -1129,9 +1124,9 @@ window._supabaseLoaded = false;
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.zip">郵便番号</label>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
-            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:12px" data-i18n="profile.zipSearch">住所検索</button>
+          <div class="mp-zip-row">
+            <input type="text" id="profileZip" class="form-input" placeholder="123-4567">
+            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" data-i18n="profile.zipSearch">住所検索</button>
           </div>
         </div>
         <div class="form-group"><label class="form-label" data-i18n="profile.prefecture">都道府県</label>
@@ -1155,12 +1150,12 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
+        <div class="mp-hint" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalEmail">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" data-i18n-attr="placeholder:profile.paypalConfirmPlaceholder" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
+        <div class="mp-note">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
         <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
@@ -1174,7 +1169,7 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
+        <div class="mp-hint" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.currentPw">現在のパスワード</label>
           <div class="pw-wrap">
             <input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード" data-i18n-attr="placeholder:profile.currentPw">
@@ -1196,7 +1191,7 @@ window._supabaseLoaded = false;
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div class="pw-policy mp-caption" style="margin-top:-8px;margin-bottom:12px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
