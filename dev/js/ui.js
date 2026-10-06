@@ -1244,7 +1244,7 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
 function stateEmptyHtml(icon, title, sub) {
   return '<div class="state-empty" role="status">' +
     (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
-    '<div class="state-title">' + esc(title || '') + '</div>' +
+    (title ? '<div class="state-title">' + esc(title) + '</div>' : '') +
     (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
   '</div>';
 }

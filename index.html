@@ -666,6 +666,10 @@ html.preview-mode #page-detail .detail-back{display:none}
 .caution-box li{font-size:13px;color:var(--on-surface);line-height:1.7}
 .caution-box .caution-custom{margin-top:10px;font-size:13px;line-height:1.7;color:var(--on-surface)}
 .caution-box .caution-custom a{color:var(--pink);text-decoration:underline}
+/* 응모 창 주의사항 머리·행사 대기 안내 — 스타일 통일 조각 1 */
+.caution-box-title{font-weight:700;color:var(--red);font-size:var(--fs-body);display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.caution-box-title .material-icons-round{font-size:20px}
+.apply-notice-warn{margin-top:8px;color:var(--dark-pink);font-weight:700}
 
 /* ══════════════════════════════════════
    오프라인 행사 타임 선택표 — 사양서 2026-07-30 §4-3
@@ -676,7 +680,7 @@ html.preview-mode #page-detail .detail-back{display:none}
 .event-date-tabs::-webkit-scrollbar{display:none}
 .event-date-tab{flex-shrink:0;min-height:44px;padding:8px 14px;border-radius:20px;
   border:1px solid var(--line);background:#fff;color:var(--muted);
-  font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  font-size:var(--fs-desc);font-weight:600;cursor:pointer;white-space:nowrap}
 .event-date-tab.on{border-color:var(--pink);background:var(--light-pink);color:var(--pink);font-weight:700}
 
 .event-slot-list{display:flex;flex-direction:column;gap:8px}
@@ -687,18 +691,18 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 만석도 누를 수 있다 — 대기 신청 경로이기 때문. 색으로만 구분하고 막지 않는다. */
 .event-slot.full{background:#FAFAFA}
 .event-slot.full.on{background:var(--light-pink)}
-.event-slot-time{font-size:15px;font-weight:700;color:var(--ink);flex-shrink:0}
+.event-slot-time{font-size:var(--fs-body);font-weight:700;color:var(--ink);flex-shrink:0}
 .event-slot.on .event-slot-time{color:var(--pink)}
-.event-slot-aud{font-size:11px;color:var(--muted);background:#F1F1F1;border-radius:5px;padding:2px 7px}
-.event-slot-remain{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0}
+.event-slot-aud{font-size:var(--fs-caption);color:var(--muted);background:#F1F1F1;border-radius:5px;padding:2px 7px}
+.event-slot-remain{margin-left:auto;font-size:var(--fs-desc);font-weight:600;color:var(--muted);flex-shrink:0}
 .event-slot.full .event-slot-remain{color:var(--dark-pink)}
 
 /* ── 초대 전용 캠페인 게이트 — 사양서 2026-07-30 §4-3 ──
    캠페인 내용은 한 글자도 그리지 않는다. 여기 보이는 것은 안내와 입력칸뿐. */
 .invite-gate{padding:44px 20px;text-align:center}
 .invite-gate .material-icons-round{font-size:44px;color:var(--muted)}
-.invite-gate-title{font-size:16px;font-weight:800;color:var(--ink);margin-top:10px}
-.invite-gate-hint{font-size:13px;color:var(--muted);line-height:1.8;margin-top:10px;white-space:pre-line}
+.invite-gate-title{font-size:var(--fs-subtitle);font-weight:800;color:var(--ink);margin-top:10px}
+.invite-gate-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.8;margin-top:10px;white-space:pre-line}
 .invite-gate-btns{display:flex;gap:8px;justify-content:center;margin-top:20px}
 .invite-gate-btns .btn{min-height:48px;min-width:120px}
 .invite-gate-form{margin-top:20px;text-align:left}
@@ -706,19 +710,19 @@ html.preview-mode #page-detail .detail-back{display:none}
 .invite-gate-form .form-input{font-size:17px;letter-spacing:.16em;text-align:center;
   text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .invite-gate-form .btn{margin-top:12px;min-height:48px}
-.invite-gate-err{font-size:12px;color:var(--red);margin-top:8px;text-align:center}
+.invite-gate-err{font-size:var(--fs-desc);color:var(--red);margin-top:8px;text-align:center}
 /* 비로그인이 초대 링크로 들어왔을 때, 방문 날짜 자리에 놓이는 안내.
    타임 표는 로그인한 사람에게만 내려오므로 빈 목록 대신 여기서 길을 알려 준다. */
 .event-slot-login{padding:18px 16px;background:var(--surface-container-low);border-radius:14px;text-align:center}
-.event-slot-login-msg{font-size:14px;font-weight:700;color:var(--ink);line-height:1.7}
+.event-slot-login-msg{font-size:var(--fs-body);font-weight:700;color:var(--ink);line-height:1.7}
 .event-slot-login .invite-gate-btns{margin-top:14px}
 /* 만석 타임을 고르면 그 줄 바로 아래에 붙는 안내 — 목록 끝에 두면 이른 시간을
    고른 사람이 한참 스크롤해야 보게 된다. */
-.event-slot-note{font-size:12px;color:var(--dark-pink);background:var(--light-pink);
+.event-slot-note{font-size:var(--fs-desc);color:var(--dark-pink);background:var(--light-pink);
   border-radius:8px;padding:9px 11px;margin:-2px 0 2px;line-height:1.6}
 /* 날짜가 하나뿐일 때 — 고를 것은 없지만 며칠인지는 반드시 보여야 한다 */
 .event-date-single{display:inline-block;padding:8px 14px;border-radius:20px;
-  background:var(--light-pink);color:var(--pink);font-size:14px;font-weight:800;margin-bottom:12px}
+  background:var(--light-pink);color:var(--pink);font-size:var(--fs-body);font-weight:800;margin-bottom:12px}
 
 /* 아직 제출하지 않은 것이 있을 때 제출 버튼 바로 위에 뜨는 안내 줄.
    ⚠️ 빨강(경고)이 아니라 주황(행동 유도)이다 — 「추가」와 「제출」 사이는
@@ -791,6 +795,121 @@ html.preview-mode #page-detail .detail-back{display:none}
    🔴 여기에 값을 다시 적지 않는다 — 그 값은 2026-09-11 에 70vh → 35vh, 2026-09-14 에
       35vh → 50vh 로 **두 번** 바뀌었고 그때마다 이 주석이 제일 먼저 낡았다.
       지금 값은 위 `#campSlider` 규칙 한 곳에만 둔다. */
+
+/* ══════════════════════════════════════════════════════════════════
+   캠페인 상세 — 회원 앱 스타일 통일 조각 1 (사양서 2026-09-29-member-app-style-unification)
+   인라인 스타일을 걷어내고 이 클래스들로 옮겼다(application.js openCampaign).
+   글자는 5단계 변수(member-ui.css)만 쓴다: 11 꼬리표 · 13 설명 · 15 본문 · 17 소제목 · 20 제목.
+   ⚠️ 이 파일은 회원 빌드 전용이지만 member-ui.css 보다 **앞**에 붙는다 — 변수는 그쪽 :root 에서 온다.
+   ══════════════════════════════════════════════════════════════════ */
+/* 대표 사진 칸 — #campSlider·#campSlides 아이디는 슬라이드 함수(ui.js slideTo)가 찾는다. 바꾸지 말 것 */
+.cd-slider{position:relative;overflow:hidden;border-radius:var(--r16)}
+.cd-slides{display:flex;align-items:center;transition:transform .32s cubic-bezier(.4,0,.2,1)}
+.cd-slide{flex:0 0 100%;width:100%;position:relative;overflow:hidden}
+.cd-slider .cd-slide-nav{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.cd-slide-nav .material-icons-round{font-size:20px;color:#333}
+.cd-slide-nav.prev{left:10px}
+.cd-slide-nav.next{right:10px}
+.cd-slide-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5}
+.cd-slide-count{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:var(--fs-caption);font-weight:600;padding:3px 8px;border-radius:var(--r-full);z-index:5}
+.cd-slide-tags{position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5}
+.cd-slide-tag{background:rgba(0,0,0,.55);color:#fff;font-size:var(--fs-caption);font-weight:700;padding:3px 9px;border-radius:var(--r-full);backdrop-filter:blur(4px)}
+.cd-noimg{aspect-ratio:1/1;width:100%;border-radius:var(--r16);display:flex;align-items:center;justify-content:center;font-size:64px}
+
+/* 제목 덩어리 */
+.cd-head{background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px}
+.cd-head-inner{padding:16px 0 12px}
+.cd-brand{font-size:var(--fs-caption);color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:4px}
+.cd-type{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:4px}
+.cd-title{font-size:var(--fs-subtitle);font-weight:800;color:var(--ink);line-height:1.35;margin:0 0 10px}
+.cd-reward{display:inline-block;background:var(--light-pink);border-radius:var(--r8);padding:7px 12px;margin-bottom:4px;font-size:var(--fs-body);font-weight:800;color:var(--pink);line-height:1.35}
+.cd-reward-price{display:inline-flex;align-items:baseline;gap:6px;background:var(--light-pink);border-radius:var(--r8);padding:6px 12px;margin-bottom:4px}
+.cd-reward-price b{font-size:var(--fs-subtitle);font-weight:900;color:var(--pink)}
+.cd-reward-price span{font-size:var(--fs-desc);color:var(--dark-pink);font-weight:600}
+.cd-cash{font-size:var(--fs-desc);color:var(--green);font-weight:600;margin-top:4px}
+/* 페이백 안내 — 정보 톤(파랑). 「注意事項(必読)」 빨강과 섞이지 않게 */
+.cd-payback{margin:0 0 12px;padding:11px 13px;background:var(--blue-l);border:1px solid #BFDBFE;border-radius:var(--r8);font-size:var(--fs-desc);line-height:1.6;color:#1E40AF}
+
+/* 정보 표 — 이름 칸 110px(제출 마감 이름이 접히지 않는 폭, 2026-08-06 실측) */
+.cd-info{font-size:var(--fs-desc)}
+.cd-row{display:flex;border-top:1px solid #FAF5F9}
+.cd-key{width:110px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:var(--fs-caption);background:#FDF5FB;flex-shrink:0}
+.cd-val{padding:10px 13px;flex:1;font-size:var(--fs-desc);min-width:0}
+.cd-val.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.cd-val.strong{font-weight:600;color:var(--ink)}
+.cd-val.reward{color:var(--pink);font-weight:600}
+.cd-val-line{margin-top:3px}
+/* 「모집 및 구매 기간」이 두 줄일 때 붙는 이름표 — 왼쪽 여백 3px 는 375 폭 실측값, 넓히지 말 것 */
+.cd-ptag{margin-left:3px;color:var(--muted);font-size:var(--fs-caption);white-space:nowrap}
+.cd-chip{background:var(--light-pink);color:var(--dark-pink);font-size:var(--fs-caption);font-weight:600;padding:2px 10px;border-radius:var(--r-full)}
+.cd-chip.lg{font-size:var(--fs-desc);padding:3px 10px}
+.cd-chip.mention{background:#F0F0FF;color:#4040CC}
+.cd-chip-sep{color:var(--muted);font-size:var(--fs-caption);font-weight:600}
+.cd-rtype{font-size:var(--fs-caption);font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
+.cd-rtype.monitor{background:var(--blue-l);color:var(--blue)}
+.cd-rtype.gifting{background:var(--gold-l);color:var(--gold)}
+.cd-rtype.visit{background:var(--green-l);color:var(--green)}
+.cd-note{margin-top:6px;font-size:var(--fs-caption);color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap}
+.cd-note.first{margin-top:0}
+
+/* 본문 덩어리(참여방법·소개·가이드라인·NG·주의사항 …) */
+.cd-sec{background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)}
+.cd-sec.last{margin-bottom:0;border-bottom:none}
+.cd-sec.tight{padding:4px 0}
+.cd-sec-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);margin:0 0 10px}
+.cd-sec-hint{font-size:var(--fs-desc);color:var(--muted);margin:-6px 0 12px}
+.cd-body{font-size:var(--fs-body);color:var(--ink);line-height:1.7}
+.cd-box{font-size:var(--fs-desc);color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:var(--r8);border:1px solid var(--outline)}
+.cd-box.ng{background:#FFF8F8;border-color:#FDD}
+.cd-sublabel{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.cd-subblock{margin-bottom:12px}
+.cd-subblock:last-child{margin-bottom:0}
+.cd-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cd-muted{font-size:var(--fs-desc);color:var(--muted);line-height:1.7}
+.cd-steps{display:flex;flex-direction:column;gap:14px}
+.cd-step{display:flex;gap:12px;align-items:flex-start}
+.cd-step-no{min-width:54px;height:22px;background:var(--light-pink);border-radius:var(--r-full);display:flex;align-items:center;justify-content:center;font-size:var(--fs-caption);font-weight:700;color:var(--pink);flex-shrink:0}
+.cd-step-title{font-size:var(--fs-body);font-weight:700;margin-bottom:2px;color:var(--ink)}
+.cd-step-desc{font-size:var(--fs-desc);color:var(--muted);line-height:1.6}
+.cd-link{display:flex;align-items:center;gap:8px;min-height:var(--tap-min);color:var(--pink);font-size:var(--fs-body);font-weight:600;text-decoration:none}
+.cd-link .material-icons-round{font-size:20px}
+.cd-state{font-size:var(--fs-desc);color:var(--muted);padding:12px 0}
+.cd-state.err{color:var(--red)}
+
+/* 공식 SNS 안내 카드 — 조각 3 에서 홈·목록 카드도 이 모양으로 맞춘다 */
+.sns-follow-list{display:flex;flex-direction:column;gap:10px;padding:16px 0 calc(var(--tab-h) + 70px)}
+.sns-follow-card{border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;min-height:var(--tap-min);border:none;width:100%;text-align:left;font-family:inherit}
+.sns-follow-card.ig{background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%)}
+.sns-follow-card.line{background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%)}
+.sns-follow-icon{flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.sns-follow-icon img{width:100%;height:100%;object-fit:contain;padding:3px}
+.sns-follow-text{flex:1;min-width:0}
+.sns-follow-name,.sns-follow-cta,.sns-follow-sub{display:block}
+.sns-follow-name{font-family:'Sora',sans-serif;font-weight:800;font-size:var(--fs-body);color:#fff;margin-bottom:2px}
+.sns-follow-name small{font-size:var(--fs-caption);font-weight:600;opacity:.85}
+.sns-follow-cta{font-size:var(--fs-desc);color:rgba(255,255,255,.95);font-weight:600;line-height:1.5}
+.sns-follow-sub{font-size:var(--fs-caption);color:rgba(255,255,255,.8);margin-top:2px}
+.sns-follow-badge{display:inline-flex;align-items:center;gap:2px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:var(--r-full);padding:2px 9px;font-size:var(--fs-caption);font-weight:700;color:#fff;margin-top:4px}
+.sns-follow-badge .material-icons-round{font-size:12px}
+
+/* 하단 고정 바 안쪽(바 자체 위치는 components.css #detailFloatBar) */
+.cd-float-row{display:flex;gap:10px;align-items:center}
+.cd-float-text{flex:1;min-width:0}
+.cd-float-name{font-size:var(--fs-desc);font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 행사면 행사장이 들어온다(최대 200자) — 한 줄로 잘라 바 높이가 늘지 않게 */
+.cd-float-reward{font-size:var(--fs-caption);color:var(--pink);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-float-row .btn{white-space:nowrap}
+.cd-float-row #floatApplyBtn{min-width:88px}
+.cd-reapply{background:#F5F5F5;border-radius:var(--r8);padding:8px 12px;font-size:var(--fs-desc);color:var(--muted);margin-bottom:8px;text-align:center}
+
+/* 응모 창(아래 시트)·응모 직전 확인 창 안쪽 — 스타일 통일 조각 1 */
+.apply-notice{background:var(--bg);border-radius:var(--r8);padding:12px;font-size:var(--fs-desc);color:var(--muted);margin-bottom:16px;line-height:1.6}
+.apply-check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:var(--fs-body);color:var(--ink);line-height:1.5;min-height:var(--tap-min)}
+.apply-check input{margin-top:3px;flex-shrink:0;width:20px;height:20px}
+.apply-check.warn{color:var(--red);font-weight:600}
+.profile-missing-item{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:var(--r8);font-size:var(--fs-desc);color:var(--dark-pink);font-weight:600;text-align:left}
+.profile-missing-item .material-icons-round{font-size:20px;color:var(--pink)}
+
 
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
@@ -1135,9 +1254,16 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .popup-body{padding:8px 20px 20px;font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
 .popup-actions{display:flex;gap:10px;padding:0 20px 20px}
 .popup-actions .btn{flex:1;min-height:var(--tap-min)}
-/* 넓은 화면 — 시트는 기존 .modal 과 같이 가운데 카드로(components.css 넓은 화면 규칙과 같은 모양) */
+/* 자기 아이디로 뜨는 가운데 창의 바깥(.modal-overlay 를 안 쓰는 창 — 프로필 부족·나이 확인).
+   화면이 style.display='flex' 로 연다. z-index 는 창마다 인라인으로 둔다(겹침 순서 보존) */
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center}
+.popup-head.center{justify-content:center;padding:24px 20px 8px;text-align:center}
+.popup-body.center,.popup-desc.center{text-align:center}
+.popup-desc{font-size:var(--fs-desc);color:var(--muted);line-height:1.7;margin-bottom:16px}
+.popup-left{text-align:left}
+/* 넓은 화면 — 시트는 기존 .modal 과 같은 가운데 카드로(components.css 의 #appShell .modal 규칙과 같은 값) */
 @media(min-width:600px){
-  .sheet{border-radius:var(--r-popup);align-self:center;margin:auto;max-height:85vh}
+  .sheet{max-width:var(--reading-max);border-radius:var(--r-popup);align-self:center;margin:auto;max-height:85vh;animation:sheetFadeIn .18s ease}
 }
 
 /* ── 누르는 영역 도우미 ── */
@@ -1154,7 +1280,12 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
        #page-detail .btn-xs{min-height:32px;position:relative}
        #page-detail .btn-xs::after{content:'';position:absolute;inset:-6px 0}
        #page-detail{font-size:var(--fs-body)}
-   (조각 0 — 아직 비어 있다) */
+   */
+/* 조각 1 — 캠페인 상세 + 응모 창 + 응모 흐름의 가운데 창 셋 */
+#page-detail,#applyModal,#alertModal,#profileAlertOverlay,#ageGateOverlay{font-size:var(--fs-body)}
+#page-detail .btn,#detailFloatBar .btn,#applyModal .btn,#alertModal .btn,#profileAlertOverlay .btn,#ageGateOverlay .btn{min-height:var(--tap-min)}
+#page-detail .back-link{margin-bottom:8px}
+#alertModal #alertModalMessage{font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
 
 </style>
 </head>
@@ -1171,36 +1302,39 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <!-- ── DETAIL FLOATING BAR ── -->
 <div id="detailFloatBar">
-  <div style="display:flex;gap:10px;align-items:center">
-    <div style="flex:1;min-width:0">
-      <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  <div class="cd-float-row">
+    <div class="cd-float-text">
+      <div id="floatProductName" class="cd-float-name"></div>
       <!-- 행사 캠페인은 이 자리에 행사장이 들어간다(최대 200자). 제목과 같이 한 줄로 잘라
            바 높이가 늘어나지 않게 한다 — 안 그러면 긴 주소가 들어올 때 바가 두 줄이 된다. -->
-      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div id="floatProductReward" class="cd-float-reward"></div>
     </div>
-    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
-    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
+    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="display:none" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
+    <button id="floatApplyBtn" class="btn btn-primary btn-sm" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
   </div>
 </div>
 
 <!-- ── 프로필 부족 알럿 모달 ── -->
-<div id="profileAlertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px" data-i18n="profileAlert.title">キャンペーン応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
-    <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">キャンセル</button>
-      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">マイページへ</button>
+<div id="profileAlertOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="profileAlertTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="profileAlertTitle" data-i18n="profileAlert.title">キャンペーン応募の前に</div></div>
+    <div class="popup-body center">
+    <div class="popup-desc" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
+    <div id="profileAlertMissing" class="popup-left"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" data-i18n="profileAlert.cancel">キャンセル</button>
+      <button type="button" class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" data-i18n="profileAlert.goMypage">マイページへ</button>
     </div>
   </div>
 </div>
 
 <!-- ── 응모 연령 게이트 모달 (생년월일·성별 미입력 시 응모 직전 입력) ── -->
-<div id="ageGateOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px;text-align:center" data-i18n="ageGate.title">応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;text-align:center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
+<div id="ageGateOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="ageGateTitle" data-i18n="ageGate.title">応募の前に</div></div>
+    <div class="popup-body">
+    <div class="popup-desc center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
     <div class="form-group" style="margin-bottom:14px">
       <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
       <div class="birthdate-selects">
@@ -1226,10 +1360,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
       </label>
     </div>
-    <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
-      <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
+    <div id="ageGateError" class="form-error" style="margin-bottom:4px;display:none"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeAgeGate()" data-i18n="ageGate.cancel">キャンセル</button>
+      <button type="button" class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" data-i18n="ageGate.save">保存して続ける</button>
     </div>
   </div>
 </div>
@@ -1261,11 +1396,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 </div>
 
 <!-- ── 알럿 모달 ── -->
-<div class="modal-overlay" id="alertModal" style="z-index:600">
-  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
-    <div class="modal-body" style="padding:32px 24px 24px">
-      <div id="alertModalMessage" style="font-size:14px;line-height:1.6;color:var(--ink)"></div>
-      <button class="btn btn-primary" style="margin-top:20px;min-width:120px" onclick="closeModal('alertModal')">OK</button>
+<div class="modal-overlay" id="alertModal" style="z-index:600" role="alertdialog" aria-modal="true" aria-describedby="alertModalMessage">
+  <div class="dialog">
+    <div class="popup-body center" style="padding-top:28px">
+      <div id="alertModalMessage"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-primary" onclick="closeModal('alertModal')">OK</button>
     </div>
   </div>
 </div>
@@ -1749,7 +1886,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
-    <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromDetail()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span id="detailBackLabel">キャンペーン一覧へ</span></button>
     <div class="detail-layout" id="detailContent"></div>
   </div>
 </div>
@@ -2363,14 +2500,14 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <!-- ══════════════════════════════════
      MODAL: APPLY
 ══════════════════════════════════ -->
-<div class="modal-overlay" id="applyModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="applyModalTitle">応募する</div>
-      <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+<div class="modal-overlay" id="applyModal" role="dialog" aria-modal="true" aria-labelledby="applyModalTitle">
+  <div class="sheet">
+    <div class="popup-head">
+      <div class="popup-title" id="applyModalTitle">応募する</div>
+      <button type="button" class="popup-close" onclick="closeModal('applyModal')" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body">
-      <div id="applyModalNotice" data-i18n-html="apply.modalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+    <div class="popup-body">
+      <div id="applyModalNotice" class="apply-notice" data-i18n-html="apply.modalNotice">
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
@@ -2386,15 +2523,15 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         <div class="form-hint" data-i18n="apply.addressHintModal">登録住所と異なる場合は修正してください</div>
       </div>
       <div class="form-group" style="margin-bottom:0">
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
-          <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
+        <label class="apply-check">
+          <input type="checkbox" id="applyPrCheck">
           <span data-i18n-html="apply.prAgreeFull">投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
         </label>
       </div>
       <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
       <div id="applyCautionAgreeRow" class="form-group" style="display:none;margin-top:12px;margin-bottom:0">
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--red);font-weight:600">
-          <input type="checkbox" id="applyCautionCheck" style="margin-top:2px;flex-shrink:0">
+        <label class="apply-check warn">
+          <input type="checkbox" id="applyCautionCheck">
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
@@ -5584,6 +5721,8 @@ window.I18N_JA = {
     requiredMention: '必須メンション',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    slidePrev: '前の写真',
+    slideNext: '次の写真',
     productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',
@@ -6567,6 +6706,8 @@ window.I18N_KO = {
     requiredMention: '필수 멘션',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
+    slidePrev: '이전 사진',
+    slideNext: '다음 사진',
     productPageShort: '상품 페이지',
     noticeTitle: '주의 사항',
     notice1: '기한 내 대응이 어려우신 분은 신청을 삼가해주세요.',
@@ -15752,7 +15893,7 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
 function stateEmptyHtml(icon, title, sub) {
   return '<div class="state-empty" role="status">' +
     (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
-    '<div class="state-title">' + esc(title || '') + '</div>' +
+    (title ? '<div class="state-title">' + esc(title) + '</div>' : '') +
     (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
   '</div>';
 }
@@ -17475,46 +17616,44 @@ async function openCampaign(id) {
   //    채울 것이 없어 정사각 그대로 둔다.
   // 🔴 사진 태그의 `height:100%` 를 덮어쓰는 규칙이 campaign.css 에 있다 — 같이 본다.
   const slideHtml = slideImgs.length > 0 ? `
-    <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)}">
-      <div id="campSlides" style="display:flex;align-items:center;transition:transform .32s cubic-bezier(.4,0,.2,1)">
+    <div id="campSlider" class="cd-slider" style="background:${getCampGrad(camp.category)}">
+      <div id="campSlides" class="cd-slides">
         ${slideData.map((s,idx)=>{
           const crop = s.key ? crops[s.key] : null;
           // 첫 장(LCP)만 720, lazy 로드 나머지는 480으로 용량 절감
           const thumb = idx === 0 ? 720 : 480;
-          return `<div style="flex:0 0 100%;width:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
+          return `<div class="cd-slide" style="background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
         }).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMoveManual(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
-        <button onclick="slideMoveManual(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
-        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
+        <button type="button" class="cd-slide-nav prev tap-44" onclick="slideMoveManual(-1)" aria-label="${esc(t('detail.slidePrev'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">chevron_left</span></button>
+        <button type="button" class="cd-slide-nav next tap-44" onclick="slideMoveManual(1)" aria-label="${esc(t('detail.slideNext'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">chevron_right</span></button>
+        <div class="cd-slide-dots">
           ${slideImgs.map((_,i)=>`<div onclick="slideToManual(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
-        <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
-      <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
-        ${camp.content_types?camp.content_types.split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join(''):''}
+        <div class="cd-slide-count"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
+      <div class="cd-slide-tags">
+        ${camp.content_types?camp.content_types.split(',').map(t=>`<span class="cd-slide-tag">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join(''):''}
       </div>
-    </div>` : `<div style="aspect-ratio:1/1;width:100%;border-radius:16px;background:${getCampGrad(camp.category)};display:flex;align-items:center;justify-content:center;font-size:64px">${camp.emoji||''}</div>`;
+    </div>` : `<div class="cd-noimg" style="background:${getCampGrad(camp.category)}">${camp.emoji||''}</div>`;
 
   $('detailContent').innerHTML = `
     <div class="detail-main">
       ${slideHtml}
 
-      <div style="background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px">
-        <div style="padding:16px 0 12px">
-          <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
-          ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-          <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
+      <div class="cd-head">
+        <div class="cd-head-inner">
+          <div class="cd-brand">${esc(brandLabelInflu(camp))}</div>
+          ${camp.recruit_type ? `<div class="cd-type">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
+          <h1 class="cd-title">${esc(camp.title)}</h1>
           ${(camp.product_price>0 || camp.recruit_type === 'monitor')?(camp.recruit_type === 'monitor'
             // 리뷰어형 — 받는 금액이 응모 시점에 확정되지 않으므로(영수증 실결제액 기준,
             // 300) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
             // 작은 보조 줄로 내린다. 시딩·방문형은 제품 가치가 확정이라 기존 그대로.
             // ⚠️ 제품 가격이 없는 리뷰어형(D-4)도 「購入金額をペイバック」로 — 카드·홍보 메일·
             //    관리자 미리보기와 **같은 말**. 비워 두면 「무상 제공」으로 읽히거나 세 곳이 갈린다.
-            ? `<div style="display:inline-block;background:var(--light-pink);border-radius:8px;padding:7px 12px;margin-bottom:4px">
-                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(camp.product_price>0 ? t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()) : t('detail.rewardPaybackNoCap'))}</div>
-               </div>`
-            : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
+            ? `<div class="cd-reward">${esc(camp.product_price>0 ? t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()) : t('detail.rewardPaybackNoCap'))}</div>`
+            : `<div class="cd-reward-price"><b>¥${camp.product_price.toLocaleString()}</b><span>${t('detail.rewardProduct')}</span></div>`
           ):''}
           ${/* 현금 리워드 줄 — ⚠️ 리뷰어형(monitor)에는 그리지 않는다. 정산 계산이
                 리뷰어형에서 campaigns.reward 를 아예 쓰지 않으므로(마이그레이션 300은
@@ -17523,7 +17662,7 @@ async function openCampaign(id) {
                 설정된 것은 0개라 실제 노출은 없었지만, 앞으로 누가 값을 넣으면 바로 새어
                 나가는 자리라 막는다. 합산 지급(amount_source='product_plus_reward')이
                 구현되면 그때 되살린다. */''}
-          ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
+          ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div class="cd-cash">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
           // 페이백 안내 — 리뷰어형이면 항상(가구매 포함) 정보표 바로 위에 한 상자.
@@ -17540,7 +17679,7 @@ async function openCampaign(id) {
           //   ⚠️ 그 전에는 구매 칸이 빈 캠페인(운영 10건)이 화면엔 「모집 기간」인데 안내문은
           //      「모집·구매 기간」이라 **없는 이름을 가리켰다.** 줄 이름을 합치며 해소됐다.
           const line1 = t(kind === 'split' ? 'detail.paybackNoticeLine1Split' : 'detail.paybackNoticeLine1');
-          return `<div id="campaignPaybackNotice" style="margin:0 0 12px;padding:11px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:12px;line-height:1.6;color:#1e40af">
+          return `<div id="campaignPaybackNotice" class="cd-payback">
             <div>${esc(line1)}</div>
             <div>${esc(t('detail.paybackNoticeLine2'))}</div>
           </div>`;
@@ -17560,9 +17699,8 @@ async function openCampaign(id) {
           //   90픽셀에서 **네 줄**로 접혀 110픽셀로 넓혔다(2026-08-06 브라우저 실측).
           //   ⚠️ 전 행 공통 값이라 바꾸면 모든 줄에 영향을 준다 — 나머지 라벨은 전부 한 줄이라
           //      넓혀도 안전한 것을 확인했다.
-          const KEY = 'width:110px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
-          const VAL = 'padding:10px 13px;flex:1;font-size:12px';
-          const ROW = 'display:flex;border-top:1px solid #faf5f9';
+          // 줄 모양은 campaign.css .cd-row/.cd-key/.cd-val (스타일 통일 조각 1 — 인라인에서 옮김)
+          const row = (key, valHtml, valCls) => `<div class="cd-row"><div class="cd-key">${key}</div><div class="cd-val${valCls ? ' ' + valCls : ''}">${valHtml}</div></div>`;
           // 「모집 및 구매 기간」이 날짜 두 줄로 갈릴 때 각 줄 끝에 붙는 이름표.
           //   날짜가 주인공이고 이름표는 보조라 흐린 작은 글씨. whitespace:nowrap 로 이름표
           //   자체가 반으로 쪼개지는 것만 막고, 좁은 화면에서 이름표 통째로 다음 줄에
@@ -17571,15 +17709,14 @@ async function openCampaign(id) {
           //      실측하니 값 칸 192픽셀에 날짜+여백+이름표가 191.8픽셀 — 여유가 0.2픽셀뿐이라
           //      글꼴이 제때 안 불러와져 다른 글꼴로 대체되기만 해도 접혔다. 3픽셀이면 2.2픽셀이
           //      남는다. **다시 넓히지 말 것**(2026-08-11 브라우저 실측).
-          const PTAG = 'margin-left:3px;color:var(--muted);font-size:11px;white-space:nowrap';
           const rows = [];
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const rt=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)'],gifting:['var(--gold-l)','var(--gold)'],visit:['#E8F7EF','#0E7E4A']};const m=map[rt];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()}</div></div>`);
-          if (!isEvent) rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.channel')}</div><div style="${VAL};display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}</div></div>`);
+          rows.push(row(t('detail.productName'), esc(camp.product)||'—'));
+          rows.push(row(t('detail.recruitType'), (()=>{const rt=camp.recruit_type;return ['monitor','gifting','visit'].includes(rt)?`<span class="cd-rtype ${rt}">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()));
+          if (!isEvent) rows.push(row(t('detail.channel'), (()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span class="cd-chip">${esc(getChannelLabel(code))}</span>`).join(`<span class="cd-chip-sep">${sep}</span>`);})(), 'chips'));
           if (camp.content_types && !isEvent) {
             const ctList = camp.content_types.split(',').map(c => c.trim()).filter(Boolean);
             if (ctList.length) {
-              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.contentType')}</div><div style="${VAL};display:flex;gap:4px;flex-wrap:wrap">${ctList.map(c=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', c))}</span>`).join('')}</div></div>`);
+              rows.push(row(t('detail.contentType'), ctList.map(c=>`<span class="cd-chip">${esc(getLookupLabel('content_type', c))}</span>`).join(''), 'chips'));
             }
           }
           // 판정은 공용 헬퍼 하나만 쓴다 — 관리자 미리보기도 같은 함수를 부른다.
@@ -17602,12 +17739,12 @@ async function openCampaign(id) {
           // split 은 날짜가 두 줄이고 각 줄 끝에 어느 기간인지 붙는다. 이름표는 보조 정보라
           //   흐린 작은 글씨로 — 날짜가 주인공이다.
           const periodValue = (periodKind === 'split')
-            ? `<div>${recruitDates}<span style="${PTAG}">${esc(t('detail.periodTagRecruit'))}</span></div>`
-              + `<div style="margin-top:3px">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}<span style="${PTAG}">${esc(t('detail.periodTagPurchase'))}</span></div>`
+            ? `<div>${recruitDates}<span class="cd-ptag">${esc(t('detail.periodTagRecruit'))}</span></div>`
+              + `<div class="cd-val-line">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}<span class="cd-ptag">${esc(t('detail.periodTagPurchase'))}</span></div>`
             : recruitDates;
           const periodLabelKey = periodMerged ? 'detail.recruitPurchasePeriod'
                                : periodVisitMerged ? 'detail.recruitVisitPeriod' : 'detail.recruitPeriod';
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodLabelKey)}</div><div style="${VAL}">${periodValue}</div></div>`);
+          rows.push(row(t(periodLabelKey), periodValue));
           // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정). 모집 기간 바로
           //   아래에 둔다(인플루언서가 겪는 순서: 모집 → 선정 → 방문 → 결과물 제출 마감).
           //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다.
@@ -17631,7 +17768,7 @@ async function openCampaign(id) {
           //      주석은 이 자리를 가리키므로, **조건을 바꾸면 여기부터 고친다.**
           if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
               && (camp.selection_start || camp.selection_end)) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.selectionPeriod')}</div><div style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
+            rows.push(row(t('detail.selectionPeriod'), `${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}`));
           }
           // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다. split 은 위 「모집 및 구매 기간」
           //    줄 안에서 두 번째 날짜 줄로 그린다 — 여기에 되살리면 같은 날짜가 두 번 나온다.
@@ -17640,7 +17777,7 @@ async function openCampaign(id) {
           // ⚠️ 방문 기간이 모집 기간과 똑같이 저장된 캠페인(visitMerged)은 위 줄이 이미
           //    「募集・訪問期間」이므로 여기서 또 그리면 같은 날짜가 두 번 나온다.
           if (camp.recruit_type === 'visit' && !isEvent && !periodVisitMerged && (camp.visit_start || camp.visit_end)) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
+            rows.push(row(t('detail.visitPeriod'), `${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}`));
           }
           if (camp.submission_end && !isEvent) {
             // 낼 것을 이름에 적는다 — 리뷰어형은 영수증(+게시물 인증샷), 가구매는 영수증만.
@@ -17650,39 +17787,39 @@ async function openCampaign(id) {
             const subKey = labelCode === 'receiptOnly' ? 'detail.submissionEndProxy'
                          : labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
                          : 'detail.submissionEnd';
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t(subKey)}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
+            rows.push(row(t(subKey), formatDate(camp.submission_end), 'strong'));
           }
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
+          rows.push(row(t('detail.recruitSlots'), `${camp.slots}${t('detail.peopleUnit')}`));
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
           //   갈래별 표시는 `minFollowersDetailLines`(아래) — 판정과 같은 갈래를 쓴다.
           if (!isEvent && !isMonitor) {
             const fwLines = minFollowersDetailLines(camp);
             if (fwLines.length) {
-              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${fwLines.join('<br>')}</div></div>`);
+              rows.push(row(t('detail.minFollowers'), fwLines.join('<br>')));
             }
           }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
           if (!isMonitor && !isEvent) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.winnerAnnounce')}</div><div style="${VAL}">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div></div>`);
+            rows.push(row(t('detail.winnerAnnounce'), esc(camp.winner_announce || t('detail.winnerAnnounceValue'))));
             if (camp.product_price>0 || camp.reward>0 || camp.reward_note) {
               const rewardLine = (camp.product_price>0 || camp.reward>0) ? `${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}` : '';
-              const noteLine = camp.reward_note ? `<div style="margin-top:${rewardLine?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>` : '';
-              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.reward')}</div><div style="${VAL};color:var(--pink);font-weight:600">${rewardLine}${noteLine}</div></div>`);
+              const noteLine = camp.reward_note ? `<div class="cd-note${rewardLine?'':' first'}">${esc(camp.reward_note)}</div>` : '';
+              rows.push(row(t('detail.reward'), `${rewardLine}${noteLine}`, 'reward'));
             }
           }
-          return `<div style="font-size:13px">${rows.join('')}</div>`;
+          return `<div class="cd-info">${rows.join('')}</div>`;
         })()}
       </div>
 
       ${(typeof isEventCampaign === 'function' && isEventCampaign(camp)) ? `
       <!-- 오프라인 행사 타임 선택표 — 사양서 2026-07-30 §4-3. 내용은 렌더 뒤 비동기로 채운다
            (잔여 인원은 서버 집계라 화면을 먼저 그리고 숫자를 나중에 넣는다). -->
-      <div id="eventSlotPicker" style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:var(--ink)">${t('event.slotPickerTitle')}</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('event.slotPickerHint')}</div>
+      <div id="eventSlotPicker" class="cd-sec">
+        <h2 class="cd-sec-title">${t('event.slotPickerTitle')}</h2>
+        <div class="cd-sec-hint">${t('event.slotPickerHint')}</div>
         <div id="eventSlotDateTabs" class="event-date-tabs"></div>
         <div id="eventSlotList" class="event-slot-list">
-          <div style="font-size:13px;color:var(--muted);padding:12px 0">${t('event.slotLoading')}</div>
+          ${stateLoadingHtml(t('event.slotLoading'))}
         </div>
       </div>` : ''}
 
@@ -17691,20 +17828,20 @@ async function openCampaign(id) {
         const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
         if (!steps.length) return '';
         return `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
-        <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${t('detail.participationTitle')}</h2>
+        <div class="cd-steps">
           ${steps.map((s,i)=>{
             const lang = (typeof getLang === 'function' ? getLang() : 'ja');
             const title = lang === 'ko' ? (s.title_ko||s.title_ja||'') : (s.title_ja||s.title_ko||'');
             const desc = lang === 'ko' ? (s.desc_ko||s.desc_ja||'') : (s.desc_ja||s.desc_ko||'');
             const descHtml = (typeof miniRichHtml === 'function') ? miniRichHtml(desc) : esc(desc);
             return `
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
+            <div class="cd-step">
+              <div class="cd-step-no">STEP ${i+1}</div>
               <div>
-                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(title)}</div>
-                ${desc ? `<div class="rich-content" style="font-size:12px;color:var(--muted);line-height:1.55">${descHtml}</div>` : ''}
+                <div class="cd-step-title">${esc(title)}</div>
+                ${desc ? `<div class="rich-content cd-step-desc">${descHtml}</div>` : ''}
               </div>
             </div>`;
           }).join('')}
@@ -17713,32 +17850,32 @@ async function openCampaign(id) {
       })()}
 
       ${camp.description ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignDescSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
-        <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${campaignDescSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</h2>
+        <div class="rich-content cd-body">${richHtml(camp.description)}</div>
       </div>` : ''}
 
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">${t('detail.postGuideline')}</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:10px 12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.appeal)}</div></div>` : ''}
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${t('detail.postGuideline')}</h2>
+        ${camp.appeal ? `<div class="cd-subblock"><div class="cd-sublabel">${t('detail.brandAppeal')}</div><div class="rich-content cd-box">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? (() => {
           // 옛 데이터는 태그 뒤에 안내문(※ …)이 함께 저장돼 있다. 안내문까지 칩으로 그리면
           // 긴 문장이 태그 모양으로 나와 읽기 어려우므로 분리해 아래 문단으로 보여준다.
           const parts = splitTagsAndNote(camp.hashtags);
           const chips = parts.tags.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
-          return `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredHashtag')}</div>`
-            + (chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px">${chips.map(tag=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(tag)}</span>`).join('')}</div>` : '')
-            + (parts.note ? `<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px">${esc(parts.note)}</div>` : '')
+          return `<div class="cd-subblock"><div class="cd-sublabel">${t('detail.requiredHashtag')}</div>`
+            + (chips.length ? `<div class="cd-chips">${chips.map(tag=>`<span class="cd-chip lg">${esc(tag)}</span>`).join('')}</div>` : '')
+            + (parts.note ? `<div class="cd-note">${esc(parts.note)}</div>` : '')
             + `</div>`;
         })() : ''}
-        ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredMention')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
+        ${camp.mentions ? `<div class="cd-subblock"><div class="cd-sublabel">${t('detail.requiredMention')}</div><div class="cd-chips">${camp.mentions.split(',').map(t=>`<span class="cd-chip lg mention">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
 
       ${camp.guide ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
-        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${campaignGuideSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</h2>
+        <div class="rich-content cd-box">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${(() => {
@@ -17747,47 +17884,43 @@ async function openCampaign(id) {
         const hasJsonb = ngItems.length > 0;
         const hasLegacy = !!camp.ng;
         if (!hasJsonb && !hasLegacy) return '';
-        const ngHeader = `<div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>`;
+        const ngHeader = `<h2 class="cd-sec-title">${t('detail.ngItems')}</h2>`;
         const ngBody = hasJsonb
-          ? `<div style="font-size:12px;color:var(--ink);line-height:1.7;padding:12px;border-radius:8px;background:#fff8f8;border:1px solid #fdd">${renderNgItemsHtml(ngItems)}</div>`
-          : `<div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>`;
-        return `<div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">${ngHeader}${ngBody}</div>`;
+          ? `<div class="cd-box ng">${renderNgItemsHtml(ngItems)}</div>`
+          : `<div class="rich-content cd-box ng">${richHtml(camp.ng)}</div>`;
+        return `<div class="cd-sec">${ngHeader}${ngBody}</div>`;
       })()}
 
       ${camp.product_url ? `
-      <div style="background:#fff;padding:12px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${t('detail.productPage')}
+      <div class="cd-sec tight">
+        <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" rel="noopener" class="cd-link">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">shopping_bag</span> ${t('detail.productPage')}
         </a>
       </div>` : ''}
 
       ${Array.isArray(camp.caution_items) && camp.caution_items.length ? `
-      <div style="background:#fff;padding:16px 0;">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.noticeTitle')}</div>
-        <div style="font-size:12px;color:var(--muted)">${renderCautionItemsHtml(camp.caution_items)}</div>
+      <div class="cd-sec last">
+        <h2 class="cd-sec-title">${t('detail.noticeTitle')}</h2>
+        <div class="cd-muted">${renderCautionItemsHtml(camp.caution_items)}</div>
       </div>` : ''}
-      <div style="display:flex;flex-direction:column;gap:10px;padding:0 0 calc(var(--tab-h) + 70px)">
-        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igC" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igC)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">${t('detail.igFollowCta')}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">${t('detail.igFollowSub')}</div>
-          </div>
-        </div>
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">${t('detail.lineAddCta')}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">${t('detail.lineAddSub')}</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">${t('detail.channelRequired')} <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
-          </div>
-        </div>
+      <div class="sns-follow-list">
+        <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igC" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igC)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>INSTAGRAM</small></span>
+            <span class="sns-follow-cta">${t('detail.igFollowCta')}</span>
+            <span class="sns-follow-sub">${t('detail.igFollowSub')}</span>
+          </span>
+        </button>
+        <button type="button" class="sns-follow-card line" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
+          <span class="sns-follow-icon"><img src="https://qr-official.line.me/sid/M/reverb.jp.png" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'"></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>LINE</small></span>
+            <span class="sns-follow-cta">${t('detail.lineAddCta')}</span>
+            <span class="sns-follow-sub">${t('detail.lineAddSub')}</span>
+            <span class="sns-follow-badge">${t('detail.channelRequired')} <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span></span>
+          </span>
+        </button>
       </div>
     </div>
     <div class="detail-sidebar" style="display:none"></div>`;
@@ -17883,7 +18016,7 @@ async function openCampaign(id) {
       if (!reapplyNotice) {
         reapplyNotice = document.createElement('div');
         reapplyNotice.id = reapplyNoticeId;
-        reapplyNotice.style.cssText = 'background:#F5F5F5;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center';
+        reapplyNotice.className = 'cd-reapply';
       }
       // 안내는 버튼 줄 「위」에 놓는다. 버튼의 부모는 가로 한 줄(flex)이라
       //   거기에 넣으면 제목·리워드 칸(flex:1)이 0px 로 찌부러져 글자가 세로로 쌓인다.
@@ -17983,7 +18116,7 @@ async function loadEventSlotPicker(camp) {
     _eventSlotCountsForDetail = counts || {};
 
     if (!_eventSlotsForDetail.length) {
-      listEl.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:12px 0">${t('event.slotNone')}</div>`;
+      listEl.innerHTML = stateEmptyHtml('event_busy', '', t('event.slotNone'));
       return;
     }
     const dates = [...new Set(_eventSlotsForDetail.map(s => String(s.slot_date).slice(0, 10)))].sort();
@@ -17995,7 +18128,7 @@ async function loadEventSlotPicker(camp) {
     console.warn('[loadEventSlotPicker]', e);
     logAppError('loadEventSlotPicker', e);
     // 조회 실패를 「타임 없음」으로 보여 주면 방문객이 행사가 끝난 줄 안다 — 다시 시도하라고 알린다.
-    listEl.innerHTML = `<div style="font-size:13px;color:var(--red);padding:12px 0">${t('event.slotLoadFailed')}</div>`;
+    listEl.innerHTML = stateErrorHtml(t('event.slotLoadFailed'), '');
   }
 }
 
@@ -18222,7 +18355,7 @@ function openApplyModal(campaignId) {
           : '';
         const full = isSelectedEventSlotFull();
         notice.innerHTML = `<b>${esc(t('event.selected'))}</b><br>${esc(when)}`
-          + (full ? `<div style="margin-top:8px;color:var(--dark-pink);font-weight:700">${esc(t('event.slotWaitlistNote'))}</div>` : '');
+          + (full ? `<div class="apply-notice-warn">${esc(t('event.slotWaitlistNote'))}</div>` : '');
       } else {
         // 일반 캠페인으로 돌아왔을 때 원래 안내문을 되살린다.
         //   행사 캠페인을 한 번 열면 이 자리를 덮어쓰므로, 안 되살리면 그 뒤에 여는
@@ -18304,7 +18437,7 @@ function renderApplyCaution(camp) {
   const titleText = lang === 'ko' ? '주의사항(필독)' : '注意事項(必読)';
   const box = $('applyCautionBox');
   if (box) {
-    box.innerHTML = `<div style="font-weight:700;color:var(--red);font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">warning</span>${esc(titleText)}</div>${renderCautionItemsHtml(items)}`;
+    box.innerHTML = `<div class="caution-box-title"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span>${esc(titleText)}</div>${renderCautionItemsHtml(items)}`;
     box.style.display = 'block';
   }
   const row = $('applyCautionAgreeRow');
@@ -18511,9 +18644,7 @@ function handleFloatApply() {
     if (!nn || nn === '-') lack.push(t('profile.nameKana'));
     if (lack.length) {
       $('profileAlertMissing').innerHTML = lack.map(m =>
-        `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink)">warning</span>${esc(m)}
-        </div>`).join('');
+        `<div class="profile-missing-item"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span>${esc(m)}</div>`).join('');
       $('profileAlertOverlay').style.display = 'flex';
       return;
     }
@@ -18552,9 +18683,7 @@ function handleFloatApply() {
   if (!p.paypal_email) missing.push(t('profile.paypalEmail'));
   if (missing.length > 0) {
     $('profileAlertMissing').innerHTML = missing.map(m =>
-      `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink)">warning</span>${esc(m)}
-      </div>`
+      `<div class="profile-missing-item"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span>${esc(m)}</div>`
     ).join('');
     $('profileAlertOverlay').style.display = 'flex';
     return;

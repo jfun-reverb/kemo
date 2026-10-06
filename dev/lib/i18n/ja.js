@@ -636,6 +636,8 @@ window.I18N_JA = {
     requiredMention: '必須メンション',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    slidePrev: '前の写真',
+    slideNext: '次の写真',
     productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',

@@ -597,6 +597,8 @@ window.I18N_KO = {
     requiredMention: '필수 멘션',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
+    slidePrev: '이전 사진',
+    slideNext: '다음 사진',
     productPageShort: '상품 페이지',
     noticeTitle: '주의 사항',
     notice1: '기한 내 대응이 어려우신 분은 신청을 삼가해주세요.',
