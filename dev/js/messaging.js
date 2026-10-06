@@ -281,7 +281,9 @@ let _inqPicking = false;    // 「새 문의」 응모 고르기 보기(문의�
 //   🔴 화면을 건너뛰는 조건은 「응모 0건」뿐이다(취소된 응모도 센다). 조회 실패면 화면을 보인다(§5-4 ⑩).
 async function openInquiryPage(from, pushHistory) {
   if (!currentUser) { navigate('login'); return; }
-  const apps = await fetchMyApplicationsForInquiry();
+  // 서비스 문의 새 답장 수를 응모 목록과 함께 새로 받는다(2026-10-06 인수인계) — 대화를 읽고 돌아왔을 때
+  //   옛 숫자로 탭이 열리지 않게. 줄 세우면 체감이 느려져 함께 받는다. 실패면 지난 값 유지(refreshNavInquiryBadge 규칙)
+  const [apps] = await Promise.all([fetchMyApplicationsForInquiry(), refreshNavInquiryBadge()]);
   if (Array.isArray(apps) && apps.length === 0) {
     // 응모가 없는 회원에게 「어느 응모인가」를 묻지 않는다 — 바로 서비스 문의로.
     //   뒤로가기 목적지는 홈(이 화면을 거치지 않았으므로).
@@ -298,7 +300,9 @@ async function openInquiryPage(from, pushHistory) {
   } else {
     _inqApps = null;         // 둘 중 하나라도 실패 — 「불러오지 못했습니다」
   }
-  if (from !== 'back') _inqTab = 'app';
+  // 새 답장이 있으면 서비스 문의 탭을 먼저 연다 — 햄버거 배지가 가리키는 곳이 화면에 보이게(2026-10-06 사용자 결정).
+  //   뒤로가기로 돌아온 경우는 보던 탭 유지
+  if (from !== 'back') _inqTab = _navInquiryUnread > 0 ? 'other' : 'app';
   if (navigate('inquiry', pushHistory) === false) return;
   if (!Array.isArray(allCampaigns) || !allCampaigns.length) {
     try { allCampaigns = await getCampaignsCached(); } catch (_e) {}
@@ -314,14 +318,21 @@ function renderInquiryBranch() {
   // 모양은 햄버거 메뉴 언어 전환 토글(.lang-toggle)과 같게 — 2026-09-29 사용자 지시.
   //   🔴 클래스를 같이 쓰지 않는다 — updateLangToggleUI(mypage.js)가 `.lang-toggle .lang-btn` 을
   //      전역으로 잡아 data-lang 으로 on 을 다시 매겨, 언어를 바꾸면 이 탭의 선택 표시가 사라진다.
-  const tab = (key, label) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
-      aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}</button>`;
+  // 서비스 문의 새 답장 수 — 햄버거 배지와 같은 값(_navInquiryUnread)을 쓴다. 따로 세면 두 숫자가 어긋난다.
+  //   ⚠️ 햄버거용 data-role 을 재사용하지 않는다(그쪽 위치 스타일이 딸려 온다) — 탭 전용 클래스
+  const unread = _navInquiryUnread > 0 ? (_navInquiryUnread > 9 ? '9+' : String(_navInquiryUnread)) : '';
+  const badge = unread ? `<span class="inq-tab-badge">${esc(unread)}</span>` : '';
+  const tab = (key, label, extra) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
+      aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}${extra || ''}</button>`;
   let body = '';
   if (_inqTab === 'other') {
+    const newReply = unread
+      ? `<p class="inq-new-reply"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">mark_chat_unread</span>${esc(t('inquiry.newReply'))}</p>` : '';
     body = `<div class="inq-other">
       <p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>
+      ${newReply}
       <button type="button" class="inq-start-btn" onclick="openGeneralInquiryPage('branch')">
-        <span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('inquiry.otherStart'))}
+        <span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('inquiry.otherStart'))}${badge}
       </button>
     </div>`;
   } else if (_inqApps === null) {
@@ -345,7 +356,7 @@ function renderInquiryBranch() {
     }).join('')}</div>`;
     body += _inqNewThreadBtnHtml();
   }
-  box.innerHTML = `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'))}${tab('other', t('inquiry.branchOther'))}</div>${body}`;
+  box.innerHTML = `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'))}${tab('other', t('inquiry.branchOther'), badge)}</div>${body}`;
 }
 
 // 「새 문의」 — 캠페인 문의 탭 맨 아래(빈 상태에도). 누르면 응모 고르기 보기(조각 5-B)

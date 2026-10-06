@@ -76,6 +76,10 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .inq-other-lead{margin:0;font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
 .inq-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:var(--fs-body);font-weight:600;cursor:pointer}
 .inq-start-btn .material-icons-round{font-size:20px}
+/* 서비스 문의 새 답장 표시(2026-10-06) — 햄버거 배지(.notif-badge)와 같은 빨강·크기, 위치만 글자 옆 */
+.inq-tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:6px;background:#EF4444;color:#fff;border-radius:8px;font-size:10px;font-weight:700;vertical-align:middle;box-sizing:border-box}
+.inq-new-reply{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--fs-desc);font-weight:700;color:#EF4444}
+.inq-new-reply .material-icons-round{font-size:18px}
 .inq-pick-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink)}
 .inq-pick-back{align-self:flex-start;margin-bottom:0;font-size:var(--fs-desc);min-height:44px;border:none;background:none;font-family:inherit}
 .inq-pick-back:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
