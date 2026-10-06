@@ -3,9 +3,8 @@
    🔴 이 파일은 회원 빌드(CLIENT_CSS_FILES)의 **맨 끝**에만 붙는다. 관리자 빌드에는 없다.
       base.css·components.css 는 관리자와 공유라 거기 값을 고치면 관리자 화면이 같이 바뀐다 —
       회원 앱용 값은 전부 여기서 덮어쓴다(§3-0).
-   🔴 덮어쓰기(.btn 높이·본문 글자 등)는 **전역으로 걸지 않는다** — 화면 조각이 자기 화면 선택자를
-      아래 「화면별 덮어쓰기」 묶음에 더한다(#page-detail .btn{…}). 전역으로 걸면 아직 인라인을
-      안 걷어낸 화면에 옛 단추와 새 단추가 섞인다. 마지막 조각 뒤 전역 한 줄로 합친다.
+   덮어쓰기(.btn 높이·본문 글자 등)는 **전역**이다 — 조각 1~6 동안 화면 아이디로 좁혀 걸던 것을
+      마무리(2026-10-06)에서 합쳤다. 새 화면도 처음부터 이 값을 받는다.
    ⚠️ 부품 클래스는 여기에만 있다 — 관리자 코드에서 쓰면 스타일 없이 그려진다.
    ══════════════════════════════════════════════════════════════════ */
 
@@ -68,83 +67,58 @@
 .back-link .material-icons-round{font-size:24px}
 .back-link:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:var(--r8)}
 
-/* ===== 화면별 덮어쓰기 — 조각이 자기 선택자를 더한다 =====
-   예) #page-detail .btn{min-height:var(--tap-min)}
-       #page-detail .btn-xs{min-height:32px;position:relative}
-       #page-detail .btn-xs::after{content:'';position:absolute;inset:-6px 0}
-       #page-detail{font-size:var(--fs-body)}
-   */
-/* 조각 1 — 캠페인 상세 + 응모 창 + 응모 흐름의 가운데 창 셋 */
-#page-detail,#applyModal,#alertModal,#profileAlertOverlay,#ageGateOverlay{font-size:var(--fs-body)}
-#page-detail .btn,#detailFloatBar .btn,#applyModal .btn,#alertModal .btn,#profileAlertOverlay .btn,#ageGateOverlay .btn{min-height:var(--tap-min)}
-#page-detail .back-link{margin-bottom:8px}
-#alertModal #alertModalMessage{font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
-/* 조각 2 — 활동관리 + 응모 취소. 목록 안 보조 단추(btn-xs)는 보이는 32 · 누르는 영역 44 */
-#page-activity,#page-app-cancel{font-size:var(--fs-body)}
-#page-activity .btn,#page-app-cancel .btn{min-height:var(--tap-min)}
-#page-activity .btn-xs{min-height:32px;position:relative}
-#page-activity .btn-xs::after{content:'';position:absolute;inset:-6px 0}
-#page-activity .back-link,#page-app-cancel .back-link{margin-bottom:8px}
-#page-activity .deliv-past-toggle::after{content:'';position:absolute;inset:-10px -4px}
-/* 조각 3 — 홈 + 캠페인 목록 */
-#page-home,#page-campaigns{font-size:var(--fs-body)}
-#page-home .btn,#page-campaigns .btn{min-height:var(--tap-min)}
-/* 칩은 보이는 36 · 누르는 영역 44 */
-#page-home .chip,#page-campaigns .chip{position:relative}
-#page-home .chip::after,#page-campaigns .chip::after{content:'';position:absolute;inset:-4px 0}
-/* 조각 4 — 응모이력 + 마이페이지 폼 6종 + 창 셋. 🔴 #page-mypage 로 걸지 않는다 — 탈퇴 화면(조각 5)이 같은 화면 안에 있다 */
-#mypage-sub-applications,#mypage-sub-profile-basic,#mypage-sub-profile-sns,#mypage-sub-profile-address,#mypage-sub-paypal,#mypage-sub-password,#mypage-sub-email-settings,#cautionCompareModal,#applyActionModal,#cancelDetailModal{font-size:var(--fs-body)}
-#mypage-sub-applications .btn,#mypage-sub-profile-basic .btn,#mypage-sub-profile-sns .btn,#mypage-sub-profile-address .btn,#mypage-sub-paypal .btn,#mypage-sub-password .btn,#mypage-sub-email-settings .btn,#cautionCompareModal .btn,#applyActionModal .btn,#cancelDetailModal .btn{min-height:var(--tap-min)}
-#mypage-sub-applications .mypage-sub-title,#mypage-sub-profile-basic .mypage-sub-title,#mypage-sub-profile-sns .mypage-sub-title,#mypage-sub-profile-address .mypage-sub-title,#mypage-sub-paypal .mypage-sub-title,#mypage-sub-password .mypage-sub-title,#mypage-sub-email-settings .mypage-sub-title{font-size:var(--fs-subtitle)}
-#mypage-sub-applications .badge{font-size:var(--fs-caption)}
-/* 조각 5 — 메시지 대화 + 문의하기 + 알림 + 탈퇴 */
-#page-messages,#page-inquiry,#notifModal,#mypage-sub-withdraw{font-size:var(--fs-body)}
-#page-messages .btn,#page-inquiry .btn,#notifModal .btn,#mypage-sub-withdraw .btn{min-height:var(--tap-min)}
-#page-inquiry .mypage-sub-title,#mypage-sub-withdraw .mypage-sub-title{font-size:var(--fs-subtitle)}
-#page-inquiry .back-link{margin-bottom:8px}
+/* ===== 회원 앱 전역 — 조각 1~6 의 화면별 덮어쓰기를 합친 것(마무리) =====
+   이 파일은 회원 빌드에만 실린다(dev/build.sh CLIENT_CSS_FILES 맨 끝 · 관리자 빌드에는 없다).
+   그래서 공유 클래스(.btn·notif-*·legal-*·footer-*)를 여기서 덮어도 관리자 화면은 안 바뀐다.
+   🔴 화면 아이디로 범위를 다시 좁히지 않는다 — 새 화면도 처음부터 이 값을 받는다 */
+body{font-size:var(--fs-body)}
+.btn{min-height:var(--tap-min)}
+/* 목록 안 보조 단추(btn-xs): 보이는 32 · 누르는 영역 44 */
+.btn-xs{min-height:32px;position:relative}
+.btn-xs::after{content:'';position:absolute;inset:-6px 0}
+/* 칩: 보이는 36 · 누르는 영역 44 */
+.chip{position:relative}
+.chip::after{content:'';position:absolute;inset:-4px 0}
+.back-link{margin-bottom:8px}
+.mypage-sub-title{font-size:var(--fs-subtitle)}
+.deliv-past-toggle::after{content:'';position:absolute;inset:-10px -4px}
+#alertModalMessage{font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
+.apply-item-badges .badge{font-size:var(--fs-caption)}
+/* 메시지 대화 */
+.msg-refresh-btn{width:var(--tap-min);height:var(--tap-min)}
+.msg-withdraw-btn{position:relative}
+.msg-withdraw-btn::after{content:'';position:absolute;inset:-10px -4px}
 /* 알림 창 — notif-* 정의는 공유 파일(components.css)이라 여기서 덮는다 */
-#notifModal .notif-modal-title{font-size:var(--fs-subtitle)}
-#notifModal .notif-mark-all{font-size:var(--fs-desc);min-height:var(--tap-min)}
-#notifModal .notif-item-title{font-size:var(--fs-body)}
-#notifModal .notif-item-desc{font-size:var(--fs-desc)}
-#notifModal .notif-item-time{font-size:var(--fs-caption)}
-#notifModal .notif-modal-body{border-radius:var(--r-popup) var(--r-popup) 0 0}
-#notifModal .notif-head-actions{display:flex;gap:8px;align-items:center}
-#notifModal .notif-close-btn{width:var(--tap-min);height:var(--tap-min)}
-#page-messages .msg-refresh-btn{width:var(--tap-min);height:var(--tap-min)}
-#page-messages .msg-withdraw-btn{position:relative}
-#page-messages .msg-withdraw-btn::after{content:'';position:absolute;inset:-10px -4px}
-/* 조각 6 — 로그인·가입·재설정·수신거부·입장 티켓·약관(화면·창)·정책 통지·로그인 안내·바닥글
-   footer·legal-*·policy-notice·login-prompt 는 공유 파일(components.css)이라 화면 아이디로 덮는다 */
-#page-login,#page-signup,#page-forgot,#page-reset-pw,#page-unsubscribe,#page-ticket,#page-legal,#legalModal,#policyNoticeModal,#loginPromptOverlay{font-size:var(--fs-body)}
-#page-login .btn,#page-signup .btn,#page-forgot .btn,#page-reset-pw .btn,#page-unsubscribe .btn,#page-ticket .btn,#loginPromptOverlay .btn{min-height:var(--tap-min)}
-#page-ticket .mypage-sub-title{font-size:var(--fs-subtitle)}
-#page-legal .legal-page-title{flex:1;margin:0;font-size:var(--fs-subtitle);font-weight:700}
-#page-legal .legal-back{width:var(--tap-min);height:var(--tap-min)}
-#page-legal .legal-lang-btn{position:relative}
-#page-legal .legal-lang-btn::after{content:'';position:absolute;inset:-4px 0}
+.notif-modal-title{font-size:var(--fs-subtitle)}
+.notif-mark-all{font-size:var(--fs-desc);min-height:var(--tap-min)}
+.notif-item-title{font-size:var(--fs-body)}
+.notif-item-desc{font-size:var(--fs-desc)}
+.notif-item-time{font-size:var(--fs-caption)}
+.notif-modal-body{border-radius:var(--r-popup) var(--r-popup) 0 0}
+.notif-head-actions{display:flex;gap:8px;align-items:center}
+.notif-close-btn{width:var(--tap-min);height:var(--tap-min)}
+/* 약관 화면·약관 창·정책 통지 창 — legal-*·policy-notice 는 공유 파일(components.css) */
+.legal-page-title{flex:1;margin:0;font-size:var(--fs-subtitle);font-weight:700}
+.legal-back{width:var(--tap-min);height:var(--tap-min)}
+.legal-lang-btn{position:relative;font-size:var(--fs-caption)}
+.legal-lang-btn::after{content:'';position:absolute;inset:-4px 0}
+/* 🔴 약관 창·정책 통지 창은 공유 파일이 창 아이디로 정의한다(#legalModal .legal-sheet 등) — 그보다 앞서려면 같은 아이디가 필요하다.
+   화면 범위가 아니라 그 창 자신의 아이디다(마무리 대조에서 아이디를 빼면 모서리·제목·본문·닫기가 옛 값으로 돌아갔다) */
 #legalModal .legal-title,#policyNoticeModal .legal-title{font-size:var(--fs-subtitle)}
 #legalModal .legal-body,#policyNoticeModal .legal-body{font-size:var(--fs-body)}
 #legalModal .legal-body h3{font-size:var(--fs-body)}
 #legalModal .legal-body dt{font-size:var(--fs-desc)}
 #legalModal .popup-close,#policyNoticeModal .popup-close{width:var(--tap-min);height:var(--tap-min);padding:0;font-size:inherit;line-height:normal}
 #legalModal .legal-sheet,#policyNoticeModal .legal-sheet{border-radius:var(--r-popup) var(--r-popup) 0 0}
-#policyNoticeModal .policy-notice-actions button{min-height:var(--tap-min)}
 @media(min-width:600px){
   #legalModal .legal-sheet,#policyNoticeModal .legal-sheet{border-radius:var(--r-popup)}
 }
-#page-home .footer-brand{font-size:var(--fs-body)}
-#page-home .footer-info{font-size:var(--fs-caption)}
-#page-home .footer-links a{font-size:var(--fs-caption)}
-#page-home .footer-copy{font-size:var(--fs-caption)}
-#policyNoticeModal .policy-notice-actions button{font-size:var(--fs-body)}
-#page-legal .legal-lang-btn,#legalModal .legal-lang-btn,#policyNoticeModal .legal-lang-btn{font-size:var(--fs-caption)}
-#page-legal .legal-page-body,#legalModal .legal-page-body,#policyNoticeModal .legal-page-body{font-size:var(--fs-desc)}
-#page-legal .legal-page-body h1,#legalModal .legal-page-body h1,#policyNoticeModal .legal-page-body h1{font-size:var(--fs-subtitle)}
-#page-legal .legal-page-body h2,#legalModal .legal-page-body h2,#policyNoticeModal .legal-page-body h2{font-size:var(--fs-body)}
-#page-legal .legal-page-body h3,#legalModal .legal-page-body h3,#policyNoticeModal .legal-page-body h3{font-size:var(--fs-body)}
-#page-legal .legal-page-body h4,#legalModal .legal-page-body h4,#policyNoticeModal .legal-page-body h4{font-size:var(--fs-desc)}
-#page-legal .legal-page-body blockquote,#legalModal .legal-page-body blockquote,#policyNoticeModal .legal-page-body blockquote{font-size:var(--fs-desc)}
-#page-legal .legal-page-body code,#legalModal .legal-page-body code,#policyNoticeModal .legal-page-body code{font-size:var(--fs-desc)}
-#page-legal .legal-table,#legalModal .legal-table,#policyNoticeModal .legal-table{font-size:var(--fs-caption)}
-#page-legal .legal-table th,#legalModal .legal-table th,#policyNoticeModal .legal-table th{font-size:var(--fs-caption)}
+.policy-notice-actions button{min-height:var(--tap-min);font-size:var(--fs-body)}
+.legal-page-body{font-size:var(--fs-desc)}
+.legal-page-body h1{font-size:var(--fs-subtitle)}
+.legal-page-body h2,.legal-page-body h3{font-size:var(--fs-body)}
+.legal-page-body h4,.legal-page-body blockquote,.legal-page-body code{font-size:var(--fs-desc)}
+.legal-table,.legal-table th{font-size:var(--fs-caption)}
+/* 바닥글 */
+.footer-brand{font-size:var(--fs-body)}
+.footer-info,.footer-links a,.footer-copy{font-size:var(--fs-caption)}
