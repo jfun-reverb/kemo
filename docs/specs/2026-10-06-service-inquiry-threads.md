@@ -416,4 +416,11 @@
 - 구현 중 결정: 상한은 `_general_inquiry_open_limit()`(순수 함수, `authenticated` 실행 — security_invoker 뷰가 호출자 권한으로 부른다). 뷰 맨 끝 칸 넷 `title` · `title_translated` · `influencer_open_thread_count` · `influencer_at_open_limit`. 비로그인이 뷰를 직접 조회하면 빈 결과 대신 그 함수의 권한 오류(화면은 비로그인으로 안 부른다 — 무해)
 - ⚠️ 동작 변화: 505 는 회원이 넘긴 대화 id 를 무시했으나 508 은 따른다 — 조각 3 판 회원 화면이 오래된 대화 id 를 넘기면 `thread_closed`
 - 개발서버 검증(실제 로그인 브라우저): 관리자 — 다른 열린 대화가 있어도 다시 열기 성공 · 대화 id 없이 발신(열린 2) `thread_required` · 제목 고치기(앞뒤 공백 뗌·pending) / 같은 값 무변경 / 41자 `title_too_long` / 빈 값 제목·번역 비움 / 없는 대화 `thread_not_found`. 회원 — 제목 없음 `title_required` · 41자 `title_too_long` · 새 문의(기존 열린 대화 유지) · 같은 토큰 재시도 → 같은 대화 · 6번째 `too_many_open_threads`(뷰 5/true) · 남의 대화 id `thread_not_found` · 23시간 닫힌 대화에 씀 → 다시 열림 · 열린 5개에서 23시간 닫힌 대화 → `too_many_open_threads` · 25시간 → `thread_closed` · 같은 토큰이 25시간 닫힌 대화 → `thread_closed` · 옛 호환(인자 없음) → 마지막 글이 가장 최근인 열린 대화 · 옛 4인자 storage 호출 정상
-- 남은 것: 제목 번역(조각 1-C — 지금 새 문의 제목은 `pending` 으로 멈춰 있다) · 다른 토큰 동시 두 번(잠금) 실측
+- 남은 것: 다른 토큰 동시 두 번(잠금) 실측(제목 번역은 조각 1-C 에서 해결)
+
+### 조각 1-C — 제목 번역 (2026-10-06, 개발서버 배포·웹훅 생성·검증 완료 · 운영 미적용)
+- 서버 함수 `translate-message` 에 대화 표 갈래를 더했다(`handleThreadTitle`). 요청의 표가 `general_inquiry_threads` 이고 추가·수정 이벤트면 이 갈래로 가고, 나머지는 기존 메시지 번역 그대로
+- 번역 조건: 상태가 `pending` 이고 제목이 있을 때만. 저장은 「제목·상태가 읽은 때와 같을 때만」 — 번역하는 사이 운영팀이 제목을 고치면 옛 번역을 덮어쓰지 않는다. 한국어로 감지되면 `skipped`, 실패는 `failed`. 이 갈래의 예외는 잡아서 200 으로 끝낸다(웹훅 재시도 폭주 방지)
+- 개발서버 웹훅 `translate-inquiry-thread-title`(표 `general_inquiry_threads` · 추가·수정 · 서버 함수 `translate-message` · 5000ms · 인증 헤더는 대시보드가 자동으로 채움)
+- 개발서버 검증: `pending` 이던 제목 4건(開発テストC~F)에 같은 값 수정을 걸어 웹훅을 일으킴 → 4건 모두 `done` · 「개발 테스트 C」 등 한국어 번역 저장
+- 🔴 운영: 조각 6 에서 같은 웹훅을 운영 대시보드에 손으로 만든다(함수 배포 → 508 적용 → 웹훅 순)
