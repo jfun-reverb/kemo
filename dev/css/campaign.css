@@ -197,10 +197,10 @@ html.preview-mode #page-detail .detail-back{display:none}
   border-radius:6px; padding:10px 12px; margin-bottom:10px;
 }
 .draft-pending-bar .dpb-title{
-  font-size:13px; font-weight:700; color:#B8741A; line-height:1.5;
+  font-size:var(--fs-desc); font-weight:700; color:#B8741A; line-height:1.5;
 }
 .draft-pending-bar .dpb-step{
-  font-size:12px; color:#8A5A14; line-height:1.7; margin-top:4px;
+  font-size:var(--fs-desc); color:#8A5A14; line-height:1.7; margin-top:4px;
   /* 번호 단계는 줄을 나눠야 「단계」로 읽힌다 — 한 줄로 이어지면 좁은 화면에서
      그냥 긴 문장이 된다(2026-08-25 브라우저 확인). 문구의 \n 을 살린다. */
   white-space:pre-line;
@@ -209,7 +209,7 @@ html.preview-mode #page-detail .detail-back{display:none}
 /* 결과물 목록의 무리 제목 — 「지난 제출」 / 「제출할 항목」.
    제출 버튼이 목록 아래에 있어, 나누지 않으면 위의 모든 행을 보내는 것처럼 보인다. */
 .deliv-group-head{
-  font-size:11px; font-weight:700; color:var(--muted);
+  font-size:var(--fs-caption); font-weight:700; color:var(--muted);
   margin:14px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--surface-dim);
 }
 .deliv-group-head:first-child{ margin-top:0; }
@@ -220,7 +220,7 @@ html.preview-mode #page-detail .detail-back{display:none}
   display:flex; align-items:center; justify-content:space-between; gap:8px;
 }
 .deliv-past-toggle{
-  flex-shrink:0; padding:3px 9px;
+  flex-shrink:0; padding:3px 9px; position:relative;
   background:none; border:1px solid var(--surface-dim); border-radius:999px;
   font-size:11px; font-weight:600; color:var(--muted); cursor:pointer;
   line-height:1.5;
@@ -373,4 +373,70 @@ html.preview-mode #page-detail .detail-back{display:none}
 .apply-check.warn{color:var(--red);font-weight:600}
 .profile-missing-item{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:var(--r8);font-size:var(--fs-desc);color:var(--dark-pink);font-weight:600;text-align:left}
 .profile-missing-item .material-icons-round{font-size:20px;color:var(--pink)}
+
+/* ══════════════════════════════════════════════════════════════════
+   활동관리(결과물 제출) + 응모 취소 — 회원 앱 스타일 통일 조각 2
+   상태 색은 뜻별로 하나: 반려·되돌릴 수 없음 = 빨강(--red*) · 승인 = 초록 · 대기·안내 = 주황(호박)
+   ══════════════════════════════════════════════════════════════════ */
+.ac-kicker{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:2px}
+.ac-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px}
+.ac-title{font-size:var(--fs-subtitle);font-weight:800;color:var(--ink);line-height:1.35;flex:1;min-width:0;margin:0}
+.ac-sub{font-size:var(--fs-desc);color:var(--muted);margin-bottom:20px}
+.ac-body{font-size:var(--fs-body);color:var(--ink);line-height:1.7;margin-bottom:18px}
+.ac-sec-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);margin:0 0 12px}
+.ac-step{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:.5px}
+.ac-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.5;margin-bottom:12px}
+.ac-caption{font-size:var(--fs-caption);color:var(--muted);line-height:1.5}
+.ac-actions{display:flex;gap:10px;margin-top:8px}
+.ac-actions .btn{flex:1}
+/* 반려 배너·되돌릴 수 없음 상자 — 빨강 하나 */
+.ac-reject{background:var(--red-l);border-left:4px solid var(--red);border-radius:var(--r8);padding:12px 14px;margin-bottom:16px}
+.ac-reject-title{font-size:var(--fs-body);font-weight:700;color:var(--red-d);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.ac-reject-title .material-icons-round{font-size:20px}
+.ac-reject-text{font-size:var(--fs-desc);color:var(--ink);white-space:pre-wrap;line-height:1.5}
+.ac-warn-box{background:var(--red-l);border:1px solid #FECACA;border-radius:var(--r8);padding:12px 14px;font-size:var(--fs-desc);color:var(--red-d);line-height:1.7;margin-bottom:16px}
+.ac-warn-box-title{font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.ac-warn-box-title .material-icons-round{font-size:18px}
+/* 안내(호박색) — 금액 안내·STEP 2 대기·대리 등록 알림 */
+.ac-note{font-size:var(--fs-desc);line-height:1.6;color:#92400E;background:var(--gold-l);border:1px solid #FDE68A;border-radius:var(--r8);padding:10px 12px}
+.ac-note-title{font-weight:700;margin-bottom:6px}
+.ac-note ol{margin:0;padding-left:18px}
+.ac-note li{margin-bottom:2px}
+.ac-note.left{border:none;border-left:4px solid var(--gold);color:var(--ink);margin-bottom:12px}
+/* 제출 폼 카드(점선) */
+.ac-form-card{background:var(--surface);border:1.5px dashed var(--outline);border-radius:var(--r16);padding:20px;margin-bottom:12px}
+.ac-form-card.sm{background:var(--bg);border-radius:var(--r12);padding:14px}
+.ac-file-btn{display:flex;align-items:center;justify-content:center;gap:6px;min-height:var(--tap-min);padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:var(--fs-body);font-weight:600;cursor:pointer}
+.ac-file-btn .material-icons-round{font-size:20px}
+.ac-file-btn input{display:none}
+.ac-preview-img{max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px}
+/* 제출 목록 줄 */
+.ac-row{padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);margin-bottom:8px}
+.ac-row-main{display:flex;align-items:center;gap:12px}
+.ac-row-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.ac-row-ch{font-size:var(--fs-desc);font-weight:600;color:var(--ink)}
+.ac-row-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.ac-row-inline{display:flex;align-items:center;gap:6px}
+.ac-row-url{font-size:var(--fs-desc);color:var(--dark-pink);word-break:break-all;text-decoration:none}
+.ac-row-date{font-size:var(--fs-caption);color:var(--muted)}
+.ac-thumb{width:56px;height:56px;border-radius:var(--r8);overflow:hidden;flex-shrink:0;background:#F5F5F5}
+.ac-thumb img{width:100%;height:100%;object-fit:contain;cursor:pointer;background:#F5F5F5}
+.ac-row-msg{margin-top:8px;padding:8px 10px;border-left:3px solid;border-radius:6px;font-size:var(--fs-desc);line-height:1.5}
+.ac-row-msg.ng{background:var(--red-l);border-color:var(--red);color:var(--red-d);white-space:pre-wrap}
+.ac-row-msg.proxy{background:var(--gold-l);border-color:#FBBF24;color:#92400E}
+.ac-row-msg.warn{background:#FFF7ED;border-color:var(--gold);color:#8A5510}
+.ac-badge{font-size:var(--fs-caption);font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.ac-badge.draft{background:#E5E7EB;color:#555}
+.ac-badge.ok{background:var(--green-l);color:var(--green)}
+.ac-badge.ng{background:var(--red-l);color:var(--red-d)}
+.ac-badge.wait{background:#FFF4E4;color:#B8741A}
+.ac-del{color:var(--red);border-color:var(--red)}
+.ac-del .material-icons-round{font-size:16px}
+.ac-ch-card{padding:14px;background:var(--surface);border:1px solid var(--outline);border-radius:14px;margin-bottom:12px}
+.ac-ch-title{font-size:var(--fs-body);font-weight:700;color:var(--ink);margin-bottom:10px}
+/* 취소된 응모로 들어왔을 때 */
+.ac-blocked{padding:40px 20px;text-align:center;background:#F5F5F5;border-radius:14px;margin:20px}
+.ac-blocked .material-icons-round{font-size:48px;color:var(--muted);margin-bottom:12px}
+.ac-blocked-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);margin-bottom:8px}
+.ac-blocked-text{font-size:var(--fs-desc);color:var(--muted);margin-bottom:20px;line-height:1.7}
 
