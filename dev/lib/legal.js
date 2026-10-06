@@ -127,7 +127,7 @@ async function renderLegalPage() {
   // 본문
   const body = document.getElementById('legalPageBody');
   if (!body) return;
-  body.innerHTML = '<div style="text-align:center;padding:40px 0"><span class="spinner"></span></div>';
+  body.innerHTML = (typeof stateLoadingHtml === 'function') ? stateLoadingHtml() : '<div class="state-loading"><span class="state-spin"></span></div>';
 
   try {
     const url = def[lang];
@@ -139,14 +139,12 @@ async function renderLegalPage() {
   } catch(e) {
     if (lang === 'ja') {
       body.innerHTML = `
-        <div style="padding:40px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">
-          <div style="font-size:32px;margin-bottom:12px"><span class="material-icons-round notranslate" translate="no">cloud_off</span></div>
-          <div style="font-weight:700;color:var(--ink);margin-bottom:6px">読み込みに失敗しました</div>
-          <div>通信状況をご確認のうえ、もう一度お試しください。</div>
-          <div style="margin-top:12px">問題が続く場合は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
+        <div class="state-error" role="alert">
+          <span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">cloud_off</span>
+          <div class="state-text"><b>読み込みに失敗しました</b><br>通信状況をご確認のうえ、もう一度お試しください。<br>問題が続く場合は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
         </div>`;
     } else {
-      body.innerHTML = `<div style="padding:40px 16px;text-align:center;color:var(--muted)">문서를 불러올 수 없습니다. 네트워크 상태를 확인 후 다시 시도해 주세요.</div>`;
+      body.innerHTML = `<div class="state-error" role="alert"><span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">cloud_off</span><div class="state-text">문서를 불러올 수 없습니다. 네트워크 상태를 확인 후 다시 시도해 주세요.</div></div>`;
     }
   }
 }
