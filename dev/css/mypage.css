@@ -94,7 +94,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .inq-app-item .inq-app-title{flex:1;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .inq-app-item .material-icons-round{font-size:20px;color:var(--faint)}
 .inq-app-readonly{flex-shrink:0;font-size:var(--fs-caption);padding:2px 8px;border-radius:999px;background:var(--primary-light);color:var(--muted)}
-/* 서비스 문의 여러 대화(2026-10-06) — 「지금의 문의」·「지난 문의」 칸 제목과 대화 한 줄 */
+/* 서비스 문의 여러 대화(2026-10-06) — 「対応中」(진행 중)·「지난 문의」 칸 제목과 대화 한 줄 */
 .inq-section-title{font-size:var(--fs-desc);font-weight:700;color:var(--muted)}
 .inq-past-title{margin-top:8px}
 .inq-thread-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -104,6 +104,16 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .inq-more-btn{align-self:center;min-height:44px;padding:0 20px;border:1px solid var(--outline);border-radius:999px;background:var(--surface,#fff);color:var(--ink);font-size:var(--fs-desc);cursor:pointer}
 /* 지난 문의 대화 화면 — 작성 줄 대신 안내 + 문의 목록으로 */
 .msg-past-note{display:flex;flex-direction:column;gap:10px;padding:12px 14px}
+/* 서비스 문의 개정 R2 — 새로 문의하기 버튼(상한이면 회색) · 새 문의 화면의 열린 문의 안내·제목 칸 */
+.inq-start-btn:disabled{background:#C7C7CC;color:#fff;cursor:default}
+.inq-limit-note{margin:0;font-size:var(--fs-desc);line-height:1.6;color:var(--muted)}
+.msg-open-note{padding:10px 12px 0;font-size:var(--fs-desc);line-height:1.6;color:var(--muted)}
+.msg-open-note p{margin:0}
+.inq-link-btn{min-height:44px;padding:0;border:none;background:none;color:var(--primary);font-size:var(--fs-desc);font-weight:600;cursor:pointer;text-decoration:underline}
+.msg-subject-wrap{display:flex;flex-direction:column;gap:6px;padding:10px 12px 4px}
+.msg-subject-label{font-size:var(--fs-desc);font-weight:700;color:var(--ink)}
+.msg-subject-input{width:100%;box-sizing:border-box;min-height:44px;padding:10px 12px;border:1px solid var(--outline);border-radius:10px;font-size:16px;background:var(--surface,#fff);color:var(--ink)}
+.msg-subject-error{font-size:var(--fs-desc);color:var(--danger,#D93025)}
 #page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
 .msg-back-btn{flex-shrink:0;width:var(--tap-min);height:var(--tap-min);border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}

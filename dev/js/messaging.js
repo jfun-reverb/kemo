@@ -28,6 +28,40 @@ const FAQ_GENERAL_CATEGORY_IDS = [
 //      전부 읽음 처리해, 지난 대화가 다 보이고 배지가 통째로 꺼진다(코드 대조 R-2).
 let _msgGeneralThreadId = null;
 let _msgGeneralPast = false;   // 지난 문의(닫히고 24시간 지난 대화) — 읽기만
+// 새 문의 중복 방지값(508) — 새 문의 화면에 들어올 때 하나 만들어 보낼 때마다 같은 값을 쓰고, 떠나면 버린다.
+//   예외 하나: thread_closed 를 받으면 새로 만든다(같은 값이 24시간 지난 대화를 가리키게 됐다는 뜻)
+let _msgGeneralToken = null;
+
+// 새 문의 화면의 제목 칸(#msgSubjectWrap) — 보이기·숨기기·오류 한 줄
+function _msgShowSubject(show, value) {
+  const wrap = $('msgSubjectWrap');
+  if (wrap) wrap.style.display = show ? '' : 'none';
+  const input = $('msgSubjectInput');
+  if (input && value !== undefined) input.value = value;
+  _msgSubjectError('');
+}
+function _msgSubjectError(key) {
+  const el = $('msgSubjectError');
+  if (!el) return;
+  el.textContent = key ? t(key) : '';
+  el.style.display = key ? '' : 'none';
+}
+// 제목 칸 위 안내 — 열린 문의가 상한이면 상한 안내, 1건 이상이면 「같은 내용이면 거기에」 + 목록 링크
+function _msgRenderOpenNote(info) {
+  const el = $('msgOpenNote');
+  if (!el) return;
+  const text = !info ? '' : info.atLimit ? t('inquiry.openLimit')
+    : info.openCount > 0 ? t('inquiry.openCountHint').replace('{n}', String(info.openCount)) : '';
+  if (!text) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML = `<p>${esc(text)}</p>
+    <button type="button" class="inq-link-btn" onclick="backToInquiryList()">${esc(t('inquiry.seeList'))}</button>`;
+  el.style.display = '';
+}
+// 대화 머리글 — 제목이 있으면 제목(한 줄 말줄임은 스타일), 없으면 「運営チームへのお問い合わせ」
+function _msgSetGeneralHeader(title) {
+  const titleEl = $('msgModalTitle');
+  if (titleEl) titleEl.textContent = title || t('inquiry.generalTitle');
+}
 
 // 대화가 열려 있나 — 일반 문의는 응모 번호가 없으므로 모드로 판정한다.
 function _msgActive() { return _msgMode === 'general' || !!_msgCurrentAppId; }
@@ -64,10 +98,12 @@ function _msgUpload(f) {
     ? uploadGeneralInquiryAttachment(f, currentUser?.id)
     : uploadMessageAttachment(f, _msgCurrentAppId);
 }
-function _msgSend(body, attachments) {
-  return _msgMode === 'general'
-    ? sendGeneralInquiryMessage(body, attachments, currentUser?.id || null, _msgGeneralThreadId)
-    : sendApplicationMessage(_msgCurrentAppId, body, attachments);
+// title: 새 문의일 때만(대화가 있으면 null). 새 문의는 중복 방지값을 함께 보낸다(508).
+function _msgSend(body, attachments, title) {
+  if (_msgMode !== 'general') return sendApplicationMessage(_msgCurrentAppId, body, attachments);
+  const isNew = !_msgGeneralThreadId;
+  return sendGeneralInquiryMessage(body, attachments, currentUser?.id || null, _msgGeneralThreadId,
+    isNew ? title : null, isNew ? _msgGeneralToken : null);
 }
 let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
@@ -164,6 +200,9 @@ function _msgPrepareCompose(_msgReadOnly, past) {
       if (_msgReadOnly) note.textContent = t('messaging.cancelledReadOnly');
     }
     if (pastNote) pastNote.style.display = past ? '' : 'none';
+    // 제목 칸·열린 문의 안내는 새 문의 화면만 — 그 진입이 다시 켠다
+    _msgShowSubject(false);
+    _msgRenderOpenNote(null);
   }
 
   renderMsgAttachPreview();
@@ -296,8 +335,10 @@ let _inqThreads = null;     // 서비스 문의 대화 목록(506 뷰) — null=
 let _inqNoApps = false;     // 응모 0건 회원 — 캠페인 문의 탭을 감추고 서비스 문의만(코드 대조 R-3)
 const INQ_PAST_PAGE = 20;   // 지난 문의 한 번에 보이는 수 — 나머지는 「もっと見る」(경우의 수 #9)
 let _inqPastShown = INQ_PAST_PAGE;
-// 닫힌 대화가 「지금의 문의」 칸에 남는 시간 — 서버(505)가 같은 대화를 다시 여는 기준과 같다
+// 닫힌 대화가 「対応中」(진행 중) 목록에 남는 시간 — 서버(505)가 같은 대화를 다시 여는 기준과 같다
 const INQ_REOPEN_WINDOW_MS = 24 * 60 * 60 * 1000;
+// 문의 제목 최대 글자 수 — 서버 검사 제약(507)·입력란 maxlength 와 같은 값
+const INQ_TITLE_MAX = 40;
 
 // 문의 입구 — from: 'nav'(햄버거) / 'back'(대화에서 뒤로 — 보던 탭 유지) / 'notif'(옛 알림 — 서비스 탭) / 'withdraw' 등.
 //   응모 0건 회원도 이 화면으로 온다 — 캠페인 문의 탭만 감춘다(R-3. 예전엔 대화로 바로 갔다).
@@ -373,41 +414,65 @@ function renderInquiryBranch() {
   box.innerHTML = tabs + body;
 }
 
-// 「지금의 문의」 칸의 대화 — 열린 대화가 우선, 없으면 닫힌 지 24시간 안인 가장 최근 대화(사양서 D-4).
-//   24시간은 **서버가 준 닫힌 시각**으로 잰다. 기기 시계 때문에 경계에서 어긋나도 서버가 맞는 대화로 보내고,
-//   화면은 보낸 뒤 받은 대화 id 로 다시 그린다(sendMessageFromModal).
-function _inqCurrentThread(threads) {
-  const list = threads || [];
-  const open = list.find(th => th.status === 'open');
-  if (open) return open;
-  const now = Date.now();
-  return list
-    .filter(th => th.status === 'closed' && th.closed_at && now - new Date(th.closed_at).getTime() < INQ_REOPEN_WINDOW_MS)
-    .sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at))[0] || null;
+// 「対応中」(진행 중) 목록에 들어가나 — 열린 대화 전부 + 닫힌 지 24시간 안인 대화(개정 R2-5).
+//   🔴 목록·대화 진입(쓸 수 있나 / 지난 문의인가)이 **이 함수 하나**를 쓴다 — 판정 사본을 만들지 않는다.
+//   24시간은 **서버가 준 닫힌 시각**으로 잰다. 기기 시계 때문에 경계에서 어긋나면 서버가 thread_closed 로
+//   거부하고 화면이 안내한다(sendMessageFromModal).
+function _inqIsActiveThread(th) {
+  if (!th) return false;
+  if (th.status === 'open') return true;
+  return th.status === 'closed' && !!th.closed_at
+    && Date.now() - new Date(th.closed_at).getTime() < INQ_REOPEN_WINDOW_MS;
 }
 
-// 서비스 문의 탭 본문 — 「지금의 문의」 칸(또는 문의하기 버튼) + 지난 문의 목록
+// 열린 문의 상한 — 서버 뷰 값(508, 열린 대화만 센다 — 「対応中」 목록 범위와 다르다). 대화가 없으면 상한 아님
+function _inqOpenInfo(threads) {
+  const row = (threads || [])[0];
+  return {
+    atLimit: !!(row && row.influencer_at_open_limit),
+    openCount: row ? (Number(row.influencer_open_thread_count) || 0) : 0,
+  };
+}
+
+// 대화 줄 정렬 — 최근 글 순(글이 없으면 연 시각)
+function _inqByRecent(a, b) {
+  return new Date(b.last_message_at || b.opened_at || 0) - new Date(a.last_message_at || a.opened_at || 0);
+}
+
+// 「新しくお問い合わせ」(새로 문의하기) 버튼 — 열린 문의가 상한이면 회색 + 안내 한 줄(감추지 않는다)
+function _inqServiceNewBtnHtml(atLimit) {
+  if (atLimit) {
+    return `<button type="button" class="inq-start-btn" disabled aria-disabled="true">
+        <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+      </button>
+      <p class="inq-limit-note">${esc(t('inquiry.openLimit'))}</p>`;
+  }
+  return `<button type="button" class="inq-start-btn" onclick="openGeneralInquiryNew('branch')">
+      <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+    </button>`;
+}
+
+// 서비스 문의 탭 본문 — 새로 문의하기 버튼 + 「対応中」 목록 + 지난 문의 목록
 function _inqServiceHtml(unread) {
   const newReply = unread
     ? `<p class="inq-new-reply"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">mark_chat_unread</span>${esc(t('inquiry.newReply'))}</p>` : '';
   if (_inqThreads === null) {
     return `<div class="inq-other"><p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>${stateErrorHtml(t('inquiry.threadsLoadError'), 'retryInquiryApps')}</div>`;
   }
-  const cur = _inqCurrentThread(_inqThreads);
-  // 지난 문의 = 「지금의 문의」 칸에 놓이지 않은 닫힌 대화 전부, 최근에 닫힌 순
+  const active = _inqThreads.filter(_inqIsActiveThread).sort(_inqByRecent);
+  // 지난 문의 = 「対応中」에 들지 않는 닫힌 대화 전부, 최근에 닫힌 순
   const past = _inqThreads
-    .filter(th => th.status === 'closed' && th !== cur)
+    .filter(th => th.status === 'closed' && !_inqIsActiveThread(th))
     .sort((a, b) => new Date(b.closed_at || 0) - new Date(a.closed_at || 0));
-  const curHtml = cur
-    ? `<div class="inq-app-list">${_inqThreadRowHtml(cur, true)}</div>`
-    : `<button type="button" class="inq-start-btn" onclick="openGeneralInquiryPage('branch')">
-        <span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('inquiry.otherStart'))}
-      </button>`;
+  // 「対応中」이 비면 칸 제목도 숨긴다
+  const activeHtml = active.length
+    ? `<div class="inq-section-title">${esc(t('inquiry.currentTitle'))}</div>
+       <div class="inq-app-list">${active.map(th => _inqThreadRowHtml(th, true)).join('')}</div>` : '';
   let html = `<div class="inq-other">
     <p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>
     ${newReply}
-    <div class="inq-section-title">${esc(t('inquiry.currentTitle'))}</div>
-    ${curHtml}
+    ${_inqServiceNewBtnHtml(_inqOpenInfo(_inqThreads).atLimit)}
+    ${activeHtml}
   </div>`;
   if (past.length) {
     const more = past.length > _inqPastShown
@@ -418,11 +483,11 @@ function _inqServiceHtml(unread) {
   return html;
 }
 
-// 대화 한 줄 — 날짜 · 첫 줄 · (지금의 문의 칸의 닫힌 대화면 「対応済み」) · 안 읽은 답장 배지.
+// 대화 한 줄 — 날짜 · 제목(없으면 첫 글 미리보기) · (「対応中」의 닫힌 대화면 「対応済み」) · 안 읽은 답장 배지.
 //   🔴 지난 문의 줄에도 배지를 단다 — 안 달면 햄버거 배지(합계)만 남고 화면 어디에도 안 보인다
 function _inqThreadRowHtml(th, isCurrent) {
   const date = formatDate(th.last_message_at || th.opened_at);
-  const first = th.first_message_preview || t('inquiry.noVisibleMessage');
+  const first = th.title || th.first_message_preview || t('inquiry.noVisibleMessage');
   const n = Number(th.unread_for_influencer) || 0;
   const badge = n > 0 ? `<span class="inq-tab-badge">${esc(n > 9 ? '9+' : String(n))}</span>` : '';
   const done = (isCurrent && th.status === 'closed') ? `<span class="inq-app-readonly">${esc(t('inquiry.resolved'))}</span>` : '';
@@ -437,12 +502,18 @@ function showMorePastInquiries() { _inqPastShown += INQ_PAST_PAGE; renderInquiry
 // 서비스 문의 대화 → 서비스 탭 목록(뒤로가기 · 지난 문의의 「お問い合わせ一覧に戻る」 공용)
 function backToInquiryList() { _inqTab = 'other'; if (typeof openInquiryPage === 'function') openInquiryPage('back'); }
 
-// 「지금의 문의」 칸의 대화로 바로(탈퇴 지름길) — 없으면 새 문의. 서버 발신 규칙(D-3)과 같은 대화로 간다
-async function openGeneralInquiryCurrent(from) {
-  if (!currentUser) { navigate('login'); return; }
-  const threads = await fetchMyGeneralInquiryThreads();
-  const cur = threads ? _inqCurrentThread(threads) : null;   // 조회 실패면 새 문의 — 보내면 서버가 맞는 대화로 넣는다
-  openGeneralInquiryPage(from, undefined, cur ? cur.thread_id : null);
+// 새 문의 화면으로(목록 버튼 · 탈퇴 지름길). presetTitle 은 제목 칸에 미리 채울 값(회원이 고칠 수 있다).
+function openGeneralInquiryNew(from, presetTitle) {
+  openGeneralInquiryPage(from, undefined, null, { title: presetTitle || '' });
+}
+
+// 새 문의 중복 방지값 — 서버 칸이 uuid 형식이라 그 모양으로 만든다(다른 모양이면 형식 오류)
+function _inqNewToken() {
+  if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 // 「새 문의」 — 캠페인 문의 탭 맨 아래(빈 상태에도). 누르면 응모 고르기 보기(조각 5-B)
@@ -499,10 +570,10 @@ function inquiryThreadIdFromHash(h) {
 // 서비스 문의 대화 — #page-messages 를 재사용한다.
 //   주소: 대화 #inquiry-general-{대화id} · 새 문의 #inquiry-general(사양서 2026-10-06 회원 화면)
 //   from: 'nav' / 'branch' / 'withdraw' / 'notif' — 뒤로가기 목적지(navigateBackFromMessages).
-//   threadId 없음 = 새 문의 — 빈 화면 + 자주 묻는 질문만. 조회·읽음을 부르지 않는다(R-2).
-//     첫 글을 보내는 순간 서버가 대화를 만든다(빈 대화를 미리 만들지 않는다).
-//   threadId 있음 = 「지금의 문의」 칸 대화면 쓸 수 있고, 지난 문의면 읽기만.
-async function openGeneralInquiryPage(from, pushHistory, threadId = null) {
+//   threadId 없음 = 새 문의 — 제목 칸 + 자주 묻는 질문. 메시지 조회·읽음을 부르지 않는다(R-2).
+//     첫 글을 보내는 순간 서버가 대화를 만든다(빈 대화를 미리 만들지 않는다). opts.title = 제목 칸 미리 채움.
+//   threadId 있음 = 「対応中」 대화면 쓸 수 있고, 지난 문의면 읽기만.
+async function openGeneralInquiryPage(from, pushHistory, threadId = null, opts = {}) {
   if (!currentUser) { navigate('login'); return; }
   _stopMsgPoll();   // 같은 페이지 안에서 다른 대화로 옮길 때 — navigate 가 정리 함수를 건너뛴다
   _toggleMsgNewBanner(false);
@@ -510,6 +581,7 @@ async function openGeneralInquiryPage(from, pushHistory, threadId = null) {
   _msgCurrentAppId = null;
   _msgGeneralThreadId = threadId || null;
   _msgGeneralPast = false;
+  _msgGeneralToken = threadId ? null : _inqNewToken();
   _msgFrom = from || 'nav';
   _msgPendingFiles = [];
   _faqLoaded = false;
@@ -520,8 +592,7 @@ async function openGeneralInquiryPage(from, pushHistory, threadId = null) {
   if (pushHistory === false && location.hash !== '#' + hash) {
     try { history.replaceState({page: hash}, '', '#' + hash); } catch (_e) {}
   }
-  const titleEl = $('msgModalTitle');
-  if (titleEl) titleEl.textContent = t('inquiry.generalTitle');
+  _msgSetGeneralHeader('');
   // 일반 문의에는 응모 상태 한 줄이 없다(특정 응모가 아니므로)
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
   const myThread = _msgGeneralThreadId;
@@ -533,9 +604,13 @@ async function openGeneralInquiryPage(from, pushHistory, threadId = null) {
 
   if (!myThread) {
     _msgPrepareCompose(false, false);
-    // 자주 묻는 질문 안내는 새 문의에서만(개발 기본값 — 이미 있는 대화를 열 때는 띄우지 않는다)
-    await setupFaqGate(null, {}, { general: true });
-    if (!stillHere()) return;
+    _msgShowSubject(true, opts.title || '');
+    const myToken = _msgGeneralToken;
+    // 자주 묻는 질문 안내는 새 문의에서만(개발 기본값 — 이미 있는 대화를 열 때는 띄우지 않는다).
+    //   대화 목록은 열린 문의 안내(N건·상한)용 — 실패면 안내만 생략한다(보내면 서버가 상한을 다시 본다)
+    const [, threads] = await Promise.all([setupFaqGate(null, {}, { general: true }), fetchMyGeneralInquiryThreads()]);
+    if (!stillHere() || _msgGeneralToken !== myToken) return;
+    _msgRenderOpenNote(threads ? _inqOpenInfo(threads) : null);
     renderMessageThread([]);
     _msgLastCount = 0;
     closeFaqOverlay();
@@ -543,7 +618,7 @@ async function openGeneralInquiryPage(from, pushHistory, threadId = null) {
   }
 
   try {
-    // 이 대화가 「지금의 문의」 칸인지 지난 문의인지는 서버 값(대화 목록)으로 정한다
+    // 이 대화가 「対応中」(진행 중)인지 지난 문의인지는 서버 값(대화 목록)으로 정한다
     const threads = await fetchMyGeneralInquiryThreads();
     if (!stillHere()) return;
     if (threads === null) throw new Error('general_inquiry_threads_load_failed');
@@ -556,8 +631,8 @@ async function openGeneralInquiryPage(from, pushHistory, threadId = null) {
       if (thread) thread.innerHTML = stateEmptyHtml('error_outline', '', t('inquiry.threadNotFound'));
       return;
     }
-    const cur = _inqCurrentThread(threads);
-    _msgGeneralPast = !(cur && cur.thread_id === myThread);
+    _msgGeneralPast = !_inqIsActiveThread(th);
+    _msgSetGeneralHeader(th.title || '');
     _msgPrepareCompose(false, _msgGeneralPast);
     const msgs = await _msgLoad();
     if (!stillHere()) return;
@@ -600,6 +675,9 @@ function cleanupMessagesPage() {
   _msgMode = 'app';   // 일반 문의로 바꿔 둔 것을 되돌린다 — 다음 응모건 진입이 옛 모드를 물려받지 않게
   _msgGeneralThreadId = null;
   _msgGeneralPast = false;
+  _msgGeneralToken = null;   // 떠나면 버린다 — 다시 들어오면 새 문의는 새 값
+  _msgShowSubject(false, '');
+  _msgRenderOpenNote(null);
   const pastNote = $('msgPastNote'); if (pastNote) pastNote.style.display = 'none';
   _msgPendingFiles = [];
   // 상태 한 줄·전체 보기 오버레이 정리 (봇 카드는 스레드 일부라 thread 비우면 함께 사라짐)
@@ -799,6 +877,14 @@ async function sendMessageFromModal() {
   }
   const inputEl = $('msgModalInput');
   const body = (inputEl?.value || '').trim();
+  // 새 문의는 제목이 필수(1~40자) — 첨부를 올리기 전에 막는다. 서버도 같은 규칙으로 거부한다
+  const isNewInquiry = _msgMode === 'general' && !_msgGeneralThreadId;
+  const subject = isNewInquiry ? ($('msgSubjectInput')?.value || '').trim() : null;
+  if (isNewInquiry) {
+    if (!subject) { _msgSubjectError('inquiry.subjectRequired'); $('msgSubjectInput')?.focus(); return; }
+    if (Array.from(subject).length > INQ_TITLE_MAX) { _msgSubjectError('inquiry.subjectTooLong'); $('msgSubjectInput')?.focus(); return; }
+    _msgSubjectError('');
+  }
   if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
 
   // 봇 안내 카드 방식(2026-05-22): 발송을 가로채는 게이트 폐기 — 발송은 항상 바로 진행.
@@ -822,12 +908,16 @@ async function sendMessageFromModal() {
           return;   // 잠금 해제는 헬퍼 finally 가 한다
         }
       }
-      const sent = await _msgSend(body, attachments);
-      // 서비스 문의 — 서버가 정한 대화로 화면을 옮긴다(첫 글이면 새 대화, 24시간 경계면 다른 대화일 수 있다).
+      const sent = await _msgSend(body, attachments, subject);
+      // 서비스 문의 — 새 문의면 서버가 만든 대화로 화면을 옮긴다. 제목 칸을 닫고 머리글에 제목.
       //   주소도 그 대화로 바꿔 새로고침·뒤로가기가 같은 대화로 돌아오게. 새 글 감지도 이때 켠다
       if (_msgMode === 'general' && sent?.thread_id && sent.thread_id !== _msgGeneralThreadId) {
         _msgGeneralThreadId = sent.thread_id;
         _msgGeneralPast = false;
+        _msgGeneralToken = null;
+        _msgShowSubject(false, '');
+        _msgRenderOpenNote(null);
+        if (isNewInquiry) _msgSetGeneralHeader(subject);
         const h = INQ_GENERAL_HASH_PREFIX + sent.thread_id;
         try { history.replaceState({page: h}, '', '#' + h); } catch (_e) {}
         _startMsgPoll();
@@ -849,15 +939,33 @@ async function sendMessageFromModal() {
       //   ⚠️ 바로 그 「일반 메시지로 덮는」 경로가 취소 사고와 같은 모양이다.
       //      P0001(서버가 의도적으로 거부)은 정상 거부, 나머지는 예상 못 한 오류로 기록.
       logAppError(_msgMode === 'general' ? 'sendGeneralInquiryMessage' : 'sendApplicationMessage', e, e?.code === 'P0001' ? [String(e.message || '')] : null);
-      // 505 거부 코드(영문)는 화면에 그대로 내지 않는다 — 회원이 만날 수 있는 것은 남의/없는 대화뿐
-      const code = String(e?.message || '');
-      if (e?.code === 'P0001' && /thread_not_found|thread_closed|no_open_thread|open_thread_exists|new_message_since_view/.test(code)) {
-        toast(t('inquiry.threadNotFound'));
+      // 508 거부 코드(영문)는 화면에 그대로 내지 않는다. 🔴 어느 거부에서도 쓴 글·제목·첨부는 지우지 않는다
+      //   (지우는 곳은 성공 뒤 한 곳뿐)
+      const key = (_msgMode === 'general' && e?.code === 'P0001') ? _msgGeneralRejectKey(String(e?.message || ''), isNewInquiry) : null;
+      if (key === 'inquiry.subjectRequired' || key === 'inquiry.subjectTooLong') {
+        _msgSubjectError(key);
+      } else if (key) {
+        toast(t(key));
       } else {
         toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
       }
     }
   });
+}
+
+// 서비스 문의 거부 코드 → 안내 문구 키(508). 모르는 코드면 null(호출부가 서버 문구·일반 실패로).
+//   isNew: 새 문의 화면에서 보냈나 — 같은 코드라도 화면마다 안내가 다르다(사양서 개정 「거부 안내」).
+function _msgGeneralRejectKey(code, isNew) {
+  if (/title_required/.test(code)) return 'inquiry.subjectRequired';
+  if (/title_too_long/.test(code)) return 'inquiry.subjectTooLong';
+  if (/too_many_open_threads/.test(code)) return isNew ? 'inquiry.openLimit' : 'inquiry.openLimitReopen';
+  if (/thread_closed/.test(code)) {
+    // 새 문의 화면: 같은 중복 방지값이 24시간 지난 대화에 닿았다 — 값을 새로 만들어 다음 보내기는 새 대화로
+    if (isNew) _msgGeneralToken = _inqNewToken();
+    return 'inquiry.threadClosedNew';
+  }
+  if (/thread_not_found|no_open_thread|thread_required|new_message_since_view/.test(code)) return 'inquiry.threadNotFound';
+  return null;
 }
 
 // ════════════════════════════════════════════════════════════════════

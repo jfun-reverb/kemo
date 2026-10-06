@@ -1058,10 +1058,10 @@ function withdrawLockedHtml(b) {
 
 // 운영팀 연락 버튼 — LINE 대신 앱 안 「서비스 문의」 대화로 바로(일반 문의 창구, 사양서 §12 ①).
 //   뒤로가기는 이 탈퇴 화면으로 돌아온다(openGeneralInquiryPage 의 from='withdraw').
-//   「지금의 문의」 칸의 대화가 있으면 그 대화, 없으면 새 문의(서비스 문의 여러 대화 — 서버가 글을 넣을 대화와 같게).
+//   늘 새 문의 화면 + 제목 「退会について」(탈퇴에 대해) 미리 채움 — 회원이 고칠 수 있다(서비스 문의 여러 대화 개정 R2).
 //   ⚠️ 로그아웃 뒤 안내(auth.withdrawnLogout)·예정일 메일은 로그인할 수 없어 LINE 을 그대로 둔다.
 function withdrawContactBtnHtml() {
-  return `<button type="button" class="btn btn-primary btn-block" style="margin-top:12px" onclick="openGeneralInquiryCurrent('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
+  return `<button type="button" class="btn btn-primary btn-block" style="margin-top:12px" onclick="openGeneralInquiryNew('withdraw', t('inquiry.withdrawSubject'))">${esc(t('messaging.navMenu'))}</button>`;
 }
 
 // ── 【C】 대기 중 — pending_payout ──

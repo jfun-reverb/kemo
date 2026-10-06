@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791282404';
+  var CURRENT_BUILD = 'v1791282806';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3304,7 +3304,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-06 19:26 · 2fb3e43</span>
+          <span class="admin-build-text">2026-10-06 19:33 · 2fcfa30</span>
         </div>
       </div>
     </aside>
@@ -10361,8 +10361,8 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   //   — 서버의 의도적 거부다. 오류 문구 등록(admin-core.js friendlyError)과 **한 세트**다.
   /payout_bundle_required|paid_at_owned_by_transfer/,
   // 서비스 문의 여러 대화의 의도적 거부(마이그레이션 505) — 화면을 본 뒤 새 글 도착 · 이미 열린 대화 있음 ·
-  //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화
-  /new_message_since_view|open_thread_exists|no_open_thread|thread_closed|thread_not_found/,
+  //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화(「이미 열린 대화 있음」은 508 에서 없어졌다)
+  /new_message_since_view|no_open_thread|thread_closed|thread_not_found/,
   // 같은 기능의 개정(마이그레이션 508) — 새 문의 제목 없음 · 제목 40자 초과 · 열린 문의 상한 · 운영팀 발신에 대화 지정 필요
   /title_required|title_too_long|too_many_open_threads|thread_required/,
   /모집 정원|slots_full|under_age|age_policy/,
