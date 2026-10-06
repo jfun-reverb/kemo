@@ -74,6 +74,20 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- ── 프로필 부족 알럿 모달 ── -->
+<!-- ── 마이페이지 폼을 저장하지 않고 나갈 때(2026-10-06 사용자 결정 — 단추 둘: 저장 / 저장하지 않고 이동) ── -->
+<div id="mypageLeaveOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="mypageLeaveTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="mypageLeaveTitle" data-i18n="mypageLeave.title">変更した内容を保存しますか？</div></div>
+    <div class="popup-body center">
+      <div class="popup-desc" data-i18n="mypageLeave.desc">保存しないで移動すると、変更した内容は消えます。</div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" id="mypageLeaveDiscardBtn" onclick="resolveMypageLeave('discard')" data-i18n="mypageLeave.discard">保存せずに移動</button>
+      <button type="button" class="btn btn-primary" id="mypageLeaveSaveBtn" onclick="resolveMypageLeave('save')" data-i18n="mypageLeave.save">保存する</button>
+    </div>
+  </div>
+</div>
+
 <div id="profileAlertOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="profileAlertTitle">
   <div class="dialog">
     <div class="popup-head center"><div class="popup-title" id="profileAlertTitle" data-i18n="profileAlert.title">キャンペーン応募の前に</div></div>
@@ -1095,7 +1109,7 @@ window._supabaseLoaded = false;
         </div>
         <div class="form-group"><label class="form-label" data-i18n="profile.lineId">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@reverb.jpを追加後、IDを入力" data-i18n-attr="placeholder:profile.lineIdHint"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.bio">一言自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
-        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
+        <button type="button" id="profileBasicSaveBtn" class="btn btn-primary btn-block" disabled onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
       </div>
     </div>
   </div>
@@ -1138,7 +1152,7 @@ window._supabaseLoaded = false;
           <input type="text" id="profileYoutube" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">YouTube Subscribers</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
-        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
+        <button type="button" id="profileSnsSaveBtn" class="btn btn-primary btn-block" disabled onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
       </div>
     </div>
   </div>
@@ -1165,7 +1179,7 @@ window._supabaseLoaded = false;
         <div class="form-group"><label class="form-label" data-i18n="profile.city">市区町村・番地</label><input type="text" id="profileCity" class="form-input" placeholder="渋谷区渋谷1-2-3" data-i18n-attr="placeholder:profile.cityPlaceholder"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.building">建物名・部屋番号</label><input type="text" id="profileBuilding" class="form-input"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.phone">電話番号</label><input type="tel" id="profilePhone" class="form-input" placeholder="090-1234-5678"></div>
-        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
+        <button type="button" id="profileAddressSaveBtn" class="btn btn-primary btn-block" disabled onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
       </div>
     </div>
   </div>
@@ -1184,7 +1198,7 @@ window._supabaseLoaded = false;
         <div class="mp-note">
           <span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
-        <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
+        <button type="button" id="paypalSaveBtn" class="btn btn-primary btn-block" disabled onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
     </div>
   </div>
@@ -1220,7 +1234,7 @@ window._supabaseLoaded = false;
         </div>
         <div class="pw-policy mp-caption" style="margin-top:-8px;margin-bottom:12px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
+        <button type="button" id="pwChangeBtn" class="btn btn-primary btn-block" disabled onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
     </div>
   </div>
