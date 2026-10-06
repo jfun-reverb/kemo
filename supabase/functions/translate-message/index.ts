@@ -43,6 +43,11 @@
 //     Function: translate-message
 //     HTTP Method: POST
 //     HTTP Headers: (기본)
+//   🔴 웹훅 하나 더(서비스 문의 대화 제목 — 마이그레이션 507·508, 개발·운영 각각):
+//     Name    : translate-inquiry-thread-title
+//     Table   : public.general_inquiry_threads
+//     Events  : INSERT, UPDATE   (UPDATE 는 운영팀 제목 고치기 — 닫기·다시 열기도 오지만 함수가 상태를 보고 끝낸다)
+//     나머지는 위와 같다(Supabase Edge Functions · translate-message · POST)
 //
 // 환경변수 (Edge Functions Secrets, 개발/운영 각각 설정 필요):
 //   GOOGLE_TRANSLATE_API_KEY   Google Cloud Translation API 키
@@ -162,6 +167,63 @@ async function callGoogleTranslate(text: string, target: string): Promise<Google
   }
 }
 
+// ── 서비스 문의 대화 제목 번역(사양서 2026-10-06 「🔄 설계 개정」 R2-6) ─────────
+//   회원이 일본어로 쓴 제목을 관리자 화면용 한국어로. 결과는 general_inquiry_threads 의
+//   title_translated · title_translate_status 에 저장한다.
+//   🔴 번역하는 조건 = 행의 번역 상태가 'pending' 이고 제목이 있을 때만. 상태는 제목이 생기거나
+//      바뀔 때만 'pending' 이 된다(508 발신 함수 · 제목 고치기 함수) — 닫기·다시 열기로 오는
+//      고쳐 쓰기 웹훅은 상태가 그대로라 여기서 끝난다(유료 번역 API 를 부르지 않는다).
+//   🔴 요청 본문은 대화 번호만 쓰고 제목·상태는 데이터베이스 행에서 읽는다(메시지 갈래와 같은 원칙).
+//   🔴 저장 직전에 제목이 그대로이고 아직 'pending' 인지 다시 본다 — 번역 도중 운영팀이 제목을
+//      바꾸거나 비웠으면 저장하지 않는다(옛 번역이 되살아나지 않게).
+//   제목이 비어 있으면(운영팀이 비움 · 옛 화면이 만든 제목 없는 대화) 상태가 'pending' 이 아니므로 그대로 끝난다.
+async function handleThreadTitle(threadId: string): Promise<Response> {
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  const sb = getServiceClient();
+  const { data: row, error: rowErr } = await sb
+    .from("general_inquiry_threads")
+    .select("id, title, title_translate_status")
+    .eq("id", threadId)
+    .maybeSingle();
+  if (rowErr || !row) {
+    console.error("[translate-message] thread fetch failed or not found", { threadId, error: rowErr?.message });
+    return json({ skipped: true, reason: rowErr ? "fetch_error" : "not_found" });
+  }
+  const title = (row.title ?? "").trim();
+  if (row.title_translate_status !== "pending" || !title) {
+    return json({ skipped: true, reason: "title_not_pending" });
+  }
+
+  // 저장 — 제목이 그대로이고 아직 pending 인 행에만(그 사이 바뀌었으면 0행 = 저장 안 함)
+  const save = async (patch: { title_translated?: string | null; title_translate_status: "done" | "failed" | "skipped" }) => {
+    const { error } = await sb
+      .from("general_inquiry_threads")
+      .update(patch)
+      .eq("id", threadId)
+      .eq("title", row.title)
+      .eq("title_translate_status", "pending");
+    if (error) console.error("[translate-message] thread update failed", { threadId, error: error.message });
+  };
+
+  let result: GoogleTranslateResult;
+  try {
+    result = await callGoogleTranslate(title, "ko");
+  } catch (apiErr) {
+    console.error("[translate-message] google translate error (thread title)", { threadId, message: (apiErr as Error).message });
+    await save({ title_translate_status: "failed" });
+    return json({ translated: false, reason: "api_error" });
+  }
+  // 이미 한국어로 쓴 제목 — 번역 불필요(화면은 원문만)
+  if (result.detectedSourceLanguage === "ko") {
+    await save({ title_translated: null, title_translate_status: "skipped" });
+    return json({ skipped: true, reason: "same_language" });
+  }
+  await save({ title_translated: result.translatedText, title_translate_status: "done" });
+  console.log("[translate-message] thread title done", { threadId });
+  return json({ translated: true, target: "ko" });
+}
+
 // ── 공개 키로 부르는 것을 막는다 ────────────────────────────────
 // 🔴 이 함수는 **메일을 보낸다.** 막는 것이 없으면 사이트에 박힌 공개 키만으로
 //    누구나 발송을 시킬 수 있다(2026-09-02 전수조사 — 같은 형태가 여섯 개였다).
@@ -250,6 +312,21 @@ Deno.serve(async (req: Request) => {
     table: payload?.table,
     record_id: payload?.record?.id,
   });
+
+  // 서비스 문의 대화 제목(마이그레이션 507·508) — 대화 표의 삽입·고쳐 쓰기 웹훅
+  if (payload?.table === "general_inquiry_threads" && payload?.record?.id
+      && (payload.type === "INSERT" || payload.type === "UPDATE")) {
+    // 예상 못 한 오류(환경변수 누락·네트워크)도 200 으로 끝낸다 — 웹훅 재시도 폭주 방지(메시지 갈래와 같은 원칙)
+    try {
+      return await handleThreadTitle(String(payload.record.id));
+    } catch (e) {
+      console.error("[translate-message] thread title top-level error", { threadId: payload.record.id, message: (e as Error).message });
+      return new Response(JSON.stringify({ skipped: true, reason: "error" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+  }
 
   // INSERT + application_messages 이벤트만 처리 (Dashboard Webhook 필터가
   // 걸러주지만 이중 안전장치 — notify-orient-submitted 패턴 동일)
