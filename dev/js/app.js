@@ -59,6 +59,13 @@ function restoreActivityHash() {
   } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
 }
 
+// 상단 로고 — 앱 안 이동이 아니라 첫 화면을 통째로 다시 불러온다(navigate 를 안 거친다).
+//   그래서 마이페이지 「저장 안 한 변경」 확인을 여기서 따로 건다(2026-10-06 — 로고로는 그냥 나가지던 결함)
+function onGnbLogoClick() {
+  if (typeof mypageLeaveGuardHref === 'function' && !mypageLeaveGuardHref('/')) return;
+  window.location.href = '/';
+}
+
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
@@ -430,7 +437,10 @@ function setupPTR() {
   appShell.addEventListener('touchend', () => {
     if (!pulling || !activePage || isRefreshing) return;
     const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
-    if (adjusted >= TRIGGER_AT) {
+    if (adjusted >= TRIGGER_AT && typeof mypageLeaveGuardHref === 'function' && !mypageLeaveGuardHref(null)) {
+      // 마이페이지 폼에 저장 안 한 변경 — 새로고침하면 사라지므로 먼저 묻는다(고른 뒤 새로고침)
+      reset();
+    } else if (adjusted >= TRIGGER_AT) {
       // 새로고침 실행 — 인디케이터를 임계 위치에 고정하고 회전 애니메이션
       isRefreshing = true;
       indicator.style.transform = `translate(-50%, 24px)`;
