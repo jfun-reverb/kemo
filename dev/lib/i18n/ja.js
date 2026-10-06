@@ -99,7 +99,7 @@ window.I18N_JA = {
     //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
     submitting: '送信中…',
     uploading: 'アップロード中…',
-    retry: '再試行',
+    retry: 'もう一度読み込む',
     close: '閉じる',
     apply: '適用',
     ok: 'OK',
@@ -108,7 +108,7 @@ window.I18N_JA = {
   // 홈
   home: {
     hero: {
-      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      eyebrow: 'K-Brand × Japan Only',
       titleLine1: '韓国の人気Kブランドを',
       titleLine2: 'あなたのSNSで',
       titleLine3: '体験しよう',
@@ -226,7 +226,7 @@ window.I18N_JA = {
       newLabel: '新しいパスワード（8文字以上）',
       confirmLabel: 'パスワード確認',
       btn: 'パスワードを変更',
-      verifying: '確認しています...',
+      verifying: '確認しています…',
       expiredTitle: 'このリンクは使えません',
       expiredStep1: 'リンクは受け取ってから しばらくすると 使えなくなります',
       expiredStep2: '何回か送った場合は いちばん新しいメールのリンクだけ 使えます',
@@ -391,7 +391,7 @@ window.I18N_JA = {
 
   // 메일 1-click 수신거부 페이지
   unsubscribe: {
-    loading: '確認しています...',
+    loading: '確認しています…',
     successTitle: 'メールの配信を停止しました',
     successDesc: '今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。',
     backToMypage: 'マイページへ',
@@ -636,6 +636,8 @@ window.I18N_JA = {
     requiredMention: '必須メンション',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    slidePrev: '前の写真',
+    slideNext: '次の写真',
     productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',
@@ -715,7 +717,7 @@ window.I18N_JA = {
     receiptDateLabel: '購入日',
     receiptAmountLabel: '金額（円）',
     submitBtn: '登録する',
-    uploading: 'アップロード中...',
+    uploading: 'アップロード中…',
     noReceipt: 'まだレシートが登録されていません',
     noImage: 'まだ画像が追加されていません',
     imageSection: '画像の提出',
@@ -872,6 +874,7 @@ window.I18N_JA = {
     currentPw: '現在のパスワード',
     newPw: '新しいパスワード',
     newPwConfirm: '新しいパスワード（確認）',
+    changePwBtn: 'パスワードを変更',
     pwChangeHint: '定期的なパスワード変更をお勧めします',
     requiredHint: 'キャンペーン応募に必須の入力項目です',
     unregistered: '未登録',
@@ -929,7 +932,7 @@ window.I18N_JA = {
     cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
-    loading: '読み込み中...',
+    loading: '読み込み中…',
     loadError: 'お問い合わせの読み込みに失敗しました',
     emptyThread: 'まだお問い合わせはありません。下の入力欄から運営チームへお問い合わせいただけます。',
     you: '本人',
@@ -940,7 +943,7 @@ window.I18N_JA = {
     withdraw: '取り消す',
     withdrawConfirm: 'このメッセージを取り消しますか？',
     withdrawFailed: 'メッセージの取り消しに失敗しました',
-    placeholder: 'お問い合わせ内容を入力...',
+    placeholder: 'お問い合わせ内容を入力…',
     attachMax: '添付は最大{n}枚までです',
     attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
     attachUploadFailed: '画像のアップロードに失敗しました',

@@ -2,29 +2,29 @@
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
 .auth-wrap{display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;padding-bottom:60px}
-.auth-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r24);padding:28px 20px;width:100%;max-width:100%;box-shadow:var(--elevation-2);box-sizing:border-box;overflow:hidden}
+.auth-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:28px 20px;width:100%;max-width:100%;box-shadow:var(--elevation-2);box-sizing:border-box;overflow:hidden}
 .auth-logo{text-align:center;margin-bottom:28px}
 .auth-logo-mark{width:48px;height:48px;background:var(--primary);border-radius:var(--r12);display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#fff;margin-bottom:12px}
-.auth-title{font-size:20px;font-weight:700;margin-bottom:4px}
-.auth-sub{font-size:13px;color:var(--on-surface-variant);line-height:1.5}
-.auth-switch{text-align:center;font-size:13px;color:var(--on-surface-variant);margin-top:20px}
+.auth-title{font-size:var(--fs-title);font-weight:700;margin-bottom:4px}
+.auth-sub{font-size:var(--fs-desc);color:var(--on-surface-variant);line-height:1.5}
+.auth-switch{text-align:center;font-size:var(--fs-desc);color:var(--on-surface-variant);margin-top:20px}
 .auth-switch a{color:var(--primary);font-weight:600;cursor:pointer}
 .auth-switch a:hover{text-decoration:underline}
 .auth-forgot{text-align:left;margin-top:8px;margin-bottom:12px}
-.auth-forgot a{font-size:12px;color:var(--on-surface-variant);cursor:pointer}
+.auth-forgot a{font-size:var(--fs-desc);color:var(--on-surface-variant);cursor:pointer}
 .auth-forgot a:hover{color:var(--primary);text-decoration:underline}
-.form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
+.form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:var(--fs-desc);line-height:1.5}
 /* 실패도 성공도 아닌 「잠깐 기다려 주세요」용. 빨강(오류)·초록(성공) 어느 쪽도 사실과 안 맞는다.
    주황은 이 저장소가 「행동을 기다리는 상태」에 이미 쓰는 색이다(#toast.warning 과 같은 계열). */
-.form-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
+.form-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8);font-size:var(--fs-desc);line-height:1.5}
 
 /* ── 회원가입 동의 체크박스 ── */
 .signup-agree{margin:14px 0 12px;padding:14px 14px 10px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
-.signup-agree-all{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
-.signup-agree-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:var(--ink);cursor:pointer;line-height:1.4}
+.signup-agree-all{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-size:var(--fs-desc);font-weight:700;color:var(--ink);cursor:pointer}
+.signup-agree-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:var(--fs-desc);color:var(--ink);cursor:pointer;line-height:1.4}
 .signup-agree input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--pink);cursor:pointer;margin:0}
-.agree-req{font-size:10px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 6px;border-radius:4px;flex-shrink:0}
-.agree-opt{font-size:10px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-req{font-size:var(--fs-caption);font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-opt{font-size:var(--fs-caption);font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
 .agree-text{flex:1}
 .agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
 
@@ -39,3 +39,22 @@
 @media(min-width:600px){
   .auth-card{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
 }
+
+/* ── 회원 앱 스타일 통일 조각 6 — 인증 화면 공통 조각 ── */
+.auth-hint{font-size:var(--fs-caption);color:var(--muted);line-height:1.5}
+.auth-loading{text-align:center;padding:32px 0;display:flex;flex-direction:column;align-items:center}
+.auth-steps{font-size:var(--fs-body);line-height:1.9;color:var(--ink);padding-left:20px;margin:0 0 20px}
+.auth-state{text-align:center;padding:8px 0}
+.auth-state-icon{font-size:48px;color:var(--muted);margin-bottom:12px}
+.auth-state-icon.ok{color:var(--green)}
+.auth-state-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);margin-bottom:8px}
+.auth-state-name{font-size:var(--fs-desc);font-weight:600;color:var(--ink);margin-bottom:8px}
+.auth-state-desc{font-size:var(--fs-desc);color:var(--muted);line-height:1.7;margin-bottom:20px}
+/* 로그인 안내(아래 시트) 안쪽 — 시트 틀은 components.css .login-prompt-sheet */
+.lp-sheet{background:#fff;width:100%;padding:24px 20px 36px}
+.lp-title{font-size:var(--fs-subtitle);font-weight:800;margin-bottom:8px;color:var(--ink)}
+.lp-desc{font-size:var(--fs-desc);color:var(--muted);margin-bottom:18px;line-height:1.7}
+.lp-foot{text-align:center;margin-top:12px;font-size:var(--fs-desc);color:var(--muted)}
+.lp-link{color:var(--pink);font-weight:600;cursor:pointer;position:relative}
+.lp-link::after{content:'';position:absolute;left:-4px;right:-4px;top:-12px;bottom:-12px}
+

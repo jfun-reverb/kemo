@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791248772';
+  var CURRENT_BUILD = 'v1791259789';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -528,7 +528,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 @media(min-width:600px){
   /* 시트 — 아래 붙는 모양에서 가운데 카드로. 등장도 올라오기 대신 페이드.
      ⚠️ 이미 가운데형인 대화창 7종(#alertModal·#cautionCompareModal·#applyActionModal·
-        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay·#cropModal)과
+        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay, 관리자 화면의 #cropModal)과
         .notif-modal-body(top:15%)는 손대지 않는다.
      ⚠️ 선택자를 묶지 않고 하나씩 적는다 — 자리 수를 세어 빠뜨린 곳을 찾는 검사가
         작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
@@ -3292,7 +3292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-06 10:06 · 6317f49</span>
+          <span class="admin-build-text">2026-10-06 13:09 · de1d6c7</span>
         </div>
       </div>
     </aside>
@@ -18757,6 +18757,31 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get rendered() { return state.cursor; },
     get total() { return state.rows.length; },
   };
+}
+
+// ── 회원 앱 상태 안내 셋(사양서 2026-09-29-member-app-style-unification §3-2) ──
+//   🔴 조회 실패(null) = stateErrorHtml, 0건([]) = stateEmptyHtml — 둘을 같은 모양으로 그리지 않는다.
+//   ⚠️ 클래스는 회원 전용 member-ui.css 에만 있다 — 관리자 코드에서 부르지 않는다(스타일 없이 그려진다).
+//   ⚠️ retryFnName 은 코드가 넣는 고정 함수 이름만(사용자 입력 금지). 이름 모양이 아니면 단추를 그리지 않는다.
+function stateEmptyHtml(icon, title, sub) {
+  return '<div class="state-empty" role="status">' +
+    (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
+    (title ? '<div class="state-title">' + esc(title) + '</div>' : '') +
+    (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
+  '</div>';
+}
+function stateLoadingHtml(text) {
+  const label = text || t('common.loading');
+  return '<div class="state-loading" role="status" aria-live="polite">' +
+    '<span class="state-spin" aria-hidden="true"></span><span>' + esc(label) + '</span></div>';
+}
+function stateErrorHtml(text, retryFnName) {
+  const fn = (typeof retryFnName === 'string' && /^[A-Za-z_$][\w$]*$/.test(retryFnName)) ? retryFnName : '';
+  return '<div class="state-error" role="alert">' +
+    '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">error_outline</span>' +
+    '<div class="state-text">' + esc(text || t('authError.genericError')) + '</div>' +
+    (fn ? '<button type="button" class="btn btn-ghost" onclick="' + fn + '()">' + esc(t('common.retry')) + '</button>' : '') +
+  '</div>';
 }
 
 // ═════════════════════════════════════════════════════════════════

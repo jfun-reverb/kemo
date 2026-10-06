@@ -154,46 +154,44 @@ async function openCampaign(id) {
   //    채울 것이 없어 정사각 그대로 둔다.
   // 🔴 사진 태그의 `height:100%` 를 덮어쓰는 규칙이 campaign.css 에 있다 — 같이 본다.
   const slideHtml = slideImgs.length > 0 ? `
-    <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)}">
-      <div id="campSlides" style="display:flex;align-items:center;transition:transform .32s cubic-bezier(.4,0,.2,1)">
+    <div id="campSlider" class="cd-slider" style="background:${getCampGrad(camp.category)}">
+      <div id="campSlides" class="cd-slides">
         ${slideData.map((s,idx)=>{
           const crop = s.key ? crops[s.key] : null;
           // 첫 장(LCP)만 720, lazy 로드 나머지는 480으로 용량 절감
           const thumb = idx === 0 ? 720 : 480;
-          return `<div style="flex:0 0 100%;width:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
+          return `<div class="cd-slide" style="background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
         }).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMoveManual(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_left</span></button>
-        <button onclick="slideMoveManual(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#333">chevron_right</span></button>
-        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
+        <button type="button" class="cd-slide-nav prev tap-44" onclick="slideMoveManual(-1)" aria-label="${esc(t('detail.slidePrev'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">chevron_left</span></button>
+        <button type="button" class="cd-slide-nav next tap-44" onclick="slideMoveManual(1)" aria-label="${esc(t('detail.slideNext'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">chevron_right</span></button>
+        <div class="cd-slide-dots">
           ${slideImgs.map((_,i)=>`<div onclick="slideToManual(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
-        <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
-      <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
-        ${camp.content_types?camp.content_types.split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join(''):''}
+        <div class="cd-slide-count"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
+      <div class="cd-slide-tags">
+        ${camp.content_types?camp.content_types.split(',').map(t=>`<span class="cd-slide-tag">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join(''):''}
       </div>
-    </div>` : `<div style="aspect-ratio:1/1;width:100%;border-radius:16px;background:${getCampGrad(camp.category)};display:flex;align-items:center;justify-content:center;font-size:64px">${camp.emoji||''}</div>`;
+    </div>` : `<div class="cd-noimg" style="background:${getCampGrad(camp.category)}">${camp.emoji||''}</div>`;
 
   $('detailContent').innerHTML = `
     <div class="detail-main">
       ${slideHtml}
 
-      <div style="background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px">
-        <div style="padding:16px 0 12px">
-          <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(brandLabelInflu(camp))}</div>
-          ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-          <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
+      <div class="cd-head">
+        <div class="cd-head-inner">
+          <div class="cd-brand">${esc(brandLabelInflu(camp))}</div>
+          ${camp.recruit_type ? `<div class="cd-type">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
+          <h1 class="cd-title">${esc(camp.title)}</h1>
           ${(camp.product_price>0 || camp.recruit_type === 'monitor')?(camp.recruit_type === 'monitor'
             // 리뷰어형 — 받는 금액이 응모 시점에 확정되지 않으므로(영수증 실결제액 기준,
             // 300) 금액을 주인공으로 세우던 마크업을 버리고 문장을 앞세운다. 상한은
             // 작은 보조 줄로 내린다. 시딩·방문형은 제품 가치가 확정이라 기존 그대로.
             // ⚠️ 제품 가격이 없는 리뷰어형(D-4)도 「購入金額をペイバック」로 — 카드·홍보 메일·
             //    관리자 미리보기와 **같은 말**. 비워 두면 「무상 제공」으로 읽히거나 세 곳이 갈린다.
-            ? `<div style="display:inline-block;background:var(--light-pink);border-radius:8px;padding:7px 12px;margin-bottom:4px">
-                 <div style="font-size:13px;font-weight:800;color:var(--pink);line-height:1.35">${esc(camp.product_price>0 ? t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()) : t('detail.rewardPaybackNoCap'))}</div>
-               </div>`
-            : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`
+            ? `<div class="cd-reward">${esc(camp.product_price>0 ? t('detail.rewardPaybackFull').replace('{price}', camp.product_price.toLocaleString()) : t('detail.rewardPaybackNoCap'))}</div>`
+            : `<div class="cd-reward-price"><b>¥${camp.product_price.toLocaleString()}</b><span>${t('detail.rewardProduct')}</span></div>`
           ):''}
           ${/* 현금 리워드 줄 — ⚠️ 리뷰어형(monitor)에는 그리지 않는다. 정산 계산이
                 리뷰어형에서 campaigns.reward 를 아예 쓰지 않으므로(마이그레이션 300은
@@ -202,7 +200,7 @@ async function openCampaign(id) {
                 설정된 것은 0개라 실제 노출은 없었지만, 앞으로 누가 값을 넣으면 바로 새어
                 나가는 자리라 막는다. 합산 지급(amount_source='product_plus_reward')이
                 구현되면 그때 되살린다. */''}
-          ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
+          ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div class="cd-cash">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
           // 페이백 안내 — 리뷰어형이면 항상(가구매 포함) 정보표 바로 위에 한 상자.
@@ -219,7 +217,7 @@ async function openCampaign(id) {
           //   ⚠️ 그 전에는 구매 칸이 빈 캠페인(운영 10건)이 화면엔 「모집 기간」인데 안내문은
           //      「모집·구매 기간」이라 **없는 이름을 가리켰다.** 줄 이름을 합치며 해소됐다.
           const line1 = t(kind === 'split' ? 'detail.paybackNoticeLine1Split' : 'detail.paybackNoticeLine1');
-          return `<div id="campaignPaybackNotice" style="margin:0 0 12px;padding:11px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;font-size:12px;line-height:1.6;color:#1e40af">
+          return `<div id="campaignPaybackNotice" class="cd-payback">
             <div>${esc(line1)}</div>
             <div>${esc(t('detail.paybackNoticeLine2'))}</div>
           </div>`;
@@ -239,9 +237,8 @@ async function openCampaign(id) {
           //   90픽셀에서 **네 줄**로 접혀 110픽셀로 넓혔다(2026-08-06 브라우저 실측).
           //   ⚠️ 전 행 공통 값이라 바꾸면 모든 줄에 영향을 준다 — 나머지 라벨은 전부 한 줄이라
           //      넓혀도 안전한 것을 확인했다.
-          const KEY = 'width:110px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
-          const VAL = 'padding:10px 13px;flex:1;font-size:12px';
-          const ROW = 'display:flex;border-top:1px solid #faf5f9';
+          // 줄 모양은 campaign.css .cd-row/.cd-key/.cd-val (스타일 통일 조각 1 — 인라인에서 옮김)
+          const row = (key, valHtml, valCls) => `<div class="cd-row"><div class="cd-key">${key}</div><div class="cd-val${valCls ? ' ' + valCls : ''}">${valHtml}</div></div>`;
           // 「모집 및 구매 기간」이 날짜 두 줄로 갈릴 때 각 줄 끝에 붙는 이름표.
           //   날짜가 주인공이고 이름표는 보조라 흐린 작은 글씨. whitespace:nowrap 로 이름표
           //   자체가 반으로 쪼개지는 것만 막고, 좁은 화면에서 이름표 통째로 다음 줄에
@@ -250,15 +247,14 @@ async function openCampaign(id) {
           //      실측하니 값 칸 192픽셀에 날짜+여백+이름표가 191.8픽셀 — 여유가 0.2픽셀뿐이라
           //      글꼴이 제때 안 불러와져 다른 글꼴로 대체되기만 해도 접혔다. 3픽셀이면 2.2픽셀이
           //      남는다. **다시 넓히지 말 것**(2026-08-11 브라우저 실측).
-          const PTAG = 'margin-left:3px;color:var(--muted);font-size:11px;white-space:nowrap';
           const rows = [];
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const rt=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)'],gifting:['var(--gold-l)','var(--gold)'],visit:['#E8F7EF','#0E7E4A']};const m=map[rt];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()}</div></div>`);
-          if (!isEvent) rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.channel')}</div><div style="${VAL};display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}</div></div>`);
+          rows.push(row(t('detail.productName'), esc(camp.product)||'—'));
+          rows.push(row(t('detail.recruitType'), (()=>{const rt=camp.recruit_type;return ['monitor','gifting','visit'].includes(rt)?`<span class="cd-rtype ${rt}">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()));
+          if (!isEvent) rows.push(row(t('detail.channel'), (()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span class="cd-chip">${esc(getChannelLabel(code))}</span>`).join(`<span class="cd-chip-sep">${sep}</span>`);})(), 'chips'));
           if (camp.content_types && !isEvent) {
             const ctList = camp.content_types.split(',').map(c => c.trim()).filter(Boolean);
             if (ctList.length) {
-              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.contentType')}</div><div style="${VAL};display:flex;gap:4px;flex-wrap:wrap">${ctList.map(c=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', c))}</span>`).join('')}</div></div>`);
+              rows.push(row(t('detail.contentType'), ctList.map(c=>`<span class="cd-chip">${esc(getLookupLabel('content_type', c))}</span>`).join(''), 'chips'));
             }
           }
           // 판정은 공용 헬퍼 하나만 쓴다 — 관리자 미리보기도 같은 함수를 부른다.
@@ -281,12 +277,12 @@ async function openCampaign(id) {
           // split 은 날짜가 두 줄이고 각 줄 끝에 어느 기간인지 붙는다. 이름표는 보조 정보라
           //   흐린 작은 글씨로 — 날짜가 주인공이다.
           const periodValue = (periodKind === 'split')
-            ? `<div>${recruitDates}<span style="${PTAG}">${esc(t('detail.periodTagRecruit'))}</span></div>`
-              + `<div style="margin-top:3px">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}<span style="${PTAG}">${esc(t('detail.periodTagPurchase'))}</span></div>`
+            ? `<div>${recruitDates}<span class="cd-ptag">${esc(t('detail.periodTagRecruit'))}</span></div>`
+              + `<div class="cd-val-line">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}<span class="cd-ptag">${esc(t('detail.periodTagPurchase'))}</span></div>`
             : recruitDates;
           const periodLabelKey = periodMerged ? 'detail.recruitPurchasePeriod'
                                : periodVisitMerged ? 'detail.recruitVisitPeriod' : 'detail.recruitPeriod';
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t(periodLabelKey)}</div><div style="${VAL}">${periodValue}</div></div>`);
+          rows.push(row(t(periodLabelKey), periodValue));
           // 선정 기간 — 시딩형과 **행사가 아닌 방문형**(2026-08-24 결정). 모집 기간 바로
           //   아래에 둔다(인플루언서가 겪는 순서: 모집 → 선정 → 방문 → 결과물 제출 마감).
           //   ⚠️ 두 칸이 다 비면 줄을 그리지 않는다.
@@ -310,7 +306,7 @@ async function openCampaign(id) {
           //      주석은 이 자리를 가리키므로, **조건을 바꾸면 여기부터 고친다.**
           if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
               && (camp.selection_start || camp.selection_end)) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.selectionPeriod')}</div><div style="${VAL}">${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}</div></div>`);
+            rows.push(row(t('detail.selectionPeriod'), `${camp.selection_start?formatDate(camp.selection_start):'—'} 〜 ${camp.selection_end?formatDate(camp.selection_end):'—'}`));
           }
           // ⚠️ 구매 기간 별도 줄은 2026-08-11 에 없앴다. split 은 위 「모집 및 구매 기간」
           //    줄 안에서 두 번째 날짜 줄로 그린다 — 여기에 되살리면 같은 날짜가 두 번 나온다.
@@ -319,7 +315,7 @@ async function openCampaign(id) {
           // ⚠️ 방문 기간이 모집 기간과 똑같이 저장된 캠페인(visitMerged)은 위 줄이 이미
           //    「募集・訪問期間」이므로 여기서 또 그리면 같은 날짜가 두 번 나온다.
           if (camp.recruit_type === 'visit' && !isEvent && !periodVisitMerged && (camp.visit_start || camp.visit_end)) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
+            rows.push(row(t('detail.visitPeriod'), `${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}`));
           }
           if (camp.submission_end && !isEvent) {
             // 낼 것을 이름에 적는다 — 리뷰어형은 영수증(+게시물 인증샷), 가구매는 영수증만.
@@ -329,39 +325,39 @@ async function openCampaign(id) {
             const subKey = labelCode === 'receiptOnly' ? 'detail.submissionEndProxy'
                          : labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
                          : 'detail.submissionEnd';
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t(subKey)}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
+            rows.push(row(t(subKey), formatDate(camp.submission_end), 'strong'));
           }
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
+          rows.push(row(t('detail.recruitSlots'), `${camp.slots}${t('detail.peopleUnit')}`));
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
           //   갈래별 표시는 `minFollowersDetailLines`(아래) — 판정과 같은 갈래를 쓴다.
           if (!isEvent && !isMonitor) {
             const fwLines = minFollowersDetailLines(camp);
             if (fwLines.length) {
-              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${fwLines.join('<br>')}</div></div>`);
+              rows.push(row(t('detail.minFollowers'), fwLines.join('<br>')));
             }
           }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
           if (!isMonitor && !isEvent) {
-            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.winnerAnnounce')}</div><div style="${VAL}">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div></div>`);
+            rows.push(row(t('detail.winnerAnnounce'), esc(camp.winner_announce || t('detail.winnerAnnounceValue'))));
             if (camp.product_price>0 || camp.reward>0 || camp.reward_note) {
               const rewardLine = (camp.product_price>0 || camp.reward>0) ? `${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}` : '';
-              const noteLine = camp.reward_note ? `<div style="margin-top:${rewardLine?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>` : '';
-              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.reward')}</div><div style="${VAL};color:var(--pink);font-weight:600">${rewardLine}${noteLine}</div></div>`);
+              const noteLine = camp.reward_note ? `<div class="cd-note${rewardLine?'':' first'}">${esc(camp.reward_note)}</div>` : '';
+              rows.push(row(t('detail.reward'), `${rewardLine}${noteLine}`, 'reward'));
             }
           }
-          return `<div style="font-size:13px">${rows.join('')}</div>`;
+          return `<div class="cd-info">${rows.join('')}</div>`;
         })()}
       </div>
 
       ${(typeof isEventCampaign === 'function' && isEventCampaign(camp)) ? `
       <!-- 오프라인 행사 타임 선택표 — 사양서 2026-07-30 §4-3. 내용은 렌더 뒤 비동기로 채운다
            (잔여 인원은 서버 집계라 화면을 먼저 그리고 숫자를 나중에 넣는다). -->
-      <div id="eventSlotPicker" style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px;color:var(--ink)">${t('event.slotPickerTitle')}</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('event.slotPickerHint')}</div>
+      <div id="eventSlotPicker" class="cd-sec">
+        <h2 class="cd-sec-title">${t('event.slotPickerTitle')}</h2>
+        <div class="cd-sec-hint">${t('event.slotPickerHint')}</div>
         <div id="eventSlotDateTabs" class="event-date-tabs"></div>
         <div id="eventSlotList" class="event-slot-list">
-          <div style="font-size:13px;color:var(--muted);padding:12px 0">${t('event.slotLoading')}</div>
+          ${stateLoadingHtml(t('event.slotLoading'))}
         </div>
       </div>` : ''}
 
@@ -370,20 +366,20 @@ async function openCampaign(id) {
         const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
         if (!steps.length) return '';
         return `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
-        <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${t('detail.participationTitle')}</h2>
+        <div class="cd-steps">
           ${steps.map((s,i)=>{
             const lang = (typeof getLang === 'function' ? getLang() : 'ja');
             const title = lang === 'ko' ? (s.title_ko||s.title_ja||'') : (s.title_ja||s.title_ko||'');
             const desc = lang === 'ko' ? (s.desc_ko||s.desc_ja||'') : (s.desc_ja||s.desc_ko||'');
             const descHtml = (typeof miniRichHtml === 'function') ? miniRichHtml(desc) : esc(desc);
             return `
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
+            <div class="cd-step">
+              <div class="cd-step-no">STEP ${i+1}</div>
               <div>
-                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(title)}</div>
-                ${desc ? `<div class="rich-content" style="font-size:12px;color:var(--muted);line-height:1.55">${descHtml}</div>` : ''}
+                <div class="cd-step-title">${esc(title)}</div>
+                ${desc ? `<div class="rich-content cd-step-desc">${descHtml}</div>` : ''}
               </div>
             </div>`;
           }).join('')}
@@ -392,32 +388,32 @@ async function openCampaign(id) {
       })()}
 
       ${camp.description ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignDescSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
-        <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${campaignDescSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</h2>
+        <div class="rich-content cd-body">${richHtml(camp.description)}</div>
       </div>` : ''}
 
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">${t('detail.postGuideline')}</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:10px 12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.appeal)}</div></div>` : ''}
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${t('detail.postGuideline')}</h2>
+        ${camp.appeal ? `<div class="cd-subblock"><div class="cd-sublabel">${t('detail.brandAppeal')}</div><div class="rich-content cd-box">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? (() => {
           // 옛 데이터는 태그 뒤에 안내문(※ …)이 함께 저장돼 있다. 안내문까지 칩으로 그리면
           // 긴 문장이 태그 모양으로 나와 읽기 어려우므로 분리해 아래 문단으로 보여준다.
           const parts = splitTagsAndNote(camp.hashtags);
           const chips = parts.tags.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
-          return `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredHashtag')}</div>`
-            + (chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px">${chips.map(tag=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(tag)}</span>`).join('')}</div>` : '')
-            + (parts.note ? `<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px">${esc(parts.note)}</div>` : '')
+          return `<div class="cd-subblock"><div class="cd-sublabel">${t('detail.requiredHashtag')}</div>`
+            + (chips.length ? `<div class="cd-chips">${chips.map(tag=>`<span class="cd-chip lg">${esc(tag)}</span>`).join('')}</div>` : '')
+            + (parts.note ? `<div class="cd-note">${esc(parts.note)}</div>` : '')
             + `</div>`;
         })() : ''}
-        ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredMention')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
+        ${camp.mentions ? `<div class="cd-subblock"><div class="cd-sublabel">${t('detail.requiredMention')}</div><div class="cd-chips">${camp.mentions.split(',').map(t=>`<span class="cd-chip lg mention">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
 
       ${camp.guide ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${campaignGuideSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</div>
-        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:8px;border:1px solid var(--outline)">${richHtml(camp.guide)}</div>
+      <div class="cd-sec">
+        <h2 class="cd-sec-title">${campaignGuideSectionLabel(camp, (typeof getLang === 'function' && getLang() === 'ko') ? 'ko' : 'ja')}</h2>
+        <div class="rich-content cd-box">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${(() => {
@@ -426,47 +422,43 @@ async function openCampaign(id) {
         const hasJsonb = ngItems.length > 0;
         const hasLegacy = !!camp.ng;
         if (!hasJsonb && !hasLegacy) return '';
-        const ngHeader = `<div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>`;
+        const ngHeader = `<h2 class="cd-sec-title">${t('detail.ngItems')}</h2>`;
         const ngBody = hasJsonb
-          ? `<div style="font-size:12px;color:var(--ink);line-height:1.7;padding:12px;border-radius:8px;background:#fff8f8;border:1px solid #fdd">${renderNgItemsHtml(ngItems)}</div>`
-          : `<div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>`;
-        return `<div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">${ngHeader}${ngBody}</div>`;
+          ? `<div class="cd-box ng">${renderNgItemsHtml(ngItems)}</div>`
+          : `<div class="rich-content cd-box ng">${richHtml(camp.ng)}</div>`;
+        return `<div class="cd-sec">${ngHeader}${ngBody}</div>`;
       })()}
 
       ${camp.product_url ? `
-      <div style="background:#fff;padding:12px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${t('detail.productPage')}
+      <div class="cd-sec tight">
+        <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" rel="noopener" class="cd-link">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">shopping_bag</span> ${t('detail.productPage')}
         </a>
       </div>` : ''}
 
       ${Array.isArray(camp.caution_items) && camp.caution_items.length ? `
-      <div style="background:#fff;padding:16px 0;">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.noticeTitle')}</div>
-        <div style="font-size:12px;color:var(--muted)">${renderCautionItemsHtml(camp.caution_items)}</div>
+      <div class="cd-sec last">
+        <h2 class="cd-sec-title">${t('detail.noticeTitle')}</h2>
+        <div class="cd-muted">${renderCautionItemsHtml(camp.caution_items)}</div>
       </div>` : ''}
-      <div style="display:flex;flex-direction:column;gap:10px;padding:0 0 calc(var(--tab-h) + 70px)">
-        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igC" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igC)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">${t('detail.igFollowCta')}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">${t('detail.igFollowSub')}</div>
-          </div>
-        </div>
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">${t('detail.lineAddCta')}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">${t('detail.lineAddSub')}</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">${t('detail.channelRequired')} <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
-          </div>
-        </div>
+      <div class="sns-follow-list in-detail">
+        <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igC" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igC)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>INSTAGRAM</small></span>
+            <span class="sns-follow-cta">${t('detail.igFollowCta')}</span>
+            <span class="sns-follow-sub">${t('detail.igFollowSub')}</span>
+          </span>
+        </button>
+        <button type="button" class="sns-follow-card line" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
+          <span class="sns-follow-icon"><img src="https://qr-official.line.me/sid/M/reverb.jp.png" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'"></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>LINE</small></span>
+            <span class="sns-follow-cta">${t('detail.lineAddCta')}</span>
+            <span class="sns-follow-sub">${t('detail.lineAddSub')}</span>
+            <span class="sns-follow-badge">${t('detail.channelRequired')} <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span></span>
+          </span>
+        </button>
       </div>
     </div>
     <div class="detail-sidebar" style="display:none"></div>`;
@@ -562,7 +554,7 @@ async function openCampaign(id) {
       if (!reapplyNotice) {
         reapplyNotice = document.createElement('div');
         reapplyNotice.id = reapplyNoticeId;
-        reapplyNotice.style.cssText = 'background:#F5F5F5;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center';
+        reapplyNotice.className = 'cd-reapply';
       }
       // 안내는 버튼 줄 「위」에 놓는다. 버튼의 부모는 가로 한 줄(flex)이라
       //   거기에 넣으면 제목·리워드 칸(flex:1)이 0px 로 찌부러져 글자가 세로로 쌓인다.
@@ -662,7 +654,7 @@ async function loadEventSlotPicker(camp) {
     _eventSlotCountsForDetail = counts || {};
 
     if (!_eventSlotsForDetail.length) {
-      listEl.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:12px 0">${t('event.slotNone')}</div>`;
+      listEl.innerHTML = stateEmptyHtml('event_busy', '', t('event.slotNone'));
       return;
     }
     const dates = [...new Set(_eventSlotsForDetail.map(s => String(s.slot_date).slice(0, 10)))].sort();
@@ -674,7 +666,7 @@ async function loadEventSlotPicker(camp) {
     console.warn('[loadEventSlotPicker]', e);
     logAppError('loadEventSlotPicker', e);
     // 조회 실패를 「타임 없음」으로 보여 주면 방문객이 행사가 끝난 줄 안다 — 다시 시도하라고 알린다.
-    listEl.innerHTML = `<div style="font-size:13px;color:var(--red);padding:12px 0">${t('event.slotLoadFailed')}</div>`;
+    listEl.innerHTML = stateErrorHtml(t('event.slotLoadFailed'), '');
   }
 }
 
@@ -901,7 +893,7 @@ function openApplyModal(campaignId) {
           : '';
         const full = isSelectedEventSlotFull();
         notice.innerHTML = `<b>${esc(t('event.selected'))}</b><br>${esc(when)}`
-          + (full ? `<div style="margin-top:8px;color:var(--dark-pink);font-weight:700">${esc(t('event.slotWaitlistNote'))}</div>` : '');
+          + (full ? `<div class="apply-notice-warn">${esc(t('event.slotWaitlistNote'))}</div>` : '');
       } else {
         // 일반 캠페인으로 돌아왔을 때 원래 안내문을 되살린다.
         //   행사 캠페인을 한 번 열면 이 자리를 덮어쓰므로, 안 되살리면 그 뒤에 여는
@@ -983,7 +975,7 @@ function renderApplyCaution(camp) {
   const titleText = lang === 'ko' ? '주의사항(필독)' : '注意事項(必読)';
   const box = $('applyCautionBox');
   if (box) {
-    box.innerHTML = `<div style="font-weight:700;color:var(--red);font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">warning</span>${esc(titleText)}</div>${renderCautionItemsHtml(items)}`;
+    box.innerHTML = `<div class="caution-box-title"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span>${esc(titleText)}</div>${renderCautionItemsHtml(items)}`;
     box.style.display = 'block';
   }
   const row = $('applyCautionAgreeRow');
@@ -1190,9 +1182,7 @@ function handleFloatApply() {
     if (!nn || nn === '-') lack.push(t('profile.nameKana'));
     if (lack.length) {
       $('profileAlertMissing').innerHTML = lack.map(m =>
-        `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink)">warning</span>${esc(m)}
-        </div>`).join('');
+        `<div class="profile-missing-item"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span>${esc(m)}</div>`).join('');
       $('profileAlertOverlay').style.display = 'flex';
       return;
     }
@@ -1231,9 +1221,7 @@ function handleFloatApply() {
   if (!p.paypal_email) missing.push(t('profile.paypalEmail'));
   if (missing.length > 0) {
     $('profileAlertMissing').innerHTML = missing.map(m =>
-      `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink)">warning</span>${esc(m)}
-      </div>`
+      `<div class="profile-missing-item"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span>${esc(m)}</div>`
     ).join('');
     $('profileAlertOverlay').style.display = 'flex';
     return;
@@ -1376,11 +1364,11 @@ async function openActivityPage(applicationId, campaignId, from) {
       if (!blocked) {
         blocked = document.createElement('div');
         blocked.id = 'activityCancelledNotice';
-        blocked.style.cssText = 'padding:40px 20px;text-align:center;background:#F5F5F5;border-radius:14px;margin:20px';
+        blocked.className = 'ac-blocked';
         blocked.innerHTML = `
-          <div style="font-size:36px;color:var(--muted);margin-bottom:12px"><span class="material-icons-round notranslate" translate="no" style="font-size:48px">cancel</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">cancel</span>
+          <div class="ac-blocked-title" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
+          <div class="ac-blocked-text" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
           <button class="btn btn-primary" onclick="navigate('mypage', false);openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
         // 페이지 헤더 + 안내. 다른 폼/섹션은 모두 가린다.
         const main = root.querySelector('.page-content') || root;
@@ -1535,7 +1523,7 @@ const CHANNEL_LABELS = {
 // 🔴 Qoo10 규칙(설계 4-1)을 여기에도 적용한다 — 안 그러면 「또는」에서
 //    「Instagram 100명 · **Qoo10 100명**」처럼 **같은 수가 두 번** 나온다.
 function followerBlockMessage(camp, profile, fw) {
-  const 경고 = `<br><br><span style="font-size:11px;color:var(--muted)">${t('detail.followerWarning')}</span>`;
+  const 경고 = `<br><br><span class="cd-ptag" style="margin-left:0;white-space:normal">${t('detail.followerWarning')}</span>`;
   const 라벨 = ch => esc(getChannelLabelLocal(ch) || ch);
 
   if (fw.kind === 'or') {
@@ -1590,7 +1578,7 @@ function minFollowersDetailLines(camp) {
     return d.rows.map(r => {
       const label = esc(getChannelLabelLocal(r.channel) || r.channel);
       const note = r.borrowed
-        ? ` <span style="font-size:10px;color:var(--muted)">${esc(t('detail.minFollowersQoo10Note'))}</span>` : '';
+        ? ` <span class="cd-ptag">${esc(t('detail.minFollowersQoo10Note'))}</span>` : '';
       return (r.required > 0)
         ? `${label} ${r.required.toLocaleString()}${esc(t('detail.minFollowersSuffix'))}${note}`
         : `${label} <span style="color:var(--muted)">${esc(t('detail.minFollowersUnlimited'))}</span>`;
@@ -1911,7 +1899,7 @@ function renderActivityReceiptList(delivs) {
   if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
 
   if (!delivs.length) {
-    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
+    container.innerHTML = stateEmptyHtml('photo_library', '', t('activity.noImage'));
     if (submitBtn) submitBtn.style.display = 'none';
     renderDraftPendingBar('receipt', 0);
     return;
@@ -1921,29 +1909,29 @@ function renderActivityReceiptList(delivs) {
     const isDraft = r.status === 'draft';
     if (isDraft) draftCount++;
     const stBadge = isDraft
-      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+      ? `<span class="ac-badge draft">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(r.status);
     const rightCol = isDraft
-      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
-      : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+      ? `<button type="button" class="btn btn-ghost btn-xs ac-del" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">delete</span></button>`
+      : `<div class="ac-row-date">${formatDate(r.submitted_at || r.created_at)}</div>`;
     // 반려된 결과물에는 행 하단에 사유 박스 표시 (상단 배너와는 별개로 행 단위 인지 강화)
     const reasonBox = (r.status === 'rejected' && r.reject_reason)
-      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      ? `<div class="ac-row-msg ng">${esc(r.reject_reason)}</div>`
       : '';
     // 마이그레이션 160: 관리자 대리 등록 행이면 한 줄 일본어 설명 상시 노출 (사용자 결정 2026-05-28)
     const proxyBox = r.submitted_by_admin
-      ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(r)}</div>`
+      ? `<div class="ac-row-msg proxy">${activityProxyNoticeJa(r)}</div>`
       : '';
     return `
-    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(r.receipt_url)},'_blank')">` : ''}
+    <div class="ac-row">
+      <div class="ac-row-main">
+        <div class="ac-thumb">
+          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(r.receipt_url)},'_blank')">` : ''}
         </div>
         <div style="flex:1;min-width:0">
           ${stBadge}
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="ac-row-side">
           ${rightCol}
         </div>
       </div>
@@ -1990,26 +1978,26 @@ function renderActivityReviewImageList(delivs, channels) {
       const isDraft = row.status === 'draft';
       if (isDraft && !formDisabled) { hasSubmittableDraft = true; submittableDraftCount++; }
       const stBadge = isDraft
-        ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+        ? `<span class="ac-badge draft">${t('activity.draftBadge')}</span>`
         : activityStatusBadge(row.status);
       const rightCol = isDraft
-        ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(row.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
-        : `<div style="font-size:10px;color:var(--muted)">${formatDate(row.submitted_at || row.created_at)}</div>`;
+        ? `<button type="button" class="btn btn-ghost btn-xs ac-del" onclick="deleteDraft('${esc(row.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">delete</span></button>`
+        : `<div class="ac-row-date">${formatDate(row.submitted_at || row.created_at)}</div>`;
       const reasonBox = (row.status === 'rejected' && row.reject_reason)
-        ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(row.reject_reason)}</div>`
+        ? `<div class="ac-row-msg ng">${esc(row.reject_reason)}</div>`
         : '';
       // 마이그레이션 160: 관리자 대리 등록 노랑 박스 (사양 2 운영 후 review_image 대리 등록 활성)
       const proxyBox = row.submitted_by_admin
-        ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(row)}</div>`
+        ? `<div class="ac-row-msg proxy">${activityProxyNoticeJa(row)}</div>`
         : '';
       const thumb = row.receipt_url
-        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(row.receipt_url)},'_blank')">`
+        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(row.receipt_url)},'_blank')">`
         : '';
       cardBody += `
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">${thumb}</div>
+        <div class="ac-row-main">
+          <div class="ac-thumb">${thumb}</div>
           <div style="flex:1;min-width:0">${stBadge}</div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${rightCol}</div>
+          <div class="ac-row-side">${rightCol}</div>
         </div>
         ${proxyBox}
         ${reasonBox}`;
@@ -2020,20 +2008,20 @@ function renderActivityReviewImageList(delivs, channels) {
       const disabledAttr = formDisabled ? 'disabled' : '';
       const disabledStyle = formDisabled ? 'opacity:0.5;pointer-events:none' : '';
       cardBody += `
-        <div style="margin-top:${row ? '12' : '0'}px;background:var(--bg);border:1.5px dashed var(--outline);border-radius:12px;padding:14px;${disabledStyle}">
+        <div class="ac-form-card sm" style="margin:${row ? '12' : '0'}px 0 0;${disabledStyle}">
           <div id="reviewImagePreview-${esc(ch)}" style="margin-bottom:8px"></div>
-          <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span>
+          <label class="ac-file-btn">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">add_a_photo</span>
             <span data-i18n="activity.imageBtn">画像を選択</span>
-            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, ${jsStr(ch)})">
+            <input type="file" accept="image/*" ${disabledAttr} onchange="previewReviewImage(this, ${jsStr(ch)})">
           </label>
-          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage(${jsStr(ch)}, this)" data-i18n="activity.addDraftBtn">リストに追加</button>
+          <button type="button" class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage(${jsStr(ch)}, this)" data-i18n="activity.addDraftBtn">リストに追加</button>
         </div>`;
     }
 
     return `
-      <div style="padding:14px;background:var(--surface);border:1px solid var(--outline);border-radius:14px;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">「${esc(chLabel)}」<span data-i18n="activity.reviewImageOfChannelLabel">のレビュー画像</span></div>
+      <div class="ac-ch-card">
+        <div class="ac-ch-title">「${esc(chLabel)}」<span data-i18n="activity.reviewImageOfChannelLabel">のレビュー画像</span></div>
         ${cardBody}
       </div>`;
   }).join('');
@@ -2147,7 +2135,7 @@ function renderActivityPostList(delivs) {
   if (!container) return;
   const submitBtn = $('submitPostsBtn');
   if (!delivs.length) {
-    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
+    container.innerHTML = stateEmptyHtml('link', '', t('activity.noPost'));
     if (submitBtn) submitBtn.style.display = 'none';
     renderDraftPendingBar('post', 0);
     return;
@@ -2164,18 +2152,18 @@ function renderActivityPostList(delivs) {
     const isDraft = d.status === 'draft';
     if (isDraft && gateAllows('post', d.post_channel)) submittableDraftCount++;
     const stBadge = isDraft
-      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+      ? `<span class="ac-badge draft">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
     const chLabel = getChannelLabelLocal(d.post_channel) || d.post_channel || '—';
     const actionBtn = isDraft
-      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
+      ? `<button type="button" class="btn btn-ghost btn-xs ac-del" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">delete</span></button>`
       : '';
     const reasonBox = (d.status === 'rejected' && d.reject_reason)
-      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(d.reject_reason)}</div>`
+      ? `<div class="ac-row-msg ng">${esc(d.reject_reason)}</div>`
       : '';
     // 마이그레이션 160: 관리자 대리 등록 노랑 박스
     const proxyBox = d.submitted_by_admin
-      ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(d)}</div>`
+      ? `<div class="ac-row-msg proxy">${activityProxyNoticeJa(d)}</div>`
       : '';
     // 주소 모양 경고 (작업 10) — 🔴 **막지 않는다.** 채널마다 주소 모양이 계속 바뀌어
     //   「아니다」라고 단정하면 멀쩡한 제출이 막힌다. 그래서 문구가 「맞다면 그대로 내도 된다」
@@ -2187,16 +2175,16 @@ function renderActivityPostList(delivs) {
     //   ⚠️ **임시저장에만** 붙인다 — 이미 낸 것은 본인이 지울 수 없어, 손쓸 수 없는 경고는
     //      잔소리가 된다. 낼지 말지 정하는 그 순간에만 보이면 된다.
     const shapeBox = (isDraft && typeof looksLikeBarePostUrl === 'function' && looksLikeBarePostUrl(d.post_url))
-      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF7ED;border-left:3px solid #B8741A;border-radius:6px;font-size:11px;color:#8A5510;line-height:1.5">${esc(t('activity.badUrlShapeRow'))}</div>`
+      ? `<div class="ac-row-msg warn">${esc(t('activity.badUrlShapeRow'))}</div>`
       : '';
     return `
-    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-        <div style="font-size:12px;font-weight:600;color:var(--ink)">${esc(chLabel)}</div>
-        <div style="display:flex;align-items:center;gap:6px">${stBadge}${actionBtn}</div>
+    <div class="ac-row">
+      <div class="ac-row-head">
+        <div class="ac-row-ch">${esc(chLabel)}</div>
+        <div class="ac-row-inline">${stBadge}${actionBtn}</div>
       </div>
-      <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+      <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" class="ac-row-url">${esc(d.post_url||'')}</a>
+      <div class="ac-row-date" style="margin-top:4px">${formatDate(d.submitted_at)}</div>
       ${proxyBox}
       ${shapeBox}
       ${reasonBox}
@@ -2212,9 +2200,9 @@ function renderActivityPostList(delivs) {
 }
 
 function activityStatusBadge(status) {
-  if (status === 'approved') return `<span style="background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.approved')}</span>`;
-  if (status === 'rejected') return `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.rejected')}</span>`;
-  return `<span style="background:#FFF4E4;color:#B8741A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.pending')}</span>`;
+  if (status === 'approved') return `<span class="ac-badge ok">${t('delivStatus.approved')}</span>`;
+  if (status === 'rejected') return `<span class="ac-badge ng">${t('delivStatus.rejected')}</span>`;
+  return `<span class="ac-badge wait">${t('delivStatus.pending')}</span>`;
 }
 
 // 마이그레이션 160: 인플 화면 「운영 측에서 등록」 한 줄 일본어 안내 (사용자 결정 2026-05-28)
@@ -2244,7 +2232,7 @@ function previewReceipt(input) {
   const reader = new FileReader();
   reader.onload = e => {
     _receiptImgData = e.target.result;
-    $('receiptPreview').innerHTML = `<img src="${_receiptImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+    $('receiptPreview').innerHTML = `<img src="${_receiptImgData}" class="ac-preview-img">`;
   };
   reader.readAsDataURL(file);
 }
@@ -2264,8 +2252,8 @@ function renderReceiptPayoutNote(camp) {
   const lines = [t('activity.payoutNote1'), t('activity.payoutNote2')];
   if (hasCap) lines.push(t('activity.payoutNote3').replace('{price}', price.toLocaleString()));
   lines.push(t('activity.payoutNote4'));
-  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${esc(t('activity.payoutNoteTitle'))}</div>`
-    + `<ol style="margin:0;padding-left:18px">${lines.map(s => `<li style="margin-bottom:2px">${esc(s)}</li>`).join('')}</ol>`;
+  box.innerHTML = `<div class="ac-note-title">${esc(t('activity.payoutNoteTitle'))}</div>`
+    + `<ol>${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
   box.style.display = '';
 }
 
@@ -2346,7 +2334,7 @@ function previewReviewImage(input, channel) {
   reader.onload = e => {
     _reviewImgDataByChannel[channel] = e.target.result;
     const prev = document.getElementById('reviewImagePreview-' + channel);
-    if (prev) prev.innerHTML = `<img src="${_reviewImgDataByChannel[channel]}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+    if (prev) prev.innerHTML = `<img src="${_reviewImgDataByChannel[channel]}" class="ac-preview-img">`;
   };
   reader.readAsDataURL(file);
 }

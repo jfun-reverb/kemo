@@ -214,17 +214,19 @@ async function renderMyApplyList() {
     //   all      = 응모 자체 없음 → 홈으로 유도
     //   active2  = 진행중인 응모만 없음(과거 응모는 있을 수 있음) → 「전체 보기」로 유도
     //   그 외 단일 상태 = 해당 상태 응모 없음
-    let emptyText, emptyExtra = '';
+    let emptyText, emptySub = '', emptyBtn = '';
     if (_myAppsTab === 'all') {
       emptyText = t('appHistory.emptyAll');
-      emptyExtra = `<div class="empty-sub">${t('appHistory.emptySub')}</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`;
+      emptySub = t('appHistory.emptySub');
+      emptyBtn = `<button type="button" class="btn btn-primary" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`;
     } else if (_myAppsTab === 'active2') {
       emptyText = t('appHistory.emptyInProgress');
-      emptyExtra = `<button class="btn btn-primary" style="margin-top:16px" onclick="_myAppsTab='all';renderMyApplyTabs();renderMyApplyList()">${t('appHistory.showAll')}</button>`;
+      emptyBtn = `<button type="button" class="btn btn-primary" onclick="_myAppsTab='all';renderMyApplyTabs();renderMyApplyList()">${t('appHistory.showAll')}</button>`;
     } else {
       emptyText = t('appHistory.emptyFiltered');
     }
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${emptyText}</div>${emptyExtra}</div>`;
+    container.innerHTML = stateEmptyHtml('assignment', emptyText, emptySub)
+      + (emptyBtn ? `<div class="mp-empty-action">${emptyBtn}</div>` : '');
     return;
   }
   container.innerHTML = filtered.map(a => {
@@ -232,7 +234,7 @@ async function renderMyApplyList() {
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
       ? `<img src="${esc(storageThumbUrl(imgs[0]))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
-      : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
+      : `<span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="color:var(--muted)">inventory_2</span>`;
     // 카드 클릭 동선:
     //   - cancelled: 사유 확인 모달 (openCancelDetailModal)
     //   - approved: 활동관리 페이지 (단, cancelled 였다가 재진입이라면 사양 §4-8에 따라 차단)
@@ -250,11 +252,11 @@ async function renderMyApplyList() {
     //   모바일 터치 영역 보강: 버튼 최소 44×44px (애플 HIG / 머티리얼 권장).
     let menuHtml = '';
     if (a.status === 'pending' || a.status === 'approved') {
-      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span></button>`;
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">more_vert</span></button>`;
     }
     // cancelled 행: 취소일 표시
     const cancelledLine = a.status === 'cancelled' && a.cancelled_at
-      ? `<div class="apply-item-cancelled-at" style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
+      ? `<div class="apply-item-cancelled-at apply-item-sub">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
       : '';
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
@@ -282,22 +284,22 @@ async function renderMyApplyList() {
         //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
-        let bg = '#FFF4E4', color = '#B8741A', extra = '';
+        let cls = '';
         // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
         // ⚠️ 검수중(#FFF4E4/#B8741A)과 나란히 놓이는 자리다. 옅은 주황끼리는
         //   구분이 안 돼(2026-08-25 브라우저 확인) 테두리를 넣고 색을 진하게 한다.
         //   반려(빨강)와도 갈려야 한다 — 잘못한 게 아니라 아직 안 낸 것이다.
-        if (d.status === 'draft') { bg = '#FFE0B2'; color = '#8A3B00'; extra = 'border:1px solid #E8912D;'; }
-        else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
-        else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
-        items.push(`<span style="display:inline-block;${extra}background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+        if (d.status === 'draft') cls = ' draft';
+        else if (d.status === 'approved') cls = ' ok';
+        else if (d.status === 'rejected') cls = ' ng';
+        items.push(`<span class="mp-dbadge${cls}">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       delivItemsHtml = items.join('');
     }
     // 응모 상태 배지(당첨/심사중 등) + 결과물 상태 배지를 카드 본문 맨 아래 가로 한 줄로 모음
-    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status, a.auto_reject_reason)}${delivItemsHtml}</div>`;
+    const badgeRow = `<div class="apply-item-badges">${getStatusBadge(a.status, a.auto_reject_reason)}${delivItemsHtml}</div>`;
     const cautionLine = a.caution_agreed_at
-      ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
+      ? `<div class="apply-item-caution"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
@@ -305,20 +307,20 @@ async function renderMyApplyList() {
     //   티켓 id 는 응모 이력에 없으므로 캠페인만 넘기고, 티켓 화면이 내 예약 중에서 찾는다.
     const ticketBtn = (typeof isEventCampaign === 'function' && isEventCampaign(camp)
                        && a.status !== 'cancelled')
-      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">confirmation_number</span></button>`
+      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">confirmation_number</span></button>`
       : '';
-    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
+    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
-        ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
+        ${camp.recruit_type ? `<div class="apply-item-kicker">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px"><span class="apply-item-title">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(brandLabelInflu(camp))} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
         ${cancelledLine}
         ${badgeRow}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${ticketBtn}${msgBtn}${menuHtml}</div></div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions">${ticketBtn}${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
 }
@@ -368,7 +370,7 @@ function cautionCompareButton(app, camp) {
   if (JSON.stringify(snapItems) === JSON.stringify(currItems)) return '';  // 동일 → 토글 미노출
   _cautionCompareCache[app.id] = { snap: snapItems, curr: currItems, agreedAt: app.caution_agreed_at };
   // event.stopPropagation 으로 카드 onclick 차단
-  return ` <button type="button" onclick="event.stopPropagation();openCautionCompareModal('${esc(app.id)}')" style="background:#FFEFEF;color:#B3261E;border:1px solid #f5b1b1;border-radius:10px;font-size:10px;font-weight:600;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:12px">compare_arrows</span>${t('mypage.caution.compareToggle')}</button>`;
+  return ` <button type="button" class="mp-compare-btn" onclick="event.stopPropagation();openCautionCompareModal('${esc(app.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">compare_arrows</span>${t('mypage.caution.compareToggle')}</button>`;
 }
 
 function openCautionCompareModal(appId) {
@@ -377,7 +379,7 @@ function openCautionCompareModal(appId) {
   if (!body) return;
   const safe = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
   if (!cached) {
-    body.innerHTML = `<div style="padding:24px 0;color:var(--muted);font-size:13px;text-align:center">${t('mypage.caution.empty')}</div>`;
+    body.innerHTML = stateEmptyHtml('', '', t('mypage.caution.empty'));
     openModal('cautionCompareModal');
     return;
   }
@@ -389,16 +391,16 @@ function openCautionCompareModal(appId) {
     return arr.map(it => `<li>${safe(pickHtml(it))}</li>`).join('');
   };
   body.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div style="border:1px solid #d1e7d3;border-radius:10px;background:#f3faf4;padding:12px 14px">
-        <div style="font-size:11px;font-weight:700;color:#1f7a1f;margin-bottom:6px;display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('mypage.caution.agreedAt')} ${esc(agreedLabel)}</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px">${renderList(cached.snap)}</ul>
+    <div class="mp-compare">
+      <div class="mp-compare-box agreed">
+        <div class="mp-compare-head"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_circle</span>${t('mypage.caution.agreedAt')} ${esc(agreedLabel)}</div>
+        <ul>${renderList(cached.snap)}</ul>
       </div>
-      <div style="border:1px solid #f5b1b1;border-radius:10px;background:#fff5f5;padding:12px 14px">
-        <div style="font-size:11px;font-weight:700;color:#B3261E;margin-bottom:6px;display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">campaign</span>${t('mypage.caution.currentNow')}</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px">${renderList(cached.curr)}</ul>
+      <div class="mp-compare-box now">
+        <div class="mp-compare-head"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">campaign</span>${t('mypage.caution.currentNow')}</div>
+        <ul>${renderList(cached.curr)}</ul>
       </div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:8px;padding:10px 12px">${t('mypage.caution.diffNote')}</div>
+      <div class="mp-compare-note">${t('mypage.caution.diffNote')}</div>
     </div>
   `;
   openModal('cautionCompareModal');
@@ -517,7 +519,7 @@ function openMypageSub(sub, pushHistory) {
   //      **껍데기만 뜨고 안이 빈 채로 남는다** — 햄버거로 들어온 경우만 채워진다.
   if (sub === 'withdraw' && typeof loadWithdrawView === 'function') {
     const b = $('withdrawViewBody');
-    if (b) b.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px">${esc(wt('loading'))}</div>`;
+    if (b) b.innerHTML = stateLoadingHtml(wt('loading'));
     loadWithdrawView();
   }
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
@@ -652,7 +654,7 @@ function withdrawNoticeHtml(info, reasons) {
   // ⚠️ 「5일」을 한 문구로 덮지 않는다 — 미지급이 있으면 「지급이 끝난 뒤」가 앞에 붙는다.
   //    한 문구로 둘 다 덮으면 한쪽이 거짓이 된다.
   const scheduleLine = unpaid > 0 ? wt('aScheduleUnpaid', {n: unpaid}) : wt('aSchedule');
-  const li = (s) => `<li style="margin-bottom:10px">${esc(s)}</li>`;
+  const li = (s) => `<li class="wd-li">${esc(s)}</li>`;
 
   // ⚠️ 사유는 **선택**이다(마이그레이션 347). 안 골라도 눌린다.
   //    조회에 실패했으면 이 부분만 통째로 감춘다.
@@ -660,29 +662,29 @@ function withdrawNoticeHtml(info, reasons) {
   if (Array.isArray(reasons) && reasons.length) {
     const opts = reasons.map(r => {
       const label = (typeof getLang === 'function' && getLang() === 'ko') ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko);
-      return `<label style="display:flex;align-items:center;gap:8px;padding:10px 0;font-size:14px">
+      return `<label class="wd-radio">
         <input type="radio" name="withdrawReason" value="${esc(r.code)}" onchange="onWithdrawReasonChange()">
         <span>${esc(label)}</span></label>`;
     }).join('');
-    reasonHtml = `<div style="margin-top:24px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
+    reasonHtml = `<div class="wd-reason">
+      <div class="wd-sub" style="margin-bottom:6px">${esc(wt('aReasonLabel'))}</div>
       ${opts}
       <textarea id="withdrawReasonNote" rows="3" placeholder="${esc(wt('aReasonPlaceholder'))}"
-        style="display:none;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit"></textarea>
+        class="form-input" style="display:none;margin-top:8px"></textarea>
     </div>`;
   }
 
-  return `<ul style="padding-left:18px;margin:8px 0 0;font-size:14px;line-height:1.7;color:var(--ink)">
+  return `<ul class="wd-list" style="margin-top:8px">
       ${li(wt('aCancelApps'))}
-      <li style="margin:-6px 0 10px;font-size:12px;color:var(--muted);list-style:none;margin-left:-18px;padding-left:0">${esc(wt('aCancelAppsSub'))}</li>
+      <li class="wd-li-sub">${esc(wt('aCancelAppsSub'))}</li>
       ${li(scheduleLine)}
       ${li(wt('aPaypal'))}
       ${li(wt('aIrreversible'))}
     </ul>
     ${reasonHtml}
-    <div style="display:flex;gap:8px;margin:28px 0 40px">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
-      <button class="btn btn-primary" style="flex:1" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('aCancelBtn'))}</button>
+      <button type="button" class="btn btn-primary" onclick="showWithdrawConfirm()">${esc(wt('aSubmitBtn'))}</button>
     </div>`;
 }
 
@@ -704,13 +706,13 @@ function showWithdrawConfirm() {
   };
   const body = $('withdrawViewBody');
   if (!body) return;
-  body.innerHTML = `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
-    <div style="background:#FFF5F5;border:1px solid #F5C2C2;border-radius:8px;padding:14px;font-size:14px;line-height:1.7;color:#C33">
+  body.innerHTML = `<div class="wd-title" style="margin-bottom:12px">${esc(wt('confirmTitle'))}</div>
+    <div class="wd-warn">
       ${esc(wt('aConfirm'))}
     </div>
-    <div style="display:flex;gap:8px;margin:28px 0 40px">
-      <button class="btn btn-ghost" style="flex:1" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
-      <button id="withdrawSubmitBtn" class="btn btn-primary" style="flex:1" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="leaveWithdrawConfirm()">${esc(wt('confirmBackBtn'))}</button>
+      <button type="button" id="withdrawSubmitBtn" class="btn btn-primary" onclick="submitWithdraw()">${esc(wt('aSubmitBtn'))}</button>
     </div>`;
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
@@ -838,28 +840,28 @@ function withdrawResultHtml(res) {
   if (n(res.cancelled_count) > 0)   lines.push(`<li>${esc(wt('rCancelled', {n: n(res.cancelled_count)}))}</li>`);
   if (n(res.uncancelled_count) > 0) {
     lines.push(`<li>${esc(wt('rUncancelled', {n: n(res.uncancelled_count)}))}
-      <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
+      <div class="wd-sub" style="margin-top:2px">${esc(wt('rUncancelledSub'))}</div></li>`);
   }
   const listHtml = lines.length
-    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.join('')}</ul>` : '';
+    ? `<ul class="wd-list">${lines.join('')}</ul>` : '';
 
   // 상태에 따라 아래 안내가 갈린다 — 예정일이 있으면 그 날짜, 없으면 「대기」 안내.
   let statusHtml = '';
   if (res.status === 'scheduled' && res.scheduled_date) {
-    statusHtml = `<div style="margin-top:18px;font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
-      <div style="font-size:14px;line-height:1.7;color:var(--ink);margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
+    statusHtml = `<div class="wd-title" style="margin-top:18px">${esc(wt('dScheduled', {date: withdrawDateLabel(res.scheduled_date)}))}</div>
+      <div class="wd-text" style="margin-top:6px">${esc(wt('dCanCancel'))}</div>`;
   } else {
-    statusHtml = `<div style="margin-top:18px;font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>`;
+    statusHtml = `<div class="wd-text" style="margin-top:18px">${esc(wt('cBody'))}</div>`;
   }
 
   // 철회 못 한 응모가 있으면 문의 안내 — 그 응모가 어떻게 되는지 달리 알 길이 없다.
   const contactHtml = n(res.uncancelled_count) > 0
-    ? `<div style="margin-top:18px;background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
+    ? `<div class="wd-box" style="margin-top:18px">${esc(wt('rContact'))}${withdrawContactBtnHtml()}</div>` : '';
 
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink)">${esc(wt('rTitle'))}</div>
+  return `<div class="wd-title">${esc(wt('rTitle'))}</div>
     ${listHtml}${statusHtml}${contactHtml}
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('rDoneBtn'))}</button>
     </div>`;
 }
 
@@ -887,17 +889,17 @@ function withdrawLockedHtml(b) {
   if (n(b?.unpaid_count) > 0)              lines.push(wt('bUnpaid',   {n: n(b.unpaid_count)}));
   // 세 줄이 다 비면(= 정산 기록만 걸림) 뭉뚱그린 한 줄
   const detail = lines.length
-    ? `<ul style="padding-left:18px;margin:14px 0;font-size:14px;line-height:1.8">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
-    : `<div style="margin:14px 0;font-size:14px;color:var(--muted)">${esc(wt('bOther'))}</div>`;
+    ? `<ul class="wd-list">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
+    : `<div class="wd-text" style="margin:14px 0;color:var(--muted)">${esc(wt('bOther'))}</div>`;
 
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('bIntro'))}</div>
+  return `<div class="wd-text">${esc(wt('bIntro'))}</div>
     ${detail}
-    <div style="background:var(--bg);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:var(--ink)">
+    <div class="wd-box">
       ${esc(wt('bContact'))}
       ${withdrawContactBtnHtml()}
     </div>
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
 }
 
@@ -905,7 +907,7 @@ function withdrawLockedHtml(b) {
 //   뒤로가기는 이 탈퇴 화면으로 돌아온다(openGeneralInquiryPage 의 from='withdraw').
 //   ⚠️ 로그아웃 뒤 안내(auth.withdrawnLogout)·예정일 메일은 로그인할 수 없어 LINE 을 그대로 둔다.
 function withdrawContactBtnHtml() {
-  return `<button type="button" class="btn btn-primary" style="width:100%;margin-top:12px;min-height:44px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
+  return `<button type="button" class="btn btn-primary btn-block" style="margin-top:12px" onclick="openGeneralInquiryPage('withdraw')">${esc(t('messaging.navMenu'))}</button>`;
 }
 
 // ── 【C】 대기 중 — pending_payout ──
@@ -913,10 +915,10 @@ function withdrawContactBtnHtml() {
 //      회원에게 닿는 **유일한 통지**다(351). 「앱에서 알려드립니다」로 쓰면 안 온다.
 //   ⚠️ **예정일 칸 자체를 그리지 않는다** — 이 상태에는 예정일이 아직 없다.
 function withdrawPendingHtml() {
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('cTitle'))}</div>
-    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('cBody'))}</div>
-    <div style="margin:28px 0 40px">
-      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+  return `<div class="wd-title" style="margin-bottom:10px">${esc(wt('cTitle'))}</div>
+    <div class="wd-text">${esc(wt('cBody'))}</div>
+    <div class="wd-actions">
+      <button type="button" id="withdrawCancelBtn" class="btn btn-ghost" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
     </div>`;
 }
 
@@ -928,10 +930,10 @@ function withdrawPendingHtml() {
 //      거기서 「탈퇴 그만두기」에 닿는 자리는 이 화면 하나뿐이다.
 function withdrawScheduledHtml(req) {
   const d = req?.scheduled_date ? withdrawDateLabel(req.scheduled_date) : '';
-  return `<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
-    <div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(wt('dCanCancel'))}</div>
-    <div style="margin:28px 0 40px">
-      <button id="withdrawCancelBtn" class="btn btn-ghost" style="width:100%" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
+  return `<div class="wd-title" style="margin-bottom:10px">${esc(wt('dScheduled', {date: d}))}</div>
+    <div class="wd-text">${esc(wt('dCanCancel'))}</div>
+    <div class="wd-actions">
+      <button type="button" id="withdrawCancelBtn" class="btn btn-ghost" onclick="cancelWithdrawFromScreen()">${esc(wt('dCancelBtn'))}</button>
     </div>`;
 }
 
@@ -954,9 +956,9 @@ function withdrawExceptionHtml(info) {
   if (info?.reason === 'admin_account_excluded') msg = wt('eAdmin');
   // 관리자 겸직은 운영팀에 물어야 풀린다 — 문의 창구로 바로 보낸다(감사용·조회 실패는 버튼 없음)
   const contactBtn = info?.reason === 'admin_account_excluded' ? withdrawContactBtnHtml() : '';
-  return `<div style="font-size:14px;line-height:1.7;color:var(--ink)">${esc(msg)}${contactBtn}</div>
-    <div style="margin:28px 0 40px">
-      <button class="btn btn-ghost" style="width:100%" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
+  return `<div class="wd-text">${esc(msg)}${contactBtn}</div>
+    <div class="wd-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeMypageSub()">${esc(wt('bBackBtn'))}</button>
     </div>`;
 }
 

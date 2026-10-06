@@ -43,6 +43,7 @@ window._supabaseLoaded = false;
 <link rel="stylesheet" href="css/campaign.css">
 <link rel="stylesheet" href="css/auth.css">
 <link rel="stylesheet" href="css/mypage.css">
+<link rel="stylesheet" href="css/member-ui.css">
 <!-- Vercel Web Analytics + Speed Insights (운영 사용자 실측 Core Web Vitals 수집) -->
 <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
@@ -60,38 +61,41 @@ window._supabaseLoaded = false;
 
 <!-- ── DETAIL FLOATING BAR ── -->
 <div id="detailFloatBar">
-  <div style="display:flex;gap:10px;align-items:center">
-    <div style="flex:1;min-width:0">
-      <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  <div class="cd-float-row">
+    <div class="cd-float-text">
+      <div id="floatProductName" class="cd-float-name"></div>
       <!-- 행사 캠페인은 이 자리에 행사장이 들어간다(최대 200자). 제목과 같이 한 줄로 잘라
            바 높이가 늘어나지 않게 한다 — 안 그러면 긴 주소가 들어올 때 바가 두 줄이 된다. -->
-      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div id="floatProductReward" class="cd-float-reward"></div>
     </div>
-    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
-    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
+    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="display:none" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
+    <button id="floatApplyBtn" class="btn btn-primary btn-sm" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
   </div>
 </div>
 
 <!-- ── 프로필 부족 알럿 모달 ── -->
-<div id="profileAlertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px" data-i18n="profileAlert.title">キャンペーン応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
-    <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">キャンセル</button>
-      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">マイページへ</button>
+<div id="profileAlertOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="profileAlertTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="profileAlertTitle" data-i18n="profileAlert.title">キャンペーン応募の前に</div></div>
+    <div class="popup-body center">
+    <div class="popup-desc" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
+    <div id="profileAlertMissing" class="popup-left"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" data-i18n="profileAlert.cancel">キャンセル</button>
+      <button type="button" class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" data-i18n="profileAlert.goMypage">マイページへ</button>
     </div>
   </div>
 </div>
 
 <!-- ── 응모 연령 게이트 모달 (생년월일·성별 미입력 시 응모 직전 입력) ── -->
-<div id="ageGateOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px;text-align:center" data-i18n="ageGate.title">応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;text-align:center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
+<div id="ageGateOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="ageGateTitle" data-i18n="ageGate.title">応募の前に</div></div>
+    <div class="popup-body">
+    <div class="popup-desc center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
     <div class="form-group" style="margin-bottom:14px">
-      <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+      <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span class="req-mark">*</span></label>
       <div class="birthdate-selects">
         <select id="gateBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
         <select id="gateBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
@@ -99,7 +103,7 @@ window._supabaseLoaded = false;
       </div>
     </div>
     <div class="form-group" style="margin-bottom:14px">
-      <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+      <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span class="req-mark">*</span></label>
       <select id="gateGender" class="form-input" required>
         <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
         <option value="male" data-i18n="auth.signup.genderMale">男性</option>
@@ -115,27 +119,11 @@ window._supabaseLoaded = false;
         <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
       </label>
     </div>
-    <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
-      <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
+    <div id="ageGateError" class="form-error" style="margin-bottom:4px;display:none"></div>
     </div>
-  </div>
-</div>
-
-<!-- ── 이미지 크롭 모달 ── -->
-<div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow:hidden">
-    <div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)">
-      <div style="font-size:16px;font-weight:700">1:1 이미지 크롭</div>
-      <div onclick="closeCropModal()" style="width:32px;height:32px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
-    </div>
-    <div style="padding:16px;background:#000">
-      <img id="cropImage" style="max-width:100%;display:block">
-    </div>
-    <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeCropModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="applyCrop()">適用</button>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeAgeGate()" data-i18n="ageGate.cancel">キャンセル</button>
+      <button type="button" class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" data-i18n="ageGate.save">保存して続ける</button>
     </div>
   </div>
 </div>
@@ -145,7 +133,7 @@ window._supabaseLoaded = false;
   <div class="legal-sheet">
     <div class="legal-head">
       <div class="legal-title" id="legalTitle"></div>
-      <button class="legal-close" onclick="closeLegalModal()" aria-label="閉じる">×</button>
+      <button type="button" class="popup-close legal-close" onclick="closeLegalModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
     <div class="legal-body" id="legalBody"></div>
   </div>
@@ -156,7 +144,7 @@ window._supabaseLoaded = false;
   <div class="legal-sheet">
     <div class="legal-head">
       <div class="legal-title" id="policyNoticeTitle"></div>
-      <button class="legal-close" onclick="closePolicyNotice()" aria-label="閉じる">×</button>
+      <button type="button" class="popup-close legal-close" onclick="closePolicyNotice()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
     <div class="legal-body" id="policyNoticeBody"></div>
     <div class="policy-notice-actions">
@@ -167,51 +155,50 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- ── 알럿 모달 ── -->
-<div class="modal-overlay" id="alertModal" style="z-index:600">
-  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
-    <div class="modal-body" style="padding:32px 24px 24px">
-      <div id="alertModalMessage" style="font-size:14px;line-height:1.6;color:var(--ink)"></div>
-      <button class="btn btn-primary" style="margin-top:20px;min-width:120px" onclick="closeModal('alertModal')">OK</button>
+<div class="modal-overlay" id="alertModal" style="z-index:600" role="alertdialog" aria-modal="true" aria-describedby="alertModalMessage">
+  <div class="dialog">
+    <div class="popup-body center" style="padding-top:28px">
+      <div id="alertModalMessage"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-primary" onclick="closeModal('alertModal')">OK</button>
     </div>
   </div>
 </div>
 
 <!-- 주의사항 비교 모달 (Phase 2 — 인플루언서 응모이력) — 동의 시점 vs 현재 캠페인 문구 비교 -->
 <div class="modal-overlay" id="cautionCompareModal" style="z-index:610">
-  <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:85vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
-      <button onclick="closeModal('cautionCompareModal')" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cautionCompareTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="cautionCompareTitle" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
+      <button type="button" class="popup-close" onclick="closeModal('cautionCompareModal')" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" id="cautionCompareModalBody" style="padding:18px 20px;overflow-y:auto;flex:1"></div>
+    <div class="popup-body" id="cautionCompareModalBody"></div>
   </div>
 </div>
 
 <!-- 응모이력 ⋮ 액션 선택 모달 (결과물 제출 / 응모 취소) — 모바일 큰 터치 영역 -->
 <div class="modal-overlay" id="applyActionModal" style="z-index:613">
-  <div class="modal" style="max-width:420px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.title">アクションを選択</div>
-      <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="applyActionTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="applyActionTitle" data-i18n="appHistory.action.title">アクションを選択</div>
+      <button type="button" class="popup-close" onclick="closeApplyActionModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
-      <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.submit">結果物を提出</span>
-          <span id="applyActionSubmitHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+    <div class="popup-body">
+      <button type="button" id="applyActionSubmitBtn" class="apply-action-row mp-action-row">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">upload_file</span>
+        <span class="mp-action-text">
+          <span class="mp-action-title" data-i18n="appHistory.action.submit">結果物を提出</span>
+          <span id="applyActionSubmitHint" class="mp-action-hint"></span>
         </span>
       </button>
-      <button type="button" id="applyActionCancelBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:14px;text-align:left">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:#C33;flex-shrink:0">cancel</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.cancel">応募を取り消す</span>
-          <span id="applyActionCancelHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
+      <button type="button" id="applyActionCancelBtn" class="apply-action-row mp-action-row danger">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">cancel</span>
+        <span class="mp-action-text">
+          <span class="mp-action-title" data-i18n="appHistory.action.cancel">応募を取り消す</span>
+          <span id="applyActionCancelHint" class="mp-action-hint" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
         </span>
       </button>
-      <div style="text-align:center;margin-top:4px">
-        <button class="btn btn-ghost" onclick="closeApplyActionModal()" style="min-width:120px;min-height:44px" data-i18n="appHistory.action.close">閉じる</button>
-      </div>
     </div>
   </div>
 </div>
@@ -220,41 +207,39 @@ window._supabaseLoaded = false;
 
 <!-- 취소 사유 확인 모달 (취소된 응모이력 카드 클릭 시) -->
 <div class="modal-overlay" id="cancelDetailModal" style="z-index:614">
-  <div class="modal" style="max-width:400px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
-      <button onclick="closeCancelDetailModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cancelDetailTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="cancelDetailTitle" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
+      <button type="button" class="popup-close" onclick="closeCancelDetailModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink);line-height:1.8">
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start">
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
+    <div class="popup-body">
+      <div class="mp-dl">
+        <div class="k" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
         <div id="cancelDetailDatetime"></div>
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
+        <div class="k" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
         <div id="cancelDetailCategory"></div>
         <div id="cancelDetailNoteRow" style="display:contents">
-          <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.note">補足</div>
+          <div class="k" data-i18n="appHistory.cancelDetail.note">補足</div>
           <div id="cancelDetailNote" style="white-space:pre-wrap"></div>
         </div>
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
+        <div class="k" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
         <div id="cancelDetailPhase"></div>
       </div>
-      <div style="margin-top:16px;text-align:center">
-        <button class="btn btn-ghost" onclick="closeCancelDetailModal()" data-i18n="appHistory.cancelDetail.closeBtn">閉じる</button>
-      </div>
+
     </div>
   </div>
 </div>
 
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" class="login-prompt-overlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;justify-content:center">
-  <div class="login-prompt-sheet" style="background:#fff;width:100%;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
+  <div class="login-prompt-sheet lp-sheet" role="dialog" aria-modal="true" aria-labelledby="loginPromptTitle">
+    <div class="lp-title" id="loginPromptTitle" data-i18n="loginPrompt.title">ログインが必要です</div>
+    <div class="lp-desc" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()" data-i18n="common.cancel">キャンセル</button>
       <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">ログイン</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
+    <div class="lp-foot"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" class="lp-link" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
   </div>
 </div>
 
@@ -297,10 +282,10 @@ window._supabaseLoaded = false;
   <div class="notif-modal-body">
     <div class="notif-modal-header">
       <div class="notif-modal-title" data-i18n="menu.notifications">お知らせ</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
-        <button class="notif-close-btn" onclick="closeNotifModal()" aria-label="Close">
-          <span class="material-icons-round notranslate" translate="no">close</span>
+      <div class="notif-head-actions">
+        <button type="button" id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
+        <button type="button" class="notif-close-btn" onclick="closeNotifModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
         </button>
       </div>
     </div>
@@ -381,7 +366,7 @@ window._supabaseLoaded = false;
   </div>
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
+      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">K-Brand × Japan Only</div>
       <h1 class="hero-h1"><span data-i18n="home.hero.titleLine1">韓国の人気Kブランドを</span><span data-i18n="home.hero.titleLine2">あなたのSNSで</span><span data-i18n="home.hero.titleLine3">体験しよう</span><span class="hero-jp" data-i18n="home.hero.titleJp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
       <p class="hero-sub" data-i18n="home.hero.sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
@@ -398,23 +383,23 @@ window._supabaseLoaded = false;
     </div>
   </section>
 
-  <section style="background:#fff;padding:32px 0;border-bottom:1px solid var(--line)">
+  <section class="home-feat-sec">
     <div class="container">
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;text-align:center">
-        <div style="min-width:0;padding:16px 6px">
-          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+      <div class="home-feat">
+        <div class="home-feat-item">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">local_shipping</span>
+          <div class="home-feat-title" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div class="home-feat-desc" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
-        <div style="min-width:0;padding:16px 6px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
-          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35" data-i18n="home.feature.freeTitle">完全無償提供</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
+        <div class="home-feat-item">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">volunteer_activism</span>
+          <div class="home-feat-title" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div class="home-feat-desc" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
         </div>
-        <div style="min-width:0;padding:16px 6px">
-          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+        <div class="home-feat-item">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">auto_awesome</span>
+          <div class="home-feat-title" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div class="home-feat-desc" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -423,45 +408,39 @@ window._supabaseLoaded = false;
   <section class="campaigns-section">
     <div class="container">
       <div class="section-header">
-        <div><div class="section-title"><span data-i18n="home.section.campaignsTitle">キャンペーン</span> <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub" data-i18n="home.section.campaignsSub">今すぐ応募できる体験団</div></div>
-        <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0" data-i18n="home.section.viewAll">すべて見る →</button>
+        <div><div class="section-title"><span data-i18n="home.section.campaignsTitle">キャンペーン</span> <span id="campCount" class="home-count">0</span></div><div class="section-sub" data-i18n="home.section.campaignsSub">今すぐ応募できる体験団</div></div>
+        <button type="button" class="home-viewall" onclick="navigate('campaigns')" data-i18n="home.section.viewAll">すべて見る →</button>
       </div>
       <!-- 채널 필터 -->
       <div class="filter-row" id="filterRow" style="margin-bottom:14px"></div>
-      <div class="camp-grid" id="campGrid"></div>
+      <div class="camp-grid" id="campGrid"><div class="state-loading" role="status" aria-live="polite"><span class="state-spin" aria-hidden="true"></span><span data-i18n="common.loading">読み込み中…</span></div></div>
       <!-- 더보기 — 홈 화면은 최대 10건, 초과분은 캠페인 페이지로 이동 -->
       <div id="campMoreBtnWrap" style="display:none;text-align:center;margin-top:16px">
-        <button onclick="navigate('campaigns')" class="btn btn-ghost btn-block" style="font-size:13px;font-weight:600" data-i18n="campaign.moreBtn">もっと見る</button>
+        <button type="button" onclick="navigate('campaigns')" class="btn btn-ghost btn-block" data-i18n="campaign.moreBtn">もっと見る</button>
       </div>
     </div>
   </section>
 
-  <section style="background:#fff;padding:24px 0 80px;border-top:8px solid var(--bg)">
+  <section class="home-sns-sec">
     <div class="container">
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <!-- Instagram 카드 -->
-        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
-          <div style="flex-shrink:0;width:52px;height:52px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="ig3" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig3)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
-          </div>
-        </div>
-        <!-- LINE 카드 -->
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
-          <div style="flex-shrink:0;width:52px;height:52px;background:#fff;border-radius:12px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
-          </div>
-        </div>
+      <div class="sns-follow-list">
+        <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="ig3" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig3)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>INSTAGRAM</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</span>
+            <span class="sns-follow-sub" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</span>
+          </span>
+        </button>
+        <button type="button" class="sns-follow-card line" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
+          <span class="sns-follow-icon"><img src="https://qr-official.line.me/sid/M/reverb.jp.png" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'"></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>LINE</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</span>
+            <span class="sns-follow-sub" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</span>
+            <span class="sns-follow-badge"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span></span>
+          </span>
+        </button>
       </div>
     </div>
   </section>
@@ -498,37 +477,37 @@ window._supabaseLoaded = false;
      PAGE: CAMPAIGNS LIST
 ══════════════════════════════════ -->
 <div id="page-campaigns" class="page">
-  <div id="campPageStickyHeader" style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
+  <div id="campPageStickyHeader" class="cl-head">
     <div class="container" style="padding-top:14px;padding-bottom:0">
       <!-- 제목 행 — 닫힘 모드(제목+🔍) / 열림 모드(검색 input+✕) 가 같은 row 자리를 토글로 차지 -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
-        <div id="campPageTitle" style="flex:1;font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
-        <button id="campPageSearchToggle" onclick="toggleCampPageSearch(true)" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px;flex-shrink:0">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>
+      <div class="cl-head-row">
+        <h1 id="campPageTitle" class="cl-title" data-i18n="campaigns.pageTitle">キャンペーン一覧</h1>
+        <button type="button" id="campPageSearchToggle" class="cl-icon-btn" onclick="toggleCampPageSearch(true)" aria-label="検索" style="color:var(--ink)">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">search</span>
         </button>
         <!-- 검색 입력 폼 (열림 모드) — 캠페인명·브랜드명·상품·캠페인번호 매칭 -->
         <div id="campPageSearchWrap" style="display:none;flex:1;align-items:center;gap:8px">
           <div style="flex:1;position:relative">
-            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
-            <button onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px 6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:6px">
-              <span class="material-icons-round notranslate" translate="no" style="font-size:18px">search</span>
+            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" class="form-input" style="padding:10px 44px 10px 12px">
+            <button type="button" class="cl-icon-btn" onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:0;top:50%;transform:translateY(-50%);color:var(--ink)">
+              <span class="material-icons-round notranslate" translate="no" aria-hidden="true">search</span>
             </button>
           </div>
-          <button onclick="toggleCampPageSearch(false)" aria-label="閉じる" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-radius:8px;flex-shrink:0">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span>
+          <button type="button" class="cl-icon-btn" onclick="toggleCampPageSearch(false)" aria-label="閉じる" data-i18n-attr="aria-label:common.close">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
           </button>
         </div>
       </div>
       <!-- 모집 유형 탭 — 고정 (스크롤 영향 없음) -->
-      <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
-        <button id="campPageType-all" onclick="setCampPageType('all')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
-        <button id="campPageType-monitor" onclick="setCampPageType('monitor')" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">レビュアー</button>
-        <button id="campPageType-gifting" onclick="setCampPageType('gifting')" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
-        <button id="campPageType-visit" onclick="setCampPageType('visit')" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">訪問</button>
+      <div class="cl-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" id="campPageType-all" class="cl-tab on" onclick="setCampPageType('all')" data-i18n="campaigns.typeAll">すべて</button>
+        <button type="button" role="tab" id="campPageType-monitor" class="cl-tab" onclick="setCampPageType('monitor')" data-i18n="campaigns.typeMonitor">レビュアー</button>
+        <button type="button" role="tab" id="campPageType-gifting" class="cl-tab" onclick="setCampPageType('gifting')" data-i18n="campaigns.typeGifting">ギフティング</button>
+        <button type="button" role="tab" id="campPageType-visit" class="cl-tab" onclick="setCampPageType('visit')" data-i18n="campaigns.typeVisit">訪問</button>
       </div>
       <!-- 상태 칩 영역 — 스크롤 시 자동 숨김/노출 대상 -->
       <div id="campPageFilterArea" style="overflow:hidden;transition:max-height .25s ease,opacity .2s ease;max-height:80px;opacity:1">
-        <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
+        <div class="filter-row" style="padding:10px 0 4px;margin-bottom:0">
           <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
           <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
           <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
@@ -539,33 +518,29 @@ window._supabaseLoaded = false;
     </div>
   </div>
   <div class="container" style="padding-top:16px;padding-bottom:0">
-    <div class="camp-grid" id="campListGrid"></div>
+    <div class="camp-grid" id="campListGrid"><div class="state-loading" role="status" aria-live="polite"><span class="state-spin" aria-hidden="true"></span><span data-i18n="common.loading">読み込み中…</span></div></div>
   </div>
   <!-- SNS 배너 -->
-  <section style="background:#fff;padding:20px 0 calc(var(--tab-h) + 20px);border-top:8px solid var(--bg)">
+  <section class="list-sns-sec">
     <div class="container">
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igB" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igB)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
-          </div>
-        </div>
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
-          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
-          </div>
-          <div style="flex:1">
-            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
-          </div>
-        </div>
+      <div class="sns-follow-list">
+        <button type="button" class="sns-follow-card ig" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <span class="sns-follow-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igB" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igB)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>INSTAGRAM</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</span>
+            <span class="sns-follow-sub" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</span>
+          </span>
+        </button>
+        <button type="button" class="sns-follow-card line" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
+          <span class="sns-follow-icon"><img src="https://qr-official.line.me/sid/M/reverb.jp.png" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'"></span>
+          <span class="sns-follow-text">
+            <span class="sns-follow-name">REVERB <small>LINE</small></span>
+            <span class="sns-follow-cta" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</span>
+            <span class="sns-follow-sub" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</span>
+            <span class="sns-follow-badge"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span></span>
+          </span>
+        </button>
       </div>
     </div>
   </section>
@@ -578,7 +553,7 @@ window._supabaseLoaded = false;
   <div class="legal-page-head">
     <div class="container" style="display:flex;align-items:center;gap:8px;padding:14px 16px">
       <button class="legal-back" onclick="navigate('home')" aria-label="戻る"><span class="material-icons-round notranslate" translate="no">arrow_back</span></button>
-      <div id="legalPageTitle" style="font-size:15px;font-weight:700;flex:1"></div>
+      <h1 id="legalPageTitle" class="legal-page-title"></h1>
       <div class="legal-lang-tabs">
         <button class="legal-lang-btn on" data-lang="ko" onclick="setLegalLang('ko')">한국어</button>
         <button class="legal-lang-btn" data-lang="ja" onclick="setLegalLang('ja')">日本語</button>
@@ -598,42 +573,42 @@ window._supabaseLoaded = false;
   <!-- padding-bottom 을 크게 잡아 모바일 키보드가 올라와도 input/textarea
        가 .page.active 자연 스크롤로 키보드 위로 올라올 여유 확보 -->
   <div class="container" style="padding:16px 16px 50vh">
-    <div class="detail-back" onclick="navigateBackFromCancelApp()" style="font-size:13px;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="appHistory.cancel.cancelBtn">戻る</span></div>
-    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px">
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromCancelApp()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span data-i18n="appHistory.cancel.cancelBtn">戻る</span></button>
+    <h1 class="ac-title" style="margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</h1>
+    <div class="ac-sub" style="margin-bottom:18px">
       <span data-i18n="appHistory.title">応募履歴</span>: <strong id="cancelPageCampaign" style="color:var(--ink)"></strong>
     </div>
     <input type="hidden" id="cancelPagePhase" value="recruit">
     <input type="hidden" id="cancelPageAppId" value="">
 
     <!-- 단순형 본문 (cancel_phase = 'recruit') -->
-    <div id="cancelPageSimpleBody" style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:18px" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
+    <div id="cancelPageSimpleBody" class="ac-body" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
 
     <!-- 사유 입력형 (cancel_phase != 'recruit') -->
-    <div id="cancelPageWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:12px 14px;font-size:13px;color:#9B1C1C;line-height:1.7;margin-bottom:16px">
-      <div style="font-weight:700;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">warning</span> <span data-i18n="appHistory.cancel.warningLabel">注意</span></div>
+    <div id="cancelPageWarning" class="ac-warn-box" style="display:none">
+      <div class="ac-warn-box-title"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span><span data-i18n="appHistory.cancel.warningLabel">注意</span></div>
       <div id="cancelPageWarningText"></div>
     </div>
     <div id="cancelPageReason" style="display:none;margin-bottom:16px">
-      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
-      <select id="cancelPageReasonSelect" class="form-input" style="font-size:16px"></select>
+      <label class="form-label" for="cancelPageReasonSelect" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
+      <select id="cancelPageReasonSelect" class="form-input"></select>
     </div>
     <div id="cancelPageNoteWrap" style="display:none;margin-bottom:16px">
-      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
-      <textarea id="cancelPageNote" class="form-input" rows="4" maxlength="500" style="font-size:16px;resize:vertical;line-height:1.5;width:100%"></textarea>
+      <label class="form-label" for="cancelPageNote" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
+      <textarea id="cancelPageNote" class="form-input" rows="4" maxlength="500" style="line-height:1.5"></textarea>
     </div>
     <div id="cancelPageAckWrap" style="display:none;margin-bottom:24px">
-      <label style="display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--ink);cursor:pointer">
-        <input type="checkbox" id="cancelPageAck" style="margin-top:4px;width:18px;height:18px">
+      <label class="apply-check">
+        <input type="checkbox" id="cancelPageAck">
         <span data-i18n="appHistory.cancel.acknowledge">上記の不利益の可能性を理解しました</span>
       </label>
     </div>
 
     <div id="cancelPageError" class="form-error" style="display:none;margin-bottom:12px"></div>
 
-    <div style="display:flex;gap:10px;margin-top:8px">
-      <button class="btn btn-ghost" onclick="navigateBackFromCancelApp()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
-      <button class="btn btn-primary" id="cancelPageSubmitBtn" onclick="submitCancelApplicationFromPage()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
+    <div class="ac-actions">
+      <button type="button" class="btn btn-ghost" onclick="navigateBackFromCancelApp()" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
+      <button type="button" class="btn btn-primary" id="cancelPageSubmitBtn" onclick="submitCancelApplicationFromPage()" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
     </div>
   </div>
 </div>
@@ -644,18 +619,20 @@ window._supabaseLoaded = false;
 <!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
      진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
 <div id="page-ticket" class="page">
+  <!-- 머리는 햄버거 화면들과 같은 mypage-sub-header(결함 2). 뒤로 단추는 남긴다 — backFromTicket 이 들어온 길(상세/응모이력)로 돌려보낸다.
+       ⚠️ .detail-back 클래스는 iOS 앱 덮어쓰기가 숨기려고 찾는다 — 지우지 말 것 -->
+  <div class="mypage-sub-header">
+    <button type="button" class="ticket-back detail-back" onclick="backFromTicket()" data-i18n-attr="aria-label:common.back" aria-label="戻る"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span></button>
+    <span class="mypage-sub-title" data-i18n="event.ticketTitle">入場チケット</span>
+  </div>
   <div class="container" style="padding-top:16px;padding-bottom:40px">
-    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
-      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
-      <span data-i18n="event.ticketTitle">入場チケット</span>
-    </div>
     <div id="ticketBody"></div>
   </div>
 </div>
 
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
-    <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromDetail()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span id="detailBackLabel">キャンペーン一覧へ</span></button>
     <div class="detail-layout" id="detailContent"></div>
   </div>
 </div>
@@ -665,85 +642,85 @@ window._supabaseLoaded = false;
 ══════════════════════════════════ -->
 <div id="page-activity" class="page">
   <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
-    <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="common.back">戻る</span></div>
-    <div id="activityRecruitLabel" style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px;display:none"></div>
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
-      <div id="activityCampTitle" style="font-size:18px;font-weight:800;flex:1;min-width:0"></div>
-      <button type="button" id="activityCancelBtn" onclick="onActivityCancelClick()" style="display:none;flex-shrink:0;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer" data-i18n="appHistory.cancelMenu">取消</button>
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromActivity()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span data-i18n="common.back">戻る</span></button>
+    <div id="activityRecruitLabel" class="ac-kicker" style="display:none"></div>
+    <div class="ac-head">
+      <h1 id="activityCampTitle" class="ac-title"></h1>
+      <button type="button" id="activityCancelBtn" class="btn btn-ghost btn-xs" onclick="onActivityCancelClick()" style="display:none" data-i18n="appHistory.cancelMenu">取消</button>
     </div>
-    <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
+    <div id="activityCampBrand" class="ac-sub"></div>
 
     <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
-    <div id="activityRejectBanner" style="display:none;background:#FFF5F5;border-left:4px solid #C33;border-radius:8px;padding:12px 14px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:#C33;margin-bottom:6px;display:flex;align-items:center;gap:6px">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:18px">error_outline</span>
+    <div id="activityRejectBanner" class="ac-reject" style="display:none">
+      <div class="ac-reject-title">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">error_outline</span>
         <span data-i18n="activity.rejectedTitle">差し戻しされました</span>
       </div>
-      <div id="activityRejectReason" style="font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.5"></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px" data-i18n="activity.rejectedHint">修正後、再度ご提出ください。</div>
+      <div id="activityRejectReason" class="ac-reject-text"></div>
+      <div class="ac-caption" style="margin-top:6px" data-i18n="activity.rejectedHint">修正後、再度ご提出ください。</div>
     </div>
 
     <!-- 제출 마감 안내 -->
-    <div id="activitySubmissionDeadline" style="display:none;font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+    <div id="activitySubmissionDeadline" class="ac-hint" style="display:none"></div>
 
     <!-- 이미지 섹션 (monitor=영수증 / visit=현장 사진) -->
     <div id="activityReceiptSection">
       <!-- monitor 전용 STEP 1 라벨 (visit 캠페인에선 숨김) -->
-      <div id="receiptStepLabel" style="display:none;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:0.5px" data-i18n="activity.receiptStepLabel">STEP 1: 購入レシート</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.imageSection">画像の提出</div>
+      <div id="receiptStepLabel" class="ac-step" style="display:none" data-i18n="activity.receiptStepLabel">STEP 1: 購入レシート</div>
+      <h2 class="ac-sec-title" data-i18n="activity.imageSection">画像の提出</h2>
       <div id="receiptList" style="margin-bottom:20px"></div>
-      <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px;margin-bottom:12px">
+      <div id="receiptForm" class="ac-form-card">
         <div class="form-group">
-          <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span class="req-mark">*</span></label>
           <div id="receiptPreview" style="margin-bottom:8px"></div>
-          <label id="receiptFileLabel" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
-            <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
+          <label id="receiptFileLabel" class="ac-file-btn">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
+            <input type="file" id="receiptFile" accept="image/*" onchange="previewReceipt(this)">
           </label>
         </div>
         <!-- monitor(리뷰어) 전용: 주문번호·구매일·구매금액 3종 필수 (마이그레이션 128) -->
         <div id="monitorReceiptFields" style="display:none">
           <!-- 영수증 글자 자동입력 (기기 안 처리, 빈 칸만 채움) -->
-          <button type="button" id="receiptOcrBtn" class="btn btn-ghost btn-block" onclick="runReceiptAutofill()" style="margin-bottom:6px;font-size:13px">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">qr_code_scanner</span>
+          <button type="button" id="receiptOcrBtn" class="btn btn-ghost btn-block" onclick="runReceiptAutofill()" style="margin-bottom:6px">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:20px">qr_code_scanner</span>
             <span data-i18n="activity.ocrBtn">画像から自動入力</span>
           </button>
-          <div id="receiptOcrStatus" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5"></div>
+          <div id="receiptOcrStatus" class="ac-caption" style="display:none;margin-bottom:10px"></div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span class="req-mark">*</span></label>
             <input type="text" id="receiptOrderNumber" class="form-input" maxlength="200" placeholder="例: A1234567890">
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="activity.purchaseDateLabel">購入日</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="activity.purchaseDateLabel">購入日</span> <span class="req-mark">*</span></label>
             <input type="date" id="receiptDate" class="form-input">
-            <div style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.purchaseDateHint">例: 2026/05/22</div>
+            <div class="ac-caption" style="margin-top:4px" data-i18n="activity.purchaseDateHint">例: 2026/05/22</div>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span class="req-mark">*</span></label>
             <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
             <!-- 이 금액이 곧 송금액이 된다는 안내(리뷰어형 한정) — renderReceiptPayoutNote 가
                  모집 형식을 보고 표시 여부와 상한 금액을 채운다. 방문형도 이 폼을 쓰지만
                  방문형 정산은 현금 리워드라 이 안내가 뜨면 틀린 말이 된다. -->
-            <div id="receiptPayoutNote" style="display:none;margin-top:8px;font-size:12px;line-height:1.6;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px"></div>
+            <div id="receiptPayoutNote" class="ac-note" style="display:none;margin-top:8px"></div>
           </div>
         </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
       <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
-      <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
+      <div id="receiptMaxNote" class="ac-caption" style="display:none;text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
       <div id="draftBarReceipt" class="draft-pending-bar" style="display:none"></div>
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
     </div>
 
     <!-- 리뷰 캡쳐 섹션 (monitor STEP 2 — 영수증 승인 후 노출) -->
     <div id="reviewImageSection" style="display:none;margin-top:24px">
-      <div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:0.5px" data-i18n="activity.reviewImageStepLabel">STEP 2: 投稿スクリーンショット</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:6px;color:var(--ink)" data-i18n="activity.reviewImageSection">投稿スクリーンショットの提出</div>
+      <div class="ac-step" data-i18n="activity.reviewImageStepLabel">STEP 2: 投稿スクリーンショット</div>
+      <h2 class="ac-sec-title" style="margin-bottom:6px" data-i18n="activity.reviewImageSection">投稿スクリーンショットの提出</h2>
       <!-- 영수증 승인 전 안내 (gated) -->
-      <div id="reviewImageGatedNote" style="display:none;background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--ink);line-height:1.5;margin-bottom:12px" data-i18n="activity.reviewImageGated">STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。</div>
+      <div id="reviewImageGatedNote" class="ac-note left" style="display:none" data-i18n="activity.reviewImageGated">STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。</div>
       <!-- 영수증 승인 후 본문 — 채널별 카드는 renderActivityReviewImageList(application.js) 가 동적 렌더 -->
       <div id="reviewImageBody" style="display:none">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
+        <div class="ac-hint" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
         <div id="reviewImageList" style="margin-bottom:20px"></div>
         <div id="draftBarReviewImage" class="draft-pending-bar" style="display:none"></div>
         <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
@@ -752,16 +729,16 @@ window._supabaseLoaded = false;
 
     <!-- URL 섹션 (gifting/visit) -->
     <div id="activityPostSection" style="display:none;margin-top:20px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.postSection">投稿URLの提出</div>
+      <h2 class="ac-sec-title" data-i18n="activity.postSection">投稿URLの提出</h2>
       <div id="postSubmissionList" style="margin-bottom:20px"></div>
-      <div id="postSubmissionForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px;margin-bottom:12px">
+      <div id="postSubmissionForm" class="ac-form-card">
         <div class="form-group">
-          <label class="form-label"><span data-i18n="activity.postUrlLabel">投稿URL</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.postUrlLabel">投稿URL</span> <span class="req-mark">*</span></label>
           <input type="url" id="postUrlInput" class="form-input" placeholder="https://www.instagram.com/p/... など" oninput="onPostUrlInputChange()">
-          <div id="postChannelDetected" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+          <div id="postChannelDetected" class="ac-caption" style="margin-top:6px"></div>
         </div>
         <div class="form-group" id="postChannelManualWrap" style="display:none">
-          <label class="form-label"><span data-i18n="activity.postChannelLabel">チャンネルを選択</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.postChannelLabel">チャンネルを選択</span> <span class="req-mark">*</span></label>
           <select id="postChannelManual" class="form-input">
             <option value="" data-i18n="common.select">— 選択してください —</option>
             <option value="instagram">Instagram</option>
@@ -772,7 +749,7 @@ window._supabaseLoaded = false;
             <option value="lips">LIPS</option>
             <option value="cosme">@cosme</option>
           </select>
-          <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
+          <div class="form-hint" style="margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
         </div>
         <button id="addPostBtn" class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
@@ -849,9 +826,9 @@ window._supabaseLoaded = false;
   <div class="auth-wrap">
     <div class="auth-card fade-up">
       <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
-      <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
-        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています...</div>
+      <div id="resetPwVerifying" class="auth-loading" style="display:none">
+        <span class="state-spin" aria-hidden="true"></span>
+        <div class="auth-hint" style="margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
       </div>
       <!-- 만료·무효 링크 안내 -->
       <div id="resetPwExpired" style="display:none">
@@ -859,7 +836,7 @@ window._supabaseLoaded = false;
           <div class="auth-logo-mark">R</div>
           <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
         </div>
-        <ol style="font-size:14px;line-height:1.9;color:var(--text);padding-left:20px;margin:0 0 20px">
+        <ol class="auth-steps">
           <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
           <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
           <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
@@ -881,7 +858,7 @@ window._supabaseLoaded = false;
             <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
           <div id="resetPwCommonWarn" class="pw-common-warn" role="status" style="display:none" data-i18n="auth.pwCommonWarn">このパスワードは多くの人に使われていて、推測されやすいパスワードです。別のパスワードをおすすめします。</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+          <div class="pw-policy auth-hint" style="margin-top:4px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
@@ -905,23 +882,23 @@ window._supabaseLoaded = false;
   <div class="auth-wrap">
     <div class="auth-card fade-up">
       <!-- 처리 중 -->
-      <div id="unsubLoading" style="text-align:center;padding:32px 0">
-        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています...</div>
+      <div id="unsubLoading" class="auth-loading">
+        <span class="state-spin" aria-hidden="true"></span>
+        <div class="auth-hint" style="margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
       </div>
       <!-- 성공 -->
-      <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">unsubscribe</span>
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
-        <div id="unsubName" style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px"></div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
+      <div id="unsubSuccess" class="auth-state" style="display:none">
+        <span class="material-icons-round notranslate auth-state-icon ok" translate="no" aria-hidden="true">unsubscribe</span>
+        <div class="auth-state-title" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
+        <div id="unsubName" class="auth-state-name"></div>
+        <div class="auth-state-desc" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('mypage')" data-i18n="unsubscribe.backToMypage">マイページへ</button>
       </div>
       <!-- 무효 토큰 -->
-      <div id="unsubInvalid" style="display:none;text-align:center;padding:8px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--on-surface-variant);margin-bottom:12px">link_off</span>
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
+      <div id="unsubInvalid" class="auth-state" style="display:none">
+        <span class="material-icons-round notranslate auth-state-icon" translate="no" aria-hidden="true">link_off</span>
+        <div class="auth-state-title" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
+        <div class="auth-state-desc" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('home')" data-i18n="unsubscribe.toTop">トップへ</button>
       </div>
     </div>
@@ -934,43 +911,43 @@ window._supabaseLoaded = false;
 <div id="page-signup" class="page">
   <div class="auth-wrap" style="align-items:flex-start;padding-top:32px">
     <div class="auth-card fade-up" style="max-width:560px">
-      <div class="auth-logo" style="margin-bottom:16px">
-        <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">新規登録</div>
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title" data-i18n="auth.signup.title">新規登録</div>
         <div class="auth-sub" data-i18n="auth.signup.sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
-      <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
-        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
+      <div id="signupConfirmMsg" class="auth-state" style="display:none;padding:24px 0">
+        <span class="material-icons-round notranslate auth-state-icon ok" translate="no" aria-hidden="true">mark_email_read</span>
+        <div class="auth-state-title" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
+        <div class="auth-state-desc" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">氏名（漢字）</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">氏名（漢字）</span> <span class="req-mark">*</span></label>
             <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（フリガナ）</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（フリガナ）</span> <span class="req-mark">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="ヤマダ ハナコ" required>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
+            <div class="auth-hint" style="margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span class="req-mark">*</span></label>
             <div class="birthdate-selects">
               <select id="signupBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
               <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
               <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
             </div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+            <div class="auth-hint" style="margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span class="req-mark">*</span></label>
             <select id="signupGender" class="form-input" required>
               <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
               <option value="male" data-i18n="auth.signup.genderMale">男性</option>
@@ -981,12 +958,12 @@ window._supabaseLoaded = false;
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span class="req-mark">*</span></label>
           <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span class="req-mark">*</span> <span class="auth-hint" style="font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" data-i18n-attr="placeholder:auth.signup.pwPlaceholder" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -994,14 +971,14 @@ window._supabaseLoaded = false;
             <div id="signupPwCommonWarn" class="pw-common-warn" role="status" style="display:none" data-i18n="auth.pwCommonWarn">このパスワードは多くの人に使われていて、推測されやすいパスワードです。別のパスワードをおすすめします。</div>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.pwConfirmLabel">パスワード（確認）</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwConfirmLabel">パスワード（確認）</span> <span class="req-mark">*</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" data-i18n-attr="placeholder:auth.signup.pwConfirmPlaceholder" required>
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw2',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div class="pw-policy auth-hint" style="margin-top:-8px;margin-bottom:10px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">
@@ -1039,20 +1016,20 @@ window._supabaseLoaded = false;
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header" style="justify-content:space-between">
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
-      <select id="myApplyStatusSelect" class="form-input" style="padding:6px 30px 6px 12px;font-size:13px;font-weight:600;border-radius:8px;width:auto;max-width:55%" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
+      <select id="myApplyStatusSelect" class="form-input mp-status-select" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
-      <div style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
-        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
+      <div class="mp-filter-row">
+        <select id="myApplyCampStatus" class="form-input" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
           <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
           <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
-        <select id="myApplyChannel" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+        <select id="myApplyChannel" class="form-input" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.allChannels">全チャンネル</option>
         </select>
-        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+        <select id="myApplySort" class="form-input" onchange="renderMyApplyList()">
           <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
           <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
@@ -1080,7 +1057,7 @@ window._supabaseLoaded = false;
             <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
           </div>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
+        <div class="mp-caption" style="margin-top:-6px;margin-bottom:10px" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="" data-i18n="common.select">選択してください</option>
@@ -1114,26 +1091,26 @@ window._supabaseLoaded = false;
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
           </select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
+          <div class="mp-caption" style="margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
         </div>
         <div class="form-group"><label class="form-label">Instagram ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileIg" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">Instagram Followers</label><input type="number" id="profileIgFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">X(Twitter) ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileX" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileX" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">X Followers</label><input type="number" id="profileXFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">TikTok ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileTiktok" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileTiktok" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">TikTok Followers</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">YouTube ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileYoutube" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileYoutube" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">YouTube Subscribers</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
@@ -1149,9 +1126,9 @@ window._supabaseLoaded = false;
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.zip">郵便番号</label>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
-            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:12px" data-i18n="profile.zipSearch">住所検索</button>
+          <div class="mp-zip-row">
+            <input type="text" id="profileZip" class="form-input" placeholder="123-4567">
+            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" data-i18n="profile.zipSearch">住所検索</button>
           </div>
         </div>
         <div class="form-group"><label class="form-label" data-i18n="profile.prefecture">都道府県</label>
@@ -1175,12 +1152,12 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
+        <div class="mp-hint" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalEmail">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" data-i18n-attr="placeholder:profile.paypalConfirmPlaceholder" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
+        <div class="mp-note">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
         <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
@@ -1194,7 +1171,7 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
+        <div class="mp-hint" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.currentPw">現在のパスワード</label>
           <div class="pw-wrap">
             <input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード" data-i18n-attr="placeholder:profile.currentPw">
@@ -1216,9 +1193,9 @@ window._supabaseLoaded = false;
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div class="pw-policy mp-caption" style="margin-top:-8px;margin-bottom:12px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="auth.reset.btn">パスワードを変更</button>
+        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
     </div>
   </div>
@@ -1269,14 +1246,14 @@ window._supabaseLoaded = false;
 <!-- ══════════════════════════════════
      MODAL: APPLY
 ══════════════════════════════════ -->
-<div class="modal-overlay" id="applyModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="applyModalTitle">応募する</div>
-      <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+<div class="modal-overlay" id="applyModal" role="dialog" aria-modal="true" aria-labelledby="applyModalTitle">
+  <div class="sheet">
+    <div class="popup-head">
+      <div class="popup-title" id="applyModalTitle">応募する</div>
+      <button type="button" class="popup-close" onclick="closeModal('applyModal')" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body">
-      <div id="applyModalNotice" data-i18n-html="apply.modalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+    <div class="popup-body">
+      <div id="applyModalNotice" class="apply-notice" data-i18n-html="apply.modalNotice">
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
@@ -1292,15 +1269,15 @@ window._supabaseLoaded = false;
         <div class="form-hint" data-i18n="apply.addressHintModal">登録住所と異なる場合は修正してください</div>
       </div>
       <div class="form-group" style="margin-bottom:0">
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
-          <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
+        <label class="apply-check">
+          <input type="checkbox" id="applyPrCheck">
           <span data-i18n-html="apply.prAgreeFull">投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
         </label>
       </div>
       <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
       <div id="applyCautionAgreeRow" class="form-group" style="display:none;margin-top:12px;margin-bottom:0">
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--red);font-weight:600">
-          <input type="checkbox" id="applyCautionCheck" style="margin-top:2px;flex-shrink:0">
+        <label class="apply-check warn">
+          <input type="checkbox" id="applyCautionCheck">
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>

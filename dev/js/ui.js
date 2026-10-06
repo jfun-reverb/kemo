@@ -1236,3 +1236,28 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get total() { return state.rows.length; },
   };
 }
+
+// ── 회원 앱 상태 안내 셋(사양서 2026-09-29-member-app-style-unification §3-2) ──
+//   🔴 조회 실패(null) = stateErrorHtml, 0건([]) = stateEmptyHtml — 둘을 같은 모양으로 그리지 않는다.
+//   ⚠️ 클래스는 회원 전용 member-ui.css 에만 있다 — 관리자 코드에서 부르지 않는다(스타일 없이 그려진다).
+//   ⚠️ retryFnName 은 코드가 넣는 고정 함수 이름만(사용자 입력 금지). 이름 모양이 아니면 단추를 그리지 않는다.
+function stateEmptyHtml(icon, title, sub) {
+  return '<div class="state-empty" role="status">' +
+    (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
+    (title ? '<div class="state-title">' + esc(title) + '</div>' : '') +
+    (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
+  '</div>';
+}
+function stateLoadingHtml(text) {
+  const label = text || t('common.loading');
+  return '<div class="state-loading" role="status" aria-live="polite">' +
+    '<span class="state-spin" aria-hidden="true"></span><span>' + esc(label) + '</span></div>';
+}
+function stateErrorHtml(text, retryFnName) {
+  const fn = (typeof retryFnName === 'string' && /^[A-Za-z_$][\w$]*$/.test(retryFnName)) ? retryFnName : '';
+  return '<div class="state-error" role="alert">' +
+    '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">error_outline</span>' +
+    '<div class="state-text">' + esc(text || t('authError.genericError')) + '</div>' +
+    (fn ? '<button type="button" class="btn btn-ghost" onclick="' + fn + '()">' + esc(t('common.retry')) + '</button>' : '') +
+  '</div>';
+}
