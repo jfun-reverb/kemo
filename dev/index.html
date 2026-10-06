@@ -61,36 +61,39 @@ window._supabaseLoaded = false;
 
 <!-- ── DETAIL FLOATING BAR ── -->
 <div id="detailFloatBar">
-  <div style="display:flex;gap:10px;align-items:center">
-    <div style="flex:1;min-width:0">
-      <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  <div class="cd-float-row">
+    <div class="cd-float-text">
+      <div id="floatProductName" class="cd-float-name"></div>
       <!-- 행사 캠페인은 이 자리에 행사장이 들어간다(최대 200자). 제목과 같이 한 줄로 잘라
            바 높이가 늘어나지 않게 한다 — 안 그러면 긴 주소가 들어올 때 바가 두 줄이 된다. -->
-      <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div id="floatProductReward" class="cd-float-reward"></div>
     </div>
-    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
-    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
+    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="display:none" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
+    <button id="floatApplyBtn" class="btn btn-primary btn-sm" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
   </div>
 </div>
 
 <!-- ── 프로필 부족 알럿 모달 ── -->
-<div id="profileAlertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px" data-i18n="profileAlert.title">キャンペーン応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
-    <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">キャンセル</button>
-      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">マイページへ</button>
+<div id="profileAlertOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="profileAlertTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="profileAlertTitle" data-i18n="profileAlert.title">キャンペーン応募の前に</div></div>
+    <div class="popup-body center">
+    <div class="popup-desc" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
+    <div id="profileAlertMissing" class="popup-left"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" data-i18n="profileAlert.cancel">キャンセル</button>
+      <button type="button" class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" data-i18n="profileAlert.goMypage">マイページへ</button>
     </div>
   </div>
 </div>
 
 <!-- ── 응모 연령 게이트 모달 (생년월일·성별 미입력 시 응모 직전 입력) ── -->
-<div id="ageGateOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px;text-align:center" data-i18n="ageGate.title">応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;text-align:center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
+<div id="ageGateOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
+  <div class="dialog">
+    <div class="popup-head center"><div class="popup-title" id="ageGateTitle" data-i18n="ageGate.title">応募の前に</div></div>
+    <div class="popup-body">
+    <div class="popup-desc center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
     <div class="form-group" style="margin-bottom:14px">
       <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
       <div class="birthdate-selects">
@@ -116,10 +119,11 @@ window._supabaseLoaded = false;
         <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
       </label>
     </div>
-    <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
-      <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
+    <div id="ageGateError" class="form-error" style="margin-bottom:4px;display:none"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeAgeGate()" data-i18n="ageGate.cancel">キャンセル</button>
+      <button type="button" class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" data-i18n="ageGate.save">保存して続ける</button>
     </div>
   </div>
 </div>
@@ -151,11 +155,13 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- ── 알럿 모달 ── -->
-<div class="modal-overlay" id="alertModal" style="z-index:600">
-  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
-    <div class="modal-body" style="padding:32px 24px 24px">
-      <div id="alertModalMessage" style="font-size:14px;line-height:1.6;color:var(--ink)"></div>
-      <button class="btn btn-primary" style="margin-top:20px;min-width:120px" onclick="closeModal('alertModal')">OK</button>
+<div class="modal-overlay" id="alertModal" style="z-index:600" role="alertdialog" aria-modal="true" aria-describedby="alertModalMessage">
+  <div class="dialog">
+    <div class="popup-body center" style="padding-top:28px">
+      <div id="alertModalMessage"></div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-primary" onclick="closeModal('alertModal')">OK</button>
     </div>
   </div>
 </div>
@@ -639,7 +645,7 @@ window._supabaseLoaded = false;
 
 <div id="page-detail" class="page">
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
-    <div class="detail-back" onclick="navigateBackFromDetail()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span id="detailBackLabel">キャンペーン一覧へ</span></div>
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromDetail()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span id="detailBackLabel">キャンペーン一覧へ</span></button>
     <div class="detail-layout" id="detailContent"></div>
   </div>
 </div>
@@ -1278,14 +1284,14 @@ window._supabaseLoaded = false;
 <!-- ══════════════════════════════════
      MODAL: APPLY
 ══════════════════════════════════ -->
-<div class="modal-overlay" id="applyModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="applyModalTitle">応募する</div>
-      <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+<div class="modal-overlay" id="applyModal" role="dialog" aria-modal="true" aria-labelledby="applyModalTitle">
+  <div class="sheet">
+    <div class="popup-head">
+      <div class="popup-title" id="applyModalTitle">応募する</div>
+      <button type="button" class="popup-close" onclick="closeModal('applyModal')" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body">
-      <div id="applyModalNotice" data-i18n-html="apply.modalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+    <div class="popup-body">
+      <div id="applyModalNotice" class="apply-notice" data-i18n-html="apply.modalNotice">
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
@@ -1301,15 +1307,15 @@ window._supabaseLoaded = false;
         <div class="form-hint" data-i18n="apply.addressHintModal">登録住所と異なる場合は修正してください</div>
       </div>
       <div class="form-group" style="margin-bottom:0">
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
-          <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
+        <label class="apply-check">
+          <input type="checkbox" id="applyPrCheck">
           <span data-i18n-html="apply.prAgreeFull">投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
         </label>
       </div>
       <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
       <div id="applyCautionAgreeRow" class="form-group" style="display:none;margin-top:12px;margin-bottom:0">
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--red);font-weight:600">
-          <input type="checkbox" id="applyCautionCheck" style="margin-top:2px;flex-shrink:0">
+        <label class="apply-check warn">
+          <input type="checkbox" id="applyCautionCheck">
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>

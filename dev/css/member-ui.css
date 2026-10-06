@@ -44,9 +44,16 @@
 .popup-body{padding:8px 20px 20px;font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
 .popup-actions{display:flex;gap:10px;padding:0 20px 20px}
 .popup-actions .btn{flex:1;min-height:var(--tap-min)}
-/* 넓은 화면 — 시트는 기존 .modal 과 같이 가운데 카드로(components.css 넓은 화면 규칙과 같은 모양) */
+/* 자기 아이디로 뜨는 가운데 창의 바깥(.modal-overlay 를 안 쓰는 창 — 프로필 부족·나이 확인).
+   화면이 style.display='flex' 로 연다. z-index 는 창마다 인라인으로 둔다(겹침 순서 보존) */
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center}
+.popup-head.center{justify-content:center;padding:24px 20px 8px;text-align:center}
+.popup-body.center,.popup-desc.center{text-align:center}
+.popup-desc{font-size:var(--fs-desc);color:var(--muted);line-height:1.7;margin-bottom:16px}
+.popup-left{text-align:left}
+/* 넓은 화면 — 시트는 기존 .modal 과 같은 가운데 카드로(components.css 의 #appShell .modal 규칙과 같은 값) */
 @media(min-width:600px){
-  .sheet{border-radius:var(--r-popup);align-self:center;margin:auto;max-height:85vh}
+  .sheet{max-width:var(--reading-max);border-radius:var(--r-popup);align-self:center;margin:auto;max-height:85vh;animation:sheetFadeIn .18s ease}
 }
 
 /* ── 누르는 영역 도우미 ── */
@@ -63,4 +70,9 @@
        #page-detail .btn-xs{min-height:32px;position:relative}
        #page-detail .btn-xs::after{content:'';position:absolute;inset:-6px 0}
        #page-detail{font-size:var(--fs-body)}
-   (조각 0 — 아직 비어 있다) */
+   */
+/* 조각 1 — 캠페인 상세 + 응모 창 + 응모 흐름의 가운데 창 셋 */
+#page-detail,#applyModal,#alertModal,#profileAlertOverlay,#ageGateOverlay{font-size:var(--fs-body)}
+#page-detail .btn,#detailFloatBar .btn,#applyModal .btn,#alertModal .btn,#profileAlertOverlay .btn,#ageGateOverlay .btn{min-height:var(--tap-min)}
+#page-detail .back-link{margin-bottom:8px}
+#alertModal #alertModalMessage{font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
