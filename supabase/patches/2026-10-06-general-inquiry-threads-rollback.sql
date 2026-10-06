@@ -1,0 +1,50 @@
+-- ============================================================
+-- 2026-10-06-general-inquiry-threads-rollback.sql
+-- 서비스 문의 여러 대화(마이그레이션 504·505·506) 되돌림 — 개발서버·운영서버 SQL 편집기용
+--
+-- 순서는 항상 506 → 505 → 504 (뒤에 올라탄 것부터). 절마다 따로 실행한다(한 번에 다 돌리지 말 것).
+--   [A] 504 만 남았을 때(505 가 실패해 자동으로 되돌아간 경우 포함) — 대화 표·칸만 지운다. 데이터 손실 없음(대화 표가 비어 있다)
+--   [B] 506 뷰만 지운다
+--   [C] 505 까지 적용된 뒤 되돌리기 — 새 함수를 지우고 옛 함수(478)·옛 감사용 청소(480)를 되살린 뒤 [A]
+--
+-- ⚠️ 되돌리기 전에: 코드(화면)를 먼저 옛 판으로 되돌린다(새 화면이 새 함수를 부른다). 데이터베이스는 그다음.
+-- ⚠️ [C] 로 되돌리면 대화 표의 열림/닫힘·reopened_count 가 사라진다. 서비스 문의 메시지 자체는 남는다(influencer_id 칸 475).
+--    옛 구조의 「응대 완료」 상태(477)는 505 이후 갱신되지 않았으므로 되돌린 직후 관리자 미응대 표시가 옛 값 기준이 된다.
+-- 편집기 경고: 뜸 — ⚠️ 실제 삭제([A]·[B] 의 DROP TABLE·DROP VIEW·DROP COLUMN, [C] 의 DROP FUNCTION). 대화 표 데이터가 사라진다.
+-- ============================================================
+
+-- ── [A] 504 되돌리기 ──────────────────────────────────────────
+-- 전제: 505 의 검사 제약·함수가 없을 것([C] 먼저). 아래 DROP COLUMN 은 색인·외래 키도 함께 지운다.
+-- BEGIN;
+--   DROP INDEX IF EXISTS public.idx_application_messages_general_thread;
+--   ALTER TABLE public.application_messages DROP COLUMN IF EXISTS general_thread_id;
+--   DROP TABLE IF EXISTS public.general_inquiry_threads;   -- 정책·색인·제약 함께 삭제
+--   NOTIFY pgrst, 'reload schema';
+-- COMMIT;
+
+-- ── [B] 506 되돌리기 ──────────────────────────────────────────
+-- DROP VIEW IF EXISTS public.general_inquiry_thread_summary;
+
+-- ── [C] 505 되돌리기 ──────────────────────────────────────────
+-- C-1. 검사 제약과 새 함수를 지운다
+-- BEGIN;
+--   ALTER TABLE public.application_messages DROP CONSTRAINT IF EXISTS application_messages_general_thread_required;
+--   DROP FUNCTION IF EXISTS public.close_general_inquiry_thread(uuid, uuid);
+--   DROP FUNCTION IF EXISTS public.reopen_general_inquiry_thread(uuid);
+--   DROP FUNCTION IF EXISTS public.general_inquiry_admin_unread_counts(uuid);
+--   DROP FUNCTION IF EXISTS public.mark_general_inquiry_messages_read(uuid, uuid);
+--   DROP FUNCTION IF EXISTS public.send_general_inquiry_message(text, jsonb, uuid, uuid);
+--   DROP FUNCTION IF EXISTS public.get_general_inquiry_messages(uuid, uuid);
+--   DROP FUNCTION IF EXISTS public._general_inquiry_resolve_caller(uuid, uuid, boolean);
+-- COMMIT;
+-- C-2. 옛 함수 다섯을 되살린다 — supabase/migrations/478_general_inquiry_functions.sql 전체를 그대로 실행
+--      (CREATE OR REPLACE 라 mark_general_inquiry_resolved 는 덮어써도 같다. 실행 권한 두 방향이 파일 안에 있다)
+-- C-3. 옛 감사용 청소를 되살린다 — supabase/migrations/480_purge_audit_data_all_general_inquiry.sql 전체를 그대로 실행
+-- C-4. 확인:
+--   SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_proc p
+--    WHERE p.pronamespace='public'::regnamespace AND p.proname LIKE '%general_inquiry%' ORDER BY 1;
+--   기대: 478 의 다섯(인자 적은 판)만. close/reopen/_resolve_caller 없음.
+--   SELECT p.proname, p.proacl::text FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname IN
+--     ('get_general_inquiry_messages','send_general_inquiry_message','mark_general_inquiry_messages_read','general_inquiry_admin_unread_counts');
+--   기대: 맨 앞 =X/ 없음, anon 없음, authenticated 있음
+-- C-5. 그다음 [B] → [A] 순서로.
