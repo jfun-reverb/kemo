@@ -28,6 +28,27 @@
 .agree-text{flex:1}
 .agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
 
+/* ── 가입 이메일 인증번호(사양서 2026-10-01 설계 ③) ── 단추는 터치 44픽셀(Apple 지침) */
+.signup-email-row,.signup-code-row{display:flex;gap:8px;align-items:stretch}
+.signup-email-row .form-input,.signup-code-row .form-input{flex:1;min-width:0}
+.signup-email-btn{flex-shrink:0;min-height:44px;min-width:88px;padding:0 14px;white-space:nowrap}
+.signup-email-row .form-input[readonly]{background:var(--bg);color:var(--on-surface-variant)}
+.signup-email-verified{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:13px;font-weight:600;color:var(--green)}
+.signup-email-verified .material-icons-round{font-size:18px}
+.signup-code-area{margin-top:10px}
+.signup-code-input{letter-spacing:.3em;font-weight:700}
+.signup-code-input::placeholder{letter-spacing:normal;font-weight:400}
+.signup-code-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.signup-code-timer{font-size:13px;color:var(--on-surface-variant)}
+.signup-code-resend{min-height:44px;padding:0 12px;font-size:13px}
+.signup-code-exit{margin-top:8px;font-size:12px;line-height:1.6;color:var(--on-surface-variant)}
+.signup-code-exit a{color:var(--primary);font-weight:600;text-decoration:underline;cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
+.signup-code-msg{margin-top:8px;font-size:13px;line-height:1.6;color:var(--on-surface-variant)}
+.signup-code-msg.is-error{color:var(--red)}
+.signup-code-msg.is-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8)}
+.signup-code-msg a{color:var(--pink);text-decoration:underline}
+.signup-need-verify{font-size:12px;color:var(--on-surface-variant);text-align:center;margin-bottom:8px;line-height:1.5}
+
 /* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
 .birthdate-selects{display:flex;gap:6px}
 .birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}
