@@ -691,8 +691,11 @@ function renderMessageThread(messages) {
   //   (기존 입력창 위 고정 배너 #msgPendingNotice → 대화 영역 안으로 이동, 대화 공간 확보 2026-05-27)
   const visibleMsgs = messages.filter(m => !m.mask_state || m.mask_state === 'visible');
   const lastVisible = visibleMsgs[visibleMsgs.length - 1];
-  const pendingHtml = (lastVisible && lastVisible.sender_kind === 'influencer')
-    ? `<div class="msg-pending-inline">${esc(t('messaging.pendingNotice'))}</div>` : '';
+  //   지난 문의(서비스 문의, 닫히고 24시간 지남)는 답장이 오지 않으니 그 자리에 「끝난 문의」 안내를 둔다(2026-10-06 사용자 지시)
+  const pendingHtml = (_msgMode === 'general' && _msgGeneralPast)
+    ? `<div class="msg-pending-inline">${esc(t('inquiry.pastReadOnly'))}</div>`
+    : (lastVisible && lastVisible.sender_kind === 'influencer')
+      ? `<div class="msg-pending-inline">${esc(t('messaging.pendingNotice'))}</div>` : '';
   thread.innerHTML = botCard + cardsHtml + pendingHtml;
   // 최신 메시지로 스크롤
   thread.scrollTop = thread.scrollHeight;
