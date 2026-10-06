@@ -77,8 +77,12 @@ window._supabaseLoaded = false;
 <!-- ── 마이페이지 폼을 저장하지 않고 나갈 때(2026-10-06 사용자 결정 — 단추 둘: 저장 / 저장하지 않고 이동) ── -->
 <div id="mypageLeaveOverlay" class="dialog-overlay" style="display:none;z-index:610" role="dialog" aria-modal="true" aria-labelledby="mypageLeaveTitle">
   <div class="dialog">
-    <div class="popup-head center"><div class="popup-title" id="mypageLeaveTitle" data-i18n="mypageLeave.title">変更した内容を保存しますか？</div></div>
-    <div class="popup-body center">
+    <div class="popup-head">
+      <div class="popup-title" id="mypageLeaveTitle" data-i18n="mypageLeave.title">変更した内容を保存しますか？</div>
+      <!-- 닫기 = 이동을 그만두고 고치던 폼에 머문다(2026-10-06 사용자 요청) -->
+      <button type="button" class="popup-close" onclick="cancelMypageLeave()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
+    </div>
+    <div class="popup-body">
       <div class="popup-desc" data-i18n="mypageLeave.desc">保存しないで移動すると、変更した内容は消えます。</div>
     </div>
     <div class="popup-actions">
