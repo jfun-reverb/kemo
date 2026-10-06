@@ -244,3 +244,16 @@
 - 적용 전 기준: 서비스 문의 글 8 · 회원 1 · 응대 완료 1(자동 응답) → 옮긴 뒤 글 8 = 대화 칸 채워진 글 8 · 대화 1(**열림** — 수동 응대 완료가 아니라 규칙상 열림) · 대화 빠진 글 0 · 검사 제약 유효 · 함수 7 · 실행 권한(공개·비로그인 없음, 보조 함수는 서버 전용)
 - 검증 2(23시간 → 같은 대화 다시 열림 / 25시간 → 새 대화, `closed_at` 을 SQL 로 당김) · 3(동시 2통 → 대화 하나) · 4(회원·관리자 양쪽 — 겸직 회원은 시험 계정이 없어 미실시) · 9(감사용 청소 — 감사용 응모 1·알림 2 삭제, 일반 회원 대화 2·글 15 그대로. 감사용 계정에 대화가 없어 「감사용 대화 0건」은 원래 0) · 12(「보이는 글 0건 대화 닫기」 외 전부) · 13-1 운영팀 먼저 시작 → `no_open_thread` · 13(옛 회원·관리자 화면 그대로, 옛 배지 조회 그대로, 옛 응대 완료 함수로 대화 안 닫힘)
 - 남은 검증(화면 조각에서): 화면 동작 6·7·8·10·11 · 12 「보이는 글 0건 대화 닫기」 · 관리자 겸직 회원(S4 데이터 필요)
+
+### 조각 2 — 공용 데이터 접근 층 (2026-10-06, 개발 병합 #1926)
+- 이름은 작업표 제안 그대로(`fetchMyGeneralInquiryThreads` · `fetchAdminGeneralInquiryThreadRows` · `fetchGeneralInquiryNeedsReplyCount` · `fetchGeneralInquiryAdminUnreadByThread` · `fetchAdminGeneralThreadSentAtMap` · `closeGeneralInquiryThread` · `reopenGeneralInquiryThread`). 기존 셋은 맨 뒤에 `threadId` 만 덧붙임, 발신 반환 `{ message_id, thread_id }`
+- 관리자 대화 목록은 `.gt('message_count', 0)` 를 **옮기지 않았다** — 기간은 「마지막 글 시각, 비면 연 시각」으로 `or` 한 번에 판정. `influencerId` 를 주면 기간·열림 거름 없이 그 회원 대화 전부
+- 옛 화면용 `fetchGeneralInquiryAdminUnreadCounts` 는 505 의 대화별 반환을 **회원별로 합산**하도록 고쳤다(덮어쓰면 마지막 대화 수만 남는다)
+
+### 조각 3 — 회원 화면 (2026-10-06, 개발 병합 #1928 · #1929)
+- 주소: 목록 `#inquiry` · 대화 `#inquiry-general-{대화id}` · 새 문의 `#inquiry-general`. 판정은 `isInquiryGeneralHash` · `inquiryThreadIdFromHash`(messaging.js) 한 벌 — app.js 다섯 곳이 이것을 쓴다
+- 진입 `openGeneralInquiryPage(from, pushHistory, threadId = null)` · 현재 대화 `_msgGeneralThreadId` · 지난 문의 여부 `_msgGeneralPast` · 「지금의 문의」 판정 `_inqCurrentThread`(열린 대화 → 닫힌 지 24시간 안 가장 최근) · 탈퇴 지름길 `openGeneralInquiryCurrent`
+- 「문의하기」 버튼은 새 키를 만들지 않고 기존 `inquiry.otherStart`(「お問い合わせを始める」 — 문의 시작하기)를 썼다. 새 키 9개(`inquiry.currentTitle` 등)
+- 🔄 **사용자 지시로 달라진 것**: 지난 문의의 「このお問い合わせは終了しました…」(이 문의는 끝났습니다…) 안내는 입력란 자리가 아니라 **대화 맨 아래 안내 줄 자리**(원래 「운영팀이 순차적으로 확인 후 회신」 자리)에 나오고, 아래에는 「お問い合わせ一覧に戻る」(문의 목록으로 돌아가기) 버튼만 남긴다
+- 개발서버 확인(실제 로그인 브라우저): 서비스 탭 칸·지난 문의·줄 배지 · 지난 문의 읽기만 + 새로고침 복원 + 목록으로 · 새 알림 → 그 대화, 종·문의 배지 0(R-7) · 새 문의 빈 화면(R-2) · 첫 글 → 닫힌 지 24시간 안 대화가 다시 열리고 주소가 그 대화로
+- 남은 확인: 응모 0건 회원 화면(R-3)·관리자 겸직 회원(S4 데이터 필요)·「もっと見る」(지난 문의 21개 이상)
