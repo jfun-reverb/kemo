@@ -243,4 +243,11 @@
 - 탈퇴 화면 인라인 약 40곳 → `.wd-*` — 「되돌릴 수 없음」 상자 = 응모 취소와 같은 빨강
 - 쓰이지 않게 된 `.inq-app-error`·`.inq-retry-btn` 삭제. 번역 열쇠 `inquiry.retry` 는 이제 안 쓰인다(남겨 둠 — 공용 `common.retry` 와 같은 말)
 
-(조각 6 은 아직)
+### 조각 6 — 로그인·가입·재설정·수신거부·입장 티켓 + 약관·정책 통지·로그인 안내·바닥글 (2026-10-06, 개발 브랜치)
+- 결함 2 해소: 입장 티켓 머리 `detail-back` → `mypage-sub-header` + `.ticket-back`(44). ⚠️ `.ticket-back` 은 `detail-back` 클래스를 함께 달아 `margin:0 0 0 -10px;padding:0` 으로 그쪽 여백을 끊는다. 🔴 iOS 앱 테마는 `.detail-back` 을 숨기므로 앱 안에서는 이 단추도 숨는다(앱 머리의 뒤로가 대신한다 — 다른 상세 화면과 같다)
+- 인증 화면 불러오는 중(재설정 확인·수신거부) → `.auth-loading` 안 `.state-spin`. ⚠️ 원 표시 규칙이 `.state-loading` 아래에만 있어 **`member-ui.css` 선택자를 `.auth-loading .state-spin` 까지 넓혔다**(빠뜨리면 빈 자리로 그려진다)
+- 약관 화면·약관 창은 `legal.js` 가 그리는 불러오는 중·오류를 공용 모양으로(일본어 오류는 LINE 안내 유지). 약관 창·정책 통지 창의 「×」 → `.popup-close`(44) 단추
+- 로그인 안내 창 = `.lp-*`. 링크는 줄 높이를 안 바꾸려고 `::after` 로 누름 영역만 위아래 12픽셀 넓혔다
+- 덮어쓰기 목록에 `#page-login`·`#page-signup`·`#page-forgot`·`#page-reset-pw`·`#page-unsubscribe`·`#page-ticket`·`#page-legal`·`#legalModal`·`#policyNoticeModal`·`#loginPromptOverlay` + 바닥글 추가
+
+(마무리 — 화면별 덮어쓰기를 전역으로 합치기 — 는 아직)

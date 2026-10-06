@@ -22,9 +22,9 @@
 .state-empty .state-title{font-size:var(--fs-subtitle);font-weight:600;color:var(--ink);margin-bottom:6px}
 .state-empty .state-sub{font-size:var(--fs-desc);line-height:1.5}
 .state-loading{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:var(--fs-desc)}
-.state-loading .state-spin{width:24px;height:24px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:stateSpin .8s linear infinite}
+.state-loading .state-spin,.auth-loading .state-spin{width:24px;height:24px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:stateSpin .8s linear infinite}
 @keyframes stateSpin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.state-loading .state-spin{animation-duration:2.4s}}
+@media (prefers-reduced-motion:reduce){.state-loading .state-spin,.auth-loading .state-spin{animation-duration:2.4s}}
 .state-error .state-icon{font-size:32px;color:var(--red);margin-bottom:8px}
 .state-error .state-text{font-size:var(--fs-body);line-height:1.6;color:var(--ink);margin-bottom:16px}
 .state-error .btn{min-height:var(--tap-min)}
@@ -114,3 +114,37 @@
 #page-messages .msg-refresh-btn{width:var(--tap-min);height:var(--tap-min)}
 #page-messages .msg-withdraw-btn{position:relative}
 #page-messages .msg-withdraw-btn::after{content:'';position:absolute;inset:-10px -4px}
+/* 조각 6 — 로그인·가입·재설정·수신거부·입장 티켓·약관(화면·창)·정책 통지·로그인 안내·바닥글
+   footer·legal-*·policy-notice·login-prompt 는 공유 파일(components.css)이라 화면 아이디로 덮는다 */
+#page-login,#page-signup,#page-forgot,#page-reset-pw,#page-unsubscribe,#page-ticket,#page-legal,#legalModal,#policyNoticeModal,#loginPromptOverlay{font-size:var(--fs-body)}
+#page-login .btn,#page-signup .btn,#page-forgot .btn,#page-reset-pw .btn,#page-unsubscribe .btn,#page-ticket .btn,#loginPromptOverlay .btn{min-height:var(--tap-min)}
+#page-ticket .mypage-sub-title{font-size:var(--fs-subtitle)}
+#page-legal .legal-page-title{flex:1;margin:0;font-size:var(--fs-subtitle);font-weight:700}
+#page-legal .legal-back{width:var(--tap-min);height:var(--tap-min)}
+#page-legal .legal-lang-btn{position:relative}
+#page-legal .legal-lang-btn::after{content:'';position:absolute;inset:-4px 0}
+#legalModal .legal-title,#policyNoticeModal .legal-title{font-size:var(--fs-subtitle)}
+#legalModal .legal-body,#policyNoticeModal .legal-body{font-size:var(--fs-body)}
+#legalModal .legal-body h3{font-size:var(--fs-body)}
+#legalModal .legal-body dt{font-size:var(--fs-desc)}
+#legalModal .popup-close,#policyNoticeModal .popup-close{width:var(--tap-min);height:var(--tap-min);padding:0;font-size:inherit;line-height:normal}
+#legalModal .legal-sheet,#policyNoticeModal .legal-sheet{border-radius:var(--r-popup) var(--r-popup) 0 0}
+#policyNoticeModal .policy-notice-actions button{min-height:var(--tap-min)}
+@media(min-width:600px){
+  #legalModal .legal-sheet,#policyNoticeModal .legal-sheet{border-radius:var(--r-popup)}
+}
+#page-home .footer-brand{font-size:var(--fs-body)}
+#page-home .footer-info{font-size:var(--fs-caption)}
+#page-home .footer-links a{font-size:var(--fs-caption)}
+#page-home .footer-copy{font-size:var(--fs-caption)}
+#policyNoticeModal .policy-notice-actions button{font-size:var(--fs-body)}
+#page-legal .legal-lang-btn,#legalModal .legal-lang-btn,#policyNoticeModal .legal-lang-btn{font-size:var(--fs-caption)}
+#page-legal .legal-page-body,#legalModal .legal-page-body,#policyNoticeModal .legal-page-body{font-size:var(--fs-desc)}
+#page-legal .legal-page-body h1,#legalModal .legal-page-body h1,#policyNoticeModal .legal-page-body h1{font-size:var(--fs-subtitle)}
+#page-legal .legal-page-body h2,#legalModal .legal-page-body h2,#policyNoticeModal .legal-page-body h2{font-size:var(--fs-body)}
+#page-legal .legal-page-body h3,#legalModal .legal-page-body h3,#policyNoticeModal .legal-page-body h3{font-size:var(--fs-body)}
+#page-legal .legal-page-body h4,#legalModal .legal-page-body h4,#policyNoticeModal .legal-page-body h4{font-size:var(--fs-desc)}
+#page-legal .legal-page-body blockquote,#legalModal .legal-page-body blockquote,#policyNoticeModal .legal-page-body blockquote{font-size:var(--fs-desc)}
+#page-legal .legal-page-body code,#legalModal .legal-page-body code,#policyNoticeModal .legal-page-body code{font-size:var(--fs-desc)}
+#page-legal .legal-table,#legalModal .legal-table,#policyNoticeModal .legal-table{font-size:var(--fs-caption)}
+#page-legal .legal-table th,#legalModal .legal-table th,#policyNoticeModal .legal-table th{font-size:var(--fs-caption)}

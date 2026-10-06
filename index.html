@@ -1025,29 +1025,29 @@ html.preview-mode #page-detail .detail-back{display:none}
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
 .auth-wrap{display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;padding-bottom:60px}
-.auth-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r24);padding:28px 20px;width:100%;max-width:100%;box-shadow:var(--elevation-2);box-sizing:border-box;overflow:hidden}
+.auth-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:28px 20px;width:100%;max-width:100%;box-shadow:var(--elevation-2);box-sizing:border-box;overflow:hidden}
 .auth-logo{text-align:center;margin-bottom:28px}
 .auth-logo-mark{width:48px;height:48px;background:var(--primary);border-radius:var(--r12);display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#fff;margin-bottom:12px}
-.auth-title{font-size:20px;font-weight:700;margin-bottom:4px}
-.auth-sub{font-size:13px;color:var(--on-surface-variant);line-height:1.5}
-.auth-switch{text-align:center;font-size:13px;color:var(--on-surface-variant);margin-top:20px}
+.auth-title{font-size:var(--fs-title);font-weight:700;margin-bottom:4px}
+.auth-sub{font-size:var(--fs-desc);color:var(--on-surface-variant);line-height:1.5}
+.auth-switch{text-align:center;font-size:var(--fs-desc);color:var(--on-surface-variant);margin-top:20px}
 .auth-switch a{color:var(--primary);font-weight:600;cursor:pointer}
 .auth-switch a:hover{text-decoration:underline}
 .auth-forgot{text-align:left;margin-top:8px;margin-bottom:12px}
-.auth-forgot a{font-size:12px;color:var(--on-surface-variant);cursor:pointer}
+.auth-forgot a{font-size:var(--fs-desc);color:var(--on-surface-variant);cursor:pointer}
 .auth-forgot a:hover{color:var(--primary);text-decoration:underline}
-.form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
+.form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:var(--fs-desc);line-height:1.5}
 /* 실패도 성공도 아닌 「잠깐 기다려 주세요」용. 빨강(오류)·초록(성공) 어느 쪽도 사실과 안 맞는다.
    주황은 이 저장소가 「행동을 기다리는 상태」에 이미 쓰는 색이다(#toast.warning 과 같은 계열). */
-.form-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
+.form-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8);font-size:var(--fs-desc);line-height:1.5}
 
 /* ── 회원가입 동의 체크박스 ── */
 .signup-agree{margin:14px 0 12px;padding:14px 14px 10px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
-.signup-agree-all{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
-.signup-agree-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:var(--ink);cursor:pointer;line-height:1.4}
+.signup-agree-all{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-size:var(--fs-desc);font-weight:700;color:var(--ink);cursor:pointer}
+.signup-agree-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:var(--fs-desc);color:var(--ink);cursor:pointer;line-height:1.4}
 .signup-agree input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--pink);cursor:pointer;margin:0}
-.agree-req{font-size:10px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 6px;border-radius:4px;flex-shrink:0}
-.agree-opt{font-size:10px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-req{font-size:var(--fs-caption);font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-opt{font-size:var(--fs-caption);font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
 .agree-text{flex:1}
 .agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
 
@@ -1056,21 +1056,21 @@ html.preview-mode #page-detail .detail-back{display:none}
 .signup-email-row .form-input,.signup-code-row .form-input{flex:1;min-width:0}
 .signup-email-btn{flex-shrink:0;min-height:44px;min-width:88px;padding:0 14px;white-space:nowrap}
 .signup-email-row .form-input[readonly]{background:var(--bg);color:var(--on-surface-variant)}
-.signup-email-verified{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:13px;font-weight:600;color:var(--green)}
+.signup-email-verified{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:var(--fs-desc);font-weight:600;color:var(--green)}
 .signup-email-verified .material-icons-round{font-size:18px}
 .signup-code-area{margin-top:10px}
 .signup-code-input{letter-spacing:.3em;font-weight:700}
 .signup-code-input::placeholder{letter-spacing:normal;font-weight:400}
 .signup-code-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
-.signup-code-timer{font-size:13px;color:var(--on-surface-variant)}
-.signup-code-resend{min-height:44px;padding:0 12px;font-size:13px}
-.signup-code-exit{margin-top:8px;font-size:12px;line-height:1.6;color:var(--on-surface-variant)}
+.signup-code-timer{font-size:var(--fs-desc);color:var(--on-surface-variant)}
+.signup-code-resend{min-height:44px;padding:0 12px;font-size:var(--fs-desc)}
+.signup-code-exit{margin-top:8px;font-size:var(--fs-desc);line-height:1.6;color:var(--on-surface-variant)}
 .signup-code-exit a{color:var(--primary);font-weight:600;text-decoration:underline;cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
-.signup-code-msg{margin-top:8px;font-size:13px;line-height:1.6;color:var(--on-surface-variant)}
+.signup-code-msg{margin-top:8px;font-size:var(--fs-desc);line-height:1.6;color:var(--on-surface-variant)}
 .signup-code-msg.is-error{color:var(--red)}
 .signup-code-msg.is-notice{background:#fff8e1;color:#b45309;padding:10px 12px;border-radius:var(--r8)}
 .signup-code-msg a{color:var(--pink);text-decoration:underline}
-.signup-need-verify{font-size:12px;color:var(--on-surface-variant);text-align:center;margin-bottom:8px;line-height:1.5}
+.signup-need-verify{font-size:var(--fs-desc);color:var(--on-surface-variant);text-align:center;margin-bottom:8px;line-height:1.5}
 
 /* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
 .birthdate-selects{display:flex;gap:6px}
@@ -1083,6 +1083,25 @@ html.preview-mode #page-detail .detail-back{display:none}
 @media(min-width:600px){
   .auth-card{max-width:var(--reading-max);margin-left:auto;margin-right:auto}
 }
+
+/* ── 회원 앱 스타일 통일 조각 6 — 인증 화면 공통 조각 ── */
+.auth-hint{font-size:var(--fs-caption);color:var(--muted);line-height:1.5}
+.auth-loading{text-align:center;padding:32px 0;display:flex;flex-direction:column;align-items:center}
+.auth-steps{font-size:var(--fs-body);line-height:1.9;color:var(--ink);padding-left:20px;margin:0 0 20px}
+.auth-state{text-align:center;padding:8px 0}
+.auth-state-icon{font-size:48px;color:var(--muted);margin-bottom:12px}
+.auth-state-icon.ok{color:var(--green)}
+.auth-state-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);margin-bottom:8px}
+.auth-state-name{font-size:var(--fs-desc);font-weight:600;color:var(--ink);margin-bottom:8px}
+.auth-state-desc{font-size:var(--fs-desc);color:var(--muted);line-height:1.7;margin-bottom:20px}
+/* 로그인 안내(아래 시트) 안쪽 — 시트 틀은 components.css .login-prompt-sheet */
+.lp-sheet{background:#fff;width:100%;padding:24px 20px 36px}
+.lp-title{font-size:var(--fs-subtitle);font-weight:800;margin-bottom:8px;color:var(--ink)}
+.lp-desc{font-size:var(--fs-desc);color:var(--muted);margin-bottom:18px;line-height:1.7}
+.lp-foot{text-align:center;margin-top:12px;font-size:var(--fs-desc);color:var(--muted)}
+.lp-link{color:var(--pink);font-weight:600;cursor:pointer;position:relative}
+.lp-link::after{content:'';position:absolute;left:-4px;right:-4px;top:-12px;bottom:-12px}
+
 
 /* 확대·축소 금지(인플루언서 화면 전용, 2026-09-29 사용자 지시) — 상하좌우 스크롤만 허용해 두 손가락·두 번 톡 확대를 막는다.
    ⚠️ base.css 는 관리자 빌드에도 실려 여기에 둔다(관리자는 모바일에서 핀치 확대가 필요하다) */
@@ -1281,24 +1300,24 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .ticket-card{background:#fff;border:1px solid var(--line);border-radius:16px;
   padding:20px 18px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .ticket-card.off{opacity:.6}
-.ticket-camp{font-size:13px;font-weight:700;color:var(--pink);margin-bottom:14px;line-height:1.4}
+.ticket-camp{font-size:var(--fs-desc);font-weight:700;color:var(--pink);margin-bottom:14px;line-height:1.4}
 .ticket-qr-wrap{display:flex;justify-content:center;align-items:center;min-height:200px;margin-bottom:10px}
 .ticket-qr-wrap canvas{border-radius:8px}
-.ticket-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
-.ticket-entered{margin-top:8px;font-size:12px;font-weight:700;color:var(--green)}
+.ticket-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.6;margin-top:6px}
+.ticket-entered{margin-top:8px;font-size:var(--fs-desc);font-weight:700;color:var(--green)}
 
 .ticket-rows{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;text-align:left}
-.ticket-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:13px}
-.ticket-row span{flex:0 0 84px;color:var(--muted);font-size:12px}
+.ticket-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:var(--fs-desc)}
+.ticket-row span{flex:0 0 84px;color:var(--muted);font-size:var(--fs-desc)}
 .ticket-row b{flex:1;color:var(--ink);font-weight:700;word-break:break-word}
 /* 예약번호는 손으로 불러 주는 값이라 크고 자간을 벌린다 */
-.ticket-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:.14em}
+.ticket-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-title);letter-spacing:.14em}
 
 .ticket-state{padding:22px 8px}
 .ticket-state .material-icons-round{font-size:44px;color:var(--muted)}
 .ticket-state-wait .material-icons-round{color:var(--pink)}
-.ticket-state-title{font-size:17px;font-weight:800;color:var(--ink);margin-top:8px}
-.ticket-state-hint{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+.ticket-state-title{font-size:var(--fs-subtitle);font-weight:800;color:var(--ink);margin-top:8px}
+.ticket-state-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.7;margin-top:8px}
 
 .ticket-switch{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none}
 .ticket-switch::-webkit-scrollbar{display:none}
@@ -1308,8 +1327,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 .ticket-cancel{margin-top:16px;min-height:48px}
 .ticket-cancel:disabled{opacity:.45;cursor:not-allowed}
-.ticket-msg{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted);line-height:1.7}
-.ticket-msg-err{color:var(--red);font-size:12px;line-height:1.7}
+.ticket-msg{padding:40px 20px;text-align:center;font-size:var(--fs-desc);color:var(--muted);line-height:1.7}
+.ticket-msg-err{color:var(--red);font-size:var(--fs-desc);line-height:1.7}
 
 /* 입장 확인 완료 — QR 자리에 뜬다(사용자 요청 2026-08-03) */
 .ticket-state-done{padding:20px 8px}
@@ -1409,6 +1428,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .wd-warn{background:var(--red-l);border:1px solid #FECACA;border-radius:var(--r8);padding:14px;font-size:var(--fs-body);line-height:1.7;color:var(--red-d)}
 .wd-actions{display:flex;gap:8px;margin:28px 0 40px}
 .wd-actions .btn{flex:1}
+/* 입장 티켓 머리의 뒤로 단추 — 조각 6(결함 2: 햄버거 화면과 같은 머리) */
+.ticket-back{width:var(--tap-min);height:var(--tap-min);margin:0 0 0 -10px;padding:0;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:50%;color:var(--ink);cursor:pointer}
+.ticket-back .material-icons-round{font-size:24px}
 
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1435,9 +1457,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .state-empty .state-title{font-size:var(--fs-subtitle);font-weight:600;color:var(--ink);margin-bottom:6px}
 .state-empty .state-sub{font-size:var(--fs-desc);line-height:1.5}
 .state-loading{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:var(--fs-desc)}
-.state-loading .state-spin{width:24px;height:24px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:stateSpin .8s linear infinite}
+.state-loading .state-spin,.auth-loading .state-spin{width:24px;height:24px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:stateSpin .8s linear infinite}
 @keyframes stateSpin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.state-loading .state-spin{animation-duration:2.4s}}
+@media (prefers-reduced-motion:reduce){.state-loading .state-spin,.auth-loading .state-spin{animation-duration:2.4s}}
 .state-error .state-icon{font-size:32px;color:var(--red);margin-bottom:8px}
 .state-error .state-text{font-size:var(--fs-body);line-height:1.6;color:var(--ink);margin-bottom:16px}
 .state-error .btn{min-height:var(--tap-min)}
@@ -1527,6 +1549,40 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #page-messages .msg-refresh-btn{width:var(--tap-min);height:var(--tap-min)}
 #page-messages .msg-withdraw-btn{position:relative}
 #page-messages .msg-withdraw-btn::after{content:'';position:absolute;inset:-10px -4px}
+/* 조각 6 — 로그인·가입·재설정·수신거부·입장 티켓·약관(화면·창)·정책 통지·로그인 안내·바닥글
+   footer·legal-*·policy-notice·login-prompt 는 공유 파일(components.css)이라 화면 아이디로 덮는다 */
+#page-login,#page-signup,#page-forgot,#page-reset-pw,#page-unsubscribe,#page-ticket,#page-legal,#legalModal,#policyNoticeModal,#loginPromptOverlay{font-size:var(--fs-body)}
+#page-login .btn,#page-signup .btn,#page-forgot .btn,#page-reset-pw .btn,#page-unsubscribe .btn,#page-ticket .btn,#loginPromptOverlay .btn{min-height:var(--tap-min)}
+#page-ticket .mypage-sub-title{font-size:var(--fs-subtitle)}
+#page-legal .legal-page-title{flex:1;margin:0;font-size:var(--fs-subtitle);font-weight:700}
+#page-legal .legal-back{width:var(--tap-min);height:var(--tap-min)}
+#page-legal .legal-lang-btn{position:relative}
+#page-legal .legal-lang-btn::after{content:'';position:absolute;inset:-4px 0}
+#legalModal .legal-title,#policyNoticeModal .legal-title{font-size:var(--fs-subtitle)}
+#legalModal .legal-body,#policyNoticeModal .legal-body{font-size:var(--fs-body)}
+#legalModal .legal-body h3{font-size:var(--fs-body)}
+#legalModal .legal-body dt{font-size:var(--fs-desc)}
+#legalModal .popup-close,#policyNoticeModal .popup-close{width:var(--tap-min);height:var(--tap-min);padding:0;font-size:inherit;line-height:normal}
+#legalModal .legal-sheet,#policyNoticeModal .legal-sheet{border-radius:var(--r-popup) var(--r-popup) 0 0}
+#policyNoticeModal .policy-notice-actions button{min-height:var(--tap-min)}
+@media(min-width:600px){
+  #legalModal .legal-sheet,#policyNoticeModal .legal-sheet{border-radius:var(--r-popup)}
+}
+#page-home .footer-brand{font-size:var(--fs-body)}
+#page-home .footer-info{font-size:var(--fs-caption)}
+#page-home .footer-links a{font-size:var(--fs-caption)}
+#page-home .footer-copy{font-size:var(--fs-caption)}
+#policyNoticeModal .policy-notice-actions button{font-size:var(--fs-body)}
+#page-legal .legal-lang-btn,#legalModal .legal-lang-btn,#policyNoticeModal .legal-lang-btn{font-size:var(--fs-caption)}
+#page-legal .legal-page-body,#legalModal .legal-page-body,#policyNoticeModal .legal-page-body{font-size:var(--fs-desc)}
+#page-legal .legal-page-body h1,#legalModal .legal-page-body h1,#policyNoticeModal .legal-page-body h1{font-size:var(--fs-subtitle)}
+#page-legal .legal-page-body h2,#legalModal .legal-page-body h2,#policyNoticeModal .legal-page-body h2{font-size:var(--fs-body)}
+#page-legal .legal-page-body h3,#legalModal .legal-page-body h3,#policyNoticeModal .legal-page-body h3{font-size:var(--fs-body)}
+#page-legal .legal-page-body h4,#legalModal .legal-page-body h4,#policyNoticeModal .legal-page-body h4{font-size:var(--fs-desc)}
+#page-legal .legal-page-body blockquote,#legalModal .legal-page-body blockquote,#policyNoticeModal .legal-page-body blockquote{font-size:var(--fs-desc)}
+#page-legal .legal-page-body code,#legalModal .legal-page-body code,#policyNoticeModal .legal-page-body code{font-size:var(--fs-desc)}
+#page-legal .legal-table,#legalModal .legal-table,#policyNoticeModal .legal-table{font-size:var(--fs-caption)}
+#page-legal .legal-table th,#legalModal .legal-table th,#policyNoticeModal .legal-table th{font-size:var(--fs-caption)}
 
 </style>
 </head>
@@ -1615,7 +1671,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div class="legal-sheet">
     <div class="legal-head">
       <div class="legal-title" id="legalTitle"></div>
-      <button class="legal-close" onclick="closeLegalModal()" aria-label="閉じる">×</button>
+      <button type="button" class="popup-close legal-close" onclick="closeLegalModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
     <div class="legal-body" id="legalBody"></div>
   </div>
@@ -1626,7 +1682,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div class="legal-sheet">
     <div class="legal-head">
       <div class="legal-title" id="policyNoticeTitle"></div>
-      <button class="legal-close" onclick="closePolicyNotice()" aria-label="閉じる">×</button>
+      <button type="button" class="popup-close legal-close" onclick="closePolicyNotice()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
     <div class="legal-body" id="policyNoticeBody"></div>
     <div class="policy-notice-actions">
@@ -1714,14 +1770,14 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" class="login-prompt-overlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;justify-content:center">
-  <div class="login-prompt-sheet" style="background:#fff;width:100%;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
+  <div class="login-prompt-sheet lp-sheet" role="dialog" aria-modal="true" aria-labelledby="loginPromptTitle">
+    <div class="lp-title" id="loginPromptTitle" data-i18n="loginPrompt.title">ログインが必要です</div>
+    <div class="lp-desc" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()" data-i18n="common.cancel">キャンセル</button>
       <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">ログイン</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
+    <div class="lp-foot"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" class="lp-link" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
   </div>
 </div>
 
@@ -2035,7 +2091,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div class="legal-page-head">
     <div class="container" style="display:flex;align-items:center;gap:8px;padding:14px 16px">
       <button class="legal-back" onclick="navigate('home')" aria-label="戻る"><span class="material-icons-round notranslate" translate="no">arrow_back</span></button>
-      <div id="legalPageTitle" style="font-size:15px;font-weight:700;flex:1"></div>
+      <h1 id="legalPageTitle" class="legal-page-title"></h1>
       <div class="legal-lang-tabs">
         <button class="legal-lang-btn on" data-lang="ko" onclick="setLegalLang('ko')">한국어</button>
         <button class="legal-lang-btn" data-lang="ja" onclick="setLegalLang('ja')">日本語</button>
@@ -2101,11 +2157,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <!-- 入場チケット — 오프라인 행사 예약(사양서 2026-07-30 §4-3).
      진입 2곳: 응모 이력 카드의 「入場チケット」 버튼 · 햄버거 메뉴. 해시는 #ticket-{티켓id} -->
 <div id="page-ticket" class="page">
+  <!-- 머리는 햄버거 화면들과 같은 mypage-sub-header(결함 2). 뒤로 단추는 남긴다 — backFromTicket 이 들어온 길(상세/응모이력)로 돌려보낸다.
+       ⚠️ .detail-back 클래스는 iOS 앱 덮어쓰기가 숨기려고 찾는다 — 지우지 말 것 -->
+  <div class="mypage-sub-header">
+    <button type="button" class="ticket-back detail-back" onclick="backFromTicket()" data-i18n-attr="aria-label:common.back" aria-label="戻る"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span></button>
+    <span class="mypage-sub-title" data-i18n="event.ticketTitle">入場チケット</span>
+  </div>
   <div class="container" style="padding-top:16px;padding-bottom:40px">
-    <div class="detail-back" onclick="backFromTicket()" style="font-size:13px;margin-bottom:12px">
-      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span>
-      <span data-i18n="event.ticketTitle">入場チケット</span>
-    </div>
     <div id="ticketBody"></div>
   </div>
 </div>
@@ -2306,9 +2364,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div class="auth-wrap">
     <div class="auth-card fade-up">
       <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
-      <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
-        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
+      <div id="resetPwVerifying" class="auth-loading" style="display:none">
+        <span class="state-spin" aria-hidden="true"></span>
+        <div class="auth-hint" style="margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
       </div>
       <!-- 만료·무효 링크 안내 -->
       <div id="resetPwExpired" style="display:none">
@@ -2316,7 +2374,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
           <div class="auth-logo-mark">R</div>
           <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
         </div>
-        <ol style="font-size:14px;line-height:1.9;color:var(--ink);padding-left:20px;margin:0 0 20px">
+        <ol class="auth-steps">
           <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
           <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
           <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
@@ -2338,7 +2396,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
             <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
           <div id="resetPwCommonWarn" class="pw-common-warn" role="status" style="display:none" data-i18n="auth.pwCommonWarn">このパスワードは多くの人に使われていて、推測されやすいパスワードです。別のパスワードをおすすめします。</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+          <div class="pw-policy auth-hint" style="margin-top:4px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
@@ -2362,23 +2420,23 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div class="auth-wrap">
     <div class="auth-card fade-up">
       <!-- 처리 중 -->
-      <div id="unsubLoading" style="text-align:center;padding:32px 0">
-        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
+      <div id="unsubLoading" class="auth-loading">
+        <span class="state-spin" aria-hidden="true"></span>
+        <div class="auth-hint" style="margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
       </div>
       <!-- 성공 -->
-      <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">unsubscribe</span>
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
-        <div id="unsubName" style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px"></div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
+      <div id="unsubSuccess" class="auth-state" style="display:none">
+        <span class="material-icons-round notranslate auth-state-icon ok" translate="no" aria-hidden="true">unsubscribe</span>
+        <div class="auth-state-title" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
+        <div id="unsubName" class="auth-state-name"></div>
+        <div class="auth-state-desc" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('mypage')" data-i18n="unsubscribe.backToMypage">マイページへ</button>
       </div>
       <!-- 무효 토큰 -->
-      <div id="unsubInvalid" style="display:none;text-align:center;padding:8px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--on-surface-variant);margin-bottom:12px">link_off</span>
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
+      <div id="unsubInvalid" class="auth-state" style="display:none">
+        <span class="material-icons-round notranslate auth-state-icon" translate="no" aria-hidden="true">link_off</span>
+        <div class="auth-state-title" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
+        <div class="auth-state-desc" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('home')" data-i18n="unsubscribe.toTop">トップへ</button>
       </div>
     </div>
@@ -2391,16 +2449,16 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <div id="page-signup" class="page">
   <div class="auth-wrap" style="align-items:flex-start;padding-top:32px">
     <div class="auth-card fade-up" style="max-width:560px">
-      <div class="auth-logo" style="margin-bottom:16px">
-        <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">新規登録</div>
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title" data-i18n="auth.signup.title">新規登録</div>
         <div class="auth-sub" data-i18n="auth.signup.sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
-      <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
-        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
+      <div id="signupConfirmMsg" class="auth-state" style="display:none;padding:24px 0">
+        <span class="material-icons-round notranslate auth-state-icon ok" translate="no" aria-hidden="true">mark_email_read</span>
+        <div class="auth-state-title" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
+        <div class="auth-state-desc" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
@@ -2413,7 +2471,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
           <div class="form-group">
             <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（フリガナ）</span> <span class="req-mark">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="ヤマダ ハナコ" required>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
+            <div class="auth-hint" style="margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
           </div>
         </div>
         <div class="form-row">
@@ -2424,7 +2482,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
               <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
               <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
             </div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+            <div class="auth-hint" style="margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
           </div>
           <div class="form-group">
             <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span class="req-mark">*</span></label>
@@ -2467,7 +2525,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span class="req-mark">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span class="req-mark">*</span> <span class="auth-hint" style="font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" data-i18n-attr="placeholder:auth.signup.pwPlaceholder" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -2482,7 +2540,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div class="pw-policy auth-hint" style="margin-top:-8px;margin-bottom:10px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">
@@ -2507,7 +2565,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         </div>
         <div id="signupNeedVerify" class="signup-need-verify" data-i18n="auth.signup.code.needVerify">メールアドレスの「認証する」を押して、とどいた数字を入力してください</div>
         <button type="submit" class="btn btn-primary btn-block" id="signupBtn" disabled data-i18n="auth.signup.btn">登録する</button>
-        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6" data-i18n="auth.signup.afterNote">SNS情報や配送先はマイページから後で追加できます</div>
+        <div class="auth-hint" style="text-align:center;margin-top:12px" data-i18n="auth.signup.afterNote">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
       <div class="auth-switch"><span data-i18n="auth.signup.switchText">すでにアカウントをお持ちですか？</span> <a onclick="navigate('login')" data-i18n="auth.signup.switchLink">ログイン</a></div>
       </div><!-- /signupFormArea -->
@@ -14757,7 +14815,7 @@ async function renderLegalPage() {
   // 본문
   const body = document.getElementById('legalPageBody');
   if (!body) return;
-  body.innerHTML = '<div style="text-align:center;padding:40px 0"><span class="spinner"></span></div>';
+  body.innerHTML = (typeof stateLoadingHtml === 'function') ? stateLoadingHtml() : '<div class="state-loading"><span class="state-spin"></span></div>';
 
   try {
     const url = def[lang];
@@ -14769,14 +14827,12 @@ async function renderLegalPage() {
   } catch(e) {
     if (lang === 'ja') {
       body.innerHTML = `
-        <div style="padding:40px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">
-          <div style="font-size:32px;margin-bottom:12px"><span class="material-icons-round notranslate" translate="no">cloud_off</span></div>
-          <div style="font-weight:700;color:var(--ink);margin-bottom:6px">読み込みに失敗しました</div>
-          <div>通信状況をご確認のうえ、もう一度お試しください。</div>
-          <div style="margin-top:12px">問題が続く場合は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
+        <div class="state-error" role="alert">
+          <span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">cloud_off</span>
+          <div class="state-text"><b>読み込みに失敗しました</b><br>通信状況をご確認のうえ、もう一度お試しください。<br>問題が続く場合は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
         </div>`;
     } else {
-      body.innerHTML = `<div style="padding:40px 16px;text-align:center;color:var(--muted)">문서를 불러올 수 없습니다. 네트워크 상태를 확인 후 다시 시도해 주세요.</div>`;
+      body.innerHTML = `<div class="state-error" role="alert"><span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">cloud_off</span><div class="state-text">문서를 불러올 수 없습니다. 네트워크 상태를 확인 후 다시 시도해 주세요.</div></div>`;
     }
   }
 }
