@@ -491,6 +491,15 @@ function mypageLeaveGuard(page, pushHistory) {
   openMypageLeaveDialog({ view: dirtyView, page, push: pushHistory });
   return false;
 }
+// 페이지를 통째로 다시 불러오는 이동(상단 로고·당겨서 새로고침) — navigate 를 안 거쳐 따로 부른다.
+//   href 가 null 이면 새로고침. false 면 그 이동을 멈춘다(고른 뒤 resolveMypageLeave 가 실행)
+function mypageLeaveGuardHref(href) {
+  if (_mypageLeavePending) return false;
+  const dirtyView = mypageDirtyView();
+  if (!dirtyView) return true;
+  openMypageLeaveDialog({ view: dirtyView, href: href === null ? location.href : href, reload: href === null });
+  return false;
+}
 // 막은 뒤 주소를 지금 보이는 폼으로 되돌린다(뒤로가기는 주소가 이미 옮겨져 있다)
 function restoreMypageHash() {
   const active = document.querySelector('#page-mypage .mypage-view.active');
@@ -513,6 +522,9 @@ async function resolveMypageLeave(choice) {
   }
   if (ov) ov.style.display = 'none';
   _mypageLeavePending = null;
+  // 페이지를 통째로 다시 불러오는 이동이면 그대로 실행(저장 안 함을 골랐으면 고친 내용은 버려진다)
+  if (p.reload) { window.location.reload(); return; }
+  if (p.href) { window.location.href = p.href; return; }
   _mypageLeaveBypass = true;
   try {
     if (p.page) {
